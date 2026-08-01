@@ -33,13 +33,9 @@ from ..points import plane_fit
 from ..typed import (
     ArrayLike,
     Iterable,
-    List,
     Mapping,
     NDArray,
-    Optional,
     Self,
-    Tuple,
-    Union,
     float64,
 )
 from ..visual import to_rgba
@@ -93,12 +89,12 @@ class Path(parent.Geometry):
 
     def __init__(
         self,
-        entities: Union[ArrayLike, Iterable[Entity], None] = None,
-        vertices: Optional[ArrayLike] = None,
-        metadata: Optional[Mapping] = None,
+        entities: ArrayLike | Iterable[Entity] | None = None,
+        vertices: ArrayLike | None = None,
+        metadata: Mapping | None = None,
         process: bool = True,
-        colors: Optional[ArrayLike] = None,
-        vertex_attributes: Optional[Mapping] = None,
+        colors: ArrayLike | None = None,
+        vertex_attributes: Mapping | None = None,
         **kwargs,
     ):
         """
@@ -159,7 +155,7 @@ class Path(parent.Geometry):
         return self
 
     @property
-    def colors(self) -> Optional[NDArray]:
+    def colors(self) -> NDArray | None:
         """
         Colors are stored per-entity.
 
@@ -179,7 +175,7 @@ class Path(parent.Geometry):
         return colors
 
     @colors.setter
-    def colors(self, values: Optional[ArrayLike]):
+    def colors(self, values: ArrayLike | None):
         """
         Set the color for every entity in the Path.
 
@@ -204,7 +200,7 @@ class Path(parent.Geometry):
         return self._vertices
 
     @vertices.setter
-    def vertices(self, values: Optional[ArrayLike]):
+    def vertices(self, values: ArrayLike | None):
         if values is None:
             self._vertices = caching.tracked_array([], dtype=np.float64)
         else:
@@ -691,7 +687,7 @@ class Path(parent.Geometry):
         self.vertices = self.vertices[unique]
 
     @cache_decorator
-    def discrete(self) -> List[NDArray[float64]]:
+    def discrete(self) -> list[NDArray[float64]]:
         """
         A sequence of connected vertices in space, corresponding to
         self.paths.
@@ -735,7 +731,7 @@ class Path(parent.Geometry):
     def to_dict(self) -> dict:
         return self.export(file_type="dict")
 
-    def copy(self, layers: Union[str, None, Iterable[Union[str, None]]] = None):
+    def copy(self, layers: str | Iterable[str | None] | None = None):
         """
         Get a copy of the current mesh
 
@@ -853,10 +849,10 @@ class Path3D(Path):
 
     def to_2D(
         self,
-        to_2D: Optional[ArrayLike] = None,
-        normal: Optional[ArrayLike] = None,
+        to_2D: ArrayLike | None = None,
+        normal: ArrayLike | None = None,
         check: bool = True,
-    ) -> Tuple["Path2D", NDArray[float64]]:
+    ) -> tuple["Path2D", NDArray[float64]]:
         """
         Check to see if current vectors are all coplanar.
 
@@ -1224,7 +1220,7 @@ class Path2D(Path):
         return polygons.paths_to_polygons(self.discrete)
 
     @cache_decorator
-    def polygons_full(self) -> List:
+    def polygons_full(self) -> list:
         """
         A list of shapely.geometry.Polygon objects with interiors created
         by checking which closed polygons enclose which other polygons.
@@ -1232,7 +1228,10 @@ class Path2D(Path):
         Returns
         ---------
         full : (len(self.root),) shapely.geometry.Polygon
-            Polygons containing interiors
+            Polygons containing interiors. An entry is `None` when the
+            root curve's geometry could not be recovered (i.e. `None`
+            in `polygons_closed`), preserving correspondence with
+            `self.root`.
         """
         # pre- allocate the list to avoid indexing problems
         full = [None] * len(self.root)
@@ -1243,11 +1242,16 @@ class Path2D(Path):
 
         # loop through root curves
         for i, root in enumerate(self.root):
+            # `polygons_closed` may contain `None` for degenerate
+            # geometry it could not recover: leave the entry as `None`
+            # rather than raising an AttributeError on `None.exterior`
+            if closed[root] is None:
+                continue
             # a list of multiple Polygon objects that
             # are fully contained by the root curve
             children = [closed[child] for child in enclosure[root].keys()]
             # all polygons_closed are CCW, so for interiors reverse them
-            holes = [np.array(p.exterior.coords)[::-1] for p in children]
+            holes = [np.array(p.exterior.coords)[::-1] for p in children if p is not None]
             # a single Polygon object
             shell = closed[root].exterior
             # create a polygon with interiors

@@ -18,6 +18,7 @@ class HTTPClient:
         base_url: str,
         base_headers: Optional[Dict[str, str]] = None,
         base_headers_resolver: Optional[Callable[[], Dict[str, str]]] = None,
+        on_unauthorized: Optional[Callable[[Optional[str]], bool]] = None,
     ) -> None:
         if base_headers and base_headers_resolver:
             raise ValueError(
@@ -27,6 +28,7 @@ class HTTPClient:
         self.base_url = base_url
         self._base_headers = base_headers
         self._base_headers_resolver = base_headers_resolver
+        self._on_unauthorized = on_unauthorized
         self.retry_strategy = urllib3.Retry(
             total=5,
             backoff_factor=2,
@@ -80,7 +82,36 @@ class HTTPClient:
 
         url = f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
 
-        return self.session.request(method, url, **kwargs)
+        # What this request actually authenticated with. The hook needs it to tell
+        # a credential that is still current from one that was already replaced
+        # while this request was in flight — in the second case there is nothing
+        # to repair and the request just has to be replayed.
+        sent_credential = kwargs["headers"].get("Api-Authorization")
+
+        response = self.session.request(method, url, **kwargs)
+
+        # Every caller of this client authenticates with the same credentials, so
+        # a 401 anywhere is a signal about them and not about the endpoint. The
+        # hook decides whether they are actually dead and, when it can, replaces
+        # them; it returns whether that happened, and only then is the request
+        # worth repeating. A 401 means cloud-api rejected the caller before doing
+        # any work, so replaying is safe for any method.
+        if response.status_code == 401 and self._on_unauthorized is not None:
+            try:
+                recovered = self._on_unauthorized(sent_credential)
+            except Exception as e:
+                AbstraLogger.capture_exception(e)
+                recovered = False
+
+            if recovered:
+                # Callers that resolved the credential themselves passed the dead
+                # one in their own headers, and those win the merge above — so the
+                # retry has to overwrite it rather than just re-merge, or it would
+                # present the same rejected token again.
+                kwargs["headers"] = {**kwargs["headers"], **self.base_headers}
+                response = self.session.request(method, url, **kwargs)
+
+        return response
 
     def async_post(self, endpoint: str, **kwargs) -> None:
         """

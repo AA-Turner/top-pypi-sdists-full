@@ -9,6 +9,8 @@
 # isort: skip_file
 from .....schema_classes import AccessClass
 from .....schema_classes import AccessLevelClass
+from .....schema_classes import AiContextClass
+from .....schema_classes import AliasesClass
 from .....schema_classes import AuditStampClass
 from .....schema_classes import BrowsePathEntryClass
 from .....schema_classes import BrowsePathsClass
@@ -66,6 +68,7 @@ from .....schema_classes import OwnershipSourceTypeClass
 from .....schema_classes import OwnershipTypeClass
 from .....schema_classes import RoleAssociationClass
 from .....schema_classes import SemanticContentClass
+from .....schema_classes import SemanticTextClass
 from .....schema_classes import SerializedValueClass
 from .....schema_classes import SerializedValueContentTypeClass
 from .....schema_classes import SerializedValueSchemaTypeClass
@@ -81,6 +84,8 @@ from .....schema_classes import WindowDurationClass
 
 Access = AccessClass
 AccessLevel = AccessLevelClass
+AiContext = AiContextClass
+Aliases = AliasesClass
 AuditStamp = AuditStampClass
 BrowsePathEntry = BrowsePathEntryClass
 BrowsePaths = BrowsePathsClass
@@ -138,6 +143,7 @@ OwnershipSourceType = OwnershipSourceTypeClass
 OwnershipType = OwnershipTypeClass
 RoleAssociation = RoleAssociationClass
 SemanticContent = SemanticContentClass
+SemanticText = SemanticTextClass
 SerializedValue = SerializedValueClass
 SerializedValueContentType = SerializedValueContentTypeClass
 SerializedValueSchemaType = SerializedValueSchemaTypeClass

@@ -1,12 +1,35 @@
 import io
+import unittest
 
 from abstra_internals.interface.sdk.forms.deprecated.widgets.file_utils import (
     upload_widget_file,
 )
 from abstra_internals.server.apps import get_local_app
-from abstra_internals.server.utils import send_from_dist
+from abstra_internals.server.utils import _immutable_cache_control, send_from_dist
 from abstra_internals.utils.file import make_random_tmp_path
 from tests.fixtures import BaseTest, clear_dir
+
+
+class TestAssetCaching(unittest.TestCase):
+    def test_hashed_bundle_asset_is_immutable(self):
+        self.assertEqual(
+            _immutable_cache_control(
+                from_bundle=True, filename="assets/editor.main-DfIhb9tT.js"
+            ),
+            "public, max-age=31536000, immutable",
+        )
+
+    def test_html_shell_keeps_default(self):
+        # The SPA entry shell must revalidate so it points at the current hashes.
+        self.assertIsNone(
+            _immutable_cache_control(from_bundle=True, filename="editor.html")
+        )
+
+    def test_project_files_are_never_immutable(self):
+        # Served from a caller-supplied dist_folder (e.g. project root) => mutable.
+        self.assertIsNone(
+            _immutable_cache_control(from_bundle=False, filename="assets/foo.js")
+        )
 
 
 class TestFileSending(BaseTest):
@@ -45,6 +68,33 @@ class TestFileSending(BaseTest):
             self.assertEqual(
                 css_response.headers["Content-Type"], "text/css; charset=utf-8"
             )
+
+    def test_cache_control_wiring(self):
+        # Exercises the real response headers, not just the pure helper: the
+        # `from_bundle = dist_folder == _DIST_FOLDER` computation and the
+        # fallback-path early return (which must NOT get the immutable header).
+        from abstra_internals.server import utils
+
+        self.root.joinpath("assets").mkdir(exist_ok=True)
+        self.root.joinpath("assets", "x-hash.js").write_text("console.log(1)")
+        self.root.joinpath("editor.html").write_text("<h1>shell</h1>")
+
+        # Treat the temp dir as the built bundle so the hashed asset qualifies.
+        original = utils._DIST_FOLDER
+        utils._DIST_FOLDER = self.root
+        try:
+            with self.app.test_request_context("/assets/x-hash.js"):
+                hashed = send_from_dist("assets/x-hash.js", dist_folder=self.root)
+                self.assertIn("immutable", hashed.headers.get("Cache-Control", ""))
+
+            # Missing file -> fallback to the HTML shell, which must stay revalidating.
+            with self.app.test_request_context("/missing.js"):
+                shell = send_from_dist(
+                    "missing.js", "editor.html", dist_folder=self.root
+                )
+                self.assertNotIn("immutable", shell.headers.get("Cache-Control", ""))
+        finally:
+            utils._DIST_FOLDER = original
 
 
 class TestFileUtils(BaseTest):

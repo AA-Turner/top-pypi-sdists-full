@@ -35,6 +35,47 @@ logger = logging.getLogger("skchat.dataplane_auth")
 ENV_FLAG = "SKCHAT_DATAPLANE_AUTH"
 _TRUTHY = {"1", "true", "yes", "on"}
 
+#: Opt-in flag for the third credential path: accepting a capauth audience-scoped
+#: token minted for the skchat audience. Default OFF so the plane behaves exactly
+#: as before (byte-identical) unless an operator explicitly enables it.
+ACCEPT_AUDIENCE_ENV_FLAG = "SKCHAT_ACCEPT_AUDIENCE_TOKENS"
+
+#: The capauth audience this dataplane accepts audience-scoped tokens for. A token
+#: scoped to any other audience (or an unscoped legacy token) is never accepted
+#: via the audience path.
+SKCHAT_AUDIENCE = "skchat"
+
+#: Opt-in flag for the backend audience-token MINT endpoint (POST
+#: /api/v1/audience-token). Default OFF so the route is inert (404) and the app
+#: is byte-identical to before this endpoint existed. When on, an AUTHENTICATED
+#: caller can obtain a fresh audience-scoped token minted for THIS daemon's own
+#: resolved identity (never a subject taken from request input).
+AUDIENCE_MINT_ENV_FLAG = "SKCHAT_AUDIENCE_MINT"
+
+#: The authz PDP staging flag (spec 3.5). off = authentication only, exactly as
+#: today. shadow = also compute capauth.authz.decide(), log any divergence from
+#: the legacy outcome, but RETURN THE LEGACY OUTCOME (no behavior change). enforce
+#: = the PDP decision governs (authentication must still pass first). The flip to
+#: enforce is Chef-gated on zero divergence over a 7-day window plus fixture replay.
+AUTHZ_PDP_FLAG = "SKCHAT_AUTHZ_PDP"
+
+#: Which capauth capability each protected data-plane endpoint maps to.
+_CAP_BY_PATH = {
+    "/api/send": "skchat.send",
+    "/api/v1/prekey": "skchat.prekey",
+    "/api/v1/inbox": "skchat.inbox",
+}
+
+
+def authz_pdp_mode() -> str:
+    """Return the authz PDP mode: 'off' (default), 'shadow', or 'enforce'.
+
+    Read at call time so an operator can stage the rollout without a reimport.
+    Anything unrecognized reads as 'off'.
+    """
+    mode = os.getenv(AUTHZ_PDP_FLAG, "").strip().lower()
+    return mode if mode in ("shadow", "enforce") else "off"
+
 
 def dataplane_auth_enabled() -> bool:
     """Return True iff the fail-closed data-plane CapAuth gate is switched on.
@@ -47,6 +88,27 @@ def dataplane_auth_enabled() -> bool:
     return os.getenv(ENV_FLAG, "").strip().lower() in _TRUTHY
 
 
+def accept_audience_tokens() -> bool:
+    """Return True iff the audience-scoped-token credential path is switched on.
+
+    Reads ``SKCHAT_ACCEPT_AUDIENCE_TOKENS`` at call time (like
+    :func:`dataplane_auth_enabled`), default OFF. When off, the third credential
+    path is never consulted and the validator behaves byte-identically to before
+    this path existed.
+    """
+    return os.getenv(ACCEPT_AUDIENCE_ENV_FLAG, "").strip().lower() in _TRUTHY
+
+
+def audience_mint_enabled() -> bool:
+    """Return True iff the backend audience-token mint endpoint is switched on.
+
+    Reads ``SKCHAT_AUDIENCE_MINT`` at call time (like :func:`dataplane_auth_enabled`),
+    default OFF. When off, ``POST /api/v1/audience-token`` is inert (404) and never
+    mints, so the app is byte-identical to before this endpoint existed.
+    """
+    return os.getenv(AUDIENCE_MINT_ENV_FLAG, "").strip().lower() in _TRUTHY
+
+
 class CapAuthValidator:
     """Verify a capauth credential presented on a data-plane request.
 
@@ -56,9 +118,11 @@ class CapAuthValidator:
     credential capauth affirms; it **fails closed** (returns False) on a missing
     credential, a verification failure, or any error resolving the backend.
 
-    Accepts an operator-session JWT (Bearer) or base64url-encoded {"claim", "sig"}
-    OpenPGP FQID assertion, tried in that order. The OpenPGP form is verified
-    through :func:`assertion.verify_signed`.
+    Accepts an operator-session JWT (Bearer), a base64url-encoded {"claim", "sig"}
+    OpenPGP FQID assertion, or (only when ``SKCHAT_ACCEPT_AUDIENCE_TOKENS`` is on) a
+    capauth audience-scoped token minted for the ``skchat`` audience, tried in that
+    order. The OpenPGP form is verified through :func:`assertion.verify_signed`; the
+    audience token through :func:`capauth.verify_audience_token`.
     """
 
     def validate(self, token: str) -> bool:
@@ -98,10 +162,39 @@ def _verify_capauth_credential(token: str) -> bool:
 
     padded = token + "=" * (-len(token) % 4)
     signed = json.loads(base64.urlsafe_b64decode(padded.encode("ascii")))
-    if not isinstance(signed, dict) or "claim" not in signed or "sig" not in signed:
-        return False
-    verify_signed(signed)  # raises on bad signature / stale / unknown key
-    return True
+    if isinstance(signed, dict) and "claim" in signed and "sig" in signed:
+        verify_signed(signed)  # raises on bad signature / stale / unknown key
+        return True
+
+    # Third credential path (flag-gated, default OFF): a capauth audience-scoped
+    # token minted for the skchat audience. Inert unless SKCHAT_ACCEPT_AUDIENCE_TOKENS
+    # is on, so when off this is byte-identical to the prior `return False`.
+    if accept_audience_tokens() and _verify_skchat_audience_token(token):
+        return True
+
+    return False
+
+
+def _verify_skchat_audience_token(token: str) -> bool:
+    """Verify a capauth audience-scoped token for the ``skchat`` audience.
+
+    Wire form: the base64url of ``capauth.export_token(token)`` JSON (whitespace-
+    free so it rides in an ``Authorization`` / ``X-CapAuth-Token`` header). We
+    reconstruct the ``SignedToken`` via :func:`capauth.import_token` and accept it
+    ONLY when :func:`capauth.verify_audience_token` affirms it for the ``skchat``
+    audience: a valid signature, a live (unexpired) token, AND ``audience ==
+    "skchat"``. An unscoped (``audience=None``) or wrong-audience token is never
+    accepted here. Fails closed on any parse/verify error (returns False; the
+    caller's try/except also backstops).
+    """
+    import base64
+
+    from capauth import import_token, verify_audience_token
+
+    padded = token + "=" * (-len(token) % 4)
+    token_json = base64.urlsafe_b64decode(padded.encode("ascii")).decode("utf-8")
+    signed = import_token(token_json)  # raises ValueError if not a capauth token
+    return bool(verify_audience_token(signed, SKCHAT_AUDIENCE))
 
 
 # --------------------------------------------------------------------------- #
@@ -140,18 +233,127 @@ def _extract_credential(request: Request) -> Optional[str]:
     return (request.headers.get("x-capauth-token") or "").strip() or None
 
 
+def _capability_for_path(path: str) -> Optional[str]:
+    """Map a request path to the capauth capability it exercises, or None."""
+    for suffix, cap in _CAP_BY_PATH.items():
+        if path.endswith(suffix):
+            return cap
+    return None
+
+
+def _extract_subject(token: str) -> Optional[str]:
+    """Best-effort authenticated subject for the PDP call.
+
+    The FQID assertion carries the subject in its ``claim.fqid``; an operator
+    session carries a ``device_fp``. Returns None when neither can be read. Never
+    raises (a missing subject just means the PDP denies, which shadow only logs).
+    """
+    try:
+        from .operator_auth import verify_operator_session
+
+        session = verify_operator_session(token)
+        return f"operator:{session.device_fp}"
+    except Exception:
+        pass
+    try:
+        import base64
+        import json
+
+        padded = token + "=" * (-len(token) % 4)
+        signed = json.loads(base64.urlsafe_b64decode(padded.encode("ascii")))
+        claim = signed.get("claim") if isinstance(signed, dict) else None
+        if isinstance(claim, dict):
+            return claim.get("fqid")
+    except Exception:
+        pass
+    return None
+
+
+def _pdp_allows(subject: Optional[str], capability: str, request: Request) -> Optional[bool]:
+    """Run capauth.authz.decide for this request. None on any error (fail-safe).
+
+    Deliberately does no authentication (that already happened): it decides from
+    the stored enrollment/token facts about the already-authenticated subject.
+    """
+    if not subject:
+        return False
+    try:
+        from capauth.authz import decide
+
+        decision = decide(subject, capability, resource={"path": request.url.path})
+        return bool(decision.allow)
+    except Exception:
+        logger.debug("authz PDP decide errored", exc_info=True)
+        return None
+
+
+def _redact(subject: Optional[str]) -> str:
+    if not subject:
+        return "?"
+    return subject if len(subject) <= 8 else subject[:6] + "..."
+
+
+def request_is_authenticated(request: Request) -> bool:
+    """Return True iff the request carries a capauth credential the validator affirms.
+
+    Unlike :func:`enforce_dataplane_auth` (a no-op when ``SKCHAT_DATAPLANE_AUTH`` is
+    off), this ALWAYS consults the validator: it is for routes that must require
+    authentication on their own terms regardless of the plane-wide gate flag (e.g.
+    the audience-token mint endpoint, which must never mint for an anonymous caller
+    even when the dataplane gate is off). Reuses :func:`_extract_credential` and the
+    injectable :func:`get_validator`, so it fails closed on a missing/invalid
+    credential and tests can stub the validator.
+    """
+    token = _extract_credential(request)
+    return bool(token) and get_validator().validate(token)
+
+
 def enforce_dataplane_auth(request: Request) -> None:
     """Fail-closed CapAuth gate for a single data-plane request.
 
-    No-op when the flag is off. When on, a missing **or** invalid capauth
-    credential raises ``HTTPException(401)``; a valid one returns (the request
-    proceeds unchanged).
+    No-op when the gate flag is off. When on, authentication runs exactly as
+    before (a missing or invalid credential raises 401). The authz PDP then layers
+    on per ``SKCHAT_AUTHZ_PDP``: 'off' authenticates only; 'shadow' also computes
+    the PDP decision, logs any divergence from the legacy allow, and returns the
+    legacy outcome (no behavior change); 'enforce' additionally requires the PDP
+    to allow (403 on deny).
     """
     if not dataplane_auth_enabled():
         return
     token = _extract_credential(request)
-    if not token or not get_validator().validate(token):
+    legacy_ok = bool(token) and get_validator().validate(token)
+    mode = authz_pdp_mode()
+
+    if mode == "off":
+        if not legacy_ok:
+            raise HTTPException(status_code=401, detail="capauth authentication required")
+        return
+
+    # Shadow / enforce: authentication must still pass first.
+    if not legacy_ok:
         raise HTTPException(status_code=401, detail="capauth authentication required")
+
+    capability = _capability_for_path(request.url.path)
+    pdp_allow: Optional[bool] = None
+    if capability is not None:
+        pdp_allow = _pdp_allows(_extract_subject(token), capability, request)
+
+    if mode == "shadow":
+        # Measure only: log divergence, return the legacy outcome unchanged.
+        if capability is not None and pdp_allow is not None and pdp_allow != legacy_ok:
+            logger.warning(
+                "authz PDP divergence path=%s cap=%s subject=%s legacy=%s pdp=%s",
+                request.url.path,
+                capability,
+                _redact(_extract_subject(token)),
+                legacy_ok,
+                pdp_allow,
+            )
+        return
+
+    # enforce: the PDP governs. Unknown capability or a decide() error fails closed.
+    if capability is None or not pdp_allow:
+        raise HTTPException(status_code=403, detail="capauth authorization denied")
 
 
 async def require_dataplane_auth(request: Request) -> None:

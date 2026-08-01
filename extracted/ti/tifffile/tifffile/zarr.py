@@ -87,6 +87,7 @@ from .tifffile import (
     enumarg,
     imread,
     jpeg_decode_colorspace,
+    logger,
     product,
 )
 
@@ -1545,9 +1546,18 @@ class ZarrFileSequenceStore(ZarrStore):
 
         zattrs = {} if zattrs is None else dict(zattrs)
 
-        bytes_codec: dict[str, Any] = {'name': 'bytes'}
         if self._dtype.itemsize == 1:
-            bytes_codec['configuration'] = {'endian': sys.byteorder}
+            bytes_codec: dict[str, Any] = {'name': 'bytes'}
+        elif self._dtype.str[0] == '>':
+            bytes_codec = {
+                'name': 'bytes',
+                'configuration': {'endian': 'big'},
+            }
+        else:
+            bytes_codec = {
+                'name': 'bytes',
+                'configuration': {'endian': 'little'},
+            }
 
         self._store['zarr.json'] = _json_dumps(
             {
@@ -2040,6 +2050,17 @@ def _write_fsspec_v3_metadata(
                     filter_id = 'imagecodecs_delta'
                 else:
                     filter_id = 'imagecodecs_floatpred'
+                    if tiff_byteorder == '>':
+                        # TODO: floatpred encoding is endian-neutral
+                        # and incoming bytes/arrays must not be byte-swapped.
+                        # Hence zarr >= 3.3 is not compatible with this.
+                        # Proper fix is to make imagecodecs_floatpred an
+                        # ArrayBytesCodec
+                        logger().warning(
+                            'fsspec stores using big-endian floatpred are '
+                            'incompatible with zarr>=3.3.'
+                        )
+
                 if keyframe.predictor <= 3:
                     dist = 1
                 elif keyframe.predictor in {34892, 34894}:
@@ -2166,7 +2187,7 @@ def _write_fsspec_v3_metadata(
             ).decode()
 
 
-def _write_fsspec_v2_metadata(
+def _write_fsspec_v2_metadata(  # noqa: PLR0917
     store: dict[str, Any],
     pages: list[TiffPageSeries],
     refzarr: dict[str, Any],

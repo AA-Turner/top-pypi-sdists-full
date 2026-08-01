@@ -200,7 +200,7 @@ impl CertificateRevocationList {
         let data = self.public_bytes_der()?;
 
         let mut h = Hash::new(py, &algorithm, None)?;
-        h.update_bytes(&data)?;
+        h.update_bytes(py, &data)?;
         Ok(h.finalize(py)?)
     }
 
@@ -690,7 +690,7 @@ pub fn parse_crl_entry_ext<'p>(
             Ok(Some(types::CERTIFICATE_ISSUER.get(py)?.call1((gns,))?))
         }
         oid::INVALIDITY_DATE_OID => {
-            let time = ext.value::<asn1::GeneralizedTime>()?;
+            let time = ext.value::<asn1::X509GeneralizedTime>()?;
             let py_dt = x509::datetime_to_py(py, time.as_datetime())?;
             Ok(Some(types::INVALIDITY_DATE.get(py)?.call1((py_dt,))?))
         }

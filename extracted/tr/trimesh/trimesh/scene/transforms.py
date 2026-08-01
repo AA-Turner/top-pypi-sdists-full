@@ -1,4 +1,5 @@
 import collections
+import itertools
 from copy import deepcopy
 
 import numpy as np
@@ -6,11 +7,14 @@ import numpy as np
 from .. import caching, util
 from ..caching import hash_fast
 from ..transformations import fix_rigid, quaternion_matrix, rotation_matrix
-from ..typed import ArrayLike, Hashable, NDArray, Optional, Sequence, Tuple, Union
+from ..typed import ArrayLike, Floating, Hashable, NDArray, Sequence
 
 # we compare to identity a lot
 _identity = np.eye(4)
 _identity.flags["WRITEABLE"] = False
+
+# default name for the root frame of a scene graph
+DEFAULT_BASE_FRAME = "world"
 
 
 class SceneGraph:
@@ -22,26 +26,30 @@ class SceneGraph:
     nodes.
     """
 
-    def __init__(self, base_frame="world", repair_rigid=1e-5):
+    def __init__(
+        self, base_frame: Hashable | None = None, repair_rigid: Floating | None = 1e-5
+    ):
         """
         Create a scene graph, holding homogeneous transformation
         matrices and instance information about geometry.
 
         Parameters
         -----------
-        base_frame : any
+        base_frame
           The root node transforms will be positioned from.
-        repair_rigid : None or float
+        repair_rigid
           If a float will attempt to repair rotation matrices
           where `M @ M.T` differs from an identity matrix by
           more than floating point zero but less than this value.
           This can happen in a deep tree with a lot of matrix
           multiplies.
         """
+
         # a graph structure, subclass of networkx DiGraph
         self.transforms = EnforcedForest()
-        # hashable, the base or root frame
-        self.base_frame = base_frame
+        # hashable, the base or root frame — only replace None
+        # as falsy frames like `0` or `""` are valid node names
+        self.base_frame = base_frame if base_frame is not None else DEFAULT_BASE_FRAME
         # if passed as a float try to repair rigid transforms
         # that have accumulated floating point error
         self.repair_rigid = repair_rigid
@@ -93,8 +101,8 @@ class SceneGraph:
             self.transforms.node_data[frame_to]["geometry"] = kwargs["geometry"]
 
     def get(
-        self, frame_to: Hashable, frame_from: Optional[Hashable] = None
-    ) -> Tuple[NDArray[np.float64], Optional[Hashable]]:
+        self, frame_to: Hashable, frame_from: Hashable | None = None
+    ) -> tuple[NDArray[np.float64], Hashable | None]:
         """
         Get the transform from one frame to another.
 
@@ -152,7 +160,7 @@ class SceneGraph:
 
             # loop through pairs of the path
             matrices = []
-            for u, v in zip(path[:-1], path[1:]):
+            for u, v in itertools.pairwise(path):
                 forward = data.get((u, v))
                 if forward is not None:
                     if "matrix" in forward:
@@ -243,7 +251,8 @@ class SceneGraph:
         Returns
         --------
         gltf : dict
-          With 'nodes' referencing a list of dicts
+          With 'nodes' referencing a list of dicts and 'scene_roots'
+          referencing the node indices the scene should start from.
         """
 
         if mesh_index is None:
@@ -257,12 +266,28 @@ class SceneGraph:
         node_data = graph.node_data
         edge_data = graph.edge_data
         base_frame = self.base_frame
+        # does the scene have a defined camera to export
+        has_camera = scene.has_camera
+        children = graph.children
+
+        # the base frame is a synthetic wrapper: when it carries nothing
+        # export its children as the scene roots instead of writing it —
+        # a file node named like the base frame is renamed on import so
+        # writing one would grow a wrapper node on every round-trip
+        skip_base = (
+            "geometry" not in node_data.get(base_frame, {})
+            and not (has_camera and base_frame == scene.camera.name)
+            and len(children.get(base_frame, [])) > 0
+        )
 
         # list of dict, in gltf format
-        # start with base frame as first node index
-        result = [{"name": base_frame}]
         # {node name : node index in gltf}
-        lookup = {base_frame: 0}
+        if skip_base:
+            result = []
+            lookup = {}
+        else:
+            result = [{"name": base_frame}]
+            lookup = {base_frame: 0}
 
         # collect the nodes in order
         for node in node_data.keys():
@@ -272,11 +297,6 @@ class SceneGraph:
             lookup[node] = len(result)
             # populate a result at the correct index
             result.append({"name": node})
-
-        # get generated properties outside of loop
-        # does the scene have a defined camera to export
-        has_camera = scene.has_camera
-        children = graph.children
 
         extensions_used = set()
 
@@ -326,7 +346,12 @@ class SceneGraph:
                     )
                     info["extras"] = extras
 
-        gltf = {"nodes": result}
+        if skip_base:
+            roots = [lookup[c] for c in children[base_frame]]
+        else:
+            roots = [lookup[base_frame]]
+
+        gltf = {"nodes": result, "scene_roots": roots}
         if len(extensions_used) > 0:
             gltf["extensionsUsed"] = list(extensions_used)
         return gltf
@@ -478,7 +503,7 @@ class SceneGraph:
                 res[attr["geometry"]].append(node)
         return res
 
-    def remove_geometries(self, geometries: Union[str, set, Sequence]):
+    def remove_geometries(self, geometries: str | set | Sequence):
         """
         Remove the reference for specified geometries
         from nodes without deleting the node.
@@ -508,9 +533,7 @@ class SceneGraph:
     def __contains__(self, key: Hashable) -> bool:
         return key in self.transforms.node_data
 
-    def __getitem__(
-        self, key: Hashable
-    ) -> Tuple[NDArray[np.float64], Optional[Hashable]]:
+    def __getitem__(self, key: Hashable) -> tuple[NDArray[np.float64], Hashable | None]:
         return self.get(key)
 
     def __setitem__(self, key: Hashable, value: ArrayLike):

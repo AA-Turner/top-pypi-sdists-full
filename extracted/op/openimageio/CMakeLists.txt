@@ -4,7 +4,7 @@
 
 cmake_minimum_required (VERSION 3.18.2...4.0)
 
-set (OpenImageIO_VERSION "3.1.15.0")
+set (OpenImageIO_VERSION "3.1.16.0")
 set (OpenImageIO_VERSION_OVERRIDE "" CACHE STRING
      "Version override (use with caution)!")
 mark_as_advanced (OpenImageIO_VERSION_OVERRIDE)
@@ -110,15 +110,15 @@ if (VERBOSE)
 else ()
     set (CMAKE_MESSAGE_LOG_LEVEL "STATUS" CACHE STRING "CMake log level to display")
 endif ()
-option (${PROJ_NAME}_BUILD_TOOLS "Build the command-line tools" ON)
-option (${PROJ_NAME}_BUILD_TESTS "Build the unit tests" ON)
+set_option (${PROJ_NAME}_BUILD_TOOLS "Build the command-line tools" ON)
+set_option (${PROJ_NAME}_BUILD_TESTS "Build the unit tests" ON)
 set (OIIO_LIBNAME_SUFFIX "" CACHE STRING
      "Optional name appended to ${PROJECT_NAME} libraries that are built")
-option (BUILD_OIIOUTIL_ONLY "If ON, will build *only* libOpenImageIO_Util" OFF)
-option (BUILD_DOCS "If ON, build documentation and man pages." ON)
-option (INSTALL_DOCS "If ON, install documentation and man pages." ON)
-option (INSTALL_FONTS "If ON, install default fonts" ON)
-option (EMBEDPLUGINS "Embed format plugins in libOpenImageIO" ON)
+set_option (BUILD_OIIOUTIL_ONLY "If ON, will build *only* libOpenImageIO_Util" OFF)
+set_option (BUILD_DOCS "If ON, build documentation and man pages." ON)
+set_option (INSTALL_DOCS "If ON, install documentation and man pages." ON)
+set_option (INSTALL_FONTS "If ON, install default fonts" ON)
+set_option (EMBEDPLUGINS "Embed format plugins in libOpenImageIO" ON)
 set (PLUGIN_SEARCH_PATH "" CACHE STRING "Default plugin search path")
 file (TO_NATIVE_PATH "${PLUGIN_SEARCH_PATH}" PLUGIN_SEARCH_PATH_NATIVE)
 set (CMAKE_DEBUG_POSTFIX "_d" CACHE STRING "Library naming postfix for Debug builds")
@@ -329,6 +329,11 @@ if (NUKE_FOUND)
     add_subdirectory (src/nuke/txWriter)
 endif ()
 
+set_option (OIIO_BUILD_FUZZ_TARGETS "Build libFuzzer fuzz targets (requires clang)" OFF)
+if (OIIO_BUILD_FUZZ_TARGETS)
+    add_subdirectory (src/fuzz)
+endif ()
+
 # install pkgconfig file
 if (NOT MSVC)
    configure_file(src/build-scripts/OpenImageIO.pc.in "${CMAKE_BINARY_DIR}/OpenImageIO.pc" @ONLY)
@@ -378,6 +383,9 @@ install (EXPORT OIIO_EXPORTED_TARGETS
 
 
 if (PROJECT_IS_TOP_LEVEL AND BUILD_TESTING AND ${PROJ_NAME}_BUILD_TESTS)
+    if (NOT BUILD_OIIOUTIL_ONLY)
+        add_subdirectory (testsuite/texture-device)
+    endif ()
     oiio_setup_test_data()
     oiio_add_all_tests()
 endif ()

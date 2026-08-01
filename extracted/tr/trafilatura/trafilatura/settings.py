@@ -4,6 +4,7 @@ Listing a series of settings that are applied module-wide.
 """
 
 import argparse
+import logging
 import os
 from configparser import ConfigParser
 from datetime import datetime
@@ -14,6 +15,8 @@ from typing import Any
 from lxml.etree import Element, XPath, _Element
 
 from .utils import line_processing
+
+LOGGER = logging.getLogger(__name__)
 
 # sched_getaffinity (Linux-only) with fallback
 _get_affinity = getattr(os, "sched_getaffinity", None)
@@ -31,13 +34,15 @@ def use_config(filename: str | None = None, config: ConfigParser | None = None) 
     if config is not None:
         return config
 
-    if filename is None:
-        filename = str(Path(__file__).parent / "settings.cfg")
-    elif not Path(filename).is_file():
-        raise FileNotFoundError("The given config file does not exist")
-
     config = ConfigParser()
-    config.read(filename)
+    default_file = str(Path(__file__).parent / "settings.cfg")
+    if filename is None:
+        config.read(default_file)
+    else:
+        if not Path(filename).is_file():
+            raise FileNotFoundError("The given config file does not exist")
+        # seed defaults first so a partial user file only overrides the keys it sets
+        config.read([default_file, filename])
     return config
 
 
@@ -101,7 +106,7 @@ class Extractor:
         "url_blacklist",
     ]
 
-    # config-derived integer sizes, populated by _add_config via CONFIG_MAPPING
+    # set by _add_config via CONFIG_MAPPING
     min_extracted_size: int
     min_output_size: int
     min_output_comm_size: int
@@ -120,7 +125,7 @@ class Extractor:
         precision: bool = False,
         recall: bool = False,
         comments: bool = True,
-        formatting: bool = False,
+        formatting: bool | None = None,
         links: bool = False,
         images: bool = False,
         tables: bool = True,
@@ -135,14 +140,21 @@ class Extractor:
         url_blacklist: set[str] | None = None,
         date_params: dict[str, str] | None = None,
     ):
+        if precision and recall:
+            LOGGER.warning("'precision' and 'recall' are mutually exclusive, 'recall' takes precedence")
         self._set_source(url, source)
         self._set_format(output_format)
+        if tei_validation and self.format != "xmltei":
+            LOGGER.warning("tei_validation has no effect unless output_format is 'xmltei'")
+        if formatting and self.format == "json":
+            LOGGER.warning("include_formatting has no effect on JSON output")
         # single normalization point: an explicit config=None falls back to defaults
         self._add_config(config or DEFAULT_CONFIG)
         self.fast: bool = fast
         self.focus: str = "recall" if recall else "precision" if precision else "balanced"
         self.comments: bool = comments
-        self.formatting: bool = formatting or self.format == "markdown"
+        # markdown implies formatting by default, but an explicit formatting=False is honored
+        self.formatting: bool = (self.format == "markdown") if formatting is None else formatting
         self.links: bool = links
         self.images: bool = images
         self.tables: bool = tables
@@ -153,7 +165,9 @@ class Extractor:
         self.tei_validation: bool = tei_validation
         self.author_blacklist: set[str] = author_blacklist or set()
         self.url_blacklist: set[str] = url_blacklist or set()
-        self.with_metadata: bool = with_metadata or only_with_metadata or bool(url_blacklist) or output_format == "xmltei"
+        self.with_metadata: bool = (
+            with_metadata or only_with_metadata or bool(url_blacklist) or bool(author_blacklist) or output_format == "xmltei"
+        )
         self.date_params: dict[str, Any] = date_params or set_date_params(
             self.config.getboolean("DEFAULT", "EXTENSIVE_DATE_SEARCH")
         )
@@ -179,14 +193,17 @@ class Extractor:
 
 def args_to_extractor(args: argparse.Namespace, url: str | None = None) -> Extractor:
     "Derive extractor configuration from CLI args."
-    options = Extractor(
+    return Extractor(
         config=use_config(filename=args.config_file),
         output_format=args.output_format,
+        fast=args.fast,
         formatting=args.formatting,
         precision=args.precision,
         recall=args.recall,
-        comments=args.no_comments,
-        tables=args.no_tables,
+        comments=args.comments,
+        tables=args.tables,
+        images=args.images,
+        links=args.links,
         dedup=args.deduplicate,
         lang=args.target_language,
         url=url,
@@ -194,9 +211,6 @@ def args_to_extractor(args: argparse.Namespace, url: str | None = None) -> Extra
         only_with_metadata=args.only_with_metadata,
         tei_validation=args.validate_tei,
     )
-    for attr in ("fast", "images", "links"):
-        setattr(options, attr, getattr(args, attr))
-    return options
 
 
 def set_date_params(extensive: bool = True) -> dict[str, Any]:
@@ -304,8 +318,9 @@ class Document:
                 value = line_processing(unescape(value))
                 setattr(self, slot, value)
 
-    def as_dict(self) -> dict[str, str | None]:
+    def as_dict(self) -> dict[str, Any]:
         "Convert the document to a dictionary."
+        # heterogeneous value types (str, list, lxml _Element, None)
         return {attr: getattr(self, attr, None) for attr in self.__slots__}
 
 
@@ -427,6 +442,7 @@ MANUALLY_STRIPPED = [
     "ins",
     "mark",
     "meta",
+    "nobr",
     "ruby",
     "small",
     "tbody",
@@ -436,10 +452,40 @@ MANUALLY_STRIPPED = [
 ]
 # 'center', 'rb', 'wbr'
 
-BASIC_CLEAN_XPATH = XPath(".//aside|.//div[contains(@class|@id, 'footer')]|.//fencedframe|.//footer|.//script|.//style")
+# baseline()/html2txt() only (not the main pipeline). NOTE: html2txt() also measures page length
+# for the recall-escalation gate (core.py) -- shrinking this set fires escalation less often, so
+# re-run the full benchmark suite before changing it.
+# prune cookie/consent banners: fluent prose justext's density metric can't classify; class/id is
+# English even on localized templates. (role/aria-hidden/display:none tried too -- overfit WCXB dev.)
+# Anchored banner/CMP compounds, NOT bare 'cookie'/'consent' substrings: those matched WP Cookie
+# Notice BODY classes (cookies-not-set) and topical content classes, deleting up to 97% of a page's
+# text for baseline/html2txt. Vocabulary = high-signal compounds + CMP vendors (OneTrust, Borlabs,
+# CookieYes, Moove GDPR...), each validated against corpus banner markup.
+_COOKIE_CONSENT_RE = (
+    "cookie[-_]?(?:banner|bar|consent|law|notice|policy|description)|notice[-_]{0,2}cookie"
+    "|consent[-_]?(?:banner|manager|sdk)|borlabs|cookiebot|cmplz|onetrust|moove[-_]?gdpr"
+)
+BASIC_CLEAN_XPATH = XPath(
+    ".//aside|.//div[contains(@class|@id, 'footer')]|.//fencedframe|.//footer|.//script|.//style|.//svg|.//template"
+    f"|.//*[re:test(@class, '{_COOKIE_CONSENT_RE}', 'i') or re:test(@id, '{_COOKIE_CONSENT_RE}', 'i')]",
+    namespaces={"re": "http://exslt.org/regular-expressions"},
+)
 
 TAG_CATALOG = frozenset(["blockquote", "code", "del", "head", "hi", "lb", "list", "p", "pre", "quote"])
 # + list(CUT_EMPTY_ELEMS)
+
+# min length for a repeated span to count as an extraction artifact (not coincidental content).
+# Shared by main_extractor's recovery dedup and baseline's paragraph-strategy dedup
+MIN_DUPLICATE_LENGTH = 50
+
+# the substring-dedup scans are O(n^2) in accumulated text; skip beyond this size (guards a
+# pathological page -- no corpus page comes close, worst ~60KB)
+DEDUPE_SCAN_CAP = 200_000
+
+# inline-tag ladder (single source of truth shared by extractor and serializer):
+INLINE_CONSUMING = {"hi", "ref", "del"}  # element folds its children into its own text
+INLINE_FORMATTABLE = INLINE_CONSUMING | {"code"}  # + code: has text, rendered verbatim
+INLINE_CARRIED = INLINE_FORMATTABLE | {"graphic"}  # + graphic: no text, rendered as image markup
 
 # mapping for languages known to py3langid
 JUSTEXT_LANGUAGES = {

@@ -8,10 +8,11 @@ from collections import deque
 from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 from rich.text import Text
 from textual.containers import Container, Vertical
+from textual.message import Message
 from textual.widgets import DataTable, Label, Static
 
 from bernstein.tui.task_list import generate_sparkline
@@ -78,7 +79,7 @@ class ApprovalPanel(Static):
         container = Container(id="approval-container")
         self.mount(container)
 
-        list_view = DataTable(id="approval-list")
+        list_view: DataTable = DataTable(id="approval-list")
         details_view = Vertical(Label("", id="approval-details"), id="approval-details-pane")
 
         container.mount(list_view, details_view)
@@ -106,7 +107,7 @@ class ApprovalPanel(Static):
     def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
         """Handle row selection to show details."""
         if event.data_table.id == "approval-list":
-            key = str(event.cursor_row.key) if event.cursor_row else ""
+            key = str(event.row_key.value) if event.row_key else ""
             with suppress(StopIteration):
                 idx = next(i for i, e in enumerate(self._pending) if e.task_id == key)
                 self._selected_index = idx
@@ -144,13 +145,14 @@ class ApprovalPanel(Static):
         self.notify("Approval sent: " + ("approved" if event.approved else "rejected"))
 
 
-@dataclass
-class ApprovalAction:
+class ApprovalAction(Message):
     """Message posted when user approves or rejects a pending task."""
 
-    approved: bool
-    task_id: str
-    reason: str = ""
+    def __init__(self, approved: bool, task_id: str, reason: str = "") -> None:
+        self.approved = approved
+        self.task_id = task_id
+        self.reason = reason
+        super().__init__()
 
 
 # ---------------------------------------------------------------------------
@@ -545,14 +547,14 @@ def build_slo_burndown_text(burndown: dict[str, object]) -> Text:
     """
     text = Text()
 
-    slo_target = float(burndown.get("slo_target", 0.9))
-    slo_current = float(burndown.get("slo_current", 0.0))
-    burn_rate = float(burndown.get("burn_rate", 0.0))
-    budget_fraction = float(burndown.get("budget_fraction", 1.0))
-    budget_consumed_pct = float(burndown.get("budget_consumed_pct", 0.0))
+    slo_target = float(cast(float, burndown.get("slo_target", 0.9)))
+    slo_current = float(cast(float, burndown.get("slo_current", 0.0)))
+    burn_rate = float(cast(float, burndown.get("burn_rate", 0.0)))
+    budget_fraction = float(cast(float, burndown.get("budget_fraction", 1.0)))
+    budget_consumed_pct = float(cast(float, burndown.get("budget_consumed_pct", 0.0)))
     breach_projection = str(burndown.get("breach_projection", ""))
     status = str(burndown.get("status", "green"))
-    total_tasks = int(burndown.get("total_tasks", 0))  # type: ignore[arg-type]
+    total_tasks = int(cast(int, burndown.get("total_tasks", 0)))
 
     # Status indicator
     status_color = {"green": "green", "yellow": "yellow", "red": "red"}.get(status, "white")

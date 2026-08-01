@@ -23,6 +23,22 @@ on:
           cannot render blocks.
         required: true
         type: string
+      username:
+        description: >-
+          Display name for the Slack message sender. Requires the Slack
+          app/token's chat:write.customize scope; chat.postMessage fails
+          without it.
+        required: false
+        default: Airbyte Tooling Bot
+        type: string
+      icon_url:
+        description: >-
+          Public URL for the Slack message sender icon. Requires the Slack
+          app/token's chat:write.customize scope; chat.postMessage fails
+          without it.
+        required: false
+        default: https://avatars.githubusercontent.com/u/59758427?s=200&v=4
+        type: string
   workflow_call:
     inputs:
       channel_id:
@@ -36,6 +52,16 @@ on:
       fallback_text:
         description: "Plain-text fallback for notifications."
         required: true
+        type: string
+      username:
+        description: "Display name for the Slack message sender. Requires the Slack app/token's chat:write.customize scope; chat.postMessage fails without it."
+        required: false
+        default: Airbyte Tooling Bot
+        type: string
+      icon_url:
+        description: "Public URL for the Slack message sender icon. Requires the Slack app/token's chat:write.customize scope; chat.postMessage fails without it."
+        required: false
+        default: https://avatars.githubusercontent.com/u/59758427?s=200&v=4
         type: string
     secrets:
       SLACK_HYDRA_BOT_TOKEN:
@@ -60,5 +86,7 @@ jobs:
             channel: ${{ toJSON(inputs.channel_id) }}
             text: ${{ toJSON(inputs.fallback_text) }}
             blocks: ${{ inputs.blocks_json }}
+            username: ${{ toJSON(inputs.username) }}
+            icon_url: ${{ toJSON(inputs.icon_url) }}
             unfurl_links: false
             unfurl_media: false

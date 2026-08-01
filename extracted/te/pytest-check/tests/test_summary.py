@@ -1,9 +1,4 @@
-import pytest
-
-
-require_pytest_7_3 = pytest.mark.skipif(
-    pytest.version_tuple < (7, 3, 0),
-    reason="summary message only supported on pytest7.3+")
+from tests.markers import require_pytest_7_3
 
 
 @require_pytest_7_3

@@ -1,0 +1,29 @@
+version: 2
+updates:
+- package-ecosystem: github-actions
+  cooldown:
+    default-days: 7
+  directories:
+  - .github/workflows/main.yaml
+  schedule:
+    interval: monthly
+  groups:
+    github-actions:
+      patterns:
+      - '*'
+- package-ecosystem: uv
+  directory: /
+  target-branch: upstream
+  schedule:
+    interval: weekly
+  cooldown:
+    default-days: 7
+  groups:
+    dev-packages:
+      dependency-type: development
+      patterns:
+      - '*'
+    prod-packages:
+      dependency-type: production
+      patterns:
+      - '*'

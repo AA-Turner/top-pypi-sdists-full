@@ -50,6 +50,36 @@ DEFAULT_GENERAL_PURPOSE_DESCRIPTION = """A general-purpose agent for a wide vari
 Use this when no specialized subagent matches the task requirements.
 Capable of research, analysis, writing, and problem-solving."""
 
+DELEGATE_TOOL_DESCRIPTION = """\
+Create an ephemeral specialist and delegate a task to it in a single call.
+
+Use this instead of `create_agent` + `task` when you need a one-off specialist \
+for a single job. The specialist is not registered and cannot be reused by name.
+
+## When to use
+- One-off tasks that need custom instructions or capabilities
+- Ad-hoc specialists you will not delegate to again
+- Quick delegation without polluting the agent registry
+
+## When NOT to use
+- Reusable specialists you will delegate to multiple times — use `task` with a \
+configured subagent or create a persistent agent first
+- Trivial tasks you can do faster yourself
+
+## Parameters
+- **description**: The task prompt for the specialist to execute
+- **instructions**: The specialist's system prompt / role definition
+- **name**: Label for logs and async task handles (letters, numbers, hyphens). \
+Naming the specialist does not register it — it still cannot be reused via `task`
+- **model**: Optional model override
+- **capabilities**: Optional capability names to attach to the specialist
+- **mode**: `"sync"` (default), `"async"`, or `"auto"`
+
+Returns:
+- In sync mode: The specialist's response as a string.
+- In async mode: A task handle with task_id for status checking.
+"""
+
 TASK_TOOL_DESCRIPTION = """\
 Delegate a task to a specialized subagent. The subagent runs independently \
 with its own context and tools, and returns a result when done.
@@ -178,13 +208,17 @@ Use only when soft cancellation doesn't work or immediate stopping is required."
 
 def get_subagent_system_prompt(
     configs: list[SubAgentConfig],
-    include_dual_mode: bool = True,
+    include_dual_mode: bool = False,
 ) -> str:
-    """Generate system prompt section describing available subagents.
+    """Generate the system prompt section describing available subagents.
 
     Args:
-        configs: List of subagent configurations.
-        include_dual_mode: Whether to include dual-mode execution explanation.
+        configs: Subagent configurations to list.
+        include_dual_mode: Append `DUAL_MODE_SYSTEM_PROMPT`, explaining sync
+            versus background execution. Off by default because
+            `TASK_TOOL_DESCRIPTION` already covers execution modes where the
+            model needs them, and repeating it in the system prompt is wasted
+            context. The parameter used to be accepted and ignored.
 
     Returns:
         Formatted system prompt section.
@@ -201,18 +235,21 @@ def get_subagent_system_prompt(
         prompt = get_subagent_system_prompt(configs)
         ```
     """
-    lines = ["## Available Subagents", ""]
-    lines.append("Use the `task` tool to delegate work to these subagents:")
-    lines.append("")
+    lines = [
+        "## Available Subagents",
+        "",
+        "Use the `task` tool to delegate work to these subagents:",
+        "",
+    ]
 
     for config in configs:
-        name = config["name"]
-        description = config["description"]
-        lines.append(f"- **{name}**: {description}")
-
-        # Add hint if agent cannot ask questions
+        line = f"- **{config['name']}**: {config['description']}"
         if config.get("can_ask_questions") is False:
-            lines[-1] += " *(cannot ask clarifying questions)*"
+            line += " *(cannot ask clarifying questions)*"
+        lines.append(line)
+
+    if include_dual_mode:
+        lines.extend(["", DUAL_MODE_SYSTEM_PROMPT])
 
     return "\n".join(lines)
 

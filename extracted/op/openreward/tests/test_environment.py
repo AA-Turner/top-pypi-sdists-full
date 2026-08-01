@@ -282,6 +282,40 @@ class BlockingToolEnv(Environment):
         return ToolOutput(blocks=[TextBlock(text="slept")], reward=0.0, finished=True)
 
 
+_BLOCKING_INIT_DELAY = 1.5
+
+
+class BlockingInitEnv(Environment):
+    """Env whose __init__ blocks — used to verify that a heavy env constructor
+    (run by /create) doesn't freeze the event loop for other sessions."""
+
+    def __init__(self, task_spec: JSONObject = {}, secrets: dict[str, str] = {}) -> None:
+        import time as _time
+        _time.sleep(_BLOCKING_INIT_DELAY)
+        super().__init__(task_spec, secrets)
+
+    def setup(self):
+        pass
+
+    def teardown(self):
+        pass
+
+    def get_prompt(self) -> Blocks:
+        return [TextBlock(text="blocking-init")]
+
+    @classmethod
+    def list_splits(cls) -> list[str]:
+        return ["train"]
+
+    @classmethod
+    def list_tasks(cls, split: str) -> list[JSONObject]:
+        return [{}]
+
+    @tool
+    async def submit(self) -> ToolOutput:
+        return ToolOutput(blocks=[TextBlock(text="ok")], reward=1.0, finished=True)
+
+
 async def wait_for_server(base_url: str, timeout: float = 5.0):
     """Wait for server to be ready using aiohttp."""
     import time
@@ -302,7 +336,7 @@ def server() -> Generator[str, None, None]:
     """Start the server in a background thread and yield the base URL."""
     host = "localhost"
     port = 8080
-    app = Server(environments=[Foo, Bar, AsyncBaz, LargeEnv, EnvWithTaskTools, SlowSetupEnv, BlockingPromptEnv, BlockingListTasksEnv, BlockingToolEnv]).app
+    app = Server(environments=[Foo, Bar, AsyncBaz, LargeEnv, EnvWithTaskTools, SlowSetupEnv, BlockingPromptEnv, BlockingListTasksEnv, BlockingToolEnv, BlockingInitEnv]).app
     config = uvicorn.Config(app, host=host, port=port, log_level="warning")
     server_instance = uvicorn.Server(config)
 
@@ -1474,6 +1508,52 @@ async def test_sync_tool_does_not_block_loop(server: str):
         async with http.post(
             f"{server}/delete",
             headers={"X-Session-ID": sibling_sid},
+        ) as resp:
+            assert resp.status == 200
+
+
+@pytest.mark.asyncio
+async def test_blocking_init_does_not_block_loop(server: str):
+    """A slow env __init__ (run by /create) must not freeze the loop — /health
+    should answer promptly while the constructor is parked in a thread."""
+    import time
+    import uuid
+
+    create_sid = str(uuid.uuid4())
+    async with aiohttp.ClientSession() as http:
+        # Fire a /create whose constructor blocks for _BLOCKING_INIT_DELAY.
+        slow = asyncio.create_task(
+            http.post(
+                f"{server}/create",
+                json={"env_name": "blockinginitenv", "split": "train", "index": 0},
+                headers={"X-Session-ID": create_sid},
+                timeout=aiohttp.ClientTimeout(total=10),
+            )
+        )
+        # Let the create request land and enter the constructor.
+        await asyncio.sleep(0.2)
+
+        # Health must respond promptly even while the constructor is in flight.
+        health_start = time.monotonic()
+        async with http.get(
+            f"{server}/health",
+            timeout=aiohttp.ClientTimeout(total=2),
+        ) as health_resp:
+            assert health_resp.status == 200
+        health_elapsed = time.monotonic() - health_start
+        assert health_elapsed < 0.5, (
+            f"/health took {health_elapsed:.2f}s while a blocking env __init__ "
+            f"was in flight; expected < 0.5s"
+        )
+
+        slow_resp = await slow
+        async with slow_resp:
+            assert slow_resp.status == 200
+
+        # Cleanup.
+        async with http.post(
+            f"{server}/delete",
+            headers={"X-Session-ID": create_sid},
         ) as resp:
             assert resp.status == 200
 

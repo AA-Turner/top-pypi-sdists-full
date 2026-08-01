@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import sys
 from collections.abc import Mapping, Sequence
-from typing import Any, Union
+from typing import Union
 
 from .literals import (
     DictionaryLanguageType,
@@ -44,6 +44,9 @@ __all__ = (
     "CreateFeedRequestTypeDef",
     "CreateFeedResponseTypeDef",
     "CreateOutputTypeDef",
+    "CroppingConfigOutputTypeDef",
+    "CroppingConfigTypeDef",
+    "CroppingConfigUnionTypeDef",
     "DeleteDictionaryRequestTypeDef",
     "DeleteDictionaryResponseTypeDef",
     "DeleteFeedRequestTypeDef",
@@ -77,6 +80,9 @@ __all__ = (
     "ResponseMetadataTypeDef",
     "SubtitlingConfigTypeDef",
     "TagResourceRequestTypeDef",
+    "TemplateGroupOutputTypeDef",
+    "TemplateGroupTypeDef",
+    "TemplateGroupUnionTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateDictionaryRequestTypeDef",
     "UpdateDictionaryResponseTypeDef",
@@ -108,6 +114,10 @@ class CreateDictionaryRequestTypeDef(TypedDict):
 
 class FeedAssociationTypeDef(TypedDict):
     associatedResourceName: str
+
+class TemplateGroupOutputTypeDef(TypedDict):
+    name: str
+    templateUris: list[str]
 
 DeleteDictionaryRequestTypeDef = TypedDict(
     "DeleteDictionaryRequestTypeDef",
@@ -181,6 +191,10 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
 class TagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tags: Mapping[str, str]
+
+class TemplateGroupTypeDef(TypedDict):
+    name: str
+    templateUris: Sequence[str]
 
 class UntagResourceRequestTypeDef(TypedDict):
     resourceArn: str
@@ -299,6 +313,9 @@ FeedSummaryTypeDef = TypedDict(
     },
 )
 
+class CroppingConfigOutputTypeDef(TypedDict):
+    templateGroups: NotRequired[list[TemplateGroupOutputTypeDef]]
+
 class ListDictionariesResponseTypeDef(TypedDict):
     dictionaries: list[DictionarySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -318,20 +335,20 @@ class ListDictionariesRequestPaginateTypeDef(TypedDict):
 class ListFeedsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
-class OutputConfigOutputTypeDef(TypedDict):
-    cropping: NotRequired[dict[str, Any]]
-    clipping: NotRequired[ClippingConfigTypeDef]
-    subtitling: NotRequired[SubtitlingConfigTypeDef]
-
-class OutputConfigTypeDef(TypedDict):
-    cropping: NotRequired[Mapping[str, Any]]
-    clipping: NotRequired[ClippingConfigTypeDef]
-    subtitling: NotRequired[SubtitlingConfigTypeDef]
+TemplateGroupUnionTypeDef = Union[TemplateGroupTypeDef, TemplateGroupOutputTypeDef]
 
 class ListFeedsResponseTypeDef(TypedDict):
     feeds: list[FeedSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class OutputConfigOutputTypeDef(TypedDict):
+    cropping: NotRequired[CroppingConfigOutputTypeDef]
+    clipping: NotRequired[ClippingConfigTypeDef]
+    subtitling: NotRequired[SubtitlingConfigTypeDef]
+
+class CroppingConfigTypeDef(TypedDict):
+    templateGroups: NotRequired[Sequence[TemplateGroupUnionTypeDef]]
 
 class GetOutputTypeDef(TypedDict):
     name: str
@@ -340,7 +357,7 @@ class GetOutputTypeDef(TypedDict):
     description: NotRequired[str]
     fromAssociation: NotRequired[bool]
 
-OutputConfigUnionTypeDef = Union[OutputConfigTypeDef, OutputConfigOutputTypeDef]
+CroppingConfigUnionTypeDef = Union[CroppingConfigTypeDef, CroppingConfigOutputTypeDef]
 CreateFeedResponseTypeDef = TypedDict(
     "CreateFeedResponseTypeDef",
     {
@@ -384,6 +401,13 @@ UpdateFeedResponseTypeDef = TypedDict(
     },
 )
 
+class OutputConfigTypeDef(TypedDict):
+    cropping: NotRequired[CroppingConfigUnionTypeDef]
+    clipping: NotRequired[ClippingConfigTypeDef]
+    subtitling: NotRequired[SubtitlingConfigTypeDef]
+
+OutputConfigUnionTypeDef = Union[OutputConfigTypeDef, OutputConfigOutputTypeDef]
+
 class CreateOutputTypeDef(TypedDict):
     name: str
     outputConfig: OutputConfigUnionTypeDef
@@ -410,6 +434,7 @@ AssociateFeedRequestTypeDef = TypedDict(
 class CreateFeedRequestTypeDef(TypedDict):
     name: str
     outputs: Sequence[CreateOutputTypeDef]
+    accessRoleArn: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
 UpdateFeedRequestTypeDef = TypedDict(
@@ -418,5 +443,6 @@ UpdateFeedRequestTypeDef = TypedDict(
         "name": str,
         "id": str,
         "outputs": Sequence[UpdateOutputTypeDef],
+        "accessRoleArn": NotRequired[str],
     },
 )

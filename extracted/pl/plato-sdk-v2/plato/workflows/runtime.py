@@ -244,6 +244,8 @@ class WorkflowRuntime:
         sync: Literal["publish_ref", "merge_to_main"] = "publish_ref",
         base: str | None = None,
         timeout_s: float | None = None,
+        setup: str | None = None,
+        setup_timeout_s: float | None = None,
     ) -> Any:
         self._raise_if_cancelled()
         if self._stats.calls_total >= self._max_total_calls:
@@ -262,6 +264,8 @@ class WorkflowRuntime:
             sync=sync,
             base=base,
             timeout_s=timeout_s,
+            setup=setup,
+            setup_timeout_s=setup_timeout_s,
         )
         key = derive_call_key(prompt, opts)
         occurrence = self._occurrences.get(key, 0)

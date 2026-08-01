@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bullmq
-Version: 3.0.1
+Version: 3.0.2
 Summary: BullMQ for Python
 Author-email: "Taskforce.sh Inc." <manast@taskforce.sh>
 Project-URL: Homepage, https://bullmq.io
@@ -13,7 +13,7 @@ Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3.10
 Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
-Requires-Dist: redis==7.4.0
+Requires-Dist: redis==7.4.1
 Requires-Dist: msgpack==1.2.1
 Requires-Dist: semver==3.0.4
 Requires-Dist: croniter==2.0.7

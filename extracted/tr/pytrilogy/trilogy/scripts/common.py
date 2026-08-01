@@ -6,7 +6,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from io import StringIO
 from pathlib import Path as PathlibPath
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from click.exceptions import Exit
 
@@ -38,6 +38,9 @@ from trilogy.scripts.project_config import (  # noqa: F401
     find_trilogy_config,
 )
 from trilogy.utility import safe_open
+
+if TYPE_CHECKING:
+    from trilogy.execution.state import RefreshPolicy
 
 # Default stat types to display in output; easily configurable
 DEFAULT_STAT_TYPES: list[str] = ["persist", "update", "validate"]
@@ -110,6 +113,26 @@ class RefreshParams:
     force_sources: frozenset[str] = frozenset()
     interactive: bool = False
     dry_run: bool = False
+    #: ``--partition`` concept address -> value: the slice this run owns.
+    #: Empty means "let staleness decide", which is the normal refresh.
+    partitions: Mapping[str, str] = field(default_factory=dict)
+
+    def policy(self) -> "RefreshPolicy":
+        """The planning half of these params, as the execution layer wants it.
+
+        THE mapping from CLI flags to refresh intent. A new planning option is
+        added to :class:`~trilogy.execution.state.RefreshPolicy` and mapped
+        here, once — every call site that plans a refresh then carries it
+        without being edited. The rest of this dataclass
+        (``print_watermarks``/``interactive``/``dry_run``) is presentation and
+        execution, and deliberately does not cross into the plan.
+        """
+        from trilogy.execution.state import RefreshPolicy
+
+        return RefreshPolicy(
+            force_sources=frozenset(self.force_sources),
+            partition_selector=dict(self.partitions),
+        )
 
 
 def parse_force_sources(force_sources: Iterable[str]) -> frozenset[str]:
@@ -399,7 +422,16 @@ def get_dialect_config(
         from trilogy.dialect.config import BigQueryConfig
 
         conn_dict = validate_required_connection_params(
-            conn_dict, [], ["project"], "BigQuery"
+            conn_dict,
+            [],
+            [
+                "project",
+                "staging_dataset",
+                "staging_uri",
+                "enable_python_datasources",
+                "use_sqlalchemy",
+            ],
+            "BigQuery",
         )
         conf = BigQueryConfig(**conn_dict)
     elif edialect == Dialects.PRESTO:
@@ -705,6 +737,7 @@ def handle_execution_exception(
         DisconnectedConceptsException,
         FunctionArgumentException,
         InvalidSyntaxException,
+        NothingExecutedException,
         UndefinedConceptException,
         UnresolvableQueryException,
     )
@@ -728,6 +761,10 @@ def handle_execution_exception(
             else ""
         )
         print_error(f"Syntax error{location}: {e.diagnostic.message}{span}")
+    elif isinstance(e, NothingExecutedException):
+        # The script parsed; it just does nothing. Labelling it a syntax error
+        # would send the reader looking for a parse mistake that isn't there.
+        print_error(f"{e}")
     elif isinstance(e, (SyntaxError, InvalidSyntaxException)):
         print_error(f"Syntax error{location}: {e}")
     elif isinstance(e, (DisconnectedConceptsException, UnresolvableQueryException)):

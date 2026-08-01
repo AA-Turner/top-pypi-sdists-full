@@ -4,6 +4,7 @@ from functools import reduce
 from sqlalchemy import false, true  # type: ignore
 from sqlalchemy.orm.query import Query  # type: ignore
 
+from taktile_auth.constants import NULL_RESOURCE_ARG
 from taktile_auth.entities.role import Role
 from taktile_auth.enums import Action
 
@@ -18,7 +19,9 @@ def _map_and_filter(input_: t.Dict[str, t.Any], map_: t.Dict[str, str]) -> t.Dic
 
 
 def _to_sql_stmt(model: t.Any, key: str, value: str) -> t.Any:
-    if "*" not in value:
+    if value == NULL_RESOURCE_ARG:
+        return getattr(model, key).is_(None)
+    elif "*" not in value:
         return getattr(model, key) == value
     elif value == "*":
         return true()

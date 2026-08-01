@@ -324,7 +324,7 @@ class NetworkFirewallClient(BaseClient):
         self, **kwargs: Unpack[CreateContainerAssociationRequestTypeDef]
     ) -> CreateContainerAssociationResponseTypeDef:
         """
-        Creates a container association for Network Firewall.
+        Creates a Network Firewall container association.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/create_container_association.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#create_container_association)
@@ -426,7 +426,7 @@ class NetworkFirewallClient(BaseClient):
         self, **kwargs: Unpack[DeleteContainerAssociationRequestTypeDef]
     ) -> DeleteContainerAssociationResponseTypeDef:
         """
-        Deletes the specified container association.
+        Deletes a container association.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/delete_container_association.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#delete_container_association)
@@ -547,7 +547,7 @@ class NetworkFirewallClient(BaseClient):
         self, **kwargs: Unpack[DescribeContainerAssociationRequestTypeDef]
     ) -> DescribeContainerAssociationResponseTypeDef:
         """
-        Returns the properties of a container association.
+        Retrieves the configuration and status of a container association.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/describe_container_association.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#describe_container_association)
@@ -764,7 +764,7 @@ class NetworkFirewallClient(BaseClient):
         self, **kwargs: Unpack[ListContainerAssociationsRequestTypeDef]
     ) -> ListContainerAssociationsResponseTypeDef:
         """
-        Retrieves the metadata for the container associations that you have defined.
+        Lists the container associations in your account and Region.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/list_container_associations.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#list_container_associations)
@@ -965,7 +965,8 @@ class NetworkFirewallClient(BaseClient):
         self, **kwargs: Unpack[UpdateContainerAssociationRequestTypeDef]
     ) -> UpdateContainerAssociationResponseTypeDef:
         """
-        Updates the properties of an existing container association.
+        Updates the monitoring configurations and description of a container
+        association.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/update_container_association.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#update_container_association)

@@ -41,6 +41,7 @@ Usage::
         ListTemplatesPaginator,
         ListThemeVersionsPaginator,
         ListThemesPaginator,
+        ListTopicsV2Paginator,
         ListUserGroupsPaginator,
         ListUsersPaginator,
         QuickSightClient,
@@ -54,6 +55,7 @@ Usage::
         SearchGroupsPaginator,
         SearchKnowledgeBasesPaginator,
         SearchTopicsPaginator,
+        SearchTopicsV2Paginator,
     )
 
     session = Session()
@@ -89,6 +91,7 @@ Usage::
     list_templates_paginator: ListTemplatesPaginator = client.get_paginator("list_templates")
     list_theme_versions_paginator: ListThemeVersionsPaginator = client.get_paginator("list_theme_versions")
     list_themes_paginator: ListThemesPaginator = client.get_paginator("list_themes")
+    list_topics_v2_paginator: ListTopicsV2Paginator = client.get_paginator("list_topics_v2")
     list_user_groups_paginator: ListUserGroupsPaginator = client.get_paginator("list_user_groups")
     list_users_paginator: ListUsersPaginator = client.get_paginator("list_users")
     search_action_connectors_paginator: SearchActionConnectorsPaginator = client.get_paginator("search_action_connectors")
@@ -101,6 +104,7 @@ Usage::
     search_groups_paginator: SearchGroupsPaginator = client.get_paginator("search_groups")
     search_knowledge_bases_paginator: SearchKnowledgeBasesPaginator = client.get_paginator("search_knowledge_bases")
     search_topics_paginator: SearchTopicsPaginator = client.get_paginator("search_topics")
+    search_topics_v2_paginator: SearchTopicsV2Paginator = client.get_paginator("search_topics_v2")
     ```
 """
 
@@ -136,6 +140,7 @@ from .paginator import (
     ListTemplateVersionsPaginator,
     ListThemesPaginator,
     ListThemeVersionsPaginator,
+    ListTopicsV2Paginator,
     ListUserGroupsPaginator,
     ListUsersPaginator,
     SearchActionConnectorsPaginator,
@@ -148,6 +153,7 @@ from .paginator import (
     SearchGroupsPaginator,
     SearchKnowledgeBasesPaginator,
     SearchTopicsPaginator,
+    SearchTopicsV2Paginator,
 )
 
 Client = QuickSightClient
@@ -185,6 +191,7 @@ __all__ = (
     "ListTemplatesPaginator",
     "ListThemeVersionsPaginator",
     "ListThemesPaginator",
+    "ListTopicsV2Paginator",
     "ListUserGroupsPaginator",
     "ListUsersPaginator",
     "QuickSightClient",
@@ -198,4 +205,5 @@ __all__ = (
     "SearchGroupsPaginator",
     "SearchKnowledgeBasesPaginator",
     "SearchTopicsPaginator",
+    "SearchTopicsV2Paginator",
 )

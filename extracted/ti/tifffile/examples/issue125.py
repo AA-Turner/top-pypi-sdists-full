@@ -1,5 +1,8 @@
 # tifffile/examples/issue125.py
 
+# Copyright (c) Christoph Gohlke
+# SPDX-License-Identifier: BSD-3-Clause
+
 """Create a Fsspec ReferenceFileSystem for a sequence of TIFF files on S3.
 
 This Python script uses the Tifffile and Fsspec libraries to create a

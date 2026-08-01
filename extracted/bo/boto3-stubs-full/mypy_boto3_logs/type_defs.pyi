@@ -51,6 +51,7 @@ from .literals import (
     QueryLanguageType,
     QueryStatusType,
     S3TableIntegrationSourceStatusType,
+    ScheduledQueryDestinationTypeType,
     ScheduledQueryStateType,
     ScheduleTypeType,
     StandardUnitType,
@@ -190,7 +191,9 @@ __all__ = (
     "DescribeSubscriptionFiltersRequestPaginateTypeDef",
     "DescribeSubscriptionFiltersRequestTypeDef",
     "DescribeSubscriptionFiltersResponseTypeDef",
+    "DestinationConfigurationOutputTypeDef",
     "DestinationConfigurationTypeDef",
+    "DestinationConfigurationUnionTypeDef",
     "DestinationTypeDef",
     "DisassociateKmsKeyRequestTypeDef",
     "DisassociateSourceFromS3TableIntegrationRequestTypeDef",
@@ -294,6 +297,8 @@ __all__ = (
     "LogGroupSummaryTypeDef",
     "LogGroupTypeDef",
     "LogStreamTypeDef",
+    "LookupTableConfigurationOutputTypeDef",
+    "LookupTableConfigurationTypeDef",
     "LookupTableTypeDef",
     "LowerCaseStringOutputTypeDef",
     "LowerCaseStringTypeDef",
@@ -581,8 +586,9 @@ class CreateLogStreamRequestTypeDef(TypedDict):
 
 class CreateLookupTableRequestTypeDef(TypedDict):
     lookupTableName: str
-    tableBody: str
     description: NotRequired[str]
+    tableBody: NotRequired[str]
+    queryId: NotRequired[str]
     kmsKeyId: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
@@ -925,11 +931,25 @@ class SubscriptionFilterTypeDef(TypedDict):
     fieldSelectionCriteria: NotRequired[str]
     emitSystemFields: NotRequired[list[str]]
 
+class LookupTableConfigurationOutputTypeDef(TypedDict):
+    tableName: str
+    roleArn: str
+    description: NotRequired[str]
+    kmsKeyId: NotRequired[str]
+    tags: NotRequired[dict[str, str]]
+
 class S3ConfigurationTypeDef(TypedDict):
     destinationIdentifier: str
     roleArn: str
     ownerAccountId: NotRequired[str]
     kmsKeyId: NotRequired[str]
+
+class LookupTableConfigurationTypeDef(TypedDict):
+    tableName: str
+    roleArn: str
+    description: NotRequired[str]
+    kmsKeyId: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
 
 class DisassociateKmsKeyRequestTypeDef(TypedDict):
     logGroupName: NotRequired[str]
@@ -1362,7 +1382,7 @@ class RenameKeyEntryTypeDef(TypedDict):
     overwriteIfExists: NotRequired[bool]
 
 class ScheduledQueryDestinationTypeDef(TypedDict):
-    destinationType: NotRequired[Literal["S3"]]
+    destinationType: NotRequired[ScheduledQueryDestinationTypeType]
     destinationIdentifier: NotRequired[str]
     status: NotRequired[ActionStatusType]
     processedIdentifier: NotRequired[str]
@@ -1455,8 +1475,9 @@ class UpdateLogAnomalyDetectorRequestTypeDef(TypedDict):
 
 class UpdateLookupTableRequestTypeDef(TypedDict):
     lookupTableArn: str
-    tableBody: str
     description: NotRequired[str]
+    tableBody: NotRequired[str]
+    queryId: NotRequired[str]
     kmsKeyId: NotRequired[str]
 
 class UpperCaseStringTypeDef(TypedDict):
@@ -1932,8 +1953,13 @@ class DescribeSubscriptionFiltersResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class DestinationConfigurationOutputTypeDef(TypedDict):
+    s3Configuration: NotRequired[S3ConfigurationTypeDef]
+    lookupTableConfiguration: NotRequired[LookupTableConfigurationOutputTypeDef]
+
 class DestinationConfigurationTypeDef(TypedDict):
-    s3Configuration: S3ConfigurationTypeDef
+    s3Configuration: NotRequired[S3ConfigurationTypeDef]
+    lookupTableConfiguration: NotRequired[LookupTableConfigurationTypeDef]
 
 ExportTaskTypeDef = TypedDict(
     "ExportTaskTypeDef",
@@ -2225,23 +2251,6 @@ class PutDeliveryDestinationResponseTypeDef(TypedDict):
     deliveryDestination: DeliveryDestinationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
-class CreateScheduledQueryRequestTypeDef(TypedDict):
-    name: str
-    queryLanguage: QueryLanguageType
-    queryString: str
-    scheduleExpression: str
-    executionRoleArn: str
-    description: NotRequired[str]
-    logGroupIdentifiers: NotRequired[Sequence[str]]
-    timezone: NotRequired[str]
-    startTimeOffset: NotRequired[int]
-    endTimeOffset: NotRequired[int]
-    destinationConfiguration: NotRequired[DestinationConfigurationTypeDef]
-    scheduleStartTime: NotRequired[int]
-    scheduleEndTime: NotRequired[int]
-    state: NotRequired[ScheduledQueryStateType]
-    tags: NotRequired[Mapping[str, str]]
-
 class GetScheduledQueryResponseTypeDef(TypedDict):
     scheduledQueryArn: str
     name: str
@@ -2253,7 +2262,7 @@ class GetScheduledQueryResponseTypeDef(TypedDict):
     timezone: str
     startTimeOffset: int
     endTimeOffset: int
-    destinationConfiguration: DestinationConfigurationTypeDef
+    destinationConfiguration: DestinationConfigurationOutputTypeDef
     state: ScheduledQueryStateType
     scheduleType: ScheduleTypeType
     lastTriggeredTime: int
@@ -2274,25 +2283,9 @@ class ScheduledQuerySummaryTypeDef(TypedDict):
     lastExecutionStatus: NotRequired[ExecutionStatusType]
     scheduleExpression: NotRequired[str]
     timezone: NotRequired[str]
-    destinationConfiguration: NotRequired[DestinationConfigurationTypeDef]
+    destinationConfiguration: NotRequired[DestinationConfigurationOutputTypeDef]
     creationTime: NotRequired[int]
     lastUpdatedTime: NotRequired[int]
-
-class UpdateScheduledQueryRequestTypeDef(TypedDict):
-    identifier: str
-    queryLanguage: QueryLanguageType
-    queryString: str
-    scheduleExpression: str
-    executionRoleArn: str
-    description: NotRequired[str]
-    logGroupIdentifiers: NotRequired[Sequence[str]]
-    timezone: NotRequired[str]
-    startTimeOffset: NotRequired[int]
-    endTimeOffset: NotRequired[int]
-    destinationConfiguration: NotRequired[DestinationConfigurationTypeDef]
-    scheduleStartTime: NotRequired[int]
-    scheduleEndTime: NotRequired[int]
-    state: NotRequired[ScheduledQueryStateType]
 
 class UpdateScheduledQueryResponseTypeDef(TypedDict):
     scheduledQueryArn: str
@@ -2305,7 +2298,7 @@ class UpdateScheduledQueryResponseTypeDef(TypedDict):
     timezone: str
     startTimeOffset: int
     endTimeOffset: int
-    destinationConfiguration: DestinationConfigurationTypeDef
+    destinationConfiguration: DestinationConfigurationOutputTypeDef
     state: ScheduledQueryStateType
     scheduleType: ScheduleTypeType
     lastTriggeredTime: int
@@ -2316,6 +2309,10 @@ class UpdateScheduledQueryResponseTypeDef(TypedDict):
     creationTime: int
     lastUpdatedTime: int
     ResponseMetadata: ResponseMetadataTypeDef
+
+DestinationConfigurationUnionTypeDef = Union[
+    DestinationConfigurationTypeDef, DestinationConfigurationOutputTypeDef
+]
 
 class DescribeExportTasksResponseTypeDef(TypedDict):
     exportTasks: list[ExportTaskTypeDef]
@@ -2420,6 +2417,39 @@ class ListScheduledQueriesResponseTypeDef(TypedDict):
     scheduledQueries: list[ScheduledQuerySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class CreateScheduledQueryRequestTypeDef(TypedDict):
+    name: str
+    queryLanguage: QueryLanguageType
+    queryString: str
+    scheduleExpression: str
+    executionRoleArn: str
+    description: NotRequired[str]
+    logGroupIdentifiers: NotRequired[Sequence[str]]
+    timezone: NotRequired[str]
+    startTimeOffset: NotRequired[int]
+    endTimeOffset: NotRequired[int]
+    destinationConfiguration: NotRequired[DestinationConfigurationUnionTypeDef]
+    scheduleStartTime: NotRequired[int]
+    scheduleEndTime: NotRequired[int]
+    state: NotRequired[ScheduledQueryStateType]
+    tags: NotRequired[Mapping[str, str]]
+
+class UpdateScheduledQueryRequestTypeDef(TypedDict):
+    identifier: str
+    queryLanguage: QueryLanguageType
+    queryString: str
+    scheduleExpression: str
+    executionRoleArn: str
+    description: NotRequired[str]
+    logGroupIdentifiers: NotRequired[Sequence[str]]
+    timezone: NotRequired[str]
+    startTimeOffset: NotRequired[int]
+    endTimeOffset: NotRequired[int]
+    destinationConfiguration: NotRequired[DestinationConfigurationUnionTypeDef]
+    scheduleStartTime: NotRequired[int]
+    scheduleEndTime: NotRequired[int]
+    state: NotRequired[ScheduledQueryStateType]
 
 class StartLiveTailResponseTypeDef(TypedDict):
     responseStream: EventStream[StartLiveTailResponseStreamTypeDef]

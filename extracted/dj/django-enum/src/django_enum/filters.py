@@ -23,9 +23,9 @@ from django_enum.utils import choices
 
 __all__ = [
     "EnumFilter",
-    "MultipleEnumFilter",
     "EnumFlagFilter",
     "FilterSet",
+    "MultipleEnumFilter",
 ]
 
 
@@ -198,16 +198,14 @@ class FilterSet(filterset.FilterSet):
     def enum_extra(f: EnumField) -> dict[str, t.Any]:
         return {"enum": f.enum, "strict": f.strict, "choices": f.choices}
 
-    FILTER_DEFAULTS = {
-        **{
-            FlagField: {
-                "filter_class": EnumFlagFilter,
-                "extra": lambda f: FilterSet.enum_extra(f),  # TODO 3.9 compat
-            },
-            EnumField: {
-                "filter_class": EnumFilter,
-                "extra": lambda f: FilterSet.enum_extra(f),  # TODO 3.9 compat
-            },
+    FILTER_DEFAULTS: t.ClassVar = {
+        FlagField: {
+            "filter_class": EnumFlagFilter,
+            "extra": lambda f: FilterSet.enum_extra(f),  # TODO 3.9 compat
+        },
+        EnumField: {
+            "filter_class": EnumFilter,
+            "extra": lambda f: FilterSet.enum_extra(f),  # TODO 3.9 compat
         },
         **filterset.FilterSet.FILTER_DEFAULTS,
     }

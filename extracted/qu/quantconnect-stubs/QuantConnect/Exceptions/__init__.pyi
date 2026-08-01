@@ -219,8 +219,67 @@ class NoMethodMatchPythonExceptionInterpreter(QuantConnect.Exceptions.PythonExce
         ...
 
 
+class MultipleInheritancePythonExceptionInterpreter(QuantConnect.Exceptions.PythonExceptionInterpreter):
+    """
+    Interprets Python TypeError exceptions caused by inheriting from multiple classes
+    when one of them is a managed (C#) class
+    """
+
+    @property
+    def order(self) -> int:
+        """Determines the order that an instance of this class should be called"""
+        ...
+
+    def can_interpret(self, exception: System.Exception) -> bool:
+        """
+        Determines if this interpreter should be applied to the specified exception.
+        
+        :param exception: The exception to check
+        :returns: True if the exception can be interpreted, false otherwise.
+        """
+        ...
+
+    def interpret(self, exception: System.Exception, inner_interpreter: QuantConnect.Exceptions.IExceptionInterpreter) -> System.Exception:
+        """
+        Interprets the specified exception into a new exception
+        
+        :param exception: The exception to be interpreted
+        :param inner_interpreter: An interpreter that should be applied to the inner exception.
+        :returns: The interpreted exception.
+        """
+        ...
+
+
 class KeyErrorPythonExceptionInterpreter(QuantConnect.Exceptions.PythonExceptionInterpreter):
     """Interprets KeyErrorPythonExceptionInterpreter instances"""
+
+    @property
+    def order(self) -> int:
+        """Determines the order that an instance of this class should be called"""
+        ...
+
+    def can_interpret(self, exception: System.Exception) -> bool:
+        """
+        Determines if this interpreter should be applied to the specified exception.
+        
+        :param exception: The exception to check
+        :returns: True if the exception can be interpreted, false otherwise.
+        """
+        ...
+
+    def interpret(self, exception: System.Exception, inner_interpreter: QuantConnect.Exceptions.IExceptionInterpreter) -> System.Exception:
+        """
+        Interprets the specified exception into a new exception
+        
+        :param exception: The exception to be interpreted
+        :param inner_interpreter: An interpreter that should be applied to the inner exception.
+        :returns: The interpreted exception.
+        """
+        ...
+
+
+class ModuleNotFoundPythonExceptionInterpreter(QuantConnect.Exceptions.PythonExceptionInterpreter):
+    """Interprets Python ModuleNotFoundError exceptions"""
 
     @property
     def order(self) -> int:

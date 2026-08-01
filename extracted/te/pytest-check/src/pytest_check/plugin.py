@@ -2,6 +2,7 @@ import sys
 import os
 import re
 from typing import Generator, TYPE_CHECKING
+from packaging import version
 
 import pytest
 from pytest import CallInfo, Config, Item, Parser, TestReport
@@ -9,8 +10,9 @@ from _pytest.skipping import xfailed_key
 from _pytest._code.code import (
     ExceptionChainRepr,
     ExceptionInfo,
-    ExceptionRepr,
+    ReprEntry,
     ReprFileLocation,
+    ReprTraceback,
 )
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -30,8 +32,8 @@ def pytest_runtest_call(item: Item) -> None:
     # if there's already a mark, don't bother
     if item.get_closest_marker("xfail"):
         return
-    
-    # now we have an xfailed check and the test is not already 
+
+    # now we have an xfailed check and the test is not already
     # marked, so we need to add the mark
     item.add_marker(pytest.mark.xfail(reason=xfail_reason))
 
@@ -74,9 +76,9 @@ def pytest_runtest_makereport(
                 raise AssertionError(report.longrepr)
             except AssertionError as e:
                 excinfo = ExceptionInfo.from_current()
-                if pytest.version_tuple >= (7, 3, 0) and not os.getenv(
-                    "PYTEST_XDIST_WORKER"
-                ):
+                if version.parse(pytest.__version__) >= version.parse(
+                    "7.3.0"
+                ) and not os.getenv("PYTEST_XDIST_WORKER"):
                     # Build a summary report with failure reason
                     # Depends on internals of pytest, which changed in 7.3
                     # Also, doesn't work with xdist
@@ -91,9 +93,17 @@ def pytest_runtest_makereport(
                     e_str = str(e)
                     e_str = e_str.split("FAILURE: ")[1]  # Remove redundant "Failure: "
                     reprcrash = ReprFileLocation(item.nodeid, 0, e_str)
-                    # FIXME - the next two lines have broken types
-                    reprtraceback = ExceptionRepr(reprcrash, excinfo)  # type: ignore
-                    chain_repr = ExceptionChainRepr([(reprtraceback, reprcrash, str(e))])  # type: ignore
+                    reprentry = ReprEntry(
+                            lines=[],
+                            reprfuncargs=None,
+                            reprlocals=None,
+                            reprfileloc=reprcrash,
+                            style="auto"
+                    )
+                    reprtraceback = ReprTraceback([reprentry], None, "auto")
+                    chain_repr = ExceptionChainRepr(
+                        [(reprtraceback, reprcrash, str(e))]
+                    ) 
                     report.longrepr = chain_repr
                 else:  # pragma: no cover
                     # coverage is run on latest pytest
@@ -181,6 +191,7 @@ def pytest_configure(config: Config) -> None:
     check_log._default_max_fail = config.getoption("--check-max-fail")
     check_log._default_max_report = config.getoption("--check-max-report")
     check_log._default_max_tb = config.getoption("--check-max-tb")
+    check_log._default_max_tb_line = config.getoption("--check-max-tb-line")
 
 
 # Allow for tests to grab "check" via fixture:
@@ -211,4 +222,15 @@ def pytest_addoption(parser: Parser) -> None:
         type=int,
         default=1,
         help="max pseudo-tracebacks per test",
+    )
+    parser.addoption(
+        "--check-max-tb-line",
+        action="store",
+        type=int,
+        default=None,
+        help=(
+            "max failures per test to show traceback lines for; failures up to "
+            "--check-max-tb use full pseudo-tracebacks, then line format is used "
+            "until this threshold is reached"
+        ),
     )

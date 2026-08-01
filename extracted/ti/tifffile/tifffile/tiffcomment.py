@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # tifffile/tiffcomment.py
 
+# Copyright (c) Christoph Gohlke
+# SPDX-License-Identifier: BSD-3-Clause
+
 """Print or replace ImageDescription in first page of TIFF file."""
 
 from __future__ import annotations

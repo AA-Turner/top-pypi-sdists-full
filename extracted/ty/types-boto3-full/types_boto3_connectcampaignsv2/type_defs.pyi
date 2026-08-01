@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_connectcampaignsv2.type_defs import AnswerMachineDetectionConfigTypeDef
+    from types_boto3_connectcampaignsv2.type_defs import AbandonmentRatePacingConfigTypeDef
 
-    data: AnswerMachineDetectionConfigTypeDef = ...
+    data: AbandonmentRatePacingConfigTypeDef = ...
     ```
 """
 
@@ -26,6 +26,7 @@ from .literals import (
     CampaignStateType,
     ChannelSubtypeType,
     CommunicationTimeConfigTypeType,
+    ConnectionStartPointType,
     DayOfWeekType,
     EventTypeType,
     ExternalCampaignTypeType,
@@ -45,6 +46,7 @@ else:
     from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
+    "AbandonmentRatePacingConfigTypeDef",
     "AnswerMachineDetectionConfigTypeDef",
     "CampaignFiltersTypeDef",
     "CampaignSummaryTypeDef",
@@ -127,8 +129,10 @@ __all__ = (
     "OpenHoursOutputTypeDef",
     "OpenHoursTypeDef",
     "OutboundRequestTypeDef",
+    "PacingStrategyTypeDef",
     "PaginatorConfigTypeDef",
     "PauseCampaignRequestTypeDef",
+    "PredictiveConfigOutputTypeDef",
     "PredictiveConfigTypeDef",
     "PreviewConfigOutputTypeDef",
     "PreviewConfigTypeDef",
@@ -194,6 +198,12 @@ __all__ = (
     "WhatsAppOutboundModeOutputTypeDef",
     "WhatsAppOutboundModeTypeDef",
 )
+
+class AbandonmentRatePacingConfigTypeDef(TypedDict):
+    targetRate: float
+    connectionStartPoint: ConnectionStartPointType
+    connectionThresholdSeconds: int
+    evaluationWindow: str
 
 class AnswerMachineDetectionConfigTypeDef(TypedDict):
     enableAnswerMachineDetection: bool
@@ -430,9 +440,6 @@ PauseCampaignRequestTypeDef = TypedDict(
     },
 )
 
-class PredictiveConfigTypeDef(TypedDict):
-    bandwidthAllocation: float
-
 class TimeoutConfigTypeDef(TypedDict):
     durationInSeconds: int
 
@@ -521,6 +528,9 @@ class WhatsAppOutboundModeOutputTypeDef(TypedDict):
 
 class WhatsAppOutboundModeTypeDef(TypedDict):
     agentless: NotRequired[Mapping[str, Any]]
+
+class PacingStrategyTypeDef(TypedDict):
+    abandonmentRate: NotRequired[AbandonmentRatePacingConfigTypeDef]
 
 class TelephonyChannelSubtypeParametersTypeDef(TypedDict):
     destinationPhoneNumber: str
@@ -712,6 +722,14 @@ class WhatsAppChannelSubtypeConfigTypeDef(TypedDict):
     defaultOutboundConfig: WhatsAppOutboundConfigTypeDef
     capacity: NotRequired[float]
 
+class PredictiveConfigOutputTypeDef(TypedDict):
+    bandwidthAllocation: float
+    pacingStrategies: NotRequired[list[PacingStrategyTypeDef]]
+
+class PredictiveConfigTypeDef(TypedDict):
+    bandwidthAllocation: float
+    pacingStrategies: NotRequired[Sequence[PacingStrategyTypeDef]]
+
 class ChannelSubtypeParametersTypeDef(TypedDict):
     telephony: NotRequired[TelephonyChannelSubtypeParametersTypeDef]
     sms: NotRequired[SmsChannelSubtypeParametersTypeDef]
@@ -777,9 +795,17 @@ class ListConnectInstanceIntegrationsResponseTypeDef(TypedDict):
 
 ScheduleUnionTypeDef = Union[ScheduleTypeDef, ScheduleOutputTypeDef]
 
+class TimeWindowOutputTypeDef(TypedDict):
+    openHours: OpenHoursOutputTypeDef
+    restrictedPeriods: NotRequired[RestrictedPeriodsOutputTypeDef]
+
+class TimeWindowTypeDef(TypedDict):
+    openHours: OpenHoursTypeDef
+    restrictedPeriods: NotRequired[RestrictedPeriodsTypeDef]
+
 class TelephonyOutboundModeOutputTypeDef(TypedDict):
     progressive: NotRequired[ProgressiveConfigTypeDef]
-    predictive: NotRequired[PredictiveConfigTypeDef]
+    predictive: NotRequired[PredictiveConfigOutputTypeDef]
     agentless: NotRequired[dict[str, Any]]
     preview: NotRequired[PreviewConfigOutputTypeDef]
 
@@ -788,14 +814,6 @@ class TelephonyOutboundModeTypeDef(TypedDict):
     predictive: NotRequired[PredictiveConfigTypeDef]
     agentless: NotRequired[Mapping[str, Any]]
     preview: NotRequired[PreviewConfigTypeDef]
-
-class TimeWindowOutputTypeDef(TypedDict):
-    openHours: OpenHoursOutputTypeDef
-    restrictedPeriods: NotRequired[RestrictedPeriodsOutputTypeDef]
-
-class TimeWindowTypeDef(TypedDict):
-    openHours: OpenHoursTypeDef
-    restrictedPeriods: NotRequired[RestrictedPeriodsTypeDef]
 
 class OutboundRequestTypeDef(TypedDict):
     clientToken: str
@@ -826,18 +844,6 @@ UpdateCampaignScheduleRequestTypeDef = TypedDict(
     },
 )
 
-class TelephonyChannelSubtypeConfigOutputTypeDef(TypedDict):
-    outboundMode: TelephonyOutboundModeOutputTypeDef
-    defaultOutboundConfig: TelephonyOutboundConfigTypeDef
-    capacity: NotRequired[float]
-    connectQueueId: NotRequired[str]
-
-class TelephonyChannelSubtypeConfigTypeDef(TypedDict):
-    outboundMode: TelephonyOutboundModeTypeDef
-    defaultOutboundConfig: TelephonyOutboundConfigTypeDef
-    capacity: NotRequired[float]
-    connectQueueId: NotRequired[str]
-
 class CommunicationTimeConfigOutputTypeDef(TypedDict):
     localTimeZoneConfig: LocalTimeZoneConfigOutputTypeDef
     telephony: NotRequired[TimeWindowOutputTypeDef]
@@ -851,6 +857,18 @@ class CommunicationTimeConfigTypeDef(TypedDict):
     sms: NotRequired[TimeWindowTypeDef]
     email: NotRequired[TimeWindowTypeDef]
     whatsApp: NotRequired[TimeWindowTypeDef]
+
+class TelephonyChannelSubtypeConfigOutputTypeDef(TypedDict):
+    outboundMode: TelephonyOutboundModeOutputTypeDef
+    defaultOutboundConfig: TelephonyOutboundConfigTypeDef
+    capacity: NotRequired[float]
+    connectQueueId: NotRequired[str]
+
+class TelephonyChannelSubtypeConfigTypeDef(TypedDict):
+    outboundMode: TelephonyOutboundModeTypeDef
+    defaultOutboundConfig: TelephonyOutboundConfigTypeDef
+    capacity: NotRequired[float]
+    connectQueueId: NotRequired[str]
 
 PutOutboundRequestBatchRequestTypeDef = TypedDict(
     "PutOutboundRequestBatchRequestTypeDef",
@@ -878,6 +896,10 @@ class PutInstanceCommunicationLimitsRequestTypeDef(TypedDict):
     connectInstanceId: str
     communicationLimitsConfig: InstanceCommunicationLimitsConfigUnionTypeDef
 
+CommunicationTimeConfigUnionTypeDef = Union[
+    CommunicationTimeConfigTypeDef, CommunicationTimeConfigOutputTypeDef
+]
+
 class ChannelSubtypeConfigOutputTypeDef(TypedDict):
     telephony: NotRequired[TelephonyChannelSubtypeConfigOutputTypeDef]
     sms: NotRequired[SmsChannelSubtypeConfigOutputTypeDef]
@@ -890,9 +912,13 @@ class ChannelSubtypeConfigTypeDef(TypedDict):
     email: NotRequired[EmailChannelSubtypeConfigTypeDef]
     whatsApp: NotRequired[WhatsAppChannelSubtypeConfigTypeDef]
 
-CommunicationTimeConfigUnionTypeDef = Union[
-    CommunicationTimeConfigTypeDef, CommunicationTimeConfigOutputTypeDef
-]
+UpdateCampaignCommunicationTimeRequestTypeDef = TypedDict(
+    "UpdateCampaignCommunicationTimeRequestTypeDef",
+    {
+        "id": str,
+        "communicationTimeConfig": CommunicationTimeConfigUnionTypeDef,
+    },
+)
 CampaignTypeDef = TypedDict(
     "CampaignTypeDef",
     {
@@ -914,13 +940,6 @@ CampaignTypeDef = TypedDict(
 ChannelSubtypeConfigUnionTypeDef = Union[
     ChannelSubtypeConfigTypeDef, ChannelSubtypeConfigOutputTypeDef
 ]
-UpdateCampaignCommunicationTimeRequestTypeDef = TypedDict(
-    "UpdateCampaignCommunicationTimeRequestTypeDef",
-    {
-        "id": str,
-        "communicationTimeConfig": CommunicationTimeConfigUnionTypeDef,
-    },
-)
 
 class DescribeCampaignResponseTypeDef(TypedDict):
     campaign: CampaignTypeDef

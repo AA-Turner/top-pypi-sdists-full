@@ -11,6 +11,7 @@ from __future__ import annotations
 import datetime
 import json
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -80,6 +81,10 @@ def write_test_summary(
 ) -> None:
     """Write a formatted test summary to GITHUB_STEP_SUMMARY.
 
+    Generic plumbing for any test type. The regression-test path no longer uses
+    it: it emits the richer concise summary built by
+    `airbyte_ops_mcp.regression_tests.report.render_inline_summary` instead.
+
     Args:
         connector_image: The connector image being tested.
         test_type: Type of test (e.g., "live-test", "regression-test").
@@ -133,6 +138,24 @@ def write_json_output(key: str, data: dict[str, Any] | list[Any]) -> None:
         f.write(f"\n{delimiter}\n")
 
 
+ARTIFACT_NAME_PREFIX = "regression-test-artifacts"
+
+
+def github_artifact_name(command: str) -> str:
+    """Name of the artifact this command's output is uploaded under.
+
+    The single source of truth for the artifact naming contract shared with
+    `.github/workflows/connector-regression-test.yml`, whose per-command
+    `actions/upload-artifact` steps use exactly this shape. Outside GitHub
+    Actions there is no run id, so the bare per-command name is returned.
+    """
+    run_id = os.getenv("GITHUB_RUN_ID", "")
+    if run_id:
+        return f"{ARTIFACT_NAME_PREFIX}-{command}-{run_id}"
+
+    return f"{ARTIFACT_NAME_PREFIX}-{command}"
+
+
 def _format_delta(delta: int) -> str:
     """Format a delta value with +/- prefix and highlight if non-zero."""
     if delta > 0:
@@ -142,7 +165,7 @@ def _format_delta(delta: int) -> str:
     return "0"
 
 
-def _get_github_run_url() -> str | None:
+def github_run_url() -> str | None:
     """Get the URL to the current GitHub Actions workflow run.
 
     Returns:
@@ -158,17 +181,121 @@ def _get_github_run_url() -> str | None:
     return f"{server_url}/{repository}/actions/runs/{run_id}"
 
 
-def _get_github_artifacts_url() -> str | None:
+def github_artifacts_url() -> str | None:
     """Get the URL to the artifacts section of the current workflow run.
+
+    GitHub offers no URL that deep-links to a file inside an artifact, so this
+    is the closest a report link can get: the reviewer downloads the artifact
+    from here and opens `report.html` locally.
 
     Returns:
         The artifacts section URL, or None if not running in GitHub Actions.
     """
-    run_url = _get_github_run_url()
+    run_url = github_run_url()
     if not run_url:
         return None
 
     return f"{run_url}#artifacts"
+
+
+@dataclass(frozen=True)
+class ComparisonOutcome:
+    """The derived outcome of comparing target and control results.
+
+    Exactly one of `both_succeeded`, `regression_detected`, `both_failed` and
+    `control_failed_only` is true. `check_improvement` is a sub-case of
+    `control_failed_only` and is the only way a run that is not
+    `both_succeeded` can still be a pass.
+    """
+
+    success: bool
+    regression_detected: bool
+    both_failed: bool
+    control_failed_only: bool
+    check_improvement: bool
+    both_succeeded: bool
+
+
+def command_result_succeeded(command: str, result: dict[str, Any]) -> bool:
+    """Whether a single connector run passed the given command.
+
+    The run must always exit cleanly. For `check` it must additionally report
+    `connectionStatus: SUCCEEDED`: the CDK exits 0 even when a check fails, so
+    the exit code alone would call a failed check a pass. A `check` run that
+    reports no status at all fails closed -- we cannot call that a pass.
+
+    This is the single per-version rule shared by comparison mode
+    (`evaluate_comparison_outcome`) and single-version mode.
+    """
+    if not result["success"]:
+        return False
+
+    if command == "check":
+        return result.get("connection_status") == "SUCCEEDED"
+
+    return True
+
+
+def _describe_run(command: str, result: dict[str, Any]) -> str:
+    """Describe what one side of a comparison actually did, for the report.
+
+    Never asserts a `connectionStatus` the run did not report: for `check` the
+    verdict also depends on the exit code, so a run that reports SUCCEEDED and
+    then exits nonzero is a failure that must not be described as
+    "connectionStatus FAILED".
+    """
+    exit_code = result["exit_code"]
+
+    if command != "check":
+        return "succeeded" if result["success"] else f"failed (exit {exit_code})"
+
+    status = result.get("connection_status")
+
+    if not result["success"]:
+        if status:
+            return f"exited {exit_code} after reporting connectionStatus {status}"
+        return f"exited {exit_code} with no connectionStatus"
+
+    if status is None:
+        return "exited 0 but reported no connectionStatus"
+
+    return f"connectionStatus {status}"
+
+
+def evaluate_comparison_outcome(
+    command: str,
+    target_result: dict[str, Any],
+    control_result: dict[str, Any],
+) -> ComparisonOutcome:
+    """Evaluate the pass/fail outcome for a target and control comparison.
+
+    Any failure on either side fails the test. A run where both versions failed
+    is inconclusive rather than a pass, and so is a run where only the control
+    failed: there is nothing left to compare the target against. The single
+    exception is `check`, where a target that connects while the control
+    cleanly reports FAILED is an improvement, not a failure.
+    """
+    target_ok = command_result_succeeded(command, target_result)
+    control_ok = command_result_succeeded(command, control_result)
+    check_improvement = False
+
+    if command == "check":
+        # An improvement requires the control to have run cleanly and reported
+        # FAILED. A control with no status is inconclusive, not an improvement.
+        check_improvement = (
+            target_ok
+            and control_result.get("connection_status") == "FAILED"
+            and bool(control_result["success"])
+        )
+
+    return ComparisonOutcome(
+        success=target_ok and (control_ok or check_improvement),
+        regression_detected=not target_ok and control_ok,
+        both_failed=not target_ok and not control_ok,
+        control_failed_only=target_ok and not control_ok,
+        check_improvement=check_improvement,
+        both_succeeded=target_ok and control_ok,
+    )
 
 
 def generate_action_test_comparison_report(
@@ -197,20 +324,7 @@ def generate_action_test_comparison_report(
     Returns:
         Path to the generated report.md file.
     """
-    both_succeeded = target_result["success"] and control_result["success"]
-    regression_detected = target_result["success"] != control_result["success"]
-
-    # For CHECK, override pass/fail using connectionStatus instead of exit
-    # codes.  The CDK exits 0 even when a check fails; the real signal is in
-    # CONNECTION_STATUS.status.
-    if command == "check":
-        target_conn = target_result.get("connection_status")
-        control_conn = control_result.get("connection_status")
-        if target_conn is not None and control_conn is not None:
-            both_succeeded = target_conn == "SUCCEEDED" and control_conn == "SUCCEEDED"
-            regression_detected = (
-                target_conn == "FAILED" and control_conn == "SUCCEEDED"
-            )
+    outcome = evaluate_comparison_outcome(command, target_result, control_result)
 
     target_counts = target_result.get("message_counts", {})
     control_counts = control_result.get("message_counts", {})
@@ -233,57 +347,55 @@ def generate_action_test_comparison_report(
         "",
     ]
 
-    # For CHECK with connectionStatus, also detect improvement (not a regression)
-    check_improvement = False
-    if command == "check":
-        target_conn = target_result.get("connection_status")
-        control_conn = control_result.get("connection_status")
-        if target_conn == "SUCCEEDED" and control_conn == "FAILED":
-            check_improvement = True
+    # Describe what each side actually did rather than restating the verdict: for
+    # `check` the verdict folds in the exit code as well as connectionStatus, so a
+    # fixed "connectionStatus FAILED" would contradict the table below whenever a
+    # side reports SUCCEEDED and then exits nonzero.
+    sides = (
+        f"Target {_describe_run(command, target_result)}, "
+        f"control {_describe_run(command, control_result)}"
+    )
 
-    if check_improvement:
-        lines.append(
-            "**Result:** Target connectionStatus SUCCEEDED, "
-            "control FAILED (improvement, not a regression)"
-        )
-    elif regression_detected:
-        if command == "check":
-            lines.append(
-                "**Result:** Target connectionStatus FAILED, "
-                "control SUCCEEDED (**REGRESSION DETECTED**)"
-            )
-        elif target_result["success"] and not control_result["success"]:
-            lines.append("**Result:** Target succeeded, control failed (improvement)")
-        else:
-            lines.append(
-                "**Result:** Target FAILED, control succeeded (**REGRESSION DETECTED**)"
-            )
-    elif both_succeeded:
+    if outcome.check_improvement:
+        lines.append(f"**Result:** {sides} — improvement, not a regression")
+    elif outcome.regression_detected:
+        lines.append(f"**Result:** {sides} — **REGRESSION DETECTED**")
+    elif outcome.both_succeeded:
+        # A pass requires a clean exit on both sides (plus SUCCEEDED for `check`),
+        # so this line cannot disagree with the per-version rows.
         lines.append("**Result:** Both versions succeeded (no regression)")
+    elif outcome.both_failed:
+        lines.append(
+            f"**Result:** {sides} — **TEST FAILED** (inconclusive, cannot rule out "
+            "a regression)"
+        )
     else:
-        lines.append("**Result:** Both versions failed")
+        lines.append(
+            f"**Result:** {sides} — **TEST FAILED** (inconclusive, nothing to "
+            "compare the target against)"
+        )
 
-    # Use emojis for better scanability
-    control_emoji = "✅" if control_result["success"] else "❌"
-    target_emoji = "✅" if target_result["success"] else "❌"
+    # Use emojis for better scanability. The Result column comes from the shared
+    # per-version rule rather than a local re-derivation, so it agrees with the
+    # verdict for every combination of exit code and connectionStatus -- including
+    # a `check` that exits 0 without reporting a status, which fails closed.
+    control_emoji = "✅" if command_result_succeeded(command, control_result) else "❌"
+    target_emoji = "✅" if command_result_succeeded(command, target_result) else "❌"
 
-    # For CHECK, show connectionStatus alongside exit code and derive the
-    # Result column from connectionStatus (which is the real signal) rather
-    # than the exit code.
+    # For CHECK, show connectionStatus alongside the exit code: connectionStatus
+    # is the real signal (the CDK exits 0 even when a check fails), but a version
+    # only passes when it also exited cleanly.
     if command == "check":
         target_conn = target_result.get("connection_status")
         control_conn = control_result.get("connection_status")
+        # "—" in the connectionStatus column means no status was reported; the
+        # Result column above already treats that as a failure.
         conn_control_emoji = (
             "✅" if control_conn == "SUCCEEDED" else "❌" if control_conn else "—"
         )
         conn_target_emoji = (
             "✅" if target_conn == "SUCCEEDED" else "❌" if target_conn else "—"
         )
-        # Override the Result column with connectionStatus when available
-        if control_conn is not None:
-            control_emoji = conn_control_emoji
-        if target_conn is not None:
-            target_emoji = conn_target_emoji
         lines.extend(
             [
                 "",
@@ -411,12 +523,7 @@ def generate_single_version_report(
     message_counts = result.get("message_counts", {})
     record_counts = result.get("record_counts_per_stream", {})
 
-    run_id = os.getenv("GITHUB_RUN_ID", "")
-    artifact_name = (
-        f"regression-test-artifacts-{command}-{run_id}"
-        if run_id
-        else f"regression-test-artifacts-{command}"
-    )
+    artifact_name = github_artifact_name(command)
 
     version = (
         connector_image.rsplit(":", 1)[-1] if ":" in connector_image else "unknown"
@@ -425,8 +532,8 @@ def generate_single_version_report(
         connector_image.rsplit(":", 1)[0] if ":" in connector_image else connector_image
     )
 
-    run_url = _get_github_run_url()
-    artifacts_url = _get_github_artifacts_url()
+    run_url = github_run_url()
+    artifacts_url = github_artifacts_url()
 
     # Get tester identity from environment (GitHub Actions sets GITHUB_ACTOR)
     tester = os.getenv("GITHUB_ACTOR") or os.getenv("USER") or "unknown"
@@ -451,15 +558,29 @@ def generate_single_version_report(
     else:
         lines.append(f"- **Artifacts:** `{artifact_name}`")
 
+    # Single-version mode uses the same per-version rule as comparison mode, so a
+    # `check` that exits 0 with connectionStatus FAILED is a FAIL, not a pass.
+    succeeded = command_result_succeeded(command, result)
+
     lines.extend(
         [
             "",
             "### Summary",
             "",
-            f"**Result:** {'PASS' if result['success'] else 'FAIL'}",
+            f"**Result:** {'PASS' if succeeded else 'FAIL'}",
             "",
             f"- **Exit Code:** {result['exit_code']}",
-            f"- **Success:** {result['success']}",
+        ]
+    )
+
+    if command == "check":
+        lines.append(
+            f"- **connectionStatus:** {result.get('connection_status') or 'N/A'}"
+        )
+
+    lines.extend(
+        [
+            f"- **Success:** {succeeded}",
             "",
         ]
     )
@@ -511,27 +632,3 @@ def generate_single_version_report(
     report_path.write_text(report_content)
 
     return report_path
-
-
-def get_report_summary(report_path: Path) -> str:
-    """Get a brief summary pointing to the full report.
-
-    Returns:
-        Brief markdown summary for GITHUB_STEP_SUMMARY.
-    """
-    run_id = os.getenv("GITHUB_RUN_ID", "")
-    artifact_name = (
-        f"regression-test-artifacts-{run_id}" if run_id else "regression-test-artifacts"
-    )
-
-    artifacts_url = _get_github_artifacts_url()
-    artifact_link = (
-        f"[`{artifact_name}`]({artifacts_url})"
-        if artifacts_url
-        else f"`{artifact_name}`"
-    )
-
-    return f"""## Regression Test Report
-
-Full report available in artifact {artifact_link}.
-"""

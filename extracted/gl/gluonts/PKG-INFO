@@ -1,105 +1,140 @@
 Metadata-Version: 2.4
 Name: gluonts
-Version: 0.16.3
+Version: 0.17.0
 Summary: Probabilistic time series modeling in Python.
-Home-page: https://github.com/awslabs/gluonts/
-Author: Amazon
-Author-email: gluon-ts-dev@amazon.com
-Maintainer-email: gluon-ts-dev@amazon.com
-License: Apache License 2.0
+Project-URL: Homepage, https://github.com/awslabs/gluonts/
 Project-URL: Documentation, https://ts.gluon.ai/stable/
-Project-URL: Source Code, https://github.com/awslabs/gluonts/
-Requires-Python: >=3.7
-Description-Content-Type: text/markdown
+Project-URL: Repository, https://github.com/awslabs/gluonts/
+Project-URL: Issues, https://github.com/awslabs/gluonts/issues
+Author-email: Amazon <gluon-ts-dev@amazon.com>
+Maintainer-email: gluon-ts-dev@amazon.com
+License: Apache-2.0
 License-File: LICENSE
-Requires-Dist: numpy<2.5,>=1.16
-Requires-Dist: pandas<3,>=1.0
+License-File: NOTICE
+Keywords: deep learning,forecasting,machine learning,probabilistic forecasting,time series
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: <3.15,>=3.10
+Requires-Dist: numpy<3,>=1.16; python_version < '3.12'
+Requires-Dist: numpy<3,>=1.24; python_version >= '3.12'
+Requires-Dist: pandas<3,>=1.4
 Requires-Dist: pydantic<3,>=1.7
-Requires-Dist: tqdm~=4.23
 Requires-Dist: toolz~=0.10
+Requires-Dist: tqdm~=4.23
 Requires-Dist: typing-extensions~=4.0
 Provides-Extra: arrow
-Requires-Dist: pyarrow; extra == "arrow"
+Requires-Dist: pyarrow; extra == 'arrow'
 Provides-Extra: dev
-Requires-Dist: pyarrow; extra == "dev"
-Requires-Dist: ipython; extra == "dev"
-Requires-Dist: ipykernel~=6.5; extra == "dev"
-Requires-Dist: nbconvert~=6.5.1; extra == "dev"
-Requires-Dist: nbsphinx~=0.9.7; extra == "dev"
-Requires-Dist: notedown; extra == "dev"
-Requires-Dist: lxml~=5.1.0; extra == "dev"
-Requires-Dist: pytest-runner~=2.11; extra == "dev"
-Requires-Dist: recommonmark; extra == "dev"
-Requires-Dist: sphinx~=5.0; extra == "dev"
-Requires-Dist: docutils~=0.19.0; extra == "dev"
-Requires-Dist: optuna~=2.10; extra == "dev"
-Requires-Dist: furo==2022.6.4.1; extra == "dev"
-Requires-Dist: m2r2; extra == "dev"
-Requires-Dist: myst-parser; extra == "dev"
-Requires-Dist: click; extra == "dev"
-Requires-Dist: orjson; extra == "dev"
-Requires-Dist: black; extra == "dev"
-Requires-Dist: holidays~=0.9; extra == "dev"
-Requires-Dist: matplotlib~=3.6; extra == "dev"
-Requires-Dist: pandas>=1.1; extra == "dev"
-Requires-Dist: pytest>7.0; extra == "dev"
-Requires-Dist: pytest-cov<5.0,>4.0; extra == "dev"
-Requires-Dist: pytest-timeout<3.0,>2.0; extra == "dev"
-Requires-Dist: pytest-xdist<4.0,>3.0; extra == "dev"
-Requires-Dist: pytest-rerunfailures<14.0,>=13.0; extra == "dev"
-Requires-Dist: ujson; extra == "dev"
-Requires-Dist: orjson; extra == "dev"
-Requires-Dist: requests; extra == "dev"
-Requires-Dist: holidays~=0.9; extra == "dev"
-Requires-Dist: matplotlib~=3.6; extra == "dev"
-Requires-Dist: flask~=3.0; extra == "dev"
-Requires-Dist: waitress~=3.0.1; extra == "dev"
-Requires-Dist: sagemaker>2.214.3,~=2.0; extra == "dev"
-Requires-Dist: s3fs~=0.6; python_version >= "3.7.0" and extra == "dev"
-Requires-Dist: s3fs~=0.5; python_version < "3.7.0" and extra == "dev"
-Requires-Dist: fsspec<0.9,~=0.8; python_version < "3.7.0" and extra == "dev"
+Requires-Dist: black>=26.3.1; extra == 'dev'
+Requires-Dist: click; extra == 'dev'
+Requires-Dist: docutils~=0.19.0; extra == 'dev'
+Requires-Dist: flask~=3.0; extra == 'dev'
+Requires-Dist: furo==2022.6.4.1; extra == 'dev'
+Requires-Dist: holidays~=0.9; extra == 'dev'
+Requires-Dist: ipykernel~=6.5; extra == 'dev'
+Requires-Dist: ipython; extra == 'dev'
+Requires-Dist: lxml~=5.1.0; extra == 'dev'
+Requires-Dist: m2r2; extra == 'dev'
+Requires-Dist: matplotlib~=3.6; extra == 'dev'
+Requires-Dist: myst-parser; extra == 'dev'
+Requires-Dist: nbconvert~=6.5.1; extra == 'dev'
+Requires-Dist: nbsphinx~=0.9.7; extra == 'dev'
+Requires-Dist: notedown; extra == 'dev'
+Requires-Dist: optuna~=2.10; extra == 'dev'
+Requires-Dist: orjson; extra == 'dev'
+Requires-Dist: pandas>=1.4; extra == 'dev'
+Requires-Dist: pyarrow; extra == 'dev'
+Requires-Dist: pytest-cov<5.0,>4.0; extra == 'dev'
+Requires-Dist: pytest-rerunfailures<14.0,>=13.0; extra == 'dev'
+Requires-Dist: pytest-runner~=2.11; extra == 'dev'
+Requires-Dist: pytest-timeout<3.0,>2.0; extra == 'dev'
+Requires-Dist: pytest-xdist<4.0,>3.0; extra == 'dev'
+Requires-Dist: pytest>7.0; extra == 'dev'
+Requires-Dist: recommonmark; extra == 'dev'
+Requires-Dist: requests; extra == 'dev'
+Requires-Dist: s3fs~=0.6; extra == 'dev'
+Requires-Dist: sagemaker>2.214.3,~=2.0; extra == 'dev'
+Requires-Dist: setuptools<71; extra == 'dev'
+Requires-Dist: sphinx~=5.0; extra == 'dev'
+Requires-Dist: ujson; extra == 'dev'
+Requires-Dist: waitress~=3.0.1; extra == 'dev'
 Provides-Extra: docs
-Requires-Dist: ipython; extra == "docs"
-Requires-Dist: ipykernel~=6.5; extra == "docs"
-Requires-Dist: nbconvert~=6.5.1; extra == "docs"
-Requires-Dist: nbsphinx~=0.9.7; extra == "docs"
-Requires-Dist: notedown; extra == "docs"
-Requires-Dist: lxml~=5.1.0; extra == "docs"
-Requires-Dist: pytest-runner~=2.11; extra == "docs"
-Requires-Dist: recommonmark; extra == "docs"
-Requires-Dist: sphinx~=5.0; extra == "docs"
-Requires-Dist: docutils~=0.19.0; extra == "docs"
-Requires-Dist: optuna~=2.10; extra == "docs"
-Requires-Dist: furo==2022.6.4.1; extra == "docs"
-Requires-Dist: m2r2; extra == "docs"
-Requires-Dist: myst-parser; extra == "docs"
-Requires-Dist: click; extra == "docs"
-Requires-Dist: orjson; extra == "docs"
-Requires-Dist: black; extra == "docs"
-Requires-Dist: holidays~=0.9; extra == "docs"
-Requires-Dist: matplotlib~=3.6; extra == "docs"
-Provides-Extra: mxnet
-Requires-Dist: numpy<1.24; extra == "mxnet"
-Requires-Dist: mxnet~=1.7; extra == "mxnet"
-Provides-Extra: r
-Requires-Dist: rpy2<3.6,~=3.5; extra == "r"
-Provides-Extra: prophet
-Requires-Dist: prophet~=1.0; extra == "prophet"
+Requires-Dist: black>=26.3.1; extra == 'docs'
+Requires-Dist: click; extra == 'docs'
+Requires-Dist: docutils~=0.19.0; extra == 'docs'
+Requires-Dist: furo==2022.6.4.1; extra == 'docs'
+Requires-Dist: holidays~=0.9; extra == 'docs'
+Requires-Dist: ipykernel~=6.5; extra == 'docs'
+Requires-Dist: ipython; extra == 'docs'
+Requires-Dist: lxml~=5.1.0; extra == 'docs'
+Requires-Dist: m2r2; extra == 'docs'
+Requires-Dist: matplotlib~=3.6; extra == 'docs'
+Requires-Dist: myst-parser; extra == 'docs'
+Requires-Dist: nbconvert~=6.5.1; extra == 'docs'
+Requires-Dist: nbsphinx~=0.9.7; extra == 'docs'
+Requires-Dist: notedown; extra == 'docs'
+Requires-Dist: optuna~=2.10; extra == 'docs'
+Requires-Dist: orjson; extra == 'docs'
+Requires-Dist: pytest-runner~=2.11; extra == 'docs'
+Requires-Dist: recommonmark; extra == 'docs'
+Requires-Dist: setuptools<71; extra == 'docs'
+Requires-Dist: sphinx~=5.0; extra == 'docs'
+Provides-Extra: hierarchicalforecast
+Requires-Dist: hierarchicalforecast~=0.3; extra == 'hierarchicalforecast'
+Requires-Dist: statsforecast~=1.0; extra == 'hierarchicalforecast'
+Provides-Extra: m-competitions
+Requires-Dist: statsmodels~=0.11; extra == 'm-competitions'
 Provides-Extra: pro
-Requires-Dist: pyarrow; extra == "pro"
-Requires-Dist: orjson; extra == "pro"
+Requires-Dist: orjson; extra == 'pro'
+Requires-Dist: pyarrow; extra == 'pro'
+Provides-Extra: prophet
+Requires-Dist: prophet~=1.0; extra == 'prophet'
+Provides-Extra: r
+Requires-Dist: rpy2<3.6,~=3.5; extra == 'r'
+Provides-Extra: rotbaum
+Requires-Dist: scikit-learn~=1.0; extra == 'rotbaum'
+Requires-Dist: xgboost<2,>=0.90; extra == 'rotbaum'
+Provides-Extra: rotbaum-extra
+Requires-Dist: cython<3.0; extra == 'rotbaum-extra'
+Requires-Dist: lightgbm>=2.3.1; extra == 'rotbaum-extra'
+Provides-Extra: sagemaker
+Requires-Dist: s3fs~=0.6; extra == 'sagemaker'
+Requires-Dist: sagemaker>2.214.3,~=2.0; extra == 'sagemaker'
 Provides-Extra: shell
-Requires-Dist: flask~=3.0; extra == "shell"
-Requires-Dist: waitress~=3.0.1; extra == "shell"
+Requires-Dist: flask~=3.0; extra == 'shell'
+Requires-Dist: waitress~=3.0.1; extra == 'shell'
+Provides-Extra: statsforecast
+Requires-Dist: scipy; extra == 'statsforecast'
+Requires-Dist: statsforecast~=1.0; extra == 'statsforecast'
+Provides-Extra: test
+Requires-Dist: holidays~=0.9; extra == 'test'
+Requires-Dist: matplotlib~=3.6; extra == 'test'
+Requires-Dist: orjson; extra == 'test'
+Requires-Dist: pandas>=1.4; extra == 'test'
+Requires-Dist: pytest-cov<5.0,>4.0; extra == 'test'
+Requires-Dist: pytest-rerunfailures<14.0,>=13.0; extra == 'test'
+Requires-Dist: pytest-timeout<3.0,>2.0; extra == 'test'
+Requires-Dist: pytest-xdist<4.0,>3.0; extra == 'test'
+Requires-Dist: pytest>7.0; extra == 'test'
+Requires-Dist: requests; extra == 'test'
+Requires-Dist: ujson; extra == 'test'
 Provides-Extra: torch
-Requires-Dist: torch<3,>=1.9; extra == "torch"
-Requires-Dist: lightning<2.5,>=2.2.2; extra == "torch"
-Requires-Dist: pytorch_lightning<2.5,>=2.2.2; extra == "torch"
-Requires-Dist: scipy<1.16.0; python_version > "3.7.0" and extra == "torch"
-Requires-Dist: scipy~=1.7.3; python_version <= "3.7.0" and extra == "torch"
-Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
+Requires-Dist: lightning<2.7,>=2.2.2; extra == 'torch'
+Requires-Dist: pytorch-lightning<2.7,>=2.2.2; extra == 'torch'
+Requires-Dist: scipy; extra == 'torch'
+Requires-Dist: torch<3,>=2.10; extra == 'torch'
+Description-Content-Type: text/markdown
 
 <img class="hide-on-website" height="100px" src="https://ts.gluon.ai/dev/_static/gluonts.svg">
 
@@ -109,25 +144,39 @@ Dynamic: requires-dist
 [![GitHub](https://img.shields.io/github/license/awslabs/gluonts.svg?style=flat-square&color=df7e66)](./LICENSE)
 [![Static](https://img.shields.io/static/v1?label=docs&message=stable&color=edc775&style=flat-square)](https://ts.gluon.ai/)
 [![Static](https://img.shields.io/static/v1?label=docs&message=dev&color=edc775&style=flat-square)](https://ts.gluon.ai/dev/)
-[![PyPI Downloads](https://img.shields.io/pypi/dm/gluonts?style=flat-square&color=94b594)](https://pepy.tech/project/gluonts)
+[![PyPI Downloads](https://static.pepy.tech/badge/gluonts/month)](https://pepy.tech/projects/gluonts)
 
 **📢 BREAKING NEWS**: We released **Chronos**, a suite of pretrained models for zero-shot time series forecasting. Chronos can generate accurate probabilistic predictions for new time series not seen during training. Check it out [here](https://github.com/amazon-science/chronos-forecasting)!
 
 GluonTS is a Python package for probabilistic time series modeling, focusing on deep learning based models,
-based on [PyTorch](https://pytorch.org) and [MXNet](https://mxnet.apache.org).
+based on [PyTorch](https://pytorch.org).
 
 
 ## Installation
 
-GluonTS requires Python 3.7 or newer, and the easiest way to install it is via
-`pip`:
+GluonTS requires Python 3.10 to 3.14. We recommend using
+[uv](https://github.com/astral-sh/uv) for managing environments:
 
 ```bash
 # install with support for torch models
-pip install "gluonts[torch]"
+uv pip install "gluonts[torch]"
+```
 
-# install with support for mxnet models
-pip install "gluonts[mxnet]"
+For development:
+
+```bash
+# clone the repository
+git clone https://github.com/awslabs/gluonts.git
+cd gluonts
+
+# install with all development dependencies
+uv sync --all-extras
+```
+
+You can also install via `pip`:
+
+```bash
+pip install "gluonts[torch]"
 ```
 
 See the [documentation](https://ts.gluon.ai/stable/getting_started/install.html)

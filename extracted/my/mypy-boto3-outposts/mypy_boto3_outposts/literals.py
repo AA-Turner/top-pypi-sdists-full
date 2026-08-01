@@ -88,7 +88,7 @@ __all__ = (
 )
 
 
-AWSServiceNameType = Literal["AWS", "EC2", "ELASTICACHE", "ELB", "RDS", "ROUTE53"]
+AWSServiceNameType = Literal["AWS", "EC2", "EKS", "ELASTICACHE", "ELB", "RDS", "ROUTE53"]
 AddressTypeType = Literal["OPERATING_ADDRESS", "SHIPPING_ADDRESS"]
 AssetStateType = Literal["ACTIVE", "INSTALLING", "ISOLATED", "RETIRING"]
 AssetTypeType = Literal["COMPUTE", "NETWORKING", "POWERSHELF", "STORAGE", "SWITCH"]
@@ -528,6 +528,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -545,6 +546,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

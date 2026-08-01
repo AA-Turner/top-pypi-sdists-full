@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+
 from pydantic_ai_backends import (
     AsyncBackendAdapter,
     AsyncCompositeBackend,
@@ -360,3 +362,132 @@ async def test_ensure_async_on_composite_backend() -> None:
     async_adapter = ensure_async(sync_composite)
     content = await async_adapter.read("/tmp/file.txt")
     assert "data" in content
+
+
+class _RecordingExecutor(ThreadPoolExecutor):
+    """Thread pool that records how many calls it was handed."""
+
+    def __init__(self) -> None:
+        super().__init__(max_workers=2)
+        self.submissions = 0
+
+    def submit(self, fn, /, *args, **kwargs):  # type: ignore[override]
+        self.submissions += 1
+        return super().submit(fn, *args, **kwargs)
+
+
+async def test_adapter_uses_the_supplied_executor() -> None:
+    """A dedicated pool keeps long sandbox commands off asyncio's shared one."""
+    executor = _RecordingExecutor()
+    try:
+        adapter = AsyncBackendAdapter(StateBackend(), executor=executor)
+        await adapter.write("/f.txt", "hello")
+        assert await adapter.read("/f.txt") == "     1\thello"
+        assert executor.submissions == 2
+    finally:
+        executor.shutdown(wait=True)
+
+
+async def test_adapter_falls_back_to_the_default_executor() -> None:
+    executor = _RecordingExecutor()
+    try:
+        adapter = AsyncBackendAdapter(StateBackend())
+        await adapter.write("/f.txt", "hello")
+        assert executor.submissions == 0
+    finally:
+        executor.shutdown(wait=True)
+
+
+async def test_ensure_async_passes_the_executor_to_a_new_adapter() -> None:
+    executor = _RecordingExecutor()
+    try:
+        backend = ensure_async(StateBackend(), executor=executor)
+        await backend.write("/f.txt", "hi")
+        assert executor.submissions == 1
+    finally:
+        executor.shutdown(wait=True)
+
+
+async def test_ensure_async_keeps_an_existing_adapter_and_its_executor() -> None:
+    """Idempotency is what lets one pool serve every call site."""
+    executor = _RecordingExecutor()
+    try:
+        adapter = AsyncSandboxAdapter(SandboxBackend(), executor=executor)
+        assert ensure_async(adapter, executor=None) is adapter
+        await adapter.execute("echo hi")
+        assert executor.submissions == 1
+    finally:
+        executor.shutdown(wait=True)
+
+
+class TestAsyncDetection:
+    """Mistaking an async backend for a sync one is a silent, expensive bug."""
+
+    def test_an_async_base_sandbox_passes_through_untouched(self):
+        """Recognised by its base class, with no method-shape guessing."""
+        from pydantic_ai_backends import AsyncBaseSandbox, ensure_async
+        from pydantic_ai_backends.types import EditResult, ExecuteResponse
+
+        class SSHish(AsyncBaseSandbox):
+            async def execute(self, command: str, timeout: int | None = None) -> ExecuteResponse:
+                return ExecuteResponse(output="", exit_code=0)
+
+            async def edit(self, path, old, new, replace_all=False) -> EditResult:
+                return EditResult(path=path)
+
+        sandbox = SSHish()
+
+        assert ensure_async(sandbox) is sandbox
+
+    def test_a_hand_rolled_async_backend_is_still_recognised(self):
+        """The fallback, for a backend that inherits from nothing of ours."""
+        from pydantic_ai_backends import ensure_async
+        from pydantic_ai_backends.adapter import is_async_backend
+
+        class HandRolled:
+            async def read_bytes(self, path: str) -> bytes:
+                return b""
+
+            async def execute(self, command: str, timeout: int | None = None): ...
+
+        backend = HandRolled()
+
+        assert is_async_backend(backend) is True
+        assert ensure_async(backend) is backend
+
+    def test_the_legacy_read_bytes_name_is_recognised_too(self):
+        """Wrapped in a thread adapter, its coroutine would be returned as bytes."""
+        from pydantic_ai_backends import ensure_async
+        from pydantic_ai_backends.adapter import is_async_backend
+
+        class LegacyNames:
+            async def _read_bytes(self, path: str) -> bytes:
+                return b""
+
+            async def execute(self, command: str, timeout: int | None = None): ...
+
+        backend = LegacyNames()
+
+        assert is_async_backend(backend) is True
+        assert ensure_async(backend) is backend
+
+    def test_a_sync_backend_is_not_mistaken_for_an_async_one(self):
+        from pydantic_ai_backends import StateBackend
+        from pydantic_ai_backends.adapter import is_async_backend
+
+        assert is_async_backend(StateBackend()) is False
+
+    def test_a_sync_base_sandbox_is_not_mistaken_either(self):
+        """Both bases have identical method names, so only the class tells them apart."""
+        from pydantic_ai_backends import BaseSandbox
+        from pydantic_ai_backends.adapter import is_async_backend
+        from pydantic_ai_backends.types import EditResult, ExecuteResponse
+
+        class Blocking(BaseSandbox):
+            def execute(self, command: str, timeout: int | None = None) -> ExecuteResponse:
+                return ExecuteResponse(output="", exit_code=0)
+
+            def edit(self, path, old, new, replace_all=False) -> EditResult:
+                return EditResult(path=path)
+
+        assert is_async_backend(Blocking()) is False

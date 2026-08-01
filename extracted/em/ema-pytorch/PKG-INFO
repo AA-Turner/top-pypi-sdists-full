@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ema-pytorch
-Version: 0.8.2
+Version: 0.8.3
 Summary: Easy way to keep track of exponential moving average version of your pytorch module
 Project-URL: Homepage, https://github.com/lucidrains/ema-pytorch
 Project-URL: Repository, https://github.com/lucidrains/ema-pytorch

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Implementation of execution-related magic functions."""
 
 # Copyright (c) IPython Development Team.
@@ -8,7 +7,6 @@
 import ast
 import bdb
 import builtins as builtin_mod
-import copy
 import cProfile as profile
 import gc
 import itertools
@@ -20,28 +18,18 @@ import shlex
 import sys
 import time
 import timeit
-import signal
-from typing import Dict, Any
+from typing import Any
 from ast import (
-    Assign,
-    Call,
-    Expr,
-    Load,
     Module,
-    Name,
-    NodeTransformer,
-    Store,
-    parse,
-    unparse,
 )
 from io import StringIO
 from logging import error
 from pathlib import Path
 from pdb import Restart
-from textwrap import dedent, indent
+from textwrap import indent
 from warnings import warn
 
-from IPython.core import magic_arguments, oinspect, page
+from IPython.core import magic_arguments, page
 from IPython.core.displayhook import DisplayHook
 from IPython.core.error import UsageError
 from IPython.core.macro import Macro
@@ -117,7 +105,7 @@ class TimeitResult:
             try:
                 "\xb1".encode(sys.stdout.encoding)
                 pm = "\xb1"
-            except:
+            except (UnicodeEncodeError, LookupError):
                 pass
         return "{mean} {pm} {std} per loop (mean {pm} std. dev. of {runs} run{run_plural}, {loops:,} loop{loop_plural} each)".format(
             pm=pm,
@@ -192,10 +180,10 @@ class Timer(timeit.Timer):
 class ExecutionMagics(Magics):
     """Magics related to code execution, debugging, profiling, etc."""
 
-    _transformers: Dict[str, Any] = {}
+    _transformers: dict[str, Any] = {}
 
     def __init__(self, shell):
-        super(ExecutionMagics, self).__init__(shell)
+        super().__init__(shell)
         # Default execution function used to actually run user code.
         self.default_runner = None
 
@@ -712,7 +700,7 @@ class ExecutionMagics(Magics):
                 else:
                     # Positional arg, break
                     break
-            parameter_s = ' '.join(shlex.quote(arg) for arg in argv)
+            parameter_s = shlex.join(argv)
 
         # get arguments and set sys.argv for program to be run.
         opts, arg_lst = self.parse_options(parameter_s,
@@ -732,7 +720,7 @@ class ExecutionMagics(Magics):
         except IndexError as e:
             msg = 'you must provide at least a filename.'
             raise Exception(msg) from e
-        except IOError as e:
+        except OSError as e:
             try:
                 msg = str(e)
             except UnicodeError:
@@ -969,7 +957,7 @@ class ExecutionMagics(Magics):
                            "with the -b option." % bp)
                     raise UsageError(msg)
             # if we find a good linenumber, set the breakpoint
-            deb.do_break('%s:%s' % (bp_file, bp_line))
+            deb.do_break('{}:{}'.format(bp_file, bp_line))
 
         if filename:
             # Mimic Pdb._runscript(...)
@@ -1053,8 +1041,8 @@ class ExecutionMagics(Magics):
             print("\nIPython CPU timings (estimated):")
             print("Total runs performed:", nruns)
             print("  Times  : %10s   %10s" % ('Total', 'Per run'))
-            print("  User   : %10.2f s, %10.2f s." % (t_usr, t_usr / nruns))
-            print("  System : %10.2f s, %10.2f s." % (t_sys, t_sys / nruns))
+            print("  User   : {:10.2f} s, {:10.2f} s.".format(t_usr, t_usr / nruns))
+            print("  System : {:10.2f} s, {:10.2f} s.".format(t_sys, t_sys / nruns))
         twall1 = time.perf_counter()
         print("Wall time: %10.2f s." % (twall1 - twall0))
 
@@ -1158,7 +1146,7 @@ class ExecutionMagics(Magics):
 
         timefunc = timeit.default_timer
         number = int(getattr(opts, "n", 0))
-        default_repeat = 7 if timeit.default_repeat < 7 else timeit.default_repeat
+        default_repeat = max(timeit.default_repeat, 7)
         repeat = int(getattr(opts, "r", default_repeat))
         precision = int(getattr(opts, "p", 3))
         quiet = "q" in opts
@@ -1404,7 +1392,7 @@ class ExecutionMagics(Magics):
         wall_st = wtime()
         # Track whether to propagate exceptions or exit
         exit_on_interrupt = False
-        interrupt_occured = False
+        interrupt_occurred = False
         captured_exception = None
 
         if mode == "eval":
@@ -1413,11 +1401,11 @@ class ExecutionMagics(Magics):
                 out = eval(code, glob, local_ns)
             except KeyboardInterrupt as e:
                 captured_exception = e
-                interrupt_occured = True
+                interrupt_occurred = True
                 exit_on_interrupt = True
             except Exception as e:
                 captured_exception = e
-                interrupt_occured = True
+                interrupt_occurred = True
                 if not args.no_raise_error:
                     exit_on_interrupt = True
             end = clock2()
@@ -1432,11 +1420,11 @@ class ExecutionMagics(Magics):
                     out = eval(code_2, glob, local_ns)
             except KeyboardInterrupt as e:
                 captured_exception = e
-                interrupt_occured = True
+                interrupt_occurred = True
                 exit_on_interrupt = True
             except Exception as e:
                 captured_exception = e
-                interrupt_occured = True
+                interrupt_occurred = True
                 if not args.no_raise_error:
                     exit_on_interrupt = True
             end = clock2()
@@ -1458,7 +1446,7 @@ class ExecutionMagics(Magics):
             print(f"Compiler : {_format_time(tc)}")
         if tp > tp_min:
             print(f"Parser   : {_format_time(tp)}")
-        if interrupt_occured:
+        if interrupt_occurred:
             if exit_on_interrupt and captured_exception:
                 raise captured_exception
             return
@@ -1697,7 +1685,7 @@ def _format_time(timespan, precision=3):
             value = int(leftover / length)
             if value > 0:
                 leftover = leftover % length
-                time.append("%s%s" % (str(value), suffix))
+                time.append("{}{}".format(str(value), suffix))
             if leftover < 1:
                 break
         return " ".join(time)
@@ -1712,7 +1700,7 @@ def _format_time(timespan, precision=3):
         try:
             "μ".encode(sys.stdout.encoding)
             units = ["s", "ms", "μs", "ns"]
-        except:
+        except (UnicodeEncodeError, LookupError):
             pass
     scaling = [1, 1e3, 1e6, 1e9]
 

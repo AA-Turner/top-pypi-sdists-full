@@ -54,7 +54,7 @@ jobs:
         django-version:
           - "dj42" # LTS April 2026
           - "dj52" # LTS April 2028
-          - "dj60" # April 2027
+          - "dj61" # April 2027
         exclude:
           - django-version: "dj42"
             postgres-version: "latest"
@@ -77,11 +77,11 @@ jobs:
             psycopg-version: "psycopg2"
 
           - postgres-version: "12"
-            django-version: "dj60"
+            django-version: "dj61"
           - python-version: "3.10"
-            django-version: "dj60"
+            django-version: "dj61"
           - python-version: "3.11"
-            django-version: "dj60"
+            django-version: "dj61"
 
         # pin each image to its digest (satisfies zizmor unpinned-images)
         # while keeping postgres-version driving the matrix
@@ -126,17 +126,17 @@ jobs:
       - name: Clear Tool cache
         if: ${{ github.event.inputs.clear_cache == 'true' }}
         run: sudo rm -rf /opt/hostedtoolcache
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           persist-credentials: false
       - name: Set up Python ${{ matrix.python-version }}
         id: sp
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
       - name: Install uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39
         with:
           enable-cache: false
       - name: Setup Just
@@ -147,7 +147,7 @@ jobs:
           sudo apt install emacs
       - name: Setup tmate session
         if: ${{ github.event.inputs.debug == 'true' }}
-        uses: mxschmitt/action-tmate@c0afd6f790e3a5564914980036ebf83216678101
+        uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113
         timeout-minutes: 60
       - name: Run Unit Tests
         env:
@@ -183,7 +183,7 @@ jobs:
         django-version:
           - "dj42" # LTS April 2024
           - "dj52" # LTS April 2028
-          - "dj60" # April 2027
+          - "dj61" # April 2027
         exclude:
           - python-version: "3.12"
             django-version: "dj42"
@@ -196,25 +196,25 @@ jobs:
             django-version: "dj52"
 
           - python-version: "3.10"
-            django-version: "dj60"
+            django-version: "dj61"
           - python-version: "3.12"
-            django-version: "dj60"
+            django-version: "dj61"
 
     steps:
       - name: Clear Tool cache
         if: ${{ github.event.inputs.clear_cache == 'true' }}
         run: sudo rm -rf /opt/hostedtoolcache
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           persist-credentials: false
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         id: sp
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
       - name: Install uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39
         with:
           enable-cache: false
       - name: Setup Just
@@ -225,7 +225,7 @@ jobs:
           sudo apt install emacs
       - name: Setup tmate session
         if: ${{ github.event.inputs.debug == 'true' }}
-        uses: mxschmitt/action-tmate@c0afd6f790e3a5564914980036ebf83216678101
+        uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113
         timeout-minutes: 60
       - name: Run Unit Tests
         env:
@@ -257,12 +257,12 @@ jobs:
         django-version:
           - "dj42" # LTS April 2024
           - "dj52" # LTS April 2028
-          - "dj60" # April 2027
+          - "dj61" # April 2027
         exclude:
           - django-version: "dj42"
             mysql-version: "latest"
 
-          - django-version: "dj60"
+          - django-version: "dj61"
             mysql-version: "8.0"
 
           - mysql-version: "latest"
@@ -281,9 +281,9 @@ jobs:
             mysqlclient-version: "mysqlclient14"
 
           - python-version: "3.10"
-            django-version: "dj60"
+            django-version: "dj61"
           - python-version: "3.12"
-            django-version: "dj60"
+            django-version: "dj61"
 
         # pin each image to its digest (satisfies zizmor unpinned-images)
         # while keeping mysql-version driving the matrix
@@ -324,11 +324,11 @@ jobs:
       - name: Clear Tool cache
         if: ${{ github.event.inputs.clear_cache == 'true' }}
         run: sudo rm -rf /opt/hostedtoolcache
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           persist-credentials: false
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         id: sp
         with:
           python-version: ${{ matrix.python-version }}
@@ -339,10 +339,10 @@ jobs:
           sudo apt install emacs
       - name: Setup tmate session
         if: ${{ github.event.inputs.debug == 'true' }}
-        uses: mxschmitt/action-tmate@c0afd6f790e3a5564914980036ebf83216678101
+        uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113
         timeout-minutes: 60
       - name: Install uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39
         with:
           enable-cache: false
       - name: Setup Just
@@ -387,14 +387,14 @@ jobs:
         django-version:
           - "dj42" # LTS April 2024
           - "dj52" # LTS April 2028
-          - "dj60" # April 2027
+          - "dj61" # April 2027
         exclude:
           - django-version: "dj42"
             mariadb-version: "latest"
 
           - django-version: "dj52"
             mariadb-version: "10.4"
-          - django-version: "dj60"
+          - django-version: "dj61"
             mariadb-version: "10.4"
 
           - mariadb-version: "latest"
@@ -413,9 +413,9 @@ jobs:
             mysqlclient-version: "mysqlclient14"
 
           - python-version: "3.10"
-            django-version: "dj60"
+            django-version: "dj61"
           - python-version: "3.12"
-            django-version: "dj60"
+            django-version: "dj61"
 
           - mariadb-version: "10.4"
             mysqlclient-version: "mysqlclient2x"
@@ -455,11 +455,11 @@ jobs:
       - name: Clear Tool cache
         if: ${{ github.event.inputs.clear_cache == 'true' }}
         run: sudo rm -rf /opt/hostedtoolcache
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           persist-credentials: false
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         id: sp
         with:
           python-version: ${{ matrix.python-version }}
@@ -470,10 +470,10 @@ jobs:
           sudo apt install emacs
       - name: Setup tmate session
         if: ${{ github.event.inputs.debug == 'true' }}
-        uses: mxschmitt/action-tmate@c0afd6f790e3a5564914980036ebf83216678101
+        uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113
         timeout-minutes: 60
       - name: Install uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39
         with:
           enable-cache: false
       - name: Setup Just
@@ -515,7 +515,7 @@ jobs:
         django-version:
           - "dj42" # LTS April 2026
           - "dj52" # LTS April 2028
-          - "dj60" # April 2027
+          - "dj61" # April 2027
         oracle-version:
           - "oracle-xe:21"
           - "oracle-free:latest"
@@ -531,15 +531,15 @@ jobs:
             django-version: "dj52"
 
           - python-version: "3.10"
-            django-version: "dj60"
+            django-version: "dj61"
           - python-version: "3.12"
-            django-version: "dj60"
+            django-version: "dj61"
 
           - django-version: "dj42"
             oracle-version: "oracle-free:latest"
           - django-version: "dj52"
             oracle-version: "oracle-xe:21"
-          - django-version: "dj60"
+          - django-version: "dj61"
             oracle-version: "oracle-xe:21"
 
         # pin each image to its digest (satisfies zizmor unpinned-images)
@@ -578,12 +578,12 @@ jobs:
           else
             echo "ORACLE_DATABASE=FREEPDB1" >> $GITHUB_ENV
           fi
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           persist-credentials: false
       - name: Set up Python ${{ matrix.python-version }}
         id: sp
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
@@ -593,10 +593,10 @@ jobs:
           sudo apt install emacs
       - name: Setup tmate session
         if: ${{ github.event.inputs.debug == 'true' }}
-        uses: mxschmitt/action-tmate@c0afd6f790e3a5564914980036ebf83216678101
+        uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113
         timeout-minutes: 60
       - name: Install uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39
         with:
           enable-cache: false
       - name: Setup Just
@@ -654,7 +654,7 @@ jobs:
         django-version:
           - "dj42" # LTS April 2026
           - "dj52" # LTS April 2028
-          - "dj60" # April 2027
+          - "dj61" # April 2027
         exclude:
           - python-version: "3.12"
             django-version: "dj42"
@@ -667,25 +667,25 @@ jobs:
             django-version: "dj52"
 
           - python-version: "3.10"
-            django-version: "dj60"
+            django-version: "dj61"
           - python-version: "3.12"
-            django-version: "dj60"
+            django-version: "dj61"
 
     steps:
       - name: Clear Tool cache
         if: ${{ github.event.inputs.clear_cache == 'true' }}
         run: sudo rm -rf /opt/hostedtoolcache
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           persist-credentials: false
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         id: sp
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
       - name: Install uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39
         with:
           enable-cache: false
       - name: Setup Just
@@ -695,7 +695,7 @@ jobs:
         uses: rhysd/action-setup-vim@febef33995d6649302e9d88dda81e071b68f16a7
       - name: Setup tmate session
         if: ${{ github.event.inputs.debug == 'true' }}
-        uses: mxschmitt/action-tmate@c0afd6f790e3a5564914980036ebf83216678101
+        uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113
         timeout-minutes: 60
       - name: Run Unit Tests
         env:
@@ -732,7 +732,7 @@ jobs:
         django-version:
           - "dj42" # LTS April 2024
           - "dj52" # LTS April 2028
-          - "dj60" # April 2027
+          - "dj61" # April 2027
         exclude:
           - python-version: "3.12"
             django-version: "dj42"
@@ -745,25 +745,25 @@ jobs:
             django-version: "dj52"
 
           - python-version: "3.10"
-            django-version: "dj60"
+            django-version: "dj61"
           - python-version: "3.12"
-            django-version: "dj60"
+            django-version: "dj61"
 
     steps:
       - name: Clear Tool cache
         if: ${{ github.event.inputs.clear_cache == 'true' }}
         run: sudo rm -rf /opt/hostedtoolcache
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           persist-credentials: false
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         id: sp
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
       - name: Install uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39
         with:
           enable-cache: false
       - name: Setup Just
@@ -774,7 +774,7 @@ jobs:
           brew install emacs
       - name: Setup tmate session
         if: ${{ github.event.inputs.debug == 'true' }}
-        uses: mxschmitt/action-tmate@c0afd6f790e3a5564914980036ebf83216678101
+        uses: mxschmitt/action-tmate@35b54afac29c97fb54faba5b513f8fbd1882f113
         timeout-minutes: 60
       - name: Run Unit Tests
         env:
@@ -803,15 +803,15 @@ jobs:
       - name: Clear Tool cache
         if: ${{ github.event.inputs.clear_cache == 'true' }}
         run: sudo rm -rf /opt/hostedtoolcache
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           persist-credentials: false
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         id: sp
         with:
           python-version: "3.12"
       - name: Install uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39
         with:
           enable-cache: false
       - name: Setup Just
@@ -825,7 +825,7 @@ jobs:
       - run: just coverage
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f
         with:
           use_oidc: true
           files: ./coverage.xml

@@ -11,7 +11,7 @@ from .intents import Intent, IntentData, Intents, SlotList, WildcardSlotList
 from .models import MatchCapture, MatchEntity, UnmatchedEntity, UnmatchedTextEntity
 from .string_matcher import MatchContext, MatchSettings, match_expression
 from .util import (
-    WHITESPACE,
+    CJK_WHITESPACE,
     check_excluded_context,
     check_required_context,
     normalize_text,
@@ -260,8 +260,8 @@ def recognize_all(
 
     # Fall back to string matcher
     if intents.settings.ignore_whitespace:
-        text_no_skip_words = WHITESPACE.sub("", text_no_skip_words)
-        text_with_skip_words_matchable = WHITESPACE.sub("", text_with_skip_words)
+        text_no_skip_words = CJK_WHITESPACE.sub("", text_no_skip_words)
+        text_with_skip_words_matchable = CJK_WHITESPACE.sub("", text_with_skip_words)
     else:
         # Artifical word boundary
         text_no_skip_words += " "
@@ -298,7 +298,7 @@ def recognize_all(
                                 start=False,
                             )
                             if intents.settings.ignore_whitespace:
-                                text_with_skip_words_at_end = WHITESPACE.sub(
+                                text_with_skip_words_at_end = CJK_WHITESPACE.sub(
                                     "", text_with_skip_words_at_end
                                 )
                             else:
@@ -314,7 +314,7 @@ def recognize_all(
                                 end=False,
                             )
                             if intents.settings.ignore_whitespace:
-                                text_with_skip_words_at_start = WHITESPACE.sub(
+                                text_with_skip_words_at_start = CJK_WHITESPACE.sub(
                                     "", text_with_skip_words_at_start
                                 )
                             else:
@@ -477,7 +477,7 @@ def is_match(
         text = remove_skip_words(text, skip_words, ignore_whitespace)
 
     if ignore_whitespace:
-        text = WHITESPACE.sub("", text)
+        text = CJK_WHITESPACE.sub("", text)
     else:
         # Artifical word boundary
         text += " "
@@ -716,8 +716,8 @@ def recognize_best(
     return None
 
 
-def _get_result_score(result: RecognizeResult) -> Tuple[int, int, int]:
-    """Get sort score for a result with (wildcards, -text_matched, wildcard_text).
+def _get_result_score(result: RecognizeResult) -> Tuple[int, int, int, str]:
+    """Get sort score for a result.
 
     Sorted lowest first:
 
@@ -727,12 +727,21 @@ def _get_result_score(result: RecognizeResult) -> Tuple[int, int, int]:
        that binds a word to a concrete list slot instead of letting an adjacent
        wildcard swallow it (e.g. "play track Yesterday" -> media_class="track",
        search_query="Yesterday" rather than search_query="track Yesterday").
+    4. Intent name, as a final tiebreaker for deterministic ordering. Without
+       it, fully-tied results are decided by intent iteration order, which can
+       vary across platforms (e.g. aarch64 vs x86_64).
 
     Note: criterion 3 is 0 for every candidate when none use wildcards, so
-    parses made up entirely of list/range slots keep their original ordering.
+    parses made up entirely of list/range slots keep their original ordering
+    apart from the intent-name tiebreaker.
     """
     num_wildcards = sum(1 for e in result.entities_list if e.is_wildcard)
     wildcard_text_len = sum(
         len(e.text or "") for e in result.entities_list if e.is_wildcard
     )
-    return (num_wildcards, -result.text_chunks_matched, wildcard_text_len)
+    return (
+        num_wildcards,
+        -result.text_chunks_matched,
+        wildcard_text_len,
+        result.intent.name,
+    )

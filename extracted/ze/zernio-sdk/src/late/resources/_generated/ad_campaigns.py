@@ -30,17 +30,13 @@ class AdCampaignsResource:
         default for optional string args, and the API rejects empty query
         values (e.g. ``platform=``) with a 400. Filtering here keeps both direct
         SDK callers and MCP tool callers safe.
+
+        Enum members are unwrapped to their value: httpx serializes params
+        via str(), which yields "ClassName.MEMBER" for Enum members, so
+        e.g. ``status=PostStatus.FAILED`` would otherwise reach the API as
+        ``status=PostStatus.FAILED`` instead of ``status=failed``.
         """
-
-        def to_camel(s: str) -> str:
-            parts = s.split("_")
-            return parts[0] + "".join(p.title() for p in parts[1:])
-
-        return {to_camel(k): v for k, v in kwargs.items() if v is not None and v != ""}
-
-    def _build_payload(self, **kwargs: Any) -> dict[str, Any]:
-        """Build request payload, filtering None values."""
-        from datetime import datetime
+        from enum import Enum
 
         def to_camel(s: str) -> str:
             parts = s.split("_")
@@ -48,6 +44,29 @@ class AdCampaignsResource:
 
         result: dict[str, Any] = {}
         for k, v in kwargs.items():
+            if isinstance(v, Enum):
+                v = v.value
+            if v is None or v == "":
+                continue
+            result[to_camel(k)] = v
+        return result
+
+    def _build_payload(self, **kwargs: Any) -> dict[str, Any]:
+        """Build request payload, filtering None values. Enum members are
+        unwrapped to their value so JSON bodies carry e.g. "failed" rather
+        than a raw Enum member (plain Enum members are not JSON-serializable).
+        """
+        from datetime import datetime
+        from enum import Enum
+
+        def to_camel(s: str) -> str:
+            parts = s.split("_")
+            return parts[0] + "".join(p.title() for p in parts[1:])
+
+        result: dict[str, Any] = {}
+        for k, v in kwargs.items():
+            if isinstance(v, Enum):
+                v = v.value
             if v is None:
                 continue
             if isinstance(v, datetime):
@@ -129,6 +148,7 @@ class AdCampaignsResource:
     def list_ad_campaigns(
         self,
         *,
+        include_empty: bool | None = None,
         page: int | None = 1,
         limit: int | None = 20,
         source: str | None = "all",
@@ -143,6 +163,7 @@ class AdCampaignsResource:
     ) -> dict[str, Any]:
         """List campaigns"""
         params = self._build_params(
+            include_empty=include_empty,
             page=page,
             limit=limit,
             source=source,
@@ -164,10 +185,14 @@ class AdCampaignsResource:
         name: str,
         goal: str,
         *,
+        idempotency_key: str | None = None,
         special_ad_categories: list[str] | None = None,
         budget_amount: float | None = None,
         budget_type: str | None = None,
         status: str | None = "PAUSED",
+        bid_strategy: str | None = None,
+        bid_amount: float | None = None,
+        roas_average_floor: float | None = None,
     ) -> dict[str, Any]:
         """Create a standalone campaign"""
         payload = self._build_payload(
@@ -179,6 +204,9 @@ class AdCampaignsResource:
             budget_amount=budget_amount,
             budget_type=budget_type,
             status=status,
+            bid_strategy=bid_strategy,
+            bid_amount=bid_amount,
+            roas_average_floor=roas_average_floor,
         )
         return self._client._post("/v1/ads/campaigns", data=payload)
 
@@ -199,6 +227,7 @@ class AdCampaignsResource:
         campaign_id: str,
         platform: str,
         *,
+        account_id: str | None = None,
         budget: dict[str, Any] | None = None,
         bid_strategy: Any | None = None,
         name: str | None = None,
@@ -206,6 +235,7 @@ class AdCampaignsResource:
     ) -> dict[str, Any]:
         """Update a campaign"""
         payload = self._build_payload(
+            account_id=account_id,
             platform=platform,
             budget=budget,
             bid_strategy=bid_strategy,
@@ -214,7 +244,9 @@ class AdCampaignsResource:
         )
         return self._client._put(f"/v1/ads/campaigns/{campaign_id}", data=payload)
 
-    def delete_ad_campaign(self, campaign_id: str, platform: str) -> dict[str, Any]:
+    def delete_ad_campaign(
+        self, campaign_id: str, platform: str, *, account_id: str | None = None
+    ) -> dict[str, Any]:
         """Delete a campaign"""
         return self._client._delete(f"/v1/ads/campaigns/{campaign_id}")
 
@@ -233,6 +265,7 @@ class AdCampaignsResource:
         campaign_id: str,
         platform: str,
         *,
+        idempotency_key: str | None = None,
         deep_copy: bool | None = True,
         status_option: str | None = "PAUSED",
         start_time: datetime | str | None = None,
@@ -263,6 +296,7 @@ class AdCampaignsResource:
         ad_set_id: str,
         platform: str,
         *,
+        idempotency_key: str | None = None,
         campaign_id: str | None = None,
         deep_copy: bool | None = True,
         status_option: str | None = "PAUSED",
@@ -294,6 +328,7 @@ class AdCampaignsResource:
         self,
         ad_id: str,
         *,
+        idempotency_key: str | None = None,
         ad_set_id: str | None = None,
         status_option: str | None = "PAUSED",
         rename_strategy: str | None = None,
@@ -569,6 +604,8 @@ class AdCampaignsResource:
         instagram_account_id: str | None = None,
         dynamic_creative: dict[str, Any] | None = None,
         carousel_cards: list[dict[str, Any]] | None = None,
+        default_locale: str | None = None,
+        translations: list[dict[str, Any]] | None = None,
         placement_assets: dict[str, Any] | None = None,
         audience_id: str | None = None,
         campaign_type: str | None = "display",
@@ -649,6 +686,8 @@ class AdCampaignsResource:
             instagram_account_id=instagram_account_id,
             dynamic_creative=dynamic_creative,
             carousel_cards=carousel_cards,
+            default_locale=default_locale,
+            translations=translations,
             placement_assets=placement_assets,
             audience_id=audience_id,
             campaign_type=campaign_type,
@@ -743,6 +782,7 @@ class AdCampaignsResource:
     async def alist_ad_campaigns(
         self,
         *,
+        include_empty: bool | None = None,
         page: int | None = 1,
         limit: int | None = 20,
         source: str | None = "all",
@@ -757,6 +797,7 @@ class AdCampaignsResource:
     ) -> dict[str, Any]:
         """List campaigns (async)"""
         params = self._build_params(
+            include_empty=include_empty,
             page=page,
             limit=limit,
             source=source,
@@ -778,10 +819,14 @@ class AdCampaignsResource:
         name: str,
         goal: str,
         *,
+        idempotency_key: str | None = None,
         special_ad_categories: list[str] | None = None,
         budget_amount: float | None = None,
         budget_type: str | None = None,
         status: str | None = "PAUSED",
+        bid_strategy: str | None = None,
+        bid_amount: float | None = None,
+        roas_average_floor: float | None = None,
     ) -> dict[str, Any]:
         """Create a standalone campaign (async)"""
         payload = self._build_payload(
@@ -793,6 +838,9 @@ class AdCampaignsResource:
             budget_amount=budget_amount,
             budget_type=budget_type,
             status=status,
+            bid_strategy=bid_strategy,
+            bid_amount=bid_amount,
+            roas_average_floor=roas_average_floor,
         )
         return await self._client._apost("/v1/ads/campaigns", data=payload)
 
@@ -813,6 +861,7 @@ class AdCampaignsResource:
         campaign_id: str,
         platform: str,
         *,
+        account_id: str | None = None,
         budget: dict[str, Any] | None = None,
         bid_strategy: Any | None = None,
         name: str | None = None,
@@ -820,6 +869,7 @@ class AdCampaignsResource:
     ) -> dict[str, Any]:
         """Update a campaign (async)"""
         payload = self._build_payload(
+            account_id=account_id,
             platform=platform,
             budget=budget,
             bid_strategy=bid_strategy,
@@ -831,7 +881,7 @@ class AdCampaignsResource:
         )
 
     async def adelete_ad_campaign(
-        self, campaign_id: str, platform: str
+        self, campaign_id: str, platform: str, *, account_id: str | None = None
     ) -> dict[str, Any]:
         """Delete a campaign (async)"""
         return await self._client._adelete(f"/v1/ads/campaigns/{campaign_id}")
@@ -851,6 +901,7 @@ class AdCampaignsResource:
         campaign_id: str,
         platform: str,
         *,
+        idempotency_key: str | None = None,
         deep_copy: bool | None = True,
         status_option: str | None = "PAUSED",
         start_time: datetime | str | None = None,
@@ -881,6 +932,7 @@ class AdCampaignsResource:
         ad_set_id: str,
         platform: str,
         *,
+        idempotency_key: str | None = None,
         campaign_id: str | None = None,
         deep_copy: bool | None = True,
         status_option: str | None = "PAUSED",
@@ -912,6 +964,7 @@ class AdCampaignsResource:
         self,
         ad_id: str,
         *,
+        idempotency_key: str | None = None,
         ad_set_id: str | None = None,
         status_option: str | None = "PAUSED",
         rename_strategy: str | None = None,
@@ -1189,6 +1242,8 @@ class AdCampaignsResource:
         instagram_account_id: str | None = None,
         dynamic_creative: dict[str, Any] | None = None,
         carousel_cards: list[dict[str, Any]] | None = None,
+        default_locale: str | None = None,
+        translations: list[dict[str, Any]] | None = None,
         placement_assets: dict[str, Any] | None = None,
         audience_id: str | None = None,
         campaign_type: str | None = "display",
@@ -1269,6 +1324,8 @@ class AdCampaignsResource:
             instagram_account_id=instagram_account_id,
             dynamic_creative=dynamic_creative,
             carousel_cards=carousel_cards,
+            default_locale=default_locale,
+            translations=translations,
             placement_assets=placement_assets,
             audience_id=audience_id,
             campaign_type=campaign_type,

@@ -29,6 +29,7 @@ if typing.TYPE_CHECKING:
     from .triggers.client import AsyncTriggersClient, TriggersClient
     from .usage.client import AsyncUsageClient, UsageClient
     from .users.client import AsyncUsersClient, UsersClient
+    from .v2.client import AsyncV2Client, V2Client
 
 
 class Client:
@@ -223,6 +224,7 @@ class Client:
         self._tokens: typing.Optional[TokensClient] = None
         self._usage: typing.Optional[UsageClient] = None
         self._oauth_tokens: typing.Optional[OauthTokensClient] = None
+        self._v2: typing.Optional[V2Client] = None
 
     @property
     def app_categories(self):
@@ -343,6 +345,14 @@ class Client:
 
             self._oauth_tokens = OauthTokensClient(client_wrapper=self._client_wrapper)
         return self._oauth_tokens
+
+    @property
+    def v2(self):
+        if self._v2 is None:
+            from .v2.client import V2Client  # noqa: E402
+
+            self._v2 = V2Client(client_wrapper=self._client_wrapper)
+        return self._v2
 
 
 def _make_default_async_client(
@@ -552,6 +562,7 @@ class AsyncClient:
         self._tokens: typing.Optional[AsyncTokensClient] = None
         self._usage: typing.Optional[AsyncUsageClient] = None
         self._oauth_tokens: typing.Optional[AsyncOauthTokensClient] = None
+        self._v2: typing.Optional[AsyncV2Client] = None
 
     @property
     def app_categories(self):
@@ -672,6 +683,14 @@ class AsyncClient:
 
             self._oauth_tokens = AsyncOauthTokensClient(client_wrapper=self._client_wrapper)
         return self._oauth_tokens
+
+    @property
+    def v2(self):
+        if self._v2 is None:
+            from .v2.client import AsyncV2Client  # noqa: E402
+
+            self._v2 = AsyncV2Client(client_wrapper=self._client_wrapper)
+        return self._v2
 
 
 def _get_base_url(*, base_url: typing.Optional[str] = None, environment: PipedreamEnvironment) -> str:

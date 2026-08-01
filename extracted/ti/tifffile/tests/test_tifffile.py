@@ -31,7 +31,7 @@
 
 """Unittests for the tifffile package.
 
-:Version: 2026.7.14
+:Version: 2026.7.31
 
 """
 
@@ -3996,17 +3996,22 @@ def test_class_tifftag_astuple():
             270,
             2,
             60,
-            b'ImageJ=1.52b\nimages=3\nchannels=3\nmode=composite\nloop=false'
-            b'\x00\x00',
+            (
+                b'ImageJ=1.52b\nimages=3\nchannels=3\nmode=composite\n'
+                b'loop=false\x00\x00'
+            ),
             True,
         )
         assert tags['IJMetadataByteCounts'].astuple() == (
             50838,
             4,
             12,
-            b'\x00\x00\x004\x00\x00\x07\xa8\x00\x00\x00\x06\x00\x00\x00\n\x00'
-            b'\x00\x00\x08\x00\x00\x000\x00\x00\x03\x00\x00\x00\x03\x00\x00'
-            b'\x00\x03\x00\x00\x00\x04\xa4\x00\x00\x00\xc0\x00\x00\x00\x80',
+            (
+                b'\x00\x00\x004\x00\x00\x07\xa8\x00\x00\x00\x06\x00\x00\x00\n'
+                b'\x00\x00\x00\x08\x00\x00\x000\x00\x00\x03\x00\x00\x00\x03'
+                b'\x00\x00\x00\x03\x00\x00\x00\x04\xa4\x00\x00\x00\xc0\x00\x00'
+                b'\x00\x80'
+            ),
             True,
         )
         assert tags['IJMetadata'].astuple()[:3] == (50839, 1, 5896)
@@ -4583,23 +4588,38 @@ def test_class_omexml_attributes():
         '<Channel ID="Channel:0:0" SamplesPerPixel="3" Name="ChannelName">',
         '<Plane TheC="0" TheZ="2" TheT="1" PositionZ="4.0"/>',
         '<StructuredAnnotations><XMLAnnotation ID="Annotation:0" Namespace',
-        '<ModuloAlongT Type="other" TypeDescription="Phasor" '
-        'Start="0" End="1"/>',
-        '<CommentAnnotation ID="Annotation:1">'
-        '<Value>Tifffile test</Value></CommentAnnotation>',
-        '<BooleanAnnotation ID="Annotation:2">'
-        '<Value>true</Value></BooleanAnnotation>',
-        '<LongAnnotation ID="Annotation:3"><Value>1</Value></LongAnnotation>'
-        '<LongAnnotation ID="Annotation:4"><Value>2</Value>',
-        '<DoubleAnnotation ID="Annotation:5">'
-        '<Description>A double</Description>'
-        '<Value>1.0</Value></DoubleAnnotation>',
-        '<MapAnnotation ID="Annotation:6">'
-        '<Description>description</Description>'
-        '<Value><M K="key">&lt;str/&gt;</M><M K="key2">1.0</M></Value>'
-        '</MapAnnotation>',
-        '<MapAnnotation ID="Annotation:7" Namespace="ns.org">'
-        '<Value><M K="key2">1</M><M K="key3">2</M></Value></MapAnnotation>',
+        (
+            '<ModuloAlongT Type="other" TypeDescription="Phasor" '
+            'Start="0" End="1"/>'
+        ),
+        (
+            '<CommentAnnotation ID="Annotation:1">'
+            '<Value>Tifffile test</Value></CommentAnnotation>'
+        ),
+        (
+            '<BooleanAnnotation ID="Annotation:2">'
+            '<Value>true</Value></BooleanAnnotation>'
+        ),
+        (
+            '<LongAnnotation ID="Annotation:3"><Value>1</Value>'
+            '</LongAnnotation>'
+            '<LongAnnotation ID="Annotation:4"><Value>2</Value>'
+        ),
+        (
+            '<DoubleAnnotation ID="Annotation:5">'
+            '<Description>A double</Description>'
+            '<Value>1.0</Value></DoubleAnnotation>'
+        ),
+        (
+            '<MapAnnotation ID="Annotation:6">'
+            '<Description>description</Description>'
+            '<Value><M K="key">&lt;str/&gt;</M><M K="key2">1.0</M></Value>'
+            '</MapAnnotation>'
+        ),
+        (
+            '<MapAnnotation ID="Annotation:7" Namespace="ns.org">'
+            '<Value><M K="key2">1</M><M K="key3">2</M></Value></MapAnnotation>'
+        ),
     ):
         assert value in xml
     assert__repr__(omexml)
@@ -4646,19 +4666,25 @@ def test_class_omexml_datasets():
 
     xml = omexml.tostring()
     for value in (
-        '<Dataset ID="Dataset:0" Name="First">'
-        '<Description>Dataset</Description>'
-        '<ImageRef ID="Image:1"/>'
-        '<ImageRef ID="Image:2"/>'
-        '<ImageRef ID="Image:4"/>'
-        '<AnnotationRef ID="Annotation:1"/>'
-        '</Dataset>',
-        '<Dataset ID="Dataset:1">'
-        '<ImageRef ID="Image:5"/>'
-        '<AnnotationRef ID="Annotation:5"/>'
-        '</Dataset>',
-        '<AnnotationRef ID="Annotation:4"/></Image>'
-        '<Image ID="Image:5" Name="Image5">',
+        (
+            '<Dataset ID="Dataset:0" Name="First">'
+            '<Description>Dataset</Description>'
+            '<ImageRef ID="Image:1"/>'
+            '<ImageRef ID="Image:2"/>'
+            '<ImageRef ID="Image:4"/>'
+            '<AnnotationRef ID="Annotation:1"/>'
+            '</Dataset>'
+        ),
+        (
+            '<Dataset ID="Dataset:1">'
+            '<ImageRef ID="Image:5"/>'
+            '<AnnotationRef ID="Annotation:5"/>'
+            '</Dataset>'
+        ),
+        (
+            '<AnnotationRef ID="Annotation:4"/></Image>'
+            '<Image ID="Image:5" Name="Image5">'
+        ),
     ):
         assert value in xml
     assert__repr__(omexml)
@@ -6587,8 +6613,10 @@ PACKBITS_DATA = [
     ([0] * 128 + [1], b'\x81\x00\x00\x01'),
     ([0] * 128 + [1, 2] * 64, b'\x81\x00\x7f' + b'\x01\x02' * 64),
     (
-        b'\xaa\xaa\xaa\x80\x00\x2a\xaa\xaa\xaa\xaa\x80\x00'
-        b'\x2a\x22\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa',
+        (
+            b'\xaa\xaa\xaa\x80\x00\x2a\xaa\xaa\xaa\xaa\x80\x00'
+            b'\x2a\x22\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa'
+        ),
         b'\xfe\xaa\x02\x80\x00\x2a\xfd\xaa\x03\x80\x00\x2a\x22\xf7\xaa',
     ),
 ]
@@ -17670,6 +17698,39 @@ def test_write_bytecount(bigtiff, tiled, compression, count, bytecount):
             assert__str__(tif)
 
 
+@pytest.mark.parametrize('multi', [False, True])
+@pytest.mark.parametrize('bigtiff', [False, True])
+def test_write_align(bigtiff, multi):
+    """Test IFD and tag-value alignment when writing."""
+    # contrary to the draft, BigTIFF does not require 8-byte alignment
+    align = 2
+    data = random_data(numpy.uint16, (5, 31, 33) if multi else (31, 33))
+    with TempFileName(f'write_align_{bigtiff}_{multi}') as filename:
+        if multi:
+            with TiffWriter(filename, bigtiff=bigtiff) as tif:
+                for frame in data:
+                    tif.write(frame, contiguous=True)
+        else:
+            imwrite(filename, data, bigtiff=bigtiff)
+        if not bigtiff:
+            assert_valid_tiff(filename)
+        with TiffFile(filename) as tif:
+            assert tif.is_bigtiff == bigtiff
+            for page in tif.pages:
+                # IFD offset must be aligned
+                assert page.offset % align == 0
+                # all out-of-line tag value offsets must be aligned
+                for tag in page.tags:
+                    threshold = tif.tiff.tagoffsetthreshold
+                    fmt = TIFF.DATA_FORMATS[int(tag.dtype)]
+                    valuesize = tag.count * struct.calcsize(fmt)
+                    if valuesize > threshold:
+                        assert tag.valueoffset % align == 0
+            result = tif.asarray()
+            assert_array_equal(result, data)
+            assert__str__(tif)
+
+
 @pytest.mark.skipif(SKIP_EXTENDED, reason=REASON)
 @pytest.mark.parametrize('repeat', [1, 4])
 @pytest.mark.parametrize('shape', [(1, 0), (0, 1), (3, 0, 2, 1)])
@@ -21853,7 +21914,7 @@ def test_write_zarr():
 @pytest.mark.parametrize('byteorder', ['<', '>'])
 @pytest.mark.parametrize('version', [0, 1])
 @pytest.mark.parametrize('zarr_format', [2, 3])
-def test_write_fsspec(zarr_format, version, byteorder):
+def test_write_fsspec(caplog, zarr_format, version, byteorder):
     """Test write fsspec for multi-series OME-TIFF."""
     data0 = random_data(numpy.uint8, (3, 252, 244))
     data1 = random_data(numpy.uint8, (219, 301, 3))
@@ -22003,11 +22064,15 @@ def test_write_fsspec(zarr_format, version, byteorder):
                     zarr_format=zarr_format,
                 )
             assert_array_equal(tif.series[5].asarray(), data3)
-            assert_fsspec(
-                URL + filename + f'.v{version}.{zf}.s5.json',
-                data3,
-                zarr_format,
-            )
+
+            if byteorder == '>' and zarr_format >= 3:
+                assert 'incompatible with zarr>=3.3' in caplog.text
+            else:
+                assert_fsspec(
+                    URL + filename + f'.v{version}.{zf}.s5.json',
+                    data3,
+                    zarr_format,
+                )
 
 
 @pytest.mark.skipif(SKIP_FILE or SKIP_ZARR, reason=REASON)

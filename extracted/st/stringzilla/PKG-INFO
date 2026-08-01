@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stringzilla
-Version: 5.0.6
+Version: 5.0.7
 Summary: Search, hash, sort, and process strings faster via SWAR and SIMD
 Home-page: https://github.com/ashvardanian/StringZilla
 Author: Ash Vardanian

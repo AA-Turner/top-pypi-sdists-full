@@ -1,5 +1,8 @@
 # tifffile/geodb.py
 
+# Copyright (c) Christoph Gohlke
+# SPDX-License-Identifier: BSD-3-Clause
+
 """GeoTIFF GeoKey Database.
 
 Adapted from http://gis.ess.washington.edu/data/raster/drg/docs/geotiff.txt

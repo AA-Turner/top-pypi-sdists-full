@@ -40,6 +40,7 @@ classifiers = [
 ]
 dynamic = [ "readme", "version" ]
 urls.Changelog = "https://github.com/jessekrubin/ry/blob/main/CHANGELOG.md"
+urls.Documentation = "https://ryo3.dev"
 urls.Homepage = "https://github.com/jessekrubin/ry"
 urls.Issues = "https://github.com/jessekrubin/ry/issues"
 urls.Source = "https://github.com/jessekrubin/ry"
@@ -60,7 +61,7 @@ dev = [
   "pytest-benchmark>=5.1",
   "pytest-cov>=6.2.1",
   "rich>=15.0.0",
-  "ruff>=0.11.12",
+  "ruff>=0.16.1",
   "ty>=0.0.33",
   "tzdata>=2025.2",
   "uvicorn>=0.34",

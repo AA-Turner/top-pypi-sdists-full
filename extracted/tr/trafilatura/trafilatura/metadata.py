@@ -44,7 +44,7 @@ logging.getLogger("htmldate").setLevel(logging.WARNING)
 
 META_URL = re.compile(r"https?://(?:www\.|w[0-9]+\.)?([^/]+)")
 
-JSON_MINIFY = re.compile(r'("(?:\\"|[^"])*")|\s')
+JSON_MINIFY = re.compile(r'("(?:\\.|[^"\\])*")|\s')
 
 HTMLTITLE_REGEX = re.compile(r"^(.+)?\s+[–•·—|⁄*⋆~‹«<›»>:-]\s+(.+)$")  # part without dots?
 
@@ -173,7 +173,9 @@ def extract_meta_json(tree: HtmlElement, metadata: Document) -> Document:
             continue
         element_text = normalize_json(JSON_MINIFY.sub(r"\1", elem.text))
         try:
-            schema = json.loads(element_text)
+            # strict=False: trim() handles \n\r\t, but strict JSON rejects the full 0x00-0x1F
+            # range; rarer control chars (from encoding issues) would otherwise raise here
+            schema = json.loads(element_text, strict=False)
             metadata = extract_json(schema, metadata)
         except json.JSONDecodeError:
             metadata = extract_json_parse_error(element_text, metadata)
@@ -340,12 +342,15 @@ def extract_title(tree: HtmlElement) -> str | None:
         return title
     # extract using title tag
     title, first, second = examine_title_element(tree)
-    for t in (first, second):
+    for t in (first, second, title):
         if t and "." not in t:
             return t
-    # take first h1-title
+    # take first non-empty h1-title
     if h1_results:
-        return trim(h1_results[0].text_content())
+        for h1_result in h1_results:
+            title = trim(h1_result.text_content())
+            if title:
+                return title
     # take first h2-title
     try:
         title = trim(tree.xpath(".//h2")[0].text_content())

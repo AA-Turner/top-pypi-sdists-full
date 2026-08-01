@@ -65,6 +65,7 @@ class Tiff(Codec):  # type: ignore[misc]
 
     def __init__(
         self,
+        *,
         # TiffFile.asarray
         key: int | slice | Sequence[int] | None = None,
         series: int | None = None,

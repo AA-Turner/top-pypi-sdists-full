@@ -79,6 +79,10 @@ from langsmith._internal._background_thread import (
 from langsmith._internal._background_thread import (
     tracing_control_thread_func as _tracing_control_thread_func,
 )
+from langsmith._internal._beta_decorator import deprecated as _deprecated
+from langsmith._internal._beta_decorator import (
+    suppress_deprecation_warning as _suppress_deprecation_warning,
+)
 from langsmith._internal._beta_decorator import warn_beta
 from langsmith._internal._compressed_traces import CompressedTraces
 from langsmith._internal._constants import (
@@ -112,8 +116,15 @@ from langsmith._internal._operations import (
 )
 from langsmith._internal._serde import dumps_json as _dumps_json
 from langsmith._internal._uuid import uuid7
+from langsmith._internal._v2_migration_utils import QueryBackend, get_query_backend
 from langsmith._openapi_client import AsyncLangsmith as LangsmithOpenAPIClient
 from langsmith._openapi_client import Langsmith as SyncLangsmithOpenAPIClient
+from langsmith._openapi_client._base_client import (
+    AsyncHttpxClientWrapper as _AsyncHttpxClientWrapper,
+)
+from langsmith._openapi_client._base_client import (
+    SyncHttpxClientWrapper as _SyncHttpxClientWrapper,
+)
 from langsmith.prompt_cache import PromptCache, prompt_cache_singleton
 from langsmith.schemas import AttachmentInfo, ExampleWithRuns
 
@@ -160,6 +171,57 @@ def _get_openapi_base_url(api_url: str) -> str:
         if api_url.endswith(suffix):
             return api_url[: -len(suffix)]
     return api_url
+
+
+def _httpx_kwargs_from_session(session: requests.Session) -> dict[str, Any]:
+    """Translate a `requests.Session`'s transport config into `httpx` kwargs.
+
+    The generated OpenAPI client is `httpx`-based, so a `requests.Session`
+    cannot be shared with it directly. Instead we carry over the settings that
+    have a direct `httpx` equivalent, so that a caller-supplied session's TLS,
+    proxy, cookie and header configuration also applies to the v2 endpoints.
+
+    Not carried over (no `httpx` equivalent): custom mounted `HTTPAdapter`s,
+    `session.auth`, and `session.hooks`. Connection pool bounds and retries are
+    left at the generated client's own defaults rather than being derived from
+    the session's adapter.
+    """
+    kwargs: dict[str, Any] = {"trust_env": session.trust_env}
+
+    # Only user-added headers; `requests`' own defaults (its `User-Agent`,
+    # `Accept-Encoding`, ...) must not shadow the ones httpx/the SDK sets.
+    requests_defaults = requests.utils.default_headers()
+    headers = {
+        key: value
+        for key, value in session.headers.items()
+        if value is not None and requests_defaults.get(key) != value
+    }
+    if headers:
+        kwargs["headers"] = headers
+    if session.cookies:
+        # Pass the jar itself, not `dict(...)`: flattening drops each cookie's
+        # domain/path/secure scope (leaking cookies meant for another host to
+        # the API) and raises `CookieConflictError` on same-name cookies.
+        kwargs["cookies"] = session.cookies
+    # `verify` may be a bool or a path to a CA bundle; both are valid in httpx.
+    if session.verify is not True:
+        kwargs["verify"] = session.verify
+    if session.cert:
+        kwargs["cert"] = session.cert
+    # `requests` keys proxies per-scheme; httpx takes a single proxy (or
+    # `mounts`, which would require rebuilding the transport). The API base URL
+    # is https in practice, so prefer that entry.
+    proxy = session.proxies.get("https") or session.proxies.get("http")
+    if proxy:
+        # httpx renamed `proxies` to `proxy` in 0.26 and dropped `proxies` in
+        # 0.28; we support >=0.23, so pick whichever this version accepts.
+        proxy_kwarg = (
+            "proxy"
+            if "proxy" in signature(_httpx.Client.__init__).parameters
+            else "proxies"
+        )
+        kwargs[proxy_kwarg] = proxy
+    return kwargs
 
 
 _TRACING_SEND_TIMEOUT = (3, 10)  # (connect, read) seconds for background sends
@@ -697,7 +759,7 @@ def _check_feedback_session_id(info: ls_schemas.LangSmithInfo) -> None:
     Call only when run-level feedback has no ``session_id``.
     """
     docs = "https://docs.langchain.com/langsmith/smithdb-sdk-migration#feedback-create"
-    if (info.instance_flags or {}).get("ch_query_enabled") is False:
+    if get_query_backend(info.instance_flags) == QueryBackend.SMITHDB_ONLY:
         raise ValueError(
             "session_id must be provided when creating feedback for a run:"
             f" this deployment cannot locate the run without it. See {docs}"
@@ -951,6 +1013,7 @@ class Client:
         "_profile_auth_headers",
         "_langsmith_api",
         "_langsmith_api_sync",
+        "_session_provided",
     ]
 
     _api_key: Optional[str]
@@ -963,6 +1026,7 @@ class Client:
     _profile_auth_headers: dict[str, str]
     _langsmith_api: Optional[LangsmithOpenAPIClient]
     _langsmith_api_sync: Optional[SyncLangsmithOpenAPIClient]
+    _session_provided: bool
 
     def __init__(
         self,
@@ -1018,6 +1082,12 @@ class Client:
             session: The session to use for requests.
 
                 If `None`, a new session will be created.
+
+                v2 endpoints are served by an `httpx`-based client, which cannot
+                share the session itself. Its headers, cookies, `verify`, `cert`,
+                proxies and `trust_env` settings are translated onto that client;
+                custom mounted `HTTPAdapter`s, `session.auth` and `session.hooks`
+                are not.
             auto_batch_tracing: Whether to automatically batch tracing.
             anonymizer: A function applied for masking serialized run inputs and
                 outputs, before sending to the API.
@@ -1267,6 +1337,10 @@ class Client:
         # Create a session and register a finalizer to close it
         session_ = session if session else requests.Session()
         self.session = session_
+        # Whether to derive the generated OpenAPI client's httpx config from the
+        # session. Only meaningful for a caller-supplied one; the default
+        # session carries no user configuration.
+        self._session_provided = session is not None
         self._info = (
             info
             if info is None or isinstance(info, ls_schemas.LangSmithInfo)
@@ -1511,35 +1585,53 @@ class Client:
     # __dict__; the stainless client caches each resource internally.
     # ------------------------------------------------------------------
 
+    def _openapi_timeout(self) -> _httpx.Timeout:
+        return _httpx.Timeout(
+            connect=self._timeout[0],
+            read=self._timeout[1],
+            write=self._timeout[1],
+            pool=self._timeout[0],
+        )
+
     def _get_langsmith_api(self) -> LangsmithOpenAPIClient:
         if self._langsmith_api is None:
+            base_url = _get_openapi_base_url(self.api_url)
+            timeout = self._openapi_timeout()
+            http_client = None
+            if self._session_provided:
+                http_client = _AsyncHttpxClientWrapper(
+                    base_url=base_url,
+                    timeout=timeout,
+                    **_httpx_kwargs_from_session(self.session),
+                )
             self._langsmith_api = LangsmithOpenAPIClient(
                 api_key=self._api_key,
                 tenant_id=str(self._workspace_id) if self._workspace_id else None,
-                base_url=_get_openapi_base_url(self.api_url),
-                timeout=_httpx.Timeout(
-                    connect=self._timeout[0],
-                    read=self._timeout[1],
-                    write=self._timeout[1],
-                    pool=self._timeout[0],
-                ),
+                base_url=base_url,
+                timeout=timeout,
                 default_headers=self._headers or None,
+                http_client=http_client,
             )
         return self._langsmith_api
 
     def _get_langsmith_api_sync(self) -> SyncLangsmithOpenAPIClient:
         if self._langsmith_api_sync is None:
+            base_url = _get_openapi_base_url(self.api_url)
+            timeout = self._openapi_timeout()
+            http_client = None
+            if self._session_provided:
+                http_client = _SyncHttpxClientWrapper(
+                    base_url=base_url,
+                    timeout=timeout,
+                    **_httpx_kwargs_from_session(self.session),
+                )
             self._langsmith_api_sync = SyncLangsmithOpenAPIClient(
                 api_key=self._api_key,
                 tenant_id=str(self._workspace_id) if self._workspace_id else None,
-                base_url=_get_openapi_base_url(self.api_url),
-                timeout=_httpx.Timeout(
-                    connect=self._timeout[0],
-                    read=self._timeout[1],
-                    write=self._timeout[1],
-                    pool=self._timeout[0],
-                ),
+                base_url=base_url,
+                timeout=timeout,
                 default_headers=self._headers or None,
+                http_client=http_client,
             )
         return self._langsmith_api_sync
 
@@ -4038,9 +4130,11 @@ class Client:
                 "#load-a-run’s-child-runs"
             )
 
-        child_runs = self.list_runs(
-            is_root=False, session_id=run.session_id, trace_id=run.trace_id
-        )
+        # Suppressed: the caller asked for child runs, not for list_runs().
+        with _suppress_deprecation_warning():
+            child_runs = self.list_runs(
+                is_root=False, session_id=run.session_id, trace_id=run.trace_id
+            )
         treemap: collections.defaultdict[uuid.UUID, list[ls_schemas.Run]] = (
             collections.defaultdict(list)
         )
@@ -4068,6 +4162,12 @@ class Client:
             runs[run_id].child_runs = children
         return run
 
+    @_deprecated(
+        "read_run() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.runs.retrieve() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration"
+        "#runs-retrieve for the migration guide."
+    )
     def read_run(
         self,
         run_id: ID_TYPE,
@@ -4077,6 +4177,12 @@ class Client:
         start_time: Optional[datetime.datetime] = None,
     ) -> ls_schemas.Run:
         """Read a run from the LangSmith API.
+
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.runs.retrieve` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration#runs-retrieve for the migration guide.
+            Will be removed after Jan 31, 2027.
 
         Args:
             run_id (Union[UUID, str]):
@@ -4145,6 +4251,12 @@ class Client:
             start_time=start_time,
         )
 
+    @_deprecated(
+        "read_thread() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.threads.list_traces() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration"
+        "#threads-list-traces for the migration guide."
+    )
     def read_thread(
         self,
         *,
@@ -4159,6 +4271,12 @@ class Client:
         **kwargs: Any,
     ) -> Iterator[ls_schemas.Run]:
         """Read runs for a single thread.
+
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.threads.list_traces` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration#threads-list-traces for the migration guide.
+            Will be removed after Jan 31, 2027.
 
         Args:
             thread_id: Thread id (required).
@@ -4190,17 +4308,26 @@ class Client:
         thread_id_escaped = json.dumps(str(thread_id))
         thread_filter = f"eq(thread_id, {thread_id_escaped})"
         combined_filter = f"and({thread_filter}, {filter})" if filter else thread_filter
-        return self.list_runs(
-            project_id=project_id,
-            project_name=project_name,
-            is_root=is_root,
-            limit=limit,
-            select=select,
-            filter=combined_filter,
-            order=order,
-            **kwargs,
-        )
+        # Suppressed: read_thread() already warned, and it points at
+        # threads.list_traces() rather than list_runs()'s runs.query().
+        with _suppress_deprecation_warning():
+            return self.list_runs(
+                project_id=project_id,
+                project_name=project_name,
+                is_root=is_root,
+                limit=limit,
+                select=select,
+                filter=combined_filter,
+                order=order,
+                **kwargs,
+            )
 
+    @_deprecated(
+        "list_runs() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.runs.query() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration"
+        "#runs-query for the migration guide."
+    )
     def list_runs(
         self,
         *,
@@ -4223,6 +4350,12 @@ class Client:
         **kwargs: Any,
     ) -> Iterator[ls_schemas.Run]:
         """List runs from the LangSmith API.
+
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.runs.query` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration#runs-query for the migration guide.
+            Will be removed after Jan 31, 2027.
 
         Args:
             project_id: The ID(s) of the project to filter by.
@@ -4395,6 +4528,12 @@ class Client:
             if limit is not None and i + 1 >= limit:
                 break
 
+    @_deprecated(
+        "list_threads() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.threads.query() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration"
+        "#threads-query for the migration guide."
+    )
     def list_threads(
         self,
         *,
@@ -4406,6 +4545,12 @@ class Client:
         start_time: Optional[datetime.datetime] = None,
     ) -> list[ListThreadsItem]:
         """List threads and fetch the runs for each thread.
+
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.threads.query` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration#threads-query for the migration guide.
+            Will be removed after Jan 31, 2027.
 
         Args:
             project_id: The project (session) id.
@@ -4611,6 +4756,12 @@ class Client:
         ls_utils.raise_for_status_with_text(response)
         return response.json()
 
+    @_deprecated(
+        "get_run_url() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.runs.get_url() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration"
+        "#runs-get-url for the migration guide."
+    )
     def get_run_url(
         self,
         *,
@@ -4624,6 +4775,12 @@ class Client:
         More for use interacting with runs after the fact
         for data analysis or ETL workloads.
 
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.runs.get_url` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration#runs-get-url for the migration guide.
+            Will be removed after Jan 31, 2027.
+
         Args:
             run (RunBase): The run.
             project_name (Optional[str]): The name of the project.
@@ -4631,6 +4788,21 @@ class Client:
 
         Returns:
             str: The URL for the run.
+        """
+        return self._construct_run_url(
+            run=run, project_name=project_name, project_id=project_id
+        )
+
+    def _construct_run_url(
+        self,
+        *,
+        run: ls_schemas.RunBase,
+        project_name: Optional[str] = None,
+        project_id: Optional[ID_TYPE] = None,
+    ) -> str:
+        """Build a run's UI URL locally, without calling the backend.
+
+        Kept for backends that predate the ``/runs/{run_id}/url`` v2 endpoint.
         """
         if session_id := getattr(run, "session_id", None):
             pass
@@ -4649,8 +4821,20 @@ class Client:
             f"r/{run.id}?poll=true"
         )
 
+    @_deprecated(
+        "share_run() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.runs.share.create() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration"
+        "#share-and-read-public-runs for the migration guide."
+    )
     def share_run(self, run_id: ID_TYPE, *, share_id: Optional[ID_TYPE] = None) -> str:
         """Get a share link for a run.
+
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.runs.share.create` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration#share-and-read-public-runs for the migration guide.
+            Will be removed after Jan 31, 2027.
 
         Args:
             run_id (Union[UUID, str]): The ID of the run to share.
@@ -4675,8 +4859,20 @@ class Client:
         share_token = response.json()["share_token"]
         return f"{self._host_url}/public/{share_token}/r"
 
+    @_deprecated(
+        "unshare_run() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.runs.share.delete() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration"
+        "#share-and-read-public-runs for the migration guide."
+    )
     def unshare_run(self, run_id: ID_TYPE) -> None:
         """Delete share link for a run.
+
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.runs.share.delete` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration#share-and-read-public-runs for the migration guide.
+            Will be removed after Jan 31, 2027.
 
         Args:
             run_id (Union[UUID, str]): The ID of the run to unshare.
@@ -4691,8 +4887,20 @@ class Client:
         )
         ls_utils.raise_for_status_with_text(response)
 
+    @_deprecated(
+        "read_run_shared_link() is deprecated and will be removed after Jan 31, 2027. "
+        'Use client.runs.retrieve(selects=["SHARE_URL"]) instead. '
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration"
+        "#share-and-read-public-runs for the migration guide."
+    )
     def read_run_shared_link(self, run_id: ID_TYPE) -> Optional[str]:
         """Retrieve the shared link for a specific run.
+
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.runs.retrieve` with ``selects=["SHARE_URL"]`` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration#share-and-read-public-runs for the migration guide.
+            Will be removed after Jan 31, 2027.
 
         Args:
             run_id (Union[UUID, str]): The ID of the run.
@@ -4721,13 +4929,26 @@ class Client:
         Returns:
             bool: True if the run is shared, False otherwise.
         """
-        link = self.read_run_shared_link(_as_uuid(run_id, "run_id"))
+        with _suppress_deprecation_warning():
+            link = self.read_run_shared_link(_as_uuid(run_id, "run_id"))
         return link is not None
 
+    @_deprecated(
+        "read_shared_run() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.public.runs.retrieve() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration"
+        "#share-and-read-public-runs for the migration guide."
+    )
     def read_shared_run(
         self, share_token: Union[ID_TYPE, str], run_id: Optional[ID_TYPE] = None
     ) -> ls_schemas.Run:
         """Get shared runs.
+
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.public.runs.retrieve` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration#share-and-read-public-runs for the migration guide.
+            Will be removed after Jan 31, 2027.
 
         Args:
             share_token (Union[UUID, str]): The share token or URL of the shared run.
@@ -4749,10 +4970,22 @@ class Client:
         ls_utils.raise_for_status_with_text(response)
         return ls_schemas.Run(**response.json(), _host_url=self._host_url)
 
+    @_deprecated(
+        "list_shared_runs() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.public.runs.query() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration"
+        "#share-and-read-public-runs for the migration guide."
+    )
     def list_shared_runs(
         self, share_token: Union[ID_TYPE, str], run_ids: Optional[list[str]] = None
     ) -> Iterator[ls_schemas.Run]:
         """Get shared runs.
+
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.public.runs.query` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration#share-and-read-public-runs for the migration guide.
+            Will be removed after Jan 31, 2027.
 
         Args:
             share_token (Union[UUID, str]): The share token or URL of the shared run.
@@ -5217,21 +5450,24 @@ class Client:
 
         backend = _v2_migration_utils.get_query_backend(self.info.instance_flags)
         if backend != _v2_migration_utils.QueryBackend.SMITHDB_ONLY:
-            runs: Iterable[ls_schemas.Run] = self.list_runs(
-                project_id=project_id,
-                project_name=project_name,
-                is_root=True,
-                select=[
-                    "id",
-                    "reference_example_id",
-                    "inputs",
-                    "outputs",
-                    "error",
-                    "feedback_stats",
-                    "start_time",
-                    "end_time",
-                ],
-            )
+            # Suppressed: get_test_results() is supported, so callers have nothing
+            # to migrate; how it fetches runs is an implementation detail.
+            with _suppress_deprecation_warning():
+                runs: Iterable[ls_schemas.Run] = self.list_runs(
+                    project_id=project_id,
+                    project_name=project_name,
+                    is_root=True,
+                    select=[
+                        "id",
+                        "reference_example_id",
+                        "inputs",
+                        "outputs",
+                        "error",
+                        "feedback_stats",
+                        "start_time",
+                        "end_time",
+                    ],
+                )
         else:
             if project_id is None and project_name is not None:
                 project_id = self.read_project(project_name=project_name).id
@@ -7615,12 +7851,16 @@ class Client:
                     DeprecationWarning,
                     stacklevel=3,
                 )
-            run_: Union[V2Run, ls_schemas.Run, ls_schemas.RunBase] = self.read_run(
-                run,
-                load_child_runs=load_child_runs,
-                project_id=project_id,
-                start_time=start_time,
-            )
+            # Suppressed: the caller passed a run ID to (a)evaluate_run(), which
+            # already warned and points at create_feedback() rather than
+            # read_run()'s runs.retrieve().
+            with _suppress_deprecation_warning():
+                run_: Union[V2Run, ls_schemas.Run, ls_schemas.RunBase] = self.read_run(
+                    run,
+                    load_child_runs=load_child_runs,
+                    project_id=project_id,
+                    start_time=start_time,
+                )
         else:
             run_ = run
         return run_
@@ -7696,6 +7936,11 @@ class Client:
             )
         return results_
 
+    @_deprecated(
+        "evaluate_run() is deprecated and will be removed after Jan 31, 2027. "
+        "There is no replacement: run the evaluator yourself and log the result "
+        "with client.create_feedback()."
+    )
     def evaluate_run(
         self,
         run: Union[V2Run, ls_schemas.Run, ls_schemas.RunBase, str, uuid.UUID],
@@ -7710,6 +7955,12 @@ class Client:
         load_child_runs: bool = False,
     ) -> ls_evaluator.EvaluationResult:
         """Evaluate a run.
+
+        .. admonition:: Deprecated
+
+            There is no replacement. Run the evaluator yourself and log the
+            result with :meth:`langsmith.Client.create_feedback`.
+            Will be removed after Jan 31, 2027.
 
         Args:
             run (Union[V2Run, Run, RunBase, str, UUID]):
@@ -7817,6 +8068,11 @@ class Client:
             )
         return results
 
+    @_deprecated(
+        "aevaluate_run() is deprecated and will be removed after Jan 31, 2027. "
+        "There is no replacement: run the evaluator yourself and log the result "
+        "with client.create_feedback()."
+    )
     async def aevaluate_run(
         self,
         run: Union[V2Run, ls_schemas.Run, ls_schemas.RunBase, str, uuid.UUID],
@@ -7831,6 +8087,12 @@ class Client:
         load_child_runs: bool = False,
     ) -> ls_evaluator.EvaluationResult:
         """Evaluate a run asynchronously.
+
+        .. admonition:: Deprecated
+
+            There is no replacement. Run the evaluator yourself and log the
+            result with :meth:`langsmith.Client.create_feedback`.
+            Will be removed after Jan 31, 2027.
 
         Args:
             run (Union[V2Run, Run, RunBase, str, UUID]):
@@ -8539,7 +8801,8 @@ class Client:
     ) -> Iterator[ls_schemas.FeedbackFormula]:
         """List feedback formulas.
 
-        .. deprecated::
+        .. admonition:: Deprecated
+
             Composite feedback formulas are no longer supported in the SDK.
             Add composite feedback scores via the LangSmith UI instead.
             This method now raises ``NotImplementedError``.
@@ -8555,7 +8818,8 @@ class Client:
     ) -> ls_schemas.FeedbackFormula:
         """Get a feedback formula by ID.
 
-        .. deprecated::
+        .. admonition:: Deprecated
+
             Composite feedback formulas are no longer supported in the SDK.
             Add composite feedback scores via the LangSmith UI instead.
             This method now raises ``NotImplementedError``.
@@ -8579,7 +8843,8 @@ class Client:
     ) -> ls_schemas.FeedbackFormula:
         """Create a feedback formula.
 
-        .. deprecated::
+        .. admonition:: Deprecated
+
             Composite feedback formulas are no longer supported in the SDK.
             Add composite feedback scores via the LangSmith UI instead.
             This method now raises ``NotImplementedError``.
@@ -8602,7 +8867,8 @@ class Client:
     ) -> ls_schemas.FeedbackFormula:
         """Update a feedback formula.
 
-        .. deprecated::
+        .. admonition:: Deprecated
+
             Composite feedback formulas are no longer supported in the SDK.
             Add composite feedback scores via the LangSmith UI instead.
             This method now raises ``NotImplementedError``.
@@ -8616,7 +8882,8 @@ class Client:
     def delete_feedback_formula(self, feedback_formula_id: ID_TYPE) -> None:
         """Delete a feedback formula by ID.
 
-        .. deprecated::
+        .. admonition:: Deprecated
+
             Composite feedback formulas are no longer supported in the SDK.
             Add composite feedback scores via the LangSmith UI instead.
             This method now raises ``NotImplementedError``.
@@ -8987,8 +9254,9 @@ class Client:
           (`run_id`, `session_id`, `start_time`, and an optional
           `source_proposed_example_id`). This lets the run be located directly,
           without a scan, and is required for workspaces served by SmithDB.
-        - `run_ids`: a plain list of run IDs. This path will be deprecated in a
-          future release; prefer `runs`.
+        - `run_ids`: a plain list of run IDs. This path is deprecated and will
+          be removed after Jan 31, 2027; prefer `runs`.
+          See https://docs.langchain.com/langsmith/smithdb-sdk-migration#annotation-queues-add-runs.
 
         Args:
             queue_id (Union[UUID, str]): The ID of the annotation queue.
@@ -9009,6 +9277,13 @@ class Client:
             path = f"/annotation-queues/{_as_uuid(queue_id, 'queue_id')}/runs/by-key"
             json_body = [_serialize_run_key(run, i) for i, run in enumerate(runs)]
         elif run_ids is not None:
+            warnings.warn(
+                "The run_ids parameter of add_runs_to_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
+                "Use the runs parameter with RunKey objects instead. "
+                "See https://docs.langchain.com/langsmith/smithdb-sdk-migration#annotation-queues-add-runs for the migration guide.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
             path = f"/annotation-queues/{_as_uuid(queue_id, 'queue_id')}/runs"
             json_body = [
                 str(_as_uuid(id_, f"run_ids[{i}]")) for i, id_ in enumerate(run_ids)
@@ -10847,6 +11122,12 @@ class Client:
 
             offset += len(batch)
 
+    @_deprecated(
+        "get_experiment_results() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.datasets.experiment_runs.query() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration"
+        "#dataset-experiment-runs-query for the migration guide."
+    )
     def get_experiment_results(
         self,
         name: Optional[str] = None,
@@ -10857,6 +11138,12 @@ class Client:
         limit: Optional[int] = None,
     ) -> ls_schemas.ExperimentResults:
         """Get results for an experiment, including experiment session aggregated stats and experiment runs for each dataset example.
+
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.datasets.experiment_runs.query` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration#dataset-experiment-runs-query for the migration guide.
+            Will be removed after Jan 31, 2027.
 
         Experiment results may not be available immediately after the experiment is created.
 

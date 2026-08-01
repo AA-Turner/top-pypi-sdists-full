@@ -8,7 +8,9 @@ from collections.abc import Iterator
 from typing import TYPE_CHECKING
 from typing import Any
 
+from mutmut.state import state
 from mutmut.utils.file_utils import change_cwd
+from mutmut.utils.format_utils import get_module_from_key
 from mutmut.utils.format_utils import get_mutant_name
 from mutmut.utils.format_utils import strip_prefix
 
@@ -20,6 +22,7 @@ if platform.system() == "Windows":
 import ast
 import fnmatch
 import gc
+import hashlib
 import inspect
 import itertools
 import json
@@ -30,7 +33,6 @@ import warnings
 from abc import ABC
 from collections import defaultdict
 from collections.abc import Callable
-from collections.abc import Sequence
 from dataclasses import dataclass
 from dataclasses import field
 from datetime import datetime
@@ -47,7 +49,7 @@ from os import walk
 from os.path import isdir
 from os.path import isfile
 from pathlib import Path
-from threading import Thread
+from threading import Lock
 from time import process_time
 from types import TracebackType
 
@@ -59,7 +61,10 @@ import mutmut
 from mutmut.code_coverage import gather_coverage
 from mutmut.code_coverage import get_covered_lines_for_file
 from mutmut.configuration import Config
+from mutmut.mutation.data import MutantLineSpans
 from mutmut.mutation.data import SourceFileMutationData
+from mutmut.mutation.file_mutation import FailedTypeCheckMutant
+from mutmut.mutation.file_mutation import MutatedFile
 from mutmut.mutation.file_mutation import filter_mutants_with_type_checker
 from mutmut.mutation.file_mutation import mutate_file_contents
 from mutmut.mutation.trampoline_templates import CLASS_NAME_SEPARATOR
@@ -114,10 +119,10 @@ emoji_by_status = {
 exit_code_to_emoji = {exit_code: emoji_by_status[status] for exit_code, status in status_by_exit_code.items()}
 
 
-def record_trampoline_hit(name: str) -> None:
+def record_trampoline_hit(name: str, caller: str | None = None) -> None:
     assert not name.startswith("src."), "Failed trampoline hit. Module name starts with `src.`, which is invalid"
 
-    source_paths = [p.resolve(strict=True) for p in Config.get().source_paths]
+    mutated_source_paths = Config.get().resolved_mutated_source_paths
 
     if Config.get().max_stack_depth != -1:
         f = inspect.currentframe()
@@ -128,7 +133,7 @@ def record_trampoline_hit(name: str) -> None:
             if "pytest" in filename or "hammett" in filename or "unittest" in filename:
                 break
             file_path = Path(filename).resolve(strict=True)
-            if any(path in file_path.parents for path in source_paths):
+            if any(path in file_path.parents for path in mutated_source_paths):
                 # only include stack frames of user-code; exclude mutmut and 3rd library stack frames
                 c -= 1
 
@@ -136,6 +141,8 @@ def record_trampoline_hit(name: str) -> None:
             return
 
     mutmut._stats.add(name)
+    if caller is not None and Config.get().track_dependencies:
+        state().function_dependencies[name].add(caller)
 
 
 def walk_all_files() -> Iterator[tuple[str, str]]:
@@ -209,6 +216,8 @@ class FileMutationResult:
     error: Exception | None = None
     unmodified: bool = False
     ignored: bool = False
+    changed_functions: set[str] | None = None
+    current_hashes: dict[str, str] | None = None
 
 
 @dataclass
@@ -232,6 +241,8 @@ def create_mutants(max_children: int) -> MutantGenerationStats:
                 stats.ignored += 1
             else:
                 stats.mutated += 1
+            if result.current_hashes:
+                state().current_function_hashes.update(result.current_hashes)
     return stats
 
 
@@ -295,14 +306,12 @@ def create_mutants_for_file(filename: Path, output_path: Path) -> FileMutationRe
         # source_mtime == mutant_mtime: only copied, otherwise the mutant file is untouched
         # source_mtime < mutant_mtime: the mutations have been saved after copying; source file untouched
         if source_mtime < mutant_mtime:
-            # reset the mutation stats
-            source_file_mutation_data = SourceFileMutationData(path=filename)
-            source_file_mutation_data.load()
-            for key in source_file_mutation_data.exit_code_by_key:
-                source_file_mutation_data.exit_code_by_key[key] = None
-            source_file_mutation_data.save()
-
-            return FileMutationResult(unmodified=True)
+            data = SourceFileMutationData(path=filename)
+            data.load()
+            return FileMutationResult(
+                unmodified=True,
+                current_hashes={get_mutant_name(filename, func): h for func, h in data.hash_by_function_name.items()},
+            )
     except OSError:
         pass
 
@@ -311,12 +320,14 @@ def create_mutants_for_file(filename: Path, output_path: Path) -> FileMutationRe
 
     with open(output_path, "w") as out:
         try:
-            mutant_names = write_all_mutants_to_file(out=out, source=source, filename=filename)
+            mutated_file = write_all_mutants_to_file(out=out, source=source, filename=filename)
         except cst.ParserSyntaxError as e:
             # if libcst cannot parse it, then copy the source without any mutations
             warnings.append(SyntaxWarning(f"Unsupported syntax in {filename} ({str(e)}), skipping"))
             out.write(source)
-            mutant_names = []
+            mutated_file = MutatedFile(
+                code=source, mutant_names=[], line_span_by_function_name={}, hash_by_function_name={}
+            )
 
     # validate no syntax errors of mutants
     with open(output_path) as f:
@@ -327,22 +338,44 @@ def create_mutants_for_file(filename: Path, output_path: Path) -> FileMutationRe
             invalid_syntax_error.__cause__ = e
             return FileMutationResult(warnings=warnings, error=invalid_syntax_error)
 
-    source_file_mutation_data = SourceFileMutationData(path=filename)
-    source_file_mutation_data.exit_code_by_key = {
-        get_mutant_name(filename, mutant_name): None for mutant_name in mutant_names
-    }
-    source_file_mutation_data.save()
+    hash_by_function_name = mutated_file.hash_by_function_name
 
-    return FileMutationResult(warnings=warnings)
+    data = SourceFileMutationData(path=filename)
+    data.load()
+    old_hashes = data.hash_by_function_name
+    changed = {f for f, h in hash_by_function_name.items() if old_hashes.get(f) != h}
+
+    merged: dict[str, int | None] = {}
+    for name in mutated_file.mutant_names:
+        key = get_mutant_name(filename, name)
+        func = mangled_name_from_mutant_name(key).rpartition(".")[2]
+        if func not in hash_by_function_name or func in changed:
+            merged[key] = None
+        else:
+            merged[key] = data.exit_code_by_key.get(key)
+    data.exit_code_by_key = merged
+    data.hash_by_function_name = dict(hash_by_function_name)
+    data.save()
+
+    MutantLineSpans(path=filename, span_by_function_name=mutated_file.line_span_by_function_name).save()
+
+    current_hashes_qualified = {get_mutant_name(filename, func): h for func, h in hash_by_function_name.items()}
+    changed_functions_qualified = {get_mutant_name(filename, func) for func in changed}
+
+    return FileMutationResult(
+        warnings=warnings,
+        changed_functions=changed_functions_qualified,
+        current_hashes=current_hashes_qualified,
+    )
 
 
-def write_all_mutants_to_file(*, out: TextIOBase, source: str, filename: Path) -> Sequence[str]:
-    result, mutant_names = mutate_file_contents(
+def write_all_mutants_to_file(*, out: TextIOBase, source: str, filename: Path) -> MutatedFile:
+    mutated_file = mutate_file_contents(
         str(filename), source, get_covered_lines_for_file(str(filename), mutmut._covered_lines)
     )
-    out.write(result)
+    out.write(mutated_file.code)
 
-    return mutant_names
+    return mutated_file
 
 
 def unused(*_: object) -> None:
@@ -719,6 +752,8 @@ def run_stats_collection(runner: TestRunner, tests: Iterable[str] | None = None)
 
     os.environ["MUTANT_UNDER_TEST"] = "stats"
     os.environ["PY_IGNORE_IMPORTMISMATCH"] = "1"
+    depth = Config.get().dependency_tracking_depth
+    os.environ["MUTMUT_DEPENDENCY_DEPTH"] = str(depth)
     start_cpu_time = process_time()
 
     with CatchOutput(spinner_title="Running stats") as output_catcher:
@@ -754,13 +789,326 @@ def run_stats_collection(runner: TestRunner, tests: Iterable[str] | None = None)
     save_stats()
 
 
-def collect_or_load_stats(runner: TestRunner) -> None:
+def _cleanup_stale_stats() -> None:
+    valid_modules = {get_module_from_key(key) for key in state().current_function_hashes}
+
+    def _is_valid_key(key: str) -> bool:
+        return get_module_from_key(key) in valid_modules
+
+    stale_keys = [k for k in mutmut.tests_by_mangled_function_name if not _is_valid_key(k)]
+    for k in stale_keys:
+        del mutmut.tests_by_mangled_function_name[k]
+
+    stale_dep_keys = [k for k in state().function_dependencies if not _is_valid_key(k)]
+    for k in stale_dep_keys:
+        del state().function_dependencies[k]
+
+    for _, callers in state().function_dependencies.items():
+        callers -= {c for c in callers if not _is_valid_key(c)}
+
+
+def _invalidate_stale_dependency_edges() -> set[str]:
+    old_hashes = state().old_function_hashes
+    new_hashes = state().current_function_hashes
+
+    if not old_hashes:
+        return set()
+
+    all_functions = old_hashes.keys() | new_hashes.keys()
+    changed_functions = {f for f in all_functions if old_hashes.get(f) != new_hashes.get(f)}
+
+    if not changed_functions:
+        return set()
+
+    for callers in state().function_dependencies.values():
+        callers -= changed_functions
+
+    deleted_functions = old_hashes.keys() - new_hashes.keys()
+    for f in deleted_functions:
+        state().function_dependencies.pop(f, None)
+
+    return changed_functions
+
+
+# Dependency / build files whose changes the per-function source hashes cannot see.
+# Globs are resolved against the project root; missing files are skipped. Users can
+# extend this via the ``cache_invalidation_files`` config.
+_DEFAULT_WATCHED_FILES = (
+    "pyproject.toml",
+    "setup.cfg",
+    "setup.py",
+    "requirements*.txt",
+    "poetry.lock",
+    "uv.lock",
+    "Pipfile",
+    "Pipfile.lock",
+)
+
+# Files that practically never affect test behavior. Git change detection otherwise
+# surfaces every non-.py file in the repo, so these are dropped to cut the noise.
+# Users extend this via the ``cache_invalidation_exclude`` config; anything they
+# explicitly register in ``cache_invalidation_files`` is never excluded. Patterns are
+# matched with fnmatch (``*`` spans path separators).
+_DEFAULT_INVALIDATION_EXCLUDE = (
+    "*.md",
+    "*.rst",
+    "LICENSE*",
+    "COPYING*",
+    "NOTICE*",
+    "AUTHORS*",
+    "CHANGELOG*",
+    "CHANGES*",
+    ".gitignore",
+    ".gitattributes",
+    ".editorconfig",
+    ".pre-commit-config.yaml",
+    "docs/*",
+    "doc/*",
+)
+
+
+def _hash_files(paths: Iterable[str]) -> dict[str, str]:
+    """Content hash each existing path; missing files are simply omitted."""
+    hashes: dict[str, str] = {}
+    for p in paths:
+        path = Path(p)
+        if path.is_file():
+            hashes[p] = hashlib.sha256(path.read_bytes()).hexdigest()[:12]
+    return hashes
+
+
+def compute_watched_file_hashes() -> dict[str, str]:
+    """Map watched-file path -> content hash for the default set plus user globs."""
+    patterns = list(_DEFAULT_WATCHED_FILES) + list(Config.get().cache_invalidation_files)
+    paths = [str(path) for pattern in patterns for path in sorted(Path(".").glob(pattern))]
+    return _hash_files(paths)
+
+
+def _run_git(args: list[str]) -> str | None:
+    """Run a git command at the project root. Returns stdout, or None on any failure
+    (git not installed, not a repo, unknown ref, ...). Git is a soft dependency: this
+    never raises so callers can silently fall back to content hashing.
+    """
+    try:
+        result = subprocess.run(["git", *args], capture_output=True, text=True, check=False)
+    except OSError:
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout
+
+
+def git_head() -> str | None:
+    """The current HEAD commit, or None when git / a repo / a commit is unavailable."""
+    out = _run_git(["rev-parse", "HEAD"])
+    return out.strip() if out else None
+
+
+def git_changed_non_py_files(since_ref: str) -> set[str] | None:
+    """Non-.py files changed since ``since_ref`` (tracked diffs against the working tree,
+    including uncommitted edits, plus new untracked files). ``.py`` files are excluded
+    because the per-function hashes already track them. Returns None if git cannot answer.
+    """
+    diff = _run_git(["diff", "--name-only", since_ref, "--"])
+    if diff is None:
+        return None
+    untracked = _run_git(["ls-files", "--others", "--exclude-standard"]) or ""
+    files = {line for line in (diff + "\n" + untracked).splitlines() if line}
+    return {f for f in files if not f.endswith(".py")}
+
+
+def git_tracked_non_py_files() -> set[str] | None:
+    """Every non-.py file git knows about (tracked + untracked-not-ignored), or None if
+    git cannot answer. Recorded on a full run so a later git-less run can still detect
+    changes to these files by re-hashing them.
+    """
+    out = _run_git(["ls-files", "--cached", "--others", "--exclude-standard"])
+    if out is None:
+        return None
+    return {line for line in out.splitlines() if line and not line.endswith(".py")}
+
+
+def _changed_hashed_files(restrict_to: list[str] | None = None) -> set[str]:
+    """Baseline files whose content changed, by re-hashing them now.
+
+    Re-hashes every path in the stored baseline (which, after a full run with git, is
+    the comprehensive set of non-.py files) plus any newly-appearing curated/user-glob
+    files. This is how a git-less run still detects changes to files git discovered.
+    ``restrict_to`` limits the result to paths matching those glob patterns.
+    """
+    old = state().old_watched_file_hashes
+    if not old:
+        return set()
+    new = _hash_files(old.keys())
+    new.update(compute_watched_file_hashes())  # pick up newly-added curated/user files
+    changed = {p for p in old.keys() | new.keys() if old.get(p) != new.get(p)}
+    if restrict_to is not None:
+        changed = {p for p in changed if any(fnmatch.fnmatch(p, pat) for pat in restrict_to)}
+    return changed
+
+
+def _is_excluded(path: str, config: Config) -> bool:
+    """Whether ``path`` should be dropped from change reporting as noise.
+
+    Files explicitly registered in ``cache_invalidation_files`` are never excluded.
+    """
+    if any(fnmatch.fnmatch(path, pat) for pat in config.cache_invalidation_files):
+        return False
+    patterns = list(_DEFAULT_INVALIDATION_EXCLUDE) + list(config.cache_invalidation_exclude)
+    return any(fnmatch.fnmatch(path, pat) for pat in patterns)
+
+
+def _changed_dependency_files() -> set[str]:
+    """Files changed since the last full run that the per-function hashes cannot track.
+
+    Prefers git (catches every non-.py file in the repo and respects .gitignore) and
+    falls back to hashing a curated set of build/dependency files when git is
+    unavailable. Silent on the first run (no baseline to compare against). Noisy files
+    (see ``_DEFAULT_INVALIDATION_EXCLUDE`` and ``cache_invalidation_exclude``) are dropped.
+    """
+    config = Config.get()
+    old_commit = state().old_git_commit
+    if config.use_git_change_detection and old_commit is not None:
+        git_changed = git_changed_non_py_files(old_commit)
+        if git_changed is not None:
+            # also catch explicitly-registered files that git ignores
+            changed = git_changed | _changed_hashed_files(restrict_to=config.cache_invalidation_files)
+        else:
+            changed = _changed_hashed_files()
+    else:
+        changed = _changed_hashed_files()
+    return {p for p in changed if not _is_excluded(p, config)}
+
+
+def _compute_baseline_file_hashes() -> dict[str, str]:
+    """The set of non-.py files to track, hashed. Always includes the curated/user-glob
+    files; when git is available it also records every tracked non-.py file (minus noise)
+    so a later git-less run can still detect changes to them.
+    """
+    config = Config.get()
+    hashes = compute_watched_file_hashes()
+    if config.use_git_change_detection:
+        tracked = git_tracked_non_py_files()
+        if tracked is not None:
+            hashes.update(_hash_files(sorted(p for p in tracked if not _is_excluded(p, config))))
+    return hashes
+
+
+def _refresh_change_detection_baseline() -> None:
+    """Snapshot the current git commit and tracked-file hashes as the new baseline.
+
+    Only called on a full run; cached runs keep the previous baseline so a ``warn``
+    keeps firing until the cache is actually rebuilt.
+    """
+    state().git_commit = git_head()
+    state().watched_file_hashes = _compute_baseline_file_hashes()
+
+
+def _reset_mutant_results(should_reset: Callable[[str, int], bool]) -> int:
+    """Reset cached verdicts to ``None`` (forcing a re-test) where ``should_reset`` holds.
+
+    ``should_reset`` only sees already-decided mutants (``exit_code`` is not ``None``).
+    """
+    count = 0
+    for path in walk_mutatable_files():
+        meta_path = Path("mutants") / (str(path) + ".meta")
+        if not meta_path.exists():
+            continue
+        m = SourceFileMutationData(path=path)
+        m.load()
+        dirty = False
+        for key, exit_code in list(m.exit_code_by_key.items()):
+            if exit_code is not None and should_reset(key, exit_code):
+                m.exit_code_by_key[key] = None
+                dirty = True
+                count += 1
+        if dirty:
+            m.save()
+    return count
+
+
+def _report_watched_file_changes() -> bool:
+    """Surface non-Python files that changed since the last full run.
+
+    Returns True only when the configured policy is ``rerun`` and something changed,
+    asking the caller to reset all results. Silent when there is no baseline yet.
+    """
+    changed = _changed_dependency_files()
+    if not changed:
+        return False
+
+    policy = Config.get().on_dependency_change
+    if policy == "ignore":
+        return False
+    listed = sorted(changed)
+    if policy == "rerun":
+        print(f"    {len(listed)} non-Python file(s) changed; rerunning all mutants: {', '.join(listed)}")
+        return True
+    # default: warn but keep the cache
+    print(f"    Warning: {len(listed)} non-Python file(s) changed since the last full run: {', '.join(listed)}")
+    print("    These cannot be tracked for behavioral changes, so cached results were kept.")
+    print('    If the changes affect your tests, delete the mutants/ directory or set on_dependency_change = "rerun".')
+    return False
+
+
+def _apply_config_change_invalidation(mutants_caught_by_type_checker: dict[str, object]) -> bool:
+    """Reset only the cached verdicts a config / dependency change could have invalidated.
+
+    Returns True if a full stats recollection is required (a global pytest config change
+    or an opt-in dependency rerun), in which case all results have already been reset.
+    """
+    old_fp = state().old_config_fingerprint
+    new_fp = Config.get().config_fingerprint()
+    changed_groups = {g for g in new_fp if old_fp.get(g) != new_fp[g]} if old_fp else set()
+
+    dependency_rerun = _report_watched_file_changes()
+
+    # Global groups change how *every* test runs / which tests map to a function, so no
+    # subset of results is safe to keep -> full reset and full stats recollection.
+    if changed_groups & {"test_execution", "test_selection"} or dependency_rerun:
+        _reset_mutant_results(lambda key, exit_code: True)
+        mutmut.duration_by_test.clear()
+        mutmut.tests_by_mangled_function_name.clear()
+        state().function_dependencies.clear()
+        return True
+
+    # Timeout config only reclassifies timeouts; keep every other verdict.
+    if "timeout" in changed_groups:
+        _reset_mutant_results(lambda key, exit_code: status_by_exit_code[exit_code] == "timeout")
+
+    # The type-check pre-filter runs fresh every run; only verdicts whose type-check
+    # status flips are stale -> reset the symmetric difference of old (==37) and new.
+    if "type_check" in changed_groups:
+        caught = set(mutants_caught_by_type_checker)
+        _reset_mutant_results(lambda key, exit_code: (exit_code == 37) != (key in caught))
+
+    return False
+
+
+def collect_or_load_stats(
+    runner: TestRunner,
+    *,
+    mutants_caught_by_type_checker: dict[str, Any] | None = None,
+    apply_config_invalidation: bool = False,
+    invalidate_stale_callers: bool = True,
+) -> None:
     did_load = load_stats()
 
-    if not did_load:
+    force_full = False
+    if did_load and apply_config_invalidation:
+        force_full = _apply_config_change_invalidation(mutants_caught_by_type_checker or {})
+
+    if not did_load or force_full:
+        # A full run rebuilds the cache, so reset the change-detection baseline to "now".
+        _refresh_change_detection_baseline()
         # Run full stats
         run_stats_collection(runner)
     else:
+        _cleanup_stale_stats()
+        if Config.get().track_dependencies and invalidate_stale_callers:
+            _invalidate_stale_dependency_edges()
+        save_stats()
+
         # Run incremental stats
         with CatchOutput(spinner_title="Listing all tests") as output_catcher:
             os.environ["MUTANT_UNDER_TEST"] = "list_all_tests"
@@ -789,6 +1137,15 @@ def load_stats() -> bool:
                 mutmut.tests_by_mangled_function_name[k] |= set(v)
             mutmut.duration_by_test = data.pop("duration_by_test")
             mutmut.stats_time = data.pop("stats_time")
+            state().old_function_hashes = data.pop("function_hashes", {})
+            for k, v in data.pop("function_dependencies", {}).items():
+                state().function_dependencies[k] = set(v)
+            state().old_config_fingerprint = data.pop("config_fingerprint", {})
+            state().old_watched_file_hashes = data.pop("watched_file_hashes", {})
+            state().old_git_commit = data.pop("git_commit", None)
+            # Preserve the loaded baseline; only a full run refreshes it.
+            state().watched_file_hashes = state().old_watched_file_hashes
+            state().git_commit = state().old_git_commit
             assert not data, data
             did_load = True
     except (FileNotFoundError, JSONDecodeError):
@@ -803,6 +1160,11 @@ def save_stats() -> None:
                 tests_by_mangled_function_name={k: list(v) for k, v in mutmut.tests_by_mangled_function_name.items()},
                 duration_by_test=mutmut.duration_by_test,
                 stats_time=mutmut.stats_time,
+                function_hashes=state().current_function_hashes,
+                function_dependencies={k: list(v) for k, v in state().function_dependencies.items()},
+                config_fingerprint=Config.get().config_fingerprint(),
+                watched_file_hashes=state().watched_file_hashes,
+                git_commit=state().git_commit,
             ),
             f,
             indent=4,
@@ -1026,11 +1388,10 @@ def _run(mutant_names: tuple[str, ...] | list[str], max_children: int | None) ->
         f"    done in {round(time.total_seconds() * 1000)}ms ({stats.mutated} files mutated, {stats.ignored} ignored, {stats.unmodified} unmodified)",
     )
 
+    mutants_caught_by_type_checker: dict[str, FailedTypeCheckMutant] = {}
     if Config.get().type_check_command:
         with CatchOutput(spinner_title="Filtering mutations with type checker"):
             mutants_caught_by_type_checker = filter_mutants_with_type_checker()
-    else:
-        mutants_caught_by_type_checker = {}
 
     # TODO: config/option for runner
     # runner = HammettRunner()
@@ -1039,7 +1400,11 @@ def _run(mutant_names: tuple[str, ...] | list[str], max_children: int | None) ->
 
     # TODO: run these steps only if we have mutants to test
 
-    collect_or_load_stats(runner)
+    collect_or_load_stats(
+        runner,
+        mutants_caught_by_type_checker=mutants_caught_by_type_checker,
+        apply_config_invalidation=True,
+    )
 
     mutants, source_file_mutation_data_by_path = collect_source_file_mutation_data(mutant_names=mutant_names)
 
@@ -1252,26 +1617,91 @@ def find_mutant(mutant_name: str) -> SourceFileMutationData:
     raise FileNotFoundError(f"Could not find mutant {mutant_name}")
 
 
+def generated_function_names(mutant_name: str) -> tuple[str, str]:
+    """Get the names of the generated original and mutated function for a mutant.
+
+    :return: A tuple of (name of the unmutated copy, name of the mutant)."""
+    generated_mutant_name = mutant_name.rpartition(".")[-1]
+    return mangled_name_from_mutant_name(generated_mutant_name) + "__mutmut_orig", generated_mutant_name
+
+
+def read_functions_from_index(mutant_name: str, path: Path | str) -> tuple[cst.FunctionDef, cst.FunctionDef] | None:
+    """Read the unmutated copy and the mutant of a function from a mutated file, using the line span index.
+
+    Only the lines of those two functions are parsed, instead of the whole mutated file. Mutated
+    files are often orders of magnitude larger than the file they were generated from, so this is
+    the difference between parsing a few lines and parsing tens of megabytes.
+
+    Both functions are named after the function they were generated from, so that a diff of the
+    two shows only the mutation.
+
+    :return: A tuple of (unmutated function, mutated function), or None if there is no usable index."""
+    line_spans = MutantLineSpans.load(path)
+    if line_spans is None:
+        return None
+
+    orig_name, generated_mutant_name = generated_function_names(mutant_name)
+    try:
+        sources = line_spans.read_function_sources([orig_name, generated_mutant_name])
+    except (KeyError, ValueError):
+        # the index is incomplete or malformed, so fall back to parsing the file
+        return None
+
+    orig_function_name, class_name = orig_function_and_class_names_from_key(mutant_name)
+    orig_source, mutant_source = sources
+    orig_function = parse_generated_function(orig_source, name=orig_name, is_method=class_name is not None)
+    mutant_function = parse_generated_function(
+        mutant_source, name=generated_mutant_name, is_method=class_name is not None
+    )
+    if orig_function is None or mutant_function is None:
+        # the index does not match the mutated file, so fall back to parsing the file
+        return None
+
+    return (
+        orig_function.with_changes(name=cst.Name(orig_function_name)),
+        mutant_function.with_changes(name=cst.Name(orig_function_name)),
+    )
+
+
+def parse_generated_function(source: str, *, name: str, is_method: bool) -> cst.FunctionDef | None:
+    """Parse a function that was read out of a mutated file by itself.
+
+    :param source: The source of the function, still indented as it was in the file.
+    :param is_method: Whether the function is a method, and therefore indented.
+    :return: The function, or None if `source` does not contain a function called `name`."""
+    if is_method:
+        # the source is indented as a class body, so it needs a class to live in to parse
+        source = "class _:\n" + source
+
+    try:
+        module = cst.parse_module(source)
+    except cst.ParserSyntaxError:
+        # the index points at lines that are not a function, so it must be out of date
+        return None
+
+    function = find_top_level_function_or_method(module, name)
+    if function is None:
+        return None
+
+    # comments and blank lines above the function became the module header when parsing it on its
+    # own, but they belong to the function
+    return function.with_changes(leading_lines=[*module.header, *function.leading_lines])
+
+
 def get_diff_for_mutant(
     mutant_name: str,
     source: str | None = None,
     path: Path | str | None = None,
 ) -> str:
     if path is None:
-        m = find_mutant(mutant_name)
-        path = m.path
-        status = status_by_exit_code[m.exit_code_by_key[mutant_name]]
-    else:
-        status = "not checked"
+        path = find_mutant(mutant_name).path
 
-    print(f"# {mutant_name}: {status}")
+    functions = None if source is not None else read_functions_from_index(mutant_name, path)
+    if functions is None:
+        module = read_mutants_module(path) if source is None else cst.parse_module(source)
+        functions = (read_original_function(module, mutant_name), read_mutant_function(module, mutant_name))
 
-    if source is None:
-        module = read_mutants_module(path)
-    else:
-        module = cst.parse_module(source)
-    orig_code = cst.Module([read_original_function(module, mutant_name)]).code.strip()
-    mutant_code = cst.Module([read_mutant_function(module, mutant_name)]).code.strip()
+    orig_code, mutant_code = (cst.Module([function]).code.strip() for function in functions)
 
     path_str = str(path)
     return "\n".join(
@@ -1288,7 +1718,9 @@ def get_diff_for_mutant(
 @click.argument("mutant_name")
 def show(mutant_name: str) -> None:
     Config.ensure_loaded()
-    print(get_diff_for_mutant(mutant_name))
+    m = find_mutant(mutant_name)
+    print(f"# {mutant_name}: {status_by_exit_code[m.exit_code_by_key[mutant_name]]}")
+    print(get_diff_for_mutant(mutant_name, path=m.path))
     return
 
 
@@ -1309,14 +1741,17 @@ def apply_mutant(mutant_name: str) -> None:
     orig_function_name = orig_function_name.rpartition(".")[-1]
 
     orig_module = read_orig_module(path)
-    mutants_module = read_mutants_module(path)
-
-    mutant_function = read_mutant_function(mutants_module, mutant_name)
-    mutant_function = mutant_function.with_changes(name=cst.Name(orig_function_name))
 
     original_function = find_top_level_function_or_method(orig_module, orig_function_name)
     if not original_function:
         raise FileNotFoundError(f"Could not apply mutant {mutant_name}")
+
+    functions_from_index = read_functions_from_index(mutant_name, path)
+    if functions_from_index is not None:
+        _, mutant_function = functions_from_index
+    else:
+        mutant_function = read_mutant_function(read_mutants_module(path), mutant_name)
+    mutant_function = mutant_function.with_changes(name=cst.Name(orig_function_name))
 
     new_module: cst.Module = orig_module.deep_replace(original_function, mutant_function)  # type: ignore[arg-type]
 
@@ -1329,16 +1764,18 @@ def apply_mutant(mutant_name: str) -> None:
 def browse(show_killed: bool) -> None:
     Config.ensure_loaded()
 
+    from rich.console import RenderableType
     from rich.syntax import Syntax
+    from textual import work
     from textual.app import App
     from textual.containers import Container
     from textual.widget import Widget
     from textual.widgets import DataTable
     from textual.widgets import Footer
     from textual.widgets import Static
+    from textual.worker import get_current_worker
 
     class ResultBrowser(App[None]):
-        loading_id = None
         CSS_PATH = "result_browser_layout.tcss"
         BINDINGS = [
             ("q", "quit()", "Quit"),
@@ -1356,6 +1793,7 @@ def browse(show_killed: bool) -> None:
         cursor_type = "row"
         source_file_mutation_data_and_stat_by_path: dict[str, tuple[SourceFileMutationData, Stat]] = {}
         path_by_name: dict[str, Path] = {}
+        diff_load_lock = Lock()
 
         def compose(self) -> Iterable[Any]:
             with Container(classes="container"):
@@ -1427,7 +1865,6 @@ def browse(show_killed: bool) -> None:
                 # noinspection PyTypeChecker
                 description_view: Static = self.query_one("#description")  # type: ignore[assignment]
                 mutant_name = event.row_key.value
-                self.loading_id = mutant_name
                 path = self.path_by_name.get(mutant_name)
                 source_file_mutation_data, stat = self.source_file_mutation_data_and_stat_by_path[str(path)]
 
@@ -1474,17 +1911,31 @@ def browse(show_killed: bool) -> None:
                 diff_view: Static = self.query_one("#diff_view")  # type: ignore[assignment]
                 diff_view.update("<loading code diff...>")
 
-                def load_thread() -> None:
-                    Config.ensure_loaded()
-                    try:
-                        d = get_diff_for_mutant(event.row_key.value, path=path)
-                        if event.row_key.value == self.loading_id:
-                            diff_view.update(Syntax(d, "diff"))
-                    except Exception as e:
-                        diff_view.update(f"<{type(e)} {e}>")
+                self.load_diff(mutant_name, path, diff_view)
 
-                t = Thread(target=load_thread)
-                t.start()
+        @work(exclusive=True, thread=True, group="load_diff")
+        def load_diff(self, mutant_name: str, path: Path | None, diff_view: Static) -> None:
+            """Load the diff for a mutant and display it.
+
+            Only one diff is loaded at a time, and moving on to another mutant cancels the loads
+            that have not started yet. Otherwise moving through a long list of mutants piles up
+            loads for diffs that are never going to be displayed."""
+            worker = get_current_worker()
+
+            with self.diff_load_lock:
+                if worker.is_cancelled:
+                    return
+
+                Config.ensure_loaded()
+                try:
+                    update: RenderableType = Syntax(get_diff_for_mutant(mutant_name, path=path), "diff")
+                except Exception as e:
+                    update = f"<{type(e)} {e}>"
+
+            if worker.is_cancelled:
+                return
+
+            self.call_from_thread(diff_view.update, update)
 
         def retest(self, pattern: str | None) -> None:
             if pattern is None:

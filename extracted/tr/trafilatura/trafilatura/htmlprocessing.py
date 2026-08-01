@@ -18,7 +18,7 @@ from .settings import (
     Document,
     Extractor,
 )
-from .utils import is_image_element, textfilter, trim
+from .utils import LINK_FARM_RATIO, is_image_element, textfilter, trim
 from .xml import META_ATTRIBUTES, delete_element
 
 LOGGER = logging.getLogger(__name__)
@@ -53,6 +53,9 @@ def tree_cleaning(tree: HtmlElement, options: Extractor) -> HtmlElement:
     else:
         # prevent this issue: https://github.com/adbar/trafilatura/issues/301
         for elem in tree.xpath(".//figure[descendant::table]"):
+            elem.tag = "div"
+        # ARIA layout tables (role=presentation/none explicitly marks a non-data table)
+        for elem in tree.xpath('.//table[@role="presentation" or @role="none"]'):
             elem.tag = "div"
     if options.images:
         # Many websites have <img> inside <figure> or <picture> or <source> tag
@@ -137,13 +140,12 @@ def link_density_test(element: HtmlElement, text: str, favor_precision: bool = F
             return True, []
     if element.tag == "p":
         limitlen = 60 if element.getnext() is None else 30
+    elif element.getnext() is None:
+        limitlen = 300
+    # elif re.search(r'[.?!:]', element.text_content()):
+    #    limitlen, threshold = 150, 0.66
     else:
-        if element.getnext() is None:
-            limitlen = 300
-        # elif re.search(r'[.?!:]', element.text_content()):
-        #    limitlen, threshold = 150, 0.66
-        else:
-            limitlen = 100
+        limitlen = 100
     elemlen = len(text)
     if elemlen < limitlen:
         linklen, elemnum, shortelems, mylist = collect_link_info(links_xpath)
@@ -158,6 +160,15 @@ def link_density_test(element: HtmlElement, text: str, favor_precision: bool = F
         )
         if linklen > elemlen * 0.8 or (elemnum > 1 and shortelems / elemnum > 0.8):
             return True, mylist
+    # large near-total-link farms ("latest news" sidebars) at/above limitlen, which the size gate
+    # above never tests (#584); small farms are already caught there at the plain 0.8 ratio.
+    # >4: a farm is MANY links -- a handful of long sentence-links is editorial (knowtechie realworld test)
+    elif len(links_xpath) > 4:
+        # local vars: leave mylist [] on fall-through so the caller's backtracking gate is unaffected
+        linklen, elemnum, _, farmlist = collect_link_info(links_xpath)
+        # avg link len >= 100 => catalog/listing content (one link per card), not a farm: keep it
+        if linklen > len(text) * LINK_FARM_RATIO and linklen < 100 * elemnum:
+            return True, farmlist
     return False, mylist
 
 
@@ -172,10 +183,8 @@ def link_density_test_tables(element: HtmlElement) -> bool:
     if elemlen < 200:
         return False
 
-    linklen, elemnum, _, _ = collect_link_info(links_xpath)
-    if elemnum == 0:
-        return True
-
+    # links with no text (e.g. icon/flag links wrapping images) yield linklen 0 -> not boilerplate
+    linklen, _, _, _ = collect_link_info(links_xpath)
     LOGGER.debug("table link text: %s / total: %s", linklen, elemlen)
     return linklen > 0.8 * elemlen if elemlen < 1000 else linklen > 0.5 * elemlen
 
@@ -196,6 +205,12 @@ def delete_by_link_density(
         elemtext = trim(elem.text_content())
         result, templist = link_density_test(elem, elemtext, favor_precision)
         if result or (backtracking and templist and 0 < len(elemtext) < len_threshold and len(elem) >= depth_threshold):
+            # a paragraph that holds the content of a list item is kept: the
+            # link density of the whole list is checked separately, and
+            # removing it here would leave the item empty (GH #788)
+            parent = elem.getparent()
+            if tagname == "p" and parent is not None and parent.tag in ("item", "td", "th"):
+                continue
             deletions.append(elem)
             # else: # and not re.search(r'[?!.]', text):
             # print(elem.tag, templist)
@@ -307,10 +322,7 @@ def _is_code_block(text: str | None) -> bool:
     "Check if the element text is part of a code block."
     if not text:
         return False
-    for indicator in CODE_INDICATORS:
-        if indicator in text:
-            return True
-    return False
+    return any(indicator in text for indicator in CODE_INDICATORS)
 
 
 def convert_headings(elem: _Element) -> None:
@@ -391,6 +403,19 @@ def convert_tags(tree: HtmlElement, options: Extractor, url: str | None = None) 
         for elem in tree.iter("a", "ref"):
             convert_link(elem, base_url)
 
+    # Yoast FAQ blocks: question headers are bold but act as titles (#471)
+    for elem in tree.xpath('.//strong[contains(@class, "schema-faq-question")]'):
+        elem.attrib.clear()
+        elem.set("rend", "h3")
+        elem.tag = "head"
+
+    # an empty sup/sub carries nothing to raise or lower, and process_node() would later
+    # hand it the following text as its own, so the marker would wrap the wrong words.
+    # The tail is kept in every focus mode, unlike the pruning of CUT_EMPTY_ELEMS.
+    for elem in tree.iter("sub", "sup"):
+        if not elem.text and len(elem) == 0:
+            delete_element(elem)
+
     if options.formatting:
         for elem in tree.iter(REND_TAG_MAPPING.keys()):
             elem.attrib.clear()
@@ -429,9 +454,11 @@ HTML_CONVERSIONS = {
     "quote": "blockquote",
     "head": lambda elem: f"h{int(elem.get('rend', 'h3')[1:])}",
     "lb": "br",
-    "img": "graphic",
+    "graphic": "img",
     "ref": "a",
     "hi": lambda elem: HTML_TAG_MAPPING[elem.get("rend", "#i")],
+    "row": "tr",
+    "cell": lambda elem: "th" if elem.get("role") == "head" else "td",
 }
 
 
@@ -447,7 +474,7 @@ def convert_to_html(tree: _Element) -> _Element:
         # handle attributes
         if elem.tag == "a":
             elem.set("href", elem.attrib.pop("target", ""))
-        else:
+        elif elem.tag != "img":  # keep <img> src/alt/title; drop everything else
             elem.attrib.clear()
     tree.tag = "body"
     root = Element("html")

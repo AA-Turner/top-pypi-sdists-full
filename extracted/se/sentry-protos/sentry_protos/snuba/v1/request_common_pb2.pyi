@@ -94,6 +94,7 @@ class RequestMeta(google.protobuf.message.Message):
     DEBUG_FIELD_NUMBER: builtins.int
     REQUEST_ID_FIELD_NUMBER: builtins.int
     DOWNSAMPLED_STORAGE_CONFIG_FIELD_NUMBER: builtins.int
+    STANDARD_RETENTION_DAYS_FIELD_NUMBER: builtins.int
     organization_id: builtins.int
     """id of the organization we are querying data for"""
     cogs_category: builtins.str
@@ -110,6 +111,14 @@ class RequestMeta(google.protobuf.message.Message):
     """whether to include debug information in the response"""
     request_id: builtins.str
     """a unique identifier for the request, user doesnt need to set this"""
+    standard_retention_days: builtins.int
+    """Standard retention window in days for this request.
+    When set, Snuba may keep queries within this window on tier 1 storage
+    instead of applying long-term retention downsampling. When unset,
+    Snuba falls back to its default lower retention (typically 30 days).
+    This is independent of DownsampledStorageConfig, which controls sampling
+    mode rather than the age threshold for full-fidelity data.
+    """
     @property
     def project_ids(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.int]:
         """ids of the projects we are querying data for"""
@@ -140,9 +149,11 @@ class RequestMeta(google.protobuf.message.Message):
         debug: builtins.bool = ...,
         request_id: builtins.str = ...,
         downsampled_storage_config: sentry_protos.snuba.v1.downsampled_storage_pb2.DownsampledStorageConfig | None = ...,
+        standard_retention_days: builtins.int | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["downsampled_storage_config", b"downsampled_storage_config", "end_timestamp", b"end_timestamp", "start_timestamp", b"start_timestamp"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["cogs_category", b"cogs_category", "debug", b"debug", "downsampled_storage_config", b"downsampled_storage_config", "end_timestamp", b"end_timestamp", "organization_id", b"organization_id", "project_ids", b"project_ids", "referrer", b"referrer", "request_id", b"request_id", "start_timestamp", b"start_timestamp", "trace_item_name", b"trace_item_name", "trace_item_type", b"trace_item_type"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_standard_retention_days", b"_standard_retention_days", "downsampled_storage_config", b"downsampled_storage_config", "end_timestamp", b"end_timestamp", "standard_retention_days", b"standard_retention_days", "start_timestamp", b"start_timestamp"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_standard_retention_days", b"_standard_retention_days", "cogs_category", b"cogs_category", "debug", b"debug", "downsampled_storage_config", b"downsampled_storage_config", "end_timestamp", b"end_timestamp", "organization_id", b"organization_id", "project_ids", b"project_ids", "referrer", b"referrer", "request_id", b"request_id", "standard_retention_days", b"standard_retention_days", "start_timestamp", b"start_timestamp", "trace_item_name", b"trace_item_name", "trace_item_type", b"trace_item_type"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_standard_retention_days", b"_standard_retention_days"]) -> typing.Literal["standard_retention_days"] | None: ...
 
 global___RequestMeta = RequestMeta
 

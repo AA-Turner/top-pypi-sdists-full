@@ -24,7 +24,6 @@ license-files = ["LICENSE", "COPYING.rst"]
 requires-python = ">=3.11"
 dependencies = [
     'colorama>=0.4.4; sys_platform == "win32"',
-    "decorator>=5.1.0",
     "ipython-pygments-lexers>=1.0.0",
     "jedi>=0.18.2",
     "matplotlib-inline>=0.1.6",
@@ -92,9 +91,8 @@ matplotlib = [
    "matplotlib>3.9"
 ]
 all = [
-    "ipython[doc,matplotlib,terminal,test,test_extra]",
+    "ipython[doc,matplotlib,test,test_extra]",
     "argcomplete>=3.0",
-    "types-decorator"
 ]
 
 
@@ -107,7 +105,6 @@ exclude = [
    'IPython.utils.tests.test_wildcard',
    'testing',
    'tests',
-   '_process_win32_controller.py',
    'IPython/core/application.py',
    'IPython/core/profileapp.py',
    'IPython/lib/deepreload.py',
@@ -117,13 +114,16 @@ exclude = [
    'IPython/core/debugger_backport.py',
 ]
 check_untyped_defs = true
-# disallow_untyped_calls = true
-# disallow_untyped_decorators = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
 # ignore_errors = false
 # ignore_missing_imports = false
 disallow_incomplete_defs = true
 disallow_untyped_defs = true
 warn_redundant_casts = true
+warn_unused_ignores = true
+strict_equality = true
+warn_unreachable = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 
 [[tool.mypy.overrides]]
@@ -227,15 +227,55 @@ disable_error_code = [
   "union-attr"
 ]
 
+# Newly promoted to type-checking (previously fully ignored).
+# These pass a lenient check (real type errors surfaced) but are not yet
+# fully annotated, so untyped defs are still permitted for now.
+[[tool.mypy.overrides]]
+module = [
+    "IPython.core.async_helpers",
+    "IPython.core.builtin_trap",
+    "IPython.core.extensions",
+    "IPython.core.hooks",
+    "IPython.core.macro",
+    "IPython.core.magic_arguments",
+    "IPython.core.magics.ast_mod",
+    "IPython.core.payload",
+    "IPython.core.profiledir",
+    "IPython.external.qt_for_kernel",
+    "IPython.lib.guisupport",
+    "IPython.paths",
+    "IPython.sphinxext.ipython_console_highlighting",
+    "IPython.terminal.pt_inputhooks.asyncio",
+    "IPython.terminal.pt_inputhooks.gtk",
+    "IPython.terminal.pt_inputhooks.gtk3",
+    "IPython.terminal.pt_inputhooks.gtk4",
+    "IPython.terminal.pt_inputhooks.pyglet",
+    "IPython.terminal.pt_inputhooks.qt",
+    "IPython.terminal.pt_inputhooks.wx",
+    "IPython.terminal.ptutils",
+    "IPython.terminal.shortcuts.auto_match",
+    "IPython.utils._process_emscripten",
+    "IPython.utils.ipstruct",
+    "IPython.utils.process",
+    "IPython.utils.strdispatch",
+    "IPython.utils.terminal",
+]
+check_untyped_defs = true
+disallow_incomplete_defs = false
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+disallow_untyped_decorators = false
+ignore_errors = false
+ignore_missing_imports = true
+
 # gloabl ignore error
 [[tool.mypy.overrides]]
 module = [
     "IPython",
-    "IPython.conftest",
+    "IPython.terminal.pt_inputhooks",
+    "IPython.terminal.shortcuts",
     "IPython.core.alias",
-    "IPython.core.async_helpers",
     "IPython.core.autocall",
-    "IPython.core.builtin_trap",
     "IPython.core.compilerop",
     "IPython.core.completer",
     "IPython.core.completerlib",
@@ -244,17 +284,12 @@ module = [
     "IPython.core.display_trap",
     "IPython.core.displayhook",
     "IPython.core.displaypub",
-    "IPython.core.extensions",
     "IPython.core.formatters",
     "IPython.core.getipython",
     "IPython.core.guarded_eval",
     "IPython.core.historyapp",
-    "IPython.core.hooks",
     "IPython.core.inputtransformer2",
     "IPython.core.logger",
-    "IPython.core.macro",
-    "IPython.core.magic_arguments",
-    "IPython.core.magics.ast_mod",
     "IPython.core.magics.auto",
     "IPython.core.magics.basic",
     "IPython.core.magics.code",
@@ -271,71 +306,39 @@ module = [
     "IPython.core.magics.script",
     "IPython.core.oinspect",
     "IPython.core.page",
-    "IPython.core.payload",
     "IPython.core.payloadpage",
     "IPython.core.prefilter",
-    "IPython.core.profiledir",
-    "IPython.core.prompts",
     "IPython.core.pylabtools",
     "IPython.core.shellapp",
     "IPython.core.splitinput",
     "IPython.extensions.autoreload",
     "IPython.extensions.storemagic",
     "IPython.external.pickleshare",
-    "IPython.external.qt_for_kernel",
     "IPython.external.qt_loaders",
     "IPython.lib.backgroundjobs",
     "IPython.lib.clipboard",
     "IPython.lib.demo",
     "IPython.lib.display",
     "IPython.lib.editorhooks",
-    "IPython.lib.guisupport",
     "IPython.lib.latextools",
-    "IPython.lib.lexers",
     "IPython.lib.pretty",
-    "IPython.paths",
-    "IPython.sphinxext.ipython_console_highlighting",
     "IPython.terminal.debugger",
     "IPython.terminal.embed",
     "IPython.terminal.interactiveshell",
     "IPython.terminal.magics",
     "IPython.terminal.prompts",
-    "IPython.terminal.pt_inputhooks",
-    "IPython.terminal.pt_inputhooks.asyncio",
     "IPython.terminal.pt_inputhooks.glut",
-    "IPython.terminal.pt_inputhooks.gtk",
-    "IPython.terminal.pt_inputhooks.gtk3",
-    "IPython.terminal.pt_inputhooks.gtk4",
     "IPython.terminal.pt_inputhooks.osx",
-    "IPython.terminal.pt_inputhooks.pyglet",
-    "IPython.terminal.pt_inputhooks.qt",
     "IPython.terminal.pt_inputhooks.tk",
-    "IPython.terminal.pt_inputhooks.wx",
-    "IPython.terminal.ptutils",
-    "IPython.terminal.shortcuts",
-    "IPython.terminal.shortcuts.auto_match",
     "IPython.terminal.shortcuts.auto_suggest",
     "IPython.terminal.shortcuts.filters",
-    "IPython.utils._process_cli",
-    "IPython.utils._process_emscripten",
     "IPython.utils.capture",
-    "IPython.utils.coloransi",
-    "IPython.utils.contexts",
-    "IPython.utils.decorators",
     "IPython.utils.dir2",
-    "IPython.utils.frame",
     "IPython.utils.io",
-    "IPython.utils.ipstruct",
     "IPython.utils.openpy",
-    "IPython.utils.process",
-    "IPython.utils.py3compat",
-    "IPython.utils.strdispatch",
-    "IPython.utils.sysinfo",
     "IPython.utils.tempdir",
-    "IPython.utils.terminal",
     "IPython.utils.timing",
     "IPython.utils.tokenutil",
-    "IPython.utils.version",
     "IPython.utils.wildcard",
 
 ]
@@ -367,21 +370,7 @@ addopts = [
    "--ignore=IPython/terminal/pt_inputhooks",
    "--ignore=IPython/__main__.py",
    "--ignore=IPython/external/qt_for_kernel.py",
-   "--ignore=IPython/html/widgets/widget_link.py",
-   "--ignore=IPython/html/widgets/widget_output.py",
-   "--ignore=IPython/terminal/console.py",
-   "--ignore=IPython/utils/_process_cli.py",
-   "--ignore=IPython/utils/_process_posix.py",
-   "--ignore=IPython/utils/_process_win32_controller.py",
-   "--ignore=IPython/utils/daemonize.py",
-   "--ignore=IPython/utils/eventful.py",
-   "--ignore=IPython/kernel",
-   "--ignore=IPython/consoleapp.py",
-   "--ignore=IPython/lib/kernel.py",
-   "--ignore=IPython/utils/jsonutil.py",
-   "--ignore=IPython/utils/log.py",
-   "--ignore=IPython/utils/signatures.py",
-   "--ignore=IPython/utils/version.py"
+   "--ignore=IPython/utils/_process_posix.py"
 ]
 doctest_optionflags = [
    "NORMALIZE_WHITESPACE",
@@ -454,8 +443,7 @@ extend-select = [
     # "UP007",        #149   [*] Use `X | Y` for type annotations
     # "UP008",        # 63   Use `super()` instead of `super(__class__, self)`
     # "UP009",        # 61   [*] UTF-8 encoding declaration is unnecessary
-    # "UP015",        #  2   [*] Unnecessary modes, use `w`
-    # "UP015",        #  4   [*] Unnecessary mode argument
+    "UP015",       #  0   [*] Unnecessary open modes (0 violations, locked in)
     # "UP017",        #  2   [*] Use `datetime.UTC` alias
     # "UP020",        # 15   [*] Use builtin `open`
     # "UP024",        # 16   [*] Replace aliased errors with `OSError`
@@ -463,23 +451,31 @@ extend-select = [
     "UP028",        #  3   Replace `yield` over `for` loop with `yield from`
     "UP029",        #  1   Unnecessary builtin import
     # "UP030",        # 28   Use implicit references for positional format fields
-    # "UP031",        #386   Use format specifiers instead of percent format
     # "UP032",        # 75   [*] Use f-string instead of `format` call
     "UP034",        #  1   [*] Avoid extraneous parentheses
-    # "UP035",        #  1   [*] Import from `re` instead
-    # "UP035",        #  2   [*] Import from `typing` instead
-    # "UP035",        #  2   `typing.Type` is deprecated, use `type` instead
-    # "UP035",        #  4   `typing.Set` is deprecated, use `set` instead
-    # "UP035",        # 11   `typing.Dict` is deprecated, use `dict` instead
-    # "UP035",        # 12   `typing.Tuple` is deprecated, use `tuple` instead
-    # "UP035",        # 14   `typing.List` is deprecated, use `list` instead
-    # "UP035",        # 18   [*] Import from `collections.abc` instead
+    "UP035",       #  0   [*] Deprecated typing imports (0 violations, locked in)
     # "UP036",        #  3   Version block is outdated for minimum Python version
     "UP037",        #  1   [*] Remove quotes from type annotation
     # "UP038",        # 21   Use `X | Y` in `isinstance` call instead of `(X, Y)`
-    #  "YTT",         # flake8-2020
-    #  "EXE",         # flake8-executable
-    #  "PYI",         # flake8-pyi
+    "YTT",         # flake8-2020            (0 violations, locked in)
+    "FURB",        # refurb                 (readability/modernization)
+    "B008",        # function-call-in-default-argument      (0 violations, locked in)
+    "B022",        # useless-contextlib-suppress            (0 violations, locked in)
+    "B025",        # duplicate-try-block-exception          (0 violations, locked in)
+    "C420",        # unnecessary-dict-comprehension-for-iterable (0 violations, locked in)
+    "PLW0127",     # self-assigning-variable                (0 violations, locked in)
+    "PLW0128",     # redeclared-assigned-name               (0 violations, locked in)
+    "PLW0406",     # import-self                            (0 violations, locked in)
+    "RUF007",      # zip-instead-of-pairwise                (0 violations, locked in)
+    "S324",        # hashlib-insecure-hash-function          (0 violations, locked in)
+    "SIM110",      # reimplemented-builtin                  (0 violations, locked in)
+    "SIM211",      # if-expr-with-false-true                (0 violations, locked in)
+    "TRY203",      # useless-try-except                      (0 violations, locked in)
+    #  "EXE",         # flake8-executable   (file-mode/shebang churn across examples)
+    #  "PYI",         # flake8-pyi          (stub-oriented; little value on source)
+    #  "ICN",         # flake8-import-conventions (codebase uses plain `matplotlib`, not `mpl`)
+    #  "RUF100",      # unused `noqa` (entangled with the F401 global-ignore; strips intentional markers)
+    #  "PT",          # flake8-pytest-style (PT015 false-positives on non-test `assert False`)
     #  "S",           # flake8-bandit
 ]
 ignore = [
@@ -487,6 +483,13 @@ ignore = [
     #  "SIM105",   # SIM105 Use `contextlib.suppress(...)`
     #  "PLR",      # Design related pylint codes
     #  "S101",     # Use of `assert` detected
+    "UP031",       # 297   Use format specifiers instead of percent format
+    "I001",        # 162   unsorted imports
+    "BLE001",      # 111   blind-except
+    "UP032",       # 90    f-strings
+    "C408",        # 33    unnecessary collection call
+    "SIM201",      # 27    collapsible IF
+    "PLC0414",      # WRONG CONFLICT WITH EXPLICT REEXPORT
     "E713", #   1      Test for membership should be `not in`
     "F601", #   3      Dictionary key literal `True` repeated (`True` hashes to the same value as `1`)
     "E702", #   3      Multiple statements on one line (semicolon)
@@ -503,6 +506,68 @@ ignore = [
     "F841", #  38      Local variable `...` is assigned to but never used
     "F401", #  69      imported but unused
     "F821", # 624      Undefined name
+    "FURB110", # prefer explicit `x if x else y` ternary over `x or y` (readability)
+    "SIM102", 	# collapsible-if
+    "S110",   	# try-except-pass
+    "PIE790", 	# unnecessary-placeholder
+    "RUF012", 	# mutable-class-default
+    "SIM115", 	# open-file-with-context-handler
+    "S102",   	# exec-builtin
+    "N999",   	# invalid-module-name
+    "SIM118", 	# in-dict-keys
+    "LOG015", 	# root-logger-call
+    "RUF059", 	# unused-unpacked-variable
+    "RUF022", 	# unsorted-dunder-all
+    "FLY002", 	# static-join-to-f-string
+    "RET501", 	# unnecessary-return-none
+    "T100",   	# debugger
+    "TRY002", 	# raise-vanilla-class
+    "RUF100", 	# unused-noqa
+    "UP020",  	# open-alias
+    "TRY004", 	# type-check-without-type-error
+    "B018",   	# useless-expression
+    "SIM114", 	# if-with-same-arms
+    "B009",   	# get-attr-with-constant
+    "C419",   	# unnecessary-comprehension-in-call
+    "DTZ005", 	# call-datetime-now-without-tzinfo
+    "EXE002", 	# shebang-missing-executable-file
+    "PIE810", 	# multiple-starts-ends-with
+    "RUF010", 	# explicit-f-string-type-conversion
+    "SIM103", 	# needless-bool
+    "UP009",  	# utf8-encoding-declaration
+    "B006",   	# mutable-argument-default
+    "PTH124", 	# py-path
+    "B004",   	# unreliable-callable-check
+    "EXE001", 	# shebang-not-executable
+    "G201",   	# logging-exc-info
+    "ISC004", 	# implicit-string-concatenation-in-collection-literal
+    "PIE794", 	# duplicate-class-field-definition
+    "PIE808", 	# unnecessary-range-start
+    "PLC0206",	# dict-index-missing-items
+    "PLC0208",	# iteration-over-set
+    "PLR1711",	# useless-return
+    "PLW0120",	# useless-else-on-loop
+    "PLW0602",	# global-variable-not-assigned
+    "PLW1508",	# invalid-envvar-default
+    "PYI034", 	# non-self-return-type
+    "RUF015", 	# unnecessary-iterable-allocation-for-first-element
+    "SIM101", 	# duplicate-isinstance-call
+    "SIM210", 	# if-expr-with-true-false
+    "SIM905", 	# split-static-string
+    "B010",   	# set-attr-with-constant
+    "B019",   	# cached-instance-method
+    "DTZ006", 	# call-datetime-fromtimestamp
+    "EXE005", 	# shebang-not-first-line
+    "PERF102",	# incorrect-dict-iterator
+    "PIE800", 	# unnecessary-spread
+    "PLR0402",	# manual-from-import
+    "PLR1722",	# sys-exit-alias
+    "PLR1730",	# if-stmt-min-max
+    "PLR2044",	# empty-comment
+    "PYI036", 	# bad-exit-annotation
+    "PYI063", 	# pep484-style-positional-only-parameter
+    "SIM117", 	# multiple-with-statements
+    "UP036",  	# outdated-version-block
 ]
 unfixable = [
     # Don't touch print statements
@@ -512,4 +577,9 @@ unfixable = [
 ]
 
 [tool.ruff]
+target-version = "py311"
 extend-exclude = ["tests"]
+
+[tool.black]
+# moved here from setup.cfg, where it had been in (ignored) INI syntax
+exclude = 'timing\.py'

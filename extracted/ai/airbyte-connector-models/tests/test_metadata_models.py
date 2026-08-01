@@ -1,14 +1,19 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 """Tests for metadata models.
 
-Note: The generated metadata models have forward reference issues that prevent
-direct import. These tests verify the JSON schema files exist and are valid JSON.
+Most of these tests verify the JSON schema files exist and are valid JSON, since
+the top-level generated models have forward reference issues that prevent direct
+import. Individual generated submodels import and validate fine.
 """
 
 import json
 from pathlib import Path
 
 import pytest
+
+from airbyte_connector_models.metadata.v0.connector_metadata_definition_v0 import (
+    ConnectorMetadataDefinitionV0RegistryOverrides,
+)
 
 MODELS_DIR = Path(__file__).parent.parent / "airbyte_connector_models"
 
@@ -55,3 +60,23 @@ def test_metadata_models_directory_structure() -> None:
     for filename in expected_files:
         file_path = metadata_dir / filename
         assert file_path.exists(), f"Expected file not found: {file_path}"
+
+
+@pytest.mark.parametrize(
+    "public",
+    [
+        pytest.param(True, id="public"),
+        pytest.param(False, id="private"),
+        pytest.param(None, id="unset"),
+    ],
+)
+def test_registry_override_public_flag(public: bool | None) -> None:
+    """A registry override accepts an optional `public` flag."""
+    override: dict[str, bool] = {"enabled": True}
+    if public is not None:
+        override["public"] = public
+
+    model = ConnectorMetadataDefinitionV0RegistryOverrides.model_validate(override)
+
+    assert model.public is public
+    assert model.model_dump(by_alias=True, exclude_none=True) == override

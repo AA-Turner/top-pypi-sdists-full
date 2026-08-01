@@ -18,6 +18,7 @@ import pytest
 
 from pirlygenes import load_all_dataframes_dict
 import pirlygenes.expression.accessors as expression_accessors
+from pirlygenes.load_dataset import get_data
 from pirlygenes.expression import (
     GeneQcClass,
     add_tpm_columns_from_fpkm,
@@ -145,11 +146,13 @@ def local_pan_cancer(monkeypatch):
         raise AssertionError("the pan adapter must not call oncoref's eager accessor")
 
     expression_accessors._pan_reference_frame.cache_clear()
+    expression_accessors._pan_source_reference_frame.cache_clear()
     expression_accessors._load_pan_rollup_frame.cache_clear()
     monkeypatch.setattr(expression_accessors, "get_data", fake_get_data)
     monkeypatch.setattr(oncoref, "pan_cancer_expression", forbidden_eager_call)
     yield raw, rollup, calls
     expression_accessors._pan_reference_frame.cache_clear()
+    expression_accessors._pan_source_reference_frame.cache_clear()
     expression_accessors._load_pan_rollup_frame.cache_clear()
 
 
@@ -160,10 +163,15 @@ def test_pan_reference_frame_uses_local_artifacts_once_without_eager_oncoref(
 
     first = expression_accessors._pan_reference_frame()
     second = expression_accessors._pan_reference_frame()
+    with_rollups = expression_accessors._pan_reference_frame(
+        include_computed_rollups=True,
+    )
 
     assert first is second
     assert calls == {"pan": 1, "rollup": 1}
-    assert {"nTPM_liver", "FPKM_LUAD", "TPM_LUAD", "TPM_CRC"} <= set(first.columns)
+    assert {"nTPM_liver", "FPKM_LUAD", "TPM_LUAD"} <= set(first.columns)
+    assert "TPM_CRC" not in first.columns
+    assert "TPM_CRC" in with_rollups.columns
     assert len(first) == len(raw) - 1  # the two MATR3 rows collapse
     assert first["TPM_LUAD"].sum() == pytest.approx(1_000_000)
 
@@ -173,7 +181,7 @@ def test_pan_cancer_adapter_preserves_all_normalize_contracts(
 ):
     _raw, _rollup, calls = local_pan_cancer
     canonical = expression_accessors._pan_reference_frame()
-    base_cols = {"liver_nTPM", "LUAD_FPKM", "LUAD_TPM", "CRC_TPM"}
+    base_cols = {"liver_nTPM", "LUAD_FPKM", "LUAD_TPM"}
 
     default = pan_cancer_expression()
     explicit_clean = pan_cancer_expression(normalize="tpm_clean")
@@ -195,25 +203,25 @@ def test_pan_cancer_adapter_preserves_all_normalize_contracts(
         assert frame["LUAD_TPM"].tolist() == pytest.approx(canonical["TPM_LUAD"])
 
     normalized_cols = {
-        "liver_nTPM_clean", "LUAD_TPM_clean", "CRC_TPM_clean",
+        "liver_nTPM_clean", "LUAD_TPM_clean",
     }
     assert normalized_cols <= set(default.columns)
     assert not normalized_cols & set(raw_view.columns)
     assert list(raw_view.columns) == list(tpm_view.columns)
-    assert {"liver_nTPM_log1p", "LUAD_TPM_log1p", "CRC_TPM_log1p"} <= set(
+    assert {"liver_nTPM_log1p", "LUAD_TPM_log1p"} <= set(
         raw_log.columns
     )
     assert {
-        "liver_nTPM_clean_log1p", "LUAD_TPM_clean_log1p", "CRC_TPM_clean_log1p",
+        "liver_nTPM_clean_log1p", "LUAD_TPM_clean_log1p",
     } <= set(clean_log.columns)
     assert {
-        "liver_nTPM_clean", "LUAD_TPM_clean", "CRC_TPM_clean",
-        "liver_nTPM_hk", "LUAD_TPM_hk", "CRC_TPM_hk",
-        "liver_nTPM_percentile", "LUAD_TPM_percentile", "CRC_TPM_percentile",
+        "liver_nTPM_clean", "LUAD_TPM_clean",
+        "liver_nTPM_hk", "LUAD_TPM_hk",
+        "liver_nTPM_percentile", "LUAD_TPM_percentile",
     } <= set(combined.columns)
 
-    # Every mode shares one cheap read of each persisted local artifact.
-    assert calls == {"pan": 1, "rollup": 1}
+    # Default source-only modes never touch the aggregate artifact.
+    assert calls == {"pan": 1, "rollup": 0}
 
 
 def test_pan_cancer_canonical_rows_rollups_and_legacy_gene_filters(
@@ -231,7 +239,11 @@ def test_pan_cancer_canonical_rows_rollups_and_legacy_gene_filters(
     for frame in (by_symbol, by_unversioned_id, by_versioned_id):
         assert frame["Symbol"].tolist() == ["EGFR"]
 
-    paxx = pan_cancer_expression(genes=["PAXX"], normalize="tpm")
+    paxx = pan_cancer_expression(
+        genes=["PAXX"],
+        normalize="tpm",
+        include_computed_rollups=True,
+    )
     assert paxx["Ensembl_Gene_ID"].tolist() == ["ENSG00000310560"]
     assert "ENSG00000148362" not in set(paxx["Ensembl_Gene_ID"])
     assert paxx["CRC_TPM"].tolist() == pytest.approx([(25.0 * 3 + 35.0) / 4])
@@ -243,7 +255,11 @@ def test_pan_cancer_canonical_rows_rollups_and_legacy_gene_filters(
     )
     assert paxx_legacy["Ensembl_Gene_ID"].tolist() == ["ENSG00000310560"]
 
-    matr3 = pan_cancer_expression(genes=["MATR3"], normalize="tpm")
+    matr3 = pan_cancer_expression(
+        genes=["MATR3"],
+        normalize="tpm",
+        include_computed_rollups=True,
+    )
     assert len(matr3) == 1
     assert matr3["Ensembl_Gene_ID"].tolist() == ["ENSG00000015479"]
     assert matr3["liver_nTPM"].tolist() == [19.0]
@@ -265,7 +281,11 @@ def test_pan_cancer_unavailable_rollup_stays_missing_in_every_derivative(
         ("hk", "CRC_TPM_hk"),
         ("percentile", "CRC_TPM_percentile"),
     ):
-        row = pan_cancer_expression(genes=["TP53"], normalize=mode).iloc[0]
+        row = pan_cancer_expression(
+            genes=["TP53"],
+            normalize=mode,
+            include_computed_rollups=True,
+        ).iloc[0]
         assert pd.isna(row["CRC_TPM"])
         assert pd.isna(row[derived])
 
@@ -281,6 +301,34 @@ def test_pan_cancer_expression_returns_wide_frame_with_tpm_companions():
     assert any(c.endswith("_FPKM") for c in df.columns)
     assert any(c.endswith("_TPM") for c in df.columns)
     assert not any(c.startswith("tcga_") for c in df.columns)
+    assert df.attrs["computed_rollups_included"] is False
+    assert not any(
+        f"{code}_TPM" in df.columns
+        for code in expression_accessors._PAN_COMPUTED_ROLLUP_MEMBERS
+    )
+
+
+def test_pan_cancer_computed_rollups_are_explicit_opt_in():
+    source_only = pan_cancer_expression(genes=["TP53"], normalize="tpm")
+    with_rollups = pan_cancer_expression(
+        genes=["TP53"],
+        normalize="tpm",
+        include_computed_rollups=True,
+    )
+
+    source_columns = [
+        column for column in source_only.columns
+        if column not in {"Proteoform_ID", "Member_Ensembl_Gene_IDs"}
+    ]
+    pd.testing.assert_frame_equal(
+        source_only[source_columns],
+        with_rollups[source_columns],
+    )
+    assert with_rollups.attrs["computed_rollups_included"] is True
+    assert {
+        f"{code}_TPM"
+        for code in expression_accessors._PAN_COMPUTED_ROLLUP_MEMBERS
+    } <= set(with_rollups.columns)
 
 
 def test_pan_cancer_expression_subset_filters_to_named_genes():
@@ -335,13 +383,13 @@ def test_cancer_enriched_genes_excludes_computed_rollups_from_background(
         "LUAD_FPKM": [1.0],
         "LUSC_FPKM": [1.0],
         "COAD_FPKM": [1.0],
-        "LUAD_TPM_hk": [12.0],
-        "LUSC_TPM_hk": [4.0],
-        "COAD_TPM_hk": [8.0],
+        "LUAD_TPM_clean": [12.0],
+        "LUSC_TPM_clean": [4.0],
+        "COAD_TPM_clean": [8.0],
         # Deliberately extreme rollups: none may affect the source background.
-        "NSCLC_TPM_hk": [1_000.0],
-        "CRC_TPM_hk": [2_000.0],
-        "BTC_TPM_hk": [3_000.0],
+        "NSCLC_TPM_clean": [1_000.0],
+        "CRC_TPM_clean": [2_000.0],
+        "BTC_TPM_clean": [3_000.0],
     })
     monkeypatch.setattr(
         expression_accessors,
@@ -364,10 +412,10 @@ def test_cancer_enriched_genes_excludes_members_of_aggregate_target(monkeypatch)
         "LUAD_FPKM": [1.0],
         "LUSC_FPKM": [1.0],
         "COAD_FPKM": [1.0],
-        "LUAD_TPM_hk": [100.0],
-        "LUSC_TPM_hk": [200.0],
-        "COAD_TPM_hk": [8.0],
-        "NSCLC_TPM_hk": [12.0],
+        "LUAD_TPM_clean": [100.0],
+        "LUSC_TPM_clean": [200.0],
+        "COAD_TPM_clean": [8.0],
+        "NSCLC_TPM_clean": [12.0],
     })
     monkeypatch.setattr(
         expression_accessors,
@@ -1255,7 +1303,28 @@ def test_salivary_candidates_report_released_diagnosis_split():
     }
     assert set(candidates["source_cohort"]) == {"GSE294016_BARTL_2025_SGC"}
     assert set(candidates["accession"]) == {"GSE294016"}
-    assert candidates["notes"].str.contains("oncoref 1.8.145", regex=False).all()
+
+
+def test_candidate_reconciliation_preserves_distinct_acquisition_provenance():
+    candidates = cancer_expression_source_candidates(
+        ["FL", "NPC", "SARC_ASPS", "SARC_MYXLPS"],
+    ).set_index("cancer_code")
+
+    assert candidates.loc["FL", "source_status"] == (
+        "scRNA_candidate_needs_malignant_selection"
+    )
+    assert candidates.loc["FL", "source_cohort"] == "GSE261917"
+    assert candidates.loc["FL", "accession"] == "GSE261917"
+    assert "Pseudobulk malignant FL B cells" in candidates.loc[
+        "FL", "processing_plan"
+    ]
+
+    assert candidates.loc["NPC", "source_cohort"] == "GSE102349"
+    assert candidates.loc["NPC", "accession"] == "GSE102349"
+    assert candidates.loc["SARC_ASPS", "source_cohort"] == "GSE54729"
+    assert candidates.loc["SARC_ASPS", "accession"] == "GSE54729"
+    assert candidates.loc["SARC_MYXLPS", "source_cohort"] == "TCGA_XENA_TOIL"
+    assert candidates.loc["SARC_MYXLPS", "accession"] == "TCGA-SARC"
 
 
 def test_cancer_expression_reference_status_is_uniform_for_parent_labels():
@@ -1328,6 +1397,57 @@ def test_cancer_reference_expression_cll_sample_manifest_tracks_exclusions():
         excluded.set_index("sample_id").loc["GCLL-0136", "exclusion_reason"]
         == "suspected_mcl"
     )
+
+
+def test_delegated_sample_manifest_preserves_beataml_subtype_contract():
+    samples = get_data("cancer-reference-expression-samples")
+    beataml = samples[
+        samples["source_cohort"].astype(str).eq("BEATAML_OHSU_2022")
+    ]
+
+    assert "subtype" in samples.columns
+    assert beataml["subtype"].notna().sum() == 667
+    assert beataml["subtype"].value_counts().to_dict() == {
+        "LAML_ELNfav": 270,
+        "LAML_ELNadv": 211,
+        "LAML_ELNint": 166,
+        "LAML_APL": 20,
+    }
+    assert set(beataml["lineage_label"].dropna()) == {
+        "LAML_ELNfav",
+        "LAML_ELNadv",
+        "LAML_ELNint",
+        "LAML_APL",
+    }
+
+
+def test_delegated_sample_manifest_uses_owner_pipeline_provenance():
+    from oncoref.load_dataset import get_data as get_oncoref_data
+
+    samples = get_data("cancer-reference-expression-samples")
+    availability = get_oncoref_data(
+        "cancer-reference-expression-availability",
+        copy=False,
+    )
+    expected = (
+        availability[
+            ["source_cohort", "processing_pipeline"]
+        ]
+        .dropna()
+        .drop_duplicates()
+        .groupby("source_cohort")["processing_pipeline"]
+        .agg(lambda values: values.iloc[0] if values.nunique() == 1 else None)
+        .dropna()
+    )
+    observed = samples.loc[
+        samples["source_cohort"].isin(expected.index),
+        ["source_cohort", "processing_pipeline"],
+    ].drop_duplicates()
+
+    assert observed.set_index("source_cohort")["processing_pipeline"].to_dict() == (
+        expected.loc[observed["source_cohort"]].to_dict()
+    )
+    assert not samples["processing_pipeline"].astype(str).str.endswith("_v1").any()
 
 
 def test_cancer_reference_expression_mm_sample_manifest_tracks_exclusions():
@@ -2030,7 +2150,10 @@ def test_pan_cancer_expression_normalize_default_matches_singleton_list():
 
 
 def test_pan_cancer_expression_normalize_list_combines_modes():
-    df = pan_cancer_expression(normalize=["tpm_clean", "hk", "percentile"])
+    df = pan_cancer_expression(
+        normalize=["tpm_clean", "hk", "percentile"],
+        include_computed_rollups=True,
+    )
     tumor_entities = {
         c[:-len("_TPM")] for c in df.columns if c.endswith("_TPM")
     }

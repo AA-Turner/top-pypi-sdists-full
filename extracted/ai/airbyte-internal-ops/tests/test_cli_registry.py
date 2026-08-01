@@ -13,6 +13,9 @@ from pathlib import Path
 
 import pytest
 import yaml
+from airbyte_connector_models.metadata.v0.connector_metadata_definition_v0 import (
+    ConnectorMetadataDefinitionV0RegistryOverrides,
+)
 
 from airbyte_ops_mcp.registry import ConnectorMetadata
 from airbyte_ops_mcp.registry._gcs_helpers import get_gcs_credentials_token
@@ -29,6 +32,7 @@ from airbyte_ops_mcp.registry.compile import (
 )
 from airbyte_ops_mcp.registry.generate import (
     _apply_overrides_from_registry,
+    _build_registry_entry,
     is_registry_enabled,
 )
 from airbyte_ops_mcp.registry.markers import (
@@ -1297,3 +1301,48 @@ def test_build_composite_registry_json_carries_unkeyed_entries() -> None:
     # Entry missing both definitionId and dockerRepository: still present.
     assert "Unkeyed" in by_name
     assert by_name["Unkeyed"]["availability"] == ["oss"]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "override,expected",
+    [
+        pytest.param({"enabled": True}, True, id="unset_defaults_to_public"),
+        pytest.param({"enabled": True, "public": True}, True, id="explicit_public"),
+        pytest.param({"enabled": True, "public": False}, False, id="explicit_private"),
+    ],
+)
+def test_build_registry_entry_public_override(override: dict, expected: bool) -> None:
+    """`registryOverrides.<registry>.public` controls the entry's `public` flag."""
+    metadata_data = {
+        "connectorType": "source",
+        "definitionId": "b6984de0-5a56-4d62-95c7-44843d4f2dab",
+        "dockerRepository": "airbyte/source-test",
+        "dockerImageTag": "1.0.0",
+        "registryOverrides": {"cloud": override},
+    }
+
+    entry = _build_registry_entry(
+        metadata_data,
+        "cloud",
+        spec={},
+        store=RegistryStore.parse("coral:dev"),
+        local_dependencies={},
+    )
+
+    assert entry["public"] is expected
+    assert "registryOverrides" not in entry
+
+
+@pytest.mark.unit
+def test_metadata_model_accepts_public_override() -> None:
+    """The pinned `airbyte-connector-models` release must know about `public`.
+
+    `RegistryOverrides` forbids extra fields, so metadata validation rejects
+    `public` on any release before 0.1.8.
+    """
+    override = ConnectorMetadataDefinitionV0RegistryOverrides.model_validate(
+        {"enabled": True, "public": False}
+    )
+
+    assert override.public is False

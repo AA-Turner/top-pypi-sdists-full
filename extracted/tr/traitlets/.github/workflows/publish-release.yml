@@ -20,8 +20,11 @@ jobs:
       id-token: write
     steps:
       - uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
+        with:
+          node_version: "none"
+          python_package_manager: "uv pip"
 
-      - uses: actions/create-github-app-token@v1
+      - uses: actions/create-github-app-token@v3
         id: app-token
         with:
           app-id: ${{ vars.APP_ID }}

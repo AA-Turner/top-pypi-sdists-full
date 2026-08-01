@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # tifffile/lsm2bin.py
 
+# Copyright (c) Christoph Gohlke
+# SPDX-License-Identifier: BSD-3-Clause
+
 """Convert [MP]TZCYX LSM file to series of BIN files."""
 
 from __future__ import annotations

@@ -30,6 +30,7 @@ class PrescriptionSourceType(str, Enum):
     RXTRANSFERINDIRECT = 'RxTransferInDirect'
     RXTRANSFERINSURESCRIPTS = 'RxTransferInSurescripts'
     SURESCRIPTS_NEW_RX = 'Surescripts_NewRx'
+    SURESCRIPTS_RX_CHANGE_RESPONSE = 'Surescripts_RxChangeResponse'
     SWIFTY_DIRECT_NEW_RX = 'SwiftyDirect_NewRx'
     SWIFTY_DIRECT_RX_TRANSFER_IN = 'SwiftyDirect_RxTransfer_In'
     SWIFTY_DIRECT_MANUAL_ENTRY = 'SwiftyDirect_ManualEntry'

@@ -1,6 +1,6 @@
 import os
 from dataclasses import dataclass
-from typing import Any, final
+from typing import Any, ClassVar, final
 
 from lightrag.base import (
     BaseKVStorage,
@@ -132,6 +132,8 @@ class JsonKVStorage(BaseKVStorage):
           interleaving with batched ingest work.
     """
 
+    supports_strict_point_reads: ClassVar[bool] = True
+
     def __post_init__(self):
         # Reject path traversal before using workspace in a file path
         validate_workspace(self.workspace)
@@ -223,9 +225,12 @@ class JsonKVStorage(BaseKVStorage):
         """
         async with self._storage_lock:
             if self.storage_updated.value:
-                data_dict = (
-                    dict(self._data) if hasattr(self._data, "_getvalue") else self._data
-                )
+                # DictProxy.copy() is a single Manager RPC that marshals the
+                # whole mapping server-side; dict(proxy) would walk the mapping
+                # protocol and fetch every value with its own RPC. Plain dicts
+                # (single-process mode) copy cheaply and identically — write_json
+                # only reads its argument, so the shallow copy is safe there too.
+                data_dict = self._data.copy()
 
                 # Calculate data count - all data is now flattened
                 data_count = len(data_dict)
@@ -261,6 +266,14 @@ class JsonKVStorage(BaseKVStorage):
                 # Ensure _id field contains the clean ID
                 result["_id"] = id
             return result
+
+    async def get_by_id_strict(self, id: str) -> dict[str, Any] | None:
+        """Strict point read (base contract): the in-memory shared dict has
+        no transport failure surface — a miss is a confirmed absence, and an
+        uninitialized storage raises instead of returning one."""
+        if self._storage_lock is None:
+            raise StorageNotInitializedError("JsonKVStorage")
+        return await self.get_by_id(id)
 
     async def get_by_ids(self, ids: list[str]) -> list[dict[str, Any]]:
         async with self._storage_lock:

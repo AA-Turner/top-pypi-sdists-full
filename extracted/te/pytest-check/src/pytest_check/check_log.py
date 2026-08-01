@@ -2,9 +2,9 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Callable
 
-from .pseudo_traceback import _build_pseudo_trace_str
+from .pseudo_traceback import _build_pseudo_trace_str, _build_single_line_trace_str
 
-should_use_color = False
+should_use_color: bool = False
 COLOR_RED = "\x1b[31m"
 COLOR_RESET = "\x1b[0m"
 _failures: list[str] = []
@@ -12,15 +12,17 @@ _stop_on_fail = False
 
 _default_max_fail = None
 _default_max_report = None
-_default_max_tb = 1
+_default_max_tb: int = 1
+_default_max_tb_line: int | None = None
 
 _max_fail: int | None = _default_max_fail
 _max_report: int | None = _default_max_report
-_max_tb = _default_max_tb
+_max_tb: int = _default_max_tb
+_max_tb_line: int | None = _default_max_tb_line
 _num_failures = 0
 _fail_function: Callable[[str], None] | None = None
 
-_showlocals = False
+_showlocals: bool = False
 
 # Track checks with xfail reasons
 _xfailed_failure: str | None = None
@@ -29,13 +31,15 @@ _xfailed_failure: str | None = None
 def clear_failures() -> None:
     # gets called at the beginning of each test function
     global _failures, _num_failures
-    global _max_fail, _max_report, _max_tb
-    global _xfailed_failure
+    global _max_fail, _max_report, _max_tb, _max_tb_line
+    global _xfailed_failure, _fail_function
     _failures = []
     _num_failures = 0
     _max_fail = _default_max_fail
     _max_report = _default_max_report
     _max_tb = _default_max_tb
+    _max_tb_line = _default_max_tb_line
+    _fail_function = None
     _xfailed_failure = None
 
 
@@ -69,6 +73,10 @@ def log_failure(
                 _showlocals, tb, should_use_color
             )
             msg = f"{msg}\n{pseudo_trace_str}"
+        elif _max_tb_line is not None and _num_failures <= _max_tb_line:
+            pseudo_trace_str = _build_single_line_trace_str(tb, should_use_color)
+            if pseudo_trace_str:
+                msg = f"{msg}, {pseudo_trace_str}"
 
         if should_use_color:
             msg = f"{COLOR_RED}FAILURE: {COLOR_RESET}{msg}"

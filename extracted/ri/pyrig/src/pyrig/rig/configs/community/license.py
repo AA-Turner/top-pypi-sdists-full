@@ -4,17 +4,19 @@ Manages the LICENSE file's content and exposes its detected SPDX license
 identifier.
 """
 
+import re
 from datetime import UTC, datetime
 from functools import cache
 from pathlib import Path
 
+from pyrig_runtime.core.strings import regex_find
+from pyrig_runtime.core.wrappers import safe_call
 from spdx_matcher import analyse_license_text
 
 from pyrig.core.resources import (
     resource_content,
 )
 from pyrig.core.strings import (
-    file_has_content,
     make_linked_badge_markdown,
 )
 from pyrig.rig import resources
@@ -31,9 +33,11 @@ from pyrig.rig.tools.version_control.remote.controller import (
 class LicenseConfigFile(StringConfigFile):
     """Configuration file management for a project's MIT `LICENSE` file.
 
-    Generates the license text from the current year and repository owner,
-    detects the SPDX license identifier from the file's current content, and
-    provides a shields.io license badge for use in other generated files.
+    Generates the license text from the repository owner and the year
+    already recorded in an existing `LICENSE` file (or the current year if
+    no year was found), detects the SPDX license identifier from
+    the file's current content, and provides a shields.io license badge for
+    use in other generated files.
     """
 
     def content(self) -> str:
@@ -56,21 +60,6 @@ class LicenseConfigFile(StringConfigFile):
         """Return the project root as the parent directory."""
         return Path()
 
-    def is_correct(self) -> bool:
-        """Check whether the LICENSE file has non-empty content.
-
-        Overrides the default content-comparison check with a simpler
-        non-emptiness test.
-
-        Returns:
-            `True` if the file has non-empty content; `False` if the file
-            is empty.
-
-        Raises:
-            FileNotFoundError: If the file does not exist.
-        """
-        return file_has_content(self.path())
-
     def priority(self) -> float:
         """Return a priority one step above `PyprojectConfigFile`'s.
 
@@ -86,11 +75,23 @@ class LicenseConfigFile(StringConfigFile):
 
     def license(self) -> str:
         """Return the MIT license text with year and repository owner substituted."""
-        mit_license = self.license_template()
-        year = datetime.now(tz=UTC).year
-        owner = VersionController.I.repo_owner()
-        mit_license = mit_license.replace(self.year_placeholder(), str(year), 1)
-        return mit_license.replace(self.fullname_placeholder(), owner, 1)
+        year = safe_call(
+            lambda: regex_find(
+                re.compile(r"Copyright \(c\) (\d{4})"),
+                self.read_content(),
+            ),
+            exceptions=(FileNotFoundError, LookupError),
+            default=str(datetime.now(tz=UTC).astimezone().year),
+        )
+        return (
+            self.license_template()
+            .replace(
+                self.year_placeholder(),
+                year,
+                1,
+            )
+            .replace(self.fullname_placeholder(), VersionController.I.repo_owner(), 1)
+        )
 
     def license_template(self) -> str:
         """Return the raw MIT license template text."""

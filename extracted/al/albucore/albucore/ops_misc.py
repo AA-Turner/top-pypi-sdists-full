@@ -1,5 +1,7 @@
 """Flips, median blur, matmul, pairwise distances."""
 
+import platform
+import sys
 from collections.abc import Callable
 from functools import wraps
 from typing import Any, cast
@@ -14,11 +16,15 @@ from albucore.utils import (
     MAX_OPENCV_WORKING_CHANNELS,
     ImageFloat32,
     ImageType,
+    ImageUInt8,
     get_num_channels,
+    get_opencv_max_channels,
     maybe_process_in_chunks,
 )
 
-MAX_OPENCV_FLIP_CHANNELS = 128
+MAX_OPENCV_FLIP_CHANNELS = get_opencv_max_channels()
+_IS_MACOS_ARM64 = sys.platform == "darwin" and platform.machine() == "arm64"
+_MACOS_ACCELERATE_MATMUL_WARNING_MIN_DIMENSION = 16
 
 
 @contiguous
@@ -89,9 +95,9 @@ def vflip(img: ImageType) -> ImageType:
 def _flip_multichannel(img: ImageType, flip_code: int) -> ImageType:
     """Process images with more than OpenCV's flip channel limit.
 
-    OpenCV 5 handles up to 128 channels for ``cv2.flip`` on this wheel. This
-    function works around that limit by splitting wider images into safe chunks,
-    flipping each chunk separately, and then concatenating the results.
+    OpenCV's maximum encoded channel count depends on the major version. This
+    function works around the active build's limit by splitting wider images
+    into safe chunks, flipping each chunk separately, and then joining the results.
 
     Args:
         img: Input image with many channels
@@ -176,8 +182,8 @@ def uint8_io(func: Callable[..., ImageType]) -> Callable[..., ImageType]:
     Example::
 
         @uint8_io
-        def median_blur(img: np.ndarray, ksize: int) -> np.ndarray:
-            return cv2.medianBlur(img, ksize)
+        def apply_uint8_operation(img: np.ndarray) -> np.ndarray:
+            return uint8_only_backend(img)
 
     Args:
         func: Image processing function whose first argument is a uint8 ``(H, W, C)`` image.
@@ -200,33 +206,45 @@ def uint8_io(func: Callable[..., ImageType]) -> Callable[..., ImageType]:
     return uint8_wrapper
 
 
+def _median_blur_uint8(img: ImageUInt8, ksize: int) -> ImageUInt8:
+    """Apply the shared direct or chunked uint8 OpenCV route."""
+    if ksize in (3, 5) or get_num_channels(img) <= MAX_OPENCV_WORKING_CHANNELS:
+        return cast("ImageUInt8", cv2.medianBlur(img, ksize))
+    return cast("ImageUInt8", maybe_process_in_chunks(cv2.medianBlur, ksize)(img))
+
+
 @contiguous
 @preserve_channel_dim
-@uint8_io
 def median_blur(img: ImageType, ksize: int) -> ImageType:
-    """Median blur with optimal routing for multi-channel images.
+    """Median blur with dtype- and kernel-aware OpenCV routing.
 
-    cv2.medianBlur supports >4 channels only for ksize 3 and 5 (GHA-built OpenCV).
-    For ksize 7+, the SIMD path asserts cn <= 4. Uses uint8_io for float32 input.
+    uint8 images use OpenCV directly, chunking high-channel inputs for kernels 7 and larger. Float32 kernels 3 and 5
+    use OpenCV on the original values; larger float32 kernels use a documented float32-to-uint8 fallback because
+    OpenCV supports native CV_32F median filtering only for apertures 3 and 5.
 
     Args:
-        img: (H, W, C) image, uint8 or float32.
+        img: ``(H, W, C)`` image with uint8 or float32 dtype.
         ksize: Kernel size (odd: 3, 5, 7, 9, ...).
 
     Returns:
-        Median-filtered image, same shape and dtype.
+        Median-filtered image with the same shape and dtype. The result is C-contiguous and does not share storage
+        with the input.
+
+    Raises:
+        ValueError: If ``ksize`` is not odd and at least 3, or if ``img`` is not uint8 or float32.
     """
     if ksize % 2 != 1 or ksize < 3:
         raise ValueError(f"ksize must be odd and >= 3, got {ksize}")
 
-    num_channels = get_num_channels(img)
-
-    if ksize in (3, 5):
+    if img.dtype == np.uint8:
+        return _median_blur_uint8(cast("ImageUInt8", img), ksize)
+    if img.dtype == np.float32 and ksize in (3, 5):
         return cast("ImageType", cv2.medianBlur(img, ksize))
+    if img.dtype == np.float32:
+        quantized = cast("ImageUInt8", from_float(cast("ImageFloat32", img), target_dtype=np.dtype(np.uint8)))
+        return to_float(_median_blur_uint8(quantized, ksize))
 
-    if num_channels > MAX_OPENCV_WORKING_CHANNELS:
-        return maybe_process_in_chunks(cv2.medianBlur, ksize)(img)
-    return cast("ImageType", cv2.medianBlur(img, ksize))
+    raise ValueError(f"Unsupported dtype {img.dtype}. Albucore supports only uint8 and float32.")
 
 
 def matmul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -273,10 +291,24 @@ def matmul(a: np.ndarray, b: np.ndarray) -> np.ndarray:
         this is the recommended replacement for cv2.gemm in geometric
         transformation contexts.
 
+        On macOS arm64, NumPy's Accelerate-backed kernels can emit spurious
+        divide, overflow, and invalid warnings for large finite floating-point
+        matrices. Those warning statuses are suppressed only on the affected
+        platform and size path; the computed values are returned unchanged.
+
         Use Cases:
         - ThinPlateSpline geometric transformation (3 uses in AlbumentationsX)
         - Macenko stain normalization for medical imaging (1 use in AlbumentationsX)
     """
+    if (
+        _IS_MACOS_ARM64
+        and a.dtype.kind == "f"
+        and b.dtype.kind == "f"
+        and max((*a.shape, *b.shape), default=0) >= _MACOS_ACCELERATE_MATMUL_WARNING_MIN_DIMENSION
+    ):
+        with np.errstate(divide="ignore", over="ignore", invalid="ignore"):
+            return cast("np.ndarray", a @ b)
+
     return cast("np.ndarray", a @ b)
 
 
@@ -318,6 +350,9 @@ def pairwise_distances_squared(
         The computation can produce very small negative values (e.g., -1e-6)
         due to floating-point rounding with float32 inputs. The result is
         automatically clamped to enforce non-negativity (distances >= 0).
+
+        The large-set route uses :func:`matmul`, including its narrowly scoped
+        macOS arm64 workaround for spurious NumPy Accelerate warnings.
     """
     # Keep dtype normalization cheap; only force contiguity on the nk.cdist branch below.
     points1 = points1.astype(np.float32, copy=False)
@@ -335,7 +370,7 @@ def pairwise_distances_squared(
     # Vectorized: ||a-b||² = ||a||² + ||b||² - 2(a·b)
     p1_squared = (points1**2).sum(axis=1, keepdims=True)  # (N, 1)
     p2_squared = (points2**2).sum(axis=1)[None, :]  # (1, M)
-    dot_product = points1 @ points2.T  # (N, M)
+    dot_product = matmul(points1, points2.T)  # (N, M)
 
     result = p1_squared + p2_squared - 2 * dot_product
     # Clamp to zero to handle numerical errors that can produce small negative values

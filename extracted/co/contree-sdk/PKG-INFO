@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: contree-sdk
-Version: 0.3.5
+Version: 0.3.6
 Summary: SDK for ConTree container runtime with versioned filesystem state
 License: Apache-2.0
 License-File: LICENSE

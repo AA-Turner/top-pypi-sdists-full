@@ -1,5 +1,3 @@
-import json
-
 try:
     import mysql.connector as mysql_connector
 except ImportError:
@@ -11,16 +9,13 @@ except ImportError:
 
 from peewee import Expression
 from peewee import ImproperlyConfigured
-from peewee import Insert
 from peewee import InterfaceError
 from peewee import JSONField
 from peewee import JSONPath
 from peewee import MySQLDatabase
-from peewee import Node
 from peewee import NodeList
 from peewee import OP
 from peewee import SQL
-from peewee import TextField
 from peewee import Value
 from peewee import fn
 from playhouse.pool import _PooledMySQLDatabase
@@ -77,16 +72,7 @@ class MariaDBConnectorDatabase(MySQLDatabase):
         self.server_version = (version, minor, point)
         if self.server_version >= (10, 5, 0):
             self.returning_clause = True
-
-    def last_insert_id(self, cursor, query_type=None):
-        if not self.returning_clause:
-            return cursor.lastrowid
-        elif query_type == Insert.SIMPLE:
-            try:
-                return cursor[0][0]
-            except (AttributeError, IndexError, TypeError):
-                return cursor.lastrowid
-        return cursor
+        self._set_csq_grouped(True)
 
     def get_binary_type(self):
         return mariadb.Binary

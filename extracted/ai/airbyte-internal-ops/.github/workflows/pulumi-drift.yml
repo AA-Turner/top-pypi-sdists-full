@@ -1,0 +1,241 @@
+name: Pulumi Drift Detection
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+  id-token: write  # For GCP Workload Identity Federation
+
+jobs:
+  detect-stacks:
+    name: Discover Pulumi Stacks
+    runs-on: ubuntu-latest
+    outputs:
+      stacks: ${{ steps.resolve-vars.outputs.stacks }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Resolve Variables
+        id: resolve-vars
+        shell: bash
+        run: |
+          json="$(
+            find infra -mindepth 2 -maxdepth 2 -type f -name 'Pulumi.yaml' -print \
+              | sort \
+              | jq -c -R -s 'split("\n") | map(select(length > 0) | capture("^infra/(?<name>[^/]+)/Pulumi\\.yaml$") | {name: .name, dir: ("infra/" + .name)})'
+          )"
+          echo "stacks=$json" | tee -a "$GITHUB_OUTPUT"
+
+  drift:
+    name: "Drift: ${{ matrix.stack.name }}"
+    needs: detect-stacks
+    if: needs.detect-stacks.outputs.stacks != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: ${{ fromJson(needs.detect-stacks.outputs.stacks) }}
+    defaults:
+      run:
+        working-directory: ${{ matrix.stack.dir }}
+    env:
+      PULUMI_REFRESH_EXCLUDE: ${{ matrix.stack.name == 'sentry' && 'urn:pulumi:prod::airbyte-sentry::sentry:index/issueAlert:IssueAlert::alert-api-connectors-p0' || '' }}
+    steps:
+      - name: Authenticate as GitHub App
+        uses: actions/create-github-app-token@v2
+        id: get-app-token
+        with:
+          app-id: ${{ secrets.OCTAVIA_BOT_APP_ID }}
+          private-key: ${{ secrets.OCTAVIA_BOT_PRIVATE_KEY }}
+
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install Pulumi CLI
+        uses: pulumi/setup-pulumi@v2
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+
+      # ---------- Stack-specific setup ----------
+
+      - name: Generate Sentry provider SDK
+        if: matrix.stack.name == 'sentry'
+        env:
+          GITHUB_TOKEN: ${{ steps.get-app-token.outputs.token }}
+        run: pulumi package add terraform-provider jianyuan/sentry 0.14.13
+
+      - name: Authenticate to GCP (WIF)
+        if: matrix.stack.name != 'sentry'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/351139268520/locations/global/workloadIdentityPools/github-actions/providers/github
+          service_account: github-actions-ci@internal-airbyte-ai-infra.iam.gserviceaccount.com
+
+      - name: Install Python dependencies
+        run: |
+          uv venv venv 2>/dev/null || true
+          VIRTUAL_ENV=venv uv pip install -r requirements.txt
+
+      # ---------- State backend: artifact-based (Sentry) ----------
+
+      - name: Download state artifact
+        if: matrix.stack.name == 'sentry'
+        id: download-state
+        continue-on-error: true
+        uses: dawidd6/action-download-artifact@v13
+        with:
+          name: pulumi-${{ matrix.stack.name }}-state
+          path: ${{ github.workspace }}/${{ matrix.stack.dir }}/.pulumi-state
+          workflow: pulumi-apply-command.yml
+          branch: main
+          workflow_conclusion: success
+          search_artifacts: true
+          if_no_artifact_found: warn
+
+      - name: Initialize artifact backend
+        if: matrix.stack.name == 'sentry'
+        env:
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          BACKEND_DIR: ${{ github.workspace }}/${{ matrix.stack.dir }}/.pulumi-state
+        run: |
+          mkdir -p "$BACKEND_DIR"
+          pulumi login "file://$BACKEND_DIR"
+          [ -d "$BACKEND_DIR/.pulumi/stacks" ] && echo "State restored from artifact" || echo "No existing state found, starting fresh"
+
+      # ---------- State backend: GCS (GCP stacks) ----------
+
+      - name: Initialize GCS backend
+        if: matrix.stack.name != 'sentry'
+        run: pulumi login gs://internal-airbyte-ai-infra-pulumi-state
+
+      - name: Select stack
+        env:
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+        run: pulumi stack select prod
+
+      - name: Pulumi Drift Preview
+        id: preview
+        continue-on-error: true
+        env:
+          PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN_READONLY }}
+        run: |
+          set -o pipefail
+          rc=0
+          preview_args=(--stack prod --refresh --diff --expect-no-changes)
+          [ -z "$PULUMI_REFRESH_EXCLUDE" ] || preview_args+=(--exclude "$PULUMI_REFRESH_EXCLUDE")
+          pulumi preview "${preview_args[@]}" 2>&1 | tee /tmp/pulumi-drift.txt || rc=$?
+          echo "rc=$rc" | tee -a "$GITHUB_OUTPUT"
+          exit "$rc"
+
+      - name: Find drift tracking issue
+        id: drift-issue
+        if: steps.preview.outputs.rc == '0' || steps.preview.outputs.rc == '7'
+        env:
+          GH_TOKEN: ${{ steps.get-app-token.outputs.token }}
+          ISSUE_TITLE: "Drift detected: ${{ matrix.stack.name }}"
+        run: |
+          issues="$(
+            gh api --paginate \
+              "repos/${GITHUB_REPOSITORY}/issues?labels=pulumi-drift&state=all&per_page=100"
+          )"
+          issue_number="$(printf '%s' "$issues" | jq -s -r --arg title "$ISSUE_TITLE" \
+            'add | map(select((.pull_request | not) and .title == $title)) | first | .number // empty')"
+          issue_state="$(printf '%s' "$issues" | jq -s -r --arg title "$ISSUE_TITLE" \
+            'add | map(select((.pull_request | not) and .title == $title)) | first | .state // empty')"
+          {
+            echo "issue_number=$issue_number"
+            echo "issue_state=$issue_state"
+          } | tee -a "$GITHUB_OUTPUT"
+
+      - name: Build drift issue body
+        if: steps.preview.outputs.rc == '7'
+        env:
+          OUTPUT_PATH: /tmp/pulumi-drift.txt
+          BODY_PATH: /tmp/pulumi-drift-issue-body.md
+          MAX_OUTPUT_CHARS: '60000'
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          STACK_NAME: ${{ matrix.stack.name }}
+        run: |
+          output="$(head -c "$MAX_OUTPUT_CHARS" "$OUTPUT_PATH")"
+          truncation_note="$( \
+            [ "$(wc -c < "$OUTPUT_PATH")" -gt "$MAX_OUTPUT_CHARS" ] \
+            && printf '\n\n[Output truncated; see workflow logs for the complete diff.]' \
+            || true
+          )"
+          {
+            printf 'Pulumi reported drift for `%s`.\n\n' "$STACK_NAME"
+            printf 'Detected by [workflow run](%s).\n\n' "$RUN_URL"
+            printf '<details><summary>Refresh preview diff</summary>\n\n```diff\n'
+            printf '%s' "$output"
+            printf '%s\n' "$truncation_note"
+            printf '```\n\n</details>\n'
+          } > "$BODY_PATH"
+
+      - name: Create drift tracking issue
+        if: steps.preview.outputs.rc == '7' && steps.drift-issue.outputs.issue_number == ''
+        env:
+          GH_TOKEN: ${{ steps.get-app-token.outputs.token }}
+          BODY_PATH: /tmp/pulumi-drift-issue-body.md
+          ISSUE_TITLE: "Drift detected: ${{ matrix.stack.name }}"
+        run: gh issue create --title "$ISSUE_TITLE" --body-file "$BODY_PATH" --label pulumi-drift
+
+      - name: Reopen drift tracking issue
+        if: steps.preview.outputs.rc == '7' && steps.drift-issue.outputs.issue_number != '' && steps.drift-issue.outputs.issue_state == 'closed'
+        env:
+          GH_TOKEN: ${{ steps.get-app-token.outputs.token }}
+          ISSUE_NUMBER: ${{ steps.drift-issue.outputs.issue_number }}
+        run: gh issue reopen "$ISSUE_NUMBER"
+
+      - name: Update drift tracking issue body
+        if: steps.preview.outputs.rc == '7' && steps.drift-issue.outputs.issue_number != ''
+        env:
+          GH_TOKEN: ${{ steps.get-app-token.outputs.token }}
+          BODY_PATH: /tmp/pulumi-drift-issue-body.md
+          ISSUE_NUMBER: ${{ steps.drift-issue.outputs.issue_number }}
+        run: gh issue edit "$ISSUE_NUMBER" --body-file "$BODY_PATH"
+
+      - name: Comment drift tracking issue
+        if: steps.preview.outputs.rc == '7' && steps.drift-issue.outputs.issue_number != ''
+        env:
+          GH_TOKEN: ${{ steps.get-app-token.outputs.token }}
+          BODY_PATH: /tmp/pulumi-drift-issue-body.md
+          ISSUE_NUMBER: ${{ steps.drift-issue.outputs.issue_number }}
+        run: gh issue comment "$ISSUE_NUMBER" --body-file "$BODY_PATH"
+
+      - name: Build resolved drift issue comment
+        if: steps.preview.outputs.rc == '0' && steps.drift-issue.outputs.issue_number != '' && steps.drift-issue.outputs.issue_state == 'open'
+        env:
+          BODY_PATH: /tmp/pulumi-drift-resolved-comment.md
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          STACK_NAME: ${{ matrix.stack.name }}
+        run: printf 'Pulumi drift resolved for `%s` in [workflow run](%s).\n' "$STACK_NAME" "$RUN_URL" > "$BODY_PATH"
+
+      - name: Comment resolved drift issue
+        if: steps.preview.outputs.rc == '0' && steps.drift-issue.outputs.issue_number != '' && steps.drift-issue.outputs.issue_state == 'open'
+        env:
+          GH_TOKEN: ${{ steps.get-app-token.outputs.token }}
+          BODY_PATH: /tmp/pulumi-drift-resolved-comment.md
+          ISSUE_NUMBER: ${{ steps.drift-issue.outputs.issue_number }}
+        run: gh issue comment "$ISSUE_NUMBER" --body-file "$BODY_PATH"
+
+      - name: Close resolved drift issue
+        if: steps.preview.outputs.rc == '0' && steps.drift-issue.outputs.issue_number != '' && steps.drift-issue.outputs.issue_state == 'open'
+        env:
+          GH_TOKEN: ${{ steps.get-app-token.outputs.token }}
+          ISSUE_NUMBER: ${{ steps.drift-issue.outputs.issue_number }}
+        run: gh issue close "$ISSUE_NUMBER"

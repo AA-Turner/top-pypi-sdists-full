@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clawmetry
-Version: 0.12.597
+Version: 0.12.616
 Summary: ClawMetry - Real-time observability for 12 AI agent runtimes (OpenClaw, NVIDIA NemoClaw, Claude Code, Codex & more)
 Home-page: https://github.com/vivekchand/clawmetry
 Author: Vivek Chand
@@ -29,6 +29,7 @@ Requires-Dist: waitress>=2.0
 Requires-Dist: cryptography>=3.0
 Requires-Dist: duckdb>=0.10
 Requires-Dist: websocket-client>=1.6
+Requires-Dist: truststore>=0.8; python_version >= "3.10"
 Provides-Extra: otel
 Requires-Dist: opentelemetry-proto>=1.20.0; extra == "otel"
 Requires-Dist: protobuf>=4.21.0; extra == "otel"
@@ -76,7 +77,7 @@ Opens at **http://localhost:8900** and you're done.
 
 ClawMetry started as observability for OpenClaw, and now meters your **whole agent fleet** in one dashboard, auto-detecting each runtime on your machine:
 
-🦞 **OpenClaw** · 🟩 **NVIDIA NemoClaw** · ◆ **Claude Code** · ⬡ **OpenAI Codex** · **Cursor** · 🪿 **Goose** · ⚡ **Hermes** · **opencode** · ◈ **Qwen Code** · **Aider** · **NanoClaw** · **PicoClaw** · **Pi** · **Deep Agents** · 🔗 **n8n**
+🦞 **OpenClaw** · 🟩 **NVIDIA NemoClaw** · ◆ **Claude Code** · ⬡ **OpenAI Codex** · **Cursor** · 🪿 **Goose** · ⚡ **Hermes** · **opencode** · ◈ **Qwen Code** · **Aider** · **NanoClaw** · **PicoClaw** · **Pi** · **Deep Agents** · 🔗 **n8n** · 🪐 **Antigravity**
 
 OpenClaw and NemoClaw are free in the open-source app; the other runtimes light up with ClawMetry Cloud or a self-hosted Pro license. Switch runtimes from the header and every tab — cost, tokens, tools, traces — re-scopes to that runtime. See **[docs/ENTITLEMENTS.md](docs/ENTITLEMENTS.md)** for the exact free/paid split, tier matrix, `/api/entitlement` shape, and the `clawmetry license` CLI.
 
@@ -209,6 +210,7 @@ ClawMetry observes many AI-agent runtimes, not just OpenClaw. Each non-OpenClaw 
 | **Pi** | Beta adapter | JSONL `~/.pi/agent/sessions`. Transcripts, model, tool calls, tokens + cost. |
 | **Deep Agents** | Beta adapter | SQLite `~/.deepagents/.state/sessions.db`. Transcripts, model, tool calls, tokens + cost. |
 | **n8n** | Beta adapter | SQLite `~/.n8n/database.sqlite`. Workflow executions, node runs, AI Agent prompts, model + tokens where n8n records them. |
+| **Antigravity** | Beta adapter | Brain JSONL under `~/.gemini/<flavor>/brain/`. Conversations, tool steps, thinking, per-generation Gemini token split + cost, background-generation burn. |
 
 "Beta adapter" means ClawMetry ships a reader for that runtime's real on-disk format, each built + verified against a real install on a real machine (see `tests/fixtures/runtimes/<rt>/`). Adapters are read-only; each is honest about what its runtime actually stores (e.g. PicoClaw/NanoClaw/Cursor don't write token cost to disk). When several runtimes run on one node, the runtime switcher scopes the sessions view to one for a clean deep-dive.
 
@@ -339,7 +341,7 @@ services:
 
 - Python 3.8+
 - Flask (installed automatically via pip)
-- An AI agent runtime on the same machine: OpenClaw, NVIDIA NemoClaw, Claude Code, Codex, Cursor, Goose, Hermes, opencode, Qwen Code, Aider, NanoClaw, PicoClaw, Pi, Deep Agents, or n8n (or mounted volumes for Docker)
+- An AI agent runtime on the same machine: OpenClaw, NVIDIA NemoClaw, Claude Code, Codex, Cursor, Goose, Hermes, opencode, Qwen Code, Aider, NanoClaw, PicoClaw, Pi, Deep Agents, n8n, or Antigravity (or mounted volumes for Docker)
 - Linux or macOS
 
 ## NemoClaw / OpenShell Support
@@ -422,17 +424,21 @@ This project is tested with BrowserStack.
 
 ## Telemetry
 
-ClawMetry sends a single anonymous "first run" ping to
-`https://app.clawmetry.com/api/install` the first time you run the
-`clawmetry` CLI on a new machine. We use this to count installs (the
-only marketing metric we have for an OSS project) and to learn which
-agent frameworks our users have installed.
+ClawMetry sends anonymous install-lifecycle pings to
+`https://app.clawmetry.com/api/install`: one `install` ping the first
+time you run the `clawmetry` CLI on a new machine, one `update` ping
+the first run after upgrading to a new version, and one `onboarded`
+ping when you complete the in-dashboard onboarding choice. We use this
+to count real installs (raw PyPI download numbers are ~98% mirrors, CI,
+and auto-update re-downloads) and to learn which agent frameworks and
+versions are actually in the wild.
 
-**Exactly one POST per install**, containing:
+**At most one POST per lifecycle event per version**, containing:
 
 | Field | Example | Why |
 |---|---|---|
-| `install_id` | random UUID stored at `~/.clawmetry/install_id` | dedup; not linked to your email or api_key |
+| `install_id` | random UUID stored at `~/.clawmetry/install_id` | dedup; anonymous until you explicitly connect Cloud sync (the authenticated daemon heartbeat then carries it, linking this install to your account) |
+| `event` | `install` / `update` / `onboarded` | fresh install vs upgrade of an existing one |
 | `version` | `0.12.167` | what versions are in the wild |
 | `os` / `os_version` | `Darwin` / `25.3.0` | platform support priorities |
 | `python` | `3.11.15` | Python version support matrix |

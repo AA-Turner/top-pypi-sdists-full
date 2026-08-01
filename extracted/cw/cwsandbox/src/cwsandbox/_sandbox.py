@@ -430,7 +430,7 @@ async def _iter_sync_source_in_executor(source: Iterable[bytes]) -> AsyncIterato
 
     A caller-supplied sync iterable (a file handle, an NFS/FUSE read, a network
     generator) can block on ``next()``; driving it inline on the shared
-    background loop would stall every other operation — heartbeats, other
+    background loop would stall every other operation: heartbeats, other
     sandboxes' RPCs. Each ``next()`` is instead run in the default executor, so
     the blocking call parks an executor thread rather than the event loop.
 
@@ -710,6 +710,20 @@ MAX_POLL_RETRY_HINTED_DELAY_SECONDS: float = 10.0
 # is raised so the caller sees the ambiguity explicitly.
 NOT_FOUND_AFTER_STOP_RETRY_BUDGET_SECONDS: float = 2.0
 
+# Bounded grace re-poll for COMPLETED responses that lack an exit code. The
+# runner reports exit codes on a batched status flush (~5s cadence), so a Get
+# can observe COMPLETED before the report carrying the code lands in the
+# backend. Once the poll loop latches the terminal state, returncode is
+# frozen, so take up to EXIT_CODE_GRACE_POLLS extra polls first. Bounded
+# because "no code" is also a legitimate permanent state (older gateways,
+# gateway-initiated stops, containers that never ran).
+EXIT_CODE_GRACE_POLLS: int = 2
+EXIT_CODE_GRACE_POLL_INTERVAL_SECONDS: float = 2.0
+# Per-RPC timeout for the grace re-poll's single unretried Get. Deliberately
+# short and separate from the primary poll's 15s/30s retry envelope: the
+# grace poll is best-effort enrichment of an answer already in hand.
+EXIT_CODE_GRACE_RPC_TIMEOUT_SECONDS: float = 2.0
+
 
 _RETRYABLE_POLL_EXCEPTIONS: tuple[type[CWSandboxError], ...] = (
     SandboxUnavailableError,
@@ -822,9 +836,9 @@ def _is_resumable_transport_error(exc: BaseException) -> bool:
     """Return True if a streaming gRPC error is worth attempting to resume.
 
     Only the transport-level codes that typically map to a gateway pod
-    restart or a transient network blip qualify.  Anything else — including
+    restart or a transient network blip qualify.  Anything else, including
     DEADLINE_EXCEEDED (caller-requested timeout), NOT_FOUND, PERMISSION_DENIED,
-    INVALID_ARGUMENT — propagates as-is.
+    and INVALID_ARGUMENT, propagates as-is.
 
     Note: this classifier intentionally diverges from ``_translate_rpc_error``,
     the canonical translator that consults AIP-193 ``ErrorInfo`` reasons
@@ -837,7 +851,7 @@ def _is_resumable_transport_error(exc: BaseException) -> bool:
     streaming error (e.g. a hypothetical ``CWSANDBOX_RUNNER_TERMINATED``
     on ``INTERNAL``), this classifier should be updated to consult
     ``_translate_rpc_error`` first and dispatch on the resulting typed
-    exception — matching the pattern in ``_classify_poll_error``.
+    exception, matching the pattern in ``_classify_poll_error``.
     """
     if not isinstance(exc, grpc.aio.AioRpcError):
         return False
@@ -1002,19 +1016,44 @@ class _SandboxInfoLike(Protocol):
     """Structural type for protobuf sandbox info responses.
 
     Required fields are always present. Optional fields are guarded by
-    hasattr/getattr in _apply_sandbox_info.
+    hasattr/getattr in _apply_sandbox_info. The main-process exit code
+    arrives as proto3 ``optional int32 exit_code``; its presence is checked
+    via ``HasField("exit_code")`` (with a getattr fallback for non-proto
+    stand-ins that lack presence tracking).
     """
 
     @property
     def sandbox_id(self) -> Any: ...
     @property
     def sandbox_status(self) -> Any: ...
+    @property
+    def exit_code(self) -> int: ...
+    def HasField(self, field_name: str) -> bool: ...
 
 
 _RUNNING_STATUSES = frozenset({SandboxStatus.RUNNING, SandboxStatus.PAUSED})
 _TERMINAL_STATUSES = frozenset(
     {SandboxStatus.COMPLETED, SandboxStatus.FAILED, SandboxStatus.TERMINATED}
 )
+
+
+def _exit_code_from_info(info: _SandboxInfoLike) -> int | None:
+    """Exit code from a sandbox info response, None when absent.
+
+    The backend reports it as proto3 ``optional int32 exit_code``: HasField
+    distinguishes "exited 0" from "not reported" (older gateways, gateway-
+    initiated stops, and sandboxes whose container never ran omit the field
+    entirely).
+    """
+    try:
+        if info.HasField("exit_code"):
+            return info.exit_code
+        return None
+    except (ValueError, AttributeError):
+        # ValueError: proto message whose descriptor lacks the field (stubs
+        # vendored before exit_code existed). AttributeError: non-proto
+        # stand-ins (tests) without HasField.
+        return getattr(info, "exit_code", None)
 
 
 def _lifecycle_state_from_info(
@@ -1300,6 +1339,12 @@ class Sandbox:
         self._complete_task: asyncio.Task[SandboxStatus] | None = None
         self._complete_lock = asyncio.Lock()
 
+        # Terminal response held by an in-flight exit-code grace re-poll.
+        # The grace window defers the terminal latch, so a waiter whose
+        # deadline expires mid-window latches this instead of raising a
+        # spurious SandboxTimeoutError for an already-observed completion.
+        self._grace_pending_response: gateway_pb2.GetSandboxResponse | None = None
+
         # Shared stop task so repeated stop() calls join the same operation
         self._stop_task: asyncio.Task[None] | None = None
         self._stop_lock = asyncio.Lock()
@@ -1556,6 +1601,7 @@ class Sandbox:
         sandbox._running_lock = asyncio.Lock()
         sandbox._complete_task = None
         sandbox._complete_lock = asyncio.Lock()
+        sandbox._grace_pending_response = None
         sandbox._stop_task = None
         sandbox._stop_lock = asyncio.Lock()
         sandbox._stop_owned = False
@@ -2409,6 +2455,17 @@ class Sandbox:
         """Exit code if sandbox has completed, None if still running.
 
         Use wait() to block until the sandbox completes.
+
+        May be None even for a COMPLETED sandbox when the backend did not
+        record an exit code: older gateways without exit-code support,
+        containers that never started (e.g. image pull failures), and
+        completions whose terminal status was recorded before the runner's
+        exit-code report arrived.
+
+        This is the container's real exit code: a sandbox stopped while its
+        main process was still running reports the code produced by the
+        stopping signal (typically 143/SIGTERM or 137/SIGKILL) unless the
+        process handles SIGTERM and exits on its own.
         """
         if isinstance(self._state, _Terminal):
             return self._state.returncode
@@ -2609,7 +2666,8 @@ class Sandbox:
 
         Args:
             info: Protobuf response with sandbox_status, runner_id, profile_id,
-                runner_group_id, started_at_time, and optionally returncode fields.
+                runner_group_id, started_at_time, and optionally an exit_code
+                field (proto3 optional; presence checked via HasField).
             source: Controls returncode behavior:
                 "poll" - set returncode (polling observed the exit)
                 "query" - omit returncode (get_status/list/from_id)
@@ -2647,11 +2705,11 @@ class Sandbox:
             if hasattr(info, "started_at_time") and info.started_at_time
             else None
         )
-        # returncode is only meaningful for completed sandboxes observed via polling
-        if source == "poll" and status == SandboxStatus.COMPLETED and hasattr(info, "returncode"):
-            returncode = info.returncode
-        else:
-            returncode = None
+        # returncode is only meaningful for completed sandboxes observed via
+        # polling.
+        returncode = None
+        if source == "poll" and status == SandboxStatus.COMPLETED:
+            returncode = _exit_code_from_info(info)
 
         new_state = _lifecycle_state_from_info(
             sandbox_id=sandbox_id,
@@ -3284,6 +3342,104 @@ class Sandbox:
             logger.debug("Sandbox %s created (pending)", sandbox_id)
             return sandbox_id
 
+    async def _get_sandbox_once(self, *, rpc_timeout: float) -> gateway_pb2.GetSandboxResponse:
+        """One Get RPC with error translation: no retries, no status loop."""
+        await self._ensure_client()
+        assert self._stub is not None
+        request = gateway_pb2.GetSandboxRequest(sandbox_id=self._sandbox_id)
+        try:
+            response: gateway_pb2.GetSandboxResponse = await self._stub.Get(
+                request, timeout=rpc_timeout, metadata=self._auth_metadata
+            )
+            return response
+        except grpc.RpcError as e:
+            raise _translate_rpc_error(
+                e, sandbox_id=self._sandbox_id, operation="Poll sandbox status"
+            ) from e
+
+    async def _grace_repoll_for_exit_code(
+        self, response: gateway_pb2.GetSandboxResponse
+    ) -> gateway_pb2.GetSandboxResponse:
+        """Briefly re-poll a COMPLETED response that lacks an exit code.
+
+        Covers the runner's batch-flush lag: a Get can observe COMPLETED
+        before the runner's terminal report carrying the exit code reaches
+        the backend. The caller is about to latch the terminal state (which
+        freezes returncode), so take up to EXIT_CODE_GRACE_POLLS extra polls
+        first, returning early as soon as a code appears.
+
+        Skipped when this client initiated the stop: gateway-initiated stops
+        never stamp an exit code, so re-polling would only delay stop().
+
+        Note: the grace gate deliberately keys on the raw proto COMPLETED.
+        Poll-source UNSPECIFIED (mapped to COMPLETED by _apply_sandbox_info)
+        is only emitted by backends that predate exit codes, so a grace
+        window for it could never produce one.
+        """
+        published: gateway_pb2.GetSandboxResponse | None = None
+        try:
+            for _ in range(EXIT_CODE_GRACE_POLLS):
+                if response.sandbox_status != gateway_pb2.SANDBOX_STATUS_COMPLETED:
+                    return response
+                if self._stop_owned or self._is_stopping or self._is_done:
+                    return response
+                if _exit_code_from_info(response) is not None:
+                    return response
+                logger.debug(
+                    "Sandbox %s COMPLETED without exit code; grace re-poll",
+                    self._sandbox_id,
+                )
+                # Publish the in-hand terminal response for the duration of
+                # the window: a waiter whose asyncio.wait_for deadline expires
+                # mid-grace latches this instead of raising a spurious
+                # SandboxTimeoutError for a completion we already observed.
+                self._grace_pending_response = published = response
+                await asyncio.sleep(EXIT_CODE_GRACE_POLL_INTERVAL_SECONDS)
+                # Re-check after the sleep: a concurrent stop() or a terminal
+                # latch by another coroutine (get_status, a timed-out waiter)
+                # during the window makes the re-poll a pointless RPC.
+                if self._stop_owned or self._is_stopping or self._is_done:
+                    return response
+                try:
+                    # Literally one unretried Get on a short timeout: a bonus
+                    # poll must not borrow the primary poll's retry budget or
+                    # its transient-status loop and stall a wait whose answer
+                    # is already in hand.
+                    bonus = await self._get_sandbox_once(
+                        rpc_timeout=EXIT_CODE_GRACE_RPC_TIMEOUT_SECONDS
+                    )
+                except CWSandboxError as e:
+                    # Best-effort enrichment: the caller already holds a
+                    # terminal response, so a failed bonus poll (e.g. a
+                    # concurrent delete returning NOT_FOUND) must not fail
+                    # the wait.
+                    logger.debug(
+                        "Sandbox %s grace re-poll failed (%s); keeping in-hand terminal response",
+                        self._sandbox_id,
+                        type(e).__name__,
+                    )
+                    return response
+                # Adopt the bonus response only when it corrects the terminal
+                # status or delivers a code. A stale non-terminal read must
+                # not un-observe an already-observed completion.
+                if (
+                    bonus.sandbox_status
+                    in (
+                        gateway_pb2.SANDBOX_STATUS_COMPLETED,
+                        gateway_pb2.SANDBOX_STATUS_FAILED,
+                        gateway_pb2.SANDBOX_STATUS_TERMINATED,
+                    )
+                    or _exit_code_from_info(bonus) is not None
+                ):
+                    response = bonus
+            return response
+        finally:
+            # Clear only this loop's own publication: a cancelled sibling
+            # grace window (e.g. stop() cancelling _running_task) must not
+            # wipe the response the other shared poll task published.
+            if published is not None and self._grace_pending_response is published:
+                self._grace_pending_response = None
+
     async def _do_poll_running(self) -> None:
         """Poll until sandbox reaches a stable state and update instance fields.
 
@@ -3299,6 +3455,7 @@ class Sandbox:
         """
         assert self._sandbox_id is not None
         response = await self._poll_with_retry()
+        response = await self._grace_repoll_for_exit_code(response)
 
         self._state = self._apply_sandbox_info(response, source="poll")
         self._status_updated_at = datetime.now(UTC)
@@ -3386,6 +3543,18 @@ class Sandbox:
         try:
             await asyncio.wait_for(asyncio.shield(task), timeout=effective_timeout)
         except TimeoutError:
+            # The shared poll task may be holding an already-observed terminal
+            # response while the exit-code grace re-poll defers the latch. A
+            # deadline expiring inside that window must not convert an
+            # observed completion into a timeout: latch the in-hand response
+            # and resolve through the normal terminal policy.
+            pending = self._grace_pending_response
+            if pending is not None:
+                self._state = self._apply_sandbox_info(pending, source="poll")
+                self._status_updated_at = datetime.now(UTC)
+            if isinstance(self._state, _Terminal):
+                self._raise_or_return_for_terminal(self._state)
+                return
             raise SandboxTimeoutError(
                 f"Sandbox {self._sandbox_id} did not become ready within {effective_timeout}s"
             ) from None
@@ -3475,6 +3644,7 @@ class Sandbox:
                     return self._state.status
                 response = await self._retry_post_stop_not_found()
 
+            response = await self._grace_repoll_for_exit_code(response)
             self._state = self._apply_sandbox_info(response, source="poll")
             self._status_updated_at = datetime.now(UTC)
 
@@ -3554,6 +3724,17 @@ class Sandbox:
         try:
             await asyncio.wait_for(asyncio.shield(task), timeout=effective_timeout)
         except TimeoutError:
+            # See the TimeoutError handler in _wait_until_running_async: a
+            # deadline expiring inside the exit-code grace window latches the
+            # in-hand terminal response instead of raising a spurious timeout.
+            pending = self._grace_pending_response
+            if pending is not None:
+                self._state = self._apply_sandbox_info(pending, source="poll")
+                self._status_updated_at = datetime.now(UTC)
+            if isinstance(self._state, _Terminal):
+                return self._raise_or_return_for_terminal(
+                    self._state, raise_on_termination=raise_on_termination
+                )
             raise SandboxTimeoutError(f"Timed out waiting for sandbox {sandbox_id}") from None
         except asyncio.CancelledError:
             if self._stop_owned:
@@ -3634,7 +3815,9 @@ class Sandbox:
         """Wait until sandbox reaches terminal state (COMPLETED/FAILED/TERMINATED).
 
         Returns an OperationRef that resolves when the sandbox reaches a terminal state.
-        After resolving, returncode will be available.
+        After resolving, returncode will be available when the backend
+        recorded one (see the ``returncode`` property for the cases where it
+        stays None).
 
         Args:
             timeout: Maximum seconds to wait. None means use default timeout.
@@ -3885,7 +4068,7 @@ class Sandbox:
         only when this caller will own a fresh stop (creating the task) or when
         it joins a stop that is itself a snapshot-on-stop. Every other state
         means the sandbox is, or is about to be, torn down without archiving
-        the mount — joining would silently drop the snapshot. A sandbox that
+        the mount: joining would silently drop the snapshot. A sandbox that
         was never started has no mount to archive, so it is left to the normal
         no-op path rather than raising here.
         """
@@ -3995,8 +4178,8 @@ class Sandbox:
         Multiple callers share the same underlying stop task: the first caller
         creates it, subsequent callers join it. A ``snapshot_on_stop=True``
         request that would join (or observe) a stop that is not capturing a
-        snapshot — because the sandbox is already stopping, already stopped, or
-        a plain ``stop()`` is already in flight — raises
+        snapshot, because the sandbox is already stopping, already stopped, or
+        a plain ``stop()`` is already in flight, raises
         ``SnapshotOnStopConflictError`` instead of silently completing without
         an archive. Plain stops always coalesce.
 
@@ -4187,7 +4370,7 @@ class Sandbox:
         and, on a transient transport failure, re-init with resume_session_id
         and resume_offset so the stream picks up where it left off.  Servers
         that do not advertise a session_id (or reply with an in-band
-        SESSION_NOT_FOUND on the resume init) fall back to a fresh init —
+        SESSION_NOT_FOUND on the resume init) fall back to a fresh init:
         the live tail restarts from the current head with no replay of
         older bytes.  ``tail_lines`` and ``since_time`` are only applied to
         the very first attempt; fresh-fallback re-inits send no replay
@@ -5288,7 +5471,7 @@ class Sandbox:
     ) -> tuple[int, bytes, bytes]:
         """Run one non-TTY StreamExec and return raw stdout/stderr bytes.
 
-        See also ``_exec_streaming_async`` — the queue-driven public variant;
+        See also ``_exec_streaming_async``, the queue-driven public variant;
         keep handshake/timeout/error-translation in sync between the two.
         """
         timeout = timeout_seconds if timeout_seconds is not None else self._request_timeout_seconds
@@ -5530,7 +5713,7 @@ class Sandbox:
         unexpected output, transient transport error). Used by
         ``read_file_streaming`` to capture a pre-read size baseline for the
         truncation check; a ``None`` result means the check is skipped rather
-        than raising — a stat failure on its own is not a streaming-read failure.
+        than raising: a stat failure on its own is not a streaming-read failure.
         """
         try:
             returncode, stdout, _stderr = await self._exec_streaming_binary_async(
@@ -5567,7 +5750,7 @@ class Sandbox:
 
         ``stat`` is an O(1) metadata lookup, so it is capped at
         ``STAT_INTEGRITY_TIMEOUT_SECONDS`` and never allowed to exceed the
-        operation's remaining wall-clock budget — the stat and the read it
+        operation's remaining wall-clock budget: the stat and the read it
         precedes share one deadline and together stay within the caller's
         timeout.
         """
@@ -5583,7 +5766,7 @@ class Sandbox:
 
         Pure comparison shared by read_file (exec-stream fallback) and
         read_file_streaming. ``expected`` is the file's size captured *before*
-        the read — the server-reported size for the read_file fallback, or a
+        the read: the server-reported size for the read_file fallback, or a
         pre-read ``stat`` for read_file_streaming. On a backend where the
         streaming channel silently truncates (e.g. the lossless gate is off),
         the read command exits 0 having produced the whole file while the client
@@ -5591,7 +5774,7 @@ class Sandbox:
         read as if complete (issue #1172).
 
         Only a SHORT read (``delivered < expected``) is flagged. Specifically:
-        - ``expected is None`` (size unknown — server omitted it, or ``stat`` is
+        - ``expected is None`` (size unknown: server omitted it, or ``stat`` is
           unavailable on a distroless/scratch image): skip. The check is a
           best-effort backstop, not a guarantee; the public docstrings scope
           this.
@@ -5600,7 +5783,7 @@ class Sandbox:
           avoid a false-positive on a fully-delivered read.
         - ``delivered >= expected``: not short, so no raise. Because ``expected``
           is the *pre-read* size, a file appended to during the read grows the
-          delivered byte count above the baseline rather than below it — a
+          delivered byte count above the baseline rather than below it: a
           benign concurrent append never trips the check (the false-positive
           that an after-the-fact stat would produce).
         """
@@ -5692,7 +5875,7 @@ class Sandbox:
 
         Behavior:
             Files up to ~32 MiB are read in a single unary call. Larger files
-            (up to ~256 MiB) transparently fall back to a streaming read — the
+            (up to ~256 MiB) transparently fall back to a streaming read: the
             first such fallback per Sandbox logs once at INFO. When the server
             reports the file's size, files above ~256 MiB are refused with
             ``CWSANDBOX_FILE_TOO_LARGE``; use ``read_file_streaming`` for those.
@@ -5701,7 +5884,7 @@ class Sandbox:
             cannot always know the remote size in advance (e.g. when the backend
             signals the oversized read via resource exhaustion rather than a
             sized ``CWSANDBOX_FILE_TOO_LARGE``), so a very large file can still
-            be buffered in full rather than refused — prefer
+            be buffered in full rather than refused: prefer
             ``read_file_streaming`` for anything large to consume it
             incrementally and bound memory.
 
@@ -5997,7 +6180,7 @@ class Sandbox:
         Behavior:
             Payloads up to ~32 MiB are written in a single unary call. Larger
             payloads (up to ~256 MiB) transparently fall back to a streaming
-            write — the first such fallback per Sandbox logs once at INFO.
+            write: the first such fallback per Sandbox logs once at INFO.
             Payloads above ~256 MiB are refused; use ``write_file_streaming``
             for those.
 
@@ -6113,7 +6296,7 @@ class Sandbox:
                 ``AsyncIterable[bytes]``. Each yielded chunk is sent as-is;
                 ``bytes`` input is sliced into 1 MiB chunks internally.
                 Yielded items must be ``bytes``, ``bytearray``, or
-                ``memoryview`` — anything else raises ``TypeError``.
+                ``memoryview``; anything else raises ``TypeError``.
             timeout_seconds: Wall-clock timeout for the streaming write.
 
         Returns:
@@ -6360,7 +6543,7 @@ class Sandbox:
     ) -> StreamReader[str]:
         """Stream logs from the sandbox's main process.
 
-        Streams stdout/stderr from the sandbox's **main command** — the
+        Streams stdout/stderr from the sandbox's **main command**: the
         entrypoint passed to ``Sandbox.run()`` (or the default shell-trapped
         keep-alive). Output from commands started via ``exec()`` is **not**
         included; use ``Process.stdout``/``Process.stderr`` for those.
@@ -6372,7 +6555,7 @@ class Sandbox:
             writes to stdout/stderr when calling ``Sandbox.run()``.
 
         Returns a StreamReader that yields log lines as strings. The method
-        returns immediately — iteration on the StreamReader blocks until
+        returns immediately; iteration on the StreamReader blocks until
         data arrives.
 
         Can also retrieve historical logs from stopped sandboxes when

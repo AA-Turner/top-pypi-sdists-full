@@ -210,6 +210,7 @@ __all__ = (
     "ListTemplatesPaginatorName",
     "ListThemeVersionsPaginatorName",
     "ListThemesPaginatorName",
+    "ListTopicsV2PaginatorName",
     "ListUserGroupsPaginatorName",
     "ListUsersPaginatorName",
     "LookbackWindowSizeUnitType",
@@ -285,6 +286,7 @@ __all__ = (
     "SearchGroupsPaginatorName",
     "SearchKnowledgeBasesPaginatorName",
     "SearchTopicsPaginatorName",
+    "SearchTopicsV2PaginatorName",
     "SectionPageBreakStatusType",
     "SelectAllValueOptionsType",
     "SelectedFieldOptionsType",
@@ -350,6 +352,7 @@ __all__ = (
     "TopicSortDirectionType",
     "TopicTimeGranularityType",
     "TopicUserExperienceVersionType",
+    "TopicV2PublishOptionType",
     "TransposedColumnTypeType",
     "URLTargetConfigurationType",
     "UndefinedSpecifiedValueTypeType",
@@ -784,7 +787,12 @@ FieldNameType = Literal[
     "assetName",
 ]
 FileFormatType = Literal["CLF", "CSV", "ELF", "JSON", "TSV", "XLSX"]
-FilterClassType = Literal["CONDITIONAL_VALUE_FILTER", "ENFORCED_VALUE_FILTER", "NAMED_VALUE_FILTER"]
+FilterClassType = Literal[
+    "CONDITIONAL_VALUE_FILTER",
+    "DASHBOARD_DEFAULT_FILTER",
+    "ENFORCED_VALUE_FILTER",
+    "NAMED_VALUE_FILTER",
+]
 FilterNullOptionType = Literal["ALL_VALUES", "NON_NULLS_ONLY", "NULLS_ONLY"]
 FilterOperatorType = Literal["StringEquals", "StringLike"]
 FilterVisualScopeType = Literal["ALL_VISUALS", "SELECTED_VISUALS"]
@@ -974,6 +982,7 @@ ListTemplateVersionsPaginatorName = Literal["list_template_versions"]
 ListTemplatesPaginatorName = Literal["list_templates"]
 ListThemeVersionsPaginatorName = Literal["list_theme_versions"]
 ListThemesPaginatorName = Literal["list_themes"]
+ListTopicsV2PaginatorName = Literal["list_topics_v2"]
 ListUserGroupsPaginatorName = Literal["list_user_groups"]
 ListUsersPaginatorName = Literal["list_users"]
 LookbackWindowSizeUnitType = Literal["DAY", "HOUR", "WEEK"]
@@ -1127,6 +1136,7 @@ SearchFoldersPaginatorName = Literal["search_folders"]
 SearchGroupsPaginatorName = Literal["search_groups"]
 SearchKnowledgeBasesPaginatorName = Literal["search_knowledge_bases"]
 SearchTopicsPaginatorName = Literal["search_topics"]
+SearchTopicsV2PaginatorName = Literal["search_topics_v2"]
 SectionPageBreakStatusType = Literal["DISABLED", "ENABLED"]
 SelectAllValueOptionsType = Literal["ALL_VALUES"]
 SelectedFieldOptionsType = Literal["ALL_FIELDS"]
@@ -1255,6 +1265,7 @@ TopicTimeGranularityType = Literal[
     "DAY", "HOUR", "MINUTE", "MONTH", "QUARTER", "SECOND", "WEEK", "YEAR"
 ]
 TopicUserExperienceVersionType = Literal["LEGACY", "NEW_READER_EXPERIENCE"]
+TopicV2PublishOptionType = Literal["DRAFT", "PUBLISH"]
 TransposedColumnTypeType = Literal["ROW_HEADER_COLUMN", "VALUE_COLUMN"]
 URLTargetConfigurationType = Literal["NEW_TAB", "NEW_WINDOW", "SAME_TAB"]
 UndefinedSpecifiedValueTypeType = Literal["LEAST", "MOST"]
@@ -1610,6 +1621,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -1762,6 +1774,7 @@ PaginatorName = Literal[
     "list_templates",
     "list_theme_versions",
     "list_themes",
+    "list_topics_v2",
     "list_user_groups",
     "list_users",
     "search_action_connectors",
@@ -1774,6 +1787,7 @@ PaginatorName = Literal[
     "search_groups",
     "search_knowledge_bases",
     "search_topics",
+    "search_topics_v2",
 ]
 RegionName = Literal[
     "af-south-1",

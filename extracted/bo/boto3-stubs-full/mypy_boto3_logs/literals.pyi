@@ -172,7 +172,7 @@ S3TableIntegrationSourceStatusType = Literal[
     "ACTIVE", "DATA_SOURCE_DELETE_IN_PROGRESS", "FAILED", "UNHEALTHY"
 ]
 ScheduleTypeType = Literal["AWS_MANAGED", "CUSTOMER_MANAGED"]
-ScheduledQueryDestinationTypeType = Literal["S3"]
+ScheduledQueryDestinationTypeType = Literal["LOOKUP_TABLE", "S3"]
 ScheduledQueryStateType = Literal["DISABLED", "ENABLED"]
 ScopeType = Literal["ALL"]
 StandardUnitType = Literal[

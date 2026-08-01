@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_resiliencehubv2.literals import AchievabilityStatusType
+    from types_boto3_resiliencehubv2.literals import AccountTargetingType
 
-    data: AchievabilityStatusType = "ACHIEVABLE"
+    data: AccountTargetingType = "MULTI_ACCOUNT"
     ```
 """
 
@@ -23,6 +23,7 @@ else:
 
 
 __all__ = (
+    "AccountTargetingType",
     "AchievabilityStatusType",
     "ActorTypeType",
     "AssertionSourceType",
@@ -46,6 +47,7 @@ __all__ = (
     "ListInputSourcesPaginatorName",
     "ListPoliciesPaginatorName",
     "ListReportsPaginatorName",
+    "ListResolvedTestRunTargetResourcesPaginatorName",
     "ListResourcesPaginatorName",
     "ListServiceEventsPaginatorName",
     "ListServiceFunctionsPaginatorName",
@@ -53,10 +55,16 @@ __all__ = (
     "ListServicesPaginatorName",
     "ListSystemEventsPaginatorName",
     "ListSystemsPaginatorName",
+    "ListTestRunEventsPaginatorName",
+    "ListTestRunSourcesPaginatorName",
+    "ListTestRunsPaginatorName",
+    "ListTestSourcesPaginatorName",
+    "ListTestsPaginatorName",
     "ListUserJourneysPaginatorName",
     "MultiAzDisasterRecoveryApproachType",
     "MultiRegionDisasterRecoveryApproachType",
     "PaginatorName",
+    "ParameterTypeType",
     "PolicyComponentType",
     "PolicyValueSourceType",
     "QueryGranularityType",
@@ -76,12 +84,18 @@ __all__ = (
     "ServiceName",
     "ServiceResourceDiscoveryCompletedWaiterName",
     "SortOrderType",
+    "StopConditionSourceType",
     "SystemEventTypeType",
+    "TestRunSourceTypeType",
+    "TestRunStatusType",
+    "TestSourceOutcomeType",
+    "TestSourceTypeType",
     "TopologyTypeType",
     "WaiterName",
 )
 
 
+AccountTargetingType = Literal["MULTI_ACCOUNT", "SINGLE_ACCOUNT"]
 AchievabilityStatusType = Literal["ACHIEVABLE", "NOT_ACHIEVABLE"]
 ActorTypeType = Literal["SYSTEM", "USER"]
 AssertionSourceType = Literal["AI_GENERATED", "USER"]
@@ -127,6 +141,7 @@ ListFailureModeFindingsPaginatorName = Literal["list_failure_mode_findings"]
 ListInputSourcesPaginatorName = Literal["list_input_sources"]
 ListPoliciesPaginatorName = Literal["list_policies"]
 ListReportsPaginatorName = Literal["list_reports"]
+ListResolvedTestRunTargetResourcesPaginatorName = Literal["list_resolved_test_run_target_resources"]
 ListResourcesPaginatorName = Literal["list_resources"]
 ListServiceEventsPaginatorName = Literal["list_service_events"]
 ListServiceFunctionsPaginatorName = Literal["list_service_functions"]
@@ -134,6 +149,11 @@ ListServiceTopologyEdgesPaginatorName = Literal["list_service_topology_edges"]
 ListServicesPaginatorName = Literal["list_services"]
 ListSystemEventsPaginatorName = Literal["list_system_events"]
 ListSystemsPaginatorName = Literal["list_systems"]
+ListTestRunEventsPaginatorName = Literal["list_test_run_events"]
+ListTestRunSourcesPaginatorName = Literal["list_test_run_sources"]
+ListTestRunsPaginatorName = Literal["list_test_runs"]
+ListTestSourcesPaginatorName = Literal["list_test_sources"]
+ListTestsPaginatorName = Literal["list_tests"]
 ListUserJourneysPaginatorName = Literal["list_user_journeys"]
 MultiAzDisasterRecoveryApproachType = Literal[
     "ACTIVE_ACTIVE", "BACKUP_AND_RESTORE", "HOT_STANDBY", "PILOT_LIGHT", "WARM_STANDBY"
@@ -141,6 +161,7 @@ MultiAzDisasterRecoveryApproachType = Literal[
 MultiRegionDisasterRecoveryApproachType = Literal[
     "ACTIVE_ACTIVE", "BACKUP_AND_RESTORE", "HOT_STANDBY", "PILOT_LIGHT", "WARM_STANDBY"
 ]
+ParameterTypeType = Literal["INTEGER", "STRING", "STRING_LIST"]
 PolicyComponentType = Literal[
     "AVAILABILITY_SLO",
     "DATA_RECOVERY",
@@ -154,7 +175,7 @@ ReportGenerationErrorCodeType = Literal[
 ]
 ReportGenerationStatusType = Literal["FAILED", "PENDING", "SUCCEEDED"]
 ReportSucceededWaiterName = Literal["report_succeeded"]
-ReportTypeType = Literal["FAILURE_MODE"]
+ReportTypeType = Literal["FAILURE_MODE", "TESTING"]
 ResourceDiscoveryErrorCodeType = Literal[
     "ACCESS_DENIED",
     "CLUSTER_NOT_FOUND",
@@ -193,6 +214,7 @@ ServiceFunctionCriticalityType = Literal["PRIMARY", "SUPPLEMENTAL"]
 ServiceFunctionSourceType = Literal["AI_GENERATED", "USER"]
 ServiceResourceDiscoveryCompletedWaiterName = Literal["service_resource_discovery_completed"]
 SortOrderType = Literal["ASC", "DESC"]
+StopConditionSourceType = Literal["aws:cloudwatch:alarm", "none"]
 SystemEventTypeType = Literal[
     "SYSTEM_CREATED",
     "SYSTEM_DELETED",
@@ -204,6 +226,12 @@ SystemEventTypeType = Literal[
     "SYSTEM_USER_JOURNEY_DELETED",
     "SYSTEM_USER_JOURNEY_UPDATED",
 ]
+TestRunSourceTypeType = Literal["OBSERVABILITY", "SUCCESS_CRITERIA"]
+TestRunStatusType = Literal[
+    "ERROR", "FAILED", "INITIALIZING", "PASSED", "RUNNING", "STOPPED", "STOPPING"
+]
+TestSourceOutcomeType = Literal["ERROR", "FAILED", "PASSED"]
+TestSourceTypeType = Literal["OBSERVABILITY", "SUCCESS_CRITERIA"]
 TopologyTypeType = Literal["CONTAINMENT", "DATA_FLOW", "OBSERVABILITY", "PERMISSIONS"]
 ResilienceHubV2ServiceName = Literal["resiliencehubv2"]
 ServiceName = Literal[
@@ -645,6 +673,7 @@ PaginatorName = Literal[
     "list_input_sources",
     "list_policies",
     "list_reports",
+    "list_resolved_test_run_target_resources",
     "list_resources",
     "list_service_events",
     "list_service_functions",
@@ -652,6 +681,11 @@ PaginatorName = Literal[
     "list_services",
     "list_system_events",
     "list_systems",
+    "list_test_run_events",
+    "list_test_run_sources",
+    "list_test_runs",
+    "list_test_sources",
+    "list_tests",
     "list_user_journeys",
 ]
 WaiterName = Literal[

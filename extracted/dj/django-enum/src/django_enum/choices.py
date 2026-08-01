@@ -20,12 +20,13 @@ from enum_properties import (
 
 from django_enum.utils import choices, names
 
-__all__ = ["TextChoices", "IntegerChoices", "FloatChoices", "FlagChoices"]
+__all__ = ["FlagChoices", "FloatChoices", "IntegerChoices", "TextChoices"]
 
 ChoicesType = (
     model_enums.ChoicesType
     if django_version[0:2] >= (5, 0)
-    else getattr(model_enums, "ChoicesMeta")  # removed in Django 5.0
+    # removed in Django 5.0
+    else model_enums.ChoicesMeta  # type: ignore[attr-defined]
 )
 
 DEFAULT_BOUNDARY = getattr(enum, "KEEP", None)
@@ -80,7 +81,7 @@ class DjangoSymmetricMixin(SymmetricMixin):
     symmetric.
     """
 
-    _symmetric_builtins_ = ["name", "label"]
+    _symmetric_builtins_: t.ClassVar[list[str]] = ["name", "label"]
 
 
 class TextChoices(

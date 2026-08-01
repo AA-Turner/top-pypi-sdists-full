@@ -859,6 +859,12 @@ class ConnectorMetadataDefinitionV0DataRegistryOverridesRegistryOverrides(BaseMo
         extra="forbid",
     )
     enabled: bool
+    public: Annotated[
+        bool | None,
+        Field(
+            description="whether the connector is available to every workspace in this registry. When false, the connector is still published and seeded, but only workspaces and organizations holding an explicit grant can see or use it. When unset, the registry generator marks the entry public, so connectors that say nothing stay public."
+        ),
+    ] = None
     name: str | None = None
     docker_repository: Annotated[str | None, Field(alias="dockerRepository")] = None
     docker_image_tag: Annotated[str | None, Field(alias="dockerImageTag")] = None
@@ -983,6 +989,12 @@ class ConnectorMetadataDefinitionV0RegistryOverrides(BaseModel):
         extra="forbid",
     )
     enabled: bool
+    public: Annotated[
+        bool | None,
+        Field(
+            description="whether the connector is available to every workspace in this registry. When false, the connector is still published and seeded, but only workspaces and organizations holding an explicit grant can see or use it. When unset, the registry generator marks the entry public, so connectors that say nothing stay public."
+        ),
+    ] = None
     name: str | None = None
     docker_repository: Annotated[str | None, Field(alias="dockerRepository")] = None
     docker_image_tag: Annotated[str | None, Field(alias="dockerImageTag")] = None

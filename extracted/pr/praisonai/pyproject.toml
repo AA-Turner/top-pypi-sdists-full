@@ -12,13 +12,14 @@ dependencies = [
     "rich>=13.7",
     "markdown>=3.5",
     "pyparsing>=3.0.0",
-    "praisonaiagents>=1.6.161",
-    "praisonai-code>=0.0.57",
-    "praisonai-bot>=0.0.42",
-    "praisonai-train>=0.0.13",
-    "praisonai-browser>=0.0.9",
-    "praisonai-mcp>=0.0.9",
-    "praisonai-sandbox>=0.0.7",
+    "praisonaiagents>=1.6.162",
+    "praisonai-code>=0.0.58",
+    "praisonai-bot>=0.0.43",
+    "praisonai-train>=0.0.14",
+    "praisonai-browser>=0.0.10",
+    "praisonai-mcp>=0.0.10",
+    "praisonai-sandbox>=0.0.8",
+    "praisonai-deploy>=0.0.2",
     "python-dotenv>=0.19.0",
     "litellm>=1.83.14,<2",
     "PyYAML>=6.0",
@@ -80,6 +81,9 @@ code = [
 ]
 sandbox = [
     "praisonai-sandbox[all]",
+]
+deploy = [
+    "praisonai-deploy[all]",
 ]
 ssh = [
     "praisonai-sandbox[ssh]",
@@ -289,6 +293,7 @@ praisonai-train = { path = "../praisonai-train", editable = true }
 praisonai-browser = { path = "../praisonai-browser", editable = true }
 praisonai-mcp = { path = "../praisonai-mcp", editable = true }
 praisonai-sandbox = { path = "../praisonai-sandbox", editable = true }
+praisonai-deploy = { path = "../praisonai-deploy", editable = true }
 
 [tool.uv]
 # Exclude from lock resolution — these cause cross-extra conflicts that
@@ -316,3 +321,4 @@ exclude = ["praisonai_code*", "praisonai_bot*"]
 
 [tool.setuptools.package-data]
 "praisonai.cli.configuration" = ["*.json"]
+"praisonai.config" = ["*.json"]

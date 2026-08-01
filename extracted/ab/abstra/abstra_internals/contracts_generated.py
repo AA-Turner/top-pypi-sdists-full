@@ -14455,20 +14455,25 @@ class AbstraLibApiEditorStatusMessage:
 
 AbstraLibApiEditorWebEditorResponseWaitingRoomUrl = str
 
+AbstraLibApiEditorWebEditorResponseApiKeyValid = bool
+
 
 @dataclass
 class AbstraLibApiEditorWebEditorResponse:
     waiting_room_url: AbstraLibApiEditorWebEditorResponseWaitingRoomUrl
+    api_key_valid: AbstraLibApiEditorWebEditorResponseApiKeyValid
 
     def to_dict(self) -> typing.Dict[str, typing.Any]:
         data = {}
         data['waitingRoomUrl'] = self.waiting_room_url
+        data['apiKeyValid'] = self.api_key_valid
         return data
 
     @classmethod
     def from_dict(cls, data: typing.Dict[str, typing.Any]) -> "AbstraLibApiEditorWebEditorResponse":
         return cls(
             waiting_room_url=str(data['waitingRoomUrl']),
+            api_key_valid=bool(data['apiKeyValid']),
         )
 
 

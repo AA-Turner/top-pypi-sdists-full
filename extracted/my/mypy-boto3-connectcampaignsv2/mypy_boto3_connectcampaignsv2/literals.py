@@ -31,6 +31,7 @@ __all__ = (
     "CommunicationLimitsConfigTypeType",
     "CommunicationTimeConfigTypeType",
     "ConnectCampaignServiceV2ServiceName",
+    "ConnectionStartPointType",
     "DayOfWeekType",
     "EncryptionTypeType",
     "EventTypeType",
@@ -60,6 +61,7 @@ ChannelSubtypeType = Literal["EMAIL", "SMS", "TELEPHONY", "WHATSAPP"]
 CommunicationLimitTimeUnitType = Literal["DAY"]
 CommunicationLimitsConfigTypeType = Literal["ALL_CHANNEL_SUBTYPES"]
 CommunicationTimeConfigTypeType = Literal["EMAIL", "SMS", "TELEPHONY", "WHATSAPP"]
+ConnectionStartPointType = Literal["CONNECTED_TO_SYSTEM", "GREETING_END", "GREETING_START"]
 DayOfWeekType = Literal[
     "FRIDAY", "MONDAY", "SATURDAY", "SUNDAY", "THURSDAY", "TUESDAY", "WEDNESDAY"
 ]
@@ -287,8 +289,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -384,10 +384,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -405,6 +405,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -470,7 +471,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -491,6 +491,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

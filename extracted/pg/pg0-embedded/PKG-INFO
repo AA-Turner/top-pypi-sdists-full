@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pg0-embedded
-Version: 0.15.0
+Version: 0.15.1
 Summary: Python API for pg0 - embedded PostgreSQL
 Project-URL: Homepage, https://github.com/vectorize-io/pg0
 Project-URL: Repository, https://github.com/vectorize-io/pg0

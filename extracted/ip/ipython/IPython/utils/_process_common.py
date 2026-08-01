@@ -18,12 +18,12 @@ import os
 import shlex
 import subprocess
 import sys
-from typing import IO, List, TypeVar, Union
+from typing import IO, TypeVar
 from collections.abc import Callable
 
 _T = TypeVar("_T")
 
-from IPython.utils import py3compat
+from .encoding import DEFAULT_ENCODING
 
 #-----------------------------------------------------------------------------
 # Function definitions
@@ -39,14 +39,14 @@ def read_no_interrupt(stream: IO[bytes]) -> bytes | None:
 
     try:
         return stream.read()
-    except IOError as err:
+    except OSError as err:
         if err.errno != errno.EINTR:
             raise
     return None
 
 
 def process_handler(
-    cmd: Union[str, List[str]],
+    cmd: str | list[str],
     callback: Callable[[subprocess.Popen[bytes]], _T],
     stderr: int = subprocess.PIPE,
 ) -> _T | None:
@@ -140,7 +140,7 @@ def getoutput(cmd: str | list[str]) -> str:
     out = process_handler(cmd, lambda p: p.communicate()[0], subprocess.STDOUT)
     if out is None:
         return ''
-    return py3compat.decode(out)
+    return out.decode(DEFAULT_ENCODING, "replace")
 
 
 def getoutputerror(cmd: str | list[str]) -> tuple[str, str]:
@@ -183,7 +183,7 @@ def get_output_error_code(cmd: str | list[str]) -> tuple[str, str, int | None]:
     if result is None:
         return '', '', None
     (out, err), p = result
-    return py3compat.decode(out), py3compat.decode(err), p.returncode
+    return out.decode(DEFAULT_ENCODING, "replace"), err.decode(DEFAULT_ENCODING, "replace"), p.returncode
 
 def arg_split(commandline: str, posix: bool = False, strict: bool = True) -> list[str]:
     """Split a command line's arguments in a shell-like manner.
@@ -233,7 +233,7 @@ def arg_split_with_quotes(
     if that token had any single- or double-quote characters in ``commandline``.
 
     Useful for callers like ``%run`` that want to honor shell quoting when
-    deciding wether to apply further expansion (glob, tilde) to a token.
+    deciding whether to apply further expansion (glob, tilde) to a token.
 
     Detection is shlex-based on both passes so the quote semantics are the
     same on Posix and Windows. If ``strict`` is False, malformed input (e.g.

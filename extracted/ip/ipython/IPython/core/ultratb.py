@@ -66,7 +66,6 @@ Inheritance diagram:
 # the file COPYING, distributed as part of this software.
 # *****************************************************************************
 
-import functools
 import inspect
 import linecache
 import sys
@@ -76,17 +75,15 @@ import types
 import warnings
 from collections.abc import Sequence
 from types import TracebackType
-from typing import Any, List, Optional, Tuple
+from typing import Any
 from collections.abc import Callable
 
 import stack_data
 from pygments.formatters.terminal256 import Terminal256Formatter
 from pygments.token import Token
 
-from IPython import get_ipython
-from IPython.utils import path as util_path
-from IPython.utils import py3compat
-from IPython.utils.PyColorize import Parser, Theme, TokenStream, theme_table
+from IPython.core.getipython import get_ipython
+from IPython.utils.PyColorize import Parser, TokenStream, theme_table
 from IPython.utils.terminal import get_terminal_size
 
 from .display_trap import DisplayTrap
@@ -101,7 +98,6 @@ from .tbtools import (
     eqrepr,
     get_line_number_of_frame,
     nullrepr,
-    text_repr,
 )
 
 # Globals
@@ -151,9 +147,9 @@ class ListTB(TBTools):
     def structured_traceback(
         self,
         etype: type,
-        evalue: Optional[BaseException],
-        etb: Optional[TracebackType] = None,
-        tb_offset: Optional[int] = None,
+        evalue: BaseException | None,
+        etb: TracebackType | None = None,
+        tb_offset: int | None = None,
         context: int = 5,
     ) -> list[str]:
         """Return a color formatted string with the traceback info.
@@ -179,13 +175,16 @@ class ListTB(TBTools):
         """
         # This is a workaround to get chained_exc_ids in recursive calls
         # etb should not be a tuple if structured_traceback is not recursive
+        # (see the recursive self.structured_traceback() call below), and can
+        # also be a pre-built list of frames per the docstring above; neither
+        # is expressible in the public `TracebackType | None` signature.
         if isinstance(etb, tuple):
-            etb, chained_exc_ids = etb
+            etb, chained_exc_ids = etb  # type: ignore[unreachable]
         else:
             chained_exc_ids = set()
         elist: list[Any]
         if isinstance(etb, list):
-            elist = etb
+            elist = etb  # type: ignore[unreachable]
         elif etb is not None:
             elist = self._extract_tb(etb)  # type: ignore[assignment]
         else:
@@ -473,7 +472,7 @@ class ListTB(TBTools):
         # Lifted from traceback.py
         try:
             return str(value)
-        except:
+        except Exception:
             return "<unprintable %s object>" % type(value).__name__
 
 
@@ -531,7 +530,7 @@ class VerboseTB(TBTools):
             if theme_name != _default:
                 warnings.warn(
                     "You passed both `theme_name` and `color_scheme` "
-                    "(deprecated) to VerboseTB constructor. `theme_name` will "
+                    "(deprecated since IPython 9.0) to VerboseTB constructor. `theme_name` will "
                     "be ignored for the time being.",
                     stacklevel=2,
                     category=DeprecationWarning,
@@ -752,7 +751,7 @@ class VerboseTB(TBTools):
         # Get (safely) a string form of the exception info
         try:
             etype_str, evalue_str = map(str, (etype, evalue))
-        except:
+        except Exception:
             # User exception is improperly defined.
             etype, evalue = str, sys.exc_info()[:2]
             etype_str, evalue_str = map(str, (etype, evalue))
@@ -781,10 +780,10 @@ class VerboseTB(TBTools):
     def format_exception_as_a_whole(
         self,
         etype: type,
-        evalue: Optional[BaseException],
-        etb: Optional[TracebackType],
+        evalue: BaseException | None,
+        etb: TracebackType | None,
         context: int,
-        tb_offset: Optional[int],
+        tb_offset: int | None,
     ) -> list[list[str]]:
         """Formats the header, traceback and exception message for a single exception.
 
@@ -871,7 +870,7 @@ class VerboseTB(TBTools):
         )
 
         # Collect traceback frames and their module sizes.
-        cf: Optional[TracebackType] = etb
+        cf: TracebackType | None = etb
         tbs: list[tuple[TracebackType, int]] = []
         while cf is not None:
             try:
@@ -906,7 +905,7 @@ class VerboseTB(TBTools):
         while i < len(tbs):
             tb, frame_len = tbs[i]
             if frame_len > FAST_THRESHOLD:
-                frame = tb.tb_frame  # type: ignore[union-attr]
+                frame = tb.tb_frame
                 lineno = frame.f_lineno
                 code = frame.f_code
                 filename = code.co_filename
@@ -938,9 +937,9 @@ class VerboseTB(TBTools):
     def structured_traceback(
         self,
         etype: type,
-        evalue: Optional[BaseException],
-        etb: Optional[TracebackType] = None,
-        tb_offset: Optional[int] = None,
+        evalue: BaseException | None,
+        etb: TracebackType | None = None,
+        tb_offset: int | None = None,
         context: int = 5,
     ) -> list[str]:
         """Return a nice text document describing the traceback."""
@@ -1040,7 +1039,7 @@ class VerboseTB(TBTools):
                     sys.last_value
                     if sys.version_info < (3, 12)
                     else getattr(sys, "last_exc", sys.last_value)
-                )  # type: ignore[attr-defined]
+                )
                 if exc:
                     self.pdb.interaction(None, exc)
                 else:
@@ -1152,7 +1151,7 @@ class FormattedTB(VerboseTB, ListTB):
                 debugger_cls=self.debugger_cls,
             ).structured_traceback(
                 etype, evalue, etb, tb_offset, 1
-            )  # type: ignore[arg-type]
+            )
 
         elif mode == "Minimal":
             return ListTB.get_exception_only(self, etype, evalue)
@@ -1171,7 +1170,7 @@ class FormattedTB(VerboseTB, ListTB):
         """Convert a structured traceback (a list) to a string."""
         return self.tb_join_char.join(stb)
 
-    def set_mode(self, mode: Optional[str] = None) -> None:
+    def set_mode(self, mode: str | None = None) -> None:
         """Switch to the desired mode.
 
         If mode is not specified, cycles through the available modes."""
@@ -1254,17 +1253,20 @@ class AutoFormattedTB(FormattedTB):
     def structured_traceback(
         self,
         etype: type,
-        evalue: Optional[BaseException],
-        etb: Optional[TracebackType] = None,
-        tb_offset: Optional[int] = None,
+        evalue: BaseException | None,
+        etb: TracebackType | None = None,
+        tb_offset: int | None = None,
         context: int = 5,
     ) -> list[str]:
         # tb: TracebackType or tupleof tb types ?
+        # etype can be None when called as structured_traceback(*sys.exc_info())
+        # with no active exception; etb can be a tuple for a chained exception.
+        # Neither is expressible in the public signature above.
         if etype is None:
-            etype, evalue, etb = sys.exc_info()
+            etype, evalue, etb = sys.exc_info()  # type: ignore[unreachable]
         if isinstance(etb, tuple):
             # tb is a tuple if this is a chained exception.
-            self.tb = etb[0]
+            self.tb = etb[0]  # type: ignore[unreachable]
         else:
             self.tb = etb
         return FormattedTB.structured_traceback(
@@ -1325,7 +1327,7 @@ class SyntaxTB(ListTB):
             if newtext:
                 value.text = newtext
         self.last_syntax_error = value
-        return super(SyntaxTB, self).structured_traceback(
+        return super().structured_traceback(
             etype, value, etb, tb_offset=tb_offset, context=context
         )
 

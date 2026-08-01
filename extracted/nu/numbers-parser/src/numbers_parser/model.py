@@ -240,16 +240,11 @@ class _NumbersModel(Cacheable):
         self._table_categories_data = {}
         self._table_categories_row_mapper = {}
         self._styles = None
+        self._update_strokes = {}
         self._images = {}
         self._custom_formats = None
         self._custom_format_archives = None
         self._custom_format_ids = None
-        self._strokes = {
-            "top": defaultdict(),
-            "right": defaultdict(),
-            "bottom": defaultdict(),
-            "left": defaultdict(),
-        }
         self.name_ref_cache = ScopedNameRefCache(self)
         self.missing_fonts = {}
         self.calculate_table_uuid_map()
@@ -432,7 +427,7 @@ class _NumbersModel(Cacheable):
             {"childInfoKind": "Caption", "placement": {"identifier": caption_placement_id}},
             TSAArchives.CaptionInfoArchive,
         )
-        storage_id, storage = self.objects.create_object_from_dict(
+        storage_id, _ = self.objects.create_object_from_dict(
             "CalculationEngine",
             {
                 "text": ["Caption"],
@@ -802,8 +797,6 @@ class _NumbersModel(Cacheable):
         self._table_id_to_base_id = {
             table_id: formula_owner_to_base_owner_map.get(
                 uuid_to_hex(self.objects[table_id].haunted_owner.owner_uid),
-                # Some older documents do not have this mapping
-                None,
             )
             for table_id in self.table_ids()
         }
@@ -1104,17 +1097,20 @@ class _NumbersModel(Cacheable):
         return storage_buffers[row_offset][col]
 
     def recalculate_row_headers(self, table_id: int, data: list) -> None:
+        current_row_heights = {}
+        for row in range(self.number_of_rows(table_id)):
+            current_row_heights[row] = self.row_height(table_id, row)
+
         base_data_store = self.objects[table_id].base_data_store
         buckets = self.objects[base_data_store.rowHeaders.buckets[0].identifier]
         clear_field_container(buckets.headers)
-        for row in range(len(data)):
-            if table_id in self._row_heights and row in self._row_heights[table_id]:
-                height = self._row_heights[table_id][row]
-            else:
-                height = 0.0
+
+        for row, cells in enumerate(data):
+            num_cols = len(data) - sum([isinstance(x, MergedCell) for x in cells])
+            height = current_row_heights[row]
             header = TSTArchives.HeaderStorageBucket.Header(
                 index=row,
-                numberOfCells=len(data[row]),
+                numberOfCells=num_cols,
                 size=height,
                 hidingState=0,
             )
@@ -1253,7 +1249,9 @@ class _NumbersModel(Cacheable):
         self.recalculate_merged_cells(table_id)
         self.update_paragraph_styles()
         self.update_cell_styles(table_id, data)
+        self.update_cell_borders(table_id, data)
 
+        self.objects.remove_unreferenced_objects()
         table_model.ClearField("base_column_row_uids")
 
         tile_idx = 0
@@ -1339,30 +1337,7 @@ class _NumbersModel(Cacheable):
         else:
             height = round(table_model.default_row_height)
 
-        data = self._table_data[table_id]
-        max_top_border = max(
-            [0.0]
-            + [
-                data[row][col].border.top.width
-                for col in range(len(data[row]))
-                if data[row][col].border.top is not None
-            ],
-        )
-        max_bottom_border = max(
-            [0.0]
-            + [
-                data[row][col].border.bottom.width
-                for col in range(len(data[row]))
-                if data[row][col].border.bottom is not None
-            ],
-        )
-        height += max_top_border / 2
-        height += max_bottom_border / 2
-
-        if table_id not in self._row_heights:
-            self._row_heights[table_id] = {}
-        self._row_heights[table_id][row] = floor(height)
-        return self._row_heights[table_id][row]
+        return height
 
     def table_width(self, table_id: int) -> int:
         """Return the width of a table in points."""
@@ -1390,31 +1365,7 @@ class _NumbersModel(Cacheable):
             width = round(bucket_map[col].size)
         else:
             width = round(table_model.default_column_width)
-
-        data = self._table_data[table_id]
-        max_left_border = max(
-            [0.0]
-            + [
-                data[row][col].border.left.width
-                for row in range(len(data))
-                if data[row][col].border.left is not None
-            ],
-        )
-        max_right_border = max(
-            [0.0]
-            + [
-                data[row][col].border.right.width
-                for row in range(len(data))
-                if data[row][col].border.right is not None
-            ],
-        )
-        width += max_left_border / 2
-        width += max_right_border / 2
-
-        if table_id not in self._col_widths:
-            self._col_widths[table_id] = {}
-        self._col_widths[table_id][col] = floor(width)
-        return self._col_widths[table_id][col]
+        return width
 
     def num_header_rows(self, table_id: int, num_headers: int | None = None) -> int:
         """Return/set the number of header rows."""
@@ -1449,7 +1400,7 @@ class _NumbersModel(Cacheable):
             self.objects[self.table_info_id(x)].super.geometry.position.y
             for x in self.table_ids(sheet_id)
             if x == table_id
-        )  # pragma: nocover (issue-1333)
+        )
 
         return self.table_height(table_id) + y_offset
 
@@ -1489,7 +1440,7 @@ class _NumbersModel(Cacheable):
     ) -> int:
         from_table = self.objects[from_table_id]
 
-        table_strings_id, table_strings = self.create_string_table()
+        table_strings_id, _ = self.create_string_table()
 
         # Build a minimal table duplicating references from the source table
         from_table_refs = field_references(from_table)
@@ -1514,7 +1465,7 @@ class _NumbersModel(Cacheable):
         # Suppress Numbers assertions for tables sharing the same data
         table_model.category_owner.identifier = 0
 
-        column_headers_id, column_headers = self.objects.create_object_from_dict(
+        column_headers_id, _ = self.objects.create_object_from_dict(
             "Index/Tables/HeaderStorageBucket-{}",
             {"bucketHashFunction": 1},
             TSTArchives.HeaderStorageBucket,
@@ -1724,7 +1675,7 @@ class _NumbersModel(Cacheable):
             "total_range_for_table": null_range_ref,
             "body_range_for_table": null_range_ref,
         }
-        formula_deps_id, formula_deps = self.objects.create_object_from_dict(
+        formula_deps_id, _ = self.objects.create_object_from_dict(
             "CalculationEngine",
             {
                 "formula_owner_uid": formula_owner_uuid.dict2,
@@ -2370,7 +2321,12 @@ class _NumbersModel(Cacheable):
             ):
                 return cell
         elif cell.is_merged:
-            if side in ["top", "left"]:
+            # No borders for merged edges of anchor cells
+            if (
+                side in ["top", "left"]
+                or (side == "right" and cell.size[1] == 1)
+                or (side == "bottom" and cell.size[0] == 1)
+            ):
                 return cell
         else:
             return cell
@@ -2385,40 +2341,39 @@ class _NumbersModel(Cacheable):
         border_value: Border,
     ) -> None:
         """Set the 2 borders adjacent to a stroke if within the table range."""
+        self._update_strokes[table_id] = True
         if side == "top":
+            bottom_cell = self.cell_for_stroke(table_id, "bottom", row - 1, col)
             if (cell := self.cell_for_stroke(table_id, "top", row, col)) is not None:
                 cell._border.top = border_value
-            if (cell := self.cell_for_stroke(table_id, "bottom", row - 1, col)) is not None:
-                cell._border.bottom = border_value
-            if table_id in self._row_heights:
-                self._row_heights[table_id].pop(row, None)
-                self._row_heights[table_id].pop(row - 1, None)
+            if bottom_cell is not None:
+                bottom_cell._border.bottom = border_value
         elif side == "right":
+            left_cell = self.cell_for_stroke(table_id, "left", row, col + 1)
             if (cell := self.cell_for_stroke(table_id, "right", row, col)) is not None:
                 cell._border.right = border_value
-            if (cell := self.cell_for_stroke(table_id, "left", row, col + 1)) is not None:
-                cell._border.left = border_value
-            if table_id in self._col_widths:
-                self._col_widths[table_id].pop(col, None)
-                self._col_widths[table_id].pop(col + 1, None)
+            if left_cell is not None:
+                left_cell._border.left = border_value
         elif side == "bottom":
+            top_cell = self.cell_for_stroke(table_id, "top", row + 1, col)
             if (cell := self.cell_for_stroke(table_id, "bottom", row, col)) is not None:
                 cell._border.bottom = border_value
-            if (cell := self.cell_for_stroke(table_id, "top", row + 1, col)) is not None:
-                cell._border.top = border_value
-            if table_id in self._row_heights:
-                self._row_heights[table_id].pop(row, None)
-                self._row_heights[table_id].pop(row + 1, None)
+            if top_cell is not None:
+                top_cell._border.top = border_value
         else:  # left border
+            right_cell = self.cell_for_stroke(table_id, "right", row, col - 1)
             if (cell := self.cell_for_stroke(table_id, "left", row, col)) is not None:
                 cell._border.left = border_value
-            if (cell := self.cell_for_stroke(table_id, "right", row, col - 1)) is not None:
-                cell._border.right = border_value
-            if table_id in self._col_widths:
-                self._col_widths[table_id].pop(col, None)
-                self._col_widths[table_id].pop(col - 1, None)
+            if right_cell is not None:
+                right_cell._border.right = border_value
 
-    def extract_strokes_in_layers(self, table_id: int, layer_ids: list, side: str) -> None:
+    def extract_strokes_in_layers(
+        self,
+        table_id: int,
+        layer_ids: list,
+        side: str,
+    ) -> list[tuple[int, int, int, int, str, Border]]:
+        strokes = []
         for layer_id in layer_ids:
             stroke_layer = self.objects[layer_id.identifier]
             for stroke_run in stroke_layer.stroke_runs:
@@ -2426,18 +2381,36 @@ class _NumbersModel(Cacheable):
                     width=round(stroke_run.stroke.width, 2),
                     color=rgb(stroke_run.stroke.color),
                     style=self.stroke_type(stroke_run),
-                    _order=stroke_run.order,
                 )
                 if side in ["top", "bottom"]:
                     start_row = stroke_layer.row_column_index
                     start_column = stroke_run.origin
                     for col in range(start_column, start_column + stroke_run.length):
-                        self.set_cell_border(table_id, start_row, col, side, border_value)
+                        strokes.append(
+                            (
+                                stroke_run.order,
+                                table_id,
+                                start_row,
+                                col,
+                                side,
+                                border_value,
+                            ),
+                        )
                 else:
                     start_row = stroke_run.origin
                     start_column = stroke_layer.row_column_index
                     for row in range(start_row, start_row + stroke_run.length):
-                        self.set_cell_border(table_id, row, start_column, side, border_value)
+                        strokes.append(
+                            (
+                                stroke_run.order,
+                                table_id,
+                                row,
+                                start_column,
+                                side,
+                                border_value,
+                            ),
+                        )
+        return strokes
 
     @cache()
     def extract_strokes(self, table_id: int) -> None:
@@ -2446,10 +2419,32 @@ class _NumbersModel(Cacheable):
         if stroke_sidecar_id == 0:
             return
         sidecar_obj = self.objects[stroke_sidecar_id]
-        self.extract_strokes_in_layers(table_id, sidecar_obj.top_row_stroke_layers, "top")
-        self.extract_strokes_in_layers(table_id, sidecar_obj.left_column_stroke_layers, "left")
-        self.extract_strokes_in_layers(table_id, sidecar_obj.right_column_stroke_layers, "right")
-        self.extract_strokes_in_layers(table_id, sidecar_obj.bottom_row_stroke_layers, "bottom")
+        strokes = []
+        strokes.extend(
+            self.extract_strokes_in_layers(table_id, sidecar_obj.top_row_stroke_layers, "top"),
+        )
+        strokes.extend(
+            self.extract_strokes_in_layers(table_id, sidecar_obj.left_column_stroke_layers, "left"),
+        )
+        strokes.extend(
+            self.extract_strokes_in_layers(
+                table_id,
+                sidecar_obj.right_column_stroke_layers,
+                "right",
+            ),
+        )
+        strokes.extend(
+            self.extract_strokes_in_layers(
+                table_id,
+                sidecar_obj.bottom_row_stroke_layers,
+                "bottom",
+            ),
+        )
+        for _, table_id, row, col, side, border_value in sorted(
+            strokes,
+            key=lambda value: value[0],
+        ):
+            self.set_cell_border(table_id, row, col, side, border_value)
 
     def create_stroke(self, origin: int, length: int, border_value: Border):
         line_cap = TSDArchives.StrokeArchive.LineCap.ButtCap
@@ -2497,7 +2492,7 @@ class _NumbersModel(Cacheable):
         return TSTArchives.StrokeLayerArchive.StrokeRunArchive(
             origin=origin,
             length=length,
-            order=border_value._order,
+            order=1,  # When we re-save, strokes are optimized to be flat
             stroke=TSDArchives.StrokeArchive(
                 color=color,
                 width=width,
@@ -2507,6 +2502,81 @@ class _NumbersModel(Cacheable):
                 pattern=pattern,
             ),
         )
+
+    def update_cell_borders(self, table_id: int, data: list) -> None:
+        """Consolidate identical strokes and then generate stoke archives."""
+        if table_id not in self._update_strokes:
+            return
+
+        num_rows = self.objects[table_id].number_of_rows
+        num_cols = self.objects[table_id].number_of_columns
+
+        # Clear existing stroke layers to prepare for rebuilt, optimized strokes
+        table_obj = self.objects[table_id]
+        if table_obj.stroke_sidecar.identifier != 0:
+            sidecar_obj = self.objects[table_obj.stroke_sidecar.identifier]
+            clear_field_container(sidecar_obj.top_row_stroke_layers)
+            clear_field_container(sidecar_obj.bottom_row_stroke_layers)
+            clear_field_container(sidecar_obj.left_column_stroke_layers)
+            clear_field_container(sidecar_obj.right_column_stroke_layers)
+
+        # Horizontal strokes (all but bottom of table)
+        for row in range(num_rows):
+            col = 0
+            while col < num_cols:
+                border = data[row][col]._border.top
+                if border is not None:
+                    length = 1
+                    while col + length < num_cols and data[row][col + length]._border.top == border:
+                        length += 1
+                    self.add_stroke(table_id, row, col, "top", border, length)
+                    col += length
+                else:
+                    col += 1
+
+        # Bottom horizontal stroke
+        row = num_rows - 1
+        col = 0
+        while col < num_cols:
+            border = data[row][col]._border.bottom
+            if border is not None:
+                length = 1
+                while col + length < num_cols and data[row][col + length]._border.bottom == border:
+                    length += 1
+                self.add_stroke(table_id, row, col, "bottom", border, length)
+                col += length
+            else:
+                col += 1
+
+        # Vertical strokes (all but right hand side of table)
+        for col in range(num_cols):
+            row = 0
+            while row < num_rows:
+                border = data[row][col]._border.left
+                if border is not None:
+                    length = 1
+                    while (
+                        row + length < num_rows and data[row + length][col]._border.left == border
+                    ):
+                        length += 1
+                    self.add_stroke(table_id, row, col, "left", border, length)
+                    row += length
+                else:
+                    row += 1
+
+        # Right hand side of table
+        col = num_cols - 1
+        row = 0
+        while row < num_rows:
+            border = data[row][col]._border.right
+            if border is not None:
+                length = 1
+                while row + length < num_rows and data[row + length][col]._border.right == border:
+                    length += 1
+                self.add_stroke(table_id, row, col, "right", border, length)
+                row += length
+            else:
+                row += 1
 
     def add_stroke(
         self,
@@ -2519,10 +2589,9 @@ class _NumbersModel(Cacheable):
     ) -> None:
         table_obj = self.objects[table_id]
         sidecar_obj = self.objects[table_obj.stroke_sidecar.identifier]
-        sidecar_obj.max_order += 1
         sidecar_obj.row_count = table_obj.number_of_rows
         sidecar_obj.column_count = table_obj.number_of_columns
-        border_value._order = sidecar_obj.max_order
+        sidecar_obj.max_order = 2
 
         if side == "top":
             layer_ids = sidecar_obj.top_row_stroke_layers
@@ -2546,33 +2615,7 @@ class _NumbersModel(Cacheable):
             if self.objects[layer_id.identifier].row_column_index == row_column_index:
                 stroke_layer = self.objects[layer_id.identifier]
         if stroke_layer is not None:
-            stroke_patched = False
-            for stroke_run in stroke_layer.stroke_runs:
-                stroke_start = stroke_run.origin
-                stroke_end = stroke_run.origin + stroke_run.length
-                stroke_range = range(stroke_start, stroke_end)
-                if origin <= stroke_start and (origin + length) >= stroke_end:
-                    # New stroke overwrites all of existing stroke
-                    stroke_run.CopyFrom(self.create_stroke(origin, length, border_value))
-                    stroke_patched = True
-                elif origin == stroke_start and length < stroke_run.length:
-                    # New stroke writes to start of existing stroke
-                    stroke_run.origin = origin + length
-                    stroke_run.length = stroke_run.length - length
-                elif origin in stroke_range and (origin + length) == stroke_end:
-                    # New stoke writes to end of existing stroke
-                    stroke_run.length = stroke_run.length - length
-                elif origin in stroke_range and (origin + length) in stroke_range:
-                    # New stroke in middle of existing stroke
-                    stroke_run.length = origin - stroke_start
-                    stroke_layer.stroke_runs.append(
-                        TSTArchives.StrokeLayerArchive.StrokeRunArchive(),
-                    )
-                    stroke_layer.stroke_runs[-1].CopyFrom(stroke_run)
-                    stroke_layer.stroke_runs[-1].origin = origin + length
-                    stroke_layer.stroke_runs[-1].length = stroke_end - origin - length
-            if not stroke_patched:
-                stroke_layer.stroke_runs.append(self.create_stroke(origin, length, border_value))
+            stroke_layer.stroke_runs.append(self.create_stroke(origin, length, border_value))
             stroke_layer.stroke_runs.sort(key=lambda x: x.origin)
         else:
             stroke_layer_id, stroke_layer = self.objects.create_object_from_dict(

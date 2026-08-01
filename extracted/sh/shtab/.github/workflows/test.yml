@@ -1,4 +1,4 @@
-name: Test
+name: ci
 on:
   push:
   pull_request:
@@ -7,29 +7,28 @@ on:
 jobs:
   test:
     if: github.event_name != 'pull_request' || !contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association)
-    name: Test py${{ matrix.python }}
-    runs-on: ubuntu-latest
     strategy:
       matrix:
         python: [3.9, 3.14]
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v7
       with: {fetch-depth: 0}
     - uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python }}
-    - name: Install
-      run: pip install -U -e .[dev]
-    - run: pytest
+    - run: sudo apt-get update && sudo apt-get install -y zsh  # for generated-script tests
+    - run: pip install -e .[dev]
+    - run: pytest --cov-report=xml --cov-report=term
     - uses: codecov/codecov-action@v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
+        flags: ${{ matrix.python }}
   deploy:
     needs: test
-    name: PyPI Deploy
+    runs-on: ubuntu-latest
     environment: pypi
     permissions: {contents: write, id-token: write}
-    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v7
       with:
@@ -41,17 +40,16 @@ jobs:
       uses: casperdcl/deploy-pypi@v3
       with:
         build: true
-        requirements: 'build twine packaging>=24.2' # https://github.com/pypa/twine/issues/1216
         upload: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags') }}
     - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-      name: Release
+      name: gh release create --draft
       run: |
         changelog=$(git log --pretty='format:%d%n- %s%n%b---' $(git tag --sort=v:refname | tail -n2 | head -n1)..HEAD)
         tag="${GITHUB_REF#refs/tags/}"
         gh release create --title "shtab $tag stable" --draft --notes "$changelog" "$tag" dist/${{ steps.dist.outputs.whl }} dist/${{ steps.dist.outputs.targz }}
       env:
-        GH_TOKEN: ${{ github.token }}
-    - name: Docs
+        GH_TOKEN: ${{ secrets.GH_TOKEN }}
+    - name: build docs
       run: |
         pushd docs
         pip install -U -r requirements.txt

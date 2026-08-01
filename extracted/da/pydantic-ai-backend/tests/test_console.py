@@ -4,7 +4,18 @@ import inspect
 from dataclasses import dataclass
 from pathlib import Path
 
+import pytest
 from pydantic_ai import BinaryContent, RunContext
+from pydantic_ai.exceptions import (
+    ApprovalRequired,
+    CallDeferred,
+    ModelRetry,
+    SkipModelRequest,
+    SkipToolExecution,
+    SkipToolValidation,
+    UserError,
+)
+from pydantic_ai.messages import ModelResponse
 
 from pydantic_ai_backends import (
     LocalBackend,
@@ -12,17 +23,18 @@ from pydantic_ai_backends import (
     create_console_toolset,
     get_console_system_prompt,
 )
-from pydantic_ai_backends.toolsets.console import (
+from pydantic_ai_backends.toolsets._content import (
     DEFAULT_MAX_DOCUMENT_BYTES,
     DEFAULT_MAX_IMAGE_BYTES,
     DOCUMENT_EXTENSIONS,
     DOCUMENT_MEDIA_TYPES,
     IMAGE_EXTENSIONS,
     IMAGE_MEDIA_TYPES,
-    ConsoleDeps,
-    _maybe_document_content,
-    _maybe_image_content,
+    document_content,
+    image_content,
 )
+from pydantic_ai_backends.toolsets.console import ConsoleDeps
+from pydantic_ai_backends.types import ExecuteResponse
 
 # Minimal valid-ish PDF payload (header + EOF marker).
 PDF_DATA = b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n1 0 obj\n<<>>\nendobj\n%%EOF\n"
@@ -400,7 +412,7 @@ class TestMaybeDocumentContent:
         (tmp_path / "report.pdf").write_bytes(PDF_DATA)
         backend = LocalBackend(root_dir=tmp_path)
 
-        result = await _maybe_document_content(
+        result = await document_content(
             backend, "report.pdf", max_document_bytes=DEFAULT_MAX_DOCUMENT_BYTES
         )
 
@@ -414,7 +426,7 @@ class TestMaybeDocumentContent:
         (tmp_path / "huge.pdf").write_bytes(PDF_DATA)
         backend = LocalBackend(root_dir=tmp_path)
 
-        result = await _maybe_document_content(backend, "huge.pdf", max_document_bytes=1)
+        result = await document_content(backend, "huge.pdf", max_document_bytes=1)
 
         assert result == (
             f"Error: Document 'huge.pdf' too large "
@@ -425,7 +437,7 @@ class TestMaybeDocumentContent:
         """A missing/empty .pdf returns the not-found error string."""
         backend = StateBackend()
 
-        result = await _maybe_document_content(
+        result = await document_content(
             backend, "missing.pdf", max_document_bytes=DEFAULT_MAX_DOCUMENT_BYTES
         )
 
@@ -437,7 +449,7 @@ class TestMaybeDocumentContent:
         (tmp_path / "test.png").write_bytes(png_data)
         backend = LocalBackend(root_dir=tmp_path)
 
-        result = await _maybe_document_content(
+        result = await document_content(
             backend, "test.png", max_document_bytes=DEFAULT_MAX_DOCUMENT_BYTES
         )
 
@@ -448,7 +460,7 @@ class TestMaybeDocumentContent:
         (tmp_path / "notes.txt").write_text("hello")
         backend = LocalBackend(root_dir=tmp_path)
 
-        result = await _maybe_document_content(
+        result = await document_content(
             backend, "notes.txt", max_document_bytes=DEFAULT_MAX_DOCUMENT_BYTES
         )
 
@@ -459,7 +471,7 @@ class TestMaybeDocumentContent:
         (tmp_path / "Makefile").write_text("all:\n")
         backend = LocalBackend(root_dir=tmp_path)
 
-        result = await _maybe_document_content(
+        result = await document_content(
             backend, "Makefile", max_document_bytes=DEFAULT_MAX_DOCUMENT_BYTES
         )
 
@@ -475,9 +487,7 @@ class TestMaybeImageContent:
         (tmp_path / "test.png").write_bytes(png_data)
         backend = LocalBackend(root_dir=tmp_path)
 
-        result = await _maybe_image_content(
-            backend, "test.png", max_image_bytes=DEFAULT_MAX_IMAGE_BYTES
-        )
+        result = await image_content(backend, "test.png", max_image_bytes=DEFAULT_MAX_IMAGE_BYTES)
 
         assert isinstance(result, BinaryContent)
         assert result.media_type == "image/png"
@@ -487,7 +497,7 @@ class TestMaybeImageContent:
         """Image not-found error message is preserved verbatim."""
         backend = StateBackend()
 
-        result = await _maybe_image_content(
+        result = await image_content(
             backend, "missing.png", max_image_bytes=DEFAULT_MAX_IMAGE_BYTES
         )
 
@@ -499,7 +509,7 @@ class TestMaybeImageContent:
         (tmp_path / "test.png").write_bytes(png_data)
         backend = LocalBackend(root_dir=tmp_path)
 
-        result = await _maybe_image_content(backend, "test.png", max_image_bytes=1)
+        result = await image_content(backend, "test.png", max_image_bytes=1)
 
         assert result == (
             f"Error: Image 'test.png' too large ({len(png_data) / (1024 * 1024):.1f}MB, max 0.0MB)"
@@ -510,9 +520,7 @@ class TestMaybeImageContent:
         (tmp_path / "report.pdf").write_bytes(PDF_DATA)
         backend = LocalBackend(root_dir=tmp_path)
 
-        result = await _maybe_image_content(
-            backend, "report.pdf", max_image_bytes=DEFAULT_MAX_IMAGE_BYTES
-        )
+        result = await image_content(backend, "report.pdf", max_image_bytes=DEFAULT_MAX_IMAGE_BYTES)
 
         assert result is None
 
@@ -609,3 +617,242 @@ class TestReadFilePdfIntegration:
 
         assert isinstance(result, str)
         assert "Hello, world!" in result
+
+
+class TestGrepOutputTruncation:
+    """Long result sets are summarised rather than dumped in full."""
+
+    def _backend(self, file_count: int) -> StateBackend:
+        backend = StateBackend()
+        for i in range(file_count):
+            backend.write(f"/f{i:03d}.txt", "needle here")
+        return backend
+
+    async def _grep(self, backend: StateBackend, **kwargs) -> str:
+        toolset = create_console_toolset()
+        return await toolset._console_grep_impl(  # type: ignore[attr-defined]
+            _make_ctx(MockDeps(backend=backend)), "needle", **kwargs
+        )
+
+    async def test_file_list_is_capped_and_counted(self):
+        out = await self._grep(self._backend(60))
+
+        assert out.startswith("Files containing 'needle':")
+        assert "... and 10 more files" in out
+
+    async def test_short_file_list_is_shown_in_full(self):
+        out = await self._grep(self._backend(3))
+
+        assert "more files" not in out
+        assert out.count("/f") == 3
+
+    async def test_content_mode_is_capped_and_counted(self):
+        out = await self._grep(self._backend(60), output_mode="content")
+
+        assert out.startswith("Matches for 'needle':")
+        assert "... and 10 more matches" in out
+
+
+class TestExecuteToolFailureHandling:
+    """A backend's exception must fail one tool call, not the agent's run."""
+
+    async def _execute(self, backend, command: str = "echo hi") -> str:
+        toolset = create_console_toolset()
+        return await toolset._console_execute_impl(  # type: ignore[attr-defined]
+            _make_ctx(MockDeps(backend=backend)), command
+        )
+
+    class Exploding:
+        """A third-party backend whose transport dropped mid-command."""
+
+        def __init__(self, error: Exception) -> None:
+            self._error = error
+
+        async def read_bytes(self, path: str) -> bytes:  # marks it async
+            return b""
+
+        async def execute(self, command: str, timeout: int | None = None):
+            raise self._error
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            OSError("connection reset by peer"),
+            TimeoutError("no reply"),
+            ValueError("nonsense from the transport"),
+            RuntimeError("the one that was already handled"),
+        ],
+    )
+    async def test_any_transport_error_becomes_a_tool_error(self, error: Exception):
+        """Only `RuntimeError` was caught, so the rest ended the run."""
+        out = await self._execute(self.Exploding(error))
+
+        assert out.startswith("Error: ")
+        assert str(error) in out
+
+    async def test_a_successful_command_is_unaffected(self):
+        class Fine:
+            async def read_bytes(self, path: str) -> bytes:
+                return b""
+
+            async def execute(self, command: str, timeout: int | None = None):
+                return ExecuteResponse(output="hi\n", exit_code=0)
+
+        assert await self._execute(Fine()) == "hi\n"
+
+    async def test_a_nonzero_exit_is_reported_with_its_output(self):
+        class Failing:
+            async def read_bytes(self, path: str) -> bytes:
+                return b""
+
+            async def execute(self, command: str, timeout: int | None = None):
+                return ExecuteResponse(output="not found", exit_code=127)
+
+        out = await self._execute(Failing())
+
+        assert "exit code 127" in out
+        assert "not found" in out
+
+    async def test_truncated_output_says_so(self):
+        class Truncating:
+            async def read_bytes(self, path: str) -> bytes:
+                return b""
+
+            async def execute(self, command: str, timeout: int | None = None):
+                return ExecuteResponse(output="lots", exit_code=0, truncated=True)
+
+        assert (await self._execute(Truncating())).endswith("(output truncated)")
+
+    async def test_a_backend_without_execute_says_so(self):
+        assert "does not support command execution" in await self._execute(StateBackend())
+
+    async def test_a_backend_with_execution_disabled_says_so(self):
+        class Disabled:
+            execute_enabled = False
+
+            async def read_bytes(self, path: str) -> bytes:
+                return b""
+
+            async def execute(self, command: str, timeout: int | None = None):
+                raise AssertionError("must not be reached")
+
+        assert "disabled" in await self._execute(Disabled())
+
+
+class TestEveryToolDegradesOnABackendException:
+    """The file tools reach the same backend over the same transport as execute."""
+
+    class Hostile:
+        """A third-party backend whose transport drops on every call."""
+
+        def __init__(self, error: Exception) -> None:
+            self._error = error
+
+        async def read_bytes(self, path: str) -> bytes:  # marks it async
+            raise self._error
+
+        async def exists(self, path: str) -> bool:
+            raise self._error
+
+        async def read(self, path: str, offset: int = 0, limit: int = 2000) -> str:
+            raise self._error
+
+        async def write(self, path: str, content: str | bytes):
+            raise self._error
+
+        async def edit(self, path, old_string, new_string, replace_all=False):
+            raise self._error
+
+        async def ls_info(self, path: str):
+            raise self._error
+
+        async def glob_info(self, pattern: str, path: str = "/"):
+            raise self._error
+
+        async def grep_raw(self, pattern, path=None, glob=None, ignore_hidden=True):
+            raise self._error
+
+        async def execute(self, command: str, timeout: int | None = None):
+            raise self._error
+
+    @pytest.mark.parametrize(
+        "tool,args",
+        [
+            ("ls", {"path": "/"}),
+            ("read_file", {"path": "/f.txt"}),
+            ("write_file", {"path": "/f.txt", "content": "x"}),
+            ("edit_file", {"path": "/f.txt", "old_string": "a", "new_string": "b"}),
+            ("glob", {"pattern": "*.py"}),
+            ("grep", {"pattern": "todo"}),
+            ("execute", {"command": "echo hi"}),
+        ],
+    )
+    async def test_a_transport_error_is_reported_not_raised(self, tool: str, args: dict):
+        """Uncaught, any of these ends the agent's run instead of one tool call."""
+        backend = self.Hostile(OSError("connection reset by peer"))
+        toolset = create_console_toolset()
+        ctx = _make_ctx(MockDeps(backend=backend))
+
+        out = await toolset.tools[tool].function_schema.function(ctx, **args)  # type: ignore[attr-defined]
+
+        assert isinstance(out, str)
+        assert out.startswith("Error: ")
+        assert "connection reset by peer" in out
+
+    async def test_the_guard_preserves_a_successful_result(self):
+        backend = StateBackend()
+        backend.write("/f.txt", "hello")
+        toolset = create_console_toolset()
+        ctx = _make_ctx(MockDeps(backend=backend))
+
+        out = await toolset.tools["ls"].function_schema.function(ctx, path="/")  # type: ignore[attr-defined]
+
+        assert "f.txt" in out
+
+
+class TestControlFlowExceptionsPassThrough:
+    """pydantic-ai steers a run through exceptions; the guard must not eat them."""
+
+    @staticmethod
+    def _backend(error: Exception):
+        class Raising:
+            async def read_bytes(self, path: str) -> bytes:
+                raise error
+
+            async def ls_info(self, path: str):
+                raise error
+
+            async def execute(self, command: str, timeout: int | None = None):
+                raise error
+
+        return Raising()
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            ModelRetry("try a different path"),
+            ApprovalRequired(),
+            CallDeferred(),
+            SkipToolExecution("a canned result"),
+            SkipToolValidation({"path": "/"}),
+            SkipModelRequest(ModelResponse(parts=[])),
+            UserError("the library was misused"),
+        ],
+    )
+    @pytest.mark.parametrize("tool,args", [("ls", {"path": "/"}), ("execute", {"command": "x"})])
+    async def test_it_reaches_the_framework(self, error, tool: str, args: dict):
+        """`ModelRetry` swallowed becomes a dead end the model cannot recover from."""
+        toolset = create_console_toolset()
+        ctx = _make_ctx(MockDeps(backend=self._backend(error)))
+
+        with pytest.raises(type(error)):
+            await toolset.tools[tool].function_schema.function(ctx, **args)  # type: ignore[attr-defined]
+
+    async def test_an_ordinary_transport_error_still_degrades(self):
+        """The passthrough must not turn the guard off for real failures."""
+        toolset = create_console_toolset()
+        ctx = _make_ctx(MockDeps(backend=self._backend(OSError("socket gone"))))
+
+        out = await toolset.tools["ls"].function_schema.function(ctx, path="/")  # type: ignore[attr-defined]
+
+        assert out.startswith("Error: ")

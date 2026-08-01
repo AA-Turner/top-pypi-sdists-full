@@ -5,12 +5,13 @@ Support for Django model fields built from enumeration types.
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal, DecimalException
 from enum import Enum, Flag, IntFlag
 from functools import reduce
 from operator import or_
-from typing import Any, Generic, Sequence, TypeVar, cast, overload
+from typing import Any, ClassVar, Generic, TypeVar, cast, overload
 
 from django import VERSION as django_version
 from django.core.exceptions import ValidationError
@@ -112,7 +113,7 @@ class EnumValidatorAdapter:
         return self.wrapped == other
 
     def __repr__(self):
-        return f"EnumValidatorAdapter({repr(self.wrapped)})"
+        return f"EnumValidatorAdapter({self.wrapped!r})"
 
     def __getattribute__(self, name):
         try:
@@ -247,18 +248,14 @@ class EnumFieldFactory(type):
         if issubclass(primitive, int):
             is_flag = issubclass(enum, Flag)
             min_value = min(
-                (
-                    val if isinstance(val, primitive) else primitive(val)
-                    for val in values(enum)
-                    if val is not None
-                )
+                val if isinstance(val, primitive) else primitive(val)
+                for val in values(enum)
+                if val is not None
             )
             max_value = max(
-                (
-                    val if isinstance(val, primitive) else primitive(val)
-                    for val in values(enum)
-                    if val is not None
-                )
+                val if isinstance(val, primitive) else primitive(val)
+                for val in values(enum)
+                if val is not None
             )
             min_bits = (min_value.bit_length(), max_value.bit_length())
 
@@ -372,12 +369,12 @@ class EnumField(
     _strict_: bool = True
     _coerce_: bool = True
     _primitive_: type[PrimitiveT] | None = None
-    _value_primitives_: list[Any] = []
+    _value_primitives_: list[Any]
     _constrained_: bool = _strict_
 
     descriptor_class = ToPythonDeferredAttribute
 
-    default_error_messages = {  # mypy is stupid
+    default_error_messages: ClassVar = {
         "invalid_choice": _("Value %(value)r is not a valid %(enum)r.")
     }
 
@@ -479,8 +476,8 @@ class EnumField(
         copy mechanism as Django's base Field class. Django's Field class
         should probably use this same technique.
         """
-        obj = type("Empty", (self.__class__,), {})()
-        setattr(obj, "__class__", self.__class__)
+        obj: Any = type("Empty", (self.__class__,), {})()
+        obj.__class__ = self.__class__
         obj.__dict__ = self.__dict__.copy()
         return obj
 
@@ -513,7 +510,7 @@ class EnumField(
                             for primitive in self._value_primitives_:
                                 try:
                                     return self.enum(primitive(value))
-                                except Exception:
+                                except Exception:  # noqa: S110, BLE001
                                     pass
                         value = self._fallback(value)
                         if not isinstance(value, self.enum) and (
@@ -533,7 +530,7 @@ class EnumField(
                 return self._coerce_to_value_type(value)
             except (TypeError, ValueError, DecimalException) as err:
                 raise ValueError(
-                    f"'{value}' is not a valid {getattr(self.primitive, '__name__')} "
+                    f"'{value}' is not a valid {self.primitive.__name__} "
                     f"required by field {self.name}."
                 ) from err
         return value
@@ -675,7 +672,7 @@ class EnumField(
             super().validate(value, model_instance)
         except ValidationError as err:
             if err.code != "invalid_choice":
-                raise err
+                raise
         try:
             self._try_coerce(value, force=True)
         except ValueError as err:
@@ -810,7 +807,9 @@ class EnumCharField(EnumField[str, EnumT], CharField, Generic[EnumT]):
     A database field supporting enumerations with character values.
     """
 
-    empty_values = [empty for empty in CharField.empty_values if empty != ""]
+    empty_values: ClassVar[list[Any]] = [
+        empty for empty in CharField.empty_values if empty != ""
+    ]
 
     @property
     def primitive(self):
@@ -828,10 +827,8 @@ class EnumCharField(EnumField[str, EnumT], CharField, Generic[EnumT]):
             kwargs.setdefault(
                 "max_length",
                 max(
-                    (
-                        len(self._coerce_to_value_type(choice[0]) or "")
-                        for choice in kwargs.get("choices", choices(enum))
-                    )
+                    len(self._coerce_to_value_type(choice[0]) or "")
+                    for choice in kwargs.get("choices", choices(enum))
                 ),
             )
         super().__init__(enum=enum, primitive=primitive, **kwargs)
@@ -889,7 +886,7 @@ class EnumFloatField(EnumField[float, EnumT], FloatField, Generic[EnumT]):
                         (self._coerce_to_value_type(en.value), en)
                     )
             self._tolerance_ = (
-                min((prim[0] * 1e-6 for prim in self._value_primitives_))
+                min(prim[0] * 1e-6 for prim in self._value_primitives_)
                 if self._value_primitives_
                 else 0.0
             )

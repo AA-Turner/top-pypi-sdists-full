@@ -1,6 +1,7 @@
 """Utility routines for django_enum."""
 
 import sys
+from collections.abc import Generator
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from enum import Enum, Flag, IntFlag
@@ -8,24 +9,23 @@ from importlib.util import find_spec
 from typing import (
     TYPE_CHECKING,
     Any,
-    Generator,
     TypeVar,
     get_args,
 )
 
 __all__ = [
-    "choices",
-    "names",
-    "labels",
-    "values",
-    "determine_primitive",
-    "with_typehint",
     "SupportedPrimitive",
+    "choices",
     "decimal_params",
-    "get_set_values",
-    "get_set_bits",
     "decompose",
+    "determine_primitive",
+    "get_set_bits",
+    "get_set_values",
+    "labels",
     "members",
+    "names",
+    "values",
+    "with_typehint",
 ]
 
 
@@ -77,12 +77,12 @@ def choices(
         or (
             [
                 *(
-                    [(None, getattr(enum_cls, "__empty__"))]
+                    [(None, enum_cls.__empty__)]  # type: ignore[attr-defined]
                     if hasattr(enum_cls, "__empty__")
                     else []
                 ),
                 *[
-                    (member.value, getattr(member, "label", getattr(member, "name")))
+                    (member.value, getattr(member, "label", member.name))
                     for member in members(enum_cls, aliases=aliases)
                 ],
             ]
@@ -183,7 +183,7 @@ def determine_primitive(enum: type[Enum]) -> type | None:
                 try:
                     # test symmetric coercibility
                     works &= type(value)(candidate(value)) == value
-                except Exception:
+                except Exception:  # noqa: BLE001
                     works = False
             if works:
                 return candidate

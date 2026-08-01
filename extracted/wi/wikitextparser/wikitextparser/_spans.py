@@ -9,6 +9,7 @@ from regex import DOTALL, IGNORECASE, REVERSE, Match, compile as rc
 
 from ._config import (
     _HTML_TAG_NAME,
+    FILE_NAMESACE,
     _bare_external_link_schemes,
     _parsable_tag_extensions,
     _parser_functions,
@@ -96,7 +97,10 @@ WIKILINK_PARAM_FINDITER = rc(
     rb')++\}\}\}',
     REVERSE,
 ).finditer
-
+image_pattern_search = rc(
+    rb'^\[\[[ \t]*+' + regex_pattern(FILE_NAMESACE) + rb'[ \t]*+:',
+    IGNORECASE,
+).search
 MARKUP = b''.maketrans(b"=|[]'{}", b'\1_\2\3___')
 BRACES_PIPE_NEWLINE = b''.maketrans(b'|{}\n', b'____')
 BRACKETS = b''.maketrans(b'[]', b'__')
@@ -361,7 +365,9 @@ def _parse_sub_spans(
             for match in WIKILINK_PARAM_FINDITER(byte_array, start, end):
                 ms, me = match.span()
                 if match[1] is None:
-                    wls_append([ms, me, match, byte_array[ms:me]])
+                    m0 = match[0]
+                    if image_pattern_search(m0) or b'\x02\x02' not in m0:
+                        wls_append([ms, me, match, byte_array[ms:me]])
                     _parse_sub_spans(
                         byte_array,
                         ms + 2,

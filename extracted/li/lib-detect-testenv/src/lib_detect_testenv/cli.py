@@ -46,6 +46,7 @@ from .lib_detect_testenv import (
     is_setup_test_active,
     is_testenv_active,
 )
+from .safe_console import safe_stream
 from .typed_click import option, version_option
 
 if TYPE_CHECKING:
@@ -55,7 +56,7 @@ if TYPE_CHECKING:
 CLICK_CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 
 #: Console for rich output
-console = Console()
+console = Console(file=safe_stream())
 
 
 @click.group(

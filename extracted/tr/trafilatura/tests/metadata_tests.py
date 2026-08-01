@@ -8,7 +8,19 @@ import sys
 from lxml import html
 from lxml.etree import XPath
 
-from trafilatura.metadata import check_authors, extract_metadata, extract_metainfo, extract_title, extract_url, normalize_tags
+from trafilatura.metadata import (
+    JSON_MINIFY,
+    Document,
+    check_authors,
+    extract_meta_json,
+    extract_metadata,
+    extract_metainfo,
+    extract_title,
+    extract_url,
+    normalize_tags,
+)
+from trafilatura.json_metadata import extract_json, extract_json_parse_error, process_parent
+from trafilatura.settings import Extractor, use_config
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
@@ -35,6 +47,20 @@ def test_titles():
         ("<html><body><h2>First</h2><h1>Second</h1></body></html>", "Second"),
         ("<html><body><h2>First</h2><h2>Second</h2></body></html>", "First"),
         ("<html><body><title></title></body></html>", None),
+        # head title is preferred over h1s when it exists and is not a domain
+        (
+            "<html><head><title>Head Title</title></head><body><h1>First</h1><h1>Second</h1></body></html>",
+            "Head Title",
+        ),
+        # domain-like head titles are ignored, falling back to the first h1
+        (
+            "<html><head><title>example.com</title></head><body><h1>First</h1><h1>Second</h1></body></html>",
+            "First",
+        ),
+        # the first non-empty h1 is used when earlier h1s are blank
+        ("<html><body><h1>   </h1><h1>Real Title</h1></body></html>", "Real Title"),
+        # all-blank h1s fall through to nothing
+        ("<html><body><h1>   </h1><h1>   </h1></body></html>", None),
     ]
 
     for doc, expected_title in tests:
@@ -71,6 +97,9 @@ def test_author_blacklist():
     blacklist = {"A", "b"}
     assert check_authors("a; B; c; d", blacklist) == "c; d"
     assert check_authors("a;B;c;d", blacklist) == "c; d"
+    # regression: author_blacklist alone must enable with_metadata
+    assert Extractor(config=use_config(), author_blacklist={"X"}).with_metadata is True
+    assert Extractor(config=use_config()).with_metadata is False
 
 
 def test_author_from_meta():
@@ -381,6 +410,75 @@ def test_extract_title_fallbacks():
     "Fallback titles are trimmed; nothing found returns None."
     assert extract_title(html.fromstring("<html><body><h1>  A  </h1><h1>B</h1></body></html>")) == "A"
     assert extract_title(html.fromstring("<html><body><p>x</p></body></html>")) is None
+    # regression #400: an empty single <h1> must not block a non-empty <h2>
+    assert extract_title(html.fromstring("<html><body><h1></h1><h2>Real Title</h2></body></html>")) == "Real Title"
+
+
+def test_json_minify():
+    "regression #854: an escaped backslash must not strip whitespace from adjacent JSON-LD fields."
+    minified = JSON_MINIFY.sub(r"\1", '{"author": "Curtis Heyen", "keywords": ["fatal stabbing\\\\", "homicide"]}')
+    assert '"Curtis Heyen"' in minified
+
+
+def test_extract_meta_json_control_char():
+    "regression: a non-whitespace control character (not neutralized by normalize_json's \
+    trim, unlike \\n/\\r/\\t) must not make the JSON-LD parse fail and fall back to the \
+    crude regex extractor, which cannot see past the first (non-article) @graph node."
+    payload = (
+        '{"@context": "https://schema.org", "@graph": ['
+        '{"@type": "Organization", "name": "Acme Corp"}, '
+        '{"@type": "Article", "headline": "Graph based headline", '
+        '"description": "Body text with a stray control char\x01 inside it."}]}'
+    )
+    doc = f'<html><head><script type="application/ld+json">{payload}</script></head><body></body></html>'
+    metadata = extract_meta_json(html.fromstring(doc), Document())
+    assert metadata.pagetype == "article"
+    assert metadata.title == "Graph based headline"
+
+
+def test_extract_json_multiple_blocks():
+    "regression: a flat JSON-LD object must not short-circuit the loop and drop later @graph blocks."
+    schema = [
+        {"@context": "https://schema.org", "@type": "WebPage", "name": "Flat object"},
+        {"@context": "https://schema.org", "@graph": [{"@type": "Article", "headline": "Graph Headline"}]},
+    ]
+    metadata = extract_json(schema, Document())
+    assert metadata.title == "Graph Headline"
+
+
+def test_extract_json_null_author():
+    'regression: "author": null must not raise -- process_parent\'s author loop expects an \
+    iterable, not None.'
+    schema = {"@context": "https://schema.org", "@type": "Article", "headline": "Some Headline", "author": None}
+    metadata = extract_json(schema, Document())
+    assert metadata.title == "Some Headline"
+    assert metadata.author is None
+
+
+def test_extract_json_parse_error():
+    "Crude-regex fallback for malformed JSON-LD extracts each field; comma-publisher is rejected."
+    blob = (
+        '{"@type":"Article","author":{"name":"Jane Doe"},'
+        '"publisher":{"@type":"Organization","name":"Example Publisher"},'
+        '"articleSection":"World News","headline":"Big Story",} BROKEN'
+    )
+    m = extract_json_parse_error(blob, Document())
+    assert (m.author, m.pagetype, m.sitename, m.categories, m.title) == (
+        "Jane Doe",
+        "article",
+        "Example Publisher",
+        ["World News"],
+        "Big Story",
+    )
+    assert extract_json_parse_error('{"publisher":{"name":"Acme, Inc"}} X', Document()).sitename is None
+
+
+def test_process_parent_keeps_good_sitename():
+    "regression: a bare publisher dict must not clobber an already-plausible sitename."
+    metadata = Document()
+    metadata.sitename = "A Long Established Site Name"
+    process_parent([{"publisher": {"@type": "Organization", "name": "Pub"}}], metadata)
+    assert metadata.sitename == "A Long Established Site Name"
 
 
 def test_license():

@@ -164,6 +164,23 @@ class ArtifactDiscoveryService:
                     mongo_project, requested_variant, target, ignore_failed_push
                 )
             except HTTPError as err:
+                if err.response.status_code == 404 and staging_suffix:
+                    # No staging project exists for this series (e.g. an older series that
+                    # never had one) -- fall back to the regular project rather than treating
+                    # this as a missing version.
+                    LOGGER.warning(
+                        "Staging project not found; falling back to non-staging project",
+                        staging_project=mongo_project,
+                    )
+                    return self.find_artifacts(
+                        request,
+                        requested_variant,
+                        target,
+                        ignore_failed_push,
+                        fallback_to_master,
+                        starting_commit,
+                        prefer_staging=False,
+                    )
                 if err.response.status_code == 404 and fallback_to_master:
                     LOGGER.warning(
                         "Unable to find requested mongo version, falling back to default branch",

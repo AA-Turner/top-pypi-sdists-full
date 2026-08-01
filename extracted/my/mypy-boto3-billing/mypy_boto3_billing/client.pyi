@@ -29,6 +29,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     GetCreditAllocationHistoryPaginator,
     ListBillingViewsPaginator,
+    ListEnterpriseSupportLinkedAccountChargesPaginator,
     ListSourceViewsForBillingViewPaginator,
 )
 from .type_defs import (
@@ -48,10 +49,16 @@ from .type_defs import (
     GetCreditAllocationHistoryResponseTypeDef,
     GetCreditsRequestTypeDef,
     GetCreditsResponseTypeDef,
+    GetEnterpriseSupportChargeSummaryRequestTypeDef,
+    GetEnterpriseSupportChargeSummaryResponseTypeDef,
+    GetEnterpriseSupportContractDetailsRequestTypeDef,
+    GetEnterpriseSupportContractDetailsResponseTypeDef,
     GetResourcePolicyRequestTypeDef,
     GetResourcePolicyResponseTypeDef,
     ListBillingViewsRequestTypeDef,
     ListBillingViewsResponseTypeDef,
+    ListEnterpriseSupportLinkedAccountChargesRequestTypeDef,
+    ListEnterpriseSupportLinkedAccountChargesResponseTypeDef,
     ListSourceViewsForBillingViewRequestTypeDef,
     ListSourceViewsForBillingViewResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
@@ -198,6 +205,27 @@ class BillingClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billing/client/#get_credits)
         """
 
+    def get_enterprise_support_charge_summary(
+        self, **kwargs: Unpack[GetEnterpriseSupportChargeSummaryRequestTypeDef]
+    ) -> GetEnterpriseSupportChargeSummaryResponseTypeDef:
+        """
+        Returns a summary of Enterprise Support data aggregated across all accounts in
+        the Enterprise Support profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/get_enterprise_support_charge_summary.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billing/client/#get_enterprise_support_charge_summary)
+        """
+
+    def get_enterprise_support_contract_details(
+        self, **kwargs: Unpack[GetEnterpriseSupportContractDetailsRequestTypeDef]
+    ) -> GetEnterpriseSupportContractDetailsResponseTypeDef:
+        """
+        Returns Enterprise Support contract details.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/get_enterprise_support_contract_details.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billing/client/#get_enterprise_support_contract_details)
+        """
+
     def get_resource_policy(
         self, **kwargs: Unpack[GetResourcePolicyRequestTypeDef]
     ) -> GetResourcePolicyResponseTypeDef:
@@ -217,6 +245,16 @@ class BillingClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/list_billing_views.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billing/client/#list_billing_views)
+        """
+
+    def list_enterprise_support_linked_account_charges(
+        self, **kwargs: Unpack[ListEnterpriseSupportLinkedAccountChargesRequestTypeDef]
+    ) -> ListEnterpriseSupportLinkedAccountChargesResponseTypeDef:
+        """
+        Returns Support-eligible spend broken down at linked account level.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/list_enterprise_support_linked_account_charges.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billing/client/#list_enterprise_support_linked_account_charges)
         """
 
     def list_source_views_for_billing_view(
@@ -300,6 +338,17 @@ class BillingClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_billing_views"]
     ) -> ListBillingViewsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billing/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_enterprise_support_linked_account_charges"]
+    ) -> ListEnterpriseSupportLinkedAccountChargesPaginator:
         """
         Create a paginator for an operation.
 

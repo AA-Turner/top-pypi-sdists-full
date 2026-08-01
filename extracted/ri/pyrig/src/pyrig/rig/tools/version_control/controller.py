@@ -300,7 +300,9 @@ class VersionController(Tool):
             `True` if the repository has at least one commit; `False`
             otherwise.
         """
-        return self.rev_parse_verify_args("HEAD").run(check=False).returncode == 0
+        return (
+            self.rev_parse_verify_args("HEAD").run_cached(check=False).returncode == 0
+        )
 
     def rev_parse_verify_args(self, *args: str) -> Args:
         """Build arguments for `git rev-parse --verify`.

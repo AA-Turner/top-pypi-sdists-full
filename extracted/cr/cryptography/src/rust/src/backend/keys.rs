@@ -168,7 +168,7 @@ fn private_key_from_pkey<'p>(
         openssl::pkey::Id::DSA => Ok(crate::backend::dsa::private_key_from_pkey(pkey)
             .into_pyobject(py)?
             .into_any()),
-        openssl::pkey::Id::DH => Ok(crate::backend::dh::private_key_from_pkey(pkey)?
+        openssl::pkey::Id::DH => Ok(crate::backend::dh::private_key_from_pkey(py, pkey)?
             .into_pyobject(py)?
             .into_any()),
 
@@ -177,7 +177,7 @@ fn private_key_from_pkey<'p>(
             CRYPTOGRAPHY_IS_BORINGSSL,
             CRYPTOGRAPHY_IS_AWSLC
         )))]
-        openssl::pkey::Id::DHX => Ok(crate::backend::dh::private_key_from_pkey(pkey)?
+        openssl::pkey::Id::DHX => Ok(crate::backend::dh::private_key_from_pkey(py, pkey)?
             .into_pyobject(py)?
             .into_any()),
         #[cfg(any(
@@ -333,7 +333,7 @@ fn public_key_from_pkey<'p>(
     // `id` is a separate argument so we can test this while passing something
     // unsupported.
     match id {
-        openssl::pkey::Id::RSA => Ok(crate::backend::rsa::public_key_from_pkey(pkey)
+        openssl::pkey::Id::RSA => Ok(crate::backend::rsa::public_key_from_pkey(pkey)?
             .into_pyobject(py)?
             .into_any()),
         openssl::pkey::Id::EC => Ok(crate::backend::ec::public_key_from_pkey(py, pkey)?
@@ -366,7 +366,7 @@ fn public_key_from_pkey<'p>(
         openssl::pkey::Id::DSA => Ok(crate::backend::dsa::public_key_from_pkey(pkey)
             .into_pyobject(py)?
             .into_any()),
-        openssl::pkey::Id::DH => Ok(crate::backend::dh::public_key_from_pkey(pkey)?
+        openssl::pkey::Id::DH => Ok(crate::backend::dh::public_key_from_pkey(py, pkey)?
             .into_pyobject(py)?
             .into_any()),
 
@@ -375,7 +375,7 @@ fn public_key_from_pkey<'p>(
             CRYPTOGRAPHY_IS_BORINGSSL,
             CRYPTOGRAPHY_IS_AWSLC
         )))]
-        openssl::pkey::Id::DHX => Ok(crate::backend::dh::public_key_from_pkey(pkey)?
+        openssl::pkey::Id::DHX => Ok(crate::backend::dh::public_key_from_pkey(py, pkey)?
             .into_pyobject(py)?
             .into_any()),
         #[cfg(any(

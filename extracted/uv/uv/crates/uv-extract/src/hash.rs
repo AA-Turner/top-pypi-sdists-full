@@ -1,5 +1,4 @@
-use blake2::digest::consts::U32;
-use sha2::Digest;
+use sha2::{Digest, digest::consts::U32};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tokio::io::{AsyncReadExt, ReadBuf};
@@ -44,23 +43,23 @@ impl From<Hasher> for HashDigest {
         match hasher {
             Hasher::Md5(hasher) => Self {
                 algorithm: HashAlgorithm::Md5,
-                digest: format!("{:x}", hasher.finalize()).into(),
+                digest: hex::encode(hasher.finalize()).into(),
             },
             Hasher::Sha256(hasher) => Self {
                 algorithm: HashAlgorithm::Sha256,
-                digest: format!("{:x}", hasher.finalize()).into(),
+                digest: hex::encode(hasher.finalize()).into(),
             },
             Hasher::Sha384(hasher) => Self {
                 algorithm: HashAlgorithm::Sha384,
-                digest: format!("{:x}", hasher.finalize()).into(),
+                digest: hex::encode(hasher.finalize()).into(),
             },
             Hasher::Sha512(hasher) => Self {
                 algorithm: HashAlgorithm::Sha512,
-                digest: format!("{:x}", hasher.finalize()).into(),
+                digest: hex::encode(hasher.finalize()).into(),
             },
             Hasher::Blake2b(hasher) => Self {
                 algorithm: HashAlgorithm::Blake2b,
-                digest: format!("{:x}", hasher.finalize()).into(),
+                digest: hex::encode(hasher.finalize()).into(),
             },
         }
     }

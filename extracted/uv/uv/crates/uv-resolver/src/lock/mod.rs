@@ -24,7 +24,9 @@ use uv_configuration::{
     ExtrasSpecificationWithDefaults, InstallTarget, Override, Overrides, PackageOverride,
     ScopedOverrideSourceError,
 };
-use uv_distribution::{DistributionDatabase, FlatRequiresDist, RequiresDist};
+use uv_distribution::{
+    DistributionDatabase, FlatRequiresDist, Metadata as DistributionMetadata, RequiresDist,
+};
 use uv_distribution_filename::{
     BuildTag, DistExtension, ExtensionError, SourceDistExtension, WheelFilename,
 };
@@ -61,21 +63,24 @@ use uv_warnings::warn_user_once;
 use uv_workspace::{Editability, WorkspaceMember};
 
 use crate::fork_strategy::ForkStrategy;
+pub use crate::lock::deserialize::Error as CanonicalLockError;
 pub(crate) use crate::lock::export::PylockTomlPackage;
 pub use crate::lock::export::RequirementsTxtExport;
 pub use crate::lock::export::{
     Metadata, PylockToml, PylockTomlError, PylockTomlErrorKind, PythonReport, cyclonedx_json,
 };
-pub use crate::lock::installable::Installable;
+pub use crate::lock::installable::{Installable, InstallableRootKind};
 pub use crate::lock::map::PackageMap;
 pub use crate::lock::tree::{TreeDisplay, TreeJsonTarget};
 use crate::resolution::{AnnotatedDist, ResolutionGraphNode};
 use crate::universal_marker::{ConflictMarker, UniversalMarker};
 use crate::{
     ExcludeNewer, ExcludeNewerOverride, ExcludeNewerPackage, ExcludeNewerSpan, ExcludeNewerValue,
-    InMemoryIndex, MetadataResponse, PrereleaseMode, ResolutionMode, ResolverOutput,
+    InMemoryIndex, MetadataResponse, Prerelease, PrereleaseMode, PrereleasePackage, ResolutionMode,
+    ResolverOutput,
 };
 
+mod deserialize;
 pub(crate) mod export;
 mod installable;
 mod map;
@@ -522,12 +527,7 @@ impl<'a> LockedDependencyBuilder<'a> {
             {
                 // Self-requirements do not create graph edges, but their source and version
                 // constraints must still be satisfied by the locked parent package.
-                if !ExpectedPackageDependencies::package_satisfies_requirement(
-                    expected.package,
-                    expected.package,
-                    requirement,
-                    expected.workspace_root,
-                )? {
+                if !expected.package_satisfies_requirement(expected.package, requirement)? {
                     complete = false;
                 }
                 continue;
@@ -537,12 +537,7 @@ impl<'a> LockedDependencyBuilder<'a> {
 
             let mut covered_marker = MarkerTree::FALSE;
             for dependency in expected.packages_for_name(&requirement.name) {
-                if !ExpectedPackageDependencies::package_satisfies_requirement(
-                    expected.package,
-                    dependency,
-                    requirement,
-                    expected.workspace_root,
-                )? {
+                if !expected.package_satisfies_requirement(dependency, requirement)? {
                     continue;
                 }
 
@@ -656,6 +651,7 @@ struct ExpectedPackageDependencies<'lock> {
     declarations: BTreeSet<Requirement>,
     provides_extra: &'lock [ExtraName],
     dependency_groups: BTreeMap<GroupName, BTreeSet<Requirement>>,
+    source_requirements: &'lock Constraints,
     activated_extras: BTreeSet<ExtraName>,
     /// The environment under which this package can be selected.
     package_marker: UniversalMarker,
@@ -670,6 +666,7 @@ impl<'lock> ExpectedPackageDependencies<'lock> {
         declarations: &BTreeSet<Requirement>,
         provides_extra: &'lock [ExtraName],
         dependency_groups: &BTreeMap<GroupName, BTreeSet<Requirement>>,
+        source_requirements: &'lock Constraints,
         overrides: &Overrides,
         excludes: &Excludes,
         package_requires_python: Option<&VersionSpecifiers>,
@@ -729,6 +726,7 @@ impl<'lock> ExpectedPackageDependencies<'lock> {
             declarations,
             provides_extra,
             dependency_groups,
+            source_requirements,
             activated_extras,
             package_marker,
             lock_marker,
@@ -749,20 +747,42 @@ impl<'lock> ExpectedPackageDependencies<'lock> {
 
     /// Check the resolved source and version once for both generation and existing-edge lookup.
     fn package_satisfies_requirement(
-        parent_package: &Package,
+        &self,
         package: &Package,
         requirement: &Requirement,
-        workspace_root: &Path,
     ) -> Result<bool, LockError> {
-        let source_matches = package
+        let mut source_matches = package
             .id
             .source
-            .satisfies_requirement_source(&requirement.source, workspace_root)?
-            || package.id == parent_package.id
-                && matches!(
-                    requirement.source,
-                    RequirementSource::Registry { index: None, .. }
-                );
+            .satisfies_requirement_source(&requirement.source, self.workspace_root)?;
+
+        // A constraint or another first-party requirement can select a direct source for an
+        // otherwise unqualified registry requirement. Source selections apply globally, even
+        // across disjoint marker environments, but the locked source must match exactly.
+        if !source_matches
+            && matches!(
+                requirement.source,
+                RequirementSource::Registry { index: None, .. }
+            )
+            && let Some(source_requirements) = self.source_requirements.get(&requirement.name)
+        {
+            for source_requirement in source_requirements {
+                if package
+                    .id
+                    .source
+                    .satisfies_requirement_source(&source_requirement.source, self.workspace_root)?
+                {
+                    source_matches = true;
+                    break;
+                }
+            }
+        }
+
+        source_matches |= package.id == self.package.id
+            && matches!(
+                requirement.source,
+                RequirementSource::Registry { index: None, .. }
+            );
         let version_matches = requirement
             .source
             .version_specifiers()
@@ -1082,7 +1102,7 @@ impl Lock {
 
         let options = ResolverOptions {
             resolution_mode: resolution.options.resolution_mode,
-            prerelease_mode: resolution.options.prerelease_mode,
+            prerelease: resolution.options.prerelease.clone(),
             fork_strategy: resolution.options.fork_strategy,
             exclude_newer: resolution.options.exclude_newer.clone(),
         };
@@ -1374,7 +1394,12 @@ impl Lock {
 
     /// Returns the pre-release mode used to generate this lock.
     pub fn prerelease_mode(&self) -> PrereleaseMode {
-        self.options.prerelease_mode
+        self.options.prerelease.global
+    }
+
+    /// Returns the pre-release policy used to generate this lock.
+    pub fn prerelease(&self) -> &Prerelease {
+        &self.options.prerelease
     }
 
     /// Returns the multi-version mode used to generate this lock.
@@ -1924,6 +1949,25 @@ impl Lock {
         }
     }
 
+    /// Parses a canonical lockfile without falling back to the general TOML parser.
+    ///
+    /// Use [`Self::from_toml`] when reading lockfiles that might not use uv's
+    /// canonical format.
+    pub fn from_canonical_toml(input: &str) -> Result<Self, CanonicalLockError> {
+        deserialize::from_str(input)
+    }
+
+    /// Parses a lockfile, using the canonical fast path when possible.
+    ///
+    /// Lockfiles not written in uv's canonical layout fall back to the general
+    /// TOML parser, preserving its compatibility and error reporting.
+    pub fn from_toml(input: &str) -> Result<Self, toml::de::Error> {
+        match Self::from_canonical_toml(input) {
+            Ok(lock) => Ok(lock),
+            Err(_) => toml::from_str(input),
+        }
+    }
+
     /// Returns the TOML representation of this lockfile.
     pub fn to_toml(&self) -> Result<String, toml_edit::ser::Error> {
         serialize::to_toml(self)
@@ -2019,6 +2063,7 @@ impl Lock {
         requires_dist: Box<[Requirement]>,
         provides_extra: &[ExtraName],
         dependency_groups: BTreeMap<GroupName, Box<[Requirement]>>,
+        source_requirements: &Constraints,
         overrides: &Overrides,
         excludes: &Excludes,
         package_requires_python: Option<&VersionSpecifiers>,
@@ -2135,6 +2180,7 @@ impl Lock {
                 declarations,
                 provides_extra,
                 &expected_groups,
+                source_requirements,
                 overrides,
                 excludes,
                 package_requires_python,
@@ -2170,7 +2216,7 @@ impl Lock {
         package: &'lock Package,
         activated_extras: &mut FxHashMap<PackageId, BTreeSet<ExtraName>>,
         missing_metadata: bool,
-        expected: &ExpectedPackageDependencies,
+        expected: &ExpectedPackageDependencies<'_>,
     ) -> Result<SatisfiesResult<'lock>, LockError> {
         // Use the same dependency builder as lockfile construction, including extra
         // activation for packages whose metadata does not need to be regenerated.
@@ -2343,7 +2389,7 @@ impl Lock {
         }
 
         // Validate that the lockfile was generated with the same constraints.
-        {
+        let normalized_constraints = {
             let expected: BTreeSet<_> = constraints
                 .iter()
                 .cloned()
@@ -2359,7 +2405,8 @@ impl Lock {
             if expected != actual {
                 return Ok(SatisfiesResult::MismatchedConstraints(expected, actual));
             }
-        }
+            expected
+        };
 
         // Validate that the lockfile was generated with the same overrides.
         let normalized_overrides = {
@@ -2419,6 +2466,28 @@ impl Lock {
             Excludes::from_entries(excludes.iter().cloned())
         } else {
             Excludes::default()
+        };
+        let mut source_tree_metadata = FxHashMap::default();
+        let dependency_sources = if allow_missing_package_metadata {
+            self.collect_dependency_sources(
+                normalized_constraints,
+                requirements,
+                dependency_groups,
+                dependency_metadata,
+                &dependency_overrides,
+                &dependency_excludes,
+                root,
+                tags,
+                markers,
+                build_options,
+                hasher,
+                index,
+                database,
+                &mut source_tree_metadata,
+            )
+            .await?
+        } else {
+            Constraints::default()
         };
 
         // Validate that the lockfile was generated with the same build constraints.
@@ -2668,8 +2737,14 @@ impl Lock {
                         version: static_version,
                         requires_python,
                         metadata,
-                    }) = Self::source_tree_requires_dist(source_tree, root, package, database)
-                        .await?
+                    }) = Self::source_tree_requires_dist_cached(
+                        source_tree,
+                        root,
+                        package,
+                        database,
+                        &mut source_tree_metadata,
+                    )
+                    .await?
                 {
                     // If this local package has become dynamic, the locked package should
                     // no longer contain a version.
@@ -2702,6 +2777,7 @@ impl Lock {
                             metadata.requires_dist,
                             &metadata.provides_extra,
                             metadata.dependency_groups,
+                            &dependency_sources,
                             &dependency_overrides,
                             &dependency_excludes,
                             requires_python.as_ref(),
@@ -2725,50 +2801,17 @@ impl Lock {
                 if !statically_satisfied {
                     // For a non-dynamic package without usable static metadata, fetch the metadata
                     // from the distribution database.
-                    let HashedDist { dist, .. } = package.to_dist(
+                    let metadata = Self::package_metadata(
+                        package,
                         root,
-                        TagPolicy::Preferred(tags),
-                        build_options,
+                        tags,
                         markers,
-                    )?;
-
-                    let metadata = {
-                        let id = dist.distribution_id();
-                        if let Some(archive) =
-                            index
-                                .distributions()
-                                .get(&id)
-                                .as_deref()
-                                .and_then(|response| {
-                                    if let MetadataResponse::Found(archive, ..) = response {
-                                        Some(archive)
-                                    } else {
-                                        None
-                                    }
-                                })
-                        {
-                            // If the metadata is already in the index, return it.
-                            archive.metadata.clone()
-                        } else {
-                            // Run the PEP 517 build process to extract metadata from the source distribution.
-                            let archive = database
-                                .get_or_build_wheel_metadata(&dist, hasher.get(&dist))
-                                .await
-                                .map_err(|err| LockErrorKind::Resolution {
-                                    id: package.id.clone(),
-                                    err,
-                                })?;
-
-                            let metadata = archive.metadata.clone();
-
-                            // Insert the metadata into the index.
-                            index
-                                .distributions()
-                                .done(id, Arc::new(MetadataResponse::Found(archive)));
-
-                            metadata
-                        }
-                    };
+                        build_options,
+                        hasher,
+                        index,
+                        database,
+                    )
+                    .await?;
 
                     // If this is a local package, validate that it hasn't become dynamic (in which
                     // case, we'd expect the version to be omitted).
@@ -2800,6 +2843,7 @@ impl Lock {
                         metadata.requires_dist,
                         &metadata.provides_extra,
                         metadata.dependency_groups,
+                        &dependency_sources,
                         &dependency_overrides,
                         &dependency_excludes,
                         metadata.requires_python.as_ref(),
@@ -2824,8 +2868,14 @@ impl Lock {
                 // even if the version is dynamic, we can still extract the requirements without
                 // performing a build, unlike in the database where we typically construct a "complete"
                 // metadata object.
-                let metadata =
-                    Self::source_tree_requires_dist(source_tree, root, package, database).await?;
+                let metadata = Self::source_tree_requires_dist_cached(
+                    source_tree,
+                    root,
+                    package,
+                    database,
+                    &mut source_tree_metadata,
+                )
+                .await?;
 
                 let satisfied = metadata.is_some_and(|SourceTreeRequiresDist {
                     requires_python,
@@ -2855,6 +2905,7 @@ impl Lock {
                         metadata.requires_dist,
                         &metadata.provides_extra,
                         metadata.dependency_groups,
+                        &dependency_sources,
                         &dependency_overrides,
                         &dependency_excludes,
                         requires_python.as_ref(),
@@ -2887,50 +2938,17 @@ impl Lock {
                 // exactly. For example, `hatchling` will flatten any recursive (or self-referential)
                 // extras, while `setuptools` will not.
                 if !satisfied {
-                    let HashedDist { dist, .. } = package.to_dist(
+                    let metadata = Self::package_metadata(
+                        package,
                         root,
-                        TagPolicy::Preferred(tags),
-                        build_options,
+                        tags,
                         markers,
-                    )?;
-
-                    let metadata = {
-                        let id = dist.distribution_id();
-                        if let Some(archive) =
-                            index
-                                .distributions()
-                                .get(&id)
-                                .as_deref()
-                                .and_then(|response| {
-                                    if let MetadataResponse::Found(archive, ..) = response {
-                                        Some(archive)
-                                    } else {
-                                        None
-                                    }
-                                })
-                        {
-                            // If the metadata is already in the index, return it.
-                            archive.metadata.clone()
-                        } else {
-                            // Run the PEP 517 build process to extract metadata from the source distribution.
-                            let archive = database
-                                .get_or_build_wheel_metadata(&dist, hasher.get(&dist))
-                                .await
-                                .map_err(|err| LockErrorKind::Resolution {
-                                    id: package.id.clone(),
-                                    err,
-                                })?;
-
-                            let metadata = archive.metadata.clone();
-
-                            // Insert the metadata into the index.
-                            index
-                                .distributions()
-                                .done(id, Arc::new(MetadataResponse::Found(archive)));
-
-                            metadata
-                        }
-                    };
+                        build_options,
+                        hasher,
+                        index,
+                        database,
+                    )
+                    .await?;
 
                     // Validate that the package is still dynamic.
                     if !metadata.dynamic {
@@ -2952,6 +2970,7 @@ impl Lock {
                         metadata.requires_dist,
                         &metadata.provides_extra,
                         metadata.dependency_groups,
+                        &dependency_sources,
                         &dependency_overrides,
                         &dependency_excludes,
                         metadata.requires_python.as_ref(),
@@ -2992,6 +3011,184 @@ impl Lock {
         }
 
         Ok(SatisfiesResult::Satisfied)
+    }
+
+    /// Collect direct-source requirements that apply across packages in the lock.
+    async fn collect_dependency_sources<Context: BuildContext>(
+        &self,
+        mut source_requirements: BTreeSet<Requirement>,
+        requirements: &[Requirement],
+        dependency_groups: &BTreeMap<GroupName, Vec<Requirement>>,
+        dependency_metadata: &DependencyMetadata,
+        dependency_overrides: &Overrides,
+        dependency_excludes: &Excludes,
+        root: &Path,
+        tags: &Tags,
+        markers: &MarkerEnvironment,
+        build_options: &BuildOptions,
+        hasher: &HashStrategy,
+        index: &InMemoryIndex,
+        database: &DistributionDatabase<'_, Context>,
+        source_tree_metadata: &mut FxHashMap<PackageId, Option<SourceTreeRequiresDist>>,
+    ) -> Result<Constraints, LockError> {
+        for requirement in dependency_overrides
+            .apply_for_package(
+                None,
+                requirements
+                    .iter()
+                    .chain(dependency_groups.values().flatten()),
+            )
+            .filter(|requirement| {
+                !dependency_excludes.contains_for_package(None, &requirement.name)
+            })
+        {
+            if matches!(requirement.source, RequirementSource::Registry { .. }) {
+                continue;
+            }
+
+            source_requirements.insert(normalize_requirement(
+                requirement.into_owned(),
+                root,
+                &self.requires_python,
+            )?);
+        }
+
+        let mut add_source_requirements = |package: &Package,
+                                           requirements: Vec<Requirement>|
+         -> Result<(), LockError> {
+            let package_context = package
+                .id
+                .version
+                .as_ref()
+                .map(|version| (&package.id.name, version));
+
+            for requirement in dependency_overrides
+                .apply_for_package(package_context, &requirements)
+                .filter(|requirement| {
+                    !dependency_excludes.contains_for_package(package_context, &requirement.name)
+                })
+            {
+                if matches!(requirement.source, RequirementSource::Registry { .. }) {
+                    continue;
+                }
+
+                source_requirements.insert(normalize_requirement(
+                    requirement.into_owned(),
+                    root,
+                    &self.requires_python,
+                )?);
+            }
+
+            Ok(())
+        };
+
+        for package in &self.packages {
+            if let Some(metadata) =
+                dependency_metadata.get(&package.id.name, package.id.version.as_ref())
+            {
+                add_source_requirements(
+                    package,
+                    Box::into_iter(metadata.requires_dist)
+                        .map(Requirement::from)
+                        .collect(),
+                )?;
+                continue;
+            }
+
+            if package
+                .all_dependencies()
+                .all(|dependency| matches!(dependency.package_id.source, Source::Registry(..)))
+            {
+                continue;
+            }
+
+            let Some(source_tree) = package.id.source.as_source_tree() else {
+                continue;
+            };
+            let (requires_dist, dependency_groups) =
+                if let Some(SourceTreeRequiresDist { metadata, .. }) =
+                    Self::source_tree_requires_dist_cached(
+                        source_tree,
+                        root,
+                        package,
+                        database,
+                        source_tree_metadata,
+                    )
+                    .await?
+                {
+                    (metadata.requires_dist, metadata.dependency_groups)
+                } else {
+                    let metadata = Self::package_metadata(
+                        package,
+                        root,
+                        tags,
+                        markers,
+                        build_options,
+                        hasher,
+                        index,
+                        database,
+                    )
+                    .await?;
+                    (metadata.requires_dist, metadata.dependency_groups)
+                };
+            let direct_requirements = requires_dist
+                .into_vec()
+                .into_iter()
+                .chain(
+                    dependency_groups
+                        .into_values()
+                        .flat_map(<[Requirement]>::into_vec),
+                )
+                .collect();
+            add_source_requirements(package, direct_requirements)?;
+        }
+
+        Ok(Constraints::from_requirements(
+            source_requirements.into_iter(),
+        ))
+    }
+
+    /// Read the current metadata for a locked package, reusing the resolver's in-memory cache.
+    async fn package_metadata<Context: BuildContext>(
+        package: &Package,
+        root: &Path,
+        tags: &Tags,
+        markers: &MarkerEnvironment,
+        build_options: &BuildOptions,
+        hasher: &HashStrategy,
+        index: &InMemoryIndex,
+        database: &DistributionDatabase<'_, Context>,
+    ) -> Result<DistributionMetadata, LockError> {
+        let HashedDist { dist, .. } =
+            package.to_dist(root, TagPolicy::Preferred(tags), build_options, markers)?;
+        let id = dist.distribution_id();
+        if let Some(archive) = index
+            .distributions()
+            .get(&id)
+            .as_deref()
+            .and_then(|response| {
+                if let MetadataResponse::Found(archive, ..) = response {
+                    Some(archive)
+                } else {
+                    None
+                }
+            })
+        {
+            return Ok(archive.metadata.clone());
+        }
+
+        let archive = database
+            .get_or_build_wheel_metadata(&dist, hasher.get(&dist))
+            .await
+            .map_err(|err| LockErrorKind::Resolution {
+                id: package.id.clone(),
+                err,
+            })?;
+        let metadata = archive.metadata.clone();
+        index
+            .distributions()
+            .done(id, Arc::new(MetadataResponse::Found(archive)));
+        Ok(metadata)
     }
 
     async fn source_tree_requires_dist<Context: BuildContext>(
@@ -3044,6 +3241,24 @@ impl Lock {
             Err(err) => Err(LockErrorKind::UnreadablePyprojectToml { path, err }.into()),
         }
     }
+
+    /// Read source-tree metadata once for each package during lock validation.
+    async fn source_tree_requires_dist_cached<Context: BuildContext>(
+        source_tree: &Path,
+        root: &Path,
+        package: &Package,
+        database: &DistributionDatabase<'_, Context>,
+        cache: &mut FxHashMap<PackageId, Option<SourceTreeRequiresDist>>,
+    ) -> Result<Option<SourceTreeRequiresDist>, LockError> {
+        if let Some(metadata) = cache.get(&package.id) {
+            return Ok(metadata.clone());
+        }
+
+        let metadata =
+            Self::source_tree_requires_dist(source_tree, root, package, database).await?;
+        cache.insert(package.id.clone(), metadata.clone());
+        Ok(metadata)
+    }
 }
 
 /// The set of lockfile packages that should be audited, materialized from a
@@ -3059,6 +3274,7 @@ pub struct Auditable<'lock> {
     packages: Vec<(&'lock Package, &'lock Version)>,
 }
 
+#[derive(Clone)]
 struct SourceTreeRequiresDist {
     version: Option<Version>,
     requires_python: Option<VersionSpecifiers>,
@@ -3196,8 +3412,8 @@ pub enum SatisfiesResult<'lock> {
 struct ResolverOptions {
     /// The [`ResolutionMode`] used to generate this lock.
     resolution_mode: ResolutionMode,
-    /// The [`PrereleaseMode`] used to generate this lock.
-    prerelease_mode: PrereleaseMode,
+    /// The [`Prerelease`] policy used to generate this lock.
+    prerelease: Prerelease,
     /// The [`ForkStrategy`] used to generate this lock.
     fork_strategy: ForkStrategy,
     /// The [`ExcludeNewer`] setting used to generate this lock.
@@ -3211,15 +3427,33 @@ struct ResolverOptionsWire {
     /// The [`ResolutionMode`] used to generate this lock.
     #[serde(default)]
     resolution_mode: ResolutionMode,
-    /// The [`PrereleaseMode`] used to generate this lock.
-    #[serde(default)]
-    prerelease_mode: PrereleaseMode,
+    /// The [`Prerelease`] policy used to generate this lock.
+    #[serde(flatten)]
+    prerelease: PrereleaseWire,
     /// The [`ForkStrategy`] used to generate this lock.
     #[serde(default)]
     fork_strategy: ForkStrategy,
     /// The [`ExcludeNewer`] setting used to generate this lock.
     #[serde(flatten)]
     exclude_newer: ExcludeNewerWire,
+}
+
+#[derive(Clone, Debug, Default, serde::Deserialize)]
+#[serde(rename_all = "kebab-case")]
+struct PrereleaseWire {
+    #[serde(default)]
+    prerelease_mode: PrereleaseMode,
+    #[serde(default)]
+    prerelease_package: PrereleasePackage,
+}
+
+impl From<PrereleaseWire> for Prerelease {
+    fn from(wire: PrereleaseWire) -> Self {
+        Self {
+            global: wire.prerelease_mode,
+            package: wire.prerelease_package,
+        }
+    }
 }
 
 #[expect(clippy::struct_field_names)]
@@ -3475,7 +3709,7 @@ impl TryFrom<LockWire> for Lock {
         }
         let options = ResolverOptions {
             resolution_mode: options_wire.resolution_mode,
-            prerelease_mode: options_wire.prerelease_mode,
+            prerelease: options_wire.prerelease.into(),
             fork_strategy: options_wire.fork_strategy,
             exclude_newer: options_wire.exclude_newer.into(),
         };

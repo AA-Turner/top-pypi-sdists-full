@@ -4,6 +4,7 @@ See also nltk/test/tokenize.doctest
 """
 
 import hashlib
+import multiprocessing
 import os
 from typing import List, Tuple
 
@@ -37,6 +38,13 @@ check_stanford_segmenter = pytest.mark.skipif(
     not load_stanford_segmenter(),
     reason="NLTK was unable to find stanford-segmenter.jar.",
 )
+
+
+def _tweet_tokenizer_redos_worker():
+    tokenizer = TweetTokenizer()
+    for payload in ("a." * 8000, "a.a-" * 8000, "http://a(" * 8000):
+        tokenizer.tokenize(payload)
+    os._exit(0)
 
 
 class TestTokenize:
@@ -355,6 +363,47 @@ class TestTokenize:
         expected = ["(", "393", ")", "928 -3010"]
         result = tokenizer.tokenize(test2)
         assert result == expected
+
+    def test_tweet_tokenizer_redos(self):
+        """
+        The URL/email regexes used to backtrack catastrophically on long
+        dotted strings, so a tiny input could hang the tokenizer for many
+        seconds. Run pathological inputs in a spawned process with a hard
+        timeout so a regression fails fast instead of hanging the suite.
+        """
+        ctx = multiprocessing.get_context("spawn")
+        proc = ctx.Process(target=_tweet_tokenizer_redos_worker)
+        proc.start()
+        proc.join(60)
+        if proc.is_alive():
+            proc.terminate()
+            proc.join()
+            raise AssertionError(
+                "TweetTokenizer did not finish in time, possible ReDoS"
+            )
+        assert proc.exitcode == 0, f"worker failed (exit code {proc.exitcode})"
+
+    def test_tweet_tokenizer_reduce_len_preserves_non_latin(self):
+        """
+        With ``reduce_len=False`` (the default), the tokenizer must not shorten
+        runs of repeated non-Latin letters. Regression test for
+        https://github.com/nltk/nltk/issues/3157, where a run of Cyrillic
+        characters was collapsed even though Latin ones were left untouched.
+        """
+        keep = TweetTokenizer(reduce_len=False)
+        # A Latin run is preserved (control) ...
+        assert keep.tokenize("Loooool") == ["Loooool"]
+        # ... and a Cyrillic run must be preserved identically.
+        assert keep.tokenize("Лооооол") == ["Лооооол"]
+
+        # reduce_len=True must still collapse long runs in any script.
+        shorten = TweetTokenizer(reduce_len=True)
+        assert shorten.tokenize("Loooool") == ["Loool"]
+        assert shorten.tokenize("Лооооол") == ["Лооол"]
+
+        # Long runs of a single punctuation character are still shortened even
+        # when reduce_len=False, so the tokenizer stays safe against ReDoS.
+        assert keep.tokenize("!!!!!!!!") == ["!", "!", "!"]
 
     def test_emoji_tokenizer(self):
         """
@@ -800,6 +849,27 @@ class TestTokenize:
         expected = ["'", "v", "'", "'re", "'"]
         assert word_tokenize(sentence) == expected
 
+    def test_word_tokenize_opening_single_quote_padding(self):
+        sentence = "'Hard' to tell"
+        expected = ["'", "Hard", "'", "to", "tell"]
+        assert word_tokenize(sentence) == expected
+
+        sentence = "He said 'hello' to me"
+        expected = ["He", "said", "'", "hello", "'", "to", "me"]
+        assert word_tokenize(sentence) == expected
+
+        sentence = "It's more'n enough."
+        expected = ["It", "'s", "more", "'n", "enough", "."]
+        assert word_tokenize(sentence) == expected
+
+        sentence = "It's o'clock already"
+        expected = ["It", "'s", "o'clock", "already"]
+        assert word_tokenize(sentence) == expected
+
+        sentence = "O'Connor went home"
+        expected = ["O'Connor", "went", "home"]
+        assert word_tokenize(sentence) == expected
+
     def test_punkt_pair_iter(self):
         test_cases = [
             ("12", [("1", "2"), ("2", None)]),
@@ -1192,3 +1262,44 @@ class TestTreebankWordDetokenizer:
         original_tokens = ["``", "Hello", ",", "''", "he", "said", "."]
         result = self.detok.detokenize(original_tokens)
         assert '"' in result
+
+    def test_issue_3210_mid_string_period(self):
+        """Standalone period tokens mid-string must not keep a leading space (#3210)."""
+        tokens = [
+            "Lorem",
+            "ipsum",
+            "dolor",
+            "sit",
+            "amet",
+            ".",
+            "consectetur",
+            "adipiscing",
+            "elit",
+            ".",
+        ]
+        assert (
+            self.detok.detokenize(tokens)
+            == "Lorem ipsum dolor sit amet. consectetur adipiscing elit."
+        )
+
+    def test_issue_3210_multiple_sentence_periods(self):
+        """Every sentence-final period is joined, not only the last one (#3210)."""
+        tokens = [
+            "I",
+            "called",
+            "Dr.",
+            "Jones",
+            ".",
+            "I",
+            "called",
+            "Dr.",
+            "Jones",
+            ".",
+        ]
+        assert (
+            self.detok.detokenize(tokens) == "I called Dr. Jones. I called Dr. Jones."
+        )
+
+    def test_issue_3210_ellipsis_preserved(self):
+        """The mid-string period fix must not disturb ellipsis tokens (#3210)."""
+        assert self.detok.detokenize(["wait", "...", "what"]) == "wait...what"

@@ -11,7 +11,7 @@ from re import Pattern
 from typing import Any
 
 from .settings import Document
-from .utils import HTML_STRIP_TAGS, trim
+from .utils import HTML_STRIP_TAGS, as_list, trim
 
 LOGGER = logging.getLogger(__name__)
 
@@ -73,7 +73,6 @@ JSON_PUBLISHER = re.compile(r'"publisher":[^}]+?"name?\\?": ?\\?"([^"\\]+)', re.
 JSON_TYPE = re.compile(r'"@type"\s*:\s*"([^"]*)"', re.DOTALL)
 JSON_CATEGORY = re.compile(r'"articleSection": ?"([^"\\]+)', re.DOTALL)
 JSON_MATCH = re.compile(r'"author":|"person":', flags=re.IGNORECASE)
-JSON_REMOVE_HTML = re.compile(r"<[^>]+>")
 JSON_SCHEMA_ORG = re.compile(r"^https?://schema\.org", flags=re.IGNORECASE)
 JSON_UNICODE_REPLACE = re.compile(r"\\u([0-9a-fA-F]{4})")
 
@@ -90,8 +89,8 @@ AUTHOR_REPLACE_JOIN = re.compile(r"[._+]")
 AUTHOR_REMOVE_NICKNAME = re.compile(r'["‘({\[’\'][^"]+?[‘’"\')\]}]')
 AUTHOR_REMOVE_SPECIAL = re.compile(r"[^\w]+$|[:()?*$#!%/<>{}~¿]")
 AUTHOR_REMOVE_PREPOSITION = re.compile(r"\b\s+(am|on|for|at|in|to|from|of|via|with|—|-|–)\s+(.*)", flags=re.IGNORECASE)
-AUTHOR_EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b")
-AUTHOR_SPLIT = re.compile(r"/|;|,|\||&|(?:^|\W)[u|a]nd(?:$|\W)", flags=re.IGNORECASE)
+AUTHOR_EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
+AUTHOR_SPLIT = re.compile(r"/|;|,|\||&|(?:^|\W)[ua]nd(?:$|\W)", flags=re.IGNORECASE)
 AUTHOR_EMOJI_REMOVE = re.compile(
     "["
     "\U00002700-\U000027be"  # Dingbats
@@ -121,7 +120,7 @@ def process_parent(parent: Any, metadata: Document) -> Document:
     for content in filter(None, parent):  # type: dict[str, Any]
         # publisher may be a bare string, not a dict
         publisher = content.get("publisher")
-        if isinstance(publisher, dict) and "name" in publisher:
+        if isinstance(publisher, dict) and is_plausible_sitename(metadata, publisher.get("name")):
             metadata.sitename = publisher["name"]
 
         if "@type" not in content or not content["@type"]:
@@ -156,10 +155,7 @@ def process_parent(parent: Any, metadata: Document) -> Document:
                         # it is a normal string
                         metadata.author = normalize_authors(metadata.author, list_authors)
 
-                if not isinstance(list_authors, list):
-                    list_authors = [list_authors]
-
-                for author in list_authors:
+                for author in as_list(list_authors):
                     if isinstance(author, str):
                         author = {"name": author}
                     if "@type" not in author or author["@type"] == "Person":
@@ -194,29 +190,34 @@ def process_parent(parent: Any, metadata: Document) -> Document:
 
 
 def extract_json(schema: list[Any] | dict[str, str], metadata: Document) -> Document:
-    """Parse and extract metadata from JSON-LD data"""
-    if isinstance(schema, dict):
-        schema = [schema]
+    """Parse and extract metadata from JSON-LD data.
 
+    Note: baseline.py's `_walk_json` also walks JSON-LD, for page content rather than
+    metadata, and is intentionally not shared with this function: this one flattens one
+    level, gated per container, since metadata extraction should stay conservative, while
+    `_walk_json` recurses unconditionally since content rescue is a last resort.
+    """
+    schema = as_list(schema)
+
+    # collect content from every valid block, then process once (no short-circuit on a flat object)
+    parents: list[Any] = []
     for parent in schema:
         context = parent.get("@context")
 
         if context and isinstance(context, str) and JSON_SCHEMA_ORG.match(context):
             if "@graph" in parent:
-                parent = parent["@graph"] if isinstance(parent["@graph"], list) else [parent["@graph"]]
+                parents.extend(as_list(parent["@graph"]))
             elif (
                 "@type" in parent
                 and isinstance(parent["@type"], str)
                 and "liveblogposting" in parent["@type"].lower()
                 and "liveBlogUpdate" in parent
             ):
-                parent = parent["liveBlogUpdate"] if isinstance(parent["liveBlogUpdate"], list) else [parent["liveBlogUpdate"]]
+                parents.extend(as_list(parent["liveBlogUpdate"]))
             else:
-                return process_parent(schema, metadata)
+                parents.append(parent)
 
-            metadata = process_parent(parent, metadata)
-
-    return metadata
+    return process_parent(parents, metadata)
 
 
 def extract_json_author(elemtext: str, regular_expression: Pattern[str]) -> str | None:
@@ -282,7 +283,7 @@ def normalize_json(string: str) -> str:
         string = JSON_UNICODE_REPLACE.sub(lambda match: chr(int(match[1], 16)), string)
         string = "".join(c for c in string if ord(c) < 0xD800 or ord(c) > 0xDFFF)
         string = unescape(string)
-    return trim(JSON_REMOVE_HTML.sub("", string))
+    return trim(HTML_STRIP_TAGS.sub("", string))
 
 
 def normalize_authors(current_authors: str | None, author_string: str) -> str | None:

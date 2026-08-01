@@ -378,7 +378,9 @@ def _build_registry_entry(
     # --- Standard boilerplate fields ---
     entry["tombstone"] = False
     entry["custom"] = False
-    entry["public"] = True
+    # `public` may have been supplied by `registryOverrides.<registry>.public`.
+    # Connectors are public unless the metadata explicitly opts out.
+    entry.setdefault("public", True)
 
     # --- Capability flags (match legacy Pydantic model defaults) ---
     entry.setdefault("supportsDataActivation", False)

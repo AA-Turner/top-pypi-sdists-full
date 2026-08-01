@@ -1,15 +1,9 @@
 from datetime import datetime
 from enum import IntEnum
+from importlib.resources import files
 from math import ceil
 
 import enum_tools.documentation
-
-# Path to package data varies by Python version so we can
-# only ever generate coverage for one
-try:
-    from importlib.resources import files
-except ImportError:  # pragma: nocover
-    from importlib_resources import files
 
 __all__ = [
     "CellPadding",
@@ -103,6 +97,8 @@ SUPPORTED_NUMBERS_VERSIONS = [
     # Numbers Creator Studio
     "26.0",
     "26.1",
+    "26.2",
+    "26.3",
 ]
 
 
@@ -156,7 +152,7 @@ _DATETIME_FIELD_MAP = {
     "W": lambda x: str(_week_of_month(x) - 1),
     "ww": "%W",
     "G": "AD",  # TODO: support BC
-    "F": lambda x: _days_occurred_in_month(x),
+    "F": _days_occurred_in_month,
     "S": lambda x: str(x.microsecond).zfill(6)[0],
     "SS": lambda x: str(x.microsecond).zfill(6)[0:2],
     "SSS": lambda x: str(x.microsecond).zfill(6)[0:3],

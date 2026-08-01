@@ -300,11 +300,14 @@ def _cloud_base() -> str:
     wheel. ``CLAWMETRY_LICENSE_SERVER`` wins (self-hosted/air-gapped), else the
     cloud ingest app (which also hosts /api/license/*). Always HTTPS in prod;
     the only non-HTTPS values are explicit localhost overrides for tests."""
-    return (
-        os.environ.get("CLAWMETRY_LICENSE_SERVER", "").strip()
-        or os.environ.get("CLAWMETRY_INGEST_URL", "").strip()
-        or _DEFAULT_CLOUD_BASE
-    ).rstrip("/")
+    explicit = os.environ.get("CLAWMETRY_LICENSE_SERVER", "").strip()
+    if explicit:
+        return explicit.rstrip("/")
+    try:
+        from clawmetry.endpoints import ingest_url as _resolve_ingest_url
+        return _resolve_ingest_url()
+    except Exception:
+        return _DEFAULT_CLOUD_BASE
 
 
 def _offline_mode() -> bool:
@@ -645,7 +648,16 @@ def _download_and_install_pro(payload: dict) -> str:
             token = ""
         if not token:
             return "clawmetry-pro install deferred (no license on disk)"
-        body = json.dumps({"key": token, "node_id": node_id}).encode()
+        # install_id links this activation to the cloud install registry
+        # (best-effort; server ignores unknown fields on older deploys).
+        try:
+            from clawmetry.telemetry import _ensure_install_id
+            install_id = _ensure_install_id() or ""
+        except Exception:
+            install_id = ""
+        body = json.dumps(
+            {"key": token, "node_id": node_id, "install_id": install_id}
+        ).encode()
         req = urllib.request.Request(
             base + "/api/license/activate", data=body,
             headers={"Content-Type": "application/json"}, method="POST",
@@ -1376,6 +1388,168 @@ def is_tier(tier: str) -> bool:
     return actual == requested
 
 
+def license_tier_at(epoch: int) -> str | None:
+    """Perspective-epoch flavour of :func:`license_tier` -- "what tier
+    would :func:`license_tier` have returned evaluated as of ``epoch``?"
+    -- for a scheduled-audit / retrospective badge that wants to answer
+    "what tier was this node on <date>?" without the caller having to
+    snapshot the license state at that time or compare ``exp`` to a
+    caller-supplied epoch themselves.
+
+    Returns:
+      * ``None`` when there is nothing trustworthy to surface AS OF
+        ``epoch``: no license file on disk, an invalid signature (an
+        attacker could stuff any tier into an unsigned body -- refused
+        for every perspective), a signed key whose ``exp`` claim has
+        already passed at ``epoch`` (retrospective on a lapsed key when
+        ``epoch`` equals "now"; prospective on an active key when
+        ``epoch`` is in the future beyond ``exp``), OR a signed payload
+        whose ``tier`` claim is absent / non-string / empty after strip.
+      * A lowercased, whitespace-stripped tier string otherwise. Casing
+        is normalised the same way :func:`license_tier` normalises it,
+        so a caller comparing against a hard-coded ``"pro"`` gets the
+        same answer whichever helper it binds.
+
+    ``epoch`` is coerced through ``int()``; ``bool`` is explicitly
+    refused despite being an ``int`` subclass so a caller that passes
+    ``True`` / ``False`` gets ``None`` back rather than a spurious "was
+    the tier X at epoch 1?" classification. A non-numeric value
+    collapses to ``None`` so a caller cannot silently mis-gate on a
+    typo -- the conservative fallback since ``None`` implies no
+    entitlement, matching the never-mis-gate posture of the
+    surrounding ``_at`` family.
+
+    When ``epoch`` equals "now", this scalar must agree with
+    :func:`license_tier` for the same install -- both derive from the
+    same signed ``tier`` claim, refuse the invalid-signature branch,
+    and use the same ``exp <= cutoff`` boundary via
+    :func:`license_state_at` / the current-time ``valid`` classifier,
+    so the two scalars cannot disagree at the boundary. On any other
+    epoch this helper answers the retrospective / prospective question
+    :func:`license_tier` cannot -- e.g. "was this node Pro last
+    Friday?" (``None`` on a key that has since been renewed but was
+    already expired then) or "will this node still be Pro at our next
+    quarterly audit?" (``None`` on an active key whose ``exp`` falls
+    before the audit date).
+
+    Never raises. Any underlying introspection failure (import error,
+    corrupt install, cryptography-lib mismatch) collapses to ``None``
+    -- same fallback as :func:`license_tier` -- so a scheduled audit
+    tile bound to this helper never breaks on a partial install.
+
+    Pairs with the sibling ``_at`` scalars
+    (:func:`license_state_at`, :func:`is_expired_at`,
+    :func:`days_until_expiry_at`, :func:`is_expiring_within_at`) at
+    the row level: for the same ``epoch``, a caller can zip the five
+    responses index-for-index and get the whole entitlement row for
+    one install without the scalars catching each other disagreeing
+    on the perspective-epoch classification.
+    """
+    if isinstance(epoch, bool):
+        return None
+    try:
+        wanted = int(epoch)
+    except (TypeError, ValueError):
+        return None
+    try:
+        info = current_license_info()
+    except Exception as exc:
+        logger.debug("license: license_tier_at underlying read failed: %s", exc)
+        return None
+    if not isinstance(info, dict):
+        return None
+    status = info.get("status")
+    if status == "invalid":
+        # Signature-bogus branch: an unsigned body is untrusted whatever
+        # the perspective, so the classification is time-independent.
+        # Mirrors :func:`license_tier` -- payload-derived claims never
+        # get to influence the answer here.
+        return None
+    exp = info.get("exp")
+    if isinstance(exp, (int, float)) and int(exp) <= wanted:
+        # Signed key that has already lapsed AS OF ``epoch`` -- refuse
+        # for the same reason :func:`license_tier` refuses the expired
+        # branch at "now": a lapsed Pro customer must stop rendering
+        # as "Pro" once the perspective epoch is past ``exp``.
+        return None
+    tier = info.get("tier")
+    if not isinstance(tier, str):
+        return None
+    normalized = tier.strip().lower()
+    return normalized or None
+
+
+def is_tier_at(tier: str, epoch: int) -> bool:
+    """Perspective-epoch flavour of :func:`is_tier` -- "was the installed
+    license on tier <X> evaluated as of ``epoch``?" -- for a scheduled-
+    audit / retrospective tile that wants to answer "was this node Pro
+    on <date>?" without the caller having to snapshot the license state
+    at that time or compare ``exp`` to a caller-supplied epoch itself.
+
+    Compares :func:`license_tier_at` case-insensitively (after strip) to
+    the supplied ``tier``. Missing / empty / non-string input degrades
+    to ``False`` -- matches the never-raise posture of :func:`is_tier` /
+    :func:`is_state_at`.
+
+    Unlike :func:`is_state_at` (which validates against the closed
+    :data:`LICENSE_STATES` set), the tier axis is deliberately open-
+    ended -- a future tier lands without a code change here, exactly
+    the way :func:`license_tier` / :func:`is_tier` intentionally do not
+    whitelist ``tier`` values. So any non-empty normalised string is
+    accepted as a possible match; a typo like ``"pro__"`` simply
+    doesn't match any real tier and collapses to ``False``.
+
+    ``tier`` is coerced through ``str()`` and normalised the same way
+    :func:`license_tier_at` normalises the stored claim, so a caller
+    can pass ``"Pro"``, ``"pro"``, or ``"  PRO "`` and get the same
+    answer.
+
+    ``epoch`` is coerced through :func:`license_tier_at`; ``bool`` and
+    non-numeric epochs are refused there and collapse this predicate
+    to ``False`` (there is no tier to match against once the perspective
+    is unusable -- the conservative "no entitlement" fallback matching
+    the never-mis-gate posture of the surrounding ``_at`` family).
+
+    When ``epoch`` equals "now", this predicate must agree with
+    :func:`is_tier` for the same install and the same requested ``tier``
+    -- both derive from the same signed ``tier`` claim and use the same
+    ``exp <= cutoff`` boundary via :func:`license_tier_at` /
+    :func:`license_tier`, so the two scalars cannot disagree at the
+    boundary. On any other epoch this helper answers the retrospective
+    / prospective question :func:`is_tier` cannot -- e.g. "was this
+    node Pro last Friday?" (``False`` on a key that has since been
+    renewed but was already expired then) or "will this node still be
+    Pro at our next quarterly audit?" (``False`` on an active key whose
+    ``exp`` falls before the audit date).
+
+    Never raises. Any underlying failure of :func:`license_tier_at`
+    collapses this to ``False`` -- a scheduled audit job bound to this
+    gate stays "unclaimed" rather than falsely asserting an entitlement
+    it can't verify.
+
+    Pairs with :func:`is_state_at`, :func:`is_expired_at`, and
+    :func:`is_expiring_within_at` on the perspective-epoch predicate
+    axis: for the same ``epoch``, a caller can zip the boolean gates
+    index-for-index and render a whole entitlement audit row for one
+    install without the gates catching each other disagreeing on the
+    perspective-epoch classification.
+    """
+    try:
+        requested = str(tier).strip().lower() if tier is not None else ""
+    except Exception:
+        return False
+    if not requested:
+        return False
+    try:
+        actual = license_tier_at(epoch)
+    except Exception as exc:
+        logger.debug("license: is_tier_at underlying read failed: %s", exc)
+        return False
+    if actual is None:
+        return False
+    return actual == requested
+
+
 def is_expired() -> bool:
     """True iff an installed, signature-valid license has an ``exp`` claim in
     the past.
@@ -1912,6 +2086,85 @@ def is_license_valid() -> bool:
     return bool(info.get("valid"))
 
 
+def is_license_valid_at(epoch: int) -> bool:
+    """Boolean gate for "would the installed license have been valid
+    evaluated as of ``epoch``?" -- the perspective-epoch flavour of
+    :func:`is_license_valid`, for a scheduled-audit / retrospective
+    paywall tile that wants to answer "would this node have been
+    entitled on <date>?" without the caller having to snapshot the
+    license state at that time or fold the ``exp`` claim against a
+    caller-supplied epoch themselves.
+
+    Returns ``True`` iff a license is installed, signature-valid, AND
+    either carries no ``exp`` claim (perpetual key) OR ``exp > epoch``.
+    Returns ``False`` for every other state: no license file, invalid
+    signature (an attacker could stuff any tier/nodes/exp into an
+    unsigned body, so we refuse to trust it), and any signed key whose
+    ``exp`` value is at or before ``epoch``.
+
+    Semantics rest on :func:`license_state_at` -- ``"active"`` at the
+    perspective epoch means exactly "signature-valid AND (perpetual OR
+    ``exp > epoch``)", which is the whole is-this-entitled question this
+    predicate answers. So per-value parity with the sibling ``_at``
+    trio (:func:`is_expired_at`, :func:`license_state_at`,
+    :func:`days_until_expiry_at`) is guaranteed at the row level: a UI
+    can zip the four responses index-for-index without ever catching
+    them disagreeing on the same epoch for the same install.
+
+    When ``epoch`` equals "now", this predicate must agree with
+    :func:`is_license_valid` for the same install -- both derive from
+    the same signed ``exp`` claim and share the same signature-check
+    path via :func:`current_license_info`, so the two scalars cannot
+    disagree at the boundary. On any other epoch this helper answers
+    the retrospective / prospective question :func:`is_license_valid`
+    cannot -- e.g. "was this key entitled last Friday?" (positive
+    signal even on a key that has since lapsed) or "will this key be
+    entitled at our next quarterly audit?" (negative signal on an
+    active key whose ``exp`` falls before the audit date).
+
+    ``epoch`` is coerced through ``int()``; ``bool`` is explicitly
+    refused despite being an ``int`` subclass so a caller that passes
+    ``True`` / ``False`` gets ``False`` back rather than a spurious
+    "was the key valid at epoch 1?" answer. A non-numeric value
+    collapses to ``False`` -- the conservative "no entitlement"
+    fallback, matching the never-mis-gate posture of the surrounding
+    ``_at`` family: a mis-typed epoch cannot silently unlock a Pro
+    feature.
+
+    Never raises. Any underlying introspection failure (import error,
+    corrupt install, cryptography-lib mismatch) collapses to ``False``
+    so a scheduled audit job never crashes on a bad install AND never
+    falsely asserts entitlement it can't verify.
+
+    Pairs with :func:`is_expired_at` at the singular level -- the two
+    are complementary on a signature-valid, non-perpetual key
+    (``is_expired_at(e) == not is_license_valid_at(e)``) but diverge on
+    the invalid-signature and no-license branches: those collapse BOTH
+    to ``False`` on purpose, because "not expired" on an unsigned body
+    is not the same as "still entitled". A UI wanting to distinguish
+    "no license" / "broken license" / "lapsed at that time" / "valid
+    at that time" reads this helper together with :func:`is_expired_at`
+    and :func:`license_state_at`.
+    """
+    if isinstance(epoch, bool):
+        # ``bool`` is a subclass of ``int``; refuse it explicitly so a
+        # caller that passes ``True`` doesn't silently ask "was the key
+        # valid at epoch 1?" and get a positive answer back.
+        return False
+    try:
+        wanted = int(epoch)
+    except (TypeError, ValueError):
+        return False
+    try:
+        state = license_state_at(wanted)
+    except Exception as exc:
+        logger.debug(
+            "license: is_license_valid_at underlying read failed: %s", exc
+        )
+        return False
+    return state == "active"
+
+
 def license_subject() -> str | None:
     """Scalar view onto the installed license's ``sub`` claim -- the customer
     identifier the license was issued to (typically an account id or a
@@ -1997,6 +2250,102 @@ def is_subject(subject: str) -> bool:
     if actual is None:
         return False
     return actual.lower() == requested
+
+
+def license_subject_at(epoch: int) -> str | None:
+    """Perspective-epoch flavour of :func:`license_subject` -- "what
+    subject would :func:`license_subject` have returned evaluated as of
+    ``epoch``?" -- for a scheduled-audit / retrospective badge that wants
+    to answer "who was this node licensed to on <date>?" without the
+    caller having to snapshot the license state at that time or compare
+    ``exp`` to a caller-supplied epoch themselves.
+
+    Returns:
+      * ``None`` when there is nothing trustworthy to surface AS OF
+        ``epoch``: no license file on disk, an invalid signature (an
+        attacker could stuff any ``sub`` into an unsigned body -- refused
+        for every perspective, matching :func:`license_subject`), a
+        signed key whose ``exp`` claim has already passed at ``epoch``
+        (retrospective on a lapsed key when ``epoch`` equals "now";
+        prospective on an active key when ``epoch`` is in the future
+        beyond ``exp``), OR a signed payload whose ``sub`` claim is
+        absent / non-string / empty after strip.
+      * The stripped subject string otherwise. Casing is preserved --
+        subjects are typically email addresses / account ids where case
+        can matter for exact-match comparisons, matching the
+        current-time :func:`license_subject` accessor. :func:`is_subject`
+        handles case-insensitive matching on top for callers that want
+        it.
+
+    ``epoch`` is coerced through ``int()``; ``bool`` is explicitly
+    refused despite being an ``int`` subclass so a caller that passes
+    ``True`` / ``False`` gets ``None`` back rather than a spurious "was
+    the subject X at epoch 1?" classification. A non-numeric value
+    collapses to ``None`` so a caller cannot silently mis-gate on a
+    typo -- the conservative fallback since ``None`` implies no
+    trustworthy subject, matching the never-mis-gate posture of the
+    surrounding ``_at`` family.
+
+    When ``epoch`` equals "now", this scalar must agree with
+    :func:`license_subject` for the same install -- both derive from
+    the same signed ``sub`` claim, refuse the invalid-signature branch,
+    and use the same ``exp <= cutoff`` boundary via the shared
+    :func:`current_license_info` / :func:`license_state_at` reader, so
+    the two scalars cannot disagree at the boundary. On any other
+    epoch this helper answers the retrospective / prospective question
+    :func:`license_subject` cannot -- e.g. "who was this node licensed
+    to last Friday?" (``None`` on a key that has since been renewed but
+    was already expired then) or "will this node still be bound to
+    <X> at our next quarterly audit?" (``None`` on an active key whose
+    ``exp`` falls before the audit date).
+
+    Never raises. Any underlying introspection failure (import error,
+    corrupt install, cryptography-lib mismatch) collapses to ``None``
+    -- same fallback as :func:`license_subject` -- so a scheduled audit
+    tile bound to this helper never breaks on a partial install.
+
+    Pairs with the sibling ``_at`` scalars
+    (:func:`license_tier_at`, :func:`license_state_at`,
+    :func:`is_expired_at`, :func:`days_until_expiry_at`,
+    :func:`is_expiring_within_at`) at the row level: for the same
+    ``epoch``, a caller can zip the responses index-for-index and get
+    the whole entitlement row for one install without the scalars
+    catching each other disagreeing on the perspective-epoch
+    classification.
+    """
+    if isinstance(epoch, bool):
+        return None
+    try:
+        wanted = int(epoch)
+    except (TypeError, ValueError):
+        return None
+    try:
+        info = current_license_info()
+    except Exception as exc:
+        logger.debug("license: license_subject_at underlying read failed: %s", exc)
+        return None
+    if not isinstance(info, dict):
+        return None
+    status = info.get("status")
+    if status == "invalid":
+        # Signature-bogus branch: an unsigned body is untrusted whatever
+        # the perspective, so the classification is time-independent.
+        # Mirrors :func:`license_subject` -- payload-derived claims never
+        # get to influence the answer here.
+        return None
+    exp = info.get("exp")
+    if isinstance(exp, (int, float)) and int(exp) <= wanted:
+        # Signed key that has already lapsed AS OF ``epoch`` -- refuse
+        # for the same reason :func:`license_subject` refuses the
+        # expired branch at "now": a lapsed customer's subject must
+        # stop rendering as the account holder once the perspective
+        # epoch is past ``exp``.
+        return None
+    sub = info.get("sub")
+    if not isinstance(sub, str):
+        return None
+    stripped = sub.strip()
+    return stripped or None
 
 
 def license_permissions_safe() -> bool | None:
@@ -2942,6 +3291,157 @@ def is_expiring_within_at_batch(days: int, epochs) -> list[dict]:
     return out
 
 
+def _license_days_batch_keys(days_list):
+    """Shared iterable-of-``days`` pre-parser for the days-axis batch
+    helpers below.
+
+    Mirrors :func:`_license_epoch_batch_keys` but yields the coerced
+    ``days`` thresholds a caller wants to fan a single perspective epoch
+    across (e.g. "would the renewal banner fire at 7 / 14 / 30 / 60
+    days?"). Preserves per-token slots so a row's ``days`` label matches
+    the input token even when parsing fails, and dedupes by parsed int
+    key preserving first-seen order for byte-stable output.
+
+    Yields ``(raw, key, parsed)`` triples where:
+
+      * ``raw`` is the original input token, preserved so the batch can
+        surface it in the row label without a re-scan.
+      * ``key`` is the normalisation key used for de-dup: ``str(parsed)``
+        for a successfully parsed int, or ``("__bad__", repr(raw),
+        id(raw))`` for anything the scalar
+        :func:`is_expiring_within_at` would refuse -- each bogus input
+        keeps its own slot so the output length still matches N.
+      * ``parsed`` is the coerced ``int`` (only meaningful when the row
+        is well-formed; ``None`` for the bad-input path).
+
+    Rejects ``bool`` explicitly (subclass of ``int`` -- would silently
+    ask "days=1?") matching the scalar's stance, and treats ``None`` /
+    non-numeric strings / negative ints as bad input so a caller cannot
+    silently mis-gate on a typo.
+    """
+    seen = set()
+    if days_list is None:
+        return
+    try:
+        iterator = iter(days_list)
+    except TypeError:
+        return
+    for raw in iterator:
+        if isinstance(raw, bool):
+            key = ("__bad__", repr(raw), id(raw))
+            if key in seen:
+                continue
+            seen.add(key)
+            yield raw, key, None
+            continue
+        try:
+            parsed = int(raw)
+        except (TypeError, ValueError):
+            key = ("__bad__", repr(raw), id(raw))
+            if key in seen:
+                continue
+            seen.add(key)
+            yield raw, key, None
+            continue
+        if parsed < 0:
+            key = ("__bad__", repr(raw), id(raw))
+            if key in seen:
+                continue
+            seen.add(key)
+            yield raw, key, None
+            continue
+        key = str(parsed)
+        if key in seen:
+            continue
+        seen.add(key)
+        yield raw, key, parsed
+
+
+def is_expiring_within_days_at_batch(days_list, epoch: int) -> list[dict]:
+    """Per-value renewal-window "would we have shown a renewal warning
+    at ``epoch`` for THIS days threshold?" gate for N thresholds in ONE
+    round-trip.
+
+    Days-axis batch sibling of :func:`is_expiring_within_at`. Where the
+    existing epochs-axis batch :func:`is_expiring_within_at_batch` fans a
+    single ``days`` threshold across N perspective epochs, this fans N
+    ``days`` thresholds across a SINGLE perspective epoch -- the natural
+    shape for a "renewal urgency" tile that wants to fire at multiple
+    thresholds (7 / 14 / 30 / 60 days) off ONE hydration. The two
+    batches are complements on orthogonal axes of the same scalar; a
+    caller wanting a full grid still calls one per epoch (or the scalar
+    N * M times), but the common cases (fixed threshold across dates,
+    fixed date across thresholds) each hit ONE round-trip instead of N.
+
+    ``epoch`` is the perspective epoch (Unix seconds) applied to EVERY
+    row. It is coerced through ``int()``; ``bool`` is explicitly refused
+    (would silently ask "as of epoch 1?"), and a non-numeric ``epoch``
+    collapses every row to ``is_expiring_within=False`` while preserving
+    row slots so the output length still matches N (matches the
+    never-mis-gate posture of the sibling batch on the ``days`` axis
+    when ``epochs`` is bad).
+
+    Row shape::
+
+        {
+          "days":                <int> | "<raw>",
+          "is_expiring_within":  <bool>,
+        }
+
+    Semantics per row mirror :func:`is_expiring_within_at`: ``True`` iff
+    a license is installed, signature-valid, carries an ``exp`` claim,
+    AND the days from ``epoch`` until ``exp`` fall between 0 and
+    ``days`` inclusive. An already-lapsed-at-epoch install collapses
+    every row to ``False`` (negative remaining doesn't sit inside any
+    threshold >= 0; a different, louder ``is_expired_at`` banner
+    covers that state). Perpetual licenses (no ``exp`` claim) and the
+    no-license path both yield ``False`` on every row: nothing to warn
+    about.
+
+    Duplicates by normalised int key (or ``repr(raw)`` for bad inputs)
+    are dropped preserving first-seen order for byte-stable output.
+    ``days_list is None`` or non-iterable -- returns ``[]``. Never
+    raises: per-row failures short-circuit to
+    ``is_expiring_within=False`` so the batch keeps building. Matches
+    the never-mis-gate posture used by :func:`is_expiring_within_at` --
+    a bad row cannot silently fire a renewal prompt.
+    """
+    if isinstance(epoch, bool):
+        epoch_ok = False
+        parsed_epoch = 0
+    else:
+        try:
+            parsed_epoch = int(epoch)
+            epoch_ok = True
+        except (TypeError, ValueError):
+            parsed_epoch = 0
+            epoch_ok = False
+    out: list[dict] = []
+    for raw, _key, parsed in _license_days_batch_keys(days_list):
+        if parsed is None:
+            try:
+                token = str(raw)
+            except Exception:
+                token = repr(raw)
+            out.append({"days": token, "is_expiring_within": False})
+            continue
+        if not epoch_ok:
+            out.append({"days": parsed, "is_expiring_within": False})
+            continue
+        try:
+            matched = is_expiring_within_at(parsed, parsed_epoch)
+        except Exception as exc:
+            logger.debug(
+                "license: is_expiring_within_days_at_batch per-row failed: %s",
+                exc,
+            )
+            matched = False
+        out.append(
+            {"days": parsed, "is_expiring_within": bool(matched)}
+        )
+    return out
+
+
 def days_until_expiry_at_batch(epochs) -> list[dict]:
     """Per-value perspective-epoch "days until expiry" scalar for N
     epochs in ONE round-trip.
@@ -3151,6 +3651,236 @@ def pro_install_age_days_at_batch(epochs) -> list[dict]:
     return out
 
 
+def is_license_valid_at_batch(epochs) -> list[dict]:
+    """Per-value perspective-epoch "would the installed license have been
+    valid at each of these epochs?" gate for N epochs in ONE round-trip.
+
+    Per-value axis batch sibling of :func:`is_license_valid_at`. Fills
+    the ``_at_batch`` slot on the entitlement-boolean axis alongside the
+    singular :func:`is_license_valid_at` and the "now" flavour
+    :func:`is_license_valid`, so a scheduled-audit tile that wants to
+    render "was this node entitled on each of these audit dates?" across
+    a sequence of perspective epochs hydrates the whole column in ONE
+    call instead of fanning out N calls to :func:`is_license_valid_at`.
+
+    Row shape::
+
+        {
+          "epoch":    <int> | "<raw>",
+          "is_valid": <bool>,
+        }
+
+    Semantics per row mirror :func:`is_license_valid_at`: ``True`` iff a
+    license is installed, signature-valid, AND either carries no ``exp``
+    claim (perpetual) OR ``exp > epoch``. Every other state -- no
+    license, invalid signature, ``exp <= epoch``, ``bool`` / non-numeric
+    epoch -- yields ``False``. Row shape mirrors
+    :func:`is_expired_at_batch` / :func:`is_state_at_batch` so a caller
+    assembling an entitlement timeline can zip the responses index-for-
+    index; per-row ``is_valid`` is exactly the complement of the
+    matching :func:`is_expired_at_batch` ``expired`` field on a
+    signature-valid, non-perpetual key, and both collapse to ``False``
+    together on the no-license / invalid-signature branches.
+
+    Duplicates by normalised int key (or ``repr(raw)`` for bad inputs)
+    are dropped preserving first-seen order for byte-stable output.
+    ``epochs is None`` or non-iterable -- returns ``[]``. Never raises:
+    per-row failures short-circuit to ``is_valid=False`` so the batch
+    keeps building. Matches the never-mis-gate posture used by
+    :func:`is_license_valid_at` -- a bad row cannot silently unlock a
+    Pro feature retroactively.
+    """
+    out: list[dict] = []
+    for raw, _key, parsed in _license_epoch_batch_keys(epochs):
+        if parsed is None:
+            try:
+                token = str(raw)
+            except Exception:
+                token = repr(raw)
+            out.append({"epoch": token, "is_valid": False})
+            continue
+        try:
+            valid = is_license_valid_at(parsed)
+        except Exception as exc:
+            logger.debug(
+                "license: is_license_valid_at_batch per-row failed: %s", exc
+            )
+            valid = False
+        out.append({"epoch": parsed, "is_valid": bool(valid)})
+    return out
+
+
+def license_tier_at_batch(epochs) -> list[dict]:
+    """Per-value perspective-epoch license-tier scalar for N epochs in
+    ONE round-trip.
+
+    Per-value axis batch sibling of :func:`license_tier_at`. Fills the
+    ``_at_batch`` slot on the license-tier axis alongside the singular
+    :func:`license_tier_at` and the "now" flavour :func:`license_tier`,
+    so a scheduled-audit / retrospective tile that wants to plot tier
+    across a sequence of perspective dates ("what tier was this node
+    on each of these audit dates?") renders off ONE call instead of
+    fanning out N calls to the scalar.
+
+    Each item in ``epochs`` may be:
+
+      * an int (or int-parseable string) -- a perspective epoch. The
+        emitted row's ``tier`` is what :func:`license_tier_at` would
+        return for that epoch alone.
+      * ``bool`` (subclass of ``int``) or any non-int-parseable value
+        (``None``, empty string, non-numeric string) -- collapses to a
+        row with ``tier=None``, matching the never-mis-gate posture
+        :func:`license_tier_at` uses for the same inputs. The raw
+        stringified token surfaces in ``epoch`` so a caller can still
+        identify the offending entry.
+
+    Row shape::
+
+        {
+          "epoch": <int> | "<raw>",
+          "tier":  <str> | None,
+        }
+
+    Semantics per row mirror :func:`license_tier_at`: a lowercased,
+    whitespace-stripped tier string when the license is signature-
+    valid, carries a string ``tier`` claim, AND (perpetual OR
+    ``exp > epoch``); ``None`` for no license, invalid signature, an
+    ``exp`` claim that has already lapsed at ``epoch``, a signed
+    payload with a missing / non-string / empty ``tier``, and
+    ``bool`` / non-numeric epochs.
+
+    Duplicates by normalised int key (or ``repr(raw)`` for bad inputs)
+    are dropped preserving first-seen order for byte-stable output.
+    ``epochs is None`` or non-iterable -- returns ``[]``. Never raises:
+    per-row failures short-circuit to ``tier=None`` so the batch keeps
+    building. Matches the never-mis-gate posture used by
+    :func:`license_tier_at` -- a bad row cannot silently claim a tier
+    that would grant unearned entitlement.
+
+    When any row's ``epoch`` equals "now", the row's ``tier`` field
+    must byte-equal :func:`license_tier` for the same install -- both
+    derive from the same signed ``tier`` claim via
+    :func:`license_tier_at` / :func:`license_tier`, so a caller
+    binding both cannot catch them disagreeing at the boundary.
+
+    Pairs with :func:`license_state_at_batch` /
+    :func:`is_expired_at_batch` / :func:`days_until_expiry_at_batch`
+    on the row-shape axis: for the same epochs list, a caller can zip
+    the responses index-for-index and hydrate a whole entitlement
+    timeline row for one install in a handful of round-trips instead
+    of ``N * M`` calls to the scalar surface.
+    """
+    out: list[dict] = []
+    for raw, _key, parsed in _license_epoch_batch_keys(epochs):
+        if parsed is None:
+            try:
+                token = str(raw)
+            except Exception:
+                token = repr(raw)
+            out.append({"epoch": token, "tier": None})
+            continue
+        try:
+            tier = license_tier_at(parsed)
+        except Exception as exc:
+            logger.debug(
+                "license: license_tier_at_batch per-row failed: %s", exc
+            )
+            tier = None
+        out.append(
+            {"epoch": parsed, "tier": tier if isinstance(tier, str) else None}
+        )
+    return out
+
+
+def is_tier_at_batch(tier, epochs) -> list[dict]:
+    """Per-value perspective-epoch "was the license on tier <X> at each
+    of these epochs?" gate for N epochs in ONE round-trip.
+
+    Shared-threshold sibling of :func:`is_tier_at`. Where the singular
+    scalar folds ONE ``(tier, epoch)`` pair to ONE bool, this preserves
+    per-value rows for a fixed ``tier`` and a sequence of perspective
+    epochs so a scheduled-audit tile that wants to answer "was this
+    node Pro on each of these audit dates?" hydrates the whole column
+    in ONE round-trip instead of fanning out N calls to the scalar.
+    Same "shared threshold applied to EVERY row, per-row epoch" shape
+    as :func:`is_state_at_batch` / :func:`is_expiring_within_at_batch`
+    -- both take one gate parameter plus a batch of epochs.
+
+    ``tier`` is normalised (``str().strip().lower()``) the same way
+    :func:`is_tier_at` normalises it, so ``"Pro"``, ``"pro"``, and
+    ``"  PRO "`` collapse to the same query. A missing / empty /
+    non-string ``tier`` collapses EVERY row to ``is_tier=False`` while
+    preserving row slots so the output length still matches N.
+
+    Unlike :func:`is_state_at_batch` (which validates against the
+    closed :data:`LICENSE_STATES` set), the tier axis is deliberately
+    open-ended -- a future tier lands without a code change here,
+    matching the open-ended posture of :func:`is_tier` /
+    :func:`license_tier`. A typo like ``"pro__"`` simply doesn't match
+    any real tier and collapses every row to ``False``.
+
+    Row shape::
+
+        {
+          "epoch":   <int> | "<raw>",
+          "is_tier": <bool>,
+        }
+
+    Semantics per row mirror :func:`is_tier_at`: ``True`` iff the
+    perspective-epoch tier byte-equals the (normalised) ``tier``
+    requested. For a bad epoch token (``bool`` / non-numeric /
+    ``None``) the scalar collapses :func:`license_tier_at` to ``None``
+    so the row's ``is_tier`` is ``False`` -- exactly matching the
+    conservative "no entitlement" fallback of :func:`license_tier_at`
+    (unlike :func:`is_state_at_batch`, there is no meaningful "no-
+    license tier" the caller could ask for, since :func:`license_tier`
+    already returns ``None`` -- not a sentinel string -- on that
+    branch).
+
+    Duplicates by normalised int key (or ``repr(raw)`` for bad inputs)
+    are dropped preserving first-seen order for byte-stable output.
+    ``epochs is None`` or non-iterable -- returns ``[]``. Never raises:
+    per-row failures short-circuit to ``is_tier=False`` so the batch
+    keeps building. Matches the never-mis-gate posture used by
+    :func:`is_tier_at` -- a bad row cannot silently claim a tier that
+    would grant unearned entitlement.
+
+    When any row's ``epoch`` equals "now" and ``tier`` is a
+    normalisable string, this predicate must agree with :func:`is_tier`
+    for the same install and the same requested ``tier`` at that row
+    -- both derive from the same signed ``tier`` claim via
+    :func:`license_tier_at` / :func:`license_tier`, so a caller
+    binding both the singular and the batch cannot catch them
+    disagreeing at the boundary.
+    """
+    try:
+        requested = str(tier).strip().lower() if tier is not None else ""
+    except Exception:
+        requested = ""
+    have_query = bool(requested)
+    out: list[dict] = []
+    for raw, _key, parsed in _license_epoch_batch_keys(epochs):
+        if parsed is None:
+            try:
+                token = str(raw)
+            except Exception:
+                token = repr(raw)
+            out.append({"epoch": token, "is_tier": False})
+            continue
+        if not have_query:
+            out.append({"epoch": parsed, "is_tier": False})
+            continue
+        try:
+            matched = is_tier_at(requested, parsed)
+        except Exception as exc:
+            logger.debug(
+                "license: is_tier_at_batch per-row failed: %s", exc
+            )
+            matched = False
+        out.append({"epoch": parsed, "is_tier": bool(matched)})
+    return out
+
+
 def license_features() -> list[str] | None:
     """Scalar accessor for the ``features`` claim on the installed license.
 
@@ -3263,3 +3993,313 @@ def license_features() -> list[str] | None:
         out.append(norm)
     out.sort()
     return out
+
+
+def license_features_at(epoch: int) -> list[str] | None:
+    """Perspective-epoch flavour of :func:`license_features` -- "what
+    features would :func:`license_features` have surfaced evaluated as of
+    ``epoch``?" -- for a scheduled-audit / retrospective diagnostic tile
+    that wants to answer "which paid features was this node entitled to
+    on <date>?" without the caller having to snapshot the license state
+    at that time or compare ``exp`` to a caller-supplied epoch
+    themselves.
+
+    Returns:
+      * ``None`` when there is nothing trustworthy to surface AS OF
+        ``epoch``: no license file on disk, an invalid signature (an
+        attacker could stuff any ``features`` list into an unsigned body
+        -- refused for every perspective), a signed key whose ``exp``
+        claim has already lapsed at ``epoch`` (retrospective on a lapsed
+        key when ``epoch`` equals "now"; prospective on an active key
+        when ``epoch`` is in the future beyond ``exp``), OR a per-row
+        introspection failure. Matches the never-mis-gate posture of
+        :func:`license_features`: a lapsed key must not keep rendering
+        as "features unlocked" from ANY perspective epoch.
+      * ``[]`` when the license IS valid AS OF ``epoch`` but its payload
+        carries no explicit ``features`` claim (or the claim is present
+        but holds no usable string ids). Distinct from ``None``: a UI
+        binding this helper must render both branches -- ``None`` -> "no
+        entitlement at that time", ``[]`` -> "entitled but no features
+        itemised" -- without collapsing them, or a valid-key-with-empty-
+        list user will silently render as "unlicensed" for the audit
+        row.
+      * A sorted, deduplicated, normalised (lower-cased, whitespace-
+        stripped) ``list[str]`` of feature ids otherwise. Normalisation
+        matches :func:`license_features` byte-for-byte so a caller
+        zipping the two lists (perspective-at vs current-now) can't
+        catch them disagreeing on casing.
+
+    ``epoch`` is coerced through ``int()``; ``bool`` is explicitly
+    refused despite being an ``int`` subclass so a caller that passes
+    ``True`` / ``False`` gets ``None`` back rather than a spurious "was
+    feature X entitled at epoch 1?" classification. A non-numeric value
+    collapses to ``None`` so a caller cannot silently mis-gate on a
+    typo -- the conservative fallback since ``None`` implies no
+    entitlement, matching the never-mis-gate posture of the surrounding
+    ``_at`` family.
+
+    When ``epoch`` equals "now", this scalar must agree with
+    :func:`license_features` for the same install -- both derive from
+    the same signed ``features`` claim, refuse the invalid-signature
+    branch, and use the same ``exp <= cutoff`` boundary via
+    :func:`license_state_at` / the current-time ``valid`` classifier,
+    so the two scalars cannot disagree at the boundary. On any other
+    epoch this helper answers the retrospective / prospective question
+    :func:`license_features` cannot -- e.g. "which features was this
+    node entitled to last quarter?" (``None`` on a key that has since
+    been renewed but was already expired then) or "which features will
+    this node still have at our next audit?" (``None`` on an active key
+    whose ``exp`` falls before the audit date).
+
+    Never raises. Any underlying introspection failure (import error,
+    corrupt install, cryptography-lib mismatch) collapses to ``None``
+    -- same fallback as :func:`license_features` -- so a scheduled
+    audit tile bound to this helper never breaks on a partial install.
+
+    Note: the ``features`` claim is a SUPPLEMENTAL string list carried
+    on the license token; it is NOT the canonical open-core feature
+    catalogue. This helper surfaces the claim exactly as written on the
+    token (with the perspective-epoch validity gate on top), so
+    operator diagnostics can distinguish "feature X was entitled on
+    <date> because the key claimed it" from "feature X was entitled on
+    <date> because the tier granted it by default".
+
+    Pairs with the sibling ``_at`` scalars
+    (:func:`license_state_at`, :func:`license_tier_at`,
+    :func:`is_expired_at`, :func:`days_until_expiry_at`) at the row
+    level: for the same ``epoch``, a caller can zip the responses
+    index-for-index and hydrate the whole entitlement row for one
+    install without the scalars catching each other disagreeing on the
+    perspective-epoch classification.
+    """
+    if isinstance(epoch, bool):
+        return None
+    try:
+        wanted = int(epoch)
+    except (TypeError, ValueError):
+        return None
+    try:
+        info = current_license_info()
+    except Exception as exc:
+        logger.debug(
+            "license: license_features_at underlying read failed: %s", exc
+        )
+        return None
+    if not isinstance(info, dict):
+        return None
+    status = info.get("status")
+    if status == "invalid":
+        # Signature-bogus branch: an unsigned body is untrusted whatever
+        # the perspective, so the classification is time-independent.
+        # Mirrors :func:`license_features` -- payload-derived claims
+        # never get to influence the answer here.
+        return None
+    exp = info.get("exp")
+    if isinstance(exp, (int, float)) and int(exp) <= wanted:
+        # Signed key that has already lapsed AS OF ``epoch`` -- refuse
+        # for the same reason :func:`license_features` refuses the
+        # expired branch at "now": a lapsed customer must stop rendering
+        # as "features unlocked" once the perspective epoch is past
+        # ``exp``.
+        return None
+    # ``current_license_info`` does not surface the ``features`` claim
+    # in its envelope (kept intentionally narrow -- see its docstring),
+    # so re-open the license file and re-verify to pull the field. The
+    # gates above prove the file is on disk AND its signature verified
+    # once this call, so this second read cannot admit an unsigned
+    # body: any tamper between the two reads still fails
+    # :func:`verify_token`. Mirrors the same re-read pattern used by
+    # :func:`license_features`.
+    try:
+        if not os.path.isfile(LICENSE_PATH):
+            return None
+        with open(LICENSE_PATH, "r", encoding="utf-8") as fh:
+            payload = verify_token(fh.read().strip())
+    except Exception as exc:
+        logger.debug(
+            "license: license_features_at token re-read failed: %s", exc
+        )
+        return None
+    if not isinstance(payload, dict):
+        return None
+    raw = payload.get("features")
+    # A missing / non-list ``features`` claim collapses to the empty
+    # list (valid license, zero features itemised) -- distinct from
+    # ``None`` which means no valid license at all. See docstring.
+    if not isinstance(raw, (list, tuple)):
+        return []
+    seen: set[str] = set()
+    out: list[str] = []
+    for item in raw:
+        if not isinstance(item, str):
+            # Ignore non-string entries defensively. An attacker who
+            # can't forge the signature also can't smuggle a non-string
+            # feature id past ``json.loads`` here, but a legit server-
+            # side typo (e.g. an integer feature id) shouldn't blow up
+            # the tile -- skip it and keep going.
+            continue
+        norm = item.strip().lower()
+        if not norm or norm in seen:
+            continue
+        seen.add(norm)
+        out.append(norm)
+    out.sort()
+    return out
+
+
+def license_features_at_batch(epochs) -> list[dict]:
+    """Per-value perspective-epoch license-features scalar for N epochs
+    in ONE round-trip.
+
+    Per-value axis batch sibling of :func:`license_features_at`. Fills
+    the ``_at_batch`` slot on the license-features axis alongside the
+    singular :func:`license_features_at` and the "now" flavour
+    :func:`license_features`, so a scheduled-audit / retrospective tile
+    that wants to plot the ``features`` claim across a sequence of
+    perspective dates ("which features was this node entitled to on
+    each of these audit dates?") renders off ONE call instead of
+    fanning out N calls to the scalar.
+
+    Each item in ``epochs`` may be:
+
+      * an int (or int-parseable string) -- a perspective epoch. The
+        emitted row's ``features`` field is what
+        :func:`license_features_at` would return for that epoch alone.
+      * ``bool`` (subclass of ``int``) or any non-int-parseable value
+        (``None``, empty string, non-numeric string) -- collapses to a
+        row with ``features=None``, matching the never-mis-gate posture
+        :func:`license_features_at` uses for the same inputs. The raw
+        stringified token surfaces in ``epoch`` so a caller can still
+        identify the offending entry.
+
+    Row shape::
+
+        {
+          "epoch":    <int> | "<raw>",
+          "features": [<id>, ...] | None,
+        }
+
+    Semantics per row mirror :func:`license_features_at`:
+
+      * ``None`` on no license, invalid signature, an ``exp`` claim
+        that has already lapsed at ``epoch``, and ``bool`` / non-
+        numeric epochs.
+      * ``[]`` on a signature-valid license AS OF ``epoch`` whose
+        payload carries no explicit ``features`` claim (or holds no
+        usable string ids). Distinct from ``None``.
+      * A sorted, deduplicated, normalised (lower/strip) ``list[str]``
+        of feature ids on a signature-valid, non-expired-at-``epoch``
+        key that carries a well-formed ``features`` claim.
+
+    Duplicates by normalised int key (or ``repr(raw)`` for bad inputs)
+    are dropped preserving first-seen order for byte-stable output.
+    ``epochs is None`` or non-iterable -- returns ``[]``. Never raises:
+    per-row failures short-circuit to ``features=None`` so the batch
+    keeps building. Matches the never-mis-gate posture used by
+    :func:`license_features_at` -- a bad row cannot silently claim a
+    features list that would grant unearned entitlement.
+
+    When any row's ``epoch`` equals "now", the row's ``features`` field
+    must byte-equal :func:`license_features` for the same install --
+    both derive from the same signed ``features`` claim via
+    :func:`license_features_at` / :func:`license_features`, so a caller
+    binding both cannot catch them disagreeing at the boundary.
+
+    Pairs with :func:`license_state_at_batch` /
+    :func:`is_expired_at_batch` / :func:`days_until_expiry_at_batch` /
+    :func:`license_tier_at_batch` on the row-shape axis: for the same
+    epochs list, a caller can zip the responses index-for-index and
+    hydrate a whole entitlement timeline row for one install in a
+    handful of round-trips instead of ``N * M`` calls to the scalar
+    surface.
+    """
+    out: list[dict] = []
+    for raw, _key, parsed in _license_epoch_batch_keys(epochs):
+        if parsed is None:
+            try:
+                token = str(raw)
+            except Exception:
+                token = repr(raw)
+            out.append({"epoch": token, "features": None})
+            continue
+        try:
+            feats = license_features_at(parsed)
+        except Exception as exc:
+            logger.debug(
+                "license: license_features_at_batch per-row failed: %s", exc
+            )
+            feats = None
+        if feats is not None and not isinstance(feats, list):
+            # Defensive: the scalar contract is list[str] | None, but a
+            # future change that ever emitted a non-list would silently
+            # break the per-row parity guarantee. Collapse to None.
+            feats = None
+        out.append({"epoch": parsed, "features": feats})
+    return out
+
+
+def has_feature(feature: str) -> bool:
+    """Boolean gate for "is feature ``<X>`` claimed by my installed key?".
+
+    Thin predicate flavour of :func:`license_features` for callers (a
+    paywall banner, a fleet-node column, an operator entitlement-tile)
+    that want a single-bit answer rather than the full list. Fills the
+    ``license_features -> has_feature`` seat that the sibling
+    ``license_tier -> is_tier`` / ``license_subject -> is_subject`` /
+    ``license_state -> is_state`` pairs already occupy on the license
+    axis, so a caller can hit the predicate without list-membership
+    boilerplate ("does the returned list contain X, after normalising
+    my query the same way the accessor normalises the token claims").
+
+    Returns ``True`` iff a license is installed, signature-valid, NOT
+    expired, and its normalised ``features`` claim contains ``feature``
+    (case-insensitive, whitespace-stripped -- the query is coerced
+    through the same lower/strip pipeline the accessor uses on token
+    claims, so ``"Alerts"`` / ``"alerts"`` / ``"  ALERTS "`` all resolve
+    against the same normalised set). Every other state returns
+    ``False``:
+
+      * no license file on disk (OSS free)
+      * file exists but signature is bogus (an attacker who could edit
+        the payload could otherwise smuggle any ``features`` list into
+        an unsigned body -- we never surface it)
+      * signed-but-lapsed key (a gate binding this predicate cannot
+        silently keep granting features on an expired key -- matches
+        :func:`is_tier`'s "not entitled RIGHT NOW" posture)
+      * valid key with no explicit ``features`` claim (nothing claimed
+        -> nothing matches)
+      * valid key whose ``features`` claim omits the queried id
+      * missing / empty / non-string ``feature`` argument (nothing "has
+        feature empty-string")
+
+    Note: the ``features`` claim is a SUPPLEMENTAL string list carried
+    on the license token; it is NOT the canonical open-core feature
+    catalogue. This predicate answers *"does the KEY carry this
+    feature id?"*, not *"is this feature enforced right now?"*. For
+    the resolved feature set actually enforced by gates, callers
+    should read :func:`clawmetry.entitlements.get_entitlement` (which
+    layers this claim on top of the FREE-tier baseline). A caller who
+    only wants to distinguish "unlocked because the key claims it"
+    from "unlocked because the tier grants it by default" wants this
+    predicate; a caller who wants "should the gate fire?" wants the
+    resolved entitlement.
+
+    Never raises. Any per-row failure of :func:`license_features` (or
+    any exception thrown by the argument normalisation) degrades to
+    ``False`` so a scheduled paywall renderer never crashes on a bad
+    install.
+    """
+    try:
+        requested = str(feature).strip().lower()
+    except Exception:
+        return False
+    if not requested:
+        return False
+    try:
+        feats = license_features()
+    except Exception as exc:
+        logger.debug("license: has_feature underlying read failed: %s", exc)
+        return False
+    if not isinstance(feats, list):
+        return False
+    return requested in feats

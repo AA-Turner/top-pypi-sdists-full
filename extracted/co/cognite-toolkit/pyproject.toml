@@ -1,10 +1,7 @@
 [project]
 name = "cognite_toolkit"
-version = "0.8.148"
+version = "0.8.149"
 description = "Official Cognite Data Fusion tool for project templates and configuration deployment"
-authors = [
-    {name ="Cognite AS", email="support@cognite.com"}
-]
 license = "Apache-2.0"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -37,10 +34,13 @@ dependencies = [
     "mixpanel >=4.10.1",
     "pydantic >=2.12.0",
     "python-dateutil>= 2.9.0",
-    # Pip is used in the cognite run function local
     "pip>=25.0.1",
     "filelock>=3.18.0",
 ]
+
+[[project.authors]]
+name = "Cognite AS"
+email = "support@cognite.com"
 
 [project.urls]
 Homepage = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/"
@@ -48,12 +48,24 @@ Changelog = "https://github.com/cognitedata/toolkit/releases"
 GitHub = "https://github.com/cognitedata/toolkit"
 Documentation = "https://docs.cognite.com/cdf/deploy/cdf_toolkit/references/resource_library"
 
+[project.optional-dependencies]
+table = [
+    "pyarrow>=20.0.0",
+    "openpyxl>=3.1.5",
+]
+sql = ["sqlparse >=0.5.3"]
+v08 = ["cognite-neat >=1.0.43"]
+
+[project.scripts]
+cdf-tk = "cognite_toolkit._cdf:app"
+cdf = "cognite_toolkit._cdf:app"
+
 [dependency-groups]
 dev = [
     "mypy >=1.8.0",
     "pre-commit >=4.0.0",
     "pytest >=8.0.0",
-    "pytest-icdiff", # Used for better diffs in pytest
+    "pytest-icdiff",
     "pytest-regressions >=2.4.2",
     "pytest-xdist >=3.6.1",
     "pytest-rerunfailures >=14.0",
@@ -70,34 +82,20 @@ dev = [
     "marko >=2.1.2",
     "responses>=0.25.7",
     "respx>=0.22.0",
-    "pytest-json-report>=1.5.0", # For generating JSON reports from tests, this is used in the smoke tests
+    "pytest-json-report>=1.5.0",
 ]
-
-[project.optional-dependencies]
-table = [
-    "pyarrow>=20.0.0",
-    "openpyxl>=3.1.5",
-]
-sql = [
-    "sqlparse >=0.5.3",
-]
-v08 = [
-    "cognite-neat >=1.0.43"
-]
-
-[project.scripts]
-cdf-tk = "cognite_toolkit._cdf:app"
-cdf = "cognite_toolkit._cdf:app"
 
 [tool.uv]
 package = true
 
+[tool.uv.build-backend]
+module-name = "cognite_toolkit"
+module-root = ""
+
 [tool.coverage.run]
 source = ["cognite_toolkit"]
 omit = [
-    # The apps module only holds CLI entrypoints, so we skip it in coverage reports'
     "cognite_toolkit/_cdf_tk/apps/*",
-    # Exclude CLI entrypoints
     "cognite_toolkit/_cdf.py",
 ]
 
@@ -118,13 +116,9 @@ exclude_lines = [
 minversion = "8.0"
 testpaths = [
     "tests",
-    # In the case of doctests.
     "cognite_toolkit",
 ]
-
-markers = [
-    "toolkit: big smoke tests",
-]
+markers = ["toolkit: big smoke tests"]
 
 [tool.mypy]
 check_untyped_defs = true
@@ -140,18 +134,13 @@ plugins = ["pydantic.mypy"]
 [tool.pydantic-mypy]
 init_forbid_extra = true
 init_typed = true
-# We use dynamic alias creation as much as possible. This is to ensure
-# all aliases are consistentenly camelCase.
 warn_required_dynamic_aliases = false
 
 [tool.ruff]
 line-length = 120
 
 [tool.ruff.format]
-exclude = [
-    # Ruff messes up the docstrings which are expected to be in Markdown format
-    "cognite_toolkit/_cdf_tk/commands/_changes.py",
-]
+exclude = ["cognite_toolkit/_cdf_tk/commands/_changes.py"]
 
 [tool.ruff.lint]
 exclude = []
@@ -159,7 +148,3 @@ exclude = []
 [build-system]
 requires = ["uv_build>=0.11.0,<0.12.0"]
 build-backend = "uv_build"
-
-[tool.uv.build-backend]
-module-name = "cognite_toolkit"
-module-root = ""

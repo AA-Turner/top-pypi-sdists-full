@@ -651,6 +651,15 @@ def _runtime_reset_commands(workspace_paths: list[str]) -> list[str]:
     """Return generic runtime cleanup commands for a pooled VM."""
     commands = [
         "pkill -x plato-agent-runner 2>/dev/null; true",
+        # Kill everything a workflow ``setup=`` command spawned. The setup
+        # wrapper (plato.workflows.backend.build_setup_command) joins a fresh
+        # cgroup before exec, so the FULL descendant tree — daemonized servers
+        # included — is kernel-tracked here regardless of setsid/double-fork;
+        # ``cgroup.kill`` SIGKILLs the whole membership atomically (fork race
+        # handled in-kernel). rmdir is best-effort: a not-yet-reaped zombie
+        # leaves an empty dir that is harmless and removed on the next reset.
+        'for cg in /sys/fs/cgroup/plato-wf-setup-*; do [ -d "$cg" ] || continue; '
+        'echo 1 > "$cg/cgroup.kill" 2>/dev/null; rmdir "$cg" 2>/dev/null; done; true',
         # Kill any chromium spawned by ``shared_cdp_chromium`` before we rm
         # its profile dir. ``user-data-dir=/tmp/plato-ab-`` is unique to our
         # spawn path, so this never false-positives against other chrome

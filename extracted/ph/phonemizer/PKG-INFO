@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: phonemizer
-Version: 3.3.0
+Version: 3.4.0
 Summary: Simple text to phones converter for multiple languages
 Author: Hadrien Titeux
 Author-email: Mathieu Bernard <mathieu.bernard.2@cnrs.fr>
@@ -692,17 +692,20 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: joblib
-Requires-Dist: segments
 Requires-Dist: attrs>=18.1
 Requires-Dist: dlinfo
 Requires-Dist: typing-extensions
+Provides-Extra: segments
+Requires-Dist: segments; extra == "segments"
 Provides-Extra: test
 Requires-Dist: pytest>=6.0; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: coverage[toml]; extra == "test"
+Requires-Dist: segments; extra == "test"
 Provides-Extra: doc
 Requires-Dist: sphinx; extra == "doc"
 Requires-Dist: sphinx_rtd_theme; extra == "doc"
+Dynamic: license-file
 
 |         **Tests** | [![Linux][badge-test-linux]](https://github.com/bootphon/phonemizer/actions/workflows/linux.yaml) [![MacOS][badge-test-macos]](https://github.com/bootphon/phonemizer/actions/workflows/macos.yaml) [![Windows][badge-test-windows]](https://github.com/bootphon/phonemizer/actions/workflows/windows.yaml) [![Codecov][badge-codecov]](https://codecov.io/gh/bootphon/phonemizer) |
 |------------------:| --- |

@@ -224,9 +224,37 @@ def report_options(fn: Callable) -> Callable:
 
 
 def state_file_option(fn: Callable) -> Callable:
-    """``--state-input`` / ``--state-file``: the persisted-state round trip for
-    run/refresh — read recorded asset state in, write the post-execution state
-    back out."""
+    """``--state-input`` / ``--state-file`` / ``--state-partition``: the
+    persisted-state round trip for run/refresh — read recorded asset state in,
+    write the post-execution state back out, optionally scoped to the partitions
+    this invocation owned."""
+    fn = click.option(
+        "--state-max-partitions",
+        "state_max_partitions",
+        default=None,
+        help=(
+            "Slices per datasource a written snapshot may carry (env: "
+            "TRILOGY_STATE_MAX_PARTITIONS). Unset carries every slice; `0` "
+            "carries none and reports only the summary counts. A payload budget "
+            "for whatever reads the file, so set it only if that reader has one "
+            "— the counts in partition_summary stay exact whatever it is, and "
+            "stale slices are kept first, so a trimmed list is still the "
+            "backfill queue."
+        ),
+    )(fn)
+    fn = click.option(
+        "--state-partition",
+        "state_partition",
+        multiple=True,
+        default=(),
+        help=(
+            "Partition id this run owns, e.g. `order_date=2024-01-03` (repeatable; "
+            "env: TRILOGY_STATE_PARTITION, comma-separated). Scopes --state-file "
+            "to those slices and marks it a partial delta, so concurrent "
+            "per-partition workers produce snapshots that `trilogy state-merge` "
+            "can fold together without clobbering each other."
+        ),
+    )(fn)
     fn = click.option(
         "--state-input",
         "state_input",

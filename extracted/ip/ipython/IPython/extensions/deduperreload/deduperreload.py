@@ -63,7 +63,9 @@ def compare_ast(node1: ast.AST | list[ast.AST], node2: ast.AST | list[ast.AST]) 
             compare_ast(n1, n2) for n1, n2 in zip(node1, node2)
         )
     else:
-        return node1 == node2
+        # unreachable in practice: the `type(node1) is not type(node2)` check
+        # above guarantees both are the same (non-AST, non-list) type here
+        return node1 == node2  # type:ignore [comparison-overlap]
 
 
 class DependencyNode(NamedTuple):
@@ -116,7 +118,7 @@ class ConstexprDetector(ast.NodeVisitor):
         self._allow_builtins_exceptions = True
 
     @contextlib.contextmanager
-    def disallow_builtins_exceptions(self) -> Generator[None, None, None]:
+    def disallow_builtins_exceptions(self) -> Generator[None]:
         prev_allow = self._allow_builtins_exceptions
         self._allow_builtins_exceptions = False
         try:
@@ -469,7 +471,7 @@ class DeduperReloader(DeduperReloaderPatchingMixin):
                     compiled_code = compile(
                         func_ast, filename, mode="exec", dont_inherit=True
                     )
-                    exec(compiled_code, global_env, local_env)  # type: ignore[arg-type]
+                    exec(compiled_code, global_env, local_env)
                     # local_env contains the function exec'd from  new version of function
                     if is_method:
                         to_patch_from = getattr(local_env["__autoreload_class__"], name)
@@ -572,7 +574,7 @@ class DeduperReloader(DeduperReloaderPatchingMixin):
             except Exception:
                 return False
             # detect if we are able to use our autoreload algorithm
-            ctx = contextlib.suppress()
+            ctx = contextlib.suppress(Exception)
             with ctx:
                 self._build_dependency_graph(new_module_ast)
                 if (

@@ -295,7 +295,12 @@ def _validate_log_offsets(state: dict, paths: dict) -> None:
             log.warning(f"Could not validate offset for {fname}: {e}")
 
 
-INGEST_URL = os.environ.get("CLAWMETRY_INGEST_URL", "https://ingest.clawmetry.com")
+# Resolved through clawmetry.endpoints (env CLAWMETRY_ENDPOINT >
+# env CLAWMETRY_INGEST_URL > config "endpoint" > managed cloud). Snapshotted
+# at import time — approvals.py and tests import this constant directly.
+from clawmetry.endpoints import ingest_url as _resolve_ingest_url
+
+INGEST_URL = _resolve_ingest_url()
 CONFIG_DIR = Path.home() / ".clawmetry"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 STATE_FILE = CONFIG_DIR / "sync-state.json"
@@ -1046,6 +1051,13 @@ def _post(path: str, payload: dict, api_key: str, timeout: int = 45) -> dict:
             return {"_cloud_disabled": True, "sync_allowed": False}
     except Exception:
         pass
+    # Opt-in gate: cloud egress requires an explicitly linked account.
+    # A self-hosted node (e.g. license-key onboarding, never connected) has
+    # api_key="" — previously every cycle POSTed X-Api-Key:"" and got a 401
+    # (3 retries each), spamming both ingest and the local log. Default =
+    # nothing leaves the machine until `clawmetry login`/`connect`.
+    if not api_key:
+        return {"_no_account": True, "sync_allowed": False}
     url = INGEST_URL.rstrip("/") + path
     body = json.dumps(payload).encode()
     headers = {"Content-Type": "application/json", "X-Api-Key": api_key}
@@ -4987,6 +4999,7 @@ _CHANNEL_DIRS: tuple[str, ...] = (
     "synologychat",
     "nextcloudtalk",
     "clickclack",
+    "buzz",
 )
 
 # Filenames inside ``~/.openclaw/<channel>/`` that are NOT conversation
@@ -6125,7 +6138,8 @@ _LITE_RT_LABELS = {
     "claude_code": "Claude Code", "codex": "Codex", "cursor": "Cursor",
     "aider": "Aider", "goose": "Goose", "opencode": "opencode",
     "qwen_code": "Qwen Code", "hermes": "Hermes", "picoclaw": "PicoClaw",
-    "nanoclaw": "NanoClaw",
+    "nanoclaw": "NanoClaw", "pi": "Pi", "deepagents": "Deep Agents",
+    "n8n": "n8n", "antigravity": "Antigravity",
 }
 
 # Activity thresholds (seconds) for classifying a detected runtime. Detecting a
@@ -6163,6 +6177,8 @@ def _runtime_data_paths(rid: str) -> list:
         "picoclaw": [os.path.join(home, ".picoclaw")],
         "nanoclaw": [os.path.join(home, ".nanoclaw")],
         "n8n": [os.path.join(home, ".n8n", "database.sqlite")],
+        "antigravity": [os.path.join(home, ".gemini", f) for f in
+                        ("antigravity", "antigravity-cli", "antigravity-ide", "jetski")],
     }
     return _M.get(rid, [])
 
@@ -6289,6 +6305,8 @@ def _detect_runtimes_lite() -> list:
         "picoclaw": [os.path.join(home, ".picoclaw")],
         "nanoclaw": [os.path.join(home, ".nanoclaw")],
         "n8n": [os.path.join(home, ".n8n", "database.sqlite")],
+        "antigravity": [os.path.join(home, ".gemini", f) for f in
+                        ("antigravity", "antigravity-cli", "antigravity-ide", "jetski")],
     }
     for rid, paths in _present.items():
         try:
@@ -7125,6 +7143,17 @@ def _heartbeat_limits_payload():
     return _LIMITS_CACHE["payload"]
 
 
+def _install_id_for_heartbeat() -> str:
+    """The persistent install_id (creating it if this daemon is the first
+    process to run on a fresh install). Empty string on any failure —
+    the heartbeat must never be blocked by identity plumbing."""
+    try:
+        from clawmetry import telemetry as _telemetry
+        return _telemetry._ensure_install_id() or ""
+    except Exception:
+        return ""
+
+
 def send_heartbeat(config: dict) -> bool:
     """Send heartbeat to cloud. Returns True on success, False on failure.
 
@@ -7142,6 +7171,10 @@ def send_heartbeat(config: dict) -> bool:
             return False
     except Exception:
         pass
+    # Opt-in gate: no linked account -> no heartbeat (and no payload-build
+    # cost). Mirrors the _post() gate; see cloud_egress_enabled().
+    if not (config or {}).get("api_key"):
+        return False
     global _LAST_HEARTBEAT_RESPONSE
     payload = {
         "node_id": config["node_id"],
@@ -7151,6 +7184,11 @@ def send_heartbeat(config: dict) -> bool:
         "e2e": bool(config.get("encryption_key")),
         "ollama": _detect_ollama_for_heartbeat(),
         "node_meta": _build_node_meta(),
+        # Persistent per-install identity (~/.clawmetry/install_id) so the
+        # cloud can join this node to its row in the install registry.
+        # Part of authenticated cloud sync, not the anonymous telemetry
+        # channel — the node already identifies itself by node_id here.
+        "install_id": _install_id_for_heartbeat(),
         # Runtimes DETECTED on this machine (Claude Code, Codex, …) — reported
         # even when not synced, so the Fleet can show "you're running these,
         # upgrade to observe them". Free lite-detection so the nudge reaches
@@ -7912,6 +7950,16 @@ def _build_brain_events() -> list:
 
     picked.sort(key=lambda r: r.get("ts") or "", reverse=True)
     picked = picked[:BRAIN_CACHE_LIMIT]
+    # Collapse duplicate-content siblings (assistant + model.completed +
+    # delivery-mirror echo; gateway prompt.submitted + transcript user copy)
+    # with the SAME shared logic /api/brain-history uses. Without this the
+    # cloud feed showed each reply three times while the local API showed it
+    # once (founder screenshot, 2026-07-31).
+    try:
+        from clawmetry.brain_dedupe import collapse_duplicate_brain_rows
+        picked = collapse_duplicate_brain_rows(picked)
+    except Exception:
+        pass
     # Same translation as routes/brain.py:_try_local_store_brain (incl. the
     # hide_clawmetry_session filter + sessionId stamp + size cap).
     return _rows_to_brain_events(picked)[:BRAIN_CACHE_LIMIT]
@@ -7950,6 +7998,13 @@ def _build_brain_events_window(since=None, until=None, limit=BRAIN_WINDOW_LIMIT)
     except Exception:
         return []
     rows = [r for r in rows if _brain_row_renderable(r)][:lim]
+    # Same duplicate-sibling collapse as the live blob (_build_brain_events):
+    # a windowed investigation must not show one reply three times either.
+    try:
+        from clawmetry.brain_dedupe import collapse_duplicate_brain_rows
+        rows = collapse_duplicate_brain_rows(rows)
+    except Exception:
+        pass
     return _rows_to_brain_events(rows)[:lim]
 
 
@@ -11416,6 +11471,7 @@ _FAMILY_ADAPTER_SPECS = (
     ("clawmetry_pro.adapters.pi", "PiAdapter"),
     ("clawmetry_pro.adapters.deepagents", "DeepAgentsAdapter"),
     ("clawmetry_pro.adapters.n8n", "N8nAdapter"),
+    ("clawmetry_pro.adapters.antigravity", "AntigravityAdapter"),
 )
 
 
@@ -12533,6 +12589,7 @@ def _build_model_attribution():
 _RUNTIME_PREFIXES = frozenset({
     "picoclaw", "nanoclaw", "hermes", "claude_code", "codex", "cursor",
     "aider", "goose", "opencode", "qwen_code", "pi", "deepagents", "n8n",
+    "antigravity",
 })
 
 
@@ -17593,7 +17650,9 @@ def start_event_streamer(config: dict, state: dict, paths: dict) -> threading.Th
     return t
 
 
-_APP_BASE = os.environ.get("CLAWMETRY_APP_BASE", "https://app.clawmetry.com").rstrip("/")
+from clawmetry.endpoints import app_url as _resolve_app_url
+
+_APP_BASE = _resolve_app_url()
 
 
 def _is_placeholder_email(email) -> bool:
@@ -17682,6 +17741,35 @@ def start_claim_watcher(config: dict):
 
 
 def run_daemon() -> None:
+    # Enterprise TLS/proxy bootstrap FIRST — before any cloud call. Installs
+    # the OS-trust-store (truststore) SSL context + proxy-env opener that
+    # every urlopen in this process (heartbeat, snapshot push, telemetry)
+    # rides on. launchd/systemd/Task Scheduler don't inherit the user's
+    # shell env, so proxy vars are re-read here at daemon start. Never
+    # raises; local DuckDB ingestion is unaffected if this fails.
+    try:
+        from clawmetry.net import configure_outbound_network
+        configure_outbound_network(role="daemon")
+    except Exception as _net_e:
+        log.warning("TLS/proxy bootstrap failed: %s", _net_e)
+    # Outbound OTLP exporter (enterprise): activated by the ``otlp_endpoint``
+    # key in ~/.clawmetry/config.json. scope="config" is daemon-only — the
+    # dashboard's env-var-activated exporter is a separate scope, so both
+    # processes never double-export. No-op when the key is unset.
+    try:
+        from clawmetry.otel_exporter import start_exporter as _start_otel
+        if _start_otel(scope="config"):
+            log.info("OTLP exporter started (config otlp_endpoint)")
+    except Exception as _otel_e:
+        log.warning("OTLP exporter not started: %s", _otel_e)
+    # Windows: the daemon runs DETACHED (no console), so unpatched child
+    # processes (pip update check, node --version, disk probes) each flash
+    # a visible cmd window. Patch Popen once so children stay windowless.
+    try:
+        from clawmetry.winconsole import hide_child_console_windows
+        hide_child_console_windows()
+    except Exception:
+        pass
     if not _acquire_pid_lock():
         print(
             "[clawmetry-sync] Another instance is already running. Exiting.", flush=True
@@ -17722,6 +17810,18 @@ def run_daemon() -> None:
         _ext_load()
     except Exception as _ext_e:
         log.warning("extensions load_plugins failed: %s", _ext_e)
+
+    # Install-lifecycle ping (install/update, anonymous, opt-out — see
+    # clawmetry/telemetry.py). The daemon is the only process guaranteed
+    # to run after an unattended auto-update (os.execv re-exec), so
+    # without this call headless nodes would never report upgrades and
+    # the cloud install registry would silently go stale for exactly the
+    # most-engaged installs.
+    try:
+        from clawmetry import telemetry as _telemetry
+        _telemetry.maybe_ping(_get_version())
+    except Exception:
+        pass
 
     try:
         config = load_config()
@@ -17792,6 +17892,14 @@ def run_daemon() -> None:
             f"Starting sync daemon — node={config['node_id']} "
             f"(LOCAL-ONLY mode: cloud sync disabled, "
             f"ingesting into local DuckDB only)"
+        )
+    elif not config.get("api_key"):
+        # Opt-in gate: no linked account. Say it ONCE here instead of a 401
+        # warning per heartbeat cycle (the pre-2026-07-31 behaviour).
+        log.info(
+            f"Starting sync daemon — node={config['node_id']} "
+            f"(SELF-HOSTED: no cloud account linked, nothing leaves this "
+            f"machine; run `clawmetry login` to enable cloud sync)"
         )
     else:
         log.info(f"Starting sync daemon — node={config['node_id']} → {INGEST_URL} ({enc})")
@@ -18534,8 +18642,8 @@ def run_daemon() -> None:
             save_state(state)
             if ev or lg or mem or crons or sm or snap or cron_runs or tg or oc_cc:
                 try:
-                    from clawmetry.config import is_cloud_disabled as _icd_cycle
-                    _cycle_local_only = _icd_cycle()
+                    from clawmetry.config import cloud_egress_enabled as _cee
+                    _cycle_local_only = not _cee(config)
                 except Exception:
                     _cycle_local_only = False
                 if _cycle_local_only:
@@ -18544,7 +18652,7 @@ def run_daemon() -> None:
                     # founder believe data was leaving a machine whose whole
                     # promise was that it never would (2026-07-30).
                     log.info(
-                        f"Ingested locally (local-only, nothing sent): {ev} events ({oc_cc} from claude-cc), {lg} log lines, {mem} memory files, {crons} crons, {cron_runs} cron-runs, {sm} session rows, {tg} telegram-out"
+                        f"Ingested locally (self-hosted, nothing sent): {ev} events ({oc_cc} from claude-cc), {lg} log lines, {mem} memory files, {crons} crons, {cron_runs} cron-runs, {sm} session rows, {tg} telegram-out"
                     )
                 else:
                     log.info(
@@ -18668,15 +18776,18 @@ def run_daemon() -> None:
 
             now = time.time()
             if now - last_heartbeat > heartbeat_interval:
-                from clawmetry.config import is_cloud_disabled as _hb_cloud_off
-                if _hb_cloud_off():
-                    # Local-only mode (#3281): there is no cloud to heart-beat.
+                from clawmetry.config import cloud_egress_enabled as _hb_egress
+                if not _hb_egress(config):
+                    # No cloud egress (#3281 local-only, or #4329 self-hosted
+                    # with no linked account): there is no cloud to heart-beat.
                     # Skip the attempt entirely. Otherwise send_heartbeat returns
                     # falsy every cycle, consecutive_hb_failures climbs without
                     # bound, and we log CRITICAL "node appears offline in cloud"
                     # every ~15s -- which the daemon-error tee (PRD #1133) writes
                     # into the capped events table, EVICTING the user's real
-                    # agent events from the Brain feed. Local-only must be silent.
+                    # agent events from the Brain feed. No-egress must be silent
+                    # (found live on the Windows node minutes after 0.12.606:
+                    # the 401 wall was replaced by a CRITICAL wall).
                     consecutive_hb_failures = 0
                     last_heartbeat = now
                     heartbeat_interval = HEARTBEAT_INTERVAL_SLOW

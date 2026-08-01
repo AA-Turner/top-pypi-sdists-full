@@ -11,6 +11,10 @@ dict_indices = {
     "TXn": ["Cold", "Minimum daily maximum temperature"],
     "TNn": ["Cold", "Minimum daily minimum temperature"],
     "CDD": ["Drought", "Maximum consecutive dry days (Precip < 1mm)"],
+    # Total (not necessarily consecutive) dry-day count — the direct complement
+    # of RR1 (wet days >= 1mm). Computed directly with numpy (_cid_dry_days in
+    # indices.py); not an ECAD/ETCCDI catalog index.
+    "DD": ["Drought", "Number of dry days (Precip < 1mm)"],
     # SPI3/SPI6 temporarily disabled while we test detrended-target training
     # independently. Re-enable + rebuild once we know whether trend-anchoring
     # was the primary failure mode for 2016 DF (over-forecast) — if yes, SPI
@@ -26,6 +30,11 @@ dict_indices = {
     "TXx": ["Heat", "Maximum daily maximum temperature"],
     "TNx": ["Heat", "Maximum daily minimum temperature"],
     "CSU": ["Heat", "Maximum number of consecutive summer days (Tmax >25 C)"],
+    # Killing degree days — accumulated heat stress: sum of daily Tmax excess
+    # above 32 C (sum of max(0, Tmax - 32)). The heat-side complement to GD4
+    # (growing DD, Tmean>4) and HD17 (heating DD, Tmean<17). Not an ECAD index;
+    # computed directly with numpy (_cid_killing_degree_days in indices.py).
+    "KDD": ["Heat", "Killing degree days (sum of Tmax - 32C for Tmax > 32C)"],
     "PRCPTOT": ["Rain", "Total precipitation during Wet Days"],
     "RR1": ["Rain", "Number of Wet Days (precip >= 1 mm)"],
     "SDII": ["Rain", "Average precipitation during Wet Days (SDII)"],
@@ -121,19 +130,19 @@ dict_esi4wk = {
     # nonlinearly" candidates. Thresholds (30/40/50) sit around the ESI
     # distribution (~p10/p25/median for the poppy AOI). All computed by the
     # generic aggregators in indices.aggregate_eo_values.
-    "P05_ESI4WK":  ["ESI", "5th percentile of ESI 4WK"],
-    "P10_ESI4WK":  ["ESI", "10th percentile of ESI 4WK"],
-    "P20_ESI4WK":  ["ESI", "20th percentile of ESI 4WK"],
-    "P30_ESI4WK":  ["ESI", "30th percentile of ESI 4WK"],
-    "P70_ESI4WK":  ["ESI", "70th percentile of ESI 4WK"],
-    "P90_ESI4WK":  ["ESI", "90th percentile of ESI 4WK"],
-    "AUCDEF40_ESI4WK": ["ESI", "Mean deficit of ESI 4WK below 40 (integrated drought)"],
-    "AUCDEF50_ESI4WK": ["ESI", "Mean deficit of ESI 4WK below 50 (integrated drought)"],
-    "FRACLO30_ESI4WK": ["ESI", "Fraction of window with ESI 4WK below 30"],
-    "FRACLO40_ESI4WK": ["ESI", "Fraction of window with ESI 4WK below 40"],
-    "CV_ESI4WK":    ["ESI", "Coefficient of variation of ESI 4WK"],
-    "IQR_ESI4WK":   ["ESI", "Interquartile range of ESI 4WK"],
-    "RANGE_ESI4WK": ["ESI", "Range (max-min) of ESI 4WK"],
+    #"P05_ESI4WK":  ["ESI", "5th percentile of ESI 4WK"],
+    #"P10_ESI4WK":  ["ESI", "10th percentile of ESI 4WK"],
+    #"P20_ESI4WK":  ["ESI", "20th percentile of ESI 4WK"],
+    #"P30_ESI4WK":  ["ESI", "30th percentile of ESI 4WK"],
+    #"P70_ESI4WK":  ["ESI", "70th percentile of ESI 4WK"],
+    #"P90_ESI4WK":  ["ESI", "90th percentile of ESI 4WK"],
+    #"AUCDEF40_ESI4WK": ["ESI", "Mean deficit of ESI 4WK below 40 (integrated drought)"],
+    #"AUCDEF50_ESI4WK": ["ESI", "Mean deficit of ESI 4WK below 50 (integrated drought)"],
+    #"FRACLO30_ESI4WK": ["ESI", "Fraction of window with ESI 4WK below 30"],
+    #"FRACLO40_ESI4WK": ["ESI", "Fraction of window with ESI 4WK below 40"],
+    #"CV_ESI4WK":    ["ESI", "Coefficient of variation of ESI 4WK"],
+    #"IQR_ESI4WK":   ["ESI", "Interquartile range of ESI 4WK"],
+    #"RANGE_ESI4WK": ["ESI", "Range (max-min) of ESI 4WK"],
 }
 
 dict_hindex = {
@@ -163,6 +172,32 @@ dict_aef = {
 dict_aridity = {
     "AI": ["Aridity", "Global Aridity Index (MA-P / MA-ET0, Zomer 2022; higher = wetter)"]
 }
+
+# SoilGrids 2.0 static soil properties — depth-weighted rooting-zone means
+# (geoprepare process_soilgrids; depth from geobase [SOILGRIDS] depth_cm).
+# One value per admin region, no time dimension; native SoilGrids units.
+dict_soilgrids = {
+    "SOIL_SAND": ["Soil", "SoilGrids sand fraction, rooting-zone mean (g/kg)"],
+    "SOIL_CLAY": ["Soil", "SoilGrids clay fraction, rooting-zone mean (g/kg)"],
+    "SOIL_SOC": ["Soil", "SoilGrids soil organic carbon, rooting-zone mean (dg/kg)"],
+    "SOIL_BDOD": ["Soil", "SoilGrids bulk density, rooting-zone mean (cg/cm^3)"],
+}
+# index name -> raw column in the merged geoprepare CSV
+soilgrids_col_map = {
+    "SOIL_SAND": "soil_sand",
+    "SOIL_CLAY": "soil_clay",
+    "SOIL_SOC": "soil_soc",
+    "SOIL_BDOD": "soil_bdod",
+}
+aridity_col_map = {"AI": "aridity"}
+
+# Static per-region EO features (no time/stage dimension). These are NOT
+# emitted as staged CID rows by cid/indices.py — geocif joins the raw
+# geomerge columns onto the wide ML frame post-pivot as bare stage-less
+# columns (geocif._add_static_eo_features) and force-includes them in
+# create_feature_names, gated by use_cids.
+dict_static_eo = {**dict_aridity, **dict_soilgrids}
+STATIC_EO_COL_MAP = {**aridity_col_map, **soilgrids_col_map}
 
 # FLDAS forecast variables (5 variables × 6 lead times, monthly resolution)
 FLDAS_VARIABLES = [

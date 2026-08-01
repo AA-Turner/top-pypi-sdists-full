@@ -4,10 +4,10 @@
 
 [project]
 name = "mypy-boto3-rds"
-version = "1.43.51"
+version = "1.43.62"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for boto3 RDS 1.43.51 service generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for boto3 RDS 1.43.62 service generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Generic, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, HttpUrl, model_validator
 from pydantic.alias_generators import to_camel
 
 T = TypeVar("T")
@@ -26,6 +26,11 @@ HistoryStatus = Literal["completed", "failed", "running", "paused", "deleted"]
 
 FetchContentType = Literal[
     "text/html",
+    "application/json",
+    "text/markdown",
+    "text/plain",
+    "text/csv",
+    "application/x-latex",
     "application/pdf",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "application/vnd.openxmlformats-officedocument.presentationml.presentation",
@@ -41,9 +46,37 @@ FetchContentType = Literal[
     "application/epub+zip",
     "application/rtf",
     "application/vnd.oasis.opendocument.text",
-    "text/csv",
-    "text/plain",
-    "application/x-latex",
+]
+
+
+class PdfProcessor(CamelModel):
+    type: Literal["pdf"] = "pdf"
+    max_pages: Literal[-1] | Annotated[int, Field(ge=1, le=500)] = 25
+
+
+def _unique_allowed_types(values: list[FetchContentType]) -> list[FetchContentType]:
+    if len(values) != len(set(values)):
+        raise ValueError("duplicate allowed types not allowed")
+    return values
+
+
+def _unique_processors(values: list[PdfProcessor]) -> list[PdfProcessor]:
+    types = [processor.type for processor in values]
+    if len(types) != len(set(types)):
+        raise ValueError("duplicate processor types not allowed")
+    return values
+
+
+AllowedTypes = Annotated[
+    list[FetchContentType], Field(min_length=1), AfterValidator(_unique_allowed_types)
+]
+Processors = Annotated[list[PdfProcessor], Field(min_length=1), AfterValidator(_unique_processors)]
+
+
+ScrapeContentFormat = Literal["markdown", "html", "links", "images", "summary", "json", "branding"]
+ScrapeCaptureFormat = Literal["screenshot"]
+ScrapeFormat = Literal[
+    "markdown", "html", "links", "images", "summary", "json", "branding", "screenshot"
 ]
 
 
@@ -74,17 +107,17 @@ class FetchConfig(CamelModel):
     mock: bool | MockConfig = False
 
 
-class MarkdownFormatConfig(CamelModel):
+class ScrapeMarkdownFormatEntry(CamelModel):
     type: Literal["markdown"] = "markdown"
     mode: HtmlMode = "normal"
 
 
-class HtmlFormatConfig(CamelModel):
+class ScrapeHtmlFormatEntry(CamelModel):
     type: Literal["html"] = "html"
     mode: HtmlMode = "normal"
 
 
-class ScreenshotFormatConfig(CamelModel):
+class ScrapeScreenshotFormatEntry(CamelModel):
     type: Literal["screenshot"] = "screenshot"
     full_page: bool = False
     width: int = Field(default=1440, ge=320, le=3840)
@@ -92,46 +125,58 @@ class ScreenshotFormatConfig(CamelModel):
     quality: int = Field(default=80, ge=1, le=100)
 
 
-class JsonFormatConfig(CamelModel):
+class ScrapeJsonFormatEntry(CamelModel):
     type: Literal["json"] = "json"
-    prompt: Annotated[str, Field(min_length=1, max_length=10000)]
+    prompt: Annotated[str, Field(max_length=10000)] = ""
     schema_: dict[str, object] | None = Field(default=None, alias="schema")
     mode: HtmlMode = "normal"
 
 
-class LinksFormatConfig(CamelModel):
+class ScrapeLinksFormatEntry(CamelModel):
     type: Literal["links"] = "links"
 
 
-class ImagesFormatConfig(CamelModel):
+class ScrapeImagesFormatEntry(CamelModel):
     type: Literal["images"] = "images"
 
 
-class SummaryFormatConfig(CamelModel):
+class ScrapeSummaryFormatEntry(CamelModel):
     type: Literal["summary"] = "summary"
 
 
-class BrandingFormatConfig(CamelModel):
+class ScrapeBrandingFormatEntry(CamelModel):
     type: Literal["branding"] = "branding"
 
 
-FormatConfig = (
-    MarkdownFormatConfig
-    | HtmlFormatConfig
-    | ScreenshotFormatConfig
-    | JsonFormatConfig
-    | LinksFormatConfig
-    | ImagesFormatConfig
-    | SummaryFormatConfig
-    | BrandingFormatConfig
+ScrapeFormatEntry = (
+    ScrapeMarkdownFormatEntry
+    | ScrapeHtmlFormatEntry
+    | ScrapeScreenshotFormatEntry
+    | ScrapeJsonFormatEntry
+    | ScrapeLinksFormatEntry
+    | ScrapeImagesFormatEntry
+    | ScrapeSummaryFormatEntry
+    | ScrapeBrandingFormatEntry
 )
+
+MarkdownFormatConfig = ScrapeMarkdownFormatEntry
+HtmlFormatConfig = ScrapeHtmlFormatEntry
+ScreenshotFormatConfig = ScrapeScreenshotFormatEntry
+JsonFormatConfig = ScrapeJsonFormatEntry
+LinksFormatConfig = ScrapeLinksFormatEntry
+ImagesFormatConfig = ScrapeImagesFormatEntry
+SummaryFormatConfig = ScrapeSummaryFormatEntry
+BrandingFormatConfig = ScrapeBrandingFormatEntry
+FormatConfig = ScrapeFormatEntry
 
 
 class ScrapeRequest(CamelModel):
     url: HttpUrl
     content_type: FetchContentType | None = None
+    allowed_types: AllowedTypes | None = None
+    processors: Processors | None = None
     fetch_config: FetchConfig | None = None
-    formats: list[FormatConfig] = Field(default_factory=lambda: [MarkdownFormatConfig()])
+    formats: list[ScrapeFormatEntry] = Field(default_factory=lambda: [ScrapeMarkdownFormatEntry()])
 
     @model_validator(mode="after")
     def validate_unique_formats(self):
@@ -141,7 +186,7 @@ class ScrapeRequest(CamelModel):
         return self
 
 
-class ExtractRequest(CamelModel):
+class ExtractRequestBase(CamelModel):
     url: HttpUrl | None = None
     html: str | None = None
     markdown: str | None = None
@@ -149,6 +194,8 @@ class ExtractRequest(CamelModel):
     prompt: Annotated[str, Field(min_length=1, max_length=10000)]
     schema_: dict[str, object] | None = Field(default=None, alias="schema")
     content_type: FetchContentType | None = None
+    allowed_types: AllowedTypes | None = None
+    processors: Processors | None = None
     fetch_config: FetchConfig | None = None
 
     @model_validator(mode="after")
@@ -156,6 +203,9 @@ class ExtractRequest(CamelModel):
         if not self.url and not self.html and not self.markdown:
             raise ValueError("Either url, html, or markdown is required")
         return self
+
+
+ExtractRequest = ExtractRequestBase
 
 
 class SearchRequest(CamelModel):
@@ -167,6 +217,8 @@ class SearchRequest(CamelModel):
     prompt: Annotated[str, Field(min_length=1, max_length=10000)] | None = None
     schema_: dict[str, object] | None = Field(default=None, alias="schema")
     location_geo_code: Annotated[str, Field(max_length=10)] | None = None
+    allowed_types: AllowedTypes | None = None
+    processors: Processors | None = None
     time_range: TimeRange | None = None
 
     @model_validator(mode="after")
@@ -179,7 +231,7 @@ class SearchRequest(CamelModel):
 class MonitorCreateRequest(CamelModel):
     url: HttpUrl
     name: Annotated[str, Field(max_length=200)] | None = None
-    formats: list[FormatConfig] = Field(default_factory=lambda: [MarkdownFormatConfig()])
+    formats: list[ScrapeFormatEntry] = Field(default_factory=lambda: [ScrapeMarkdownFormatEntry()])
     webhook_url: HttpUrl | None = None
     interval: Annotated[str, Field(min_length=1, max_length=100)]
     fetch_config: FetchConfig | None = None
@@ -194,7 +246,7 @@ class MonitorCreateRequest(CamelModel):
 
 class MonitorUpdateRequest(CamelModel):
     name: Annotated[str, Field(max_length=200)] | None = None
-    formats: list[FormatConfig] | None = None
+    formats: list[ScrapeFormatEntry] | None = None
     webhook_url: HttpUrl | None = None
     interval: Annotated[str, Field(min_length=1, max_length=100)] | None = None
     fetch_config: FetchConfig | None = None
@@ -210,14 +262,15 @@ class MonitorUpdateRequest(CamelModel):
 
 class CrawlRequest(CamelModel):
     url: HttpUrl
-    formats: list[FormatConfig] = Field(default_factory=lambda: [MarkdownFormatConfig()])
+    formats: list[ScrapeFormatEntry] = Field(default_factory=lambda: [ScrapeMarkdownFormatEntry()])
     max_depth: int = Field(default=2, ge=0)
     max_pages: int = Field(default=50, ge=1, le=1000)
     max_links_per_page: int = Field(default=10, ge=1)
     allow_external: bool = False
     include_patterns: list[str] | None = None
     exclude_patterns: list[str] | None = None
-    content_types: list[FetchContentType] | None = None
+    allowed_types: AllowedTypes | None = None
+    processors: Processors | None = None
     fetch_config: FetchConfig | None = None
 
     @model_validator(mode="after")
@@ -226,6 +279,11 @@ class CrawlRequest(CamelModel):
         if len(types) != len(set(types)):
             raise ValueError("duplicate format types not allowed")
         return self
+
+
+class CrawlPagesQuery(CamelModel):
+    cursor: int = Field(default=0, ge=0)
+    limit: int = Field(default=50, ge=1, le=100)
 
 
 class HistoryFilter(CamelModel):
@@ -270,6 +328,17 @@ class ScrapeResponse(ResponseModel):
     errors: dict | None = None
 
     model_config = ConfigDict(extra="allow")
+
+
+class ScrapeFormatError(ResponseModel):
+    code: str
+    error: str
+
+
+class ScrapeScreenshotData(ResponseModel):
+    url: str
+    width: int | None = None
+    height: int | None = None
 
 
 class ExtractResponse(ResponseModel):
@@ -320,6 +389,7 @@ class CrawlPage(ResponseModel):
     screenshot_url: str | None = None
     reason: str | None = None
     error: str | None = None
+    scrape: ScrapeResponse | None = None
 
     model_config = ConfigDict(extra="allow")
 
@@ -331,6 +401,18 @@ class CrawlResponse(ResponseModel):
     total: int
     finished: int
     pages: list[CrawlPage]
+
+    model_config = ConfigDict(extra="allow")
+
+
+class CursorPagination(ResponseModel):
+    limit: int
+    next_cursor: str | int | None
+
+
+class CrawlPagesResponse(ResponseModel):
+    data: list[CrawlPage]
+    pagination: CursorPagination
 
     model_config = ConfigDict(extra="allow")
 
@@ -420,9 +502,12 @@ class MonitorActivityResponse(ResponseModel):
     model_config = ConfigDict(extra="allow")
 
 
-class MonitorActivityRequest(CamelModel):
+class MonitorActivityQuery(CamelModel):
     limit: int = Field(default=20, ge=1, le=100)
     cursor: str | None = None
+
+
+MonitorActivityRequest = MonitorActivityQuery
 
 
 class HistoryEntry(ResponseModel):
@@ -471,14 +556,9 @@ class CreditsResponse(ResponseModel):
     model_config = ConfigDict(extra="allow")
 
 
-class HealthServices(ResponseModel):
-    redis: Literal["ok", "down"]
-    db: Literal["ok", "down"]
-
-
 class HealthResponse(ResponseModel):
-    status: str
+    status: Literal["ok", "degraded"]
     uptime: int
-    services: HealthServices | None = None
+    services: dict[str, str] | None = None
 
     model_config = ConfigDict(extra="allow")

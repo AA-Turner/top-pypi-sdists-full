@@ -1004,7 +1004,7 @@ instance_profile = iam.InstanceProfile.from_instance_profile_attributes(self, "I
 * Policy names are not required - the CDK logical ID will be used and ensured to be unique.
 * Policies are validated during synthesis to ensure that they have actions, and that policies
   attached to IAM principals specify relevant resources, while policies attached to resources
-  specify which IAM principals they apply to.
+  specify both which IAM principals they apply to and which resources they govern.
 '''
 from __future__ import annotations
 
@@ -11556,14 +11556,36 @@ class PolicyDocument(
         return typing.cast(typing.List[builtins.str], jsii.invoke(self, "validateForIdentityPolicy", []))
 
     @jsii.member(jsii_name="validateForResourcePolicy")
-    def validate_for_resource_policy(self) -> typing.List[builtins.str]:
+    def validate_for_resource_policy(
+        self,
+        *,
+        skip_resource_validation: typing.Optional[builtins.bool] = None,
+    ) -> typing.List[builtins.str]:
         '''Validate that all policy statements in the policy document satisfies the requirements for a resource-based policy.
+
+        :param skip_resource_validation: Whether to skip resource validation for policies where resources are implicit (e.g., ECR repository policies where the resource is the repository itself). Default: false
 
         :return: An array of validation error messages, or an empty array if the document is valid.
 
         :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#access_policies-json
         '''
-        return typing.cast(typing.List[builtins.str], jsii.invoke(self, "validateForResourcePolicy", []))
+        options = ResourcePolicyValidationOptions(
+            skip_resource_validation=skip_resource_validation
+        )
+
+        return typing.cast(typing.List[builtins.str], jsii.invoke(self, "validateForResourcePolicy", [options]))
+
+    @jsii.member(jsii_name="validateForTrustPolicy")
+    def validate_for_trust_policy(self) -> typing.List[builtins.str]:
+        '''Validate that all policy statements in the policy document satisfies the requirements for a trust policy (assume role policy).
+
+        Trust policies are a special type of resource-based policy where the resource is implicit (the role itself).
+
+        :return: An array of validation error messages, or an empty array if the document is valid.
+
+        :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_principal.html
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.invoke(self, "validateForTrustPolicy", []))
 
     @builtins.property
     @jsii.member(jsii_name="creationStack")
@@ -12325,12 +12347,32 @@ class PolicyStatement(
         return typing.cast(typing.List[builtins.str], jsii.invoke(self, "validateForIdentityPolicy", []))
 
     @jsii.member(jsii_name="validateForResourcePolicy")
-    def validate_for_resource_policy(self) -> typing.List[builtins.str]:
+    def validate_for_resource_policy(
+        self,
+        *,
+        skip_resource_validation: typing.Optional[builtins.bool] = None,
+    ) -> typing.List[builtins.str]:
         '''Validate that the policy statement satisfies all requirements for a resource-based policy.
+
+        :param skip_resource_validation: Whether to skip resource validation for policies where resources are implicit (e.g., ECR repository policies where the resource is the repository itself). Default: false
 
         :return: An array of validation error messages, or an empty array if the statement is valid.
         '''
-        return typing.cast(typing.List[builtins.str], jsii.invoke(self, "validateForResourcePolicy", []))
+        options = ResourcePolicyValidationOptions(
+            skip_resource_validation=skip_resource_validation
+        )
+
+        return typing.cast(typing.List[builtins.str], jsii.invoke(self, "validateForResourcePolicy", [options]))
+
+    @jsii.member(jsii_name="validateForTrustPolicy")
+    def validate_for_trust_policy(self) -> typing.List[builtins.str]:
+        '''Validate that the policy statement satisfies all requirements for a trust policy (assume role policy).
+
+        Trust policies are a special type of resource-based policy where the resource is implicit (the role itself).
+
+        :return: An array of validation error messages, or an empty array if the statement is valid.
+        '''
+        return typing.cast(typing.List[builtins.str], jsii.invoke(self, "validateForTrustPolicy", []))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -12694,6 +12736,61 @@ class PrincipalPolicyFragment(
     def principal_json(self) -> typing.Mapping[builtins.str, typing.List[builtins.str]]:
         '''JSON of the "Principal" section in a policy statement.'''
         return typing.cast(typing.Mapping[builtins.str, typing.List[builtins.str]], jsii.get(self, "principalJson"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iam.ResourcePolicyValidationOptions",
+    jsii_struct_bases=[],
+    name_mapping={"skip_resource_validation": "skipResourceValidation"},
+)
+class ResourcePolicyValidationOptions:
+    def __init__(
+        self,
+        *,
+        skip_resource_validation: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''Options for resource-based policy validation.
+
+        :param skip_resource_validation: Whether to skip resource validation for policies where resources are implicit (e.g., ECR repository policies where the resource is the repository itself). Default: false
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iam as iam
+            
+            resource_policy_validation_options = iam.ResourcePolicyValidationOptions(
+                skip_resource_validation=False
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5c86d80cbbf7c57ce76793ac66cfd6aee1727d59a8c5bdd3495bf47ef4bb66d7)
+            check_type(argname="argument skip_resource_validation", value=skip_resource_validation, expected_type=type_hints["skip_resource_validation"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if skip_resource_validation is not None:
+            self._values["skip_resource_validation"] = skip_resource_validation
+
+    @builtins.property
+    def skip_resource_validation(self) -> typing.Optional[builtins.bool]:
+        '''Whether to skip resource validation for policies where resources are implicit (e.g., ECR repository policies where the resource is the repository itself).
+
+        :default: false
+        '''
+        result = self._values.get("skip_resource_validation")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ResourcePolicyValidationOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 class ResourceWithPolicies(
@@ -16360,7 +16457,7 @@ class ArnPrincipal(
     Example::
 
         # Option 2: create your custom mastersRole with scoped assumeBy arn as the Cluster prop. Switch to this role from the AWS console.
-        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+        from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
         # vpc: ec2.Vpc
         
         
@@ -16370,8 +16467,8 @@ class ArnPrincipal(
         
         cluster = eks.Cluster(self, "EksCluster",
             vpc=vpc,
-            version=eks.KubernetesVersion.V1_35,
-            kubectl_layer=KubectlV35Layer(self, "KubectlLayer"),
+            version=eks.KubernetesVersion.V1_36,
+            kubectl_layer=KubectlV36Layer(self, "KubectlLayer"),
             masters_role=masters_role
         )
         
@@ -17403,6 +17500,7 @@ __all__ = [
     "PrincipalBase",
     "PrincipalPolicyFragment",
     "PrincipalWithConditions",
+    "ResourcePolicyValidationOptions",
     "ResourceWithPolicies",
     "Role",
     "RoleGrants",
@@ -19287,6 +19385,13 @@ def _typecheckingstub__b1307ab5f5dd84b7184f36603f7af026efb2798812c35c96dbe60552f
 def _typecheckingstub__278426b331a0d887bf9449f77f6f9c562033abef58a3d7279c5604a1e1c928ea(
     principal_json: typing.Mapping[builtins.str, typing.Sequence[builtins.str]],
     conditions: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5c86d80cbbf7c57ce76793ac66cfd6aee1727d59a8c5bdd3495bf47ef4bb66d7(
+    *,
+    skip_resource_validation: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass

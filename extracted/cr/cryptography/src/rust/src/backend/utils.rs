@@ -191,10 +191,16 @@ pub(crate) fn pkey_private_bytes<'p>(
     // OpenSSH + PEM
     if openssh_allowed && format == PrivateFormat::OpenSSH {
         if encoding == Encoding::PEM {
-            return Ok(types::SERIALIZE_SSH_PRIVATE_KEY
+            let raw_bytes = types::SERIALIZE_SSH_PRIVATE_KEY
                 .get(py)?
                 .call1((key_obj, password, encryption_algorithm))?
-                .extract()?);
+                .extract()?;
+            return crate::asn1::encode_der_data(
+                py,
+                "OPENSSH PRIVATE KEY".to_string(),
+                raw_bytes,
+                encoding,
+            );
         }
 
         return Err(CryptographyError::from(
@@ -320,7 +326,7 @@ pub(crate) fn calculate_digest_and_algorithm<'p>(
         // Potential optimization: rather than allocate a PyBytes in
         // `h.finalize()`, have a way to get the `DigestBytes` directly.
         let mut h = Hash::new(py, algorithm, None)?;
-        h.update_bytes(data)?;
+        h.update_bytes(py, data)?;
         (algorithm.clone(), BytesOrPyBytes::PyBytes(h.finalize(py)?))
     };
 

@@ -4,7 +4,7 @@ import os
 import sys
 from typing import TYPE_CHECKING, Annotated, Any, Callable, TypeVar, overload
 
-__version__ = "0.36.10"
+__version__ = "0.36.12"
 
 # TypeVar for the CachedObject[T] type alias (defined after the ObjectHandle class).
 _CachedT = TypeVar("_CachedT")
@@ -156,6 +156,13 @@ __all__ = (
     "sheets",
     "view",
     "to_datetime",
+    # UDF decorators, defined further below depending on platform/environment.
+    # 'sub' is deliberately left out: it's a deprecated alias of 'script' and
+    # doesn't exist when running on the server.
+    "arg",
+    "func",
+    "ret",
+    "script",
 )
 
 # Populate engines list

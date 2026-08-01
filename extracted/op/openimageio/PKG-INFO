@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: OpenImageIO
-Version: 3.1.15.0
+Version: 3.1.16.0
 Summary: Reading, writing, and processing images in a wide variety of file formats, using a format-agnostic API, aimed at VFX applications.
 Author-Email: Larry Gritz <lg@larrygritz.com>, OpenImageIO Contributors <oiio-dev@lists.aswf.io>
 Maintainer-Email: OpenImageIO Contributors <oiio-dev@lists.aswf.io>
@@ -134,6 +134,7 @@ Additional resources:
 
 - [User quick start](docs/QuickStart.md) is a quick example of using
   OpenImageIO in Python, C++, and the command line.
+- [Releases](https://github.com/AcademySoftwareFoundation/OpenImageIO/releases) -- see this for the latest release notes, also found in the [CHANGES.md](CHANGES.md) file.
 
 
 👷 Building and installing OpenImageIO
@@ -162,8 +163,8 @@ be discussed publicly until a patch is ready, please file a GitHub [security
 advisory](https://github.com/AcademySoftwareFoundation/OpenImageIO/security/advisories/new).
 
 If confidentiality precludes a public question or issue, you may contact us
-privately at [info@openimageio.org](info@openimageio.org), or for
-security-related issues [security@openimageio.org](security@openimageio.org).
+privately at [info@openimageio.org](mailto:info@openimageio.org), or for
+security-related issues [security@openimageio.org](mailto:security@openimageio.org).
 
 
 🔧 Contributing and developer documentation

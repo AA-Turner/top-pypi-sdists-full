@@ -1,8 +1,9 @@
 Metadata-Version: 2.4
 Name: django-test-plus
-Version: 2.6.0
+Version: 2.6.1
 Summary: django-test-plus provides useful additions to Django's default TestCase
 Project-URL: Changelog, https://github.com/revsys/django-test-plus/blob/main/CHANGELOG.md
+Project-URL: Documentation, https://django-test-plus.readthedocs.io
 Project-URL: Homepage, https://github.com/revsys/django-test-plus/
 Author-email: Frank Wiles <frank@revsys.com>, Jeff Triplett <jeff@revsys.com>
 License-File: AUTHORS.txt
@@ -51,6 +52,8 @@ Useful additions to Django's default TestCase from [REVSYS](https://www.revsys.c
 
 [![pypi](https://img.shields.io/pypi/v/django-test-plus.svg)](https://pypi.org/project/django-test-plus/)
 [![build matrix demo](https://github.com/revsys/django-test-plus/actions/workflows/actions.yml/badge.svg)](https://github.com/revsys/django-test-plus/actions/workflows/actions.yml)
+[![Python versions](https://img.shields.io/pypi/pyversions/django-test-plus.svg)](https://pypi.org/project/django-test-plus/)
+[![Django versions](https://img.shields.io/pypi/frameworkversions/django/django-test-plus.svg)](https://pypi.org/project/django-test-plus/)
 
 ## Rationale
 

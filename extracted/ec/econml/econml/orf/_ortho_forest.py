@@ -878,16 +878,17 @@ class DROrthoForest(BaseOrthoForest):
         the local intercept, only to the coefficient of the linear component.
 
     propensity_model : estimator, default sklearn.linear_model.LogisticRegression(penalty='l1', \
-                                                                                  solver='saga', \
-                                                                                  multi_class='auto')
+                                                                                  solver='saga')
         Model for estimating propensity of treatment at each leaf.
         Will be trained on features and controls (concatenated). Must implement `fit` and `predict_proba` methods.
 
     model_Y :  estimator, default sklearn.linear_model.LassoCV(cv=3)
         Estimator for learning potential outcomes at each leaf.
         Will be trained on features, controls and one hot encoded treatments (concatenated).
-        If different models per treatment arm are desired, see the :class:`.MultiModelWrapper`
-        helper class. The model(s) must implement `fit` and `predict` methods.
+        If different models per treatment arm are desired, wrap them in
+        :class:`.MultiModelWrapper` with ``encoding='full'`` (DROrthoForest
+        passes a full one-hot encoding rather than a drop-first one to
+        ``model_Y``). The model(s) must implement `fit` and `predict` methods.
 
     propensity_model_final : estimator, optional
         Model for estimating propensity of treatment at at prediction time.
@@ -897,8 +898,10 @@ class DROrthoForest(BaseOrthoForest):
     model_Y_final : estimator, optional
         Estimator for learning potential outcomes at prediction time.
         Will be trained on features, controls and one hot encoded treatments (concatenated).
-        If different models per treatment arm are desired, see the :class:`.MultiModelWrapper`
-        helper class. The model(s) must implement `fit` and `predict` methods.
+        If different models per treatment arm are desired, wrap them in
+        :class:`.MultiModelWrapper` with ``encoding='full'`` (DROrthoForest
+        passes a full one-hot encoding rather than a drop-first one to
+        ``model_Y``). The model(s) must implement `fit` and `predict` methods.
         If parameter is set to ``None``, it defaults to the value of `model_Y` parameter.
 
     categories: 'auto' or list
@@ -936,8 +939,7 @@ class DROrthoForest(BaseOrthoForest):
                  subsample_ratio=0.7,
                  bootstrap=False,
                  lambda_reg=0.01,
-                 propensity_model=LogisticRegression(penalty='l1', solver='saga',
-                                                     multi_class='auto'),  # saga solver supports l1
+                 propensity_model=LogisticRegression(penalty='l1', solver='saga'),  # saga solver supports l1
                  model_Y=WeightedLassoCVWrapper(cv=3),
                  propensity_model_final=None,
                  model_Y_final=None,
@@ -1084,7 +1086,11 @@ class DROrthoForest(BaseOrthoForest):
     def nuisance_estimator_generator(propensity_model, model_Y, random_state=None, second_stage=False):
         """Generate nuissance estimator given model inputs from the class."""
         def nuisance_estimator(Y, T, X, W, sample_weight=None, split_indices=None):
-            # Expand one-hot encoding to include the zero treatment
+            # Expand one-hot encoding to include the zero treatment.
+            # TODO: consider a breaking change to harmonize with the rest of EconML's discrete-treatment
+            # estimators, which feed the drop-first one-hot encoding directly to downstream models rather
+            # than re-adding the dropped column here. That would let model_Y use the same
+            # ``encoding='drop_first'`` convention as MultiModelWrapper's default.
             ohe_T = np.hstack([np.all(1 - T, axis=1, keepdims=True), T])
             # Test that T contains all treatments. If not, return None
             T = ohe_T @ np.arange(ohe_T.shape[1])

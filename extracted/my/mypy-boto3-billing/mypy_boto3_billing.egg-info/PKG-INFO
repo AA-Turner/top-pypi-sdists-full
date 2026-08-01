@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-billing
-Version: 1.43.41
-Summary: Type annotations for boto3 Billing 1.43.41 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.62
+Summary: Type annotations for boto3 Billing 1.43.62 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 Billing 1.43.41](https://pypi.org/project/boto3/)
+Type annotations for [boto3 Billing 1.43.62](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -104,7 +104,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.41' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.62' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `Billing` service.
 4. Use provided commands to install generated packages.
@@ -340,6 +340,7 @@ from mypy_boto3_billing import BillingClient
 from mypy_boto3_billing.paginator import (
     GetCreditAllocationHistoryPaginator,
     ListBillingViewsPaginator,
+    ListEnterpriseSupportLinkedAccountChargesPaginator,
     ListSourceViewsForBillingViewPaginator,
 )
 
@@ -351,6 +352,9 @@ get_credit_allocation_history_paginator: GetCreditAllocationHistoryPaginator = c
     "get_credit_allocation_history"
 )
 list_billing_views_paginator: ListBillingViewsPaginator = client.get_paginator("list_billing_views")
+list_enterprise_support_linked_account_charges_paginator: ListEnterpriseSupportLinkedAccountChargesPaginator = client.get_paginator(
+    "list_enterprise_support_linked_account_charges"
+)
 list_source_views_for_billing_view_paginator: ListSourceViewsForBillingViewPaginator = (
     client.get_paginator("list_source_views_for_billing_view")
 )
@@ -385,12 +389,12 @@ Full list of `Billing` TypeDefs can be found in
 
 ```python
 # TypedDict usage example
-from mypy_boto3_billing.type_defs import AmountTypeDef
+from mypy_boto3_billing.type_defs import AdditionalChargeTypeDef
 
 
-def get_value() -> AmountTypeDef:
+def get_value() -> AdditionalChargeTypeDef:
     return {
-        "currencyCode": ...,
+        "description": ...,
     }
 ```
 

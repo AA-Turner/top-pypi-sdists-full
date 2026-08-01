@@ -1,6 +1,6 @@
 [package]
 name = "uv"
-version = "0.12.0"
+version = "0.12.1"
 description = "A Python package and project manager"
 edition = { workspace = true }
 rust-version = { workspace = true }
@@ -141,6 +141,7 @@ byteorder = { workspace = true }
 bytes = { workspace = true }
 filetime = { workspace = true }
 flate2 = { workspace = true, default-features = false }
+hex = { workspace = true }
 http-body-util = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }

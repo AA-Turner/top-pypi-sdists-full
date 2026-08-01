@@ -16,7 +16,7 @@ from .base import Trimesh
 from .constants import log, tol
 from .geometry import align_vectors, faces_to_edges, plane_transform
 from .resources import get_json
-from .typed import ArrayLike, Dict, Integer, NDArray, Number, Optional, Tuple
+from .typed import ArrayLike, Integer, NDArray, Number, Seed
 
 try:
     # shapely is a soft dependency
@@ -40,10 +40,10 @@ _engines = [
 
 def revolve(
     linestring: ArrayLike,
-    angle: Optional[Number] = None,
+    angle: Number | None = None,
     cap: bool = False,
-    sections: Optional[Integer] = None,
-    transform: Optional[ArrayLike] = None,
+    sections: Integer | None = None,
+    transform: ArrayLike | None = None,
     **kwargs,
 ) -> Trimesh:
     """
@@ -185,6 +185,11 @@ def revolve(
     if transform is not None:
         # apply transform to vertices
         vertices = tf.transform_points(vertices, transform)
+        # a reflecting transform flips winding so flip the faces
+        # back to keep normals outward, #2439
+        if tf.flips_winding(transform):
+            # fliplr makes arrays non-contiguous so re-pack them
+            faces = np.ascontiguousarray(np.fliplr(faces))
 
     # create the mesh from our vertices and faces
     mesh = Trimesh(vertices=vertices, faces=faces, **kwargs)
@@ -206,7 +211,7 @@ def revolve(
 def extrude_polygon(
     polygon: "Polygon",
     height: Number,
-    transform: Optional[ArrayLike] = None,
+    transform: ArrayLike | None = None,
     mid_plane: bool = False,
     **kwargs,
 ) -> Trimesh:
@@ -252,10 +257,10 @@ def extrude_polygon(
 def sweep_polygon(
     polygon: "Polygon",
     path: ArrayLike,
-    angles: Optional[ArrayLike] = None,
+    angles: ArrayLike | None = None,
     cap: bool = True,
     connect: bool = True,
-    kwargs: Optional[Dict] = None,
+    kwargs: dict | None = None,
     **triangulation,
 ) -> Trimesh:
     """
@@ -478,7 +483,7 @@ def extrude_triangulation(
     vertices: ArrayLike,
     faces: ArrayLike,
     height: Number,
-    transform: Optional[ArrayLike] = None,
+    transform: ArrayLike | None = None,
     **kwargs,
 ) -> Trimesh:
     """
@@ -571,11 +576,11 @@ def extrude_triangulation(
 
 def triangulate_polygon(
     polygon,
-    triangle_args: Optional[str] = None,
-    engine: Optional[str] = None,
+    triangle_args: str | None = None,
+    engine: str | None = None,
     force_vertices: bool = False,
     **kwargs,
-) -> Tuple[NDArray[np.float64], NDArray[np.int64]]:
+) -> tuple[NDArray[np.float64], NDArray[np.int64]]:
     """
     Given a shapely polygon create a triangulation using a
     python interface to the permissively licensed `mapbox-earcut`
@@ -677,7 +682,7 @@ def triangulate_polygon(
     return vertices, faces
 
 
-def _polygon_to_kwargs(polygon) -> Dict:
+def _polygon_to_kwargs(polygon) -> dict:
     """
     Given a shapely polygon generate the data to pass to
     the triangle mesh generator
@@ -770,9 +775,9 @@ def _polygon_to_kwargs(polygon) -> Dict:
 
 
 def box(
-    extents: Optional[ArrayLike] = None,
-    transform: Optional[ArrayLike] = None,
-    bounds: Optional[ArrayLike] = None,
+    extents: ArrayLike | None = None,
+    transform: ArrayLike | None = None,
+    bounds: ArrayLike | None = None,
     **kwargs,
 ):
     """
@@ -917,8 +922,8 @@ def icosphere(subdivisions: Integer = 3, radius: Number = 1.0, **kwargs):
 
 def uv_sphere(
     radius: Number = 1.0,
-    count: Optional[ArrayLike] = None,
-    transform: Optional[ArrayLike] = None,
+    count: ArrayLike | None = None,
+    transform: ArrayLike | None = None,
     **kwargs,
 ) -> Trimesh:
     """
@@ -967,8 +972,8 @@ def uv_sphere(
 def capsule(
     height: Number = 1.0,
     radius: Number = 1.0,
-    count: Optional[ArrayLike] = None,
-    transform: Optional[ArrayLike] = None,
+    count: ArrayLike | None = None,
+    transform: ArrayLike | None = None,
     **kwargs,
 ) -> Trimesh:
     """
@@ -1001,8 +1006,14 @@ def capsule(
     height = abs(float(height))
     radius = abs(float(radius))
 
-    # create a half circle
-    theta = np.linspace(-np.pi / 2.0, np.pi / 2.0, count[0])
+    # two quarter circles sharing an equator vertex
+    # each hemisphere reaches full radius symmetrically
+    theta = np.concatenate(
+        (
+            np.linspace(-np.pi / 2.0, 0.0, count[0] // 2 + 1),
+            np.linspace(0.0, np.pi / 2.0, count[0] // 2 + 1),
+        )
+    )
     linestring = np.column_stack((np.cos(theta), np.sin(theta))) * radius
 
     # offset the top and bottom by half the height
@@ -1022,8 +1033,8 @@ def capsule(
 def cone(
     radius: Number,
     height: Number,
-    sections: Optional[Integer] = None,
-    transform: Optional[ArrayLike] = None,
+    sections: Integer | None = None,
+    transform: ArrayLike | None = None,
     **kwargs,
 ) -> Trimesh:
     """
@@ -1062,10 +1073,10 @@ def cone(
 
 def cylinder(
     radius: Number,
-    height: Optional[Number] = None,
-    sections: Optional[Integer] = None,
-    segment: Optional[ArrayLike] = None,
-    transform: Optional[ArrayLike] = None,
+    height: Number | None = None,
+    sections: Integer | None = None,
+    segment: ArrayLike | None = None,
+    transform: ArrayLike | None = None,
     **kwargs,
 ):
     """
@@ -1114,10 +1125,10 @@ def cylinder(
 def annulus(
     r_min: Number,
     r_max: Number,
-    height: Optional[Number] = None,
-    sections: Optional[Integer] = None,
-    transform: Optional[ArrayLike] = None,
-    segment: Optional[ArrayLike] = None,
+    height: Number | None = None,
+    sections: Integer | None = None,
+    transform: ArrayLike | None = None,
+    segment: ArrayLike | None = None,
     **kwargs,
 ):
     """
@@ -1218,7 +1229,7 @@ def _segment_to_cylinder(segment: ArrayLike):
     return transform, height
 
 
-def random_soup(face_count: Integer = 100):
+def random_soup(face_count: Integer = 100, seed: Seed = None):
     """
     Return random triangles as a Trimesh
 
@@ -1226,13 +1237,15 @@ def random_soup(face_count: Integer = 100):
     -----------
     face_count : int
       Number of faces desired in mesh
+    seed : None or int
+      Seed for deterministic results, otherwise OS entropy.
 
     Returns
     -----------
     soup : trimesh.Trimesh
       Geometry with face_count random faces
     """
-    vertices = np.random.random((face_count * 3, 3)) - 0.5
+    vertices = util.random_generator(seed).random((face_count * 3, 3)) - 0.5
     faces = np.arange(face_count * 3).reshape((-1, 3))
     soup = Trimesh(vertices=vertices, faces=faces)
     return soup
@@ -1240,10 +1253,10 @@ def random_soup(face_count: Integer = 100):
 
 def axis(
     origin_size: Number = 0.04,
-    transform: Optional[ArrayLike] = None,
-    origin_color: Optional[ArrayLike] = None,
-    axis_radius: Optional[Number] = None,
-    axis_length: Optional[Number] = None,
+    transform: ArrayLike | None = None,
+    origin_color: ArrayLike | None = None,
+    axis_radius: Number | None = None,
+    axis_length: Number | None = None,
 ):
     """
     Return an XYZ axis marker as a  Trimesh, which represents position
@@ -1324,9 +1337,7 @@ def axis(
     return marker
 
 
-def camera_marker(
-    camera, marker_height: Number = 0.4, origin_size: Optional[Number] = None
-):
+def camera_marker(camera, marker_height: Number = 0.4, origin_size: Number | None = None):
     """
     Create a visual marker for a camera object, including an axis and FOV.
 
@@ -1386,8 +1397,8 @@ def camera_marker(
 
 def truncated_prisms(
     tris: ArrayLike,
-    origin: Optional[ArrayLike] = None,
-    normal: Optional[ArrayLike] = None,
+    origin: ArrayLike | None = None,
+    normal: ArrayLike | None = None,
 ):
     """
     Return a mesh consisting of multiple watertight prisms below
@@ -1456,7 +1467,7 @@ def torus(
     minor_radius: Number,
     major_sections: Integer = 32,
     minor_sections: Integer = 32,
-    transform: Optional[ArrayLike] = None,
+    transform: ArrayLike | None = None,
     **kwargs,
 ):
     """Create a mesh of a torus around Z centered at the origin.

@@ -445,11 +445,17 @@ class Server:
             secrets = _parse_secrets_header(request)
             toolset_name = create_session.toolset_name
 
-            # Create the env (and toolset) synchronously so endpoints that
-            # only need a created instance — /prompt, /task_tools — can
-            # answer immediately, without waiting for env.setup() (e.g. a
-            # sandbox spin-up) to finish.
-            env = env_cls(task_spec=task_spec, secrets=secrets)
+            # Create the env instance so endpoints that only need a created
+            # instance — /prompt, /task_tools — can answer immediately, without
+            # waiting for env.setup() (e.g. a sandbox spin-up) to finish.
+            #
+            # Run the constructor off the event loop. __init__ is arbitrary user
+            # code (it may load datasets, build word lists, read files, etc.) and
+            # the server runs on a single event loop, so a heavy constructor would
+            # otherwise block *every* other in-flight session on the pod —
+            # including trivial /ping — until it returned, blowing past the proxy
+            # timeout and surfacing as 502s across all co-tenant sessions.
+            env = await run_user_callable(env_cls, task_spec=task_spec, secrets=secrets)
 
             toolset_obj: Optional[Toolset] = None
             if toolset_name is not None:

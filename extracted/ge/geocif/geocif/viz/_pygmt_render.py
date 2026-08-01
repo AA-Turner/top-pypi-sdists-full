@@ -39,8 +39,11 @@ def render(geojson_path, params):
     gdf = gpd.read_file(geojson_path)
     p = params
     fig = pygmt.Figure()
+    # No embedded quotes: pygmt passes frame/label strings through the API,
+    # so shell-style "..." quoting is unnecessary and shows up literally in
+    # the rendered title/labels.
     title = p.get("title") or ""
-    frame = ["af", f'+t"{title}"'] if title else ["af"]
+    frame = ["af", f"+t{title}"] if title else ["af"]
     fig.basemap(region=p["region"], projection=p.get("projection", "M15c"), frame=frame)
     fig.coast(shorelines="0.3p,gray60", borders="1/0.2p,gray70", area_thresh=5000)
 
@@ -56,15 +59,18 @@ def render(geojson_path, params):
         label = p.get("label") or ""
         if cb.get("type") == "qualitative" and cb.get("colors"):
             labels = [str(x).replace(",", " ") for x in cb.get("cat_labels", [])]
-            pygmt.makecpt(cmap=",".join(cb["colors"]), series=[0, len(labels), 1],
+            cols = cb["colors"][:len(labels)]
+            # N discrete categories -> N CPT nodes (0..N-1). Using [0, N, 1]
+            # would make N+1 nodes for N colors and misalign swatches/labels.
+            pygmt.makecpt(cmap=",".join(cols), series=[0, len(labels) - 1, 1],
                           color_model="+c" + ",".join(labels))
             fig.colorbar(position="JBC+w12c/0.35c+h",
-                         frame=(f'+L"{label}"' if label else "+Lclass"))
+                         frame=(f"+L{label}" if label else "+Lclass"))
         elif cb.get("type") == "continuous" and cb.get("colors"):
             pygmt.makecpt(cmap=",".join(cb["colors"]),
                           series=[float(cb["vmin"]), float(cb["vmax"])])
             fig.colorbar(position="JBC+w12c/0.35c+h",
-                         frame=(f'x+l"{label}"' if label else "af"))
+                         frame=(f"x+l{label}" if label else "af"))
 
         if p.get("annotate") and "_label" in gdf.columns:
             font = p.get("annot_font", "8p,Helvetica,black")

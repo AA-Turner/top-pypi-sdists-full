@@ -55,3 +55,31 @@ jobs:
             --test-image "airbyte/source-pokeapi:0.3.0" \
             --command spec \
             --output-dir /tmp/regression_test_artifacts
+
+      - name: Assert the HTML report is self-contained
+        run: |
+          # The report is read from a downloaded artifact over file://, so it
+          # must load no scripts and no remote assets.
+          REPORT=/tmp/regression_test_artifacts/report.html
+          test -s "$REPORT"
+          grep -q '<!DOCTYPE html>' "$REPORT"
+          # Hyperlinks to the workflow run are fine; loading an asset is not.
+          if grep -qE '<(script|link|img|iframe|object|embed)\b' "$REPORT"; then
+            echo "::error::report.html references an external asset or script"
+            exit 1
+          fi
+          # The same rule for CSS, which can fetch over the network too.
+          if grep -qE '@import|url\(\s*["'"'"']?https?:' "$REPORT"; then
+            echo "::error::report.html loads a remote stylesheet or resource from CSS"
+            exit 1
+          fi
+
+      # Named to match `ci_output.github_artifact_name("spec")`, which is the name
+      # the report it contains tells the reader to look for.
+      - name: Upload smoke test report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: regression-test-artifacts-spec-${{ github.run_id }}
+          path: /tmp/regression_test_artifacts/
+          retention-days: 2

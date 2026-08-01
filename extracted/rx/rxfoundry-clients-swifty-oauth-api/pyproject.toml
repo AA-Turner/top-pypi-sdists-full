@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "rxfoundry.clients.swifty_oauth_api"
-version = "1.14.0.5026"
+version = "1.14.0.5036"
 description = "Swifty OAuth API"
 authors = ["RxFoundry Team <paul.tindall@rxfoundry.com>"]
 license = "NoLicense"

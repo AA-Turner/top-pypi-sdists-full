@@ -63,6 +63,9 @@ class NumbersUnpacker(IWorkHandler):
             with open(target_path, "wb") as out:
                 out.write(blob)
 
+    def store_object(self, filename: str, identifier: int, archive: object) -> None:
+        pass
+
     def ensure_directory_exists(self, path: str) -> None:
         """Ensure that a path's directory exists."""
         parts = os.path.split(path)
@@ -143,9 +146,9 @@ def main() -> None:
     elif len(args.document) == 0:
         parser.print_help()
     else:
-        hdlr = logging.StreamHandler()
-        hdlr.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
-        logger.addHandler(hdlr)
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(levelname)s:%(name)s:%(message)s"))
+        logger.addHandler(handler)
         if args.debug:
             logger.setLevel("DEBUG")
         else:

@@ -20,28 +20,28 @@ classifiers = [
     "Programming Language :: Python",
     "Typing :: Typed",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dynamic = ["version"]
 
 [project.urls]
 Homepage = "https://github.com/ipython/traitlets"
 Documentation = "https://traitlets.readthedocs.io"
 Source = "https://github.com/ipython/traitlets"
-Funding = "https://numfocus.org"
 Tracker = "https://github.com/ipython/traitlets/issues"
 
 [project.optional-dependencies]
 test = [
-    "argcomplete>=3.0.3",
+    "argcomplete>=3.0.3; python_version < '3.12'",
+    "argcomplete>=3.5.2; python_version >= '3.12'",
     # See https://github.com/python/mypy/issues/20329 for PyPy support issue.
-    # Also, test assertions will need to be updated for 1.20+ because
-    # `reveal_type()` representations were simplified in
-    # https://github.com/python/mypy/pull/20929
-    "mypy>=1.17.0,<1.19",
+    # `reveal_type()` representations were simplified (dropping the `builtins.`
+    # prefix) in https://github.com/python/mypy/pull/20929; test assertions in
+    # tests/test_typing.py target that newer output, so require >=1.20.
+    "mypy>=2.0; implementation_name != 'pypy'",
     "pre-commit",
     "pytest-mock",
-    "pytest-mypy-testing",
-    "pytest>=7.0,<8.2",
+    "pytest-mypy-testing; implementation_name != 'pypy'",
+    "pytest>=7.0,<10.0",
 ]
 docs = [
     "myst-parser",
@@ -54,6 +54,11 @@ path = "traitlets/_version.py"
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[tool.hatch.envs.default]
+# uv is already a dependency of hatch, so this costs nothing to enable and
+# cuts environment creation from ~16s to ~4s (more on Windows).
+installer = "uv"
 
 [tool.hatch.envs.docs]
 features = ["docs"]
@@ -84,7 +89,7 @@ dependencies = ["pre-commit"]
 detached = true
 [tool.hatch.envs.lint.scripts]
 build = [
-  "pre-commit run --all-files ruff",
+  "pre-commit run --all-files ruff-check",
   "pre-commit run --all-files ruff-format"
 ]
 
@@ -92,16 +97,33 @@ build = [
 files = "traitlets"
 python_version = "3.10"
 strict = true
-enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+enable_error_code = [
+  "ignore-without-code",
+  "redundant-expr",
+  "truthy-bool",
+  "truthy-iterable",
+  "possibly-undefined",
+  "redundant-self",
+  "unused-awaitable",
+]
 pretty = true
 show_error_context = true
 warn_unreachable = true
 exclude = ["examples/docs/configs", "traitlets/tests/test_typing.py"]
 
+[[tool.mypy.overrides]]
+# numpy is pulled in transitively via `import pytest` (pytest.approx). Its
+# recent stubs use the `type` statement, which mypy rejects under
+# python_version = "3.10", aborting the check. Skip following into it.
+module = "numpy.*"
+follow_imports = "skip"
+follow_imports_for_stubs = true
+
 [tool.pytest.ini_options]
 minversion = "6.0"
 xfail_strict = true
 log_cli_level = "info"
+log_level = "info"
 addopts = [
   "-ra", "--durations=10", "--color=yes", "--doctest-modules",
    "--showlocals", "--strict-markers", "--strict-config",
@@ -155,6 +177,12 @@ exclude_lines = [
 relative_files = true
 source = ["traitlets"]
 
+[tool.repo-review]
+# traitlets publishes `traitlets[test]` / `traitlets[docs]` as documented
+# extras (see README and .github/workflows/downstream.yml), so the extras
+# stay the source of truth rather than [dependency-groups].
+ignore = ["PP006"]
+
 [tool.ruff]
 line-length = 100
 
@@ -190,8 +218,6 @@ ignore = [
   "S105", "S106",   # Possible hardcoded password
   "S110",   # S110 `try`-`except`-`pass` detected
   "RUF012", # Mutable class attributes should be annotated with `typing.ClassVar`
-  "UP006",  # non-pep585-annotation
-  "UP007",  # non-pep604-annotation
   "ARG001", "ARG002",  # Unused function argument
   "RET503",  # Missing explicit `return` at the end of function
   "RET505",  # Unnecessary `else` after `return` statement
@@ -199,9 +225,13 @@ ignore = [
   "SIM105", # Use `contextlib.suppress(ValueError)`
   "SIM108", # Use ternary operator
   "SIM114", # Combine `if` branches using logical `or` operator"
+  # Imports are deliberately deferred to break circular imports between
+  # traitlets.log and traitlets.config, and to keep optional dependencies
+  # (argcomplete) and slow stdlib imports out of the import path.
+  "PLC0415", # `import` should be at the top-level of a file
   "PLW2901", # `for` loop variable `path` overwritten by assignment target
   # https://github.com/astral-sh/ruff/issues/8796#issuecomment-1825907715
-  "PT001", "PT004", "PT005", "PT02", "PT009"
+  "PT001", "PT02", "PT009"
 ]
 unfixable = [
   # Don't touch noqa lines
@@ -221,8 +251,11 @@ isort.required-imports = ["from __future__ import annotations"]
 # B018 Found useless expression
 # S301 `pickle` and modules that wrap..."
 # PGH003 Use specific rule codes when ignoring type issues
-"tests/*" = ["B011", "F841", "C408", "E402", "T201", "B007", "N802", "F841",
-                       "B018", "S301", "ARG", "PGH003"]
+# RUF059 Unpacked variable is never used (e.g. `out, err = capsys.readouterr()`)
+# PLW0108 Lambda may be unnecessary (tests use lambdas as Callable trait values)
+# B024 Abstract base class without abstract methods (mimics downstream code)
+"tests/*" = ["B011", "F841", "C408", "E402", "T201", "B007", "N802",
+                       "B018", "S301", "ARG", "PGH003", "RUF059", "PLW0108", "B024"]
 "traitlets/config/application.py" = ["T201"]
 # B003 Assigning to os.environ doesn't clear the environment
 "tests/config/*" = ["B003", "B018", "S301"]

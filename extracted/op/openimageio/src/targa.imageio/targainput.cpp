@@ -254,6 +254,34 @@ TGAInput::open(const std::string& name, ImageSpec& newspec)
     if (m_tga.type >= TYPE_PALETTED_RLE)
         m_spec.attribute("compression", "rle");
 
+    // The width/height/bpp fields are not cross-checked against how much
+    // pixel data the file actually contains, so a corrupt header can claim
+    // an arbitrarily large image (e.g. thousands of pixels square) backed
+    // by only a few bytes of real data. Reject implausible claims before
+    // committing to a potentially huge allocation in readimg(). Compare
+    // against the *on-disk* pixel size (palette/16-bit storage is smaller
+    // per pixel than the decoded, unpacked ImageSpec) -- and RLE can expand
+    // at most 128x (a 1-byte run-length count can encode up to 128 output
+    // pixels from very little input) -- so give a generous bound based on
+    // how much data remains in the file.
+    {
+        int bytespp              = (m_tga.bpp == 15) ? 2 : (m_tga.bpp / 8);
+        uint64_t raw_pixel_bytes = uint64_t(m_tga.width)
+                                   * uint64_t(m_tga.height) * uint64_t(bytespp);
+        uint64_t filesize(ioproxy()->size());
+        uint64_t pos(iotell());
+        uint64_t avail               = filesize > pos ? filesize - pos : 0;
+        uint64_t max_plausible_bytes = (m_tga.type >= TYPE_PALETTED_RLE)
+                                           ? avail * 128
+                                           : avail;
+        if (raw_pixel_bytes > max_plausible_bytes) {
+            errorfmt(
+                "TGA header claims image size {} bytes, implausible for {} bytes of remaining file data",
+                raw_pixel_bytes, avail);
+            return false;
+        }
+    }
+
     /*std::cerr << "[tga] " << m_tga.width << "x" << m_tga.height << "@"
               << (int)m_tga.bpp << " (" << m_spec.nchannels
               << ") type " << (int)m_tga.type << "\n";*/
@@ -501,77 +529,6 @@ TGAInput::read_tga2_header()
 
 
 
-bool
-TGAInput::get_thumbnail(ImageBuf& thumb, int subimage)
-{
-    if (m_ofs_thumb <= 0)
-        return false;  // no thumbnail info
-
-    lock_guard lock(*this);
-    bool result         = false;
-    int64_t save_offset = iotell();
-
-    if (!ioseek(m_ofs_thumb))
-        return false;
-
-    // Read the thumbnail dimensions -- sometimes it's 0x0 to indicate no
-    // thumbnail.
-    unsigned char res[2];
-    if (!ioread(&res, 2, 1))
-        return false;
-    if (res[0] > 0 && res[1] > 0) {
-        // Most of this code is a dupe of readimg(); according to the spec,
-        // the thumbnail is in the same format as the main image but
-        // uncompressed.
-        ImageSpec thumbspec(res[0], res[1], m_spec.nchannels, TypeUInt8);
-        thumbspec.set_colorspace("srgb_rec709_scene");
-        thumb.reset(thumbspec);
-        int bytespp    = (m_tga.bpp == 15) ? 2 : (m_tga.bpp / 8);
-        int palbytespp = (m_tga.cmap_size == 15) ? 2 : (m_tga.cmap_size / 8);
-        int alphabits  = m_tga.attr & 0x0F;
-        if (alphabits == 0 && m_tga.bpp == 32)
-            alphabits = 8;
-        // read palette, if there is any
-        std::unique_ptr<unsigned char[]> palette;
-        size_t palette_alloc_size = 0;
-        if (is_palette()) {
-            if (!ioseek(m_ofs_palette)) {
-                return false;
-            }
-            palette_alloc_size = palbytespp * m_tga.cmap_length;
-            palette.reset(new unsigned char[palette_alloc_size]);
-            if (!ioread(palette.get(), palbytespp, m_tga.cmap_length))
-                return false;
-            if (!ioseek(m_ofs_thumb + 2)) {
-                return false;
-            }
-        }
-        // load pixel data
-        unsigned char pixel[4];
-        unsigned char in[4];
-        for (int64_t y = thumbspec.height - 1; y >= 0; y--) {
-            char* img = (char*)thumb.pixeladdr(0, y);
-            for (int64_t x = 0; x < thumbspec.width;
-                 x++, img += m_spec.nchannels) {
-                if (!ioread(in, bytespp, 1))
-                    return false;
-                if (!decode_pixel(in, pixel, palette.get(), bytespp, palbytespp,
-                                  palette_alloc_size))
-                    return false;
-                memcpy(img, pixel, m_spec.nchannels);
-            }
-        }
-        result = true;
-    }
-
-    if (!ioseek(save_offset)) {
-        return false;
-    }
-    return result;
-}
-
-
-
 inline bool
 TGAInput::decode_pixel(unsigned char* in, unsigned char* out,
                        unsigned char* palette, int bytespp, int palbytespp,
@@ -702,6 +659,95 @@ associateAlpha(T* data, int64_t size, int channels, int alpha_channel,
                     data[c] = static_cast<T>(data[c] * alpha_associate);
         }
     }
+}
+
+
+
+bool
+TGAInput::get_thumbnail(ImageBuf& thumb, int subimage)
+{
+    if (m_ofs_thumb <= 0)
+        return false;  // no thumbnail info
+
+    lock_guard lock(*this);
+    bool result         = false;
+    int64_t save_offset = iotell();
+
+    if (!ioseek(m_ofs_thumb))
+        return false;
+
+    // Read the thumbnail dimensions -- sometimes it's 0x0 to indicate no
+    // thumbnail.
+    unsigned char res[2];
+    if (!ioread(&res, 2, 1))
+        return false;
+    if (res[0] > 0 && res[1] > 0) {
+        // Most of this code is a dupe of readimg(); according to the spec,
+        // the thumbnail is in the same format as the main image but
+        // uncompressed.
+        ImageSpec thumbspec(res[0], res[1], m_spec.nchannels, TypeUInt8);
+        thumbspec.set_colorspace("srgb_rec709_scene");
+        thumb.reset(thumbspec);
+        int bytespp    = (m_tga.bpp == 15) ? 2 : (m_tga.bpp / 8);
+        int palbytespp = (m_tga.cmap_size == 15) ? 2 : (m_tga.cmap_size / 8);
+        int alphabits  = m_tga.attr & 0x0F;
+        if (alphabits == 0 && m_tga.bpp == 32)
+            alphabits = 8;
+        // read palette, if there is any
+        std::unique_ptr<unsigned char[]> palette;
+        size_t palette_alloc_size = 0;
+        if (is_palette()) {
+            if (!ioseek(m_ofs_palette)) {
+                return false;
+            }
+            palette_alloc_size = palbytespp * m_tga.cmap_length;
+            palette.reset(new unsigned char[palette_alloc_size]);
+            if (!ioread(palette.get(), palbytespp, m_tga.cmap_length))
+                return false;
+            if (!ioseek(m_ofs_thumb + 2)) {
+                return false;
+            }
+        }
+        // load pixel data
+        unsigned char pixel[4];
+        unsigned char in[4];
+        for (int64_t y = thumbspec.height - 1; y >= 0; y--) {
+            char* img = (char*)thumb.pixeladdr(0, y);
+            for (int64_t x = 0; x < thumbspec.width;
+                 x++, img += m_spec.nchannels) {
+                if (!ioread(in, bytespp, 1))
+                    return false;
+                if (!decode_pixel(in, pixel, palette.get(), bytespp, palbytespp,
+                                  palette_alloc_size))
+                    return false;
+                memcpy(img, pixel, m_spec.nchannels);
+            }
+        }
+        // Convert to associated alpha, matching readimg() and OIIO's in-memory
+        // convention; TGA stores unassociated (unpremultiplied) alpha.
+        if (m_spec.alpha_channel != -1 && !m_keep_unassociated_alpha
+            && m_alpha_type != TGA_ALPHA_PREMULTIPLIED) {
+            bool alpha0_everywhere = (m_tga_version == 1);
+            int64_t size           = thumbspec.image_pixels();
+            unsigned char* tpx     = (unsigned char*)thumb.localpixels();
+            for (int64_t i = 0; i < size; ++i)
+                if (tpx[i * thumbspec.nchannels + m_spec.alpha_channel]) {
+                    alpha0_everywhere = false;
+                    break;
+                }
+            if (!alpha0_everywhere) {
+                float gamma = m_spec.get_float_attribute("oiio:Gamma", 1.0f);
+                associateAlpha(tpx, size, thumbspec.nchannels,
+                               m_spec.alpha_channel, gamma);
+            }
+        }
+        result = true;
+    }
+
+    if (!ioseek(save_offset)) {
+        return false;
+    }
+    return result;
 }
 
 

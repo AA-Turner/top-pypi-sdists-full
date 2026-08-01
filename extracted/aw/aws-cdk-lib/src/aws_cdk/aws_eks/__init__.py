@@ -13,6 +13,7 @@ In addition, the library also supports defining Kubernetes resource manifests wi
   * [Architectural Overview](#architectural-overview)
   * [Provisioning clusters](#provisioning-clusters)
 
+    * [Provisioned Control Plane](#provisioned-control-plane)
     * [Managed node groups](#managed-node-groups)
 
       * [Node Groups with IPv6 Support](#node-groups-with-ipv6-support)
@@ -79,13 +80,13 @@ This example defines an Amazon EKS cluster with the following configuration:
 * A Kubernetes pod with a container based on the [paulbouwer/hello-kubernetes](https://github.com/paulbouwer/hello-kubernetes) image.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 # provisioning a cluster
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_35,
-    kubectl_layer=KubectlV35Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_36,
+    kubectl_layer=KubectlV36Layer(self, "kubectl")
 )
 
 # apply a kubernetes manifest to the cluster
@@ -149,12 +150,12 @@ A more detailed breakdown of each is provided further down this README.
 Creating a new cluster is done using the `Cluster` or `FargateCluster` constructs. The only required properties are the kubernetes `version` and `kubectlLayer`.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_35,
-    kubectl_layer=KubectlV35Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_36,
+    kubectl_layer=KubectlV36Layer(self, "kubectl")
 )
 ```
 
@@ -169,13 +170,13 @@ This can happen in one of three situations:
 This affects the EKS cluster itself, the custom resource that created the cluster, associated IAM roles, node groups, security groups, VPC and any other CloudFormation resources managed by this construct.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 import aws_cdk as core
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_35,
-    kubectl_layer=KubectlV35Layer(self, "kubectl"),
+    version=eks.KubernetesVersion.V1_36,
+    kubectl_layer=KubectlV36Layer(self, "kubectl"),
     removal_policy=core.RemovalPolicy.RETAIN
 )
 ```
@@ -183,12 +184,12 @@ eks.Cluster(self, "HelloEKS",
 You can also use `FargateCluster` to provision a cluster that uses only fargate workers.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 eks.FargateCluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_35,
-    kubectl_layer=KubectlV35Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_36,
+    kubectl_layer=KubectlV36Layer(self, "kubectl")
 )
 ```
 
@@ -198,15 +199,40 @@ the cluster cannot be deleted until protection is disabled. This setting only ap
 > For more details visit [Deletion protection](https://docs.aws.amazon.com/eks/latest/userguide/deletion-protection.html).
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_35,
-    kubectl_layer=KubectlV35Layer(self, "kubectl"),
+    version=eks.KubernetesVersion.V1_36,
+    kubectl_layer=KubectlV36Layer(self, "kubectl"),
     deletion_protection=True
 )
 ```
+
+### Provisioned Control Plane
+
+Amazon EKS Provisioned Control Plane allows you to select a scaling tier to ensure high and predictable performance for demanding workloads such as AI training/inference, high-performance computing, or large-scale data processing.
+
+```python
+from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+
+
+eks.Cluster(self, "HighPerformanceCluster",
+    version=eks.KubernetesVersion.V1_35,
+    kubectl_layer=KubectlV35Layer(self, "kubectl"),
+    control_plane_scaling_tier=eks.ControlPlaneScalingTier.TIER_XL
+)
+```
+
+Available scaling tiers:
+
+* `STANDARD` - Standard control plane (default, no additional cost)
+* `TIER_XL` - Extra-large provisioned tier
+* `TIER_2XL` - 2x extra-large provisioned tier
+* `TIER_4XL` - 4x extra-large provisioned tier
+* `TIER_8XL` - 8x extra-large provisioned tier
+
+> For more details visit [Amazon EKS Provisioned Control Plane](https://docs.aws.amazon.com/eks/latest/userguide/eks-provisioned-control-plane.html).
 
 > **NOTE: Only 1 cluster per stack is supported.** If you have a use-case for multiple clusters per stack, or would like to understand more about this limitation, see [https://github.com/aws/aws-cdk/issues/10073](https://github.com/aws/aws-cdk/issues/10073).
 
@@ -227,14 +253,14 @@ By default, this library will allocate a managed node group with 2 *m5.large* in
 At cluster instantiation time, you can customize the number of instances and their type:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_35,
+    version=eks.KubernetesVersion.V1_36,
     default_capacity=5,
     default_capacity_instance=ec2.InstanceType.of(ec2.InstanceClass.M5, ec2.InstanceSize.SMALL),
-    kubectl_layer=KubectlV35Layer(self, "kubectl")
+    kubectl_layer=KubectlV36Layer(self, "kubectl")
 )
 ```
 
@@ -243,13 +269,13 @@ To access the node group that was created on your behalf, you can use `cluster.d
 Additional customizations are available post instantiation. To apply them, set the default capacity to 0, and use the `cluster.addNodegroupCapacity` method:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 cluster = eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_35,
+    version=eks.KubernetesVersion.V1_36,
     default_capacity=0,
-    kubectl_layer=KubectlV35Layer(self, "kubectl")
+    kubectl_layer=KubectlV36Layer(self, "kubectl")
 )
 
 cluster.add_nodegroup_capacity("custom-node-group",
@@ -368,7 +394,7 @@ Node groups are available with IPv6 configured networks.  For custom roles assig
 > For more details visit [Configuring the Amazon VPC CNI plugin for Kubernetes to use IAM roles for service accounts](https://docs.aws.amazon.com/eks/latest/userguide/cni-iam-role.html#cni-iam-role-create-role)
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 ipv6_management = iam.PolicyDocument(
@@ -393,9 +419,9 @@ eks_cluster_node_group_role = iam.Role(self, "eksClusterNodeGroupRole",
 )
 
 cluster = eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_35,
+    version=eks.KubernetesVersion.V1_36,
     default_capacity=0,
-    kubectl_layer=KubectlV35Layer(self, "kubectl")
+    kubectl_layer=KubectlV36Layer(self, "kubectl")
 )
 
 cluster.add_nodegroup_capacity("custom-node-group",
@@ -504,13 +530,13 @@ has been changed. As a workaround, you need to add a temporary policy to the clu
 successful replacement. Consider this example if you are renaming the cluster from `foo` to `bar`:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 cluster = eks.Cluster(self, "cluster-to-rename",
     cluster_name="foo",  # rename this to 'bar'
-    kubectl_layer=KubectlV35Layer(self, "kubectl"),
-    version=eks.KubernetesVersion.V1_35
+    kubectl_layer=KubectlV36Layer(self, "kubectl"),
+    version=eks.KubernetesVersion.V1_36
 )
 
 # allow the cluster admin role to delete the cluster 'foo'
@@ -563,12 +589,12 @@ To create an EKS cluster that **only** uses Fargate capacity, you can use `Farga
 The following code defines an Amazon EKS cluster with a default Fargate Profile that matches all pods from the "kube-system" and "default" namespaces. It is also configured to [run CoreDNS on Fargate](https://docs.aws.amazon.com/eks/latest/userguide/fargate-getting-started.html#fargate-gs-coredns).
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 cluster = eks.FargateCluster(self, "MyCluster",
-    version=eks.KubernetesVersion.V1_35,
-    kubectl_layer=KubectlV35Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_36,
+    kubectl_layer=KubectlV36Layer(self, "kubectl")
 )
 ```
 
@@ -648,13 +674,13 @@ To disable bootstrapping altogether (i.e. to fully customize user-data), set `bo
 You can also configure the cluster to use an auto-scaling group as the default capacity:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 cluster = eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_35,
+    version=eks.KubernetesVersion.V1_36,
     default_capacity_type=eks.DefaultCapacityType.EC2,
-    kubectl_layer=KubectlV35Layer(self, "kubectl")
+    kubectl_layer=KubectlV36Layer(self, "kubectl")
 )
 ```
 
@@ -761,13 +787,13 @@ AWS Identity and Access Management (IAM) and native Kubernetes [Role Based Acces
 You can configure the [cluster endpoint access](https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html) by using the `endpointAccess` property:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_35,
+    version=eks.KubernetesVersion.V1_36,
     endpoint_access=eks.EndpointAccess.PRIVATE,  # No access outside of your VPC.
-    kubectl_layer=KubectlV35Layer(self, "kubectl")
+    kubectl_layer=KubectlV36Layer(self, "kubectl")
 )
 ```
 
@@ -787,49 +813,49 @@ From the docs:
 To deploy the controller on your EKS cluster, configure the `albController` property:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_35,
+    version=eks.KubernetesVersion.V1_36,
     alb_controller=eks.AlbControllerOptions(
         version=eks.AlbControllerVersion.V3_2_2
     ),
-    kubectl_layer=KubectlV35Layer(self, "kubectl")
+    kubectl_layer=KubectlV36Layer(self, "kubectl")
 )
 ```
 
 To provide additional Helm chart values supported by `albController` in CDK, use the `additionalHelmChartValues` property. For example, the following code snippet shows how to set the `enableWafV2` flag:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_35,
+    version=eks.KubernetesVersion.V1_36,
     alb_controller=eks.AlbControllerOptions(
         version=eks.AlbControllerVersion.V3_2_2,
         additional_helm_chart_values=eks.AlbControllerHelmChartOptions(
             enable_wafv2=False
         )
     ),
-    kubectl_layer=KubectlV35Layer(self, "kubectl")
+    kubectl_layer=KubectlV36Layer(self, "kubectl")
 )
 ```
 
 To overwrite an existing ALB controller service account, use the `overwriteServiceAccount` property:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_35,
+    version=eks.KubernetesVersion.V1_36,
     alb_controller=eks.AlbControllerOptions(
         version=eks.AlbControllerVersion.V3_2_2,
         overwrite_service_account=True
     ),
-    kubectl_layer=KubectlV35Layer(self, "kubectl")
+    kubectl_layer=KubectlV36Layer(self, "kubectl")
 )
 ```
 
@@ -866,16 +892,16 @@ if cluster.alb_controller:
 You can specify the VPC of the cluster using the `vpc` and `vpcSubnets` properties:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 # vpc: ec2.Vpc
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_35,
+    version=eks.KubernetesVersion.V1_36,
     vpc=vpc,
     vpc_subnets=[ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)],
-    kubectl_layer=KubectlV35Layer(self, "kubectl")
+    kubectl_layer=KubectlV36Layer(self, "kubectl")
 )
 ```
 
@@ -919,12 +945,12 @@ The `ClusterHandler` is a set of Lambda functions (`onEventHandler`, `isComplete
 You can configure the environment of the Cluster Handler functions by specifying it at cluster instantiation. For example, this can be useful in order to configure an http proxy:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 # proxy_instance_security_group: ec2.SecurityGroup
 
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_35,
+    version=eks.KubernetesVersion.V1_36,
     cluster_handler_environment={
         "https_proxy": "http://proxy.myproxy.com"
     },
@@ -933,7 +959,7 @@ cluster = eks.Cluster(self, "hello-eks",
     # Cluster Handler Lambdas so that it can reach the proxy.
     #
     cluster_handler_security_group=proxy_instance_security_group,
-    kubectl_layer=KubectlV35Layer(self, "kubectl")
+    kubectl_layer=KubectlV36Layer(self, "kubectl")
 )
 ```
 
@@ -942,7 +968,7 @@ cluster = eks.Cluster(self, "hello-eks",
 You can optionally choose to configure your cluster to use IPv6 using the [`ipFamily`](https://docs.aws.amazon.com/eks/latest/APIReference/API_KubernetesNetworkConfigRequest.html#AmazonEKS-Type-KubernetesNetworkConfigRequest-ipFamily) definition for your cluster.  Note that this will require the underlying subnets to have an associated IPv6 CIDR.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 # vpc: ec2.Vpc
 
 
@@ -967,11 +993,11 @@ for subnet in subnets:
     subnetcount = subnetcount + 1
 
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_35,
+    version=eks.KubernetesVersion.V1_36,
     vpc=vpc,
     ip_family=eks.IpFamily.IP_V6,
     vpc_subnets=[ec2.SubnetSelection(subnets=vpc.public_subnets)],
-    kubectl_layer=KubectlV35Layer(self, "kubectl")
+    kubectl_layer=KubectlV36Layer(self, "kubectl")
 )
 ```
 
@@ -1002,15 +1028,15 @@ cluster = eks.Cluster.from_cluster_attributes(self, "Cluster",
 You can configure the environment of this function by specifying it at cluster instantiation. For example, this can be useful in order to configure an http proxy:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_35,
+    version=eks.KubernetesVersion.V1_36,
     kubectl_environment={
         "http_proxy": "http://proxy.myproxy.com"
     },
-    kubectl_layer=KubectlV35Layer(self, "kubectl")
+    kubectl_layer=KubectlV36Layer(self, "kubectl")
 )
 ```
 
@@ -1027,12 +1053,12 @@ Depending on which version of kubernetes you're targeting, you will need to use 
 the `@aws-cdk/lambda-layer-kubectl-vXY` packages.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_35,
-    kubectl_layer=KubectlV35Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_36,
+    kubectl_layer=KubectlV36Layer(self, "kubectl")
 )
 ```
 
@@ -1068,7 +1094,7 @@ cluster1 = eks.Cluster(self, "MyCluster",
     kubectl_layer=layer,
     vpc=vpc,
     cluster_name="cluster-name",
-    version=eks.KubernetesVersion.V1_35
+    version=eks.KubernetesVersion.V1_36
 )
 
 # or
@@ -1084,7 +1110,7 @@ cluster2 = eks.Cluster.from_cluster_attributes(self, "MyCluster",
 By default, the kubectl provider is configured with 1024MiB of memory. You can use the `kubectlMemory` option to specify the memory size for the AWS Lambda function:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 # or
 # vpc: ec2.Vpc
@@ -1092,8 +1118,8 @@ from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
 
 eks.Cluster(self, "MyCluster",
     kubectl_memory=Size.gibibytes(4),
-    version=eks.KubernetesVersion.V1_35,
-    kubectl_layer=KubectlV35Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_36,
+    kubectl_layer=KubectlV36Layer(self, "kubectl")
 )
 eks.Cluster.from_cluster_attributes(self, "MyCluster",
     kubectl_memory=Size.gibibytes(4),
@@ -1128,14 +1154,14 @@ cluster.add_auto_scaling_group_capacity("self-ng-arm",
 When you create a cluster, you can specify a `mastersRole`. The `Cluster` construct will associate this role with the `system:masters` [RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/) group, giving it super-user access to the cluster.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 # role: iam.Role
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_35,
+    version=eks.KubernetesVersion.V1_36,
     masters_role=role,
-    kubectl_layer=KubectlV35Layer(self, "kubectl")
+    kubectl_layer=KubectlV36Layer(self, "kubectl")
 )
 ```
 
@@ -1181,28 +1207,28 @@ You can use the `secretsEncryptionKey` to configure which key the cluster will u
 > This setting can only be specified when the cluster is created and cannot be updated.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 secrets_key = kms.Key(self, "SecretsKey")
 cluster = eks.Cluster(self, "MyCluster",
     secrets_encryption_key=secrets_key,
-    version=eks.KubernetesVersion.V1_35,
-    kubectl_layer=KubectlV35Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_36,
+    kubectl_layer=KubectlV36Layer(self, "kubectl")
 )
 ```
 
 You can also use a similar configuration for running a cluster built using the FargateCluster construct.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 secrets_key = kms.Key(self, "SecretsKey")
 cluster = eks.FargateCluster(self, "MyFargateCluster",
     secrets_encryption_key=secrets_key,
-    version=eks.KubernetesVersion.V1_35,
-    kubectl_layer=KubectlV35Layer(self, "kubectl")
+    version=eks.KubernetesVersion.V1_36,
+    kubectl_layer=KubectlV36Layer(self, "kubectl")
 )
 ```
 
@@ -1221,12 +1247,12 @@ When you create an Amazon EKS cluster, you can configure it to leverage the [EKS
 Once you have identified the on-premises node and pod (optional) CIDRs you will use for your hybrid nodes and the workloads running on them, you can specify them during cluster creation using the `remoteNodeNetworks` and `remotePodNetworks` (optional) properties:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 eks.Cluster(self, "Cluster",
-    version=eks.KubernetesVersion.V1_35,
-    kubectl_layer=KubectlV35Layer(self, "KubectlLayer"),
+    version=eks.KubernetesVersion.V1_36,
+    kubectl_layer=KubectlV36Layer(self, "KubectlLayer"),
     remote_node_networks=[eks.RemoteNodeNetwork(
         cidrs=["10.0.0.0/16"]
     )
@@ -1279,7 +1305,7 @@ To access the Kubernetes resources from the console, make sure your viewing prin
 in the `aws-auth` ConfigMap. Some options to consider:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 # cluster: eks.Cluster
 # your_current_role: iam.Role
 # vpc: ec2.Vpc
@@ -1297,7 +1323,7 @@ your_current_role.add_to_policy(iam.PolicyStatement(
 
 ```python
 # Option 2: create your custom mastersRole with scoped assumeBy arn as the Cluster prop. Switch to this role from the AWS console.
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 # vpc: ec2.Vpc
 
 
@@ -1307,8 +1333,8 @@ masters_role = iam.Role(self, "MastersRole",
 
 cluster = eks.Cluster(self, "EksCluster",
     vpc=vpc,
-    version=eks.KubernetesVersion.V1_35,
-    kubectl_layer=KubectlV35Layer(self, "KubectlLayer"),
+    version=eks.KubernetesVersion.V1_36,
+    kubectl_layer=KubectlV36Layer(self, "KubectlLayer"),
     masters_role=masters_role
 )
 
@@ -1347,14 +1373,14 @@ AWS IAM principals from both Amazon EKS access entry APIs and the aws-auth confi
 To specify the `authenticationMode`:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 # vpc: ec2.Vpc
 
 
 eks.Cluster(self, "Cluster",
     vpc=vpc,
-    version=eks.KubernetesVersion.V1_35,
-    kubectl_layer=KubectlV35Layer(self, "KubectlLayer"),
+    version=eks.KubernetesVersion.V1_36,
+    kubectl_layer=KubectlV36Layer(self, "KubectlLayer"),
     authentication_mode=eks.AuthenticationMode.API_AND_CONFIG_MAP
 )
 ```
@@ -1399,7 +1425,7 @@ eks.AccessPolicy.from_access_policy_name("AmazonEKSAdminPolicy",
 Use `grantAccess()` to grant the AccessPolicy to an IAM principal:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 # vpc: ec2.Vpc
 
 
@@ -1418,8 +1444,8 @@ eks_admin_view_role = iam.Role(self, "EKSAdminViewRole",
 cluster = eks.Cluster(self, "Cluster",
     vpc=vpc,
     masters_role=cluster_admin_role,
-    version=eks.KubernetesVersion.V1_35,
-    kubectl_layer=KubectlV35Layer(self, "KubectlLayer"),
+    version=eks.KubernetesVersion.V1_36,
+    kubectl_layer=KubectlV36Layer(self, "KubectlLayer"),
     authentication_mode=eks.AuthenticationMode.API_AND_CONFIG_MAP
 )
 
@@ -1847,13 +1873,13 @@ Pruning is enabled by default but can be disabled through the `prune` option
 when a cluster is defined:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 eks.Cluster(self, "MyCluster",
-    version=eks.KubernetesVersion.V1_35,
+    version=eks.KubernetesVersion.V1_36,
     prune=False,
-    kubectl_layer=KubectlV35Layer(self, "kubectl")
+    kubectl_layer=KubectlV36Layer(self, "kubectl")
 )
 ```
 
@@ -2252,15 +2278,15 @@ You can enable logging for each one separately using the `clusterLogging`
 property. For example:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 cluster = eks.Cluster(self, "Cluster",
     # ...
-    version=eks.KubernetesVersion.V1_35,
+    version=eks.KubernetesVersion.V1_36,
     cluster_logging=[eks.ClusterLoggingTypes.API, eks.ClusterLoggingTypes.AUTHENTICATOR, eks.ClusterLoggingTypes.SCHEDULER
     ],
-    kubectl_layer=KubectlV35Layer(self, "kubectl")
+    kubectl_layer=KubectlV36Layer(self, "kubectl")
 )
 ```
 
@@ -3331,18 +3357,18 @@ class AlbControllerHelmChartOptions:
 
         Example::
 
-            from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+            from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
             
             
             eks.Cluster(self, "HelloEKS",
-                version=eks.KubernetesVersion.V1_35,
+                version=eks.KubernetesVersion.V1_36,
                 alb_controller=eks.AlbControllerOptions(
                     version=eks.AlbControllerVersion.V3_2_2,
                     additional_helm_chart_values=eks.AlbControllerHelmChartOptions(
                         enable_wafv2=False
                     )
                 ),
-                kubectl_layer=KubectlV35Layer(self, "kubectl")
+                kubectl_layer=KubectlV36Layer(self, "kubectl")
             )
         '''
         if __debug__:
@@ -3421,16 +3447,16 @@ class AlbControllerOptions:
 
         Example::
 
-            from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+            from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
             
             
             eks.Cluster(self, "HelloEKS",
-                version=eks.KubernetesVersion.V1_35,
+                version=eks.KubernetesVersion.V1_36,
                 alb_controller=eks.AlbControllerOptions(
                     version=eks.AlbControllerVersion.V3_2_2,
                     overwrite_service_account=True
                 ),
-                kubectl_layer=KubectlV35Layer(self, "kubectl")
+                kubectl_layer=KubectlV36Layer(self, "kubectl")
             )
         '''
         if isinstance(additional_helm_chart_values, dict):
@@ -3737,16 +3763,16 @@ class AlbControllerVersion(
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+        from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
         
         
         eks.Cluster(self, "HelloEKS",
-            version=eks.KubernetesVersion.V1_35,
+            version=eks.KubernetesVersion.V1_36,
             alb_controller=eks.AlbControllerOptions(
                 version=eks.AlbControllerVersion.V3_2_2,
                 overwrite_service_account=True
             ),
-            kubectl_layer=KubectlV35Layer(self, "kubectl")
+            kubectl_layer=KubectlV36Layer(self, "kubectl")
         )
     '''
 
@@ -4166,14 +4192,14 @@ class AuthenticationMode(enum.Enum):
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+        from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
         # vpc: ec2.Vpc
         
         
         eks.Cluster(self, "Cluster",
             vpc=vpc,
-            version=eks.KubernetesVersion.V1_35,
-            kubectl_layer=KubectlV35Layer(self, "KubectlLayer"),
+            version=eks.KubernetesVersion.V1_36,
+            kubectl_layer=KubectlV36Layer(self, "KubectlLayer"),
             authentication_mode=eks.AuthenticationMode.API_AND_CONFIG_MAP
         )
     '''
@@ -14951,15 +14977,15 @@ class ClusterLoggingTypes(enum.Enum):
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+        from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
         
         
         cluster = eks.Cluster(self, "Cluster",
             # ...
-            version=eks.KubernetesVersion.V1_35,
+            version=eks.KubernetesVersion.V1_36,
             cluster_logging=[eks.ClusterLoggingTypes.API, eks.ClusterLoggingTypes.AUTHENTICATOR, eks.ClusterLoggingTypes.SCHEDULER
             ],
-            kubectl_layer=KubectlV35Layer(self, "kubectl")
+            kubectl_layer=KubectlV36Layer(self, "kubectl")
         )
     '''
 
@@ -15173,6 +15199,41 @@ class CommonClusterOptions:
         )
 
 
+@jsii.enum(jsii_type="aws-cdk-lib.aws_eks.ControlPlaneScalingTier")
+class ControlPlaneScalingTier(enum.Enum):
+    '''Control plane scaling tier for EKS Provisioned Control Plane.
+
+    Provisioned Control Plane allows cluster administrators to select from a set
+    of scaling tiers to ensure high and predictable performance for demanding workloads
+    such as AI training/inference, high-performance computing, or large-scale data processing.
+
+    :see: https://docs.aws.amazon.com/eks/latest/userguide/eks-provisioned-control-plane.html
+    :exampleMetadata: infused
+
+    Example::
+
+        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+        
+        
+        eks.Cluster(self, "HighPerformanceCluster",
+            version=eks.KubernetesVersion.V1_35,
+            kubectl_layer=KubectlV35Layer(self, "kubectl"),
+            control_plane_scaling_tier=eks.ControlPlaneScalingTier.TIER_XL
+        )
+    '''
+
+    STANDARD = "STANDARD"
+    '''Standard control plane (default, no additional cost).'''
+    TIER_XL = "TIER_XL"
+    '''Extra-large provisioned tier.'''
+    TIER_2XL = "TIER_2XL"
+    '''2x extra-large provisioned tier.'''
+    TIER_4XL = "TIER_4XL"
+    '''4x extra-large provisioned tier.'''
+    TIER_8XL = "TIER_8XL"
+    '''8x extra-large provisioned tier.'''
+
+
 @jsii.enum(jsii_type="aws-cdk-lib.aws_eks.CoreDnsComputeType")
 class CoreDnsComputeType(enum.Enum):
     '''The type of compute resources to use for CoreDNS.'''
@@ -15201,13 +15262,13 @@ class DefaultCapacityType(enum.Enum):
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+        from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
         
         
         cluster = eks.Cluster(self, "HelloEKS",
-            version=eks.KubernetesVersion.V1_35,
+            version=eks.KubernetesVersion.V1_36,
             default_capacity_type=eks.DefaultCapacityType.EC2,
-            kubectl_layer=KubectlV35Layer(self, "kubectl")
+            kubectl_layer=KubectlV36Layer(self, "kubectl")
         )
     '''
 
@@ -15374,13 +15435,13 @@ class EndpointAccess(
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+        from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
         
         
         cluster = eks.Cluster(self, "hello-eks",
-            version=eks.KubernetesVersion.V1_35,
+            version=eks.KubernetesVersion.V1_36,
             endpoint_access=eks.EndpointAccess.PRIVATE,  # No access outside of your VPC.
-            kubectl_layer=KubectlV35Layer(self, "kubectl")
+            kubectl_layer=KubectlV36Layer(self, "kubectl")
         )
     '''
 
@@ -17754,7 +17815,7 @@ class IpFamily(enum.Enum):
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+        from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
         # vpc: ec2.Vpc
         
         
@@ -17779,11 +17840,11 @@ class IpFamily(enum.Enum):
             subnetcount = subnetcount + 1
         
         cluster = eks.Cluster(self, "hello-eks",
-            version=eks.KubernetesVersion.V1_35,
+            version=eks.KubernetesVersion.V1_36,
             vpc=vpc,
             ip_family=eks.IpFamily.IP_V6,
             vpc_subnets=[ec2.SubnetSelection(subnets=vpc.public_subnets)],
-            kubectl_layer=KubectlV35Layer(self, "kubectl")
+            kubectl_layer=KubectlV36Layer(self, "kubectl")
         )
     '''
 
@@ -19040,13 +19101,13 @@ class KubernetesVersion(
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+        from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
         
         
         cluster = eks.Cluster(self, "HelloEKS",
-            version=eks.KubernetesVersion.V1_35,
+            version=eks.KubernetesVersion.V1_36,
             default_capacity=0,
-            kubectl_layer=KubectlV35Layer(self, "kubectl")
+            kubectl_layer=KubectlV36Layer(self, "kubectl")
         )
         
         cluster.add_nodegroup_capacity("custom-node-group",
@@ -19309,6 +19370,17 @@ class KubernetesVersion(
         ``@aws-cdk/lambda-layer-kubectl-v35``.
         '''
         return typing.cast("KubernetesVersion", jsii.sget(cls, "V1_35"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V1_36")
+    def V1_36(cls) -> "KubernetesVersion":
+        '''Kubernetes version 1.36.
+
+        When creating a ``Cluster`` with this version, you need to also specify the
+        ``kubectlLayer`` property with a ``KubectlV36Layer`` from
+        ``@aws-cdk/lambda-layer-kubectl-v36``.
+        '''
+        return typing.cast("KubernetesVersion", jsii.sget(cls, "V1_36"))
 
     @builtins.property
     @jsii.member(jsii_name="version")
@@ -22178,21 +22250,19 @@ class Cluster(
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
-        
-        # or
-        # vpc: ec2.Vpc
+        from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
         
         
-        eks.Cluster(self, "MyCluster",
-            kubectl_memory=Size.gibibytes(4),
-            version=eks.KubernetesVersion.V1_35,
-            kubectl_layer=KubectlV35Layer(self, "kubectl")
+        cluster = eks.Cluster(self, "HelloEKS",
+            version=eks.KubernetesVersion.V1_36,
+            default_capacity=0,
+            kubectl_layer=KubectlV36Layer(self, "kubectl")
         )
-        eks.Cluster.from_cluster_attributes(self, "MyCluster",
-            kubectl_memory=Size.gibibytes(4),
-            vpc=vpc,
-            cluster_name="cluster-name"
+        
+        cluster.add_nodegroup_capacity("custom-node-group",
+            instance_types=[ec2.InstanceType("m5.large")],
+            min_size=4,
+            disk_size=100
         )
     '''
 
@@ -22215,6 +22285,7 @@ class Cluster(
         cluster_handler_environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         cluster_handler_security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
         cluster_logging: typing.Optional[typing.Sequence["ClusterLoggingTypes"]] = None,
+        control_plane_scaling_tier: typing.Optional["ControlPlaneScalingTier"] = None,
         core_dns_compute_type: typing.Optional["CoreDnsComputeType"] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         endpoint_access: typing.Optional["EndpointAccess"] = None,
@@ -22258,6 +22329,7 @@ class Cluster(
         :param cluster_handler_environment: Custom environment variables when interacting with the EKS endpoint to manage the cluster lifecycle. Default: - No environment variables.
         :param cluster_handler_security_group: A security group to associate with the Cluster Handler's Lambdas. The Cluster Handler's Lambdas are responsible for calling AWS's EKS API. Requires ``placeClusterHandlerInVpc`` to be set to true. Default: - No security group.
         :param cluster_logging: The cluster log types which you want to enable. Default: - none
+        :param control_plane_scaling_tier: The control plane scaling tier for EKS Provisioned Control Plane. Provisioned Control Plane allows you to select a scaling tier to ensure high and predictable performance for demanding workloads such as AI training/inference, high-performance computing, or large-scale data processing. Default: - Standard control plane (no provisioned tier)
         :param core_dns_compute_type: Controls the "eks.amazonaws.com/compute-type" annotation in the CoreDNS configuration on your cluster to determine which compute type to use for CoreDNS. Default: CoreDnsComputeType.EC2 (for ``FargateCluster`` the default is FARGATE)
         :param deletion_protection: The current deletion protection setting for the cluster. When true, deletion protection is enabled and the cluster cannot be deleted until protection is disabled. When false, the cluster can be deleted normally. This setting only applies to clusters in an active state. Default: - deletion protection is disabled
         :param endpoint_access: Configure access to the Kubernetes API server endpoint.. Default: EndpointAccess.PUBLIC_AND_PRIVATE
@@ -22302,6 +22374,7 @@ class Cluster(
             cluster_handler_environment=cluster_handler_environment,
             cluster_handler_security_group=cluster_handler_security_group,
             cluster_logging=cluster_logging,
+            control_plane_scaling_tier=control_plane_scaling_tier,
             core_dns_compute_type=core_dns_compute_type,
             deletion_protection=deletion_protection,
             endpoint_access=endpoint_access,
@@ -23287,6 +23360,7 @@ class Cluster(
         "cluster_handler_environment": "clusterHandlerEnvironment",
         "cluster_handler_security_group": "clusterHandlerSecurityGroup",
         "cluster_logging": "clusterLogging",
+        "control_plane_scaling_tier": "controlPlaneScalingTier",
         "core_dns_compute_type": "coreDnsComputeType",
         "deletion_protection": "deletionProtection",
         "endpoint_access": "endpointAccess",
@@ -23324,6 +23398,7 @@ class ClusterOptions(CommonClusterOptions):
         cluster_handler_environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         cluster_handler_security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
         cluster_logging: typing.Optional[typing.Sequence["ClusterLoggingTypes"]] = None,
+        control_plane_scaling_tier: typing.Optional["ControlPlaneScalingTier"] = None,
         core_dns_compute_type: typing.Optional["CoreDnsComputeType"] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         endpoint_access: typing.Optional["EndpointAccess"] = None,
@@ -23358,6 +23433,7 @@ class ClusterOptions(CommonClusterOptions):
         :param cluster_handler_environment: Custom environment variables when interacting with the EKS endpoint to manage the cluster lifecycle. Default: - No environment variables.
         :param cluster_handler_security_group: A security group to associate with the Cluster Handler's Lambdas. The Cluster Handler's Lambdas are responsible for calling AWS's EKS API. Requires ``placeClusterHandlerInVpc`` to be set to true. Default: - No security group.
         :param cluster_logging: The cluster log types which you want to enable. Default: - none
+        :param control_plane_scaling_tier: The control plane scaling tier for EKS Provisioned Control Plane. Provisioned Control Plane allows you to select a scaling tier to ensure high and predictable performance for demanding workloads such as AI training/inference, high-performance computing, or large-scale data processing. Default: - Standard control plane (no provisioned tier)
         :param core_dns_compute_type: Controls the "eks.amazonaws.com/compute-type" annotation in the CoreDNS configuration on your cluster to determine which compute type to use for CoreDNS. Default: CoreDnsComputeType.EC2 (for ``FargateCluster`` the default is FARGATE)
         :param deletion_protection: The current deletion protection setting for the cluster. When true, deletion protection is enabled and the cluster cannot be deleted until protection is disabled. When false, the cluster can be deleted normally. This setting only applies to clusters in an active state. Default: - deletion protection is disabled
         :param endpoint_access: Configure access to the Kubernetes API server endpoint.. Default: EndpointAccess.PUBLIC_AND_PRIVATE
@@ -23427,6 +23503,7 @@ class ClusterOptions(CommonClusterOptions):
                 cluster_handler_security_group=security_group,
                 cluster_logging=[eks.ClusterLoggingTypes.API],
                 cluster_name="clusterName",
+                control_plane_scaling_tier=eks.ControlPlaneScalingTier.STANDARD,
                 core_dns_compute_type=eks.CoreDnsComputeType.EC2,
                 deletion_protection=False,
                 endpoint_access=endpoint_access,
@@ -23483,6 +23560,7 @@ class ClusterOptions(CommonClusterOptions):
             check_type(argname="argument cluster_handler_environment", value=cluster_handler_environment, expected_type=type_hints["cluster_handler_environment"])
             check_type(argname="argument cluster_handler_security_group", value=cluster_handler_security_group, expected_type=type_hints["cluster_handler_security_group"])
             check_type(argname="argument cluster_logging", value=cluster_logging, expected_type=type_hints["cluster_logging"])
+            check_type(argname="argument control_plane_scaling_tier", value=control_plane_scaling_tier, expected_type=type_hints["control_plane_scaling_tier"])
             check_type(argname="argument core_dns_compute_type", value=core_dns_compute_type, expected_type=type_hints["core_dns_compute_type"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument endpoint_access", value=endpoint_access, expected_type=type_hints["endpoint_access"])
@@ -23529,6 +23607,8 @@ class ClusterOptions(CommonClusterOptions):
             self._values["cluster_handler_security_group"] = cluster_handler_security_group
         if cluster_logging is not None:
             self._values["cluster_logging"] = cluster_logging
+        if control_plane_scaling_tier is not None:
+            self._values["control_plane_scaling_tier"] = control_plane_scaling_tier
         if core_dns_compute_type is not None:
             self._values["core_dns_compute_type"] = core_dns_compute_type
         if deletion_protection is not None:
@@ -23730,6 +23810,21 @@ class ClusterOptions(CommonClusterOptions):
         '''
         result = self._values.get("cluster_logging")
         return typing.cast(typing.Optional[typing.List["ClusterLoggingTypes"]], result)
+
+    @builtins.property
+    def control_plane_scaling_tier(self) -> typing.Optional["ControlPlaneScalingTier"]:
+        '''The control plane scaling tier for EKS Provisioned Control Plane.
+
+        Provisioned Control Plane allows you to select a scaling tier to ensure
+        high and predictable performance for demanding workloads such as
+        AI training/inference, high-performance computing, or large-scale data processing.
+
+        :default: - Standard control plane (no provisioned tier)
+
+        :see: https://docs.aws.amazon.com/eks/latest/userguide/eks-provisioned-control-plane.html
+        '''
+        result = self._values.get("control_plane_scaling_tier")
+        return typing.cast(typing.Optional["ControlPlaneScalingTier"], result)
 
     @builtins.property
     def core_dns_compute_type(self) -> typing.Optional["CoreDnsComputeType"]:
@@ -23957,6 +24052,7 @@ class ClusterOptions(CommonClusterOptions):
         "cluster_handler_environment": "clusterHandlerEnvironment",
         "cluster_handler_security_group": "clusterHandlerSecurityGroup",
         "cluster_logging": "clusterLogging",
+        "control_plane_scaling_tier": "controlPlaneScalingTier",
         "core_dns_compute_type": "coreDnsComputeType",
         "deletion_protection": "deletionProtection",
         "endpoint_access": "endpointAccess",
@@ -24001,6 +24097,7 @@ class ClusterProps(ClusterOptions):
         cluster_handler_environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         cluster_handler_security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
         cluster_logging: typing.Optional[typing.Sequence["ClusterLoggingTypes"]] = None,
+        control_plane_scaling_tier: typing.Optional["ControlPlaneScalingTier"] = None,
         core_dns_compute_type: typing.Optional["CoreDnsComputeType"] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         endpoint_access: typing.Optional["EndpointAccess"] = None,
@@ -24042,6 +24139,7 @@ class ClusterProps(ClusterOptions):
         :param cluster_handler_environment: Custom environment variables when interacting with the EKS endpoint to manage the cluster lifecycle. Default: - No environment variables.
         :param cluster_handler_security_group: A security group to associate with the Cluster Handler's Lambdas. The Cluster Handler's Lambdas are responsible for calling AWS's EKS API. Requires ``placeClusterHandlerInVpc`` to be set to true. Default: - No security group.
         :param cluster_logging: The cluster log types which you want to enable. Default: - none
+        :param control_plane_scaling_tier: The control plane scaling tier for EKS Provisioned Control Plane. Provisioned Control Plane allows you to select a scaling tier to ensure high and predictable performance for demanding workloads such as AI training/inference, high-performance computing, or large-scale data processing. Default: - Standard control plane (no provisioned tier)
         :param core_dns_compute_type: Controls the "eks.amazonaws.com/compute-type" annotation in the CoreDNS configuration on your cluster to determine which compute type to use for CoreDNS. Default: CoreDnsComputeType.EC2 (for ``FargateCluster`` the default is FARGATE)
         :param deletion_protection: The current deletion protection setting for the cluster. When true, deletion protection is enabled and the cluster cannot be deleted until protection is disabled. When false, the cluster can be deleted normally. This setting only applies to clusters in an active state. Default: - deletion protection is disabled
         :param endpoint_access: Configure access to the Kubernetes API server endpoint.. Default: EndpointAccess.PUBLIC_AND_PRIVATE
@@ -24070,21 +24168,19 @@ class ClusterProps(ClusterOptions):
 
         Example::
 
-            from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
-            
-            # or
-            # vpc: ec2.Vpc
+            from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
             
             
-            eks.Cluster(self, "MyCluster",
-                kubectl_memory=Size.gibibytes(4),
-                version=eks.KubernetesVersion.V1_35,
-                kubectl_layer=KubectlV35Layer(self, "kubectl")
+            cluster = eks.Cluster(self, "HelloEKS",
+                version=eks.KubernetesVersion.V1_36,
+                default_capacity=0,
+                kubectl_layer=KubectlV36Layer(self, "kubectl")
             )
-            eks.Cluster.from_cluster_attributes(self, "MyCluster",
-                kubectl_memory=Size.gibibytes(4),
-                vpc=vpc,
-                cluster_name="cluster-name"
+            
+            cluster.add_nodegroup_capacity("custom-node-group",
+                instance_types=[ec2.InstanceType("m5.large")],
+                min_size=4,
+                disk_size=100
             )
         '''
         if isinstance(alb_controller, dict):
@@ -24106,6 +24202,7 @@ class ClusterProps(ClusterOptions):
             check_type(argname="argument cluster_handler_environment", value=cluster_handler_environment, expected_type=type_hints["cluster_handler_environment"])
             check_type(argname="argument cluster_handler_security_group", value=cluster_handler_security_group, expected_type=type_hints["cluster_handler_security_group"])
             check_type(argname="argument cluster_logging", value=cluster_logging, expected_type=type_hints["cluster_logging"])
+            check_type(argname="argument control_plane_scaling_tier", value=control_plane_scaling_tier, expected_type=type_hints["control_plane_scaling_tier"])
             check_type(argname="argument core_dns_compute_type", value=core_dns_compute_type, expected_type=type_hints["core_dns_compute_type"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument endpoint_access", value=endpoint_access, expected_type=type_hints["endpoint_access"])
@@ -24159,6 +24256,8 @@ class ClusterProps(ClusterOptions):
             self._values["cluster_handler_security_group"] = cluster_handler_security_group
         if cluster_logging is not None:
             self._values["cluster_logging"] = cluster_logging
+        if control_plane_scaling_tier is not None:
+            self._values["control_plane_scaling_tier"] = control_plane_scaling_tier
         if core_dns_compute_type is not None:
             self._values["core_dns_compute_type"] = core_dns_compute_type
         if deletion_protection is not None:
@@ -24374,6 +24473,21 @@ class ClusterProps(ClusterOptions):
         '''
         result = self._values.get("cluster_logging")
         return typing.cast(typing.Optional[typing.List["ClusterLoggingTypes"]], result)
+
+    @builtins.property
+    def control_plane_scaling_tier(self) -> typing.Optional["ControlPlaneScalingTier"]:
+        '''The control plane scaling tier for EKS Provisioned Control Plane.
+
+        Provisioned Control Plane allows you to select a scaling tier to ensure
+        high and predictable performance for demanding workloads such as
+        AI training/inference, high-performance computing, or large-scale data processing.
+
+        :default: - Standard control plane (no provisioned tier)
+
+        :see: https://docs.aws.amazon.com/eks/latest/userguide/eks-provisioned-control-plane.html
+        '''
+        result = self._values.get("control_plane_scaling_tier")
+        return typing.cast(typing.Optional["ControlPlaneScalingTier"], result)
 
     @builtins.property
     def core_dns_compute_type(self) -> typing.Optional["CoreDnsComputeType"]:
@@ -24680,12 +24794,12 @@ class FargateCluster(
 
     Example::
 
-        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+        from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
         
         
         cluster = eks.FargateCluster(self, "MyCluster",
-            version=eks.KubernetesVersion.V1_35,
-            kubectl_layer=KubectlV35Layer(self, "kubectl")
+            version=eks.KubernetesVersion.V1_36,
+            kubectl_layer=KubectlV36Layer(self, "kubectl")
         )
     '''
 
@@ -24702,6 +24816,7 @@ class FargateCluster(
         cluster_handler_environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         cluster_handler_security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
         cluster_logging: typing.Optional[typing.Sequence["ClusterLoggingTypes"]] = None,
+        control_plane_scaling_tier: typing.Optional["ControlPlaneScalingTier"] = None,
         core_dns_compute_type: typing.Optional["CoreDnsComputeType"] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         endpoint_access: typing.Optional["EndpointAccess"] = None,
@@ -24738,6 +24853,7 @@ class FargateCluster(
         :param cluster_handler_environment: Custom environment variables when interacting with the EKS endpoint to manage the cluster lifecycle. Default: - No environment variables.
         :param cluster_handler_security_group: A security group to associate with the Cluster Handler's Lambdas. The Cluster Handler's Lambdas are responsible for calling AWS's EKS API. Requires ``placeClusterHandlerInVpc`` to be set to true. Default: - No security group.
         :param cluster_logging: The cluster log types which you want to enable. Default: - none
+        :param control_plane_scaling_tier: The control plane scaling tier for EKS Provisioned Control Plane. Provisioned Control Plane allows you to select a scaling tier to ensure high and predictable performance for demanding workloads such as AI training/inference, high-performance computing, or large-scale data processing. Default: - Standard control plane (no provisioned tier)
         :param core_dns_compute_type: Controls the "eks.amazonaws.com/compute-type" annotation in the CoreDNS configuration on your cluster to determine which compute type to use for CoreDNS. Default: CoreDnsComputeType.EC2 (for ``FargateCluster`` the default is FARGATE)
         :param deletion_protection: The current deletion protection setting for the cluster. When true, deletion protection is enabled and the cluster cannot be deleted until protection is disabled. When false, the cluster can be deleted normally. This setting only applies to clusters in an active state. Default: - deletion protection is disabled
         :param endpoint_access: Configure access to the Kubernetes API server endpoint.. Default: EndpointAccess.PUBLIC_AND_PRIVATE
@@ -24776,6 +24892,7 @@ class FargateCluster(
             cluster_handler_environment=cluster_handler_environment,
             cluster_handler_security_group=cluster_handler_security_group,
             cluster_logging=cluster_logging,
+            control_plane_scaling_tier=control_plane_scaling_tier,
             core_dns_compute_type=core_dns_compute_type,
             deletion_protection=deletion_protection,
             endpoint_access=endpoint_access,
@@ -24836,6 +24953,7 @@ class FargateCluster(
         "cluster_handler_environment": "clusterHandlerEnvironment",
         "cluster_handler_security_group": "clusterHandlerSecurityGroup",
         "cluster_logging": "clusterLogging",
+        "control_plane_scaling_tier": "controlPlaneScalingTier",
         "core_dns_compute_type": "coreDnsComputeType",
         "deletion_protection": "deletionProtection",
         "endpoint_access": "endpointAccess",
@@ -24874,6 +24992,7 @@ class FargateClusterProps(ClusterOptions):
         cluster_handler_environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         cluster_handler_security_group: typing.Optional["_aws_ec2_09840e12.ISecurityGroup"] = None,
         cluster_logging: typing.Optional[typing.Sequence["ClusterLoggingTypes"]] = None,
+        control_plane_scaling_tier: typing.Optional["ControlPlaneScalingTier"] = None,
         core_dns_compute_type: typing.Optional["CoreDnsComputeType"] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         endpoint_access: typing.Optional["EndpointAccess"] = None,
@@ -24909,6 +25028,7 @@ class FargateClusterProps(ClusterOptions):
         :param cluster_handler_environment: Custom environment variables when interacting with the EKS endpoint to manage the cluster lifecycle. Default: - No environment variables.
         :param cluster_handler_security_group: A security group to associate with the Cluster Handler's Lambdas. The Cluster Handler's Lambdas are responsible for calling AWS's EKS API. Requires ``placeClusterHandlerInVpc`` to be set to true. Default: - No security group.
         :param cluster_logging: The cluster log types which you want to enable. Default: - none
+        :param control_plane_scaling_tier: The control plane scaling tier for EKS Provisioned Control Plane. Provisioned Control Plane allows you to select a scaling tier to ensure high and predictable performance for demanding workloads such as AI training/inference, high-performance computing, or large-scale data processing. Default: - Standard control plane (no provisioned tier)
         :param core_dns_compute_type: Controls the "eks.amazonaws.com/compute-type" annotation in the CoreDNS configuration on your cluster to determine which compute type to use for CoreDNS. Default: CoreDnsComputeType.EC2 (for ``FargateCluster`` the default is FARGATE)
         :param deletion_protection: The current deletion protection setting for the cluster. When true, deletion protection is enabled and the cluster cannot be deleted until protection is disabled. When false, the cluster can be deleted normally. This setting only applies to clusters in an active state. Default: - deletion protection is disabled
         :param endpoint_access: Configure access to the Kubernetes API server endpoint.. Default: EndpointAccess.PUBLIC_AND_PRIVATE
@@ -24931,12 +25051,12 @@ class FargateClusterProps(ClusterOptions):
 
         Example::
 
-            from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+            from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
             
             
             cluster = eks.FargateCluster(self, "MyCluster",
-                version=eks.KubernetesVersion.V1_35,
-                kubectl_layer=KubectlV35Layer(self, "kubectl")
+                version=eks.KubernetesVersion.V1_36,
+                kubectl_layer=KubectlV36Layer(self, "kubectl")
             )
         '''
         if isinstance(alb_controller, dict):
@@ -24960,6 +25080,7 @@ class FargateClusterProps(ClusterOptions):
             check_type(argname="argument cluster_handler_environment", value=cluster_handler_environment, expected_type=type_hints["cluster_handler_environment"])
             check_type(argname="argument cluster_handler_security_group", value=cluster_handler_security_group, expected_type=type_hints["cluster_handler_security_group"])
             check_type(argname="argument cluster_logging", value=cluster_logging, expected_type=type_hints["cluster_logging"])
+            check_type(argname="argument control_plane_scaling_tier", value=control_plane_scaling_tier, expected_type=type_hints["control_plane_scaling_tier"])
             check_type(argname="argument core_dns_compute_type", value=core_dns_compute_type, expected_type=type_hints["core_dns_compute_type"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument endpoint_access", value=endpoint_access, expected_type=type_hints["endpoint_access"])
@@ -25007,6 +25128,8 @@ class FargateClusterProps(ClusterOptions):
             self._values["cluster_handler_security_group"] = cluster_handler_security_group
         if cluster_logging is not None:
             self._values["cluster_logging"] = cluster_logging
+        if control_plane_scaling_tier is not None:
+            self._values["control_plane_scaling_tier"] = control_plane_scaling_tier
         if core_dns_compute_type is not None:
             self._values["core_dns_compute_type"] = core_dns_compute_type
         if deletion_protection is not None:
@@ -25210,6 +25333,21 @@ class FargateClusterProps(ClusterOptions):
         '''
         result = self._values.get("cluster_logging")
         return typing.cast(typing.Optional[typing.List["ClusterLoggingTypes"]], result)
+
+    @builtins.property
+    def control_plane_scaling_tier(self) -> typing.Optional["ControlPlaneScalingTier"]:
+        '''The control plane scaling tier for EKS Provisioned Control Plane.
+
+        Provisioned Control Plane allows you to select a scaling tier to ensure
+        high and predictable performance for demanding workloads such as
+        AI training/inference, high-performance computing, or large-scale data processing.
+
+        :default: - Standard control plane (no provisioned tier)
+
+        :see: https://docs.aws.amazon.com/eks/latest/userguide/eks-provisioned-control-plane.html
+        '''
+        result = self._values.get("control_plane_scaling_tier")
+        return typing.cast(typing.Optional["ControlPlaneScalingTier"], result)
 
     @builtins.property
     def core_dns_compute_type(self) -> typing.Optional["CoreDnsComputeType"]:
@@ -25639,6 +25777,7 @@ __all__ = [
     "ClusterOptions",
     "ClusterProps",
     "CommonClusterOptions",
+    "ControlPlaneScalingTier",
     "CoreDnsComputeType",
     "CpuArch",
     "DefaultCapacityType",
@@ -28009,6 +28148,7 @@ def _typecheckingstub__786576ad54eacdb9ab8e92277c0fd07f813bc56d4243937f3b5a85c0c
     cluster_handler_environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     cluster_handler_security_group: typing.Optional[_aws_ec2_09840e12.ISecurityGroup] = None,
     cluster_logging: typing.Optional[typing.Sequence[ClusterLoggingTypes]] = None,
+    control_plane_scaling_tier: typing.Optional[ControlPlaneScalingTier] = None,
     core_dns_compute_type: typing.Optional[CoreDnsComputeType] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     endpoint_access: typing.Optional[EndpointAccess] = None,
@@ -28261,6 +28401,7 @@ def _typecheckingstub__0b45b97fda36b43e872f90f9fe4cde65de855b50b3acfd236c1f400ef
     cluster_handler_environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     cluster_handler_security_group: typing.Optional[_aws_ec2_09840e12.ISecurityGroup] = None,
     cluster_logging: typing.Optional[typing.Sequence[ClusterLoggingTypes]] = None,
+    control_plane_scaling_tier: typing.Optional[ControlPlaneScalingTier] = None,
     core_dns_compute_type: typing.Optional[CoreDnsComputeType] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     endpoint_access: typing.Optional[EndpointAccess] = None,
@@ -28298,6 +28439,7 @@ def _typecheckingstub__ce7a73a63de29ba5e5b5cd5cabde7aca1c4bc7d119de52fc4c0f11d99
     cluster_handler_environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     cluster_handler_security_group: typing.Optional[_aws_ec2_09840e12.ISecurityGroup] = None,
     cluster_logging: typing.Optional[typing.Sequence[ClusterLoggingTypes]] = None,
+    control_plane_scaling_tier: typing.Optional[ControlPlaneScalingTier] = None,
     core_dns_compute_type: typing.Optional[CoreDnsComputeType] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     endpoint_access: typing.Optional[EndpointAccess] = None,
@@ -28337,6 +28479,7 @@ def _typecheckingstub__ae166d791f5d5176f3386726c22bc44afedf5d336437a3513e3740387
     cluster_handler_environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     cluster_handler_security_group: typing.Optional[_aws_ec2_09840e12.ISecurityGroup] = None,
     cluster_logging: typing.Optional[typing.Sequence[ClusterLoggingTypes]] = None,
+    control_plane_scaling_tier: typing.Optional[ControlPlaneScalingTier] = None,
     core_dns_compute_type: typing.Optional[CoreDnsComputeType] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     endpoint_access: typing.Optional[EndpointAccess] = None,
@@ -28382,6 +28525,7 @@ def _typecheckingstub__f11c7f989209f6213cb855d2846bb0b2b79a6a2b85eb0d65939e981df
     cluster_handler_environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     cluster_handler_security_group: typing.Optional[_aws_ec2_09840e12.ISecurityGroup] = None,
     cluster_logging: typing.Optional[typing.Sequence[ClusterLoggingTypes]] = None,
+    control_plane_scaling_tier: typing.Optional[ControlPlaneScalingTier] = None,
     core_dns_compute_type: typing.Optional[CoreDnsComputeType] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     endpoint_access: typing.Optional[EndpointAccess] = None,

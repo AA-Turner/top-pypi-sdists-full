@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-enum
-Version: 2.4.3
+Version: 2.5.0
 Summary: Full and natural support for enumerations as Django model fields.
 Project-URL: Homepage, https://django-enum.readthedocs.io
 Project-URL: Documentation, https://django-enum.readthedocs.io
@@ -18,6 +18,7 @@ Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
@@ -34,7 +35,7 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: <4.0,>=3.10
-Requires-Dist: django<6.1,>=4.2
+Requires-Dist: django<6.2,>=4.2
 Provides-Extra: filters
 Requires-Dist: django-filter>=21; extra == 'filters'
 Provides-Extra: properties
@@ -94,19 +95,20 @@ Many packages aim to ease usage of Python enumerations as model fields. Most wer
 from django.db import models
 from django_enum import EnumField
 
+
 class MyModel(models.Model):
-
     class TextEnum(models.TextChoices):
-
-        VALUE0 = 'V0', 'Value 0'
-        VALUE1 = 'V1', 'Value 1'
-        VALUE2 = 'V2', 'Value 2'
+        VALUE0 = "V0", "Value 0"
+        VALUE1 = "V1", "Value 1"
+        VALUE2 = "V2", "Value 2"
 
     class IntEnum(models.IntegerChoices):
-
-        ONE   = 1, 'One'
-        TWO   = 2, 'Two',
-        THREE = 3, 'Three'
+        ONE = 1, "One"
+        TWO = (
+            2,
+            "Two",
+        )
+        THREE = 3, "Three"
 
     # this is equivalent to:
     #  CharField(max_length=2, choices=TextEnum.choices, null=True, blank=True)
@@ -122,13 +124,13 @@ class MyModel(models.Model):
 ```python
 instance = MyModel.objects.create(
     txt_enum=MyModel.TextEnum.VALUE1,
-    int_enum=3  # by-value assignment also works
+    int_enum=3,  # by-value assignment also works
 )
 
-assert instance.txt_enum == MyModel.TextEnum('V1')
-assert instance.txt_enum.label == 'Value 1'
+assert instance.txt_enum == MyModel.TextEnum("V1")
+assert instance.txt_enum.label == "Value 1"
 
-assert instance.int_enum == MyModel.IntEnum['THREE']
+assert instance.int_enum == MyModel.IntEnum["THREE"]
 assert instance.int_enum.value == 3
 ```
 
@@ -138,14 +140,12 @@ assert instance.int_enum.value == 3
 
 ```python
 class Permissions(IntFlag):
-
-    READ    = 1 << 0
-    WRITE   = 1 << 1
+    READ = 1 << 0
+    WRITE = 1 << 1
     EXECUTE = 1 << 2
 
 
 class FlagExample(models.Model):
-
     permissions = EnumField(Permissions)
 
 
@@ -165,10 +165,9 @@ FlagExample.objects.filter(permissions__has_all=Permissions.READ | Permissions.W
 from enum_properties import StrEnumProperties
 from django.db import models
 
+
 class TextChoicesExample(models.Model):
-
     class Color(StrEnumProperties):
-
         # attribute type hints become properties on each value,
         # and the enumeration may be instantiated from any symmetric
         # property's value
@@ -179,46 +178,46 @@ class TextChoicesExample(models.Model):
 
         # properties specified in type hint order after the value
         # name value label       rgb       hex
-        RED   = "R", "Red",   (1, 0, 0), "ff0000"
+        RED = "R", "Red", (1, 0, 0), "ff0000"
         GREEN = "G", "Green", (0, 1, 0), "00ff00"
-        BLUE  = "B", "Blue",  (0, 0, 1), "0000ff"
+        BLUE = "B", "Blue", (0, 0, 1), "0000ff"
 
     color = EnumField(Color)
 
-instance = TextChoicesExample.objects.create(
-    color=TextChoicesExample.Color('FF0000')
-)
-assert instance.color == TextChoicesExample.Color('Red')
-assert instance.color == TextChoicesExample.Color('R')
+
+instance = TextChoicesExample.objects.create(color=TextChoicesExample.Color("FF0000"))
+assert instance.color == TextChoicesExample.Color("Red")
+assert instance.color == TextChoicesExample.Color("R")
 assert instance.color == TextChoicesExample.Color((1, 0, 0))
 
 # direct comparison to any symmetric value also works
-assert instance.color == 'Red'
-assert instance.color == 'R'
+assert instance.color == "Red"
+assert instance.color == "R"
 assert instance.color == (1, 0, 0)
 
 # save by any symmetric value
-instance.color = 'FF0000'
+instance.color = "FF0000"
 
 # access any enum property right from the model field
-assert instance.color.hex == 'ff0000'
+assert instance.color.hex == "ff0000"
 
 # this also works!
-assert instance.color == 'ff0000'
+assert instance.color == "ff0000"
 
 # and so does this!
-assert instance.color == 'FF0000'
+assert instance.color == "FF0000"
 
 instance.save()
 
 # filtering works by any symmetric value or enum type instance
-assert TextChoicesExample.objects.filter(
-    color=TextChoicesExample.Color.RED
-).first() == instance
+assert (
+    TextChoicesExample.objects.filter(color=TextChoicesExample.Color.RED).first()
+    == instance
+)
 
 assert TextChoicesExample.objects.filter(color=(1, 0, 0)).first() == instance
 
-assert TextChoicesExample.objects.filter(color='FF0000').first() == instance
+assert TextChoicesExample.objects.filter(color="FF0000").first() == instance
 ```
 
 While they should be unnecessary if you need to integrate with code that expects an interface fully compatible with Django's [TextChoices](https://docs.djangoproject.com/en/stable/ref/models/fields/#field-choices-enum-types) and [IntegerChoices](https://docs.djangoproject.com/en/stable/ref/models/fields/#field-choices-enum-types) [django-enum](https://pypi.org/project/django-enum) provides [TextChoices](https://django-enum.rtfd.io/en/stable/reference/choices.html#django_enum.choices.TextChoices), [IntegerChoices](https://django-enum.rtfd.io/en/stable/reference/choices.html#django_enum.choices.IntegerChoices), [FlagChoices](https://django-enum.rtfd.io/en/stable/reference/choices.html#django_enum.choices.FlagChoices) and [FloatChoices](https://django-enum.rtfd.io/en/stable/reference/choices.html#django_enum.choices.FloatChoices) types that derive from enum-properties and Django's ``Choices``. So the above enumeration could also be written:
@@ -226,18 +225,17 @@ While they should be unnecessary if you need to integrate with code that expects
 ```python
 from django_enum.choices import TextChoices
 
-class Color(TextChoices):
 
+class Color(TextChoices):
     # label is added as a symmetric property by the base class
 
     rgb: Annotated[t.Tuple[int, int, int], Symmetric()]
     hex: Annotated[str, Symmetric(case_fold=True)]
 
     # name value label       rgb       hex
-    RED   = "R", "Red",   (1, 0, 0), "ff0000"
+    RED = "R", "Red", (1, 0, 0), "ff0000"
     GREEN = "G", "Green", (0, 1, 0), "00ff00"
-    BLUE  = "B", "Blue",  (0, 0, 1), "0000ff"
-
+    BLUE = "B", "Blue", (0, 0, 1), "0000ff"
 ```
 
 ## Installation

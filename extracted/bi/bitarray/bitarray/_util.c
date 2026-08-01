@@ -212,7 +212,8 @@ static PyObject *
 count_n(PyObject *module, PyObject *args)
 {
     bitarrayobject *a;
-    Py_ssize_t nbits, n, i;
+    Py_ssize_t nbits, n;
+    Py_ssize_t i = 0;  /* silence uninitialized warning on some compilers */
     int vi = 1;
 
     if (!PyArg_ParseTuple(args, "O!n|O&:count_n", bitarray_type,
@@ -283,7 +284,8 @@ static char sum_sqr_table[2][256];
 static char xor_table[2][256];
 
 static void
-setup_misc_tables(void) {
+setup_misc_tables(void)
+{
     setup_table(count_table, 'c');
     setup_table(parity_table, 'p');
     setup_table(sum_table[0], 'a');
@@ -657,10 +659,10 @@ Nothing about this function is specific to bitarray objects.");
 /* ---------------------------- serialization -------------------------- */
 
 /*
-  The binary format used here is similar to the one used for pickling
-  bitarray objects.  However, this format has a head byte which encodes both
-  the bit-endianness and the number of pad bits, whereas the binary pickle
-  blob does not.
+   The binary format used here is similar to the one used for pickling
+   bitarray objects.  However, this format has a head byte which encodes both
+   the bit-endianness and the number of pad bits, whereas the binary pickle
+   blob does not.
 */
 
 static PyObject *
@@ -685,16 +687,16 @@ serialize_lock_held(bitarrayobject *a)
 static PyObject *
 serialize(PyObject *module, PyObject *obj)
 {
-    PyObject *result;
+    PyObject *res;
 
     if (ensure_bitarray(obj) < 0)
         return NULL;
 
     Py_BEGIN_CRITICAL_SECTION(obj);
-    result = serialize_lock_held((bitarrayobject *) obj);
+    res = serialize_lock_held((bitarrayobject *) obj);
     Py_END_CRITICAL_SECTION();
 
-    return result;
+    return res;
 }
 
 PyDoc_STRVAR(serialize_doc,
@@ -811,7 +813,7 @@ static PyObject *
 ba2hex(PyObject *module, PyObject *args, PyObject *kwds)
 {
     static char *kwlist[] = {"", "group", "sep", NULL};
-    PyObject *result;
+    PyObject *res;
     bitarrayobject *a;
     Py_ssize_t nbits, group = 0;
     char *sep = " ", *str;
@@ -841,9 +843,9 @@ ba2hex(PyObject *module, PyObject *args, PyObject *kwds)
     if (str == NULL)
         return NULL;
 
-    result = PyUnicode_FromString(str);
+    res = PyUnicode_FromString(str);
     PyMem_Free((void *) str);
-    return result;
+    return res;
 }
 
 PyDoc_STRVAR(ba2hex_doc,
@@ -1041,7 +1043,7 @@ ba2base(PyObject *module, PyObject *args, PyObject *kwds)
 {
     static char *kwlist[] = {"", "", "group", "sep", NULL};
     bitarrayobject *a;
-    PyObject *result;
+    PyObject *res;
     Py_ssize_t nbits, group = 0;
     char *sep = " ", *str;
     int n, m;
@@ -1078,9 +1080,9 @@ ba2base(PyObject *module, PyObject *args, PyObject *kwds)
     if (str == NULL)
         return NULL;
 
-    result = PyUnicode_FromString(str);
+    res = PyUnicode_FromString(str);
     PyMem_Free((void *) str);
-    return result;
+    return res;
 }
 
 PyDoc_STRVAR(ba2base_doc,
@@ -2356,19 +2358,19 @@ module_read_n(PyObject *module, PyObject *args)
 static PyObject *
 module_write_n(PyObject *module, PyObject *args)
 {
-    PyObject *result;
+    PyObject *res;
     char *str;
     Py_ssize_t i;
     int n;
 
     if (!PyArg_ParseTuple(args, "in", &n, &i))
         return NULL;
-    result = PyBytes_FromStringAndSize(NULL, n);
-    if (result == NULL)
+    res = PyBytes_FromStringAndSize(NULL, n);
+    if (res == NULL)
         return NULL;
-    str = PyBytes_AsString(result);
+    str = PyBytes_AsString(res);
     write_n(str, n, i);
-    return result;
+    return res;
 }
 
 #endif  /* NDEBUG */
@@ -2438,7 +2440,8 @@ PyInit__util(void)
     setup_misc_tables();
     setup_digit_table();
 
-    bitarray_type = (PyTypeObject *) bitarray_module_attr("bitarray");
+    bitarray_type = (PyTypeObject *)
+            PyCapsule_Import("bitarray._bitarray._C_API", 0);
     if (bitarray_type == NULL)
         return NULL;
 

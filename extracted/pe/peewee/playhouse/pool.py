@@ -24,11 +24,6 @@ class MaxConnectionsExceeded(ValueError): pass
 PoolConnection = namedtuple('PoolConnection', ('timestamp', 'connection',
                                                'checked_out'))
 
-class _sentinel(object):
-    def __lt__(self, other):
-        return True
-
-
 def locked(fn):
     @functools.wraps(fn)
     def inner(self, *args, **kwargs):
@@ -103,12 +98,8 @@ class PooledDatabase(object):
     @locked
     def _connect(self):
         while self._connections:
-            try:
-                # Remove the oldest connection from the heap.
-                ts, _counter, conn = heapq.heappop(self._connections)
-            except IndexError:
-                break
-
+            # Remove the oldest connection from the heap.
+            ts, _counter, conn = heapq.heappop(self._connections)
             key = self.conn_key(conn)
             if self._is_closed(conn):
                 # Connection closed either by user or by driver - discard.
@@ -248,15 +239,34 @@ class PooledDatabase(object):
 
 class _PooledMySQLDatabase(PooledDatabase):
     def _is_closed(self, conn):
-        if self.server_version[0] >= 8:
-            args = ()
-        else:
-            args = (False,)
+        # Ping without reconnecting - pymysql's bare ping() silently
+        # reconnects, handing out a conn stripped of its session state.
         try:
-            conn.ping(*args)
-        except:
+            conn.ping(False)
+        except TypeError:
+            # Driver ping() takes no argument (mariadb connector, which
+            # does not auto-reconnect).
+            try:
+                conn.ping()
+            except Exception:
+                return True
+        except Exception:
             return True
         return False
+
+    def _can_reuse(self, conn):
+        # Roll back any transaction left open, mirroring the async pools.
+        try:
+            status = getattr(conn, 'get_transaction_status', None)
+            if status is not None:
+                dirty = status()
+            else:
+                dirty = getattr(conn, 'in_transaction', True)
+            if dirty:
+                conn.rollback()
+        except Exception:
+            return False
+        return True
 
 class PooledMySQLDatabase(_PooledMySQLDatabase, MySQLDatabase):
     pass
@@ -282,6 +292,15 @@ class _PooledSqliteDatabase(PooledDatabase):
         except:
             return True
         return False
+
+    def _can_reuse(self, conn):
+        # Roll back any transaction left open, mirroring the async pools.
+        try:
+            if conn.in_transaction:
+                conn.rollback()
+        except Exception:
+            return False
+        return True
 
 class PooledSqliteDatabase(_PooledSqliteDatabase, SqliteDatabase):
     pass

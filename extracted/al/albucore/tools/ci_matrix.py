@@ -16,6 +16,7 @@ except ModuleNotFoundError:
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PYPROJECT = REPO_ROOT / "pyproject.toml"
 CI_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+ANTIGRAVITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "antigravity-pr-checks.yml"
 BENCHMARK_PR_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "benchmark-pr.yml"
 LEGAL_INTEGRITY_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "legal-integrity.yml"
 CLA_STATUS_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "cla-status.yml"
@@ -40,6 +41,14 @@ def _classifier_python_versions(classifiers: list[str]) -> set[str]:
         if match is not None:
             versions.add(match.group(1))
     return versions
+
+
+def _workflow_job(text: str, job_name: str) -> str:
+    match = re.search(
+        rf"(?ms)^  {re.escape(job_name)}:\n.*?(?=^  [A-Za-z0-9_-]+:\n|\Z)",
+        text,
+    )
+    return match.group(0) if match is not None else ""
 
 
 def _check_pyproject(errors: list[str]) -> set[str]:
@@ -72,6 +81,7 @@ def _check_pyproject(errors: list[str]) -> set[str]:
 
 def _check_ci(errors: list[str], versions: set[str]) -> None:
     text = CI_WORKFLOW.read_text()
+    macos_matmul_job = _workflow_job(text, "macos-arm64-matmul")
     errors.extend(
         f"CI matrix does not mention Python {version}"
         for version in sorted(versions)
@@ -83,8 +93,25 @@ def _check_ci(errors: list[str], versions: set[str]) -> None:
         errors.append("CI workflow does not run router contract check")
     if "python tools/classify_ci_changes.py" not in text:
         errors.append("CI workflow is missing version-only change classifier")
-    if text.count("if: needs.change_scope.outputs.run_tests == 'true'") != 2:
-        errors.append("CI workflow does not gate both test jobs on change scope")
+    if text.count("if: needs.change_scope.outputs.run_tests == 'true'") != 3:
+        errors.append("CI workflow does not gate all three test jobs on change scope")
+    if re.search(r"""runs-on:\s*["']?macos-latest["']?""", macos_matmul_job) is None:
+        errors.append("CI workflow is missing the macOS arm64 runner")
+    if (
+        re.search(r"pytest\s+tests/test_matmul\.py", macos_matmul_job) is None
+        or re.search(r"-W\s+error", macos_matmul_job) is None
+    ):
+        errors.append("CI workflow is missing warnings-as-errors matmul tests on macOS")
+    if "numpy==2.2.6" not in macos_matmul_job:
+        errors.append("CI workflow does not pin the affected NumPy version for the macOS regression tests")
+    if (
+        re.search(
+            r"""(?:^|\s)(?:-r|--requirement)(?:\s+|=)["']?requirements-dev\.txt["']?(?=\s|$)""",
+            macos_matmul_job,
+        )
+        is None
+    ):
+        errors.append("CI workflow does not install test dependencies for the macOS regression tests")
     if "permissions:" not in text or "contents: read" not in text:
         errors.append("CI workflow must declare minimal GITHUB_TOKEN permissions")
 
@@ -291,6 +318,32 @@ def _check_cla_status_workflow(errors: list[str]) -> None:
     )
 
 
+def _check_antigravity_workflow(errors: list[str]) -> None:
+    _check_file_fragments(
+        errors,
+        ANTIGRAVITY_WORKFLOW,
+        {
+            "pull_request_target trigger": "pull_request_target:",
+            "trusted base checkout": "ref: ${{ github.event.pull_request.base.sha }}",
+            "same-repository guard": "github.event.pull_request.head.repo.full_name == github.repository",
+            "Vertex AI authentication": 'use_vertex_ai: "true"',
+            "read-only Gemini tools": '"read_many_files"',
+            "Antigravity path selector": "python -m tools.antigravity_plan",
+            "validated review artifact": "python -m tools.antigravity_review",
+            "separate publisher job": "Publish Antigravity Review",
+        },
+    )
+    _check_file_absent_fragments(
+        errors,
+        ANTIGRAVITY_WORKFLOW,
+        {
+            "PR head checkout": "ref: ${{ github.event.pull_request.head.sha }}",
+            "Gemini API key": "secrets.GEMINI_API_KEY",
+            "Gemini shell tool": "run_shell_command",
+        },
+    )
+
+
 def check() -> list[str]:
     """Return support-matrix consistency errors."""
     errors: list[str] = []
@@ -301,6 +354,7 @@ def check() -> list[str]:
         _check_release_workflow(errors)
         _check_security_workflow(errors)
         _check_cla_status_workflow(errors)
+        _check_antigravity_workflow(errors)
     return errors
 
 

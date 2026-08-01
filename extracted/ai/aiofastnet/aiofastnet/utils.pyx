@@ -3,6 +3,7 @@ import sys
 
 from cpython.bytes cimport PyBytes_FromObject, PyBytes_FromStringAndSize, PyBytes_GET_SIZE
 from cpython.buffer cimport PyObject_GetBuffer, PyBuffer_Release, PyBUF_SIMPLE
+from cpython.ref cimport Py_XDECREF
 from cpython.unicode cimport PyUnicode_AsUTF8
 from libc cimport errno
 from .constants import EXC_INFO_ATTR
@@ -13,6 +14,17 @@ cdef extern from "Python.h":
     int PyBytes_Check(PyObject *o)
 
 
+cpdef aiofn_set_socket_extra_info(object extra, object sock):
+    try:
+        extra['sockname'] = sock.getsockname()
+    except OSError:
+        extra['sockname'] = None
+    try:
+        extra['peername'] = sock.getpeername()
+    except OSError:
+        extra['peername'] = None
+
+
 # We only use syscall for non-blocking sockets
 # By not requiring nogil we minimize damage from misuse of multithreading by user code.
 
@@ -20,6 +32,7 @@ cdef extern from *:
     """
     #if defined(_WIN32)
 
+    #include <limits.h>
     #include <winsock2.h>
     #include <ws2tcpip.h>
 
@@ -27,10 +40,30 @@ cdef extern from *:
     #define AIOFN_EAGAIN WSAEWOULDBLOCK
     #define AIOFN_EWOULDBLOCK WSAEWOULDBLOCK
 
-    static inline Py_ssize_t aiofn_writev_sys(int fd, aiofn_iovec* iov, int iovcnt)
+    static inline int aiofn_windows_io_len(size_t len)
+    {
+        return len > INT_MAX ? INT_MAX : (int)len;
+    }
+
+    static inline Py_ssize_t aiofn_read_sys(int fd, void* buf, size_t len, int is_socket)
+    {
+        (void)is_socket;
+        return recv((SOCKET)fd, (char*)buf, aiofn_windows_io_len(len), 0);
+    }
+
+    static inline Py_ssize_t aiofn_write_sys(int fd, const void* buf, size_t len, int is_socket)
+    {
+        (void)is_socket;
+        return send((SOCKET)fd, (const char*)buf, aiofn_windows_io_len(len), 0);
+    }
+
+    static inline Py_ssize_t aiofn_writev_sys(int fd, aiofn_iovec* iov, int iovcnt, int is_socket)
     {
         DWORD bytes_sent = 0;
-        int rc = WSASend(fd, (LPWSABUF)iov, iovcnt, &bytes_sent, 0, NULL, NULL);
+        int rc;
+
+        (void)is_socket;
+        rc = WSASend((SOCKET)fd, (LPWSABUF)iov, iovcnt, &bytes_sent, 0, NULL, NULL);
         return rc == SOCKET_ERROR ? -1 : (Py_ssize_t)bytes_sent;
     }
 
@@ -46,6 +79,7 @@ cdef extern from *:
     #include <netinet/in.h>
     #include <sys/types.h>
     #include <sys/socket.h>
+    #include <unistd.h>
 
     #define AIOFN_IS_WINDOWS 0
     #define AIOFN_EAGAIN EAGAIN
@@ -55,7 +89,23 @@ cdef extern from *:
         #define AIOFN_EWOULDBLOCK EGAIN
     #endif
 
-    static inline Py_ssize_t aiofn_writev_sys(int fd, aiofn_iovec* iov, int iovcnt)
+    static inline Py_ssize_t aiofn_read_sys(int fd, void* buf, size_t len, int is_socket)
+    {
+        if (is_socket)
+            return recv(fd, buf, len, 0);
+        else
+            return read(fd, buf, len);
+    }
+
+    static inline Py_ssize_t aiofn_write_sys(int fd, const void* buf, size_t len, int is_socket)
+    {
+        if (is_socket)
+            return send(fd, buf, len, 0);
+        else
+            return write(fd, buf, len);
+    }
+
+    static inline Py_ssize_t aiofn_writev_sys(int fd, aiofn_iovec* iov, int iovcnt, int is_socket)
     {
         return writev(fd, iov, iovcnt);
     }
@@ -153,14 +203,14 @@ cdef extern from *:
     cdef int AIOFN_EWOULDBLOCK
     cdef int AIOFN_EAGAIN
 
-    ssize_t recv(int sockfd, void* buf, size_t len, int flags)
+    Py_ssize_t aiofn_read_sys(int fd, void* buf, size_t len, bint is_socket)
+    Py_ssize_t aiofn_write_sys(int fd, const void* buf, size_t len, bint is_socket)
+    Py_ssize_t aiofn_writev_sys(int fd, aiofn_iovec *iov, int iovcnt, bint is_socket)
     Py_ssize_t aiofn_recvfrom_sys(int fd, void* buf, size_t len, void* addr, unsigned int* addrlen)
     Py_ssize_t aiofn_sendto_sys(int fd, void* buf, size_t len, void* addr, unsigned int addrlen)
     int aiofn_set_ipv4_sockaddr(const char* host, long port, void* addr, unsigned int* addrlen)
     int aiofn_set_ipv6_sockaddr(const char* host, long port, long flowinfo, long scope_id, void* addr, unsigned int* addrlen)
     object aiofn_sockaddr_to_pyaddr(void* addr, unsigned int addrlen)
-    ssize_t send(int sockfd, const void* buf, size_t len, int flags)
-    Py_ssize_t aiofn_writev_sys(int fd, aiofn_iovec *iov, int iovcnt)
     void aiofn_set_exc_from_error(int error)
     int aiofn_get_last_error()
 
@@ -276,13 +326,13 @@ cdef bint aiofn_pyaddr_to_sockaddr(object addr, void* raw_addr, unsigned int* ra
     return aiofn_set_ipv6_sockaddr(host, port, flowinfo, scope_id, raw_addr, raw_addr_len)
 
 
-cdef Py_ssize_t aiofn_recv(int sockfd, void* buf, Py_ssize_t len) except -2:
+cdef Py_ssize_t aiofn_read(int fd, void* buf, Py_ssize_t len, bint is_socket) except -2:
     cdef:
-        ssize_t bytes_read
+        Py_ssize_t bytes_read
         int last_error
 
     while True:
-        bytes_read = recv(sockfd, buf, len, 0)
+        bytes_read = aiofn_read_sys(fd, buf, len, is_socket)
         if bytes_read >= 0:
             return bytes_read
 
@@ -295,6 +345,21 @@ cdef Py_ssize_t aiofn_recv(int sockfd, void* buf, Py_ssize_t len) except -2:
 
         aiofn_set_exc_from_error(last_error)
         return -2
+
+
+cdef bytes aiofn_simple_read(int fd, Py_ssize_t max_size, Py_ssize_t* bytes_read, bint is_socket):
+    cdef:
+        PyObject* buffer
+        char* buffer_ptr
+
+    buffer = aiofn_allocate_bytes(max_size, &buffer_ptr)
+    try:
+        bytes_read[0] = aiofn_read(fd, buffer_ptr, max_size, is_socket)
+    except:
+        Py_XDECREF(buffer)
+        raise
+
+    return aiofn_finalize_bytes(buffer, bytes_read[0] if bytes_read[0] > 0 else 0)
 
 
 cdef Py_ssize_t aiofn_recvfrom(int sockfd, void* buf, Py_ssize_t len, void* addr, unsigned int* addr_len) except -2:
@@ -318,13 +383,13 @@ cdef Py_ssize_t aiofn_recvfrom(int sockfd, void* buf, Py_ssize_t len, void* addr
         return -2
 
 
-cdef Py_ssize_t aiofn_send(int sockfd, void* buf, Py_ssize_t len) except -2:
+cdef Py_ssize_t aiofn_write(int fd, void* buf, Py_ssize_t len, bint is_socket) except -2:
     cdef:
-        ssize_t bytes_sent
+        Py_ssize_t bytes_sent
         int last_error
 
     while True:
-        bytes_sent = send(sockfd, buf, len, 0)
+        bytes_sent = aiofn_write_sys(fd, buf, len, is_socket)
         if bytes_sent > 0:
             return bytes_sent
 
@@ -342,7 +407,7 @@ cdef Py_ssize_t aiofn_send(int sockfd, void* buf, Py_ssize_t len) except -2:
         if bytes_sent == 0:
             # This should never happen, but who knows?
             # May be len is 0?
-            raise RuntimeError(f"send syscall has sent 0 bytes and did not indicate any error, buf_len={len}")
+            raise RuntimeError(f"write syscall has written 0 bytes and did not indicate any error, buf_len={len}")
 
 cdef Py_ssize_t aiofn_sendto(int sockfd, void* buf, Py_ssize_t len, void* raw_addr, unsigned int raw_addr_len) except -2:
     cdef:
@@ -365,13 +430,13 @@ cdef Py_ssize_t aiofn_sendto(int sockfd, void* buf, Py_ssize_t len, void* raw_ad
         return -2
 
 
-cdef Py_ssize_t aiofn_writev(int sockfd, aiofn_iovec* iov, Py_ssize_t iovcnt) except -2:
+cdef Py_ssize_t aiofn_writev(int sockfd, aiofn_iovec* iov, Py_ssize_t iovcnt, bint is_socket) except -2:
     cdef:
         Py_ssize_t bytes_sent
         int last_error
 
     while True:
-        bytes_sent = aiofn_writev_sys(sockfd, iov, iovcnt)
+        bytes_sent = aiofn_writev_sys(sockfd, iov, iovcnt, is_socket)
 
         if bytes_sent > 0:
             return bytes_sent

@@ -320,6 +320,56 @@ _INDEX_MIN_DAYS = {
 }
 
 
+# Custom CID indices NOT in icclim's ECAD/ETCCDI catalog — computed directly
+# with numpy over the (already stage/season-restricted) daily frame. Simpler
+# and clearer than bending icclim's user_index to fit; ``compute_indices``
+# short-circuits to ``_compute_numpy_index`` for these and returns a Dataset
+# shaped like the icclim path so downstream handling is unchanged.
+#   DD  — number of dry days (pr < 1 mm). Direct complement of RR1 (wet days);
+#         distinct from CDD, the LONGEST dry SPELL.
+#   KDD — killing degree days: sum of daily Tmax excess above KDD_THRESHOLD_C
+#         (sum of max(0, Tmax - thresh)). Heat-side complement to GD4 / HD17.
+KDD_THRESHOLD_C = 32.0  # killing-degree-day heat threshold (deg C)
+
+
+def _cid_dry_days(pr: pd.Series) -> float:
+    """DD: count of dry days (pr < 1 mm). NaN precip days are not counted."""
+    v = pd.to_numeric(pr, errors="coerce").to_numpy()
+    return float(np.sum(v < 1.0))
+
+
+def _cid_killing_degree_days(tasmax: pd.Series) -> float:
+    """KDD: sum of daily Tmax excess above KDD_THRESHOLD_C (deg C)."""
+    v = pd.to_numeric(tasmax, errors="coerce").to_numpy()
+    return float(np.nansum(np.clip(v - KDD_THRESHOLD_C, 0.0, None)))
+
+
+# index name -> (required daily column, per-cell/season scalar reducer)
+_NUMPY_INDEX_FUNCS = {
+    "DD": ("pr", _cid_dry_days),
+    "KDD": ("tasmax", _cid_killing_degree_days),
+}
+
+
+def _compute_numpy_index(index_name: str, df_time_period: pd.DataFrame):
+    """Compute a custom numpy index over the target window (no icclim).
+
+    Reduces per (lat, lon[, Season]) group to a scalar and returns a Dataset
+    whose only data variable is ``index_name`` — so the caller's
+    ``ds.to_dataframe().reset_index()`` yields an ``index_name`` column exactly
+    like the icclim path (``process_row`` then collapses via ``iloc[0]``).
+    Returns None when the required daily column is missing/empty.
+    """
+    req_col, reducer = _NUMPY_INDEX_FUNCS[index_name]
+    if df_time_period.empty or req_col not in df_time_period.columns:
+        return None
+    keys = [c for c in ("lat", "lon", "Season") if c in df_time_period.columns]
+    if keys:
+        vals = df_time_period.groupby(keys, dropna=False)[req_col].apply(reducer)
+        return vals.rename(index_name).to_frame().to_xarray()
+    return pd.DataFrame({index_name: [reducer(df_time_period[req_col])]}).to_xarray()
+
+
 def _reindex_daily_continuous(df: pd.DataFrame) -> pd.DataFrame:
     """Fill missing daily dates (per lat/lon) with NaN precip so icclim SPI
     can infer a uniform timestep. The season-1 merged CSVs drop out-of-season
@@ -372,6 +422,13 @@ def compute_indices(
         xr.Dataset or None: The computed Dataset if successful, else None.
     """
     ds = None
+
+    # Custom numpy-computed indices (DD, KDD): computed directly over the
+    # stage/season-restricted target frame — no icclim. Returned as a Dataset
+    # so the downstream ds.to_dataframe() -> process_row flow is identical to
+    # the catalog-index path.
+    if index_name in _NUMPY_INDEX_FUNCS:
+        return _compute_numpy_index(index_name, df_time_period)
 
     # Drop Feb 29 ONLY for percentile / spell-duration indices that need
     # a 365-day per-year base period.  Leaving Feb 29 in place for
@@ -1381,8 +1438,11 @@ class CIDs:
                 eo_vars.append("S2S")
             if any(c.startswith(("ONI_", "MEI_")) for c in df_group.columns):
                 eo_vars.append("ENSO")
-            if "aridity" in df_group.columns:
-                eo_vars.append("Aridity")
+            # NOTE: static per-region variables (aridity, soil_*) are NOT
+            # emitted as staged CID rows — they carry no time dimension, so
+            # per-stage rows would only duplicate one constant. They reach
+            # the ML frame via geocif._add_static_eo_features (post-pivot
+            # Region join from the crop_t0 CSV) as bare stage-less columns.
             for eo_var in eo_vars:
                 df_eo = self.compute_eo_indices(
                     df_time_period,
@@ -1525,8 +1585,6 @@ class CIDs:
             dict_eo = di.dict_hindex
         elif var == "AEF":
             dict_eo = di.dict_aef
-        elif var == "Aridity":
-            dict_eo = di.dict_aridity
         elif var == "FLDAS":
             dict_eo = di.dict_fldas
         elif var == "S2S":
@@ -1549,19 +1607,9 @@ class CIDs:
                 if enso_key in emitted_fldas_inits:
                     continue
                 emitted_fldas_inits.add(enso_key)
-            # Aridity is static per region (one climatology value, identical
-            # across every stage window) — emit it once per (region, year) so
-            # the pivot yields a single AI column, not one per stage.
-            if var == "Aridity" and emitted_fldas_inits is not None:
-                ar_key = ("__aridity__", iname)
-                if ar_key in emitted_fldas_inits:
-                    continue
-                emitted_fldas_inits.add(ar_key)
             # Map index name to actual column in df_time_period
             if iname.startswith("AEF_"):
                 col_name = iname.lower()  # AEF_1 → aef_1
-            elif iname == "AI":
-                col_name = "aridity"  # Global Aridity Index static column
             elif iname in di.fldas_col_map:
                 col_name = di.fldas_col_map[iname]
             elif iname in di.s2s_col_map:
@@ -1722,9 +1770,6 @@ class CIDs:
             # AEF bands are static per region (no temporal variation),
             # so default to MEAN which returns the constant value.
             if aggregator is None and iname.startswith("AEF_"):
-                aggregator = "MEAN"
-            # Aridity: single static value per region -> MEAN returns it verbatim.
-            if aggregator is None and iname == "AI":
                 aggregator = "MEAN"
             # ENSO scalars are constant across every row of a harvest year;
             # MEAN of the constant returns the scalar cleanly.

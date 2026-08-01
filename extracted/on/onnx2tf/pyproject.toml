@@ -4,15 +4,21 @@ build-backend = "uv_build"
 
 [project]
 name = "onnx2tf"
-version = "2.6.7"
+version = "2.6.8"
 description = "A tool for converting ONNX files to LiteRT/TFLite/TensorFlow, PyTorch native code (nn.Module), TorchScript (.pt), state_dict (.pt), Exported Program (.pt2), and Dynamo ONNX. It also supports direct conversion from LiteRT to PyTorch."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
-authors = [
-    { name = "Katsuya Hyodo", email = "rmsdh122@yahoo.co.jp" }
+keywords = [
+    "onnx",
+    "tensorflow",
+    "tflite",
+    "litert",
+    "keras",
+    "pytorch",
+    "deep-learning",
+    "machine-learning",
 ]
-keywords = ["onnx", "tensorflow", "tflite", "litert", "keras", "pytorch", "deep-learning", "machine-learning"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
@@ -46,15 +52,17 @@ dependencies = [
     "pytest==9.0.2",
 ]
 
+[[project.authors]]
+name = "Katsuya Hyodo"
+email = "rmsdh122@yahoo.co.jp"
+
 [project.optional-dependencies]
 tensorflow = [
     "tensorflow==2.21.0",
     "tf-keras==2.21.0",
     "keras==3.15.0",
 ]
-torch = [
-    "torch==2.11.0",
-]
+torch = ["torch==2.11.0"]
 
 [project.scripts]
 onnx2tf = "onnx2tf:main"
@@ -68,16 +76,19 @@ Documentation = "https://github.com/PINTO0309/onnx2tf#readme"
 Issues = "https://github.com/PINTO0309/onnx2tf/issues"
 
 [tool.uv]
-override-dependencies = [
-]
+override-dependencies = []
 
 [tool.uv.build-backend]
 module-root = ""
 
-[tool.uv.sources]
-torch = { index = "pytorch-cpu" }
-torchvision = { index = "pytorch-cpu" }
-torchaudio = { index = "pytorch-cpu" }
+[tool.uv.sources.torch]
+index = "pytorch-cpu"
+
+[tool.uv.sources.torchvision]
+index = "pytorch-cpu"
+
+[tool.uv.sources.torchaudio]
+index = "pytorch-cpu"
 
 [[tool.uv.index]]
 name = "pytorch-cpu"

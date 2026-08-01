@@ -4,11 +4,11 @@ from regex import Match
 
 from ._wikitext import SubWikiText, rc
 
-HEADER_MATCH = rc(rb'(={1,6})([^\n]+?)\1[ \t]*(\n|\Z)').match
+HEADER_MATCH = rc(rb'\0*+(={1,6})([^\n]+?)\1[ \t\0]*+(\n|\Z)').match
 
 
 class Section(SubWikiText):
-    __slots__ = '_header_match_cache'
+    __slots__ = ('_header_match_cache',)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

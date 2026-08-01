@@ -238,12 +238,17 @@ raw_input_imageio_create()
     return new RawInput;
 }
 
+// Note: intentionally NOT including "hdr" here. Although some Hasselblad raw
+// files use the .hdr extension, that collides with the far more common
+// Radiance HDR format handled by the hdr plugin. Let the Radiance hdr reader
+// get first crack at it. Genuine Hasselblad .hdr files are still detected via
+// the try_all_readers fallback (on by default).
 OIIO_EXPORT const char* raw_input_extensions[]
-    = { "bay", "bmq", "cr2", "cr3", "crw", "cs1", "dc2",  "dcr", "dng", "erf",
-        "fff", "hdr", "k25", "kdc", "mdc", "mos", "mrw",  "nef", "orf", "pef",
-        "pxn", "raf", "raw", "rdc", "sr2", "srf", "x3f",  "arw", "3fr", "cine",
-        "ia",  "kc2", "mef", "nrw", "qtk", "rw2", "sti",  "rwl", "srw", "drf",
-        "dsc", "ptx", "cap", "iiq", "rwz", "cr3", nullptr };
+    = { "bay", "bmq", "cr2", "cr3", "crw", "cs1",  "dc2", "dcr", "dng",  "erf",
+        "fff", "k25", "kdc", "mdc", "mos", "mrw",  "nef", "orf", "pef",  "pxn",
+        "raf", "raw", "rdc", "sr2", "srf", "x3f",  "arw", "3fr", "cine", "ia",
+        "kc2", "mef", "nrw", "qtk", "rw2", "sti",  "rwl", "srw", "drf",  "dsc",
+        "ptx", "cap", "iiq", "rwz", "cr3", nullptr };
 
 OIIO_PLUGIN_EXPORTS_END
 
@@ -417,6 +422,13 @@ RawInput::open_raw(bool unpack, bool process, const std::string& name,
     m_processor->imgdata.params.user_flip
         = config.get_int_attribute("raw:user_flip", -1);
 
+    const ParamValue* bad_pixels_attr = config.find_attribute("raw:bad_pixels",
+                                                              TypeDesc::STRING);
+    if (bad_pixels_attr) {
+        m_processor->imgdata.params.bad_pixels
+            = (char*)bad_pixels_attr->get_ustring().c_str();
+    }
+
 #ifdef _WIN32
     // Convert to wide chars, just on Windows.
     int ret = m_processor->open_file(
@@ -429,6 +441,31 @@ RawInput::open_raw(bool unpack, bool process, const std::string& name,
         errorfmt("Could not open file \"{}\", {}", m_filename,
                  err ? err : "unknown error");
         return false;
+    }
+
+#if LIBRAW_VERSION >= LIBRAW_MAKE_VERSION(0, 21, 0)
+    // Cap LibRaw's internal allocations. This must be set *before* unpack().
+    // Default max is 2048 MB.
+    int maxmem = config.get_int_attribute("raw:max_raw_memory_mb", 2048);
+    // In some versions of libraw, there is a known overflow if it's over
+    // 16384, so cap it.
+    m_processor->imgdata.rawparams.max_raw_memory_mb = std::min(maxmem, 16383);
+#endif
+
+    // Guard against decompression bombs / corrupt headers before calling
+    // unpack(). LibRaw's own caps (65535/dimension, max_raw_memory_mb) are
+    // far larger than this and miss a bogus-but-plausible resolution from
+    // a truncated/fuzzed file; unpack() would then spend a long time
+    // decoding garbage instead of erroring out.
+    {
+        int64_t raw_width          = m_processor->imgdata.sizes.raw_width;
+        int64_t raw_height         = m_processor->imgdata.sizes.raw_height;
+        int64_t raw_bps            = m_processor->imgdata.rawdata.color.raw_bps;
+        imagesize_t declared_bytes = imagesize_t(raw_width) * raw_height
+                                     * raw_bps / 8;
+        imagesize_t filesize = Filesystem::file_size(name);
+        if (!check_compression_ratio(declared_bytes, filesize))
+            return false;
     }
 
     OIIO_ASSERT(!m_unpacked);
@@ -467,14 +504,14 @@ RawInput::open_raw(bool unpack, bool process, const std::string& name,
     // Move the exif attribs we already read into the spec we care about
     m_spec.extra_attribs.swap(exifspec.extra_attribs);
 
+    // Enforce OIIO's global decode-bomb limits (limits:resolution,
+    // limits:imagesize_MB) and LibRaw's own 65535-per-dimension cap.
+    // idata.colors maxes out at 4 (some 4-color CFA patterns).
+    if (!check_open(m_spec, { 0, 1 << 16, 0, 1 << 16, 0, 1, 0, 4 }))
+        return false;
+
     // Output 16 bit images
     m_processor->imgdata.params.output_bps = 16;
-
-#if LIBRAW_VERSION >= LIBRAW_MAKE_VERSION(0, 21, 0)
-    // Exposing max_raw_memory_mb setting. Default max is 2048.
-    m_processor->imgdata.rawparams.max_raw_memory_mb
-        = config.get_int_attribute("raw:max_raw_memory_mb", 2048);
-#endif
 
     // Disable exposure correction (unless config "raw:auto_bright" == 1)
     m_processor->imgdata.params.no_auto_bright

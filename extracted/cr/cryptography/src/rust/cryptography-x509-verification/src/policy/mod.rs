@@ -10,11 +10,10 @@ use std::sync::{Arc, LazyLock};
 
 use asn1::ObjectIdentifier;
 use cryptography_x509::certificate::Certificate;
-use cryptography_x509::common::Pkcs1RsaPublicKey;
 use cryptography_x509::common::{
-    AlgorithmIdentifier, AlgorithmParameters, EcParameters, RsaPssParameters, Time,
-    PSS_SHA256_HASH_ALG, PSS_SHA256_MASK_GEN_ALG, PSS_SHA384_HASH_ALG, PSS_SHA384_MASK_GEN_ALG,
-    PSS_SHA512_HASH_ALG, PSS_SHA512_MASK_GEN_ALG,
+    AlgorithmIdentifier, AlgorithmParameters, EcParameters, Pkcs1RsaPublicKey, RsaPssParameters,
+    Time, PSS_SHA256_HASH_ALG, PSS_SHA256_MASK_GEN_ALG, PSS_SHA384_HASH_ALG,
+    PSS_SHA384_MASK_GEN_ALG, PSS_SHA512_HASH_ALG, PSS_SHA512_MASK_GEN_ALG,
 };
 use cryptography_x509::extensions::{BasicConstraints, Extensions, SubjectAlternativeName};
 use cryptography_x509::name::GeneralName;
@@ -62,8 +61,26 @@ const SPKI_SECP521R1: AlgorithmIdentifier<'_> = AlgorithmIdentifier {
     params: AlgorithmParameters::Ec(EcParameters::NamedCurve(EC_SECP521R1)),
 };
 
+// ML-DSA AlgorithmIdentifiers: note that these are used for both SPKIs and
+// signatures.
+const ML_DSA_44: AlgorithmIdentifier<'_> = AlgorithmIdentifier {
+    oid: asn1::DefinedByMarker::marker(),
+    params: AlgorithmParameters::MlDsa44,
+};
+
+const ML_DSA_65: AlgorithmIdentifier<'_> = AlgorithmIdentifier {
+    oid: asn1::DefinedByMarker::marker(),
+    params: AlgorithmParameters::MlDsa65,
+};
+
+const ML_DSA_87: AlgorithmIdentifier<'_> = AlgorithmIdentifier {
+    oid: asn1::DefinedByMarker::marker(),
+    params: AlgorithmParameters::MlDsa87,
+};
+
 /// Permitted algorithms, from CA/B Forum's Baseline Requirements, section 7.1.3.1 (page 96)
 /// https://cabforum.org/wp-content/uploads/CA-Browser-Forum-BR-v2.0.0.pdf
+/// ML-DSA (RFC 9881) is also permitted.
 pub static WEBPKI_PERMITTED_SPKI_ALGORITHMS: LazyLock<Arc<HashSet<AlgorithmIdentifier<'_>>>> =
     LazyLock::new(|| {
         Arc::new(HashSet::from([
@@ -71,6 +88,9 @@ pub static WEBPKI_PERMITTED_SPKI_ALGORITHMS: LazyLock<Arc<HashSet<AlgorithmIdent
             SPKI_SECP256R1.clone(),
             SPKI_SECP384R1.clone(),
             SPKI_SECP521R1.clone(),
+            ML_DSA_44.clone(),
+            ML_DSA_65.clone(),
+            ML_DSA_87.clone(),
         ]))
     });
 
@@ -150,6 +170,7 @@ const ECDSA_SHA512: AlgorithmIdentifier<'_> = AlgorithmIdentifier {
 
 /// Permitted algorithms, from CA/B Forum's Baseline Requirements, section 7.1.3.2 (pages 96-98)
 /// https://cabforum.org/wp-content/uploads/CA-Browser-Forum-BR-v2.0.0.pdf
+/// ML-DSA (RFC 9881) is also permitted.
 pub static WEBPKI_PERMITTED_SIGNATURE_ALGORITHMS: LazyLock<Arc<HashSet<AlgorithmIdentifier<'_>>>> =
     LazyLock::new(|| {
         Arc::new(HashSet::from([
@@ -162,6 +183,9 @@ pub static WEBPKI_PERMITTED_SIGNATURE_ALGORITHMS: LazyLock<Arc<HashSet<Algorithm
             ECDSA_SHA256.clone(),
             ECDSA_SHA384.clone(),
             ECDSA_SHA512.clone(),
+            ML_DSA_44.clone(),
+            ML_DSA_65.clone(),
+            ML_DSA_87.clone(),
         ]))
     });
 
@@ -629,9 +653,10 @@ mod tests {
     use cryptography_x509::name::{GeneralName, UnvalidatedIA5String};
 
     use super::{
-        permits_validity_date, ECDSA_SHA256, ECDSA_SHA384, ECDSA_SHA512, RSASSA_PKCS1V15_SHA256,
-        RSASSA_PKCS1V15_SHA384, RSASSA_PKCS1V15_SHA512, RSASSA_PSS_SHA256, RSASSA_PSS_SHA384,
-        RSASSA_PSS_SHA512, WEBPKI_PERMITTED_SIGNATURE_ALGORITHMS,
+        permits_validity_date, ECDSA_SHA256, ECDSA_SHA384, ECDSA_SHA512, ML_DSA_44, ML_DSA_65,
+        ML_DSA_87, RSASSA_PKCS1V15_SHA256, RSASSA_PKCS1V15_SHA384, RSASSA_PKCS1V15_SHA512,
+        RSASSA_PSS_SHA256, RSASSA_PSS_SHA384, RSASSA_PSS_SHA512,
+        WEBPKI_PERMITTED_SIGNATURE_ALGORITHMS,
     };
     use crate::certificate::tests::PublicKeyErrorOps;
     use crate::policy::{
@@ -664,6 +689,24 @@ mod tests {
             assert!(WEBPKI_PERMITTED_SPKI_ALGORITHMS.contains(&SPKI_SECP521R1));
             let exp_encoding = b"0\x10\x06\x07*\x86H\xce=\x02\x01\x06\x05+\x81\x04\x00#";
             assert_eq!(asn1::write_single(&SPKI_SECP521R1).unwrap(), exp_encoding);
+        }
+
+        {
+            assert!(WEBPKI_PERMITTED_SPKI_ALGORITHMS.contains(&ML_DSA_44));
+            let exp_encoding = b"0\x0b\x06\t`\x86H\x01e\x03\x04\x03\x11";
+            assert_eq!(asn1::write_single(&ML_DSA_44).unwrap(), exp_encoding);
+        }
+
+        {
+            assert!(WEBPKI_PERMITTED_SPKI_ALGORITHMS.contains(&ML_DSA_65));
+            let exp_encoding = b"0\x0b\x06\t`\x86H\x01e\x03\x04\x03\x12";
+            assert_eq!(asn1::write_single(&ML_DSA_65).unwrap(), exp_encoding);
+        }
+
+        {
+            assert!(WEBPKI_PERMITTED_SPKI_ALGORITHMS.contains(&ML_DSA_87));
+            let exp_encoding = b"0\x0b\x06\t`\x86H\x01e\x03\x04\x03\x13";
+            assert_eq!(asn1::write_single(&ML_DSA_87).unwrap(), exp_encoding);
         }
     }
 
@@ -739,6 +782,24 @@ mod tests {
             assert!(WEBPKI_PERMITTED_SIGNATURE_ALGORITHMS.contains(&ECDSA_SHA512));
             let exp_encoding = b"0\n\x06\x08*\x86H\xce=\x04\x03\x04";
             assert_eq!(asn1::write_single(&ECDSA_SHA512).unwrap(), exp_encoding);
+        }
+
+        {
+            assert!(WEBPKI_PERMITTED_SIGNATURE_ALGORITHMS.contains(&ML_DSA_44));
+            let exp_encoding = b"0\x0b\x06\t`\x86H\x01e\x03\x04\x03\x11";
+            assert_eq!(asn1::write_single(&ML_DSA_44).unwrap(), exp_encoding);
+        }
+
+        {
+            assert!(WEBPKI_PERMITTED_SIGNATURE_ALGORITHMS.contains(&ML_DSA_65));
+            let exp_encoding = b"0\x0b\x06\t`\x86H\x01e\x03\x04\x03\x12";
+            assert_eq!(asn1::write_single(&ML_DSA_65).unwrap(), exp_encoding);
+        }
+
+        {
+            assert!(WEBPKI_PERMITTED_SIGNATURE_ALGORITHMS.contains(&ML_DSA_87));
+            let exp_encoding = b"0\x0b\x06\t`\x86H\x01e\x03\x04\x03\x13";
+            assert_eq!(asn1::write_single(&ML_DSA_87).unwrap(), exp_encoding);
         }
     }
 

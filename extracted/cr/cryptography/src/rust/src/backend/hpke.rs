@@ -5,10 +5,9 @@
 use pyo3::types::{PyAnyMethods, PyBytesMethods};
 
 use crate::backend::aead::{AesGcm, ChaCha20Poly1305};
-use crate::backend::ec;
 use crate::backend::hashes::Hash;
 use crate::backend::kdf::{hkdf_extract, HkdfExpand};
-use crate::backend::x25519;
+use crate::backend::{ec, x25519};
 use crate::buf::{CffiBuf, CffiMutBuf};
 use crate::error::{CryptographyError, CryptographyResult};
 use crate::{exceptions, types};
@@ -822,13 +821,13 @@ impl Suite {
             KDF::SHAKE256 => types::SHAKE256.get(py)?.call1((length,))?,
         };
         let mut hash = Hash::new(py, &algorithm, None)?;
-        hash.update_bytes(ikm)?;
-        hash.update_bytes(HPKE_VERSION)?;
-        hash.update_bytes(&self.hpke_suite_id)?;
-        hash.update_bytes(&label_len)?;
-        hash.update_bytes(label)?;
-        hash.update_bytes(&(length as u16).to_be_bytes())?;
-        hash.update_bytes(context)?;
+        hash.update_bytes(py, ikm)?;
+        hash.update_bytes(py, HPKE_VERSION)?;
+        hash.update_bytes(py, &self.hpke_suite_id)?;
+        hash.update_bytes(py, &label_len)?;
+        hash.update_bytes(py, label)?;
+        hash.update_bytes(py, &(length as u16).to_be_bytes())?;
+        hash.update_bytes(py, context)?;
         hash.finalize(py)
     }
 
@@ -1104,11 +1103,11 @@ fn hybrid_kem_combine<'p>(
 ) -> CryptographyResult<pyo3::Bound<'p, pyo3::types::PyBytes>> {
     let algorithm = types::SHA3_256.get(py)?.call0()?;
     let mut hash = Hash::new(py, &algorithm, None)?;
-    hash.update_bytes(ss_pq)?;
-    hash.update_bytes(ss_t)?;
-    hash.update_bytes(ct_t)?;
-    hash.update_bytes(ek_t)?;
-    hash.update_bytes(label)?;
+    hash.update_bytes(py, ss_pq)?;
+    hash.update_bytes(py, ss_t)?;
+    hash.update_bytes(py, ct_t)?;
+    hash.update_bytes(py, ek_t)?;
+    hash.update_bytes(py, label)?;
     hash.finalize(py)
 }
 
@@ -1522,8 +1521,7 @@ pub(crate) mod hpke {
 
 #[cfg(test)]
 mod tests {
-    use super::{kdf_params, kem_params};
-    use super::{KDF, KEM};
+    use super::{kdf_params, kem_params, KDF, KEM};
 
     #[test]
     fn test_mlkem768_secret_length() {

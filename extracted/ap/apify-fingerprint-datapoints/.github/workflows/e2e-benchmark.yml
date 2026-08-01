@@ -4,6 +4,9 @@ on:
     # Triggers the workflow every Monday at 5am
     workflow_dispatch:
 
+permissions:
+    contents: write
+
 jobs:
     run_benchmark:
         runs-on: ubuntu-22.04
@@ -17,7 +20,7 @@ jobs:
               with:
                   node-version: 24
 
-            - uses: apify/workflows/pnpm-install@main
+            - uses: apify/actions/pnpm-install@v1.1.2
 
             - name: Install browsers
               run: pnpm exec playwright install

@@ -1,9 +1,8 @@
 import traceback
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from trilogy import Executor
-from trilogy.core.statements.author import ImportStatement
 from trilogy.core.statements.execute import (
     PROCESSED_STATEMENT_TYPES,
     ProcessedQuery,
@@ -29,6 +28,7 @@ from trilogy.scripts.display import (
     RICH_AVAILABLE,
     ResultSet,
     create_progress_context,
+    is_agent_mode,
     is_json_mode,
     print_chart_terminal,
     print_error,
@@ -47,6 +47,9 @@ from trilogy.scripts.display import (
     summarize_definitions,
 )
 from trilogy.utility import safe_open
+
+if TYPE_CHECKING:
+    from trilogy.execution.state import RefreshPolicy
 
 
 def get_statement_type(statement: PROCESSED_STATEMENT_TYPES) -> str:
@@ -279,22 +282,41 @@ def execute_queries_simple(
     return exception, total_rows
 
 
-def _raise_no_executable_statements(definitions: list[Any], start: datetime) -> None:
-    """A file that parsed real definitions (rowset/with/concept/...) but yields
-    no output-producing statement is a silent false success (`{ok: true,
-    rows: 0}`). Report it as a failure with an actionable message instead — those
-    definitions register into the environment but do nothing on their own."""
-    from trilogy.core.exceptions import InvalidSyntaxException
-
-    # Emit the failing summary so consumers keyed on it (JSON agents) see
-    # ok:false rather than the misleading ok:true, rows:0.
-    show_execution_summary(0, datetime.now() - start, False, 0)
-    raise InvalidSyntaxException(
-        f"Nothing was executed: parsed {len(definitions)} definition "
-        f"statement(s) ({summarize_definitions(definitions)}) but none produce "
-        "output. A rowset/with/concept file does nothing on its own — add a "
-        "final `select` that consumes them."
+def _no_executable_statements_message(definitions: list[Any]) -> str:
+    parsed = (
+        f"parsed {len(definitions)} definition statement(s) "
+        f"({summarize_definitions(definitions)}) but none produce output"
+        if definitions
+        else "the script contains no statements"
     )
+    return (
+        f"Nothing was executed: {parsed}. Did you mean to include a SELECT "
+        "statement, or run a refresh on datasources instead?"
+    )
+
+
+def _report_no_executable_statements(definitions: list[Any], start: datetime) -> None:
+    """A run that produced no output-producing statement did nothing, whatever
+    parsed on the way: definitions (rowset/with/concept/...) register into the
+    environment but do nothing on their own, and an import-only or empty body
+    does not even do that. All of them report `{ok: true, rows: 0}` — a success
+    indistinguishable from a real one.
+
+    Humans get a warning and their exit code: running a declarations file to
+    check it parses is a legitimate thing to do, and the run itself did nothing
+    wrong. In agent mode it is a hard failure — a warning nobody reads cannot
+    stop the retry churn a passing no-op causes."""
+    message = _no_executable_statements_message(definitions)
+    if not is_agent_mode():
+        print_warning(message)
+        return
+
+    from trilogy.core.exceptions import NothingExecutedException
+
+    # Emit the failing summary so consumers keyed on it see ok:false rather
+    # than the misleading ok:true, rows:0.
+    show_execution_summary(0, datetime.now() - start, False, 0)
+    raise NothingExecutedException(message)
 
 
 def execute_run_mode(
@@ -308,12 +330,11 @@ def execute_run_mode(
     start = datetime.now()
     show_execution_start(len(queries))
 
-    # An import-only or empty body is a deliberately-supported no-op (validating
-    # that imports/setup parse). But real definitions with no consuming select is
-    # the false-success churn the agent hits — surface it as an error.
-    consumable = [d for d in (definitions or []) if not isinstance(d, ImportStatement)]
-    if not queries and consumable:
-        _raise_no_executable_statements(definitions or [], start)
+    # Zero executable statements is the whole trigger: an import-only or empty
+    # body is as much a no-op as a declarations-only file, and drawing the line
+    # between them only made the failure inconsistent.
+    if not queries:
+        _report_no_executable_statements(definitions or [], start)
 
     # The rich progress bar is chrome that would corrupt the NDJSON stream, so
     # JSON mode always takes the simple (no-progress) execution path.
@@ -455,13 +476,14 @@ def execute_script_for_refresh(
     node: ScriptNode,
     quiet: bool = False,
     print_watermarks: bool = False,
-    force_sources: frozenset[str] = frozenset(),
+    policy: "RefreshPolicy | None" = None,
     interactive: bool = False,
     dry_run: bool = False,
 ) -> ExecutionStats:
     """Refresh stale assets in a single script file."""
-    from trilogy.execution.state import create_refresh_plan
+    from trilogy.execution.state import RefreshPolicy, create_refresh_plan
 
+    policy = policy if policy is not None else RefreshPolicy()
     validation = []
     with safe_open(node.path) as f:
         statements = exec.parse_text(f.read(), root=node.path)
@@ -469,11 +491,9 @@ def execute_script_for_refresh(
         if isinstance(x, ProcessedValidateStatement):
             validation.append(x)
 
-    validate_force_sources(force_sources, exec.environment.datasources)
+    validate_force_sources(policy.force_sources, exec.environment.datasources)
 
-    plan = create_refresh_plan(
-        exec, force_sources=set(force_sources) if force_sources else None
-    )
+    plan = create_refresh_plan(exec, policy=policy)
     addr_map = {
         ds_id: ds.safe_address for ds_id, ds in exec.environment.datasources.items()
     }
@@ -500,17 +520,18 @@ def execute_script_for_refresh(
 
 def execute_refresh_mode(
     exec: Executor,
-    force_sources: set[str] | None = None,
+    policy: "RefreshPolicy | None" = None,
     print_watermarks: bool = False,
     dry_run: bool = False,
     interactive: bool = False,
     script_path: Any = None,
 ) -> StateRefreshResult:
     """Execute refresh mode on an already-parsed executor."""
-    from trilogy.execution.state import create_refresh_plan
+    from trilogy.execution.state import RefreshPolicy, create_refresh_plan
 
-    validate_force_sources(force_sources, exec.environment.datasources)
-    plan = create_refresh_plan(exec, force_sources=force_sources)
+    policy = policy if policy is not None else RefreshPolicy()
+    validate_force_sources(policy.force_sources, exec.environment.datasources)
+    plan = create_refresh_plan(exec, policy=policy)
     addr_map = {
         ds_id: ds.safe_address for ds_id, ds in exec.environment.datasources.items()
     }

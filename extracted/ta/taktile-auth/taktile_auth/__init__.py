@@ -7,6 +7,7 @@ from importlib.metadata import version
 __version__ = version(__name__.split(".", maxsplit=1)[0])
 
 from taktile_auth.client import AuthClient
+from taktile_auth.constants import NULL_RESOURCE_ARG
 from taktile_auth.counter import (
     DynamoDBSharedCounter,
     SharedCounter,
@@ -31,6 +32,7 @@ from taktile_auth.schemas.session import (
 from taktile_auth.schemas.token import TaktileIdToken
 
 __all__ = [
+    "NULL_RESOURCE_ARG",
     "RECURSION_CACHE_REALM",
     "AuthClient",
     "DynamoDBSharedCounter",

@@ -64,7 +64,7 @@ many proprietary metadata formats.
 
 :Author: `Christoph Gohlke <https://www.cgohlke.com>`_
 :License: BSD-3-Clause
-:Version: 2026.7.14
+:Version: 2026.7.31
 :DOI: `10.5281/zenodo.6795860 <https://doi.org/10.5281/zenodo.6795860>`_
 
 Quickstart
@@ -100,23 +100,29 @@ Requirements
 This revision was tested with the following requirements and dependencies
 (other versions may work):
 
-- `CPython <https://www.python.org>`_ 3.12.10, 3.13.14, 3.14.6, 3.15.0b3 64-bit
+- `CPython <https://www.python.org>`_ 3.12.10, 3.13.14, 3.14.6, 3.15.0b4 64-bit
 - `numpy <https://pypi.org/project/numpy>`_ 2.5.1
 - `Imagecodecs <https://pypi.org/project/imagecodecs/>`_ 2026.6.26
   (required for encoding or decoding LZW, JPEG, etc. compressed segments)
 - `Xarray <https://pypi.org/project/xarray>`_ 2026.7.0
   (required only for reading xarray DataArrays)
-- `Matplotlib <https://pypi.org/project/matplotlib/>`_ 3.11.0
+- `Matplotlib <https://pypi.org/project/matplotlib/>`_ 3.11.1
   (required for plotting)
 - `Lxml <https://pypi.org/project/lxml/>`_ 6.1.1
   (required only for validating and printing XML)
-- `Zarr <https://pypi.org/project/zarr/>`_ 3.2.1
+- `Zarr <https://pypi.org/project/zarr/>`_ 3.3.0
   (required only for using Zarr stores)
 - `Kerchunk <https://pypi.org/project/kerchunk/>`_ 0.2.10
   (required only for opening ReferenceFileSystem files)
 
 Revisions
 ---------
+
+2026.7.31
+
+- Fsspec v3 stores using big-endian floatpred are incompatible with zarr>=3.3.
+- Specify bytes codec endian configuration in ZarrFileSequenceStore.
+- Add additional NDPI tags from specification (#331).
 
 2026.7.14
 
@@ -281,7 +287,7 @@ handling multi-dimensional data, or working around format constraints:
   performs poorly. BitsPerSample, SamplesPerPixel, and
   PhotometricInterpretation tags may contain wrong values, which can be
   corrected using the value of tag 65441.
-  Short ASCII string tag values are not stored inline.
+  ASCII string tag values are not stored inline.
 - **Philips TIFF** slides store padded ImageWidth and ImageLength tag values
   for tiled pages. The values can be corrected using the DICOM_PIXEL_SPACING
   attributes of the XML formatted description of the first page. Tile offsets
@@ -344,6 +350,8 @@ References
 - TIFF File Format FAQ. https://www.awaresystems.be/imaging/tiff/faq.html
 - The BigTIFF File Format.
   https://www.awaresystems.be/imaging/tiff/bigtiff.html
+- BigTIFF community standard candidate
+  https://github.com/opengeospatial/BigTIFF
 - MetaMorph Stack (STK) Image File Format.
   http://mdc.custhelp.com/app/answers/detail/a_id/18862
 - Image File Format Description LSM 5/7 Release 6.0 (ZEN 2010).
@@ -379,6 +387,8 @@ References
 - NDTiffStorage. https://github.com/micro-manager/NDTiffStorage
 - Argos AVS File Format.
   https://github.com/user-attachments/files/15580286/ARGOS.AVS.File.Format.pdf
+- NDP.image File Format.
+  https://nanozoomer.hamamatsu.com/us/en/SDK-API/Our-file-format.html
 
 Examples
 --------
@@ -821,7 +831,7 @@ Inspect the TIFF file from the command line::
 
 from __future__ import annotations
 
-__version__ = '2026.7.14'
+__version__ = '2026.7.31'
 
 __all__ = [
     'CHUNKMODE',
@@ -3650,11 +3660,11 @@ class TiffWriter:
                     numtiles * storedshape.frames,
                     dataiter,  # type: ignore[arg-type]
                     compressionfunc,
-                    tileshape,
-                    datadtype,
-                    maxworkers,
-                    buffersize,
-                    True,
+                    shape=tileshape,
+                    dtype=datadtype,
+                    maxworkers=maxworkers,
+                    buffersize=buffersize,
+                    tiled=True,
                 )
             else:
                 # dataiter yields frames
@@ -3676,15 +3686,15 @@ class TiffWriter:
                     numstrips * storedshape.frames,
                     dataiter,
                     compressionfunc,
-                    (
+                    shape=(
                         rowsperstrip,
                         storedshape.width,
                         storedshape.contig_samples,
                     ),
-                    datadtype,
-                    maxworkers,
-                    buffersize,
-                    False,
+                    dtype=datadtype,
+                    maxworkers=maxworkers,
+                    buffersize=buffersize,
+                    tiled=False,
                 )
 
         fhpos = fh.tell()
@@ -4235,7 +4245,7 @@ class TiffWriter:
         self._descriptiontag.overwrite(description.encode(), erase=False)
         self._descriptiontag = None
 
-    def _addtag(
+    def _addtag(  # noqa: PLR0917
         self,
         tags: list[tuple[int, bytes, bytes | None, bool]],
         code: int | str,
@@ -6077,6 +6087,7 @@ class TiffFormat:
 
     def __init__(
         self,
+        *,
         version: int,
         byteorder: Literal['>', '<'],
         offsetsize: int,
@@ -10289,7 +10300,7 @@ class TiffTag:
 
     _value: Any
 
-    def __init__(
+    def __init__(  # noqa: PLR0917
         self,
         parent: TiffFile | TiffWriter,
         offset: int,
@@ -10414,7 +10425,7 @@ class TiffTag:
         return cls(parent, offset, code, dtype, count, value, valueoffset)
 
     @staticmethod
-    def _read_value(
+    def _read_value(  # noqa: PLR0917
         parent: TiffFile | TiffWriter,
         offset: int,
         code: int,
@@ -10762,7 +10773,7 @@ class TiffTag:
         valueoffset_inline = (
             self.offset + 4 + struct.calcsize(tiff.tagformat2[:2])
         )
-        force_outofline = tiff.is_ndpi and dtype == 2
+        force_outofline = tiff.is_ndpi and dtype == 2  # and count > 1
 
         pos = fh.tell()
         try:
@@ -13704,7 +13715,7 @@ class StoredShape(Sequence[int]):
     extrasamples: int
     """Number of extra samples. Count of ExtraSamples tag or 0."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0917
         self,
         frames: int = 1,
         separate_samples: int = 1,
@@ -14928,9 +14939,11 @@ class OmeXml:
                 self.annotations.append(
                     ''.join(
                         (
-                            f'<{name} '
-                            f'ID="Annotation:{len(self.annotations)}"'
-                            f'{namespace}>',
+                            (
+                                f'<{name} '
+                                f'ID="Annotation:{len(self.annotations)}"'
+                                f'{namespace}>'
+                            ),
                             description,
                             '<Value>',
                             ''.join(values),
@@ -16580,8 +16593,7 @@ class _TIFF:
             51192: read_dectris_ifd,
             65426: read_numpy,  # NDPI McuStarts
             65432: read_numpy,  # NDPI McuStartsHighBytes
-            65439: read_numpy,  # NDPI unknown
-            65459: read_bytes,  # NDPI bytes, not string
+            65439: read_numpy,  # NDPI FocusPoints
         }
 
     @cached_property
@@ -16752,31 +16764,34 @@ class _TIFF:
 
     @cached_property
     def NDPI_TAGS(self) -> TiffTagRegistry:
-        """Registry of private TIFF tags for Hamamatsu NDPI (65420-65500)."""
-        # TODO: obtain specification
+        """Registry of private TIFF tags for Hamamatsu NDPI (65420-65500).
+
+        https://nanozoomer.hamamatsu.com/us/en/SDK-API/Our-file-format.html
+
+        """
         return TiffTagRegistry(
             (
                 (65324, 'OffsetHighBytes'),
                 (65325, 'ByteCountHighBytes'),
-                (65420, 'FileFormat'),
-                (65421, 'Magnification'),  # SourceLens
-                (65422, 'XOffsetFromSlideCenter'),
-                (65423, 'YOffsetFromSlideCenter'),
-                (65424, 'ZOffsetFromSlideCenter'),  # FocalPlane
+                (65420, 'FileFormat'),  # Version; NDPI version (currently 1)
+                (65421, 'Magnification'),  # Lens/Image Type
+                (65422, 'XOffsetFromSlideCenter'),  # Physical X, center (nm)
+                (65423, 'YOffsetFromSlideCenter'),  # Physical Y, center (nm)
+                (65424, 'ZOffsetFromSlideCenter'),  # Physical Z, focus (nm)
                 (65425, 'TissueIndex'),
-                (65426, 'McuStarts'),
-                (65427, 'SlideLabel'),
+                (65426, 'McuStarts'),  # Restart Marker Index
+                (65427, 'SlideLabel'),  # Reference
                 (65428, 'AuthCode'),  # ?
                 (65429, '65429'),
                 (65430, '65430'),
                 (65431, '65431'),
-                (65432, 'McuStartsHighBytes'),
+                (65432, 'McuStartsHighBytes'),  # Restart Marker Index High
                 (65433, '65433'),
                 (65434, 'Fluorescence'),  # FilterSetName, Channel
                 (65435, 'ExposureRatio'),
-                (65436, 'RedMultiplier'),
-                (65437, 'GreenMultiplier'),
-                (65438, 'BlueMultiplier'),
+                (65436, 'RedMultiplier'),  # Gain Multipliers (R)
+                (65437, 'GreenMultiplier'),  # Gain Multipliers (G)
+                (65438, 'BlueMultiplier'),  # Gain Multipliers (B)
                 (65439, 'FocusPoints'),
                 (65440, 'FocusPointRegions'),
                 (65441, 'CaptureMode'),
@@ -16787,7 +16802,7 @@ class _TIFF:
                 (65446, 'FocusOffset'),
                 (65447, 'BlankLines'),
                 (65448, 'FirmwareVersion'),
-                (65449, 'Comments'),  # PropertyMap, CalibrationInfo
+                (65449, 'Comments'),  # Calibration Info; PropertyMap
                 (65450, 'LabelObscured'),
                 (65451, 'Wavelength'),
                 (65452, '65452'),
@@ -16806,15 +16821,15 @@ class _TIFF:
                 (65465, '65465'),
                 (65466, '65466'),
                 (65467, '65467'),
-                (65468, 'Barcode'),
-                (65469, '65469'),
-                (65470, '65470'),
-                (65471, '65471'),
-                (65472, '65472'),
-                (65473, '65473'),
-                (65474, '65474'),
-                (65475, '65475'),
-                (65476, '65476'),
+                (65468, 'Barcode'),  # Barcode 1
+                (65469, 'Barcode2'),
+                (65470, 'Barcode3'),
+                (65471, 'Barcode4'),
+                (65472, 'Barcode5'),
+                (65473, 'Barcode6'),
+                (65474, 'Barcode7'),
+                (65475, 'Barcode8'),
+                (65476, 'MedicalRegulation'),  # RUO/IVR/USA
                 (65477, 'ScanProfile'),  # XML
                 (65478, '65478'),
                 (65479, '65479'),
@@ -18274,7 +18289,7 @@ def series_shaped(tif: TiffFile, /) -> list[TiffPageSeries] | None:
     """Return image series in tifffile 'shaped' formatted file."""
     # TODO: all series need to have JSON metadata for this to succeed
 
-    def append(
+    def append(  # noqa: PLR0917
         series: list[TiffPageSeries],
         pages: list[TiffPage | TiffFrame | None],
         axes: str | None,
@@ -22270,6 +22285,7 @@ def read_uic1tag(
     count: int,
     offsetsize: int,
     /,
+    *,
     planecount: int = 0,
 ) -> dict[str, Any]:
     """Read MetaMorph STK UIC1Tag value from file.
@@ -24934,12 +24950,13 @@ def encode_chunks(
     numchunks: int,
     chunkiter: Iterator[NDArray[Any] | None],
     encode: Callable[[NDArray[Any]], bytes],
+    /,
+    *,
     shape: Sequence[int],
     dtype: numpy.dtype[Any],
     maxworkers: int | None,
     buffersize: int | None,
-    tiled: bool,  # noqa: FBT001
-    /,
+    tiled: bool,
 ) -> Iterator[bytes]:
     """Return iterator over encoded chunks.
 
@@ -25675,11 +25692,12 @@ def stack_pages(
         def func(
             page: TiffPage | TiffFrame | None,
             index: int,
+            /,
+            *,
             out: Any = out,
             filecache: FileCache = filecache,
             lock: contextlib.AbstractContextManager[Any] | None = lock,
             kwargs: dict[str, Any] = kwargs,
-            /,
         ) -> None:
             # read, decode, and copy page data
             if page is None:

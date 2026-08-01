@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: reportportal-client
-Version: 5.7.8
+Version: 5.7.9
 Summary: Python client for ReportPortal v5.
 Home-page: https://github.com/reportportal/client-Python
-Download-URL: https://github.com/reportportal/client-Python/tarball/5.7.8
+Download-URL: https://github.com/reportportal/client-Python/tarball/5.7.9
 Author: ReportPortal Team
 Author-email: support@reportportal.io
 License: Apache-2.0

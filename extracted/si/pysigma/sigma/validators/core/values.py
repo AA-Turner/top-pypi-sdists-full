@@ -74,7 +74,7 @@ class ControlCharacterValidator(SigmaStringValueValidator):
     """
 
     def validate_string(self, value: SigmaString) -> list[SigmaValidationIssue]:
-        if any((ord(c) < 31 for s in value.s for c in (s if isinstance(s, str) else ""))):
+        if any((ord(c) < 32 for s in value.s for c in (s if isinstance(s, str) else ""))):
             return [ControlCharacterIssue([self.rule], value)]
         else:
             return []

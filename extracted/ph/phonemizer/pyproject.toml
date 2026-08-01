@@ -41,13 +41,16 @@ requires-python = ">= 3.8"
 dynamic = ["version"]
 dependencies = [
     "joblib",
-    "segments",
     "attrs>=18.1",
     "dlinfo",
     "typing-extensions"]
 
 [project.optional-dependencies]
-test = ["pytest>=6.0", "pytest-cov", "coverage[toml]"]
+# the segments backend is optional: it pulls in a heavy dependency chain
+# (csvw, rdflib, jsonschema, babel, language-tags) that users of the espeak
+# and festival backends do not need. Install with "pip install phonemizer[segments]"
+segments = ["segments"]
+test = ["pytest>=6.0", "pytest-cov", "coverage[toml]", "segments"]
 doc = ["sphinx", "sphinx_rtd_theme"]
 
 [project.scripts]
@@ -90,3 +93,46 @@ exclude_lines = [
     "pragma: nocover",
     "@abc.abstractmethod"]
 skip_covered = true
+
+# pixi configuration. If you are a pixi user, you can install phonemizer with
+# pixi by running `pixi install`, then run tests with `pixi run test` or e.g.
+# `pixi run -e py308 test` to run the tests on Python-3.8.
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-64", "osx-arm64"]
+requires-pixi = ">=0.63"
+
+[tool.pixi.pypi-dependencies]
+phonemizer = { path = ".", editable = true, extras = ["segments"] }
+
+[tool.pixi.environments]
+test = { features = ["test"] }
+dev = { features = ["test", "dev"] }
+# test the first, the second-to-last, and the last supported version
+py308 = ["py308", "test"]
+py313 = ["py313", "test"]
+py314 = ["py314", "test"]
+
+[tool.pixi.feature.test.pypi-dependencies]
+phonemizer = { path = ".", editable = true, extras = ["test", "segments"] }
+
+
+[tool.pixi.feature.dev.dependencies]
+ruff = ">=0.15.5,<0.16"
+twine = ">=6.2.0,<7"
+ipython = ">=9.11.0,<10"
+
+
+[tool.pixi.feature.test.tasks]
+test = { cmd = "pytest", default-environment = "test" }
+
+
+[tool.pixi.feature.py308.dependencies]
+python = "3.08.*"
+
+[tool.pixi.feature.py313.dependencies]
+python = "3.13.*"
+
+[tool.pixi.feature.py314.dependencies]
+python = "3.14.*"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trame-common
-Version: 1.2.4
+Version: 1.2.6
 Summary: Dependency less classes and functions for trame
 Author-email: Sebastien Jourdain <sebastien.jourdain@kitware.com>
 License-File: LICENSE
@@ -12,7 +12,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Provides-Extra: dev
 Requires-Dist: nox; extra == 'dev'
 Requires-Dist: pre-commit; extra == 'dev'
@@ -21,8 +21,11 @@ Requires-Dist: pytest>=6; extra == 'dev'
 Requires-Dist: ruff; extra == 'dev'
 Provides-Extra: test
 Requires-Dist: nox; extra == 'test'
+Requires-Dist: pytest-asyncio; extra == 'test'
 Requires-Dist: pytest-cov>=3; extra == 'test'
 Requires-Dist: pytest>=6; extra == 'test'
+Requires-Dist: trame; extra == 'test'
+Requires-Dist: trame-server>=3.13.0; extra == 'test'
 Description-Content-Type: text/markdown
 
 # trame-common: common code for any trame package

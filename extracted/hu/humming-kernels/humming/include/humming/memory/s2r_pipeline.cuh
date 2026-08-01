@@ -25,6 +25,7 @@ private:
   static constexpr bool kIsChannelInputScale = kHasInputScale && Ctx::kInputScaleGroupSize == 0;
   static constexpr bool kIsGroupInputScale = kHasInputScale && Ctx::kInputScaleGroupSize > 0;
   static constexpr bool kIsChannelWeightScale = Ctx::kIsChannelWeightScale;
+  static constexpr bool kIsChannelWeightScale2 = Ctx::kIsChannelWeightScale2;
   static constexpr bool kIsGroupWeightScale = Ctx::kIsGroupWeightScale;
   static constexpr bool kIsBlockWeightScale = Ctx::kIsBlockWeightScale;
   static constexpr bool kIsGroupOrBlockWeightScale = kIsGroupWeightScale || kIsBlockWeightScale;
@@ -62,6 +63,7 @@ public:
     stage_id = (stage_id + iter_id / Ctx::kWarpIters) % kNumStages;
     iter_id = iter_id % Ctx::kWarpIters;
     uint32_t buffer_id = iter_id % 2;
+    uint32_t k_iter_id = Ctx::kUsePackedKLayout ? 0 : iter_id;
     auto &smem = ctx.smem;
 
     loader_b.load(smem.stages[stage_id].b, mma.regs_qb_as_ptr(buffer_id), iter_id);
@@ -69,20 +71,20 @@ public:
       loader_a.load(smem.stages[stage_id].a, mma.regs_a_as_ptr(buffer_id), iter_id, stage_id);
     if constexpr (kUseMxmma) {
       if constexpr (kIsGroupInputScale)
-        loader_as.load_sf(smem.stages[stage_id].as, mma.regs_sfa_as_ptr(buffer_id), iter_id);
+        loader_as.load_sf(smem.stages[stage_id].as, mma.regs_sfa_as_ptr(buffer_id), k_iter_id);
       if constexpr (kIsGroupOrBlockWeightScale)
-        loader_bs.load_sf(smem.stages[stage_id].bs, mma.regs_sfb_as_ptr(buffer_id), iter_id);
+        loader_bs.load_sf(smem.stages[stage_id].bs, mma.regs_sfb_as_ptr(buffer_id), k_iter_id);
     } else {
       if constexpr (kIsGroupInputScale)
-        loader_as.load(smem.stages[stage_id].as, mma.arith.regs_as_as_ptr(buffer_id), iter_id);
+        loader_as.load(smem.stages[stage_id].as, mma.arith.regs_as_as_ptr(buffer_id), k_iter_id);
       if constexpr (kIsGroupOrBlockWeightScale)
-        loader_bs.load(smem.stages[stage_id].bs, mma.arith.regs_bs_as_ptr(buffer_id), iter_id);
+        loader_bs.load(smem.stages[stage_id].bs, mma.arith.regs_bs_as_ptr(buffer_id), k_iter_id);
     }
     if constexpr (kHasZeroPoint && (kIsGroupOrBlockWeightScale || kIsFirst)) {
       if constexpr (kIsChannelWeightScale)
-        loader_bzp.load(smem.bzp_c, mma.arith.regs_zp_as_ptr(buffer_id), iter_id);
+        loader_bzp.load(smem.bzp_c, mma.arith.regs_zp_as_ptr(buffer_id), k_iter_id);
       else
-        loader_bzp.load(smem.stages[stage_id].bzp, mma.arith.regs_zp_as_ptr(buffer_id), iter_id);
+        loader_bzp.load(smem.stages[stage_id].bzp, mma.arith.regs_zp_as_ptr(buffer_id), k_iter_id);
     }
   }
 
@@ -90,6 +92,7 @@ public:
     auto &smem = ctx.smem;
     if constexpr (kIsChannelInputScale) loader_as.load(smem.as_c, epilogue.arith.regs_as_as_ptr(), -1);
     if constexpr (kIsChannelWeightScale) loader_bs.load(smem.bs_c, epilogue.arith.regs_bs_as_ptr(), -1);
+    if constexpr (kIsChannelWeightScale2) loader_bias.load(smem.bs2_c, epilogue.arith.regs_bs2_as_ptr(), 1);
     if constexpr (kHasBias) loader_bias.load(smem.bias, epilogue.arith.regs_bias_as_ptr(), slice_id == 0);
   }
 };

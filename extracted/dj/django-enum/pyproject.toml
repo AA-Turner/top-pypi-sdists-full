@@ -1,6 +1,6 @@
 [project]
 name = "django-enum"
-version = "2.4.3"
+version = "2.5.0"
 description = "Full and natural support for enumerations as Django model fields."
 requires-python = ">=3.10,<4.0"
 authors = [
@@ -16,7 +16,7 @@ keywords = [
     "bitmask", "mask", "bitfield", "flags"
 ]
 dependencies = [
-    "django>=4.2,<6.1",
+    "django>=4.2,<6.2",
 ]
 classifiers = [
     "Environment :: Console",
@@ -27,6 +27,7 @@ classifiers = [
     "Framework :: Django :: 4.2",
     "Framework :: Django :: 5.2",
     "Framework :: Django :: 6.0",
+    "Framework :: Django :: 6.1",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Natural Language :: English",
@@ -53,7 +54,7 @@ conflicts = [
   [
     { group = "dj42" },
     { group = "dj52" },
-    { group = "dj60" },
+    { group = "dj61" },
   ],
   [
     { group = "mysqlclient2x" },
@@ -67,6 +68,13 @@ conflicts = [
     { group = "cx_oracle" },
     { group = "oracledb" },
   ]
+]
+
+[tool.uv.sources]
+# DRF's latest release (3.17.1) is incompatible with Django 6.1 (it imports the
+# removed django.utils.cache.cc_delim_re) - use master until a fixed release ships
+djangorestframework = [
+    { git = "https://github.com/encode/django-rest-framework", group = "dj61" },
 ]
 
 
@@ -176,13 +184,14 @@ dev = [
 
 # for CI and testing
 dj42 = [
-    "Django~=4.2; python_version < '3.13'",
+    "Django>=4.2,<5.0; python_version < '3.13'",
 ]
 dj52 = [
-    "Django~=5.2",
+    "Django>=5.2,<6.0"
 ]
-dj60 = [
-    "Django~=6.0; python_version >= '3.12'",
+dj61 = [
+    "Django>=6.1rc1,<6.2; python_version >= '3.12'",
+    "djangorestframework; python_version >= '3.12'",
 ]
 mysqlclient14 = [
     "mysqlclient==1.4.3",
@@ -294,3 +303,6 @@ target-version = "py310"
 
 [tool.ruff.lint]
 exclude = ["tests/**/*"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/django_enum/fields.pyi" = ["PYI001"]

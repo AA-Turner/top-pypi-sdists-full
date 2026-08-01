@@ -20,7 +20,8 @@ import numpy as np
 import warnings
 from collections.abc import Iterable
 from scipy.stats import norm
-from ..utilities import ndim, shape, reshape, _safe_norm_ppf, check_input_arrays
+from ..utilities import ndim, shape, reshape, _safe_norm_ppf, check_input_arrays, add_constant
+from .._sklearn_compat import SKLEARN_GE_17, SKLEARN_GE_18
 from sklearn import clone
 from sklearn.linear_model import LinearRegression, LassoCV, MultiTaskLassoCV, Lasso, MultiTaskLasso
 from sklearn.linear_model._base import _preprocess_data
@@ -32,11 +33,13 @@ from sklearn.utils import check_array, check_X_y
 from sklearn.utils.multiclass import type_of_target
 from sklearn.utils.validation import check_is_fitted
 from sklearn.base import BaseEstimator
-from statsmodels.tools.tools import add_constant
-from statsmodels.api import RLM
-import statsmodels
+from .._lazy import _LazyModule
 from joblib import Parallel, delayed
 from typing import List
+
+_statsmodels_api = _LazyModule("statsmodels.api")  # lazy: only needed for RLM
+_statsmodels = _LazyModule("statsmodels")  # lazy: only needed for RLM robust norms
+_model_selection = _LazyModule("econml.sklearn_extensions.model_selection")  # lazy: avoid circular import
 
 
 class _WeightedCVIterableWrapper(_CVIterableWrapper):
@@ -55,15 +58,13 @@ class _WeightedCVIterableWrapper(_CVIterableWrapper):
 
 
 def _weighted_check_cv(cv=5, y=None, classifier=False, random_state=None):
-    # local import to avoid circular imports
-    from .model_selection import WeightedKFold, WeightedStratifiedKFold
     cv = 5 if cv is None else cv
     if isinstance(cv, numbers.Integral):
         if (classifier and (y is not None) and
                 (type_of_target(y) in ('binary', 'multiclass'))):
-            return WeightedStratifiedKFold(cv, random_state=random_state)
+            return _model_selection.WeightedStratifiedKFold(cv, random_state=random_state)
         else:
-            return WeightedKFold(cv, random_state=random_state)
+            return _model_selection.WeightedKFold(cv, random_state=random_state)
 
     if not hasattr(cv, 'split') or isinstance(cv, str):
         if not isinstance(cv, Iterable) or isinstance(cv, str):
@@ -73,6 +74,31 @@ def _weighted_check_cv(cv=5, y=None, classifier=False, random_state=None):
         return _WeightedCVIterableWrapper(cv)
 
     return cv  # New style cv objects are passed without any modification
+
+
+def _warn_n_alphas_deprecated(cls_name):
+    # Emitted when a user passes a non-default ``n_alphas`` to one of our
+    # LassoCV-derived wrappers on sklearn >= 1.7. Upstream sklearn deprecated
+    # ``n_alphas`` in 1.7 (removed in 1.9) in favor of accepting an int for
+    # ``alphas``. Our wrapper still accepts ``n_alphas`` as a legacy alias and
+    # translates it internally, but we cannot preserve introspection via
+    # ``self.n_alphas`` on 1.7+ without tripping sklearn's own deprecation
+    # check in ``LassoCV.fit``. Nudge users toward the new API so they can
+    # migrate before EconML eventually drops the alias entirely.
+    warnings.warn(
+        f"The 'n_alphas' parameter of {cls_name} is deprecated on scikit-learn >= 1.7 "
+        "(upstream sklearn removed 'n_alphas' from LassoCV/MultiTaskLassoCV in favor of "
+        "accepting an integer value for 'alphas'). Use 'alphas=<int>' instead. This "
+        "backwards-compatibility alias will be removed in a future EconML release.",
+        FutureWarning, stacklevel=3,
+    )
+
+
+def _n_alphas_compat_kwargs(n_alphas):
+    """Return the installed sklearn's spelling for an automatic alpha-grid size."""
+    if SKLEARN_GE_17:
+        return {'alphas': n_alphas}
+    return {'n_alphas': n_alphas}
 
 
 class WeightedModelMixin:
@@ -105,16 +131,24 @@ class WeightedModelMixin:
                             sample_weight.shape[0], X.shape[0])
                     )
 
-            # Normalize inputs
-            X, y, X_offset, y_offset, X_scale = _preprocess_data(
-                X, y, fit_intercept=self.fit_intercept,
-                copy=self.copy_X, check_input=check_input if check_input is not None else True,
-                sample_weight=sample_weight)
             # Weight inputs
             normalized_weights = X.shape[0] * sample_weight / np.sum(sample_weight)
-            sqrt_weights = np.sqrt(normalized_weights)
-            X_weighted = sqrt_weights.reshape(-1, 1) * X
-            y_weighted = sqrt_weights.reshape(-1, 1) * y if y.ndim > 1 else sqrt_weights * y
+
+            # Normalize inputs
+            preprocessed_data = _preprocess_data(
+                X, y, fit_intercept=self.fit_intercept,
+                copy=self.copy_X, check_input=check_input if check_input is not None else True,
+                sample_weight=normalized_weights)
+
+            # sklearn started rescaling x and y by sample_weight_sqrt as part of preprocessing by default in 1.8
+            if SKLEARN_GE_18:
+                X_weighted, y_weighted, X_offset, y_offset, X_scale, sqrt_weights = preprocessed_data
+            else:
+                X, y, X_offset, y_offset, X_scale = preprocessed_data
+                sqrt_weights = np.sqrt(normalized_weights)
+                X_weighted = sqrt_weights.reshape(-1, 1) * X
+                y_weighted = sqrt_weights.reshape(-1, 1) * y if y.ndim > 1 else sqrt_weights * y
+
             fit_params['X'] = X_weighted
             fit_params['y'] = y_weighted
             if self.fit_intercept:
@@ -415,12 +449,71 @@ class WeightedLassoCV(WeightedModelMixin, LassoCV):
                  copy_X=True, cv=None, verbose=False, n_jobs=None,
                  positive=False, random_state=None, selection='cyclic'):
 
-        super().__init__(
-            eps=eps, n_alphas=n_alphas, alphas=alphas,
-            fit_intercept=fit_intercept,
+        # sklearn 1.7 deprecated ``n_alphas`` on ``LassoCV`` in favor of accepting
+        # an integer for ``alphas``, and 1.9 removed it entirely. We continue to
+        # accept both names on our wrapper for backwards compatibility, but we
+        # preserve the parent's ``"deprecated"`` sentinel on sklearn 1.7-1.8:
+        # its ``fit`` checks ``self.n_alphas`` against that sentinel and emits a
+        # ``FutureWarning`` if it has been overwritten. On sklearn 1.9+, where
+        # the parent removed the attribute entirely, we restore the same
+        # sentinel solely so BaseEstimator.get_params() can inspect our
+        # backwards-compatible wrapper signature. To keep users informed, we emit our own
+        # wrapper-level ``FutureWarning`` below when a non-default ``n_alphas``
+        # is passed on sklearn >= 1.7. Do NOT reassign ``self.alphas`` — the
+        # parent stored the correctly-dispatched value there.
+        common_kwargs = dict(
+            eps=eps, fit_intercept=fit_intercept,
             precompute=precompute, max_iter=max_iter, tol=tol, copy_X=copy_X,
             cv=cv, verbose=verbose, n_jobs=n_jobs, positive=positive,
             random_state=random_state, selection=selection)
+        if SKLEARN_GE_17:
+            super().__init__(alphas=alphas if alphas is not None else n_alphas, **common_kwargs)
+            if not hasattr(self, 'n_alphas'):
+                # sklearn 1.9+ removed the attribute entirely, but
+                # BaseEstimator.get_params() still inspects our wrapper's
+                # __init__ signature and expects every named parameter to
+                # exist. Restore the same sentinel used on 1.7-1.8 so our
+                # compatibility behavior stays uniform across newer versions.
+                self.n_alphas = 'deprecated'
+            if n_alphas != 100:
+                _warn_n_alphas_deprecated(type(self).__name__)
+        else:
+            super().__init__(n_alphas=n_alphas, alphas=alphas, **common_kwargs)
+
+    def get_params(self, deep=True):
+        # sklearn's ``_get_param_names`` inspects our wrapper's ``__init__``
+        # (which still lists ``n_alphas`` for backwards compat), so without this
+        # override ``self.get_params()`` still returns ``n_alphas`` on sklearn
+        # >= 1.7. That value then leaks into ``lasso_path(**path_params)``
+        # inside ``LinearModelCV.fit`` and triggers a per-fold ``FutureWarning``
+        # on 1.7-1.10; on 1.11 ``n_alphas`` is removed from ``lasso_path`` and
+        # would become a hard ``TypeError``. Idea originally suggested in
+        # https://github.com/py-why/EconML/pull/1046.
+        params = super().get_params(deep=deep)
+        if SKLEARN_GE_17:
+            params.pop('n_alphas', None)
+        return params
+
+    def set_params(self, **params):
+        # Because ``get_params`` drops ``n_alphas`` on sklearn >= 1.7, sklearn's
+        # default ``set_params`` (which validates unknown keys against
+        # ``get_params``) would reject ``set_params(n_alphas=...)`` and any
+        # ``GridSearchCV`` / ``Pipeline`` parameter grid that names it, even
+        # though our ``__init__`` still accepts it. Preserve the legacy contract
+        # by mapping ``n_alphas`` to the equivalent ``alphas=<int>`` on
+        # sklearn >= 1.7. When both are passed, ``alphas`` takes precedence
+        # (matching the ``__init__`` dispatch semantics). When only
+        # ``n_alphas`` is passed, it intentionally replaces any prior
+        # ``self.alphas`` value: the latest explicit set_params call wins.
+        # Preserve ``self.n_alphas`` as the compatibility sentinel on all
+        # newer sklearn versions.
+        if SKLEARN_GE_17 and 'n_alphas' in params:
+            n_alphas_value = params.pop('n_alphas')
+            if n_alphas_value != 100:
+                _warn_n_alphas_deprecated(type(self).__name__)
+            if params.get('alphas') is None:
+                params['alphas'] = n_alphas_value
+        return super().set_params(**params)
 
     def fit(self, X, y, sample_weight=None):
         """Fit model with coordinate descent.
@@ -526,12 +619,37 @@ class WeightedMultiTaskLassoCV(WeightedModelMixin, MultiTaskLassoCV):
                  copy_X=True, cv=None, verbose=False, n_jobs=None,
                  random_state=None, selection='cyclic'):
 
-        super().__init__(
-            eps=eps, n_alphas=n_alphas, alphas=alphas,
-            fit_intercept=fit_intercept,
+        # See the corresponding comment on ``WeightedLassoCV.__init__``.
+        common_kwargs = dict(
+            eps=eps, fit_intercept=fit_intercept,
             max_iter=max_iter, tol=tol, copy_X=copy_X,
             cv=cv, verbose=verbose, n_jobs=n_jobs,
             random_state=random_state, selection=selection)
+        if SKLEARN_GE_17:
+            super().__init__(alphas=alphas if alphas is not None else n_alphas, **common_kwargs)
+            if not hasattr(self, 'n_alphas'):
+                self.n_alphas = 'deprecated'
+            if n_alphas != 100:
+                _warn_n_alphas_deprecated(type(self).__name__)
+        else:
+            super().__init__(n_alphas=n_alphas, alphas=alphas, **common_kwargs)
+
+    def get_params(self, deep=True):
+        # See the corresponding comment on ``WeightedLassoCV.get_params``.
+        params = super().get_params(deep=deep)
+        if SKLEARN_GE_17:
+            params.pop('n_alphas', None)
+        return params
+
+    def set_params(self, **params):
+        # See the corresponding comment on ``WeightedLassoCV.set_params``.
+        if SKLEARN_GE_17 and 'n_alphas' in params:
+            n_alphas_value = params.pop('n_alphas')
+            if n_alphas_value != 100:
+                _warn_n_alphas_deprecated(type(self).__name__)
+            if params.get('alphas') is None:
+                params['alphas'] = n_alphas_value
+        return super().set_params(**params)
 
     def fit(self, X, y, sample_weight=None):
         """Fit model with coordinate descent.
@@ -563,7 +681,7 @@ def _get_theta_coefs_and_tau_sq(i, X, sample_weight, alpha_cov, n_alphas_cov, ma
     X_reduced = X[:, list(range(i)) + list(range(i + 1, n_features))]
     # Call weighted lasso on reduced design matrix
     if alpha_cov == 'auto':
-        local_wlasso = WeightedLassoCV(cv=3, n_alphas=n_alphas_cov,
+        local_wlasso = WeightedLassoCV(cv=3, **_n_alphas_compat_kwargs(n_alphas_cov),
                                        fit_intercept=False,
                                        max_iter=max_iter,
                                        tol=tol, n_jobs=1,
@@ -735,9 +853,17 @@ class DebiasedLasso(WeightedLasso):
         # Fit weighted lasso with user input
         super().fit(X, y, sample_weight, check_input)
         # Center X, y
-        X, y, X_offset, y_offset, X_scale = _preprocess_data(
-            X, y, fit_intercept=self.fit_intercept,
-            copy=self.copy_X, check_input=check_input, sample_weight=sample_weight)
+        # sklearn started rescaling x and y by sample_weight_sqrt as part of preprocessing by default in 1.8
+        if SKLEARN_GE_18:
+            X, y, X_offset, y_offset, X_scale, sqrt_weights = _preprocess_data(
+                X, y, fit_intercept=self.fit_intercept,
+                copy=self.copy_X, check_input=check_input, sample_weight=sample_weight,
+                rescale_with_sw=False  # explicitly opt-out of rescaling
+            )
+        else:
+            X, y, X_offset, y_offset, X_scale = _preprocess_data(
+                X, y, fit_intercept=self.fit_intercept,
+                copy=self.copy_X, check_input=check_input, sample_weight=sample_weight)
 
         # Calculate quantities that will be used later on. Account for centered data
         y_pred = self.predict(X) - self.intercept_
@@ -883,7 +1009,8 @@ class DebiasedLasso(WeightedLasso):
 
     def _get_optimal_alpha(self, X, y, sample_weight):
         # To be done once per target. Assumes y can be flattened.
-        cv_estimator = WeightedLassoCV(cv=5, n_alphas=self.n_alphas, fit_intercept=self.fit_intercept,
+        cv_estimator = WeightedLassoCV(cv=5, **_n_alphas_compat_kwargs(self.n_alphas),
+                                       fit_intercept=self.fit_intercept,
                                        precompute=self.precompute, copy_X=True,
                                        max_iter=self.max_iter, tol=self.tol,
                                        random_state=self.random_state,
@@ -1247,13 +1374,13 @@ class _PairedEstimatorWrapper:
         return self.model.score(X, y, sample_weight)
 
     def __getattr__(self, key):
-        if key in self._known_params:
+        if key in self._known_params or key == '__sklearn_tags__':
             return getattr(self.model, key)
         else:
             raise AttributeError("No attribute " + key)
 
     def __setattr__(self, key, value):
-        if key in self._known_params:
+        if key in self._known_params or key == '__sklearn_tags__':
             setattr(self.model, key, value)
         else:
             super().__setattr__(key, value)
@@ -1497,6 +1624,10 @@ class _StatsModelsWrapper(BaseEstimator):
         to the scaled covariance matrix of the parameters of the linear model.
     _n_out: the second dimension of the training y, or 0 if y is a vector
     """
+
+    def __sklearn_is_fitted__(self):
+        """Check if the model has been fitted."""
+        return hasattr(self, "_param")
 
     def predict(self, X):
         """
@@ -2017,9 +2148,9 @@ class StatsModelsRLM(_StatsModelsWrapper):
         self._n_out = 0 if len(y.shape) == 1 else (y.shape[1],)
 
         def model_gen(y):
-            return RLM(endog=y,
+            return _statsmodels_api.RLM(endog=y,
                        exog=X,
-                       M=statsmodels.robust.norms.HuberT(t=self.t)).fit(cov=self.cov_type,
+                       M=_statsmodels.robust.norms.HuberT(t=self.t)).fit(cov=self.cov_type,
                                                                         maxiter=self.maxiter,
                                                                         tol=self.tol)
         if y.ndim < 2:

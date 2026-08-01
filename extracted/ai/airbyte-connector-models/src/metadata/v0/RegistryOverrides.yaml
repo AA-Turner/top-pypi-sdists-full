@@ -11,6 +11,13 @@ properties:
   enabled:
     type: boolean
     default: false
+  public:
+    description: whether the connector is available to every workspace in this
+      registry. When false, the connector is still published and seeded, but only
+      workspaces and organizations holding an explicit grant can see or use it.
+      When unset, the registry generator marks the entry public, so connectors
+      that say nothing stay public.
+    type: boolean
   name:
     type: string
   dockerRepository:

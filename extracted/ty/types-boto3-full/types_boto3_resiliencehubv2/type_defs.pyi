@@ -22,6 +22,7 @@ from datetime import datetime
 from typing import Any, Union
 
 from .literals import (
+    AccountTargetingType,
     AchievabilityStatusType,
     ActorTypeType,
     AssertionSourceType,
@@ -37,18 +38,25 @@ from .literals import (
     InputSourceTypeType,
     MultiAzDisasterRecoveryApproachType,
     MultiRegionDisasterRecoveryApproachType,
+    ParameterTypeType,
     PolicyComponentType,
     PolicyValueSourceType,
     QueryGranularityType,
     ReportGenerationErrorCodeType,
     ReportGenerationStatusType,
+    ReportTypeType,
     ResourceDiscoveryErrorCodeType,
     ResourceDiscoveryRunStatusType,
     ServiceEventTypeType,
     ServiceFunctionCriticalityType,
     ServiceFunctionSourceType,
     SortOrderType,
+    StopConditionSourceType,
     SystemEventTypeType,
+    TestRunSourceTypeType,
+    TestRunStatusType,
+    TestSourceOutcomeType,
+    TestSourceTypeType,
     TopologyTypeType,
 )
 
@@ -85,6 +93,8 @@ __all__ = (
     "CreateServiceResponseTypeDef",
     "CreateSystemRequestTypeDef",
     "CreateSystemResponseTypeDef",
+    "CreateTestRequestTypeDef",
+    "CreateTestResponseTypeDef",
     "CreateUserJourneyRequestTypeDef",
     "CreateUserJourneyResponseTypeDef",
     "CrossAccountRoleTypeDef",
@@ -103,6 +113,9 @@ __all__ = (
     "DeleteServiceResponseTypeDef",
     "DeleteSystemRequestTypeDef",
     "DeleteSystemResponseTypeDef",
+    "DeleteTestRequestTypeDef",
+    "DeleteTestResponseTypeDef",
+    "DeleteTestSourcesRequestTypeDef",
     "DeleteUserJourneyRequestTypeDef",
     "DeleteUserJourneyResponseTypeDef",
     "DependencyDiscoveryConfigTypeDef",
@@ -114,6 +127,7 @@ __all__ = (
     "EksSourceTypeDef",
     "EksSourceUnionTypeDef",
     "EventActorTypeDef",
+    "ExperimentDetailsTypeDef",
     "FailedReportOutputTypeDef",
     "FindingSummaryTypeDef",
     "FindingTypeDef",
@@ -127,6 +141,12 @@ __all__ = (
     "GetServiceResponseTypeDef",
     "GetSystemRequestTypeDef",
     "GetSystemResponseTypeDef",
+    "GetTestRequestTypeDef",
+    "GetTestResponseTypeDef",
+    "GetTestRunRequestTypeDef",
+    "GetTestRunResponseTypeDef",
+    "GetTestTemplateRequestTypeDef",
+    "GetTestTemplateResponseTypeDef",
     "GetUserJourneyRequestTypeDef",
     "GetUserJourneyResponseTypeDef",
     "ImportAppRequestTypeDef",
@@ -159,6 +179,9 @@ __all__ = (
     "ListReportsRequestTypeDef",
     "ListReportsRequestWaitTypeDef",
     "ListReportsResponseTypeDef",
+    "ListResolvedTestRunTargetResourcesRequestPaginateTypeDef",
+    "ListResolvedTestRunTargetResourcesRequestTypeDef",
+    "ListResolvedTestRunTargetResourcesResponseTypeDef",
     "ListResourcesRequestPaginateTypeDef",
     "ListResourcesRequestTypeDef",
     "ListResourcesResponseTypeDef",
@@ -182,11 +205,30 @@ __all__ = (
     "ListSystemsResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
+    "ListTestRunEventsRequestPaginateTypeDef",
+    "ListTestRunEventsRequestTypeDef",
+    "ListTestRunEventsResponseTypeDef",
+    "ListTestRunSourcesRequestPaginateTypeDef",
+    "ListTestRunSourcesRequestTypeDef",
+    "ListTestRunSourcesResponseTypeDef",
+    "ListTestRunsRequestPaginateTypeDef",
+    "ListTestRunsRequestTypeDef",
+    "ListTestRunsResponseTypeDef",
+    "ListTestSourcesRequestPaginateTypeDef",
+    "ListTestSourcesRequestTypeDef",
+    "ListTestSourcesResponseTypeDef",
+    "ListTestTemplatesResponseTypeDef",
+    "ListTestsRequestPaginateTypeDef",
+    "ListTestsRequestTypeDef",
+    "ListTestsResponseTypeDef",
     "ListUserJourneysRequestPaginateTypeDef",
     "ListUserJourneysRequestTypeDef",
     "ListUserJourneysResponseTypeDef",
+    "LoggingConfigurationTypeDef",
     "MultiAzTargetsTypeDef",
     "MultiRegionTargetsTypeDef",
+    "ObservabilityAlarmInputTypeDef",
+    "ObservabilityAlarmSummaryTypeDef",
     "ObservabilityRecommendationTypeDef",
     "PaginatorConfigTypeDef",
     "PermissionModelOutputTypeDef",
@@ -194,11 +236,13 @@ __all__ = (
     "PermissionModelUnionTypeDef",
     "PolicySummaryTypeDef",
     "PolicyTypeDef",
+    "PutTestSourcesRequestTypeDef",
     "QueryDataPointTypeDef",
     "QueryRangeTypeDef",
     "ReportGenerationResultTypeDef",
     "ReportOutputConfigurationTypeDef",
     "ReportOutputTypeDef",
+    "ResolvedTargetResourceTypeDef",
     "ResourceConfigurationTypeDef",
     "ResourceDiscoveryStatusTypeDef",
     "ResourceTagOutputTypeDef",
@@ -237,7 +281,14 @@ __all__ = (
     "SloSourceTypeDef",
     "StartFailureModeAssessmentRequestTypeDef",
     "StartFailureModeAssessmentResponseTypeDef",
+    "StartTestRunRequestTypeDef",
+    "StartTestRunResponseTypeDef",
+    "StopConditionTypeDef",
+    "StopTestRunRequestTypeDef",
+    "StopTestRunResponseTypeDef",
     "StringChangeTypeDef",
+    "SuccessCriteriaAlarmInputTypeDef",
+    "SuccessCriteriaAlarmSummaryTypeDef",
     "SystemEventDetailsTypeDef",
     "SystemEventMetadataTypeDef",
     "SystemEventTypeDef",
@@ -252,6 +303,22 @@ __all__ = (
     "SystemUserJourneyUpdatedMetadataTypeDef",
     "TagResourceRequestTypeDef",
     "TargetSourceTypeDef",
+    "TestActionTypeDef",
+    "TestRunEventTypeDef",
+    "TestRunObservabilityAlarmSummaryTypeDef",
+    "TestRunPolicySnapshotTypeDef",
+    "TestRunReportConfigurationTypeDef",
+    "TestRunSourceSummaryTypeDef",
+    "TestRunSuccessCriteriaAlarmSummaryTypeDef",
+    "TestRunSummaryTypeDef",
+    "TestRunTypeDef",
+    "TestSourceInputTypeDef",
+    "TestSourceSummaryTypeDef",
+    "TestSummaryTypeDef",
+    "TestTemplateParameterTypeDef",
+    "TestTemplateSummaryTypeDef",
+    "TestTemplateTypeDef",
+    "TestTypeDef",
     "TestingRecommendationTypeDef",
     "TimestampTypeDef",
     "UntagResourceRequestTypeDef",
@@ -269,6 +336,8 @@ __all__ = (
     "UpdateServiceResponseTypeDef",
     "UpdateSystemRequestTypeDef",
     "UpdateSystemResponseTypeDef",
+    "UpdateTestRequestTypeDef",
+    "UpdateTestResponseTypeDef",
     "UpdateUserJourneyRequestTypeDef",
     "UpdateUserJourneyResponseTypeDef",
     "UserJourneyChangesTypeDef",
@@ -347,7 +416,7 @@ class MultiRegionTargetsTypeDef(TypedDict):
 
 class CreateReportRequestTypeDef(TypedDict):
     serviceArn: str
-    reportType: Literal["FAILURE_MODE"]
+    reportType: ReportTypeType
     clientToken: NotRequired[str]
 
 class CreateServiceFunctionRequestTypeDef(TypedDict):
@@ -394,6 +463,15 @@ class SystemTypeDef(TypedDict):
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
+class LoggingConfigurationTypeDef(TypedDict):
+    s3BucketName: NotRequired[str]
+    cloudWatchLogGroupArn: NotRequired[str]
+    logSchemaVersion: NotRequired[str]
+
+class StopConditionTypeDef(TypedDict):
+    source: StopConditionSourceType
+    value: str
+
 class CreateUserJourneyRequestTypeDef(TypedDict):
     systemArn: str
     name: str
@@ -438,6 +516,10 @@ class DeleteServiceRequestTypeDef(TypedDict):
 
 class DeleteSystemRequestTypeDef(TypedDict):
     systemArn: str
+
+class DeleteTestRequestTypeDef(TypedDict):
+    testId: str
+    serviceArn: str
 
 class DeleteUserJourneyRequestTypeDef(TypedDict):
     systemArn: str
@@ -486,6 +568,10 @@ EventActorTypeDef = TypedDict(
     },
 )
 
+class ExperimentDetailsTypeDef(TypedDict):
+    experimentArn: str
+    details: NotRequired[str]
+
 class FailedReportOutputTypeDef(TypedDict):
     errorCode: ReportGenerationErrorCodeType
     errorMessage: NotRequired[str]
@@ -526,6 +612,17 @@ class WaiterConfigTypeDef(TypedDict):
 
 class GetSystemRequestTypeDef(TypedDict):
     systemArn: str
+
+class GetTestRequestTypeDef(TypedDict):
+    testId: str
+    serviceArn: str
+
+class GetTestRunRequestTypeDef(TypedDict):
+    testRunId: str
+    serviceArn: str
+
+class GetTestTemplateRequestTypeDef(TypedDict):
+    testTemplateArn: str
 
 class GetUserJourneyRequestTypeDef(TypedDict):
     systemArn: str
@@ -580,9 +677,21 @@ class ListPoliciesRequestTypeDef(TypedDict):
 
 class ListReportsRequestTypeDef(TypedDict):
     serviceArn: NotRequired[str]
-    reportType: NotRequired[Literal["FAILURE_MODE"]]
+    reportType: NotRequired[ReportTypeType]
+    testRunId: NotRequired[str]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+
+class ListResolvedTestRunTargetResourcesRequestTypeDef(TypedDict):
+    testRunId: str
+    serviceArn: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class ResolvedTargetResourceTypeDef(TypedDict):
+    resourceType: str
+    targetName: str
+    targetInformation: dict[str, str]
 
 class ListResourcesRequestTypeDef(TypedDict):
     serviceArn: str
@@ -632,6 +741,69 @@ class SystemSummaryTypeDef(TypedDict):
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
 
+class TestRunEventTypeDef(TypedDict):
+    eventId: str
+    eventType: str
+    message: str
+    timestamp: datetime
+    attributes: NotRequired[dict[str, str]]
+
+ListTestRunSourcesRequestTypeDef = TypedDict(
+    "ListTestRunSourcesRequestTypeDef",
+    {
+        "testRunId": str,
+        "serviceArn": str,
+        "type": NotRequired[TestRunSourceTypeType],
+        "maxResults": NotRequired[int],
+        "nextToken": NotRequired[str],
+    },
+)
+
+class ListTestRunsRequestTypeDef(TypedDict):
+    serviceArn: str
+    testId: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class TestRunSummaryTypeDef(TypedDict):
+    testRunId: str
+    status: TestRunStatusType
+    startedAt: datetime
+    testTemplateArn: str
+    endedAt: NotRequired[datetime]
+    serviceArn: NotRequired[str]
+    errorMessage: NotRequired[str]
+    accountTargeting: NotRequired[AccountTargetingType]
+
+ListTestSourcesRequestTypeDef = TypedDict(
+    "ListTestSourcesRequestTypeDef",
+    {
+        "testId": str,
+        "serviceArn": str,
+        "type": NotRequired[TestSourceTypeType],
+        "maxResults": NotRequired[int],
+        "nextToken": NotRequired[str],
+    },
+)
+
+class TestTemplateSummaryTypeDef(TypedDict):
+    testTemplateArn: str
+    name: str
+    description: str
+
+class ListTestsRequestTypeDef(TypedDict):
+    serviceArn: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class TestSummaryTypeDef(TypedDict):
+    testId: str
+    testTemplateArn: str
+    serviceArn: str
+    totalTestRuns: int
+    successfulTestRuns: int
+    creationTime: datetime
+
 class ListUserJourneysRequestTypeDef(TypedDict):
     systemArn: str
     maxResults: NotRequired[int]
@@ -642,6 +814,16 @@ class UserJourneySummaryTypeDef(TypedDict):
     name: str
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
+
+class ObservabilityAlarmInputTypeDef(TypedDict):
+    alarmArn: str
+
+class ObservabilityAlarmSummaryTypeDef(TypedDict):
+    alarmArn: str
+    alarmName: str
+    region: str
+    accountId: str
+    createdAt: NotRequired[datetime]
 
 class QueryDataPointTypeDef(TypedDict):
     timestamp: datetime
@@ -737,9 +919,27 @@ class StartFailureModeAssessmentRequestTypeDef(TypedDict):
     serviceArn: str
     clientToken: NotRequired[str]
 
+class StartTestRunRequestTypeDef(TypedDict):
+    testId: str
+    serviceArn: str
+
+class StopTestRunRequestTypeDef(TypedDict):
+    testRunId: str
+    serviceArn: str
+
 class StringChangeTypeDef(TypedDict):
     oldValue: NotRequired[str]
     newValue: NotRequired[str]
+
+class SuccessCriteriaAlarmInputTypeDef(TypedDict):
+    alarmArn: str
+
+class SuccessCriteriaAlarmSummaryTypeDef(TypedDict):
+    alarmArn: str
+    alarmName: str
+    region: str
+    accountId: str
+    createdAt: NotRequired[datetime]
 
 class SystemPolicyAssociatedMetadataTypeDef(TypedDict):
     policyName: NotRequired[str]
@@ -763,6 +963,37 @@ class SystemServiceDisassociatedMetadataTypeDef(TypedDict):
 class TagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tags: Mapping[str, str]
+
+class TestActionTypeDef(TypedDict):
+    actionId: str
+    resourceType: str
+    description: NotRequired[str]
+
+class TestRunObservabilityAlarmSummaryTypeDef(TypedDict):
+    alarmArn: str
+    alarmName: str
+    region: str
+    accountId: str
+
+class TestRunSuccessCriteriaAlarmSummaryTypeDef(TypedDict):
+    alarmArn: str
+    alarmName: str
+    region: str
+    accountId: str
+    outcome: NotRequired[TestSourceOutcomeType]
+    outcomeReason: NotRequired[str]
+
+TestTemplateParameterTypeDef = TypedDict(
+    "TestTemplateParameterTypeDef",
+    {
+        "name": str,
+        "type": ParameterTypeType,
+        "required": bool,
+        "description": NotRequired[str],
+        "defaultValue": NotRequired[str],
+        "maxValues": NotRequired[int],
+    },
+)
 
 class UntagResourceRequestTypeDef(TypedDict):
     resourceArn: str
@@ -875,6 +1106,10 @@ class DeleteSystemResponseTypeDef(TypedDict):
     systemArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DeleteTestResponseTypeDef(TypedDict):
+    testId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class DeleteUserJourneyResponseTypeDef(TypedDict):
     userJourneyId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -893,6 +1128,17 @@ class StartFailureModeAssessmentResponseTypeDef(TypedDict):
     serviceArn: str
     assessmentStatus: AssessmentStatusType
     startedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StartTestRunResponseTypeDef(TypedDict):
+    testRunId: str
+    status: TestRunStatusType
+    experimentArns: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StopTestRunResponseTypeDef(TypedDict):
+    testRunId: str
+    status: TestRunStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateAssertionResponseTypeDef(TypedDict):
@@ -945,6 +1191,14 @@ class PolicyTypeDef(TypedDict):
     createdAt: NotRequired[datetime]
     updatedAt: NotRequired[datetime]
 
+class TestRunPolicySnapshotTypeDef(TypedDict):
+    policyArn: NotRequired[str]
+    name: NotRequired[str]
+    availabilitySlo: NotRequired[AvailabilitySloTypeDef]
+    multiAz: NotRequired[MultiAzTargetsTypeDef]
+    multiRegion: NotRequired[MultiRegionTargetsTypeDef]
+    dataRecovery: NotRequired[DataRecoveryTargetsTypeDef]
+
 class UpdatePolicyRequestTypeDef(TypedDict):
     policyArn: str
     description: NotRequired[str]
@@ -977,6 +1231,22 @@ class GetSystemResponseTypeDef(TypedDict):
 class UpdateSystemResponseTypeDef(TypedDict):
     system: SystemTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateTestRequestTypeDef(TypedDict):
+    serviceArn: str
+    testTemplateArn: str
+    loggingConfiguration: NotRequired[LoggingConfigurationTypeDef]
+    stopConditions: NotRequired[Sequence[StopConditionTypeDef]]
+    roleName: NotRequired[str]
+    parameters: NotRequired[Mapping[str, Sequence[str]]]
+
+class UpdateTestRequestTypeDef(TypedDict):
+    testId: str
+    serviceArn: str
+    loggingConfiguration: NotRequired[LoggingConfigurationTypeDef]
+    stopConditions: NotRequired[Sequence[StopConditionTypeDef]]
+    roleName: NotRequired[str]
+    parameters: NotRequired[Mapping[str, Sequence[str]]]
 
 class CreateUserJourneyResponseTypeDef(TypedDict):
     userJourney: UserJourneyTypeDef
@@ -1069,7 +1339,8 @@ class GetServiceRequestWaitTypeDef(TypedDict):
 
 class ListReportsRequestWaitTypeDef(TypedDict):
     serviceArn: NotRequired[str]
-    reportType: NotRequired[Literal["FAILURE_MODE"]]
+    reportType: NotRequired[ReportTypeType]
+    testRunId: NotRequired[str]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
@@ -1114,7 +1385,13 @@ class ListPoliciesRequestPaginateTypeDef(TypedDict):
 
 class ListReportsRequestPaginateTypeDef(TypedDict):
     serviceArn: NotRequired[str]
-    reportType: NotRequired[Literal["FAILURE_MODE"]]
+    reportType: NotRequired[ReportTypeType]
+    testRunId: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListResolvedTestRunTargetResourcesRequestPaginateTypeDef(TypedDict):
+    testRunId: str
+    serviceArn: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListResourcesRequestPaginateTypeDef(TypedDict):
@@ -1144,6 +1421,35 @@ class ListServicesRequestPaginateTypeDef(TypedDict):
 
 class ListSystemsRequestPaginateTypeDef(TypedDict):
     ouId: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+ListTestRunSourcesRequestPaginateTypeDef = TypedDict(
+    "ListTestRunSourcesRequestPaginateTypeDef",
+    {
+        "testRunId": str,
+        "serviceArn": str,
+        "type": NotRequired[TestRunSourceTypeType],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+
+class ListTestRunsRequestPaginateTypeDef(TypedDict):
+    serviceArn: str
+    testId: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+ListTestSourcesRequestPaginateTypeDef = TypedDict(
+    "ListTestSourcesRequestPaginateTypeDef",
+    {
+        "testId": str,
+        "serviceArn": str,
+        "type": NotRequired[TestSourceTypeType],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+
+class ListTestsRequestPaginateTypeDef(TypedDict):
+    serviceArn: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListUserJourneysRequestPaginateTypeDef(TypedDict):
@@ -1225,8 +1531,47 @@ class ListSystemEventsRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
+class ListTestRunEventsRequestPaginateTypeDef(TypedDict):
+    testRunId: str
+    serviceArn: str
+    startedAt: NotRequired[TimestampTypeDef]
+    endedAt: NotRequired[TimestampTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListTestRunEventsRequestTypeDef(TypedDict):
+    testRunId: str
+    serviceArn: str
+    startedAt: NotRequired[TimestampTypeDef]
+    endedAt: NotRequired[TimestampTypeDef]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class ListResolvedTestRunTargetResourcesResponseTypeDef(TypedDict):
+    resolvedTargetResources: list[ResolvedTargetResourceTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class ListSystemsResponseTypeDef(TypedDict):
     systemSummaries: list[SystemSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListTestRunEventsResponseTypeDef(TypedDict):
+    events: list[TestRunEventTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListTestRunsResponseTypeDef(TypedDict):
+    testRuns: list[TestRunSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListTestTemplatesResponseTypeDef(TypedDict):
+    testTemplates: list[TestTemplateSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListTestsResponseTypeDef(TypedDict):
+    tests: list[TestSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1287,6 +1632,39 @@ class SystemUserJourneyCreatedMetadataTypeDef(TypedDict):
 class SystemUserJourneyDeletedMetadataTypeDef(TypedDict):
     userJourneyName: NotRequired[str]
     associatedServicesAtDeletion: NotRequired[list[ServiceReferenceTypeDef]]
+
+class TestSourceInputTypeDef(TypedDict):
+    successCriteriaAlarm: NotRequired[SuccessCriteriaAlarmInputTypeDef]
+    observabilityAlarm: NotRequired[ObservabilityAlarmInputTypeDef]
+
+class TestSourceSummaryTypeDef(TypedDict):
+    successCriteriaAlarm: NotRequired[SuccessCriteriaAlarmSummaryTypeDef]
+    observabilityAlarm: NotRequired[ObservabilityAlarmSummaryTypeDef]
+
+class TestTypeDef(TypedDict):
+    testId: str
+    testTemplateArn: str
+    serviceArn: str
+    name: str
+    totalTestRuns: int
+    successfulTestRuns: int
+    creationTime: datetime
+    actions: NotRequired[list[TestActionTypeDef]]
+    loggingConfiguration: NotRequired[LoggingConfigurationTypeDef]
+    stopConditions: NotRequired[list[StopConditionTypeDef]]
+    roleName: NotRequired[str]
+    parameters: NotRequired[dict[str, list[str]]]
+
+class TestRunSourceSummaryTypeDef(TypedDict):
+    successCriteriaAlarm: NotRequired[TestRunSuccessCriteriaAlarmSummaryTypeDef]
+    observabilityAlarm: NotRequired[TestRunObservabilityAlarmSummaryTypeDef]
+
+class TestTemplateTypeDef(TypedDict):
+    testTemplateArn: str
+    name: str
+    description: NotRequired[str]
+    parameters: NotRequired[list[TestTemplateParameterTypeDef]]
+    actions: NotRequired[list[TestActionTypeDef]]
 
 class ListFailureModeAssessmentsResponseTypeDef(TypedDict):
     assessmentSummaries: list[AssessmentSummaryTypeDef]
@@ -1367,11 +1745,16 @@ class ServiceReportConfigurationOutputTypeDef(TypedDict):
 class ServiceReportConfigurationTypeDef(TypedDict):
     reportOutputs: Sequence[ReportOutputConfigurationTypeDef]
 
+class TestRunReportConfigurationTypeDef(TypedDict):
+    reportOutput: list[ReportOutputConfigurationTypeDef]
+
 class ReportGenerationResultTypeDef(TypedDict):
-    reportType: Literal["FAILURE_MODE"]
+    reportType: ReportTypeType
     status: ReportGenerationStatusType
     serviceArn: NotRequired[str]
     assessmentId: NotRequired[str]
+    testRunId: NotRequired[str]
+    testTemplateArn: NotRequired[str]
     createdAt: NotRequired[datetime]
     reportOutput: NotRequired[ReportOutputTypeDef]
 
@@ -1396,6 +1779,42 @@ class ServiceEventDetailsTypeDef(TypedDict):
 class UserJourneyChangesTypeDef(TypedDict):
     journeyDescription: NotRequired[StringChangeTypeDef]
     associatedServices: NotRequired[ServiceReferenceChangesTypeDef]
+
+class DeleteTestSourcesRequestTypeDef(TypedDict):
+    testId: str
+    serviceArn: str
+    testSources: Sequence[TestSourceInputTypeDef]
+
+class PutTestSourcesRequestTypeDef(TypedDict):
+    testId: str
+    serviceArn: str
+    testSources: Sequence[TestSourceInputTypeDef]
+
+class ListTestSourcesResponseTypeDef(TypedDict):
+    testSources: list[TestSourceSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class CreateTestResponseTypeDef(TypedDict):
+    test: TestTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetTestResponseTypeDef(TypedDict):
+    test: TestTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateTestResponseTypeDef(TypedDict):
+    test: TestTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListTestRunSourcesResponseTypeDef(TypedDict):
+    testRunSources: list[TestRunSourceSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class GetTestTemplateResponseTypeDef(TypedDict):
+    testTemplate: TestTemplateTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDependenciesResponseTypeDef(TypedDict):
     dependencySummaries: list[DependencySummaryTypeDef]
@@ -1440,6 +1859,30 @@ class ListReportsResponseTypeDef(TypedDict):
     reportGenerationResults: list[ReportGenerationResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class TestRunTypeDef(TypedDict):
+    testRunId: str
+    testId: str
+    status: TestRunStatusType
+    startedAt: datetime
+    testTemplateArn: str
+    serviceArn: NotRequired[str]
+    endedAt: NotRequired[datetime]
+    experiments: NotRequired[list[ExperimentDetailsTypeDef]]
+    eventCount: NotRequired[int]
+    parameters: NotRequired[dict[str, list[str]]]
+    errorMessage: NotRequired[str]
+    stopConditions: NotRequired[list[StopConditionTypeDef]]
+    loggingConfiguration: NotRequired[LoggingConfigurationTypeDef]
+    roleName: NotRequired[str]
+    reportConfiguration: NotRequired[TestRunReportConfigurationTypeDef]
+    policy: NotRequired[TestRunPolicySnapshotTypeDef]
+    reportOutput: NotRequired[ReportGenerationResultTypeDef]
+    regionSwitchPlanArn: NotRequired[str]
+    regionSwitchExecutionId: NotRequired[str]
+    permissionModel: NotRequired[PermissionModelOutputTypeDef]
+    regions: NotRequired[list[str]]
+    accountTargeting: NotRequired[AccountTargetingType]
 
 class CreateInputSourceRequestTypeDef(TypedDict):
     serviceArn: str
@@ -1496,6 +1939,10 @@ class UpdateServiceRequestTypeDef(TypedDict):
     permissionModel: NotRequired[PermissionModelUnionTypeDef]
     dependencyDiscovery: NotRequired[DependencyDiscoveryInputType]
     reportConfiguration: NotRequired[ServiceReportConfigurationUnionTypeDef]
+
+class GetTestRunResponseTypeDef(TypedDict):
+    testRun: TestRunTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class ListServiceEventsResponseTypeDef(TypedDict):
     events: list[ServiceEventTypeDef]

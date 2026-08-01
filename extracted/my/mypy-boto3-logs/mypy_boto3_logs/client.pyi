@@ -423,7 +423,8 @@ class CloudWatchLogsClient(BaseClient):
         self, **kwargs: Unpack[CreateLookupTableRequestTypeDef]
     ) -> CreateLookupTableResponseTypeDef:
         """
-        Creates a lookup table by uploading CSV data.
+        Creates a lookup table by uploading CSV data or from CloudWatch Logs query
+        results.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/create_lookup_table.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#create_lookup_table)
@@ -1051,7 +1052,7 @@ class CloudWatchLogsClient(BaseClient):
 
     def get_storage_tier_policy(self) -> GetStorageTierPolicyResponseTypeDef:
         """
-        Returns the storage tier policy for your account.
+        Returns the storage tier policy for the account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/get_storage_tier_policy.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#get_storage_tier_policy)
@@ -1354,7 +1355,7 @@ class CloudWatchLogsClient(BaseClient):
         self, **kwargs: Unpack[PutStorageTierPolicyRequestTypeDef]
     ) -> PutStorageTierPolicyResponseTypeDef:
         """
-        Sets the storage tier policy for your account.
+        Sets the storage tier policy for the account.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/put_storage_tier_policy.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#put_storage_tier_policy)
@@ -1517,7 +1518,8 @@ class CloudWatchLogsClient(BaseClient):
         self, **kwargs: Unpack[UpdateLookupTableRequestTypeDef]
     ) -> UpdateLookupTableResponseTypeDef:
         """
-        Updates an existing lookup table by replacing all of its CSV content.
+        Updates an existing lookup table by replacing all of its content with new CSV
+        data or CloudWatch Logs query results.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/update_lookup_table.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_logs/client/#update_lookup_table)

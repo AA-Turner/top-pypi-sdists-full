@@ -683,6 +683,14 @@ cdef extern from "hb.h":
         hb_codepoint_t glyph,
         hb_font_t *font,
         void *user_data)
+    ctypedef void (*hb_paint_fill_glyph_func_t) (
+        hb_paint_funcs_t *funcs,
+        void *paint_data,
+        hb_codepoint_t glyph,
+        hb_font_t *font,
+        hb_bool_t is_foreground,
+        hb_color_t color,
+        void *user_data)
     ctypedef void (*hb_paint_push_clip_glyph_func_t) (
         hb_paint_funcs_t *funcs,
         void *paint_data,
@@ -795,6 +803,11 @@ cdef extern from "hb.h":
         hb_paint_color_glyph_func_t     func,
         void                            *user_data,
         hb_destroy_func_t                destroy)
+    void hb_paint_funcs_set_fill_glyph_func(
+        hb_paint_funcs_t           *funcs,
+        hb_paint_fill_glyph_func_t  func,
+        void                       *user_data,
+        hb_destroy_func_t           destroy)
     void hb_paint_funcs_set_push_clip_glyph_func(
         hb_paint_funcs_t                *funcs,
         hb_paint_push_clip_glyph_func_t  func,
@@ -1371,6 +1384,10 @@ cdef extern from "hb-subset.h":
         HB_SUBSET_FLAGS_GLYPH_NAMES
         HB_SUBSET_FLAGS_NO_PRUNE_UNICODE_RANGES
         HB_SUBSET_FLAGS_NO_LAYOUT_CLOSURE
+        HB_SUBSET_FLAGS_OPTIMIZE_IUP_DELTAS
+        HB_SUBSET_FLAGS_NO_BIDI_CLOSURE
+        HB_SUBSET_FLAGS_DOWNGRADE_CFF2
+        HB_SUBSET_FLAGS_CFF_IDENTITY_CHARSET
     ctypedef enum hb_subset_sets_t:
         HB_SUBSET_SETS_GLYPH_INDEX
         HB_SUBSET_SETS_UNICODE

@@ -9,6 +9,7 @@ from fastapi.openapi.docs import (
     get_swagger_ui_html,
     get_swagger_ui_oauth2_redirect_html,
 )
+import asyncio
 import json
 import os
 import re
@@ -16,6 +17,8 @@ import logging
 import logging.config
 import sys
 import textwrap
+import time
+import uuid
 import uvicorn
 import pipmaster as pm
 from typing import Any
@@ -28,11 +31,15 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from lightrag.api.utils_api import (
     get_combined_auth_dependency,
+    get_auth_status_dependency,
     display_splash_screen,
     check_env_file,
+    internal_server_error,
 )
+from lightrag.api.admission_middleware import AdmissionMiddleware
 from .config import (
     global_args,
+    normalize_api_prefix,
     update_uvicorn_mode_config,
     get_default_host,
     resolve_asymmetric_embedding_opt_in,
@@ -55,6 +62,7 @@ from lightrag.parser.plugins import load_third_party_parsers
 from lightrag.parser.routing import (
     parser_rules_from_env,
     validate_parser_routing_config,
+    validate_smart_heading_dependencies,
 )
 from lightrag.parser.external.mineru.cache import MinerUParserOptions
 from lightrag.api.routers.query_routes import create_query_routes
@@ -67,10 +75,15 @@ from lightrag.kg.shared_storage import (
     get_default_workspace,
     # set_default_workspace,
     cleanup_keyed_lock,
+    drain_reserved_background_tasks,
     finalize_share_data,
+    get_pipeline_ingress,
 )
+from lightrag import pipeline_metrics
+from lightrag.utils_pipeline import describe_doc_status_capabilities
 from fastapi.security import OAuth2PasswordRequestForm
 from lightrag.api.auth import auth_handler
+from lightrag.api.login_rate_limit import LoginRateLimiter
 
 # use the .env that is inside the current folder
 # allows to use different .env file for each lightrag instance
@@ -384,24 +397,6 @@ def _inject_swagger_theme(html: str, theme: str) -> str:
 # and matches how LightRAG is deployed in practice. See
 # docs/MultiSiteDeployment.md.
 WEBUI_PATH = "/webui"
-
-
-def _normalize_api_prefix(value: str | None) -> str:
-    """Canonicalize an API prefix before handing it to FastAPI's ``root_path``.
-
-    Strips surrounding whitespace, ensures a leading slash, drops a trailing
-    slash, and treats empty/"/" as "no prefix". Raw CLI/env input like
-    ``"site01"`` or ``"/site01/"`` would otherwise feed an invalid form to
-    FastAPI and to the WebUI prefix injection.
-    """
-    if value is None:
-        return ""
-    value = value.strip()
-    if not value or value == "/":
-        return ""
-    if not value.startswith("/"):
-        value = "/" + value
-    return value.rstrip("/")
 
 
 class _RootPathNormalizationMiddleware:
@@ -1197,6 +1192,64 @@ def check_frontend_build():
         return (True, False)  # Assume assets exist and up-to-date on error
 
 
+def _build_capability_status(rag) -> dict:
+    """Strict-capability report, or ``{}`` when it cannot be determined.
+
+    /health is a liveness probe first: one unavailable diagnostic must never turn
+    it into a 500.
+    """
+    doc_status = getattr(rag, "doc_status", None)
+    if doc_status is None:
+        return {}
+    try:
+        return describe_doc_status_capabilities(doc_status)
+    except Exception as capability_error:  # pragma: no cover - defensive
+        logger.debug(f"Capability probe unavailable for /health: {capability_error}")
+        return {}
+
+
+def _build_scheduling_status(pipeline_snapshot: dict, ingress_counts: dict) -> dict:
+    """Curated scheduling/observability view for /health (LR2 Phase 6 items 2/4).
+
+    Answers the questions an operator actually has during a manual retry or a
+    scan: which phase the manual channel is in, which request holds the freeze
+    and since when, what the drain is still waiting for, and how full the sticky
+    channel is. The manual owner's ``owner_token`` is omitted on purpose — it
+    authorizes releasing a reservation, so publishing it would turn a status page
+    into a control surface.
+    """
+    owner = pipeline_snapshot.get("manual_owner") or {}
+    freeze_started = pipeline_snapshot.get("manual_freeze_started_at")
+    freeze_seconds = None
+    if isinstance(freeze_started, (int, float)) and freeze_started > 0:
+        # Wall clock, because the freeze may be held by another process; a
+        # negative value (clock stepped back) is reported as 0 rather than as a
+        # nonsensical duration.
+        freeze_seconds = max(0.0, round(time.time() - float(freeze_started), 3))
+    pending_enqueues = int(pipeline_snapshot.get("pending_enqueues", 0) or 0)
+    return {
+        "manual_phase": pipeline_snapshot.get("manual_phase") or "idle",
+        "manual_freeze_requested": bool(
+            pipeline_snapshot.get("manual_freeze_requested", False)
+        ),
+        "manual_resetting": bool(pipeline_snapshot.get("manual_resetting", False)),
+        "manual_freeze_seconds": freeze_seconds,
+        "manual_owner_request_id": (
+            owner.get("request_id") if isinstance(owner, dict) else None
+        ),
+        "manual_owner_pid": owner.get("pid") if isinstance(owner, dict) else None,
+        # What a DRAIN_TO_IDLE is still waiting for: reservations whose rows are
+        # not written yet, plus whether a processing run still holds busy.
+        "drain_pending_enqueues": pending_enqueues,
+        "drain_waiting_on_workers": bool(pipeline_snapshot.get("busy", False)),
+        "manual_retries_queued": ingress_counts.get("manual_retries"),
+        "manual_retries_capacity": ingress_counts.get("manual_retries_capacity"),
+        "document_notifications_queued": ingress_counts.get("documents"),
+        "document_notification_overflows": ingress_counts.get("document_overflows"),
+        "auto_rescan_pending": ingress_counts.get("auto_rescan_pending"),
+    }
+
+
 def create_app(args):
     # Check frontend build first and get status
     webui_assets_exist, is_frontend_outdated = check_frontend_build()
@@ -1213,6 +1266,11 @@ def create_app(args):
     # BEFORE validating routing rules, so LIGHTRAG_PARSER may reference them.
     load_third_party_parsers()
     validate_parser_routing_config()
+    # Fail fast when DOCX_SMART_HEADING / a LIGHTRAG_PARSER rule enables
+    # smart_heading but the pinned spaCy models are missing — surfacing the
+    # install step at startup instead of failing mid-pipeline. Runs in
+    # create_app so both the uvicorn and gunicorn (preload) paths hit it.
+    validate_smart_heading_dependencies()
 
     # Create configuration cache (this will output configuration logs)
     config_cache = LLMConfigCache(args)
@@ -1278,11 +1336,39 @@ def create_app(args):
             # Data migration regardless of storage implementation
             await rag.check_and_migrate_data()
 
+            # Admission control needs a doc_status backend that can count
+            # strictly (LR2 §9.1). Probe once here so an unsupported backend
+            # fails at startup instead of turning every upload into a 503.
+            if getattr(rag, "max_pending_documents", 0) > 0:
+                from lightrag.utils_pipeline import count_active_documents
+
+                try:
+                    active_now = await count_active_documents(rag.doc_status)
+                except Exception as admission_probe_error:
+                    raise RuntimeError(
+                        "MAX_PENDING_DOCUMENTS is set but the configured "
+                        f"doc_status backend cannot count strictly: "
+                        f"{admission_probe_error}"
+                    ) from admission_probe_error
+                logger.info(
+                    f"Admission control enabled: capacity "
+                    f"{rag.max_pending_documents}, {active_now} document(s) "
+                    "currently active"
+                )
+
             ASCIIColors.green("\nServer is ready to accept connections! 🚀\n")
 
             yield
 
         finally:
+            # Cancel and join all reserved background tasks FIRST, so each
+            # child's finally releases its reservation while shared state is
+            # still alive. Resists repeated cancellation; a deferred shutdown
+            # cancellation is re-raised only after storage/shared-state cleanup.
+            shutdown_cancel = await drain_reserved_background_tasks(
+                app.state.background_tasks
+            )
+
             # Clean up database connections
             await rag.finalize_storages()
 
@@ -1296,6 +1382,10 @@ def create_app(args):
                     "Gunicorn Mode: postpone shared storage finalization to master process"
                 )
 
+            # Re-raise a shutdown cancellation only after all cleanup is done.
+            if shutdown_cancel is not None:
+                raise shutdown_cancel
+
     base_description = (
         "Providing API for LightRAG core, Web UI and Ollama Model Emulation"
     )
@@ -1307,7 +1397,7 @@ def create_app(args):
 
     # The WebUI mount path is fixed at "/webui" — see
     # docs/MultiSiteDeployment.md for the rationale.
-    api_prefix = _normalize_api_prefix(getattr(args, "api_prefix", None))
+    api_prefix = normalize_api_prefix(getattr(args, "api_prefix", None))
     webui_path = WEBUI_PATH
 
     app_kwargs = {
@@ -1359,6 +1449,26 @@ def create_app(args):
             # For other endpoints, return the default FastAPI validation error
             return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
+    # Last-resort handler for any exception that escapes a route without being
+    # converted to an HTTPException. It guarantees raw exception text never
+    # reaches the client (CWE-209): the full detail and traceback are logged
+    # server-side under a correlation id, and the response body carries only a
+    # generic message plus that id. HTTPException (including the sanitized 500s
+    # raised via internal_server_error) is still handled by FastAPI's own
+    # handler and is intentionally not intercepted here.
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request: Request, exc: Exception):
+        error_id = uuid.uuid4().hex[:12]
+        logger.error(
+            f"Unhandled exception [error_id={error_id}] on "
+            f"{request.method} {request.url.path}",
+            exc_info=True,
+        )
+        return JSONResponse(
+            status_code=500,
+            content={"detail": f"Internal server error (error_id: {error_id})"},
+        )
+
     def get_cors_origins():
         """Get allowed origins from global_args.
 
@@ -1380,6 +1490,27 @@ def create_app(args):
     # docstring.
     if api_prefix:
         app.add_middleware(_RootPathNormalizationMiddleware)
+
+    # Pre-body admission control (LR2 §9.3). Installed only when there is a
+    # capacity to enforce; the ingestion routes keep their own reservation, so an
+    # absent middleware costs economy (the body is read before the refusal), not
+    # correctness. ``rag`` is built further down in this function, hence the lazy
+    # getter.
+    #
+    # Added BEFORE the CORS middleware on purpose: the most recently added
+    # middleware runs outermost, so CORS ends up wrapping this one and its 401 /
+    # 429 responses carry the CORS headers a browser needs to read the status
+    # (without them the WebUI would see an opaque network error instead of "at
+    # capacity"). It therefore also sees the un-normalized path, which is why it
+    # strips ``api_prefix`` itself.
+    if args.max_pending_documents > 0 or args.max_request_body_bytes > 0:
+        app.add_middleware(
+            AdmissionMiddleware,
+            rag_getter=lambda: rag,
+            api_key=api_key,
+            api_prefix=api_prefix,
+            max_body_bytes=args.max_request_body_bytes,
+        )
 
     # Add CORS middleware
     cors_origins = get_cors_origins()
@@ -1412,6 +1543,9 @@ def create_app(args):
 
     # Create combined auth dependency for all endpoints
     combined_auth = get_combined_auth_dependency(api_key)
+    # Non-enforcing dependency: reports whether the caller is authenticated so
+    # /health can stay a public liveness probe while gating sensitive config.
+    auth_status = get_auth_status_dependency(api_key)
 
     def get_workspace_from_request(request: Request) -> str | None:
         """
@@ -1792,6 +1926,9 @@ def create_app(args):
                 ) -> str:
                     if history_messages is None:
                         history_messages = []
+                    # Server-configured timeout overrides any caller-passed value,
+                    # matching the OpenAI/Azure/Gemini role wrappers.
+                    kwargs["timeout"] = role_timeout
                     if role_provider_options:
                         kwargs = {**role_provider_options, **kwargs}
                     return await bedrock_complete_if_cache(
@@ -1919,6 +2056,9 @@ def create_app(args):
         # which drops them and emits deprecation warnings when booleans are set.
         if config_cache.bedrock_llm_options:
             kwargs = {**config_cache.bedrock_llm_options, **kwargs}
+        # Server-configured timeout overrides any caller-passed value, matching
+        # the OpenAI wrapper (create_optimized_openai_llm_func).
+        kwargs["timeout"] = llm_timeout
 
         return await bedrock_complete_if_cache(
             args.llm_model,
@@ -1941,7 +2081,13 @@ def create_app(args):
     # Configure rerank function based on args.rerank_bindingparameter
     rerank_model_func = None
     if args.rerank_binding != "null":
-        from lightrag.rerank import cohere_rerank, jina_rerank, ali_rerank
+        from lightrag.rerank import (
+            cohere_rerank,
+            jina_rerank,
+            ali_rerank,
+            DEFAULT_RERANK_MAX_TOKENS_PER_DOC,
+            MIN_PRACTICAL_RERANK_MAX_TOKENS,
+        )
 
         # Map rerank binding to corresponding function
         rerank_functions = {
@@ -1972,6 +2118,39 @@ def create_app(args):
                 if default_base_url != inspect.Parameter.empty:
                     args.rerank_binding_host = default_base_url
 
+        # Cohere binding supports optional document chunking (useful for models with
+        # token limits like ColBERT). Parse and validate its config ONCE at startup so a
+        # misconfigured RERANK_MAX_TOKENS_PER_DOC fails fast here instead of surfacing on
+        # the first user query, and so the value is not re-parsed on every rerank call.
+        rerank_enable_chunking = False
+        rerank_max_tokens_per_doc = DEFAULT_RERANK_MAX_TOKENS_PER_DOC
+        if args.rerank_binding == "cohere":
+            rerank_enable_chunking = (
+                os.getenv("RERANK_ENABLE_CHUNKING", "false").lower() == "true"
+            )
+            raw_max_tokens = os.getenv(
+                "RERANK_MAX_TOKENS_PER_DOC", str(DEFAULT_RERANK_MAX_TOKENS_PER_DOC)
+            )
+            try:
+                rerank_max_tokens_per_doc = int(raw_max_tokens)
+            except ValueError as e:
+                raise ValueError(
+                    f"RERANK_MAX_TOKENS_PER_DOC must be an integer, got {raw_max_tokens!r}"
+                ) from e
+            if rerank_max_tokens_per_doc < 1:
+                raise ValueError(
+                    f"RERANK_MAX_TOKENS_PER_DOC must be >= 1, got {rerank_max_tokens_per_doc}"
+                )
+            if (
+                rerank_enable_chunking
+                and rerank_max_tokens_per_doc < MIN_PRACTICAL_RERANK_MAX_TOKENS
+            ):
+                logger.warning(
+                    f"RERANK_MAX_TOKENS_PER_DOC={rerank_max_tokens_per_doc} is below the "
+                    f"practical minimum ({MIN_PRACTICAL_RERANK_MAX_TOKENS}); chunking will "
+                    f"split each document into many tiny, low-signal chunks."
+                )
+
         async def server_rerank_func(
             query: str, documents: list, top_n: int = None, extra_body: dict = None
         ):
@@ -1986,15 +2165,10 @@ def create_app(args):
                 "base_url": args.rerank_binding_host,
             }
 
-            # Add Cohere-specific parameters if using cohere binding
+            # Add Cohere-specific parameters if using cohere binding (validated at startup)
             if args.rerank_binding == "cohere":
-                # Enable chunking if configured (useful for models with token limits like ColBERT)
-                kwargs["enable_chunking"] = (
-                    os.getenv("RERANK_ENABLE_CHUNKING", "false").lower() == "true"
-                )
-                kwargs["max_tokens_per_doc"] = int(
-                    os.getenv("RERANK_MAX_TOKENS_PER_DOC", "4096")
-                )
+                kwargs["enable_chunking"] = rerank_enable_chunking
+                kwargs["max_tokens_per_doc"] = rerank_max_tokens_per_doc
 
             return await selected_rerank_func(**kwargs, extra_body=extra_body)
 
@@ -2060,6 +2234,9 @@ def create_app(args):
             rerank_model_max_async=args.rerank_max_async,
             default_rerank_timeout=args.rerank_timeout,
             max_parallel_insert=args.max_parallel_insert,
+            pipeline_scheduling_page_size=args.pipeline_scheduling_page_size,
+            pipeline_require_strict_storage_reads=args.pipeline_require_strict_storage_reads,
+            max_pending_documents=args.max_pending_documents,
             max_graph_nodes=args.max_graph_nodes,
             addon_params=addon_params,
             ollama_server_infos=ollama_server_infos,
@@ -2181,8 +2358,18 @@ def create_app(args):
             "webui_description": webui_description,
         }
 
+    # Brute-force protection for /login (CWE-307): throttle failed attempts per
+    # client IP + username. Checked before the bcrypt verification, so a locked
+    # key is also rejected without paying the bcrypt cost.
+    # getattr defaults keep create_app working for callers that build args
+    # programmatically (e.g. tests, embedding) without these newer fields.
+    login_rate_limiter = LoginRateLimiter(
+        max_attempts=getattr(args, "login_max_failed_attempts", 5),
+        window_seconds=getattr(args, "login_lockout_window_seconds", 300.0),
+    )
+
     @app.post("/login")
-    async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends()):
         if not auth_handler.accounts:
             # Authentication not configured, return guest token
             guest_token = auth_handler.create_token(
@@ -2199,8 +2386,49 @@ def create_app(args):
                 "webui_description": webui_description,
             }
         username = form_data.username
-        if not auth_handler.verify_password(username, form_data.password):
-            raise HTTPException(status_code=401, detail="Incorrect credentials")
+        # Rate-limit key is client IP + username. X-Forwarded-For is NOT trusted
+        # (spoofable); behind a reverse proxy all clients may share the proxy IP,
+        # so buckets are separated by username to avoid one attacker locking out
+        # unrelated accounts. request.client can be None for some transports.
+        client_ip = request.client.host if request.client else "unknown"
+        rate_limit_key = f"{client_ip}:{username}"
+
+        retry_after = login_rate_limiter.retry_after(rate_limit_key)
+        if retry_after is not None:
+            raise HTTPException(
+                status_code=429,
+                detail="Too many failed login attempts. Please try again later.",
+                headers={"Retry-After": str(int(retry_after) + 1)},
+            )
+
+        # Reserve this attempt BEFORE the bcrypt await. verify runs on a worker
+        # thread, so without pre-reserving, many concurrent requests would all
+        # pass the check above before any resolved, bypassing the limit (TOCTOU).
+        # retry_after + reserve here are synchronous with no await between them,
+        # so the decision is consistent. The reservation is always released in
+        # the finally; only a confirmed wrong password becomes a real failure.
+        login_rate_limiter.reserve_attempt(rate_limit_key)
+        try:
+            # verify_password runs a CPU-bound bcrypt for every attempt (incl.
+            # unknown usernames, to equalize timing). Run it in a worker thread
+            # so a login flood cannot block the event loop and starve the whole
+            # API (unauthenticated DoS).
+            password_ok = await asyncio.to_thread(
+                auth_handler.verify_password, username, form_data.password
+            )
+            # Record the outcome BEFORE releasing the reservation, so the entry
+            # still carries the failure (release removes a now-idle entry).
+            if not password_ok:
+                # Confirmed failure -> count it (and emit the lockout alert only
+                # here, so a correct password on the Nth attempt never does).
+                login_rate_limiter.commit_failure(rate_limit_key)
+                raise HTTPException(status_code=401, detail="Incorrect credentials")
+            # Success clears the key's earlier failures.
+            login_rate_limiter.reset(rate_limit_key)
+        finally:
+            # Always drop the in-flight reservation (also frees the slot once the
+            # key is fully idle, e.g. after a successful login).
+            login_rate_limiter.release(rate_limit_key)
 
         # Regular user login
         user_token = auth_handler.create_token(
@@ -2220,8 +2448,13 @@ def create_app(args):
         "/health",
         dependencies=[Depends(combined_auth)],
         summary="Get system health and configuration status",
-        description="Returns comprehensive system status including WebUI availability, configuration, and operational metrics",
-        response_description="System health status with configuration details",
+        description=(
+            "Always reachable as a liveness probe (HTTP 200). Unauthenticated "
+            "callers receive only liveness signals (status, versions, auth_mode, "
+            "pipeline_busy). The full configuration and operational metrics are "
+            "returned only to authenticated callers (valid JWT or X-API-Key)."
+        ),
+        response_description="System health status; configuration included only when authenticated",
         responses={
             200: {
                 "description": "Successful response with system status",
@@ -2272,8 +2505,13 @@ def create_app(args):
             }
         },
     )
-    async def get_status(request: Request):
-        """Get current system status including WebUI availability"""
+    async def get_status(request: Request, authenticated: bool = Depends(auth_status)):
+        """Get current system status including WebUI availability.
+
+        Stays a public liveness probe: unauthenticated callers receive only
+        liveness signals; sensitive configuration is returned only when the
+        caller is authenticated (see get_auth_status_dependency).
+        """
         try:
             workspace = get_workspace_from_request(request)
             default_workspace = get_default_workspace()
@@ -2282,14 +2520,16 @@ def create_app(args):
             pipeline_status = await get_namespace_data(
                 "pipeline_status", workspace=workspace
             )
-
-            pipeline_busy = bool(pipeline_status.get("busy", False))
-            pipeline_scanning = bool(pipeline_status.get("scanning", False))
+            # One DictProxy RPC in multi-worker mode; keep /health read-only and
+            # avoid one cross-process ``get`` per field.
+            pipeline_snapshot = pipeline_status.copy()
+            pipeline_busy = bool(pipeline_snapshot.get("busy", False))
+            pipeline_scanning = bool(pipeline_snapshot.get("scanning", False))
             pipeline_destructive_busy = bool(
-                pipeline_status.get("destructive_busy", False)
+                pipeline_snapshot.get("destructive_busy", False)
             )
             pipeline_pending_enqueues = int(
-                pipeline_status.get("pending_enqueues", 0) or 0
+                pipeline_snapshot.get("pending_enqueues", 0) or 0
             )
             pipeline_active = (
                 pipeline_busy
@@ -2298,89 +2538,137 @@ def create_app(args):
                 or pipeline_pending_enqueues > 0
             )
 
+            # Ingress channel depths (bounded counters only — never the
+            # messages). Best-effort: a mailbox that is not bootstrapped yet must
+            # not turn a liveness probe into a 500.
+            ingress_counts: dict[str, Any] = {}
+            try:
+                ingress_counts = dict(
+                    (await get_pipeline_ingress(workspace)).counts() or {}
+                )
+            except Exception as ingress_error:
+                logger.debug(f"Ingress counts unavailable for /health: {ingress_error}")
+
             if not auth_configured:
                 auth_mode = "disabled"
             else:
                 auth_mode = "enabled"
 
+            # Liveness payload — always returned, even to unauthenticated
+            # callers, so /health stays a usable liveness probe (HTTP 200).
+            # Every field here is either a pure liveness signal or is already
+            # exposed by the unauthenticated /auth-status endpoint, so it leaks
+            # nothing new.
+            status_data = {
+                "status": "healthy",
+                "auth_mode": auth_mode,
+                "core_version": core_version,
+                "api_version": api_version_display,
+                "webui_available": webui_assets_exist,
+                "webui_title": webui_title,
+                "webui_description": webui_description,
+                "pipeline_busy": pipeline_busy,
+                "pipeline_active": pipeline_active,
+            }
+
+            # Sensitive runtime configuration and operational diagnostics
+            # (filesystem paths, LLM/embedding provider + model + host, storage
+            # backends, queue status, keyed locks, ...) are revealed only to
+            # authenticated callers — see Issue #3294. The skipped queue-status
+            # and keyed-lock-cleanup calls also keep unauthenticated probes cheap.
+            if not authenticated:
+                return status_data
+
             # Cleanup expired keyed locks and get status
             keyed_lock_info = cleanup_keyed_lock()
 
-            return {
-                "status": "healthy",
-                "webui_available": webui_assets_exist,
-                "working_directory": str(args.working_dir),
-                "input_directory": str(args.input_dir),
-                "configuration": {
-                    # LLM configuration binding/host address (if applicable)/model (if applicable)
-                    "llm_binding": args.llm_binding,
-                    "llm_binding_host": args.llm_binding_host,
-                    "llm_model": args.llm_model,
-                    # embedding model configuration binding/host address (if applicable)/model (if applicable)
-                    "embedding_binding": args.embedding_binding,
-                    "embedding_binding_host": args.embedding_binding_host,
-                    "embedding_model": args.embedding_model,
-                    "summary_max_tokens": args.summary_max_tokens,
-                    "summary_context_size": args.summary_context_size,
-                    "kv_storage": args.kv_storage,
-                    "doc_status_storage": args.doc_status_storage,
-                    "graph_storage": args.graph_storage,
-                    "vector_storage": args.vector_storage,
-                    "enable_llm_cache_for_extract": args.enable_llm_cache_for_extract,
-                    "enable_llm_cache": args.enable_llm_cache,
-                    "vlm_process_enable": args.vlm_process_enable,
-                    "workspace": default_workspace,
-                    "storage_workspaces": _get_storage_workspaces(rag),
-                    "max_graph_nodes": args.max_graph_nodes,
-                    # Rerank configuration
-                    "enable_rerank": rerank_model_func is not None,
-                    "rerank_binding": args.rerank_binding,
-                    "rerank_model": args.rerank_model if rerank_model_func else None,
-                    "rerank_binding_host": args.rerank_binding_host
-                    if rerank_model_func
-                    else None,
-                    "rerank_max_async": args.rerank_max_async,
-                    "rerank_timeout": args.rerank_timeout,
-                    # Environment variable status (requested configuration)
-                    "summary_language": args.summary_language,
-                    "force_llm_summary_on_merge": args.force_llm_summary_on_merge,
-                    "max_parallel_insert": args.max_parallel_insert,
-                    "cosine_threshold": args.cosine_threshold,
-                    "min_rerank_score": args.min_rerank_score,
-                    "related_chunk_number": args.related_chunk_number,
-                    "max_async": args.max_async,
-                    "llm_timeout": args.llm_timeout,
-                    "embedding_func_max_async": args.embedding_func_max_async,
-                    "embedding_batch_num": args.embedding_batch_num,
-                    "embedding_timeout": args.embedding_timeout,
-                    "role_llm_config": rag.get_llm_role_config(),
-                    # Parser routing snapshot — surfaced in the WebUI status card
-                    "parser_routing": parser_rules_from_env(),
-                    "mineru": _build_mineru_status(),
-                    "docling": _build_docling_status(),
-                },
-                "auth_mode": auth_mode,
-                "server_mode": "gunicorn"
-                if os.environ.get("LIGHTRAG_GUNICORN_MODE")
-                else "uvicorn",
-                "workers": getattr(args, "workers", 1),
-                "pipeline_busy": pipeline_busy,
-                "pipeline_active": pipeline_active,
-                "pipeline_scanning": pipeline_scanning,
-                "pipeline_destructive_busy": pipeline_destructive_busy,
-                "pipeline_pending_enqueues": pipeline_pending_enqueues,
-                "keyed_locks": keyed_lock_info,
-                "llm_queue_status": await rag.get_llm_queue_status(include_base=True),
-                "embedding_queue_status": await rag.get_embedding_queue_status(),
-                "rerank_queue_status": await rag.get_rerank_queue_status(),
-                "core_version": core_version,
-                "api_version": api_version_display,
-                "webui_title": webui_title,
-                "webui_description": webui_description,
-            }
+            status_data.update(
+                {
+                    "working_directory": str(args.working_dir),
+                    "input_directory": str(args.input_dir),
+                    "configuration": {
+                        # LLM configuration binding/host address (if applicable)/model (if applicable)
+                        "llm_binding": args.llm_binding,
+                        "llm_binding_host": args.llm_binding_host,
+                        "llm_model": args.llm_model,
+                        # embedding model configuration binding/host address (if applicable)/model (if applicable)
+                        "embedding_binding": args.embedding_binding,
+                        "embedding_binding_host": args.embedding_binding_host,
+                        "embedding_model": args.embedding_model,
+                        "summary_max_tokens": args.summary_max_tokens,
+                        "summary_context_size": args.summary_context_size,
+                        "kv_storage": args.kv_storage,
+                        "doc_status_storage": args.doc_status_storage,
+                        "graph_storage": args.graph_storage,
+                        "vector_storage": args.vector_storage,
+                        "enable_llm_cache_for_extract": args.enable_llm_cache_for_extract,
+                        "enable_llm_cache": args.enable_llm_cache,
+                        "vlm_process_enable": args.vlm_process_enable,
+                        "workspace": default_workspace,
+                        "storage_workspaces": _get_storage_workspaces(rag),
+                        "max_graph_nodes": args.max_graph_nodes,
+                        # Rerank configuration
+                        "enable_rerank": rerank_model_func is not None,
+                        "rerank_binding": args.rerank_binding,
+                        "rerank_model": args.rerank_model
+                        if rerank_model_func
+                        else None,
+                        "rerank_binding_host": args.rerank_binding_host
+                        if rerank_model_func
+                        else None,
+                        "rerank_max_async": args.rerank_max_async,
+                        "rerank_timeout": args.rerank_timeout,
+                        # Environment variable status (requested configuration)
+                        "summary_language": args.summary_language,
+                        "force_llm_summary_on_merge": args.force_llm_summary_on_merge,
+                        "max_parallel_insert": args.max_parallel_insert,
+                        "cosine_threshold": args.cosine_threshold,
+                        "min_rerank_score": args.min_rerank_score,
+                        "related_chunk_number": args.related_chunk_number,
+                        "max_async": args.max_async,
+                        "llm_timeout": args.llm_timeout,
+                        "embedding_func_max_async": args.embedding_func_max_async,
+                        "embedding_batch_num": args.embedding_batch_num,
+                        "embedding_timeout": args.embedding_timeout,
+                        "role_llm_config": rag.get_llm_role_config(),
+                        # Parser routing snapshot — surfaced in the WebUI status card
+                        "parser_routing": parser_rules_from_env(),
+                        "mineru": _build_mineru_status(),
+                        "docling": _build_docling_status(),
+                    },
+                    "server_mode": "gunicorn"
+                    if os.environ.get("LIGHTRAG_GUNICORN_MODE")
+                    else "uvicorn",
+                    "workers": getattr(args, "workers", 1),
+                    "pipeline_scanning": pipeline_scanning,
+                    "pipeline_destructive_busy": pipeline_destructive_busy,
+                    "pipeline_pending_enqueues": pipeline_pending_enqueues,
+                    # Curated scheduling view (LR2 Phase 6 items 2 & 4). The raw
+                    # manual_* fields stay hidden from /pipeline_status — they are
+                    # coordination internals — but an operator watching a freeze
+                    # needs to see WHICH request holds it, for how long, and what
+                    # the drain is still waiting for. The owner token is
+                    # deliberately omitted: it is a capability, not a status.
+                    "scheduling": _build_scheduling_status(
+                        pipeline_snapshot, ingress_counts
+                    ),
+                    "capabilities": _build_capability_status(rag),
+                    # Per-worker counters/durations for the paths the bounded
+                    # rework introduced (LR2 Phase 6 item 3); see
+                    # lightrag/pipeline_metrics.py for the boundary.
+                    "scheduling_metrics": pipeline_metrics.snapshot(),
+                    "keyed_locks": keyed_lock_info,
+                    "llm_queue_status": await rag.get_llm_queue_status(
+                        include_base=True
+                    ),
+                    "embedding_queue_status": await rag.get_embedding_queue_status(),
+                    "rerank_queue_status": await rag.get_rerank_queue_status(),
+                }
+            )
+            return status_data
         except Exception as e:
             logger.error(f"Error getting health status: {str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise internal_server_error(e)
 
     # Pre-render the runtime-config <script> once. The browser-visible URL
     # prefixes are NOT baked into the bundle anymore — index.html ships with

@@ -132,8 +132,9 @@ class Response:
         if decode and self.data:
             self.html = decode_file(self.data)
 
-    def as_dict(self) -> dict[str, str]:
+    def as_dict(self) -> dict[str, Any]:
         "Convert the response object to a dictionary."
+        # heterogeneous value types (bytes, int, dict, str, None)
         return {attr: getattr(self, attr) for attr in self.__slots__}
 
 
@@ -214,11 +215,13 @@ def _send_urllib_request(url: str, no_ssl: bool, with_headers: bool, config: Con
         )
         data = bytearray()
         max_file_size = config.getint("DEFAULT", "MAX_FILE_SIZE")
-        for chunk in response.stream(2**17):
-            data.extend(chunk)
-            if len(data) > max_file_size:
-                raise ValueError("MAX_FILE_SIZE exceeded")
-        response.release_conn()
+        try:
+            for chunk in response.stream(2**17):
+                data.extend(chunk)
+                if len(data) > max_file_size:
+                    raise ValueError("MAX_FILE_SIZE exceeded")
+        finally:
+            response.release_conn()
 
         # necessary for standardization
         resp = Response(bytes(data), response.status, response.geturl())
@@ -363,7 +366,7 @@ def is_live_page(url: str) -> bool:
 def add_to_compressed_dict(
     inputlist: list[str],
     blacklist: set[str] | None = None,
-    url_filter: str | None = None,
+    url_filter: list[str] | None = None,
     url_store: UrlStore | None = None,
     compression: bool = False,
     verbose: bool = False,
@@ -398,7 +401,7 @@ def _buffered_downloads(
     bufferlist: list[str],
     download_threads: int,
     worker: Callable[[str], Any],
-    chunksize: int = 10000,
+    chunksize: int = 10000,  # max URLs materialized per batch (bounds in-flight futures)
 ) -> Generator[tuple[str, Any], None, None]:
     "Use a thread pool to perform a series of downloads."
     with ThreadPoolExecutor(max_workers=download_threads) as executor:
@@ -474,6 +477,7 @@ def _send_pycurl_request(url: str, no_ssl: bool, with_headers: bool, config: Con
         bufferbytes = curl.perform_rb()
     except pycurl.error as err:
         LOGGER.error("pycurl error: %s %s", url, err)
+        curl.close()
         # retry in case of SSL-related error
         # see https://curl.se/libcurl/c/libcurl-errors.html
         # errmsg = curl.errstr_raw()

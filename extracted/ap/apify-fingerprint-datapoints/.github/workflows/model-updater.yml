@@ -6,6 +6,9 @@ on:
         - cron: '0 0 1 * *'
     workflow_dispatch:
 
+permissions:
+    contents: read
+
 jobs:
     build_model:
         runs-on: ubuntu-22.04
@@ -21,7 +24,7 @@ jobs:
               with:
                   node-version: 24
 
-            - uses: apify/workflows/pnpm-install@main
+            - uses: apify/actions/pnpm-install@v1.1.2
 
             - name: Install Playwright deps
               run: pnpm exec playwright install
@@ -75,7 +78,7 @@ jobs:
               with:
                   node-version: 24
 
-            - uses: apify/workflows/pnpm-install@main
+            - uses: apify/actions/pnpm-install@v1.1.2
 
             - name: Download artifacts
               uses: actions/download-artifact@v8
@@ -104,6 +107,8 @@ jobs:
         name: Commit and push new model
         needs: [build_model, test_model_js, test_model_py]
         runs-on: ubuntu-22.04
+        permissions:
+            contents: write
         steps:
             - uses: actions/checkout@v6
               with:
@@ -114,7 +119,7 @@ jobs:
               with:
                   node-version: 24
 
-            - uses: apify/workflows/pnpm-install@main
+            - uses: apify/actions/pnpm-install@v1.1.2
 
             - uses: actions/download-artifact@v8
               with:

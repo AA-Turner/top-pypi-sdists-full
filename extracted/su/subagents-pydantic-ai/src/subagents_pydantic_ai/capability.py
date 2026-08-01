@@ -29,12 +29,22 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from pydantic_ai import RunContext, UsageLimits
-from pydantic_ai.capabilities import AbstractCapability
+from pydantic_ai.agent import AgentRunResult
+from pydantic_ai.capabilities import AbstractCapability, WrapRunHandler
 from pydantic_ai.toolsets import AbstractToolset
 
+from subagents_pydantic_ai._execution import DEFAULT_ASK_TIMEOUT_SECONDS
+from subagents_pydantic_ai.dynamic_agent import AgentFactory, CapabilityFactory
+from subagents_pydantic_ai.message_bus import TaskManager
 from subagents_pydantic_ai.prompts import get_subagent_system_prompt
-from subagents_pydantic_ai.toolset import create_subagent_toolset
-from subagents_pydantic_ai.types import SubAgentConfig, ToolsetFactory, UsageLimitsFactory
+from subagents_pydantic_ai.registry import DynamicAgentRegistry
+from subagents_pydantic_ai.toolset import SubAgentToolset, create_subagent_toolset
+from subagents_pydantic_ai.types import (
+    DelegationConfiguration,
+    SubAgentConfig,
+    ToolsetFactory,
+    UsageLimitsFactory,
+)
 
 
 @dataclass
@@ -71,10 +81,28 @@ class SubAgentCapability(AbstractCapability[Any]):
         descriptions: Custom tool descriptions override.
         usage_limits: Optional static or per-task usage limits for delegated
             subagent runs.
+        delegation_configuration: Select default, persisted, combined, or
+            one-shot-only delegation entry points. A mode that hides a tool
+            rejects that tool's configuration rather than ignoring it — see
+            `Raises`.
+        allowed_models: Optional model allow-list for dynamic specialists.
+        capabilities_map: Optional capability factories for dynamic specialists.
+        default_agent_factory: Optional custom agent factory for dynamic specialists.
+            Do not attach an `ask_parent` toolset in the factory; the toolset
+            injects it at run time when needed.
+        max_agents: Maximum number of persistent dynamic agents, applied to the
+            registry the toolset creates for `create_agent`. Ignored when
+            `registry` is set — that registry keeps its own `max_agents`.
         max_result_chars: Character budget for a completed task's result in the
             `wait_tasks` listing. Truncated results carry an explicit marker
             pointing at `check_task`, which always returns the full text. Pass
             `None` to never truncate.
+
+    Raises:
+        ValueError: From `create_subagent_toolset` when the configuration is
+            self-contradictory — an invalid `delegation_configuration`, or one
+            whose hidden tools make `subagents`, `registry`, `allowed_models`,
+            `capabilities_map`, or `default_agent_factory` unreachable.
     """
 
     subagents: list[SubAgentConfig] | None = None
@@ -82,11 +110,18 @@ class SubAgentCapability(AbstractCapability[Any]):
     include_general_purpose: bool = True
     max_nesting_depth: int = 0
     toolsets_factory: ToolsetFactory | None = None
-    registry: Any = None
+    registry: DynamicAgentRegistry | None = None
     descriptions: dict[str, str] | None = None
     usage_limits: UsageLimits | UsageLimitsFactory | None = None
+    delegation_configuration: DelegationConfiguration = "default"
+    allowed_models: list[str] | None = None
+    capabilities_map: dict[str, CapabilityFactory] | None = None
+    default_agent_factory: AgentFactory | None = None
+    max_agents: int = 10
     max_result_chars: int | None = 2000
-    _toolset: AbstractToolset[Any] | None = field(default=None, init=False, repr=False)
+    ask_timeout_seconds: float = DEFAULT_ASK_TIMEOUT_SECONDS
+    contain_errors: bool = True
+    _toolset: SubAgentToolset = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         """Create the underlying subagent toolset."""
@@ -100,7 +135,14 @@ class SubAgentCapability(AbstractCapability[Any]):
             registry=self.registry,
             descriptions=self.descriptions,
             usage_limits=self.usage_limits,
+            delegation_configuration=self.delegation_configuration,
+            allowed_models=self.allowed_models,
+            capabilities_map=self.capabilities_map,
+            default_agent_factory=self.default_agent_factory,
+            max_agents=self.max_agents,
             max_result_chars=self.max_result_chars,
+            ask_timeout_seconds=self.ask_timeout_seconds,
+            contain_errors=self.contain_errors,
         )
 
     @classmethod
@@ -109,19 +151,43 @@ class SubAgentCapability(AbstractCapability[Any]):
         return "SubAgentCapability"
 
     @property
-    def task_manager(self) -> Any:
-        """Access the underlying task manager for observability."""
-        return getattr(self._toolset, "task_manager", None)
+    def task_manager(self) -> TaskManager:
+        """The task manager behind the toolset, for observability."""
+        return self._toolset.task_manager
 
     def get_toolset(self) -> AbstractToolset[Any] | None:
         """Return the subagent toolset with all registered tools."""
         return self._toolset
+
+    async def wrap_run(
+        self,
+        ctx: RunContext[Any],
+        *,
+        handler: WrapRunHandler,
+    ) -> AgentRunResult[Any]:
+        """Run the agent, then stop every background task this run started.
+
+        A background delegation is an `asyncio.Task` the parent run does not await.
+        Without this finalizer it keeps executing after the run returns, against
+        deps the application has already torn down, and one blocked in `ask_parent`
+        waits for an answer that can never arrive.
+        """
+        try:
+            return await handler()
+        finally:
+            await self._toolset.cancel_run_tasks(ctx.run_id)
 
     def get_instructions(self) -> Any:
         """Return dynamic instructions listing available subagents."""
         configs = list(self.subagents) if self.subagents else []
 
         def _instructions(ctx: RunContext[Any]) -> str:
+            if self.delegation_configuration == "oneshot_only":
+                return (
+                    "## One-Shot Delegation\n\n"
+                    "Use the `delegate` tool to create an ephemeral specialist "
+                    "and run a task in one call."
+                )
             return get_subagent_system_prompt(configs)
 
         return _instructions

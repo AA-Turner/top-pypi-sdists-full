@@ -43,14 +43,17 @@ class ExternalSourceBaseTransformation(BasePlaceholderTransformation):
 
     **Supported formats** (controlled by the *format* parameter):
 
-    * ``"plaintext"`` — one value per line; an optional *filter* regex must
-      match for a line to be included.
+    * ``"plaintext"`` — one value per line.
     * ``"csv"`` — CSV data; *csv_column* selects the column (column header
       name **or** 0-based integer index); *csv_has_header* (default ``True``)
-      controls whether the first row is treated as a header; an optional
-      *filter* regex is applied to each extracted cell value.
+      controls whether the first row is treated as a header.
     * ``"json"`` — JSON data; *jq_expression* selects the value(s).
     * ``"yaml"`` — YAML data; *jq_expression* selects the value(s).
+
+    An optional *filter* regex is applied to every extracted value after parsing,
+    regardless of format; only values that match (via :func:`re.search`) are kept.
+    Values that do not match are silently dropped.  An invalid regex pattern raises
+    :class:`~sigma.exceptions.SigmaConfigurationError` at pipeline-load time.
 
     **Security**: external-source transformations are disabled by default.
     Enable them by passing ``allow_external_sources=True`` when loading the
@@ -66,6 +69,9 @@ class ExternalSourceBaseTransformation(BasePlaceholderTransformation):
     allow_external_sources: bool = False
 
     _values_cache: list[str] | None = field(init=False, default=None, repr=False, compare=False)
+    _filter_pattern: re.Pattern[str] | None = field(
+        init=False, default=None, repr=False, compare=False
+    )
 
     def __post_init__(self) -> None:
         if self.format not in SUPPORTED_FORMATS:
@@ -73,6 +79,11 @@ class ExternalSourceBaseTransformation(BasePlaceholderTransformation):
                 f"Unknown external source format '{self.format}'. "
                 f"Supported formats: {', '.join(SUPPORTED_FORMATS)}."
             )
+        if self.filter is not None:
+            try:
+                self._filter_pattern = re.compile(self.filter)
+            except re.error as e:
+                raise SigmaConfigurationError(f"Invalid regex in 'filter': {e}") from e
         super().__post_init__()
 
     def _external_sources_allowed(self) -> bool:
@@ -109,7 +120,10 @@ class ExternalSourceBaseTransformation(BasePlaceholderTransformation):
             )
 
         data = self._fetch_data()
-        self._values_cache = self._parse_data(data)
+        values = self._parse_data(data)
+        if self._filter_pattern is not None:
+            values = [v for v in values if self._filter_pattern.search(v)]
+        self._values_cache = values
         return self._values_cache
 
     def _parse_data(self, data: str) -> list[str]:
@@ -129,11 +143,7 @@ class ExternalSourceBaseTransformation(BasePlaceholderTransformation):
             )
 
     def _parse_plaintext(self, data: str) -> list[str]:
-        values = [line for line in (line.strip() for line in data.splitlines()) if line]
-        if self.filter:
-            pattern = re.compile(self.filter)
-            values = [v for v in values if pattern.search(v)]
-        return values
+        return [line for line in (line.strip() for line in data.splitlines()) if line]
 
     def _parse_csv(self, data: str) -> list[str]:
         if self.csv_column is None:
@@ -164,9 +174,6 @@ class ExternalSourceBaseTransformation(BasePlaceholderTransformation):
                 if col_idx < len(csv_row):
                     values.append(csv_row[col_idx])
 
-        if self.filter:
-            pattern = re.compile(self.filter)
-            values = [v for v in values if pattern.search(v)]
         return values
 
     def _parse_json(self, data: str) -> list[str]:
@@ -232,7 +239,7 @@ class FilePlaceholderTransformation(ExternalSourceBaseTransformation):
     Parameters:
     * **path** — path to the file (required)
     * **format** — data format: ``"plaintext"`` (default), ``"csv"``, ``"json"``, ``"yaml"``
-    * **filter** — optional regex that each value must match (plaintext/csv)
+    * **filter** — optional regex; only extracted values that match are kept (all formats)
     * **csv_column** — column name (str) or 0-based index (int) for CSV format
     * **csv_has_header** — whether the first CSV row is a header (default ``True``)
     * **jq_expression** — path expression for JSON/YAML formats (e.g. ``.items[]``)
@@ -276,7 +283,7 @@ class HTTPPlaceholderTransformation(ExternalSourceBaseTransformation):
     * **max_body_size** — maximum response body size in bytes; the fetch is
       aborted with an error once this many bytes have been read (default 10 MiB)
     * **format** — data format: ``"plaintext"`` (default), ``"csv"``, ``"json"``, ``"yaml"``
-    * **filter** — optional regex that each value must match (plaintext/csv)
+    * **filter** — optional regex; only extracted values that match are kept (all formats)
     * **csv_column** — column name (str) or 0-based index (int) for CSV format
     * **csv_has_header** — whether the first CSV row is a header (default ``True``)
     * **jq_expression** — path expression for JSON/YAML formats
@@ -341,7 +348,7 @@ class CommandPlaceholderTransformation(ExternalSourceBaseTransformation):
     * **max_stdout** — maximum accepted stdout size in bytes; output larger
       than this is rejected with an error (default 10 MiB)
     * **format** — data format: ``"plaintext"`` (default), ``"csv"``, ``"json"``, ``"yaml"``
-    * **filter** — optional regex that each value must match (plaintext/csv)
+    * **filter** — optional regex; only extracted values that match are kept (all formats)
     * **csv_column** — column name (str) or 0-based index (int) for CSV format
     * **csv_has_header** — whether the first CSV row is a header (default ``True``)
     * **jq_expression** — path expression for JSON/YAML formats

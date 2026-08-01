@@ -1,5 +1,5 @@
 from collections import defaultdict
-from sigma.conditions import ConditionOR
+from sigma.conditions import ConditionAND, ConditionOR
 from typing import (
     ClassVar,
     Literal,
@@ -48,6 +48,7 @@ class HashesFieldsDetectionItemTransformation(DetectionItemTransformation):
         valid_hash_algos (list[str]): List of supported hash algorithms.
         field_prefix (str): Prefix to add to the new field names.
         drop_algo_prefix (bool): If True, omits the algorithm name from the new field name.
+        field_to_parse (list[str]): List of field names to parse for hash values. Defaults to ["Hashes", "Hash"].
         hash_lengths (dict[int, str]): Mapping of hash lengths to their corresponding algorithms.
 
     Example:
@@ -63,6 +64,7 @@ class HashesFieldsDetectionItemTransformation(DetectionItemTransformation):
     valid_hash_algos: list[str]
     field_prefix: str = ""
     drop_algo_prefix: bool = False
+    field_to_parse: list[str] = field(default_factory=lambda: ["Hashes", "Hash"])
     hash_lengths: ClassVar[dict[int, str]] = {32: "MD5", 40: "SHA1", 64: "SHA256", 128: "SHA512"}
 
     def apply_detection_item(
@@ -81,6 +83,8 @@ class HashesFieldsDetectionItemTransformation(DetectionItemTransformation):
         Raises:
             Exception: If no valid hash algorithms were found in the detection item.
         """
+        if detection_item.field not in self.field_to_parse:
+            return None
         if (
             isinstance(detection_item.value, SigmaString)
             or isinstance(detection_item.value, list)
@@ -92,7 +96,7 @@ class HashesFieldsDetectionItemTransformation(DetectionItemTransformation):
             algo_dict = self._parse_hash_values(cast(list[SigmaString], values))
 
             if not algo_dict:
-                raise Exception(
+                raise SigmaValueError(
                     f"No valid hash algorithm found in Hashes field. Please use one of the following: {', '.join(self.valid_hash_algos)}"
                 )
 
@@ -134,8 +138,9 @@ class HashesFieldsDetectionItemTransformation(DetectionItemTransformation):
         if len(parts) == 2:
             hash_algo, hash_value = parts
             hash_algo = hash_algo.lstrip("*").upper()
+            hash_value = hash_value.strip("*?")
         else:
-            hash_value = parts[0]
+            hash_value = parts[0].strip("*?")
             hash_algo = self._determine_hash_algo_by_length(hash_value)
 
         return (hash_algo, hash_value) if hash_algo in self.valid_hash_algos else ("", hash_value)
@@ -385,41 +390,45 @@ class ConvertTypeTransformation(ValueTransformation):
         self, field: str | None, val: SigmaType
     ) -> (SigmaString | SigmaNumber | SigmaExpansion) | None:
         if self.target_type == "str":
-            # Preserve SigmaNull values - they should not be converted to strings
-            if isinstance(val, SigmaNull):
-                return None
+            # Only convert SigmaNumber to SigmaString
+            if isinstance(val, SigmaNumber):
+                return SigmaString(str(val))
 
             if isinstance(val, SigmaExpansion):
                 for i, entry in enumerate(val.values):
-                    # avoid re-parsing entries that are already SigmaString
-                    # skip SigmaNull entries to preserve them
-                    if not isinstance(entry, SigmaString) and not isinstance(entry, SigmaNull):
+                    # Only convert SigmaNumber entries to SigmaString
+                    if isinstance(entry, SigmaNumber):
                         val.values[i] = SigmaString(str(entry))
 
                 return val
 
-            # confirming correct structure, avoiding re-parsing
+            # Return None for other types - no conversion
+            return None
+        elif self.target_type == "num":
+            # Only convert SigmaString to SigmaNumber
             if isinstance(val, SigmaString):
+                try:
+                    return SigmaNumber(str(val))
+                except SigmaValueError:
+                    raise SigmaValueError(
+                        f"Value '{val}' can't be converted to number for {str(self)}"
+                    )
+
+            if isinstance(val, SigmaExpansion):
+                for i, entry in enumerate(val.values):
+                    # Only convert SigmaString entries to SigmaNumber
+                    if isinstance(entry, SigmaString):
+                        try:
+                            val.values[i] = SigmaNumber(str(entry))
+                        except SigmaValueError:
+                            raise SigmaValueError(
+                                f"Value '{entry}' can't be converted to number for {str(self)}"
+                            )
+
                 return val
 
-            return SigmaString(str(val))
-        elif self.target_type == "num":
-            # Preserve SigmaNull values - they should not be converted to numbers
-            if isinstance(val, SigmaNull):
-                return None
-
-            try:
-                if isinstance(val, SigmaExpansion):
-                    for i, entry in enumerate(val.values):
-                        # skip SigmaNull entries to preserve them
-                        if not isinstance(entry, SigmaNull):
-                            val.values[i] = SigmaNumber(str(entry))
-
-                    return val
-
-                return SigmaNumber(str(val))
-            except SigmaValueError:
-                raise SigmaValueError(f"Value '{val}' can't be converted to number for {str(self)}")
+            # Return None for other types - no conversion
+            return None
 
 
 @dataclass
@@ -443,3 +452,142 @@ class CaseTransformation(StringValueTransformation):
             return val.lower()
         else:
             return val.upper()
+
+
+@dataclass
+class ExtractFieldsTransformation(DetectionItemTransformation):
+    """
+    Transforms values matching a regex pattern with named groups into separate detection items.
+
+    Extracts named capture groups from a regex match and creates one detection item per group.
+    Each item uses the field prefix followed by the group name:
+    - {field_prefix}.{group_name}: captured value
+
+    Example:
+        regex = r"(?P<type>[A-Za-z]+):(?P<valeur>[0-9]+)"
+        field_prefix = "reg"
+        Input:  reg: "Dword:00001"
+        Output: reg.type: "Dword", reg.valeur: "00001"
+
+    Multiple values are each transformed independently. Each value's extracted fields are
+    AND-linked within a nested SigmaDetection, and the outer linking follows the detection
+    item's value_linking (default OR).
+
+    The regex pattern must contain at least one named group. Groups without names are ignored.
+
+    Type conversion for captured values:
+    - "null", "none", or empty string -> SigmaNull
+    - Integer strings (without leading zeros, except "0") -> SigmaNumber(int)
+    - Float strings (without leading zeros) -> SigmaNumber(float)
+    - All other strings -> SigmaString
+
+    Strings with leading zeros (e.g., "00001", "03.14") are preserved as SigmaString to avoid
+    losing the leading zero information.
+
+    To restrict this transformation to specific fields, use the
+    :class:`~sigma.processing.conditions.IncludeFieldCondition` in the processing item's
+    field_name_conditions instead of a field list attribute on the transformation.
+
+    Attributes:
+        regex (str): Regex pattern with named groups (e.g., (?P<name>pattern)).
+        field_prefix (str | None): Prefix for field names. Used as {field_prefix}.{group_name}.
+            If None, only the group name is used as the field name.
+        preserve_unmatched (bool): If True, values that don't match the regex are preserved
+            as-is in the original field. If False (default), non-matching values are dropped.
+    """
+
+    regex: str
+    field_prefix: str | None = None
+    preserve_unmatched: bool = False
+
+    def __post_init__(self) -> None:
+        if hasattr(super(), "__post_init__"):
+            super().__post_init__()  # type: ignore[misc]
+
+        try:
+            self.re = re.compile(self.regex)
+        except re.error as e:
+            raise SigmaRegularExpressionError(
+                f"Regular expression '{self.regex}' is invalid: {str(e)}"
+            ) from e
+
+        if not self.re.groupindex:
+            raise SigmaRegularExpressionError(
+                f"Regular expression '{self.regex}' must contain at least one named group"
+            )
+
+        group_names = list(self.re.groupindex.keys())
+        if len(group_names) != len(set(group_names)):
+            raise SigmaRegularExpressionError(
+                f"Regular expression '{self.regex}' contains duplicate named groups"
+            )
+
+    def _convert_value(self, value: str) -> SigmaType:
+        if value.lower() in ("null", "none", ""):
+            return SigmaNull()
+        if value != "0" and value.startswith("0"):
+            return SigmaString(value)
+        try:
+            return SigmaNumber(int(value))
+        except ValueError:
+            try:
+                return SigmaNumber(float(value))
+            except ValueError:
+                return SigmaString(value)
+
+    def apply_detection_item(self, detection_item: SigmaDetectionItem) -> SigmaDetection | None:
+        if not isinstance(detection_item.value, list) or not all(
+            isinstance(v, SigmaString) for v in detection_item.value
+        ):
+            return None
+
+        value_detections: list[SigmaDetectionItem | SigmaDetection] = []
+
+        for val in detection_item.value:
+            plain = val.to_plain()
+            match = self.re.match(plain)
+            if not match:
+                # Value doesn't match - handle based on preserve_unmatched setting
+                if self.preserve_unmatched:
+                    # Preserve the original value as-is
+                    value_detections.append(
+                        SigmaDetectionItem(
+                            field=detection_item.field,
+                            modifiers=[],
+                            value=[val],
+                        )
+                    )
+                # Otherwise, skip this value (dropped from results)
+                continue
+
+            items: list[SigmaDetectionItem | SigmaDetection] = []
+            for group_name, group_value in match.groupdict().items():
+                if group_value is None or group_value == "":
+                    continue
+
+                field_name = (
+                    f"{self.field_prefix}.{group_name}" if self.field_prefix else group_name
+                )
+                items.append(
+                    SigmaDetectionItem(
+                        field=field_name,
+                        modifiers=[],
+                        value=[self._convert_value(group_value)],
+                    )
+                )
+
+            if items:
+                value_detections.append(
+                    SigmaDetection(detection_items=items, item_linking=ConditionAND)
+                )
+
+        if not value_detections:
+            return None
+
+        if len(value_detections) == 1:
+            return cast(SigmaDetection, value_detections[0])
+
+        return SigmaDetection(
+            detection_items=value_detections,
+            item_linking=detection_item.value_linking,
+        )

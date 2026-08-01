@@ -28,6 +28,10 @@ import asyncio
 import hashlib
 import json
 import logging
+import posixpath
+import re
+import shlex
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Literal, Protocol
 
@@ -37,6 +41,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from plato.agents.mounts import AgentWorkspaceMount, GitCheckoutPolicy, GitSyncPolicy
 from plato.git_ops.repo import rev_parse
 from plato.transports.git import GitPushConflict, GitTransport
+from plato.utils.subprocess import run_ssh
 from plato.workflows.structured import (
     build_result_protocol_block,
     build_schema_continuation_instruction,
@@ -46,6 +51,7 @@ from plato.workflows.structured import (
 )
 
 if TYPE_CHECKING:
+    from plato.runtimes.base import RuntimeInfo
     from plato.worlds.base import BaseWorld
     from plato.worlds.config import AgentConfig
     from plato.worlds.workspace import Workspace
@@ -54,8 +60,9 @@ logger = logging.getLogger(__name__)
 
 
 # Opt fields that participate in the journal/replay cache key. ``label``,
-# ``phase`` and ``timeout_s`` are presentation/limit knobs and deliberately
-# excluded so renaming a phase never invalidates the replay cache.
+# ``phase``, ``timeout_s`` and ``setup_timeout_s`` are presentation/limit knobs
+# and deliberately excluded so renaming a phase never invalidates the replay
+# cache. ``setup`` IS keyed: different provisioning means different work.
 _KEYED_OPT_FIELDS: Final[set[str]] = {
     "output_schema",
     "agent",
@@ -65,7 +72,10 @@ _KEYED_OPT_FIELDS: Final[set[str]] = {
     "data",
     "sync",
     "base",
+    "setup",
 }
+
+_SETUP_TIMEOUT_DEFAULT_S: Final[float] = 300.0
 
 
 def canonical_json(value: Any) -> str:
@@ -109,7 +119,15 @@ class AgentCallOpts(BaseModel):
 
     sync: Literal["publish_ref", "merge_to_main"] = "publish_ref"
     base: str | None = None  # base ref/SHA for checkout; None = current main
+    # Wall budget for the WHOLE call: VM acquire, mounts, setup, agent turns.
+    # A timed-out call's error reports how much of it setup consumed.
     timeout_s: float | None = None
+    # Deterministic provisioning: a shell command the backend runs on the agent
+    # VM (workspaces mounted, agent not yet started). Non-zero exit fails the
+    # call. Moves mechanical startup (app boot, seeding, env fixes) out of
+    # agent turns — validators wake up to a ready environment.
+    setup: str | None = None
+    setup_timeout_s: float | None = None
     model_config = ConfigDict(populate_by_name=True)
 
 
@@ -173,6 +191,75 @@ class AgentBackend(Protocol):
 
 def _publish_ref_name(call_id: str) -> str:
     return f"refs/plato/wf/{call_id}"
+
+
+def setup_cgroup_name(scoped_id: str) -> str:
+    """Cgroup dir name for a call's setup processes (matched by the pool reset)."""
+    return "plato-wf-setup-" + re.sub(r"[^A-Za-z0-9_.-]", "-", scoped_id)
+
+
+# Wrapper exit code when the cgroup-v2 join fails. The setup command is NOT
+# run in that case: every agent image derives from agent-base on Plato's
+# kernel+init, where the v2 unified mount and cgroup.kill are platform
+# invariants — a failed join means infra breakage to surface loudly, never a
+# condition to accommodate by running provisioning untracked.
+SETUP_NO_CGROUP_EXIT: Final[int] = 97
+
+
+def build_setup_command(
+    setup: str,
+    workdir: str,
+    log_path: str,
+    cgroup_name: str,
+    cgroup_root: str = "/sys/fs/cgroup",
+) -> str:
+    """Wrap a call's ``setup`` command for SSH execution on the agent VM.
+
+    Runs in ``workdir`` with combined output captured to ``log_path`` (on the
+    results mount, so it syncs back with the call's artifacts and the agent can
+    read it). ``setup`` itself is intentionally NOT quoted — it is a shell
+    command line, pipelines and `&&` included.
+
+    Before exec, the wrapper shell joins a fresh cgroup v2 under
+    ``<cgroup_root>/<cgroup_name>`` so every process the setup spawns —
+    daemonized servers included — stays kernel-tracked for the warm-pool
+    reset's ``cgroup.kill`` (see warmpool._runtime_reset_commands). If the
+    join fails, the wrapper exits :data:`SETUP_NO_CGROUP_EXIT` WITHOUT running
+    the command — there is never an untracked-process window.
+
+    ``cgroup_root`` exists for tests (a fake root makes the join exercisable
+    without privileges); production always uses the default.
+    """
+    cg_path = f"{cgroup_root.rstrip('/')}/{cgroup_name}"
+    inner = (
+        f"cg={shlex.quote(cg_path)}; "
+        # cgroup.controllers at the ROOT = v2 unified mount (absent on v1-only
+        # and hybrid layouts); cgroup.kill inside the created dir = kernel
+        # >=5.14 — the reset's cleanup write. Both are required before any
+        # setup process may exist.
+        f"if [ -f {shlex.quote(cgroup_root.rstrip('/'))}/cgroup.controllers ] "
+        '&& { mkdir "$cg" 2>/dev/null || [ -d "$cg" ]; } '
+        '&& [ -f "$cg/cgroup.kill" ] '
+        '&& echo $$ > "$cg/cgroup.procs" 2>/dev/null; then '
+        'echo "PLATO_SETUP_CGROUP=$cg"; '
+        f'else echo "PLATO_SETUP_CGROUP=none" >&2; exit {SETUP_NO_CGROUP_EXIT}; fi; '
+        f"mkdir -p {shlex.quote(posixpath.dirname(log_path))} && "
+        f"cd {shlex.quote(workdir)} && {{ {setup}\n}} >{shlex.quote(log_path)} 2>&1"
+    )
+    return f"bash -lc {shlex.quote(inner)}"
+
+
+def build_setup_note(setup: str, log_path: str) -> str:
+    """Instruction addendum telling the agent its setup already ran."""
+    return (
+        "\n\n---\n"
+        "## SETUP (already done for you)\n"
+        "Before your session started, this command was run in your workspace and exited 0:\n"
+        "```\n"
+        f"{setup}\n"
+        "```\n"
+        f"Its full output is at {log_path}."
+    )
 
 
 def _ref_exists(bare_repo_path: str, ref: str) -> bool:
@@ -335,6 +422,57 @@ class WorldAgentBackend:
         # stray file through every retry.
         await asyncio.to_thread((self._results_dir / request.scoped_id).mkdir, parents=True, exist_ok=True)
 
+        setup_log: str | None = None
+        # Setup wall-clock, read by the timeout handler: timeout_s spans the
+        # WHOLE call (VM acquire, mounts, setup, agent turns), so a timeout
+        # error must say how much of the budget provisioning consumed instead
+        # of silently masking it as agent slowness.
+        setup_state: dict[str, float] = {}
+        if opts.setup:
+            # Deterministic provisioning runs on the VM after workspaces are
+            # mounted but before the agent's first turn (AgentTask.on_prepare
+            # ordering in task._run_on_runtime). Failure raises out of
+            # runner.run() into the generic error path below — the agent never
+            # starts against a half-provisioned VM.
+            workdir = code_mount.agent_path if code_mount is not None else self._results_workspace.mount_path
+            results_base = self._results_workspace.mount_path.rstrip("/")
+            setup_log = f"{results_base}/{request.scoped_id}/setup.log"
+            setup_cmd = build_setup_command(opts.setup, workdir, setup_log, setup_cgroup_name(request.scoped_id))
+            setup_timeout = int(opts.setup_timeout_s or _SETUP_TIMEOUT_DEFAULT_S)
+
+            async def _setup_hook(info: RuntimeInfo) -> None:
+                if info.ssh_key_path is None:
+                    raise RuntimeError("setup= requires an SSH-capable agent runtime")
+                started = time.monotonic()
+                try:
+                    exit_code, _stdout, stderr = await run_ssh(
+                        info.ssh_key_path, info.hostname, setup_cmd, timeout=setup_timeout
+                    )
+                finally:
+                    setup_state["elapsed_s"] = time.monotonic() - started
+                if exit_code == SETUP_NO_CGROUP_EXIT:
+                    # The wrapper refused to run the command: cgroup v2 with
+                    # cgroup.kill is a platform invariant on the agent-base
+                    # image, so this is infra breakage to surface, not a
+                    # condition to degrade around. Nothing was spawned.
+                    raise RuntimeError(
+                        "setup= aborted before running: cgroup v2 with cgroup.kill is "
+                        "unavailable on this agent runtime — platform invariant violated "
+                        "(all agent images derive from agent-base on Plato's kernel/init); "
+                        "the setup command was NOT executed"
+                    )
+                if exit_code != 0:
+                    _, tail, _ = await run_ssh(
+                        info.ssh_key_path,
+                        info.hostname,
+                        f"tail -c 2000 {shlex.quote(setup_log)} 2>/dev/null",
+                        timeout=30,
+                    )
+                    raise RuntimeError(f"setup command failed (exit {exit_code}): {tail.strip() or stderr.strip()}")
+                logger.info("Workflow call %s: setup command completed", request.call_id)
+
+            runner.on_prepare(_setup_hook)
+
         full_instruction = (
             request.prompt
             + "\n\n"
@@ -344,6 +482,8 @@ class WorldAgentBackend:
                 results_mount_path=self._results_workspace.mount_path,
             )
         )
+        if opts.setup and setup_log is not None:
+            full_instruction += build_setup_note(opts.setup, setup_log)
 
         try:
             if opts.timeout_s is not None:
@@ -364,13 +504,18 @@ class WorldAgentBackend:
             # cancellation handler destroys the checked-out pooled VM (it is
             # not returned for reuse), so a timed-out call never leaks a
             # warm-pool slot.
-            logger.warning("Workflow call %s timed out after %ss", request.call_id, opts.timeout_s)
+            timeout_detail = f"agent call timed out after {opts.timeout_s}s"
+            if setup_state.get("elapsed_s"):
+                # timeout_s budgets the WHOLE call — say how much provisioning
+                # ate so a slow setup is never misread as a slow agent.
+                timeout_detail += f" (setup consumed {setup_state['elapsed_s']:.0f}s of the budget)"
+            logger.warning("Workflow call %s: %s", request.call_id, timeout_detail)
             return AgentCallOutcome(
                 status="timeout",
                 attempts=max(1, attempt_counter["count"]),
                 agent_task_span_id=runner.last_execution_span_id or None,
                 salvage_ref=runner.salvage_ref,
-                error=f"agent call timed out after {opts.timeout_s}s",
+                error=timeout_detail,
             )
         except GitPushConflict as exc:
             logger.warning("Workflow call %s lost a git push race: %s", request.call_id, exc)

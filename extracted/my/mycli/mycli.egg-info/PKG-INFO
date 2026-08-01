@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mycli
-Version: 2.7.0
+Version: 2.8.0
 Summary: CLI for MySQL Database. With auto-completion and syntax highlighting.
 Author: Mycli Core Team
 License-Expression: BSD-3-Clause
@@ -9,6 +9,21 @@ Project-URL: Documentation, https://mycli.net/docs
 Project-URL: Source, https://github.com/dbcli/mycli
 Project-URL: Issues, https://github.com/dbcli/mycli/issues
 Project-URL: Changelog, https://github.com/dbcli/mycli/blob/main/changelog.md
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: SQL
+Classifier: Topic :: Database
+Classifier: Topic :: Database :: Front-Ends
+Classifier: Topic :: Software Development
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt

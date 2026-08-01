@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ipython
-Version: 9.15.0
+Version: 9.16.0
 Summary: IPython: Productive Interactive Computing
 Author: The IPython Development Team
 Author-email: ipython-dev@python.org
@@ -27,7 +27,6 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: COPYING.rst
 Requires-Dist: colorama>=0.4.4; sys_platform == "win32"
-Requires-Dist: decorator>=5.1.0
 Requires-Dist: ipython-pygments-lexers>=1.0.0
 Requires-Dist: jedi>=0.18.2
 Requires-Dist: matplotlib-inline>=0.1.6
@@ -71,9 +70,8 @@ Requires-Dist: trio>=0.22.0; extra == "test-extra"
 Provides-Extra: matplotlib
 Requires-Dist: matplotlib>3.9; extra == "matplotlib"
 Provides-Extra: all
-Requires-Dist: ipython[doc,matplotlib,terminal,test,test_extra]; extra == "all"
+Requires-Dist: ipython[doc,matplotlib,test,test_extra]; extra == "all"
 Requires-Dist: argcomplete>=3.0; extra == "all"
-Requires-Dist: types-decorator; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: license-file

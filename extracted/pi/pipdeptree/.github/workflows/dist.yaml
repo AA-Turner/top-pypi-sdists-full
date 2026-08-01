@@ -11,6 +11,8 @@ jobs:
         include:
           - os: ubuntu-latest
             arch: x86_64
+          - os: ubuntu-24.04-arm
+            arch: aarch64
           - os: windows-latest
             arch: AMD64
           - os: macos-15-intel
@@ -19,28 +21,61 @@ jobs:
             arch: arm64
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0 # The build reads the version off the tags.
           persist-credentials: false
       - name: Install Rust
         if: runner.os != 'Linux'
         uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
         with:
           cache: false
+      - name: Resolve the version
+        id: version
+        shell: bash
+        run: echo "value=$(python3 tools/version.py)" >> "$GITHUB_OUTPUT"
+      # cibuildwheel pulls its container inside docker create, and a slow quay.io response there fails the job.
+      # It skips that pull when the image is already on the runner, so fetch the image here with retries and point
+      # cibuildwheel at the same tag rather than at the digest it pins itself.
+      - name: Pull the build containers
+        if: runner.os == 'Linux'
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          manylinux="quay.io/pypa/manylinux_2_28_$ARCH"
+          musllinux="quay.io/pypa/musllinux_1_2_$ARCH"
+          for image in "$manylinux" "$musllinux"; do
+            for attempt in 1 2 3; do
+              docker pull "$image" && break
+              if [ "$attempt" -eq 3 ]; then
+                echo "::error::could not pull $image"
+                exit 1
+              fi
+              sleep 15
+            done
+          done
+          echo "CIBW_MANYLINUX_${ARCH^^}_IMAGE=$manylinux" >> "$GITHUB_ENV"
+          echo "CIBW_MUSLLINUX_${ARCH^^}_IMAGE=$musllinux" >> "$GITHUB_ENV"
       - name: Build wheels
-        uses: pypa/cibuildwheel@294735312765b09d24a2fbec22660ce817587d55 # v4.1.0
+        uses: pypa/cibuildwheel@4726cd35bb13f7bde50cf2761f2499ac7b3aa32c # v4.1.1
         env:
           CIBW_ARCHS: ${{ matrix.arch }}
+          # Install the pinned toolchain and its components up front. Left to rust-toolchain.toml, the first
+          # cargo call in each container provisions them on demand, which races and conflicts on the
+          # cargo-clippy hardlink on aarch64. Keep the channel and components in sync with rust-toolchain.toml.
           CIBW_BEFORE_ALL_LINUX: >-
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.97 --component clippy --component llvm-tools-preview --component rustfmt
           # cp310 carries the abi3 wheel every GIL build shares; a free-threaded interpreter cannot use the
-          # limited API, so it takes one wheel of its own. 3.15t waits for a final release rather than
-          # shipping against a beta ABI.
-          CIBW_BUILD: cp310-* cp314t-* pp311-*
-          CIBW_ENABLE: pypy
+          # limited API, so each takes a wheel of its own. 3.15 is still a prerelease, so cpython-prerelease
+          # enables its free-threaded build.
+          CIBW_BUILD: cp310-* cp314t-* cp315t-* pp311-*
+          CIBW_ENABLE: pypy cpython-prerelease
+          # The Linux builds run as root in a container over a checkout owned by the runner user, and git
+          # refuses to read the tags there, so the runner resolves the version once for every build.
+          CIBW_ENVIRONMENT: PIPDEPTREE_VERSION=${{ steps.version.outputs.value }}
           # musl targets default to a static CRT, which makes Cargo drop the cdylib crate type
-          CIBW_ENVIRONMENT_LINUX: PATH=$HOME/.cargo/bin:$PATH RUSTFLAGS="-C target-feature=-crt-static"
-          CIBW_ENVIRONMENT_MACOS: MACOSX_DEPLOYMENT_TARGET=10.15
+          CIBW_ENVIRONMENT_LINUX: PIPDEPTREE_VERSION=${{ steps.version.outputs.value }} PATH=$HOME/.cargo/bin:$PATH RUSTFLAGS="-C target-feature=-crt-static"
+          CIBW_ENVIRONMENT_MACOS: PIPDEPTREE_VERSION=${{ steps.version.outputs.value }} MACOSX_DEPLOYMENT_TARGET=10.15
           CIBW_TEST_COMMAND: pipdeptree --version
         with:
           output-dir: dist
@@ -52,11 +87,12 @@ jobs:
   sdist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0 # The build reads the version off the tags.
           persist-credentials: false
       - name: Install uv
-        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
         with:
           enable-cache: false
       - name: Build source distribution

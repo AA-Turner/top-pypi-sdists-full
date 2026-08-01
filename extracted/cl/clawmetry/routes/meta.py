@@ -30,6 +30,10 @@ Flask app, not a Blueprint, so it stays in ``dashboard.py``.
 Pure mechanical move — zero behaviour change.
 """
 
+from clawmetry.gateway_protocol import (
+    GATEWAY_MAX_PROTOCOL as _GW_MAX_PROTO,
+    GATEWAY_MIN_PROTOCOL as _GW_MIN_PROTO,
+)
 import collections
 import hashlib
 import html
@@ -664,8 +668,8 @@ def api_gw_config():
                     "id": "validate",
                     "method": "connect",
                     "params": {
-                        "minProtocol": 3,
-                        "maxProtocol": 3,
+                        "minProtocol": _GW_MIN_PROTO,
+                        "maxProtocol": _GW_MAX_PROTO,
                         "client": {
                             "id": "cli",
                             "version": _d.__version__,
@@ -1017,6 +1021,11 @@ def _anon_forward_cloud(payload: dict) -> None:
     OSS side starts feeding live data without another release.
     """
     try:
+        from clawmetry.endpoints import is_custom_endpoint as _is_custom_ep
+        if _is_custom_ep():
+            # Self-hosted / enterprise: anonymous analytics must not leave
+            # the deployment. The local JSONL remains the durable record.
+            return
         import urllib.request as _ur
         req = _ur.Request(
             "https://app.clawmetry.com/api/admin/anon-event",

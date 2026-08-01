@@ -328,6 +328,29 @@ cluster = docdb.DatabaseCluster(self, "Database",
 **Note**: `StorageType.IOPT1` is supported starting with engine version 5.0.0.
 
 **Note**: For serverless clusters, storage type is managed automatically and cannot be specified.
+
+## Maintenance Windows
+
+DocumentDB has two independent maintenance windows: one for cluster-wide events (engine upgrades, etc.) and one per instance (reboots, patches). Use `preferredMaintenanceWindow` to control the cluster window and `instanceMaintenanceWindow` to control the window applied to every auto-created instance.
+
+**Note**: `instanceMaintenanceWindow` only applies to provisioned clusters. It has no effect on serverless clusters because they don't create instances.
+
+```python
+# vpc: ec2.Vpc
+
+
+cluster = docdb.DatabaseCluster(self, "Database",
+    master_user=docdb.Login(
+        username="myuser"
+    ),
+    instance_type=ec2.InstanceType.of(ec2.InstanceClass.MEMORY5, ec2.InstanceSize.LARGE),
+    vpc=vpc,
+    preferred_maintenance_window="tue:04:17-tue:04:47",  # cluster-wide events
+    instance_maintenance_window="sat:09:00-sat:09:30"
+)
+```
+
+If you want both the cluster and its instances to share the same window, set both props to the same value. When `instanceMaintenanceWindow` is not provided, a random 30-minute window is picked for each instance, which can cause maintenance events outside the cluster window.
 '''
 from __future__ import annotations
 
@@ -4461,6 +4484,7 @@ class DatabaseClusterAttributes:
         "export_audit_logs_to_cloud_watch": "exportAuditLogsToCloudWatch",
         "export_profiler_logs_to_cloud_watch": "exportProfilerLogsToCloudWatch",
         "instance_identifier_base": "instanceIdentifierBase",
+        "instance_maintenance_window": "instanceMaintenanceWindow",
         "instance_removal_policy": "instanceRemovalPolicy",
         "instances": "instances",
         "instance_type": "instanceType",
@@ -4495,6 +4519,7 @@ class DatabaseClusterProps:
         export_audit_logs_to_cloud_watch: typing.Optional[builtins.bool] = None,
         export_profiler_logs_to_cloud_watch: typing.Optional[builtins.bool] = None,
         instance_identifier_base: typing.Optional[builtins.str] = None,
+        instance_maintenance_window: typing.Optional[builtins.str] = None,
         instance_removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         instances: typing.Optional[jsii.Number] = None,
         instance_type: typing.Optional["_aws_ec2_09840e12.InstanceType"] = None,
@@ -4526,6 +4551,7 @@ class DatabaseClusterProps:
         :param export_audit_logs_to_cloud_watch: Whether the audit logs should be exported to CloudWatch. Note that you also have to configure the audit log export in the Cluster's Parameter Group. Default: false
         :param export_profiler_logs_to_cloud_watch: Whether the profiler logs should be exported to CloudWatch. Note that you also have to configure the profiler log export in the Cluster's Parameter Group. Default: false
         :param instance_identifier_base: Base identifier for instances. Every replica is named by appending the replica number to this string, 1-based. Only applicable for provisioned clusters. Default: - ``dbClusterName`` is used with the word "Instance" appended. If ``dbClusterName`` is not provided, the identifier is automatically generated.
+        :param instance_maintenance_window: The weekly time range during which system maintenance can occur on the cluster's instances. The cluster-level ``preferredMaintenanceWindow`` applies to cluster-wide maintenance events; this prop applies to each auto-created instance independently. To use the same window for both, set this prop to the same value as ``preferredMaintenanceWindow``. Format: ``ddd:hh24:mi-ddd:hh24:mi``. Must be at least 30 minutes long. Example: 'sat:09:00-sat:09:30' Only applicable to provisioned clusters; has no effect on serverless clusters because they do not create instances. Default: - a 30-minute window selected at random from an 8-hour block of time for each AWS Region, occurring on a random day of the week.
         :param instance_removal_policy: The removal policy to apply to the cluster's instances. Cannot be set to ``SNAPSHOT``. Default: - ``RemovalPolicy.DESTROY`` when ``removalPolicy`` is set to ``SNAPSHOT``, ``removalPolicy`` otherwise.
         :param instances: Number of DocDB compute instances. Default: 1
         :param instance_type: What type of instance to start for the replicas. Required for provisioned clusters, not applicable for serverless clusters. Default: None
@@ -4583,6 +4609,7 @@ class DatabaseClusterProps:
             check_type(argname="argument export_audit_logs_to_cloud_watch", value=export_audit_logs_to_cloud_watch, expected_type=type_hints["export_audit_logs_to_cloud_watch"])
             check_type(argname="argument export_profiler_logs_to_cloud_watch", value=export_profiler_logs_to_cloud_watch, expected_type=type_hints["export_profiler_logs_to_cloud_watch"])
             check_type(argname="argument instance_identifier_base", value=instance_identifier_base, expected_type=type_hints["instance_identifier_base"])
+            check_type(argname="argument instance_maintenance_window", value=instance_maintenance_window, expected_type=type_hints["instance_maintenance_window"])
             check_type(argname="argument instance_removal_policy", value=instance_removal_policy, expected_type=type_hints["instance_removal_policy"])
             check_type(argname="argument instances", value=instances, expected_type=type_hints["instances"])
             check_type(argname="argument instance_type", value=instance_type, expected_type=type_hints["instance_type"])
@@ -4625,6 +4652,8 @@ class DatabaseClusterProps:
             self._values["export_profiler_logs_to_cloud_watch"] = export_profiler_logs_to_cloud_watch
         if instance_identifier_base is not None:
             self._values["instance_identifier_base"] = instance_identifier_base
+        if instance_maintenance_window is not None:
+            self._values["instance_maintenance_window"] = instance_maintenance_window
         if instance_removal_policy is not None:
             self._values["instance_removal_policy"] = instance_removal_policy
         if instances is not None:
@@ -4814,6 +4843,30 @@ class DatabaseClusterProps:
         identifier is automatically generated.
         '''
         result = self._values.get("instance_identifier_base")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def instance_maintenance_window(self) -> typing.Optional[builtins.str]:
+        '''The weekly time range during which system maintenance can occur on the cluster's instances.
+
+        The cluster-level ``preferredMaintenanceWindow`` applies to cluster-wide maintenance events; this prop
+        applies to each auto-created instance independently. To use the same window for both, set this prop
+        to the same value as ``preferredMaintenanceWindow``.
+
+        Format: ``ddd:hh24:mi-ddd:hh24:mi``. Must be at least 30 minutes long.
+        Example: 'sat:09:00-sat:09:30'
+
+        Only applicable to provisioned clusters; has no effect on serverless clusters because they do not
+        create instances.
+
+        :default:
+
+        - a 30-minute window selected at random from an 8-hour block of time for each AWS Region,
+        occurring on a random day of the week.
+
+        :see: https://docs.aws.amazon.com/documentdb/latest/developerguide/db-instance-maintain.html#maintenance-window
+        '''
+        result = self._values.get("instance_maintenance_window")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -6210,6 +6263,7 @@ class DatabaseCluster(
         export_audit_logs_to_cloud_watch: typing.Optional[builtins.bool] = None,
         export_profiler_logs_to_cloud_watch: typing.Optional[builtins.bool] = None,
         instance_identifier_base: typing.Optional[builtins.str] = None,
+        instance_maintenance_window: typing.Optional[builtins.str] = None,
         instance_removal_policy: typing.Optional["_aws_cdk_0cae9daa.RemovalPolicy"] = None,
         instances: typing.Optional[jsii.Number] = None,
         instance_type: typing.Optional["_aws_ec2_09840e12.InstanceType"] = None,
@@ -6242,6 +6296,7 @@ class DatabaseCluster(
         :param export_audit_logs_to_cloud_watch: Whether the audit logs should be exported to CloudWatch. Note that you also have to configure the audit log export in the Cluster's Parameter Group. Default: false
         :param export_profiler_logs_to_cloud_watch: Whether the profiler logs should be exported to CloudWatch. Note that you also have to configure the profiler log export in the Cluster's Parameter Group. Default: false
         :param instance_identifier_base: Base identifier for instances. Every replica is named by appending the replica number to this string, 1-based. Only applicable for provisioned clusters. Default: - ``dbClusterName`` is used with the word "Instance" appended. If ``dbClusterName`` is not provided, the identifier is automatically generated.
+        :param instance_maintenance_window: The weekly time range during which system maintenance can occur on the cluster's instances. The cluster-level ``preferredMaintenanceWindow`` applies to cluster-wide maintenance events; this prop applies to each auto-created instance independently. To use the same window for both, set this prop to the same value as ``preferredMaintenanceWindow``. Format: ``ddd:hh24:mi-ddd:hh24:mi``. Must be at least 30 minutes long. Example: 'sat:09:00-sat:09:30' Only applicable to provisioned clusters; has no effect on serverless clusters because they do not create instances. Default: - a 30-minute window selected at random from an 8-hour block of time for each AWS Region, occurring on a random day of the week.
         :param instance_removal_policy: The removal policy to apply to the cluster's instances. Cannot be set to ``SNAPSHOT``. Default: - ``RemovalPolicy.DESTROY`` when ``removalPolicy`` is set to ``SNAPSHOT``, ``removalPolicy`` otherwise.
         :param instances: Number of DocDB compute instances. Default: 1
         :param instance_type: What type of instance to start for the replicas. Required for provisioned clusters, not applicable for serverless clusters. Default: None
@@ -6276,6 +6331,7 @@ class DatabaseCluster(
             export_audit_logs_to_cloud_watch=export_audit_logs_to_cloud_watch,
             export_profiler_logs_to_cloud_watch=export_profiler_logs_to_cloud_watch,
             instance_identifier_base=instance_identifier_base,
+            instance_maintenance_window=instance_maintenance_window,
             instance_removal_policy=instance_removal_policy,
             instances=instances,
             instance_type=instance_type,
@@ -7464,6 +7520,7 @@ def _typecheckingstub__bb24ec128a97ca07df15f55d4e96dda851d4300951806a7a3d7f391cc
     export_audit_logs_to_cloud_watch: typing.Optional[builtins.bool] = None,
     export_profiler_logs_to_cloud_watch: typing.Optional[builtins.bool] = None,
     instance_identifier_base: typing.Optional[builtins.str] = None,
+    instance_maintenance_window: typing.Optional[builtins.str] = None,
     instance_removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     instances: typing.Optional[jsii.Number] = None,
     instance_type: typing.Optional[_aws_ec2_09840e12.InstanceType] = None,
@@ -7602,6 +7659,7 @@ def _typecheckingstub__3fef762ebf4d69195051e79f76d91c6d9e93e2a84a6c1e71f7b4a0b8c
     export_audit_logs_to_cloud_watch: typing.Optional[builtins.bool] = None,
     export_profiler_logs_to_cloud_watch: typing.Optional[builtins.bool] = None,
     instance_identifier_base: typing.Optional[builtins.str] = None,
+    instance_maintenance_window: typing.Optional[builtins.str] = None,
     instance_removal_policy: typing.Optional[_aws_cdk_0cae9daa.RemovalPolicy] = None,
     instances: typing.Optional[jsii.Number] = None,
     instance_type: typing.Optional[_aws_ec2_09840e12.InstanceType] = None,

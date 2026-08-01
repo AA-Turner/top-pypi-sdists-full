@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pbixray
-Version: 0.15.2
+Version: 0.15.3
 Summary: A Python library to parse and analyze PBIX files used with Microsoft Power BI and Excel PowerPivot.
 Home-page: https://github.com/Hugoberry/pbixray
 Author: Igor Cotruta

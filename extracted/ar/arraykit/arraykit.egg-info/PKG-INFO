@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arraykit
-Version: 1.8.0
+Version: 1.10.0
 Summary: Array utilities for StaticFrame
 Author: Christopher Ariza, Brandt Bucher, Charles Burkland
 License: MIT
@@ -63,6 +63,18 @@ ArrayKit requires the following:
 
 What is New in ArrayKit
 -------------------------
+
+1.10.0
+............
+
+Added ``TriMap.register_pairs()``.
+
+
+1.9.0
+............
+
+Added ``FrozenAutoMap.get_all_fill()`` and ``TriMap.register_many_from_one()``.
+
 
 1.8.0
 ............

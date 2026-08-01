@@ -68,7 +68,7 @@ except ImportError:
         mysql = None
 
 
-__version__ = '4.2.6'
+__version__ = '4.3.0'
 __all__ = [
     'AnyField',
     'AsIs',
@@ -158,8 +158,8 @@ logger.addHandler(logging.NullHandler())
 callable_ = lambda c: isinstance(c, Callable)
 multi_types = (list, tuple, frozenset, set, range, types.GeneratorType)
 
-def qesc(s):
-    return s.replace('"', '""')
+def qesc(s, q='"'):
+    return s.replace(q, q + q)
 
 def unqesc(part):
     part = part.strip()
@@ -411,6 +411,12 @@ SCOPE_COLUMN = 16
 CSQ_PARENTHESES_NEVER = 0
 CSQ_PARENTHESES_ALWAYS = 1
 CSQ_PARENTHESES_UNNESTED = 2
+CSQ_PARENTHESES_GROUPED = 3
+
+# Rendering styles for compound select members (_member_style).
+CSQ_FLAT = 0
+CSQ_PARENS = 1
+CSQ_WRAP = 2  # SELECT * FROM (...), for dialects without member parens.
 
 # Regular expressions used to convert class names to snake-case table names.
 # First regex handles acronym followed by word or initial lower-word followed
@@ -473,9 +479,6 @@ class _callable_context_manager(object):
 
 
 class Proxy(object):
-    """
-    Create a proxy or placeholder for another object.
-    """
     __slots__ = ('obj', '_callbacks')
 
     def __init__(self):
@@ -514,9 +517,6 @@ class Proxy(object):
 
 
 class DatabaseProxy(Proxy):
-    """
-    Proxy implementation specifically for proxying `Database` objects.
-    """
     __slots__ = ('obj', '_callbacks', '_Model')
 
     def connection_context(self):
@@ -902,10 +902,7 @@ class _HashableSource(object):
         self._update_hash()
 
     def clone(self):
-        # clone() copies __dict__ without running __init__, so the copy would
-        # otherwise inherit the source's hash. An anonymous sub-select hashes
-        # on id(self), and the source may be garbage-collected, leaving the
-        # copy keyed on an address a later object can be allocated at.
+        # The copy would otherwise keep the source's id()-based hash.
         clone = super(_HashableSource, self).clone()
         clone._update_hash()
         return clone
@@ -1248,10 +1245,6 @@ class ColumnBase(Node):
         return Negated(self)
 
     def _e(op, inv=False):
-        """
-        Lightweight factory which returns a method that builds an Expression
-        consisting of the left-hand and right-hand operands, using `op`.
-        """
         def inner(self, rhs):
             if inv:
                 return Expression(rhs, op, self)
@@ -2397,6 +2390,19 @@ class SelectBase(_HashableSource, Source, SelectQuery):
         except IndexError:
             pass
 
+    def _subquery_parens(self, ctx):
+        # Parens are unnecessary when the sole argument of a function call.
+        if ctx.state.in_function and ctx.state.function_arg_count == 1:
+            return False
+        return ctx.subquery or (ctx.scope == SCOPE_SOURCE)
+
+    def _apply_subquery_alias(self, ctx):
+        # No alias inside a function, or when unaliased in an expr/projection.
+        if ctx.state.in_function or (self._alias is None and (
+                ctx.state.in_expr or ctx.state.in_projection)):
+            return ctx
+        return self.apply_alias(ctx)
+
 
 # QUERY IMPLEMENTATIONS.
 
@@ -2417,23 +2423,93 @@ class CompoundSelectQuery(SelectBase):
         query = Select((self.limit(1),), (SQL('1'),)).bind(database)
         return bool(query.scalar())
 
-    def _wrap_parens(self, ctx, subq):
+    def _self_wraps(self, subq):
+        # An inner ORDER BY / LIMIT / OFFSET forces the member to group.
+        return (bool(subq._order_by) or subq._limit is not None
+                or subq._offset is not None)
+
+    def _needs_group(self, subq, lhs=False):
+        # Group when writing the member flat would change the result:
+        # non-associative ops, an inner ORDER BY / LIMIT that would apply
+        # to the whole statement, or INTERSECT precedence (it binds
+        # tighter everywhere but sqlite).
+        if self._self_wraps(subq):
+            return True
+        if lhs:
+            # A flat lhs folds left to right before our op applies.
+            return self.op == 'INTERSECT' and subq.op != self.op
+        if self.op == 'EXCEPT':
+            return True
+        # A flat rhs joins the outer chain through its left spine, so
+        # every op along it must match ours.
+        node = subq
+        while isinstance(node, CompoundSelectQuery):
+            if node.op != self.op:
+                return True
+            node = node.lhs
+            if (isinstance(node, CompoundSelectQuery)
+                    and self._self_wraps(node)):
+                break  # Wraps itself, the spine ends here.
+        return False
+
+    def _union_only(self, subq):
+        # Whole subtree is UNION / UNION ALL with no inner ordering.
+        if not isinstance(subq, CompoundSelectQuery):
+            return True
+        if subq.op not in ('UNION', 'UNION ALL') or self._self_wraps(subq):
+            return False
+        return self._union_only(subq.lhs) and self._union_only(subq.rhs)
+
+    def _member_style(self, ctx, subq, lhs=False):
         csq_setting = ctx.state.compound_select_parentheses
 
         if not csq_setting or csq_setting == CSQ_PARENTHESES_NEVER:
-            return False
+            # Parens are not allowed here (sqlite), wrap a member that needs
+            # grouping as a subquery instead: a nested compound, or a plain
+            # member with its own ORDER BY / LIMIT / OFFSET (written flat those
+            # would apply to the whole statement).
+            if isinstance(subq, CompoundSelectQuery):
+                if self._needs_group(subq, lhs):
+                    return CSQ_WRAP
+            elif self._self_wraps(subq):
+                return CSQ_WRAP
         elif csq_setting == CSQ_PARENTHESES_ALWAYS:
-            return True
+            return CSQ_PARENS
         elif csq_setting == CSQ_PARENTHESES_UNNESTED:
             if ctx.state.in_expr or ctx.state.in_function:
                 # If this compound select query is being used inside an
                 # expression, e.g., an IN or EXISTS().
-                return False
+                return CSQ_FLAT
 
             # If the query on the left or right is itself a compound select
             # query, then we do not apply parentheses. However, if it is a
             # regular SELECT query, we will apply parentheses.
-            return not isinstance(subq, CompoundSelectQuery)
+            if not isinstance(subq, CompoundSelectQuery):
+                return CSQ_PARENS
+        elif csq_setting == CSQ_PARENTHESES_GROUPED:
+            # Like unnested, but a nested compound gets parens when it
+            # needs them to keep its meaning.
+            if isinstance(subq, CompoundSelectQuery):
+                if ((ctx.state.in_expr or ctx.state.in_function)
+                        and self.op in ('UNION', 'UNION ALL')
+                        and self._union_only(subq)):
+                    # IN / EXISTS only see the distinct set, and regrouping
+                    # a pure union chain cannot change it. Stay flat so
+                    # mariadb can resolve correlated refs, it cannot see
+                    # them through nested parens.
+                    return CSQ_FLAT
+                if self._needs_group(subq, lhs):
+                    return CSQ_PARENS
+            elif not (ctx.state.in_expr or ctx.state.in_function):
+                return CSQ_PARENS
+        return CSQ_FLAT
+
+    def _member_sql(self, ctx, subq, lhs=False):
+        style = self._member_style(ctx, subq, lhs)
+        if style == CSQ_WRAP:
+            ctx.literal('SELECT * FROM ')
+        with ctx.scope_normal(parentheses=style != CSQ_FLAT, subquery=False):
+            ctx.sql(subq)
 
     def __sql__(self, ctx):
         if ctx.scope == SCOPE_COLUMN:
@@ -2442,32 +2518,16 @@ class CompoundSelectQuery(SelectBase):
         # Call parent method to handle any CTEs.
         super(CompoundSelectQuery, self).__sql__(ctx)
 
-        outer_parens = ctx.subquery or (ctx.scope == SCOPE_SOURCE)
-        if ctx.state.in_function and ctx.state.function_arg_count == 1:
-            outer_parens = False
-        with ctx(parentheses=outer_parens):
-            # Snapshot the aliases assigned by the enclosing scope before
-            # rendering either side. A correlated reference from the right-hand
-            # query must resolve to one of these outer aliases; otherwise the
-            # right-hand query's fresh alias scope assigns the outer source a
-            # new, dangling alias. The left-hand query shares the enclosing
-            # scope, so only the right-hand query needs the seed.
+        with ctx(parentheses=self._subquery_parens(ctx)):
+            # Correlated rhs refs must resolve to the enclosing aliases.
             outer_aliases = dict(ctx.alias_manager.mapping)
 
-            # Should the left-hand query be wrapped in parentheses?
-            lhs_parens = self._wrap_parens(ctx, self.lhs)
-            with ctx.scope_normal(parentheses=lhs_parens, subquery=False):
-                ctx.sql(self.lhs)
+            self._member_sql(ctx, self.lhs, lhs=True)
             ctx.literal(' %s ' % self.op)
             with ctx.push_alias():
-                # Seed with only the outer aliases (not the left-hand query's
-                # own sources) so the right-hand query's own sources still
-                # receive fresh aliases.
+                # Seed only the outer aliases so rhs sources get fresh ones.
                 ctx.alias_manager.mapping.update(outer_aliases)
-                # Should the right-hand query be wrapped in parentheses?
-                rhs_parens = self._wrap_parens(ctx, self.rhs)
-                with ctx.scope_normal(parentheses=rhs_parens, subquery=False):
-                    ctx.sql(self.rhs)
+                self._member_sql(ctx, self.rhs)
 
             # Apply ORDER BY, LIMIT, OFFSET. We use the "values" scope so that
             # entity names are not fully-qualified. This is a bit of a hack, as
@@ -2476,10 +2536,7 @@ class CompoundSelectQuery(SelectBase):
             with ctx.scope_values():
                 self._apply_ordering(ctx)
 
-        if ctx.state.in_function or (self._alias is None and (
-                ctx.state.in_expr or ctx.state.in_projection)):
-            return ctx
-        return self.apply_alias(ctx)
+        return self._apply_subquery_alias(ctx)
 
 
 class Select(SelectBase):
@@ -2536,7 +2593,12 @@ class Select(SelectBase):
         if not self._from_list:
             raise ValueError('No sources to join on.')
         item = self._from_list.pop()
-        if join_type == JOIN.LATERAL or join_type == JOIN.LEFT_LATERAL:
+        # Lateral joins must have an ON clause, default to ON true.
+        if on is None and (
+                join_type == JOIN.LATERAL or
+                join_type == JOIN.LEFT_LATERAL or
+                (join_type != JOIN.CROSS and
+                 getattr(dest, '_lateral', False))):
             on = True
         self._from_list.append(Join(item, dest, join_type, on))
 
@@ -2559,9 +2621,8 @@ class Select(SelectBase):
         self._group_by = grouping
 
     def group_by_extend(self, *values):
-        """@Node.copy used from group_by() call"""
         group_by = tuple(self._group_by or ()) + values
-        return self.group_by(*group_by)
+        return self.group_by(*group_by)  # Uses Node.copy.
 
     @Node.copy
     def having(self, *expressions):
@@ -2616,11 +2677,9 @@ class Select(SelectBase):
             'in_expr': False,
             'in_function': False,
             'in_projection': False,
-            'parentheses': is_subquery or (ctx.scope == SCOPE_SOURCE),
+            'parentheses': self._subquery_parens(ctx),
             'subquery': True,
         }
-        if ctx.state.in_function and ctx.state.function_arg_count == 1:
-            state['parentheses'] = False
 
         with ctx.scope_normal(**state):
             # Defer calling parent SQL until here. This ensures that any CTEs
@@ -2668,14 +2727,7 @@ class Select(SelectBase):
                 ctx.literal(' ')
                 ctx.sql(self._for_update)
 
-        # If the subquery is inside a function, on either side of an
-        # expression, or is a SELECT-list column (not a FROM source), and has
-        # no explicit alias, do not add an alias + AS.
-        if ctx.state.in_function or (self._alias is None and (
-                ctx.state.in_expr or ctx.state.in_projection)):
-            return ctx
-
-        return self.apply_alias(ctx)
+        return self._apply_subquery_alias(ctx)
 
 
 class _WriteQuery(Query):
@@ -2984,8 +3036,12 @@ class Insert(_WriteQuery):
             return self.apply_returning(ctx)
 
     def _execute(self, database):
-        if self._returning is None and database.returning_clause \
-           and self.table._primary_key:
+        if self._as_rowcount:
+            # Strip implicit pk-returning, which breaks rowcount on sqlite.
+            if not self._return_cursor:
+                self._returning = None
+        elif self._returning is None and database.returning_clause \
+             and self.table._primary_key:
             self._returning = (self.table.primary_key,)
             self._row_type = ROW.TUPLE
         try:
@@ -3164,11 +3220,14 @@ class BaseJSONMethods(object):
         return Value(field._dumps(value), converter=False)
 
     @staticmethod
-    def _path(keys, suffix=''):
+    def _path_index(idx):
+        return '[#%d]' % idx if idx < 0 else '[%d]' % idx
+
+    def _path(self, keys, suffix=''):
         parts = ['$']
         for k in keys:
             if isinstance(k, int):
-                parts.append('[#%d]' % k if k < 0 else '[%d]' % k)
+                parts.append(self._path_index(k))
             else:
                 k = str(k).replace('\\', '\\\\').replace('"', '\\"')
                 parts.append('."%s"' % k)
@@ -3224,6 +3283,17 @@ class SqliteJSONMethods(BaseJSONMethods):
             return fn.json(dumps(value))
         return wrapper
 
+    def _wrap_value(self, field, value):
+        # Wrap a Python value so SQLite stores it as JSON-typed. Containers,
+        # bools and JSON null go through fn.json() so the result is JSON-typed
+        # (otherwise SQLite stores TEXT, or 0/1 for bools). Other scalars are
+        # passed as-is.
+        if value is None:
+            return fn.json(Value('null', converter=False))
+        if isinstance(value, (dict, list, bool)):
+            return fn.json(field._dumps(value))
+        return value
+
     def extract(self, field, keys):
         return Expression(field, '->', self._path(keys)) if keys else field
 
@@ -3233,16 +3303,6 @@ class SqliteJSONMethods(BaseJSONMethods):
     def cast_type(self, t):
         return {'int': 'INTEGER', 'float': 'REAL'}[t]
 
-    def _wrap_value(self, field, value):
-        # Wrap a Python value so SQLite stores it as JSON-typed. Containers
-        # and JSON null go through fn.json() so the result is JSON-typed
-        # (otherwise SQLite stores them as TEXT). Scalars are passed as-is.
-        if value is None:
-            return fn.json(Value('null', converter=False))
-        if isinstance(value, (dict, list)):
-            return fn.json(field._dumps(value))
-        return value
-
     def set(self, field, keys, value):
         return fn.json_set(
             field,
@@ -3250,23 +3310,18 @@ class SqliteJSONMethods(BaseJSONMethods):
             self._wrap_value(field, value))
 
     def insert(self, field, keys, value):
-        # json_insert is a no-op when the path already exists (including
-        # when it exists with stored JSON null) - matches the "only-if-
-        # missing" semantic on every backend.
         return fn.json_insert(
             field,
             self._path(keys),
             self._wrap_value(field, value))
 
     def replace(self, field, keys, value):
-        # json_replace is a no-op when the path is missing.
         return fn.json_replace(
             field,
             self._path(keys),
             self._wrap_value(field, value))
 
     def append(self, field, keys, value):
-        # SQLite's '$.path[#]' target means "append after the last element."
         return fn.json_set(
             field,
             self._path(keys, '[#]'),
@@ -3285,7 +3340,6 @@ class SqliteJSONMethods(BaseJSONMethods):
         return fn.json_patch(field, fn.json(field._dumps(value)))
 
     def contains(self, field, keys, value):
-        # _pw_json_contains() is a registered UDF - a per-row full scan, no index.
         call = fn._pw_json_contains(self.extract(field, keys),
                                     self._contains_value(field, value))
         return Expression(call, OP.EQ, 1)
@@ -3296,9 +3350,7 @@ class SqliteJSONMethods(BaseJSONMethods):
         return Expression(call, OP.EQ, 1)
 
     def has_key(self, field, keys, key):
-        # json_type() is NULL only when the path selects nothing, so it
-        # doubles as a key-existence test (a stored JSON null still has a
-        # type). Matches MySQL's object-key semantics.
+        # json_type() is SQL NULL only when the path is missing.
         path = self._path(tuple(keys) + (key,))
         return Expression(fn.json_type(field, path), OP.IS_NOT, None)
 
@@ -3327,6 +3379,18 @@ class PostgresqlJSONMethods(BaseJSONMethods):
         # can't use any user-provided loads() impl.
         return lambda v: v
 
+    def _jsonb_wrap(self, field, value):
+        adapter = self.database._adapter
+        jsonb_cls = adapter.jsonb_type
+        if isinstance(value, (adapter.json_type, jsonb_cls)):
+            return value
+        return jsonb_cls(value, dumps=field._dumps)
+
+    def _path_array(self, keys):
+        # Build a text[] from keys for jsonb_set / #- operator.
+        parts = [str(k) for k in keys]
+        return Cast(AsIs(parts, False), 'text[]')
+
     def extract(self, field, keys):
         if not keys:
             return field
@@ -3343,18 +3407,6 @@ class PostgresqlJSONMethods(BaseJSONMethods):
     def cast_for_case(self, field, value):
         return Cast(Value(field._dumps(value)), 'JSONB')
 
-    def _jsonb_wrap(self, field, value):
-        adapter = self.database._adapter
-        jsonb_cls = adapter.jsonb_type
-        if isinstance(value, (adapter.json_type, jsonb_cls)):
-            return value
-        return jsonb_cls(value, dumps=field._dumps)
-
-    def _path_array(self, keys):
-        # Build a text[] from keys for jsonb_set / #- operator.
-        parts = [str(k) for k in keys]
-        return Cast(AsIs(parts, False), 'text[]')
-
     def set(self, field, keys, value):
         # jsonb_set(field, '{path}'::text[], value::jsonb, create_missing=true)
         return fn.jsonb_set(
@@ -3365,10 +3417,7 @@ class PostgresqlJSONMethods(BaseJSONMethods):
 
     def insert(self, field, keys, value):
         # Postgres has no single-call equivalent of json_insert. Wrap
-        # jsonb_set in a CASE that no-ops when the path resolves to anything
-        # other than SQL NULL - `field -> 'k'` returns SQL NULL only for
-        # absent keys; a stored JSON null comes back as jsonb 'null' which
-        # is NOT SQL NULL, so this matches json_insert / JSON_INSERT.
+        # jsonb_set in a CASE.
         return Case(None, [
             (self.extract(field, keys).is_null(),
              fn.jsonb_set(field, self._path_array(keys),
@@ -3376,16 +3425,13 @@ class PostgresqlJSONMethods(BaseJSONMethods):
         ], field)
 
     def replace(self, field, keys, value):
-        # jsonb_set with create_missing=False is a no-op on absent paths.
         return fn.jsonb_set(
             field,
             self._path_array(keys),
             self._jsonb_wrap(field, value),
-            False)
+            False)  # create_missing=False.
 
     def append(self, field, keys, value):
-        # '-1' as the trailing path element + insert_after=True means
-        # "insert after the last array element."
         return fn.jsonb_insert(
             field,
             self._path_array(list(keys) + ['-1']),
@@ -3437,6 +3483,12 @@ class MySQLJSONMethods(BaseJSONMethods):
                                  compact=False)
         return wrapper
 
+    @staticmethod
+    def _path_index(idx):
+        if idx < 0:
+            return '[last]' if idx == -1 else '[last%d]' % (idx + 1)
+        return '[%d]' % idx
+
     def extract(self, field, keys):
         if not keys:
             return field
@@ -3453,8 +3505,10 @@ class MySQLJSONMethods(BaseJSONMethods):
 
     def _json_value(self, field, value):
         # Value for JSON_SET, etc. Need to apply wrapping in order to ensure
-        # objects/arrays/null are CAST as JSON and not strings.
-        if value is None or isinstance(value, (dict, list)):
+        # objects/arrays/null are CAST as JSON and not strings. Bools and
+        # floats also take the dumps form, the driver writes 0/1 and
+        # reformatted floats that break comparisons.
+        if value is None or isinstance(value, (dict, list, bool, float)):
             return self._as_json(self._contains_value(field, value))
         return Value(value, converter=False)
 
@@ -3470,13 +3524,10 @@ class MySQLJSONMethods(BaseJSONMethods):
                            self._json_value(field, value))
 
     def insert(self, field, keys, value):
-        # JSON_INSERT is a no-op when the path already exists (including
-        # when it exists with stored JSON null).
         return fn.JSON_INSERT(field, self._path(keys),
                               self._json_value(field, value))
 
     def replace(self, field, keys, value):
-        # JSON_REPLACE is a no-op when the path is missing.
         return fn.JSON_REPLACE(field, self._path(keys),
                                self._json_value(field, value))
 
@@ -3498,7 +3549,7 @@ class MySQLJSONMethods(BaseJSONMethods):
         return fn.JSON_MERGE_PATCH(field, self._json_value(field, value))
 
     def contains(self, field, keys, value):
-        # JSON_CONTAINS returns 0/1; wrap in `= 1` so it composes cleanly in
+        # JSON_CONTAINS returns 0/1, wrap in `= 1` so it composes cleanly in
         # boolean contexts (NOT, AND, etc.).
         path_args = (self._path(keys),) if keys else ()
         call = fn.JSON_CONTAINS(field, self._contains_value(field, value),
@@ -3506,14 +3557,11 @@ class MySQLJSONMethods(BaseJSONMethods):
         return Expression(call, OP.EQ, 1)
 
     def contained_by(self, field, keys, value):
-        # Args flipped: is `value` a superset of (sub-extract of) field?
         lhs = self.extract(field, keys) if keys else field
         call = fn.JSON_CONTAINS(self._contains_value(field, value), lhs)
         return Expression(call, OP.EQ, 1)
 
     def has_key(self, field, keys, key):
-        # JSON_CONTAINS_PATH(field, 'one', '$.key'). Reuse _path([key]) so the
-        # key gets the same escaping as anywhere else.
         path = self._path(tuple(keys) + (key,))
         call = fn.JSON_CONTAINS_PATH(field, 'one', path)
         return Expression(call, OP.EQ, 1)
@@ -3571,6 +3619,7 @@ EXCEPTIONS = {
     'IntegrityConstraintViolationError': IntegrityError,
     'IntegrityError': IntegrityError,
     'InterfaceError': InterfaceError,
+    'InternalClientError': InternalError,
     'InternalError': InternalError,
     'NotSupportedError': NotSupportedError,
     'OperationalError': OperationalError,
@@ -3715,9 +3764,7 @@ class Database(_callable_context_manager):
         self.deferred = not bool(database)
 
     def __deepcopy__(self, memo):
-        # Databases are shared and hold un-copyable state (locks, thread-local
-        # connections). Reached via deepcopy of an inherited field that caches a
-        # db reference, e.g. JSONField's helper. Keep the same db.
+        # A database is a live resource (locks, connections), copies share it.
         return self
 
     def __enter__(self):
@@ -3900,8 +3947,21 @@ class Database(_callable_context_manager):
 
         return NodeList(parts)
 
-    def last_insert_id(self, cursor, query_type=None):
+    def _last_insert_rowid(self, cursor):
         return cursor.lastrowid
+
+    def last_insert_id(self, cursor, query_type=None):
+        if not self.returning_clause:
+            return self._last_insert_rowid(cursor)
+        elif query_type == Insert.SIMPLE:
+            try:
+                row = cursor[0]
+                if isinstance(row, tuple) and len(row) > 1:
+                    return row  # Composite pk, return all columns.
+                return row[0]
+            except (AttributeError, IndexError, KeyError, TypeError):
+                return  # Nothing was inserted, e.g. a conflict was ignored.
+        return cursor
 
     def rows_affected(self, cursor):
         try:
@@ -4306,16 +4366,6 @@ class SqliteDatabase(Database):
             self.execute_sql('DETACH DATABASE ?', (name,))
         return True
 
-    def last_insert_id(self, cursor, query_type=None):
-        if not self.returning_clause:
-            return cursor.lastrowid
-        elif query_type == Insert.SIMPLE:
-            try:
-                return cursor[0][0]
-            except (IndexError, KeyError, TypeError):
-                pass
-        return cursor
-
     def begin(self, lock_type=None):
         statement = 'BEGIN %s' % lock_type if lock_type else 'BEGIN'
         self.execute_sql(statement)
@@ -4517,24 +4567,34 @@ class Psycopg2Adapter(_BasePsycopgAdapter):
         return txn_status < pg_extensions.TRANSACTION_STATUS_INERROR
 
     def is_connection_reusable(self, conn):
+        # If the status is unknown then we lost the connection to the server
+        # and the connection should not be re-used.
         txn_status = conn.get_transaction_status()
-        # Do not return connection in an error state, as subsequent queries
-        # will all fail. If the status is unknown then we lost the connection
-        # to the server and the connection should not be re-used.
         if txn_status == pg_extensions.TRANSACTION_STATUS_UNKNOWN:
             return False
-        elif txn_status == pg_extensions.TRANSACTION_STATUS_INERROR:
-            conn.reset()
         elif txn_status != pg_extensions.TRANSACTION_STATUS_IDLE:
-            conn.rollback()
+            # rollback() no-ops and reset() raises under autocommit, send a
+            # raw ROLLBACK (clears both in-txn and error states).
+            try:
+                conn.cursor().execute('ROLLBACK')
+            except Exception:
+                return False
         return True
 
     def is_connection_closed(self, conn):
         txn_status = conn.get_transaction_status()
         if txn_status == pg_extensions.TRANSACTION_STATUS_UNKNOWN:
             return True
-        elif txn_status != pg_extensions.TRANSACTION_STATUS_IDLE:
-            conn.rollback()
+        try:
+            if txn_status != pg_extensions.TRANSACTION_STATUS_IDLE:
+                # rollback() no-ops under autocommit, send a raw ROLLBACK.
+                conn.cursor().execute('ROLLBACK')
+            else:
+                # The status flag is local, only a round trip can detect a
+                # server-side disconnect.
+                conn.cursor().execute('SELECT 1')
+        except Exception:
+            return True
         return False
 
 
@@ -4575,24 +4635,33 @@ class Psycopg3Adapter(_BasePsycopgAdapter):
         return conn.pgconn.transaction_status < TransactionStatus.INERROR
 
     def is_connection_reusable(self, conn):
+        # If the status is unknown then we lost the connection to the server
+        # and the connection should not be re-used.
         txn_status = conn.pgconn.transaction_status
-        # Do not return connection in an error state, as subsequent queries
-        # will all fail. If the status is unknown then we lost the connection
-        # to the server and the connection should not be re-used.
         if txn_status == TransactionStatus.UNKNOWN:
             return False
-        elif txn_status == TransactionStatus.INERROR:
-            conn.reset()
         elif txn_status != TransactionStatus.IDLE:
-            conn.rollback()
+            # rollback() clears both in-txn and error states (psycopg3 has
+            # no Connection.reset()).
+            try:
+                conn.rollback()
+            except Exception:
+                return False
         return True
 
     def is_connection_closed(self, conn):
         txn_status = conn.pgconn.transaction_status
         if txn_status == TransactionStatus.UNKNOWN:
             return True
-        elif txn_status != TransactionStatus.IDLE:
-            conn.rollback()
+        try:
+            if txn_status != TransactionStatus.IDLE:
+                conn.rollback()
+            else:
+                # The status flag is local, only a round trip can detect a
+                # server-side disconnect.
+                conn.execute('SELECT 1')
+        except Exception:
+            return True
         return False
 
 
@@ -4664,12 +4733,6 @@ class PostgresqlDatabase(Database):
         # is otherwise unusable, return False.
         return self._adapter.is_connection_usable(self._state.conn)
 
-    def last_insert_id(self, cursor, query_type=None):
-        try:
-            return cursor if query_type != Insert.SIMPLE else cursor[0][0]
-        except (IndexError, KeyError, TypeError):
-            pass
-
     def begin(self, isolation_level=None):
         if self.is_closed():
             self.connect()
@@ -4715,9 +4778,8 @@ class PostgresqlDatabase(Database):
             WHERE t.relname = %s AND t.relkind = %s AND n.nspname = %s
             ORDER BY idx.indisunique DESC, i.relname;"""
         cursor = self.execute_sql(query, (table, 'r', schema or 'public'))
-        unesc = lambda cols: [unqesc(c) for c in cols]
-        return [IndexMetadata(name, sql.rstrip(' ;'), unesc(cols), unique,
-                              table)
+        return [IndexMetadata(name, sql.rstrip(' ;'),
+                              [unqesc(c) for c in cols], unique, table)
                 for name, sql, unique, cols in cursor.fetchall()]
 
     def get_columns(self, table, schema=None):
@@ -4904,6 +4966,20 @@ class MySQLDatabase(Database):
         except AttributeError:
             version_raw = conn.get_server_info()
         self.server_version = self._extract_server_version(version_raw)
+        # Oracle MySQL has no 10.x, a 10.x server is MariaDB.
+        self._set_csq_grouped(self.mariadb
+                              or 'maria' in str(version_raw).lower()
+                              or self.server_version >= (10,))
+
+    def _set_csq_grouped(self, is_mariadb):
+        supported = (self.server_version >= (10, 4) if is_mariadb
+                     else self.server_version >= (8, 0, 22))
+        if (supported and self.compound_select_parentheses ==
+                CSQ_PARENTHESES_UNNESTED):
+            # These servers accept parens around compound members, use
+            # them so nested compounds keep their meaning. Only the
+            # default is upgraded, an explicit setting is respected.
+            self.compound_select_parentheses = CSQ_PARENTHESES_GROUPED
 
     def _extract_server_version(self, version):
         if isinstance(version, tuple):
@@ -4963,9 +5039,9 @@ class MySQLDatabase(Database):
         return [ViewMetadata(*row) for row in cursor.fetchall()]
 
     def _show_index_target(self, table, schema):
-        table = table.replace('`', '``')
+        table = qesc(table, '`')
         if schema:
-            return '`%s`.`%s`' % (schema.replace('`', '``'), table)
+            return '`%s`.`%s`' % (qesc(schema, '`'), table)
         return '`%s`' % table
 
     def get_indexes(self, table, schema=None):
@@ -5294,7 +5370,6 @@ class CursorWrapper(object):
         return row
 
     def iterator(self):
-        """Efficient one-pass iteration over the result set."""
         while True:
             try:
                 yield self.iterate(False)
@@ -5345,10 +5420,7 @@ class DictCursorWrapper(CursorWrapper):
         self.ncols = len(self.columns)
 
     def _row_to_dict(self, row):
-        result = {}
-        for i in range(self.ncols):
-            result.setdefault(self.columns[i], row[i])  # Do not overwrite.
-        return result
+        return {self.columns[i]: row[i] for i in range(self.ncols)}
 
     process_row = _row_to_dict
 
@@ -5449,11 +5521,12 @@ class ForeignKeyAccessor(FieldAccessor):
         else:
             fk_value = instance.__data__.get(self.name)
             instance.__data__[self.name] = obj
-            # A cached miss (None) is always invalidated by assignment.
-            if self.name in instance.__rel__ and (
-                    obj != fk_value or obj is None or
-                    instance.__rel__[self.name] is None):
-                del instance.__rel__[self.name]
+            if self.name in instance.__rel__:
+                # Keep the cache only for a real instance w/unchanged fk id.
+                keep = (obj is not None and obj == fk_value and
+                        instance.__rel__[self.name] is not None)
+                if not keep:
+                    del instance.__rel__[self.name]
         instance._dirty.add(self.name)
 
 
@@ -5473,7 +5546,6 @@ class BackrefAccessor(object):
 
 
 class ObjectIdAccessor(object):
-    """Gives direct access to the underlying id"""
     def __init__(self, field):
         self.field = field
 
@@ -5563,8 +5635,12 @@ class Field(ColumnBase):
     def python_value(self, value):
         return value if value is None else self.adapt(value)
 
-    def to_value(self, value, case=False):
+    def to_value(self, value):
         return Value(value, self.db_value, unpack=False)
+
+    def case_value(self, value):
+        # A CASE branch param is untyped on postgres, JSON fields cast it.
+        return self.to_value(value)
 
     def get_sort_key(self, ctx):
         return self._sort_key
@@ -5778,6 +5854,8 @@ class BlobField(FieldDatabaseHook, Field):
     def db_value(self, value):
         if isinstance(value, str):
             value = value.encode('utf8')
+        elif isinstance(value, memoryview):
+            value = value.tobytes()
         if isinstance(value, bytes):
             return self._constructor(value)
         return value
@@ -6392,15 +6470,18 @@ class JSONField(FieldDatabaseHook, Field):
             return value
         return self._read(value) if self._read is not None else value
 
-    def to_value(self, value, case=False):
-        # bulk_update() needs a cast.
+    def to_value(self, value):
         if value is None or isinstance(value, Node):
             return value
-        if case and self._helper is not None:
+        return self.db_value(value)
+
+    def case_value(self, value):
+        if self._helper is not None and value is not None and \
+                not isinstance(value, Node):
             cast = self._helper.cast_for_case(self, value)
             if cast is not None:
                 return cast
-        return self.db_value(value)
+        return self.to_value(value)
 
     def __getitem__(self, key):
         return JSONPath(self, (key,))
@@ -6497,7 +6578,7 @@ class ForeignKeyField(Field):
                            '"backref" for Field objects.')
             backref = related_name
 
-        self._is_self_reference = model == 'self'
+        self._is_self_reference = isinstance(model, str) and model == 'self'
         self.rel_model = model
         self.rel_field = field
         self.declared_backref = backref
@@ -6574,7 +6655,7 @@ class ForeignKeyField(Field):
 
         if set_attribute:
             setattr(model, self.object_id_name, ObjectIdAccessor(self))
-            if self.backref not in '!+':
+            if self.backref not in ('+', '!'):
                 setattr(self.rel_model, self.backref,
                         self.backref_accessor_class(self))
 
@@ -6737,7 +6818,7 @@ class ManyToManyField(MetaField):
 
         if not self._is_backref:
             self.backref = self.backref or model._meta.name + 's'
-            if self.backref not in '!+':
+            if self.backref not in ('+', '!'):
                 many_to_many_field = ManyToManyField(
                     self.model,
                     backref=name,
@@ -7770,7 +7851,7 @@ class Model(Node, metaclass=ModelBase):
                 for model in batch:
                     value = getattr(model, attr)
                     if not isinstance(value, Node):
-                        value = field.to_value(value, case=True)
+                        value = field.case_value(value)
                     accum.append((pk.to_value(model._pk), value))
                 case = Case(pk, accum)
                 update[field] = case
@@ -7935,8 +8016,7 @@ class Model(Node, metaclass=ModelBase):
 
     @property
     def dirty_field_names(self):
-        return [f.name for f in self._meta.sorted_fields
-                if f.name in self._dirty]
+        return [f.name for f in self.dirty_fields]
 
     def dependencies(self, search_nullable=True, exclude_null_children=False):
         model_class = type(self)
@@ -7958,11 +8038,8 @@ class Model(Node, metaclass=ModelBase):
                             .where(node))
                 if not fk.null or search_nullable:
                     queries.setdefault(rel_model, []).append((node, fk))
-                    # A nullable child will be updated rather than deleted, so
-                    # its children do not need to be visited - but do not mark
-                    # it seen, as it may also be reachable (and deleted) via a
-                    # non-nullable path, in which case its children must be
-                    # processed.
+                    # A nullable child is updated, not deleted, so skip its
+                    # children but leave it unseen for non-nullable paths.
                     if not (fk.null and exclude_null_children):
                         stack.append((rel_model, subquery))
 
@@ -8075,7 +8152,6 @@ class Model(Node, metaclass=ModelBase):
 
 
 class ModelAlias(Node):
-    """Provide a separate reference to a model in a query."""
     def __init__(self, model, alias=None):
         self.__dict__['model'] = model
         self.__dict__['alias'] = alias
@@ -8537,8 +8613,12 @@ class ModelSelect(BaseModelSelect, Select):
         src = self._join_ctx if src is None else src
 
         if join_type == JOIN.LATERAL or join_type == JOIN.LEFT_LATERAL:
-            on = True
+            if on is None:
+                on = True
         elif join_type != JOIN.CROSS:
+            # A lateral source correlates inside the subquery, default ON true.
+            if on is None and getattr(dest, '_lateral', False):
+                on = True
             on, attr, constructor = self._normalize_join(src, dest, on, attr)
             if attr:
                 self._joins.setdefault(src, [])
@@ -8805,13 +8885,11 @@ def safe_python_value(conv_func):
 
 
 def _resolve_model_columns(cursor, model, select):
-    """Resolve cursor columns against a model's selected nodes.
-
-    Returns ``(columns, fields, converters, no_convert, convert)``:
-    ``columns`` and ``fields`` are aligned per-column lists, ``converters``
-    is a per-column ``python_value`` callable or ``None``, and
-    ``no_convert``/``convert`` are the index partitions of ``converters``.
-    """
+    # Resolve cursor columns against a model's selected nodes. Returns a tuple
+    # of ``(columns, fields, converters, no_convert, convert)``:
+    # ``columns`` and ``fields`` are aligned per-column lists,
+    # ``converters`` is a per-column ``python_value`` callable or ``None``,
+    # ``no_convert``/``convert`` are the index partitions of ``converters``.
     combined = model._meta.combined
     table = model._meta.table
     description = cursor.description
@@ -9011,14 +9089,13 @@ class ModelCursorWrapper(BaseModelCursorWrapper):
                     is_fk = (src_ctor is not None and src_ctor[1] and
                              isinstance(src_ctor[0]._meta.fields.get(attr),
                                         ForeignKeyField))
-                    # (src, attr, dest, src is dict?, join type, is outer?,
+                    # (src, attr, dest, src is dict?, is outer?,
                     # attr is src's fk?).
                     self.src_to_dest.append((
                         curr,
                         attr,
                         key,
                         src_ctor is not None and not src_ctor[1],
-                        join_type,
                         'LEFT' in join_type or 'FULL' in join_type,
                         is_fk))
 
@@ -9067,7 +9144,7 @@ class ModelCursorWrapper(BaseModelCursorWrapper):
 
         # Pre-compute join-graph reachability.
         self._dest_reachable = {}
-        for _, _, dest, _, _, _, _ in self.src_to_dest:
+        for _, _, dest, _, _, _ in self.src_to_dest:
             if dest not in self.joins:
                 continue
             reachable = set()
@@ -9110,7 +9187,7 @@ class ModelCursorWrapper(BaseModelCursorWrapper):
                 setattr(instance, column, value)
 
         # Need to do some analysis on the joins before this.
-        for (src, attr, dest, is_dict, _, is_outer, is_fk) in self.src_to_dest:
+        for (src, attr, dest, is_dict, is_outer, is_fk) in self.src_to_dest:
             instance = objects.get(src)
             joined_instance = objects.get(dest)
             if joined_instance is None and dest not in objects:
@@ -9137,7 +9214,7 @@ class ModelCursorWrapper(BaseModelCursorWrapper):
             if is_dict:
                 instance[attr] = joined_instance
             elif is_fk and joined_instance is None:
-                # Cache the miss without clearing the fk id on the source.
+                # None in __rel__ marks a verified-absent row, fk id intact.
                 instance.__rel__[attr] = None
             else:
                 setattr(instance, attr, joined_instance)
@@ -9199,6 +9276,11 @@ class PrefetchQuery(collections.namedtuple('_PrefetchQuery', (
 
 
 def _parent_keys(parent_query, cols):
+    if isinstance(parent_query, CompoundSelectQuery):
+        # A compound renders as a derived table, key columns must resolve
+        # through its alias rather than through the model's.
+        sub = parent_query.alias('_compound')
+        return Select((sub,), [getattr(sub.c, c.column_name) for c in cols])
     sub = parent_query.select(*cols)
     # MySQL rejects LIMIT directly inside IN so move it into a derived table.
     if parent_query._limit is not None or parent_query._offset is not None:
@@ -9208,26 +9290,36 @@ def _parent_keys(parent_query, cols):
 
 
 def _relate_children(query, parent_query, pairs, strategy):
-    """Restrict a one-to-many child query to rows whose foreign key matches a
-    parent in parent_query. pairs are (child_fk, parent_key) field tuples."""
     if strategy == PREFETCH_TYPE.JOIN:
-        sub = _parent_keys(parent_query, {pk for _, pk in pairs})
+        # Distinct the key subquery, not the child query. Deduping the
+        # keys prevents join fan-out without clobbering a child DISTINCT.
+        # Inherited ordering is dropped, a key set has none and postgres
+        # rejects DISTINCT ordered by an unprojected column.
+        sub = (_parent_keys(parent_query, {pk for _, pk in pairs})
+               .order_by().distinct())
         on = reduce(operator.or_, [getattr(sub.c, pk.column_name) == fk
                                    for fk, pk in pairs])
-        return query.distinct().join(sub, on=on)
+        query = query.join(sub, on=on)
+        if len(pairs) > 1:
+            # An OR join over several fks can match a child row to more
+            # than one key row, dedupe the children as well.
+            query = query.distinct()
+        return query
     expr = reduce(operator.or_, [fk << _parent_keys(parent_query, (pk,))
                                  for fk, pk in pairs])
     return query.where(expr)
 
 
 def _relate_parent(query, parent_query, pairs, strategy):
-    """Restrict a many-to-one query to the rows referenced by parent_query.
-    pairs are (child_ref, parent_fk) field tuples."""
     if strategy == PREFETCH_TYPE.JOIN:
-        sub = _parent_keys(parent_query, [fk for _, fk in pairs])
+        sub = (_parent_keys(parent_query, [fk for _, fk in pairs])
+               .order_by().distinct())
         on = reduce(operator.or_, [ref == getattr(sub.c, fk.column_name)
                                    for ref, fk in pairs])
-        return query.distinct().join(sub, on=on)
+        query = query.join(sub, on=on)
+        if len(pairs) > 1:
+            query = query.distinct()
+        return query
     expr = reduce(operator.or_, [ref << _parent_keys(parent_query, (fk,))
                                  for ref, fk in pairs])
     return query.where(expr)
@@ -9323,15 +9415,6 @@ def _bucket(field, is_backref, children, parents):
     # backref lists directly, skipping descriptor and dirty tracking.
     name, rel_name = field.name, field.rel_field.name
     if is_backref:
-        # children are the referenced rows, parents carry the fk.
-        id_map = {}
-        for child in children:
-            id_map[child.__data__[rel_name]] = child
-        for parent in parents:
-            key = parent.__data__[name]
-            if key in id_map:
-                parent.__rel__[name] = id_map[key]
-    else:
         # children carry the fk, parents get backref lists.
         buckets = {}
         for child in children:
@@ -9342,6 +9425,15 @@ def _bucket(field, is_backref, children, parents):
             for inst in rel:
                 inst.__rel__[name] = parent
             setattr(parent, backref, rel)
+    else:
+        # children are the referenced rows, parents carry the fk.
+        id_map = {}
+        for child in children:
+            id_map[child.__data__[rel_name]] = child
+        for parent in parents:
+            key = parent.__data__[name]
+            if key in id_map:
+                parent.__rel__[name] = id_map[key]
 
 
 class Load(Node):
@@ -9429,7 +9521,7 @@ class Load(Node):
                                             parent_query, parents)
         # The whole tree runs on the database the parent ran against.
         children = list(child_query.execute(database))
-        _bucket(field, not self._is_backref, children, parents)
+        _bucket(field, self._is_backref, children, parents)
         return children, child_query
 
     @staticmethod

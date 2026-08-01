@@ -41,13 +41,19 @@ def test_source_kind_selector_filters_by_cohort_kind():
         cancer_types="SARC", genes=["TP53"], source_kind="geo")
     th = cancer_reference_expression(
         cancer_types="SARC", genes=["TP53"], source_kind="treehouse")
+    sra = cancer_reference_expression(
+        cancer_types="SARC", genes=["TP53"], source_kind="sra")
     assert geo["source_cohort"].nunique() < allu["source_cohort"].nunique()
     assert geo["source_cohort"].str.startswith("GSE").all()        # geo only
     assert th["source_cohort"].str.startswith("TREEHOUSE").all()   # treehouse only
+    assert set(sra["source_cohort"]) == {"SRP493407_MMNST_2024"}
     # a list of kinds unions them
     both = cancer_reference_expression(
         cancer_types="SARC", genes=["TP53"], source_kind=["geo", "treehouse"])
-    assert both["source_cohort"].nunique() == allu["source_cohort"].nunique()
+    assert set(both["source_cohort"]) == (
+        set(geo["source_cohort"]) | set(th["source_cohort"])
+    )
+    assert set(sra["source_cohort"]).isdisjoint(both["source_cohort"])
 
 
 def test_tcga_selects_as_treehouse_not_a_fake_kind():
@@ -63,10 +69,7 @@ def test_tcga_selects_as_treehouse_not_a_fake_kind():
         cancer_types="SARC", genes=["TP53"],
         source_cohort="TREEHOUSE_POLYA_25_01_TCGA_SAMPLES")
     # Exact cohort filters do not cross into the distinct SARC-histology cohort.
-    assert set(sub["source_cohort"].unique()) == {
-        "TREEHOUSE_POLYA_25_01_TCGA_SAMPLES",
-    }
-    assert set(sub["cancer_code"].unique()) == {"SARC_PLEOLPS"}
+    assert sub.empty
 
 
 def test_pool_collapses_multisource_n_weighted_per_gene_availability():

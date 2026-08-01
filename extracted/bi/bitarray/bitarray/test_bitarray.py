@@ -18,6 +18,7 @@ from io import BytesIO, UnsupportedOperation
 from random import (choice, choices, getrandbits, randrange, randint,
                     sample, shuffle)
 from string import whitespace
+from sysconfig import get_config_var
 from collections import deque
 
 # imports needed inside tests
@@ -91,7 +92,7 @@ class Util:
         self.assertIsInstance(a, bitarray)
 
         self.assertEqual(a.nbytes, bits2bytes(len(a)))
-        self.assertTrue(0 <= a.padbits < 8)
+        self.assertIn(a.padbits, range(8))
         self.assertEqual(len(a) + a.padbits, 8 * a.nbytes)
 
         info = a.buffer_info()
@@ -147,44 +148,9 @@ class ModuleFunctionsTests(unittest.TestCase):
         # the version string is not a function, but test it here anyway
         self.assertIs(type(__version__), str)
 
-    def test_sysinfo(self):
-        for key in ["void*", "size_t", "bitarrayobject", "decodetreeobject",
-                    "binode", "HAVE_BUILTIN_BSWAP64",
-                    "PY_LITTLE_ENDIAN", "PY_BIG_ENDIAN",
-                    "Py_GIL_DISABLED", "Py_DEBUG", "DEBUG"]:
-            res = sysinfo(key)
-            self.assertIs(type(res), int)
-
-    @unittest.skipIf(sys.version_info[:2] < (3, 14),
-                     "free-threading not supported")
-    def test_gil_disabled(self):
-        self.assertEqual(sysinfo("Py_GIL_DISABLED"),
-                         "free-threading" in sys.version)
-        # see if GIL is actually disabled in free-threading build
-        if sysinfo("Py_GIL_DISABLED"):
-            self.assertFalse(sys._is_gil_enabled())
-
-    def test_sysinfo_errors(self):
-        self.assertRaises(TypeError, sysinfo)
-        self.assertRaises(TypeError, sysinfo, b"void*")
-        self.assertRaises(KeyError, sysinfo, "foo")
-
-    def test_sysinfo_pointer_size(self):
-        self.assertEqual(sysinfo("void*"), PTRSIZE)
-        self.assertEqual(sysinfo("size_t"), PTRSIZE)
-        self.assertEqual(sys.maxsize, 2 ** (8 * PTRSIZE - 1) - 1)
-        if not is_pypy:  # PyPy doesn't have tuple.__itemsize__
-            self.assertEqual(PTRSIZE, tuple.__itemsize__)
-
-    def test_sysinfo_byteorder(self):
-        self.assertEqual(sys.byteorder == "little",
-                         sysinfo("PY_LITTLE_ENDIAN"))
-        self.assertEqual(sys.byteorder == "big",
-                         sysinfo("PY_BIG_ENDIAN"))
-
     def test_get_default_endian(self):
         endian = get_default_endian()
-        self.assertTrue(endian in ('little', 'big'))
+        self.assertIn(endian, ('little', 'big'))
         self.assertIs(type(endian), str)
         a = bitarray()
         self.assertEqual(a.endian, endian)
@@ -214,6 +180,49 @@ class ModuleFunctionsTests(unittest.TestCase):
 
         self.assertRaises(ValueError, bits2bytes, -1)
         self.assertRaises(ValueError, bits2bytes, -924)
+
+class SysinfoTests(unittest.TestCase):
+
+    def test_keys(self):
+        for key in ["void*", "size_t", "bitarrayobject", "decodetreeobject",
+                    "binode", "HAVE_BUILTIN_BSWAP64",
+                    "PY_LITTLE_ENDIAN", "PY_BIG_ENDIAN",
+                    "Py_GIL_DISABLED", "Py_DEBUG", "DEBUG"]:
+            res = sysinfo(key)
+            self.assertIs(type(res), int)
+
+    def test_errors(self):
+        self.assertRaises(TypeError, sysinfo)
+        self.assertRaises(TypeError, sysinfo, b"void*")
+        self.assertRaises(KeyError, sysinfo, "foo")
+
+    @unittest.skipIf(sys.version_info[:2] < (3, 14),
+                     "free-threading not supported")
+    def test_gil_disabled(self):
+        gil_disabled = sysinfo("Py_GIL_DISABLED")
+        self.assertEqual(gil_disabled, "free-threading" in sys.version)
+        self.assertEqual(gil_disabled,
+                         get_config_var("Py_GIL_DISABLED") in (1, "1"))
+        # see if GIL is actually disabled in free-threading build
+        if gil_disabled:
+            self.assertFalse(sys._is_gil_enabled())
+
+    def test_py_debug(self):
+        self.assertEqual(sysinfo("Py_DEBUG"),
+                         get_config_var("Py_DEBUG") in (1, "1"))
+
+    def test_pointer_size(self):
+        self.assertEqual(sysinfo("void*"), PTRSIZE)
+        self.assertEqual(sysinfo("size_t"), PTRSIZE)
+        self.assertEqual(sys.maxsize, 2 ** (8 * PTRSIZE - 1) - 1)
+        if not is_pypy:  # PyPy doesn't have tuple.__itemsize__
+            self.assertEqual(PTRSIZE, tuple.__itemsize__)
+
+    def test_byteorder(self):
+        self.assertEqual(sys.byteorder == "little",
+                         sysinfo("PY_LITTLE_ENDIAN"))
+        self.assertEqual(sys.byteorder == "big",
+                         sysinfo("PY_BIG_ENDIAN"))
 
 # ---------------------------------------------------------------------------
 
@@ -2406,6 +2415,63 @@ class NumberTests(unittest.TestCase, Util):
         self.assertTrue(b.readonly)
         self.check_obj(b)
 
+    @unittest.skipIf(is_pypy, "skip test on PyPy")
+    def test_imported(self):
+        a = bytearray([0xf0, 0x08, 0x10, 0x0f])
+        b = bitarray(buffer=a, endian='big')
+        self.assertFalse(b.readonly)
+        # operate on imported (writable) buffer
+        b[0:9] |= bitarray("0000 1100 1", 'big')
+        self.assertEqual(a, bytearray([0xfc, 0x88, 0x10, 0x0f]))
+        b[23:] ^= bitarray("1 1110 1110", 'big')
+        self.assertEqual(a, bytearray([0xfc, 0x88, 0x11, 0xe1]))
+        b[16:] &= bitarray("1111 0000 1111 0000", 'big')
+        self.assertEqual(a, bytearray([0xfc, 0x88, 0x10, 0xe0]))
+
+
+class ShiftTests(unittest.TestCase, Util):
+
+    def test_bitarray(self):
+        a = bitarray('11001011 01')
+        b = a >> 2
+        self.assertIs(type(b), bitarray)
+        self.assertEqual(b, bitarray('00 11001011'))
+        self.assertFalse(b.readonly)
+        b <<= 4
+        b >>= 3
+        self.assertEqual(b, bitarray('000001011 0'))
+        self.check_obj(b)
+        b = a << 2
+        self.assertIs(type(b), bitarray)
+        self.assertEqual(b, bitarray('00101101 00'))
+        self.assertFalse(b.readonly)
+        self.check_obj(b)
+
+    def test_frozenbitarray(self):
+        a = frozenbitarray('11011010011')
+        b = a >> 3
+        self.assertIs(type(b), frozenbitarray)
+        self.assertEqual(b, bitarray('00011011010'))
+        self.assertTrue(b.readonly)
+        self.assertRaises(TypeError, a.__ilshift__, 4)
+        self.assertRaises(TypeError, a.__irshift__, 1)
+        self.check_obj(b)
+        b = a << 2
+        self.assertIs(type(b), frozenbitarray)
+        self.assertEqual(b, bitarray('01101001100'))
+        self.assertTrue(b.readonly)
+        self.check_obj(b)
+
+    def test_errors(self):
+        a = bitarray('1101101')
+        for x in a.__lshift__, a.__rshift__, a.__ilshift__, a.__irshift__:
+            self.assertRaises(ValueError, x, -1)
+            self.assertRaises(ValueError, x, -2)
+            self.assertRaises(TypeError, x, 1.0)
+            self.assertRaises(OverflowError, x, sys.maxsize + 1)
+            self.assertRaises(ValueError, x, -sys.maxsize - 1)
+            self.assertRaises(OverflowError, x, -sys.maxsize - 2)
+
     @staticmethod
     def shift(a, n, direction):
         if n >= len(a):
@@ -2422,10 +2488,7 @@ class NumberTests(unittest.TestCase, Util):
         a = bitarray('11011')
         b = a << 2
         self.assertEQUAL(b, bitarray('01100'))
-        self.assertRaises(TypeError, lambda: a << 1.2)
-        self.assertRaises(TypeError, a.__lshift__, 1.2)
         self.assertRaises(ValueError, lambda: a << -1)
-        self.assertRaises(OverflowError, a.__lshift__, 1 << 63)
 
         for a in self.randombitarrays():
             c = a.copy()
@@ -2439,8 +2502,6 @@ class NumberTests(unittest.TestCase, Util):
         a = bitarray('1101101')
         b = a >> 1
         self.assertEQUAL(b, bitarray('0110110'))
-        self.assertRaises(TypeError, lambda: a >> 1.2)
-        self.assertRaises(TypeError, a.__rshift__, 1.2)
         self.assertRaises(ValueError, lambda: a >> -1)
 
         for a in self.randombitarrays():
@@ -2451,26 +2512,7 @@ class NumberTests(unittest.TestCase, Util):
             self.assertEQUAL(b, self.shift(a, n, 'right'))
             self.assertEQUAL(a, c)
 
-    def test_shift_frozenbitarray(self):
-        a = frozenbitarray('11011010011')
-        b = a >> 3
-        self.assertIs(type(b), frozenbitarray)
-        self.assertEqual(b, bitarray('00011011010'))
-        self.assertTrue(b.readonly)
-        self.check_obj(b)
-        b = a << 2
-        self.assertIs(type(b), frozenbitarray)
-        self.assertEqual(b, bitarray('01101001100'))
-        self.assertTrue(b.readonly)
-        self.check_obj(b)
-
     def test_ilshift(self):
-        a = bitarray('110110101')
-        a <<= 7
-        self.assertEQUAL(a, bitarray('010000000'))
-        self.assertRaises(TypeError, a.__ilshift__, 1.2)
-        self.assertRaises(ValueError, a.__ilshift__, -3)
-
         for a in self.randombitarrays():
             b = a.copy()
             n = randrange(len(a) + 4)
@@ -2479,12 +2521,6 @@ class NumberTests(unittest.TestCase, Util):
             self.assertEQUAL(b, self.shift(a, n, 'left'))
 
     def test_irshift(self):
-        a = bitarray('110110111')
-        a >>= 3
-        self.assertEQUAL(a, bitarray('000110110'))
-        self.assertRaises(TypeError, a.__irshift__, 1.2)
-        self.assertRaises(ValueError, a.__irshift__, -4)
-
         for a in self.randombitarrays():
             b = a.copy()
             n = randrange(len(a) + 4)
@@ -2527,7 +2563,7 @@ class NumberTests(unittest.TestCase, Util):
         for a in self.randombitarrays():
             c = a.copy()
             z = zeros(len(a), a.endian)
-            n = randint(len(a), len(a) + 10)
+            n = choice([len(a), len(a) + 1, sys.maxsize])
             self.assertEQUAL(a << n, z)
             self.assertEQUAL(a >> n, z)
             self.assertEQUAL(a, c)
@@ -2536,19 +2572,6 @@ class NumberTests(unittest.TestCase, Util):
             a = bitarray(c)
             a >>= n
             self.assertEQUAL(a, z)
-
-    def test_shift_example(self):
-        a = bitarray('0010011')
-        self.assertEqual(a << 3, bitarray('0011000'))
-        a >>= 4
-        self.assertEqual(a, bitarray('0000001'))
-
-    def test_frozenbitarray(self):
-        a = frozenbitarray('0010011')
-        b = a << 3
-        self.assertEqual(b, bitarray('0011000'))
-        self.assertIs(type(b), frozenbitarray)
-        self.assertRaises(TypeError, a.__ilshift__, 4)
 
     @unittest.skipIf(is_pypy, "skip test on PyPy")
     def test_imported(self):
@@ -2945,7 +2968,8 @@ class FillTests(unittest.TestCase, Util):
         for a in self.randombitarrays():
             b = a.copy()
             res = b.fill()
-            self.assertTrue(0 <= res < 8)
+            self.assertTrue(type(res), int)
+            self.assertIn(res, range(8))
             self.assertEqual(b.padbits, 0)
             self.assertEqual(len(b) % 8, 0)
             self.assertEqual(b, a + zeros(res))
@@ -3902,7 +3926,7 @@ class IndexTests(unittest.TestCase, Util):
 
             if len(b) == 1:  # test finding int
                 v = b[0]
-                self.assertTrue(v in range(2))
+                self.assertIn(v, range(2))
                 self.assertEqual(a.find(v, i, j, 0), ref_l)
                 self.assertEqual(a.find(v, i, j, 1), ref_r)
 
@@ -4201,8 +4225,8 @@ class DescriptorTests(unittest.TestCase, Util):
             self.assertRaises(AttributeError, delattr, a, "nbytes")
             # .padbits
             self.assertEqual(a.padbits, 8 * a.nbytes - n)
-            self.assertTrue(0 <= a.padbits < 8)
             self.assertIs(type(a.padbits), int)
+            self.assertIn(a.padbits, range(8))
             self.assertRaises(AttributeError, setattr, a, "padbits", 0)
             self.assertRaises(AttributeError, delattr, a, "padbits")
 
@@ -4558,6 +4582,17 @@ class DecodeTreeTests(unittest.TestCase, Util):
         d['-'] = bitarray()
         self.assertRaises(ValueError, decodetree, d)
 
+    @unittest.skipIf(sys.version_info[:2] < (3, 15),
+                     "frozendict introduced in Python 3.15")
+    def test_create_from_frozendict(self):
+        d1 = frozendict(alphabet_code)
+        t = decodetree(d1)
+        d2 = t.todict()
+        self.assertEqual(d2, d1)
+        # as d2 is a dict we cannot hash it, but:
+        d3 = frozendict(d2)
+        hash(d3)
+
     def test_ambiguous_code(self):
         for d in [
             {'a': bitarray('0'), 'b': bitarray('0'), 'c': bitarray('1')},
@@ -4566,6 +4601,20 @@ class DecodeTreeTests(unittest.TestCase, Util):
             {'a': bitarray('0'), 'b': bitarray('11'), 'c': bitarray('111')},
         ]:
             self.assertRaises(ValueError, decodetree, d)
+
+    def test_max_code_length(self):
+        d = {'x': ones(256)}  # MAX_CODE_LENGTH = 256
+        t = decodetree(d)
+        self.assertEqual(t.nodes(), (256, 0, 1))
+        self.assertEqual(t.todict(), d)
+        a = ones(256)
+        it = a.decode(t)
+        self.assertEqual(next(it), 'x')
+        self.assertRaises(StopIteration, next, it)
+
+        d = {'x': ones(257)}
+        msg = "bitarray length 257 exceeds maximum prefix code length of 256"
+        self.assertRaisesMessage(ValueError, msg, decodetree, d)
 
     @unittest.skipIf(is_pypy, "skip test on PyPy")
     def test_sizeof(self):
@@ -4578,38 +4627,65 @@ class DecodeTreeTests(unittest.TestCase, Util):
     def test_nodes(self):
         for n in range(1, 20):
             dt = decodetree({'a': zeros(n)})
-            self.assertEqual(dt.nodes(), n + 1)
-            self.assertFalse(dt.complete())
+            nodes = dt.nodes()
+            self.assertEqual(nodes[0], n)  # tree is incomplete
+            self.assertEqual(nodes[1], 0)  # no nodes with two children
+            self.assertEqual(nodes[2], 1)  # always one symbol
 
-        dt = decodetree({'I': bitarray('1'),   'l': bitarray('01'),
-                         'a': bitarray('001'), 'n': bitarray('000')})
-        self.assertEqual(dt.nodes(), 7)
         dt = decodetree(alphabet_code)
-        self.assertEqual(dt.nodes(), 70)
+        nodes = dt.nodes()
+        self.assertIs(type(nodes), tuple)
+        self.assertEqual(dt.nodes(), (15, 27, 28))
 
     def test_complete(self):
+
+        def is_complete(dt):
+            return dt.nodes()[0] == 0
+
         dt = decodetree({'.': bitarray('1')})
-        self.assertIs(type(dt.complete()), bool)
-        self.assertFalse(dt.complete())
+        self.assertFalse(is_complete(dt))
 
         dt = decodetree({'a': bitarray('0'),
                          'b': bitarray('1')})
-        self.assertTrue(dt.complete())
+        self.assertTrue(is_complete(dt))
 
         dt = decodetree({'a': bitarray('0'),
                          'b': bitarray('11')})
-        self.assertFalse(dt.complete())
+        self.assertFalse(is_complete(dt))
 
         dt = decodetree({'a': bitarray('0'),
                          'b': bitarray('11'),
                          'c': bitarray('10')})
-        self.assertTrue(dt.complete())
+        self.assertTrue(is_complete(dt))
 
     def test_todict(self):
         t = decodetree(alphabet_code)
+        self.assertIs(type(t), decodetree)
         d = t.todict()
         self.assertIs(type(d), dict)
         self.assertEqual(d, alphabet_code)
+        for value in d.values():
+            self.assertIs(type(value), frozenbitarray)
+            self.check_obj(value)
+
+    def test_todict_small(self):
+        code = dict(a=bitarray('1'))
+        t = decodetree(code)
+        self.assertIs(type(t), decodetree)
+        code2 = t.todict()
+        self.assertEqual(code2, code)
+        self.assertEqual(code2['a'], bitarray('1'))
+        value = code2['a']
+        self.assertIs(type(value), frozenbitarray)
+        self.check_obj(value)
+
+    def test_endian(self):
+        # values may have arbitrary endianness
+        code = {sym: bitarray(a, endian=choice(['little', 'big']))
+                for sym, a in alphabet_code.items()}
+        t = decodetree(code)
+        d = t.todict()
+        self.assertEqual(d, code)
 
     def test_decode(self):
         t = decodetree(alphabet_code)
@@ -4626,8 +4702,10 @@ class DecodeTreeTests(unittest.TestCase, Util):
              for i in range(1024)}
         t = decodetree(d)
         self.assertEqual(t.todict(), d)
-        self.assertEqual(t.nodes(), 2047)
-        self.assertTrue(t.complete())
+        nodes = t.nodes()
+        self.assertEqual(nodes[0], 0)  # no incomplete nodes
+        self.assertEqual(nodes[2], 1024)  # symbol nodes
+        self.assertEqual(sum(nodes), 2047)  # total number of nodes
         self.assertTrue(sys.getsizeof(t) > 10000)
 
 # ------------------ variable length encoding and decoding ------------------
@@ -4638,8 +4716,12 @@ class PrefixCodeTests(unittest.TestCase, Util):
         a = bitarray()
         a.encode(alphabet_code, '')
         self.assertEqual(a, bitarray())
-        a.encode(alphabet_code, 'a')
-        self.assertEqual(a, bitarray('0110'))
+        a.encode(alphabet_code, 'ab')
+        self.assertEqual(a, bitarray('0110 0001100'))
+        if sys.version_info[:2] >= (3, 15):
+            a = bitarray()
+            a.encode(frozendict(alphabet_code), 'nu')
+            self.assertEqual(a, bitarray('1001 000100'))
 
     def test_encode_list(self):
         a = bitarray()
@@ -4733,6 +4815,9 @@ class PrefixCodeTests(unittest.TestCase, Util):
         self.assertEqual(list(a.decode(d)), res)
         self.assertEqual(d, dcopy)
         self.assertEqual(a, bitarray('101001000'))
+        if sys.version_info[:2] >= (3, 15):
+            fd = frozendict(d)
+            self.assertEqual(list(a.decode(fd)), res)
 
     def test_decode_type(self):
         a = bitarray('0110')
@@ -4761,6 +4846,18 @@ class PrefixCodeTests(unittest.TestCase, Util):
         self.assertEqual(list(a.decode(d)), [])
         self.assertEqual(d, {'a': bitarray('1')})
         self.assertEqual(len(a), 0)
+
+    def test_decode_max_code_length(self):
+        d = {'y': ones(256)}  # MAX_CODE_LENGTH = 256
+        a = ones(256)
+        it = a.decode(d)
+        self.assertEqual(next(it), 'y')
+        self.assertRaises(StopIteration, next, it)
+
+        d = {'a': ones(257)}
+        a = ones(257)
+        msg = "bitarray length 257 exceeds maximum prefix code length of 256"
+        self.assertRaisesMessage(ValueError, msg, a.decode, d)
 
     def test_decode_incomplete(self):
         d = {'a': bitarray('0'), 'b': bitarray('111')}
@@ -4928,20 +5025,47 @@ class DecodeIteratorTests(unittest.TestCase, Util):
         self.assertIs(type(it), decodeiterator)
 
     def test_skipbits(self):
-        a = bitarray("0100 00000 111")
+        a = bitarray("0100 00000 111 0")
         it = a.decode(alphabet_code)
-        b = it.skipbits(4)
-        self.assertIs(type(b), bitarray)
-        self.assertEqual(b.to01(), "0100")
+        skipped = it.skipbits(4)
+        self.assertIs(type(skipped), bitarray)
+        self.assertEqual(skipped.to01(), "0100")
         self.assertEqual(next(it), 'h')
+        self.assertEqual(len(it.skipbits(0)), 0)
+        self.assertEqual(next(it), 'e')
+        self.assertEqual(len(it.skipbits(1)), 1)
+        self.assertRaises(StopIteration, next, it)
+
+    def test_skipbits_empty(self):
+        a = bitarray()
+        it = a.decode(alphabet_code)
+        for _ in range(20):
+            skipped = it.skipbits(0)
+            self.assertIs(type(skipped), bitarray)
+            self.assertEqual(len(skipped), 0)
+        self.assertRaises(StopIteration, next, it)
+
+    def test_skipbits_frozenbitarray(self):
+        a = frozenbitarray("111 1111001111 0100")
+        it = a.decode(alphabet_code)
+        self.assertEqual(next(it), 'e')
+        skipped = it.skipbits(10)
+        self.assertIs(type(skipped), frozenbitarray)
+        self.assertEqual(skipped.to01(), "1111001111")
+        self.assertEqual(next(it), 't')
+        self.assertRaises(StopIteration, next, it)
+
+    def test_skipbits_errors(self):
+        a = bitarray("0100")
+        it = a.decode(alphabet_code)
         self.assertRaises(TypeError, it.skipbits)
         self.assertRaises(TypeError, it.skipbits, 2.0)
         self.assertRaises(TypeError, it.skipbits, "1")
         self.assertRaises(ValueError, it.skipbits, -1)
         self.assertRaises(ValueError, it.skipbits, 100)
         self.assertRaises(ValueError, it.skipbits, sys.maxsize)
-        self.assertEqual(next(it), 'e')
-        self.assertEqual(len(it.skipbits(0)), 0)
+        self.assertEqual(next(it), 't')
+        self.assertRaises(ValueError, it.skipbits, 1)
         self.assertRaises(StopIteration, next, it)
 
     def test_index(self):
@@ -4968,7 +5092,7 @@ class DecodeIteratorTests(unittest.TestCase, Util):
             while i < N:
                 n = randrange(20)
                 if i + n > N:
-                    n = N - i
+                    n = N - i  # avoid skipping beyond end of bitarray
                 self.assertEqual(it.index, i)
                 b = it.skipbits(n)
                 self.assertEqual(b, a[i:i + n])
@@ -5466,8 +5590,8 @@ class FrozenbitarrayTests(unittest.TestCase, Util):
         d = frozenbitarray('011')
         s = set([a, b, c, d])
         self.assertEqual(len(s), 4)
-        self.assertTrue(d in s)
-        self.assertFalse(frozenbitarray('0') in s)
+        self.assertIn(d, s)
+        self.assertNotIn(frozenbitarray('0'), s)
 
     def test_as_dictkey(self):
         a = frozenbitarray('01')
@@ -5533,34 +5657,46 @@ class FrozenbitarrayTests(unittest.TestCase, Util):
 
 # ---------------------------------------------------------------------------
 
+def show_info(verbosity=1):
+    if verbosity >= 1:
+        print('bitarray installed in: %s' % os.path.dirname(__file__))
+        print('sys.prefix: %s' % sys.prefix)
+
+    if verbosity >= 2:
+        print('bitarray version: %s' % __version__)
+        print('sys.version: %s' % sys.version)
+        if os.name == "posix":
+            print('sys.abiflags: %r' % sys.abiflags)
+        if sys.version_info[:2] >= (3, 14):
+            print('sys._is_gil_enabled(): %s' % sys._is_gil_enabled())
+        print('pointer size: %d bit' % (8 * PTRSIZE))
+        print('sizeof(size_t): %d' % sysinfo("size_t"));
+        print('sizeof(bitarrayobject): %d' % sysinfo("bitarrayobject"))
+        print('HAVE_BUILTIN_BSWAP64: %d' % sysinfo("HAVE_BUILTIN_BSWAP64"))
+        print('default bit-endianness: %s' % get_default_endian())
+        print('machine byte-order: %s' % sys.byteorder)
+
+    if verbosity >= 1:
+        print('Py_GIL_DISABLED: %s' % sysinfo("Py_GIL_DISABLED"))
+        print('Py_DEBUG: %s' % sysinfo("Py_DEBUG"))
+        print('DEBUG: %s' % sysinfo("DEBUG"))
+
 def run(verbosity=1):
     import bitarray.test_util
 
-    print('bitarray is installed in: %s' % os.path.dirname(__file__))
-    print('bitarray version: %s' % __version__)
-    print('sys.version: %s' % sys.version)
-    print('sys.prefix: %s' % sys.prefix)
-    if os.name == "posix":
-        print('sys.abiflags: %r' % sys.abiflags)
-    if sys.version_info[:2] >= (3, 14):
-        print('sys._is_gil_enabled(): %s' % sys._is_gil_enabled())
-    print('pointer size: %d bit' % (8 * PTRSIZE))
-    print('sizeof(size_t): %d' % sysinfo("size_t"));
-    print('sizeof(bitarrayobject): %d' % sysinfo("bitarrayobject"))
-    print('HAVE_BUILTIN_BSWAP64: %d' % sysinfo("HAVE_BUILTIN_BSWAP64"))
-    print('default bit-endianness: %s' % get_default_endian())
-    print('machine byte-order: %s' % sys.byteorder)
-    print('Py_GIL_DISABLED: %s' % sysinfo("Py_GIL_DISABLED"))
-    print('Py_DEBUG: %s' % sysinfo("Py_DEBUG"))
-    print('DEBUG: %s' % sysinfo("DEBUG"))
+    if verbosity:
+        show_info(verbosity=2)
+
     loader = unittest.TestLoader()
     suite = unittest.TestSuite()
     suite.addTests(loader.loadTestsFromModule(sys.modules[__name__]))
     suite.addTests(loader.loadTestsFromModule(bitarray.test_util))
+    if sysinfo("Py_GIL_DISABLED"):
+        import bitarray.test_free_threading as test_free_threading
+        suite.addTests(loader.loadTestsFromModule(test_free_threading))
 
     runner = unittest.TextTestRunner(verbosity=verbosity)
-    result = runner.run(suite)
-    return result
+    return runner.run(suite)
 
 if __name__ == '__main__':
     unittest.main()

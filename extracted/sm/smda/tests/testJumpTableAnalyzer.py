@@ -44,6 +44,19 @@ class JumpTableAnalyzerTestSuite(unittest.TestCase):
 
         self.assertEqual(result, set())
 
+    def test_findJumpTables_matches_displacement_containing_newline_byte(self):
+        # `lea r11, [rip + 0xa1234]; movsxd` — the displacement contains 0x0a,
+        # which a bytes regex without re.DOTALL never matches ('.' excludes \n),
+        # silently dropping the jump table from table_offsets.
+        binary = b"\x4c\x8d\x1d\x34\x12\x0a\x00\x48\x63\xc0"
+        analyzer = _makeAnalyzer(binary=binary, base_addr=0x1000)
+        analyzer.disassembly.getRawBytes = MagicMock(return_value=b"\x34\x12\x0a\x00")
+        analyzer.disassembly.isAddrWithinMemoryImage = MagicMock(return_value=True)
+
+        result = analyzer._findJumpTables()
+
+        self.assertEqual(result, {0x1000 + 0xA1234 + 7})
+
     def test_extractDirectTableOffsets_none_bytes_does_not_raise(self):
         analyzer = _makeAnalyzer()
         analyzer.disassembly.isAddrWithinMemoryImage = MagicMock(return_value=True)
@@ -154,3 +167,35 @@ class JumpTableAnalyzerTestSuite(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestJumpTableSignedness(unittest.TestCase):
+    """Regression for audit finding 27: jump-table signedness.
+
+    The lea disp32 and relative table entries are signed int32; treating them as
+    unsigned drops backward-referencing tables (and the whole switch) or computes
+    wrong targets. These fail on pre-fix code (struct.unpack("I", ...))."""
+
+    def test_findJumpTables_backward_lea_signed_disp_not_dropped(self):
+        # lea r11, [rip - 0x1000] (disp32 0xFFFFF000) must unpack as a signed
+        # displacement so the table is found instead of overflowing and being dropped.
+        binary = b"\x00" * 0x2000 + b"\x4c\x8d\x1d\x00\xf0\xff\xff\x48\x63\xc0"
+        analyzer = _makeAnalyzer(binary=binary, base_addr=0x1000, binary_size=0x3000)
+        analyzer.disassembly.getRawBytes = MagicMock(return_value=b"\x00\xf0\xff\xff")
+        analyzer.disassembly.isAddrWithinMemoryImage = MagicMock(side_effect=lambda a: 0x1000 <= a < 0x4000)
+        # ins_offset = base_addr + match.start() = 0x1000 + 0x2000 = 0x3000;
+        # table_offset = 0x3000 + (-0x1000) + 7 = 0x2007
+        self.assertEqual(analyzer._findJumpTables(), {0x2007})
+
+    def test_extractRelativeTableOffsets_negative_entry_recovered(self):
+        # A switch whose bodies precede the table stores negative int32 entries
+        # (target - table_base). These must unpack signed and be masked before the
+        # bounds check, or every target of the switch is lost.
+        analyzer = _makeAnalyzer(base_addr=0x1000, binary_size=0x2000)
+        analyzer.disassembly.isAddrWithinMemoryImage = MagicMock(side_effect=lambda a: 0x1000 <= a < 0x3000)
+        analyzer.disassembly.getRawBytes = MagicMock(return_value=b"\x00\xf0\xff\xff")  # -0x1000
+        # jump_base = off_jumptable = 0x2000; masked target = 0x2000 - 0x1000 = 0x1000
+        result = analyzer._extractRelativeTableOffsets(
+            jumptable_size=4, off_jumptable=0x2000, alternative_base=None, bonus_offset=0
+        )
+        self.assertEqual(result, [0x1000])

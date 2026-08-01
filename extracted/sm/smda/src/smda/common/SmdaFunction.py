@@ -42,9 +42,12 @@ INTEL_PIC_HASH_ESCAPE_VERSION = [4, 3, 5]
 CIL_PIC_HASH_ESCAPE_VERSION = [4, 3, 8]
 
 # Dalvik PIC hashing introduced format-aware pool/imm/branch masking via
-# DalvikInstructionEscaper. Reports at or before this version stored raw-byte
-# (or None-escaper) hashes and must recalculate on import.
-DALVIK_PIC_HASH_ESCAPE_VERSION = [4, 3, 10]
+# DalvikInstructionEscaper in 4.3.10, and changed again in 4.4.2 when
+# escape_intraprocedural_jumps was corrected: it had been inverted relative to the Intel
+# and CIL escapers, clearing the mask for the branch-only formats (10t/20t/21t/22t/30t)
+# on the pic_hash path and so retaining the raw signed branch offset. Older reports have
+# position-dependent Dalvik pic_hash values and must recalculate on import.
+DALVIK_PIC_HASH_ESCAPE_VERSION = [4, 4, 2]
 
 
 class LazyIntKeyDict(dict):
@@ -59,8 +62,10 @@ class LazyIntKeyDict(dict):
 
     def __init__(self, data=None):
         if data:
-            self._raw_data = data
-            self._is_converted = False
+            for k, v in data.items():
+                dict.__setitem__(self, int(k), v)
+            self._is_converted = True
+            self._raw_data = None
         else:
             dict.__init__(self)
             self._is_converted = True
@@ -346,6 +351,8 @@ class SmdaFunction:
         return self.pic_hash
 
     def getPicHashAsHex(self):
+        if self.pic_hash is None:
+            return None
         return struct.pack("<Q", self.pic_hash).hex()
 
     def getInstructions(self):

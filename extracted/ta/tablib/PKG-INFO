@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tablib
-Version: 3.9.0
+Version: 3.10.0
 Summary: Format agnostic tabular data library (XLS, JSON, YAML, CSV, etc.)
 Author-email: Kenneth Reitz <me@kennethreitz.org>
 Maintainer: Hugo van Kemenade
@@ -17,13 +17,13 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.15
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS

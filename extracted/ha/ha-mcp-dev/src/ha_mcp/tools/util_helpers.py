@@ -77,43 +77,14 @@ def summarize_theme_listing(raw_themes: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def strip_internal_fields(obj: Any, _seen: set[int] | None = None) -> Any:
-    """Remove leading-underscore keys from ``obj`` and any nested dicts
-    or lists in place.
+def public_fields(d: dict[str, Any]) -> dict[str, Any]:
+    """Return a shallow copy of ``d`` with leading-underscore keys removed.
 
     The ha-mcp tool layer enriches entity / area dicts with internal
     fields like ``_hidden_by`` and ``_aliases`` so downstream branches
     can rank without re-querying the entity registry. Those keys must
     not leak through public tool returns: this helper centralises the
     convention so individual call sites don't have to remember to strip.
-
-    Mutates in place and returns the same reference for chaining. Cycle
-    guard via ``_seen`` (id-tracked) keeps the recursion safe if a
-    future caller ever feeds it a non-tree structure — JSON payloads
-    don't, but the helper is now a generic utility (importable from
-    ``server.py``) so the protection is cheap insurance.
-    """
-    if _seen is None:
-        _seen = set()
-    obj_id = id(obj)
-    if obj_id in _seen:
-        return obj
-    if isinstance(obj, dict):
-        _seen.add(obj_id)
-        for key in [k for k in obj if isinstance(k, str) and k.startswith("_")]:
-            obj.pop(key, None)
-        for value in obj.values():
-            strip_internal_fields(value, _seen)
-    elif isinstance(obj, list):
-        _seen.add(obj_id)
-        for item in obj:
-            strip_internal_fields(item, _seen)
-    return obj
-
-
-def public_fields(d: dict[str, Any]) -> dict[str, Any]:
-    """Return a shallow copy of ``d`` with leading-underscore keys
-    removed. Non-mutating counterpart to :func:`strip_internal_fields`.
     Shallow only — list/dict values are shared with the source, so a
     later mutation of those values would propagate.
     """
@@ -346,8 +317,9 @@ def compact_service_result(
     3. Drop known-heavy attribute keys (``effect_list``, ``hue_scenes``) from
        every record's ``attributes`` dict.
 
-    Returns ``result`` unchanged when not a list (e.g. dict from
-    ``return_response=True`` services), or when the list is empty.
+    Returns ``result`` unchanged when it is not a list (defensive — every
+    ha_call_service path now projects a changed-state list), or when the list
+    is empty.
     """
     if not isinstance(result, list) or not result:
         return result
@@ -496,6 +468,14 @@ def unwrap_service_response(result: dict[str, Any]) -> dict[str, Any]:
     HA's call_service with return_response wraps results in
     {"changed_states": [...], "service_response": {...}}.
     Returns service_response if present and is a dict, otherwise the original result.
+
+    Deliberately NOT the same rule as ``ServiceTools._split_return_response_envelope``,
+    which powers ha_call_service: that one returns the response whatever its type and
+    reports the whole reply only when the key is absent. The two disagree solely for a
+    NON-DICT ``service_response`` (this helper hands back the envelope, the split hands
+    back the value). Consumers here read component services that always answer with a
+    dict, so the divergence is unreachable — but do not "align" one to the other
+    without checking those ~20 call sites.
     """
     sr = result.get("service_response")
     return sr if isinstance(sr, dict) else result

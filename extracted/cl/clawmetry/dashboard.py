@@ -14,6 +14,10 @@ https://github.com/vivekchand/clawmetry
 MIT License
 """
 
+from clawmetry.gateway_protocol import (
+    GATEWAY_MAX_PROTOCOL as _GW_MAX_PROTO,
+    GATEWAY_MIN_PROTOCOL as _GW_MIN_PROTO,
+)
 import hmac
 import os
 import sys
@@ -105,10 +109,12 @@ from routes.alerts import bp_alerts, bp_budget
 from routes.channels import bp_channels
 from routes.overview import bp_overview
 from routes.trial import bp_trial
+from routes.onboarding import bp_onboarding
 from routes.components import bp_components
 from routes.fleet_history import bp_fleet
 from routes.infra import bp_logs, bp_memory, bp_security, bp_config
 from routes.meta import bp_auth, bp_cloud_relay, bp_gateway, bp_otel, bp_otlp_traces, bp_version, bp_version_impact
+from routes.compliance import bp_compliance
 from routes.nemoclaw import bp_nemoclaw
 from routes.skills import bp_skills
 from routes.heartbeat import bp_heartbeat
@@ -261,7 +267,7 @@ def _otlp_service_name_to_agent_type(service_name):
     return slug or "custom"
 
 
-__version__ = "0.12.597"
+__version__ = "0.12.616"
 
 # Extensions (Phase 2): import the plugin host now, but defer the actual
 # load_plugins() call until after the Flask app is created below so we can
@@ -278,16 +284,16 @@ except ImportError:
         pass  # noqa
 
 
-app = Flask(
-    __name__,
-    static_folder=os.path.join(os.path.dirname(__file__), 'clawmetry', 'static'),
-    template_folder=os.path.join(os.path.dirname(__file__), 'clawmetry', 'templates'),
-)
-
-# Plugins (e.g. ``clawmetry-pro``) can now register Blueprints on ``app``.
-# Older plugins with ``register_all()`` (no args) keep working unchanged:
-# the loader inspects the signature and only passes ``app`` when accepted.
-_ext_load(app)
+# NOTE: the Flask app is constructed ONCE, further down this module (search
+# for ``app = Flask(``). A second, earlier construction used to live here and
+# silently orphaned every plugin Blueprint: clawmetry-pro registered its
+# routes on the early app, then the later ``app = Flask(...)`` replaced it and
+# every pro-only endpoint (nemoclaw, selfevolve, assets, compliance, ...)
+# 404'd on licensed installs while the OSS 402 stubs skipped registration
+# because ``clawmetry_pro.is_loaded()`` was True. ``_ext_load(app)`` must be
+# invoked on the app instance that actually serves — it is called immediately
+# after the real construction below. Guarded by
+# tests/test_plugin_load_on_served_app.py.
 
 # ── Cross-platform helpers ──────────────────────────────────────────────
 import re as _re
@@ -8641,6 +8647,14 @@ app = Flask(
     template_folder=os.path.join(os.path.dirname(__file__), 'clawmetry', 'templates'),
 )
 
+# Plugins (e.g. ``clawmetry-pro``) register their Blueprints on ``app`` HERE —
+# this must stay immediately after the one-and-only Flask() construction (see
+# the note near the top of this module: a second construction once orphaned
+# every plugin route). Older plugins with ``register_all()`` (no args) keep
+# working unchanged: the loader inspects the signature and only passes
+# ``app`` when accepted.
+_ext_load(app)
+
 # Cap request body size (DoS guard). OTLP/JSON batches and config posts are
 # small; a 32 MB ceiling lets Flask reject oversized bodies (413) before they
 # are read into memory. Override with CLAWMETRY_MAX_REQUEST_MB for large OTLP
@@ -11725,6 +11739,7 @@ def detect_config(args=None):
     app.register_blueprint(bp_otlp_traces)
     app.register_blueprint(bp_overview)
     app.register_blueprint(bp_trial)
+    app.register_blueprint(bp_onboarding)
     app.register_blueprint(bp_security)
     app.register_blueprint(bp_sessions)
     app.register_blueprint(bp_sla)
@@ -11742,6 +11757,7 @@ def detect_config(args=None):
     # the OSS stub registers and returns HTTP 402 ``upgrade_required``.
     if not _pro_loaded:
         app.register_blueprint(bp_nemoclaw)
+        app.register_blueprint(bp_compliance)
     app.register_blueprint(bp_skills)
     app.register_blueprint(bp_heartbeat)
     app.register_blueprint(bp_selfconfig)
@@ -11752,6 +11768,20 @@ def detect_config(args=None):
     app.register_blueprint(bp_reasoning)
     app.register_blueprint(bp_plugins)
     app.register_blueprint(bp_local_query)
+    # ClawMetry Enterprise self-hosted server mode: one process serves the
+    # dashboard AND the ingest API the node daemons push to. Gated hard on
+    # SELF_HOSTED=true — never registered for normal local/cloud installs.
+    try:
+        from clawmetry.selfhosted import is_self_hosted as _is_self_hosted
+        if _is_self_hosted():
+            from routes.selfhosted_ingest import bp_selfhosted
+            app.register_blueprint(bp_selfhosted)
+            from clawmetry.selfhosted import maybe_start_license_ping
+            if maybe_start_license_ping():
+                print("  SelfHosted: [ok] license/version ping enabled (daily)")
+            print("  SelfHosted: [ok] ingest API registered (/auth, /ingest/*)")
+    except Exception as _sh_exc:
+        print(f"  SelfHosted: [warn] not registered: {_sh_exc}")
     app.register_blueprint(bp_dives)
     app.register_blueprint(bp_reports)
     app.register_blueprint(bp_scheduler)
@@ -12183,6 +12213,7 @@ DASHBOARD_HTML = r"""
   {% endif %}
 </div>
 {% include 'partials/cloud-modal.html' %}
+{% include 'partials/onboarding-modal.html' %}
 
 
 {% include 'partials/banners.html' %}
@@ -12232,6 +12263,10 @@ DASHBOARD_HTML = r"""
         <span class="left-nav-icon" aria-hidden="true">&#9873;</span>
         <span class="left-nav-label" data-i18n="nav.alerts">Alerts</span>
         <span id="nav-alerts-badge" class="left-nav-badge" style="display:none;">0</span>
+      </div>
+      <div class="left-nav-item" data-tab="evals" onclick="switchTab('evals')" data-i18n-title="nav.evals_tooltip" title="Automatic quality checks and LLM-judge scores for your agent's work">
+        <span class="left-nav-icon" aria-hidden="true">&#128300;</span>
+        <span class="left-nav-label" data-i18n="nav.evals">Evals</span>
       </div>
       {# Notifications sits directly under its two consumers (Approvals,
          Alerts) - founder request 2026-07-29: buried in the Advanced drawer,
@@ -12335,6 +12370,9 @@ DASHBOARD_HTML = r"""
 
 <!-- ALERTS (Cloud-Pro feature) -->
 {% include 'tabs/alerts.html' %}
+
+<!-- EVALS (LLM-as-judge scores + named evaluator library + golden suites) -->
+{% include 'tabs/evals.html' %}
 
 <!-- USAGE -->
 {% include 'tabs/usage.html' %}
@@ -12540,6 +12578,7 @@ DASHBOARD_HTML = r"""
 </div>
 
 <script src="{{ url_for('static', filename='js/gw-setup.js', v=version) }}"></script>
+<script src="{{ url_for('static', filename='js/onboarding.js', v=version) }}"></script>
 
 </body>
 </html>
@@ -12837,8 +12876,8 @@ def _auto_discover_gateway(token):
                 "id": "discover",
                 "method": "connect",
                 "params": {
-                    "minProtocol": 3,
-                    "maxProtocol": 3,
+                    "minProtocol": _GW_MIN_PROTO,
+                    "maxProtocol": _GW_MAX_PROTO,
                     "client": {
                         "id": "cli",
                         "version": __version__,
@@ -17865,6 +17904,16 @@ Commands:
   status         Show service status, port, and uptime
   uninstall      Remove the background service
 
+Cloud:
+  login                  Log in / sign up for ClawMetry Cloud (email or Google/GitHub)
+  connect                Activate cloud sync with an API key (scripted/advanced)
+  disconnect             Stop cloud sync and remove the account key
+  doctor                 Diagnose cloud connectivity (DNS/proxy/TLS, detects
+                         corporate TLS interception)
+  --turn-on-cloud-sync   Resume cloud sync (keeps your login)
+  --turn-off-cloud-sync  Pause cloud sync — nothing leaves this machine;
+                         the local dashboard keeps working
+
 Options:
   --port <port>        Port to listen on (default: 8900)
   --host <host>        Host to bind to (default: 127.0.0.1)
@@ -18207,7 +18256,8 @@ def _start_oauth_bridge(provider):
                          "node_id": "", "enc_key": "", "error": "Unsupported provider"}
         return None
 
-    app_base = os.environ.get("CLAWMETRY_APP_BASE", "https://app.clawmetry.com").rstrip("/")
+    from clawmetry.endpoints import app_url as _resolve_app_url
+    app_base = _resolve_app_url()
     captured = {}
 
     class _Handler(http.server.BaseHTTPRequestHandler):
@@ -18597,11 +18647,22 @@ def _start_daemon_background():
     import subprocess
     import pathlib as _pl
 
+    spawn_kwargs = {}
+    if os.name == "nt":
+        # start_new_session is POSIX-only and silently no-ops on Windows:
+        # the daemon stayed tied to this console (killed when it closes)
+        # and, when the dashboard itself runs hidden, python.exe popped a
+        # visible console window. Mirror cli.py _start_subprocess.
+        spawn_kwargs["creationflags"] = (
+            subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+        )
+    else:
+        spawn_kwargs["start_new_session"] = True
     proc = subprocess.Popen(
         [sys.executable, "-m", "clawmetry.sync"],
         stdout=open(os.devnull, "w"),
         stderr=open(os.devnull, "w"),
-        start_new_session=True,
+        **spawn_kwargs,
     )
     pid_file = _pl.Path.home() / ".clawmetry" / "sync.pid"
     pid_file.parent.mkdir(parents=True, exist_ok=True)
@@ -19095,6 +19156,19 @@ def _init_data_provider():
 
 
 def main():
+    # Enterprise TLS/proxy bootstrap (idempotent; also runs in cli.main).
+    # Covers direct `python3 dashboard.py` runs so telemetry/cloud-proxy
+    # POSTs work behind corporate TLS-intercepting proxies.
+    try:
+        from clawmetry.net import configure_outbound_network
+        configure_outbound_network(role="dashboard")
+    except Exception:
+        pass
+    try:
+        from clawmetry.winconsole import hide_child_console_windows
+        hide_child_console_windows()
+    except Exception:
+        pass
     # -----------------------------------------------------------------------
     # Build a shared parent parser for options that apply to all subcommands
     # (and to foreground mode when no subcommand is given).

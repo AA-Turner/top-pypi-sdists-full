@@ -13,12 +13,12 @@ import ssl
 import weakref
 from asyncio.trsock import TransportSocket
 from logging import getLogger
-from typing import Callable
+from typing import Any, Callable
 
 from . import constants, openssl_compat
 from .constants import SSL_BIO_SIZE_DEFAULTS, SSL_TIMEOUT_DEFAULTS
 from .ssl_transport import SSLTransport_Socket, SSLTransport_Transport
-from .transport import SocketTransport, aiofn_is_buffered_protocol
+from .transport import SelectorSocketTransport, aiofn_is_buffered_protocol
 from .wrapped_transport import _get_original_loop_method, _should_fallback_to_asyncio, _WrappedBufferedProtocol, _WrappedProtocol
 
 _HAS_IPv6 = hasattr(socket, 'AF_INET6')
@@ -59,6 +59,14 @@ def _validate_bio_size(name: str, value: int | None, ssl_or_sslcontext: bool | s
 
 def _ssl_needs_fallback_engine(sslcontext: ssl.SSLContext) -> bool:
     return openssl_compat.OPENSSL_DYN_LIBS is None or getattr(sslcontext, "_aiofastnet_force_fallback_ssl", False)
+
+
+async def _wait_and_close_transport_on_exc(waiter: asyncio.Future[Any], transport: Any) -> Any:
+    try:
+        return await waiter
+    except:
+        transport.close()
+        raise
 
 
 async def _create_connection_transport(
@@ -140,7 +148,7 @@ async def _create_connection_transport(
                     server_hostname=server_hostname,
                     server=server
                 )
-                SocketTransport(loop, sock, transport.get_tls_protocol())
+                SelectorSocketTransport(loop, sock, transport.get_tls_protocol())
             else:
                 transport = SSLTransport_Socket(
                     loop, protocol, sslcontext,
@@ -155,8 +163,8 @@ async def _create_connection_transport(
                     server=server
                 )
         else:
-            transport = SocketTransport(loop, sock, protocol,
-                                        waiter=waiter, server=server)
+            transport = SelectorSocketTransport(loop, sock, protocol,
+                                                waiter=waiter, server=server)
 
     if waiter is not None:
         try:

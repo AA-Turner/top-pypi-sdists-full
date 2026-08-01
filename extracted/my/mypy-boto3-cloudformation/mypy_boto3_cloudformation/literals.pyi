@@ -193,7 +193,7 @@ DescribeStackEventsPaginatorName = Literal["describe_stack_events"]
 DescribeStacksPaginatorName = Literal["describe_stacks"]
 DetailedStatusType = Literal["CONFIGURATION_COMPLETE", "VALIDATION_FAILED"]
 DifferenceTypeType = Literal["ADD", "NOT_EQUAL", "REMOVE"]
-DriftIgnoredReasonType = Literal["MANAGED_BY_AWS", "WRITE_ONLY_PROPERTY"]
+DriftIgnoredReasonType = Literal["MANAGED_BY_AWS", "SENSITIVE_PROPERTY", "WRITE_ONLY_PROPERTY"]
 EvaluationTypeType = Literal["Dynamic", "Static"]
 EventTypeType = Literal[
     "HOOK_INVOCATION_ERROR",
@@ -728,6 +728,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -745,6 +746,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

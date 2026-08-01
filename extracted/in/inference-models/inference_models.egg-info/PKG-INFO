@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inference-models
-Version: 0.34.3
+Version: 0.34.4
 Summary: The new inference engine for Computer Vision models
 Requires-Python: <3.13,>=3.10
 Description-Content-Type: text/markdown
@@ -46,6 +46,7 @@ Requires-Dist: CairoSVG<3.0.0,>=2.9.0
 Requires-Dist: fonttools<5.0.0,>=4.60.2
 Requires-Dist: Pygments<3.0.0,>=2.20.0
 Requires-Dist: idna>=3.15
+Requires-Dist: setuptools>=83.0.0
 Provides-Extra: torch-cpu
 Requires-Dist: torch<3.0.0,>=2.0.0; extra == "torch-cpu"
 Requires-Dist: torchvision; extra == "torch-cpu"

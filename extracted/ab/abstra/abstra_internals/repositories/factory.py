@@ -8,6 +8,7 @@ from abstra_internals.environment import (
     CLOUD_API_CLI_URL,
     CLOUD_API_PROD_HEADERS,
     CLOUD_API_PROD_URL,
+    EDITOR_MODE,
     RABBITMQ_CONNECTION_URI,
     linter_sidecar_enabled,
 )
@@ -54,6 +55,11 @@ from abstra_internals.repositories.linter.repository import (
     LocalLinterRepository,
     ProductionLinterRepository,
 )
+from abstra_internals.repositories.metrics import (
+    LocalMetricsRepository,
+    MetricsRepository,
+    ProductionMetricsRepository,
+)
 from abstra_internals.repositories.multiprocessing import (
     ForkServerContextRepository,
     MPContextReposity,
@@ -98,6 +104,7 @@ from abstra_internals.repositories.users import (
     ProductionUsersRepository,
     UsersRepository,
 )
+from abstra_internals.services.api_key_status import ApiKeyStatus
 from abstra_internals.utils.multiprocessing import safe_multiprocessing_queue
 
 
@@ -149,6 +156,7 @@ class Repositories:
     infra: InfraRepository
     code_markers: CodeMarkersRepository
     editor_auth: EditorAuthRepository
+    metrics: MetricsRepository
 
 
 def build_editor_repositories(local_queue: Optional[Queue] = None):
@@ -158,8 +166,21 @@ def build_editor_repositories(local_queue: Optional[Queue] = None):
         local_queue = safe_multiprocessing_queue(mp_context.get_context())
 
     http_client = HTTPClient(
-        base_url=CLOUD_API_CLI_URL, base_headers_resolver=resolve_headers_raise
+        base_url=CLOUD_API_CLI_URL,
+        base_headers_resolver=resolve_headers_raise,
+        # Only the web editor recovers from a revoked API key: its token comes
+        # from the deployment, so cloud-api can hand it a live one against the
+        # editor session (see ApiKeyStatus). This bundle also serves the legacy
+        # web editor, hence the mode check — in a local install the same 401 means
+        # "run abstra login".
+        on_unauthorized=(
+            ApiKeyStatus.recover_from_unauthorized if EDITOR_MODE == "web" else None
+        ),
     )
+
+    editor_auth = WebEditorAuthRepository(client=http_client)
+    if EDITOR_MODE == "web":
+        ApiKeyStatus.configure_repair(editor_auth.repair_api_key)
 
     linter = _build_editor_linter_repository()
 
@@ -177,7 +198,7 @@ def build_editor_repositories(local_queue: Optional[Queue] = None):
         # interface/cli/editor.py), where session renewal must work. Once the
         # legacy mode is removed, this can become a no-op and the real
         # implementation moves exclusively to build_web_editor_repositories.
-        editor_auth=WebEditorAuthRepository(client=http_client),
+        editor_auth=editor_auth,
         roles=LocalRolesRepository(client=http_client),
         ai=LocalAIRepository(client=http_client),
         execution_logs=LocalExecutionLogsRepository(),
@@ -188,6 +209,7 @@ def build_editor_repositories(local_queue: Optional[Queue] = None):
         linter=linter,
         infra=LocalInfraRepository(),
         code_markers=LocalCodeMarkersRepository(),
+        metrics=LocalMetricsRepository(),
     )
 
 
@@ -220,6 +242,7 @@ def build_prod_repositories():
         linter=ProductionLinterRepository(),
         infra=ProductionInfraRepository(client=http_client),
         code_markers=ProductionCodeMarkersRepository(),
+        metrics=ProductionMetricsRepository(client=http_client),
     )
 
 
@@ -248,8 +271,16 @@ def build_web_editor_repositories(rabbitmq_connection_uri: str):
     )
 
     http_client = HTTPClient(
-        base_url=CLOUD_API_CLI_URL, base_headers_resolver=resolve_headers_raise
+        base_url=CLOUD_API_CLI_URL,
+        base_headers_resolver=resolve_headers_raise,
+        on_unauthorized=ApiKeyStatus.recover_from_unauthorized,
     )
+
+    editor_auth = WebEditorAuthRepository(client=http_client)
+    # Lets the recovery reach cloud-api without the service importing a
+    # repository; the client above calls it whenever a 401 turns out to be the
+    # API key rather than the session token.
+    ApiKeyStatus.configure_repair(editor_auth.repair_api_key)
 
     linter = _build_editor_linter_repository()
     mp_context_repo = get_mp_context_repository()
@@ -289,7 +320,7 @@ def build_web_editor_repositories(rabbitmq_connection_uri: str):
         tasks=tasks,
         tables=LocalTablesRepository(client=http_client),
         email=EmailRepository(client=http_client),
-        editor_auth=WebEditorAuthRepository(client=http_client),
+        editor_auth=editor_auth,
         roles=LocalRolesRepository(client=http_client),
         ai=LocalAIRepository(client=http_client),
         execution_logs=execution_logs,
@@ -300,4 +331,5 @@ def build_web_editor_repositories(rabbitmq_connection_uri: str):
         linter=linter,
         infra=LocalInfraRepository(),
         code_markers=LocalCodeMarkersRepository(),
+        metrics=LocalMetricsRepository(),
     )

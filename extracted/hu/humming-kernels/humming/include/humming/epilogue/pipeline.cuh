@@ -59,6 +59,9 @@ public:
     PRAGMA_UNROLL
     for (uint32_t i = 0; i < kNumWriteSplits; i++) {
       smem_writer.write(regs_c_ptr, slice_count, i);
+      if constexpr (Ctx::kUseTmaC) {
+        if (ctx.is_math_thread()) tma_fence_async_shared();
+      }
       ctx.sync_math_threads();
       gmem_writer.write(slice_id, slice_count, i);
       ctx.sync_math_threads();
@@ -89,8 +92,9 @@ public:
   CUDA_INLINE
   void seek(uint32_t expert_id, uint32_t m_block_id, uint32_t n_block_id, uint32_t current_shape_m, uint32_t m_offset) {
     gmem_writer.seek(m_block_id, n_block_id, current_shape_m, m_offset);
-    if constexpr (Ctx::kIsTensorWeightScale) {
-      arith.gs = ctx.params.gs[Ctx::kIsDenseGemm ? 0 : expert_id];
+    if constexpr (Ctx::kHasTensorWeightScale) {
+      const uint32_t *gs_ptr = reinterpret_cast<const uint32_t *>(Ctx::kIsTensorWeightScale2 ? ctx.params.bs2 : ctx.params.bs);
+      arith.gs = gs_ptr[Ctx::kIsDenseGemm ? 0 : expert_id];
     }
   };
 

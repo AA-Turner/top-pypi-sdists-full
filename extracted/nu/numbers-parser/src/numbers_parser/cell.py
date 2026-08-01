@@ -409,7 +409,8 @@ class BorderType(IntEnum):
     NONE = BORDER_STYLE_MAP["none"]
 
 
-class Border:
+@dataclass(frozen=True)
+class Border:  # noqa: PLW1641
     """
     Create a cell border to use with the :py:class:`~numbers_parser.Table` method
     :py:meth:`~numbers_parser.Table.set_cell_border`.
@@ -441,40 +442,51 @@ class Border:
 
     """
 
-    def __init__(
-        self,
-        width: float = DEFAULT_BORDER_WIDTH,
-        color: RGB = None,
-        style: BorderType = None,
-        _order: int = 0,
-    ) -> None:
-        if not isinstance(width, float):
+    width: float = DEFAULT_BORDER_WIDTH
+    color: RGB = None
+    style: BorderType = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.width, float):
             msg = "width must be a float number of points"
             raise TypeError(msg)
-        self.width = width
 
-        if color is None:
-            color = RGB(*DEFAULT_BORDER_COLOR)
-        self.color = rgb_color(color)
-
-        if style is None:
-            style = BorderType(BORDER_STYLE_MAP[DEFAULT_BORDER_STYLE])
-        if isinstance(style, str):
-            style = style.lower()
-            if style not in BORDER_STYLE_MAP:
-                msg = "invalid border style"
-                raise TypeError(msg)
-            self.style = BORDER_STYLE_MAP[style]
+        if self.color is None:
+            object.__setattr__(self, "color", RGB(*DEFAULT_BORDER_COLOR))
         else:
-            self.style = style
+            object.__setattr__(self, "color", rgb_color(self.color))
 
-        self._order = _order
+        current_style = self.style
+        if current_style is None:
+            # Default fallback
+            current_style = BorderType(BORDER_STYLE_MAP[DEFAULT_BORDER_STYLE])
+
+        elif isinstance(current_style, str):
+            # String conversion (e.g., "dashes" -> BorderType.DASHES)
+            current_style = current_style.lower()
+            if current_style not in BORDER_STYLE_MAP:
+                msg = f"invalid border style: '{current_style}'"
+                raise TypeError(msg)
+            current_style = BorderType(BORDER_STYLE_MAP[current_style])
+        elif not isinstance(current_style, BorderType):
+            try:
+                current_style = BorderType(current_style)
+            except ValueError as e:
+                msg = f"invalid border style value: {current_style}"
+                raise TypeError(msg) from e
+
+        object.__setattr__(self, "style", current_style)
+
+    def __repr__(self):
+        return str(self)
 
     def __str__(self) -> str:
         style_name = BorderType(self.style).name.lower()
         return f"Border(width={self.width}, color={self.color}, style={style_name})"
 
     def __eq__(self, value: object) -> bool:
+        if value is None:
+            return False
         return all(
             [self.width == value.width, self.color == value.color, self.style == value.style],
         )
@@ -505,8 +517,7 @@ class CellBorder:
 
     @top.setter
     def top(self, value) -> None:
-        if self._top is None or value._order > self.top._order:
-            self._top = value
+        self._top = value
 
     @property
     def right(self):
@@ -516,8 +527,7 @@ class CellBorder:
 
     @right.setter
     def right(self, value) -> None:
-        if self._right is None or value._order > self._right._order:
-            self._right = value
+        self._right = value
 
     @property
     def bottom(self):
@@ -527,8 +537,7 @@ class CellBorder:
 
     @bottom.setter
     def bottom(self, value) -> None:
-        if self._bottom is None or value._order > self._bottom._order:
-            self._bottom = value
+        self._bottom = value
 
     @property
     def left(self):
@@ -538,8 +547,7 @@ class CellBorder:
 
     @left.setter
     def left(self, value) -> None:
-        if self._left is None or value._order > self._left._order:
-            self._left = value
+        self._left = value
 
 
 class MergeReference:
@@ -976,7 +984,8 @@ class Cell(CellStorageFlags, Cacheable):
             self.size = (1, 1)
             self.merge_range = None
             self.rect = None
-            self._border = CellBorder()
+            if getattr(self, "_border", None) is None:
+                self._border = CellBorder()
 
     def _to_buffer(self) -> bytearray:  # noqa: PLR0912, PLR0915
         """Create a storage buffer for a cell using v5 (modern) layout."""
@@ -1142,12 +1151,8 @@ class Cell(CellStorageFlags, Cacheable):
 
         image_id = style.cell_properties.cell_fill.image.imagedata.identifier
         datas = self._model.objects[PACKAGE_ID].datas
-        stored_filename = next(
-            x.file_name for x in datas if x.identifier == image_id
-        )  # pragma: nocover (issue-1333)
-        preferred_filename = next(
-            x.preferred_file_name for x in datas if x.identifier == image_id
-        )  # pragma: nocover (issue-1333)
+        stored_filename = next(x.file_name for x in datas if x.identifier == image_id)
+        preferred_filename = next(x.preferred_file_name for x in datas if x.identifier == image_id)
         all_paths = self._model.objects.file_store.keys()
         image_pathnames = [x for x in all_paths if x == f"Data/{stored_filename}"]
 
@@ -1573,16 +1578,6 @@ def _unpack_decimal128(buffer: bytearray) -> float:
     return float(value)
 
 
-def _decode_date_format_field(field: str, value: datetime) -> str:
-    if field in DATETIME_FIELD_MAP:
-        s = DATETIME_FIELD_MAP[field]
-        if callable(s):
-            return s(value)
-        return value.strftime(s)
-    warn(f"Unsupported field code '{field}'", UnsupportedWarning, stacklevel=4)
-    return ""
-
-
 def _decode_date_format(date_format, value):
     """Parse a custom date format string and return a formatted datetime value."""
     chars = [*date_format]
@@ -1611,6 +1606,7 @@ def _decode_date_format(date_format, value):
         elif current_char.isalpha():
             remaining_str = date_format[index:]
             matched_field = None
+
             for field in DATETIME_FIELD_MAP:
                 # Greedily match the longest possible valid field
                 if remaining_str.startswith(field):
@@ -1618,14 +1614,18 @@ def _decode_date_format(date_format, value):
                     break
 
             if matched_field:
-                result += _decode_date_format_field(matched_field, value)
+                s = DATETIME_FIELD_MAP[field]
+                if callable(s):
+                    result += s(value)
+                else:
+                    result += value.strftime(s)
                 index += len(matched_field)
             else:
                 unknown_field = ""
                 while index < len(chars) and chars[index].isalpha():
                     unknown_field += chars[index]
                     index += 1
-                result += _decode_date_format_field(unknown_field, value)
+                warn(f"Unsupported field code '{unknown_field}'", UnsupportedWarning, stacklevel=4)
         else:
             result += current_char
             index += 1
@@ -1961,9 +1961,7 @@ def _float_to_n_digit_fraction(value: float, max_digits: int) -> str:
     and return as a string.
     """
     max_denominator = 10**max_digits - 1
-    (numerator, denominator) = (
-        Fraction.from_float(value).limit_denominator(max_denominator).as_integer_ratio()
-    )
+    (numerator, denominator) = Fraction(value).limit_denominator(max_denominator).as_integer_ratio()
     whole = int(value)
     numerator -= whole * denominator
     return _format_fraction_parts_to(whole, numerator, denominator)

@@ -8,16 +8,14 @@
 # fmt: off
 # isort: skip_file
 from .....schema_classes import DimensionClass
-from .....schema_classes import ModelDatasetClass
-from .....schema_classes import SemanticFieldClass
+from .....schema_classes import SemanticFieldAnnotationClass
 from .....schema_classes import SemanticFieldTypeClass
 from .....schema_classes import SemanticModelInfoClass
 from .....schema_classes import SemanticModelRelationshipClass
 
 
 Dimension = DimensionClass
-ModelDataset = ModelDatasetClass
-SemanticField = SemanticFieldClass
+SemanticFieldAnnotation = SemanticFieldAnnotationClass
 SemanticFieldType = SemanticFieldTypeClass
 SemanticModelInfo = SemanticModelInfoClass
 SemanticModelRelationship = SemanticModelRelationshipClass

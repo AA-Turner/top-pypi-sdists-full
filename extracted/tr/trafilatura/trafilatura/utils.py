@@ -69,7 +69,7 @@ LOGGER = logging.getLogger(__name__)
 
 UNICODE_ALIASES = {"utf-8", "utf_8"}
 
-DOCTYPE_TAG = re.compile("^< ?! ?DOCTYPE[^>]*/[^<]*>", re.I)
+DOCTYPE_TAG = re.compile("^< ?! ?DOCTYPE[^>]*/[^<>]*>", re.I)
 FAULTY_HTML = re.compile(r"(<html.*?)\s*/>", re.I)
 HTML_STRIP_TAGS = re.compile(r"(<!--.*?-->|<[^>]*>)")
 # control characters
@@ -84,7 +84,7 @@ LINES_TRIMMING = re.compile(r"(?<![p{P}>])\n", flags=re.UNICODE | re.MULTILINE)
 URL_BLACKLIST_REGEX = re.compile(r"^https?://|/+$")
 
 # Regex to check image file extensions
-IMAGE_EXTENSION = re.compile(r"[^\s]+\.(avif|bmp|gif|hei[cf]|jpe?g|png|webp)(\b|$)")
+IMAGE_EXTENSION = re.compile(r"[^\s]+\.(avif|bmp|gif|hei[cf]|jpe?g|png|webp)(\b|$)", re.I)
 
 FORMATTING_PROTECTED = {"cell", "head", "hi", "item", "p", "quote", "ref", "td"}
 SPACING_PROTECTED = {"code", "pre"}
@@ -93,14 +93,15 @@ SPACING_PROTECTED = {"code", "pre"}
 TARGET_LANG_ATTRS = ('http-equiv="content-language"', 'property="og:locale"')
 RE_HTML_LANG = re.compile(r"([a-z]{2})")
 
-# Mostly filters for social media
+# Mostly filters for social media (text-level analog of the xpaths social/share tokens)
 RE_FILTER = re.compile(
     r"\W*(Drucken|E-?Mail|Facebook|Flipboard|Google|Instagram|"
     "Linkedin|Mail|PDF|Pinterest|Pocket|Print|QQ|Reddit|Twitter|"
     "WeChat|WeiBo|Whatsapp|Xing|Mehr zum Thema:?|More on this.{,8}$)$",
     flags=re.IGNORECASE,
 )
-# COMMENTS_BLACKLIST = ('( Abmelden / Ändern )') # Fill in your details below|Trage deine Daten unten|Kommentar verfassen|Bitte logge dich|Hinterlasse einen Kommentar| to %s| mit %s)
+# link text > this fraction of total text = link farm (htmlprocessing.link_density_test)
+LINK_FARM_RATIO = 0.9
 
 
 def handle_compressed_file(filecontent: bytes) -> bytes:
@@ -232,7 +233,11 @@ def fromstring_bytes(htmlobject: str) -> HtmlElement | None:
 
 def load_html(htmlobject: Any) -> HtmlElement | None:
     """Load object given as input and validate its type
-    (accepted: lxml.html tree, trafilatura/urllib3 response, bytestring and string)
+    (accepted: lxml.html tree, trafilatura/urllib3 response, bytestring and string).
+
+    Expects a full document: the dubious-HTML check below rejects a single-block
+    fragment (e.g. "<p>x</p>" alone has one child and is treated as not-quite-HTML).
+    Wrap bare fragments in an extra element (e.g. f"<div>{fragment}</div>") first.
     """
     # use tree directly
     if isinstance(htmlobject, HtmlElement):
@@ -361,17 +366,23 @@ def trim(string: str) -> str:
         return ""
 
 
+def as_list(value: Any) -> list[Any]:
+    "Normalize a JSON-like value that may be a single object, a list of them, or None."
+    if value is None:
+        return []
+    return value if isinstance(value, list) else [value]
+
+
 def is_image_element(element: _Element) -> bool:
     """Check if an element is a valid img element"""
     for attr in ("data-src", "src"):
         src = element.get(attr, "")
         if is_image_file(src):
             return True
-    else:
-        # take the first corresponding attribute
-        for attr, value in element.attrib.items():
-            if attr.startswith("data-src") and is_image_file(value):
-                return True
+    # take the first corresponding attribute
+    for attr, value in element.attrib.items():
+        if attr.startswith("data-src") and is_image_file(value):
+            return True
     return False
 
 
@@ -464,13 +475,7 @@ def text_chars_test(string: str | None) -> bool:
     """Determine if a string is only composed of spaces and/or control characters"""
     # or not re.search(r'\w', string)
     # return string is not None and len(string) != 0 and not string.isspace()
-    return bool(string) and not string.isspace()  # type: ignore[union-attr]
-
-
-def copy_attributes(dest_elem: _Element, src_elem: _Element) -> None:
-    """Copy attributes from src element to dest element"""
-    for key in src_elem.keys():
-        dest_elem.set(key, src_elem.attrib[key])
+    return bool(string and not string.isspace())
 
 
 def is_in_table_cell(elem: _Element) -> bool:
@@ -490,13 +495,8 @@ def is_last_element_in_cell(elem: _Element) -> bool:
     if not is_in_table_cell(elem):  # shortcut
         return False
 
-    if elem.tag == "cell":
-        children = elem.getchildren()
-        return not children or children[-1] == elem
-    else:
-        parent = cast(_Element, elem.getparent())
-        children = parent.getchildren()
-        return not children or children[-1] == elem
+    container = elem if elem.tag == "cell" else cast(_Element, elem.getparent())
+    return len(container) == 0 or container[-1] == elem
 
 
 def is_element_in_item(element: _Element) -> bool:
@@ -509,24 +509,14 @@ def is_element_in_item(element: _Element) -> bool:
     return False
 
 
-def is_first_element_in_item(element: _Element) -> bool:
-    """Check whether an element is the first element in list item"""
-    if element.tag == "item" and element.text:
-        return True
-
-    current: _Element | None = element
-    item_ancestor = None
-    while current is not None:
-        if current.tag == "item":
-            item_ancestor = current
-            break
-        current = current.getparent()
-
-    if item_ancestor is None:
-        return False
-    elif not item_ancestor.text:
-        return True
-    return False
+def item_if_first_element(element: _Element) -> _Element | None:
+    """Return the enclosing list item if `element` carries its first content, else None"""
+    if element.tag == "item":
+        return element if element.text else None
+    item = next(element.iterancestors("item"), None)
+    if item is not None and not item.text and element is next(item.iterdescendants("*"), None):
+        return item
+    return None
 
 
 def is_last_element_in_item(element: _Element) -> bool:
@@ -536,10 +526,7 @@ def is_last_element_in_item(element: _Element) -> bool:
 
     # pure text only in list item
     if element.tag == "item":
-        return len(element.getchildren()) == 0
+        return len(element) == 0
     # element within list item
     next_element = element.getnext()
-    if next_element is None:
-        return True
-    else:
-        return next_element.tag == "item"
+    return next_element is None or next_element.tag == "item"

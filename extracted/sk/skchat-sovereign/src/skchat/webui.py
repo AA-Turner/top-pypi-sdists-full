@@ -36,8 +36,24 @@ from fastapi.responses import (
 )
 
 from . import __version__
-from .dataplane_auth import dataplane_auth_enabled, enforce_dataplane_auth, require_dataplane_auth
+from .dataplane_auth import (
+    audience_mint_enabled,
+    dataplane_auth_enabled,
+    enforce_dataplane_auth,
+    request_is_authenticated,
+    require_dataplane_auth,
+)
 from .dataplane_paths import is_gated
+from .embed_auth import (
+    EMBED_MODULES,
+    EmbedAuthError,
+    cookie_name,
+    cookie_path,
+    embed_tokens_enabled,
+    mint_embed_token,
+    presented_via_query,
+    request_embed_ok,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -324,6 +340,345 @@ async def access_tool_proxy(request: Request):
             return JSONResponse({"detail": "access tool error"}, status_code=e.code)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"access node unreachable: {exc}")
+
+
+async def _reverse_proxy(request: Request, upstream: str, path: str, *, label: str):
+    """Raw same-origin reverse proxy to a sibling subapp daemon (``upstream``),
+    so the SKWorld shell's pane reaches it over the 443 funnel like every other
+    call, never a direct daemon port. Preserves method/body/status/content-type
+    so the subapp's web client + assets load; adds NO auth of its own (each
+    subapp keeps its own gate). Upstream is overridable per node via env."""
+    import urllib.error
+    import urllib.request
+
+    from fastapi.responses import Response
+
+    url = f"{upstream.rstrip('/')}/{path}"
+    if request.url.query:
+        url = f"{url}?{request.url.query}"
+    body = await request.body()
+    fwd = {
+        k: v
+        for k, v in request.headers.items()
+        if k.lower() not in ("host", "content-length", "connection")
+    }
+    req = urllib.request.Request(
+        url,
+        data=body if request.method == "POST" else None,
+        method=request.method,
+        headers=fwd,
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return Response(
+                content=r.read(),
+                status_code=r.status,
+                media_type=r.headers.get("content-type", "application/octet-stream"),
+            )
+    except urllib.error.HTTPError as e:
+        return Response(
+            content=e.read() or b"",
+            status_code=e.code,
+            media_type=e.headers.get("content-type", "text/plain"),
+        )
+    except Exception as exc:
+        return Response(
+            content=f"{label} unavailable: {exc}".encode(),
+            status_code=502,
+            media_type="text/plain",
+        )
+
+
+def _authorize_module_proxy(request: Request, module: str) -> str:
+    """Authorize a gated module proxy request. Returns how it was authorized.
+
+    Two accepted credentials, in order:
+
+    * A valid ``Authorization`` operator/dataplane credential -> ``"auth"``: FULL
+      access (read + write), exactly as a direct authenticated call.
+    * A valid module-scoped ``embed_token`` (query param or the path-scoped
+      cookie) -> ``"embed"``: READ-ONLY. The iframe pane cannot set a header, so
+      the authenticated app mints this short-lived, module-scoped token and hangs
+      it off the iframe ``src``. A non-GET/HEAD request that authorizes ONLY via an
+      embed token is refused (403), so the pane can never mutate.
+
+    When neither is present the request falls through to
+    :func:`enforce_dataplane_auth`, which raises 401 when the plane-wide gate is
+    on (leak stays closed). skcode is intentionally NOT routed through here: it
+    runs its own deny-all gate and its public client shell is safe to expose.
+    """
+    # Full operator/dataplane credential: read + write. Consulted independently of
+    # the plane-wide flag (like the audience-token mint), so a valid Bearer works.
+    if request_is_authenticated(request):
+        return "auth"
+    # Module-scoped embed token: read-only.
+    if request_embed_ok(request, module):
+        if request.method not in ("GET", "HEAD"):
+            raise HTTPException(status_code=403, detail="embed token is read-only")
+        return "embed"
+    # Neither: apply the plane-wide gate (401 when SKCHAT_DATAPLANE_AUTH is on).
+    enforce_dataplane_auth(request)
+    return "gate"
+
+
+def _set_embed_cookie(response, request: Request, module: str) -> None:
+    """Hand a path-scoped embed cookie to the pane on its first navigation.
+
+    Only when the token arrived as a query param (the initial iframe ``src`` load):
+    the pane's subsequent subresource requests (its own ``fetch`` / asset loads)
+    cannot re-attach the query param, so the cookie carries the SAME token for the
+    rest of its short life. Scoped to the module's proxy ``Path``, HttpOnly, and
+    ``Secure`` on https so it never leaks to another module or to script.
+    """
+    token = (request.query_params.get("embed_token") or "").strip()
+    if not token:
+        return
+    try:
+        from .embed_auth import verify_embed_token
+
+        et = verify_embed_token(token, module)
+    except EmbedAuthError:
+        return
+    max_age = max(1, et.exp - int(datetime.now(timezone.utc).timestamp()))
+    response.set_cookie(
+        key=cookie_name(module),
+        value=token,
+        max_age=max_age,
+        path=cookie_path(module),
+        httponly=True,
+        secure=request.url.scheme == "https",
+        samesite="lax",
+    )
+
+
+@app.api_route("/skcode/{path:path}", methods=["GET", "POST"])
+async def skcode_proxy(path: str, request: Request):
+    """/skcode/* -> skcode-hostd (tailnet-only, deny-all; SKCODE_HOSTD_URL,
+    default :9394). The public client shell proxies through; /api/v1 stays 401
+    until this device is paired."""
+    upstream = os.environ.get("SKCODE_HOSTD_URL", "http://100.108.59.57:9394")
+    return await _reverse_proxy(request, upstream, path, label="skcode host")
+
+
+@app.api_route("/skdashboard/{path:path}", methods=["GET", "POST"])
+async def skdashboard_proxy(path: str, request: Request):
+    """/skdashboard/* -> the skcapstone coordination dashboard (SKDASHBOARD_URL,
+    default :7778) so the shell's "Board" pane loads over the 443 funnel.
+
+    GATED: unlike skcode (which runs its own deny-all gate), the coord dashboard
+    has NO auth of its own, so proxying it unauthenticated over the PUBLIC funnel
+    would expose the whole coordination board (task list, agent status). It
+    accepts EITHER a full operator credential (read + write) OR a short-lived,
+    module-scoped, read-only ``embed_token`` the authenticated app mints for the
+    iframe pane (see ``embed_auth``). An unauth request with no/invalid token
+    still 401s, so the leak stays closed."""
+    how = _authorize_module_proxy(request, "skdashboard")
+    upstream = os.environ.get("SKDASHBOARD_URL", "http://127.0.0.1:7778")
+    resp = await _reverse_proxy(request, upstream, path, label="skdashboard")
+    if how == "embed" and presented_via_query(request):
+        _set_embed_cookie(resp, request, "skdashboard")
+    return resp
+
+
+@app.api_route("/skos/{path:path}", methods=["GET", "POST"])
+async def skos_proxy(path: str, request: Request):
+    """/skos/* -> the skos read-only web surface (SKOS_URL, default :7781) so the
+    shell's "OS" pane loads over the 443 funnel. GATED for the same reason as
+    skdashboard: skos's surface has no auth of its own, so it must not be public
+    over the funnel. Accepts a full operator credential OR a module-scoped,
+    read-only ``embed_token`` (see ``embed_auth``); otherwise 401."""
+    how = _authorize_module_proxy(request, "skos")
+    upstream = os.environ.get("SKOS_URL", "http://127.0.0.1:7781")
+    resp = await _reverse_proxy(request, upstream, path, label="skos")
+    if how == "embed" and presented_via_query(request):
+        _set_embed_cookie(resp, request, "skos")
+    return resp
+
+
+@app.post("/api/v1/embed-token")
+async def embed_token_mint(request: Request) -> JSONResponse:
+    """Mint a short-lived, module-scoped, READ-ONLY embed token for an iframe pane.
+
+    The shell's Grade B panes (``/skdashboard``, ``/skos``) are iframes that cannot
+    set an ``Authorization`` header, so once those proxies are gated they can only
+    401. The AUTHENTICATED app calls this to obtain a token it appends to the iframe
+    ``src`` as ``?embed_token=...``; the proxy then accepts that token (read-only,
+    scoped to the exact module) for the token's short life.
+
+    Two gates, both required (mirrors the audience-token mint):
+
+    * GATE 1 (flag): ``SKCHAT_EMBED_TOKENS`` (default OFF). When off the route is
+      INERT (404, never mints), so the app is byte-identical to before it existed.
+    * GATE 2 (auth): the request MUST carry a valid operator/capauth credential
+      (validated via :func:`request_is_authenticated`). An unauthenticated caller
+      gets 401 and no token is ever minted, even with the flag on. So a token can
+      only come into existence via an authenticated request.
+
+    Body (JSON): ``{"module": "skdashboard" | "skos"}``. The module MUST be one of
+    the gated proxy modules; any other value is 400. The token is always read-only
+    and scoped to that one module, so it can never authorize a different module or
+    a write.
+    """
+    # GATE 1: flag. Inert (looks like the route does not exist) when off.
+    if not embed_tokens_enabled():
+        raise HTTPException(status_code=404, detail="not found")
+
+    # GATE 2: authentication. Always enforced when minting, independent of the
+    # plane-wide gate flag, so we never mint for an anonymous caller.
+    if not request_is_authenticated(request):
+        raise HTTPException(status_code=401, detail="capauth authentication required")
+
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+    module = body.get("module")
+    if not isinstance(module, str) or module not in EMBED_MODULES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"module must be one of {sorted(EMBED_MODULES)}",
+        )
+
+    try:
+        token, exp = mint_embed_token(module)
+    except EmbedAuthError as exc:  # missing signing key etc: fail closed, no token.
+        logger.warning("embed-token mint failed: %s", exc)
+        raise HTTPException(status_code=500, detail="embed token mint failed")
+
+    logger.info("embed-token minted module=%s exp=%s", module, exp)
+    return JSONResponse(
+        {
+            "token": token,
+            "module": module,
+            "expires_at": datetime.fromtimestamp(exp, tz=timezone.utc).isoformat(),
+        }
+    )
+
+
+@app.get("/.well-known/skworld-module.json")
+async def skworld_module_manifest(request: Request) -> JSONResponse:
+    """skchat's SKWorld module manifest (public discovery metadata, no bearer).
+
+    The shell reads this to learn skchat's entry, nav, and required auth
+    audience/scopes before it has a token. URLs are origin-relative to the request.
+    """
+    from .skworld_manifest import skchat_module_manifest
+
+    return JSONResponse(skchat_module_manifest(str(request.base_url)))
+
+
+@app.get("/api/v1/shell/modules")
+async def shell_modules(request: Request) -> JSONResponse:
+    """Aggregate every discoverable SKWorld subapp manifest for the shell.
+
+    Public discovery metadata (no bearer, no dataplane auth, like the
+    /.well-known/skworld-module.json route): ONE same-origin endpoint, reachable
+    over the 443 funnel, so the shell learns about all subapps at once instead of
+    probing each daemon port. Returns ``{"modules": [<skworld.module.json>, ...]}``
+    aggregating skchat's own manifest, skcode's, skdashboard's, and every
+    statically-emitted ``*.skworld-module.json`` in the node's shell registry dir.
+    Best-effort: any unreachable/missing source is skipped, never fails the whole
+    response. See ``shell_modules.aggregate_shell_modules`` and umbrella shell
+    design 5.3 (Registry).
+    """
+    from .shell_modules import aggregate_shell_modules
+
+    return JSONResponse({"modules": aggregate_shell_modules(str(request.base_url))})
+
+
+@app.post("/api/v1/audience-token")
+async def audience_token_mint(request: Request) -> JSONResponse:
+    """Mint a fresh audience-scoped capauth token for THIS daemon's own identity.
+
+    Closes the shell->token gap: the Flutter shell's ``AuthContext.token()`` is
+    stubbed because there was no backend to mint from. The shell calls this to get
+    a real, short-lived (default 1h) token scoped to the ``skchat`` audience, in
+    the exact wire form skchat's own dataplane accepts (base64url of
+    ``capauth.export_token``), which the shell then presents on data-plane calls.
+
+    Two gates, both required:
+
+    * GATE 1 (flag): ``SKCHAT_AUDIENCE_MINT`` (read at call time), default OFF. When
+      off the route is INERT (404, never mints), so the app is byte-identical to
+      before this endpoint existed.
+    * GATE 2 (auth): the request MUST carry a valid capauth credential
+      (operator-session JWT or signed FQID assertion), validated via
+      :func:`request_is_authenticated`. An unauthenticated caller gets 401 and no
+      token is ever minted, even with the flag on.
+
+    Body (optional JSON): ``{"audience": "skchat", "scopes": [...]}``. ``audience``
+    defaults to ``skchat``; ``scopes`` defaults to the audience's standard scope set.
+
+    Anti-forgery: the token SUBJECT is resolved server-side from
+    :func:`capauth.resolve_agent_identity` (this daemon's own identity). No subject
+    or agent is ever read from request input, so an authenticated caller cannot mint
+    a token for any identity other than the daemon it is talking to. Fails closed
+    (500, no token, logged) on any mint error.
+    """
+    # GATE 1: flag. Inert (looks like the route does not exist) when off.
+    if not audience_mint_enabled():
+        raise HTTPException(status_code=404, detail="not found")
+
+    # GATE 2: authentication. Always enforced when minting, independent of the
+    # plane-wide SKCHAT_DATAPLANE_AUTH gate, so we never mint for an anon caller.
+    if not request_is_authenticated(request):
+        raise HTTPException(status_code=401, detail="capauth authentication required")
+
+    # Parse optional body: audience + scopes only. Never a subject/agent.
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+    audience = body.get("audience") or "skchat"
+    if not isinstance(audience, str):
+        raise HTTPException(status_code=400, detail="audience must be a string")
+    scopes = body.get("scopes")
+    if scopes is not None and not isinstance(scopes, list):
+        raise HTTPException(status_code=400, detail="scopes must be a list")
+
+    try:
+        from capauth import (
+            export_token,
+            mint_agent_audience_token,
+            resolve_agent_identity,
+        )
+
+        # Anchor the subject to THIS daemon's resolved identity (never request
+        # input). mint_agent_audience_token(agent=None) resolves the same active
+        # identity internally; resolving here first surfaces identity errors and
+        # documents that the subject is server-derived, not caller-supplied.
+        identity = resolve_agent_identity()
+        token = mint_agent_audience_token(agent=None, audience=audience, scopes=scopes)
+        import base64
+
+        wire = (
+            base64.urlsafe_b64encode(export_token(token).encode("utf-8"))
+            .decode("ascii")
+            .rstrip("=")
+        )
+    except Exception as exc:  # fail closed: no token leaves on any mint error.
+        logger.warning("audience-token mint failed: %s", exc)
+        raise HTTPException(status_code=500, detail="audience token mint failed")
+
+    expires_at = token.payload.expires_at
+    logger.info(
+        "audience-token minted subject=%s audience=%s",
+        getattr(identity, "fqid", None) or getattr(identity, "uri", None),
+        token.payload.audience,
+    )
+    return JSONResponse(
+        {
+            "token": wire,
+            "audience": token.payload.audience,
+            "expires_at": expires_at.isoformat()
+            if hasattr(expires_at, "isoformat")
+            else expires_at,
+        }
+    )
 
 
 @app.get("/health")

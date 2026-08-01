@@ -21,8 +21,10 @@ from .....schema_classes import AssertionResultSeverityClass
 from .....schema_classes import AssertionResultTypeClass
 from .....schema_classes import AssertionRunEventClass
 from .....schema_classes import AssertionRunStatusClass
+from .....schema_classes import AssertionRunSummaryClass
 from .....schema_classes import AssertionSourceClass
 from .....schema_classes import AssertionSourceTypeClass
+from .....schema_classes import AssertionStatusClass
 from .....schema_classes import AssertionStdAggregationClass
 from .....schema_classes import AssertionStdOperatorClass
 from .....schema_classes import AssertionStdParameterClass
@@ -78,8 +80,10 @@ AssertionResultSeverity = AssertionResultSeverityClass
 AssertionResultType = AssertionResultTypeClass
 AssertionRunEvent = AssertionRunEventClass
 AssertionRunStatus = AssertionRunStatusClass
+AssertionRunSummary = AssertionRunSummaryClass
 AssertionSource = AssertionSourceClass
 AssertionSourceType = AssertionSourceTypeClass
+AssertionStatus = AssertionStatusClass
 AssertionStdAggregation = AssertionStdAggregationClass
 AssertionStdOperator = AssertionStdOperatorClass
 AssertionStdParameter = AssertionStdParameterClass

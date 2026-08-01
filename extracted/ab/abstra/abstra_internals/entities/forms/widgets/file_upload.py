@@ -1,7 +1,9 @@
 import io
+import os
 import pathlib
 import shutil
 from typing import TYPE_CHECKING, Optional, Union
+from urllib.parse import urlparse
 
 import requests
 
@@ -16,6 +18,27 @@ from abstra_internals.utils.file import (
 )
 
 FILE_CHUNK_SIZE = 8192
+
+
+def _local_uploads_path(url: str) -> Optional[pathlib.Path]:
+    """When a ``/_files/`` reference points at a file the player (cloud-api)
+    already wrote to the shared persistent uploads dir on EFS, return its local
+    path so the worker reads it directly instead of round-tripping over HTTP.
+
+    Else, returns ``None`` (caller falls back to HTTP / legacy handling).
+    """
+    path = urlparse(url).path
+    prefix = "/_files/"
+    if not path.startswith(prefix):
+        return None
+    base = get_uploads_dir().resolve()
+    candidate = (base / path[len(prefix) :]).resolve()
+    try:
+        if os.path.commonpath([str(base), str(candidate)]) != str(base):
+            return None
+    except ValueError:
+        return None
+    return candidate if candidate.is_file() else None
 
 
 def upload_widget_file(
@@ -54,6 +77,11 @@ def download_to_path(url: str) -> pathlib.Path:
     save_dir = get_uploads_dir() / execution.id
     save_dir.mkdir(parents=True, exist_ok=True)
     save_path = save_dir / pathlib.Path(url).name
+
+    local = _local_uploads_path(url)
+    if local is not None:
+        shutil.copy(local, save_path)
+        return save_path
 
     if url.startswith("http://") or url.startswith("https://"):
         with save_path.open("wb") as f, requests.get(url, stream=True) as r:

@@ -19,7 +19,7 @@ Here is the minimal example of defining an AWS EKS cluster
 
 ```python
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_34
+    version=eks.KubernetesVersion.V1_36
 )
 ```
 
@@ -54,7 +54,7 @@ In a nutshell:
 
   ```python
   cluster = eks.Cluster(self, "AutoModeCluster",
-      version=eks.KubernetesVersion.V1_34
+      version=eks.KubernetesVersion.V1_36
   )
   ```
 * **[Managed Node Groups](#managed-node-groups)** – The semi-managed capacity mode.
@@ -65,7 +65,7 @@ In a nutshell:
 
   ```python
   cluster = eks.Cluster(self, "ManagedNodeCluster",
-      version=eks.KubernetesVersion.V1_34,
+      version=eks.KubernetesVersion.V1_36,
       default_capacity_type=eks.DefaultCapacityType.NODEGROUP
   )
 
@@ -80,7 +80,7 @@ In a nutshell:
 
   ```python
   cluster = eks.FargateCluster(self, "FargateCluster",
-      version=eks.KubernetesVersion.V1_34
+      version=eks.KubernetesVersion.V1_36
   )
   ```
 * **[Self-Managed Nodes](#self-managed-capacity)** – The fully manual capacity mode.
@@ -89,7 +89,7 @@ In a nutshell:
 
   ```python
   cluster = eks.Cluster(self, "SelfManagedCluster",
-      version=eks.KubernetesVersion.V1_34
+      version=eks.KubernetesVersion.V1_36
   )
 
   # Add self-managed Auto Scaling Group
@@ -108,7 +108,7 @@ Creating a new cluster is done using the `Cluster` constructs. The only required
 
 ```python
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_34
+    version=eks.KubernetesVersion.V1_36
 )
 ```
 
@@ -116,7 +116,7 @@ You can also use `FargateCluster` to provision a cluster that uses only fargate 
 
 ```python
 eks.FargateCluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_34
+    version=eks.KubernetesVersion.V1_36
 )
 ```
 
@@ -125,13 +125,13 @@ be created by default. It will only be deployed when `kubectlProviderOptions`
 property is used.**
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_36,
     kubectl_provider_options=eks.KubectlProviderOptions(
-        kubectl_layer=KubectlV35Layer(self, "kubectl")
+        kubectl_layer=KubectlV36Layer(self, "kubectl")
     )
 )
 ```
@@ -149,7 +149,7 @@ Auto Mode is enabled by default when creating a new cluster without specifying a
 ```python
 # Create EKS cluster with Auto Mode implicitly enabled
 cluster = eks.Cluster(self, "EksAutoCluster",
-    version=eks.KubernetesVersion.V1_34
+    version=eks.KubernetesVersion.V1_36
 )
 ```
 
@@ -158,7 +158,7 @@ You can also explicitly enable Auto Mode using `defaultCapacityType`:
 ```python
 # Create EKS cluster with Auto Mode explicitly enabled
 cluster = eks.Cluster(self, "EksAutoCluster",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_36,
     default_capacity_type=eks.DefaultCapacityType.AUTOMODE
 )
 ```
@@ -174,7 +174,7 @@ These node pools are managed automatically by EKS. You can configure which node 
 
 ```python
 cluster = eks.Cluster(self, "EksAutoCluster",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_36,
     default_capacity_type=eks.DefaultCapacityType.AUTOMODE,
     compute=eks.ComputeConfig(
         node_pools=["system", "general-purpose"]
@@ -190,7 +190,7 @@ You can disable the default node pools entirely by setting an empty array for `n
 
 ```python
 cluster = eks.Cluster(self, "EksAutoCluster",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_36,
     default_capacity_type=eks.DefaultCapacityType.AUTOMODE,
     compute=eks.ComputeConfig(
         node_pools=[]
@@ -207,7 +207,7 @@ If you prefer to manage your own node groups instead of using Auto Mode, you can
 ```python
 # Create EKS cluster with traditional managed node group
 cluster = eks.Cluster(self, "EksCluster",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_36,
     default_capacity_type=eks.DefaultCapacityType.NODEGROUP,
     default_capacity=3,  # Number of instances
     default_capacity_instance=ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.LARGE)
@@ -218,7 +218,7 @@ You can also create a cluster with no initial capacity and add node groups later
 
 ```python
 cluster = eks.Cluster(self, "EksCluster",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_36,
     default_capacity_type=eks.DefaultCapacityType.NODEGROUP,
     default_capacity=0
 )
@@ -239,7 +239,7 @@ You can combine Auto Mode with traditional node groups for specific workload req
 
 ```python
 cluster = eks.Cluster(self, "Cluster",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_36,
     default_capacity_type=eks.DefaultCapacityType.AUTOMODE,
     compute=eks.ComputeConfig(
         node_pools=["system", "general-purpose"]
@@ -278,7 +278,7 @@ By default, when using `DefaultCapacityType.NODEGROUP`, this library will alloca
 
 ```python
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_36,
     default_capacity_type=eks.DefaultCapacityType.NODEGROUP
 )
 ```
@@ -287,7 +287,7 @@ At cluster instantiation time, you can customize the number of instances and the
 
 ```python
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_36,
     default_capacity_type=eks.DefaultCapacityType.NODEGROUP,
     default_capacity=5,
     default_capacity_instance=ec2.InstanceType.of(ec2.InstanceClass.M5, ec2.InstanceSize.SMALL)
@@ -300,7 +300,7 @@ Additional customizations are available post instantiation. To apply them, set t
 
 ```python
 cluster = eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_36,
     default_capacity_type=eks.DefaultCapacityType.NODEGROUP,
     default_capacity=0
 )
@@ -393,7 +393,7 @@ The following code defines an Amazon EKS cluster with a default Fargate Profile 
 
 ```python
 cluster = eks.FargateCluster(self, "MyCluster",
-    version=eks.KubernetesVersion.V1_34
+    version=eks.KubernetesVersion.V1_36
 )
 ```
 
@@ -412,7 +412,7 @@ You can add self-managed capacity to any cluster using the `addAutoScalingGroupC
 
 ```python
 cluster = eks.Cluster(self, "Cluster",
-    version=eks.KubernetesVersion.V1_34
+    version=eks.KubernetesVersion.V1_36
 )
 
 cluster.add_auto_scaling_group_capacity("self-managed-nodes",
@@ -445,7 +445,7 @@ You can configure the [cluster endpoint access](https://docs.aws.amazon.com/eks/
 
 ```python
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_36,
     endpoint_access=eks.EndpointAccess.PRIVATE
 )
 ```
@@ -467,7 +467,7 @@ To deploy the controller on your EKS cluster, configure the `albController` prop
 
 ```python
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_36,
     alb_controller=eks.AlbControllerOptions(
         version=eks.AlbControllerVersion.V3_2_2
     )
@@ -477,11 +477,11 @@ eks.Cluster(self, "HelloEKS",
 To provide additional Helm chart values supported by `albController` in CDK, use the `additionalHelmChartValues` property. For example, the following code snippet shows how to set the `enableWafV2` flag:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_36,
     alb_controller=eks.AlbControllerOptions(
         version=eks.AlbControllerVersion.V3_2_2,
         additional_helm_chart_values={
@@ -495,7 +495,7 @@ To overwrite an existing ALB controller service account, use the `overwriteServi
 
 ```python
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_36,
     alb_controller=eks.AlbControllerOptions(
         version=eks.AlbControllerVersion.V3_2_2,
         overwrite_service_account=True
@@ -538,7 +538,7 @@ You can specify the VPC of the cluster using the `vpc` and `vpcSubnets` properti
 
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_36,
     vpc=vpc,
     vpc_subnets=[ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS)]
 )
@@ -582,13 +582,13 @@ To create a `Kubectl Handler`, use `kubectlProviderOptions` when creating the cl
 `kubectlLayer` is the only required property in `kubectlProviderOptions`.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_36,
     kubectl_provider_options=eks.KubectlProviderOptions(
-        kubectl_layer=KubectlV35Layer(self, "kubectl")
+        kubectl_layer=KubectlV36Layer(self, "kubectl")
     )
 )
 ```
@@ -617,13 +617,13 @@ cluster = eks.Cluster.from_cluster_attributes(self, "Cluster",
 You can configure the environment of this function by specifying it at cluster instantiation. For example, this can be useful in order to configure an http proxy:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_36,
     kubectl_provider_options=eks.KubectlProviderOptions(
-        kubectl_layer=KubectlV35Layer(self, "kubectl"),
+        kubectl_layer=KubectlV36Layer(self, "kubectl"),
         environment={
             "http_proxy": "http://proxy.myproxy.com"
         }
@@ -644,13 +644,13 @@ Depending on which version of kubernetes you're targeting, you will need to use 
 the `@aws-cdk/lambda-layer-kubectl-vXY` packages.
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 cluster = eks.Cluster(self, "hello-eks",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_36,
     kubectl_provider_options=eks.KubectlProviderOptions(
-        kubectl_layer=KubectlV35Layer(self, "kubectl")
+        kubectl_layer=KubectlV36Layer(self, "kubectl")
     )
 )
 ```
@@ -660,15 +660,15 @@ cluster = eks.Cluster(self, "hello-eks",
 By default, the kubectl provider is configured with 1024MiB of memory. You can use the `memory` option to specify the memory size for the AWS Lambda function:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 eks.Cluster(self, "MyCluster",
     kubectl_provider_options=eks.KubectlProviderOptions(
-        kubectl_layer=KubectlV35Layer(self, "kubectl"),
+        kubectl_layer=KubectlV36Layer(self, "kubectl"),
         memory=Size.gibibytes(4)
     ),
-    version=eks.KubernetesVersion.V1_34
+    version=eks.KubernetesVersion.V1_36
 )
 ```
 
@@ -701,7 +701,7 @@ When you create a cluster, you can specify a `mastersRole`. The `Cluster` constr
 # role: iam.Role
 
 eks.Cluster(self, "HelloEKS",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_36,
     masters_role=role
 )
 ```
@@ -722,7 +722,7 @@ You can use the `secretsEncryptionKey` to configure which key the cluster will u
 secrets_key = kms.Key(self, "SecretsKey")
 cluster = eks.Cluster(self, "MyCluster",
     secrets_encryption_key=secrets_key,
-    version=eks.KubernetesVersion.V1_34
+    version=eks.KubernetesVersion.V1_36
 )
 ```
 
@@ -732,7 +732,7 @@ You can also use a similar configuration for running a cluster built using the F
 secrets_key = kms.Key(self, "SecretsKey")
 cluster = eks.FargateCluster(self, "MyFargateCluster",
     secrets_encryption_key=secrets_key,
-    version=eks.KubernetesVersion.V1_34
+    version=eks.KubernetesVersion.V1_36
 )
 ```
 
@@ -751,11 +751,11 @@ When you create an Amazon EKS cluster, you can configure it to leverage the [EKS
 Once you have identified the on-premises node and pod (optional) CIDRs you will use for your hybrid nodes and the workloads running on them, you can specify them during cluster creation using the `remoteNodeNetworks` and `remotePodNetworks` (optional) properties:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 
 eks.Cluster(self, "Cluster",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_36,
     remote_node_networks=[eks.RemoteNodeNetwork(
         cidrs=["10.0.0.0/16"]
     )
@@ -804,7 +804,7 @@ eks.AccessPolicy.from_access_policy_name("AmazonEKSAdminPolicy",
 Use `grantAccess()` to grant the AccessPolicy to an IAM principal:
 
 ```python
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 # vpc: ec2.Vpc
 
 
@@ -819,9 +819,9 @@ eks_admin_role = iam.Role(self, "EKSAdminRole",
 cluster = eks.Cluster(self, "Cluster",
     vpc=vpc,
     masters_role=cluster_admin_role,
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_36,
     kubectl_provider_options=eks.KubectlProviderOptions(
-        kubectl_layer=KubectlV35Layer(self, "kubectl"),
+        kubectl_layer=KubectlV36Layer(self, "kubectl"),
         memory=Size.gibibytes(4)
     )
 )
@@ -940,7 +940,7 @@ import aws_cdk.aws_s3 as s3
 # or create a new one using an existing issuer url
 # issuer_url: str
 
-from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
 
 # you can import an existing provider
 provider = eks.OidcProviderNative.from_oidc_provider_arn(self, "Provider", "arn:aws:iam::123456:oidc-provider/oidc.eks.eu-west-1.amazonaws.com/id/AB123456ABC")
@@ -952,7 +952,7 @@ cluster = eks.Cluster.from_cluster_attributes(self, "MyCluster",
     cluster_name="Cluster",
     open_id_connect_provider=provider,
     kubectl_provider_options=eks.KubectlProviderOptions(
-        kubectl_layer=KubectlV35Layer(self, "kubectl")
+        kubectl_layer=KubectlV36Layer(self, "kubectl")
     )
 )
 
@@ -1194,7 +1194,7 @@ when a cluster is defined:
 
 ```python
 eks.Cluster(self, "MyCluster",
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_36,
     prune=False
 )
 ```
@@ -1513,7 +1513,7 @@ property. For example:
 ```python
 cluster = eks.Cluster(self, "Cluster",
     # ...
-    version=eks.KubernetesVersion.V1_34,
+    version=eks.KubernetesVersion.V1_36,
     cluster_logging=[eks.ClusterLoggingTypes.API, eks.ClusterLoggingTypes.AUTHENTICATOR, eks.ClusterLoggingTypes.SCHEDULER
     ]
 )
@@ -2598,7 +2598,7 @@ class AlbControllerOptions:
         Example::
 
             eks.Cluster(self, "HelloEKS",
-                version=eks.KubernetesVersion.V1_34,
+                version=eks.KubernetesVersion.V1_36,
                 alb_controller=eks.AlbControllerOptions(
                     version=eks.AlbControllerVersion.V3_2_2,
                     overwrite_service_account=True
@@ -2912,7 +2912,7 @@ class AlbControllerVersion(
     Example::
 
         eks.Cluster(self, "HelloEKS",
-            version=eks.KubernetesVersion.V1_34,
+            version=eks.KubernetesVersion.V1_36,
             alb_controller=eks.AlbControllerOptions(
                 version=eks.AlbControllerVersion.V3_2_2,
                 overwrite_service_account=True
@@ -3451,7 +3451,7 @@ class AutoScalingGroupCapacityOptions(
         Example::
 
             cluster = eks.Cluster(self, "SelfManagedCluster",
-                version=eks.KubernetesVersion.V1_34
+                version=eks.KubernetesVersion.V1_36
             )
             
             # Add self-managed Auto Scaling Group
@@ -5053,7 +5053,7 @@ class ClusterLoggingTypes(enum.Enum):
 
         cluster = eks.Cluster(self, "Cluster",
             # ...
-            version=eks.KubernetesVersion.V1_34,
+            version=eks.KubernetesVersion.V1_36,
             cluster_logging=[eks.ClusterLoggingTypes.API, eks.ClusterLoggingTypes.AUTHENTICATOR, eks.ClusterLoggingTypes.SCHEDULER
             ]
         )
@@ -5171,7 +5171,7 @@ class ClusterProps(ClusterCommonOptions):
         Example::
 
             cluster = eks.Cluster(self, "ManagedNodeCluster",
-                version=eks.KubernetesVersion.V1_34,
+                version=eks.KubernetesVersion.V1_36,
                 default_capacity_type=eks.DefaultCapacityType.NODEGROUP
             )
             
@@ -5612,7 +5612,7 @@ class ComputeConfig:
         Example::
 
             cluster = eks.Cluster(self, "EksAutoCluster",
-                version=eks.KubernetesVersion.V1_34,
+                version=eks.KubernetesVersion.V1_36,
                 default_capacity_type=eks.DefaultCapacityType.AUTOMODE,
                 compute=eks.ComputeConfig(
                     node_pools=["system", "general-purpose"]
@@ -5695,7 +5695,7 @@ class DefaultCapacityType(enum.Enum):
     Example::
 
         cluster = eks.Cluster(self, "HelloEKS",
-            version=eks.KubernetesVersion.V1_34,
+            version=eks.KubernetesVersion.V1_36,
             default_capacity_type=eks.DefaultCapacityType.NODEGROUP,
             default_capacity=0
         )
@@ -5873,7 +5873,7 @@ class EndpointAccess(
     Example::
 
         cluster = eks.Cluster(self, "hello-eks",
-            version=eks.KubernetesVersion.V1_34,
+            version=eks.KubernetesVersion.V1_36,
             endpoint_access=eks.EndpointAccess.PRIVATE
         )
     '''
@@ -6011,7 +6011,7 @@ class FargateClusterProps(ClusterCommonOptions):
         Example::
 
             cluster = eks.FargateCluster(self, "FargateCluster",
-                version=eks.KubernetesVersion.V1_34
+                version=eks.KubernetesVersion.V1_36
             )
         '''
         if isinstance(alb_controller, dict):
@@ -6477,7 +6477,7 @@ class FargateProfileOptions:
         Example::
 
             cluster = eks.Cluster(self, "ManagedNodeCluster",
-                version=eks.KubernetesVersion.V1_34,
+                version=eks.KubernetesVersion.V1_36,
                 default_capacity_type=eks.DefaultCapacityType.NODEGROUP
             )
             
@@ -8677,13 +8677,13 @@ class KubectlProviderOptions:
 
         Example::
 
-            from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+            from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
             
             
             cluster = eks.Cluster(self, "hello-eks",
-                version=eks.KubernetesVersion.V1_34,
+                version=eks.KubernetesVersion.V1_36,
                 kubectl_provider_options=eks.KubectlProviderOptions(
-                    kubectl_layer=KubectlV35Layer(self, "kubectl"),
+                    kubectl_layer=KubectlV36Layer(self, "kubectl"),
                     environment={
                         "http_proxy": "http://proxy.myproxy.com"
                     }
@@ -10046,7 +10046,7 @@ class KubernetesVersion(
     Example::
 
         cluster = eks.Cluster(self, "ManagedNodeCluster",
-            version=eks.KubernetesVersion.V1_34,
+            version=eks.KubernetesVersion.V1_36,
             default_capacity_type=eks.DefaultCapacityType.NODEGROUP
         )
         
@@ -10189,6 +10189,17 @@ class KubernetesVersion(
         ``@aws-cdk/lambda-layer-kubectl-v35``.
         '''
         return typing.cast("KubernetesVersion", jsii.sget(cls, "V1_35"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V1_36")
+    def V1_36(cls) -> "KubernetesVersion":
+        '''Kubernetes version 1.36.
+
+        When creating a ``Cluster`` with this version, you need to also specify the
+        ``kubectlLayer`` property with a ``KubectlV36Layer`` from
+        ``@aws-cdk/lambda-layer-kubectl-v36``.
+        '''
+        return typing.cast("KubernetesVersion", jsii.sget(cls, "V1_36"))
 
     @builtins.property
     @jsii.member(jsii_name="version")
@@ -10667,7 +10678,7 @@ class NodegroupOptions:
         Example::
 
             cluster = eks.Cluster(self, "HelloEKS",
-                version=eks.KubernetesVersion.V1_34,
+                version=eks.KubernetesVersion.V1_36,
                 default_capacity_type=eks.DefaultCapacityType.NODEGROUP,
                 default_capacity=0
             )
@@ -11616,7 +11627,7 @@ class OidcProviderNative(
         # or create a new one using an existing issuer url
         # issuer_url: str
         
-        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+        from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
         
         # you can import an existing provider
         provider = eks.OidcProviderNative.from_oidc_provider_arn(self, "Provider", "arn:aws:iam::123456:oidc-provider/oidc.eks.eu-west-1.amazonaws.com/id/AB123456ABC")
@@ -11628,7 +11639,7 @@ class OidcProviderNative(
             cluster_name="Cluster",
             open_id_connect_provider=provider,
             kubectl_provider_options=eks.KubectlProviderOptions(
-                kubectl_layer=KubectlV35Layer(self, "kubectl")
+                kubectl_layer=KubectlV36Layer(self, "kubectl")
             )
         )
         
@@ -12020,7 +12031,7 @@ class ServiceAccount(
         # or create a new one using an existing issuer url
         # issuer_url: str
         
-        from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+        from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
         
         # you can import an existing provider
         provider = eks.OidcProviderNative.from_oidc_provider_arn(self, "Provider", "arn:aws:iam::123456:oidc-provider/oidc.eks.eu-west-1.amazonaws.com/id/AB123456ABC")
@@ -12032,7 +12043,7 @@ class ServiceAccount(
             cluster_name="Cluster",
             open_id_connect_provider=provider,
             kubectl_provider_options=eks.KubectlProviderOptions(
-                kubectl_layer=KubectlV35Layer(self, "kubectl")
+                kubectl_layer=KubectlV36Layer(self, "kubectl")
             )
         )
         
@@ -13075,7 +13086,7 @@ class Cluster(
     Example::
 
         cluster = eks.Cluster(self, "ManagedNodeCluster",
-            version=eks.KubernetesVersion.V1_34,
+            version=eks.KubernetesVersion.V1_36,
             default_capacity_type=eks.DefaultCapacityType.NODEGROUP
         )
         
@@ -13976,7 +13987,7 @@ class FargateCluster(
     Example::
 
         cluster = eks.FargateCluster(self, "FargateCluster",
-            version=eks.KubernetesVersion.V1_34
+            version=eks.KubernetesVersion.V1_36
         )
     '''
 
@@ -14172,7 +14183,7 @@ class OidcProviderNativeProps(OpenIdConnectProviderProps):
             # or create a new one using an existing issuer url
             # issuer_url: str
             
-            from aws_cdk.lambda_layer_kubectl_v35 import KubectlV35Layer
+            from aws_cdk.lambda_layer_kubectl_v36 import KubectlV36Layer
             
             # you can import an existing provider
             provider = eks.OidcProviderNative.from_oidc_provider_arn(self, "Provider", "arn:aws:iam::123456:oidc-provider/oidc.eks.eu-west-1.amazonaws.com/id/AB123456ABC")
@@ -14184,7 +14195,7 @@ class OidcProviderNativeProps(OpenIdConnectProviderProps):
                 cluster_name="Cluster",
                 open_id_connect_provider=provider,
                 kubectl_provider_options=eks.KubectlProviderOptions(
-                    kubectl_layer=KubectlV35Layer(self, "kubectl")
+                    kubectl_layer=KubectlV36Layer(self, "kubectl")
                 )
             )
             

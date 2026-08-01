@@ -123,7 +123,10 @@ def get_model_geom_id(geom: mujoco.MjsGeom, data: ConversionData) -> int:
     # If no geom name is specified, the target geom is searched for within the parent body.
     parent_body = geom.parent
     if not parent_body.name:
-        Tf.Warn(f"Parent body name not found (geom id: {geom.id})")
+        # MjsGeom.id is only assigned by compiling the spec in place, which the converter avoids.
+        # A geom's position in the spec is the id the compiler assigns it, so report that instead.
+        geom_index = next((i for i, g in enumerate(data.spec.geoms) if g is geom), None)
+        Tf.Warn(f"Parent body name not found (geom id: {geom_index})")
         return None
 
     for i in range(data.model.ngeom):
@@ -139,11 +142,10 @@ def get_mesh_fitting(geom: mujoco.MjsGeom, data: ConversionData) -> tuple[Gf.Vec
     if not hasattr(geom, "meshname") or not geom.meshname:
         return None, None, None
 
-    if data.model is None:
-        try:
-            data.model = data.spec.compile()
-        except Exception as e:
-            Tf.RaiseRuntimeError(f"Failed to compile model: {e}")
+    try:
+        data.get_model()
+    except Exception as e:
+        Tf.RaiseRuntimeError(f"Failed to compile model: {e}")
 
     geom_id = get_model_geom_id(geom, data)
     if geom_id is None:
@@ -279,23 +281,14 @@ def bind_material(geom_prim: Usd.Prim, name: str, data: ConversionData):
 def apply_physics(geom_prim: Usd.Prim, geom: mujoco.MjsGeom, data: ConversionData):
     # most geom are colliders
     is_collider = True
-    collider_enabled = True
 
     # Tendons target non-collision geoms by name, so keep a mujoco name to USD path mapping
     if geom.name:
         data.geom_targets[geom.name] = geom_prim.GetPath()
 
-    # some geom are for vizualization only, but still contribute to the mass of the body
+    # exclude visual geom from physics; any mass they carry is baked onto the body instead
     if geom.contype == 0 and geom.conaffinity == 0:
-        if data.spec.compiler.inertiafromgeom != mujoco.mjtInertiaFromGeom.mjINERTIAFROMGEOM_FALSE and (
-            geom.group in range(data.spec.compiler.inertiagrouprange[0], data.spec.compiler.inertiagrouprange[1] + 1)
-        ):
-            if not np.isnan(geom.mass) or geom.density > 0.0:
-                collider_enabled = False
-            else:
-                is_collider = False
-        else:
-            is_collider = False
+        is_collider = False
 
     if not is_collider:
         # this is a purely visual geom, so we skip physics authoring
@@ -306,9 +299,7 @@ def apply_physics(geom_prim: Usd.Prim, geom: mujoco.MjsGeom, data: ConversionDat
 
     geom_over: Usd.Prim = data.content[Tokens.Physics].OverridePrim(geom_prim.GetPrim().GetPath())
 
-    collider: UsdPhysics.CollisionAPI = UsdPhysics.CollisionAPI.Apply(geom_over)
-    if not collider_enabled:
-        collider.CreateCollisionEnabledAttr().Set(False)
+    UsdPhysics.CollisionAPI.Apply(geom_over)
 
     geom_over.ApplyAPI("NewtonCollisionAPI")
     geom_over.ApplyAPI("MjcCollisionAPI")
@@ -349,8 +340,11 @@ def apply_physics(geom_prim: Usd.Prim, geom: mujoco.MjsGeom, data: ConversionDat
     if not np.isnan(geom.mass):
         geom_mass: UsdPhysics.MassAPI = UsdPhysics.MassAPI.Apply(geom_over)
         geom_mass.CreateMassAttr().Set(geom.mass)
-
-    if geom.density > 0.0:
+    elif geom.density > 0.0:
+        # Only author density when mass is unspecified. Per MJCF docs:
+        # "If [mass] is specified, the density attribute is ignored."
+        # When mass IS specified, MuJoCo back-computes density from mass,
+        # so geom.density is non-zero but not an independent opinion.
         geom_mass: UsdPhysics.MassAPI = UsdPhysics.MassAPI.Apply(geom_over)
         geom_mass.CreateDensityAttr().Set(geom.density)
 
@@ -386,7 +380,15 @@ def create_physics_material(physics_materials: Usd.Prim, geom: mujoco.MjsGeom, d
     ke, kd = solref_to_stiffness_damping(geom.solref)
 
     name = data.name_cache.getPrimName(physics_materials, "PhysicsMaterial")
-    material: UsdShade.Material = usdex.core.definePhysicsMaterial(physics_materials, name, dynamicFriction=sliding_friction)
+    # MuJoCo has a single sliding friction coefficient, applied whether a contact is stuck or
+    # slipping, so both UsdPhysics coefficients take it. Leaving physics:staticFriction unauthored
+    # would not leave it unspecified: its schema fallback is 0.0, which no MuJoCo model means.
+    material: UsdShade.Material = usdex.core.definePhysicsMaterial(
+        physics_materials,
+        name,
+        dynamicFriction=sliding_friction,
+        staticFriction=sliding_friction,
+    )
 
     material.GetPrim().ApplyAPI("NewtonMaterialAPI")
     set_schema_attribute(material.GetPrim(), "newton:torsionalFriction", torsional_friction)

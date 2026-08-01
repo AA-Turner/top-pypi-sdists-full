@@ -1,5 +1,8 @@
 # tifffile/examples/write_dng.py
 
+# Copyright (c) Christoph Gohlke
+# SPDX-License-Identifier: BSD-3-Clause
+
 """Write Digital Negative (DNG) compatible file using tifffile.
 
 Writes a synthetic, 12-bit CFA (Bayer mosaic) array as a DNG 1.7 file.
@@ -241,7 +244,7 @@ def synthetic_cfa(height: int, width: int) -> np.ndarray:
     mosaic[1::2, 1::2] = np.clip(
         mosaic[1::2, 1::2].astype(np.int32) - 94, 0, 4095
     )  # B
-    return mosaic  # type: ignore[no-any-return]
+    return mosaic
 
 
 def rggb2rgb(

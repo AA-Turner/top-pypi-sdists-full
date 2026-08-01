@@ -33,7 +33,7 @@ from numbers_parser.model import _NumbersModel
 from numbers_parser.numbers_cache import Cacheable
 from numbers_parser.xrefs import xl_cell_to_rowcol, xl_range
 
-if TYPE_CHECKING:  # pragma: nocover
+if TYPE_CHECKING:  # pragma: no cover
     from collections.abc import Iterator
     from datetime import datetime, timedelta
 
@@ -1358,7 +1358,7 @@ class Table(Cacheable):
             If an invalid number of arguments is passed or if the types of the arguments
             are invalid.
 
-        Warns:
+        Warns
         -----
         RuntimeWarning:
             If any of the sides to which the border is applied have been merged.
@@ -1418,8 +1418,6 @@ class Table(Cacheable):
         else:
             msg = "side must be a valid border segment"
             raise TypeError(msg)
-
-        self._model.add_stroke(self._table_id, row, col, side, border_value, length)
 
     def set_cell_formatting(self, *args: str, **kwargs) -> None:
         r"""

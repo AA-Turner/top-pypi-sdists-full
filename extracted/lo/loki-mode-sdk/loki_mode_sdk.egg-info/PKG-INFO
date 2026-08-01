@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: loki-mode-sdk
-Version: 8.5.2
+Version: 8.16.2
 Summary: Python SDK for Loki Mode - autonomous multi-agent development platform
 Author-email: Lokesh Mure <lokesh@autonomi.dev>
 License-Expression: BUSL-1.1

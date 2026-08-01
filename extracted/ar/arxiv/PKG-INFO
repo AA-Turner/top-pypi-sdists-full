@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arxiv
-Version: 4.0.0
+Version: 4.0.1
 Summary: Python wrapper for the arXiv API
 Project-URL: Homepage, https://github.com/lukasschwab/arxiv.py
 Project-URL: Repository, https://github.com/lukasschwab/arxiv.py
@@ -24,7 +24,7 @@ Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: lxml<7.0,>=6.1.0
-Requires-Dist: requests<2.34,>=2.32
+Requires-Dist: requests<2.35,>=2.32
 Requires-Dist: typing-extensions>=4.0.0; python_version < '3.11'
 Description-Content-Type: text/markdown
 

@@ -92,8 +92,8 @@ checked_find_package (libuhdr
 
 checked_find_package (TIFF REQUIRED
                       VERSION_MIN 4.0
-                      RECOMMEND_MIN 4.2
-                      RECOMMEND_MIN_REASON "4.2 for GPS support")
+                      RECOMMEND_MIN 4.5
+                      RECOMMEND_MIN_REASON "4.2+ for GPS, 4.5+ various security fixes")
 alias_library_if_not_exists (TIFF::TIFF TIFF::tiff)
 
 # JPEG XL
@@ -115,6 +115,7 @@ else ()
 endif()
 
 # From pythonutils.cmake
+set_option (USE_PYTHON "Enable support of Python bindings" ON)
 if (USE_PYTHON)
     find_python()
 endif ()
@@ -147,7 +148,8 @@ if (NOT OPENCOLORIO_INCLUDES)
 endif ()
 include_directories(BEFORE ${OPENCOLORIO_INCLUDES})
 
-checked_find_package (OpenCV 4.0
+checked_find_package (OpenCV VERSION_MIN 4.0
+                      PREFER_CONFIG
                       DEFINITIONS USE_OPENCV=1)
 
 # Intel TBB

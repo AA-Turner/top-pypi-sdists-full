@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zernio-sdk
-Version: 1.4.386
+Version: 1.4.395
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -564,6 +564,12 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `comments.set_comment_moderation()` | Set comment moderation status |
 | `comments.unhide_inbox_comment()` | Unhide comment |
 | `comments.unlike_inbox_comment()` | Unlike comment |
+
+### Connected Apps
+| Method | Description |
+|--------|-------------|
+| `connected_apps.list_connected_apps()` | List connected apps |
+| `connected_apps.revoke_connected_app()` | Revoke connected app |
 
 ### Contacts
 | Method | Description |

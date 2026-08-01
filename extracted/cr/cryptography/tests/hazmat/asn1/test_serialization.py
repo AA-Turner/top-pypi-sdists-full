@@ -328,14 +328,24 @@ class TestTLV:
         assert isinstance(decoded_example, Example)
         assert decoded_example.foo == 9
 
-    def test_fail_encode_tlv(self) -> None:
-        tlv = asn1.decode_der(asn1.TLV, b"\x03\x02\x07\x40")
-        assert isinstance(tlv, asn1.TLV)
+    def test_ok_encode_tlv(self) -> None:
+        for original in [
+            b"\x03\x02\x07\x40",
+            b"\x02\x01\x01",
+            b"\x30\x03\x02\x01\x09",
+            b"\x05\x00",
+        ]:
+            tlv = asn1.decode_der(asn1.TLV, original)
+            assert isinstance(tlv, asn1.TLV)
+            assert asn1.encode_der(tlv) == original
 
-        with pytest.raises(
-            NotImplementedError, match="TLV encoding currently not supported"
-        ):
-            asn1.encode_der(tlv)
+    def test_ok_encode_tlv_roundtrip_from_value(self) -> None:
+        # Parse an arbitrary element with the TLV specifier, then
+        # serialize just that element back to its original DER.
+        original = asn1.encode_der(1)
+        tlv = asn1.decode_der(asn1.TLV, original)
+        assert isinstance(tlv, asn1.TLV)
+        assert asn1.encode_der(tlv) == original
 
 
 class TestNull:
@@ -479,7 +489,7 @@ class TestSequence:
             a: typing.Union[bool, None]
             b: int
             c: bytes
-            d: typing.Union[None, str]
+            d: typing.Union[str, None]
 
         assert_roundtrips(
             [
@@ -508,7 +518,7 @@ class TestSequence:
             a: typing.Union[typing.Union[bool, None], None]
             b: int
             c: bytes
-            d: typing.Union[None, typing.Union[None, str]]
+            d: typing.Union[typing.Union[str, None], None]
 
         assert_roundtrips(
             [
@@ -853,7 +863,7 @@ class TestSequence:
         with pytest.raises(
             ValueError,
         ):
-            asn1.encode_der(Example(foo=3))  # type: ignore[arg-type]
+            asn1.encode_der(Example(foo=typing.cast(typing.Any, 3)))
 
     def test_sequence_with_explicit_choice(self) -> None:
         @asn1.sequence
@@ -1054,6 +1064,10 @@ class TestSequence:
         assert decoded.bar.tag_bytes == b"\x02"
         assert bytes(decoded.bar.data) == b"\x09"
 
+        # Re-encoding the EXPLICIT-tagged TLV fields produces the
+        # original DER.
+        assert asn1.encode_der(decoded) == encoded
+
     def test_fail_sequence_with_tlv_with_explicit_annotation(
         self,
     ) -> None:
@@ -1141,6 +1155,19 @@ class TestSet:
                 )
             ]
         )
+
+
+class TestSetOf:
+    # A top-level `SetOf` can be passed directly to `encode_der`. It cannot
+    # be decoded, since `decode_der` requires a concrete element type.
+    def test_ok_encode_setof(self) -> None:
+        assert (
+            asn1.encode_der(asn1.SetOf([3, 1, 2]))
+            == b"\x31\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03"
+        )
+
+    def test_ok_encode_empty_setof(self) -> None:
+        assert asn1.encode_der(asn1.SetOf([])) == b"\x31\x00"
 
 
 class TestSize:
@@ -2095,7 +2122,66 @@ class TestX509Types:
             cert: x509.Certificate
 
         with pytest.raises(TypeError):
-            asn1.encode_der(Example(cert=9))  # type: ignore[arg-type]
+            asn1.encode_der(Example(cert=typing.cast(typing.Any, 9)))
+
+
+class TestName:
+    @pytest.fixture
+    def name(self) -> x509.Name:
+        return x509.Name.from_rfc4514_string("CN=foo,O=bar")
+
+    def test_name(self, name: x509.Name) -> None:
+        empty = x509.Name([])
+        name_der = name.public_bytes()
+        assert_roundtrips(
+            [
+                # Top-level, both populated and empty.
+                (name, name_der),
+                (empty, empty.public_bytes()),
+            ]
+        )
+
+    def test_fields(self, name: x509.Name) -> None:
+        @asn1.sequence
+        @_comparable_dataclass
+        class Example:
+            name: x509.Name
+
+        inner = name.public_bytes()
+        expected = b"\x30" + _der_length(len(inner)) + inner
+        assert_roundtrips([(Example(name=name), expected)])
+
+    def test_name_implicit(self, name: x509.Name) -> None:
+        # Unlike Certificate/CSR/CRL, Name is encoded and decoded through the
+        # asn1 machinery directly, so it supports IMPLICIT annotations.
+        @asn1.sequence
+        @_comparable_dataclass
+        class Example:
+            name: Annotated[x509.Name, asn1.Implicit(0)]
+
+        name_der = name.public_bytes()
+        # IMPLICIT tagging replaces the outer SEQUENCE tag (0x30) with the
+        # constructed context-specific tag [0] (0xa0).
+        inner = b"\xa0" + name_der[1:]
+        expected = b"\x30" + _der_length(len(inner)) + inner
+        assert_roundtrips([(Example(name=name), expected)])
+
+    def test_decode_invalid(self) -> None:
+        # Not even a valid TLV
+        with pytest.raises(ValueError):
+            asn1.decode_der(x509.Name, b"")
+
+        # Wrong tag (INTEGER instead of SEQUENCE)
+        with pytest.raises(ValueError):
+            asn1.decode_der(x509.Name, b"\x02\x01\x00")
+
+    def test_encode_wrong_type(self) -> None:
+        @asn1.sequence
+        class Example:
+            name: x509.Name
+
+        with pytest.raises(TypeError):
+            asn1.encode_der(Example(name=typing.cast(typing.Any, 9)))
 
 
 @asn1.value_set(x509.ObjectIdentifier)
@@ -2269,7 +2355,11 @@ class TestValueSet:
             "got: ObjectIdentifier",
         ):
             asn1.encode_der(
-                Example(algorithm=x509.ObjectIdentifier("1.2.3.4"))  # type: ignore[arg-type]
+                Example(
+                    algorithm=typing.cast(
+                        typing.Any, x509.ObjectIdentifier("1.2.3.4")
+                    )
+                )
             )
 
 

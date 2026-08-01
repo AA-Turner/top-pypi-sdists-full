@@ -139,6 +139,7 @@ macro (oiio_add_all_tests)
                     cmake-consumer
                     cryptomatte
                     docs-examples-cpp
+                    texture-device
                     iinfo igrep
                     nonwhole-tiles
                     oiiotool
@@ -152,6 +153,7 @@ macro (oiio_add_all_tests)
                     oiiotool-readerror
                     oiiotool-subimage
                     oiiotool-text
+                    oiiotool-thumbnail-get
                     oiiotool-xform
                     diff
                     flip
@@ -294,6 +296,8 @@ macro (oiio_add_all_tests)
                     URL http://www.itu.int/net/ITU-T/sigdb/speimage/ImageForm-s.aspx?val=10100803)
     oiio_add_tests (jxl
                     FOUNDVAR JXL_FOUND)
+    oiio_add_tests (imagebufalgo-opencv
+                    FOUNDVAR OpenCV_FOUND)
     set (all_openexr_tests
          openexr-suite openexr-multires openexr-chroma openexr-decreasingy
          openexr-v2 openexr-window perchannel oiiotool-deep)
@@ -322,6 +326,9 @@ macro (oiio_add_all_tests)
                         IMAGEDIR openexr-images
                         URL http://github.com/AcademySoftwareFoundation/openexr-images)
     endif ()
+    # Regression test (compiles its own helper and generates its own image)
+    # for a partial edge-tile heap overflow in the OpenEXR readers.
+    oiio_add_tests (openexr-partialtile)
     # if (NOT DEFINED ENV{${PROJECT_NAME}_CI})
     #     oiio_add_tests (openexr-damaged
     #                     IMAGEDIR openexr-images
@@ -364,6 +371,8 @@ macro (oiio_add_all_tests)
                     ENABLEVAR ENABLE_TARGA
                     IMAGEDIR oiio-images)
     endif()
+    oiio_add_tests (oiiotool-thumbnail-set
+                    ENABLEVAR ENABLE_TARGA)
     if (WIN32)
         if (OIIO_BUILD_TOOLS)
             # Add test for long path handling if support is enabled at the system level.

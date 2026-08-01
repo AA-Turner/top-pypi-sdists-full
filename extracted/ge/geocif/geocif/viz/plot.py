@@ -534,7 +534,10 @@ def _plot_map_pygmt(
 
     if _gmt_available():
         from . import _pygmt_render
-        _pygmt_render.render(gj, pj)
+        # render() takes the params DICT (the subprocess __main__ path loads
+        # the JSON itself) — passing the path here was latent until an env
+        # could actually load GMT in-process (pixi-managed gmt, 0.4.886+).
+        _pygmt_render.render(gj, params)
     else:
         # Bridge: render in a pygmt-capable conda env.
         env = os.environ.get("GEOCIF_PYGMT_CONDA_ENV", "pygmt_env")

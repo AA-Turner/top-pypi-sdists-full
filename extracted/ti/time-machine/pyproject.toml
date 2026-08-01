@@ -6,7 +6,7 @@ requires = [
 
 [project]
 name = "time-machine"
-version = "3.2.0"
+version = "3.3.0"
 description = "Travel through time in your tests."
 readme = "README.rst"
 keywords = [
@@ -37,6 +37,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Typing :: Typed",
 ]
 optional-dependencies.cli = [
@@ -55,7 +56,7 @@ entry-points.pytest11.time_machine = "time_machine"
 test = [
   "coverage[toml]",
   "freezegun",
-  "pytest",
+  "pytest>=9",
   "pytest-randomly",
   "python-dateutil",
 ]
@@ -65,27 +66,24 @@ docs = [
   "sphinx-build-compatibility",
   "sphinx-copybutton>=0.5.2",
 ]
+build = [
+  "cibuildwheel>=3.3.1",
+]
 
-[tool.uv.sources]
-sphinx-build-compatibility = { git = "https://github.com/readthedocs/sphinx-build-compatibility", rev = "4f304bd4562cdc96316f4fec82b264ca379d23e0" }
+[tool.uv]
+dependency-groups.build = { requires-python = ">=3.14" }
+sources.sphinx-build-compatibility = { git = "https://github.com/readthedocs/sphinx-build-compatibility", rev = "4f304bd4562cdc96316f4fec82b264ca379d23e0" }
 
 [tool.cibuildwheel]
 build = [
   "cp314-*",
   "cp314t-*",
   "cp313-*",
-  "cp313t-*",
   "cp312-*",
   "cp311-*",
   "cp310-*",
 ]
-enable = [
-  # Enable free-threaded wheels on Python 3.13 (where it was experimental)
-  "cpython-freethreading",
-]
-linux.archs = [ "x86_64", "i686", "aarch64" ]
-macos.archs = [ "x86_64", "universal2" ]
-windows.archs = [ "AMD64", "x86", "ARM64" ]
+archs = [ "auto64" ]
 
 [tool.ruff]
 lint.select = [
@@ -125,47 +123,39 @@ lint.extend-safe-fixes = [
 lint.isort.required-imports = [ "from __future__ import annotations" ]
 
 [tool.pyproject-fmt]
-max_supported_python = "3.14"
-
-[tool.pytest.ini_options]
-addopts = """\
-    --strict-config
-    --strict-markers
-    -p pytester
-    """
-xfail_strict = true
-
-[tool.coverage.run]
-branch = true
-parallel = true
-source = [
-  "time_machine",
-  "tests",
-]
-
-[tool.coverage.paths]
-source = [
-  "src",
-  ".tox/**/site-packages",
-]
-
-[tool.coverage.report]
-show_missing = true
+max_supported_python = "3.15"
 
 [tool.mypy]
+mypy_path = "src/"
+namespace_packages = false
+warn_unreachable = true
 enable_error_code = [
   "ignore-without-code",
   "redundant-expr",
   "truthy-bool",
 ]
-mypy_path = "src/"
-namespace_packages = false
 strict = true
-warn_unreachable = true
+overrides = [ { module = "tests.*", allow_untyped_defs = true } ]
 
-[[tool.mypy.overrides]]
-module = "tests.*"
-allow_untyped_defs = true
+[tool.pytest]
+addopts = [ "-p", "pytester" ]
+strict = true
+
+[tool.coverage]
+run.branch = true
+run.data_file = ".coverage/cov"
+run.parallel = true
+run.source = [
+  "tests",
+  "time_machine",
+]
+paths.source = [
+  "src",
+  ".tox/**/site-packages",
+]
+report.show_missing = true
+report.skip_covered = true
+report.skip_empty = true
 
 [tool.rstcheck]
 ignore_directives = [

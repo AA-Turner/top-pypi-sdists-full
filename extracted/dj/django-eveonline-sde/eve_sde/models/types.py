@@ -4,7 +4,8 @@
 # Django
 from django.db import models
 
-from .base import JSONModel
+# Django EVE SDE
+from eve_sde.models.base import JSONModel
 
 
 class TypeBase(JSONModel):
@@ -557,6 +558,7 @@ class TypeEffect(JSONModel):
         data_map = (
             ("item_type_id", "_key"),
             ("dogma_effect_id", "effectID"),
+            ("is_default", "isDefault"),
         )
         update_fields = False
         custom_names = False

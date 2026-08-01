@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trimesh
-Version: 4.12.2
+Version: 5.0.0
 Summary: Import, export, process, analyze and view triangular meshes.
 Author-email: Michael Dawson-Haggerty <mikedh@kerfed.com>
 License: The MIT License (MIT)
@@ -31,38 +31,36 @@ Keywords: graphics,mesh,geometry,3D
 Classifier: Development Status :: 4 - Beta
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Natural Language :: English
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Multimedia :: Graphics :: 3D Modeling
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
-Requires-Dist: numpy>=1.20
+Requires-Dist: numpy>=1.21
 Provides-Extra: easy
 Requires-Dist: colorlog; extra == "easy"
-Requires-Dist: manifold3d>=2.3.0; python_version < "3.14" and extra == "easy"
+Requires-Dist: manifold3d>=2.3.0; extra == "easy"
 Requires-Dist: charset-normalizer; extra == "easy"
 Requires-Dist: lxml; extra == "easy"
 Requires-Dist: jsonschema; extra == "easy"
 Requires-Dist: networkx; extra == "easy"
 Requires-Dist: svg.path; extra == "easy"
-Requires-Dist: pycollada<=0.9.0; python_version < "3.9" and extra == "easy"
-Requires-Dist: pycollada; python_version >= "3.9" and extra == "easy"
+Requires-Dist: pycollada; extra == "easy"
 Requires-Dist: shapely; extra == "easy"
 Requires-Dist: xxhash; extra == "easy"
 Requires-Dist: rtree; extra == "easy"
 Requires-Dist: httpx; extra == "easy"
 Requires-Dist: scipy; extra == "easy"
-Requires-Dist: embreex; extra == "easy"
+Requires-Dist: embreex; platform_machine != "aarch64" and extra == "easy"
 Requires-Dist: pillow; extra == "easy"
-Requires-Dist: vhacdx; python_version >= "3.9" and extra == "easy"
-Requires-Dist: mapbox_earcut>=1.0.2; python_version >= "3.9" and extra == "easy"
+Requires-Dist: vhacdx; extra == "easy"
+Requires-Dist: mapbox_earcut>=1.0.2; extra == "easy"
 Provides-Extra: recommend
 Requires-Dist: sympy; extra == "recommend"
 Requires-Dist: pyglet<2; extra == "recommend"
@@ -70,25 +68,24 @@ Requires-Dist: scikit-image; extra == "recommend"
 Requires-Dist: fast-simplification; extra == "recommend"
 Requires-Dist: python-fcl; extra == "recommend"
 Requires-Dist: cascadio; extra == "recommend"
-Requires-Dist: manifold3d>=2.3.0; python_version >= "3.14" and extra == "recommend"
 Provides-Extra: test
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pyinstrument; extra == "test"
 Requires-Dist: ruff; extra == "test"
 Provides-Extra: test-more
-Requires-Dist: coveralls; extra == "test-more"
 Requires-Dist: ezdxf; extra == "test-more"
 Requires-Dist: meshio; extra == "test-more"
 Requires-Dist: xatlas; extra == "test-more"
-Requires-Dist: pytest-beartype; python_version >= "3.10" and extra == "test-more"
+Requires-Dist: pytest-beartype; extra == "test-more"
 Requires-Dist: matplotlib; extra == "test-more"
 Requires-Dist: pymeshlab; python_version < "3.14" and extra == "test-more"
 Requires-Dist: triangle; python_version < "3.14" and extra == "test-more"
 Requires-Dist: ipython; extra == "test-more"
 Requires-Dist: marimo; extra == "test-more"
+Requires-Dist: requests; extra == "test-more"
+Requires-Dist: aiohttp; extra == "test-more"
 Provides-Extra: deprecated
-Requires-Dist: openctm; extra == "deprecated"
 Provides-Extra: all
 Requires-Dist: trimesh[deprecated,easy,recommend,test,test_more]; extra == "all"
 Dynamic: license-file
@@ -96,10 +93,10 @@ Dynamic: license-file
 [![trimesh](https://trimesh.org/_static/images/logotype-a.svg)](http://trimesh.org)
 
 -----------
-[![Github Actions](https://github.com/mikedh/trimesh/workflows/Release%20Trimesh/badge.svg)](https://github.com/mikedh/trimesh/actions) [![codecov](https://codecov.io/gh/mikedh/trimesh/branch/main/graph/badge.svg?token=4PVRQXyl2h)](https://codecov.io/gh/mikedh/trimesh)  [![Docker Image Version (latest by date)](https://img.shields.io/docker/v/trimesh/trimesh?label=docker&sort=semver)](https://hub.docker.com/r/trimesh/trimesh/tags) [![PyPI version](https://badge.fury.io/py/trimesh.svg)](https://badge.fury.io/py/trimesh)
+[![Github Actions](https://github.com/mikedh/trimesh/workflows/Release%20Trimesh/badge.svg)](https://github.com/mikedh/trimesh/actions) [![coverage](https://trimesh.org/coverage/badge.svg)](https://trimesh.org/coverage/)  [![Docker Image Version (latest by date)](https://img.shields.io/docker/v/trimesh/trimesh?label=docker&sort=semver)](https://hub.docker.com/r/trimesh/trimesh/tags) [![PyPI version](https://badge.fury.io/py/trimesh.svg)](https://badge.fury.io/py/trimesh)
 
 
-Trimesh is a pure Python 3.8+ library for loading and using [triangular meshes](https://en.wikipedia.org/wiki/Triangle_mesh) with an emphasis on watertight surfaces. The goal of the library is to provide a full featured and well tested Trimesh object which allows for easy manipulation and analysis, in the style of the Polygon object in the [Shapely library](https://github.com/Toblerity/Shapely).
+Trimesh is a pure Python 3.10+ library for loading and using [triangular meshes](https://en.wikipedia.org/wiki/Triangle_mesh) with an emphasis on watertight surfaces. The goal of the library is to provide a full featured and well tested Trimesh object which allows for easy manipulation and analysis, in the style of the Polygon object in the [Shapely library](https://github.com/Toblerity/Shapely).
 
 The API is mostly stable, but this should not be relied on and is not guaranteed: install a specific version if you plan on deploying something using `trimesh`.
 
@@ -135,21 +132,20 @@ import trimesh
 trimesh.util.attach_to_log()
 
 # mesh objects can be created from existing faces and vertex data
-mesh = trimesh.Trimesh(vertices=[[0, 0, 0], [0, 0, 1], [0, 1, 0]],
-                       faces=[[0, 1, 2]])
+mesh = trimesh.Trimesh(vertices=[[0, 0, 0], [0, 0, 1], [0, 1, 0]], faces=[[0, 1, 2]])
 
 # by default, Trimesh will do a light processing, which will
 # remove any NaN values and merge vertices that share position
 # if you want to not do this on load, you can pass `process=False`
-mesh = trimesh.Trimesh(vertices=[[0, 0, 0], [0, 0, 1], [0, 1, 0]],
-                       faces=[[0, 1, 2]],
-                       process=False)
+mesh = trimesh.Trimesh(
+    vertices=[[0, 0, 0], [0, 0, 1], [0, 1, 0]], faces=[[0, 1, 2]], process=False
+)
 
 # some formats like `glb` represent multiple meshes with multiple instances
 # and `load_mesh` will concatenate irreversibly, load it as a Scene
 # if you need instance information:
 #   `scene = trimesh.load_scene('models/CesiumMilkTruck.glb')`
-mesh = trimesh.load_mesh('models/CesiumMilkTruck.glb')
+mesh = trimesh.load_mesh("models/CesiumMilkTruck.glb")
 
 # is the current mesh watertight?
 mesh.is_watertight
@@ -211,10 +207,11 @@ mesh.bounding_box_oriented.primitive.transform
 # available, and will be the minimum volume version of each
 # except in certain degenerate cases, where they will be no worse
 # than a least squares fit version of the primitive.
-print(mesh.bounding_box_oriented.volume,
-      mesh.bounding_cylinder.volume,
-      mesh.bounding_sphere.volume)
-
+print(
+    mesh.bounding_box_oriented.volume,
+    mesh.bounding_cylinder.volume,
+    mesh.bounding_sphere.volume,
+)
 ```
 
 ## Features
@@ -227,7 +224,7 @@ print(mesh.bounding_box_oriented.volume,
 * Calculate face adjacencies, face angles, vertex defects, convex hulls, etc.
 * Calculate cross sections for a 2D outline, or slice a mesh for a 3D remainder mesh, i.e. slicing for 3D-printing.
 * Split mesh based on face connectivity using networkx, or scipy.sparse
-* Calculate mass properties, including volume, center of mass, moment of inertia, principal components of inertia, etc. 
+* Calculate mass properties, including volume, center of mass, moment of inertia, principal components of inertia, etc.
 * Repair simple problems with triangle winding, normals, and quad/triangle holes
 * Compute rotation/translation/tessellation invariant identifier and find duplicate meshes
 * Check if a mesh is watertight, convex, etc.
@@ -246,6 +243,6 @@ print(mesh.bounding_box_oriented.volume,
 ## Additional Notes
 
 - Check out some cool stuff people have done in the [GitHub network](https://github.com/mikedh/trimesh/network/dependents).
-- Generally `trimesh` API changes should have a one-year period of [printing a `warnings.DeprecationWarning`](https://trimesh.org/contributing.html#deprecations) although that's not always possible (i.e. the pyglet2 viewer rewrite that's been back-burnered for several years.) 
+- Generally `trimesh` API changes should have a one-year period of [printing a `warnings.DeprecationWarning`](https://trimesh.org/contributing.html#deprecations) although that's not always possible (i.e. the pyglet2 viewer rewrite that's been back-burnered for several years.)
 - Docker containers are available on Docker Hub as [`trimesh/trimesh`](https://hub.docker.com/r/trimesh/trimesh/tags) and there's a [container guide](https://trimesh.org/docker.html) in the docs.
 - If you're choosing which format to use, you may want to try [GLB](https://trimesh.org/formats.html) as a fast modern option.

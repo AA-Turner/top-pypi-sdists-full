@@ -558,11 +558,23 @@ class BitArray(System.Object, System.Collections.ICollection, System.ICloneable,
         ...
 
     @overload
+    def __init__(self, bytes: System.ReadOnlySpan[int]) -> None:
+        ...
+
+    @overload
     def __init__(self, values: typing.List[bool]) -> None:
         ...
 
     @overload
+    def __init__(self, values: System.ReadOnlySpan[bool]) -> None:
+        ...
+
+    @overload
     def __init__(self, values: typing.List[int]) -> None:
+        ...
+
+    @overload
+    def __init__(self, values: System.ReadOnlySpan[int]) -> None:
         ...
 
     @overload

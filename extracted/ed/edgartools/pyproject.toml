@@ -191,9 +191,6 @@ smoke-filings = "python scripts/batch/batch_filings.py {args}"
 # PyYAML's unsafe loader, so a contributed cassette executes code on your
 # machine the moment a test touches it. CI gates on this too.
 check-cassettes = "python scripts/check_cassettes.py {args}"
-# Lint a Ghost-ready blog article file (frontmatter, card directives, CTAs)
-# before the blog-publish skill transcribes it into the Ghost editor.
-validate-blog = "python scripts/validate_blog_post.py {args}"
 # Test categorization commands (sequential execution)
 test-fast = "pytest -m 'fast' {args}"
 test-slow = "pytest -m 'slow' {args}"

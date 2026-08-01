@@ -1593,6 +1593,51 @@ ecs_service.associate_cloud_map_service(
 )
 ```
 
+### Using an Existing Cloud Map Namespace
+
+You can use an existing Cloud Map namespace as the default namespace for a cluster
+instead of creating a new one. This is useful when you want to share a namespace
+across multiple clusters or when you want to use a namespace that was created
+outside of CDK:
+
+```python
+# vpc: ec2.Vpc
+
+
+# Create or reference an existing namespace
+existing_namespace = cloudmap.PrivateDnsNamespace(self, "Namespace",
+    name="example.local",
+    vpc=vpc
+)
+
+cluster = ecs.Cluster(self, "Cluster", vpc=vpc)
+
+# Use the existing namespace as the default
+cluster.add_existing_default_cloud_map_namespace(
+    namespace=existing_namespace,
+    use_for_service_connect=True
+)
+```
+
+You can also import an existing namespace:
+
+```python
+# vpc: ec2.Vpc
+
+
+imported_namespace = cloudmap.PrivateDnsNamespace.from_private_dns_namespace_attributes(self, "ImportedNamespace",
+    namespace_id="ns-xxxxxxxxxxxxx",
+    namespace_arn="arn:aws:servicediscovery:us-east-1:123456789012:namespace/ns-xxxxxxxxxxxxx",
+    namespace_name="example.local"
+)
+
+cluster = ecs.Cluster(self, "Cluster", vpc=vpc)
+
+cluster.add_existing_default_cloud_map_namespace(
+    namespace=imported_namespace
+)
+```
+
 ## Capacity Providers
 
 There are two major families of Capacity Providers: [AWS
@@ -31222,96 +31267,38 @@ class CfnTaskSetProps:
 
 
 @jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_ecs.CloudMapNamespaceOptions",
+    jsii_type="aws-cdk-lib.aws_ecs.CloudMapNamespaceOptionsBase",
     jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "type": "type",
-        "use_for_service_connect": "useForServiceConnect",
-        "vpc": "vpc",
-    },
+    name_mapping={"use_for_service_connect": "useForServiceConnect"},
 )
-class CloudMapNamespaceOptions:
+class CloudMapNamespaceOptionsBase:
     def __init__(
         self,
         *,
-        name: builtins.str,
-        type: typing.Optional["_aws_servicediscovery_d0251706.NamespaceType"] = None,
         use_for_service_connect: typing.Optional[builtins.bool] = None,
-        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
     ) -> None:
-        '''The options for creating an AWS Cloud Map namespace.
+        '''Options shared by all ways of setting the default AWS Cloud Map namespace of a cluster.
 
-        :param name: The name of the namespace, such as example.com.
-        :param type: The type of CloudMap Namespace to create. Default: PrivateDns
         :param use_for_service_connect: This property specifies whether to set the provided namespace as the service connect default in the cluster properties. Default: false
-        :param vpc: The VPC to associate the namespace with. This property is required for private DNS namespaces. Default: VPC of the cluster for Private DNS Namespace, otherwise none
 
-        :exampleMetadata: infused
+        :exampleMetadata: fixture=_generated
 
         Example::
 
-            # cluster: ecs.Cluster
-            # task_definition: ecs.TaskDefinition
-            # container_options: ecs.ContainerDefinitionOptions
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_ecs as ecs
             
-            
-            container = task_definition.add_container("MyContainer", container_options)
-            
-            container.add_port_mappings(
-                name="api",
-                container_port=8080
-            )
-            
-            cluster.add_default_cloud_map_namespace(
-                name="local"
-            )
-            
-            service = ecs.FargateService(self, "Service",
-                cluster=cluster,
-                task_definition=task_definition,
-                min_healthy_percent=100,
-                service_connect_configuration=ecs.ServiceConnectProps(
-                    services=[ecs.ServiceConnectService(
-                        port_mapping_name="api",
-                        dns_name="http-api",
-                        port=80
-                    )
-                    ]
-                )
+            cloud_map_namespace_options_base = ecs.CloudMapNamespaceOptionsBase(
+                use_for_service_connect=False
             )
         '''
         if __debug__:
-            type_hints = cached_type_hints(_typecheckingstub__7578b0b48579573f46c313c5fa6a653348d3ef9fa894b735881442e8d8bcf7eb)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            type_hints = cached_type_hints(_typecheckingstub__0a988a7cced4e2565d68ad18e4393dcf156939f6eefc4f8eaa2491b55fc63b91)
             check_type(argname="argument use_for_service_connect", value=use_for_service_connect, expected_type=type_hints["use_for_service_connect"])
-            check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if type is not None:
-            self._values["type"] = type
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
         if use_for_service_connect is not None:
             self._values["use_for_service_connect"] = use_for_service_connect
-        if vpc is not None:
-            self._values["vpc"] = vpc
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the namespace, such as example.com.'''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def type(self) -> typing.Optional["_aws_servicediscovery_d0251706.NamespaceType"]:
-        '''The type of CloudMap Namespace to create.
-
-        :default: PrivateDns
-        '''
-        result = self._values.get("type")
-        return typing.cast(typing.Optional["_aws_servicediscovery_d0251706.NamespaceType"], result)
 
     @builtins.property
     def use_for_service_connect(self) -> typing.Optional[builtins.bool]:
@@ -31322,17 +31309,6 @@ class CloudMapNamespaceOptions:
         result = self._values.get("use_for_service_connect")
         return typing.cast(typing.Optional[builtins.bool], result)
 
-    @builtins.property
-    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
-        '''The VPC to associate the namespace with.
-
-        This property is required for private DNS namespaces.
-
-        :default: VPC of the cluster for Private DNS Namespace, otherwise none
-        '''
-        result = self._values.get("vpc")
-        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
-
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
 
@@ -31340,7 +31316,7 @@ class CloudMapNamespaceOptions:
         return not (rhs == self)
 
     def __repr__(self) -> str:
-        return "CloudMapNamespaceOptions(%s)" % ", ".join(
+        return "CloudMapNamespaceOptionsBase(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -31803,34 +31779,43 @@ class ClusterProps:
 
         Example::
 
-            vpc = ec2.Vpc.from_lookup(self, "Vpc",
-                is_default=True
+            # vpc: ec2.Vpc
+            
+            
+            cluster = ecs.Cluster(self, "Cluster",
+                vpc=vpc
             )
             
-            cluster = ecs.Cluster(self, "FargateCluster", vpc=vpc)
-            
-            task_definition = ecs.TaskDefinition(self, "TD",
-                memory_mi_b="512",
-                cpu="256",
-                compatibility=ecs.Compatibility.FARGATE
+            auto_scaling_group = autoscaling.AutoScalingGroup(self, "ASG",
+                vpc=vpc,
+                instance_type=ec2.InstanceType("t2.micro"),
+                machine_image=ecs.EcsOptimizedImage.amazon_linux2(),
+                min_capacity=0,
+                max_capacity=100
             )
             
-            container_definition = task_definition.add_container("TheContainer",
-                image=ecs.ContainerImage.from_registry("foo/bar"),
-                memory_limit_mi_b=256
+            capacity_provider = ecs.AsgCapacityProvider(self, "AsgCapacityProvider",
+                auto_scaling_group=auto_scaling_group,
+                instance_warmup_period=300
+            )
+            cluster.add_asg_capacity_provider(capacity_provider)
+            
+            task_definition = ecs.Ec2TaskDefinition(self, "TaskDef")
+            
+            task_definition.add_container("web",
+                image=ecs.ContainerImage.from_registry("amazon/amazon-ecs-sample"),
+                memory_reservation_mi_b=256
             )
             
-            run_task = tasks.EcsRunTask(self, "RunFargate",
-                integration_pattern=sfn.IntegrationPattern.RUN_JOB,
+            ecs.Ec2Service(self, "EC2Service",
                 cluster=cluster,
                 task_definition=task_definition,
-                assign_public_ip=True,
-                container_overrides=[tasks.ContainerOverride(
-                    container_definition=container_definition,
-                    environment=[tasks.TaskEnvironmentVariable(name="SOME_KEY", value=sfn.JsonPath.string_at("$.SomeKey"))]
-                )],
-                launch_target=tasks.EcsFargateLaunchTarget(),
-                propagated_tag_source=ecs.PropagatedTagSource.TASK_DEFINITION
+                min_healthy_percent=100,
+                capacity_provider_strategies=[ecs.CapacityProviderStrategy(
+                    capacity_provider=capacity_provider.capacity_provider_name,
+                    weight=1
+                )
+                ]
             )
         '''
         if isinstance(capacity, dict):
@@ -38458,6 +38443,91 @@ class ExecuteCommandLogging(enum.Enum):
     '''
     OVERRIDE = "OVERRIDE"
     '''Specify the logging details as a part of logConfiguration.'''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ecs.ExistingCloudMapNamespaceOptions",
+    jsii_struct_bases=[CloudMapNamespaceOptionsBase],
+    name_mapping={
+        "use_for_service_connect": "useForServiceConnect",
+        "namespace": "namespace",
+    },
+)
+class ExistingCloudMapNamespaceOptions(CloudMapNamespaceOptionsBase):
+    def __init__(
+        self,
+        *,
+        use_for_service_connect: typing.Optional[builtins.bool] = None,
+        namespace: "_aws_servicediscovery_d0251706.INamespace",
+    ) -> None:
+        '''The options for using an existing AWS Cloud Map namespace as the default namespace of a cluster.
+
+        :param use_for_service_connect: This property specifies whether to set the provided namespace as the service connect default in the cluster properties. Default: false
+        :param namespace: The existing Cloud Map namespace to use as the cluster's default namespace. The full ``INamespace`` is required (rather than a ref) because the cluster needs the namespace name, ARN and type to wire up Service Discovery and Service Connect. [disable-awslint:prefer-ref-interface]
+
+        :exampleMetadata: infused
+
+        Example::
+
+            # vpc: ec2.Vpc
+            
+            
+            # Create or reference an existing namespace
+            existing_namespace = cloudmap.PrivateDnsNamespace(self, "Namespace",
+                name="example.local",
+                vpc=vpc
+            )
+            
+            cluster = ecs.Cluster(self, "Cluster", vpc=vpc)
+            
+            # Use the existing namespace as the default
+            cluster.add_existing_default_cloud_map_namespace(
+                namespace=existing_namespace,
+                use_for_service_connect=True
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bf4c35182eb9f26d155d32234c23db3cf718da1b4ac989cf408ade083ea6c442)
+            check_type(argname="argument use_for_service_connect", value=use_for_service_connect, expected_type=type_hints["use_for_service_connect"])
+            check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "namespace": namespace,
+        }
+        if use_for_service_connect is not None:
+            self._values["use_for_service_connect"] = use_for_service_connect
+
+    @builtins.property
+    def use_for_service_connect(self) -> typing.Optional[builtins.bool]:
+        '''This property specifies whether to set the provided namespace as the service connect default in the cluster properties.
+
+        :default: false
+        '''
+        result = self._values.get("use_for_service_connect")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def namespace(self) -> "_aws_servicediscovery_d0251706.INamespace":
+        '''The existing Cloud Map namespace to use as the cluster's default namespace.
+
+        The full ``INamespace`` is required (rather than a ref) because the cluster needs the
+        namespace name, ARN and type to wire up Service Discovery and Service Connect.
+
+        [disable-awslint:prefer-ref-interface]
+        '''
+        result = self._values.get("namespace")
+        assert result is not None, "Required property 'namespace' is missing"
+        return typing.cast("_aws_servicediscovery_d0251706.INamespace", result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ExistingCloudMapNamespaceOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -53515,6 +53585,130 @@ class AwsLogDriver(
         jsii.set(self, "logGroup", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_ecs.CloudMapNamespaceOptions",
+    jsii_struct_bases=[CloudMapNamespaceOptionsBase],
+    name_mapping={
+        "use_for_service_connect": "useForServiceConnect",
+        "name": "name",
+        "type": "type",
+        "vpc": "vpc",
+    },
+)
+class CloudMapNamespaceOptions(CloudMapNamespaceOptionsBase):
+    def __init__(
+        self,
+        *,
+        use_for_service_connect: typing.Optional[builtins.bool] = None,
+        name: builtins.str,
+        type: typing.Optional["_aws_servicediscovery_d0251706.NamespaceType"] = None,
+        vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+    ) -> None:
+        '''The options for creating an AWS Cloud Map namespace.
+
+        :param use_for_service_connect: This property specifies whether to set the provided namespace as the service connect default in the cluster properties. Default: false
+        :param name: The name of the namespace, such as example.com.
+        :param type: The type of CloudMap Namespace to create. Default: PrivateDns
+        :param vpc: The VPC to associate the namespace with. This property is required for private DNS namespaces. Default: VPC of the cluster for Private DNS Namespace, otherwise none
+
+        :exampleMetadata: infused
+
+        Example::
+
+            # cluster: ecs.Cluster
+            # task_definition: ecs.TaskDefinition
+            # container_options: ecs.ContainerDefinitionOptions
+            
+            
+            container = task_definition.add_container("MyContainer", container_options)
+            
+            container.add_port_mappings(
+                name="api",
+                container_port=8080
+            )
+            
+            cluster.add_default_cloud_map_namespace(
+                name="local"
+            )
+            
+            service = ecs.FargateService(self, "Service",
+                cluster=cluster,
+                task_definition=task_definition,
+                min_healthy_percent=100,
+                service_connect_configuration=ecs.ServiceConnectProps(
+                    services=[ecs.ServiceConnectService(
+                        port_mapping_name="api",
+                        dns_name="http-api",
+                        port=80
+                    )
+                    ]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__7578b0b48579573f46c313c5fa6a653348d3ef9fa894b735881442e8d8bcf7eb)
+            check_type(argname="argument use_for_service_connect", value=use_for_service_connect, expected_type=type_hints["use_for_service_connect"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument vpc", value=vpc, expected_type=type_hints["vpc"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if use_for_service_connect is not None:
+            self._values["use_for_service_connect"] = use_for_service_connect
+        if type is not None:
+            self._values["type"] = type
+        if vpc is not None:
+            self._values["vpc"] = vpc
+
+    @builtins.property
+    def use_for_service_connect(self) -> typing.Optional[builtins.bool]:
+        '''This property specifies whether to set the provided namespace as the service connect default in the cluster properties.
+
+        :default: false
+        '''
+        result = self._values.get("use_for_service_connect")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the namespace, such as example.com.'''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> typing.Optional["_aws_servicediscovery_d0251706.NamespaceType"]:
+        '''The type of CloudMap Namespace to create.
+
+        :default: PrivateDns
+        '''
+        result = self._values.get("type")
+        return typing.cast(typing.Optional["_aws_servicediscovery_d0251706.NamespaceType"], result)
+
+    @builtins.property
+    def vpc(self) -> typing.Optional["_aws_ec2_09840e12.IVpc"]:
+        '''The VPC to associate the namespace with.
+
+        This property is required for private DNS namespaces.
+
+        :default: VPC of the cluster for Private DNS Namespace, otherwise none
+        '''
+        result = self._values.get("vpc")
+        return typing.cast(typing.Optional["_aws_ec2_09840e12.IVpc"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CloudMapNamespaceOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(ICluster)
 class Cluster(
     _aws_cdk_0cae9daa.Resource,
@@ -53527,34 +53721,43 @@ class Cluster(
 
     Example::
 
-        vpc = ec2.Vpc.from_lookup(self, "Vpc",
-            is_default=True
+        # vpc: ec2.Vpc
+        
+        
+        cluster = ecs.Cluster(self, "Cluster",
+            vpc=vpc
         )
         
-        cluster = ecs.Cluster(self, "FargateCluster", vpc=vpc)
-        
-        task_definition = ecs.TaskDefinition(self, "TD",
-            memory_mi_b="512",
-            cpu="256",
-            compatibility=ecs.Compatibility.FARGATE
+        auto_scaling_group = autoscaling.AutoScalingGroup(self, "ASG",
+            vpc=vpc,
+            instance_type=ec2.InstanceType("t2.micro"),
+            machine_image=ecs.EcsOptimizedImage.amazon_linux2(),
+            min_capacity=0,
+            max_capacity=100
         )
         
-        container_definition = task_definition.add_container("TheContainer",
-            image=ecs.ContainerImage.from_registry("foo/bar"),
-            memory_limit_mi_b=256
+        capacity_provider = ecs.AsgCapacityProvider(self, "AsgCapacityProvider",
+            auto_scaling_group=auto_scaling_group,
+            instance_warmup_period=300
+        )
+        cluster.add_asg_capacity_provider(capacity_provider)
+        
+        task_definition = ecs.Ec2TaskDefinition(self, "TaskDef")
+        
+        task_definition.add_container("web",
+            image=ecs.ContainerImage.from_registry("amazon/amazon-ecs-sample"),
+            memory_reservation_mi_b=256
         )
         
-        run_task = tasks.EcsRunTask(self, "RunFargate",
-            integration_pattern=sfn.IntegrationPattern.RUN_JOB,
+        ecs.Ec2Service(self, "EC2Service",
             cluster=cluster,
             task_definition=task_definition,
-            assign_public_ip=True,
-            container_overrides=[tasks.ContainerOverride(
-                container_definition=container_definition,
-                environment=[tasks.TaskEnvironmentVariable(name="SOME_KEY", value=sfn.JsonPath.string_at("$.SomeKey"))]
-            )],
-            launch_target=tasks.EcsFargateLaunchTarget(),
-            propagated_tag_source=ecs.PropagatedTagSource.TASK_DEFINITION
+            min_healthy_percent=100,
+            capacity_provider_strategies=[ecs.CapacityProviderStrategy(
+                capacity_provider=capacity_provider.capacity_provider_name,
+                weight=1
+            )
+            ]
         )
     '''
 
@@ -53861,8 +54064,8 @@ class Cluster(
         *,
         name: builtins.str,
         type: typing.Optional["_aws_servicediscovery_d0251706.NamespaceType"] = None,
-        use_for_service_connect: typing.Optional[builtins.bool] = None,
         vpc: typing.Optional["_aws_ec2_09840e12.IVpc"] = None,
+        use_for_service_connect: typing.Optional[builtins.bool] = None,
     ) -> "_aws_servicediscovery_d0251706.INamespace":
         '''Add an AWS Cloud Map DNS namespace for this cluster.
 
@@ -53871,17 +54074,39 @@ class Cluster(
 
         :param name: The name of the namespace, such as example.com.
         :param type: The type of CloudMap Namespace to create. Default: PrivateDns
-        :param use_for_service_connect: This property specifies whether to set the provided namespace as the service connect default in the cluster properties. Default: false
         :param vpc: The VPC to associate the namespace with. This property is required for private DNS namespaces. Default: VPC of the cluster for Private DNS Namespace, otherwise none
+        :param use_for_service_connect: This property specifies whether to set the provided namespace as the service connect default in the cluster properties. Default: false
         '''
         options = CloudMapNamespaceOptions(
             name=name,
             type=type,
-            use_for_service_connect=use_for_service_connect,
             vpc=vpc,
+            use_for_service_connect=use_for_service_connect,
         )
 
         return typing.cast("_aws_servicediscovery_d0251706.INamespace", jsii.invoke(self, "addDefaultCloudMapNamespace", [options]))
+
+    @jsii.member(jsii_name="addExistingDefaultCloudMapNamespace")
+    def add_existing_default_cloud_map_namespace(
+        self,
+        *,
+        namespace: "_aws_servicediscovery_d0251706.INamespace",
+        use_for_service_connect: typing.Optional[builtins.bool] = None,
+    ) -> "_aws_servicediscovery_d0251706.INamespace":
+        '''Use an existing AWS Cloud Map namespace as the default namespace for this cluster.
+
+        Unlike ``addDefaultCloudMapNamespace``, this method does not create a new namespace;
+        it registers a namespace that already exists (created elsewhere in the app or
+        imported) as the cluster's default namespace.
+
+        :param namespace: The existing Cloud Map namespace to use as the cluster's default namespace. The full ``INamespace`` is required (rather than a ref) because the cluster needs the namespace name, ARN and type to wire up Service Discovery and Service Connect. [disable-awslint:prefer-ref-interface]
+        :param use_for_service_connect: This property specifies whether to set the provided namespace as the service connect default in the cluster properties. Default: false
+        '''
+        options = ExistingCloudMapNamespaceOptions(
+            namespace=namespace, use_for_service_connect=use_for_service_connect
+        )
+
+        return typing.cast("_aws_servicediscovery_d0251706.INamespace", jsii.invoke(self, "addExistingDefaultCloudMapNamespace", [options]))
 
     @jsii.member(jsii_name="addManagedInstancesCapacityProvider")
     def add_managed_instances_capacity_provider(
@@ -57254,6 +57479,7 @@ __all__ = [
     "CfnTaskSet",
     "CfnTaskSetProps",
     "CloudMapNamespaceOptions",
+    "CloudMapNamespaceOptionsBase",
     "CloudMapOptions",
     "Cluster",
     "ClusterAttributes",
@@ -57309,6 +57535,7 @@ __all__ = [
     "ExecuteCommandConfiguration",
     "ExecuteCommandLogConfiguration",
     "ExecuteCommandLogging",
+    "ExistingCloudMapNamespaceOptions",
     "ExternalService",
     "ExternalServiceAttributes",
     "ExternalServiceProps",
@@ -60334,12 +60561,9 @@ def _typecheckingstub__a26a1ad2b86b6633517c82faa438939dc6de131055ef873e022a9725a
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__7578b0b48579573f46c313c5fa6a653348d3ef9fa894b735881442e8d8bcf7eb(
+def _typecheckingstub__0a988a7cced4e2565d68ad18e4393dcf156939f6eefc4f8eaa2491b55fc63b91(
     *,
-    name: builtins.str,
-    type: typing.Optional[_aws_servicediscovery_d0251706.NamespaceType] = None,
     use_for_service_connect: typing.Optional[builtins.bool] = None,
-    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -61087,6 +61311,14 @@ def _typecheckingstub__b73c7e186dd5ae9ae5fc5618d009b1cf22bf3fe066bf01f432f470d27
     s3_bucket: typing.Optional[_aws_s3_01158f40.IBucket] = None,
     s3_encryption_enabled: typing.Optional[builtins.bool] = None,
     s3_key_prefix: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bf4c35182eb9f26d155d32234c23db3cf718da1b4ac989cf408ade083ea6c442(
+    *,
+    use_for_service_connect: typing.Optional[builtins.bool] = None,
+    namespace: _aws_servicediscovery_d0251706.INamespace,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -62526,6 +62758,16 @@ def _typecheckingstub__df4323c28c9ff89cee62efdd9a604b6578109f5cee20df4c6841767c2
 
 def _typecheckingstub__a666a74bbd0e0887d401668d4dd9a1d1d3b4a7b9c91abe2576d2ee279a1737f4(
     value: typing.Optional[_aws_logs_ab8ef8ce.ILogGroup],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7578b0b48579573f46c313c5fa6a653348d3ef9fa894b735881442e8d8bcf7eb(
+    *,
+    use_for_service_connect: typing.Optional[builtins.bool] = None,
+    name: builtins.str,
+    type: typing.Optional[_aws_servicediscovery_d0251706.NamespaceType] = None,
+    vpc: typing.Optional[_aws_ec2_09840e12.IVpc] = None,
 ) -> None:
     """Type checking stubs"""
     pass

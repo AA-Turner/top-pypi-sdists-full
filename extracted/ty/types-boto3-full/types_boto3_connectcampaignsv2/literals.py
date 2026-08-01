@@ -31,6 +31,7 @@ __all__ = (
     "CommunicationLimitsConfigTypeType",
     "CommunicationTimeConfigTypeType",
     "ConnectCampaignServiceV2ServiceName",
+    "ConnectionStartPointType",
     "DayOfWeekType",
     "EncryptionTypeType",
     "EventTypeType",
@@ -60,6 +61,7 @@ ChannelSubtypeType = Literal["EMAIL", "SMS", "TELEPHONY", "WHATSAPP"]
 CommunicationLimitTimeUnitType = Literal["DAY"]
 CommunicationLimitsConfigTypeType = Literal["ALL_CHANNEL_SUBTYPES"]
 CommunicationTimeConfigTypeType = Literal["EMAIL", "SMS", "TELEPHONY", "WHATSAPP"]
+ConnectionStartPointType = Literal["CONNECTED_TO_SYSTEM", "GREETING_END", "GREETING_START"]
 DayOfWeekType = Literal[
     "FRIDAY", "MONDAY", "SATURDAY", "SUNDAY", "THURSDAY", "TUESDAY", "WEDNESDAY"
 ]

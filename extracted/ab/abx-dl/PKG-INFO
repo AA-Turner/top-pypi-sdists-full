@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: abx-dl
-Version: 1.12.58
+Version: 1.12.60
 Summary: All-in-one CLI tool to download and extract content from URLs
 Keywords: scraping,crawling,downloading,internet archiving,web archiving,digipres,warc,preservation,backups,archiving,web,bookmarks,puppeteer,browser,download
 Author: Nick Sweeting, ArchiveBox
@@ -43,7 +43,7 @@ Requires-Dist: rich-click>=1.8.0
 Requires-Dist: rich>=13.0.0
 Requires-Dist: abxbus
 Requires-Dist: abxpkg
-Requires-Dist: abx-plugins==1.12.56
+Requires-Dist: abx-plugins==1.12.61
 Requires-Dist: jambo>=0.1.7
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: pydantic-settings>=2.0.0

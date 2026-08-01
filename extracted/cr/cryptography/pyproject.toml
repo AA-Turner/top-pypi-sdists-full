@@ -2,10 +2,11 @@
 # These requirements must be kept sync with the requirements in
 # ./.github/requirements/build-requirements.{in,txt}
 requires = [
-    "maturin>=1.9.4,<2,!=1.12.0",
+    "maturin>=1.14.1,<2",
 
     # Must be kept in sync with `project.dependencies`
     "cffi>=2.0.0; platform_python_implementation != 'PyPy'",
+    "cffi>=2.1; python_version >= '3.15' and platform_python_implementation != 'PyPy'",
     # Used by cffi (which import distutils, and in Python 3.12, distutils has
     # been removed from the stdlib, but installing setuptools puts it back) as
     # well as our build.rs for the rust/cffi bridge.
@@ -15,7 +16,7 @@ build-backend = "maturin"
 
 [project]
 name = "cryptography"
-version = "49.0.0"
+version = "50.0.0"
 authors = [
     { name = "The Python Cryptographic Authority and individual contributors", email = "cryptography-dev@python.org" },
 ]
@@ -75,7 +76,7 @@ dev = [
 ]
 nox = ["nox[uv] >=2024.04.15"]
 test = [
-    "cryptography_vectors==49.0.0",
+    "cryptography_vectors==50.0.0",
     "pytest >=7.4.0",
     "pytest-benchmark >=4.0",
     "pytest-cov >=2.10.1",
@@ -140,10 +141,12 @@ exclude = [
 
 [tool.pytest.ini_options]
 addopts = "-r s --capture=no --strict-markers --benchmark-disable"
+testpaths = ["tests"]
 console_output_style = "progress-even-when-capture-no"
 markers = [
     "skip_fips: this test is not executed in FIPS mode",
     "supported: parametrized test requiring only_if and skip_message",
+    "malloc_failure: this test expects malloc to fail under memory pressure and should not be run with overcommit",
 ]
 
 [tool.mypy]

@@ -4349,7 +4349,11 @@ class GenieCollectorGrantKind(sgqlc.types.Enum):
     create/run (to schedule it), and Unity Catalog write (to create +
     MERGE     the trace table). The gate reports every missing grant
     it can determine so the     customer can fix them before
-    registering.
+    registering.      ``GENIE_SPACE_ACCESS`` is also emitted post-
+    registration as an ongoing per-space signal     (see
+    ``space_can_manage_missing_grant``) when a running collector loses
+    CAN MANAGE on one     space — a distinct, run-time producer from
+    this one-time install gate (AO-834).
 
     Enumeration Choices:
 
@@ -4373,6 +4377,7 @@ class GenieCollectorInstallStatus(sgqlc.types.Enum):
 
     Enumeration Choices:
 
+    * `CREDENTIAL_INVALID`None
     * `ERROR`None
     * `INSTALLED`None
     * `PENDING`None
@@ -4380,7 +4385,7 @@ class GenieCollectorInstallStatus(sgqlc.types.Enum):
     """
 
     __schema__ = schema
-    __choices__ = ("ERROR", "INSTALLED", "PENDING", "PERMISSION_DENIED")
+    __choices__ = ("CREDENTIAL_INVALID", "ERROR", "INSTALLED", "PENDING", "PERMISSION_DENIED")
 
 
 class GenieCollectorRunStatus(sgqlc.types.Enum):
@@ -4417,6 +4422,40 @@ class GithubActionTriggerDispatchStatus(sgqlc.types.Enum):
 
     __schema__ = schema
     __choices__ = ("DISPATCHED", "EXPIRED", "FAILED", "RUNNING", "SUCCEEDED")
+
+
+class GoldenBaselineResultStatus(sgqlc.types.Enum):
+    """Per-case outcome within a baseline.
+
+    Enumeration Choices:
+
+    * `ERROR`None
+    * `SCORED`None
+    * `UNAVAILABLE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ERROR", "SCORED", "UNAVAILABLE")
+
+
+class GoldenBaselineStatus(sgqlc.types.Enum):
+    """Overall outcome of a baseline generation over a golden set's
+    cases.  `COMPLETED`: every case scored (also the result for an
+    empty set). `PARTIAL`: at least one case scored and at least one
+    was unavailable or errored. `ERROR`: no case scored. `PENDING`:
+    mirrors `GoldenRunStatus`; never returned by the synchronous
+    `generateGoldenBaseline` mutation.
+
+    Enumeration Choices:
+
+    * `COMPLETED`None
+    * `ERROR`None
+    * `PARTIAL`None
+    * `PENDING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("COMPLETED", "ERROR", "PARTIAL", "PENDING")
 
 
 class HasErrorsValue(sgqlc.types.Enum):
@@ -5071,6 +5110,41 @@ class LineageNodeJobType(sgqlc.types.Enum):
     )
 
 
+class LinkKind(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `IDENTITY`None
+    * `REPLICA`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("IDENTITY", "REPLICA")
+
+
+class LinkResolutionMethod(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `CONNECTION_IDENTIFIER_MATCH`None
+    * `CUSTOMER_CONFIGURED`None
+    * `TABLE_MATCH`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("CONNECTION_IDENTIFIER_MATCH", "CUSTOMER_CONFIGURED", "TABLE_MATCH")
+
+
+class LinkResolutionStatus(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `AMBIGUOUS`None
+    * `RESOLVED`None
+    * `UNRESOLVED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("AMBIGUOUS", "RESOLVED", "UNRESOLVED")
+
+
 class LogsIntegrationType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -5722,6 +5796,17 @@ class ObjectPropertyModelPropertySourceType(sgqlc.types.Enum):
     )
 
 
+class ObservedEndpoint(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `REFERENCE`None
+    * `SOURCE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("REFERENCE", "SOURCE")
+
+
 class OotbTableMonitorTypeEnum(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -5881,6 +5966,7 @@ class Permission(sgqlc.types.Enum):
     * `MonitorsManagementTableAccess`None
     * `MonitorsManagementTableDraft`None
     * `MonitorsManagementTableEdit`None
+    * `MonitorsManagementTuneModel`None
     * `MonitorsManagementValidationAccess`None
     * `MonitorsManagementValidationDraft`None
     * `MonitorsManagementValidationEdit`None
@@ -5999,6 +6085,7 @@ class Permission(sgqlc.types.Enum):
         "MonitorsManagementTableAccess",
         "MonitorsManagementTableDraft",
         "MonitorsManagementTableEdit",
+        "MonitorsManagementTuneModel",
         "MonitorsManagementValidationAccess",
         "MonitorsManagementValidationDraft",
         "MonitorsManagementValidationEdit",
@@ -6063,17 +6150,21 @@ class PermissionActionType(sgqlc.types.Enum):
     - Write: Authorizes operations that involve some form of
     modification (create, update, delete, etc.) - Propose: Authorizes
     operations that suggest changes requiring review and approval
-    before taking effect (e.g., drafting monitors).
+    before taking effect (e.g., drafting monitors). - Tune: Authorizes
+    tuning the detection model of an existing resource (e.g.,
+    adjusting a monitor's anomaly sensitivity/thresholds) without the
+    broader ability to create, edit, or delete it.
 
     Enumeration Choices:
 
     * `Propose`None
     * `Read`None
+    * `Tune`None
     * `Write`None
     """
 
     __schema__ = schema
-    __choices__ = ("Propose", "Read", "Write")
+    __choices__ = ("Propose", "Read", "Tune", "Write")
 
 
 class PermissionEffect(sgqlc.types.Enum):
@@ -6095,13 +6186,14 @@ class PermissionPolicyDecisionReason(sgqlc.types.Enum):
     as the final/effective policy.  Values: - ExactMatch: Selected
     because it was an exact permission name match. - ActionTypeMatch:
     Selected because the policy pattern matched with a specific action
-    type (<resource>/read or <resource>/write or <resource>/propose) -
-    WildcardMatch: Selected because the policy pattern matched with
-    wildcard (<resource>/*) - LessSpecific: Not selected because a
-    more specific match was selected. - DenyOverrode: Not selected
-    because this Allow lost to a Deny at equal specificity. -
-    SameEffect: Not selected because multiple policies had the same
-    specificity and effect, and the other was the first match found.
+    type (<resource>/read or <resource>/write or <resource>/propose or
+    <resource>/tune) - WildcardMatch: Selected because the policy
+    pattern matched with wildcard (<resource>/*) - LessSpecific: Not
+    selected because a more specific match was selected. -
+    DenyOverrode: Not selected because this Allow lost to a Deny at
+    equal specificity. - SameEffect: Not selected because multiple
+    policies had the same specificity and effect, and the other was
+    the first match found.
 
     Enumeration Choices:
 
@@ -6658,6 +6750,30 @@ class RcaStatus(sgqlc.types.Enum):
     __choices__ = ("CANCELED", "EMPTY", "EXPIRED", "FAILED", "FOUND", "PARTIAL_DATA")
 
 
+class ReinforcementLoopDispatchOutcome(sgqlc.types.Enum):
+    """Result of a reinforcement-loop dispatch: DISPATCHED (runs queued),
+    or the skip reason — SKIPPED_IN_FLIGHT (runs still
+    queued/running), SKIPPED_NO_TARGETS (the account has no agents to
+    run against), SKIPPED_RECENTLY_DISPATCHED (the daily redispatch
+    guard; not produced by the manual trigger).
+
+    Enumeration Choices:
+
+    * `DISPATCHED`None
+    * `SKIPPED_IN_FLIGHT`None
+    * `SKIPPED_NO_TARGETS`None
+    * `SKIPPED_RECENTLY_DISPATCHED`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "DISPATCHED",
+        "SKIPPED_IN_FLIGHT",
+        "SKIPPED_NO_TARGETS",
+        "SKIPPED_RECENTLY_DISPATCHED",
+    )
+
+
 class RelationshipType(sgqlc.types.Enum):
     """Enumeration Choices:
 
@@ -6835,6 +6951,7 @@ class ResourcePolicyPath(sgqlc.types.Enum):
     * `MonitorsManagementTablePropose`None
     * `MonitorsManagementTableRead`None
     * `MonitorsManagementTableWrite`None
+    * `MonitorsManagementTune`None
     * `MonitorsManagementValidationAll`None
     * `MonitorsManagementValidationPropose`None
     * `MonitorsManagementValidationRead`None
@@ -6842,6 +6959,7 @@ class ResourcePolicyPath(sgqlc.types.Enum):
     * `MonitorsManagementWrite`None
     * `MonitorsPropose`None
     * `MonitorsRead`None
+    * `MonitorsTune`None
     * `MonitorsWrite`None
     * `PerformanceAll`None
     * `PerformancePropose`None
@@ -7031,6 +7149,7 @@ class ResourcePolicyPath(sgqlc.types.Enum):
         "MonitorsManagementTablePropose",
         "MonitorsManagementTableRead",
         "MonitorsManagementTableWrite",
+        "MonitorsManagementTune",
         "MonitorsManagementValidationAll",
         "MonitorsManagementValidationPropose",
         "MonitorsManagementValidationRead",
@@ -7038,6 +7157,7 @@ class ResourcePolicyPath(sgqlc.types.Enum):
         "MonitorsManagementWrite",
         "MonitorsPropose",
         "MonitorsRead",
+        "MonitorsTune",
         "MonitorsWrite",
         "PerformanceAll",
         "PerformancePropose",
@@ -9123,8 +9243,8 @@ class AddConversationToGoldenSetInput(sgqlc.types.Input):
 
 
 class AgentCapabilitiesInput(sgqlc.types.Input):
-    """Atomic patch over the three agent-assistance capabilities.
-    Capabilities omitted from the input are left untouched.
+    """Atomic patch over the agent-assistance capabilities.  Capabilities
+    omitted from the input are left untouched.
     """
 
     __schema__ = schema
@@ -9133,7 +9253,9 @@ class AgentCapabilitiesInput(sgqlc.types.Input):
     """Monitoring-capability patch. Omit to leave monitoring unchanged."""
 
     triage = sgqlc.types.Field("AgentCapabilityInput", graphql_name="triage")
-    """Triage-capability patch. Omit to leave triage unchanged."""
+    """Deprecated, rejected with a validation error. Configure per-domain
+    triage with `updateTriageAutomationConfig`.
+    """
 
     monitor_tuning = sgqlc.types.Field("AgentCapabilityInput", graphql_name="monitorTuning")
     """Monitor-tuning-capability patch. Omit to leave monitor tuning
@@ -10672,10 +10794,12 @@ class CreateGoldenSetInput(sgqlc.types.Input):
     name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
     """Display name of the set."""
 
-    agent_name = sgqlc.types.Field(String, graphql_name="agentName")
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
     """Observability agent to scope the set to."""
 
-    trace_table_mcon = sgqlc.types.Field(String, graphql_name="traceTableMcon")
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
     """MCON of the scoped agent's trace table."""
 
     prod_target_path = sgqlc.types.Field(String, graphql_name="prodTargetPath")
@@ -10685,7 +10809,13 @@ class CreateGoldenSetInput(sgqlc.types.Input):
     """Default test (dev) agent REST endpoint path."""
 
     eval_config = sgqlc.types.Field(GenericScalar, graphql_name="evalConfig")
-    """Version-locked rubric/eval configuration for the set."""
+    """Rubric config the baseline scores against: {"rules": [...]} where
+    each rule sets exactly one of templateName (a catalog
+    conversation-eval template) or custom.criteria (a non-empty,
+    ≤1000-char rubric). At most 5 rules, at most one custom rule, no
+    duplicate template. Rejected at generateGoldenBaseline if
+    malformed.
+    """
 
     retention_days = sgqlc.types.Field(Int, graphql_name="retentionDays")
     """Retention window in days (defaults to 90)."""
@@ -11152,6 +11282,7 @@ class CustomRuleSqlBlocksInput(sgqlc.types.Input):
         "group_by",
         "agent_span",
         "agent_span_alert_condition",
+        "collection_lag_hours",
     )
     alert_condition = sgqlc.types.Field("FilterGroupInput", graphql_name="alertCondition")
 
@@ -11166,6 +11297,8 @@ class CustomRuleSqlBlocksInput(sgqlc.types.Input):
     agent_span_alert_condition = sgqlc.types.Field(
         AgentSpanConditionInput, graphql_name="agentSpanAlertCondition"
     )
+
+    collection_lag_hours = sgqlc.types.Field(Int, graphql_name="collectionLagHours")
 
 
 class CustomSqlRuleAlertConditionInput(sgqlc.types.Input):
@@ -16717,7 +16850,9 @@ class UpdateGoldenSetInput(sgqlc.types.Input):
     """New default test (dev) path."""
 
     eval_config = sgqlc.types.Field(GenericScalar, graphql_name="evalConfig")
-    """New eval configuration."""
+    """New eval configuration — same {"rules": [...]} contract as
+    createGoldenSet (see GoldenSet.evalConfig).
+    """
 
     retention_days = sgqlc.types.Field(Int, graphql_name="retentionDays")
     """New retention window in days."""
@@ -18079,6 +18214,7 @@ class Account(sgqlc.types.Type):
         "enable_platform_agent_domain_filtering",
         "enable_pr_agent_paid_tier",
         "enable_pr_agent_metering",
+        "agent_monitor_default_collection_lag_hours",
         "validate_monitor_domains",
         "custom_dashboard_domain_validation",
         "has_warehouses",
@@ -18715,10 +18851,16 @@ class Account(sgqlc.types.Type):
     setting has no billing effect.
     """
 
-    validate_monitor_domains = sgqlc.types.Field(Boolean, graphql_name="validateMonitorDomains")
-    """Whether creating a monitor requires a domain assignment. Always
-    true — a domain is required when creating any monitor.
+    agent_monitor_default_collection_lag_hours = sgqlc.types.Field(
+        Int, graphql_name="agentMonitorDefaultCollectionLagHours"
+    )
+    """Account-level default collection lag (hours) applied to agent
+    monitors created without an explicit collection lag. Null when no
+    default is configured.
     """
+
+    validate_monitor_domains = sgqlc.types.Field(Boolean, graphql_name="validateMonitorDomains")
+    """Whether creating a monitor requires a domain assignment."""
 
     custom_dashboard_domain_validation = sgqlc.types.Field(
         Boolean, graphql_name="customDashboardDomainValidation"
@@ -19843,7 +19985,11 @@ class AgentCapabilities(sgqlc.types.Type):
     """Monitoring runs (proactive monitor proposals)."""
 
     triage = sgqlc.types.Field(sgqlc.types.non_null("AgentCapability"), graphql_name="triage")
-    """Triage runs (incident investigation + summarization)."""
+    """Deprecated, always reports `enabled: false`. Per-domain triage is
+    read from `Domain.effectiveTriageEnabled` and configured with
+    `updateTriageAutomationConfig`; no TRIAGE pipeline is seeded for
+    an agent-assisted domain, so this resolves to a disabled stub.
+    """
 
     monitor_tuning = sgqlc.types.Field(
         sgqlc.types.non_null("AgentCapability"), graphql_name="monitorTuning"
@@ -19854,7 +20000,7 @@ class AgentCapabilities(sgqlc.types.Type):
 class AgentCapability(sgqlc.types.Type):
     """Resolved enabled-flag, cadence, credit budget, and live
     consumption for one agent-assistance capability (monitoring,
-    triage, monitor tuning).
+    monitor tuning).
     """
 
     __schema__ = schema
@@ -20677,8 +20823,8 @@ class AgentHealthFindingPayload(sgqlc.types.Type):
 
 
 class AgentHealthFindingResult(sgqlc.types.Type):
-    """An agent-health report: the parent finding's overview plus its
-    per-issue children.
+    """An agent-health report: the report overview plus its per-issue
+    entries.
     """
 
     __schema__ = schema
@@ -20742,6 +20888,7 @@ class AgentHealthIssue(sgqlc.types.Type):
         "focus_area",
         "lifecycle",
         "first_detected",
+        "last_seen",
         "evidence",
         "recommended_actions",
         "action_context",
@@ -20803,6 +20950,15 @@ class AgentHealthIssue(sgqlc.types.Type):
     prior report to diff against (first run, or the lookup was
     skipped/failed) and on reports produced before chronicity tracking
     shipped.
+    """
+
+    last_seen = sgqlc.types.Field(DateTime, graphql_name="lastSeen")
+    """When this issue was LAST reported by any run — bumped every time a
+    run re-reports the issue, so it reads as 'still failing as of
+    <date>'. A global as-of-now value, NOT clamped to a query's time
+    window: it can exceed the window's endTime when the issue is still
+    occurring. Null in the same cases as firstDetected (no stable
+    issue record backs the occurrence).
     """
 
     evidence = sgqlc.types.Field(
@@ -22545,6 +22701,24 @@ class AssetCollectionRuleCondition(sgqlc.types.Type):
         CollectionPreferenceMatchType, graphql_name="comparisonType"
     )
     """The method for comparing the attribute to the given value"""
+
+
+class AssetFederationLinksOutput(sgqlc.types.Type):
+    """An asset's federation linkage in both directions (cross-pointers):
+    the source it references, and the references that point at it.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("references_source", "referenced_by")
+    references_source = sgqlc.types.Field("LinkedAssetOutput", graphql_name="referencesSource")
+    """This asset's link when it is a foreign reference; null if it isn't
+    one
+    """
+
+    referenced_by = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("LinkedAssetOutput")), graphql_name="referencedBy"
+    )
+    """Links where this asset is the native source"""
 
 
 class AssetIncludeDatabase(sgqlc.types.Type):
@@ -25740,14 +25914,14 @@ class ConditionMatches(sgqlc.types.Type):
 
 
 class ConfigureAgentAssistance(sgqlc.types.Type):
-    """Atomic patch over the three agent-assistance capabilities and the
-    agent budget.  Capabilities omitted from the input are left
-    unchanged. Within each capability, ``enabled``, ``rateSeconds``,
-    and ``creditBudget`` are independently optional — pass only the
-    fields you want to update. Rejected when assistance is not enabled
-    for the domain (call ``enableAgentAssistance`` first). The
-    capability and budget writes apply atomically — if either fails,
-    neither is persisted.
+    """Atomic patch over the agent-assistance capabilities and the agent
+    budget.  Capabilities omitted from the input are left unchanged.
+    Within each capability, ``enabled``, ``rateSeconds``, and
+    ``creditBudget`` are independently optional — pass only the fields
+    you want to update. Rejected when assistance is not enabled for
+    the domain (call ``enableAgentAssistance`` first). The capability
+    and budget writes apply atomically — if either fails, neither is
+    persisted.
     """
 
     __schema__ = schema
@@ -29023,6 +29197,7 @@ class CustomRuleSqlBlocks(sgqlc.types.Type):
         "group_by",
         "agent_span",
         "agent_span_alert_condition",
+        "collection_lag_hours",
     )
     alert_condition = sgqlc.types.Field(
         sgqlc.types.non_null("FilterGroup"), graphql_name="alertCondition"
@@ -29042,6 +29217,8 @@ class CustomRuleSqlBlocks(sgqlc.types.Type):
     agent_span_alert_condition = sgqlc.types.Field(
         sgqlc.types.non_null(AgentSpanCondition), graphql_name="agentSpanAlertCondition"
     )
+
+    collection_lag_hours = sgqlc.types.Field(Int, graphql_name="collectionLagHours")
 
 
 class CustomSQLOutputDownload(sgqlc.types.Type):
@@ -32860,7 +33037,7 @@ class EnableAgentAssistance(sgqlc.types.Type):
     """Provision the per-domain agent user + internal group + default
     pipelines.  Idempotent — re-calling on an already-enabled domain
     returns the existing agent without creating duplicates. Defaults
-    for the three capabilities live in the service module; pass
+    for the capabilities live in the service module; pass
     ``configureAgentAssistance`` afterwards to flip them on.
     """
 
@@ -34925,6 +35102,131 @@ class FavoriteAsset(sgqlc.types.Type):
     """Timestamp when the asset was added to favorites"""
 
 
+class FederationCandidate(sgqlc.types.Type):
+    """A source resource that matched an observed reference (surfaced on
+    AMBIGUOUS).
+    """
+
+    __schema__ = schema
+    __field_names__ = ("resource_uuid", "resource_type", "reason", "matched_on")
+    resource_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="resourceUuid")
+    """Candidate source resource UUID"""
+
+    resource_type = sgqlc.types.Field(String, graphql_name="resourceType")
+    """Candidate source resource type"""
+
+    reason = sgqlc.types.Field(String, graphql_name="reason")
+    """How the candidate matched"""
+
+    matched_on = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("FederationIdentifier")), graphql_name="matchedOn"
+    )
+    """The discrete identity pairs that matched this candidate"""
+
+
+class FederationIdentifier(sgqlc.types.Type):
+    """A non-secret {key, value} identity pair (e.g. host / database /
+    port).
+    """
+
+    __schema__ = schema
+    __field_names__ = ("key", "value")
+    key = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="key")
+    """Identity field name (host, database, ...)"""
+
+    value = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="value")
+    """Raw observed value"""
+
+
+class FederationSourceOutput(sgqlc.types.Type):
+    """A federated source observed on a warehouse — the foreign
+    connection a reference asset points at, and its resolution to a
+    native Monte Carlo source (YET-1729).
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "reference_resource_uuid",
+        "reference_resource_type",
+        "source_alias",
+        "resolution_status",
+        "resolution_method",
+        "observed_endpoint",
+        "source_resource_uuid",
+        "source_resource_type",
+        "connector_type",
+        "connection_name",
+        "observed_identifiers",
+        "candidates",
+        "asset_count",
+        "last_seen_at",
+    )
+    id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
+    """Stable identifier for the source link"""
+
+    reference_resource_uuid = sgqlc.types.Field(
+        sgqlc.types.non_null(UUID), graphql_name="referenceResourceUuid"
+    )
+    """The resource the reference was observed on (this warehouse)"""
+
+    reference_resource_type = sgqlc.types.Field(String, graphql_name="referenceResourceType")
+    """Type of the reference resource"""
+
+    source_alias = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="sourceAlias")
+    """The source's name inside the reference (e.g. foreign catalog)"""
+
+    resolution_status = sgqlc.types.Field(
+        sgqlc.types.non_null(LinkResolutionStatus), graphql_name="resolutionStatus"
+    )
+    """unresolved | resolved | ambiguous"""
+
+    resolution_method = sgqlc.types.Field(LinkResolutionMethod, graphql_name="resolutionMethod")
+    """How the derived endpoint was established: identifier match, table
+    match, or customer-configured. Which endpoint this describes is
+    given by observedEndpoint (normally the source). Null when
+    unresolved.
+    """
+
+    observed_endpoint = sgqlc.types.Field(
+        sgqlc.types.non_null(ObservedEndpoint), graphql_name="observedEndpoint"
+    )
+    """Which endpoint is observed (ground truth) vs derived — reference
+    (we collected on the referencing resource, the common case) or
+    source. Distinguishes a ground-truth link from a guessed one and
+    tells you which side resolutionMethod refers to.
+    """
+
+    source_resource_uuid = sgqlc.types.Field(UUID, graphql_name="sourceResourceUuid")
+    """The resolved native source resource; set only when resolved"""
+
+    source_resource_type = sgqlc.types.Field(String, graphql_name="sourceResourceType")
+    """Type of the resolved native source"""
+
+    connector_type = sgqlc.types.Field(String, graphql_name="connectorType")
+    """Source connector type"""
+
+    connection_name = sgqlc.types.Field(String, graphql_name="connectionName")
+    """Source connection name"""
+
+    observed_identifiers = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FederationIdentifier)),
+        graphql_name="observedIdentifiers",
+    )
+    """Non-secret identity bag — display + force-match surface"""
+
+    candidates = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FederationCandidate)), graphql_name="candidates"
+    )
+    """Candidate sources surfaced when ambiguous"""
+
+    asset_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="assetCount")
+    """Number of referencing assets under this source"""
+
+    last_seen_at = sgqlc.types.Field(DateTime, graphql_name="lastSeenAt")
+    """When this source was last observed"""
+
+
 class FeedbackEntry(sgqlc.types.Type):
     """One row of finding feedback history."""
 
@@ -35905,6 +36207,12 @@ class GenerateEvalPromptOutput(sgqlc.types.Type):
     """Bias avoidance guidance"""
 
 
+class GenerateGoldenBaseline(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("baseline",)
+    baseline = sgqlc.types.Field("GoldenBaseline", graphql_name="baseline")
+
+
 class GenerateReport(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("report_job_id",)
@@ -35957,6 +36265,27 @@ class GenerateWebhookUrl(sgqlc.types.Type):
     """The external service"""
 
 
+class GenieCollectorDegradedSpace(sgqlc.types.Type):
+    """A space whose conversation-list transiently failed on the most
+    recent run for a non-permission reason, so it is under-collecting
+    while sibling spaces keep working.  Distinct from missingGrants:
+    there is no grant to restore. The failure is transient / server-
+    side, so no customer action is required — Monte Carlo retries the
+    space automatically each run and it self-heals once the listing
+    succeeds.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("reason", "detail")
+    reason = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="reason")
+    """Short failure token from the most recent run — the HTTP status, or
+    the transport / exception type when there was no HTTP response.
+    """
+
+    detail = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="detail")
+    """Human-readable explanation of the transiently-degraded state."""
+
+
 class GenieCollectorMissingGrant(sgqlc.types.Type):
     """A Databricks grant Monte Carlo's collector principal lacks, with
     remediation.
@@ -35985,15 +36314,20 @@ class GenieCollectorStatus(sgqlc.types.Type):
         "install_error",
         "last_successful_run_time",
         "last_triggered_time",
+        "missing_grants",
+        "degraded_spaces",
+        "is_stale",
     )
     install_status = sgqlc.types.Field(
         sgqlc.types.non_null(GenieCollectorInstallStatus), graphql_name="installStatus"
     )
     """Collector install lifecycle: PENDING, INSTALLED, PERMISSION_DENIED
-    (Monte Carlo's principal lacks the workspace/jobs grant, or the
-    connection's Databricks credential is no longer valid — self-heals
-    once the grant is added or the credential is re-authenticated), or
-    ERROR.
+    (Monte Carlo's principal lacks the required Databricks grant —
+    self-heals once the grant is added), CREDENTIAL_INVALID (the
+    connection's Databricks credential is no longer valid, e.g. an
+    expired token or an offboarded PAT owner — self-heals once it is
+    re-authenticated), or ERROR. See installError for the underlying
+    Databricks detail.
     """
 
     run_status = sgqlc.types.Field(GenieCollectorRunStatus, graphql_name="runStatus")
@@ -36011,8 +36345,11 @@ class GenieCollectorStatus(sgqlc.types.Type):
     install_error = sgqlc.types.Field(String, graphql_name="installError")
     """Detail + remediation for the most recent failed collector install,
     or an auth failure surfaced during a later scheduled
-    reconcile/run/poll on an already-installed collector (when
-    installStatus is 'permission_denied' or 'error'); null once
+    reconcile/run/poll (when installStatus is 'permission_denied' for
+    a missing install-time grant, 'credential_invalid' when the
+    credential can't authenticate (a 401 on any state, or a 403 on an
+    already-installed collector), or 'error'); leads with the raw
+    Databricks detail for the credential/error cases. Null once
     installed. Distinct from lastError, which covers run failures.
     """
 
@@ -36024,6 +36361,44 @@ class GenieCollectorStatus(sgqlc.types.Type):
     last_triggered_time = sgqlc.types.Field(DateTime, graphql_name="lastTriggeredTime")
     """Time the collector was most recently triggered, regardless of
     outcome.
+    """
+
+    missing_grants = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(GenieCollectorMissingGrant))),
+        graphql_name="missingGrants",
+    )
+    """Databricks grants missing for THIS space that are silently
+    degrading collection (e.g. the run-as principal lost CAN MANAGE,
+    so the space's traces stopped while sibling spaces keep
+    collecting). Empty when the space is healthy. installStatus stays
+    INSTALLED — this is a per-space data-completeness signal, not an
+    install failure. Self-heals once the grant is restored.
+    """
+
+    degraded_spaces = sgqlc.types.Field(
+        sgqlc.types.non_null(
+            sgqlc.types.list_of(sgqlc.types.non_null(GenieCollectorDegradedSpace))
+        ),
+        graphql_name="degradedSpaces",
+    )
+    """THIS space transiently failing to list conversations for a NON-
+    permission reason (a 500, a timeout, a malformed response), so it
+    is under-collecting while sibling spaces keep working. Empty when
+    the space is healthy. Unlike missingGrants there is no customer
+    action — the failure is transient/server-side and Monte Carlo
+    retries each run. installStatus stays INSTALLED. Self-heals once
+    the listing succeeds.
+    """
+
+    is_stale = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isStale")
+    """True when the collector is enabled and scheduled but its
+    materialized trace table has not refreshed recently — the most
+    recent successful run is more than several collection cadences old
+    (a run hung past its schedule so the table stopped refreshing)
+    even though installStatus and runStatus may read healthy. A
+    freshness signal distinct from install/run errors; false when the
+    collector is disabled, has no schedule, or has not yet completed
+    its first successful run.
     """
 
 
@@ -36551,6 +36926,122 @@ class GitlabTraversalResult(sgqlc.types.Type):
     projects = sgqlc.types.Field(sgqlc.types.list_of(GitlabEntityRef), graphql_name="projects")
 
 
+class GoldenBaseline(sgqlc.types.Type):
+    """A golden set's current baseline — one run of its eval rules over
+    its cases.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "status",
+        "summary",
+        "is_stale",
+        "results",
+        "created_time",
+        "updated_time",
+    )
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Public identifier of the baseline."""
+
+    status = sgqlc.types.Field(sgqlc.types.non_null(GoldenBaselineStatus), graphql_name="status")
+    """Overall generation outcome."""
+
+    summary = sgqlc.types.Field(GenericScalar, graphql_name="summary")
+    """Per-rule aggregates (mean / pass-rate) over scored cases."""
+
+    is_stale = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isStale")
+    """Whether the set's eval configuration has changed since this
+    baseline was generated (regenerate to refresh).
+    """
+
+    results = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("GoldenBaselineResult"))),
+        graphql_name="results",
+    )
+    """Per-case results."""
+
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+    """When the baseline was generated."""
+
+    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
+    """When the baseline was last written."""
+
+
+class GoldenBaselineResult(sgqlc.types.Type):
+    """One case's scored result within a baseline."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "golden_test_case_uuid",
+        "status",
+        "scored_response",
+        "scores",
+        "error",
+    )
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Public identifier of the result."""
+
+    golden_test_case_uuid = sgqlc.types.Field(UUID, graphql_name="goldenTestCaseUuid")
+    """Source test case (null if the case was since deleted)."""
+
+    status = sgqlc.types.Field(
+        sgqlc.types.non_null(GoldenBaselineResultStatus), graphql_name="status"
+    )
+    """Per-case outcome."""
+
+    scored_response = sgqlc.types.Field(String, graphql_name="scoredResponse")
+    """The judged response — populated only for cases captured with
+    response-capture on. A case captured without it is still scored
+    (from a re-fetched response), but that response is not persisted,
+    so this stays null.
+    """
+
+    scores = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("GoldenEvalScore"))),
+        graphql_name="scores",
+    )
+    """Per-rule scores (empty unless the case was SCORED)."""
+
+    error = sgqlc.types.Field(String, graphql_name="error")
+    """Failure detail: the case's error when status is ERROR, or the
+    first rule-level error when the case scored only partially (some
+    rules errored).
+    """
+
+
+class GoldenEvalScore(sgqlc.types.Type):
+    """One eval rule's score for a single case."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "alias",
+        "template_name",
+        "output_type",
+        "score",
+        "boolean_score",
+        "reasoning",
+    )
+    alias = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="alias")
+    """Result field name for this rule's score."""
+
+    template_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="templateName")
+    """Eval template that was applied."""
+
+    output_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="outputType")
+    """Score shape: 'number' or 'boolean'."""
+
+    score = sgqlc.types.Field(Float, graphql_name="score")
+    """Numeric score when outputType is 'number'."""
+
+    boolean_score = sgqlc.types.Field(Boolean, graphql_name="booleanScore")
+    """Boolean score when outputType is 'boolean'."""
+
+    reasoning = sgqlc.types.Field(String, graphql_name="reasoning")
+    """The LLM judge's brief explanation for the score."""
+
+
 class GoldenPriorTurn(sgqlc.types.Type):
     """A preceding conversation turn captured as fixed context for a test
     case.
@@ -36593,10 +37084,15 @@ class GoldenSet(sgqlc.types.Type):
     """Display name of the set."""
 
     agent_name = sgqlc.types.Field(String, graphql_name="agentName")
-    """Observability agent the set is scoped to, if any."""
+    """Observability agent the set is scoped to; null only on legacy sets
+    created before agent association was required.
+    """
 
     trace_table_mcon = sgqlc.types.Field(String, graphql_name="traceTableMcon")
-    """MCON of the scoped agent's trace table, if any."""
+    """MCON of the scoped agent's trace table (the set's content-domain
+    key); null only on legacy sets created before agent association
+    was required.
+    """
 
     prod_target_path = sgqlc.types.Field(String, graphql_name="prodTargetPath")
     """Baseline (prod) agent REST endpoint path."""
@@ -36605,7 +37101,13 @@ class GoldenSet(sgqlc.types.Type):
     """Default test (dev) agent REST endpoint path."""
 
     eval_config = sgqlc.types.Field(GenericScalar, graphql_name="evalConfig")
-    """Version-locked rubric/eval configuration for the set."""
+    """Rubric config the baseline scores against: {"rules": [...]} where
+    each rule sets exactly one of templateName (a catalog
+    conversation-eval template) or custom.criteria (a non-empty,
+    ≤1000-char rubric). At most 5 rules, at most one custom rule, no
+    duplicate template. Rejected at generateGoldenBaseline if
+    malformed.
+    """
 
     retention_days = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="retentionDays")
     """Activity-based sliding retention window, in days."""
@@ -36885,7 +37387,10 @@ class IAMPermissionDefinition(sgqlc.types.Type):
     - Write: Authorizes operations that involve some form of
     modification (create, update, delete, etc.) - Propose: Authorizes
     operations that suggest changes requiring review and approval
-    before taking effect (e.g., drafting monitors).
+    before taking effect (e.g., drafting monitors). - Tune: Authorizes
+    tuning the detection model of an existing resource (e.g.,
+    adjusting a monitor's anomaly sensitivity/thresholds) without the
+    broader ability to create, edit, or delete it.
     """
 
     description = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="description")
@@ -39232,6 +39737,43 @@ class LinkSlackAppInstallation(sgqlc.types.Type):
     """The UUID of the Slack installation"""
 
 
+class LinkedAssetOutput(sgqlc.types.Type):
+    """A federated asset link: a referencing asset (reference_mcon) and
+    the native source asset it resolves to (source_mcon).
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "id",
+        "reference_mcon",
+        "source_mcon",
+        "link_kind",
+        "status",
+        "source_alias",
+        "last_seen_at",
+    )
+    id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
+    """Stable identifier for the asset link"""
+
+    reference_mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="referenceMcon")
+    """The referencing asset's MCON"""
+
+    source_mcon = sgqlc.types.Field(String, graphql_name="sourceMcon")
+    """The resolved native source asset's MCON; null when unresolved"""
+
+    link_kind = sgqlc.types.Field(sgqlc.types.non_null(LinkKind), graphql_name="linkKind")
+    """identity | replica"""
+
+    status = sgqlc.types.Field(sgqlc.types.non_null(LinkResolutionStatus), graphql_name="status")
+    """unresolved | resolved | ambiguous"""
+
+    source_alias = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="sourceAlias")
+    """The source alias of the parent connection link"""
+
+    last_seen_at = sgqlc.types.Field(DateTime, graphql_name="lastSeenAt")
+    """When this asset link was last observed"""
+
+
 class ListDataOperationsDashboardsOutput(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("total_count", "data_operations_dashboards", "next_page_info")
@@ -39452,6 +39994,13 @@ class ManyToManyChange(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(String)), graphql_name="objectNames"
     )
     """Related objects"""
+
+
+class MapFederationSource(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("federation_source",)
+    federation_source = sgqlc.types.Field(FederationSourceOutput, graphql_name="federationSource")
+    """The source, now resolved to the chosen resource"""
 
 
 class MarkPiiScanFindingFalsePositive(sgqlc.types.Type):
@@ -41325,6 +41874,8 @@ class Mutation(sgqlc.types.Type):
         "test_customer_mcp_server_connection",
         "get_customer_mcp_server_authorization_url",
         "revoke_customer_mcp_server_authorization",
+        "map_federation_source",
+        "unmap_federation_source",
         "create_or_update_custom_integration",
         "test_custom_connector",
         "add_custom_connector",
@@ -41347,6 +41898,7 @@ class Mutation(sgqlc.types.Type):
         "create_linear_ticket_for_agent_health_issue",
         "create_jira_ticket_for_agent_health_issue",
         "create_service_now_ticket_for_agent_health_issue",
+        "trigger_reinforcement_loop_dispatch",
         "delete_agent_trace_table",
         "create_or_update_platform_agent",
         "install_genie_collector",
@@ -41356,6 +41908,7 @@ class Mutation(sgqlc.types.Type):
         "delete_golden_set",
         "delete_golden_test_case",
         "add_conversation_to_golden_set",
+        "generate_golden_baseline",
         "create_or_update_slo_policy",
         "delete_slo_policy",
         "set_slo_policies",
@@ -42295,6 +42848,87 @@ class Mutation(sgqlc.types.Type):
     * `mcp_server_uuid` (`UUID!`): UUID of the MCP server
     """
 
+    map_federation_source = sgqlc.types.Field(
+        MapFederationSource,
+        graphql_name="mapFederationSource",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "source_alias",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="sourceAlias", default=None
+                    ),
+                ),
+                (
+                    "source_resource_type",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String),
+                        graphql_name="sourceResourceType",
+                        default=None,
+                    ),
+                ),
+                (
+                    "source_resource_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="sourceResourceUuid", default=None
+                    ),
+                ),
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="warehouseUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Force-match a federated source to a chosen native
+    source resource (Map to existing / Choose match). Authoritative
+    and reversible.
+
+    Arguments:
+
+    * `source_alias` (`String!`): The source's alias (its name inside
+      the reference)
+    * `source_resource_type` (`String!`): Type of the native source
+      resource
+    * `source_resource_uuid` (`UUID!`): The native source resource to
+      bind this source to
+    * `warehouse_uuid` (`UUID!`): The warehouse the source was
+      observed on
+    """
+
+    unmap_federation_source = sgqlc.types.Field(
+        "UnmapFederationSource",
+        graphql_name="unmapFederationSource",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "source_alias",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="sourceAlias", default=None
+                    ),
+                ),
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="warehouseUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Reverse a force-match: revert the source to
+    unresolved so it re-resolves automatically on the next collection.
+
+    Arguments:
+
+    * `source_alias` (`String!`): The source's alias (its name inside
+      the reference)
+    * `warehouse_uuid` (`UUID!`): The warehouse the source was
+      observed on
+    """
+
     create_or_update_custom_integration = sgqlc.types.Field(
         CreateOrUpdateCustomIntegration,
         graphql_name="createOrUpdateCustomIntegration",
@@ -42971,6 +43605,14 @@ class Mutation(sgqlc.types.Type):
     * `input` (`CreateServiceNowTicketForAgentHealthIssueInput!`)None
     """
 
+    trigger_reinforcement_loop_dispatch = sgqlc.types.Field(
+        "TriggerReinforcementLoopDispatch", graphql_name="triggerReinforcementLoopDispatch"
+    )
+    """(experimental) Manually queue the reinforcement-loop (agent
+    health) fan-out for the calling account, instead of waiting for
+    the daily schedule. Monte Carlo operators only.
+    """
+
     delete_agent_trace_table = sgqlc.types.Field(
         DeleteAgentTraceTable,
         graphql_name="deleteAgentTraceTable",
@@ -43172,6 +43814,28 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `input` (`AddConversationToGoldenSetInput!`)None
+    """
+
+    generate_golden_baseline = sgqlc.types.Field(
+        GenerateGoldenBaseline,
+        graphql_name="generateGoldenBaseline",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "set_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="setUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Score a golden set's cases and overwrite its
+    current baseline.
+
+    Arguments:
+
+    * `set_uuid` (`UUID!`): Golden set to generate a baseline for.
     """
 
     create_or_update_slo_policy = sgqlc.types.Field(
@@ -56984,7 +57648,9 @@ class Mutation(sgqlc.types.Type):
       samplingConfig).
     * `audiences` (`[String!]`): The monitor notification audiences
     * `collection_lag_hours` (`Int`): Collection lag in hours (for the
-      provided timestamp) (default: `0`)
+      provided timestamp). When 0 or omitted, the account-level
+      default collection lag applies (if one is configured). (default:
+      `0`)
     * `connection_id` (`UUID`): Specify a connection (e.g. query-
       engine) to use
     * `data_quality_dimension` (`String`): Data quality dimension.
@@ -57214,7 +57880,9 @@ class Mutation(sgqlc.types.Type):
       samplingConfig).
     * `audiences` (`[String!]`): The monitor notification audiences
     * `collection_lag_hours` (`Int`): Collection lag in hours (for the
-      provided timestamp) (default: `0`)
+      provided timestamp). When 0 or omitted, the account-level
+      default collection lag applies (if one is configured). (default:
+      `0`)
     * `connection_id` (`UUID`): Specify a connection (e.g. query-
       engine) to use
     * `data_quality_dimension` (`String`): Data quality dimension.
@@ -68579,6 +69247,9 @@ class Query(sgqlc.types.Type):
         "get_my_dashboard_schedules",
         "get_customer_mcp_servers",
         "discover_customer_mcp_server_auth",
+        "get_federation_sources",
+        "get_federation_references",
+        "get_asset_federation_links",
         "list_custom_dashboards",
         "get_custom_dashboard",
         "get_custom_dashboard_as_json",
@@ -68597,6 +69268,7 @@ class Query(sgqlc.types.Type):
         "get_golden_sets",
         "get_golden_set",
         "get_golden_test_cases",
+        "get_golden_baseline",
         "get_latest_agent_health_finding",
         "get_latest_agent_health_finding_summaries",
         "get_agent_health_issue_findings",
@@ -69347,6 +70019,75 @@ class Query(sgqlc.types.Type):
     * `mcp_server_url` (`String!`): MCP server URL to probe
     """
 
+    get_federation_sources = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FederationSourceOutput)),
+        graphql_name="getFederationSources",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="warehouseUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) List the federated sources observed on a warehouse
+    (the Federation sources table), including unresolved/ambiguous
+    ones.
+
+    Arguments:
+
+    * `warehouse_uuid` (`UUID!`): The warehouse UUID
+    """
+
+    get_federation_references = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(FederationSourceOutput)),
+        graphql_name="getFederationReferences",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "warehouse_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="warehouseUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) List the federation links that reference this
+    warehouse as their native source (the reverse of
+    getFederationSources — other integrations that point at it). Backs
+    the source-side 'Referenced by' surface; resolved links only.
+
+    Arguments:
+
+    * `warehouse_uuid` (`UUID!`): The source warehouse UUID
+    """
+
+    get_asset_federation_links = sgqlc.types.Field(
+        AssetFederationLinksOutput,
+        graphql_name="getAssetFederationLinks",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Federation linkage for an asset (both directions):
+    the source it references, and the references that point at it.
+
+    Arguments:
+
+    * `mcon` (`String!`): The asset MCON
+    """
+
     list_custom_dashboards = sgqlc.types.Field(
         sgqlc.types.non_null(CustomDashboardListConnection),
         graphql_name="listCustomDashboards",
@@ -69765,6 +70506,28 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `set_uuid` (`UUID!`): Set whose test cases to list.
+    """
+
+    get_golden_baseline = sgqlc.types.Field(
+        GoldenBaseline,
+        graphql_name="getGoldenBaseline",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "set_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="setUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Fetch a golden set's current baseline (with
+    is_stale), or null if none.
+
+    Arguments:
+
+    * `set_uuid` (`UUID!`): Set whose baseline to fetch.
     """
 
     get_latest_agent_health_finding = sgqlc.types.Field(
@@ -73024,6 +73787,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "table_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="tableMcons",
+                        default=None,
+                    ),
+                ),
+                (
                     "order_by",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(String)),
@@ -73051,6 +73822,12 @@ class Query(sgqlc.types.Type):
     * `from_date` (`DateTime`)None
     * `to_date` (`DateTime`)None
     * `status_in` (`[EtlRunStatus!]`)None
+    * `table_mcons` (`[String!]`): Scope to runs of jobs that produce
+      one of the given table MCONs (downstream lineage). A run is
+      included when its job — or any of the job's tasks — writes the
+      table. Combined with the job filter above via AND. Omitting the
+      argument applies no table filter; an explicit empty list matches
+      no runs.
     * `order_by` (`[String!]`): Order-by keys applied in order; first
       key is primary, subsequent keys act as tiebreakers. Prefix any
       key with `-` for descending.
@@ -78118,10 +78895,13 @@ class Query(sgqlc.types.Type):
     * `include_explanation` (`Boolean`): Include the explanation field
       in the results (only supported for monitors with LLM
       evaluations, e.g. agent monitors and metric monitors with
-      eval_prompt). Combined with useAlertSample=true on a ClickHouse
-      LLM-eval alert, it re-evaluates the alert's exact spans (a fresh
-      judge call) and grafts the alert's stored score as alertScore,
-      rather than projecting a stored column. (default: `false`)
+      eval_prompt). Combined with useAlertSample=true, the explanation
+      is a stored-column read wherever the persisted sample recorded
+      the judge reasoning (conversation-aggregation ClickHouse alerts
+      and platform-agent alerts, per Event.hasAlertSampleExplanation);
+      on ClickHouse span-grain alerts it instead re-evaluates the
+      alert's exact spans (a fresh judge call) and grafts the alert's
+      stored score as alertScore. (default: `false`)
     * `use_alert_sample` (`Boolean`): When true, return the sample
       stored when the alert fired — the exact spans and scores it
       evaluated — instead of taking a fresh sample. Only alerts whose
@@ -100755,6 +101535,25 @@ class TriggerPlatformMigrationTest(sgqlc.types.Type):
     """UUID assigned to the operation, used to check status"""
 
 
+class TriggerReinforcementLoopDispatch(sgqlc.types.Type):
+    """Manually queue the reinforcement-loop fan-out for the calling
+    account.  Monte Carlo operators only. Queues the same per-(agent,
+    workflow, trace table) runs the daily beat would create; the per-
+    minute run monitor picks them up from there. Skipped while the
+    account still has in-flight runs.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("outcome", "queued_count")
+    outcome = sgqlc.types.Field(
+        sgqlc.types.non_null(ReinforcementLoopDispatchOutcome), graphql_name="outcome"
+    )
+    """Whether runs were queued, or why dispatch was skipped."""
+
+    queued_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="queuedCount")
+    """Number of runs queued (0 when skipped)."""
+
+
 class TsaAnalysis(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("status", "thread_id", "run_id", "conversation_data")
@@ -101009,6 +101808,13 @@ class UnlinkServiceNowIncidentForAlert(sgqlc.types.Type):
     __field_names__ = ("unlinked",)
     unlinked = sgqlc.types.Field(Boolean, graphql_name="unlinked")
     """True if the incident was unlinked"""
+
+
+class UnmapFederationSource(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("federation_source",)
+    federation_source = sgqlc.types.Field(FederationSourceOutput, graphql_name="federationSource")
+    """The source, reverted to unresolved"""
 
 
 class UnsnoozeCustomRule(sgqlc.types.Type):
@@ -109956,21 +110762,24 @@ class Event(sgqlc.types.Type, Node):
     getFieldHealthSampling can return when called with
     useAlertSample=true. True for a ClickHouse agent LLM-eval alert
     (span grain or conversation aggregation) whose evaluation batch
-    was recorded; false for every other monitor or connection, which
-    always sample live.
+    was recorded, and for a platform-agent (e.g. Cortex or Genie)
+    agent evaluation alert whose run persisted its scores; false for
+    every other monitor or connection, which always sample live.
     """
 
     has_alert_sample_explanation = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="hasAlertSampleExplanation"
     )
     """Whether this alert's stored evaluation sample already carries the
-    judge's explanation, retrievable without re-evaluation. True only
-    for conversation-aggregation ClickHouse agent LLM-eval alerts —
-    the persisted conversation scores include the judge reasoning, so
-    getFieldHealthSampling with includeExplanation=true is a stored
-    read. False for span-grain alerts (the stored batch holds the
-    score only, so an explanation requires a fresh re-evaluation) and
-    for every other monitor or connection. Implies hasAlertSample.
+    judge's explanation, retrievable without re-evaluation. True for
+    conversation-aggregation ClickHouse agent LLM-eval alerts and for
+    all platform-agent (e.g. Cortex or Genie) agent evaluation alerts
+    with a stored sample — their persisted scores include the judge
+    reasoning, so getFieldHealthSampling with includeExplanation=true
+    is a stored read. False for ClickHouse span-grain alerts (the
+    stored batch holds the score only, so an explanation requires a
+    fresh re-evaluation) and for every other monitor or connection.
+    Implies hasAlertSample.
     """
 
     is_agent_conversation_aggregation = sgqlc.types.Field(

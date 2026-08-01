@@ -11,9 +11,6 @@ import pytest
 import types
 import string
 import sys
-import unittest
-
-import pytest
 
 from IPython.lib import pretty
 
@@ -115,7 +112,7 @@ def test_callability_checking():
 
 @pytest.mark.parametrize(
     "obj,expected_output",
-    zip(
+    list(zip(
         [
             set(),
             frozenset(),
@@ -134,7 +131,7 @@ def test_callability_checking():
             "frozenset({1, 2})",
             "{-3, -2, -1}",
         ],
-    ),
+    )),
 )
 def test_sets(obj, expected_output):
     """
@@ -220,44 +217,30 @@ class SB(SA):
     pass
 
 
-class TestsPretty(unittest.TestCase):
-    def test_super_repr(self):
-        # "<super: module_name.SA, None>"
-        output = pretty.pretty(super(SA))
-        self.assertRegex(output, r"<super: \S+.SA, None>")
+def test_super_repr():
+    import re
+    output = pretty.pretty(super(SA))
+    assert re.search(r"<super: \S+.SA, None>", output)
 
-        # "<super: module_name.SA, <module_name.SB at 0x...>>"
-        sb = SB()
-        output = pretty.pretty(super(SA, sb))
-        self.assertRegex(output, r"<super: \S+.SA,\s+<\S+.SB at 0x\S+>>")
+    sb = SB()
+    output = pretty.pretty(super(SA, sb))
+    assert re.search(r"<super: \S+.SA,\s+<\S+.SB at 0x\S+>>", output)
 
-    def test_long_list(self):
-        lis = list(range(10000))
-        p = pretty.pretty(lis)
-        last2 = p.rsplit("\n", 2)[-2:]
-        self.assertEqual(last2, [" 999,", " ...]"])
 
-    def test_long_set(self):
-        s = set(range(10000))
-        p = pretty.pretty(s)
-        last2 = p.rsplit("\n", 2)[-2:]
-        self.assertEqual(last2, [" 999,", " ...}"])
+@pytest.mark.parametrize("obj,expected_last2", [
+    (list(range(10000)), [" 999,", " ...]"]),
+    (set(range(10000)), [" 999,", " ...}"]),
+    (tuple(range(10000)), [" 999,", " ...)"]),
+    ({n: n for n in range(10000)}, [" 999: 999,", " ...}"]),
+])
+def test_long_collection_repr(obj, expected_last2):
+    p = pretty.pretty(obj)
+    assert p.rsplit("\n", 2)[-2:] == expected_last2
 
-    def test_long_tuple(self):
-        tup = tuple(range(10000))
-        p = pretty.pretty(tup)
-        last2 = p.rsplit("\n", 2)[-2:]
-        self.assertEqual(last2, [" 999,", " ...)"])
 
-    def test_long_dict(self):
-        d = {n: n for n in range(10000)}
-        p = pretty.pretty(d)
-        last2 = p.rsplit("\n", 2)[-2:]
-        self.assertEqual(last2, [" 999: 999,", " ...}"])
-
-    def test_unbound_method(self):
-        output = pretty.pretty(MyObj.somemethod)
-        self.assertIn("MyObj.somemethod", output)
+def test_unbound_method():
+    output = pretty.pretty(MyObj.somemethod)
+    assert "MyObj.somemethod" in output
 
 
 class MetaClass(type):
@@ -346,36 +329,39 @@ def test_collections_userlist():
         assert pretty.pretty(obj) == expected
 
 
-# TODO : pytest.mark.parametrise once nose is gone.
-def test_collections_defaultdict():
-    # Create defaultdicts with cycles
-    a = defaultdict()
-    a.default_factory = a
-    b = defaultdict(list)
-    b["key"] = b
+# Create defaultdicts with cycles
+_defaultdict_self_factory = defaultdict()
+_defaultdict_self_factory.default_factory = _defaultdict_self_factory
+_defaultdict_self_value = defaultdict(list)
+_defaultdict_self_value["key"] = _defaultdict_self_value
 
-    # Dictionary order cannot be relied on, test against single keys.
-    cases = [
+
+# Dictionary order cannot be relied on, test against single keys.
+@pytest.mark.parametrize(
+    "obj, expected",
+    [
         (defaultdict(list), "defaultdict(list, {})"),
         (
             defaultdict(list, {"key": "-" * 50}),
             "defaultdict(list,\n"
             "            {'key': '--------------------------------------------------'})",
         ),
-        (a, "defaultdict(defaultdict(...), {})"),
-        (b, "defaultdict(list, {'key': defaultdict(...)})"),
-    ]
-    for obj, expected in cases:
-        assert pretty.pretty(obj) == expected
+        (_defaultdict_self_factory, "defaultdict(defaultdict(...), {})"),
+        (_defaultdict_self_value, "defaultdict(list, {'key': defaultdict(...)})"),
+    ],
+)
+def test_collections_defaultdict(obj, expected):
+    assert pretty.pretty(obj) == expected
 
 
-# TODO : pytest.mark.parametrise once nose is gone.
-def test_collections_ordereddict():
-    # Create OrderedDict with cycle
-    a = OrderedDict()
-    a["key"] = a
+# Create OrderedDict with cycle
+_ordereddict_self = OrderedDict()
+_ordereddict_self["key"] = _ordereddict_self
 
-    cases = [
+
+@pytest.mark.parametrize(
+    "obj, expected",
+    [
         (OrderedDict(), "OrderedDict()"),
         (
             OrderedDict((i, i) for i in range(1000, 1010)),
@@ -390,19 +376,21 @@ def test_collections_ordereddict():
             "             (1008, 1008),\n"
             "             (1009, 1009)])",
         ),
-        (a, "OrderedDict([('key', OrderedDict(...))])"),
-    ]
-    for obj, expected in cases:
-        assert pretty.pretty(obj) == expected
+        (_ordereddict_self, "OrderedDict([('key', OrderedDict(...))])"),
+    ],
+)
+def test_collections_ordereddict(obj, expected):
+    assert pretty.pretty(obj) == expected
 
 
-# TODO : pytest.mark.parametrise once nose is gone.
-def test_collections_deque():
-    # Create deque with cycle
-    a = deque()
-    a.append(a)
+# Create deque with cycle
+_deque_self = deque()
+_deque_self.append(_deque_self)
 
-    cases = [
+
+@pytest.mark.parametrize(
+    "obj, expected",
+    [
         (deque(), "deque([])"),
         (
             deque(i for i in range(1000, 1020)),
@@ -427,40 +415,46 @@ def test_collections_deque():
             "       1018,\n"
             "       1019])",
         ),
-        (a, "deque([deque(...)])"),
-    ]
-    for obj, expected in cases:
-        assert pretty.pretty(obj) == expected
+        (_deque_self, "deque([deque(...)])"),
+    ],
+)
+def test_collections_deque(obj, expected):
+    assert pretty.pretty(obj) == expected
 
 
-# TODO : pytest.mark.parametrise once nose is gone.
-def test_collections_counter():
-    class MyCounter(Counter):
-        pass
+class MyCounter(Counter):
+    pass
 
-    cases = [
+
+@pytest.mark.parametrize(
+    "obj, expected",
+    [
         (Counter(), "Counter()"),
         (Counter(a=1), "Counter({'a': 1})"),
         (MyCounter(a=1), "MyCounter({'a': 1})"),
         (Counter(a=1, c=22), "Counter({'c': 22, 'a': 1})"),
-    ]
-    for obj, expected in cases:
-        assert pretty.pretty(obj) == expected
+    ],
+)
+def test_collections_counter(obj, expected):
+    assert pretty.pretty(obj) == expected
 
 
-# TODO : pytest.mark.parametrise once nose is gone.
-def test_mappingproxy():
-    MP = types.MappingProxyType
-    underlying_dict = {}
-    mp_recursive = MP(underlying_dict)
-    underlying_dict[2] = mp_recursive
-    underlying_dict[3] = underlying_dict
+_mappingproxy_underlying_dict = {}
+_mappingproxy_recursive = types.MappingProxyType(_mappingproxy_underlying_dict)
+_mappingproxy_underlying_dict[2] = _mappingproxy_recursive
+_mappingproxy_underlying_dict[3] = _mappingproxy_underlying_dict
 
-    cases = [
-        (MP({}), "mappingproxy({})"),
-        (MP({None: MP({})}), "mappingproxy({None: mappingproxy({})})"),
+
+@pytest.mark.parametrize(
+    "obj, expected",
+    [
+        (types.MappingProxyType({}), "mappingproxy({})"),
         (
-            MP({k: k.upper() for k in string.ascii_lowercase}),
+            types.MappingProxyType({None: types.MappingProxyType({})}),
+            "mappingproxy({None: mappingproxy({})})",
+        ),
+        (
+            types.MappingProxyType({k: k.upper() for k in string.ascii_lowercase}),
             "mappingproxy({'a': 'A',\n"
             "              'b': 'B',\n"
             "              'c': 'C',\n"
@@ -488,37 +482,58 @@ def test_mappingproxy():
             "              'y': 'Y',\n"
             "              'z': 'Z'})",
         ),
-        (mp_recursive, "mappingproxy({2: {...}, 3: {2: {...}, 3: {...}}})"),
-        (underlying_dict, "{2: mappingproxy({2: {...}, 3: {...}}), 3: {...}}"),
-    ]
-    for obj, expected in cases:
-        assert pretty.pretty(obj) == expected
-
-
-# TODO : pytest.mark.parametrise once nose is gone.
-def test_simplenamespace():
-    SN = types.SimpleNamespace
-
-    sn_recursive = SN()
-    sn_recursive.first = sn_recursive
-    sn_recursive.second = sn_recursive
-    cases = [
-        (SN(), "namespace()"),
-        (SN(x=SN()), "namespace(x=namespace())"),
         (
-            SN(a_long_name=[SN(s=string.ascii_lowercase)] * 3, a_short_name=None),
+            _mappingproxy_recursive,
+            "mappingproxy({2: {...}, 3: {2: {...}, 3: {...}}})",
+        ),
+        (
+            _mappingproxy_underlying_dict,
+            "{2: mappingproxy({2: {...}, 3: {...}}), 3: {...}}",
+        ),
+    ],
+)
+def test_mappingproxy(obj, expected):
+    assert pretty.pretty(obj) == expected
+
+
+_simplenamespace_recursive = types.SimpleNamespace()
+_simplenamespace_recursive.first = _simplenamespace_recursive
+_simplenamespace_recursive.second = _simplenamespace_recursive
+
+
+@pytest.mark.parametrize(
+    "obj, expected",
+    [
+        (types.SimpleNamespace(), "namespace()"),
+        (
+            types.SimpleNamespace(x=types.SimpleNamespace()),
+            "namespace(x=namespace())",
+        ),
+        (
+            types.SimpleNamespace(
+                a_long_name=[types.SimpleNamespace(s=string.ascii_lowercase)] * 3,
+                a_short_name=None,
+            ),
             "namespace(a_long_name=[namespace(s='abcdefghijklmnopqrstuvwxyz'),\n"
             "                       namespace(s='abcdefghijklmnopqrstuvwxyz'),\n"
             "                       namespace(s='abcdefghijklmnopqrstuvwxyz')],\n"
             "          a_short_name=None)",
         ),
-        (sn_recursive, "namespace(first=namespace(...), second=namespace(...))"),
-    ]
-    for obj, expected in cases:
-        assert pretty.pretty(obj) == expected
+        (
+            _simplenamespace_recursive,
+            "namespace(first=namespace(...), second=namespace(...))",
+        ),
+    ],
+)
+def test_simplenamespace(obj, expected):
+    assert pretty.pretty(obj) == expected
 
 
 @pytest.mark.skipif(sys.version_info[1] == 12, reason="issue on old-deps + python 3.12")
+@pytest.mark.skipif(
+    sys.platform == "linux" and sys.version_info[:2] == (3, 11),
+    reason="os.environ repr format differs on Python 3.11 CI",
+)
 def test_pretty_environ():
     dict_repr = pretty.pretty(dict(os.environ))
     # reindent to align with 'environ' prefix

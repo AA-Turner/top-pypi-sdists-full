@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiofastnet
-Version: 0.22.0
+Version: 1.0.1
 Summary: Fast transport/protocol networking for asyncio
 Author-email: Taras Kozlov <tarasko.projects@gmail.com>
 Project-URL: Homepage, https://github.com/tarasko/aiofastnet
@@ -8,7 +8,7 @@ Project-URL: Repository, https://github.com/tarasko/aiofastnet
 Project-URL: Issues, https://github.com/tarasko/aiofastnet/issues
 Project-URL: Documentation, https://aiofastnet.readthedocs.io/en/latest
 Keywords: asyncio
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: AsyncIO
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: POSIX
@@ -102,6 +102,8 @@ Source: [examples/benchmark_threaded.py](https://github.com/tarasko/aiofastnet/b
 
 - [`loop.create_connection()`](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.create_connection)
 - [`loop.connect_accepted_socket()`](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.connect_accepted_socket)
+- [`loop.connect_read_pipe()`](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.connect_read_pipe)
+- [`loop.connect_write_pipe()`](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.connect_write_pipe)
 - [`loop.open_connection()`](https://docs.python.org/3/library/asyncio-stream.html#asyncio.open_connection)
 - [`loop.create_unix_connection()`](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.create_unix_connection)
 - [`loop.open_unix_connection()`](https://docs.python.org/3/library/asyncio-stream.html#asyncio.open_unix_connection)

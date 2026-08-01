@@ -57,6 +57,7 @@ from .paginator import (
     ListTemplateVersionsPaginator,
     ListThemesPaginator,
     ListThemeVersionsPaginator,
+    ListTopicsV2Paginator,
     ListUserGroupsPaginator,
     ListUsersPaginator,
     SearchActionConnectorsPaginator,
@@ -69,6 +70,7 @@ from .paginator import (
     SearchGroupsPaginator,
     SearchKnowledgeBasesPaginator,
     SearchTopicsPaginator,
+    SearchTopicsV2Paginator,
 )
 from .type_defs import (
     BatchCreateTopicReviewedAnswerRequestTypeDef,
@@ -137,6 +139,8 @@ from .type_defs import (
     CreateTopicRefreshScheduleResponseTypeDef,
     CreateTopicRequestTypeDef,
     CreateTopicResponseTypeDef,
+    CreateTopicV2RequestTypeDef,
+    CreateTopicV2ResponseTypeDef,
     CreateVPCConnectionRequestTypeDef,
     CreateVPCConnectionResponseTypeDef,
     DeleteAccountCustomizationRequestTypeDef,
@@ -207,6 +211,8 @@ from .type_defs import (
     DeleteTopicRefreshScheduleResponseTypeDef,
     DeleteTopicRequestTypeDef,
     DeleteTopicResponseTypeDef,
+    DeleteTopicV2RequestTypeDef,
+    DeleteTopicV2ResponseTypeDef,
     DeleteUserByPrincipalIdRequestTypeDef,
     DeleteUserByPrincipalIdResponseTypeDef,
     DeleteUserCustomPermissionRequestTypeDef,
@@ -333,12 +339,16 @@ from .type_defs import (
     DescribeThemeResponseTypeDef,
     DescribeTopicPermissionsRequestTypeDef,
     DescribeTopicPermissionsResponseTypeDef,
+    DescribeTopicPermissionsV2RequestTypeDef,
+    DescribeTopicPermissionsV2ResponseTypeDef,
     DescribeTopicRefreshRequestTypeDef,
     DescribeTopicRefreshResponseTypeDef,
     DescribeTopicRefreshScheduleRequestTypeDef,
     DescribeTopicRefreshScheduleResponseTypeDef,
     DescribeTopicRequestTypeDef,
     DescribeTopicResponseTypeDef,
+    DescribeTopicV2RequestTypeDef,
+    DescribeTopicV2ResponseTypeDef,
     DescribeUserRequestTypeDef,
     DescribeUserResponseTypeDef,
     DescribeVPCConnectionRequestTypeDef,
@@ -437,6 +447,8 @@ from .type_defs import (
     ListTopicReviewedAnswersResponseTypeDef,
     ListTopicsRequestTypeDef,
     ListTopicsResponseTypeDef,
+    ListTopicsV2RequestTypeDef,
+    ListTopicsV2ResponseTypeDef,
     ListUserGroupsRequestTypeDef,
     ListUserGroupsResponseTypeDef,
     ListUsersIndexCapacityRequestTypeDef,
@@ -477,6 +489,8 @@ from .type_defs import (
     SearchSpacesResponseTypeDef,
     SearchTopicsRequestTypeDef,
     SearchTopicsResponseTypeDef,
+    SearchTopicsV2RequestTypeDef,
+    SearchTopicsV2ResponseTypeDef,
     StartAssetBundleExportJobRequestTypeDef,
     StartAssetBundleExportJobResponseTypeDef,
     StartAssetBundleImportJobRequestTypeDef,
@@ -599,10 +613,14 @@ from .type_defs import (
     UpdateThemeResponseTypeDef,
     UpdateTopicPermissionsRequestTypeDef,
     UpdateTopicPermissionsResponseTypeDef,
+    UpdateTopicPermissionsV2RequestTypeDef,
+    UpdateTopicPermissionsV2ResponseTypeDef,
     UpdateTopicRefreshScheduleRequestTypeDef,
     UpdateTopicRefreshScheduleResponseTypeDef,
     UpdateTopicRequestTypeDef,
     UpdateTopicResponseTypeDef,
+    UpdateTopicV2RequestTypeDef,
+    UpdateTopicV2ResponseTypeDef,
     UpdateUserCustomPermissionRequestTypeDef,
     UpdateUserCustomPermissionResponseTypeDef,
     UpdateUserRequestTypeDef,
@@ -1016,6 +1034,16 @@ class QuickSightClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#create_topic_refresh_schedule)
         """
 
+    def create_topic_v2(
+        self, **kwargs: Unpack[CreateTopicV2RequestTypeDef]
+    ) -> CreateTopicV2ResponseTypeDef:
+        """
+        Creates a new Q topic.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_topic_v2.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#create_topic_v2)
+        """
+
     def create_vpc_connection(
         self, **kwargs: Unpack[CreateVPCConnectionRequestTypeDef]
     ) -> CreateVPCConnectionResponseTypeDef:
@@ -1366,6 +1394,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_topic_refresh_schedule.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#delete_topic_refresh_schedule)
+        """
+
+    def delete_topic_v2(
+        self, **kwargs: Unpack[DeleteTopicV2RequestTypeDef]
+    ) -> DeleteTopicV2ResponseTypeDef:
+        """
+        Deletes a Q topic.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/delete_topic_v2.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#delete_topic_v2)
         """
 
     def delete_user(self, **kwargs: Unpack[DeleteUserRequestTypeDef]) -> DeleteUserResponseTypeDef:
@@ -2018,6 +2056,16 @@ class QuickSightClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#describe_topic_permissions)
         """
 
+    def describe_topic_permissions_v2(
+        self, **kwargs: Unpack[DescribeTopicPermissionsV2RequestTypeDef]
+    ) -> DescribeTopicPermissionsV2ResponseTypeDef:
+        """
+        Describes the permissions of a topic.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_topic_permissions_v2.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#describe_topic_permissions_v2)
+        """
+
     def describe_topic_refresh(
         self, **kwargs: Unpack[DescribeTopicRefreshRequestTypeDef]
     ) -> DescribeTopicRefreshResponseTypeDef:
@@ -2036,6 +2084,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_topic_refresh_schedule.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#describe_topic_refresh_schedule)
+        """
+
+    def describe_topic_v2(
+        self, **kwargs: Unpack[DescribeTopicV2RequestTypeDef]
+    ) -> DescribeTopicV2ResponseTypeDef:
+        """
+        Describes a Q topic.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/describe_topic_v2.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#describe_topic_v2)
         """
 
     def describe_user(
@@ -2533,6 +2591,17 @@ class QuickSightClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#list_topics)
         """
 
+    def list_topics_v2(
+        self, **kwargs: Unpack[ListTopicsV2RequestTypeDef]
+    ) -> ListTopicsV2ResponseTypeDef:
+        """
+        Lists all of the Q topics in the specified Amazon Web Services account in an
+        Amazon Web Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/list_topics_v2.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#list_topics_v2)
+        """
+
     def list_user_groups(
         self, **kwargs: Unpack[ListUserGroupsRequestTypeDef]
     ) -> ListUserGroupsResponseTypeDef:
@@ -2734,6 +2803,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/search_topics.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#search_topics)
+        """
+
+    def search_topics_v2(
+        self, **kwargs: Unpack[SearchTopicsV2RequestTypeDef]
+    ) -> SearchTopicsV2ResponseTypeDef:
+        """
+        Searches for any Q topic that exists in an Amazon Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/search_topics_v2.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#search_topics_v2)
         """
 
     def start_asset_bundle_export_job(
@@ -3362,6 +3441,16 @@ class QuickSightClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#update_topic_permissions)
         """
 
+    def update_topic_permissions_v2(
+        self, **kwargs: Unpack[UpdateTopicPermissionsV2RequestTypeDef]
+    ) -> UpdateTopicPermissionsV2ResponseTypeDef:
+        """
+        Updates the permissions of a topic.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_topic_permissions_v2.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#update_topic_permissions_v2)
+        """
+
     def update_topic_refresh_schedule(
         self, **kwargs: Unpack[UpdateTopicRefreshScheduleRequestTypeDef]
     ) -> UpdateTopicRefreshScheduleResponseTypeDef:
@@ -3370,6 +3459,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_topic_refresh_schedule.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#update_topic_refresh_schedule)
+        """
+
+    def update_topic_v2(
+        self, **kwargs: Unpack[UpdateTopicV2RequestTypeDef]
+    ) -> UpdateTopicV2ResponseTypeDef:
+        """
+        Updates the definition of a Q topic.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_topic_v2.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#update_topic_v2)
         """
 
     def update_user(self, **kwargs: Unpack[UpdateUserRequestTypeDef]) -> UpdateUserResponseTypeDef:
@@ -3732,6 +3831,17 @@ class QuickSightClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_topics_v2"]
+    ) -> ListTopicsV2Paginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_user_groups"]
     ) -> ListUserGroupsPaginator:
         """
@@ -3855,6 +3965,17 @@ class QuickSightClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["search_topics"]
     ) -> SearchTopicsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_topics_v2"]
+    ) -> SearchTopicsV2Paginator:
         """
         Create a paginator for an operation.
 

@@ -12,7 +12,8 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
-from contextlib import closing
+import time
+from contextlib import ExitStack, closing
 from datetime import datetime
 from pathlib import Path
 
@@ -21,7 +22,12 @@ from tempfile import TemporaryDirectory
 # our own packages
 from traitlets.config.loader import Config
 
-from IPython.core.history import HistoryAccessor, HistoryManager, extract_hist_ranges
+from IPython.core.history import (
+    HistoryAccessor,
+    HistoryManager,
+    HistorySavingThread,
+    extract_hist_ranges,
+)
 
 import pytest
 
@@ -180,11 +186,11 @@ def test_history(hmmax2):
             assert sessid < hist[0]
             assert hist[1:] == (lineno, entry)
         finally:
-            # Ensure saving thread is shut down before we try to clean up the files
+            # Ensure saving thread is shut down before we try to clean up the
+            # files, and close the database deterministically rather than
+            # relying on garbage collection.
             ip.history_manager.end_session()
-            # Forcibly close database rather than relying on garbage collection
-            ip.history_manager.save_thread.stop()
-            ip.history_manager.db.close()
+            ip.history_manager.close()
             # swap back
             ip.history_manager = hist_manager_ori
 
@@ -262,61 +268,46 @@ def test_timestamp_type():
 def test_hist_file_config(hmmax3):
     cfg = Config()
     tfile = tempfile.NamedTemporaryFile(delete=False)
+    tfile.close()
     cfg.HistoryManager.hist_file = Path(tfile.name)
-    hm = None
     try:
-        hm = HistoryManager(shell=get_ipython(), config=cfg)
-        assert hm.hist_file == cfg.HistoryManager.hist_file
+        with HistoryManager(shell=get_ipython(), config=cfg) as hm:
+            assert hm.hist_file == cfg.HistoryManager.hist_file
     finally:
-        if hm is not None:
-            # Stop the saving thread and close the database, otherwise the
-            # thread can briefly hold a strong reference to the manager,
-            # making the instance-leak check in the fixture teardown flaky
-            # (gh-15161).
-            hm.save_thread.stop()
-            hm.db.close()
+        gc.collect()
         try:
             Path(tfile.name).unlink()
         except OSError:
-            # same catch as in testing.tools.TempFileMixin
-            # On Windows, even though we close the file, we still can't
-            # delete it.  I have no clue why
             pass
 
 
 def test_histmanager_memory_fallback_reopens_db(hmmax3, tmp_path, caplog):
     hist_file = tmp_path / "history.sqlite"
     ip = get_ipython()
-    hm1 = None
-    hm2 = None
     lock = None
     try:
-        hm1 = HistoryManager(shell=ip, hist_file=hist_file)
-        hm1.end_session()
-        hm1.save_thread.stop()
-        hm1.db.close()
+        # Create the on-disk database, then release it so we can lock it below.
+        with HistoryManager(shell=ip, hist_file=hist_file) as hm1:
+            hm1.end_session()
 
         lock = sqlite3.connect(hist_file)
         lock.execute("BEGIN IMMEDIATE")
 
-        hm2 = HistoryManager(shell=ip, hist_file=hist_file)
-        assert hm2.hist_file == ":memory:"
-        assert hm2.db.execute("PRAGMA database_list").fetchall() == [(0, "main", "")]
+        with HistoryManager(shell=ip, hist_file=hist_file) as hm2:
+            assert hm2.hist_file == ":memory:"
+            assert hm2.db.execute("PRAGMA database_list").fetchall() == [
+                (0, "main", "")
+            ]
 
-        hm2.store_inputs(1, "a = 1")
-        hm2.writeout_cache()
-        assert list(hm2.get_tail(1, include_latest=True)) == [
-            (hm2.session_number, 1, "a = 1")
-        ]
+            hm2.store_inputs(1, "a = 1")
+            hm2.writeout_cache()
+            assert list(hm2.get_tail(1, include_latest=True)) == [
+                (hm2.session_number, 1, "a = 1")
+            ]
     finally:
-        if hm2 is not None:
-            hm2.end_session()
-            hm2.db.close()
         if lock is not None:
             lock.rollback()
             lock.close()
-        hm1 = None
-        hm2 = None
         caplog.clear()
         gc.collect()
 
@@ -329,9 +320,9 @@ def test_histmanager_thread_start_failure_uses_memory(
 
     monkeypatch.setattr("IPython.core.history.HistorySavingThread.start", fail_start)
 
-    hm = None
-    try:
-        hm = HistoryManager(shell=get_ipython(), hist_file=tmp_path / "history.sqlite")
+    with HistoryManager(
+        shell=get_ipython(), hist_file=tmp_path / "history.sqlite"
+    ) as hm:
         assert hm.hist_file == ":memory:"
         assert hm.db.execute("PRAGMA database_list").fetchall() == [(0, "main", "")]
         assert hm.save_thread is None
@@ -341,13 +332,115 @@ def test_histmanager_thread_start_failure_uses_memory(
         assert list(hm.get_tail(1, include_latest=True)) == [
             (hm.session_number, 1, "a = 1")
         ]
+    caplog.clear()
+    gc.collect()
+
+
+def _wait_for_thread_db(thread, timeout=5.0):
+    """Wait until the saving thread has opened its private connection."""
+    deadline = time.monotonic() + timeout
+    while thread.db is None and time.monotonic() < deadline:
+        time.sleep(0.01)
+    assert thread.db is not None, "saving thread never opened its connection"
+    return thread.db
+
+
+def test_saving_thread_closes_db_on_normal_stop(hmmax2, tmp_path):
+    """A stopped saving thread must close its own sqlite connection.
+
+    The thread keeps a separate connection from the HistoryManager; if it is
+    left open the ``sqlite3.Connection`` gets garbage collected unclosed, which
+    raises a spurious ``ResourceWarning`` in whatever code is running at the
+    time (a source of cross-test flakiness).
+    """
+    hm = HistoryManager(shell=get_ipython(), hist_file=tmp_path / "history.sqlite")
+    try:
+        thread = hm.save_thread
+        assert thread is not None
+        conn = _wait_for_thread_db(thread)
+
+        hm.end_session()
+        thread.stop()
+        assert not thread.is_alive()
+        assert thread.db is None
+        with pytest.raises(sqlite3.ProgrammingError):
+            conn.execute("SELECT 1")
     finally:
-        if hm is not None:
-            hm.end_session()
-            hm.db.close()
+        hm.close()
         hm = None
-        caplog.clear()
         gc.collect()
+
+
+def test_saving_thread_closes_db_on_error(hmmax2, tmp_path):
+    """The saving thread must close its connection even when it errors out.
+
+    ``run()`` used to close the connection only on the clean-stop path, so an
+    unexpected error (more likely on Windows, where a cross-thread sqlite or
+    file-locking failure can surface) left the connection open to be collected
+    later and emit a ``ResourceWarning``.
+    """
+    hm = HistoryManager(shell=get_ipython(), hist_file=tmp_path / "history.sqlite")
+    try:
+        thread = hm.save_thread
+        assert thread is not None
+        conn = _wait_for_thread_db(thread)
+
+        # Force the writeout to raise, driving run() into its except branch.
+        def boom(*args, **kwargs):
+            raise RuntimeError("boom")
+
+        hm.writeout_cache = boom
+        thread.save_flag.set()
+        thread.join(timeout=5)
+        assert not thread.is_alive()
+
+        # The connection must have been closed by run()'s finally block.
+        assert thread.db is None
+        with pytest.raises(sqlite3.ProgrammingError):
+            conn.execute("SELECT 1")
+    finally:
+        hm.close()
+        hm = None
+        gc.collect()
+
+
+def test_history_manager_context_manager(hmmax2, tmp_path):
+    """Using a HistoryManager as a context manager stops the saving thread and
+    closes both connections on exit."""
+    with HistoryManager(
+        shell=get_ipython(), hist_file=tmp_path / "history.sqlite"
+    ) as hm:
+        thread = hm.save_thread
+        assert thread is not None
+        thread_conn = _wait_for_thread_db(thread)
+        hm.store_inputs(1, "a = 1")
+
+    # On exit the thread is stopped and both connections are closed.
+    assert hm.save_thread is None
+    assert not thread.is_alive()
+    with pytest.raises(sqlite3.ProgrammingError):
+        thread_conn.execute("SELECT 1")
+    with pytest.raises(sqlite3.ProgrammingError):
+        hm.db.execute("SELECT 1")
+    hm = None
+    gc.collect()
+
+
+def test_history_accessor_context_manager(hmmax2, tmp_path):
+    """HistoryAccessor closes its connection when used as a context manager."""
+    hist_file = tmp_path / "history.sqlite"
+    # Create the database file first.
+    with HistoryManager(shell=get_ipython(), hist_file=hist_file):
+        pass
+
+    with HistoryAccessor(hist_file=hist_file) as ha:
+        assert ha.db.execute("SELECT 1").fetchone() == (1,)
+        db = ha.db
+
+    with pytest.raises(sqlite3.ProgrammingError):
+        db.execute("SELECT 1")
+    ha = None
+    gc.collect()
 
 
 def test_histmanager_disabled(hmmax2):
@@ -360,16 +453,17 @@ def test_histmanager_disabled(hmmax2):
         hist_manager_ori = ip.history_manager
         hist_file = Path(tmpdir) / "history.sqlite"
         cfg.HistoryManager.hist_file = hist_file
-        try:
-            ip.history_manager = HistoryManager(shell=ip, config=cfg)
-            hist = ["a=1", "def f():\n    test = 1\n    return test", "b='€Æ¾÷ß'"]
-            for i, h in enumerate(hist, start=1):
-                ip.history_manager.store_inputs(i, h)
-            assert ip.history_manager.input_hist_raw == [""] + hist
-            ip.history_manager.reset()
-            ip.history_manager.end_session()
-        finally:
-            ip.history_manager = hist_manager_ori
+        with HistoryManager(shell=ip, config=cfg) as hm:
+            ip.history_manager = hm
+            try:
+                hist = ["a=1", "def f():\n    test = 1\n    return test", "b='€Æ¾÷ß'"]
+                for i, h in enumerate(hist, start=1):
+                    ip.history_manager.store_inputs(i, h)
+                assert ip.history_manager.input_hist_raw == [""] + hist
+                ip.history_manager.reset()
+                ip.history_manager.end_session()
+            finally:
+                ip.history_manager = hist_manager_ori
 
     # hist_file should not be created
     assert hist_file.exists() is False
@@ -386,15 +480,12 @@ def test_get_tail_session_awareness(hmmax3):
         tmp_path = Path(tmpdir)
         hist_file = tmp_path / "history.sqlite"
         get_source = lambda x: x[2]
-        hm1 = None
-        hm2 = None
-        ha = None
-        try:
+        with ExitStack() as stack:
             # hm1 creates a new session and adds history entries,
             # ha catches up
-            hm1 = HistoryManager(shell=ip, hist_file=hist_file)
+            hm1 = stack.enter_context(HistoryManager(shell=ip, hist_file=hist_file))
             hm1_last_sid = hm1.get_last_session_id
-            ha = HistoryAccessor(hist_file=hist_file)
+            ha = stack.enter_context(HistoryAccessor(hist_file=hist_file))
             ha_last_sid = ha.get_last_session_id
 
             hist1 = ["a=1", "b=1", "c=1"]
@@ -408,7 +499,7 @@ def test_get_tail_session_awareness(hmmax3):
 
             # hm2 creates a new session and adds entries,
             # ha catches up
-            hm2 = HistoryManager(shell=ip, hist_file=hist_file)
+            hm2 = stack.enter_context(HistoryManager(shell=ip, hist_file=hist_file))
             hm2_last_sid = hm2.get_last_session_id
 
             hist2 = ["a=2", "b=2", "c=2"]
@@ -442,15 +533,6 @@ def test_get_tail_session_awareness(hmmax3):
             assert hm1_last_sid() == sid1
             assert hm2_last_sid() == sid2
             assert ha_last_sid() == sid2
-        finally:
-            if hm1:
-                hm1.save_thread.stop()
-                hm1.db.close()
-            if hm2:
-                hm2.save_thread.stop()
-                hm2.db.close()
-            if ha:
-                ha.db.close()
 
 
 def test_calling_run_cell(hmmax2):
@@ -459,24 +541,256 @@ def test_calling_run_cell(hmmax2):
         tmp_path = Path(tmpdir)
         hist_manager_ori = ip.history_manager
         hist_file = tmp_path / "history_test_history1.sqlite"
-        try:
-            ip.history_manager = HistoryManager(shell=ip, hist_file=hist_file)
-            import time
-    
-            session_number = ip.history_manager.session_number
-            ip.run_cell(raw_cell="get_ipython().run_cell(raw_cell='1', store_history=True)", store_history=True)
-            while ip.history_manager.db_input_cache:
-                time.sleep(0)
-            new_session_number = ip.history_manager.session_number
-        finally:
-            # Ensure saving thread is shut down before we try to clean up the files
-            ip.history_manager.end_session()
-            # Forcibly close database rather than relying on garbage collection
-            ip.history_manager.save_thread.stop()
-            ip.history_manager.db.close()
-
-            ip.history_manager = hist_manager_ori
+        with HistoryManager(shell=ip, hist_file=hist_file) as hm:
+            ip.history_manager = hm
+            try:
+                session_number = ip.history_manager.session_number
+                ip.run_cell(raw_cell="get_ipython().run_cell(raw_cell='1', store_history=True)", store_history=True)
+                while ip.history_manager.db_input_cache:
+                    time.sleep(0)
+                new_session_number = ip.history_manager.session_number
+            finally:
+                # End the session; the with-block closes the connection and stops
+                # the saving thread deterministically on exit.
+                hm.end_session()
+                ip.history_manager = hist_manager_ori
     assert session_number == new_session_number, ValueError(f"{session_number} != {new_session_number}")
+
+
+@pytest.fixture
+def hist_magic_shell(hmmax2, tmp_path):
+    """Shell with a fresh HistoryManager, for testing history-related magics."""
+    ip = get_ipython()
+    hist_manager_ori = ip.history_manager
+    with HistoryManager(
+        shell=ip, hist_file=tmp_path / "history_magics.sqlite"
+    ) as hm:
+        ip.history_manager = hm
+        try:
+            yield ip
+        finally:
+            hm.end_session()
+            ip.history_manager = hist_manager_ori
+
+
+def test_history_magic_output_and_prompts(hist_magic_shell, capsys):
+    ip = hist_magic_shell
+    hm = ip.history_manager
+    hm.db_log_output = True
+    hm.store_inputs(1, "1+1")
+    hm.output_hist_reprs[1] = "2"
+    hm.store_output(1)
+    hm.store_inputs(2, "for i in range(2):\n\tpass")
+    capsys.readouterr()
+
+    # -o shows outputs alongside inputs
+    ip.run_line_magic("history", "-o")
+    out = capsys.readouterr().out
+    assert "1+1" in out
+    assert "\n2\n" in out
+
+    # -p prints classic python prompts, with continuation prompts for
+    # multiline input; tabs are expanded to 4 spaces
+    ip.run_line_magic("history", "-p")
+    out = capsys.readouterr().out
+    assert ">>> 1+1" in out
+    assert ">>> for i in range(2):" in out
+    assert "...     pass" in out
+
+    # -n prints line numbers
+    ip.run_line_magic("history", "-n 1")
+    out = capsys.readouterr().out
+    assert out.splitlines()[0].strip() == "1: 1+1"
+
+
+def test_history_magic_grep(hist_magic_shell, capsys):
+    ip = hist_magic_shell
+    hm = ip.history_manager
+    hm.store_inputs(1, "grepable_alpha = 1")
+    hm.store_inputs(2, "other_line = 2")
+    hm.writeout_cache()
+    hm.reset(new_session=True)
+    hm.store_inputs(1, "grepable_alpha = 1")
+    hm.writeout_cache()
+    capsys.readouterr()
+
+    # -g searches all sessions and prints session/line numbers
+    ip.run_line_magic("history", "-g grepable")
+    out = capsys.readouterr().out
+    assert "1/1:" in out
+    assert out.count("grepable_alpha") == 2
+    assert "other_line" not in out
+
+    # bare -g shows the full history
+    ip.run_line_magic("history", "-g")
+    out = capsys.readouterr().out
+    assert "grepable_alpha" in out
+    assert "other_line" in out
+
+    # -u shows only unique matches
+    ip.run_line_magic("history", "-u -g grepable")
+    out = capsys.readouterr().out
+    assert out.count("grepable_alpha") == 1
+
+
+def test_history_magic_limit(hist_magic_shell, capsys):
+    ip = hist_magic_shell
+    hm = ip.history_manager
+    hm.store_inputs(1, "limited_a = 1")
+    hm.store_inputs(2, "limited_b = 2")
+    hm.store_inputs(3, "limited_c = 3")
+    capsys.readouterr()
+
+    # -l n : last n lines, not including the latest
+    ip.run_line_magic("history", "-l 1")
+    out = capsys.readouterr().out
+    assert out == "limited_b = 2\n"
+
+    # bare -l defaults to the last 10 lines
+    ip.run_line_magic("history", "-l")
+    out = capsys.readouterr().out
+    assert "limited_a" in out
+    assert "limited_b" in out
+
+
+def test_history_magic_range_with_pattern(hist_magic_shell, capsys):
+    ip = hist_magic_shell
+    hm = ip.history_manager
+    hm.store_inputs(1, "alpha_match = 1")
+    hm.store_inputs(2, "beta_nomatch = 2")
+    capsys.readouterr()
+
+    ip.run_line_magic("history", "1-2 -g alpha")
+    out = capsys.readouterr().out
+    assert "alpha_match" in out
+    assert "beta_nomatch" not in out
+
+
+class _FakeTTYStdin:
+    def isatty(self):
+        return True
+
+
+def test_history_magic_to_file(hist_magic_shell, tmp_path, capsys, monkeypatch):
+    from IPython.core.error import StdinNotImplementedError
+
+    ip = hist_magic_shell
+    hm = ip.history_manager
+    hm.store_inputs(1, "filed_line = 1")
+    outfname = tmp_path / "histout.txt"
+
+    ip.run_line_magic("history", "-f %s" % outfname)
+    assert "filed_line = 1" in outfname.read_text(encoding="utf-8")
+
+    # File exists now; without a tty, StdinNotImplementedError means assume yes
+    def raiser(*a, **k):
+        raise StdinNotImplementedError()
+
+    monkeypatch.setattr("IPython.utils.io.ask_yes_no", raiser)
+    capsys.readouterr()
+    ip.run_line_magic("history", "-f %s" % outfname)
+    assert "Overwriting file." in capsys.readouterr().out
+
+    # With a tty, the user is asked; answering no aborts
+    monkeypatch.setattr("sys.stdin", _FakeTTYStdin())
+    monkeypatch.setattr("IPython.utils.io.ask_yes_no", lambda *a, **k: False)
+    ip.run_line_magic("history", "-f %s" % outfname)
+    assert "Aborting." in capsys.readouterr().out
+
+    # answering yes overwrites
+    monkeypatch.setattr("IPython.utils.io.ask_yes_no", lambda *a, **k: True)
+    ip.run_line_magic("history", "-f %s" % outfname)
+    assert "Overwriting file." in capsys.readouterr().out
+
+    # -y skips the prompt entirely
+    monkeypatch.setattr("IPython.utils.io.ask_yes_no", raiser)
+    ip.run_line_magic("history", "-y -f %s" % outfname)
+    out = capsys.readouterr().out
+    assert "Overwriting file." not in out
+    assert "filed_line = 1" in outfname.read_text(encoding="utf-8")
+
+
+def test_recall_magic(hist_magic_shell, capsys, monkeypatch):
+    ip = hist_magic_shell
+    hm = ip.history_manager
+    captured = []
+    monkeypatch.setattr(
+        ip, "set_next_input", lambda s, replace=False: captured.append(s)
+    )
+
+    # no argument: recall last output, read straight from user_ns["_"].
+    # Set it via monkeypatch rather than by running a cell: earlier tests
+    # (e.g. test_displayhook) may have assigned '_' manually, which stops
+    # the displayhook from tracking it for the rest of the session.
+    monkeypatch.setitem(ip.user_ns, "_", "last_out_value")
+    ip.run_line_magic("recall", "")
+    assert captured[-1] == "last_out_value"
+
+    # history line number
+    hm.store_inputs(1, "rc_line_one = 1")
+    ip.run_line_magic("recall", "1")
+    assert captured[-1] == "rc_line_one = 1"
+
+    # expression evaluated in the user namespace
+    ip.run_line_magic("recall", "40+2")
+    assert captured[-1] == "42"
+
+    # search in history for a substring; more recent matches mentioning
+    # recall/rep are skipped
+    hm.store_inputs(2, "special_srch_token = 5")
+    hm.store_inputs(3, "special_srch_token  # rep")
+    hm.writeout_cache()
+    ip.run_line_magic("recall", "special_srch_token")
+    assert captured[-1] == "special_srch_token = 5"
+
+    # nothing found
+    capsys.readouterr()
+    n_captured = len(captured)
+    ip.run_line_magic("recall", "zqxvw_none")
+    assert "Couldn't evaluate or find in history: zqxvw_none" in capsys.readouterr().out
+    assert len(captured) == n_captured
+
+
+def test_rerun_magic_bad_options(hist_magic_shell, capsys):
+    ip = hist_magic_shell
+
+    ip.run_line_magic("rerun", "-l notanint")
+    assert "Number of lines must be an integer" in capsys.readouterr().out
+
+    ip.run_line_magic("rerun", "-l 0")
+    assert "Requested 0 last lines - nothing to run" in capsys.readouterr().out
+
+    ip.run_line_magic("rerun", "-l -2")
+    assert "Number of lines to rerun cannot be negative" in capsys.readouterr().out
+
+    ip.run_line_magic("rerun", "-g zzz_nothing_matches")
+    assert "No lines in history match specification" in capsys.readouterr().out
+
+
+def test_rerun_magic_executes(hist_magic_shell, capsys):
+    ip = hist_magic_shell
+    hm = ip.history_manager
+    ip.user_ns["rr_acc"] = 0
+    hm.store_inputs(1, "rr_acc += 1")
+    hm.store_inputs(2, "rr_acc += 10")
+    hm.store_inputs(3, "pass")
+    capsys.readouterr()
+
+    # -l n reruns the last n lines, not including the latest
+    ip.run_line_magic("rerun", "-l 1")
+    out = capsys.readouterr().out
+    assert "=== Executing: ===" in out
+    assert "rr_acc += 10" in out
+    assert ip.user_ns["rr_acc"] == 10
+
+    # explicit history range
+    ip.run_line_magic("rerun", "1")
+    assert ip.user_ns["rr_acc"] == 11
+
+    # -g reruns the most recent matching line
+    hm.writeout_cache()
+    ip.run_line_magic("rerun", "-g rr_acc")
+    assert ip.user_ns["rr_acc"] == 21
 
 
 def _make_history_db(hist_file: Path, n_entries: int) -> None:

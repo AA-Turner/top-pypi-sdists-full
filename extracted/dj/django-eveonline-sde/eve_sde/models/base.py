@@ -1,5 +1,6 @@
 # Standard Library
 import json
+import logging
 from datetime import datetime, timezone
 from functools import reduce
 
@@ -10,16 +11,12 @@ import httpx
 from django.db import models
 from django.utils.translation import gettext as _
 
-# Alliance Auth
-from allianceauth.services.hooks import get_extension_logger
-
 # Django EVE SDE
 from eve_sde.app_settings import ESDE_BATCH_SIZE, ESDE_CHUNK_SIZE
+from eve_sde.models.admin import EveSDESection
+from eve_sde.models.utils import get_langs, get_langs_for_field, lang_key, val_from_dict
 
-from .admin import EveSDESection
-from .utils import get_langs, get_langs_for_field, lang_key, val_from_dict
-
-logger = get_extension_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class JSONModel(models.Model):
@@ -186,12 +183,17 @@ class JSONModel(models.Model):
             row = 0
             while line := json_file.readline():
                 row += 1
-                rg = json.loads(line)
-                if extra_fields:
-                    if rg.get("_key") in extra_fields:
-                        for f, v in extra_fields[rg.get("_key")].items():
-                            rg[f] = v
-                _new = cls.from_jsonl(rg, name_lookup)
+                try:
+                    rg = json.loads(line)
+                    if extra_fields:
+                        if rg.get("_key") in extra_fields:
+                            for f, v in extra_fields[rg.get("_key")].items():
+                                rg[f] = v
+                    _new = cls.from_jsonl(rg, name_lookup)
+                except Exception:
+                    logger.exception(f"{file_path} - Skipping malformed row {row}")
+                    continue
+
                 if isinstance(_new, list):
                     if pks:
                         for _i in _new:
@@ -247,9 +249,13 @@ class JSONModel(models.Model):
     def update_sde_section_state(cls, folder_name: str, section: str, total_lines: int, total_rows: int):
         build = 0
         last_update = datetime.now(tz=timezone.utc)
-        with open(f"{folder_name}/_sde.jsonl") as json_file:
-            sde_data = json.loads(json_file.read())
-            build = sde_data.get("buildNumber", 0)
+        try:
+            with open(f"{folder_name}/_sde.jsonl") as json_file:
+                sde_data = json.loads(json_file.read())
+                build = sde_data.get("buildNumber", 0)
+        except Exception:
+            logger.exception(f"Failed to read SDE version from {folder_name}/_sde.jsonl")
+            raise
 
         EveSDESection.objects.update_or_create(
             sde_section=section,

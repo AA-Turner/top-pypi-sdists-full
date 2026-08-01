@@ -8,13 +8,13 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, NamedTuple
 
 from pikepdf._core import _unpack_subbyte_2bit, _unpack_subbyte_4bit
+from pikepdf.models._image_exceptions import (
+    ImageDecompressionError,
+    InvalidPdfImageError,
+)
 
 if TYPE_CHECKING:
     from PIL import Image
-
-
-class ImageDecompressionError(Exception):
-    """Image decompression error."""
 
 
 BytesLike = bytes | memoryview
@@ -48,11 +48,37 @@ def unpack_subbyte_pixels(
         0b11 = 1.00 = 0xff
     When scale is 1, no scaling is applied, appropriate when
     the bytes are palette indexes.
+
+    Raises:
+        InvalidPdfImageError: if *size* is not positive.
+        ImageDecompressionError: if *packed* is shorter than a *size* image at
+            *bits* per component requires.
     """
     width, height = size
+    if width <= 0 or height <= 0:
+        raise InvalidPdfImageError(f"Image has invalid dimensions {width}x{height}")
     bits_per_byte = 8 // bits
     stride = _next_multiple(width, bits_per_byte)
-    buffer = bytearray(bits_per_byte * stride * height)
+
+    # Each row of image data begins on a byte boundary (ISO 32000-2 §8.9.3),
+    # so a row occupies ceil(width * bits / 8) packed bytes. Requiring that many
+    # bytes per row *before* allocating bounds the allocation by the data
+    # actually present: width and height are attacker-controlled /Width and
+    # /Height, and a crafted PDF can declare an enormous image backed by a
+    # handful of stream bytes, exhausting memory (a DoS). The pixel limit in
+    # PdfImage.MAX_IMAGE_PIXELS caps plausible images; this catches the
+    # implausible ones, and applies even when that limit is disabled.
+    packed_row_bytes = (width * bits + 7) // 8
+    expected = packed_row_bytes * height
+    if len(packed) < expected:
+        raise ImageDecompressionError(
+            f"Image data is {len(packed)} bytes, but a {width}x{height} image "
+            f"at {bits} bits per component requires {expected} bytes"
+        )
+
+    # Unpacking produces one byte per pixel, with each row padded out to
+    # *stride* bytes, so bits_per_byte * packed_row_bytes == stride.
+    buffer = bytearray(stride * height)
     max_read = len(buffer) // bits_per_byte
     if scale == 0:
         # 255 // (2**bits - 1) is exact for bits in {1, 2, 4, 8}:
@@ -62,27 +88,16 @@ def unpack_subbyte_pixels(
         _4bit_inner_loop(packed[:max_read], buffer, scale)
     elif bits == 2:
         _2bit_inner_loop(packed[:max_read], buffer, scale)
-    # elif bits == 1:
-    #     _1bit_inner_loop(packed[:max_read], buffer, scale)
     else:
+        # Only 2- and 4-bit samples are unpacked here. 1-bit images never reach
+        # this function: extract_transcoded routes them to _transcoded_1bit,
+        # which relies on Pillow's native packed '1' mode (bit 0 -> 0, bit
+        # 1 -> 255) rather than expanding each bit to a full byte. 2- and 4-bit
+        # have no equivalent packed Pillow mode, and their values must be
+        # rescaled to span 0-255 (e.g. 2-bit 0b01 -> 0x55), so they are unpacked
+        # here. 8-bit is already byte-aligned and needs no unpacking.
         raise NotImplementedError(bits)
     return memoryview(buffer), stride
-
-
-# def _1bit_inner_loop(in_: BytesLike, out: MutableBytesLike, scale: int) -> None:
-#     """Unpack 1-bit values to their 8-bit equivalents.
-
-#     Thus *out* must be 8x at long as *in*.
-#     """
-#     for n, val in enumerate(in_):
-#         out[8 * n + 0] = int((val >> 7) & 0b1) * scale
-#         out[8 * n + 1] = int((val >> 6) & 0b1) * scale
-#         out[8 * n + 2] = int((val >> 5) & 0b1) * scale
-#         out[8 * n + 3] = int((val >> 4) & 0b1) * scale
-#         out[8 * n + 4] = int((val >> 3) & 0b1) * scale
-#         out[8 * n + 5] = int((val >> 2) & 0b1) * scale
-#         out[8 * n + 6] = int((val >> 1) & 0b1) * scale
-#         out[8 * n + 7] = int((val >> 0) & 0b1) * scale
 
 
 def _2bit_inner_loop(in_: BytesLike, out: MutableBytesLike, scale: int) -> None:
@@ -234,13 +249,28 @@ def fix_1bit_palette_image(
     im: Image.Image, base_mode: str, palette: BytesLike
 ) -> Image.Image:
     """Apply palettes to 1-bit images."""
+    if base_mode == 'CMYK':
+        from PIL import Image
+
+        # Pillow cannot attach a CMYK palette to a 'P' image, so depalettize
+        # manually the way the 2/4/8-bit path does. The two 1-bit levels come
+        # back from Pillow as 0/255; remap them to palette indices 0/1 before
+        # the CMYK lookup.
+        indices = im.convert('L').point(lambda v: 1 if v else 0).tobytes()
+        output = _depalettize_cmyk(indices, palette)
+        return Image.frombuffer('CMYK', im.size, data=output, decoder_name='raw')
     im = im.convert('P')
-    if base_mode == 'RGB' and len(palette) == 6:
-        # rgbrgb -> rgb000000...rgb
-        expanded_palette = b''.join(
-            [palette[0:3], (b'\x00\x00\x00' * (256 - 2)), palette[3:6]]
-        )
-        im.putpalette(expanded_palette, rawmode='RGB')
+    if base_mode == 'RGB':
+        # Pillow maps the two 1-bit levels to indices 0 and 255 during the
+        # convert('P') above, so place palette entry 0 at index 0 and entry 1
+        # (when the image has two colours) at index 255, with the rest black.
+        # A single-colour palette (hival 0, 3 bytes) leaves every pixel at
+        # index 0.
+        expanded = bytearray(256 * 3)
+        expanded[0:3] = palette[0:3]
+        if len(palette) >= 6:
+            expanded[255 * 3 : 256 * 3] = palette[3:6]
+        im.putpalette(bytes(expanded), rawmode='RGB')
     elif base_mode == 'L':
         try:
             im.putpalette(palette, rawmode='L')
@@ -248,6 +278,10 @@ def fix_1bit_palette_image(
             if 'unrecognized raw mode' in str(e):
                 rgb_palette = _make_rgb_palette(palette)
                 im.putpalette(rgb_palette, rawmode='RGB')
+    else:
+        # Fail loudly rather than return an unpalettized image, matching
+        # image_from_buffer_and_palette (the 2/4/8-bit path).
+        raise NotImplementedError(f'palette with {base_mode}')
     return im
 
 

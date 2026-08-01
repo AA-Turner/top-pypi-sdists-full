@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: smda
-Version: 4.4.1
+Version: 4.4.2
 Summary: A recursive disassmbler optimized for CFG recovery from memory dumps. Based on capstone.
 Author-email: Daniel Plohmann <daniel.plohmann@mailbox.org>
 License: BSD 2-Clause
@@ -93,7 +93,7 @@ There is also a demo script:
 
 ### IDA Pro integration
 
-SMDA can also turn an IDA-analyzed database into a SMDA report instead of running its own disassembly. Inside the IDA GUI, SMDA supports the existing IDAPython integrations for IDA 7.x, 8.x, and 9.x. On IDA 9.1 or newer, it prefers the higher-level [IDA Domain API](https://ida-domain.docs.hex-rays.com/) when the optional package is installed and otherwise falls back to IDAPython.
+SMDA can also turn an IDA-analyzed database into a SMDA report instead of running its own disassembly. Inside the IDA GUI, SMDA supports IDA Pro 8.4 and newer via the existing IDAPython integrations; older SDK generations are rejected. On IDA 9.1 or newer, it prefers the higher-level [IDA Domain API](https://ida-domain.docs.hex-rays.com/) when the optional package is installed and otherwise falls back to IDAPython.
 
 Inside the IDA GUI, run `export.py` to export IDA's existing analysis to a `.smda` file next to the database. Run `ida_analyze.py` to have SMDA independently recover functions from the loaded bytes and add missing function starts and names back to IDA. This augmentation workflow is useful when IDA analyzes a raw or mapped buffer conservatively. Both scripts can be launched via *File -> Script file...*.
 
@@ -171,6 +171,7 @@ make test
 ```
 ´
 ## Version History
+ * 2026-07-29: v4.4.2 - Dalvik PIC hashing is now position-independent: `escape_intraprocedural_jumps` was inverted relative to the Intel and CIL escapers, retaining the raw signed branch offset on the `pic_hash` path so two structurally identical methods whose branch deltas differed only by an earlier instruction's width produced different hashes. Branch-only formats (10t/20t/21t/22t/30t) are now masked on both paths. **This invalidates previously computed Dalvik `pic_hash` values**; reports below 4.4.2 recalculate on import.
  * 2026-07-29: v4.4.1 - Experimental binary synthesis: `SmdaReport.synthesizeBinary()` rebuilds fictive PE/ELF/Mach-O files from a recovered CFG, planting bytes per basic block at their original VAs and fusing import metadata (new `smda/synthesis/` package with `BinarySynthesizer`, `PeSynthesizer`, `ElfSynthesizer`, `MachoSynthesizer`). Includes review-hardening fixes: graceful fallbacks for malformed/headerless inputs, non-contiguous IAT gap handling, and removal of dead base-class helpers. (No new runtime deps.)
  * 2026-07-26: v4.4.0 - Labels/reporting: recover and demangle ELF function/data exports and relocation imports, add `xmetadata.exported_symbols`, normalize `metadata.language` to score-only maps (including legacy report loading), replace host C++ demangler tools with the bundled `pycxxfilt` LLVM demangler, and require Python 3.11+. (THX: @r0ny123)
  * 2026-07-28: v4.3.11 - Labels: tier-1 symbol recovery — apply `DelphiPythiaProvider` names via the engine (register it as a symbol provider so recovered VMT/method-table names land on functions), format Go pclntab marker error messages as hex, and expand `OrdinalHelper` with stable Winsock (`ws2_32`/`wsock32`) and `oleaut32` ordinals for more accurate API name resolution. (THX: @r0ny123)

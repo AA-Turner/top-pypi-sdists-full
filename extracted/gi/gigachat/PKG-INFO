@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gigachat
-Version: 0.2.1
+Version: 0.2.3
 Summary: GigaChat. Python-library for GigaChat API
 Project-URL: Repository, https://github.com/ai-forever/gigachat
 Author-email: Konstantin Krestnikov <rai220@gmail.com>, Sergey Malyshev <in1t@ya.ru>
@@ -102,17 +102,45 @@ set `GIGACHAT_VERIFY_SSL_CERTS=false` or pass `verify_ssl_certs=False` to `GigaC
 
 ## Usage Examples
 
-> The examples below assume authentication is configured via environment variables (for example, `GIGACHAT_CREDENTIALS`). See [Authentication](#authentication).
+> The examples below assume authentication and the model are configured via environment variables (for example, `GIGACHAT_CREDENTIALS` and `GIGACHAT_MODEL`). See [Authentication](#authentication).
+
+### Migration Note
+
+`client.chat` and `client.achat` now expose the primary `chat/completions` surface:
+
+- `client.chat.create(...)`
+- `client.chat.stream(...)`
+- `client.chat.parse(...)`
+- `await client.achat.create(...)`
+- `client.achat.stream(...)`
+- `await client.achat.parse(...)`
+
+The previous contract remains available through root compatibility methods:
+
+- `client.chat(...)`
+- `client.stream(...)`
+- `client.chat_parse(...)`
+- `await client.achat(...)`
+- `client.astream(...)`
+- `await client.achat_parse(...)`
+
+Root compatibility shims such as `client.chat(...)`, `client.stream(...)`, `client.chat_parse(...)`, `client.achat(...)`, `client.astream(...)`, and `client.achat_parse(...)` still work for the old chat contract. They are not deprecated and do not emit `DeprecationWarning`.
+
+During the migration, old `gigachat.models.Chat*`, `Messages*`, `Function*`, and `Usage` imports still resolve to legacy compatibility aliases. Use `ChatCompletionRequest`, `ChatCompletionResponse`, `ChatMessage`, and related `Chat*` primary models for the new contract.
+
+For a step-by-step checklist and import mapping, see [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md)
 
 ### Basic Chat
 
 ```python
 from gigachat import GigaChat
 
-with GigaChat(credentials="<your_authorization_key>") as client:
-    response = client.chat("Hello, GigaChat!")
-    print(response.choices[0].message.content)
+with GigaChat(credentials="<your_authorization_key>", model="GigaChat-2") as client:
+    response = client.chat.create("Hello, GigaChat!")
+    print(response.messages[0].content[0].text)
 ```
+
+> There is no default model: specify one via `model=` in the request payload, the `GigaChat(model=...)` constructor, or the `GIGACHAT_MODEL` environment variable. Otherwise the SDK raises `ModelNotSpecifiedError`. Use `client.get_models()` to list available models.
 
 ### Streaming
 
@@ -122,8 +150,9 @@ Receive tokens as they are generated:
 from gigachat import GigaChat
 
 with GigaChat() as client:
-    for chunk in client.stream("Write a short poem about programming"):
-        print(chunk.choices[0].delta.content, end="", flush=True)
+    for chunk in client.chat.stream("Write a short poem about programming"):
+        if chunk.messages and chunk.messages[0].content:
+            print(chunk.messages[0].content[0].text or "", end="", flush=True)
     print()  # Newline at the end
 ```
 
@@ -138,13 +167,14 @@ from gigachat import GigaChat
 async def main():
     async with GigaChat() as client:
         # Async chat
-        response = await client.achat("Explain quantum computing in simple terms")
-        print(response.choices[0].message.content)
+        response = await client.achat.create("Explain quantum computing in simple terms")
+        print(response.messages[0].content[0].text)
 
         # Async streaming
         print("Streaming response:")
-        async for chunk in client.astream("Tell me a joke"):
-            print(chunk.choices[0].delta.content, end="", flush=True)
+        async for chunk in client.achat.stream("Tell me a joke"):
+            if chunk.messages and chunk.messages[0].content:
+                print(chunk.messages[0].content[0].text or "", end="", flush=True)
         print()
 
 asyncio.run(main())
@@ -175,41 +205,75 @@ with GigaChat() as client:
 Enable the model to call functions (tools):
 
 ```python
-from gigachat import GigaChat
-from gigachat.models import Chat, Messages, MessagesRole, Function, FunctionParameters
+from typing import Optional
 
-weather_function = Function(
+from gigachat import GigaChat
+from gigachat.models import (
+    ChatCompletionRequest,
+    ChatFunctionSpecification,
+    ChatMessage,
+    ChatRankerOptions,
+    ChatTool,
+    PrimaryChatFunctionCall,
+)
+
+
+def extract_function_call(message: ChatMessage) -> Optional[PrimaryChatFunctionCall]:
+    if message.function_call is not None:
+        return message.function_call
+
+    for part in message.content or []:
+        if part.function_call is not None:
+            return part.function_call
+
+    return None
+
+
+weather_function = ChatFunctionSpecification(
     name="get_weather",
     description="Get current weather for a location",
-    parameters=FunctionParameters(
-        type="object",
-        properties={
+    parameters={
+        "type": "object",
+        "properties": {
             "location": {
                 "type": "string",
-                "description": "City name, e.g., Moscow"
+                "description": "City name, e.g., Tokyo",
             },
             "unit": {
                 "type": "string",
                 "enum": ["celsius", "fahrenheit"],
-                "description": "Temperature unit"
-            }
+                "description": "Temperature unit",
+            },
         },
-        required=["location"],
-    ),
+        "required": ["location"],
+    },
 )
 
-chat = Chat(
-    messages=[Messages(role=MessagesRole.USER, content="What's the weather in Tokyo?")],
-    functions=[weather_function],
+chat = ChatCompletionRequest(
+    messages=[ChatMessage(role="user", content="What's the weather in Tokyo?")],
+    tools=[ChatTool(functions={"specifications": [weather_function]})],
 )
 
 with GigaChat() as client:
-    response = client.chat(chat)
-    message = response.choices[0].message
+    response = client.chat.create(chat)
+    message = response.messages[0]
+    function_call = extract_function_call(message)
 
-    if response.choices[0].finish_reason == "function_call":
-        print(f"Function: {message.function_call.name}")
-        print(f"Arguments: {message.function_call.arguments}")
+    if function_call is not None:
+        print(f"Function: {function_call.name}")
+        print(f"Arguments: {function_call.arguments}")
+```
+
+> **Note:** By default, `ranker_options` is not sent.
+
+Enable function/tool ranking explicitly and limit the number of ranked functions:
+
+```python
+chat = ChatCompletionRequest(
+    messages=[ChatMessage(role="user", content="What's the weather in Tokyo?")],
+    tools=[ChatTool(functions={"specifications": [weather_function]})],
+    ranker_options=ChatRankerOptions(enabled=True, top_n=3),
+)
 ```
 
 ### Structured Output (JSON Schema) — Beta
@@ -228,26 +292,29 @@ class MathAnswer(BaseModel):
     final_answer: str
 
 with GigaChat() as client:
-    completion, parsed = client.chat_parse(
+    completion, parsed = client.chat.parse(
         "Solve 8x + 7 = -23 step by step",
         response_format=MathAnswer,
         strict=True,
     )
 
+print(completion.messages[0].content[0].text)
 print(parsed.steps)
 print(parsed.final_answer)
 ```
 
-`chat_parse()` / `achat_parse()` may raise:
+`client.chat.parse()` / `client.achat.parse()` may raise:
 
 - `LengthFinishReasonError` if the response ended with `finish_reason="length"` and was truncated
 - `json.JSONDecodeError` if the model returned invalid JSON
 - `pydantic.ValidationError` if the JSON is valid but does not match the schema
 
-See [examples/example_structured_output.ipynb](examples/example_structured_output.ipynb) for more approaches (raw dict schema, Pydantic model schema, `chat_parse()`).
+The old-contract helpers remain available at `client.chat_parse()` / `client.achat_parse()`.
+
+See [examples/example_structured_output.ipynb](examples/example_structured_output.ipynb) for more approaches (raw dict schema, Pydantic model schema, and the old-contract parse helper).
 
 ### More examples
-See the [examples/](https://github.com/ai-forever/gigachat/tree/main/examples/) folder for complete working examples including chat, functions, context variables, AI detection, vision, and structured output.
+See the [examples/](https://github.com/ai-forever/gigachat/tree/main/examples/) folder for complete working examples including the primary chat surface, functions, context variables, AI detection, vision, and structured output.
 
 ## Configuration
 
@@ -257,8 +324,8 @@ See the [examples/](https://github.com/ai-forever/gigachat/tree/main/examples/) 
 |-----------|------|---------|-------------|
 | `credentials` | `str` | `None` | Authorization key from GigaChat API |
 | `scope` | `str` | `GIGACHAT_API_PERS` | API scope (see below) |
-| `model` | `str` | `GigaChat` | Default model for requests |
-| `base_url` | `str` | `https://gigachat.devices.sberbank.ru/api/v1` | API base URL |
+| `model` | `str` | `None` | Model for requests. No built-in default: must be set here, via `GIGACHAT_MODEL`, or per request |
+| `base_url` | `str` | `https://api.giga.chat/v1` | API base URL |
 | `auth_url` | `str` | `https://ngw.devices.sberbank.ru:9443/api/v2/oauth` | OAuth token endpoint |
 | `access_token` | `str` | `None` | Pre-obtained access token (bypasses OAuth) |
 | `user` | `str` | `None` | Username for password authentication |
@@ -294,14 +361,14 @@ export GIGACHAT_CREDENTIALS="<your_authorization_key>"
 export GIGACHAT_SCOPE="GIGACHAT_API_PERS"
 
 # Connection
-export GIGACHAT_BASE_URL="https://gigachat.devices.sberbank.ru/api/v1"
+export GIGACHAT_BASE_URL="https://api.giga.chat/v1"
 export GIGACHAT_TIMEOUT="60.0"
 export GIGACHAT_VERIFY_SSL_CERTS="true"
 # TLS: path to a CA bundle file (typically required - Python HTTP clients often don't use OS trust store by default)
 export GIGACHAT_CA_BUNDLE_FILE="<your_ca_bundle_file>"
 
-# Model
-export GIGACHAT_MODEL="GigaChat"
+# Model (required unless passed per request - the SDK has no default model)
+export GIGACHAT_MODEL="GigaChat-2"
 
 # Retry
 export GIGACHAT_MAX_RETRIES="3"
@@ -315,7 +382,8 @@ from gigachat import GigaChat
 
 # Configuration loaded from environment variables
 with GigaChat() as client:
-    response = client.chat("Hello!")
+    response = client.chat.create("Hello!")
+    print(response.messages[0].content[0].text)
 ```
 
 ## Authentication
@@ -355,7 +423,7 @@ client = GigaChat(
 
 ### 2. Username and Password
 
-Authenticate with a username and password:
+Authenticate with a username and password. The default host (`api.giga.chat`) does not expose the `/token` endpoint, so this method requires an explicit `base_url` that supports password authentication:
 
 ```python
 from gigachat import GigaChat
@@ -431,8 +499,8 @@ export GIGACHAT_CA_BUNDLE_FILE="<path_to_root_ca_file>"
 from gigachat import GigaChat
 
 with GigaChat(ca_bundle_file="<path_to_root_ca_file>") as client:
-    response = client.chat("Hello!")
-    print(response.choices[0].message.content)
+    response = client.chat.create("Hello!")
+    print(response.messages[0].content[0].text)
 ```
 
 ### OS-Specific Notes
@@ -484,8 +552,8 @@ from gigachat.exceptions import (
 
 try:
     with GigaChat() as client:
-        response = client.chat("Hello!")
-        print(response.choices[0].message.content)
+        response = client.chat.create("Hello!")
+        print(response.messages[0].content[0].text)
 except AuthenticationError as e:
     print(f"Authentication failed: {e}")
 except RateLimitError as e:
@@ -521,6 +589,7 @@ except GigaChatException as e:
 | `RateLimitError` | 429 | Too many requests (use `e.retry_after`) |
 | `ServerError` | 5xx | Server-side error |
 | `LengthFinishReasonError` | — | Structured output parsing stopped because the model response was truncated (`finish_reason="length"`) |
+| `ModelNotSpecifiedError` | — | No model specified in the request, constructor, or `GIGACHAT_MODEL` environment variable |
 
 ## Advanced Features
 
@@ -540,7 +609,7 @@ request_id_cvar.set(str(uuid.uuid4()))
 custom_headers_cvar.set({"X-Custom-Header": "custom-value"})
 
 with GigaChat() as client:
-    response = client.chat("Hello!")
+    response = client.chat.create("Hello!")
 ```
 
 Available context variables:

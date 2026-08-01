@@ -140,6 +140,7 @@ def connect_ibis(
         # `user` (not soda's `username`). Keep DATACONTRACT_SNOWFLAKE_USERNAME working.
         if "username" in extra:
             extra.setdefault("user", extra.pop("username"))
+        _rename_deprecated_snowflake_params(extra, prefix, run)
         # ibis tries to CREATE DATABASE for helper UDFs on connect (create_object_udfs=True).
         # datacontract only reads, and the read-only roles used for testing lack CREATE DATABASE,
         # so this otherwise emits a noisy "Insufficient privileges" warning. Default it off, but
@@ -155,13 +156,7 @@ def connect_ibis(
         )
 
     if server_type == "bigquery":
-        credentials_path = os.getenv("DATACONTRACT_BIGQUERY_ACCOUNT_INFO_JSON_PATH")
-        credentials = None
-        if credentials_path:
-            from google.oauth2 import service_account
-
-            credentials = service_account.Credentials.from_service_account_file(credentials_path)
-
+        credentials = _bigquery_credentials()
         billing_project = os.getenv("DATACONTRACT_BIGQUERY_BILLING_PROJECT")
 
         if billing_project and billing_project != server.project:
@@ -209,14 +204,7 @@ def connect_ibis(
         return _connect_athena(ibis, server)
 
     if server_type == "impala":
-        return ibis.impala.connect(
-            host=server.host,
-            port=int(server.port) if server.port else 21050,
-            user=os.getenv("DATACONTRACT_IMPALA_USERNAME"),
-            password=os.getenv("DATACONTRACT_IMPALA_PASSWORD"),
-            database=getattr(server, "database", None),
-            use_ssl=_get_bool_env("DATACONTRACT_IMPALA_USE_SSL", True),
-        )
+        return _connect_impala(ibis, server)
 
     _unsupported(run, f"Server type {server_type} not yet supported by datacontract CLI")
     return None
@@ -262,7 +250,7 @@ def _connect_databricks(ibis, server: Server, run: Run):
         run.log_info("Connecting to databricks with an OAuth service principal (M2M)")
         sdk_host = host if host.startswith("http") else f"https://{host}"
         kwargs["credentials_provider"] = _databricks_credentials_provider(
-            host=sdk_host, client_id=client_id, client_secret=client_secret
+            service_principal=True, host=sdk_host, client_id=client_id, client_secret=client_secret
         )
         return ibis.databricks.connect(**kwargs)
 
@@ -280,21 +268,121 @@ def _connect_databricks(ibis, server: Server, run: Run):
     return ibis.databricks.connect(access_token=token, **kwargs)
 
 
-def _databricks_credentials_provider(**config_kwargs):
+def _databricks_credentials_provider(service_principal: bool = False, **config_kwargs):
     """Return a ``credentials_provider`` callable for the Databricks SQL connector.
 
     The connector expects a zero-arg callable returning a header factory. We
     build the SDK ``Config`` lazily inside that callable so authentication (and
     any OAuth token exchange) happens at connect time, with credential resolution
     delegated to the Databricks SDK's unified auth.
+
+    ``service_principal`` hands over the SDK's OAuth service-principal provider
+    rather than the generic ``Config.authenticate`` header factory. Since
+    databricks-sql-connector 4.3.0 every provider is wrapped in a token-federation
+    layer, and a token that unified auth resolved through some other issuer (Azure
+    AD, say) sends it into a token exchange that fails, so ``OpenSession`` is
+    rejected with HTTP 400 (#1389). We already know these credentials name a
+    service principal, so we ask for that provider by name; falling back to
+    ``authenticate`` when the host publishes no OIDC endpoints and there is
+    therefore no such provider to hand over.
     """
 
     def credentials_provider():
-        from databricks.sdk.core import Config
+        from databricks.sdk.core import Config, oauth_service_principal
 
-        return Config(**config_kwargs).authenticate
+        config = Config(**config_kwargs)
+        if service_principal:
+            return oauth_service_principal(config) or config.authenticate
+        return config.authenticate
 
     return credentials_provider
+
+
+_BIGQUERY_SCOPES = ["https://www.googleapis.com/auth/bigquery"]
+
+
+def _bigquery_credentials():
+    """Resolve the BigQuery credentials, or ``None`` to let ibis use ADC/WIF.
+
+    ``DATACONTRACT_BIGQUERY_ACCOUNT_INFO_JSON_PATH`` selects a service account key
+    file. ``DATACONTRACT_BIGQUERY_IMPERSONATION_ACCOUNT`` then impersonates that
+    service account, using the key file (or the ambient default credentials) as the
+    source principal — the caller needs ``roles/iam.serviceAccountTokenCreator`` on
+    the target.
+    """
+    credentials_path = os.getenv("DATACONTRACT_BIGQUERY_ACCOUNT_INFO_JSON_PATH")
+    credentials = None
+    if credentials_path:
+        from google.oauth2 import service_account
+
+        credentials = service_account.Credentials.from_service_account_file(credentials_path)
+
+    impersonation_account = os.getenv("DATACONTRACT_BIGQUERY_IMPERSONATION_ACCOUNT")
+    if impersonation_account:
+        import google.auth
+        from google.auth import impersonated_credentials
+
+        source_credentials = credentials
+        if source_credentials is None:
+            source_credentials, _ = google.auth.default(scopes=_BIGQUERY_SCOPES)
+        credentials = impersonated_credentials.Credentials(
+            source_credentials=source_credentials,
+            target_principal=impersonation_account,
+            target_scopes=_BIGQUERY_SCOPES,
+        )
+
+    return credentials
+
+
+def _connect_impala(ibis, server: Server):
+    """Connect to Impala, making the transport and auth options configurable.
+
+    ``auth_mechanism`` is a native ``ibis.impala.connect`` argument; ``use_http_transport``
+    and ``http_path`` are forwarded verbatim by ibis to ``impyla.connect``. None of the
+    three used to be passed at all, so a Cloudera Virtual Warehouse (LDAP over HTTPS on
+    443) fell back to impyla's binary NOSASL defaults and failed the thrift handshake with
+    ``TSocket read 0 bytes``.
+
+    Each option defaults to impyla's own default, so an unconfigured connection behaves
+    exactly as it did before. The one exception is ``use_ssl``, which has defaulted to
+    true since Impala support landed and stays that way.
+    """
+    return ibis.impala.connect(
+        host=server.host,
+        port=int(server.port) if server.port else 21050,
+        user=os.getenv("DATACONTRACT_IMPALA_USERNAME"),
+        password=os.getenv("DATACONTRACT_IMPALA_PASSWORD"),
+        database=getattr(server, "database", None),
+        use_ssl=_get_bool_env("DATACONTRACT_IMPALA_USE_SSL", True),
+        auth_mechanism=os.getenv("DATACONTRACT_IMPALA_AUTH_MECHANISM", "NOSASL"),
+        use_http_transport=_get_bool_env("DATACONTRACT_IMPALA_USE_HTTP_TRANSPORT", False),
+        http_path=os.getenv("DATACONTRACT_IMPALA_HTTP_PATH", ""),
+    )
+
+
+# Names this CLI documented for key-pair auth and timeouts that snowflake-connector-python
+# has never accepted. The driver ignores unknown parameters instead of raising, so setting
+# one of these used to do nothing at all and surfaced as an unrelated authentication error.
+# They are kept as synonyms for the real parameters, with a deprecation warning.
+_SNOWFLAKE_DEPRECATED_PARAMS = {
+    "private_key_path": "private_key_file",
+    "private_key_passphrase": "private_key_file_pwd",
+    "connection_timeout": "login_timeout",
+}
+
+
+def _rename_deprecated_snowflake_params(extra: dict, prefix: str, run: Run):
+    """Map deprecated connection parameter names onto the ones the driver accepts."""
+    for deprecated, replacement in _SNOWFLAKE_DEPRECATED_PARAMS.items():
+        if deprecated not in extra:
+            continue
+        value = extra.pop(deprecated)
+        run.log_warn(
+            f"{prefix}{deprecated.upper()} is deprecated and will be removed in a future release, "
+            f"use {prefix}{replacement.upper()} instead"
+        )
+        # An explicitly set replacement wins over the deprecated synonym.
+        extra.setdefault(replacement, value)
 
 
 def _connect_mysql_via_duckdb(ibis, data_contract, server: Server, run: Run, schema_name: str):
@@ -376,16 +464,34 @@ def _sqlserver_connection_kwargs(server: Server) -> dict:
     - ``cli`` — reuse an ``az login`` session via the Azure default credential chain
 
     The legacy ``DATACONTRACT_SQLSERVER_TRUSTED_CONNECTION=true`` is equivalent to
-    ``windows`` and takes precedence. Extra keys (``Authentication``,
+    ``windows``, and applies only when ``DATACONTRACT_SQLSERVER_AUTHENTICATION`` is
+    unset — an explicitly chosen mode always wins. Extra keys (``Authentication``,
     ``Trusted_Connection``, ``Encrypt``, ``TrustServerCertificate``) are forwarded
     verbatim by ibis to ``pyodbc.connect`` and become connection-string attributes,
     so they use the ODBC spellings.
     """
     driver = _get_custom_property(server, "driver") or os.getenv("DATACONTRACT_SQLSERVER_DRIVER")
 
-    authentication = os.getenv("DATACONTRACT_SQLSERVER_AUTHENTICATION", "sql").lower()
-    if _get_bool_env("DATACONTRACT_SQLSERVER_TRUSTED_CONNECTION", False):
-        authentication = "windows"
+    # TRUSTED_CONNECTION predates the AUTHENTICATION variable, so it only fills in when no
+    # mode was chosen. Letting it override instead would mean a leftover flag silently
+    # downgrades a configured Entra ID login to Windows auth, with no error to explain it.
+    authentication = os.getenv("DATACONTRACT_SQLSERVER_AUTHENTICATION")
+    trusted_connection = _get_bool_env("DATACONTRACT_SQLSERVER_TRUSTED_CONNECTION", False)
+    if trusted_connection:
+        logger.warning(
+            "DATACONTRACT_SQLSERVER_TRUSTED_CONNECTION is deprecated and will be removed in a "
+            "future release, use DATACONTRACT_SQLSERVER_AUTHENTICATION=windows instead."
+        )
+    if authentication is None:
+        authentication = "windows" if trusted_connection else "sql"
+    else:
+        authentication = authentication.strip().lower()
+        if trusted_connection and authentication != "windows":
+            logger.warning(
+                "DATACONTRACT_SQLSERVER_TRUSTED_CONNECTION is ignored because "
+                "DATACONTRACT_SQLSERVER_AUTHENTICATION=%s is set.",
+                authentication,
+            )
 
     kwargs = dict(
         host=server.host,
@@ -446,7 +552,7 @@ def _connect_athena(ibis, server: Server):
             reason="S3 staging directory is required for Athena connection.",
             engine="datacontract",
         )
-    return ibis.athena.connect(
+    kwargs = dict(
         s3_staging_dir=server.stagingDir,
         aws_access_key_id=credentials["aws_access_key_id"],
         aws_secret_access_key=credentials["aws_secret_access_key"],
@@ -454,6 +560,10 @@ def _connect_athena(ibis, server: Server):
         region_name=credentials["region_name"],
         schema_name=server.schema_,
     )
+    # Optional data source / catalog; pyathena defaults it to `awsdatacatalog`.
+    if server.catalog:
+        kwargs["catalog_name"] = server.catalog
+    return ibis.athena.connect(**kwargs)
 
 
 def _connect_trino(ibis, server: Server):

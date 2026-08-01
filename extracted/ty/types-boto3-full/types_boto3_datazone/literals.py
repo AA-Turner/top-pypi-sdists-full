@@ -201,6 +201,7 @@ ConnectionTypeType = Literal[
     "DATABRICKS",
     "DOCUMENTDB",
     "DYNAMODB",
+    "GIT",
     "HYPERPOD",
     "IAM",
     "MLFLOW",

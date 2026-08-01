@@ -60,7 +60,7 @@ from esphome_device_builder.helpers.yaml import (
     upsert_yaml_leaf_under_top_block,
     write_user_yaml,
 )
-from esphome_device_builder.helpers.yaml.component import _list_item_indent
+from esphome_device_builder.helpers.yaml.component import _first_defined_id, _list_item_indent
 from esphome_device_builder.helpers.yaml.scalar import (
     ESPHOME_YAML_INDENT,
     _plain_is_fast_safe,
@@ -1622,6 +1622,40 @@ def test_generate_component_yaml_singleton_emits_mapping_form() -> None:
     assert out == "wifi:\n  ssid: home"
 
 
+def test_generate_component_yaml_surfaces_name_and_id_after_platform() -> None:
+    """Trailing ``name``/``id`` fields are emitted right after the ``- platform:`` line."""
+    component = _component(component_id="sensor.dht", category=ComponentCategory.SENSOR)
+    out = generate_component_yaml(component, {"pin": "GPIO4", "name": "Temp", "id": "temp_1"})
+    assert out.splitlines() == [
+        "sensor:",
+        "  - platform: dht",
+        "    name: Temp",
+        "    id: temp_1",
+        "    pin: GPIO4",
+    ]
+
+
+def test_generate_component_yaml_surfaces_id_first_in_mapping_form() -> None:
+    """A trailing ``id`` in fields is emitted as the first mapping key."""
+    component = _component(component_id="myc", category=ComponentCategory.MISC)
+    out = generate_component_yaml(component, {"foo": 1, "id": "myc_1"})
+    assert out == "myc:\n  id: myc_1\n  foo: 1"
+
+
+def test_generate_component_yaml_surfaces_id_first_in_multi_conf_list_form() -> None:
+    """A trailing ``id`` in fields leads the ``- `` list item."""
+    component = _component(component_id="globals", category=ComponentCategory.MISC, multi_conf=True)
+    out = generate_component_yaml(component, {"type": "int", "id": "g1"})
+    assert out.startswith("globals:\n  - id: g1\n    type: int")
+
+
+def test_generate_component_yaml_first_defined_id_is_the_surfaced_parent_id() -> None:
+    """``_first_defined_id`` sees the entry-level id, not an earlier nested one."""
+    component = _component(component_id="sensor.hlw8012", category=ComponentCategory.SENSOR)
+    out = generate_component_yaml(component, {"current": {"id": "amps"}, "id": "plug"})
+    assert _first_defined_id(out) == "plug"
+
+
 # ---------------------------------------------------------------------------
 # generate_component_yaml — value formatting
 # ---------------------------------------------------------------------------
@@ -2206,15 +2240,14 @@ def test_generate_component_yaml_id_falls_back_when_name_slug_is_empty() -> None
     component = _component(component_id="hlw8012", category=ComponentCategory.MISC)
     out = generate_component_yaml(component, {"id": "", "name": ":::"})
     # Auto-filled id is just the component stem — no trailing ``_``.
-    assert "  id: hlw8012\n" in out
-    assert "  id: hlw8012_\n" not in out
+    assert out.endswith("  id: hlw8012")
 
 
 def test_generate_component_yaml_id_dedups_leading_chip_stem() -> None:
     """A name already leading with the chip stem doesn't double it in the auto-id."""
     component = _component(component_id="hlw8012", category=ComponentCategory.MISC)
     out = generate_component_yaml(component, {"id": "", "name": "HLW8012 Power Monitor"})
-    assert "  id: hlw8012_power_monitor\n" in out
+    assert "  id: hlw8012_power_monitor" in out
     assert "hlw8012_hlw8012" not in out
 
 

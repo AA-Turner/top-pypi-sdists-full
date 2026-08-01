@@ -1,6 +1,6 @@
 [project]
 name = "geocif"
-version = "0.4.885"
+version = "0.4.892"
 
 description = "Models to visualize and forecast crop conditions and yields"
 readme = "README.md"
@@ -99,6 +99,16 @@ dependencies = [
     # `tick_labels=`, but other 3.11 removals may still surface on HPC.
     # Drop this pin once we've fully audited the plot paths against 3.11.
     "matplotlib<3.11",
+    # Defensive ceiling: pandas 3.0 hard-raises TypeError when a non-float
+    # object is assigned into a float64 column (previously silently upcast to
+    # object). The detrend / check_yield_trend path stores a statsmodels
+    # RegressionResultsWrapper into a per-region column, which 3.0 rejects and
+    # 2.x tolerated — under pandas 3.0.5 EVERY LOOCV model task failed
+    # ("Invalid value '<...RegressionResultsWrapper>' for dtype 'float64'").
+    # First hit on the gsapp18 pixi env 2026-07-31 when a re-solve pulled
+    # pandas 3.0.5. Drop this pin once the object-into-float assignment sites
+    # are refactored to hold the wrapper outside the numeric frame.
+    "pandas<3",
 ]
 
 [project.optional-dependencies]
@@ -227,6 +237,11 @@ rtree = "*"
 cartopy = "*"
 geopandas = "*"
 pyhdf = "*"                # octvi MOD09CMG HDF4 reader (via geoprepare NDVI/GCVI)
+# GMT + PyGMT so viz/plot.py's pygmt backend renders IN-PROCESS (no conda
+# `pygmt_env` subprocess bridge). conda-forge gmt ships an ABI-consistent
+# libgmt on all three lock platforms; pygmt is noarch.
+gmt = ">=6.5"
+pygmt = ">=0.14"
 # compiled numerics / ML (avoid PyPI source builds; pins mirror [project])
 numpy = "*"
 pandas = "*"

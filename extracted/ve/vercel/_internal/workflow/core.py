@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Generic, ParamSpec, TypeVar, overload
 
 import pydantic
 
-from vercel._internal.polyfills import Self
+from vercel._internal.core.polyfills import Self
 
 from . import py_sandbox
 from .world import validate_queue_namespace
@@ -36,7 +36,7 @@ class Workflow(Generic[P, T]):
         self._registry = registry
         self.module = func.__module__
         self.qualname = func.__qualname__
-        self.workflow_id = f"workflow//{self.module}.{self.qualname}"
+        self.workflow_id = f"workflow//{self.module}//{self.qualname}"
 
     def _resolve_queue_namespace(self) -> str | None:
         return self._registry.namespace
@@ -47,7 +47,7 @@ class Step(Generic[P, T]):
         self, func: Callable[P, Coroutine[Any, Any, T]], *, max_retries: int = DEFAULT_MAX_RETRIES
     ):
         self.func = func
-        self.name = f"step//{func.__module__}.{func.__qualname__}"
+        self.name = f"step//{func.__module__}//{func.__qualname__}"
         self.max_retries = max_retries
         functools.update_wrapper(self, func)
 

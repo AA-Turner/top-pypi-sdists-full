@@ -28,13 +28,8 @@ from ...utilities import _RegressionWrapper, get_feature_names_or_default, one_h
 
 # TODO: this utility is documented but internal; reimplement?
 from sklearn.utils import _safe_indexing
-# TODO: this utility is even less public...
-from packaging.version import parse
-import sklearn
-if parse(sklearn.__version__) < parse("1.5"):
-    from sklearn.utils import _get_column_indices
-else:
-    from sklearn.utils._indexing import _get_column_indices
+
+from ..._sklearn_compat import get_column_indices as _get_column_indices
 
 
 class _CausalInsightsConstants:
@@ -1704,6 +1699,7 @@ class CausalAnalysis:
             current_treatment = orig_df['Current treatment'].values
             if isinstance(current_treatment, pd.core.arrays.categorical.Categorical):
                 current_treatment = current_treatment.to_numpy()
+            current_treatment = np.asarray(current_treatment, dtype=object)
             if np.ndim(treatment_costs) >= 2:
                 # remove third dimenions potentially added
                 if multi_y:  # y was an array, not a vector

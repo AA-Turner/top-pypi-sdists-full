@@ -4531,28 +4531,22 @@ class Bitrate(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Bitrate"):
 
     Example::
 
-        from aws_cdk.aws_mediapackagev2_alpha import FilterConfiguration
-        # channel: Channel
+        # stack: Stack
+        # network_interface: RouterNetworkInterface
         
         
-        OriginEndpoint(self, "Endpoint",
-            channel=channel,
-            segment=Segment.cmaf(),
-            manifests=[
-                Manifest.hls(
-                    manifest_name="index",
-                    filter_configuration=FilterConfiguration(
-                        manifest_filter=[
-                            ManifestFilter.bitrate_range(BitrateFilterKey.VIDEO_BITRATE, Bitrate.mbps(1), Bitrate.mbps(5)),
-                            ManifestFilter.numeric_range(NumericFilterKey.VIDEO_HEIGHT, 720, 1080),
-                            ManifestFilter.video_codec_list([VideoCodec.H264, VideoCodec.H265]),
-                            ManifestFilter.numeric(NumericFilterKey.AUDIO_CHANNELS, 2),
-                            ManifestFilter.text_list(TextFilterKey.AUDIO_LANGUAGE, ["en-US", "fr"])
-                        ],
-                        time_delay=Duration.seconds(30)
-                    )
-                )
-            ]
+        output = RouterOutput(stack, "SrtOutput",
+            router_output_name="srt-output",
+            maximum_bitrate=Bitrate.mbps(10),
+            routing_scope=RoutingScope.REGIONAL,
+            # tier defaults to RouterOutputTier.OUTPUT_20 (lowest cost)
+            configuration=RouterOutputConfiguration.standard(
+                protocol=RouterOutputProtocol.srt_listener(
+                    port=9001,
+                    minimum_latency=Duration.millis(200)
+                ),
+                network_interface=network_interface
+            )
         )
     '''
 
@@ -5060,6 +5054,366 @@ class BundlingOutput(enum.Enum):
 
     Similar to ARCHIVED but for non-archive files
     '''
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.CfnAutoScalingInstanceRefresh",
+    jsii_struct_bases=[],
+    name_mapping={"strategy": "strategy", "preferences": "preferences"},
+)
+class CfnAutoScalingInstanceRefresh:
+    def __init__(
+        self,
+        *,
+        strategy: builtins.str,
+        preferences: typing.Optional[typing.Union["CfnAutoScalingInstanceRefreshPreferences", typing.Dict[builtins.str, typing.Any]]] = None,
+    ) -> None:
+        '''To specify how AWS CloudFormation handles instance refresh for an Auto Scaling group, use the AutoScalingInstanceRefresh update policy.
+
+        When properties that trigger an instance refresh change
+        (such as LaunchTemplate or MixedInstancesPolicy), CloudFormation starts an instance refresh to
+        replace instances gradually.
+
+        This policy is mutually exclusive with AutoScalingRollingUpdate.
+
+        :param strategy: The strategy to use for the instance refresh.
+        :param preferences: The preferences for the instance refresh.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            
+            cfn_auto_scaling_instance_refresh = cdk.CfnAutoScalingInstanceRefresh(
+                strategy="strategy",
+            
+                # the properties below are optional
+                preferences=cdk.CfnAutoScalingInstanceRefreshPreferences(
+                    alarm_specification=cdk.CfnAutoScalingInstanceRefreshAlarmSpecification(
+                        alarms=["alarms"]
+                    ),
+                    bake_time=123,
+                    checkpoint_delay=123,
+                    checkpoint_percentages=[123],
+                    instance_warmup=123,
+                    max_healthy_percentage=123,
+                    min_healthy_percentage=123,
+                    scale_in_protected_instances="scaleInProtectedInstances",
+                    skip_matching=False,
+                    standby_instances="standbyInstances"
+                )
+            )
+        '''
+        if isinstance(preferences, dict):
+            preferences = CfnAutoScalingInstanceRefreshPreferences(**preferences)
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__760831c847239eed3da8b7216662b2a719d49465209040af3744f3d47d6cb49b)
+            check_type(argname="argument strategy", value=strategy, expected_type=type_hints["strategy"])
+            check_type(argname="argument preferences", value=preferences, expected_type=type_hints["preferences"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "strategy": strategy,
+        }
+        if preferences is not None:
+            self._values["preferences"] = preferences
+
+    @builtins.property
+    def strategy(self) -> builtins.str:
+        '''The strategy to use for the instance refresh.'''
+        result = self._values.get("strategy")
+        assert result is not None, "Required property 'strategy' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def preferences(
+        self,
+    ) -> typing.Optional["CfnAutoScalingInstanceRefreshPreferences"]:
+        '''The preferences for the instance refresh.'''
+        result = self._values.get("preferences")
+        return typing.cast(typing.Optional["CfnAutoScalingInstanceRefreshPreferences"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAutoScalingInstanceRefresh(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.CfnAutoScalingInstanceRefreshAlarmSpecification",
+    jsii_struct_bases=[],
+    name_mapping={"alarms": "alarms"},
+)
+class CfnAutoScalingInstanceRefreshAlarmSpecification:
+    def __init__(
+        self,
+        *,
+        alarms: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Alarm specification for the AutoScalingInstanceRefresh update policy.
+
+        :param alarms: The names of the CloudWatch alarms to monitor.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            
+            cfn_auto_scaling_instance_refresh_alarm_specification = cdk.CfnAutoScalingInstanceRefreshAlarmSpecification(
+                alarms=["alarms"]
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__535da61aaf43d755191c06ce60973872c014d3e61d5e206f450a93cb6679b4d6)
+            check_type(argname="argument alarms", value=alarms, expected_type=type_hints["alarms"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if alarms is not None:
+            self._values["alarms"] = alarms
+
+    @builtins.property
+    def alarms(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The names of the CloudWatch alarms to monitor.'''
+        result = self._values.get("alarms")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAutoScalingInstanceRefreshAlarmSpecification(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.CfnAutoScalingInstanceRefreshPreferences",
+    jsii_struct_bases=[],
+    name_mapping={
+        "alarm_specification": "alarmSpecification",
+        "bake_time": "bakeTime",
+        "checkpoint_delay": "checkpointDelay",
+        "checkpoint_percentages": "checkpointPercentages",
+        "instance_warmup": "instanceWarmup",
+        "max_healthy_percentage": "maxHealthyPercentage",
+        "min_healthy_percentage": "minHealthyPercentage",
+        "scale_in_protected_instances": "scaleInProtectedInstances",
+        "skip_matching": "skipMatching",
+        "standby_instances": "standbyInstances",
+    },
+)
+class CfnAutoScalingInstanceRefreshPreferences:
+    def __init__(
+        self,
+        *,
+        alarm_specification: typing.Optional[typing.Union["CfnAutoScalingInstanceRefreshAlarmSpecification", typing.Dict[builtins.str, typing.Any]]] = None,
+        bake_time: typing.Optional[jsii.Number] = None,
+        checkpoint_delay: typing.Optional[jsii.Number] = None,
+        checkpoint_percentages: typing.Optional[typing.Sequence[jsii.Number]] = None,
+        instance_warmup: typing.Optional[jsii.Number] = None,
+        max_healthy_percentage: typing.Optional[jsii.Number] = None,
+        min_healthy_percentage: typing.Optional[jsii.Number] = None,
+        scale_in_protected_instances: typing.Optional[builtins.str] = None,
+        skip_matching: typing.Optional[builtins.bool] = None,
+        standby_instances: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Preferences for the AutoScalingInstanceRefresh update policy.
+
+        :param alarm_specification: The CloudWatch alarms to monitor during the instance refresh. If any alarm goes into ALARM state, the instance refresh fails.
+        :param bake_time: The number of seconds after an instance refresh completes successfully before CloudFormation considers the update successful. Default: 0
+        :param checkpoint_delay: The number of seconds to wait after a checkpoint is reached before continuing. Default: - 3600 seconds (1 hour), applied only when checkpointPercentages is set
+        :param checkpoint_percentages: Threshold values for each checkpoint in ascending order. Each number is a percentage of the total number of instances in the group. When the percentage of instances that have been replaced reaches a checkpoint, the refresh waits for the configured checkpoint delay before continuing. Default: - no checkpoints
+        :param instance_warmup: The number of seconds to wait after a new instance enters the InService state before moving on to replacing the next instance. Default: - the group's DefaultInstanceWarmup if defined; otherwise the group's HealthCheckGracePeriod
+        :param max_healthy_percentage: The maximum percentage of the group that can be in service and healthy, or pending, to support your workload during the instance refresh. Used to control batch size. Default: - the value set in the Auto Scaling group's instance maintenance policy, if defined; otherwise 110 when the strategy is Rolling, or 100 when the strategy is ReplaceRootVolume
+        :param min_healthy_percentage: The minimum percentage of the group to keep in service, healthy, and ready to use to support your workload during the instance refresh. Default: - the value set in the Auto Scaling group's instance maintenance policy, if defined; otherwise 100 when the strategy is Rolling, or 90 when the strategy is ReplaceRootVolume
+        :param scale_in_protected_instances: Specifies the behavior of instances that are protected from scale in during an instance refresh. Default: 'Wait'
+        :param skip_matching: Indicates whether skip matching is enabled. If true, instances that already match the desired configuration are not replaced. Default: true
+        :param standby_instances: Specifies the behavior of instances in standby during an instance refresh. Default: 'Wait'
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            
+            cfn_auto_scaling_instance_refresh_preferences = cdk.CfnAutoScalingInstanceRefreshPreferences(
+                alarm_specification=cdk.CfnAutoScalingInstanceRefreshAlarmSpecification(
+                    alarms=["alarms"]
+                ),
+                bake_time=123,
+                checkpoint_delay=123,
+                checkpoint_percentages=[123],
+                instance_warmup=123,
+                max_healthy_percentage=123,
+                min_healthy_percentage=123,
+                scale_in_protected_instances="scaleInProtectedInstances",
+                skip_matching=False,
+                standby_instances="standbyInstances"
+            )
+        '''
+        if isinstance(alarm_specification, dict):
+            alarm_specification = CfnAutoScalingInstanceRefreshAlarmSpecification(**alarm_specification)
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__5a446f433951a70c6432134cc0de9d67105554bb92cc9fd18fd59d45bab3eb49)
+            check_type(argname="argument alarm_specification", value=alarm_specification, expected_type=type_hints["alarm_specification"])
+            check_type(argname="argument bake_time", value=bake_time, expected_type=type_hints["bake_time"])
+            check_type(argname="argument checkpoint_delay", value=checkpoint_delay, expected_type=type_hints["checkpoint_delay"])
+            check_type(argname="argument checkpoint_percentages", value=checkpoint_percentages, expected_type=type_hints["checkpoint_percentages"])
+            check_type(argname="argument instance_warmup", value=instance_warmup, expected_type=type_hints["instance_warmup"])
+            check_type(argname="argument max_healthy_percentage", value=max_healthy_percentage, expected_type=type_hints["max_healthy_percentage"])
+            check_type(argname="argument min_healthy_percentage", value=min_healthy_percentage, expected_type=type_hints["min_healthy_percentage"])
+            check_type(argname="argument scale_in_protected_instances", value=scale_in_protected_instances, expected_type=type_hints["scale_in_protected_instances"])
+            check_type(argname="argument skip_matching", value=skip_matching, expected_type=type_hints["skip_matching"])
+            check_type(argname="argument standby_instances", value=standby_instances, expected_type=type_hints["standby_instances"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if alarm_specification is not None:
+            self._values["alarm_specification"] = alarm_specification
+        if bake_time is not None:
+            self._values["bake_time"] = bake_time
+        if checkpoint_delay is not None:
+            self._values["checkpoint_delay"] = checkpoint_delay
+        if checkpoint_percentages is not None:
+            self._values["checkpoint_percentages"] = checkpoint_percentages
+        if instance_warmup is not None:
+            self._values["instance_warmup"] = instance_warmup
+        if max_healthy_percentage is not None:
+            self._values["max_healthy_percentage"] = max_healthy_percentage
+        if min_healthy_percentage is not None:
+            self._values["min_healthy_percentage"] = min_healthy_percentage
+        if scale_in_protected_instances is not None:
+            self._values["scale_in_protected_instances"] = scale_in_protected_instances
+        if skip_matching is not None:
+            self._values["skip_matching"] = skip_matching
+        if standby_instances is not None:
+            self._values["standby_instances"] = standby_instances
+
+    @builtins.property
+    def alarm_specification(
+        self,
+    ) -> typing.Optional["CfnAutoScalingInstanceRefreshAlarmSpecification"]:
+        '''The CloudWatch alarms to monitor during the instance refresh.
+
+        If any alarm goes into
+        ALARM state, the instance refresh fails.
+        '''
+        result = self._values.get("alarm_specification")
+        return typing.cast(typing.Optional["CfnAutoScalingInstanceRefreshAlarmSpecification"], result)
+
+    @builtins.property
+    def bake_time(self) -> typing.Optional[jsii.Number]:
+        '''The number of seconds after an instance refresh completes successfully before CloudFormation considers the update successful.
+
+        :default: 0
+        '''
+        result = self._values.get("bake_time")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def checkpoint_delay(self) -> typing.Optional[jsii.Number]:
+        '''The number of seconds to wait after a checkpoint is reached before continuing.
+
+        :default: - 3600 seconds (1 hour), applied only when checkpointPercentages is set
+        '''
+        result = self._values.get("checkpoint_delay")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def checkpoint_percentages(self) -> typing.Optional[typing.List[jsii.Number]]:
+        '''Threshold values for each checkpoint in ascending order.
+
+        Each number is a percentage of
+        the total number of instances in the group. When the percentage of instances that have
+        been replaced reaches a checkpoint, the refresh waits for the configured checkpoint delay
+        before continuing.
+
+        :default: - no checkpoints
+        '''
+        result = self._values.get("checkpoint_percentages")
+        return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
+
+    @builtins.property
+    def instance_warmup(self) -> typing.Optional[jsii.Number]:
+        '''The number of seconds to wait after a new instance enters the InService state before moving on to replacing the next instance.
+
+        :default: - the group's DefaultInstanceWarmup if defined; otherwise the group's HealthCheckGracePeriod
+        '''
+        result = self._values.get("instance_warmup")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def max_healthy_percentage(self) -> typing.Optional[jsii.Number]:
+        '''The maximum percentage of the group that can be in service and healthy, or pending, to support your workload during the instance refresh.
+
+        Used to control batch size.
+
+        :default: - the value set in the Auto Scaling group's instance maintenance policy, if defined; otherwise 110 when the strategy is Rolling, or 100 when the strategy is ReplaceRootVolume
+        '''
+        result = self._values.get("max_healthy_percentage")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def min_healthy_percentage(self) -> typing.Optional[jsii.Number]:
+        '''The minimum percentage of the group to keep in service, healthy, and ready to use to support your workload during the instance refresh.
+
+        :default: - the value set in the Auto Scaling group's instance maintenance policy, if defined; otherwise 100 when the strategy is Rolling, or 90 when the strategy is ReplaceRootVolume
+        '''
+        result = self._values.get("min_healthy_percentage")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def scale_in_protected_instances(self) -> typing.Optional[builtins.str]:
+        '''Specifies the behavior of instances that are protected from scale in during an instance refresh.
+
+        :default: 'Wait'
+        '''
+        result = self._values.get("scale_in_protected_instances")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def skip_matching(self) -> typing.Optional[builtins.bool]:
+        '''Indicates whether skip matching is enabled.
+
+        If true, instances that already match the
+        desired configuration are not replaced.
+
+        :default: true
+        '''
+        result = self._values.get("skip_matching")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def standby_instances(self) -> typing.Optional[builtins.str]:
+        '''Specifies the behavior of instances in standby during an instance refresh.
+
+        :default: 'Wait'
+        '''
+        result = self._values.get("standby_instances")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnAutoScalingInstanceRefreshPreferences(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -11535,6 +11889,7 @@ class CfnTypeActivationProps:
     jsii_type="aws-cdk-lib.CfnUpdatePolicy",
     jsii_struct_bases=[],
     name_mapping={
+        "auto_scaling_instance_refresh": "autoScalingInstanceRefresh",
         "auto_scaling_replacing_update": "autoScalingReplacingUpdate",
         "auto_scaling_rolling_update": "autoScalingRollingUpdate",
         "auto_scaling_scheduled_action": "autoScalingScheduledAction",
@@ -11547,6 +11902,7 @@ class CfnUpdatePolicy:
     def __init__(
         self,
         *,
+        auto_scaling_instance_refresh: typing.Optional[typing.Union["CfnAutoScalingInstanceRefresh", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_scaling_replacing_update: typing.Optional[typing.Union["CfnAutoScalingReplacingUpdate", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_scaling_rolling_update: typing.Optional[typing.Union["CfnAutoScalingRollingUpdate", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_scaling_scheduled_action: typing.Optional[typing.Union["CfnAutoScalingScheduledAction", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -11559,6 +11915,7 @@ class CfnUpdatePolicy:
         AWS CloudFormation invokes one of three update policies depending on the type of change you make or whether a
         scheduled action is associated with the Auto Scaling group.
 
+        :param auto_scaling_instance_refresh: To specify how AWS CloudFormation handles instance refresh for an Auto Scaling group, use the AutoScalingInstanceRefresh policy. This policy triggers an instance refresh when certain properties of the Auto Scaling group change (such as launch template or mixed instances policy), replacing instances gradually while maintaining availability.
         :param auto_scaling_replacing_update: Specifies whether an Auto Scaling group and the instances it contains are replaced during an update. During replacement, AWS CloudFormation retains the old group until it finishes creating the new one. If the update fails, AWS CloudFormation can roll back to the old Auto Scaling group and delete the new Auto Scaling group.
         :param auto_scaling_rolling_update: To specify how AWS CloudFormation handles rolling updates for an Auto Scaling group, use the AutoScalingRollingUpdate policy. Rolling updates enable you to specify whether AWS CloudFormation updates instances that are in an Auto Scaling group in batches or all at once.
         :param auto_scaling_scheduled_action: To specify how AWS CloudFormation handles updates for the MinSize, MaxSize, and DesiredCapacity properties when the AWS::AutoScaling::AutoScalingGroup resource has an associated scheduled action, use the AutoScalingScheduledAction policy.
@@ -11575,6 +11932,25 @@ class CfnUpdatePolicy:
             import aws_cdk as cdk
             
             cfn_update_policy = cdk.CfnUpdatePolicy(
+                auto_scaling_instance_refresh=cdk.CfnAutoScalingInstanceRefresh(
+                    strategy="strategy",
+            
+                    # the properties below are optional
+                    preferences=cdk.CfnAutoScalingInstanceRefreshPreferences(
+                        alarm_specification=cdk.CfnAutoScalingInstanceRefreshAlarmSpecification(
+                            alarms=["alarms"]
+                        ),
+                        bake_time=123,
+                        checkpoint_delay=123,
+                        checkpoint_percentages=[123],
+                        instance_warmup=123,
+                        max_healthy_percentage=123,
+                        min_healthy_percentage=123,
+                        scale_in_protected_instances="scaleInProtectedInstances",
+                        skip_matching=False,
+                        standby_instances="standbyInstances"
+                    )
+                ),
                 auto_scaling_replacing_update=cdk.CfnAutoScalingReplacingUpdate(
                     will_replace=False
                 ),
@@ -11602,6 +11978,8 @@ class CfnUpdatePolicy:
                 use_online_resharding=False
             )
         '''
+        if isinstance(auto_scaling_instance_refresh, dict):
+            auto_scaling_instance_refresh = CfnAutoScalingInstanceRefresh(**auto_scaling_instance_refresh)
         if isinstance(auto_scaling_replacing_update, dict):
             auto_scaling_replacing_update = CfnAutoScalingReplacingUpdate(**auto_scaling_replacing_update)
         if isinstance(auto_scaling_rolling_update, dict):
@@ -11612,6 +11990,7 @@ class CfnUpdatePolicy:
             code_deploy_lambda_alias_update = CfnCodeDeployLambdaAliasUpdate(**code_deploy_lambda_alias_update)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6add1df70ff4410a8895aba5994eb8a4312fc5ba98cfb1bf45516d19d0d4f411)
+            check_type(argname="argument auto_scaling_instance_refresh", value=auto_scaling_instance_refresh, expected_type=type_hints["auto_scaling_instance_refresh"])
             check_type(argname="argument auto_scaling_replacing_update", value=auto_scaling_replacing_update, expected_type=type_hints["auto_scaling_replacing_update"])
             check_type(argname="argument auto_scaling_rolling_update", value=auto_scaling_rolling_update, expected_type=type_hints["auto_scaling_rolling_update"])
             check_type(argname="argument auto_scaling_scheduled_action", value=auto_scaling_scheduled_action, expected_type=type_hints["auto_scaling_scheduled_action"])
@@ -11619,6 +11998,8 @@ class CfnUpdatePolicy:
             check_type(argname="argument enable_version_upgrade", value=enable_version_upgrade, expected_type=type_hints["enable_version_upgrade"])
             check_type(argname="argument use_online_resharding", value=use_online_resharding, expected_type=type_hints["use_online_resharding"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if auto_scaling_instance_refresh is not None:
+            self._values["auto_scaling_instance_refresh"] = auto_scaling_instance_refresh
         if auto_scaling_replacing_update is not None:
             self._values["auto_scaling_replacing_update"] = auto_scaling_replacing_update
         if auto_scaling_rolling_update is not None:
@@ -11631,6 +12012,19 @@ class CfnUpdatePolicy:
             self._values["enable_version_upgrade"] = enable_version_upgrade
         if use_online_resharding is not None:
             self._values["use_online_resharding"] = use_online_resharding
+
+    @builtins.property
+    def auto_scaling_instance_refresh(
+        self,
+    ) -> typing.Optional["CfnAutoScalingInstanceRefresh"]:
+        '''To specify how AWS CloudFormation handles instance refresh for an Auto Scaling group, use the AutoScalingInstanceRefresh policy.
+
+        This policy triggers an instance refresh when certain properties
+        of the Auto Scaling group change (such as launch template or mixed instances policy), replacing
+        instances gradually while maintaining availability.
+        '''
+        result = self._values.get("auto_scaling_instance_refresh")
+        return typing.cast(typing.Optional["CfnAutoScalingInstanceRefresh"], result)
 
     @builtins.property
     def auto_scaling_replacing_update(
@@ -41821,6 +42215,9 @@ __all__ = [
     "BundlingFileAccess",
     "BundlingOptions",
     "BundlingOutput",
+    "CfnAutoScalingInstanceRefresh",
+    "CfnAutoScalingInstanceRefreshAlarmSpecification",
+    "CfnAutoScalingInstanceRefreshPreferences",
     "CfnAutoScalingReplacingUpdate",
     "CfnAutoScalingRollingUpdate",
     "CfnAutoScalingScheduledAction",
@@ -43416,6 +43813,37 @@ def _typecheckingstub__8093353aae305f1434cb8ad34e93d37dd68414d97a233d9a40ff7315f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__760831c847239eed3da8b7216662b2a719d49465209040af3744f3d47d6cb49b(
+    *,
+    strategy: builtins.str,
+    preferences: typing.Optional[typing.Union[CfnAutoScalingInstanceRefreshPreferences, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__535da61aaf43d755191c06ce60973872c014d3e61d5e206f450a93cb6679b4d6(
+    *,
+    alarms: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5a446f433951a70c6432134cc0de9d67105554bb92cc9fd18fd59d45bab3eb49(
+    *,
+    alarm_specification: typing.Optional[typing.Union[CfnAutoScalingInstanceRefreshAlarmSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
+    bake_time: typing.Optional[jsii.Number] = None,
+    checkpoint_delay: typing.Optional[jsii.Number] = None,
+    checkpoint_percentages: typing.Optional[typing.Sequence[jsii.Number]] = None,
+    instance_warmup: typing.Optional[jsii.Number] = None,
+    max_healthy_percentage: typing.Optional[jsii.Number] = None,
+    min_healthy_percentage: typing.Optional[jsii.Number] = None,
+    scale_in_protected_instances: typing.Optional[builtins.str] = None,
+    skip_matching: typing.Optional[builtins.bool] = None,
+    standby_instances: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__64a4624c19dc262f58fbe1c1e7fe44bc86dfef800d569565b2a5f863d87def00(
     *,
     will_replace: typing.Optional[builtins.bool] = None,
@@ -44180,6 +44608,7 @@ def _typecheckingstub__2a433522c98b0bfa51cbfe5f74bac91e1f2e68987f761fa799c6050ef
 
 def _typecheckingstub__6add1df70ff4410a8895aba5994eb8a4312fc5ba98cfb1bf45516d19d0d4f411(
     *,
+    auto_scaling_instance_refresh: typing.Optional[typing.Union[CfnAutoScalingInstanceRefresh, typing.Dict[builtins.str, typing.Any]]] = None,
     auto_scaling_replacing_update: typing.Optional[typing.Union[CfnAutoScalingReplacingUpdate, typing.Dict[builtins.str, typing.Any]]] = None,
     auto_scaling_rolling_update: typing.Optional[typing.Union[CfnAutoScalingRollingUpdate, typing.Dict[builtins.str, typing.Any]]] = None,
     auto_scaling_scheduled_action: typing.Optional[typing.Union[CfnAutoScalingScheduledAction, typing.Dict[builtins.str, typing.Any]]] = None,

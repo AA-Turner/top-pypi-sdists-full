@@ -1,6 +1,6 @@
 """Support for django rest framework symmetric serialization"""
 
-__all__ = ["EnumField", "FlagField", "EnumFieldMixin"]
+__all__ = ["EnumField", "EnumFieldMixin", "FlagField"]
 
 import inspect
 from datetime import date, datetime, time, timedelta
@@ -63,7 +63,7 @@ class ClassLookupdict:
             getattr(
                 key,
                 "_proxy_class",
-                key if isinstance(key, type) else getattr(key, "__class__"),
+                key if isinstance(key, type) else key.__class__,
             )
         ):
             if cls in self.mapping:

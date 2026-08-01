@@ -49,9 +49,49 @@ class TestWebEditorAuthRepository(unittest.TestCase):
         self.assertIsNone(repository.renew_token("old-token"))
 
 
+class TestWebEditorAuthRepositoryApiKeyRepair(unittest.TestCase):
+    def test_returns_the_repaired_api_key(self):
+        client = MagicMock()
+        client.post.return_value = make_response(json_body={"apiKey": "live-key"})
+        repository = WebEditorAuthRepository(client=client)
+
+        self.assertEqual(repository.repair_api_key("session-token"), "live-key")
+        endpoint = client.post.call_args.kwargs["endpoint"]
+        headers = client.post.call_args.kwargs["headers"]
+        self.assertEqual(endpoint, "/web-editor/api-key/repair")
+        # The session token is the credential here: the pod's own API key is the
+        # broken one, so it cannot authenticate this request.
+        self.assertEqual(headers, {"Web-Editor-Authorization": "Bearer session-token"})
+        self.assertIn("projectId", client.post.call_args.kwargs["json"])
+
+    def test_returns_none_on_error_response(self):
+        client = MagicMock()
+        client.post.return_value = make_response(ok=False, status_code=403)
+        repository = WebEditorAuthRepository(client=client)
+
+        self.assertIsNone(repository.repair_api_key("session-token"))
+
+    def test_returns_none_when_the_key_is_missing_from_response(self):
+        client = MagicMock()
+        client.post.return_value = make_response(json_body={})
+        repository = WebEditorAuthRepository(client=client)
+
+        self.assertIsNone(repository.repair_api_key("session-token"))
+
+    def test_returns_none_on_exception(self):
+        client = MagicMock()
+        client.post.side_effect = Exception("network down")
+        repository = WebEditorAuthRepository(client=client)
+
+        self.assertIsNone(repository.repair_api_key("session-token"))
+
+
 class TestProductionEditorAuthRepository(unittest.TestCase):
     def test_renew_token_is_a_noop(self):
         self.assertIsNone(ProductionEditorAuthRepository().renew_token("any-token"))
+
+    def test_repair_api_key_is_a_noop(self):
+        self.assertIsNone(ProductionEditorAuthRepository().repair_api_key("any-token"))
 
 
 if __name__ == "__main__":

@@ -11,6 +11,7 @@ import logging
 import math
 import os
 import pathlib
+import ssl
 import sys
 import threading
 import time
@@ -26,6 +27,7 @@ from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import dataclasses_json
+import httpx
 import pytest
 import requests
 from multipart import MultipartParser, MultipartPart, parse_options_header
@@ -37,6 +39,9 @@ import langsmith.utils as ls_utils
 from langsmith import AsyncClient, EvaluationResult, aevaluate, evaluate, run_trees
 from langsmith import schemas as ls_schemas
 from langsmith._internal import _orjson
+from langsmith._internal._beta_decorator import (
+    suppress_deprecation_warning as _suppress_deprecation_warning,
+)
 from langsmith._internal._multipart import MultipartPartsAndContext
 from langsmith._internal._serde import _serialize_json
 from langsmith.anonymizer import SECRET_PLACEHOLDER, create_secret_anonymizer
@@ -52,11 +57,13 @@ from langsmith.client import (
     _default_retry_config,
     _dumps_json,
     _get_openapi_base_url,
+    _httpx_kwargs_from_session,
     _is_langchain_hosted,
     _parse_token_or_url,
     _reject_filesystem_attachments,
     _resolve_tracing_mode,
 )
+from langsmith.evaluation.evaluator import RunEvaluator
 from langsmith.run_trees import RunTree
 from langsmith.utils import LangSmithRateLimitError, LangSmithUserError
 from tests.unit_tests.conftest import parse_request_data
@@ -294,7 +301,7 @@ def test_profile_config_loads_api_key_and_workspace(
     assert client._headers["X-Tenant-Id"] == "workspace-id"
 
 
-def test_profile_config_uses_oauth_access_token_before_api_key(
+def test_profile_config_uses_api_key_before_oauth_access_token(
     monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
 ) -> None:
     _clear_profile_env(monkeypatch)
@@ -317,8 +324,8 @@ def test_profile_config_uses_oauth_access_token_before_api_key(
     client = Client(auto_batch_tracing=False)
 
     assert client.api_key is None
-    assert client._headers["Authorization"] == "Bearer profile-access-token"
-    assert "x-api-key" not in client._headers
+    assert client._headers["x-api-key"] == "profile-key"
+    assert "Authorization" not in client._headers
 
 
 def test_profile_config_env_auth_suppresses_profile_auth(
@@ -2020,7 +2027,7 @@ def _feedback_client(session: mock.Mock, **flags: bool) -> Client:
 def test_create_feedback_requires_session_id_when_ch_query_disabled() -> None:
     """SmithDB-only backends cannot locate the run without session_id."""
     session = mock.Mock()
-    client = _feedback_client(session, ch_query_enabled=False)
+    client = _feedback_client(session, ch_query_enabled=False, sdb_query_enabled=True)
 
     with pytest.raises(ValueError, match="session_id must be provided"):
         client.create_feedback(uuid.uuid4(), key="Foo")
@@ -5713,6 +5720,114 @@ def test_async_client_uses_normalized_base_url(
     assert str(client._langsmith_api.base_url).rstrip("/") == expected_base_url
 
 
+def test_httpx_kwargs_from_session_translates_transport_config() -> None:
+    """A caller-supplied session's transport config carries over to httpx."""
+    session = requests.Session()
+    session.headers["X-Custom"] = "custom-value"
+    session.cookies.set("cookie-name", "cookie-value")
+    session.verify = "/path/to/ca-bundle.pem"
+    session.cert = ("/path/to/client.crt", "/path/to/client.key")
+    session.proxies = {"https": "http://proxy.internal:8080"}
+    session.trust_env = False
+
+    kwargs = _httpx_kwargs_from_session(session)
+
+    assert kwargs["headers"] == {"X-Custom": "custom-value"}
+    assert kwargs["cookies"] is session.cookies
+    assert kwargs["verify"] == "/path/to/ca-bundle.pem"
+    assert kwargs["cert"] == ("/path/to/client.crt", "/path/to/client.key")
+    assert kwargs["trust_env"] is False
+    # httpx renamed `proxies` to `proxy` in 0.26; either name is accepted here.
+    proxy_kwarg = (
+        "proxy"
+        if "proxy" in inspect.signature(httpx.Client.__init__).parameters
+        else "proxies"
+    )
+    assert kwargs[proxy_kwarg] == "http://proxy.internal:8080"
+    # Whichever name this httpx accepts, the kwargs must be usable as-is.
+    httpx.Client(**{**kwargs, "verify": False, "cert": None}).close()
+
+
+def test_httpx_kwargs_from_session_preserves_cookie_scope() -> None:
+    """Cookies keep their domain/path scope instead of being flattened."""
+    session = requests.Session()
+    session.cookies.set("shared", "other-service", domain="internal.example", path="/x")
+    session.cookies.set("shared", "langsmith", domain="api.smith.langchain.com")
+
+    cookies = httpx.Cookies(_httpx_kwargs_from_session(session)["cookies"])
+    request = httpx.Request("GET", "https://api.smith.langchain.com/api/v2/runs")
+    cookies.set_cookie_header(request)
+
+    # The cookie scoped to another host must not be sent to the API.
+    assert request.headers["cookie"] == "shared=langsmith"
+
+
+def test_httpx_kwargs_from_session_omits_requests_defaults() -> None:
+    """`requests`' own default headers must not shadow the httpx/SDK ones."""
+    kwargs = _httpx_kwargs_from_session(requests.Session())
+
+    assert "headers" not in kwargs
+    assert "cookies" not in kwargs
+    assert "verify" not in kwargs
+    assert "cert" not in kwargs
+    assert "proxy" not in kwargs
+    assert "proxies" not in kwargs
+    assert kwargs["trust_env"] is True
+
+
+def test_openapi_clients_apply_provided_session_config() -> None:
+    """Both generated clients honor a caller-supplied session's config."""
+    from langsmith._openapi_client._models import FinalRequestOptions
+
+    session = requests.Session()
+    session.headers["X-Custom"] = "custom-value"
+    session.headers["x-api-key"] = "hijacked"
+    session.cookies.set("cookie-name", "cookie-value")
+    session.verify = False
+
+    client = Client(
+        api_url="http://localhost:1984",
+        api_key="test-api-key",
+        auto_batch_tracing=False,
+        session=session,
+    )
+
+    for openapi_client in (
+        client._get_langsmith_api(),
+        client._get_langsmith_api_sync(),
+    ):
+        http_client = openapi_client._client
+        assert http_client.headers["X-Custom"] == "custom-value"
+        assert str(http_client.base_url).rstrip("/") == "http://localhost:1984"
+        # verify=False disables certificate verification on the transport.
+        assert http_client._transport._pool._ssl_context.verify_mode == ssl.CERT_NONE
+
+        request = openapi_client._build_request(
+            FinalRequestOptions(method="get", url="/api/v2/runs")
+        )
+        assert request.headers["cookie"] == "cookie-name=cookie-value"
+        # The SDK's own auth headers still win over the session's.
+        assert "hijacked" not in request.headers["x-api-key"]
+        assert "test-api-key" in request.headers["x-api-key"]
+
+
+def test_openapi_clients_keep_defaults_without_provided_session() -> None:
+    """Without an explicit session there is nothing to port over."""
+    client = Client(
+        api_url="http://localhost:1984",
+        api_key="test-api-key",
+        auto_batch_tracing=False,
+    )
+
+    assert "python-requests" not in client._get_langsmith_api()._client.headers.get(
+        "user-agent", ""
+    )
+    assert (
+        "python-requests"
+        not in client._get_langsmith_api_sync()._client.headers.get("user-agent", "")
+    )
+
+
 def test_process_buffered_run_ops_core_functionality():
     """Test core functionality: parameter validation, basic processing, compressed traces, and mixed operations."""
     # Test 1: Parameter validation - both parameters must be provided together or neither
@@ -6165,10 +6280,10 @@ def test_list_runs_child_run_ids_deprecation_warning(
             )
         )
 
-    # Test that no warning is raised when child_run_ids is not in select
-    with warnings.catch_warnings():
-        warnings.simplefilter("error", DeprecationWarning)
+    # Overall list_runs deprecation fires; child_run_ids-specific warning must not
+    with pytest.warns(DeprecationWarning) as warning_list:
         list(client.list_runs(project_id=uuid.uuid4(), select=["id", "name"]))
+    assert not any("child_run_ids" in str(w.message) for w in warning_list)
 
 
 def test_tracing_error_callback_on_429():
@@ -6986,6 +7101,441 @@ def test_removed_sdk_methods_absent() -> None:
     assert not hasattr(DatasetsResource, "experiments"), (
         "datasets.experiments.grouped was de-publicized in PR #28358 and should not exist"
     )
+
+
+class _StubEvaluator(RunEvaluator):
+    """Minimal evaluator that returns a fixed result without doing any work."""
+
+    def evaluate_run(self, run, example=None) -> EvaluationResult:
+        return EvaluationResult(key="stub", score=1)
+
+    async def aevaluate_run(self, run, example=None) -> EvaluationResult:
+        return EvaluationResult(key="stub", score=1)
+
+
+def _stub_run() -> ls_schemas.Run:
+    run_id = uuid.uuid4()
+    return ls_schemas.Run(
+        id=run_id,
+        name="stub",
+        run_type="chain",
+        start_time=_CREATED_AT,
+        trace_id=run_id,
+    )
+
+
+def test_evaluate_run_deprecation_warning() -> None:
+    """evaluate_run is deprecated with no replacement."""
+    client = Client(api_url="http://localhost:1984", api_key="123", session=mock.Mock())
+    result = EvaluationResult(key="stub", score=1)
+
+    with mock.patch.object(
+        Client, "_log_evaluation_feedback", return_value=[result]
+    ) as log_feedback:
+        with pytest.warns(DeprecationWarning, match="evaluate_run\\(\\) is deprecated"):
+            assert client.evaluate_run(_stub_run(), _StubEvaluator()) is result
+    log_feedback.assert_called_once()
+
+
+async def test_aevaluate_run_deprecation_warning() -> None:
+    """aevaluate_run is deprecated with no replacement."""
+    client = Client(api_url="http://localhost:1984", api_key="123", session=mock.Mock())
+    result = EvaluationResult(key="stub", score=1)
+
+    with mock.patch.object(
+        Client, "_log_evaluation_feedback", return_value=[result]
+    ) as log_feedback:
+        with pytest.warns(
+            DeprecationWarning, match="aevaluate_run\\(\\) is deprecated"
+        ):
+            assert await client.aevaluate_run(_stub_run(), _StubEvaluator()) is result
+    log_feedback.assert_called_once()
+
+
+def test_get_run_url_deprecation_warning() -> None:
+    """get_run_url is deprecated in favor of client.runs.get_url()."""
+    client = Client(api_url="http://localhost:1984", api_key="123", session=mock.Mock())
+    run = _stub_run()
+    run.session_id = uuid.uuid4()
+
+    with mock.patch.object(Client, "_get_tenant_id", return_value=uuid.uuid4()):
+        with pytest.warns(DeprecationWarning, match="get_run_url\\(\\) is deprecated"):
+            url = client.get_run_url(run=run)
+    assert str(run.id) in url
+
+
+@pytest.mark.parametrize(
+    "instance_flags",
+    [
+        {"ch_query_enabled": False, "sdb_query_enabled": True},
+        {"ch_query_enabled": True, "sdb_query_enabled": True},
+    ],
+)
+def test_run_tree_get_url_uses_v2_endpoint(instance_flags) -> None:
+    """On SmithDB-only and dual backends, RunTree.get_url() asks the backend.
+
+    It must not emit a deprecation warning either — RunTree.get_url() is supported.
+    """
+    client = Client(api_url="http://localhost:1984", api_key="123", session=mock.Mock())
+    project_id = uuid.uuid4()
+    run_tree = RunTree(name="stub", project_id=project_id, ls_client=client)
+
+    runs_resource = mock.Mock()
+    runs_resource.get_url.return_value = mock.Mock(url="http://localhost:1984/run-url")
+    api = mock.Mock()
+    api.runs = runs_resource
+
+    with (
+        patch.object(
+            type(client),
+            "info",
+            property(lambda self: mock.Mock(instance_flags=instance_flags)),
+        ),
+        mock.patch.object(Client, "_get_langsmith_api_sync", return_value=api),
+    ):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            assert run_tree.get_url() == "http://localhost:1984/run-url"
+
+    runs_resource.get_url.assert_called_once_with(
+        str(run_tree.id),
+        project_id=str(project_id),
+        trace_id=str(run_tree.trace_id),
+        start_time=run_tree.start_time.isoformat(),
+    )
+
+
+def test_run_tree_get_url_builds_url_locally_on_clickhouse_only() -> None:
+    """ClickHouse-only backends may predate `/runs/{run_id}/url`.
+
+    Those deployments must keep getting a locally constructed URL rather than a 404.
+    """
+    client = Client(api_url="http://localhost:1984", api_key="123", session=mock.Mock())
+    project_id = uuid.uuid4()
+    tenant_id = uuid.uuid4()
+    run_tree = RunTree(name="stub", project_id=project_id, ls_client=client)
+
+    api = mock.Mock()
+
+    with (
+        patch.object(
+            type(client),
+            "info",
+            property(lambda self: mock.Mock(instance_flags={"ch_query_enabled": True})),
+        ),
+        mock.patch.object(Client, "_get_langsmith_api_sync", return_value=api),
+        mock.patch.object(Client, "_get_tenant_id", return_value=tenant_id),
+    ):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            url = run_tree.get_url()
+
+    assert url == (
+        f"{client._host_url}/o/{tenant_id}/projects/p/{project_id}/"
+        f"r/{run_tree.id}?poll=true"
+    )
+    api.runs.get_url.assert_not_called()
+
+
+def test_run_tree_get_url_is_cached() -> None:
+    """get_url() is called per log line, so it must only hit the backend once."""
+    client = Client(api_url="http://localhost:1984", api_key="123", session=mock.Mock())
+    run_tree = RunTree(name="stub", project_id=uuid.uuid4(), ls_client=client)
+
+    runs_resource = mock.Mock()
+    runs_resource.get_url.return_value = mock.Mock(url="http://localhost:1984/run-url")
+    api = mock.Mock()
+    api.runs = runs_resource
+    info = mock.Mock(instance_flags={"sdb_query_enabled": True})
+
+    with (
+        patch.object(type(client), "info", property(lambda self: info)),
+        mock.patch.object(Client, "_get_langsmith_api_sync", return_value=api),
+    ):
+        assert run_tree.get_url() == "http://localhost:1984/run-url"
+        assert run_tree.get_url() == "http://localhost:1984/run-url"
+
+    runs_resource.get_url.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        {"side_effect": ValueError("boom")},
+        {"return_value": mock.Mock(url=None)},
+    ],
+)
+def test_run_tree_get_url_falls_back_when_backend_call_fails(failure) -> None:
+    """A transient failure must not turn get_url() into a raising call."""
+    client = Client(api_url="http://localhost:1984", api_key="123", session=mock.Mock())
+    project_id = uuid.uuid4()
+    tenant_id = uuid.uuid4()
+    run_tree = RunTree(name="stub", project_id=project_id, ls_client=client)
+
+    runs_resource = mock.Mock()
+    runs_resource.get_url = mock.Mock(**failure)
+    api = mock.Mock()
+    api.runs = runs_resource
+
+    with (
+        patch.object(
+            type(client),
+            "info",
+            property(
+                lambda self: mock.Mock(instance_flags={"sdb_query_enabled": True})
+            ),
+        ),
+        mock.patch.object(Client, "_get_langsmith_api_sync", return_value=api),
+        mock.patch.object(Client, "_get_tenant_id", return_value=tenant_id),
+    ):
+        url = run_tree.get_url()
+
+    assert url == (
+        f"{client._host_url}/o/{tenant_id}/projects/p/{project_id}/"
+        f"r/{run_tree.id}?poll=true"
+    )
+
+
+def test_run_tree_get_url_without_session_uses_tracer_project() -> None:
+    """A run with no project set must not look up `read_project(None)`."""
+    client = Client(api_url="http://localhost:1984", api_key="123", session=mock.Mock())
+    project_id = uuid.uuid4()
+    run_tree = RunTree(name="stub", ls_client=client)
+    run_tree.session_name = None  # type: ignore[assignment]
+
+    runs_resource = mock.Mock()
+    runs_resource.get_url.return_value = mock.Mock(url="http://localhost:1984/run-url")
+    api = mock.Mock()
+    api.runs = runs_resource
+
+    with (
+        patch.object(
+            type(client),
+            "info",
+            property(
+                lambda self: mock.Mock(instance_flags={"sdb_query_enabled": True})
+            ),
+        ),
+        mock.patch.object(Client, "_get_langsmith_api_sync", return_value=api),
+        mock.patch.object(
+            Client, "read_project", return_value=mock.Mock(id=project_id)
+        ) as read_project,
+        mock.patch.object(
+            ls_utils, "get_tracer_project", return_value="from-the-environment"
+        ),
+    ):
+        assert run_tree.get_url() == "http://localhost:1984/run-url"
+
+    read_project.assert_called_once_with(project_name="from-the-environment")
+
+
+def _deprecation_messages(recorded) -> list[str]:
+    return [
+        str(w.message) for w in recorded if issubclass(w.category, DeprecationWarning)
+    ]
+
+
+def test_read_thread_does_not_warn_about_list_runs() -> None:
+    """read_thread() points at threads.list_traces(), not list_runs()'s runs.query()."""
+    client = Client(api_url="http://localhost:1984", api_key="123", session=mock.Mock())
+
+    with pytest.warns(DeprecationWarning) as recorded:
+        # Deprecation fires when the generator is created, before any iteration.
+        client.read_thread(thread_id="t1", project_id=uuid.uuid4())
+
+    messages = _deprecation_messages(recorded)
+    assert any("read_thread() is deprecated" in m for m in messages)
+    assert not any("list_runs() is deprecated" in m for m in messages)
+
+
+def test_read_run_with_child_runs_does_not_warn_about_list_runs() -> None:
+    """The caller asked for child runs, not for list_runs()."""
+    client = Client(api_url="http://localhost:1984", api_key="123", session=mock.Mock())
+    run = _stub_run()
+
+    with (
+        patch.object(
+            type(client),
+            "info",
+            property(lambda self: mock.Mock(instance_flags={"ch_query_enabled": True})),
+        ),
+        # Only the HTTP layer is stubbed, so the real _load_child_runs() ->
+        # list_runs() chain still executes.
+        mock.patch.object(Client, "request_with_retries") as request,
+        mock.patch.object(
+            Client, "_get_cursor_paginated_list", return_value=iter([])
+        ) as paginate,
+    ):
+        request.return_value = mock.Mock(
+            json=lambda: {
+                "id": str(run.id),
+                "name": "stub",
+                "run_type": "chain",
+                "start_time": _CREATED_AT.isoformat(),
+                "trace_id": str(run.id),
+            }
+        )
+        with pytest.warns(DeprecationWarning) as recorded:
+            client.read_run(run.id, load_child_runs=True)
+
+    paginate.assert_called_once()
+    messages = _deprecation_messages(recorded)
+    assert any("read_run() is deprecated" in m for m in messages)
+    assert not any("list_runs() is deprecated" in m for m in messages)
+
+
+def test_load_child_runs_does_not_warn_about_list_runs() -> None:
+    """_load_child_runs() reaches the real list_runs(); no warning may surface."""
+    client = Client(api_url="http://localhost:1984", api_key="123", session=mock.Mock())
+    run = _stub_run()
+
+    with (
+        patch.object(
+            type(client),
+            "info",
+            property(lambda self: mock.Mock(instance_flags={"ch_query_enabled": True})),
+        ),
+        # Stub only the HTTP fetch, so the real decorated list_runs() still runs.
+        mock.patch.object(Client, "_get_cursor_paginated_list", return_value=iter([])),
+    ):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            assert client._load_child_runs(run) is run
+
+
+def test_suppress_deprecation_warning_is_scoped() -> None:
+    """The suppression must not leak past its block, including on exceptions."""
+    client = Client(api_url="http://localhost:1984", api_key="123", session=mock.Mock())
+
+    with pytest.raises(RuntimeError):
+        with _suppress_deprecation_warning():
+            raise RuntimeError("boom")
+
+    with pytest.warns(DeprecationWarning, match="list_runs\\(\\) is deprecated"):
+        client.list_runs(project_id=uuid.uuid4())
+
+
+_SHARE_TOKEN = uuid.UUID("22222222-2222-2222-2222-222222222222")
+
+
+def _share_response(run_id: uuid.UUID) -> mock.Mock:
+    """One response body that satisfies every sharing endpoint under test."""
+    return mock.Mock(
+        json=lambda: {
+            "share_token": str(_SHARE_TOKEN),
+            "id": str(run_id),
+            "name": "stub",
+            "run_type": "chain",
+            "start_time": _CREATED_AT.isoformat(),
+            "trace_id": str(run_id),
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    "method,takes_share_token,expected",
+    [
+        ("share_run", False, "Use client.runs.share.create() instead."),
+        ("unshare_run", False, "Use client.runs.share.delete() instead."),
+        (
+            "read_run_shared_link",
+            False,
+            'Use client.runs.retrieve(selects=["SHARE_URL"]) instead.',
+        ),
+        ("read_shared_run", True, "Use client.public.runs.retrieve() instead."),
+        ("list_shared_runs", True, "Use client.public.runs.query() instead."),
+    ],
+)
+def test_run_sharing_methods_are_deprecated(
+    method: str, takes_share_token: bool, expected: str
+) -> None:
+    """Every method in the guide's sharing section warns once, naming its replacement."""
+    client = Client(api_url="http://localhost:1984", api_key="123", session=mock.Mock())
+    run_id = uuid.uuid4()
+    arg = _SHARE_TOKEN if takes_share_token else run_id
+
+    with (
+        mock.patch.object(
+            Client, "request_with_retries", return_value=_share_response(run_id)
+        ),
+        mock.patch.object(Client, "_get_cursor_paginated_list", return_value=iter([])),
+    ):
+        with pytest.warns(DeprecationWarning) as recorded:
+            result = getattr(client, method)(arg)
+            if method == "list_shared_runs":
+                list(result)  # a generator; drain it so the body runs too
+
+    messages = _deprecation_messages(recorded)
+    assert len(messages) == 1, messages
+    assert f"{method}() is deprecated" in messages[0]
+    assert expected in messages[0]
+    assert "#share-and-read-public-runs" in messages[0]
+
+
+def test_run_is_shared_does_not_warn_about_read_run_shared_link() -> None:
+    """run_is_shared() is supported; it must not warn about its internal call."""
+    client = Client(api_url="http://localhost:1984", api_key="123", session=mock.Mock())
+    run_id = uuid.uuid4()
+
+    # Only the HTTP layer is stubbed, so the real decorated
+    # read_run_shared_link() still executes.
+    with mock.patch.object(
+        Client, "request_with_retries", return_value=_share_response(run_id)
+    ):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            assert client.run_is_shared(run_id) is True
+
+
+@pytest.mark.parametrize(
+    "method,expected",
+    [
+        ("share_run", "Use client.runs.share.create() instead."),
+        (
+            "read_run_shared_link",
+            'Use client.runs.retrieve(selects=["SHARE_URL"]) instead.',
+        ),
+    ],
+)
+async def test_async_run_sharing_methods_are_deprecated(
+    method: str, expected: str
+) -> None:
+    """The async client's sharing methods carry the same deprecations."""
+    from langsmith.async_client import AsyncClient
+
+    client = AsyncClient(api_url="http://localhost:1984", api_key="123")
+    run_id = uuid.uuid4()
+
+    with mock.patch.object(
+        AsyncClient,
+        "_arequest_with_retries",
+        new=mock.AsyncMock(return_value=_share_response(run_id)),
+    ):
+        with pytest.warns(DeprecationWarning) as recorded:
+            await getattr(client, method)(run_id)
+
+    messages = _deprecation_messages(recorded)
+    assert len(messages) == 1, messages
+    assert f"{method}() is deprecated" in messages[0]
+    assert expected in messages[0]
+    assert "#share-and-read-public-runs" in messages[0]
+
+
+async def test_async_run_is_shared_does_not_warn_about_read_run_shared_link() -> None:
+    """Same suppression as the sync client, for the async `await` path."""
+    from langsmith.async_client import AsyncClient
+
+    client = AsyncClient(api_url="http://localhost:1984", api_key="123")
+    run_id = uuid.uuid4()
+
+    with mock.patch.object(
+        AsyncClient,
+        "_arequest_with_retries",
+        new=mock.AsyncMock(return_value=_share_response(run_id)),
+    ):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            assert await client.run_is_shared(run_id) is True
 
 
 def _gtr_example_id() -> uuid.UUID:

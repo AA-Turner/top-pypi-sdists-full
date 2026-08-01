@@ -1,9 +1,10 @@
 Metadata-Version: 2.4
 Name: pyrig
-Version: 18.34.2
+Version: 18.36.5
 Summary: A tool that standardizes and automates Python project setup, configuration, development, and maintenance.
 Keywords: automation,boilerplate,ci-cd,code-quality,configuration,developer-tools,devops,project-setup,project-template,pyrig,scaffolding
 Author: Winipedia
+Author-email: Winipedia <winipedia@gmx.de>
 License-Expression: MIT
 License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
@@ -31,6 +32,7 @@ Requires-Dist: spdx-matcher>=0.1.4
 Requires-Dist: tomli-w>=1.2.0
 Requires-Dist: typer>=0.26.8
 Maintainer: Winipedia
+Maintainer-email: Winipedia <winipedia@gmx.de>
 Requires-Python: >=3.12
 Project-URL: Changelog, https://github.com/Winipedia/pyrig/releases
 Project-URL: Documentation, https://Winipedia.github.io/pyrig

@@ -866,6 +866,7 @@ def mape_box_by_region(
     *,
     mape_col: str = "MAPE",
     region_col: str = "Region",
+    year_col: str = "Harvest Year",
     production_pct: dict | None = None,
     ascending: bool = True,
 ):
@@ -884,12 +885,14 @@ def mape_box_by_region(
     if df.empty or mape_col not in df.columns or region_col not in df.columns:
         return
 
-    by_region: dict = {
-        r: g[mape_col].dropna().values for r, g in df.groupby(region_col)
+    has_year = year_col in df.columns
+    grp: dict = {
+        r: g.dropna(subset=[mape_col]) for r, g in df.groupby(region_col)
     }
-    by_region = {r: v for r, v in by_region.items() if len(v) > 0}
-    if not by_region:
+    grp = {r: g for r, g in grp.items() if len(g) > 0}
+    if not grp:
         return
+    by_region = {r: g[mape_col].to_numpy() for r, g in grp.items()}
 
     MAPE_CAP = 100.0
     overall_max = float(max(
@@ -938,14 +941,37 @@ def mape_box_by_region(
             patch.set_edgecolor("steelblue")
 
         rng = np.random.default_rng(42)
+        ycmap = plt.get_cmap("viridis")
+        ynorm = None
+        if has_year:
+            _yrs = df[year_col].dropna()
+            if len(_yrs):
+                ynorm = plt.Normalize(vmin=float(_yrs.min()), vmax=float(_yrs.max()))
         for i, vals in enumerate(data_clipped):
             if len(vals) == 0:
                 continue
             ys = (i + 1) + rng.uniform(-0.18, 0.18, size=len(vals))
-            ax.scatter(
-                vals, ys, s=14, color="#1f4e79", alpha=0.65,
-                edgecolors="none", zorder=3,
+            if has_year and ynorm is not None:
+                ax.scatter(
+                    vals, ys, s=16,
+                    c=grp[regions_sorted[i]][year_col].to_numpy(),
+                    cmap=ycmap, norm=ynorm, alpha=0.8,
+                    edgecolors="none", zorder=3,
+                )
+            else:
+                ax.scatter(
+                    vals, ys, s=14, color="#1f4e79", alpha=0.65,
+                    edgecolors="none", zorder=3,
+                )
+        if has_year and ynorm is not None:
+            from matplotlib.ticker import FormatStrFormatter
+            cb = fig.colorbar(
+                plt.cm.ScalarMappable(norm=ynorm, cmap=ycmap),
+                ax=ax, pad=0.015, fraction=0.035,
             )
+            cb.set_label("Forecast year", fontsize=8)
+            cb.ax.tick_params(labelsize=7)
+            cb.ax.yaxis.set_major_formatter(FormatStrFormatter("%d"))
 
         # Annotate clipped maxima per region (only when capping is on)
         if do_cap:
@@ -982,6 +1008,7 @@ def mape_box_by_year(
     *,
     mape_col: str = "MAPE",
     year_col: str = "Harvest Year",
+    region_col: str = "Region",
 ):
     """Vertical box plot of MAPE per year with jittered individual points.
 
@@ -995,12 +1022,14 @@ def mape_box_by_year(
     if df.empty or mape_col not in df.columns or year_col not in df.columns:
         return
 
-    by_year: dict = {
-        int(y): g[mape_col].dropna().values for y, g in df.groupby(year_col)
+    has_region = region_col in df.columns
+    grp: dict = {
+        int(y): g.dropna(subset=[mape_col]) for y, g in df.groupby(year_col)
     }
-    by_year = {y: v for y, v in by_year.items() if len(v) > 0}
-    if not by_year:
+    grp = {y: g for y, g in grp.items() if len(g) > 0}
+    if not grp:
         return
+    by_year = {y: g[mape_col].to_numpy() for y, g in grp.items()}
 
     MAPE_CAP = 100.0
     years_sorted = sorted(by_year.keys())
@@ -1030,14 +1059,32 @@ def mape_box_by_year(
             patch.set_edgecolor("steelblue")
 
         rng = np.random.default_rng(42)
-        for i, vals in enumerate(data_clipped):
+        region_colors = {}
+        if has_region:
+            all_regions = sorted(df[region_col].dropna().astype(str).unique())
+            rcmap = plt.get_cmap("tab20")
+            region_colors = {r: rcmap(k % 20) for k, r in enumerate(all_regions)}
+        for i, y in enumerate(years_sorted):
+            vals = data_clipped[i]
             if len(vals) == 0:
                 continue
             xs = (i + 1) + rng.uniform(-0.18, 0.18, size=len(vals))
-            ax.scatter(
-                xs, vals, s=14, color="#1f4e79", alpha=0.65,
-                edgecolors="none", zorder=3,
-            )
+            if has_region:
+                cols = [region_colors[str(r)] for r in grp[y][region_col].to_numpy()]
+                ax.scatter(xs, vals, s=16, c=cols, alpha=0.85,
+                           edgecolors="none", zorder=3)
+            else:
+                ax.scatter(xs, vals, s=14, color="#1f4e79", alpha=0.65,
+                           edgecolors="none", zorder=3)
+        if has_region:
+            from matplotlib.lines import Line2D
+            handles = [
+                Line2D([0], [0], marker="o", linestyle="", markersize=5,
+                       color=region_colors[r], label=r)
+                for r in all_regions
+            ]
+            ax.legend(handles=handles, fontsize=6, ncol=2, loc="upper left",
+                      framealpha=0.6, title="Region", title_fontsize=7)
 
         if do_cap:
             for i, y in enumerate(years_sorted):

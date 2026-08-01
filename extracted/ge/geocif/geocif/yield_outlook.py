@@ -833,6 +833,7 @@ def _plot_combined_map_mape(df, df_mape, dg_sub, country, crop, model,
     import matplotlib.pyplot as plt
     import palettable as pal
     import scienceplots  # noqa: F401
+    from .viz import diagnostics as diag
     from .viz.diagnostics import _label_with_pct
 
     pred_col = "Predicted Yield (tn per ha)"
@@ -3533,7 +3534,8 @@ def _plot_observed_yields(parser, dir_outlook):
 
 def run(path_config_files=None, current_year=None, n_years=None, aggregation=None,
         reuse_db=None, use_latest_stage=True, fdw_export=False, since_year=None,
-        parser=None, logger_obj=None, outlook_db_name=None, analysis_dir=None):
+        until_year=None, parser=None, logger_obj=None, outlook_db_name=None,
+        analysis_dir=None):
     """Main entry point for yield outlook map generation.
 
     1. Override forecast_seasons to cover [since_year, ..., current_year]
@@ -3555,6 +3557,12 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         since_year: Start year for ML execution (default: config
             ``outlook_since_year`` or 2005).  Controls how far back the ML
             pipeline runs; ``n_years`` still controls the outlook index window.
+        until_year: Upper bound (inclusive) of the forecast/eval loop
+            (default: config ``outlook_until_year`` or ``current_year``).
+            Set below ``current_year`` for a bounded hindcast assessment
+            (e.g. ``since_year=2001, until_year=2020`` evaluates 2001..2020
+            only).  The capped year also becomes the effective "live" year
+            so outlook maps / CSV labels land on a year that has predictions.
         parser: Pre-configured ConfigParser (skips reading config files if provided).
         logger_obj: Pre-configured logger (skips setup if provided).
     """
@@ -3572,6 +3580,16 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
         current_year = ar.utcnow().to("America/New_York").year
     if since_year is None:
         since_year = parser.getint("ML", "outlook_since_year", fallback=2005)
+    # Upper bound (inclusive) of the forecast/eval loop. Default = current_year
+    # (calendar year or the explicit current_year kwarg), so default behavior
+    # is unchanged. Set [ML] outlook_until_year or pass until_year=YYYY to cap
+    # a bounded hindcast (e.g. 2001-2020). The capped year also becomes the
+    # effective "live" year (current_year) so the outlook maps / CSV labels /
+    # outlook-index center land on a year that actually has predictions rather
+    # than an empty calendar-current year.
+    if until_year is None:
+        until_year = parser.getint("ML", "outlook_until_year", fallback=current_year)
+    current_year = until_year
 
     # [ML] make_maps (default False): gates ONLY the slow per-stage choropleth
     # maps — outlook / predicted-yield / obs-anomaly / ensemble / blend imagery

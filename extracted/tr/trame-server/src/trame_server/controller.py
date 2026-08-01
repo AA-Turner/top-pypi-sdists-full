@@ -1,4 +1,5 @@
 import logging
+import types
 import weakref
 
 from .utils import asynchronous, is_dunder, share
@@ -80,6 +81,19 @@ class Controller:
             logger.info("trigger(%s)", name)
             self._triggers[name] = func
             self._triggers_fn2name[func] = name
+
+            # Add annotation to function
+            if not hasattr(func, "_trame_trigger_names"):
+                if isinstance(func, types.MethodType):
+                    _class = func.__self__.__class__
+                    _name = func.__name__
+                    getattr(_class, _name)._trame_trigger_names = []
+                else:
+                    func._trame_trigger_names = []
+
+            if name not in func._trame_trigger_names:
+                func._trame_trigger_names.append(name)
+
             return func
 
         return register_trigger
@@ -107,6 +121,23 @@ class Controller:
         :rtype: function
         """
         return self._triggers.get(name)
+
+    def trigger_unregister(self, fn_or_name):
+        """
+        Given a trigger name or function, unregister it.
+        Return the mapped name or function or False if not found.
+        """
+        if fn_or_name in self._triggers_fn2name:
+            name = self._triggers_fn2name.pop(fn_or_name)
+            self._triggers.pop(name)
+            return name
+
+        if fn_or_name in self._triggers:
+            fn = self._triggers.pop(fn_or_name)
+            self._triggers_fn2name.pop(fn)
+            return fn
+
+        return False
 
     def __getitem__(self, name):
         return self.__getattr__(name)
@@ -325,7 +356,10 @@ class ControllerFunction:
         self.can_be_empty = False
 
     def __call__(self, *args, **kwargs):
-        if self.func is None and len(self.funcs) + len(self.task_funcs) == 0:
+        if (
+            self.func is None
+            and len(self.funcs) + len(self.funcs_once) + len(self.task_funcs) == 0
+        ):
             if self.can_be_empty:
                 return None
             raise FunctionNotImplementedError(self.name)
@@ -399,6 +433,9 @@ class ControllerFunction:
 
         :param func: Function to discard
         """
+        if self.func == func:
+            self.func = None
+
         self.funcs.discard(func)
         self.funcs_once.discard(func)
         self.task_funcs.discard(func)

@@ -51,13 +51,10 @@ impl Pbkdf2Hmac {
             ));
         }
 
-        openssl::pkcs5::pbkdf2_hmac(
-            key_material,
-            self.salt.as_bytes(py),
-            self.iterations,
-            self.md,
-            output,
-        )?;
+        let salt = self.salt.as_bytes(py);
+        let iterations = self.iterations;
+        let md = self.md;
+        py.detach(|| openssl::pkcs5::pbkdf2_hmac(key_material, salt, iterations, md, output))?;
 
         Ok(self.length)
     }
@@ -173,15 +170,21 @@ impl Scrypt {
             ));
         }
 
-        openssl::pkcs5::scrypt(
-            key_material,
-            self.salt.as_bytes(py),
-            self.n,
-            self.r,
-            self.p,
-            (usize::MAX / 2).try_into().unwrap(),
-            output,
-        )
+        let salt = self.salt.as_bytes(py);
+        let n = self.n;
+        let r = self.r;
+        let p = self.p;
+        py.detach(|| {
+            openssl::pkcs5::scrypt(
+                key_material,
+                salt,
+                n,
+                r,
+                p,
+                (usize::MAX / 2).try_into().unwrap(),
+                output,
+            )
+        })
         .map_err(|_| {
             // memory required formula explained here:
             // https://blog.filippo.io/the-scrypt-parameters/
@@ -364,17 +367,25 @@ impl BaseArgon2 {
             Argon2Variant::Argon2id => openssl::kdf::argon2id,
         };
 
-        (derive_fn)(
-            None,
-            key_material,
-            self.salt.as_bytes(py),
-            self.ad.as_ref().map(|ad| ad.as_bytes(py)),
-            self.secret.as_ref().map(|secret| secret.as_bytes(py)),
-            self.iterations,
-            self.lanes,
-            self.memory_cost,
-            output,
-        )
+        let salt = self.salt.as_bytes(py);
+        let ad = self.ad.as_ref().map(|ad| ad.as_bytes(py));
+        let secret = self.secret.as_ref().map(|secret| secret.as_bytes(py));
+        let iterations = self.iterations;
+        let lanes = self.lanes;
+        let memory_cost = self.memory_cost;
+        py.detach(|| {
+            (derive_fn)(
+                None,
+                key_material,
+                salt,
+                ad,
+                secret,
+                iterations,
+                lanes,
+                memory_cost,
+                output,
+            )
+        })
         .map_err(|_| {
             // In theory other init issues (e.g. PROV_R_INVALID_THREAD_POOL_SIZE
             // on builds without thread-pool support) can also occur here, but
@@ -983,7 +994,7 @@ pub(crate) fn hkdf_extract(
     let salt_bytes = salt.unwrap_or(&default_salt);
 
     let mut hmac = Hmac::new_bytes(py, salt_bytes, algorithm_bound)?;
-    hmac.update_bytes(key_material.as_bytes())?;
+    hmac.update_bytes(py, key_material.as_bytes())?;
     hmac.finalize_bytes()
 }
 
@@ -1180,10 +1191,10 @@ impl HkdfExpand {
             let mut h = h_prime.copy(py)?;
 
             let start = pos.saturating_sub(digest_size);
-            h.update_bytes(&output[start..pos])?;
+            h.update_bytes(py, &output[start..pos])?;
 
-            h.update_bytes(self.info.as_bytes(py))?;
-            h.update_bytes(&[counter])?;
+            h.update_bytes(py, self.info.as_bytes(py))?;
+            h.update_bytes(py, &[counter])?;
 
             let block = h.finalize(py)?;
             let block_bytes = block.as_bytes();
@@ -1326,10 +1337,10 @@ impl X963Kdf {
 
         while pos < self.length {
             let mut hash_obj = hashes::Hash::new(py, algorithm_bound, None)?;
-            hash_obj.update_bytes(key_material)?;
-            hash_obj.update_bytes(&counter.to_be_bytes())?;
+            hash_obj.update_bytes(py, key_material)?;
+            hash_obj.update_bytes(py, &counter.to_be_bytes())?;
             if let Some(ref sharedinfo) = self.sharedinfo {
-                hash_obj.update_bytes(sharedinfo.as_bytes(py))?;
+                hash_obj.update_bytes(py, sharedinfo.as_bytes(py))?;
             }
             let block = hash_obj.finalize(py)?;
             let block_bytes = block.as_bytes();
@@ -1464,10 +1475,10 @@ impl ConcatKdfHash {
 
         while pos < self.length {
             let mut hash_obj = hashes::Hash::new(py, algorithm_bound, None)?;
-            hash_obj.update_bytes(&counter.to_be_bytes())?;
-            hash_obj.update_bytes(key_material)?;
+            hash_obj.update_bytes(py, &counter.to_be_bytes())?;
+            hash_obj.update_bytes(py, key_material)?;
             if let Some(ref otherinfo) = self.otherinfo {
-                hash_obj.update_bytes(otherinfo.as_bytes(py))?;
+                hash_obj.update_bytes(py, otherinfo.as_bytes(py))?;
             }
             let block = hash_obj.finalize(py)?;
             let block_bytes = block.as_bytes();
@@ -1602,10 +1613,10 @@ impl ConcatKdfHmac {
 
         while pos < self.length {
             let mut hmac = Hmac::new_bytes(py, self.salt.as_bytes(py), algorithm_bound)?;
-            hmac.update_bytes(&counter.to_be_bytes())?;
-            hmac.update_bytes(key_material)?;
+            hmac.update_bytes(py, &counter.to_be_bytes())?;
+            hmac.update_bytes(py, key_material)?;
             if let Some(ref otherinfo) = self.otherinfo {
-                hmac.update_bytes(otherinfo.as_bytes(py))?;
+                hmac.update_bytes(py, otherinfo.as_bytes(py))?;
             }
             let result = hmac.finalize_bytes()?;
 
@@ -2010,7 +2021,7 @@ impl KbkdfHmac {
             buf.as_mut_bytes(),
             |data| {
                 let mut hmac = hmac_base.copy(py)?;
-                hmac.update_bytes(data)?;
+                hmac.update_bytes(py, data)?;
                 hmac.finalize_bytes()
             },
         )

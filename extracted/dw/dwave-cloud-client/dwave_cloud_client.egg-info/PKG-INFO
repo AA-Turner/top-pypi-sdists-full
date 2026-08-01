@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dwave-cloud-client
-Version: 0.14.6
+Version: 0.14.7
 Summary: A minimal client for interacting with D-Wave cloud resources.
 Home-page: https://github.com/dwavesystems/dwave-cloud-client
 Author: D-Wave Systems Inc.
@@ -48,6 +48,8 @@ Requires-Dist: numpy>=1.17.3; extra == "cqm"
 Provides-Extra: nlm
 Requires-Dist: dwave-optimization<0.5,>=0.1.0; extra == "nlm"
 Requires-Dist: numpy>=1.20.0; extra == "nlm"
+Provides-Extra: qcdl
+Requires-Dist: dwave-gate>=0.4; extra == "qcdl"
 Provides-Extra: mocks
 Requires-Dist: dwave-graphs>=1; extra == "mocks"
 Dynamic: author

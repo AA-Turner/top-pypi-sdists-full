@@ -531,6 +531,47 @@ The following update policies are available:
   configured on the AutoScalingGroup), the old AutoScalingGroup is deleted.
   If the deployment needs to be rolled back, the new AutoScalingGroup is
   deleted and the old one is left unchanged.
+* `UpdatePolicy.instanceRefresh([options])`: gradually replace the existing
+  instances with new instances by having Amazon EC2 Auto Scaling perform an
+  instance refresh, keeping a configurable percentage of the group healthy and
+  in service throughout.
+
+To customize the instance refresh, pass options:
+
+```python
+# vpc: ec2.Vpc
+# instance_type: ec2.InstanceType
+# machine_image: ec2.IMachineImage
+# alarm: cloudwatch.Alarm
+
+
+autoscaling.AutoScalingGroup(self, "ASG",
+    vpc=vpc,
+    instance_type=instance_type,
+    machine_image=machine_image,
+
+    update_policy=autoscaling.UpdatePolicy.instance_refresh(
+        strategy=autoscaling.InstanceRefreshStrategy.ROLLING,
+        min_healthy_percentage=90,
+        max_healthy_percentage=100,
+        instance_warmup=Duration.seconds(300),
+        checkpoint_percentages=[50, 100],
+        checkpoint_delay=Duration.minutes(10),
+        alarms=[alarm]
+    )
+)
+```
+
+> **Note:** CloudFormation reads the `UpdatePolicy` from the *rollback target*
+> template (the template being rolled back to), not from the template that
+> triggered the update. Keep the `updatePolicy` on the Auto Scaling group
+> permanently — if you remove it after the triggering update, a subsequent
+> rollback will not perform an instance refresh.
+
+If you omit `minHealthyPercentage`/`maxHealthyPercentage`, they fall back to the
+Auto Scaling group's instance maintenance policy when one is defined; otherwise
+CloudFormation defaults to `100`/`110` for the `Rolling` strategy
+(launch-before-terminate with a 10% surge) and `90`/`100` for `ReplaceRootVolume`.
 
 ## Allowing Connections
 
@@ -955,6 +996,7 @@ if typing.TYPE_CHECKING:
     import aws_cdk.aws_iam as _aws_iam_1f54b5e8
     import aws_cdk.aws_sns as _aws_sns_07ffc8ab
     import aws_cdk.interfaces.aws_autoscaling as _aws_autoscaling_66012b8a
+    import aws_cdk.interfaces.aws_cloudwatch as _aws_cloudwatch_70717108
     import aws_cdk.interfaces.aws_ec2 as _aws_ec2_18162e09
     import aws_cdk.interfaces.aws_elasticloadbalancingv2 as _aws_elasticloadbalancingv2_1283aa87
     import aws_cdk.interfaces.aws_iam as _aws_iam_632e20f6
@@ -966,6 +1008,7 @@ else:
     _aws_autoscaling_66012b8a = _LazyImport("aws_cdk.interfaces.aws_autoscaling")
     _aws_cdk_0cae9daa = _LazyImport("aws_cdk")
     _aws_cloudwatch_386c5543 = _LazyImport("aws_cdk.aws_cloudwatch")
+    _aws_cloudwatch_70717108 = _LazyImport("aws_cdk.interfaces.aws_cloudwatch")
     _aws_ec2_09840e12 = _LazyImport("aws_cdk.aws_ec2")
     _aws_ec2_18162e09 = _LazyImport("aws_cdk.interfaces.aws_ec2")
     _aws_elasticloadbalancing_199dfa00 = _LazyImport("aws_cdk.aws_elasticloadbalancing")
@@ -16458,6 +16501,280 @@ class InstanceLifecyclePolicy:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_autoscaling.InstanceRefreshOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "strategy": "strategy",
+        "alarms": "alarms",
+        "bake_time": "bakeTime",
+        "checkpoint_delay": "checkpointDelay",
+        "checkpoint_percentages": "checkpointPercentages",
+        "instance_warmup": "instanceWarmup",
+        "max_healthy_percentage": "maxHealthyPercentage",
+        "min_healthy_percentage": "minHealthyPercentage",
+        "scale_in_protected_instances": "scaleInProtectedInstances",
+        "skip_matching": "skipMatching",
+        "standby_instances": "standbyInstances",
+    },
+)
+class InstanceRefreshOptions:
+    def __init__(
+        self,
+        *,
+        strategy: "InstanceRefreshStrategy",
+        alarms: typing.Optional[typing.Sequence["_aws_cloudwatch_70717108.IAlarmRef"]] = None,
+        bake_time: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        checkpoint_delay: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        checkpoint_percentages: typing.Optional[typing.Sequence[jsii.Number]] = None,
+        instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        max_healthy_percentage: typing.Optional[jsii.Number] = None,
+        min_healthy_percentage: typing.Optional[jsii.Number] = None,
+        scale_in_protected_instances: typing.Optional["ScaleInProtectedInstances"] = None,
+        skip_matching: typing.Optional[builtins.bool] = None,
+        standby_instances: typing.Optional["StandbyInstances"] = None,
+    ) -> None:
+        '''Options for customizing the instance refresh update policy.
+
+        :param strategy: The strategy to use for the instance refresh.
+        :param alarms: The CloudWatch alarms to monitor during the instance refresh. If any of the alarms goes into ALARM state, the instance refresh fails. You can specify up to 10 alarms. Default: - no alarms
+        :param bake_time: The amount of time after an instance refresh completes successfully before CloudFormation considers the update successful. Default: Duration.seconds(0)
+        :param checkpoint_delay: The amount of time to wait after a checkpoint is reached before continuing. Default: - 3600 seconds (1 hour), applied only when checkpointPercentages is set
+        :param checkpoint_percentages: Threshold values for each checkpoint in ascending order. Each number must be unique. To replace all instances in the group, the last number in the array must be 100. Default: - no checkpoints
+        :param instance_warmup: The amount of time to wait after a new instance enters the InService state before moving on to refresh the next instance. Default: - the group's DefaultInstanceWarmup if defined; otherwise the group's HealthCheckGracePeriod
+        :param max_healthy_percentage: The maximum percentage of the group that can be in service and healthy, or pending, to support your workload during the instance refresh. The difference between ``maxHealthyPercentage`` and ``minHealthyPercentage`` cannot be greater than 100. A larger range increases the number of instances that can be replaced at the same time. Default: - the value set in the Auto Scaling group's instance maintenance policy, if defined; otherwise 110 when the strategy is Rolling, or 100 when the strategy is ReplaceRootVolume
+        :param min_healthy_percentage: The minimum percentage of the group to keep in service, healthy, and ready to use to support your workload during the instance refresh, expressed as a percentage of the group's desired capacity. Default: - the value set in the Auto Scaling group's instance maintenance policy, if defined; otherwise 100 when the strategy is Rolling, or 90 when the strategy is ReplaceRootVolume
+        :param scale_in_protected_instances: Specifies the behavior of instances that are protected from scale in during an instance refresh. Default: ScaleInProtectedInstances.WAIT
+        :param skip_matching: Indicates whether skip matching is enabled. Default: true
+        :param standby_instances: Specifies the behavior of instances in standby during an instance refresh. Default: StandbyInstances.WAIT
+
+        :exampleMetadata: infused
+
+        Example::
+
+            # vpc: ec2.Vpc
+            # instance_type: ec2.InstanceType
+            # machine_image: ec2.IMachineImage
+            # alarm: cloudwatch.Alarm
+            
+            
+            autoscaling.AutoScalingGroup(self, "ASG",
+                vpc=vpc,
+                instance_type=instance_type,
+                machine_image=machine_image,
+            
+                update_policy=autoscaling.UpdatePolicy.instance_refresh(
+                    strategy=autoscaling.InstanceRefreshStrategy.ROLLING,
+                    min_healthy_percentage=90,
+                    max_healthy_percentage=100,
+                    instance_warmup=Duration.seconds(300),
+                    checkpoint_percentages=[50, 100],
+                    checkpoint_delay=Duration.minutes(10),
+                    alarms=[alarm]
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__1aceaa630e4d1f24be7e8dde68f31415198436eb231a6552990e1d9c65c93bbd)
+            check_type(argname="argument strategy", value=strategy, expected_type=type_hints["strategy"])
+            check_type(argname="argument alarms", value=alarms, expected_type=type_hints["alarms"])
+            check_type(argname="argument bake_time", value=bake_time, expected_type=type_hints["bake_time"])
+            check_type(argname="argument checkpoint_delay", value=checkpoint_delay, expected_type=type_hints["checkpoint_delay"])
+            check_type(argname="argument checkpoint_percentages", value=checkpoint_percentages, expected_type=type_hints["checkpoint_percentages"])
+            check_type(argname="argument instance_warmup", value=instance_warmup, expected_type=type_hints["instance_warmup"])
+            check_type(argname="argument max_healthy_percentage", value=max_healthy_percentage, expected_type=type_hints["max_healthy_percentage"])
+            check_type(argname="argument min_healthy_percentage", value=min_healthy_percentage, expected_type=type_hints["min_healthy_percentage"])
+            check_type(argname="argument scale_in_protected_instances", value=scale_in_protected_instances, expected_type=type_hints["scale_in_protected_instances"])
+            check_type(argname="argument skip_matching", value=skip_matching, expected_type=type_hints["skip_matching"])
+            check_type(argname="argument standby_instances", value=standby_instances, expected_type=type_hints["standby_instances"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "strategy": strategy,
+        }
+        if alarms is not None:
+            self._values["alarms"] = alarms
+        if bake_time is not None:
+            self._values["bake_time"] = bake_time
+        if checkpoint_delay is not None:
+            self._values["checkpoint_delay"] = checkpoint_delay
+        if checkpoint_percentages is not None:
+            self._values["checkpoint_percentages"] = checkpoint_percentages
+        if instance_warmup is not None:
+            self._values["instance_warmup"] = instance_warmup
+        if max_healthy_percentage is not None:
+            self._values["max_healthy_percentage"] = max_healthy_percentage
+        if min_healthy_percentage is not None:
+            self._values["min_healthy_percentage"] = min_healthy_percentage
+        if scale_in_protected_instances is not None:
+            self._values["scale_in_protected_instances"] = scale_in_protected_instances
+        if skip_matching is not None:
+            self._values["skip_matching"] = skip_matching
+        if standby_instances is not None:
+            self._values["standby_instances"] = standby_instances
+
+    @builtins.property
+    def strategy(self) -> "InstanceRefreshStrategy":
+        '''The strategy to use for the instance refresh.'''
+        result = self._values.get("strategy")
+        assert result is not None, "Required property 'strategy' is missing"
+        return typing.cast("InstanceRefreshStrategy", result)
+
+    @builtins.property
+    def alarms(
+        self,
+    ) -> typing.Optional[typing.List["_aws_cloudwatch_70717108.IAlarmRef"]]:
+        '''The CloudWatch alarms to monitor during the instance refresh.
+
+        If any of the alarms goes into
+        ALARM state, the instance refresh fails. You can specify up to 10 alarms.
+
+        :default: - no alarms
+        '''
+        result = self._values.get("alarms")
+        return typing.cast(typing.Optional[typing.List["_aws_cloudwatch_70717108.IAlarmRef"]], result)
+
+    @builtins.property
+    def bake_time(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
+        '''The amount of time after an instance refresh completes successfully before CloudFormation considers the update successful.
+
+        :default: Duration.seconds(0)
+        '''
+        result = self._values.get("bake_time")
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
+
+    @builtins.property
+    def checkpoint_delay(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
+        '''The amount of time to wait after a checkpoint is reached before continuing.
+
+        :default: - 3600 seconds (1 hour), applied only when checkpointPercentages is set
+        '''
+        result = self._values.get("checkpoint_delay")
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
+
+    @builtins.property
+    def checkpoint_percentages(self) -> typing.Optional[typing.List[jsii.Number]]:
+        '''Threshold values for each checkpoint in ascending order.
+
+        Each number must be unique.
+        To replace all instances in the group, the last number in the array must be 100.
+
+        :default: - no checkpoints
+        '''
+        result = self._values.get("checkpoint_percentages")
+        return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
+
+    @builtins.property
+    def instance_warmup(self) -> typing.Optional["_aws_cdk_0cae9daa.Duration"]:
+        '''The amount of time to wait after a new instance enters the InService state before moving on to refresh the next instance.
+
+        :default: - the group's DefaultInstanceWarmup if defined; otherwise the group's HealthCheckGracePeriod
+        '''
+        result = self._values.get("instance_warmup")
+        return typing.cast(typing.Optional["_aws_cdk_0cae9daa.Duration"], result)
+
+    @builtins.property
+    def max_healthy_percentage(self) -> typing.Optional[jsii.Number]:
+        '''The maximum percentage of the group that can be in service and healthy, or pending, to support your workload during the instance refresh.
+
+        The difference between
+        ``maxHealthyPercentage`` and ``minHealthyPercentage`` cannot be greater than 100. A larger
+        range increases the number of instances that can be replaced at the same time.
+
+        :default: - the value set in the Auto Scaling group's instance maintenance policy, if defined; otherwise 110 when the strategy is Rolling, or 100 when the strategy is ReplaceRootVolume
+        '''
+        result = self._values.get("max_healthy_percentage")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def min_healthy_percentage(self) -> typing.Optional[jsii.Number]:
+        '''The minimum percentage of the group to keep in service, healthy, and ready to use to support your workload during the instance refresh, expressed as a percentage of the group's desired capacity.
+
+        :default: - the value set in the Auto Scaling group's instance maintenance policy, if defined; otherwise 100 when the strategy is Rolling, or 90 when the strategy is ReplaceRootVolume
+        '''
+        result = self._values.get("min_healthy_percentage")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def scale_in_protected_instances(
+        self,
+    ) -> typing.Optional["ScaleInProtectedInstances"]:
+        '''Specifies the behavior of instances that are protected from scale in during an instance refresh.
+
+        :default: ScaleInProtectedInstances.WAIT
+        '''
+        result = self._values.get("scale_in_protected_instances")
+        return typing.cast(typing.Optional["ScaleInProtectedInstances"], result)
+
+    @builtins.property
+    def skip_matching(self) -> typing.Optional[builtins.bool]:
+        '''Indicates whether skip matching is enabled.
+
+        :default: true
+        '''
+        result = self._values.get("skip_matching")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def standby_instances(self) -> typing.Optional["StandbyInstances"]:
+        '''Specifies the behavior of instances in standby during an instance refresh.
+
+        :default: StandbyInstances.WAIT
+        '''
+        result = self._values.get("standby_instances")
+        return typing.cast(typing.Optional["StandbyInstances"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "InstanceRefreshOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_autoscaling.InstanceRefreshStrategy")
+class InstanceRefreshStrategy(enum.Enum):
+    '''The strategy to use for the instance refresh.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        # vpc: ec2.Vpc
+        # instance_type: ec2.InstanceType
+        # machine_image: ec2.IMachineImage
+        # alarm: cloudwatch.Alarm
+        
+        
+        autoscaling.AutoScalingGroup(self, "ASG",
+            vpc=vpc,
+            instance_type=instance_type,
+            machine_image=machine_image,
+        
+            update_policy=autoscaling.UpdatePolicy.instance_refresh(
+                strategy=autoscaling.InstanceRefreshStrategy.ROLLING,
+                min_healthy_percentage=90,
+                max_healthy_percentage=100,
+                instance_warmup=Duration.seconds(300),
+                checkpoint_percentages=[50, 100],
+                checkpoint_delay=Duration.minutes(10),
+                alarms=[alarm]
+            )
+        )
+    '''
+
+    ROLLING = "ROLLING"
+    '''Terminate instances and launch new ones to replace them.'''
+    REPLACE_ROOT_VOLUME = "REPLACE_ROOT_VOLUME"
+    '''Replace the root volume of instances in place.
+
+    When this strategy is used, only ``ImageId`` changes within the launch template or mixed
+    instances policy are allowed. Other property changes may cause the stack update to fail.
+    '''
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.aws_autoscaling.InstancesDistribution",
     jsii_struct_bases=[],
     name_mapping={
@@ -18140,6 +18457,18 @@ class RollingUpdateOptions:
         )
 
 
+@jsii.enum(jsii_type="aws-cdk-lib.aws_autoscaling.ScaleInProtectedInstances")
+class ScaleInProtectedInstances(enum.Enum):
+    '''The behavior of instances that are protected from scale in during an instance refresh.'''
+
+    REFRESH = "REFRESH"
+    '''Refresh instances that are protected from scale in.'''
+    IGNORE = "IGNORE"
+    '''Ignore instances that are protected from scale in.'''
+    WAIT = "WAIT"
+    '''Wait until instances are no longer protected from scale in, then refresh them.'''
+
+
 @jsii.enum(jsii_type="aws-cdk-lib.aws_autoscaling.ScalingEvent")
 class ScalingEvent(enum.Enum):
     '''Fleet scaling events.'''
@@ -18972,6 +19301,18 @@ class SpotAllocationStrategy(enum.Enum):
     '''
     PRICE_CAPACITY_OPTIMIZED = "PRICE_CAPACITY_OPTIMIZED"
     '''The price and capacity optimized allocation strategy looks at both price and capacity to select the Spot Instance pools that are the least likely to be interrupted and have the lowest possible price.'''
+
+
+@jsii.enum(jsii_type="aws-cdk-lib.aws_autoscaling.StandbyInstances")
+class StandbyInstances(enum.Enum):
+    '''The behavior of instances in standby during an instance refresh.'''
+
+    TERMINATE = "TERMINATE"
+    '''Terminate instances in standby and launch new ones to replace them.'''
+    IGNORE = "IGNORE"
+    '''Ignore instances in standby.'''
+    WAIT = "WAIT"
+    '''Wait until instances are taken out of standby, then refresh them.'''
 
 
 class StepScalingAction(
@@ -19951,19 +20292,86 @@ class UpdatePolicy(
 ):
     '''How existing instances should be updated.
 
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: infused
 
     Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_autoscaling as autoscaling
+        # vpc: ec2.Vpc
+        # instance_type: ec2.InstanceType
+        # machine_image: ec2.IMachineImage
+        # alarm: cloudwatch.Alarm
         
-        update_policy = autoscaling.UpdatePolicy.replacing_update()
+        
+        autoscaling.AutoScalingGroup(self, "ASG",
+            vpc=vpc,
+            instance_type=instance_type,
+            machine_image=machine_image,
+        
+            update_policy=autoscaling.UpdatePolicy.instance_refresh(
+                strategy=autoscaling.InstanceRefreshStrategy.ROLLING,
+                min_healthy_percentage=90,
+                max_healthy_percentage=100,
+                instance_warmup=Duration.seconds(300),
+                checkpoint_percentages=[50, 100],
+                checkpoint_delay=Duration.minutes(10),
+                alarms=[alarm]
+            )
+        )
     '''
 
     def __init__(self) -> None:
         jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="instanceRefresh")
+    @builtins.classmethod
+    def instance_refresh(
+        cls,
+        *,
+        strategy: "InstanceRefreshStrategy",
+        alarms: typing.Optional[typing.Sequence["_aws_cloudwatch_70717108.IAlarmRef"]] = None,
+        bake_time: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        checkpoint_delay: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        checkpoint_percentages: typing.Optional[typing.Sequence[jsii.Number]] = None,
+        instance_warmup: typing.Optional["_aws_cdk_0cae9daa.Duration"] = None,
+        max_healthy_percentage: typing.Optional[jsii.Number] = None,
+        min_healthy_percentage: typing.Optional[jsii.Number] = None,
+        scale_in_protected_instances: typing.Optional["ScaleInProtectedInstances"] = None,
+        skip_matching: typing.Optional[builtins.bool] = None,
+        standby_instances: typing.Optional["StandbyInstances"] = None,
+    ) -> "UpdatePolicy":
+        '''Use instance refresh to update the instances in the AutoScalingGroup.
+
+        When properties that trigger an instance refresh change (such as LaunchTemplate
+        or MixedInstancesPolicy), CloudFormation starts an instance refresh to replace
+        instances gradually while maintaining availability.
+
+        :param strategy: The strategy to use for the instance refresh.
+        :param alarms: The CloudWatch alarms to monitor during the instance refresh. If any of the alarms goes into ALARM state, the instance refresh fails. You can specify up to 10 alarms. Default: - no alarms
+        :param bake_time: The amount of time after an instance refresh completes successfully before CloudFormation considers the update successful. Default: Duration.seconds(0)
+        :param checkpoint_delay: The amount of time to wait after a checkpoint is reached before continuing. Default: - 3600 seconds (1 hour), applied only when checkpointPercentages is set
+        :param checkpoint_percentages: Threshold values for each checkpoint in ascending order. Each number must be unique. To replace all instances in the group, the last number in the array must be 100. Default: - no checkpoints
+        :param instance_warmup: The amount of time to wait after a new instance enters the InService state before moving on to refresh the next instance. Default: - the group's DefaultInstanceWarmup if defined; otherwise the group's HealthCheckGracePeriod
+        :param max_healthy_percentage: The maximum percentage of the group that can be in service and healthy, or pending, to support your workload during the instance refresh. The difference between ``maxHealthyPercentage`` and ``minHealthyPercentage`` cannot be greater than 100. A larger range increases the number of instances that can be replaced at the same time. Default: - the value set in the Auto Scaling group's instance maintenance policy, if defined; otherwise 110 when the strategy is Rolling, or 100 when the strategy is ReplaceRootVolume
+        :param min_healthy_percentage: The minimum percentage of the group to keep in service, healthy, and ready to use to support your workload during the instance refresh, expressed as a percentage of the group's desired capacity. Default: - the value set in the Auto Scaling group's instance maintenance policy, if defined; otherwise 100 when the strategy is Rolling, or 90 when the strategy is ReplaceRootVolume
+        :param scale_in_protected_instances: Specifies the behavior of instances that are protected from scale in during an instance refresh. Default: ScaleInProtectedInstances.WAIT
+        :param skip_matching: Indicates whether skip matching is enabled. Default: true
+        :param standby_instances: Specifies the behavior of instances in standby during an instance refresh. Default: StandbyInstances.WAIT
+        '''
+        options = InstanceRefreshOptions(
+            strategy=strategy,
+            alarms=alarms,
+            bake_time=bake_time,
+            checkpoint_delay=checkpoint_delay,
+            checkpoint_percentages=checkpoint_percentages,
+            instance_warmup=instance_warmup,
+            max_healthy_percentage=max_healthy_percentage,
+            min_healthy_percentage=min_healthy_percentage,
+            scale_in_protected_instances=scale_in_protected_instances,
+            skip_matching=skip_matching,
+            standby_instances=standby_instances,
+        )
+
+        return typing.cast("UpdatePolicy", jsii.sinvoke(cls, "instanceRefresh", [options]))
 
     @jsii.member(jsii_name="replacingUpdate")
     @builtins.classmethod
@@ -22350,6 +22758,8 @@ __all__ = [
     "ILifecycleHook",
     "ILifecycleHookTarget",
     "InstanceLifecyclePolicy",
+    "InstanceRefreshOptions",
+    "InstanceRefreshStrategy",
     "InstancesDistribution",
     "LaunchTemplateOverrides",
     "LifecycleHook",
@@ -22369,6 +22779,7 @@ __all__ = [
     "RequestCountScalingProps",
     "RetentionTriggers",
     "RollingUpdateOptions",
+    "ScaleInProtectedInstances",
     "ScalingEvent",
     "ScalingEvents",
     "ScalingInterval",
@@ -22379,6 +22790,7 @@ __all__ = [
     "Signals",
     "SignalsOptions",
     "SpotAllocationStrategy",
+    "StandbyInstances",
     "StepScalingAction",
     "StepScalingActionProps",
     "StepScalingPolicy",
@@ -24165,6 +24577,23 @@ def _typecheckingstub__c9770cd60cfc69f2c7d108523545fc5de207bca98daae82701548d55b
 def _typecheckingstub__44a1f2a39b2e994eef7a02057de1095b1e5f225051ec596a66813a4371b7a98c(
     *,
     retention_triggers: typing.Optional[typing.Union[RetentionTriggers, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1aceaa630e4d1f24be7e8dde68f31415198436eb231a6552990e1d9c65c93bbd(
+    *,
+    strategy: InstanceRefreshStrategy,
+    alarms: typing.Optional[typing.Sequence[_aws_cloudwatch_70717108.IAlarmRef]] = None,
+    bake_time: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    checkpoint_delay: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    checkpoint_percentages: typing.Optional[typing.Sequence[jsii.Number]] = None,
+    instance_warmup: typing.Optional[_aws_cdk_0cae9daa.Duration] = None,
+    max_healthy_percentage: typing.Optional[jsii.Number] = None,
+    min_healthy_percentage: typing.Optional[jsii.Number] = None,
+    scale_in_protected_instances: typing.Optional[ScaleInProtectedInstances] = None,
+    skip_matching: typing.Optional[builtins.bool] = None,
+    standby_instances: typing.Optional[StandbyInstances] = None,
 ) -> None:
     """Type checking stubs"""
     pass

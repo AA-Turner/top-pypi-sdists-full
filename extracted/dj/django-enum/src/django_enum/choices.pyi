@@ -12,8 +12,6 @@ built-in _TextChoicesType / _IntegerChoicesType metaclass resolution and
 properly expose .choices, .names, .labels, and .values as class attributes.
 """
 
-from __future__ import annotations
-
 from enum import IntFlag
 from typing import Any
 
@@ -50,12 +48,8 @@ class FloatChoices(float, Choices):  # type: ignore[misc]
     property lists.
     """
 
-    ...
-
 class FlagChoices(IntFlag, Choices):  # type: ignore[misc]
     """
     An integer flag enumeration type that accepts enum-properties property
     lists.
     """
-
-    ...

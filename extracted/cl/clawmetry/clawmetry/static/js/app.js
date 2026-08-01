@@ -832,8 +832,14 @@ function _cmApplyNoAgentVariant(data) {
     var t = (typeof window.t === 'function') ? window.t : function(k, v, fb){ return fb; };
     msg.textContent = t('banners.detected_runtimes_msg', {runtimes: names},
       'Detected ' + names + ' on this machine. ClawMetry Pro watches them in real time.');
-    cta.href = 'https://app.clawmetry.com/upgrade?source=no-agent-banner&harness='
-      + encodeURIComponent(locked[0].id || '');
+    // Same rail as the runtime-switcher paywall: sign in HERE, trial key
+    // minted + activated locally — never an external upgrade tab (founder
+    // spec 2026-07-30).
+    cta.href = '#';
+    cta.onclick = function (e) {
+      e.preventDefault();
+      _cmShowRuntimePaywall(locked[0].id || '', locked[0].label || locked[0].id || 'Pro runtimes');
+    };
     cta.style.display = 'inline-block';
     installs.forEach(function(a){ if (a) a.style.display = 'none'; });
     if (!_cmNoAgentPaywallLogged) {
@@ -1290,6 +1296,7 @@ function switchTab(name) {
   if (name === 'policy') { if (typeof loadToolPolicy === 'function') loadToolPolicy(); }
   if (name === 'approvals') { if (typeof loadApprovalsTab === 'function') loadApprovalsTab(); }
   if (name === 'alerts') { if (typeof loadAlertsPage === 'function') loadAlertsPage(); }
+  if (name === 'evals') { if (typeof loadEvalsTab === 'function') loadEvalsTab(); }
   if (name === 'logs') loadLogs();
   if (name === 'dives') { if (typeof loadDivesPage === 'function') loadDivesPage(); }
   if (name === 'actions') loadQAHistory();
@@ -3505,20 +3512,34 @@ async function loadMiniWidgets(overview, usage) {
 async function loadEvaluators() {
   var listEl = document.getElementById('evaluators-list');
   var countEl = document.getElementById('evaluators-count');
-  if (!listEl) return;
+  var stripEl = document.getElementById('evaluators-overview-line');
+  if (!listEl && !stripEl) return;
   var data = await fetch('/api/evaluators').then(function(r){return r.json();}).catch(function(){return null;});
   var evs = (data && data.evaluators) || [];
   if (!evs.length) {
-    listEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">' +
+    if (listEl) listEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted);">' +
       t("evaluators.empty", null, "Evaluator library unavailable.") + '</div>';
     if (countEl) countEl.textContent = '';
+    if (stripEl) stripEl.textContent = '';
     return;
   }
+  // "Live" is the server's HONEST per-box count: judge-backed evaluators with
+  // no key on this box come back as status 'needs_key', not 'live'.
+  var liveN = (data && typeof data.live === 'number') ? data.live :
+    evs.filter(function(e){ return e.status === 'live'; }).length;
   if (countEl) {
-    var liveN = evs.filter(function(e){ return e.status === 'live'; }).length;
     countEl.textContent = liveN + ' / ' + evs.length + ' ' +
       t("evaluators.live_now", null, "live now");
   }
+  if (stripEl) {
+    var proN = evs.filter(function(e){ return e.tier === 'pro' && e.locked; }).length;
+    var needsKeyN = evs.filter(function(e){ return e.status === 'needs_key'; }).length;
+    var parts = [liveN + ' ' + t("evaluators.live_now", null, "live now")];
+    if (needsKeyN) parts.push(needsKeyN + ' ' + t("evaluators.strip_needs_key", null, "waiting for a judge key"));
+    if (proN) parts.push(proN + ' ' + t("evaluators.strip_with_pro", null, "with Pro"));
+    stripEl.textContent = parts.join(' · ');
+  }
+  if (!listEl) return;
   // Category → chip color + plain label.
   var CAT = {
     quality:     { c: '#8b5cf6', label: t("evaluators.cat_quality", null, "Quality") },
@@ -3535,6 +3556,8 @@ async function loadEvaluators() {
       statusLabel = t("evaluators.status_live", null, "Live"); statusColor = '#22c55e';
     } else if (e.status === 'partial') {
       statusLabel = t("evaluators.status_partial", null, "Early"); statusColor = '#f59e0b';
+    } else if (e.status === 'needs_key') {
+      statusLabel = t("evaluators.status_needs_key", null, "Needs key"); statusColor = '#f59e0b';
     } else {
       statusLabel = t("evaluators.status_soon", null, "With Pro"); statusColor = 'var(--text-muted)';
     }
@@ -3556,9 +3579,287 @@ async function loadEvaluators() {
       html += '<div style="margin-top:8px;font-size:11px;"><a href="/upgrade?source=evaluators" style="color:#8b5cf6;font-weight:600;text-decoration:none;">' +
         t("evaluators.unlock", null, "Unlock with Pro") + ' &rarr;</a></div>';
     }
+    if (e.status === 'needs_key') {
+      html += '<div style="margin-top:8px;font-size:11px;"><a href="#" onclick="openEvalRubricModal();return false;" style="color:#f59e0b;font-weight:600;text-decoration:none;">' +
+        t("evaluators.set_key", null, "Add a judge API key to turn this on") + ' &rarr;</a></div>';
+    }
     html += '</div>';
   });
   listEl.innerHTML = html;
+}
+
+// ── Evals tab (dedicated home for the eval system) ─────────────────────────
+// Loads: judge status, 24h score summary + 7d regression, the evaluator
+// library grid (shared loadEvaluators), recent scored sessions, golden suites.
+// Every card degrades to an honest message: locked (402), no key, or no data.
+function loadEvalsTab() {
+  loadEvaluators();
+  loadEvalsJudgeCard();
+  loadEvalsTabSummary();
+  loadEvalsRecent();
+  loadEvalsSuites();
+}
+
+function _evalsLockedHtml() {
+  return '<div style="font-size:12px;color:var(--text-muted);">' +
+    t("evals.locked", null, "Session scoring is a Pro feature.") +
+    ' <a href="/upgrade?source=evals-tab" style="color:#8b5cf6;font-weight:600;text-decoration:none;">' +
+    t("evaluators.unlock", null, "Unlock with Pro") + ' &rarr;</a></div>';
+}
+
+// The provider catalogue fetched from /api/evals/key — cached per page load so
+// the provider-change handler can fill in default models without a refetch.
+var _evalsKeyCfg = null;
+
+async function loadEvalsJudgeCard() {
+  var el = document.getElementById('evals-judge-body');
+  if (!el) return;
+  var meta = await fetch('/api/evaluators').then(function(r){return r.json();}).catch(function(){return null;});
+  var judge = meta && meta.judge;
+  if (!judge) {
+    el.innerHTML = '<span style="color:var(--text-muted);">' +
+      t("evals.judge_unavailable", null, "Judge status is unavailable here. Scores are computed on the machine your agent runs on.") + '</span>';
+    return;
+  }
+  var cfgResp = await fetch('/api/evals/key').catch(function(){return null;});
+  var cfg = (cfgResp && cfgResp.ok) ? await cfgResp.json().catch(function(){return null;}) : null;
+  _evalsKeyCfg = cfg;
+  var keyRejected = judge.key_present && judge.last_error === 'auth';
+  var html = '';
+  if (!judge.enabled) {
+    html += '<div style="color:#f59e0b;font-weight:600;margin-bottom:6px;">' +
+      t("evals.judge_disabled", null, "Scoring is switched off (CLAWMETRY_EVALS_ENABLED=0).") + '</div>';
+  } else if (keyRejected) {
+    html += '<div style="color:#ef4444;font-weight:600;margin-bottom:6px;">● ' +
+      t("evals.judge_key_rejected", null, "Your judge key was rejected by the provider. Re-add a valid key below.") + '</div>';
+  } else if (judge.key_present) {
+    html += '<div style="color:#22c55e;font-weight:600;margin-bottom:6px;">● ' +
+      t("evals.judge_on", null, "Scoring is ON. Finished sessions are scored automatically in the background.") + '</div>';
+  } else {
+    html += '<div style="color:#f59e0b;font-weight:600;margin-bottom:6px;">● ' +
+      t("evals.judge_needs_key", null, "Add an API key below to turn scoring on. Any provider works, not just Claude.") + '</div>';
+  }
+  html += '<div style="font-size:12px;color:var(--text-muted);line-height:1.6;">' +
+    t("evals.judge_how", null, "How it works: after a session finishes, a small model reads a redacted copy of the transcript and scores it 0 to 5 against your rubric. It runs on your machine, with your own API key, capped at 100 scores per hour. Your transcripts never go to ClawMetry servers.") +
+    '</div>';
+  var provLabel = '';
+  if (cfg && cfg.providers && cfg.selection && cfg.providers[cfg.selection.provider]) {
+    provLabel = cfg.providers[cfg.selection.provider].label;
+  }
+  html += '<div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12px;">';
+  html += '<span><span style="color:var(--text-muted);">' + t("evals.judge_model", null, "Judge model") + ':</span> <code>' + escHtml(judge.model || '') + '</code>' +
+    (provLabel ? ' <span style="color:var(--text-muted);">' + t("evals.via", null, "via") + ' ' + escHtml(provLabel) + '</span>' : '') + '</span>';
+  html += '<span><span style="color:var(--text-muted);">' + t("evals.judge_key", null, "API key") + ':</span> ' +
+    (keyRejected ? '<span style="color:#ef4444;font-weight:600;">' + t("evals.key_rejected", null, "rejected") + '</span>'
+      : judge.key_present ? '<span style="color:#22c55e;font-weight:600;">' + t("evals.key_set", null, "set") + '</span>'
+      : '<span style="color:#f59e0b;font-weight:600;">' + t("evals.key_missing", null, "not set") + '</span>') + '</span>';
+  html += '</div>';
+  // The simple ask-for-a-key form: always shown when scoring cannot run, and
+  // reachable via a small "change" link when it can.
+  var showForm = judge.enabled && (!judge.key_present || keyRejected);
+  if (cfg && cfg.providers) {
+    if (showForm) {
+      html += _evalsKeyFormHtml(cfg);
+    } else if (judge.enabled) {
+      html += '<div style="margin-top:8px;font-size:11px;"><a href="#" onclick="var f=document.getElementById(\'evals-key-form\');if(f)f.style.display=f.style.display===\'none\'?\'\':\'none\';return false;" style="color:var(--text-secondary);font-weight:600;text-decoration:none;">' +
+        t("evals.change_judge", null, "Change judge model or key") + '</a></div>';
+      html += '<div id="evals-key-form-wrap" style="display:contents;">' + _evalsKeyFormHtml(cfg, true) + '</div>';
+    }
+  }
+  el.innerHTML = html;
+}
+
+// Build the inline provider/model/key form. hidden=true renders it collapsed
+// (behind the "change" link) for boxes where scoring is already healthy.
+function _evalsKeyFormHtml(cfg, hidden) {
+  var sel = (cfg.selection && cfg.selection.provider) || 'anthropic';
+  if (!cfg.providers[sel]) sel = Object.keys(cfg.providers)[0];
+  var html = '<div id="evals-key-form" style="' + (hidden ? 'display:none;' : '') +
+    'margin-top:12px;padding:12px;background:var(--bg-primary);border:1px solid var(--border-primary);border-radius:10px;">';
+  html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">';
+  html += '<select id="evals-key-provider" onchange="_evalsKeyProviderChanged()" style="font-size:12px;padding:7px 8px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-primary);border-radius:6px;">';
+  Object.keys(cfg.providers).forEach(function(pid) {
+    html += '<option value="' + escHtml(pid) + '"' + (pid === sel ? ' selected' : '') + '>' +
+      escHtml(cfg.providers[pid].label) + (cfg.present && cfg.present[pid] ? ' ✓' : '') + '</option>';
+  });
+  html += '</select>';
+  var model = (cfg.selection && cfg.selection.provider === sel && cfg.selection.model) || cfg.providers[sel].default_model;
+  html += '<input id="evals-key-model" type="text" value="' + escHtml(model) + '" title="' +
+    t("evals.model_title", null, "Judge model id — any model this provider serves") + '" style="width:190px;font-family:monospace;font-size:12px;padding:7px 10px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-primary);border-radius:6px;">';
+  html += '<input id="evals-key-input" type="password" autocomplete="off" placeholder="' + escHtml(cfg.providers[sel].key_hint) + '" style="flex:1;min-width:180px;font-family:monospace;font-size:12px;padding:7px 10px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-primary);border-radius:6px;">';
+  html += '<input id="evals-key-baseurl" type="text" placeholder="http://localhost:11434/v1" style="' +
+    (cfg.providers[sel].needs_base_url ? '' : 'display:none;') +
+    'width:210px;font-family:monospace;font-size:12px;padding:7px 10px;background:var(--bg-secondary);color:var(--text-primary);border:1px solid var(--border-primary);border-radius:6px;">';
+  html += '<button id="evals-key-save" onclick="evalsSaveJudgeKey()" style="background:#22c55e;color:#0a0a0a;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">' +
+    t("evals.save_verify", null, "Save & verify") + '</button>';
+  html += '</div>';
+  html += '<div id="evals-key-status" style="font-size:11px;margin-top:8px;min-height:14px;color:var(--text-muted);">' +
+    t("evals.key_note", null, "Verified with one tiny test call before saving, then stored only on this machine (never synced).") + '</div>';
+  html += '</div>';
+  return html;
+}
+
+function _evalsKeyProviderChanged() {
+  var cfg = _evalsKeyCfg;
+  var sel = document.getElementById('evals-key-provider');
+  if (!cfg || !cfg.providers || !sel) return;
+  var info = cfg.providers[sel.value];
+  if (!info) return;
+  var modelEl = document.getElementById('evals-key-model');
+  if (modelEl) {
+    modelEl.value = (cfg.selection && cfg.selection.provider === sel.value && cfg.selection.model) || info.default_model;
+  }
+  var keyEl = document.getElementById('evals-key-input');
+  if (keyEl) keyEl.placeholder = info.key_hint;
+  var baseEl = document.getElementById('evals-key-baseurl');
+  if (baseEl) baseEl.style.display = info.needs_base_url ? '' : 'none';
+}
+
+async function evalsSaveJudgeKey() {
+  var btn = document.getElementById('evals-key-save');
+  var status = document.getElementById('evals-key-status');
+  var provider = (document.getElementById('evals-key-provider') || {}).value;
+  var model = ((document.getElementById('evals-key-model') || {}).value || '').trim();
+  var apiKey = ((document.getElementById('evals-key-input') || {}).value || '').trim();
+  var baseUrl = ((document.getElementById('evals-key-baseurl') || {}).value || '').trim();
+  if (!provider) return;
+  if (btn) { btn.disabled = true; btn.textContent = t("evals.verifying", null, "Verifying…"); }
+  if (status) { status.style.color = 'var(--text-muted)'; status.textContent = t("evals.verifying_note", null, "Making one tiny test call to check the key works…"); }
+  try {
+    var r = await fetch('/api/evals/key', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider: provider, api_key: apiKey, model: model, base_url: baseUrl }),
+    });
+    var data = await r.json().catch(function(){return {};});
+    if (r.ok && data.ok) {
+      if (status) {
+        status.style.color = '#22c55e';
+        status.textContent = t("evals.key_verified", null, "Key verified and saved. Scoring starts within a minute.");
+      }
+      setTimeout(function(){ loadEvalsJudgeCard(); loadEvaluators(); }, 1200);
+    } else {
+      if (status) {
+        status.style.color = '#ef4444';
+        status.textContent = t("evals.key_failed", null, "Not saved:") + ' ' + (data.error || ('HTTP ' + r.status));
+      }
+    }
+  } catch (e) {
+    if (status) { status.style.color = '#ef4444'; status.textContent = t("evals.key_failed", null, "Not saved:") + ' ' + e; }
+  }
+  if (btn) { btn.disabled = false; btn.textContent = t("evals.save_verify", null, "Save & verify"); }
+}
+
+async function loadEvalsTabSummary() {
+  var avgEl = document.getElementById('evals-tab-avg');
+  var covEl = document.getElementById('evals-tab-coverage');
+  var pctEl = document.getElementById('evals-tab-percentiles');
+  var regEl = document.getElementById('evals-tab-regression');
+  if (!avgEl) return;
+  var r = await fetch('/api/evals/summary?window=24h').catch(function(){return null;});
+  if (r && r.status === 402) { if (covEl) covEl.innerHTML = _evalsLockedHtml(); return; }
+  var data = r ? await r.json().catch(function(){return null;}) : null;
+  if (!data || !data.scored) {
+    avgEl.textContent = '--';
+    if (covEl) covEl.textContent = t("evals.summary_empty", null, "No sessions scored in the last day.");
+    if (pctEl) pctEl.textContent = '';
+  } else {
+    avgEl.textContent = Number(data.avg_score).toFixed(2) + ' / 5';
+    avgEl.style.color = data.avg_score >= 4 ? '#22c55e' : (data.avg_score >= 3 ? '#f59e0b' : '#ef4444');
+    if (covEl) covEl.textContent = data.scored + ' ' + t("evals.of", null, "of") + ' ' + data.total + ' ' +
+      t("evals.sessions_scored", null, "recent sessions scored");
+    if (pctEl) pctEl.innerHTML = 'p50 <b>' + Number(data.p50).toFixed(2) + '</b><br>p10 <b>' + Number(data.p10).toFixed(2) + '</b>';
+  }
+  if (regEl) {
+    var rr = await fetch('/api/evals/regression-summary?window=7d').then(function(x){return x.status===402?null:x.json();}).catch(function(){return null;});
+    if (rr && rr.tested) {
+      regEl.textContent = t("evals.regression", null, "Regression replay, last 7 days") + ': ' +
+        rr.improved + ' ' + t("evals.improved", null, "improved") + ' · ' +
+        rr.regressed + ' ' + t("evals.regressed", null, "regressed") + ' · ' +
+        rr.same + ' ' + t("evals.same", null, "unchanged");
+    } else {
+      regEl.textContent = '';
+    }
+  }
+}
+
+async function loadEvalsRecent() {
+  var el = document.getElementById('evals-recent-body');
+  if (!el) return;
+  var r = await fetch('/api/evals/recent?limit=20').catch(function(){return null;});
+  if (r && r.status === 402) { el.innerHTML = _evalsLockedHtml(); return; }
+  var data = r ? await r.json().catch(function(){return null;}) : null;
+  var rows = (data && data.evals) || [];
+  if (!rows.length) {
+    el.innerHTML = '<div style="color:var(--text-muted);">' +
+      t("evals.recent_empty", null, "No scored sessions yet. Once the judge has a key, finished sessions show up here with their score and the judge's one-line reason.") + '</div>';
+    return;
+  }
+  var html = '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:12px;">';
+  html += '<tr style="text-align:left;color:var(--text-muted);">' +
+    '<th style="padding:6px 8px;">' + t("evals.col_session", null, "Session") + '</th>' +
+    '<th style="padding:6px 8px;">' + t("evals.col_score", null, "Score") + '</th>' +
+    '<th style="padding:6px 8px;">' + t("evals.col_reason", null, "Judge's reason") + '</th>' +
+    '<th style="padding:6px 8px;">' + t("evals.col_when", null, "When") + '</th>' +
+    '<th style="padding:6px 8px;"></th></tr>';
+  rows.forEach(function(row) {
+    var sid = String(row.session_id || '');
+    var label = row.title ? row.title : (sid.length > 14 ? sid.slice(0, 14) + '…' : sid);
+    var score = (row.eval_score == null) ? '--' : Number(row.eval_score).toFixed(1);
+    var sc = row.eval_score == null ? 'var(--text-muted)' :
+      (row.eval_score >= 4 ? '#22c55e' : (row.eval_score >= 3 ? '#f59e0b' : '#ef4444'));
+    html += '<tr style="border-top:1px solid var(--border-primary);">';
+    html += '<td style="padding:6px 8px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(sid) + '">' +
+      (row.agent_type ? '<span style="color:var(--text-muted);">' + escHtml(row.agent_type) + '</span> ' : '') + escHtml(label) + '</td>';
+    html += '<td style="padding:6px 8px;font-weight:700;color:' + sc + ';">' + score + '</td>';
+    html += '<td style="padding:6px 8px;color:var(--text-muted);max-width:380px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(row.eval_reason || '') + '">' + escHtml(row.eval_reason || '') + '</td>';
+    html += '<td style="padding:6px 8px;color:var(--text-muted);white-space:nowrap;">' + (row.eval_scored_at ? timeAgo(row.eval_scored_at) : '') + '</td>';
+    html += '<td style="padding:6px 8px;"><button onclick="evalsRescore(\'' + escHtml(sid).replace(/'/g, "\\'") + '\', this)" style="background:var(--button-bg);color:var(--text-secondary);border:1px solid var(--border-primary);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;">↻ ' +
+      t("evals.rescore", null, "Re-score") + '</button></td>';
+    html += '</tr>';
+  });
+  html += '</table></div>';
+  el.innerHTML = html;
+}
+
+async function evalsRescore(sid, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    var r = await fetch('/api/evals/rescore/' + encodeURIComponent(sid), { method: 'POST' });
+    var data = await r.json().catch(function(){return {};});
+    if (r.ok && data.score != null) {
+      if (btn) btn.textContent = Number(data.score).toFixed(1);
+    } else {
+      if (btn) btn.textContent = data.skip_reason || data.error || t("evals.rescore_failed", null, "failed");
+    }
+  } catch (e) {
+    if (btn) btn.textContent = t("evals.rescore_failed", null, "failed");
+  }
+  setTimeout(function(){ loadEvalsRecent(); loadEvalsTabSummary(); }, 1500);
+}
+
+async function loadEvalsSuites() {
+  var el = document.getElementById('evals-suites-body');
+  if (!el) return;
+  var r = await fetch('/api/evals/suites').catch(function(){return null;});
+  if (r && r.status === 402) { el.innerHTML = _evalsLockedHtml(); return; }
+  var data = r ? await r.json().catch(function(){return null;}) : null;
+  var suites = (data && data.suites) || [];
+  var html = '';
+  if (suites.length) {
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">';
+    suites.forEach(function(s) {
+      html += '<span style="background:var(--bg-primary);border:1px solid var(--border-primary);border-radius:8px;padding:4px 10px;font-family:monospace;font-size:12px;color:var(--text-primary);">' + escHtml(s) + '</span>';
+    });
+    html += '</div>';
+  } else {
+    html += '<div style="margin-bottom:10px;">' +
+      t("evals.suites_empty", null, "No test suites yet. A suite is a small YAML file of test prompts plus what a good answer looks like; run it before each release to catch a prompt regression before your users do.") + '</div>';
+  }
+  html += '<div style="color:var(--text-muted);">' +
+    t("evals.suites_cli", null, "Suites live in") + ' <code>~/.clawmetry/evals/</code> · ' +
+    t("evals.suites_run", null, "run one with") + ' <code>clawmetry eval --suite &lt;name&gt;</code></div>';
+  el.innerHTML = html;
 }
 
 // Issue #1619 Phase 1 — pull aggregate score for the overview tile.
@@ -4159,7 +4460,16 @@ function _provenancePillHtml(meta, bodyHtml) {
       ? _channelDisplayName(prov)
       : (prov.charAt(0).toUpperCase() + prov.slice(1));
   }
-  var sender = meta.sender ? String(meta.sender) : '';
+  // meta.sender may be a BLOCK ({id, name, username, is_bot}) — Telegram's
+  // "Conversation info (untrusted metadata)" carries one. String() on it
+  // renders "[object Object]" in the pill (founder screenshot 2026-07-31);
+  // unwrap it the same way _extractChannelInfo does.
+  var senderVal = meta.sender;
+  if (senderVal && typeof senderVal === 'object') {
+    senderVal = senderVal.name || senderVal.username || senderVal.first_name
+      || senderVal.display_name || senderVal.id || '';
+  }
+  var sender = senderVal ? String(senderVal) : '';
   var ts = meta.timestamp;
   var tStr = '';
   if (ts) {
@@ -4471,7 +4781,7 @@ var _channelIcons = {
   'googlechat': '🔵', 'matrix': '🔢', 'msteams': '🏢', 'mattermost': '⚡',
   'line': '💚', 'nostr': '🟣', 'twitch': '💜', 'bluebubbles': '💙',
   'feishu': '🟠', 'zalo': '🩵', 'tlon': '🟤', 'synologychat': '🟦',
-  'nextcloudtalk': '☁️', 'clickclack': '🗨️',
+  'nextcloudtalk': '☁️', 'clickclack': '🗨️', 'buzz': '🐝',
   'cli': '🖥️', 'tui': '⌨️', 'cron': '⏰'
 };
 var _channelColors = {
@@ -4480,7 +4790,7 @@ var _channelColors = {
   'googlechat': '#1A73E8', 'matrix': '#0DBD8B', 'msteams': '#4B53BC', 'mattermost': '#0072C6',
   'line': '#06C755', 'nostr': '#9333ea', 'twitch': '#9146FF', 'bluebubbles': '#3478F6',
   'feishu': '#00D6B9', 'zalo': '#0068FF', 'tlon': '#A78BFA', 'synologychat': '#1A73E8',
-  'nextcloudtalk': '#0082C9', 'clickclack': '#FF6B35',
+  'nextcloudtalk': '#0082C9', 'clickclack': '#FF6B35', 'buzz': '#F59E0B',
   'cli': '#94a3b8', 'tui': '#94a3b8', 'cron': '#6B7280'
 };
 // Display-name overrides for channels whose snake/lower-case key isn't a
@@ -8526,7 +8836,7 @@ var _CM_RT_LABEL = {
   picoclaw: 'PicoClaw', nanoclaw: 'NanoClaw',
   hermes: 'Hermes', claude_code: 'Claude Code', codex: 'Codex', cursor: 'Cursor',
   aider: 'Aider', goose: 'Goose', opencode: 'opencode', qwen_code: 'Qwen Code',
-  pi: 'Pi', deepagents: 'Deep Agents', n8n: 'n8n'
+  pi: 'Pi', deepagents: 'Deep Agents', n8n: 'n8n', antigravity: 'Antigravity'
 };
 // The CLOSED session-prefix runtimes (the only keys that can ride a session_id
 // prefix). Foreign OTLP / OpenLLMetry apps are NOT in here — they have no
@@ -8535,7 +8845,7 @@ var _CM_RT_LABEL = {
 var _CM_RT_PREFIXES = {
   openclaw: 1, picoclaw: 1, nanoclaw: 1, hermes: 1, claude_code: 1, codex: 1,
   cursor: 1, aider: 1, goose: 1, opencode: 1, qwen_code: 1, pi: 1, deepagents: 1,
-  n8n: 1
+  n8n: 1, antigravity: 1
 };
 // Dynamic registry of foreign OTLP/OpenLLMetry apps surfaced by the daemon
 // (runtimeSummary/agentInventory carry `otlp:true` + a `displayName`). These are
@@ -8659,6 +8969,7 @@ var _CM_RT_CAPS = {
   pi:          ['SESSIONS','EVENTS','COST'],
   deepagents:  ['SESSIONS','EVENTS','COST'],
   n8n:         ['SESSIONS','EVENTS','COST'],
+  antigravity: ['SESSIONS','EVENTS','COST','SUBAGENTS'],
   hermes:      ['SESSIONS','EVENTS','COST','SUBAGENTS'],
   cursor:      ['SESSIONS','EVENTS'],   // no COST
   picoclaw:    ['SESSIONS','EVENTS'],   // no COST
@@ -9431,15 +9742,12 @@ function _cmShowRuntimePaywall(harness, label) {
   overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(26,24,22,.45);'
     + 'display:flex;align-items:center;justify-content:center;padding:24px;';
 
-  var upgradeUrl = 'https://app.clawmetry.com/upgrade?source=runtime-switcher&harness='
-    + encodeURIComponent(harness);
-
   // The plan ladder, mirroring the LIVE clawmetry.com/pricing page
   // (verified 2026-06-09: Free $0 / Starter $9 / Pro $29 / self-hosted via
   // license key / Enterprise; annual includes the desk device). Prices live
   // in this ONE object so a reprice is a one-line change here plus the
   // pricing page. Plain words for someone who has never compared plans.
-  var _cmPlanPrices = { starter: '$9', starterYr: '$90', pro: '$29', proYr: '$290' };
+  var _cmPlanPrices = { starter: '$9', starterYr: '$90', pro: '$19', proYr: '$190' };
   function _tierRow(accent, name, price, desc) {
     return '<div style="margin-bottom:10px;padding:11px 14px;border:1px solid ' + accent + ';'
       + 'border-radius:8px;font-size:13px;color:var(--text-secondary,#cbd5e1);line-height:1.5;">'
@@ -9467,14 +9775,82 @@ function _cmShowRuntimePaywall(harness, label) {
     + '$149 desk device, free. Prefer your own infra? Self-hosted uses the same plans with a license key: '
     + '<a href="https://clawmetry.com/pricing" target="_blank" rel="noopener noreferrer" '
     + 'style="color:#a78bfa;">see all plans</a>.</div>'
+    + '<div id="_cmRtTrialFlow" style="display:none;margin:0 0 12px;">'
+    + '<input id="_cmRtTrialEmail" type="email" placeholder="you@example.com" '
+    + 'style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--border-color,rgba(255,255,255,.2));'
+    + 'border-radius:6px;background:var(--bg-secondary,#101022);color:var(--text-primary,#e2e8f0);font-size:13px;margin-bottom:8px;">'
+    + '<input id="_cmRtTrialCode" type="text" inputmode="numeric" maxlength="6" placeholder="6-digit code" '
+    + 'style="display:none;width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--border-color,rgba(255,255,255,.2));'
+    + 'border-radius:6px;background:var(--bg-secondary,#101022);color:var(--text-primary,#e2e8f0);font-size:15px;'
+    + 'letter-spacing:5px;text-align:center;font-family:monospace;margin-bottom:8px;">'
+    + '<div id="_cmRtTrialMsg" style="display:none;font-size:12px;color:var(--text-muted,#94a3b8);margin-bottom:8px;"></div>'
+    + '</div>'
     + '<div style="display:flex;gap:8px;justify-content:flex-end;">'
     + '<button type="button" id="_cmRtPaywallCancel" style="padding:8px 16px;'
     + 'border:1px solid var(--border-color,rgba(255,255,255,.2));border-radius:6px;'
     + 'background:transparent;color:var(--text-secondary,#cbd5e1);cursor:pointer;font-size:13px;">Not now</button>'
-    + '<a href="' + upgradeUrl + '" target="_blank" rel="noopener noreferrer" id="_cmRtPaywallCTA"'
-    + ' style="padding:8px 16px;background:#7c3aed;color:#fff;border-radius:6px;'
-    + 'text-decoration:none;font-size:13px;font-weight:500;">Start 7-day free trial</a>'
+    + '<button type="button" id="_cmRtPaywallCTA"'
+    + ' style="padding:8px 16px;background:#7c3aed;color:#fff;border:none;border-radius:6px;'
+    + 'cursor:pointer;font-size:13px;font-weight:500;">Start 7-day free trial</button>'
     + '</div></div>';
+
+  // Founder spec (2026-07-30): a locked runtime must lead to SIGN-IN ->
+  // trial license -> unlocked runtimes, right here — never a pricing tab.
+  // Reuses the existing rail: /api/cloud-cta/send-otp (code email) +
+  // /api/trial/activate (verify with the cloud, mint + activate the 7-day
+  // trial license locally). Success reloads so entitlement re-resolves.
+  (function _wireTrialCta() {
+    var state = 'idle';
+    function _msg(t, isErr) {
+      var m = overlay.querySelector('#_cmRtTrialMsg');
+      if (!m) return;
+      m.style.display = t ? 'block' : 'none';
+      m.style.color = isErr ? '#f87171' : 'var(--text-muted,#94a3b8)';
+      m.textContent = t || '';
+    }
+    var cta = overlay.querySelector('#_cmRtPaywallCTA');
+    if (!cta) return;
+    cta.addEventListener('click', function () {
+      var flow = overlay.querySelector('#_cmRtTrialFlow');
+      var emailEl = overlay.querySelector('#_cmRtTrialEmail');
+      var codeEl = overlay.querySelector('#_cmRtTrialCode');
+      if (state === 'idle') {
+        flow.style.display = 'block';
+        _msg('Sign in with your email to start the free 7-day Pro trial. No card needed.');
+        emailEl.focus();
+        state = 'email';
+        cta.textContent = 'Email me a code';
+        return;
+      }
+      if (state === 'email') {
+        var email = (emailEl.value || '').trim();
+        if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) { _msg('Enter a valid email.', true); return; }
+        cta.disabled = true; _msg('Sending code…');
+        fetch('/api/cloud-cta/send-otp', {method:'POST', headers:{'Content-Type':'application/json'},
+               body: JSON.stringify({email: email})})
+          .then(function(r){ return r.json(); }).then(function(d){
+            cta.disabled = false;
+            if (d && d.ok === false) { _msg(d.error || 'Could not send the code.', true); return; }
+            emailEl.style.display = 'none'; codeEl.style.display = 'block'; codeEl.focus();
+            _msg('We emailed a 6-digit code to ' + email + '.');
+            state = 'code'; cta.textContent = 'Activate trial';
+          }).catch(function(){ cta.disabled = false; _msg('Network error. Try again.', true); });
+        return;
+      }
+      if (state === 'code') {
+        var code = (codeEl.value || '').replace(/\s/g, '');
+        if (code.length !== 6) { _msg('Enter the 6-digit code from your email.', true); return; }
+        cta.disabled = true; _msg('Activating your trial…');
+        fetch('/api/trial/activate', {method:'POST', headers:{'Content-Type':'application/json'},
+               body: JSON.stringify({email: (emailEl.value||'').trim(), code: code})})
+          .then(function(r){ return r.json(); }).then(function(d){
+            if (!d || !d.ok) { cta.disabled = false; _msg((d && d.error) || 'Activation failed. Try again.', true); return; }
+            _msg('Pro trial active — unlocking ' + label + '…');
+            setTimeout(function(){ location.reload(); }, 900);
+          }).catch(function(){ cta.disabled = false; _msg('Network error. Try again.', true); });
+      }
+    });
+  })();
 
   document.body.appendChild(overlay);
   overlay.addEventListener('click', function(e) { if (e.target === overlay) _cmDismissRtPaywall(); });
@@ -14569,6 +14945,82 @@ window.toggleTranscriptPlumbing = function() {
   if (st) st.textContent = window._transcriptShowPlumbing ? '●' : '○';
   loadTranscripts();
 };
+// ── Conversations time-window filter (post-mortem digging) ──────────────
+// null = Live (full recent list). Otherwise {sinceMs, untilMs}: the list is
+// narrowed to conversations ACTIVE inside the window — overlap test on
+// [started||modified, modified] so a session that began before the window
+// and kept running through it still shows. Same UX as the Brain range bar.
+var _transcriptRange = null;
+
+function _txSetRangeActiveBtn(key) {
+  document.querySelectorAll('#tx-range-bar .brain-range-btn').forEach(function(b) {
+    b.classList.toggle('active', b.getAttribute('data-range') === String(key));
+  });
+}
+
+function _txUpdateRangeUI() {
+  var banner = document.getElementById('tx-history-banner');
+  var bannerText = document.getElementById('tx-history-banner-text');
+  if (_transcriptRange) {
+    if (banner) banner.style.display = 'flex';
+    if (bannerText) bannerText.textContent = _brainRangeHuman(
+      new Date(_transcriptRange.sinceMs).toISOString(),
+      new Date(_transcriptRange.untilMs).toISOString());
+  } else if (banner) {
+    banner.style.display = 'none';
+  }
+}
+
+function setTranscriptTimeRange(secondsOrLive, el) {
+  var custom = document.getElementById('tx-custom-range');
+  if (custom) custom.style.display = 'none';
+  if (secondsOrLive === 'live') {
+    _transcriptRange = null;
+    _txSetRangeActiveBtn('live');
+    _txUpdateRangeUI();
+    loadTranscripts();
+    return;
+  }
+  var secs = parseInt(secondsOrLive, 10) || 3600;
+  var now = Date.now();
+  _transcriptRange = {sinceMs: now - secs * 1000, untilMs: now};
+  _txSetRangeActiveBtn(secs);
+  _txUpdateRangeUI();
+  loadTranscripts();
+}
+
+function toggleTranscriptCustomRange(el) {
+  var custom = document.getElementById('tx-custom-range');
+  if (!custom) return;
+  var showing = custom.style.display !== 'none';
+  custom.style.display = showing ? 'none' : 'flex';
+  if (!showing) {
+    var to = document.getElementById('tx-range-to');
+    var from = document.getElementById('tx-range-from');
+    var pad = function(n) { return (n < 10 ? '0' : '') + n; };
+    var fmt = function(d) {
+      return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) +
+             'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    };
+    var now = new Date();
+    if (to && !to.value) to.value = fmt(now);
+    if (from && !from.value) from.value = fmt(new Date(now.getTime() - 24 * 3600 * 1000));
+  }
+}
+
+function applyTranscriptCustomRange() {
+  var from = document.getElementById('tx-range-from');
+  var to = document.getElementById('tx-range-to');
+  if (!from || !from.value || !to || !to.value) return;
+  var s = new Date(from.value), u = new Date(to.value);
+  if (isNaN(s.getTime()) || isNaN(u.getTime())) return;
+  if (s.getTime() > u.getTime()) { var tmp = s; s = u; u = tmp; }
+  _transcriptRange = {sinceMs: s.getTime(), untilMs: u.getTime()};
+  _txSetRangeActiveBtn('custom');
+  _txUpdateRangeUI();
+  loadTranscripts();
+}
+
 async function loadTranscripts() {
   try {
     var data = await fetch('/api/transcripts').then(r => r.json());
@@ -14597,6 +15049,21 @@ async function loadTranscripts() {
     if (_rtFilter !== 'all') {
       data.transcripts = _allTx.filter(function(t) { return _cmRuntimeOf(t) === _rtFilter; });
     }
+    // Time-window filter: keep conversations ACTIVE inside the window.
+    // Overlap test on [started, modified]; when the endpoint doesn't ship
+    // `started` (legacy filesystem path), fall back to started = modified,
+    // i.e. strict last-activity-in-window.
+    var _txWin = _transcriptRange;
+    var _txWinEmpty = false;
+    if (_txWin) {
+      var _preWin = data.transcripts.length;
+      data.transcripts = data.transcripts.filter(function(t) {
+        var mod = t.modified || 0;
+        var start = t.started || mod;
+        return start <= _txWin.untilMs && mod >= _txWin.sinceMs;
+      });
+      _txWinEmpty = (_preWin > 0 && data.transcripts.length === 0);
+    }
     var plumbingTotal = 0;
     data.transcripts.forEach(function(t) {
       var raw = String(t.id || '');
@@ -14623,7 +15090,9 @@ async function loadTranscripts() {
     if (plumbCountEl) plumbCountEl.textContent = plumbingTotal > 0 ? (window._transcriptShowPlumbing ? '(' + plumbingTotal + ' shown)' : '(' + plumbingTotal + ' hidden)') : '';
     var plumbBtn = document.getElementById('transcript-plumbing-btn');
     if (plumbBtn) plumbBtn.style.display = plumbingTotal > 0 ? '' : 'none';
-    var emptyMsg = _rtNoTx
+    var emptyMsg = _txWinEmpty
+      ? '<div style="padding:16px;color:#666;">' + t('transcripts.window_empty', null, 'No conversations were active in this window. Try a wider window — or note that only recently synced conversations are listed here.') + '</div>'
+      : _rtNoTx
       ? '<div style="padding:16px;color:#666;">No <strong>' + escHtml(_cmRuntimeLabel(_rtFilter)) + '</strong> sessions have a transcript yet. Pick <strong>All runtimes</strong> in the header to see every session.</div>'
       : (plumbingTotal > 0 && !window._transcriptShowPlumbing)
       ? '<div style="padding:16px;color:#666;">No sessions to show — ' + plumbingTotal + ' Self-Evolve session' + (plumbingTotal === 1 ? '' : 's') + ' hidden. Click “Show plumbing” to reveal.</div>'
@@ -16995,7 +17464,7 @@ function hideUnconfiguredChannels(svgRoot) {
   // Priority order for slot assignment (up to 3 visible at a time)
   var SLOT_ORDER = ['tui', 'telegram', 'whatsapp', 'imessage', 'signal', 'discord', 'slack',
                     'irc', 'webchat', 'googlechat', 'bluebubbles', 'msteams', 'matrix',
-                    'mattermost', 'line', 'nostr', 'twitch', 'feishu', 'zalo', 'clickclack'];
+                    'mattermost', 'line', 'nostr', 'twitch', 'feishu', 'zalo', 'clickclack', 'buzz'];
   fetch('/api/channels').then(function(r){return r.json();}).then(function(d) {
     var active = d.channels || ['telegram', 'signal', 'whatsapp'];
     // Build display list: up to 3 channels, prioritized by SLOT_ORDER
@@ -17530,6 +17999,7 @@ var _RT_FLOW = {
   pi:          { label:'Pi',          src:['⌨️','Terminal'], accent:'#4f8ef7', stroke:'#3b74d9', tools:[['📝','Edit'],['📖','Read'],['⚡','Bash'],['🔍','Grep']] },
   deepagents:  { label:'Deep Agents', src:['⌨️','Terminal'], accent:'#2fa87c', stroke:'#238a64', tools:[['📝','Edit'],['📖','Read'],['⚡','Shell'],['📋','Todos']] },
   n8n:         { label:'n8n',         src:['🔗','Workflow'], accent:'#ea4b71', stroke:'#c93a5c', tools:[['🌐','HTTP'],['🤖','AI Agent'],['⚡','Code'],['🪝','Webhook']] },
+  antigravity: { label:'Antigravity', src:['🪐','IDE'],      accent:'#4285f4', stroke:'#2f6ad9', tools:[['📝','Write'],['⚡','Command'],['📖','View'],['🌐','Search']] },
   picoclaw:    { label:'PicoClaw',    src:['👤','You'],      accent:'#ec4899', stroke:'#db2777', tools:[['⚡','Exec'],['🧠','Memory'],['📋','Sessions']], minimal:true },
   nanoclaw:    { label:'NanoClaw',    src:['👤','You'],      accent:'#14b8a6', stroke:'#0d9488', tools:[['⚡','Exec'],['🧠','Memory']], minimal:true },
 };
@@ -18594,7 +19064,7 @@ function initOverviewFlow() {
     };
     var OV_SLOT_ORDER = ['tui', 'telegram', 'whatsapp', 'imessage', 'signal', 'discord', 'slack',
                          'irc', 'webchat', 'googlechat', 'bluebubbles', 'msteams', 'matrix',
-                         'mattermost', 'line', 'nostr', 'twitch', 'feishu', 'zalo', 'clickclack'];
+                         'mattermost', 'line', 'nostr', 'twitch', 'feishu', 'zalo', 'clickclack', 'buzz'];
     var visibleChannels = OV_SLOT_ORDER.filter(function(ch) { return active.indexOf(ch) !== -1; }).slice(0, 3);
     // Use the clone SVG as root for getElementById (it's already in DOM via container)
     function ovEl(id) { return document.getElementById(id); }

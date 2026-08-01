@@ -7,7 +7,6 @@
 # pylint: skip-file
 # fmt: off
 # isort: skip_file
-from .....schema_classes import AiContextClass
 from .....schema_classes import DerivedMetricInputClass
 from .....schema_classes import DialectClass
 from .....schema_classes import DialectExpressionClass
@@ -17,7 +16,6 @@ from .....schema_classes import MetricRelationshipsClass
 from .....schema_classes import MetricUpstreamsClass
 
 
-AiContext = AiContextClass
 DerivedMetricInput = DerivedMetricInputClass
 Dialect = DialectClass
 DialectExpression = DialectExpressionClass

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-fasthtml
-Version: 0.14.9
+Version: 0.14.11
 Summary: The fastest way to create an HTML app
 Author-email: Jeremy Howard and contributors <github@jhoward.fastmail.fm>
 License: Apache-2.0
@@ -22,7 +22,6 @@ Requires-Dist: oauthlib
 Requires-Dist: itsdangerous
 Requires-Dist: uvicorn[standard]>=0.30
 Requires-Dist: httpx2
-Requires-Dist: fastlite>=0.1.1
 Requires-Dist: python-multipart
 Requires-Dist: beautifulsoup4
 Provides-Extra: dev
@@ -31,6 +30,7 @@ Requires-Dist: lxml; extra == "dev"
 Requires-Dist: pysym2md>=0.0.6; extra == "dev"
 Requires-Dist: monsterui; extra == "dev"
 Requires-Dist: PyJWT; extra == "dev"
+Requires-Dist: fastlite; extra == "dev"
 Dynamic: license-file
 
 # FastHTML

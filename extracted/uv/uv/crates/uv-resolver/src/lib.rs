@@ -9,15 +9,15 @@ pub use exclusions::Exclusions;
 pub use flat_index::{FlatDistributions, FlatIndex};
 pub use fork_strategy::ForkStrategy;
 pub use lock::{
-    DependencySelection, Installable, Lock, LockError, LockVersion, Metadata, Package, PackageMap,
-    PylockToml, PylockTomlError, PylockTomlErrorKind, PythonReport, RequirementsTxtExport,
-    ResolverManifest, SatisfiesResult, SelectedDependency, TreeDisplay, TreeJsonTarget, VERSION,
-    cyclonedx_json, implicit_constraints_marker,
+    CanonicalLockError, DependencySelection, Installable, InstallableRootKind, Lock, LockError,
+    LockVersion, Metadata, Package, PackageMap, PylockToml, PylockTomlError, PylockTomlErrorKind,
+    PythonReport, RequirementsTxtExport, ResolverManifest, SatisfiesResult, SelectedDependency,
+    TreeDisplay, TreeJsonTarget, VERSION, cyclonedx_json, implicit_constraints_marker,
 };
 pub use manifest::Manifest;
 pub use options::{Flexibility, Options, OptionsBuilder};
 pub use preferences::{Preference, PreferenceError, Preferences};
-pub use prerelease::PrereleaseMode;
+pub use prerelease::{Prerelease, PrereleaseMode, PrereleasePackage, PrereleasePackageEntry};
 pub use pubgrub::PubGrubHint;
 pub use python_requirement::PythonRequirement;
 pub use resolution::{

@@ -1,7 +1,8 @@
 import threading
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import Protocol, runtime_checkable
 
 from trilogy import Executor
@@ -15,6 +16,14 @@ from trilogy.core.models.datasource import (
 )
 from trilogy.core.models.environment import Environment
 from trilogy.execution.state.cache import ColumnStatsCache
+from trilogy.execution.state.partitions import (
+    PartitionObservation,
+    is_partitioned,
+    probe_expected_partitions,
+    probe_observed_partitions,
+    selected_slice,
+    stale_slices,
+)
 from trilogy.execution.state.phases import get_phase_recorder
 from trilogy.execution.state.watermarks import (
     DatasourceWatermark,
@@ -90,6 +99,14 @@ class StateStore(Protocol):
         skip_datasources: set[str] | None = None,
     ) -> list[StaleAsset]: ...
 
+    def partition_asset(
+        self,
+        env: Environment,
+        executor: Executor,
+        ds_id: str,
+        root_assets: set[str] | None = None,
+    ) -> tuple[list[PartitionObservation], list[PartitionObservation]] | None: ...
+
     def run_freshness_probe_cached(self, probe_path: str) -> bool: ...
 
 
@@ -98,6 +115,10 @@ class BaseStateStore:
     def __init__(self, cache: ColumnStatsCache | None = None) -> None:
         self.watermarks: dict[str, DatasourceWatermark] = {}
         self.concept_max_watermarks: dict[str, UpdateKey] = {}
+        # ds_id -> (observed slices, expected slices) for partitioned assets.
+        self.partitions: dict[
+            str, tuple[list[PartitionObservation], list[PartitionObservation]]
+        ] = {}
         self._cache = cache
         # Probe path -> result; deduplicates subprocess calls for the same probe
         # script during one refresh invocation.
@@ -130,6 +151,7 @@ class BaseStateStore:
         """
         with self._lock:
             self.watermarks.pop(ds_id, None)
+            self.partitions.pop(ds_id, None)
             self.concept_max_watermarks.clear()
 
     def invalidate_address(self, env: Environment, address: str) -> None:
@@ -151,6 +173,7 @@ class BaseStateStore:
         with self._lock:
             for ds_id in affected_ids:
                 self.watermarks.pop(ds_id, None)
+                self.partitions.pop(ds_id, None)
             for probe in affected_probes:
                 self._probe_results.pop(probe, None)
             self.concept_max_watermarks.clear()
@@ -180,6 +203,37 @@ class BaseStateStore:
 
         self.watermarks[datasource.identifier] = watermarks
         return watermarks
+
+    def partition_asset(
+        self,
+        env: Environment,
+        executor: Executor,
+        ds_id: str,
+        root_assets: set[str] | None = None,
+    ) -> tuple[list[PartitionObservation], list[PartitionObservation]] | None:
+        """Observed and expected slices for a partitioned datasource.
+
+        None for anything unpartitioned (and for roots, which are the expected
+        side of every comparison and never judged themselves). Cached per
+        invocation and dropped by ``invalidate*`` alongside watermarks, so a
+        post-refresh re-probe sees the slices the refresh just wrote.
+        """
+        ds = env.datasources[ds_id]
+        if not is_partitioned(ds):
+            return None
+        with self._lock:
+            cached = self.partitions.get(ds_id)
+        if cached is not None:
+            return cached
+        if root_assets is None:
+            root_assets = {d.identifier for d in env.datasources.values() if d.is_root}
+        probed = (
+            probe_observed_partitions(ds, executor),
+            probe_expected_partitions(ds, executor, root_assets),
+        )
+        with self._lock:
+            self.partitions[ds_id] = probed
+        return probed
 
     def get_datasource_watermarks(
         self, datasource: Datasource
@@ -327,7 +381,12 @@ class BaseStateStore:
                 if (ds.is_root and ds.refresh_script)
                 else RefreshKind.SQL
             )
-            return StaleAsset(datasource_id=ds_id, reason="forced rebuild", kind=kind)
+            return StaleAsset(
+                datasource_id=ds_id,
+                reason="forced rebuild",
+                kind=kind,
+                explicit=True,
+            )
 
         if is_managed_root:
             if not self.run_freshness_probe_cached(ds.freshness_probe):  # type: ignore[arg-type]
@@ -369,6 +428,23 @@ class BaseStateStore:
                 reason="file not found",
                 filters=UpdateKeys(),
             )
+
+        # Per-slice verdict first for a partitioned asset: a missing slice can
+        # hold rows OLDER than the table's MAX, so the table-level comparison
+        # below reports fresh while a hole sits in the middle of the range.
+        # Falling through when nothing is stale keeps the coarse check as the
+        # backstop (an unprobeable expectation must not read as "fresh").
+        probed = self.partition_asset(env, executor, ds_id, root_assets=root_assets)
+        if probed is not None:
+            slices = stale_slices(*probed)
+            if slices:
+                shown = ", ".join(obs.id for obs in slices[:3])
+                suffix = "" if len(slices) <= 3 else f", +{len(slices) - 3} more"
+                return StaleAsset(
+                    datasource_id=ds_id,
+                    reason=f"{len(slices)} stale partition(s): {shown}{suffix}",
+                    partitions=slices,
+                )
 
         # Watermark lag — needs concept_max_watermarks for the comparison.
         self._ensure_concept_max_watermarks(env, executor, root_assets)
@@ -457,7 +533,9 @@ class BaseStateStore:
         self._ensure_concept_max_watermarks(env, executor, root_assets)
 
         stale: list[StaleAsset] = []
-        for ds_id in env.datasources:
+        # Materialized: is_stale's partition probe hides non-root datasources for
+        # the duration of its query, mutating this dict mid-iteration.
+        for ds_id in list(env.datasources):
             if ds_id in skip_datasources:
                 continue
             asset = self.is_stale(env, executor, ds_id, root_assets=root_assets)
@@ -522,6 +600,40 @@ class RefreshResult:
         return self.stale_count > 0
 
 
+@dataclass(frozen=True)
+class RefreshPolicy:
+    """What the caller asked a refresh to do, as opposed to how a particular
+    call site is wired up.
+
+    Every entry point that plans a refresh — the CLI's single-file and directory
+    paths, and the :func:`refresh_stale_assets` convenience wrapper — needs to
+    carry these, while ``skip_datasources``/``initial_watermarks``/``cache``/
+    ``state_store`` genuinely differ per site and stay separate arguments.
+
+    Grouping them is not tidiness. When each of the four planning call sites
+    took intent as loose keyword arguments, adding ``partition_selector``
+    reached one of them and was silently ignored on the others: the flag parsed,
+    the run succeeded, and it rebuilt slices the caller had not asked for. A new
+    field here reaches every site by construction, and the only place that has
+    to learn about it is :meth:`~trilogy.scripts.common.RefreshParams.policy`.
+
+    One policy object is shared by every managed node in a directory refresh,
+    which evaluates them on a thread pool — hence frozen, and hence the selector
+    is copied behind a read-only view rather than aliasing the caller's dict.
+    """
+
+    #: Datasource names to rebuild regardless of staleness (``--force``).
+    force_sources: frozenset[str] = frozenset()
+    #: Concept address -> value naming the slice this run owns
+    #: (``--partition``). Empty means "let staleness decide".
+    partition_selector: Mapping[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self, "partition_selector", MappingProxyType(dict(self.partition_selector))
+        )
+
+
 @dataclass
 class RefreshPlan:
     """Computed refresh plan before any assets are updated."""
@@ -533,6 +645,10 @@ class RefreshPlan:
     root_assets: int
     all_assets: int
     root_watermarks: dict[str, DatasourceWatermark] = field(default_factory=dict)
+    # ds_id -> (observed slices, expected slices); partitioned datasources only.
+    partitions: dict[
+        str, tuple[list[PartitionObservation], list[PartitionObservation]]
+    ] = field(default_factory=dict)
 
     @property
     def refresh_assets(self) -> list[StaleAsset]:
@@ -549,7 +665,7 @@ class RefreshPlan:
 
 def create_refresh_plan(
     executor: "Executor",
-    force_sources: set[str] | None = None,
+    policy: RefreshPolicy | None = None,
     cache: ColumnStatsCache | None = None,
     skip_datasources: set[str] | None = None,
     initial_watermarks: dict[str, DatasourceWatermark] | None = None,
@@ -557,17 +673,21 @@ def create_refresh_plan(
 ) -> RefreshPlan:
     """Compute which assets would be refreshed without executing updates.
 
+    policy: what the caller asked for — forced sources, a partition selector.
+        See :class:`RefreshPolicy`; it is one object precisely so a new kind of
+        intent cannot reach some planning call sites and not others.
     skip_datasources: ds_ids to completely ignore (already covered by another owner script).
     initial_watermarks: pre-collected watermarks (e.g. root watermarks from a prior phase).
     state_store: alternate StateStore backend; defaults to a fresh in-memory
         BaseStateStore. Pre-seeded watermarks on the store are respected
         (watermark_all_assets skips already-present ds_ids).
     """
+    policy = policy if policy is not None else RefreshPolicy()
     if state_store is None:
         state_store = new_state_store(cache=cache)
     if initial_watermarks:
         state_store.watermarks.update(initial_watermarks)
-    force_sources = force_sources or set()
+    force_sources = set(policy.force_sources)
     extra_skip = skip_datasources or set()
     all_skip = force_sources | extra_skip
 
@@ -593,6 +713,7 @@ def create_refresh_plan(
                     datasource_id=ds.identifier,
                     reason="forced rebuild",
                     kind=kind,
+                    explicit=True,
                 )
             )
 
@@ -607,6 +728,20 @@ def create_refresh_plan(
         if ds_id in root_ds_ids
     }
 
+    # Per-slice state for partitioned targets. Two extra queries per partitioned
+    # datasource; nothing at all for the unpartitioned majority.
+    partitions = {}
+    # Materialized: partition_asset's expected probe hides non-root datasources
+    # for the duration of its query, mutating this dict mid-iteration.
+    for ds_id, ds in list(executor.environment.datasources.items()):
+        if ds_id in all_skip or not is_partitioned(ds):
+            continue
+        probed = state_store.partition_asset(
+            executor.environment, executor, ds_id, root_assets=root_ds_ids
+        )
+        if probed is not None:
+            partitions[ds_id] = probed
+
     plan = RefreshPlan(
         stale_assets=stale_assets,
         forced_assets=forced_assets,
@@ -615,7 +750,17 @@ def create_refresh_plan(
         root_assets=root_assets,
         all_assets=all_assets,
         root_watermarks=root_watermarks,
+        partitions=partitions,
     )
+    if policy.partition_selector:
+        # ``extra_skip``, not ``all_skip``: a forced source is skipped by
+        # detection because it is rebuilt regardless, which is not a reason to
+        # withhold the narrowing. ``--force ds --partition day=X`` means "rebuild
+        # ds's X, stale or not" — dropping the selector there would rebuild every
+        # slice while the state delta still claimed only X.
+        target_partition_selector(
+            executor, plan, dict(policy.partition_selector), extra_skip
+        )
 
     # Begin-phase capture: the planning probe is the last look at state
     # before anything executes. First-wins inside the recorder, so re-plans
@@ -625,6 +770,56 @@ def create_refresh_plan(
         recorder.record_plan(executor.environment, plan, skipped=extra_skip)
 
     return plan
+
+
+def target_partition_selector(
+    executor: "Executor",
+    plan: RefreshPlan,
+    selector: dict[str, str],
+    skip: set[str],
+) -> None:
+    """Point the plan at exactly the slice ``selector`` names. Mutates ``plan``.
+
+    Two things happen, and both are the point:
+
+    - Any datasource partitioned on the named concepts is refreshed **whether or
+      not it looks stale**. A tick that owns 2026-07-30 must load 2026-07-30;
+      the slice may be absent from state entirely (never loaded, or the run is a
+      backfill of a day the watermark is already past), and a plan that consults
+      staleness first would decide there is nothing to do.
+    - Its refresh is narrowed to that slice, so the run replaces one partition
+      and leaves its healthy neighbours untouched.
+
+    Datasources the selector does not name plan normally: a directory holds many
+    assets and this flag speaks only for the ones keyed on the concept it names.
+    """
+    targeted: dict[str, StaleAsset] = {}
+    for ds_id, ds in executor.environment.datasources.items():
+        if ds_id in skip or ds.is_root:
+            continue
+        slice_ = selected_slice(ds, executor.environment, selector)
+        if slice_ is None:
+            continue
+        targeted[ds_id] = StaleAsset(
+            datasource_id=ds_id,
+            reason=f"partition {slice_.id} requested",
+            kind=RefreshKind.SQL,
+            partitions=[slice_],
+            explicit=True,
+        )
+    if not targeted:
+        return
+
+    # Replace rather than append: an asset already judged stale would otherwise
+    # be refreshed twice, once whole-table and once per slice, and the
+    # whole-table pass is exactly what the selector is asking us not to do.
+    plan.stale_assets = [
+        targeted.get(asset.datasource_id, asset) for asset in plan.stale_assets
+    ]
+    placed = {a.datasource_id for a in plan.stale_assets}
+    plan.forced_assets = [
+        asset for asset in plan.forced_assets if asset.datasource_id not in targeted
+    ] + [asset for ds_id, asset in targeted.items() if ds_id not in placed]
 
 
 class RefreshAssetError(RuntimeError):
@@ -717,7 +912,10 @@ def _execute_one_asset(
     try:
         try:
             sql = executor.update_datasource(
-                datasource, keys=asset.filters, dry_run=dry_run
+                datasource,
+                keys=asset.filters,
+                dry_run=dry_run,
+                partitions=asset.partitions or None,
             )
         except Exception as e:
             raise RefreshAssetError(asset.datasource_id, asset.reason, e) from e
@@ -780,10 +978,11 @@ def execute_refresh_plan(
 
         # SQL-kind assets may have been invalidated by a script-kind refresh
         # earlier in this same loop. Re-evaluate against the live store, except
-        # for explicit `forced rebuild` which bypasses staleness checks.
+        # for assets the caller asked for by name — re-deciding those would
+        # discard the very intent that put them in the plan.
         if (
             asset.kind != RefreshKind.SCRIPT
-            and asset.reason != "forced rebuild"
+            and not asset.explicit
             and has_scripts
             and not dry_run
         ):
@@ -815,7 +1014,9 @@ def execute_refresh_plan(
     # script-kind refresh moved its upstream root.
     if cascade and has_scripts and not dry_run:
         cascade_assets: list[StaleAsset] = []
-        for ds_id in executor.environment.datasources:
+        # Materialized: is_stale's partition probe mutates this dict (see
+        # get_stale_assets).
+        for ds_id in list(executor.environment.datasources):
             if ds_id in handled:
                 continue
             candidate = store.is_stale(executor.environment, executor, ds_id)
@@ -856,7 +1057,7 @@ def refresh_stale_assets(
     on_approval: (
         Callable[[list[StaleAsset], dict[str, DatasourceWatermark]], bool] | None
     ) = None,
-    force_sources: set[str] | None = None,
+    policy: RefreshPolicy | None = None,
     on_refresh_query: Callable[[str, str], None] | None = None,
     dry_run: bool = False,
     cache: ColumnStatsCache | None = None,
@@ -871,12 +1072,12 @@ def refresh_stale_assets(
         on_watermarks: Optional callback(watermarks_dict) called after collecting watermarks
         on_approval: Optional callback(stale_assets, watermarks) called before refresh.
                      Return True to proceed, False to skip.
-        force_sources: Optional set of datasource names to force rebuild (skip detection)
+        policy: What to refresh — see :class:`RefreshPolicy`.
         cache: Optional column stats cache to avoid redundant metadata DB queries
     """
     plan = create_refresh_plan(
         executor,
-        force_sources=force_sources,
+        policy=policy,
         cache=cache,
         state_store=state_store,
     )

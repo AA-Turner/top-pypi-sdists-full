@@ -2,17 +2,19 @@
 // 2.0, and the BSD License. See the LICENSE file in the root of this repository
 // for complete details.
 
-use crate::asn1::{big_byte_slice_to_py_int, oid_to_py_oid, py_uint_to_big_endian_bytes};
-use crate::error::{CryptographyError, CryptographyResult};
-use crate::x509::{certificate, crl, extensions, ocsp, py_to_datetime, sct};
-use crate::{exceptions, types, x509};
+use std::sync::Arc;
+
 use cryptography_x509::ocsp_resp::{
     self, OCSPResponse as RawOCSPResponse, Response, SingleResponse,
     SingleResponse as RawSingleResponse,
 };
 use cryptography_x509::{common, oid};
 use pyo3::types::{PyAnyMethods, PyBytesMethods, PyListMethods};
-use std::sync::Arc;
+
+use crate::asn1::{big_byte_slice_to_py_int, oid_to_py_oid, py_uint_to_big_endian_bytes};
+use crate::error::{CryptographyError, CryptographyResult};
+use crate::x509::{certificate, crl, extensions, ocsp, py_to_datetime, sct};
+use crate::{exceptions, types, x509};
 
 #[pyo3::pyfunction]
 pub(crate) fn load_der_ocsp_response(
@@ -43,6 +45,18 @@ pub(crate) fn load_der_ocsp_response(
             ))
         }
     };
+    if let Some(response_bytes) = response.response_bytes.as_ref() {
+        let version = match &response_bytes.response {
+            Response::Basic(basic) => basic.get().tbs_response_data.version,
+        };
+        if version != 0 {
+            return Err(CryptographyError::from(
+                pyo3::exceptions::PyValueError::new_err(format!(
+                    "{version} is not a valid OCSP response version"
+                )),
+            ));
+        }
+    }
     Ok(OCSPResponse {
         raw: Arc::new(raw),
         cached_extensions: pyo3::sync::PyOnceLock::new(),

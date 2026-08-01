@@ -37,6 +37,10 @@ class PyObjectType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     PY_OBJECT_TYPE_STRUCT_PACKING_INFO: _ClassVar[PyObjectType]
     PY_OBJECT_TYPE_NONE: _ClassVar[PyObjectType]
     PY_OBJECT_TYPE_CHALK_THREAD_POOL_EXECUTOR_BIND_INFO: _ClassVar[PyObjectType]
+    PY_OBJECT_TYPE_FLOAT: _ClassVar[PyObjectType]
+    PY_OBJECT_TYPE_DATETIME: _ClassVar[PyObjectType]
+    PY_OBJECT_TYPE_TIMEDELTA: _ClassVar[PyObjectType]
+    PY_OBJECT_TYPE_LIST: _ClassVar[PyObjectType]
 
 class ScalarFunction(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -259,6 +263,10 @@ PY_OBJECT_TYPE_BOOL: PyObjectType
 PY_OBJECT_TYPE_STRUCT_PACKING_INFO: PyObjectType
 PY_OBJECT_TYPE_NONE: PyObjectType
 PY_OBJECT_TYPE_CHALK_THREAD_POOL_EXECUTOR_BIND_INFO: PyObjectType
+PY_OBJECT_TYPE_FLOAT: PyObjectType
+PY_OBJECT_TYPE_DATETIME: PyObjectType
+PY_OBJECT_TYPE_TIMEDELTA: PyObjectType
+PY_OBJECT_TYPE_LIST: PyObjectType
 SCALAR_FUNCTION_UNSPECIFIED: ScalarFunction
 SCALAR_FUNCTION_ABS: ScalarFunction
 SCALAR_FUNCTION_ACOS: ScalarFunction

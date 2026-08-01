@@ -1,7 +1,21 @@
+"""ryo3-http ~ types"""
+
 import typing as t
 from collections.abc import Mapping
 
 # fmt: off
+HttpMethodLike: t.TypeAlias = t.Literal[
+    "GET",     "get",
+    "POST",    "post",
+    "PUT",     "put",
+    "DELETE",  "delete",
+    "HEAD",    "head",
+    "OPTIONS", "options",
+    "CONNECT", "connect",
+    "PATCH",   "patch",
+    "TRACE",   "trace",
+    "QUERY",   "query",
+]
 HttpVersionLike: t.TypeAlias = t.Literal[
     "HTTP/0.9", "0.9", 0,
     "HTTP/1.0", "1.0", 1, 10,
@@ -11,7 +25,7 @@ HttpVersionLike: t.TypeAlias = t.Literal[
 ]
 # fmt: on
 
-_StandardHeader: t.TypeAlias = t.Literal[
+_TStandardHttpHeader: t.TypeAlias = t.Literal[
     "accept",
     "accept-charset",
     "accept-encoding",
@@ -94,8 +108,7 @@ _StandardHeader: t.TypeAlias = t.Literal[
     "x-frame-options",
     "x-xss-protection",
 ]
-
-_HeaderName: t.TypeAlias = _StandardHeader | str
+_HeaderName: t.TypeAlias = _TStandardHttpHeader | str
 _VT = t.TypeVar("_VT", bound=str | t.Sequence[str])
 
 @t.final

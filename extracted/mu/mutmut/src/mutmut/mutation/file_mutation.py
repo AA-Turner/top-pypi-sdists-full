@@ -1,10 +1,14 @@
 """This module contains code for managing mutant creation for whole files."""
 
+import ast
+import hashlib
 from collections import defaultdict
+from collections.abc import Callable
 from collections.abc import Iterable
 from collections.abc import Mapping
 from collections.abc import Sequence
 from dataclasses import dataclass
+from dataclasses import replace
 from pathlib import Path
 from typing import Union
 from typing import cast
@@ -15,6 +19,7 @@ from libcst.metadata import MetadataWrapper
 from libcst.metadata import PositionProvider
 
 from mutmut.configuration import Config
+from mutmut.mutation.data import LineSpan
 from mutmut.mutation.mutators import OPERATORS_TYPE
 from mutmut.mutation.mutators import mutation_operators
 from mutmut.mutation.pragma_handling import IgnoredCode
@@ -32,6 +37,49 @@ NEVER_MUTATE_FUNCTION_NAMES = {"__getattribute__", "__setattr__", "__new__"}
 NEVER_MUTATE_FUNCTION_CALLS = {"len", "isinstance"}
 
 
+def compute_function_hashes(source_code: str, accept: Callable[[str], bool] | None = None) -> dict[str, str]:
+    """class-qualified mangled key (x_foo / xǁClassǁmethod) -> 12-char sha256 of the func AST."""
+    try:
+        tree = ast.parse(source_code)
+    except SyntaxError:
+        return {}
+    hashes: dict[str, str] = {}
+
+    def _visit(stmts: list[ast.stmt], class_name: str = "") -> None:
+        for node in stmts:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                key = mangle_function_name(name=node.name, class_name=class_name or None)
+                if accept is None or accept(key):
+                    hashes[key] = hashlib.sha256(ast.dump(node, annotate_fields=False).encode()).hexdigest()[:12]
+            elif isinstance(node, ast.ClassDef):
+                _visit(node.body, node.name if not class_name else f"{class_name}.{node.name}")
+
+    _visit(tree.body)
+    return hashes
+
+
+def _compute_mutated_function_hashes(
+    source_code: str, module: cst.Module, mutations: Sequence["Mutation"]
+) -> dict[str, str]:
+    key_by_node: dict[cst.FunctionDef, str] = {}
+
+    def _index(body: Sequence[cst.CSTNode], class_name: str = "") -> None:
+        for stmt in body:
+            if isinstance(stmt, cst.FunctionDef):
+                key_by_node[stmt] = mangle_function_name(name=stmt.name.value, class_name=class_name or None)
+            elif isinstance(stmt, cst.ClassDef) and isinstance(stmt.body, cst.IndentedBlock):
+                _index(stmt.body.body, stmt.name.value if not class_name else f"{class_name}.{stmt.name.value}")
+
+    _index(module.body)
+    mutated = {
+        key_by_node[m.contained_by_top_level_function]
+        for m in mutations
+        if isinstance(m.contained_by_top_level_function, cst.FunctionDef)
+        and m.contained_by_top_level_function in key_by_node
+    }
+    return compute_function_hashes(source_code, accept=lambda key: key in mutated)
+
+
 @dataclass
 class Mutation:
     original_node: cst.CSTNode
@@ -39,17 +87,25 @@ class Mutation:
     contained_by_top_level_function: cst.FunctionDef | None
 
 
-def mutate_file_contents(filename: str, code: str, covered_lines: set[int] | None = None) -> tuple[str, Sequence[str]]:
-    """Create mutations for `code` and merge them to a single mutated file with trampolines.
+@dataclass(frozen=True)
+class MutatedFile:
+    """The mutated version of a single source file."""
 
-    :return: A tuple of (mutated code, list of mutant function names)."""
+    code: str
+    mutant_names: Sequence[str]
+    #: Where each generated function (the mutants and the `__mutmut_orig` copy) ended up in `code`
+    line_span_by_function_name: Mapping[str, LineSpan]
+    #: Hash of each mutated function, used to detect which functions changed between runs
+    hash_by_function_name: Mapping[str, str]
+
+
+def mutate_file_contents(filename: str, code: str, covered_lines: set[int] | None = None) -> MutatedFile:
+    """Create mutations for `code` and merge them to a single mutated file with trampolines."""
     module, mutations, ignored_classes, ignored_functions = create_mutations(filename, code, covered_lines)
 
-    mutated_code, mutant_names = combine_mutations_to_source(module, mutations, ignored_classes, ignored_functions)
+    mutated_file = combine_mutations_to_source(module, mutations, ignored_classes, ignored_functions)
 
-    # TODO: implement function hashing to skip testing unchanged functions
-
-    return mutated_code, mutant_names
+    return replace(mutated_file, hash_by_function_name=_compute_mutated_function_hashes(code, module, mutations))
 
 
 def create_mutations(
@@ -251,14 +307,15 @@ def combine_mutations_to_source(
     mutations: Sequence[Mutation],
     ignored_classes: set[str] | None = None,
     ignored_functions: set[str] | None = None,
-) -> tuple[str, Sequence[str]]:
+) -> MutatedFile:
     """Create mutated functions and trampolines for all mutations and compile them to a single source code.
+
+    The function hashes are left empty, as they are computed from the original source code.
 
     :param module: The original parsed module.
     :param mutations: Mutations that should be applied.
     :param ignored_classes: Class names to skip transformation for (e.g., enums with pragma: no mutate class).
-    :param ignored_functions: Function names to skip transformation for (pragma: no mutate function).
-    :return: Mutated code and list of mutation names."""
+    :param ignored_functions: Function names to skip transformation for (pragma: no mutate function)."""
     ignored_classes = ignored_classes or set()
     ignored_functions = ignored_functions or set()
 
@@ -321,7 +378,75 @@ def combine_mutations_to_source(
             result.append(statement)
 
     mutated_module = module.with_changes(body=result)
-    return mutated_module.code, mutation_names
+    code, line_spans = render_and_collect_line_spans(mutated_module)
+    return MutatedFile(
+        code=code,
+        mutant_names=mutation_names,
+        line_span_by_function_name=line_spans,
+        hash_by_function_name={},
+    )
+
+
+def render_and_collect_line_spans(module: cst.Module) -> tuple[str, dict[str, LineSpan]]:
+    """Render `module` and record which lines each generated function ended up on.
+
+    Rendering statement by statement produces exactly the same code as `module.code` for the
+    same cost, and it tells us how many lines each statement takes up, which is what we need
+    for the line span index. Doing it this way means `mutmut show`/`browse`/`apply` can pick a
+    single function out of a mutated file without parsing it."""
+    parts = [module.code_for_node(empty_line) for empty_line in module.header]
+    line_spans: dict[str, LineSpan] = {}
+    line = 1 + sum(part.count("\n") for part in parts)
+
+    for statement in module.body:
+        part = module.code_for_node(statement)
+        collect_line_spans(module, statement, part, start_line=line, line_spans=line_spans)
+        parts.append(part)
+        line += part.count("\n")
+
+    parts.extend(module.code_for_node(empty_line) for empty_line in module.footer)
+
+    code = "".join(parts)
+    if not module.has_trailing_newline:
+        # `Module._codegen_impl` drops the last newline in this case
+        code = code.removesuffix(module.default_newline)
+
+    return code, line_spans
+
+
+def collect_line_spans(
+    module: cst.Module,
+    statement: MODULE_STATEMENT,
+    part: str,
+    *,
+    start_line: int,
+    line_spans: dict[str, LineSpan],
+) -> None:
+    """Record the line spans of the generated functions in `statement`, which begins on `start_line`.
+
+    :param part: The rendered code of `statement`, as produced by `module.code_for_node`."""
+    if isinstance(statement, cst.FunctionDef):
+        if is_mutated_method_name(statement.name.value):
+            line_spans[statement.name.value] = LineSpan(start_line, start_line + part.count("\n") - 1)
+        return
+
+    if not isinstance(statement, cst.ClassDef) or not isinstance(statement.body, cst.IndentedBlock):
+        return
+
+    body = statement.body
+    if not any(isinstance(child, cst.FunctionDef) and is_mutated_method_name(child.name.value) for child in body.body):
+        # nothing was mutated in this class, so there is no need to render its methods
+        return
+
+    child_parts = [module.code_for_node(child) for child in body.body]
+    # everything in the class that comes before the body: leading lines, decorators and the `class` statement
+    header_line_count = part.count("\n") - sum(child_part.count("\n") for child_part in child_parts) - len(body.footer)
+
+    line = start_line + header_line_count
+    for child, child_part in zip(body.body, child_parts, strict=True):
+        if isinstance(child, cst.FunctionDef) and is_mutated_method_name(child.name.value):
+            line_spans[child.name.value] = LineSpan(line, line + child_part.count("\n") - 1)
+        line += child_part.count("\n")
 
 
 def function_trampoline_arrangement(
@@ -484,6 +609,9 @@ def filter_mutants_with_type_checker() -> dict[str, FailedTypeCheckMutant]:
             visitor = MutatedMethodsCollector(path)
             wrapper.visit(visitor)
             mutated_methods = visitor.found_mutants
+
+            if not mutated_methods:
+                continue
 
             for error in errors_of_file:
                 assert error.file_path == visitor.file

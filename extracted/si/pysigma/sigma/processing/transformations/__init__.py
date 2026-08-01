@@ -36,6 +36,7 @@ from sigma.processing.transformations.rule import (
 from sigma.processing.transformations.state import SetStateTransformation
 from sigma.processing.transformations.values import (
     ConvertTypeTransformation,
+    ExtractFieldsTransformation,
     HashesFieldsDetectionItemTransformation,
     MapStringTransformation,
     RegexTransformation,
@@ -50,6 +51,7 @@ transformations: dict[str, Type[Transformation]] = {
     "field_name_transform": FieldFunctionTransformation,
     "drop_detection_item": DropDetectionItemTransformation,
     "hashes_fields": HashesFieldsDetectionItemTransformation,
+    "extract_fields": ExtractFieldsTransformation,
     "field_name_suffix": AddFieldnameSuffixTransformation,
     "field_name_prefix": AddFieldnamePrefixTransformation,
     "wildcard_placeholders": WildcardPlaceholderTransformation,
@@ -85,6 +87,7 @@ __all__ = [
     "FieldFunctionTransformation",
     "DropDetectionItemTransformation",
     "HashesFieldsDetectionItemTransformation",
+    "ExtractFieldsTransformation",
     "AddFieldnameSuffixTransformation",
     "AddFieldnamePrefixTransformation",
     "WildcardPlaceholderTransformation",

@@ -223,9 +223,19 @@ def basic_type(tag: str) -> Optional[str]:
 
 
 class Parser:
+    # Bound the mutually recursive skip_* validation pass; must fire well below
+    # CPython's own recursion limit (each level consumes several interpreter frames).
+    MAX_RECURSION_COUNT = 256
+
     def __init__(self, inn: str, next_val: int) -> None:
         self.inn = inn
         self.next_val = next_val
+        self.depth = 0
+
+    def check_recursion_limit(self):
+        if self.depth >= self.MAX_RECURSION_COUNT:
+            raise UnableTov0Demangle(self.inn)
+        self.depth += 1
 
     def peek(self) -> str:
         if self.next_val >= len(self.inn):
@@ -354,6 +364,13 @@ class Parser:
             return idt
 
     def skip_path(self):
+        self.check_recursion_limit()
+        try:
+            self._skip_path_inner()
+        finally:
+            self.depth -= 1
+
+    def _skip_path_inner(self):
         val = self.next_func()
         if val.startswith("C"):
             self.disambiguator()
@@ -399,6 +416,13 @@ class Parser:
             self.skip_type()
 
     def skip_type(self):
+        self.check_recursion_limit()
+        try:
+            self._skip_type_inner()
+        finally:
+            self.depth -= 1
+
+    def _skip_type_inner(self):
         n = self.next_func()
         tag = n
         if basic_type(tag):
@@ -423,7 +447,7 @@ class Parser:
                 c_abi = self.eat("C")
                 if not c_abi:
                     abi = self.ident()
-                    if abi.ascii or (not abi.punycode):
+                    if not abi.ascii or abi.punycode:
                         raise UnableTov0Demangle(self.inn)
             while not self.eat("E"):
                 self.skip_type()
@@ -468,7 +492,9 @@ class Parser:
 class Printer:
     # Based on Ghidra's rust-demangle.c, we limit recursion to prevent stack overflows
     # or excessive resource usage on malformed inputs.
-    RUST_MAX_RECURSION_COUNT = 1024
+    # Must fire well below CPython's own recursion limit (default 1000), or a
+    # self-referential backref chain raises RecursionError before this guard.
+    RUST_MAX_RECURSION_COUNT = 256
 
     def __init__(self, parser, out, bound, recursion=0):
         self.parser = parser
@@ -606,7 +632,7 @@ class Printer:
                         self.out += "shim"
                     else:
                         self.out += ns
-                    if not name.ascii or (not name.punycode):
+                    if name.ascii or name.punycode:
                         self.out += ":"
                         name.display()
                         self.out += name.disp
@@ -806,6 +832,8 @@ class Printer:
 
     def print_const_uint(self):
         hex_val = self.parser_mut().hex_nibbles()
+        if not hex_val:
+            self.invalid()
 
         if len(hex_val) > 16:
             self.out += "0x"

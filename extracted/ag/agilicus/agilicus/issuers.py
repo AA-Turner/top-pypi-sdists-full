@@ -551,14 +551,18 @@ def update_auth_policy(
 
     token_policy = policy.spec.token_policy or agilicus.TokenPolicy(
         token_lifetime_policy=agilicus.TokenLifetimePolicy(
-            global_default_maximum=agilicus.ISO8601Duration("P7D"),
+            global_default_maximum=None,
             scope_class_defaults=[],
         )
     )
 
     if token_lifetime_default is not None:
+        # Map an empty string to "clear it out"
+        if token_lifetime_default == "":
+            token_lifetime_default = None
+
         token_policy.token_lifetime_policy.global_default_maximum = (
-            agilicus.ISO8601Duration(token_lifetime_default)
+            agilicus.NullableISO8601Duration(token_lifetime_default)
         )
     if token_lifetime_scopes is not None:
         _update_lifetime_scopes(

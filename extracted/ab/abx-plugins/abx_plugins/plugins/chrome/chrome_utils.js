@@ -1969,14 +1969,8 @@ async function loadExtensionFromTarget(extensions, target, options = {}) {
       return await target_ctx.evaluate(async (tab) => {
         const browserApi = (typeof browser !== "undefined" && browser) || null;
         const chromeApi = (typeof chrome !== "undefined" && chrome) || null;
-        const tabsApi = browserApi?.tabs || chromeApi?.tabs || null;
-
-        if (!tab && tabsApi?.query) {
-          const tabs = await tabsApi.query({
-            currentWindow: true,
-            active: true,
-          });
-          tab = tabs?.[0] || null;
+        if (!Number.isInteger(tab?.id)) {
+          throw new Error("Extension action requires an exact chrome.tabs tab");
         }
 
         if (browserApi?.action?.onClicked?.dispatch) {
@@ -3556,7 +3550,6 @@ async function closeTabInChromeSession(options = {}) {
  * @param {Object} options - Connection options
  * @param {string} [options.chromeSessionDir='../chrome'] - Path to chrome session directory
  * @param {number} [options.timeoutMs=60000] - Timeout for waiting
- * @param {boolean} [options.requireTargetId=true] - Require target_id.txt in session dir
  * @param {boolean} [options.requireBrowserReady=false] - Require browser.json to be ready
  * @param {boolean} [options.waitForNavigationComplete=false] - Wait for navigation.json success before attaching
  * @param {number} [options.pageLoadTimeoutMs=timeoutMs] - Timeout for navigation.json readiness
@@ -3570,7 +3563,6 @@ async function connectToPage(options = {}) {
   const {
     chromeSessionDir = "../chrome",
     timeoutMs = 60000,
-    requireTargetId = true,
     requireBrowserReady = false,
     waitForNavigationComplete: shouldWaitForNavigationComplete = false,
     pageLoadTimeoutMs = timeoutMs,
@@ -3583,7 +3575,7 @@ async function connectToPage(options = {}) {
   const initialInspection = await inspectChromeSessionArtifacts(
     chromeSessionDir,
     {
-      requireTargetId,
+      requireTargetId: true,
       validateLiveness: false,
     }
   );
@@ -3594,7 +3586,7 @@ async function connectToPage(options = {}) {
     throw new Error(CHROME_SESSION_REQUIRED_ERROR);
   }
   getPuppeteerConnectOptionsForCdpUrl(initialInspection.state.cdpUrl);
-  if (requireTargetId && !initialInspection.state?.targetId) {
+  if (!initialInspection.state?.targetId) {
     const sessionPaths = getChromeSessionPaths(chromeSessionDir);
     const hasLaterSnapshotMarkers = [
       sessionPaths.urlFile,
@@ -3626,7 +3618,7 @@ async function connectToPage(options = {}) {
     const remainingMs = Math.max(deadline - Date.now(), 0);
     const state = await waitForChromeSessionState(chromeSessionDir, {
       timeoutMs: Math.min(remainingMs, 500),
-      requireTargetId,
+      requireTargetId: true,
       requireBrowserReady,
     });
     if (!state) {
@@ -3669,7 +3661,7 @@ async function connectToPage(options = {}) {
           targetId,
           Math.min(remainingMs, 1000)
         );
-        if (!page && requireTargetId) {
+        if (!page) {
           const currentTargetKey = `${state.cdpUrl}::${targetId}`;
           const now = Date.now();
           if (missingTargetKey !== currentTargetKey) {
@@ -3688,42 +3680,12 @@ async function connectToPage(options = {}) {
         missingTargetSince = 0;
       }
 
-      const pages = await withTimeout(
-        () => browser.pages(),
-        operationTimeoutMs,
-        `Timed out listing pages for ${state.cdpUrl}`
-      );
-      if (!page && !requireTargetId) {
-        page = pages[pages.length - 1];
-      }
-
       if (!page) {
-        throw new Error("No page found in browser");
+        throw new Error(`Target ${targetId} not found in Chrome session`);
       }
-      if (requireTargetId && targetId && getTargetIdFromPage(page) !== targetId) {
+      if (getTargetIdFromPage(page) !== targetId) {
         throw new Error(`Resolved page does not match target ${targetId}`);
       }
-      if (requireTargetId && targetId) {
-        try {
-          await withTimeout(
-            async () => {
-              const targetSession = await browser.target().createCDPSession();
-              await targetSession.send("Target.activateTarget", { targetId });
-              await targetSession.detach();
-            },
-            operationTimeoutMs,
-            `Timed out activating target ${targetId}`
-          );
-        } catch (error) {}
-      }
-      if (requireTargetId && targetId && typeof page.bringToFront === "function") {
-        await withTimeout(
-          () => page.bringToFront(),
-          operationTimeoutMs,
-          `Timed out bringing target ${targetId} to front`
-        );
-      }
-
       const cdpSession = await withTimeout(
         async () => {
           const session = await page.target().createCDPSession();

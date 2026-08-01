@@ -8,6 +8,7 @@ Library for importing, exporting and doing simple operations on triangular meshe
 """
 
 from copy import deepcopy
+from typing import Any
 
 import numpy as np
 from numpy import float64, int64, ndarray
@@ -45,21 +46,16 @@ from .parent import Geometry3D
 from .scene import Scene
 from .triangles import MassProperties
 from .typed import (
-    Any,
     ArrayLike,
     BooleanEngineType,
-    Dict,
     Floating,
     Integer,
-    List,
     Loadable,
     NDArray,
     Number,
-    Optional,
+    Seed,
     Self,
     Sequence,
-    Tuple,
-    Union,
     ViewerType,
 )
 from .visual import ColorVisuals, TextureVisuals, create_visual
@@ -101,22 +97,22 @@ _IDENTITY4.flags.writeable = False
 class Trimesh(Geometry3D):
     def __init__(
         self,
-        vertices: Optional[ArrayLike] = None,
-        faces: Optional[ArrayLike] = None,
-        face_normals: Optional[ArrayLike] = None,
-        vertex_normals: Optional[ArrayLike] = None,
-        face_colors: Optional[ArrayLike] = None,
-        vertex_colors: Optional[ArrayLike] = None,
-        face_attributes: Optional[Dict[str, ArrayLike]] = None,
-        vertex_attributes: Optional[Dict[str, ArrayLike]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        vertices: ArrayLike | None = None,
+        faces: ArrayLike | None = None,
+        face_normals: ArrayLike | None = None,
+        vertex_normals: ArrayLike | None = None,
+        face_colors: ArrayLike | None = None,
+        vertex_colors: ArrayLike | None = None,
+        face_attributes: dict[str, ArrayLike] | None = None,
+        vertex_attributes: dict[str, ArrayLike] | None = None,
+        metadata: dict[str, Any] | None = None,
         process: bool = True,
         validate: bool = False,
-        merge_tex: Optional[bool] = None,
-        merge_norm: Optional[bool] = None,
+        merge_tex: bool | None = None,
+        merge_norm: bool | None = None,
         use_embree: bool = True,
-        initial_cache: Optional[Dict[str, ndarray]] = None,
-        visual: Optional[Union[ColorVisuals, TextureVisuals]] = None,
+        initial_cache: dict[str, ndarray] | None = None,
+        visual: ColorVisuals | TextureVisuals | None = None,
         **kwargs,
     ) -> None:
         """
@@ -259,8 +255,8 @@ class Trimesh(Geometry3D):
     def process(
         self,
         validate: bool = False,
-        merge_tex: Optional[bool] = None,
-        merge_norm: Optional[bool] = None,
+        merge_tex: bool | None = None,
+        merge_norm: bool | None = None,
     ) -> Self:
         """
         Do processing to make a mesh useful.
@@ -358,7 +354,7 @@ class Trimesh(Geometry3D):
         return self._data["faces"]
 
     @faces.setter
-    def faces(self, values: Optional[ArrayLike]) -> None:
+    def faces(self, values: ArrayLike | None) -> None:
         """
         Set the vertex indexes that make up triangular faces.
 
@@ -447,7 +443,7 @@ class Trimesh(Geometry3D):
         return padded
 
     @face_normals.setter
-    def face_normals(self, values: Optional[ArrayLike]) -> None:
+    def face_normals(self, values: ArrayLike | None) -> None:
         """
         Assign values to face normals.
 
@@ -505,7 +501,7 @@ class Trimesh(Geometry3D):
         return self._data["vertices"]
 
     @vertices.setter
-    def vertices(self, values: Optional[ArrayLike]) -> None:
+    def vertices(self, values: ArrayLike | None) -> None:
         """
         Assign vertex values to the mesh.
 
@@ -581,7 +577,7 @@ class Trimesh(Geometry3D):
         return vertex_faces
 
     @cache_decorator
-    def bounds(self) -> Optional[NDArray[float64]]:
+    def bounds(self) -> NDArray[float64] | None:
         """
         The axis aligned bounds of the faces of the mesh.
 
@@ -600,7 +596,7 @@ class Trimesh(Geometry3D):
         return np.array([in_mesh.min(axis=0), in_mesh.max(axis=0)])
 
     @cache_decorator
-    def extents(self) -> Optional[NDArray[float64]]:
+    def extents(self) -> NDArray[float64] | None:
         """
         The length, width, and height of the axis aligned
         bounding box of the mesh.
@@ -839,7 +835,7 @@ class Trimesh(Geometry3D):
         return transform
 
     @cache_decorator
-    def symmetry(self) -> Optional[str]:
+    def symmetry(self) -> str | None:
         """
         Check whether a mesh has rotational symmetry around
         an axis (radial) or point (spherical).
@@ -855,7 +851,7 @@ class Trimesh(Geometry3D):
         return symmetry
 
     @property
-    def symmetry_axis(self) -> Optional[NDArray[float64]]:
+    def symmetry_axis(self) -> NDArray[float64] | None:
         """
         If a mesh has rotational symmetry, return the axis.
 
@@ -869,7 +865,7 @@ class Trimesh(Geometry3D):
         return self._cache["symmetry_axis"]
 
     @property
-    def symmetry_section(self) -> Optional[NDArray[float64]]:
+    def symmetry_section(self) -> NDArray[float64] | None:
         """
         If a mesh has rotational symmetry return the two
         vectors which make up a section coordinate frame.
@@ -1158,11 +1154,11 @@ class Trimesh(Geometry3D):
 
     def merge_vertices(
         self,
-        merge_tex: Optional[bool] = None,
-        merge_norm: Optional[bool] = None,
-        digits_vertex: Optional[Integer] = None,
-        digits_norm: Optional[Integer] = None,
-        digits_uv: Optional[Integer] = None,
+        merge_tex: bool | None = None,
+        merge_norm: bool | None = None,
+        digits_vertex: Integer | None = None,
+        digits_norm: Integer | None = None,
+        digits_uv: Integer | None = None,
     ) -> None:
         """
         Removes duplicate vertices grouped by position and
@@ -1195,7 +1191,7 @@ class Trimesh(Geometry3D):
     def update_vertices(
         self,
         mask: ArrayLike,
-        inverse: Optional[ArrayLike] = None,
+        inverse: ArrayLike | None = None,
     ) -> None:
         """
         Update vertices with a mask.
@@ -1392,14 +1388,14 @@ class Trimesh(Geometry3D):
 
         Alters `self.faces` and `self.vertices`
         """
-        if util.is_shape(self.faces, (-1, 3)):
-            # (len(self.faces), ) bool, mask for faces
-            face_mask = np.isfinite(self.faces).all(axis=1)
-            self.update_faces(face_mask)
-
         if util.is_shape(self.vertices, (-1, 3)):
             # (len(self.vertices), ) bool, mask for vertices
             vertex_mask = np.isfinite(self.vertices).all(axis=1)
+            if util.is_shape(self.faces, (-1, 3)) and not vertex_mask.all():
+                # drop faces touching a removed vertex before reindexing
+                # maps them to a degenerate triangle, #2445 — empty faces
+                # and all-true masks early-return inside `update_faces`
+                self.update_faces(vertex_mask[self.faces].all(axis=1))
             self.update_vertices(vertex_mask)
 
     def unique_faces(self) -> NDArray[np.bool_]:
@@ -1424,7 +1420,7 @@ class Trimesh(Geometry3D):
         """
         self.apply_translation(self.bounds[0] * -1.0)
 
-    def split(self, **kwargs) -> List["Trimesh"]:
+    def split(self, **kwargs) -> list["Trimesh"]:
         """
         Split a mesh into multiple meshes from face
         connectivity.
@@ -1683,7 +1679,7 @@ class Trimesh(Geometry3D):
         return graph.vertex_adjacency_graph(mesh=self)
 
     @cache_decorator
-    def vertex_neighbors(self) -> List[List[int64]]:
+    def vertex_neighbors(self) -> list[list[int64]]:
         """
         The vertex neighbors of each vertex of the mesh, determined from
         the cached vertex_adjacency_graph, if already existent.
@@ -1833,7 +1829,7 @@ class Trimesh(Geometry3D):
         )
 
     @cache_decorator
-    def facets(self) -> List[NDArray[int64]]:
+    def facets(self) -> list[NDArray[int64]]:
         """
         Return a list of face indices for coplanar adjacent faces.
 
@@ -1904,7 +1900,7 @@ class Trimesh(Geometry3D):
         return self._cache["facets_origin"]
 
     @cache_decorator
-    def facets_boundary(self) -> List[NDArray[int64]]:
+    def facets_boundary(self) -> list[NDArray[int64]]:
         """
         Return the edges which represent the boundary of each facet
 
@@ -1953,7 +1949,7 @@ class Trimesh(Geometry3D):
 
         return on_hull
 
-    def fix_normals(self, multibody: Optional[bool] = None) -> Self:
+    def fix_normals(self, multibody: bool | None = None) -> Self:
         """
         Find and fix problems with self.face_normals and self.faces
         winding direction.
@@ -1985,8 +1981,8 @@ class Trimesh(Geometry3D):
         return repair.fill_holes(self)
 
     def register(
-        self, other: Union[Geometry3D, NDArray], **kwargs
-    ) -> Tuple[NDArray[float64], float64]:
+        self, other: Geometry3D | NDArray, **kwargs
+    ) -> tuple[NDArray[float64], float64]:
         """
         Align a mesh with another mesh or a PointCloud using
         the principal axes of inertia as a starting point which
@@ -2017,11 +2013,12 @@ class Trimesh(Geometry3D):
 
     def compute_stable_poses(
         self,
-        center_mass: Optional[NDArray[float64]] = None,
+        center_mass: NDArray[float64] | None = None,
         sigma: Floating = 0.0,
         n_samples: Integer = 1,
         threshold: Floating = 0.0,
-    ) -> Tuple[NDArray[float64], NDArray[float64]]:
+        seed: Seed = None,
+    ) -> tuple[NDArray[float64], NDArray[float64]]:
         """
         Computes stable orientations of a mesh and their quasi-static probabilities.
 
@@ -2069,10 +2066,11 @@ class Trimesh(Geometry3D):
             sigma=sigma,
             n_samples=n_samples,
             threshold=threshold,
+            seed=seed,
         )
 
     def subdivide(
-        self, face_index: Optional[ArrayLike] = None, iterations: Optional[Integer] = None
+        self, face_index: ArrayLike | None = None, iterations: Integer | None = None
     ) -> "Trimesh":
         """
         Subdivide a mesh with each subdivided face replaced
@@ -2099,15 +2097,8 @@ class Trimesh(Geometry3D):
         mesh: trimesh.Trimesh
           The copy of current mesh with subdivided faces.
         """
-        if iterations is not None:
-            # check that our arguments are executable
-            if face_index is not None:
-                raise ValueError("Unable to subdivide a subset with multiple iterations!")
-            # decrement the next iteration
-            next_iteration = iterations - 1
-            # if we've reached zero exit
-            if next_iteration <= 0:
-                next_iteration = None
+        if iterations is not None and face_index is not None:
+            raise ValueError("Unable to subdivide a subset with multiple iterations!")
 
         visual = None
         if hasattr(self.visual, "uv") and np.shape(self.visual.uv) == (
@@ -2146,14 +2137,14 @@ class Trimesh(Geometry3D):
             process=False,
         )
 
-        if iterations is not None:
-            return result.subdivide(iterations=next_iteration)
+        if iterations is not None and iterations > 1:
+            return result.subdivide(iterations=iterations - 1)
 
         return result
 
     def subdivide_to_size(
         self, max_edge: Number, max_iter: Integer = 10, return_index: bool = False
-    ) -> Union["Trimesh", Tuple["Trimesh", NDArray[int64]]]:
+    ) -> "Trimesh | tuple[Trimesh, NDArray[int64]]":
         """
         Subdivide a mesh until every edge is shorter than a
         specified length.
@@ -2223,7 +2214,7 @@ class Trimesh(Geometry3D):
 
         return result
 
-    def subdivide_loop(self, iterations: Optional[Integer] = None) -> "Trimesh":
+    def subdivide_loop(self, iterations: Integer | None = None) -> "Trimesh":
         """
         Subdivide a mesh by dividing each triangle into four
         triangles and approximating their smoothed surface
@@ -2278,7 +2269,7 @@ class Trimesh(Geometry3D):
         return smooth
 
     @property
-    def visual(self) -> Optional[Union[ColorVisuals, TextureVisuals]]:
+    def visual(self) -> ColorVisuals | TextureVisuals | None:
         """
         Get the stored visuals for the current mesh.
 
@@ -2292,7 +2283,7 @@ class Trimesh(Geometry3D):
         return None
 
     @visual.setter
-    def visual(self, value: Optional[Union[ColorVisuals, TextureVisuals]]) -> None:
+    def visual(self, value: ColorVisuals | TextureVisuals | None) -> None:
         """
         When setting a visual object, always make sure
         that `visual.mesh` points back to the source mesh.
@@ -2309,7 +2300,7 @@ class Trimesh(Geometry3D):
 
     def section(
         self, plane_normal: ArrayLike, plane_origin: ArrayLike, **kwargs
-    ) -> Optional[Path3D]:
+    ) -> Path3D | None:
         """
         Returns a 3D cross section of the current mesh and a plane
         defined by origin and normal.
@@ -2357,7 +2348,7 @@ class Trimesh(Geometry3D):
         plane_origin: ArrayLike,
         plane_normal: ArrayLike,
         heights: ArrayLike,
-    ) -> List[Optional[Path2D]]:
+    ) -> list[Path2D | None]:
         """
         Return multiple parallel cross sections of the current
         mesh in 2D.
@@ -2402,7 +2393,7 @@ class Trimesh(Geometry3D):
         plane_origin: ArrayLike,
         plane_normal: ArrayLike,
         cap: bool = False,
-        face_index: Optional[ArrayLike] = None,
+        face_index: ArrayLike | None = None,
         **kwargs,
     ) -> "Trimesh":
         """
@@ -2438,7 +2429,7 @@ class Trimesh(Geometry3D):
 
         return new_mesh
 
-    def unwrap(self, image: Image = None) -> "Trimesh":
+    def unwrap(self, image=None) -> "Trimesh":
         """
         Returns a Trimesh object equivalent to the current mesh where
         the vertices have been assigned uv texture coordinates. Vertices
@@ -2508,7 +2499,8 @@ class Trimesh(Geometry3D):
         self,
         count: Integer,
         return_index: bool = False,
-        face_weight: Optional[NDArray[float64]] = None,
+        face_weight: NDArray[float64] | None = None,
+        seed: Seed = None,
     ):
         """
         Return random samples distributed across the
@@ -2524,6 +2516,8 @@ class Trimesh(Geometry3D):
         face_weight : None or len(mesh.faces) float
           Weight faces by a factor other than face area.
           If None will be the same as face_weight=mesh.area
+        seed : None or int
+          Seed for deterministic results, otherwise OS entropy.
 
         Returns
         ---------
@@ -2533,7 +2527,7 @@ class Trimesh(Geometry3D):
           Index of self.faces
         """
         samples, index = sample.sample_surface(
-            mesh=self, count=count, face_weight=face_weight
+            mesh=self, count=count, face_weight=face_weight, seed=seed
         )
         if return_index:
             return samples, index
@@ -2661,7 +2655,7 @@ class Trimesh(Geometry3D):
         self._cache.id_set()
         return self
 
-    def voxelized(self, pitch: Optional[Floating], method: str = "subdivide", **kwargs):
+    def voxelized(self, pitch: Floating | None, method: str = "subdivide", **kwargs):
         """
         Return a VoxelGrid object representing the current mesh
         discretized into voxels at the specified pitch
@@ -2684,9 +2678,9 @@ class Trimesh(Geometry3D):
 
     def simplify_quadric_decimation(
         self,
-        percent: Optional[Floating] = None,
-        face_count: Optional[Integer] = None,
-        aggression: Optional[Integer] = None,
+        percent: Floating | None = None,
+        face_count: Integer | None = None,
+        aggression: Integer | None = None,
     ) -> "Trimesh":
         """
         A thin wrapper around `pip install fast-simplification`.
@@ -2727,7 +2721,7 @@ class Trimesh(Geometry3D):
 
         return Trimesh(vertices=vertices, faces=faces)
 
-    def outline(self, face_ids: Optional[NDArray[int64]] = None, **kwargs) -> Path3D:
+    def outline(self, face_ids: NDArray[int64] | None = None, **kwargs) -> Path3D:
         """
         Given a list of face indexes find the outline of those
         faces and return it as a Path3D.
@@ -2919,7 +2913,7 @@ class Trimesh(Geometry3D):
         only_watertight: bool = False,
         repair: bool = False,
         **kwargs,
-    ) -> Union["Trimesh", List["Trimesh"]]:
+    ) -> "Trimesh | list[Trimesh]":
         """
         Return a subset of the mesh.
 
@@ -2977,9 +2971,9 @@ class Trimesh(Geometry3D):
     def export(
         self,
         file_obj: Loadable = None,
-        file_type: Optional[str] = None,
+        file_type: str | None = None,
         **kwargs,
-    ) -> Union[Dict, bytes, str]:
+    ) -> dict | bytes | str:
         """
         Export the current mesh to a file object.
         If file_obj is a filename, file will be written there.
@@ -3003,7 +2997,7 @@ class Trimesh(Geometry3D):
         """
         return export_mesh(mesh=self, file_obj=file_obj, file_type=file_type, **kwargs)
 
-    def to_dict(self) -> Dict[str, Union[str, List[List[float]], List[List[int]]]]:
+    def to_dict(self) -> dict[str, str | list[list[float]] | list[list[int]]]:
         """
         Return a dictionary representation of the current mesh
         with keys that can be used as the kwargs for the
@@ -3021,7 +3015,7 @@ class Trimesh(Geometry3D):
             "faces": self.faces.tolist(),
         }
 
-    def convex_decomposition(self, **kwargs) -> List["Trimesh"]:
+    def convex_decomposition(self, **kwargs) -> list["Trimesh"]:
         """
         Compute an approximate convex decomposition of a mesh
         using `pip install pyVHACD`.
@@ -3039,7 +3033,7 @@ class Trimesh(Geometry3D):
 
     def union(
         self,
-        other: Union["Trimesh", Sequence["Trimesh"]],
+        other: "Trimesh | Sequence[Trimesh]",
         engine: BooleanEngineType = None,
         check_volume: bool = True,
         **kwargs,
@@ -3075,7 +3069,7 @@ class Trimesh(Geometry3D):
 
     def difference(
         self,
-        other: Union["Trimesh", Sequence["Trimesh"]],
+        other: "Trimesh | Sequence[Trimesh]",
         engine: BooleanEngineType = None,
         check_volume: bool = True,
         **kwargs,
@@ -3111,7 +3105,7 @@ class Trimesh(Geometry3D):
 
     def intersection(
         self,
-        other: Union["Trimesh", Sequence["Trimesh"]],
+        other: "Trimesh | Sequence[Trimesh]",
         engine: BooleanEngineType = None,
         check_volume: bool = True,
         **kwargs,
@@ -3306,9 +3300,9 @@ class Trimesh(Geometry3D):
 
     def eval_cached(self, statement: str, *args) -> Any:
         """
-        Evaluate a statement and cache the result before returning.
+        DEPRECATED: call `eval` directly instead.
 
-        Statements are evaluated inside the Trimesh object, and
+        Evaluate a statement and cache the result before returning.
 
         Parameters
         ------------
@@ -3325,6 +3319,16 @@ class Trimesh(Geometry3D):
         -----------
         r = mesh.eval_cached('np.dot(self.vertices, args[0])', [0, 0, 1])
         """
+        import warnings
+
+        warnings.warn(
+            "`Trimesh.eval_cached` is deprecated "
+            + "and will be removed in a future release. "
+            + "call `eval` directly if you need this behavior.",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
+
         # store this by the combined hash of statement and args
         hashable = [hash(statement)]
         hashable.extend(hash(a) for a in args)

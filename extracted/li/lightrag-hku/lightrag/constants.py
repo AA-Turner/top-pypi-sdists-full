@@ -128,16 +128,127 @@ DEFAULT_SENTENCE_SPLIT_REGEX = r"(?<=[.?!])\s+|(?<=[。？！])"
 DEFAULT_CHUNK_P_SIZE = 2000
 
 # Paragraph-semantic "drop references" detection defaults (the chunking="P"
-# drop_references option).  DEFAULT_P_REFERENCES_TAIL_N: a reference block is
-# only dropped when it sits within the last N content blocks of the document
-# (a safety window so a mid-document "References" subsection is not removed).
+# drop_references option).  DEFAULT_P_REFERENCES_TAIL_N: 0 scans all content
+# blocks for reference headings; a positive value restricts detection to the
+# last N content blocks as a safety window.
 # DEFAULT_P_REFERENCES_HEADINGS: heading prefixes that mark a reference
 # section — English words matched case-insensitively at a word boundary,
 # the Chinese "参考文献" matched as a plain prefix.  Both are tunable via env
 # (CHUNK_P_REFERENCES_TAIL_N / CHUNK_P_REFERENCES_HEADINGS, the latter
 # pipe-separated) read live by the chunker at run time.
-DEFAULT_P_REFERENCES_TAIL_N = 2
+DEFAULT_P_REFERENCES_TAIL_N = 0
 DEFAULT_P_REFERENCES_HEADINGS = ("References", "Bibliography", "参考文献")
+
+# Native docx smart_heading (opt-in engine param) tunables. Each DEFAULT_*
+# below has a matching env var (drop the DEFAULT_ prefix) read at run time
+# by lightrag/parser/docx/smart_heading (same live-env pattern as the
+# CHUNK_P_REFERENCES_* knobs above).
+#
+# Global default for the smart_heading engine param itself (env
+# DOCX_SMART_HEADING): when true, .docx files routed to the native engine get
+# smart_heading enabled by default — an explicit native(smart_heading=false)
+# rule/hint turns it back off — and the server verifies at startup that the
+# spaCy models are installed (fail-fast instead of failing mid-pipeline).
+# The default is materialized into the persisted parse_engine at ingestion
+# time (seed_smart_heading_param, called from resolve_parser_directives for
+# uploads and from apipeline_enqueue_documents for direct enqueue), so
+# toggling the env var never changes how already-ingested documents re-parse.
+DEFAULT_DOCX_SMART_HEADING = False
+#
+# P1 homophone blacklist: an EnNum immediately followed by one of these CJK
+# unit/measure words (2026年 / 1个 / 1人…) is NOT a numbering prefix. Env
+# DOCX_SMART_ENNUM_BLACKLIST is comma/pipe-separated.
+DEFAULT_DOCX_SMART_ENNUM_BLACKLIST = (
+    "年,月,日,时,分,秒,个,人,只,条,次,项,天,号,元,角,件,名,台,种,倍,"
+    "万,亿,岁,周,米,克,吨,页,寸,层,间,句,字,笔,轮,批,组,套,户,家,期"
+)
+# P3 caption prefixes: a paragraph starting with one of these + a numbering
+# shape is a figure/table caption, never a heading. Comma/pipe-separated.
+DEFAULT_DOCX_SMART_CAPTION_PREFIXES = "图,表,公式,Figure,Table,Fig.,Eq.,Chart"
+# 公文版记 (imprint) ANCHORS: a paragraph opening with one of these + [：:]
+# (抄送：各区人民政府 / 主题词：经济 管理) starts a 版记 region. It is imprint
+# metadata — body, never a heading — and it vetoes title-block membership for
+# itself AND its 2 preceding non-blank paragraphs (the signature/date lines
+# above). Anchors may also sit as middle content of another anchor's region
+# (主题词 then 抄送); only a CLOSER (below) ends a region.
+# Comma/pipe-separated; whitespace may interleave the prefix chars (抄　送：).
+DEFAULT_DOCX_SMART_IMPRINT_COLON_PREFIXES = "抄送,主题词"
+# 版记 region CLOSER markers (印发-family — the issuing-organ / print line that
+# ENDS a 版记). Recognized ONLY inside the forward window of an anchor above
+# (never a standalone per-line rule), so a line-final 印发 in body prose
+# (…已印发) cannot false-fire on its own:
+#   - closer prefix: line opens with the prefix + [：:] or whitespace
+#     (印发：XX / 印发 XX / 印发机关 XX / 印发机关：XX — 印发机关 is a closer, NOT an
+#     anchor, which is why there is no longer an IMPRINT_SPACE_PREFIXES knob);
+#   - closer trailing: line ENDS with 印发 (某某办公室 2026年6月30日 印发) — the
+#     GB/T standard layout with the issuer/date first and 印发 last.
+# Comma/pipe-separated. When a closer is found within FORWARD_PARAS non-blank
+# paragraphs of an anchor, the whole 抄送…印发 span (middle lines included) is
+# barred from title blocks; and if a valid title block immediately follows the
+# span (a 公文汇编 boundary), the span's lines are force-demoted to body.
+DEFAULT_DOCX_SMART_IMPRINT_CLOSER_PREFIXES = "印发,印发机关"
+DEFAULT_DOCX_SMART_IMPRINT_CLOSER_TRAILING = "印发"
+DEFAULT_DOCX_SMART_IMPRINT_FORWARD_PARAS = 3
+# Heuristic TOC evidence: at least this many consecutive dot-leader lines.
+DEFAULT_DOCX_SMART_TOC_MIN_LINES = 3
+# TOC retention: keep at most this many VISIBLE LINES of a detected TOC as body
+# (the rest collapse to a single "……") so a 目录 heading is not orphaned from
+# its entries. Counted globally by visible line (each soft-break line counts as
+# one). 0 keeps none (one "……" replaces the whole TOC); negatives clamp to 0;
+# a very large value keeps the entire TOC.
+DEFAULT_DOCX_SMART_TOC_KEEP_LINES = 5
+# CB1 heading-density ceiling (headings / non-empty paragraphs): the floor of
+# the effective threshold. The threshold is baseline-aware — a document with a
+# rich physical outline naturally admits more candidates, so the effective
+# ceiling is max(this floor, baseline outline density + the margin below).
+DEFAULT_DOCX_SMART_DENSITY_MAX = 0.40
+# CB1 margin added to the sub-document's baseline outline density when it beats
+# the floor above (percentage points, not relative).
+DEFAULT_DOCX_SMART_DENSITY_BASELINE_MARGIN = 0.10
+# Density re-estimation trigger #2 (trigger side only): also trips when
+# the mean CJK-weighted body chars between adjacent candidate headings falls
+# below this — a dense run of headings by spacing rather than by count.
+DEFAULT_DOCX_SMART_MIN_INTER_HEADING_CHARS = 200
+# CB2 demotion-propagation breaker ratios.
+DEFAULT_DOCX_SMART_CB2_BODY_RATIO = 0.20
+DEFAULT_DOCX_SMART_CB2_OUTLINE_RATIO = 0.50
+# CB5 FS_base confidence threshold (dominant-size char share).
+DEFAULT_DOCX_SMART_CONFIDENCE_RATIO = 0.60
+# CB4 whole-document gate: below this many tokens the whole document is too
+# short for smart heading — it is skipped entirely (baseline output). Kept
+# below DEFAULT_CHUNK_P_SIZE (2000): a document that fits inside a single
+# paragraph-chunk does not need heading-driven structural splitting.
+DEFAULT_DOCX_SMART_MIN_TOKENS = 1800
+# CB4 per-sub-document gate: once the whole document clears the gate above,
+# an individual sub-document below this many tokens falls back to outline-only
+# levels (``_outline_only_decisions``) instead of size-based leveling. Lower
+# than the whole-document gate — a sub-document is a fragment and needs less
+# content to be worth leveling.
+DEFAULT_DOCX_SMART_SUBDOC_MIN_TOKENS = 1000
+# Title-block LLM window cap (tokens) — content beyond it is truncated.
+DEFAULT_DOCX_SMART_LLM_WINDOW_TOKENS = 1000
+# Single-paragraph title-block gate: font size must exceed the global
+# FS_base mean by at least this many points.
+DEFAULT_DOCX_SMART_TITLE_BLOCK_MIN_DELTA = 2.0
+# Document head zone for multi/table title-block windows: a window whose
+# start is preceded by at least this many CONTENT records (paragraphs with
+# semantic text / tables; blanks, TOC lines, section breaks and pure-drawing
+# logo paragraphs do not count) is mid-document and needs document-boundary
+# evidence (imprint tail / attachment marker). Calibrated on the corpus: a
+# real cover may sit behind a few leading tables or long title lines
+# (national-standard covers, report covers), but never ~a page of content.
+DEFAULT_DOCX_SMART_TITLE_HEAD_ZONE_RECORDS = 8
+# Open numbering series: close a series after this many consecutive body
+# paragraphs (0 disables the auxiliary body-run break; the primary close
+# signal is the level returning to an ancestor scope).
+DEFAULT_DOCX_SMART_SEQ_BREAK_PARAS = 0
+# Strong-body length threshold in English-equivalent chars (1 CJK ≈ 3).
+DEFAULT_DOCX_SMART_HEADING_MAX_CHARS = 180
+# Hard raw-character ceiling for a rendered heading (UI/display constraint,
+# NOT env-configurable). Shared by parse_document (truncate_heading /
+# validate_heading_length) and the smart-heading synthesis path so a merged
+# main+sub title can never exceed what any other heading may reach.
+MAX_HEADING_LENGTH = 200
 
 # LightRAG Document pipeline
 FULL_DOCS_FORMAT_RAW = "raw"  # content in full_docs["content"]
@@ -161,6 +272,26 @@ PARSER_ENGINE_NATIVE = "native"
 PARSER_ENGINE_MINERU = "mineru"
 PARSER_ENGINE_DOCLING = "docling"
 PARSED_DIR_NAME = "__parsed__"  # Dir for parsed files (renamed from __enqueued__)
+# Reserved doc_status.metadata key holding the custom-chunk patch journal
+# (issue #3400 Phase 3). While present, the document has an in-flight or
+# failed ainsert_custom_chunks operation: the pipeline must NOT process the
+# row as ordinary ingestion, resets must NOT strip it, and deletion must
+# include its staged chunk IDs. Lives here (not utils_pipeline) so that
+# base.py can derive the scheduling projection without an import cycle.
+CUSTOM_CHUNK_PATCH_METADATA_KEY = "custom_chunk_patch"
+# doc_status.metadata keys that record a DEMOTION: this row is not the primary
+# claimant of its canonical source. ``is_duplicate`` is what every backend's
+# primary-candidate predicate keys off (``_basename_of`` returns None for it),
+# so these are load-bearing state, not display fields — every metadata rebuild
+# (status transitions AND the manual FAILED→PENDING reset) must carry them
+# across or the demotion silently reverts and the source key returns to
+# conflict. Written by enqueue's duplicate records, by the post-parse
+# content-hash duplicate marking, and by the operator's source-conflict repair.
+DUPLICATE_DEMOTION_METADATA_KEYS: tuple[str, ...] = (
+    "is_duplicate",
+    "duplicate_kind",
+    "original_doc_id",
+)
 # Prefix marking a doc_status content_summary as GENERATED from a file
 # extraction error (enqueue-time error documents and parse-stage FAILED
 # upserts). Doubles as the match sentinel that lets a later failure replace
@@ -240,6 +371,79 @@ DEFAULT_QUEUE_SIZE_PARSE = 20
 DEFAULT_QUEUE_SIZE_ANALYZE = 100
 DEFAULT_QUEUE_SIZE_INSERT = 4
 
+# Memory-bounding scheduling page size (LR2 Phase 2). The scheduler pages the
+# doc_status backlog through bounded keyset pages of this many records instead
+# of materializing every PENDING/orphan row at once, so RSS grows with
+# page-size + inflight rather than with the whole backlog. ``0`` disables
+# paging (one page holds the whole result set — byte-for-byte the legacy
+# single-scan behaviour).
+DEFAULT_PIPELINE_SCHEDULING_PAGE_SIZE = 500
+
+# Whether a doc_status backend missing a strict capability is a startup failure
+# (LR2 §11). ``False`` (the default) logs a loud warning naming each gap and
+# reports it on ``/health``; ``True`` refuses to start. There is no knob for the
+# bounded PAGING capability on purpose: the paging and typed-source methods are
+# ``@abstractmethod`` on ``DocStatusStorage``, so a backend that lacks them
+# cannot be instantiated at all — a stronger guarantee than an opt-in check.
+DEFAULT_PIPELINE_REQUIRE_STRICT_STORAGE_READS = False
+
+# How many newly claimed files ``/documents/scan`` holds before it writes them
+# to doc_status and releases the batch (LR2 §8.2). Discovery is a single
+# streaming pass, so peak scan memory is O(batch) instead of O(files in the
+# input dir). Unlike the scheduling page size this knob has NO "disabled"
+# value: a non-positive setting is a configuration error (an unbounded scan
+# batch is exactly what the streaming rework removes), so startup fails fast.
+DEFAULT_SCAN_ENQUEUE_BATCH_SIZE = 100
+
+# Admission capacity: how many documents may be active (PENDING / PARSING /
+# ANALYZING / PROCESSING) or reserved before new uploads / text inserts are
+# refused with 429 (LR2 §9.1). ``0`` disables admission control entirely — the
+# default, so existing deployments see no behaviour change. Manual FAILED→PENDING
+# retries and ``/documents/scan`` bulk enqueues deliberately break through the
+# cap; the active rows they create make ordinary uploads wait.
+DEFAULT_MAX_PENDING_DOCUMENTS = 0
+
+# Ceiling on how many documents ONE ``/documents/texts`` request may carry
+# (LR2 §11). ``0`` disables it. Distinct from ``MAX_PENDING_DOCUMENTS``, which
+# bounds the pipeline's total backlog and answers 429 (retry later): this bounds
+# the fan-out of a single request, which no amount of waiting fixes, so it
+# answers 413. It has to be checked before the endpoint's per-text existence
+# reads — those are one storage round-trip each, so an oversized batch would
+# otherwise do all of them before being refused.
+DEFAULT_MAX_TEXTS_PER_REQUEST = 0
+
+# Hard ceiling on the raw request body an ingestion endpoint may receive, counted
+# as it streams through the ASGI ``receive`` channel (LR2 §9.4). ``0`` disables
+# it. Distinct from ``MAX_UPLOAD_SIZE``, which bounds one uploaded FILE after
+# multipart parsing: this bounds the bytes the server agrees to read at all, so a
+# body that lies about (or omits) Content-Length is still cut off.
+DEFAULT_MAX_REQUEST_BODY_BYTES = 0
+
+# Per-workspace ceiling on manual retry requests that have been published but
+# not yet ACKed (LR2 §10.1). The channel is sticky — a request survives until an
+# exclusive reset acknowledges it — so an operator hammering /reprocess_failed
+# would otherwise grow it without bound. Over the ceiling the publish is refused
+# with CAPACITY_EXCEEDED, which is the ONLY manual-publish refusal that maps to
+# 429; an already-finalized id is a client error, not backpressure.
+DEFAULT_MAX_UNACKED_MANUAL_RETRIES = 64
+
+# Fixed capacity of the human-facing pipeline status history (LR2 §10.3). Every
+# write funnels through ``append_pipeline_history``, which drops the oldest lines
+# past this many, making the log a ring instead of an append-only list whose only
+# bound used to be "the extraction loop happens to trim it" — a deletion job, a
+# scan or a manual reset logs plenty without ever reaching that trim.
+# Deliberately not an env knob: §11 does not list one, the API response already
+# caps what it shows at the newest 1000 lines, and a status log is not a place a
+# deployment should have to size.
+PIPELINE_HISTORY_MAX_MESSAGES = 5000
+
+# Per-message UTF-8 byte ceiling for the same log. Capacity alone does not bound
+# memory: one call site appends a whole ``traceback.format_exc()``, and any
+# message interpolating a file list or an exception string is unbounded, so
+# N messages × unbounded size is still unbounded. Counted in BYTES rather than
+# characters because that is what is being bounded (CJK is 3 bytes/char).
+PIPELINE_HISTORY_MESSAGE_MAX_BYTES = 4096
+
 # LLM / embedding call priority levels.  Lower values run first
 # (asyncio.PriorityQueue semantics); priority only orders calls *within* a
 # single role queue (extract / keyword / query / vlm).  These name the values
@@ -268,6 +472,16 @@ DEFAULT_MM_ANALYSIS_PRIORITY = DEFAULT_PROCESSING_PRIORITY
 # this floor leaves the description too thin to ground a useful entity
 # description, so the pipeline raises instead of producing a stub.
 DEFAULT_MM_CHUNK_DESCRIPTION_MIN_TOKENS = 100
+# Minimum token budget the EXTRACT-role prompt must be able to spend on a
+# multimodal item's ``content`` (the table/equation body handed to the LLM).
+# When surrounding/captions/footnotes plus the fixed template frame consume so
+# much of MAX_EXTRACT_INPUT_TOKENS that fewer than this many tokens remain for
+# content, trimming would leave the LLM with a meaningless stub (a few chars of
+# a table body) — a wasted call that pollutes the graph.  The pipeline fails
+# the item instead (reprocessable once the budget is widened).  Input-side
+# mirror of DEFAULT_MM_CHUNK_DESCRIPTION_MIN_TOKENS; override via the env var
+# MM_EXTRACT_CONTENT_MIN_TOKENS.
+DEFAULT_MM_EXTRACT_CONTENT_MIN_TOKENS = 100
 # Minimum image side (width or height) in pixels accepted for VLM analysis.
 # Anything smaller is treated as decorative (icons, separators, etc.) and
 # written as status="skipped".
@@ -335,3 +549,29 @@ DEFAULT_OLLAMA_MODEL_TAG = "latest"
 DEFAULT_OLLAMA_MODEL_SIZE = 7365960935
 DEFAULT_OLLAMA_CREATED_AT = "2024-01-15T00:00:00Z"
 DEFAULT_OLLAMA_DIGEST = "sha256:lightrag"
+
+# Upper bound on the doc-id samples surfaced by the custom-chunk rollback
+# report. The rollback sweep is paged, so it must not accumulate one entry per
+# journaled document just to describe what it did — counts are exact, the id
+# lists are a bounded sample (see arollback_failed_custom_chunk_patches).
+ROLLBACK_REPORT_SAMPLE_CAP = 32
+
+# ---------------------------------------------------------------------------
+# Lock namespaces shared across modules (kept here so the string literals
+# cannot drift apart — two locks that disagree by a typo silently stop
+# excluding each other).
+# ---------------------------------------------------------------------------
+
+# Workspace-scoped namespace lock serializing the enqueue critical section
+# (filter_keys → basename/content dedup → doc_status.upsert). Source-conflict
+# repair takes the SAME lock so a new primary cannot be inserted between the
+# repair's re-read and its demotions (see DocStatusStorage.repair_source_conflict).
+ENQUEUE_SERIALIZE_LOCK_NAMESPACE = "enqueue_serialize"
+
+# Keyed-lock namespace for per-canonical-source-key serialization, mirroring the
+# "<workspace>:DocPatch" idiom. Keys are canonical source keys. Held by BOTH
+# writers that can change a key's candidate set outside enqueue: the operator's
+# source-conflict repair and the post-parse duplicate marking (LR2 §5.5) — take
+# it via utils_pipeline.source_candidate_set_lock, which is the single place the
+# namespace/key spelling is built (a mismatched spelling excludes nothing).
+SOURCE_CONFLICT_LOCK_NAMESPACE = "DocSource"

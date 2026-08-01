@@ -7,9 +7,11 @@ catalog from Airbyte Cloud using the public API.
 
 from __future__ import annotations
 
+import copy
 import json
+import logging
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +19,8 @@ import requests
 from airbyte import constants
 from airbyte.cloud import CloudWorkspace
 from airbyte.exceptions import PyAirbyteInputError
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -345,35 +349,109 @@ def fetch_connection_artifacts(
     return catalog, state
 
 
-def enrich_connection_data_with_artifacts(
-    connection_data: ConnectionData,
-    workspace_id: str | None = None,
-    client_id: str | None = None,
-    client_secret: str | None = None,
-) -> ConnectionData:
-    """Enrich ConnectionData with full catalog and state from PyAirbyte.
+def streams_missing_schemas(catalog: dict[str, Any]) -> list[str]:
+    """Return names of configured streams whose `json_schema` is empty or absent."""
+    return [
+        configured.get("stream", {}).get("name", "")
+        for configured in catalog.get("streams", [])
+        if not configured.get("stream", {}).get("json_schema")
+    ]
 
-    This replaces the minimal catalog (with empty schemas) with the actual
-    configured catalog from the Config API, and adds state artifacts.
 
-    Args:
-        connection_data: The connection data to enrich.
-        workspace_id: Airbyte Cloud workspace ID (defaults to env var).
-        client_id: Airbyte Cloud client ID (defaults to env var).
-        client_secret: Airbyte Cloud client secret (defaults to env var).
+def merge_stream_schemas(
+    catalog: dict[str, Any],
+    schema_source_catalog: dict[str, Any],
+) -> tuple[dict[str, Any], int]:
+    """Fill empty per-stream `json_schema` values from another catalog.
+
+    Both inputs must be in configured-catalog shape (`{"streams":
+    [{"stream": {...}}]}`); a flat discovered `AirbyteCatalog` is not
+    supported. Matches streams by name and accepts both `jsonSchema`
+    (platform camelCase) and `json_schema` (protocol snake_case) keys in the
+    source catalog. The public-API catalog carries no stream namespace, so
+    matching is name-only; a warning is logged when the source catalog has
+    duplicate stream names across namespaces. Streams that already have a
+    non-empty `json_schema` are left untouched. The input `catalog` is not
+    mutated.
 
     Returns:
-        ConnectionData with enriched catalog and state.
+        Tuple of `(merged_catalog, merged_stream_count)`.
+    """
+    schemas_by_name: dict[str, dict[str, Any]] = {}
+    for configured in schema_source_catalog.get("streams", []):
+        stream = configured.get("stream", {})
+        name = stream.get("name")
+        schema = stream.get("jsonSchema") or stream.get("json_schema")
+        if name and schema:
+            if name in schemas_by_name and schemas_by_name[name] != schema:
+                logger.warning(
+                    f"Duplicate stream name {name!r} in schema source catalog "
+                    "(likely the same table in multiple namespaces); "
+                    "name-only matching will use the last occurrence"
+                )
+            schemas_by_name[name] = schema
+
+    merged_catalog = copy.deepcopy(catalog)
+    merged_count = 0
+    for configured in merged_catalog.get("streams", []):
+        stream = configured.get("stream", {})
+        schema = schemas_by_name.get(stream.get("name", ""))
+        if schema and not stream.get("json_schema"):
+            stream["json_schema"] = schema
+            merged_count += 1
+
+    return merged_catalog, merged_count
+
+
+@dataclass
+class CatalogSchemaEnrichment:
+    """Result of `enrich_catalog_schemas_from_cloud`.
+
+    `state` carries the connection state fetched alongside the catalog
+    (the underlying PyAirbyte call always returns both), so callers that
+    need a warm read can reuse it instead of making a second round trip.
+    `state` is `None` when the connection has no stored state.
+    """
+
+    connection_data: ConnectionData
+    merged_count: int
+    state: list[dict[str, Any]] | None
+
+
+def enrich_catalog_schemas_from_cloud(
+    connection_data: ConnectionData,
+    client_id: str | None = None,
+    client_secret: str | None = None,
+) -> CatalogSchemaEnrichment:
+    """Fill empty per-stream `json_schema` values from the Cloud-stored catalog.
+
+    The minimal catalog built from the public API stream list has empty
+    schemas. Some connectors (e.g. property-chunking analytics streams)
+    derive the fields they request from the configured catalog schema, so an
+    empty schema silently yields zero records. This fetches the connection's
+    full configured catalog via PyAirbyte's `dump_raw_catalog()` and merges
+    each stream's schema into the existing catalog by stream name, preserving
+    the configured sync modes and stream selection.
+
+    The input `connection_data` is not mutated; its `state` field is left
+    untouched. The state fetched alongside the catalog is returned on the
+    result for callers to reuse.
     """
     catalog, state = fetch_connection_artifacts(
         connection_id=connection_data.connection_id,
-        workspace_id=workspace_id,
+        workspace_id=connection_data.workspace_id,
         client_id=client_id,
         client_secret=client_secret,
     )
+    if not catalog:
+        return CatalogSchemaEnrichment(connection_data, 0, state or None)
 
-    if catalog is not None:
-        connection_data.catalog = catalog
+    merged_catalog, merged_count = merge_stream_schemas(
+        connection_data.catalog, catalog
+    )
+    if merged_count == 0:
+        return CatalogSchemaEnrichment(connection_data, 0, state or None)
 
-    connection_data.state = state
-    return connection_data
+    return CatalogSchemaEnrichment(
+        replace(connection_data, catalog=merged_catalog), merged_count, state or None
+    )

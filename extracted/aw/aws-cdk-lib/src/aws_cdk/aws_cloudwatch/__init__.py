@@ -9884,25 +9884,24 @@ class CreateAlarmOptions:
 
         Example::
 
-            # channel_group: ChannelGroup
-            # channel: Channel
-            # endpoint: OriginEndpoint
+            # flow: Flow
+            # stack: Stack
             
             
-            # Create a CloudWatch alarm on channel group egress bytes
-            alarm = channel_group.metric_egress_bytes().create_alarm(self, "HighEgress",
-                threshold=1000,
+            # Create a CloudWatch alarm on source bitrate
+            alarm = flow.metric_source_bitrate().create_alarm(stack, "LowBitrate",
+                threshold=1000000,
                 evaluation_periods=1
             )
             
-            # Monitor channel ingress response time
-            channel.metric_ingress_response_time().create_alarm(self, "SlowIngress",
-                threshold=1000,
+            # Monitor unrecovered packets
+            flow.metric_source_not_recovered_packets().create_alarm(stack, "PacketLoss",
+                threshold=100,
                 evaluation_periods=2
             )
             
-            # Track origin endpoint request count
-            request_metric = endpoint.metric_egress_request_count(
+            # Track total packets with custom options
+            total_packets = flow.metric_source_total_packets(
                 statistic="sum",
                 period=Duration.minutes(5)
             )
@@ -12116,24 +12115,22 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
 
     Example::
 
-        # Create a metric
-        metric = cloudwatch.Metric(
-            namespace="AWS/EC2",
-            metric_name="CPUUtilization",
-            statistic="Average",
-            period=Duration.hours(1)
-        )
+        # serverless_cache: elasticache.ServerlessCache
         
-        # Create an anomaly detection alarm
-        alarm = cloudwatch.AnomalyDetectionAlarm(self, "AnomalyAlarm",
-            metric=metric,
-            evaluation_periods=1,
         
-            # Number of standard deviations for the band (default: 2)
-            std_devs=2,
-            # Alarm outside on either side of the band, or just below or above it (default: outside)
-            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_LOWER_OR_GREATER_THAN_UPPER_THRESHOLD,
-            alarm_description="Alarm when metric is outside the expected band"
+        # The 5 minutes average of the total number of successful read-only key lookups in the cache.
+        cache_hits = serverless_cache.metric_cache_hit_count()
+        
+        # The 5 minutes average of the total number of bytes used by the data stored in the cache.
+        bytes_used_for_cache = serverless_cache.metric_data_stored()
+        
+        # The 5 minutes average of the total number of ElastiCacheProcessingUnits (ECPUs) consumed by the requests executed on the cache.
+        elasti_cache_processing_units = serverless_cache.metric_processing_units_consumed()
+        
+        # Create an alarm for ECPUs.
+        elasti_cache_processing_units.create_alarm(self, "ElastiCacheProcessingUnitsAlarm",
+            threshold=50,
+            evaluation_periods=1
         )
     '''
 
@@ -12794,29 +12791,31 @@ class MetricOptions(CommonMetricOptions):
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
-        :exampleMetadata: infused
+        :exampleMetadata: fixture=default infused
 
         Example::
 
             import aws_cdk.aws_cloudwatch as cloudwatch
             
-            # delivery_stream: firehose.DeliveryStream
             
-            
-            # Alarm that triggers when the per-second average of incoming bytes exceeds 90% of the current service limit
-            incoming_bytes_percent_of_limit = cloudwatch.MathExpression(
-                expression="incomingBytes / 300 / bytePerSecLimit",
-                using_metrics={
-                    "incoming_bytes": delivery_stream.metric_incoming_bytes(statistic=cloudwatch.Statistic.SUM),
-                    "byte_per_sec_limit": delivery_stream.metric("BytesPerSecondLimit")
-                }
+            guardrail = bedrock.Guardrail(self, "bedrockGuardrails",
+                guardrail_name="my-BedrockGuardrails"
+            )
+            # Get a specific metric for this guardrail
+            invocations_metric = guardrail.metric_invocations(
+                statistic="Sum",
+                period=Duration.minutes(5)
             )
             
-            cloudwatch.Alarm(self, "Alarm",
-                metric=incoming_bytes_percent_of_limit,
-                threshold=0.9,
+            # Create a CloudWatch alarm for high invocation latency
+            cloudwatch.Alarm(self, "HighLatencyAlarm",
+                metric=guardrail.metric_invocation_latency(),
+                threshold=1000,  # 1 second
                 evaluation_periods=3
             )
+            
+            # Get metrics for all guardrails
+            all_invocations_metric = bedrock.Guardrail.metric_all_invocations()
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0dbe737a4d124c27184430b7c20048e16171cb8b5b94bdac632b26d8480d8116)

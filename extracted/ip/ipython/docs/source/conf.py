@@ -7,8 +7,6 @@
 import sys, os
 from pathlib import Path
 
-import tomllib
-
 from sphinx_toml import load_into_locals
 from intersphinx_registry import get_intersphinx_mapping
 import sphinx_rtd_theme
@@ -117,14 +115,6 @@ extlinks = {
 # Additional templates that should be rendered to pages, maps page names to
 # template names.
 
-# Options for LaTeX output
-# ------------------------
-
-# Grouping the document tree into LaTeX files. List of tuples
-# (source start file, target name, title, author, document class [howto/manual]).
-latex_documents = []
-
-
 # Options for texinfo output
 # --------------------------
 texinfo_documents = [
@@ -147,8 +137,8 @@ texinfo_documents = [
 #
 # The full version, including alpha/beta/rc tags.
 release = "%s" % iprelease["version"]
-# Just the X.Y.Z part, no '-dev'
-version = iprelease["version"].split("-", 1)[0]
+# Just the X.Y.Z part, no '.dev'
+version = ".".join(map(str, iprelease["version_info"][:3]))
 
 # There are two options for replacing |today|: either, you set today to some
 # non-false value, then it is used:
@@ -160,10 +150,7 @@ rst_prolog = ""
 
 
 def is_stable(extra):
-    for ext in {"dev", "b", "rc"}:
-        if ext in extra:
-            return False
-    return True
+    return all(ext not in extra for ext in {"dev", "b", "rc"})
 
 
 if is_stable(iprelease["_version_extra"]):

@@ -34,7 +34,7 @@ WatchdogSource = Literal["heartbeat", "log_growth", "progress_stall"]
 
 
 # Shared cast-type constants to avoid string duplication (Sonar S1192).
-_CAST_DICT_STR_OBJ = "dict[str, object]"
+type _CAST_DICT_STR_OBJ = dict[str, object]
 
 # Heartbeat phases that mean the agent is still producing its FIRST turn. A
 # non-heartbeat adapter (consumes_heartbeat_dir=False) has only its spawn-time
@@ -47,17 +47,28 @@ _STARTING_PHASES: frozenset[str] = frozenset(
 
 
 def _is_starting_phase(phase: str | None) -> bool:
-    return bool(phase) and phase.strip().lower() in _STARTING_PHASES
+    return phase is not None and phase.strip().lower() in _STARTING_PHASES
 
 
-def _log_signal_is_fresh(log_age_s: float | None) -> bool:
+def _log_signal_is_fresh(log_age_s: float | None, heartbeat_age_s: float | None = None) -> bool:
     """Whether a log mtime proves the agent is alive within the grace window.
 
     A log/git-tree write fresher than ``AGENT.liveness_grace_s`` is a positive
     liveness signal that SUPPRESSES the heartbeat-staleness incident (issue
     #3012): the agent is demonstrably alive regardless of heartbeat age.
+
+    The suppression is bounded (issue #3058). Every CLI adapter except claude
+    merges the child's stderr into the same runner log
+    (``stderr=subprocess.STDOUT``), so provider retry chatter, a progress
+    spinner, or a runtime deprecation warning refreshes the mtime with no real
+    progress. Once ``heartbeat_age_s`` passes ``AGENT.liveness_suppression_cap_s``
+    the mtime is treated as output noise rather than proof of work and the
+    incident is raised. ``heartbeat_age_s`` of ``None`` means "unbounded",
+    preserving the caller-side behaviour for callers that have no heartbeat age.
     """
-    return log_age_s is not None and log_age_s < AGENT.liveness_grace_s
+    if log_age_s is None or log_age_s >= AGENT.liveness_grace_s:
+        return False
+    return heartbeat_age_s is None or heartbeat_age_s < AGENT.liveness_suppression_cap_s
 
 
 @dataclass(frozen=True)
@@ -170,15 +181,20 @@ def _check_heartbeat_findings(
     """Check heartbeat-related findings for a session.
 
     A log/git mtime fresher than ``AGENT.liveness_grace_s`` is treated as a
-    POSITIVE liveness signal that suppresses the heartbeat-staleness incident
-    entirely -- not merely defers it: the agent is demonstrably alive even if
-    its heartbeat is stale (issue #3012). While the agent is still in the
-    ``starting`` phase the (larger, configurable) ``starting_timeout_s`` is
-    used so a slow/free model's first turn is not a hard 120s cap.
+    POSITIVE liveness signal that suppresses the heartbeat-staleness incident:
+    the agent is demonstrably alive even if its heartbeat is stale (issue
+    #3012). That suppression is bounded by ``AGENT.liveness_suppression_cap_s``
+    of continuous heartbeat silence (issue #3058) so stderr noise merged into
+    the runner log cannot hold the incident off indefinitely. While the agent
+    is still in the ``starting`` phase the (larger, configurable)
+    ``starting_timeout_s`` is used so a slow/free model's first turn is not a
+    hard 120s cap.
     """
     # Fresh log/git write within the grace window -> the agent is alive; never
-    # raise a heartbeat-staleness incident against a demonstrably-live agent.
-    if _log_signal_is_fresh(log_age_s):
+    # raise a heartbeat-staleness incident against a demonstrably-live agent,
+    # up to the suppression cap.
+    _heartbeat_age_s = hb_status.age_seconds if hb_status.last_heartbeat is not None else runtime_s
+    if _log_signal_is_fresh(log_age_s, _heartbeat_age_s):
         return
 
     # A `starting` agent (only its spawn-time heartbeat on disk for a
@@ -549,17 +565,17 @@ class WatchdogManager:
 
 def _coerce_log_state(raw: object) -> tuple[int, int]:
     if isinstance(raw, tuple):
-        values = cast("tuple[object, ...]", raw)
-        if len(values) == 2:
-            first = _safe_int(values[0])
-            second = _safe_int(values[1])
+        tuple_values = cast("tuple[object, ...]", raw)
+        if len(tuple_values) == 2:
+            first = _safe_int(tuple_values[0])
+            second = _safe_int(tuple_values[1])
             if first is not None and second is not None:
                 return first, second
     if isinstance(raw, list):
-        values = cast("list[object]", raw)
-        if len(values) == 2:
-            first = _safe_int(values[0])
-            second = _safe_int(values[1])
+        list_values = cast("list[object]", raw)
+        if len(list_values) == 2:
+            first = _safe_int(list_values[0])
+            second = _safe_int(list_values[1])
             if first is not None and second is not None:
                 return first, second
     return 0, 0

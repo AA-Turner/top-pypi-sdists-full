@@ -202,7 +202,7 @@ class OpenAISTTTranscriptionSession(StreamedTranscriptionSession):
             raise wrapped_err from e
         except Exception as e:
             await self._output_queue.put(ErrorSentinel(e))
-            raise e
+            raise
 
         await self._configure_session()
 
@@ -252,7 +252,7 @@ class OpenAISTTTranscriptionSession(StreamedTranscriptionSession):
                 break
             except Exception as e:
                 await self._output_queue.put(ErrorSentinel(e))
-                raise e
+                raise
         await self._output_queue.put(SessionCompleteSentinel())
 
     async def _stream_audio(
@@ -279,7 +279,7 @@ class OpenAISTTTranscriptionSession(StreamedTranscriptionSession):
                 break
             except Exception as e:
                 await self._output_queue.put(ErrorSentinel(e))
-                raise e
+                raise
 
             await asyncio.sleep(0)  # yield control
 
@@ -303,7 +303,7 @@ class OpenAISTTTranscriptionSession(StreamedTranscriptionSession):
                     raise AgentsException("Listener task not initialized")
         except Exception as e:
             await self._output_queue.put(ErrorSentinel(e))
-            raise e
+            raise
 
     def _check_errors(self) -> None:
         if self._connection_task and self._connection_task.done():
@@ -346,7 +346,11 @@ class OpenAISTTTranscriptionSession(StreamedTranscriptionSession):
             try:
                 turn = await self._output_queue.get()
             except asyncio.CancelledError:
-                break
+                if self._tracing_span:
+                    self._end_turn("")
+                if self._websocket:
+                    await self._websocket.close()
+                raise
 
             if (
                 turn is None
@@ -447,7 +451,7 @@ class OpenAISTTModel(STTModel):
                         data={},
                     )
                 )
-                raise e
+                raise
 
     async def create_session(
         self,

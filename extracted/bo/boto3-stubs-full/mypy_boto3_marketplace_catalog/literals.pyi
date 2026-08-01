@@ -36,10 +36,12 @@ __all__ = (
     "MachineLearningProductSortByType",
     "MachineLearningProductVisibilityStringType",
     "MarketplaceCatalogServiceName",
+    "OfferCreatedBySourceStringType",
     "OfferSetSortByType",
     "OfferSetStateStringType",
     "OfferSortByType",
     "OfferStateStringType",
+    "OfferTargetAgreementIntentStringType",
     "OfferTargetingStringType",
     "OwnershipTypeType",
     "PaginatorName",
@@ -71,6 +73,7 @@ MachineLearningProductSortByType = Literal[
     "EntityId", "LastModifiedDate", "ProductTitle", "Visibility"
 ]
 MachineLearningProductVisibilityStringType = Literal["Draft", "Limited", "Public", "Restricted"]
+OfferCreatedBySourceStringType = Literal["AwsMarketplace", "Seller"]
 OfferSetSortByType = Literal[
     "EntityId", "LastModifiedDate", "Name", "ReleaseDate", "SolutionId", "State"
 ]
@@ -78,6 +81,7 @@ OfferSetStateStringType = Literal["Draft", "Released"]
 OfferSortByType = Literal[
     "AvailabilityEndDate",
     "BuyerAccounts",
+    "CreatedBySource",
     "EntityId",
     "LastModifiedDate",
     "Name",
@@ -86,9 +90,12 @@ OfferSortByType = Literal[
     "ReleaseDate",
     "ResaleAuthorizationId",
     "State",
+    "TargetAgreementId",
+    "TargetAgreementIntent",
     "Targeting",
 ]
 OfferStateStringType = Literal["Draft", "Released"]
+OfferTargetAgreementIntentStringType = Literal["Renew"]
 OfferTargetingStringType = Literal["BuyerAccounts", "CountryCodes", "None", "ParticipatingPrograms"]
 OwnershipTypeType = Literal["SELF", "SHARED"]
 ResaleAuthorizationResellerRoleStringType = Literal["ChannelPartner", "Distributor"]

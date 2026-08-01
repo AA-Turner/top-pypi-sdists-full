@@ -13,6 +13,7 @@ from dncil.cil.error import MethodBodyFormatError
 from dncil.clr.token import InvalidToken, StringToken, Token
 from dnfile.enums import MetadataTables
 
+from smda.common.ExceptionHandling import reraise_non_operational_exception
 from smda.common.labelprovider.CilSymbolProvider import CilSymbolProvider
 from smda.DisassemblyResult import DisassemblyResult
 
@@ -130,7 +131,11 @@ class CilDisassembler:
 
     def _updateLabelProviders(self, binary_info):
         for provider in self.label_providers:
-            provider.update(binary_info)
+            try:
+                provider.update(binary_info)
+            except Exception as exc:
+                reraise_non_operational_exception(exc)
+                LOGGER.error("Label provider %s failed to update: %r", provider.__class__.__name__, exc)
 
     def resolveSymbol(self, address):
         for provider in self.label_providers:
@@ -147,9 +152,26 @@ class CilDisassembler:
                 return
             self.disassembly.addr_to_api[from_addr] = api_function
 
+    @staticmethod
+    def _seedExceptionHandlerBlocks(state, method_body):
+        """Seed try/handler/filter entries as block starts.
+
+        A catch/finally/filter entry has no intra-method branch pointing at it, so
+        getBlocks() - which starts blocks only at code_start_addr and jump_targets - would
+        never open a block there. dncil reports these offsets relative to the start of the
+        code, while instruction offsets are absolute, so rebase them onto code_start_addr.
+        """
+        handlers = getattr(method_body, "exception_handlers", None) or []
+        code_start = state.code_start_addr
+        for handler in handlers:
+            for offset in (handler.try_start, handler.handler_start, getattr(handler, "filter_start", -1)):
+                if offset is not None and offset >= 0:
+                    state.jump_targets.add(code_start + offset)
+
     def analyzeFunction(self, pe, start_addr, method_body):
         LOGGER.debug("analyzeFunction() starting analysis of candidate @0x%08x", start_addr)
         state = FunctionAnalysisState(start_addr, method_body.instructions[0].offset, self.disassembly)
+        self._seedExceptionHandlerBlocks(state, method_body)
         for insn in method_body.instructions:
             state.setNextInstructionReachable(True)
             i_bytes = insn.get_bytes()
@@ -198,6 +220,11 @@ class CilDisassembler:
             ]:
                 target = int(i_op_str, 16)
                 state.addCodeRef(i_address, target, by_jump=True)
+                # an unconditional branch does not fall through; leaving reachability set
+                # emitted a bogus edge to the next instruction, which addCodeRef then also
+                # registered as a jump target (is_jmp was just set by the branch itself)
+                if i_mnemonic in ["br", "br.s", "leave", "leave.s"]:
+                    state.setNextInstructionReachable(False)
             if i_mnemonic in ["jmp"]:
                 # jmp's operand is InlineMethod (a tail-jump to another method), not a
                 # same-function branch offset, so i_op_str is usually a method name/token
@@ -211,7 +238,11 @@ class CilDisassembler:
                     state.addCodeRef(i_address, target, by_jump=True)
             if i_mnemonic in ["ldstr"]:
                 # we possibly want to extract and collect these and put them in the stringref part of SmdaFunction
-                self.disassembly.addStringRef(start_addr, i_address, i_op_str[1:-1])
+                # format_operand only wraps the operand in quotes when the resolved user string
+                # is a str; an unreadable #US entry falls through to str(InvalidToken), where
+                # the unconditional [1:-1] would chop two real characters off the string ref
+                string_ref = i_op_str[1:-1] if i_op_str.startswith('"') and i_op_str.endswith('"') else i_op_str
+                self.disassembly.addStringRef(start_addr, i_address, string_ref)
             if i_mnemonic in ["call", "calli", "callvirt"]:
                 self._updateApiInformation(i_address, i_bytes, i_op_str)
                 # https://blog.objektkultur.de/about-tail-recursion-in-.net/
@@ -222,7 +253,9 @@ class CilDisassembler:
                     if isinstance(operand, dnfile.mdtable.MethodDefRow):
                         # override operand string with "address" of the method
                         method_name = self.cil_label_provider.decodeSymbolName(operand.Name.value)
-                        i_op_str = f"0x{self.cil_label_provider.getAddress(method_name):x}"
+                        method_addr = self.cil_label_provider.getAddress(method_name)
+                        if method_addr is not None:
+                            i_op_str = f"0x{method_addr:x}"
             if i_mnemonic in ["throw", "rethrow"]:
                 state.setNextInstructionReachable(False)
             if i_mnemonic in ["switch"]:

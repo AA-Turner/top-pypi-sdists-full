@@ -471,3 +471,217 @@ proptest! {
         }));
     }
 }
+
+// ============================================================================
+// Static script analysis (TM-ESC-032)
+//
+// Hosts gate execution on `analyze()` output, so the invariants that matter
+// are: it never panics, it never invents a command name, and anything it
+// cannot resolve statically must surface as opaque rather than as safe.
+// ============================================================================
+
+/// Scripts built only from statically-named, side-effect-free commands.
+/// Every dispatched command name must appear in the analysis.
+fn static_script_strategy() -> impl Strategy<Value = String> {
+    let atom = prop_oneof![
+        Just("echo hello".to_string()),
+        Just("true".to_string()),
+        Just("printf '%s' x".to_string()),
+        Just("echo a | grep a".to_string()),
+        Just("basename /x/y".to_string()),
+        Just("echo one > /tmp/p_a".to_string()),
+        Just("cat /tmp/p_a".to_string()),
+        Just("if true; then echo t; fi".to_string()),
+        Just("for i in 1 2; do echo $i; done".to_string()),
+        Just("echo $(basename /x/y)".to_string()),
+        Just("V=1 echo $V".to_string()),
+    ];
+    proptest::collection::vec(atom, 1..6).prop_map(|parts| parts.join("; "))
+}
+
+/// Scripts whose effective command is only known at runtime.
+fn opaque_script_strategy() -> impl Strategy<Value = String> {
+    prop_oneof![
+        Just("c=echo; $c hi".to_string()),
+        Just("$(echo echo) hi".to_string()),
+        Just("eval \"echo hi\"".to_string()),
+        Just("bash -c 'echo hi'".to_string()),
+        Just("sh -c 'echo hi'".to_string()),
+        Just("bash /tmp/nope.sh".to_string()),
+        Just(". /tmp/nope.sh".to_string()),
+        Just("source /tmp/nope.sh".to_string()),
+        Just("${cmd} hi".to_string()),
+    ]
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(32))]
+
+    /// Analysis must never panic, whatever the input.
+    #[test]
+    fn analyze_never_panics(input in bash_input_strategy()) {
+        let _ = bashkit::analysis::analyze(&input);
+    }
+
+    /// Multi-byte input must not trip byte/char index handling.
+    #[test]
+    fn analyze_never_panics_on_multibyte(input in arithmetic_multibyte_strategy()) {
+        let _ = bashkit::analysis::analyze(&input);
+    }
+
+    /// Analysis is pure: same input, same result.
+    #[test]
+    fn analyze_is_deterministic(input in bash_input_strategy()) {
+        let first = bashkit::analysis::analyze(&input);
+        let second = bashkit::analysis::analyze(&input);
+        prop_assert_eq!(first.is_ok(), second.is_ok());
+        if let (Ok(a), Ok(b)) = (first, second) {
+            prop_assert_eq!(a, b);
+        }
+    }
+
+    /// A statically known name is quoted from the source, never invented.
+    #[test]
+    fn analyze_never_invents_a_command_name(input in bash_input_strategy()) {
+        if let Ok(analysis) = bashkit::analysis::analyze(&input) {
+            for command in &analysis.commands {
+                if let Some(name) = command.name.as_deref() {
+                    prop_assert!(input.contains(name));
+                }
+            }
+        }
+    }
+
+    /// Output stays inside the node budget, and hitting it sets `truncated`.
+    #[test]
+    fn analyze_respects_the_node_budget(n in 1..600usize) {
+        let script = "echo x > /tmp/f;".repeat(n);
+        let analysis = bashkit::analysis::analyze(&script).expect("parses");
+        let nodes = analysis.commands.len() + analysis.redirects.len();
+        prop_assert!(nodes <= bashkit::analysis::MAX_ANALYSIS_NODES);
+        prop_assert_eq!(
+            analysis.truncated,
+            nodes == bashkit::analysis::MAX_ANALYSIS_NODES
+        );
+        prop_assert!(!analysis.truncated || analysis.is_opaque());
+    }
+
+    /// The load-bearing invariant: for a transparent script, every command the
+    /// interpreter actually dispatches was reported by the analysis. A host
+    /// that allowlists `command_names()` must not be surprised at runtime.
+    #[test]
+    fn analysis_covers_every_dispatched_command(script in static_script_strategy()) {
+        thread_local! {
+            static RT: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+        }
+        let dispatched = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let sink = dispatched.clone();
+        let mut bash = Bash::builder()
+            .limits(
+                ExecutionLimits::new()
+                    .max_commands(200)
+                    .timeout(Duration::from_millis(500)),
+            )
+            .before_tool(Box::new(move |event: bashkit::hooks::ToolEvent| {
+                sink.lock().expect("lock").push(event.name.clone());
+                bashkit::hooks::HookAction::Continue(event)
+            }))
+            .build();
+
+        let analysis = bash.analyze(&script).expect("generated script parses");
+        prop_assert!(!analysis.is_opaque(), "generator emits transparent scripts only");
+
+        RT.with(|rt| rt.block_on(async {
+            let _ = bash.exec(&script).await;
+        }));
+
+        let names = analysis.command_names();
+        for ran in dispatched.lock().expect("lock").iter() {
+            prop_assert!(
+                names.contains(&ran.as_str()),
+                "`{}` ran but analysis reported {:?} for `{}`",
+                ran,
+                names,
+                script
+            );
+        }
+    }
+
+    /// Scripts that resolve their command at runtime must never analyze as
+    /// transparent — that is the bypass TM-ESC-032 guards against.
+    #[test]
+    fn runtime_resolved_scripts_are_opaque(script in opaque_script_strategy()) {
+        let analysis = bashkit::analysis::analyze(&script).expect("parses");
+        prop_assert!(analysis.is_opaque(), "`{}` must not analyze as transparent", script);
+    }
+}
+
+// ============================================================================
+// Snapshot decoding (TM-SNAP-*)
+// ============================================================================
+//
+// Snapshot bytes are the one input hosts routinely load from storage they do
+// not fully control, and the unkeyed integrity digest is explicitly not a
+// security boundary (TM-SNAP-001). This release reads the v2 container without
+// writing it, so the bytes it must survive are precisely the ones it cannot
+// have produced. The `snapshot_fuzz` target explores this space far more
+// deeply, but it only gets compile-checked on a PR — these run on every pass.
+
+/// Byte strings shaped like the things a damaged store actually returns.
+fn snapshot_bytes_strategy() -> impl Strategy<Value = Vec<u8>> {
+    prop_oneof![
+        // Free-form noise of every interesting length around the header.
+        proptest::collection::vec(any::<u8>(), 0..200),
+        // A plausible digest followed by arbitrary body.
+        proptest::collection::vec(any::<u8>(), 32..160),
+        // The v2 magic followed by noise, so the container decoder is reached
+        // rather than bailing at the prefix check.
+        proptest::collection::vec(any::<u8>(), 0..128).prop_map(|tail| [
+            vec![0u8; 32],
+            b"BKSNAP".to_vec(),
+            tail
+        ]
+        .concat()),
+        // A JSON-ish prefix, which routes to the legacy v1 decoder.
+        proptest::collection::vec(any::<u8>(), 0..128).prop_map(|tail| [
+            vec![0u8; 32],
+            b"{".to_vec(),
+            tail
+        ]
+        .concat()),
+    ]
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(200))]
+
+    /// Arbitrary bytes must be an error, never a panic, and must never leave a
+    /// live instance damaged.
+    #[test]
+    fn snapshot_decode_never_panics(data in snapshot_bytes_strategy()) {
+        fuzz_init();
+
+        // Both formats, both integrity modes.
+        let _ = bashkit::Snapshot::from_bytes(&data);
+        let _ = bashkit::Snapshot::from_bytes_keyed(&data, b"proptest-key");
+
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        let mut bash = Bash::new();
+        rt.block_on(async {
+            bash.exec("echo intact > /intact.txt").await.unwrap();
+        });
+
+        // Whatever the bytes are, the instance survives and stays usable.
+        let _ = bash.restore_snapshot(&data);
+        let result = rt.block_on(async { bash.exec("echo alive").await });
+        prop_assert!(result.is_ok(), "instance unusable after a rejected restore");
+        prop_assert_eq!(result.unwrap().stdout, "alive\n");
+    }
+}

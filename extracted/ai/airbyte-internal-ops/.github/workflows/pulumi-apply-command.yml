@@ -45,35 +45,57 @@ jobs:
       - name: Resolve ref (push to main)
         if: github.event_name == 'push'
         id: ref-push
-        run: echo "ref=${{ github.ref }}" | tee -a $GITHUB_OUTPUT
+        run: echo "ref=${{ github.ref }}" | tee -a "$GITHUB_OUTPUT"
 
       - name: Resolve ref (slash command from PR)
         if: github.event_name != 'push' && github.event.inputs.pr != ''
         id: ref-pr
-        uses: actions/github-script@v7
+        env:
+          GH_TOKEN: ${{ steps.get-app-token.outputs.token }}
+          PR_NUMBER: ${{ github.event.inputs.pr }}
+        run: |
+          [[ "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]] \
+            || { echo "::error::PR number must be a positive integer."; exit 1; }
+          pr_json="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
+          error="$(
+            jq -r --arg pr_number "$PR_NUMBER" '
+              if .head.repo.full_name != .base.repo.full_name then
+                "Security: /pulumi-apply is not allowed on PRs from forks"
+              elif .mergeable != true or (.merge_commit_sha // "") == "" then
+                "PR #\($pr_number) is not mergeable (mergeable=\(.mergeable), merge_commit_sha=\(.merge_commit_sha // "none")). Resolve conflicts before applying."
+              else
+                ""
+              end
+            ' <<< "$pr_json"
+          )"
+          echo "error=$error" | tee -a "$GITHUB_OUTPUT"
+          [ -z "$error" ] \
+            || { echo "::error::$error"; exit 1; }
+          echo "ref=refs/pull/${PR_NUMBER}/merge" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Report invalid PR apply ref
+        if: always() && github.event_name != 'push' && github.event.inputs.pr != '' && steps['ref-pr'].outputs.error && github.event.inputs.comment-id
+        uses: peter-evans/create-or-update-comment@v5
         with:
-          github-token: ${{ steps.get-app-token.outputs.token }}
-          script: |
-            const { data: pr } = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: ${{ github.event.inputs.pr || 0 }}
-            });
-            if (pr.head.repo.full_name !== pr.base.repo.full_name) {
-              core.setFailed('Security: /pulumi-apply is not allowed on PRs from forks');
-              return;
-            }
-            core.setOutput('ref', pr.head.ref);
-            core.info(`PR #${{ github.event.inputs.pr }} from branch: ${pr.head.ref}`);
+          comment-id: ${{ github.event.inputs.comment-id }}
+          reactions: confused
+          body: |
+            > ❌ Pulumi apply stopped: ${{ steps['ref-pr'].outputs.error }}
 
       - name: Resolve ref (manual dispatch)
         if: github.event_name != 'push' && github.event.inputs.pr == ''
         id: ref-manual
-        run: echo "ref=${{ github.ref }}" | tee -a $GITHUB_OUTPUT
+        run: echo "ref=${{ github.ref }}" | tee -a "$GITHUB_OUTPUT"
 
       - name: Set resolved ref
         id: resolve-ref
-        run: echo "ref=${{ steps.ref-push.outputs.ref || steps.ref-pr.outputs.ref || steps.ref-manual.outputs.ref }}" | tee -a $GITHUB_OUTPUT
+        env:
+          REF_PUSH: ${{ steps.ref-push.outputs.ref }}
+          REF_PR: ${{ steps.ref-pr.outputs.ref }}
+          REF_MANUAL: ${{ steps.ref-manual.outputs.ref }}
+        run: |
+          resolved_ref="${REF_PUSH:-${REF_PR:-$REF_MANUAL}}"
+          echo "ref=$resolved_ref" | tee -a "$GITHUB_OUTPUT"
 
       - name: Checkout code
         uses: actions/checkout@v6
@@ -119,36 +141,38 @@ jobs:
             workflow:
               - '.github/workflows/pulumi-apply-command.yml'
 
-      - name: Build stack matrix
+      - name: Resolve Variables
         id: build-matrix
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const isManual = '${{ github.event_name }}' !== 'push' && '${{ github.event.inputs.pr }}' === '';
-            const stacks = [];
-            if (isManual) {
-              // Manual dispatch: run all stacks with a Pulumi.yaml
-              const fs = require('fs');
-              const path = require('path');
-              for (const entry of fs.readdirSync('infra', { withFileTypes: true })) {
-                if (entry.isDirectory() && fs.existsSync(path.join('infra', entry.name, 'Pulumi.yaml'))) {
-                  stacks.push({ name: entry.name, dir: `infra/${entry.name}` });
-                }
-              }
-            } else {
-              const sentry = ${{ steps['changes-push'].outputs.sentry || steps['changes-pr'].outputs.sentry || false }};
-              const amb = ${{ steps['changes-push'].outputs['agent-message-bus'] || steps['changes-pr'].outputs['agent-message-bus'] || false }};
-              const opsWebapp = ${{ steps['changes-push'].outputs['ops-webapp'] || steps['changes-pr'].outputs['ops-webapp'] || false }};
-              const workflow = ${{ steps['changes-push'].outputs.workflow || steps['changes-pr'].outputs.workflow || false }};
-              if (sentry || workflow) stacks.push({ name: 'sentry', dir: 'infra/sentry' });
-              if (amb || workflow) stacks.push({ name: 'agent-message-bus', dir: 'infra/agent-message-bus' });
-              if (opsWebapp || workflow) stacks.push({ name: 'ops-webapp', dir: 'infra/ops-webapp' });
-              const internalMcp = ${{ steps['changes-push'].outputs['internal-mcp-servers'] || steps['changes-pr'].outputs['internal-mcp-servers'] || false }};
-              if (internalMcp || workflow) stacks.push({ name: 'internal-mcp-servers', dir: 'infra/internal-mcp-servers' });
-            }
-            const result = JSON.stringify(stacks);
-            core.setOutput('stacks', result);
-            core.info(`Detected stacks: ${result}`);
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.inputs.pr }}
+          SENTRY_CHANGED: ${{ steps['changes-push'].outputs.sentry || steps['changes-pr'].outputs.sentry || 'false' }}
+          AGENT_MESSAGE_BUS_CHANGED: ${{ steps['changes-push'].outputs['agent-message-bus'] || steps['changes-pr'].outputs['agent-message-bus'] || 'false' }}
+          OPS_WEBAPP_CHANGED: ${{ steps['changes-push'].outputs['ops-webapp'] || steps['changes-pr'].outputs['ops-webapp'] || 'false' }}
+          INTERNAL_MCP_SERVERS_CHANGED: ${{ steps['changes-push'].outputs['internal-mcp-servers'] || steps['changes-pr'].outputs['internal-mcp-servers'] || 'false' }}
+          WORKFLOW_CHANGED: ${{ steps['changes-push'].outputs.workflow || steps['changes-pr'].outputs.workflow || 'false' }}
+        run: |
+          all_stacks="$(
+            find infra -mindepth 2 -maxdepth 2 -type f -name 'Pulumi.yaml' -print \
+              | sort \
+              | jq -c -R -s 'split("\n") | map(select(length > 0) | capture("^infra/(?<name>[^/]+)/Pulumi\\.yaml$") | {name: .name, dir: ("infra/" + .name)})'
+          )"
+          changed_stacks="$(
+            jq -c -n \
+              --arg sentry "$SENTRY_CHANGED" \
+              --arg agent_message_bus "$AGENT_MESSAGE_BUS_CHANGED" \
+              --arg ops_webapp "$OPS_WEBAPP_CHANGED" \
+              --arg internal_mcp_servers "$INTERNAL_MCP_SERVERS_CHANGED" \
+              --arg workflow "$WORKFLOW_CHANGED" \
+              '[
+                {name: "sentry", dir: "infra/sentry", changed: ($sentry == "true" or $workflow == "true")},
+                {name: "agent-message-bus", dir: "infra/agent-message-bus", changed: ($agent_message_bus == "true" or $workflow == "true")},
+                {name: "ops-webapp", dir: "infra/ops-webapp", changed: ($ops_webapp == "true" or $workflow == "true")},
+                {name: "internal-mcp-servers", dir: "infra/internal-mcp-servers", changed: ($internal_mcp_servers == "true" or $workflow == "true")}
+              ] | map(select(.changed)) | map(del(.changed))'
+          )"
+          json="$(jq -c --arg event "$EVENT_NAME" --arg pr "$PR_NUMBER" --argjson all "$all_stacks" --argjson changed "$changed_stacks" 'if $event == "workflow_dispatch" and $pr == "" then $all else $changed end')"
+          echo "stacks=$json" | tee -a "$GITHUB_OUTPUT"
 
       - name: Append comment with job run link
         if: github.event.inputs.comment-id
@@ -180,7 +204,7 @@ jobs:
       run:
         working-directory: ${{ matrix.stack.dir }}
     env:
-      PULUMI_REFRESH_EXCLUDE: ${{ matrix.stack.name == 'sentry' && '--exclude urn:pulumi:prod::airbyte-sentry::sentry:index/issueAlert:IssueAlert::alert-api-connectors-p0' || '' }}
+      PULUMI_REFRESH_EXCLUDE: ${{ matrix.stack.name == 'sentry' && 'urn:pulumi:prod::airbyte-sentry::sentry:index/issueAlert:IssueAlert::alert-api-connectors-p0' || '' }}
     steps:
       - name: Authenticate as GitHub App
         uses: actions/create-github-app-token@v2
@@ -273,10 +297,35 @@ jobs:
         run: pulumi stack select prod --create
 
       - name: Pulumi Refresh
+        id: refresh
         env:
           PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN_READWRITE }}
-        run: pulumi refresh --stack prod --yes $PULUMI_REFRESH_EXCLUDE
+        run: |
+          set -o pipefail
+          refresh_args=(--stack prod --yes)
+          [ -z "$PULUMI_REFRESH_EXCLUDE" ] || refresh_args+=(--exclude "$PULUMI_REFRESH_EXCLUDE")
+          pulumi refresh "${refresh_args[@]}" 2>&1 | tee /tmp/pulumi-refresh.txt
+
+      - name: Capture bounded refresh output
+        id: refresh-output
+        env:
+          MAX_CHARS: '28000'
+          OUTPUT_CHARS: '27800'
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          refresh_output="$(head -c "$OUTPUT_CHARS" /tmp/pulumi-refresh.txt)"
+          truncation_note="$( \
+            [ "$(wc -c < /tmp/pulumi-refresh.txt)" -gt "$MAX_CHARS" ] \
+            && printf '\n\n[Output truncated; see workflow logs: %s]' "$RUN_URL" \
+            || true
+          )"
+          refresh_output="${refresh_output}${truncation_note}"
+          {
+            echo 'refresh_output<<EOF'
+            printf '%s\n' "$refresh_output"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
 
       - name: Pulumi Preview
         id: preview
@@ -284,7 +333,59 @@ jobs:
         env:
           PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN_READWRITE }}
-        run: pulumi preview --stack prod --diff --expect-no-changes
+        run: |
+          set -o pipefail
+          rc=0
+          pulumi preview --stack prod --diff --expect-no-changes 2>&1 | tee /tmp/pulumi-preview-diff.txt || rc=$?
+          exit "$rc"
+
+      - name: Capture bounded preview output
+        id: preview-output
+        env:
+          MAX_CHARS: '28000'
+          OUTPUT_CHARS: '27800'
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          preview_diff_output="$(head -c "$OUTPUT_CHARS" /tmp/pulumi-preview-diff.txt)"
+          truncation_note="$( \
+            [ "$(wc -c < /tmp/pulumi-preview-diff.txt)" -gt "$MAX_CHARS" ] \
+            && printf '\n\n[Output truncated; see workflow logs: %s]' "$RUN_URL" \
+            || true
+          )"
+          preview_diff_output="${preview_diff_output}${truncation_note}"
+          {
+            echo 'preview_diff_output<<EOF'
+            printf '%s\n' "$preview_diff_output"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Post fresh apply diff
+        if: github.event.inputs.comment-id
+        uses: peter-evans/create-or-update-comment@v5
+        with:
+          comment-id: ${{ github.event.inputs.comment-id }}
+          body: |
+            > 🔄 **Fresh Pulumi diff before apply** (`${{ matrix.stack.name }}`)
+            >
+            > This refresh and diff were generated from the PR merge ref immediately before apply.
+
+            <details><summary>Refresh output</summary>
+
+            ```
+            ${{ steps['refresh-output'].outputs.refresh_output }}
+            ```
+
+            </details>
+
+            <details><summary>Detailed diff</summary>
+
+            ```diff
+            ${{ steps['preview-output'].outputs.preview_diff_output }}
+            ```
+
+            </details>
+
+            [View the full workflow logs.](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
       - name: Pulumi Up (Apply)
         id: pulumi-up
@@ -301,7 +402,10 @@ jobs:
         env:
           PULUMI_CONFIG_PASSPHRASE: ${{ secrets.PULUMI_CONFIG_PASSPHRASE }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN_READWRITE }}
-        run: pulumi preview --stack prod --refresh --diff --expect-no-changes $PULUMI_REFRESH_EXCLUDE
+        run: |
+          preview_args=(--stack prod --refresh --diff --expect-no-changes)
+          [ -z "$PULUMI_REFRESH_EXCLUDE" ] || preview_args+=(--exclude "$PULUMI_REFRESH_EXCLUDE")
+          pulumi preview "${preview_args[@]}"
 
       # ---------- State upload: artifact-based (Sentry) ----------
 

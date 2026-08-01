@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Release data for the IPython project."""
 
 #-----------------------------------------------------------------------------
@@ -16,7 +15,7 @@
 # release.  'dev' as a _version_extra string means this is a development
 # version
 _version_major = 9
-_version_minor = 15
+_version_minor = 16
 _version_patch = 0
 _version_extra = ".dev"
 # _version_extra = "b2"

@@ -10,6 +10,7 @@ from typing import TypeVar
 from mutmut.__main__ import MutmutProgrammaticFailException
 from mutmut.__main__ import mangled_name_from_mutant_name
 from mutmut.__main__ import record_trampoline_hit
+from mutmut.core import MutmutCallStack
 
 TReturn = TypeVar("TReturn")
 MutantDict = Annotated[dict[str, Callable[..., TReturn]], "Mutant"]
@@ -57,8 +58,18 @@ def wrap_in_trampoline(
                 )
 
             if mutant_under_test == "stats":
-                record_trampoline_hit(f"{orig_func.__module__}.{mangled_name_from_mutant_name(orig_func.__name__)}")
-                return orig_func(*call_args, **kwargs)
+                orig_qual_name = f"{orig_func.__module__}.{mangled_name_from_mutant_name(orig_func.__name__)}"
+                caller_name, depth = MutmutCallStack.get()
+                max_depth = int(os.environ.get("MUTMUT_DEPENDENCY_DEPTH", "-1"))
+                if max_depth == -1 or depth < max_depth:
+                    record_trampoline_hit(orig_qual_name, caller=caller_name)
+                    token = MutmutCallStack.set((orig_qual_name, depth + 1))
+                    try:
+                        return orig_func(*call_args, **kwargs)
+                    finally:
+                        MutmutCallStack.reset(token)
+                else:
+                    return orig_func(*call_args, **kwargs)
 
             # mutant under test is {module}.{mutant_name}
             module, _, mutant_name = mutant_under_test.rpartition(".")
@@ -82,7 +93,10 @@ def wrap_in_trampoline(
 
             @wraps(decorated_func)
             def _trampoline_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:  # type: ignore
-                yield from trampoline(*args, **kwargs)  # type: ignore
+                # ``return`` the delegation result so a generator's StopIteration value
+                # (``return`` inside the generator) is forwarded to the caller's
+                # ``yield from``, matching the PEP 380 expansion.
+                return (yield from trampoline(*args, **kwargs))  # type: ignore
         elif inspect.iscoroutinefunction(decorated_func):
 
             @wraps(decorated_func)
@@ -92,8 +106,33 @@ def wrap_in_trampoline(
 
             @wraps(decorated_func)
             async def _trampoline_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:  # type: ignore
-                async for result in trampoline(*args, **kwargs):  # type: ignore
-                    yield result
+                # Forward the full async-generator protocol (asend/athrow/aclose) to the inner
+                # generator. A bare ``async for`` only forwards iteration, so aclose()/athrow()
+                # would hit this wrapper instead of the wrapped generator -- breaking deterministic
+                # cleanup (``finally:`` / ``except GeneratorExit:`` running synchronously on close)
+                # and exception injection. This mirrors the PEP 380 ``yield from`` expansion,
+                # adapted for the async-generator protocol. See
+                # https://github.com/boxed/mutmut/issues/525.
+                gen = trampoline(*args, **kwargs)  # type: ignore
+                try:
+                    yielded = await gen.asend(None)  # type: ignore
+                    while True:
+                        try:
+                            sent = yield yielded
+                        except GeneratorExit:
+                            # caller closed us -> close the inner generator and propagate
+                            await gen.aclose()  # type: ignore
+                            raise
+                        except BaseException as exc:
+                            # caller threw into us -> forward the exception into the inner generator
+                            yielded = await gen.athrow(exc)  # type: ignore
+                        else:
+                            # normal resume (__anext__ / asend) -> forward the sent value
+                            yielded = await gen.asend(sent)  # type: ignore
+                except StopAsyncIteration:
+                    return
+                finally:
+                    await gen.aclose()  # type: ignore
         else:
 
             @wraps(decorated_func)

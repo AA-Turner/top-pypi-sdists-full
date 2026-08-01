@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: e2b
-Version: 2.35.0
+Version: 2.36.0
 Summary: E2B SDK that give agents cloud environments
 Author: e2b
 Author-email: e2b <hello@e2b.dev>
@@ -12,7 +12,7 @@ Requires-Dist: httpx>=0.27.0,<1.0.0
 Requires-Dist: h2>=4,<5
 Requires-Dist: attrs>=23.2.0
 Requires-Dist: packaging>=24.1
-Requires-Dist: typing-extensions>=4.1.0
+Requires-Dist: typing-extensions>=4.10.0
 Requires-Dist: dockerfile-parse>=2.0.1,<3
 Requires-Dist: rich>=14.0.0
 Requires-Dist: connectrpc>=0.11.1,<0.12

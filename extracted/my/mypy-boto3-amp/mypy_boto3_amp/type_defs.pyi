@@ -111,6 +111,7 @@ __all__ = (
     "EksConfigurationOutputTypeDef",
     "EksConfigurationTypeDef",
     "EmptyResponseMetadataTypeDef",
+    "ExporterConfigurationTypeDef",
     "GetDefaultScraperConfigurationResponseTypeDef",
     "IgnoreNearExpectedTypeDef",
     "LimitsPerLabelSetEntryTypeDef",
@@ -135,6 +136,7 @@ __all__ = (
     "LoggingConfigurationStatusTypeDef",
     "LoggingDestinationTypeDef",
     "LoggingFilterTypeDef",
+    "OpenSearchExporterConfigurationTypeDef",
     "PaginatorConfigTypeDef",
     "PutAlertManagerDefinitionRequestTypeDef",
     "PutAlertManagerDefinitionResponseTypeDef",
@@ -346,6 +348,9 @@ class EksConfigurationTypeDef(TypedDict):
     clusterArn: str
     subnetIds: Sequence[str]
     securityGroupIds: NotRequired[Sequence[str]]
+
+class OpenSearchExporterConfigurationTypeDef(TypedDict):
+    domainArn: str
 
 class IgnoreNearExpectedTypeDef(TypedDict):
     amount: NotRequired[float]
@@ -657,6 +662,9 @@ class UpdateScraperLoggingConfigurationResponseTypeDef(TypedDict):
     status: ScraperLoggingConfigurationStatusTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ExporterConfigurationTypeDef(TypedDict):
+    openSearchConfiguration: NotRequired[OpenSearchExporterConfigurationTypeDef]
+
 class RandomCutForestConfigurationTypeDef(TypedDict):
     query: str
     shingleSize: NotRequired[int]
@@ -800,6 +808,7 @@ class ScraperDescriptionTypeDef(TypedDict):
     tags: NotRequired[dict[str, str]]
     statusReason: NotRequired[str]
     roleConfiguration: NotRequired[RoleConfigurationTypeDef]
+    exporters: NotRequired[list[ExporterConfigurationTypeDef]]
 
 class ScraperSummaryTypeDef(TypedDict):
     scraperId: str
@@ -814,6 +823,7 @@ class ScraperSummaryTypeDef(TypedDict):
     tags: NotRequired[dict[str, str]]
     statusReason: NotRequired[str]
     roleConfiguration: NotRequired[RoleConfigurationTypeDef]
+    exporters: NotRequired[list[ExporterConfigurationTypeDef]]
 
 SourceUnionTypeDef = Union[SourceTypeDef, SourceOutputTypeDef]
 
@@ -824,6 +834,7 @@ class UpdateScraperRequestTypeDef(TypedDict):
     destination: NotRequired[DestinationTypeDef]
     roleConfiguration: NotRequired[RoleConfigurationTypeDef]
     clientToken: NotRequired[str]
+    exporters: NotRequired[Sequence[ExporterConfigurationTypeDef]]
 
 ScraperComponentUnionTypeDef = Union[ScraperComponentTypeDef, ScraperComponentOutputTypeDef]
 
@@ -892,6 +903,7 @@ class CreateScraperRequestTypeDef(TypedDict):
     roleConfiguration: NotRequired[RoleConfigurationTypeDef]
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+    exporters: NotRequired[Sequence[ExporterConfigurationTypeDef]]
 
 class UpdateScraperLoggingConfigurationRequestTypeDef(TypedDict):
     scraperId: str

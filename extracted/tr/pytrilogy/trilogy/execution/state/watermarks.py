@@ -45,6 +45,20 @@ class StaleAsset:
     reason: str
     filters: UpdateKeys = field(default_factory=UpdateKeys)
     kind: RefreshKind = RefreshKind.SQL
+    # Stale slices of a partitioned asset, when the verdict was reached per
+    # partition. The refresh narrows its select to exactly these, so a hole in
+    # the middle of a range is filled without rebuilding its healthy neighbours.
+    # Mutually exclusive with ``filters``: a missing slice may hold rows OLDER
+    # than the incremental watermark, so ANDing the two would filter out the
+    # very rows the refresh exists to write. Typed loosely to keep this module
+    # free of a partitions.py import (which imports watermarks.py).
+    partitions: list = field(default_factory=list)
+    # The caller asked for this refresh by name (``--force``, ``--partition``)
+    # rather than a probe deciding it. Execution must not re-derive it from live
+    # staleness: a forced rebuild is wanted regardless, and a targeted slice may
+    # look fresh (a backfill of a day the watermark is already past) while still
+    # being exactly what the run was told to load.
+    explicit: bool = False
 
 
 def _compare_watermark_values(a: str | float | date, b: str | float | date) -> int:
@@ -198,12 +212,18 @@ def has_schema_mismatch(
         actual = executor.generator.get_table_columns(executor, table_name)
     if actual is None:
         return False
-    expected = {
-        executor.environment.concepts[col.concept.address]
-        .safe_address.lower(): executor.environment.concepts[col.concept.address]
-        .datatype.data_type
-        for col in datasource.columns
-    }
+    expected = {}
+    for col in datasource.columns:
+        concept = executor.environment.concepts[col.concept.address]
+        # A concrete alias IS the physical column name — it is what the persist
+        # DDL writes — so it, not the concept's safe_address, is what an
+        # existing table must be compared against. Declaring
+        # `carrier_code: flight.carrier.code` otherwise reads as a permanent
+        # schema mismatch against a table trilogy itself just created. A
+        # non-concrete alias (raw expression or function) names no column of its
+        # own, so the concept's address stays the best available guess.
+        name = col.alias if isinstance(col.alias, str) else concept.safe_address
+        expected[name.lower()] = concept.datatype.data_type
     if set(actual) != set(expected):
         return True
     # Check types where the dialect can resolve them (skip UNKNOWN — can't map the type)

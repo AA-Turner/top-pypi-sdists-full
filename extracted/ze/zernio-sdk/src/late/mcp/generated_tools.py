@@ -1893,6 +1893,7 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def ad_campaigns_list_ad_campaigns(
+        include_empty: bool | None = None,
         page: int = 1,
         limit: int = 20,
         source: str = "all",
@@ -1908,6 +1909,7 @@ def register_generated_tools(mcp, _get_client):
         """List campaigns
 
         Args:
+            include_empty: Meta only. Campaign reads aggregate over ad documents, so a campaign with ZERO ads is normally invisible here — the state the two-step create (campaign, then ads via `existingCampaignId`) leaves behind whenever Meta rejects the ad step. Set true to list those too, with `adCount: 0` and zeroed metrics. Requires `accountId` and `adAccountId`, since an empty campaign has no ad row to resolve a token or ad account from.
             page: Page number
             limit
             source: `all` (default) returns both Zernio-created ads and those discovered from the platform's ad manager — matches the web UI's default view. Pass `zernio` to restrict to isExternal=false only. Status is NOT filtered by default — use the `status` param for that.
@@ -1922,6 +1924,7 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.ad_campaigns.list_ad_campaigns(
+                include_empty=include_empty,
                 page=page,
                 limit=limit,
                 source=source,
@@ -1955,6 +1958,9 @@ def register_generated_tools(mcp, _get_client):
         budget_amount: float | None = None,
         budget_type: str | None = None,
         status: str = "PAUSED",
+        bid_strategy: str | None = None,
+        bid_amount: float | None = None,
+        roas_average_floor: float | None = None,
     ) -> str:
         """Create a standalone campaign
 
@@ -1964,9 +1970,12 @@ def register_generated_tools(mcp, _get_client):
             name: (required)
             goal: Mapped to the ODAX objective (same mapping as POST /v1/ads/create). (required)
             special_ad_categories
-            budget_amount: Campaign-level (CBO) budget in whole currency units. Requires budgetType.
+            budget_amount: Campaign-level (CBO) budget in WHOLE currency units (USD: 50 = $50.00), NOT cents — Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Requires budgetType.
             budget_type
-            status"""
+            status
+            bid_strategy: Campaign bid strategy. Meta stores `bid_strategy` alongside the budget, so this REQUIRES `budgetAmount` + `budgetType` on the same request; sending it without a campaign budget is a 400. A campaign carrying a strategy without its `bid_amount` makes every ad set created under it fail with an error that names the ad set (code 100, subcode 1815857), so the bad state is rejected up front rather than accepted. To bid at ad-set level, set the strategy there instead.
+            bid_amount: Whole currency units (USD: 5 = $5.00). Required for LOWEST_COST_WITH_BID_CAP and COST_CAP; ignored otherwise.
+            roas_average_floor: Decimal ROAS multiplier (2.0 = 2.0x). Required for LOWEST_COST_WITH_MIN_ROAS."""
         client = _get_client()
         try:
             response = client.ad_campaigns.create_ad_campaign(
@@ -1978,6 +1987,9 @@ def register_generated_tools(mcp, _get_client):
                 budget_amount=budget_amount,
                 budget_type=budget_type,
                 status=status,
+                bid_strategy=bid_strategy,
+                bid_amount=bid_amount,
+                roas_average_floor=roas_average_floor,
             )
             return _format_response(response)
         except Exception as e:
@@ -2020,6 +2032,7 @@ def register_generated_tools(mcp, _get_client):
     def ad_campaigns_update_ad_campaign(
         campaign_id: str,
         platform: str,
+        account_id: str | None = None,
         budget: dict[str, Any] | None = None,
         bid_strategy: str | None = None,
         name: str | None = None,
@@ -2029,6 +2042,7 @@ def register_generated_tools(mcp, _get_client):
 
             Args:
                 campaign_id: Platform campaign ID (required)
+                account_id: Zernio SocialAccount id owning the ad account. Required only to update an EMPTY campaign (zero ads), which has no local Ad documents to resolve a token from.
                 platform: (required)
                 budget
                 bid_strategy: Campaign-level default. Ad sets inherit this unless they override.
@@ -2040,6 +2054,7 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.ad_campaigns.update_ad_campaign(
                 campaign_id=campaign_id,
+                account_id=account_id,
                 platform=platform,
                 budget=budget,
                 bid_strategy=bid_strategy,
@@ -2058,16 +2073,19 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=True,
         )
     )
-    def ad_campaigns_delete_ad_campaign(campaign_id: str, platform: str) -> str:
+    def ad_campaigns_delete_ad_campaign(
+        campaign_id: str, platform: str, account_id: str | None = None
+    ) -> str:
         """Delete a campaign
 
         Args:
             campaign_id: Platform campaign ID (required)
-            platform: (required)"""
+            platform: (required)
+            account_id: Zernio SocialAccount id owning the ad account. Required only to delete an EMPTY campaign (zero ads), which has no local Ad documents to resolve a token from."""
         client = _get_client()
         try:
             response = client.ad_campaigns.delete_ad_campaign(
-                campaign_id=campaign_id, platform=platform
+                campaign_id=campaign_id, platform=platform, account_id=account_id
             )
             return _format_response(response)
         except Exception as e:
@@ -2760,6 +2778,8 @@ def register_generated_tools(mcp, _get_client):
         instagram_account_id: str | None = None,
         dynamic_creative: dict[str, Any] | None = None,
         carousel_cards: list[dict[str, Any]] | None = None,
+        default_locale: str | None = None,
+        translations: list[dict[str, Any]] | None = None,
         placement_assets: dict[str, Any] | None = None,
         audience_id: str | None = None,
         campaign_type: str = "display",
@@ -2814,7 +2834,7 @@ def register_generated_tools(mcp, _get_client):
                 rf_prediction_id: Meta only. The RESERVED prediction id the R&F ad set runs on (reserving mints a new id — pass that one). Requires buyingType RESERVED.
                 creative_features: Meta only. Advantage+ creative enhancements: a partial map of Meta creative feature keys (snake_case, e.g. enhance_cta, image_brightness_and_contrast, text_optimizations) to enroll status, forwarded as degrees_of_freedom_spec.creative_features_spec. Meta validates the keys; unspecified features default to OPT_OUT. The legacy standard_enhancements bundle is deprecated by Meta and rejected.
                 validate_only: Meta only, single standalone shape only (no creatives[], adSetId, or RESERVED). Dry-run: each node runs Meta's execution_options validate_only and NOTHING is created or persisted. Children need real parents, so a fresh tree validates the campaign + creative (the ad set needs its campaign to exist — pass existingCampaignId to validate it too; the ad itself is never validatable pre-create). A Meta validation failure returns the 400 verbatim; success returns 200 with per-node results instead of an ad.
-                budget_amount: Required on legacy + multi-creative shapes. Inherited on attach. OpenAI Ads requires a $1 minimum (its budget is lifetime-only, see budgetType).
+                budget_amount: Budget in WHOLE currency units (USD: 50 = $50.00), NOT cents — Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Required on legacy + multi-creative shapes. Inherited on attach. OpenAI Ads requires a $1 minimum (its budget is lifetime-only, see budgetType).
                 budget_type: Required on legacy + multi-creative shapes. Inherited on attach. OpenAI Ads accepts lifetime only (no daily-budget concept on the platform); sending daily returns 422. OpenAI Ads lifetime budgets require `endDate` to give the lifetime cap a spend window.
                 status: Meta and TikTok. Publish state of the created entities. Omitted or ACTIVE publishes live (default, back-compat); PAUSED creates them paused and skips activation, so you can review before they spend. On TikTok the whole campaign > ad group > ad hierarchy stays paused.
                 budget_level: Meta only. Where the budget lives, which selects the Meta budget model:
@@ -2958,6 +2978,37 @@ def register_generated_tools(mcp, _get_client):
         Mutually exclusive with `imageUrl`/`video`, `creatives[]`, `dynamicCreative`,
         `placementAssets`, `existingCreativeId`, `adSetId`, `leadGenFormId` and goal
         `catalog_sales`.
+                default_locale: Meta only. Language the top-level copy is written in (e.g. `en`, `pt_BR`), used by the `translations` default rule. Defaults to `en`. Meta rejects a language asset feed whose default rule carries no locales of its own. Must NOT also appear as an entry in `translations`.
+                translations: Meta only. Multi-language ads (Dynamic Language Optimization): ONE ad carrying
+        per-locale copy and, optionally, per-locale media — the "Languages" toggle in Ads
+        Manager. Keeps social proof (likes/comments/shares) on a SINGLE post instead of
+        splitting it across one ad per language.
+
+        The ad's top-level copy is the DEFAULT shown to every locale you do NOT list,
+        and it counts as one of the language variants.
+
+        IMPORTANT, and the opposite of what you might expect: text does NOT inherit.
+        Every entry must carry its own `headline`, `body` AND `description`, and all of
+        them must be DISTINCT from each other and from the ad's top-level copy. Meta
+        deduplicates identical strings inside the asset feed, so two locales sharing a
+        string collapse into one asset and the create fails with a misleading "Too few
+        ... texts provided in asset creation" (subcode 1885817) that names a field which
+        is actually present. We validate this before calling Meta and return a 400
+        naming the offending locale and field. `description` is therefore effectively
+        required on the ad whenever `translations` is present, even though it is
+        optional otherwise.
+
+        Do NOT list `defaultLocale` inside `translations`: Meta rejects the duplicate
+        with "The language asset feed includes an unsupported targeting field"
+        (subcode 1885985).
+
+        Media DOES inherit and is uploaded once when shared. Note that Meta enforces
+        Dynamic Creative image dimensions on language feeds, so an `imageUrl` that
+        works on a normal ad may be rejected with "The following images have invalid
+        dimensions for Dynamic Creative" (subcode 1885558). Video is not affected.
+
+        Mutually exclusive with `dynamicCreative`, `placementAssets`, `carouselCards` and
+        `existingCreativeId` — Meta allows one `asset_feed_spec` shape per creative.
                 placement_assets: Meta only. Placement asset customization: pin a SPECIFIC asset (image OR video) to
         each placement group on a SINGLE ad (e.g. a 9:16 on Stories/Reels and a 4:5 on Feed).
         The same thing Meta Ads Manager produces with "different creative per placement",
@@ -2995,7 +3046,7 @@ def register_generated_tools(mcp, _get_client):
         `VIEW_THROUGH: 1`; `CLICK_THROUGH: 28` only on certain objectives. Invalid combos
         surface as a Meta 400.
         Example: `[{ "eventType": "CLICK_THROUGH", "windowDays": 7 }, { "eventType": "VIEW_THROUGH", "windowDays": 1 }]`
-                gender: Meta only. Restrict the audience by gender. 'male' targets men only, 'female' targets women only, 'all' (default) targets everyone. Ignored by non-Meta platforms.
+                gender: Restrict the audience by gender. 'male' targets men only, 'female' targets women only, 'all' (default) targets everyone. Applied on Meta, TikTok and Pinterest. Ignored on Google, LinkedIn and X.
                 bid_strategy: Meta bid strategy applied to the ad set.
                 bid_amount: Bid cap in WHOLE currency units (USD: 5 = $5.00; JPY: 100 = ¥100). Required when
         `bidStrategy` is `LOWEST_COST_WITH_BID_CAP` or `COST_CAP`.
@@ -3122,6 +3173,8 @@ def register_generated_tools(mcp, _get_client):
                 instagram_account_id=instagram_account_id,
                 dynamic_creative=dynamic_creative,
                 carousel_cards=carousel_cards,
+                default_locale=default_locale,
+                translations=translations,
                 placement_assets=placement_assets,
                 audience_id=audience_id,
                 campaign_type=campaign_type,
@@ -7241,6 +7294,45 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             return f"Error: {e}"
 
+    # CONNECTED_APPS
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List connected apps",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connected_apps_list_connected_apps() -> str:
+        """List connected apps"""
+        client = _get_client()
+        try:
+            response = client.connected_apps.list_connected_apps()
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Revoke connected app",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connected_apps_revoke_connected_app(client_id: str) -> str:
+        """Revoke connected app
+
+        Args:
+            client_id: OAuth client id, as returned by GET /v1/me/connected-apps. (required)"""
+        client = _get_client()
+        try:
+            response = client.connected_apps.revoke_connected_app(client_id=client_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
     # CONTACTS
 
     @mcp.tool(
@@ -7457,16 +7549,16 @@ def register_generated_tools(mcp, _get_client):
     )
     def contacts_bulk_create_contacts(
         profile_id: str,
-        account_id: str,
-        platform: str,
         contacts: list[dict[str, Any]] | None,
+        account_id: str | None = None,
+        platform: str | None = None,
     ) -> str:
         """Bulk create contacts
 
         Args:
             profile_id: (required)
-            account_id: (required)
-            platform: (required)
+            account_id: Required when contacts carry channel data (platformIdentifier or a row-level accountId). Omit for a plain CRM import with no channels.
+            platform: Ignored when accountId is set: the platform is derived from the resolved account. Only relevant to disambiguate accountId lookup; a mismatch 404s.
             contacts: (required)"""
         client = _get_client()
         try:
@@ -11239,7 +11331,7 @@ def register_generated_tools(mcp, _get_client):
                 crossposting_enabled
                 metadata
                 tiktok_settings: Root-level TikTok settings applied to all TikTok platforms. Merged into each platform's platformSpecificData, with platform-specific settings taking precedence.
-                facebook_settings: Root-level Facebook settings applied to all Facebook platforms. Merged into each platform's platformSpecificData, with platform-specific settings taking precedence.
+                facebook_settings: Root-level Facebook settings applied to all Facebook platforms. Merged into each platform's platformSpecificData.facebookSettings, with platform-specific settings taking precedence.
                 recycling
                 queued_from_profile: Profile ID to schedule via queue. When provided without scheduledFor, the post is auto-assigned to the next available slot. Do not call /v1/queue/next-slot and use that time in scheduledFor, as that bypasses queue locking.
                 queue_id: Specific queue ID to use when scheduling via queue.
@@ -11342,7 +11434,7 @@ def register_generated_tools(mcp, _get_client):
             queued_from_profile: Profile ID to schedule via queue.
             queue_id: Specific queue ID to use when scheduling via queue.
             tiktok_settings: Root-level TikTok settings applied to all TikTok platforms. Merged into each platform's platformSpecificData, with platform-specific settings taking precedence.
-            facebook_settings: Root-level Facebook settings applied to all Facebook platforms. Merged into each platform's platformSpecificData, with platform-specific settings taking precedence.
+            facebook_settings: Root-level Facebook settings applied to all Facebook platforms. Merged into each platform's platformSpecificData.facebookSettings, with platform-specific settings taking precedence.
             recycling"""
         client = _get_client()
         try:

@@ -60,6 +60,8 @@ from .attention import (
     gen_trtllm_fmha_v2_sm120_module as gen_trtllm_fmha_v2_sm120_module,
 )
 from .core import JitSpec as JitSpec
+from .core import JitSpecNvcc as JitSpecNvcc
+from .cute_dsl_core import JitSpecCuteDsl as JitSpecCuteDsl
 from .core import JitSpecStatus as JitSpecStatus
 from .core import JitSpecRegistry as JitSpecRegistry
 from .core import jit_spec_registry as jit_spec_registry
@@ -71,6 +73,7 @@ from .core import sm90a_nvcc_flags as sm90a_nvcc_flags
 from .core import sm100a_nvcc_flags as sm100a_nvcc_flags
 from .core import sm100f_nvcc_flags as sm100f_nvcc_flags
 from .core import sm103a_nvcc_flags as sm103a_nvcc_flags
+from .core import sm107a_nvcc_flags as sm107a_nvcc_flags
 from .core import sm110a_nvcc_flags as sm110a_nvcc_flags
 from .core import sm120a_nvcc_flags as sm120a_nvcc_flags
 from .core import sm120f_nvcc_flags as sm120f_nvcc_flags

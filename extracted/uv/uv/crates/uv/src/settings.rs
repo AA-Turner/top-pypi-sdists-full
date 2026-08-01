@@ -17,16 +17,16 @@ use uv_cli::{
     AddArgs, AuditArgs, AuditOutputFormat, AuthLoginArgs, AuthLogoutArgs, AuthTokenArgs,
     ColorChoice, ExternalCommand, GlobalArgs, InitArgs, ListFormat, LockArgs, Maybe, MetadataArgs,
     PipCheckArgs, PipCompileArgs, PipFreezeArgs, PipInstallArgs, PipListArgs, PipShowArgs,
-    PipSyncArgs, PipTreeArgs, PipUninstallArgs, PythonFindArgs, PythonInstallArgs, PythonListArgs,
-    PythonListFormat, PythonPinArgs, PythonUninstallArgs, PythonUpgradeArgs, RemoveArgs, RunArgs,
-    SyncArgs, SyncFormat, ToolDirArgs, ToolInstallArgs, ToolListArgs, ToolRunArgs,
-    ToolUninstallArgs, TreeArgs, TreeFormat, UpgradeArgs, VenvArgs, VersionArgs, VersionBumpSpec,
-    VersionFormat,
+    PipSyncArgs, PipTreeArgs, PipUninstallArgs, ProjectDependencyGroupsArgs, PythonFindArgs,
+    PythonInstallArgs, PythonListArgs, PythonListFormat, PythonPinArgs, PythonUninstallArgs,
+    PythonUpgradeArgs, RemoveArgs, RunArgs, SyncArgs, SyncFormat, ToolDirArgs, ToolInstallArgs,
+    ToolListArgs, ToolRunArgs, ToolUninstallArgs, TreeArgs, TreeFormat, UpgradeArgs, VenvArgs,
+    VersionArgs, VersionBumpSpec, VersionFormat,
 };
 use uv_cli::{
-    AuthorFrom, BuildArgs, CheckArgs, ExcludeNewerArgs, ExportArgs, FormatArgs, HashCheckingArgs,
-    PackageExcludeNewerArgs, PublishArgs, PythonDirArgs, RegistryClientArgs, ResolverInstallerArgs,
-    ToolUpgradeArgs,
+    AuthorFrom, BuildArgs, BuildOptionsArgs, CheckArgs, ExcludeNewerArgs, ExportArgs, FormatArgs,
+    HashCheckingArgs, PackageExcludeNewerArgs, PublishArgs, PythonDirArgs, RegistryClientArgs,
+    ResolverArgs, ResolverInstallerArgs, ToolUpgradeArgs,
     options::{
         Flag, FlagSource, check_conflicts, flag, resolve_flag, resolve_flag_pair,
         resolver_installer_options, resolver_options,
@@ -54,11 +54,11 @@ use uv_python::{Prefix, PythonDownloads, PythonPreference, PythonVersion, Target
 use uv_redacted::DisplaySafeUrl;
 use uv_resolver::{
     AnnotationStyle, DependencyMode, ExcludeNewer, ExcludeNewerOverride, ExcludeNewerPackage,
-    ForkStrategy, PrereleaseMode, ResolutionMode,
+    ForkStrategy, Prerelease, PrereleaseMode, PrereleasePackage, ResolutionMode,
 };
 use uv_settings::{
-    Combine, EnvironmentOptions, FilesystemOptions, MalwareCheckSettings, Options, PipOptions,
-    PreviewFeaturesOption, PreviewOption, PublishOptions, PythonInstallMirrors,
+    Combine, EnvironmentOptions, FilesystemOptions, IndexOptions, MalwareCheckSettings, Options,
+    PipOptions, PreviewFeaturesOption, PreviewOption, PublishOptions, PythonInstallMirrors,
     ResolverInstallerOptions, ResolverInstallerSchema, ResolverOptions,
 };
 use uv_static::EnvVars;
@@ -701,15 +701,18 @@ impl RunSettings {
             all_extras,
             no_extra,
             no_all_extras,
-            dev,
-            no_dev,
-            group,
-            no_group,
-            no_default_groups,
-            only_group,
-            all_groups,
+            dependency_groups:
+                ProjectDependencyGroupsArgs {
+                    dev,
+                    no_dev,
+                    only_dev,
+                    group,
+                    no_group,
+                    no_default_groups,
+                    only_group,
+                    all_groups,
+                },
             module: _,
-            only_dev,
             editable,
             no_editable,
             no_editable_package,
@@ -832,11 +835,12 @@ impl RunSettings {
             python: python.and_then(Maybe::into_option),
             python_platform,
             refresh: Refresh::try_from(refresh)?,
-            settings: ResolverInstallerSettings::combine(
-                resolver_installer_options(installer, build)?,
+            settings: ResolverInstallerSettings::resolve(
+                installer,
+                build,
                 filesystem,
                 &environment,
-            ),
+            )?,
             env_file: EnvFile::from_args(env_file, no_env_file),
             install_mirrors: environment
                 .install_mirrors
@@ -1256,12 +1260,17 @@ impl ToolListSettings {
             no_python_downloads: _,
         } = args;
 
-        let filesystem = filesystem
+        let top_level = filesystem
             .map(FilesystemOptions::into_options)
+            .map(|options| options.top_level)
             .unwrap_or_default();
         let filesystem = ResolverInstallerOptions {
-            exclude_newer: filesystem.top_level.exclude_newer,
-            exclude_newer_package: filesystem.top_level.exclude_newer_package,
+            indexes: IndexOptions {
+                index: top_level.index,
+                ..IndexOptions::default()
+            },
+            exclude_newer: top_level.exclude_newer,
+            exclude_newer_package: top_level.exclude_newer_package,
             ..ResolverInstallerOptions::default()
         };
 
@@ -1776,14 +1785,17 @@ impl SyncSettings {
             all_extras,
             no_extra,
             no_all_extras,
-            dev,
-            no_dev,
-            only_dev,
-            group,
-            no_group,
-            no_default_groups,
-            only_group,
-            all_groups,
+            dependency_groups:
+                ProjectDependencyGroupsArgs {
+                    dev,
+                    no_dev,
+                    only_dev,
+                    group,
+                    no_group,
+                    no_default_groups,
+                    only_group,
+                    all_groups,
+                },
             editable,
             no_editable,
             no_editable_package,
@@ -1820,11 +1832,8 @@ impl SyncSettings {
             .unwrap_or_default();
 
         let malware_settings = MalwareCheckSettings::resolve(filesystem.as_ref(), &environment);
-        let settings = ResolverInstallerSettings::combine(
-            resolver_installer_options(installer, build)?,
-            filesystem,
-            &environment,
-        );
+        let settings =
+            ResolverInstallerSettings::resolve(installer, build, filesystem, &environment)?;
 
         let check = flag(check, no_check, "check")?.unwrap_or_default();
         let dry_run = if check {
@@ -2015,11 +2024,7 @@ impl LockSettings {
             script,
             python: python.and_then(Maybe::into_option),
             refresh: Refresh::try_from(refresh)?,
-            settings: ResolverSettings::combine(
-                resolver_options(resolver, build)?,
-                filesystem,
-                &environment,
-            ),
+            settings: ResolverSettings::resolve(resolver, build, filesystem, &environment)?,
             install_mirrors: environment
                 .install_mirrors
                 .combine(filesystem_install_mirrors),
@@ -2128,11 +2133,7 @@ impl MetadataSettings {
             active,
             python: python.and_then(Maybe::into_option),
             refresh: Refresh::try_from(refresh)?,
-            settings: ResolverSettings::combine(
-                resolver_options(resolver, build)?,
-                filesystem,
-                &environment,
-            ),
+            settings: ResolverSettings::resolve(resolver, build, filesystem, &environment)?,
             install_mirrors: environment
                 .install_mirrors
                 .combine(filesystem_install_mirrors),
@@ -2386,7 +2387,7 @@ impl AddSettings {
         );
         let refresh = Refresh::try_from(refresh)?;
         let options = resolver_installer_options(installer, build)?;
-        let indexes = options.index.clone().unwrap_or_default();
+        let indexes = options.indexes.index.clone().unwrap_or_default();
 
         Ok(Self {
             lock_check: resolve_lock_check(locked),
@@ -2523,11 +2524,12 @@ impl RemoveSettings {
             script,
             python: python.and_then(Maybe::into_option),
             refresh: Refresh::try_from(refresh)?,
-            settings: ResolverInstallerSettings::combine(
-                resolver_installer_options(installer, build)?,
+            settings: ResolverInstallerSettings::resolve(
+                installer,
+                build,
                 filesystem,
                 &environment,
-            ),
+            )?,
             install_mirrors: environment
                 .install_mirrors
                 .combine(filesystem_install_mirrors),
@@ -2612,11 +2614,12 @@ impl VersionSettings {
             package,
             python: python.and_then(Maybe::into_option),
             refresh: Refresh::try_from(refresh)?,
-            settings: ResolverInstallerSettings::combine(
-                resolver_installer_options(installer, build)?,
+            settings: ResolverInstallerSettings::resolve(
+                installer,
+                build,
                 filesystem,
                 &environment,
-            ),
+            )?,
             install_mirrors: environment
                 .install_mirrors
                 .combine(filesystem_install_mirrors),
@@ -2660,14 +2663,17 @@ impl TreeSettings {
             tree,
             universal,
             format,
-            dev,
-            only_dev,
-            no_dev,
-            group,
-            no_group,
-            no_default_groups,
-            only_group,
-            all_groups,
+            dependency_groups:
+                ProjectDependencyGroupsArgs {
+                    dev,
+                    no_dev,
+                    only_dev,
+                    group,
+                    no_group,
+                    no_default_groups,
+                    only_group,
+                    all_groups,
+                },
             locked,
             frozen,
             build,
@@ -2727,11 +2733,7 @@ impl TreeSettings {
             python_version,
             python_platform,
             python: python.and_then(Maybe::into_option),
-            resolver: ResolverSettings::combine(
-                resolver_options(resolver, build)?,
-                filesystem,
-                &environment,
-            ),
+            resolver: ResolverSettings::resolve(resolver, build, filesystem, &environment)?,
             install_mirrors: environment
                 .install_mirrors
                 .combine(filesystem_install_mirrors),
@@ -2782,14 +2784,17 @@ impl ExportSettings {
             all_extras,
             no_extra,
             no_all_extras,
-            dev,
-            no_dev,
-            only_dev,
-            group,
-            no_group,
-            no_default_groups,
-            only_group,
-            all_groups,
+            dependency_groups:
+                ProjectDependencyGroupsArgs {
+                    dev,
+                    no_dev,
+                    only_dev,
+                    group,
+                    no_group,
+                    no_default_groups,
+                    only_group,
+                    all_groups,
+                },
             annotate,
             no_annotate,
             header,
@@ -2902,11 +2907,7 @@ impl ExportSettings {
             script,
             python: python.and_then(Maybe::into_option),
             refresh: Refresh::try_from(refresh)?,
-            settings: ResolverSettings::combine(
-                resolver_options(resolver, build)?,
-                filesystem,
-                &environment,
-            ),
+            settings: ResolverSettings::resolve(resolver, build, filesystem, &environment)?,
             install_mirrors: environment
                 .install_mirrors
                 .combine(filesystem_install_mirrors),
@@ -2965,6 +2966,7 @@ pub(crate) struct CheckSettings {
     pub(crate) ty_path: Option<PathBuf>,
     #[expect(dead_code)]
     script: Option<PathBuf>,
+    pub(crate) fix: bool,
     pub(crate) all_packages: bool,
     pub(crate) package: Vec<PackageName>,
     pub(crate) extras: ExtrasSpecification,
@@ -2991,6 +2993,7 @@ impl CheckSettings {
         environment: EnvironmentOptions,
     ) -> anyhow::Result<Self> {
         let CheckArgs {
+            fix,
             all_packages,
             package,
             script,
@@ -2998,14 +3001,17 @@ impl CheckSettings {
             all_extras,
             no_extra,
             no_all_extras,
-            dev,
-            no_dev,
-            only_dev,
-            group,
-            no_group,
-            no_default_groups,
-            only_group,
-            all_groups,
+            dependency_groups:
+                ProjectDependencyGroupsArgs {
+                    dev,
+                    no_dev,
+                    only_dev,
+                    group,
+                    no_group,
+                    no_default_groups,
+                    only_group,
+                    all_groups,
+                },
             locked,
             frozen,
             no_sync,
@@ -3039,14 +3045,12 @@ impl CheckSettings {
             Some(environment.no_dev),
         );
         let malware_settings = MalwareCheckSettings::resolve(filesystem.as_ref(), &environment);
-        let settings = ResolverInstallerSettings::combine(
-            resolver_installer_options(installer, build)?,
-            filesystem,
-            &environment,
-        );
+        let settings =
+            ResolverInstallerSettings::resolve(installer, build, filesystem, &environment)?;
         Ok(Self {
             ty_path: environment.ty_path,
             script,
+            fix,
             all_packages,
             package,
             extras: ExtrasSpecification::from_args(
@@ -3177,11 +3181,7 @@ impl AuditSettings {
             frozen: resolve_frozen(frozen),
             python_version,
             python_platform,
-            settings: ResolverSettings::combine(
-                resolver_options(resolver, build)?,
-                filesystem,
-                &environment,
-            ),
+            settings: ResolverSettings::resolve(resolver, build, filesystem, &environment)?,
             install_mirrors: environment
                 .install_mirrors
                 .combine(filesystem_install_mirrors),
@@ -4139,11 +4139,7 @@ impl BuildSettings {
             ),
             python: python.and_then(Maybe::into_option),
             refresh: Refresh::try_from(refresh)?,
-            settings: ResolverSettings::combine(
-                resolver_options(resolver, build)?,
-                filesystem,
-                &environment,
-            ),
+            settings: ResolverSettings::resolve(resolver, build, filesystem, &environment)?,
             install_mirrors: environment
                 .install_mirrors
                 .combine(filesystem_install_mirrors),
@@ -4300,7 +4296,7 @@ pub(crate) struct ResolverSettings {
     pub(crate) build_isolation: BuildIsolation,
     pub(crate) extra_build_dependencies: ExtraBuildDependencies,
     pub(crate) extra_build_variables: ExtraBuildVariables,
-    pub(crate) prerelease: PrereleaseMode,
+    pub(crate) prerelease: Prerelease,
     pub(crate) resolution: ResolutionMode,
     pub(crate) sources: NoSources,
     pub(crate) torch_backend: Option<TorchMode>,
@@ -4321,7 +4317,30 @@ fn warn_if_deprecated_prerelease_mode(prerelease: PrereleaseMode) -> PrereleaseM
     }
 }
 
+fn resolve_prerelease(global: PrereleaseMode, mut package: PrereleasePackage) -> Prerelease {
+    for mode in package.values_mut() {
+        *mode = warn_if_deprecated_prerelease_mode(*mode);
+    }
+
+    Prerelease {
+        global: warn_if_deprecated_prerelease_mode(global),
+        package,
+    }
+}
+
 impl ResolverSettings {
+    /// Resolve the [`ResolverSettings`] from the CLI, environment, and filesystem configuration.
+    fn resolve(
+        args: ResolverArgs,
+        build: BuildOptionsArgs,
+        filesystem: Option<FilesystemOptions>,
+        environment: &EnvironmentOptions,
+    ) -> Result<Self> {
+        let args = resolver_options(args, build)?;
+
+        Ok(Self::combine(args, filesystem, environment))
+    }
+
     /// Resolve the [`ResolverSettings`] from the CLI and filesystem configuration.
     fn combine(
         mut args: ResolverOptions,
@@ -4357,26 +4376,13 @@ impl ResolverSettings {
 
 impl From<ResolverOptions> for ResolverSettings {
     fn from(value: ResolverOptions) -> Self {
-        let index_locations = IndexLocations::new(
-            value
-                .index
-                .into_iter()
-                .flatten()
-                .chain(value.extra_index_url.into_iter().flatten().map(Index::from))
-                .chain(value.index_url.into_iter().map(Index::from))
-                .collect(),
-            value
-                .find_links
-                .into_iter()
-                .flatten()
-                .map(Index::from)
-                .collect(),
-            value.no_index.unwrap_or_default(),
-        );
         Self {
-            index_locations,
+            index_locations: value.indexes.into(),
             resolution: value.resolution.unwrap_or_default(),
-            prerelease: warn_if_deprecated_prerelease_mode(value.prerelease.unwrap_or_default()),
+            prerelease: resolve_prerelease(
+                value.prerelease.unwrap_or_default(),
+                value.prerelease_package.unwrap_or_default(),
+            ),
             fork_strategy: value.fork_strategy.unwrap_or_default(),
             dependency_metadata: DependencyMetadata::from_entries(
                 value.dependency_metadata.into_iter().flatten(),
@@ -4427,6 +4433,18 @@ pub(crate) struct ResolverInstallerSettings {
 }
 
 impl ResolverInstallerSettings {
+    /// Resolve the [`ResolverInstallerSettings`] from CLI, environment, and filesystem options.
+    fn resolve(
+        args: ResolverInstallerArgs,
+        build: BuildOptionsArgs,
+        filesystem: Option<FilesystemOptions>,
+        environment: &EnvironmentOptions,
+    ) -> Result<Self> {
+        let args = resolver_installer_options(args, build)?;
+
+        Ok(Self::combine(args, filesystem, environment))
+    }
+
     /// Reconcile the [`ResolverInstallerSettings`] from the CLI and filesystem configuration.
     fn combine(
         args: ResolverInstallerOptions,
@@ -4472,22 +4490,7 @@ fn resolver_installer_options_with_environment(
 
 impl From<ResolverInstallerOptions> for ResolverInstallerSettings {
     fn from(value: ResolverInstallerOptions) -> Self {
-        let index_locations = IndexLocations::new(
-            value
-                .index
-                .into_iter()
-                .flatten()
-                .chain(value.extra_index_url.into_iter().flatten().map(Index::from))
-                .chain(value.index_url.into_iter().map(Index::from))
-                .collect(),
-            value
-                .find_links
-                .into_iter()
-                .flatten()
-                .map(Index::from)
-                .collect(),
-            value.no_index.unwrap_or_default(),
-        );
+        let index_locations = value.indexes.into();
         Self {
             resolver: ResolverSettings {
                 build_options: BuildOptions::new(
@@ -4519,8 +4522,9 @@ impl From<ResolverInstallerOptions> for ResolverInstallerSettings {
                 build_isolation: value.build_isolation.unwrap_or_default(),
                 extra_build_dependencies: value.extra_build_dependencies.unwrap_or_default(),
                 extra_build_variables: value.extra_build_variables.unwrap_or_default(),
-                prerelease: warn_if_deprecated_prerelease_mode(
+                prerelease: resolve_prerelease(
                     value.prerelease.unwrap_or_default(),
+                    value.prerelease_package.unwrap_or_default(),
                 ),
                 resolution: value.resolution.unwrap_or_default(),
                 sources: NoSources::from_args(
@@ -4566,7 +4570,7 @@ pub(crate) struct PipSettings {
     pub(crate) strict: bool,
     pub(crate) dependency_mode: DependencyMode,
     pub(crate) resolution: ResolutionMode,
-    pub(crate) prerelease: PrereleaseMode,
+    pub(crate) prerelease: Prerelease,
     pub(crate) fork_strategy: ForkStrategy,
     pub(crate) dependency_metadata: DependencyMetadata,
     pub(crate) output_file: Option<PathBuf>,
@@ -4643,6 +4647,7 @@ impl PipSettings {
             allow_empty_requirements,
             resolution,
             prerelease,
+            prerelease_package: _,
             fork_strategy,
             dependency_metadata,
             output_file,
@@ -4688,6 +4693,7 @@ impl PipSettings {
             keyring_provider: top_level_keyring_provider,
             resolution: top_level_resolution,
             prerelease: top_level_prerelease,
+            prerelease_package: top_level_prerelease_package,
             fork_strategy: top_level_fork_strategy,
             dependency_metadata: top_level_dependency_metadata,
             config_settings: top_level_config_settings,
@@ -4726,6 +4732,10 @@ impl PipSettings {
         let keyring_provider = keyring_provider.combine(top_level_keyring_provider);
         let resolution = resolution.combine(top_level_resolution);
         let prerelease = prerelease.combine(top_level_prerelease);
+        let prerelease_package = args
+            .prerelease_package
+            .combine(top_level_prerelease_package)
+            .unwrap_or_default();
         let fork_strategy = fork_strategy.combine(top_level_fork_strategy);
         let dependency_metadata = dependency_metadata.combine(top_level_dependency_metadata);
         let config_settings = config_settings.combine(top_level_config_settings);
@@ -4795,8 +4805,9 @@ impl PipSettings {
                 DependencyMode::Transitive
             },
             resolution: args.resolution.combine(resolution).unwrap_or_default(),
-            prerelease: warn_if_deprecated_prerelease_mode(
+            prerelease: resolve_prerelease(
                 args.prerelease.combine(prerelease).unwrap_or_default(),
+                prerelease_package,
             ),
             fork_strategy: args
                 .fork_strategy

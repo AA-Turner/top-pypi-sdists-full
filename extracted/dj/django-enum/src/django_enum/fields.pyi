@@ -19,12 +19,11 @@ pattern on __init__, so both mypy and pyright correctly resolve the generic
 type parameters from the null= and primitive= arguments.
 """
 
-from __future__ import annotations
-
+from collections.abc import Sequence
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from enum import Enum, Flag
-from typing import Any, Generic, Literal, Sequence, TypeVar, overload
+from typing import Any, Generic, Literal, TypeVar, overload
 
 from django.db.models import (
     BigIntegerField,
@@ -62,7 +61,6 @@ class EnumValidatorAdapter:
     def __init__(self, wrapped: type, allow_null: bool) -> None: ...
     def __call__(self, value: Any) -> Any: ...
     def __eq__(self, other: object) -> bool: ...
-    def __repr__(self) -> str: ...
     def __getattribute__(self, name: str) -> Any: ...
 
 class ToPythonDeferredAttribute(DeferredAttribute, Generic[PrimitiveT, EnumT]):
@@ -251,38 +249,26 @@ class IntEnumField(EnumField[int, EnumT], Generic[EnumT]):
 class EnumSmallIntegerField(IntEnumField[EnumT], SmallIntegerField, Generic[EnumT]):
     """Enum field backed by a SmallIntegerField (2 bytes)."""
 
-    ...
-
 class EnumPositiveSmallIntegerField(
     IntEnumField[EnumT], PositiveSmallIntegerField, Generic[EnumT]
 ):
     """Enum field backed by a PositiveSmallIntegerField (2 bytes)."""
 
-    ...
-
 class EnumIntegerField(IntEnumField[EnumT], IntegerField, Generic[EnumT]):
     """Enum field backed by an IntegerField (32 bytes)."""
-
-    ...
 
 class EnumPositiveIntegerField(
     IntEnumField[EnumT], PositiveIntegerField, Generic[EnumT]
 ):
     """Enum field backed by a PositiveIntegerField (32 bytes)."""
 
-    ...
-
 class EnumBigIntegerField(IntEnumField[EnumT], BigIntegerField, Generic[EnumT]):
     """Enum field backed by a BigIntegerField (64 bytes)."""
-
-    ...
 
 class EnumPositiveBigIntegerField(
     IntEnumField[EnumT], PositiveBigIntegerField, Generic[EnumT]
 ):
     """Enum field backed by a PositiveBigIntegerField (64 bytes)."""
-
-    ...
 
 class EnumDateField(EnumField[date, EnumT], Generic[EnumT]):
     """A database field supporting enumerations with date values."""
@@ -419,21 +405,15 @@ class SmallIntegerFlagField(
 ):
     """Flag field stored in a PositiveSmallIntegerField (2 bytes)."""
 
-    ...
-
 class IntegerFlagField(
     FlagField[FlagT], EnumPositiveIntegerField[FlagT], Generic[FlagT]
 ):
     """Flag field stored in a PositiveIntegerField (32 bytes)."""
 
-    ...
-
 class BigIntegerFlagField(
     FlagField[FlagT], EnumPositiveBigIntegerField[FlagT], Generic[FlagT]
 ):
     """Flag field stored in a PositiveBigIntegerField (64 bytes)."""
-
-    ...
 
 class EnumExtraBigIntegerField(IntEnumField[FlagT], BinaryField, Generic[FlagT]):
     """Enum field for integers wider than 64 bits, stored as binary."""
@@ -457,5 +437,3 @@ class ExtraBigIntegerFlagField(
     FlagField[FlagT], EnumExtraBigIntegerField[FlagT], Generic[FlagT]
 ):
     """Flag field for integers wider than 64 bits."""
-
-    ...

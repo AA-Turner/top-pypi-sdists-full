@@ -5,13 +5,12 @@ import pandas as pd
 import scipy.stats as st
 from sklearn.model_selection import check_cv
 from sklearn.model_selection import cross_val_predict, StratifiedKFold, KFold
-from statsmodels.api import OLS
-from statsmodels.tools import add_constant
-
-from econml.utilities import deprecated
-
+from econml._lazy import _LazyModule
+from econml.utilities import check_input_arrays, deprecated, add_constant
 from .results import CalibrationEvaluationResults, BLPEvaluationResults, UpliftEvaluationResults, EvaluationResults
 from .utils import calculate_dr_outcomes, calc_uplift
+
+_statsmodels_api = _LazyModule("statsmodels.api")  # lazy: only needed for evaluate_blp()
 
 
 class DRTester:
@@ -221,6 +220,9 @@ class DRTester:
         If training data is provided, also adds attributes for the doubly robust outcomes for the training
         set (dr_train) and the training treatments (Dtrain)
         """
+        Xval, Dval, yval = check_input_arrays(Xval, Dval, yval)
+        Xtrain, Dtrain, ytrain = check_input_arrays(Xtrain, Dtrain, ytrain)
+
         self.Dval = Dval
 
         # Unique treatments (ordered, includes control)
@@ -479,7 +481,7 @@ class DRTester:
             self.get_cate_preds(Xval, Xtrain)
 
         if self.n_treat == 1:  # binary treatment
-            reg = OLS(self.dr_val_, add_constant(self.cate_preds_val_)).fit()
+            reg = _statsmodels_api.OLS(self.dr_val_, add_constant(self.cate_preds_val_)).fit()
             params = [reg.params[1]]
             errs = [reg.bse[1]]
             pvals = [reg.pvalues[1]]
@@ -488,7 +490,10 @@ class DRTester:
             errs = []
             pvals = []
             for k in range(self.n_treat):  # run a separate regression for each
-                reg = OLS(self.dr_val_[:, k], add_constant(self.cate_preds_val_[:, k])).fit(cov_type='HC1')
+                reg = _statsmodels_api.OLS(
+                    self.dr_val_[:, k],
+                    add_constant(self.cate_preds_val_[:, k])
+                ).fit(cov_type='HC1')
                 params.append(reg.params[1])
                 errs.append(reg.bse[1])
                 pvals.append(reg.pvalues[1])

@@ -458,6 +458,9 @@ __all__ = (
     "GitMetadataOutputTypeDef",
     "GitMetadataTypeDef",
     "GitMetadataUnionTypeDef",
+    "GitPropertiesInputTypeDef",
+    "GitPropertiesOutputTypeDef",
+    "GitPropertiesPatchTypeDef",
     "GlossaryItemAdditionalAttributesTypeDef",
     "GlossaryItemTypeDef",
     "GlossaryTermEnforcementDetailOutputTypeDef",
@@ -1229,6 +1232,12 @@ class ConnectionCredentialsTypeDef(TypedDict):
     expiration: NotRequired[datetime]
 
 
+class GitPropertiesInputTypeDef(TypedDict):
+    codeConnectionArn: str
+    repositoryId: str
+    defaultBranch: str
+
+
 class HyperPodPropertiesInputTypeDef(TypedDict):
     clusterName: str
 
@@ -1270,6 +1279,14 @@ class VpcPropertiesInputTypeDef(TypedDict):
 
 class WorkflowsMwaaPropertiesInputTypeDef(TypedDict):
     mwaaEnvironmentName: NotRequired[str]
+
+
+class GitPropertiesOutputTypeDef(TypedDict):
+    codeConnectionArn: str
+    repositoryId: str
+    defaultBranch: str
+    status: NotRequired[ConnectionStatusType]
+    errorMessage: NotRequired[str]
 
 
 class GluePropertiesOutputTypeDef(TypedDict):
@@ -1314,6 +1331,11 @@ class VpcPropertiesOutputTypeDef(TypedDict):
 
 class WorkflowsMwaaPropertiesOutputTypeDef(TypedDict):
     mwaaEnvironmentName: NotRequired[str]
+
+
+class GitPropertiesPatchTypeDef(TypedDict):
+    codeConnectionArn: NotRequired[str]
+    defaultBranch: NotRequired[str]
 
 
 class IamPropertiesPatchTypeDef(TypedDict):
@@ -6962,6 +6984,7 @@ class ConnectionPropertiesOutputTypeDef(TypedDict):
     workflowsServerlessProperties: NotRequired[dict[str, Any]]
     lakehouseProperties: NotRequired[LakehousePropertiesOutputTypeDef]
     vpcProperties: NotRequired[VpcPropertiesOutputTypeDef]
+    gitProperties: NotRequired[GitPropertiesOutputTypeDef]
 
 
 class DataSourceConfigurationOutputTypeDef(TypedDict):
@@ -7014,6 +7037,7 @@ class ConnectionPropertiesPatchTypeDef(TypedDict):
     mlflowProperties: NotRequired[MlflowPropertiesPatchTypeDef]
     lakehouseProperties: NotRequired[LakehousePropertiesPatchTypeDef]
     vpcProperties: NotRequired[VpcPropertiesPatchTypeDef]
+    gitProperties: NotRequired[GitPropertiesPatchTypeDef]
 
 
 class PolicyGrantMemberTypeDef(TypedDict):
@@ -7865,6 +7889,7 @@ class ConnectionPropertiesInputTypeDef(TypedDict):
     workflowsServerlessProperties: NotRequired[Mapping[str, Any]]
     lakehouseProperties: NotRequired[LakehousePropertiesInputTypeDef]
     vpcProperties: NotRequired[VpcPropertiesInputTypeDef]
+    gitProperties: NotRequired[GitPropertiesInputTypeDef]
 
 
 class CreateConnectionInputTypeDef(TypedDict):

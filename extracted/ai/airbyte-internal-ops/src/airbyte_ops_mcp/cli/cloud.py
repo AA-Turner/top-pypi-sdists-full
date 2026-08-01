@@ -39,7 +39,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 import requests
 import yaml
@@ -94,24 +94,28 @@ from airbyte_ops_mcp.prod_db_access.queries import (
 )
 from airbyte_ops_mcp.regression_tests.cdk_secrets import get_first_config_from_secrets
 from airbyte_ops_mcp.regression_tests.ci_output import (
+    command_result_succeeded,
+    evaluate_comparison_outcome,
     generate_regression_report,
     generate_single_version_report,
     write_github_output,
     write_github_outputs,
     write_github_summary,
     write_json_output,
-    write_test_summary,
 )
 from airbyte_ops_mcp.regression_tests.config_overrides import (
     filter_configured_catalog_file,
 )
 from airbyte_ops_mcp.regression_tests.connection_fetcher import (
+    enrich_catalog_schemas_from_cloud,
     fetch_connection_data,
     fetch_connection_state,
     save_connection_data_to_files,
+    streams_missing_schemas,
 )
 from airbyte_ops_mcp.regression_tests.connection_secret_retriever import (
     SecretRetrievalError,
+    enrich_catalog_schemas_from_platform_db,
     enrich_config_with_secrets,
     should_use_secret_retriever,
 )
@@ -128,6 +132,16 @@ from airbyte_ops_mcp.regression_tests.models import (
     ConnectorUnderTest,
     ExecutionInputs,
     TargetOrControl,
+)
+from airbyte_ops_mcp.regression_tests.report import (
+    HTML_REPORT_FILENAME,
+    DiffBlock,
+    build_comparison_report_model,
+    build_json_block,
+    build_single_version_report_model,
+    consolidate_reports,
+    render_inline_summary,
+    write_html_report,
 )
 from airbyte_ops_mcp.telemetry import track_regression_test
 from airbyte_ops_mcp.tier_cache import resolve_workspace
@@ -890,6 +904,13 @@ def _run_connector_command(
 ) -> dict:
     """Run a connector command and return results as a dict.
 
+    The returned dict is a flattened view of `ExecutionResult`: counts, exit
+    status and artifact paths, which is all the reports need today. The rich
+    `ExecutionResult` (messages, discovered catalog, spec, states) is dropped
+    after `save_artifacts`. When a comparison needs those -- a schema, spec or
+    state diff -- return the `ExecutionResult` alongside this dict and feed it to
+    the report builders, rather than growing a dict that several consumers read.
+
     Args:
         connector_image: Full connector image name with tag.
         command: The Airbyte command to run.
@@ -960,6 +981,25 @@ def _run_connector_command(
             result_dict["connection_status_message"] = ""
 
     return result_dict
+
+
+def _annotate_run_verdict(command: str, result: dict[str, Any]) -> dict[str, Any]:
+    """Copy a run result with `success` as the verdict, exit status kept separately.
+
+    `ExecutionResult.success` is the container exit status, which for `check` says
+    nothing about whether the connector could connect -- the CDK exits 0 even when a
+    check fails. Any payload read as the verdict must therefore not expose the exit
+    status under `success`, at any nesting level. The raw value stays available as
+    `exited_cleanly`; for every command but `check` the two are equal.
+
+    Returns a copy: callers pass the unannotated originals to the report generator,
+    which reads `success` as the exit status.
+    """
+    return {
+        **result,
+        "success": command_result_succeeded(command, result),
+        "exited_cleanly": result["success"],
+    }
 
 
 def _build_connector_image_from_source(
@@ -1132,6 +1172,12 @@ def _run_with_optional_http_metrics(
         result["http_metrics"] = {
             "flow_count": http_metrics.flow_count,
             "duplicate_flow_count": http_metrics.duplicate_flow_count,
+            # Carried into the report because it is the number that tells a
+            # reviewer whether a record difference is a real regression or
+            # upstream drift. Today it is a duplicate-URL heuristic; it only
+            # becomes exact once HTTP replay lands.
+            "cache_hits_count": http_metrics.cache_hits_count,
+            "cache_hit_ratio": http_metrics.cache_hit_ratio,
         }
         print_success(
             f"Captured {http_metrics.flow_count} HTTP flows "
@@ -1281,6 +1327,12 @@ def regression_test(
     catalog_file: Path | None = None
     state_file = Path(state_path) if state_path else None
 
+    selected_stream_names: set[str] = (
+        {s.strip() for s in selected_streams.split(",") if s.strip()}
+        if selected_streams
+        else set()
+    )
+
     # Resolve the test image (used in both single-version and comparison modes)
     resolved_test_image: str | None = test_image
     resolved_control_image: str | None = control_image
@@ -1352,10 +1404,96 @@ def regression_test(
                     f"integration test credentials instead (by omitting --connection-id)."
                 )
 
+        # Fill in stream schemas: the minimal catalog from the public API has
+        # empty json_schema values, which silently yields zero records for
+        # connectors that derive request fields from the catalog schema.
+        # Only the read command consumes the catalog, so spec/check/discover
+        # skip the extra Cloud API round trip.
+        enrichment_state: list[dict[str, Any]] | None = None
+        enrichment_state_fetched = False
+        if cmd.needs_catalog():
+            merged_count = 0
+            try:
+                enrichment = enrich_catalog_schemas_from_cloud(connection_data)
+                connection_data = enrichment.connection_data
+                merged_count = enrichment.merged_count
+                enrichment_state = enrichment.state
+                enrichment_state_fetched = True
+            except Exception as exc:
+                print_error(f"Failed to fetch stream schemas from Cloud API: {exc}")
+            missing_schemas = streams_missing_schemas(connection_data.catalog)
+            if selected_stream_names:
+                missing_schemas = [
+                    s for s in missing_schemas if s in selected_stream_names
+                ]
+            if missing_schemas and should_use_secret_retriever():
+                try:
+                    connection_data, db_merged_count = (
+                        enrich_catalog_schemas_from_platform_db(
+                            connection_data,
+                            retrieval_reason="Regression test catalog schema enrichment",
+                        )
+                    )
+                    merged_count += db_merged_count
+                except Exception as exc:
+                    print_error(f"Failed to merge stored stream schemas: {exc}")
+                missing_schemas = streams_missing_schemas(connection_data.catalog)
+                if selected_stream_names:
+                    missing_schemas = [
+                        s for s in missing_schemas if s in selected_stream_names
+                    ]
+            total_streams = len(connection_data.catalog.get("streams", []))
+            checked_streams = (
+                f"{len(missing_schemas)} of {len(selected_stream_names)} "
+                "selected stream(s)"
+                if selected_stream_names
+                else f"{len(missing_schemas)} of {total_streams} stream(s)"
+            )
+            if not total_streams:
+                error_msg = (
+                    "No configured streams found in the connection catalog. "
+                    "A read with zero streams would produce zero records on "
+                    "both versions, so failing instead of producing a false pass."
+                )
+                write_github_output("success", False)
+                write_github_output("error", error_msg)
+                exit_with_error(error_msg)
+            if missing_schemas:
+                error_msg = (
+                    f"Stream schemas missing for {checked_streams}: "
+                    f"{', '.join(missing_schemas)}. "
+                    "Connectors that derive request fields from the catalog "
+                    "schema would silently return zero records, so failing "
+                    "instead of producing a false pass."
+                )
+                write_github_output("success", False)
+                write_github_output("error", error_msg)
+                exit_with_error(error_msg)
+            print_success(
+                f"Stream schemas ready: merged {merged_count} of {total_streams} "
+                "stream(s)"
+                + (
+                    f"; checked {len(selected_stream_names)} selected stream(s)"
+                    if selected_stream_names
+                    else ""
+                )
+            )
+
         # Resolve with_state default: True when connection_id is provided
         resolved_with_state = with_state if with_state is not None else True
 
-        if resolved_with_state and not state_file and command == "read":
+        if not (resolved_with_state and not state_file and command == "read"):
+            connection_data.state = None
+        elif enrichment_state_fetched:
+            connection_data.state = enrichment_state
+            if connection_data.state:
+                print_success(
+                    f"Using state fetched during schema enrichment "
+                    f"({len(connection_data.state)} stream(s))"
+                )
+            else:
+                print_success("No state available for this connection (initial sync)")
+        else:
             print_success("Fetching connection state for warm read...")
             try:
                 connection_data.state = fetch_connection_state(connection_data)
@@ -1477,14 +1615,12 @@ def regression_test(
         )
 
     # Apply selected_streams filter to catalog if requested
-    if selected_streams and catalog_file:
-        streams_set = {s.strip() for s in selected_streams.split(",") if s.strip()}
-        if streams_set:
-            print_success(
-                f"Filtering catalog to {len(streams_set)} selected streams: "
-                f"{', '.join(sorted(streams_set))}"
-            )
-            filter_configured_catalog_file(catalog_file, streams_set)
+    if selected_stream_names and catalog_file:
+        print_success(
+            f"Filtering catalog to {len(selected_stream_names)} selected streams: "
+            f"{', '.join(sorted(selected_stream_names))}"
+        )
+        filter_configured_catalog_file(catalog_file, selected_stream_names)
 
     # Upgrade READ → READ_WITH_STATE when a state file is available
     if cmd == Command.READ and state_file:
@@ -1532,27 +1668,24 @@ def regression_test(
             enable_debug_logs=enable_debug_logs,
         )
 
-        print_json(result)
+        # Same per-version rule as comparison mode: for CHECK the exit code alone
+        # is not the verdict, connectionStatus is.
+        annotated_result = _annotate_run_verdict(command, result)
+        single_success = bool(annotated_result["success"])
 
-        write_github_outputs(
-            {
-                "success": result["success"],
-                "connector": resolved_test_image,
-                "command": command,
-                "exit_code": result["exit_code"],
-            }
-        )
+        print_json(annotated_result)
 
-        write_test_summary(
-            connector_image=resolved_test_image,
-            test_type="regression-test",
-            success=result["success"],
-            results={
-                "command": command,
-                "exit_code": result["exit_code"],
-                "output_dir": output_dir,
-            },
-        )
+        single_outputs: dict[str, object] = {
+            "success": single_success,
+            "connector": resolved_test_image,
+            "command": command,
+            "exit_code": result["exit_code"],
+        }
+        if command == "check":
+            # Named to match the comparison-mode output the workflow summary reads.
+            single_outputs["target_connection_status"] = result.get("connection_status")
+
+        write_github_outputs(single_outputs)
 
         # Generate report.md with detailed metrics
         report_path = generate_single_version_report(
@@ -1563,12 +1696,33 @@ def regression_test(
         )
         print_success(f"Generated report: {report_path}")
 
-        # Write report to GITHUB_STEP_SUMMARY (if env var exists)
-        write_github_summary(report_path.read_text())
+        # The detailed surface is report.html in the uploaded artifact; the step
+        # summary gets the concise block instead of the whole report. Both are
+        # built from the unannotated result: the model derives the verdict itself.
+        report_model = build_single_version_report_model(
+            connector_image=resolved_test_image,
+            command=command,
+            result=result,
+            configured_streams=_configured_stream_names(cmd, catalog_file),
+            connection_objects=_collect_connection_objects(
+                catalog_file, state_file, output_path / "airbyte_messages"
+            ),
+        )
+        html_report_path = write_html_report(report_model, output_path)
+        print_success(f"Generated HTML report: {html_report_path}")
 
-        if result["success"]:
+        # Write the concise summary to GITHUB_STEP_SUMMARY (if env var exists)
+        write_github_summary(render_inline_summary(report_model))
+
+        if single_success:
             print_success(
                 f"Single-version regression test passed for {resolved_test_image}"
+            )
+        elif command == "check" and result["success"]:
+            print_error(
+                f"Single-version regression test failed for {resolved_test_image}: "
+                f"connectionStatus {result.get('connection_status') or 'missing'} "
+                "(the connector itself exited 0)."
             )
         else:
             print_error(
@@ -1603,53 +1757,34 @@ def regression_test(
             enable_debug_logs=enable_debug_logs,
         )
 
-        both_succeeded = target_result["success"] and control_result["success"]
-        regression_detected = target_result["success"] != control_result["success"]
+        outcome = evaluate_comparison_outcome(command, target_result, control_result)
 
-        # For CHECK commands, override pass/fail using connectionStatus instead
-        # of exit codes.  The CDK exits 0 even when a check fails; the real
-        # signal is in CONNECTION_STATUS.status.
-        if command == "check":
-            target_conn = target_result.get("connection_status")
-            control_conn = control_result.get("connection_status")
-            if target_conn is not None and control_conn is not None:
-                both_succeeded = (
-                    target_conn == "SUCCEEDED" and control_conn == "SUCCEEDED"
-                )
-                # Only flag a regression when the target got worse.
-                # An improvement (target SUCCEEDED, control FAILED) is not a
-                # regression.
-                regression_detected = (
-                    target_conn == "FAILED" and control_conn == "SUCCEEDED"
-                )
-
+        # Annotate copies of each side, never the originals: `generate_regression_report`
+        # below reads `result["success"]` as the exit status, so handing it a dict whose
+        # `success` is the verdict would corrupt the report's per-version wording.
         combined_result = {
-            "target": target_result,
-            "control": control_result,
-            "both_succeeded": both_succeeded,
-            "regression_detected": regression_detected,
+            "target": _annotate_run_verdict(command, target_result),
+            "control": _annotate_run_verdict(command, control_result),
+            "both_succeeded": outcome.both_succeeded,
+            "regression_detected": outcome.regression_detected,
+            # The authoritative verdict, so consumers of this payload (stdout and
+            # the `regression_report` output) never have to re-derive it from
+            # `regression_detected` -- which is false for an inconclusive run.
+            "success": outcome.success,
+            "both_failed": outcome.both_failed,
         }
 
         print_json(combined_result)
 
-        both_failed = not target_result["success"] and not control_result["success"]
-
-        # For CHECK, also flag both-failed when both have FAILED connectionStatus
-        if command == "check":
-            target_conn = target_result.get("connection_status")
-            control_conn = control_result.get("connection_status")
-            if target_conn == "FAILED" and control_conn == "FAILED":
-                both_failed = True
-
         gh_outputs: dict[str, object] = {
-            "success": not regression_detected,
+            "success": outcome.success,
             "target_image": resolved_test_image,
             "control_image": resolved_control_image,
             "command": command,
             "target_exit_code": target_result["exit_code"],
             "control_exit_code": control_result["exit_code"],
-            "regression_detected": regression_detected,
-            "both_failed": both_failed,
+            "regression_detected": outcome.regression_detected,
+            "both_failed": outcome.both_failed,
         }
 
         if command == "check":
@@ -1674,25 +1809,193 @@ def regression_test(
         )
         print_success(f"Generated regression report: {report_path}")
 
-        # Write report to GITHUB_STEP_SUMMARY (if env var exists)
-        write_github_summary(report_path.read_text())
+        # Same rule as `generate_regression_report` above: the model reads
+        # `result["success"]` as the exit status and derives the per-version
+        # verdict itself, so it gets the unannotated originals. `outcome` is
+        # passed through so the run is evaluated exactly once.
+        report_model = build_comparison_report_model(
+            target_image=resolved_test_image,
+            control_image=resolved_control_image,  # type: ignore[arg-type]
+            command=command,
+            target_result=target_result,
+            control_result=control_result,
+            outcome=outcome,
+            configured_streams=_configured_stream_names(cmd, catalog_file),
+            connection_objects=_collect_connection_objects(
+                catalog_file, state_file, target_output / "airbyte_messages"
+            ),
+        )
+        html_report_path = write_html_report(report_model, output_path)
+        print_success(f"Generated regression HTML report: {html_report_path}")
 
-        if regression_detected:
-            print_error(
-                f"Regression detected between {resolved_test_image} and {resolved_control_image}"
+        # Write the concise summary to GITHUB_STEP_SUMMARY (if env var exists)
+        write_github_summary(render_inline_summary(report_model))
+
+        if outcome.check_improvement:
+            print_success(
+                f"Regression test passed for {resolved_test_image} vs "
+                f"{resolved_control_image}: target connectionStatus SUCCEEDED "
+                "while control FAILED (improvement)."
             )
-        elif both_succeeded:
+        elif outcome.both_succeeded:
             print_success(
                 f"Regression test passed for {resolved_test_image} vs {resolved_control_image}"
             )
-        else:
-            # Both versions failed, but no regression between them was detected; treat this as a
-            # test environment issue (e.g., expired credentials, transient API errors, rate limiting).
-            # Exit successfully since no regression between versions was detected.
-            print_warning(
-                f"Both versions failed for {resolved_test_image} vs {resolved_control_image}. "
-                "No regression detected. This may indicate expired credentials or a transient API issue."
+        elif outcome.regression_detected:
+            print_error(
+                f"Regression detected between {resolved_test_image} and {resolved_control_image}"
             )
+        elif outcome.both_failed:
+            print_error(
+                f"Both versions failed for {resolved_test_image} vs {resolved_control_image}. "
+                "Test failed/inconclusive; cannot rule out a regression."
+            )
+        else:
+            print_error(
+                f"Control {resolved_control_image} failed while target "
+                f"{resolved_test_image} succeeded. Test failed/inconclusive; "
+                "nothing to compare the target against."
+            )
+
+
+def _configured_stream_names(
+    command: Command, catalog_file: Path | None
+) -> tuple[str, ...]:
+    """Every stream the run was configured to read.
+
+    The report's per-stream tables are keyed on emitted records, so a stream
+    that returned nothing has no entry and would be missing from the report
+    entirely. Reading the configured catalog is what lets it be shown as zero.
+
+    Only for commands that read records. `--connection-id` fetches a catalog for
+    every command, and handing it to `spec`, `check` or `discover` would give
+    them an all-zero stream table and a coverage warning saying no stream
+    returned anything -- true, meaningless, and enough noise to train a reviewer
+    to ignore the warning on the one command where it means something.
+    """
+    if command not in (Command.READ, Command.READ_WITH_STATE):
+        return ()
+
+    if catalog_file is None or not catalog_file.exists():
+        return ()
+
+    try:
+        catalog = ConfiguredAirbyteCatalog.parse_raw(catalog_file.read_text())
+    except Exception as exc:
+        print_warning(f"Could not read the configured catalog for the report: {exc}")
+        return ()
+
+    return tuple(
+        sorted(
+            configured.stream.name
+            for configured in catalog.streams
+            if configured.stream
+        )
+    )
+
+
+def _collect_connection_objects(
+    catalog_file: Path | None,
+    state_file: Path | None,
+    messages_dir: Path | None,
+) -> tuple[DiffBlock, ...]:
+    """Gather the objects the run was given or discovered, for the report.
+
+    The connector config is deliberately absent: it is the one object that
+    carries secrets, and the report is an artifact anyone with repo access can
+    download.
+
+    Args:
+        catalog_file: The configured catalog handed to the run.
+        state_file: The state handed to the run, for a warm read.
+        messages_dir: The target side's `airbyte_messages` directory, which
+            holds the catalog the connector discovered.
+
+    Returns:
+        One JSON block per object that exists, in the order a reader wants them.
+    """
+    sources: list[tuple[str, Path | None]] = [
+        ("Configured catalog (input)", catalog_file),
+        ("State (input)", state_file),
+        (
+            "Discovered catalog (from the target)",
+            (messages_dir / "catalog.jsonl") if messages_dir else None,
+        ),
+    ]
+
+    blocks: list[DiffBlock] = []
+    for title, path in sources:
+        if path is None or not path.is_file():
+            continue
+
+        try:
+            payload = path.read_text()
+        except OSError:
+            continue
+
+        if payload.strip():
+            blocks.append(build_json_block(title, payload))
+
+    return tuple(blocks)
+
+
+# The order commands are presented in, matching how a sync runs them. Anything
+# else found under the artifacts directory follows, sorted.
+_REPORT_COMMAND_ORDER = ("spec", "check", "discover", "read")
+
+
+@connector_app.command(name="consolidate-regression-reports")
+def consolidate_regression_reports(
+    artifacts_dir: Annotated[
+        str,
+        Parameter(
+            help="Directory holding one subdirectory per command, each with the "
+            "`report.html` that `regression-test --output-dir` wrote."
+        ),
+    ],
+    output_path: Annotated[
+        str | None,
+        Parameter(
+            name=["--output"],
+            help="Where to write the consolidated report. "
+            "Defaults to `report.html` in `--artifacts-dir`.",
+        ),
+    ] = None,
+) -> None:
+    """Fold one run's per-command regression reports into a single page.
+
+    The regression test runs the CLI once per Airbyte command, so each command
+    writes its own report into its own artifact. This produces the run-level
+    view -- a verdict table across commands plus every report inlined -- so a
+    reviewer downloads one file instead of four.
+
+    Never fails the run: a command whose report is missing or unreadable is
+    skipped, because this is a reporting convenience and the per-command
+    artifacts remain the source of truth.
+    """
+    artifacts_path = Path(artifacts_dir)
+    ordered = [artifacts_path / command for command in _REPORT_COMMAND_ORDER]
+    extra = sorted(
+        path
+        for path in artifacts_path.glob("*")
+        if path.is_dir() and path not in ordered
+    )
+    report_paths = [
+        directory / HTML_REPORT_FILENAME for directory in [*ordered, *extra]
+    ]
+
+    consolidated = consolidate_reports(report_paths)
+    if consolidated is None:
+        print_warning(
+            f"No per-command reports found under {artifacts_path}; "
+            "nothing to consolidate."
+        )
+        return
+
+    destination = Path(output_path) if output_path else artifacts_path / "report.html"
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(consolidated)
+    print_success(f"Consolidated regression report: {destination}")
 
 
 @connector_app.command(name="fetch-connection-config")

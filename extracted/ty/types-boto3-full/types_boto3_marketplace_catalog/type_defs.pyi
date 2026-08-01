@@ -32,6 +32,7 @@ from .literals import (
     IntentType,
     MachineLearningProductSortByType,
     MachineLearningProductVisibilityStringType,
+    OfferCreatedBySourceStringType,
     OfferSetSortByType,
     OfferSetStateStringType,
     OfferSortByType,
@@ -47,9 +48,9 @@ from .literals import (
 )
 
 if sys.version_info >= (3, 12):
-    from typing import NotRequired, TypedDict
+    from typing import Literal, NotRequired, TypedDict
 else:
-    from typing_extensions import NotRequired, TypedDict
+    from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
     "AmiProductEntityIdFilterTypeDef",
@@ -118,6 +119,7 @@ __all__ = (
     "OfferAvailabilityEndDateFilterDateRangeTypeDef",
     "OfferAvailabilityEndDateFilterTypeDef",
     "OfferBuyerAccountsFilterTypeDef",
+    "OfferCreatedBySourceFilterTypeDef",
     "OfferEntityIdFilterTypeDef",
     "OfferFiltersTypeDef",
     "OfferLastModifiedDateFilterDateRangeTypeDef",
@@ -143,6 +145,8 @@ __all__ = (
     "OfferSortTypeDef",
     "OfferStateFilterTypeDef",
     "OfferSummaryTypeDef",
+    "OfferTargetAgreementIdFilterTypeDef",
+    "OfferTargetAgreementIntentFilterTypeDef",
     "OfferTargetingFilterTypeDef",
     "PaginatorConfigTypeDef",
     "PutResourcePolicyRequestTypeDef",
@@ -333,6 +337,9 @@ class OfferSummaryTypeDef(TypedDict):
     State: NotRequired[OfferStateStringType]
     Targeting: NotRequired[list[OfferTargetingStringType]]
     OfferSetId: NotRequired[str]
+    TargetAgreementId: NotRequired[str]
+    TargetAgreementIntent: NotRequired[Literal["Renew"]]
+    CreatedBySource: NotRequired[OfferCreatedBySourceStringType]
 
 class ResaleAuthorizationSummaryTypeDef(TypedDict):
     Name: NotRequired[str]
@@ -412,6 +419,9 @@ class OfferAvailabilityEndDateFilterDateRangeTypeDef(TypedDict):
 class OfferBuyerAccountsFilterTypeDef(TypedDict):
     WildCardValue: NotRequired[str]
 
+class OfferCreatedBySourceFilterTypeDef(TypedDict):
+    ValueList: NotRequired[Sequence[OfferCreatedBySourceStringType]]
+
 class OfferEntityIdFilterTypeDef(TypedDict):
     ValueList: NotRequired[Sequence[str]]
 
@@ -430,6 +440,12 @@ class OfferSetIdFilterTypeDef(TypedDict):
 
 class OfferStateFilterTypeDef(TypedDict):
     ValueList: NotRequired[Sequence[OfferStateStringType]]
+
+class OfferTargetAgreementIdFilterTypeDef(TypedDict):
+    ValueList: NotRequired[Sequence[str]]
+
+class OfferTargetAgreementIntentFilterTypeDef(TypedDict):
+    ValueList: NotRequired[Sequence[Literal["Renew"]]]
 
 class OfferTargetingFilterTypeDef(TypedDict):
     ValueList: NotRequired[Sequence[OfferTargetingStringType]]
@@ -742,6 +758,9 @@ class OfferFiltersTypeDef(TypedDict):
     Targeting: NotRequired[OfferTargetingFilterTypeDef]
     LastModifiedDate: NotRequired[OfferLastModifiedDateFilterTypeDef]
     OfferSetId: NotRequired[OfferSetIdFilterTypeDef]
+    TargetAgreementId: NotRequired[OfferTargetAgreementIdFilterTypeDef]
+    TargetAgreementIntent: NotRequired[OfferTargetAgreementIntentFilterTypeDef]
+    CreatedBySource: NotRequired[OfferCreatedBySourceFilterTypeDef]
 
 class OfferSetFiltersTypeDef(TypedDict):
     EntityId: NotRequired[OfferSetEntityIdFilterTypeDef]

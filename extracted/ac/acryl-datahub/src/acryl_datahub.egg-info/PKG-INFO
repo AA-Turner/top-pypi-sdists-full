@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: acryl-datahub
-Version: 1.6.0.16
+Version: 1.6.0.17
 Summary: DataHub ingestion framework and CLI — connect, extract, and push metadata from 50+ data sources into your DataHub catalog
 Home-page: https://datahub.com/
 License-Expression: Apache-2.0
@@ -39,7 +39,7 @@ Requires-Dist: Deprecated<2.0.0
 Requires-Dist: docker<8.0.0
 Requires-Dist: expandvars<2.0.0,>=0.6.5
 Requires-Dist: humanfriendly<11.0.0
-Requires-Dist: ijson<4.0.0
+Requires-Dist: ijson<4.0.0,>=3.2.0
 Requires-Dist: jsonref<2.0.0
 Requires-Dist: jsonschema<5.0.0
 Requires-Dist: mixpanel<6.0.0,>=4.9.0
@@ -250,6 +250,7 @@ Provides-Extra: datahub-rest
 Requires-Dist: graphql-core<4.0.0,>=3.0.0; extra == "datahub-rest"
 Requires-Dist: requests<3.0.0; extra == "datahub-rest"
 Provides-Extra: dataplex
+Requires-Dist: cachetools<6.0.0; extra == "dataplex"
 Requires-Dist: google-cloud-datacatalog-lineage<1.0.0,>=0.5.0; extra == "dataplex"
 Requires-Dist: google-cloud-dataplex<3.0.0; extra == "dataplex"
 Requires-Dist: google-cloud-resource-manager<2.0.0; extra == "dataplex"
@@ -733,6 +734,10 @@ Requires-Dist: urllib3<3.0,>=1.26; extra == "sagemaker"
 Provides-Extra: salesforce
 Requires-Dist: cachetools<6.0.0; extra == "salesforce"
 Requires-Dist: simple-salesforce<2.0.0; extra == "salesforce"
+Provides-Extra: sap-datasphere
+Requires-Dist: defusedxml<0.8.0,>=0.7.1; extra == "sap-datasphere"
+Requires-Dist: graphql-core<4.0.0,>=3.0.0; extra == "sap-datasphere"
+Requires-Dist: requests<3.0.0; extra == "sap-datasphere"
 Provides-Extra: sigma
 Requires-Dist: requests<3.0.0; extra == "sigma"
 Requires-Dist: sqlglot[c]==30.12.0; extra == "sigma"
@@ -1057,6 +1062,7 @@ Requires-Dist: datasketches<6.0.0,>=5.0.0; extra == "dev"
 Requires-Dist: db-dtypes; extra == "dev"
 Requires-Dist: deepdiff!=8.0.0,<9.0.0; extra == "dev"
 Requires-Dist: deepmerge<3.0.0,>=1.1.1; extra == "dev"
+Requires-Dist: defusedxml<0.8.0,>=0.7.1; extra == "dev"
 Requires-Dist: deltalake!=0.18.0,!=0.6.4,<1.0.0,>=0.6.3; (platform_system == "Darwin" and platform_machine == "arm64") and extra == "dev"
 Requires-Dist: deltalake!=0.6.4,<1.0.0,>=0.6.3; (platform_system != "Darwin" or platform_machine != "arm64") and extra == "dev"
 Requires-Dist: Deprecated<2.0.0; extra == "dev"
@@ -1088,7 +1094,7 @@ Requires-Dist: grpcio-tools<2.0.0,>=1.44.0; extra == "dev"
 Requires-Dist: grpcio<2.0.0,>=1.44.0; extra == "dev"
 Requires-Dist: humanfriendly<11.0.0; extra == "dev"
 Requires-Dist: hypothesis<7.0.0,>=6.0.0; extra == "dev"
-Requires-Dist: ijson<4.0.0; extra == "dev"
+Requires-Dist: ijson<4.0.0,>=3.2.0; extra == "dev"
 Requires-Dist: jdk4py<22.0,>=21.0; extra == "dev"
 Requires-Dist: JPype1<2.0.0; extra == "dev"
 Requires-Dist: jsonpath-ng==1.7.0; extra == "dev"
@@ -1135,6 +1141,7 @@ Requires-Dist: pyOpenSSL<27.0.0,>=26.0.0; extra == "dev"
 Requires-Dist: pytest-asyncio<2.0.0,>=0.16.0; extra == "dev"
 Requires-Dist: pytest-cov<8.0.0,>=2.8.1; extra == "dev"
 Requires-Dist: pytest-docker<4.0.0,>=1.1.0; extra == "dev"
+Requires-Dist: pytest-httpserver<2.0.0,>=1.0.0; extra == "dev"
 Requires-Dist: pytest-random-order<2.0.0,~=1.1.0; extra == "dev"
 Requires-Dist: pytest-rerunfailures<17.0; extra == "dev"
 Requires-Dist: pytest-timeout<3.0.0; extra == "dev"
@@ -1244,6 +1251,7 @@ Requires-Dist: datasketches<6.0.0,>=5.0.0; extra == "docs"
 Requires-Dist: db-dtypes; extra == "docs"
 Requires-Dist: deepdiff!=8.0.0,<9.0.0; extra == "docs"
 Requires-Dist: deepmerge<3.0.0,>=1.1.1; extra == "docs"
+Requires-Dist: defusedxml<0.8.0,>=0.7.1; extra == "docs"
 Requires-Dist: deltalake!=0.18.0,!=0.6.4,<1.0.0,>=0.6.3; (platform_system == "Darwin" and platform_machine == "arm64") and extra == "docs"
 Requires-Dist: deltalake!=0.6.4,<1.0.0,>=0.6.3; (platform_system != "Darwin" or platform_machine != "arm64") and extra == "docs"
 Requires-Dist: Deprecated<2.0.0; extra == "docs"
@@ -1275,7 +1283,7 @@ Requires-Dist: grpcio-tools<2.0.0,>=1.44.0; extra == "docs"
 Requires-Dist: grpcio<2.0.0,>=1.44.0; extra == "docs"
 Requires-Dist: humanfriendly<11.0.0; extra == "docs"
 Requires-Dist: hypothesis<7.0.0,>=6.0.0; extra == "docs"
-Requires-Dist: ijson<4.0.0; extra == "docs"
+Requires-Dist: ijson<4.0.0,>=3.2.0; extra == "docs"
 Requires-Dist: jdk4py<22.0,>=21.0; extra == "docs"
 Requires-Dist: JPype1<2.0.0; extra == "docs"
 Requires-Dist: jsonpath-ng==1.7.0; extra == "docs"
@@ -1322,6 +1330,7 @@ Requires-Dist: pyOpenSSL<27.0.0,>=26.0.0; extra == "docs"
 Requires-Dist: pytest-asyncio<2.0.0,>=0.16.0; extra == "docs"
 Requires-Dist: pytest-cov<8.0.0,>=2.8.1; extra == "docs"
 Requires-Dist: pytest-docker<4.0.0,>=1.1.0; extra == "docs"
+Requires-Dist: pytest-httpserver<2.0.0,>=1.0.0; extra == "docs"
 Requires-Dist: pytest-random-order<2.0.0,~=1.1.0; extra == "docs"
 Requires-Dist: pytest-rerunfailures<17.0; extra == "docs"
 Requires-Dist: pytest-timeout<3.0.0; extra == "docs"

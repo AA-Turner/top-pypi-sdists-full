@@ -2,15 +2,17 @@
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v6.0.0
     hooks:
     -   id: trailing-whitespace
+        exclude: 'tests/test_ipunittest\.py'
     -   id: end-of-file-fixer
     -   id: check-yaml
     -   id: check-added-large-files
 
 -   repo: https://github.com/akaihola/darker
-    rev: 1.7.2
+    rev: v3.0.0
     hooks:
     -   id: darker
-        additional_dependencies: [isort, mypy, flake8]
+        args: [--formatter=ruff]
+        additional_dependencies: [ruff, isort, mypy, flake8]

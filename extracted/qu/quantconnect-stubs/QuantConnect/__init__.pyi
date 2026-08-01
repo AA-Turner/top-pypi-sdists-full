@@ -11237,6 +11237,29 @@ class Messages(System.Object):
             """
             ...
 
+    class ModuleNotFoundPythonExceptionInterpreter(System.Object):
+        """Provides user-facing messages for the Exceptions.ModuleNotFoundPythonExceptionInterpreter class and its consumers or related classes"""
+
+        @staticmethod
+        def module_not_found(module_name: str, is_module_name_camel_cased: bool) -> str:
+            """
+            Returns a string message saying the given module could not be found, with advice on how to fix it.
+            The .NET assembly advice is only included when the module name looks like a .NET namespace
+            """
+            ...
+
+    class MultipleInheritancePythonExceptionInterpreter(System.Object):
+        """Provides user-facing messages for the Exceptions.MultipleInheritancePythonExceptionInterpreter class and its consumers or related classes"""
+
+        multiple_inheritance_expected_substring: str = "cannot use multiple inheritance with managed classes"
+        """String message saying: cannot use multiple inheritance with managed classes"""
+
+        invalid_multiple_inheritance: str = ...
+        """
+        String message saying a Python class cannot inherit from multiple classes when one of them is a C# class.
+        It also contains an advice on how to fix it
+        """
+
     class NoMethodMatchPythonExceptionInterpreter(System.Object):
         """Provides user-facing messages for the Exceptions.NoMethodMatchPythonExceptionInterpreter class and its consumers or related classes"""
 

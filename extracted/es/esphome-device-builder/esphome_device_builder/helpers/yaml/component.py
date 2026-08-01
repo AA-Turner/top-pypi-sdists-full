@@ -100,6 +100,8 @@ def generate_component_yaml(  # noqa: C901
     Nested values in ``fields`` (dicts as values) are emitted as
     indented YAML mappings — frontend submits the full structure as a
     single ``fields`` argument, no separate sub-entries dict needed.
+    ``name`` and ``id`` (in that order) surface to the top of the block
+    (and of entity sub-blocks) regardless of the caller's field order.
 
     Two kinds of identifier auto-fill happen here:
 
@@ -145,8 +147,6 @@ def generate_component_yaml(  # noqa: C901
         if not isinstance(sub, dict):
             continue
         sub_keys = {c.key for c in entry.config_entries}
-        if sub.get("name") and sub.get("id"):
-            continue
         # Build a fresh dict with name/id at the front so the emitted
         # YAML reads naturally (humans put name/id first).
         autofill: dict[str, Any] = {}
@@ -155,7 +155,9 @@ def generate_component_yaml(  # noqa: C901
         if "id" in sub_keys and not sub.get("id"):
             autofill["id"] = f"{parent_id}_{entry.key}"
         autofill.update(sub)
-        fields[entry.key] = autofill
+        fields[entry.key] = _surface_identity_first(autofill)
+
+    fields = _surface_identity_first(fields)
 
     if domain is not None:
         lines = [f"{domain}:", f"{ESPHOME_YAML_INDENT}- platform: {unqualified}"]
@@ -498,6 +500,14 @@ def _emit_field(key: str, value: Any, indent: str) -> list[str]:
         rendered = ", ".join(_format_flow_yaml_value(item) for item in value)
         return [f"{indent}{safe_key}: [{rendered}]"]
     return [f"{indent}{safe_key}: {_format_yaml_value(value)}"]
+
+
+def _surface_identity_first(mapping: dict[str, Any]) -> dict[str, Any]:
+    """Return *mapping* with ``name`` then ``id`` as the first keys when present."""
+    lead: dict[str, Any] = {key: mapping[key] for key in ("name", "id") if key in mapping}
+    if not lead:
+        return mapping
+    return {**lead, **mapping}
 
 
 def _generate_id(component_id: str, name: str | None = None) -> str:

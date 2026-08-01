@@ -31,20 +31,20 @@ from django_enum.utils import (
 )
 
 __all__ = [
-    "NonStrictSelect",
-    "NonStrictSelectMultiple",
-    "FlagSelectMultiple",
-    "FlagCheckbox",
-    "NonStrictFlagSelectMultiple",
-    "NonStrictFlagCheckbox",
-    "NonStrictRadioSelect",
     "ChoiceFieldMixin",
     "EnumChoiceField",
-    "EnumMultipleChoiceField",
     "EnumFlagField",
-    "NonStrictMixin",
+    "EnumMultipleChoiceField",
+    "FlagCheckbox",
     "FlagMixin",
+    "FlagSelectMultiple",
+    "NonStrictFlagCheckbox",
     "NonStrictFlagMixin",
+    "NonStrictFlagSelectMultiple",
+    "NonStrictMixin",
+    "NonStrictRadioSelect",
+    "NonStrictSelect",
+    "NonStrictSelectMultiple",
 ]
 
 
@@ -117,7 +117,7 @@ class NonStrictFlagMixin:
             get_set_values(kwargs.get("value")), get_set_bits(kwargs.get("value"))
         )
         self.choices = list(self.choices)
-        choice_values = set(choice[0] for choice in self.choices)
+        choice_values = {choice[0] for choice in self.choices}
         for value, label in raw_choices:
             if value not in choice_values:
                 self.choices.append((value, label))
@@ -416,7 +416,7 @@ class ChoiceFieldMixin(
 
         if self.empty_value not in self.empty_values:
             raise ValueError(
-                f"Enumeration value {repr(self.empty_value)} is"
+                f"Enumeration value {self.empty_value!r} is"
                 f"equivalent to {self.empty_value}, you must "
                 f"specify a non-conflicting empty_value."
             )

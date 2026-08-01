@@ -1,7 +1,6 @@
 name: Connector Regression Test
 permissions:
   contents: read
-  checks: write
 
 on:
   workflow_dispatch:
@@ -114,19 +113,19 @@ on:
         type: string
     outputs:
       success:
-        description: "True if regression test passed (no regression detected)"
+        description: "True if every executed command passed. False (and the job fails) on a regression, a one-sided failure, or both versions failing"
         value: ${{ jobs.regression-test.outputs.success }}
       internal_failure:
-        description: "True if an internal/infrastructure error caused the workflow to fail"
+        description: "True if an internal/infrastructure error caused the workflow to fail. Use this to tell a failed test verdict (false) from a broken run (true)"
         value: ${{ jobs.regression-test.outputs.internal_failure }}
       both_failed:
-        description: "True if any step had both versions fail (no regression but both failed)"
+        description: "True if any step had both versions fail (test failed — inconclusive)"
         value: ${{ jobs.regression-test.outputs.both_failed }}
       summary_url:
         description: "GitHub Actions run summary URL"
         value: ${{ jobs.regression-test.outputs.summary_url }}
       report_url:
-        description: "Detailed regression report (GitHub Check URL)"
+        description: "URL of the run's Artifacts section, where each command's detailed `report.html` is attached as `regression-test-artifacts-<command>-<run_id>`. GitHub has no URL that deep-links into an artifact, so this is where a reviewer downloads it from"
         value: ${{ jobs.regression-test.outputs.report_url }}
     secrets:
       AIRBYTE_CLOUD_CLIENT_ID:
@@ -287,6 +286,10 @@ jobs:
           USE_CONNECTION_SECRET_RETRIEVER: "true"
         run: uv run airbyte-ops cloud connector regression-test --command spec ${{ steps.setup.outputs.common_args }} --output-dir ${{ steps.setup.outputs.spec_output_dir }}
 
+      # Uploads the whole per-command output dir, so the CLI's `report.md` and
+      # detailed `report.html` are included. The artifact name is a contract
+      # shared with `ci_output.github_artifact_name`, which builds the link the
+      # CLI writes into the step summary -- keep the two in sync.
       - name: Upload SPEC Artifacts
         if: always()
         uses: actions/upload-artifact@v7
@@ -527,53 +530,83 @@ jobs:
           echo "success=$ALL_TESTS_PASSED" >> "$GITHUB_OUTPUT"
           echo "internal_failure=$INTERNAL_FAILURE" >> "$GITHUB_OUTPUT"
 
-          # Only fail the workflow if there was an internal/infrastructure error
+          # Fail the workflow on an internal/infrastructure error...
           if [ "$INTERNAL_FAILURE" = "true" ]; then
             echo "::error::Workflow failed due to internal infrastructure error(s)"
             exit 1
           fi
 
+          # ...and on a failed test verdict, so a regression (or an inconclusive
+          # run where both versions failed) never shows up as a green run. The
+          # `internal_failure` output above distinguishes the two for callers.
+          if [ "$ALL_TESTS_PASSED" != "true" ]; then
+            echo "::error::Regression test failed - see the run summary for the per-command verdict"
+            exit 1
+          fi
+
+      # One page for the whole run, folded from the per-command reports each
+      # command already wrote. Runs even when a command failed, so a reviewer
+      # still gets the commands that produced output; never fails the job.
+      - name: Consolidate Regression Reports
+        if: always()
+        continue-on-error: true
+        run: |
+          uv run airbyte-ops cloud connector consolidate-regression-reports \
+            "${{ steps.setup.outputs.artifacts_dir }}" \
+            --output "${{ steps.setup.outputs.artifacts_dir }}/report.html"
+
+      # `artifact-url` addresses this artifact directly and stays valid for as
+      # long as it exists, which is what makes the report linkable in a review.
+      - name: Upload Consolidated Report
+        id: upload-consolidated-report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: regression-test-report-${{ github.run_id }}
+          path: ${{ steps.setup.outputs.artifacts_dir }}/report.html
+          retention-days: 2
+          if-no-files-found: ignore
+
       - name: Write Summary Table to Summary
         if: always()
         run: |
-          # Determine emoji for each result based on CLI outputs (not step outcomes)
-          # Use ⚠️ for "both versions failed" (no regression but both failed)
-          if [ "${{ steps.run-spec.outputs.both_failed }}" = "true" ]; then
-            SPEC_EMOJI="⚠️"
-          elif [ "${{ steps.run-spec.outputs.success }}" = "true" ]; then
-            SPEC_EMOJI="✅"
-          else
-            SPEC_EMOJI="❌"
-          fi
+          # Render each result from the CLI outputs (not step outcomes). Every
+          # non-pass is ❌: "both versions failed" is a failed, inconclusive test,
+          # not a warning, so it is annotated rather than downgraded to ⚠️.
+          result_cell() {  # $1 = both_failed output, $2 = success output
+            if [ "$1" = "true" ]; then
+              echo "❌ (both versions failed — inconclusive)"
+            elif [ "$2" = "true" ]; then
+              echo "✅"
+            else
+              echo "❌"
+            fi
+          }
 
-          if [ "${{ steps.run-check.outputs.both_failed }}" = "true" ]; then
-            CHECK_EMOJI="⚠️"
-          elif [ "${{ steps.run-check.outputs.success }}" = "true" ]; then
-            CHECK_EMOJI="✅"
-          else
-            CHECK_EMOJI="❌"
-          fi
+          SPEC_CELL="$(result_cell "${{ steps.run-spec.outputs.both_failed }}" "${{ steps.run-spec.outputs.success }}")"
+          CHECK_CELL="$(result_cell "${{ steps.run-check.outputs.both_failed }}" "${{ steps.run-check.outputs.success }}")"
+          DISCOVER_CELL="$(result_cell "${{ steps.run-discover.outputs.both_failed }}" "${{ steps.run-discover.outputs.success }}")"
+          READ_CELL="$(result_cell "${{ steps.run-read.outputs.both_failed }}" "${{ steps.run-read.outputs.success }}")"
+
           TARGET_CONN_STATUS="${{ steps.run-check.outputs.target_connection_status }}"
           CONTROL_CONN_STATUS="${{ steps.run-check.outputs.control_connection_status }}"
 
-          if [ "${{ steps.run-discover.outputs.both_failed }}" = "true" ]; then
-            DISCOVER_EMOJI="⚠️"
-          elif [ "${{ steps.run-discover.outputs.success }}" = "true" ]; then
-            DISCOVER_EMOJI="✅"
-          else
-            DISCOVER_EMOJI="❌"
-          fi
-
-          if [ "${{ steps.run-read.outputs.both_failed }}" = "true" ]; then
-            READ_EMOJI="⚠️"
-          elif [ "${{ steps.run-read.outputs.success }}" = "true" ]; then
-            READ_EMOJI="✅"
-          else
-            READ_EMOJI="❌"
-          fi
-
           SKIP_READ="${{ inputs.skip_read_action }}"
-          
+
+          # Only name the artifacts that were actually uploaded.
+          if [ "$SKIP_READ" != "true" ]; then
+            REPORT_COMMANDS="{spec,check,discover,read}"
+          else
+            REPORT_COMMANDS="{spec,check,discover}"
+          fi
+
+          # A direct link to the consolidated report, falling back to the run's
+          # Artifacts section if the upload produced nothing.
+          REPORT_ARTIFACT_URL="${{ steps.upload-consolidated-report.outputs.artifact-url }}"
+          if [ -z "$REPORT_ARTIFACT_URL" ]; then
+            REPORT_ARTIFACT_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
+          fi
+
           # Write summary table at the bottom
           {
             echo ""
@@ -583,20 +616,26 @@ jobs:
             echo ""
             echo "| Command | Result |"
             echo "|---------|--------|"
-            echo "| \`SPEC\` | $SPEC_EMOJI |"
+            echo "| \`SPEC\` | $SPEC_CELL |"
             if [ -n "$TARGET_CONN_STATUS" ] || [ -n "$CONTROL_CONN_STATUS" ]; then
-              echo "| \`CHECK\` | $CHECK_EMOJI (target: ${TARGET_CONN_STATUS:-N/A}, control: ${CONTROL_CONN_STATUS:-N/A}) |"
+              echo "| \`CHECK\` | $CHECK_CELL (target: ${TARGET_CONN_STATUS:-N/A}, control: ${CONTROL_CONN_STATUS:-N/A}) |"
             else
-              echo "| \`CHECK\` | $CHECK_EMOJI |"
+              echo "| \`CHECK\` | $CHECK_CELL |"
             fi
-            echo "| \`DISCOVER\` | $DISCOVER_EMOJI |"
+            echo "| \`DISCOVER\` | $DISCOVER_CELL |"
             if [ "$SKIP_READ" != "true" ]; then
-              echo "| \`READ\` | $READ_EMOJI |"
+              echo "| \`READ\` | $READ_CELL |"
             else
               echo "| \`READ\` | _(skipped)_ |"
             fi
             echo ""
-            echo "Legend: ✅ = passed, ❌ = regression detected, ⚠️ = both versions failed (no regression)"
+            echo "Legend: ✅ = passed, ❌ = failed (a regression, a one-sided failure, or both versions failing)"
+            echo ""
+            echo "### Detailed reports"
+            echo ""
+            echo "The whole run in one page: [download \`report.html\`]($REPORT_ARTIFACT_URL). Each command's own report is also attached separately as \`regression-test-artifacts-$REPORT_COMMANDS-${{ github.run_id }}\`, together with its raw output."
+            echo ""
+            echo "GitHub cannot link to a file inside an artifact, so download the artifact and open \`report.html\` locally."
             echo ""
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -605,3 +644,7 @@ jobs:
       internal_failure: ${{ steps.final-status.outputs.internal_failure }}
       both_failed: ${{ steps.final-status.outputs.both_failed }}
       summary_url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      # Addresses the consolidated report itself. Falls back to the run's
+      # Artifacts section when the upload produced nothing -- every command
+      # failed before writing a report, or the job was cancelled.
+      report_url: ${{ steps.upload-consolidated-report.outputs.artifact-url || format('{0}/{1}/actions/runs/{2}#artifacts', github.server_url, github.repository, github.run_id) }}

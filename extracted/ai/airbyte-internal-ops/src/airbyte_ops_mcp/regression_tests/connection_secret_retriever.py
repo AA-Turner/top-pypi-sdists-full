@@ -33,12 +33,13 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from airbyte_ops_mcp.connection_config_retriever import (
     ConnectionObject,
     retrieve_objects,
 )
+from airbyte_ops_mcp.regression_tests.connection_fetcher import merge_stream_schemas
 
 if TYPE_CHECKING:
     from airbyte_ops_mcp.regression_tests.connection_fetcher import ConnectionData
@@ -105,6 +106,89 @@ def retrieve_unmasked_config(
         return dict(candidate.source_config)
 
     return None
+
+
+def retrieve_configured_catalog(
+    connection_id: str,
+    retrieval_reason: str = "MCP live tests",
+) -> dict[str, Any] | None:
+    """Retrieve the connection's configured catalog from the internal database.
+
+    The platform-stored catalog contains the full per-stream `jsonSchema`,
+    which is not available via the public Cloud API.
+
+    Args:
+        connection_id: The Airbyte Cloud connection ID.
+        retrieval_reason: Reason for retrieval (for audit logging).
+
+    Returns:
+        The configured catalog dict (platform format), or None if unavailable.
+    """
+    candidates = retrieve_objects(
+        connection_objects=[ConnectionObject.CONFIGURED_CATALOG],
+        retrieval_reason=retrieval_reason,
+        connection_id=connection_id,
+    )
+
+    if not candidates:
+        logger.warning(
+            f"No connection data found for connection ID {connection_id} "
+            "via connection-retriever"
+        )
+        return None
+
+    candidate = candidates[0]
+    if candidate.configured_catalog:
+        return dict(candidate.configured_catalog)
+
+    return None
+
+
+def enrich_catalog_schemas_from_platform_db(
+    connection_data: ConnectionData,
+    retrieval_reason: str = "MCP live tests",
+) -> tuple[ConnectionData, int]:
+    """Fill in per-stream `json_schema` from the internal-Postgres catalog.
+
+    Fallback path for when the Cloud API catalog
+    (`enrich_catalog_schemas_from_cloud`) leaves streams without schemas.
+    Reads the platform-stored configured catalog from the internal database
+    (audit-logged, gated by `USE_CONNECTION_SECRET_RETRIEVER`) and merges
+    each stream's `jsonSchema` into the configured catalog by stream name.
+
+    Args:
+        connection_data: The connection data to enrich.
+        retrieval_reason: Reason for retrieval (for audit logging).
+
+    Returns:
+        Tuple of `(connection_data, merged_stream_count)`. If the stored
+        catalog cannot be retrieved or no schemas were merged, the original
+        data is returned with a count of 0.
+    """
+    db_catalog = retrieve_configured_catalog(
+        connection_id=connection_data.connection_id,
+        retrieval_reason=retrieval_reason,
+    )
+    if not db_catalog:
+        logger.warning(
+            "Could not retrieve stored catalog for connection "
+            f"{connection_data.connection_id}; leaving stream schemas empty"
+        )
+        return connection_data, 0
+
+    catalog, merged_count = merge_stream_schemas(connection_data.catalog, db_catalog)
+    if merged_count == 0:
+        logger.warning(
+            "Stored catalog for connection "
+            f"{connection_data.connection_id} yielded no stream schemas to merge"
+        )
+        return connection_data, 0
+
+    logger.info(
+        f"Merged stored schemas into {merged_count} stream(s) for connection "
+        f"{connection_data.connection_id}"
+    )
+    return replace(connection_data, catalog=catalog), merged_count
 
 
 class SecretRetrievalError(Exception):

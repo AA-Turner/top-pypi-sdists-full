@@ -1,3 +1,5 @@
+"""ryo3-core ~ types"""
+
 import typing as t
 
 class PanicError(BaseException):
@@ -26,6 +28,15 @@ def unreachable(msg: str | None = None) -> t.NoReturn:
     ------
     UnreachableError
         always
+
+    Examples
+    --------
+    >>> from ry import unreachable
+    >>> unreachable("This should never happen")
+    Traceback (most recent call last):
+        ...
+    ry.ryo3.UnreachableError: This should never happen
+
     """
 
 def panic(msg: str | None = None) -> t.NoReturn:
@@ -45,4 +56,13 @@ def panic(msg: str | None = None) -> t.NoReturn:
     ------
     PanicError
         always
+
+    Examples
+    --------
+    >>> from ry import panic
+    >>> panic("This is a fatal error")
+    Traceback (most recent call last):
+        ...
+    ry.ryo3.PanicError: This is a fatal error
+
     """

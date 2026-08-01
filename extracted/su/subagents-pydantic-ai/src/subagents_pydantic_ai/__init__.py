@@ -3,13 +3,15 @@
 This library provides a toolset for delegating tasks to specialized
 subagents within pydantic-ai agents. It supports:
 
-- **Dual-Mode Execution**: Run tasks synchronously (blocking) or
-  asynchronously (background)
-- **Auto Mode**: Intelligent mode selection based on task characteristics
-- **Pluggable Message Bus**: Default in-memory, extensible to Redis
-- **Dynamic Agent Creation**: Create specialized agents at runtime
-- **Configurable Nesting**: Control subagent depth
-- **Task Cancellation**: Both soft and hard cancellation
+- **Dual-mode execution**: run a task synchronously (blocking) or in the
+  background, or let `mode="auto"` choose from the task's characteristics
+- **Chat traces**: continue a subagent's conversation across delegations
+- **Questions**: a subagent can ask its parent for clarification mid-task
+- **Steering**: redirect a running background task without losing its progress
+- **Cancellation**: cooperative (stops at a clean boundary) or immediate
+- **Retries**: transient model/gateway failures resume from accumulated history
+- **Observability**: per-task usage, cost, tool-call counts, and traceparent
+- **Dynamic agents**: create specialists at runtime, reusable or one-shot
 
 Basic usage:
 
@@ -33,6 +35,9 @@ agent = Agent("openai:gpt-4.1", toolsets=[toolset])
 from subagents_pydantic_ai.capability import (
     SubAgentCapability as SubAgentCapability,
 )
+from subagents_pydantic_ai.dynamic_agent import (
+    AgentFactory as AgentFactory,
+)
 from subagents_pydantic_ai.factory import (
     create_agent_factory_toolset as create_agent_factory_toolset,
 )
@@ -53,6 +58,9 @@ from subagents_pydantic_ai.prompts import (
 )
 from subagents_pydantic_ai.prompts import (
     DEFAULT_GENERAL_PURPOSE_DESCRIPTION as DEFAULT_GENERAL_PURPOSE_DESCRIPTION,
+)
+from subagents_pydantic_ai.prompts import (
+    DELEGATE_TOOL_DESCRIPTION as DELEGATE_TOOL_DESCRIPTION,
 )
 from subagents_pydantic_ai.prompts import (
     DUAL_MODE_SYSTEM_PROMPT as DUAL_MODE_SYSTEM_PROMPT,
@@ -112,6 +120,9 @@ from subagents_pydantic_ai.toolset import (
     create_subagent_toolset as create_subagent_toolset,
 )
 from subagents_pydantic_ai.types import (
+    TERMINAL_STATUSES as TERMINAL_STATUSES,
+)
+from subagents_pydantic_ai.types import (
     AgentMessage as AgentMessage,
 )
 from subagents_pydantic_ai.types import (
@@ -119,6 +130,9 @@ from subagents_pydantic_ai.types import (
 )
 from subagents_pydantic_ai.types import (
     CompiledSubAgent as CompiledSubAgent,
+)
+from subagents_pydantic_ai.types import (
+    DelegationConfiguration as DelegationConfiguration,
 )
 from subagents_pydantic_ai.types import (
     ExecutionMode as ExecutionMode,
@@ -150,6 +164,9 @@ from subagents_pydantic_ai.types import (
 from subagents_pydantic_ai.types import (
     decide_execution_mode as decide_execution_mode,
 )
+from subagents_pydantic_ai.types import (
+    utcnow as utcnow,
+)
 
 __all__ = [
     # Capability
@@ -164,15 +181,19 @@ __all__ = [
     "AgentMessage",
     "MessageType",
     "TaskStatus",
+    "TERMINAL_STATUSES",
     "TaskPriority",
     "TaskCharacteristics",
     "ExecutionMode",
+    "DelegationConfiguration",
     "ToolsetFactory",
+    "AgentFactory",
     "UsageLimitsFactory",
     "AskUserCallback",
     "CompiledSubAgent",
     # Functions
     "decide_execution_mode",
+    "utcnow",
     # Toolsets
     "create_subagent_toolset",
     "SubAgentToolset",
@@ -195,6 +216,7 @@ __all__ = [
     "SUBAGENT_SYSTEM_PROMPT",
     "DUAL_MODE_SYSTEM_PROMPT",
     "DEFAULT_GENERAL_PURPOSE_DESCRIPTION",
+    "DELEGATE_TOOL_DESCRIPTION",
     "TASK_TOOL_DESCRIPTION",
     "CHECK_TASK_DESCRIPTION",
     "ANSWER_SUBAGENT_DESCRIPTION",

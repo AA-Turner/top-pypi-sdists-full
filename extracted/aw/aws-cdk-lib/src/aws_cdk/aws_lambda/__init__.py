@@ -851,6 +851,51 @@ exclude_capacity_provider = lambda_.CapacityProvider(self, "MyCapacityProviderEx
 )
 ```
 
+### System Logging
+
+You can configure system logging to monitor capacity provider scaling activity:
+
+```python
+import aws_cdk.aws_ec2 as ec2
+import aws_cdk.aws_logs as logs
+
+
+vpc = ec2.Vpc(self, "MyVpc")
+security_group = ec2.SecurityGroup(self, "SecurityGroup", vpc=vpc)
+
+capacity_provider = lambda_.CapacityProvider(self, "MyCapacityProvider",
+    subnets=vpc.private_subnets,
+    security_groups=[security_group],
+    log_group=logs.LogGroup(self, "CpLogs",
+        log_group_name="/aws/lambda/capacity-provider/my-cp"
+    ),
+    system_log_level=lambda_.SystemLogLevel.DEBUG
+)
+```
+
+### Tag Propagation
+
+You can propagate explicit tags to managed resources (EC2 instances, ENIs, EBS volumes) launched by the capacity provider:
+
+```python
+import aws_cdk.aws_ec2 as ec2
+
+
+vpc = ec2.Vpc(self, "MyVpc")
+security_group = ec2.SecurityGroup(self, "SecurityGroup", vpc=vpc)
+
+capacity_provider = lambda_.CapacityProvider(self, "MyCapacityProvider",
+    subnets=vpc.private_subnets,
+    security_groups=[security_group],
+    propagate_tags=lambda_.PropagateTags.explicit({
+        "CostCenter": "Engineering",
+        "Project": "MyProject"
+    })
+)
+```
+
+Use `PropagateTags.none()` to explicitly disable propagation, or omit the prop entirely (defaults to no propagation). Up to 40 tags can be specified with `PropagateTags.explicit()`.
+
 ### Using a Capacity Provider with Lambda Functions
 
 Once you have a capacity provider, you can configure Lambda functions to use it:
@@ -969,6 +1014,8 @@ capacity_provider = lambda_.CapacityProvider(self, "MyCapacityProvider",
 | maxVCpuCount | number | No | Maximum number of EC2 instances for scaling. |
 | scalingOptions | ScalingOptions | No | Scaling configuration including policies. |
 | kmsKey | IKey | No | KMS key for encrypting capacity provider data. |
+| logGroup | ILogGroup | No | CloudWatch log group for capacity provider system logs. |
+| systemLogLevel | SystemLogLevel | No | Level of detail for capacity provider system logs (DEBUG, INFO, WARN). |
 
 ## Lambda Insights
 
@@ -3810,9 +3857,12 @@ class CapacityProviderFunctionOptions:
         "capacity_provider_name": "capacityProviderName",
         "instance_type_filter": "instanceTypeFilter",
         "kms_key": "kmsKey",
+        "log_group": "logGroup",
         "max_v_cpu_count": "maxVCpuCount",
         "operator_role": "operatorRole",
+        "propagate_tags": "propagateTags",
         "scaling_options": "scalingOptions",
+        "system_log_level": "systemLogLevel",
     },
 )
 class CapacityProviderProps:
@@ -3825,9 +3875,12 @@ class CapacityProviderProps:
         capacity_provider_name: typing.Optional[builtins.str] = None,
         instance_type_filter: typing.Optional["InstanceTypeFilter"] = None,
         kms_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
+        log_group: typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"] = None,
         max_v_cpu_count: typing.Optional[jsii.Number] = None,
         operator_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        propagate_tags: typing.Optional["PropagateTags"] = None,
         scaling_options: typing.Optional["ScalingOptions"] = None,
+        system_log_level: typing.Optional["SystemLogLevel"] = None,
     ) -> None:
         '''Properties for creating a Lambda capacity provider.
 
@@ -3837,15 +3890,19 @@ class CapacityProviderProps:
         :param capacity_provider_name: The name of the capacity provider. The name must be unique within the AWS account and region. Default: - AWS CloudFormation generates a unique physical ID and uses that ID for the capacity provider's name.
         :param instance_type_filter: Configuration for filtering instance types that the capacity provider can use. Default: - No instance type filtering applied
         :param kms_key: The AWS Key Management Service (KMS) key used to encrypt data associated with the capacity provider. Default: - No KMS key specified, uses an AWS-managed key instead
+        :param log_group: The CloudWatch log group for capacity provider system logs. Default: - Service creates a default log group at /aws/lambda/capacity-provider/
         :param max_v_cpu_count: The maximum number of vCPUs that the capacity provider can scale up to. Default: - No maximum limit specified, service default is 400
         :param operator_role: The IAM role that the Lambda service assumes to manage the capacity provider. Default: - A role will be generated containing the AWSLambdaManagedEC2ResourceOperator managed policy
+        :param propagate_tags: Configuration for tag propagation to managed resources (EC2 instances, ENIs, EBS volumes). Use the static factory methods on ``PropagateTags`` to create: - ``PropagateTags.none()`` - Explicitly disable tag propagation - ``PropagateTags.explicit(tags)`` - Propagate specified tags Default: - No tag propagation; tags are not propagated to managed resources.
         :param scaling_options: The options for scaling a capacity provider, including scaling policies. Default: - The ``Auto`` option is applied by default
+        :param system_log_level: The level of detail for capacity provider system logs. Default: - Service default applies (INFO)
 
         :exampleMetadata: infused
 
         Example::
 
             import aws_cdk.aws_ec2 as ec2
+            import aws_cdk.aws_logs as logs
             
             
             vpc = ec2.Vpc(self, "MyVpc")
@@ -3854,9 +3911,10 @@ class CapacityProviderProps:
             capacity_provider = lambda_.CapacityProvider(self, "MyCapacityProvider",
                 subnets=vpc.private_subnets,
                 security_groups=[security_group],
-                scaling_options=lambda_.ScalingOptions.manual([
-                    lambda_.TargetTrackingScalingPolicy.cpu_utilization(70)
-                ])
+                log_group=logs.LogGroup(self, "CpLogs",
+                    log_group_name="/aws/lambda/capacity-provider/my-cp"
+                ),
+                system_log_level=lambda_.SystemLogLevel.DEBUG
             )
         '''
         if __debug__:
@@ -3867,9 +3925,12 @@ class CapacityProviderProps:
             check_type(argname="argument capacity_provider_name", value=capacity_provider_name, expected_type=type_hints["capacity_provider_name"])
             check_type(argname="argument instance_type_filter", value=instance_type_filter, expected_type=type_hints["instance_type_filter"])
             check_type(argname="argument kms_key", value=kms_key, expected_type=type_hints["kms_key"])
+            check_type(argname="argument log_group", value=log_group, expected_type=type_hints["log_group"])
             check_type(argname="argument max_v_cpu_count", value=max_v_cpu_count, expected_type=type_hints["max_v_cpu_count"])
             check_type(argname="argument operator_role", value=operator_role, expected_type=type_hints["operator_role"])
+            check_type(argname="argument propagate_tags", value=propagate_tags, expected_type=type_hints["propagate_tags"])
             check_type(argname="argument scaling_options", value=scaling_options, expected_type=type_hints["scaling_options"])
+            check_type(argname="argument system_log_level", value=system_log_level, expected_type=type_hints["system_log_level"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "security_groups": security_groups,
             "subnets": subnets,
@@ -3882,12 +3943,18 @@ class CapacityProviderProps:
             self._values["instance_type_filter"] = instance_type_filter
         if kms_key is not None:
             self._values["kms_key"] = kms_key
+        if log_group is not None:
+            self._values["log_group"] = log_group
         if max_v_cpu_count is not None:
             self._values["max_v_cpu_count"] = max_v_cpu_count
         if operator_role is not None:
             self._values["operator_role"] = operator_role
+        if propagate_tags is not None:
+            self._values["propagate_tags"] = propagate_tags
         if scaling_options is not None:
             self._values["scaling_options"] = scaling_options
+        if system_log_level is not None:
+            self._values["system_log_level"] = system_log_level
 
     @builtins.property
     def security_groups(self) -> typing.List["_aws_ec2_09840e12.ISecurityGroup"]:
@@ -3953,6 +4020,15 @@ class CapacityProviderProps:
         return typing.cast(typing.Optional["_aws_kms_ff87d74a.IKey"], result)
 
     @builtins.property
+    def log_group(self) -> typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"]:
+        '''The CloudWatch log group for capacity provider system logs.
+
+        :default: - Service creates a default log group at /aws/lambda/capacity-provider/
+        '''
+        result = self._values.get("log_group")
+        return typing.cast(typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"], result)
+
+    @builtins.property
     def max_v_cpu_count(self) -> typing.Optional[jsii.Number]:
         '''The maximum number of vCPUs that the capacity provider can scale up to.
 
@@ -3971,6 +4047,20 @@ class CapacityProviderProps:
         return typing.cast(typing.Optional["_aws_iam_1f54b5e8.IRole"], result)
 
     @builtins.property
+    def propagate_tags(self) -> typing.Optional["PropagateTags"]:
+        '''Configuration for tag propagation to managed resources (EC2 instances, ENIs, EBS volumes).
+
+        Use the static factory methods on ``PropagateTags`` to create:
+
+        - ``PropagateTags.none()`` - Explicitly disable tag propagation
+        - ``PropagateTags.explicit(tags)`` - Propagate specified tags
+
+        :default: - No tag propagation; tags are not propagated to managed resources.
+        '''
+        result = self._values.get("propagate_tags")
+        return typing.cast(typing.Optional["PropagateTags"], result)
+
+    @builtins.property
     def scaling_options(self) -> typing.Optional["ScalingOptions"]:
         '''The options for scaling a capacity provider, including scaling policies.
 
@@ -3978,6 +4068,15 @@ class CapacityProviderProps:
         '''
         result = self._values.get("scaling_options")
         return typing.cast(typing.Optional["ScalingOptions"], result)
+
+    @builtins.property
+    def system_log_level(self) -> typing.Optional["SystemLogLevel"]:
+        '''The level of detail for capacity provider system logs.
+
+        :default: - Service default applies (INFO)
+        '''
+        result = self._values.get("system_log_level")
+        return typing.cast(typing.Optional["SystemLogLevel"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -28268,6 +28367,72 @@ class Permission:
         )
 
 
+class PropagateTags(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda.PropagateTags",
+):
+    '''Configuration for propagating tags to managed resources created by a capacity provider.
+
+    Use static factory methods to create instances::
+
+       propagateTags: lambda.PropagateTags.explicit({ env: 'prod', team: 'platform' })
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk.aws_ec2 as ec2
+        
+        
+        vpc = ec2.Vpc(self, "MyVpc")
+        security_group = ec2.SecurityGroup(self, "SecurityGroup", vpc=vpc)
+        
+        capacity_provider = lambda_.CapacityProvider(self, "MyCapacityProvider",
+            subnets=vpc.private_subnets,
+            security_groups=[security_group],
+            propagate_tags=lambda_.PropagateTags.explicit({
+                "CostCenter": "Engineering",
+                "Project": "MyProject"
+            })
+        )
+    '''
+
+    @jsii.member(jsii_name="explicit")
+    @builtins.classmethod
+    def explicit(
+        cls,
+        tags: typing.Mapping[builtins.str, builtins.str],
+    ) -> "PropagateTags":
+        '''Propagate the specified tags to all managed resources.
+
+        :param tags: A map of tag keys to values to propagate. Maximum 40 tags.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__640925e0a47e26b75cc9e0d67f9ac2414c32db736410a4b57872322b44696ba8)
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        return typing.cast("PropagateTags", jsii.sinvoke(cls, "explicit", [tags]))
+
+    @jsii.member(jsii_name="none")
+    @builtins.classmethod
+    def none(cls) -> "PropagateTags":
+        '''No tag propagation to managed resources.'''
+        return typing.cast("PropagateTags", jsii.sinvoke(cls, "none", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="mode")
+    def mode(self) -> builtins.str:
+        '''The propagation mode.'''
+        return typing.cast(builtins.str, jsii.get(self, "mode"))
+
+    @builtins.property
+    @jsii.member(jsii_name="explicitTags")
+    def explicit_tags(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''The explicit tags to propagate (only for Explicit mode).'''
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "explicitTags"))
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_lambda.ProvisionedPollerConfig",
     jsii_struct_bases=[],
@@ -28642,10 +28807,22 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_lambda.Runtime
         return typing.cast("Runtime", jsii.sget(cls, "JAVA_11"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="JAVA_11_AL2023")
+    def JAVA_11_AL2023(cls) -> "Runtime":
+        '''The Java 11 AL2023 runtime (java11.al2023).'''
+        return typing.cast("Runtime", jsii.sget(cls, "JAVA_11_AL2023"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="JAVA_17")
     def JAVA_17(cls) -> "Runtime":
         '''The Java 17 runtime (java17).'''
         return typing.cast("Runtime", jsii.sget(cls, "JAVA_17"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="JAVA_17_AL2023")
+    def JAVA_17_AL2023(cls) -> "Runtime":
+        '''The Java 17 AL2023 runtime (java17.al2023).'''
+        return typing.cast("Runtime", jsii.sget(cls, "JAVA_17_AL2023"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="JAVA_21")
@@ -28669,6 +28846,12 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_lambda.Runtime
         :stability: deprecated
         '''
         return typing.cast("Runtime", jsii.sget(cls, "JAVA_8"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="JAVA_8_AL2023")
+    def JAVA_8_AL2023(cls) -> "Runtime":
+        '''The Java 8 AL2023 runtime (java8.al2023).'''
+        return typing.cast("Runtime", jsii.sget(cls, "JAVA_8_AL2023"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="JAVA_8_CORRETTO")
@@ -32329,6 +32512,7 @@ class CapacityProvider(
     Example::
 
         import aws_cdk.aws_ec2 as ec2
+        import aws_cdk.aws_logs as logs
         
         
         vpc = ec2.Vpc(self, "MyVpc")
@@ -32337,9 +32521,10 @@ class CapacityProvider(
         capacity_provider = lambda_.CapacityProvider(self, "MyCapacityProvider",
             subnets=vpc.private_subnets,
             security_groups=[security_group],
-            scaling_options=lambda_.ScalingOptions.manual([
-                lambda_.TargetTrackingScalingPolicy.cpu_utilization(70)
-            ])
+            log_group=logs.LogGroup(self, "CpLogs",
+                log_group_name="/aws/lambda/capacity-provider/my-cp"
+            ),
+            system_log_level=lambda_.SystemLogLevel.DEBUG
         )
     '''
 
@@ -32354,9 +32539,12 @@ class CapacityProvider(
         capacity_provider_name: typing.Optional[builtins.str] = None,
         instance_type_filter: typing.Optional["InstanceTypeFilter"] = None,
         kms_key: typing.Optional["_aws_kms_ff87d74a.IKey"] = None,
+        log_group: typing.Optional["_aws_logs_8e99d4be.ILogGroupRef"] = None,
         max_v_cpu_count: typing.Optional[jsii.Number] = None,
         operator_role: typing.Optional["_aws_iam_1f54b5e8.IRole"] = None,
+        propagate_tags: typing.Optional["PropagateTags"] = None,
         scaling_options: typing.Optional["ScalingOptions"] = None,
+        system_log_level: typing.Optional["SystemLogLevel"] = None,
     ) -> None:
         '''Creates a new Lambda capacity provider.
 
@@ -32368,9 +32556,12 @@ class CapacityProvider(
         :param capacity_provider_name: The name of the capacity provider. The name must be unique within the AWS account and region. Default: - AWS CloudFormation generates a unique physical ID and uses that ID for the capacity provider's name.
         :param instance_type_filter: Configuration for filtering instance types that the capacity provider can use. Default: - No instance type filtering applied
         :param kms_key: The AWS Key Management Service (KMS) key used to encrypt data associated with the capacity provider. Default: - No KMS key specified, uses an AWS-managed key instead
+        :param log_group: The CloudWatch log group for capacity provider system logs. Default: - Service creates a default log group at /aws/lambda/capacity-provider/
         :param max_v_cpu_count: The maximum number of vCPUs that the capacity provider can scale up to. Default: - No maximum limit specified, service default is 400
         :param operator_role: The IAM role that the Lambda service assumes to manage the capacity provider. Default: - A role will be generated containing the AWSLambdaManagedEC2ResourceOperator managed policy
+        :param propagate_tags: Configuration for tag propagation to managed resources (EC2 instances, ENIs, EBS volumes). Use the static factory methods on ``PropagateTags`` to create: - ``PropagateTags.none()`` - Explicitly disable tag propagation - ``PropagateTags.explicit(tags)`` - Propagate specified tags Default: - No tag propagation; tags are not propagated to managed resources.
         :param scaling_options: The options for scaling a capacity provider, including scaling policies. Default: - The ``Auto`` option is applied by default
+        :param system_log_level: The level of detail for capacity provider system logs. Default: - Service default applies (INFO)
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e0d17c9290a2148c3386b21ff0a283e6f6f88e91bf3450aa12985cd16b3a21e3)
@@ -32383,9 +32574,12 @@ class CapacityProvider(
             capacity_provider_name=capacity_provider_name,
             instance_type_filter=instance_type_filter,
             kms_key=kms_key,
+            log_group=log_group,
             max_v_cpu_count=max_v_cpu_count,
             operator_role=operator_role,
+            propagate_tags=propagate_tags,
             scaling_options=scaling_options,
+            system_log_level=system_log_level,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -37521,6 +37715,7 @@ __all__ = [
     "ParamsAndSecretsOptions",
     "ParamsAndSecretsVersions",
     "Permission",
+    "PropagateTags",
     "ProvisionedPollerConfig",
     "QualifiedFunctionBase",
     "RecursiveLoop",
@@ -37710,9 +37905,12 @@ def _typecheckingstub__a6f4b5199de340c52e0147f830c39a3b4e815c8b3be5316d1a4cfe1bf
     capacity_provider_name: typing.Optional[builtins.str] = None,
     instance_type_filter: typing.Optional[InstanceTypeFilter] = None,
     kms_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
+    log_group: typing.Optional[_aws_logs_8e99d4be.ILogGroupRef] = None,
     max_v_cpu_count: typing.Optional[jsii.Number] = None,
     operator_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    propagate_tags: typing.Optional[PropagateTags] = None,
     scaling_options: typing.Optional[ScalingOptions] = None,
+    system_log_level: typing.Optional[SystemLogLevel] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -40866,6 +41064,12 @@ def _typecheckingstub__43f02634f6ed895ea88b35db6c7a6ba5a7da45fa4945d0f90bf36d079
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__640925e0a47e26b75cc9e0d67f9ac2414c32db736410a4b57872322b44696ba8(
+    tags: typing.Mapping[builtins.str, builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7daeb3a0360a4da1ad9a12a6a656f2d6c53d84bbebb9ef1e2273e4ca2dde8be0(
     *,
     maximum_pollers: typing.Optional[jsii.Number] = None,
@@ -41225,9 +41429,12 @@ def _typecheckingstub__e0d17c9290a2148c3386b21ff0a283e6f6f88e91bf3450aa12985cd16
     capacity_provider_name: typing.Optional[builtins.str] = None,
     instance_type_filter: typing.Optional[InstanceTypeFilter] = None,
     kms_key: typing.Optional[_aws_kms_ff87d74a.IKey] = None,
+    log_group: typing.Optional[_aws_logs_8e99d4be.ILogGroupRef] = None,
     max_v_cpu_count: typing.Optional[jsii.Number] = None,
     operator_role: typing.Optional[_aws_iam_1f54b5e8.IRole] = None,
+    propagate_tags: typing.Optional[PropagateTags] = None,
     scaling_options: typing.Optional[ScalingOptions] = None,
+    system_log_level: typing.Optional[SystemLogLevel] = None,
 ) -> None:
     """Type checking stubs"""
     pass

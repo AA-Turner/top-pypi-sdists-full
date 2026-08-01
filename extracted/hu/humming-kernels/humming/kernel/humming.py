@@ -1,7 +1,7 @@
 import dataclasses
+import functools
 import json
 import os
-import zlib
 from concurrent.futures import ThreadPoolExecutor
 from typing import ClassVar
 
@@ -20,6 +20,7 @@ from humming.config import (
 )
 from humming.jit.runtime import KernelRuntime
 from humming.tune import get_heuristics_config
+from humming.utils.smem import estimate_smem_size_config
 
 CODE_TEMPLATE = jinja2.Template("""
 
@@ -103,7 +104,7 @@ extern "C" __constant__ uint32_t BS_DTYPE_ID = {{bs_dtype}}::kId;
 @dataclasses.dataclass(kw_only=True)
 class HummingKernel(KernelRuntime, LayerConfig, ComputeConfig, TuningConfig):
     name: ClassVar[str] = "humming"
-    _str2kernel_cache: ClassVar[dict[tuple[str, str, str], int | list[int]]] = {}
+    _str2kernel_cache: ClassVar[dict[tuple, torch.Tensor]] = {}
     _id2kernel: ClassVar[dict[int, "HummingKernel"]] = {}
 
     def __post_init__(self):
@@ -165,15 +166,30 @@ class HummingKernel(KernelRuntime, LayerConfig, ComputeConfig, TuningConfig):
         if self.cubin_loaded:
             return None
         kernel_filename = self.kernel_filename
-        kernel_name = self.kernel_name
-        self.kernel_id = ops.register_kernel(kernel_filename, kernel_name)
+        self.kernel_id, self.kernel_name = ops.register_kernel(kernel_filename)
         self._id2kernel[self.kernel_id] = self
         self.kernel_dirname = os.path.dirname(kernel_filename)
-        ref_kernel_id = zlib.crc32(kernel_filename.encode()) << 30
-        ref_kernel_id += zlib.crc32(kernel_name.encode())
-        assert ref_kernel_id == self.kernel_id
+        self.cubin_loaded = True
+
+    @property
+    def estimated_smem_size(self) -> int:
+        return estimate_smem_size_config(self, self, self)
+
+    def assert_smem_size_matches_estimate(self) -> None:
+        from humming import ops
+
+        actual = ops.get_kernel_smem_size(self.kernel_id)
+        estimated = self.estimated_smem_size
+        assert actual == estimated, (
+            f"shared-memory estimate mismatch for {self.kernel_name}: "
+            f"estimated={estimated}, actual={actual}, "
+            f"config={self.to_str()}"
+        )
+
+    @functools.cached_property
+    def get_kernel_id(self):
         module = jit_utils.make_humming_module("get_kernel_id", self.kernel_id)
-        self.get_kernel_id = module.get_kernel_id
+        return module.get_kernel_id
 
     def postprocess_cubin(self, cubin_path: str):
         mode = ""
@@ -206,11 +222,22 @@ class HummingKernel(KernelRuntime, LayerConfig, ComputeConfig, TuningConfig):
             assert self.warp_shape[0] % mma_shape_m == 0
             assert self.warp_shape[1] % mma_shape_n == 0
             assert self.warp_shape[2] % mma_shape_k == 0
-            group = self.weight_scale_group_size or mma_shape_k
+            group = (
+                self.weight_scale_group_size
+                or self.input_scale_group_size
+                or (32 if self.a_dtype.num_bits == 4 else mma_shape_k)
+            )
             assert mma_shape_k % group == 0
             scale_vec = mma_shape_k // group
 
             self.mma_b_dtype = self.b_dtype if self.mxmma_native_mixed else self.a_dtype
+            sf_dtype = (
+                self.bs_dtype
+                if self.is_group_weight_scale or self.is_block_weight_scale
+                else self.as_dtype
+                if self.input_scale_group_size > 0
+                else dtypes.float8e8m0
+            )
             return MmaOpClass.from_config(
                 self.mma_type,
                 mma_shape_m,
@@ -219,7 +246,7 @@ class HummingKernel(KernelRuntime, LayerConfig, ComputeConfig, TuningConfig):
                 self.mma_a_dtype,
                 self.mma_b_dtype,
                 dtypes.float32,
-                sf_dtype=self.bs_dtype,
+                sf_dtype=sf_dtype,
                 scale_vec=scale_vec,
             )
 
@@ -233,8 +260,11 @@ class HummingKernel(KernelRuntime, LayerConfig, ComputeConfig, TuningConfig):
         mma_shape_m = self.warp_shape[0] if self.mma_type == MmaType.WGMMA else 16
         mma_shape_n = 64 if self.mma_type == MmaType.WGMMA else 8
         mma_shape_k = 256 // self.a_dtype.num_bits
-        if self.sm_version == 75 and self.a_dtype == dtypes.int8:
-            mma_shape_m = 8
+        if self.sm_version == 75:
+            if self.a_dtype == dtypes.float16:
+                mma_shape_k = 8
+            elif self.a_dtype == dtypes.int8:
+                mma_shape_m = 8
 
         if self.mma_type == MmaType.MMA and self.warp_shape[0] % 16 == 8:
             mma_shape_m = 8
@@ -252,6 +282,7 @@ class HummingKernel(KernelRuntime, LayerConfig, ComputeConfig, TuningConfig):
 
         mma_native_mixed = (
             self.mma_type == MmaType.MMA
+            and not self.use_fused_e8m0_scale
             and self.sm_version // 10 == 12
             and mma_shape_m == 16
             and self.a_dtype in (dtypes.float8e4m3, dtypes.float8e5m2, dtypes.float8e3m4)
@@ -284,6 +315,9 @@ class HummingKernel(KernelRuntime, LayerConfig, ComputeConfig, TuningConfig):
         assert jit_utils.is_power_of_two(self.block_shape[0] // self.warp_shape[0])
         assert jit_utils.is_power_of_two(self.block_shape[1] // self.warp_shape[1])
         assert jit_utils.is_power_of_two(self.block_shape[2] // self.warp_shape[2])
+        if self.mma_type == MmaType.WGMMA:
+            n_warps = self.block_shape[1] // self.warp_shape[1]
+            assert (n_warps) % 4 == 0, "WGMMA requires complete four-warp groups along N"
         assert self.problem_shape[1] > self.pad_shape[1]
         assert self.problem_shape[2] > self.pad_shape[2]
         assert self.pad_shape[1] % 8 == 0
@@ -323,8 +357,10 @@ class HummingKernel(KernelRuntime, LayerConfig, ComputeConfig, TuningConfig):
                 assert self.input_scale_group_size == self.weight_scale_group_size
             assert self.weight_scale_group_size_n > 0
             assert not self.has_zero_point
-        if self.is_tensor_weight_scale and not self.is_group_weight_scale:
+        if self.is_tensor_weight_scale:
             self.bs_dtype = self.c_dtype
+        if self.is_channel_weight_scale_2:
+            assert self.is_group_weight_scale
 
     def check_dtype(self):
         dtype_map = {
@@ -360,7 +396,6 @@ class HummingKernel(KernelRuntime, LayerConfig, ComputeConfig, TuningConfig):
             assert self.a_dtype.exponent_bits == 0 or self.b_dtype.exponent_bits >= 1
         elif self.b_dtype.is_floating_point_type and self.a_dtype.is_integer_type:
             assert self.use_fused_e8m0_scale
-            raise NotImplementedError
 
         if self.use_f16_accum:
             if self.a_dtype == dtypes.float8e4m3:
@@ -369,12 +404,24 @@ class HummingKernel(KernelRuntime, LayerConfig, ComputeConfig, TuningConfig):
                 assert self.a_dtype == dtypes.float16
 
     def check_config(self):
+        assert self.num_threads <= 1024
+        if self.mma_type == MmaType.WGMMA:
+            assert self.num_stages >= 3, "WGMMA requires at least three pipeline stages"
+        if self.use_batch_invariant:
+            assert not self.use_stream_k, "batch-invariant kernels require use_stream_k=False"
+            assert self.warp_shape[2] == self.block_shape[2], (
+                "batch-invariant kernels require warp_shape_k == block_shape_k"
+            )
         if self.use_warp_spec or self.use_tma:
             assert self.use_mbarrier
+        if self.use_warp_spec:
+            assert self.num_math_threads % 128 == 0
         is_channel_weight_scale = self.is_channel_weight_scale
         is_group_weight_scale = self.is_group_weight_scale
         if not (is_channel_weight_scale or is_group_weight_scale):
             self.use_tma_bs = False
+        if not self.is_channel_weight_scale_2:
+            self.use_tma_bs2 = False
         if not self.has_zero_point:
             self.use_tma_bzp = False
         if not self.has_bias:
@@ -382,13 +429,26 @@ class HummingKernel(KernelRuntime, LayerConfig, ComputeConfig, TuningConfig):
         if self.gemm_type is None and self.num_experts == 0:
             self.gemm_type = GemmType.DENSE
         assert self.gemm_type is not None, "gemm_type must be specify for MoE GEMM"
+        if self.reduce_overlap_last_stage_only:
+            assert not self.is_indexed_gemm, "reduce_overlap_last_stage_only does not support indexed GEMM"
 
-        if self.has_input_scale and self.input_scale_group_size == 0:
+        if self.has_input_scale and self.input_scale_group_size == 0 and self.mma_type != MmaType.MXMMA:
             self.use_m_major_input_scale = True
+        if self.mma_type == MmaType.MXMMA and self.input_scale_group_size == 0:
+            self.use_tma_as = False
+            self.use_m_major_input_scale = False
 
         if self.use_tma_as and self.is_indexed_gemm:
             self.use_tma_as = False
             self.use_m_major_input_scale = True
+
+        if self.is_indexed_gemm:
+            assert not self.use_tma_a, "indexed GEMM does not support TMA input loads"
+            assert not self.use_tma_c, "indexed GEMM does not support TMA output stores"
+            assert not self.use_tma_as, "indexed GEMM does not support TMA input scale loads"
+
+        if self.multi_cast_size_a * self.multi_cast_size_b > 1:
+            assert self.sm_version in (90, 100, 103)
 
         if self.use_tma_as:
             assert self.use_m_major_input_scale, "use_tma_as requires use_m_major_input_scale=True"
@@ -431,7 +491,12 @@ class HummingKernel(KernelRuntime, LayerConfig, ComputeConfig, TuningConfig):
         layer_config_str = prepare_config_str(layer_config)
         compute_config_str = prepare_config_str(compute_config)
         tuning_config_str = prepare_config_str(tuning_config)
-        cache_key = (layer_config_str, compute_config_str, tuning_config_str)
+        cache_key = (
+            layer_config_str,
+            compute_config_str,
+            tuning_config_str,
+            cls.current_context(),
+        )
         if cache_key in cls._str2kernel_cache:
             return cls._str2kernel_cache[cache_key]
 
@@ -441,10 +506,7 @@ class HummingKernel(KernelRuntime, LayerConfig, ComputeConfig, TuningConfig):
         layer_config_obj.pop("sublayer_name", None)
 
         if not tuning_config_obj:
-            from humming.layer import HummingLayerMeta
-
-            meta = HummingLayerMeta(**layer_config_obj)
-            tuning_config_obj = get_heuristics_config(meta, **compute_config_obj)
+            tuning_config_obj = get_heuristics_config(LayerConfig(**layer_config_obj), **compute_config_obj)
 
         if isinstance(tuning_config_obj, dict):
             config = layer_config_obj | compute_config_obj | tuning_config_obj

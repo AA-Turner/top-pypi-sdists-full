@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trafilatura
-Version: 2.1.0
+Version: 2.2.0
 Summary: Python & Command-line tool to gather text and metadata on the Web: Crawling, scraping, extraction, output as CSV, JSON, HTML, MD, TXT, XML.
 Author: Adrien Barbaresi
 License-Expression: Apache-2.0
@@ -38,28 +38,28 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: certifi
-Requires-Dist: charset_normalizer>=3.4.0
+Requires-Dist: charset_normalizer>=3.4.9
 Requires-Dist: courlan>=1.4.0
 Requires-Dist: htmldate>=1.10.0
 Requires-Dist: justext>=3.0.2
 Requires-Dist: lxml>=6.1.1
 Requires-Dist: urllib3<3,>=1.26
 Provides-Extra: dev
-Requires-Dist: ruff>=0.15; extra == "dev"
-Requires-Dist: mypy>=2.1.0; extra == "dev"
-Requires-Dist: pytest>=8.0; extra == "dev"
-Requires-Dist: pytest-cov>=5.0; extra == "dev"
+Requires-Dist: ruff>=0.16.1; extra == "dev"
+Requires-Dist: mypy>=2.3.0; extra == "dev"
+Requires-Dist: pytest>=9.1.1; extra == "dev"
+Requires-Dist: pytest-cov>=7.1.0; extra == "dev"
 Requires-Dist: types-lxml>=2026.2.16; extra == "dev"
-Requires-Dist: types-pycurl>=7.46.0.20260509; extra == "dev"
+Requires-Dist: types-pycurl>=7.47.0.20260703; extra == "dev"
 Requires-Dist: types-urllib3>=1.26.25.14; extra == "dev"
 Provides-Extra: all
 Requires-Dist: brotli; extra == "all"
-Requires-Dist: faust-cchardet>=2.1.19; extra == "all"
+Requires-Dist: faust-cchardet>=2.2.1; extra == "all"
 Requires-Dist: htmldate[speed]>=1.10.0; extra == "all"
 Requires-Dist: py3langid>=0.3.0; extra == "all"
-Requires-Dist: pycurl>=7.46.0; extra == "all"
+Requires-Dist: pycurl>=7.47.0; extra == "all"
 Requires-Dist: urllib3[socks]; extra == "all"
-Requires-Dist: zstandard>=0.23.0; extra == "all"
+Requires-Dist: zstandard>=0.25.0; extra == "all"
 Provides-Extra: eval
 Requires-Dist: pandas; extra == "eval"
 Requires-Dist: tabulate; extra == "eval"

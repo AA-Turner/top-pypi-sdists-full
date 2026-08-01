@@ -5259,44 +5259,31 @@ class PrivateDnsNamespace(
 ):
     '''Define a Service Discovery HTTP Namespace.
 
-    :exampleMetadata: lit=aws-servicediscovery/test/integ.service-with-private-dns-namespace.lit.ts infused
+    :exampleMetadata: infused
 
     Example::
 
-        import aws_cdk.aws_ec2 as ec2
-        import aws_cdk.aws_elasticloadbalancingv2 as elbv2
-        import aws_cdk as cdk
-        import aws_cdk as servicediscovery
-        
-        app = cdk.App()
-        stack = cdk.Stack(app, "aws-servicediscovery-integ")
-        
-        vpc = ec2.Vpc(stack, "Vpc", max_azs=2)
-        
-        namespace = servicediscovery.PrivateDnsNamespace(stack, "Namespace",
-            name="boobar.com",
-            vpc=vpc
+        # mesh: appmesh.Mesh
+        vpc = ec2.Vpc(self, "vpc")
+        namespace = cloudmap.PrivateDnsNamespace(self, "test-namespace",
+            vpc=vpc,
+            name="domain.local"
         )
-        
-        service = namespace.create_service("Service",
-            dns_record_type=servicediscovery.DnsRecordType.A_AAAA,
-            dns_ttl=cdk.Duration.seconds(30),
-            load_balancer=True
+        service = namespace.create_service("Svc")
+        node = mesh.add_virtual_node("virtual-node",
+            service_discovery=appmesh.ServiceDiscovery.cloud_map(service),
+            listeners=[appmesh.VirtualNodeListener.http(
+                port=8081,
+                health_check=appmesh.HealthCheck.http(
+                    healthy_threshold=3,
+                    interval=Duration.seconds(5),  # minimum
+                    path="/health-check-path",
+                    timeout=Duration.seconds(2),  # minimum
+                    unhealthy_threshold=2
+                )
+            )],
+            access_log=appmesh.AccessLog.from_file_path("/dev/stdout")
         )
-        
-        loadbalancer = elbv2.ApplicationLoadBalancer(stack, "LB", vpc=vpc, internet_facing=True)
-        
-        service.register_load_balancer("Loadbalancer", loadbalancer)
-        
-        arn_service = namespace.create_service("ArnService",
-            discovery_type=servicediscovery.DiscoveryType.API
-        )
-        
-        arn_service.register_non_ip_instance("NonIpInstance",
-            custom_attributes={"arn": "arn://"}
-        )
-        
-        app.synth()
     '''
 
     def __init__(
@@ -5489,18 +5476,23 @@ class PrivateDnsNamespaceAttributes:
         :param namespace_id: Namespace Id for the Namespace.
         :param namespace_name: A name for the Namespace.
 
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_servicediscovery as servicediscovery
+            # vpc: ec2.Vpc
             
-            private_dns_namespace_attributes = servicediscovery.PrivateDnsNamespaceAttributes(
-                namespace_arn="namespaceArn",
-                namespace_id="namespaceId",
-                namespace_name="namespaceName"
+            
+            imported_namespace = cloudmap.PrivateDnsNamespace.from_private_dns_namespace_attributes(self, "ImportedNamespace",
+                namespace_id="ns-xxxxxxxxxxxxx",
+                namespace_arn="arn:aws:servicediscovery:us-east-1:123456789012:namespace/ns-xxxxxxxxxxxxx",
+                namespace_name="example.local"
+            )
+            
+            cluster = ecs.Cluster(self, "Cluster", vpc=vpc)
+            
+            cluster.add_existing_default_cloud_map_namespace(
+                namespace=imported_namespace
             )
         '''
         if __debug__:
@@ -5565,44 +5557,31 @@ class PrivateDnsNamespaceProps(BaseNamespaceProps):
         :param description: A description of the Namespace. Default: none
         :param vpc: The Amazon VPC that you want to associate the namespace with.
 
-        :exampleMetadata: lit=aws-servicediscovery/test/integ.service-with-private-dns-namespace.lit.ts infused
+        :exampleMetadata: infused
 
         Example::
 
-            import aws_cdk.aws_ec2 as ec2
-            import aws_cdk.aws_elasticloadbalancingv2 as elbv2
-            import aws_cdk as cdk
-            import aws_cdk as servicediscovery
-            
-            app = cdk.App()
-            stack = cdk.Stack(app, "aws-servicediscovery-integ")
-            
-            vpc = ec2.Vpc(stack, "Vpc", max_azs=2)
-            
-            namespace = servicediscovery.PrivateDnsNamespace(stack, "Namespace",
-                name="boobar.com",
-                vpc=vpc
+            # mesh: appmesh.Mesh
+            vpc = ec2.Vpc(self, "vpc")
+            namespace = cloudmap.PrivateDnsNamespace(self, "test-namespace",
+                vpc=vpc,
+                name="domain.local"
             )
-            
-            service = namespace.create_service("Service",
-                dns_record_type=servicediscovery.DnsRecordType.A_AAAA,
-                dns_ttl=cdk.Duration.seconds(30),
-                load_balancer=True
+            service = namespace.create_service("Svc")
+            node = mesh.add_virtual_node("virtual-node",
+                service_discovery=appmesh.ServiceDiscovery.cloud_map(service),
+                listeners=[appmesh.VirtualNodeListener.http(
+                    port=8081,
+                    health_check=appmesh.HealthCheck.http(
+                        healthy_threshold=3,
+                        interval=Duration.seconds(5),  # minimum
+                        path="/health-check-path",
+                        timeout=Duration.seconds(2),  # minimum
+                        unhealthy_threshold=2
+                    )
+                )],
+                access_log=appmesh.AccessLog.from_file_path("/dev/stdout")
             )
-            
-            loadbalancer = elbv2.ApplicationLoadBalancer(stack, "LB", vpc=vpc, internet_facing=True)
-            
-            service.register_load_balancer("Loadbalancer", loadbalancer)
-            
-            arn_service = namespace.create_service("ArnService",
-                discovery_type=servicediscovery.DiscoveryType.API
-            )
-            
-            arn_service.register_non_ip_instance("NonIpInstance",
-                custom_attributes={"arn": "arn://"}
-            )
-            
-            app.synth()
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f5a438cb76c40139835b65e440e9010402611db76baf5e4c500427a16a0b00e7)

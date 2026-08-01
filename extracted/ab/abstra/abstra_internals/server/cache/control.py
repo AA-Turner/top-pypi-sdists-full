@@ -15,14 +15,21 @@ class NoCache:
         return "no-store, no-cache, must-revalidate, max-age=0"
 
 
+_IMMUTABLE_MAX_AGE = 31536000  # 1 year, for content-hashed assets
+
+
 @dataclass
 class PublicCache:
     max_age: Optional[int] = None
+    immutable: bool = False
 
     def __str__(self):
         if self.max_age is None:
             return "public"
-        return f"public, max-age={self.max_age}"
+        directive = f"public, max-age={self.max_age}"
+        if self.immutable:
+            directive += ", immutable"
+        return directive
 
 
 @dataclass
@@ -67,15 +74,23 @@ class Cache:
         return CacheCommand(PublicCache(1800), PublicCache())
 
     def __statics_policy(
-        self, _: flask.Request, response: flask.Response
+        self, request: flask.Request, response: flask.Response
     ) -> CacheCommand:
+        is_html = (
+            isinstance(response.content_type, str)
+            and "text/html" in response.content_type
+        )
+
+        if request.path.startswith("/assets/") and not is_html:
+            return CacheCommand(
+                PublicCache(_IMMUTABLE_MAX_AGE, immutable=True),
+                PublicCache(_IMMUTABLE_MAX_AGE),
+            )
+
         if not self.enabled:
             return CacheCommand(NoCache(), NoCache())
 
-        if (
-            isinstance(response.content_type, str)
-            and "text/html" in response.content_type
-        ):
+        if is_html:
             return CacheCommand(NoCache(), PublicCache())
 
         return CacheCommand(PublicCache(86400), PublicCache())

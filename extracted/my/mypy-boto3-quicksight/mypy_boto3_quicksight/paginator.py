@@ -42,6 +42,7 @@ Usage::
         ListTemplatesPaginator,
         ListThemeVersionsPaginator,
         ListThemesPaginator,
+        ListTopicsV2Paginator,
         ListUserGroupsPaginator,
         ListUsersPaginator,
         SearchActionConnectorsPaginator,
@@ -54,6 +55,7 @@ Usage::
         SearchGroupsPaginator,
         SearchKnowledgeBasesPaginator,
         SearchTopicsPaginator,
+        SearchTopicsV2Paginator,
     )
 
     session = Session()
@@ -89,6 +91,7 @@ Usage::
     list_templates_paginator: ListTemplatesPaginator = client.get_paginator("list_templates")
     list_theme_versions_paginator: ListThemeVersionsPaginator = client.get_paginator("list_theme_versions")
     list_themes_paginator: ListThemesPaginator = client.get_paginator("list_themes")
+    list_topics_v2_paginator: ListTopicsV2Paginator = client.get_paginator("list_topics_v2")
     list_user_groups_paginator: ListUserGroupsPaginator = client.get_paginator("list_user_groups")
     list_users_paginator: ListUsersPaginator = client.get_paginator("list_users")
     search_action_connectors_paginator: SearchActionConnectorsPaginator = client.get_paginator("search_action_connectors")
@@ -101,6 +104,7 @@ Usage::
     search_groups_paginator: SearchGroupsPaginator = client.get_paginator("search_groups")
     search_knowledge_bases_paginator: SearchKnowledgeBasesPaginator = client.get_paginator("search_knowledge_bases")
     search_topics_paginator: SearchTopicsPaginator = client.get_paginator("search_topics")
+    search_topics_v2_paginator: SearchTopicsV2Paginator = client.get_paginator("search_topics_v2")
     ```
 """
 
@@ -172,6 +176,8 @@ from .type_defs import (
     ListThemesResponseTypeDef,
     ListThemeVersionsRequestPaginateTypeDef,
     ListThemeVersionsResponseTypeDef,
+    ListTopicsV2RequestPaginateTypeDef,
+    ListTopicsV2ResponseTypeDef,
     ListUserGroupsRequestPaginateTypeDef,
     ListUserGroupsResponseTypeDef,
     ListUsersRequestPaginateTypeDef,
@@ -196,6 +202,8 @@ from .type_defs import (
     SearchKnowledgeBasesResponseTypeDef,
     SearchTopicsRequestPaginateTypeDef,
     SearchTopicsResponseTypeDef,
+    SearchTopicsV2RequestPaginateTypeDef,
+    SearchTopicsV2ResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -235,6 +243,7 @@ __all__ = (
     "ListTemplatesPaginator",
     "ListThemeVersionsPaginator",
     "ListThemesPaginator",
+    "ListTopicsV2Paginator",
     "ListUserGroupsPaginator",
     "ListUsersPaginator",
     "SearchActionConnectorsPaginator",
@@ -247,6 +256,7 @@ __all__ = (
     "SearchGroupsPaginator",
     "SearchKnowledgeBasesPaginator",
     "SearchTopicsPaginator",
+    "SearchTopicsV2Paginator",
 )
 
 
@@ -887,6 +897,27 @@ class ListThemesPaginator(_ListThemesPaginatorBase):
 
 
 if TYPE_CHECKING:
+    _ListTopicsV2PaginatorBase = Paginator[ListTopicsV2ResponseTypeDef]
+else:
+    _ListTopicsV2PaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListTopicsV2Paginator(_ListTopicsV2PaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListTopicsV2.html#QuickSight.Paginator.ListTopicsV2)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#listtopicsv2paginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListTopicsV2RequestPaginateTypeDef]
+    ) -> PageIterator[ListTopicsV2ResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/ListTopicsV2.html#QuickSight.Paginator.ListTopicsV2.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#listtopicsv2paginator)
+        """
+
+
+if TYPE_CHECKING:
     _ListUserGroupsPaginatorBase = Paginator[ListUserGroupsResponseTypeDef]
 else:
     _ListUserGroupsPaginatorBase = Paginator  # type: ignore[assignment]
@@ -1135,4 +1166,25 @@ class SearchTopicsPaginator(_SearchTopicsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/SearchTopics.html#QuickSight.Paginator.SearchTopics.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#searchtopicspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _SearchTopicsV2PaginatorBase = Paginator[SearchTopicsV2ResponseTypeDef]
+else:
+    _SearchTopicsV2PaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class SearchTopicsV2Paginator(_SearchTopicsV2PaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/SearchTopicsV2.html#QuickSight.Paginator.SearchTopicsV2)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#searchtopicsv2paginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[SearchTopicsV2RequestPaginateTypeDef]
+    ) -> PageIterator[SearchTopicsV2ResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/paginator/SearchTopicsV2.html#QuickSight.Paginator.SearchTopicsV2.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_quicksight/paginators/#searchtopicsv2paginator)
         """

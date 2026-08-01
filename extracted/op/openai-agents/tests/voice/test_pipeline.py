@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import numpy.typing as npt
@@ -59,6 +59,43 @@ def test_streamed_audio_result_odd_length_buffer_int16() -> None:
 
     assert transformed.dtype == np.int16
     assert transformed.tolist() == [1]
+
+
+@pytest.mark.asyncio
+async def test_streamed_audio_result_propagates_consumer_cancellation(monkeypatch) -> None:
+    result = StreamedAudioResult(
+        FakeTTS(),
+        TTSModelSettings(),
+        VoicePipelineConfig(),
+    )
+    get_started = asyncio.Event()
+    never_finishes = asyncio.Event()
+    producer_started = asyncio.Event()
+    producer_stopped = asyncio.Event()
+
+    async def wait_for_event() -> VoiceStreamEvent:
+        get_started.set()
+        await never_finishes.wait()
+        raise AssertionError("Unreachable")
+
+    async def produce_events() -> None:
+        producer_started.set()
+        try:
+            await never_finishes.wait()
+        finally:
+            producer_stopped.set()
+
+    producer = asyncio.create_task(produce_events())
+    result._tasks.append(producer)
+    monkeypatch.setattr(result._queue, "get", wait_for_event)
+    consumer = asyncio.ensure_future(anext(result.stream()))
+    await asyncio.gather(get_started.wait(), producer_started.wait())
+    consumer.cancel()
+
+    with pytest.raises(asyncio.CancelledError):
+        await consumer
+    await producer_stopped.wait()
+    assert producer.cancelled()
 
 
 def test_voice_pipeline_config_normalizes_dictionary_settings() -> None:
@@ -203,6 +240,158 @@ async def test_streamed_audio_error_respects_sensitive_data_setting(
             },
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_streamed_audio_dispatcher_handles_stream_failure() -> None:
+    """A failed _stream_audio task must not leave _dispatch_audio blocked forever."""
+
+    class FailingTTS(FakeTTS):
+        async def run(self, text: str, settings: TTSModelSettings):
+            del text, settings
+            raise RuntimeError("tts-failure")
+            yield b""  # pragma: no cover
+
+    result = StreamedAudioResult(
+        FailingTTS(),
+        TTSModelSettings(),
+        VoicePipelineConfig(trace_include_sensitive_data=False),
+    )
+
+    await result._add_text("This is the first sentence. This is the second one.")
+
+    with pytest.raises(RuntimeError, match="tts-failure"):
+        await result._turn_done()
+
+    # The single-turn pipeline queues the error and re-raises without calling _done(),
+    # so _completed_session stays false. The dispatcher must return as soon as it
+    # forwards the session_ended sentinel from the failed segment instead of blocking
+    # on the dead queue (or spinning in the outer wait loop).
+    dispatcher_task = result._dispatcher_task
+    assert dispatcher_task is not None
+    await asyncio.wait_for(dispatcher_task, timeout=5.0)
+    assert dispatcher_task.done()
+
+    # The failed segment's session_ended is forwarded once; the dispatcher's normal
+    # epilogue must not queue a second terminal event.
+    events: list[VoiceStreamEvent] = []
+    while True:
+        try:
+            events.append(result._queue.get_nowait())
+        except asyncio.QueueEmpty:
+            break
+    terminal_events = [
+        event
+        for event in events
+        if isinstance(event, VoiceStreamEventLifecycle) and event.event == "session_ended"
+    ]
+    assert len(terminal_events) == 1
+
+
+@pytest.mark.asyncio
+async def test_voice_pipeline_awaits_task_cleanup_after_tts_failure() -> None:
+    """A public pipeline stream must await sibling task cleanup when TTS fails."""
+
+    second_segment_started = asyncio.Event()
+    second_segment_stopped = asyncio.Event()
+
+    class FailingTTS(FakeTTS):
+        async def run(self, text: str, settings: TTSModelSettings):
+            del settings
+            if text == "first":
+                await second_segment_started.wait()
+                raise RuntimeError("tts-failure")
+                yield b""  # pragma: no cover
+
+            second_segment_started.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                second_segment_stopped.set()
+
+    def split_immediately(text: str) -> tuple[str, str]:
+        return text, ""
+
+    pipeline = VoicePipeline(
+        workflow=FakeWorkflow([["first", "second"]]),
+        stt_model=FakeSTT(["user input"]),
+        tts_model=FailingTTS(),
+        config=VoicePipelineConfig(tts_settings=TTSModelSettings(text_splitter=split_immediately)),
+    )
+    result = await pipeline.run(AudioInput(buffer=np.zeros(2, dtype=np.int16)))
+
+    with pytest.raises(RuntimeError, match="tts-failure"):
+        async for _event in result.stream():
+            pass
+
+    assert second_segment_stopped.is_set()
+    assert all(task.done() for task in result._tasks)
+    assert result._dispatcher_task is not None
+    assert result._dispatcher_task.done()
+    assert result._tracing_span is None
+    assert result.text_generation_task is not None
+    assert result.text_generation_task.done()
+
+
+@pytest.mark.asyncio
+async def test_streamed_audio_dispatcher_blocks_until_work_is_available() -> None:
+    """The dispatcher must block while idle without losing a pre-wait notification."""
+
+    class PausingEvent(asyncio.Event):
+        def __init__(self) -> None:
+            super().__init__()
+            self.wait_calls = 0
+            self.wait_started = asyncio.Event()
+            self.second_wait_started = asyncio.Event()
+            self.allow_wait = asyncio.Event()
+
+        async def wait(self) -> Literal[True]:
+            self.wait_calls += 1
+            if self.wait_calls == 1:
+                self.wait_started.set()
+                await self.allow_wait.wait()
+            elif self.wait_calls == 2:
+                self.second_wait_started.set()
+            return await super().wait()
+
+    def split_immediately(text: str) -> tuple[str, str]:
+        return text, ""
+
+    fake_tts = FakeTTS()
+    result = StreamedAudioResult(
+        fake_tts,
+        TTSModelSettings(buffer_size=1, text_splitter=split_immediately),
+        VoicePipelineConfig(),
+    )
+    dispatcher_event = PausingEvent()
+    result._dispatcher_event = dispatcher_event
+    dispatcher_task = asyncio.create_task(result._dispatch_audio())
+    result._dispatcher_task = dispatcher_task
+
+    try:
+        await asyncio.wait_for(dispatcher_event.wait_started.wait(), timeout=1.0)
+        for _ in range(10):
+            await asyncio.sleep(0)
+        assert dispatcher_event.wait_calls == 1
+        assert not dispatcher_task.done()
+
+        await result._add_text("ok")
+        assert dispatcher_event.is_set()
+        dispatcher_event.allow_wait.set()
+        await result._turn_done()
+        await asyncio.wait_for(dispatcher_event.second_wait_started.wait(), timeout=1.0)
+        await result._done()
+    finally:
+        dispatcher_event.allow_wait.set()
+        if not dispatcher_task.done():
+            dispatcher_task.cancel()
+        await asyncio.gather(dispatcher_task, return_exceptions=True)
+
+    events, audio_chunks = await extract_events(result)
+
+    assert events == ["turn_started", "audio", "turn_ended", "session_ended"]
+    assert len(audio_chunks) == 1
+    await fake_tts.verify_audio("ok", audio_chunks[0])
 
 
 @pytest.mark.asyncio

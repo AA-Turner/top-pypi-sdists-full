@@ -5,12 +5,14 @@ import sys
 
 import asyncio
 import bisect
+import contextvars
 import html
 import csv
 import inspect
 import json
 import logging
 import logging.handlers
+import math
 import os
 import re
 import time
@@ -34,6 +36,7 @@ from typing import (
 )
 import numpy as np
 from dotenv import load_dotenv
+import json_repair
 
 from lightrag.constants import (
     DEFAULT_LOG_MAX_BYTES,
@@ -242,13 +245,18 @@ def parse_optional_float(raw: str | None) -> float | None:
     the consuming code fall back to its own default.  Any other
     non-numeric value raises :class:`ValueError` so misconfigured envs
     fail loudly at parse time rather than silently downstream.
+    Non-finite values (``nan`` / ``inf``) are also rejected: they parse as
+    floats but corrupt semantic-chunker thresholds.
     """
     if raw is None:
         return None
     stripped = raw.strip()
     if not stripped or stripped.lower() == "none":
         return None
-    return float(stripped)
+    value = float(stripped)
+    if not math.isfinite(value):
+        raise ValueError(f"expected a finite float, got {raw!r}")
+    return value
 
 
 def get_env_value(
@@ -298,9 +306,23 @@ def get_env_value(
             return default
 
     try:
-        return value_type(value)
+        converted = value_type(value)
     except (ValueError, TypeError):
         return default
+
+    # Reject non-finite floats so env-backed thresholds cannot become NaN/Inf.
+    if (
+        value_type is float
+        and isinstance(converted, float)
+        and not math.isfinite(converted)
+    ):
+        logger.warning(
+            "Environment variable %s=%r is not a finite float, using default",
+            env_key,
+            value,
+        )
+        return default
+    return converted
 
 
 # Use TYPE_CHECKING to avoid circular imports
@@ -355,6 +377,24 @@ def performance_timing_log(msg: str, *args, **kwargs):
     """Emit targeted performance timing logs only when explicitly enabled."""
     if PERFORMANCE_TIMING_LOGS:
         logger.info(msg, *args, **kwargs)
+
+
+def safe_log_value(value: str, max_length: int = 200) -> str:
+    """Make a caller-supplied value safe to embed in a log line.
+
+    Replaces non-printable characters -- notably CR/LF, which could otherwise
+    be used to forge extra log lines (log injection) -- with '?' and truncates
+    over-long values. Only the *logged* form is sanitized; the caller keeps the
+    original value for its own logic.
+
+    Used wherever untrusted input reaches the log: rate-limit keys built from a
+    submitted username, and operator-supplied identifiers in audited admin
+    actions (source-conflict repair).
+    """
+    sanitized = "".join(ch if ch.isprintable() else "?" for ch in value)
+    if len(sanitized) > max_length:
+        sanitized = sanitized[:max_length] + "…(truncated)"
+    return sanitized
 
 
 statistic_data = {"llm_call": 0, "llm_cache": 0, "embed_call": 0}
@@ -642,9 +682,29 @@ def compute_args_hash(*args: Any) -> str:
         *args: Arguments to hash
     Returns:
         str: Hash string
+
+    Note:
+        - **Single-argument calls preserve the original algorithm** (plain
+          ``str(arg)``) so that ``compute_mdhash_id(content)`` keeps producing
+          the same document IDs across upgrades. Existing persisted IDs stay valid.
+        - **Two or more arguments** use length-prefixed encoding
+          (``"{len}:{str(arg)}"`` joined without separators) so that adjacent
+          field boundaries are unambiguously recoverable. This prevents the
+          cache-key collisions that the delimiter-less join could produce
+          (e.g. ``("abc","x")`` vs ``("ab","cx")`` both hashed to the same MD5).
+          Length-prefixing is used instead of a sentinel character because
+          query text and free-form fields can contain arbitrary characters,
+          so any fixed delimiter could still be constructed to collide.
     """
-    # Convert all arguments to strings and join them
-    args_str = "".join([str(arg) for arg in args])
+    if len(args) <= 1:
+        # Single-arg (or no-arg) path: keep the legacy behavior unchanged so
+        # compute_mdhash_id(content) document IDs remain stable.
+        args_str = "".join([str(arg) for arg in args])
+    else:
+        # Multi-arg path: length-prefix each field to make boundaries unique.
+        # Format: "3:abc1:x2:10" — the leading length makes the field extent
+        # unambiguous regardless of the field content.
+        args_str = "".join(f"{len(s)}:{s}" for s in (str(arg) for arg in args))
 
     # Use 'replace' error handling to safely encode problematic Unicode characters
     # This replaces invalid characters with Unicode replacement character (U+FFFD)
@@ -1243,6 +1303,7 @@ def priority_limit_async_func_call(
                                 task_id,
                                 args,
                                 kwargs,
+                                ctx,
                             ) = await asyncio.wait_for(queue.get(), timeout=1.0)
                         except asyncio.TimeoutError:
                             continue
@@ -1270,13 +1331,25 @@ def priority_limit_async_func_call(
                             continue
 
                         try:
-                            # Execute function with timeout protection
+                            # Execute the call under the enqueuer's captured
+                            # context, not the worker's creation-time context
+                            # (asyncio.Task snapshots contextvars once, at
+                            # create_task() time, and this worker task is
+                            # long-lived — reused across many unrelated
+                            # calls). ctx.run(asyncio.ensure_future, ...)
+                            # schedules the coroutine as a fresh Task whose
+                            # own context is copied from ctx (works on
+                            # Python 3.10, unlike create_task's context=
+                            # kwarg which needs 3.11+).
+                            exec_task = ctx.run(
+                                asyncio.ensure_future, func(*args, **kwargs)
+                            )
                             if max_execution_timeout is not None:
                                 result = await asyncio.wait_for(
-                                    func(*args, **kwargs), timeout=max_execution_timeout
+                                    exec_task, timeout=max_execution_timeout
                                 )
                             else:
-                                result = await func(*args, **kwargs)
+                                result = await exec_task
 
                             # Set result if future is still valid
                             if not task_state.future.done():
@@ -1414,7 +1487,12 @@ def priority_limit_async_func_call(
                                     # compaction holds them): return the
                                     # slot immediately.
                                     break
-                                task_id, args, kwargs = item[2], item[3], item[4]
+                                task_id, args, kwargs, ctx = (
+                                    item[2],
+                                    item[3],
+                                    item[4],
+                                    item[5],
+                                )
                                 is_zombie = False
                                 async with task_states_lock:
                                     task_state = task_states.get(task_id)
@@ -1442,6 +1520,7 @@ def priority_limit_async_func_call(
                                             task_state,
                                             args,
                                             kwargs,
+                                            ctx,
                                         )
                                 if is_zombie:
                                     # Never call the provider for a zombie.
@@ -1494,6 +1573,7 @@ def priority_limit_async_func_call(
                                 task_state,
                                 args,
                                 kwargs,
+                                ctx,
                             ) = await asyncio.wait_for(
                                 dispatch_queue.get(), timeout=1.0
                             )
@@ -1511,13 +1591,19 @@ def priority_limit_async_func_call(
                             ):
                                 continue  # finally cleans up + returns slot
 
+                            # Run under the enqueuer's captured context, not
+                            # this long-lived worker's creation-time context
+                            # — see the matching comment in worker().
+                            exec_task = ctx.run(
+                                asyncio.ensure_future, func(*args, **kwargs)
+                            )
                             if max_execution_timeout is not None:
                                 result = await asyncio.wait_for(
-                                    func(*args, **kwargs),
+                                    exec_task,
                                     timeout=max_execution_timeout,
                                 )
                             else:
-                                result = await func(*args, **kwargs)
+                                result = await exec_task
 
                             if not task_state.future.done():
                                 task_state.future.set_result(result)
@@ -1891,6 +1977,7 @@ def priority_limit_async_func_call(
                         task_state,
                         _args,
                         _kwargs,
+                        _ctx,
                     ) = dispatch_queue.get_nowait()
                 except asyncio.QueueEmpty:
                     break
@@ -2010,9 +2097,16 @@ def priority_limit_async_func_call(
                     current_count = counter
                     counter += 1
 
+                # Capture the enqueuer's context (e.g. an active OpenTelemetry
+                # span) so the worker executes func() under it instead of the
+                # long-lived worker task's own creation-time context. It rides
+                # as the 6th tuple element; keep the unpack sites in sync
+                # (worker / slot_pump / limited_worker / shutdown drain).
+                ctx = contextvars.copy_context()
+
                 # Unbounded physical queue: put_nowait never blocks, and the
                 # (priority, count, ...) tuple keeps heap ordering intact.
-                queue.put_nowait((_priority, current_count, task_id, args, kwargs))
+                queue.put_nowait((_priority, current_count, task_id, args, kwargs, ctx))
                 submitted_total += 1
                 work_available.set()
                 await _publish_stats()
@@ -2139,6 +2233,14 @@ def priority_limit_async_func_call(
                     current_count = counter
                     counter += 1
 
+                # Capture the enqueuer's context (e.g. an active
+                # OpenTelemetry span) so the worker executes func() under
+                # it instead of the long-lived worker task's own
+                # creation-time context. It rides as the 6th tuple element;
+                # keep the unpack sites in sync (worker / slot_pump /
+                # limited_worker / shutdown drain).
+                ctx = contextvars.copy_context()
+
                 # Queue the task with timeout handling
                 try:
                     if not accepting_new_tasks:
@@ -2147,13 +2249,13 @@ def priority_limit_async_func_call(
                     if _queue_timeout is not None:
                         await asyncio.wait_for(
                             queue.put(
-                                (_priority, current_count, task_id, args, kwargs)
+                                (_priority, current_count, task_id, args, kwargs, ctx)
                             ),
                             timeout=_queue_timeout,
                         )
                     else:
                         await queue.put(
-                            (_priority, current_count, task_id, args, kwargs)
+                            (_priority, current_count, task_id, args, kwargs, ctx)
                         )
                     submitted_total += 1
                     await _publish_stats()
@@ -2330,7 +2432,12 @@ def load_json(file_name):
     if not os.path.exists(file_name):
         return None
     with open(file_name, encoding="utf-8-sig") as f:
-        return json.load(f)
+        content = f.read()
+    # Empty/whitespace existing file: same contract as missing (callers use or {}).
+    if not content.strip():
+        logger.warning("Empty JSON file treated as missing: %s", file_name)
+        return None
+    return json.loads(content)
 
 
 def _sanitize_string_for_json(text: str) -> str:
@@ -2589,10 +2696,6 @@ def split_string_by_multi_markers(content: str, markers: list[str]) -> list[str]
     return [r.strip() for r in results if r.strip()]
 
 
-def is_float_regex(value: str) -> bool:
-    return bool(re.match(r"^[-+]?[0-9]*\.?[0-9]+$", value))
-
-
 def truncate_list_by_token_size(
     list_data: list[Any],
     key: Callable[[Any], str],
@@ -2653,6 +2756,9 @@ def split_text_by_token_limit(
 ) -> list[str]:
     """Split text by token limit with sentence-first, token-window fallback."""
     if not text:
+        return []
+    # Match truncate_list_by_token_size: non-positive budget cannot form a window.
+    if max_tokens <= 0:
         return []
 
     try:
@@ -2871,7 +2977,11 @@ def cosine_similarity(v1, v2):
     dot_product = np.dot(v1, v2)
     norm1 = np.linalg.norm(v1)
     norm2 = np.linalg.norm(v2)
-    return dot_product / (norm1 * norm2)
+    denom = norm1 * norm2
+    # Zero vectors are orthogonal to everything in ranking use; avoid NaN.
+    if denom == 0:
+        return 0.0
+    return float(dot_product / denom)
 
 
 async def handle_cache(
@@ -3005,6 +3115,94 @@ async def _cooperative_yield(iteration: int, every: int = 64) -> None:
     """
     if iteration > 0 and iteration % every == 0:
         await asyncio.sleep(0)
+
+
+async def wait_tasks_with_drain(
+    tasks: list[asyncio.Task],
+    *,
+    context: str = "",
+    task_labels: dict[asyncio.Task, str] | None = None,
+) -> list[Any]:
+    """Await *tasks*, guaranteeing none is left running when this returns/raises.
+
+    Concurrent multi-store writers (entity/relation merge, rebuild) must never
+    leave a sibling task writing in the background after a failure — a failed
+    ``gather``/``wait`` does not by itself imply the other write tasks stopped
+    (issue #3400, "incomplete async failure coordination").
+
+    Behavior:
+      - All tasks succeed: returns their results (completion order).
+      - Any task fails: cancels every still-pending sibling, awaits (drains)
+        them ALL so no background write survives, logs every additional
+        exception, then re-raises the FIRST exception observed.
+      - This coroutine itself is cancelled: cancels and drains all tasks
+        before propagating ``CancelledError``.
+
+    Args:
+        tasks: ``asyncio.Task`` objects (already scheduled).
+        context: Optional short label used in log messages.
+        task_labels: Optional per-task display labels for pending-task logging.
+    """
+    if not tasks:
+        return []
+
+    ctx = f" [{context}]" if context else ""
+    results: list[Any] = []
+    first_exception: BaseException | None = None
+
+    try:
+        done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
+
+        for i, task in enumerate(done, start=1):
+            try:
+                results.append(task.result())
+            except BaseException as e:
+                if first_exception is None:
+                    first_exception = e
+                elif not isinstance(e, asyncio.CancelledError):
+                    logger.error(f"Additional task failure{ctx}: {e}")
+            # NOTE: an await point — external cancellation delivered here is
+            # handled by the enclosing except so still-pending siblings never
+            # keep writing in the background.
+            await _cooperative_yield(i, every=32)
+
+        if pending:
+            if task_labels:
+                pending_labels = [
+                    task_labels.get(task, "<unknown>") for task in pending
+                ]
+                preview = ", ".join(pending_labels[:10])
+                if len(pending_labels) > 10:
+                    preview += f", ... (+{len(pending_labels) - 10} more)"
+                logger.warning(f"Draining pending tasks{ctx}: {preview or '<none>'}")
+            for task in pending:
+                task.cancel()
+            pending_results = await asyncio.gather(*pending, return_exceptions=True)
+            for result in pending_results:
+                if isinstance(result, BaseException):
+                    if first_exception is None:
+                        first_exception = result
+                    elif not isinstance(result, asyncio.CancelledError):
+                        logger.error(f"Additional task failure{ctx}: {result}")
+                else:
+                    results.append(result)
+    except asyncio.CancelledError:
+        # External cancellation of THIS waiter, delivered at ANY await point
+        # above — asyncio.wait itself, a cooperative yield while collecting
+        # done results (with siblings still pending after FIRST_EXCEPTION),
+        # or the drain gather. Cancel and drain everything before
+        # propagating so no task keeps writing in the background. Per-task
+        # CancelledError stored in a task's own result is caught by the
+        # inner handler and does NOT take this path.
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        raise
+
+    if first_exception is not None:
+        raise first_exception
+
+    return results
 
 
 def always_get_an_event_loop() -> asyncio.AbstractEventLoop:
@@ -3453,6 +3651,32 @@ async def update_chunk_cache_list(
         )
 
 
+class TruncatedResponse(str):
+    """An LLM response that was cut off by the model's output token limit.
+
+    Behaves exactly like ``str`` so every downstream consumer — tolerant JSON
+    parsing, text sanitization, entity/relation extraction — keeps working on
+    the partial content unchanged. The only added meaning is a signal to the
+    LLM cache layer: a truncated response must NOT be persisted, because a
+    cached partial payload (e.g. cut-off extraction JSON) would be replayed on
+    every later run, even when a larger token budget would have produced the
+    complete output. See ``is_truncated_response`` and the cache-write guards
+    in ``use_llm_func_with_cache`` and ``lightrag.operate``.
+    """
+
+    __slots__ = ()
+
+
+def is_truncated_response(value: Any) -> bool:
+    """Return True if ``value`` is an LLM response flagged as token-limit truncated.
+
+    Safe for any input: non-string values (e.g. streaming async iterators) and
+    plain ``str`` responses from providers that do not emit the marker return
+    False, so callers degrade to the pre-existing "cache everything" behavior.
+    """
+    return isinstance(value, TruncatedResponse)
+
+
 def remove_think_tags(text: str) -> str:
     """Remove <think>...</think> tags and their content from the text.
 
@@ -3600,26 +3824,39 @@ async def use_llm_func_with_cache(
             safe_user_prompt, system_prompt=safe_system_prompt, **kwargs
         )
 
+        # Capture the token-limit truncation flag before remove_think_tags
+        # rebuilds a plain str and drops the TruncatedResponse marker.
+        res_truncated = is_truncated_response(res)
+
         res = remove_think_tags(res)
 
         # Generate timestamp for cache miss (LLM call completion time)
         current_timestamp = int(time.time())
 
         if llm_response_cache.global_config.get("enable_llm_cache_for_entity_extract"):
-            await save_to_cache(
-                llm_response_cache,
-                CacheData(
-                    args_hash=arg_hash,
-                    content=res,
-                    prompt=_prompt,
-                    cache_type=cache_type,
-                    chunk_id=chunk_id,
-                ),
-            )
+            if res_truncated:
+                # Do not persist truncated extraction output: a cached partial
+                # payload would be replayed on every later run, even when a
+                # larger token budget would have completed the extraction.
+                logger.warning(
+                    f"Skipping LLM cache write for truncated {cache_type} response "
+                    f"(finish_reason=length, chunk_id={chunk_id})"
+                )
+            else:
+                await save_to_cache(
+                    llm_response_cache,
+                    CacheData(
+                        args_hash=arg_hash,
+                        content=res,
+                        prompt=_prompt,
+                        cache_type=cache_type,
+                        chunk_id=chunk_id,
+                    ),
+                )
 
-            # Add cache key to collector if provided
-            if cache_keys_collector is not None:
-                cache_keys_collector.append(cache_key)
+                # Add cache key to collector if provided
+                if cache_keys_collector is not None:
+                    cache_keys_collector.append(cache_key)
 
         return res, current_timestamp
 
@@ -3967,6 +4204,188 @@ def repair_vlm_json_escape_damage_nested(obj: Any, *, context: str = "") -> Any:
     return obj
 
 
+_CODE_FENCE_PATTERN = re.compile(
+    r"^\s*```(?:json|JSON)?\s*\n?(.*?)\n?\s*```\s*$", re.DOTALL
+)
+
+
+def strip_markdown_code_fence(text: str) -> str:
+    """Strip a surrounding markdown code fence (```json ... ``` or ``` ... ```).
+
+    Why: LLM training priors strongly associate "JSON output" with fenced code
+    blocks, so providers routinely wrap responses despite explicit instructions
+    to the contrary. Stripping here avoids relying on ``json_repair`` and the
+    noisy warning it emits. The ``\\n?`` make the interior newlines optional so
+    single-line fences (```` ```json {...}``` ````) are handled too.
+    """
+
+    match = _CODE_FENCE_PATTERN.match(text)
+    return match.group(1) if match else text
+
+
+def _first_structural_opener(text: str) -> tuple[str | None, int]:
+    """Return the first ``[`` or ``{`` that sits outside a double-quoted string.
+
+    Only ``"`` is treated as a string delimiter: prose apostrophes (``Here's``)
+    are far too common to treat ``'`` as a quote, and leading prose that wraps a
+    ``[`` inside single quotes is rare enough to accept as graceful degradation.
+    The result drives the top-level array-vs-object decision — a leading ``[``
+    means a top-level array (rejected by the caller), a leading ``{`` marks where
+    object recovery starts.
+    """
+    quote_open = False
+    escaped = False
+    for index, char in enumerate(text):
+        if quote_open:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                quote_open = False
+            continue
+        if char == '"':
+            quote_open = True
+        elif char in "[{":
+            return char, index
+    return None, -1
+
+
+def _first_balanced_object_slice(text: str) -> str:
+    """Return the first brace-balanced ``{...}`` slice; ``text`` starts at ``{``.
+
+    ``"`` always opens a string. ``'`` opens a string only in a value/key
+    position — right after ``{``, ``[``, ``,`` or ``:`` (spaces skipped) — so a
+    bare apostrophe inside an unquoted token (``O'Reilly``, ``it's``) is not
+    mistaken for a string start. Without that guard the scan would run past the
+    object's closing ``}`` and json_repair would fold trailing prose into the
+    last value — a silent, schema-valid but corrupted result. Single quotes are
+    tracked at all because weaker models emit single-quoted JSON strings that can
+    legitimately contain stray braces. Falls back to the whole string when no
+    matching close brace exists so an incomplete object stays repairable.
+    """
+    depth = 0
+    quote: str | None = None
+    escaped = False
+    previous_non_space = ""
+    for index, char in enumerate(text):
+        if quote is not None:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == quote:
+                quote = None
+            continue
+        if char == '"' or (char == "'" and previous_non_space in "{[,:"):
+            quote = char
+        elif char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return text[: index + 1]
+        if not char.isspace():
+            previous_non_space = char
+    return text
+
+
+def tolerant_load_json_dict(text: str) -> dict[str, Any]:
+    """Recover a single JSON object from noisy LLM/VLM text.
+
+    Returns the first genuine JSON *object*, or ``{}`` when the text does not
+    yield exactly one object. ``{}`` is the signal callers act on: multimodal
+    analysis retries once, entity extraction falls back to delimiter parsing.
+
+    Recovered — returns the object (the malformed shapes weak models emit):
+
+    * a clean object, optionally inside a markdown ``json`` code fence, with or
+      without interior newlines: ``{"a": 1}``
+    * leading prose before the object — a label, a ``#`` or ``//`` comment
+      lead-in, a URL, or an apostrophe: ``Here is the result: {"a":1}``,
+      ``Result #1: {"a":1}``, ``Source: http://x//y#z {"a":1}``,
+      ``Here's the note: {"a":1}``
+    * trailing prose after the object, even when it contains braces — the bug
+      this helper exists for, where a greedy ``{...}`` slice over-extends and
+      drops everything: ``{"facts":[...]} trailing {brace}``
+    * object-level slips ``json_repair`` fixes — trailing comma, single quotes,
+      unquoted keys, truncation: ``{"a":1,}``, ``{'a':1}``, ``{a:1}``, ``{"a":1``
+    * a genuine (possibly malformed) object followed by a bracket citation:
+      ``{"a":1,} [1]``
+
+    Rejected — returns ``{}`` so callers retry / fall back rather than accept a
+    non-object:
+
+    * any top-level array, so one element is never mistaken for the whole
+      answer — including prose-prefixed, truncated, single-quoted, and commented
+      arrays: ``[{"a":1},{"b":2}]``, ``Here is the result: [{...}]``,
+      ``['note', {...}]``, ``[/* ] */ {...}]``
+    * a top-level array reached past a broken array shell, an unclosed quote, or
+      pseudo-object prose — never scavenged for an inner object: ``[}{"a":1}]``,
+      ``"oops [}{"a":1}]``, ``{note} [{"a":1}]``
+    * an object behind bracketed prose — indistinguishable from a real array
+      without heuristics and not seen in practice: ``analysis: [draft] {"a":1}``
+
+    Two edge rules worth knowing when extending this:
+
+    * the top-level shape is decided by the first structural opener outside a
+      double-quoted string; ``json_repair`` runs only on the first balanced
+      ``{...}`` slice, never the whole string (it would scavenge a dict across
+      structural boundaries and defeat array rejection).
+    * a single quote is a string delimiter only in a value/key position, so a
+      bare apostrophe in an unquoted token (``O'Reilly``, ``it's``) does not
+      swallow the object's closing brace.
+
+    Not handled here: LaTeX-escape damage in string values — callers apply
+    ``repair_vlm_json_escape_damage_nested`` themselves, keeping that choke
+    point out of this helper.
+    """
+    if not text:
+        return {}
+    candidate = strip_markdown_code_fence(text).strip()
+
+    # Decide the top-level shape from the raw structure FIRST: the first opener
+    # outside a double-quoted string. json_repair is never run over the whole
+    # candidate — it scavenges a dict across structural boundaries (out of a
+    # broken array shell '[}{...}]', or past pseudo-object prose '{note} [..]'),
+    # which would bypass the top-level-array rejection contract.
+    opener, index = _first_structural_opener(candidate)
+    if opener != "{":
+        # '[' is a top-level array. None means the structure is untrusted — e.g.
+        # an unclosed double quote swallows the openers ('"oops [}{"a":1}]').
+        # Reject either way so callers retry (multimodal) / fall back (entity).
+        return {}
+    suffix = candidate[index:]
+
+    # 1) Strict decode of the first object from the opener. A clean object,
+    #    optionally followed by trailing prose, is the answer — raw_decode stops
+    #    at the end of the first value, so "{...} trailing {brace}" is handled.
+    try:
+        obj, _end = json.JSONDecoder().raw_decode(suffix)
+        if isinstance(obj, dict):
+            return obj
+    except Exception:
+        pass
+
+    # 2) The opener did not start a clean object: a malformed leading object
+    #    (trailing comma / single quotes / unquoted keys), possibly followed by
+    #    trailing text such as a "[1]" citation, must still be recovered. Repair
+    #    the first balanced slice and accept it only if it is itself an object.
+    #    json_repair returns a *list* (not a dict) for pseudo-object prose like
+    #    '{note}', so a real payload of the form '{note} [ {...} ]' falls through
+    #    to {} here — a trailing top-level array is never scavenged for an
+    #    element (repairing only the slice, never the whole candidate, is what
+    #    keeps the array out of reach).
+    slice_ = _first_balanced_object_slice(suffix)
+    try:
+        repaired = json_repair.loads(slice_)
+        if isinstance(repaired, dict):
+            return repaired
+    except Exception:
+        pass
+    return {}
+
+
 def check_storage_env_vars(storage_name: str) -> None:
     """Check if all required environment variables for storage implementation exist
 
@@ -4008,6 +4427,8 @@ def pick_by_weighted_polling(
         List of selected text chunk IDs
     """
     if not entities_or_relations:
+        return []
+    if max_related_chunks <= 0:
         return []
 
     n = len(entities_or_relations)
@@ -4140,15 +4561,34 @@ async def pick_by_vector_similarity(
             f"Vector similarity chunk selection: {len(chunk_vectors)} chunk vectors Retrieved"
         )
 
-        if not chunk_vectors or len(chunk_vectors) != len(all_chunk_ids):
-            if not chunk_vectors:
-                logger.warning(
-                    "Vector similarity chunk selection: no vectors retrieved from chunks_vdb"
-                )
-            else:
-                logger.warning(
-                    f"Vector similarity chunk selection: found {len(chunk_vectors)} but expecting {len(all_chunk_ids)}"
-                )
+        if not chunk_vectors:
+            logger.warning(
+                "Vector similarity chunk selection: no vectors retrieved from chunks_vdb"
+            )
+            return []
+
+        if len(chunk_vectors) != len(all_chunk_ids):
+            # A referenced chunk with no stored vector signals an inconsistency
+            # between the graph/text stores and the vector store. Keep the
+            # existing safety behavior: abort vector ranking so callers can fall
+            # back to the WEIGHT method, but make the mismatch easier to observe
+            # and repair by logging counts and a bounded sample of missing IDs.
+            expected = len(all_chunk_ids)
+            retrieved = len(chunk_vectors)
+            missing_ids = [
+                chunk_id for chunk_id in all_chunk_ids if chunk_id not in chunk_vectors
+            ]
+            sample = missing_ids[:5]
+            logger.warning(
+                "Vector similarity chunk selection: data inconsistency detected "
+                "(expected %s, retrieved %s, missing %s). Falling back to WEIGHT method. "
+                "Missing chunk IDs (sample): %s. "
+                "Vector/text storages may be out of sync; consider re-embedding or repairing.",
+                expected,
+                retrieved,
+                expected - retrieved,
+                sample,
+            )
             return []
 
         # Calculate cosine similarities
@@ -4339,6 +4779,7 @@ async def process_chunks_unified(
     global_config: dict,
     source_type: str = "mixed",
     chunk_token_limit: int = None,  # Add parameter for dynamic token limit
+    progress_callback=None,
 ) -> list[dict]:
     """
     Unified processing for text chunks: deduplication, chunk_top_k limiting, reranking, and token truncation.
@@ -4361,6 +4802,8 @@ async def process_chunks_unified(
 
     # 1. Apply reranking if enabled and query is provided
     if query_param.enable_rerank and query and unique_chunks:
+        if progress_callback:
+            await progress_callback("reranking")
         rerank_top_k = query_param.chunk_top_k or len(unique_chunks)
         unique_chunks = await apply_rerank_if_enabled(
             query=query,
@@ -4673,9 +5116,9 @@ def fix_tuple_delimiter_corruption(
         record,
     )
 
-    # Fix: <|> -> <|#|>, <||> -> <|#|>
+    # Fix: <|> -> <|#|>, <||> -> <|#|> (glued only; keep free-text "a <|> b")
     record = re.sub(
-        r"<\|+>",
+        r"(?<=\S)<\|+>(?=\S)",
         tuple_delimiter,
         record,
     )
@@ -4722,9 +5165,13 @@ def fix_tuple_delimiter_corruption(
         record,
     )
 
-    # Fix: <|| -> <|#|>
+    # Fix: <|| -> <|#|> (glued only; keep free-text/code "x <|| y")
+    # Anchor the left side only: "<||" is an unterminated separator whose right
+    # side is the next field's raw content, so a right-hand \S anchor would add
+    # nothing while risking a boundary miss. The left \S is what distinguishes a
+    # glued corruption (name<||type) from a spaced free-text mention (x <|| y).
     record = re.sub(
-        r"<\|\|(?!>)",
+        r"(?<=\S)<\|\|(?!>)",
         tuple_delimiter,
         record,
     )

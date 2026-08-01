@@ -106,6 +106,7 @@ class ExecutionController:
                     # Postgres repo overrides it. Inside the existing try →
                     # best-effort, can never escape run().
                     self.repositories.execution_logs.final_flush()
+                    self.repositories.metrics.flush(execution.id)
                 except Exception as e_final:
                     AbstraLogger.capture_exception(e_final)
 

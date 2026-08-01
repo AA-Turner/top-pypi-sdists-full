@@ -15,9 +15,12 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import datetime as dt
 import inspect
 import logging
 import os
+import re
+import types
 import warnings
 from functools import wraps
 from pathlib import Path
@@ -28,6 +31,7 @@ from typing import (
     Callable,
     Literal,
     TypeVar,
+    Union,
     get_args,
     get_origin,
     get_type_hints,
@@ -142,6 +146,20 @@ def extract_enum_descriptor(type_hint, func_name, param_name):
     }
 
 
+def _validate_excel_name(name):
+    # Office custom function names must start with a letter and may only contain
+    # letters, numbers, periods, and underscores (max 128 characters)
+    if name is None:
+        return None
+    if len(name) > 128 or not re.fullmatch(r"[^\W\d_][\w.]*", name):
+        raise XlwingsError(
+            f"Invalid custom function name '{name}': it must start with a letter "
+            "and contain only letters, numbers, periods, and underscores "
+            "(max. 128 characters)."
+        )
+    return name
+
+
 @overload
 def xlfunc(f: _F) -> _F:
     ...
@@ -217,6 +235,9 @@ def xlfunc(f: _F | None = None, **kwargs: Any) -> _F | Callable[[_F], _F]:
                     xlf["ret"]["options"].update(annotations[0])
 
         f.__xlfunc__["volatile"] = check_bool("volatile", default=False, **kwargs)
+        # The Excel-facing function name (case-preserved); the metadata id and
+        # the dispatch key remain the Python function name
+        f.__xlfunc__["excel_name"] = _validate_excel_name(kwargs.get("name"))
         # If there's a global namespace defined in the manifest, this will be the
         # sub-namespace, i.e. NAMESPACE.SUBNAMESPACE.FUNCTIONNAME
         f.__xlfunc__["namespace"] = kwargs.get("namespace")
@@ -586,10 +607,11 @@ def custom_functions_meta(module, typehinted_params_to_exclude=None):
             if xlfunc["help_url"]:
                 func["helpUrl"] = xlfunc["help_url"]
             func["id"] = xlfunc["name"].upper()
+            display_name = xlfunc.get("excel_name") or xlfunc["name"].upper()
             if xlfunc["namespace"]:
-                func["name"] = f"{xlfunc['namespace'].upper()}.{xlfunc['name'].upper()}"
+                func["name"] = f"{xlfunc['namespace'].upper()}.{display_name}"
             else:
-                func["name"] = xlfunc["name"].upper()
+                func["name"] = display_name
             if inspect.isasyncgenfunction(obj):
                 func["options"] = {
                     "stream": True,
@@ -639,6 +661,13 @@ def custom_functions_meta(module, typehinted_params_to_exclude=None):
                 params.append(param)
             func["parameters"] = params
             funcs.append(func)
+    # With `name=` aliases, two functions with different ids can end up with the
+    # same Excel-facing name, which would be ambiguous in Excel
+    seen_names = set()
+    for func in funcs:
+        if func["name"].upper() in seen_names:
+            raise XlwingsError(f"Duplicate custom function name: '{func['name']}'")
+        seen_names.add(func["name"].upper())
     result = {
         "allowCustomDataForDataTypeAny": True,
         "allowErrorForDataTypeAny": True,
@@ -814,6 +843,48 @@ def script(
         return inner(f)
 
 
+def _unwrap_optional_hint(hint):
+    """Return X for Optional[X] / X | None, otherwise the hint unchanged.
+
+    Restricted to unions on purpose: unwrapping any generic would turn
+    `list[int]` into `int`.
+    """
+    # types.UnionType (the `X | None` form) only exists on Python 3.10+.
+    union_types = {Union, getattr(types, "UnionType", Union)}
+    if get_origin(hint) not in union_types:
+        return hint
+    members = [arg for arg in get_args(hint) if arg is not type(None)]
+    return members[0] if len(members) == 1 else hint
+
+
+def _coerce_script_arg(value, hint, script_name, param_name):
+    """Convert a JSON script argument to the type its hint asks for.
+
+    JSON has no date type, so a `dt.date`/`dt.datetime` parameter would
+    otherwise receive an ISO string while the same hint on a custom function
+    yields a real date object. Only values that came over the wire pass through
+    here; Python defaults are already the right type.
+    """
+    if hint is None or not isinstance(value, str):
+        return value
+    # An optional date still gets a date control in the UI, so coerce through
+    # the union rather than leaving `Optional[date]` as a string.
+    hint = _unwrap_optional_hint(hint)
+    if hint is dt.datetime:
+        parse, expected = dt.datetime.fromisoformat, "a date and time"
+    elif hint is dt.date:
+        parse, expected = dt.date.fromisoformat, "a date"
+    else:
+        return value
+    try:
+        return parse(value)
+    except ValueError:
+        raise XlwingsError(
+            f"Script '{script_name}': argument '{param_name}' must be "
+            f"{expected} in ISO format, got {value!r}"
+        ) from None
+
+
 async def custom_scripts_call(
     module, script_name, current_user=None, typehint_to_value: dict = None, args=None
 ):
@@ -859,10 +930,15 @@ async def custom_scripts_call(
                 injected_book.impl._lazy = True
             call_args.append(injected_book)
         elif param.kind == inspect.Parameter.VAR_POSITIONAL:
-            call_args.extend(arg_iter)
+            call_args.extend(
+                _coerce_script_arg(value, hint, script_name, param.name)
+                for value in arg_iter
+            )
         else:
             try:
-                call_args.append(next(arg_iter))
+                call_args.append(
+                    _coerce_script_arg(next(arg_iter), hint, script_name, param.name)
+                )
             except StopIteration:
                 if param.default is not inspect.Parameter.empty:
                     call_args.append(param.default)

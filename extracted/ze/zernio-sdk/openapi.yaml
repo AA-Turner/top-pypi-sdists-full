@@ -226,6 +226,10 @@ tags:
   - name: API Keys
     description: |
       Create, list, and revoke API keys used to authenticate requests.
+  - name: Connected Apps
+    description: |
+      List and revoke the OAuth clients (AI assistants and MCP connectors) authorized
+      on the account.
   - name: Invites
     description: |
       Generate invite tokens for adding members to a team.
@@ -4485,10 +4489,6 @@ components:
     FacebookPlatformData:
       type: object
       properties:
-        draft:
-          type: boolean
-          description: When true, creates the post as a draft in Facebook Publishing Tools instead of publishing immediately. Supported for feed posts (text, link, image, video) and reels. Not supported for stories. Drafts expire after ~30 days.
-          default: false
         contentType:
           type: string
           enum: [story, reel]
@@ -4498,12 +4498,31 @@ components:
           description: Reel title (only for contentType=reel). Separate from the caption/content field.
         firstComment:
           type: string
-          description: Optional first comment to post immediately after publishing (feed posts and reels, not stories). Skipped when draft is true.
+          description: Optional first comment to post immediately after publishing (feed posts and reels, not stories). Skipped when facebookSettings.draft is true.
         pageId:
           type: string
           description: Target Facebook Page ID for multi-page posting. If omitted, uses the default page. Use GET /v1/accounts/{id}/facebook-page to list pages.
         geoRestriction:
           $ref: '#/components/schemas/GeoRestriction'
+        facebookSettings:
+          $ref: '#/components/schemas/FacebookSettings'
+      description: >
+        Feed posts support up to 10 images (no mixed video+image). Stories require single media (24h, no captions).
+        Reels require single vertical video (9:16, 3-60s). Geo-restriction is a hard visibility
+        restriction: users outside the specified countries cannot see the post. Not supported for stories.
+        Draft, carousel, and colored-background text options live under facebookSettings, see FacebookSettings.
+
+    FacebookSettings:
+      type: object
+      description: >
+        Facebook options that must be nested under platformSpecificData.facebookSettings, or sent
+        at the request root as facebookSettings. The remaining Facebook options sit directly on
+        platformSpecificData, see FacebookPlatformData.
+      properties:
+        draft:
+          type: boolean
+          description: When true, creates the post as a draft in Facebook Publishing Tools instead of publishing immediately. Supported for feed posts (text, link, image, video) and reels. Not supported for stories. Drafts expire after ~30 days.
+          default: false
         carouselCards:
           type: array
           minItems: 2
@@ -4552,11 +4571,6 @@ components:
             documents no API limit, so longer content publishes and returns a warning instead.
             A URL detected in the content is NOT attached as a link preview while a preset is
             set, because a link attachment also makes Facebook drop the background.
-      description: >
-        Feed posts support up to 10 images (no mixed video+image). Stories require single media (24h, no captions).
-        Reels require single vertical video (9:16, 3-60s). Carousel posts (carouselCards) render a 2-5 card
-        multi-link post, images only, mutually exclusive with story/reel. Geo-restriction is a hard visibility
-        restriction: users outside the specified countries cannot see the post. Not supported for stories.
 
     InstagramPlatformData:
       type: object
@@ -5705,6 +5719,31 @@ components:
           enum: [read-write, read]
           description: "'read-write' allows all operations, 'read' restricts to GET requests only"
           default: read-write
+    ConnectedApp:
+      type: object
+      description: |
+        An OAuth client (AI assistant / MCP connector) authorized by the user and still
+        holding at least one live token.
+      properties:
+        clientId: { type: string }
+        clientName:
+          type: string
+          description: 'Name the client declared at registration. Registration is open, so this is self-declared and not verified.'
+        redirectHost:
+          type: [string, "null"]
+          description: 'Host of the client''s registered redirect URI (non-http schemes are shown as scheme//host). The destination an impostor cannot fake.'
+        scopes:
+          type: array
+          items: { type: string }
+          description: Scopes granted on the most recent token.
+        authorizedAt: { type: [string, "null"], format: date-time }
+        lastUsedAt:
+          type: [string, "null"]
+          format: date-time
+          description: Last time any of the client's live tokens authenticated a request.
+        tokenCount:
+          type: integer
+          description: 'Live tokens held by the client (an active session is typically one access plus one refresh token).'
     BillingSnapshot:
       type: object
       description: |
@@ -6507,8 +6546,8 @@ components:
         cpm: { type: number, description: Cost per 1000 impressions }
         engagement: { type: integer }
         conversions:
-          type: integer
-          description: "Count of conversion events over the requested date range. Meta: events matching the campaign's promoted_object.custom_event_type (PURCHASE, LEAD, etc.). Google: the account's tracked conversions. X and LinkedIn: their reported website/lead conversions (added 2026-07). 0 for non-conversion campaigns or when no events have fired."
+          type: number
+          description: "Count of conversion events over the requested date range. FRACTIONAL: attribution splits one conversion across touchpoints and Google additionally reports modeled conversions, so values like 0.347 are normal. Meta: events matching the campaign's promoted_object.custom_event_type (PURCHASE, LEAD, etc.). Google: the account's tracked conversions. X and LinkedIn: their reported website/lead conversions (added 2026-07). 0 for non-conversion campaigns or when no events have fired."
         costPerConversion:
           type: number
           description: "Derived spend / conversions in the same currency as spend. 0 when conversions is 0."
@@ -6743,7 +6782,7 @@ components:
                   address: { type: string, description: "Optional label, sent to Meta as `address_string`. latitude/longitude take precedence for the pin location." }
         ageMin: { type: integer, minimum: 13, maximum: 100 }
         ageMax: { type: integer, minimum: 13, maximum: 100 }
-        gender: { type: string, enum: [all, male, female], description: "Restrict by gender. 'all' (default) targets everyone." }
+        gender: { type: string, enum: [all, male, female], description: "Restrict by gender. 'all' (default) targets everyone. Applied on Meta, TikTok and Pinterest. Ignored on Google, LinkedIn and X." }
         incomeTier:
           type: string
           enum: [top_5, top_10, top_10_25, top_25_50]
@@ -12576,8 +12615,8 @@ paths:
                   $ref: '#/components/schemas/TikTokPlatformData'
                   description: Root-level TikTok settings applied to all TikTok platforms. Merged into each platform's platformSpecificData, with platform-specific settings taking precedence.
                 facebookSettings:
-                  $ref: '#/components/schemas/FacebookPlatformData'
-                  description: Root-level Facebook settings applied to all Facebook platforms. Merged into each platform's platformSpecificData, with platform-specific settings taking precedence.
+                  $ref: '#/components/schemas/FacebookSettings'
+                  description: Root-level Facebook settings applied to all Facebook platforms. Merged into each platform's platformSpecificData.facebookSettings, with platform-specific settings taking precedence.
                 recycling:
                   $ref: '#/components/schemas/RecyclingConfig'
                 queuedFromProfile:
@@ -12631,6 +12670,20 @@ paths:
                       - link: "https://example.com/inventory/car-3"
                         name: "2024 Truck"
                         description: "Loaded"
+              facebookTextBackground:
+                summary: Facebook colored-background text post
+                description: |
+                  Renders the post as large text on a Facebook-defined colored background.
+                  Text-only: mediaItems and carouselCards are rejected, and contentType
+                  must not be story or reel.
+                value:
+                  content: "We just shipped something big."
+                  platforms:
+                    - platform: facebook
+                      accountId: "64e1f0a9e2b5af0012ab34cd"
+                  publishNow: true
+                  facebookSettings:
+                    textFormatPresetId: "1881421442117417"
               recyclingPost:
                 summary: Post with weekly recycling and content variations
                 value:
@@ -13178,8 +13231,8 @@ paths:
                   $ref: '#/components/schemas/TikTokPlatformData'
                   description: Root-level TikTok settings applied to all TikTok platforms. Merged into each platform's platformSpecificData, with platform-specific settings taking precedence.
                 facebookSettings:
-                  $ref: '#/components/schemas/FacebookPlatformData'
-                  description: Root-level Facebook settings applied to all Facebook platforms. Merged into each platform's platformSpecificData, with platform-specific settings taking precedence.
+                  $ref: '#/components/schemas/FacebookSettings'
+                  description: Root-level Facebook settings applied to all Facebook platforms. Merged into each platform's platformSpecificData.facebookSettings, with platform-specific settings taking precedence.
                 recycling:
                   $ref: '#/components/schemas/RecyclingConfig'
               additionalProperties: true
@@ -14751,6 +14804,92 @@ paths:
                 message: "API key deleted successfully"
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
+
+  /v1/me/connected-apps:
+    get:
+      operationId: listConnectedApps
+      tags: [Connected Apps]
+      summary: List connected apps
+      description: |
+        Returns the OAuth clients (AI assistants and MCP connectors) the authenticated
+        user has authorized and that still hold a live token.
+
+        Requires a session or a full-scope API key. A profile-scoped API key or an
+        OAuth access token is rejected with 403: an app must not be able to enumerate
+        its sibling authorizations.
+      responses:
+        '200':
+          description: Connected apps
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  connectedApps:
+                    type: array
+                    items: { $ref: '#/components/schemas/ConnectedApp' }
+              example:
+                connectedApps:
+                  - clientId: "late_cid_3f9c1a7b2d4e6f80a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718"
+                    clientName: "Claude"
+                    redirectHost: "claude.ai"
+                    scopes: ["posts:read", "posts:write", "accounts:read"]
+                    authorizedAt: "2026-07-02T09:14:00Z"
+                    lastUsedAt: "2026-07-30T18:02:11Z"
+                    tokenCount: 2
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: 'The calling credential may not manage OAuth authorizations (profile-scoped API key or OAuth access token). Error code: insufficient_permissions.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+  /v1/me/connected-apps/{clientId}:
+    delete:
+      operationId: revokeConnectedApp
+      tags: [Connected Apps]
+      summary: Revoke connected app
+      description: |
+        Ends an app's access: invalidates the client's pending authorization codes and
+        revokes every live token it holds for the authenticated user. Takes effect on
+        the app's next request.
+
+        Idempotent while the authorization is still on record: revoking an app that
+        was already revoked returns 200 with `revokedTokens: 0`.
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          description: 'OAuth client id, as returned by GET /v1/me/connected-apps.'
+          schema: { type: string, minLength: 1, maxLength: 200 }
+      responses:
+        '200':
+          description: Revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revoked: { type: boolean }
+                  clientId: { type: string }
+                  revokedTokens: { type: integer, description: 'Access and refresh tokens revoked by this call.' }
+                  invalidatedCodes: { type: integer, description: 'Pending authorization codes invalidated by this call.' }
+              example:
+                revoked: true
+                clientId: "late_cid_3f9c1a7b2d4e6f80a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718"
+                revokedTokens: 2
+                invalidatedCodes: 0
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: 'The calling credential may not manage OAuth authorizations (profile-scoped API key or OAuth access token). Error code: insufficient_permissions.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '404':
+          description: 'The authenticated user has never authorized this client. Error code: oauth_client_not_found.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
 
   /v1/invite/tokens:
     post:
@@ -19378,6 +19517,17 @@ paths:
                 noOrgForPersonMention:
                   value: { error: "No organization found. You need to be an admin of a LinkedIn organization to use person mentions. Organization mentions work without this requirement." }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: The account holds no organization role that can resolve person mentions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+              examples:
+                noPostingRole:
+                  value: { error: "LinkedIn blocked this lookup. Your account has no company page where it can create posts, which LinkedIn requires to resolve a person's profile URL. Ask for an Admin or Content Admin role on one of your pages, or mention a company instead." }
         '404':
           description: Person or organization not found
           content:
@@ -24394,7 +24544,10 @@ paths:
             (code USE_AD_COMMENTS_ENDPOINT — response includes `adId` and `adCommentsUrl`).
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
-          description: Inbox addon required
+          description: 'Inbox addon required, or the connected account is not permitted to read this post on the platform (code platform_api_error, type platform_error)'
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '502':
+          description: 'Upstream platform error (code platform_api_error, type platform_error)'
     post:
       operationId: replyToInboxPost
       summary: Reply to comment
@@ -24444,7 +24597,10 @@ paths:
           description: 'Invalid request (e.g. attachmentUrl on a platform other than Facebook, code PLATFORM_NOT_SUPPORTED)'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
-          description: Inbox addon required
+          description: 'Inbox addon required, or the connected account is not permitted to comment on this post on the platform (code platform_api_error, type platform_error)'
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '502':
+          description: 'Upstream platform error (code platform_api_error, type platform_error)'
     delete:
       operationId: deleteInboxComment
       summary: Delete comment
@@ -24481,7 +24637,7 @@ paths:
                     properties:
                       message: { type: string }
         '400':
-          description: Platform rejected the operation (e.g., comment already deleted, insufficient permissions on the video)
+          description: 'Platform rejected the operation (e.g., comment already deleted)'
           content:
             application/json:
               schema:
@@ -24490,7 +24646,10 @@ paths:
                   error: { type: string }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
-          description: Inbox addon required
+          description: 'Inbox addon required, or the connected account is not permitted to delete this comment on the platform (code platform_api_error, type platform_error)'
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '502':
+          description: 'Upstream platform error (code platform_api_error, type platform_error)'
 
   /v1/inbox/comments/{postId}/{commentId}:
     patch:
@@ -32738,7 +32897,7 @@ paths:
     post:
       operationId: bulkCreateContacts
       summary: Bulk create contacts
-      description: 'Import up to 1000 contacts at a time. Skips duplicates. On phone platforms (whatsapp, sms) the platformIdentifier is normalized to digits and a value that is not phone-shaped is rejected per contact and reported in errors[], not imported.'
+      description: 'Import up to 1000 contacts at a time. Skips duplicates, merging any new tags onto the existing contact. accountId is required whenever contacts carry a platformIdentifier (or a row-level accountId); platform is always derived from the resolved account, never used to decide whether channels are created, and a mismatched platform 404s as account not found. On phone platforms (whatsapp, sms) the platformIdentifier is normalized to digits and a value that is not phone-shaped is rejected per contact and reported in errors[], not imported.'
       tags: [Contacts]
       requestBody:
         required: true
@@ -32746,11 +32905,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [profileId, accountId, platform, contacts]
+              required: [profileId, contacts]
               properties:
                 profileId: { type: string }
-                accountId: { type: string }
-                platform: { type: string }
+                accountId: { type: string, description: 'Required when contacts carry channel data (platformIdentifier or a row-level accountId). Omit for a plain CRM import with no channels.' }
+                platform: { type: string, description: 'Ignored when accountId is set: the platform is derived from the resolved account. Only relevant to disambiguate accountId lookup; a mismatch 404s.' }
                 contacts:
                   type: array
                   maxItems: 1000
@@ -32777,7 +32936,7 @@ paths:
                   skipped: { type: integer }
                   errors: { type: array, items: { type: string }, description: 'Per-contact failures, e.g. an identifier that is not a valid phone number' }
                   total: { type: integer }
-        '400': { description: Invalid request }
+        '400': { description: 'Missing required field, or a row carries platformIdentifier/accountId with no top-level accountId to attach it to' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /v1/contacts/{contactId}/fields/{slug}:
@@ -34751,6 +34910,18 @@ paths:
       security:
         - bearerAuth: []
       parameters:
+        - name: includeEmpty
+          in: query
+          required: false
+          schema: { type: boolean }
+          description: >-
+            Meta only. Campaign reads aggregate over ad documents, so a campaign
+            with ZERO ads is normally invisible here — the state the two-step
+            create (campaign, then ads via `existingCampaignId`) leaves behind
+            whenever Meta rejects the ad step. Set true to list those too, with
+            `adCount: 0` and zeroed metrics. Requires `accountId` and
+            `adAccountId`, since an empty campaign has no ad row to resolve a
+            token or ad account from.
         - $ref: '#/components/parameters/PageParam'
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
         - { name: source, in: query, schema: { type: string, enum: [zernio, all], default: all }, description: "`all` (default) returns both Zernio-created ads and those discovered from the platform's ad manager — matches the web UI's default view. Pass `zernio` to restrict to isExternal=false only. Status is NOT filtered by default — use the `status` param for that." }
@@ -34790,8 +34961,21 @@ paths:
         (CBO) by definition; omit it for ABO (each ad set carries its own budget). Created
         `PAUSED` unless `status: ACTIVE`. The campaign materializes in `/v1/ads/tree` via the
         next sync discovery pass.
+
+        **Idempotency:** send an `Idempotency-Key` header to make retries safe.
       security:
         - bearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string, maxLength: 255 }
+          description: >-
+            Optional client-generated unique key (e.g. a UUID) that makes
+            retries safe. Same key + same body replays the original response;
+            same key + different body → 422; key still processing → 409. Only
+            2xx responses are stored, so a request that failed with a 4xx can
+            be retried with a corrected body under the SAME key.
       requestBody:
         required: true
         content:
@@ -34810,9 +34994,15 @@ paths:
                 specialAdCategories:
                   type: array
                   items: { type: string, enum: [HOUSING, EMPLOYMENT, CREDIT, ISSUES_ELECTIONS_POLITICS, FINANCIAL_PRODUCTS_SERVICES, ONLINE_GAMBLING_AND_GAMING] }
-                budgetAmount: { type: number, description: "Campaign-level (CBO) budget in whole currency units. Requires budgetType." }
+                budgetAmount: { type: number, description: "Campaign-level (CBO) budget in WHOLE currency units (USD: 50 = $50.00), NOT cents — Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Requires budgetType." }
                 budgetType: { type: string, enum: [daily, lifetime] }
                 status: { type: string, enum: [ACTIVE, PAUSED], default: PAUSED }
+                bidStrategy:
+                  type: string
+                  enum: [LOWEST_COST_WITHOUT_CAP, LOWEST_COST_WITH_BID_CAP, COST_CAP, LOWEST_COST_WITH_MIN_ROAS]
+                  description: "Campaign bid strategy. Meta stores `bid_strategy` alongside the budget, so this REQUIRES `budgetAmount` + `budgetType` on the same request; sending it without a campaign budget is a 400. A campaign carrying a strategy without its `bid_amount` makes every ad set created under it fail with an error that names the ad set (code 100, subcode 1815857), so the bad state is rejected up front rather than accepted. To bid at ad-set level, set the strategy there instead."
+                bidAmount: { type: number, description: "Whole currency units (USD: 5 = $5.00). Required for LOWEST_COST_WITH_BID_CAP and COST_CAP; ignored otherwise." }
+                roasAverageFloor: { type: number, description: "Decimal ROAS multiplier (2.0 = 2.0x). Required for LOWEST_COST_WITH_MIN_ROAS." }
       responses:
         '201':
           description: Campaign created
@@ -34879,6 +35069,12 @@ paths:
       description: |
         Campaign-level edits. At least one of `budget`, `bidStrategy`, `name` or `platformSpecificData` is required.
 
+        **Empty campaigns.** A campaign with zero ads has no local Ad documents to
+        resolve, so this would 404 even though it exists on Meta. Send `accountId`
+        in the body to skip the local lookup and forward the update to Meta. The
+        response then carries `updated: 0`, since there are no local rows to mirror
+        onto. `accountId` is ignored when the campaign does have ads.
+
         - `budget` updates the CBO (Campaign Budget Optimization) budget. For ABO campaigns
           (where the budget lives on the ad set), use PUT /v1/ads/ad-sets/{adSetId} instead — this endpoint
           will return 409 with code BUDGET_LEVEL_MISMATCH.
@@ -34900,6 +35096,7 @@ paths:
               type: object
               required: [platform]
               properties:
+                accountId: { type: string, description: "Zernio SocialAccount id owning the ad account. Required only to update an EMPTY campaign (zero ads), which has no local Ad documents to resolve a token from." }
                 platform: { type: string, enum: [facebook, instagram] }
                 budget:
                   type: object
@@ -34950,6 +35147,14 @@ paths:
 
         Meta-only for now. Other platforms return 501 Not Implemented — fall
         back to DELETE /v1/ads/{adId} per ad in the meantime.
+
+        **Empty campaigns.** A campaign with zero ads has no local Ad documents
+        to resolve, so it is invisible to `/v1/ads/tree` and this endpoint would
+        404. That state is produced by the two-step create flow (campaign, then
+        ads via `existingCampaignId`) whenever Meta rejects the ad step. To
+        delete such a shell, send `accountId` in the body: we skip the local
+        lookup entirely and forward the delete to Meta. `accountId` is ignored
+        when the campaign does have ads.
       security:
         - bearerAuth: []
       parameters:
@@ -34963,6 +35168,7 @@ paths:
               required: [platform]
               properties:
                 platform: { type: string, enum: [facebook, instagram] }
+                accountId: { type: string, description: "Zernio SocialAccount id owning the ad account. Required only to delete an EMPTY campaign (zero ads), which has no local Ad documents to resolve a token from." }
       responses:
         '200':
           description: Campaign deleted
@@ -35074,6 +35280,16 @@ paths:
       security:
         - bearerAuth: []
       parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string, maxLength: 255 }
+          description: >-
+            Optional client-generated unique key (e.g. a UUID) that makes
+            retries safe. Same key + same body replays the original response;
+            same key + different body → 422; key still processing → 409. Only
+            2xx responses are stored, so a request that failed with a 4xx can
+            be retried with a corrected body under the SAME key.
         - { name: campaignId, in: path, required: true, schema: { type: string }, description: Source platform campaign ID }
       requestBody:
         required: true
@@ -35136,6 +35352,16 @@ paths:
       security:
         - bearerAuth: []
       parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string, maxLength: 255 }
+          description: >-
+            Optional client-generated unique key (e.g. a UUID) that makes
+            retries safe. Same key + same body replays the original response;
+            same key + different body → 422; key still processing → 409. Only
+            2xx responses are stored, so a request that failed with a 4xx can
+            be retried with a corrected body under the SAME key.
         - { name: adSetId, in: path, required: true, schema: { type: string }, description: Source platform ad set ID }
       requestBody:
         required: true
@@ -35185,6 +35411,16 @@ paths:
       security:
         - bearerAuth: []
       parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema: { type: string, maxLength: 255 }
+          description: >-
+            Optional client-generated unique key (e.g. a UUID) that makes
+            retries safe. Same key + same body replays the original response;
+            same key + different body → 422; key still processing → 409. Only
+            2xx responses are stored, so a request that failed with a 4xx can
+            be retried with a corrected body under the SAME key.
         - { name: adId, in: path, required: true, schema: { type: string }, description: Zernio ad ID or platform ad ID }
       requestBody:
         required: false
@@ -35507,7 +35743,7 @@ paths:
                         ctr: { type: number, description: "Click-through rate as a percentage (0–100)." }
                         cpc: { type: number, description: "Cost per click in native currency." }
                         cpm: { type: number, description: "Cost per 1000 impressions in native currency." }
-                        conversions: { type: integer, description: "Sum of conversion events over the range. Meta: events matching the campaign optimization goal. Google: tracked conversions. X / LinkedIn: reported website/lead conversions (added 2026-07)." }
+                        conversions: { type: number, description: "Sum of conversion events over the range. Fractional values are normal (attribution splitting + Google modeled conversions). Meta: events matching the campaign optimization goal. Google: tracked conversions. X / LinkedIn: reported website/lead conversions (added 2026-07)." }
                         costPerConversion: { type: number }
                         actions:
                           type: object
@@ -37252,7 +37488,7 @@ paths:
                   properties:
                     ageMin: { type: integer, minimum: 13, maximum: 65 }
                     ageMax: { type: integer, minimum: 13, maximum: 65 }
-                    gender: { type: string, enum: [all, male, female], description: "Meta only." }
+                    gender: { type: string, enum: [all, male, female], description: "Applied on Meta, TikTok and Pinterest. Ignored on Google, LinkedIn and X." }
                     languages: { type: array, items: { type: string }, description: "Meta locale ids (numeric), passed through as given." }
                     countries: { type: array, items: { type: string }, description: "ISO country codes. Required for TikTok boosts (TikTok's ad group requires location_ids); optional on other platforms." }
                     regions:
@@ -37543,7 +37779,7 @@ paths:
                 validateOnly:
                   type: boolean
                   description: 'Meta only, single standalone shape only (no creatives[], adSetId, or RESERVED). Dry-run: each node runs Meta''s execution_options validate_only and NOTHING is created or persisted. Children need real parents, so a fresh tree validates the campaign + creative (the ad set needs its campaign to exist — pass existingCampaignId to validate it too; the ad itself is never validatable pre-create). A Meta validation failure returns the 400 verbatim; success returns 200 with per-node results instead of an ad.'
-                budgetAmount: { type: number, description: "Required on legacy + multi-creative shapes. Inherited on attach. OpenAI Ads requires a $1 minimum (its budget is lifetime-only, see budgetType)." }
+                budgetAmount: { type: number, description: "Budget in WHOLE currency units (USD: 50 = $50.00), NOT cents — Meta's own Marketing API takes this same number in minor units, so it is an easy and expensive mix-up. Required on legacy + multi-creative shapes. Inherited on attach. OpenAI Ads requires a $1 minimum (its budget is lifetime-only, see budgetType)." }
                 budgetType: { type: string, enum: [daily, lifetime], description: "Required on legacy + multi-creative shapes. Inherited on attach. OpenAI Ads accepts lifetime only (no daily-budget concept on the platform); sending daily returns 422. OpenAI Ads lifetime budgets require `endDate` to give the lifetime cap a spend window." }
                 status:
                   type: string
@@ -37580,9 +37816,9 @@ paths:
                 video:
                   type: object
                   description: "Meta (facebook, instagram) and LinkedIn. When set, creates a VIDEO ad on the legacy (or, for Meta, attach) shape. Mutually exclusive with `imageUrl`. For Meta multi-creative, set `video` per entry inside `creatives[]` instead. For LinkedIn the video is uploaded to LinkedIn under the authoring Company Page (see `organizationId`) and the campaign format is set to SINGLE_VIDEO; LinkedIn ignores `thumbnailUrl` (it auto-generates the poster frame) — supply MP4 H.264/AAC, 3s-30min, 75KB-500MB."
-                  required: [url]
                   properties:
-                    url: { type: string, format: uri, description: "Public URL of the video. Meta: uploaded via chunked transfer on /act_X/advideos, then the request blocks on Meta's transcoding until status.video_status === 'ready'. LinkedIn: uploaded via the Videos API (multipart), then the request blocks until LinkedIn finishes transcoding (status AVAILABLE) — short clips take ~10-30s." }
+                    url: { type: string, format: uri, description: "Public URL of the video. Meta: uploaded via chunked transfer on /act_X/advideos, then the request blocks on Meta's transcoding until status.video_status === 'ready'. LinkedIn: uploaded via the Videos API (multipart), then the request blocks until LinkedIn finishes transcoding (status AVAILABLE) — short clips take ~10-30s. Provide either `url` or `id`."}
+                    id: { type: string, description: "Meta only. Reuse a video ALREADY uploaded to this ad account instead of re-uploading the file: pass the `videoId` returned by a previous create. Wins over `url`, so N ads that differ only in copy share one upload (`existingCreativeId` only covers the identical-copy case). Provide either `url` or `id`."}
                     thumbnailUrl: { type: string, format: uri, description: "Public URL of a still-image thumbnail for the video. OPTIONAL: when omitted on Meta, the poster is auto-generated from Meta's own preferred video thumbnail (the same candidates Ads Manager shows), so video ads publish without supplying one. Provide it to control the poster frame exactly (uploaded as an ad image and referenced in object_story_spec.video_data). Ignored by LinkedIn (auto-generated poster frame)." }
                 creatives:
                   type: array
@@ -37913,6 +38149,55 @@ paths:
                       headline: { type: string, maxLength: 255, description: "Card headline, shown below the card image." }
                       description: { type: string, maxLength: 255, description: "Card description, shown under the headline." }
                       callToAction: { type: string, description: "Card CTA override. Defaults to the top-level callToAction; same enum." }
+                defaultLocale:
+                  type: string
+                  description: "Meta only. Language the top-level copy is written in (e.g. `en`, `pt_BR`), used by the `translations` default rule. Defaults to `en`. Meta rejects a language asset feed whose default rule carries no locales of its own. Must NOT also appear as an entry in `translations`."
+                translations:
+                  type: array
+                  minItems: 1
+                  maxItems: 10
+                  description: |
+                    Meta only. Multi-language ads (Dynamic Language Optimization): ONE ad carrying
+                    per-locale copy and, optionally, per-locale media — the "Languages" toggle in Ads
+                    Manager. Keeps social proof (likes/comments/shares) on a SINGLE post instead of
+                    splitting it across one ad per language.
+
+                    The ad's top-level copy is the DEFAULT shown to every locale you do NOT list,
+                    and it counts as one of the language variants.
+
+                    IMPORTANT, and the opposite of what you might expect: text does NOT inherit.
+                    Every entry must carry its own `headline`, `body` AND `description`, and all of
+                    them must be DISTINCT from each other and from the ad's top-level copy. Meta
+                    deduplicates identical strings inside the asset feed, so two locales sharing a
+                    string collapse into one asset and the create fails with a misleading "Too few
+                    ... texts provided in asset creation" (subcode 1885817) that names a field which
+                    is actually present. We validate this before calling Meta and return a 400
+                    naming the offending locale and field. `description` is therefore effectively
+                    required on the ad whenever `translations` is present, even though it is
+                    optional otherwise.
+
+                    Do NOT list `defaultLocale` inside `translations`: Meta rejects the duplicate
+                    with "The language asset feed includes an unsupported targeting field"
+                    (subcode 1885985).
+
+                    Media DOES inherit and is uploaded once when shared. Note that Meta enforces
+                    Dynamic Creative image dimensions on language feeds, so an `imageUrl` that
+                    works on a normal ad may be rejected with "The following images have invalid
+                    dimensions for Dynamic Creative" (subcode 1885558). Video is not affected.
+
+                    Mutually exclusive with `dynamicCreative`, `placementAssets`, `carouselCards` and
+                    `existingCreativeId` — Meta allows one `asset_feed_spec` shape per creative.
+                  items:
+                    type: object
+                    required: [locale, headline, body, description]
+                    properties:
+                      locale: { type: string, description: "Language code, resolved to Meta's numeric locale id. Bare codes target the '(All)' umbrella (`es` = every Spanish variant); region-qualified codes target the variant (`pt_BR`, `en_GB`)." }
+                      headline: { type: string, maxLength: 255, description: "Headline for this language. REQUIRED, and must differ from every other locale and from the ad's top-level headline." }
+                      body: { type: string, description: "Primary text for this language. REQUIRED, and must differ from every other locale and from the ad's top-level body." }
+                      description: { type: string, maxLength: 255, description: "Link description for this language. REQUIRED, and must differ from every other locale and from the ad's top-level description." }
+                      imageUrl: { type: string, format: uri, description: "Image for this language. Inherits the ad's `imageUrl` when omitted. The feed is all-image OR all-video." }
+                      videoUrl: { type: string, format: uri, description: "Video for this language. Inherits the ad's `video.url` when omitted. The feed is all-image OR all-video." }
+                      thumbnailUrl: { type: string, format: uri, description: "Poster frame for this language's video." }
                 placementAssets:
                   type: object
                   description: |
@@ -38027,7 +38312,7 @@ paths:
                     `VIEW_THROUGH: 1`; `CLICK_THROUGH: 28` only on certain objectives. Invalid combos
                     surface as a Meta 400.
                     Example: `[{ "eventType": "CLICK_THROUGH", "windowDays": 7 }, { "eventType": "VIEW_THROUGH", "windowDays": 1 }]`
-                gender: { type: string, enum: [all, male, female], default: all, description: "Meta only. Restrict the audience by gender. 'male' targets men only, 'female' targets women only, 'all' (default) targets everyone. Ignored by non-Meta platforms." }
+                gender: { type: string, enum: [all, male, female], default: all, description: "Restrict the audience by gender. 'male' targets men only, 'female' targets women only, 'all' (default) targets everyone. Applied on Meta, TikTok and Pinterest. Ignored on Google, LinkedIn and X." }
                 bidStrategy:
                   allOf: [{ $ref: '#/components/schemas/BidStrategy' }]
                   description: "Meta bid strategy applied to the ad set."

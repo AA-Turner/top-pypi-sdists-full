@@ -27,14 +27,6 @@ else:
         pass
 
 
-# time.clock_gettime and time.CLOCK_REALTIME not always available
-# e.g. on builds against old macOS = official Python.org installer
-try:
-    from time import CLOCK_REALTIME
-except ImportError:
-    # Dummy value that won't compare equal to any value
-    CLOCK_REALTIME = sys.maxsize  # type: ignore[misc]
-
 try:
     from time import tzset
 
@@ -74,6 +66,21 @@ SYSTEM_EPOCH_TIMESTAMP_NS = int(
     ).timestamp()
     * NANOSECONDS_PER_SECOND
 )
+
+# uuid1(), uuid6(), and uuid7() cache the timestamp of the last value they
+# generated in a module-level global, and never generate a value before it.
+# We therefore clear those caches when we travel backwards in time, so that
+# those functions generate values with correct timestamps.
+_uuid_dict = uuid.__dict__
+_uuid_reset = {"_last_timestamp": None}
+if sys.version_info >= (3, 14):
+    _uuid_reset["_last_timestamp_v6"] = None
+    _uuid_reset["_last_timestamp_v7"] = None
+
+
+def _reset_uuid_timestamps() -> None:
+    _uuid_dict.update(_uuid_reset)
+
 
 DestinationBaseType: TypeAlias = (
     int | float | dt.datetime | dt.timedelta | dt.date | str
@@ -201,9 +208,6 @@ class Traveller:
         self._tick = tick
         self._requested = False
 
-    def time(self) -> float:
-        return self.time_ns() / NANOSECONDS_PER_SECOND
-
     def time_ns(self) -> int:
         if not self._tick:
             return self._destination_timestamp_ns
@@ -228,6 +232,11 @@ class Traveller:
 
         self._destination_timestamp_ns += int(total_seconds * NANOSECONDS_PER_SECOND)
 
+        if total_seconds < 0:
+            # Moving forwards leaves the cached uuid timestamps in the past, so
+            # only pay for resetting them when moving backwards.
+            _reset_uuid_timestamps()
+
     def move_to(
         self,
         destination: DestinationType,
@@ -242,6 +251,8 @@ class Traveller:
             self._tick = tick
 
     def _start(self) -> None:
+        _reset_uuid_timestamps()
+
         if HAVE_TZSET and self._destination_tzname is not None:
             self._orig_tz = os.environ.get("TZ")
             os.environ["TZ"] = self._destination_tzname
@@ -299,6 +310,8 @@ class travel:
 
     def stop(self) -> None:
         traveller_stack.pop()._stop()
+
+        _reset_uuid_timestamps()
 
         if not traveller_stack:
             _time_machine.unpatch()
@@ -402,69 +415,6 @@ class travel:
             return cast(_F, wrapper)
 
 
-# datetime module
-
-
-def now(tz: dt.tzinfo | None = None) -> dt.datetime:
-    return dt.datetime.fromtimestamp(time(), tz)
-
-
-def utcnow() -> dt.datetime:
-    return dt.datetime.fromtimestamp(time(), dt.timezone.utc).replace(tzinfo=None)
-
-
-# time module
-
-
-def clock_gettime(clk_id: int) -> float:
-    if clk_id != CLOCK_REALTIME:
-        result: float = _time_machine.original_clock_gettime(clk_id)
-        return result
-    return time()
-
-
-def clock_gettime_ns(clk_id: int) -> int:
-    if clk_id != CLOCK_REALTIME:
-        result: int = _time_machine.original_clock_gettime_ns(clk_id)
-        return result
-    return time_ns()
-
-
-def gmtime(secs: float | None = None) -> struct_time:
-    result: struct_time
-    if secs is not None:
-        result = _time_machine.original_gmtime(secs)
-    else:
-        result = _time_machine.original_gmtime(traveller_stack[-1].time())
-    return result
-
-
-def localtime(secs: float | None = None) -> struct_time:
-    result: struct_time
-    if secs is not None:
-        result = _time_machine.original_localtime(secs)
-    else:
-        result = _time_machine.original_localtime(traveller_stack[-1].time())
-    return result
-
-
-def strftime(format: str, t: _TimeTuple | struct_time | None = None) -> str:
-    result: str
-    if t is not None:
-        result = _time_machine.original_strftime(format, t)
-    else:
-        result = _time_machine.original_strftime(format, localtime())
-    return result
-
-
-def time() -> float:
-    return traveller_stack[-1].time()
-
-
-def time_ns() -> int:
-    return traveller_stack[-1].time_ns()
-
-
 # pytest plugin
 
 if HAVE_PYTEST:  # pragma: no branch
@@ -535,9 +485,21 @@ if HAVE_PYTEST:  # pragma: no branch
 # escape hatch
 
 
+class _EscapeHatchDatetimeDate:
+    def today(self) -> dt.date:
+        # date.today() is equivalent to datetime.now().date().
+        result: dt.datetime = _time_machine.original_now(None)
+        return result.date()
+
+
 class _EscapeHatchDatetimeDatetime:
     def now(self, tz: dt.tzinfo | None = None) -> dt.datetime:
         result: dt.datetime = _time_machine.original_now(tz)
+        return result
+
+    def today(self) -> dt.datetime:
+        # datetime.today() is equivalent to datetime.now() without a timezone.
+        result: dt.datetime = _time_machine.original_now(None)
         return result
 
     def utcnow(self) -> dt.datetime:
@@ -547,6 +509,7 @@ class _EscapeHatchDatetimeDatetime:
 
 class _EscapeHatchDatetime:
     def __init__(self) -> None:
+        self.date = _EscapeHatchDatetimeDate()
         self.datetime = _EscapeHatchDatetimeDatetime()
 
 

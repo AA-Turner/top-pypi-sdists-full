@@ -5,7 +5,7 @@ import ast
 import sys
 import warnings
 from collections import defaultdict
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from functools import partial
 
 from tokenize_rt import (
@@ -19,6 +19,7 @@ from tokenize_rt import (
 
 CODE = "CODE"
 DEDENT = "DEDENT"
+INDENT = "INDENT"
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -134,7 +135,7 @@ def visit(tree: ast.Module) -> Mapping[Offset, list[TokenFunc]]:
     This is a placeholder function; actual implementation would depend on
     the specific migration logic.
     """
-    ret = defaultdict(list)
+    ret: defaultdict[Offset, list[TokenFunc]] = defaultdict(list)
     freezegun_import_seen = False
     freeze_time_import_seen = False
     for node in ast.walk(tree):
@@ -147,108 +148,98 @@ def visit(tree: ast.Module) -> Mapping[Offset, list[TokenFunc]]:
                 freezegun_import_seen = True
                 ret[ast_start_offset(node)].append(replace_import)
             case ast.ImportFrom() if (
-                node.module == "freezegun"
-                and len(node.names) == 1
-                and (alias := node.names[0]).name == "freeze_time"
-                and alias.asname is None
+                node.level == 0
+                and node.module == "freezegun"
+                and any(
+                    alias.name == "freeze_time" and alias.asname is None
+                    for alias in node.names
+                )
             ):
                 freeze_time_import_seen = True
                 ret[ast_start_offset(node)].append(
-                    partial(replace_import_from, node=node)
+                    partial(
+                        replace_import_from,
+                        node=node,
+                        keep=[
+                            unparse_alias(alias)
+                            for alias in node.names
+                            if alias.name != "freeze_time" or alias.asname is not None
+                        ],
+                    )
                 )
-            case ast.FunctionDef():
+            case ast.FunctionDef() | ast.AsyncFunctionDef():
                 for decorator in node.decorator_list:
-                    if (
-                        isinstance(decorator, ast.Call)
-                        and migratable_call(decorator)
-                        and (
-                            (
-                                freezegun_import_seen
-                                and isinstance(decorator.func, ast.Attribute)
-                                and decorator.func.attr == "freeze_time"
-                                and isinstance(decorator.func.value, ast.Name)
-                                and decorator.func.value.id == "freezegun"
-                            )
-                            or (
-                                freeze_time_import_seen
-                                and isinstance(decorator.func, ast.Name)
-                                and decorator.func.id == "freeze_time"
-                            )
-                        )
-                    ):
-                        ret[ast_start_offset(decorator.func)].append(
-                            partial(switch_to_travel, node=decorator.func)
-                        )
-                        ret[ast_start_offset(decorator)].append(
-                            partial(add_tick_false, node=decorator)
-                        )
+                    maybe_migrate_call(
+                        ret,
+                        decorator,
+                        freezegun_import_seen=freezegun_import_seen,
+                        freeze_time_import_seen=freeze_time_import_seen,
+                    )
 
             case ast.ClassDef() if node.decorator_list and looks_like_unittest_class(
                 node
             ):
                 for decorator in node.decorator_list:
-                    if (
-                        isinstance(decorator, ast.Call)
-                        and migratable_call(decorator)
-                        and (
-                            (
-                                freezegun_import_seen
-                                and isinstance(decorator.func, ast.Attribute)
-                                and decorator.func.attr == "freeze_time"
-                                and isinstance(decorator.func.value, ast.Name)
-                                and decorator.func.value.id == "freezegun"
-                            )
-                            or (
-                                freeze_time_import_seen
-                                and isinstance(decorator.func, ast.Name)
-                                and decorator.func.id == "freeze_time"
-                            )
-                        )
-                    ):
-                        ret[ast_start_offset(decorator.func)].append(
-                            partial(switch_to_travel, node=decorator.func)
-                        )
-                        ret[ast_start_offset(decorator)].append(
-                            partial(add_tick_false, node=decorator)
-                        )
+                    maybe_migrate_call(
+                        ret,
+                        decorator,
+                        freezegun_import_seen=freezegun_import_seen,
+                        freeze_time_import_seen=freeze_time_import_seen,
+                    )
 
             case ast.With():
                 for item in node.items:
-                    context_expr = item.context_expr
-                    if (
-                        isinstance(context_expr, ast.Call)
-                        and migratable_call(context_expr)
-                        and item.optional_vars is None
-                        and (
-                            (
-                                freezegun_import_seen
-                                and isinstance(context_expr.func, ast.Attribute)
-                                and context_expr.func.attr == "freeze_time"
-                                and isinstance(context_expr.func.value, ast.Name)
-                                and context_expr.func.value.id == "freezegun"
-                            )
-                            or (
-                                freeze_time_import_seen
-                                and isinstance(context_expr.func, ast.Name)
-                                and context_expr.func.id == "freeze_time"
-                            )
-                        )
-                    ):
-                        ret[ast_start_offset(context_expr.func)].append(
-                            partial(switch_to_travel, node=context_expr.func)
-                        )
-                        ret[ast_start_offset(context_expr)].append(
-                            partial(add_tick_false, node=context_expr)
+                    if item.optional_vars is None:
+                        maybe_migrate_call(
+                            ret,
+                            item.context_expr,
+                            freezegun_import_seen=freezegun_import_seen,
+                            freeze_time_import_seen=freeze_time_import_seen,
                         )
 
-    return ret  # type: ignore [return-value]
+    return ret
+
+
+def maybe_migrate_call(
+    ret: MutableMapping[Offset, list[TokenFunc]],
+    node: ast.expr,
+    *,
+    freezegun_import_seen: bool,
+    freeze_time_import_seen: bool,
+) -> None:
+    """
+    Add the callbacks to rewrite the given expression, if it is a migratable
+    call to freezegun’s freeze_time().
+    """
+    if not isinstance(node, ast.Call) or not migratable_call(node):
+        return
+
+    func = node.func
+    if not (
+        (
+            freezegun_import_seen
+            and isinstance(func, ast.Attribute)
+            and func.attr == "freeze_time"
+            and isinstance(func.value, ast.Name)
+            and func.value.id == "freezegun"
+        )
+        or (
+            freeze_time_import_seen
+            and isinstance(func, ast.Name)
+            and func.id == "freeze_time"
+        )
+    ):
+        return
+
+    ret[ast_start_offset(func)].append(partial(switch_to_travel, node=func))
+    if not any(kw.arg == "tick" for kw in node.keywords):
+        ret[ast_start_offset(node)].append(partial(add_tick_false, node=node))
 
 
 def migratable_call(node: ast.Call) -> bool:
-    return (
-        len(node.args) == 1
-        # We could allow tick being set, as long as we didn't then add it
-        and len(node.keywords) == 0
+    return len(node.args) == 1 and (
+        len(node.keywords) == 0
+        or (len(node.keywords) == 1 and node.keywords[0].arg == "tick")
     )
 
 
@@ -348,9 +339,34 @@ def replace_import(tokens: list[Token], i: int) -> None:
     tokens[i] = Token(name="NAME", src="time_machine")
 
 
-def replace_import_from(tokens: list[Token], i: int, node: ast.ImportFrom) -> None:
+def unparse_alias(alias: ast.alias) -> str:
+    if alias.asname is not None:
+        return f"{alias.name} as {alias.asname}"
+    return alias.name
+
+
+def replace_import_from(
+    tokens: list[Token], i: int, node: ast.ImportFrom, keep: list[str]
+) -> None:
+    """
+    Replace a from-import of freeze_time with `import time_machine`, re-adding
+    a from-import of any other names that were imported alongside it.
+    """
     j = find_last_token(tokens, i, node=node)
-    tokens[i : j + 1] = [Token(name=CODE, src="import time_machine")]
+    src = "import time_machine"
+    if keep:
+        src += f"\n{line_indent(tokens, i)}from {node.module} import {', '.join(keep)}"
+    tokens[i : j + 1] = [Token(name=CODE, src=src)]
+
+
+def line_indent(tokens: list[Token], i: int) -> str:
+    """
+    Return the whitespace indenting the line that the given token starts.
+    """
+    if i > 0 and tokens[i - 1].name in (INDENT, UNIMPORTANT_WS):
+        # no types for tokenize-rt
+        return tokens[i - 1].src  # type: ignore [no-any-return]
+    return ""
 
 
 def switch_to_travel(
@@ -362,7 +378,7 @@ def switch_to_travel(
 
 def add_tick_false(tokens: list[Token], i: int, node: ast.Call) -> None:
     """
-    Add `tick=False` to the function call.
+    Add `tick=False` to the function call, unless `tick` is already set.
     """
     j = find_last_token(tokens, i, node=node)
     tokens.insert(j, Token(name=CODE, src=", tick=False"))

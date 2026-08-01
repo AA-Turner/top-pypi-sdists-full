@@ -259,10 +259,6 @@ class CacheTest(g.unittest.TestCase):
         # of the subclassed `ndarray` and see if we can get trackedarray
         # to return incorrect hashes. Hopefully this catches new methods
 
-        # only run this test on python 3+ as they changed tobytes
-        if not g.PY3:
-            return
-
         import itertools
         import warnings
 
@@ -288,7 +284,8 @@ class CacheTest(g.unittest.TestCase):
             False,
             False,
             g.random(dim),
-            g.random(dim[::1]),
+            # `[::1]` was a no-op slice so this was a duplicate of the above
+            g.random(dim[::-1]),
             "shape",
         ]
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qualang-tools
-Version: 0.22.0
+Version: 0.23.0
 Summary: The qualang_tools package includes various tools related to QUA programs in Python
 License: BSD-3-Clause
 License-File: LICENSE
@@ -35,6 +35,7 @@ Requires-Dist: ipython (>=8.10.0,<9.0.0) ; extra == "interplot"
 Requires-Dist: matplotlib (>=3.8.0,<4.0.0)
 Requires-Dist: netCDF4 (>=1.7.2,<2.0.0) ; extra == "datahandler"
 Requires-Dist: numpy (<3)
+Requires-Dist: packaging (>=20.0)
 Requires-Dist: pandas (>=1.2.4) ; extra == "configbuilder"
 Requires-Dist: pypiwin32 (>=223,<224) ; (sys_platform == "win32") and (extra == "interplot")
 Requires-Dist: qm-qua (>=1.2.3)
@@ -43,7 +44,7 @@ Requires-Dist: scipy (>=1.11.0) ; python_version >= "3.9" and python_version < "
 Requires-Dist: scipy (>=1.15.0) ; python_version >= "3.13"
 Requires-Dist: tqdm (>=4.67.1,<5.0.0) ; extra == "two-qubit-rb"
 Requires-Dist: waitress (>=3.0.1,<4.0.0) ; extra == "configbuilder"
-Requires-Dist: xarray (>=2023.0.0,<2024.0.0) ; extra == "datahandler" or extra == "two-qubit-rb"
+Requires-Dist: xarray (>=2023.0.0,<2025.0.0)
 Project-URL: Homepage, https://github.com/qua-platform/py-qua-tools
 Description-Content-Type: text/markdown
 

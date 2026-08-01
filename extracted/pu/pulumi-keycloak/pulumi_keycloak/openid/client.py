@@ -40,7 +40,7 @@ class ClientArgs:
                  client_secret: pulumi.Input[Optional[_builtins.str]] = None,
                  client_secret_regenerate_when_changed: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  client_secret_wo: pulumi.Input[Optional[_builtins.str]] = None,
-                 client_secret_wo_version: pulumi.Input[Optional[_builtins.int]] = None,
+                 client_secret_wo_version: pulumi.Input[Optional[_builtins.str]] = None,
                  client_session_idle_timeout: pulumi.Input[Optional[_builtins.str]] = None,
                  client_session_max_lifespan: pulumi.Input[Optional[_builtins.str]] = None,
                  consent_required: pulumi.Input[Optional[_builtins.bool]] = None,
@@ -80,9 +80,9 @@ class ClientArgs:
 
         :param pulumi.Input[_builtins.str] access_type: Specifies the type of client, which can be one of the following:
                - `CONFIDENTIAL` - Used for server-side clients that require both client ID and secret when authenticating.
-               This client should be used for applications using the Authorization Code or Client Credentials grant flows.
+                 This client should be used for applications using the Authorization Code or Client Credentials grant flows.
                - `PUBLIC` - Used for browser-only applications that do not require a client secret, and instead rely only on authorized redirect
-               URIs for security. This client should be used for applications using the Implicit grant flow.
+                 URIs for security. This client should be used for applications using the Implicit grant flow.
                - `BEARER-ONLY` - Used for services that never initiate a login. This client will only allow bearer token requests.
         :param pulumi.Input[_builtins.str] realm_id: The realm this client is attached to.
         :param pulumi.Input[_builtins.str] access_token_lifespan: The amount of time in seconds before an access token expires. This will override the default for the realm.
@@ -107,7 +107,7 @@ class ClientArgs:
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] client_secret_regenerate_when_changed: Arbitrary map of values that, when changed, will trigger rotation of the secret. NOTE! Conflicts with `client_secret`, `client_secret_wo` and `client_secret_wo_version` attribute and can't be used together
         :param pulumi.Input[_builtins.str] client_secret_wo: **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
                The secret for clients with an `access_type` of `CONFIDENTIAL` or `BEARER-ONLY`. This is a write-only argument and Terraform does not store them in state or plan files. If omitted, this will fallback to use `client_secret`.
-        :param pulumi.Input[_builtins.int] client_secret_wo_version: Functions as a flag and/or trigger to indicate Terraform when to use the input value in `client_secret_wo` to execute a Create or Update operation. The value of this argument is stored in the state and plan files. Required when using `client_secret_wo`.
+        :param pulumi.Input[_builtins.str] client_secret_wo_version: Functions as a flag and/or trigger to indicate Terraform when to use the input value in `client_secret_wo` to execute a Create or Update operation. The value of this argument is stored in the state and plan files. Required when using `client_secret_wo`.
         :param pulumi.Input[_builtins.str] client_session_idle_timeout: Time a client offline session is allowed to be idle before it expires. Offline tokens are invalidated when a client offline session is expired. If not set it uses the Offline Session Idle value.
         :param pulumi.Input[_builtins.str] client_session_max_lifespan: Max time before a client offline session is expired. Offline tokens are invalidated when a client offline session is expired. If not set, it uses the Offline Session Max value.
         :param pulumi.Input[_builtins.bool] consent_required: When `true`, users have to consent to client access. Defaults to `false`.
@@ -256,9 +256,9 @@ class ClientArgs:
         """
         Specifies the type of client, which can be one of the following:
         - `CONFIDENTIAL` - Used for server-side clients that require both client ID and secret when authenticating.
-        This client should be used for applications using the Authorization Code or Client Credentials grant flows.
+          This client should be used for applications using the Authorization Code or Client Credentials grant flows.
         - `PUBLIC` - Used for browser-only applications that do not require a client secret, and instead rely only on authorized redirect
-        URIs for security. This client should be used for applications using the Implicit grant flow.
+          URIs for security. This client should be used for applications using the Implicit grant flow.
         - `BEARER-ONLY` - Used for services that never initiate a login. This client will only allow bearer token requests.
         """
         return pulumi.get(self, "access_type")
@@ -490,14 +490,14 @@ class ClientArgs:
 
     @_builtins.property
     @pulumi.getter(name="clientSecretWoVersion")
-    def client_secret_wo_version(self) -> pulumi.Input[Optional[_builtins.int]]:
+    def client_secret_wo_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Functions as a flag and/or trigger to indicate Terraform when to use the input value in `client_secret_wo` to execute a Create or Update operation. The value of this argument is stored in the state and plan files. Required when using `client_secret_wo`.
         """
         return pulumi.get(self, "client_secret_wo_version")
 
     @client_secret_wo_version.setter
-    def client_secret_wo_version(self, value: pulumi.Input[Optional[_builtins.int]]):
+    def client_secret_wo_version(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "client_secret_wo_version", value)
 
     @_builtins.property
@@ -926,7 +926,7 @@ class _ClientState:
                  client_secret: pulumi.Input[Optional[_builtins.str]] = None,
                  client_secret_regenerate_when_changed: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  client_secret_wo: pulumi.Input[Optional[_builtins.str]] = None,
-                 client_secret_wo_version: pulumi.Input[Optional[_builtins.int]] = None,
+                 client_secret_wo_version: pulumi.Input[Optional[_builtins.str]] = None,
                  client_session_idle_timeout: pulumi.Input[Optional[_builtins.str]] = None,
                  client_session_max_lifespan: pulumi.Input[Optional[_builtins.str]] = None,
                  consent_required: pulumi.Input[Optional[_builtins.bool]] = None,
@@ -970,9 +970,9 @@ class _ClientState:
         :param pulumi.Input[_builtins.str] access_token_lifespan: The amount of time in seconds before an access token expires. This will override the default for the realm.
         :param pulumi.Input[_builtins.str] access_type: Specifies the type of client, which can be one of the following:
                - `CONFIDENTIAL` - Used for server-side clients that require both client ID and secret when authenticating.
-               This client should be used for applications using the Authorization Code or Client Credentials grant flows.
+                 This client should be used for applications using the Authorization Code or Client Credentials grant flows.
                - `PUBLIC` - Used for browser-only applications that do not require a client secret, and instead rely only on authorized redirect
-               URIs for security. This client should be used for applications using the Implicit grant flow.
+                 URIs for security. This client should be used for applications using the Implicit grant flow.
                - `BEARER-ONLY` - Used for services that never initiate a login. This client will only allow bearer token requests.
         :param pulumi.Input[_builtins.str] admin_url: URL to the admin interface of the client.
         :param pulumi.Input[_builtins.str] allow_refresh_token_in_standard_token_exchange: Defines whether to allow refresh token in Standard Token Exchange. Possible values are `NO` (default) and `SAME_SESSION`.
@@ -995,7 +995,7 @@ class _ClientState:
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] client_secret_regenerate_when_changed: Arbitrary map of values that, when changed, will trigger rotation of the secret. NOTE! Conflicts with `client_secret`, `client_secret_wo` and `client_secret_wo_version` attribute and can't be used together
         :param pulumi.Input[_builtins.str] client_secret_wo: **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
                The secret for clients with an `access_type` of `CONFIDENTIAL` or `BEARER-ONLY`. This is a write-only argument and Terraform does not store them in state or plan files. If omitted, this will fallback to use `client_secret`.
-        :param pulumi.Input[_builtins.int] client_secret_wo_version: Functions as a flag and/or trigger to indicate Terraform when to use the input value in `client_secret_wo` to execute a Create or Update operation. The value of this argument is stored in the state and plan files. Required when using `client_secret_wo`.
+        :param pulumi.Input[_builtins.str] client_secret_wo_version: Functions as a flag and/or trigger to indicate Terraform when to use the input value in `client_secret_wo` to execute a Create or Update operation. The value of this argument is stored in the state and plan files. Required when using `client_secret_wo`.
         :param pulumi.Input[_builtins.str] client_session_idle_timeout: Time a client offline session is allowed to be idle before it expires. Offline tokens are invalidated when a client offline session is expired. If not set it uses the Offline Session Idle value.
         :param pulumi.Input[_builtins.str] client_session_max_lifespan: Max time before a client offline session is expired. Offline tokens are invalidated when a client offline session is expired. If not set, it uses the Offline Session Max value.
         :param pulumi.Input[_builtins.bool] consent_required: When `true`, users have to consent to client access. Defaults to `false`.
@@ -1165,9 +1165,9 @@ class _ClientState:
         """
         Specifies the type of client, which can be one of the following:
         - `CONFIDENTIAL` - Used for server-side clients that require both client ID and secret when authenticating.
-        This client should be used for applications using the Authorization Code or Client Credentials grant flows.
+          This client should be used for applications using the Authorization Code or Client Credentials grant flows.
         - `PUBLIC` - Used for browser-only applications that do not require a client secret, and instead rely only on authorized redirect
-        URIs for security. This client should be used for applications using the Implicit grant flow.
+          URIs for security. This client should be used for applications using the Implicit grant flow.
         - `BEARER-ONLY` - Used for services that never initiate a login. This client will only allow bearer token requests.
         """
         return pulumi.get(self, "access_type")
@@ -1375,14 +1375,14 @@ class _ClientState:
 
     @_builtins.property
     @pulumi.getter(name="clientSecretWoVersion")
-    def client_secret_wo_version(self) -> pulumi.Input[Optional[_builtins.int]]:
+    def client_secret_wo_version(self) -> pulumi.Input[Optional[_builtins.str]]:
         """
         Functions as a flag and/or trigger to indicate Terraform when to use the input value in `client_secret_wo` to execute a Create or Update operation. The value of this argument is stored in the state and plan files. Required when using `client_secret_wo`.
         """
         return pulumi.get(self, "client_secret_wo_version")
 
     @client_secret_wo_version.setter
-    def client_secret_wo_version(self, value: pulumi.Input[Optional[_builtins.int]]):
+    def client_secret_wo_version(self, value: pulumi.Input[Optional[_builtins.str]]):
         pulumi.set(self, "client_secret_wo_version", value)
 
     @_builtins.property
@@ -1850,7 +1850,7 @@ class Client(pulumi.CustomResource):
                  client_secret: pulumi.Input[Optional[_builtins.str]] = None,
                  client_secret_regenerate_when_changed: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  client_secret_wo: pulumi.Input[Optional[_builtins.str]] = None,
-                 client_secret_wo_version: pulumi.Input[Optional[_builtins.int]] = None,
+                 client_secret_wo_version: pulumi.Input[Optional[_builtins.str]] = None,
                  client_session_idle_timeout: pulumi.Input[Optional[_builtins.str]] = None,
                  client_session_max_lifespan: pulumi.Input[Optional[_builtins.str]] = None,
                  consent_required: pulumi.Input[Optional[_builtins.bool]] = None,
@@ -1964,9 +1964,9 @@ class Client(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] access_token_lifespan: The amount of time in seconds before an access token expires. This will override the default for the realm.
         :param pulumi.Input[_builtins.str] access_type: Specifies the type of client, which can be one of the following:
                - `CONFIDENTIAL` - Used for server-side clients that require both client ID and secret when authenticating.
-               This client should be used for applications using the Authorization Code or Client Credentials grant flows.
+                 This client should be used for applications using the Authorization Code or Client Credentials grant flows.
                - `PUBLIC` - Used for browser-only applications that do not require a client secret, and instead rely only on authorized redirect
-               URIs for security. This client should be used for applications using the Implicit grant flow.
+                 URIs for security. This client should be used for applications using the Implicit grant flow.
                - `BEARER-ONLY` - Used for services that never initiate a login. This client will only allow bearer token requests.
         :param pulumi.Input[_builtins.str] admin_url: URL to the admin interface of the client.
         :param pulumi.Input[_builtins.str] allow_refresh_token_in_standard_token_exchange: Defines whether to allow refresh token in Standard Token Exchange. Possible values are `NO` (default) and `SAME_SESSION`.
@@ -1989,7 +1989,7 @@ class Client(pulumi.CustomResource):
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] client_secret_regenerate_when_changed: Arbitrary map of values that, when changed, will trigger rotation of the secret. NOTE! Conflicts with `client_secret`, `client_secret_wo` and `client_secret_wo_version` attribute and can't be used together
         :param pulumi.Input[_builtins.str] client_secret_wo: **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
                The secret for clients with an `access_type` of `CONFIDENTIAL` or `BEARER-ONLY`. This is a write-only argument and Terraform does not store them in state or plan files. If omitted, this will fallback to use `client_secret`.
-        :param pulumi.Input[_builtins.int] client_secret_wo_version: Functions as a flag and/or trigger to indicate Terraform when to use the input value in `client_secret_wo` to execute a Create or Update operation. The value of this argument is stored in the state and plan files. Required when using `client_secret_wo`.
+        :param pulumi.Input[_builtins.str] client_secret_wo_version: Functions as a flag and/or trigger to indicate Terraform when to use the input value in `client_secret_wo` to execute a Create or Update operation. The value of this argument is stored in the state and plan files. Required when using `client_secret_wo`.
         :param pulumi.Input[_builtins.str] client_session_idle_timeout: Time a client offline session is allowed to be idle before it expires. Offline tokens are invalidated when a client offline session is expired. If not set it uses the Offline Session Idle value.
         :param pulumi.Input[_builtins.str] client_session_max_lifespan: Max time before a client offline session is expired. Offline tokens are invalidated when a client offline session is expired. If not set, it uses the Offline Session Max value.
         :param pulumi.Input[_builtins.bool] consent_required: When `true`, users have to consent to client access. Defaults to `false`.
@@ -2137,7 +2137,7 @@ class Client(pulumi.CustomResource):
                  client_secret: pulumi.Input[Optional[_builtins.str]] = None,
                  client_secret_regenerate_when_changed: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  client_secret_wo: pulumi.Input[Optional[_builtins.str]] = None,
-                 client_secret_wo_version: pulumi.Input[Optional[_builtins.int]] = None,
+                 client_secret_wo_version: pulumi.Input[Optional[_builtins.str]] = None,
                  client_session_idle_timeout: pulumi.Input[Optional[_builtins.str]] = None,
                  client_session_max_lifespan: pulumi.Input[Optional[_builtins.str]] = None,
                  consent_required: pulumi.Input[Optional[_builtins.bool]] = None,
@@ -2272,7 +2272,7 @@ class Client(pulumi.CustomResource):
             client_secret: pulumi.Input[Optional[_builtins.str]] = None,
             client_secret_regenerate_when_changed: pulumi.Input[Optional[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
             client_secret_wo: pulumi.Input[Optional[_builtins.str]] = None,
-            client_secret_wo_version: pulumi.Input[Optional[_builtins.int]] = None,
+            client_secret_wo_version: pulumi.Input[Optional[_builtins.str]] = None,
             client_session_idle_timeout: pulumi.Input[Optional[_builtins.str]] = None,
             client_session_max_lifespan: pulumi.Input[Optional[_builtins.str]] = None,
             consent_required: pulumi.Input[Optional[_builtins.bool]] = None,
@@ -2320,9 +2320,9 @@ class Client(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] access_token_lifespan: The amount of time in seconds before an access token expires. This will override the default for the realm.
         :param pulumi.Input[_builtins.str] access_type: Specifies the type of client, which can be one of the following:
                - `CONFIDENTIAL` - Used for server-side clients that require both client ID and secret when authenticating.
-               This client should be used for applications using the Authorization Code or Client Credentials grant flows.
+                 This client should be used for applications using the Authorization Code or Client Credentials grant flows.
                - `PUBLIC` - Used for browser-only applications that do not require a client secret, and instead rely only on authorized redirect
-               URIs for security. This client should be used for applications using the Implicit grant flow.
+                 URIs for security. This client should be used for applications using the Implicit grant flow.
                - `BEARER-ONLY` - Used for services that never initiate a login. This client will only allow bearer token requests.
         :param pulumi.Input[_builtins.str] admin_url: URL to the admin interface of the client.
         :param pulumi.Input[_builtins.str] allow_refresh_token_in_standard_token_exchange: Defines whether to allow refresh token in Standard Token Exchange. Possible values are `NO` (default) and `SAME_SESSION`.
@@ -2345,7 +2345,7 @@ class Client(pulumi.CustomResource):
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] client_secret_regenerate_when_changed: Arbitrary map of values that, when changed, will trigger rotation of the secret. NOTE! Conflicts with `client_secret`, `client_secret_wo` and `client_secret_wo_version` attribute and can't be used together
         :param pulumi.Input[_builtins.str] client_secret_wo: **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
                The secret for clients with an `access_type` of `CONFIDENTIAL` or `BEARER-ONLY`. This is a write-only argument and Terraform does not store them in state or plan files. If omitted, this will fallback to use `client_secret`.
-        :param pulumi.Input[_builtins.int] client_secret_wo_version: Functions as a flag and/or trigger to indicate Terraform when to use the input value in `client_secret_wo` to execute a Create or Update operation. The value of this argument is stored in the state and plan files. Required when using `client_secret_wo`.
+        :param pulumi.Input[_builtins.str] client_secret_wo_version: Functions as a flag and/or trigger to indicate Terraform when to use the input value in `client_secret_wo` to execute a Create or Update operation. The value of this argument is stored in the state and plan files. Required when using `client_secret_wo`.
         :param pulumi.Input[_builtins.str] client_session_idle_timeout: Time a client offline session is allowed to be idle before it expires. Offline tokens are invalidated when a client offline session is expired. If not set it uses the Offline Session Idle value.
         :param pulumi.Input[_builtins.str] client_session_max_lifespan: Max time before a client offline session is expired. Offline tokens are invalidated when a client offline session is expired. If not set, it uses the Offline Session Max value.
         :param pulumi.Input[_builtins.bool] consent_required: When `true`, users have to consent to client access. Defaults to `false`.
@@ -2460,9 +2460,9 @@ class Client(pulumi.CustomResource):
         """
         Specifies the type of client, which can be one of the following:
         - `CONFIDENTIAL` - Used for server-side clients that require both client ID and secret when authenticating.
-        This client should be used for applications using the Authorization Code or Client Credentials grant flows.
+          This client should be used for applications using the Authorization Code or Client Credentials grant flows.
         - `PUBLIC` - Used for browser-only applications that do not require a client secret, and instead rely only on authorized redirect
-        URIs for security. This client should be used for applications using the Implicit grant flow.
+          URIs for security. This client should be used for applications using the Implicit grant flow.
         - `BEARER-ONLY` - Used for services that never initiate a login. This client will only allow bearer token requests.
         """
         return pulumi.get(self, "access_type")
@@ -2602,7 +2602,7 @@ class Client(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="clientSecretWoVersion")
-    def client_secret_wo_version(self) -> pulumi.Output[Optional[_builtins.int]]:
+    def client_secret_wo_version(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
         Functions as a flag and/or trigger to indicate Terraform when to use the input value in `client_secret_wo` to execute a Create or Update operation. The value of this argument is stored in the state and plan files. Required when using `client_secret_wo`.
         """

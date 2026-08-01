@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 # tifffile/tiff2fsspec.py
 
+# Copyright (c) Christoph Gohlke
+# SPDX-License-Identifier: BSD-3-Clause
+
 """Write fsspec ReferenceFileSystem for TIFF file."""
 
 from __future__ import annotations

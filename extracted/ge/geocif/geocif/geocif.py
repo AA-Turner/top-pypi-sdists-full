@@ -2777,7 +2777,7 @@ class Geocif:
         # geocif id/meta + geo + engineered non-CID columns (stable schema).
         skip_exact = {"Country", "Region", "Region_ID", "Harvest Year", "Season",
                       "Area (ha)", "Area", "Latitude", "Longitude", "lat", "lon",
-                      "Trend All", "Yield Trend", getattr(self, "target", "")}
+                      "Trend All", "Yield Trend", "AI", getattr(self, "target", "")}
         bases = set()
         for c in self.df_train.columns:
             if not pd.api.types.is_numeric_dtype(self.df_train[c]):
@@ -3116,8 +3116,9 @@ class Geocif:
         df = self._update_column_names(df)
         df = self._add_engineered_features(df)
         df = self._add_project_static_features(df)
+        df = self._add_static_eo_features(df)
         df = self._add_region_clusters(df)
-        
+
         return df
 
     def _pivot_to_wide_format(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -3430,6 +3431,51 @@ class Geocif:
             f"poppy: joined irrigation_status onto {before} rows "
             f"(unique values: {sorted(df['irrigation_status'].unique().tolist())})"
         )
+        return df
+
+    def _add_static_eo_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Join static per-region EO features (Aridity ``AI``, SoilGrids
+        ``SOIL_*``) onto the wide ML frame by Region.
+
+        These variables are constant per region (no time/stage dimension),
+        so the CID stage does NOT emit them per stage window — that would
+        only duplicate one value across every window. Instead the raw
+        geomerge columns (``aridity``, ``soil_sand``, ...) are read from the
+        crop_t0 CSV and left-joined here, giving ONE bare stage-less column
+        per variable. ``create_feature_names`` force-includes whichever of
+        these columns exist (gated by ``use_cids``); per-fold selection
+        (gOMP etc.) decides their fate.
+
+        Presence-driven: variables missing from the crop_t0 CSV (country
+        didn't extract them) are skipped silently.
+        """
+        countries = (
+            list(df["Country"].unique())
+            if getattr(self, "countries_pooled", None) and "Country" in df.columns
+            else [self.country]
+        )
+        _norm = lambda s: str(s).lower().replace(" ", "_").replace("-", "_")
+        for cid_name, raw_col in di.STATIC_EO_COL_MAP.items():
+            per_country = {
+                c: self._read_region_static_from_crop_t0(c, self.crop, raw_col)
+                for c in countries
+            }
+            if not any(per_country.values()):
+                continue
+            if len(countries) > 1:
+                df[cid_name] = [
+                    per_country.get(c, {}).get(_norm(r))
+                    for c, r in zip(df["Country"], df["Region"])
+                ]
+            else:
+                mapping = per_country[countries[0]]
+                df[cid_name] = df["Region"].map(lambda r: mapping.get(_norm(r)))
+            df[cid_name] = pd.to_numeric(df[cid_name], errors="coerce")
+            n = int(df[cid_name].notna().sum())
+            self.logger.info(
+                f"static EO feature {cid_name} (<- {raw_col}): "
+                f"{n}/{len(df)} rows matched"
+            )
         return df
 
     def _add_region_clusters(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -3772,6 +3818,18 @@ class Geocif:
                     f"attempted (_t -> tmp_col) (first 5)={sample_attempts}"
                 )
         
+        # Static per-region EO features (bare stage-less columns joined by
+        # _add_static_eo_features). The correlation screen only sees staged
+        # columns, so include these directly — gated by use_cids ('all', the
+        # CID name, or its Type e.g. 'Soil'/'Aridity'); gOMP still decides
+        # per fold whether they survive.
+        for _name, _meta in di.dict_static_eo.items():
+            if _name not in self.df_train.columns:
+                continue
+            if ("all" in self.use_cids or _name in self.use_cids
+                    or _meta[0] in self.use_cids):
+                self.feature_names.append(_name)
+
         if self.median_yield_as_feature:
             self.feature_names.append(f"Median {self.target}")
 
