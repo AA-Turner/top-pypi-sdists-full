@@ -1,0 +1,31 @@
+---
+schema_version: "1.0.0"
+ticket_id: "OMN-9344"
+summary: "Propagate normalization-symmetry pre-commit hook to omnibase_compat"
+is_seam_ticket: false
+interface_change: false
+interfaces_touched: []
+evidence_requirements:
+  - kind: "ci"
+    description: "omnibase_compat validation passes on PR #81"
+    command: "uv run python scripts/validate_no_upstream_deps.py && uv run python scripts/check_compat_retention.py
+      && uv run ruff check src/ && uv run mypy src/omnibase_compat --strict && uv run pytest src/omnibase_compat/tests/
+      -m unit --tb=short && uv build"
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: "dod-001"
+    description: "PR is open against main"
+    source: "generated"
+    checks:
+      - check_type: "command"
+        check_value: "gh pr view {pr} --repo {repo} --json state,baseRefName -q '[.state, .baseRefName]
+          | @tsv'"
+  - id: "dod-002"
+    description: "Repo-local OMN-9344 contract artifact is present"
+    source: "generated"
+    checks:
+      - check_type: "file_exists"
+        check_value: "contracts/OMN-9344.yaml"

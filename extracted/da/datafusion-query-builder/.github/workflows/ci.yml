@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+# Read-only by default (enough to clone this private repo); the publish job opts into id-token below.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  # The lib needs the dollar-brace sqlparser fork; fetch git deps with the CLI for reliability.
+  CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+  # uv provisions and selects this interpreter automatically (no venv paths needed).
+  UV_PYTHON: "3.12"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all -- --check
+      # Lint the core and the property-test oracle. (The `python`/`test-embed` cfgs are linted in
+      # the test job where an interpreter is set up.)
+      - run: cargo clippy --all-targets --features datafusion-oracle -- -D warnings
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: astral-sh/setup-uv@v7
+      # uv creates the env with UV_PYTHON; later `uv run`/`uv pip` auto-detect it.
+      - run: uv venv
+      # Core rendering tests (pure Rust, no engine).
+      - run: cargo test --test core
+      # Property tests with DataFusion as the execution oracle.
+      - run: cargo test --features datafusion-oracle --test properties
+      # Coercion tests against an embedded interpreter — `uv run` exposes the venv so pyo3's
+      # auto-initialize finds it (no PYO3_PYTHON needed).
+      - run: uv run --no-project cargo test --lib --features test-embed
+      # Build + install the extension (maturin backend) and smoke-test it.
+      - run: uv pip install -e .
+      - run: uv run --no-project python tests/test_python.py
+
+  build:
+    name: build wheel (${{ matrix.platform.target }})
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          # macbooks: Apple Silicon only.
+          - { runner: macos-14, target: aarch64-apple-darwin, manylinux: '' }
+          # linux servers: x86_64 + aarch64 (the aarch64 manylinux wheel covers GCP c4a / Axion ARM
+          # on Ubuntu). maturin cross-compiles aarch64 in a manylinux container.
+          - { runner: ubuntu-latest, target: x86_64, manylinux: auto }
+          - { runner: ubuntu-latest, target: aarch64, manylinux: auto }
+    steps:
+      - uses: actions/checkout@v4
+      - name: build abi3 wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          manylinux: ${{ matrix.platform.manylinux }}
+          args: --release --out dist
+          # maturin reads features (python, extension-module) from pyproject.toml [tool.maturin].
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.platform.target }}
+          path: dist/*.whl
+
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+  # Publish to PyPI on tag, via OIDC trusted publishing — no API token/secret.
+  # Configure the trusted publisher once at https://pypi.org/manage/account/publishing/
+  # (project: datafusion-query-builder, workflow: ci.yml, environment: pypi).
+  release:
+    needs: [lint, test, build, sdist]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: wheels-*
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: sdist
+          path: dist
+      - name: publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # No `password:` — authentication is via the GitHub OIDC trusted publisher.

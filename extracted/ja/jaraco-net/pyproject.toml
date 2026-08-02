@@ -1,0 +1,132 @@
+[build-system]
+requires = ["setuptools>=61.2", "setuptools_scm[toml]>=3.4.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jaraco.net"
+authors = [
+	{ name = "Jason R. Coombs", email = "jaraco@jaraco.com" },
+]
+description = "Networking tools by jaraco"
+readme = "README.rst"
+classifiers = [
+	"Development Status :: 5 - Production/Stable",
+	"Intended Audience :: Developers",
+	"License :: OSI Approved :: MIT License",
+	"Programming Language :: Python :: 3",
+	"Programming Language :: Python :: 3 :: Only",
+]
+requires-python = ">=3.9"
+dependencies = [
+	"more_itertools",
+	"BeautifulSoup4",
+	"mechanize",
+	"keyring>=0.6",
+	"requests",
+	"feedparser",
+	"jaraco.text",
+	"jaraco.logging",
+	"jaraco.email",
+	"jaraco.functools",
+	"jaraco.collections",
+	"path >= 16.6",
+	"python-dateutil",
+	"pathvalidate",
+	"pywin32; sys_platform == 'win32' and python_version < \"3.12\"",
+	"ifconfig-parser; sys_platform == 'darwin'",
+	"jsonpickle != 3.0.0",
+	"icmplib",
+	"autocommand",
+]
+dynamic = ["version"]
+
+[project.urls]
+Source = "https://github.com/jaraco/jaraco.net"
+
+[project.optional-dependencies]
+test = [
+	# upstream
+	"pytest >= 6, != 8.1.*",
+
+	# local
+	"cherrypy",
+	"jaraco.fabric",
+	"fabric",
+	"types-python-dateutil",
+	"types-requests",
+	"importlib_resources",
+	"pyparsing",
+	"pytest-responses",
+]
+
+doc = [
+	# upstream
+	"sphinx >= 3.5",
+	"jaraco.packaging >= 9.3",
+	"rst.linker >= 1.9",
+	"furo",
+	"sphinx-lint",
+
+	# local
+]
+
+check = [
+	"pytest-checkdocs >= 2.4",
+	"pytest-ruff >= 0.2.1; sys_platform != 'cygwin'",
+]
+
+cover = [
+	"pytest-cov",
+]
+
+enabler = [
+	"pytest-enabler >= 2.2",
+]
+
+type = [
+	# upstream
+	"pytest-mypy",
+
+	# local
+	"types-httplib2",
+	"types-pywin32",
+]
+
+stats-server = [
+	"cherrypy",
+	"svg.charts",
+]
+
+[project.scripts]
+whois-bridge = "jaraco.net.whois:serve"
+scanner = "jaraco.net.scanner:scan"
+fake-http = "jaraco.net.http.servers:Simple.start"
+fake-http-auth = "jaraco.net.http.servers:AuthRequest.start"
+serve-local = "jaraco.net.http.static:serve_local"
+fake-smtp = "jaraco.net.smtp:start_simple_server"
+udp-send = "jaraco.net.udp:Sender"
+udp-echo = "jaraco.net.udp:EchoServer"
+dns-forward-service = "jaraco.net.dns:ForwardingService.handle_command_line"
+dnsbl-check = "jaraco.net.dnsbl:Service.handle_command_line"
+ntp = "jaraco.net.ntp:handle_command_line"
+remove-known-spammers = "jaraco.net.email:remove_known_spammers"
+tcp-test-connect = "jaraco.net.tcp:test_connect"
+tcp-echo-server = "jaraco.net.tcp:start_echo_server"
+http-headers = "jaraco.net.http:headers"
+build-dir-index = "jaraco.net.site:make_index_cmd"
+content-type-reporter = "jaraco.net.http.content:ContentTypeReporter.run"
+web-tail = "jaraco.net.tail:handle_command_line"
+rss-launch = "jaraco.net.rss:launch_feed_enclosure"
+rss-download = "jaraco.net.rss:download_enclosures"
+whois-bridge-service = "jaraco.net.whois_svc:Service.handle_command_line"
+# wget = jaraco.net.http:wget
+
+[tool.setuptools.packages.find]
+exclude = [
+	"sandbox",
+	"pinger",
+	"ubuntu",
+]
+
+
+[tool.setuptools_scm]

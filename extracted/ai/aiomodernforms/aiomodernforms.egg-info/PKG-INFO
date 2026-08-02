@@ -1,0 +1,105 @@
+Metadata-Version: 2.4
+Name: aiomodernforms
+Version: 0.2.0
+Summary: Asynchronous Python client for Modern Forms fans.
+Home-page: https://github.com/wonderslug/aiomodernforms
+Author: Brian Towles
+Author-email: brian@towles.com
+License: MIT license
+Keywords: modernforms,api,async,client
+Classifier: Development Status :: 4 - Beta
+Classifier: Framework :: AsyncIO
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE.md
+Requires-Dist: aiohttp>=3.0.0
+Requires-Dist: yarl
+Requires-Dist: backoff>=1.9.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Python: Async IO Modern Forms API Client
+
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/wonderslug/aiomodernforms/Continuous%20Integration)
+![Codecov](https://img.shields.io/codecov/c/github/wonderslug/aiomodernforms)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![PyPI](https://img.shields.io/pypi/v/aiomodernforms)
+
+Asynchronous Python client for Modern Forms Fans.
+
+## About
+
+This package allows you to control and monitor Modern Forms fans
+programmatically. It is mainly created to allow third-party programs to automate
+the behavior of the Modern Forms fans
+
+## Installation
+
+```bash
+pip install aiomodernforms
+```
+
+## Usage
+
+```python
+"""Asynchronous Python client for Async IO Modern Forms fan."""
+
+import asyncio
+from datetime import datetime, timedelta
+
+import aiomodernforms
+from aiomodernforms.const import LIGHT_POWER_ON
+
+
+async def main():
+    """Turn on the fan light."""
+    async with aiomodernforms.ModernFormsDevice("192.168.3.197") as fan:
+        await fan.update()
+        print(fan.status)
+        await fan.light(
+            on=LIGHT_POWER_ON,
+            brightness=50,
+            sleep=datetime.now() + timedelta(minutes=2),
+        )
+        print(fan.status)
+
+
+if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
+```
+
+## Reporting compatibility issues
+
+WAC and Modern Forms fans span several hardware generations, and not every
+generation behaves identically. If this library doesn't work correctly
+against your fan, run `diagnose.py` against it and paste the output into a
+[GitHub issue](https://github.com/wonderslug/aiomodernforms/issues):
+
+```bash
+python diagnose.py <fan-ip-address>
+# or, from a checkout with a dev environment set up:
+make diagnose HOST=<fan-ip-address>
+```
+
+This prints a Markdown report — parsed capability flags, the raw API
+responses, and any response fields this library doesn't recognize yet — that
+helps pinpoint model/generation differences. It redacts your account email,
+AWS identity, MAC address, device name, and certificate ID, and never
+includes the fan's IP address, so the output is safe to paste as-is. Still,
+give it a quick read before posting.

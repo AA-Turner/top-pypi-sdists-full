@@ -1,0 +1,189 @@
+from typing import Union, Optional, TYPE_CHECKING
+
+from .feature import Feature
+
+if TYPE_CHECKING:
+    from .box import Box
+
+
+class BinarySensor(Feature):
+    """Class representing sensor with bool state."""
+
+    def __init__(
+        self,
+        product: "Box",
+        alias: str,
+        methods: dict,
+        sensor_id: Optional[int] = None,
+        name: Optional[str] = None,
+    ):
+        self._sensor_id = sensor_id
+        self._name = name
+        super().__init__(product, alias, methods)
+
+    @property
+    def index(self) -> Optional[int]:
+        return self._sensor_id
+
+    @property
+    def name(self) -> Optional[str]:
+        return self._name
+
+    @classmethod
+    def many_from_config(
+        cls, product, box_type_config, extended_state
+    ) -> list["Feature"]:
+        type_class_map = {
+            "rain": Rain,
+            "flood": Flood,
+            "openStatus": Open,
+            "binary": Input,
+        }
+
+        output_list = list()
+        sensors_list = extended_state.get("multiSensor").get("sensors", {})
+        alias, methods = box_type_config[0]
+
+        for sensor in sensors_list:
+            sensor_type = sensor.get("type")
+            sensor_id = sensor.get("id")
+
+            if sensor_type in type_class_map:
+                klass = type_class_map[sensor_type]
+
+                if methods.get(sensor_type) is not None:
+                    value_method = {sensor_type: methods[sensor_type](sensor_id)}
+                    output_list.append(
+                        klass(
+                            product=product,
+                            alias=sensor_type + "_" + str(sensor_id),
+                            methods=value_method,
+                            sensor_id=sensor_id,
+                            name=sensor.get("name"),
+                        )
+                    )
+
+        return output_list
+
+
+class Rain(BinarySensor):
+    def __init__(
+        self,
+        product: "Box",
+        alias: str,
+        methods: dict,
+        sensor_id: Optional[int] = None,
+        name: Optional[str] = None,
+    ):
+        self._device_class = "moisture"
+        super().__init__(product, alias, methods, sensor_id=sensor_id, name=name)
+
+    @property
+    def state(self) -> bool:
+        return self._current > 0
+
+    @property
+    def device_class(self) -> str:
+        return self._device_class
+
+    def _read_rain(self, field: str) -> Union[float, int, None]:
+        product = self._product
+        if product.last_data is not None:
+            raw = self.raw_value(field)
+            if raw is not None:  # no reading
+                return self.raw_value("rain")
+        return 0
+
+    def after_update(self) -> None:
+        self._current = self._read_rain("rain")
+
+
+class Flood(BinarySensor):
+    def __init__(
+        self,
+        product: "Box",
+        alias: str,
+        methods: dict,
+        sensor_id: Optional[int] = None,
+        name: Optional[str] = None,
+    ):
+        self._device_class = "moisture"
+        super().__init__(product, alias, methods, sensor_id=sensor_id, name=name)
+
+    @property
+    def state(self) -> bool:
+        return self._current > 0
+
+    @property
+    def device_class(self) -> str:
+        return self._device_class
+
+    def _read_flood(self, field: str) -> Union[float, int, None]:
+        product = self._product
+
+        if product.last_data is not None:
+            raw = self.raw_value(field)
+            if raw is not None:  # no reading
+                return self.raw_value("flood")
+        return 0
+
+    def after_update(self) -> None:
+        self._current = self._read_flood("flood")
+
+
+class Open(BinarySensor):
+    def __init__(
+        self,
+        product: "Box",
+        alias: str,
+        methods: dict,
+        sensor_id: Optional[int] = None,
+        name: Optional[str] = None,
+    ):
+        self._device_class = "open"
+        super().__init__(product, alias, methods, sensor_id=sensor_id, name=name)
+
+    @property
+    def state(self) -> bool:
+        return self._current != 4  # 4 = closed, 0-3 = open
+
+    def _read_input(self, field: str) -> Union[float, int, None]:
+        product = self._product
+
+        if product.last_data is not None:
+            raw = self.raw_value(field)
+            if raw is not None:  # no reading
+                return self.raw_value("openStatus")
+        return 0
+
+    def after_update(self) -> None:
+        self._current = self._read_input("openStatus")
+
+
+class Input(BinarySensor):
+    def __init__(
+        self,
+        product: "Box",
+        alias: str,
+        methods: dict,
+        sensor_id: Optional[int] = None,
+        name: Optional[str] = None,
+    ):
+        self._device_class = "input"
+        super().__init__(product, alias, methods, sensor_id=sensor_id, name=name)
+
+    @property
+    def state(self) -> bool:
+        return self._current > 0
+
+    def _read_input(self, field: str) -> Union[float, int, None]:
+        product = self._product
+
+        if product.last_data is not None:
+            raw = self.raw_value(field)
+            if raw is not None:  # no reading
+                return self.raw_value("binary")
+        return 0
+
+    def after_update(self) -> None:
+        self._current = self._read_input("binary")

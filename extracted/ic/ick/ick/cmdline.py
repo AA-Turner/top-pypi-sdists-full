@@ -1,0 +1,448 @@
+from __future__ import annotations
+
+import collections
+import json
+import re
+import sys
+from pathlib import Path
+from typing import IO, Any, Callable, Iterable, Optional
+
+import click
+import keke
+from feedforward import Run
+from moreorless.click import echo_color_precomputed_diff
+from rich import print
+from vmodule import vmodule_init
+
+from ick._env_check import check_writable_dirs
+from ick.add_rule import add_rule_structure
+from ick.util import convert_path_to_python_identifiers
+from ick_protocol import RuleStatus, Scope, Urgency
+
+from ._regex_translate import rule_name_re
+from .click_better import FlexibleGroup
+from .config import RuntimeConfig, Settings, load_main_config, load_rules_config, one_repo_config
+from .git import find_repo_root
+from .project_finder import find_projects as find_projects_fn
+from .runner import HighLevelResult, Runner, _demo_done_callback, _demo_status_callback, fmt_name
+from .types_project import maybe_repo
+
+ALLOW_LEGACY_NAME_FILTER_OPTION = "--allow-legacy-name-filter"
+
+
+def _flatten_tags(tags: Iterable[str]) -> frozenset[str]:
+    """Split comma-separated tag values so `-t a,b` and `-t a -t b` are equivalent."""
+    return frozenset(tag.strip() for value in tags for tag in value.split(",") if tag)
+
+
+@click.group(cls=FlexibleGroup)
+@click.version_option()
+@click.option("-v", count=True, default=0, help="Verbosity, specify once for INFO and repeat for more")
+@click.option("--verbose", type=int, help="Log verbosity (unset=WARNING, 0=INFO, 1=VLOG_1, 2=VLOG_2, ..., 10=DEBUG)")
+@click.option("--vmodule", help="comma-separated logger=level values, same scheme as --verbose")
+@click.option("--trace", type=click.File(mode="w"), help="Trace output filename")
+@click.option("--isolated-repo", is_flag=True, help="Isolate from user-level config", envvar="ICK_ISOLATED_REPO")
+@click.option("--target", default=".", help="Directory to modify")  # TODO path, existing
+@click.option("--rules-repo", help="ad-hoc rules repo to use, either a URL or directory")
+@click.pass_context
+def main(
+    ctx: click.Context,
+    v: int,
+    verbose: int,
+    vmodule: str,
+    trace: IO[str] | None,
+    isolated_repo: bool,
+    target: str,
+    rules_repo: str | None,
+) -> None:
+    """
+    Applier of fine source code fixes since 2025
+    """
+    verbose_init(v, verbose, vmodule)
+    ctx.with_resource(keke.TraceOutput(file=trace))
+
+    if msg := check_writable_dirs():
+        raise click.ClickException(f"{msg}; ick may hang or fail")
+
+    # This takes a target because rules can be defined in the target repo too
+    cur = Path(target).expanduser()
+    conf = load_main_config(cur, isolated_repo=isolated_repo)
+    if rules_repo is not None:
+        rules_config = one_repo_config(rules_repo)
+    else:
+        rules_config = load_rules_config(cur, isolated_repo=isolated_repo)
+    ctx.obj = RuntimeConfig(conf, rules_config, Settings(isolated_repo=isolated_repo))
+
+    repo_path = find_repo_root(cur)
+    ctx.obj.repo = maybe_repo(repo_path, ctx.with_resource)
+
+
+@main.command()
+@click.pass_context
+def find_projects(ctx: click.Context) -> None:
+    """
+    Lists projects found in the current repo
+    """
+    for proj in find_projects_fn(ctx.obj.repo, ctx.obj.repo.zfiles, ctx.obj.main_config):
+        print(f"{proj.subdir!r:20} ({proj.typ})")
+
+
+@main.command()
+@click.option(ALLOW_LEGACY_NAME_FILTER_OPTION, is_flag=True, help="Allow legacy slash-joined rule-name filtering")
+@click.option("--json", "json_flag", is_flag=True, help="Outputs json with rules info by prefixed name (can be used with run --json)")
+@click.option("-k", "substring", default="", help="Substring match on rule name")
+@click.option("-t", "--tag", "tags", multiple=True, help="Filter rules by tag; accepts a comma-separated list and/or repeated flags")
+@click.argument("filters", nargs=-1)
+@click.pass_context
+def list_rules(
+    ctx: click.Context,
+    allow_legacy_name_filter: bool,
+    json_flag: bool,
+    substring: str,
+    tags: tuple[str, ...],
+    filters: list[str],
+) -> None:
+    """
+    Lists rules applicable to the current repo
+    """
+    ctx.obj.filter_config.min_urgency = min(Urgency)  # List all urgencies unless specified by filters
+    apply_filters(ctx, filters, substring, tags=_flatten_tags(tags), allow_legacy_name_filter=allow_legacy_name_filter)
+    r = Runner(ctx.obj, ctx.obj.repo)
+    if json_flag:
+        r.echo_rules_json()
+    else:
+        r.echo_rules()
+
+
+@main.command()
+@click.pass_context
+@click.option(ALLOW_LEGACY_NAME_FILTER_OPTION, is_flag=True, help="Allow legacy slash-joined rule-name filtering")
+@click.option("-k", "substring", default="", help="Substring match on rule name")
+@click.option("-t", "--tag", "tags", multiple=True, help="Filter rules by tag; accepts a comma-separated list and/or repeated flags")
+@click.option("--update", is_flag=True, help="Update expected test output with actual rule output")
+@click.argument("filters", nargs=-1)
+def test_rules(
+    ctx: click.Context,
+    allow_legacy_name_filter: bool,
+    substring: str,
+    tags: tuple[str, ...],
+    update: bool,
+    filters: list[str],
+) -> None:
+    """
+    Run rule self-tests.
+
+    With no filters, run tests in all rules.
+
+    Use --update to overwrite expected output with the actual output from the
+    current rule implementation. Review the changes before committing.
+    """
+    ctx.obj.filter_config.min_urgency = min(Urgency)  # Test all urgencies unless specified by filters
+    apply_filters(ctx, filters, substring, tags=_flatten_tags(tags), allow_legacy_name_filter=allow_legacy_name_filter)
+    r = Runner(ctx.obj, ctx.obj.repo)
+    sys.exit(r.test_rules(update=update))
+
+
+@main.command()
+@click.pass_context
+@click.argument("rule_name", metavar="rule-name")
+@click.argument(
+    "target_directory", type=click.Path(exists=False, file_okay=False, dir_okay=True, path_type=str), metavar="target-directory"
+)
+@click.option("--impl", default="python", help="The impl config for the rule. Defaults to python")
+@click.option("--inputs", multiple=True, default=None, help="List of input files and glob patterns (recommended)")
+@click.option(
+    "--urgency",
+    default=Urgency.LATER,
+    type=click.Choice(Urgency, case_sensitive=False),
+    help="Urgency level for the rule",
+)
+@click.option(
+    "--scope",
+    default=Scope.FILE,
+    type=click.Choice(Scope, case_sensitive=False),
+    help="Scope of the rule",
+)
+@click.option("--description", type=str, help="Description for the rule")
+def add_rule(
+    ctx: click.Context,
+    rule_name: str,
+    target_directory: str,
+    impl: str,
+    inputs: tuple[str, ...],
+    urgency: Urgency,
+    scope: Scope,
+    description: str,
+) -> None:
+    """
+    Generate the file structure for a new rule
+
+    rule-name (TEXT): The name of the new rule\n
+    target-directory (PATH): The desired directory of the new rule.
+    """
+    # TODO: Check if rule name already exists using ctx.obj
+    if impl != "python":
+        print("Rule structure initialization for non-python rules is not implemented yet")
+        sys.exit(1)
+
+    if scope == Scope.FILE and not inputs:
+        print("File-scoped rules (the default) require an `inputs` section to work!")
+        sys.exit(1)
+
+    # validate target_directory path
+    target_directory_path = Path(target_directory)
+    assert not target_directory_path.is_absolute(), "Please use a relative path from the repo root"
+
+    target_directory_path = convert_path_to_python_identifiers(target_directory_path)
+
+    add_rule_structure(
+        rule_name=rule_name,
+        target_path=target_directory_path,
+        impl=impl,
+        inputs=inputs,
+        urgency=urgency.value,
+        scope=scope.value,
+        description=description,
+    )
+
+
+@main.command()
+@click.option("-n", "--dry-run", is_flag=True, help="Dry run mode, show counts of lines to change (default)")
+@click.option("-p", "--patch", is_flag=True, help="Show patches of changes to make")
+@click.option("--apply", is_flag=True, help="Apply changes")
+@click.option(
+    "--json", "json_flag", is_flag=True, help="Outputs modifications json by prefixed rule name (can be used with list-rules --json)"
+)
+@click.option(
+    "--json-file",
+    "json_file",
+    type=click.File(mode="w"),
+    default=None,
+    help="Write JSON results to a file while showing human-readable output on stdout",
+)
+@click.option("--skip-update", is_flag=True, help="When loading rules from a repo, don't pull if some version already exists locally")
+@click.option("--emojis", is_flag=True, help="Show a waterfall of emojis as work is being done")
+@click.option("--parallelism", type=int, default=0, help="Number of parallel workers (default: auto)")
+@click.option("-k", "substring", default="", help="Substring match on rule name (including prefix)")
+@click.option("-t", "--tag", "tags", multiple=True, help="Filter rules by tag; accepts a comma-separated list and/or repeated flags")
+@click.option("-q", "--question", is_flag=True, help="Exit 1 if any rule needs work, exit 2 on errors (like make -q)")
+@click.option(ALLOW_LEGACY_NAME_FILTER_OPTION, is_flag=True, help="Allow legacy slash-joined rule-name filtering")
+@click.argument("filters", nargs=-1)
+@click.pass_context
+def run(
+    ctx: click.Context,
+    dry_run: bool,
+    patch: bool,
+    apply: bool,
+    json_flag: bool,
+    json_file: IO[str] | None,
+    skip_update: bool,
+    emojis: bool,
+    parallelism: int,
+    allow_legacy_name_filter: bool,
+    substring: str,
+    tags: tuple[str, ...],
+    question: bool,
+    filters: list[str],
+) -> None:
+    """
+    Run the applicable rules to the current repo/path
+
+    The default is a dry run that shows stats of changes to files.
+
+    Pass either a rule name, rule prefix, or an urgency string like
+    "now" to filter the rules.
+
+    Use -t/--tag to further narrow the rules by tag; it combines with a name
+    filter or -k.
+
+    Use --apply to apply rules' changes.
+    """
+
+    num_provided = sum([dry_run, patch, apply])
+    if num_provided > 1:
+        print("Only one of --dry-run, --patch, and --apply can be provided")
+        sys.exit(1)
+    elif num_provided == 0:
+        dry_run = True
+
+    ctx.obj.settings.dry_run = dry_run
+    ctx.obj.settings.apply = apply
+    ctx.obj.settings.skip_update = skip_update
+
+    if filters:
+        ctx.obj.filter_config.min_urgency = min(Urgency)
+    else:
+        ctx.obj.filter_config.min_urgency = Urgency.LATER
+
+    apply_filters(ctx, filters, substring, tags=_flatten_tags(tags), allow_legacy_name_filter=allow_legacy_name_filter)
+
+    # DO THE NEEDFUL
+
+    # TODO boring progress bar default
+    status_callback: Callable[[Run[Any, Any]], None] | None = None
+    done_callback: Callable[[Run[Any, Any]], None] | None = None
+    if emojis:
+        status_callback = _demo_status_callback
+        done_callback = _demo_done_callback
+    elif not json_flag and sys.stderr.isatty():
+        bar = None
+
+        def progressbar_status(run: Run[Any, Any]) -> None:
+            nonlocal bar
+            if not bar:
+                bar = click.progressbar(length=len(run._steps), label="Running...")
+                ctx.with_resource(bar)
+            bar.update(run._finalized_idx)
+
+        status_callback = progressbar_status
+        done_callback = lambda _: print("\n")  # noqa: E731
+
+    r = Runner(ctx.obj, ctx.obj.repo, parallelism=parallelism)
+    steps = r.build_steps_for_rules(
+        status_callback=status_callback,
+        done_callback=done_callback,
+    )
+
+    exit_code = 0
+
+    def _collect_json_result(result: HighLevelResult, results_to_modify: dict[str, Any]) -> None:
+        """Collect results into a dict for JSON output."""
+        modifications = []
+        for mod in result.modifications:
+            modifications.append({"file_name": mod.filename, "diff_stat": mod.diffstat})
+        output = {
+            "project_name": result.project,
+            "status": result.finished.status,
+            "modified": modifications,
+            # The meaning of this field depends on the status field above
+            "message": result.finished.message,
+            "metadata": result.finished.metadata,
+        }
+        results_to_modify[result.rule].append(output)
+
+    if json_flag:
+        results: dict[str, Any] = collections.defaultdict(list)
+        for result in r.run_steps(steps):
+            _collect_json_result(result, results)
+            if result.finished.status == RuleStatus.ERROR:
+                exit_code = max(exit_code, 2)
+            elif result.finished.status == RuleStatus.NEEDS_WORK and question:
+                exit_code = max(exit_code, 1)
+
+        json.dump({"results": results}, sys.stdout, indent=4, sort_keys=True)
+        sys.stdout.write("\n")
+
+    else:
+        json_results: dict[str, Any] = collections.defaultdict(list)
+        for result in r.run_steps(steps):
+            if json_file is not None:
+                _collect_json_result(result, json_results)
+            where = f" on {result.project}" if result.project else ""
+            print(f"-> [bold]{fmt_name(result.rule)}[/bold]{where}: ", end="")
+            match result.finished.status:
+                case RuleStatus.ERROR:
+                    exit_code = max(exit_code, 2)
+                    print("[red]ERROR[/red]")
+                    lines = result.finished.message.splitlines()
+                    assert ctx.parent is not None
+                    if ctx.parent.params.get("v", 0) > 0:
+                        for line in lines:
+                            print("    ", line)
+                    elif lines:
+                        print("    ", lines[0])
+                        if len(lines) >= 3:
+                            print("    ", "... (pass -v for complete message)")
+                        if len(lines) > 1:
+                            print("    ", lines[-1])
+                case RuleStatus.NEEDS_WORK:
+                    if question:
+                        exit_code = max(exit_code, 1)
+                    print("[yellow]NEEDS_WORK[/yellow]")
+                    for line in result.finished.message.splitlines():
+                        print("    ", line)
+                case RuleStatus.SUCCESS:
+                    print("[green]OK[/green]")
+                case _:  # pragma: no cover
+                    assert False, f"Unhandled status {result.finished.status}"
+
+            if patch:
+                for mod in result.modifications:
+                    if mod.diff:
+                        echo_color_precomputed_diff(mod.diff)
+            elif dry_run:
+                for mod in result.modifications:
+                    print("    ", mod.filename, mod.diffstat)
+            else:
+                assert apply
+                for mod in result.modifications:
+                    path = ctx.obj.repo.root / mod.filename
+                    if mod.new_bytes is None:
+                        path.unlink()
+                    else:
+                        path.parent.mkdir(parents=True, exist_ok=True)
+                        path.write_bytes(mod.new_bytes)
+                    print(f"   Change made: {mod.filename:30s} {mod.diffstat}")
+
+        if json_file is not None:
+            json.dump({"results": json_results}, json_file, indent=4, sort_keys=True)
+            json_file.write("\n")
+
+    if exit_code:
+        sys.exit(exit_code)
+
+
+main.add_command(
+    click.Command(
+        "run-rules",
+        params=run.params,
+        callback=run.callback,
+        help="Alias for the `run` command.",
+    )
+)
+
+
+def apply_filters(
+    ctx: click.Context,
+    filters: list[str],
+    substring: str,
+    *,
+    tags: Iterable[str] = (),
+    allow_legacy_name_filter: bool = False,
+) -> None:
+    if substring and filters:
+        raise click.UsageError("Cannot use -k together with positional filters")
+    if substring and " " in substring:
+        raise click.UsageError("-k with spaces is not yet supported")
+
+    ctx.obj.filter_config.tags = frozenset(tags)
+    ctx.obj.filter_config.allow_legacy_name_filter = allow_legacy_name_filter
+    if not substring and not filters:
+        pass
+    elif len(filters) == 1 and getattr(Urgency, filters[0].upper(), None):
+        # python 3.11 doesn't support __contains__ on enum, but also doesn't
+        # support .get and the choices are [] catching the exception or getattr
+        # which is what I can fit on one line.
+        urgency = Urgency[filters[0].upper()]
+        ctx.obj.filter_config.min_urgency = urgency
+    elif substring:
+        ctx.obj.filter_config.name_filter_re = f".*{re.escape(substring)}.*"
+        ctx.obj.filter_config.legacy_name_filter_re = ctx.obj.filter_config.name_filter_re
+    else:
+        ctx.obj.filter_config.name_filter_re = "|".join(rule_name_re(name) for name in filters)
+        ctx.obj.filter_config.legacy_name_filter_re = "|".join(rule_name_re(name, legacy=True) for name in filters)
+
+
+def verbose_init(v: int, verbose: Optional[int], vmodule: Optional[str]) -> None:
+    if verbose is None:
+        if v >= 4:
+            verbose = 10  # DEBUG
+        elif v >= 3:
+            verbose = 2  # VLOG_2
+        elif v >= 2:
+            verbose = 1  # VLOG_1
+        elif v >= 1:
+            verbose = 0  # INFO
+        else:
+            verbose = None  # WARNING
+    vmodule_init(verbose, vmodule)

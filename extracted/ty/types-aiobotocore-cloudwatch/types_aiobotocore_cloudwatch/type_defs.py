@@ -582,7 +582,7 @@ class ScheduleTypeDef(TypedDict):
 
 class ScheduleConfigurationTypeDef(TypedDict):
     ScheduleExpression: str
-    StartTimeOffset: NotRequired[int]
+    StartTimeOffset: int
     EndTimeOffset: NotRequired[int]
 
 

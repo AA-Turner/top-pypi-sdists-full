@@ -1,0 +1,51 @@
+[package]
+name = "datafusion-query-builder"
+version = "0.2.0"
+edition = "2024"
+rust-version = "1.85.0"
+description = "Programmatic, injection-safe builder for DataFusion SQL — a typed Rust core with a Python API."
+license = "MIT"
+repository = "https://github.com/pydantic/datafusion-query-builder"
+readme = "README.md"
+keywords = ["datafusion", "sql", "query-builder", "sqlparser"]
+categories = ["database"]
+# The crate is distributed as Python wheels (PyPI), not to crates.io.
+publish = false
+
+[lib]
+name = "datafusion_query_builder"
+# `rlib` so the pure-Rust core is usable/testable; `cdylib` for the Python extension module
+# (only meaningful with the `python` feature).
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+# Compiles the pyo3 bindings module. maturin enables this.
+python = ["dep:pyo3"]
+# Tells pyo3 to build as a CPython extension module (no libpython link). maturin enables this.
+extension-module = ["pyo3/extension-module"]
+# Embeds a Python interpreter so the pyo3 coercion layer can be unit-tested against real Python
+# objects from `cargo test`. Pulls pyo3's auto-initialize and links libpython, so it needs an
+# interpreter at build/link time (point `PYO3_PYTHON` at a 3.14 one). Never used for the wheel.
+test-embed = ["python", "pyo3/auto-initialize"]
+# Builds the property tests' execution oracle: runs rendered SQL through real DataFusion. Optional
+# and test-only — DataFusion is never compiled into the lib or the shipped wheel.
+datafusion-oracle = ["dep:datafusion", "dep:tokio"]
+
+[dependencies]
+# The dialect-faithful parser: the pydantic `${var}` dollar-brace fork of sqlparser-rs that the
+# DataFusion ecosystem uses. Pinned via the patch below so any transitive `sqlparser 0.62` unifies.
+sqlparser = "0.62"
+# abi3 with a 3.9 floor: one wheel per platform works on CPython 3.9+ (forward-compatible stable ABI).
+pyo3 = { version = "0.28", features = ["abi3-py39"], optional = true }
+# `datafusion-oracle` only (see feature above).
+datafusion = { version = "54", optional = true }
+tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
+
+[dev-dependencies]
+insta = "1"
+proptest = "1.11"
+
+[patch.crates-io]
+# 0.62.0 plus the unmerged `${var}` dollar-brace placeholder support DataFusion's planner relies on.
+sqlparser = { git = "https://github.com/pydantic/datafusion-sqlparser-rs", branch = "dollar-brace-0.62.0" }

@@ -1,0 +1,9 @@
+paths:
+  /users3:
+    post:
+      summary: Craetes a user.
+      responses:
+        '201':
+          description: Created
+      requestBody:
+        $ref: "components/parameters.yaml#/components/requestBodies/postUserBody"

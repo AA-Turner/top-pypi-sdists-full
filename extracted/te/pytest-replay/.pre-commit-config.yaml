@@ -1,0 +1,26 @@
+repos:
+-   repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 25.12.0
+    hooks:
+    -   id: black
+        args: [--safe, --quiet]
+        language_version: python3
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+    -   id: debug-statements
+-   repo: https://github.com/asottile/reorder-python-imports
+    rev: v3.16.0
+    hooks:
+    -   id: reorder-python-imports
+        args: ['--application-directories=.:src', --py36-plus]
+-   repo: local
+    hooks:
+    -   id: rst
+        name: rst
+        entry: rst-lint
+        files: ^(CHANGELOG.rst|HOWTORELEASE.rst|README.rst)$
+        language: python
+        additional_dependencies: [pygments, restructuredtext_lint]

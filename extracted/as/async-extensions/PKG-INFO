@@ -1,0 +1,136 @@
+Metadata-Version: 2.1
+Name: async-extensions
+Version: 4.0.0
+Summary: Asynchronous extensions.
+Home-page: https://github.com/nekitdev/async-extensions
+License: MIT
+Keywords: python,async,extensions
+Author: nekitdev
+Requires-Python: >=3.8
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Utilities
+Classifier: Typing :: Typed
+Requires-Dist: anyio (>=4.3.0)
+Requires-Dist: attrs (>=23.2.0)
+Requires-Dist: funcs (>=0.10.1)
+Requires-Dist: named (>=1.4.2)
+Requires-Dist: sniffio (>=1.3.1)
+Requires-Dist: solus (>=1.2.2)
+Requires-Dist: typing-aliases (>=1.10.1)
+Requires-Dist: typing-extensions (>=4.11.0)
+Requires-Dist: wraps (>=0.10.0)
+Project-URL: Chat, https://nekit.dev/chat
+Project-URL: Funding, https://nekit.dev/funding
+Project-URL: Issues, https://github.com/nekitdev/async-extensions/issues
+Project-URL: Repository, https://github.com/nekitdev/async-extensions
+Description-Content-Type: text/markdown
+
+# `async-extensions`
+
+[![License][License Badge]][License]
+[![Version][Version Badge]][Package]
+[![Downloads][Downloads Badge]][Package]
+[![Discord][Discord Badge]][Discord]
+[![Check][Check Badge]][Actions]
+
+> *Asynchronous extensions.*
+
+`async-extensions` builds on top of [`anyio`][anyio] to improve backend-agnostic
+asynchronous programming.
+
+## Installing
+
+**Python 3.8 or above is required.**
+
+### pip
+
+Installing the library with `pip` is quite simple:
+
+```console
+$ pip install async-extensions
+```
+
+Alternatively, the library can be installed from source:
+
+```console
+$ git clone https://github.com/nekitdev/async-extensions.git
+$ cd async-extensions
+$ python -m pip install .
+```
+
+### poetry
+
+You can add `async-extensions` as a dependency with the following command:
+
+```console
+$ poetry add async-extensions
+```
+
+Or by directly specifying it in the configuration like so:
+
+```toml
+[tool.poetry.dependencies]
+async-extensions = "^4.0.0"
+```
+
+Alternatively, you can add it directly from the source:
+
+```toml
+[tool.poetry.dependencies.async-extensions]
+git = "https://github.com/nekitdev/async-extensions.git"
+```
+
+## Support
+
+If you need support with the library, you can send an [email][Email]
+or refer to the official [Discord server][Discord].
+
+## Changelog
+
+You can find the changelog [here][Changelog].
+
+## Security Policy
+
+You can find the Security Policy of `async-extensions` [here][Security].
+
+## Contributing
+
+If you are interested in contributing to `async-extensions`, make sure to take a look at the
+[Contributing Guide][Contributing Guide], as well as the [Code of Conduct][Code of Conduct].
+
+## License
+
+`async-extensions` is licensed under the MIT License terms. See [License][License] for details.
+
+[Email]: mailto:support@nekit.dev
+
+[Discord]: https://nekit.dev/chat
+
+[Actions]: https://github.com/nekitdev/async-extensions/actions
+
+[Changelog]: https://github.com/nekitdev/async-extensions/blob/main/CHANGELOG.md
+[Code of Conduct]: https://github.com/nekitdev/async-extensions/blob/main/CODE_OF_CONDUCT.md
+[Contributing Guide]: https://github.com/nekitdev/async-extensions/blob/main/CONTRIBUTING.md
+[Security]: https://github.com/nekitdev/async-extensions/blob/main/SECURITY.md
+
+[License]: https://github.com/nekitdev/async-extensions/blob/main/LICENSE
+
+[Package]: https://pypi.org/project/async-extensions
+
+[Discord Badge]: https://img.shields.io/badge/chat-discord-5865f2
+[License Badge]: https://img.shields.io/pypi/l/async-extensions
+[Version Badge]: https://img.shields.io/pypi/v/async-extensions
+[Downloads Badge]: https://img.shields.io/pypi/dm/async-extensions
+[Check Badge]: https://github.com/nekitdev/async-extensions/workflows/check/badge.svg
+
+[anyio]: https://github.com/agronholm/anyio
+

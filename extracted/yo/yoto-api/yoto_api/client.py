@@ -1,0 +1,891 @@
+"""YotoClient — async façade for the Yoto API.
+
+Wires Auth + RestClient + MqttClient together. Holds the player dict
+and applies MQTT events to the right `YotoPlayer`.
+
+Use as an async context manager so the underlying aiohttp session and
+MQTT background task are torn down cleanly:
+
+    async with YotoClient(client_id="...") as client:
+        await client.update_player_list()
+        await client.connect_events([device_id], on_update=cb)
+"""
+
+import asyncio
+import datetime
+import logging
+from datetime import timedelta
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Union
+
+import aiohttp
+
+from .Card import Card, Chapter, Track
+from .Group import Group
+from .const import DOMAIN, ambient_preset_to_hex
+from .exceptions import YotoError
+from ._coerce import parse_iso
+from .Token import Token
+from .utils import get_child_value, get_raw_value
+from .auth import Auth
+from .models.event import EventPatch, PlaybackEvent, PresenceEvent, StatusPatch
+from .models.info import PlayerInfo
+from .models.player import YotoPlayer
+from .models.status import PlayerExtendedStatus
+from .mqtt import YotoMqttClient
+from .mqtt.client import _maybe_await
+from .models.config import Alarm
+from .rest import RestClient
+from .rest.requests import encode_alarms_payload
+
+_LOGGER = logging.getLogger(__name__)
+
+UpdateCallback = Callable[[YotoPlayer], Union[None, Awaitable[None]]]
+DisconnectCallback = Callable[[Optional[Exception]], Union[None, Awaitable[None]]]
+
+
+def _serialize_hhmm(value: Any) -> str:
+    if isinstance(value, datetime.time):
+        return value.strftime("%H:%M")
+    raise YotoError(f"expected datetime.time, got {type(value).__name__}")
+
+
+def _serialize_int(value: Any) -> str:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise YotoError(f"expected int, got {type(value).__name__}")
+    return str(value)
+
+
+def _serialize_bool_01(value: Any) -> str:
+    if not isinstance(value, bool):
+        raise YotoError(f"expected bool, got {type(value).__name__}")
+    return "1" if value else "0"
+
+
+def _serialize_passthrough(value: Any) -> Any:
+    return value
+
+
+def _extract_group_card_ids(item: Dict[str, Any]) -> List[str]:
+    """Card IDs in this group, from `items[].contentId`, in order, deduped."""
+    ids: List[str] = []
+    seen: set[str] = set()
+    for entry in item.get("items") or []:
+        card_id = get_raw_value(entry, "contentId")
+        if card_id and card_id not in seen:
+            seen.add(card_id)
+            ids.append(card_id)
+    return ids
+
+
+# (snake_case PlayerConfig field) -> (Yoto camelCase API key, serializer).
+# Mirror of `_parse_player_config` in rest/client.py. Keep in sync.
+# Note two asymmetries: Yoto treats day_ambient_colour as the default
+# `ambientColour`, and day_max_volume_limit as the default `maxVolumeLimit`.
+# `display_brightness` is special-cased below — auto/value pair maps to
+# one API field.
+_CONFIG_FIELD_MAP: Dict[str, tuple] = {
+    # Day mode
+    "day_time": ("dayTime", _serialize_hhmm),
+    "day_ambient_colour": ("ambientColour", _serialize_passthrough),
+    "day_max_volume_limit": ("maxVolumeLimit", _serialize_int),
+    "day_yoto_daily": ("dayYotoDaily", _serialize_passthrough),
+    "day_yoto_radio": ("dayYotoRadio", _serialize_passthrough),
+    "day_sounds_off": ("daySoundsOff", _serialize_bool_01),
+    # Night mode
+    "night_time": ("nightTime", _serialize_hhmm),
+    "night_ambient_colour": ("nightAmbientColour", _serialize_passthrough),
+    "night_max_volume_limit": ("nightMaxVolumeLimit", _serialize_int),
+    "night_yoto_daily": ("nightYotoDaily", _serialize_passthrough),
+    "night_yoto_radio": ("nightYotoRadio", _serialize_passthrough),
+    "night_sounds_off": ("nightSoundsOff", _serialize_bool_01),
+    # Display + audio
+    "clock_face": ("clockFace", _serialize_passthrough),
+    "hour_format": ("hourFormat", _serialize_int),
+    "bluetooth_enabled": ("bluetoothEnabled", _serialize_bool_01),
+    "bt_headphones_enabled": ("btHeadphonesEnabled", _serialize_passthrough),
+    "headphones_volume_limited": ("headphonesVolumeLimited", _serialize_passthrough),
+    "repeat_all": ("repeatAll", _serialize_passthrough),
+    "shutdown_timeout": ("shutdownTimeout", _serialize_int),
+    "display_dim_timeout": ("displayDimTimeout", _serialize_int),
+    "display_dim_brightness": ("displayDimBrightness", _serialize_int),
+    "locale": ("locale", _serialize_passthrough),
+    "timezone": ("timezone", _serialize_passthrough),
+    "system_volume": ("systemVolume", _serialize_int),
+    "volume_level": ("volumeLevel", _serialize_passthrough),
+    "log_level": ("logLevel", _serialize_passthrough),
+    "show_diagnostics": ("showDiagnostics", _serialize_passthrough),
+    "pause_volume_down": ("pauseVolumeDown", _serialize_passthrough),
+    "pause_power_button": ("pausePowerButton", _serialize_passthrough),
+}
+
+# These four kwargs share two API keys via the brightness encoding:
+# either send "auto" or send a stringified int — never both.
+_BRIGHTNESS_PAIRS = (
+    ("day_display_brightness_auto", "day_display_brightness", "dayDisplayBrightness"),
+    (
+        "night_display_brightness_auto",
+        "night_display_brightness",
+        "nightDisplayBrightness",
+    ),
+)
+
+# Auto-brightness shares its field with the manual value, so the API has no
+# standalone "off": disabling it means writing a manual value. Mirror the Yoto
+# app, which writes full brightness, so a consumer only has to send the bool.
+_BRIGHTNESS_WHEN_AUTO_OFF = 100
+
+# (preset kwarg, the raw colour field it resolves into) — the two are
+# mutually exclusive in a single call.
+_AMBIENT_PRESET_PAIRS = (
+    ("day_ambient_preset", "day_ambient_colour"),
+    ("night_ambient_preset", "night_ambient_colour"),
+)
+
+# last_event fields scoped to the active card, cleared when card_id is "none"/"".
+_CARD_SCOPED_FIELDS = (
+    "chapter_key",
+    "chapter_title",
+    "track_key",
+    "track_title",
+    "track_length",
+    "position",
+    "source",
+)
+
+
+class YotoClient:
+    """High-level client. One instance per Yoto account.
+
+    Two ways to manage the underlying `aiohttp.ClientSession`:
+
+    1. Pass one in (`YotoClient(session=session)`) — recommended for
+       HA-style integrations that own a long-lived session.
+    2. Let the client create one — *must* construct + use inside a
+       running event loop (typically via `async with YotoClient(...)`)
+       so the session binds to the right loop.
+    """
+
+    def __init__(
+        self,
+        client_id: Optional[str] = None,
+        session: Optional[aiohttp.ClientSession] = None,
+    ) -> None:
+        self._owns_session = session is None
+        self._session = session or aiohttp.ClientSession()
+        self._auth = Auth(self._session, client_id=client_id)
+        self._rest = RestClient(self._session)
+        self._mqtt: Optional[YotoMqttClient] = None
+        self._update_callback: Optional[UpdateCallback] = None
+        self._disconnect_callback: Optional[DisconnectCallback] = None
+        self._connected_player_ids: List[str] = []
+        # Background status-refresh tasks spawned from MQTT events (card change,
+        # came-online); tracked so they survive GC and are cancelled on close.
+        self._event_refresh_tasks: set[asyncio.Task] = set()
+
+        self.token: Optional[Token] = None
+        self.players: Dict[str, YotoPlayer] = {}
+        self.library: Dict[str, Card] = {}
+        self.groups: Dict[str, Group] = {}
+
+    async def __aenter__(self) -> "YotoClient":
+        return self
+
+    async def __aexit__(self, *_exc_info) -> None:
+        await self.close()
+
+    async def close(self) -> None:
+        """Tear down the MQTT task and (if owned) the aiohttp session."""
+        tasks = list(self._event_refresh_tasks)
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        await self.disconnect_events()
+        if self._owns_session and not self._session.closed:
+            await self._session.close()
+
+    # ─── Auth ─────────────────────────────────────────────────────
+
+    def set_refresh_token(self, refresh_token: str) -> None:
+        self.token = Token(refresh_token=refresh_token)
+
+    async def device_code_flow_start(self) -> dict:
+        return await self._auth.device_code_flow_start()
+
+    async def device_code_flow_complete(self, auth_result: dict) -> Token:
+        self.token = await self._auth.poll_for_token(auth_result)
+        return self.token
+
+    async def check_and_refresh_token(self) -> Token:
+        """Refresh the access token if it's expired or about to expire.
+
+        Without a `client_id` the caller owns the OAuth lifecycle (e.g.
+        HA's OAuth2Session) and syncs a token in; trust it, don't refresh.
+        """
+        if self.token is None:
+            raise YotoError("No token available; authenticate first")
+        if self._auth.client_id is None:
+            if self.token.access_token is None:
+                raise YotoError("No access token provided")
+            return self.token
+        if (
+            self.token.access_token is None
+            or self.token.valid_until is None
+            or self.token.valid_until - timedelta(hours=1)
+            <= datetime.datetime.now(datetime.timezone.utc)
+        ):
+            _LOGGER.debug("%s - access token expired or near, refreshing", DOMAIN)
+            self.token = await self._auth.refresh(self.token)
+        return self.token
+
+    # ─── Inventory ────────────────────────────────────────────────
+
+    async def update_player_list(self) -> None:
+        """GET /devices/mine. Adds new players, updates identity + online state.
+
+        Does not touch MQTT subscriptions. Use `subscribe_player_events`
+        / `unsubscribe_player_events` to react to discovered devices.
+        """
+        token = await self.check_and_refresh_token()
+        devices_with_online = await self._rest.list_devices(token)
+        now = datetime.datetime.now(datetime.timezone.utc)
+        seen_ids: set[str] = set()
+        for device, online in devices_with_online:
+            seen_ids.add(device.device_id)
+            existing = self.players.get(device.device_id)
+            if existing is None:
+                player = YotoPlayer(device=device, devices_refreshed_at=now)
+                self.players[device.device_id] = player
+            else:
+                existing.device = device
+                existing.devices_refreshed_at = now
+                player = existing
+            self._set_online(player, online)
+
+        # Players removed from the family upstream
+        for stale_id in set(self.players) - seen_ids:
+            self.players.pop(stale_id, None)
+
+    # ─── Per-player config + status ───────────────────────────────
+
+    async def update_player_info(self, device_id: str) -> PlayerInfo:
+        """GET /config for one device. Updates `players[device_id].info`
+        and `players[device_id].is_online`."""
+        token = await self.check_and_refresh_token()
+        info, online = await self._rest.get_player_info(token, device_id)
+        player = self.players.get(device_id)
+        if player is not None:
+            player.info = info
+            player.info_refreshed_at = datetime.datetime.now(datetime.timezone.utc)
+            self._set_online(player, online)
+        return info
+
+    async def update_all_player_info(self) -> None:
+        """Refresh /config for every known player in parallel.
+
+        Per-player failures (offline device, transient 5xx) are logged
+        and skipped so one bad device doesn't block the rest.
+        """
+        device_ids = list(self.players)
+        results = await asyncio.gather(
+            *(self.update_player_info(d) for d in device_ids),
+            return_exceptions=True,
+        )
+        for device_id, result in zip(device_ids, results):
+            if isinstance(result, asyncio.CancelledError):
+                # Propagate cancellation so the caller stops too.
+                raise result
+            if isinstance(result, YotoError):
+                _LOGGER.warning(
+                    "%s - update_player_info failed for %s: %s",
+                    DOMAIN,
+                    device_id,
+                    result,
+                )
+            elif isinstance(result, BaseException):
+                raise result
+
+    async def refresh(self) -> None:
+        """Convenience: list devices, then refresh each player's config.
+
+        Equivalent to `update_player_list()` followed by
+        `update_all_player_info()`. Use this from a HA coordinator
+        update tick. `request_player_status` is intentionally not chained:
+        refresh should stay idempotent and read-only.
+        """
+        await self.update_player_list()
+        await self.update_all_player_info()
+
+    # ─── Library ─────────────────────────────────────────────────
+
+    async def update_library(self) -> None:
+        """GET /card/family/library — populate self.library with card metadata.
+
+        Doesn't fetch chapters/tracks; call update_card_detail(card_id) for that.
+        """
+        token = await self.check_and_refresh_token()
+        response = await self._rest.get_card_library(token)
+        for item in response.get("cards", []):
+            card_id = get_child_value(item, "cardId")
+            if card_id is None:
+                continue
+            card = self.library.get(card_id)
+            if card is None:
+                card = Card(id=card_id)
+                self.library[card_id] = card
+            card.title = get_child_value(item, "card.title")
+            card.description = get_child_value(item, "card.metadata.description")
+            card.author = get_child_value(item, "card.metadata.author")
+            card.category = get_child_value(item, "card.metadata.stories")
+            card.cover_image_large = get_child_value(item, "card.metadata.cover.imageL")
+            card.series_order = get_child_value(item, "card.metadata.cover.seriesorder")
+            card.series_title = get_child_value(item, "card.metadata.cover.seriestitle")
+
+    async def update_card_detail(self, card_id: str) -> None:
+        """GET /card/{cardId} — populate chapters/tracks on the card."""
+        token = await self.check_and_refresh_token()
+        if card_id not in self.library:
+            self.library[card_id] = Card(id=card_id)
+        card = self.library[card_id]
+        response = await self._rest.get_card_detail(token, card_id)
+        chapters = response.get("card", {}).get("content", {}).get("chapters", [])
+        for chapter_item in chapters:
+            key = get_raw_value(chapter_item, "key")
+            if key is None:
+                continue
+            chapter = card.chapters.get(key)
+            if chapter is None:
+                chapter = Chapter(key=key)
+                card.chapters[key] = chapter
+            chapter.icon = get_child_value(chapter_item, "display.icon16x16")
+            chapter.title = get_child_value(chapter_item, "title")
+            chapter.duration = get_child_value(chapter_item, "duration")
+            for track_item in chapter_item.get("tracks", []):
+                track_key = get_raw_value(track_item, "key")
+                if track_key is None:
+                    continue
+                if track_key not in chapter.tracks:
+                    chapter.tracks[track_key] = Track(key=track_key)
+                track = chapter.tracks[track_key]
+                track.icon = get_child_value(track_item, "display.icon16x16")
+                track.title = get_child_value(track_item, "title")
+                track.duration = get_child_value(track_item, "duration")
+                track.format = get_child_value(track_item, "format")
+                track.channels = get_child_value(track_item, "channels")
+                track.type = get_child_value(track_item, "type")
+                track.trackUrl = get_child_value(track_item, "trackUrl")
+
+    async def update_groups(self) -> None:
+        """GET /card/family/library/groups — populate self.groups.
+
+        Groups are user-defined labels over library cards (a card can sit
+        in several groups). Each Group carries the card IDs only; the card
+        metadata lives in self.library — refresh it with update_library().
+
+        The endpoint returns the full set, so groups deleted upstream are
+        dropped from self.groups here.
+        """
+        token = await self.check_and_refresh_token()
+        items = await self._rest.get_card_groups(token)
+        seen_ids: set[str] = set()
+        for item in items:
+            group_id = get_raw_value(item, "id")
+            if group_id is None:
+                continue
+            seen_ids.add(group_id)
+            group = self.groups.get(group_id)
+            if group is None:
+                group = Group(id=group_id)
+                self.groups[group_id] = group
+            group.name = get_raw_value(item, "name")
+            group.family_id = get_raw_value(item, "familyId")
+            group.image_id = get_raw_value(item, "imageId")
+            group.image_url = get_raw_value(item, "imageUrl")
+            group.created_at = parse_iso(get_raw_value(item, "createdAt"))
+            group.last_modified_at = parse_iso(get_raw_value(item, "lastModifiedAt"))
+            group.card_ids = _extract_group_card_ids(item)
+
+        # Groups removed upstream
+        for stale_id in set(self.groups) - seen_ids:
+            self.groups.pop(stale_id, None)
+
+    async def update_player_extended_status(
+        self, device_id: str
+    ) -> PlayerExtendedStatus:
+        """Pull the device-shadow telemetry from REST `/config.device.status`.
+
+        Prefer `request_player_extended_status()` (MQTT): it asks the device
+        for a live `status/full` push. This method instead reads the AWS IoT
+        shadow over REST — same fields, but last-reported state that can lag the
+        live values, and with no device-side timestamp. Use it only as a
+        fallback: cold start (before MQTT has pushed) or while the device is
+        offline.
+
+        Feeds `player.extended_status` and updates `player.is_online`. While the
+        device is live (MQTT has already pushed), the live value wins and this
+        read won't clobber it. Returns the stored `PlayerExtendedStatus`.
+        """
+        token = await self.check_and_refresh_token()
+        extended_status, online = await self._rest.get_player_status(token, device_id)
+        player = self.players.get(device_id)
+        if player is None:
+            return extended_status
+        self._set_online(player, online)
+        # The shadow lags live MQTT and carries no device-side timestamp, so we
+        # can't compare freshness. Arbitrate on the source instead: MQTT owns
+        # extended_status while the device is live; the shadow only fills it in
+        # offline or before the first MQTT push (cold start). `updated_at` is
+        # set only by `status/full` (via utc_time), so it doubles as the "MQTT
+        # has spoken" signal.
+        mqtt_has_data = player.extended_status.updated_at is not None
+        if not (player.is_online and mqtt_has_data):
+            player.extended_status = extended_status
+        return player.extended_status
+
+    # ─── Settings writes ──────────────────────────────────────────
+
+    def _is_v3(self, device_id: str) -> bool:
+        """Whether the device is a v3 player (affects ambient preset hexes).
+
+        Falls back to False (legacy hexes) when the device isn't loaded yet,
+        matching the v2 capability fallback used elsewhere.
+        """
+        player = self.players.get(device_id)
+        family = (player.device.device_family or "").lower() if player else ""
+        return family == "v3"
+
+    async def set_player_config(self, device_id: str, **fields: Any) -> None:
+        """Update PlayerConfig settings.
+
+        Kwargs are `PlayerConfig` field names with proper Python types
+        (`datetime.time`, `int`, `bool`, ...). `None` values are dropped.
+        Omitted fields stay unchanged: `PUT /config` replaces the whole
+        config block, so the lib reads the current one and merges client
+        side (see `RestClient.update_settings`).
+
+        For each side (day / night), `display_brightness_auto=True` and
+        `display_brightness=N` are mutually exclusive in a single call.
+        `display_brightness_auto=False` alone writes full brightness
+        (matching the Yoto app), since the API has no standalone auto-off.
+
+        Ambient light can be set by preset key via `day_ambient_preset` /
+        `night_ambient_preset` (one of `AMBIENT_PRESET_KEYS`); the lib
+        resolves it to the right hex for the device generation. Mutually
+        exclusive with the raw `*_ambient_colour` field in the same call.
+
+        Alarms go through `set_alarms` / `set_alarm_enabled`.
+        """
+        if "alarms" in fields:
+            raise YotoError(
+                "alarms cannot be set via set_player_config; "
+                "use set_alarms() or set_alarm_enabled() instead"
+            )
+
+        payload: Dict[str, Any] = {}
+
+        # Resolve before the generic mapping so it sees a known colour field.
+        if any(preset_key in fields for preset_key, _ in _AMBIENT_PRESET_PAIRS):
+            is_v3 = self._is_v3(device_id)
+            for preset_key, colour_key in _AMBIENT_PRESET_PAIRS:
+                preset = fields.pop(preset_key, None)
+                if preset is None:
+                    continue
+                if fields.get(colour_key) is not None:
+                    raise YotoError(
+                        f"{preset_key} and {colour_key} are mutually exclusive"
+                    )
+                try:
+                    fields[colour_key] = ambient_preset_to_hex(preset, is_v3=is_v3)
+                except ValueError as err:
+                    raise YotoError(str(err)) from None
+
+        # Brightness pairs share one API key — handle first so the
+        # generic mapping below doesn't see them as unknown fields.
+        for auto_key, value_key, api_key in _BRIGHTNESS_PAIRS:
+            auto = fields.pop(auto_key, None)
+            value = fields.pop(value_key, None)
+            if auto is True and value is not None:
+                raise YotoError(f"{auto_key} and {value_key} are mutually exclusive")
+            if auto is True:
+                payload[api_key] = "auto"
+            elif value is not None:
+                payload[api_key] = _serialize_int(value)
+            elif auto is False:
+                payload[api_key] = _serialize_int(_BRIGHTNESS_WHEN_AUTO_OFF)
+
+        for snake, value in fields.items():
+            if value is None:
+                continue
+            try:
+                api_key, serialize = _CONFIG_FIELD_MAP[snake]
+            except KeyError:
+                known = sorted(
+                    set(_CONFIG_FIELD_MAP)
+                    | {auto for auto, _, _ in _BRIGHTNESS_PAIRS}
+                    | {val for _, val, _ in _BRIGHTNESS_PAIRS}
+                )
+                raise YotoError(
+                    f"Unknown PlayerConfig field: {snake!r}. Known: {known}"
+                ) from None
+            payload[api_key] = serialize(value)
+
+        if not payload:
+            return
+        token = await self.check_and_refresh_token()
+        await self._rest.update_settings(token, device_id, payload)
+
+    async def set_alarms(self, device_id: str, alarms: List[Alarm]) -> None:
+        """Replace the device's full alarm list.
+
+        The `alarms` list is written wholesale, so always pass every alarm
+        you want to keep. The rest of the config is preserved (see
+        `RestClient.update_settings`).
+        """
+        token = await self.check_and_refresh_token()
+        payload = encode_alarms_payload(alarms)
+        await self._rest.update_settings(token, device_id, payload)
+        # Reflect the write locally so callers don't have to re-fetch.
+        player = self.players.get(device_id)
+        if player is not None:
+            player.info.config.alarms = list(alarms)
+
+    async def set_alarm_enabled(
+        self, device_id: str, index: int, enabled: bool
+    ) -> None:
+        """Toggle one alarm's enabled flag, preserving the others.
+
+        Read-modify-write on `player.info.config.alarms`. Requires
+        `update_player_info(device_id)` to have run first.
+        """
+        player = self.players.get(device_id)
+        if player is None or player.info_refreshed_at is None:
+            raise YotoError(
+                f"set_alarm_enabled({device_id!r}): info not loaded; "
+                "call update_player_info first"
+            )
+        alarms = player.info.config.alarms
+        if not 0 <= index < len(alarms):
+            raise YotoError(
+                f"set_alarm_enabled({device_id!r}): no alarm at index {index} "
+                f"(have {len(alarms)})"
+            )
+        alarms[index].enabled = enabled
+        await self.set_alarms(device_id, alarms)
+
+    # ─── Player commands (MQTT direct, low latency) ──────────────
+
+    async def play_card(
+        self,
+        device_id: str,
+        card_id: str,
+        *,
+        seconds_in: Optional[int] = None,
+        cutoff: Optional[int] = None,
+        chapter_key: Optional[str] = None,
+        track_key: Optional[str] = None,
+    ) -> None:
+        # Optional args are kwargs-only on purpose: they're easy to mix up
+        # positionally and the failure mode is silent (wrong track plays).
+        await self._require_mqtt().card_play(
+            device_id,
+            card_id,
+            seconds_in=seconds_in,
+            cutoff=cutoff,
+            chapter_key=chapter_key,
+            track_key=track_key,
+        )
+
+    async def pause(self, device_id: str) -> None:
+        await self._require_mqtt().card_pause(device_id)
+
+    async def resume(self, device_id: str) -> None:
+        await self._require_mqtt().card_resume(device_id)
+
+    async def stop(self, device_id: str) -> None:
+        await self._require_mqtt().card_stop(device_id)
+
+    async def set_volume(self, device_id: str, volume: int) -> None:
+        """Set user volume as a 0-100 percentage.
+
+        Asymmetry: `set_volume()` takes a percentage, but
+        `player.last_event.volume` / `volume_max` from MQTT are on the
+        raw 0-16 hardware scale.
+        """
+        await self._require_mqtt().set_volume(device_id, volume)
+
+    async def set_sleep_timer(self, device_id: str, seconds: int) -> None:
+        await self._require_mqtt().set_sleep_timer(device_id, seconds)
+
+    async def set_ambients(self, device_id: str, r: int, g: int, b: int) -> None:
+        await self._require_mqtt().set_ambients(device_id, r, g, b)
+
+    async def restart(self, device_id: str) -> None:
+        await self._require_mqtt().restart(device_id)
+
+    async def request_player_status(self, device_id: str) -> None:
+        """Ask the player to push a fresh `data/status`, returning once it
+        arrives (or after a short timeout).
+
+        Awaiting the reply means you can chain `request_player_extended_status`
+        right after without the two racing the firmware back-to-back. Requires
+        MQTT connected.
+        """
+        if self._mqtt is None or not self._mqtt.is_connected:
+            raise YotoError(
+                "MQTT not connected; can't request a status push. "
+                "Call connect_events() first."
+            )
+        await self._mqtt.request_player_status(device_id)
+
+    async def request_player_extended_status(self, device_id: str) -> None:
+        """Ask the player to push its extended status (MQTT `status/full`).
+
+        Publishes `command/status` with a requestId; the firmware replies on
+        `device/{id}/status/full` with the rich payload. This is the same
+        command Yoto Cloud issues behind `POST /device-v2/{id}/command/status`,
+        but direct over MQTT — no REST round-trip. Requires MQTT connected.
+        """
+        if self._mqtt is None or not self._mqtt.is_connected:
+            raise YotoError(
+                "MQTT not connected; can't request an extended status. "
+                "Call connect_events() first."
+            )
+        await self._mqtt.request_player_extended_status(device_id)
+
+    async def seek(self, device_id: str, position: int) -> None:
+        """Resume the current card at `position` seconds in."""
+        last = self._current_event(device_id)
+        if last is None or last.card_id is None:
+            return
+        await self.play_card(
+            device_id=device_id,
+            card_id=last.card_id,
+            seconds_in=position,
+            chapter_key=last.chapter_key,
+            track_key=last.track_key,
+        )
+
+    async def next_track(self, device_id: str) -> None:
+        await self._skip_track(device_id, direction=1)
+
+    async def previous_track(self, device_id: str) -> None:
+        await self._skip_track(device_id, direction=-1)
+
+    async def _skip_track(self, device_id: str, direction: int) -> None:
+        last = self._current_event(device_id)
+        if last is None or last.card_id is None:
+            return
+        card = self.library.get(last.card_id)
+        if card is None or not card.chapters:
+            await self.update_card_detail(last.card_id)
+            card = self.library.get(last.card_id)
+        if card is None or not card.chapters:
+            return
+
+        playlist = [
+            (chapter_key, track_key)
+            for chapter_key, chapter in card.chapters.items()
+            for track_key in chapter.tracks
+        ]
+        current = (last.chapter_key, last.track_key)
+        if current not in playlist:
+            return
+        new_idx = playlist.index(current) + direction
+        if not 0 <= new_idx < len(playlist):
+            return
+        new_chapter_key, new_track_key = playlist[new_idx]
+        await self.play_card(
+            device_id=device_id,
+            card_id=last.card_id,
+            chapter_key=new_chapter_key,
+            track_key=new_track_key,
+        )
+
+    def _current_event(self, device_id: str) -> Optional[PlaybackEvent]:
+        player = self.players.get(device_id)
+        return player.last_event if player is not None else None
+
+    def _require_mqtt(self) -> YotoMqttClient:
+        if self._mqtt is None:
+            raise YotoError(
+                "MQTT not connected; call connect_events() before sending commands"
+            )
+        return self._mqtt
+
+    # ─── MQTT ─────────────────────────────────────────────────────
+
+    async def connect_events(
+        self,
+        device_ids: List[str],
+        on_update: Optional[UpdateCallback] = None,
+        on_disconnect: Optional[DisconnectCallback] = None,
+    ) -> None:
+        """Subscribe to MQTT for the given players.
+
+        Returns once the first subscribe completes. The connection
+        auto-reconnects on transient drops; `on_disconnect(err)` fires
+        each time. Callbacks may be sync or async. Amend the set later
+        with `subscribe_player_events` / `unsubscribe_player_events`.
+
+        AWS IoT enforces the access token's TTL, so each reconnect re-resolves
+        the token through `check_and_refresh_token` — the same path REST uses
+        per call. The caller just has to keep `self.token` current (refresh it
+        when self-managed, or sync it in when the OAuth lifecycle is external).
+        """
+        if self.token is None:
+            raise YotoError("No token; authenticate before connecting MQTT")
+        self._update_callback = on_update
+        self._disconnect_callback = on_disconnect
+        self._connected_player_ids = list(device_ids)
+        self._mqtt = YotoMqttClient()
+        await self._mqtt.connect(
+            self.token,
+            device_ids,
+            self._on_mqtt_message,
+            on_disconnect=on_disconnect,
+            token_getter=self._mqtt_access_token,
+        )
+
+    async def _mqtt_access_token(self) -> str:
+        """Per-(re)connect token source for MQTT: the same `check_and_refresh_token`
+        REST goes through, so both resolve the token identically."""
+        token = await self.check_and_refresh_token()
+        if token.access_token is None:
+            raise YotoError("No access token available for MQTT auth")
+        return token.access_token
+
+    async def disconnect_events(self) -> None:
+        if self._mqtt is None:
+            return
+        await self._mqtt.disconnect()
+        self._mqtt = None
+
+    async def reconnect_events(self) -> None:
+        """Disconnect, refresh the token, reconnect with the same set."""
+        on_update = self._update_callback
+        on_disconnect = self._disconnect_callback
+        device_ids = list(self._connected_player_ids)
+        await self.disconnect_events()
+        await self.check_and_refresh_token()
+        await self.connect_events(
+            device_ids,
+            on_update=on_update,
+            on_disconnect=on_disconnect,
+        )
+
+    async def subscribe_player_events(self, device_id: str) -> None:
+        if device_id not in self._connected_player_ids:
+            self._connected_player_ids.append(device_id)
+        if self._mqtt is not None:
+            await self._mqtt.add_player(device_id)
+
+    async def unsubscribe_player_events(self, device_id: str) -> None:
+        if device_id in self._connected_player_ids:
+            self._connected_player_ids.remove(device_id)
+        if self._mqtt is not None:
+            await self._mqtt.remove_player(device_id)
+
+    @property
+    def is_mqtt_connected(self) -> bool:
+        """True if MQTT is currently connected to the broker."""
+        return self._mqtt is not None and self._mqtt.is_connected
+
+    async def _on_mqtt_message(
+        self, message: Union[EventPatch, StatusPatch, PresenceEvent]
+    ) -> None:
+        player = self.players.get(message.player_id)
+        if player is None:
+            return
+        if isinstance(message, PresenceEvent):
+            # The `presence` topic is the authoritative online/offline signal:
+            # "offline" is the broker's Last-Will (the device can't publish it
+            # itself), so unlike every other topic it does NOT prove presence.
+            # Going offline keeps the last battery reading (don't blank it).
+            came_online = message.is_online and not player.is_online
+            self._set_online(player, message.is_online)
+            # A player back online may have changed while away (card inserted,
+            # replugged); its status isn't pushed, so pull a fresh one.
+            if came_online:
+                self._schedule_status_refresh(message.player_id)
+        else:
+            # data/events, data/status and status/full only arrive from a live
+            # device, so any of them is proof the player is online.
+            self._set_online(player, True)
+            if isinstance(message, StatusPatch):
+                self._apply_status_patch(player, message)
+            elif isinstance(message, EventPatch):
+                prev_card = player.last_event.card_id
+                prev_streaming = player.last_event.streaming
+                self._apply_playback_event(player, message)
+                player.last_event_received_at = datetime.datetime.now(
+                    datetime.timezone.utc
+                )
+                # Hand the hardware cap to the MQTT client so set_volume clamps
+                # against it.
+                volume_max = message.fields.get("volume_max")
+                if self._mqtt is not None and volume_max is not None:
+                    self._mqtt.set_volume_max(message.player_id, volume_max)
+                # card_insertion_state / active_card aren't pushed with the
+                # event, so pull a fresh status when the card or streaming flips.
+                if (
+                    player.last_event.card_id != prev_card
+                    or player.last_event.streaming != prev_streaming
+                ):
+                    self._schedule_status_refresh(message.player_id)
+        if self._update_callback is not None:
+            try:
+                await _maybe_await(self._update_callback(player))
+            except Exception:
+                _LOGGER.exception("%s - update callback raised", DOMAIN)
+
+    def _schedule_status_refresh(self, device_id: str) -> None:
+        """An event implied a status change (card/streaming flip, came back
+        online); pull a fresh basic + extended status. Spawned as a task so the
+        message loop keeps running — otherwise the serialised requests would
+        block on replies the loop can't deliver."""
+        if self._mqtt is None or not self._mqtt.is_connected:
+            return
+        task = asyncio.create_task(self._refresh_status_after_event(device_id))
+        self._event_refresh_tasks.add(task)
+        task.add_done_callback(self._event_refresh_tasks.discard)
+
+    async def _refresh_status_after_event(self, device_id: str) -> None:
+        try:
+            await self.request_player_status(device_id)
+            await self.request_player_extended_status(device_id)
+        except YotoError:
+            pass
+
+    def _apply_playback_event(self, player: YotoPlayer, patch: EventPatch) -> None:
+        """Apply an MQTT events patch onto the player's `last_event` snapshot.
+
+        On stop the device clears card_id (to "none" or ""), but leaves the
+        stopped card's chapter/track/position in place, so clear those too.
+        """
+        for field_name, value in patch.fields.items():
+            setattr(player.last_event, field_name, value)
+        if patch.fields.get("card_id") in ("none", ""):
+            player.last_event.card_id = None
+            for field_name in _CARD_SCOPED_FIELDS:
+                setattr(player.last_event, field_name, None)
+
+    def _apply_status_patch(self, player: YotoPlayer, patch: StatusPatch) -> None:
+        target = player.extended_status if patch.extended else player.status
+        for field_name, value in patch.fields.items():
+            if value is None:
+                continue
+            setattr(target, field_name, value)
+        # status/full carries the device clock (utcTime); use it so updated_at
+        # is comparable to the shadow's. data/status has none — fall back to now.
+        utc_time = patch.fields.get("utc_time")
+        target.updated_at = (
+            datetime.datetime.fromtimestamp(utc_time, datetime.timezone.utc)
+            if utc_time is not None
+            else datetime.datetime.now(datetime.timezone.utc)
+        )
+
+    def _set_online(self, player: YotoPlayer, online: bool) -> None:
+        """Set the player's connection state (root-level, not on a status
+        object). Writers: presence (MQTT), REST list/config, live-message
+        presence proof."""
+        player.is_online = online
+        player.online_refreshed_at = datetime.datetime.now(datetime.timezone.utc)

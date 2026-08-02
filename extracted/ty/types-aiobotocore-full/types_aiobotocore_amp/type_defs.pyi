@@ -52,6 +52,7 @@ __all__ = (
     "AnomalyDetectorStatusTypeDef",
     "AnomalyDetectorSummaryTypeDef",
     "BlobTypeDef",
+    "CloudWatchConfigurationTypeDef",
     "CloudWatchLogDestinationTypeDef",
     "ComponentConfigOutputTypeDef",
     "ComponentConfigTypeDef",
@@ -204,6 +205,9 @@ class AnomalyDetectorStatusTypeDef(TypedDict):
     statusReason: NotRequired[str]
 
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
+
+class CloudWatchConfigurationTypeDef(TypedDict):
+    datasetArn: str
 
 class CloudWatchLogDestinationTypeDef(TypedDict):
     logGroupArn: str
@@ -428,9 +432,6 @@ class AlertManagerDefinitionDescriptionTypeDef(TypedDict):
     createdAt: datetime
     modifiedAt: datetime
 
-class DestinationTypeDef(TypedDict):
-    ampConfiguration: NotRequired[AmpConfigurationTypeDef]
-
 class AnomalyDetectorSummaryTypeDef(TypedDict):
     arn: str
     anomalyDetectorId: str
@@ -465,6 +466,10 @@ class PutRuleGroupsNamespaceRequestTypeDef(TypedDict):
 
 class ScrapeConfigurationTypeDef(TypedDict):
     configurationBlob: NotRequired[BlobTypeDef]
+
+class DestinationTypeDef(TypedDict):
+    ampConfiguration: NotRequired[AmpConfigurationTypeDef]
+    cloudWatchConfiguration: NotRequired[CloudWatchConfigurationTypeDef]
 
 class ScraperLoggingDestinationTypeDef(TypedDict):
     cloudWatchLogs: NotRequired[CloudWatchLogDestinationTypeDef]

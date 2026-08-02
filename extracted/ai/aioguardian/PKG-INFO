@@ -1,0 +1,123 @@
+Metadata-Version: 2.3
+Name: aioguardian
+Version: 2026.1.1
+Summary: A Python3 library for Elexa Guardian water valves and sensors
+License: MIT
+Author: Aaron Bach
+Author-email: bachya1208@gmail.com
+Requires-Python: >=3.11
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Provides-Extra: build
+Provides-Extra: docs
+Provides-Extra: lint
+Provides-Extra: test
+Requires-Dist: Sphinx (>=5,<9) ; extra == "docs"
+Requires-Dist: aiohttp (>=3.9.0)
+Requires-Dist: aresponses (>=2.1.6) ; extra == "test"
+Requires-Dist: asyncio_dgram (>=2.0.0)
+Requires-Dist: blacken-docs (==1.19.1) ; extra == "lint"
+Requires-Dist: certifi (>=2023.07.22)
+Requires-Dist: codespell (==2.4.0) ; extra == "lint"
+Requires-Dist: darglint (==1.8.1) ; extra == "lint"
+Requires-Dist: frozenlist (>=1.5.0)
+Requires-Dist: mypy (==1.14.1) ; extra == "lint"
+Requires-Dist: myst-parser (>=0.18,<4.1) ; extra == "docs"
+Requires-Dist: pre-commit (==4.1.0) ; extra == "lint"
+Requires-Dist: pre-commit-hooks (==5.0.0) ; extra == "lint"
+Requires-Dist: pylint (==3.3.3) ; extra == "lint"
+Requires-Dist: pytest (==8.3.4) ; extra == "lint"
+Requires-Dist: pytest (==8.3.4) ; extra == "test"
+Requires-Dist: pytest-aiohttp (==1.0.0) ; extra == "test"
+Requires-Dist: pytest-asyncio (==0.25.2) ; extra == "lint"
+Requires-Dist: pytest-asyncio (==0.25.2) ; extra == "test"
+Requires-Dist: pytest-cov (==6.0.0) ; extra == "test"
+Requires-Dist: ruff (==0.9.3) ; extra == "lint"
+Requires-Dist: sphinx-rtd-theme (>=1,<4) ; extra == "docs"
+Requires-Dist: typing-extensions (>=4.8.0)
+Requires-Dist: uv (==0.5.26) ; extra == "build"
+Requires-Dist: voluptuous (>=0.11.7)
+Requires-Dist: yamllint (==1.28.0) ; extra == "lint"
+Requires-Dist: yarl (>=1.9.2)
+Description-Content-Type: text/markdown
+
+# 🚰 aioguardian: A Python3 library for Elexa Guardian devices
+
+[![CI][ci-badge]][ci]
+[![PyPI][pypi-badge]][pypi]
+[![Version][version-badge]][version]
+[![License][license-badge]][license]
+[![Code Coverage][codecov-badge]][codecov]
+[![Maintainability][maintainability-badge]][maintainability]
+
+<a href="https://www.buymeacoffee.com/bachya1208P" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174"></a>
+
+`aioguardian` is a Python3, `asyncio`-focused library for interacting with
+[the Guardian line of water valves and sensors from Elexa][elexa].
+
+- [Installation](#installation)
+- [Python Versions](#python-versions)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
+
+# Installation
+
+```bash
+pip install aioguardian
+```
+
+# Python Versions
+
+`aioguardian` is currently supported on:
+
+- Python 3.11
+- Python 3.12
+- Python 3.13
+- Python 3.14
+
+# Documentation
+
+Complete documentation can be found [here][docs].
+
+# Contributing
+
+Thanks to all of [our contributors][contributors] so far!
+
+1. [Check for open features/bugs][issues] or [initiate a discussion on one][new-issue].
+2. [Fork the repository][fork].
+3. (_optional, but highly recommended_) Create a virtual environment: `python3 -m venv .venv`
+4. (_optional, but highly recommended_) Enter the virtual environment: `source ./.venv/bin/activate`
+5. Install the dev environment: `script/setup`
+6. Code your new feature or bug fix on a new branch.
+7. Write tests that cover your new functionality.
+8. Run tests and ensure 100% code coverage: `poetry run pytest --cov aioguardian tests`
+9. Update `README.md` with any new documentation.
+10. Submit a pull request!
+
+[ci-badge]: https://img.shields.io/github/actions/workflow/status/bachya/aioguardian/test.yml
+[ci]: https://github.com/bachya/aioguardian/actions
+[codecov-badge]: https://codecov.io/gh/bachya/aioguardian/branch/dev/graph/badge.svg
+[codecov]: https://codecov.io/gh/bachya/aioguardian
+[contributors]: https://github.com/bachya/aioguardian/graphs/contributors
+[docs]: http://aioguardian.readthedocs.io
+[elexa]: http://getguardian.com
+[fork]: https://github.com/bachya/aioguardian/fork
+[issues]: https://github.com/bachya/aioguardian/issues
+[license-badge]: https://img.shields.io/pypi/l/aioguardian.svg
+[license]: https://github.com/bachya/aioguardian/blob/main/LICENSE
+[maintainability-badge]: https://api.codeclimate.com/v1/badges/e6521f4a50efd222be18/maintainability
+[maintainability]: https://codeclimate.com/github/bachya/aioguardian/maintainability
+[new-issue]: https://github.com/bachya/aioguardian/issues/new
+[new-issue]: https://github.com/bachya/aioguardian/issues/new
+[pypi-badge]: https://img.shields.io/pypi/v/aioguardian.svg
+[pypi]: https://pypi.python.org/pypi/aioguardian
+[version-badge]: https://img.shields.io/pypi/pyversions/aioguardian.svg
+[version]: https://pypi.python.org/pypi/aioguardian
+

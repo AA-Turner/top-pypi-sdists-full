@@ -1,0 +1,185 @@
+[package]
+name = "json-tools-rs"
+version = "0.9.22"
+edition = "2021"
+rust-version = "1.85"
+description = "A high-performance Rust library for advanced JSON manipulation with SIMD-accelerated parsing, Rayon parallelism, and Python bindings with DataFrame/Series support"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/amaye15/json-tools-rs"
+keywords = ["json", "flatten", "manipulation", "simd"]
+categories = ["data-structures", "parsing"]
+readme = "README.md"
+# Only Rust-relevant files -- python/ (Python bindings source), docs/ (mdBook
+# source), and tooling config are separate ecosystems/audiences that don't
+# belong in the published crate archive every `cargo build` consumer downloads.
+exclude = [
+    ".claude/",
+    ".github/",
+    ".pre-commit-config.yaml",
+    "docs/",
+    "python/",
+    "scripts/",
+    "book.toml",
+    "benches/history.csv",
+]
+
+[lib]
+name = "json_tools_rs"
+path = "src/lib.rs"
+
+# Support both library and Python extension
+crate-type = ["rlib", "cdylib"]
+
+[[bin]]
+name = "json-tools-rs"
+path = "src/main.rs"
+
+[dependencies]
+regex = "1.12.3"
+# JSON parsing: sonic-rs on 64-bit (fastest), simd-json on 32-bit (fallback)
+serde = { version = "1.0.228", features = ["rc", "derive"] }  # rc: Arc<T> serialization; derive: config_json.rs's wire format (Python pickle support)
+serde_json = { version = "1.0.149", features = ["preserve_order", "raw_value"] }  # preserve_order: JSON-string-column splicing (python.rs) needs row key order intact, not alphabetized -- backed by indexmap, already a direct dependency below. raw_value: RawValue lets that same splice avoid building a full Value tree for a large embedded payload (issue #31 perf fix)
+pyo3 = { version = "0.29.0", features = ["extension-module"], optional = true }
+# Zero-copy access to Arrow-backed DataFrame columns (polars, pyarrow) via the Arrow
+# PyCapsule interface -- python.rs's JSON-string-column detection/splice path (issues
+# #30/#31/#33) used to round-trip an embedded JSON blob column through the DataFrame
+# library's own native JSON writer (which escapes it into a string) and then unescape
+# it back out; for a column that's already Arrow-backed, that's pure waste. Measured
+# directly (interleaved, isolated probe): ~8.7x (polars)/~28x (pyarrow) faster to read
+# the raw string buffer via pyo3-arrow than to pay for the escape+unescape round trip.
+# This is the reason this crate's MSRV moved from 1.80 to 1.85 on 2026-07-30: current
+# pyo3-arrow pulls in arrow-array >=59, which needs rustc 1.85; the only MSRV-1.80-
+# compatible pyo3-arrow release was 0.8.0 (arrow-array 54.x), ~11 releases behind and
+# not worth pinning to indefinitely for a fast-moving crate. pyo3-arrow's own pyo3
+# dependency (0.29) matches this crate's pin exactly, so no duplicate pyo3 version.
+pyo3-arrow = { version = "0.19", optional = true }
+# arrow-array itself: pyo3-arrow re-exports the PyCapsule-conversion types
+# (PyChunkedArray etc.) but not the underlying arrow-rs array types
+# (StringArray and friends) needed to downcast into them -- a direct
+# dependency (not just transitive via pyo3-arrow) is required for `use
+# arrow_array::...` to resolve. Version kept in lockstep with pyo3-arrow's
+# own arrow-array requirement (59.x) to avoid a duplicate version in the
+# dependency tree.
+arrow-array = { version = "59", optional = true }
+# arrow-schema: needed directly for Schema/Field/DataType when building a
+# RecordBatch from scratch (the normalise=True/target= reconstruction engine,
+# 2026-07-31 -- see python.rs's `arrow_normalise` module doc comment). Version
+# kept in lockstep with arrow-array/pyo3-arrow's own requirement (59.x), same
+# reasoning as the arrow-array pin above.
+arrow-schema = { version = "59", optional = true }
+# Phantom pin (not used directly by any code here): pyo3-arrow's own
+# arrow-cast dependency unconditionally requests the "prettyprint" feature,
+# which pulls in comfy-table transitively regardless of anything in this
+# Cargo.toml (Cargo feature unification -- can't be opted out of downstream).
+# comfy-table >=7.2.0 uses `let`-chains, which need a newer rustc than this
+# crate's MSRV of 1.85 despite comfy-table 7.2.0/7.2.1 *claiming* rust-version
+# 1.85 on crates.io (confirmed via a real MSRV build failure: 7.2.2, the
+# version that resolves without this pin, doesn't even declare a rust-version
+# at all). Pinned <7.2 (7.1.x's own MSRV is 1.64) until upstream fixes their
+# rust-version metadata or this crate's MSRV moves past whatever 7.2.x
+# actually needs.
+comfy-table = { version = "<7.2", optional = true }
+memchr = "2.8.0"  # SIMD-optimized byte searching
+smallvec = "1.15.1"  # Stack-allocated vectors for small buffers
+# Small-string optimization for JSON object keys (inlines up to 24 bytes, no heap
+# allocation). Real-world JSON keys average ~8.6 chars in this project's own benchmark
+# corpus (benches/realworld_benchmarks.rs) -- comfortably inline. Validated with an
+# isolated benchmark before adopting: ~3.4x faster than String for realistic
+# insert+lookup key-map workloads. Pure Rust, MSRV-compatible, and most of its
+# transitive deps (itoa, cfg-if, zmij) are already in this tree via other dependencies.
+compact_str = "0.10"
+# Arena allocator for flatten's slow path (CollectingWalker, used when key
+# lowercasing/replacement/collision-handling is configured). CompactString already
+# inlines short keys, but flatten's slow-path keys are full dotted paths (e.g.
+# "response.data.attributes.firstName"), which commonly exceed its 24-byte inline cap
+# for 3+ level nesting and still heap-allocate one at a time. Validated with an
+# isolated benchmark before adopting: ~5.9x faster than CompactString for realistic
+# deep-nested-path collection. `collections` feature provides `bumpalo::collections::
+# String`, needed for in-place lowercasing/replacement before the final arena commit.
+bumpalo = { version = "3.20", features = ["collections"] }
+chrono = { version = "0.4.44", default-features = false, features = ["std", "clock"] }
+mimalloc = { version = "0.1.48", default-features = false, optional = true }  # High-performance allocator (~14-28% measured, see src/lib.rs)
+rayon = "1.12.0"  # Persistent work-stealing thread pool: avoids per-call OS thread spawn cost of std::thread::scope
+# O(1) lookup + insertion order, for unflatten's object tree (no per-node sort needed).
+# Pinned <2.12 since the 2026-07-30 MSRV bump to 1.85 (for pyo3-arrow, see below) --
+# this pin predates that bump, when indexmap 2.12.0's own rust-version (1.82) and
+# 2.14.0's edition2024 requirement (~1.85) were both above the then-MSRV of 1.80.
+# Left in place conservatively rather than lifted as an incidental side effect of an
+# unrelated change; revisit in a dedicated dependency-bump pass. 2.11.x's MSRV is 1.63.
+# serde feature: lets python.rs deserialize a JSON object directly into an
+# IndexMap<String, &RawValue> (order-preserving, source-text order) for the
+# issue #31 splice-row perf fix -- adds no new crate/version, indexmap is already
+# pulled in transitively at the same 2.11.x via serde_json's preserve_order feature.
+indexmap = { version = ">=2.11, <2.12", features = ["serde"] }
+
+[target.'cfg(target_pointer_width = "64")'.dependencies]
+# sonic-rs is fastest but only works on 64-bit architectures.
+# Pinned to exactly 0.5.7 since before the 2026-07-30 MSRV bump to 1.85 (for
+# pyo3-arrow, see below): 0.5.8 used exposed_provenance/strict_provenance, which
+# needed a newer rustc than the then-MSRV of 1.80 (confirmed via a real MSRV CI
+# failure) despite being a semver-patch bump upstream. Left pinned conservatively
+# rather than lifted as an incidental side effect of an unrelated change; revisit
+# in a dedicated dependency-bump pass.
+sonic-rs = "=0.5.7"
+
+[target.'cfg(target_pointer_width = "32")'.dependencies]
+# simd-json fallback for 32-bit architectures
+simd-json = "0.17.0"
+
+[features]
+default = []  # Python bindings are opt-in via --features python
+# Python bindings (opt-in). Dict/list/DataFrame <-> JSON conversion goes through
+# Python's own stdlib `json` module (via pyo3) rather than a Rust-side serde
+# crate -- see python.rs's `py_dumps`/`py_loads` doc comments for why: CPython's
+# hand-tuned C `json` module benchmarked faster than a generic serde-based
+# PyObject<->Value traversal for the nested/batch data this library's own
+# flatten/unflatten operations are meant for.
+python = ["pyo3", "pyo3-arrow", "arrow-array", "arrow-schema", "comfy-table"]
+mimalloc = ["dep:mimalloc"]  # High-performance allocator (~14-28% measured, see src/lib.rs)
+
+test-assets-performance = []
+
+[dev-dependencies]
+criterion = { version = "0.8.2", features = ["html_reports"] }
+
+[[bench]]
+name = "comprehensive_benchmark"
+harness = false
+
+[[bench]]
+name = "isolation_benchmarks"
+harness = false
+
+[[bench]]
+name = "combination_benchmarks"
+harness = false
+
+[[bench]]
+name = "realworld_benchmarks"
+harness = false
+
+[[bench]]
+name = "stress_benchmarks"
+harness = false
+
+# ================================================================================================
+# Performance Optimization Profiles
+# ================================================================================================
+
+[profile.release]
+lto = "fat"            # Full LTO for cross-crate inlining (10-15% faster than "thin")
+codegen-units = 1      # Better optimization (slower compile, faster runtime)
+opt-level = 3          # Maximum optimization
+strip = true           # Remove debug symbols for smaller binary
+overflow-checks = false # Disable overflow checks in release (1-2% faster)
+# Note: panic = "abort" not used due to Python bindings compatibility
+
+[profile.release-lto]
+inherits = "release"
+lto = "fat"            # Full LTO for maximum performance (production builds)
+codegen-units = 1
+
+[profile.profiling]
+inherits = "release"
+strip = false          # Keep debug symbols for samply/flamegraph
+debug = 1              # Line-level debug info without impacting codegen

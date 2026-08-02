@@ -1,0 +1,55 @@
+schema_version: "1.0.0"
+convention_id: "coach.source-layout"
+name: "Toolkit Source Layout Convention"
+description: |
+  Declares the two anti-patterns where toolkit code assumes either the
+  toolkit-self repo layout (src/atdd/) or that atdd is pip-installed.
+  Both shapes must work in three layouts: toolkit-self repo (PYTHONPATH=src),
+  editable install (pip install -e), and wheel install (pip install atdd).
+
+rationale: |
+  Three real incidents shipped in two days (2026-05-01..02):
+    - #341: subprocess.run(['pytest', ...]) bare argv0 broke on PYTHONPATH=src
+    - #352: pkg_version("atdd") in cli.py raised PackageNotFoundError from source
+    - #367: find_repo_root() + 'src/atdd' in three coach validators raised
+            FileNotFoundError in pip-installed consumers
+  Each took 30+ minutes to root-cause. The pattern is silent until exercised
+  in the alternate execution mode (CI). This convention promotes the pattern
+  from "category of past bugs" to "automated guard against future occurrences."
+
+scan_scope:
+  COACH-PKG-LAYOUT-001:
+    include:
+      - "src/atdd/"
+    note: "Toolkit dogfooding. Tests, fixtures, conftest.py, and __init__.py are excluded."
+  COACH-PKG-LAYOUT-002:
+    include:
+      - "src/atdd/"
+    note: "Toolkit dogfooding. The canonical try/except wrapper in src/atdd/__init__.py is exempt."
+  exclude:
+    - "*/tests/"
+    - "*/test/"
+    - "__pycache__/"
+    - "__init__.py"
+    - "test_*.py"
+    - "*_test.py"
+    - "conftest.py"
+    - "*/fixtures/*"
+
+
+
+enforcement:
+  validator: "src/atdd/coach/validators/test_toolkit_source_layout_assumptions.py"
+  specs:
+    - id: "SPEC-COACH-PKG-LAYOUT-0001"
+      description: "Pattern A detector finds every seeded violation and skips clean shapes"
+      validates: "COACH-PKG-LAYOUT-001"
+    - id: "SPEC-COACH-PKG-LAYOUT-0002"
+      description: "Pattern B detector finds every seeded violation and skips clean shapes"
+      validates: "COACH-PKG-LAYOUT-002"
+    - id: "SPEC-COACH-PKG-LAYOUT-0003"
+      description: "Zero layout violations across atdd's own source (toolkit dogfooding)"
+      validates: "COACH-PKG-LAYOUT-001"
+    - id: "SPEC-COACH-PKG-LAYOUT-0004"
+      description: "Convention declares both rules with stable IDs and severity 4"
+      validates: "COACH-PKG-LAYOUT-001"

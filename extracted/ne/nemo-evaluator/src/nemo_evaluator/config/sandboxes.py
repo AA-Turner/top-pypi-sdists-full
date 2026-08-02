@@ -1,0 +1,194 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Sandbox configuration schemas (Docker, ECS Fargate, SLURM, Apptainer, custom)."""
+
+from __future__ import annotations
+
+import warnings
+from typing import Annotated, Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, model_validator
+
+# Matches the exec-server script's own TB_EXEC_PORT fallback and the
+# `exec_server_port` written by the reference Terraform (see /terraform/).
+# Kept off 5000 to avoid collisions with benchmark tasks that bind 5000
+# themselves (e.g. TB 2.0's hf-model-inference Flask server).
+DEFAULT_EXEC_SERVER_PORT = 19542
+
+# SSH sidecar port matching the `ssh_tunnel_sshd_port` written by the
+# reference Terraform (see /terraform/). Chosen in the Linux dynamic/private
+# ephemeral range (49152-65535) to avoid collisions with benchmark tasks that
+# bind specific ports themselves. TB 2.0's `qemu-alpine-ssh` and
+# `qemu-startup` use `hostfwd=tcp::2222-:22` — the sidecar must not squat
+# 2222 or QEMU's hostfwd bind fails with `Could not set up host forwarding
+# rule`.
+DEFAULT_SSHD_PORT = 52222
+
+DEFAULT_SSM_PROJECT = "harbor"
+
+
+class _SandboxBase(BaseModel):
+    """Shared sandbox fields used by the eval loop / lifecycle."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    capture_cmd: str | None = None
+    verify_timeout: float = 600.0
+    stateful: bool = False
+
+    @model_validator(mode="after")
+    def _warn_stateful_with_capture_cmd(self) -> "_SandboxBase":
+        if self.stateful and self.capture_cmd is not None:
+            warnings.warn(
+                "sandbox.stateful=True ignores capture_cmd — the capture/transfer "
+                "workflow is skipped when stateful mode is enabled.",
+                UserWarning,
+                stacklevel=2,
+            )
+        return self
+
+
+class DockerSandbox(_SandboxBase):
+    type: Literal["docker"] = "docker"
+    image: str | None = None
+    image_template: str | None = None
+    memory: str = "4g"
+    cpus: float = 2.0
+    timeout: float = 1800.0
+    concurrency: int = 4
+    network: Literal["bridge", "host", "none"] = "bridge"
+    container_env: dict[str, str] = Field(default_factory=dict)
+
+
+class SshSidecarConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sshd_port: int = DEFAULT_SSHD_PORT
+    ssh_ready_timeout_sec: float = 300.0
+    public_key_secret_arn: str
+    private_key_secret_arn: str
+    image: str | None = None
+    exec_server_port: int | None = DEFAULT_EXEC_SERVER_PORT
+
+
+class EcsFargateSandbox(_SandboxBase):
+    """ECS Fargate sandbox config.
+
+    When ``region`` is set but ``cluster`` is omitted, NEL auto-discovers
+    infrastructure from AWS SSM Parameter Store (written by Terraform).
+    Any field explicitly set in YAML overrides the SSM default.
+    """
+
+    type: Literal["ecs_fargate"] = "ecs_fargate"
+    image: str | None = None
+    image_template: str | None = None
+    timeout: float = 1800.0
+    concurrency: int = 4
+    container_env: dict[str, str] = Field(default_factory=dict)
+    container_port: int | None = None
+
+    region: str | None = None
+    cluster: str | None = None
+    subnets: list[str] = Field(default_factory=list)
+    security_groups: list[str] = Field(default_factory=list)
+    assign_public_ip: bool | None = None
+    cpu: str = "4096"
+    memory: str = "8192"
+    ephemeral_storage_gib: int | None = None
+    execution_role_arn: str | None = None
+    task_role_arn: str | None = None
+    log_group: str | None = None
+    log_stream_prefix: str | None = None
+    max_task_lifetime_sec: int | None = None
+    ssh_sidecar: SshSidecarConfig | None = None
+    s3_bucket: str | None = None
+    s3_prefix: str | None = None
+    ecr_repository: str | None = None
+    codebuild_project: str | None = None
+    codebuild_service_role: str | None = None
+    codebuild_build_timeout: int | None = None
+    codebuild_compute_type: str | None = None
+    dockerhub_secret_arn: str | None = None
+    efs_filesystem_id: str | None = None
+    efs_access_point_id: str | None = None
+
+    ssm_project: str = DEFAULT_SSM_PROJECT
+
+
+class _SlurmSandboxBase(_SandboxBase):
+    """Shared fields for SLURM-based sandboxes (Pyxis/Enroot and Apptainer)."""
+
+    image: str | None = None
+    image_template: str | None = None
+    memory: str = "4g"
+    cpus: float = 2.0
+    timeout: float = 1800.0
+    concurrency: int = 4
+    node_pool: str | None = None
+    slots_per_node: int = 4
+    container_env: dict[str, str] = Field(default_factory=dict)
+
+
+class SlurmSandbox(_SlurmSandboxBase):
+    type: Literal["slurm"] = "slurm"
+
+
+class ApptainerSandbox(_SlurmSandboxBase):
+    type: Literal["apptainer"] = "apptainer"
+    sif_cache_dir: str | None = None
+
+    @model_validator(mode="after")
+    def _sif_required_for_remote(self) -> ApptainerSandbox:
+        if self.node_pool is not None and not self.sif_cache_dir:
+            raise ValueError("sif_cache_dir required when node_pool is set (remote sandbox nodes)")
+        return self
+
+
+class NoSandbox(_SandboxBase):
+    type: Literal["none"] = "none"
+    stateful: bool = False
+
+
+class CustomSandbox(BaseModel):
+    """Plugin sandbox backend — dynamically imported from class_path."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["custom"] = "custom"
+    class_path: str
+    config: dict[str, Any] = Field(default_factory=dict)
+
+
+def _sandbox_discriminator(v: Any) -> str:
+    if isinstance(v, dict):
+        t = v.get("type")
+        if t is None:
+            raise ValueError("Sandbox config must include a 'type' field")
+        return t
+    t = getattr(v, "type", None)
+    if t is None:
+        raise ValueError(f"Cannot determine sandbox type from {type(v).__name__}. Expected a dict with a 'type' field.")
+    return t
+
+
+SandboxConfig = Annotated[
+    Annotated[DockerSandbox, Tag("docker")]
+    | Annotated[EcsFargateSandbox, Tag("ecs_fargate")]
+    | Annotated[SlurmSandbox, Tag("slurm")]
+    | Annotated[ApptainerSandbox, Tag("apptainer")]
+    | Annotated[NoSandbox, Tag("none")]
+    | Annotated[CustomSandbox, Tag("custom")],
+    Discriminator(_sandbox_discriminator),
+]

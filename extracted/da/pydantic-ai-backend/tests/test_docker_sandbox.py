@@ -525,39 +525,40 @@ class TestSharedDockerClient:
         assert len(calls) == 1
 
 
+@pytest.fixture
+def fake_client(monkeypatch):
+    """Install fake `docker` modules and a client that records `containers.run`."""
+    import pydantic_ai_backends.backends.docker.sandbox as sandbox_mod
+
+    fake_errors = types.ModuleType("docker.errors")
+    fake_errors.NotFound = type("NotFound", (Exception,), {})
+    fake_errors.ImageNotFound = type("ImageNotFound", (Exception,), {})
+    fake_docker = types.ModuleType("docker")
+    fake_docker.errors = fake_errors
+    monkeypatch.setitem(sys.modules, "docker", fake_docker)
+    monkeypatch.setitem(sys.modules, "docker.errors", fake_errors)
+
+    class Containers:
+        def __init__(self):
+            self.image = None
+            self.kwargs = None
+
+        def run(self, image, **kwargs):
+            self.image = image
+            self.kwargs = kwargs
+            return _FakeContainer()
+
+    class Client:
+        def __init__(self):
+            self.containers = Containers()
+
+    client = Client()
+    monkeypatch.setattr(sandbox_mod, "docker_client", lambda: client)
+    return client
+
+
 class TestDockerSandboxResourceLimits:
     """Tests that limits and hardening reach `containers.run` (no daemon needed)."""
-
-    @pytest.fixture
-    def fake_client(self, monkeypatch):
-        """Install fake `docker` modules and a recording client."""
-        import pydantic_ai_backends.backends.docker.sandbox as sandbox_mod
-
-        fake_errors = types.ModuleType("docker.errors")
-        fake_errors.NotFound = type("NotFound", (Exception,), {})
-        fake_errors.ImageNotFound = type("ImageNotFound", (Exception,), {})
-        fake_docker = types.ModuleType("docker")
-        fake_docker.errors = fake_errors
-        monkeypatch.setitem(sys.modules, "docker", fake_docker)
-        monkeypatch.setitem(sys.modules, "docker.errors", fake_errors)
-
-        class Containers:
-            def __init__(self):
-                self.image = None
-                self.kwargs = None
-
-            def run(self, image, **kwargs):
-                self.image = image
-                self.kwargs = kwargs
-                return _FakeContainer()
-
-        class Client:
-            def __init__(self):
-                self.containers = Containers()
-
-        client = Client()
-        monkeypatch.setattr(sandbox_mod, "docker_client", lambda: client)
-        return client
 
     def test_defaults_bound_processes_and_block_escalation(self, fake_client):
         """A default sandbox still caps PIDs and denies setuid escalation."""
@@ -578,6 +579,74 @@ class TestDockerSandboxResourceLimits:
         kwargs = fake_client.containers.kwargs
         assert kwargs["mem_limit"] == "512m"
         assert kwargs["memswap_limit"] == "512m"
+
+    def test_every_container_gets_an_init_to_reap_with(self, fake_client):
+        """`sleep` as PID 1 never waits, so an orphan is a zombie for good.
+
+        Measured: ten orphaned children left ten permanent zombies, which
+        accumulate against `pids_limit` until the session cannot fork.
+        """
+        _sandbox()._ensure_container()
+
+        assert fake_client.containers.kwargs["init"] is True
+
+    def test_git_is_configured_through_the_environment(self, fake_client):
+        """Which is what reaches a ready-made image we never built.
+
+        Without `safe.directory` every git command in a bind-mounted workspace
+        fails with "detected dubious ownership", and without an identity a
+        commit fails outright.
+        """
+        _sandbox()._ensure_container()
+        env = fake_client.containers.kwargs["environment"]
+
+        pairs = {
+            env[f"GIT_CONFIG_KEY_{i}"]: env[f"GIT_CONFIG_VALUE_{i}"]
+            for i in range(int(env["GIT_CONFIG_COUNT"]))
+        }
+        assert pairs["safe.directory"] == "*"
+        assert pairs["user.email"]
+        assert pairs["user.name"]
+
+    def test_the_environment_keeps_output_readable_and_installs_bounded(self, fake_client):
+        _sandbox()._ensure_container()
+        env = fake_client.containers.kwargs["environment"]
+
+        # A command killed by the timeout must still return what it printed.
+        assert env["PYTHONUNBUFFERED"] == "1"
+        # Escape sequences are tokens the model pays for and cannot read.
+        assert env["NO_COLOR"] == "1"
+        assert env["PAGER"] == "cat"
+        # uv's parallelism is memory: uncapped it is OOM-killed at 128 MB where
+        # pip survives, and capped at two it fits and stays 6.6x faster.
+        assert env["UV_CONCURRENT_DOWNLOADS"] == "2"
+        # node:20-slim ships no LANG, so a Node runtime would start in POSIX.
+        assert env["LANG"] == "C.UTF-8"
+
+    def test_a_runtime_may_override_any_of_it(self, fake_client):
+        from pydantic_ai_backends.types import RuntimeConfig
+
+        runtime = RuntimeConfig(name="loud", image="img", env_vars={"NO_COLOR": "0"})
+        _sandbox(runtime=runtime)._ensure_container()
+        env = fake_client.containers.kwargs["environment"]
+
+        assert env["NO_COLOR"] == "0"
+        # And the rest still arrives.
+        assert env["PYTHONUNBUFFERED"] == "1"
+
+    def test_a_wider_swap_ceiling_is_honoured(self, fake_client):
+        """A host whose swap is zram can afford one; the default still cannot."""
+        _sandbox(mem_limit="512m", memswap_limit="768m")._ensure_container()
+
+        kwargs = fake_client.containers.kwargs
+        assert kwargs["mem_limit"] == "512m"
+        assert kwargs["memswap_limit"] == "768m"
+
+    def test_a_swap_ceiling_without_a_memory_one_is_ignored(self, fake_client):
+        """Docker rejects a swap ceiling with no memory ceiling under it."""
+        _sandbox(memswap_limit="768m")._ensure_container()
+
+        assert "memswap_limit" not in fake_client.containers.kwargs
 
     def test_cpu_limit_converts_cores_to_nano_cpus(self, fake_client):
         _sandbox(cpus=1.5)._ensure_container()
@@ -1395,3 +1464,45 @@ class TestOciRuntimePassthrough:
         assert kwargs["runtime"] == "kata"
         assert kwargs["mem_limit"] == "1g"
         assert kwargs["network_mode"] == "none"
+
+
+class TestUnprivilegedContainers:
+    """A runtime that names a uid is run as it, and told so consistently."""
+
+    def _runtime(self, **kwargs):
+        from pydantic_ai_backends.types import RuntimeConfig
+
+        return RuntimeConfig(name="nr", image="img", **kwargs)
+
+    def test_a_root_runtime_names_no_user(self, fake_client):
+        _sandbox(runtime=self._runtime())._ensure_container()
+
+        assert "user" not in fake_client.containers.kwargs
+
+    def test_the_container_runs_as_the_uid_and_its_group(self, fake_client):
+        """The gid matters too: a bind-mounted workspace is checked on both."""
+        _sandbox(runtime=self._runtime(run_as_uid=1000))._ensure_container()
+
+        assert fake_client.containers.kwargs["user"] == "1000:1000"
+
+    def test_uv_is_not_aimed_at_the_interpreter_the_user_cannot_write_to(self, fake_client):
+        """A container's environment overrides its image's, so this has to go.
+
+        Measured: left set, uv ignores the virtualenv the image built and fails
+        with `Permission denied` on the system `site-packages`.
+        """
+        _sandbox(runtime=self._runtime(run_as_uid=1000))._ensure_container()
+
+        assert "UV_SYSTEM_PYTHON" not in fake_client.containers.kwargs["environment"]
+
+    def test_a_root_runtime_keeps_it(self, fake_client):
+        _sandbox(runtime=self._runtime())._ensure_container()
+
+        assert fake_client.containers.kwargs["environment"]["UV_SYSTEM_PYTHON"] == "1"
+
+    def test_a_sandbox_without_a_runtime_still_gets_the_defaults(self, fake_client):
+        _sandbox()._ensure_container()
+        env = fake_client.containers.kwargs["environment"]
+
+        assert env["UV_SYSTEM_PYTHON"] == "1"
+        assert "user" not in fake_client.containers.kwargs

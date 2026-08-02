@@ -1,0 +1,1911 @@
+//  ██████   ██████ ██████████  █████████  █████   █████ █████    ███████
+// ░░██████ ██████ ░░███░░░░░█ ███░░░░░███░░███   ░░███ ░░███   ███░░░░░███      ███         ███
+//  ░███░█████░███  ░███  █ ░ ░███    ░░░  ░███    ░███  ░███  ███     ░░███    ░███        ░███
+//  ░███░░███ ░███  ░██████   ░░█████████  ░███████████  ░███ ░███      ░███ ███████████ ███████████
+//  ░███ ░░░  ░███  ░███░░█    ░░░░░░░░███ ░███░░░░░███  ░███ ░███      ░███░░░░░███░░░ ░░░░░███░░░
+//  ░███      ░███  ░███ ░   █ ███    ░███ ░███    ░███  ░███ ░░███     ███     ░███        ░███
+//  █████     █████ ██████████░░█████████  █████   █████ █████ ░░░███████░      ░░░         ░░░
+// ░░░░░     ░░░░░ ░░░░░░░░░░  ░░░░░░░░░  ░░░░░   ░░░░░ ░░░░░    ░░░░░░░
+//
+//
+//  License:         MIT License
+//                   meshio++ default license: LICENSE
+//
+//  Main authors:    Vicente Mataix Ferrandiz
+//
+//
+
+/**
+ * @file test_c_api.cpp
+ * @brief Tests for the C API (bindings/c/). Compiled into the gtest suite
+ *        only when MESHIOPLUSPLUS_BUILD_C_API=ON; written purely against the
+ *        public C surface (plus mt:: fixtures for reference meshes), so it
+ *        runs identically under every mesh backend.
+ */
+
+// System includes
+#include <array>
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <filesystem>
+#include <string>
+#include <vector>
+
+// External includes
+#include <gtest/gtest.h>
+
+#include "meshioplusplus/version.hpp"
+
+// Project includes
+#include "meshioplusplus/meshioplusplus.h"
+
+#include "mesh_fixtures.hpp"
+#ifdef MESHIOPLUSPLUS_HAS_HDF5
+#include "meshioplusplus/formats/med.hpp"
+#include "meshioplusplus/formats/stl.hpp"
+#include "meshioplusplus/formats/vtu.hpp"
+#endif
+
+namespace {
+
+// Deliberately non-square everywhere (5 points x 3 dims, 2 cells x 4 nodes)
+// with asymmetric coordinates so a transposed layout cannot cancel out.
+const std::vector<double> kPoints = {
+    0.0, 0.0, 0.0,  //
+    1.1, 0.2, 0.3,  //
+    0.4, 1.2, 0.5,  //
+    0.6, 0.7, 1.3,  //
+    1.4, 1.5, 1.6,  //
+};
+const std::vector<std::int64_t> kConn = {0, 1, 2, 3, 1, 2, 3, 4};
+
+// Build the reference tet mesh through the C API.
+mio_mesh* build_tet_mesh() {
+    mio_mesh* m = mio_mesh_create();
+    EXPECT_NE(m, nullptr);
+    EXPECT_EQ(mio_mesh_set_points(m, MIO_FLOAT64, 5, 3, kPoints.data()), MIO_OK);
+    EXPECT_EQ(mio_mesh_add_cell_block(m, "tetra", 2, 4, MIO_INT64, kConn.data()), MIO_OK);
+    return m;
+}
+
+std::string block_type(const mio_mesh* pMesh, std::int64_t block) {
+    char buf[64] = {};
+    const std::int64_t n = mio_mesh_cell_block_type(pMesh, block, buf, sizeof(buf));
+    EXPECT_GE(n, 0);
+    return buf;
+}
+
+TEST(CApi, VersionAndBackend) {
+    EXPECT_STRNE(mio_version(), "");
+    const std::string backend = mio_mesh_backend();
+    EXPECT_TRUE(backend == "meshio" || backend == "native" || backend == "kratos") << backend;
+}
+
+// The compile-time macros describe the HEADER; mio_version() describes the
+// linked LIBRARY. With a shared build the two genuinely can differ, which is why
+// both exist -- but in this build they are the same artifact, so they must agree,
+// and that is what catches a version file bumped without its twin.
+TEST(CApi, CompileTimeVersionMatchesTheLinkedLibrary) {
+    const std::string expected = std::to_string(MIO_VERSION_MAJOR) + "." +
+                                 std::to_string(MIO_VERSION_MINOR) + "." +
+                                 std::to_string(MIO_VERSION_PATCH);
+    EXPECT_EQ(std::string(mio_version()), expected);
+    EXPECT_EQ(std::string(MESHIOPLUSPLUS_VERSION_STRING), expected);
+
+    // The feature-detection macros are what consumers actually write.
+    EXPECT_TRUE(MIO_VERSION_AT_LEAST(MIO_VERSION_MAJOR, MIO_VERSION_MINOR, MIO_VERSION_PATCH));
+    EXPECT_FALSE(MIO_VERSION_BEFORE(MIO_VERSION_MAJOR, MIO_VERSION_MINOR, MIO_VERSION_PATCH));
+    EXPECT_TRUE(MIO_VERSION_AT_LEAST(1, 0, 0));
+    EXPECT_FALSE(MIO_VERSION_AT_LEAST(MIO_VERSION_MAJOR + 1, 0, 0));
+    // Ordering must not break across a component boundary: 9.6.0 is after 9.5.99.
+    EXPECT_TRUE(MESHIOPLUSPLUS_VERSION_AT_LEAST(9, 5, 0));
+    EXPECT_TRUE(MESHIOPLUSPLUS_VERSION > (9 * 10000 + 5 * 100 + 99));
+
+    // selective refinement landed in 9.5.0; this is the shape a consumer writes.
+#if MIO_VERSION_AT_LEAST(9, 5, 0)
+    EXPECT_NE(&mio_refine_ex, nullptr);
+#endif
+}
+
+TEST(CApi, FormatAvailability) {
+    EXPECT_EQ(mio_format_readable("vtu"), 1);
+    EXPECT_EQ(mio_format_writable("vtu"), 1);
+    EXPECT_EQ(mio_format_readable("openfoam"), 1);
+    EXPECT_EQ(mio_format_writable("openfoam"), 0);  // read-only format
+    EXPECT_EQ(mio_format_readable("nonexistent"), 0);
+    EXPECT_EQ(mio_format_readable(nullptr), 0);
+#ifdef MESHIOPLUSPLUS_HAS_HDF5
+    EXPECT_EQ(mio_format_readable("med"), 1);
+    EXPECT_EQ(mio_format_writable("med"), 1);
+#else
+    EXPECT_EQ(mio_format_readable("med"), 0);
+#endif
+}
+
+TEST(CApi, CellTypeMetadata) {
+    EXPECT_STREQ(mio_cell_type_name(MIO_CELL_Tetra10), "tetra10");
+    EXPECT_EQ(mio_cell_type_from_name("tetra10"), MIO_CELL_Tetra10);
+    EXPECT_EQ(mio_cell_type_from_name("not_a_type"), MIO_CELL_Custom);
+    EXPECT_EQ(mio_cell_type_from_name(nullptr), MIO_CELL_Custom);
+    EXPECT_EQ(mio_cell_type_num_nodes(MIO_CELL_Hexahedron20), 20);
+    EXPECT_EQ(mio_cell_type_num_nodes(MIO_CELL_Polygon), -1);
+    EXPECT_EQ(mio_cell_type_dimension(MIO_CELL_Triangle), 2);
+    EXPECT_EQ(mio_cell_type_dimension(MIO_CELL_Custom), -1);
+    EXPECT_STREQ(mio_cell_type_name(MIO_CELL_Custom), "");
+}
+
+TEST(CApi, BuildAndInspect) {
+    mio_mesh* m = build_tet_mesh();
+
+    EXPECT_EQ(mio_mesh_num_points(m), 5);
+    EXPECT_EQ(mio_mesh_point_dim(m), 3);
+    EXPECT_EQ(mio_mesh_num_cell_blocks(m), 1);
+    EXPECT_EQ(block_type(m, 0), "tetra");
+
+    std::int64_t num_cells = 0, npc = 0;
+    std::int32_t ragged = -1;
+    ASSERT_EQ(mio_mesh_cell_block_info(m, 0, &num_cells, &npc, &ragged), MIO_OK);
+    EXPECT_EQ(num_cells, 2);
+    EXPECT_EQ(npc, 4);
+    EXPECT_EQ(ragged, 0);
+
+    const void* pts = nullptr;
+    mio_dtype dt = MIO_FLOAT32;
+    ASSERT_EQ(mio_mesh_get_points(m, &pts, &dt), MIO_OK);
+    ASSERT_EQ(dt, MIO_FLOAT64);
+    const double* d = static_cast<const double*>(pts);
+    for (std::size_t i = 0; i < kPoints.size(); ++i)
+        EXPECT_DOUBLE_EQ(d[i], kPoints[i]);
+
+    const void* conn = nullptr;
+    ASSERT_EQ(mio_mesh_cell_block_conn(m, 0, &conn, &dt), MIO_OK);
+    ASSERT_EQ(dt, MIO_INT64);
+    const std::int64_t* c = static_cast<const std::int64_t*>(conn);
+    for (std::size_t i = 0; i < kConn.size(); ++i)
+        EXPECT_EQ(c[i], kConn[i]);
+
+    mio_mesh_free(m);
+}
+
+TEST(CApi, Int32ConnectivityWidens) {
+    const std::vector<std::int32_t> conn32 = {0, 1, 2, 3, 1, 2, 3, 4};
+    mio_mesh* m = mio_mesh_create();
+    ASSERT_EQ(mio_mesh_set_points(m, MIO_FLOAT64, 5, 3, kPoints.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_cell_block(m, "tetra", 2, 4, MIO_INT32, conn32.data()), MIO_OK);
+    const void* conn = nullptr;
+    mio_dtype dt = MIO_FLOAT32;
+    ASSERT_EQ(mio_mesh_cell_block_conn(m, 0, &conn, &dt), MIO_OK);
+    EXPECT_EQ(dt, MIO_INT64);
+    const std::int64_t* c = static_cast<const std::int64_t*>(conn);
+    for (std::size_t i = 0; i < conn32.size(); ++i)
+        EXPECT_EQ(c[i], conn32[i]);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, NamedDataRoundTrip) {
+    mio_mesh* m = build_tet_mesh();
+
+    const std::vector<double> temperature = {1.0, 2.0, 3.0, 4.0, 5.0};
+    const std::int64_t shape1[] = {5};
+    ASSERT_EQ(mio_mesh_add_point_data(m, "temperature", MIO_FLOAT64, 1, shape1, temperature.data()),
+              MIO_OK);
+    std::vector<double> velocity(15);
+    for (std::size_t i = 0; i < velocity.size(); ++i)
+        velocity[i] = 0.5 * static_cast<double>(i);
+    const std::int64_t shape2[] = {5, 3};
+    ASSERT_EQ(mio_mesh_add_point_data(m, "velocity", MIO_FLOAT64, 2, shape2, velocity.data()),
+              MIO_OK);
+
+    const std::vector<double> quality = {0.5, 0.75};
+    const std::int64_t shapec[] = {2};
+    ASSERT_EQ(mio_mesh_append_cell_data(m, "quality", MIO_FLOAT64, 1, shapec, quality.data()),
+              MIO_OK);
+
+    const std::vector<double> gravity = {0.0, 0.0, -9.81};
+    const std::int64_t shapef[] = {3};
+    ASSERT_EQ(mio_mesh_add_field_data(m, "gravity", MIO_FLOAT64, 1, shapef, gravity.data()),
+              MIO_OK);
+
+    // Names come back sorted on every backend.
+    EXPECT_EQ(mio_mesh_num_point_data(m), 2);
+    char buf[64] = {};
+    ASSERT_GE(mio_mesh_point_data_name(m, 0, buf, sizeof(buf)), 0);
+    EXPECT_STREQ(buf, "temperature");
+    ASSERT_GE(mio_mesh_point_data_name(m, 1, buf, sizeof(buf)), 0);
+    EXPECT_STREQ(buf, "velocity");
+
+    const void* data = nullptr;
+    mio_dtype dt = MIO_FLOAT32;
+    std::int32_t ndim = 0;
+    std::int64_t shape[MIO_MAX_NDIM] = {};
+    ASSERT_EQ(mio_mesh_get_point_data(m, "velocity", &data, &dt, &ndim, shape), MIO_OK);
+    EXPECT_EQ(ndim, 2);
+    EXPECT_EQ(shape[0], 5);
+    EXPECT_EQ(shape[1], 3);
+    const double* v = static_cast<const double*>(data);
+    for (std::size_t i = 0; i < velocity.size(); ++i)
+        EXPECT_DOUBLE_EQ(v[i], velocity[i]);
+
+    EXPECT_EQ(mio_mesh_num_cell_data(m), 1);
+    EXPECT_EQ(mio_mesh_cell_data_num_blocks(m, "quality"), 1);
+    ASSERT_EQ(mio_mesh_get_cell_data(m, "quality", 0, &data, &dt, &ndim, shape), MIO_OK);
+    EXPECT_EQ(ndim, 1);
+    EXPECT_EQ(shape[0], 2);
+    EXPECT_DOUBLE_EQ(static_cast<const double*>(data)[1], 0.75);
+
+    EXPECT_EQ(mio_mesh_num_field_data(m), 1);
+    ASSERT_GE(mio_mesh_field_data_name(m, 0, buf, sizeof(buf)), 0);
+    EXPECT_STREQ(buf, "gravity");
+    ASSERT_EQ(mio_mesh_get_field_data(m, "gravity", &data, &dt, &ndim, shape), MIO_OK);
+    EXPECT_EQ(shape[0], 3);
+    EXPECT_DOUBLE_EQ(static_cast<const double*>(data)[2], -9.81);
+
+    mio_mesh_free(m);
+}
+
+TEST(CApi, FileRoundTripAndConvert) {
+    const std::string vtu = mt::temp_path("_capi.vtu");
+    const std::string vtk = mt::temp_path("_capi.vtk");
+
+    mio_mesh* m = build_tet_mesh();
+    ASSERT_EQ(mio_write(vtu.c_str(), m, nullptr), MIO_OK);
+    mio_mesh_free(m);
+
+    mio_mesh* r = mio_read(vtu.c_str(), nullptr);
+    ASSERT_NE(r, nullptr) << mio_last_error();
+    EXPECT_EQ(mio_mesh_num_points(r), 5);
+    EXPECT_EQ(mio_mesh_num_cell_blocks(r), 1);
+    EXPECT_EQ(block_type(r, 0), "tetra");
+    const void* pts = nullptr;
+    mio_dtype dt;
+    ASSERT_EQ(mio_mesh_get_points(r, &pts, &dt), MIO_OK);
+    EXPECT_DOUBLE_EQ(static_cast<const double*>(pts)[4], 0.2);  // point 1, y
+    mio_mesh_free(r);
+
+    ASSERT_EQ(mio_convert(vtu.c_str(), nullptr, vtk.c_str(), nullptr), MIO_OK);
+    mio_mesh* r2 = mio_read(vtk.c_str(), "vtk");
+    ASSERT_NE(r2, nullptr) << mio_last_error();
+    EXPECT_EQ(mio_mesh_num_points(r2), 5);
+    mio_mesh_free(r2);
+
+    std::remove(vtu.c_str());
+    std::remove(vtk.c_str());
+}
+
+TEST(CApi, MeshOperations) {
+    mio_mesh* m = build_tet_mesh();  // 2 tetra sharing a face
+
+    // extract_surface -> boundary triangles.
+    mio_mesh* surf = mio_extract_surface(m, /*record_parent_ids=*/1);
+    ASSERT_NE(surf, nullptr) << mio_last_error();
+    EXPECT_GT(mio_mesh_num_cell_blocks(surf), 0);
+    EXPECT_EQ(block_type(surf, 0), "triangle");
+    mio_mesh_free(surf);
+
+    // extract_skin -> also boundary triangles.
+    mio_mesh* skin = mio_extract_skin(m, /*linearize=*/0);
+    ASSERT_NE(skin, nullptr) << mio_last_error();
+    EXPECT_EQ(block_type(skin, 0), "triangle");
+    mio_mesh_free(skin);
+
+    // attach_quality preserves the cell block(s) and adds cell_data.
+    mio_mesh* q = mio_attach_quality(m);
+    ASSERT_NE(q, nullptr) << mio_last_error();
+    EXPECT_EQ(mio_mesh_num_cell_blocks(q), 1);
+    EXPECT_EQ(block_type(q, 0), "tetra");
+    EXPECT_GT(mio_mesh_num_cell_data(q), 0);
+    mio_mesh_free(q);
+
+    // quality counts.
+    std::int64_t nc = -1, ninv = -1, ndeg = -1;
+    ASSERT_EQ(mio_quality_counts(m, &nc, &ninv, &ndeg), MIO_OK) << mio_last_error();
+    EXPECT_EQ(nc, 2);
+    EXPECT_GE(ninv, 0);
+    EXPECT_GE(ndeg, 0);
+
+    // bandwidth + reorder (RCM): result carries a renumbered mesh + node perm.
+    EXPECT_GE(mio_compute_bandwidth(m), 0);
+    mio_reorder_result* res = mio_reorder(m, "rcm");
+    ASSERT_NE(res, nullptr) << mio_last_error();
+    const mio_mesh* rmesh = mio_reorder_result_mesh(res);
+    ASSERT_NE(rmesh, nullptr);
+    EXPECT_EQ(mio_mesh_num_cell_blocks(rmesh), 1);
+    const void* np = nullptr;
+    mio_dtype dt = MIO_FLOAT64;
+    std::int64_t n = -1;
+    ASSERT_EQ(mio_reorder_result_node_perm(res, &np, &dt, &n), MIO_OK) << mio_last_error();
+    EXPECT_EQ(dt, MIO_INT64);
+    EXPECT_EQ(n, 5);  // build_tet_mesh has 5 points
+    // node permutation is a bijection over [0, n).
+    {
+        const std::int64_t* p = static_cast<const std::int64_t*>(np);
+        std::vector<int> seen(static_cast<std::size_t>(n), 0);
+        for (std::int64_t i = 0; i < n; ++i) {
+            ASSERT_GE(p[i], 0);
+            ASSERT_LT(p[i], n);
+            EXPECT_EQ(seen[static_cast<std::size_t>(p[i])], 0);
+            seen[static_cast<std::size_t>(p[i])] = 1;
+        }
+    }
+    EXPECT_EQ(mio_reorder_result_num_cell_perms(res), 1);
+    // Ownership transfer keeps the mesh alive after freeing the result.
+    mio_mesh* taken = mio_reorder_result_take_mesh(res);
+    ASSERT_NE(taken, nullptr) << mio_last_error();
+    mio_reorder_result_free(res);
+    EXPECT_EQ(mio_mesh_num_cell_blocks(taken), 1);
+    mio_mesh_free(taken);
+    // Unknown method fails cleanly.
+    EXPECT_EQ(mio_reorder(m, "bogus"), nullptr);
+
+    mio_mesh_free(m);
+}
+
+TEST(CApi, Decimate) {
+    // A 4-triangle fan around a centre vertex: the centre collapses into the
+    // pinned boundary, leaving 2 triangles.
+    const std::array<double, 15> pts = {0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0.5, 0.5, 0};
+    const std::array<std::int64_t, 12> conn = {0, 1, 4, 1, 2, 4, 2, 3, 4, 3, 0, 4};
+    mio_mesh* m = mio_mesh_create();
+    ASSERT_NE(m, nullptr);
+    ASSERT_EQ(mio_mesh_set_points(m, MIO_FLOAT64, 5, 3, pts.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_cell_block(m, "triangle", 4, 3, MIO_INT64, conn.data()), MIO_OK);
+
+    mio_decimate_result* res =
+        mio_decimate(m, /*target_ratio=*/-1.0, /*target_faces=*/1, /*max_error=*/-1.0,
+                     /*placement=*/nullptr, /*preserve_boundary=*/1, /*preserve_features=*/1,
+                     /*feature_angle=*/30.0);
+    ASSERT_NE(res, nullptr) << mio_last_error();
+    const mio_mesh* dm = mio_decimate_result_mesh(res);
+    ASSERT_NE(dm, nullptr);
+    EXPECT_EQ(mio_mesh_num_cell_blocks(dm), 1);
+    EXPECT_EQ(block_type(dm, 0), "triangle");
+    EXPECT_EQ(mio_decimate_result_faces_removed(res), 2);
+    EXPECT_EQ(mio_decimate_result_points_removed(res), 1);
+    EXPECT_GE(mio_decimate_result_collapses_rejected(res), 0);
+    EXPECT_GE(mio_decimate_result_max_error_applied(res), 0.0);
+
+    // The point map lands every input point on a live output index (the
+    // collapsed centre maps to its survivor, not -1).
+    const void* pm = nullptr;
+    mio_dtype dt = MIO_FLOAT64;
+    std::int64_t n = -1;
+    ASSERT_EQ(mio_decimate_result_point_map(res, &pm, &dt, &n), MIO_OK) << mio_last_error();
+    EXPECT_EQ(dt, MIO_INT64);
+    EXPECT_EQ(n, 5);
+    {
+        const std::int64_t* p = static_cast<const std::int64_t*>(pm);
+        for (std::int64_t i = 0; i < n; ++i) {
+            EXPECT_GE(p[i], 0);
+            EXPECT_LT(p[i], 4);
+        }
+    }
+    ASSERT_EQ(mio_decimate_result_num_cell_maps(res), 1);
+    const void* cm = nullptr;
+    ASSERT_EQ(mio_decimate_result_cell_map(res, 0, &cm, &dt, &n), MIO_OK) << mio_last_error();
+    EXPECT_EQ(dt, MIO_INT64);
+    EXPECT_EQ(n, 4);
+    EXPECT_EQ(mio_decimate_result_cell_map(res, 7, &cm, &dt, &n), MIO_ERR_NOT_FOUND);
+
+    // Ownership transfer keeps the mesh alive after freeing the result.
+    mio_mesh* taken = mio_decimate_result_take_mesh(res);
+    ASSERT_NE(taken, nullptr) << mio_last_error();
+    mio_decimate_result_free(res);
+    EXPECT_EQ(mio_mesh_num_cell_blocks(taken), 1);
+    mio_mesh_free(taken);
+
+    // Error paths fail cleanly: no criterion, a bad placement, a volume mesh.
+    EXPECT_EQ(mio_decimate(m, -1.0, -1, -1.0, nullptr, 1, 1, 30.0), nullptr);
+    EXPECT_EQ(mio_decimate(m, -1.0, 1, -1.0, "nearest", 1, 1, 30.0), nullptr);
+    mio_mesh_free(m);
+    mio_mesh* tet = build_tet_mesh();
+    EXPECT_EQ(mio_decimate(tet, 0.5, -1, -1.0, nullptr, 1, 1, 30.0), nullptr);
+    EXPECT_NE(std::string(mio_last_error()).find("extract_surface"), std::string::npos);
+    mio_mesh_free(tet);
+}
+
+TEST(CApi, Merge) {
+    mio_mesh* a = build_tet_mesh();  // 5 points, 2 tetra
+    mio_mesh* b = build_tet_mesh();
+    const mio_mesh* inputs[2] = {a, b};
+
+    // Concatenate: point/cell counts sum; source tag present.
+    mio_mesh* cat = mio_merge(inputs, 2, /*weld=*/0, 1e-8, /*source_tag=*/1,
+                              /*data_policy=*/0, /*drop_dup=*/0);
+    ASSERT_NE(cat, nullptr) << mio_last_error();
+    EXPECT_EQ(mio_mesh_num_points(cat), 10);
+    EXPECT_EQ(mio_mesh_num_cell_blocks(cat), 1);
+    EXPECT_GT(mio_mesh_num_cell_data(cat), 0);  // source_mesh_id
+    mio_mesh_free(cat);
+
+    // Weld two identical meshes -> the 5 coincident points collapse.
+    mio_mesh* welded = mio_merge(inputs, 2, /*weld=*/1, 1e-9, /*source_tag=*/1,
+                                 /*data_policy=*/0, /*drop_dup=*/0);
+    ASSERT_NE(welded, nullptr) << mio_last_error();
+    EXPECT_EQ(mio_mesh_num_points(welded), 5);
+    mio_mesh_free(welded);
+
+    // Error paths.
+    EXPECT_EQ(mio_merge(nullptr, 2, 0, 1e-8, 1, 0, 0), nullptr);
+    EXPECT_EQ(mio_merge(inputs, 0, 0, 1e-8, 1, 0, 0), nullptr);
+
+    mio_mesh_free(a);
+    mio_mesh_free(b);
+}
+
+TEST(CApi, Interpolate) {
+    // Source: two points on the x-axis carrying a scalar field.
+    mio_mesh* src = mio_mesh_create();
+    const std::vector<double> spts = {0, 0, 0, 1, 0, 0};
+    ASSERT_EQ(mio_mesh_set_points(src, MIO_FLOAT64, 2, 3, spts.data()), MIO_OK);
+    const std::vector<double> f = {10.0, 20.0};
+    const std::int64_t shape1[] = {2};
+    ASSERT_EQ(mio_mesh_add_point_data(src, "f", MIO_FLOAT64, 1, shape1, f.data()), MIO_OK);
+
+    // Target: one point near the second source point.
+    mio_mesh* tgt = mio_mesh_create();
+    const std::vector<double> tpts = {0.9, 0, 0};
+    ASSERT_EQ(mio_mesh_set_points(tgt, MIO_FLOAT64, 1, 3, tpts.data()), MIO_OK);
+
+    // Default arrays (= all source point_data), default method (nearest).
+    mio_mesh* out = mio_interpolate(src, tgt, nullptr, nullptr, 0, 0, 0.0, nullptr);
+    ASSERT_NE(out, nullptr) << mio_last_error();
+    const void* data = nullptr;
+    mio_dtype dt = MIO_FLOAT32;
+    ASSERT_EQ(mio_mesh_get_point_data(out, "f", &data, &dt, nullptr, nullptr), MIO_OK);
+    EXPECT_EQ(dt, MIO_FLOAT64);
+    EXPECT_DOUBLE_EQ(static_cast<const double*>(data)[0], 20.0);
+    mio_mesh_free(out);
+
+    // An explicit name list goes through the char** + count convention.
+    const char* names[] = {"f"};
+    out = mio_interpolate(src, tgt, "nearest", names, 1, 0, 0.0, "error");
+    ASSERT_NE(out, nullptr) << mio_last_error();
+    mio_mesh_free(out);
+
+    // Error paths: bad method / unknown array / NULL meshes.
+    EXPECT_EQ(mio_interpolate(src, tgt, "bogus", nullptr, 0, 0, 0.0, nullptr), nullptr);
+    EXPECT_STRNE(mio_last_error(), "");
+    const char* bad[] = {"nope"};
+    EXPECT_EQ(mio_interpolate(src, tgt, nullptr, bad, 1, 0, 0.0, nullptr), nullptr);
+    EXPECT_EQ(mio_interpolate(nullptr, tgt, nullptr, nullptr, 0, 0, 0.0, nullptr), nullptr);
+    EXPECT_EQ(mio_interpolate(src, nullptr, nullptr, nullptr, 0, 0, 0.0, nullptr), nullptr);
+
+    mio_mesh_free(src);
+    mio_mesh_free(tgt);
+}
+
+TEST(CApi, Diff) {
+    mio_mesh* a = build_tet_mesh();
+    mio_mesh* b = build_tet_mesh();
+
+    // Identical meshes -> equal, verdict identical.
+    int equal = -1;
+    ASSERT_EQ(mio_meshes_equal(a, b, 1e-12, 1e-9, 0, &equal), MIO_OK) << mio_last_error();
+    EXPECT_EQ(equal, 1);
+    mio_diff_result* res = nullptr;
+    ASSERT_EQ(mio_diff(a, b, 1e-12, 1e-9, 0, &res), MIO_OK) << mio_last_error();
+    ASSERT_NE(res, nullptr);
+    EXPECT_EQ(mio_diff_result_verdict(res), MIO_DIFF_IDENTICAL);
+    EXPECT_EQ(mio_diff_result_num_block_diffs(res), 1);
+    int type_mism = -1, count_mism = -1;
+    std::int64_t conn = -1;
+    ASSERT_EQ(mio_diff_result_block(res, 0, &type_mism, &count_mism, &conn), MIO_OK);
+    EXPECT_EQ(type_mism, 0);
+    EXPECT_EQ(count_mism, 0);
+    EXPECT_EQ(conn, 0);
+    mio_diff_result_free(res);
+    mio_mesh_free(b);
+
+    // A mesh with different connectivity -> different.
+    const std::vector<std::int64_t> conn2 = {0, 1, 2, 3, 0, 2, 3, 4};
+    mio_mesh* c = mio_mesh_create();
+    ASSERT_EQ(mio_mesh_set_points(c, MIO_FLOAT64, 5, 3, kPoints.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_cell_block(c, "tetra", 2, 4, MIO_INT64, conn2.data()), MIO_OK);
+    ASSERT_EQ(mio_meshes_equal(a, c, 1e-12, 1e-9, 0, &equal), MIO_OK);
+    EXPECT_EQ(equal, 0);
+    res = nullptr;
+    ASSERT_EQ(mio_diff(a, c, 1e-12, 1e-9, 0, &res), MIO_OK);
+    EXPECT_EQ(mio_diff_result_verdict(res), MIO_DIFF_DIFFERENT);
+    ASSERT_EQ(mio_diff_result_block(res, 0, nullptr, nullptr, &conn), MIO_OK);
+    EXPECT_EQ(conn, 1);
+    mio_diff_result_free(res);
+    mio_mesh_free(c);
+
+    // NULL mesh is a clean error.
+    EXPECT_EQ(mio_diff(nullptr, a, 1e-12, 1e-9, 0, &res), MIO_ERR_INVALID_ARG);
+
+    mio_mesh_free(a);
+}
+
+TEST(CApi, SniffFormat) {
+    const std::string vtu = mt::temp_path("_capi_sniff.vtu");
+    mio_mesh* m = build_tet_mesh();
+    ASSERT_EQ(mio_write(vtu.c_str(), m, nullptr), MIO_OK);
+    mio_mesh_free(m);
+
+    char buf[32] = {};
+    const std::int64_t n = mio_sniff_format(vtu.c_str(), buf, sizeof(buf));
+    EXPECT_EQ(std::string(buf), "vtu");
+    EXPECT_EQ(n, 3);
+    std::remove(vtu.c_str());
+}
+
+TEST(CApi, ZeroCopyPointerStability) {
+    mio_mesh* m = build_tet_mesh();
+    const void* pts1 = nullptr;
+    mio_dtype dt;
+    ASSERT_EQ(mio_mesh_get_points(m, &pts1, &dt), MIO_OK);
+    // Non-mutating traffic must not invalidate or move the borrow.
+    (void)mio_mesh_num_cell_blocks(m);
+    (void)block_type(m, 0);
+    const void* pts2 = nullptr;
+    ASSERT_EQ(mio_mesh_get_points(m, &pts2, &dt), MIO_OK);
+    EXPECT_EQ(pts1, pts2);
+    EXPECT_DOUBLE_EQ(static_cast<const double*>(pts1)[3], 1.1);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, ErrorPaths) {
+    // NULL / invalid arguments.
+    EXPECT_EQ(mio_read(nullptr, nullptr), nullptr);
+    EXPECT_STRNE(mio_last_error(), "");
+    EXPECT_EQ(mio_write("out.vtu", nullptr, nullptr), MIO_ERR_INVALID_ARG);
+    EXPECT_EQ(mio_mesh_num_points(nullptr), -1);
+    EXPECT_EQ(mio_mesh_set_points(nullptr, MIO_FLOAT64, 1, 3, kPoints.data()), MIO_ERR_INVALID_ARG);
+
+    mio_mesh* m = build_tet_mesh();
+
+    // Wrong dtypes / shapes.
+    EXPECT_EQ(mio_mesh_set_points(m, MIO_INT32, 5, 3, kPoints.data()), MIO_ERR_INVALID_ARG);
+    EXPECT_EQ(mio_mesh_add_cell_block(m, "tetra", 2, 5, MIO_INT64, kConn.data()),
+              MIO_ERR_INVALID_ARG);        // tetra has 4 nodes, not 5
+    const std::int64_t bad_shape[] = {4};  // 5 points in the mesh
+    const std::vector<double> four(4, 1.0);
+    EXPECT_EQ(mio_mesh_add_point_data(m, "bad", MIO_FLOAT64, 1, bad_shape, four.data()),
+              MIO_ERR_INVALID_ARG);
+
+    // Out-of-range lookups.
+    EXPECT_EQ(mio_mesh_cell_block_info(m, 7, nullptr, nullptr, nullptr), MIO_ERR_NOT_FOUND);
+    const void* data = nullptr;
+    mio_dtype dt;
+    EXPECT_EQ(mio_mesh_get_point_data(m, "nope", &data, &dt, nullptr, nullptr), MIO_ERR_NOT_FOUND);
+    EXPECT_EQ(mio_mesh_point_data_name(m, 0, nullptr, 0), -1);  // no point data yet
+
+    // Unknown format / extension.
+    EXPECT_EQ(mio_write("mesh.not_an_extension", m, nullptr), MIO_ERR_READ);
+    EXPECT_STRNE(mio_last_error(), "");
+    EXPECT_EQ(mio_write("mesh.vtu", m, "no_such_format"), MIO_ERR_NOT_FOUND);
+    // openfoam is read-only: resolvable format, no writer.
+    EXPECT_EQ(mio_write("mesh.foam", m, "openfoam"), MIO_ERR_NOT_FOUND);
+
+#ifndef MESHIOPLUSPLUS_HAS_HDF5
+    // Compiled-out formats name the missing dependency.
+    EXPECT_EQ(mio_write("mesh.med", m, nullptr), MIO_ERR_NOT_FOUND);
+    EXPECT_NE(std::strstr(mio_last_error(), "HDF5"), nullptr) << mio_last_error();
+#endif
+
+    mio_mesh_free(m);
+    mio_mesh_free(nullptr);  // NULL-safe
+}
+
+TEST(CApi, StringBufferProtocol) {
+    mio_mesh* m = build_tet_mesh();
+    // Full length is returned even when the buffer is too small ("tetra" = 5).
+    char tiny[3] = {'x', 'x', 'x'};
+    EXPECT_EQ(mio_mesh_cell_block_type(m, 0, tiny, sizeof(tiny)), 5);
+    EXPECT_STREQ(tiny, "te");                                  // truncated + NUL-terminated
+    EXPECT_EQ(mio_mesh_cell_block_type(m, 0, nullptr, 0), 5);  // pure length query
+    mio_mesh_free(m);
+}
+
+#ifdef MESHIOPLUSPLUS_HAS_HDF5
+TEST(CApi, RaggedBlocksAreReportedButNotAccessible) {
+    // Ragged blocks cannot be constructed through the C API, and MED is the
+    // one C++ writer that serializes them (POG polygons) -- build the mesh
+    // through the C++ API, round-trip through .med, inspect via C.
+    meshioplusplus::Mesh cpp_mesh;
+    cpp_mesh.AssignPoints(
+        mt::points_from({{0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0}, {2, 0.5, 0}}));
+    cpp_mesh.AddPolygonBlock("polygon", {{0, 1, 2, 3}, {1, 4, 2}});
+    const std::string med = mt::temp_path("_capi_ragged.med");
+    meshioplusplus::write_med(med, cpp_mesh, meshioplusplus::MedInfo{});
+
+    mio_mesh* m = mio_read(med.c_str(), nullptr);
+    ASSERT_NE(m, nullptr) << mio_last_error();
+    ASSERT_EQ(mio_mesh_num_cell_blocks(m), 1);
+    std::int64_t num_cells = 0, npc = -1;
+    std::int32_t ragged = 0;
+    ASSERT_EQ(mio_mesh_cell_block_info(m, 0, &num_cells, &npc, &ragged), MIO_OK);
+    EXPECT_EQ(num_cells, 2);
+    EXPECT_EQ(ragged, 1);
+    const void* conn = nullptr;
+    mio_dtype dt;
+    EXPECT_EQ(mio_mesh_cell_block_conn(m, 0, &conn, &dt), MIO_ERR_UNSUPPORTED);
+    EXPECT_STRNE(mio_last_error(), "");
+    mio_mesh_free(m);
+    std::remove(med.c_str());
+}
+#endif
+
+#ifdef MESHIOPLUSPLUS_HAS_HDF5
+TEST(CApi, HdfFormatConvert) {
+    const std::string vtu = mt::temp_path("_capi_h5.vtu");
+    const std::string med = mt::temp_path("_capi_h5.med");
+    mio_mesh* m = build_tet_mesh();
+    ASSERT_EQ(mio_write(vtu.c_str(), m, nullptr), MIO_OK);
+    mio_mesh_free(m);
+    ASSERT_EQ(mio_convert(vtu.c_str(), nullptr, med.c_str(), nullptr), MIO_OK) << mio_last_error();
+    mio_mesh* r = mio_read(med.c_str(), nullptr);
+    ASSERT_NE(r, nullptr) << mio_last_error();
+    EXPECT_EQ(mio_mesh_num_points(r), 5);
+    mio_mesh_free(r);
+    std::remove(vtu.c_str());
+    std::remove(med.c_str());
+}
+#endif
+
+/* --- data operations ---------------------------------------------------- */
+
+// A tet mesh carrying point, cell and field data, for the data operations.
+mio_mesh* build_data_mesh() {
+    mio_mesh* m = build_tet_mesh();  // 5 points, 2 tetra
+    static const std::array<double, 5> temperature = {0.0, 1.0, 2.0, 3.0, 4.0};
+    static const std::array<double, 15> velocity = {1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0, 2, 0, 0};
+    static const std::array<double, 2> mat = {10.0, 20.0};
+    static const std::array<double, 3> meta = {1.0, 2.0, 3.0};
+    std::int64_t s1[1] = {5};
+    std::int64_t s2[2] = {5, 3};
+    std::int64_t sc[1] = {2};
+    std::int64_t sf[1] = {3};
+    EXPECT_EQ(mio_mesh_add_point_data(m, "T", MIO_FLOAT64, 1, s1, temperature.data()), MIO_OK);
+    EXPECT_EQ(mio_mesh_add_point_data(m, "v", MIO_FLOAT64, 2, s2, velocity.data()), MIO_OK);
+    EXPECT_EQ(mio_mesh_append_cell_data(m, "mat", MIO_FLOAT64, 1, sc, mat.data()), MIO_OK);
+    EXPECT_EQ(mio_mesh_add_field_data(m, "meta", MIO_FLOAT64, 1, sf, meta.data()), MIO_OK);
+    return m;
+}
+
+TEST(CApi, DataDropAndKeep) {
+    mio_mesh* m = build_data_mesh();
+    const char* names[] = {"T"};
+    mio_mesh* dropped = mio_data_drop(m, MIO_DATA_POINT, names, 1, 0);
+    ASSERT_NE(dropped, nullptr) << mio_last_error();
+    EXPECT_EQ(mio_mesh_num_point_data(dropped), 1);  // only "v" left
+    // Geometry is never modified.
+    EXPECT_EQ(mio_mesh_num_points(dropped), 5);
+    EXPECT_EQ(mio_mesh_num_cell_blocks(dropped), 1);
+    mio_mesh_free(dropped);
+
+    mio_mesh* kept = mio_data_keep(m, MIO_DATA_POINT, names, 1, 0);
+    ASSERT_NE(kept, nullptr) << mio_last_error();
+    EXPECT_EQ(mio_mesh_num_point_data(kept), 1);
+    mio_mesh_free(kept);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, DataDropUnknownKeyFails) {
+    mio_mesh* m = build_data_mesh();
+    const char* names[] = {"nope"};
+    EXPECT_EQ(mio_data_drop(m, MIO_DATA_POINT, names, 1, 0), nullptr);
+    EXPECT_STRNE(mio_last_error(), "");
+    // ignore_missing makes it a no-op instead.
+    mio_mesh* ok = mio_data_drop(m, MIO_DATA_POINT, names, 1, 1);
+    ASSERT_NE(ok, nullptr) << mio_last_error();
+    EXPECT_EQ(mio_mesh_num_point_data(ok), 2);
+    mio_mesh_free(ok);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, DataRename) {
+    mio_mesh* m = build_data_mesh();
+    mio_mesh* out = mio_data_rename(m, MIO_DATA_POINT, "T", "temperature");
+    ASSERT_NE(out, nullptr) << mio_last_error();
+    char buf[64] = {};
+    bool found = false;
+    for (std::int64_t i = 0; i < mio_mesh_num_point_data(out); ++i) {
+        mio_mesh_point_data_name(out, i, buf, sizeof(buf));
+        if (std::string(buf) == "temperature")
+            found = true;
+    }
+    EXPECT_TRUE(found);
+    mio_mesh_free(out);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, DataAveraging) {
+    mio_mesh* m = build_data_mesh();
+    mio_mesh* to_cell = mio_data_point_to_cell(m, nullptr, 0, nullptr);
+    ASSERT_NE(to_cell, nullptr) << mio_last_error();
+    EXPECT_GT(mio_mesh_num_cell_data(to_cell), 0);
+    mio_mesh_free(to_cell);
+
+    const char* names[] = {"mat"};
+    mio_mesh* to_point = mio_data_cell_to_point(m, names, 1, MIO_WEIGHT_UNIFORM, nullptr);
+    ASSERT_NE(to_point, nullptr) << mio_last_error();
+    const void* data = nullptr;
+    mio_dtype dt;
+    std::int32_t ndim = 0;
+    std::int64_t shape[MIO_MAX_NDIM] = {};
+    ASSERT_EQ(mio_mesh_get_point_data(to_point, "mat", &data, &dt, &ndim, shape), MIO_OK);
+    EXPECT_EQ(shape[0], 5);
+    // A mean is not an integer: the output is always Float64.
+    EXPECT_EQ(dt, MIO_FLOAT64);
+    mio_mesh_free(to_point);
+
+    mio_mesh* weighted = mio_data_cell_to_point(m, names, 1, MIO_WEIGHT_MEASURE, "_w");
+    ASSERT_NE(weighted, nullptr) << mio_last_error();
+    EXPECT_EQ(mio_mesh_get_point_data(weighted, "mat_w", &data, &dt, &ndim, shape), MIO_OK);
+    mio_mesh_free(weighted);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, DataCalc) {
+    mio_mesh* m = build_data_mesh();
+    mio_mesh* out = mio_data_calc(m, "norm(v)", MIO_DATA_POINT, "speed", 0);
+    ASSERT_NE(out, nullptr) << mio_last_error();
+    const void* data = nullptr;
+    mio_dtype dt;
+    std::int32_t ndim = 0;
+    std::int64_t shape[MIO_MAX_NDIM] = {};
+    ASSERT_EQ(mio_mesh_get_point_data(out, "speed", &data, &dt, &ndim, shape), MIO_OK);
+    ASSERT_EQ(dt, MIO_FLOAT64);
+    const double* speed = static_cast<const double*>(data);
+    EXPECT_NEAR(speed[0], 1.0, 1e-12);
+    EXPECT_NEAR(speed[3], std::sqrt(2.0), 1e-12);
+    mio_mesh_free(out);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, DataCalcRejectsBadExpressions) {
+    mio_mesh* m = build_data_mesh();
+    EXPECT_EQ(mio_data_calc(m, "log(T)", MIO_DATA_POINT, "o", 0), nullptr);
+    EXPECT_STRNE(mio_last_error(), "");
+    EXPECT_EQ(mio_data_calc(m, "nope + 1", MIO_DATA_POINT, "o", 0), nullptr);
+    EXPECT_STRNE(mio_last_error(), "");
+    EXPECT_EQ(mio_data_calc(m, "T +", MIO_DATA_POINT, "o", 0), nullptr);
+    EXPECT_STRNE(mio_last_error(), "");
+    mio_mesh_free(m);
+}
+
+TEST(CApi, DataCondition) {
+    mio_mesh* m = build_data_mesh();
+    const char* names[] = {"T"};
+    mio_mesh* out = mio_data_condition(m, MIO_DATA_POINT, names, 1, MIO_COND_NORMALIZE, 0.0, 1.0,
+                                       MIO_SCOPE_COMPONENT, MIO_NAN_IGNORE, 0.0, nullptr);
+    ASSERT_NE(out, nullptr) << mio_last_error();
+    const void* data = nullptr;
+    mio_dtype dt;
+    std::int32_t ndim = 0;
+    std::int64_t shape[MIO_MAX_NDIM] = {};
+    ASSERT_EQ(mio_mesh_get_point_data(out, "T", &data, &dt, &ndim, shape), MIO_OK);
+    const double* t = static_cast<const double*>(data);
+    // T = {0,1,2,3,4} -> min maps to 0, max to 1.
+    EXPECT_NEAR(t[0], 0.0, 1e-12);
+    EXPECT_NEAR(t[4], 1.0, 1e-12);
+    mio_mesh_free(out);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, DataInfoHandle) {
+    mio_mesh* m = build_data_mesh();
+    mio_data_info* info = mio_data_info_create(m);
+    ASSERT_NE(info, nullptr) << mio_last_error();
+    const std::int64_t n = mio_data_info_count(info);
+    EXPECT_EQ(n, 4);  // T, v, mat, meta
+
+    bool saw_t = false;
+    for (std::int64_t i = 0; i < n; ++i) {
+        char buf[64] = {};
+        const std::int64_t len = mio_data_info_name(info, i, buf, sizeof(buf));
+        EXPECT_GE(len, 0);
+        mio_data_array_info entry;
+        ASSERT_EQ(mio_data_info_entry(info, i, &entry), MIO_OK);
+        if (std::string(buf) == "T" && entry.location == MIO_DATA_POINT) {
+            saw_t = true;
+            EXPECT_EQ(entry.num_entries, 5);
+            EXPECT_EQ(entry.num_components, 1);
+            EXPECT_EQ(entry.num_finite, 5);
+            EXPECT_EQ(entry.num_nan, 0);
+            EXPECT_NEAR(entry.min, 0.0, 1e-12);
+            EXPECT_NEAR(entry.max, 4.0, 1e-12);
+            EXPECT_NEAR(entry.mean, 2.0, 1e-12);
+            double cmin = 0, cmax = 0, cmean = 0;
+            ASSERT_EQ(mio_data_info_component(info, i, 0, &cmin, &cmax, &cmean), MIO_OK);
+            EXPECT_NEAR(cmax, 4.0, 1e-12);
+            // Every out pointer is optional.
+            EXPECT_EQ(mio_data_info_component(info, i, 0, nullptr, nullptr, nullptr), MIO_OK);
+        }
+    }
+    EXPECT_TRUE(saw_t);
+
+    // Out-of-range indices are rejected, not dereferenced.
+    mio_data_array_info entry;
+    EXPECT_NE(mio_data_info_entry(info, n, &entry), MIO_OK);
+    EXPECT_EQ(mio_data_info_name(info, -1, nullptr, 0), -1);
+    EXPECT_NE(mio_data_info_component(info, 0, 999, nullptr, nullptr, nullptr), MIO_OK);
+
+    mio_data_info_free(info);
+    mio_data_info_free(nullptr);  // must tolerate NULL
+    mio_mesh_free(m);
+}
+
+TEST(CApi, DataInfoNameBufferTooSmall) {
+    mio_mesh* m = build_data_mesh();
+    mio_data_info* info = mio_data_info_create(m);
+    ASSERT_NE(info, nullptr);
+    // The required length is returned even when the buffer cannot hold it.
+    char tiny[2] = {};
+    const std::int64_t needed = mio_data_info_name(info, 0, tiny, sizeof(tiny));
+    EXPECT_GE(needed, 0);
+    EXPECT_EQ(tiny[1], '\0');  // always NUL-terminated
+    mio_data_info_free(info);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, DataNullArgumentsAreRejected) {
+    mio_mesh* m = build_data_mesh();
+    const char* names[] = {"T"};
+    EXPECT_EQ(mio_data_drop(nullptr, MIO_DATA_POINT, names, 1, 0), nullptr);
+    EXPECT_EQ(mio_data_rename(m, MIO_DATA_POINT, nullptr, "x"), nullptr);
+    EXPECT_EQ(mio_data_calc(m, nullptr, MIO_DATA_POINT, "o", 0), nullptr);
+    EXPECT_EQ(mio_data_info_create(nullptr), nullptr);
+    EXPECT_EQ(mio_data_info_count(nullptr), -1);
+    // A NULL names array with a positive count must be caught, not dereferenced.
+    EXPECT_EQ(mio_data_drop(m, MIO_DATA_POINT, nullptr, 3, 0), nullptr);
+    EXPECT_STRNE(mio_last_error(), "");
+    mio_mesh_free(m);
+}
+
+}  // namespace
+
+// ---------------------------------------------------------------------------
+// Selective reads (mio_read_ex) and the opaque file summary (mio_read_metadata)
+// ---------------------------------------------------------------------------
+
+TEST(CApi, WriteOptsInitMatchesPlainWrite) {
+    mio_write_opts opts;
+    mio_write_opts_init(&opts);
+    EXPECT_EQ(opts.encoding, MIO_ENCODING_DEFAULT);
+    EXPECT_EQ(opts.codec, MIO_CODEC_DEFAULT);
+    EXPECT_EQ(opts.float_format, nullptr);
+    for (int i = 0; i < 5; ++i)
+        EXPECT_EQ(opts.reserved[i], 0) << "reserved must stay zero for ABI growth";
+    // Same discipline as mio_read_opts: the tail is the growth budget, so its
+    // width is part of the ABI and a field added later must come out of it.
+    static_assert(sizeof(mio_write_opts::reserved) == 5 * sizeof(int64_t),
+                  "mio_write_opts.reserved width is ABI");
+}
+
+TEST(CApi, WriteExHonoursEncodingAndCodec) {
+    mio_mesh* m = build_tet_mesh();
+    ASSERT_NE(m, nullptr);
+    const std::string ascii_path = mt::temp_path("_wex_ascii.vtu");
+    const std::string binary_path = mt::temp_path("_wex_binary.vtu");
+
+    mio_write_opts opts;
+    mio_write_opts_init(&opts);
+    opts.encoding = MIO_ENCODING_ASCII;
+    ASSERT_EQ(mio_write_ex(ascii_path.c_str(), m, "vtu", &opts), MIO_OK) << mio_last_error();
+
+    mio_write_opts_init(&opts);
+    opts.encoding = MIO_ENCODING_BINARY;
+    opts.codec = MIO_CODEC_NONE;
+    ASSERT_EQ(mio_write_ex(binary_path.c_str(), m, "vtu", &opts), MIO_OK) << mio_last_error();
+
+    // The two encodings really produced different files, and both read back.
+    mio_mesh* a = mio_read(ascii_path.c_str(), "vtu");
+    mio_mesh* b = mio_read(binary_path.c_str(), "vtu");
+    ASSERT_NE(a, nullptr);
+    ASSERT_NE(b, nullptr);
+    EXPECT_EQ(mio_mesh_num_points(a), mio_mesh_num_points(m));
+    EXPECT_EQ(mio_mesh_num_points(b), mio_mesh_num_points(m));
+    mio_mesh_free(a);
+    mio_mesh_free(b);
+    std::remove(ascii_path.c_str());
+    std::remove(binary_path.c_str());
+    mio_mesh_free(m);
+}
+
+TEST(CApi, WriteExRejectsAnOptionTheFormatCannotHonour) {
+    mio_mesh* m = build_tet_mesh();
+    ASSERT_NE(m, nullptr);
+    const std::string path = mt::temp_path("_wex_bad.msh");
+    mio_write_opts opts;
+    mio_write_opts_init(&opts);
+    opts.codec = MIO_CODEC_ZSTD;  // gmsh has no block codec
+    // Failing beats silently ignoring: asking for zstd here is a mistake.
+    EXPECT_NE(mio_write_ex(path.c_str(), m, "gmsh", &opts), MIO_OK);
+    EXPECT_NE(std::string(mio_last_error()).find("codec"), std::string::npos);
+    std::remove(path.c_str());
+    mio_mesh_free(m);
+}
+
+TEST(CApi, WriteExWithNullOptsIsPlainWrite) {
+    mio_mesh* m = build_tet_mesh();
+    ASSERT_NE(m, nullptr);
+    const std::string path = mt::temp_path("_wex_null.vtu");
+    EXPECT_EQ(mio_write_ex(path.c_str(), m, "vtu", nullptr), MIO_OK) << mio_last_error();
+    std::remove(path.c_str());
+    mio_mesh_free(m);
+}
+
+TEST(CApi, ReadOptsInitIsReadEverything) {
+    mio_read_opts opts;
+    mio_read_opts_init(&opts);
+    EXPECT_EQ(opts.points_only, 0);
+    EXPECT_EQ(opts.metadata_only, 0);
+    EXPECT_EQ(opts.arrays, nullptr);
+    EXPECT_EQ(opts.num_arrays, 0);
+    EXPECT_EQ(opts.mmap_mode, 0);
+    // 0 = the first step, which is the historical behaviour -- so a
+    // default-initialized options struct still reads exactly what it always did.
+    EXPECT_EQ(opts.time_step, 0);
+    // 0 = throw on a construct the reader cannot represent, the historical
+    // behaviour, so the defaults still read exactly what they always did.
+    EXPECT_EQ(opts.lenient, 0);
+    for (int i = 0; i < 4; ++i)
+        EXPECT_EQ(opts.reserved[i], 0) << "reserved must stay zero for ABI growth";
+    // `time_step` and `lenient` each took one of the six former reserved int64
+    // slots rather than growing the struct, so the tail is still exactly six
+    // int64s wide and a caller compiled against an older header passes a
+    // correctly-sized object. Stated as the tail's width rather than sizeof(the
+    // whole struct), which would be a padding assertion rather than an ABI one.
+    static_assert(sizeof(mio_read_opts::time_step) + sizeof(mio_read_opts::lenient) +
+                          sizeof(mio_read_opts::reserved) ==
+                      6 * sizeof(std::int64_t),
+                  "mio_read_opts grew: that is an ABI break, not additive growth");
+}
+
+TEST(CApi, ReadExPointsOnlyDropsDataKeepsGeometry) {
+    const std::string path = mt::temp_path(".vtu");
+    meshioplusplus::write_vtu(path, mt::data_mesh(), /*binary=*/true, /*zlib=*/false);
+
+    mio_mesh* full = mio_read(path.c_str(), "vtu");
+    ASSERT_NE(full, nullptr);
+
+    mio_read_opts opts;
+    mio_read_opts_init(&opts);
+    opts.points_only = 1;
+    mio_mesh* bare = mio_read_ex(path.c_str(), "vtu", &opts);
+    ASSERT_NE(bare, nullptr) << mio_last_error();
+
+    EXPECT_EQ(mio_mesh_num_point_data(bare), 0);
+    EXPECT_EQ(mio_mesh_num_cell_data(bare), 0);
+    EXPECT_GT(mio_mesh_num_point_data(full), 0);
+    EXPECT_EQ(mio_mesh_num_points(bare), mio_mesh_num_points(full));
+    EXPECT_EQ(mio_mesh_num_cell_blocks(bare), mio_mesh_num_cell_blocks(full));
+
+    mio_mesh_free(bare);
+    mio_mesh_free(full);
+    std::filesystem::remove(path);
+}
+
+TEST(CApi, ReadExArraysSubsetAndExplicitNone) {
+    const std::string path = mt::temp_path(".vtu");
+    const meshioplusplus::Mesh source = mt::data_mesh();
+    ASSERT_GE(source.PointDataNames().size(), 2u);
+    const std::string keep = source.PointDataNames().front();
+    meshioplusplus::write_vtu(path, source, /*binary=*/true, /*zlib=*/false);
+
+    mio_read_opts opts;
+    mio_read_opts_init(&opts);
+    const char* names[1] = {keep.c_str()};
+    opts.arrays = names;
+    opts.num_arrays = 1;
+    mio_mesh* subset = mio_read_ex(path.c_str(), "vtu", &opts);
+    ASSERT_NE(subset, nullptr) << mio_last_error();
+    EXPECT_EQ(mio_mesh_num_point_data(subset), 1);
+    mio_mesh_free(subset);
+
+    // Non-NULL pointer with count 0 means "no arrays" -- distinct from NULL.
+    mio_read_opts none;
+    mio_read_opts_init(&none);
+    none.arrays = names;
+    none.num_arrays = 0;
+    mio_mesh* empty = mio_read_ex(path.c_str(), "vtu", &none);
+    ASSERT_NE(empty, nullptr) << mio_last_error();
+    EXPECT_EQ(mio_mesh_num_point_data(empty), 0);
+    mio_mesh_free(empty);
+
+    std::filesystem::remove(path);
+}
+
+TEST(CApi, ReadExWithNullOptsMatchesPlainRead) {
+    const std::string path = mt::temp_path(".vtu");
+    meshioplusplus::write_vtu(path, mt::data_mesh(), /*binary=*/true, /*zlib=*/false);
+
+    mio_mesh* a = mio_read(path.c_str(), "vtu");
+    mio_mesh* b = mio_read_ex(path.c_str(), "vtu", nullptr);
+    ASSERT_NE(a, nullptr);
+    ASSERT_NE(b, nullptr);
+    EXPECT_EQ(mio_mesh_num_points(a), mio_mesh_num_points(b));
+    EXPECT_EQ(mio_mesh_num_point_data(a), mio_mesh_num_point_data(b));
+    mio_mesh_free(a);
+    mio_mesh_free(b);
+    std::filesystem::remove(path);
+}
+
+TEST(CApi, ReadMetadataReportsShapeAndNames) {
+    const std::string path = mt::temp_path(".vtu");
+    const meshioplusplus::Mesh source = mt::data_mesh();
+    meshioplusplus::write_vtu(path, source, /*binary=*/true, /*zlib=*/false);
+
+    mio_read_metadata* meta = mio_read_metadata_create(path.c_str(), "vtu");
+    ASSERT_NE(meta, nullptr) << mio_last_error();
+
+    EXPECT_EQ(mio_read_metadata_num_points(meta), static_cast<int64_t>(source.NumPoints()));
+    EXPECT_EQ(mio_read_metadata_num_cell_blocks(meta),
+              static_cast<int64_t>(source.NumCellBlocks()));
+    EXPECT_GT(mio_read_metadata_num_cells(meta), 0);
+    EXPECT_EQ(mio_read_metadata_fell_back(meta), 0) << "vtu has a native metadata path";
+
+    int64_t ncells = 0, npc = 0;
+    int ragged = -1;
+    ASSERT_EQ(mio_read_metadata_cell_block(meta, 0, &ncells, &npc, &ragged), MIO_OK);
+    EXPECT_EQ(ncells, static_cast<int64_t>(source.Cells(0).NumCells()));
+    EXPECT_EQ(ragged, 0);
+
+    char buf[64];
+    const int64_t n = mio_read_metadata_cell_block_type(meta, 0, buf, sizeof(buf));
+    ASSERT_GT(n, 0);
+    EXPECT_EQ(std::string(buf), std::string(source.Cells(0).Type()));
+
+    EXPECT_EQ(mio_read_metadata_num_names(meta, MIO_DATA_POINT),
+              static_cast<int64_t>(source.PointDataNames().size()));
+    ASSERT_EQ(mio_read_metadata_name(meta, MIO_DATA_POINT, 0, buf, sizeof(buf)),
+              static_cast<int64_t>(source.PointDataNames().front().size()));
+    EXPECT_EQ(std::string(buf), source.PointDataNames().front());
+
+    // A native summary never decodes the coordinates, so it has no bbox.
+    EXPECT_EQ(mio_read_metadata_bbox(meta, nullptr, nullptr), MIO_ERR_NOT_FOUND);
+
+    mio_read_metadata_free(meta);
+    std::filesystem::remove(path);
+}
+
+TEST(CApi, ReadMetadataFallbackFlagsItselfAndHasBBox) {
+    const std::string path = mt::temp_path(".stl");
+    meshioplusplus::write_stl(path, mt::tri_mesh(), /*binary=*/false, /*skin=*/true);
+
+    mio_read_metadata* meta = mio_read_metadata_create(path.c_str(), "stl");
+    ASSERT_NE(meta, nullptr) << mio_last_error();
+    EXPECT_EQ(mio_read_metadata_fell_back(meta), 1);
+
+    double lo[3], hi[3];
+    EXPECT_EQ(mio_read_metadata_bbox(meta, lo, hi), MIO_OK);
+    for (int d = 0; d < 3; ++d)
+        EXPECT_LE(lo[d], hi[d]);
+
+    mio_read_metadata_free(meta);
+    std::filesystem::remove(path);
+}
+
+TEST(CApi, ReadMetadataErrorsAreGuardedNotThrown) {
+    EXPECT_EQ(mio_read_metadata_create(nullptr, "vtu"), nullptr);
+    EXPECT_EQ(mio_read_metadata_num_points(nullptr), -1);
+    EXPECT_EQ(mio_read_metadata_fell_back(nullptr), -1);
+    EXPECT_EQ(mio_read_metadata_cell_block(nullptr, 0, nullptr, nullptr, nullptr),
+              MIO_ERR_INVALID_ARG);
+    EXPECT_EQ(mio_reader_supports_options(nullptr), -1);
+    mio_read_metadata_free(nullptr);  // NULL-safe
+    EXPECT_NE(std::string(mio_last_error()), "");
+}
+
+TEST(CApi, ReaderSupportsOptions) {
+    EXPECT_EQ(mio_reader_supports_options("vtu"), 1);
+    EXPECT_EQ(mio_reader_supports_options("stl"), 0);
+}
+
+TEST(CApi, ConvertCellsSimplexifyThroughTheAbi) {
+    // One unit-cube hexahedron -> 6 tetra.
+    const std::vector<double> pts = {0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0,
+                                     0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1};
+    const std::vector<std::int64_t> conn = {0, 1, 2, 3, 4, 5, 6, 7};
+    mio_mesh* m = mio_mesh_create();
+    ASSERT_EQ(mio_mesh_set_points(m, MIO_FLOAT64, 8, 3, pts.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_cell_block(m, "hexahedron", 1, 8, MIO_INT64, conn.data()), MIO_OK);
+
+    mio_convert_cells_result* r = mio_convert_cells(m, "simplexify", /*record_parent_ids=*/1);
+    ASSERT_NE(r, nullptr);
+    const mio_mesh* out = mio_convert_cells_result_mesh(r);
+    ASSERT_NE(out, nullptr);
+    EXPECT_EQ(mio_mesh_num_points(out), 8);
+    ASSERT_EQ(mio_mesh_num_cell_blocks(out), 1);
+    EXPECT_EQ(block_type(out, 0), "tetra");
+    std::int64_t num_cells = 0, nodes_per_cell = 0;
+    ASSERT_EQ(mio_mesh_cell_block_info(out, 0, &num_cells, &nodes_per_cell, nullptr), MIO_OK);
+    EXPECT_EQ(num_cells, 6);
+    EXPECT_EQ(nodes_per_cell, 4);
+
+    // Zero-copy borrows of the index maps.
+    const void* data = nullptr;
+    mio_dtype dtype = MIO_FLOAT64;
+    std::int64_t n = -1;
+    ASSERT_EQ(mio_convert_cells_result_point_map(r, &data, &dtype, &n), MIO_OK);
+    EXPECT_EQ(dtype, MIO_INT64);
+    EXPECT_EQ(n, 8);
+    EXPECT_EQ(static_cast<const std::int64_t*>(data)[0], 0);
+
+    ASSERT_EQ(mio_convert_cells_result_num_cell_maps(r), 1);
+    ASSERT_EQ(mio_convert_cells_result_cell_map(r, 0, &data, &dtype, &n), MIO_OK);
+    EXPECT_EQ(n, 1);
+    EXPECT_EQ(static_cast<const std::int64_t*>(data)[0], 0);  // parent 0's first child
+
+    mio_mesh* owned = mio_convert_cells_result_take_mesh(r);
+    ASSERT_NE(owned, nullptr);
+    EXPECT_EQ(mio_mesh_num_points(owned), 8);
+    mio_mesh_free(owned);
+    mio_convert_cells_result_free(r);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, ConvertCellsLinearizeAndElevateRoundTrip) {
+    mio_mesh* m = build_tet_mesh();
+
+    mio_convert_cells_result* up = mio_convert_cells(m, "elevate", 0);
+    ASSERT_NE(up, nullptr);
+    const mio_mesh* quad = mio_convert_cells_result_mesh(up);
+    EXPECT_EQ(block_type(quad, 0), "tetra10");
+    EXPECT_GT(mio_mesh_num_points(quad), 5);
+
+    mio_convert_cells_result* down = mio_convert_cells(quad, "linearize", 0);
+    ASSERT_NE(down, nullptr);
+    const mio_mesh* back = mio_convert_cells_result_mesh(down);
+    EXPECT_EQ(block_type(back, 0), "tetra");
+    EXPECT_EQ(mio_mesh_num_points(back), 5);
+
+    mio_convert_cells_result_free(down);
+    mio_convert_cells_result_free(up);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, ConvertCellsErrorsAreGuardedNotThrown) {
+    mio_mesh* m = build_tet_mesh();
+    // An unknown mode fails through the status/last-error contract, not by
+    // letting the C++ exception escape the ABI.
+    EXPECT_EQ(mio_convert_cells(m, "nope", 0), nullptr);
+    EXPECT_NE(std::string(mio_last_error()), "");
+    EXPECT_EQ(mio_convert_cells(nullptr, "linearize", 0), nullptr);
+    EXPECT_EQ(mio_convert_cells(m, nullptr, 0), nullptr);
+    EXPECT_EQ(mio_convert_cells_result_mesh(nullptr), nullptr);
+    EXPECT_EQ(mio_convert_cells_result_num_cell_maps(nullptr), -1);
+    EXPECT_EQ(mio_convert_cells_result_point_map(nullptr, nullptr, nullptr, nullptr),
+              MIO_ERR_INVALID_ARG);
+    mio_convert_cells_result_free(nullptr);  // NULL-safe
+    mio_mesh_free(m);
+}
+
+TEST(CApi, SmoothMovesInteriorAndPinsBoundary) {
+    // A 3x3 grid of quads: only the centre node is interior, so it is the only
+    // one free to move -- which makes both halves of the assertion sharp.
+    std::vector<double> pts;
+    for (int i = 0; i < 3; ++i)
+        for (int j = 0; j < 3; ++j)
+            pts.insert(pts.end(), {static_cast<double>(i), static_cast<double>(j), 0.0});
+    pts[4 * 3 + 0] += 0.4;  // push the centre node off-centre
+    pts[4 * 3 + 1] -= 0.3;
+    const std::vector<std::int64_t> conn = {0, 3, 4, 1, 1, 4, 5, 2, 3, 6, 7, 4, 4, 7, 8, 5};
+
+    mio_mesh* m = mio_mesh_create();
+    ASSERT_EQ(mio_mesh_set_points(m, MIO_FLOAT64, 9, 3, pts.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_cell_block(m, "quad", 4, 4, MIO_INT64, conn.data()), MIO_OK);
+
+    std::int64_t moved = -1, skipped = -1;
+    double max_disp = -1.0;
+    mio_mesh* out =
+        mio_smooth(m, "laplacian", /*iterations=*/10, /*lambda=*/-1.0, /*mu=*/-0.34,
+                   /*fix_boundary=*/1, /*preserve_features=*/1,
+                   /*feature_angle=*/30.0, /*guard_inversion=*/1, &moved, &max_disp, &skipped);
+    ASSERT_NE(out, nullptr);
+
+    // Geometry only: same counts, same connectivity.
+    EXPECT_EQ(mio_mesh_num_points(out), 9);
+    ASSERT_EQ(mio_mesh_num_cell_blocks(out), 1);
+    EXPECT_EQ(block_type(out, 0), "quad");
+
+    EXPECT_EQ(moved, 1);  // exactly the one interior node
+    EXPECT_GT(max_disp, 0.0);
+    EXPECT_EQ(skipped, 0);
+
+    // The centre node was pulled back toward (1, 1); the corners never moved.
+    const void* data = nullptr;
+    mio_dtype dtype = MIO_INT64;
+    ASSERT_EQ(mio_mesh_get_points(out, &data, &dtype), MIO_OK);
+    const double* p = static_cast<const double*>(data);
+    // Laplacian converges geometrically: after 10 passes at lambda = 0.5 the
+    // residual is the initial 0.4 offset times 0.5^10, i.e. ~3.9e-4.
+    EXPECT_NEAR(p[4 * 3 + 0], 1.0, 1e-3);
+    EXPECT_NEAR(p[4 * 3 + 1], 1.0, 1e-3);
+    EXPECT_EQ(p[0], 0.0);
+    EXPECT_EQ(p[8 * 3 + 0], 2.0);
+
+    // A NULL method defaults to taubin rather than failing, and the counter
+    // out-params are all individually optional.
+    mio_mesh* dflt =
+        mio_smooth(m, nullptr, 3, -1.0, -0.34, 1, 1, 30.0, 1, nullptr, nullptr, nullptr);
+    EXPECT_NE(dflt, nullptr);
+    mio_mesh_free(dflt);
+
+    mio_mesh_free(out);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, SmoothRejectsBadArguments) {
+    const std::vector<double> pts = {0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0};
+    const std::vector<std::int64_t> conn = {0, 1, 2, 3};
+    mio_mesh* m = mio_mesh_create();
+    ASSERT_EQ(mio_mesh_set_points(m, MIO_FLOAT64, 4, 3, pts.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_cell_block(m, "quad", 1, 4, MIO_INT64, conn.data()), MIO_OK);
+
+    // Unknown method, lambda out of (0, 1), and a taubin mu that would amplify.
+    EXPECT_EQ(mio_smooth(m, "bogus", 1, -1.0, -0.34, 1, 1, 30.0, 1, nullptr, nullptr, nullptr),
+              nullptr);
+    EXPECT_NE(std::string(mio_last_error()), "");
+    EXPECT_EQ(mio_smooth(m, "taubin", 1, 1.5, -0.34, 1, 1, 30.0, 1, nullptr, nullptr, nullptr),
+              nullptr);
+    EXPECT_EQ(mio_smooth(m, "taubin", 1, 0.4, -0.2, 1, 1, 30.0, 1, nullptr, nullptr, nullptr),
+              nullptr);
+    // No exception may cross the ABI for a NULL mesh either.
+    EXPECT_EQ(
+        mio_smooth(nullptr, "taubin", 1, -1.0, -0.34, 1, 1, 30.0, 1, nullptr, nullptr, nullptr),
+        nullptr);
+    EXPECT_NE(std::string(mio_last_error()), "");
+
+    mio_mesh_free(m);
+}
+
+TEST(CApi, RefineHexIntoEight) {
+    const std::vector<double> pts = {0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0,
+                                     0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1};
+    const std::vector<std::int64_t> conn = {0, 1, 2, 3, 4, 5, 6, 7};
+    mio_mesh* m = mio_mesh_create();
+    ASSERT_EQ(mio_mesh_set_points(m, MIO_FLOAT64, 8, 3, pts.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_cell_block(m, "hexahedron", 1, 8, MIO_INT64, conn.data()), MIO_OK);
+
+    mio_refine_result* r = mio_refine(m, /*levels=*/1, /*record_parent_ids=*/1);
+    ASSERT_NE(r, nullptr);
+    const mio_mesh* out = mio_refine_result_mesh(r);
+    ASSERT_NE(out, nullptr);
+    // 8 corners + 12 edge mids + 6 face centres + 1 body.
+    EXPECT_EQ(mio_mesh_num_points(out), 27);
+    ASSERT_EQ(mio_mesh_num_cell_blocks(out), 1);
+    EXPECT_EQ(block_type(out, 0), "hexahedron");
+    std::int64_t num_cells = 0, nodes_per_cell = 0;
+    ASSERT_EQ(mio_mesh_cell_block_info(out, 0, &num_cells, &nodes_per_cell, nullptr), MIO_OK);
+    EXPECT_EQ(num_cells, 8);
+    EXPECT_EQ(nodes_per_cell, 8);
+
+    // Zero-copy borrows of the index maps.
+    const void* data = nullptr;
+    mio_dtype dtype = MIO_FLOAT64;
+    std::int64_t n = -1;
+    ASSERT_EQ(mio_refine_result_point_map(r, &data, &dtype, &n), MIO_OK);
+    EXPECT_EQ(dtype, MIO_INT64);
+    EXPECT_EQ(n, 8);
+    EXPECT_EQ(static_cast<const std::int64_t*>(data)[0], 0);
+
+    ASSERT_EQ(mio_refine_result_num_cell_maps(r), 1);
+    ASSERT_EQ(mio_refine_result_cell_map(r, 0, &data, &dtype, &n), MIO_OK);
+    EXPECT_EQ(n, 1);
+    EXPECT_EQ(static_cast<const std::int64_t*>(data)[0], 0);  // parent 0's first child
+
+    mio_mesh* owned = mio_refine_result_take_mesh(r);
+    ASSERT_NE(owned, nullptr);
+    EXPECT_EQ(mio_mesh_num_points(owned), 27);
+    mio_mesh_free(owned);
+    mio_refine_result_free(r);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, RefineExWithDefaultsMatchesMioRefine) {
+    const std::vector<double> pts = {0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0,
+                                     0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1};
+    const std::vector<std::int64_t> conn = {0, 1, 2, 3, 4, 5, 6, 7};
+    mio_mesh* m = mio_mesh_create();
+    ASSERT_EQ(mio_mesh_set_points(m, MIO_FLOAT64, 8, 3, pts.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_cell_block(m, "hexahedron", 1, 8, MIO_INT64, conn.data()), MIO_OK);
+
+    // A NULL options pointer and a zero-initialized struct must both reproduce
+    // mio_refine(mesh, 1, 0) exactly -- the append-only-tail contract.
+    mio_refine_opts opts;
+    mio_refine_opts_init(&opts);
+    mio_refine_result* a = mio_refine(m, 1, 0);
+    mio_refine_result* b = mio_refine_ex(m, &opts);
+    mio_refine_result* c = mio_refine_ex(m, nullptr);
+    ASSERT_NE(a, nullptr);
+    ASSERT_NE(b, nullptr);
+    ASSERT_NE(c, nullptr);
+    EXPECT_EQ(mio_mesh_num_points(mio_refine_result_mesh(a)), 27);
+    EXPECT_EQ(mio_mesh_num_points(mio_refine_result_mesh(b)), 27);
+    EXPECT_EQ(mio_mesh_num_points(mio_refine_result_mesh(c)), 27);
+    mio_refine_result_free(a);
+    mio_refine_result_free(b);
+    mio_refine_result_free(c);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, RefineExSelectsASubsetAndClosesUp) {
+    // A 3 x 3 grid of quadrilaterals; refine the middle one only.
+    std::vector<double> pts;
+    for (int j = 0; j <= 3; ++j)
+        for (int i = 0; i <= 3; ++i) {
+            pts.push_back(i);
+            pts.push_back(j);
+            pts.push_back(0);
+        }
+    std::vector<std::int64_t> conn;
+    for (int j = 0; j < 3; ++j)
+        for (int i = 0; i < 3; ++i) {
+            const std::int64_t a = j * 4 + i;
+            conn.insert(conn.end(), {a, a + 1, a + 5, a + 4});
+        }
+    mio_mesh* m = mio_mesh_create();
+    ASSERT_EQ(mio_mesh_set_points(m, MIO_FLOAT64, 16, 3, pts.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_cell_block(m, "quad", 9, 4, MIO_INT64, conn.data()), MIO_OK);
+
+    const std::int64_t selected[] = {4};
+    mio_refine_opts opts;
+    mio_refine_opts_init(&opts);
+    opts.cells = selected;
+    opts.num_cells = 1;
+    opts.record_levels = 1;
+    mio_refine_result* r = mio_refine_ex(m, &opts);
+    ASSERT_NE(r, nullptr);
+    std::int64_t num_cells = 0, npc = 0;
+    ASSERT_EQ(mio_mesh_cell_block_info(mio_refine_result_mesh(r), 0, &num_cells, &npc, nullptr),
+              MIO_OK);
+    // More than the input, far fewer than the 36 a uniform refinement gives.
+    EXPECT_GT(num_cells, 9);
+    EXPECT_LT(num_cells, 36);
+    EXPECT_EQ(npc, 4) << "green quadrilaterals stay quadrilaterals";
+    mio_refine_result_free(r);
+
+    // Two selectors at once is an error, reported rather than thrown.
+    opts.region = "anything";
+    EXPECT_EQ(mio_refine_ex(m, &opts), nullptr);
+    EXPECT_NE(mio_last_error(), nullptr);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, RefineChainsOnABorrowedMesh) {
+    mio_mesh* m = build_tet_mesh();  // 2 tetrahedra
+
+    mio_refine_result* one = mio_refine(m, 1, 0);
+    ASSERT_NE(one, nullptr);
+    const mio_mesh* once = mio_refine_result_mesh(one);
+    EXPECT_EQ(block_type(once, 0), "tetra");
+
+    // Feed the borrowed mesh straight back in: levels=1 twice == levels=2.
+    mio_refine_result* two = mio_refine(once, 1, 0);
+    ASSERT_NE(two, nullptr);
+    mio_refine_result* direct = mio_refine(m, 2, 0);
+    ASSERT_NE(direct, nullptr);
+    EXPECT_EQ(mio_mesh_num_points(mio_refine_result_mesh(two)),
+              mio_mesh_num_points(mio_refine_result_mesh(direct)));
+
+    mio_refine_result_free(direct);
+    mio_refine_result_free(two);
+    mio_refine_result_free(one);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, PartitionPiecesAndMaps) {
+    // A 2x2 quad grid split into 2 parts: exactly nparts pieces, blocks kept
+    // 1:1, cell maps assign every input cell to exactly one piece.
+    const std::vector<double> pts = {0, 0, 0, 1, 0, 0, 2, 0, 0, 0, 1, 0, 1, 1,
+                                     0, 2, 1, 0, 0, 2, 0, 1, 2, 0, 2, 2, 0};
+    const std::vector<std::int64_t> conn = {0, 1, 4, 3, 1, 2, 5, 4, 3, 4, 7, 6, 4, 5, 8, 7};
+    mio_mesh* m = mio_mesh_create();
+    ASSERT_EQ(mio_mesh_set_points(m, MIO_FLOAT64, 9, 3, pts.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_cell_block(m, "quad", 4, 4, MIO_INT64, conn.data()), MIO_OK);
+
+    mio_partition_result* r =
+        mio_partition(m, 2, "sfc", 0.03, "eco", 0, /*record_ids=*/1, /*ghost_layers=*/0, "");
+    ASSERT_NE(r, nullptr);
+    ASSERT_EQ(mio_partition_result_num_pieces(r), 2);
+    ASSERT_EQ(mio_partition_result_num_cell_maps(r), 1);
+
+    std::int64_t total_out = 0;
+    std::vector<int> owners(4, 0);
+    for (std::int64_t i = 0; i < 2; ++i) {
+        EXPECT_EQ(mio_partition_result_part_id(r, i), static_cast<int>(i));
+        const mio_mesh* piece = mio_partition_result_mesh(r, i);
+        ASSERT_NE(piece, nullptr);
+        ASSERT_EQ(mio_mesh_num_cell_blocks(piece), 1);  // blocks kept 1:1
+        std::int64_t num_cells = 0;
+        ASSERT_EQ(mio_mesh_cell_block_info(piece, 0, &num_cells, nullptr, nullptr), MIO_OK);
+        total_out += num_cells;
+
+        const void* data = nullptr;
+        mio_dtype dtype = MIO_FLOAT64;
+        std::int64_t n = -1;
+        ASSERT_EQ(mio_partition_result_point_map(r, i, &data, &dtype, &n), MIO_OK);
+        EXPECT_EQ(dtype, MIO_INT64);
+        EXPECT_EQ(n, 9);
+        ASSERT_EQ(mio_partition_result_cell_map(r, i, 0, &data, &dtype, &n), MIO_OK);
+        EXPECT_EQ(n, 4);
+        for (std::int64_t c = 0; c < n; ++c)
+            if (static_cast<const std::int64_t*>(data)[c] >= 0)
+                ++owners[static_cast<std::size_t>(c)];
+    }
+    EXPECT_EQ(total_out, 4);
+    for (int o : owners)
+        EXPECT_EQ(o, 1);  // partition of unity
+
+    mio_mesh* owned = mio_partition_result_take_mesh(r, 0);
+    ASSERT_NE(owned, nullptr);
+    mio_mesh_free(owned);
+    mio_partition_result_free(r);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, PartitionLabelsFillsTheCallerBuffer) {
+    mio_mesh* m = build_tet_mesh();  // 2 tetrahedra
+    std::vector<std::int64_t> labels(2, -1);
+    ASSERT_EQ(mio_partition_labels(m, 2, "sfc", 0.03, "eco", 0, "", labels.data(),
+                                   static_cast<std::int64_t>(labels.size())),
+              MIO_OK);
+    for (std::int64_t v : labels) {
+        EXPECT_GE(v, 0);
+        EXPECT_LT(v, 2);
+    }
+    // A wrong buffer size is rejected with a named message, not written past.
+    EXPECT_EQ(mio_partition_labels(m, 2, "sfc", 0.03, "eco", 0, "", labels.data(), 5),
+              MIO_ERR_INVALID_ARG);
+    EXPECT_NE(std::string(mio_last_error()).find("labels_size"), std::string::npos);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, PartitionGhostLayers) {
+    mio_mesh* m = build_tet_mesh();
+    ASSERT_NE(m, nullptr);
+    mio_partition_result* plain = mio_partition(m, 2, "sfc", 0.03, "eco", 0, 0, 0, "");
+    mio_partition_result* halo = mio_partition(m, 2, "sfc", 0.03, "eco", 0, 0, 1, "");
+    ASSERT_NE(plain, nullptr) << mio_last_error();
+    ASSERT_NE(halo, nullptr) << mio_last_error();
+    ASSERT_EQ(mio_partition_result_num_pieces(halo), mio_partition_result_num_pieces(plain));
+
+    // With only two tetras sharing a face, one ghost layer makes each piece the
+    // whole mesh -- and the tag must come along to say which cell is owned.
+    const mio_mesh* piece = mio_partition_result_mesh(halo, 0);
+    ASSERT_NE(piece, nullptr);
+    EXPECT_GE(mio_mesh_num_cell_blocks(piece), 1);
+    const void* data = nullptr;
+    mio_dtype dt{};
+    int32_t ndim = 0;
+    int64_t shape[8]{};
+    ASSERT_EQ(mio_mesh_get_cell_data(piece, "partition:ghost", 0, &data, &dt, &ndim, shape), MIO_OK)
+        << mio_last_error();
+    EXPECT_EQ(dt, MIO_INT64);
+
+    mio_partition_result_free(plain);
+    mio_partition_result_free(halo);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, PartitionErrorsAreGuardedNotThrown) {
+    mio_mesh* m = build_tet_mesh();
+    // Bad method name, bad nparts, negative ghost layers: NULL + last_error,
+    // no throw. (A POSITIVE ghost_layers is a supported request since v9.0.0
+    // and is exercised in PartitionGhostLayers below.)
+    EXPECT_EQ(mio_partition(m, 2, "metis", 0.03, "eco", 0, 0, 0, ""), nullptr);
+    EXPECT_NE(std::string(mio_last_error()), "");
+    EXPECT_EQ(mio_partition(m, 0, "sfc", 0.03, "eco", 0, 0, 0, ""), nullptr);
+    EXPECT_EQ(mio_partition(m, 2, "sfc", 0.03, "eco", 0, 0, /*ghost_layers=*/-1, ""), nullptr);
+    EXPECT_NE(std::string(mio_last_error()).find("ghost_layers"), std::string::npos);
+    EXPECT_EQ(mio_partition(nullptr, 2, "sfc", 0.03, "eco", 0, 0, 0, ""), nullptr);
+    EXPECT_EQ(mio_partition_result_num_pieces(nullptr), -1);
+    EXPECT_EQ(mio_partition_result_part_id(nullptr, 0), -1);
+    EXPECT_EQ(mio_partition_result_mesh(nullptr, 0), nullptr);
+    EXPECT_EQ(mio_partition_result_point_map(nullptr, 0, nullptr, nullptr, nullptr),
+              MIO_ERR_INVALID_ARG);
+    EXPECT_EQ(mio_partition_result_cell_map(nullptr, 0, 0, nullptr, nullptr, nullptr),
+              MIO_ERR_INVALID_ARG);
+    mio_partition_result_free(nullptr);  // NULL-safe
+    EXPECT_EQ(mio_partition_labels(nullptr, 2, "sfc", 0.03, "eco", 0, "", nullptr, 0),
+              MIO_ERR_INVALID_ARG);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, RefineErrorsAreGuardedNotThrown) {
+    // A pyramid has no same-type subdivision: the C++ exception must be turned
+    // into NULL + last_error, never allowed to escape the ABI.
+    const std::vector<double> pts = {0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0.5, 0.5, 1};
+    const std::vector<std::int64_t> conn = {0, 1, 2, 3, 4};
+    mio_mesh* m = mio_mesh_create();
+    ASSERT_EQ(mio_mesh_set_points(m, MIO_FLOAT64, 5, 3, pts.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_cell_block(m, "pyramid", 1, 5, MIO_INT64, conn.data()), MIO_OK);
+
+    EXPECT_EQ(mio_refine(m, 1, 0), nullptr);
+    EXPECT_NE(std::string(mio_last_error()), "");
+    EXPECT_EQ(mio_refine(nullptr, 1, 0), nullptr);
+    EXPECT_EQ(mio_refine_result_mesh(nullptr), nullptr);
+    EXPECT_EQ(mio_refine_result_num_cell_maps(nullptr), -1);
+    EXPECT_EQ(mio_refine_result_point_map(nullptr, nullptr, nullptr, nullptr), MIO_ERR_INVALID_ARG);
+    EXPECT_EQ(mio_refine_result_cell_map(nullptr, 0, nullptr, nullptr, nullptr),
+              MIO_ERR_INVALID_ARG);
+    mio_refine_result_free(nullptr);  // NULL-safe
+    mio_mesh_free(m);
+}
+
+TEST(CApi, IsosurfaceContoursAScalarPointField) {
+    // The unit cube with f = x on its corners: the 0.5 level set is the unit
+    // square at x = 0.5, on which f reads back as exactly the isovalue.
+    const std::vector<double> pts = {0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0,
+                                     0, 0, 1, 1, 0, 1, 1, 1, 1, 0, 1, 1};
+    const std::vector<std::int64_t> conn = {0, 1, 2, 3, 4, 5, 6, 7};
+    const std::vector<double> fx = {0, 1, 1, 0, 0, 1, 1, 0};
+    const std::int64_t shape[1] = {8};
+
+    mio_mesh* m = mio_mesh_create();
+    ASSERT_EQ(mio_mesh_set_points(m, MIO_FLOAT64, 8, 3, pts.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_cell_block(m, "hexahedron", 1, 8, MIO_INT64, conn.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_point_data(m, "fx", MIO_FLOAT64, 1, shape, fx.data()), MIO_OK);
+
+    const double isovalues[2] = {0.25, 0.75};
+    mio_mesh* out = mio_isosurface(m, "fx", isovalues, 1, /*component=*/-1,
+                                   /*record_parent_ids=*/1);
+    ASSERT_NE(out, nullptr);
+    ASSERT_GT(mio_mesh_num_points(out), 0);
+    ASSERT_GT(mio_mesh_num_cell_blocks(out), 0);
+
+    const void* data = nullptr;
+    mio_dtype dt = MIO_FLOAT64;
+    std::int32_t ndim = 0;
+    std::int64_t got_shape[MIO_MAX_NDIM] = {0};
+    ASSERT_EQ(mio_mesh_get_point_data(out, "fx", &data, &dt, &ndim, got_shape), MIO_OK);
+    ASSERT_EQ(dt, MIO_FLOAT64);
+    const double* v = static_cast<const double*>(data);
+    for (std::int64_t i = 0; i < got_shape[0]; ++i)
+        EXPECT_EQ(v[i], 0.25) << "the contoured field must be exact";
+
+    // Every contour cell is tagged with its value and its ordinal.
+    EXPECT_GT(mio_mesh_cell_data_num_blocks(out, "iso:value"), 0);
+    EXPECT_GT(mio_mesh_cell_data_num_blocks(out, "iso:index"), 0);
+    EXPECT_GT(mio_mesh_cell_data_num_blocks(out, "iso:parent_cell"), 0);
+    mio_mesh_free(out);
+
+    // Two isovalues land in one mesh.
+    mio_mesh* both = mio_isosurface(m, "fx", isovalues, 2, -1, 0);
+    ASSERT_NE(both, nullptr);
+    ASSERT_EQ(mio_mesh_get_cell_data(both, "iso:index", 0, &data, &dt, &ndim, got_shape), MIO_OK);
+    EXPECT_EQ(dt, MIO_INT64);
+    mio_mesh_free(both);
+
+    mio_mesh_free(m);
+}
+
+TEST(CApi, GradientCarriesTheOperatorsAndCounters) {
+    // A frustum, not a cube: on a cube every face is a parallelogram whose
+    // corner average IS its area centroid, so the exactness assertion below
+    // would pass even with a broken quadrature.
+    const std::vector<double> pts = {0,   0,   0, 2,   0,   0, 2,   2,   0, 0,   2,   0,
+                                     0.5, 0.5, 1, 1.5, 0.5, 1, 1.5, 1.5, 1, 0.5, 1.5, 1};
+    const std::vector<std::int64_t> conn = {0, 1, 2, 3, 4, 5, 6, 7};
+    std::vector<double> f(8), u(24);
+    for (std::size_t i = 0; i < 8; ++i) {
+        const double x = pts[i * 3 + 0], y = pts[i * 3 + 1], z = pts[i * 3 + 2];
+        f[i] = 3.0 * x - 2.0 * y + 5.0 * z + 7.0;
+        u[i * 3 + 0] = 7.0 * z;
+        u[i * 3 + 1] = 11.0 * x;
+        u[i * 3 + 2] = 13.0 * y;
+    }
+    const std::int64_t sshape[1] = {8};
+    const std::int64_t vshape[2] = {8, 3};
+
+    mio_mesh* m = mio_mesh_create();
+    ASSERT_EQ(mio_mesh_set_points(m, MIO_FLOAT64, 8, 3, pts.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_cell_block(m, "hexahedron", 1, 8, MIO_INT64, conn.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_point_data(m, "f", MIO_FLOAT64, 1, sshape, f.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_point_data(m, "u", MIO_FLOAT64, 2, vshape, u.data()), MIO_OK);
+
+    const void* data = nullptr;
+    mio_dtype dt = MIO_FLOAT64;
+    std::int32_t ndim = 0;
+    std::int64_t got_shape[MIO_MAX_NDIM] = {0};
+
+    std::int64_t skipped = -1, fallback = -1;
+    mio_mesh* g = mio_gradient(m, "f", nullptr, nullptr, nullptr, nullptr, -1, 0, &skipped,
+                               &fallback);
+    ASSERT_NE(g, nullptr) << mio_last_error();
+    EXPECT_EQ(skipped, 0);
+    EXPECT_EQ(fallback, 0);
+    ASSERT_EQ(mio_mesh_get_cell_data(g, "f:gradient", 0, &data, &dt, &ndim, got_shape), MIO_OK);
+    EXPECT_EQ(dt, MIO_FLOAT64);
+    ASSERT_EQ(ndim, 2);
+    EXPECT_EQ(got_shape[1], 3);
+    const double* v = static_cast<const double*>(data);
+    EXPECT_NEAR(v[0], 3.0, 1e-12);
+    EXPECT_NEAR(v[1], -2.0, 1e-12);
+    EXPECT_NEAR(v[2], 5.0, 1e-12);
+    mio_mesh_free(g);
+
+    // curl of (7z, 11x, 13y) is (13, 7, 11): three distinct nonzero components,
+    // so any index permutation or sign flip fails.
+    mio_mesh* c = mio_gradient(m, "u", "curl", "green-gauss", "cell", "w", -1, 0, nullptr,
+                               nullptr);
+    ASSERT_NE(c, nullptr) << mio_last_error();
+    ASSERT_EQ(mio_mesh_get_cell_data(c, "w", 0, &data, &dt, &ndim, got_shape), MIO_OK);
+    v = static_cast<const double*>(data);
+    EXPECT_NEAR(v[0], 13.0, 1e-12);
+    EXPECT_NEAR(v[1], 7.0, 1e-12);
+    EXPECT_NEAR(v[2], 11.0, 1e-12);
+    mio_mesh_free(c);
+
+    // Least squares on a lone cell has no neighbourhood at all, so the fallback
+    // counter must fire -- asserting it stays 0 on a nice mesh would be inert.
+    skipped = fallback = -1;
+    mio_mesh* l = mio_gradient(m, "f", "gradient", "least-squares", "cell", nullptr, -1, 0,
+                               &skipped, &fallback);
+    ASSERT_NE(l, nullptr) << mio_last_error();
+    EXPECT_EQ(fallback, 1);
+    EXPECT_EQ(skipped, 0);
+    mio_mesh_free(l);
+
+    // Point location moves the array to point_data and drops the intermediate.
+    mio_mesh* p = mio_gradient(m, "f", "gradient", "green-gauss", "point", nullptr, -1, 0,
+                               nullptr, nullptr);
+    ASSERT_NE(p, nullptr) << mio_last_error();
+    ASSERT_EQ(mio_mesh_get_point_data(p, "f:gradient", &data, &dt, &ndim, got_shape), MIO_OK);
+    EXPECT_LE(mio_mesh_cell_data_num_blocks(p, "f:gradient"), 0)
+        << "the intermediate cell array must be dropped";
+    mio_mesh_free(p);
+
+    mio_mesh_free(m);
+}
+
+TEST(CApi, GradientErrorsAreGuardedNotThrown) {
+    const std::vector<double> pts = {0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0};
+    const std::vector<std::int64_t> conn = {0, 1, 2, 3};
+    const std::vector<double> h = {0, 1, 1, 0};
+    const std::int64_t shape[1] = {4};
+    mio_mesh* m = mio_mesh_create();
+    ASSERT_EQ(mio_mesh_set_points(m, MIO_FLOAT64, 4, 3, pts.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_cell_block(m, "quad", 1, 4, MIO_INT64, conn.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_point_data(m, "h", MIO_FLOAT64, 1, shape, h.data()), MIO_OK);
+
+    // Unknown array, unknown operator/method, a scalar divergence, an
+    // out-of-range component and NULL arguments: NULL + last_error, never an
+    // exception across the ABI.
+    EXPECT_EQ(mio_gradient(m, "nope", nullptr, nullptr, nullptr, nullptr, -1, 0, nullptr,
+                           nullptr),
+              nullptr);
+    EXPECT_NE(std::string(mio_last_error()), "");
+    EXPECT_EQ(mio_gradient(m, "h", "laplacian", nullptr, nullptr, nullptr, -1, 0, nullptr,
+                           nullptr),
+              nullptr);
+    EXPECT_EQ(mio_gradient(m, "h", nullptr, "magic", nullptr, nullptr, -1, 0, nullptr, nullptr),
+              nullptr);
+    EXPECT_EQ(mio_gradient(m, "h", "divergence", nullptr, nullptr, nullptr, -1, 0, nullptr,
+                           nullptr),
+              nullptr)
+        << "a scalar has no divergence";
+    EXPECT_EQ(mio_gradient(m, "h", nullptr, nullptr, nullptr, nullptr, 7, 0, nullptr, nullptr),
+              nullptr);
+    EXPECT_EQ(mio_gradient(nullptr, "h", nullptr, nullptr, nullptr, nullptr, -1, 0, nullptr,
+                           nullptr),
+              nullptr);
+    EXPECT_EQ(mio_gradient(m, nullptr, nullptr, nullptr, nullptr, nullptr, -1, 0, nullptr,
+                           nullptr),
+              nullptr);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, IsosurfaceErrorsAreGuardedNotThrown) {
+    const std::vector<double> pts = {0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0};
+    const std::vector<std::int64_t> conn = {0, 1, 2, 3};
+    const std::vector<double> h = {0, 1, 1, 0};
+    const std::int64_t shape[1] = {4};
+    mio_mesh* m = mio_mesh_create();
+    ASSERT_EQ(mio_mesh_set_points(m, MIO_FLOAT64, 4, 3, pts.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_cell_block(m, "quad", 1, 4, MIO_INT64, conn.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_point_data(m, "h", MIO_FLOAT64, 1, shape, h.data()), MIO_OK);
+
+    const double iso[1] = {0.5};
+    // Unknown array, no isovalues, and NULL arguments: NULL + last_error, never
+    // an exception across the ABI.
+    EXPECT_EQ(mio_isosurface(m, "nope", iso, 1, -1, 0), nullptr);
+    EXPECT_NE(std::string(mio_last_error()), "");
+    EXPECT_EQ(mio_isosurface(m, "h", iso, 0, -1, 0), nullptr);
+    EXPECT_EQ(mio_isosurface(m, "h", iso, 1, 7, 0), nullptr);
+    EXPECT_EQ(mio_isosurface(nullptr, "h", iso, 1, -1, 0), nullptr);
+    EXPECT_EQ(mio_isosurface(m, nullptr, iso, 1, -1, 0), nullptr);
+    EXPECT_EQ(mio_isosurface(m, "h", nullptr, 1, -1, 0), nullptr);
+    mio_mesh_free(m);
+}
+
+// --- named regions (doc/regions.md) ------------------------------------------
+// Regions are the first thing on this ABI that carries named *groups* of
+// entities; before meshio++ 8.1 they never left the Python layer.
+
+TEST(CApi, RegionsRoundTripThroughTheOpaqueHandle) {
+    const std::vector<double> pts = {0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0.5, 0.5, 1};
+    const std::vector<std::int64_t> conn = {0, 1, 2, 4, 0, 2, 3, 4};
+    mio_mesh* m = mio_mesh_create();
+    ASSERT_EQ(mio_mesh_set_points(m, MIO_FLOAT64, 5, 3, pts.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_cell_block(m, "tetra", 2, 4, MIO_INT64, conn.data()), MIO_OK);
+
+    // Entries are given unsorted and with a duplicate: canonicalization is part
+    // of the contract, so what comes back is sorted and de-duplicated.
+    const std::int64_t nodes[4] = {3, 0, 3, 1};
+    ASSERT_EQ(mio_mesh_add_region(m, "fixed", MIO_REGION_POINT, -1, -1, nodes, 4), MIO_OK);
+    const std::int64_t cells[2] = {1, 0};
+    ASSERT_EQ(mio_mesh_add_region(m, "solid", MIO_REGION_CELL, 3, 42, cells, 2), MIO_OK);
+    const std::int64_t sides[4] = {1, 3, 0, 1};  // (cell, facet) pairs
+    ASSERT_EQ(mio_mesh_add_region(m, "wall", MIO_REGION_SIDE, 2, -1, sides, 4), MIO_OK);
+
+    mio_regions* r = mio_regions_create(m);
+    ASSERT_NE(r, nullptr);
+    ASSERT_EQ(mio_regions_count(r), 3);
+
+    // Order is (kind, name, dim, tag): Point, then Cell, then Side.
+    char buf[64];
+    ASSERT_GT(mio_regions_name(r, 0, buf, sizeof(buf)), 0);
+    EXPECT_EQ(std::string(buf), "fixed");
+    ASSERT_GT(mio_regions_name(r, 2, buf, sizeof(buf)), 0);
+    EXPECT_EQ(std::string(buf), "wall");
+
+    mio_region_info info{};
+    ASSERT_EQ(mio_regions_info(r, 0, &info), MIO_OK);
+    EXPECT_EQ(info.kind, MIO_REGION_POINT);
+    EXPECT_EQ(info.stride, 1);
+    EXPECT_EQ(info.num_entries, 3);  // the duplicate 3 was dropped
+
+    ASSERT_EQ(mio_regions_info(r, 1, &info), MIO_OK);
+    EXPECT_EQ(info.kind, MIO_REGION_CELL);
+    EXPECT_EQ(info.dim, 3);
+    EXPECT_EQ(info.tag, 42);
+
+    ASSERT_EQ(mio_regions_info(r, 2, &info), MIO_OK);
+    EXPECT_EQ(info.kind, MIO_REGION_SIDE);
+    EXPECT_EQ(info.stride, 2);
+    EXPECT_EQ(info.num_entries, 2);
+
+    std::int64_t count = 0;
+    const std::int64_t* e = mio_regions_entries(r, 0, &count);
+    ASSERT_NE(e, nullptr);
+    ASSERT_EQ(count, 3);
+    EXPECT_EQ(e[0], 0);
+    EXPECT_EQ(e[1], 1);
+    EXPECT_EQ(e[2], 3);
+
+    e = mio_regions_entries(r, 2, &count);
+    ASSERT_NE(e, nullptr);
+    ASSERT_EQ(count, 4);  // 2 pairs, lexicographically sorted
+    EXPECT_EQ(e[0], 0);
+    EXPECT_EQ(e[1], 1);
+    EXPECT_EQ(e[2], 1);
+    EXPECT_EQ(e[3], 3);
+
+    mio_regions_free(r);
+    mio_mesh_free(m);
+}
+
+TEST(CApi, RegionErrorsAreGuardedNotThrown) {
+    mio_mesh* m = mio_mesh_create();
+    const std::int64_t one[1] = {0};
+
+    // No exception may cross the ABI: every one of these is a status/NULL.
+    EXPECT_EQ(mio_mesh_add_region(nullptr, "x", MIO_REGION_POINT, -1, -1, one, 1),
+              MIO_ERR_INVALID_ARG);
+    EXPECT_EQ(mio_mesh_add_region(m, nullptr, MIO_REGION_POINT, -1, -1, one, 1),
+              MIO_ERR_INVALID_ARG);
+    EXPECT_EQ(mio_mesh_add_region(m, "x", MIO_REGION_POINT, -1, -1, nullptr, 1),
+              MIO_ERR_INVALID_ARG);
+    // A side region needs (cell, facet) pairs.
+    EXPECT_EQ(mio_mesh_add_region(m, "x", MIO_REGION_SIDE, -1, -1, one, 1), MIO_ERR_INVALID_ARG);
+
+    EXPECT_EQ(mio_regions_create(nullptr), nullptr);
+    mio_regions* r = mio_regions_create(m);
+    ASSERT_NE(r, nullptr);
+    EXPECT_EQ(mio_regions_count(r), 0);
+    mio_region_info info{};
+    EXPECT_EQ(mio_regions_info(r, 0, &info), MIO_ERR_INVALID_ARG);
+    EXPECT_EQ(mio_regions_entries(r, 5, nullptr), nullptr);
+    EXPECT_EQ(mio_regions_name(r, 5, nullptr, 0), -1);
+    mio_regions_free(r);
+    mio_regions_free(nullptr);  // NULL is safe
+    mio_mesh_free(m);
+}
+
+TEST(CApi, RegionsSurviveAnOperation) {
+    // crop keeps both tetra, so the cell region survives whole; the point
+    // region is remapped through the pruned point numbering.
+    const std::vector<double> pts = {0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0.5, 0.5, 1};
+    const std::vector<std::int64_t> conn = {0, 1, 2, 4, 0, 2, 3, 4};
+    mio_mesh* m = mio_mesh_create();
+    ASSERT_EQ(mio_mesh_set_points(m, MIO_FLOAT64, 5, 3, pts.data()), MIO_OK);
+    ASSERT_EQ(mio_mesh_add_cell_block(m, "tetra", 2, 4, MIO_INT64, conn.data()), MIO_OK);
+    const std::int64_t cells[1] = {0};
+    ASSERT_EQ(mio_mesh_add_region(m, "solid", MIO_REGION_CELL, 3, 7, cells, 1), MIO_OK);
+
+    const double lo[3] = {-1, -1, -1};
+    const double hi[3] = {2, 2, 2};
+    mio_mesh* out = mio_crop_bbox(m, lo, hi, 0, 0);
+    ASSERT_NE(out, nullptr);
+
+    mio_regions* r = mio_regions_create(out);
+    ASSERT_NE(r, nullptr);
+    ASSERT_EQ(mio_regions_count(r), 1);
+    mio_region_info info{};
+    ASSERT_EQ(mio_regions_info(r, 0, &info), MIO_OK);
+    EXPECT_EQ(info.num_entries, 1);
+    EXPECT_EQ(info.tag, 7);  // the format-native id rides along
+    mio_regions_free(r);
+
+    mio_mesh_free(out);
+    mio_mesh_free(m);
+}
+
+// ---- transient XDMF ------------------------------------------------------
+//
+// The one writer the flat API exposes as a handle rather than a (path, mesh)
+// call. Written here, then read back through the C reader one step at a time.
+
+TEST(CApi, XdmfTimeSeries) {
+    mio_mesh* m = mio_mesh_create();
+    ASSERT_NE(m, nullptr);
+    const double pts[15] = {0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0.5, 0.5, 0.5};
+    ASSERT_EQ(mio_mesh_set_points(m, MIO_FLOAT64, 5, 3, pts), MIO_OK) << mio_last_error();
+    const int64_t conn[8] = {0, 1, 2, 4, 0, 2, 3, 4};
+    ASSERT_EQ(mio_mesh_add_cell_block(m, "tetra", 2, 4, MIO_INT64, conn), MIO_OK)
+        << mio_last_error();
+
+    const std::string path = mt::temp_path(".xdmf");
+
+    mio_xdmf_series* s = mio_xdmf_series_create(path.c_str(), "XML", -1);
+    ASSERT_NE(s, nullptr) << mio_last_error();
+    ASSERT_EQ(mio_xdmf_series_write_points_cells(s, m), MIO_OK) << mio_last_error();
+    const int64_t shape[1] = {5};
+    for (int k = 0; k < 3; ++k) {
+        const double t[5] = {100.0 * k, 100.0 * k + 1, 100.0 * k + 2, 100.0 * k + 3, 100.0 * k + 4};
+        ASSERT_EQ(mio_mesh_add_point_data(m, "T", MIO_FLOAT64, 1, shape, t), MIO_OK)
+            << mio_last_error();
+        ASSERT_EQ(mio_xdmf_series_write_data(s, 0.25 * k, m), MIO_OK) << mio_last_error();
+    }
+    EXPECT_EQ(mio_xdmf_series_num_steps(s), 3);
+    ASSERT_EQ(mio_xdmf_series_finalize(s), MIO_OK) << mio_last_error();
+    mio_xdmf_series_free(s);
+
+    // Every step's time value is reachable without decoding a payload.
+    mio_read_metadata* meta = mio_read_metadata_create(path.c_str(), nullptr);
+    ASSERT_NE(meta, nullptr) << mio_last_error();
+    ASSERT_EQ(mio_read_metadata_num_time_values(meta), 3);
+    double times[3] = {0, 0, 0};
+    ASSERT_EQ(mio_read_metadata_time_values(meta, times, 3), 3);
+    for (int k = 0; k < 3; ++k)
+        EXPECT_DOUBLE_EQ(times[k], 0.25 * k);
+    mio_read_metadata_free(meta);
+
+    // ... and each step reads back with its own values.
+    for (int k = 0; k < 3; ++k) {
+        mio_read_opts opts;
+        mio_read_opts_init(&opts);
+        opts.time_step = k;
+        mio_mesh* out = mio_read_ex(path.c_str(), nullptr, &opts);
+        ASSERT_NE(out, nullptr) << mio_last_error();
+        EXPECT_EQ(mio_mesh_num_points(out), 5);
+        const void* data = nullptr;
+        mio_dtype dt = MIO_FLOAT64;
+        int32_t ndim = 0;
+        int64_t got_shape[MIO_MAX_NDIM] = {0};
+        ASSERT_EQ(mio_mesh_get_point_data(out, "T", &data, &dt, &ndim, got_shape), MIO_OK)
+            << mio_last_error();
+        ASSERT_EQ(dt, MIO_FLOAT64);
+        ASSERT_EQ(got_shape[0], 5);
+        const double* values = static_cast<const double*>(data);
+        for (int i = 0; i < 5; ++i)
+            EXPECT_DOUBLE_EQ(values[i], 100.0 * k + i) << "step " << k << " entry " << i;
+        mio_mesh_free(out);
+    }
+
+    mio_mesh_free(m);
+    std::error_code ec;
+    std::filesystem::remove(path, ec);
+}
+
+TEST(CApi, XdmfTimeSeriesUnknownFormat) {
+    const std::string path = mt::temp_path(".xdmf");
+    EXPECT_EQ(mio_xdmf_series_create(path.c_str(), "Zarr", -1), nullptr);
+    EXPECT_NE(std::string(mio_last_error()).find("Zarr"), std::string::npos);
+}

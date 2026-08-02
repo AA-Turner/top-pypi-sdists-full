@@ -32,6 +32,16 @@ pub struct ByteRange {
     pub end: usize,
 }
 
+/// What a scan of the content found for HTML comments.
+#[derive(Debug, Default)]
+pub struct HtmlCommentScan {
+    /// Byte ranges of the complete comments, in document order.
+    pub ranges: Vec<ByteRange>,
+    /// Byte offset of a `<!--` that no `-->` closes. At most one is reported:
+    /// once the document has no closer left, no later opener can close either.
+    pub unterminated: Option<usize>,
+}
+
 /// Pre-compute all HTML comment ranges in the content.
 /// Returns a sorted vector of byte ranges for efficient lookup.
 pub fn compute_html_comment_ranges(content: &str) -> Vec<ByteRange> {
@@ -54,21 +64,41 @@ pub fn compute_html_comment_ranges(content: &str) -> Vec<ByteRange> {
 /// (`` `<!--` <!-- real --> ``), this scans for the next `<!--` opener that is
 /// not in code, then the next `-->` closer that is not in code - it does not
 /// filter completed regex matches. `code_span_ranges` and `code_block_ranges`
-/// are the parser's half-open `[start, end)` byte ranges (`ParseResult`). With
-/// no code ranges this is equivalent to the lazy regex: an opener pairs with the
-/// first following closer, and an opener with no closer yields no range.
+/// are the parser's half-open `[start, end)` byte ranges (`ParseResult`). An
+/// opener pairs with the first following closer, and an opener with no closer
+/// yields no range. A closer may overlap the opener it closes, so `<!-->` and
+/// `<!--->` are whole comments, matching CommonMark.
 pub fn compute_html_comment_ranges_filtered(
     content: &str,
     code_span_ranges: &[(usize, usize)],
     code_block_ranges: &[(usize, usize)],
 ) -> Vec<ByteRange> {
+    scan_html_comments(content, code_span_ranges, code_block_ranges, 0).ranges
+}
+
+/// Scan for HTML comments, keeping the position of an opener that never closes.
+///
+/// Same scan as [`compute_html_comment_ranges_filtered`], which discards the
+/// unterminated opener. MD086 reports it, so it is carried out of the scan
+/// rather than re-derived by a second, possibly disagreeing pass.
+///
+/// `scan_from` is the byte offset the document's body starts at, so front
+/// matter can be excluded. A `<!--` in a YAML or TOML value is data, and
+/// pairing it with a `-->` in the body would mark everything in between as a
+/// comment, hiding it from every rule.
+pub fn scan_html_comments(
+    content: &str,
+    code_span_ranges: &[(usize, usize)],
+    code_block_ranges: &[(usize, usize)],
+    scan_from: usize,
+) -> HtmlCommentScan {
     let in_code = |pos: usize| {
         code_span_ranges.iter().any(|&(start, end)| pos >= start && pos < end)
             || code_block_ranges.iter().any(|&(start, end)| pos >= start && pos < end)
     };
 
     let mut ranges = Vec::new();
-    let mut search_from = 0;
+    let mut search_from = scan_from.min(content.len());
     while let Some(rel) = content[search_from..].find("<!--") {
         let open = search_from + rel;
         if in_code(open) {
@@ -76,8 +106,11 @@ pub fn compute_html_comment_ranges_filtered(
             search_from = open + "<!--".len();
             continue;
         }
-        // Find the next `-->` that is not itself inside code.
-        let mut close_from = open + "<!--".len();
+        // Find the next `-->` that is not itself inside code. The search starts
+        // two bytes into the opener, because the opener's own trailing dashes can
+        // serve as the closer's leading dashes: `<!-->` and `<!--->` are complete
+        // comments, and a line holding one ends an HTML block.
+        let mut close_from = open + 2;
         let end = loop {
             let Some(crel) = content[close_from..].find("-->") else {
                 break None;
@@ -94,12 +127,77 @@ pub fn compute_html_comment_ranges_filtered(
                 ranges.push(ByteRange { start: open, end });
                 search_from = end;
             }
-            // Unterminated comment (no closer anywhere): the regex would not
-            // match either, so emit nothing and stop.
-            None => break,
+            // Unterminated comment (no closer anywhere): it covers no range,
+            // and no opener after it can close either, so the scan is done.
+            None => {
+                return HtmlCommentScan {
+                    ranges,
+                    unterminated: Some(open),
+                };
+            }
         }
     }
-    ranges
+    HtmlCommentScan {
+        ranges,
+        unterminated: None,
+    }
+}
+
+/// Re-resolve an unterminated `<!--` that an Obsidian comment hides.
+///
+/// [`scan_html_comments`] has to run before Obsidian comments are known,
+/// because detecting those needs the HTML comment ranges. A `<!--` inside a
+/// `%%` comment is hidden text rather than an opener, so when the reported one
+/// falls in a comment the scan is repeated with those comments among the ranges
+/// whose delimiters are literal. That resumes the search at the next opener
+/// instead of suppressing the finding, which would hide a real unclosed comment
+/// below the hidden one.
+///
+/// Only the opener is taken from the second scan. Skipping strictly more of the
+/// content cannot turn up a closer the first scan missed, so the complete
+/// comments it found still stand.
+pub fn unterminated_html_comment_outside(
+    reported: Option<usize>,
+    hidden_ranges: &[(usize, usize)],
+    content: &str,
+    code_span_ranges: &[(usize, usize)],
+    code_block_ranges: &[(usize, usize)],
+    scan_from: usize,
+) -> Option<usize> {
+    let offset = reported?;
+    if !hidden_ranges
+        .iter()
+        .any(|&(start, end)| offset >= start && offset < end)
+    {
+        return reported;
+    }
+    let mut literal_ranges = code_block_ranges.to_vec();
+    literal_ranges.extend_from_slice(hidden_ranges);
+    scan_html_comments(content, code_span_ranges, &literal_ranges, scan_from).unterminated
+}
+
+/// The range an unclosed `<!--` hides, if it hides anything.
+///
+/// Whether an unclosed opener swallows the text after it is a block-structure
+/// question, so it is answered by the parser rather than by inspecting the line.
+/// At the start of a line `<!--` opens an HTML block and everything to the end
+/// of that block is comment text; mid-paragraph CommonMark has no comment to
+/// open, so the marker renders literally and hides nothing.
+///
+/// The block is the unit because it is not always the rest of the document. An
+/// opener inside a blockquote or a list item ends with its container, leaving
+/// the content after it visible, and one indented four spaces is code and opens
+/// no block at all. `html_blocks` are the parser's ranges, so each of those
+/// falls out without a separate rule here.
+///
+/// The range starts at the opener, not at the block, because a block may have
+/// begun earlier with a tag: in `<div>` followed by `<!--`, only the text from
+/// the marker on is inside the comment.
+pub fn unterminated_comment_range(opener: usize, html_blocks: &[(usize, usize)]) -> Option<ByteRange> {
+    html_blocks
+        .iter()
+        .find(|&&(start, end)| opener >= start && opener < end)
+        .map(|&(_, end)| ByteRange { start: opener, end })
 }
 
 /// Check if a byte position is within any of the pre-computed HTML comment ranges
@@ -668,6 +766,119 @@ mod tests {
         assert_eq!(
             ranges[0].end, real_close_end,
             "must close at the real --> ({real_close_end}), not the one in the code span ({first_close})"
+        );
+    }
+
+    #[test]
+    fn test_scan_html_comments_starts_at_the_given_offset() {
+        // The offset is where front matter ends: a delimiter before it is data,
+        // so it neither opens a comment nor closes one.
+        let content = "---\nauthor: \"a <!-- b\"\n---\n\nText --> text\n";
+        let body_start = content.rfind("---\n").unwrap() + "---\n".len();
+        let scan = scan_html_comments(content, &[], &[], body_start);
+        assert!(scan.ranges.is_empty(), "got: {:?}", scan.ranges);
+        assert_eq!(scan.unterminated, None);
+
+        let unscoped = scan_html_comments(content, &[], &[], 0);
+        assert_eq!(unscoped.ranges.len(), 1, "without the offset the two pair up");
+    }
+
+    #[test]
+    fn test_scan_html_comments_reports_the_unterminated_opener() {
+        let content = "<!-- closed --> text <!-- open";
+        let scan = scan_html_comments(content, &[], &[], 0);
+        assert_eq!(scan.ranges.len(), 1);
+        assert_eq!(scan.unterminated, Some(content.rfind("<!--").unwrap()));
+
+        let closed = scan_html_comments("<!-- closed -->", &[], &[], 0);
+        assert_eq!(closed.unterminated, None);
+    }
+
+    #[test]
+    fn test_unterminated_html_comment_outside_hidden_ranges() {
+        // An opener the caller can see is hidden resumes the search at the next
+        // one rather than clearing the finding.
+        let content = "%% note <!-- marker %%\n\n<!-- real\n";
+        let hidden = [(0, content.find("\n\n").unwrap())];
+        let reported = scan_html_comments(content, &[], &[], 0).unterminated;
+        assert_eq!(reported, Some(content.find("<!--").unwrap()), "the hidden one is first");
+        assert_eq!(
+            unterminated_html_comment_outside(reported, &hidden, content, &[], &[], 0),
+            Some(content.rfind("<!--").unwrap())
+        );
+
+        // Nothing left outside the hidden range: the finding goes away.
+        let only_hidden = "%% note <!-- marker %%\n";
+        let hidden_all = [(0, only_hidden.len())];
+        let reported = scan_html_comments(only_hidden, &[], &[], 0).unterminated;
+        assert!(reported.is_some(), "the scan sees the hidden opener");
+        assert_eq!(
+            unterminated_html_comment_outside(reported, &hidden_all, only_hidden, &[], &[], 0),
+            None
+        );
+
+        // An opener outside every hidden range is returned untouched.
+        let visible = "<!-- open\n\n%% a note %%\n";
+        let reported = scan_html_comments(visible, &[], &[], 0).unterminated;
+        assert_eq!(
+            unterminated_html_comment_outside(reported, &[(11, 23)], visible, &[], &[], 0),
+            Some(0)
+        );
+    }
+
+    #[test]
+    fn test_unterminated_comment_range_follows_the_block() {
+        // An opener that starts a block hides the rest of that block.
+        let blocks = [(0, 40)];
+        let range = unterminated_comment_range(0, &blocks).expect("opener starts the block");
+        assert_eq!((range.start, range.end), (0, 40));
+
+        // An opener in a block a tag already started hides only from itself on,
+        // so the tag above it stays visible.
+        let range = unterminated_comment_range(7, &blocks).expect("opener sits inside the block");
+        assert_eq!((range.start, range.end), (7, 40));
+
+        // An opener in no block at all is inline, and hides nothing.
+        assert!(unterminated_comment_range(60, &blocks).is_none());
+        assert!(unterminated_comment_range(0, &[]).is_none());
+
+        // The end of a block is exclusive: an opener there belongs to whatever
+        // follows, not to the block that just closed.
+        assert!(unterminated_comment_range(40, &blocks).is_none());
+    }
+
+    #[test]
+    fn test_compute_html_comment_ranges_degenerate_comments_are_complete() {
+        // CommonMark ends a comment at the first `-->`, and the opener's own
+        // dashes can supply its first two, so these are whole comments and the
+        // text after them is ordinary markdown.
+        for (content, expected_end) in [
+            ("<!--> text", 5),
+            ("<!---> text", 6),
+            ("<!----> text", 7),
+            ("<!-- x --> text", 10),
+        ] {
+            let ranges = compute_html_comment_ranges(content);
+            assert_eq!(ranges.len(), 1, "{content:?} holds exactly one comment");
+            assert_eq!(ranges[0].start, 0);
+            assert_eq!(
+                ranges[0].end, expected_end,
+                "{content:?} ends its comment at the first -->"
+            );
+        }
+    }
+
+    #[test]
+    fn test_compute_html_comment_ranges_degenerate_comment_before_a_real_one() {
+        // The degenerate comment must not swallow the text up to the next `-->`,
+        // which would hide a whole document from every rule.
+        let content = "<!--> visible <!-- hidden --> visible";
+        let ranges = compute_html_comment_ranges(content);
+        assert_eq!(ranges.len(), 2);
+        assert_eq!((ranges[0].start, ranges[0].end), (0, 5));
+        assert_eq!(
+            (ranges[1].start, ranges[1].end),
+            (content.find("<!-- hidden").unwrap(), content.rfind("-->").unwrap() + 3)
         );
     }
 

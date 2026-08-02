@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""
+Backoff Strategy Enumeration.
+
+Retry backoff strategies for infrastructure resilience in ONEX systems.
+"""
+
+from enum import Enum, unique
+
+from omnibase_core.enums.enum_str_enum_base import UtilStrValueHelper
+
+
+@unique
+class EnumBackoffStrategy(UtilStrValueHelper, str, Enum):
+    """Enumeration for retry backoff strategies used in infrastructure components."""
+
+    # Backoff strategies for retry logic
+    EXPONENTIAL = "EXPONENTIAL"  # Exponential backoff (2^attempt * base_delay)
+    LINEAR = "LINEAR"  # Linear backoff (attempt * base_delay)
+    FIXED = "FIXED"  # Fixed delay between retries
+
+
+__all__ = ["EnumBackoffStrategy"]

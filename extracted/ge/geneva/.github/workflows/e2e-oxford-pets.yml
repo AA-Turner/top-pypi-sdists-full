@@ -1,0 +1,78 @@
+name: E2E Tests - Oxford Pets
+on:
+  # Manual trigger - can be run on any branch
+  workflow_dispatch:
+    inputs:
+      csp:
+        description: 'Cloud provider'
+        required: false
+        type: choice
+        options:
+          - gcp
+          - aws
+          - azure
+        default: 'gcp'
+      num_images:
+        description: "Number of images to process"
+        required: false
+        default: "500"
+      batch_size:
+        description: "Batch size for backfill operations"
+        required: false
+        default: "10"
+      skip_gpu:
+        description: "Skip GPU tests"
+        required: false
+        type: boolean
+        default: false
+      run_simple:
+        description: "Run simple UDF tests"
+        required: false
+        type: boolean
+        default: true
+      run_openclip:
+        description: "Run OpenCLIP UDF tests"
+        required: false
+        type: boolean
+        default: true
+      run_blip:
+        description: "Run BLIP UDF tests"
+        required: false
+        type: boolean
+        default: true
+      run_sentence_transformers:
+        description: "Run Sentence Transformers UDF tests"
+        required: false
+        type: boolean
+        default: true
+  # Weekly schedule: Monday 11pm Pacific = Tuesday 6am UTC (runs on main only)
+  schedule:
+    - cron: "0 6 * * 2"
+
+jobs:
+  e2e-test-oxford-pets:
+    name: e2e-test-oxford-pets-${{ (github.event_name == 'workflow_dispatch' && (inputs.csp || 'gcp')) || 'azure' }}
+    # Scheduled runs are always on main, manual runs can be on any branch
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.ref == 'refs/heads/main')
+    uses: ./.github/workflows/e2e-shared.yml
+    with:
+      # Scheduled runs target Azure for GPU availability (always-on GPU nodes).
+      # Manual dispatch defaults to GCP but can be overridden.  See GEN-439.
+      csp: ${{ github.event_name == 'schedule' && 'azure' || inputs.csp || 'gcp' }}
+      e2e_dir: e2e/oxford-pets
+      checkout_ref: ${{ github.event_name == 'schedule' && 'main' || github.ref }}
+      prepare_command: |
+        test -f e2e/oxford-pets/upload_manifests.py
+        TEST_FILES=""
+        ${{ inputs.run_simple == true || github.event_name == 'schedule' }} && TEST_FILES="$TEST_FILES test_drivers/test_cpu_simple.py"
+        ${{ inputs.run_openclip == true || github.event_name == 'schedule' }} && TEST_FILES="$TEST_FILES test_drivers/test_embeddings_openclip.py"
+        ${{ inputs.run_blip == true || github.event_name == 'schedule' }} && TEST_FILES="$TEST_FILES test_drivers/test_captions_blip.py"
+        ${{ inputs.run_sentence_transformers == true || github.event_name == 'schedule' }} && TEST_FILES="$TEST_FILES test_drivers/test_embeddings_sentence_transformers.py"
+        echo "TEST_FILES=$TEST_FILES" >> $GITHUB_ENV
+        echo "Selected tests: $TEST_FILES"
+      run_command: |
+        make -f e2e/Makefile test-e2e-oxford-pets-${{ github.event_name == 'schedule' && 'azure' || inputs.csp || 'gcp' }} SLUG=$SLUG NUM_IMAGES=${{ github.event_name == 'schedule' && '50' || inputs.num_images || '500' }} BATCH_SIZE=${{ inputs.batch_size || '10' }} SKIP_GPU=${{ inputs.skip_gpu && '1' || '' }} TEST_FILES="${TEST_FILES}"
+      cleanup_command: |
+        echo "Deleting rayclusters matching slug $SLUG"
+        kubectl get raycluster -n lancedb --no-headers -o custom-columns=":metadata.name" | grep $SLUG | xargs -r -n1 kubectl delete raycluster -n lancedb --wait
+    secrets: inherit

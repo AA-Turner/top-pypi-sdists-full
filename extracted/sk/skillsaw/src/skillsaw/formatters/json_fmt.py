@@ -1,0 +1,80 @@
+"""JSON output formatter for skillsaw lint results."""
+
+import json
+from typing import List, Optional
+
+from ..rule import Rule, RuleViolation, Severity
+from . import get_counts, relative_path, should_show_info
+
+
+def format_json(
+    violations: List[RuleViolation],
+    context,
+    rules: List[Rule],
+    version: str,
+    verbose: bool = False,
+    baseline_suppressed: int = 0,
+    duration: Optional[float] = None,
+    grade=None,
+    fail_level: str = "error",
+) -> str:
+    show_info = should_show_info(verbose, fail_level)
+    errors, warnings, info = get_counts(violations)
+
+    repo_types_list = context.repo_type_names()
+
+    if verbose:
+        stats = {
+            "repo_type": context.repo_type.value,
+            "repo_types": repo_types_list,
+            "plugins": [str(p) for p in context.plugins],
+            "skills": [str(s) for s in context.skills],
+            "rules_run": [r.rule_id for r in rules],
+        }
+    else:
+        stats = {
+            "repo_type": context.repo_type.value,
+            "repo_types": repo_types_list,
+            "plugins": len(context.plugins),
+            "skills": len(context.skills),
+            "rules_run": len(rules),
+        }
+
+    if duration is not None:
+        stats["duration_seconds"] = round(duration, 3)
+
+    def violation_entry(v: RuleViolation) -> dict:
+        entry = {
+            "rule_id": v.rule_id,
+            "severity": v.severity.value,
+            "message": v.message,
+            "file_path": relative_path(v.file_path, context.root_path),
+            "line": v.file_line,
+            "source": v.source,
+        }
+        # Additive: omitted when fixability is unknown (e.g. synthetic
+        # violations); fix_confidence only accompanies fixable violations.
+        if v.fixable is not None:
+            entry["fixable"] = v.fixable
+            if v.fixable and v.fix_confidence is not None:
+                entry["fix_confidence"] = v.fix_confidence.value
+        return entry
+
+    report = {
+        "version": version,
+        "stats": stats,
+        "violations": [
+            violation_entry(v) for v in violations if show_info or v.severity != Severity.INFO
+        ],
+        "summary": {
+            "errors": errors,
+            "warnings": warnings,
+            "info": info,
+            "baseline_suppressed": baseline_suppressed,
+        },
+    }
+
+    if grade is not None:
+        report["summary"]["grade"] = grade.to_dict()
+
+    return json.dumps(report, indent=2)

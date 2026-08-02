@@ -1,0 +1,494 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+from typing import Union, Iterable
+from typing_extensions import Literal, Required, TypeAlias, TypedDict
+
+from .._types import SequenceNotStr
+from .shared_params.address import Address
+
+__all__ = [
+    "AccountHolderCreateParams",
+    "KYB",
+    "KYBBeneficialOwnerIndividual",
+    "KYBBusinessEntity",
+    "KYBControlPerson",
+    "KYBDelegated",
+    "KYBDelegatedBusinessEntity",
+    "KYBDelegatedBeneficialOwnerIndividual",
+    "KYBDelegatedControlPerson",
+    "KYC",
+    "KYCIndividual",
+    "KYCExempt",
+]
+
+
+class KYB(TypedDict, total=False):
+    beneficial_owner_individuals: Required[Iterable[KYBBeneficialOwnerIndividual]]
+    """
+    You must submit a list of all direct and indirect individuals with 25% or more
+    ownership in the company. A maximum of 4 beneficial owners can be submitted. If
+    no individual owns 25% of the company you do not need to send beneficial owner
+    information. See
+    [FinCEN requirements](https://www.fincen.gov/sites/default/files/shared/CDD_Rev6.7_Sept_2017_Certificate.pdf)
+    (Section I) for more background on individuals that should be included.
+    """
+
+    business_entity: Required[KYBBusinessEntity]
+    """
+    Information for business for which the account is being opened and KYB is being
+    run.
+    """
+
+    control_person: Required[KYBControlPerson]
+    """
+    An individual with significant responsibility for managing the legal entity
+    (e.g., a Chief Executive Officer, Chief Financial Officer, Chief Operating
+    Officer, Managing Member, General Partner, President, Vice President, or
+    Treasurer). This can be an executive, or someone who will have program-wide
+    access to the cards that Lithic will provide. In some cases, this individual
+    could also be a beneficial owner listed above. See
+    [FinCEN requirements](https://www.fincen.gov/sites/default/files/shared/CDD_Rev6.7_Sept_2017_Certificate.pdf)
+    (Section II) for more background.
+    """
+
+    nature_of_business: Required[str]
+    """
+    Short description of the company's line of business (i.e., what does the company
+    do?). Values longer than 255 characters will be truncated before KYB
+    verification
+    """
+
+    tos_timestamp: Required[str]
+    """
+    An RFC 3339 timestamp indicating when the account holder accepted the applicable
+    legal agreements (e.g., cardholder terms) as agreed upon during API customer's
+    implementation with Lithic.
+    """
+
+    workflow: Required[Literal["KYB_BASIC", "KYB_BYO"]]
+    """Specifies the type of KYB workflow to run."""
+
+    external_id: str
+    """
+    A user provided id that can be used to link an account holder with an external
+    system
+    """
+
+    kyb_passed_timestamp: str
+    """
+    An RFC 3339 timestamp indicating when precomputed KYB was completed on the
+    business with a pass result.
+
+    This field is required only if workflow type is `KYB_BYO`.
+    """
+
+    naics_code: str
+    """
+    6-digit North American Industry Classification System (NAICS) code for the
+    business.
+    """
+
+    website_url: str
+    """Company website URL."""
+
+
+class KYBBeneficialOwnerIndividual(TypedDict, total=False):
+    """Individuals associated with a KYB application. Phone number is optional."""
+
+    address: Required[Address]
+    """
+    Individual's current address - PO boxes, UPS drops, and FedEx drops are not
+    acceptable; APO/FPO are acceptable. Only USA addresses are currently supported.
+    """
+
+    dob: Required[str]
+    """Individual's date of birth, as an RFC 3339 date."""
+
+    email: Required[str]
+    """
+    Individual's email address. If utilizing Lithic for chargeback processing, this
+    customer email address may be used to communicate dispute status and resolution.
+    """
+
+    first_name: Required[str]
+    """Individual's first name, as it appears on government-issued identity documents."""
+
+    government_id: Required[str]
+    """
+    Government-issued identification number (required for identity verification and
+    compliance with banking regulations). Social Security Numbers (SSN) and
+    Individual Taxpayer Identification Numbers (ITIN) are currently supported,
+    entered as full nine-digits, with or without hyphens
+    """
+
+    last_name: Required[str]
+    """Individual's last name, as it appears on government-issued identity documents."""
+
+    phone_number: str
+    """Individual's phone number, entered in E.164 format."""
+
+
+class KYBBusinessEntity(TypedDict, total=False):
+    """
+    Information for business for which the account is being opened and KYB is being run.
+    """
+
+    address: Required[Address]
+    """
+    Business's physical address - PO boxes, UPS drops, and FedEx drops are not
+    acceptable; APO/FPO are acceptable.
+    """
+
+    government_id: Required[str]
+    """Government-issued identification number.
+
+    US Federal Employer Identification Numbers (EIN) are currently supported,
+    entered as full nine-digits, with or without hyphens.
+    """
+
+    legal_business_name: Required[str]
+    """Legal (formal) business name."""
+
+    phone_numbers: Required[SequenceNotStr[str]]
+    """
+    One or more of the business's phone number(s), entered as a list in E.164
+    format.
+    """
+
+    dba_business_name: str
+    """
+    Any name that the business operates under that is not its legal business name
+    (if applicable).
+    """
+
+    parent_company: str
+    """Parent company name (if applicable)."""
+
+
+class KYBControlPerson(TypedDict, total=False):
+    """
+    An individual with significant responsibility for managing the legal entity (e.g., a Chief Executive Officer, Chief Financial Officer, Chief Operating Officer,
+    Managing Member, General Partner, President, Vice President, or Treasurer). This can be an executive, or someone who will have program-wide access
+    to the cards that Lithic will provide. In some cases, this individual could also be a beneficial owner listed above.
+    See [FinCEN requirements](https://www.fincen.gov/sites/default/files/shared/CDD_Rev6.7_Sept_2017_Certificate.pdf) (Section II) for more background.
+    """
+
+    address: Required[Address]
+    """
+    Individual's current address - PO boxes, UPS drops, and FedEx drops are not
+    acceptable; APO/FPO are acceptable. Only USA addresses are currently supported.
+    """
+
+    dob: Required[str]
+    """Individual's date of birth, as an RFC 3339 date."""
+
+    email: Required[str]
+    """
+    Individual's email address. If utilizing Lithic for chargeback processing, this
+    customer email address may be used to communicate dispute status and resolution.
+    """
+
+    first_name: Required[str]
+    """Individual's first name, as it appears on government-issued identity documents."""
+
+    government_id: Required[str]
+    """
+    Government-issued identification number (required for identity verification and
+    compliance with banking regulations). Social Security Numbers (SSN) and
+    Individual Taxpayer Identification Numbers (ITIN) are currently supported,
+    entered as full nine-digits, with or without hyphens
+    """
+
+    last_name: Required[str]
+    """Individual's last name, as it appears on government-issued identity documents."""
+
+    phone_number: str
+    """Individual's phone number, entered in E.164 format."""
+
+
+class KYBDelegated(TypedDict, total=False):
+    business_entity: Required[KYBDelegatedBusinessEntity]
+    """Information for business for which the account is being opened."""
+
+    beneficial_owner_individuals: Iterable[KYBDelegatedBeneficialOwnerIndividual]
+    """
+    You can submit a list of all direct and indirect individuals with 25% or more
+    ownership in the company. A maximum of 4 beneficial owners can be submitted. If
+    no individual owns 25% of the company you do not need to send beneficial owner
+    information. See
+    [FinCEN requirements](https://www.fincen.gov/sites/default/files/shared/CDD_Rev6.7_Sept_2017_Certificate.pdf)
+    (Section I) for more background on individuals that should be included.
+    """
+
+    control_person: KYBDelegatedControlPerson
+    """
+    An individual with significant responsibility for managing the legal entity
+    (e.g., a Chief Executive Officer, Chief Financial Officer, Chief Operating
+    Officer, Managing Member, General Partner, President, Vice President, or
+    Treasurer). This can be an executive, or someone who will have program-wide
+    access to the cards that Lithic will provide. In some cases, this individual
+    could also be a beneficial owner listed above. See
+    [FinCEN requirements](https://www.fincen.gov/sites/default/files/shared/CDD_Rev6.7_Sept_2017_Certificate.pdf)
+    (Section II) for more background.
+    """
+
+    external_id: str
+    """
+    A user provided id that can be used to link an account holder with an external
+    system
+    """
+
+    naics_code: str
+    """
+    6-digit North American Industry Classification System (NAICS) code for the
+    business.
+    """
+
+    nature_of_business: str
+    """
+    Short description of the company's line of business (i.e., what does the company
+    do?). Values longer than 255 characters will be truncated before KYB
+    verification
+    """
+
+    tos_timestamp: str
+    """
+    An RFC 3339 timestamp indicating when the account holder accepted the applicable
+    legal agreements (e.g., cardholder terms) as agreed upon during API customer's
+    implementation with Lithic.
+    """
+
+    website_url: str
+    """Company website URL."""
+
+    workflow: Literal["KYB_DELEGATED"]
+    """Specifies the type of KYB workflow to run."""
+
+
+class KYBDelegatedBusinessEntity(TypedDict, total=False):
+    """Information for business for which the account is being opened."""
+
+    address: Required[Address]
+    """
+    Business's physical address - PO boxes, UPS drops, and FedEx drops are not
+    acceptable; APO/FPO are acceptable.
+    """
+
+    legal_business_name: Required[str]
+    """Legal (formal) business name."""
+
+    dba_business_name: str
+    """
+    Any name that the business operates under that is not its legal business name
+    (if applicable).
+    """
+
+    government_id: str
+    """Government-issued identification number.
+
+    US Federal Employer Identification Numbers (EIN) are currently supported,
+    entered as full nine-digits, with or without hyphens.
+    """
+
+    parent_company: str
+    """Parent company name (if applicable)."""
+
+    phone_numbers: SequenceNotStr[str]
+    """
+    One or more of the business's phone number(s), entered as a list in E.164
+    format.
+    """
+
+
+class KYBDelegatedBeneficialOwnerIndividual(TypedDict, total=False):
+    """Individuals associated with a KYB_DELEGATED application.
+
+    Only first and last name are required.
+    """
+
+    first_name: Required[str]
+    """Individual's first name, as it appears on government-issued identity documents."""
+
+    last_name: Required[str]
+    """Individual's last name, as it appears on government-issued identity documents."""
+
+    address: Address
+    """
+    Individual's current address - PO boxes, UPS drops, and FedEx drops are not
+    acceptable; APO/FPO are acceptable. Only USA addresses are currently supported.
+    """
+
+    dob: str
+    """Individual's date of birth, as an RFC 3339 date."""
+
+    email: str
+    """
+    Individual's email address. If utilizing Lithic for chargeback processing, this
+    customer email address may be used to communicate dispute status and resolution.
+    """
+
+    government_id: str
+    """
+    Government-issued identification number (required for identity verification and
+    compliance with banking regulations). Social Security Numbers (SSN) and
+    Individual Taxpayer Identification Numbers (ITIN) are currently supported,
+    entered as full nine-digits, with or without hyphens
+    """
+
+    phone_number: str
+    """Individual's phone number, entered in E.164 format."""
+
+
+class KYBDelegatedControlPerson(TypedDict, total=False):
+    """
+    An individual with significant responsibility for managing the legal entity (e.g., a Chief Executive Officer, Chief Financial Officer, Chief Operating Officer,
+    Managing Member, General Partner, President, Vice President, or Treasurer). This can be an executive, or someone who will have program-wide access
+    to the cards that Lithic will provide. In some cases, this individual could also be a beneficial owner listed above.
+    See [FinCEN requirements](https://www.fincen.gov/sites/default/files/shared/CDD_Rev6.7_Sept_2017_Certificate.pdf) (Section II) for more background.
+    """
+
+    first_name: Required[str]
+    """Individual's first name, as it appears on government-issued identity documents."""
+
+    last_name: Required[str]
+    """Individual's last name, as it appears on government-issued identity documents."""
+
+    address: Address
+    """
+    Individual's current address - PO boxes, UPS drops, and FedEx drops are not
+    acceptable; APO/FPO are acceptable. Only USA addresses are currently supported.
+    """
+
+    dob: str
+    """Individual's date of birth, as an RFC 3339 date."""
+
+    email: str
+    """
+    Individual's email address. If utilizing Lithic for chargeback processing, this
+    customer email address may be used to communicate dispute status and resolution.
+    """
+
+    government_id: str
+    """
+    Government-issued identification number (required for identity verification and
+    compliance with banking regulations). Social Security Numbers (SSN) and
+    Individual Taxpayer Identification Numbers (ITIN) are currently supported,
+    entered as full nine-digits, with or without hyphens
+    """
+
+    phone_number: str
+    """Individual's phone number, entered in E.164 format."""
+
+
+class KYC(TypedDict, total=False):
+    individual: Required[KYCIndividual]
+    """
+    Information on individual for whom the account is being opened and KYC is being
+    run.
+    """
+
+    tos_timestamp: Required[str]
+    """
+    An RFC 3339 timestamp indicating when the account holder accepted the applicable
+    legal agreements (e.g., cardholder terms) as agreed upon during API customer's
+    implementation with Lithic.
+    """
+
+    workflow: Required[Literal["KYC_BASIC", "KYC_BYO"]]
+    """Specifies the type of KYC workflow to run."""
+
+    external_id: str
+    """
+    A user provided id that can be used to link an account holder with an external
+    system
+    """
+
+    kyc_passed_timestamp: str
+    """
+    An RFC 3339 timestamp indicating when precomputed KYC was completed on the
+    individual with a pass result.
+
+    This field is required only if workflow type is `KYC_BYO`.
+    """
+
+
+class KYCIndividual(TypedDict, total=False):
+    """
+    Information on individual for whom the account is being opened and KYC is being run.
+    """
+
+    address: Required[Address]
+    """
+    Individual's current address - PO boxes, UPS drops, and FedEx drops are not
+    acceptable; APO/FPO are acceptable. Only USA addresses are currently supported.
+    """
+
+    dob: Required[str]
+    """Individual's date of birth, as an RFC 3339 date."""
+
+    email: Required[str]
+    """
+    Individual's email address. If utilizing Lithic for chargeback processing, this
+    customer email address may be used to communicate dispute status and resolution.
+    """
+
+    first_name: Required[str]
+    """Individual's first name, as it appears on government-issued identity documents."""
+
+    government_id: Required[str]
+    """
+    Government-issued identification number (required for identity verification and
+    compliance with banking regulations). Social Security Numbers (SSN) and
+    Individual Taxpayer Identification Numbers (ITIN) are currently supported,
+    entered as full nine-digits, with or without hyphens
+    """
+
+    last_name: Required[str]
+    """Individual's last name, as it appears on government-issued identity documents."""
+
+    phone_number: Required[str]
+    """Individual's phone number, entered in E.164 format."""
+
+
+class KYCExempt(TypedDict, total=False):
+    address: Required[Address]
+    """
+    KYC Exempt user's current address - PO boxes, UPS drops, and FedEx drops are not
+    acceptable; APO/FPO are acceptable.
+    """
+
+    email: Required[str]
+    """The KYC Exempt user's email"""
+
+    first_name: Required[str]
+    """The KYC Exempt user's first name"""
+
+    kyc_exemption_type: Required[Literal["AUTHORIZED_USER", "PREPAID_CARD_USER"]]
+    """Specifies the type of KYC Exempt user"""
+
+    last_name: Required[str]
+    """The KYC Exempt user's last name"""
+
+    phone_number: Required[str]
+    """The KYC Exempt user's phone number, entered in E.164 format."""
+
+    workflow: Required[Literal["KYC_EXEMPT"]]
+    """Specifies the workflow type. This must be 'KYC_EXEMPT'"""
+
+    business_account_token: str
+    """
+    Only applicable for customers using the KYC-Exempt workflow to enroll authorized
+    users of businesses. Pass the account_token of the enrolled business associated
+    with the AUTHORIZED_USER in this field.
+    """
+
+    external_id: str
+    """
+    A user provided id that can be used to link an account holder with an external
+    system
+    """
+
+
+AccountHolderCreateParams: TypeAlias = Union[KYB, KYBDelegated, KYC, KYCExempt]

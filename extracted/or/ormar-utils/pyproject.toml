@@ -1,0 +1,58 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "ormar-utils"
+version = "0.2.0"
+description = "Rust-accelerated utility functions for the ormar ORM"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [
+    { name = "Radosław Drążkiewicz", email = "collerek@gmail.com" },
+]
+keywords = ["ormar", "orm", "rust", "performance"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3 :: Only",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Database",
+]
+
+[project.urls]
+Homepage = "https://github.com/ormar-orm/ormar-utils"
+Repository = "https://github.com/ormar-orm/ormar-utils"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+
+[tool.poetry]
+name = "ormar-utils"
+version = "0.2.0"
+description = "Rust-accelerated utility functions for the ormar ORM"
+authors = ["Radosław Drążkiewicz <collerek@gmail.com>"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.0"
+maturin = "^1.0"
+pre-commit = "^3.0"
+ruff = "^0.15"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py310"

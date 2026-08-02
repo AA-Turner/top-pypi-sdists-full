@@ -1,0 +1,19 @@
+Metadata-Version: 2.4
+Name: vodozemac
+Version: 0.10.0
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+License-File: LICENSE
+Summary: Python bindings for vodozemac
+Home-Page: https://github.com/matrix-nio/vodozemac-python
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: repository, https://github.com/matrix-nio/vodozemac-python
+
+# vodozemac-python
+Python bindings for vodozemac
+

@@ -254,11 +254,11 @@ class NewgroundsExtractor(Extractor):
         return {
             "title"      : text.unescape(extr('"og:title" content="', '"')),
             "description": text.unescape(extr(':description" content="', '"')),
+            "url"        : text.unescape(extr('ty="og:audio" content="', '"')),
             "type"       : "audio",
             "_type"      : "a",
             "date"       : dt.parse_iso(extr(
                 'itemprop="datePublished" content="', '"')),
-            "url"        : extr('{"url":"', '"').replace("\\/", "/"),
             "index"      : text.parse_int(index),
             "_index"     : index,
             "rating"     : "",

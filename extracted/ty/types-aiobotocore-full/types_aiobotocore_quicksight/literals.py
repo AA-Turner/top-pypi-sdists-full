@@ -1136,7 +1136,7 @@ SelfUpgradeRequestStatusType = Literal[
     "APPROVED", "DENIED", "PENDING", "UPDATE_FAILED", "VERIFY_FAILED"
 ]
 SelfUpgradeStatusType = Literal["ADMIN_APPROVAL", "AUTO_APPROVAL"]
-ServiceTypeType = Literal["ATHENA", "QBUSINESS", "REDSHIFT"]
+ServiceTypeType = Literal["ATHENA", "GLUE_DATA_CATALOG", "QBUSINESS", "REDSHIFT"]
 SharingModelType = Literal["ACCOUNT", "NAMESPACE"]
 SheetContentTypeType = Literal["INTERACTIVE", "PAGINATED"]
 SheetControlDateTimePickerTypeType = Literal["DATE_RANGE", "SINGLE_VALUED"]

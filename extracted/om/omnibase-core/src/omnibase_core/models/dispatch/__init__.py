@@ -1,0 +1,211 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""
+Dispatch Engine Models.
+
+Core models for the ONEX runtime dispatch engine that routes messages
+based on topic category and message type, and publishes handler outputs.
+
+Exports:
+- **ModelDispatchRoute**: Routing rules that map topic patterns to handlers
+- **ModelDispatchResult**: Results of dispatch operations with metrics (rich shape, OMN-12546)
+- **ModelDispatchOutputs**: Validated list of output topics from a dispatch operation
+- **ModelDispatchMetadata**: Strongly-typed metadata for dispatch operations
+- **ModelHandlerRef**: Handler class reference for contract handler_routing
+- **ModelHandlerRegistration**: Handler registration metadata
+- **EnumDispatchStatus**: Status values for dispatch outcomes
+
+Design Principles:
+    - **Pure Domain Models**: No I/O dependencies, no infrastructure concerns
+    - **Immutable**: All models are frozen (thread-safe after creation)
+    - **Typed**: Strong typing with validation constraints
+    - **Serializable**: Full JSON serialization support
+
+Data Flow:
+    ```
+    ┌──────────────────────────────────────────────────────────────────┐
+    │                     Dispatch Engine Flow                          │
+    ├──────────────────────────────────────────────────────────────────┤
+    │                                                                  │
+    │   Incoming Message      Route Matching       Handler Execution   │
+    │        │                     │                      │            │
+    │        │  (topic, category)  │                      │            │
+    │        │────────────────────>│                      │            │
+    │        │                     │  ModelDispatchRoute  │            │
+    │        │                     │─────────────────────>│            │
+    │        │                     │                      │            │
+    │        │                     │                      │ execute    │
+    │        │                     │                      │────────>   │
+    │        │                     │                      │            │
+    │        │                     │  ModelDispatchResult │            │
+    │        │<────────────────────│<─────────────────────│            │
+    │                                                                  │
+    └──────────────────────────────────────────────────────────────────┘
+    ```
+
+Usage:
+    >>> from omnibase_core.models.dispatch import (
+    ...     ModelDispatchRoute,
+    ...     ModelDispatchResult,
+    ...     ModelHandlerRegistration,
+    ...     EnumDispatchStatus,
+    ... )
+    >>> from omnibase_core.enums import EnumMessageCategory, EnumNodeKind
+    >>> from uuid import uuid4
+    >>>
+    >>> # Register a handler
+    >>> handler = ModelHandlerRegistration(
+    ...     handler_id="user-handler",
+    ...     handler_name="User Event Handler",
+    ...     node_kind=EnumNodeKind.REDUCER,
+    ...     supported_categories=[EnumMessageCategory.EVENT],
+    ... )
+    >>>
+    >>> # Create a route
+    >>> route = ModelDispatchRoute(
+    ...     route_id="user-route",
+    ...     topic_pattern="*.user.events.*",
+    ...     message_category=EnumMessageCategory.EVENT,
+    ...     handler_id="user-handler",
+    ... )
+    >>>
+    >>> # Check if route matches
+    >>> route.matches_topic("dev.user.events.v1")
+    True
+    >>>
+    >>> # Create a dispatch result (started_at is required on the rich shape)
+    >>> from datetime import datetime, UTC
+    >>> result = ModelDispatchResult(
+    ...     dispatch_id=uuid4(),
+    ...     status=EnumDispatchStatus.SUCCESS,
+    ...     topic="dev.user.events.v1",
+    ...     route_id="user-route",
+    ...     dispatcher_id="user-handler",
+    ...     started_at=datetime.now(UTC),
+    ... )
+
+See Also:
+    omnibase_core.enums.EnumMessageCategory: Message category classification
+    omnibase_core.enums.EnumExecutionShape: Valid execution patterns
+    omnibase_core.models.events.ModelEventEnvelope: Event wrapper with routing info
+"""
+
+from omnibase_core.enums.enum_dispatch_lifecycle_emitter import (
+    EnumDispatchLifecycleEmitter,
+)
+from omnibase_core.enums.enum_dispatch_lifecycle_state import (
+    EnumDispatchLifecycleState,
+)
+from omnibase_core.enums.enum_dispatch_status import EnumDispatchStatus
+from omnibase_core.enums.enum_dispatch_verdict import EnumDispatchVerdict
+from omnibase_core.errors.error_lifecycle_emitter import LifecycleEmitterError
+from omnibase_core.errors.error_lifecycle_transition import (
+    LifecycleTransitionError,
+)
+from omnibase_core.models.dispatch.model_dispatch_bus_command import (
+    ModelDispatchBusCommand,
+)
+from omnibase_core.models.dispatch.model_dispatch_bus_route import (
+    ModelDispatchBusRoute,
+)
+from omnibase_core.models.dispatch.model_dispatch_bus_terminal_result import (
+    ModelDispatchBusTerminalResult,
+)
+from omnibase_core.models.dispatch.model_dispatch_claim import (
+    ModelDispatchClaim,
+    compute_blocker_id,
+)
+from omnibase_core.models.dispatch.model_dispatch_eval_result import (
+    ModelDispatchEvalResult,
+)
+from omnibase_core.models.dispatch.model_dispatch_lifecycle_event import (
+    ModelDispatchLifecycleEvent,
+)
+from omnibase_core.models.dispatch.model_dispatch_metadata import ModelDispatchMetadata
+from omnibase_core.models.dispatch.model_dispatch_outputs import ModelDispatchOutputs
+from omnibase_core.models.dispatch.model_dispatch_result import ModelDispatchResult
+from omnibase_core.models.dispatch.model_dispatch_route import ModelDispatchRoute
+from omnibase_core.models.dispatch.model_handler_output import ModelHandlerOutput
+from omnibase_core.models.dispatch.model_handler_ref import ModelHandlerRef
+from omnibase_core.models.dispatch.model_handler_registration import (
+    ModelHandlerRegistration,
+)
+from omnibase_core.models.dispatch.model_lifecycle_chain import (
+    DEFAULT_HEARTBEAT_REQUIRED_SECONDS,
+    HEARTBEAT_REQUIRED_ENV_VAR,
+    ModelLifecycleChain,
+)
+from omnibase_core.models.dispatch.model_model_call_record import ModelCallRecord
+from omnibase_core.models.dispatch.model_skill_result import (
+    SKILL_RESULT_SCHEMA_VERSION,
+    ModelSkillResult,
+)
+from omnibase_core.models.dispatch.model_topic_parser import (
+    EnumTopicStandard,
+    ModelParsedTopic,
+    ModelTopicParser,
+)
+from omnibase_core.models.dispatch.report import (
+    ROLE_TO_MODEL,
+    DispatchReport,
+    EnumDispatchReportImplementerVerdict,
+    EnumDispatchReportLanderVerdict,
+    EnumDispatchReportRole,
+    EnumDispatchReportScoutVerdict,
+    EnumDispatchReportVerifierVerdict,
+    ModelDispatchReportBase,
+    ModelDispatchReportImplementer,
+    ModelDispatchReportLander,
+    ModelDispatchReportScout,
+    ModelDispatchReportVerifier,
+)
+
+__all__ = [
+    # Constants
+    "DEFAULT_HEARTBEAT_REQUIRED_SECONDS",
+    "HEARTBEAT_REQUIRED_ENV_VAR",
+    "ROLE_TO_MODEL",
+    "SKILL_RESULT_SCHEMA_VERSION",
+    # Enums
+    "EnumDispatchLifecycleEmitter",
+    "EnumDispatchLifecycleState",
+    "EnumDispatchReportImplementerVerdict",
+    "EnumDispatchReportLanderVerdict",
+    "EnumDispatchReportRole",
+    "EnumDispatchReportScoutVerdict",
+    "EnumDispatchReportVerifierVerdict",
+    "EnumDispatchStatus",
+    "EnumDispatchVerdict",
+    "EnumTopicStandard",
+    # Errors
+    "LifecycleEmitterError",
+    "LifecycleTransitionError",
+    # Models
+    "DispatchReport",
+    "ModelLifecycleChain",
+    "ModelDispatchClaim",
+    "ModelDispatchBusCommand",
+    "ModelDispatchBusRoute",
+    "ModelDispatchBusTerminalResult",
+    "ModelDispatchLifecycleEvent",
+    "ModelDispatchEvalResult",
+    "ModelDispatchMetadata",
+    "ModelDispatchOutputs",
+    "ModelDispatchReportBase",
+    "ModelDispatchReportImplementer",
+    "ModelDispatchReportLander",
+    "ModelDispatchReportScout",
+    "ModelDispatchReportVerifier",
+    "ModelDispatchResult",
+    "ModelDispatchRoute",
+    "ModelCallRecord",
+    "ModelHandlerOutput",
+    "ModelHandlerRef",
+    "ModelHandlerRegistration",
+    "ModelParsedTopic",
+    "ModelSkillResult",
+    "ModelTopicParser",
+    # Functions
+    "compute_blocker_id",
+]

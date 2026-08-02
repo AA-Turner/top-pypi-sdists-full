@@ -1,0 +1,193 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "subarulink"
+dynamic = ["version"]
+description = "A package for interacting with the MySubaru Connected Services API."
+readme = "README.md"
+license = "Apache-2.0"
+authors = [
+    {name = "G-Two"},
+]
+requires-python = ">=3.14"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Internet",
+]
+dependencies = [
+    "aiohttp",
+]
+
+[project.optional-dependencies]
+cli = [
+    "stdiomask",
+]
+
+[project.urls]
+Homepage = "https://github.com/G-Two/subarulink"
+Repository = "https://github.com/G-Two/subarulink"
+
+[project.scripts]
+subarulink = "subarulink.app.cli:main"
+
+[tool.setuptools.dynamic]
+version = {attr = "subarulink.__version__.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["subarulink*"]
+exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+subarulink = ["py.typed"]
+
+[tool.black]
+target-version = ["py314"]
+exclude = 'generated'
+
+[tool.pylint.MASTER]
+ignore = [
+    "tests",
+]
+jobs = 2
+py-version = "3.14"
+source-roots = ["subarulink"]
+load-plugins = [
+    "pylint_strict_informational",
+]
+persistent = false
+extension-pkg-whitelist = [
+    "ciso8601",
+    "cv2",
+]
+
+[tool.pylint.BASIC]
+good-names = [
+    "_",
+    "ev",
+    "ex",
+    "fp",
+    "i",
+    "id",
+    "j",
+    "k",
+    "Run",
+    "T",
+]
+
+[tool.pylint."MESSAGES CONTROL"]
+# Reasons disabled:
+# format - handled by black
+# locally-disabled - it spams too much
+# duplicate-code - unavoidable
+# cyclic-import - doesn't test if both import on load
+# abstract-class-little-used - prevents from setting right foundation
+# unused-argument - generic callbacks and setup methods create a lot of warnings
+# too-many-* - are not enforced for the sake of readability
+# too-few-* - same as too-many-*
+# abstract-method - with intro of async there are always methods missing
+# inconsistent-return-statements - doesn't handle raise
+# too-many-ancestors - it's too strict.
+# wrong-import-order - isort guards this
+disable = [
+    "format",
+    "abstract-method",
+    "consider-using-f-string",
+    "cyclic-import",
+    "duplicate-code",
+    "inconsistent-return-statements",
+    "locally-disabled",
+    "not-context-manager",
+    "too-few-public-methods",
+    "too-many-ancestors",
+    "too-many-arguments",
+    "too-many-branches",
+    "too-many-instance-attributes",
+    "too-many-lines",
+    "too-many-locals",
+    "too-many-public-methods",
+    "too-many-return-statements",
+    "too-many-statements",
+    "too-many-boolean-expressions",
+    "unspecified-encoding",
+    "unused-argument",
+    "wrong-import-order",
+]
+enable = [
+    #"useless-suppression",  # temporarily every now and then to clean them up
+    "use-symbolic-message-instead",
+]
+
+[tool.pylint.REPORTS]
+score = false
+
+[tool.pylint.TYPECHECK]
+ignored-classes = [
+    "_CountingAttr",  # for attrs
+]
+
+[tool.pylint.FORMAT]
+expected-line-ending-format = "LF"
+
+[tool.pylint.EXCEPTIONS]
+overgeneral-exceptions = [
+    "builtins.BaseException",
+    "builtins.Exception",
+]
+
+[tool.coverage.run]
+source = ["subarulink"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplemented()",
+    "if __name__ == '__main__':",
+    "main()",
+]
+show_missing = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = [".git"]
+asyncio_mode = "auto"
+addopts = [
+    "--strict-markers",
+    "--cov=subarulink",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+exclude = [
+    ".venv",
+    ".git",
+    ".tox",
+    "docs",
+    "venv",
+    "bin",
+    "lib",
+    "deps",
+    "build",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "C",  # flake8-comprehensions
+    "B",  # flake8-bugbear
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "E203",  # whitespace before ':'
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["F401", "F811", "D103"]

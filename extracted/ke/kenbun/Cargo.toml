@@ -1,0 +1,29 @@
+[package]
+name = "kenbun"
+version = "0.8.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/patrick91/kenbun"
+description = "Static application discovery for Python and modern JavaScript/TypeScript repositories."
+exclude = ["patrickreview.md", "reports/", ".autopub/"]
+readme = "README.md"
+
+[lib]
+name = "kenbun"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = "0.29.0"
+# ruff crates are officially unstable ("frequent breaking changes") — exact-pin
+# all four to the SAME 0.0.x and upgrade them together.
+ruff_python_parser = "=0.0.3"
+ruff_python_ast = "=0.0.3"
+ruff_text_size = "=0.0.3"
+ruff_source_file = "=0.0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "1.1"
+pep440_rs = "0.7"
+pep508_rs = "0.9"
+ignore = "0.4"
+glob = "0.3"

@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=70.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nlptutti"
+version = "0.0.0.17"
+description = "Evaluation metrics for Korean STT outputs, including CER, WER, CRR, keywords, and entities"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "hyeonsangjeon", email = "wungnut0310@gmail.com"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Text Processing :: Linguistic",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+keywords = ["STT", "ASR", "Korean", "NLP", "CER", "WER", "speech recognition"]
+dependencies = [
+    "jiwer>=3,<5",
+]
+requires-python = ">=3.8"
+
+[project.urls]
+Homepage = "https://github.com/hyeonsangjeon/computing-Korean-STT-error-rates"
+Repository = "https://github.com/hyeonsangjeon/computing-Korean-STT-error-rates"
+Documentation = "https://hyeonsangjeon.github.io/job-transcribe/nlptutti/"
+"Bug Tracker" = "https://github.com/hyeonsangjeon/computing-Korean-STT-error-rates/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["nlptutti*"]
+exclude = ["test*", "pic*"]
+
+[tool.setuptools.package-data]
+nlptutti = ["*.txt", "*.md"]

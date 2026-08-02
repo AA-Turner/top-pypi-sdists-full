@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""Tool compatibility mode enumeration."""
+
+from enum import Enum, unique
+
+from omnibase_core.enums.enum_str_enum_base import UtilStrValueHelper
+
+
+@unique
+class EnumToolCompatibilityMode(UtilStrValueHelper, str, Enum):
+    """
+    Tool compatibility mode classification.
+
+    Defines the compatibility level of tools with the system.
+    """
+
+    COMPATIBLE = "compatible"
+    PARTIAL = "partial"
+    INCOMPATIBLE = "incompatible"
+    DEPRECATED = "deprecated"
+    EXPERIMENTAL = "experimental"
+
+
+__all__ = ["EnumToolCompatibilityMode"]

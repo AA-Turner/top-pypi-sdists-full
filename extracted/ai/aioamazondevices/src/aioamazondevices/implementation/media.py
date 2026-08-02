@@ -1,0 +1,224 @@
+"""Media module for Amazon devices."""
+
+from datetime import UTC, datetime
+from http import HTTPMethod
+from typing import Any
+
+from yarl import URL
+
+from aioamazondevices.const.http import (
+    ARRAY_WRAPPER,
+    HTTP_CONTENT_TYPE_STREAM,
+    URI_DEVICE_VOLUMES,
+    URI_MEDIA_CONTROL,
+    URI_MEDIA_STATE,
+    URI_MUSIC_PROVIDERS,
+)
+from aioamazondevices.http_wrapper import AmazonHttpWrapper, AmazonSessionStateData
+from aioamazondevices.structures import (
+    AmazonDevice,
+    AmazonMediaControls,
+    AmazonMediaState,
+    AmazonMusicProvider,
+    AmazonSequenceType,
+    AmazonVolumeState,
+)
+from aioamazondevices.utils import _LOGGER
+
+
+class AmazonMediaHandler:
+    """Class to handle Alexa media functionality."""
+
+    def __init__(
+        self,
+        http_wrapper: AmazonHttpWrapper,
+        session_state_data: AmazonSessionStateData,
+    ) -> None:
+        """Initialize AmazonMediaHandler class."""
+        self._session_state_data = session_state_data
+        self._http_wrapper = http_wrapper
+        self._music_providers: dict[str, AmazonMusicProvider] = {}
+        self._device_volumes: dict[str, AmazonVolumeState] = {}
+        self._media_states: dict[str, AmazonMediaState] = {}
+
+    @property
+    async def music_providers(self) -> dict[str, AmazonMusicProvider]:
+        """Return music providers."""
+        if not self._music_providers:
+            await self.update_music_providers()
+        return self._music_providers
+
+    @property
+    async def device_volumes(self) -> dict[str, AmazonVolumeState]:
+        """Return device volumes."""
+        if not self._device_volumes:
+            await self.sync_device_volumes()
+        return self._device_volumes
+
+    @property
+    async def media_states(self) -> dict[str, AmazonMediaState]:
+        """Return media states."""
+        return self._media_states
+
+    def update_cached_device_volume(
+        self, device_serial: str, volume: AmazonVolumeState
+    ) -> None:
+        """Update cached device volume."""
+        self._device_volumes[device_serial] = volume
+
+    async def sync_device_volumes(self) -> None:
+        """Sync all device volumes."""
+        _, raw_resp = await self._http_wrapper.session_request(
+            method=HTTPMethod.GET,
+            url=URL.joinpath(
+                self._session_state_data.alexa_website_url, URI_DEVICE_VOLUMES
+            ),
+        )
+
+        _volumes: dict[str, AmazonVolumeState] = {}
+
+        json_data = await self._http_wrapper.response_to_json(
+            raw_resp, "device volumes"
+        )
+        for device_volume_data in json_data.get("volumes", []):
+            _volumes[device_volume_data["dsn"]] = AmazonVolumeState(
+                device_volume_data["speakerVolume"], device_volume_data["speakerMuted"]
+            )
+
+        self._device_volumes = _volumes
+
+    async def _get_media_states(self, device: AmazonDevice) -> dict[str, Any]:
+        """Get media state for devices.
+
+        Whilst this takes a device as input it actually returns state for all devices.
+        """
+        query_string = {
+            "deviceSerialNumber": device.serial_number,
+            "deviceType": device.device_type,
+        }
+        url = URL.joinpath(self._session_state_data.alexa_website_url, URI_MEDIA_STATE)
+        url = url.with_query(query_string)
+        _, raw_resp = await self._http_wrapper.session_request(
+            method=HTTPMethod.GET,
+            url=url,
+        )
+
+        json_data = await self._http_wrapper.response_to_json(raw_resp, "media state")
+
+        media_sessions = {}
+        for session in json_data.get("mediaSessionList") or []:
+            for session_device in session.get("endpointList") or []:
+                serial_num = session_device.get("id", {}).get("deviceSerialNumber")
+                media_sessions[serial_num] = session
+
+        return media_sessions
+
+    async def sync_media_state(self, devices: dict[str, AmazonDevice]) -> None:
+        """Sync media states."""
+        if not (
+            media_devices := tuple(
+                device for device in devices.values() if device.media_player_supported
+            )
+        ):
+            self._media_states = {}
+            return
+
+        # the endpoint needs a device type / serial but returns all sessions
+        media_sessions = await self._get_media_states(media_devices[0])
+        if not media_sessions:
+            self._media_states = {}
+            return
+
+        media_states: dict[str, AmazonMediaState] = {}
+        for device in media_devices:
+            serial_number = device.serial_number
+            now_playing = media_sessions.get(serial_number, {}).get(
+                "nowPlayingData", {}
+            )
+            str_media_length = now_playing.get("progress", {}).get("mediaLength")
+            str_media_progress = now_playing.get("progress", {}).get("mediaProgress")
+            transport = now_playing.get("transport", {})
+            provider = now_playing.get("provider", {})
+            media_states[serial_number] = AmazonMediaState(
+                player_state=now_playing.get("playerState"),
+                now_playing_url=now_playing.get("mainArt", {}).get("largeUrl"),
+                now_playing_title=now_playing.get("infoText", {}).get("title"),
+                now_playing_line1=now_playing.get("infoText", {}).get("subText1"),
+                now_playing_line2=now_playing.get("infoText", {}).get("subText2"),
+                next_enabled=transport.get("next") == "ENABLED",
+                previous_enabled=transport.get("previous") == "ENABLED",
+                pause_enabled=transport.get("playPause") == "ENABLED",
+                seek_forward_enabled=transport.get("seekForward") == "ENABLED",
+                seek_back_enabled=transport.get("seekBack") == "ENABLED",
+                shuffle_enabled=transport.get("shuffle") == "ENABLED",
+                repeat_enabled=transport.get("repeat") == "ENABLED",
+                media_length=(
+                    int(str_media_length) // 1000
+                    if str_media_length is not None
+                    else None
+                ),
+                media_position=(
+                    int(str_media_progress) // 1000
+                    if str_media_progress is not None
+                    else None
+                ),
+                media_position_updated_at=datetime.now(UTC),
+                media_provider=provider.get("providerName"),
+                media_provider_url=provider.get("providerLogo", {}).get("url"),
+            )
+
+        self._media_states = media_states
+
+    async def update_music_providers(self) -> None:
+        """Update availables music providers."""
+        query_string = {
+            "skillId": "amzn1.ask.1p.music",
+        }
+        url = URL.joinpath(
+            self._session_state_data.alexa_website_url, URI_MUSIC_PROVIDERS
+        )
+        url = url.with_query(query_string)
+        _, resp = await self._http_wrapper.session_request(
+            method=HTTPMethod.GET,
+            url=url,
+        )
+        provider_json = await self._http_wrapper.response_to_json(
+            resp, "music providers", content_type=HTTP_CONTENT_TYPE_STREAM
+        )
+        _LOGGER.debug(
+            "Music providers data received: %s",
+            provider_json,
+        )
+        self._music_providers = {
+            provider["id"]: AmazonMusicProvider(
+                provider_id=provider["id"],
+                provider_name=provider["displayName"],
+                availability=provider["availability"],
+                default_provider=provider["providerData"].get("isDefaultMusicProvider"),
+            )
+            for provider in provider_json[ARRAY_WRAPPER]
+            if AmazonSequenceType.Music in provider["supportedProperties"]
+            and provider.get("id")
+            and provider["displayName"]
+            and provider["availability"] == "AVAILABLE"
+        }
+
+    async def send_media_command(
+        self, device: AmazonDevice, command: AmazonMediaControls
+    ) -> None:
+        """Send media control command."""
+        query_string = {
+            "deviceSerialNumber": device.serial_number,
+            "deviceType": device.device_type,
+        }
+        url = URL.joinpath(
+            self._session_state_data.alexa_website_url, URI_MEDIA_CONTROL
+        )
+        url = url.with_query(query_string)
+        payload = {"type": command.value}
+        await self._http_wrapper.session_request(
+            method=HTTPMethod.POST,
+            url=url,
+            input_data=payload,
+            json_data=True,
+        )

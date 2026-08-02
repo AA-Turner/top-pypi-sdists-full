@@ -1,0 +1,334 @@
+"""Litter-Robot 3."""
+
+from __future__ import annotations
+
+import logging
+import sys
+from datetime import datetime, time, timedelta
+from typing import TYPE_CHECKING, Any, ClassVar, cast
+
+import aiohttp
+
+from ..activity import Activity, Insight
+from ..const import API_V2_ENDPOINT
+from ..enums import LitterBoxCommand, LitterBoxStatus
+from ..exceptions import InvalidCommandException
+from ..sleep_schedule import SleepSchedule
+from ..transport import WebSocketMonitor, WebSocketProtocol
+from ..utils import to_timestamp, today_at_time, urljoin, utcnow
+from .litterrobot import MINIMUM_CYCLES_LEFT_DEFAULT, LitterRobot
+
+if sys.version_info >= (3, 13):
+    from warnings import deprecated
+else:
+    from typing_extensions import deprecated
+
+if TYPE_CHECKING:
+    from ..account import Account
+
+_LOGGER = logging.getLogger(__name__)
+
+DEFAULT_ENDPOINT = API_V2_ENDPOINT
+WEBSOCKET_ENDPOINT = "https://8s1fz54a82.execute-api.us-east-1.amazonaws.com/prod"
+
+SLEEP_MODE_ACTIVE = "sleepModeActive"
+SLEEP_MODE_TIME = "sleepModeTime"
+UNIT_STATUS = "unitStatus"
+
+SLEEP_DURATION_HOURS = 8
+SLEEP_DURATION = timedelta(hours=SLEEP_DURATION_HOURS)
+
+
+class LitterRobot3(LitterRobot):
+    """Data and methods for interacting with a Litter-Robot 3 automatic, self-cleaning litter box."""
+
+    _attr_model = "Litter-Robot 3"
+    _previous_sleep_data: str | None
+
+    VALID_WAIT_TIMES = [3, 7, 15]
+
+    def __init__(self, data: dict, account: Account) -> None:
+        """Initialize a Litter-Robot 3."""
+        super().__init__(data, account)
+        self._path = urljoin(
+            DEFAULT_ENDPOINT,
+            f"users/{account.user_id}/robots/{self.id}",
+        )
+
+    @property
+    def clean_cycle_wait_time_minutes(self) -> int:
+        """Return the number of minutes after a cat uses the Litter-Robot to begin an automatic clean cycle."""
+        return int(self._data.get("cleanCycleWaitTimeMinutes", "7"), 16)
+
+    @property
+    def cycle_capacity(self) -> int:
+        """Return the total anticpated number of clean cycles that can be performed before the waste drawer is full."""
+        minimum_capacity = self.cycle_count + self._minimum_cycles_left
+        if self._minimum_cycles_left < MINIMUM_CYCLES_LEFT_DEFAULT:
+            return minimum_capacity
+        return max(super().cycle_capacity, minimum_capacity)
+
+    @property
+    def is_drawer_full_indicator_triggered(self) -> bool:
+        """Return `True` if the drawer full indicator has been triggered."""
+        return bool(self._data.get("isDFITriggered", "0") != "0")
+
+    @property
+    def is_on(self) -> bool:
+        """Return `True` if the robot is on."""
+        return self.is_online
+
+    @property
+    def is_online(self) -> bool:
+        """Return `True` if the robot is online."""
+        return self.power_type != "NC" and self.status != LitterBoxStatus.OFFLINE
+
+    @property
+    def is_sleeping(self) -> bool:
+        """Return `True` if the Litter-Robot is currently "sleeping".
+
+        While sleeping, it won't automatically perform a clean cycle.
+        """
+        return (schedule := self.sleep_schedule) is not None and schedule.is_active()
+
+    @property
+    def is_waste_drawer_full(self) -> bool:
+        """Return `True` if the Litter-Robot is reporting that the waste drawer is full."""
+        return (
+            self.is_drawer_full_indicator_triggered and self.cycle_count > 9
+        ) or self._minimum_cycles_left < MINIMUM_CYCLES_LEFT_DEFAULT
+
+    @property
+    def night_light_mode_enabled(self) -> bool:
+        """Return `True` if night light mode is enabled."""
+        return bool(self._data.get("nightLightActive", "0") != "0")
+
+    @property
+    def panel_lock_enabled(self) -> bool:
+        """Return `True` if the buttons on the robot are disabled."""
+        return bool(self._data.get("panelLockActive", "0") != "0")
+
+    @property
+    @deprecated("Use power_type instead")
+    def power_status(self) -> str:
+        """Return the power type.
+
+        `AC` = normal/mains
+        `DC` = battery backup
+        `NC` = unknown, not connected or off
+        """
+        return self.power_type
+
+    @property
+    def power_type(self) -> str:
+        """Return the power type.
+
+        `AC` = normal/mains
+        `DC` = battery backup
+        `NC` = unknown, not connected or off
+        """
+        return cast(str, self._data.get("powerStatus", "NC"))
+
+    @property
+    def sleep_mode_enabled(self) -> bool:
+        """Return `True` if sleep mode is enabled."""
+        return bool(self._data.get(SLEEP_MODE_ACTIVE, "0") != "0")
+
+    @property
+    def _sleep_mode_window(self) -> tuple[datetime, datetime] | None:
+        """Return the sleep mode window."""
+        return sched.get_window() if (sched := self.sleep_schedule) else None
+
+    @property
+    def status(self) -> LitterBoxStatus:
+        """Return the status of the Litter-Robot."""
+        return LitterBoxStatus(self.status_code)
+
+    @property
+    def status_code(self) -> str | None:
+        """Return the status code of the Litter-Robot."""
+        return self._data.get(UNIT_STATUS)
+
+    @property
+    def waste_drawer_level(self) -> float:
+        """Return the approximate waste drawer level."""
+        if (capacity := self.cycle_capacity) == 0:
+            return 100
+        return (self.cycle_count / capacity * 1000 + 0.5) // 1 / 10
+
+    def _parse_sleep_info(self) -> None:
+        """Parse the sleep info of a Litter-Robot."""
+        sleep_time = self._data.get(SLEEP_MODE_TIME) or 0
+        sleep_data = f"{self.sleep_mode_enabled}.{sleep_time}"
+        if sleep_data == self._previous_sleep_data:
+            return
+        self._previous_sleep_data = sleep_data
+        self._sleep_schedule = SleepSchedule.from_timestamp(
+            sleep_time, duration=SLEEP_DURATION, is_enabled=self.sleep_mode_enabled
+        )
+
+    async def _dispatch_command(self, command: str, **kwargs: Any) -> bool:
+        """Send a command to the Litter-Robot."""
+        try:
+            await self._post(
+                LitterBoxCommand.ENDPOINT,
+                {"command": f"{LitterBoxCommand.PREFIX}{command}"},
+            )
+            return True
+        except InvalidCommandException as ex:
+            _LOGGER.error(ex)
+            return False
+
+    async def refresh(self) -> None:
+        """Refresh the Litter-Robot's data from the API."""
+        data = cast(dict, await self._get())
+        self._update_data(data)
+
+    async def reset_settings(self) -> bool:
+        """Set the Litter-Robot back to default settings."""
+        return await self._dispatch_command(LitterBoxCommand.DEFAULT_SETTINGS)
+
+    async def set_sleep_mode(self, value: bool, sleep_time: time | None = None) -> bool:
+        """Set the sleep mode on the Litter-Robot."""
+        if value and not isinstance(sleep_time, time):
+            # Handle being able to set sleep mode by using previous start time or now.
+            if not sleep_time:
+                sleep_time = (self.sleep_mode_start_time or utcnow()).timetz()
+            else:
+                raise InvalidCommandException(  # pragma: no cover
+                    "An attempt to turn on sleep mode was received with an invalid time. Check the time and try again."
+                )
+
+        data = await self._patch(
+            json={
+                "sleepModeEnable": value,
+                **(
+                    {
+                        SLEEP_MODE_TIME: (
+                            new_sleep_time := int(today_at_time(sleep_time).timestamp())
+                        )
+                    }
+                    if sleep_time
+                    else {}
+                ),
+            }
+        )
+        self._update_data(cast(dict, data))
+        return sleep_time is None or self._data[SLEEP_MODE_TIME] == new_sleep_time
+
+    async def set_wait_time(self, wait_time: int) -> bool:
+        """Set the wait time on the Litter-Robot."""
+        if wait_time not in self.VALID_WAIT_TIMES:
+            raise InvalidCommandException(
+                f"Attempt to send an invalid wait time to Litter-Robot. Wait time must be one of: {self.VALID_WAIT_TIMES}, but received {wait_time}"
+            )
+        return await self._dispatch_command(
+            f"{LitterBoxCommand.WAIT_TIME}{f'{wait_time:X}'}"
+        )
+
+    async def set_name(self, name: str) -> bool:
+        """Set the name."""
+        data = cast(dict, await self._patch(json={self._data_name: name}))
+        self._update_data(data)
+        return self.name == name
+
+    async def reset_waste_drawer(self) -> bool:
+        """Reset the Litter-Robot's cycle counts and capacity."""
+        data = await self._patch(
+            json={
+                self._data_cycle_count: 0,
+                self._data_cycle_capacity: self.cycle_capacity,
+                self._data_drawer_full_cycles: 0,
+            }
+        )
+        self._update_data(cast(dict, data))
+        return self.waste_drawer_level == 0.0
+
+    async def get_activity_history(self, limit: int = 100) -> list[Activity]:
+        """Return the activity history."""
+        if limit < 1:
+            raise InvalidCommandException(
+                f"Invalid range for parameter limit, value: {limit}, valid range: 1-inf"
+            )
+        data = cast(dict, await self._get("activity", params={"limit": limit}))
+        return [
+            Activity(timestamp, LitterBoxStatus(activity[UNIT_STATUS]))
+            for activity in data["activities"]
+            if (timestamp := to_timestamp(activity["timestamp"])) is not None
+        ]
+
+    async def get_insight(
+        self, days: int = 30, timezone_offset: int | None = None
+    ) -> Insight:
+        """Return the insight data."""
+        insight = await self._get(
+            "insights",
+            params={
+                "days": days,
+                **(
+                    {}
+                    if timezone_offset is None
+                    else {"timezoneOffset": timezone_offset}
+                ),
+            },
+        )
+        insight = cast(dict, insight)
+        return Insight(
+            insight["totalCycles"],
+            insight["averageCycles"],
+            [
+                (
+                    datetime.strptime(cycle["date"], "%Y-%m-%d").date(),
+                    cycle["cyclesCompleted"],
+                )
+                for cycle in insight["cycleHistory"]
+            ],
+        )
+
+    @staticmethod
+    def parse_websocket_message(data: dict) -> dict | None:
+        """Parse a wesocket message."""
+        if data["type"] == "MODIFY" and data["name"] == "LitterRobot":
+            return cast(dict, data["data"])
+        _LOGGER.debug(data)
+        return None
+
+    @classmethod
+    async def fetch_for_account(cls, account: Account) -> list[dict[str, object]]:
+        """Fetch robot data for account."""
+        result = await account.session.get(
+            urljoin(DEFAULT_ENDPOINT, f"users/{account.user_id}/robots")
+        )
+
+        if isinstance(result, list):
+            return [r for r in result if isinstance(r, dict)]
+
+        return []
+
+    async def _ws_config_factory(self) -> dict[str, Any]:
+        """Return the WebSocket configuration."""
+        auth = await self._account.get_bearer_authorization()
+        return {
+            "url": WEBSOCKET_ENDPOINT,
+            "headers": {"authorization": auth},
+        }
+
+    async def _ws_subscribe(self, ws: aiohttp.ClientWebSocketResponse) -> None:
+        """Subscribe to the WebSocket for updates."""
+        await ws.send_json({"action": "ping"})
+
+    def _ws_message_handler(self, data: dict) -> None:
+        """Handle a message from the WebSocket."""
+        parsed = self.parse_websocket_message(data)
+        if isinstance(parsed, dict) and str(parsed.get(self._data_id)) == self.id:
+            self._update_data(parsed)
+
+    _WS_PROTOCOL: ClassVar[WebSocketProtocol] = WebSocketProtocol(
+        ws_config_factory=_ws_config_factory,
+        subscribe_factory=_ws_subscribe,
+        message_handler=_ws_message_handler,
+    )
+
+    def _build_transport(self) -> WebSocketMonitor:
+        """Build the transport."""
+        return self._account.get_monitor_for(type(self), self._WS_PROTOCOL)

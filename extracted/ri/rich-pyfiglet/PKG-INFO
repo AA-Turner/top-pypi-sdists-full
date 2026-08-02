@@ -1,0 +1,106 @@
+Metadata-Version: 2.3
+Name: rich-pyfiglet
+Version: 2.0.1
+Summary: A library that wraps PyFiglet with the Rich library for rendering ASCII art in the terminal.
+Keywords: python,pyfiglet,figlet,ascii,rich,cli,color,terminal,banner
+Author: edward-jazzhands
+Author-email: edward-jazzhands <ed.jazzhands@gmail.com>
+License: MIT
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3 :: Only
+Requires-Dist: pyfiglet>=1.0.3
+Requires-Dist: rich>=12.0.0,<16.0.0
+Requires-Dist: rich-click>=1.9.7
+Requires-Python: >=3.10
+Project-URL: Repository, https://github.com/edward-jazzhands/rich-pyfiglet
+Project-URL: Changelog, https://github.com/edward-jazzhands/rich-pyfiglet/blob/master/CHANGELOG.md
+Description-Content-Type: text/markdown
+
+<picture>
+  <img src="https://edward-jazzhands.github.io/assets/rich-pyfiglet/banner.png" style="max-width:100%;height:auto;"/>
+</picture>
+
+# Rich-Pyfiglet
+
+[![badge](https://img.shields.io/pypi/v/rich-pyfiglet)](https://pypi.org/project/rich-pyfiglet/)
+[![badge](https://img.shields.io/github/v/release/edward-jazzhands/rich-pyfiglet)](https://github.com/edward-jazzhands/rich-pyfiglet/releases/latest)
+[![badge](https://img.shields.io/badge/Requires_Python->=3.10-blue&logo=python)](https://python.org)
+[![badge](https://img.shields.io/badge/Type_Hinted-Yes-blue&logo=python)](https://mypy-lang.org/)
+[![badge](https://img.shields.io/badge/license-MIT-blue)](https://opensource.org/license/mit)
+
+Rich-PyFiglet is an implementation of [PyFiglet](https://github.com/pwaller/pyfiglet) for [Rich](https://github.com/Textualize/rich).
+
+This is both a library and a CLI tool. The library provides a RichFiglet class that is fully compatible with the Rich API and can be dropped into your Rich scripts. It also includes a CLI that can be used as part of shell scripts or to quickly test out different settings.
+
+*This library is related to [Textual-Pyfiglet](https://github.com/edward-jazzhands/textual-pyfiglet).*
+
+## Features
+
+- Usage in your Rich scripts can be a single line of code with default settings.
+- Color system built on Rich can take common formats such as hex code and RGB, as well as a big list of named colors.
+- Banner will automatically adjust to the terminal width and word-wrap the text.
+- Automatically create gradients between colors vertically or horizontally.
+- Comes with 4 animation modes built in (up, down, smooth-strobe, fast-strobe).
+- Pass in a list of colors for multicolored gradients and animations.
+- Manually tweak the gradient quality as well as the animation FPS in order to customize the banner the way you want it.
+- Add borders around the banner - The RichFiglet takes border settings as arguments, which allows it to properly account for the border and padding when calculating its available space (without doing this, some terminal sizes would mess up the render).
+- Included CLI mode for shell scripting and quick testing.
+- The fonts are type-hinted to give you auto-completion in your code editor.
+- Demo script included in the package, check it out using the CLI.
+
+## Try out the CLI without Installing
+
+If you have [uv](https://docs.astral.sh/uv/) or [pipx](https://pipx.pypa.io/stable/), you can immediately try the included CLI:
+
+```sh
+uvx rich-pyfiglet 'Rich is awesome' --colors blue:green
+```
+
+```sh
+pipx run rich-pyfiglet 'Rich is awesome' --colors blue:green
+```
+
+## Demo
+
+Try out the demo script included in the package without installing:
+
+```sh
+uvx rich-pyfiglet demo
+```
+
+```sh
+pipx run rich-pyfiglet demo
+```
+
+## Documentation
+
+### [Click here for documentation](https://github.com/edward-jazzhands/rich-pyfiglet/blob/main/docs/docs.md)
+
+## Questions, Issues, Suggestions?
+
+Use the [issues](https://github.com/edward-jazzhands/rich-pyfiglet/issues) section for bugs, issues, ideas or feature requests.
+
+## Thanks and Copyright
+
+Both Rich-Pyfiglet and the original PyFiglet are under MIT License. See LICENSE file.
+
+FIGlet fonts have existed for a long time, and many people have contributed over the years.
+
+Original creators of FIGlet:  
+[https://www.figlet.org](https://www.figlet.org)
+
+The PyFiglet creators:  
+[https://github.com/pwaller/pyfiglet](https://github.com/pwaller/pyfiglet)
+
+Rich:  
+[https://github.com/Textualize/rich](https://github.com/Textualize/rich)
+
+And finally, thanks to the many hundreds of people that contributed to the fonts collection.

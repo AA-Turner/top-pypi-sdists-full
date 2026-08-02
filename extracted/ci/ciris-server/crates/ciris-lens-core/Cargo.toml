@@ -1,0 +1,176 @@
+[package]
+name = "ciris-lens-core"
+version = "1.4.4"
+edition = "2021"
+description = "Science-layer runtime for the CIRIS federation: cohort-routes, scores manifold conformity, signs detection events"
+license = "AGPL-3.0-or-later"
+authors = ["CIRIS Team"]
+repository = "https://github.com/CIRISAI/CIRISLensCore"
+readme = "README.md"
+
+[lib]
+name = "ciris_lens_core"
+# `rlib` for the post-fold-into-agent trajectory (agent links lens-core
+# directly as a Rust crate, no Python in the path). `cdylib` so the
+# lens-deployed-product can keep consuming via PyO3 during the cutover
+# window.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Substrate dependencies. Lens-core is the science layer; persist owns
+# the wire-to-storage boundary, including the post-ingest filter
+# pipeline (scrub + classify + extract) absorbed in persist v0.6.0
+# (CIRISPersist#19). Lens-core inherits the typed `Features` struct
+# via persist's `extract` feature — no scrub/NER deps in lens-core
+# itself.
+#
+# OQ-01 closure 2026-05-03: rlib primary, PyO3 cdylib via `python`
+# feature for the deployed-lens cutover.
+ciris-persist = { git = "https://github.com/CIRISAI/CIRISPersist", tag = "v24.2.0", version = "24", features = ["extract", "sqlite"] }
+ciris-edge    = { git = "https://github.com/CIRISAI/CIRISEdge",    tag = "v15.9.1", version = "15", features = ["transport-http", "transport-reticulum"] }
+
+# Keyring — relay mode (CIRISLensCore#10) loads its Edge transport-
+# signing identity via `ciris_keyring::load_local_seed`. Edge's
+# `LocalSigner` is keyring-trait-object based (Arc<dyn HardwareSigner>
+# + Arc<dyn PqcSigner>), distinct from persist's raw-seed LocalSigner;
+# the two are not interchangeable, so the relay loads its own. Same
+# CIRISVerify tag persist + edge pin (v5.0.0 — CEG 1.0 / Agent 3.0 substrate
+# release; MAJOR 4→5 but additive for lens-core) — single verify version.
+# features mirror edge's keyring pin exactly.
+ciris-keyring = { git = "https://github.com/CIRISAI/CIRISVerify", tag = "v10.6.3", version = "10", features = ["software", "pqc-ml-dsa"] }
+# verify-core for `fedcode::derive_key_id` — the lens seal path must stamp the
+# DERIVED federation key_id (`derive_key_id(<alias>, <ed25519 pubkey>)`), the id
+# `receive_and_persist` verifies against, NOT the bare `local_key_id` alias
+# (CIRISServer#118; same class as the closed CIRISEdge#203). Single verify version.
+ciris-verify-core = { git = "https://github.com/CIRISAI/CIRISVerify", tag = "v10.6.3", version = "10" }
+# Crypto-DRY (CIRISServer#283 findings 3+5): route the hand-composed hybrid rule
+# (event.rs) + the test-only trace verify (seal.rs) through the one crypto facade
+# instead of a direct ed25519-dalek dep and a replicated binding.
+ciris-crypto = { git = "https://github.com/CIRISAI/CIRISVerify", tag = "v10.6.3", version = "10", features = ["pqc-ml-dsa"] }
+
+# persist's `sqlite` feature: relay mode persists inbound batches via
+# `Engine::receive_and_persist` + reads `Engine::sqlite_backend()` for
+# the shared directory/queue — both `#[cfg(feature = "sqlite")]`.
+
+# PyO3 bridge for lens-deployed-product cutover path. Optional when
+# lens-core consumes pure-Rust (post-fold). Pin matches persist +
+# edge (0.28 + abi3-py311) for federation single-version discipline
+# and produces the cp311-abi3 wheel maturin expects.
+# `extension-module` is gated behind the `python` feature (below), NOT pinned
+# here — otherwise feature-unification would force libpython-no-link onto any
+# consumer that links lens-core as an rlib in a *binary* (e.g. CIRISServer's
+# `ciris-server` bin). The wheel build turns it on via `python`.
+pyo3 = { version = "0.29", features = ["abi3-py310"], optional = true }
+
+# Serde + canonicalization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# YAML — RATCHET's release `bundle.yaml` is the human-readable
+# wire form of `CalibrationBundle` (CIRISLensCore#3). Used by
+# `scoring::calibration::CalibrationBundle::from_yaml` on sovereign-
+# mode startup loaders that ship the bundle next to the binary, and
+# by tests. The persist-row path uses `serde_json` directly.
+serde_yaml = "0.9"
+
+# Crypto (mostly used via persist; lens-core hashes content for
+# provenance preservation post-scrub)
+sha2 = "0.10"
+base64 = "0.22"
+
+# Date/time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Detection-event identifier + envelope encoding. Transitive via
+# persist; declared here so lens-core can construct + hex-encode
+# directly in `src/signing/event.rs`.
+uuid = { version = "1", features = ["v4", "serde"] }
+hex  = "0.4"
+
+# HTTP server — node mode's read API (CIRISLensCore#15). axum 0.8 is
+# already in the transitive dependency graph via edge's
+# `transport-http` feature; we declare it directly here so node mode's
+# API layer can import axum types without relying on the transitive
+# path (which could change with an edge bump). Pin matches the version
+# edge's transport-http pulls in (0.8.x).
+axum = "0.8"
+
+# tower::ServiceExt is used in node mode tests for `oneshot` requests.
+tower = { version = "0.5", features = ["util"] }
+
+# Async + observability
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "net"] }
+tracing = "0.1"
+
+# Error handling
+thiserror = "1.0"
+
+# (async-trait dropped — #152: `LensCoreHandler` goes through edge's re-export,
+#  no direct dep; async-trait stays transitively via axum/edge.)
+
+# TEMPORARY pin — `time` 0.3.48 adds an `Into<String>` impl that
+# conflicts with rcgen's (transitive via edge's transport-http TLS),
+# breaking the build with E0119. Mirrors the edge/persist family pin.
+# Drop when rcgen ships a release that handles the new impl
+# (federation-tracked alongside the edge `time <0.3.48` follow-up).
+time = ">=0.3, <0.3.48"
+
+# Windows OpenSSL: handled in CI via vcpkg static x64-windows-static
+# (the `pyo3-wheel-windows` job sets OPENSSL_DIR/OPENSSL_STATIC/
+# OPENSSL_NO_VENDOR), NOT a vendored Cargo feature (#48). `openssl-sys`
+# arrives transitively via edge's `transport-http`; the windows-latest
+# runner has no system OpenSSL. The earlier `openssl/vendored` target-dep
+# (v1.1.0) compiled OpenSSL from source via openssl-src's perl/Configure,
+# but that target table does not map the Tier-3 `x86_64-win7-windows-msvc`
+# triple the Win7 wheel builds against — so the vendored dep is removed
+# and CI points openssl-sys at prebuilt vcpkg static libs instead. Mirror
+# of CIRISEdge v2.2.1 / CIRISPersist v5.5.5.
+
+# Strip symbols + debuginfo from all release artifacts (CIRISLensCore#52).
+# The release cdylib is ~44 MB unstripped (statically bundles persist +
+# edge + verify + reticulum + openssl); `strip = "symbols"` cuts it to a
+# fraction of that. maturin's `--strip` only touched the wheel copy — the
+# iOS `.so` (direct `cargo build`, no maturin) + the rlib shipped with
+# full symbols. This one line strips EVERY release artifact uniformly.
+# Split-debug forensic symbols, if ever wanted, go to the GitHub Release.
+[profile.release]
+strip = "symbols"
+
+[dev-dependencies]
+proptest = "1.4"
+criterion = "0.5"
+# Test-only: dalek's sync SigningKey mints deterministic fixtures for the
+# verify_trace_signature round-trips. The shipped crate verifies via
+# ciris_crypto::Ed25519Verifier (CIRISServer#283 finding 5) — no dalek at runtime.
+ed25519-dalek = { version = "2.1", features = ["std"] }
+
+[features]
+default = []
+
+# Lens-deployed-product cutover path: PyO3 cdylib for the existing
+# Python lens to consume during the v0.1.0–v0.2.x window. Defaults
+# off for the post-fold-into-agent trajectory; lens-deployed-product
+# enables.
+#
+# `python` also propagates `pyo3` to edge + persist so the
+# cohabitation accessors lens-core needs — `ciris_edge::ffi::pyo3::
+# PyEdge` (for the shared `Arc<Edge>`) + `ciris_persist::ffi::pyo3::
+# current_rust_engine` (CIRISPersist#92, v1.13.0+) — are visible.
+python = ["pyo3", "pyo3/extension-module", "ciris-edge/pyo3", "ciris-persist/pyo3"]
+
+# Benches — criterion suite per docs/BENCHMARKS.md. Mirrors persist
+# + edge bench patterns. `harness = false` because criterion supplies
+# its own; `cargo bench` runs them all, `cargo bench --no-run` is
+# the fast compile-only gate suitable for ci.yml.
+
+[[bench]]
+name = "canonicalize"
+harness = false
+
+[[bench]]
+name = "project"
+harness = false
+
+[[bench]]
+name = "aggregate"
+harness = false

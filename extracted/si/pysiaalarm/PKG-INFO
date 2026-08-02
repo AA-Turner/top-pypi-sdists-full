@@ -1,0 +1,54 @@
+Metadata-Version: 2.4
+Name: pysiaalarm
+Version: 3.2.2
+Summary: Python package for creating a client that talks with SIA-based alarm systems.
+Author: E.A. van Valkenburg
+Author-email: github@vanvalkenburg.eu
+License: MIT
+Project-URL: Documentation, https://github.com/eavanvalkenburg/pysiaalarm
+Project-URL: Source, https://github.com/eavanvalkenburg/pysiaalarm
+Platform: any
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst; charset=UTF-8
+License-File: LICENSE.txt
+License-File: AUTHORS.rst
+Requires-Dist: pytz
+Requires-Dist: pycryptodome
+Provides-Extra: testing
+Requires-Dist: pytest; extra == "testing"
+Requires-Dist: pytest-cov; extra == "testing"
+Requires-Dist: pytest-asyncio; extra == "testing"
+Requires-Dist: pytest-cases; extra == "testing"
+Requires-Dist: tox; extra == "testing"
+Requires-Dist: pydocstyle; extra == "testing"
+Requires-Dist: pylint; extra == "testing"
+Provides-Extra: typing
+Requires-Dist: mypy; extra == "typing"
+Requires-Dist: types-setuptools; extra == "typing"
+Requires-Dist: types-pytz; extra == "typing"
+Dynamic: license-file
+
+==========
+pysiaalarm
+==========
+
+
+Python package for creating a client that talks with SIA-based alarm systems.
+
+
+Description
+===========
+
+A longer description of your project goes here...
+
+
+.. _pyscaffold-notes:
+
+Note
+====
+
+This project has been set up using PyScaffold 4.0. For details and usage
+information on PyScaffold see https://pyscaffold.org/.

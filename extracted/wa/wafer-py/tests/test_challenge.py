@@ -1,0 +1,1066 @@
+"""Tests for challenge detection."""
+
+import pathlib
+
+import pytest
+
+from wafer._challenge import (
+    JS_ONLY_CHALLENGES,
+    TERMINAL_CHALLENGES,
+    ChallengeType,
+    detect_challenge,
+)
+from wafer._solvers import is_reddit_verification
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _h(**kw) -> dict[str, str]:
+    """Build a headers dict with lowercase keys."""
+    return {k.lower().replace("_", "-"): v for k, v in kw.items()}
+
+
+# ---------------------------------------------------------------------------
+# Cloudflare
+# ---------------------------------------------------------------------------
+
+
+class TestCloudflare:
+    def test_cf_mitigated_header(self):
+        headers = _h(cf_mitigated="challenge")
+        assert detect_challenge(403, headers, "") == ChallengeType.CLOUDFLARE
+
+    def test_cf_mitigated_header_any_status(self):
+        headers = _h(cf_mitigated="challenge")
+        assert detect_challenge(200, headers, "") == ChallengeType.CLOUDFLARE
+
+    def test_cf_chl_opt_body_marker(self):
+        body = '<html><script>window._cf_chl_opt={}</script></html>'
+        assert detect_challenge(403, {}, body) == ChallengeType.CLOUDFLARE
+
+    def test_cf_chl_ctx_body_marker(self):
+        body = '<html><script>var _cf_chl_ctx = {}</script></html>'
+        assert detect_challenge(403, {}, body) == ChallengeType.CLOUDFLARE
+
+    def test_challenge_form_body_marker(self):
+        body = (
+            '<html><form id="challenge-form"'
+            ' action="/cdn-cgi/challenge-platform">'
+            "</form></html>"
+        )
+        assert detect_challenge(403, {}, body) == ChallengeType.CLOUDFLARE
+
+    def test_cf_body_markers_on_503(self):
+        """CF body markers should also trigger on 503."""
+        body = '<html><script>window._cf_chl_opt={}</script></html>'
+        assert detect_challenge(503, {}, body) == ChallengeType.CLOUDFLARE
+
+    def test_cf_body_markers_only_on_403_503(self):
+        """CF body markers should not trigger on 200."""
+        body = '<html><script>window._cf_chl_opt={}</script></html>'
+        assert detect_challenge(200, {}, body) is None
+
+    def test_cf_mitigated_not_challenge(self):
+        """cf-mitigated with value other than 'challenge' should not match."""
+        headers = _h(cf_mitigated="captcha")
+        assert detect_challenge(403, headers, "") != ChallengeType.CLOUDFLARE
+
+
+# ---------------------------------------------------------------------------
+# Cloudflare WAF block (Error 1020) — terminal, not a challenge
+# ---------------------------------------------------------------------------
+
+
+_CF_BLOCK_FIXTURE = (
+    pathlib.Path(__file__).parent / "fixtures" / "cloudflare_waf_block_1020.html"
+)
+
+
+class TestCloudflareBlock:
+    def test_real_1020_block_page(self):
+        """The live airmatrix.ca block page, captured verbatim."""
+        body = _CF_BLOCK_FIXTURE.read_text()
+        headers = _h(server="cloudflare")
+        assert detect_challenge(403, headers, body) == ChallengeType.CLOUDFLARE_BLOCK
+
+    def test_error_stylesheet_without_challenge_script(self):
+        body = (
+            '<html><head><link rel="stylesheet"'
+            ' href="/cdn-cgi/styles/cf.errors.css" /></head>'
+            "<body><h1>Sorry, you have been blocked</h1>"
+            "<script>console.log(1)</script></body></html>"
+        )
+        assert detect_challenge(403, {}, body) == ChallengeType.CLOUDFLARE_BLOCK
+
+    def test_challenge_script_is_never_terminal(self):
+        """A page that loads the challenge platform still has something to run."""
+        body = (
+            '<html><head><link href="/cdn-cgi/styles/cf.errors.css" /></head>'
+            '<body><script src="/cdn-cgi/challenge-platform/h/b/orchestrate/'
+            'chl_page/v1"></script></body></html>'
+        )
+        assert detect_challenge(403, {}, body) != ChallengeType.CLOUDFLARE_BLOCK
+
+    def test_cf_chl_marker_wins_over_error_stylesheet(self):
+        body = (
+            '<html><head><link href="/cdn-cgi/styles/cf.errors.css" /></head>'
+            "<body><script>window._cf_chl_opt={}</script></body></html>"
+        )
+        assert detect_challenge(403, {}, body) == ChallengeType.CLOUDFLARE
+
+    def test_429_error_page_is_not_a_terminal_block(self):
+        """CF 1015 is rate limiting: retryable on a clock, so not terminal."""
+        body = (
+            '<html><head><link href="/cdn-cgi/styles/cf.errors.css" /></head>'
+            "<body><h1>You are being rate limited</h1>"
+            "<script>x</script></body></html>"
+        )
+        assert detect_challenge(429, {}, body) != ChallengeType.CLOUDFLARE_BLOCK
+
+    def test_block_not_reported_as_generic_js(self):
+        """The defect this classification exists to fix."""
+        body = _CF_BLOCK_FIXTURE.read_text()
+        assert detect_challenge(403, {}, body) != ChallengeType.GENERIC_JS
+
+    def test_block_is_terminal_and_not_js_solvable(self):
+        assert ChallengeType.CLOUDFLARE_BLOCK in TERMINAL_CHALLENGES
+        assert ChallengeType.CLOUDFLARE_BLOCK not in JS_ONLY_CHALLENGES
+
+    def test_solvable_cloudflare_is_not_terminal(self):
+        assert ChallengeType.CLOUDFLARE not in TERMINAL_CHALLENGES
+
+
+# ---------------------------------------------------------------------------
+# Akamai
+# ---------------------------------------------------------------------------
+
+
+class TestAkamai:
+    def test_abck_cookie_403(self):
+        headers = _h(set_cookie="_abck=abc123; Path=/")
+        assert detect_challenge(403, headers, "") == ChallengeType.AKAMAI
+
+    def test_ak_bmsc_cookie_403(self):
+        headers = _h(set_cookie="ak_bmsc=abc123; Path=/")
+        assert detect_challenge(403, headers, "") == ChallengeType.AKAMAI
+
+    def test_abck_cookie_non_403_with_body_markers(self):
+        headers = _h(set_cookie="_abck=abc123; Path=/")
+        body = '<script>var bmSz = "abc";</script>'
+        assert detect_challenge(429, headers, body) == ChallengeType.AKAMAI
+
+    def test_abck_cookie_200_small_behavioral(self):
+        headers = _h(set_cookie="_abck=abc123; Path=/")
+        body = '<div class="sec-if-cpt">Please verify</div>'
+        assert detect_challenge(200, headers, body) == ChallengeType.AKAMAI
+
+    def test_abck_cookie_200_large_body_not_challenge(self):
+        """Large 200 response with _abck is normal content, not a challenge."""
+        headers = _h(set_cookie="_abck=abc123; Path=/")
+        body = "x" * 50_000
+        assert detect_challenge(200, headers, body) is None
+
+    def test_akamai_branded_403_not_challenge(self):
+        """403 page mentioning 'Akamai' by name is not a solvable challenge."""
+        body = '<html><body>Akamai Bot Manager</body></html>'
+        assert detect_challenge(403, {}, body) is None
+
+    def test_akam_reference_403_not_challenge(self):
+        """403 page with 'akam' reference ID is not a solvable challenge."""
+        body = '<html><body>Reference: akam-12345</body></html>'
+        assert detect_challenge(403, {}, body) is None
+
+    def test_bazadebezolkohpepadr_is_akamai_not_shape(self):
+        """bazadebezolkohpepadr is Akamai Bot Manager, not F5 Shape."""
+        body = '<script>bazadebezolkohpepadr="1070367992"</script>'
+        assert detect_challenge(403, {}, body) == ChallengeType.AKAMAI
+
+
+# ---------------------------------------------------------------------------
+# F5 Shape
+# ---------------------------------------------------------------------------
+
+
+class TestShape:
+    def test_istlwashere_body_200(self):
+        """Shape interstitial: 200 + istlWasHere in body."""
+        body = '<html><head></head><body>istlWasHere</body></html>'
+        assert detect_challenge(200, {}, body) == ChallengeType.SHAPE
+
+    def test_istlwashere_case_insensitive(self):
+        """istlWasHere detection is case-insensitive."""
+        body = '<html><body>IstlWasHere</body></html>'
+        assert detect_challenge(200, {}, body) == ChallengeType.SHAPE
+
+    def test_imp_apg_r_body(self):
+        """_imp_apg_r_ resource path in body."""
+        body = '<script src="/_imp_apg_r_/js/loader.js"></script>'
+        assert detect_challenge(200, {}, body) == ChallengeType.SHAPE
+
+    def test_large_body_with_istlwashere_still_detected(self):
+        """Shape interstitials are JS-heavy — no size limit on body check."""
+        body = "x" * 60_000 + "istlWasHere" + "y" * 10_000
+        assert detect_challenge(200, {}, body) == ChallengeType.SHAPE
+
+    def test_200_without_shape_markers_not_challenge(self):
+        """Normal 200 page is not Shape."""
+        body = "<html><body>Welcome to our store</body></html>"
+        assert detect_challenge(200, {}, body) is None
+
+    def test_shape_sensor_header_403(self):
+        """Shape sensor response header on 403 (nordstrom-style token).
+
+        Pins the tightened heuristic: a realistic digit-leading sensor
+        token (>= 8 token chars) on a short x-<prefix>-a header. The
+        live nordstrom path is the body marker; this header path is the
+        fallback for a bare 403 with no body.
+        """
+        headers = {"x-nordstrom-a": "31415926535"}
+        assert detect_challenge(403, headers, "") == ChallengeType.SHAPE
+
+    def test_shape_sensor_header_encoded_token_403(self):
+        """Encoded (base64url-ish) sensor blob on 403."""
+        headers = {"x-nordstrom-a": "AbC-123_xZ9.qQ=="}
+        assert detect_challenge(403, headers, "") == ChallengeType.SHAPE
+
+    def test_shape_sensor_header_429(self):
+        """Long encoded Shape sensor response header on 429."""
+        headers = {"x-site-a": "98765432109876543210987654321098765678901"}
+        assert detect_challenge(429, headers, "") == ChallengeType.SHAPE
+
+    def test_shape_sensor_header_200_not_detected(self):
+        """Shape header heuristic must NOT fire on 200 (too broad)."""
+        headers = {"x-data-a": "1234567890"}
+        assert detect_challenge(200, headers, "") is None
+
+    def test_shape_header_long_key_not_detected(self):
+        """Headers longer than 20 chars don't match Shape heuristic."""
+        headers = {"x-very-long-header-name-a": "1234567890"}
+        assert detect_challenge(403, headers, "") is None
+
+    def test_shape_header_non_numeric_short_value_not_detected(self):
+        """Shape header with non-numeric short value doesn't match."""
+        headers = {"x-test-a": "hello"}
+        assert detect_challenge(403, headers, "") is None
+
+    def test_shape_header_short_numeric_echo_not_detected(self):
+        """Tightened: a short digit value (CDN status/timing echo) is NOT Shape.
+
+        ``x-cache-a: 1`` / ``x-served-a: 200`` are common CDN/cache hints on
+        403s; the old heuristic false-positived on any digit-leading value.
+        """
+        assert detect_challenge(403, {"x-cache-a": "1"}, "") is None
+        assert detect_challenge(403, {"x-served-a": "200"}, "") is None
+        assert detect_challenge(403, {"x-rt-a": "1234567"}, "") is None  # 7 < 8
+
+    def test_shape_header_value_with_spaces_not_detected(self):
+        """Tightened: a free-text value (has a space) is NOT a sensor token."""
+        headers = {"x-msg-a": "12 requests blocked by policy at this edge node"}
+        assert detect_challenge(403, headers, "") is None
+
+    def test_shape_header_plain_word_not_detected(self):
+        """Tightened: a plain word (no digit-lead, no separator) is NOT Shape.
+
+        ``redirected`` is >= 8 chars and all token-chars, but has no
+        encoding shape, so it must not match.
+        """
+        assert detect_challenge(403, {"x-status-a": "redirected"}, "") is None
+
+
+# ---------------------------------------------------------------------------
+# DataDome
+# ---------------------------------------------------------------------------
+
+
+class TestDataDome:
+    def test_datadome_cookie_403(self):
+        headers = _h(set_cookie="datadome=abc123; Path=/")
+        assert detect_challenge(403, headers, "") == ChallengeType.DATADOME
+
+    def test_datadome_cookie_200_not_challenge(self):
+        """datadome cookie on 200 is normal tracking, not a challenge."""
+        headers = _h(set_cookie="datadome=abc123; Path=/")
+        assert detect_challenge(200, headers, "") is None
+
+    def test_datadome_body_marker_403(self):
+        body = '<script src="https://js.datadome.co/tags.js"></script>'
+        assert detect_challenge(403, {}, body) == ChallengeType.DATADOME
+
+    def test_dd_js_body_marker_403(self):
+        body = '<script src="/dd.js"></script>'
+        assert detect_challenge(403, {}, body) == ChallengeType.DATADOME
+
+    def test_datadome_cookie_429(self):
+        """datadome cookie + 429 should be detected as DataDome."""
+        headers = _h(set_cookie="datadome=abc123; Path=/")
+        assert detect_challenge(429, headers, "") == ChallengeType.DATADOME
+
+    def test_datadome_body_marker_429(self):
+        """DataDome body markers on 429 should be detected."""
+        body = '<script src="https://js.datadome.co/tags.js"></script>'
+        assert detect_challenge(429, {}, body) == ChallengeType.DATADOME
+
+    def test_plain_429_without_datadome_not_detected(self):
+        """Plain 429 without datadome markers is not DataDome."""
+        assert detect_challenge(429, {}, "") is None
+
+
+# ---------------------------------------------------------------------------
+# PerimeterX / HUMAN
+# ---------------------------------------------------------------------------
+
+
+class TestPerimeterX:
+    def test_px3_cookie_403(self):
+        headers = _h(set_cookie="_px3=abc; Path=/")
+        assert detect_challenge(403, headers, "") == ChallengeType.PERIMETERX
+
+    def test_pxhd_cookie_429(self):
+        headers = _h(set_cookie="_pxhd=abc; Path=/")
+        assert detect_challenge(429, headers, "") == ChallengeType.PERIMETERX
+
+    def test_px_body_marker_403(self):
+        body = '<div id="px-captcha">Press and hold</div>'
+        assert detect_challenge(403, {}, body) == ChallengeType.PERIMETERX
+
+    def test_human_security_body_marker(self):
+        body = '<script src="https://client.human.security/px.js"></script>'
+        assert detect_challenge(403, {}, body) == ChallengeType.PERIMETERX
+
+    def test_press_hold_body_marker(self):
+        body = '<p>Press & Hold to confirm you are not a bot</p>'
+        assert detect_challenge(403, {}, body) == ChallengeType.PERIMETERX
+
+    def test_px_cookie_200_not_challenge(self):
+        """PX cookie on 200 is normal, not a challenge."""
+        headers = _h(set_cookie="_px3=abc; Path=/")
+        assert detect_challenge(200, headers, "") is None
+
+
+# ---------------------------------------------------------------------------
+# Imperva / Incapsula
+# ---------------------------------------------------------------------------
+
+
+class TestImperva:
+    def test_reese84_cookie_403(self):
+        headers = _h(set_cookie="reese84=abc; Path=/")
+        assert detect_challenge(403, headers, "") == ChallengeType.IMPERVA
+
+    def test_utmvc_cookie_403(self):
+        headers = _h(set_cookie="___utmvc=abc; Path=/")
+        assert detect_challenge(403, headers, "") == ChallengeType.IMPERVA
+
+    def test_incapsula_body_marker(self):
+        body = '<html><body>Incapsula incident ID: 12345</body></html>'
+        assert detect_challenge(403, {}, body) == ChallengeType.IMPERVA
+
+    def test_imperva_body_marker(self):
+        body = '<html><body>Powered by Imperva</body></html>'
+        assert detect_challenge(403, {}, body) == ChallengeType.IMPERVA
+
+    def test_reese84_cookie_200_not_challenge(self):
+        """reese84 on 200 is normal, not a challenge."""
+        headers = _h(set_cookie="reese84=abc; Path=/")
+        assert detect_challenge(200, headers, "") is None
+
+    def test_x_cdn_incapsula_403(self):
+        """x-cdn: Incapsula header on 403 identifies Imperva."""
+        headers = {"x-cdn": "Incapsula"}
+        assert detect_challenge(403, headers, "") == ChallengeType.IMPERVA
+
+    def test_x_cdn_imperva_403(self):
+        """x-cdn: Imperva header on 403 identifies Imperva."""
+        headers = {"x-cdn": "Imperva"}
+        assert detect_challenge(403, headers, "") == ChallengeType.IMPERVA
+
+    def test_incapsula_resource_interstitial(self):
+        """Imperva interstitial with _Incapsula_Resource on 200."""
+        body = (
+            '<html><head>'
+            '<meta name="robots" content="noindex, nofollow"></head>'
+            '<body><script src="/_Incapsula_Resource?SWJIYLWA=..."></script>'
+            '</body></html>'
+        )
+        assert detect_challenge(200, {}, body) == ChallengeType.IMPERVA
+
+    def test_reese84_cookie_429(self):
+        """reese84 cookie on 429 identifies Imperva."""
+        headers = _h(set_cookie="reese84=abc; Path=/")
+        assert detect_challenge(429, headers, "") == ChallengeType.IMPERVA
+
+    def test_utmvc_cookie_429(self):
+        """___utmvc cookie on 429 identifies Imperva."""
+        headers = _h(set_cookie="___utmvc=abc; Path=/")
+        assert detect_challenge(429, headers, "") == ChallengeType.IMPERVA
+
+    def test_incapsula_body_marker_429(self):
+        """Incapsula body marker on 429 identifies Imperva."""
+        body = '<html><body>Incapsula incident ID: 12345</body></html>'
+        assert detect_challenge(429, {}, body) == ChallengeType.IMPERVA
+
+    def test_imperva_body_marker_429(self):
+        """Imperva body marker on 429 identifies Imperva."""
+        body = '<html><body>Powered by Imperva</body></html>'
+        assert detect_challenge(429, {}, body) == ChallengeType.IMPERVA
+
+    def test_x_cdn_incapsula_429(self):
+        """x-cdn: Incapsula header on 429 identifies Imperva."""
+        headers = {"x-cdn": "Incapsula"}
+        assert detect_challenge(429, headers, "") == ChallengeType.IMPERVA
+
+    def test_incapsula_resource_tiny_interstitial(self):
+        """Tiny 200 page with _Incapsula_Resource is Imperva interstitial."""
+        body = (
+            '<html><head><script type="text/javascript"'
+            ' src="/_Incapsula_Resource?SWJIYLWA=719d34d31c8e3a6e6fffd425f7e032f3">'
+            '</script></head><body></body></html>'
+        )
+        assert detect_challenge(200, {}, body) == ChallengeType.IMPERVA
+
+    def test_x_cdn_imperva_200_tiny_script_no_incapsula(self):
+        """x-cdn: Imperva + tiny 200 WITHOUT _Incapsula_Resource is NOT
+        detected — real Imperva-CDN pages have x-cdn too."""
+        headers = {"x-cdn": "Imperva"}
+        body = '<html><head><script src="/some-js"></script></head></html>'
+        assert detect_challenge(200, headers, body) is None
+
+    def test_incapsula_resource_large_body_not_challenge(self):
+        """Large page mentioning _Incapsula_Resource is not a challenge."""
+        body = (
+            '<html><body>Article about _Incapsula_Resource...'
+            + 'x' * 10_000
+            + '</body></html>'
+        )
+        assert detect_challenge(200, {}, body) is None
+
+    def test_x_cdn_imperva_200_large_body_not_challenge(self):
+        """x-cdn: Imperva on large 200 page is real content."""
+        headers = {"x-cdn": "Imperva"}
+        body = '<html><head><script src="/app.js"></script></head>' + 'x' * 10_000
+        assert detect_challenge(200, headers, body) is None
+
+    def test_pardon_our_interruption_reese_interstitial(self):
+        """Modern Imperva 'Pardon Our Interruption' reese interstitial:
+        200, body >5KB (so the classic tiny-body check misses it),
+        distinguished by interstitial-only JS hooks. Regression for
+        realtor.ca, which returned this block page as successful HTML."""
+        body = (
+            '<!DOCTYPE html><html><head>'
+            '<noscript><title>Pardon Our Interruption</title></noscript>'
+            '<script>window.reeseSkipExpirationCheck = true;</script>'
+            '<script>scriptElement.src ='
+            ' "/_Incapsula_Resource?NWFURVBO=images/error_pages/bg.png";'
+            '</script></head><body>'
+            '<div id="interstitial-inprogress"></div>'
+            # Pad well past the 5KB classic-interstitial size cap.
+            + '<!-- ' + 'x' * 6000 + ' -->'
+            + '</body></html>'
+        )
+        assert len(body) > 5_000
+        assert detect_challenge(200, {}, body) == ChallengeType.IMPERVA
+
+    def test_imperva_sensor_on_real_page_not_challenge(self):
+        """A real protected page embeds the _Incapsula_Resource reese84
+        sensor via the same path the interstitial uses, but has none of
+        the interstitial-only JS hooks. It must NOT be re-detected as a
+        challenge — otherwise a browser solve would loop forever, since
+        the solved page still carries the sensor script."""
+        body = (
+            '<!DOCTYPE html><html><head>'
+            '<script type="text/javascript"'
+            ' src="/_Incapsula_Resource?SWJIYLWA=719d34d31c8e3a6e">'
+            '</script></head><body>Real listing content'
+            + 'x' * 6000
+            + '</body></html>'
+        )
+        assert len(body) > 5_000
+        assert detect_challenge(200, {}, body) is None
+
+
+# ---------------------------------------------------------------------------
+# Kasada
+# ---------------------------------------------------------------------------
+
+
+class TestKasada:
+    def test_kpsdk_header_429(self):
+        headers = {"x-kpsdk-ct": "some-value"}
+        assert detect_challenge(429, headers, "") == ChallengeType.KASADA
+
+    def test_kpsdk_cd_header_429(self):
+        headers = {"x-kpsdk-cd": "some-value"}
+        assert detect_challenge(429, headers, "") == ChallengeType.KASADA
+
+    def test_kpsdk_header_403(self):
+        """Kasada header detection on 403."""
+        headers = {"x-kpsdk-ct": "some-value"}
+        assert detect_challenge(403, headers, "") == ChallengeType.KASADA
+
+    def test_kpsdk_header_200_not_kasada(self):
+        """Kasada header detection only on 403/429, not 200."""
+        headers = {"x-kpsdk-ct": "some-value"}
+        assert detect_challenge(200, headers, "") is None
+
+    def test_kasada_body_ips_js(self):
+        """Body with ips.js on 429 detects Kasada."""
+        body = '<script src="/ips.js"></script>'
+        assert detect_challenge(429, {}, body) == ChallengeType.KASADA
+
+    def test_kasada_body_ips_js_403(self):
+        """Body with ips.js on 403 detects Kasada."""
+        body = '<script src="/ips.js"></script>'
+        assert detect_challenge(403, {}, body) == ChallengeType.KASADA
+
+    def test_kasada_body_kpsdk(self):
+        """Body with kpsdk marker on 429 detects Kasada."""
+        body = '<html><script>KPSDK.configure({});</script></html>'
+        assert detect_challenge(429, {}, body) == ChallengeType.KASADA
+
+    def test_kasada_body_pjs(self):
+        """Body with /p.js on 429 detects Kasada."""
+        body = '<script src="/a1b2c3d4/e5f6g7h8/p.js"></script>'
+        assert detect_challenge(429, {}, body) == ChallengeType.KASADA
+
+    def test_kasada_in_js_only_challenges(self):
+        """KASADA should be in JS_ONLY_CHALLENGES frozenset."""
+        from wafer._challenge import JS_ONLY_CHALLENGES
+        assert ChallengeType.KASADA in JS_ONLY_CHALLENGES
+
+
+# ---------------------------------------------------------------------------
+# AWS WAF
+# ---------------------------------------------------------------------------
+
+
+class TestAWSWAF:
+    def test_amzn_waf_action_captcha_header(self):
+        headers = {"x-amzn-waf-action": "captcha"}
+        assert (
+            detect_challenge(405, headers, "")
+            == ChallengeType.AWSWAF
+        )
+
+    def test_amzn_waf_action_challenge_header(self):
+        headers = {"x-amzn-waf-action": "challenge"}
+        assert (
+            detect_challenge(403, headers, "")
+            == ChallengeType.AWSWAF
+        )
+
+    def test_aws_waf_token_cookie_403(self):
+        headers = _h(
+            set_cookie="aws-waf-token=abc123; Path=/"
+        )
+        assert (
+            detect_challenge(403, headers, "")
+            == ChallengeType.AWSWAF
+        )
+
+    def test_aws_waf_token_cookie_405(self):
+        headers = _h(
+            set_cookie="aws-waf-token=abc123; Path=/"
+        )
+        assert (
+            detect_challenge(405, headers, "")
+            == ChallengeType.AWSWAF
+        )
+
+    def test_aws_waf_token_cookie_202(self):
+        """AWS WAF JS challenge returns 202."""
+        headers = _h(
+            set_cookie="aws-waf-token=abc123; Path=/"
+        )
+        assert (
+            detect_challenge(202, headers, "")
+            == ChallengeType.AWSWAF
+        )
+
+    def test_aws_waf_202_gokuprops_body(self):
+        """AWS WAF 202 with gokuProps JS challenge SDK."""
+        body = (
+            '<script>window.gokuProps = {'
+            '"key":"AQIDAHj..."}</script>'
+        )
+        assert (
+            detect_challenge(202, {}, body)
+            == ChallengeType.AWSWAF
+        )
+
+    def test_aws_waf_202_cookie_domain_list(self):
+        """AWS WAF 202 with awsWafCookieDomainList."""
+        body = (
+            "<script>window.awsWafCookieDomainList"
+            " = ['example.com'];</script>"
+        )
+        assert (
+            detect_challenge(202, {}, body)
+            == ChallengeType.AWSWAF
+        )
+
+    def test_aws_waf_body_marker_403(self):
+        body = '<script src="awsWafJsChallenge.js"></script>'
+        assert (
+            detect_challenge(403, {}, body)
+            == ChallengeType.AWSWAF
+        )
+
+    def test_aws_waf_token_cookie_200_not_challenge(self):
+        """aws-waf-token on 200 is normal, not a challenge."""
+        headers = _h(
+            set_cookie="aws-waf-token=abc123; Path=/"
+        )
+        assert detect_challenge(200, headers, "") is None
+
+    def test_amzn_waf_action_none_not_challenge(self):
+        """x-amzn-waf-action with value 'allow' is not a challenge."""
+        headers = {"x-amzn-waf-action": "allow"}
+        assert detect_challenge(200, headers, "") is None
+
+
+# ---------------------------------------------------------------------------
+# Vercel
+# ---------------------------------------------------------------------------
+
+
+class TestVercel:
+    def test_vercel_mitigated_challenge_header(self):
+        headers = {"x-vercel-mitigated": "challenge"}
+        assert (
+            detect_challenge(429, headers, "")
+            == ChallengeType.VERCEL
+        )
+
+    def test_vercel_mitigated_any_status(self):
+        """Vercel header should trigger on any status."""
+        headers = {"x-vercel-mitigated": "challenge"}
+        assert (
+            detect_challenge(200, headers, "")
+            == ChallengeType.VERCEL
+        )
+
+    def test_vercel_mitigated_not_challenge(self):
+        """x-vercel-mitigated with other values is not a challenge."""
+        headers = {"x-vercel-mitigated": "blocked"}
+        assert (
+            detect_challenge(429, headers, "")
+            != ChallengeType.VERCEL
+        )
+
+
+# ---------------------------------------------------------------------------
+# ACW (Alibaba Cloud WAF)
+# ---------------------------------------------------------------------------
+
+
+class TestACW:
+    def test_acw_challenge(self):
+        body = "<script>var arg1='abcdef1234'; acw_sc__v2('test');</script>"
+        assert detect_challenge(200, {}, body) == ChallengeType.ACW
+
+    def test_acw_requires_both_markers(self):
+        """Must have both acw_sc__v2 AND arg1."""
+        body = "<script>acw_sc__v2('test');</script>"
+        assert detect_challenge(200, {}, body) is None
+
+    def test_acw_arg1_only(self):
+        body = "<script>var arg1='abcdef1234';</script>"
+        assert detect_challenge(200, {}, body) is None
+
+
+# ---------------------------------------------------------------------------
+# TMD (Alibaba)
+# ---------------------------------------------------------------------------
+
+
+class TestTMD:
+    def test_tmd_punish_page(self):
+        body = (
+            '<html><meta http-equiv="refresh"'
+            ' content="0;url=/_____tmd_____/punish?x=1">'
+            "</html>"
+        )
+        assert detect_challenge(200, {}, body) == ChallengeType.TMD
+
+    def test_tmd_only_on_200(self):
+        """TMD detection only applies to status 200."""
+        body = '<html>/_____tmd_____/punish</html>'
+        assert detect_challenge(403, {}, body) is None
+
+
+# ---------------------------------------------------------------------------
+# Reddit cold-session JSON gate
+# ---------------------------------------------------------------------------
+
+
+class TestReddit:
+    _BODY = (
+        "<body class=theme-beta><div><style>:root{--rem360:22.5rem}</style>"
+        "You've been blocked by network security.</div></body>"
+    )
+
+    def test_reddit_json_gate(self):
+        assert (
+            detect_challenge(403, {}, self._BODY)
+            == ChallengeType.REDDIT
+        )
+
+    def test_reddit_gate_requires_403(self):
+        assert detect_challenge(200, {}, self._BODY) is None
+
+    def test_reddit_gate_requires_structural_marker(self):
+        body = "<body>You've been blocked by network security.</body>"
+        assert detect_challenge(403, {}, body) is None
+
+    def test_reddit_gate_requires_block_copy(self):
+        body = "<body class=theme-beta><main>Normal page</main></body>"
+        assert detect_challenge(403, {}, body) is None
+
+    def test_reddit_200_verification_document(self):
+        body = """
+        <html>
+          <head><title>Reddit - Please wait for verification</title></head>
+          <body>
+            <form action="/r/homelab/" method="GET">
+              <input type="hidden" name="solution" value="">
+              <input type="hidden" name="js_challenge" value="1">
+              <input type="hidden" name="token"
+                     value="abcdefghijklmnopqrstuvwxyz012345">
+              <input type="hidden" name="jsc_orig_r" value="">
+            </form>
+            <script>
+              document.addEventListener("DOMContentLoaded", async () => {
+                var e = document.forms[0],
+                  n = await(async e=>e+e)('AbC123xYz987LmNo');
+                e.elements.namedItem("solution").value = n;
+                e.requestSubmit();
+              });
+            </script>
+          </body>
+        </html>
+        """
+
+        assert detect_challenge(200, {}, body) == ChallengeType.REDDIT
+
+    def test_reddit_200_title_without_valid_form_is_not_a_gate(self):
+        body = (
+            "<html><title>Reddit - Please wait for verification</title>"
+            "<body>ordinary content</body></html>"
+        )
+
+        assert detect_challenge(200, {}, body) is None
+
+    @pytest.mark.parametrize(
+        "pad,detected",
+        [
+            (0, True),
+            (3_000, True),
+            (4_200, False),
+        ],
+    )
+    def test_reddit_200_title_is_matched_on_a_bounded_prefix(self, pad, detected):
+        """The title probe reads a 4KB prefix, not the whole body.
+
+        This branch runs on every successful 200 that reaches it, so
+        lowercasing a multi-megabyte page to find a <title> would be pure
+        waste. The bound is safe with a wide margin: on a real captured
+        Reddit verification page (8,424 bytes) the title sits at offset
+        **291**. A title pushed past the window is deliberately not detected
+        -- if Reddit ever restructures that far, raise the bound here.
+        """
+        form = (
+            '<form action="/r/homelab/" method="GET">'
+            '<input type="hidden" name="solution" value="">'
+            '<input type="hidden" name="js_challenge" value="1">'
+            '<input type="hidden" name="token" '
+            'value="abcdefghijklmnopqrstuvwxyz012345">'
+            '<input type="hidden" name="jsc_orig_r" value="">'
+            "</form>"
+            "<script>document.addEventListener('DOMContentLoaded', async () => {"
+            "var e = document.forms[0],"
+            "n = await(async e=>e+e)('AbC123xYz987LmNo');"
+            'e.elements.namedItem("solution").value = n;'
+            "e.requestSubmit();});</script>"
+        )
+        body = (
+            "<html><!--" + ("x" * pad) + "-->"
+            "<head><title>Reddit - Please wait for verification</title></head>"
+            "<body>" + form + "</body></html>"
+        )
+        # The form itself stays parseable either way; only the prefix probe moves.
+        assert is_reddit_verification(body) is True
+
+        expected = ChallengeType.REDDIT if detected else None
+        assert detect_challenge(200, {}, body) is expected
+
+# ---------------------------------------------------------------------------
+# Amazon
+# ---------------------------------------------------------------------------
+
+
+class TestAmazon:
+    def test_amazon_captcha_small_body(self):
+        body = (
+            '<html><body><a href="/ref=cs_503_link">'
+            "Continue shopping</a> on Amazon.com"
+            "</body></html>"
+        )
+        assert detect_challenge(200, {}, body) == ChallengeType.AMAZON
+
+    def test_amazon_amzn_marker(self):
+        body = '<html><body>Continue Shopping on amzn.com store</body></html>'
+        assert detect_challenge(200, {}, body) == ChallengeType.AMAZON
+
+    def test_amazon_validate_captcha(self):
+        body = (
+            '<html><form action="/errors/validateCaptcha">'
+            "Continue shopping</form></html>"
+        )
+        assert detect_challenge(200, {}, body) == ChallengeType.AMAZON
+
+    def test_amazon_large_body_not_challenge(self):
+        """Real Amazon product pages are huge, not challenges."""
+        body = "Continue shopping on Amazon.com " + "x" * 60_000
+        assert detect_challenge(200, {}, body) is None
+
+    def test_amazon_no_continue_shopping(self):
+        """Small Amazon-like page without 'continue shopping' is not a challenge."""
+        body = '<html><body>Amazon.com product page</body></html>'
+        assert detect_challenge(200, {}, body) is None
+
+    def test_amazon_continue_shopping_non_amazon(self):
+        """'Continue shopping' on non-Amazon page is not an Amazon challenge."""
+        body = '<html><body>Continue shopping at MyStore</body></html>'
+        assert detect_challenge(200, {}, body) is None
+
+
+# ---------------------------------------------------------------------------
+# Arkose Labs (FunCaptcha)
+# ---------------------------------------------------------------------------
+
+
+class TestArkose:
+    def test_arkoselabs_script_403(self):
+        """Arkose SDK script on 403 block page."""
+        body = '<script src="//client-api.arkoselabs.com/v2/AAAA-BBBB/api.js"></script>'
+        assert detect_challenge(403, {}, body) == ChallengeType.ARKOSE
+
+    def test_funcaptcha_body_marker_403(self):
+        """Legacy FunCaptcha name on 403."""
+        body = '<div id="funcaptcha-container">Verify you are human</div>'
+        assert detect_challenge(403, {}, body) == ChallengeType.ARKOSE
+
+    def test_arkoselabs_on_200_login_page(self):
+        """Arkose enforcement widget embedded in a normal 200 login page."""
+        body = (
+            '<html><head><script src="//company-api.arkoselabs.com/v2/'
+            '9F35E182-C93C-EBCC-A31D-CF8ED317B996/api.js"'
+            ' data-callback="setupEnforcement"></script></head>'
+            '<body><form>Login</form></body></html>'
+        )
+        assert detect_challenge(200, {}, body) == ChallengeType.ARKOSE
+
+    def test_funcaptcha_on_200(self):
+        """FunCaptcha marker on 200 page."""
+        body = '<div id="FunCaptcha">Solve the puzzle</div>'
+        assert detect_challenge(200, {}, body) == ChallengeType.ARKOSE
+
+    def test_arkoselabs_large_page_not_detected(self):
+        """Large 200 page with arkoselabs is real content, not a challenge."""
+        body = 'arkoselabs.com mentioned in article ' + 'x' * 120_000
+        assert detect_challenge(200, {}, body) is None
+
+    def test_arkoselabs_on_429(self):
+        """Arkose on 429 rate limit."""
+        body = '<script src="//client-api.arkoselabs.com/v2/KEY/api.js"></script>'
+        assert detect_challenge(429, {}, body) == ChallengeType.ARKOSE
+
+
+# ---------------------------------------------------------------------------
+# hCaptcha
+# ---------------------------------------------------------------------------
+
+
+class TestHCaptcha:
+    def test_hcaptcha_403_detected(self):
+        """403 + hcaptcha.com body → HCAPTCHA."""
+        body = '<script src="https://hcaptcha.com/1/api.js"></script>'
+        assert detect_challenge(403, {}, body) == ChallengeType.HCAPTCHA
+
+    def test_hcaptcha_429_h_captcha(self):
+        """429 + h-captcha class → HCAPTCHA."""
+        body = '<div class="h-captcha" data-sitekey="abc"></div>'
+        assert detect_challenge(429, {}, body) == ChallengeType.HCAPTCHA
+
+    def test_hcaptcha_200_not_detected(self):
+        """200 + hcaptcha markers → None (not a gate, could be a form)."""
+        body = (
+            '<html><head><script src="https://hcaptcha.com/1/api.js">'
+            '</script></head><body>Verify</body></html>'
+        )
+        assert detect_challenge(200, {}, body) is None
+
+    def test_hcaptcha_200_widget_id_not_detected(self):
+        """200 + data-hcaptcha-widget-id → None (embedded form)."""
+        body = '<div data-hcaptcha-widget-id="abc">Verify</div>'
+        assert detect_challenge(200, {}, body) is None
+
+    def test_hcaptcha_in_js_only_challenges(self):
+        from wafer._challenge import JS_ONLY_CHALLENGES
+        assert ChallengeType.HCAPTCHA in JS_ONLY_CHALLENGES
+
+
+# ---------------------------------------------------------------------------
+# reCAPTCHA
+# ---------------------------------------------------------------------------
+
+
+class TestReCaptcha:
+    def test_recaptcha_403_detected(self):
+        """403 + g-recaptcha body → RECAPTCHA."""
+        body = '<div class="g-recaptcha" data-sitekey="abc"></div>'
+        assert detect_challenge(403, {}, body) == ChallengeType.RECAPTCHA
+
+    def test_recaptcha_403_google_url(self):
+        """403 + google.com/recaptcha script → RECAPTCHA."""
+        body = '<script src="https://www.google.com/recaptcha/api.js"></script>'
+        assert detect_challenge(403, {}, body) == ChallengeType.RECAPTCHA
+
+    def test_recaptcha_200_not_detected(self):
+        """200 + recaptcha markers → None (not a gate, could be a form)."""
+        body = (
+            '<html><head><script src="https://www.google.com/recaptcha/'
+            'api.js"></script></head><body>Verify</body></html>'
+        )
+        assert detect_challenge(200, {}, body) is None
+
+    def test_recaptcha_200_g_recaptcha_div_not_detected(self):
+        """200 + g-recaptcha div → None (embedded form)."""
+        body = '<div class="g-recaptcha" data-sitekey="abc">Solve</div>'
+        assert detect_challenge(200, {}, body) is None
+
+    def test_recaptcha_in_js_only_challenges(self):
+        from wafer._challenge import JS_ONLY_CHALLENGES
+        assert ChallengeType.RECAPTCHA in JS_ONLY_CHALLENGES
+
+
+# ---------------------------------------------------------------------------
+# Generic JS Challenge
+# ---------------------------------------------------------------------------
+
+
+class TestGenericJS:
+    def test_403_with_script_small_body(self):
+        body = '<html><head><script>document.cookie="test=1";</script></head></html>'
+        assert detect_challenge(403, {}, body) == ChallengeType.GENERIC_JS
+
+    def test_429_with_script_small_body(self):
+        body = '<html><head><script src="/challenge.js"></script></head></html>'
+        assert detect_challenge(429, {}, body) == ChallengeType.GENERIC_JS
+
+    def test_403_large_body_not_generic(self):
+        """Large 403 pages are real error pages, not JS challenges."""
+        body = (
+            "<html><head><script>analytics();</script></head>"
+            + "x" * 60_000
+            + "</html>"
+        )
+        assert detect_challenge(403, {}, body) is None
+
+    def test_403_no_script_not_generic(self):
+        """403 without script tag is a normal error page."""
+        body = '<html><body>Access Denied</body></html>'
+        assert detect_challenge(403, {}, body) is None
+
+
+# ---------------------------------------------------------------------------
+# Negative cases: normal responses not misclassified
+# ---------------------------------------------------------------------------
+
+
+class TestNegativeCases:
+    def test_200_empty_body(self):
+        assert detect_challenge(200, {}, "") is None
+
+    def test_200_normal_html(self):
+        body = (
+            "<html><head><title>My Page</title></head>"
+            "<body>Hello world</body></html>"
+        )
+        assert detect_challenge(200, {}, body) is None
+
+    def test_200_with_script_not_challenge(self):
+        """Normal 200 page with scripts is not a challenge."""
+        body = (
+            '<html><head><script src="/app.js"></script>'
+            "</head><body>Real content</body></html>"
+        )
+        assert detect_challenge(200, {}, body) is None
+
+    def test_404_not_challenge(self):
+        body = '<html><body>Page not found</body></html>'
+        assert detect_challenge(404, {}, body) is None
+
+    def test_500_not_challenge(self):
+        body = '<html><body>Internal server error</body></html>'
+        assert detect_challenge(500, {}, body) is None
+
+    def test_403_plain_text_access_denied(self):
+        """Plain 'access denied' without WAF markers is not classified."""
+        body = '<html><body><h1>403 Forbidden</h1><p>Access denied.</p></body></html>'
+        assert detect_challenge(403, {}, body) is None
+
+    def test_301_redirect_not_challenge(self):
+        headers = {"location": "https://example.com/new"}
+        assert detect_challenge(301, headers, "") is None
+
+    def test_200_large_page_with_amazon_text(self):
+        """Large page should not be detected as challenge."""
+        body = (
+            "<html><body>Amazon.com: Great Product"
+            " - Continue shopping for more</body>"
+            + "x" * 100_000
+            + "</html>"
+        )
+        assert detect_challenge(200, {}, body) is None
+
+    def test_200_with_cf_ray_header_no_challenge(self):
+        """cf-ray header alone (without cf-mitigated) is not a challenge."""
+        headers = {"cf-ray": "abc123"}
+        assert detect_challenge(200, headers, "Normal content") is None
+
+    def test_cookie_name_substring_not_false_positive(self):
+        """Cookie names that contain WAF names as substrings should not match."""
+        # 'my_abck_token' contains '_abck' but is not an Akamai cookie
+        headers = _h(set_cookie="my_abck_token=abc; Path=/")
+        assert detect_challenge(403, headers, "") is None
+
+    def test_px_cookie_value_not_false_positive(self):
+        """WAF name in cookie value (not name) should not match."""
+        headers = _h(set_cookie="session=contains_px3_data; Path=/")
+        assert detect_challenge(403, headers, "") is None
+
+
+# ---------------------------------------------------------------------------
+# Priority / ordering tests
+# ---------------------------------------------------------------------------
+
+
+class TestDetectionPriority:
+    def test_cf_mitigated_takes_priority_over_body(self):
+        """Header-based CF detection should fire before any body checks."""
+        headers = {"cf-mitigated": "challenge", "set-cookie": "datadome=x; Path=/"}
+        body = '<script>datadome</script>'
+        assert detect_challenge(403, headers, body) == ChallengeType.CLOUDFLARE
+
+    def test_acw_before_generic_js(self):
+        """ACW detection should fire before generic JS fallback."""
+        body = "<script>var arg1='abc'; acw_sc__v2('test');</script>"
+        assert detect_challenge(403, {}, body) == ChallengeType.ACW
+
+    def test_specific_waf_before_generic(self):
+        """Specific WAF detection should fire before generic JS."""
+        headers = _h(set_cookie="datadome=abc; Path=/")
+        body = '<script>datadome challenge</script>'
+        assert detect_challenge(403, headers, body) == ChallengeType.DATADOME

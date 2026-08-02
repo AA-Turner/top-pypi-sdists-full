@@ -360,7 +360,7 @@ class ConfluencePublisher:
             (depending on the version of Confluence, possible caching, etc.).
 
         - `<mode>-aggressive`
-            Descendants will be queried in the same manner as the specied mode
+            Descendants will be queried in the same manner as the specified mode
             type, with the addition that for each page found, an additional
             fetching will be performed to check for descendants for a found
             descendant. Querying stops when all descendants have been fetched
@@ -841,20 +841,24 @@ class ConfluencePublisher:
             chunked_hash = '\n'.join(
                 [hash_[i:i + 16] for i in range(0, len(hash_), 16)])
 
-            data = {
+            form_data = {
                 'comment': chunked_hash,
+            }
+
+            files = {
                 'file': (name, data, mimetype),
             }
 
             if not self.notify:
                 # using str over bool to support requests pre-v2.19.0
-                data['minorEdit'] = 'true'
+                form_data['minorEdit'] = 'true'
 
             if not attachment:
                 url = f'{self.APIV1}content/{page_id}/child/attachment'
 
                 try:
-                    rsp = self.rest.post(url, None, files=data)
+                    rsp = self.rest.post(
+                        url, None, form_data=form_data, files=files)
                     uploaded_attachment_id = rsp['results'][0]['id']
                 except ConfluenceBadApiError as ex:
                     # file type restricted? generate a warning
@@ -898,7 +902,8 @@ class ConfluencePublisher:
             if attachment:
                 url = '{}content/{}/child/attachment/{}/data'.format(
                     self.APIV1, page_id, attachment['id'])
-                rsp = self.rest.post(url, None, files=data)
+                rsp = self.rest.post(
+                    url, None, form_data=form_data, files=files)
                 uploaded_attachment_id = rsp['id']
 
             if not self.watch:
@@ -986,10 +991,19 @@ class ConfluencePublisher:
         page_id = page['id'] if page else None
         cb_props = self.get_page_property(page_id, CB_PROP_KEY, default={})
 
+        # determine current/next page versions
+        if page:
+            current_page_version = int(page['version']['number']) or 1
+            next_page_version = current_page_version + 1
+        else:
+            current_page_version = 0
+            next_page_version = 1
+
         # calculate the hash for a page; we will first use this to check if
         # there is a update to apply, and if we do need to update, we will
         # add this value into the page's properties
         new_page_hash = ConfluenceUtil.hash(data['content'])
+        current_page_hash = f'{new_page_hash}{current_page_version}'
 
         # check if we have to force a page update
         force_publish = force or self.config.confluence_publish_force
@@ -1042,7 +1056,7 @@ class ConfluencePublisher:
         # the remote hash; if so, do not publish
         if not force_publish:
             remote_hash = cb_props['value'].get('hash')
-            if new_page_hash == remote_hash:
+            if current_page_hash == remote_hash:
                 logger.verbose(f'no changes in page: {page_name}')
                 return page['id'], False
 
@@ -1181,7 +1195,8 @@ class ConfluencePublisher:
             raise ConfluencePermissionError(msg) from ex
 
         # update page hash
-        cb_props['value']['hash'] = new_page_hash
+        next_page_hash = f'{new_page_hash}{next_page_version}'
+        cb_props['value']['hash'] = next_page_hash
 
         # perform any required post-page update actions
         self._post_page_actions(uploaded_page_id, cb_props)
@@ -1230,16 +1245,25 @@ class ConfluencePublisher:
         # fetch known properties (associated with this extension) from the page
         cb_props = self.get_page_property(page_id, CB_PROP_KEY, default={})
 
+        # determine current/next page versions
+        if page:
+            current_page_version = int(page['version']['number']) or 1
+            next_page_version = current_page_version + 1
+        else:
+            current_page_version = 0
+            next_page_version = 1
+
         # calculate the hash for a page; we will first use this to check if
         # there is a update to apply, and if we do need to update, we will
         # add this value into the page's properties
         new_page_hash = ConfluenceUtil.hash(data['content'])
+        current_page_hash = f'{new_page_hash}{current_page_version}'
 
         # if we are not force uploading, check if the new page hash matches
         # the remote hash; if so, do not publish
         if not self.config.confluence_publish_force:
             remote_hash = cb_props['value'].get('hash')
-            if new_page_hash == remote_hash:
+            if current_page_hash == remote_hash:
                 logger.verbose(f'no changes in page: {page_name}')
                 return page_id
 
@@ -1258,7 +1282,8 @@ class ConfluencePublisher:
             raise ConfluencePermissionError(msg) from ex
 
         # update page hash
-        cb_props['value']['hash'] = new_page_hash
+        next_page_hash = f'{new_page_hash}{next_page_version}'
+        cb_props['value']['hash'] = next_page_hash
 
         # perform any required post-page update actions
         self._post_page_actions(page_id, cb_props)

@@ -1,0 +1,24 @@
+Metadata-Version: 2.4
+Name: stac-fastapi-types
+Version: 6.4.1
+Summary: Core API for stac-fastapi modules.
+Project-URL: Homepage, https://github.com/stac-utils/stac-fastapi
+Author-email: ArturoAI <engineering@arturo.ai>
+Maintainer-email: Vincent Sarago <vincent@developmentseed.org>, Jonathan Healy <jonathan.d.healy@gmail.com>, Pete Gadomski <pete.gadomski@gmail.com>, Jeff Albrecht <geospatialjeff@gmail.com>, Nathan Zimmerman <npzimmerman@gmail.com>
+License-Expression: MIT
+Keywords: FastAPI,STAC,STAC-API
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.11
+Requires-Dist: attrs>=23.2.0
+Requires-Dist: fastapi>=0.138.2
+Requires-Dist: iso8601<2.2.0,>=1.0.2
+Requires-Dist: pydantic-settings>=2
+Requires-Dist: stac-pydantic<4.0,>=3.3.0
+Requires-Dist: starlette>=1.0.1

@@ -1,0 +1,14 @@
+from wreq.blocking import Client
+
+
+def main():
+    client = Client()
+    resp = client.post(
+        "https://httpbin.io/anything",
+        json={"key": "value"},
+    )
+    print(resp.text())
+
+
+if __name__ == "__main__":
+    main()

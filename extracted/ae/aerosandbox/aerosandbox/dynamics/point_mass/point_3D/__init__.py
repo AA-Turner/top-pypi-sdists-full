@@ -1,0 +1,6 @@
+from aerosandbox.dynamics.point_mass.point_3D.cartesian import (
+    DynamicsPointMass3DCartesian,
+)
+from aerosandbox.dynamics.point_mass.point_3D.speed_gamma_track import (
+    DynamicsPointMass3DSpeedGammaTrack,
+)

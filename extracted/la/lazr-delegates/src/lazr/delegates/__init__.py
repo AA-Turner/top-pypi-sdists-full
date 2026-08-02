@@ -17,9 +17,9 @@
 """Decorator helpers that simplify class composition."""
 
 __all__ = [
-    'Passthrough',
-    'delegate_to',
-    ]
+    "Passthrough",
+    "delegate_to",
+]
 
 try:
     import importlib.metadata as importlib_metadata
@@ -29,6 +29,9 @@ except ImportError:  # pragma: no cover
 from lazr.delegates._delegates import (
     Passthrough,
     delegate_to,
-    )
+)
 
-__version__ = importlib_metadata.version("lazr.delegates")
+try:
+    __version__ = importlib_metadata.version("lazr.delegates")
+except importlib_metadata.PackageNotFoundError:  # pragma: no cover
+    __version__ = importlib_metadata.version("lazr-delegates")

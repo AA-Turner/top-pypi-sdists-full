@@ -85,6 +85,7 @@ Usage::
         SearchQuickConnectsPaginator,
         SearchResourceTagsPaginator,
         SearchRoutingProfilesPaginator,
+        SearchRulesPaginator,
         SearchSecurityProfilesPaginator,
         SearchTestCasesPaginator,
         SearchUserHierarchyGroupsPaginator,
@@ -172,6 +173,7 @@ Usage::
         search_quick_connects_paginator: SearchQuickConnectsPaginator = client.get_paginator("search_quick_connects")
         search_resource_tags_paginator: SearchResourceTagsPaginator = client.get_paginator("search_resource_tags")
         search_routing_profiles_paginator: SearchRoutingProfilesPaginator = client.get_paginator("search_routing_profiles")
+        search_rules_paginator: SearchRulesPaginator = client.get_paginator("search_rules")
         search_security_profiles_paginator: SearchSecurityProfilesPaginator = client.get_paginator("search_security_profiles")
         search_test_cases_paginator: SearchTestCasesPaginator = client.get_paginator("search_test_cases")
         search_user_hierarchy_groups_paginator: SearchUserHierarchyGroupsPaginator = client.get_paginator("search_user_hierarchy_groups")
@@ -337,6 +339,8 @@ from .type_defs import (
     SearchResourceTagsResponseTypeDef,
     SearchRoutingProfilesRequestPaginateTypeDef,
     SearchRoutingProfilesResponseTypeDef,
+    SearchRulesRequestPaginateTypeDef,
+    SearchRulesResponseTypeDef,
     SearchSecurityProfilesRequestPaginateTypeDef,
     SearchSecurityProfilesResponseTypeDef,
     SearchTestCasesRequestPaginateTypeDef,
@@ -435,6 +439,7 @@ __all__ = (
     "SearchQuickConnectsPaginator",
     "SearchResourceTagsPaginator",
     "SearchRoutingProfilesPaginator",
+    "SearchRulesPaginator",
     "SearchSecurityProfilesPaginator",
     "SearchTestCasesPaginator",
     "SearchUserHierarchyGroupsPaginator",
@@ -2018,6 +2023,27 @@ class SearchRoutingProfilesPaginator(_SearchRoutingProfilesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/SearchRoutingProfiles.html#Connect.Paginator.SearchRoutingProfiles.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/paginators/#searchroutingprofilespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _SearchRulesPaginatorBase = AioPaginator[SearchRulesResponseTypeDef]
+else:
+    _SearchRulesPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class SearchRulesPaginator(_SearchRulesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/SearchRules.html#Connect.Paginator.SearchRules)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/paginators/#searchrulespaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[SearchRulesRequestPaginateTypeDef]
+    ) -> AioPageIterator[SearchRulesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/SearchRules.html#Connect.Paginator.SearchRules.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/paginators/#searchrulespaginator)
         """
 
 

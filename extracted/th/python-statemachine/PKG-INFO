@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-statemachine
-Version: 3.2.0
+Version: 3.2.1
 Summary: Python Finite State Machines made easy.
 Project-URL: homepage, https://github.com/fgmacedo/python-statemachine
 Author-email: Fernando Macedo <fgmacedo@gmail.com>

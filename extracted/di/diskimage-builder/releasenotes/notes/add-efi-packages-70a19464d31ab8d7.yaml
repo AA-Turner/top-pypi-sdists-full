@@ -1,5 +1,0 @@
----
-upgrade:
-  - |
-    Adds `efibootmgr` and `efivar` packages to ironic-agent, so when building
-    DIB images they will be present.

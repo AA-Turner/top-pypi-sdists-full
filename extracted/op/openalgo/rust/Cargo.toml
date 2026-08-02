@@ -1,8 +1,0 @@
-[workspace]
-resolver = "2"
-members = ["oa_core", "oa_py"]
-
-[profile.release]
-lto = "fat"
-codegen-units = 1
-opt-level = 3

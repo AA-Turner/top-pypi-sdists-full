@@ -1,0 +1,49 @@
+[package]
+name = "lance-context-core"
+version = "0.6.5"
+edition = "2021"
+license = "Apache-2.0"
+authors = ["Lance Devs <dev@lancedb.com>"]
+repository = "https://github.com/lancedb/lance-context"
+readme = "README.md"
+description = "Multimodal, versioned context storage for agentic workflows"
+keywords = ["context", "multimodal", "lance", "agents", "storage"]
+categories = ["database", "data-structures", "science"]
+
+[features]
+default = ["metrics"]
+# Emit Prometheus metrics for store operations (add/flush/WAL merge latency).
+# Optional so downstream consumers embedding this library are not forced to take
+# the `metrics` dependency; call sites compile to nothing when disabled.
+metrics = ["dep:metrics"]
+
+[dependencies]
+base64 = "0.22"
+arrow-array = "58"
+arrow-ipc = "58"
+arrow-json = "58"
+arrow-schema = "58"
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+datafusion = { version = "53", default-features = false, features = ["nested_expressions"] }
+lance = "7.0.0"
+lance-context-api = { version = "0.6.5", path = "../lance-context-api" }
+lance-index = "7.0.0"
+lance-namespace = "7.0.0"
+lancedb = "0.30.0"
+lance-graph = "0.5.4"
+# Version-matched with lance-context-server/-master so one process-wide recorder
+# serves every crate.
+metrics = { version = "0.24", optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+futures = "0.3"
+tokio = { version = "1", features = ["sync", "time"] }
+tracing = "0.1"
+uuid = { version = "1.20.0", features = ["v4", "v5", "v7"] }
+
+[dev-dependencies]
+# Snapshotting recorder so tests can assert which metric series an operation
+# emitted, without installing a process-global Prometheus exporter.
+metrics-util = { version = "0.19", default-features = false, features = ["debugging"] }
+tempfile = "3"
+tokio = { version = "1", features = ["rt-multi-thread"] }

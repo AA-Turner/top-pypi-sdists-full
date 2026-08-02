@@ -52,6 +52,7 @@ __all__ = (
     "DescribeProductsV2PaginatorName",
     "DescribeStandardsControlsPaginatorName",
     "DescribeStandardsPaginatorName",
+    "DiscoveryTypeType",
     "EnablementStatusType",
     "FeatureNameType",
     "FeatureStatusType",
@@ -104,6 +105,7 @@ __all__ = (
     "ResourceCategoryType",
     "ResourceGroupByFieldType",
     "ResourceServiceName",
+    "ResourceSubCategoryType",
     "ResourcesDateFieldType",
     "ResourcesMapFieldType",
     "ResourcesNumberFieldType",
@@ -182,6 +184,7 @@ DescribeProductsPaginatorName = Literal["describe_products"]
 DescribeProductsV2PaginatorName = Literal["describe_products_v2"]
 DescribeStandardsControlsPaginatorName = Literal["describe_standards_controls"]
 DescribeStandardsPaginatorName = Literal["describe_standards"]
+DiscoveryTypeType = Literal["Managed", "SelfHosted"]
 EnablementStatusType = Literal[
     "ENABLED",
     "FAILED_TO_DELETE",
@@ -429,16 +432,33 @@ ResourceCategoryType = Literal[
 ResourceGroupByFieldType = Literal[
     "AccountId",
     "AccountName",
+    "DiscoveryType",
     "FindingsSummary.FindingType",
     "Region",
     "ResourceCategory",
     "ResourceCloudPartition",
+    "ResourceInfo.AIDetails.CanonicalId",
+    "ResourceInfo.AIDetails.HostResourceType",
     "ResourceName",
     "ResourceOwnerAccountId",
     "ResourceOwnerOrgId",
     "ResourceProvider",
     "ResourceRegion",
+    "ResourceSubCategory",
     "ResourceType",
+]
+ResourceSubCategoryType = Literal[
+    "Agent",
+    "AgentFramework",
+    "AgentToolsAndIdentity",
+    "Development",
+    "ExternalEndpoint",
+    "KnowledgeAndData",
+    "Model",
+    "ModelServing",
+    "OrchestrationAndPipeline",
+    "Other",
+    "SafetyAndGuardrail",
 ]
 ResourcesDateFieldType = Literal["ResourceCreationTime", "ResourceDetailCaptureTime"]
 ResourcesMapFieldType = Literal["ResourceTags"]
@@ -452,10 +472,19 @@ ResourcesNumberFieldType = Literal[
     "FindingsSummary.Severities.Other",
     "FindingsSummary.Severities.Unknown",
     "FindingsSummary.TotalFindings",
+    "ResourceInfo.AIDetails.SelfHostedAIAgentFrameworkResourceCount",
+    "ResourceInfo.AIDetails.SelfHostedAIAgentResourceCount",
+    "ResourceInfo.AIDetails.SelfHostedAIAgentToolsAndIdentityResourceCount",
+    "ResourceInfo.AIDetails.SelfHostedAIDevelopmentResourceCount",
+    "ResourceInfo.AIDetails.SelfHostedAIExternalEndpointResourceCount",
+    "ResourceInfo.AIDetails.SelfHostedAIModelResourceCount",
+    "ResourceInfo.AIDetails.SelfHostedAIModelServingResourceCount",
+    "ResourceInfo.AIDetails.SelfHostedTotalAIResourceCount",
 ]
 ResourcesStringFieldType = Literal[
     "AccountId",
     "AccountName",
+    "DiscoveryType",
     "FindingsSummary.FindingType",
     "FindingsSummary.ProductName",
     "Region",
@@ -463,11 +492,15 @@ ResourcesStringFieldType = Literal[
     "ResourceCloudPartition",
     "ResourceGuid",
     "ResourceId",
+    "ResourceInfo.AIDetails.CanonicalId",
+    "ResourceInfo.AIDetails.HostResourceGuid",
+    "ResourceInfo.AIDetails.HostResourceType",
     "ResourceName",
     "ResourceOwnerAccountId",
     "ResourceOwnerOrgId",
     "ResourceProvider",
     "ResourceRegion",
+    "ResourceSubCategory",
     "ResourceType",
 ]
 ResourcesTrendsStringFieldType = Literal[

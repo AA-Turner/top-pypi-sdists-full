@@ -1,0 +1,33 @@
+# NOTE on `target-cpu=native` below: this is safe for `cargo build`/`cargo bench` run directly by
+# a developer, since "native" then means the machine doing the build. It is NOT safe for binaries
+# built once and distributed to other machines (e.g. PyPI wheels) -- it can bake in CPU features
+# (AVX-512, etc.) the runner happens to have, causing SIGILL crashes for end users on other CPUs.
+# The macOS wheel-build job in .github/workflows/maturin-ci.yml explicitly overrides RUSTFLAGS to
+# drop target-cpu=native for that reason; keep that override in sync if you change this file.
+
+[target.x86_64-apple-darwin]
+rustflags = [
+    "-C", "link-arg=-undefined",
+    "-C", "link-arg=dynamic_lookup",
+    "-C", "target-cpu=native",  # CPU-specific optimizations (5-10% faster) -- local builds only, see note above
+]
+
+[target.aarch64-apple-darwin]
+rustflags = [
+    "-C", "link-arg=-undefined",
+    "-C", "link-arg=dynamic_lookup",
+    "-C", "target-cpu=native",  # CPU-specific optimizations (5-10% faster) -- local builds only, see note above
+]
+
+# Add this section for Linux aarch64 cross-compilation
+[target.aarch64-unknown-linux-gnu]
+linker = "aarch64-linux-gnu-gcc"
+rustflags = [
+    "-C", "link-arg=-lgcc_s",
+    "-C", "link-arg=-lutil",
+    "-C", "link-arg=-lrt",
+    "-C", "link-arg=-lpthread",
+    "-C", "link-arg=-lm",
+    "-C", "link-arg=-ldl",
+    "-C", "link-arg=-lc",
+]

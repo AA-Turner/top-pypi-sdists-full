@@ -1,0 +1,293 @@
+from collections.abc import Sequence
+from dataclasses import dataclass
+
+from django.db import models
+from django.db.models import OuterRef
+from django.db.models import Subquery
+
+from data_browser.common import global_state
+from data_browser.orm_debug import DebugQS
+from data_browser.types import ASC
+from data_browser.types import BaseType
+from data_browser.types import BooleanType
+from data_browser.types import DateTimeType
+from data_browser.types import DateType
+from data_browser.types import HTMLType
+from data_browser.types import UnknownType
+from data_browser.types import URLType
+from data_browser.util import annotation_path
+
+
+@dataclass
+class OrmBoundField:
+    field: "OrmBaseField"
+    previous: "OrmBoundField"
+    full_path: Sequence[str]
+    verbose_path: Sequence[str]
+    queryset_path: Sequence[str]
+    aggregate_clause: tuple[str, models.Func] = None
+    filter_: bool = False
+    having: bool = False
+    model_name: str = None
+
+    @property
+    def path_str(self):
+        return "__".join(self.full_path)
+
+    @property
+    def queryset_path_str(self):
+        return "__".join(self.queryset_path)
+
+    @property
+    def group_by(self):
+        return self.field.can_pivot
+
+    def _lineage(self):
+        if self.previous:
+            return [*self.previous._lineage(), self]
+        return [self]
+
+    def annotate(self, qs, debug=False):
+        for field in self._lineage():
+            qs = field._annotate(qs, debug=debug)
+        return qs
+
+    def _annotate(self, qs, debug=False):
+        return qs
+
+    def _annotate_qs(self, qs, expression):
+        assert "__" not in self.queryset_path_str
+        return qs.annotate(**{self.queryset_path_str: expression})
+
+    def __getattr__(self, name):
+        return getattr(self.field, name)
+
+    def parse_lookup(self, lookup, value):
+        return self.type_.parse_lookup(lookup, value, self.choices)
+
+    def format_lookup(self, lookup, value):
+        return self.type_.format_lookup(lookup, value, self.choices)
+
+    @classmethod
+    def blank(cls):
+        return cls(
+            field=None, previous=None, full_path=[], verbose_path=[], queryset_path=[]
+        )
+
+    def get_format_hints(self, data):
+        hints = self.type_.get_format_hints(self.path_str, data)
+        return {**hints, **(self.format_hints or {})}
+
+
+@dataclass
+class OrmBaseField:
+    model_name: str
+    name: str
+    verbose_name: str
+    type_: BaseType = None
+    concrete: bool = False
+    rel_name: str = None
+    can_pivot: bool = False
+    choices: Sequence[tuple[str, str]] = ()
+    default_sort: str = None
+    format_hints: dict = None
+    actions: dict = None
+    to_many: bool = False
+    real: bool = False
+
+    def __post_init__(self):
+        if not self.type_:
+            assert self.rel_name
+        if self.concrete:
+            assert self.type_
+            # ideally all concrete fields would be equals filterable
+            assert "equals" in self.type_.lookups or self.type_ in {
+                UnknownType,
+                HTMLType,
+            }, (self.model_name, self.name, self.type_)
+        if self.can_pivot:
+            assert self.type_
+
+    def get_formatter(self):
+        return self.type_.get_formatter(self.choices)
+
+
+class OrmFkField(OrmBaseField):
+    def __init__(self, model_name, name, verbose_name, rel_name, to_many):
+        super().__init__(
+            model_name, name, verbose_name, rel_name=rel_name, to_many=to_many
+        )
+
+    def bind(self, previous):
+        previous = previous or OrmBoundField.blank()
+        return OrmBoundField(
+            field=self,
+            previous=previous,
+            full_path=[*previous.full_path, self.name],
+            verbose_path=[*previous.verbose_path, self.verbose_name],
+            queryset_path=[*previous.queryset_path, self.name],
+        )
+
+
+class OrmRealField(OrmBaseField):
+    def __init__(
+        self, model_name, name, verbose_name, type_, rel_name, choices, actions=None
+    ):
+        super().__init__(
+            model_name,
+            name,
+            verbose_name,
+            concrete=True,
+            type_=type_,
+            rel_name=rel_name,
+            can_pivot=True,
+            choices=choices or (),
+            default_sort=ASC if type_ in [DateType, DateTimeType] else None,
+            actions=actions,
+            real=True,
+        )
+
+    def bind(self, previous):
+        previous = previous or OrmBoundField.blank()
+        return OrmBoundField(
+            field=self,
+            previous=previous,
+            full_path=[*previous.full_path, self.name],
+            verbose_path=[*previous.verbose_path, self.verbose_name],
+            queryset_path=[*previous.queryset_path, self.name],
+            filter_=True,
+        )
+
+
+class OrmRawField(OrmRealField):
+    def bind(self, previous):
+        return OrmBoundField(
+            field=self,
+            previous=previous,
+            full_path=[*previous.full_path, self.name],
+            verbose_path=[*previous.verbose_path, self.verbose_name],
+            queryset_path=previous.queryset_path,
+            filter_=True,
+        )
+
+
+class OrmCalculatedField(OrmBaseField):
+    def __init__(self, model_name, name, verbose_name, func, actions=None):
+        if getattr(func, "boolean", False):
+            type_ = BooleanType
+        else:
+            type_ = HTMLType
+
+        super().__init__(
+            model_name, name, verbose_name, type_=type_, can_pivot=True, actions=actions
+        )
+        self.func = func
+
+    def bind(self, previous):
+        previous = previous or OrmBoundField.blank()
+        return OrmBoundField(
+            field=self,
+            previous=previous,
+            full_path=[*previous.full_path, self.name],
+            verbose_path=[*previous.verbose_path, self.verbose_name],
+            queryset_path=[*previous.queryset_path, "pk"],
+            model_name=self.model_name,
+        )
+
+    def get_formatter(self):
+        base_formatter = super().get_formatter()
+
+        def format(obj):
+            if obj is None:
+                return None
+
+            try:
+                value = self.func(obj)
+            except Exception as e:
+                return str(e)
+
+            return base_formatter(value)
+
+        return format
+
+
+class OrmBoundAnnotatedField(OrmBoundField):
+    def _annotate(self, qs, debug=False):
+        from data_browser.orm_admin import admin_get_queryset
+
+        if debug:
+            subquery = DebugQS("Subquery")
+            outer_ref = DebugQS("OuterRef")
+        else:
+            subquery = Subquery
+            outer_ref = OuterRef
+
+        return self._annotate_qs(
+            qs,
+            subquery(
+                admin_get_queryset(
+                    global_state.request, self.admin, [self.name], debug=debug
+                )
+                .filter(pk=outer_ref("__".join([*self.previous.queryset_path, "pk"])))
+                .values(self.name)[:1],
+                output_field=self.django_field,
+            ),
+        )
+
+
+class OrmAnnotatedField(OrmBaseField):
+    def __init__(
+        self, model_name, name, verbose_name, type_, django_field, admin, choices
+    ):
+        super().__init__(
+            model_name,
+            name,
+            verbose_name,
+            type_=type_,
+            rel_name=type_.name,
+            can_pivot=True,
+            concrete=True,
+            choices=choices or (),
+        )
+        self.django_field = django_field
+        self.admin = admin
+
+    def bind(self, previous):
+        previous = previous or OrmBoundField.blank()
+
+        full_path = [*previous.full_path, self.name]
+        return OrmBoundAnnotatedField(
+            field=self,
+            previous=previous,
+            full_path=full_path,
+            verbose_path=[*previous.verbose_path, self.verbose_name],
+            queryset_path=[annotation_path(full_path)],
+            filter_=True,
+        )
+
+
+class OrmFileField(OrmRealField):
+    def __init__(self, model_name, name, verbose_name, django_field):
+        super().__init__(
+            model_name,
+            name,
+            verbose_name,
+            type_=URLType,
+            rel_name=URLType.name,
+            choices=None,
+        )
+        self.django_field = django_field
+
+    def get_formatter(self):
+        def format(value):
+            if not value:
+                return value
+
+            try:
+                # some storage backends will hard fail if their underlying storage isn't
+                # setup right https://github.com/tolomea/django-data-browser/issues/11
+                return self.django_field.storage.url(value)
+            except Exception as e:  # pragma: no cover
+                return str(e)
+
+        return format

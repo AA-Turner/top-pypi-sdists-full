@@ -29,7 +29,6 @@ from glyphsLib.classes import (
     GSComponent,
 )
 
-
 # https://glyphsapp.com/tutorials/smart-components
 
 
@@ -189,7 +188,7 @@ def test_smart_component_regular(values, expected_rect, smart_font):
 def test_smart_component_regular_flipped_x(values, expected_rect, smart_font):
     # same as test_smart_component_regular but with transform that flips x
     component = smart_font.glyphs["a"].layers[0].components[0]
-    component.transform[0] = -1.0
+    component.transform = (-1.0, 0, 0, 1, 0, 0)
     for key, value in values.items():
         component.smartComponentValues[key] = value
 

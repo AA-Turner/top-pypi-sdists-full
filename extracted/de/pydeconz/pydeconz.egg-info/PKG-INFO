@@ -1,0 +1,53 @@
+Metadata-Version: 2.4
+Name: pydeconz
+Version: 120
+Summary: Python library for communicating with deCONZ REST-API
+Author-email: Robert Svensson <Kane610@users.noreply.github.com>
+License: MIT
+Project-URL: Source Code, https://github.com/Kane610/deconz
+Project-URL: Bug Reports, https://github.com/Kane610/deconz/issues
+Project-URL: Forum, https://community.home-assistant.io/t/deconz-official-thread/
+Keywords: deconz,zigbee,homeassistant
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Home Automation
+Requires-Python: >=3.12.0
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: aiohttp>3.9
+Requires-Dist: orjson>3.9
+Provides-Extra: requirements
+Requires-Dist: aiohttp==3.11.14; extra == "requirements"
+Requires-Dist: orjson==3.10.15; extra == "requirements"
+Provides-Extra: requirements-test
+Requires-Dist: aioresponses==0.7.8; extra == "requirements-test"
+Requires-Dist: mypy==1.15.0; extra == "requirements-test"
+Requires-Dist: pytest==8.3.5; extra == "requirements-test"
+Requires-Dist: pytest-aiohttp==1.1.0; extra == "requirements-test"
+Requires-Dist: pytest-cov==6.0.0; extra == "requirements-test"
+Requires-Dist: ruff==0.11.1; extra == "requirements-test"
+Provides-Extra: requirements-dev
+Requires-Dist: pre-commit==4.2.0; extra == "requirements-dev"
+Dynamic: license-file
+
+deCONZ |Chat Status|
+====================
+Python library wrapping `deCONZ Rest API`_ for Home-Assistant.
+
+This implementation should cover most devices supported by deCONZ, if that is not the case please create an issue with debug logs and we will get it supported.
+
+Only host address and API key are necessary for normal operations.
+
+**Acknowledgements**
+ * Mattias Flodins custom deCONZ component was a great source of inspiration.
+ * Maija Vilkina and her blog `Snillevilla`_ has been a huge help in getting deCONZ up and running.
+ * Thanks to donnib, dkmh, simonporter007, kroimon, Henrik Nilsson for requesting and verifying functionality!
+ * Special thanks to Dresden Elektronik for sponsoring with extra Conbee and Raspbee hardware.
+
+.. |Chat Status| image:: https://img.shields.io/discord/330944238910963714.svg
+   :target: https://discord.gg/c6pvg8a
+.. _`deCONZ Rest API`: https://dresden-elektronik.github.io/deconz-rest-doc/
+.. _`Snillevilla`: https://snillevilla.se/

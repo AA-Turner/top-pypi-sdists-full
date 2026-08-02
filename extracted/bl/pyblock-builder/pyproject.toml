@@ -1,0 +1,35 @@
+[tool.poetry]
+name = "pyblock-builder"
+version = "0.2.10"
+description = "A lightweight Python library with a declarative syntax for simplifying building apps using Slack's Block Kit UI framework"
+authors = ["codywb <codybranscum@gmail.com>"]
+license = "BSD-3-Clause"
+readme = "README.md"
+homepage = "https://github.com/codywb/slack-pyblock-builder"
+repository = "https://github.com/codywb/slack-pyblock-builder"
+keywords = ["slack-pyblock-builder", "pyblock-builder", "slack", "bolt", "pyblock", "blockkit"]
+classifiers = [
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: BSD License",
+    "Topic :: Software Development :: Documentation",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+include = [
+    "LICENSE",
+]
+
+exclude = [
+    "docs",
+    "tests"
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+typing-extensions="*"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+# add typing-extensions dependency for under Python 3.11

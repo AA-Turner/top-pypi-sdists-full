@@ -1,0 +1,44 @@
+---
+schema_version: "1.0.0"
+ticket_id: "OMN-11261"
+title: "Add temporary typed contract evidence storage model"
+summary: >
+  Add a temporary omnibase_compat model for artifact-first OCC contract evidence storage. The model separates
+  stable proof requirements from PR/branch metadata and will migrate to omnibase_core once the canonical
+  core model lands.
+is_seam_ticket: false
+interface_change: true
+interfaces_touched:
+  - public_api
+evidence_requirements:
+  - kind: "tests"
+    description: "Focused evidence contract model tests pass."
+    command: "uv run pytest src/omnibase_compat/tests/contracts/evidence/test_contract_evidence_spec.py
+      -q"
+  - kind: "ci"
+    description: "Compat retention and no-upstream-dependency checks pass."
+    command: "uv run python scripts/check_compat_retention.py && uv run python scripts/validate_no_upstream_deps.py"
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: "dod-model-present"
+    description: "Temporary compat evidence contract model exists at a stable artifact path."
+    source: "generated"
+    checks:
+      - check_type: "file_exists"
+        check_value: "src/omnibase_compat/contracts/evidence/model_contract_evidence_spec.py"
+  - id: "dod-focused-tests"
+    description: "Focused evidence contract model tests pass."
+    source: "generated"
+    checks:
+      - check_type: "command"
+        check_value: "uv run pytest src/omnibase_compat/tests/contracts/evidence/test_contract_evidence_spec.py
+          -q"
+  - id: "dod-retention"
+    description: "Compat migration target and removal date metadata are present."
+    source: "generated"
+    checks:
+      - check_type: "command"
+        check_value: "uv run python scripts/check_compat_retention.py"

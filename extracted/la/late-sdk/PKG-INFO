@@ -1,0 +1,1037 @@
+Metadata-Version: 2.4
+Name: late-sdk
+Version: 1.4.399
+Summary: The official Python library for the Zernio API
+Project-URL: Homepage, https://zernio.com
+Project-URL: Documentation, https://docs.zernio.com
+Project-URL: Repository, https://github.com/zernio-dev/zernio-python
+Project-URL: Issues, https://github.com/zernio-dev/zernio-python/issues
+Project-URL: Changelog, https://docs.zernio.com/changelog
+Author-email: Zernio <hello@zernio.com>
+License: Apache-2.0
+License-File: LICENSE
+Keywords: api,bluesky,facebook,instagram,late,linkedin,pinterest,reddit,scheduling,sdk,snapchat,social-media,telegram,threads,tiktok,twitter,x,youtube,zernio
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: pydantic>=2.0.0
+Provides-Extra: ai
+Requires-Dist: openai>=1.0.0; extra == 'ai'
+Provides-Extra: all
+Requires-Dist: anthropic>=0.40.0; extra == 'all'
+Requires-Dist: mcp>=1.8.0; extra == 'all'
+Requires-Dist: openai>=1.0.0; extra == 'all'
+Provides-Extra: anthropic
+Requires-Dist: anthropic>=0.40.0; extra == 'anthropic'
+Provides-Extra: dev
+Requires-Dist: datamodel-code-generator>=0.26.0; extra == 'dev'
+Requires-Dist: mcp>=1.8.0; extra == 'dev'
+Requires-Dist: mypy>=1.13.0; extra == 'dev'
+Requires-Dist: pytest-asyncio>=0.24.0; extra == 'dev'
+Requires-Dist: pytest-cov>=6.0.0; extra == 'dev'
+Requires-Dist: pytest>=8.0.0; extra == 'dev'
+Requires-Dist: pyyaml>=6.0.0; extra == 'dev'
+Requires-Dist: respx>=0.21.0; extra == 'dev'
+Requires-Dist: ruff>=0.8.0; extra == 'dev'
+Provides-Extra: mcp
+Requires-Dist: fastmcp>=3.1.0; extra == 'mcp'
+Requires-Dist: mcp>=1.8.0; extra == 'mcp'
+Requires-Dist: starlette>=0.42.0; extra == 'mcp'
+Requires-Dist: uvicorn[standard]>=0.32.0; extra == 'mcp'
+Description-Content-Type: text/markdown
+
+<p align="center">
+  <a href="https://zernio.com">
+    <img src="https://zernio.com/brand/icon-primary.png" alt="Zernio" width="60">
+  </a>
+</p>
+
+<h1 align="center">Zernio Python SDK</h1>
+
+<p align="center">
+  <a href="https://pypi.org/project/zernio-sdk/"><img src="https://img.shields.io/pypi/v/zernio-sdk.svg" alt="PyPI version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue.svg" alt="License"></a>
+</p>
+
+<p align="center">
+  <strong>One API to post everywhere. 16 platforms, zero headaches.</strong>
+</p>
+
+The official Python SDK for the [Zernio API](https://zernio.com) — schedule and publish social media posts across Instagram, TikTok, YouTube, LinkedIn, X/Twitter, Facebook, Pinterest, Threads, Bluesky, Reddit, Snapchat, Telegram, WhatsApp, and Google Business Profile with a single integration.
+
+## Installation
+
+```bash
+pip install zernio-sdk
+```
+
+## Quick Start
+
+```python
+from zernio import Zernio
+
+# Reads ZERNIO_API_KEY from environment (or pass explicitly)
+client = Zernio()
+
+# Publish to multiple platforms with one call
+post = client.posts.create(
+    content="Hello world from Zernio!",
+    platforms=[
+        {"platform": "twitter", "accountId": "acc_xxx"},
+        {"platform": "linkedin", "accountId": "acc_yyy"},
+        {"platform": "instagram", "accountId": "acc_zzz"},
+    ],
+    publish_now=True,
+)
+
+print(f"Published to {len(post['post']['platforms'])} platforms!")
+```
+
+## Configuration
+
+```python
+client = Zernio(
+    api_key="your-api-key",  # Or set ZERNIO_API_KEY env var
+    base_url="https://zernio.com/api",  # Optional, this is the default
+    timeout=30.0,  # Optional, request timeout in seconds
+)
+```
+
+## Examples
+
+### Schedule a Post
+
+```python
+post = client.posts.create(
+    content="This post will go live tomorrow at 10am",
+    platforms=[{"platform": "instagram", "accountId": "acc_xxx"}],
+    scheduled_for="2025-02-01T10:00:00Z",
+)
+```
+
+### Platform-Specific Content
+
+Customize content per platform while posting to all at once:
+
+```python
+post = client.posts.create(
+    content="Default content",
+    platforms=[
+        {
+            "platform": "twitter",
+            "accountId": "acc_twitter",
+            "platformSpecificContent": "Short & punchy for X",
+        },
+        {
+            "platform": "linkedin",
+            "accountId": "acc_linkedin",
+            "platformSpecificContent": "Professional tone for LinkedIn with more detail.",
+        },
+    ],
+    publish_now=True,
+)
+```
+
+### Upload Media
+
+```python
+# Option 1: Direct upload (simplest)
+result = client.media.upload("path/to/video.mp4")
+media_url = result["publicUrl"]
+
+# Option 2: Upload from bytes
+result = client.media.upload_bytes(video_bytes, "video.mp4", "video/mp4")
+media_url = result["publicUrl"]
+
+# Create post with media
+post = client.posts.create(
+    content="Check out this video!",
+    media_urls=[media_url],
+    platforms=[
+        {"platform": "tiktok", "accountId": "acc_xxx"},
+        {"platform": "youtube", "accountId": "acc_yyy", "youtubeTitle": "My Video"},
+    ],
+    publish_now=True,
+)
+```
+
+### Get Analytics
+
+```python
+data = client.analytics.get(period="30d")
+
+print("Analytics:", data)
+```
+
+### List Connected Accounts
+
+```python
+data = client.accounts.list()
+
+for account in data["accounts"]:
+    print(f"{account['platform']}: @{account['username']}")
+```
+
+### Async Support
+
+```python
+import asyncio
+from zernio import Zernio
+
+async def main():
+    async with Zernio(api_key="your-api-key") as client:
+        posts = await client.posts.alist(status="scheduled")
+        print(f"Found {len(posts['posts'])} scheduled posts")
+
+asyncio.run(main())
+```
+
+## Error Handling
+
+```python
+from zernio import Zernio, ZernioAPIError, ZernioRateLimitError, ZernioValidationError
+
+client = Zernio(api_key="your-api-key")
+
+try:
+    client.posts.create(content="Hello!", platforms=[...])
+except ZernioRateLimitError as e:
+    print(f"Rate limited: {e}")
+except ZernioValidationError as e:
+    print(f"Invalid request: {e}")
+except ZernioAPIError as e:
+    print(f"API error: {e}")
+```
+
+## Migration from Late
+
+All old names continue to work. No code changes are required:
+
+```python
+# Old style (still works)
+from late import Late, LateAPIError
+client = Late(api_key="...")
+
+# New style
+from zernio import Zernio, ZernioAPIError
+client = Zernio()  # reads ZERNIO_API_KEY env var
+```
+
+Both `from zernio import ...` and `from late import ...` work identically. The `LATE_API_KEY` environment variable is also still supported as a fallback when `ZERNIO_API_KEY` is not set.
+
+## SDK Reference
+
+### Posts
+| Method | Description |
+|--------|-------------|
+| `posts.list_posts()` | List posts |
+| `posts.bulk_upload_posts()` | Bulk upload from CSV |
+| `posts.create_post()` | Create post |
+| `posts.get_post()` | Get post |
+| `posts.update_post()` | Update post |
+| `posts.update_post_metadata()` | Update post metadata |
+| `posts.delete_post()` | Delete post |
+| `posts.edit_post()` | Edit published post |
+| `posts.retry_post()` | Retry failed post |
+| `posts.unpublish_post()` | Unpublish post |
+
+### Accounts
+| Method | Description |
+|--------|-------------|
+| `accounts.get_all_accounts_health()` | Check accounts health |
+| `accounts.list_accounts()` | List accounts |
+| `accounts.get_account_health()` | Check account health |
+| `accounts.get_follower_stats()` | Get follower stats |
+| `accounts.get_google_business_reviews()` | Get reviews |
+| `accounts.get_linked_in_mentions()` | Resolve LinkedIn mention |
+| `accounts.get_slack_settings()` | Get Slack account settings |
+| `accounts.get_tik_tok_creator_info()` | Get TikTok creator info |
+| `accounts.update_account()` | Update account |
+| `accounts.update_slack_settings()` | Update Slack account settings |
+| `accounts.delete_account()` | Disconnect account |
+| `accounts.delete_google_business_review_reply()` | Delete a review reply |
+| `accounts.batch_get_google_business_reviews()` | Batch get reviews |
+| `accounts.move_account_to_profile()` | Move account to another profile |
+| `accounts.reply_to_google_business_review()` | Reply to a review |
+
+### Profiles
+| Method | Description |
+|--------|-------------|
+| `profiles.list_profiles()` | List profiles |
+| `profiles.create_profile()` | Create profile |
+| `profiles.get_profile()` | Get profile |
+| `profiles.update_profile()` | Update profile |
+| `profiles.delete_profile()` | Delete profile |
+
+### Analytics
+| Method | Description |
+|--------|-------------|
+| `analytics.get_analytics()` | Get post analytics |
+| `analytics.get_best_time_to_post()` | Get best times to post |
+| `analytics.get_content_decay()` | Get content performance decay |
+| `analytics.get_daily_metrics()` | Get daily aggregated metrics |
+| `analytics.get_facebook_page_insights()` | Get Facebook Page insights |
+| `analytics.get_facebook_post_earnings()` | Get Facebook post monetization earnings |
+| `analytics.get_facebook_post_reactions()` | Get Facebook post reactions |
+| `analytics.get_google_business_performance()` | Get GBP performance metrics |
+| `analytics.get_google_business_search_keywords()` | Get GBP search keywords |
+| `analytics.get_instagram_account_insights()` | Get Instagram insights |
+| `analytics.get_instagram_demographics()` | Get Instagram demographics |
+| `analytics.get_instagram_follower_history()` | Get Instagram follower history |
+| `analytics.get_linked_in_aggregate_analytics()` | Get LinkedIn aggregate stats |
+| `analytics.get_linked_in_org_aggregate_analytics()` | Get LinkedIn org analytics |
+| `analytics.get_linked_in_post_analytics()` | Get LinkedIn post stats |
+| `analytics.get_linked_in_post_reactions()` | Get LinkedIn post reactions |
+| `analytics.get_post_timeline()` | Get post analytics timeline |
+| `analytics.get_posting_frequency()` | Get frequency vs engagement |
+| `analytics.get_tik_tok_account_insights()` | Get TikTok account-level insights |
+| `analytics.get_you_tube_channel_insights()` | Get YouTube channel insights |
+| `analytics.get_you_tube_daily_views()` | Get YouTube daily views |
+| `analytics.get_you_tube_demographics()` | Get YouTube demographics |
+| `analytics.get_you_tube_video_retention()` | Get YouTube video retention curve |
+| `analytics.sync_external_posts()` | Sync an external post |
+
+### Account Groups
+| Method | Description |
+|--------|-------------|
+| `account_groups.list_account_groups()` | List groups |
+| `account_groups.create_account_group()` | Create group |
+| `account_groups.update_account_group()` | Update group |
+| `account_groups.delete_account_group()` | Delete group |
+
+### Queue
+| Method | Description |
+|--------|-------------|
+| `queue.list_queue_slots()` | List schedules |
+| `queue.create_queue_slot()` | Create schedule |
+| `queue.get_next_queue_slot()` | Get next available slot |
+| `queue.update_queue_slot()` | Update schedule |
+| `queue.delete_queue_slot()` | Delete schedule |
+| `queue.preview_queue()` | Preview upcoming slots |
+
+### Webhooks
+| Method | Description |
+|--------|-------------|
+| `webhooks.create_webhook_settings()` | Create webhook |
+| `webhooks.get_webhook_logs()` | List webhook delivery logs |
+| `webhooks.get_webhook_settings()` | List webhooks |
+| `webhooks.update_webhook_settings()` | Update webhook |
+| `webhooks.delete_webhook_settings()` | Delete webhook |
+| `webhooks.test_webhook()` | Send test webhook |
+
+### API Keys
+| Method | Description |
+|--------|-------------|
+| `api_keys.list_api_keys()` | List keys |
+| `api_keys.create_api_key()` | Create key |
+| `api_keys.delete_api_key()` | Delete key |
+
+### Media
+| Method | Description |
+|--------|-------------|
+| `media.get_media_presigned_url()` | Get upload URL |
+| `media.upload()` | Upload a file from path |
+| `media.upload_bytes()` | Upload file from bytes |
+| `media.upload_large()` | Upload large file with multipart |
+| `media.upload_large_bytes()` | Upload large file from bytes |
+| `media.upload_multiple()` | Upload multiple files |
+
+### Users
+| Method | Description |
+|--------|-------------|
+| `users.list_users()` | List users |
+| `users.get_user()` | Get user |
+
+### Usage
+| Method | Description |
+|--------|-------------|
+| `usage.get_billing()` | Account billing snapshot (plan, cycle, balance, caps, status) |
+| `usage.get_calls_usage()` | Calling usage and cost |
+| `usage.get_sms_usage()` | SMS usage (volumes) |
+| `usage.get_usage()` | Usage snapshot (default) or billed-spend metering (with params) |
+| `usage.get_usage_stats()` | Get plan and usage snapshot (plan, limits, payment status) |
+| `usage.get_x_api_pricing()` | Get X/Twitter API pricing table |
+
+### Logs
+| Method | Description |
+|--------|-------------|
+| `logs.list_logs()` | List activity logs |
+
+### Connect (OAuth)
+| Method | Description |
+|--------|-------------|
+| `connect.list_facebook_pages()` | List Facebook pages |
+| `connect.list_google_business_locations()` | List GBP locations |
+| `connect.list_linked_in_organizations()` | List LinkedIn orgs |
+| `connect.list_pinterest_boards_for_selection()` | List Pinterest boards |
+| `connect.list_snapchat_profiles()` | List Snapchat profiles |
+| `connect.list_whats_app_phone_numbers()` | List numbers for selection |
+| `connect.create_pinterest_board()` | Create Pinterest board |
+| `connect.get_connect_url()` | Get OAuth connect URL |
+| `connect.get_facebook_pages()` | List Facebook pages |
+| `connect.get_gmb_locations()` | List GBP locations |
+| `connect.get_linked_in_organizations()` | List LinkedIn orgs |
+| `connect.get_pending_o_auth_data()` | Get pending OAuth data |
+| `connect.get_pinterest_boards()` | List Pinterest boards |
+| `connect.get_reddit_flairs()` | List subreddit flairs |
+| `connect.get_reddit_subreddits()` | List Reddit subreddits |
+| `connect.get_subreddit_rules()` | Get subreddit rules |
+| `connect.get_telegram_connect_status()` | Generate Telegram code |
+| `connect.get_youtube_playlists()` | List YouTube playlists |
+| `connect.update_facebook_page()` | Update Facebook page |
+| `connect.update_gmb_location()` | Update GBP location |
+| `connect.update_linked_in_organization()` | Switch LinkedIn account type |
+| `connect.update_pinterest_boards()` | Set default Pinterest board |
+| `connect.update_reddit_subreddits()` | Set default subreddit |
+| `connect.update_youtube_default_playlist()` | Set default YouTube playlist |
+| `connect.assign_google_business_location()` | Assign GBP location to another profile |
+| `connect.complete_telegram_connect()` | Check Telegram status |
+| `connect.complete_whats_app_phone_selection()` | Complete number selection |
+| `connect.configure_tik_tok_ads_brand_identity()` | Set TikTok brand identity |
+| `connect.connect_ads()` | Connect ads for a platform |
+| `connect.connect_bluesky_credentials()` | Connect Bluesky account |
+| `connect.connect_open_ai_ads_credentials()` | Connect an OpenAI Ads account |
+| `connect.connect_whats_app_credentials()` | Connect WhatsApp via credentials |
+| `connect.handle_o_auth_callback()` | Complete OAuth callback |
+| `connect.initiate_telegram_connect()` | Connect Telegram directly |
+| `connect.select_facebook_page()` | Select Facebook page |
+| `connect.select_google_business_location()` | Select GBP location |
+| `connect.select_linked_in_organization()` | Select LinkedIn org |
+| `connect.select_pinterest_board()` | Select Pinterest board |
+| `connect.select_snapchat_profile()` | Select Snapchat profile |
+| `connect.set_reddit_post_flair()` | Set Reddit post flair |
+| `connect.vote_reddit_thing()` | Vote on a Reddit post or comment |
+
+### Reddit
+| Method | Description |
+|--------|-------------|
+| `reddit.get_reddit_feed()` | Get subreddit feed |
+| `reddit.search_reddit()` | Search posts |
+
+### Account Settings
+| Method | Description |
+|--------|-------------|
+| `account_settings.get_instagram_ice_breakers()` | Get IG ice breakers |
+| `account_settings.get_messenger_menu()` | Get FB persistent menu |
+| `account_settings.get_telegram_commands()` | Get TG bot commands |
+| `account_settings.delete_instagram_ice_breakers()` | Delete IG ice breakers |
+| `account_settings.delete_messenger_menu()` | Delete FB persistent menu |
+| `account_settings.delete_telegram_commands()` | Delete TG bot commands |
+| `account_settings.set_instagram_ice_breakers()` | Set IG ice breakers |
+| `account_settings.set_messenger_menu()` | Set FB persistent menu |
+| `account_settings.set_telegram_commands()` | Set TG bot commands |
+
+### Ad Accounts
+| Method | Description |
+|--------|-------------|
+| `ad_accounts.list_ad_accounts()` | List ad accounts |
+| `ad_accounts.list_ad_labels()` | Ad labels |
+| `ad_accounts.list_ad_studies()` | A/B tests and lift studies |
+| `ad_accounts.list_ads_business_centers()` | List TikTok Business Centers |
+| `ad_accounts.list_high_demand_periods()` | High demand periods / budget schedules |
+| `ad_accounts.list_meta_businesses()` | Businesses list |
+| `ad_accounts.get_ad_account_finance()` | Ad account finances |
+| `ad_accounts.get_ad_comments()` | List comments on an ad |
+| `ad_accounts.get_ads_activity_log()` | Ad account change / audit log |
+| `ad_accounts.get_dsa_defaults()` | Get ad account DSA defaults |
+| `ad_accounts.get_dsa_recommendations()` | List DSA beneficiary/payor suggestions |
+| `ad_accounts.update_ad_account()` | Update ad account settings |
+
+### Ad Audiences
+| Method | Description |
+|--------|-------------|
+| `ad_audiences.list_ad_audiences()` | List custom audiences |
+| `ad_audiences.create_ad_audience()` | Create custom audience |
+| `ad_audiences.get_ad_audience()` | Get audience details |
+| `ad_audiences.update_ad_audience()` | Update an audience |
+| `ad_audiences.delete_ad_audience()` | Delete custom audience |
+| `ad_audiences.add_users_to_ad_audience()` | Add users to audience |
+
+### Ad Campaigns
+| Method | Description |
+|--------|-------------|
+| `ad_campaigns.list_ad_campaigns()` | List campaigns |
+| `ad_campaigns.list_ad_keywords()` | List Search keywords |
+| `ad_campaigns.list_ads()` | List ads |
+| `ad_campaigns.bulk_update_ad_campaign_status()` | Pause or resume many campaigns |
+| `ad_campaigns.create_ad_campaign()` | Create a standalone campaign |
+| `ad_campaigns.create_standalone_ad()` | Create standalone ad |
+| `ad_campaigns.get_ad()` | Get ad details |
+| `ad_campaigns.get_ad_set_details()` | Live ad-set details incl. learning phase |
+| `ad_campaigns.get_ad_tree()` | Get campaign tree |
+| `ad_campaigns.get_ads_timeline()` | Get daily account metrics |
+| `ad_campaigns.update_ad()` | Update ad |
+| `ad_campaigns.update_ad_campaign()` | Update a campaign |
+| `ad_campaigns.update_ad_campaign_status()` | Pause or resume a campaign |
+| `ad_campaigns.update_ad_set()` | Update an ad set |
+| `ad_campaigns.update_ad_set_status()` | Pause or resume a single ad set |
+| `ad_campaigns.update_ad_status()` | Pause or resume a single ad |
+| `ad_campaigns.delete_ad()` | Cancel an ad |
+| `ad_campaigns.delete_ad_campaign()` | Delete a campaign |
+| `ad_campaigns.boost_post()` | Boost post as ad |
+| `ad_campaigns.duplicate_ad()` | Duplicate an ad |
+| `ad_campaigns.duplicate_ad_campaign()` | Duplicate a campaign |
+| `ad_campaigns.duplicate_ad_set()` | Duplicate an ad set |
+
+### Ad Creatives
+| Method | Description |
+|--------|-------------|
+| `ad_creatives.list_ad_catalog_product_sets()` | List a catalog's product sets |
+| `ad_creatives.list_ad_catalogs()` | List Meta product catalogs |
+| `ad_creatives.list_ad_creatives()` | Creative library |
+| `ad_creatives.list_ad_images()` | Ad image library |
+| `ad_creatives.create_ad_creative()` | Create a standalone creative |
+| `ad_creatives.get_ad_creative()` | Creative details |
+| `ad_creatives.get_ad_previews()` | Render previews of an existing ad |
+| `ad_creatives.update_ad_creative()` | Rename a creative |
+| `ad_creatives.delete_ad_creative()` | Delete a creative |
+| `ad_creatives.generate_ad_previews()` | Render pre-create ad previews |
+| `ad_creatives.upload_ad_image()` | Upload an ad image from base64 |
+
+### Ad Insights
+| Method | Description |
+|--------|-------------|
+| `ad_insights.create_ad_insights_report()` | Submit an async insights report run |
+| `ad_insights.get_ad_analytics()` | Get ad analytics |
+| `ad_insights.get_ad_insights_report()` | Poll an async insights report run |
+| `ad_insights.get_campaign_analytics()` | Get campaign analytics |
+| `ad_insights.generate_keyword_historical_metrics()` | Historical keyword metrics (Google Keyword Planner) |
+| `ad_insights.generate_keyword_ideas()` | Generate keyword ideas (Google Keyword Planner) |
+| `ad_insights.query_ad_insights()` | Flexible live insights query |
+
+### Ad Targeting
+| Method | Description |
+|--------|-------------|
+| `ad_targeting.get_linked_in_bid_pricing()` | Suggested bid and budget bounds |
+| `ad_targeting.get_linked_in_supply_forecast()` | Impressions, clicks and spend forecast |
+| `ad_targeting.estimate_ad_reach()` | Estimate audience reach |
+| `ad_targeting.search_ad_interests()` | Search targeting interests |
+| `ad_targeting.search_ad_targeting()` | Search targeting options |
+
+### Broadcasts
+| Method | Description |
+|--------|-------------|
+| `broadcasts.list_broadcast_recipients()` | List broadcast recipients |
+| `broadcasts.list_broadcasts()` | List broadcasts |
+| `broadcasts.create_broadcast()` | Create broadcast draft |
+| `broadcasts.get_broadcast()` | Get broadcast details |
+| `broadcasts.update_broadcast()` | Update broadcast |
+| `broadcasts.delete_broadcast()` | Delete broadcast |
+| `broadcasts.add_broadcast_recipients()` | Add recipients to a broadcast |
+| `broadcasts.cancel_broadcast()` | Cancel broadcast |
+| `broadcasts.schedule_broadcast()` | Schedule broadcast for later |
+| `broadcasts.send_broadcast()` | Send broadcast now |
+
+### Calls
+| Method | Description |
+|--------|-------------|
+| `calls.list_calls()` | List all calls (unified history) |
+| `calls.get_call()` | Get a call (any channel) |
+| `calls.get_call_recording()` | Get a call recording |
+
+### Comment Automations
+| Method | Description |
+|--------|-------------|
+| `comment_automations.list_comment_automation_logs()` | List automation logs |
+| `comment_automations.list_comment_automations()` | List comment-to-DM automations |
+| `comment_automations.create_comment_automation()` | Create comment-to-DM automation |
+| `comment_automations.get_comment_automation()` | Get automation details |
+| `comment_automations.update_comment_automation()` | Update automation settings |
+| `comment_automations.delete_comment_automation()` | Delete automation |
+
+### Comments (Inbox)
+| Method | Description |
+|--------|-------------|
+| `comments.list_inbox_comments()` | List commented posts |
+| `comments.get_inbox_post_comments()` | Get post comments |
+| `comments.delete_inbox_comment()` | Delete comment |
+| `comments.edit_inbox_comment()` | Edit comment |
+| `comments.hide_inbox_comment()` | Hide comment |
+| `comments.like_inbox_comment()` | Like comment |
+| `comments.reply_to_inbox_post()` | Reply to comment |
+| `comments.send_private_reply_to_comment()` | Send private reply |
+| `comments.set_comment_moderation()` | Set comment moderation status |
+| `comments.unhide_inbox_comment()` | Unhide comment |
+| `comments.unlike_inbox_comment()` | Unlike comment |
+
+### Connected Apps
+| Method | Description |
+|--------|-------------|
+| `connected_apps.list_connected_apps()` | List connected apps |
+| `connected_apps.revoke_connected_app()` | Revoke connected app |
+
+### Contacts
+| Method | Description |
+|--------|-------------|
+| `contacts.list_contacts()` | List contacts |
+| `contacts.bulk_create_contacts()` | Bulk create contacts |
+| `contacts.create_contact()` | Create contact |
+| `contacts.get_contact()` | Get contact |
+| `contacts.get_contact_channels()` | List channels for a contact |
+| `contacts.update_contact()` | Update contact |
+| `contacts.delete_contact()` | Delete contact |
+
+### Conversions
+| Method | Description |
+|--------|-------------|
+| `conversions.list_conversion_associations()` | List associated campaigns |
+| `conversions.list_conversion_destinations()` | List conversion destinations |
+| `conversions.create_conversion_destination()` | Create a conversion destination |
+| `conversions.get_conversion_destination()` | Get a conversion destination |
+| `conversions.get_conversion_metrics()` | Get attribution metrics |
+| `conversions.get_conversions_quality()` | Get Event Match Quality |
+| `conversions.update_conversion_destination()` | Update a conversion destination |
+| `conversions.delete_conversion_destination()` | Delete a conversion destination |
+| `conversions.add_conversion_associations()` | Associate campaigns |
+| `conversions.adjust_conversions()` | Adjust uploaded conversions |
+| `conversions.remove_conversion_associations()` | Remove associated campaigns |
+| `conversions.send_conversions()` | Send conversion events |
+
+### Custom Fields
+| Method | Description |
+|--------|-------------|
+| `custom_fields.list_custom_fields()` | List custom field definitions |
+| `custom_fields.create_custom_field()` | Create custom field |
+| `custom_fields.update_custom_field()` | Update custom field |
+| `custom_fields.delete_custom_field()` | Delete custom field |
+| `custom_fields.clear_contact_field_value()` | Clear custom field value |
+| `custom_fields.set_contact_field_value()` | Set custom field value |
+
+### Discord
+| Method | Description |
+|--------|-------------|
+| `discord.list_discord_guild_members()` | List Discord guild members |
+| `discord.list_discord_guild_roles()` | List Discord guild roles |
+| `discord.list_discord_pinned_messages()` | List pinned messages |
+| `discord.list_discord_scheduled_events()` | List Discord scheduled events |
+| `discord.create_discord_guild_role()` | Create a Discord guild role |
+| `discord.create_discord_scheduled_event()` | Create a Discord scheduled event |
+| `discord.create_discord_thread()` | Create a Discord public thread |
+| `discord.get_discord_channels()` | List Discord guild channels |
+| `discord.get_discord_guild_member()` | Get a Discord guild member |
+| `discord.get_discord_scheduled_event()` | Get a Discord scheduled event |
+| `discord.get_discord_settings()` | Get Discord account settings |
+| `discord.update_discord_scheduled_event()` | Update a Discord scheduled event |
+| `discord.update_discord_settings()` | Update Discord settings |
+| `discord.delete_discord_guild_role()` | Delete a Discord guild role |
+| `discord.delete_discord_message()` | Delete a Discord channel message |
+| `discord.delete_discord_scheduled_event()` | Delete a Discord scheduled event |
+| `discord.add_discord_member_role()` | Assign a role to a guild member |
+| `discord.crosspost_discord_message()` | Crosspost Discord message |
+| `discord.edit_discord_guild_role()` | Edit a Discord guild role |
+| `discord.pin_discord_message()` | Pin a Discord message |
+| `discord.remove_discord_member_role()` | Remove a role from a guild member |
+| `discord.search_discord_guild_members()` | Search Discord guild members |
+| `discord.send_discord_direct_message()` | Send a Discord Direct Message |
+| `discord.unpin_discord_message()` | Unpin a Discord message |
+
+### GMB Attributes
+| Method | Description |
+|--------|-------------|
+| `gmb_attributes.get_gmb_attribute_metadata()` | Get attribute metadata |
+| `gmb_attributes.get_google_business_attributes()` | Get attributes |
+| `gmb_attributes.update_google_business_attributes()` | Update attributes |
+
+### GMB Food Menus
+| Method | Description |
+|--------|-------------|
+| `gmb_food_menus.get_google_business_food_menus()` | Get food menus |
+| `gmb_food_menus.update_google_business_food_menus()` | Update food menus |
+
+### GMB Location Details
+| Method | Description |
+|--------|-------------|
+| `gmb_location_details.get_google_business_location_details()` | Get location details |
+| `gmb_location_details.update_google_business_location_details()` | Update location details |
+
+### GMB Media
+| Method | Description |
+|--------|-------------|
+| `gmb_media.list_google_business_media()` | List media |
+| `gmb_media.create_google_business_media()` | Upload photo |
+| `gmb_media.delete_google_business_media()` | Delete photo |
+
+### GMB Place Actions
+| Method | Description |
+|--------|-------------|
+| `gmb_place_actions.list_google_business_place_actions()` | List action links |
+| `gmb_place_actions.create_google_business_place_action()` | Create action link |
+| `gmb_place_actions.update_google_business_place_action()` | Update action link |
+| `gmb_place_actions.delete_google_business_place_action()` | Delete action link |
+
+### GMB Services
+| Method | Description |
+|--------|-------------|
+| `gmb_services.get_google_business_services()` | Get services |
+| `gmb_services.update_google_business_services()` | Replace services |
+
+### GMB Verifications
+| Method | Description |
+|--------|-------------|
+| `gmb_verifications.get_google_business_verifications()` | Get verification state |
+| `gmb_verifications.complete_google_business_verification()` | Complete a verification |
+| `gmb_verifications.fetch_google_business_verification_options()` | Fetch verification options |
+| `gmb_verifications.start_google_business_verification()` | Start a verification |
+
+### Inbox Analytics
+| Method | Description |
+|--------|-------------|
+| `inbox_analytics.list_inbox_conversation_analytics()` | List conversation analytics |
+| `inbox_analytics.get_inbox_conversation_analytics()` | Get conversation analytics |
+| `inbox_analytics.get_inbox_heatmap()` | Get day × hour heatmap |
+| `inbox_analytics.get_inbox_response_time()` | Get inbox response-time stats |
+| `inbox_analytics.get_inbox_source_breakdown()` | Get inbox source breakdown |
+| `inbox_analytics.get_inbox_top_accounts()` | Get top accounts by inbox volume |
+| `inbox_analytics.get_inbox_volume()` | Get inbox messaging volume |
+
+### Instagram
+| Method | Description |
+|--------|-------------|
+| `instagram.list_instagram_stories()` | List active Instagram stories |
+| `instagram.get_instagram_publishing_limit()` | Get Instagram publishing limit |
+| `instagram.get_instagram_story_insights()` | Get Instagram story insights |
+
+### Lead Gen
+| Method | Description |
+|--------|-------------|
+| `lead_gen.list_form_leads()` | List leads for a single form |
+| `lead_gen.list_lead_forms()` | List lead forms |
+| `lead_gen.list_leads()` | List submitted leads |
+| `lead_gen.create_lead_form()` | Create a lead form |
+| `lead_gen.create_test_lead()` | Create a test lead |
+| `lead_gen.get_lead_form()` | Get a lead form |
+| `lead_gen.archive_lead_form()` | Archive a lead form |
+
+### Mentions
+| Method | Description |
+|--------|-------------|
+| `mentions.list_inbox_mentions()` | List mentions |
+| `mentions.reply_to_mention()` | Reply to a mention |
+
+### Messages (Inbox)
+| Method | Description |
+|--------|-------------|
+| `messages.list_inbox_conversations()` | List conversations |
+| `messages.create_inbox_conversation()` | Create conversation |
+| `messages.get_inbox_conversation()` | Get conversation |
+| `messages.get_inbox_conversation_messages()` | List messages |
+| `messages.update_inbox_conversation()` | Update conversation status |
+| `messages.delete_inbox_message()` | Delete message |
+| `messages.add_message_reaction()` | Add reaction |
+| `messages.edit_inbox_message()` | Edit message |
+| `messages.mark_conversation_read()` | Mark a conversation as read |
+| `messages.remove_message_reaction()` | Remove reaction |
+| `messages.search_inbox_conversations()` | Search conversations |
+| `messages.send_inbox_message()` | Send message |
+| `messages.send_typing_indicator()` | Send typing indicator |
+| `messages.upload_media_direct()` | Upload media file |
+
+### Messaging Ads
+| Method | Description |
+|--------|-------------|
+| `messaging_ads.create_call_ad()` | Create Click-to-Call ad |
+| `messaging_ads.create_ctwa_ad()` | Create Click-to-WhatsApp ad (deprecated) |
+| `messaging_ads.create_messaging_ad()` | Create click-to-message ad (WhatsApp / Messenger / Instagram Direct) |
+
+### Phone Numbers
+| Method | Description |
+|--------|-------------|
+| `phone_numbers.list_phone_number_countries()` | List offerable number countries |
+| `phone_numbers.list_phone_number_port_ins()` | List port-in orders |
+| `phone_numbers.list_phone_numbers()` | List phone numbers |
+| `phone_numbers.create_phone_number_kyc_link()` | Create a hosted KYC link |
+| `phone_numbers.create_phone_number_port_in()` | Port numbers in |
+| `phone_numbers.get_phone_number()` | Get phone number |
+| `phone_numbers.get_phone_number_kyc_form()` | Get KYC form spec |
+| `phone_numbers.get_phone_number_port_in_order_requirements()` | A port-in order's pending requirements |
+| `phone_numbers.get_phone_number_port_in_requirements()` | Country porting requirements |
+| `phone_numbers.get_phone_number_remediation()` | Get declined requirements |
+| `phone_numbers.cancel_phone_number_port_in()` | Cancel a port-in |
+| `phone_numbers.check_phone_number_availability()` | Check country availability |
+| `phone_numbers.check_phone_number_portability()` | Check portability |
+| `phone_numbers.purchase_phone_number()` | Purchase phone number |
+| `phone_numbers.release_phone_number()` | Release phone number |
+| `phone_numbers.remediate_phone_number()` | Resubmit a declined number |
+| `phone_numbers.reply_to_phone_number_reviewer()` | Reply to the regulatory reviewer |
+| `phone_numbers.respond_to_phone_number_reviewer()` | Respond to the regulatory reviewer (message + corrections) |
+| `phone_numbers.review_phone_number_kyc_packet()` | Pre-review a KYC packet |
+| `phone_numbers.search_available_phone_numbers()` | Search available numbers |
+| `phone_numbers.submit_phone_number_kyc()` | Submit KYC |
+| `phone_numbers.upload_phone_number_kyc_document()` | Upload a KYC document |
+| `phone_numbers.upload_phone_number_port_in_document()` | Upload a porting document |
+| `phone_numbers.validate_phone_number_kyc_address()` | Pre-validate KYC address |
+| `phone_numbers.view_phone_number_kyc_document()` | View a KYC document on file |
+
+### Reach and Frequency
+| Method | Description |
+|--------|-------------|
+| `reach_and_frequency.create_rf_prediction()` | Create a Reach & Frequency prediction |
+| `reach_and_frequency.get_rf_prediction()` | Read a Reach & Frequency prediction |
+| `reach_and_frequency.cancel_rf_reservation()` | Cancel a Reach & Frequency reservation |
+| `reach_and_frequency.reserve_rf_prediction()` | Reserve a Reach & Frequency prediction |
+
+### Reviews (Inbox)
+| Method | Description |
+|--------|-------------|
+| `reviews.list_inbox_reviews()` | List reviews |
+| `reviews.delete_inbox_review_reply()` | Delete review reply |
+| `reviews.reply_to_inbox_review()` | Reply to review |
+
+### Sequences
+| Method | Description |
+|--------|-------------|
+| `sequences.list_sequence_enrollments()` | List enrollments for a sequence |
+| `sequences.list_sequences()` | List sequences |
+| `sequences.create_sequence()` | Create sequence |
+| `sequences.get_sequence()` | Get sequence with steps |
+| `sequences.update_sequence()` | Update sequence |
+| `sequences.delete_sequence()` | Delete sequence |
+| `sequences.activate_sequence()` | Activate sequence |
+| `sequences.enroll_contacts()` | Enroll contacts in a sequence |
+| `sequences.pause_sequence()` | Pause sequence |
+| `sequences.unenroll_contact()` | Unenroll contact |
+
+### SMS
+| Method | Description |
+|--------|-------------|
+| `sms.list_sms_opt_outs()` | List SMS opt-outs |
+| `sms.list_sms_registrations()` | List carrier registrations |
+| `sms.list_sms_sender_ids()` | List alphanumeric sender IDs |
+| `sms.create_sms_sender_id()` | Create an alphanumeric sender ID |
+| `sms.get_sms_registration()` | Get a carrier registration |
+| `sms.delete_sms_sender_id()` | Delete an alphanumeric sender ID |
+| `sms.appeal_sms_registration()` | Appeal a rejected campaign |
+| `sms.deactivate_sms_registration()` | Deactivate a brand/campaign registration |
+| `sms.disable_sms_on_number()` | Disable SMS on a number |
+| `sms.enable_sms_on_number()` | Enable SMS on a number |
+| `sms.lookup_sms_number()` | Look up carrier + line type |
+| `sms.preflight_sms_registration()` | Pre-check a carrier registration |
+| `sms.request_sms_sender_id_limit_increase()` | Request a higher sender ID daily limit |
+| `sms.resend_sms_registration_otp()` | Re-send the sole-prop OTP |
+| `sms.respond_to_sms_registration_review()` | Reply to a change request |
+| `sms.reuse_sms_registration_for_number()` | Add number to SMS registration |
+| `sms.send_sms()` | Send an SMS/MMS |
+| `sms.share_sms_registration()` | Create a registration share link |
+| `sms.start_sms_registration()` | Start a carrier registration |
+| `sms.upload_sms_opt_in_proof()` | Upload opt-in form proof for an appeal |
+| `sms.upload_sms_opt_in_proof_file()` | Upload opt-in form proof |
+| `sms.verify_sms_registration_otp()` | Submit the sole-prop OTP |
+
+### Tracking Tags
+| Method | Description |
+|--------|-------------|
+| `tracking_tags.list_tracking_tag_shared_accounts()` | List accounts it is shared with |
+| `tracking_tags.list_tracking_tags()` | List tracking tags |
+| `tracking_tags.create_tracking_tag()` | Create a tracking tag |
+| `tracking_tags.get_ad_tracking_tags()` | Get ad tracking tags |
+| `tracking_tags.get_tracking_tag()` | Get a tracking tag |
+| `tracking_tags.get_tracking_tag_stats()` | Get aggregated event stats |
+| `tracking_tags.update_ad_tracking_tags()` | Set ad tracking tags |
+| `tracking_tags.update_tracking_tag()` | Update a tracking tag |
+| `tracking_tags.add_tracking_tag_shared_account()` | Share with an ad account |
+| `tracking_tags.remove_tracking_tag_shared_account()` | Stop sharing with an account |
+
+### Twitter Engagement
+| Method | Description |
+|--------|-------------|
+| `twitter_engagement.bookmark_post()` | Bookmark a tweet |
+| `twitter_engagement.follow_user()` | Follow a user |
+| `twitter_engagement.remove_bookmark()` | Remove bookmark |
+| `twitter_engagement.retweet_post()` | Retweet a post |
+| `twitter_engagement.search_tweets()` | Search recent tweets |
+| `twitter_engagement.undo_retweet()` | Undo retweet |
+| `twitter_engagement.unfollow_user()` | Unfollow a user |
+
+### Validate
+| Method | Description |
+|--------|-------------|
+| `validate.validate_media()` | Validate media URL |
+| `validate.validate_post()` | Validate post content |
+| `validate.validate_post_length()` | Validate character count |
+| `validate.validate_subreddit()` | Check subreddit existence |
+
+### Verify
+| Method | Description |
+|--------|-------------|
+| `verify.create_verification()` | Send a verification code |
+| `verify.get_verification()` | Get a verification |
+| `verify.check_verification()` | Check a verification code |
+
+### Voice
+| Method | Description |
+|--------|-------------|
+| `voice.list_voice_calls()` | List phone calls |
+| `voice.create_voice_call()` | Place an outbound phone call |
+| `voice.create_voice_web_session()` | Mint a browser softphone session |
+| `voice.get_voice_call()` | Get a phone call |
+| `voice.get_voice_call_estimate()` | Estimate call cost |
+| `voice.get_voice_call_recording()` | Get a call recording |
+| `voice.dial_voice_web_call()` | Dial from the browser softphone |
+| `voice.disable_voice_on_number()` | Disable phone calling on a number |
+| `voice.enable_voice_on_number()` | Enable phone calling on a number |
+| `voice.end_voice_call()` | Hang up a live call |
+| `voice.transfer_voice_call()` | Blind-transfer a live call |
+
+### WhatsApp
+| Method | Description |
+|--------|-------------|
+| `whatsapp.list_whats_app_conversions()` | List conversion events |
+| `whatsapp.list_whats_app_group_chats()` | List active groups |
+| `whatsapp.list_whats_app_group_join_requests()` | List join requests |
+| `whatsapp.create_whats_app_dataset()` | Provision CTWA dataset |
+| `whatsapp.create_whats_app_group_chat()` | Create group |
+| `whatsapp.create_whats_app_group_invite_link()` | Create invite link |
+| `whatsapp.create_whats_app_template()` | Create template |
+| `whatsapp.get_whats_app_block_status()` | Check if a user is blocked |
+| `whatsapp.get_whats_app_blocked_users()` | List blocked users |
+| `whatsapp.get_whats_app_business_profile()` | Get business profile |
+| `whatsapp.get_whats_app_dataset()` | Get CTWA conversions dataset |
+| `whatsapp.get_whats_app_display_name()` | Get display name status |
+| `whatsapp.get_whats_app_group_chat()` | Get group info |
+| `whatsapp.get_whats_app_media()` | Download WhatsApp media |
+| `whatsapp.get_whats_app_template()` | Get template |
+| `whatsapp.get_whats_app_templates()` | List templates |
+| `whatsapp.get_whatsapp_business_username()` | Get business username |
+| `whatsapp.get_whatsapp_business_username_suggestions()` | Get username suggestions |
+| `whatsapp.update_whats_app_business_profile()` | Update business profile |
+| `whatsapp.update_whats_app_display_name()` | Request display name change |
+| `whatsapp.update_whats_app_group_chat()` | Update group settings |
+| `whatsapp.update_whats_app_template()` | Update template |
+| `whatsapp.delete_whats_app_group_chat()` | Delete group |
+| `whatsapp.delete_whats_app_template()` | Delete template |
+| `whatsapp.delete_whatsapp_business_username()` | Delete business username |
+| `whatsapp.add_whats_app_group_participants()` | Add participants |
+| `whatsapp.approve_whats_app_group_join_requests()` | Approve join requests |
+| `whatsapp.block_whats_app_users()` | Block users |
+| `whatsapp.register_whats_app_number()` | Register a connected WhatsApp number on the Cloud API |
+| `whatsapp.reject_whats_app_group_join_requests()` | Reject join requests |
+| `whatsapp.remove_whats_app_group_participants()` | Remove participants |
+| `whatsapp.send_whats_app_conversion()` | Send WhatsApp conversion event |
+| `whatsapp.set_whatsapp_business_username()` | Set business username |
+| `whatsapp.unblock_whats_app_users()` | Unblock users |
+| `whatsapp.upload_whats_app_profile_photo()` | Upload profile picture |
+
+### WhatsApp Calling
+| Method | Description |
+|--------|-------------|
+| `whatsapp_calling.list_whats_app_calls()` | List call history for an account |
+| `whatsapp_calling.get_whats_app_call()` | Get a single call |
+| `whatsapp_calling.get_whats_app_call_estimate()` | Estimate per-minute cost |
+| `whatsapp_calling.get_whats_app_call_permissions()` | Check call permission |
+| `whatsapp_calling.get_whats_app_call_recording()` | Get a call recording |
+| `whatsapp_calling.get_whats_app_calling()` | Get calling config for a number |
+| `whatsapp_calling.get_whats_app_calling_config()` | Get calling config for an account |
+| `whatsapp_calling.update_whats_app_calling()` | Update calling config |
+| `whatsapp_calling.update_whats_app_calling_legacy()` | Update calling config |
+| `whatsapp_calling.disable_whats_app_calling()` | Disable calling on a number |
+| `whatsapp_calling.disable_whats_app_calling_legacy()` | Disable calling on a number |
+| `whatsapp_calling.enable_whats_app_calling()` | Enable calling on a number |
+| `whatsapp_calling.enable_whats_app_calling_legacy()` | Enable calling on a number |
+| `whatsapp_calling.initiate_whats_app_call()` | Initiate outbound call |
+| `whatsapp_calling.start_whats_app_caller_id_verification()` | Start caller-ID verification for a customer-brought number |
+| `whatsapp_calling.verify_whats_app_caller_id()` | Confirm the caller-ID verification code |
+
+### WhatsApp Flows
+| Method | Description |
+|--------|-------------|
+| `whatsapp_flows.list_whats_app_flow_responses()` | List flow responses |
+| `whatsapp_flows.list_whats_app_flow_versions()` | List flow versions |
+| `whatsapp_flows.list_whats_app_flows()` | List flows |
+| `whatsapp_flows.create_whats_app_flow()` | Create flow |
+| `whatsapp_flows.get_whats_app_flow()` | Get flow |
+| `whatsapp_flows.get_whats_app_flow_json()` | Get flow JSON asset |
+| `whatsapp_flows.get_whats_app_flow_preview()` | Get flow preview URL |
+| `whatsapp_flows.update_whats_app_flow()` | Update flow |
+| `whatsapp_flows.delete_whats_app_flow()` | Delete flow |
+| `whatsapp_flows.deprecate_whats_app_flow()` | Deprecate flow |
+| `whatsapp_flows.publish_whats_app_flow()` | Publish flow |
+| `whatsapp_flows.send_whats_app_flow_message()` | Send flow message |
+| `whatsapp_flows.upload_whats_app_flow_json()` | Upload flow JSON |
+
+### WhatsApp Phone Numbers
+| Method | Description |
+|--------|-------------|
+| `whatsapp_phone_numbers.list_whats_app_number_countries()` | List offerable number countries |
+| `whatsapp_phone_numbers.create_whats_app_number_kyc_link()` | Create a hosted KYC link |
+| `whatsapp_phone_numbers.get_whats_app_number_info()` | Get number status |
+| `whatsapp_phone_numbers.get_whats_app_number_kyc_form()` | Get KYC form spec |
+| `whatsapp_phone_numbers.get_whats_app_number_remediation()` | Get declined requirements |
+| `whatsapp_phone_numbers.get_whats_app_phone_number()` | Get phone number |
+| `whatsapp_phone_numbers.get_whats_app_phone_numbers()` | List phone numbers |
+| `whatsapp_phone_numbers.check_whats_app_number_availability()` | Check country availability |
+| `whatsapp_phone_numbers.purchase_whats_app_phone_number()` | Purchase phone number |
+| `whatsapp_phone_numbers.release_whats_app_phone_number()` | Release phone number |
+| `whatsapp_phone_numbers.remediate_whats_app_number()` | Resubmit a declined number |
+| `whatsapp_phone_numbers.search_available_whats_app_numbers()` | Search available numbers |
+| `whatsapp_phone_numbers.submit_whats_app_number_kyc()` | Submit KYC |
+| `whatsapp_phone_numbers.upload_whats_app_number_kyc_document()` | Upload a KYC document |
+| `whatsapp_phone_numbers.validate_whats_app_number_kyc_address()` | Pre-validate KYC address |
+
+### WhatsApp Sandbox
+| Method | Description |
+|--------|-------------|
+| `whatsapp_sandbox.list_whats_app_sandbox_sessions()` | List your sandbox sessions |
+| `whatsapp_sandbox.create_whats_app_sandbox_session()` | Start a sandbox activation |
+| `whatsapp_sandbox.delete_whats_app_sandbox_session()` | Revoke a sandbox session |
+
+### WhatsApp Templates
+| Method | Description |
+|--------|-------------|
+| `whatsapp_templates.get_whats_app_library_template()` | Look up a library template |
+
+### Workflows
+| Method | Description |
+|--------|-------------|
+| `workflows.list_workflow_execution_events()` | Get an execution's timeline |
+| `workflows.list_workflow_executions()` | List workflow runs |
+| `workflows.list_workflow_versions()` | List a workflow's version history |
+| `workflows.list_workflows()` | List workflows |
+| `workflows.create_workflow()` | Create workflow |
+| `workflows.get_workflow()` | Get workflow with graph |
+| `workflows.get_workflow_version()` | Get a specific workflow version |
+| `workflows.update_workflow()` | Update workflow |
+| `workflows.delete_workflow()` | Delete workflow |
+| `workflows.activate_workflow()` | Activate workflow |
+| `workflows.duplicate_workflow()` | Duplicate a workflow |
+| `workflows.pause_workflow()` | Pause workflow |
+| `workflows.restore_workflow_version()` | Restore a workflow version |
+| `workflows.trigger_workflow()` | Manually start a workflow run |
+
+### Invites
+| Method | Description |
+|--------|-------------|
+| `invites.create_invite_token()` | Create invite token |
+
+## MCP Server (Claude Desktop)
+
+The SDK includes a Model Context Protocol (MCP) server for integration with Claude Desktop. See [MCP documentation](https://docs.zernio.com/resources/mcp) for setup instructions.
+
+```bash
+pip install zernio-sdk[mcp]
+```
+
+## Requirements
+
+- Python 3.10+
+- [Zernio API key](https://zernio.com) (free tier available)
+
+## Links
+
+- [Documentation](https://docs.zernio.com)
+- [Dashboard](https://zernio.com/dashboard)
+- [Changelog](https://docs.zernio.com/changelog)
+
+## License
+
+Apache-2.0

@@ -1,6 +1,0 @@
-wrappers:
-  - timeout:
-      abort-and-restart: true
-      max-restarts: 2
-      timeout: 40
-      type: absolute

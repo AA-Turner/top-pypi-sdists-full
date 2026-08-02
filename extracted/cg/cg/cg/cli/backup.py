@@ -1,0 +1,175 @@
+"""Backup related CLI commands."""
+
+import logging
+from pathlib import Path
+
+import rich_click as click
+
+from cg.apps.slurm.slurm_api import SlurmAPI
+from cg.cli.utils import CLICK_CONTEXT_SETTINGS
+from cg.constants.cli_options import DRY_RUN
+from cg.constants.constants import SequencingRunDataAvailability
+from cg.exc import (
+    DsmcAlreadyRunningError,
+    FlowCellError,
+    IlluminaRunAlreadyBackedUpError,
+    IlluminaRunEncryptionError,
+    PdcError,
+)
+from cg.meta.encryption.encryption import EncryptionAPI
+from cg.meta.tar.tar import TarAPI
+from cg.models.cg_config import CGConfig
+from cg.models.run_devices.illumina_run_directory_data import (
+    IlluminaRunDirectoryData,
+    get_sequencing_runs_from_path,
+)
+from cg.services.illumina.backup.backup_service import IlluminaBackupService
+from cg.services.illumina.backup.encrypt_service import IlluminaRunEncryptionService
+from cg.store.exc import EntryNotFoundError
+from cg.store.models import IlluminaSequencingRun
+from cg.store.store import Store
+
+LOG = logging.getLogger(__name__)
+
+
+@click.group(context_settings=CLICK_CONTEXT_SETTINGS)
+@click.pass_obj
+def backup(context: CGConfig):
+    """Backup utilities"""
+    pass
+
+
+@backup.command("illumina-runs")
+@DRY_RUN
+@click.pass_obj
+def backup_illumina_runs(context: CGConfig, dry_run: bool):
+    """Back-up Illumina runs."""
+    pdc_service = context.pdc_service
+    pdc_service.dry_run = dry_run
+    encryption_api = EncryptionAPI(binary_path=context.encryption.binary_path, dry_run=dry_run)
+    tar_api = TarAPI(binary_path=context.tar.binary_path, dry_run=dry_run)
+    backup_service = IlluminaBackupService(
+        encryption_api=encryption_api,
+        pdc_archiving_directory=context.illumina_backup_service.pdc_archiving_directory,
+        status_db=context.status_db,
+        tar_api=tar_api,
+        pdc_service=pdc_service,
+        sequencing_runs_dir=context.run_instruments.illumina.sequencing_runs_dir,
+        dry_run=dry_run,
+    )
+    backup_service.dry_run = dry_run
+    status_db: Store = context.status_db
+    runs_dir_data: list[IlluminaRunDirectoryData] = get_sequencing_runs_from_path(
+        sequencing_run_dir=Path(context.run_instruments.illumina.sequencing_runs_dir)
+    )
+    for run_dir_data in runs_dir_data:
+        try:
+            sequencing_run: IlluminaSequencingRun = (
+                status_db.get_illumina_sequencing_run_by_device_internal_id(run_dir_data.id)
+            )
+            backup_service.start_run_backup(
+                run_dir_data=run_dir_data,
+                sequencing_run=sequencing_run,
+                status_db=status_db,
+                binary_path=context.encryption.binary_path,
+                encryption_dir=Path(context.encryption.encryption_dir),
+                pigz_binary_path=context.pigz.binary_path,
+                sbatch_parameter=context.illumina_backup_service.slurm_flow_cell_encryption.dict(),
+            )
+        except EntryNotFoundError as error:
+            logging.error(f"{error}")
+            continue
+        except (
+            DsmcAlreadyRunningError,
+            IlluminaRunAlreadyBackedUpError,
+            IlluminaRunEncryptionError,
+            PdcError,
+        ) as error:
+            logging.error(f"{error}")
+
+
+@backup.command("encrypt-illumina-runs")
+@DRY_RUN
+@click.pass_obj
+def encrypt_illumina_runs(context: CGConfig, dry_run: bool):
+    """Encrypt illumina runs."""
+    status_db: Store = context.status_db
+    runs: list[IlluminaRunDirectoryData] = get_sequencing_runs_from_path(
+        sequencing_run_dir=Path(context.run_instruments.illumina.sequencing_runs_dir)
+    )
+    for run in runs:
+        try:
+            sequencing_run: IlluminaSequencingRun = (
+                status_db.get_illumina_sequencing_run_by_device_internal_id(run.id)
+            )
+        except EntryNotFoundError as error:
+            LOG.error(f"{error}")
+            continue
+        if sequencing_run.has_backup:
+            LOG.debug(f"Run: {run.id} is already backed-up")
+            continue
+        illumina_run_encryption_service = IlluminaRunEncryptionService(
+            binary_path=context.encryption.binary_path,
+            dry_run=dry_run,
+            encryption_dir=Path(context.encryption.encryption_dir),
+            run_dir_data=run,
+            pigz_binary_path=context.pigz.binary_path,
+            slurm_api=SlurmAPI(),
+            sbatch_parameter=context.illumina_backup_service.slurm_flow_cell_encryption.dict(),
+            tar_api=TarAPI(binary_path=context.tar.binary_path, dry_run=dry_run),
+        )
+        try:
+            illumina_run_encryption_service.start_encryption()
+        except (FlowCellError, IlluminaRunEncryptionError) as error:
+            logging.error(f"{error}")
+
+
+@backup.command("fetch-illumina-run")
+@click.option("-f", "--flow-cell-id", help="Retrieve a specific flow cell, ex. 'HCK2KDSXX'")
+@DRY_RUN
+@click.pass_obj
+def fetch_illumina_run(context: CGConfig, dry_run: bool, flow_cell_id: str | None = None):
+    """Fetch the first Illumina run in the requested queue from backup."""
+
+    pdc_service = context.pdc_service
+    pdc_service.dry_run = dry_run
+    encryption_api = EncryptionAPI(binary_path=context.encryption.binary_path, dry_run=dry_run)
+    tar_api = TarAPI(binary_path=context.tar.binary_path, dry_run=dry_run)
+    context.meta_apis["backup_api"] = IlluminaBackupService(
+        encryption_api=encryption_api,
+        pdc_archiving_directory=context.illumina_backup_service.pdc_archiving_directory,
+        status_db=context.status_db,
+        tar_api=tar_api,
+        pdc_service=pdc_service,
+        sequencing_runs_dir=context.run_instruments.illumina.sequencing_runs_dir,
+        dry_run=dry_run,
+    )
+    backup_api: IlluminaBackupService = context.meta_apis["backup_api"]
+
+    status_db: Store = context.status_db
+    sequencing_run: IlluminaSequencingRun | None = None
+    if not flow_cell_id:
+        LOG.info("Fetching first sequencing run in queue")
+    try:
+        if flow_cell_id:
+            sequencing_run: IlluminaSequencingRun = (
+                status_db.get_illumina_sequencing_run_by_device_internal_id(flow_cell_id)
+            )
+    except EntryNotFoundError as error:
+        LOG.error(f"{error}")
+        raise click.Abort
+
+    retrieval_time: float | None = backup_api.fetch_sequencing_run(sequencing_run)
+
+    if retrieval_time:
+        hours = retrieval_time / 60 / 60
+        LOG.info(f"Retrieval time: {hours:.1}h")
+        return
+
+    if not dry_run and sequencing_run:
+        LOG.info(
+            f"{sequencing_run}: updating sequencing run data availability to {SequencingRunDataAvailability.REQUESTED}"
+        )
+        status_db.update_illumina_sequencing_run_data_availability(
+            sequencing_run=sequencing_run, data_availability=SequencingRunDataAvailability.REQUESTED
+        )

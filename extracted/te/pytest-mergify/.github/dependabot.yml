@@ -1,0 +1,23 @@
+version: 2
+updates:
+  # Only the uv ecosystem keeps uv.lock in sync with pyproject.toml; pip leaves
+  # it stale, which CI rejects because it resolves with UV_LOCKED=1.
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: daily
+      # Dependabot reads a bare 09:00 as a YAML 1.1 sexagesimal integer and
+      # rejects it; the quotes force a string (yamllint 1.2 deems them redundant).
+      time: "09:00"  # yamllint disable-line rule:quoted-strings
+      timezone: Europe/Paris
+    open-pull-requests-limit: 10
+    cooldown:
+      default-days: 7
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: daily
+      time: "09:00"  # yamllint disable-line rule:quoted-strings
+      timezone: Europe/Paris
+    cooldown:
+      default-days: 7

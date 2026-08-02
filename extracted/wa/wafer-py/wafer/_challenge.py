@@ -1,0 +1,454 @@
+"""Challenge detection for 18 WAF types.
+
+Pure logic, no I/O. Inspects status code, headers, and body to identify
+which WAF/challenge system is blocking a request.
+
+Detection order is intentional:
+1. Inline-solvable challenges first (ACW, TMD, Amazon, Reddit)
+2. Browser-solvable challenges next (Cloudflare, Akamai, DataDome, etc.)
+3. Generic JS fallback last
+"""
+
+import enum
+import logging
+
+from wafer._solvers import is_reddit_verification
+
+logger = logging.getLogger("wafer")
+
+
+class ChallengeType(enum.Enum):
+    """WAF/challenge types that wafer can detect."""
+
+    CLOUDFLARE = "cloudflare"
+    AKAMAI = "akamai"
+    DATADOME = "datadome"
+    PERIMETERX = "perimeterx"
+    IMPERVA = "imperva"
+    KASADA = "kasada"
+    SHAPE = "shape"
+    AWSWAF = "awswaf"
+    ACW = "acw"
+    TMD = "tmd"
+    AMAZON = "amazon"
+    REDDIT = "reddit"
+    VERCEL = "vercel"
+    ARKOSE = "arkose"
+    GEETEST = "geetest"
+    HCAPTCHA = "hcaptcha"
+    RECAPTCHA = "recaptcha"
+    GENERIC_JS = "generic_js"
+    CLOUDFLARE_BLOCK = "cloudflare_block"
+
+
+# Terminal classifications: the WAF denied the request outright instead of
+# issuing something to solve. Nothing wafer can vary — fingerprint, headers,
+# a real browser — changes the answer, so these never reach the retry,
+# rotation, or browser-solve paths; they are reported to the caller at once.
+TERMINAL_CHALLENGES = frozenset({ChallengeType.CLOUDFLARE_BLOCK})
+
+
+# Challenge types that require JS execution to solve. Fingerprint
+# rotation alone cannot help — browser solver should be tried early.
+# DataDome is included because its cookie is TLS+IP bound: when the
+# TLS client gets 403, rotation to a different fingerprint from the
+# same IP rarely helps, and each failed attempt poisons the IP for
+# the subsequent browser solve.
+JS_ONLY_CHALLENGES = frozenset({
+    ChallengeType.AWSWAF,
+    ChallengeType.CLOUDFLARE,
+    ChallengeType.DATADOME,
+    ChallengeType.KASADA,
+    ChallengeType.TMD,
+    ChallengeType.VERCEL,
+    ChallengeType.HCAPTCHA,
+    ChallengeType.RECAPTCHA,
+    ChallengeType.GENERIC_JS,
+})
+
+
+def _has_cookie(set_cookie: str, name: str) -> bool:
+    """Check if a Set-Cookie header sets a cookie with the given name.
+
+    Looks for 'name=' to avoid matching cookie names that are
+    substrings of other names (e.g., '_px3' in 'my_px3_token').
+    """
+    return f"{name}=" in set_cookie
+
+
+def _header_fast_path(
+    status_code: int, headers: dict[str, str], set_cookie: str
+) -> ChallengeType | None:
+    """Header-only detection — no body decode needed.
+
+    Returns a ChallengeType if we can definitively identify the WAF from
+    headers alone, otherwise None to fall through to body inspection.
+    """
+    # Cloudflare explicit challenge header
+    if headers.get("cf-mitigated") == "challenge":
+        return ChallengeType.CLOUDFLARE
+
+    # Vercel — x-vercel-mitigated: challenge header
+    if headers.get("x-vercel-mitigated") == "challenge":
+        return ChallengeType.VERCEL
+
+    # Kasada — x-kpsdk-ct/x-kpsdk-cd headers on 403/429
+    if status_code in (403, 429):
+        for key in headers:
+            if key.lower().startswith("x-kpsdk"):
+                return ChallengeType.KASADA
+
+    # AWS WAF — x-amzn-waf-action header (captcha/challenge)
+    waf_action = headers.get("x-amzn-waf-action", "")
+    if waf_action in ("captcha", "challenge"):
+        return ChallengeType.AWSWAF
+
+    # DataDome — datadome cookie + 403/429
+    if status_code in (403, 429) and _has_cookie(set_cookie, "datadome"):
+        return ChallengeType.DATADOME
+
+    # PerimeterX — _px cookies + 403/429
+    if status_code in (403, 429):
+        if _has_cookie(set_cookie, "_px3") or _has_cookie(set_cookie, "_pxhd"):
+            return ChallengeType.PERIMETERX
+
+    # Imperva — reese84 or ___utmvc cookie + 403/429
+    if status_code in (403, 429):
+        if _has_cookie(set_cookie, "reese84") or _has_cookie(set_cookie, "___utmvc"):
+            return ChallengeType.IMPERVA
+
+    # Imperva — x-cdn header identifying Incapsula CDN on block status
+    if status_code in (403, 429):
+        x_cdn = headers.get("x-cdn", "").lower()
+        if "incapsula" in x_cdn or "imperva" in x_cdn:
+            return ChallengeType.IMPERVA
+
+    # Akamai — _abck cookie + 403
+    if status_code == 403:
+        if _has_cookie(set_cookie, "_abck") or _has_cookie(set_cookie, "ak_bmsc"):
+            return ChallengeType.AKAMAI
+
+    # F5 Shape — sensor response headers on block status.
+    #
+    # INTENTIONAL HEURISTIC. Shape is server-side with no public header
+    # schema (https://my.f5.com/manage/s/article/K000150733), so there is
+    # no exact signature to key on. The site-specific sensor header is
+    # ``x-<prefix>-a`` carrying an encoded/numeric token. The reliable
+    # nordstrom path is the *body* marker (``istlWasHere``) checked later;
+    # this header path is a fallback for a bare 403/429 with no body.
+    #
+    # Tightened (phase 8) to cut false positives: the old check accepted
+    # any digit-leading value, so a trivial ``x-cache-a: 1`` /
+    # ``x-served-a: 200`` (cache hints, ms timings, status echoes) tripped
+    # it. We now require the value to actually *look* like a sensor token:
+    # a minimum length AND a token character-class (no spaces / free text),
+    # OR a long value. Real Shape tokens are long encoded blobs, so this
+    # keeps recall while rejecting short numeric/word noise.
+    if status_code in (403, 429):
+        for key in headers:
+            kl = key.lower()
+            # Shape's sensor headers have site-specific prefixes (x-<prefix>-a)
+            # but always include the -a suffix for the primary sensor.
+            if kl.startswith("x-") and kl.endswith("-a") and len(kl) <= 20:
+                val = headers[key]
+                if _looks_like_shape_sensor(val):
+                    return ChallengeType.SHAPE
+
+    return None
+
+
+# Token characters seen in Shape sensor response values (base64url / hex /
+# numeric, with a few separators). Notably excludes spaces, so free-text
+# values like "no-cache" attributes or "200 OK"-style echoes never match.
+_SHAPE_TOKEN_CHARS = frozenset(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.=/+"
+)
+# Encoding separators that an ordinary English word would not contain. A
+# moderate-length value carrying one of these is much more likely an
+# encoded sensor blob than a plain word.
+_SHAPE_SEPARATORS = frozenset("-_.=/+")
+# Minimum length for the short-token path. Short values (status codes, ms
+# timings, cache hit counts, single words) are common on x-*-a headers from
+# CDNs and must not be mistaken for a Shape sensor token.
+_SHAPE_MIN_TOKEN_LEN = 8
+
+
+def _looks_like_shape_sensor(val: str) -> bool:
+    """Heuristic: does ``val`` resemble an F5 Shape sensor response token?
+
+    Conservative tightening of the old "digit-leading OR len>40" rule.
+    The value must be entirely token characters (no spaces / free text),
+    and then either:
+
+    - long (>40 chars) — the typical encoded sensor blob, OR
+    - at least ``_SHAPE_MIN_TOKEN_LEN`` chars AND looks encoded: either
+      digit-leading (a numeric sensor token) or containing an encoding
+      separator (``-_.=/+``), which a plain English word would not.
+
+    This rejects short numeric echoes (``200``), single words (``blocked``,
+    ``redirect``), and free text, while still matching numeric tokens and
+    base64url blobs that may start with a letter.
+    """
+    if not val:
+        return False
+    if not all(c in _SHAPE_TOKEN_CHARS for c in val):
+        return False
+    if len(val) > 40:
+        return True
+    if len(val) < _SHAPE_MIN_TOKEN_LEN:
+        return False
+    return val[0].isdigit() or any(c in _SHAPE_SEPARATORS for c in val)
+
+
+def detect_challenge(
+    status_code: int, headers: dict[str, str], body: str
+) -> ChallengeType | None:
+    """Detect bot challenge type from HTTP response.
+
+    Args:
+        status_code: HTTP status code (int, not StatusCode object).
+        headers: Response headers as {name: value} dict. Keys should be
+            lowercase for consistent matching. Set-Cookie values may be
+            semicolon-delimited or appear multiple times.
+        body: Response body as decoded text.
+
+    Returns:
+        ChallengeType enum member, or None if no challenge detected.
+    """
+    set_cookie = headers.get("set-cookie", "")
+
+    # Fast path: header-only detection (no body decode needed)
+    result = _header_fast_path(status_code, headers, set_cookie)
+    if result is not None:
+        logger.info("Challenge detected (header): %s", result.value)
+        return result
+
+    # --- Inline-solvable challenges (cheapest first) ---
+
+    # ACW (Alibaba Cloud WAF) — acw_sc__v2 marker in body
+    if "acw_sc__v2" in body and "arg1" in body:
+        logger.info("Challenge detected: acw")
+        return ChallengeType.ACW
+
+    # TMD (Alibaba) — punish page, status 200
+    if status_code == 200 and "/_____tmd_____/punish" in body:
+        logger.info("Challenge detected: tmd")
+        return ChallengeType.TMD
+
+    # Reddit anonymous-session gates. JSON endpoints return a large Shreddit
+    # block template, while direct HTML navigation can return a small, valid
+    # 200 verification form. The latter goes through the strict verification
+    # parser so an ordinary successful Reddit page cannot become a bootstrap
+    # loop.
+    if (
+        status_code == 403
+        and "theme-beta" in body[:256].lower()
+        and "you've been blocked by network security" in body.lower()
+    ):
+        logger.info("Challenge detected: reddit")
+        return ChallengeType.REDDIT
+    if (
+        status_code == 200
+        # Bounded prefix, like the 403 probe above: this runs on every
+        # successful 200 that reaches here, and lowercasing a multi-megabyte
+        # body to look for a <title> in <head> is pure waste.
+        and "reddit - please wait for verification" in body[:4096].lower()
+        and is_reddit_verification(body)
+    ):
+        logger.info("Challenge detected: reddit")
+        return ChallengeType.REDDIT
+
+    # Amazon rate-limit captcha — status 200, small body, "Continue shopping"
+    if status_code == 200 and len(body) < 50_000:
+        body_lower = body.lower()
+        if "continue shopping" in body_lower:
+            if (
+                "amazon" in body_lower
+                or "amzn" in body_lower
+                or "/errors/validatecaptcha" in body_lower
+            ):
+                logger.info("Challenge detected: amazon")
+                return ChallengeType.AMAZON
+
+    # --- Browser-solvable challenges ---
+
+    # Cloudflare — body markers (fallback without cf-mitigated header)
+    # CF challenges come on 403 and 503 (older configs omit cf-mitigated).
+    if status_code in (403, 503) and (
+        "window._cf_chl_opt" in body
+        or "_cf_chl_ctx" in body
+        or "challenge-form" in body
+    ):
+        logger.info("Challenge detected (body): cloudflare")
+        return ChallengeType.CLOUDFLARE
+
+    # AWS WAF — aws-waf-token cookie + block status (202 = JS challenge)
+    if _has_cookie(set_cookie, "aws-waf-token") and status_code in (
+        202,
+        403,
+        405,
+        429,
+    ):
+        logger.info("Challenge detected: awswaf")
+        return ChallengeType.AWSWAF
+
+    # AWS WAF — 202 with challenge body (gokuProps is the JS challenge SDK)
+    if status_code == 202 and (
+        "gokuProps" in body or "awsWafCookieDomainList" in body
+    ):
+        logger.info("Challenge detected (body): awswaf")
+        return ChallengeType.AWSWAF
+
+    # Akamai — _abck cookie + non-403 status with body markers
+    if _has_cookie(set_cookie, "_abck") or _has_cookie(set_cookie, "ak_bmsc"):
+        if status_code != 200 and (
+            "bmSz" in body or "sensor_data" in body or "_BomA" in body
+        ):
+            logger.info("Challenge detected (body): akamai")
+            return ChallengeType.AKAMAI
+        # Akamai behavioral challenge — 200 with tiny challenge page
+        if status_code == 200 and len(body) < 10_000:
+            if "sec-if-cpt" in body or "behavioral-content" in body:
+                logger.info("Challenge detected (body): akamai behavioral")
+                return ChallengeType.AKAMAI
+
+    # Compute body_lower once for all remaining case-insensitive checks
+    body_lower = body.lower()
+
+    # F5 Shape body markers — checked on any status code because Shape
+    # returns 200 for interstitial challenge pages (nordstrom.com).
+    if "istlwashere" in body_lower or "_imp_apg_r_" in body:
+        logger.info("Challenge detected (body): shape")
+        return ChallengeType.SHAPE
+
+    # Body-based detection for 403/429
+    if status_code in (403, 429):
+
+        # Cloudflare WAF *block* (Error 1020 and the 100x IP bans) — a
+        # denial, not a challenge. Cloudflare serves its static error
+        # stylesheet on every error page, while a real interstitial always
+        # loads /cdn-cgi/challenge-platform/... to run the challenge. That
+        # pair — error stylesheet present, challenge script absent — is what
+        # separates "the request matched a rule" from "prove you're a
+        # browser", and only the second one is solvable.
+        if (
+            status_code == 403
+            and "/cdn-cgi/styles/cf.errors.css" in body_lower
+            and "challenge-platform" not in body_lower
+            and "cf_chl" not in body_lower
+        ):
+            logger.info("Challenge detected (body): cloudflare_block")
+            return ChallengeType.CLOUDFLARE_BLOCK
+
+        # Akamai body markers — bazadebezolkohpepadr is the obfuscated
+        # global variable set by Akamai Bot Manager's sensor script.
+        # Only match the sensor marker, not the company name (which
+        # appears on CDN docs, privacy policies, and branded error pages).
+        if status_code == 403 and "bazadebezolkohpepadr" in body_lower:
+            logger.info("Challenge detected (body): akamai")
+            return ChallengeType.AKAMAI
+
+        # DataDome body markers
+        if status_code in (403, 429) and (
+            "datadome" in body_lower or "dd.js" in body_lower
+        ):
+            logger.info("Challenge detected (body): datadome")
+            return ChallengeType.DATADOME
+
+        # PerimeterX body markers (also 429 — DigiKey returns 429 with PX challenge)
+        if (
+            "perimeterx" in body_lower
+            or "human.security" in body_lower
+            or "press & hold" in body_lower
+            or "px-captcha" in body_lower
+        ):
+            logger.info("Challenge detected (body): perimeterx")
+            return ChallengeType.PERIMETERX
+
+        # Imperva body markers
+        if (
+            "incapsula" in body_lower or "imperva" in body_lower
+        ):
+            logger.info("Challenge detected (body): imperva")
+            return ChallengeType.IMPERVA
+
+        # Kasada body markers
+        # Modern Kasada uses p.js via double-UUID paths, legacy uses ips.js
+        if "ips.js" in body_lower or "kpsdk" in body_lower or "/p.js" in body:
+            logger.info("Challenge detected (body): kasada")
+            return ChallengeType.KASADA
+
+        # AWS WAF body markers
+        if "aws-waf-token" in body_lower or (
+            "awswafjschallenge" in body_lower
+        ):
+            logger.info("Challenge detected (body): awswaf")
+            return ChallengeType.AWSWAF
+
+        # Arkose Labs (FunCaptcha) body markers
+        if "arkoselabs.com" in body_lower or "funcaptcha" in body_lower:
+            logger.info("Challenge detected (body): arkose")
+            return ChallengeType.ARKOSE
+
+        # hCaptcha — checkbox/image CAPTCHA on login/gate pages
+        if "hcaptcha.com" in body_lower or "h-captcha" in body_lower:
+            logger.info("Challenge detected (body): hcaptcha")
+            return ChallengeType.HCAPTCHA
+
+        # reCAPTCHA — checkbox/invisible CAPTCHA
+        if (
+            "google.com/recaptcha" in body_lower
+            or "g-recaptcha" in body_lower
+        ):
+            logger.info("Challenge detected (body): recaptcha")
+            return ChallengeType.RECAPTCHA
+
+        # Generic JS fallback — 403/429 with script tag + small body
+        if "<script" in body_lower and len(body) < 50_000:
+            logger.info("Challenge detected: generic_js")
+            return ChallengeType.GENERIC_JS
+
+    # Imperva interstitials — served as HTTP 200, detected by structural
+    # markers, never by locale-dependent text. The _Incapsula_Resource
+    # path is the Imperva resource loader, but it appears on BOTH the
+    # interstitial AND real protected pages (which embed the reese84
+    # sensor script via the same path). So the marker alone is not enough
+    # — matching it on every page would cause false re-detection after a
+    # solve. NOTE: the x-cdn header is likewise insufficient (real
+    # Imperva-CDN pages carry it too). The interstitial is distinguished
+    # from a real page by either of two body-only signals:
+    #   1. a tiny body (<5KB) — the classic Incapsula "Request
+    #      unsuccessful" block page, AND
+    #   2. interstitial-only JS hooks from the modern reese "Pardon Our
+    #      Interruption" template (e.g. realtor.ca, ~6.4KB). These hooks
+    #      never appear on real content pages, so they hold at any size.
+    if status_code == 200 and "_incapsula_resource" in body_lower:
+        interstitial_markers = (
+            "reeseskipexpirationcheck" in body_lower
+            or "__imperva_interstitial_started__" in body_lower
+            or 'id="interstitial-inprogress"' in body_lower
+            or "x-spa-interstitial" in body_lower
+        )
+        if len(body) < 5_000 or interstitial_markers:
+            logger.info("Challenge detected (body): imperva interstitial")
+            return ChallengeType.IMPERVA
+
+    # Arkose Labs on 200 — embedded enforcement widget on login/signup pages
+    if status_code == 200 and len(body) < 100_000:
+        if "arkoselabs.com" in body or "funcaptcha" in body_lower:
+            logger.info("Challenge detected (body): arkose")
+            return ChallengeType.ARKOSE
+
+    # GeeTest v4 — slide CAPTCHA on login/rate-limit pages.
+    # Only trigger on small pages (<100KB) to avoid false positives on
+    # normal pages that embed GeeTest as an optional form component.
+    if status_code == 200 and len(body) < 100_000 and (
+        "initGeetest4" in body
+        or "gcaptcha4.geetest.com" in body
+        or "gt4.js" in body
+    ):
+        logger.info("Challenge detected (body): geetest")
+        return ChallengeType.GEETEST
+
+
+    return None

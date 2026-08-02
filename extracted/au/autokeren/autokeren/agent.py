@@ -1,0 +1,979 @@
+"""Core agent loop."""
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any, Callable
+
+from autokeren.checkpoints import CheckpointManager
+from autokeren.config import Config
+from autokeren.context import SessionContext
+from autokeren.enforcer import EnforcementEngine
+from autokeren.genome import GuardianChecker, GenomeScanner, ProjectGenome
+from autokeren.loop import LoopBreaker, PatternDetector
+from autokeren.memory import MemoryManager
+from autokeren.security_guard import SecurityScanner
+from autokeren.models.base import ModelResponse
+from autokeren.models.router import ModelRouter
+from autokeren.prompts import build_system_prompt
+from autokeren.session import SessionManager
+from autokeren.tools import ToolRegistry, ToolResult
+from autokeren.tools.git import GitAutoCommitTool
+from autokeren.fddm_hook import build_sniff_context, auto_emit_completion
+
+
+class Agent:
+    def __init__(
+        self,
+        cfg: Config,
+        tools: ToolRegistry,
+        project_root: str,
+        memory: MemoryManager | None = None,
+        sessions: SessionManager | None = None,
+        role: str = "",
+        model_id: str | None = None,
+    ):
+        self.cfg = cfg
+        self.tools = tools
+        self.project_root = project_root
+        self.router = ModelRouter(cfg)
+        if model_id:
+            self.router.switch_model(model_id)
+        self.context = SessionContext(project_root=Path(project_root))
+        self.current_session_id: str = "default"
+        self.current_session_name: str = "default"
+        self.memory = memory if memory is not None else MemoryManager(project_root)
+        self.sessions = sessions if sessions is not None else SessionManager(project_root)
+        self._build_system_prompt(role=role)
+        self.context.messages.append({"role": "system", "content": self._system_prompt})
+        self.plan_approved = not cfg.autokeren.plan_mode
+        self._tool_call_count = 0
+        self._max_tool_calls = cfg.autokeren.max_tool_calls  # safety net, 0 = unlimited
+        self._last_neuron_remaining: int | None = None
+        self._last_neuron_quota: int | None = None
+        self.interrupted = False
+
+        # Time-Travel checkpoints
+        tt = cfg.autokeren.time_travel
+        self.checkpoints: CheckpointManager | None = None
+        if tt.enabled:
+            self.checkpoints = CheckpointManager(
+                project_root=Path(project_root),
+                session_id="default",
+                max_checkpoints=tt.max_checkpoints,
+                auto_checkpoint=tt.auto_checkpoint,
+            )
+
+        # Architecture Guardian
+        ag = cfg.autokeren.architecture_guardian
+        self.guardian_enabled = ag.enabled
+        self._genome: ProjectGenome | None = None
+        self._guardian_checker: GuardianChecker | None = None
+        self._genome_scanner: GenomeScanner | None = None
+        self._tool_calls_since_scan = 0
+        self._genome_scanned = False
+        if ag.enabled:
+            self._genome_scanner = GenomeScanner(Path(project_root))
+
+        # Loop Breaker
+        lb = cfg.autokeren.loop_breaker
+        self.loop_breaker: LoopBreaker | None = None
+        self._pattern_detector: PatternDetector | None = None
+        if lb.enabled:
+            self.loop_breaker = LoopBreaker(
+                max_repeats=lb.max_repeats,
+                auto_switch_model=lb.auto_switch_model,
+                auto_clear_context=lb.auto_clear_context,
+            )
+            self._pattern_detector = PatternDetector()
+
+        # Vibe-Security Guard
+        vs = cfg.autokeren.vibe_security
+        self.security_scanner: SecurityScanner | None = None
+        if vs.enabled:
+            self.security_scanner = SecurityScanner(checks=vs.checks)
+
+        # Live Architecture Enforcement
+        le = cfg.autokeren.live_enforcement
+        self.enforcer: EnforcementEngine | None = None
+        if le.enabled:
+            rules_path = Path(project_root) / le.rules_file
+            if rules_path.exists():
+                self.enforcer = EnforcementEngine(rules_path)
+
+        # Opt-in UI callbacks (wired by CLI). Default None = no-op.
+        self.on_model_start: Callable[[], None] | None = None
+        self.on_model_end: Callable[[ModelResponse], None] | None = None
+        self.on_tool_start: Callable[[str, dict[str, Any]], None] | None = None
+        self.on_tool_end: Callable[[str, ToolResult], None] | None = None
+        self.on_tool_output: Callable[[str, str], None] | None = None
+        self.on_chunk: Callable[[str], None] | None = None
+        self.on_retry: Callable[[int, float, str], None] | None = None
+        self.on_session_saved: Callable[[str, str], None] | None = None
+        self.permission_callback: Callable[[str, str, dict[str, Any]], bool] | None = None
+        self._consecutive_no_tool_prompts = 0
+
+        # Git Auto-Commit tracker (Pillar B)
+        self._modified_files: list[str] = []
+        gac = cfg.autokeren.git_auto_commit
+        self._git_auto_commit_enabled = gac.enabled and gac.commit_on_write
+        self._git_auto_commit_push = gac.push_after_commit
+
+        # Auto-Save Session
+        self._session_auto_saved = False
+        self._session_first_user_input: str = ""
+
+    def _build_system_prompt(self, role: str = "") -> None:
+        """Build system prompt dengan memory + AGENTS.md."""
+        mem = self.memory.load() if self.cfg.autokeren.memory_enabled else ""
+        self._system_prompt = build_system_prompt(
+            self.project_root,
+            self.tools,
+            plan_mode=self.cfg.autokeren.plan_mode,
+            memory=mem,
+            max_tool_calls=self.cfg.autokeren.max_tool_calls,
+        )
+        if role:
+            self._system_prompt += (
+                f"\n\n## Peran Spesifik Anda\n"
+                f"Anda bertindak sebagai sub-agent spesialis dengan peran: {role}.\n"
+                f"Fokuslah sepenuhnya pada tugas Anda dan kembalikan output terbaik sesuai dengan keahlian peran ini."
+            )
+        
+        # Tambahkan instruksi pemaksaan bahasa respon AI
+        lang_code = self.cfg.autokeren.language
+        if not lang_code:
+            import os
+            lang_env = os.environ.get("LANG", "").lower()
+            lang_code = "en"
+            for code in ["id", "zh", "ja", "de", "ar", "es", "pt"]:
+                if code in lang_env:
+                    lang_code = code
+                    break
+
+        lang_names = {
+            "id": "Indonesian",
+            "en": "English",
+            "zh": "Chinese",
+            "ja": "Japanese",
+            "de": "German",
+            "ar": "Arabic",
+            "es": "Spanish",
+            "pt": "Portuguese",
+        }
+        lang_name = lang_names.get(lang_code, "English")
+        self._system_prompt += f"\n\nIMPORTANT: You must respond to the user in {lang_name}."
+
+    def _ensure_genome_scanned(self) -> None:
+        """Lazy genome scan — only scan on first write_file/patch_file, not at startup."""
+        if self._genome_scanned or not self._genome_scanner:
+            return
+        self._genome = self._genome_scanner.scan()
+        ag = self.cfg.autokeren.architecture_guardian
+        self._guardian_checker = GuardianChecker(self._genome, block_duplicates=ag.block_duplicates) if self._genome else None
+        self._genome_scanned = True
+
+    def check_interrupt(self) -> None:
+        """Angkat KeyboardInterrupt jika bendera interupsi aktif."""
+        if self.interrupted:
+            self.interrupted = False
+            raise KeyboardInterrupt("Interrupted by user")
+
+    def _add_assistant_and_log(self, resp: ModelResponse) -> None:
+        self.context.add_assistant(resp)
+        if self.cfg.autokeren.memory_enabled and resp.content:
+            self.memory.log_message(session_id="default", role="assistant", content=resp.content)
+
+    def run(self, user_input: str) -> ModelResponse:
+        is_first = not self._session_first_user_input
+        if is_first:
+            self._session_first_user_input = user_input
+        self.context.add_user(user_input)
+        
+        if is_first:
+            try:
+                from autokeren.tools.repo_map import RepoMapTool
+                repo_tool = RepoMapTool(project_root=Path(self.project_root))
+                repo_map_res = repo_tool.run(query=user_input, max_files=15)
+                if repo_map_res.ok and repo_map_res.output:
+                    repo_msg = (
+                        "🗺️ MINI-REPO MAP RELEVAN DENGAN TUGAS ANDA:\n"
+                        "Gunakan struktur relasi kelas dan fungsi di bawah ini sebagai navigasi proyek:\n\n"
+                        f"{repo_map_res.output}"
+                    )
+                    self.context.messages.insert(1, {"role": "system", "content": repo_msg})
+            except Exception:
+                pass
+
+        if self.cfg.autokeren.memory_enabled:
+            self.memory.log_message(session_id="default", role="user", content=user_input)
+            relevant = self.memory.search_relevant(user_input, limit=3)
+            if relevant:
+                ctx_msg = "ℹ️ MEMORI HISTORIS RELEVAN DARI SESI SEBELUMNYA:\n" + "\n".join(f"- {r}" for r in relevant)
+                self.context.messages.insert(-1, {"role": "system", "content": ctx_msg})
+        fddm_cfg = self.cfg.autokeren.fddm
+        fddm_ctx = build_sniff_context(fddm_cfg.url, user_input, fddm_cfg.api_key) if fddm_cfg.enabled else ""
+        if fddm_ctx:
+            self.context.messages.insert(-1, {"role": "system", "content": fddm_ctx})
+        try:
+            for iteration in range(self.cfg.autokeren.max_iterations):
+                self.check_interrupt()
+
+                if self.on_model_start:
+                    self.on_model_start()
+
+                # Auto-compact context sebelum model call kalau sudah melebihi threshold
+                if self.should_compact():
+                    self.compact()
+
+                def _on_chunk(text: str) -> None:
+                    self.check_interrupt()
+                    if self.on_chunk:
+                        self.on_chunk(text)
+
+                try:
+                    resp = self.router.complete(
+                        self.context.messages,
+                        tools=self.tools.schemas(),
+                        max_tokens=self.cfg.cloudflare.max_tokens,
+                        temperature=self.cfg.cloudflare.temperature,
+                        on_chunk=_on_chunk,
+                        on_retry=self.on_retry,
+                    )
+                except Exception as e:
+                    import os
+                    import time
+                    if os.environ.get("AUTOKEREN_DEBUG") == "1":
+                        raise
+                    err_msg = str(e) or type(e).__name__
+                    # Jika error disebabkan batas limit context window / token (8007)
+                    if "exceeds" in err_msg.lower() or "context length" in err_msg.lower() or "8007" in err_msg:
+                        if self.on_retry:
+                            self.on_retry(iteration + 1, 1.0, f"Konteks memori penuh ({err_msg}). Menjalankan pruning otomatis...")
+                        self.prune_context()
+                        continue
+                    if iteration < self.cfg.autokeren.max_iterations - 1:
+                        if not self.router.has_healthy():
+                            if self.on_retry:
+                                self.on_retry(iteration + 1, 5.0, f"Semua model down ({err_msg}). Reset circuit breakers, mencoba lagi...")
+                            self.router.reset_breakers()
+                            backoff = min(3.0 * (2 ** min(iteration, 5)), 60.0)
+                            time.sleep(backoff)
+                            continue
+                        if self.on_retry:
+                            self.on_retry(iteration + 1, 3.0, f"Error: {err_msg} | Mencoba berpindah model...")
+                        time.sleep(3.0)
+                        self.router.swap_models()
+                        continue
+                    if self.on_model_end:
+                        self.on_model_end(ModelResponse(content=""))
+                    return ModelResponse(content=f"[red]⚠ Model error: {err_msg}[/red]\n\nCoba ganti model dengan /model, atau ulangi pertanyaan.")
+
+                if self.on_model_end:
+                    self.on_model_end(resp)
+
+                if resp.neurons_remaining is not None:
+                    self._last_neuron_remaining = resp.neurons_remaining
+                    self._last_neuron_quota = resp.neurons_quota
+
+                # Plan mode: sebelum persetujuan, kembalikan respon tanpa jalankan tool
+                if self.cfg.autokeren.plan_mode and not self.plan_approved:
+                    self._add_assistant_and_log(resp)
+                    return resp
+
+                if not resp.tool_calls:
+                    has_run_tools = any(isinstance(m, dict) and m.get("role") == "tool" for m in self.context.messages)
+                    if has_run_tools and self._consecutive_no_tool_prompts < 1 and iteration < self.cfg.autokeren.max_iterations - 1:
+                        strong_continue = ["selanjutnya", "berikutnya", "mari kita", "akan saya", "sekarang saya"]
+                        stop_signals = ["selesai", "done", "berhasil", "complete", "selesai.", "sukses", "✅", "dibuat", "dibuat.", "terdeploy"]
+                        content_lower = (resp.content or "").lower()
+                        has_stop = any(kw in content_lower for kw in stop_signals)
+                        has_continue = any(kw in content_lower for kw in strong_continue)
+                        if has_continue and not has_stop:
+                            self._consecutive_no_tool_prompts += 1
+                            self._add_assistant_and_log(resp)
+                            self.context.messages.append({
+                                "role": "system",
+                                "content": (
+                                    "⚠️ KAMU SEDANG DALAM MODE OTONOM. Jangan sekadar menjelaskan langkah selanjutnya "
+                                    "atau meminta maaf. Gunakan tool yang sesuai secara langsung untuk melanjutkan tugas "
+                                    "sampai selesai sepenuhnya."
+                                )
+                            })
+                            continue
+
+                    self._consecutive_no_tool_prompts = 0
+                    self._add_assistant_and_log(resp)
+                    self._run_git_auto_commit(resp.content or "")
+                    if self.cfg.autokeren.fddm.enabled:
+                        auto_emit_completion(self.cfg.autokeren.fddm.url, user_input, resp.content or "", self.cfg.autokeren.fddm.api_key)
+                    self._auto_save_session()
+                    return resp
+
+                self._consecutive_no_tool_prompts = 0
+                self._add_assistant_and_log(resp)
+                for tc in resp.tool_calls:
+                    self.check_interrupt()
+
+                    self._tool_call_count += 1
+                    if self._max_tool_calls > 0 and self._tool_call_count > self._max_tool_calls:
+                        limit_msg = ToolResult(error=f"batas tool call tercapai ({self._max_tool_calls}). Selesaikan tanpa tool.", ok=False)
+                        self.context.add_tool_result(tc.id, tc.name, limit_msg.to_dict(), False)
+                        self._auto_save_session()
+                        return ModelResponse(content=f"Batas {self._max_tool_calls} tool call tercapai. Selesaikan tugas dengan informasi yang sudah ada.")
+                    needs_perm, desc = self.tools.check_permission(tc.name, tc.arguments)
+                    if needs_perm:
+                        allowed = self.permission_callback(tc.name, desc, tc.arguments) if self.permission_callback else True
+                        if not allowed:
+                            denied = ToolResult(error="ditolak oleh user", ok=False)
+                            if self.on_tool_end:
+                                self.on_tool_end(tc.name, denied)
+                            self.context.add_tool_result(tc.id, tc.name, denied.to_dict(), denied.ok)
+                            continue
+                    if self.on_tool_start:
+                        self.on_tool_start(tc.name, tc.arguments)
+                    # Architecture Guardian: check sebelum write/patch
+                    if (
+                        self.guardian_enabled
+                        and self._genome_scanner
+                        and tc.name in ("write_file", "patch_file")
+                    ):
+                        self._ensure_genome_scanned()
+                        _gpath = tc.arguments.get("path", "")
+                        _gcontent = tc.arguments.get("content", tc.arguments.get("new_string", ""))
+                        if _gpath and _gcontent and self._guardian_checker:
+                            guard = self._guardian_checker.check_before_write(_gpath, _gcontent)
+                            if guard.blocked:
+                                blocked_result = ToolResult(
+                                    error=f"⚠️ ARCHITECTURE GUARDIAN BLOCKED:\n{guard.reason}\n\nSaran: {guard.suggestion}",
+                                    ok=False,
+                                )
+                                if self.on_tool_end:
+                                    self.on_tool_end(tc.name, blocked_result)
+                                self.context.add_tool_result(tc.id, tc.name, blocked_result.to_dict(), False)
+                                continue
+                            if guard.warnings:
+                                self.context.messages.append({
+                                    "role": "system",
+                                    "content": "ℹ️ Guardian warning: " + "; ".join(guard.warnings),
+                                })
+                    # Live Enforcement: check rules sebelum write/patch
+                    if (
+                        self.enforcer
+                        and tc.name in ("write_file", "patch_file")
+                    ):
+                        _epath = tc.arguments.get("path", "")
+                        _econtent = tc.arguments.get("content", tc.arguments.get("new_string", ""))
+                        if _epath and _econtent:
+                            enfo = self.enforcer.check_before_write(_epath, _econtent)
+                            if enfo.blocked:
+                                block_msgs = [v.message for v in enfo.violations if v.action == "block"]
+                                blocked_result = ToolResult(
+                                    error="⛔ LIVE ENFORCEMENT BLOCKED:\n" + "\n".join(f"  • {m}" for m in block_msgs),
+                                    ok=False,
+                                )
+                                if self.on_tool_end:
+                                    self.on_tool_end(tc.name, blocked_result)
+                                self.context.add_tool_result(tc.id, tc.name, blocked_result.to_dict(), False)
+                                continue
+                    _before_snap: dict[str, str | None] | None = None
+                    if self.checkpoints and self.checkpoints.auto_checkpoint and tc.name in ("write_file", "patch_file"):
+                        _path = tc.arguments.get("path", "")
+                        if _path:
+                            _before_snap = self.checkpoints.snapshot_files([_path])
+                    
+                    def _on_output(line: str, _name: str = tc.name) -> None:
+                        self.check_interrupt()
+                        if self.on_tool_output:
+                            self.on_tool_output(_name, line)
+                    
+                    raw_result = self.tools.run(tc.name, tc.arguments, on_output=_on_output, check_interrupt=self.check_interrupt)
+                    
+                    if self.on_tool_end:
+                        self.on_tool_end(tc.name, raw_result)
+                    # Loop Breaker: track errors
+                    if self.loop_breaker and not raw_result.ok:
+                        lb_action = self.loop_breaker.track_error(
+                            error=raw_result.error or str(raw_result.to_dict()),
+                            tool_name=tc.name,
+                            context={"args": tc.arguments},
+                        )
+                        if lb_action.action == "break":
+                            self.context.messages.append({
+                                    "role": "system",
+                                    "content": lb_action.suggestion,
+                                })
+                            if self._git_auto_commit_enabled:
+                                err_msg = raw_result.error or str(raw_result.to_dict())
+                                self._rollback_to_latest_green_tag(err_msg)
+                            self.run_self_improvement(
+                                failed_tool_name=tc.name,
+                                error_message=raw_result.error or str(raw_result.to_dict()),
+                                tool_args=tc.arguments
+                            )
+                            if lb_action.switch_model:
+                                self.router.swap_models()
+                            if lb_action.clear_context:
+                                self.compact()
+                            self.loop_breaker.reset()
+                    # Pattern Detector: track all tool calls
+                    if self._pattern_detector:
+                        from autokeren.loop.patterns import ToolCallEntry
+                        self._pattern_detector.track(ToolCallEntry(
+                            name=tc.name,
+                            args=tc.arguments,
+                            success=raw_result.ok,
+                            message="",
+                        ))
+                        pat = self._pattern_detector.detect()
+                        if pat.detected:
+                            self.context.messages.append({
+                                "role": "system",
+                                "content": f"⚠️ PATTERN DETECTED: {pat.pattern} — {pat.detail}. Coba pendekatan berbeda.",
+                            })
+                            self._pattern_detector.reset()
+                    if self.checkpoints and self.checkpoints.auto_checkpoint:
+                        self.checkpoints.save(
+                            tool_name=tc.name,
+                            tool_args=tc.arguments,
+                            tool_result=raw_result.to_dict(),
+                            tool_ok=raw_result.ok,
+                            before_snapshot=_before_snap,
+                        )
+                    # Vibe-Security: scan after write
+                    if (
+                        self.security_scanner
+                        and tc.name in ("write_file", "patch_file")
+                        and raw_result.ok
+                    ):
+                        _sec_path = tc.arguments.get("path", "")
+                        _sec_content = tc.arguments.get("content", tc.arguments.get("new_string", ""))
+                        if _sec_path and _sec_content:
+                            findings = self.security_scanner.scan(_sec_path, _sec_content)
+                            if findings:
+                                critical = [f for f in findings if f.severity == "CRITICAL"]
+                                if critical:
+                                    warn_text = SecurityScanner.format_findings(findings)
+                                    self.context.messages.append({
+                                        "role": "system",
+                                        "content": f"🛡️ SECURITY ALERT:\n{warn_text}\n\nFix critical issues sebelum lanjut.",
+                                    })
+                    # Architecture Guardian: auto-rescan genome
+                    if self.guardian_enabled and self._genome_scanner and tc.name in ("write_file", "patch_file"):
+                        self._tool_calls_since_scan += 1
+                        ag_cfg = self.cfg.autokeren.architecture_guardian
+                        if self._tool_calls_since_scan >= ag_cfg.scan_interval:
+                            self._genome = self._genome_scanner.scan()
+                            self._guardian_checker = GuardianChecker(self._genome, block_duplicates=ag_cfg.block_duplicates)
+                            self._tool_calls_since_scan = 0
+                    # Pillar B: micro-commit on write/patch success
+                    if self._git_auto_commit_enabled and tc.name in ("write_file", "patch_file") and raw_result.ok:
+                        _written = str(tc.arguments.get("path", ""))
+                        if _written:
+                            self._run_git_micro_commit(_written)
+                            if _written not in self._modified_files:
+                                self._modified_files.append(_written)
+                    # Pillar C: auto-verify after deploy
+                    if tc.name == "cf_deploy" and raw_result.ok:
+                        self._run_cf_verify_after_deploy(raw_result)
+                    self.context.add_tool_result(tc.id, tc.name, raw_result.to_dict(), raw_result.ok)
+
+            self._auto_save_session()
+            return ModelResponse(content="Mencapai batas iterasi maksimum tanpa jawaban final.")
+        except KeyboardInterrupt:
+            if self.on_model_end:
+                self.on_model_end(ModelResponse(content=""))
+            self._auto_save_session()
+            return ModelResponse(content="[dibatalkan user]")
+
+
+    def _auto_save_session(self) -> None:
+        """Auto-save session setelah setiap respons AI jika auto_save_session aktif."""
+        if not self.cfg.autokeren.auto_save_session:
+            return
+        import datetime
+        import re
+        first_input = self._session_first_user_input.strip()
+        words = re.sub(r"[^\w\s]", "", first_input).split()
+        slug_words = "-".join(w.lower() for w in words[:3] if w) or "session"
+        ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        name = f"{ts}-{slug_words}"[:80]
+        if self.current_session_id != "default":
+            self._update_existing_session()
+        else:
+            sid = self.save_session(name)
+            self.current_session_id = sid
+            self.current_session_name = name
+        self._session_auto_saved = True
+
+    def _run_cf_verify_after_deploy(self, deploy_result: ToolResult) -> None:
+        cv_cfg = self.cfg.autokeren.cf_verify
+        if not cv_cfg.enabled or not cv_cfg.auto_verify_after_deploy:
+            return
+        import re
+        output_text = str(deploy_result.output or "")
+        urls = re.findall(r"https://[^\s\"']+\.(?:pages|workers)\.dev[^\s\"']*", output_text)
+        if not urls:
+            return
+        target_url = urls[0].rstrip("/")
+        from autokeren.tools.cf_verify import CfVerifyTool
+        verifier = CfVerifyTool(project_root=self.project_root)
+        result = verifier.run(url=target_url, wait_seconds=cv_cfg.wait_seconds)
+        status_icon = "✅" if result.ok else "⚠️"
+        self.context.messages.append({
+            "role": "system",
+            "content": (
+                f"{status_icon} AUTO-VERIFY {target_url}:\n"
+                f"{result.output or result.error or 'Tidak ada output'}"
+            ),
+        })
+
+    def _generate_commit_message_from_diff(self, diff: str) -> str:
+        if not diff.strip():
+            return "auto-commit"
+        try:
+            prompt = (
+                "Generate a single-line Conventional Commit message (max 72 chars) for the following git diff. "
+                "Do not include markdown formatting or quotes. Example: feat(auth): add email login validation\n\n"
+                f"Diff:\n{diff}"
+            )
+            resp = self.router.complete(
+                [{"role": "user", "content": prompt}],
+                tools=None,
+                max_tokens=50,
+                temperature=0.2,
+            )
+            if resp.content:
+                msg = resp.content.strip().splitlines()[0]
+                msg = msg.strip('`"\'').strip()
+                return msg[:72]
+        except Exception:
+            pass
+        return "auto-commit"
+
+    def _create_green_tag(self) -> None:
+        if not self._git_auto_commit_enabled:
+            return
+        try:
+            import subprocess
+            import time
+            timestamp = int(time.time())
+            tag_name = f"ak-green-{timestamp}"
+            
+            subprocess.run(
+                ["git", "-C", self.project_root, "tag", tag_name, "HEAD"],
+                capture_output=True,
+                timeout=10,
+            )
+            
+            tags_res = subprocess.run(
+                ["git", "-C", self.project_root, "tag", "-l", "ak-green-*"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            tags = sorted(tags_res.stdout.splitlines())
+            if len(tags) > 5:
+                for old_tag in tags[:-5]:
+                    subprocess.run(
+                        ["git", "-C", self.project_root, "tag", "-d", old_tag],
+                        capture_output=True,
+                        timeout=10,
+                    )
+        except Exception:
+            pass
+
+    def _rollback_to_latest_green_tag(self, error_message: str) -> None:
+        try:
+            import subprocess
+            tags_res = subprocess.run(
+                ["git", "-C", self.project_root, "tag", "-l", "ak-green-*"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            tags = sorted(tags_res.stdout.splitlines())
+            if tags:
+                latest_tag = tags[-1]
+                rollback_res = subprocess.run(
+                    ["git", "-C", self.project_root, "reset", "--hard", latest_tag],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                if rollback_res.returncode == 0:
+                    self.context.messages.append({
+                        "role": "system",
+                        "content": (
+                            f"⏪ Tindakan Korektif Terpicu: Kode telah di-rollback ke versi hijau terdekat "
+                            f"(`{latest_tag}`) karena error berikut:\n"
+                            f"{error_message}\n\n"
+                            "Cari pendekatan alternatif yang tidak memicu error tersebut."
+                        )
+                    })
+                    return
+                    
+            rollback_res = subprocess.run(
+                ["git", "-C", self.project_root, "reset", "--hard", "HEAD~1"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if rollback_res.returncode == 0:
+                self.context.messages.append({
+                    "role": "system",
+                    "content": (
+                        "⏪ Tindakan Korektif Terpicu: Codebase di-revert ke HEAD~1 (state hijau terakhir) "
+                        f"karena error berikut:\n{error_message}\n\n"
+                        "Cari pendekatan alternatif yang tidak memicu error tersebut."
+                    )
+                })
+        except Exception:
+            pass
+
+    def _run_git_micro_commit(self, file_path: str) -> None:
+        if not self._git_auto_commit_enabled:
+            return
+        try:
+            import subprocess
+            diff_res = subprocess.run(
+                ["git", "-C", self.project_root, "diff", file_path],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            diff_text = diff_res.stdout
+            if not diff_text.strip():
+                status_res = subprocess.run(
+                    ["git", "-C", self.project_root, "status", "--porcelain", file_path],
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if "??" in status_res.stdout:
+                    diff_text = f"New file created: {file_path}"
+                    
+            commit_msg = self._generate_commit_message_from_diff(diff_text)
+            
+            tool = GitAutoCommitTool(project_root=Path(self.project_root))
+            result = tool.run(files=[file_path], summary=commit_msg)
+            if result.ok:
+                self.context.messages.append({
+                    "role": "system",
+                    "content": f"📝 Auto-committed changes in `{file_path}`: `{commit_msg}`"
+                })
+                self._create_green_tag()
+        except Exception:
+            pass
+
+    def _run_git_auto_commit(self, summary: str) -> None:
+        if not self._git_auto_commit_enabled or not self._modified_files:
+            return
+        files = list(self._modified_files)
+        self._modified_files.clear()
+        short_summary = (summary.strip().splitlines()[0] if summary.strip() else "auto-commit")[:80]
+        tool = GitAutoCommitTool(project_root=Path(self.project_root))
+        result = tool.run(files=files, summary=short_summary)
+        if self._git_auto_commit_push and result.ok:
+            import subprocess
+            subprocess.run(
+                ["git", "-C", self.project_root, "push"],
+                capture_output=True,
+                timeout=30,
+            )
+
+    def approve_plan(self) -> None:
+        self.plan_approved = True
+        self.context.add_user("User approved the plan. Execute it now.")
+
+    def reset(self) -> None:
+        """Reset session context, reload memory + system prompt."""
+        self.context.reset()
+        self.current_session_id = "default"
+        self.current_session_name = "default"
+        self._session_auto_saved = False
+        self._session_first_user_input = ""
+        self._build_system_prompt()
+        self.context.messages.append({"role": "system", "content": self._system_prompt})
+        self.plan_approved = not self.cfg.autokeren.plan_mode
+
+    def save_session(self, name: str) -> str:
+        """Save session ke disk. Return session_id."""
+        usage = {
+            "prompt": self.router.usage_total.prompt,
+            "completion": self.router.usage_total.completion,
+            "total": self.router.usage_total.total,
+        }
+        sid = self.sessions.save(name, self.context.messages, usage)
+        self.current_session_id = sid
+        self.current_session_name = name
+        if self.on_session_saved:
+            self.on_session_saved(sid, name)
+        return sid
+
+    def _update_existing_session(self) -> str:
+        """Update session yang sedang aktif. Dipakai oleh auto-save setelah resume."""
+        if self.current_session_id == "default":
+            return self.save_session(self.current_session_name)
+        usage = {
+            "prompt": self.router.usage_total.prompt,
+            "completion": self.router.usage_total.completion,
+            "total": self.router.usage_total.total,
+        }
+        sid = self.sessions.save(self.current_session_name, self.context.messages, usage, session_id=self.current_session_id)
+        if self.on_session_saved:
+            self.on_session_saved(sid, self.current_session_name)
+        return sid
+
+    def resume_session(self, identifier: str) -> str:
+        """Resume session dari disk. Return status message."""
+        data = self.sessions.load(identifier)
+        if not data:
+            return f"Session '{identifier}' tidak ditemukan."
+        messages = data.get("messages", [])
+        if not messages:
+            return "Session kosong."
+        messages = self._clean_orphaned_tool_calls(messages)
+        self._build_system_prompt()
+        messages[0] = {"role": "system", "content": self._system_prompt}
+        self.context.messages = messages
+        self.plan_approved = not self.cfg.autokeren.plan_mode
+        name = data.get("name", "unknown")
+        self.current_session_id = data.get("id", "default")
+        self.current_session_name = name
+        ts = data.get("timestamp", "")
+        n = len(messages)
+        return f"Session '{name}' di-resume ({n} pesan, saved {ts})."
+
+    @staticmethod
+    def _clean_orphaned_tool_calls(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Hapus tool_calls dari pesan assistant terakhir kalau ga ada tool result setelahnya."""
+        if not messages:
+            return messages
+        last = messages[-1]
+        if last.get("role") == "assistant" and last.get("tool_calls"):
+            if "content" not in last or not last.get("content"):
+                messages = messages[:-1]
+            else:
+                last.pop("tool_calls", None)
+        return messages
+
+    def context_info(self) -> dict[str, Any]:
+        """Return info tentang context window usage buat display."""
+        tokens = self.context.estimate_tokens()
+        window = self.cfg.autokeren.context_window
+        pct = round(tokens / window * 100, 1) if window > 0 else 0.0
+        u = self.router.usage_total
+        return {
+            "tokens": tokens,
+            "window": window,
+            "pct": pct,
+            "prompt_tokens": u.prompt,
+            "completion_tokens": u.completion,
+            "total_tokens": u.total,
+        }
+
+    def status_bar_info(self) -> dict[str, Any]:
+        """Compact info untuk status bar: model, context, cwd, neurons."""
+        info = self.context_info()
+        model_id = self.router.models[0].model_id if self.router.models else "?"
+        info["model"] = model_id.split("/")[-1] if "/" in model_id else model_id
+        info["cwd"] = Path(self.project_root).name
+        if self._last_neuron_remaining is not None:
+            info["neurons_remaining"] = self._last_neuron_remaining
+            info["neurons_quota"] = self._last_neuron_quota
+        return info
+
+    def should_compact(self) -> bool:
+        """Cek apakah perlu auto-compact berdasarkan threshold atau batas limit model."""
+        est_tokens = self.context.estimate_tokens()
+        # Batasi jika mendekati limit context window model (misal 90% dari limit)
+        max_limit = self.cfg.autokeren.context_window - self.cfg.cloudflare.max_tokens - 8000
+        if est_tokens >= max_limit:
+            return True
+
+        if not self.cfg.autokeren.auto_compact:
+            return False
+        info = self.context_info()
+        return info["pct"] >= self.cfg.autokeren.auto_compact_threshold * 100
+
+    def prune_context(self, keep_turns: int = 12) -> str:
+        """Prune context secara manual tanpa panggil LLM (metode fallback aman)."""
+        system_msg = self.context.messages[0]
+        tail = max(keep_turns, self.cfg.autokeren.compact_tail_turns)
+        if len(self.context.messages) <= tail + 1:
+            return "Context tidak bisa di-prune lebih lanjut."
+
+        before_tokens = self.context.estimate_tokens()
+        recent = self.context.messages[-tail:]
+
+        self.context.messages = [
+            system_msg,
+            {"role": "user", "content": "ℹ️ Beberapa riwayat percakapan lama telah dihapus untuk menghemat ruang memori/context window."},
+            {"role": "assistant", "content": "Dimengerti. Saya akan melanjutkan diskusi berdasarkan konteks terbaru yang tersisa."},
+            *recent,
+        ]
+        after_tokens = self.context.estimate_tokens()
+        saved = before_tokens - after_tokens
+        return (
+            f"Context di-prune: pesan lama dihapus. "
+            f"Token {before_tokens:,} → {after_tokens:,} (hemat {saved:,})."
+        )
+
+    def compact(self) -> str:
+        """Compact context: summarize pesan lama, keep system prompt + N pesan terakhir.
+        Jika kompresi via LLM gagal, lakukan pruning secara otomatis.
+        """
+        tail = self.cfg.autokeren.compact_tail_turns
+        if len(self.context.messages) <= tail + 1:
+            return "Context sudah cukup singkat, tidak perlu compact."
+
+        try:
+            system_msg = self.context.messages[0]
+            recent = self.context.messages[-tail:]
+            to_summarize = self.context.messages[1:-tail]
+
+            before_tokens = self.context.estimate_tokens()
+
+            summary_parts: list[str] = []
+            for msg in to_summarize:
+                role = msg.get("role", "?")
+                content = str(msg.get("content", ""))[:800]
+                summary_parts.append(f"[{role}] {content}")
+            summary_text = "\n".join(summary_parts)
+
+            summary_prompt = (
+                "Ringkas percakapan berikut secara singkat dan padat. "
+                "Pertahankan: keputusan penting, perubahan file, error yang ditemukan, "
+                "dan konteks yang perlu diingat untuk percakapan selanjutnya.\n\n"
+                f"{summary_text}"
+            )
+
+            # Jika summary prompt terlalu panjang, langsung gunakan pruning
+            if len(summary_prompt) // 4 > (self.cfg.autokeren.context_window - 20000):
+                return self.prune_context()
+
+            resp = self.router.complete(
+                [{"role": "user", "content": summary_prompt}],
+                max_tokens=1024,
+                temperature=0.0,
+            )
+
+            self.context.messages = [
+                system_msg,
+                {"role": "user", "content": f"Ringkasan percakapan sebelumnya:\n{resp.content}"},
+                {"role": "assistant", "content": "Baik, saya ingat ringkasan ini. Lanjutkan."},
+                *recent,
+            ]
+
+            after_tokens = self.context.estimate_tokens()
+            saved = before_tokens - after_tokens
+            return (
+                f"Context di-compact: {len(to_summarize)} pesan diringkas. "
+                f"Token {before_tokens:,} → {after_tokens:,} (hemat {saved:,})."
+            )
+        except Exception:
+            # Fallback ke pruning jika LLM call gagal (misal rate limit atau context error)
+            return self.prune_context()
+
+    def status(self) -> dict[str, Any]:
+        from autokeren import __version__
+        todo_tool = self.tools.get("todo")
+        todos = []
+        if todo_tool and hasattr(todo_tool, "get_todos"):
+            todos = todo_tool.get_todos()
+        
+        kanban_tasks = []
+        try:
+            from autokeren.kanban import KanbanDB
+            db = KanbanDB(self.project_root)
+            kanban_tasks = db.list_tasks()
+        except Exception:
+            pass
+
+        return {
+            "project_root": self.project_root,
+            "model_status": self.router.status(),
+            "context": self.context.summary(),
+            "todos": todos,
+            "kanban_tasks": kanban_tasks,
+            "version": __version__,
+            "session_id": self.current_session_id,
+            "session_name": self.current_session_name,
+        }
+
+    def run_autonomous(self, goal: str, context: str = "") -> dict[str, Any]:
+        """Run autonomous planning: decompose goal, execute sub-tasks, reflect.
+
+        Returns dict with tracker summary, results, and lessons.
+        """
+        from autokeren.autoplan import PlanExecutor, Reflector
+
+        reflector = Reflector(router=self.router, memory=self.memory)
+        executor = PlanExecutor(
+            agent=self,
+            router=self.router,
+            max_retries_per_task=2,
+            on_task_start=lambda t: None,
+            on_task_done=lambda t, r: reflector.reflect(t, r),
+            on_progress=lambda msg: None,
+        )
+
+        mem_context = context
+        if self.cfg.autokeren.memory_enabled:
+            mem_context = (self.memory.load() or "") + chr(10) + context
+
+        tracker = executor.execute_plan(goal=goal, context=mem_context)
+
+        return {
+            "tracker": tracker.to_dict(),
+            "results": [r.to_dict() for r in executor.results],
+            "lessons": [lesson.to_dict() for lesson in reflector.lessons],
+            "reflection_summary": reflector.summary(),
+            "patterns": reflector.get_patterns(),
+        }
+
+    def run_self_improvement(self, failed_tool_name: str, error_message: str, tool_args: dict[str, Any]) -> bool:
+        """Menjalankan siklus self-evolution mandiri jika sebuah tool gagal berulang kali."""
+        if getattr(self, "_evolving", False):
+            return False
+        self._evolving = True
+        
+        try:
+            # Cari path file tool-nya
+            tool_file = Path(self.project_root) / "autokeren" / "tools" / f"{failed_tool_name}.py"
+            if not tool_file.exists():
+                # Jika kustom tool dinamis
+                tool_file = Path(self.project_root) / ".ak-tools" / f"{failed_tool_name}.py"
+                
+            if not tool_file.exists():
+                return False
+                
+            if self.on_tool_output:
+                self.on_tool_output("self_evolution", f"🛠️ [bold magenta]SELF-EVOLUTION TRIGGERED:[/bold magenta] Tool '{failed_tool_name}' gagal berulang kali dengan error: {error_message}. Memulai self-refactoring...")
+
+            goal = (
+                f"Perbaiki bug/keterbatasan pada tool '{failed_tool_name}' yang berada di {tool_file.name}. "
+                f"Tool tersebut dipanggil dengan argumen: {tool_args} "
+                f"dan menghasilkan error: {error_message}. "
+                f"Refaktor implementasi Python tool tersebut di file {tool_file.name}, "
+                f"tambahkan test case baru di tests/ jika diperlukan, dan jalankan pytest untuk memvalidasi perbaikan."
+            )
+            
+            # Jalankan autonomous run untuk memperbaiki dirinya sendiri!
+            self.run_autonomous(goal, context=f"File target: {tool_file}\nError: {error_message}")
+            
+            # Muat ulang registry agar perubahan tool langsung diterapkan secara hot-reload!
+            from autokeren.cli import build_registry
+            new_registry = build_registry(self.cfg, Path(self.project_root), self.memory)
+            self.tools = new_registry
+            
+            if self.on_tool_output:
+                self.on_tool_output("self_evolution", f"✨ [bold green]SELF-EVOLUTION SUKSES:[/bold green] Tool '{failed_tool_name}' berhasil direfaktor dan dimuat ulang secara hot-reload!")
+            return True
+            
+        except Exception as e:
+            if self.on_tool_output:
+                self.on_tool_output("self_evolution", f"❌ [bold red]SELF-EVOLUTION GAGAL:[/bold red] Gagal merefaktor tool: {e}")
+            return False
+        finally:
+            self._evolving = False

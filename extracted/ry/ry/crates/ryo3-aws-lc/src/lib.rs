@@ -1,9 +1,0 @@
-#![doc = include_str!("../README.md")]
-mod digest;
-
-use pyo3::prelude::*;
-
-pub fn pymod_add(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    digest::pymod_add(m)?;
-    Ok(())
-}

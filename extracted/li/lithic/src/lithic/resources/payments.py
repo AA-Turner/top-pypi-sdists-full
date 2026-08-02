@@ -1,0 +1,1178 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+from typing import Union, Optional
+from datetime import date, datetime
+from typing_extensions import Literal
+
+import httpx
+
+from .. import _legacy_response
+from ..types import (
+    payment_list_params,
+    payment_create_params,
+    payment_return_params,
+    payment_simulate_action_params,
+    payment_simulate_return_params,
+    payment_simulate_receipt_params,
+    payment_simulate_release_params,
+)
+from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from .._utils import path_template, maybe_transform, async_maybe_transform
+from .._compat import cached_property
+from .._resource import SyncAPIResource, AsyncAPIResource
+from .._response import to_streamed_response_wrapper, async_to_streamed_response_wrapper
+from ..pagination import SyncCursorPage, AsyncCursorPage
+from .._base_client import AsyncPaginator, make_request_options
+from ..types.payment import Payment
+from ..types.payment_retry_response import PaymentRetryResponse
+from ..types.payment_create_response import PaymentCreateResponse
+from ..types.payment_simulate_action_response import PaymentSimulateActionResponse
+from ..types.payment_simulate_return_response import PaymentSimulateReturnResponse
+from ..types.payment_simulate_receipt_response import PaymentSimulateReceiptResponse
+from ..types.payment_simulate_release_response import PaymentSimulateReleaseResponse
+
+__all__ = ["Payments", "AsyncPayments"]
+
+
+class Payments(SyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> PaymentsWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/lithic-com/lithic-python#accessing-raw-response-data-eg-headers
+        """
+        return PaymentsWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> PaymentsWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/lithic-com/lithic-python#with_streaming_response
+        """
+        return PaymentsWithStreamingResponse(self)
+
+    def create(
+        self,
+        *,
+        amount: int,
+        external_bank_account_token: str,
+        financial_account_token: str,
+        method: Literal["ACH_NEXT_DAY", "ACH_SAME_DAY"],
+        method_attributes: payment_create_params.MethodAttributes,
+        type: Literal["COLLECTION", "PAYMENT"],
+        token: str | Omit = omit,
+        hold: payment_create_params.Hold | Omit = omit,
+        memo: str | Omit = omit,
+        user_defined_id: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> PaymentCreateResponse:
+        """
+        Initiates a payment between a financial account and an external bank account.
+
+        Args:
+          token: Customer-provided token that will serve as an idempotency token. This token will
+              become the transaction token.
+
+          hold: Optional hold to settle when this payment is initiated.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._post(
+            "/v1/payments",
+            body=maybe_transform(
+                {
+                    "amount": amount,
+                    "external_bank_account_token": external_bank_account_token,
+                    "financial_account_token": financial_account_token,
+                    "method": method,
+                    "method_attributes": method_attributes,
+                    "type": type,
+                    "token": token,
+                    "hold": hold,
+                    "memo": memo,
+                    "user_defined_id": user_defined_id,
+                },
+                payment_create_params.PaymentCreateParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=PaymentCreateResponse,
+        )
+
+    def retrieve(
+        self,
+        payment_token: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Payment:
+        """
+        Get the payment by token.
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not payment_token:
+            raise ValueError(f"Expected a non-empty value for `payment_token` but received {payment_token!r}")
+        return self._get(
+            path_template("/v1/payments/{payment_token}", payment_token=payment_token),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=Payment,
+        )
+
+    def list(
+        self,
+        *,
+        account_token: str | Omit = omit,
+        begin: Union[str, datetime] | Omit = omit,
+        business_account_token: str | Omit = omit,
+        category: Literal["ACH"] | Omit = omit,
+        end: Union[str, datetime] | Omit = omit,
+        ending_before: str | Omit = omit,
+        financial_account_token: str | Omit = omit,
+        page_size: int | Omit = omit,
+        result: Literal["APPROVED", "DECLINED"] | Omit = omit,
+        starting_after: str | Omit = omit,
+        status: Literal["DECLINED", "PENDING", "RETURNED", "SETTLED"] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncCursorPage[Payment]:
+        """
+        List all the payments for the provided search criteria.
+
+        Args:
+          begin: Date string in RFC 3339 format. Only entries created after the specified time
+              will be included. UTC time zone.
+
+          end: Date string in RFC 3339 format. Only entries created before the specified time
+              will be included. UTC time zone.
+
+          ending_before: A cursor representing an item's token before which a page of results should end.
+              Used to retrieve the previous page of results before this item.
+
+          page_size: Page size (for pagination).
+
+          starting_after: A cursor representing an item's token after which a page of results should
+              begin. Used to retrieve the next page of results after this item.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/v1/payments",
+            page=SyncCursorPage[Payment],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "account_token": account_token,
+                        "begin": begin,
+                        "business_account_token": business_account_token,
+                        "category": category,
+                        "end": end,
+                        "ending_before": ending_before,
+                        "financial_account_token": financial_account_token,
+                        "page_size": page_size,
+                        "result": result,
+                        "starting_after": starting_after,
+                        "status": status,
+                    },
+                    payment_list_params.PaymentListParams,
+                ),
+            ),
+            model=Payment,
+        )
+
+    def retry(
+        self,
+        payment_token: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> PaymentRetryResponse:
+        """
+        Retry an origination which has been returned.
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not payment_token:
+            raise ValueError(f"Expected a non-empty value for `payment_token` but received {payment_token!r}")
+        return self._post(
+            path_template("/v1/payments/{payment_token}/retry", payment_token=payment_token),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=PaymentRetryResponse,
+        )
+
+    def return_(
+        self,
+        payment_token: str,
+        *,
+        financial_account_token: str,
+        return_reason_code: str,
+        addenda: Optional[str] | Omit = omit,
+        date_of_death: Union[str, date, None] | Omit = omit,
+        memo: Optional[str] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Payment:
+        """Return an ACH payment with a specified return reason code.
+
+        Returns must be
+        initiated within the time window specified by NACHA rules for each return code
+        (typically 2 banking days for most codes, 60 calendar days for unauthorized
+        debits). For a complete list of return codes and their meanings, see the
+        [ACH Return Reasons documentation](https://docs.lithic.com/docs/ach-overview#ach-return-reasons).
+
+        Note:
+
+        - This endpoint does not modify the state of the financial account associated
+          with the payment. If you would like to change the account state, use the
+          [Update financial account status](https://docs.lithic.com/reference/updatefinancialaccountstatus)
+          endpoint.
+        - By default this endpoint is not enabled for your account. Please contact your
+          implementations manager to enable this feature.
+
+        Args:
+          financial_account_token: Globally unique identifier for the financial account
+
+          return_reason_code: ACH return reason code indicating the reason for returning the payment.
+              Supported codes include R01-R53 and R80-R85. For a complete list of return codes
+              and their meanings, see
+              [ACH Return Reasons](https://docs.lithic.com/docs/ach-overview#ach-return-reasons)
+
+          addenda: Optional additional information about the return. Limited to 44 characters
+
+          date_of_death: Date of death in YYYY-MM-DD format. Required when using return codes **R14**
+              (representative payee deceased) or **R15** (beneficiary or account holder
+              deceased)
+
+          memo: Optional memo for the return. Limited to 10 characters
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not payment_token:
+            raise ValueError(f"Expected a non-empty value for `payment_token` but received {payment_token!r}")
+        return self._post(
+            path_template("/v1/payments/{payment_token}/return", payment_token=payment_token),
+            body=maybe_transform(
+                {
+                    "financial_account_token": financial_account_token,
+                    "return_reason_code": return_reason_code,
+                    "addenda": addenda,
+                    "date_of_death": date_of_death,
+                    "memo": memo,
+                },
+                payment_return_params.PaymentReturnParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=Payment,
+        )
+
+    def simulate_action(
+        self,
+        payment_token: str,
+        *,
+        event_type: Literal[
+            "ACH_ORIGINATION_REVIEWED",
+            "ACH_ORIGINATION_RELEASED",
+            "ACH_ORIGINATION_PROCESSED",
+            "ACH_ORIGINATION_SETTLED",
+            "ACH_RECEIPT_SETTLED",
+            "ACH_RECEIPT_RELEASED",
+            "ACH_RECEIPT_RELEASED_EARLY",
+            "ACH_RETURN_INITIATED",
+            "ACH_RETURN_PROCESSED",
+            "ACH_RETURN_SETTLED",
+        ],
+        date_of_death: Union[str, date] | Omit = omit,
+        decline_reason: Literal[
+            "PROGRAM_TRANSACTION_LIMIT_EXCEEDED", "PROGRAM_DAILY_LIMIT_EXCEEDED", "PROGRAM_MONTHLY_LIMIT_EXCEEDED"
+        ]
+        | Omit = omit,
+        return_addenda: str | Omit = omit,
+        return_reason_code: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> PaymentSimulateActionResponse:
+        """
+        Simulate payment lifecycle event
+
+        Args:
+          event_type: Event Type
+
+          date_of_death: Date of Death for ACH Return
+
+          decline_reason: Decline reason
+
+          return_addenda: Return Addenda
+
+          return_reason_code: Return Reason Code
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not payment_token:
+            raise ValueError(f"Expected a non-empty value for `payment_token` but received {payment_token!r}")
+        return self._post(
+            path_template("/v1/simulate/payments/{payment_token}/action", payment_token=payment_token),
+            body=maybe_transform(
+                {
+                    "event_type": event_type,
+                    "date_of_death": date_of_death,
+                    "decline_reason": decline_reason,
+                    "return_addenda": return_addenda,
+                    "return_reason_code": return_reason_code,
+                },
+                payment_simulate_action_params.PaymentSimulateActionParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=PaymentSimulateActionResponse,
+        )
+
+    def simulate_receipt(
+        self,
+        *,
+        token: str,
+        amount: int,
+        financial_account_token: str,
+        receipt_type: Literal["RECEIPT_CREDIT", "RECEIPT_DEBIT"],
+        memo: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> PaymentSimulateReceiptResponse:
+        """
+        Simulates a receipt of a Payment.
+
+        Args:
+          token: Customer-generated payment token used to uniquely identify the simulated payment
+
+          amount: Amount
+
+          financial_account_token: Financial Account Token
+
+          receipt_type: Receipt Type
+
+          memo: Memo
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._post(
+            "/v1/simulate/payments/receipt",
+            body=maybe_transform(
+                {
+                    "token": token,
+                    "amount": amount,
+                    "financial_account_token": financial_account_token,
+                    "receipt_type": receipt_type,
+                    "memo": memo,
+                },
+                payment_simulate_receipt_params.PaymentSimulateReceiptParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=PaymentSimulateReceiptResponse,
+        )
+
+    def simulate_release(
+        self,
+        *,
+        payment_token: str,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> PaymentSimulateReleaseResponse:
+        """
+        Simulates a release of a Payment.
+
+        Args:
+          payment_token: Payment Token
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._post(
+            "/v1/simulate/payments/release",
+            body=maybe_transform(
+                {"payment_token": payment_token}, payment_simulate_release_params.PaymentSimulateReleaseParams
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=PaymentSimulateReleaseResponse,
+        )
+
+    def simulate_return(
+        self,
+        *,
+        payment_token: str,
+        return_reason_code: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> PaymentSimulateReturnResponse:
+        """
+        Simulates a return of a Payment.
+
+        Args:
+          payment_token: Payment Token
+
+          return_reason_code: Return Reason Code
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._post(
+            "/v1/simulate/payments/return",
+            body=maybe_transform(
+                {
+                    "payment_token": payment_token,
+                    "return_reason_code": return_reason_code,
+                },
+                payment_simulate_return_params.PaymentSimulateReturnParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=PaymentSimulateReturnResponse,
+        )
+
+
+class AsyncPayments(AsyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> AsyncPaymentsWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/lithic-com/lithic-python#accessing-raw-response-data-eg-headers
+        """
+        return AsyncPaymentsWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> AsyncPaymentsWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/lithic-com/lithic-python#with_streaming_response
+        """
+        return AsyncPaymentsWithStreamingResponse(self)
+
+    async def create(
+        self,
+        *,
+        amount: int,
+        external_bank_account_token: str,
+        financial_account_token: str,
+        method: Literal["ACH_NEXT_DAY", "ACH_SAME_DAY"],
+        method_attributes: payment_create_params.MethodAttributes,
+        type: Literal["COLLECTION", "PAYMENT"],
+        token: str | Omit = omit,
+        hold: payment_create_params.Hold | Omit = omit,
+        memo: str | Omit = omit,
+        user_defined_id: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> PaymentCreateResponse:
+        """
+        Initiates a payment between a financial account and an external bank account.
+
+        Args:
+          token: Customer-provided token that will serve as an idempotency token. This token will
+              become the transaction token.
+
+          hold: Optional hold to settle when this payment is initiated.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return await self._post(
+            "/v1/payments",
+            body=await async_maybe_transform(
+                {
+                    "amount": amount,
+                    "external_bank_account_token": external_bank_account_token,
+                    "financial_account_token": financial_account_token,
+                    "method": method,
+                    "method_attributes": method_attributes,
+                    "type": type,
+                    "token": token,
+                    "hold": hold,
+                    "memo": memo,
+                    "user_defined_id": user_defined_id,
+                },
+                payment_create_params.PaymentCreateParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=PaymentCreateResponse,
+        )
+
+    async def retrieve(
+        self,
+        payment_token: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Payment:
+        """
+        Get the payment by token.
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not payment_token:
+            raise ValueError(f"Expected a non-empty value for `payment_token` but received {payment_token!r}")
+        return await self._get(
+            path_template("/v1/payments/{payment_token}", payment_token=payment_token),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=Payment,
+        )
+
+    def list(
+        self,
+        *,
+        account_token: str | Omit = omit,
+        begin: Union[str, datetime] | Omit = omit,
+        business_account_token: str | Omit = omit,
+        category: Literal["ACH"] | Omit = omit,
+        end: Union[str, datetime] | Omit = omit,
+        ending_before: str | Omit = omit,
+        financial_account_token: str | Omit = omit,
+        page_size: int | Omit = omit,
+        result: Literal["APPROVED", "DECLINED"] | Omit = omit,
+        starting_after: str | Omit = omit,
+        status: Literal["DECLINED", "PENDING", "RETURNED", "SETTLED"] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[Payment, AsyncCursorPage[Payment]]:
+        """
+        List all the payments for the provided search criteria.
+
+        Args:
+          begin: Date string in RFC 3339 format. Only entries created after the specified time
+              will be included. UTC time zone.
+
+          end: Date string in RFC 3339 format. Only entries created before the specified time
+              will be included. UTC time zone.
+
+          ending_before: A cursor representing an item's token before which a page of results should end.
+              Used to retrieve the previous page of results before this item.
+
+          page_size: Page size (for pagination).
+
+          starting_after: A cursor representing an item's token after which a page of results should
+              begin. Used to retrieve the next page of results after this item.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return self._get_api_list(
+            "/v1/payments",
+            page=AsyncCursorPage[Payment],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "account_token": account_token,
+                        "begin": begin,
+                        "business_account_token": business_account_token,
+                        "category": category,
+                        "end": end,
+                        "ending_before": ending_before,
+                        "financial_account_token": financial_account_token,
+                        "page_size": page_size,
+                        "result": result,
+                        "starting_after": starting_after,
+                        "status": status,
+                    },
+                    payment_list_params.PaymentListParams,
+                ),
+            ),
+            model=Payment,
+        )
+
+    async def retry(
+        self,
+        payment_token: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> PaymentRetryResponse:
+        """
+        Retry an origination which has been returned.
+
+        Args:
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not payment_token:
+            raise ValueError(f"Expected a non-empty value for `payment_token` but received {payment_token!r}")
+        return await self._post(
+            path_template("/v1/payments/{payment_token}/retry", payment_token=payment_token),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=PaymentRetryResponse,
+        )
+
+    async def return_(
+        self,
+        payment_token: str,
+        *,
+        financial_account_token: str,
+        return_reason_code: str,
+        addenda: Optional[str] | Omit = omit,
+        date_of_death: Union[str, date, None] | Omit = omit,
+        memo: Optional[str] | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Payment:
+        """Return an ACH payment with a specified return reason code.
+
+        Returns must be
+        initiated within the time window specified by NACHA rules for each return code
+        (typically 2 banking days for most codes, 60 calendar days for unauthorized
+        debits). For a complete list of return codes and their meanings, see the
+        [ACH Return Reasons documentation](https://docs.lithic.com/docs/ach-overview#ach-return-reasons).
+
+        Note:
+
+        - This endpoint does not modify the state of the financial account associated
+          with the payment. If you would like to change the account state, use the
+          [Update financial account status](https://docs.lithic.com/reference/updatefinancialaccountstatus)
+          endpoint.
+        - By default this endpoint is not enabled for your account. Please contact your
+          implementations manager to enable this feature.
+
+        Args:
+          financial_account_token: Globally unique identifier for the financial account
+
+          return_reason_code: ACH return reason code indicating the reason for returning the payment.
+              Supported codes include R01-R53 and R80-R85. For a complete list of return codes
+              and their meanings, see
+              [ACH Return Reasons](https://docs.lithic.com/docs/ach-overview#ach-return-reasons)
+
+          addenda: Optional additional information about the return. Limited to 44 characters
+
+          date_of_death: Date of death in YYYY-MM-DD format. Required when using return codes **R14**
+              (representative payee deceased) or **R15** (beneficiary or account holder
+              deceased)
+
+          memo: Optional memo for the return. Limited to 10 characters
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not payment_token:
+            raise ValueError(f"Expected a non-empty value for `payment_token` but received {payment_token!r}")
+        return await self._post(
+            path_template("/v1/payments/{payment_token}/return", payment_token=payment_token),
+            body=await async_maybe_transform(
+                {
+                    "financial_account_token": financial_account_token,
+                    "return_reason_code": return_reason_code,
+                    "addenda": addenda,
+                    "date_of_death": date_of_death,
+                    "memo": memo,
+                },
+                payment_return_params.PaymentReturnParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=Payment,
+        )
+
+    async def simulate_action(
+        self,
+        payment_token: str,
+        *,
+        event_type: Literal[
+            "ACH_ORIGINATION_REVIEWED",
+            "ACH_ORIGINATION_RELEASED",
+            "ACH_ORIGINATION_PROCESSED",
+            "ACH_ORIGINATION_SETTLED",
+            "ACH_RECEIPT_SETTLED",
+            "ACH_RECEIPT_RELEASED",
+            "ACH_RECEIPT_RELEASED_EARLY",
+            "ACH_RETURN_INITIATED",
+            "ACH_RETURN_PROCESSED",
+            "ACH_RETURN_SETTLED",
+        ],
+        date_of_death: Union[str, date] | Omit = omit,
+        decline_reason: Literal[
+            "PROGRAM_TRANSACTION_LIMIT_EXCEEDED", "PROGRAM_DAILY_LIMIT_EXCEEDED", "PROGRAM_MONTHLY_LIMIT_EXCEEDED"
+        ]
+        | Omit = omit,
+        return_addenda: str | Omit = omit,
+        return_reason_code: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> PaymentSimulateActionResponse:
+        """
+        Simulate payment lifecycle event
+
+        Args:
+          event_type: Event Type
+
+          date_of_death: Date of Death for ACH Return
+
+          decline_reason: Decline reason
+
+          return_addenda: Return Addenda
+
+          return_reason_code: Return Reason Code
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not payment_token:
+            raise ValueError(f"Expected a non-empty value for `payment_token` but received {payment_token!r}")
+        return await self._post(
+            path_template("/v1/simulate/payments/{payment_token}/action", payment_token=payment_token),
+            body=await async_maybe_transform(
+                {
+                    "event_type": event_type,
+                    "date_of_death": date_of_death,
+                    "decline_reason": decline_reason,
+                    "return_addenda": return_addenda,
+                    "return_reason_code": return_reason_code,
+                },
+                payment_simulate_action_params.PaymentSimulateActionParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=PaymentSimulateActionResponse,
+        )
+
+    async def simulate_receipt(
+        self,
+        *,
+        token: str,
+        amount: int,
+        financial_account_token: str,
+        receipt_type: Literal["RECEIPT_CREDIT", "RECEIPT_DEBIT"],
+        memo: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> PaymentSimulateReceiptResponse:
+        """
+        Simulates a receipt of a Payment.
+
+        Args:
+          token: Customer-generated payment token used to uniquely identify the simulated payment
+
+          amount: Amount
+
+          financial_account_token: Financial Account Token
+
+          receipt_type: Receipt Type
+
+          memo: Memo
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return await self._post(
+            "/v1/simulate/payments/receipt",
+            body=await async_maybe_transform(
+                {
+                    "token": token,
+                    "amount": amount,
+                    "financial_account_token": financial_account_token,
+                    "receipt_type": receipt_type,
+                    "memo": memo,
+                },
+                payment_simulate_receipt_params.PaymentSimulateReceiptParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=PaymentSimulateReceiptResponse,
+        )
+
+    async def simulate_release(
+        self,
+        *,
+        payment_token: str,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> PaymentSimulateReleaseResponse:
+        """
+        Simulates a release of a Payment.
+
+        Args:
+          payment_token: Payment Token
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return await self._post(
+            "/v1/simulate/payments/release",
+            body=await async_maybe_transform(
+                {"payment_token": payment_token}, payment_simulate_release_params.PaymentSimulateReleaseParams
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=PaymentSimulateReleaseResponse,
+        )
+
+    async def simulate_return(
+        self,
+        *,
+        payment_token: str,
+        return_reason_code: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> PaymentSimulateReturnResponse:
+        """
+        Simulates a return of a Payment.
+
+        Args:
+          payment_token: Payment Token
+
+          return_reason_code: Return Reason Code
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        return await self._post(
+            "/v1/simulate/payments/return",
+            body=await async_maybe_transform(
+                {
+                    "payment_token": payment_token,
+                    "return_reason_code": return_reason_code,
+                },
+                payment_simulate_return_params.PaymentSimulateReturnParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=PaymentSimulateReturnResponse,
+        )
+
+
+class PaymentsWithRawResponse:
+    def __init__(self, payments: Payments) -> None:
+        self._payments = payments
+
+        self.create = _legacy_response.to_raw_response_wrapper(
+            payments.create,
+        )
+        self.retrieve = _legacy_response.to_raw_response_wrapper(
+            payments.retrieve,
+        )
+        self.list = _legacy_response.to_raw_response_wrapper(
+            payments.list,
+        )
+        self.retry = _legacy_response.to_raw_response_wrapper(
+            payments.retry,
+        )
+        self.return_ = _legacy_response.to_raw_response_wrapper(
+            payments.return_,
+        )
+        self.simulate_action = _legacy_response.to_raw_response_wrapper(
+            payments.simulate_action,
+        )
+        self.simulate_receipt = _legacy_response.to_raw_response_wrapper(
+            payments.simulate_receipt,
+        )
+        self.simulate_release = _legacy_response.to_raw_response_wrapper(
+            payments.simulate_release,
+        )
+        self.simulate_return = _legacy_response.to_raw_response_wrapper(
+            payments.simulate_return,
+        )
+
+
+class AsyncPaymentsWithRawResponse:
+    def __init__(self, payments: AsyncPayments) -> None:
+        self._payments = payments
+
+        self.create = _legacy_response.async_to_raw_response_wrapper(
+            payments.create,
+        )
+        self.retrieve = _legacy_response.async_to_raw_response_wrapper(
+            payments.retrieve,
+        )
+        self.list = _legacy_response.async_to_raw_response_wrapper(
+            payments.list,
+        )
+        self.retry = _legacy_response.async_to_raw_response_wrapper(
+            payments.retry,
+        )
+        self.return_ = _legacy_response.async_to_raw_response_wrapper(
+            payments.return_,
+        )
+        self.simulate_action = _legacy_response.async_to_raw_response_wrapper(
+            payments.simulate_action,
+        )
+        self.simulate_receipt = _legacy_response.async_to_raw_response_wrapper(
+            payments.simulate_receipt,
+        )
+        self.simulate_release = _legacy_response.async_to_raw_response_wrapper(
+            payments.simulate_release,
+        )
+        self.simulate_return = _legacy_response.async_to_raw_response_wrapper(
+            payments.simulate_return,
+        )
+
+
+class PaymentsWithStreamingResponse:
+    def __init__(self, payments: Payments) -> None:
+        self._payments = payments
+
+        self.create = to_streamed_response_wrapper(
+            payments.create,
+        )
+        self.retrieve = to_streamed_response_wrapper(
+            payments.retrieve,
+        )
+        self.list = to_streamed_response_wrapper(
+            payments.list,
+        )
+        self.retry = to_streamed_response_wrapper(
+            payments.retry,
+        )
+        self.return_ = to_streamed_response_wrapper(
+            payments.return_,
+        )
+        self.simulate_action = to_streamed_response_wrapper(
+            payments.simulate_action,
+        )
+        self.simulate_receipt = to_streamed_response_wrapper(
+            payments.simulate_receipt,
+        )
+        self.simulate_release = to_streamed_response_wrapper(
+            payments.simulate_release,
+        )
+        self.simulate_return = to_streamed_response_wrapper(
+            payments.simulate_return,
+        )
+
+
+class AsyncPaymentsWithStreamingResponse:
+    def __init__(self, payments: AsyncPayments) -> None:
+        self._payments = payments
+
+        self.create = async_to_streamed_response_wrapper(
+            payments.create,
+        )
+        self.retrieve = async_to_streamed_response_wrapper(
+            payments.retrieve,
+        )
+        self.list = async_to_streamed_response_wrapper(
+            payments.list,
+        )
+        self.retry = async_to_streamed_response_wrapper(
+            payments.retry,
+        )
+        self.return_ = async_to_streamed_response_wrapper(
+            payments.return_,
+        )
+        self.simulate_action = async_to_streamed_response_wrapper(
+            payments.simulate_action,
+        )
+        self.simulate_receipt = async_to_streamed_response_wrapper(
+            payments.simulate_receipt,
+        )
+        self.simulate_release = async_to_streamed_response_wrapper(
+            payments.simulate_release,
+        )
+        self.simulate_return = async_to_streamed_response_wrapper(
+            payments.simulate_return,
+        )

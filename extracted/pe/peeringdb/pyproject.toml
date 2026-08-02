@@ -1,0 +1,160 @@
+[project]
+name = "peeringdb"
+version = "2.5.0"
+description = "PeeringDB Python client and library"
+readme = "README.md"
+authors = [{ name = "PeeringDB", email = "support@peeringdb.com" }]
+license = { text = "BSD-2-Clause" }
+requires-python = ">=3.10"
+keywords = ["peeringdb", "networking", "peering", "internet", "api", "bgp", "asn"]
+
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Intended Audience :: Telecommunications Industry",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Internet",
+]
+dependencies = [
+    "confu>=1",
+    "munge[toml,tomlkit,yaml]>=1.2.0",
+    "twentyc.rpc>=1",
+    "pyyaml>=6.0.1",
+    "httpx>=0.24.1",
+    "django_peeringdb>=3.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "django>=4.2",
+    "pytest>=8",
+    "pytest-cov>=5",
+    "tox>=4",
+    "tox-gh-actions>=3",
+    "tox-uv>=1.13.0",
+    "mypy>=0.950",
+    "types-requests",
+    "types-PyYAML",
+    "pre-commit>=2.13",
+    "ruff>=0.1",
+    "markdown>=3",
+    "markdown-include>=0.5,<1",
+    "mkdocs>=1.2.3",
+    "ctl>=1",
+    "jinja2>=3",
+    "tmpl>=1",
+    "twine>=3",
+]
+
+[project.scripts]
+peeringdb = "peeringdb.cli:main"
+
+[project.urls]
+repository = "https://github.com/peeringdb/peeringdb-py"
+homepage = "https://www.peeringdb.com"
+documentation = "https://peeringdb.github.io/peeringdb-py"
+changelog = "https://github.com/peeringdb/peeringdb-py/blob/master/CHANGELOG.md"
+issues = "https://github.com/peeringdb/peeringdb-py/issues"
+
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+extend-select = [
+    "UP",  # pyupgrade
+    "I",   # isort
+    "F",   # Pyflakes
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "C90", # mccabe complexity
+    "N",   # pep8-naming
+]
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "*.egg-info",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint.isort]
+known-first-party = ["peeringdb"]
+force-single-line = false
+split-on-trailing-comma = true
+
+[tool.ruff.lint.mccabe]
+max-complexity = 12
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # Allow unused imports in __init__.py
+"tests/**/*" = ["S101"]   # Allow assert statements in tests
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+disallow_untyped_decorators = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = false
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+# Start with basic type checking, can be made stricter later
+strict = false
+
+[[tool.mypy.overrides]]
+module = [
+    "django.*",
+    "django_peeringdb.*",
+    "confu.*",
+    "munge.*",
+    "twentyc.*",
+    "yaml.*",
+    "httpx.*"
+]
+ignore_missing_imports = true
+
+# Allow some dynamic attribute access for these modules that use metaclasses
+[[tool.mypy.overrides]]
+module = [
+    "peeringdb.backend",
+    "peeringdb.private",
+    "peeringdb._update"
+]
+disable_error_code = ["attr-defined"]
+
+# Ignore issues in __init__ (global checks and dynamic imports)
+[[tool.mypy.overrides]]
+module = "peeringdb.__init__"
+disable_error_code = ["unreachable", "import-untyped"]
+
+# Allow complex issues in commands module
+[[tool.mypy.overrides]]
+module = "peeringdb.commands"
+disable_error_code = ["attr-defined", "index", "arg-type"]
+
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

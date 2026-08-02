@@ -1,0 +1,297 @@
+[tool.poetry]
+name = "yalexs"
+version = "9.2.10"
+description = "Python API for Yale Access (formerly August) Smart Lock and Doorbell"
+authors = ["J. Nick Koston <nick@koston.org>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/Yale-Libs/yalexs"
+documentation = "https://yalexs.readthedocs.io"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+packages = [
+    { include = "yalexs", from = "." },
+]
+
+[tool.poetry.urls]
+"Bug Tracker" = "https://github.com/Yale-Libs/yalexs/issues"
+"Changelog" = "https://github.com/Yale-Libs/yalexs/blob/main/CHANGELOG.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+ciso8601 = ">=2.1.3"
+pyjwt = ">=2.8.0"
+requests = ">=2"
+python-dateutil = ">=2.9.0"
+aiohttp = ">=3.10.5"
+aiofiles = ">=23"
+freenub = ">=0.1.0"
+typing-extensions = ">=4.5.0"
+python-socketio = {version = ">=5.11.3", extras = ["asyncio-client"]}
+propcache = ">=0.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=8"
+pytest-cov = ">=3,<8"
+aiointercept = "^0.1.5"
+requests-mock = "^1.12.1"
+pytest-asyncio = ">=0.24.0"
+freezegun = "^1.5.1"
+pytest-freezer = "^0.4.9"
+setuptools = ">=74.1.2,<83.0.0"
+
+[tool.poetry.group.docs]
+optional = true
+
+[tool.poetry.group.docs.dependencies]
+myst-parser = ">=0.16"
+sphinx = ">=4.0"
+sphinx-rtd-theme = ">=1.0"
+
+[tool.semantic_release]
+version_toml = ["pyproject.toml:tool.poetry.version"]
+version_variables = [
+    "yalexs/__init__.py:__version__",
+]
+build_command = "pip install poetry && poetry build"
+
+[tool.semantic_release.changelog]
+exclude_commit_patterns = [
+    "chore*",
+    "ci*",
+]
+
+[tool.semantic_release.changelog.environment]
+keep_trailing_newline = true
+
+[tool.semantic_release.branches.main]
+match = "main"
+
+[tool.semantic_release.branches.noop]
+match = "(?!main$)"
+prerelease = true
+
+[tool.pytest.ini_options]
+addopts = "-v -Wdefault --cov=yalexs --cov-report=term-missing:skip-covered"
+
+[tool.coverage.run]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "@overload",
+    "if TYPE_CHECKING",
+    "raise NotImplementedError",
+]
+
+[tool.isort]
+profile = "black"
+known_first_party = ["yalexs", "tests"]
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+mypy_path = "src/"
+no_implicit_optional = true
+show_error_codes = true
+warn_unreachable = true
+warn_unused_ignores = true
+exclude = [
+    'docs/.*',
+]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+allow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "docs.*"
+ignore_errors = true
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "A", # flake8-builtins
+    "ANN", # flake8-annotations (D10x undocumented checks ignored below)
+    "ARG", # flake8-unused-arguments
+    "ASYNC", # async rules
+    "B", # flake8-bugbear
+    "BLE", # flake8-blind-except
+    "C", # complexity (mccabe + comprehensions)
+    "COM818", # Trailing comma on bare tuple prohibited
+    "D", # pydocstyle
+    "DTZ", # flake8-datetimez
+    "E", # pycodestyle
+    "EM", # flake8-errmsg
+    "ERA", # eradicate (commented-out code)
+    "EXE", # flake8-executable
+    "F", # pyflakes/autoflake
+    "FA", # flake8-future-annotations
+    "FIX", # flake8-fixme
+    "FLY", # flynt
+    "FURB", # refurb
+    "G", # flake8-logging-format
+    "I", # isort
+    "ICN", # flake8-import-conventions
+    "INP", # flake8-no-pep420
+    "ISC", # flake8-implicit-str-concat
+    "LOG", # flake8-logging
+    "N", # pep8-naming
+    "NPY", # numpy-specific rules
+    "PERF", # Perflint
+    "PGH", # pygrep-hooks
+    "PIE", # flake8-pie
+    "PL", # pylint
+    "PT", # flake8-pytest-style
+    "PTH", # flake8-pathlib
+    "PYI", # flake8-pyi
+    "RET", # flake8-return
+    "RSE", # flake8-raise
+    "RUF", # ruff
+    "S", # flake8-bandit
+    "SIM", # flake8-simplify
+    "SLF", # flake8-self
+    "SLOT", # flake8-slots
+    "T10", # flake8-debugger
+    "T20", # flake8-print
+    "TC", # flake8-type-checking
+    "TD", # flake8-todos
+    "TID", # Tidy imports
+    "TRY", # tryceratops
+    "UP", # pyupgrade
+    "W", # pycodestyle warnings
+    "YTT", # flake8-2020
+]
+
+
+ignore = [
+    "T201", # used in examples
+    "T203", # used in examples
+    "D102", # Too many to fix now
+    "D103", # Too many to fix now
+    "D202", # No blank lines allowed after function docstring
+    "D203", # 1 blank line required before class docstring
+    "D205", # Too many to fix now
+    "D213", # Multi-line docstring summary should start at the second line
+    "D400", # Too many to fix now
+    "D401", # Too many to fix right now
+    "D406", # Section name should end with a newline
+    "D407", # Section name underlining
+    "D415", # Too many to fix now
+    "E501", # line too long
+
+    "PTH118", # Too many to fix now
+    "PTH120", # Too many to fix now
+    "PTH123", # Too many to fix now
+    "PGH003", # Too many to fix now
+
+    "PLC1901", # {existing} can be simplified to {replacement} as an empty string is falsey; too many false positives
+    "PLR0911", # Too many return statements ({returns} > {max_returns})
+    "PLR0912", # Too many branches ({branches} > {max_branches})
+    "PLR0913", # Too many arguments to function call ({c_args} > {max_args})
+    "PLR0915", # Too many statements ({statements} > {max_statements})
+    "PLR2004", # Magic value used in comparison, consider replacing {value} with a constant variable
+    "PLW2901", # Outer {outer_kind} variable {name} overwritten by inner {inner_kind} target
+    "PT011", # pytest.raises({exception}) is too broad, set the `match` parameter or use a more specific exception
+    "PT018", # Assertion should be broken down into multiple parts
+    "RUF001", # String contains ambiguous unicode character.
+    "RUF002", # Docstring contains ambiguous unicode character.
+    "RUF003", # Comment contains ambiguous unicode character.
+    "RUF015", # Prefer next(...) over single element slice
+    "SIM102", # Use a single if statement instead of nested if statements
+    "SIM103", # Return the condition {condition} directly
+    "SIM108", # Use ternary operator {contents} instead of if-else-block
+    "SIM115", # Use context handler for opening files
+
+    # Moving imports into type-checking blocks can mess with pytest.patch()
+    "TC001", # Move application import {} into a type-checking block
+    "TC002", # Move third-party import {} into a type-checking block
+    "TC003", # Move standard library import {} into a type-checking block
+
+    "TRY003", # Avoid specifying long messages outside the exception class
+    "TRY400", # Use `logging.exception` instead of `logging.error`
+
+    # flake8-annotations: too many existing un-annotated signatures to fix now
+    "ANN001", # Missing type annotation for function argument
+    "ANN002", # Missing type annotation for *args
+    "ANN003", # Missing type annotation for **kwargs
+    "ANN201", # Missing return type annotation for public function
+    "ANN202", # Missing return type annotation for private function
+    "ANN204", # Missing return type annotation for special method
+    "ANN401", # Dynamically typed expressions (Any) are disallowed
+
+    # flake8-errmsg: would require restructuring every existing raise site
+    "EM101", # Exception must not use a string literal
+    "EM102", # Exception must not use an f-string literal
+
+    # pep8-naming: existing public API; renaming would break consumers
+    "N802", # Function name should be lowercase
+    "N818", # Exception name should end in `Error`
+
+    # async: timeout parameters are part of the public async API
+    "ASYNC109", # async-function-with-timeout
+
+    # bandit: header constants and # nosec-marked secrets trigger false positives
+    "S105", # Possible hardcoded password assigned
+    "S106", # Possible hardcoded password assigned to argument
+
+    # flake8-todos: existing TODO/FIXME comments don't follow strict formatting
+    "TD002", # Missing author in TODO
+    "TD003", # Missing issue link in TODO
+    "FIX002", # Line contains TODO
+
+    # May conflict with the formatter, https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+    "W191",
+    "E111",
+    "E114",
+    "E117",
+    "D206",
+    "D300",
+    "Q",
+    "COM812",
+    "COM819",
+
+    # Disabled because ruff does not understand type of __all__ generated by a function
+    "PLE0605",
+    "PLC0206", # Too many to fix
+    "PT009", # Too many to fix
+    "PT012", # Too many to fix
+    "PT017", # Too many to fix
+    "PT027", # Too many to fix
+    "TRY004", # Would be a breaking change
+    "D100", # Too many to fix
+    "D101", # Too many to fix
+    "D104", # Too many to fix
+    "D105", # Too many to fix
+    "D107", # Too many to fix
+    "TID252", # Too many to fix
+    "PTH110", # Too many to fix
+    "PTH108", # Too many to fix
+    "SLF001", # Too many to fix
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Test files use assert (S101), patch internals (SLF), accept unused fixture
+# args (ARG), and need not annotate every signature (ANN).
+"tests/**" = ["ANN", "ARG", "S101", "SLF"]

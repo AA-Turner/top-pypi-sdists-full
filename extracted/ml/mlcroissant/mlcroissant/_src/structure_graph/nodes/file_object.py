@@ -1,0 +1,144 @@
+"""FileObject module."""
+
+from rdflib.namespace import SDO
+
+from mlcroissant._src.core import constants
+from mlcroissant._src.core import dataclasses as mlc_dataclasses
+from mlcroissant._src.core.constants import ML_COMMONS
+from mlcroissant._src.core.uuid import formatted_uuid_to_json
+from mlcroissant._src.core.uuid import uuid_from_jsonld
+from mlcroissant._src.structure_graph.base_node import Node
+from mlcroissant._src.structure_graph.nodes.source import Source
+
+
+def _is_source(ctx, jsonld):
+    return (
+        jsonld.get("@type") == constants.ML_COMMONS_SOURCE(ctx)
+        or constants.ML_COMMONS_FILE_OBJECT(ctx) in jsonld
+        or constants.ML_COMMONS_FILE_SET(ctx) in jsonld
+        or constants.ML_COMMONS_RECORD_SET(ctx) in jsonld
+    )
+
+
+def _contained_in_from_jsonld(ctx, contained_in):
+    return [
+        (
+            Source.from_jsonld(ctx, c)
+            if isinstance(c, dict) and _is_source(ctx, c)
+            else uuid_from_jsonld(c)
+        )
+        for c in (contained_in if isinstance(contained_in, list) else [contained_in])
+    ]
+
+
+@mlc_dataclasses.dataclass
+class FileObject(Node):
+    """Nodes to describe a dataset FileObject (distribution)."""
+
+    content_url: str | None = mlc_dataclasses.jsonld_field(
+        default=None,
+        description=(
+            "Actual bytes of the media object, for example the image file or video"
+            " file."
+        ),
+        input_types=[SDO.URL],
+        url=SDO.contentUrl,
+    )
+    content_size: str | None = mlc_dataclasses.jsonld_field(
+        default=None,
+        description=(
+            "File size in (mega/kilo/...)bytes. Defaults to bytes if a unit is not"
+            " specified."
+        ),
+        input_types=[SDO.Text],
+        url=SDO.contentSize,
+    )
+    contained_in: list[str | Source] | None = mlc_dataclasses.jsonld_field(
+        cardinality="MANY",
+        default_factory=list,
+        description=(
+            "Another FileObject or FileSet that this one is contained in, e.g., in the"
+            " case of a file extracted from an archive. When this property is present,"
+            " the contentUrl is evaluated as a relative path within the container"
+            " object"
+        ),
+        from_jsonld=_contained_in_from_jsonld,
+        to_jsonld=lambda ctx, contained_in: [
+            formatted_uuid_to_json(ctx, c) if isinstance(c, str) else c.to_json()
+            for c in contained_in
+        ],
+        url=lambda ctx: (
+            SDO.containedIn
+            if not ctx.is_v1_1()
+            else constants.ML_COMMONS(ctx).containedIn
+        ),
+    )
+    description: str | dict[str, str] | None = mlc_dataclasses.jsonld_field(
+        cardinality="LANGUAGE-TAGGED",
+        default=None,
+        input_types=[SDO.Text],
+        url=SDO.description,
+    )
+    encoding_formats: list[str] | None = mlc_dataclasses.jsonld_field(
+        cardinality="MANY",
+        default=None,
+        description=(
+            "The formats of the file, given as a mime type. Unregistered or niche"
+            " encoding and file formats can be indicated instead via the most"
+            " appropriate URL, e.g. defining Web page or a Wikipedia/Wikidata entry. "
+        ),
+        input_types=[SDO.Text],
+        url=SDO.encodingFormat,
+    )
+    md5: str | None = mlc_dataclasses.jsonld_field(
+        default=None,
+        input_types=[SDO.Text],
+        url=lambda ctx: ML_COMMONS(ctx).md5,
+    )
+    name: str = mlc_dataclasses.jsonld_field(
+        cardinality="ONE",  # a file name is not multilingual
+        default="",
+        description=(
+            "The name of the file.  As much as possible, the name should reflect the"
+            " name of the file as downloaded, including the file extension. e.g."
+            ' "images.zip".'
+        ),
+        input_types=[SDO.Text],
+        url=SDO.name,
+    )
+    same_as: list[str] | None = mlc_dataclasses.jsonld_field(
+        cardinality="MANY",
+        default=None,
+        description=(
+            "URL (or local name) of a FileObject with the same content, but in a"
+            " different format."
+        ),
+        input_types=[SDO.URL],
+        url=SDO.sameAs,
+    )
+    sha256: str | None = mlc_dataclasses.jsonld_field(
+        cardinality="ONE",
+        default=None,
+        description="Checksum for the file contents.",
+        input_types=[SDO.Text],
+        url=SDO.sha256,
+    )
+    source: Source = mlc_dataclasses.jsonld_field(
+        default_factory=Source,
+        input_types=[Source],
+        url=lambda ctx: ML_COMMONS(ctx).source,
+    )
+
+    def __post_init__(self):
+        """Checks arguments of the node."""
+        Node.__post_init__(self)
+        self.validate_name()
+        uuid_field = "name" if self.ctx.is_v0() else "id"
+        self.assert_has_mandatory_properties("encoding_formats", uuid_field)
+
+        if not self.contained_in:
+            self.assert_has_mandatory_properties("content_url")
+            if not self.ctx.is_live_dataset:
+                self.assert_has_exclusive_properties(["md5", "sha256"])
+
+    JSONLD_TYPE = constants.SCHEMA_ORG_FILE_OBJECT

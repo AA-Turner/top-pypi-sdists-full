@@ -1,0 +1,94 @@
+#!/usr/bin/env python3
+import asyncio
+import configparser
+import json
+
+import homematicip
+import homematicip.auth
+from homematicip.connection.connection_context import ConnectionContextBuilder
+from homematicip.connection.rest_connection import RestConnection
+
+
+async def run_auth(access_point: str | None = None, devicename: str | None = None, pin: str | None = None):
+    print(
+        "If you are about to connect to a HomematicIP HCU1 you have to press the button on top of the device, before you continue.")
+    print("From now, you have 5 Minutes to complete the registration process.")
+    input("Press Enter to continue...")  # noqa: ASYNC250
+
+    while True:
+        access_point = (
+            input("Please enter the accesspoint id (SGTIN): ")  # noqa: ASYNC250
+            .replace("-", "")
+            .upper()
+        )
+        if len(access_point) != 24:
+            print("Invalid access_point id")
+            continue
+        break
+
+    context = await ConnectionContextBuilder.build_context_async(access_point)
+    connection = RestConnection(context, log_status_exceptions=False)
+
+    auth = homematicip.auth.Auth(connection, context.client_auth_token, access_point)
+
+    devicename = input(  # noqa: ASYNC250
+        "Please enter the client/devicename (leave blank to use default):"
+    )
+
+    while True:
+        pin = input("Please enter the PIN (leave Blank if there is none): ")  # noqa: ASYNC250
+
+        if pin != "":
+            auth.set_pin(pin)
+        response = None
+        if devicename == "":
+            response = await auth.connection_request(access_point)
+        else:
+            response = await auth.connection_request(access_point, devicename)
+
+        if response.status == 200:  # ConnectionRequest was fine
+            break
+
+        errorCode = json.loads(response.text)["errorCode"]
+        if errorCode == "INVALID_PIN":
+            print("PIN IS INVALID!")
+        elif errorCode == "ASSIGNMENT_LOCKED":
+            print("LOCKED ! Press button on HCU to unlock.")
+            await asyncio.sleep(5)
+        else:
+            print(f"Error: {errorCode}\nExiting")
+            return
+
+    print("Connection Request successful!")
+    print("Please press the blue button on the access point")
+    while not await auth.is_request_acknowledged():
+        print("Please press the blue button on the access point")
+        await asyncio.sleep(2)
+
+    auth_token = await auth.request_auth_token()
+    clientId = await auth.confirm_auth_token(auth_token)
+
+    print(
+        "-----------------------------------------------------------------------------"
+    )
+    print("Token successfully registered!")
+    print(
+        f"AUTH_TOKEN:\t{auth_token}\nACCESS_POINT:\t{access_point}\nClient ID:\t{clientId}\nsaving configuration to ./config.ini"
+    )
+
+    _config = configparser.ConfigParser()
+    _config.add_section("AUTH")
+    _config.add_section("LOGGING")
+    _config["AUTH"] = {"AuthToken": auth_token, "AccessPoint": access_point}
+    _config.set("LOGGING", "Level", "30")
+    _config.set("LOGGING", "FileName", "None")
+    with open("./config.ini", "w") as configfile:  # noqa: ASYNC230 — CLI tool, sync file write at finish is fine
+        _config.write(configfile)
+
+
+def main():
+    asyncio.run(run_auth())
+
+
+if __name__ == "__main__":
+    main()

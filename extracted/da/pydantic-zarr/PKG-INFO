@@ -1,0 +1,110 @@
+Metadata-Version: 2.4
+Name: pydantic-zarr
+Version: 0.10.0
+Summary: Pydantic models for the Zarr file format
+Project-URL: Documentation, https://pydantic-zarr.readthedocs.io/
+Project-URL: Issues, https://github.com/zarr-developers/pydantic-zarr/issues
+Project-URL: Source, https://github.com/zarr-developers/pydantic-zarr
+Author-email: Davis Bennett <davis.v.bennett@gmail.com>
+Maintainer: David Stansby
+License-Expression: MIT
+License-File: LICENSE
+Keywords: pydantic,zarr
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Requires-Python: >=3.12
+Requires-Dist: numpy>=2.0.0
+Requires-Dist: packaging>=21.0
+Requires-Dist: pydantic>2.0.0
+Provides-Extra: docs
+Requires-Dist: mkdocs-material; extra == 'docs'
+Requires-Dist: mkdocstrings[python]; extra == 'docs'
+Requires-Dist: pydantic==2.12.*; extra == 'docs'
+Requires-Dist: pytest-examples; extra == 'docs'
+Requires-Dist: towncrier; extra == 'docs'
+Requires-Dist: zarr>=3.1.0; extra == 'docs'
+Provides-Extra: test
+Requires-Dist: coverage; extra == 'test'
+Requires-Dist: dask==2025.11.0; extra == 'test'
+Requires-Dist: pytest-cov; extra == 'test'
+Requires-Dist: pytest-examples; extra == 'test'
+Requires-Dist: pytest<8.4; extra == 'test'
+Requires-Dist: xarray==2025.10.0; extra == 'test'
+Requires-Dist: zarr>=3.0.0; extra == 'test'
+Provides-Extra: test-base
+Requires-Dist: coverage; extra == 'test-base'
+Requires-Dist: dask==2025.11.0; extra == 'test-base'
+Requires-Dist: pytest-cov; extra == 'test-base'
+Requires-Dist: pytest-examples; extra == 'test-base'
+Requires-Dist: pytest<8.4; extra == 'test-base'
+Requires-Dist: xarray==2025.10.0; extra == 'test-base'
+Provides-Extra: zarr
+Requires-Dist: zarr>=3.0.0; extra == 'zarr'
+Description-Content-Type: text/markdown
+
+# pydantic-zarr
+
+[![PyPI](https://img.shields.io/pypi/v/pydantic-zarr)](https://pypi.python.org/pypi/pydantic-zarr)
+
+[Pydantic](https://docs.pydantic.dev/latest/) models for [Zarr](https://zarr.readthedocs.io/en/stable/index.html).
+
+## Installation
+
+```sh
+pip install -U pydantic-zarr
+# or, with zarr i/o support
+pip install -U "pydantic-zarr[zarr]"
+```
+
+## Getting help
+
+- Docs: see the [documentation](https://pydantic-zarr.readthedocs.io/) for detailed information about this project.
+- Chat: We use [Zulip](https://ossci.zulipchat.com/#narrow/channel/423692-Zarr) for project-related chat.
+
+## Example
+
+```python
+import zarr
+from pydantic_zarr import GroupSpec
+
+group = zarr.group(path='foo')
+array = zarr.create(store = group.store, path='foo/bar', shape=10, dtype='uint8')
+array.attrs.put({'metadata': 'hello'})
+
+# this is a pydantic model
+spec = GroupSpec.from_zarr(group)
+print(spec.model_dump())
+"""
+{
+    'zarr_format': 2,
+    'attributes': {},
+    'members': {
+        'bar': {
+            'zarr_format': 2,
+            'attributes': {'metadata': 'hello'},
+            'shape': (10,),
+            'chunks': (10,),
+            'dtype': '|u1',
+            'fill_value': 0,
+            'order': 'C',
+            'filters': None,
+            'dimension_separator': '.',
+            'compressor': {
+                'id': 'blosc',
+                'cname': 'lz4',
+                'clevel': 5,
+                'shuffle': 1,
+                'blocksize': 0,
+            },
+        }
+    },
+}
+"""
+```
+
+## History
+
+This project was developed at [HHMI / Janelia Research Campus](https://www.janelia.org/). It was originally written by Davis Bennett to solve problems he encountered while working on the [Cellmap Project team](https://www.janelia.org/project-team/cellmap/members). In December of 2024 this project was migrated from the [`janelia-cellmap`](https://github.com/janelia-cellmap) github organization to [`zarr-developers`](https://github.com/zarr-developers) organization.

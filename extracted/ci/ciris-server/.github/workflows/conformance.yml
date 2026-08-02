@@ -1,0 +1,176 @@
+name: conformance
+
+# Cohabitation conformance: build the ciris-server abi3 wheel, then drive it
+# through CIRISConformance's reusable suite alongside the pinned substrate
+# triple (persist / edge / verify) — the production cohabitation shape (the
+# wheels run together in one Python process). CIRISServer carries the absorbed
+# lens surface, so the suite's `requires_lens` tests run against THIS wheel.
+#
+# A failure here is the cohabitation contract failing — the same gate that
+# blocks publish-pypi in the substrate sisters' release flows. Wired on PR +
+# push now; promote to a publish gate when the PyPI release job lands.
+
+on:
+  push:
+    branches: [main]
+    # Docs-only commits don't change the wheel or the cohabitation contract.
+    paths-ignore:
+      - "**/*.md"
+      - "FSD/**"
+      - "docs/**"
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "FSD/**"
+      - "docs/**"
+  workflow_dispatch:
+
+# Supersede stale runs on the same ref; a tag ref is distinct (release safe).
+concurrency:
+  group: conformance-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write   # CIRISCache save (GHCR) on main — see the build-wheel job
+
+jobs:
+  build-wheel:
+    name: build ciris-server wheel (linux-x86_64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.97.0
+      - name: Set up sccache (compiler cache over GHA)
+        uses: mozilla-actions/sccache-action@v0.0.9
+      # CIRISCache (CIRISServer#99) — 4-layer centipede layered over the Swatinem
+      # GHA L1 above (the documented two-tier model). Restore verify→persist→edge→
+      # server; this on-main build POPULATES ghcr.io/cirisai/ciriscache under the
+      # SERVER -s key (no collision with edge's canonical blob). rust-toolchain.toml
+      # pins stable so the rustc in the key matches across repos.
+      - name: Compute CIRISCache keys (4-layer centipede, CIRISServer#99)
+        id: cachekey
+        shell: bash
+        run: |
+          PLAT="linux-x86_64"
+          RUSTC=$(rustc -V | awk '{print $2}')
+          S=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/^version = "([^"]+)".*/\1/')
+          P=$(grep -m1 'CIRISPersist.*tag = "v' Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          V=$(grep -m1 'CIRISVerify.*tag = "v'  Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          EDGE=$(grep -m1 'CIRISEdge.*tag = "v' Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          BASE="ciris-substrate-v1-${PLAT}-release-rustc${RUSTC}"
+          KEY_VERIFY="${BASE}-pnone-enone-v${V:-none}"
+          KEY_PERSIST="${BASE}-p${P:-none}-enone-v${V:-none}"
+          KEY_EDGE="${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}"
+          KEY_SERVER="${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}-s${S:-none}"
+          {
+            echo "key-verify=${KEY_VERIFY}"
+            echo "key-persist=${KEY_PERSIST}"
+            echo "key-edge=${KEY_EDGE}"
+            echo "key=${KEY_SERVER}"
+            echo "key-server-prefix=${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}-s"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::CIRISCache (${PLAT}): S=${S:-NONE} P=${P:-NONE} V=${V:-NONE} EDGE=${EDGE:-NONE} RUSTC=${RUSTC}"
+          echo "::notice::${KEY_VERIFY}"
+          echo "::notice::${KEY_PERSIST}"
+          echo "::notice::${KEY_EDGE}"
+          echo "::notice::${KEY_SERVER}"
+      # Deepest-first, first-hit-wins (CIRISCache restore@v2): one extraction of
+      # the deepest available blob (cumulative supersets) instead of N redundant.
+      - name: CIRISCache restore (server→edge→persist→verify, first hit)
+        uses: CIRISAI/CIRISCache/restore@v2
+        continue-on-error: true
+        with:
+          keys: |
+            ${{ steps.cachekey.outputs.key }}
+            ${{ steps.cachekey.outputs.key-server-prefix }}*
+            ${{ steps.cachekey.outputs.key-edge }}
+            ${{ steps.cachekey.outputs.key-persist }}
+            ${{ steps.cachekey.outputs.key-verify }}
+      - name: Install build deps
+        #: the family links the TPM keyring backend on Linux.
+        # libsqlite3-dev: persist's sqlite backend.
+        # patchelf: maturin's manylinux repair (the wheel dynamically links
+        # libtss2/libcrypto) — without it `maturin build` fails.
+        run: |
+          # Drop the preinstalled Microsoft/azure-cli apt repo: it intermittently
+          # 403s and tanks apt-get update (its packages are not needed here).
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.list /etc/apt/sources.list.d/azure-cli.sources
+          sudo apt-get update
+          sudo apt-get install -y libsqlite3-dev libudev-dev patchelf
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build abi3 wheel (maturin)
+        # [tool.maturin] in pyproject.toml supplies features = ["extension-module"]
+        # + module-name = ciris_server; pyo3 abi3-py310 → one wheel for 3.10+.
+        env:
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: sccache
+        run: |
+          python -m pip install --upgrade pip
+          pip install "maturin>=1.7,<2"
+          maturin build --release --strip --out dist
+          ls -l dist/
+          sccache --show-stats
+      # ── Verify-FFI fold smoke (CIRISServer#232) ──────────────────────────────
+      # The same assertion build-wheels.yml runs on the macOS/Windows legs at
+      # release time — repeated HERE so it gates every PR/push on linux too, and
+      # so the smoke script itself is exercised long before it can fail a publish.
+      # We fold ciris-verify-ffi (rlib) into _native.so, but NOTHING in our Rust
+      # calls its #[no_mangle] fns (the agent reaches them via ctypes at runtime),
+      # so --gc-sections would happily dead-strip all ~84 ciris_verify_* symbols —
+      # per-platform-silently. Load the built wheel exactly the way the agent will
+      # and assert the surface actually resolves.
+      - name: Verify-FFI fold smoke (CIRISServer#232 — symbols must survive the linker strip)
+        shell: bash
+        run: |
+          python -m pip install --force-reinstall --no-deps dist/*.whl
+          python - <<'PY'
+          import ctypes, ciris_server
+          p = ciris_server.verify_ffi_path()
+          print("verify_ffi_path ->", p)
+          lib = ctypes.CDLL(p)
+          need = [
+              "ciris_verify_ffi_link_anchor", "ciris_verify_jcs_canonicalize",
+              "ciris_verify_self_enc_pubkeys", "ciris_verify_self_enc_respond",
+              "ciris_verify_wrap_dek_for_recipient", "ciris_verify_unwrap_dek",
+              "ciris_verify_kex_respond_hybrid_with_public",
+              "ciris_verify_create_federation_identity",
+              "ciris_verify_locale_merkle_root", "ciris_verify_admit_attestation",
+          ]
+          missing = [s for s in need if not hasattr(lib, s)]
+          assert not missing, "verify FFI symbols MISSING from _native (linker --gc-sections stripped the fold): %s" % missing
+          print("OK - verify FFI folded: %d symbols resolvable via ctypes from the built wheel" % len(need))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ciris_server-wheel-linux-x86_64
+          path: dist/*.whl
+          if-no-files-found: error
+      # Populate the cross-repo CIRISCache blob on main under the SERVER key
+      # (restore is anonymous on PRs; only main writes — public package,
+      # GITHUB_TOKEN, no external secret).
+      - name: CIRISCache save (server layer, main only)
+        uses: CIRISAI/CIRISCache/save@v1
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+        with:
+          key: ${{ steps.cachekey.outputs.key }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  cohabitation-conformance:
+    name: cohabitation (linux-x86_64 × ${{ matrix.backend }})
+    needs: build-wheel
+    strategy:
+      fail-fast: false
+      matrix:
+        backend: [sqlite, postgres]
+    uses: CIRISAI/CIRISConformance/.github/workflows/run-against-wheels.yml@main
+    with:
+      runs-on: ubuntu-latest
+      backend: ${{ matrix.backend }}
+      under-test-wheel-artifact: ciris_server-wheel-linux-x86_64
+      under-test-package: ciris-server
+      # matrix-ref defaults to main, which pins the persist-7 substrate triple
+      # + maps requires_lens → ciris_server (CIRISConformance#14, merged).

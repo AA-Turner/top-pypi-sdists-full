@@ -267,7 +267,7 @@ def _otlp_service_name_to_agent_type(service_name):
     return slug or "custom"
 
 
-__version__ = "0.12.616"
+__version__ = "0.12.632"
 
 # Extensions (Phase 2): import the plugin host now, but defer the actual
 # load_plugins() call until after the Flask app is created below so we can
@@ -4733,7 +4733,7 @@ function clawmetryLogout(){
     <div class="nav-tab" onclick="switchTab('approvals')" title="Cloud-mediated approval queue">Approvals <span id="nav-approvals-badge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:4px;">0</span></div>
     <div class="nav-tab" onclick="switchTab('alerts')" title="Get notified when something goes wrong">Alerts <span id="nav-alerts-badge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:4px;">0</span></div>
     <div class="nav-tab" onclick="switchTab('notifications')" title="Slack / Email / PagerDuty / Telegram channels">Notifications</div>
-    <div class="nav-tab" onclick="switchTab('context')" title="See what context the LLM receives each turn">Context</div>
+    <div class="nav-tab" onclick="switchTab('context-economics')" title="Context-window usage from real per-turn readings">Context</div>
     <div class="nav-tab" onclick="switchTab('usage')">Tokens</div>
     <div class="nav-tab" id="crons-tab" onclick="switchTab('crons')">Crons</div>
     <div class="nav-tab" onclick="switchTab('memory')">Memory</div>
@@ -8876,14 +8876,17 @@ def _get_heartbeat_status():
     }
 
 
-# ── Agent-presence detection (no-agent empty-state, sibling of #1604) ──
+# ── Agent-presence detection (sibling of #1604) ──
 # Distinct from ``_get_heartbeat_status``:
 #   * heartbeat-status answers "has THIS install's daemon checked in yet?"
 #     (transient race, resolves in ~30s — drives #1631's onboarding banner)
 #   * detect_agent_install() answers "is there any underlying agent at
-#     all?" (persistent until the user installs one — drives the
-#     "No OpenClaw or NemoClaw detected" page-level empty-state).
-# Cached 60s so every tab switch doesn't re-stat 4+ paths and shell out
+#     all?" — served at /api/agent-presence and mirrored into heartbeats
+#     (sync.py) for the cloud's install-state aggregation. The dashboard
+#     banner this used to drive ("No OpenClaw or NVIDIA NemoClaw
+#     detected") was removed once ClawMetry grew past two runtimes; the
+#     detection API stays for cloud consumers.
+# Cached 60s so polling consumers don't re-stat 4+ paths and shell out
 # to ``shutil.which``.
 _agent_presence_cache = {"ts": 0.0, "value": None}
 _AGENT_PRESENCE_TTL_SEC = 60
@@ -12184,7 +12187,7 @@ DASHBOARD_HTML = r"""
     <div class="nav-tab" onclick="switchTab('approvals')" title="Cloud-mediated approval queue">Approvals <span id="nav-approvals-badge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:4px;">0</span></div>
     <div class="nav-tab" onclick="switchTab('alerts')" title="Get notified when something goes wrong">Alerts <span id="nav-alerts-badge" style="display:none;background:#ef4444;color:#fff;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:4px;">0</span></div>
     <div class="nav-tab" onclick="switchTab('notifications')" title="Slack / Email / PagerDuty / Telegram channels">Notifications</div>
-    <div class="nav-tab" onclick="switchTab('context')" title="See what context the LLM receives each turn">Context</div>
+    <div class="nav-tab" onclick="switchTab('context-economics')" title="Context-window usage from real per-turn readings">Context</div>
     <div class="nav-tab" onclick="switchTab('usage')">Tokens</div>
     <div class="nav-tab" id="crons-tab" onclick="switchTab('crons')">Crons</div>
     <div class="nav-tab" onclick="switchTab('memory')">Memory</div>
@@ -12212,13 +12215,7 @@ DASHBOARD_HTML = r"""
   </div>
   {% endif %}
 </div>
-{% include 'partials/cloud-modal.html' %}
-{% include 'partials/onboarding-modal.html' %}
-
-
 {% include 'partials/banners.html' %}
-
-{% include 'partials/budget-modal.html' %}
 
 {% if not legacy_nav %}
 {# Phase-1 IA refactor (issue #1659): 220px left sidebar + content grid.
@@ -12292,9 +12289,11 @@ DASHBOARD_HTML = r"""
         <div class="left-nav-item left-nav-item-sub" data-tab="models" onclick="switchTab('models')">
           <span class="left-nav-label" data-i18n="nav.models">Models</span>
         </div>
-        <div class="left-nav-item left-nav-item-sub" data-tab="context" onclick="switchTab('context')" data-i18n-title="nav.llm_context_tooltip" title="What the LLM sees on each turn">
-          <span class="left-nav-label" data-i18n="nav.llm_context">LLM Context</span>
-        </div>
+        {# "LLM Context" merged into Context usage (2026-08-01): the old tab
+           mixed hardcoded token estimates with a node-wide gauge. Context
+           usage (context-economics) shows the same story from real per-turn
+           readings, session + runtime scoped. switchTab('context') aliases
+           there so old deep links keep working. #}
         {# Phase B (UX_AUDIT.md): Tracing, Turn timing and Compare sessions are
            SESSION-scoped, so they left the global nav and are reached from a
            session drill-down (openSessionDeepDive in app.js, wired into the
@@ -12415,7 +12414,6 @@ DASHBOARD_HTML = r"""
 {% include 'tabs/notifications.html' %}
 
 <!-- CONTEXT INSPECTOR -->
-{% include 'tabs/context.html' %}
 
 <!-- TRACING (Phoenix/Arize-style: span waterfall + tree + agent graph) -->
 {% include 'tabs/tracing.html' %}
@@ -12469,6 +12467,16 @@ DASHBOARD_HTML = r"""
 <script src="{{ url_for('static', filename='js/runtime-logos.js', v=version) }}"></script>
 <script src="{{ url_for('static', filename='js/app.js', v=version) }}"></script>
 </div> <!-- end zoom-wrapper -->
+
+{# position:fixed overlays must live OUTSIDE #zoom-wrapper: its zoom
+   transform makes it the containing block for fixed descendants, which
+   stretches an inset:0 overlay to document height and pushes the centered
+   card below the fold (users saw only the blur backdrop, issue: blank
+   blurred dashboard on first run). #}
+{% include 'partials/cloud-modal.html' %}
+{% include 'partials/onboarding-modal.html' %}
+{% include 'partials/selfhost-modal.html' %}
+{% include 'partials/budget-modal.html' %}
 
 <!-- Component Detail Modal -->
 <div class="comp-modal-overlay" id="comp-modal-overlay" onclick="if(event.target===this)closeCompModal()">
@@ -18152,20 +18160,25 @@ def _write_cloud_token(token):
 # in one click. We reuse the same loopback browser-bridge as `clawmetry connect`:
 # start a one-shot 127.0.0.1 listener, hand the cloud OAuth flow our port via
 # cli_port=<port>, and the cloud callback redirects the freshly-minted cm_ key
-# back to loopback. The key only ever travels over 127.0.0.1. On capture we run
-# the full connect (register node -> ~/.clawmetry/config.json -> start daemon).
-# The dashboard polls _OAUTH_BRIDGE for status.
-_OAUTH_BRIDGE = {"status": "idle", "provider": "", "node_id": "", "enc_key": "", "error": ""}
+# back to loopback. The key only ever travels over 127.0.0.1. What happens on
+# capture depends on the bridge mode: "managed" runs the full connect (register
+# node -> ~/.clawmetry/config.json -> enable cloud -> start daemon); "selfhost"
+# (the onboarding gate's self-host card) keeps egress off and rides the trial
+# rail instead. The dashboard polls _OAUTH_BRIDGE for status.
+_OAUTH_BRIDGE = {"status": "idle", "provider": "", "mode": "", "node_id": "",
+                 "enc_key": "", "trial": "", "error": ""}
 
 
-def _full_connect_with_key(api_key):
-    """Register this node with a verified cm_ key and start syncing.
+def _persist_identity_with_key(api_key):
+    """Register the account/node for a verified cm_ key and persist it.
 
-    Mirrors the non-interactive parts of `clawmetry connect`: validate/register
-    the node, preserve or auto-generate the E2E encryption key, write
-    ~/.clawmetry/config.json, mirror the token into openclaw.json (so the
-    dashboard cloud-proxy works), and ensure the sync daemon is running.
-    Returns (node_id, enc_key). Never raises for non-fatal issues.
+    The shared identity half of both connect flavours: validate/register the
+    node (best-effort — network hiccups still save config so it syncs once
+    reachable), preserve or auto-generate the E2E encryption key, write
+    ~/.clawmetry/config.json, and mirror the token into openclaw.json (so
+    the dashboard cloud-proxy works). Deliberately does NOT touch the
+    nocloud marker or the daemon — callers own the egress decision.
+    Returns (node_id, enc_key).
     """
     import platform
     import socket
@@ -18186,7 +18199,6 @@ def _full_connect_with_key(api_key):
         result = validate_key(api_key, hostname=hostname, existing_node_id=saved_node_id)
         node_id = result.get("node_id") or saved_node_id or hostname
     except Exception:
-        # Network/server hiccup: save config anyway so it syncs once reachable.
         node_id = saved_node_id or hostname
 
     enc_key = saved_enc or generate_encryption_key()
@@ -18202,6 +18214,18 @@ def _full_connect_with_key(api_key):
         _write_cloud_token(api_key)
     except Exception:
         pass
+    return node_id, enc_key
+
+
+def _full_connect_with_key(api_key):
+    """Register this node with a verified cm_ key and start syncing.
+
+    Mirrors the non-interactive parts of `clawmetry connect`: persist the
+    identity (_persist_identity_with_key), then opt into egress and ensure
+    the sync daemon is running. Returns (node_id, enc_key). Never raises
+    for non-fatal issues.
+    """
+    node_id, enc_key = _persist_identity_with_key(api_key)
 
     # Clear the local-only marker so the daemon actually pushes to cloud. A
     # local-only install writes ~/.clawmetry/nocloud; without this the connect
@@ -18237,12 +18261,73 @@ def _full_connect_with_key(api_key):
     return node_id, enc_key
 
 
-def _start_oauth_bridge(provider):
+def _selfhost_signin_with_key(api_key):
+    """Self-host sign-in: identity without egress, then the trial rail.
+
+    Mirrors `clawmetry connect` answered with keep-local (identity is what
+    unlocks runtimes; egress is a separate choice): touch the nocloud
+    marker BEFORE persisting the key — the daemon must never observe a
+    cm_ key without the marker, or it would happily start pushing — then
+    register the identity and mint-or-reuse the account's 7-day trial via
+    /api/license/trial/signup (idempotent server-side, same rail as the
+    CLI) and activate it locally. Returns (node_id, trial) where trial is
+    'active' | 'expired' | 'unavailable'.
+    """
+    try:
+        from clawmetry.config import NOCLOUD_MARKER_PATH as _marker
+        import pathlib as _pl
+
+        _p = _pl.Path(str(_marker))
+        _p.parent.mkdir(parents=True, exist_ok=True)
+        _p.touch(exist_ok=True)
+    except Exception:
+        pass
+
+    node_id, _enc = _persist_identity_with_key(api_key)
+
+    trial = "unavailable"
+    try:
+        import urllib.request as _ur
+        from clawmetry import license as _lic
+
+        req = _ur.Request(
+            _lic._cloud_base() + "/api/license/trial/signup",
+            data=json.dumps({"api_key": api_key}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with _ur.urlopen(req, timeout=15) as resp:
+            body = json.loads(resp.read().decode())
+        if isinstance(body, dict) and body.get("ok"):
+            if body.get("expired"):
+                trial = "expired"
+            elif body.get("key"):
+                ok, _msg = _lic.activate(body["key"], node_id=_lic._node_id())
+                if ok:
+                    trial = "active"
+    except Exception:
+        pass
+
+    # Same as the email-OTP trial path: make sure the local ingest daemon is
+    # running (it stays local-only under the marker written above).
+    try:
+        from routes.trial import _ensure_local_daemon
+
+        _ensure_local_daemon()
+    except Exception:
+        pass
+    return node_id, trial
+
+
+def _start_oauth_bridge(provider, mode="managed"):
     """Start the loopback OAuth bridge and return the cloud start URL (or None).
 
     The caller (dashboard JS) opens the returned URL in a new browser tab. A
-    background thread captures the loopback callback, runs _full_connect_with_key,
-    and updates the module-level _OAUTH_BRIDGE the status route reports.
+    background thread captures the loopback callback and updates the
+    module-level _OAUTH_BRIDGE the status route reports. mode picks what
+    happens with the captured key: "managed" runs _full_connect_with_key
+    (register node + enable cloud sync); "selfhost" runs
+    _selfhost_signin_with_key (identity + local trial, egress stays off).
     """
     import http.server
     import threading
@@ -18251,9 +18336,11 @@ def _start_oauth_bridge(provider):
 
     global _OAUTH_BRIDGE
     provider = (provider or "").lower()
+    mode = "selfhost" if (mode or "").lower() == "selfhost" else "managed"
     if provider not in ("github", "google"):
-        _OAUTH_BRIDGE = {"status": "error", "provider": provider,
-                         "node_id": "", "enc_key": "", "error": "Unsupported provider"}
+        _OAUTH_BRIDGE = {"status": "error", "provider": provider, "mode": mode,
+                         "node_id": "", "enc_key": "", "trial": "",
+                         "error": "Unsupported provider"}
         return None
 
     from clawmetry.endpoints import app_url as _resolve_app_url
@@ -18284,13 +18371,14 @@ def _start_oauth_bridge(provider):
     try:
         srv = http.server.HTTPServer(("127.0.0.1", 0), _Handler)
     except OSError:
-        _OAUTH_BRIDGE = {"status": "error", "provider": provider,
-                         "node_id": "", "enc_key": "", "error": "Could not start local listener"}
+        _OAUTH_BRIDGE = {"status": "error", "provider": provider, "mode": mode,
+                         "node_id": "", "enc_key": "", "trial": "",
+                         "error": "Could not start local listener"}
         return None
 
     port = srv.server_address[1]
-    _OAUTH_BRIDGE = {"status": "waiting", "provider": provider,
-                     "node_id": "", "enc_key": "", "error": ""}
+    _OAUTH_BRIDGE = {"status": "waiting", "provider": provider, "mode": mode,
+                     "node_id": "", "enc_key": "", "trial": "", "error": ""}
 
     def _run():
         global _OAUTH_BRIDGE
@@ -18303,16 +18391,25 @@ def _start_oauth_bridge(provider):
             srv.server_close()
         tok = captured.get("token", "")
         if not tok.startswith("cm_"):
-            _OAUTH_BRIDGE = {"status": "error", "provider": provider, "node_id": "",
-                             "enc_key": "", "error": "Sign-in was not completed."}
+            _OAUTH_BRIDGE = {"status": "error", "provider": provider, "mode": mode,
+                             "node_id": "", "enc_key": "", "trial": "",
+                             "error": "Sign-in was not completed."}
             return
         try:
-            node_id, enc_key = _full_connect_with_key(tok)
-            _OAUTH_BRIDGE = {"status": "connected", "provider": provider,
-                             "node_id": node_id, "enc_key": enc_key, "error": ""}
+            if mode == "selfhost":
+                node_id, trial = _selfhost_signin_with_key(tok)
+                _OAUTH_BRIDGE = {"status": "connected", "provider": provider,
+                                 "mode": mode, "node_id": node_id, "enc_key": "",
+                                 "trial": trial, "error": ""}
+            else:
+                node_id, enc_key = _full_connect_with_key(tok)
+                _OAUTH_BRIDGE = {"status": "connected", "provider": provider,
+                                 "mode": mode, "node_id": node_id,
+                                 "enc_key": enc_key, "trial": "", "error": ""}
         except Exception as e:  # pragma: no cover - defensive
-            _OAUTH_BRIDGE = {"status": "error", "provider": provider, "node_id": "",
-                             "enc_key": "", "error": str(e)[:200]}
+            _OAUTH_BRIDGE = {"status": "error", "provider": provider, "mode": mode,
+                             "node_id": "", "enc_key": "", "trial": "",
+                             "error": str(e)[:200]}
 
     threading.Thread(target=_run, daemon=True).start()
     return f"{app_base}/api/oauth/{provider}/start?cli_port={port}"
@@ -18647,7 +18744,16 @@ def _start_daemon_background():
     import subprocess
     import pathlib as _pl
 
-    spawn_kwargs = {}
+    # Without a config the spawned daemon crash-loops (load_config raises)
+    # and the local store never fills; and `python -m` puts the CWD on
+    # sys.path, so a dashboard launched from a source checkout would spawn
+    # the repo's (possibly stale) sync.py instead of the installed wheel.
+    try:
+        from clawmetry.sync import ensure_local_config
+        ensure_local_config()
+    except Exception:
+        pass
+    spawn_kwargs = {"cwd": os.path.expanduser("~")}
     if os.name == "nt":
         # start_new_session is POSIX-only and silently no-ops on Windows:
         # the daemon stayed tied to this console (killed when it closes)

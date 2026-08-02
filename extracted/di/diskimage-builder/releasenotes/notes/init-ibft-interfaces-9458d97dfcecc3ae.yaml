@@ -1,6 +1,0 @@
----
-features:
-  - |
-    Adds a new element ``init-ibft-interfaces`` to initialize network
-    interfaces with configuration provided via iBFT. The new element is now
-    a dependency of the ``ironic-agent`` element.

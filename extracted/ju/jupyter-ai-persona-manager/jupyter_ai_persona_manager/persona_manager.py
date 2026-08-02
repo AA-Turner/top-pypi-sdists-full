@@ -1,0 +1,805 @@
+from __future__ import annotations
+
+import asyncio
+import html
+import importlib.util
+import inspect
+import json
+import os
+import sys
+import traceback
+from glob import glob
+from logging import Logger
+from pathlib import Path
+from time import time_ns
+from typing import TYPE_CHECKING
+
+from importlib_metadata import entry_points
+from jupyterlab_chat.models import Message, NewMessage, User
+from traitlets import List, Unicode, default
+from traitlets.config import LoggingConfigurable
+
+from .awareness_models import PersonaOption
+from .base_persona import BasePersona
+from .directories import find_dot_dir, find_workspace_dir
+from .handlers import build_avatar_cache
+from .mcp_server_models import McpServerHttp, McpServerStdio, McpSettings
+from .persona_awareness import (
+    PERSONA_MANAGER_AWARENESS_CLIENT_ID,
+    PersonaManagerAwareness,
+)
+
+if TYPE_CHECKING:
+    from asyncio import AbstractEventLoop
+    from typing import Any, ClassVar
+
+    from jupyter_server_fileid.manager import (  # type: ignore[import-untyped]
+        BaseFileIdManager,
+    )
+    from jupyterlab_chat.ychat import YChat
+
+# EPG := entry point group
+EPG_NAME = "jupyter_ai.personas"
+
+SYSTEM_USERNAME = "hidden::jupyter_ai_system"
+"""
+Username used for system messages shown to the user.
+"""
+
+class PersonaRequirementsUnmet(RuntimeError):
+    """
+    Exception that persona entry point modules should raise if their
+    requirements are unmet by the environment. This prevents the error from
+    being reported in the chat.
+    """
+    pass
+
+
+async def _safe_process(persona: "BasePersona", message: Message) -> None:
+    """
+    Wraps persona.process_message() to catch unhandled exceptions and deliver
+    an error message to the user via persona.handle_uncaught_exception().
+
+    Before processing, applies the model & settings specification carried on the
+    message's metadata (see `BasePersona.apply_specs_in_message()`), so
+    per-message user selections take effect for every persona without each
+    `process_message()` implementation having to apply them itself.
+    """
+    try:
+        await persona.apply_specs_in_message(message)
+        with persona.track_processing():
+            await persona.process_message(message)
+    except Exception as exc:
+        persona.log.error(
+            f"Persona '{persona.name}' raised an unhandled exception in process_message()."
+        )
+        persona.log.exception(exc)
+        try:
+            await persona.handle_uncaught_exception(exc)
+        except Exception:
+            persona.log.exception(
+                f"Persona '{persona.name}' raised a secondary exception in "
+                f"handle_uncaught_exception(); error message not delivered to user."
+            )
+
+
+class PersonaManager(LoggingConfigurable):
+    """
+    Class that manages all personas for a single chat.
+    """
+
+    # Configurable traits
+    default_persona_id = Unicode(
+        default_value="jupyter-ai-personas::jupyter_ai::JupyternautPersona",
+        help=""
+        "The ID of the default persona. If configured, the default persona "
+        "replies to messages that don't name a target persona in their "
+        "metadata (until the picker selects someone else). "
+        "Defaults to: 'jupyter-ai-personas::jupyter_ai::JupyternautPersona'. ",
+        allow_none=True,
+        config=True,
+    )
+
+    builtin_mcp_servers = List(
+        allow_none=True,
+        help=(
+            "List of built-in MCP server dicts (matching the McpServerHttp / "
+            "McpServerStdio schema) that are enabled by default. "
+            "Set to [] to disable all built-in MCP servers."
+        ),
+    ).tag(config=True)
+
+    @default("builtin_mcp_servers")
+    def _default_builtin_mcp_servers(self):
+        """Returns the jupyter_server_mcp HTTP server if the package is installed."""
+        try:
+            import jupyter_server_mcp  # noqa: F401
+        except Exception:
+            return []
+
+        mcp_port = self.config.get("MCPExtensionApp", {}).get("mcp_port", 3001)
+        mcp_name = self.config.get("MCPExtensionApp", {}).get(
+            "mcp_name", "Jupyter MCP Server"
+        )
+
+        return [
+            {
+                "type": "http",
+                "name": mcp_name,
+                "url": f"http://localhost:{mcp_port}/mcp",
+                "headers": [],
+            }
+        ]
+
+    # class attr storing persona classes from entry points
+    # We treat this as a class attribute so that we only have to load them once
+    _ep_persona_classes: ClassVar[list[dict] | None] = None
+
+    # instance attrs
+    ychat: "YChat"
+    fileid_manager: "BaseFileIdManager"
+    root_dir: str
+    event_loop: "AbstractEventLoop"
+    base_url: str
+
+    log: Logger  # type: ignore
+    """
+    The `logging.Logger` instance used by this class. This is automatically set
+    by the `LoggingConfigurable` parent class; this declaration only hints the
+    type for type checkers.
+    """
+
+    # Local persona classes are instance attributes to support frequent reloading
+    _local_persona_classes: list[dict] | None = None
+    _personas: dict[str, BasePersona]
+    file_id: str
+
+    _awareness: PersonaManagerAwareness
+    """
+    The manager's awareness slot, publishing the persona list under the fixed
+    `PERSONA_MANAGER_AWARENESS_CLIENT_ID` via its `personas` property. Scoped to
+    a specific client ID because `pycrdt.Awareness` provides no native way to
+    write state under more than one client ID; see `ScopedAwareness` for details.
+    """
+
+    def __init__(
+        self,
+        *args,
+        room_id: str,
+        ychat: "YChat",
+        fileid_manager: "BaseFileIdManager",
+        root_dir: str,
+        event_loop: "AbstractEventLoop",
+        base_url: str = "/",
+        **kwargs,
+    ):
+        # Forward other arguments to parent class
+        super().__init__(*args, **kwargs)
+
+        # Bind instance attributes
+        self.room_id = room_id
+        self.ychat = ychat
+        self.fileid_manager = fileid_manager
+        self.root_dir = root_dir
+        self.event_loop = event_loop
+        self.base_url = base_url
+
+        # Store file ID
+        self.file_id = room_id.split(":")[2]
+
+        self._init_persona_classes()
+        self.log.info(f"Persona classes loaded in chat '{self.room_id}'.")
+        self._personas = self._init_personas()
+        self.log.info(f"Personas initialized in chat '{self.room_id}'.")
+
+        # Register the manager's own awareness slot (under a fixed client ID) and
+        # publish the list of personas. This is the source of truth the browser
+        # reads for the persona selector, replacing REST polling.
+        self._awareness = PersonaManagerAwareness(ychat=self.ychat, log=self.log)
+        self._publish_persona_list()
+
+        if self.default_persona:
+            self.log.info(
+                f"Default persona set to '{self.default_persona.name}' in chat '{self.room_id}'."
+            )
+        else:
+            self.log.warning(f"No default persona is set in chat '{self.room_id}'.")
+
+    def _init_persona_classes(self) -> None:
+        """Read entry-point and local persona classes."""
+        if PersonaManager._ep_persona_classes is None:
+            self._init_ep_persona_classes()
+            assert isinstance(PersonaManager._ep_persona_classes, list)
+        self._init_local_persona_classes()
+
+    def _init_ep_persona_classes(self) -> None:
+        """
+        Initializes the list of persona *classes* by retrieving the
+        `jupyter-ai.personas` entry points group.
+        """
+        # Loading is in two parts:
+        # 1. Load persona classes from package entry points.
+        # 2. Load persona classes from local filesystem.
+        #
+        # This allows for lightweight development of new personas by the user in
+        # their local filesystem. The first part is done here, and the second
+        # part is done in `_init_personas()`.
+
+        persona_eps = entry_points().select(group=EPG_NAME)
+        self.log.info(f"Found {len(persona_eps)} entry points under '{EPG_NAME}'.")
+        self.log.info("PENDING: Loading AI persona classes from entry points...")
+        start_time_ns = time_ns()
+        persona_classes: list[dict] = []
+
+        for persona_ep in persona_eps:
+            try:
+                # Load a persona class from each entry point
+                persona_class = persona_ep.load()
+                assert issubclass(persona_class, BasePersona)
+                persona_classes.append(
+                    {
+                        "module": persona_ep.name,
+                        "persona_class": persona_class,
+                        "traceback": None,
+                    }
+                )
+                class_module, class_name = persona_ep.value.split(":")
+                self.log.info(
+                    f"  - Loaded AI persona class '{class_name}' from '{class_module}' using entry point '{persona_ep.name}'."
+                )
+            except PersonaRequirementsUnmet as e:
+                # If requirements are unmet, log an abbreviated warning and
+                # continue, without showing an error in the chat.
+                self.log.warning(f" - AI persona from entry point '{persona_ep.name}' has unmet requirements: {str(e)}")
+                continue
+            except Exception:
+                # On exception, log an error and continue.
+                # This does not stop the surrounding `for` loop. If a persona
+                # fails to load, it should not halt other personas from loading.
+                tb_str = traceback.format_exc()
+                self.log.exception(
+                    f"  - Unable to load AI persona from entry point `{persona_ep.name}` due to an exception printed below.\n{tb_str}"
+                )
+                persona_classes.append(
+                    {
+                        "module": persona_ep.name,
+                        "persona_class": None,
+                        "traceback": tb_str,
+                    }
+                )
+                continue
+
+        if len(persona_classes) > 0:
+            elapsed_time_ms = (time_ns() - start_time_ns) // 1000000
+            self.log.info(
+                f"SUCCESS: Loaded {len(persona_classes)} AI persona classes from entry points. Time elapsed: {elapsed_time_ms}ms."
+            )
+        else:
+            self.log.error(
+                "ERROR: Jupyter AI has no AI personas available. "
+                + "Please verify your server configuration and open a new issue on our GitHub repo if this warning persists."
+            )
+
+        PersonaManager._ep_persona_classes = persona_classes
+
+    def _init_local_persona_classes(self) -> None:
+        """
+        Load persona classes from local filesystem, storing them as a list in
+        `self._local_persona_classes`.
+
+        The `_init_personas()` method should be called after this method to
+        re-initialize `self.personas` using the new set of local persona
+        classes.
+        """
+        dotjupyter_dir = self.get_dotjupyter_dir()
+        if dotjupyter_dir is None:
+            self.log.info("No .jupyter directory found for loading local personas.")
+            return
+
+        if find_persona_files(dotjupyter_dir):
+            self.send_system_message(
+                "Found persona files in `.jupyter` directory. Please move them to `.jupyter/personas/` subdirectory."
+            )
+
+        personas_subdir = os.path.join(dotjupyter_dir, "personas")
+        if not os.path.exists(personas_subdir):
+            self.log.info(
+                "No `personas` subdirectory found in `.jupyter` directory for loading local personas."
+            )
+            return
+
+        self._local_persona_classes = load_from_dir(personas_subdir, self.log)
+
+    def _init_personas(self) -> dict[str, BasePersona]:
+        """
+        Initializes the list of persona instances for the YChat instance passed
+        to the constructor.
+        """
+        # Ensure that persona classes were initialized first
+        persona_classes = []
+        if isinstance(PersonaManager._ep_persona_classes, list):
+            persona_classes.extend(PersonaManager._ep_persona_classes)
+        if isinstance(self._local_persona_classes, list):
+            persona_classes.extend(self._local_persona_classes)
+        assert isinstance(persona_classes, list)
+
+        # If no persona classes are available, log a warning and return
+        if len(persona_classes) == 0:
+            self.log.warning("No AI personas are available.")
+            return {}
+
+        self.log.info(
+            f"PENDING: Initializing AI personas for chat room '{self.ychat.get_id()}'..."
+        )
+        start_time_ns = time_ns()
+
+        personas: dict[str, BasePersona] = {}
+        # Personas that failed to load, collected so the user sees a single
+        # summary system message rather than one per failure.
+        failed_items: list[dict] = []
+        for item in persona_classes:
+            Persona = item.get("persona_class")
+            tb = item.get("traceback")
+            if Persona is None or tb is not None:
+                failed_items.append(item)
+                continue
+            try:
+                persona = Persona(
+                    parent=self,
+                    ychat=self.ychat,
+                )
+            except Exception:
+                tb_str = traceback.format_exc()
+                self.log.exception(
+                    f"The persona provided by `{Persona.__module__}` "
+                    f"raised an exception while instantiating, "
+                    f"printed below.\n {tb_str}"
+                )
+                failed_items.append(
+                    {
+                        "module": Persona.__module__,
+                        "persona_class": Persona,
+                        "traceback": tb_str,
+                    }
+                )
+                continue
+
+            if persona.id in personas:
+                class_name = persona.__class__.__name__
+                self.log.warning(
+                    f"  - WARNING: Skipping persona '{persona.name}' from '{persona.__module__}' because another persona has an identical ID '{persona.id}'. "
+                    + f"Personas must all have unique IDs. Please rename the persona class from '{class_name}' to something unique to dismiss this warning."
+                )
+                continue
+
+            self.log.info(
+                f"  - Initialized persona '{persona.name}' (ID: '{persona.id}')."
+            )
+            personas[persona.id] = persona
+
+        # Report any personas that failed to load as a single summary message.
+        if failed_items:
+            self.send_system_message(format_persona_load_errors(failed_items))
+
+        elapsed_time_ms = (time_ns() - start_time_ns) // 1_000_000
+        self.log.info(
+            f"SUCCESS: Initialized {len(personas)} AI personas for chat room '{self.ychat.get_id()}'. Time elapsed: {elapsed_time_ms}ms."
+        )
+
+        return personas
+
+    def send_system_message(self, body: str) -> None:
+        """
+        Sends a system message to the chat.
+        """
+        # Set a 'System' user use it to send the message
+        with self.ychat._ydoc.transaction():
+            self.ychat.set_user(
+                user=User(
+                    username=SYSTEM_USERNAME, name="System", display_name="System"
+                )
+            )
+            self.ychat.add_message(NewMessage(body=body, sender=SYSTEM_USERNAME))
+
+        # Hide 'System' user from `@`-mention menu by removing the user. This
+        # has to wait a second to allow the frontend to render the system user
+        # before removing it.
+        # TODO: allow users to be hidden from `@`-mentions, possibly based on
+        # username. Currently this will show 'User undefined' after reloading a
+        # chat with a system message.
+        async def _remove_system_user():
+            await asyncio.sleep(1)
+            try:
+                self.ychat._yusers.pop(SYSTEM_USERNAME)
+            except KeyError:
+                pass
+
+        asyncio.create_task(_remove_system_user())
+
+    @property
+    def personas(self) -> dict[str, BasePersona]:
+        """
+        Returns a dictionary of all available persona instances, keyed by
+        persona ID.
+        """
+        return self._personas
+
+    def _publish_persona_list(self) -> None:
+        """
+        Rebuild the persona list from the current personas and publish it under
+        the manager's client ID, which rebroadcasts it over the Yjs awareness
+        channel. Each `PersonaOption` carries the Yjs client ID of that persona's
+        awareness slot so the browser can look up its state in O(1). Called on
+        init and whenever the set of personas changes (e.g. `/refresh-personas`).
+        """
+        self._awareness.personas = [
+            PersonaOption(
+                id=persona.id,
+                name=persona.name,
+                avatar_url=persona.as_user().avatar_url,
+                yjs_client_id=persona.awareness.client_id,
+            )
+            for persona in self._personas.values()
+        ]
+
+    @property
+    def default_persona(self) -> BasePersona | None:
+        if not self.default_persona_id:
+            return None
+        return self.personas.get(self.default_persona_id)
+
+    TO_PERSONA_METADATA_KEY = "to_persona"
+    """
+    Key in a message's `metadata` dict holding the ID of the persona the message
+    is directed to. The chat input's persona picker stamps this onto each
+    outgoing message.
+    """
+
+    def on_chat_message(self, room_id: str, message: Message):
+        """
+        Routes an incoming message to the persona it is addressed to.
+
+        The target persona's ID is read from the message's own metadata
+        (`metadata["to_persona"]`), which the chat input's persona picker stamps
+        onto each outgoing message. The message is delivered to exactly that
+        persona by calling its `process_message()` method.
+
+        A message is not routed anywhere when it names no target persona or names
+        one that isn't installed in this chat.
+        """
+        persona_id = (message.metadata or {}).get(self.TO_PERSONA_METADATA_KEY)
+        persona = self.personas.get(persona_id) if persona_id else None
+        self.log.debug(
+            "Routing message to persona: %s", persona.name if persona else None
+        )
+        if persona:
+            self.event_loop.create_task(_safe_process(persona, message))
+
+    async def refresh_personas(self):
+        """
+        Method that reloads all persona classes defined locally under
+        `.jupyter/personas`, and re-initializes each persona class available in
+        the current chat.
+
+        This method is public because it is called by `jupyter_ai_chat_commands`
+        when the `/refresh-personas` slash command is sent.
+        """
+        # Shutdown all personas
+        await self.shutdown_personas()
+
+        # Refresh local personas and re-initialize persona instances
+        self._init_local_persona_classes()
+        self._personas = self._init_personas()
+
+        # Republish the persona list, since reloaded personas have new client
+        # IDs and the set of personas may have changed.
+        self._publish_persona_list()
+
+        # Rebuild avatar cache after reloading personas
+        # Get all persona managers from parent (extension) settings
+        try:
+            # Access all persona managers through the parent extension's settings
+            # Note: self.parent is the PersonaManagerExtension instance
+            persona_managers = self.parent.serverapp.web_app.settings.get('jupyter-ai', {}).get('persona-managers', {})
+            build_avatar_cache(persona_managers)
+        except Exception as e:
+            self.log.error(f"Error rebuilding avatar cache: {e}")
+
+        # Write success message to chat & logs
+        self.send_system_message("Refreshed all AI personas in this chat.")
+        self.log.info(f"Refreshed all AI personas in chat '{self.room_id}'.")
+
+    def get_chat_path(self, relative: bool = False) -> str:
+        """
+        Returns the absolute path of the chat file assigned to this
+        `PersonaManager`.
+
+        To get a path relative to the `ContentsManager` root directory, call
+        this method with `relative=True`.
+        """
+        relpath = self.fileid_manager.get_path(self.file_id)
+        if not relpath:
+            raise Exception(f"Unable to locate chat with file ID: '{self.file_id}'.")
+        if relative:
+            return relpath
+
+        abspath = os.path.join(self.root_dir, relpath)
+        return abspath
+
+    def get_chat_dir(self) -> str:
+        """
+        Returns the absolute path of the parent directory of the chat file
+        assigned to this `PersonaManager`.
+        """
+        abspath = self.get_chat_path()
+        return os.path.dirname(abspath)
+
+    def get_dotjupyter_dir(self) -> str | None:
+        """
+        Returns the path to the .jupyter directory for the current chat.
+        """
+        return find_dot_dir(self.get_chat_dir(), ".jupyter", root_dir=self.root_dir)
+
+    def get_workspace_dir(self) -> str:
+        """
+        Returns the path to the workspace directory for the current chat.
+        """
+        return find_workspace_dir(self.get_chat_dir(), root_dir=self.root_dir)
+
+    def get_mcp_settings(self) -> McpSettings | None:
+        """
+        Returns the MCP config for the current chat by reading from
+        .jupyter/mcp_settings.json, merged with builtin_mcp_servers.
+        Deduplicates by URL for HTTP servers and by name for stdio servers.
+        User-defined servers take precedence over built-in servers.
+        Returns None if no servers are configured.
+        """
+        dotjupyter_dir = self.get_dotjupyter_dir()
+        user_settings: McpSettings | None = None
+
+        # Parse user-defined servers
+        if dotjupyter_dir is not None:
+            mcp_config_path = Path(dotjupyter_dir) / 'mcp_settings.json'
+            if mcp_config_path.exists():
+                try:
+                    with open(mcp_config_path, 'r') as f:
+                        config_data = json.load(f)
+                    user_settings = McpSettings(**config_data)
+                except Exception:
+                    self.log.exception(
+                        f"Failed to read or parse MCP config from {mcp_config_path}."
+                    )
+
+        # Parse builtin servers
+        builtin_servers = []
+        for entry in (self.builtin_mcp_servers or []):
+            try:
+                if entry.get("type") == "http":
+                    builtin_servers.append(McpServerHttp(**entry))
+                else:
+                    builtin_servers.append(McpServerStdio(**entry))
+            except Exception:
+                self.log.warning(
+                    f"Skipping invalid builtin MCP server entry: {entry}"
+                )
+
+        user_servers = user_settings.mcp_servers if user_settings else []
+        user_http_urls = {s.url for s in user_servers if isinstance(s, McpServerHttp)}
+        user_stdio_names = {s.name for s in user_servers if isinstance(s, McpServerStdio)}
+
+        # Filter out builtin servers that duplicate a user-defined server
+        filtered_builtins = []
+        for s in builtin_servers:
+            if isinstance(s, McpServerHttp) and s.url in user_http_urls:
+                self.log.info(
+                    f"Skipping builtin HTTP MCP server '{s.name}' since it is overridden by user settings."
+                )
+            elif isinstance(s, McpServerStdio) and s.name in user_stdio_names:
+                self.log.info(
+                    f"Skipping builtin stdio MCP server '{s.name}' since it is overridden by user settings."
+                )
+            else:
+                filtered_builtins.append(s)
+
+        all_servers = user_servers + filtered_builtins
+        if not all_servers:
+            return None
+
+        self.log.info(
+            f"MCP servers loaded: {len(filtered_builtins)} builtin, {len(user_servers)} from settings file."
+        )
+        return McpSettings(mcp_servers=all_servers)
+
+    async def shutdown_personas(self):
+        """
+        Shuts down each persona. See `BasePersona.shutdown()` for more info.
+        This instance can be restarted by calling `self._init_personas()`.
+
+        This method will be called when `/refresh-personas` is run, and may be
+        called when the server is shutting down or when a chat session is
+        closed.
+        """
+        # First, free all transaction locks on the YDoc by awaiting the YChat
+        # background tasks first. These tasks run concurrently, so awaiting each
+        # in serial has no performance drawback.
+        # Without this, `/refresh-personas` causes a runtime error.
+        while self.ychat._background_tasks:
+            task = next(iter(self.ychat._background_tasks))
+            await task
+            self.ychat._background_tasks.discard(task)
+
+        # Then, shut down each persona
+        for persona in self.personas.values():
+            await persona.shutdown()
+
+
+def persona_load_error_label(persona_item: dict) -> str:
+    """
+    A human-readable identifier for a persona that failed to load, shown as the
+    summary of its entry in the system message. Prefers the persona's class name
+    (available when the class loaded but its constructor raised) and falls back
+    to the source module/file (when the module itself failed to import).
+
+    The result is used inside an HTML `<summary>`, so it is HTML-escaped to keep
+    a hostile class name or file path from injecting markup.
+    """
+    Persona = persona_item.get("persona_class")
+    if Persona is not None:
+        label = Persona.__name__
+    else:
+        module = persona_item.get("module")
+        # For local personas `module` is a file path; show just its name.
+        label = Path(str(module)).name if module else "Unknown persona"
+    return html.escape(label)
+
+
+def format_persona_load_errors(failed_items: list[dict]) -> str:
+    """
+    Build the system message shown when one or more personas fail to load.
+
+    Each failure becomes a collapsible `<details>` entry naming the persona, with
+    its traceback tucked inside so a chat full of failures stays readable. The
+    message is rendered as Markdown-with-inline-HTML in the chat, so every
+    interpolated value (persona label and traceback) is HTML-escaped and the
+    traceback is wrapped in `<pre>` — untrusted text can never break out of its
+    entry or inject markup (guards against XSS).
+    """
+    entries = []
+    for item in failed_items:
+        label = persona_load_error_label(item)
+        tb = html.escape(str(item.get("traceback") or "No traceback available."))
+        entries.append(
+            f"<li><details><summary>{label} (click to show details)</summary>"
+            f"\n\n<pre>{tb}</pre>\n\n</details></li>"
+        )
+    noun = "persona" if len(failed_items) == 1 else "personas"
+    intro = (
+        f"The following {len(failed_items)} AI {noun} failed to load and "
+        f"{'is' if len(failed_items) == 1 else 'are'} unavailable in this chat. "
+        f"Other personas are unaffected."
+    )
+    return f"{intro}\n\n<ul>\n{chr(10).join(entries)}\n</ul>"
+
+
+def is_persona(username: str):
+    """Returns true if username belongs to a persona"""
+    return username.startswith("jupyter-ai-personas")
+
+
+def find_persona_files(dir: str) -> list[str]:
+    """Find persona Python files in a directory without loading them."""
+    if not os.path.exists(dir):
+        return []
+
+    try:
+        all_py_files = glob(os.path.join(dir, "*.py"))
+        py_files = []
+        for f in all_py_files:
+            fname_lower = Path(f).stem.lower()
+            if "persona" in fname_lower and not (
+                fname_lower.startswith("_") or fname_lower.startswith(".")
+            ):
+                py_files.append(f)
+        return py_files
+    except Exception:
+        return []
+
+
+def load_from_dir(dir: str, log: Logger) -> list[dict]:
+    """
+    Load _persona class declarations_ from Python files in the local filesystem.
+
+    Those class declarations are then used to instantiate personas by the
+    `PersonaManager`.
+
+    Scans the dir for .py files containing `persona` in their name that do
+    _not_ start with a single `_` (i.e. private modules are skipped). Then, it
+    dynamically imports them, and extracts any class declarations that are
+    subclasses of `BasePersona`.
+
+     Args:
+        dir: Directory to scan for persona Python files.
+        log: Logger instance for logging messages.
+
+     Returns:
+        List of `BasePersona` subclasses found in the directory.
+    """
+    persona_classes: list[dict] = []
+
+    py_files = find_persona_files(dir)
+    if not py_files:
+        return persona_classes
+
+    log.info(f"Loading persona files from {dir}: {[Path(f).name for f in py_files]}")
+
+    # Temporarily add root_dir to sys.path for imports
+    dir_in_path = dir in sys.path
+    if not dir_in_path:
+        sys.path.insert(0, dir)
+
+    try:
+        # For each .py file, dynamically import the module and extract all
+        # BasePersona subclasses.
+        for py_file in py_files:
+            try:
+                # Get module name from file path
+                module_name = Path(py_file).stem
+
+                # Create module spec and load the module
+                spec = importlib.util.spec_from_file_location(module_name, py_file)
+                if spec is None or spec.loader is None:
+                    continue
+
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+
+                # Find all classes in the module that are BasePersona subclasses
+                for name, obj in inspect.getmembers(module, inspect.isclass):
+                    # Check if it's a subclass of BasePersona but not BasePersona itself
+                    if (
+                        issubclass(obj, BasePersona)
+                        and obj is not BasePersona
+                        and obj.__module__ == module_name
+                    ):
+                        log.info(f"Found persona class '{obj.__name__}' in '{py_file}'")
+                        persona_classes.append(
+                            {"module": py_file, "persona_class": obj, "traceback": None}
+                        )
+
+            except Exception:
+                # On exception, log error and continue to next file
+                tb_str = traceback.format_exc()
+                log.exception(
+                    f"Unable to load persona classes from '{py_file}', exception details printed below.\n{tb_str}"
+                )
+                persona_classes.append(
+                    {"module": py_file, "persona_class": None, "traceback": tb_str}
+                )
+                continue
+    finally:
+        # Remove root_dir from sys.path if we added it
+        if not dir_in_path and dir in sys.path:
+            sys.path.remove(dir)
+
+    return persona_classes
+
+
+def get_first_word(input_str: str) -> str | None:
+    """
+    Finds the first word in a given string, ignoring leading whitespace.
+
+    Returns the first word, or None if there is no first word.
+    """
+    start = 0
+
+    # Skip leading whitespace
+    while start < len(input_str) and input_str[start].isspace():
+        start += 1
+
+    # Find end of first word
+    end = start
+    while end < len(input_str) and not input_str[end].isspace():
+        end += 1
+
+    first_word = input_str[start:end]
+    return first_word if first_word else None

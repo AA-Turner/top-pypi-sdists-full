@@ -1,0 +1,31 @@
+name: License check
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - uv.lock
+      - pyproject.toml
+
+jobs:
+  license_check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+      - name: Generate third-party licenses
+        run: make licenses
+      - name: Upload licenses report
+        uses: actions/upload-artifact@v4
+        with:
+          name: third-party-licenses
+          path: PYTHON_THIRD_PARTY_LICENSES.md

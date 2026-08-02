@@ -21,22 +21,12 @@ __all__ = [
 ]
 
 
+import importlib.util
 import unittest
-
-import pkg_resources
-
-try:
-    from configparser import MissingSectionHeaderError, NoSectionError
-except ImportError:
-    # Python 2
-    from ConfigParser import MissingSectionHeaderError, NoSectionError
-try:
-    from io import StringIO
-except ImportError:
-    # Python 2
-    from StringIO import StringIO
-
+from configparser import MissingSectionHeaderError, NoSectionError
+from io import StringIO
 from operator import attrgetter
+from pathlib import Path
 
 from zope.interface.exceptions import DoesNotImplement
 from zope.interface.verify import verifyObject
@@ -56,9 +46,8 @@ from lazr.config.interfaces import (
 
 class TestConfig(unittest.TestCase):
     def _testfile(self, conf_file):
-        return pkg_resources.resource_filename(
-            "lazr.config.tests.testdata", conf_file
-        )
+        spec = importlib.util.find_spec("lazr.config.tests.testdata")
+        return str(Path(spec.origin).parent / conf_file)
 
     def test_missing_category(self):
         schema = ConfigSchema(self._testfile("base.conf"))
@@ -146,8 +135,7 @@ key1: schema suffixes are not permitted
     def test_all_config_errors(self):
         schema = ConfigSchema(self._testfile("base.conf"))
         config = schema.loadFile(
-            StringIO(
-                """
+            StringIO("""
 [meta]
 metakey: unsupported
 [unknown-section]
@@ -157,8 +145,7 @@ keyn: unknown key
 key1: bad character in caf\xc3)
 [section_3.template]
 key1: schema suffixes are not permitted
-"""
-            ),
+"""),
             "bad config",
         )
         try:

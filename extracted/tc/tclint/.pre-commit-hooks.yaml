@@ -1,0 +1,10 @@
+-   id: tclint
+    name: tclint
+    description: '`tclint` is a linter for Tcl.'
+    entry: tclint
+    language: python
+-   id: tclfmt
+    name: tclfmt
+    description: '`tclfmt` is a formatter for Tcl.'
+    entry: tclfmt
+    language: python

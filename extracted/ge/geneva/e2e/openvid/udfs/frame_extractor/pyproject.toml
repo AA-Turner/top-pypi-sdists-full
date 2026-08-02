@@ -1,0 +1,56 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright The Geneva Authors
+
+# Frame extraction UDF for blob column testing
+# GPU-accelerated video frame extraction using torchcodec
+
+[project]
+name = "geneva-udf-frame-extractor"
+version = "0.1.0"
+description = "Frame extraction UDF for blob column testing in materialized views"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "geneva",
+    "torch==2.10.0",
+    "torchvision==0.25.0",
+    "torchcodec==0.10.0",
+    "Pillow>=12.1.1",
+    "tomli>=2.0; python_version<'3.11'",
+    # Cloud storage backends for fsspec (not provided by geneva core)
+    "fsspec[gcs]>=2023.0.0",
+    "gcsfs>=2023.0.0",
+    "s3fs>=2023.0.0",
+    "boto3>=1.28.0",
+    "adlfs>=2023.0.0",
+    "google-cloud-storage",
+    "pandas",
+    "pytest>=7.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[tool.uv]
+index-strategy = "unsafe-best-match"
+[tool.uv.sources]
+geneva = { path = "../../../..", editable = true }
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
+
+# PyTorch with CUDA 12.8 support
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[[tool.uv.index]]
+name = "fury"
+url = "https://pypi.fury.io/lancedb/"
+
+[[tool.uv.index]]
+name = "lance-format"
+url = "https://pypi.fury.io/lance-format/"

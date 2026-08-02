@@ -1,0 +1,44 @@
+[tool.poetry]
+name = "pyspdx"
+version = "1.2.0"
+description = "Validate SPDX expressions"
+authors = ["Checkmk GmbH <info@checkmk.com>"]
+license = "GPL-2.0-only"
+readme = "README.md"
+repository = "https://github.com/checkmk/pyspdx"
+classifiers = [
+    "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
+    "Typing :: Typed"
+]
+include = [
+    "COPYING"
+]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4.0"
+pyparsing = ">=3.2.0"
+
+[tool.poetry.group.dev.dependencies]
+black = "*"
+mypy = "*"
+pytest = "*"
+isort = "*"
+pylint = "*"
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+
+[tool.pylint.messages_control]
+disable = [
+    "missing-function-docstring",
+    "line-too-long",
+]
+
+[build-system]
+requires = ["poetry"]

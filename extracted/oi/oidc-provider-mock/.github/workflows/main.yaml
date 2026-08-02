@@ -1,0 +1,135 @@
+name: main
+
+on:
+  push:
+    branches:
+      - main
+      - development
+      - release/candidate
+  pull_request:
+    branches:
+      - main
+
+env:
+  FORCE_COLOR: 1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python:
+          - "3.12"
+          - "3.13"
+          - "3.14"
+        resolution: [highest]
+        authlib: [""]
+        include:
+          - python: "3.12"
+            resolution: lowest
+          - python: "3.12"
+            authlib: "==1.5.*"
+          - python: "3.12"
+            authlib: "==1.6.*"
+
+      fail-fast: true
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          version: 0.11.25
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        id: setup-python
+        with:
+          python-version: ${{ matrix.python }}
+      - run: echo "UV_PYTHON=${{ steps.setup-python.outputs.python-path }}" >> "$GITHUB_ENV"
+      - name: resolve dependencies to lowest possible version
+        if: matrix.resolution == 'lowest'
+        run: |
+          echo "UV_RESOLUTION=lowest-direct" >> "$GITHUB_ENV"
+          uv lock --resolution lowest-direct --upgrade
+      - run: uv sync --all-extras --locked
+      - if: matrix.authlib != ''
+        run: uv pip install "authlib${{ matrix.authlib }}"
+      - run: uv run ruff format --check
+      - run: uv run ruff check
+      - run: uv run pyright --warnings
+      - run: uv run ./dev/build_readme.py && git diff --exit-code -- README.md
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('uv.lock') }}
+      - run: uv run playwright install chromium
+      - run: uv run pytest
+      - run: uv run sphinx-build --fail-on-warning docs docs/dist
+      - run: uv build
+      - if: matrix.python == '3.14'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  build-container-image:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: python-package-distributions
+          path: dist/
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          version: 0.11.25
+      - run: uv export --frozen --no-dev --no-emit-project -o requirements.txt
+      - uses: docker/setup-docker-action@0234bb73ccb40f0c430b795634f9247e2b5c2d23 # v5.2.0
+        with:
+          daemon-config: |
+            {
+              "debug": true,
+              "features": {
+                "containerd-snapshotter": true
+              }
+            }
+      - uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
+      - uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
+      - uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        if: github.ref == 'refs/heads/release/candidate'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        with:
+          context: .
+          load: true
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.ref == 'refs/heads/release/candidate' }}
+          tags: |
+            ${{ env.IMAGE }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Run smoke test
+        run: |
+          set -e
+          trap 'docker stop oidc-test >/dev/null 2>&1 || true; docker rm oidc-test >/dev/null 2>&1 || true' EXIT
+          docker run -d --name oidc-test -p 9400:9400 "${IMAGE}" || { echo "docker run failed"; exit 1; }
+          for i in {1..5}; do
+            sleep 1
+            if curl -sf http://localhost:9400/; then
+              echo "Successfully connected to container"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying..."
+          done
+          echo "Failed to connect to container"
+          docker logs oidc-test || true
+          exit 1

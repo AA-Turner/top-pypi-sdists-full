@@ -1,0 +1,563 @@
+from __future__ import annotations
+
+import os
+import re
+from pathlib import Path
+
+import click
+import lamindb_setup as ln_setup
+from lamin_utils import logger
+from lamindb_setup.core.hashing import hash_file
+
+from lamin_cli._context import get_current_run_file
+from lamin_cli._notes import extract_note_target_from_path, resolve_note_record
+
+
+def infer_registry_from_path(path: Path | str) -> str:
+    suffixes_transform = {
+        "py": {".py", ".ipynb"},
+        "R": {".R", ".qmd", ".Rmd"},
+        "sh": {".sh"},
+    }
+    if isinstance(path, str):
+        path = Path(path)
+    registry = (
+        "transform"
+        if path.suffix
+        in suffixes_transform["py"]
+        .union(suffixes_transform["R"])
+        .union(suffixes_transform["sh"])
+        else "artifact"
+    )
+    return registry
+
+
+def parse_uid_from_code(content: str, suffix: str) -> str | None:
+    if suffix == ".py":
+        track_pattern = re.compile(
+            r'ln\.track\(\s*(?:transform\s*=\s*)?(["\'])([a-zA-Z0-9]{12,16})\1'
+        )
+        uid_pattern = re.compile(r'\.context\.uid\s*=\s*["\']([^"\']+)["\']')
+    elif suffix == ".ipynb":
+        track_pattern = re.compile(
+            r'ln\.track\(\s*(?:transform\s*=\s*)?(?:\\"|\')([a-zA-Z0-9]{12,16})(?:\\"|\')'
+        )
+        # backward compat
+        uid_pattern = re.compile(r'\.context\.uid\s*=\s*\\["\']([^"\']+)\\["\']')
+    elif suffix in {".R", ".qmd", ".Rmd"}:
+        track_pattern = re.compile(
+            r'track\(\s*(?:transform\s*=\s*)?([\'"])([a-zA-Z0-9]{12,16})\1'
+        )
+        uid_pattern = None
+    elif suffix == ".sh":
+        return None
+    else:
+        raise click.ClickException(
+            "Only .py, .ipynb, .R, .qmd, .Rmd, .sh files are supported for saving"
+            " transforms."
+        )
+
+    # Search for matches in the entire file content
+    uid_match = track_pattern.search(content)
+    group_index = 1 if suffix == ".ipynb" else 2
+    uid = uid_match.group(group_index) if uid_match else None
+
+    if uid_pattern is not None and uid is None:
+        uid_match = uid_pattern.search(content)
+        uid = uid_match.group(1) if uid_match else None
+
+    return uid
+
+
+def parse_title_r_notebook(content: str) -> str | None:
+    # Pattern to match title only within YAML header section
+    title_pattern = r'^---\n.*?title:\s*"([^"]*)".*?---'
+    title_match = re.search(title_pattern, content, flags=re.DOTALL | re.MULTILINE)
+    if title_match:
+        return title_match.group(1)
+    else:
+        return None
+
+
+def is_plan_file(path: Path) -> bool:
+    """True if path is an agent plan: .plan.md (Cursor) or under .claude/plans/ (Claude Code)."""
+    if path.name.endswith(".plan.md"):
+        return True
+    # Claude Code stores plans under .claude/plans/
+    try:
+        parts = path.resolve().parts
+    except (OSError, RuntimeError):
+        parts = Path(path).parts
+    for i in range(len(parts) - 1):
+        if parts[i] == ".claude" and parts[i + 1] == "plans":
+            return True
+    return False
+
+
+def strip_plan_header(content: str) -> str | None:
+    """Remove YAML front matter (--- ... ---) from the start of plan markdown.
+
+    Returns the body (content after the closing ---) or None if no front matter.
+    """
+    front_matter_match = re.match(r"^---\s*\n(.*?)\n---\s*\n?", content, re.DOTALL)
+    if not front_matter_match:
+        return None
+    return content[front_matter_match.end() :].lstrip("\n")
+
+
+def parse_plan_markdown(content: str) -> str | None:
+    """Parse description from plan markdown front matter (overview only).
+
+    Expects optional YAML-like header between --- and returns `overview`.
+    Returns None if `overview` doesn't exist.
+    """
+    # Match --- ... --- at start of file (front matter)
+    front_matter_match = re.match(r"^---\s*\n(.*?)\n---", content, re.DOTALL)
+    if not front_matter_match:
+        return None
+    block = front_matter_match.group(1)
+    overview = None
+    current_field = None
+    for line in block.split("\n"):
+        stripped = line.strip()
+        if ":" in line and not line.startswith(" "):
+            key, _, value = line.partition(":")
+            current_field = key.strip()
+            if current_field == "overview":
+                overview = value.strip()
+            continue
+        # only continue multiline value when we are still in the overview field
+        if (
+            line.startswith(" ")
+            and current_field == "overview"
+            and overview is not None
+        ):
+            overview += " " + stripped
+    return overview or None
+
+
+def _save_note_markdown(
+    ppath: Path,
+    *,
+    type_chain: list[str],
+    note_name: str,
+) -> None:
+    import lamindb as ln
+
+    from lamin_cli._annotate import _add_block
+
+    note_record = resolve_note_record(
+        ln=ln,
+        type_chain=type_chain,
+        note_name=note_name,
+        create_if_missing=True,
+    )
+    assert note_record is not None
+
+    content = ppath.read_text()
+    block = _add_block(
+        note_record,
+        "record",
+        content,
+        kind="readme",
+    )
+    logger.important(f"saved note content: RecordBlock('{block.uid}')")
+    if ln.setup.settings.instance.is_remote:
+        slug = ln.setup.settings.instance.slug
+        ui_url = ln.setup.settings.instance.ui_url
+        logger.important(f"go to: {ui_url}/{slug}/record/{note_record.uid}")
+
+
+def _resolve_note_target_or_raise(ppath: Path) -> tuple[list[str], str]:
+    note_target = extract_note_target_from_path(
+        ppath, dev_dir=ln_setup.settings.dev_dir
+    )
+    if note_target is None:
+        raise click.ClickException(
+            "To save as record, pass a markdown path under dev-dir in the form "
+            "<topic>/<subtopic>/.../<note>.md or <note>.md."
+        )
+    return note_target
+
+
+def _is_readme_artifact_save(ppath, key: str | None) -> bool:
+    return key == "README.md" or ppath.name == "README.md"
+
+
+def _save_readme_block(
+    ppath: Path,
+    *,
+    branch,
+    space,
+) -> None:
+    import lamindb as ln
+
+    content = ppath.read_text(encoding="utf-8")
+    ln.models.Block(
+        key="README.md",
+        content=content,
+        kind="readme",
+        branch=branch,
+        space=space,
+    ).save()
+    logger.important("saved README block")
+
+
+def save(
+    path: Path | str,
+    key: str | None = None,
+    description: str | None = None,
+    kind: str | None = None,
+    stem_uid: str | None = None,
+    project: str | None = None,
+    space: str | None = None,
+    branch: str | None = None,
+    registry: str | None = None,
+) -> str | None:
+    import lamindb as ln
+    from lamindb._finish import save_context_core
+    from lamindb_setup.core._settings_store import settings_dir
+    from lamindb_setup.core.upath import LocalPathClasses, UPath, create_path
+
+    current_run = None
+    if get_current_run_file().exists():
+        current_run = ln.Run.get(uid=get_current_run_file().read_text().strip())
+
+    # this allows to have the correct treatment of credentials in case of cloud paths
+    ppath = create_path(path)
+    # isinstance is needed to cast the type of path to UPath
+    # to avoid mypy erors
+    assert isinstance(ppath, UPath)
+    if not ppath.exists():
+        raise click.BadParameter(f"Path {ppath} does not exist", param_hint="path")
+
+    user_passed_registry = registry is not None
+    if registry is None:
+        registry = infer_registry_from_path(ppath)
+
+    plan_tmp_path: str | None = None
+    saving_plan = False
+    # Agent plan files (.plan.md from Cursor, or under .claude/plans/ in Claude Code)
+    if is_plan_file(ppath):
+        saving_plan = True
+        logger.important('saving artifact as `kind="plan"`')
+        registry = "artifact"
+        if key is None:
+            key = f".plans/{ppath.name}"
+        content = ppath.read_text()
+        if description is None:
+            description = parse_plan_markdown(content)
+        # Store artifact body only (strip front matter)
+        stripped = strip_plan_header(content)
+        if stripped is not None:
+            import tempfile
+
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".md", delete=False, encoding="utf-8"
+            ) as f:
+                f.write(stripped)
+                plan_tmp_path = f.name
+            ppath = Path(plan_tmp_path)
+
+    if project is not None:
+        project_record = ln.Project.filter(
+            ln.Q(name=project) | ln.Q(uid=project)
+        ).one_or_none()
+        if project_record is None:
+            raise click.ClickException(
+                f"Project '{project}' not found, either create it with `ln.Project(name='...').save()` or fix typos."
+            )
+    space_record = None
+    if space is not None:
+        space_record = ln.Space.filter(ln.Q(name=space) | ln.Q(uid=space)).one_or_none()
+        if space_record is None:
+            raise click.ClickException(
+                f"Space '{space}' not found, either create it on LaminHub or fix typos."
+            )
+    branch_record = None
+    if branch is not None:
+        branch_record = ln.Branch.filter(
+            ln.Q(name=branch) | ln.Q(uid=branch)
+        ).one_or_none()
+        if branch_record is None:
+            raise click.ClickException(
+                f"Branch '{branch}' not found, either create it with `ln.Branch(name='...').save()` or fix typos."
+            )
+    if branch_record is None:
+        branch_record = ln_setup.settings.branch
+
+    is_cloud_path = not isinstance(ppath, LocalPathClasses)
+    if (
+        isinstance(ppath, LocalPathClasses)
+        and key is None
+        and not saving_plan
+        and not user_passed_registry
+        and ppath.name != "README.md"
+        and extract_note_target_from_path(
+            Path(ppath), dev_dir=ln_setup.settings.dev_dir
+        )
+        is not None
+    ):
+        registry = "record"
+
+    if registry == "record":
+        if ppath.suffix.lower() != ".md":
+            raise click.ClickException(
+                "Saving as registry='record' requires a .md file."
+            )
+        if key is not None:
+            logger.warning(
+                "key is ignored for records, record identity comes from path"
+            )
+        type_chain, note_name = _resolve_note_target_or_raise(Path(ppath))
+        _save_note_markdown(Path(ppath), type_chain=type_chain, note_name=note_name)
+        return None
+
+    if registry == "artifact":
+        ln.settings.creation.artifact_silence_missing_run_warning = True
+        revises = None
+        if not is_cloud_path and key is None and ppath.name == "README.md":
+            key = "README.md"
+        if stem_uid is not None:
+            revises = (
+                ln.Artifact.filter(uid__startswith=stem_uid)
+                .order_by("-created_at")
+                .first()
+            )
+            if revises is None:
+                raise click.ClickException("The stem uid is not found.")
+
+        if is_cloud_path:
+            if key is not None:
+                logger.error("Do not pass --key for cloud paths")
+                return "key-with-cloud-path"
+        elif key is None and description is None:
+            logger.error("Please pass a key or description via --key or --description")
+            return "missing-key-or-description"
+
+        if kind is None:
+            kind = "plan" if saving_plan else None
+        artifact = ln.Artifact(
+            ppath,
+            key=key,
+            description=description,
+            kind=kind,
+            revises=revises,
+            branch=branch_record,
+            space=space_record,
+            run=current_run,
+        ).save()
+        if _is_readme_artifact_save(ppath, key):
+            logger.warning(
+                "Saving README as an artifact is transitional and will be phased out; "
+                "README is currently saved as both an Artifact and a Block."
+            )
+            _save_readme_block(ppath, branch=branch_record, space=space_record)
+        if plan_tmp_path is not None and Path(plan_tmp_path).exists():
+            Path(plan_tmp_path).unlink()
+        logger.important(f"saved: {artifact}")
+        logger.important(f"storage path: {artifact.path}")
+        if artifact.storage.type == "s3":
+            logger.important(f"storage url: {artifact.path.to_url()}")
+        if project is not None:
+            artifact.projects.add(project_record)
+            logger.important(f"labeled with project: {project_record.name}")
+        if ln.setup.settings.instance.is_remote:
+            slug = ln.setup.settings.instance.slug
+            ui_url = ln.setup.settings.instance.ui_url
+            logger.important(f"go to: {ui_url}/{slug}/artifact/{artifact.uid}")
+        return None
+
+    if registry == "transform":
+        if key is not None:
+            logger.warning(
+                "key is ignored for transforms, the transform key is determined by the filename and the development directory (dev-dir)"
+            )
+        if is_cloud_path:
+            logger.error("Can not register a transform from a cloud path")
+            return "transform-with-cloud-path"
+
+        if ppath.suffix in {".qmd", ".Rmd"}:
+            html_file_exists = ppath.with_suffix(".html").exists()
+            nb_html_file_exists = ppath.with_suffix(".nb.html").exists()
+
+            if not html_file_exists and not nb_html_file_exists:
+                logger.error(
+                    f"Please export your {ppath.suffix} file as an html file here"
+                    f" {ppath.with_suffix('.html')}"
+                )
+                return "export-qmd-Rmd-as-html"
+            elif html_file_exists and nb_html_file_exists:
+                logger.error(
+                    f"Please delete one of\n - {ppath.with_suffix('.html')}\n -"
+                    f" {ppath.with_suffix('.nb.html')}"
+                )
+                return "delete-html-or-nb-html"
+
+        content = ppath.read_text()
+        uid = parse_uid_from_code(content, ppath.suffix)
+
+        ppath = ppath.resolve().expanduser()
+        if ln_setup.settings.dev_dir is not None:
+            key = ppath.relative_to(ln_setup.settings.dev_dir).as_posix()
+        else:
+            key = ppath.name
+
+        reference, reference_type = None, None
+        if ln.settings.sync_git_repo is not None and ppath.suffix != ".ipynb":
+            from lamindb.core._sync_git import get_transform_reference_from_git_repo
+            from lamindb.errors import BlobHashNotFound
+
+            reference, reference_type = (
+                get_transform_reference_from_git_repo(ppath),
+                "url",
+            )
+
+        if uid is not None:
+            logger.important(f"mapped '{ppath.name}' on uid '{uid}'")
+            if len(uid) == 16:
+                # is full uid
+                transform = ln.Transform.filter(uid=uid).one_or_none()
+            else:
+                # is stem uid
+                if stem_uid is not None:
+                    assert stem_uid == uid, (
+                        "passed stem uid and parsed stem uid do not match"
+                    )
+                else:
+                    stem_uid = uid
+                transform = (
+                    ln.Transform.filter(uid__startswith=uid)
+                    .order_by("-created_at")
+                    .first()
+                )
+                if transform is None:
+                    uid = f"{stem_uid}0000"
+        else:
+            _, transform_hash, _ = hash_file(ppath)
+            transform = ln.Transform.filter(hash=transform_hash).first()
+            if transform is not None and transform.hash is not None:
+                if transform.hash == transform_hash:
+                    if transform.type != "notebook":
+                        logger.important(f"transform already saved: {transform}")
+                        if transform.key != key:
+                            transform.key = key
+                            logger.important(f"updated key to '{key}'")
+                        if reference is not None:
+                            transform.reference = reference
+                            transform.reference_type = reference_type
+                        transform.save()
+                        return None
+                    if os.getenv("LAMIN_TESTING") == "true":
+                        response = "y"
+                    else:
+                        response = input(
+                            f"Found an existing Transform('{transform.uid}') "
+                            "with matching source code hash.\n"
+                            "Do you want to update it? (y/n) "
+                        )
+                    if response != "y":
+                        return None
+                else:
+                    # we need to create a new version
+                    stem_uid = transform.uid[:12]
+                    transform = None
+        revises = None
+        if stem_uid is not None:
+            revises = (
+                ln.Transform.filter(uid__startswith=stem_uid)
+                .order_by("-created_at")
+                .first()
+            )
+            if revises is None:
+                # check if the transform is on other branches
+                revises_other_branches = (
+                    ln.Transform.filter(uid__startswith=stem_uid, branch=None)
+                    .order_by("-created_at")
+                    .first()
+                )
+                if revises_other_branches is not None:
+                    if revises_other_branches.branch_id == -1:
+                        raise click.ClickException(
+                            "Transform is in the trash, please restore it before running `lamin save`!"
+                        )
+                    elif revises_other_branches.branch_id == 0:
+                        raise click.ClickException(
+                            "Transform is in the archive, please restore it before running `lamin save`!"
+                        )
+                    elif (
+                        revises_other_branches.branch_id != ln_setup.settings.branch.id
+                    ):
+                        raise click.ClickException(
+                            "Transform is on a different branch"
+                            f"({revises_other_branches.branch.name}), please switch to the correct branch"
+                            " before running `lamin save`!"
+                        )
+                raise click.ClickException("The stem uid is not found.")
+        if transform is None:
+            if ppath.suffix == ".ipynb":
+                from nbproject.dev import read_notebook
+                from nbproject.dev._meta_live import get_title
+
+                nb = read_notebook(ppath)
+                description = get_title(nb)
+            elif ppath.suffix in {".qmd", ".Rmd"}:
+                description = parse_title_r_notebook(content)
+            else:
+                description = None
+            transform = ln.Transform(
+                uid=uid,
+                description=description,
+                key=key,
+                type="script" if ppath.suffix in {".R", ".py", ".sh"} else "notebook",
+                revises=revises,
+                reference=reference,
+                reference_type=reference_type,
+            )
+            if space is not None:
+                transform.space = space_record
+            if branch is not None:
+                transform.branch = branch_record
+            transform.save()
+            logger.important(
+                f"created Transform('{transform.uid}', key='{transform.key}')"
+            )
+        if project is not None:
+            transform.projects.add(project_record)
+            logger.important(f"labeled with project: {project_record.name}")
+        # latest run of this transform by user
+        run = ln.Run.filter(transform=transform).order_by("-started_at").first()
+        if run is not None and run.created_by.id != ln.setup.settings.user.id:
+            if os.getenv("LAMIN_TESTING") == "true":
+                response = "y"
+            else:
+                response = input(
+                    "You are trying to save a transform created by another user: Source"
+                    " and report files will be tagged with *your* user id. Proceed?"
+                    " (y/n) "
+                )
+            if response != "y":
+                return "aborted-save-notebook-created-by-different-user"
+        if run is None and transform.type == "notebook":
+            run = ln.Run(transform=transform).save()
+            logger.important(
+                f"found no run, creating Run('{run.uid}') to display the html"
+            )
+        if reference is not None and (
+            transform.reference != reference
+            or transform.reference_type != reference_type
+        ):
+            transform.reference = reference
+            transform.reference_type = reference_type
+            transform.save()
+        return_code = save_context_core(
+            run=run,
+            transform=transform,
+            filepath=ppath,
+            from_cli=True,
+        )
+        return return_code
+    else:
+        raise click.ClickException(
+            "Allowed values for '--registry' are: 'artifact', 'transform', 'record'"
+        )

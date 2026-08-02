@@ -1,0 +1,50 @@
+from __future__ import annotations
+
+from typing import Literal
+
+from bionty.base._public_ontology import PublicOntology
+from bionty.base.dev._doc_util import _doc_params
+
+from ._shared_docstrings import doc_entites
+
+
+@_doc_params(doc_entities=doc_entites)
+class CellLine(PublicOntology):
+    """Cell line.
+
+    1. Cellosaurus
+    https://cellosaurus.org
+
+    2. Cell Line Ontology
+    https://github.com/CLO-ontology/CLO
+
+    3. DepMap
+    https://depmap.org
+
+    Args:
+        {doc_entities}
+    """
+
+    def __init__(
+        self,
+        organism: Literal["all"] | None = None,
+        source: Literal["cellosaurus", "clo", "depmap"] | None = None,
+        version: Literal[
+            # cellosaurus
+            "53.0",
+            # clo
+            "2023-03-28",
+            "2022-03-21"
+            # depmap
+            "2024-Q2",
+        ]
+        | None = None,
+        **kwargs,
+    ) -> None:
+        super().__init__(
+            source=source,
+            version=version,
+            organism=organism,
+            include_id_prefixes={"clo": ["CLO:"]},
+            **kwargs,
+        )

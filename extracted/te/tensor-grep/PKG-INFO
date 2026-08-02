@@ -1,0 +1,94 @@
+Metadata-Version: 2.4
+Name: tensor-grep
+Version: 1.102.0
+Requires-Dist: typer>=0.12,<0.26
+Requires-Dist: rich>=13.0
+Requires-Dist: mcp>=1.27.2,<2
+Requires-Dist: pathspec>=1.0.4
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: opentelemetry-api>=1.27.0
+Requires-Dist: importlib-metadata<8.5.0 ; python_full_version < '3.12'
+Requires-Dist: cryptography>=48.0.1
+Requires-Dist: tree-sitter>=0.22 ; extra == 'ast'
+Requires-Dist: tree-sitter-python ; extra == 'ast'
+Requires-Dist: tree-sitter-javascript ; extra == 'ast'
+Requires-Dist: tree-sitter-typescript ; extra == 'ast'
+Requires-Dist: tree-sitter-rust ; extra == 'ast'
+Requires-Dist: tree-sitter-go ; extra == 'ast'
+Requires-Dist: tree-sitter-java ; extra == 'ast'
+Requires-Dist: tree-sitter-php ; extra == 'ast'
+Requires-Dist: tree-sitter-c-sharp ; extra == 'ast'
+Requires-Dist: tree-sitter-c ; extra == 'ast'
+Requires-Dist: tree-sitter-cpp ; extra == 'ast'
+Requires-Dist: pygls>=2.0 ; extra == 'ast'
+Requires-Dist: pytest>=9.0.3 ; extra == 'bench'
+Requires-Dist: stringzilla>=4.0 ; extra == 'bench'
+Requires-Dist: tree-sitter>=0.22 ; extra == 'bench'
+Requires-Dist: tree-sitter-python ; extra == 'bench'
+Requires-Dist: tree-sitter-javascript ; extra == 'bench'
+Requires-Dist: tree-sitter-typescript ; extra == 'bench'
+Requires-Dist: tree-sitter-rust ; extra == 'bench'
+Requires-Dist: tree-sitter-go ; extra == 'bench'
+Requires-Dist: tree-sitter-java ; extra == 'bench'
+Requires-Dist: tree-sitter-php ; extra == 'bench'
+Requires-Dist: tree-sitter-c-sharp ; extra == 'bench'
+Requires-Dist: tree-sitter-c ; extra == 'bench'
+Requires-Dist: tree-sitter-cpp ; extra == 'bench'
+Requires-Dist: torch>=2.0 ; extra == 'bench'
+Requires-Dist: nvtx>=0.2 ; extra == 'bench'
+Requires-Dist: pytest>=9.0.3 ; extra == 'dev'
+Requires-Dist: pytest-cov>=5.0 ; extra == 'dev'
+Requires-Dist: pytest-mock>=3.14 ; extra == 'dev'
+Requires-Dist: pytest-asyncio>=0.24 ; extra == 'dev'
+Requires-Dist: pytest-snapshot>=0.9 ; extra == 'dev'
+Requires-Dist: hypothesis>=6.100 ; extra == 'dev'
+Requires-Dist: mutmut>=3.0 ; extra == 'dev'
+Requires-Dist: ruff==0.15.20 ; extra == 'dev'
+Requires-Dist: mypy==1.19.1 ; extra == 'dev'
+Requires-Dist: numpy>=1.26.0 ; extra == 'dev'
+Requires-Dist: stringzilla>=4.0 ; extra == 'dev'
+Requires-Dist: psutil ; extra == 'dev'
+Requires-Dist: tree-sitter>=0.22 ; extra == 'dev'
+Requires-Dist: tree-sitter-python ; extra == 'dev'
+Requires-Dist: tree-sitter-javascript ; extra == 'dev'
+Requires-Dist: tree-sitter-typescript ; extra == 'dev'
+Requires-Dist: tree-sitter-rust ; extra == 'dev'
+Requires-Dist: tree-sitter-go ; extra == 'dev'
+Requires-Dist: tree-sitter-java ; extra == 'dev'
+Requires-Dist: tree-sitter-php ; extra == 'dev'
+Requires-Dist: tree-sitter-c-sharp ; extra == 'dev'
+Requires-Dist: tree-sitter-c ; extra == 'dev'
+Requires-Dist: tree-sitter-cpp ; extra == 'dev'
+Requires-Dist: types-pyyaml ; extra == 'dev'
+Requires-Dist: cudf-cu12 ; extra == 'gpu'
+Requires-Dist: kvikio-cu12 ; extra == 'gpu'
+Requires-Dist: torch>=2.0 ; extra == 'gpu'
+Requires-Dist: pyarrow>=23.0.1 ; extra == 'gpu'
+Requires-Dist: torch>=2.0 ; extra == 'gpu-win'
+Requires-Dist: transformers>=5.3.0 ; extra == 'nlp'
+Requires-Dist: tritonclient[http] ; extra == 'nlp'
+Requires-Dist: tensor-grep[semantic] ; extra == 'rerank'
+Requires-Dist: onnxruntime>=1.20 ; extra == 'rerank'
+Requires-Dist: tokenizers>=0.21 ; extra == 'rerank'
+Requires-Dist: model2vec>=0.5 ; extra == 'semantic'
+Requires-Dist: numpy>=1.26 ; extra == 'semantic'
+Provides-Extra: ast
+Provides-Extra: bench
+Provides-Extra: dev
+Provides-Extra: gpu
+Provides-Extra: gpu-win
+Provides-Extra: nlp
+Provides-Extra: rerank
+Provides-Extra: semantic
+License-File: LICENSE
+License-File: NOTICE
+Summary: High-performance grep-compatible CLI with Rust, GPU, and AST/NLP routing
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+
+# tensor_grep_rs
+
+Rust core crate for `tensor-grep`.
+
+This crate powers fast search/count paths and Python bindings via `pyo3`.
+

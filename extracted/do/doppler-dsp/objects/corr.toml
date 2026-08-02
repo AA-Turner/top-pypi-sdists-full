@@ -1,0 +1,62 @@
+[corr]
+arg_type = "float _Complex"
+return_type = "float _Complex"
+mutable = "false"
+no_state = "true"
+no_step = "true"
+class_name = "Corr"
+depends_on = ["fft_core"]
+serializable = "true"
+
+[[corr.init_params]]
+name = "ref"
+type = "float _Complex[]"
+
+[[corr.init_params]]
+name = "dwell"
+type = "size_t"
+default = "1"
+
+[[corr.init_params]]
+name = "nthreads"
+type = "int"
+default = "1"
+
+# Decoupled inverse size (0 => native). A larger output zero-pads the
+# cross-spectrum before the inverse → band-limited interpolation of the
+# correlation onto a finer length-n_out grid. Trailing + default 0 keeps
+# Corr(ref, dwell, nthreads) backward-compatible.
+[[corr.init_params]]
+name = "n_out"
+type = "size_t"
+default = "0"
+
+[[corr.methods]]
+name = "execute"
+arg_type = "float _Complex"
+return_type = "float _Complex"
+variable_output = true
+# Kernel is told its write limit (jm gh-138): an under-reporting
+# max_out truncates the emission instead of overrunning `out`.
+pass_capacity = true
+none_on_empty = true
+
+[[corr.properties]]
+name = "n"
+type = "size_t"
+field = true
+
+[[corr.properties]]
+name = "n_out"
+type = "size_t"
+field = true
+
+[[corr.properties]]
+name = "dwell"
+type = "size_t"
+field = true
+
+[[corr.properties]]
+name = "count"
+type = "size_t"
+field = true

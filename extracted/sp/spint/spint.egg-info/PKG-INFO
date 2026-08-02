@@ -1,0 +1,97 @@
+Metadata-Version: 2.4
+Name: spint
+Version: 1.1.0
+Summary: SPatial INTeraction models
+Author-email: "Taylor M. Oshan" <tayoshan@gmail.com>
+Maintainer: PySAL Developers
+License: BSD 3-Clause
+Project-URL: Home, https://github.com/pysal/spint/
+Project-URL: Repository, https://github.com/pysal/spint
+Keywords: spatial statistics
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering :: GIS
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: libpysal>=4.12
+Requires-Dist: numpy>=1.26
+Requires-Dist: scipy>=1.12
+Requires-Dist: spglm>=1.1
+Requires-Dist: spreg>=1.3
+Provides-Extra: dev
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: watermark; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: myst-parser; extra == "docs"
+Requires-Dist: nbsphinx; extra == "docs"
+Requires-Dist: numpydoc; extra == "docs"
+Requires-Dist: pandoc; extra == "docs"
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinxcontrib-bibtex; extra == "docs"
+Requires-Dist: sphinx_bootstrap_theme; extra == "docs"
+Provides-Extra: tests
+Requires-Dist: codecov; extra == "tests"
+Requires-Dist: pytest; extra == "tests"
+Requires-Dist: pytest-mpl; extra == "tests"
+Requires-Dist: pytest-cov; extra == "tests"
+Requires-Dist: pytest-doctestplus; extra == "tests"
+Requires-Dist: pytest-xdist; extra == "tests"
+Dynamic: license-file
+
+# Spatial Interaction Modeling Package
+
+[![Continuous Integration](https://github.com/pysal/spint/actions/workflows/testing.yml/badge.svg)](https://github.com/pysal/spint/actions/workflows/testing.yml)
+[![codecov](https://codecov.io/gh/pysal/spint/branch/main/graph/badge.svg?token=VNn0WR5JWT)](https://codecov.io/gh/pysal/spint)
+[![Documentation Status](https://readthedocs.org/projects/spint/badge/?version=latest)](https://spint.readthedocs.io/en/latest/?badge=latest)
+[![PyPI version](https://badge.fury.io/py/spint.svg)](https://badge.fury.io/py/spint)
+[![Conda Version](https://img.shields.io/conda/vn/conda-forge/spint.svg)](https://anaconda.org/conda-forge/spint)
+[![SPEC 0 — Minimum Supported Dependencies](https://img.shields.io/badge/SPEC-0-green?labelColor=%23004811&color=%235CA038)](https://scientific-python.org/specs/spec-0000/)
+
+The **Sp**atial **Int**eraction Modeling (SpInt) module seeks to provide a collection of tools to study spatial interaction processes and analyze spatial interaction data.
+
+The [initial development](https://github.com/pysal/pysal/wiki/SpInt-Development) of the module was carried out as a Google Summer of Code project (summer 2016). Documentation of the project progress can be found on the [project blog](https://tayloroshan.github.io/). 
+
+The module currently supports the calibration of the 'family' of spatial interaction models (Wilson, 1971) which are derived using an entropy maximizing (EM) framework or the equivalent information minimizing (IM) framework. As such, it is able to derive parameters for the following Poisson count models:
+
+## Models
+
+- unconstrained gravity model
+- production-constrained model (origin-constrained)
+- attraction-constrained model (destination-constrained)
+- doubly-constrained model
+
+Calibration is carried out using iteratively weighted least squares in a generalized linear modleing framework (Cameron & Trivedi, 2013). These model results have been verified against comparable routines laid out in (Fotheringham and O’Kelly, 1989; Willimans and Fotheringham, 1984) and functions avaialble in R such as GL  or Pythons statsmodels. The estimation of the constrained routines are carried out using sparse data strucutres for lower memory overhead and faster computations.
+
+## Additional Features
+
+- QuasiPoisson model estimation
+- Regression-based tests for overdispersion
+- Model fit statistics including typical GLM metrics, standardized root mean square error, and Sorensen similarit index
+- Vector-based Moran's I statistic for testing for spatial autcorrelation in spatial interaction data
+- Local subset model calibration for mappable sets of parameter estimates and model diagnostics
+- Three types of spatial interaction spatial weights: origin-destination contiguity weights, network-based weights, and vector-based distance weights
+
+## In Progress
+
+- Spatial Autoregressive (Lag) model spatial interaction specification
+
+## Future Work
+
+- Parameter estimation via maximum likelihood and gradient-based optimization
+- Zero-inflated Poisson model
+- Negative Binomial model/zero-inflated negative binomial model
+- Functions to compute competing destinations
+- Functions to compute eigenvector spatial filters
+- Parameter estimation via neural networks
+- Universal (determinsitic) models such as the Radiation model and Inverse Population Weighted model
+
+## Background
+
+* **Cameron, C. A. and Trivedi, P. K.** (2014). *Regression analyis of count data*. Cambridge University Press. DOI: [10.1017/CBO9781139013567](https://doi.org/10.1017/CBO9781139013567)
+* **Fotheringham, A. S. and O'Kelly, M. E.** (1989). *Spatial Interaction Models: Formulations and Applications*. London: Kluwer Academic Publishers.
+* **Williams, P. A. and Fotheringham, A. S.** (1984), *The Calibration of Spatial Interaction Models by Maximum Likelihood Estimation with Program SIMODEL*, Geographic Monograph Series, 7, Department of Geography, Indiana University.
+* **Wilson, A. G.** (1971). *A Family of Spatial Interaction Models, and Associated Developments*. Environment and Planning A, 3, 1–32. DOI: [10.1068/a030001](https://doi.org/10.1068/a030001)

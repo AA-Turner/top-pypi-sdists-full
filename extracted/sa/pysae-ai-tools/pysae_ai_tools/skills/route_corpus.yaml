@@ -1,0 +1,87 @@
+# Routing eval corpus — natural-language phrasing → the skill it should trigger.
+#
+# Used by `pysae-ai-tools skills route-eval` to measure recall@1 and collisions.
+# Grow it freely: add entries for any phrasing that should (or did not) trigger a skill.
+# Fields: text (the utterance), expected (skill name), lang (fr|en), register (canonical|casual).
+
+# --- ci-* deploy/release/run cluster (high collision risk) ---
+- { text: "déploie l'api en prod", expected: ci-deploy, lang: fr, register: casual }
+- { text: "deploy the webapp to review", expected: ci-deploy, lang: en, register: canonical }
+- { text: "mets driver en prod", expected: ci-deploy, lang: fr, register: casual }
+- { text: "fais une release de l'api", expected: ci-release, lang: fr, register: canonical }
+- { text: "cut a new version", expected: ci-release, lang: en, register: canonical }
+- { text: "bump la version et release en prod", expected: ci-release, lang: fr, register: casual }
+- { text: "rollback la prod tout de suite", expected: ci-rollback, lang: fr, register: casual }
+- { text: "revert production to the previous version", expected: ci-rollback, lang: en, register: canonical }
+- { text: "lance le job de build sur ma branche", expected: ci-run, lang: fr, register: canonical }
+- { text: "relance la CI", expected: ci-run, lang: fr, register: casual }
+- { text: "où en est la pipeline", expected: ci-run, lang: fr, register: casual }
+- { text: "est-ce que la review est déployée", expected: ci-deploy-status, lang: fr, register: casual }
+- { text: "quelle est l'url de la review", expected: ci-deploy-status, lang: fr, register: casual }
+- { text: "pourquoi ce job a fail", expected: ci-debug, lang: fr, register: casual }
+- { text: "debug this failing pipeline", expected: ci-debug, lang: en, register: canonical }
+- { text: "quels tests ont échoué dans la pipeline", expected: ci-reports, lang: fr, register: canonical }
+- { text: "show me the junit test report", expected: ci-reports, lang: en, register: canonical }
+
+# --- glab-mr-* verbs (very high collision risk) ---
+- { text: "crée une MR depuis ma branche", expected: mr-create, lang: fr, register: canonical }
+- { text: "open a merge request", expected: mr-create, lang: en, register: canonical }
+- { text: "trouve la MR de Rémi sur le cache", expected: mr-find, lang: fr, register: casual }
+- { text: "find the MR about trip sync", expected: mr-find, lang: en, register: canonical }
+- { text: "merge cette MR", expected: mr-merge, lang: fr, register: canonical }
+- { text: "fusionne la MR !42", expected: mr-merge, lang: fr, register: casual }
+- { text: "rebase ma MR sur main", expected: mr-rebase, lang: fr, register: canonical }
+- { text: "résous les conflits de cette MR", expected: mr-rebase, lang: fr, register: casual }
+- { text: "approve cette MR", expected: mr-approve, lang: fr, register: canonical }
+- { text: "checkout la branche de la MR !42", expected: mr-checkout, lang: fr, register: canonical }
+- { text: "bosse sur le ticket #123", expected: mr-checkout, lang: fr, register: casual }
+- { text: "rebase toutes mes MR et relance les pipelines", expected: mr-refresh, lang: fr, register: canonical }
+
+# --- glab-issue-* cluster ---
+- { text: "crée un ticket pour ce bug", expected: issue-create, lang: fr, register: canonical }
+- { text: "write a ticket for this refactor", expected: issue-create, lang: en, register: canonical }
+- { text: "trouve le ticket qui parle du cache", expected: issue-find, lang: fr, register: casual }
+- { text: "quel ticket je prends maintenant", expected: glab-issue-next, lang: fr, register: casual }
+- { text: "what should I work on next", expected: glab-issue-next, lang: en, register: casual }
+- { text: "affine ce ticket pour le sprint", expected: issue-refine, lang: fr, register: canonical }
+
+# --- code-* implement/review/release cluster ---
+- { text: "implémente ce ticket", expected: code-implement, lang: fr, register: canonical }
+- { text: "resolve this issue and open a MR", expected: code-implement, lang: en, register: canonical }
+- { text: "review mes changements avant de push", expected: code-review, lang: fr, register: casual }
+- { text: "review my code", expected: code-review, lang: en, register: canonical }
+- { text: "ajoute une entrée de changelog", expected: code-changelog, lang: fr, register: canonical }
+- { text: "quelle est la prochaine version", expected: code-get-next-version, lang: fr, register: canonical }
+- { text: "génère les release notes pour la v5.2.0", expected: code-release-notes, lang: fr, register: canonical }
+- { text: "lance les tests et les linters", expected: code-quality, lang: fr, register: canonical }
+- { text: "review et corrige tout en boucle", expected: code-review-fix, lang: fr, register: casual }
+
+# --- profiling vs live perf (known disambiguation pair) ---
+- { text: "profile ce test, il est lent", expected: code-profile, lang: fr, register: casual }
+- { text: "pourquoi cette fonction est lente", expected: code-profile, lang: fr, register: casual }
+- { text: "la prod rame, regarde la latence de l'api", expected: infra-perf, lang: fr, register: casual }
+- { text: "check the api error rate in production", expected: infra-perf, lang: en, register: canonical }
+
+# --- infra-ops runtime ---
+- { text: "le pod crash en prod", expected: infra-ops, lang: fr, register: casual }
+- { text: "is the api synced in argocd", expected: infra-ops, lang: en, register: canonical }
+- { text: "restart le deployment api", expected: infra-ops, lang: fr, register: casual }
+- { text: "montre les logs du pod", expected: infra-ops, lang: fr, register: casual }
+
+# --- support-* family (high collision risk) ---
+- { text: "investigue ce bug remonté par le support", expected: support-bug-investigate, lang: fr, register: canonical }
+- { text: "écris un article d'aide intercom", expected: support-intercom-article, lang: fr, register: canonical }
+- { text: "publie une news produit dans intercom", expected: support-intercom-news, lang: fr, register: canonical }
+- { text: "corrige ce bug et fais la MR pour le support", expected: support-mr-fix, lang: fr, register: casual }
+- { text: "crée un ticket produit depuis cette demande", expected: support-product-ticket, lang: fr, register: canonical }
+
+# --- env / secrets ---
+- { text: "résous et exporte DD_API_KEY", expected: env-resolve, lang: fr, register: canonical }
+- { text: "charge mes variables d'environnement", expected: env-resolve, lang: fr, register: casual }
+
+# --- misc singles ---
+- { text: "demande une review sur slack", expected: slack-ask-review, lang: fr, register: canonical }
+- { text: "récap de la semaine pour le standup", expected: stats-weekly-summary, lang: fr, register: casual }
+- { text: "convertis cet openapi en collection postman", expected: openapi-to-postman, lang: fr, register: canonical }
+- { text: "clone tous les repos du groupe pysae", expected: glab-clone-group, lang: fr, register: canonical }
+- { text: "appelle l'API Pysae sur dev", expected: pysae-api, lang: fr, register: canonical }

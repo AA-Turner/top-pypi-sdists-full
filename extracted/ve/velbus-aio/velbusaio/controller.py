@@ -1,0 +1,550 @@
+"""Main interface for the velbusaio lib."""
+
+from __future__ import annotations
+
+import asyncio
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+import datetime
+import itertools
+import logging
+import re
+import ssl
+import time
+import typing as t
+from urllib.parse import urlparse
+
+import anyio
+import serialx
+
+from velbusaio.channels import (
+    Blind,
+    Button,
+    ButtonCounter,
+    Dimmer,
+    Relay,
+    SensorNumber,
+    Temperature,
+)
+from velbusaio.config import ConfigParameter
+from velbusaio.exceptions import VelbusConnectionFailed
+from velbusaio.handler import PacketHandler
+from velbusaio.helpers import get_cache_dir
+from velbusaio.message import Message
+from velbusaio.messages.module_type_request import ModuleTypeRequestMessage
+from velbusaio.messages.set_date import SetDate
+from velbusaio.messages.set_daylight_saving import SetDaylightSaving
+from velbusaio.messages.set_realtime_clock import SetRealtimeClock
+from velbusaio.module import Module
+from velbusaio.properties import LightValue, SelectedProgram
+from velbusaio.protocol import VelbusProtocol
+from velbusaio.raw_message import RawMessage
+from velbusaio.vlp_reader import VlpFile
+
+
+@dataclass
+class ScheduledTask:
+    """A scheduled task that runs at a specific interval."""
+
+    name: str
+    callback: Callable[[], Awaitable[None]]
+    interval_seconds: float
+    _task: asyncio.Task | None = None
+    _running: bool = False
+
+    async def _run_loop(self) -> None:
+        """Run the task in a loop."""
+        self._running = True
+        while self._running:
+            try:
+                await asyncio.sleep(self.interval_seconds)
+                await self.callback()
+            except asyncio.CancelledError:
+                break
+            except (RuntimeError, ValueError, TypeError, AttributeError):
+                logging.getLogger("velbus-scheduler").exception(
+                    "Error in scheduled task '%s'", self.name
+                )
+
+    def start(self) -> None:
+        """Start the scheduled task."""
+        if self._task is None or self._task.done():
+            self._task = asyncio.create_task(self._run_loop())
+
+    def stop(self) -> None:
+        """Stop the scheduled task."""
+        self._running = False
+        if self._task and not self._task.done():
+            self._task.cancel()
+
+
+class Velbus:
+    """A velbus controller."""
+
+    def __init__(
+        self,
+        dsn: str,
+        cache_dir: str = get_cache_dir(),
+        vlp_file: str | None = None,
+        one_address: int | None = None,
+    ) -> None:
+        """Init the Velbus controller."""
+        self._log = logging.getLogger("velbus")
+
+        self._protocol = VelbusProtocol(
+            message_received_callback=self._on_message_received,
+            connection_state_callback=self._on_connection_state,
+        )
+        self._closing = False
+        self._auto_reconnect = True
+
+        self._destination = dsn
+        self._handler = PacketHandler(self, one_address)
+        self._modules: dict[int, Module] = {}
+        self._submodules: list[int] = []
+        self._send_queue: asyncio.Queue = asyncio.Queue()
+        self._vlp_file = vlp_file
+        self._cache_dir: str = cache_dir
+        self._is_connected: bool = False
+        self._on_connect_callbacks: list[t.Callable[[], Awaitable[None]]] = []
+        self._on_disconnect_callbacks: list[t.Callable[[], Awaitable[None]]] = []
+        self._on_module_found_callbacks: list[
+            t.Callable[[Module], Awaitable[None]]
+        ] = []
+        self._background_tasks: set[asyncio.Task] = set()
+        self._scheduled_tasks: dict[str, ScheduledTask] = {}
+        self._scheduler_log = logging.getLogger("velbus-scheduler")
+
+    def add_connect_callback(self, meth: t.Callable[[], Awaitable[None]]) -> None:
+        """Register a coroutine to be called on connect."""
+        self._on_connect_callbacks.append(meth)
+
+    def remove_connect_callback(self, meth: t.Callable[[], Awaitable[None]]) -> None:
+        """Remove a previously registered on connect coroutine."""
+        self._on_connect_callbacks.remove(meth)
+
+    def add_disconnect_callback(self, meth: t.Callable[[], Awaitable[None]]) -> None:
+        """Register a coroutine to be called on disconnect."""
+        self._on_disconnect_callbacks.append(meth)
+
+    def remove_disconnect_callback(self, meth: t.Callable[[], Awaitable[None]]) -> None:
+        """Remove a previously registered on disconnect coroutine."""
+        self._on_disconnect_callbacks.remove(meth)
+
+    def add_module_found_callback(
+        self, meth: t.Callable[[Module], Awaitable[None]]
+    ) -> None:
+        """Register a coroutine to be called on module found.
+
+        This routine will be called when a new module finished its initialization.
+        """
+        self._on_module_found_callbacks.append(meth)
+
+    def remove_module_found_callback(
+        self, meth: t.Callable[[Module], Awaitable[None]]
+    ) -> None:
+        """Remove a previously registered on module found coroutine."""
+        self._on_module_found_callbacks.remove(meth)
+
+    async def _on_modules_loaded(self, module: Module) -> None:
+        """Called when all modules are loaded."""
+        for callback in self._on_module_found_callbacks:
+            await callback(module)
+
+    @property
+    def connected(self) -> bool:
+        """Return connection state."""
+        return self._is_connected
+
+    async def _reconnect_loop(self) -> None:
+        """Keep retrying connect() until it succeeds or auto_reconnect is disabled."""
+        retry_delay = 10
+        while self._auto_reconnect and not self._closing:
+            try:
+                await self.connect()
+            except VelbusConnectionFailed:
+                self._log.warning("Reconnect failed, retrying in %ds", retry_delay)
+                await asyncio.sleep(retry_delay)
+                retry_delay = min(retry_delay * 2, 300)
+            else:
+                return
+
+    async def _on_connection_state(self, is_connected: bool) -> None:
+        """Respond to Protocol connection state changes."""
+        self._is_connected = is_connected
+        if is_connected:
+            for callback in self._on_connect_callbacks:
+                await callback()
+        else:
+            for callback in self._on_disconnect_callbacks:
+                await callback()
+            if self._auto_reconnect and not self._closing:
+                self._log.debug("Reconnecting to transport")
+                task = asyncio.ensure_future(self._reconnect_loop())
+                self._background_tasks.add(task)
+                task.add_done_callback(self._background_tasks.discard)
+        for mod in self._modules.values():
+            for chan in mod.get_channels().values():
+                await chan.status_update()
+
+    def get_cache_dir(self) -> str:
+        """Return the cache directory."""
+        return self._cache_dir
+
+    async def _on_message_received(self, msg: RawMessage) -> None:
+        """On message received function."""
+        await self._handler.handle(msg)
+
+    async def add_module(
+        self,
+        addr: int,
+        typ: int,
+        serial: int | str | None = None,
+        memorymap: int | None = None,
+        build_year: int | None = None,
+        build_week: int | None = None,
+    ) -> None:
+        """Add a found module to the module cache."""
+        module = Module.factory(
+            addr,
+            typ,
+            serial=serial,
+            build_year=build_year,
+            build_week=build_week,
+            memorymap=memorymap,
+            cache_dir=self._cache_dir,
+            on_module_found=self._on_modules_loaded,
+        )
+        await module.initialize(self.send, self)
+        self._modules[addr] = module
+        self._log.info(f"Found module {addr}: {module}")
+
+    def add_submodules(self, module: Module, subList: dict[int, int]) -> None:
+        """Add submodules address to module."""
+        for sub_num, sub_addr in subList.items():
+            if sub_addr == 0xFF:
+                continue
+            self._submodules.append(sub_addr)
+            module.add_subaddress(sub_num, sub_addr)
+        module.cleanupSubChannels()
+
+    def addr_is_submodule(self, addr: int) -> bool:
+        """Check if an address is a submodule."""
+        return addr in self._submodules
+
+    def get_modules(self) -> dict:
+        """Return the module cache."""
+        return self._modules
+
+    def get_module(self, addr: int) -> None | Module:
+        """Get a module on an address."""
+        if addr in self._modules:
+            return self._modules[addr]
+        for module in self._modules.values():
+            if addr in module.get_addresses():
+                return module
+        return None
+
+    def get_channels(self, addr: int) -> None | dict:
+        """Get the channels for an address."""
+        if addr in self._modules:
+            return (self._modules[addr]).get_channels()
+        return None
+
+    async def stop(self) -> None:
+        """Stop the controller."""
+        self._closing = True
+        self._auto_reconnect = False
+        # Stop all scheduled tasks
+        for task in self._scheduled_tasks.values():
+            task.stop()
+        self._protocol.close()
+
+    async def connect(self) -> None:
+        """Connect to the bus and load all the data."""
+        await self._handler.read_protocol_data()
+        # connect to the bus
+        destination = self._destination
+        has_scheme = bool(re.search(r"^[A-Za-z0-9+.\-]+://", destination))
+        is_bare_host_port = bool(re.search(r"^[^/]+:\d+$", destination))
+
+        tcp_destination: str | None = None
+        if has_scheme:
+            parts = urlparse(destination)
+            if parts.scheme in {"tcp", "tls"}:
+                tcp_destination = destination
+        elif is_bare_host_port:
+            tcp_destination = f"tcp://{destination}"
+
+        if tcp_destination is not None:
+            parts = urlparse(tcp_destination)
+            if parts.scheme == "tls":
+                ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+            else:
+                ctx = None
+
+            if parts.hostname is None or parts.port is None:
+                raise VelbusConnectionFailed
+
+            try:
+                (
+                    _transport,
+                    _protocol,
+                ) = await asyncio.get_running_loop().create_connection(
+                    lambda: self._protocol,
+                    host=parts.hostname,
+                    port=parts.port,
+                    ssl=ctx,
+                )
+            except (ConnectionRefusedError, OSError) as err:
+                raise VelbusConnectionFailed from err
+            return
+
+        # serial and serialx-backed schemes (e.g. /dev/..., esphome://...)
+        try:
+            (
+                _serial_transport,
+                _serial_protocol,
+            ) = await serialx.create_serial_connection(
+                asyncio.get_running_loop(),
+                t.cast("t.Callable[[], asyncio.Protocol]", lambda: self._protocol),
+                url=destination,
+                baudrate=38400,
+                byte_size=serialx.EIGHTBITS,
+                parity=serialx.Parity.NONE,
+                stopbits=serialx.StopBits.ONE,
+                xonxoff=False,
+                rtscts=True,
+            )
+        except (FileNotFoundError, serialx.SerialException) as err:
+            raise VelbusConnectionFailed from err
+
+    async def start(self) -> None:
+        """Start the controller."""
+        # if auth is required send the auth key
+        parts = urlparse(self._destination)
+        if parts.username:
+            await self._protocol.write_auth_key(parts.username)
+
+        if self._vlp_file:
+            # use the vlp file to load the modules
+            vlp = VlpFile(self._vlp_file)
+            await vlp.read()
+            for mod_data in vlp.get():
+                # Convert hex address string to decimal integer
+                addr = mod_data.get_addr().split(",")
+                decimal_addr = int(addr[0], 16)
+                await self.add_module(
+                    decimal_addr,
+                    mod_data.get_type(),
+                    serial=mod_data.get_serial(),
+                    memorymap=mod_data.get_memory(),
+                    build_year=int(mod_data.get_build()[0:2]),
+                    build_week=int(mod_data.get_build()[2:4]),
+                )
+                # handle submodules
+                if len(addr) > 1:
+                    self.add_submodules(
+                        self._modules[decimal_addr], dict(enumerate(addr[1:]))
+                    )
+                # load module data, special for dali
+                if mod_data.get_type() == 0x45 or mod_data.get_type() == 0x5A:
+                    await self._modules[decimal_addr].load()
+                else:
+                    module = self._modules[decimal_addr]
+                    await module.load_from_vlp(mod_data)
+                    await module.wait_for_status_messages()
+        else:
+            # make sure the cachedir exists
+            await anyio.Path(self._cache_dir).mkdir(parents=True, exist_ok=True)
+            # scan the bus
+            await self._handler.scan()
+
+    async def scan(self) -> None:
+        """Service endpoint to restart the scan."""
+        await self._handler.scan(True)
+
+    async def sendTypeRequestMessage(self, address: int) -> None:
+        """Send a module type request message."""
+        msg = ModuleTypeRequestMessage(address)
+        await self.send(msg)
+
+    async def send(self, msg: Message) -> None:
+        """Send a packet."""
+        await self._protocol.send_message(
+            RawMessage(
+                priority=msg.priority,
+                address=msg.address,
+                rtr=msg.rtr,
+                data=msg.data_to_binary(),
+            )
+        )
+
+    def get_all_sensor(
+        self,
+    ) -> list[ButtonCounter | Temperature | LightValue | SensorNumber]:
+        """Get all sensors."""
+        return self._get_all("sensor")
+
+    def get_all_switch(self) -> list[Relay]:
+        """Get all switches."""
+        return self._get_all("switch")
+
+    def get_all_binary_sensor(self) -> list[Button]:
+        """Get all binary sensors."""
+        return self._get_all("binary_sensor")
+
+    def get_all_button(self) -> list[Button | ButtonCounter]:
+        """Get all buttons."""
+        return self._get_all("button")
+
+    def get_all_climate(self) -> list[Temperature]:
+        """Get all climate devices."""
+        return self._get_all("climate")
+
+    def get_all_temp_config(self) -> list[Temperature]:
+        """Get temperature channels that expose settings configuration."""
+        result: list[Temperature] = []
+        seen: set[tuple[int, int]] = set()
+        for channel in itertools.chain(self.get_all_climate(), self.get_all_sensor()):
+            if not isinstance(channel, Temperature):
+                continue
+            if channel.get_temp_settings() is None:
+                continue
+            key = (channel.get_module_address(), channel.get_channel_number())
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append(channel)
+        return result
+
+    def get_all_cover(self) -> list[Blind]:
+        """Get all covers."""
+        return self._get_all("cover")
+
+    def get_all_select(self) -> list[SelectedProgram]:
+        """Get all select devices."""
+        return self._get_all("select")
+
+    def get_all_light(self) -> list[Dimmer]:
+        """Get all light devices."""
+        return self._get_all("light")
+
+    def get_all_led(self) -> list[Button]:
+        """Get all LED devices."""
+        return self._get_all("led")
+
+    def get_all_relay_config(self) -> list[Relay]:
+        """Get relay channels that expose configuration parameters."""
+        return [
+            channel
+            for channel in self.get_all_switch()
+            if hasattr(channel, "get_config_parameters")
+        ]
+
+    def get_all_config_parameters(self) -> list[ConfigParameter]:
+        """Get CONFIG parameters that should be exposed as Home Assistant entities."""
+        params: list[ConfigParameter] = []
+        for channel in self.get_all_relay_config():
+            params.extend(
+                param for param in channel.get_config_parameters() if param.entity
+            )
+        seen: set[tuple[int, int | None, str]] = set()
+        for channel in self.get_all_temp_config():
+            for param in channel.get_config_parameters():
+                if not param.entity:
+                    continue
+                key = (channel.get_module_address(), param.channel, param.key)
+                if key in seen:
+                    continue
+                seen.add(key)
+                params.append(param)
+        return params
+
+    def _get_all(self, class_name: str) -> list[t.Any]:
+        """Get all channels."""
+        return [
+            chan
+            for addr, mod in (self.get_modules()).items()
+            if addr not in self._submodules
+            for chan in itertools.chain(
+                (mod.get_channels()).values(), (mod.get_properties()).values()
+            )
+            if class_name in chan.get_categories()
+        ]
+
+    async def sync_clock(self, dt: datetime.datetime | None = None) -> None:
+        """Will send all the needed messages to sync the clock.
+
+        :param dt: The datetime to sync to. When omitted, the local time of the
+            machine running this process is used. Callers (e.g. Home Assistant)
+            should pass their own localized time to avoid relying on the clock
+            of the host running the connection.
+        """
+        if dt is None:
+            dt = datetime.datetime.now()
+        # Determine daylight saving. For timezone-aware datetimes we can derive
+        # it directly, otherwise fall back to the local time settings.
+        dst = dt.dst()
+        if dst is not None:
+            is_dst = dst != datetime.timedelta(0)
+        else:
+            is_dst = bool(time.localtime().tm_isdst)
+        await self.send(
+            SetRealtimeClock(wday=dt.weekday(), hour=dt.hour, min=dt.minute)
+        )
+        await self.send(SetDate(day=dt.day, mon=dt.month, year=dt.year))
+        await self.send(SetDaylightSaving(ds=not is_dst))
+
+    async def wait_on_all_messages_sent_async(self) -> None:
+        """Wait for all messages to be sent."""
+        await self._protocol.wait_on_all_messages_sent_async()
+
+    def add_scheduled_task(
+        self,
+        name: str,
+        callback: Callable[[], Awaitable[None]],
+        interval_seconds: float,
+    ) -> None:
+        """Add a scheduled task that runs at a specific interval.
+
+        Args:
+            name: Unique name for the task
+            callback: Async function to call at each interval
+            interval_seconds: Time in seconds between each execution
+        """
+        if name in self._scheduled_tasks:
+            self._scheduler_log.warning(f"Task '{name}' already exists, replacing it")
+            self.remove_scheduled_task(name)
+
+        task = ScheduledTask(
+            name=name,
+            callback=callback,
+            interval_seconds=interval_seconds,
+        )
+        self._scheduled_tasks[name] = task
+        task.start()
+        self._scheduler_log.info(
+            f"Scheduled task '{name}' added (interval: {interval_seconds}s)"
+        )
+
+    def remove_scheduled_task(self, name: str) -> None:
+        """Remove a scheduled task.
+
+        Args:
+            name: Name of the task to remove
+        """
+        if name in self._scheduled_tasks:
+            self._scheduled_tasks[name].stop()
+            del self._scheduled_tasks[name]
+            self._scheduler_log.info(f"Scheduled task '{name}' removed")
+
+    def get_scheduled_tasks(self) -> dict[str, ScheduledTask]:
+        """Get all scheduled tasks.
+
+        Returns:
+            Dictionary of task names to ScheduledTask objects
+        """
+        return self._scheduled_tasks.copy()

@@ -1,0 +1,524 @@
+from __future__ import annotations
+
+import collections
+import io
+import json
+import re
+from concurrent.futures import Future, ThreadPoolExecutor
+from contextlib import ExitStack
+from dataclasses import dataclass
+from glob import glob
+from logging import getLogger
+from pathlib import Path
+from shutil import copytree, rmtree
+from tempfile import TemporaryDirectory
+from typing import Any, Callable, Iterable, Sequence
+
+import moreorless
+from feedforward import Run, Step
+from feedforward.erasure import Erasure  # todo: export this properly from feedforward
+from keke import ktrace
+from moreorless import unified_diff
+from rich import print
+
+from ick_protocol import Finished, Modified, RuleStatus
+
+from .base_rule import BaseRule, GenericPreparedStep
+from .config import RuntimeConfig
+from .config.rule_repo import discover_rules
+from .config.rule_repo import get_impl as get_impl
+from .project_finder import find_projects
+from .types_project import BaseRepo, Project, maybe_repo
+from .util import clean_output
+
+LOG = getLogger(__name__)
+
+
+# TODO temporary; this should go in protocol and be better typed...
+@dataclass
+class HighLevelResult:
+    """
+    Capture the result of running ick in a structured way.
+
+    rule is the prefixed name of the rule
+    """
+
+    rule: str
+    project: str
+    modifications: Sequence[Modified]
+    finished: Finished
+
+
+def fmt_name(name: str) -> str:
+    """Return Rich markup for a name with the prefix portion dimmed."""
+    if ":" in name:
+        prefix, suffix = name.split(":", 1)
+        return f"[dim]{prefix}:[/dim]{suffix}"
+    return name
+
+
+@dataclass
+class TestResult:
+    """Capture the result of running a test in a structured way."""
+
+    rule_instance: BaseRule
+    test_path: Path
+    message: str = ""
+    success: bool = False
+    updated: bool = False
+    diff: str = ""
+    traceback: str = ""
+
+
+class ErrorRule(BaseRule):
+    """Synthetic rule yielded when a rule impl raises during instantiation."""
+
+    def __init__(self, rule_config: Any, error: str) -> None:
+        super().__init__(rule_config)
+        self.runnable = False
+        self.status = error
+
+    def add_steps_to_run(self, projects: Any, env: Any, run: Run[str, bytes | Erasure]) -> None:
+        step = GenericPreparedStep(
+            prefixed_name=self.rule_config.prefixed_name,
+            patterns=("*",),
+            project_path="",
+            cmdline=[],
+            extra_env={},
+            append_filenames=False,
+            eager=False,
+            batch_size=-1,
+        )
+        run.add_step(step)
+        step.cancel(self.status)
+
+
+class Runner:
+    def __init__(self, rtc: RuntimeConfig, repo: BaseRepo, parallelism: int = 0) -> None:
+        self.rtc = rtc
+        self.rules = discover_rules(rtc)
+        self.repo: BaseRepo = repo
+        self.parallelism = parallelism
+        self.ick_env_vars = {
+            "ICK_REPO_PATH": str(repo.root),
+        }
+        if repo.upstream_url:
+            self.ick_env_vars["ICK_REPO_UPSTREAM"] = repo.upstream_url
+        if self.rtc.settings.apply:
+            self.ick_env_vars["ICK_APPLY"] = "1"
+
+        # TODO there's a var on repo to store this...
+        self.projects: list[Project] = find_projects(repo, repo.zfiles, self.rtc.main_config)
+
+    def iter_rule_impl(self) -> Iterable[BaseRule]:
+        def matched_rules(*, legacy: bool) -> list[BaseRule]:
+            filter_re = self.rtc.filter_config.legacy_name_filter_re if legacy else self.rtc.filter_config.name_filter_re
+            name_filter = re.compile(filter_re).fullmatch
+            rules: list[BaseRule] = []
+            for rule in self.rules:
+                if rule.urgency < self.rtc.filter_config.min_urgency:
+                    continue
+
+                if self.rtc.filter_config.tags and not set(rule.tags) & set(self.rtc.filter_config.tags):
+                    continue
+
+                name = rule.prefixed_name.replace(":", "/") if legacy else rule.full_name
+                if not name_filter(name):
+                    continue
+
+                try:
+                    rules.append(get_impl(rule)(rule))
+                except Exception as e:
+                    rules.append(ErrorRule(rule, str(e)))
+            return rules
+
+        rules = matched_rules(legacy=False)
+        legacy_rules: list[BaseRule] = []
+        if not rules and self.rtc.filter_config.allow_legacy_name_filter:
+            rules = matched_rules(legacy=True)
+        elif not rules:
+            legacy_rules = matched_rules(legacy=True)
+
+        if not rules and len(self.rules) > 0:
+            pattern = self.rtc.filter_config.name_filter_re
+            hint = ""
+            if legacy_rules:
+                hint = " Try --allow-legacy-name-filter."
+            print(
+                f"[red]No rules found with urgency '{self.rtc.filter_config.min_urgency.value}' or greater that matches the pattern '{pattern}'.{hint}[/red]"
+            )
+
+        for rule in rules:
+            yield rule
+
+    def build_steps_for_rules(
+        self,
+        *,
+        status_callback: Callable[[Run[Any, Any]], None] | None = None,
+        done_callback: Callable[[Run[Any, Any]], None] | None = None,
+    ) -> Run[str, bytes | Erasure]:
+        """Compose a feedforward Run with steps for all rules."""
+        run: Run[str, bytes | Erasure] = Run(
+            parallelism=self.parallelism,
+            status_callback=status_callback,
+            done_callback=done_callback,
+        )
+        for impl in self.iter_rule_impl():
+            impl.add_steps_to_run(self.projects, self.ick_env_vars, run)
+        run.add_step(Step())  # Final sink
+        return run
+
+    def build_steps_for_test(
+        self,
+        *,
+        impl: BaseRule,
+        repo: BaseRepo,
+        test_name: str,
+    ) -> Run[str, bytes | Erasure]:
+        """Compose a feedforward Run with steps for a single rule test."""
+        run: Run[str, bytes | Erasure] = Run()
+        project = Project(repo, "", "python", "invalid.bin")
+        env_vars = self.ick_env_vars | {"ICK_TEST_NAME": test_name}
+        impl.add_steps_to_run([project], env_vars, run)
+        run.add_step(Step())  # Final sink
+        return run
+
+    def test_rules(self, *, update: bool = False) -> int:
+        """
+        Returns an exit code (0 on success)
+        """
+        print("[dim]testing...[/dim]")
+        buffered_output = io.StringIO()
+
+        def buf_print(text: str) -> None:
+            """Print to the buffered output.
+
+            This is needed instead of print(..., file=buffered_output) to get
+            the rich highlighting correct.
+            """
+            buffered_output.write(text)
+            buffered_output.write("\n")
+
+        # Collect all work upfront so we can submit everything to the thread pool at once.
+        all_work = list(self.iter_tests())
+
+        # Each test gets its own TestResult; _perform_test only touches shared Runner
+        # state that is read-only after __init__ (now that self.repo mutation is gone).
+        # All tests across all rules run in parallel. We print per-rule results in
+        # rule order by calling fut.result() on each future in sorted-test order —
+        # dots appear as each test finishes (not batched), while other rules' tests
+        # run concurrently in the background.
+        final_status = 0
+        total_updated = 0
+        with ThreadPoolExecutor() as executor:
+            rule_futures: list[tuple[BaseRule, list[tuple[Future[None], TestResult]]]] = []
+            for rule_instance, test_paths in all_work:
+                futures: list[tuple[Future[None], TestResult]] = []
+                for test_path in sorted(test_paths):
+                    result = TestResult(rule_instance, test_path)
+                    fut = executor.submit(self._perform_test, rule_instance, test_path, result, update=update)
+                    futures.append((fut, result))
+                rule_futures.append((rule_instance, futures))
+
+            for rule_instance, futures in rule_futures:
+                success = True
+                any_updated = False
+                qn = fmt_name(rule_instance.rule_config.prefixed_name)
+                print(f"  [bold]{qn}[/bold]: ", end="")
+                if not futures:
+                    print("<no-test>", end="")
+                    buf_print(
+                        f"{qn}: [yellow]no tests[/yellow] in {rule_instance.rule_config.test_path}",
+                    )
+                else:
+                    for fut, result in futures:
+                        fut.result()  # blocks until this test is done; propagates unexpected exceptions
+                        if result.updated:
+                            any_updated = True
+                            total_updated += 1
+                            print("[yellow]U[/]", end="")
+                        elif result.success:
+                            print(".", end="")
+                        else:
+                            success = False
+                            final_status = 1
+                            print("[red]F[/]", end="")
+                            buf_print(f"{'-' * 80}")
+                            rule_test_path = result.rule_instance.rule_config.test_path
+                            assert rule_test_path is not None
+                            rel_test_path = result.test_path.relative_to(rule_test_path)
+                            with_test = ""
+                            if str(rel_test_path) != ".":
+                                with_test = f" with [bold]{rel_test_path}[/]"
+                            buf_print(f"testing [bold]{qn}[/]{with_test}:")
+                            buf_print(result.traceback)
+                            buf_print(result.message)
+                            buf_print(result.diff)
+
+                if not success:
+                    print(" [red]FAIL[/]")
+                elif any_updated:
+                    print(" [yellow]UPDATED[/]")
+                else:
+                    print(" [green]PASS[/]")
+
+        if buffered_output.tell():
+            print()
+            print("DETAILS")
+            print(buffered_output.getvalue())
+
+        if total_updated:
+            print(f"[yellow]{total_updated} test(s) updated[/yellow]")
+
+        return final_status
+
+    def _perform_test(self, rule_instance: BaseRule, test_path: Path, result: TestResult, *, update: bool = False) -> None:
+        inp = test_path / "input"
+        outp = test_path / "output"
+        if not inp.exists():
+            result.message = f"Test input directory {inp} is missing"
+            return
+        if not outp.exists():
+            if update:
+                outp.mkdir()
+            else:
+                result.message = f"Test output directory {outp} is missing"
+                return
+
+        with TemporaryDirectory() as td, ExitStack() as stack:
+            tp = Path(td)
+            copytree(inp, tp, dirs_exist_ok=True)
+
+            repo = maybe_repo(tp, stack.enter_context, for_testing=True)
+
+            steps = self.build_steps_for_test(
+                impl=rule_instance,
+                repo=repo,
+                test_name=str(test_path.relative_to(Path.cwd())),
+            )
+            run_result = next(iter(self.run_steps(steps, repo=repo)))
+            response = run_result.modifications
+
+            actual_output = run_result.finished.message
+
+            if update:
+                changed = self._write_update(inp, outp, response, run_result.finished.status, actual_output)
+                if changed:
+                    result.updated = True
+                else:
+                    result.success = True
+                return
+
+            files_to_check = set(glob("**", root_dir=outp, recursive=True, include_hidden=True))
+            files_to_check = {f for f in files_to_check if (outp / f).is_file()} - {"output.txt", "error.txt"}
+
+            if run_result.finished.status is RuleStatus.ERROR:
+                # Error state
+                expected_path = outp / "error.txt"
+                if not expected_path.exists():
+                    result.message = f"Test crashed, but {expected_path} doesn't exist so that seems unintended:\n{actual_output}"
+                    return
+
+                expected = clean_output(expected_path.read_text())
+                output = clean_output(actual_output)
+                if expected == output:
+                    result.success = True
+                else:
+                    result.diff = moreorless.unified_diff(expected, output, "error.txt")
+                    result.message = "Different output found"
+                return
+
+            for r in response:
+                assert isinstance(r, Modified)
+                if r.new_bytes is None:
+                    if r.filename in files_to_check:
+                        result.message = f"Missing removal of {r.filename!r}"
+                        return
+                else:
+                    if r.filename not in files_to_check:
+                        result.message = f"Unexpected new file: {r.filename!r}"
+                        return
+                    outf = outp / r.filename
+                    if outf.read_bytes() != r.new_bytes:
+                        result.diff = unified_diff(
+                            outf.read_text(),
+                            r.new_bytes.decode(),
+                            r.filename,
+                        )
+                        result.message = f"{r.filename!r} (modified) differs"
+                        return
+                    files_to_check.remove(r.filename)
+
+            for unchanged_file in files_to_check:
+                expected = (inp / unchanged_file).read_text()
+                actual = (outp / unchanged_file).read_text()
+                if expected != actual:
+                    result.diff = moreorless.unified_diff(expected, actual, unchanged_file)
+                    result.message = f"{unchanged_file!r} (unchanged) differs"
+                    return
+
+            expected_path = outp / "output.txt"
+            if actual_output:
+                # Didn't match expectation
+                if not expected_path.exists():
+                    result.message = f"Test failed, but {expected_path} doesn't exist so that seems unintended:\n{actual_output}"
+                    return
+
+                expected = expected_path.read_text()
+                if expected == actual_output:
+                    result.success = True
+                else:
+                    result.diff = moreorless.unified_diff(expected, actual_output, "output.txt")
+                    result.message = "Different output found"
+                return
+
+            if expected_path.exists():
+                # There was no output, but we expected some
+                expected = expected_path.read_text()
+                result.diff = moreorless.unified_diff(expected, "", "output.txt")
+                result.message = "Expected output, but rule produced none"
+                return
+
+        result.success = True
+
+    def _write_update(
+        self,
+        inp: Path,
+        outp: Path,
+        response: Sequence[Modified],
+        status: RuleStatus,
+        actual_output: str,
+    ) -> bool:
+        """Rebuild output/ with actual rule results. Returns True if anything changed."""
+        old_files: dict[str, bytes] = {}
+        for f in glob("**", root_dir=outp, recursive=True, include_hidden=True):
+            p = outp / f
+            if p.is_file():
+                old_files[f] = p.read_bytes()
+
+        rmtree(outp)
+        outp.mkdir()
+
+        if status is RuleStatus.ERROR:
+            (outp / "error.txt").write_text(actual_output)
+        else:
+            copytree(inp, outp, dirs_exist_ok=True)
+            for r in response:
+                assert isinstance(r, Modified)
+                if r.new_bytes is None:
+                    p = outp / r.filename
+                    if p.exists():
+                        p.unlink()
+                else:
+                    p = outp / r.filename
+                    p.parent.mkdir(parents=True, exist_ok=True)
+                    p.write_bytes(r.new_bytes)
+            if actual_output:
+                (outp / "output.txt").write_text(actual_output)
+
+        new_files: dict[str, bytes] = {}
+        for f in glob("**", root_dir=outp, recursive=True, include_hidden=True):
+            p = outp / f
+            if p.is_file():
+                new_files[f] = p.read_bytes()
+
+        return old_files != new_files
+
+    def iter_tests(self) -> Iterable[tuple[BaseRule, tuple[Path, ...]]]:
+        # Yields (impl, test_paths) for projects in test dir
+        for impl in self.iter_rule_impl():
+            test_path = impl.rule_config.test_path
+            assert test_path is not None
+            yield impl, tuple(test_path.glob("*/"))
+
+    def run_steps(self, steps: Run[str, bytes | Erasure], repo: BaseRepo | None = None) -> Iterable[HighLevelResult]:
+        """
+        Run a series of feedforward steps and yield high-level results.
+        """
+        # TODO deliberate in a flag: (I think this got separated from code now in build_steps_for_rules)
+        # TODO parallelize or show a progress bar, this takes a while...
+        if repo is None:
+            repo = self.repo
+        repo_contents: dict[str, bytes | Erasure] = {}
+        # TODO the version that includes dirty files
+        for f in sorted(repo.zfiles.split("\0")):
+            if not f:
+                continue
+            p = repo.root / f
+            # TODO symlinks, empty dirs?
+            if p.is_file():
+                repo_contents[f] = p.read_bytes()
+
+        steps.run_to_completion(repo_contents)
+        for s in steps._steps[:-1]:
+            assert isinstance(s, GenericPreparedStep)
+            if s.cancelled:
+                # This should also encompass exit codes other than 0 and 99
+                # print(f"{s} failed:")
+                # print(f"  {s.cancel_reason}")
+                yield HighLevelResult(s.prefixed_name, s.match_prefix, [], Finished(s.prefixed_name, RuleStatus.ERROR, s.cancel_reason))
+            else:
+                # if any(e == 99 for e in s.exit_codes):
+                #     ...
+
+                changes, finished = s.compute_diff_messages()
+                yield HighLevelResult(s.prefixed_name, s.match_prefix, changes, finished)
+
+    @ktrace()
+    def echo_rules(self) -> None:
+        rules_by_urgency = collections.defaultdict(list)
+        for impl in self.iter_rule_impl():
+            impl.prepare()
+
+            msg = f"[bold]{fmt_name(impl.rule_config.prefixed_name)}[/]"
+            if impl.rule_config.description:
+                msg += f": {impl.rule_config.description}"
+            if not impl.runnable:
+                msg += f"  *** {impl.status}"
+            for rule in impl.list().rule_names:
+                rules_by_urgency[impl.rule_config.urgency].append(msg)
+
+        first = True
+        for urgency_label, rules in sorted(rules_by_urgency.items(), reverse=True):
+            if not first:
+                print()
+            else:
+                first = False
+
+            print(f"[bold]{urgency_label.name}[/]")
+            print("=" * len(str(urgency_label.name)))
+            for rule in rules:
+                print(f"* {rule}")
+
+    @ktrace()
+    def echo_rules_json(self) -> None:
+        rules = {}
+        for impl in self.iter_rule_impl():
+            impl.prepare()
+            config = impl.rule_config
+            rule = {
+                "duration": config.hours,
+                "description": config.description,
+                "urgency": str(config.urgency.name),
+                "risk": str(config.risk.name),
+                "contact": config.contact,
+                "url": config.url,
+            }
+            rules[config.prefixed_name] = rule
+
+        print(json.dumps({"rules": rules}, indent=4))
+
+
+def pl(noun: str, count: int) -> str:
+    if count == 1:
+        return noun
+    return noun + "s"
+
+
+def _demo_status_callback(run: Run[str, bytes]) -> None:
+    print("%4d/%4d " % (run._finalized_idx + 1, len(run._steps)) + " ".join(step.emoji() for step in run._steps))
+
+
+def _demo_done_callback(run: Run[str, bytes]) -> None:
+    print(" " * 10 + " ".join("%2d" % (next(step.gen_counter) - 1) for step in run._steps))
+    print(f"Total time: {run._end_time - run._start_time:.2f}s")

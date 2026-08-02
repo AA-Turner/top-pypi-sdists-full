@@ -23,6 +23,7 @@ from typing import Union
 
 from .literals import (
     AccessType,
+    AdminPasswordSourceType,
     AutonomousDatabaseBackupStatusType,
     AutonomousDatabaseBackupTypeType,
     AutonomousDatabaseResourceStatusType,
@@ -52,6 +53,8 @@ from .literals import (
     MonthNameType,
     NetServicesArchitectureType,
     ObjectiveType,
+    OciAwsIntegrationType,
+    OciIamRoleStatusType,
     OciOnboardingStatusType,
     OpenModeType,
     OperationsInsightsStatusType,
@@ -65,6 +68,7 @@ from .literals import (
     ShapeTypeType,
     SourceTypeType,
     StandbyAllowlistedIpsSourceType,
+    WalletPasswordSourceType,
     WalletTypeType,
 )
 
@@ -76,6 +80,9 @@ else:
 
 __all__ = (
     "AcceptMarketplaceRegistrationInputTypeDef",
+    "AdminPasswordSourceConfigurationInputTypeDef",
+    "AdminPasswordSourceConfigurationTypeDef",
+    "AdminPasswordSourceSummaryTypeDef",
     "AssociateIamRoleToResourceInputTypeDef",
     "AutonomousDatabaseApexTypeDef",
     "AutonomousDatabaseBackupSummaryTypeDef",
@@ -120,6 +127,8 @@ __all__ = (
     "CrossRegionDisasterRecoveryConfigurationTypeDef",
     "CrossRegionS3RestoreSourcesAccessTypeDef",
     "CustomerContactTypeDef",
+    "CustomerManagedAwsSecretConfigurationInputTypeDef",
+    "CustomerManagedAwsSecretConfigurationTypeDef",
     "DataCollectionOptionsTypeDef",
     "DatabaseCloneConfigurationTypeDef",
     "DatabaseConnectionStringProfileTypeDef",
@@ -290,12 +299,27 @@ __all__ = (
     "UpdateOdbNetworkOutputTypeDef",
     "UpdateOdbPeeringConnectionInputTypeDef",
     "UpdateOdbPeeringConnectionOutputTypeDef",
+    "WalletPasswordSourceConfigurationInputTypeDef",
+    "WalletPasswordSourceConfigurationTypeDef",
+    "WalletPasswordSourceSummaryTypeDef",
     "ZeroEtlAccessTypeDef",
 )
 
 
 class AcceptMarketplaceRegistrationInputTypeDef(TypedDict):
     marketplaceRegistrationToken: str
+
+
+class CustomerManagedAwsSecretConfigurationInputTypeDef(TypedDict):
+    secretId: NotRequired[str]
+    iamRoleArn: NotRequired[str]
+    externalIdType: NotRequired[ExternalIdTypeType]
+
+
+class CustomerManagedAwsSecretConfigurationTypeDef(TypedDict):
+    iamRoleArn: NotRequired[str]
+    secretId: NotRequired[str]
+    externalIdType: NotRequired[ExternalIdTypeType]
 
 
 class AssociateIamRoleToResourceInputTypeDef(TypedDict):
@@ -438,11 +462,6 @@ class AutonomousDatabaseVersionSummaryTypeDef(TypedDict):
     version: NotRequired[str]
 
 
-class AutonomousDatabaseWalletDetailsTypeDef(TypedDict):
-    status: NotRequired[AutonomousDatabaseWalletStatusType]
-    timeRotated: NotRequired[datetime]
-
-
 class AutonomousVirtualMachineSummaryTypeDef(TypedDict):
     autonomousVirtualMachineId: NotRequired[str]
     status: NotRequired[ResourceStatusType]
@@ -510,13 +529,6 @@ class ResponseMetadataTypeDef(TypedDict):
 
 class TransportableTablespaceTypeDef(TypedDict):
     ttsBundleUrl: NotRequired[str]
-
-
-class CreateAutonomousDatabaseWalletInputTypeDef(TypedDict):
-    autonomousDatabaseId: str
-    password: str
-    walletType: NotRequired[WalletTypeType]
-    clientToken: NotRequired[str]
 
 
 class CreateOdbNetworkInputTypeDef(TypedDict):
@@ -768,7 +780,9 @@ class GetDbServerInputTypeDef(TypedDict):
 
 class OciIamRoleTypeDef(TypedDict):
     iamRoleArn: NotRequired[str]
-    awsIntegration: NotRequired[Literal["KmsTde"]]
+    awsIntegration: NotRequired[OciAwsIntegrationType]
+    status: NotRequired[OciIamRoleStatusType]
+    statusReason: NotRequired[str]
 
 
 class OciIdentityDomainTypeDef(TypedDict):
@@ -812,6 +826,7 @@ class GiVersionSummaryTypeDef(TypedDict):
 
 class InitializeServiceInputTypeDef(TypedDict):
     ociIdentityDomain: NotRequired[bool]
+    autonomousDatabaseOciAwsSecretsManagerIntegration: NotRequired[AccessType]
 
 
 class KmsAccessTypeDef(TypedDict):
@@ -1077,6 +1092,22 @@ class UpdateOdbPeeringConnectionInputTypeDef(TypedDict):
     peerNetworkCidrsToBeRemoved: NotRequired[Sequence[str]]
 
 
+class AdminPasswordSourceConfigurationInputTypeDef(TypedDict):
+    customerManagedAwsSecret: NotRequired[CustomerManagedAwsSecretConfigurationInputTypeDef]
+
+
+class WalletPasswordSourceConfigurationInputTypeDef(TypedDict):
+    customerManagedAwsSecret: NotRequired[CustomerManagedAwsSecretConfigurationInputTypeDef]
+
+
+class AdminPasswordSourceConfigurationTypeDef(TypedDict):
+    customerManagedAwsSecret: NotRequired[CustomerManagedAwsSecretConfigurationTypeDef]
+
+
+class WalletPasswordSourceConfigurationTypeDef(TypedDict):
+    customerManagedAwsSecret: NotRequired[CustomerManagedAwsSecretConfigurationTypeDef]
+
+
 class AutonomousDatabaseConnectionStringsTypeDef(TypedDict):
     allConnectionStrings: NotRequired[dict[str, str]]
     dedicated: NotRequired[str]
@@ -1225,11 +1256,6 @@ class FailoverAutonomousDatabaseOutputTypeDef(TypedDict):
 
 class GetAutonomousDatabaseBackupOutputTypeDef(TypedDict):
     autonomousDatabaseBackup: AutonomousDatabaseBackupTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetAutonomousDatabaseWalletDetailsOutputTypeDef(TypedDict):
-    autonomousDatabaseWalletDetails: AutonomousDatabaseWalletDetailsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1623,6 +1649,25 @@ class ManagedServicesTypeDef(TypedDict):
     crossRegionS3RestoreSourcesAccess: NotRequired[list[CrossRegionS3RestoreSourcesAccessTypeDef]]
 
 
+class CreateAutonomousDatabaseWalletInputTypeDef(TypedDict):
+    autonomousDatabaseId: str
+    walletType: NotRequired[WalletTypeType]
+    password: NotRequired[str]
+    passwordSource: NotRequired[WalletPasswordSourceType]
+    passwordSourceConfiguration: NotRequired[WalletPasswordSourceConfigurationInputTypeDef]
+    clientToken: NotRequired[str]
+
+
+class AdminPasswordSourceSummaryTypeDef(TypedDict):
+    adminPasswordSource: NotRequired[AdminPasswordSourceType]
+    adminPasswordSourceConfiguration: NotRequired[AdminPasswordSourceConfigurationTypeDef]
+
+
+class WalletPasswordSourceSummaryTypeDef(TypedDict):
+    passwordSource: NotRequired[WalletPasswordSourceType]
+    passwordSourceConfiguration: NotRequired[WalletPasswordSourceConfigurationTypeDef]
+
+
 LongTermBackupScheduleUnionTypeDef = Union[
     LongTermBackupScheduleTypeDef, LongTermBackupScheduleOutputTypeDef
 ]
@@ -1997,6 +2042,12 @@ class OdbNetworkTypeDef(TypedDict):
     ec2PlacementGroupIds: NotRequired[list[str]]
 
 
+class AutonomousDatabaseWalletDetailsTypeDef(TypedDict):
+    status: NotRequired[AutonomousDatabaseWalletStatusType]
+    timeRotated: NotRequired[datetime]
+    passwordSourceSummary: NotRequired[WalletPasswordSourceSummaryTypeDef]
+
+
 class UpdateAutonomousDatabaseInputTypeDef(TypedDict):
     autonomousDatabaseId: str
     adminPassword: NotRequired[str]
@@ -2041,6 +2092,8 @@ class UpdateAutonomousDatabaseInputTypeDef(TypedDict):
     timeOfAutoRefreshStart: NotRequired[TimestampTypeDef]
     encryptionKeyProvider: NotRequired[EncryptionKeyProviderInputType]
     encryptionKeyConfiguration: NotRequired[EncryptionKeyConfigurationInputTypeDef]
+    adminPasswordSource: NotRequired[AdminPasswordSourceType]
+    adminPasswordSourceConfiguration: NotRequired[AdminPasswordSourceConfigurationInputTypeDef]
 
 
 class CreateAutonomousDatabaseInputTypeDef(TypedDict):
@@ -2081,6 +2134,8 @@ class CreateAutonomousDatabaseInputTypeDef(TypedDict):
     sourceConfiguration: NotRequired[SourceConfigurationTypeDef]
     encryptionKeyProvider: NotRequired[EncryptionKeyProviderInputType]
     encryptionKeyConfiguration: NotRequired[EncryptionKeyConfigurationInputTypeDef]
+    adminPasswordSource: NotRequired[AdminPasswordSourceType]
+    adminPasswordSourceConfiguration: NotRequired[AdminPasswordSourceConfigurationInputTypeDef]
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
@@ -2200,6 +2255,7 @@ class AutonomousDatabaseSummaryTypeDef(TypedDict):
     timeUntilReconnectCloneEnabled: NotRequired[datetime]
     nextLongTermBackupTimeStamp: NotRequired[datetime]
     timeUndeleted: NotRequired[datetime]
+    adminPasswordSourceSummary: NotRequired[AdminPasswordSourceSummaryTypeDef]
 
 
 class AutonomousDatabaseTypeDef(TypedDict):
@@ -2306,6 +2362,7 @@ class AutonomousDatabaseTypeDef(TypedDict):
     timeUntilReconnectCloneEnabled: NotRequired[datetime]
     nextLongTermBackupTimeStamp: NotRequired[datetime]
     timeUndeleted: NotRequired[datetime]
+    adminPasswordSourceSummary: NotRequired[AdminPasswordSourceSummaryTypeDef]
 
 
 class ListCloudAutonomousVmClustersOutputTypeDef(TypedDict):
@@ -2378,6 +2435,11 @@ class ListOdbNetworksOutputTypeDef(TypedDict):
 
 class GetOdbNetworkOutputTypeDef(TypedDict):
     odbNetwork: OdbNetworkTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetAutonomousDatabaseWalletDetailsOutputTypeDef(TypedDict):
+    autonomousDatabaseWalletDetails: AutonomousDatabaseWalletDetailsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 

@@ -1,0 +1,269 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/**/*.py", "src/**/*.graphql", "src/**/py.typed", "src/latch_cli/services/init/*"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/latch_cli" = "latch_cli"
+"src/latch_sdk_gql" = "latch_sdk_gql"
+"src/latch_sdk_config" = "latch_sdk_config"
+
+[project]
+name = "latch"
+version = "2.76.10"
+description = "The Latch SDK"
+authors = [{ name = "Kenny Workman", email = "kenny@latch.bio" }]
+maintainers = [{ name = "Kenny Workman", email = "kenny@latch.bio" }]
+
+readme = "README.md"
+license = { file = "LICENSE" }
+
+requires-python = ">=3.9"
+dependencies = [
+  "kubernetes>=24.2.0",
+  "pyjwt>=0.2.0",
+  "requests>=2.28.1",
+  "click>=8.0",
+  "docker>=7.1.0",
+  "paramiko>=3.4.0",
+  "scp>=0.14.0",
+  "boto3>=1.26.0",
+  "tqdm>=4.63.0",
+  "lytekit>=0.16,<0.17",
+  "lytekitplugins-pods==0.7.4",
+  "typing-extensions>=4.12.0",
+  "apscheduler>=3.10.0",
+  "gql==3.5.0",
+  "graphql-core==3.2.3",
+  "requests-toolbelt==1.0.0",
+  "python-dateutil>=2.8",
+  "pydantic>=2,<3",
+  "rich>=14.0.0",
+  "GitPython==3.1.40",
+  # for old latch develop, to be removed
+  "asyncssh==2.13.2",
+  "websockets>=11,<16",
+  "watchfiles==1.1.1",
+  "pyxattr>=0.8.1",
+  "orjson>=3.10.12",
+  "latch-persistence>=0.1.8",
+  "dill>=0.4.0",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Healthcare Industry",
+
+  "Topic :: Software Development :: Build Tools",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+
+[project.optional-dependencies]
+pandas = ["pandas>=2.0.0"]
+snakemake = ["snakemake>=7.18.0,<7.30.2", "pulp>=2.0,<2.8"]
+
+[project.scripts]
+latch = "latch_cli.main:main"
+
+[project.urls]
+Homepage = "https://latch.bio"
+Documentation = "https://latch.wiki"
+Repository = "https://github.com/latchbio/latch"
+Issues = "https://github.com/latchbio/latch/issues"
+Changelog = "https://github.com/latchbio/latch/blob/main/CHANGELOG.md"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.7.0",
+    "pytest>=8.3.3",
+    "types-boto3[s3]>=1.43.6",
+]
+docs = [
+  "sphinx",
+  "sphinx-book-theme",
+  "sphinx-copybutton",
+  "sphinx-click",
+  "myst-parser",
+  "furo",
+]
+
+[tool.ruff]
+target-version = "py39"
+
+[tool.ruff.lint]
+preview = true
+
+pydocstyle = { convention = "google" }
+extend-select = [
+  "F",
+  "E",
+  "W",
+  # "C90",
+  "I",
+  "N",
+  "D",
+  "UP",
+  "YTT",
+  "ANN",
+  "ASYNC",
+  "ASYNC1",
+  "S",
+  # "BLE", # `raise x from y` does not work
+  "FBT",
+  "B",
+  "A",
+  # "COM",
+  # "CPY",
+  "C4",
+  "DTZ",
+  "T10",
+  "DJ",
+  # "EM",
+  "EXE",
+  "FA",
+  "ISC",
+  "ICN",
+  "G",
+  "INP",
+  "PIE",
+  "T20",
+  "PYI",
+  "PT",
+  "Q",
+  "RSE",
+  "RET",
+  "SLF",
+  "SLOT",
+  "SIM",
+  "TID",
+  "TCH",
+  "INT",
+  "ARG",
+  "PTH",
+  "TD",
+  # "FIX",
+  # "ERA",
+  "PD",
+  "PGH",
+  "PL",
+  "TRY",
+  "FLY",
+  "NPY",
+  "AIR",
+  "PERF",
+  "FURB",
+  "LOG",
+  "RUF",
+]
+ignore = [
+  "A002",
+  "A003",
+
+  "ANN101",
+  "ANN102",
+  "ANN201",
+  "ANN202",
+  "ANN204",
+
+  "E402",
+  "E501",
+  "E741",
+
+  "C408",
+  "C901",
+
+  "FA100",
+
+  "T201",
+  "T203",
+
+  "SIM108",
+
+  "S101",
+  "S603",
+  "S607",
+
+  "N807",
+
+  "D100",
+  "D101",
+  "D102",
+  "D103",
+  "D104",
+  "D105",
+  "D106",
+  "D107",
+  "D202",
+  "D415",
+
+  "TRY003",
+  "TRY300",
+  "TRY301",
+
+  "FLY002",
+
+  "PERF203",
+
+  "PLC0415",
+
+  "PLW2901",
+  "PLW0603",
+
+  "PLR0904",
+  "PLR0911",
+  "PLR0912",
+  "PLR0913",
+  "PLR0914",
+  "PLR0915",
+  "PLR0916",
+  "PLR0917",
+  "PLR1702",
+  "PLR2004",
+
+  "TD001",
+  "TD003",
+  "TD006",
+
+  "TID252",
+
+  "PD901",
+
+  "UP006",
+  "UP040",
+
+  "SIM112",
+
+  "PLC1901",
+]
+
+[tool.ruff.lint.pyupgrade]
+# Pydantic resolves annotations at runtime, where PEP 604 is unsupported on Python 3.9.
+keep-runtime-typing = true
+
+[tool.ruff.format]
+preview = true
+skip-magic-trailing-comma = true
+
+[tool.pyright]
+typeCheckingMode = "strict"
+
+pythonVersion = "3.9"
+
+reportUnknownArgumentType = "none"
+reportUnknownLambdaType = "none"
+reportUnknownMemberType = "none"
+reportUnknownParameterType = "none"
+reportUnknownVariableType = "none"
+
+reportUnusedImport = "error"

@@ -1,0 +1,78 @@
+name: E2E Tests - OpenVid
+on:
+  # Manual trigger - can be run on any branch
+  workflow_dispatch:
+    inputs:
+      csp:
+        description: 'Cloud provider'
+        required: false
+        type: choice
+        options:
+          - gcp
+          - aws
+          - azure
+        default: 'gcp'
+      num_videos:
+        description: 'Number of videos to process'
+        required: false
+        default: '20'
+      batch_size:
+        description: 'Batch size for backfill operations'
+        required: false
+        default: '4'
+      skip_gpu:
+        description: 'Skip GPU tests'
+        required: false
+        type: boolean
+        default: false
+      run_embedding_vjepa2:
+        description: 'Run V-JEPA2 video embeddings UDF tests'
+        required: false
+        type: boolean
+        default: true
+      run_mv_creation:
+        description: 'Run materialized view creation tests'
+        required: false
+        type: boolean
+        default: true
+      run_mv_refresh:
+        description: 'Run materialized view refresh tests'
+        required: false
+        type: boolean
+        default: true
+      run_mv_blobs:
+        description: 'Run materialized view blob tests'
+        required: false
+        type: boolean
+        default: true
+  # Weekly schedule: Monday midnight Pacific = Tuesday 7am UTC (runs on main only)
+  schedule:
+    - cron: '0 7 * * 2'
+
+jobs:
+  e2e-test-openvid:
+    name: e2e-test-openvid-${{ (github.event_name == 'workflow_dispatch' && (inputs.csp || 'gcp')) || 'azure' }}
+    # Scheduled runs are always on main, manual runs can be on any branch
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.ref == 'refs/heads/main')
+    uses: ./.github/workflows/e2e-shared.yml
+    with:
+      # Scheduled runs target Azure for GPU availability (always-on GPU nodes).
+      # Manual dispatch defaults to GCP but can be overridden.  See GEN-439.
+      csp: ${{ github.event_name == 'schedule' && 'azure' || inputs.csp || 'gcp' }}
+      e2e_dir: e2e/openvid
+      checkout_ref: ${{ github.event_name == 'schedule' && 'main' || github.ref }}
+      prepare_command: |
+        test -f e2e/openvid/upload_manifests.py
+        TEST_FILES=""
+        ${{ inputs.run_embedding_vjepa2 == true || github.event_name == 'schedule' }} && TEST_FILES="$TEST_FILES test_drivers/test_video_embeddings_ray254.py"
+        ${{ inputs.run_mv_creation == true || github.event_name == 'schedule' }} && TEST_FILES="$TEST_FILES test_drivers/test_mv_creation.py"
+        ${{ inputs.run_mv_refresh == true || github.event_name == 'schedule' }} && TEST_FILES="$TEST_FILES test_drivers/test_mv_refresh.py"
+        ${{ inputs.run_mv_blobs == true || github.event_name == 'schedule' }} && TEST_FILES="$TEST_FILES test_drivers/test_mv_blobs.py"
+        echo "TEST_FILES=$TEST_FILES" >> $GITHUB_ENV
+        echo "Selected tests: $TEST_FILES"
+      run_command: |
+        make -f e2e/Makefile test-e2e-openvid-${{ github.event_name == 'schedule' && 'azure' || inputs.csp || 'gcp' }} SLUG=$SLUG NUM_VIDEOS=${{ inputs.num_videos || '20' }} BATCH_SIZE=${{ inputs.batch_size || '4' }} SKIP_GPU=${{ inputs.skip_gpu && '1' || '' }} TEST_FILES="${TEST_FILES}"
+      cleanup_command: |
+        echo "Deleting rayclusters matching slug $SLUG"
+        kubectl get raycluster -n lancedb --no-headers -o custom-columns=":metadata.name" | grep $SLUG | xargs -r -n1 kubectl delete raycluster -n lancedb --wait
+    secrets: inherit

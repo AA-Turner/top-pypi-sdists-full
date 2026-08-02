@@ -1,0 +1,51 @@
+Metadata-Version: 2.4
+Name: aioairzone-cloud
+Version: 0.7.2
+Summary: Library to control Airzone Cloud devices
+Author-email: Álvaro Fernández Rojas <noltari@gmail.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/Noltari/aioairzone-cloud
+Project-URL: Bug Tracker, https://github.com/Noltari/aioairzone-cloud/issues
+Keywords: airzone,cloud,hvac,home
+Platform: any
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Home Automation
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp
+Dynamic: license-file
+
+# aioairzone-cloud
+[![Latest Version][mdversion-button]][md-pypi]
+[![Python Versions][pyversion-button]][md-pypi]
+[![License: Apache 2.0][apache-button]](LICENSE)
+
+[apache-button]: https://img.shields.io/badge/License-Apache%202.0-blue.svg
+[md-pypi]: https://pypi.org/project/aioairzone-cloud
+[mdversion-button]: https://img.shields.io/pypi/v/aioairzone-cloud.svg
+[pyversion-button]: https://img.shields.io/pypi/pyversions/aioairzone-cloud.svg
+
+Python library to control Airzone Cloud devices.
+
+## Requirements
+- Python >= 3.12
+
+## Install
+```bash
+pip install aioairzone-cloud
+```
+
+## Install from Source
+Run the following command inside this folder
+```bash
+pip install --upgrade .
+```
+
+## Examples
+Examples can be found in the `examples` folder

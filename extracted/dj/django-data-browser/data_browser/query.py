@@ -1,0 +1,339 @@
+import dataclasses
+import urllib
+from collections.abc import Mapping
+from collections.abc import Sequence
+from typing import Any
+
+from django.utils.functional import cached_property
+
+from data_browser.common import global_state
+from data_browser.types import ASC
+from data_browser.types import DSC
+
+
+@dataclasses.dataclass
+class QueryField:
+    path: str
+    pivoted: bool = False
+    direction: str = None
+    priority: int = None
+
+    def __post_init__(self):
+        self.path_str = self.path
+        self.path = self.path.split("__")
+        assert (self.direction is None) == (self.priority is None)
+
+
+@dataclasses.dataclass
+class QueryFilter:
+    path: str
+    lookup: str
+    value: str
+
+    def __post_init__(self):
+        self.path_str = self.path
+        self.path = self.path.split("__")
+
+
+def parse_sort(value, symbol, direction):
+    path, priority = value.split(symbol)
+    try:
+        return path, direction, int(priority)
+    except Exception:
+        return path, None, None
+
+
+@dataclasses.dataclass
+class Query:
+    model_name: str
+    fields: Sequence[QueryField]
+    filters: Sequence[QueryFilter]
+    arguments: Mapping[str, str] = dataclasses.field(default_factory=dict)
+
+    @classmethod
+    def from_request(cls, model_name, field_str, params):
+        fields = []
+        found_fields = set()
+        for field in field_str.split(","):
+            field = field.strip()
+            if field:
+                # pivot
+                if field.startswith("&"):
+                    field = field[1:]
+                    pivoted = True
+                else:
+                    pivoted = False
+
+                # sort
+                if "+" in field:
+                    path, direction, priority = parse_sort(field, "+", ASC)
+                elif "-" in field:
+                    path, direction, priority = parse_sort(field, "-", DSC)
+                else:
+                    path, direction, priority = field, None, None
+
+                # collect
+                if path not in found_fields:
+                    found_fields.add(path)
+                    fields.append(QueryField(path, pivoted, direction, priority))
+
+        filters = []
+        arguments = {}
+        for path__lookup, value in params:
+            if "__" in path__lookup:
+                path, lookup = path__lookup.rsplit("__", 1)
+                filters.append(QueryFilter(path, lookup, value))
+            else:
+                arguments[path__lookup] = value
+
+        try:
+            limit = max(1, int(arguments.get("limit")))
+        except Exception:
+            limit = global_state.settings.DATA_BROWSER_DEFAULT_ROW_LIMIT
+        arguments["limit"] = limit
+
+        return cls(model_name, fields, filters, arguments)
+
+    def __post_init__(self):
+        assert isinstance(self.arguments.get("limit"), int)
+
+    @property
+    def _field_str(self):
+        field_strs = []
+        for field in self.fields:
+            pivot = "&" if field.pivoted else ""
+            direction = {ASC: "+", DSC: "-", None: ""}[field.direction]
+            priority = str(field.priority) if field.direction else ""
+            field_strs.append(f"{pivot}{'__'.join(field.path)}{direction}{priority}")
+        return ",".join(field_strs)
+
+    @property
+    def _filter_fields(self):
+        return [
+            ("__".join([*filter.path, filter.lookup]), filter.value)
+            for filter in self.filters
+        ] + [(key, str(value)) for key, value in self.arguments.items()]
+
+    def get_url(self, media):
+        url = self.get_full_url(media)
+        home = global_state.settings.reverse("home")
+        assert url.startswith(home)
+        return url[len(home) - 1 :]
+
+    def get_full_url(self, media):
+        base_url = global_state.settings.reverse(
+            "query",
+            kwargs={
+                "model_name": self.model_name,
+                "fields": self._field_str,
+                "media": media,
+            },
+        )
+        params = urllib.parse.urlencode(
+            self._filter_fields, quote_via=urllib.parse.quote_plus, doseq=True
+        )
+        return f"{base_url}?{params}"
+
+    def is_valid(self, orm_models):
+        if self.model_name not in orm_models:
+            return False
+        bound_query = BoundQuery.bind(self, orm_models)
+        return bound_query.all_valid()
+
+
+@dataclasses.dataclass
+class BoundFilter:
+    orm_bound_field: Any
+    lookup: str
+    value: str
+    query_filter: QueryFilter
+
+    @classmethod
+    def bind(cls, orm_bound_field, query_filter):
+        return cls(
+            orm_bound_field, query_filter.lookup, query_filter.value, query_filter
+        )
+
+    def __post_init__(self):
+        if self.orm_bound_field:
+            self.parsed, self.error_message = self.orm_bound_field.parse_lookup(
+                self.lookup, self.value
+            )
+        else:
+            self.error_message = "Unknown field"
+
+    @cached_property
+    def is_valid(self):
+        return not self.error_message
+
+    @cached_property
+    def path(self):
+        return self.query_filter.path
+
+    @cached_property
+    def path_str(self):
+        return self.query_filter.path_str
+
+    def formatted_value(self):
+        if not self.is_valid:
+            return None
+        return self.orm_bound_field.format_lookup(self.lookup, self.parsed)
+
+
+@dataclasses.dataclass
+class BoundField:
+    orm_bound_field: Any
+    pivoted: bool
+    direction: str | None
+    priority: int | None
+    query_field: QueryField
+
+    @classmethod
+    def bind(cls, orm_bound_field, query_field):
+        if orm_bound_field:
+            return cls(
+                orm_bound_field,
+                query_field.pivoted and orm_bound_field.can_pivot,
+                query_field.direction if orm_bound_field.concrete else None,
+                query_field.priority if orm_bound_field.concrete else None,
+                query_field,
+            )
+        else:
+            return cls(
+                orm_bound_field,
+                query_field.pivoted,
+                query_field.direction,
+                query_field.priority,
+                query_field,
+            )
+
+    def __post_init__(self):
+        self.error_message = None if self.orm_bound_field else "Unknown field"
+
+    @cached_property
+    def is_valid(self):
+        return not self.error_message
+
+    @cached_property
+    def path(self):
+        return self.query_field.path
+
+    @cached_property
+    def verbose_path(self):
+        return self.orm_bound_field.verbose_path if self.orm_bound_field else None
+
+    @cached_property
+    def path_str(self):
+        return self.query_field.path_str
+
+
+def _orm_fields(fields):
+    return [f.orm_bound_field for f in fields]
+
+
+class BoundQuery:
+    def __init__(self, model_name, fields, filters, limit, orm_model):
+        self.model_name = model_name
+        self.fields = fields
+        self.filters = filters
+        self.limit = limit
+        self.orm_model = orm_model
+
+    @classmethod
+    def bind(cls, query, orm_models):
+        def get_orm_field(parts):
+            model_name = query.model_name
+            orm_bound_field = None
+            for part in parts:
+                if model_name is None:
+                    return None
+                orm_field = orm_models[model_name].fields.get(part)
+                if orm_field is None:
+                    return None
+                orm_bound_field = orm_field.bind(orm_bound_field)
+                model_name = orm_field.rel_name
+            if not orm_bound_field.type_:
+                return None
+            return orm_bound_field
+
+        model_name = query.model_name
+
+        fields = []
+        for query_field in query.fields:
+            orm_bound_field = get_orm_field(query_field.path)
+            fields.append(BoundField.bind(orm_bound_field, query_field))
+
+        filters = []
+        for query_filter in query.filters:
+            orm_bound_field = get_orm_field(query_filter.path)
+            if orm_bound_field and not orm_bound_field.concrete:
+                orm_bound_field = None
+            filters.append(BoundFilter.bind(orm_bound_field, query_filter))
+
+        return cls(
+            model_name=model_name,
+            fields=fields,
+            filters=filters,
+            limit=query.arguments["limit"],
+            orm_model=orm_models[model_name],
+        )
+
+    @cached_property
+    def sort_fields(self):
+        res = sorted(
+            (f for f in self.valid_fields if f.direction), key=lambda f: f.priority
+        )
+        # add all unsorted fields on the end of the sort to make stuff stable
+        res += sorted(
+            (f for f in self.valid_fields if not f.direction), key=lambda f: f.path
+        )
+        return res
+
+    @cached_property
+    def valid_filters(self):
+        return [f for f in self.filters if f.is_valid]
+
+    @cached_property
+    def valid_fields(self):
+        return [f for f in self.fields if f.is_valid]
+
+    @cached_property
+    def col_fields(self):
+        return [f for f in self.valid_fields if f.pivoted]
+
+    @cached_property
+    def row_fields(self):
+        return [
+            f
+            for f in self.valid_fields
+            if f.orm_bound_field.can_pivot and not f.pivoted
+        ]
+
+    @cached_property
+    def body_fields(self):
+        return [f for f in self.valid_fields if not f.orm_bound_field.can_pivot]
+
+    @cached_property
+    def bound_fields(self):
+        return _orm_fields(self.valid_fields)
+
+    @cached_property
+    def bound_filters(self):
+        return _orm_fields(self.valid_filters)
+
+    @cached_property
+    def bound_col_fields(self):
+        return _orm_fields(self.col_fields)
+
+    @cached_property
+    def bound_row_fields(self):
+        return _orm_fields(self.row_fields)
+
+    @cached_property
+    def bound_body_fields(self):
+        return _orm_fields(self.body_fields)
+
+    def all_valid(self):
+        fields_valid = all(f.is_valid for f in self.fields)
+        filters_valid = all(f.is_valid for f in self.filters)
+        return fields_valid and filters_valid

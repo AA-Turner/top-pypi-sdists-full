@@ -56,13 +56,12 @@ class NitterExtractor(BaseExtractor):
                         name = util.b64decode(
                             url.rpartition("/")[2]).rpartition("/")[2]
                     else:
-                        name = url.rpartition("%2F")[2]
+                        name = text.unquote(url.rpartition("%2F")[2])
 
                     if url[0] == "/":
                         url = self.root + url
-                    file = {"url": url, "_http_retry": _retry_on_404}
-                    file["filename"], _, file["extension"] = \
-                        name.rpartition(".")
+                    file = text.nameext_from_url(
+                        name, {"url": url, "_http_retry": _retry_on_404})
                     files.append(file)
 
                 if videos and not files:
@@ -77,7 +76,7 @@ class NitterExtractor(BaseExtractor):
                                 name = util.b64decode(
                                     url.rpartition("/")[2]).rpartition("/")[2]
                             else:
-                                name = url.rpartition("%2F")[2]
+                                name = text.unquote(url.rpartition("%2F")[2])
 
                             if url[0] == "/":
                                 url = self.root + url

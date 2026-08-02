@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""Filter type enumeration for strongly typed filtering."""
+
+from __future__ import annotations
+
+from enum import Enum, unique
+
+from omnibase_core.enums.enum_str_enum_base import UtilStrValueHelper
+
+
+@unique
+class EnumFilterType(UtilStrValueHelper, str, Enum):
+    """Strongly typed filter type values."""
+
+    STRING = "string"
+    NUMERIC = "numeric"
+    DATETIME = "datetime"
+    LIST = "list"
+    METADATA = "metadata"
+    STATUS = "status"
+    COMPLEX = "complex"
+
+
+# Export for use
+__all__ = ["EnumFilterType"]

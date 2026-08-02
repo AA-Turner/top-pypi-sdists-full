@@ -16,6 +16,7 @@ Usage::
         GetStatementResultV2Paginator,
         ListDatabasesPaginator,
         ListSchemasPaginator,
+        ListSessionsPaginator,
         ListStatementsPaginator,
         ListTablesPaginator,
         RedshiftDataAPIServiceClient,
@@ -32,6 +33,7 @@ Usage::
     get_statement_result_v2_paginator: GetStatementResultV2Paginator = client.get_paginator("get_statement_result_v2")
     list_databases_paginator: ListDatabasesPaginator = client.get_paginator("list_databases")
     list_schemas_paginator: ListSchemasPaginator = client.get_paginator("list_schemas")
+    list_sessions_paginator: ListSessionsPaginator = client.get_paginator("list_sessions")
     list_statements_paginator: ListStatementsPaginator = client.get_paginator("list_statements")
     list_tables_paginator: ListTablesPaginator = client.get_paginator("list_tables")
     ```
@@ -44,6 +46,7 @@ from .paginator import (
     GetStatementResultV2Paginator,
     ListDatabasesPaginator,
     ListSchemasPaginator,
+    ListSessionsPaginator,
     ListStatementsPaginator,
     ListTablesPaginator,
 )
@@ -57,6 +60,7 @@ __all__ = (
     "GetStatementResultV2Paginator",
     "ListDatabasesPaginator",
     "ListSchemasPaginator",
+    "ListSessionsPaginator",
     "ListStatementsPaginator",
     "ListTablesPaginator",
     "RedshiftDataAPIServiceClient",

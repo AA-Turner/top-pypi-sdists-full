@@ -35,6 +35,7 @@ from .paginator import (
     GetStatementResultV2Paginator,
     ListDatabasesPaginator,
     ListSchemasPaginator,
+    ListSessionsPaginator,
     ListStatementsPaginator,
     ListTablesPaginator,
 )
@@ -57,6 +58,8 @@ from .type_defs import (
     ListDatabasesResponseTypeDef,
     ListSchemasRequestTypeDef,
     ListSchemasResponseTypeDef,
+    ListSessionsRequestTypeDef,
+    ListSessionsResponseTypeDef,
     ListStatementsRequestTypeDef,
     ListStatementsResponseTypeDef,
     ListTablesRequestTypeDef,
@@ -73,6 +76,7 @@ __all__ = ("RedshiftDataAPIServiceClient",)
 class Exceptions(BaseClientExceptions):
     ActiveSessionsExceededException: type[BotocoreClientError]
     ActiveStatementsExceededException: type[BotocoreClientError]
+    ActiveWaitingRequestsExceededException: type[BotocoreClientError]
     BatchExecuteStatementException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
     DatabaseConnectionException: type[BotocoreClientError]
@@ -210,6 +214,16 @@ class RedshiftDataAPIServiceClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_redshift_data/client/#list_schemas)
         """
 
+    async def list_sessions(
+        self, **kwargs: Unpack[ListSessionsRequestTypeDef]
+    ) -> ListSessionsResponseTypeDef:
+        """
+        Lists the sessions that the caller created in the last 24 hours.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/redshift-data/client/list_sessions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_redshift_data/client/#list_sessions)
+        """
+
     async def list_statements(
         self, **kwargs: Unpack[ListStatementsRequestTypeDef]
     ) -> ListStatementsResponseTypeDef:
@@ -278,6 +292,17 @@ class RedshiftDataAPIServiceClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_schemas"]
     ) -> ListSchemasPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/redshift-data/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_redshift_data/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_sessions"]
+    ) -> ListSessionsPaginator:
         """
         Create a paginator for an operation.
 

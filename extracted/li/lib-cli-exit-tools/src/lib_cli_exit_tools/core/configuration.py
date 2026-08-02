@@ -1,0 +1,173 @@
+"""Runtime configuration primitives for lib_cli_exit_tools.
+
+Purpose:
+    Expose the mutable configuration dataclass shared across the package so
+    adapters can toggle behaviour (tracebacks, exit codes, broken-pipe
+    semantics) without re-implementing global state.
+Contents:
+    * :class:`_Config` - dataclass capturing toggleable runtime flags.
+    * :data:`config` - module-level singleton mutated by CLI adapters and tests.
+    * :func:`config_overrides` - context manager that snapshots and restores
+      configuration state for embedders and tests.
+    * :func:`reset_config` - helper that restores defaults defined by
+      :class:`_Config`.
+System Integration:
+    Imported by higher layers (`application.runner`, `adapters.click_adapter`)
+    to align behaviour while keeping the configuration schema centralized. The
+    additional helpers remove the need for ad-hoc fixtures when temporarily
+    tweaking settings in multi-layer integrations.
+"""
+
+from __future__ import annotations
+
+from contextlib import contextmanager
+from dataclasses import dataclass, fields
+from enum import Enum
+from typing import TYPE_CHECKING, TypedDict
+
+if TYPE_CHECKING:
+    from collections.abc import Generator, Mapping
+
+__all__ = ["ExitCodeStyle", "_Config", "config", "config_overrides", "reset_config"]
+
+
+class ExitCodeStyle(str, Enum):
+    """Exit-code mapping strategy selector.
+
+    Why:
+        Replace raw string literals with a closed set of values so comparisons
+        are type-safe and spelling mistakes are caught at import time.
+    Members:
+        ERRNO: Use POSIX/Windows errno-based exit codes (default).
+        SYSEXITS: Use BSD sysexits.h conventions for shell-centric workflows.
+    """
+
+    ERRNO = "errno"
+    SYSEXITS = "sysexits"
+
+
+class ConfigSnapshot(TypedDict):
+    """Type-safe snapshot of configuration values.
+
+    Why:
+        Provides compile-time safety when capturing and restoring configuration
+        state. Mirrors the _Config dataclass fields exactly to prevent typos
+        and ensure type consistency.
+    Fields:
+        traceback: Current traceback emission flag.
+        exit_code_style: Current exit code mapping strategy.
+        broken_pipe_exit_code: Current broken pipe exit code.
+        traceback_force_color: Current traceback color forcing flag.
+    """
+
+    traceback: bool
+    exit_code_style: ExitCodeStyle
+    broken_pipe_exit_code: int
+    traceback_force_color: bool
+
+
+@dataclass(slots=True)
+class _Config:
+    """Centralized runtime flags shared across all CLI executions.
+
+    Why:
+        Prevent each CLI adapter from re-implementing toggles for traceback
+        emission and exit-code semantics. The Click adapter mutates these fields
+        once per process based on global command options.
+    What:
+        Stores the behavioural switches consulted by error printers and
+        exit-code helpers. Values are mutated in place so that successive calls
+        reuse the same configuration.
+    Fields:
+        traceback: Enables stack-trace passthrough when ``True`` to aid
+            debugging without altering default UX for end users.
+        exit_code_style: Selects the exit-code mapping strategy, allowing
+            consumers to opt into BSD ``sysexits`` values when shell scripts rely
+            on them.
+        broken_pipe_exit_code: Exit code returned when a ``BrokenPipeError``
+            occurs; defaults to ``141`` so pipelines can detect truncated
+            output.
+        traceback_force_color: Force Rich to emit ANSI-coloured tracebacks even
+            when stdout/stderr are not detected as TTYs.
+    Side Effects:
+        Mutations are process wide because :data:`config` exports a module-level
+        instance. Callers should restore values in tests to avoid leakage.
+    """
+
+    traceback: bool = False
+    exit_code_style: ExitCodeStyle = ExitCodeStyle.ERRNO
+    broken_pipe_exit_code: int = 141
+    traceback_force_color: bool = False
+
+
+#: Shared configuration singleton consulted by CLI orchestration helpers.
+config = _Config()
+
+
+def _field_names() -> tuple[str, ...]:
+    """Return the ordered configuration field names."""
+
+    return tuple(field.name for field in fields(_Config))
+
+
+def _default_values() -> ConfigSnapshot:
+    """Return the canonical configuration defaults as a type-safe snapshot."""
+
+    defaults = _Config()
+    return ConfigSnapshot(
+        traceback=defaults.traceback,
+        exit_code_style=defaults.exit_code_style,
+        broken_pipe_exit_code=defaults.broken_pipe_exit_code,
+        traceback_force_color=defaults.traceback_force_color,
+    )
+
+
+def _snapshot_current_settings() -> ConfigSnapshot:
+    """Capture the current configuration values as a type-safe snapshot."""
+
+    return ConfigSnapshot(
+        traceback=config.traceback,
+        exit_code_style=config.exit_code_style,
+        broken_pipe_exit_code=config.broken_pipe_exit_code,
+        traceback_force_color=config.traceback_force_color,
+    )
+
+
+def _restore_settings(snapshot: ConfigSnapshot) -> None:
+    """Bring :data:`config` back to the provided type-safe snapshot."""
+
+    config.traceback = snapshot["traceback"]
+    config.exit_code_style = snapshot["exit_code_style"]
+    config.broken_pipe_exit_code = snapshot["broken_pipe_exit_code"]
+    config.traceback_force_color = snapshot["traceback_force_color"]
+
+
+def _reject_unknown_fields(overrides: Mapping[str, object]) -> None:
+    """Guard against typos in override names."""
+
+    known = set(_field_names())
+    unknown = set(overrides) - known
+    if unknown:
+        raise AttributeError(f"Unknown configuration fields: {sorted(unknown)}")
+
+
+def reset_config() -> None:
+    """Restore the shared configuration to its default values."""
+
+    _restore_settings(_default_values())
+
+
+@contextmanager
+def config_overrides(**overrides: object) -> Generator[_Config]:
+    """Snapshot configuration state and optionally apply temporary overrides."""
+
+    _reject_unknown_fields(overrides)
+    snapshot = _snapshot_current_settings()
+
+    for name, value in overrides.items():
+        setattr(config, name, value)
+
+    try:
+        yield config
+    finally:
+        _restore_settings(snapshot)

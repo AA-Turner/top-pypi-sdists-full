@@ -1,0 +1,341 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: write
+  id-token: write  # Sigstore keyless signing
+  packages: write  # CIRISCache save (GHCR) on main — CIRISServer#99
+
+# ============================================================================
+# CIRISServer ships the `ciris-server` BINARY (the fabric node) across the full
+# server/embedded matrix — the same platform set the upstream substrate crates
+# (Edge / Persist / Verify / LensCore) build, restricted to targets a headless
+# server actually runs on, plus **ARM32** (armv7 linux — Pi / embedded
+# Reticulum-mesh nodes; de-singletonization includes hardware diversity, M-1).
+# (Windows builds on STABLE + the standard x86_64-pc-windows-msvc target since
+# 0.5.65 — modern Windows floor, matching persist/verify/edge v7.4.3. The Tier-3
+# Win7 build-std lane was retired; Win7 SP1 / Server 2008 R2 are EOL.)
+#
+# The mobile FFI lanes (Android .aar / iOS .xcframework) are NOT here: a headless
+# server binary does not ship as a mobile library. Those belong to the core
+# LIBRARY crates this binary composes (they build them in their own repos so the
+# AGENT — fabric node + brain — can embed them on mobile).
+#
+# TODO(post-#210): when the binary actually builds (CIRISPersist#210 +
+# CIRISEdge v2.3.0 land the shared-edge-singleton API), port the deeper
+# conformance pipeline from CIRISVerify/.github/workflows/release.yml —
+# function-manifest generation + signed BuildManifest self-attestation +
+# upload to the registry's /v1/verify/build-manifest. The fabric node is part
+# of the conformance fabric; it must attest its own builds.
+# ============================================================================
+
+jobs:
+  build-native:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    # Allowed-to-fail lanes (the TPM backend can't cross-compile) never block the
+    # release; see the armv7 entry + the build-musl job.
+    continue-on-error: ${{ matrix.allow_fail || false }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          # ARM64 builds NATIVELY on an ARM runner (apt applies) —
+          # cross-compiling tss-esapi from x86 has no target libtss2.
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+          # ARM32 — Raspberry Pi / embedded mesh nodes. Cross-builds the TPM
+          # backend with no target libtss2 → allowed-to-fail (CIRISServer#7);
+          # never blocks the release.
+          - os: ubuntu-latest
+            target: armv7-unknown-linux-gnueabihf
+            cross: true
+            allow_fail: true
+          - os: macos-latest
+            target: x86_64-apple-darwin
+          - os: macos-latest
+            target: aarch64-apple-darwin
+          # Windows x86_64 — modern Windows floor (Win10+/Server 2016+), STABLE
+          # toolchain + the standard target, matching persist + verify + edge
+          # v7.4.3 (CIRISEdge#236) so the cross-repo CIRISCache centipede hits on
+          # Windows. The Tier-3 Win7 build-std lane (nightly + -Zbuild-std) was
+          # dropped in 0.5.65 — Win7 SP1 / Server 2008 R2 are EOL (2020). Kept
+          # allow-fail: the release BINARY on Windows is best-effort (the wheel +
+          # CI clippy/test are the gating Windows surfaces).
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            allow_fail: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@1.97.0
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Set up sccache (compiler cache over GHA)
+        uses: mozilla-actions/sccache-action@v0.0.9
+
+      - name: Install build deps (Linux native)
+        if: runner.os == 'Linux' && !matrix.cross
+        run: |
+          # Drop the preinstalled Microsoft/azure-cli apt repo: it intermittently
+          # 403s and tanks apt-get update (its packages are not needed here).
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.list /etc/apt/sources.list.d/azure-cli.sources
+          sudo apt-get update
+          sudo apt-get install -y libsqlite3-dev libudev-dev
+
+      # CIRISCache (CIRISServer#99) — 4-layer centipede over the Swatinem GHA L1.
+      # PLAT mapped from the canonical build-target table (armv7 → linux-armv7,
+      # off-table → harmless miss). Binaries are a distinct feature set from the
+      # wheels, but use the same canonical server keys for consistency (hits are
+      # limited but the scheme stays uniform). Restore verify→persist→edge→server.
+      - name: Compute CIRISCache keys (4-layer centipede, CIRISServer#99)
+        id: cachekey
+        shell: bash
+        run: |
+          case "${{ matrix.target }}" in
+            x86_64-unknown-linux-gnu)        PLAT=linux-x86_64 ;;
+            aarch64-unknown-linux-gnu)       PLAT=linux-aarch64 ;;
+            x86_64-apple-darwin)             PLAT=macos-x86_64 ;;
+            aarch64-apple-darwin)            PLAT=macos-aarch64 ;;
+            x86_64-pc-windows-msvc)          PLAT=windows-x64 ;;
+            aarch64-linux-android)           PLAT=android-arm64-v8a ;;
+            armv7-linux-androideabi)         PLAT=android-armeabi-v7a ;;
+            armv7-unknown-linux-gnueabihf)   PLAT=linux-armv7 ;;
+            *)                               PLAT=${{ matrix.target }} ;;
+          esac
+          RUSTC=$(rustc -V | awk '{print $2}')
+          S=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/^version = "([^"]+)".*/\1/')
+          P=$(grep -m1 'CIRISPersist.*tag = "v' Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          V=$(grep -m1 'CIRISVerify.*tag = "v'  Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          EDGE=$(grep -m1 'CIRISEdge.*tag = "v' Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          BASE="ciris-substrate-v1-${PLAT}-release-rustc${RUSTC}"
+          KEY_VERIFY="${BASE}-pnone-enone-v${V:-none}"
+          KEY_PERSIST="${BASE}-p${P:-none}-enone-v${V:-none}"
+          KEY_EDGE="${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}"
+          KEY_SERVER="${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}-s${S:-none}"
+          {
+            echo "key-verify=${KEY_VERIFY}"
+            echo "key-persist=${KEY_PERSIST}"
+            echo "key-edge=${KEY_EDGE}"
+            echo "key=${KEY_SERVER}"
+            echo "key-server-prefix=${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}-s"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::CIRISCache (${PLAT}): S=${S:-NONE} P=${P:-NONE} V=${V:-NONE} EDGE=${EDGE:-NONE} RUSTC=${RUSTC}"
+          echo "::notice::${KEY_VERIFY}"
+          echo "::notice::${KEY_PERSIST}"
+          echo "::notice::${KEY_EDGE}"
+          echo "::notice::${KEY_SERVER}"
+      # Deepest-first, first-hit-wins (CIRISCache restore@v2): one extraction of
+      # the deepest available blob (cumulative supersets) instead of N redundant.
+      - name: CIRISCache restore (server→edge→persist→verify, first hit)
+        uses: CIRISAI/CIRISCache/restore@v2
+        continue-on-error: true
+        with:
+          keys: |
+            ${{ steps.cachekey.outputs.key }}
+            ${{ steps.cachekey.outputs.key-server-prefix }}*
+            ${{ steps.cachekey.outputs.key-edge }}
+            ${{ steps.cachekey.outputs.key-persist }}
+            ${{ steps.cachekey.outputs.key-verify }}
+
+      - name: Install cross (retry on timeout)
+        if: matrix.cross
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 10
+          max_attempts: 2
+          retry_wait_seconds: 30
+          retry_on: timeout
+          command: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Build (cross)
+        if: matrix.cross
+        run: cross build --release --target ${{ matrix.target }} -p ciris-server
+
+      - name: Build (native)
+        if: ${{ !matrix.cross }}
+        shell: bash
+        # sccache only on the native compile — the `cross` path builds inside a
+        # docker container where the host sccache binary is absent (a RUSTC_WRAPPER
+        # there would fail to launch), so it is scoped to this step, not the job.
+        env:
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: sccache
+        run: |
+          cargo build --release --target "${{ matrix.target }}" -p ciris-server
+          sccache --show-stats
+
+      - name: Stage + strip binary
+        shell: bash
+        run: |
+          TARGET="${{ matrix.target }}"
+          EXT=""; [ "${{ runner.os }}" = "Windows" ] && EXT=".exe"
+          BIN="target/$TARGET/release/ciris-server$EXT"
+          mkdir -p stage
+          if [ "${{ runner.os }}" != "Windows" ]; then strip "$BIN" || true; fi
+          cp "$BIN" stage/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ciris-server-${{ matrix.target }}
+          path: stage/
+          if-no-files-found: error
+
+      # Populate the cross-repo CIRISCache blob on main under the SERVER key
+      # (release runs on tags, so this is restore-only here; the warm-release-cache
+      # main run does the save). Guard kept for correctness.
+      - name: CIRISCache save (server layer, main only)
+        uses: CIRISAI/CIRISCache/save@v1
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+        with:
+          key: ${{ steps.cachekey.outputs.key }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  # Linux ARM64 musl (Alpine / Home Assistant) — static, via zigbuild.
+  build-musl:
+    name: Build (aarch64 musl)
+    runs-on: ubuntu-latest
+    # zigbuild cross can't satisfy the TPM backend's target libtss2 — allowed to
+    # fail so it never blocks the release (aarch64-gnu native covers ARM64 Linux).
+    continue-on-error: true
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: sccache
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.97.0
+        with:
+          targets: aarch64-unknown-linux-musl
+      - name: Set up sccache (compiler cache over GHA)
+        uses: mozilla-actions/sccache-action@v0.0.9
+      # CIRISCache (CIRISServer#99) — 4-layer centipede over the Swatinem GHA L1.
+      # PLAT=linux-aarch64-musl (off the canonical table → harmless miss, but the
+      # scheme stays uniform). Restore verify→persist→edge→server; save on main.
+      - name: Compute CIRISCache keys (4-layer centipede, CIRISServer#99)
+        id: cachekey
+        shell: bash
+        run: |
+          PLAT="linux-aarch64-musl"
+          RUSTC=$(rustc -V | awk '{print $2}')
+          S=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/^version = "([^"]+)".*/\1/')
+          P=$(grep -m1 'CIRISPersist.*tag = "v' Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          V=$(grep -m1 'CIRISVerify.*tag = "v'  Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          EDGE=$(grep -m1 'CIRISEdge.*tag = "v' Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          BASE="ciris-substrate-v1-${PLAT}-release-rustc${RUSTC}"
+          KEY_VERIFY="${BASE}-pnone-enone-v${V:-none}"
+          KEY_PERSIST="${BASE}-p${P:-none}-enone-v${V:-none}"
+          KEY_EDGE="${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}"
+          KEY_SERVER="${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}-s${S:-none}"
+          {
+            echo "key-verify=${KEY_VERIFY}"
+            echo "key-persist=${KEY_PERSIST}"
+            echo "key-edge=${KEY_EDGE}"
+            echo "key=${KEY_SERVER}"
+            echo "key-server-prefix=${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}-s"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::CIRISCache (${PLAT}): S=${S:-NONE} P=${P:-NONE} V=${V:-NONE} EDGE=${EDGE:-NONE} RUSTC=${RUSTC}"
+          echo "::notice::${KEY_VERIFY}"
+          echo "::notice::${KEY_PERSIST}"
+          echo "::notice::${KEY_EDGE}"
+          echo "::notice::${KEY_SERVER}"
+      # Deepest-first, first-hit-wins (CIRISCache restore@v2): one extraction of
+      # the deepest available blob (cumulative supersets) instead of N redundant.
+      - name: CIRISCache restore (server→edge→persist→verify, first hit)
+        uses: CIRISAI/CIRISCache/restore@v2
+        continue-on-error: true
+        with:
+          keys: |
+            ${{ steps.cachekey.outputs.key }}
+            ${{ steps.cachekey.outputs.key-server-prefix }}*
+            ${{ steps.cachekey.outputs.key-edge }}
+            ${{ steps.cachekey.outputs.key-persist }}
+            ${{ steps.cachekey.outputs.key-verify }}
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.13.0
+      - name: Install cargo-zigbuild (retry on timeout)
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 10
+          max_attempts: 2
+          retry_wait_seconds: 30
+          retry_on: timeout
+          command: cargo install cargo-zigbuild
+      - run: cargo zigbuild --release --target aarch64-unknown-linux-musl -p ciris-server
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats
+      - name: Stage + strip
+        run: |
+          BIN=target/aarch64-unknown-linux-musl/release/ciris-server
+          zig objcopy --strip-all "$BIN" "$BIN.stripped" && mv "$BIN.stripped" "$BIN" || true
+          mkdir -p stage && cp "$BIN" stage/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ciris-server-aarch64-unknown-linux-musl
+          path: stage/
+          if-no-files-found: error
+      # Populate the cross-repo CIRISCache blob on main under the SERVER key
+      # (release runs on tags, so this is restore-only here; guard kept anyway).
+      - name: CIRISCache save (server layer, main only)
+        uses: CIRISAI/CIRISCache/save@v1
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+        with:
+          key: ${{ steps.cachekey.outputs.key }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  create-release:
+    name: Create Release
+    needs: [build-native, build-musl]
+    # Run as long as the build stage finished (not cancelled) — the allowed-to-fail
+    # ARM lanes (armv7 cross, aarch64 musl) must not skip the release; it ships
+    # whatever built (x86_64 linux/mac/win + aarch64-linux-gnu native).
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Package + checksum
+        run: |
+          mkdir -p release
+          for dir in artifacts/ciris-server-*; do
+            [ -d "$dir" ] || continue
+            target=$(basename "$dir" | sed 's/ciris-server-//')
+            tar -czvf "release/ciris-server-${{ github.ref_name }}-${target}.tar.gz" -C "$dir" .
+          done
+          cd release && sha256sum *.tar.gz > SHA256SUMS
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+      - name: Sign artifacts (Sigstore keyless)
+        run: |
+          cd release
+          for f in *.tar.gz SHA256SUMS; do
+            cosign sign-blob --yes --output-signature "$f.sig" --output-certificate "$f.pem" "$f"
+          done
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release/*.tar.gz
+            release/*.tar.gz.sig
+            release/*.tar.gz.pem
+            release/SHA256SUMS
+            release/SHA256SUMS.sig
+            release/SHA256SUMS.pem
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-spec') || contains(github.ref_name, '-beta') }}

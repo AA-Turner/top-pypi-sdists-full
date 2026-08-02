@@ -1,0 +1,329 @@
+[project]
+name = "geneva"
+version = "0.14.0"
+description = "Geneva - Multimodal Data Lake for AI"
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "attrs>=23,<25",
+    "cattrs",
+    "pylance>=9.0.0b15",
+    "lancedb>=0.34.0b4",
+    "lance-namespace>=0.8.6",
+    "cloudpickle",
+    "typing-extensions>=4.12",
+    "overrides>=7.7.0",
+    "pip>=24.3.1",
+    "numpy",
+    "docker==7.*",
+    "jinja2==3.*",
+    "tenacity",
+    # remote client
+    "requests",
+    "urllib3>=2,<3",
+    # TUI
+    "textual==1.*",
+    "textual-serve",
+    "more-itertools",
+    "toml>=0.10.2",
+    "pyyaml>=6.0.2",
+    "tqdm",
+    "bidict",
+    "emoji",
+    # use multiprocess for better support complex pickle objects
+    "multiprocess",
+    # force updates to yanked packages
+    "aiohttp>=3.12.12",
+    "fsspec",
+    # import ray by default
+    "ray[client]>=2.54",
+    "ray[default]>=2.54",
+    # TODO: remove kubernetes; see https://linear.app/lancedb/issue/GEN-331
+    "kubernetes==35.0.0",
+    "httpx",
+    "opentelemetry-sdk",
+    "opentelemetry-exporter-otlp-proto-grpc",
+]
+license = "LicenseRef-Proprietary"
+license-files = [ "LICENSE" ]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.optional-dependencies]
+# TODO: add kubernetes back here; see https://linear.app/lancedb/issue/GEN-331
+k8s = ["pandas"]
+flightsql = ["flightsql-dbapi"]
+torch = ["torch>=2,<3", "torchvision"]
+embedding = ["sentence-transformers>=2.7"]
+docs = ["mkdocs", "mkdocs-material", "mkdocstrings[python]"]
+jupyter = ["jupyterlab", "ipywidgets"]
+ipy = ["ipython"]
+gcp = ["google-cloud-storage"]
+aws = ["boto3", "boto3-stubs[essential]", "awscli"]
+azure = ["azure-storage-blob", "azure-identity"]
+# Azure Storage metrics TUI (tools/azure_storage_monitor.py): Azure Monitor
+# transaction/throttling/auth metrics + resource-id discovery by account name.
+azure-metrics = [
+    "geneva[azure]",
+    # 2.0.0 dropped the metrics client (logs-only); the tool uses the 1.x
+    # MetricsQueryClient / query_resource API.
+    "azure-monitor-query>=1.2,<2",
+    "azure-mgmt-storage",
+]
+bulk-load = ["pyarrow>=16"]
+
+# UDF dependencies
+udf-text-gemini = ["google-genai>=1.0"]
+udf-text-openai = ["openai>=1.0"]
+udf-image-simple = ["pillow==12.1.1"]
+udf-image-dedupe = ["imagehash>=4.3", "pillow==12.1.1"]
+udf-image-openclip = ["open-clip-torch>=2.20", "torch>=2.1,<3", "pillow==12.1.1"]
+udf-image-blip = ["transformers>=4.35.0", "torch>=2.1,<3", "pillow==12.1.1"]
+udf-image-vit = [
+    "numpy>=1.26,<2.0",
+    "pillow==12.1.1",
+    "pybase64==1.4.2",
+    "torch==2.10.0",
+    "transformers==5.0.0",
+]
+udf-audio-whisper = [
+    "requests",
+    "numpy>=1.26,<2.0",
+    "soundfile>=0.12.1",
+    "scipy>=1.11.0",
+    "torch==2.10.0",
+    "transformers>=4.51.0",
+    "sentence-transformers>=2.7.0",
+]
+udf-audio-kokoro-base-onnx = [
+    "nltk==3.9.3",
+    "numpy>=1.26",
+    "onnxruntime==1.23.0",
+    "soundfile>=0.12.1",
+    "ttstokenizer>=1.1,<2",
+]
+udf-audio-wavlm-tbr-onnx = [
+    "numpy>=1.26",
+    "onnxruntime==1.23.0",
+]
+udf-document-pdf = [
+    "requests",
+    "pypdf>=6.0",
+    "sentence-transformers==5.4.0",
+    "transformers==5.0.0",
+    "langchain-text-splitters>=0.3.0",
+    "torch==2.10.0",
+    "numpy>=1.26,<2.0",
+]
+udf-video-simple = ["google-cloud-storage"]
+udf-video-chunk = ["av>=12,<14"]
+
+# Domain-level UDF aggregates — install every UDF in a modality with one extra.
+udfs-text = ["geneva[udf-text-openai,udf-text-gemini]"]
+udfs-image = [
+    "geneva[udf-image-simple,udf-image-dedupe,udf-image-openclip,udf-image-blip,udf-image-vit]",
+]
+udfs-audio = [
+    "geneva[udf-audio-whisper,udf-audio-kokoro-base-onnx,udf-audio-wavlm-tbr-onnx]",
+]
+udfs-document = ["geneva[udf-document-pdf]"]
+udfs-video = ["geneva[udf-video-simple,udf-video-chunk]", "torchcodec==0.10.0"]
+
+# Umbrella: every UDF dep. `pip install geneva[udfs]` for the full UDF stack.
+udfs = ["geneva[udfs-text,udfs-image,udfs-audio,udfs-document,udfs-video]"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "multibackfill: Marks test that perform multiple backfill operations.  These tend to be flakier than other tests",
+    "gcp_only: Marks test that only run on gcp",
+    "limit: Mark test that verifies scaling limit",
+    "slow: Mark test as slow",
+    "nightly: Mark test that runs only in a nightly workflow, not the per-PR gate (e.g. the red-by-design differential fault sweep)",
+    "ray: Uses Ray",
+    "stress_explore: Exploratory stress tests that find breaking points (expected to fail at high scale)",
+    "gpu: Marks tests requiring GPU hardware",
+    "phalanx: integ tests hitting local phalanx using db:// URIs",
+    ]
+
+[tool.ruff]
+lint.select = [
+    "F", # pyflakes
+    "E",
+    "W", # pycodestyle
+    "I", # isort
+    "G", # logging-format
+    "TCH",
+    "PERF", # perflint
+    "N", # PEP8 naming
+    # "D", # DOC lint TODO: Enable this so we enforce having reasonable docstrings
+    "UP", # use more modern python
+    # https://docs.astral.sh/ruff/rules/#flake8-annotations-ann
+    "ANN2", # enforce annotations
+    # collection of that forces some good practices
+    # https://docs.astral.sh/ruff/rules/#flake8-bandit-s
+    "S108",
+    "S110",
+    "S112",
+    "S113",
+    "S307",
+    "S608",
+    "S701",
+    "B", # python's findbugs
+    "A", # flake8 defaults
+    "COM818", # COMMA!
+    "C4", # comprehensions
+    "T10", # don't debug in prod
+    "PIE", # more nice readability nits
+    "T20", # don't use print, use logging
+    "PT",
+    "NPY",
+    "Q",
+    "TID252",
+    "SIM",
+    "ERA",
+]
+lint.unfixable = ["UP045"]
+lint.ignore = ["UP045"]
+line-length = 88
+indent-width = 4
+target-version = "py310"
+exclude = ["*.ipynb", "*_pb2.py", "src/geneva/cloudpickle/*.py"]
+
+[tool.ruff.lint.per-file-ignores]
+# Standalone benchmark scripts: legitimately use print() and longer
+# lines for tabular output / docstring tables. Skip the strictness
+# rules that don't fit ad-hoc bench code (annotations, suppress-
+# vs-try, etc.) — these aren't library code.
+"src/stress_tests/gpu_pipelining/*" = [
+    "T20",    # print()
+    "E501",   # line length
+    "ANN2",   # return-type annotations on local helpers
+    "B905",   # zip() strict=
+    "S108",   # /tmp paths in benchmarks
+    "S110",   # try/except/pass for ray.shutdown() best-effort cleanup
+    "SIM105", # contextlib.suppress instead of try/except/pass
+    "SIM117", # combine `with` statements
+    "N812",   # `import torch.nn.functional as F` is the canonical alias
+]
+
+[tool.ruff.lint.isort]
+section-order = ["future", "standard-library", "third-party", "first-party"]
+
+[tool.uv]
+override-dependencies = [
+    "attrs>=23,<25",  # Ray container images ship attrs 23.x; 23.x/25.x pickle formats are incompatible
+]
+index-strategy = "unsafe-best-match"
+prerelease = "allow"
+
+[tool.uv.sources]
+#lance-namespace = { path = "../lance-namespace/python/lance_namespace", editable = true }
+#lance-namespace-urllib3-client = { path = "../lance-namespace/python/lance_namespace_urllib3_client", editable = true }
+#pylance = { path = "../lance/python", editable = true }
+
+[dependency-groups]
+# Lean test + lint toolchain. UDF runtime deps, cloud SDKs, and Python
+# API wrappers live exclusively in the optional extras (`geneva[udfs]`,
+# `geneva[gcp]`, `geneva[aws]`, `geneva[azure]`, `geneva[udf-text-openai]`,
+# ...). A default `uv sync --group dev` therefore does NOT pull torch /
+# CUDA / boto3 / azure-sdk / openai / google-genai.
+#
+# Install what you actually need:
+#   uv sync --group dev --extra udfs            # all UDF runtimes
+#   uv sync --group dev --extra udfs-image      # just image UDFs
+#   uv sync --group dev --extra gcp --extra aws # cloud SDKs only
+#   uv sync --all-groups --all-extras --locked  # full superset (CI default)
+#
+# Pyright tolerates missing optional imports (reportMissingImports="warning"
+# in [tool.pyright]); `make lint` passes without the extras installed.
+dev = [
+    # Test runners / coverage / profiling
+    "pytest>=8.3.4",
+    "pytest-asyncio>=0.25.0",
+    "pytest-timeout",
+    "pytest-xdist",
+    "pytest-benchmark",
+    "pytest-cov",
+    "pytest-sugar",
+    "coverage",
+    "py-spy",
+    "memray>=1.13",
+    # Lint / type-check
+    "ruff>=0.8",
+    "mypy>=1.14",
+    "pyright[nodejs]",
+    "pyarrow-stubs",
+    # Release tooling
+    "bump-my-version",
+    # Dev-only data libs used in tests / scratch work
+    "pandas==2.3.3",  # Keep pinned due string/large_string conversion differences.
+    "polars",
+    "rich",
+    "opendal",
+    # Test fixture loader for non-workspace e2e suites (av_image_curation,
+    # onnx_audio) and stress benches. Pure-Python, ~1 MB.
+    "datasets",
+]
+
+[tool.uv.workspace]
+members = ["e2e/oxford-pets", "e2e/openvid", "e2e/document_embedding", "e2e/large_image_embedding", "e2e/whisper_transcription", "e2e/image_dedupe", "e2e/av_image_curation"]
+
+[[tool.uv.index]]
+name = "fury"
+url = "https://pypi.fury.io/lancedb/"
+
+[[tool.uv.index]]
+name = "lance-format"
+url = "https://pypi.fury.io/lance-format/"
+
+[tool.pyright]
+include = ["src/geneva"]
+exclude = [
+  "src/geneva/cloudpickle/**",  # vendored/shimmy
+  "src/geneva/**/__pycache__",
+  "src/**/build/**",
+  "src/**/dist/**",
+  "src/**/.venv/**",
+  "src/**/tests/**",
+]
+typeCheckingMode = "basic"
+pythonVersion = "3.12"
+strict = [] # add to here as they get stricter
+reportMissingImports = "warning"
+reportMissingModuleSource = "warning"
+
+[tool.coverage.run]
+omit = [
+    "src/geneva/cloudpickle/*",  # this has been interned to avoid conflict
+]
+
+[project.scripts]
+geneva = "geneva.main:main"
+
+[geneva.test.nested_config]
+config.value = "42"
+
+[pytest]
+log_cli = true
+log_cli_level = "DEBUG"
+log_cli_format = "%(asctime)s %(levelname)s %(message)s"
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"

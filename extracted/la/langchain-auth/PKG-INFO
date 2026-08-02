@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: langchain-auth
+Version: 0.3.0
+Summary: LangChain Auth SDK for OAuth and tool authentication
+Requires-Python: >=3.9
+Requires-Dist: httpx>=0.25.0
+Provides-Extra: dev
+Requires-Dist: black>=24.0.0; extra == 'dev'
+Requires-Dist: pytest-asyncio>=0.21.0; extra == 'dev'
+Requires-Dist: pytest>=7.0.0; extra == 'dev'
+Requires-Dist: respx>=0.20.0; extra == 'dev'
+Provides-Extra: langgraph
+Requires-Dist: langgraph>=0.1.0; extra == 'langgraph'

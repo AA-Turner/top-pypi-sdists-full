@@ -1,0 +1,159 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run tests
+        run: uv run pytest tests -v --tb=short
+
+      - name: Get version from pyproject.toml
+        id: version
+        run: |
+          VERSION=$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "::notice::📦 Version in pyproject.toml: $VERSION"
+
+      - name: Check if tag exists
+        id: check_tag
+        run: |
+          if git rev-parse "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "::notice::🔄 Tag v${{ steps.version.outputs.version }} already exists - skipping release"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "::notice::🚀 New version detected! Will create release v${{ steps.version.outputs.version }}"
+          fi
+
+      - name: Check PyPI for existing version
+        id: check_pypi
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/zernio-sdk/$VERSION/json")
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "::error::❌ Version $VERSION already exists on PyPI! Bump the version in pyproject.toml"
+            exit 1
+          else
+            echo "::notice::✅ Version $VERSION not found on PyPI - ready to publish"
+          fi
+
+      - name: Release Summary
+        run: |
+          echo "## 📋 Release Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | \`${{ steps.version.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Tag exists | ${{ steps.check_tag.outputs.exists }} |" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check_tag.outputs.exists }}" = "true" ]; then
+            echo "| Action | ⏭️ **Skipped** (version already released) |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "> 💡 To release a new version, update \`version\` in \`pyproject.toml\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Action | 🚀 **New Release** |" >> $GITHUB_STEP_SUMMARY
+            echo "| GitHub Release | v${{ steps.version.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| PyPI | zernio-sdk==${{ steps.version.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Build package
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          uv build
+          echo "::notice::📦 Built: $(ls dist/)"
+
+      - name: Create GitHub Release
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          # Pin the tag to the commit that triggered this workflow (the one
+          # we just built the wheel from), not the repo's default branch.
+          # Without this, softprops/action-gh-release defaults to the
+          # default branch (develop), so the GitHub release page links to
+          # a develop commit that has nothing to do with the published
+          # wheel. The wheel itself is unaffected because PyPI doesn't
+          # consult git tags, but the cross-link from the release page is
+          # misleading.
+          target_commitish: ${{ github.sha }}
+          tag_name: v${{ steps.version.outputs.version }}
+          name: v${{ steps.version.outputs.version }}
+          files: dist/*
+          generate_release_notes: true
+          body: |
+            ## Install
+
+            This package is published under two names:
+
+            ```bash
+            pip install late-sdk==${{ steps.version.outputs.version }}
+            # or
+            pip install zernio-sdk==${{ steps.version.outputs.version }}
+            ```
+
+      - name: Publish zernio-sdk to PyPI
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
+      - name: Swap package name to late-sdk
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          python3 -c "
+          import re
+          with open('pyproject.toml', 'r') as f:
+              content = f.read()
+          content = re.sub(r'name = \"zernio-sdk\"', 'name = \"late-sdk\"', content)
+          with open('pyproject.toml', 'w') as f:
+              f.write(content)
+          "
+
+      - name: Build as late-sdk
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          rm -rf dist/
+          uv build
+
+      - name: Publish late-sdk to PyPI
+        if: steps.check_tag.outputs.exists == 'false'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+
+      - name: Post-release Summary
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ Release Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- 🏷️ GitHub: [v${{ steps.version.outputs.version }}](https://github.com/${{ github.repository }}/releases/tag/v${{ steps.version.outputs.version }})" >> $GITHUB_STEP_SUMMARY
+          echo "- 📦 PyPI: [zernio-sdk ${{ steps.version.outputs.version }}](https://pypi.org/project/zernio-sdk/${{ steps.version.outputs.version }}/)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Install with:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "pip install zernio-sdk==${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

@@ -26,16 +26,19 @@ __all__ = (
     "ClusterStatusType",
     "ComputeNodeGroupStatusType",
     "EndpointTypeType",
+    "ExecutionPolicyType",
     "ListClustersPaginatorName",
     "ListComputeNodeGroupsPaginatorName",
     "ListQueuesPaginatorName",
     "NetworkTypeType",
+    "OnErrorType",
     "PaginatorName",
     "ParallelComputingServiceServiceName",
     "PurchaseOptionType",
     "QueueStatusType",
     "ResourceServiceName",
     "SchedulerTypeType",
+    "ScriptCachingPolicyType",
     "ServiceName",
     "SizeType",
     "SlurmRestModeType",
@@ -69,10 +72,12 @@ ComputeNodeGroupStatusType = Literal[
     "UPDATING",
 ]
 EndpointTypeType = Literal["SLURMCTLD", "SLURMDBD", "SLURMRESTD"]
+ExecutionPolicyType = Literal["EVERY_BOOT", "FIRST_BOOT_ONLY"]
 ListClustersPaginatorName = Literal["list_clusters"]
 ListComputeNodeGroupsPaginatorName = Literal["list_compute_node_groups"]
 ListQueuesPaginatorName = Literal["list_queues"]
 NetworkTypeType = Literal["IPV4", "IPV6"]
+OnErrorType = Literal["CONTINUE", "STOP_SEQUENCE", "TERMINATE"]
 PurchaseOptionType = Literal[
     "CAPACITY_BLOCK", "INTERRUPTIBLE_CAPACITY_RESERVATION", "ONDEMAND", "SPOT"
 ]
@@ -89,6 +94,7 @@ QueueStatusType = Literal[
     "UPDATING",
 ]
 SchedulerTypeType = Literal["SLURM"]
+ScriptCachingPolicyType = Literal["CACHE_ONCE", "REFRESH_ON_REBOOT"]
 SizeType = Literal["LARGE", "MEDIUM", "SMALL"]
 SlurmRestModeType = Literal["NONE", "STANDARD"]
 SpotAllocationStrategyType = Literal[

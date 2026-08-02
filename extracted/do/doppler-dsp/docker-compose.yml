@@ -1,0 +1,73 @@
+services:
+  # NATS broker — required by every stream service below. Not exposed to the
+  # host: every service here reaches it over the internal doppler-net at
+  # nats:4222. Add a `ports:` mapping only if you need host-side access too.
+  nats:
+    image: nats:2.10
+    container_name: doppler-nats
+    command: "-js"
+    networks:
+      - doppler-net
+    restart: unless-stopped
+
+  # Transmitter — generates and publishes signal samples
+  transmitter:
+    build: .
+    container_name: doppler-tx
+    depends_on:
+      - nats
+    command: ./transmitter nats://nats:4222/iq cf64
+    networks:
+      - doppler-net
+    stop_signal: SIGTERM
+    restart: unless-stopped
+
+  # Receiver — subscribes and prints signal stats
+  receiver-1:
+    build: .
+    container_name: doppler-rx-1
+    depends_on:
+      - transmitter
+    command: ./receiver nats://nats:4222/iq
+    networks:
+      - doppler-net
+    stop_signal: SIGTERM
+    restart: unless-stopped
+
+  # Second receiver (demonstrates PUB/SUB fan-out)
+  receiver-2:
+    build: .
+    container_name: doppler-rx-2
+    depends_on:
+      - transmitter
+    command: ./receiver nats://nats:4222/iq
+    networks:
+      - doppler-net
+    stop_signal: SIGTERM
+    restart: unless-stopped
+
+  # Spectrum analyzer — ASCII spectrum display
+  spectrum-analyzer:
+    build: .
+    container_name: doppler-spectrum
+    depends_on:
+      - transmitter
+    command: ./spectrum_analyzer nats://nats:4222/iq 512
+    networks:
+      - doppler-net
+    stop_signal: SIGTERM
+    restart: unless-stopped
+
+  # Run unit tests (one-shot)
+  tests:
+    build: .
+    container_name: doppler-tests
+    command: sh -c 'for t in /app/test_*; do echo "--- $$t ---" && "$$t" || exit 1; done'
+    profiles:
+      - test
+    networks:
+      - doppler-net
+
+networks:
+  doppler-net:
+    driver: bridge

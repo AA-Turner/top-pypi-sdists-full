@@ -1,0 +1,20 @@
+[package]
+name = "ormar_rust_utils"
+version = "0.2.0"
+edition = "2021"
+description = "Rust-accelerated utility functions for the ormar ORM"
+license = "MIT"
+readme = "README.md"
+
+[lib]
+name = "ormar_rust_utils"
+crate-type = ["cdylib"]
+
+[dependencies]
+# abi3-py310 builds a single stable-ABI wheel that works on CPython 3.10 and
+# every newer version (3.14, 3.15, ...) without a per-version rebuild, so a new
+# Python release never leaves ormar without an installable wheel.
+pyo3 = { version = "0.23.5", features = ["extension-module", "abi3-py310"] }
+base64 = "0.22"
+serde_json = "1.0"
+indexmap = "2.0"

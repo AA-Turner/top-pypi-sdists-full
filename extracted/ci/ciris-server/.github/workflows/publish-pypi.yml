@@ -1,0 +1,87 @@
+name: publish-pypi
+
+# Build the ciris-server abi3 wheels for every platform, gate them through the
+# CIRISConformance cohabitation suite, then publish to PyPI via **Trusted
+# Publishing** (OIDC — no stored API token). Fires on a v* tag.
+#
+# The per-platform build matrix lives in the reusable build-wheels.yml. Each leg
+# restores the 4-layer CIRISCache centipede: the verify/persist/edge SUBSTRATE
+# layers hit from the upstream repos' caches (+ CI's saves on main), so the
+# ~12–15 min substrate recompile is skipped; only CIRISServer's own server layer
+# compiles here on the tag and is saved for re-runs. (The on-main warmer was
+# removed — it rebuilt the server layer the tag immediately rebuilt, a wash.)
+#
+# Trusted-publisher registration (one-time, done on PyPI by a maintainer):
+#   PyPI project:      ciris-server
+#   Owner:             CIRISAI
+#   Repository:        CIRISServer
+#   Workflow filename: publish-pypi.yml
+#   Environment:       pypi
+# Until that's registered, the `publish` job's OIDC mint will fail — the build
+# + conformance jobs still run, so the gate is exercised on every tag.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish to PyPI (true) or build+conformance only (false)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: write   # build-wheels (reusable) CIRISCache save on main — CIRISServer#99
+
+jobs:
+  # Build every platform wheel + the sdist via the shared reusable workflow.
+  # On a tag, github.ref is refs/tags/v* → the substrate cache layers restore
+  # (upstream + CI saves); the server layer compiles + saves on this tag.
+  build:
+    uses: ./.github/workflows/build-wheels.yml
+
+  # ── Gate: the linux wheel must pass cohabitation conformance ───────────────
+  # A failure here BLOCKS publish (the substrate-sister discipline). Runs the
+  # CIRISConformance suite with the just-built wheel + the pinned triple.
+  conformance-gate:
+    name: cohabitation gate (linux-x86_64 × ${{ matrix.backend }})
+    needs: build
+    strategy:
+      fail-fast: true
+      matrix:
+        backend: [sqlite, postgres]
+    uses: CIRISAI/CIRISConformance/.github/workflows/run-against-wheels.yml@main
+    with:
+      runs-on: ubuntu-latest
+      backend: ${{ matrix.backend }}
+      under-test-wheel-artifact: wheels-linux-x86_64
+      under-test-package: ciris-server
+      # matrix-ref defaults to main = the persist-7 triple (CIRISConformance#14, merged).
+
+  # ── Publish to PyPI via Trusted Publishing (OIDC) ──────────────────────────
+  publish:
+    name: publish to PyPI
+    needs: [build, conformance-gate]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/') || inputs.publish
+    environment: pypi
+    permissions:
+      id-token: write   # OIDC token for Trusted Publishing — no stored secret
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          path: dist
+          merge-multiple: true
+      - run: ls -l dist/
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          # Trusted Publishing: no `password:` — the OIDC identity is verified
+          # against the publisher registered on PyPI.
+          # Idempotent re-cuts: if a tag is re-cut onto a new commit, the wheels
+          # for any platform already on PyPI are skipped instead of 400-ing the
+          # whole upload — a clean re-cut publishes only the newly-built files.
+          skip-existing: true

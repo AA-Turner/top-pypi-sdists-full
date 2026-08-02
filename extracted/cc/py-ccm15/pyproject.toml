@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "py_ccm15"
+version = "1.1.2"
+description = "A package to control Midea CCM15 data converter modules"
+readme = "README.md"
+license = "MIT"
+authors = [
+  { name = "Oscar Calvo", email = "oscar@calvonet.com" }
+]
+dependencies = [
+    "httpx>=0.24.1",
+    "xmltodict>=0.13.0"
+]
+requires-python = ">=3.7"
+keywords = ["Midea", "CCM15", "data converter"]
+license-files = ["LICENSE"]
+
+
+[project.urls]
+Homepage = "https://github.com/HomeOps/py-ccm15"
+Repository = "https://github.com/HomeOps/py-ccm15"
+Changelog = "https://github.com/HomeOps/py-ccm15/blob/main/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+include = ["ccm15*"]
+
+# Ship the PEP 561 marker so downstreams (e.g. Home Assistant's strict-typing
+# quality-scale rule) see the package as typed.
+[tool.setuptools.package-data]
+ccm15 = ["py.typed"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["ccm15"]
+

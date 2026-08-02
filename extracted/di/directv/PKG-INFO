@@ -1,0 +1,53 @@
+Metadata-Version: 2.1
+Name: directv
+Version: 0.4.0
+Summary: Asynchronous Python client for DirecTV (SHEF).
+Home-page: https://github.com/ctalkington/python-directv
+Author: Chris Talkington
+Author-email: chris@talkingtontech.com
+License: MIT license
+Description: # Python: DirecTV (SHEF) Client
+        
+        Asynchronous Python client for DirecTV receivers using the [SHEF](http://forums.solidsignal.com/docs/DTV-MD-0359-DIRECTV_SHEF_Command_Set-V1.3.C.pdf) protocol.
+        
+        ## Aboout
+        
+        This package allows you to monitor and control a DirecTV receiver and its associated client devices.
+        
+        ## Installation
+        
+        ```bash
+        pip install directv
+        ```
+        
+        ## Usage
+        
+        ```python
+        import asyncio
+        
+        from directv import DIRECTV
+        
+        
+        async def main():
+            """Show example of connecting to your DIRECTV receiver."""
+            async with DIRECTV("192.168.1.100") as dtv:
+                print(dtv)
+        
+        
+        if __name__ == "__main__":
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(main())
+        ```
+        
+Keywords: directv,api,async,client,shef
+Platform: UNKNOWN
+Classifier: Development Status :: 4 - Beta
+Classifier: Framework :: AsyncIO
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Description-Content-Type: text/markdown

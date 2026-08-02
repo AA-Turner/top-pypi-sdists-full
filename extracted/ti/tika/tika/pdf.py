@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# encoding: utf-8
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -16,16 +14,19 @@
 # limitations under the License.
 #
 
-import .tika.parser
 from io import StringIO
+
 from bs4 import BeautifulSoup
+
+from tika import parser
+
 
 def text_from_pdf_pages(filename):
     pages_txt = []
 
     # Read PDF file
     data = parser.from_file(filename, xmlContent=True)
-    xhtml_data = BeautifulSoup(data['content'])
+    xhtml_data = BeautifulSoup(data['content'], features="html.parser")
     for i, content in enumerate(xhtml_data.find_all('div', attrs={'class': 'page'})):
         # Parse PDF data using TIKA (xml/html)
         # It's faster and safer to create a new buffer than truncating it

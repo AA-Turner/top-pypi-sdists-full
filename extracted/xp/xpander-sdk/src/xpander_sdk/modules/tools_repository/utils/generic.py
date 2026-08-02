@@ -1,0 +1,63 @@
+import re
+from typing import Any, List, Union
+
+
+def deep_merge(a: dict, b: dict) -> dict:
+    result = a.copy()
+    for key, b_value in b.items():
+        if key in result:
+            a_value = result[key]
+            if isinstance(a_value, dict) and isinstance(b_value, dict):
+                result[key] = deep_merge(a_value, b_value)
+            else:
+                result[key] = b_value
+        else:
+            result[key] = b_value
+    return result
+
+
+def json_type_to_python(json_type: str, prop_schema: dict = None):
+    # Handle anyOf schemas (union types)
+    if prop_schema and "anyOf" in prop_schema:
+        # Extract non-null types from anyOf
+        non_null_types = []
+        for any_of_item in prop_schema["anyOf"]:
+            item_type = any_of_item.get("type")
+            if item_type and item_type != "null":
+                non_null_types.append(json_type_to_python(item_type, any_of_item))
+
+        # Build a real Union over the non-null types so a field declared with
+        # anyOf (e.g. content: string | object | array) accepts every branch,
+        # not just the first. Single-branch anyOf stays that one type.
+        if not non_null_types:
+            return Any
+        if len(non_null_types) == 1:
+            return non_null_types[0]
+        return Union[tuple(non_null_types)]
+
+    # Extend to support arrays of objects, etc.
+    if json_type == "array" and prop_schema:
+        items = prop_schema.get("items", {})
+        item_type = json_type_to_python(items.get("type"), items)
+        return List[item_type]
+
+    if isinstance(json_type, list) and len(json_type) > 1:
+        json_type = next((t for t in json_type if t != "null"), None)
+
+    return {
+        "string": str,
+        "integer": int,
+        "number": float,
+        "boolean": bool,
+        "object": dict,
+        "array": list,
+        None: Any,
+    }.get(json_type, Any)
+
+
+def pascal_case(name: str) -> str:
+    """
+    Converts a string to PascalCase.
+    Example: 'my_tool-name' -> 'MyToolName'
+    """
+    return "".join(word.capitalize() for word in re.split(r"[\s_\-]+", name) if word)

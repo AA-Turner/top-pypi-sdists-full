@@ -1,0 +1,67 @@
+Metadata-Version: 2.4
+Name: epson_projector
+Version: 0.6.0
+Summary: Epson projector support for Python
+Home-page: https://github.com/pszafer/epson_projector
+Author: Paweł Szafer
+Author-email: pszafer@gmail.com
+License: MIT
+Keywords: epson,projector
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp>=3.3.0
+Requires-Dist: pyserial-asyncio-fast>=0.16
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
+
+# Epson-projector module
+
+## Asynchronous library to control Epson projectors
+
+Requires Python 3.11 or higher.
+
+Created mostly to use with Home Assistant.
+
+### Usage
+
+Check out the test_*.py files and const.py to see all posibilities to send to projector.
+
+```python
+"""Test and example of usage of Epson module."""
+import epson_projector as epson
+from epson_projector.const import (POWER)
+
+import asyncio
+import aiohttp
+
+
+async def main():
+    """Run main with aiohttp ClientSession."""
+    async with aiohttp.ClientSession() as session:
+        await run(session)
+
+
+async def run(websession):
+    """Use Projector class of epson module and check if it is turned on."""
+    projector = epson.Projector(
+        host='HOSTNAME',
+        websession=websession,
+        encryption=False)
+    data = await projector.get_property(POWER)
+    print(data)
+
+asyncio.run(main())
+```

@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools","swig"]
+build-backend = "setuptools.build_meta"
+
+
+# isort
+# -----
+
+[tool.isort]
+profile = "black"
+
+
+# pydoctor
+# --------
+
+[tool.pydoctor]
+add-package = ["src/smartcard"]
+project-name = "PySCard"
+project-url = "https://github.com/LudovicRousseau/pyscard"
+html-output = "build/docs/apidocs"
+warnings-as-errors = true
+
+
+# pytest
+# ------
+
+[tool.pytest.ini_options]
+addopts = "--color=yes"
+filterwarnings = [
+#    "error",
+]

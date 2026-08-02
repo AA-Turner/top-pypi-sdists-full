@@ -79,7 +79,7 @@ PinBlockPaddingTypeType = Literal["ISO_IEC_7816_4", "NO_PADDING"]
 RandomKeyMaxLengthType = Literal["BYTES_16", "BYTES_24", "BYTES_8"]
 RandomKeySendVariantMaskType = Literal["VARIANT_MASK_82", "VARIANT_MASK_82C0"]
 SessionKeyDerivationModeType = Literal[
-    "AMEX", "EMV2000", "EMV_COMMON_SESSION_KEY", "MASTERCARD_SESSION_KEY", "VISA"
+    "AMEX", "EMV2000", "EMV_COMMON_SESSION_KEY", "MASTERCARD_SESSION_KEY", "UNION_PAY", "VISA"
 ]
 SymmetricKeyAlgorithmType = Literal[
     "AES_128",

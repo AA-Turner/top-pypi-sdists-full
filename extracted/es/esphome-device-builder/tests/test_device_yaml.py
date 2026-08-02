@@ -41,11 +41,14 @@ from esphome_device_builder.helpers.device_yaml import (
 )
 from esphome_device_builder.helpers.device_yaml._parsing import (
     _is_valid_esphome_name,
+    config_name_add_mac_suffix,
     device_ap_label,
     extract_logger_baud_rate,
     extract_logger_interface,
+    extract_network_address_fingerprint,
     extract_ota_partition_access,
     resolve_esp32_variant,
+    yaml_has_name_add_mac_suffix,
 )
 from esphome_device_builder.models import (
     BoardCatalogEntry,
@@ -821,6 +824,51 @@ def test_extract_meta_from_config_no_esphome_block(config: Any) -> None:
     assert extract_esphome_meta_from_config(config) == (None, None, None, None)
 
 
+def test_extract_network_address_fingerprint_tracks_network_edits_only() -> None:
+    """The digest moves with the network blocks, not with surrounding edits."""
+    base = "esphome:\n  name: dev\nwifi:\n  ssid: s\n  use_address: 10.0.0.9\napi:\n"
+    assert extract_network_address_fingerprint(base) != extract_network_address_fingerprint(
+        base.replace("  use_address: 10.0.0.9\n", "")
+    )
+    assert extract_network_address_fingerprint(base) == extract_network_address_fingerprint(
+        base.replace("api:\n", "api:\n  encryption:\n    key: k\n")
+    )
+
+
+def test_extract_network_address_fingerprint_covers_all_source_blocks() -> None:
+    """Ethernet, openthread, substitutions, and packages edits each move the digest."""
+    yaml_content = (
+        "esphome:\n  name: dev\n"
+        "substitutions:\n  addr: 10.0.0.9\n"
+        "packages:\n  base: !include common/wifi.yaml\n"
+        "ethernet:\n  type: lan8720\nlogger:\nopenthread:\n  channel: 15\n"
+    )
+    for edit in (
+        ("  addr: 10.0.0.9", "  addr: 10.0.0.10"),
+        ("common/wifi.yaml", "common/wifi2.yaml"),
+        ("  type: lan8720", "  type: lan8721"),
+        ("  channel: 15", "  channel: 16"),
+        ("  name: dev", "  name: dev2"),
+    ):
+        assert extract_network_address_fingerprint(
+            yaml_content
+        ) != extract_network_address_fingerprint(yaml_content.replace(*edit))
+
+
+def test_extract_network_address_fingerprint_ignores_comments_and_blanks() -> None:
+    """Cosmetic edits inside a network block must not schedule a regen."""
+    plain = "wifi:\n  ssid: s\nota:\n"
+    cosmetic = "wifi:\n# a comment\n\n  ssid: s\nota:\n"
+    assert extract_network_address_fingerprint(plain) == extract_network_address_fingerprint(
+        cosmetic
+    )
+
+
+def test_extract_network_address_fingerprint_without_address_blocks() -> None:
+    """No address-source block yields the empty fingerprint."""
+    assert extract_network_address_fingerprint("logger:\napi:\n  reboot_timeout: 0s\n") == ""
+
+
 def test_extract_logger_baud_rate_int() -> None:
     """A plain integer baud is returned as-is."""
     assert extract_logger_baud_rate({"logger": {"baud_rate": 19200}}) == 19200
@@ -1117,6 +1165,107 @@ def test_load_device_from_storage_detects_deep_sleep(tmp_path: Path) -> None:
     awake = tmp_path / "awake.yaml"
     awake.write_text("esphome:\n  name: awake\napi:\n", encoding="utf-8")
     assert load_device_from_storage(awake).uses_deep_sleep is False
+
+
+def test_load_device_from_storage_detects_name_add_mac_suffix(tmp_path: Path) -> None:
+    """A truthy ``esphome.name_add_mac_suffix`` sets the flag; false or absent clears it."""
+    suffixed = tmp_path / "suffixed.yaml"
+    suffixed.write_text("esphome:\n  name: kit\n  name_add_mac_suffix: true\n", encoding="utf-8")
+    assert load_device_from_storage(suffixed).name_add_mac_suffix is True
+
+    adopted = tmp_path / "adopted.yaml"
+    adopted.write_text(
+        "esphome:\n  name: kit-aabbcc\n  name_add_mac_suffix: false\n", encoding="utf-8"
+    )
+    assert load_device_from_storage(adopted).name_add_mac_suffix is False
+
+    plain = tmp_path / "plain.yaml"
+    plain.write_text("esphome:\n  name: plain\n", encoding="utf-8")
+    assert load_device_from_storage(plain).name_add_mac_suffix is False
+
+    quoted = tmp_path / "quoted.yaml"
+    quoted.write_text('esphome:\n  name: kit\n  name_add_mac_suffix: "enable"\n', encoding="utf-8")
+    assert load_device_from_storage(quoted).name_add_mac_suffix is True
+
+
+def test_load_device_from_storage_detects_mdns_disabled(tmp_path: Path) -> None:
+    """A truthy ``mdns.disabled`` sets the flag; absent, false, or bare block clears it."""
+    disabled = tmp_path / "disabled.yaml"
+    disabled.write_text("esphome:\n  name: quiet\nmdns:\n  disabled: true\n", encoding="utf-8")
+    assert load_device_from_storage(disabled).mdns_disabled is True
+
+    enabled = tmp_path / "enabled.yaml"
+    enabled.write_text("esphome:\n  name: loud\nmdns:\n  disabled: false\n", encoding="utf-8")
+    assert load_device_from_storage(enabled).mdns_disabled is False
+
+    bare = tmp_path / "bare.yaml"
+    bare.write_text("esphome:\n  name: bare\nmdns:\napi:\n", encoding="utf-8")
+    assert load_device_from_storage(bare).mdns_disabled is False
+
+    absent = tmp_path / "absent.yaml"
+    absent.write_text("esphome:\n  name: absent\napi:\n", encoding="utf-8")
+    assert load_device_from_storage(absent).mdns_disabled is False
+
+    draft = tmp_path / "draft.yaml"
+    draft.write_text("mdns:\n  disabled: yes\nwifi: [broken\n", encoding="utf-8")
+    assert load_device_from_storage(draft).mdns_disabled is True
+
+
+def test_load_device_name_add_mac_suffix_survives_invalid_draft(tmp_path: Path) -> None:
+    """The raw-text fallback keeps the flag set when the draft doesn't parse."""
+    draft = tmp_path / "draft.yaml"
+    draft.write_text(
+        "esphome:\n  name: kit\n  name_add_mac_suffix: yes\nwifi: [broken\n", encoding="utf-8"
+    )
+    assert load_device_from_storage(draft).name_add_mac_suffix is True
+
+
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        pytest.param("esphome:\n  name: a\n  name_add_mac_suffix: true\n", True, id="true"),
+        pytest.param("esphome:\n  name: a\n  name_add_mac_suffix: On\n", True, id="on"),
+        pytest.param("esphome:\n\n  name_add_mac_suffix: yes\n", True, id="blank_line"),
+        pytest.param("esphome:\n  name_add_mac_suffix: false\n", False, id="false"),
+        pytest.param(
+            "esphome:\n  name: a\nweb_server:\n  name_add_mac_suffix: true\n",
+            False,
+            id="other_block",
+        ),
+        pytest.param("esphome:\n  name: a\n", False, id="absent"),
+        pytest.param("esphome:\n  name_add_mac_suffix: enabled\n", False, id="enabled_not_truthy"),
+        pytest.param("esphome:\n  name_add_mac_suffix: 1\n", False, id="numeric_not_truthy"),
+        pytest.param('esphome:\n  name_add_mac_suffix: "true"\n', True, id="quoted_value"),
+        pytest.param("esphome:\n  Name_Add_Mac_Suffix: true\n", False, id="cased_key"),
+        pytest.param(
+            "esphome:\n  name: a\n# note\n  name_add_mac_suffix: true\n",
+            True,
+            id="column0_comment",
+        ),
+    ],
+)
+def test_yaml_has_name_add_mac_suffix(content: str, expected: bool) -> None:
+    """The raw scan matches truthy values under ``esphome:`` only."""
+    assert yaml_has_name_add_mac_suffix(content) is expected
+
+
+@pytest.mark.parametrize(
+    ("config", "expected"),
+    [
+        pytest.param(None, False, id="no_config"),
+        pytest.param({"esphome": "kit"}, False, id="block_not_dict"),
+        pytest.param({"esphome": {"name_add_mac_suffix": True}}, True, id="bool_true"),
+        pytest.param({"esphome": {"name_add_mac_suffix": False}}, False, id="bool_false"),
+        pytest.param({"esphome": {"name_add_mac_suffix": "enable"}}, True, id="str_enable"),
+        pytest.param({"esphome": {"name_add_mac_suffix": "disable"}}, False, id="str_disable"),
+        pytest.param({"esphome": {"name_add_mac_suffix": 1}}, False, id="non_bool_scalar"),
+        pytest.param({"esphome": {"name_add_mac_suffix": "enabled"}}, False, id="str_enabled"),
+        pytest.param({"esphome": {}}, False, id="absent"),
+    ],
+)
+def test_config_name_add_mac_suffix(config: dict | None, expected: bool) -> None:
+    """Resolved-config detection accepts bools and ``cv.boolean`` truthy strings."""
+    assert config_name_add_mac_suffix(config) is expected
 
 
 @pytest.mark.parametrize(

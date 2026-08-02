@@ -11,13 +11,27 @@ import warnings as _warnings
 
 from ._config import parse_args as _parse_args
 from ._core import docsig as _docsig
-from ._hooks import excepthook as _excepthook
+from ._report import pretty_print_error as _pretty_print_error
+
+
+def _excepthook(no_ansi: bool = False) -> None:
+    """Install a hook that prints user-friendly errors (not default).
+
+    Skipped when DOCSIG_DEBUG is set to "1".
+
+    :param no_ansi: Whether to disable ANSI escape codes in output.
+    """
+    if _os.environ.get("DOCSIG_DEBUG") != "1":
+        _sys.excepthook = lambda x, y, _: _pretty_print_error(
+            x,
+            str(y),
+            no_ansi,
+        )
 
 
 def _warn_on_deprecated_short_flags() -> None:
     deprecated_short_flags = {
         "-I": "--include-ignored",
-        "-c": "--check-class",
     }
     raw_args = _sys.argv[1:]
     expanded_flags = []

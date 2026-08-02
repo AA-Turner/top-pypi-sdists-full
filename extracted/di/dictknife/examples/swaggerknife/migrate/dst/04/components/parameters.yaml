@@ -1,0 +1,20 @@
+components:
+  parameters:
+    userId:
+      in: path
+      name: userId
+      required: true
+      description: The ID of the user to return
+      schema:
+        type: integer
+        format: int64
+        minimum: 1
+  requestBodies:
+    postUserBody:
+      description: |
+        The json body when creating user
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: "./definitions.yaml#/components/schemas/User"

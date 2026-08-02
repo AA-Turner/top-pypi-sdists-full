@@ -1,0 +1,1854 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX Core Pre-commit Configuration
+# Uses shared ONEX hook templates to demonstrate ecosystem integration
+#
+# PERFORMANCE OPTIMIZATION (2025-12):
+# ====================================
+# Two-stage validation strategy for optimal developer experience:
+#
+# PRE-COMMIT (target: <15 seconds):
+#   - Formatting (ruff format/fix, yamlfmt)
+#   - Basic file checks (whitespace, large files, merge conflicts)
+#   - Quick structural validations (empty dirs, duplicates)
+#   - Security checks (secrets, env vars)
+#   - Fast pattern validations
+#
+# PRE-PUSH (quick validation before sharing):
+#   - mypy type checking (changed files only, ~1-5s)
+#   - validate-naming-conventions (~14s)
+#   - Documentation link validation
+#   - Protocol UUID enforcement (~6s)
+#
+# NOTE: AST-based validators (pydantic, union, dict-any, optional) now use
+# pass_filenames=true - they only check staged files, not entire codebase.
+#
+# USAGE:
+#   pre-commit install                    # Install pre-commit hooks
+#   pre-commit install --hook-type pre-push  # Install pre-push hooks
+#   pre-commit run --all-files            # Run all pre-commit hooks
+#   pre-commit run --all-files --hook-stage pre-push  # Run pre-push hooks
+
+repos:
+  # YAML formatting (standard across ecosystem)
+  # Configuration in .yamlfmt file (ecosystem-aligned settings)
+  - repo: https://github.com/google/yamlfmt
+    rev: v0.21.0
+    hooks:
+      - id: yamlfmt
+        exclude: ^(work_tickets/|tests/fixtures/validation/invalid/|\.github/workflows/|archived/)
+
+  # Essential file formatting (standard across ecosystem)
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+        exclude: ^\.github/workflows/
+      - id: end-of-file-fixer
+        exclude: ^(\.github/workflows/|\.mcp\.json$)
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+
+  # ONEX Python Development Hooks (from shared templates)
+  # Order: ruff format → ruff check → mypy (formatting before linting before type checking)
+  # Note: ruff replaces both black and isort (10-100x faster)
+  - repo: local
+    hooks:
+      # FULL CODEBASE FORMATTING: These hooks run on src/ and tests/ (not just staged files)
+      # to match CI behavior and prevent "works locally, fails in CI" issues.
+      - id: ruff-format
+        name: ruff format (auto-format entire codebase)
+        entry: uv run ruff format src/ tests/
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      - id: ruff-fix
+        name: ruff check (auto-fix entire codebase)
+        entry: uv run ruff check --fix --exit-non-zero-on-fix src/ tests/
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+        # Note: --exit-non-zero-on-fix ensures pre-commit fails if files were modified,
+        # forcing you to re-stage the changes. This keeps pre-commit and CI in sync.
+
+      - id: mypy-type-check
+        name: mypy (type checking - strict)
+        entry: bash -c 'uv run mypy "$@" --show-error-codes --no-error-summary' --
+        language: system
+        types: [python]
+        files: ^src/omnibase_core/.*\.py$
+        exclude: ^(tests/|src/omnibase_core/examples|archive/|archived/).*\.py$
+        pass_filenames: true  # Only check changed files, not entire codebase
+        stages: [pre-push]  # Moved to pre-push: ~1-5s for changed files only
+
+      # PYRIGHT CHANGED-FILES-ONLY (pass_filenames: true)
+      # ===========================================================
+      # STRATEGY: Fast local check + comprehensive CI
+      # - Pre-push: Check only changed files (~1-5s)
+      # - CI: Full codebase scan catches cross-file type issues
+      #
+      # TRADEOFF:
+      # Changed-files-only may miss cross-file type issues (e.g., if you
+      # change a function signature in file A, file B that imports it won't
+      # be checked locally). CI catches these comprehensively.
+      #
+      # CONFIGURATION:
+      # See pyrightconfig.json for strictness settings (currently: basic mode)
+      # See OMN-200 for phase timeline to enable stricter rules
+      #
+      # DUAL-CHECKER RATIONALE:
+      # Both mypy (strict) and pyright (basic) check changed files only.
+      # CI runs both on full codebase for comprehensive coverage.
+      - id: pyright-type-check
+        name: pyright (type checking - basic)
+        entry: uv run pyright
+        language: system
+        types: [python]
+        files: ^src/omnibase_core/.*\.py$
+        exclude: ^(tests/|src/omnibase_core/examples|archive/|archived/).*\.py$
+        pass_filenames: true  # Only check changed files, CI does full scan
+        stages: [pre-push]  # ~1-5s for changed files only
+
+      # Evidence-Source SHAPE check (OMN-14682)
+      # Local fail-fast companion to the CI receipt-gate: validates that the
+      # current branch's PR body carries a single canonical Evidence-Source
+      # stamp (not an example quoted inside a code fence / blockquote), a
+      # well-formed reference or disclaimer, and a paired Evidence-Ticket. The
+      # authoritative, receipt-verifying enforcement stays the CI receipt-gate;
+      # this hook only shortens the feedback loop. No-op when no PR exists yet.
+      - id: check-evidence-shape
+        name: Evidence-Source shape check (OMN-14682)
+        entry: .pre-commit-hooks/check-evidence-shape.sh
+        language: script
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
+      # Intra-Core Dependency-Layering Oracle (OMN-14216, epic OMN-3210)
+      # Enforces the DIRECTION of imports between omnibase_core sub-packages via
+      # import-linter (.importlinter). Whole-graph check (grimp caches the graph
+      # in .import_linter_cache/, so re-runs are sub-second). Runs only when
+      # source python or the contract config changes. Mirrors the `lint-imports`
+      # CI job wired into quality-gate.
+      - id: lint-imports
+        name: import-linter (intra-core dependency layering)
+        entry: uv run lint-imports
+        language: system
+        pass_filenames: false
+        files: ^(src/omnibase_core/.*\.py|\.importlinter|pyproject\.toml)$
+        stages: [pre-commit]
+
+      # Import-Layering GROWTH RATCHET (OMN-14340, epic OMN-3210)
+      # The import-linter wildcard ignores are permissive — they silently allow NEW
+      # edges of a frozen class. This ratchet freezes protocols->models (65) and the
+      # mixins/protocols hub-inbound sets non-increasing and HARD-FAILS any new
+      # edge/importer; the utils hub (high-churn, RSD-doomed) only WARNs (grimp graph
+      # vs scripts/ci/import_ratchet_baseline.py). Mirrors the lint-imports hook;
+      # whole-graph, sub-second. Retirement = RSD canonical rewrite.
+      - id: import-ratchet
+        name: import-layering growth ratchet (protocols->models + hubs)
+        entry: uv run python scripts/ci/check_import_ratchet.py
+        language: system
+        pass_filenames: false
+        files: ^(src/omnibase_core/.*\.py|scripts/ci/check_import_ratchet\.py|scripts/ci/import_ratchet_baseline\.py|\.importlinter|pyproject\.toml)$
+        stages: [pre-commit]
+
+      # Canonical handler-shape GROWTH RATCHET (OMN-14355)
+      # compliance_sweep checks handler hygiene but is blind to handler SHAPE. This
+      # classifies each node's contract-declared handler (definition B: typed-payload
+      # handle(request)->response adapted by the shared runtime, no envelope in the
+      # core), WARNs the baselined debt, and HARD-FAILS a NEW non-canonical node or
+      # baseline growth. A baselined node flips canonical only with a 3-part proof
+      # (shape + re-derived adequacy receipt + green equivalence replay, OMN-14353).
+      # DIFF-SCOPED: pass_filenames feeds staged files -> only touched nodes are
+      # classified (O(changed)); a change to the classifier / baseline / a
+      # resolution module (runtime adapter, envelope mixin) escalates to a full
+      # scan (fail-closed). Canary scope = omnibase_core.
+      - id: canonical-handler-shape-ratchet
+        name: canonical handler-shape growth ratchet (definition B)
+        entry: uv run python scripts/ci/canonical_handler_shape.py
+        language: system
+        pass_filenames: true
+        files: ^(src/omnibase_core/.*/nodes/.*/contract\.yaml|src/omnibase_core/.*/nodes/.*\.py|src/omnibase_core/runtime/runtime_local(_adapter)?\.py|src/omnibase_core/mixins/mixin_envelope_extraction\.py|scripts/ci/canonical_handler_shape\.py|scripts/ci/canonical_handler_shape_baseline\.py|scripts/ci/test_selection_adjacency\.yaml|scripts/ci/adequacy_receipts/.*)$
+        stages: [pre-commit]
+
+      # RSD provenance-stamp fail-closed GATE (OMN-15011). The OMN-14355 ratchet
+      # above proves a node's SHAPE but is authorship-agnostic by design (a
+      # brand-new node born shape-canonical requires proof of nothing about how
+      # it came to exist). This classifies each node's ``.rsd_provenance.json``
+      # sidecar stamp (machine rsd_delegation, RECOMPUTED from live file
+      # sha256 — never trusted — or a sanctioned hand_authored + ticket
+      # exception), WARNs the baselined legacy debt, and HARD-FAILS a NEW node
+      # missing/invalid stamp or ANY growth of the frozen exemption baseline.
+      # Full-scan-always (cheap JSON+sha256 check, not diff-scoped — see the
+      # module docstring). Canary scope = omnibase_core; fan-out is a follow-on.
+      - id: rsd-provenance-stamp
+        name: RSD provenance-stamp fail-closed gate
+        entry: uv run python scripts/ci/rsd_provenance_stamp.py
+        language: system
+        pass_filenames: false
+        files: ^(src/omnibase_core/.*/nodes/.*/contract\.yaml|src/omnibase_core/.*/nodes/.*/\.rsd_provenance\.json|scripts/ci/rsd_provenance_stamp\.py|scripts/ci/rsd_provenance_stamp_baseline\.py)$
+        stages: [pre-commit]
+
+      # Fail-closed pre-PR SEAM gate for canonical-shape flips (OMN-14809). The
+      # canonical-handler-shape ratchet (above) DECIDES a flip is proven; this gate
+      # re-invokes that gate (verify_flip_receipt / classify_node — imported, not
+      # reimplemented) and adds seven fail-closed assertions per NEWLY-flipped node that
+      # the CI ratchet is structurally blind to: full ModelAdequacyReceipt invariants
+      # (A1), per-binding canonicality so a multi-handler node cannot partial-flip (B5),
+      # twin shape+entrypoint baseline shrink (B6), receipt-minted-post-format ordering
+      # (S1), a deterministic producer rerun + byte-compare for new equivalence
+      # goldens (E1, OMN-14905 — replaces the earlier author-identity attestation), and
+      # the declared hand-flip parity tests EXECUTED against the receipt's own base_ref,
+      # where each must fail on its own assertion (P1, OMN-15340 — a test that is already
+      # green on the pre-change tree discriminates nothing, and one that cannot even
+      # import there proves nothing either).
+      # Runs at PRE-PUSH (flip-discovery diffs the whole branch vs origin/dev, which is
+      # present locally) — it does its OWN git discovery, so pass_filenames is false.
+      # No committed flip in the diff -> exit 0.
+      - id: verify-flip-bundle
+        name: canonical-shape flip-bundle seam gate (fail-closed, OMN-14809)
+        entry: uv run python scripts/ci/verify_flip_bundle.py
+        language: system
+        pass_filenames: false
+        files: ^(src/omnibase_core/.*/nodes/.*/contract\.yaml|src/omnibase_core/.*/nodes/.*\.py|scripts/ci/canonical_handler_shape\.py|scripts/ci/canonical_handler_shape_baseline\.py|scripts/ci/verify_flip_bundle\.py|scripts/ci/equivalence_producer\.py|scripts/ci/parity_replay\.py|scripts/ci/parity_red_on_base_baseline\.py|scripts/ci/adequacy_receipts/.*)$
+        stages: [pre-push]
+
+      # Cleanup: Clear tmp/ directory before commits
+      # Prevents accumulation of temporary files from custom commands
+      - id: clean-tmp-directory
+        name: Clean tmp directory
+        entry: bash -c "rm -rf tmp/* 2>/dev/null || true"
+        language: system
+        always_run: true
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # Security: Prevent .env file commits
+      # Enforces use of ~/.omnibase/.env as the single source of truth
+      # Blocks commits of .env files (except .env.example)
+      - id: no-env-file
+        name: Reject committed .env files (except .env.example)
+        entry: scripts/check_no_env_files.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # Planning Doc Prevention (OMN-3616)
+      # Planning documents belong in omni_home/docs/plans/, not in individual repos.
+      # This hook prevents accidental commits of docs/plans/ files to this repo.
+      - id: no-planning-docs
+        name: Block planning docs (belong in omni_home/docs/plans/)
+        entry: bash -c 'PLAN_FILES=$(git diff --cached --name-only -- "docs/plans/"); if [ -n "$PLAN_FILES"
+          ]; then echo "ERROR - Planning docs must live in omni_home/docs/plans/, not in this repo"; echo
+          "$PLAN_FILES"; echo ""; echo "Move your file to \$OMNI_HOME/docs/plans/"; exit 1; fi'
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # Producer/Consumer Normalization Symmetry (OMN-9333)
+      # BLOCKING — would have caught OMN-9215 whitespace-strip asymmetry at commit time.
+      # Scans all .py under src/ for TopicBase producer (.send/.produce/.publish/.emit)
+      # vs consumer (.subscribe/.lookup/handler_for) call sites and flags any topic with
+      # divergent .strip() chains between sides. Std-lib only; no warn-only mode.
+      - id: normalization-symmetry
+        name: ONEX Producer/Consumer Normalization Symmetry (OMN-9333)
+        entry: uv run python -m omnibase_core.validation.checker_normalization_symmetry src
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # Hook bitmask drift check (OMN-9615)
+      # Regenerates hook_bits.sh from EnumHookBit and fails if the committed
+      # artifact is stale. Fires when the enum or generator changes.
+      - id: hook-bits-drift
+        name: hook_bits.sh drift check (regenerate if EnumHookBit changes)
+        entry: uv run python scripts/check_hook_bits_drift.py
+        language: system
+        pass_filenames: false
+        files: ^(src/omnibase_core/enums/enum_hook_bit\.py|scripts/gen_hook_bits\.py|scripts/check_hook_bits_drift\.py)$
+        stages: [pre-commit]
+
+      # Dep-provenance gate (OMN-13873)
+      # Forbid first-party git-source overrides (omnibase-core / omnibase-spi /
+      # omnibase-compat) in [tool.uv.sources]. onex-change-control is exempt
+      # (immutable-main pin model). Fires only when pyproject.toml changes.
+      - id: check-dep-provenance
+        name: Forbid first-party git-source overrides (OMN-13873)
+        entry: uv run --frozen python scripts/check_dep_provenance.py
+        language: system
+        files: ^pyproject\.toml$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # Substrate Gate: silent except-pass (OMN-wire-validators)
+      # Baseline: 102 violations on 2026-05-10 — ratchet mode, threshold must decrease over time.
+      # Annotate justified cases with: # substrate-allow: <reason>
+      - id: substrate-silent-except-pass
+        name: No silent except-pass (substrate gate)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.cli.substrate_gates.silent_except_pass
+          --max-violations 102
+        language: system
+        types: [python]
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/)
+        stages: [pre-commit]
+
+      # Skip-token rejection gate (OMN-11412 / OMN-10414)
+      # Blocks [skip-*] bypass tokens in staged markdown/yaml/txt files.
+      # Escape hatch: add '# skip-token-allowed: <receipt-id>' with a traceable approval receipt.
+      - id: reject-deploy-gate-skip-token
+        name: Reject skip-gate bypass tokens (OMN-10414)
+        entry: .pre-commit-hooks/reject-deploy-gate-skip-token.sh
+        language: script
+        pass_filenames: true
+        always_run: true
+        stages: [pre-commit]
+        exclude: ^tests/.*fixtures/
+      - id: reject-deploy-gate-skip-token-commit-msg
+        name: Reject skip-gate bypass tokens in commit messages (OMN-10414)
+        entry: .pre-commit-hooks/reject-deploy-gate-skip-token.sh
+        language: script
+        pass_filenames: true
+        stages: [commit-msg]
+
+      # Required-Check Skip-Vector Guard (OMN-14863, fan-out from OMN-14854
+      # omniclaude canary). Fails closed on a path-scoped required-check
+      # trigger, an ungated job-level `if:`, an ungated reusable-caller `if:`,
+      # or a missing pull_request/merge_group trigger on any REQUIRED context.
+      # Same validator runs in CI (required-check-skip-guard-reusable.yml via
+      # required-check-skip-guard-caller.yml) — local and CI verdicts can
+      # never diverge.
+      - id: reject-required-check-skip-vector
+        name: Reject skip vectors on required-check workflows (OMN-14863)
+        entry: .pre-commit-hooks/reject-required-check-skip-vector.sh
+        language: script
+        pass_filenames: false
+        files: '^\.github/(workflows/.*\.ya?ml|required-checks\.yaml)$'
+        stages: [pre-commit]
+
+      # Substrate Gate: env silent fallback (OMN-wire-validators)
+      # Baseline: 38 violations on 2026-05-10 — ratchet mode, threshold must decrease over time.
+      # Annotate justified bootstrap cases with: # substrate-allow: bootstrap-fallback
+      - id: substrate-env-silent-fallback
+        name: No env silent fallback (substrate gate)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.cli.substrate_gates.env_silent_fallback
+          --max-violations 38
+        language: system
+        types: [python]
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/)
+        stages: [pre-commit]
+
+      # Substrate Gate: identity field optionality (OMN-wire-validators)
+      # Baseline: 122 violations on 2026-05-10 — ratchet mode, threshold must decrease over time.
+      # Annotate justified cases with: # substrate-allow: <reason>
+      - id: substrate-identity-field-optionality
+        name: No optional identity fields (substrate gate)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.cli.substrate_gates.identity_field_optionality
+          --max-violations 122
+        language: system
+        types: [python]
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/)
+        stages: [pre-commit]
+
+      # Substrate Gate: loose typing in internal (OMN-wire-validators)
+      # Baseline: 345 violations on 2026-05-10 — ratchet mode, threshold must decrease over time.
+      # Annotate justified cases with: # substrate-allow: <reason>
+      - id: substrate-loose-typing-internal
+        name: No loose typing in internal (substrate gate)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.cli.substrate_gates.loose_typing_in_internal
+          --max-violations 345
+        language: system
+        types: [python]
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/)
+        stages: [pre-commit]
+
+      # Substrate Gate: protocol kwargs object (OMN-wire-validators)
+      # Baseline: 6 violations on 2026-05-10 — ratchet mode, threshold must decrease over time.
+      # Protocol methods must use explicit typed parameters, not *args/**kwargs: object/Any.
+      # Annotate justified cases with: # substrate-allow: <reason>
+      - id: substrate-protocol-kwargs-object
+        name: No protocol *args/**kwargs loose typing (substrate gate)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.cli.substrate_gates.protocol_kwargs_object
+          --max-violations 6
+        language: system
+        types: [python]
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/)
+        stages: [pre-commit]
+
+      # validate-stubbed-functionality (OMN-wire-validators)
+      # Baseline: 124 violations on 2026-05-10 — ratchet mode, threshold must decrease over time.
+      # Detects NotImplementedError stubs, pass-only methods, TODO/FIXME in prod code.
+      - id: validate-stubbed-functionality
+        name: ONEX Stubbed Functionality Detection
+        entry: env -u PYTHONPATH uv run python scripts/validation/validate-stubbed-functionality.py --max-violations
+          124
+        language: system
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/|examples/prototypes/).*\.py$
+        stages: [pre-commit]
+
+  # ONEX Framework Validation (from shared templates)
+  - repo: local
+    hooks:
+
+      # ONEX Core Framework Validation (SHARED HOOKS)
+      - id: validate-repository-structure
+        name: ONEX Repository Structure Validation
+        entry: uv run python scripts/validation/validate_structure.py
+        args: ['.', 'omnibase_core']
+        language: system
+        always_run: true
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-13284: Canonical Plugin* lifecycle guard (relocated from omnibase_infra).
+      # Plugin* classes are deterministic compute plugins only; daemon/service/worker
+      # lifecycles belong behind ONEX nodes/handlers. Core dogfoods its own export.
+      - id: no-plugin-daemon-classes
+        name: Block Plugin* daemon/service/worker classes (OMN-13284)
+        entry: uv run python -m omnibase_core.validators.no_plugin_daemon_classes src/omnibase_core
+        language: system
+        types: [python]
+        files: ^src/omnibase_core/.*\.py$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-14891: no test may shell out to git while able to inherit GIT_DIR /
+      # GIT_WORK_TREE / GIT_INDEX_FILE / GIT_COMMON_DIR from a git hook. Those
+      # variables OVERRIDE `cwd=` and `git -C`, so a tmp_path fixture running under
+      # the pre-push hook mutates the REAL invoking worktree — twice observed
+      # (core.bare=true + a bogus [user] block + 6707 phantom staged deletions on
+      # the shared canonical clone). The session scrub in tests/conftest.py is the
+      # remedy; this blocks reintroduction. Whole-tree arg so a partially-staged
+      # commit cannot hide a violation elsewhere.
+      - id: no-unguarded-git-subprocess
+        name: Block unguarded git subprocess calls in tests (OMN-14891)
+        entry: uv run python -m omnibase_core.validators.no_unguarded_git_subprocess tests
+        language: system
+        types: [python]
+        files: ^tests/.*\.py$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-14350: non-canonical lifecycle-word class ratchet (omnibase_core canary).
+      # Flags CamelCase classes carrying Service/Engine/Adapter/Router/Daemon/Manager/
+      # Runner/Registry/Controller/Server/Client and blocks any NEW one outside the
+      # frozen noncanonical_class_allowlist.yaml baseline. The whole-src arg forces a
+      # full ratchet scan; the files: filter keeps the trigger scoped to core src.
+      - id: no-noncanonical-lifecycle-classes
+        name: Non-canonical lifecycle-class ratchet (OMN-14350)
+        entry: uv run --frozen python -m omnibase_core.validators.no_noncanonical_lifecycle_classes src/omnibase_core
+        language: system
+        types: [python]
+        files: ^src/omnibase_core/.*\.py$
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # C7 / OMN-14907: count-locked ratchet over pull_request-triggered workflow
+      # files. Blocks a NEW .github/workflows/*.yml pull_request trigger unless it
+      # retires an existing one (net-negative) or carries an expiring waiver in
+      # architecture-handshakes/pull-request-workflow-budget.yaml. pass_filenames:
+      # false — the check is a whole-.github/workflows scan against the frozen
+      # budget; files: keeps the trigger scoped to workflow + registry edits so
+      # unrelated commits do not pay for it.
+      - id: pull-request-workflow-ratchet
+        name: Pull-request workflow-file ratchet (OMN-14907)
+        entry: uv run --frozen python -m omnibase_core.validation.validator_pull_request_workflow_ratchet
+          --repo-root .
+        language: system
+        files: ^(\.github/workflows/.*\.(yml|yaml)|architecture-handshakes/pull-request-workflow-budget\.yaml)$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-14515: every Pydantic model must resolve to an explicit extra="forbid".
+      # ABSENCE IS A VIOLATION — Pydantic's default is extra="ignore", which SILENTLY
+      # DROPS unknown fields (four live data-loss bugs: OMN-14490/14506/14513/14514).
+      # New models block outright; --enforce-modified :staged also blocks a BASELINED
+      # model whose body you just edited — touching it is your chance to fix it.
+      # language: system so the validator runs in the repo venv and can introspect the
+      # real cls.model_config (which Pydantic has already merged down the MRO) instead
+      # of approximating inheritance statically.
+      - id: pydantic-extra-forbid
+        name: Pydantic extra="forbid" ratchet (OMN-14515)
+        entry: uv run --frozen python -m omnibase_core.validators.pydantic_extra_forbid --enforce-modified
+          :staged src/omnibase_core
+        language: system
+        types: [python]
+        files: ^src/omnibase_core/.*\.py$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-13735: reconcile every reducer contract.yaml's state_machine.transitions
+      # (filtered by the declared fsm_handler_binding.state_filter) against the handler
+      # module's VALID_TRANSITIONS / GUARD_CONDITIONS symbols via AST literal eval. Any
+      # (from_state, trigger)->to_state or guard field/value divergence blocks; zero
+      # allowlist. Core dogfoods its own export (no fsm_handler_binding contracts here yet,
+      # so this scan exits 0 until one is added).
+      - id: check-fsm-handler-drift
+        name: FSM YAML-vs-handler drift guard (OMN-13735)
+        entry: uv run python -m omnibase_core.validators.fsm_handler_drift src/
+        language: system
+        files: (^|/)(contract\.yaml|handlers/handler_.*\.py)$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-13530: require an 'operation' field on operation_match handler entries.
+      # A missing operation makes the contract fail closed at RuntimeLocal startup
+      # ('handlers[i].operation is missing') — the 0.46.0 regression that took down
+      # the headless automation fleet. Core dogfoods its own export.
+      - id: operation-match-requires-operation
+        name: operation_match handler 'operation' field guard (OMN-13530)
+        entry: uv run python -m omnibase_core.validators.operation_match_requires_operation src/omnibase_core
+        language: system
+        files: (^|/)contract\.yaml$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-13324: require handlers[0].operation on every dispatched node contract.
+      # The dispatch-envelope unwrap (node_dod_verify test_dispatch_envelope_unwrap)
+      # reads handler_routing.handlers[0].operation regardless of routing_strategy;
+      # a missing value surfaces as 'handlers[0].operation is missing'. Strategy-
+      # agnostic, so it covers payload_type_match dispatch targets that OMN-13530
+      # exempts. Core dogfoods its own export.
+      - id: dispatched-contract-operation
+        name: dispatched contract handlers[0].operation guard (OMN-13324)
+        entry: uv run python -m omnibase_core.validators.dispatched_contract_operation src/omnibase_core
+        language: system
+        files: (^|/)contract\.yaml$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-13028: require an 'event_model' on command-category handler entries.
+      # A handler_routing entry tagged 'message_category: command' names a typed
+      # command payload; the dispatcher resolves that type from the entry's
+      # 'event_model' block. A command entry with no event_model is the OMN-13003
+      # failure (command handler with no event_model) — ladder layer 1 of the
+      # OMN-13003/13005 top-10 failure. Core dogfoods its own export.
+      - id: command-category-requires-event-model
+        name: command-category handler 'event_model' guard (OMN-13028)
+        entry: uv run python -m omnibase_core.validators.command_category_requires_event_model src/omnibase_core
+        language: system
+        files: (^|/)contract\.yaml$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-13609 (WS-C Phase 1.1): a generated node's contract-declared inline
+      # input_model / output_model class names must be bound at the top level of
+      # the co-located handler.py. Ported from the SEA pipeline model_types check;
+      # the authoritative logic lives in the canonical validator platform
+      # (omnibase_core.validation.validator_contract_linter.validate_model_class_existence)
+      # which this guard invokes. Only inline generated models are in scope —
+      # hand-authored nodes that declare a dotted importable model path are skipped.
+      - id: generated-node-model-class-exists
+        name: generated-node model-class-existence guard (OMN-13609)
+        entry: uv run python -m omnibase_core.validators.generated_node_model_class_exists src/omnibase_core
+        language: system
+        files: (^|/)contract\.yaml$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # CLASS vs FILE Naming Conventions:
+      # - validate-naming-conventions: CLASS naming (ModelUser, EnumStatus, ProtocolEventBus)
+      # - validate-file-naming-conventions: FILE naming (model_user.py, enum_status.py)
+      #
+      # OMN-14925: invoke the SAME script + baseline semantics as the required CI
+      # "Naming Conventions" context (.github/workflows/ci.yml job `naming-conventions`,
+      # OMN-13574) — `scripts/validate_class_naming.py` with no args. That validator
+      # scopes to src/omnibase_core/ and applies its ALLOWED_EXCEPTIONS grandfather set,
+      # so the local pre-push hook and the required CI gate render the same verdict.
+      # The prior `scripts/validation/validate_naming.py src/` raw full-src scan had NO
+      # baseline and reported 29 pre-existing dev violations, failing every src-touching
+      # push while CI stayed green. Disposition of that orphaned script: OMN-14926.
+      - id: validate-naming-conventions
+        name: ONEX Naming Convention Validation
+        entry: uv run python scripts/validate_class_naming.py
+        language: system
+        pass_filenames: false
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archive/|archived/|scripts/validation/).*\.py$
+        stages: [pre-push]  # Moved to pre-push: full src/omnibase_core class-naming scan
+        # Grandfathered exceptions live in scripts/validate_class_naming.py ALLOWED_EXCEPTIONS
+
+      # NOTE: always_run=true means files: pattern is ignored - script does its own discovery
+      - id: validate-file-naming-conventions
+        name: ONEX File Naming Convention Validation
+        entry: uv run python -m omnibase_core.validation.checker_naming_convention
+        args: ['--warning-mode']
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
+      - id: validate-file-locations
+        name: ONEX File Location Enforcement
+        entry: uv run python scripts/validation/validate-file-locations.py
+        language: system
+        pass_filenames: false
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/).*\.py$
+        stages: [pre-commit]
+
+      - id: validate-no-duplicate-dirs
+        name: ONEX Duplicate Directory Detection
+        entry: uv run python scripts/validation/validate-no-duplicate-dirs.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      - id: validate-no-duplicate-models
+        name: ONEX Duplicate Model Filename Prevention
+        entry: uv run python scripts/validation/validate-no-duplicate-models.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      - id: validate-no-empty-directories
+        name: ONEX Empty Directory Prevention
+        entry: uv run python scripts/validation/validate-no-empty-directories.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # String Version Anti-Pattern Detection
+      # Prevents use of ModelSemVer.parse("X.Y.Z") and direct version string literals
+      # Enforces structured versions: ModelSemVer(1, 0, 0) instead of "1.0.0"
+      # Catches: ModelSemVer.parse(), string literals, flat YAML versions
+      # Allows: Docstrings, regex patterns (r"..."), test fixtures, log messages
+      # See: docs/ANTI_PATTERNS.md#string-version-literals
+      #
+      # PROTOCOL EXCLUSION: protocols/ is excluded because Protocol types define
+      # interfaces (structural typing), not concrete implementations. They may
+      # reference version formats in docstrings/type hints for documentation.
+      # See: scripts/validation/validate-union-usage.py module docstring for rationale.
+      # Exclusions:
+      # - typed_dict_demo.py: sample_id and ticket_id are external corpus identifiers, not internal UUIDs (OMN-1396)
+      # - doctor_check_base.py: check_id is a semantic identifier ("kafka", "postgres"), not a version string
+      # - contracts/OMN-*.yaml: ticket-contract schema is owned by onex_change_control and currently requires string schema_version
+      - id: validate-string-versions
+        name: ONEX String Version Anti-Pattern Detection
+        entry: uv run python scripts/validation/validate-string-versions.py
+        language: system
+        pass_filenames: true
+        files: ^.*\.(py|yaml|yml)$
+        exclude: ^(tests/fixtures/validation/|archived/|archive/|contracts/OMN-[0-9]+\.yaml$|src/omnibase_core/protocols/|src/omnibase_core/validation/validator_|src/omnibase_core/validation/visitor_|src/omnibase_core/models/contracts/subcontracts/model_validator_|src/omnibase_core/types/typed_dict_demo\.py|examples/contracts/handlers/|src/omnibase_core/models/ticket/model_ticket_context_bundle\.py$|src/omnibase_core/models/epic/model_epic_state\.py$|src/omnibase_core/doctor/doctor_check_base\.py$)
+        stages: [pre-commit]
+
+      - id: validate-archived-imports
+        name: ONEX Archived Path Import Prevention
+        entry: uv run python scripts/validation/validate-archived-imports.py
+        args: ['src/']
+        language: system
+        pass_filenames: false
+        files: ^.*\.py$
+        exclude: ^(archived/|archive/|tests/fixtures/validation/).*$
+        stages: [pre-commit]
+
+      - id: validate-no-backward-compatibility
+        name: ONEX Backward Compatibility Anti-Pattern Detection
+        entry: uv run python scripts/validation/validate-no-backward-compatibility.py
+        args: ['-d', 'src/']
+        language: system
+        pass_filenames: false
+        files: ^.*\.py$
+        exclude: ^(scripts/validation/validate-no-backward-compatibility\.py|archived/.*)$
+        stages: [pre-commit]
+
+      # Exclusions:
+      # - cli_demo.py: Loads dynamic corpus/mock data for demo execution, not contract validation (OMN-1396)
+      - id: validate-no-manual-yaml
+        name: ONEX Manual YAML Prevention
+        entry: uv run python scripts/validation/validate-no-manual-yaml.py
+        language: system
+        pass_filenames: true
+        files: ^.*\.py$
+        exclude: ^(scripts/validation/validate-contracts\.py|scripts/validation/validate-string-versions\.py|scripts/validation/check_stub_implementations\.py|scripts/validation/validate-no-manual-yaml\.py|scripts/validation/validate_pr_deploy_required\.py|scripts/compute_contract_fingerprint\.py|scripts/lint_contract\.py|scripts/ci/canonical_handler_shape\.py|src/omnibase_core/utils/safe_yaml_loader\.py|src/omnibase_core/utils/util_safe_yaml_loader\.py|src/omnibase_core/validation/contracts\.py|src/omnibase_core/validation/contract_validator\.py|src/omnibase_core/validation/validator_base\.py|src/omnibase_core/validation/validator_any_type\.py|src/omnibase_core/validation/validator_contract_linter\.py|src/omnibase_core/validation/validator_requirements_consumer\.py|src/omnibase_core/validation/validator_rollup_coverage\.py|src/omnibase_core/validation/validator_standalone_workflow_registry\.py|src/omnibase_core/validation/validator_pull_request_workflow_ratchet\.py|src/omnibase_core/validation/validator_runtime_profiles\.py|src/omnibase_core/discovery/mixin_discovery\.py|src/omnibase_core/cli/cli_demo\.py|tests/fixtures/validation/|src/omnibase_core/validation/scripts/validate_string_versions\.py|src/omnibase_core/validators/contract_config_compliance\.py|src/omnibase_core/validators/gitignore_baseline\.py|src/omnibase_core/validators/skill_dispatch_receipt_mode\.py|src/omnibase_core/validators/backend_secret_discipline\.py|src/omnibase_core/validators/operation_match_requires_operation\.py|src/omnibase_core/validators/dispatched_contract_operation\.py|src/omnibase_core/validators/command_category_requires_event_model\.py|src/omnibase_core/validators/generated_node_model_class_exists\.py|src/omnibase_core/validators/projection_exposure_drift\.py|src/omnibase_core/validators/no_noncanonical_lifecycle_classes\.py|\.github/actions/required-check-skip-guard/validate_no_required_check_skip_vectors\.py|\.github/actions/required-check-skip-guard/_workflow_model\.py)
+        stages: [pre-commit]
+        # validate_string_versions.py: validation script that must load YAML to validate it (OMN-4402)
+        # required-check-skip-guard/*.py (OMN-14863): vendored from omniclaude
+        # (canonical source) unmodified — these parse GitHub Actions workflow
+        # YAML into an internal job/if-expression model, not ONEX contract
+        # YAML, so Pydantic contract-model validation does not apply here.
+
+      # AST-based validators - accept file arguments for fast pre-commit
+      - id: validate-pydantic-patterns
+        name: ONEX Pydantic Pattern Validation
+        entry: uv run python scripts/validation/validate-pydantic-patterns.py
+        language: system
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/|scripts/validation/).*\.py$
+        stages: [pre-commit]
+
+      # Pydantic Conventions Validation (OMN-1314)
+      # Enforces Pydantic model best practices:
+      # - No empty ConfigDict() - explicit configuration required
+      # - frozen=True models must have from_attributes=True
+      # - No unnecessary Field() wrappers without metadata
+      # - Mutable defaults must use default_factory
+      - id: validate-pydantic-conventions
+        name: Validate Pydantic conventions
+        entry: uv run python -m omnibase_core.validation.validator_pydantic_conventions
+        language: system
+        types: [python]
+        files: ^src/omnibase_core/
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # UNION VALIDATION THRESHOLD:
+      # Tech debt: Union type threshold reduced from 256 to 160 (OMN-676).
+      # Target: Reduce to 0 incrementally. Tracking: OMN-468, OMN-676
+      # Improvements: Created json_types.py with centralized aliases (JsonValue,
+      # PrimitiveValue, ToolParameterValue), fixed any_contaminated and overly_broad patterns.
+      - id: validate-union-usage
+        name: ONEX Union Usage Validation
+        entry: uv run python scripts/validation/validate-union-usage.py
+        args: ['--allow-invalid', '160']
+        language: system
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/|scripts/validation/|src/omnibase_core/protocols/).*\.py$
+        stages: [pre-commit]
+
+      # Repository-specific validation (omnibase_core only)
+      - id: validate-contracts
+        name: ONEX Contract Validation
+        entry: uv run python scripts/validation/validate-contracts.py
+        language: system
+        pass_filenames: false
+        files: ^src/omnibase_core/(nodes|protocol|core).*\.py$
+        stages: [pre-commit]
+
+      - id: audit-optional-usage
+        name: ONEX Optional Type Usage Audit
+        entry: uv run python scripts/validation/audit_optional.py
+        language: system
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/|scripts/validation/).*\.py$
+        stages: [pre-commit]
+
+      - id: check-stub-implementations
+        name: ONEX Stub Implementation Detector
+        entry: uv run python scripts/validation/check_stub_implementations.py
+        language: system
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/|examples/prototypes/).*\.py$
+        stages: [pre-commit]
+
+      - id: check-no-fallbacks
+        name: ONEX No Fallback Patterns Validation
+        entry: uv run python scripts/validation/check_no_fallbacks.py
+        language: system
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/|src/omnibase_core/validation/scripts/).*\.py$
+        stages: [pre-commit]
+
+      - id: check-error-raising
+        name: ONEX Error Raising Validation
+        entry: uv run python scripts/validation/check_error_raising.py
+        language: system
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/).*\.py$
+        stages: [pre-commit]
+
+      # Print Statement Prevention (OMN-701)
+      # Ensures production code uses structured logging instead of print()
+      # To allow specific prints (e.g., CLI tools), add: # print-ok: reason
+      # Excludes:
+      #   - validation/ (CLI tools that legitimately print to users)
+      #   - *example* files (demo/documentation files)
+      - id: check-no-print-statements
+        name: ONEX Print Statement Prevention
+        entry: uv run python scripts/validation/check_no_print_statements.py
+        language: system
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/|scripts/validation/|src/omnibase_core/validation/|src/omnibase_core/scripts/|.*example.*).*\.py$
+        stages: [pre-commit]
+
+      - id: check-ai-slop
+        name: Check for AI-slop patterns
+        language: system
+        entry: uv run python scripts/validation/check_ai_slop.py --strict
+        types_or: [python, markdown]
+        pass_filenames: true
+        # CHANGELOG.md is excluded because migration guide step headers (Step N: ...)
+        # are a systematic false positive for the step_narration detector.
+        # Numbered steps in changelogs and migration guides are genuine documentation,
+        # not AI-generated boilerplate. See OMN-3204.
+        # docs/ markdown is excluded for the same reason: tutorial guides and architecture
+        # docs use numbered Step N headings as legitimate sequential documentation structure.
+        # These are pre-existing false positives resolved per OMN-4405.
+        # tests/fixtures/validation/ contains intentional syntax_error fixtures.
+        exclude: ^(CHANGELOG\.md|docs/|tests/fixtures/validation/)
+        stages: [pre-commit]
+
+      - id: validate-no-enhancement-prefixes
+        name: ONEX Enhancement Prefix Anti-Pattern Detection
+        entry: uv run python scripts/validation/validate-no-enhancement-prefixes.py
+        language: system
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/|scripts/validation/).*\.py$
+        stages: [pre-commit]
+
+      # Contract-config compliance (OMN-10688)
+      # Blocks bare env reads, bus-bypass imports, and undeclared env vars in handlers.
+      # Suppress a line with: # contract-config-ok: <reason>
+      - id: contract-config-compliance
+        name: Contract-Config Compliance (OMN-10688)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.validators.contract_config_compliance
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # Dispatch-surface real-dispatch-test gate (OMN-12960)
+      # Requires a real-dispatch-path test for any commit touching dispatch,
+      # routing, handler-registration, or message-envelope source surfaces.
+      # Handler-isolation tests pass while live dispatch fails — the only durable
+      # guard is a test that drives the real dispatcher registration.
+      # Suppress a genuinely test-irrelevant change with:
+      #   # dispatch-surface-test-ok: <reason>
+      - id: dispatch-surface-test-required
+        name: Dispatch-Surface Test Required (OMN-12960)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.validators.dispatch_surface_test_required
+        language: system
+        pass_filenames: true
+        files: ^(src|tests)/.*\.py$
+        stages: [pre-commit]
+
+      # Breaking-schema-change compliance (OMN-12621)
+      # Requires an adjacent *.migration.yaml ModelTopicMigrationContract whenever
+      # a *.topic-schema.yaml declares a breaking topic-schema delta (major_bump
+      # or namespace_rename). Suppress a line with: # breaking-schema-ok: <reason>
+      - id: breaking-schema-change
+        name: Breaking-Schema-Change Validator (OMN-12621)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.validators.breaking_schema_change
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # OMN-12453: gitignore-baseline compliance gate
+      # Asserts managed blocks from architecture-handshakes/gitignore-baseline.yaml
+      # appear VERBATIM in this repo's .gitignore.
+      # Suppress all findings with: # gitignore-ok: <reason>
+      - id: validate-gitignore-baseline
+        name: Gitignore Baseline Validator (OMN-12453)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.validators.gitignore_baseline
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # OMN-10741: Unified localhost/hardcoded-endpoint fallback validator
+      # Covers all 6 pattern types from OMN-10658 enforcement sweep.
+      # Annotation: add  # fallback-ok: <reason>  to exempt a justified line.
+      - id: no-env-fallbacks
+        name: No localhost/hardcoded-endpoint fallbacks (OMN-10741)
+        entry: uv run python scripts/validate_no_env_fallbacks.py
+        language: system
+        pass_filenames: true
+        types_or: [python, shell]
+        stages: [pre-commit]
+
+      # OMN-10817: Except-log-no-reraise (silent swallow) detector
+      # Rejects broad except+log blocks that don't re-raise.
+      # Annotation: add  # reraise-ok: <reason>  on the except line.
+      # REPORT MODE: exits 0, reports violations. Switch to enforce by removing --report.
+      - id: no-except-swallow
+        name: No except-log-no-reraise (OMN-10817)
+        entry: uv run python scripts/validation/validate_no_except_swallow.py --report
+        language: system
+        pass_filenames: true
+        types: [python]
+        stages: [pre-commit]
+
+      # OMN-10818: Event-bus none-guard-before-publish detector
+      # Rejects if-bus-is-not-None guards wrapping publish/emit/send calls.
+      # Annotation: add  # none-guard-ok: <reason>  on the if line.
+      # REPORT MODE: exits 0, reports violations. Switch to enforce by removing --report.
+      - id: no-none-guard-publish
+        name: No event-bus none-guard-before-publish (OMN-10818)
+        entry: uv run python scripts/validation/validate_no_none_guard_publish.py --report
+        language: system
+        pass_filenames: true
+        types: [python]
+        stages: [pre-commit]
+
+      # OMN-10819: ImportError-assigned-to-None fallback detector
+      # Rejects `except ImportError: Symbol = None` patterns.
+      # Annotation: add  # import-fallback-ok: <reason>  on the assignment line.
+      # REPORT MODE: exits 0, reports violations. Switch to enforce by removing --report.
+      - id: no-import-none-fallback
+        name: No ImportError-assigned-to-None fallback (OMN-10819)
+        entry: uv run python scripts/validation/validate_no_import_none_fallback.py --report
+        language: system
+        pass_filenames: true
+        types: [python]
+        stages: [pre-commit]
+
+      # SPDX Header Requirement
+      # Ensures all source files have the canonical SPDX MIT license header.
+      # To skip SPDX check in rare cases, add: # spdx-skip: <reason>
+      # See: docs/conventions/FILE_HEADERS.md for canonical header format
+      - id: validate-spdx-headers
+        name: ONEX SPDX Header Requirement
+        entry: uv run python scripts/validation/validate_spdx_headers.py
+        language: system
+        pass_filenames: true
+        # NOTE: The files: pattern covers src/, tests/, scripts/, and examples/
+        # subdirectories.  Root-level Makefile and Dockerfile are eligible per
+        # cli_spdx.py INCLUDED_FILENAMES but are NOT matched by this pattern.
+        # Neither file currently exists in this repo; if one is added in future,
+        # extend this pattern with an additional alternation (e.g. |Makefile|Dockerfile).
+        # Root-level .toml files (e.g. pyproject.toml) are also NOT matched by this
+        # pattern; they must carry SPDX headers but are validated by the CLI tool
+        # directly (e.g. via `onex spdx validate`) rather than via this hook.
+        # Note: hook pattern does not cover root-level .toml, Makefile, Dockerfile, or .github/workflows/ files (acknowledged gap).
+        # Developers adding or editing .github/workflows/ YAML files should run
+        # `onex spdx validate .github/workflows/` manually to verify SPDX headers,
+        # as those files are excluded from the pre-commit file: pattern above.
+        files: ^(src|tests|scripts|examples)/.*\.(py|sh|bash|yml|yaml|toml)$
+        exclude: ^(archived/|archive/)
+        stages: [pre-commit]
+
+      # PROTOCOL EXCLUSION: protocols/ is excluded because Protocol files define
+      # multiple related interfaces in single files (e.g., ProtocolIdentifiable,
+      # ProtocolNameable together). This is idiomatic for interface definitions.
+      # See: scripts/validation/validate-union-usage.py module docstring for rationale.
+      - id: onex-single-class-per-file
+        name: ONEX Single Class Per File
+        entry: uv run python scripts/validation/validate-single-class-per-file.py
+        language: system
+        pass_filenames: true
+        files: ^src/.*\.py$
+        # Exclusions:
+        # - protocols/: Protocol types define interfaces, not implementations
+        # - util_singleton_holders.py: Deprecated module with migration docs (no classes, just docstring)
+        # - model_action_config_value.py: Action config value types
+        # - model_node_config_value.py: Node config entry and schema types
+        # - mixin_event_bus.py: Duck-typed Protocol defined alongside mixin that uses it
+        # - mixin_health_check.py: Duck-typed Protocols (connection pools, clients) alongside health check mixin
+        # - checker_enum_governance.py: Tightly coupled data classes + AST visitor for governance validator (OMN-1313)
+        # - typed_dict_demo.py: TypedDict collection for demo CLI data structures (OMN-1396)
+        # - scanner_import_graph.py: Tightly coupled AST visitor + result models for import scanning (OMN-1771)
+        # - model_rule_configs.py: Related rule config family inheriting from shared base (OMN-1771)
+        # - model_cli_contribution.py: Tightly coupled CLI model hierarchy (OMN-3201)
+        # - model_contract_graph.py: Tightly coupled contract graph data model types (OMN-2540, OMN-3201)
+        # - model_contract_resolve_input.py: Tightly coupled input options + input model pair (OMN-3201)
+        # - model_contract_resolve_output.py: Tightly coupled output type hierarchy (OMN-3201)
+        # - model_backward_chaining.py: Private BFS signal enum co-located with planner (OMN-2561, OMN-3201)
+        # - model_github_pr_status_event.py: Enum tightly coupled to event model (OMN-3201)
+        # - model_validation_report.py: Tightly coupled validation report model family (OMN-3201)
+        # - service_contract_validator.py: Private implementation classes for contract validator (OMN-3201)
+        # - validator_local_paths.py: Small violation model tightly coupled to validator (OMN-3201)
+        # - model_graph_boundary.py: Discriminated union types for graph boundary (OMN-2554, OMN-3201)
+        # - service_protocol_auditor.py: Internal data classes for protocol auditor (OMN-3201)
+        # - contract_loader.py: Tightly coupled loader support types (OMN-3201)
+        # - model_action_set.py: Action data model co-located with action set enumerator (OMN-2554, OMN-3201)
+        # - model_ticket_context_bundle.py: TCB sub-model family tightly coupled to main bundle (OMN-3104)
+        # - validate_string_versions.py: validator script with tightly coupled internal AST visitor classes (OMN-4402)
+        # - timeout_utils.py: Cross-platform timeout utility classes — split deferred to OMN-4408
+        # - model_epic_state.py: Tightly coupled epic state model family (ModelEpicTicketStatus, ModelEpicWave, ModelEpicState) (OMN-4405)
+        # - validate_markdown_links.py: CLI script with tightly coupled data classes (LinkInfo, BrokenLink, ValidationResult, MarkdownLinkConfig) (OMN-5084)
+        # - runtime_local.py: Private _ResolvedRoutingEntry co-located with RuntimeLocal (internal dataclass)
+        # - runtime_dispatch.py: THE one runtime co-located with its DispatchRoute record + private structural transport-surface protocol mirrors (declared locally to avoid a protocols-hub import edge, OMN-14340) — same cohesive-runtime pattern as runtime_local.py (OMN-14747)
+        # - checker_normalization_symmetry.py: Tightly coupled AST visitor + small result dataclasses (TopicUse, SymmetryIssue) — same pattern as checker_enum_governance.py (OMN-9333)
+        # - validator_transport_import.py: Small violation model + private AST visitor tightly coupled to validator — same pattern as validator_local_paths.py (OMN-13283)
+        # - validator_node_purity.py: Rule enum + violation model + private AST visitor tightly coupled to validator — same pattern as checker_enum_governance.py (OMN-13283)
+        # - local_paths/models.py + private_ip/models.py: tightly-coupled scan-input/finding/result model triad for one COMPUTE validator — same precedent as the validator model families above (OMN-13293/OMN-13294)
+        exclude: ^(tests/|archived/|archive/|scripts/validation/|src/omnibase_core/validation/local_paths/models\.py$|src/omnibase_core/validation/private_ip/models\.py$|src/omnibase_core/validation/validator_transport_import\.py$|src/omnibase_core/validation/validator_node_purity\.py$|src/omnibase_core/utils/util_singleton_holders\.py$|src/omnibase_core/models/core/model_action_config_value\.py$|src/omnibase_core/models/configuration/model_node_config_value\.py$|src/omnibase_core/mixins/mixin_event_bus\.py$|src/omnibase_core/mixins/mixin_health_check\.py$|src/omnibase_core/validation/checker_enum_governance\.py$|src/omnibase_core/validation/checker_normalization_symmetry\.py$|src/omnibase_core/types/typed_dict_demo\.py$|src/omnibase_core/validation/cross_repo/scanners/scanner_import_graph\.py$|src/omnibase_core/models/validation/model_rule_configs\.py$|src/omnibase_core/protocols/|src/omnibase_core/models/contracts/model_cli_contribution\.py$|src/omnibase_core/navigation/model_contract_graph\.py$|src/omnibase_core/models/nodes/contract_resolve/model_contract_resolve_input\.py$|src/omnibase_core/models/nodes/contract_resolve/model_contract_resolve_output\.py$|src/omnibase_core/navigation/model_backward_chaining\.py$|src/omnibase_core/models/events/model_github_pr_status_event\.py$|src/omnibase_core/models/validation/model_validation_report\.py$|src/omnibase_core/services/service_contract_validator\.py$|src/omnibase_core/validation/validator_local_paths\.py$|src/omnibase_core/navigation/model_graph_boundary\.py$|src/omnibase_core/services/service_protocol_auditor\.py$|src/omnibase_core/contracts/contract_loader\.py$|src/omnibase_core/navigation/model_action_set\.py$|src/omnibase_core/models/ticket/model_ticket_context_bundle\.py$|src/omnibase_core/validation/scripts/validate_string_versions\.py$|src/omnibase_core/validation/scripts/timeout_utils\.py$|src/omnibase_core/models/epic/model_epic_state\.py$|src/omnibase_core/scripts/validate_markdown_links\.py$|src/omnibase_core/runtime/runtime_local\.py$|src/omnibase_core/runtime/runtime_dispatch\.py$)
+        stages: [pre-commit]
+
+      - id: validate-enum-model-imports
+        name: ONEX Enum/Model Import Prevention
+        entry: uv run python scripts/validation/validate-enum-model-imports.py
+        language: system
+        pass_filenames: true
+        files: ^src/omnibase_core/enums/.*\.py$
+        exclude: ^(tests/|archived/|archive/).*\.py$
+        stages: [pre-commit]
+
+      # Enum Member Casing Validation (OMN-1307)
+      # Enforces UPPER_SNAKE_CASE for all enum member names
+      # Detects: active, Active, someValue (lowercase or mixed case)
+      # Allows: ACTIVE, HTTP_2, V1_BETA, SHA256 (UPPER_SNAKE_CASE)
+      - id: check-enum-member-casing
+        name: ONEX Enum Member Casing Validation
+        entry: uv run python -m omnibase_core.validation.checker_enum_member_casing
+        language: system
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/).*\.py$
+        stages: [pre-commit]
+
+      - id: validate-typeddict-patterns
+        name: ONEX TypedDict Pattern Validation
+        entry: uv run python scripts/validation/validate-typeddict-patterns.py
+        language: system
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/|scripts/validation/).*\.py$
+        stages: [pre-commit]
+
+      # dict[str, Any] Anti-Pattern Detection
+      # TECHNICAL DEBT: Current baseline is 842 violations (2025-12-05)
+      # In file mode (pre-commit), any new violation fails
+      # In directory mode (CI), compares against --max-violations threshold
+      - id: validate-dict-any-usage
+        name: ONEX dict[str, Any] Anti-Pattern Detection
+        entry: uv run python scripts/validation/validate-dict-any-usage.py
+        language: system
+        pass_filenames: true
+        files: ^src/.*\.py$
+        # model_epic_state.py: dict[str, Any] used for unstructured ticket_metadata field (pre-existing, OMN-4405)
+        # runtime_local.py: pre-existing dict[str, Any] in runtime dispatch internals
+        exclude: ^(tests/|archived/|archive/|scripts/validation/).*\.py$|^src/omnibase_core/validation/scripts/validate_string_versions\.py$|^src/omnibase_core/validation/scripts/timeout_utils\.py$|^src/omnibase_core/models/epic/model_epic_state\.py$|^src/omnibase_core/runtime/runtime_local\.py$
+        stages: [pre-commit]
+        # validate_string_versions.py: validator script that takes dict[str, Any] for YAML content (OMN-4402)
+
+      # Bare model_dump() Detection (OMN-4912)
+      # Prevents bare model_dump() calls that produce non-JSON-safe types at
+      # serialization boundaries. Baseline: 314 violations (2026-03-13).
+      # Ratchet rule: any PR reducing violations must lower --max-violations.
+      # OMN-14694: the 5 WS8 validator-node handlers (OMN-14656/OMN-14659) plus
+      # the no-io-outside-effects handler all serialise JSON-safe findings
+      # via model_dump(mode="json"), removing 5 pre-existing bare calls and
+      # taking the tree from 314 to 309; ceiling lowered 310 -> 309 to match.
+      - id: validate-model-dump-json-mode
+        name: Validate model_dump uses mode="json"
+        entry: uv run python scripts/validation/validate-model-dump-json-mode.py --directory src/ --max-violations
+          309
+        language: system
+        pass_filenames: false
+        files: ^src/.*\.py$
+        stages: [pre-commit]
+
+      - id: no-pydantic-bypass-in-prod
+        name: ONEX Pydantic Bypass Prevention
+        entry: uv run python scripts/validation/validate-no-pydantic-bypass.py
+        language: system
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/|scripts/validation/).*\.py$
+        stages: [pre-commit]
+
+      # Security: Secret Detection (prevents hardcoded secrets)
+      - id: validate-secrets
+        name: ONEX Secret Detection
+        entry: uv run python scripts/validation/validate-secrets.py
+        language: system
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/|scripts/validation/).*\.py$
+        stages: [pre-commit]
+
+      # Security: Hardcoded Environment Variable Prevention
+      - id: validate-hardcoded-env-vars
+        name: ONEX Hardcoded Environment Variable Prevention
+        entry: uv run python scripts/validation/validate-hardcoded-env-vars.py
+        language: system
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/|scripts/validation/).*\.py$
+        stages: [pre-commit]
+
+      # Portability: No machine-specific absolute paths (OMN-9043)
+      # Catches /Volumes/..., /Users/..., /home/..., C:\... hardcoded paths. # local-path-ok
+      # Fails loud if validator_local_paths is not importable (not a silent skip).
+      # Suppress legitimate lines with: # local-path-ok
+      - id: check-local-paths
+        name: No hardcoded local/machine-specific paths (OMN-9043)
+        entry: uv run python -m omnibase_core.validation.validator_local_paths
+        language: system
+        types: [text]
+        exclude: >-
+          (?x)^(
+            \.secrets\.baseline$|
+            archived/|
+            archive/|
+            tests/fixtures/|
+            tests/unit/validation/test_validator_local_paths\.py$|
+            tests/unit/validation/test_checker_enum_member_casing\.py$|
+            tests/unit/validation/test_checker_literal_duplication\.py$|
+            tests/unit/validation/test_checker_naming_convention\.py$|
+            tests/unit/validation/test_validation_utils\.py$|
+            tests/unit/validation/test_validation_utils_edge_cases\.py$
+          )
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # OMN-14401: reject config/registry YAML files declaring duplicate ids over
+      # a key that is not guaranteed unique (the OMN-14395/14396 bug shape).
+      # Checked registries are declared config-as-data in .duplicate-id-registries.yaml
+      # (self-checks src/omnibase_core/contracts/antipattern_registry.yaml here — this
+      # repo has no routing_tiers.yaml/prod_promotion_grants.yaml of its own).
+      - id: check-duplicate-registry-ids
+        name: No duplicate ids in config/registry YAML files (OMN-14401)
+        entry: uv run python -m omnibase_core.validation.validator_duplicate_config_ids
+        language: system
+        files: ^(\.duplicate-id-registries\.yaml|src/omnibase_core/contracts/antipattern_registry\.yaml)$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # OMN-13293 (G1 canary): the SAME local-paths check, executed as a COMPUTE
+      # node over the in-memory event bus (two-transport seam — Kafka backend in
+      # CI). Generated by node_generation_consumer; accepted only because it
+      # reproduces the hand-authored ground truth across the G1 corpus +
+      # 6999-file shadow-bake (0 mismatches). BLOCKING (no warn-only): cold-start
+      # benchmarked at/below the direct-script time, so it does not drive
+      # --no-verify. Suppress legitimate lines with: # local-path-ok
+      - id: check-local-paths-compute
+        name: No hardcoded local/machine-specific paths — COMPUTE/bus (OMN-13293)
+        entry: uv run python -m omnibase_core.validation.local_paths.runtime_local_paths
+        language: system
+        types: [text]
+        exclude: >-
+          (?x)^(
+            \.secrets\.baseline$|
+            archived/|
+            archive/|
+            tests/fixtures/|
+            tests/unit/validation/local_paths/test_handler_local_paths_compute\.py$|
+            tests/unit/validation/test_validator_local_paths\.py$|
+            tests/unit/validation/test_checker_enum_member_casing\.py$|
+            tests/unit/validation/test_checker_literal_duplication\.py$|
+            tests/unit/validation/test_checker_naming_convention\.py$|
+            tests/unit/validation/test_validation_utils\.py$|
+            tests/unit/validation/test_validation_utils_edge_cases\.py$
+          )
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # OMN-13294 (G2): hardcoded private-IP (RFC1918) literals, executed as a
+      # COMPUTE node over the in-memory event bus (same two-transport seam as
+      # check-local-paths-compute; Kafka backend in CI). Generated by
+      # node_generation_consumer and accepted only because it passed a
+      # deterministic acceptance corpus in the hardened sandbox (corpus seeded
+      # from node_aislop_sweep's RFC1918 ground truth). BLOCKING (no warn-only).
+      # Suppress a line with: # onex-allow-internal-ip ; suppress a doc-heavy file
+      # whose subject IS IP literals with: # onex-allow-file-internal-ip
+      - id: check-private-ip-compute
+        name: No hardcoded private-IP literals — COMPUTE/bus (OMN-13294)
+        entry: uv run python -m omnibase_core.validation.private_ip.runtime_private_ip
+        language: system
+        types: [text]
+        # Tests legitimately exercise IP-handling with example private IPs as test
+        # data; the gate targets src/ (where a hardcoded private IP is a real
+        # environment-config leak). Docs are example-bearing too. This mirrors the
+        # spec excludes.allowed (^tests/, ^docs/) for hardcoded-private-ip.
+        exclude: >-
+          (?x)^(
+            \.secrets\.baseline$|
+            archived/|
+            archive/|
+            tests/|
+            docs/
+          )
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # OMN-13497: ban hand-written fakes/stubs of the platform's OWN inference /
+      # routing / dispatch boundary, executed as a COMPUTE node over the in-memory
+      # event bus (same two-transport seam as check-private-ip-compute; Kafka in
+      # CI). Generated by node_generation_consumer and accepted only because it
+      # passed a deterministic acceptance corpus in the hardened sandbox
+      # (corpus_no_faked_boundary). BLOCKING as of OMN-13502 (WS-F): omnibase_core
+      # is CLEAN under the fixed detector (PR #1377 exempts the canonical recorded-
+      # replay seam + honors the file-level onex-allow-file-faked-boundary marker),
+      # so --report-only is dropped and the hook now fails the commit on any new
+      # boundary fake. The CI counterpart is the required "No Faked Boundary Gate"
+      # (.github/workflows/no-faked-boundary.yml). This gate deliberately does NOT
+      # exclude tests/ — its primary subject is fakes inside tests that claim real-
+      # dispatch / golden-chain / real-bus coverage. omnimarket + omniclaude retain
+      # a pre-existing population (OMN-13500/13501) and flip blocking after their
+      # burn-down. Suppress an approved fixture line with: # onex-allow-faked-boundary
+      - id: check-no-faked-boundary
+        name: No faked inference/routing/dispatch boundary — COMPUTE/bus, BLOCKING (OMN-13502)
+        entry: uv run python -m omnibase_core.validation.no_faked_boundary.runtime_no_faked_boundary
+        language: system
+        types: [python]
+        exclude: >-
+          (?x)^(
+            archived/|
+            archive/
+          )
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # OMN-13480 (G2, SEA-dogfood): agent-left TODO/FIXME/HACK unfinished-work
+      # markers, executed as a COMPUTE node over the in-memory event bus (same
+      # two-transport seam as check-private-ip-compute; Kafka backend in CI).
+      # Generated by node_generation_consumer against the live model and accepted
+      # only because it passed a deterministic acceptance corpus in the hardened
+      # sandbox on the first attempt (corpus seeded from node_aislop_sweep's
+      # _TODO_PATTERN ground truth). BLOCKING (no warn-only). Suppress a line with:
+      # # onex-allow-todo-marker ; suppress a doc-heavy file whose subject IS the
+      # marker token with: # onex-allow-file-todo-marker
+      - id: check-todo-fixme-marker-compute
+        name: No agent-left TODO/FIXME/HACK markers — COMPUTE/bus (OMN-13480)
+        entry: uv run python -m omnibase_core.validation.todo_marker.runtime_todo_marker
+        language: system
+        types: [text]
+        # The gate targets src/ (where an agent-left marker is real unfinished-work
+        # debt). Tests + docs legitimately reference the marker tokens as their
+        # subject, so they are excluded (the validator's own package carries the
+        # file-level suppression marker). Mirrors the private-IP gate's excludes.
+        exclude: >-
+          (?x)^(
+            \.secrets\.baseline$|
+            archived/|
+            archive/|
+            tests/|
+            docs/
+          )
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # OMN-13480 (G2 residual of OMN-13294, SEA-dogfood): hardcoded
+      # http(s)://localhost / http(s)://127.0.0.1 URL literals, executed as a
+      # COMPUTE node over the in-memory event bus (same two-transport seam as
+      # check-private-ip-compute; Kafka backend in CI). The loopback-URL scanning
+      # logic was GENERATED by node_generation_consumer against the live model
+      # (Qwen3.6-35B-A3B on the local-coder backend) and accepted only because it
+      # passed a deterministic acceptance corpus in the hardened sandbox
+      # (corpus_hardcoded_localhost_url) — the corpus verdict, not the LLM, is the
+      # acceptance authority. This is the COMPLEMENT of check-url-authority, whose
+      # public-https-literal rule deliberately EXCLUDES localhost/loopback and
+      # whose url-const-assignment rule only catches a loopback literal assigned to
+      # a *_URL/*_ENDPOINT constant — a loopback URL in any other context was
+      # uncovered. BLOCKING (no warn-only). Suppress a line with:
+      # # onex-allow-internal-ip ; suppress a doc-heavy file whose subject IS
+      # localhost URL literals with: # onex-allow-file-internal-ip
+      - id: check-localhost-url-compute
+        name: No hardcoded localhost/loopback URL literals — COMPUTE/bus (OMN-13480)
+        entry: uv run python -m omnibase_core.validation.localhost_url.runtime_localhost_url
+        language: system
+        types: [text]
+        # The gate targets src/ (where a hardcoded localhost URL is a real
+        # endpoint-config / portability leak). Tests + docs legitimately reference
+        # localhost URLs as example data, so they are excluded (the validator's own
+        # package carries the file-level suppression marker). Mirrors the
+        # private-IP gate's excludes.
+        exclude: >-
+          (?x)^(
+            \.secrets\.baseline$|
+            archived/|
+            archive/|
+            tests/|
+            docs/
+          )
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # OMN-13509 (G2, SEA-dogfood): block any sibling dependency pin
+      # (omnibase-core/spi/compat git rev or branch=) in pyproject.toml / uv.lock
+      # whose pinned commit is NOT an ancestor of that sibling's dev HEAD — the
+      # PR-time sibling of the deploy-time OMN-12977 guard, and the real
+      # recurrence fix for the #2071 / OMN-13507 diverged-pin saga. Executed as a
+      # COMPUTE node over the in-memory event bus (same two-transport seam as
+      # check-private-ip-compute; Kafka backend in CI). The sibling-detection +
+      # pin-syntax + ancestry-verdict scanning logic was GENERATED by
+      # node_generation_consumer against the live model and accepted only because
+      # it passed a deterministic acceptance corpus in the hardened sandbox on the
+      # FIRST attempt (corpus_pin_hygiene). Git ancestry is resolved at the EFFECT
+      # boundary (runtime_pin_hygiene.annotate_ancestry runs `git merge-base
+      # --is-ancestor` against the sibling's canonical clone under $OMNI_HOME),
+      # keeping the COMPUTE handler pure. BLOCKING (no warn-only). Suppress an
+      # approved exception line with: # onex-allow-pin-hygiene
+      - id: check-pin-hygiene-compute
+        name: No off-dev-line sibling pins — COMPUTE/bus (OMN-13509)
+        entry: uv run python -m omnibase_core.validation.pin_hygiene.runtime_pin_hygiene
+        language: system
+        # Only dependency-pin manifests carry sibling git pins.
+        files: '(^|/)(pyproject\.toml|uv\.lock)$'
+        exclude: >-
+          (?x)^(
+            archived/|
+            archive/
+          )
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # OMN-13294 (G2, SEA-dogfood): hardcoded onex.<a>.<b>.<c> event-topic string
+      # literals pasted into handler source instead of being declared in
+      # contract.yaml and resolved through it, executed as a COMPUTE node over the
+      # in-memory event bus (same two-transport seam as check-private-ip-compute;
+      # Kafka backend in CI). The onex.<a>.<b>.<c> topic-shape scanning regex was
+      # GENERATED by node_generation_consumer against the live model and accepted
+      # only because it passed a deterministic acceptance corpus in the hardened
+      # sandbox on the FIRST attempt (corpus_hardcoded_topic, seeded from
+      # node_aislop_sweep's _HARDCODED_TOPIC_PATTERN ground truth). BLOCKING (no
+      # warn-only). Suppress an approved source-of-truth topic declaration with:
+      # # onex-allow-topic-literal ; suppress a registry/contract-fixture file
+      # whose subject IS topic literals with: # onex-allow-file-topic-literal
+      - id: check-hardcoded-topic-compute
+        name: No hardcoded onex.* topic literals — COMPUTE/bus (OMN-13294)
+        entry: uv run python -m omnibase_core.validation.hardcoded_topic.runtime_hardcoded_topic
+        language: system
+        types: [text]
+        # The gate targets src/ (where a pasted topic literal is real contract
+        # drift). Tests + docs legitimately reference onex.* topic literals as
+        # their subject (corpus fixtures, design docs), so they are excluded — the
+        # canonical topic registry carries the file-level suppression marker.
+        # Mirrors the private-IP / todo-marker gate excludes.
+        exclude: >-
+          (?x)^(
+            \.secrets\.baseline$|
+            archived/|
+            archive/|
+            tests/|
+            docs/
+          )
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # OMN-13572: doc-content scan — block local-environment traces (LAN IPs,
+      # .201/.200 host shorthand, personal /Users//home/ paths, ssh user@host,
+      # personal e-mail) and Linear OMN-<digits> ticket references in
+      # DOCUMENTATION files, executed as a COMPUTE node over the in-memory event
+      # bus (same two-transport seam as check-private-ip-compute; Kafka backend
+      # in CI). Generated + corpus-accepted (OMN-13569). Exemptions (OMN-13572):
+      # onex_change_control/ paths exempt from the OMN-<digits> rule only
+      # (local-env rules still apply); contracts/ excluded from the OMN rule; a
+      # SKILL.md `ticket: OMN-NNNN` frontmatter field is exempt. BLOCKING (no
+      # warn-only). Suppress a line with `doc-content-ok`; suppress a doc whose
+      # subject IS these traces with `doc-content-file-ok`. The runner's EFFECT
+      # boundary selects docs-only extensions, so non-doc files passed by
+      # pre-commit are filtered out before scanning.
+      - id: check-doc-content-scan
+        name: Doc-Content Scan Gate (OMN-13572)
+        entry: uv run python -m omnibase_core.validation.doc_content_scan.runtime_doc_content_scan
+        language: system
+        types_or: [markdown, rst, text]
+        # tests/ carry intentional doc-content fixtures (the violations the
+        # scanner-under-test must flag); archived/ is frozen history.
+        exclude: >-
+          (?x)^(
+            archived/|
+            archive/|
+            tests/
+          )
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # Receipt-Honesty Gate (OMN-12791 validator / OMN-12825 self-consume)
+      # Scans staged DoD receipt YAMLs under drift/dod_receipts/ for gaming
+      # patterns (echo probes marked PASS, deferred evidence in PASS receipts,
+      # self-attestation, fake human verifiers, deploy-keyword echo receipts).
+      # Fails loud if validator_receipt_honesty is not importable (not a silent
+      # skip). Only fires on receipt files matching the path pattern.
+      - id: check-receipt-honesty
+        name: Receipt Honesty Gate (OMN-12791)
+        entry: uv run python -m omnibase_core.validation.validator_receipt_honesty
+        language: system
+        types: [yaml]
+        files: drift/dod_receipts/.*\.yaml$
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # URL Authority Gate (OMN-12818, PR-2 of OMN-12803).
+      # Ratchet: NEW fingerprints fail; existing violations are grandfathered.
+      # Baseline is burn-down only. Migration debt: OMN-12806 (omnibase_core).
+      # Suppress with: # url-authority-ok: <reason>
+      - id: check-url-authority
+        name: URL Authority Gate (OMN-12818)
+        entry: uv run python -m omnibase_core.validation.validator_url_authority
+        args: [--repo, omnibase_core, --repo-root, .]
+        language: system
+        types: [python]
+        pass_filenames: true
+        exclude: ^(tests/|archived/|archive/).*\.py$
+        stages: [pre-commit]
+
+      # Backend Secret-Ref Discipline Gate (OMN-13305, ported from OMN-12971).
+      # Rejects literal PEM/SA-JSON/bearer credentials in committed routing-authority
+      # YAML. Requires every authenticated cloud backend to declare a logical
+      # secret ref (secret_ref/api_key_ref/api_key_env/credential_ref). ADC and
+      # API-key auth are mutually exclusive per backend. No warn-only mode.
+      - id: check-backend-secret-discipline
+        name: Backend Secret-Ref Discipline Gate (OMN-13305)
+        entry: uv run python -m omnibase_core.validation.validator_backend_secret_discipline
+        language: system
+        types_or: [yaml]
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # No datetime.utcnow() usage (OMN-14656, revives OMN-2362). Timezone-naive
+      # timestamps cause clock-skew bugs vs timezone-aware Kafka/PostgreSQL
+      # datetimes. Scoped to src/ only (matches the ported oracle's own
+      # src_root.rglob("*.py") scope) — tests/fixtures/validation/exports/
+      # contains an intentional syntax-error fixture that would otherwise
+      # ERROR this AST-based check.
+      - id: check-no-utcnow
+        name: No datetime.utcnow() Usage (OMN-14656)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_no_utcnow_check_compute.runtime_no_utcnow_check
+        language: system
+        files: ^src/.*\.py$
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # No localhost/hardcoded-endpoint fallback defaults (OMN-14659). Scoped to
+      # src/ only, matching the check-no-utcnow precedent above — this repo's src/
+      # tree is currently clean against this check (verified 2026-07-16).
+      - id: check-no-env-fallbacks
+        name: No Localhost/Hardcoded-Endpoint Fallbacks (OMN-14659)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_no_env_fallbacks_check_compute.runtime_no_env_fallbacks_check
+        language: system
+        files: ^src/.*\.(py|sh|bash)$
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # No hardcoded internal IP literals (OMN-14659, self-wired OMN-14665).
+      # The 5 pre-existing findings — illustrative RFC1918/RFC5737 example IPs in
+      # the model_handler_packaging.py docstrings (which DOCUMENT that IP-literal
+      # hosts are valid in artifact-reference URLs) — were triaged to per-line
+      # `# onex-allow-internal-ip` markers (not a blanket allowlist). src/ is now
+      # green (verified 2026-07-17). Scoped to src/ .py/.yaml, matching the
+      # remote hook's types_or. Suppress a justified line with:
+      # # onex-allow-internal-ip
+      - id: check-no-hardcoded-ip
+        name: No Hardcoded Internal IP Addresses (OMN-14659)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_no_hardcoded_ip_check_compute.runtime_no_hardcoded_ip_check
+        language: system
+        files: ^src/.*\.(py|ya?ml)$
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # No direct Kafka producer usage outside the shared publisher layer
+      # (OMN-14659, self-wired OMN-14665). The 8 pre-existing findings were all
+      # false positives from the oracle's SUBSTRING match on symbol names
+      # (ProtocolKafkaProducer* health-check types, and this check's own
+      # Node/Model/Visitor class names) — triaged with the additive per-line
+      # `# onex-allow-kafka-producer` marker shipped in the same PR. src/ is now
+      # green (verified 2026-07-17).
+      - id: check-no-direct-kafka-producer
+        name: No Direct Kafka Producer Usage (OMN-14659)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_no_direct_kafka_producer_check_compute.runtime_no_direct_kafka_producer_check
+        language: system
+        files: ^src/.*\.py$
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # No raw sqlite3.connect() outside *_adapter.py (OMN-14659, self-wired
+      # OMN-14665). The 1 pre-existing finding — the local-harness projection
+      # store (harness_projection_store_sqlite.py), which IS a zero-infra
+      # in-process adapter bootstrap that owns its own connection by design
+      # (OMN-13420) — was triaged with the sanctioned `# di-ok` marker. src/ is
+      # now green (verified 2026-07-17). Suppress a legitimate adapter-bootstrap
+      # call site with: # di-ok
+      - id: check-no-raw-sqlite3
+        name: No Raw sqlite3.connect() Outside Adapters (OMN-14659)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_no_raw_sqlite3_check_compute.runtime_no_raw_sqlite3_check
+        language: system
+        files: ^src/.*\.py$
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # No I/O outside EFFECT node packages (OMN-14694 seed → OMN-14662 collapse).
+      # The single WS8 archetype-purity invariant: I/O and direct adapter/bus
+      # instantiation are permitted only in EFFECT nodes; every module in a
+      # non-EFFECT package must be pure. Self-wired here (scoped to src/) because
+      # this repo's src/ tree is clean against it (verified 2026-07-16: full-tree
+      # self-scan is green). Matches both .py and contract.yaml so a handler edit
+      # OR an archetype flip in a contract triggers the check; the runtime
+      # resolves each staged file's node-package directory and reads the sibling
+      # contract to key off archetype. Suppress a proven-legitimate exception
+      # with: # io-ok: <reason>
+      - id: check-no-io-outside-effects
+        name: No I/O Outside EFFECT Node Packages (OMN-14694/OMN-14662)
+        entry: env -u PYTHONPATH uv run python -m omnibase_core.nodes.node_no_io_outside_effects_check_compute.runtime_no_io_outside_effects_check
+        language: system
+        files: ^src/.*(\.py|/contract\.yaml)$
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # Canonical Inference Gate (OMN-13219).
+      # Fails on non-canonical model-inference surfaces: shelled model CLIs
+      # (codex/claude/gemini/opencode via subprocess/exec/shutil.which) and
+      # *_MODEL / *_PROVIDER env reads. Endpoint URLs are owned by the
+      # url-authority gate above. Ratchet: NEW fingerprints fail; existing are
+      # grandfathered (codex shell-out removal tracked by OMN-13215). Baseline is
+      # burn-down only. Suppress with: # canonical-inference-ok: <reason>
+      - id: check-canonical-inference
+        name: Canonical Inference Gate (OMN-13219)
+        entry: uv run python -m omnibase_core.validation.validator_canonical_inference
+        args: [--repo, omnibase_core, --repo-root, .]
+        language: system
+        types: [python]
+        pass_filenames: true
+        exclude: ^(tests/|archived/|archive/).*\.py$
+        stages: [pre-commit]
+
+      - id: validate-exception-handling
+        name: ONEX Exception Handling Validation
+        entry: uv run python scripts/validation/validate-exception-handling.py
+        language: system
+        pass_filenames: true
+        files: ^src/.*\.py$
+        exclude: ^(tests/|archived/|archive/|scripts/validation/).*\.py$
+        stages: [pre-commit]
+
+      # ONEX Model-Primitive Union Prevention (PR#59 follow-up)
+      # Prevents Union types mixing models and primitives that cause Pydantic
+      # validation race conditions in parallel execution (pytest-xdist)
+      - id: validate-no-model-primitive-unions
+        name: ONEX Model-Primitive Union Prevention
+        entry: ./scripts/validate-no-model-primitive-unions.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # ONEX Transport Import Prevention (ADR-005)
+      # Enforces core-infra dependency boundary: omnibase_core must be pure
+      # Detects forbidden imports: aiohttp, httpx, requests, kafka, redis, asyncpg, etc.
+      # AST-based validator correctly handles TYPE_CHECKING guards (allowed per ADR-005)
+      # See: docs/decisions/ADR-005-core-infra-dependency-boundary.md
+      - id: validate-no-transport-imports
+        name: ONEX Transport Import Prevention
+        entry: uv run python scripts/validate_no_transport_imports.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # ONEX Deterministic Skill Routing (OMN-8765)
+      # AST-based CI gate enforcing that every Tier 1 deterministic skill in
+      # omniclaude routes through `onex run-node` / `onex node` (or a Kafka
+      # publish) and surfaces `SkillRoutingError` on routing failure. Skips
+      # when the omniclaude sibling clone is absent (e.g., contributors who
+      # have not cloned the full omni_home registry).
+      - id: validate-deterministic-skill-routing
+        name: ONEX Deterministic Skill Routing (OMN-8765)
+        entry: bash scripts/pre_commit_validate_deterministic_skills.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # ONEX Kafka/Listener API Prevention (OMN-1747, OMN-1745)
+      # Prevents reintroduction of Kafka and listener management APIs removed from core.
+      # omnibase_core must be transport-agnostic - use EventBusSubcontractWiring
+      # in omnibase_infra for Kafka consumer management.
+      # Detects: start_event_listener, stop_event_listener, _event_listener_loop,
+      #          ModelEventBusListenerHandle class and imports, Kafka-specific APIs
+      - id: validate-no-kafka-listener-apis
+        name: Prevent Kafka/listener APIs in omnibase_core
+        entry: uv run python scripts/validation/validate-no-kafka-listener-apis.py
+        language: system
+        pass_filenames: true
+        files: ^src/omnibase_core/.*\.py$
+        exclude: ^tests/.*\.py$
+        stages: [pre-commit]
+
+      # Consolidated markdown link validation (OMN-5084)
+      # Validates internal markdown links point to existing files and anchors
+      # Configuration: .markdown-link-check.json (ignore patterns, exclude files)
+      # Replaces both validate-doc-links and validate-markdown-links hooks
+      - id: onex-validate-links
+        name: Validate markdown links
+        entry: uv run onex-validate-links --verbose
+        language: system
+        types: [markdown]
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # NOTE: Smoke tests removed (2025-12) - redundant with CI
+      # CI runs full 12k+ test suite with 20 parallel splits
+      # Removing saves ~4-5 minutes per push with no coverage loss
+
+      # Protocol @runtime_checkable Validation
+      # Ensures all Protocol classes have @runtime_checkable decorator
+      # Required for isinstance() checks and duck typing at runtime
+      # NOTE: always_run=true means files: pattern is ignored - script does its own discovery
+      - id: check-protocol-runtime-checkable
+        name: ONEX Protocol @runtime_checkable Validation
+        entry: uv run python scripts/validation/check_protocol_runtime_checkable.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # Protocol UUID Enforcement (pre-push only)
+      # Verifies protocol type annotations use UUID instead of str
+      # Catches issues like / before CI
+      # ~6s runtime - acceptable for pre-push but too slow for every commit
+      - id: pytest-protocol-uuid-enforcement
+        name: Protocol UUID Enforcement Check
+        entry: uv run pytest
+        language: system
+        pass_filenames: false
+        always_run: true
+        args:
+          - tests/unit/protocols/test_protocol_uuid_enforcement.py
+          - --maxfail=3
+          - -x
+          - --tb=short
+          - -q
+          - --timeout=30
+          - -s
+          - -p
+          - no:rerunfailures
+          - -p
+          - no:testmon
+        stages: [pre-push]
+
+      # Release-Identity Gate (OMN-13411)
+      # Blocks merging a packaged-source (src/**) change onto an already-published
+      # version string. omnibase_core is a published PyPI package; if src/ changes
+      # but project.version is NOT bumped past the latest published tag, two code
+      # states ship under one wheel version (the OMN-13402/OMN-13405 crash). Port
+      # of the omnibase_infra release-identity gate (OMN-13412). The script does
+      # its own diff/tag resolution; pass_filenames=false because it inspects the
+      # whole worktree, not a per-file list.
+      - id: check-release-identity
+        name: No code merged onto a published version without a bump (OMN-13411)
+        entry: uv run python scripts/check_release_identity.py
+        language: system
+        files: ^(src/.*\.py|pyproject\.toml)$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      # Enum Governance Validation (OMN-1313)
+      # Enforces enum governance rules to prevent enum/status duplication:
+      # - E001: Enum members must use UPPER_SNAKE_CASE
+      # - E002: Literal types should not duplicate existing enum values
+      # NOTE: always_run=true means files: pattern is ignored - script does its own discovery
+      - id: check-enum-governance
+        name: ONEX Enum Governance Validation
+        entry: uv run python -m omnibase_core.validation.checker_enum_governance src/
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit, pre-push]
+
+      # Node Purity Validation (OMN-203)
+      # Ensures declarative nodes (COMPUTE, REDUCER) maintain purity guarantees:
+      # - No I/O operations, network calls, or side effects
+      # - No forbidden imports (networking, subprocess, threading)
+      # - No class-level mutable state
+      # - No caching decorators that introduce state
+      # EFFECT and ORCHESTRATOR nodes are excluded (allowed to have side effects)
+      # RUNS UNCONDITIONALLY: always_run=true ensures this runs on EVERY push
+      # regardless of which files changed. The script (not the hook) internally
+      # discovers and scans ALL node files (~2-5s runtime). No file pattern filter
+      # is configured at the hook level - the script handles all file discovery.
+      # NOTE: Base node classes (node_compute.py, node_reducer.py) have pre-existing
+      # Any usages that need cleanup in a separate ticket
+      - id: check-node-purity
+        name: ONEX Node Purity Validation
+        entry: uv run python scripts/check_node_purity.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
+      # OMN-4801: Forbidden/decommissioned pattern scanner
+      # Prevents reintroduction of decommissioned endpoints, deprecated providers,
+      # and forbidden configuration values listed in decommissioned_patterns.conf.
+      - id: check-forbidden-patterns
+        name: Decommissioned Pattern Scanner
+        entry: bash scripts/check_forbidden_patterns.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # OMN-9115: Enforce architecture-handshakes/validator-requirements.yaml
+      # Runs the consumer in baseline mode; blocks on any new gap relative to
+      # validator-requirements-baseline.yaml. feedback_no_informational_gates:
+      # ratchet pattern (established precedent: validate-dict-any-usage).
+      - id: validate-validator-requirements
+        name: Enforce validator-requirements.yaml (OMN-9115)
+        entry: uv run python -m omnibase_core.validation.validator_requirements_consumer --repo omnibase_core
+          --repo-root . --baseline architecture-handshakes/validator-requirements-baseline.yaml
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # OMN-13574 (Model B): prove the single required rollup (CI Summary) is
+      # AIRTIGHT — every opted-in spec-required validator is transitively
+      # required by the rollup job's needs graph and not swallowed by
+      # continue-on-error. Non-opted repos exit 0 (pilot scope, fleet OMN-13576).
+      - id: validate-rollup-coverage
+        name: Verify Model-B rollup coverage (OMN-13574)
+        entry: uv run python -m omnibase_core.validation.validator_rollup_coverage --repo omnibase_core
+          --repo-root .
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # OMN-9886: ValidatorRuntimeProfiles — every command-consuming
+      # contract must declare runtime_profiles (top-level or under
+      # descriptor) or be on the explicit allowlist with a reason.
+      # Plan: docs/plans/2026-04-26-runtime-lifecycle-hardening-plan.md (Task 4).
+      - id: validate-runtime-profiles
+        name: Validate runtime_profiles on command-consuming contracts (OMN-9886)
+        entry: uv run python -m omnibase_core.validation.validator_runtime_profiles src/
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      # OMN-4569: Block operational artifact files from being committed
+      # Recovery logs and validation logs are auto-generated by automated tooling
+      # and must never be tracked as repo content.
+      - id: block-operational-artifacts
+        name: Block operational artifact files (recovery/validation logs)
+        language: fail
+        files: '(^docs/recovery/|[^/]*-validation-log-\d{4}-\d{2}-\d{2}|[^/]*-recovery-log-\d{4}-\d{2}-\d{2})'
+        entry: "Operational artifact detected — do not commit recovery/validation logs. These are auto-generated
+          session files. See OMN-4569."
+        stages: [pre-commit]
+
+      # OMN-11186: Block new os.environ / os.getenv additions outside allowlist
+      - id: no-new-env-vars
+        name: No New os.environ/os.getenv Additions (OMN-11186)
+        language: python
+        entry: python scripts/validation/validate_no_new_env_vars.py
+        types: [python]
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # OMN-13566: Canonical AST env-read gate replacing the regex ratchet.
+      - id: no-new-os-environ
+        name: No New os.environ/os.getenv Reads (OMN-13566)
+        entry: uv run python -m omnibase_core.validators.no_new_os_environ
+        language: system
+        types: [python]
+        exclude: ^(tests/|scripts/|examples/)
+        pass_filenames: true
+        stages: [pre-commit]
+
+      # OMN-5063: Block untyped metadata dict fields
+      # Centralized in onex_change_control (OMN-5135)
+      - id: no-untyped-metadata
+        name: No untyped metadata dict fields
+        language: system
+        entry: uv run check-no-untyped-metadata
+        types: [python]
+        exclude: ^tests/|^examples/|^scripts/
+        stages: [pre-commit]
+
+  # Hardcoded topic string prevention (OMN-5259)
+  # Rejects bare onex.evt.*/onex.cmd.* strings outside approved constant files.
+  # Centralised in onex_change_control for cross-repo enforcement.
+  # Pre-existing violations excluded below — pending migration to canonical constants.
+  - repo: https://github.com/OmniNode-ai/onex_change_control
+    rev: 8d7e85bc00e7f1b1306d1cb40949be1ab6e7e91a  # pragma: allowlist secret
+    hooks:
+      - id: no-hardcoded-topics
+        exclude: ^(src/omnibase_core/constants/constants_event_types\.py|src/omnibase_core/models/events/contract_registration/model_contract_deregistered_event\.py|src/omnibase_core/models/events/contract_registration/model_contract_registered_event\.py|src/omnibase_core/models/events/contract_registration/model_node_heartbeat_event\.py|src/omnibase_core/models/events/model_episode_event\.py|src/omnibase_core/models/events/model_git_hook_event\.py|src/omnibase_core/models/events/model_github_pr_status_event\.py|src/omnibase_core/models/events/model_linear_snapshot_event\.py|src/omnibase_core/models/events/validation/model_validation_run_completed_event\.py|src/omnibase_core/models/events/validation/model_validation_run_started_event\.py|src/omnibase_core/models/events/validation/model_validation_violations_batch_event\.py|src/omnibase_core/schemas/cli_contribution\.v1\.example\.yaml|src/omnibase_core/validation/validator_topic_suffix\.py)$
+        stages: [pre-commit]
+      - id: no-untracked-todos
+        stages: [pre-commit]
+
+  # Demo-path topic coherence gate (OMN-12777)
+  # Scoped to demo-path contracts (metadata.demo_path: true).
+  # Fails on: orphan producers/consumers, publish/subscribe byte-mismatch,
+  # widget topics without producers, hand-authored topic literals.
+  - repo: local
+    hooks:
+      - id: demo-path-topic-coherence
+        name: demo-path topic coherence gate (OMN-12777)
+        entry: uv run onex-demo-path-topic-gate src/
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+  # WS7 CI<->pre-commit parity meta-gates (OMN-14671 / OMN-14655).
+  # Local counterpart of .github/workflows/precommit-parity-gate.yml — the
+  # entry: strings are byte-identical to that workflow's steps so a skipped or
+  # weakened gate cannot pass here and fail on CI (or vice-versa). Both run
+  # `uv run --no-project` so they share an identical ephemeral env with CI and
+  # never depend on worktree uv.sources resolution.
+  - repo: local
+    hooks:
+      - id: precommit-fail-loud-meta-gate
+        name: Pre-commit fail-loud meta-gate (exit-0-on-missing / stages coverage)
+        entry: uv run --no-project --with pyyaml python3 scripts/validation/validate_precommit_fail_loud.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      - id: precommit-pin-parity
+        name: Pre-commit pin-parity (pre-commit rev vs CI-pinned SHA)
+        entry: uv run --no-project --with pyyaml python3 scripts/validation/validate_precommit_pin_parity.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+  # Governed impacted-test selector at PRE-PUSH (OMN-13973 / WS7 OMN-14655, D6a).
+  # Runs the fast local IMPACTED SUBSET of the unit suite once per `git push`,
+  # via the SAME selector CI uses (scripts/ci/detect_test_paths.py +
+  # test_selection_adjacency.yaml, ENABLE_SMART_TESTS) -- never a hand-typed -k.
+  # Fail-closed: escalates to the full unit suite when it cannot prove narrowing
+  # is safe (shared module / pyproject deps / scripts/ci/ / >=8 modules / main).
+  # NET-NEGATIVE-SURFACE: retires the "run the whole suite by hand before every
+  # push" default (root CLAUDE.md Rule #4). This is a fast local mirror ADVISORY
+  # of the full CI suite -- NOT byte-parity with an enforced CI context (on CI
+  # the selector is behind ENABLE_SMART_TESTS off-by-default; the enforced gate
+  # is the full suite). FAIL-LOUD: hard-errors if base/selector/adjacency cannot
+  # resolve (plan section 3d.4); never a green skip.
+  - repo: local
+    hooks:
+      - id: prepush-smart-tests
+        name: Governed impacted-test selector (pre-push, OMN-13973)
+        entry: bash scripts/hooks/prepush_smart_tests.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        verbose: true
+        stages: [pre-push]
+
+# Configuration
+default_install_hook_types: [pre-commit, pre-push, commit-msg]
+default_stages: [pre-commit]
+fail_fast: false
+# Note: minimum_pre_commit_version removed to avoid string version anti-pattern
+# Project requires pre-commit >= 2.15.0 (document in README if needed)
+
+# Performance optimization: Enable parallel execution
+# This significantly reduces total execution time
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes for omnibase_core
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_schedule: weekly
+  submodules: false

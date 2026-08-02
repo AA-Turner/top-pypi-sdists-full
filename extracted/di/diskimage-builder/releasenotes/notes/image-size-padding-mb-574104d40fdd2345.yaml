@@ -1,5 +1,0 @@
----
-upgrade:
-  - |
-    The ``--image-extra-size`` argument has changed from gigabytes to
-    megabytes to make it more practical for use on smaller images.

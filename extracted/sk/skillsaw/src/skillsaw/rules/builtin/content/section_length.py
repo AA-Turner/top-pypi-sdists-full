@@ -1,0 +1,85 @@
+"""Content section length rule"""
+
+from typing import List
+
+from skillsaw.rule import Rule, RuleViolation, Severity
+from skillsaw.context import RepositoryContext
+from skillsaw.rules.builtin.content_analysis import (
+    gather_all_content_blocks,
+)
+
+
+class ContentSectionLengthRule(Rule):
+    """Warn about overly long markdown sections"""
+
+    formats = None
+    since = "0.7.0"
+
+    _DEFAULT_MAX_TOKENS = 500
+    _CHARS_PER_TOKEN = 4
+
+    config_schema = {
+        "max-tokens": {
+            "type": "int",
+            "default": 500,
+            "description": "Maximum estimated tokens per section before triggering a warning",
+        },
+    }
+
+    @property
+    def rule_id(self) -> str:
+        return "content-section-length"
+
+    @property
+    def description(self) -> str:
+        max_tokens = self.config.get("max-tokens", self._DEFAULT_MAX_TOKENS)
+        return f"Warn about markdown sections longer than ~{max_tokens} tokens"
+
+    def default_severity(self) -> Severity:
+        return Severity.INFO
+
+    @classmethod
+    def _estimate_tokens(cls, text: str) -> int:
+        return max(1, len(text) // cls._CHARS_PER_TOKEN)
+
+    def check(self, context: RepositoryContext) -> List[RuleViolation]:
+        max_tokens = self.config.get("max-tokens", self._DEFAULT_MAX_TOKENS)
+        violations = []
+        for cf in gather_all_content_blocks(context):
+            body = cf.read_body()
+            if not body:
+                continue
+            doc = cf.markdown
+            lines = body.splitlines()
+            sections: List[tuple] = []
+            current_heading_line = 1
+            current_heading_text = "(top of file)"
+            section_start = 0
+
+            for heading in doc.headings():
+                heading_start = heading.body_line - 1  # 0-based section end
+                if heading_start > section_start:
+                    sections.append(
+                        (current_heading_text, current_heading_line, section_start, heading_start)
+                    )
+                current_heading_text = heading.text
+                current_heading_line = heading.body_line
+                section_start = heading.body_line_end - 1
+
+            if len(lines) > section_start:
+                sections.append(
+                    (current_heading_text, current_heading_line, section_start, len(lines))
+                )
+
+            for heading, heading_line, start, end in sections:
+                section_text = "\n".join(lines[start:end])
+                token_count = self._estimate_tokens(section_text)
+                if token_count > max_tokens:
+                    violations.append(
+                        self.violation(
+                            f"Section '{heading}' is ~{token_count} tokens (max recommended: {max_tokens})",
+                            block=cf,
+                            line=heading_line if heading_line > 0 else None,
+                        )
+                    )
+        return violations

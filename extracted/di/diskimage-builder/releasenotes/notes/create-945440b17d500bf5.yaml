@@ -1,4 +1,0 @@
----
-critical:
-  - |
-    This is the last release of diskimage-builder to support Python 2

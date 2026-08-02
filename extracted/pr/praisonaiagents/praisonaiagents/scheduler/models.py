@@ -1,0 +1,326 @@
+"""
+Schedule models for PraisonAI Agents.
+
+Lightweight dataclasses — no heavy dependencies.
+"""
+
+import time
+import uuid
+from dataclasses import dataclass, field
+from typing import Any, Dict, Literal, Optional
+
+
+@dataclass
+class Schedule:
+    """When to run a scheduled job.
+
+    Supports three kinds:
+    - ``every``: recurring interval in seconds
+    - ``cron``: 5-field cron expression (requires optional ``croniter``)
+    - ``at``: one-shot ISO 8601 timestamp
+    """
+
+    kind: Literal["every", "cron", "at"] = "every"
+    every_seconds: Optional[int] = None
+    cron_expr: Optional[str] = None
+    at: Optional[str] = None
+    tz: Optional[str] = None
+
+    # ── serialisation ────────────────────────────────────────────────
+
+    def to_dict(self) -> Dict[str, Any]:
+        d: Dict[str, Any] = {"kind": self.kind}
+        if self.every_seconds is not None:
+            d["every_seconds"] = self.every_seconds
+        if self.cron_expr is not None:
+            d["cron_expr"] = self.cron_expr
+        if self.at is not None:
+            d["at"] = self.at
+        if self.tz is not None:
+            d["tz"] = self.tz
+        return d
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "Schedule":
+        return cls(
+            kind=d.get("kind", "every"),
+            every_seconds=d.get("every_seconds"),
+            cron_expr=d.get("cron_expr"),
+            at=d.get("at"),
+            tz=d.get("tz"),
+        )
+
+
+@dataclass
+class DeliveryTarget:
+    """Where to deliver the result when a scheduled job fires.
+
+    Attributes:
+        channel: Platform name (``"telegram"``, ``"discord"``,
+                 ``"slack"``, ``"whatsapp"``).
+        channel_id: Platform-specific chat / channel / group ID.
+        thread_id: Optional thread ID for threaded delivery.
+        session_id: Optional session ID to preserve conversation
+                    context when the cron fires.
+        deliver: Optional routing token (e.g., "origin", "telegram", "all").
+                 Takes precedence over channel/channel_id when set.
+        continuable: When ``True`` (default) a delivered result seeds a
+                    resumable session so the user's reply in the same chat
+                    resumes the job's conversation with full context — the
+                    delivery is a *conversation opener*, not a dead-end.
+                    Set ``False`` for pure fire-and-forget notifications.
+                    A declarable contract only; the seeding itself is done by
+                    the gateway delivery path in the ``praisonai-bot`` layer.
+    """
+
+    channel: str = ""
+    channel_id: str = ""
+    thread_id: Optional[str] = None
+    session_id: Optional[str] = None
+    deliver: str = ""
+    continuable: bool = True
+
+    def to_dict(self) -> Dict[str, Any]:
+        d: Dict[str, Any] = {
+            "channel": self.channel,
+            "channel_id": self.channel_id,
+        }
+        if self.thread_id is not None:
+            d["thread_id"] = self.thread_id
+        if self.session_id is not None:
+            d["session_id"] = self.session_id
+        if self.deliver:
+            d["deliver"] = self.deliver
+        # Only persist when opting out — the default (True) is implied by
+        # absence so existing serialised targets keep behaving unchanged.
+        if not self.continuable:
+            d["continuable"] = False
+        return d
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "DeliveryTarget":
+        return cls(
+            channel=d.get("channel", ""),
+            channel_id=d.get("channel_id", ""),
+            thread_id=d.get("thread_id"),
+            session_id=d.get("session_id"),
+            deliver=d.get("deliver", ""),
+            continuable=d.get("continuable", True),
+        )
+
+    @classmethod
+    def parse(cls, token: str) -> Optional["DeliveryTarget"]:
+        """Parse a ``deliver`` token into a :class:`DeliveryTarget`.
+
+        Accepts the same symbolic grammar the delivery router resolves, so a
+        scheduled/interval agent can be told where to send its result from
+        Python, YAML or the CLI without constructing the model by hand:
+
+        - ``""`` / ``None`` → ``None`` (no delivery configured).
+        - ``"telegram"`` → platform only; the router resolves the platform's
+          home channel (``channel="telegram"``, ``deliver="telegram"``).
+        - ``"telegram:123456"`` → explicit channel
+          (``channel="telegram"``, ``channel_id="123456"``).
+        - ``"telegram:123456:789"`` → explicit channel + thread
+          (``thread_id="789"``).
+        - ``"origin"`` / ``"all"`` → routing token preserved in ``deliver`` for
+          the router to resolve (no concrete channel here).
+
+        Args:
+            token: A delivery token string.
+
+        Returns:
+            A :class:`DeliveryTarget`, or ``None`` when the token is empty.
+        """
+        if not token or not str(token).strip():
+            return None
+        token = str(token).strip()
+
+        # Symbolic routing tokens carry no concrete channel here; the router
+        # resolves them (e.g. "origin" needs request context, "all" fans out).
+        if token.lower() in ("origin", "all"):
+            return cls(deliver=token.lower())
+
+        if ":" in token:
+            parts = [p.strip() for p in token.split(":")]
+            channel = parts[0]
+            channel_id = parts[1] if len(parts) > 1 else ""
+            thread_id = parts[2] if len(parts) > 2 and parts[2] else None
+            return cls(
+                channel=channel,
+                channel_id=channel_id,
+                thread_id=thread_id,
+                deliver=token,
+            )
+
+        # Bare platform name → resolve to its home channel via the router.
+        return cls(channel=token, deliver=token)
+
+
+@dataclass
+class RunRecord:
+    """A single execution record for a scheduled job.
+
+    Attributes:
+        job_id: ID of the job that was executed.
+        job_name: Human-readable name of the job.
+        status: Execution status (``"succeeded"``, ``"failed"``, ``"skipped"``).
+        result: Agent response text (truncated if very long).
+        error: Error message if status is ``"failed"``.
+        duration: Wall-clock seconds for execution.
+        delivered: Whether result was delivered to a channel bot.
+        timestamp: Epoch timestamp of execution.
+    """
+
+    job_id: str
+    job_name: str = ""
+    status: Literal["succeeded", "failed", "skipped"] = "succeeded"
+    result: Optional[str] = None
+    error: Optional[str] = None
+    duration: float = 0.0
+    delivered: bool = False
+    timestamp: float = field(default_factory=time.time)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "job_id": self.job_id,
+            "job_name": self.job_name,
+            "status": self.status,
+            "result": self.result,
+            "error": self.error,
+            "duration": self.duration,
+            "delivered": self.delivered,
+            "timestamp": self.timestamp,
+        }
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "RunRecord":
+        return cls(
+            job_id=d.get("job_id", ""),
+            job_name=d.get("job_name", ""),
+            status=d.get("status", "succeeded"),
+            result=d.get("result"),
+            error=d.get("error"),
+            duration=d.get("duration", 0.0),
+            delivered=d.get("delivered", False),
+            timestamp=d.get("timestamp", time.time()),
+        )
+
+
+@dataclass
+class ScheduleJob:
+    """A persisted scheduled job.
+
+    Attributes:
+        id: Unique identifier (auto-generated).
+        name: Human-readable name.
+        schedule: When to run.
+        message: Prompt / payload to deliver when triggered.
+        agent_id: Optional owning agent.
+        session_target: ``"main"`` injects into running session;
+                        ``"isolated"`` creates a fresh agent turn.
+        enabled: Toggle without deleting.
+        delete_after_run: Auto-remove after first execution (one-shot).
+        created_at: Epoch timestamp.
+        last_run_at: Epoch timestamp of most recent execution.
+        delivery: Optional delivery target for routing results back
+                  to a channel bot (e.g. Telegram chat).
+        origin: Optional original delivery target where the job was created
+                (for "origin" token resolution).
+        pre_run: Optional cheap, deterministic pre-run gate evaluated before
+                 the (expensive) model turn — a shell/python command or a
+                 registered gate name. When it reports "nothing to do" the
+                 tick is recorded as ``skipped`` with no tokens spent and no
+                 delivery. When it reports "go", any output it prints is
+                 appended to ``message`` as context. A cost/efficiency gate,
+                 distinct from the wrapper's safety ``RunPolicy``.
+        condition: Optional natural-language / expression label describing the
+                   gate's intent. Advisory metadata only — it is round-tripped
+                   and surfaced for readability but is NOT itself enforced; the
+                   default :class:`ShellConditionGate` gates on ``pre_run``. A
+                   custom ``condition_resolver`` may interpret it.
+        principal: Optional resolved canonical identity of the *end-user* who
+                   owns this job (from the gateway's identity resolver).
+                   Distinct from ``agent_id`` (the owning agent) and ``origin``
+                   (where it was created): ``principal`` is the access-control
+                   key used by ``store.list(principal=...)`` to isolate one
+                   gateway user's automations from another's. ``None`` means
+                   global / single-tenant — preserving pre-scoping behaviour.
+    """
+
+    name: str = ""
+    schedule: Schedule = field(default_factory=Schedule)
+    message: str = ""
+    id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
+    agent_id: Optional[str] = None
+    session_target: Literal["main", "isolated"] = "isolated"
+    enabled: bool = True
+    delete_after_run: bool = False
+    created_at: float = field(default_factory=time.time)
+    last_run_at: Optional[float] = None
+    delivery: Optional[DeliveryTarget] = None
+    origin: Optional[DeliveryTarget] = None
+    pre_run: Optional[str] = None
+    condition: Optional[str] = None
+    principal: Optional[str] = None
+
+    # ── serialisation ────────────────────────────────────────────────
+
+    def to_dict(self) -> Dict[str, Any]:
+        d: Dict[str, Any] = {
+            "id": self.id,
+            "name": self.name,
+            "schedule": self.schedule.to_dict(),
+            "message": self.message,
+            "agent_id": self.agent_id,
+            "session_target": self.session_target,
+            "enabled": self.enabled,
+            "delete_after_run": self.delete_after_run,
+            "created_at": self.created_at,
+            "last_run_at": self.last_run_at,
+        }
+        if self.delivery is not None:
+            d["delivery"] = self.delivery.to_dict()
+        if self.origin is not None:
+            d["origin"] = self.origin.to_dict()
+        if self.pre_run is not None:
+            d["pre_run"] = self.pre_run
+        if self.condition is not None:
+            d["condition"] = self.condition
+        if self.principal is not None:
+            d["principal"] = self.principal
+        # Atomic-claim lease metadata (set dynamically by stores that support
+        # ``claim_due``). Persisted so a lease is visible across processes and
+        # survives a restart; omitted when no lease is held.
+        lease_until = getattr(self, "_lease_until", 0.0) or 0.0
+        if lease_until:
+            d["lease_until"] = lease_until
+            d["lease_owner"] = getattr(self, "_lease_owner", None)
+        return d
+
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "ScheduleJob":
+        sched_data = d.get("schedule", {})
+        delivery_data = d.get("delivery")
+        origin_data = d.get("origin")
+        job = cls(
+            id=d.get("id", uuid.uuid4().hex[:12]),
+            name=d.get("name", ""),
+            schedule=Schedule.from_dict(sched_data) if isinstance(sched_data, dict) else Schedule(),
+            message=d.get("message", ""),
+            agent_id=d.get("agent_id"),
+            session_target=d.get("session_target", "isolated"),
+            enabled=d.get("enabled", True),
+            delete_after_run=d.get("delete_after_run", False),
+            created_at=d.get("created_at", time.time()),
+            last_run_at=d.get("last_run_at"),
+            delivery=DeliveryTarget.from_dict(delivery_data) if isinstance(delivery_data, dict) else None,
+            origin=DeliveryTarget.from_dict(origin_data) if isinstance(origin_data, dict) else None,
+            pre_run=d.get("pre_run"),
+            condition=d.get("condition"),
+            principal=d.get("principal"),
+        )
+        # Restore atomic-claim lease metadata if present (see ``to_dict``).
+        job._lease_until = d.get("lease_until", 0.0) or 0.0
+        job._lease_owner = d.get("lease_owner")
+        return job

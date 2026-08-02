@@ -1,0 +1,122 @@
+#pragma once
+
+#include <stdbool.h> // for bool
+#include <stdint.h>  // for uint32_t, uint64_t
+#include <stdio.h>   // for fprintf, stderr
+#include <stdlib.h>  // for malloc, realloc, calloc, free, abort
+
+static inline void *safe_malloc(size_t size) {
+    void *ptr = malloc(size);
+    if (!ptr && size > 0) {
+        fprintf(stderr, "rlemasklib: malloc(%zu) failed\n", size);
+        abort();
+    }
+    return ptr;
+}
+
+static inline void *safe_realloc(void *ptr, size_t size) {
+    void *new_ptr = realloc(ptr, size);
+    if (!new_ptr && size > 0) {
+        fprintf(stderr, "rlemasklib: realloc(%zu) failed\n", size);
+        abort();
+    }
+    return new_ptr;
+}
+
+static inline void *safe_calloc(size_t count, size_t size) {
+    void *ptr = calloc(count, size);
+    if (!ptr && count > 0 && size > 0) {
+        fprintf(stderr, "rlemasklib: calloc(%zu, %zu) failed\n", count, size);
+        abort();
+    }
+    return ptr;
+}
+
+typedef uint32_t uint;
+typedef uint64_t siz;
+typedef uint8_t byte;
+typedef double *BB;
+
+// Rules
+//  - All RLEs start with a run of 0s, which may have length 0.
+//  - No run except the first may have a length of 0.
+//  - The final run may not have a length of 0.
+//  - An empty mask which contains no pixels (height or width is 0) can be represented in two ways:
+//      - With 0 runs.
+//      - With 1 run of length 0.
+// Note: the allocated space starts earlier than cnts to allow for efficient prepending of a run
+// to perform complement.
+// alloc should not be used in normal computations, just in complement and realloc etc.
+typedef struct {
+    siz h;
+    siz w;
+    siz m;
+    uint *cnts;
+    uint *alloc;
+} RLE;
+
+// Initialize / destruct RLE
+uint *rleInit(RLE *R, siz h, siz w, siz m);
+
+// Init by copying from existing runlength counts
+uint *rleFrCnts(RLE *R, siz h, siz w, siz m, uint *cnts);
+
+// Deferred error reporting for the merge family, which runs under the GIL but cannot raise
+// a Python exception directly. On a recoverable invariant violation (e.g. inputs whose
+// run-length sums differ) the C code records a message here and returns an empty result;
+// the Cython layer calls rleTakeError afterwards to raise a catchable ValueError instead of
+// aborting the process.
+void rleSetError(const char *msg);
+bool rleTakeError(const char **msg_out);
+
+// Initialize a borrowed (non-owning) RLE that wraps existing counts.
+// The RLE does not own the memory and rleFree will not free it.
+// Borrowed RLEs are read-only views and must not be used with in-place operations.
+void rleBorrow(RLE *R, siz h, siz w, siz m, uint *cnts);
+
+// Check if the RLE owns its data (alloc != NULL).
+// Borrowed RLEs (created with rleBorrow) do not own their data.
+static inline bool rleOwnsData(const RLE *R) {
+    return R->alloc != NULL;
+}
+
+// Move the allocated pointer from one RLE to another and copy h, w, m.
+// This does not copy, but R's cnts will be set to NULL, so the data is logically transferred to M.
+void rleMoveTo(RLE *R, RLE *M);
+
+// Copy the runlength counts and h, w, m from one RLE to another.
+void rleCopy(const RLE *R, RLE *M);
+
+// Free the memory allocated for the runlength counts.
+void rleFree(RLE *R);
+
+
+// Initialize/destroy RLE array
+void rlesInit(RLE **R, siz n);
+
+void rlesFree(RLE **R, siz n);
+
+// Initialize RLEs full of 1s or 0s
+void rleOnes(RLE *R, siz h, siz w); // this is the fully-foreground mask
+void rleZeros(RLE *R, siz h, siz w); // this is the fully-background mask
+
+// Get and set an individual pixel
+byte rleGet(const RLE *R, siz i, siz j);
+
+void rleSetInplace(RLE *R, siz y, siz x, byte value);
+
+// Check whether two RLEs are equal (in size and pixel content)
+bool rleEqual(const RLE *A, const RLE *B);
+
+// Remove any non-first zero runlengths by adding and shifting the runs accordingly. Enforces
+// the canonical form that run-walking algorithms rely on; used both internally after ops that
+// may leave zero runs, and at the constructor boundary to normalize externally supplied counts.
+void rleEliminateZeroRuns(RLE *R);
+
+// Reallocate the runlength counts to have m runs, which may be more or less than the current
+// number of runs.
+static uint *rleRealloc(RLE *R, siz m);
+
+// Swap the contents of two RLEs, i.e. the pointers and the h, w, m values.
+// This is useful in double buffer ping-pong style algorithms, e.g. rleMerge.
+void rleSwap(RLE *R, RLE *M);

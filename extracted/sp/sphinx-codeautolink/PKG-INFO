@@ -1,0 +1,83 @@
+Metadata-Version: 2.4
+Name: sphinx-codeautolink
+Version: 0.19.0
+Summary: Automatic links from code examples to reference documentation.
+Author-email: Felix Hildén <felix.hilden@gmail.com>
+Maintainer-email: Felix Hildén <felix.hilden@gmail.com>
+Project-URL: homepage, https://pypi.org/project/sphinx-codeautolink
+Project-URL: download, https://pypi.org/project/sphinx-codeautolink
+Project-URL: source, https://github.com/felix-hilden/sphinx-codeautolink
+Project-URL: issues, https://github.com/felix-hilden/sphinx-codeautolink/issues
+Project-URL: documentation, https://sphinx-codeautolink.rtfd.org
+Keywords: sphinx,extension,code,link
+Classifier: Development Status :: 4 - Beta
+Classifier: Framework :: Sphinx
+Classifier: Framework :: Sphinx :: Extension
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Documentation
+Classifier: Topic :: Documentation :: Sphinx
+Classifier: Topic :: Software Development :: Documentation
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: sphinx>=3.2.0
+Requires-Dist: beautifulsoup4>=4.8.1
+Provides-Extra: ipython
+Requires-Dist: ipython!=8.7.0; extra == "ipython"
+Dynamic: license-file
+
+sphinx-codeautolink
+===================
+|pyversions| |downloads| |license| |readthedocs|
+
+sphinx-codeautolink makes code examples clickable by inserting links
+from individual code elements to the corresponding reference documentation.
+We aim for a minimal setup assuming your examples are already valid Python.
+
+For a live demo, see our online documentation on
+`Read The Docs <https://sphinx-codeautolink.rtfd.org>`_.
+
+Installation
+------------
+sphinx-codeautolink can be installed from the following sources:
+
+.. code:: sh
+
+    $ pip install sphinx-codeautolink
+    $ conda install -c conda-forge sphinx-codeautolink
+
+Note that the library is in early development, so version pinning is advised.
+To enable sphinx-codeautolink, modify the extension list in ``conf.py``.
+Note that the extension name uses an underscore rather than a hyphen.
+
+.. code:: python
+
+   extensions = [
+       ...,
+       "sphinx_codeautolink",
+   ]
+
+That's it! Now your code examples are linked.
+For ways of concatenating examples, setting default import statements,
+or customising link style among other things,
+see the `online documentation <https://sphinx-codeautolink.rtfd.org>`_.
+
+.. |pyversions| image:: https://img.shields.io/pypi/pyversions/sphinx-codeautolink
+   :alt: Python versions
+
+.. |downloads| image:: https://img.shields.io/pypi/dm/sphinx-codeautolink
+   :alt: Monthly downloads
+
+.. |license| image:: https://img.shields.io/badge/License-MIT-blue.svg
+   :target: https://choosealicense.com/licenses/mit
+   :alt: License: MIT
+
+.. |readthedocs| image:: https://rtfd.org/projects/sphinx-codeautolink/badge/?version=stable
+   :target: https://sphinx-codeautolink.rtfd.org/en/stable/
+   :alt: Documentation

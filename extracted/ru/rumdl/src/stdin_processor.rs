@@ -63,9 +63,17 @@ pub fn process_stdin(
     let inline_config_warning = {
         let mut inline_warnings = rumdl_lib::inline_config::validate_inline_config_rules(&content);
         let active_rules: std::collections::HashSet<String> = rules.iter().map(|r| r.name().to_string()).collect();
+        // per-file-ignores is keyed on the stdin filename, the same key the lint
+        // pass below uses, so the two agree about what runs over this document.
+        let ignored_for_file = args
+            .stdin_filename
+            .as_deref()
+            .map(|name| config.get_ignored_rules_for_file(std::path::Path::new(name)))
+            .unwrap_or_default();
         inline_warnings.extend(rumdl_lib::inline_config::validate_inline_enables_against_active_rules(
             &content,
             &active_rules,
+            &ignored_for_file,
         ));
         let had_any = !inline_warnings.is_empty();
         if !silent {
@@ -105,6 +113,10 @@ pub fn process_stdin(
         None => rules.to_vec(),
     };
     let effective_rules: &[Box<dyn Rule>] = &filtered_rules;
+
+    // The rules this document configures itself, which is what decides whether its
+    // warnings carry a fix the CLI will apply.
+    let document_rules = file_processor::rules_reconfigured_by_document(rules, config, &content);
 
     // Lint through the same engine as the file path, so inline config
     // overrides, kramdown suppression, inline-disable ranges, and severity
@@ -183,8 +195,13 @@ pub fn process_stdin(
                     exit::tool_error();
                 }
             };
-            let actual_warnings_fixed =
-                file_processor::count_actually_fixed_warnings(rules, config, &all_warnings, &remaining_warnings);
+            let actual_warnings_fixed = file_processor::count_actually_fixed_warnings(
+                rules,
+                &document_rules,
+                config,
+                &all_warnings,
+                &remaining_warnings,
+            );
 
             // Diagnostics always go to stderr in fix mode (stdout has fixed content)
             let fix_writer = OutputWriter::new(true, silent);
@@ -203,14 +220,15 @@ pub fn process_stdin(
                             let mut output = String::new();
                             for warning in &all_warnings {
                                 let rule_name = warning.rule_name.as_deref().unwrap_or("unknown");
-                                let was_fixed = file_processor::is_rule_cli_fixable(rules, config, rule_name)
-                                    && warning.fix.is_some()
-                                    && !remaining_warnings.iter().any(|w| {
-                                        w.line == warning.line
-                                            && w.column == warning.column
-                                            && w.rule_name == warning.rule_name
-                                            && w.message == warning.message
-                                    });
+                                let was_fixed =
+                                    file_processor::is_rule_cli_fixable_in(rules, &document_rules, config, rule_name)
+                                        && warning.fix.is_some()
+                                        && !remaining_warnings.iter().any(|w| {
+                                            w.line == warning.line
+                                                && w.column == warning.column
+                                                && w.rule_name == warning.rule_name
+                                                && w.message == warning.message
+                                        });
 
                                 let fix_indicator = if was_fixed {
                                     " [fixed]".green().to_string()

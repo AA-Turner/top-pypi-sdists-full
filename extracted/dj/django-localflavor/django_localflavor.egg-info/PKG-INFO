@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-localflavor
-Version: 5.0
+Version: 5.1
 Summary: Country-specific Django helpers
 Author-email: Django Software Foundation <foundation@djangoproject.com>
 License-Expression: BSD-3-Clause
@@ -27,7 +27,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: django>=4.2
-Requires-Dist: python-stdnum>=1.6
+Requires-Dist: python-stdnum>=2.2
 Dynamic: license-file
 
 ==================
@@ -69,6 +69,8 @@ Package Index: https://pypi.org/project/django-localflavor/
 
 You're encouraged to use the latest version of this package unless you need
 support for an unsupported version of Django.
+
+**2026-08-01 - 5.1**: Django 4.2, 5.0, 5.1, 5.2 & 6.0
 
 **2025-05-21 - 5.0**: Django 4.2, 5.0, 5.1 & 5.2
 

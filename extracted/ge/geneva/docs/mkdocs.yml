@@ -1,0 +1,86 @@
+site_name: Geneva
+site_url: https://lancedb.github.io/geneva/
+repo_url: https://github.com/lancedb/geneva
+repo_name: lancedb/geneva
+copyright: Copyright &copy; 2025 LanceDB
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - content.code.copy
+    - content.tabs.link
+  icon:
+    repo: fontawesome/brands/git-alt
+  custom_dir: overrides
+
+plugins:
+  - search
+  - autorefs
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [../src]
+          options:
+            docstring_style: numpy
+            heading_level: 3
+            show_signature_annotations: true
+            show_root_heading: true
+            show_docstring_examples: true
+            show_docstring_attributes: false
+            show_docstring_other_parameters: true
+            show_symbol_type_heading: true
+            show_labels: false
+            show_if_no_docstring: true
+            show_source: false
+            members_order: source
+            docstring_section_style: list
+            signature_crossrefs: true
+            separate_signature: true
+            filters:
+              - "!^_"
+          inventories:
+            # for cross references
+            - https://arrow.apache.org/docs/objects.inv
+            - https://pandas.pydata.org/docs/objects.inv
+            - https://lancedb.github.io/lance/objects.inv
+
+markdown_extensions:
+  - attr_list
+  - admonition
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - md_in_html
+
+nav:
+  - Home: index.md
+  - API:
+      - Start: ./api.md
+      - Connection: ./api/connection.md
+      - Table: ./api/table.md
+      - UDF: ./api/udf.md
+      - Built-in UDFs:
+          - Embeddings: ./api/embeddings.md
+          - Gemini: ./api/gemini.md
+          - OpenAI: ./api/openai.md
+      - UDTF (Beta): ./api/udtf.md
+      - Cluster: ./api/cluster.md
+      - Manifest: ./api/manifest.md
+      - Error Handling: ./api/error_handling.md
+      - Query: ./api/query.md
+      - Jobs: ./api/jobs.md
+      - Diagnostics: ./api/diagnostics.md
+      - Utils: ./api/utils.md

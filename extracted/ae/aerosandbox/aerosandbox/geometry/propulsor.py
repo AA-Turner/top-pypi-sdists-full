@@ -1,0 +1,247 @@
+from aerosandbox import AeroSandboxObject
+from aerosandbox.numpy.typing import Vectorizable
+from typing import Any, Sequence
+import aerosandbox.numpy as np
+import copy
+
+
+class Propulsor(AeroSandboxObject):
+    """
+    Definition for a Propulsor, which could be a propeller, a rotor, or a jet engine.
+
+    Assumes a disk- or cylinder-shaped propulsor.
+    """
+
+    def __init__(
+        self,
+        name: str | None = "Untitled",
+        xyz_c: np.ndarray | Sequence[float] | None = None,
+        xyz_normal: np.ndarray | Sequence[float] | None = None,
+        radius: float = 1.0,
+        length: float = 0.0,
+        color: (str | tuple[float]) | None = None,
+        analysis_specific_options: dict[type, dict[str, Any]] | None = None,
+    ):
+        """
+        Define a new propulsor object.
+
+        Parameters
+        ----------
+        name : str | None
+            Name of the propulsor [optional]. It can help when debugging to give each
+            propulsor a sensible name.
+        xyz_c : np.ndarray | Sequence[float] | None
+            An array-like that represents the xyz-coordinates of the center of the propulsor
+            disk (in the case of a disk-shaped propulsor, where `length == 0`), or the center
+            of one end face of the cylinder (in the case of a cylinder-shaped propulsor, where
+            `length > 0`). Given in geometry axes, in meters.
+        xyz_normal : np.ndarray | Sequence[float] | None
+            An array-like that represents the normal vector of the propulsor disk, in geometry
+            axes. (Geometry axes: +x is back/aft, +y is out the right wing, +z is up.) It does
+            not need to be a unit vector; it is normalized internally. Defaults to [-1, 0, 0],
+            i.e., pointing in the -x direction (towards the airplane's nose). For a
+            cylinder-shaped propulsor, the cylinder extends from `xyz_c` in this direction.
+        radius : float
+            Radius of the propulsor disk (or cylinder), in meters.
+        length : float
+            Length of the propulsor along its normal direction, in meters. If 0 (the default),
+            the propulsor is treated as an infinitely-thin disk (e.g., an actuator disk
+            representing a propeller or rotor); if positive, it is treated as a cylinder
+            (e.g., roughly representing a jet engine or ducted fan).
+        color : (str | tuple[float]) | None
+            Determines what color to use for this component when drawing the airplane.
+            Optional, and for visualization purposes only. If left as None, a default color
+            will be chosen at the time of drawing (usually, black). Can be any color format
+            recognized by MatPlotLib, namely:
+
+            * A RGB or RGBA tuple of floats in the interval [0, 1], e.g., (0.1, 0.2, 0.5, 0.3)
+
+            * Case-insensitive hex RGB or RGBA string, e.g., '#0f0f0f80'
+
+            * String representation of float value in closed interval [0, 1] for grayscale
+              values, e.g., '0.8' for light gray
+
+            * Single character shorthand notation for basic colors, e.g., 'k' -> black,
+              'r' -> red
+
+            See also: https://matplotlib.org/stable/tutorials/colors/colors.html
+        analysis_specific_options : dict[type, dict[str, Any]] | None
+            Analysis-specific options are additional constants or modeling assumptions that
+            should be passed on to specific analyses and associated with this specific
+            geometry object.
+
+            This should be a dictionary where:
+
+            * Keys are specific analysis types (typically a subclass of asb.ExplicitAnalysis
+              or asb.ImplicitAnalysis), but if you decide to write your own analysis and want
+              to make this key something else (like a string), that's totally fine - it's just
+              a unique identifier for the specific analysis you're running.
+
+            * Values are a dictionary of key:value pairs, where:
+
+                * Keys are strings.
+
+                * Values are some value you want to assign.
+        """
+        ### Set defaults
+        if xyz_c is None:
+            xyz_c = np.array([0.0, 0.0, 0.0])
+        if xyz_normal is None:
+            xyz_normal = np.array([-1.0, 0.0, 0.0])
+        if analysis_specific_options is None:
+            analysis_specific_options = {}
+
+        self.name = name
+        self.xyz_c = np.array(xyz_c)
+        self.xyz_normal = np.array(xyz_normal)
+        self.radius = radius
+        self.length = length
+        self.color = color
+        self.analysis_specific_options = analysis_specific_options
+
+    def __repr__(self) -> str:
+        return f"Propulsor '{self.name}' (xyz_c: {self.xyz_c}, radius: {self.radius})"
+
+    def xsec_area(self) -> float:
+        """
+        Return the cross-sectional area of the propulsor, in m^2.
+
+        Returns
+        -------
+        float
+            The cross-sectional area of the propulsor. [m^2]
+        """
+        return np.pi * self.radius**2
+
+    def xsec_perimeter(self) -> float:
+        """
+        Return the cross-sectional perimeter of the propulsor, in m.
+
+        Returns
+        -------
+        float
+            The cross-sectional perimeter of the propulsor. [m]
+        """
+        return 2 * np.pi * self.radius
+
+    def volume(self) -> float:
+        """
+        Return the volume of the propulsor, in m^3.
+
+        Returns
+        -------
+        float
+            The volume of the propulsor. [m^3]
+        """
+        return self.xsec_area() * self.length
+
+    def compute_frame(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Compute the local coordinate frame of the propulsor, in aircraft geometry axes.
+
+        xg_local is aligned with the propulsor's normal vector.
+
+        zg_local is roughly aligned with the z-axis of the aircraft geometry axes, but
+        projected onto the propulsor's plane.
+
+        yg_local is the cross product of zg_local and xg_local.
+
+        Returns
+        -------
+        xg_local : np.ndarray
+            The x-axis of the local coordinate frame, in aircraft geometry axes.
+        yg_local : np.ndarray
+            The y-axis of the local coordinate frame, in aircraft geometry axes.
+        zg_local : np.ndarray
+            The z-axis of the local coordinate frame, in aircraft geometry axes.
+        """
+        xyz_normal = self.xyz_normal / np.linalg.norm(self.xyz_normal)
+
+        xg_local = xyz_normal
+
+        zg_local = np.array([0, 0, 1])
+        zg_local = zg_local - np.dot(zg_local, xg_local) * xg_local
+
+        yg_local = np.cross(zg_local, xg_local)
+
+        return xg_local, yg_local, zg_local
+
+    def get_disk_3D_coordinates(
+        self,
+        theta: Vectorizable | None = None,
+        l_over_length: Vectorizable | None = None,
+    ) -> tuple[Vectorizable, Vectorizable, Vectorizable]:
+        """
+        Sample points on the perimeter of the propulsor disk (or cylinder).
+
+        Points are given in aircraft geometry axes.
+
+        Parameters
+        ----------
+        theta : Vectorizable | None
+            The angular coordinate(s) around the disk perimeter to sample, in radians. If None
+            (default), uses 60 points evenly spaced around the full circle.
+        l_over_length : Vectorizable | None
+            The fractional position(s) along the propulsor's length (from 0 at `xyz_c` to 1 at
+            the other end, along the normal direction) at which to sample. If None (default),
+            uses 0 for a disk-shaped propulsor (`length == 0`), or 4 evenly-spaced stations
+            for a cylinder-shaped one.
+
+        Returns
+        -------
+        tuple[Vectorizable, Vectorizable, Vectorizable]
+            A tuple of (x, y, z) coordinates of the sampled points, in aircraft geometry axes.
+            Each element has the (broadcast) shape of `theta` and `l_over_length`.
+        """
+        ### Set defaults
+        if theta is None:
+            theta = np.linspace(0, 2 * np.pi, 60 + 1)[:-1]
+        if l_over_length is None:
+            if self.length == 0:
+                l_over_length = 0
+            else:
+                l_over_length = np.linspace(0, 1, 4).reshape((1, -1))
+
+                theta = np.array(theta).reshape((-1, 1))
+
+        st = np.sin(np.mod(theta, 2 * np.pi))
+        ct = np.cos(np.mod(theta, 2 * np.pi))
+
+        x = l_over_length * self.length
+        y = ct * self.radius
+        z = st * self.radius
+
+        xg_local, yg_local, zg_local = self.compute_frame()
+
+        return (
+            self.xyz_c[0] + x * xg_local[0] + y * yg_local[0] + z * zg_local[0],
+            self.xyz_c[1] + x * xg_local[1] + y * yg_local[1] + z * zg_local[1],
+            self.xyz_c[2] + x * xg_local[2] + y * yg_local[2] + z * zg_local[2],
+        )
+
+    def translate(
+        self,
+        xyz: np.ndarray | Sequence[float],
+    ) -> "Propulsor":
+        """
+        Return a copy of this propulsor that has been translated by `xyz`.
+
+        Parameters
+        ----------
+        xyz : np.ndarray | Sequence[float]
+            The amount to translate the propulsor, in meters. Given in aircraft geometry axes,
+            as with everything else.
+
+        Returns
+        -------
+        Propulsor
+            A copy of this propulsor, translated by `xyz`.
+        """
+        new_propulsor = copy.deepcopy(self)
+        new_propulsor.xyz_c = new_propulsor.xyz_c + np.array(xyz)
+        return new_propulsor
+
+
+if __name__ == "__main__":
+    p_disk = Propulsor(radius=3)
+    p_can = Propulsor(length=1)

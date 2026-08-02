@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""
+Metadata node type enumeration.
+"""
+
+from __future__ import annotations
+
+from enum import Enum, unique
+
+from omnibase_core.enums.enum_str_enum_base import UtilStrValueHelper
+
+
+@unique
+class EnumMetadataNodeType(UtilStrValueHelper, str, Enum):
+    """Metadata node type enumeration."""
+
+    FUNCTION = "function"
+    METHOD = "method"
+    CLASS = "class"
+    MODULE = "module"
+    PROPERTY = "property"
+    VARIABLE = "variable"
+    CONSTANT = "constant"
+    INTERFACE = "interface"
+    TYPE_ALIAS = "type_alias"
+    DOCUMENTATION = "documentation"
+    EXAMPLE = "example"
+    TEST = "test"
+
+
+__all__ = ["EnumMetadataNodeType"]

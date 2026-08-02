@@ -1,0 +1,46 @@
+Metadata-Version: 2.4
+Name: pytest-httpx2
+Version: 1.0.0
+Summary: A pytest plugin for mocking out httpx2 using respx.
+Author: Jonas Lundberg
+Author-email: Jonas Lundberg <jonas@5monkeys.se>
+License-Expression: BSD-3-Clause
+License-File: LICENSE.md
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Requires-Dist: respx
+Requires-Python: >=3.10
+Project-URL: GitHub, https://github.com/lundberg/pytest-httpx2
+Project-URL: Changelog, https://github.com/lundberg/pytest-httpx2/blob/master/CHANGELOG.md
+Project-URL: Issues, https://github.com/lundberg/pytest-httpx2/issues
+Description-Content-Type: text/markdown
+
+# pytest-httpx2
+
+A `pytest` plugin for mocking out `httpx2` using `respx`.
+
+```py
+import httpx2
+
+def test_foobar(httpx2_mock: respx.Router) -> None:
+    httpx2_mock.post("https://example.com/foobar").respond(201)
+    response = httpx2.post("https://example.com/foobar")
+    assert response.status_code == 201
+```
+
+## Configure using marker
+
+```py
+import pytest
+import httpx2
+
+@pytest.mark.httpx2(base_url="https://example.com")
+def test_hamspam(httpx2_mock: respx.Router) -> None:
+    httpx2_mock.get("/hamspam").respond(json={"id": 1337})
+    response = httpx2.get("https://example.com/hamspam")
+    assert response.status_code == 200
+    assert response.json() == {"id": 1337}
+```
+
+See `respx` [documentation](https://lundberg.github.io/respx/guide/#base-url) for more
+configuration options and api.

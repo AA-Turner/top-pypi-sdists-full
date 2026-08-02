@@ -1,0 +1,2 @@
+class InitialisationWarning(UserWarning):
+    pass

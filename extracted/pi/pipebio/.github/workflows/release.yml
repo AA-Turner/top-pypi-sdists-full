@@ -1,0 +1,214 @@
+name: Release to PyPI
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      skip_testpypi:
+        description: 'Skip TestPyPI publish (useful for re-tagging)'
+        type: boolean
+        default: false
+        required: false
+
+# No global env variables needed since we directly access inputs
+
+jobs:
+  build-and-publish-test:
+    name: Build and Publish to TestPyPI
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.skip_testpypi != 'true' }}
+    steps:
+      - name: Checkout code with tags
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # Needed so setuptools_scm can see the tags
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          activate-environment: true
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          uv pip install setuptools_scm twine
+
+      - name: Extract version from tag
+        id: get_version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG=${GITHUB_REF#refs/tags/}
+            VERSION=${TAG#v}
+          else
+            echo "::error::This workflow must be triggered by a tag push (v*.*.*). Got ref: $GITHUB_REF"
+            exit 1
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Build the package
+        run: uv build
+
+      - name: Verify built package works
+        run: |
+          echo "Installing built package..."
+          uv pip install dist/*.whl
+
+          echo "Running basic import test..."
+          python -c "import pipebio; print('Imported pipebio:', pipebio.__version__)"
+
+      - name: Store build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+
+      - name: Publish to TestPyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+        run: |
+          echo "Publishing to TestPyPI..."
+          twine upload --verbose --skip-existing --repository-url https://test.pypi.org/legacy/ -u __token__ -p $TWINE_PASSWORD dist/*
+
+      - name: Verify install from TestPyPI
+        run: |
+          uv pip uninstall -y pipebio || true
+
+          VERSION="${{ steps.get_version.outputs.version }}"
+          MAX_ATTEMPTS=5
+          SLEEP_SECONDS=15
+
+          for attempt in $(seq 1 $MAX_ATTEMPTS); do
+            echo "Attempt $attempt/$MAX_ATTEMPTS: installing pipebio==$VERSION from TestPyPI..."
+            if uv pip install --refresh --no-cache \
+              --index-url https://test.pypi.org/simple/ \
+              --extra-index-url https://pypi.org/simple \
+              --index-strategy unsafe-best-match \
+              pipebio==$VERSION 2>&1; then
+              echo "Successfully installed pipebio==$VERSION"
+              python -c "import pipebio; print('Imported from TestPyPI:', pipebio.__version__)"
+              exit 0
+            fi
+
+            if [ "$attempt" -lt "$MAX_ATTEMPTS" ]; then
+              echo "Index not ready yet, waiting ${SLEEP_SECONDS}s before retry..."
+              sleep $SLEEP_SECONDS
+              uv pip uninstall -y pipebio 2>/dev/null || true
+            fi
+          done
+
+          echo "::error::Failed to install pipebio==$VERSION from TestPyPI after $MAX_ATTEMPTS attempts"
+          exit 1
+
+      - name: Set verification instructions
+        run: |
+          echo "## TestPyPI Release Ready for Verification" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Package published to TestPyPI as version ${{ steps.get_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "#### Verify by running (recommend in api-examples repo):" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "deactivate"  >> $GITHUB_STEP_SUMMARY
+          echo "uv venv .venv-testing"  >> $GITHUB_STEP_SUMMARY
+          echo "source .venv-testing/bin/activate"  >> $GITHUB_STEP_SUMMARY
+          echo "uv pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple --index-strategy unsafe-best-match pipebio==${{ steps.get_version.outputs.version }}"  >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "#### If everything looks good, approve the next workflow step to publish to PyPI" >> $GITHUB_STEP_SUMMARY
+
+  # Job to build the package when skipping TestPyPI
+  build-package:
+    name: Build Package
+    if: ${{ github.event.inputs.skip_testpypi == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code with tags
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # Needed so setuptools_scm can see the tags
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          activate-environment: true
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          uv pip install setuptools_scm twine
+
+      - name: Extract version from tag
+        id: get_version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            TAG=${GITHUB_REF#refs/tags/}
+            VERSION=${TAG#v}
+          else
+            echo "::error::This workflow must be triggered by a tag push (v*.*.*). Got ref: $GITHUB_REF"
+            exit 1
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Build the package
+        run: uv build
+
+      - name: Verify built package works
+        run: |
+          echo "Installing built package..."
+          uv pip install dist/*.whl
+
+          echo "Running basic import test..."
+          python -c "import pipebio; print('Imported pipebio:', pipebio.__version__)"
+
+      - name: Store build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+
+      - name: Set verification instructions
+        run: |
+          echo "## Package Built Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Package built as version ${{ steps.get_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "### Skipping TestPyPI publish (as requested)" >> $GITHUB_STEP_SUMMARY
+          echo "### Please approve the next workflow step to publish to PyPI" >> $GITHUB_STEP_SUMMARY
+          
+  publish-production:
+    name: Publish to PyPI
+    needs: [build-and-publish-test, build-package]
+    if: |
+      always() &&
+      (needs.build-and-publish-test.result == 'success' || needs.build-package.result == 'success')
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://pypi.org/project/pipebio/
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          activate-environment: true
+          python-version: "3.11"
+          
+      - name: Publish to PyPI
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          echo "Publishing to production PyPI..."
+          uv pip install twine
+          twine upload --verbose --skip-existing -u __token__ -p $TWINE_PASSWORD dist/*
+
+      - name: Set completion message
+        run: |
+          echo "## 🎉 Release Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "Package successfully published to PyPI" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,131 @@
+"""Map event module."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from enum import StrEnum, unique
+from typing import TYPE_CHECKING, Any
+
+from deebot_client.events import Event
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from deebot_client.rs.map import PositionType, RotationAngle
+
+
+@dataclass(frozen=True)
+class Position:
+    """Position representation."""
+
+    type: PositionType
+    x: int
+    y: int
+    a: int
+
+
+@dataclass(frozen=True)
+class PositionsEvent(Event):
+    """Position event representation."""
+
+    positions: list[Position]
+
+
+@dataclass(frozen=True)
+class GpsPositionEvent(Event):
+    """GPS position event representation."""
+
+    longitude: float
+    latitude: float
+
+
+@dataclass(frozen=True)
+class MapTraceEvent(Event):
+    """Map trace event representation."""
+
+    start: int
+    total: int
+    data: str
+
+
+@dataclass(frozen=True)
+class MapInfoEvent(Event):
+    """Map info event representation."""
+
+    map_id: str
+    info: str
+
+
+@dataclass(frozen=True)
+class MajorMapEvent(Event):
+    """Major map event."""
+
+    map_id: str
+    values: list[int]
+    requested: bool = field(kw_only=True)
+
+
+@dataclass(frozen=True)
+class MinorMapEvent(Event):
+    """Minor map event."""
+
+    index: int
+    value: str
+
+
+@unique
+class MapSetType(StrEnum):
+    """Map set type enum."""
+
+    ROOMS = "ar"
+    VIRTUAL_WALLS = "vw"
+    NO_MOP_ZONES = "mw"
+
+    @classmethod
+    def has_value(cls, value: Any) -> bool:
+        """Check if value exists."""
+        return value in cls._value2member_map_
+
+
+@dataclass(frozen=True)
+class MapSetEvent(Event):
+    """Map set event."""
+
+    type: MapSetType
+    subsets: list[int]
+    map_id: str
+
+
+@dataclass(frozen=True)
+class MapSubsetEvent(Event):
+    """Map subset event."""
+
+    id: int
+    type: MapSetType
+    coordinates: str
+    name: str | None = None
+
+
+@dataclass(frozen=True)
+class Map:
+    """Map representation."""
+
+    id: str
+    name: str
+    using: bool
+    built: bool
+    angle: RotationAngle
+
+
+@dataclass(frozen=True)
+class CachedMapInfoEvent(Event):
+    """Cached map info event."""
+
+    maps: set[Map]
+
+
+@dataclass(frozen=True)
+class MapChangedEvent(Event):
+    """Map changed event."""
+
+    when: datetime

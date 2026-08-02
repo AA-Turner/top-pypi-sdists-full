@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+          - "3.14"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.6.4"
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install libopus
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopus0 libopus-dev
+
+      - name: Sync dependencies
+        run: uv sync --dev --frozen --python ${{ matrix.python-version }}
+
+      - name: Verify libopus APIs
+        run: |
+          uv run --python ${{ matrix.python-version }} python - <<'PY'
+          import opuslib_next.api.multistream_decoder as msd
+          import opuslib_next.api.multistream_encoder as mse
+          import opuslib_next.api.projection_decoder as pd
+          import opuslib_next.api.projection_encoder as pe
+
+          print("multistream encoder size:", mse.get_size(1, 1))
+          print("multistream decoder size:", msd.get_size(1, 1))
+          print("projection encoder size:", pe.get_size(4, 3))
+          print("projection decoder size:", pd.get_size(4, 2, 2))
+          PY
+
+      - name: Run tests
+        run: uv run --python ${{ matrix.python-version }} pytest -q
+
+      - name: Build package
+        run: uv build

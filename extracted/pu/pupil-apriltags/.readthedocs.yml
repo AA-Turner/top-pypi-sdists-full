@@ -1,0 +1,9 @@
+version: 2
+submodules:
+  include: all
+  recursive: true
+python:
+  install:
+  - path: .
+    extra_requirements:
+      - docs

@@ -15,6 +15,7 @@ from .. import text, util
 
 class ManganeloExtractor(BaseExtractor):
     basecategory = "manganelo"
+    request_interval = (0.5, 1.5)
 
 
 BASE_PATTERN = ManganeloExtractor.update({
@@ -128,6 +129,32 @@ class ManganeloMangaExtractor(ManganeloExtractor, MangaExtractor):
                 "views"  : ch["view"],
             }))
         return results
+
+
+class ManganeloGenreExtractor(ManganeloExtractor):
+    """Extractor for manganelo genre listings"""
+    subcategory = "genre"
+    pattern = BASE_PATTERN + r"/genre/([^/?#]+)"
+    example = "https://www.mangakakalot.gg/genre/GENRE"
+
+    def items(self):
+        data = {"_extractor": ManganeloMangaExtractor}
+
+        url = f"{self.root}/genre/{self.groups[-1]}"
+        params = {"page": 1}
+
+        page = self.request(url, params=params).text
+        last = text.parse_int(text.extr(page, ">Last(", ")"))
+
+        while True:
+            for manga in text.extract_iter(
+                    page, 'class="list-comic-item-wrap', '</a>'):
+                yield Message.Queue, text.extr(manga, ' href="', '"'), data
+
+            if params["page"] >= last:
+                break
+            params["page"] += 1
+            page = self.request(url, params=params).text
 
 
 class ManganeloBookmarkExtractor(ManganeloExtractor):

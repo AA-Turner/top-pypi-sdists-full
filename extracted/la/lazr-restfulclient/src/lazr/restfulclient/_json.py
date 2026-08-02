@@ -18,7 +18,6 @@
 
 """Classes for working with JSON."""
 
-__metaclass__ = type
 __all__ = ["DatetimeJSONEncoder"]
 
 import datetime

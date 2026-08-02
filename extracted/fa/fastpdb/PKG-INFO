@@ -1,0 +1,78 @@
+Metadata-Version: 2.4
+Name: fastpdb
+Version: 1.3.3
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Natural Language :: English
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
+Requires-Dist: biotite >=0.39
+Requires-Dist: pytest ; extra == 'test'
+Requires-Dist: pytest-codspeed ; extra == 'test'
+Requires-Dist: matplotlib ; extra == 'plot'
+Provides-Extra: test
+Provides-Extra: plot
+License-File: LICENSE
+Summary: A high performance drop-in replacement for Biotite's PDBFile.
+Keywords: pdb-files
+Author: Patrick Kunzmann, Nick Coish
+Maintainer: Patrick Kunzmann
+Requires-Python: >=3.7
+Description-Content-Type: text/x-rst; charset=UTF-8
+Project-URL: homepage, https://github.com/biotite-dev/fastpdb
+Project-URL: repository, https://github.com/biotite-dev/fastpdb
+
+.. image:: https://raw.githubusercontent.com/biotite-dev/fastpdb/main/logo.svg
+    :width: 300
+    :align: center
+    :alt: fastpdb
+
+
+|
+|
+
+A high performance drop-in replacement for *Biotite*'s ``PDBFile``
+written in *Rust*.
+
+Installation
+------------
+
+``fastpdb`` can be installed via
+
+.. code-block:: console
+
+    $ pip install fastpdb
+
+Usage
+-----
+
+You can simply replace ``biotite.structure.io.pdb.PDBFile`` by
+``fastpdb.PDBFile``. The methods and their parameters are the same.
+
+.. code-block:: python
+
+    import fastpdb
+
+    in_file = fastpdb.PDBFile.read("path/to/file.pdb")
+    atom_array = in_file.get_structure(model=1)
+
+    out_file = fastpdb.PDBFile()
+    out_file.set_structure(atom_array)
+    out_file.write("path/to/another_file.pdb")
+
+Note that ``fastpdb`` does not yet support the *hybrid-36* PDB format.
+
+
+Performance
+-----------
+
+``fastpdb`` is multiple times faster than ``biotite``.
+
+.. image:: https://raw.githubusercontent.com/biotite-dev/fastpdb/main/benchmark.svg
+    :width: 800
+    :align: center
+

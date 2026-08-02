@@ -1,0 +1,72 @@
+"""Constants for Vodafone Station."""
+
+import logging
+from enum import StrEnum
+from typing import Any
+
+from aiohttp import ClientTimeout
+
+_LOGGER = logging.getLogger(__package__)
+
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Fedora; Linux x86_64; rv:78.0) Gecko/20100101 Firefox/78.0"
+    ),
+    "Accept-Language": "en-GB,en;q=0.5",
+    "X-Requested-With": "XMLHttpRequest",
+    "Priority": "u=1",
+}
+DEFAULT_TIMEOUT = ClientTimeout(10)
+POST_RESTART_TIMEOUT = ClientTimeout(2)
+
+REQUEST_ALLOW_REDIRECTS = "allow_redirects"
+REQUEST_SUPPRESS_LOG = "suppress_log"
+REQUEST_TIMEOUT = "timeout"
+
+WIFI_DATA = "wifi_data"
+
+
+class WifiType(StrEnum):
+    """Wi-Fi types."""
+
+    MAIN = "main"
+    GUEST = "guest"
+
+
+class WifiBand(StrEnum):
+    """Wi-Fi bands."""
+
+    BAND_2_4_GHZ = "2.4ghz"
+    BAND_5_GHZ = "5ghz"
+
+
+DEVICES_SETTINGS: dict[str, Any] = {
+    "Homeware": {
+        "login_url": "login.lp",
+        "params": {"getSessionStatus": "true"},
+    },
+    "Sercomm": {
+        "login_url": "login.html",
+        "total_fields_num": 8,
+    },
+    "Technicolor": {
+        "login_url": "api/v1/login_conf",
+        "user_already_logged_in": "MSG_LOGIN_150",
+    },
+    "UltraHub": {
+        "login_url": "api/config/details.jst",
+        "params": {"X_INTERNAL_FIELDS": "X_VODAFONE_ServiceStatus_1"},
+        "default_id": 3,
+    },
+}
+
+DEVICE_SERCOMM_LOGIN_STATUS = [
+    "not logged",
+    "logged",
+    "already logged",
+    "credential error",
+    "credential error",
+    "password mismatch",
+    "incorrect challenge",
+    "password mismatch",
+]

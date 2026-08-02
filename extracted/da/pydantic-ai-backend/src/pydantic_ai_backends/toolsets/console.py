@@ -101,6 +101,17 @@ GREP_LINE_WIDTH = 100
 
 DEFAULT_EXECUTE_TIMEOUT = 120
 
+EXECUTE_TOOLS = frozenset(
+    {"execute", "run_in_background", "read_output", "kill_shell", "list_shells"}
+)
+"""Every tool the "execute" operation governs.
+
+Named as a set because listing only `execute` is how a ruleset that denied shell
+execution still left `run_in_background` — which runs an arbitrary command —
+registered for the model to call. The background tools are the same operation
+reached a different way, so they live and die with it.
+"""
+
 
 @runtime_checkable
 class ConsoleDeps(Protocol):
@@ -278,7 +289,7 @@ def create_console_toolset(  # noqa: C901
 
     @toolset.tool(description=described.get("ls", LS_DESCRIPTION))
     @_degrade_on_error
-    async def ls(  # pragma: no cover
+    async def ls(
         ctx: RunContext[ConsoleDeps],
         path: str = ".",
     ) -> str:
@@ -304,7 +315,7 @@ def create_console_toolset(  # noqa: C901
 
         @toolset.tool(description=described.get("read_file", HASHLINE_READ_FILE_DESCRIPTION))
         @_degrade_on_error
-        async def read_file(  # pragma: no cover
+        async def read_file(
             ctx: RunContext[ConsoleDeps],
             path: str,
             offset: int = 0,
@@ -335,7 +346,7 @@ def create_console_toolset(  # noqa: C901
 
         @toolset.tool(description=described.get("read_file", READ_FILE_DESCRIPTION))
         @_degrade_on_error
-        async def read_file(  # pragma: no cover
+        async def read_file(
             ctx: RunContext[ConsoleDeps],
             path: str,
             offset: int = 0,
@@ -363,7 +374,7 @@ def create_console_toolset(  # noqa: C901
         requires_approval=write_approval,
     )
     @_degrade_on_error
-    async def write_file(  # pragma: no cover
+    async def write_file(
         ctx: RunContext[ConsoleDeps],
         path: str,
         content: str,
@@ -390,7 +401,7 @@ def create_console_toolset(  # noqa: C901
             requires_approval=write_approval,
         )
         @_degrade_on_error
-        async def hashline_edit(  # pragma: no cover
+        async def hashline_edit(
             ctx: RunContext[ConsoleDeps],
             path: str,
             start_line: int,
@@ -446,7 +457,7 @@ of replacing it.
             requires_approval=write_approval,
         )
         @_degrade_on_error
-        async def edit_file(  # pragma: no cover
+        async def edit_file(
             ctx: RunContext[ConsoleDeps],
             path: str,
             old_string: str,
@@ -466,22 +477,28 @@ the old_string must appear exactly once in the file.
             raw_backend = backend_for(ctx)
             backend = ensure_async(raw_backend)
 
-            stale = await _tracking.staleness_error(backend, raw_backend, path)
-            if stale is not None:
-                return stale
+            # Locked for the same reason `hashline_edit` is: every backend's
+            # `edit` is a read, a replace and a write, so two edits to one path
+            # in flight together lose one of them. The staleness check belongs
+            # inside the lock too — checked outside, it is answered before the
+            # other edit's write and passes on content that no longer exists.
+            async with _tracking.edit_lock(raw_backend, path):
+                stale = await _tracking.staleness_error(backend, raw_backend, path)
+                if stale is not None:
+                    return stale
 
-            result = await backend.edit(path, old_string, new_string, replace_all)
-            if result.error:
-                return f"Error: {result.error}"
+                result = await backend.edit(path, old_string, new_string, replace_all)
+                if result.error:
+                    return f"Error: {result.error}"
 
-            # The agent's view is the post-edit content now, so a follow-up edit
-            # must not be flagged as stale.
-            await _tracking.record_path_read(backend, raw_backend, path)
-            return f"Edited {result.path}: replaced {result.occurrences} occurrence(s)"
+                # The agent's view is the post-edit content now, so a follow-up
+                # edit must not be flagged as stale.
+                await _tracking.record_path_read(backend, raw_backend, path)
+                return f"Edited {result.path}: replaced {result.occurrences} occurrence(s)"
 
     @toolset.tool(description=described.get("glob", GLOB_DESCRIPTION))
     @_degrade_on_error
-    async def glob(  # pragma: no cover
+    async def glob(
         ctx: RunContext[ConsoleDeps],
         pattern: str,
         path: str = ".",
@@ -504,7 +521,7 @@ the old_string must appear exactly once in the file.
 
     @toolset.tool(description=described.get("grep", GREP_DESCRIPTION))
     @_degrade_on_error
-    async def grep(  # pragma: no cover
+    async def grep(
         ctx: RunContext[ConsoleDeps],
         pattern: str,
         path: str | None = None,
@@ -587,7 +604,7 @@ for long-running builds or test suites.
 
     if include_execute and include_background:
 
-        def background(ctx: RunContext[ConsoleDeps]) -> Any | None:  # pragma: no cover
+        def background(ctx: RunContext[ConsoleDeps]) -> Any | None:
             """The async background sandbox, or `None` when unsupported."""
             backend = ensure_async(backend_for(ctx))
             return backend if hasattr(backend, "execute_background") else None
@@ -597,7 +614,7 @@ for long-running builds or test suites.
             requires_approval=execute_approval,
         )
         @_degrade_on_error
-        async def run_in_background(  # pragma: no cover
+        async def run_in_background(
             ctx: RunContext[ConsoleDeps],
             command: str,
         ) -> str:
@@ -618,7 +635,7 @@ for long-running builds or test suites.
 
         @toolset.tool(description=described.get("read_output", READ_OUTPUT_DESCRIPTION))
         @_degrade_on_error
-        async def read_output(  # pragma: no cover
+        async def read_output(
             ctx: RunContext[ConsoleDeps],
             shell_id: str,
         ) -> str:
@@ -641,7 +658,7 @@ for long-running builds or test suites.
             requires_approval=execute_approval,
         )
         @_degrade_on_error
-        async def kill_shell(  # pragma: no cover
+        async def kill_shell(
             ctx: RunContext[ConsoleDeps],
             shell_id: str,
         ) -> str:
@@ -659,7 +676,7 @@ for long-running builds or test suites.
 
         @toolset.tool(description=described.get("list_shells", LIST_SHELLS_DESCRIPTION))
         @_degrade_on_error
-        async def list_shells(  # pragma: no cover
+        async def list_shells(
             ctx: RunContext[ConsoleDeps],
         ) -> str:
             """List the background shells started this session."""
@@ -692,7 +709,7 @@ def _denied_tools(permissions: PermissionRuleset | None) -> set[str]:
     if _ruleset.is_denied(permissions, "edit"):
         denied.update({"edit_file", "hashline_edit"})
     if _ruleset.is_denied(permissions, "execute"):
-        denied.add("execute")
+        denied |= EXECUTE_TOOLS
     return denied
 
 

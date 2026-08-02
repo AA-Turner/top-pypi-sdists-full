@@ -1,0 +1,57 @@
+Metadata-Version: 2.4
+Name: invenio-records-permissions
+Version: 4.0.1
+Summary: Permission policies for Invenio records.
+Project-URL: Repository, https://github.com/inveniosoftware/invenio-records-permissions
+Author-email: CERN <info@inveniosoftware.org>
+License-Expression: MIT
+License-File: AUTHORS.rst
+License-File: LICENSE
+Keywords: invenio,permissions
+Classifier: Development Status :: 3 - Alpha
+Requires-Python: >=3.9
+Requires-Dist: invenio-access<8.0.0,>=7.0.0
+Provides-Extra: elasticsearch7
+Requires-Dist: invenio-search[elasticsearch7]<4.0.0,>=3.0.0; extra == 'elasticsearch7'
+Provides-Extra: opensearch1
+Requires-Dist: invenio-search[opensearch1]<4.0.0,>=3.0.0; extra == 'opensearch1'
+Provides-Extra: opensearch2
+Requires-Dist: invenio-search[opensearch2]<4.0.0,>=3.0.0; extra == 'opensearch2'
+Provides-Extra: tests
+Requires-Dist: invenio-accounts<10.0.0,>=9.0.0; extra == 'tests'
+Requires-Dist: invenio-app<4.0.0,>=3.0.0; extra == 'tests'
+Requires-Dist: invenio-db[mysql,postgresql,versioning]<3.0.0,>=2.2.0; extra == 'tests'
+Requires-Dist: invenio-records<7.0.0,>=6.0.0; extra == 'tests'
+Requires-Dist: pytest-black>=0.6.0; extra == 'tests'
+Requires-Dist: pytest-invenio<5.0.0,>=4.0.0; extra == 'tests'
+Requires-Dist: pytest-mock>=1.6.0; extra == 'tests'
+Requires-Dist: sphinx>=5.0.0; extra == 'tests'
+Description-Content-Type: text/x-rst
+
+..
+    SPDX-FileCopyrightText: 2019 CERN.
+    SPDX-License-Identifier: MIT
+
+=============================
+ Invenio-Records-Permissions
+=============================
+
+.. image:: https://github.com/inveniosoftware/invenio-records-permissions/workflows/CI/badge.svg
+        :target: https://github.com/inveniosoftware/invenio-records-permissions/actions?query=workflow%3ACI+branch%3Amaster
+
+.. image:: https://img.shields.io/coveralls/inveniosoftware/invenio-records-permissions.svg
+        :target: https://coveralls.io/r/inveniosoftware/invenio-records-permissions
+
+.. image:: https://img.shields.io/github/tag/inveniosoftware/invenio-records-permissions.svg
+        :target: https://github.com/inveniosoftware/invenio-records-permissions/releases
+
+.. image:: https://img.shields.io/pypi/dm/invenio-records-permissions.svg
+        :target: https://pypi.python.org/pypi/invenio-records-permissions
+
+.. image:: https://img.shields.io/github/license/inveniosoftware/invenio-records-permissions.svg
+        :target: https://github.com/inveniosoftware/invenio-records-permissions/blob/master/LICENSE
+
+Permission policies for Invenio records.
+
+Further documentation is available on
+https://invenio-records-permissions.readthedocs.io/

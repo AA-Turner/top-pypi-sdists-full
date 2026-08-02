@@ -1,0 +1,54 @@
+Metadata-Version: 2.1
+Name: pyhaversion
+Version: 24.6.1
+Summary: Get the latest Home Assistant version from various sources.
+Home-page: https://github.com/ludeeus/pyhaversion
+License: MIT
+Keywords: homeassistant,version,update
+Author: Joakim Sorensen
+Author-email: hi@ludeeus.dev
+Maintainer: Joakim Sorensen
+Maintainer-email: hi@ludeeus.dev
+Requires-Python: >=3.12,<4.0
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Dist: aiohttp (>=3.6,<4.0)
+Requires-Dist: awesomeversion (>21)
+Project-URL: Repository, https://github.com/ludeeus/pyhaversion
+Description-Content-Type: text/markdown
+
+# pyhaversion
+
+[![codecov](https://codecov.io/gh/ludeeus/pyhaversion/branch/main/graph/badge.svg)](https://codecov.io/gh/ludeeus/pyhaversion)
+![python version](https://img.shields.io/badge/Python-3.12-blue.svg)
+[![PyPI](https://img.shields.io/pypi/v/pyhaversion)](https://pypi.org/project/pyhaversion)
+![Actions](https://github.com/ludeeus/pyhaversion/workflows/Actions/badge.svg?branch=main)
+
+_Get the latest Home Assistant version from various sources._
+
+## Installation
+
+```bash
+python3 -m pip install pyhaversion
+```
+
+Look at the file `example.py` for a usage example.
+
+
+## Contribute
+
+**All** contributions are welcome!
+
+1. Fork the repository
+2. Clone the repository locally and open the devcontainer or use GitHub codespaces
+3. Do your changes
+4. Lint the files with `scrtips/lint`
+5. Ensure all tests passes with `scripts/test`
+6. Ensure 100% coverage with `scripts/coverage`
+7. Commit your work, and push it to GitHub
+8. Create a PR against the `main` branch
+

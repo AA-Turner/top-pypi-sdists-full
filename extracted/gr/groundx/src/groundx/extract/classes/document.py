@@ -1,0 +1,1065 @@
+import json
+import os
+import shutil
+import typing
+from datetime import datetime, timezone
+from io import BytesIO
+from pathlib import Path
+from urllib.parse import urlparse
+
+from ..custom_outputs import (
+    custom_output_payload_identity,
+    custom_output_route_values,
+    custom_output_section_identity,
+)
+from ..prompt.manager import PromptManager
+from ..services.http import BoundedRequestTimeout, bounded_get
+from ..services.logger import Logger
+from ..services.upload import Upload
+from ..utility import clean_json
+from .element import Element
+from .field import ExtractedField
+from .groundx import GroundXDocument, XRayDocument
+from .group import Group
+from .prompt import Prompt
+from PIL import Image
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PrivateAttr,
+    SerializeAsAny,
+    ValidationInfo,
+    model_validator,
+)
+
+DocT = typing.TypeVar("DocT", bound="Document")
+
+
+class Document(Group):
+    prompt_file_name: str = ""
+    invoice_name: str = ""
+    document_id: str = ""
+    page_images: typing.List[str] = Field(default_factory=list)
+    source_url: str = ""
+    task_id: str = ""
+    workflow_id: typing.Optional[str] = None
+
+    _logger: typing.Optional[Logger] = PrivateAttr(default=None)
+    _prompt_manager: typing.Optional[PromptManager] = PrivateAttr(default=None)
+    _upload: typing.Optional[Upload] = PrivateAttr(default=None)
+    _custom_output_route_cache: typing.Dict[
+        typing.Tuple[str, str],
+        typing.Dict[
+            typing.Tuple[str, str],
+            typing.List[typing.Mapping[str, typing.Any]],
+        ],
+    ] = PrivateAttr(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _inject_context(self, info: ValidationInfo) -> "Document":
+        ctx_raw = info.context
+        ctx: typing.Dict[str, typing.Any] = {}
+        if isinstance(ctx_raw, dict):
+            ctx = typing.cast(typing.Dict[str, typing.Any], ctx_raw)
+
+        lg = ctx.get("logger")
+        if lg:
+            self.logger = lg
+
+        pm = ctx.get("prompt_manager")
+        if not pm:
+            return self
+
+        self._prompt_manager = pm
+
+        return self.add_prompts()
+
+    @property
+    def logger(self) -> typing.Optional[Logger]:
+        if self._logger:
+            return self._logger
+
+        return None
+
+    @logger.setter
+    def logger(self, value: Logger) -> None:
+        self._logger = value
+
+    @logger.deleter
+    def logger(self) -> None:
+        del self._logger
+
+    @property
+    def prompt_manager(self) -> typing.Optional[PromptManager]:
+        if self._prompt_manager:
+            return self._prompt_manager
+
+        return None
+
+    @prompt_manager.setter
+    def prompt_manager(self, value: PromptManager) -> None:
+        self._prompt_manager = value
+
+    @prompt_manager.deleter
+    def prompt_manager(self) -> None:
+        del self._prompt_manager
+
+    @property
+    def upload(self) -> typing.Optional[Upload]:
+        if self._upload:
+            return self._upload
+
+        return None
+
+    @upload.setter
+    def upload(self, value: Upload) -> None:
+        self._upload = value
+
+    @upload.deleter
+    def upload(self) -> None:
+        del self._upload
+
+    @classmethod
+    def from_request(
+        cls: typing.Type[DocT],
+        base_url: str,
+        cache_dir: Path,
+        req: "DocumentRequest",
+        prompt_manager: PromptManager,
+        upload: typing.Optional[Upload] = None,
+        logger: typing.Optional[Logger] = None,
+        **data: typing.Any,
+    ) -> DocT:
+        st = cls(**data)
+
+        xray_doc = GroundXDocument(
+            base_url=base_url,
+            documentID=req.document_id,
+            taskID=req.task_id,
+        ).xray(upload=upload, cache_dir=cache_dir, clear_cache=req.clear_cache)
+
+        st.load_xray(
+            req=req,
+            xray=xray_doc,
+            prompt_manager=prompt_manager,
+            upload=upload,
+            logger=logger,
+        )
+
+        return st
+
+    def add_prompt_to_field(
+        self, group_name: str, attr_name: str, element: Element
+    ) -> typing.Tuple[typing.Optional[str], Element]:
+        if not self._prompt_manager or element.prompt:
+            return None, element
+
+        res = self._prompt_manager.find_field(
+            group_name=group_name,
+            attr_name=attr_name,
+            file_name=self.prompt_file_name,
+            workflow_id=self.workflow_id,
+        )
+        if not res:
+            return None, element
+
+        (parent, gf) = res
+
+        if not gf:
+            return None, element
+
+        element.prompt = gf.prompt
+
+        if group_name != parent:
+            return parent, element
+
+        return None, element
+
+    def add_prompt(
+        self,
+        group_name: str,
+        parent: str,
+        n: str,
+        v: typing.Union[
+            SerializeAsAny[Element],
+            typing.Dict[str, SerializeAsAny[Element]],
+            typing.Sequence[SerializeAsAny[Element]],
+        ],
+    ) -> typing.Tuple[
+        typing.Optional[str],
+        typing.Union[
+            SerializeAsAny[Element],
+            typing.Dict[str, SerializeAsAny[Element]],
+            typing.Sequence[SerializeAsAny[Element]],
+        ],
+    ]:
+        if not self._prompt_manager:
+            return None, v
+
+        if not isinstance(v, Element) and not isinstance(v, list):
+            return None, v
+
+        if isinstance(v, ExtractedField):
+            return self.add_prompt_to_field(parent, n, v)
+        elif isinstance(v, Group):
+            gn1 = f"{parent}.{n}"
+            if parent == "":
+                gn1 = n
+            gn2 = f"{group_name}.{n}"
+            if group_name == "":
+                gn2 = n
+
+            if not v.prompt:
+                try:
+                    gf = self._prompt_manager.group_load(
+                        gn1,
+                        file_name=self.prompt_file_name,
+                        workflow_id=self.workflow_id,
+                    )
+                    v.prompt = gf.prompt
+                    return None, self.add_prompt_to_group(gn1, v)
+                except:
+                    gf = self._prompt_manager.group_load(
+                        gn2,
+                        file_name=self.prompt_file_name,
+                        workflow_id=self.workflow_id,
+                    )
+                    v.prompt = gf.prompt
+                    return None, self.add_prompt_to_group(gn2, v)
+        elif isinstance(v, list):
+            nnv: typing.List[SerializeAsAny[Element]] = []
+            for nv in v:
+                _, vv = self.add_prompt(group_name=group_name, parent=parent, n=n, v=nv)
+                if isinstance(vv, Element):
+                    nnv.append(vv)
+            return None, nnv
+
+        return None, v
+
+    def add_prompt_to_group(self, group_name: str, group: Group) -> Group:
+        if not self._prompt_manager:
+            return group
+
+        new_fields: typing.Dict[
+            str,
+            typing.Union[
+                SerializeAsAny[Element],
+                typing.Dict[str, SerializeAsAny[Element]],
+                typing.Sequence[SerializeAsAny[Element]],
+            ],
+        ] = {}
+        parent = group_name
+        for n, v in group.fields.items():
+            nv, new_fields[n] = self.add_prompt(
+                group_name=group_name, parent=parent, n=n, v=v
+            )
+            if nv:
+                parent = nv
+
+        group.fields = new_fields
+
+        return group
+
+    def add_prompts(self) -> "Document":
+        if not self.prompt_manager or not self.fields:
+            return self
+
+        return typing.cast("Document", self.add_prompt_to_group("", self))
+
+    def load_xray(
+        self,
+        req: "DocumentRequest",
+        xray: XRayDocument,
+        prompt_manager: PromptManager,
+        upload: typing.Optional[Upload] = None,
+        logger: typing.Optional[Logger] = None,
+    ) -> None:
+        self._logger = logger
+        self._prompt_manager = prompt_manager
+        self._upload = upload
+
+        self.document_id = req.document_id
+        self.invoice_name = req.file_name
+        self.task_id = req.task_id
+        self.workflow_id = req.workflow_id
+
+        for page in xray.documentPages:
+            self.page_images.append(page.pageUrl)
+
+        self.source_url = xray.sourceUrl
+
+        seen_section_output_payloads: typing.Set[str] = set()
+        seen_document_output_payloads: typing.Set[str] = set()
+        for chunk in xray.chunks:
+            stxt = chunk.sectionSummary or "{}"
+            stxt = clean_json(stxt)
+            try:
+                data = json.loads(stxt)
+            except json.JSONDecodeError:
+                self.print(
+                    "ERROR", f"\njson.JSONDecodeError sectionSummary\n{stxt}\n\n"
+                )
+                continue
+
+            for key, value in data.items():
+                err = self.add(key, value)
+                if err:
+                    raise Exception(f"\n\ninit sectionSummary error:\n\t{err}\n")
+
+            mtxt = chunk.suggestedText or "{}"
+            mtxt = clean_json(mtxt)
+            try:
+                data = json.loads(mtxt)
+            except json.JSONDecodeError:
+                self.print("ERROR", f"\njson.JSONDecodeError suggestedText\n{mtxt}\n\n")
+                continue
+
+            for key, value in data.items():
+                err = self.add(key, value)
+                if err:
+                    raise Exception(f"\n\ninit suggestedText error:\n\t{err}\n")
+
+            if chunk.chunkKeywords:
+                ntxt = chunk.chunkKeywords or "{}"
+                ntxt = clean_json(ntxt)
+                try:
+                    data = json.loads(ntxt)
+                except json.JSONDecodeError:
+                    self.print(
+                        "ERROR", f"\njson.JSONDecodeError chunkKeywords\n{ntxt}\n\n"
+                    )
+                    continue
+
+                for key, value in data.items():
+                    err = self.add(key, value)
+                    if err:
+                        raise Exception(f"\n\ninit chunkKeywords error:\n\t{err}\n")
+
+            if chunk.sectionKeywords:
+                ntxt = chunk.sectionKeywords or "{}"
+                ntxt = clean_json(ntxt)
+                try:
+                    data = json.loads(ntxt)
+                except json.JSONDecodeError:
+                    self.print(
+                        "ERROR", f"\njson.JSONDecodeError sectionKeywords\n{ntxt}\n\n"
+                    )
+                    continue
+
+                for key, value in data.items():
+                    err = self.add(key, value)
+                    if err:
+                        raise Exception(f"\n\ninit sectionKeywords error:\n\t{err}\n")
+
+            if chunk.fileKeywords:
+                ntxt = chunk.fileKeywords or "{}"
+                ntxt = clean_json(ntxt)
+                try:
+                    data = json.loads(ntxt)
+                except json.JSONDecodeError:
+                    self.print(
+                        "ERROR", f"\njson.JSONDecodeError fileKeywords\n{ntxt}\n\n"
+                    )
+                    continue
+
+                for key, value in data.items():
+                    err = self.add(key, value)
+                    if err:
+                        raise Exception(f"\n\ninit fileKeywords error:\n\t{err}\n")
+
+            if chunk.fileSummary:
+                ntxt = chunk.fileSummary or "{}"
+                ntxt = clean_json(ntxt)
+                try:
+                    data = json.loads(ntxt)
+                except json.JSONDecodeError:
+                    self.print(
+                        "ERROR", f"\njson.JSONDecodeError fileSummary\n{ntxt}\n\n"
+                    )
+                    continue
+
+                for key, value in data.items():
+                    err = self.add(key, value)
+                    if err:
+                        raise Exception(f"\n\ninit fileSummary error:\n\t{err}\n")
+
+            self.load_custom_outputs(
+                getattr(chunk, "customChunkOutputs", None),
+                "customChunkOutputs",
+            )
+            section_outputs = getattr(chunk, "customSectionOutputs", None)
+            section_output_identity = custom_output_section_identity(chunk)
+            if section_outputs and section_output_identity not in seen_section_output_payloads:
+                seen_section_output_payloads.add(section_output_identity)
+                self.load_custom_outputs(
+                    section_outputs,
+                    "customSectionOutputs",
+                )
+            document_outputs = getattr(chunk, "customDocumentOutputs", None)
+            if document_outputs:
+                document_output_identity = custom_output_payload_identity(
+                    document_outputs
+                )
+                if document_output_identity not in seen_document_output_payloads:
+                    seen_document_output_payloads.add(document_output_identity)
+                    self.load_custom_outputs(
+                        document_outputs,
+                        "customDocumentOutputs",
+                    )
+
+        document_outputs = getattr(xray, "customDocumentOutputs", None)
+        if document_outputs:
+            document_output_identity = custom_output_payload_identity(document_outputs)
+            if document_output_identity not in seen_document_output_payloads:
+                self.load_custom_outputs(
+                    document_outputs,
+                    "customDocumentOutputs",
+                )
+        self.finalize_init()
+
+    def load_custom_outputs(
+        self,
+        custom_outputs: typing.Optional[typing.Mapping[str, typing.Any]],
+        source: str,
+    ) -> None:
+        if not custom_outputs:
+            return
+
+        route_index = self.custom_output_route_index(source)
+        for step_name, outputs in custom_outputs.items():
+            if not isinstance(outputs, (dict, list)):
+                continue
+
+            repeated_rows: typing.Dict[
+                typing.Tuple[typing.Tuple[str, ...], int],
+                Group,
+            ] = {}
+            output_mapping = (
+                typing.cast(typing.Dict[str, typing.Any], outputs)
+                if isinstance(outputs, dict)
+                else {}
+            )
+            step_routes: typing.List[typing.Mapping[str, typing.Any]] = []
+            for (route_step_name, _output_key), routes in route_index.items():
+                if route_step_name == step_name:
+                    step_routes.extend(routes)
+            routed_output_keys = {
+                output_key
+                for (_route_step_name, output_key), _routes in route_index.items()
+                if _route_step_name == step_name
+            }
+
+            for route in step_routes:
+                route_output_key = route.get("output_key")
+                for route_value in custom_output_route_values(custom_outputs, route):
+                    routed_data: typing.Any = route_value.value
+                    if isinstance(routed_data, str):
+                        try:
+                            routed_data = json.loads(clean_json(routed_data))
+                        except json.JSONDecodeError:
+                            pass
+                    err = self.add_custom_output_route(
+                        route,
+                        routed_data,
+                        repeated_rows,
+                        record_index=route_value.record_index or 0,
+                    )
+                    if err:
+                        raise Exception(
+                            f"\n\ninit {source} error for "
+                            f"[{step_name}.{route_output_key}]:\n\t{err}\n"
+                        )
+
+            for output_key, value in output_mapping.items():
+                if output_key == "_records":
+                    continue
+                if output_key in routed_output_keys:
+                    continue
+                data: typing.Any = value
+                if isinstance(data, str):
+                    try:
+                        data = json.loads(clean_json(data))
+                    except json.JSONDecodeError:
+                        pass
+
+                if isinstance(data, dict):
+                    data_mapping = typing.cast(typing.Dict[str, typing.Any], data)
+                    for key, nested_value in data_mapping.items():
+                        err = self.add(key, nested_value)
+                        if err:
+                            raise Exception(
+                                f"\n\ninit {source} error for "
+                                f"[{step_name}.{output_key}]:\n\t{err}\n"
+                            )
+                    continue
+
+                err = self.add(output_key, data)
+                if err:
+                    raise Exception(
+                        f"\n\ninit {source} error for "
+                        f"[{step_name}.{output_key}]:\n\t{err}\n"
+                    )
+
+            for container_path, _record_index in sorted(repeated_rows):
+                row = repeated_rows[(container_path, _record_index)]
+                err = self.append_repeated_final_row(container_path, row)
+                if err:
+                    raise Exception(
+                        f"\n\ninit {source} error for [{step_name}]:\n\t{err}\n"
+                    )
+
+    def custom_output_route_index(
+        self, source: str
+    ) -> typing.Dict[
+        typing.Tuple[str, str],
+        typing.List[typing.Mapping[str, typing.Any]],
+    ]:
+        workflow_id = self.workflow_id or ""
+        cache_key = (workflow_id, source)
+        if cache_key in self._custom_output_route_cache:
+            return self._custom_output_route_cache[cache_key]
+
+        route_index: typing.Dict[
+            typing.Tuple[str, str],
+            typing.List[typing.Mapping[str, typing.Any]],
+        ] = {}
+        if not self._prompt_manager:
+            self._custom_output_route_cache[cache_key] = route_index
+            return route_index
+
+        try:
+            extract = self._prompt_manager.persisted_workflow_extract_dict(
+                file_name=self.prompt_file_name,
+                workflow_id=self.workflow_id,
+            )
+        except Exception:
+            self._custom_output_route_cache[cache_key] = route_index
+            return route_index
+
+        workflow = extract.get("workflow")
+        if not isinstance(workflow, dict):
+            self._custom_output_route_cache[cache_key] = route_index
+            return route_index
+
+        routes = workflow.get("output_routes")
+        if not isinstance(routes, list):
+            self._custom_output_route_cache[cache_key] = route_index
+            return route_index
+
+        for route in routes:
+            if not isinstance(route, dict):
+                continue
+            if route.get("output_map") != source:
+                continue
+            step_name = route.get("step_name")
+            output_key = route.get("output_key")
+            if not isinstance(step_name, str) or not isinstance(output_key, str):
+                continue
+            route_index.setdefault((step_name, output_key), []).append(route)
+
+        self._custom_output_route_cache[cache_key] = route_index
+        return route_index
+
+    def add_custom_output_route(
+        self,
+        route: typing.Mapping[str, typing.Any],
+        value: typing.Any,
+        repeated_rows: typing.Optional[
+            typing.Dict[typing.Tuple[typing.Tuple[str, ...], int], Group]
+        ] = None,
+        record_index: int = 0,
+    ) -> typing.Optional[str]:
+        final_path = route.get("final_path")
+        if not isinstance(final_path, str):
+            return "custom workflow output route is missing final_path"
+
+        try:
+            segments = decode_final_path(final_path)
+        except ValueError as e:
+            return str(e)
+
+        if len(segments) == 2:
+            group_name, field_name = segments
+            self.set_final_field(group_name, field_name, value)
+            return None
+
+        if "*" in segments:
+            return self.stage_repeated_final_field(
+                segments,
+                value,
+                repeated_rows,
+                record_index=record_index,
+            )
+
+        return f"unsupported custom workflow final path [{final_path}]"
+
+    def set_final_field(
+        self,
+        group_name: str,
+        field_name: str,
+        value: typing.Any,
+    ) -> None:
+        existing_group = self.fields.get(group_name)
+        if isinstance(existing_group, Group):
+            group = existing_group
+        else:
+            group = Group(prompt=self.final_group_prompt(group_name))
+
+        field = self.final_extracted_field(group_name, field_name, value)
+        existing_field = group.fields.get(field_name)
+        if isinstance(existing_field, ExtractedField):
+            try:
+                if existing_field.equal_to_value(value):
+                    self.set(group_name, group)
+                    return
+            except Exception:
+                pass
+            if value not in existing_field.conflicts:
+                existing_field.conflicts.append(value)
+            group.fields[field_name] = existing_field
+        else:
+            group.fields[field_name] = field
+
+        self.set(group_name, group)
+
+    def stage_repeated_final_field(
+        self,
+        segments: typing.Tuple[str, ...],
+        value: typing.Any,
+        repeated_rows: typing.Optional[
+            typing.Dict[typing.Tuple[typing.Tuple[str, ...], int], Group]
+        ],
+        record_index: int = 0,
+    ) -> typing.Optional[str]:
+        if repeated_rows is None:
+            return f"unsupported custom workflow final path [/{'/'.join(segments)}]"
+        if segments.count("*") != 1:
+            return f"unsupported custom workflow final path [/{'/'.join(segments)}]"
+
+        star_idx = segments.index("*")
+        if star_idx == 0 or star_idx != len(segments) - 2:
+            return f"unsupported custom workflow final path [/{'/'.join(segments)}]"
+
+        container_path = segments[:star_idx]
+        field_name = segments[star_idx + 1]
+        row = repeated_rows.setdefault(
+            (container_path, record_index),
+            Group(prompt=self.final_group_prompt(container_path[-1])),
+        )
+        row.fields[field_name] = self.final_extracted_field(
+            container_path[-1], field_name, value
+        )
+        return None
+
+    def append_repeated_final_row(
+        self, container_path: typing.Tuple[str, ...], row: Group
+    ) -> typing.Optional[str]:
+        if len(container_path) == 1:
+            group_name = container_path[0]
+            existing = self.fields.get(group_name)
+            rows = list(existing) if isinstance(existing, list) else []
+            rows.append(row)
+            self.set(group_name, rows)
+            return None
+
+        if len(container_path) == 2:
+            group_name, list_name = container_path
+            existing_group = self.fields.get(group_name)
+            if isinstance(existing_group, Group):
+                group = existing_group
+            else:
+                group = Group(prompt=self.final_group_prompt(group_name))
+
+            existing_rows = group.fields.get(list_name)
+            rows = list(existing_rows) if isinstance(existing_rows, list) else []
+            rows.append(row)
+            group.fields[list_name] = rows
+            self.set(group_name, group)
+            return None
+
+        return f"unsupported custom workflow repeated path [/{'/'.join(container_path)}/*]"
+
+    def final_extracted_field(
+        self,
+        group_name: str,
+        field_name: str,
+        value: typing.Any,
+    ) -> ExtractedField:
+        return ExtractedField(
+            prompt=self.final_field_prompt(group_name, field_name),
+            value=value,
+        )
+
+    def final_group_prompt(self, group_name: str) -> typing.Optional[Prompt]:
+        if not self._prompt_manager:
+            return None
+
+        try:
+            group = self._prompt_manager.get_fields_for_data_object(
+                file_name=self.prompt_file_name,
+                workflow_id=self.workflow_id,
+            ).get(group_name)
+        except Exception:
+            return None
+
+        if not isinstance(group, Group):
+            return None
+
+        return group.prompt
+
+    def final_field_prompt(
+        self,
+        group_name: str,
+        field_name: str,
+    ) -> typing.Optional[Prompt]:
+        if not self._prompt_manager:
+            return None
+
+        try:
+            group = self._prompt_manager.get_fields_for_data_object(
+                file_name=self.prompt_file_name,
+                workflow_id=self.workflow_id,
+            ).get(group_name)
+        except Exception:
+            return None
+
+        if not isinstance(group, Group):
+            return None
+
+        field = group.fields.get(field_name)
+        if not isinstance(field, ExtractedField):
+            return None
+
+        return field.prompt
+
+    def add(self, k: str, value: typing.Any) -> typing.Union[str, None]:
+        self.print("WARNING", "add is not implemented")
+
+        return None
+
+    def finalize_init(self) -> None:
+        self.print("WARNING", "finalize_init is not implemented")
+
+    def print(
+        self, level: str, msg: str, extras: typing.Dict[str, typing.Any] = {}
+    ) -> None:
+        if not self.logger:
+            print(msg)
+            return
+
+        lvl = level.upper()
+        if lvl == "ERROR":
+            self.logger.error_msg(
+                msg=msg,
+                name=self.invoice_name,
+                document_id=self.document_id,
+                task_id=self.task_id,
+                workflow_id=self.workflow_id,
+                extras=extras,
+            )
+        elif lvl == "INFO":
+            self.logger.info_msg(
+                msg=msg,
+                name=self.invoice_name,
+                document_id=self.document_id,
+                task_id=self.task_id,
+                workflow_id=self.workflow_id,
+                extras=extras,
+            )
+        elif lvl in ("WARN", "WARNING"):
+            self.logger.warning_msg(
+                msg=msg,
+                name=self.invoice_name,
+                document_id=self.document_id,
+                task_id=self.task_id,
+                workflow_id=self.workflow_id,
+                extras=extras,
+            )
+        else:
+            self.logger.debug_msg(
+                msg=msg,
+                name=self.invoice_name,
+                document_id=self.document_id,
+                task_id=self.task_id,
+                workflow_id=self.workflow_id,
+                extras=extras,
+            )
+
+
+def _new_page_image_dict() -> typing.Dict[str, int]:
+    return {}
+
+
+def _new_page_images() -> typing.List[Image.Image]:
+    return []
+
+
+def decode_final_path(final_path: str) -> typing.Tuple[str, ...]:
+    if not final_path.startswith("/"):
+        raise ValueError(f"invalid custom workflow final path [{final_path}]")
+
+    segments = tuple(
+        segment.replace("~1", "/").replace("~0", "~")
+        for segment in final_path.split("/")[1:]
+    )
+    if not segments or any(segment == "" for segment in segments):
+        raise ValueError(f"invalid custom workflow final path [{final_path}]")
+
+    return segments
+
+
+class DocumentRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    callback_url: str = Field(alias="callbackURL", default="")
+    document_id: str = Field(alias="documentID")
+    file_name: str = Field(alias="fileName")
+    model_id: int = Field(alias="modelID")
+    processor_id: int = Field(alias="processorID")
+    task_id: str = Field(alias="taskID")
+    workflow_id: typing.Optional[str] = Field(alias="workflowID", default=None)
+
+    _logger: typing.Optional[Logger] = PrivateAttr(default=None)
+
+    _append_values: bool = PrivateAttr(default_factory=bool)
+    _clear_cache: bool = PrivateAttr(default_factory=bool)
+    _debug_path: typing.Optional[str] = PrivateAttr(default=None)
+    _page_image_dict: typing.Dict[str, int] = PrivateAttr(
+        default_factory=_new_page_image_dict
+    )
+    _page_images: typing.List[Image.Image] = PrivateAttr(
+        default_factory=_new_page_images
+    )
+    _start: int = PrivateAttr(
+        default_factory=lambda: int(datetime.now(timezone.utc).timestamp())
+    )
+    _write_lock: typing.Optional[typing.Any] = PrivateAttr(default=None)
+
+    @model_validator(mode="after")
+    def _inject_context(self, info: ValidationInfo) -> "DocumentRequest":
+        ctx_raw = info.context
+        ctx: typing.Dict[str, typing.Any] = {}
+        if isinstance(ctx_raw, dict):
+            ctx = typing.cast(typing.Dict[str, typing.Any], ctx_raw)
+
+        lg = ctx.get("logger")
+        if lg:
+            self.logger = lg
+
+        return self
+
+    @property
+    def append_values(self) -> bool:
+        return self._append_values
+
+    @append_values.setter
+    def append_values(self, value: bool) -> None:
+        self._append_values = value
+
+    @append_values.deleter
+    def append_values(self) -> None:
+        del self._append_values
+
+    @property
+    def clear_cache(self) -> bool:
+        return self._clear_cache
+
+    @clear_cache.setter
+    def clear_cache(self, value: bool) -> None:
+        self._clear_cache = value
+
+    @clear_cache.deleter
+    def clear_cache(self) -> None:
+        del self._clear_cache
+
+    @property
+    def debug_path(self) -> typing.Optional[str]:
+        return self._debug_path
+
+    @debug_path.setter
+    def debug_path(self, value: str) -> None:
+        self._debug_path = value
+
+    @debug_path.deleter
+    def debug_path(self) -> None:
+        del self._debug_path
+
+    @property
+    def logger(self) -> typing.Optional[Logger]:
+        if self._logger:
+            return self._logger
+
+        return None
+
+    @logger.setter
+    def logger(self, value: Logger) -> None:
+        self._logger = value
+
+    @logger.deleter
+    def logger(self) -> None:
+        del self._logger
+
+    @property
+    def page_images(self) -> typing.List[Image.Image]:
+        return self._page_images
+
+    @page_images.setter
+    def page_images(self, value: typing.List[Image.Image]) -> None:
+        self._page_images = value
+
+    @page_images.deleter
+    def page_images(self) -> None:
+        del self._page_images
+
+    @property
+    def page_image_dict(self) -> typing.Dict[str, int]:
+        return self._page_image_dict
+
+    @page_image_dict.setter
+    def page_image_dict(self, value: typing.Dict[str, int]) -> None:
+        self._page_image_dict = value
+
+    @page_image_dict.deleter
+    def page_image_dict(self) -> None:
+        del self._page_image_dict
+
+    @property
+    def start(self) -> int:
+        return self._start
+
+    @property
+    def write_lock(self) -> typing.Optional[typing.Any]:
+        return self._write_lock
+
+    @write_lock.setter
+    def write_lock(self, value: typing.Optional[typing.Any]) -> None:
+        self._write_lock = value
+
+    @write_lock.deleter
+    def write_lock(self) -> None:
+        del self._write_lock
+
+    def clear_debug(self) -> None:
+        if self.debug_path:
+            file_path = f"{self.debug_path}/{self.file_name.replace('.pdf','')}"
+            shutil.rmtree(file_path, ignore_errors=True)
+
+    def load_images(
+        self,
+        imgs: typing.List[str],
+        upload: typing.Optional[Upload] = None,
+        attempt: int = 0,
+        should_sleep: bool = True,
+    ) -> typing.List[Image.Image]:
+        pageImages: typing.List[Image.Image] = []
+        for page in imgs:
+            if page in self.page_image_dict:
+                self.print(
+                    "WARN",
+                    f"[{attempt}] loading cached [{self.page_image_dict[page]}] [{page}]",
+                )
+                pageImages.append(self.page_images[self.page_image_dict[page]])
+                continue
+
+            if upload:
+                parsed = urlparse(page)
+                path = parsed.path + ("?" + parsed.query if parsed.query else "")
+                ru = upload.get_object(path)
+                if ru:
+                    img = Image.open(BytesIO(ru))
+                    if img:
+                        self.page_image_dict[page] = len(self.page_images)
+                        self.page_images.append(img)
+                        pageImages.append(img)
+                        continue
+
+            try:
+                self.print("WARN", f"[{attempt}] downloading [{page}]")
+                resp = bounded_get(
+                    page,
+                    operation="page image",
+                    sleep_between_attempts=should_sleep,
+                )
+                resp.raise_for_status()
+                img = Image.open(BytesIO(resp.content))
+                if img:
+                    self.page_image_dict[page] = len(self.page_images)
+                    self.page_images.append(img)
+                    pageImages.append(img)
+            except BoundedRequestTimeout as e:
+                self.print(
+                    "ERROR", f"[{attempt}] Failed to load image from {page}: {e}"
+                )
+                raise RuntimeError(str(e)) from e
+            except Exception as e:
+                self.print(
+                    "ERROR", f"[{attempt}] Failed to load image from {page}: {e}"
+                )
+
+        return pageImages
+
+    def print(
+        self, level: str, msg: str, extras: typing.Dict[str, typing.Any] = {}
+    ) -> None:
+        if not self.logger:
+            print(msg)
+            return
+
+        lvl = level.upper()
+        if lvl == "ERROR":
+            self.logger.error_msg(
+                msg=msg,
+                name=self.file_name,
+                document_id=self.document_id,
+                task_id=self.task_id,
+                workflow_id=self.workflow_id,
+                extras=extras,
+            )
+        elif lvl == "INFO":
+            self.logger.info_msg(
+                msg=msg,
+                name=self.file_name,
+                document_id=self.document_id,
+                task_id=self.task_id,
+                workflow_id=self.workflow_id,
+                extras=extras,
+            )
+        elif lvl in ("WARN", "WARNING"):
+            self.logger.warning_msg(
+                msg=msg,
+                name=self.file_name,
+                document_id=self.document_id,
+                task_id=self.task_id,
+                workflow_id=self.workflow_id,
+                extras=extras,
+            )
+        else:
+            self.logger.debug_msg(
+                msg=msg,
+                name=self.file_name,
+                document_id=self.document_id,
+                task_id=self.task_id,
+                workflow_id=self.workflow_id,
+                extras=extras,
+            )
+
+    def write_debug(self, file_name: str, data: typing.Any) -> None:
+        if not self.debug_path:
+            return
+
+        os.makedirs(self.debug_path, exist_ok=True)
+        file_path = f"{self.debug_path}/{self.file_name.replace('.pdf','')}"
+        os.makedirs(file_path, exist_ok=True)
+
+        if not isinstance(data, str):
+            try:
+                data = json.dumps(data)
+            except Exception as e:
+                if isinstance(data, Exception):
+                    data = str(data)
+                else:
+                    self.print("ERROR", f"write_debug exception: {e}")
+                    raise e
+
+        with open(f"{file_path}/{self.start}_{file_name}", "w", encoding="utf-8") as f:
+            f.write(data)

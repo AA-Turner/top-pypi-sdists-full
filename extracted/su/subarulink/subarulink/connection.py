@@ -1,0 +1,343 @@
+#  SPDX-License-Identifier: Apache-2.0
+"""
+Provides managed HTTP session to the MySubaru Connected Services mobile app API.
+
+For more details, please refer to the documentation at https://github.com/G-Two/subarulink
+"""
+
+import asyncio
+import logging
+import pprint
+import re
+import time
+from typing import Any
+
+import aiohttp
+from yarl import URL
+
+from subarulink._subaru_api.const import (
+    API_2FA_AUTH_VERIFY,
+    API_2FA_CONTACT,
+    API_2FA_SEND_VERIFICATION,
+    API_ERROR_ACCOUNT_LOCKED,
+    API_ERROR_INVALID_ACCOUNT,
+    API_ERROR_INVALID_CREDENTIALS,
+    API_ERROR_PASSWORD_WARNING,
+    API_ERROR_TOO_MANY_ATTEMPTS,
+    API_ERROR_VEHICLE_SETUP,
+    API_LOGIN,
+    API_MAX_SESSION_AGE_MINS,
+    API_MOBILE_APP,
+    API_SELECT_VEHICLE,
+    API_SERVER,
+    API_VALIDATE_SESSION,
+    API_VERSION,
+)
+from subarulink.exceptions import (
+    IncompleteCredentials,
+    InvalidCredentials,
+    SubaruException,
+)
+
+_LOGGER = logging.getLogger(__name__)
+
+GET = "get"
+POST = "post"
+
+# Maximum number of times to auto-increment the API version in response to HTTP 404s
+# before giving up. Subaru periodically bumps the API version (e.g. /g2v32 -> /g2v33),
+# which breaks the hardcoded path until the package is updated.
+API_VERSION_RETRY_LIMIT = 5
+
+
+class Connection:
+    """A managed HTTP session to MySubaru Connected Services mobile app API."""
+
+    # pylint: disable=too-many-positional-arguments
+    def __init__(
+        self,
+        websession: aiohttp.ClientSession,
+        username: str,
+        password: str,
+        device_id: int,
+        device_name: str,
+        country: str,
+    ) -> None:
+        self._username = username
+        self._password = password
+        self._device_id = device_id
+        self._country = country
+        self._api_version = API_VERSION
+        self._api_version_retries = 0
+        self._lock = asyncio.Lock()
+        self._device_name = device_name
+        self._vehicles: list[dict] = []
+        self._head = {
+            "User-Agent": "Mozilla/5.0 (Linux; Android 10; Android SDK built for x86 Build/QSR1.191030.002; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/74.0.3729.185 Mobile Safari/537.36",
+            "Origin": "file://",
+            "X-Requested-With": API_MOBILE_APP[self._country],
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate",
+            "Accept": "*/*",
+        }
+        self._websession = websession
+        self._authenticated = False
+        self._registered = False
+        self._current_vin = ""
+        self._list_of_vins: list[str] = []
+        self._session_login_time = 0.0
+        self._auth_contact_options: dict[str, str] | Any = {}
+
+    async def connect(self) -> list[dict[str, Any]]:
+        """Connect to and establish session with MySubaru Connected Services mobile app API."""
+        await self._authenticate()
+        await self._get_vehicle_data()
+        if not self.device_registered:
+            await self._get_contact_methods()
+        return self._vehicles
+
+    @property
+    def device_registered(self) -> bool:
+        """Device is registered."""
+        return self._registered
+
+    @property
+    def auth_contact_methods(self) -> dict[str, str]:
+        """Contact methods for 2FA."""
+        return self._auth_contact_options
+
+    async def request_auth_code(self, contact_method: str) -> bool:
+        """Request 2FA code be sent via specified contact method."""
+        if contact_method not in self.auth_contact_methods:
+            _LOGGER.error("Invalid 2FA contact method requested")
+            return False
+        _LOGGER.debug("Requesting 2FA code")
+        post_data = {
+            "contactMethod": contact_method,
+            "languagePreference": "EN",
+        }
+        js_resp = await self.__open(
+            API_2FA_SEND_VERIFICATION,
+            POST,
+            params=post_data,
+        )
+        if js_resp:
+            _LOGGER.debug(pprint.pformat(js_resp))
+            return True
+        return False
+
+    async def submit_auth_code(self, code: str, make_permanent: bool = True) -> bool:
+        """Submit received 2FA code for validation."""
+        if not code.isdecimal() or len(code) != 6:
+            _LOGGER.error("2FA code must be 6 digits")
+            return False
+        _LOGGER.info("Validating 2FA response")
+        post_data = {
+            "deviceId": self._device_id,
+            "deviceName": self._device_name,
+            "verificationCode": code,
+        }
+        if make_permanent:
+            post_data["rememberDevice"] = "on"
+
+        js_resp = await self.__open(API_2FA_AUTH_VERIFY, POST, params=post_data)
+        if js_resp:
+            _LOGGER.debug(pprint.pformat(js_resp))
+            if js_resp["success"]:
+                _LOGGER.info("Device successfully authorized")
+                while not self._registered:
+                    # Device registration does not always immediately take effect
+                    await asyncio.sleep(3)
+                    await self._authenticate()
+                    # Current server side vin context is ambiguous (even for single vehicle account??)
+                    self._current_vin = ""
+                return True
+        return False
+
+    async def validate_session(self, vin: str) -> bool:
+        """Validate current session, re-authenticating and switching vehicle context as needed."""
+        if self.get_session_age() > API_MAX_SESSION_AGE_MINS:
+            _LOGGER.debug("Session age exceeded %s minutes, forcing re-authentication", API_MAX_SESSION_AGE_MINS)
+            self.reset_session()
+        result = False
+        js_resp = await self.__open(API_VALIDATE_SESSION, GET)
+        _LOGGER.debug(pprint.pformat(js_resp))
+        if js_resp["success"]:
+            if vin != self._current_vin:
+                # API call for VIN that is not the current remote context.
+                _LOGGER.debug("Switching Subaru API vehicle context to: %s", vin)
+                if await self._select_vehicle(vin):
+                    result = True
+            else:
+                result = True
+
+        if result is False:
+            await self._authenticate(vin)
+            # New session cookie.  Must call selectVehicle.json before any other API call.
+            if await self._select_vehicle(vin):
+                result = True
+
+        return result
+
+    def get_session_age(self) -> float:
+        """Return number of minutes since last authentication."""
+        return (time.time() - self._session_login_time) // 60
+
+    def reset_session(self):
+        """Clear session cookies."""
+        self._websession.cookie_jar.clear()
+
+    async def get(self, url: str, params: dict | None = None) -> dict[str, Any]:
+        """Send HTTPS GET request to Subaru Remote Services API."""
+        js_resp = {}
+        if self._authenticated:
+            js_resp = await self.__open(url, method=GET, headers=self._head, params=params)
+        return js_resp
+
+    async def post(self, url: str, params: dict | None = None, json_data: dict | None = None) -> dict[str, Any]:
+        """Send HTTPS POST request to Subaru Remote Services API."""
+        js_resp = {}
+        if self._authenticated:
+            js_resp = await self.__open(url, method=POST, headers=self._head, params=params, json_data=json_data)
+        return js_resp
+
+    async def _authenticate(self, vin: str | None = None) -> bool:
+        if self._username and self._password and self._device_id:
+            post_data = {
+                "env": "cloudprod",
+                "loginUsername": self._username,
+                "password": self._password,
+                "deviceId": self._device_id,
+                "passwordToken": None,
+                "selectedVin": vin,
+                "pushToken": None,
+                "deviceType": "android",
+            }
+            js_resp = await self.__open(API_LOGIN, POST, data=post_data, headers=self._head)
+            if js_resp.get("success"):
+                _LOGGER.debug("Client authentication successful")
+                _LOGGER.debug(pprint.pformat(js_resp))
+                self._authenticated = True
+                self._session_login_time = time.time()
+                self._registered = js_resp["data"]["deviceRegistered"]
+                self._list_of_vins = [v["vin"] for v in js_resp["data"]["vehicles"]]
+                self._current_vin = ""
+                return True
+            if js_resp.get("errorCode"):
+                _LOGGER.debug(pprint.pformat(js_resp))
+                error: str = js_resp.get("errorCode", "Unknown authentication error")
+                if error == API_ERROR_INVALID_ACCOUNT:
+                    _LOGGER.error("Invalid account")
+                    raise InvalidCredentials(error)
+                if error == API_ERROR_INVALID_CREDENTIALS:
+                    _LOGGER.error("Client authentication failed")
+                    raise InvalidCredentials(error)
+                if error == API_ERROR_PASSWORD_WARNING:
+                    _LOGGER.error("Multiple Password Failures.")
+                    raise InvalidCredentials(error)
+                if error == API_ERROR_ACCOUNT_LOCKED:
+                    _LOGGER.error("Account locked due to too many failed login attempts.")
+                    raise InvalidCredentials(error)
+                if error == API_ERROR_TOO_MANY_ATTEMPTS:
+                    _LOGGER.error("Too many login attempts.")
+                    raise InvalidCredentials(error)
+                raise InvalidCredentials(error)
+        raise IncompleteCredentials("Connection requires email and password and device id.")
+
+    async def _select_vehicle(self, vin: str) -> dict[str, Any] | None:
+        params = {"vin": vin, "_": int(time.time())}
+        js_resp = await self.get(API_SELECT_VEHICLE, params=params)
+        _LOGGER.debug(pprint.pformat(js_resp))
+        if js_resp.get("success"):
+            self._current_vin = vin
+            _LOGGER.debug("Current vehicle: vin=%s", js_resp["data"]["vin"])
+            return js_resp["data"]
+        if not js_resp.get("success") and js_resp.get("errorCode") == API_ERROR_VEHICLE_SETUP:
+            # Occasionally happens every few hours. Resetting the session seems to deal with it.
+            _LOGGER.warning("VEHICLESETUPERROR received. Resetting session.")
+            self.reset_session()
+            return None
+        _LOGGER.debug("Failed to switch vehicle errorCode=%s", js_resp.get("errorCode"))
+        # Something else is probably wrong with the backend server context - try resetting
+        self.reset_session()
+        raise SubaruException("Failed to switch vehicle %s - resetting session." % js_resp.get("errorCode"))
+
+    async def _get_vehicle_data(self) -> None:
+        for vin in self._list_of_vins:
+            params = {"vin": vin, "_": int(time.time())}
+            js_resp = await self.get(API_SELECT_VEHICLE, params=params)
+            _LOGGER.debug(pprint.pformat(js_resp))
+            if "data" not in js_resp:
+                raise SubaruException(f"Unexpected response fetching vehicle data for {vin}: {js_resp}")
+            self._vehicles.append(js_resp["data"])
+            self._current_vin = vin
+
+    async def _get_contact_methods(self) -> None:
+        js_resp = await self.__open(API_2FA_CONTACT, POST)
+        if js_resp:
+            _LOGGER.debug(pprint.pformat(js_resp))
+            self._auth_contact_options = js_resp.get("data")
+
+    def _bump_api_version(self) -> bool:
+        """Increment the API version (e.g. /g2v32 -> /g2v33) after an HTTP 404.
+
+        Subaru periodically increments the API version, which breaks the hardcoded path
+        with an HTTP 404 until the package is updated. Bumping the version in-process (and
+        persisting it for the life of this Connection) keeps the client working in the
+        meantime. Returns False once API_VERSION_RETRY_LIMIT is reached, so the caller
+        stops retrying and surfaces the error.
+        """
+        if self._api_version_retries >= API_VERSION_RETRY_LIMIT:
+            return False
+        match = re.search(r"\d+$", self._api_version)
+        if not match:
+            return False
+        bumped = int(match.group()) + 1
+        self._api_version = f"{self._api_version[: match.start()]}{bumped}"
+        self._api_version_retries += 1
+        return True
+
+    # pylint: disable=too-many-positional-arguments
+    async def __open(
+        self,
+        url,
+        method=GET,
+        headers=None,
+        data=None,
+        json_data=None,
+        params=None,
+        baseurl="",
+    ) -> dict:
+        # When no explicit baseurl is supplied, build it from the current (possibly
+        # auto-incremented) API version so that a mid-execution version bump applies to
+        # this request and all subsequent ones.
+        managed_version = not baseurl
+
+        async with self._lock:
+            while True:
+                if managed_version:
+                    baseurl = f"https://{API_SERVER[self._country]}{self._api_version}"
+                endpoint: URL = URL(baseurl + url)
+
+                _LOGGER.debug("%s: %s, params=%s, json_data=%s", method.upper(), endpoint, params, json_data)
+                try:
+                    resp = await getattr(self._websession, method)(
+                        endpoint, headers=headers, params=params, data=data, json=json_data
+                    )
+                    if resp.status == 404 and managed_version and self._bump_api_version():
+                        _LOGGER.warning(
+                            "HTTP 404 for %s -- Subaru API version may have changed, retrying with %s",
+                            endpoint,
+                            self._api_version,
+                        )
+                        continue
+                    if resp.status > 299:
+                        raise SubaruException("HTTP %d: %s %s" % (resp.status, await resp.text(), resp.request_info))
+                    js_resp = await resp.json()
+                    if "success" not in js_resp and "serviceType" not in js_resp:
+                        raise SubaruException("Unexpected response: %s" % resp)
+                    return js_resp
+                except aiohttp.ClientResponseError as err:
+                    raise SubaruException("HTTP %d: %s" % (err.status, err.message)) from err
+                except aiohttp.ClientConnectionError as err:
+                    raise SubaruException("aiohttp.ClientConnectionError") from err

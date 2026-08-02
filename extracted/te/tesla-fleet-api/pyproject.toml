@@ -1,0 +1,50 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=77.0"]
+
+[project]
+name = "tesla_fleet_api"
+version = "1.7.6"
+license = "Apache-2.0"
+description = "Tesla Fleet API library for Python"
+readme = "README.md"
+authors = [{ name = "Brett Adams", email = "hello@teslemetry.com" }]
+requires-python = ">=3.13"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "aiohttp>=3",
+    "aiofiles>=24",
+    "aiolimiter>=1",
+    "cryptography>=43",
+    "protobuf>=6.32.0",
+    "bleak>=0.22",
+    "bleak-retry-connector>=3.9",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/Teslemetry/python-tesla-fleet-api"
+
+[dependency-groups]
+dev = ["pyright>=1.1.399", "pytest>=8.0", "ruff>=0.14"]
+
+[tool.setuptools.packages.find]
+include = ["tesla_fleet_api*"]
+
+[tool.setuptools.package-data]
+tesla_fleet_api = ["py.typed"]
+
+[tool.ruff]
+exclude = ["tesla_fleet_api/tesla/vehicle/proto/*"]
+
+[tool.pyright]
+include = ["tesla_fleet_api"]
+typeCheckingMode = "strict"
+exclude = ["tesla_fleet_api/tesla/vehicle/proto/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

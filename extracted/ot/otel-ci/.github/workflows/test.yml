@@ -1,0 +1,65 @@
+name: Test
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  OTEL_EXPORTER_OTLP_ENDPOINT: "https://quickwit-otel.onuptick.com:443"
+  OTEL_TRACES_EXPORTER: "otlp"
+  OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+
+permissions:
+  id-token: write # Required for federated aws oidc
+  contents: read
+  actions: read
+  pull-requests: write
+
+on:
+  push:
+    branches:
+      - main
+  pull_request: {}
+
+jobs:
+
+  test-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Install dependencies
+        run: |
+          pip install -e .
+
+      - name: test
+        id: test
+        env:
+          STEP_ID: "test"
+        run: |
+          otel-ci -e file -o /tmp/out exec ls
+
+      - name: test
+        id: test2
+        env:
+          STEP_ID: "test2"
+        run: |
+          otel-ci -e file -o /tmp/out exec ls /tmp
+
+      - name: test
+        id: testnested
+        env:
+          STEP_ID: "testnested"
+        run: |
+          otel-ci -e file -o /tmp/out exec otel-ci -e file -o /tmp/out exec echo "nested"
+          otel-ci -e file -o /tmp/out exec 'otel-ci -e file -o /tmp/out exec echo "nested2"'
+
+      - name: upload results
+        id: upload_results_grpc
+        run: |
+          otel-ci -o /tmp/out replay
+
+      - name: replay results in console
+        id: replay_results_console
+        run: |
+          otel-ci -o /tmp/out -e console replay

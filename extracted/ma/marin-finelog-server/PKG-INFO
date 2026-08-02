@@ -1,0 +1,5 @@
+Metadata-Version: 2.4
+Name: marin-finelog-server
+Version: 0.2.10
+Summary: Native finelog server: in-process (PyO3) embedding of the Rust log store + log service.
+Requires-Python: >=3.11

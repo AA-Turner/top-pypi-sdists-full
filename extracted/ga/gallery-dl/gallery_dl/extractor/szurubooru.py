@@ -97,6 +97,10 @@ BASE_PATTERN = SzurubooruExtractor.update({
         "root": "https://www.visuabusters.com/booru",
         "pattern": r"(?:www\.)?visuabusters\.com/booru",
     },
+    "ricardoadacor": {
+        "root": "https://ricardo.adacor.org",
+        "pattern": r"ricardo\.adacor\.org",
+    },
 })
 
 

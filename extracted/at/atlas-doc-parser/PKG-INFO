@@ -1,0 +1,144 @@
+Metadata-Version: 2.3
+Name: atlas_doc_parser
+Version: 1.0.1
+Summary: Atlassian Document Format Parser.
+License: MIT
+Author: Sanhe Hu
+Author-email: husanhe@email.com
+Maintainer: Sanhe Hu
+Maintainer-email: husanhe@email.com
+Requires-Python: >=3.10,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Provides-Extra: auto
+Provides-Extra: dev
+Provides-Extra: doc
+Provides-Extra: test
+Requires-Dist: Sphinx (>=7.4.7,<8.0.0) ; extra == "doc"
+Requires-Dist: build (>=1.2.1,<2.0.0) ; extra == "dev"
+Requires-Dist: diskcache (>=5.6.0,<6.0.0) ; extra == "test"
+Requires-Dist: docfly (==3.0.0) ; extra == "doc"
+Requires-Dist: fire (>=0.7.0,<1.0.0) ; extra == "test"
+Requires-Dist: func_args (>=1.0.1,<2.0.0)
+Requires-Dist: furo (==2024.8.6) ; extra == "doc"
+Requires-Dist: home-secret-toml (>=0.2.1,<1.0.0) ; extra == "test"
+Requires-Dist: home_secret_toml (>=0.2.1,<1.0.0) ; extra == "test"
+Requires-Dist: ipython (>=8.18.1,<8.19.0) ; extra == "doc"
+Requires-Dist: jinja2 (>=3.0.0,<4.0.0) ; extra == "dev"
+Requires-Dist: jinja2 (>=3.0.0,<4.0.0) ; extra == "test"
+Requires-Dist: jmespath (>=1.0.1,<2.0.0) ; extra == "test"
+Requires-Dist: jupyterlab (>=4.0.0,<5.0.0) ; extra == "dev"
+Requires-Dist: nbsphinx (>=0.8.12,<1.0.0) ; extra == "doc"
+Requires-Dist: pygments (>=2.18.0,<3.0.0) ; extra == "doc"
+Requires-Dist: pytest (>=8.2.2,<9.0.0) ; extra == "test"
+Requires-Dist: pytest-cov (>=6.0.0,<7.0.0) ; extra == "test"
+Requires-Dist: rich (>=13.8.1,<15.0.0) ; extra == "test"
+Requires-Dist: rstobj (==1.2.1) ; extra == "doc"
+Requires-Dist: sanhe-confluence_sdk (>=0.1.1,<1.0.0) ; extra == "test"
+Requires-Dist: sphinx-copybutton (>=0.5.2,<1.0.0) ; extra == "doc"
+Requires-Dist: sphinx-design (>=0.6.1,<1.0.0) ; extra == "doc"
+Requires-Dist: sphinx-jinja (>=2.0.2,<3.0.0) ; extra == "doc"
+Requires-Dist: twine (>=6.0.0,<7.0.0) ; extra == "dev"
+Requires-Dist: varname (>=0.15.0,<0.16.0) ; extra == "test"
+Requires-Dist: wheel (>=0.45.0,<1.0.0) ; extra == "dev"
+Project-URL: Changelog, https://github.com/MacHu-GWU/atlas_doc_parser-project/blob/main/release-history.rst
+Project-URL: Documentation, https://sanhe-confluence-sdk.readthedocs.io/en/latest/
+Project-URL: Download, https://pypi.org/pypi/sanhe-confluence-sdk#files
+Project-URL: Homepage, https://github.com/MacHu-GWU/atlas_doc_parser-project
+Project-URL: Issues, https://github.com/MacHu-GWU/atlas_doc_parser-project/issues
+Project-URL: Repository, https://github.com/MacHu-GWU/atlas_doc_parser-project
+Description-Content-Type: text/x-rst
+
+
+.. image:: https://readthedocs.org/projects/atlas-doc-parser/badge/?version=latest
+    :target: https://atlas-doc-parser.readthedocs.io/en/latest/
+    :alt: Documentation Status
+
+.. image:: https://github.com/MacHu-GWU/atlas_doc_parser-project/actions/workflows/main.yml/badge.svg
+    :target: https://github.com/MacHu-GWU/atlas_doc_parser-project/actions?query=workflow:CI
+
+.. image:: https://codecov.io/gh/MacHu-GWU/atlas_doc_parser-project/branch/main/graph/badge.svg
+    :target: https://codecov.io/gh/MacHu-GWU/atlas_doc_parser-project
+
+.. image:: https://img.shields.io/pypi/v/atlas-doc-parser.svg
+    :target: https://pypi.python.org/pypi/atlas-doc-parser
+
+.. image:: https://img.shields.io/pypi/l/atlas-doc-parser.svg
+    :target: https://pypi.python.org/pypi/atlas-doc-parser
+
+.. image:: https://img.shields.io/pypi/pyversions/atlas-doc-parser.svg
+    :target: https://pypi.python.org/pypi/atlas-doc-parser
+
+.. image:: https://img.shields.io/badge/✍️_Release_History!--None.svg?style=social&logo=github
+    :target: https://github.com/MacHu-GWU/atlas_doc_parser-project/blob/main/release-history.rst
+
+.. image:: https://img.shields.io/badge/⭐_Star_me_on_GitHub!--None.svg?style=social&logo=github
+    :target: https://github.com/MacHu-GWU/atlas_doc_parser-project
+
+------
+
+.. image:: https://img.shields.io/badge/Link-API-blue.svg
+    :target: https://atlas-doc-parser.readthedocs.io/en/latest/py-modindex.html
+
+.. image:: https://img.shields.io/badge/Link-Install-blue.svg
+    :target: `install`_
+
+.. image:: https://img.shields.io/badge/Link-GitHub-blue.svg
+    :target: https://github.com/MacHu-GWU/atlas_doc_parser-project
+
+.. image:: https://img.shields.io/badge/Link-Submit_Issue-blue.svg
+    :target: https://github.com/MacHu-GWU/atlas_doc_parser-project/issues
+
+.. image:: https://img.shields.io/badge/Link-Request_Feature-blue.svg
+    :target: https://github.com/MacHu-GWU/atlas_doc_parser-project/issues
+
+.. image:: https://img.shields.io/badge/Link-Download-blue.svg
+    :target: https://pypi.org/pypi/atlas-doc-parser#files
+
+
+Welcome to ``atlas_doc_parser`` Documentation
+==============================================================================
+.. image:: https://atlas-doc-parser.readthedocs.io/en/latest/_static/atlas_doc_parser-logo.png
+    :target: https://atlas-doc-parser.readthedocs.io/en/latest/
+
+**Turn your Confluence pages and Jira issues into AI-ready Markdown.**
+
+Confluence and Jira store rich text as `Atlassian Document Format (ADF) <https://developer.atlassian.com/cloud/jira/platform/apis/document/structure/>`_ - a complex JSON structure that LLMs can't directly consume. This library solves that:
+
+.. code-block:: python
+
+    from atlas_doc_parser.api import NodeDoc
+
+    # Parse ADF JSON from Confluence/Jira API
+    doc = NodeDoc.from_dict(adf_json)
+
+    # Convert to clean Markdown
+    markdown = doc.to_markdown()
+
+    # Feed to your AI
+    response = llm.chat(f"Summarize this: {markdown}")
+
+Now your team's knowledge in Confluence and Jira becomes training data, context, or input for any AI workflow.
+
+
+.. _install:
+
+Install
+------------------------------------------------------------------------------
+
+``atlas_doc_parser`` is released on PyPI, so all you need is to:
+
+.. code-block:: console
+
+    $ pip install atlas-doc-parser
+
+To upgrade to latest version:
+
+.. code-block:: console
+
+    $ pip install --upgrade atlas-doc-parser
+

@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "aioruckus"
+dynamic = ["version"]
+description = "Python API to interact with Ruckus Unleashed and ZoneDirector devices"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "0BSD"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Tony Rielly", email = "aioruckus@ms264556.net" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent"
+]
+dependencies = [
+    "aiohttp>=3.9.5",
+    "cryptography>=41.0.7",
+    "xmltodict>=0.13.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/ms264556/aioruckus"
+Issues = "https://github.com/ms264556/aioruckus/issues"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=1.4.0",
+    "pylint-pytest>=1.1.7",
+    "pylint>=4.0.6",
+]
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests",
+]
+
+[tool.pylint.main]
+load-plugins = ["pylint_pytest"]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.version.raw-options]
+local_scheme = "no-local-version"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "aioruckus/_version.py"

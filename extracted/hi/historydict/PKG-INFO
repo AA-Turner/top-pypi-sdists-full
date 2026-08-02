@@ -1,0 +1,12 @@
+Metadata-Version: 1.0
+Name: historydict
+Version: 1.2.6
+Summary: A persistent dictionary with history backed by sqlite
+Home-page: http://github.com/Nikea/historydict
+Author: Brookhaven National Laboratory
+Author-email: UNKNOWN
+License: UNKNOWN
+Description: UNKNOWN
+Platform: Cross platform (Linux
+Platform: Mac OSX
+Platform: Windows)

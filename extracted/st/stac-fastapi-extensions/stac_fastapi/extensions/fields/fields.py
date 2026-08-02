@@ -1,0 +1,65 @@
+"""Fields extension."""
+
+from enum import StrEnum
+
+import attr
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+from stac_fastapi.types.extension import ApiExtension
+from stac_fastapi.types.search import APIRequest
+
+from .request import FieldsExtensionGetRequest, FieldsExtensionPostRequest
+
+
+class FieldsConformanceClasses(StrEnum):
+    """Conformance classes for the Fields extension.
+
+    See https://github.com/stac-api-extensions/fields
+
+    """
+
+    SEARCH = "https://api.stacspec.org/v1.0.0/item-search#fields"
+    ITEMS = "https://api.stacspec.org/v1.0.0/ogcapi-features#fields"
+    COLLECTIONS = "https://api.stacspec.org/v1.0.0-rc.1/collection-search#fields"
+
+
+@attr.s
+class FieldsExtension(ApiExtension):
+    """Fields Extension.
+
+    The Fields extension adds functionality to the `/search` endpoint which
+    allows the caller to include or exclude specific from the API response.
+    Registering this extension with the application has the added effect of
+    removing the `ItemCollection` response model from the `/search` endpoint, as
+    the Fields extension allows the API to return potentially invalid responses
+    by excluding fields which are required by the STAC spec, such as geometry.
+
+    https://github.com/stac-api-extensions/fields
+
+    Attributes:
+        default_includes (set): defines the default set of included fields.
+        conformance_classes (list): Defines the list of conformance classes for
+            the extension
+    """
+
+    GET: type[APIRequest] = FieldsExtensionGetRequest
+    POST: type[BaseModel] = FieldsExtensionPostRequest
+
+    conformance_classes: list[str] = attr.ib(
+        factory=lambda: [
+            FieldsConformanceClasses.SEARCH,
+        ]
+    )
+    schema_href: str | None = attr.ib(default=None)
+
+    def register(self, app: FastAPI) -> None:
+        """Register the extension with a FastAPI application.
+
+        Args:
+            app (fastapi.FastAPI): target FastAPI application.
+
+        Returns:
+            None
+        """
+        pass

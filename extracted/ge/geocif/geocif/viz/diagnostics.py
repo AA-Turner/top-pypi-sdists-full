@@ -443,10 +443,15 @@ def scatter_obs_pred(df, title, dir_out, fname, color_by="year", yield_units="Mg
     ax.grid(True, linestyle="--", alpha=0.5)
     ax.scatter(y_obs, y_pred, color=colors, s=40, zorder=3)
 
-    max_val = max(y_obs.max(), y_pred.max()) * 1.1
-    ax.plot([0, max_val], [0, max_val], color="gray", linestyle="--", linewidth=0.8)
-    ax.set_xlim(0, max_val)
-    ax.set_ylim(0, max_val)
+    # Pad the low end ~6% below 0 so the origin sits inset from the corner,
+    # keeping the dense low-yield cluster (common in arid regions) off the
+    # spines and readable instead of crammed into the bottom-left corner.
+    # x and y share limits (square) so the 1:1 diagonal stays at 45deg.
+    data_max = max(y_obs.max(), y_pred.max())
+    lo, hi = -0.06 * data_max, data_max * 1.1
+    ax.plot([lo, hi], [lo, hi], color="gray", linestyle="--", linewidth=0.8)
+    ax.set_xlim(lo, hi)
+    ax.set_ylim(lo, hi)
 
     ax.annotate(
         f"RMSE: {rmse:.2f} {yield_units}\nMAPE: {mape:.2%}\n$r^2$: {r2:.2f}\nN: {len(df)}",

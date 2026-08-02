@@ -123,6 +123,10 @@ def test_activate_license_happy_path(ob, client, monkeypatch):
     fake_lic = types.SimpleNamespace(
         activate=lambda key, actor="": (True, "activated"))
     monkeypatch.setitem(sys.modules, "clawmetry.license", fake_lic)
+    # `from clawmetry import license` prefers the package attribute once the
+    # real module has been imported anywhere in the session, so shim both.
+    import clawmetry
+    monkeypatch.setattr(clawmetry, "license", fake_lic, raising=False)
     monkeypatch.setattr(ob, "_license_state", lambda: "selfhost_license")
     pings = []
     monkeypatch.setattr(ob, "_ping_onboarded", pings.append)
@@ -180,3 +184,72 @@ def test_gate_js_is_hard_gate_and_cloud_safe():
     assert "/api/trial/activate" in js
     assert "/api/onboarding/activate-license" in js
     assert "openCloudModal" in js
+
+
+def test_selfhost_modal_offers_oauth_email_and_license():
+    """The self-host side mirrors the cloud side: one button on the gate
+    card opens a modal offering GitHub/Google OAuth (mode=selfhost bridge),
+    email OTP, and a license key. The gate card itself must stay a single
+    button — the options live in the modal, not the card."""
+    js = open(os.path.join(
+        _ROOT, "clawmetry", "static", "js", "onboarding.js"),
+        encoding="utf-8").read()
+    assert "mode: 'selfhost'" in js, "self-host OAuth must use the selfhost bridge mode"
+    assert "/api/cloud-cta/oauth-start" in js
+    assert "openSelfhostModal" in js and "closeSelfhostModal" in js
+    for fn in ("shmOauth", "shmSendOtp", "shmVerifyOtp", "shmActivateLicense"):
+        assert fn in js, "modal driver %s missing from onboarding.js" % fn
+
+    card = open(os.path.join(
+        _ROOT, "clawmetry", "templates", "partials", "onboarding-modal.html"),
+        encoding="utf-8").read()
+    assert 'id="obg-selfhost-btn"' in card, "gate card needs its single button"
+    assert "obg-oauth-github" not in card, \
+        "OAuth buttons moved to the self-host modal; the card is one button"
+
+    modal = open(os.path.join(
+        _ROOT, "clawmetry", "templates", "partials", "selfhost-modal.html"),
+        encoding="utf-8").read()
+    assert 'id="selfhost-modal-overlay"' in modal
+    for probe in ("shmOauth('github')", "shmOauth('google')", "shmSendOtp()",
+                  "shmActivateLicense()", 'id="shm-step-wait"',
+                  'id="shm-step-ended"'):
+        assert probe in modal, "self-host modal missing %s" % probe
+
+
+def test_selfhost_modal_is_in_live_dashboard_html():
+    """The modal partial must be included OUTSIDE #zoom-wrapper in the LIVE
+    (second) DASHBOARD_HTML, next to cloud-modal (the #4386 overlay rule)."""
+    src = _dash_src()
+    live = src.rfind("DASHBOARD_HTML = ")
+    idx = src.find("partials/selfhost-modal.html", live)
+    assert idx > live, "selfhost-modal partial missing from the LIVE DASHBOARD_HTML"
+    wrapper_end = src.find("end zoom-wrapper", live)
+    assert wrapper_end != -1 and idx > wrapper_end, \
+        "selfhost-modal must be included after #zoom-wrapper closes (fixed overlay rule)"
+
+
+def test_marker_semantics_selfhost_writes_nocloud(monkeypatch, tmp_path):
+    """NOCLOUD_MARKER_PATH is a plain str; the old .parent/.touch calls
+    raised AttributeError into the broad except, so the marker was silently
+    never written for self-host choices (identity risked becoming an
+    unasked-for upload once a cm_ key landed on disk)."""
+    import routes.onboarding as mod
+    from clawmetry import config as _cfg
+
+    marker = tmp_path / "clawmetry-home" / "nocloud"
+    monkeypatch.setattr(_cfg, "NOCLOUD_MARKER_PATH", str(marker))
+    mod._apply_marker_semantics("selfhost_trial")
+    assert marker.exists(), "self-host choice must write the nocloud marker"
+
+
+def test_marker_semantics_managed_clears_nocloud(monkeypatch, tmp_path):
+    import routes.onboarding as mod
+    from clawmetry import config as _cfg
+
+    marker = tmp_path / "nocloud"
+    marker.write_text("")
+    monkeypatch.setattr(_cfg, "NOCLOUD_MARKER_PATH", str(marker))
+    monkeypatch.delenv("CLAWMETRY_NO_CLOUD", raising=False)
+    mod._apply_marker_semantics("managed")
+    assert not marker.exists()

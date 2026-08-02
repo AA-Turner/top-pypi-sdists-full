@@ -1,0 +1,241 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - v*.*.*
+
+jobs:
+
+  wheel-linux-aarch64:
+    name: Build Linux wheels (Aarch64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: aarch64
+          args: --release --out dist --find-interpreter
+          sccache: 'true'
+          manylinux: auto
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-manylinux_aarch64
+          path: dist
+
+  wheel-linux-x86_64:
+    name: Build Linux wheels (x86-64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: x86_64
+          args: --release --out dist --find-interpreter
+          sccache: 'true'
+          manylinux: auto
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-manylinux_x86_64
+          path: dist
+
+  wheel-macos-x86_64:
+    name: Build MacOS wheels (x86-64)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: x86_64
+          args: --release --out dist --find-interpreter
+          sccache: 'true'
+          manylinux: auto
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-macos_x86_64
+          path: dist
+
+  wheel-macos-aarch64:
+    name: Build MacOS wheels (Aarch64)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: aarch64
+          args: --release --out dist --find-interpreter
+          sccache: 'true'
+          manylinux: auto
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-macos_aarch64
+          path: dist
+
+  wheel-win32-x86_64:
+    name: Build Windows wheels (x86-64)
+    runs-on: windows-2019
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          architecture: x64
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: x64
+          args: --release --out dist --find-interpreter
+          sccache: 'true'
+          manylinux: auto
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-win32_x86_64
+          path: dist
+
+  sdist:
+    runs-on: ubuntu-latest
+    name: Build source distribution
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.13"
+    - name: Install CI requirements
+      run: python -m pip install -U -r .github/workflows/requirements.txt
+    - name: Build source distribution without vendored sources
+      run: python -m maturin sdist -o dist
+    - uses: actions/upload-artifact@v4
+      with:
+        name: sdist
+        path: dist/*
+
+  test-sdist:
+    runs-on: ubuntu-latest
+    name: Test source distribution
+    needs:
+    - sdist
+    steps:
+    - name: Setup Python 3.13
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.13"
+    - name: Download source distribution
+      uses: actions/download-artifact@v4
+      with:
+        name: sdist
+        path: dist/
+    - name: Update pip to latest version
+      run: python -m pip install -U pip setuptools wheel
+    - name: Install built wheel
+      run: python -m pip install --no-binary pysylph --find-links=dist pysylph
+    - name: Run tests without coverage
+      run: python -m unittest pysylph.tests -vv
+
+  upload:
+    environment: PyPI
+    runs-on: ubuntu-latest
+    name: Upload
+    permissions:
+      id-token: write
+    needs:
+    - sdist
+    - test-sdist
+    - wheel-linux-aarch64
+    - wheel-linux-x86_64
+    - wheel-macos-aarch64
+    - wheel-macos-x86_64
+    - wheel-win32-x86_64
+    steps:
+    - name: Download source distribution
+      uses: actions/download-artifact@v4
+      with:
+        name: sdist
+        path: dist/
+        merge-multiple: true
+    - name: Download wheel distributions
+      uses: actions/download-artifact@v4
+      with:
+        pattern: wheels-*
+        path: dist/
+        merge-multiple: true
+    - name: Publish distributions to PyPI
+      if: startsWith(github.ref, 'refs/tags')
+      uses: pypa/gh-action-pypi-publish@release/v1
+
+  release:
+    environment: GitHub Releases
+    runs-on: ubuntu-latest
+    if: "!contains(github.ref, 'rc')"
+    name: Release
+    needs: upload
+    permissions: write-all
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Release a Changelog
+      uses: rasmus-saks/release-a-changelog-action@v1.2.0
+      with:
+        github-token: '${{ secrets.GITHUB_TOKEN }}'
+
+  aur:
+    environment: Arch Linux User Repository
+    runs-on: ubuntu-latest
+    if: "!contains(github.ref, 'rc')"
+    name: Update AUR package
+    needs:
+    - sdist
+    - upload
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - name: Set up Python 3.13
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    - name: Download source distribution
+      uses: actions/download-artifact@v4
+      with:
+          name: sdist
+          path: dist/
+          merge-multiple: true
+    - name: Extract package version
+      run: echo PKGVER=$(echo ${{ github.ref }} | cut -dv -f2) >> $GITHUB_ENV
+    - name: Compute SHA256 of source distribution
+      run: echo SHA256=$(sha256sum dist/pysylph-${{ env.PKGVER }}.tar.gz | cut -f1 -d' ') >> $GITHUB_ENV
+    - name: Generate PKGBUILD
+      run: sed -e "s/%pkgver/${{ env.PKGVER }}/g" -e "s/%sha256sum/${{ env.SHA256 }}/g" pkg/aur/PKGBUILD.in > pkg/aur/PKGBUILD
+    - name: Update package
+      uses: KSXGitHub/github-actions-deploy-aur@v2.7.2
+      with:
+        pkgname: python-pysylph
+        pkgbuild: pkg/aur/PKGBUILD
+        commit_username: ${{ secrets.AUR_USER }}
+        commit_email: ${{ secrets.AUR_EMAIL }}
+        ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        commit_message: ${{ github.event.head_commit.message }}
+

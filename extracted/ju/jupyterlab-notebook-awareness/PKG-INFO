@@ -1,0 +1,246 @@
+Metadata-Version: 2.4
+Name: jupyterlab_notebook_awareness
+Version: 0.2.0
+Summary: A JupyterLab extension that tracks a user's current notebook and cell.
+Project-URL: Homepage, https://github.com/jupyter-ai-contrib/jupyterlab-notebook-awareness
+Project-URL: Bug Tracker, https://github.com/jupyter-ai-contrib/jupyterlab-notebook-awareness/issues
+Project-URL: Repository, https://github.com/jupyter-ai-contrib/jupyterlab-notebook-awareness.git
+Author-email: Zach Sailer <zachsailer@gmail.com>
+License: BSD 3-Clause License
+        
+        Copyright (c) 2025, Zach Sailer
+        All rights reserved.
+        
+        Redistribution and use in source and binary forms, with or without
+        modification, are permitted provided that the following conditions are met:
+        
+        1. Redistributions of source code must retain the above copyright notice, this
+           list of conditions and the following disclaimer.
+        
+        2. Redistributions in binary form must reproduce the above copyright notice,
+           this list of conditions and the following disclaimer in the documentation
+           and/or other materials provided with the distribution.
+        
+        3. Neither the name of the copyright holder nor the names of its
+           contributors may be used to endorse or promote products derived from
+           this software without specific prior written permission.
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+        FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+        CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+        OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+License-File: LICENSE
+Keywords: jupyter,jupyterlab,jupyterlab-extension
+Classifier: Framework :: Jupyter
+Classifier: Framework :: Jupyter :: JupyterLab
+Classifier: Framework :: Jupyter :: JupyterLab :: 4
+Classifier: Framework :: Jupyter :: JupyterLab :: Extensions
+Classifier: Framework :: Jupyter :: JupyterLab :: Extensions :: Prebuilt
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+
+# jupyterlab_notebook_awareness
+
+[![Github Actions Status](https://github.com/jupyter-ai-contrib/jupyterlab-notebook-awareness/workflows/Build/badge.svg)](https://github.com/jupyter-ai-contrib/jupyterlab-notebook-awareness/actions/workflows/build.yml)
+
+A JupyterLab extension that tracks a user's current notebook and cell.
+
+## Usage
+
+A JupyterLab frontend extension that tracks user awareness by adding `activeCellId` and `notebookPath` to each client's collaborative awareness state. This enables applications to know which notebook and cell each user is currently viewing.
+
+### Awareness State Schema
+
+The extension adds the following fields to each client's awareness state:
+
+- **`activeCellId`** (string | null): The unique ID of the currently active cell the user is viewing
+- **`notebookPath`** (string | null): The file path of the notebook the user has open
+
+### Example Awareness Structure
+
+Here is an example of the complete awareness structure in JSON with multiple users:
+
+```json
+{
+  "4233401820": {
+    "user": {
+      "username": "960fe034b7b847dfbee15eede12caac7",
+      "name": "Anonymous Kale",
+      "display_name": "Anonymous Kale",
+      "initials": "AK",
+      "avatar_url": null,
+      "color": "var(--jp-collaborator-color5)"
+    },
+    "activeCellId": "42768507-1132-43fb-86ba-980a4e73e490",
+    "notebookPath": "data_analysis.ipynb",
+    "cursors": [
+      {
+        "anchor": {
+          "type": {
+            "client": 2431406065,
+            "clock": 6
+          },
+          "tname": null,
+          "item": null,
+          "assoc": 0
+        },
+        "head": {
+          "type": {
+            "client": 2431406065,
+            "clock": 6
+          },
+          "tname": null,
+          "item": null,
+          "assoc": 0
+        },
+        "primary": true,
+        "empty": true
+      }
+    ]
+  },
+  "1582940372": {
+    "user": {
+      "username": "alice_researcher",
+      "name": "Alice Smith",
+      "display_name": "Alice Smith",
+      "initials": "AS",
+      "avatar_url": "https://example.com/avatar.jpg",
+      "color": "var(--jp-collaborator-color2)"
+    },
+    "activeCellId": "b8f3e729-4891-4c2a-9876-543210fedcba",
+    "notebookPath": "machine_learning.ipynb",
+    "cursors": []
+  }
+}
+```
+
+### State Updates
+
+The awareness state is automatically updated when:
+
+- A user opens a notebook (sets `notebookPath`)
+- A user clicks on a different cell (updates `activeCellId`)
+- A user switches between notebooks (updates both fields)
+- A user refreshes the page (restores state when notebook loads)
+
+### Accessing Awareness Data
+
+You can access the awareness data programmatically in JupyterLab:
+
+```typescript
+// Get the current notebook's awareness
+const notebook = notebookTracker.currentWidget;
+const awareness = notebook?.model?.sharedModel?.awareness;
+
+// Get all awareness states
+const allStates = awareness?.getStates();
+
+// Get local user's state
+const localState = awareness?.getLocalState();
+```
+
+## Requirements
+
+- JupyterLab >= 4.0.0
+
+## Install
+
+To install the extension, execute:
+
+```bash
+pip install jupyterlab_notebook_awareness
+```
+
+## Uninstall
+
+To remove the extension, execute:
+
+```bash
+pip uninstall jupyterlab_notebook_awareness
+```
+
+## Contributing
+
+### Development install
+
+Note: You will need NodeJS to build the extension package.
+
+The `jlpm` command is JupyterLab's pinned version of
+[yarn](https://yarnpkg.com/) that is installed with JupyterLab. You may use
+`yarn` or `npm` in lieu of `jlpm` below.
+
+```bash
+# Clone the repo to your local environment
+# Change directory to the jupyterlab_notebook_awareness directory
+# Install package in development mode
+pip install -e "."
+# Link your development version of the extension with JupyterLab
+jupyter labextension develop . --overwrite
+# Rebuild extension Typescript source after making changes
+jlpm build
+```
+
+You can watch the source directory and run JupyterLab at the same time in different terminals to watch for changes in the extension's source and automatically rebuild the extension.
+
+```bash
+# Watch the source directory in one terminal, automatically rebuilding when needed
+jlpm watch
+# Run JupyterLab in another terminal
+jupyter lab
+```
+
+With the watch command running, every saved change will immediately be built locally and available in your running JupyterLab. Refresh JupyterLab to load the change in your browser (you may need to wait several seconds for the extension to be rebuilt).
+
+By default, the `jlpm build` command generates the source maps for this extension to make it easier to debug using the browser dev tools. To also generate source maps for the JupyterLab core extensions, you can run the following command:
+
+```bash
+jupyter lab build --minimize=False
+```
+
+### Development uninstall
+
+```bash
+pip uninstall jupyterlab_notebook_awareness
+```
+
+In development mode, you will also need to remove the symlink created by `jupyter labextension develop`
+command. To find its location, you can run `jupyter labextension list` to figure out where the `labextensions`
+folder is located. Then you can remove the symlink named `jupyterlab-notebook-awareness` within that folder.
+
+### Testing the extension
+
+#### Frontend tests
+
+This extension is using [Jest](https://jestjs.io/) for JavaScript code testing.
+
+To execute them, execute:
+
+```sh
+jlpm
+jlpm test
+```
+
+#### Integration tests
+
+This extension uses [Playwright](https://playwright.dev/docs/intro) for the integration tests (aka user level tests).
+More precisely, the JupyterLab helper [Galata](https://github.com/jupyterlab/jupyterlab/tree/master/galata) is used to handle testing the extension in JupyterLab.
+
+More information are provided within the [ui-tests](./ui-tests/README.md) README.
+
+### Packaging the extension
+
+See [RELEASE](RELEASE.md)

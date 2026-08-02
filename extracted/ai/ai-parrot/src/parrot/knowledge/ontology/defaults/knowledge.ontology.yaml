@@ -1,0 +1,248 @@
+name: knowledge
+extends: base
+version: "1.0"
+description: >
+  Knowledge layer extending the base ontology with Document and Concept
+  entities, covers_topic and is_a relations, and the authoritative_doc_for_topic
+  traversal pattern. Also hardens the base Employee entity with team/role
+  properties, adds the Team entity and member_of relation, and the
+  employee_team_workload traversal pattern so ontology-aware agents can answer
+  "what is my team working on?" queries. Enables concept-level routing of
+  topical queries to authoritative documents via curated graph edges.
+
+entities:
+  # Employee is defined in the base ontology (employee_id, name, email,
+  # job_title, department, location, manager_id). The knowledge layer extends
+  # it with team/role so member_of and team-workload traversals can resolve.
+  Employee:
+    extend: true
+    source: hr
+    properties:
+      - team:
+          type: string
+          description: Team identifier (for the member_of relation)
+      - role:
+          type: string
+          description: Functional role of the employee within their team
+    vectorize:
+      - role
+
+  Team:
+    collection: teams
+    source: hr
+    key_field: team_id
+    properties:
+      - team_id:
+          type: string
+          required: true
+          unique: true
+          description: Unique team identifier
+      - name:
+          type: string
+          required: true
+          description: Team name
+      - description:
+          type: string
+          description: Team purpose / charter
+      - department:
+          type: string
+          description: Parent department identifier (for organisational rollup)
+    vectorize:
+      - description
+
+  Document:
+    collection: documents
+    source: confluence
+    key_field: document_id
+    properties:
+      - document_id:
+          type: string
+          required: true
+          unique: true
+          description: Unique document identifier
+      - title:
+          type: string
+          required: true
+          description: Document title
+      - doc_type:
+          type: string
+          enum:
+            - policy
+            - manual
+            - memo
+            - guide
+            - faq
+          description: Document classification
+      - version:
+          type: string
+          description: Document version string
+      - effective_date:
+          type: date
+          description: Date when the document became effective
+      - is_current:
+          type: boolean
+          default: true
+          description: Whether this is the current version of the document
+      - authority_score:
+          type: float
+          default: 0.5
+          description: "0..1 tie-break weight when multiple primaries match"
+      - pageindex_tree_id:
+          type: string
+          description: >-
+            Name of the PageIndex tree (NodeContentStore + JSONTreeStore)
+            that holds the document's body. Used by
+            PageIndexToolkit.search_documents_scoped to scope the LLM
+            tree-walk to documents the graph identified as authoritative.
+      - language:
+          type: string
+          default: en
+          description: Document language code
+    vectorize:
+      - title
+
+  Concept:
+    collection: concepts
+    key_field: concept_id
+    properties:
+      - concept_id:
+          type: string
+          required: true
+          unique: true
+          description: Unique concept identifier
+      - label:
+          type: string
+          required: true
+          description: Primary human-readable label
+      - synonyms:
+          type: list
+          description: Alternative names and synonyms for this concept
+      - description:
+          type: string
+          description: Detailed description of the concept
+      - domain:
+          type: string
+          description: "Disambiguator: 'finance', 'hr', 'sales'"
+    vectorize:
+      - label
+      - description
+      - synonyms
+
+relations:
+  # reports_to (Employee → Employee) is inherited from the base ontology.
+  member_of:
+    from: Employee
+    to: Team
+    edge_collection: member_of_team
+    discovery:
+      strategy: field_match
+      rules:
+        - source_field: team
+          target_field: team_id
+          match_type: exact
+          description: Team membership via the Employee.team field
+
+  covers_topic:
+    from: Document
+    to: Concept
+    edge_collection: doc_covers_concept
+    properties:
+      - authority:
+          type: string
+          enum:
+            - primary
+            - secondary
+            - mentions
+          required: true
+          description: Authority level of this document for the concept
+      - confidence:
+          type: float
+          default: 1.0
+          description: Confidence score of the coverage assertion
+      - asserted_by:
+          type: string
+          description: "Curator id or 'auto:ner_v1'"
+
+  is_a:
+    from: Concept
+    to: Concept
+    edge_collection: concept_is_a
+
+traversal_patterns:
+  employee_team_workload:
+    description: >
+      Answer "what is my team working on?" by resolving the requesting
+      employee's team via member_of, then returning the teammates that share
+      that team. The agent uses the teammate list to summarise current work
+      from downstream tools.
+    trigger_intents:
+      - what is my team working on
+      - what's my team working on
+      - what is the team doing
+      - team workload
+      - qué está haciendo mi equipo
+      - en qué trabaja mi equipo
+    query_template: >
+      FOR team IN 1..1 OUTBOUND @user_id @@member_of_team
+        FOR teammate IN 1..1 INBOUND team._id @@member_of_team
+          FILTER teammate._id != @user_id
+          RETURN teammate
+    post_action: none
+
+  authoritative_doc_for_topic:
+    description: >
+      Route topical queries through curated authority edges into PageIndex.
+      Walks Concept taxonomy via is_a so sub-concepts are included; supports
+      multi-concept queries via UNION over the resolved concept list.
+    trigger_intents:
+      - how does
+      - how do
+      - cómo funciona
+      - cómo funcionan
+      - what is the policy on
+      - cuál es la política de
+      - política de
+      - explain
+      - explícame
+    entity_extraction:
+      topic:
+        type: Concept
+        resolver: hybrid_concept_match
+        scope: same_tenant
+        ambiguity_strategy: rerank_by_authority
+        required: true
+    query_template: |
+      LET concept_family = (
+        FOR cid IN @topic_ids
+          LET base = DOCUMENT(cid)
+          FOR sub IN 0..3 INBOUND base._id @@concept_is_a
+            RETURN sub._id
+      )
+      FOR doc IN documents
+        FOR edge IN doc_covers_concept
+          FILTER edge._from == doc._id
+          FILTER edge._to IN concept_family
+          FILTER doc.is_current == true
+          FILTER edge.authority == @authority_level
+          SORT doc.authority_score DESC, doc.effective_date DESC
+          LIMIT 3
+          RETURN {
+            document_id:       doc.document_id,
+            title:             doc.title,
+            doc_type:          doc.doc_type,
+            version:           doc.version,
+            pageindex_tree_id: doc.pageindex_tree_id,
+            matched_concept:   DOCUMENT(edge._to).label,
+            authority:         edge.authority
+          }
+    post_action: tool_call
+    tool_call:
+      toolkit: PageIndexToolkit
+      method: search_documents_scoped
+      credential_mode: service_account
+      parameters:
+        tree_names: "{{ graph.rows | map_attr('pageindex_tree_id') | json }}"
+        query: "{{ ctx.original_query }}"
+        include_tree_context: false
+      result_binding: pageindex_hits
+      empty_team_behavior: short_circuit

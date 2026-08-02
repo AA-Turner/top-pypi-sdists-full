@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litellm
-Version: 1.94.1
+Version: 1.95.0
 Requires-Dist: fastuuid>=0.14.0,<1.0
 Requires-Dist: httpx>=0.28.0,<1.0
 Requires-Dist: openai>=2.20.0,<3.0.0
@@ -34,8 +34,8 @@ Requires-Dist: boto3>=1.43.1,<2.0 ; extra == 'proxy'
 Requires-Dist: azure-identity>=1.25.2,<2.0 ; extra == 'proxy'
 Requires-Dist: azure-storage-blob>=12.28.0,<13.0 ; extra == 'proxy'
 Requires-Dist: mcp>=1.28.1,<2.0 ; extra == 'proxy'
-Requires-Dist: litellm-proxy-extras==0.4.79.post2 ; extra == 'proxy'
-Requires-Dist: litellm-enterprise==0.1.51 ; extra == 'proxy'
+Requires-Dist: litellm-proxy-extras==0.4.81 ; extra == 'proxy'
+Requires-Dist: litellm-enterprise==0.1.52 ; extra == 'proxy'
 Requires-Dist: restrictedpython>=8.1,<9.0 ; extra == 'proxy'
 Requires-Dist: rich>=13.9.4,<14.0 ; extra == 'proxy'
 Requires-Dist: inquirerpy>=0.3.4,<1.0 ; extra == 'proxy'
@@ -58,6 +58,7 @@ Requires-Dist: redisvl>=0.4.1,<1.0 ; extra == 'extra-proxy'
 Requires-Dist: a2a-sdk>=1.1.0,<2.0 ; extra == 'extra-proxy'
 Requires-Dist: numpydoc>=1.8.0,<2.0 ; extra == 'utils'
 Requires-Dist: diskcache>=5.6.3,<6.0 ; extra == 'caching'
+Requires-Dist: python3-saml>=1.16.0,<2.0 ; extra == 'saml'
 Requires-Dist: semantic-router>=0.1.15,<1.0 ; python_full_version < '3.14' and extra == 'semantic-router'
 Requires-Dist: aurelio-sdk>=0.0.19,<1.0 ; python_full_version < '3.14' and extra == 'semantic-router'
 Requires-Dist: mlflow>=3.11.1,<4.0 ; extra == 'mlflow'
@@ -67,6 +68,7 @@ Requires-Dist: soundfile>=0.12.1 ; extra == 'stt-nvidia-riva'
 Requires-Dist: audioread>=3.0.1 ; extra == 'stt-nvidia-riva'
 Requires-Dist: numpy>=1.26.0 ; extra == 'stt-nvidia-riva'
 Requires-Dist: google-cloud-aiplatform>=1.133.0,<2.0 ; extra == 'google'
+Requires-Dist: aws-sdk-bedrock-runtime>=0.7.0,<0.8.0 ; python_full_version >= '3.12' and extra == 'bedrock-realtime'
 Requires-Dist: google-cloud-aiplatform>=1.133.0,<2.0 ; extra == 'proxy-runtime'
 Requires-Dist: google-genai>=1.37.0,<2.0 ; extra == 'proxy-runtime'
 Requires-Dist: anthropic[vertex]>=0.84.0,<1.0 ; extra == 'proxy-runtime'
@@ -90,11 +92,13 @@ Provides-Extra: cli
 Provides-Extra: extra_proxy
 Provides-Extra: utils
 Provides-Extra: caching
+Provides-Extra: saml
 Provides-Extra: semantic-router
 Provides-Extra: mlflow
 Provides-Extra: grpc
 Provides-Extra: stt-nvidia-riva
 Provides-Extra: google
+Provides-Extra: bedrock-realtime
 Provides-Extra: proxy-runtime
 License-File: LICENSE
 Summary: Library to easily interface with LLM API providers

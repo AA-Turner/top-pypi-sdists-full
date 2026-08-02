@@ -1,0 +1,423 @@
+[build-system]
+build-backend = "mesonpy"
+requires = [
+  "meson>=1.11.1",
+  "meson-python>=0.20",
+  "ninja>=1.13",
+]
+
+[project]
+name = "turbohtml"
+description = "A fast, fully typed HTML toolkit for Python, powered by a C-accelerated core."
+readme = "README.md"
+keywords = [
+  "css-selector",
+  "encoding-detection",
+  "escape",
+  "html",
+  "html5",
+  "markdown",
+  "minify",
+  "parser",
+  "sanitize",
+  "scraping",
+  "unescape",
+  "xml",
+  "xpath",
+]
+license = "MIT"
+license-files = [
+  "LICENSE",
+  "licenses/LICENSE-WHATWG",
+]
+maintainers = [
+  { name = "Bernát Gábor", email = "gaborjbernat@gmail.com" },
+]
+requires-python = ">=3.10"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
+  "Programming Language :: Python :: Free Threading :: 1 - Unstable",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Topic :: Internet",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Text Processing :: Markup :: HTML",
+  "Topic :: Text Processing :: Markup :: Markdown",
+  "Topic :: Text Processing :: Markup :: XML",
+  "Typing :: Typed",
+]
+dynamic = [
+  "version",
+]
+urls.Changelog = "https://turbohtml.readthedocs.io/en/stable/changelog.html"
+urls.CI = "https://github.com/tox-dev/turbohtml/actions/workflows/check.yaml"
+urls.Discussions = "https://github.com/tox-dev/turbohtml/discussions"
+urls.Documentation = "https://turbohtml.readthedocs.io"
+urls.Funding = "https://github.com/sponsors/gaborbernat"
+urls.Homepage = "https://github.com/tox-dev/turbohtml"
+urls.Issues = "https://github.com/tox-dev/turbohtml/issues"
+urls.Releases = "https://github.com/tox-dev/turbohtml/releases"
+urls.Source = "https://github.com/tox-dev/turbohtml"
+scripts.turbohtml = "turbohtml.__main__:main"
+
+[dependency-groups]
+dev = [
+  { include-group = "bench" },
+  { include-group = "coverage" },
+  { include-group = "docs" },
+  { include-group = "fix" },
+  { include-group = "pkg-meta" },
+  { include-group = "release" },
+  { include-group = "test" },
+  { include-group = "type" },
+]
+test = [
+  "covdefaults>=2.3",
+  "docutils>=0.22",             # render the docs bench-table directive in tests/test_bench_table_directive.py
+  "elementpath>=5.1.3",         # the XPath 2.0 oracle the string-function differential test cross-checks against
+  "httpx2>=2.5",                # the benchmark corpora and the tools/generate_* scripts fetch pinned data over it
+  "jinja2>=3.1.6",              # the markup migration test renders templates with markupsafe swapped for turbohtml.markup
+  "markdown-it-py>=4.2",        # a pure-Python GFM reference to round-trip to_markdown() output back to HTML and check it
+  "meson>=1.11.1",
+  "meson-python>=0.20",
+  "ninja>=1.13",
+  "pytest>=9.1.1",
+  "pytest-codspeed>=5.0.3",     # the benchmark fixture powers the CodSpeed CI gate; a no-op timer without --codspeed
+  "pytest-cov>=7.1",
+  "pytest-mock>=3.15.1",
+  "pytest-run-parallel>=0.9.1", # runs each test in many threads to surface free-threaded data races
+  "tenacity>=9.1.4",            # the retry policy wrapping every tools/ HTTP fetch (httpfetch.py)
+]
+type = [
+  "ty>=0.0.57",
+  { include-group = "bench" },  # type-check the bench competitor modules in tools/bench/competitors
+]
+docs = [
+  "furo>=2025.12.19",
+  "sphinx>=9.1",
+  "sphinx-argparse-cli>=1.21.4",       # generate the CLI reference from the argparse parser so it cannot drift
+  "sphinx-autodoc-typehints>=3.12.1",  # 3.11 types C getset descriptors from the stub
+  "sphinx-codeautolink>=0.18.1",       # link the names in code and doctest blocks to the API reference
+  "sphinx-copybutton>=0.5.2",
+  "sphinx-design>=0.7",                # the card grid on the landing page
+  "sphinx-issues>=6",
+  "sphinx-last-updated-by-git>=0.3.8", # stamp each page with its last git edit
+  "sphinx-notfound-page>=1.1",         # a versioned 404 page
+  "sphinx-reredirects>=1.1",           # keep old URLs alive after a page moves
+  "sphinx-sitemap>=2.9",               # emit sitemap.xml for crawlers
+  "sphinxcontrib-mermaid>=2.0.3",
+  "sphinxcontrib-towncrier>=0.5.0a0",
+  "sphinxext-opengraph>=0.13",         # OpenGraph tags for link previews
+  "towncrier>=25.8",
+]
+bench = [
+  "airium>=0.2.7",
+  "beautifulsoup4>=4.15",
+  "bleach>=6.4",
+  "boilerpy3>=1.0.7",
+  "calmjs-parse>=1.3.4",
+  "chardet>=7.4.3",
+  "charset-normalizer>=3.4.9",
+  "courlan>=1.4",
+  "css-html-js-minify>=2.5.5",
+  "csscompressor>=0.9.5",
+  "cssmin>=0.2",
+  "cssselect>=1.4",
+  "dominate>=2.9.1",
+  "extruct>=0.18",
+  "fast-html>=1.0.12",
+  "faust-cchardet>=2.1.19",
+  "feedparser>=6.0.12",
+  "goose3>=3.1.21",
+  "htbuilder>=0.9",
+  "html-sanitizer>=2.6",
+  "html-text>=0.7.1",
+  "html2text>=2025.4.15",
+  "html5-parser>=0.4.12",
+  "html5lib>=1.1",
+  "html5validator>=0.4.2",
+  "htmldate>=1.10",
+  "htmlmin2>=0.1.13",
+  "htpy>=26.5.1",
+  "inscriptis>=2.7.2",
+  "jsmin>=3.0.1",
+  "justext>=3.0.2",
+  "lightningcss>=0.3.1",
+  "linkify-it-py>=2.1",
+  "lxml>=6.1.1",
+  "lxml-html-clean>=0.4.5",
+  "markdownify>=1.2.3",
+  "markupsafe>=3.0.3",
+  "markyp-html>=0.2306.2",
+  "microdata>=0.8",
+  "minify-html>=0.18.1",
+  "newspaper3k>=0.2.8",
+  "nh3>=0.3.6",
+  "opengraph-py3>=0.71",
+  "pandas>=3.0.3",
+  "parsel>=1.11",
+  "pyperf>=2.10",
+  "pyquery>=2.0.1",
+  "rcssmin>=1.2.2",
+  "readabilipy>=0.3",
+  "readability-lxml>=0.8.4.1",
+  "resiliparse>=1.0.8",
+  "rjsmin>=1.2.5",
+  "selectolax>=0.4.10",
+  "simple-html>=3.1.1",
+  "soupsieve>=2.8.4",
+  "trafilatura>=2.1",
+  "w3lib>=2.4.1",
+  "yattag>=1.16.1",
+  { include-group = "test" },
+]
+coverage = [
+  "covdefaults>=2.3",
+  "coverage[toml]>=7.15",
+]
+fix = [
+  "pre-commit-uv>=4.2.2",
+]
+pkg-meta = [
+  "check-wheel-contents>=0.6.3",
+  "twine>=6.2",
+  "uv>=0.11.28",
+]
+release = [
+  "gitpython>=3.1.50",
+  "packaging>=26.2",
+  "pre-commit>=4.6",
+  "towncrier>=25.8",
+]
+
+[tool.cibuildwheel]
+# abi3 is impossible here (the SWAR paths need the non-limited PyUnicode buffer
+# APIs), so we ship a wheel per interpreter; cibuildwheel automates the matrix.
+# requires-python bounds the low end; free-threading wheels for 3.14+/3.15+ are
+# built automatically, and cpython-prerelease covers 3.15 while it is in beta.
+# "pypy" selects pp311; "pypy-eol" adds pp310, whose final PyPy release (7.3.19) still receives wheels here because
+# core/pycompat.h seals the C types through an explicit tp_new rather than through the
+# Py_TPFLAGS_DISALLOW_INSTANTIATION flag its cpyext ignores.
+enable = [ "cpython-prerelease", "pypy", "pypy-eol" ]
+build-frontend = "build[uv]"
+test-command = "python -c \"import turbohtml; assert turbohtml.unescape(turbohtml.escape('a & b')) == 'a & b'\""
+# Profile-guided optimization for the manylinux/musllinux wheels, where the gcc the spike measured runs. before-build
+# builds the extension instrumented and trains it on the real corpora, leaving the profile in the shared build
+# directory; the wheel build below reuses that directory with -Db_pgo=use so the shipped object is laid out for the
+# hot paths. Scoped to Linux on purpose: the measured win is gcc's, and clang/MSVC add a profile-merge step the
+# release does not need. See tools/pgo_build.py.
+linux.before-build = """\
+  rm -rf /tmp/turbohtml-pgo && pip install uv meson-python meson ninja httpx2 tenacity && python \
+  {project}/tools/pgo_build.py --python python --system --project {project} --build-dir /tmp/turbohtml-pgo --phase \
+  profile\
+  """
+linux.config-settings.build-dir = "/tmp/turbohtml-pgo"
+# -Db_lto lands cross-TU inlining across the header splits the 1.0 rearchitecture introduced (spike #478): the hot
+# selector/tokenizer bodies moved out of their monolith translation units, and LTO is what re-inlines them at link
+# time so the split is perf-neutral. It layers on top of PGO (the profile the use build reads is LTO-consistent
+# because pgo_build.py trains the generate phase with the same flag).
+# -Dstrip arms meson.build's link-time strip of the shipped .so's symbol table (meson-python ignores the
+# install-time strip this option normally drives, so meson.build does it at link instead). Release wheels only;
+# the sdist keeps every source. Visibility is already hidden by extension_module's default, so PyInit__html is
+# the sole dynamic symbol and this only trims the ~65 KB local .symtab that -Db_lto cannot touch.
+linux.config-settings.setup-args = [ "-Dbuildtype=release", "-Db_pgo=use", "-Db_lto=true", "-Dstrip=true" ]
+macos.archs = [ "arm64" ]  # Apple silicon only; x86_64 macOS is end-of-life
+macos.config-settings.setup-args = [ "-Dstrip=true" ]
+windows.archs = [ "AMD64" ]  # 64-bit only; skip the 32-bit x86 build
+# force the MSVC toolchain: meson otherwise picks up MinGW from the runner's PATH (the strip flag is a no-op on
+# MSVC, whose release .pyd carries no symbol table and which exports nothing without dllexport)
+windows.config-settings.setup-args = [ "--vsenv", "-Dstrip=true" ]
+
+# The Linux PGO hook above trains the profile by driving turbohtml from the interpreter it is building for. Under PyPy
+# that run is dominated by cpyext boundary crossings rather than by the C hot paths, so the profile it produces is a
+# picture of the wrong workload, and -Db_pgo=use would lay the object out for it. Drop PGO (and the build directory the
+# two phases share) for the PyPy wheels and keep LTO, which is interpreter-independent. Only Linux needs the override:
+# before-build and the profile arguments are set nowhere else, and matching pp*-macosx / pp*-win here would clobber
+# their own setup-args.
+[[tool.cibuildwheel.overrides]]
+select = "pp*-manylinux*"
+config-settings.setup-args = [ "-Dbuildtype=release", "-Db_lto=true", "-Dstrip=true" ]
+before-build = ""
+
+[tool.ruff]
+line-length = 120
+extend-exclude = [
+  "tests/conformance/chardetng",
+  "tests/conformance/encoding_rs",
+  "tests/conformance/libxml2",
+  "tests/conformance/libxslt",
+  "tests/conformance/unicodetools",
+  "tests/html5lib-tests",
+  "tools/html5lib-python"
+]  # vendored suites, not our code
+format.preview = true
+format.docstring-code-line-length = 100
+format.docstring-code-format = true
+lint.select = [
+  "ALL",
+]
+lint.ignore = [
+  "COM812",  # conflicts with the formatter
+  "CPY",     # no copyright statements
+  "D203",    # incompatible with D211
+  "D212",    # incompatible with D213
+  "DOC",     # no support yet
+  "ISC001",  # conflicts with the formatter
+  "PLR2004", # comparing against literal numbers is clear enough on its own
+]
+lint.per-file-ignores."docs/conf.py" = [
+  "ANN401",  # the autodoc-engine wrappers forward Sphinx's arbitrary *args/**kwargs
+  "INP001",  # Sphinx config is not part of a package
+  "PLC0415", # Sphinx internals are imported lazily inside setup(), only when the build runs
+  "PLC2701", # patching the Sphinx 9 functional autodoc engine requires its private _dynamic modules
+  "SLF001",  # ... and replacing their private signature/property builders for the C extension
+]
+lint.per-file-ignores."src/turbohtml/{clean,extract,query}/__init__.py" = [
+  "RUF067", # the public module's implementation lives in its package __init__, re-exported unchanged
+]
+lint.per-file-ignores."tasks/**/*.py" = [
+  "INP001", # no implicit namespace
+  "S404",   # subprocess is required to drive git, gh and towncrier
+  "S603",   # the release script runs fixed git/gh subcommands, not external input
+  "S607",   # git and gh are resolved from PATH
+  "T201",   # progress output to the console is intentional
+]
+lint.per-file-ignores."tests/**/*.py" = [
+  "D",       # don't document tests
+  "INP001",  # no implicit namespace
+  "PLC2701", # the conformance harness drives the private _html._tokenize_states hook
+  "S101",    # asserts allowed in tests
+  "SLF001",  # same private hook
+]
+lint.per-file-ignores."tools/**/*.py" = [
+  "INP001", # no implicit namespace
+  "S311",   # benchmark data is pseudo-random on purpose, nothing cryptographic
+  "S404",   # generate_version.py shells out to git to derive the version
+  "S603",   # fixed git subcommands, not external input
+  "S607",   # git is resolved from PATH
+  "T201",   # print allowed in scripts
+]
+lint.isort = { known-first-party = [
+  "turbohtml",
+], required-imports = [
+  "from __future__ import annotations",
+] }
+lint.preview = true
+
+[tool.codespell]
+builtin = "clear,usage,en-GB_to_en-US"
+# café, &notin;, afe (active formatting elements), vave (CSS-minify test value), grey (CSS Color 4), forin (JS dump),
+# opps (the _minify_js PyArg_ParseTuple format "Opps"), fo/nd/te (ISO 639-1 codes in the URL language filter),
+# januar/februar/juni/juli/oktober/dezember (German month names in the date extractor's vocabulary),
+# shttp (a scheme in urllib's uses_relative list the URL join guard mirrors)
+ignore-words-list = "caf,notin,afe,hava,vave,grey,forin,opps,fo,nd,te,januar,februar,juni,juli,oktober,dezember,tha,shttp"
+skip = """\
+  */html_entities.h,*/tag_atom.h,*/entity_names.h,*/tld_table.h,*/psl_table.h,*/css_colors.h,*/language_data.h,*/idna_t\
+  able.h,*/normalize_table.h,*/dompurify_expect.mjs,*/package-lock.json\
+  """  # generated tables of HTML5 / IANA / CSS / PSL / language / normalization names, the DOMPurify XSS fixtures, and the npm lockfile
+count = true
+quiet-level = 3
+
+[tool.pyproject-fmt]
+max_supported_python = "3.15"
+
+[tool.ty]
+src.exclude = [
+  "tests/conformance/chardetng",
+  "tests/conformance/encoding_rs",
+  "tests/conformance/libxml2",
+  "tests/conformance/libxslt",
+  "tests/conformance/unicodetools",
+  "tests/html5lib-tests",
+  "tools/html5lib-python"
+]  # vendored suites, not our code
+environment.extra-paths = [
+  "tools",
+  "docs/_ext"
+]  # bench registry from tools/bench; the bench-table directive from docs/_ext
+environment.python-version = "3.15"
+
+[tool.pytest]
+ini_options.testpaths = [
+  "tests",
+]
+# the default set drops "build", which would silently skip tests/build (it mirrors turbohtml.build);
+# testpaths is tests only, so no build artifact dir is ever swept
+ini_options.norecursedirs = [ "*.egg", ".*", "_darcs", "{arch}", "CVS", "dist", "node_modules", "venv" ]
+ini_options.addopts = [
+  "--ignore=tests/conformance/unicodetools",          # vendored Unicode data submodule, not our test modules
+  "--ignore=tests/conformance/xml-conformance-suite", # vendored xmlconf data + JS framework, not our test modules
+  "--ignore=tests/conformance/qt3tests",              # vendored W3C QT3 XQuery/XPath suite data, not our test modules
+  "--ignore=tests/conformance/DOMPurify",             # vendored DOMPurify repo (JS oracle + fixtures), not our test modules
+  "--ignore=tests/conformance/parse5",                # vendored parse5 repo + its nested html5lib-tests data, not our test modules
+  "--ignore=tests/conformance/encoding_rs",           # vendored encoding_rs crate (the decoder oracle), not our test modules
+  "--ignore=tests/conformance/chardetng",             # vendored chardetng crate (the detector oracle), not our test modules
+  "--ignore=tests/html5lib-tests",                    # vendored conformance data, not our test modules
+  "--import-mode=importlib",                          # tests mirror the source tree in nested dirs without __init__.py
+]
+ini_options.filterwarnings = [
+  "error",
+]
+
+[tool.coverage]
+# The differential suites diff against oracle libraries that are bench, not test, dependencies
+# (lxml additionally ships no wheels for 3.15, the free-threaded builds, or Windows), so each
+# module importorskips itself where its oracle is absent; measuring them would make the gate
+# environment-dependent. They still run and validate wherever the oracle installs (the dev env).
+run.omit = [
+  "tests/benchmarks/*",                                # run only under --codspeed (the CI benchmark job), never in the coverage run
+  "tests/clean/test_sanitizer_xml_differential.py",
+  "tests/conformance/test_c14n_conformance.py",        # runs only in the dedicated conformance env; the matrix deselects tests/conformance
+  "tests/conformance/test_cssom_jsdom_conformance.py", # differential oracle: skips when the node/jsdom toolchain is absent
+  "tests/conformance/test_dom_jsdom_differential.py",
+  "tests/conformance/test_xml_conformance.py",
+  "tests/convert/test_css_to_xpath_differential.py",
+  "tests/convert/test_transform_differential.py",
+  "tests/dom/test_parse_xml_differential.py",
+  "tests/dom/test_treebuild_differential.py",
+  "tests/query/match/test_soupsieve_differential.py",
+  "tests/query/xpath/test_xpath_differential.py",
+  "tests/serialize/test_c14n_differential.py",
+  "tests/validate/test_conformance_differential.py",   # differential oracle: skips when html5validator/vnu.jar or a JRE is absent
+  "tests/validate/test_schema_differential.py",
+]
+run.parallel = true
+run.plugins = [
+  "covdefaults",
+]
+paths.source = [
+  "src",
+  ".tox/*/lib/*/site-packages",
+  ".tox\\*\\Lib\\site-packages",
+  "**/src",
+  "**\\src",
+]
+html.show_contexts = true
+html.skip_covered = false
+# covdefaults omits */__main__.py by default; the CLI lives there, so gate it like the rest
+covdefaults.subtract_omit = "*/__main__.py"
+
+[tool.towncrier]
+name = "turbohtml"
+directory = "docs/changelog"
+filename = "docs/changelog.rst"
+template = "docs/changelog/template.jinja2"
+title_format = false
+issue_format = ":issue:`{issue}`"
+type = [
+  { directory = "breaking", name = "Backward incompatible changes", showcontent = true },
+  { directory = "feature", name = "Features", showcontent = true },
+  { directory = "bugfix", name = "Bug fixes", showcontent = true },
+  { directory = "doc", name = "Improved documentation", showcontent = true },
+  { directory = "packaging", name = "Packaging updates", showcontent = true },
+]

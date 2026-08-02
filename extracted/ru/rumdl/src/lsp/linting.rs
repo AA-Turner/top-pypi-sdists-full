@@ -13,7 +13,7 @@ use crate::rule::FixCapability;
 use crate::rules;
 
 use super::server::RumdlLanguageServer;
-use super::types::{IndexState, warning_to_code_actions_with_md013_config, warning_to_diagnostic};
+use super::types::{IndexState, warning_to_code_actions_with_md013_config, warnings_to_diagnostics};
 use crate::rules::md013_line_length::MD013Config;
 
 impl RumdlLanguageServer {
@@ -110,12 +110,20 @@ impl RumdlLanguageServer {
         // Apply LSP config overrides (select_rules, ignore_rules from VSCode settings)
         filtered_rules = self.apply_lsp_config_overrides(filtered_rules, &lsp_config);
 
+        // The rule set configuration left enabled, which together with
+        // per-file-ignores below decides whether an inline enable can take
+        // effect. Taken here, before per-file-ignores, so the two are separable
+        // and a warning can name the setting actually in play.
+        let active_rules: std::collections::HashSet<String> =
+            filtered_rules.iter().map(|rule| rule.name().to_string()).collect();
+
         // Apply per-file-ignores filtering
-        if let Some(ref path) = file_path {
-            let ignored = rumdl_config.get_ignored_rules_for_file(path);
-            if !ignored.is_empty() {
-                filtered_rules.retain(|rule| !ignored.contains(rule.name()));
-            }
+        let ignored_for_file = match file_path {
+            Some(ref path) => rumdl_config.get_ignored_rules_for_file(path),
+            None => std::collections::HashSet::new(),
+        };
+        if !ignored_for_file.is_empty() {
+            filtered_rules.retain(|rule| !ignored_for_file.contains(rule.name()));
         }
 
         // Run rumdl linting with the configured flavor.
@@ -175,6 +183,11 @@ impl RumdlLanguageServer {
             }
         }
 
+        // Report inline config comments that name something rumdl does not know,
+        // the same set the CLI prints, so an editor shows a directive that silently
+        // does nothing instead of leaving the user to wonder why it had no effect.
+        all_warnings.extend(inline_config_warnings(text, &active_rules, &ignored_for_file));
+
         // Check embedded markdown blocks if configured in code-block-tools
         if should_lint_embedded_markdown(&rumdl_config.code_block_tools) {
             let embedded_warnings = check_embedded_markdown_blocks(text, &filtered_rules, &rumdl_config);
@@ -208,8 +221,7 @@ impl RumdlLanguageServer {
             }
         }
 
-        let diagnostics = all_warnings.iter().map(warning_to_diagnostic).collect();
-        Ok(diagnostics)
+        Ok(warnings_to_diagnostics(&all_warnings, text))
     }
 
     /// Update diagnostics for a document
@@ -309,19 +321,7 @@ impl RumdlLanguageServer {
 
     /// Get the end position of a document
     pub(super) fn get_end_position(&self, text: &str) -> Position {
-        let mut line = 0u32;
-        let mut character = 0u32;
-
-        for ch in text.chars() {
-            if ch == '\n' {
-                line += 1;
-                character = 0;
-            } else {
-                character += 1;
-            }
-        }
-
-        Position { line, character }
+        super::position::end_of_text(text)
     }
 
     /// Apply LSP FormattingOptions to content
@@ -472,17 +472,7 @@ impl RumdlLanguageServer {
                     if let Ok(fixed_content) = crate::utils::fix_utils::apply_warning_fixes(text, &fixable_warnings)
                         && fixed_content != text
                     {
-                        // Calculate proper end position
-                        let mut line = 0u32;
-                        let mut character = 0u32;
-                        for ch in text.chars() {
-                            if ch == '\n' {
-                                line += 1;
-                                character = 0;
-                            } else {
-                                character += 1;
-                            }
-                        }
+                        let document_end = self.get_end_position(text);
 
                         let fix_all_action = CodeAction {
                             title: format!("Fix all rumdl issues ({total_fixable} fixable)"),
@@ -495,7 +485,7 @@ impl RumdlLanguageServer {
                                         vec![TextEdit {
                                             range: Range {
                                                 start: Position { line: 0, character: 0 },
-                                                end: Position { line, character },
+                                                end: document_end,
                                             },
                                             new_text: fixed_content,
                                         }],
@@ -524,4 +514,25 @@ impl RumdlLanguageServer {
             }
         }
     }
+}
+
+/// The inline config problems in a document, as diagnostics.
+///
+/// Mirrors what the CLI validates for every file it checks: a directive naming an
+/// unknown rule or option, and an inline enable that rule selection leaves with
+/// nothing to do. `active_rules` is the set configuration left enabled and
+/// `ignored_for_file` the set per-file-ignores then takes away, which together
+/// decide the second one.
+fn inline_config_warnings(
+    text: &str,
+    active_rules: &std::collections::HashSet<String>,
+    ignored_for_file: &std::collections::HashSet<String>,
+) -> Vec<crate::rule::LintWarning> {
+    let mut warnings = crate::inline_config::validate_inline_config_rules(text);
+    warnings.extend(crate::inline_config::validate_inline_enables_against_active_rules(
+        text,
+        active_rules,
+        ignored_for_file,
+    ));
+    warnings.iter().map(|w| w.to_lint_warning(text)).collect()
 }

@@ -1,0 +1,787 @@
+from pydantic import BaseModel, Field, model_validator, ConfigDict
+from typing import Optional, List, Literal, Union, Dict, Any, Callable
+from enum import Enum
+
+from valyu.types.workflows import WorkflowRunInfo
+
+
+class AlertEmailConfig(BaseModel):
+    """Alert email configuration with optional custom URL."""
+
+    email: str = Field(..., description="Email address to send alerts to")
+    custom_url: Optional[str] = Field(
+        None, description="Custom URL with {id} placeholder, replaced with task ID"
+    )
+
+
+class DeepResearchMode(str, Enum):
+    """Research mode options."""
+
+    FAST = "fast"
+    STANDARD = "standard"
+    LITE = "lite"  # Deprecated: use STANDARD instead (kept for backward compatibility)
+    HEAVY = "heavy"
+    MAX = "max"
+
+
+class DeepResearchStatus(str, Enum):
+    """Task status options."""
+
+    QUEUED = "queued"
+    RUNNING = "running"
+    AWAITING_INPUT = "awaiting_input"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
+class FileAttachment(BaseModel):
+    """File attachment for research."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    data: str = Field(..., description="Data URL (base64 encoded)")
+    filename: str = Field(..., description="Original filename")
+    media_type: str = Field(..., description="MIME type", alias="mediaType")
+    context: Optional[str] = Field(None, description="Context about the file")
+
+
+class MCPServerConfig(BaseModel):
+    """MCP server configuration."""
+
+    url: str = Field(..., description="MCP server URL")
+    name: Optional[str] = Field(None, description="Server name")
+    tool_prefix: Optional[str] = Field(None, description="Custom tool prefix")
+    auth: Optional[Dict[str, Any]] = Field(None, description="Authentication config")
+    allowed_tools: Optional[List[str]] = Field(None, description="Allowed tools")
+
+
+class Deliverable(BaseModel):
+    """Deliverable file configuration."""
+
+    type: Literal["csv", "xlsx", "pptx", "docx", "pdf"] = Field(
+        ..., description="File type"
+    )
+    description: str = Field(
+        ..., max_length=500, description="What data to extract or content to generate"
+    )
+    columns: Optional[List[str]] = Field(
+        None, description="Suggested column names (for CSV/XLSX)"
+    )
+    include_headers: Optional[bool] = Field(
+        True, description="Include column headers (for CSV/XLSX)"
+    )
+    sheet_name: Optional[str] = Field(None, description="Sheet name (for XLSX only)")
+    slides: Optional[int] = Field(None, description="Number of slides (for PPTX only)")
+    template: Optional[str] = Field(None, description="Template name to use")
+
+
+class DeliverableResult(BaseModel):
+    """Deliverable generation result."""
+
+    id: str = Field(..., description="Unique deliverable ID")
+    request: str = Field(..., description="Original request description")
+    type: Literal["csv", "xlsx", "pptx", "docx", "pdf", "unknown"] = Field(
+        ..., description="Deliverable file type"
+    )
+    status: Literal["completed", "failed"] = Field(..., description="Generation status")
+    title: str = Field(..., description="Generated filename/title")
+    description: Optional[str] = Field(
+        None, description="Deliverable content description"
+    )
+    url: str = Field(
+        ..., description="Token-signed authenticated URL to download the file"
+    )
+    s3_key: str = Field(..., description="S3 storage key")
+    row_count: Optional[int] = Field(None, description="Number of rows (for CSV/XLSX)")
+    column_count: Optional[int] = Field(
+        None, description="Number of columns (for CSV/XLSX)"
+    )
+    error: Optional[str] = Field(None, description="Error message if status is failed")
+    created_at: int = Field(..., description="Unix timestamp of creation")
+
+
+class SearchConfig(BaseModel):
+    """Search configuration for Deep Research tasks and batches.
+
+    Controls which data sources are queried, what content is included/excluded,
+    and how results are filtered by date, category, or country.
+
+    Attributes:
+        search_type: Controls which backend search systems are queried.
+            - "all" (default): Searches both web and proprietary data sources
+            - "web": Searches only web sources (general web search, news, articles)
+            - "proprietary": Searches only proprietary/internal data sources
+        included_sources: Restricts search to only the specified source types.
+            Available types: "web", "academic", "finance", "patent",
+            "transportation", "politics", "legal"
+        excluded_sources: Excludes specific source types from search results.
+            Uses the same source type values as included_sources.
+            Cannot be used simultaneously with included_sources.
+        start_date: Inclusive lower bound on content date. Accepts a bare date
+            (YYYY-MM-DD, day granularity, e.g. "2026-01-01") or a full ISO-8601
+            datetime (YYYY-MM-DDTHH:MM[:SS[.sss]][Z|±HH:MM], e.g.
+            "2026-01-01T00:00:00Z"; a space separator is also accepted). A value
+            with any time component requires historical_cache=True and is
+            otherwise rejected with HTTP 400 — use a bare date for standard search.
+        end_date: Inclusive upper bound on content date. Same formats and
+            historical_cache=True requirement for sub-day timestamps as start_date.
+        historical_cache: When True and a date range (start_date and/or end_date)
+            is set, searches return the newest cached snapshot inside the range
+            instead of the latest crawl — a leak-safe "as-of" backtest (snapshot
+            metadata only on a hit; the URL is dropped on a miss). Also gates
+            sub-day precision: required to pass any timestamped start_date/end_date
+            (a time component without it is rejected with HTTP 400). No-op without
+            a date range. User-set only and locked for the whole research run —
+            the agent cannot toggle it mid-research.
+        category: Filters results by a specific category.
+            Category values are source-dependent.
+        country_code: ISO country code for location-filtered searches.
+            E.g., "US", "GB", "DE". Only applies to web search results.
+    """
+
+    search_type: Optional[Literal["all", "web", "proprietary"]] = Field(
+        None, description="Search scope: 'all', 'web', or 'proprietary'"
+    )
+    included_sources: Optional[List[str]] = Field(
+        None,
+        description="Source types to include: 'web', 'academic', 'finance', 'patent', 'transportation', 'politics', 'legal'",
+    )
+    excluded_sources: Optional[List[str]] = Field(
+        None, description="Source types to exclude from search"
+    )
+    start_date: Optional[str] = Field(
+        None,
+        description="Inclusive start bound. Bare date (YYYY-MM-DD) or full ISO-8601 datetime; a datetime with any time component requires historical_cache=True, else HTTP 400.",
+    )
+    end_date: Optional[str] = Field(
+        None,
+        description="Inclusive end bound. Bare date (YYYY-MM-DD) or full ISO-8601 datetime; a datetime with any time component requires historical_cache=True, else HTTP 400.",
+    )
+    historical_cache: Optional[bool] = Field(
+        None,
+        description="When True and a date range is set, return the newest cached snapshot inside the range (leak-safe as-of backtest) instead of the latest crawl. Also required to pass any sub-day timestamp on start_date/end_date. No-op without a date range. User-set only.",
+    )
+    category: Optional[str] = Field(None, description="Category filter for results")
+    country_code: Optional[str] = Field(
+        None, description="ISO country code for location-filtered searches (e.g., 'US', 'GB')"
+    )
+    source_biases: Optional[Dict[str, int]] = Field(
+        None,
+        description="Bias values for specific sources (-5 to +5) to influence ranking without hard filtering",
+    )
+
+
+class Progress(BaseModel):
+    """Task progress information."""
+
+    current_step: int
+    total_steps: int
+
+
+class ChartDataPoint(BaseModel):
+    """Chart data point."""
+
+    x: Union[str, int, float]
+    y: Union[int, float]
+    y2: Optional[Union[int, float]] = None
+    z: Optional[Union[int, float]] = None
+    values: Optional[List[Union[int, float]]] = None
+
+
+class ChartDataSeries(BaseModel):
+    """Chart data series."""
+
+    name: str
+    data: List[ChartDataPoint]
+    line_style: Optional[Literal["solid", "dashed", "dotted"]] = None
+
+
+class ToolConfig(BaseModel):
+    """Per-tool configuration with optional call limit."""
+
+    enabled: Optional[bool] = Field(True, description="Enable or disable the tool")
+    max_calls: Optional[int] = Field(None, description="Max invocations per task. Capped at system default if exceeded.")
+
+
+class DeepResearchTools(BaseModel):
+    """Tools configuration for deep research tasks.
+
+    Each tool accepts either a boolean (shorthand) or a ToolConfig object
+    with `enabled` and optional `max_calls` fields.
+
+    System defaults for max_calls:
+        - browser_use: 5
+        - screenshots: 15
+        - code_execution: 10
+
+    max_calls can only be lowered, not raised above the system default.
+    Setting max_calls: 0 effectively disables the tool.
+    """
+
+    code_execution: Optional[Union[bool, ToolConfig]] = Field(None, description="Enable code execution in sandboxed environment")
+    screenshots: Optional[Union[bool, ToolConfig]] = Field(None, description="Enable visual screenshot capture of web pages")
+    browser_use: Optional[Union[bool, ToolConfig]] = Field(None, description="Enable autonomous browser sessions")
+    charts: Optional[Union[bool, ToolConfig]] = Field(None, description="Enable chart/graph generation embedded in the final report (free, unlimited)")
+
+
+class ImageMetadata(BaseModel):
+    """Image metadata."""
+
+    image_id: str
+    image_type: Literal["chart", "ai_generated", "screenshot"]
+    title: str
+    description: Optional[str] = None
+    image_url: str
+    created_at: int
+    # Screenshot-only fields
+    source_url: Optional[str] = None
+    captured_at: Optional[int] = None
+    chart_type: Optional[
+        Literal[
+            "line",
+            "bar",
+            "area",
+            "pie",
+            "doughnut",
+            "radar",
+            "scatter",
+            "horizontalBar",
+            "heatmap",
+            "boxplot",
+            "stackedBar",
+            "stackedArea",
+            "histogram",
+            "waterfall",
+            "timeline",
+            "bubble",
+        ]
+    ] = None
+    x_axis_label: Optional[str] = None
+    y_axis_label: Optional[str] = None
+    data_series: Optional[List[ChartDataSeries]] = None
+
+
+class DeepResearchSource(BaseModel):
+    """Source information."""
+
+    title: str
+    url: str
+    snippet: Optional[str] = None
+    description: Optional[str] = None
+    source: Optional[str] = None
+    org_id: Optional[str] = None
+    price: Optional[float] = None
+    id: Optional[str] = None
+    doc_id: Optional[int] = None
+    doi: Optional[str] = None
+    category: Optional[str] = None
+    source_id: Optional[int] = None
+    word_count: Optional[int] = None
+    fragment: Optional[str] = None
+
+
+class Usage(BaseModel):
+    """Usage and cost information."""
+
+    search_cost: float
+    contents_cost: float
+    ai_cost: float
+    compute_cost: float
+    total_cost: float
+
+
+class DeepResearchCostBreakdown(BaseModel):
+    """Itemized cost breakdown for a deep research task."""
+
+    task: float = Field(..., description="Base task price for the selected mode")
+    screenshots: Optional[float] = Field(None, description="Screenshot surcharges ($0.05 per URL captured)")
+    code_execution: Optional[float] = Field(None, description="Code execution surcharges ($0.10 per execution)")
+    deliverables: Optional[float] = Field(None, description="Deliverable surcharges ($0.10 per deliverable after the first)")
+
+
+class HitlConfig(BaseModel):
+    """Human-in-the-loop configuration for deep research tasks.
+
+    Enable checkpoints that pause execution at key decision points,
+    allowing users to review and guide the research process.
+    """
+
+    planning_questions: Optional[bool] = Field(
+        None, description="Pause before research to ask clarifying questions"
+    )
+    plan_review: Optional[bool] = Field(
+        None, description="Pause after planning for user to review the research plan"
+    )
+    source_review: Optional[bool] = Field(
+        None, description="Pause after research for user to filter sources by domain"
+    )
+    outline_review: Optional[bool] = Field(
+        None, description="Pause after source review for user to review the report outline"
+    )
+
+
+class InteractionType(str, Enum):
+    """HITL checkpoint types."""
+
+    PLANNING_QUESTIONS = "planning_questions"
+    PLAN_REVIEW = "plan_review"
+    SOURCE_REVIEW = "source_review"
+    OUTLINE_REVIEW = "outline_review"
+
+
+class Interaction(BaseModel):
+    """HITL interaction payload returned when a task is awaiting input."""
+
+    interaction_id: str = Field(..., description="Unique ID for this interaction (use when responding)")
+    type: InteractionType = Field(..., description="Type of checkpoint")
+    data: Dict[str, Any] = Field(..., description="Checkpoint-specific data")
+    created_at: int = Field(..., description="Unix timestamp (ms) when checkpoint fired")
+    timeout_ms: int = Field(..., description="Timeout duration in milliseconds")
+    expected_response: Optional[Dict[str, Any]] = Field(
+        None, description="Schema hint for the expected response shape"
+    )
+
+
+class InteractionHistoryEntry(BaseModel):
+    """Record of a completed HITL checkpoint."""
+
+    interaction_id: str
+    type: InteractionType
+    created_at: int = Field(..., description="When the checkpoint fired (ms)")
+    responded_at: Optional[int] = Field(None, description="When the user responded (ms)")
+    auto_continued: bool = Field(..., description="True if timed out, false if user responded")
+    response: Optional[Dict[str, Any]] = Field(None, description="The user's response (absent if timed out)")
+
+
+class DeepResearchCreateResponse(BaseModel):
+    """Response from creating a deep research task."""
+
+    success: bool
+    deepresearch_id: Optional[str] = None
+    status: Optional[DeepResearchStatus] = None
+    mode: Optional[DeepResearchMode] = None
+    model: Optional[DeepResearchMode] = None
+    created_at: Optional[str] = None
+    metadata: Optional[Dict[str, Union[str, int, bool]]] = None
+    public: Optional[bool] = None
+    webhook_secret: Optional[str] = None
+    message: Optional[str] = None
+    brand_collection_id: Optional[str] = None
+    workflow: Optional[WorkflowRunInfo] = None
+    error: Optional[str] = None
+
+
+class DeepResearchStatusResponse(BaseModel):
+    """Response from getting task status."""
+
+    success: bool
+    deepresearch_id: Optional[str] = None
+    status: Optional[DeepResearchStatus] = None
+    query: Optional[str] = None
+    mode: Optional[DeepResearchMode] = None
+    output_formats: Optional[
+        List[Union[Literal["markdown", "pdf", "toon"], Dict[str, Any]]]
+    ] = None
+    created_at: Optional[str] = None
+    public: Optional[bool] = None
+
+    # Optional fields based on status
+    progress: Optional[Progress] = None
+    messages: Optional[List[Any]] = None
+    completed_at: Optional[str] = None
+    output: Optional[Union[str, Dict[str, Any], Any]] = None
+    output_type: Optional[Literal["markdown", "json", "toon"]] = None
+    title: Optional[str] = None
+    total_word_count: Optional[int] = None
+    pdf_url: Optional[str] = None
+    images: Optional[List[ImageMetadata]] = None
+    deliverables: Optional[List[DeliverableResult]] = None
+    sources: Optional[List[DeepResearchSource]] = None
+    cost: Optional[float] = None
+    cost_breakdown: Optional[DeepResearchCostBreakdown] = Field(None, description="Itemized cost breakdown (task, screenshots, code_execution, deliverables)")
+    tools: Optional[DeepResearchTools] = Field(None, description="Resolved tools configuration")
+    batch_id: Optional[str] = None
+    batch_task_id: Optional[str] = None
+
+    # HITL fields
+    hitl_config: Optional[Dict[str, Any]] = Field(None, description="HITL configuration (mirrors request hitl param)")
+    interaction: Optional[Interaction] = Field(None, description="Current HITL checkpoint (present when awaiting_input or paused)")
+    hitl_history: Optional[List[InteractionHistoryEntry]] = Field(None, description="History of completed HITL checkpoints")
+
+    error: Optional[str] = None
+    unreachable: Optional[bool] = Field(
+        None,
+        description=(
+            "True when success=False because the status endpoint could not be "
+            "reached after retries (transient gateway/network failure). This is "
+            "retryable and distinct from a failed task — the report may still be "
+            "available."
+        ),
+    )
+
+
+class DeepResearchTaskListItem(BaseModel):
+    """Minimal task info for list view."""
+
+    deepresearch_id: str
+    query: str
+    status: DeepResearchStatus
+    created_at: str
+    title: Optional[str] = None
+    public: Optional[bool] = None
+
+
+class DeepResearchListResponse(BaseModel):
+    """Response from listing tasks."""
+
+    success: bool
+    data: Optional[List[Dict[str, Any]]] = None
+    error: Optional[str] = None
+
+
+class DeepResearchUpdateResponse(BaseModel):
+    """Response from updating a task."""
+
+    success: bool
+    message: Optional[str] = None
+    deepresearch_id: Optional[str] = None
+    error: Optional[str] = None
+
+
+class DeepResearchCancelResponse(BaseModel):
+    """Response from cancelling a task."""
+
+    success: bool
+    message: Optional[str] = None
+    deepresearch_id: Optional[str] = None
+    error: Optional[str] = None
+
+
+class DeepResearchRespondResponse(BaseModel):
+    """Response from responding to a HITL checkpoint."""
+
+    success: bool
+    status: Optional[str] = None
+    deepresearch_id: Optional[str] = None
+    error: Optional[str] = None
+
+
+class DeepResearchDeleteResponse(BaseModel):
+    """Response from deleting a task."""
+
+    success: bool
+    message: Optional[str] = None
+    deepresearch_id: Optional[str] = None
+    error: Optional[str] = None
+
+
+class DeepResearchTogglePublicResponse(BaseModel):
+    """Response from toggling public flag."""
+
+    success: bool
+    message: Optional[str] = None
+    deepresearch_id: Optional[str] = None
+    public: Optional[bool] = None
+    error: Optional[str] = None
+
+
+# =============================================================================
+# Batch Types
+# =============================================================================
+
+
+class BatchStatus(str, Enum):
+    """Batch status options."""
+
+    OPEN = "open"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    COMPLETED_WITH_ERRORS = "completed_with_errors"
+    CANCELLED = "cancelled"
+
+
+class BatchCounts(BaseModel):
+    """Task counts within a batch."""
+
+    total: int = Field(..., description="Total number of tasks")
+    queued: int = Field(..., description="Number of queued tasks")
+    running: int = Field(..., description="Number of running tasks")
+    completed: int = Field(..., description="Number of completed tasks")
+    failed: int = Field(..., description="Number of failed tasks")
+    cancelled: int = Field(..., description="Number of cancelled tasks")
+
+
+class BatchUsage(BaseModel):
+    """Aggregated usage for a batch."""
+
+    search_cost: float = Field(..., description="Total search cost")
+    contents_cost: float = Field(..., description="Total contents cost")
+    ai_cost: float = Field(..., description="Total AI cost")
+    total_cost: float = Field(..., description="Total cost")
+
+
+class BatchTaskInput(BaseModel):
+    """Input for a batch task."""
+
+    id: Optional[str] = Field(None, description="User-provided task ID")
+    query: Optional[str] = Field(
+        None, description="Research query or task description (preferred)"
+    )
+    input: Optional[str] = Field(
+        None,
+        description="Research query or task description (deprecated, use query instead)",
+    )
+    strategy: Optional[str] = Field(
+        None, description="Natural language strategy (deprecated, use research_strategy)"
+    )
+    research_strategy: Optional[str] = Field(
+        None, description="Natural language strategy to guide the research phase"
+    )
+    report_format: Optional[str] = Field(
+        None,
+        description="Natural language instructions for output format (highest priority, overrides defaults)",
+    )
+    urls: Optional[List[str]] = Field(None, description="URLs to extract and analyze")
+    metadata: Optional[Dict[str, Union[str, int, bool]]] = Field(
+        None, description="Custom metadata"
+    )
+
+    @model_validator(mode="after")
+    def ensure_query_or_input(self):
+        """Ensure at least one of query or input is provided, and sync them."""
+        # If input is provided but query is not, copy input to query
+        if self.input and not self.query:
+            self.query = self.input
+        # If query is provided but input is not, copy query to input for backward compatibility
+        elif self.query and not self.input:
+            self.input = self.query
+        # Ensure at least one is provided
+        if not self.query and not self.input:
+            raise ValueError("Either 'query' or 'input' must be provided")
+        return self
+
+    def model_dump(self, **kwargs):
+        """Override model_dump to prefer query when sending to API."""
+        data = super().model_dump(**kwargs)
+        # Ensure query is set for API calls
+        if (
+            "input" in data
+            and data["input"]
+            and ("query" not in data or not data["query"])
+        ):
+            data["query"] = data["input"]
+        return data
+
+    def dict(self, **kwargs):
+        """Backward compatibility alias for model_dump."""
+        return self.model_dump(**kwargs)
+
+
+class DeepResearchBatch(BaseModel):
+    """Batch of deep research tasks."""
+
+    batch_id: str = Field(..., description="Unique batch ID")
+    organisation_id: Optional[str] = Field(None, description="Organization ID")
+    api_key_id: Optional[str] = Field(None, description="API key ID")
+    credit_id: Optional[str] = Field(None, description="Credit ID")
+    status: BatchStatus = Field(..., description="Current batch status")
+    mode: DeepResearchMode = Field(
+        ..., description="Research mode (preferred field name)"
+    )
+    name: Optional[str] = Field(None, description="Batch name")
+    output_formats: Optional[
+        List[Union[Literal["markdown", "pdf"], Dict[str, Any]]]
+    ] = Field(None, description="Default output formats")
+    search_params: Optional[Dict[str, Any]] = Field(
+        None, description="Default search parameters"
+    )
+    counts: BatchCounts = Field(..., description="Task counts")
+    cost: float = Field(..., description="Total cost (replaces usage object)")
+    webhook_url: Optional[str] = Field(
+        None, description="Webhook URL for notifications"
+    )
+    webhook_secret: Optional[str] = Field(None, description="Webhook secret")
+    created_at: str = Field(
+        ...,
+        description="Creation timestamp (ISO 8601 string, e.g., '2025-01-15T10:30:00.000Z')",
+    )
+    completed_at: Optional[str] = Field(
+        None,
+        description="Completion timestamp (ISO 8601 string, e.g., '2025-01-15T10:35:00.000Z')",
+    )
+    metadata: Optional[Dict[str, Union[str, int, bool]]] = Field(
+        None, description="Custom metadata"
+    )
+
+    # Backward compatibility fields
+    model: Optional[DeepResearchMode] = Field(
+        None, description="Research mode (backward compatibility - use 'mode' instead)"
+    )
+    usage: Optional[BatchUsage] = Field(
+        None,
+        description="Aggregated usage (backward compatibility - use 'cost' instead)",
+    )
+    updated_at: Optional[str] = Field(
+        None,
+        description="Last update timestamp (backward compatibility - field removed from API, ISO 8601 string)",
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def sync_mode_and_model(cls, data):
+        """Sync mode and model fields for backward compatibility."""
+        if isinstance(data, dict):
+            # If model is provided but mode is not, copy model to mode
+            if "model" in data and "mode" not in data:
+                data["mode"] = data["model"]
+            # If mode is provided but model is not, copy mode to model for backward compatibility
+            elif "mode" in data and "model" not in data:
+                data["model"] = data["mode"]
+            # Handle usage -> cost migration
+            if "usage" in data and "cost" not in data:
+                usage_obj = data.get("usage")
+                if isinstance(usage_obj, dict) and "total_cost" in usage_obj:
+                    data["cost"] = usage_obj["total_cost"]
+                elif isinstance(usage_obj, BatchUsage):
+                    data["cost"] = usage_obj.total_cost
+            # Handle cost -> usage backward compatibility (for code that accesses usage.total_cost)
+            if "cost" in data and "usage" not in data:
+                cost_value = data.get("cost")
+                if cost_value is not None:
+                    # Create a usage object from cost for backward compatibility
+                    data["usage"] = {
+                        "search_cost": 0.0,
+                        "contents_cost": 0.0,
+                        "ai_cost": 0.0,
+                        "total_cost": float(cost_value),
+                    }
+        return data
+
+
+class BatchCreateResponse(BaseModel):
+    """Response from creating a batch."""
+
+    success: bool
+    batch_id: Optional[str] = None
+    status: Optional[BatchStatus] = None
+    mode: Optional[DeepResearchMode] = None
+    name: Optional[str] = None
+    output_formats: Optional[
+        List[Union[Literal["markdown", "pdf", "toon"], Dict[str, Any]]]
+    ] = None
+    search_params: Optional[Dict[str, Any]] = None
+    counts: Optional[BatchCounts] = None
+    cost: Optional[float] = None
+    created_at: Optional[str] = None
+    webhook_secret: Optional[str] = None
+    message: Optional[str] = None
+    brand_collection_id: Optional[str] = None
+    error: Optional[str] = None
+
+    # Backward compatibility fields - populated by validator
+    model: Optional[DeepResearchMode] = Field(
+        None, description="Research mode (backward compatibility - use 'mode' instead)"
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def sync_mode_and_model(cls, data):
+        """Sync mode and model fields for backward compatibility."""
+        if isinstance(data, dict):
+            # If model is provided but mode is not, copy model to mode
+            if "model" in data and "mode" not in data:
+                data["mode"] = data["model"]
+            # If mode is provided but model is not, copy mode to model for backward compatibility
+            elif "mode" in data and "model" not in data:
+                data["model"] = data["mode"]
+        return data
+
+
+class BatchTaskCreated(BaseModel):
+    """Task created in batch."""
+
+    task_id: Optional[str] = None
+    deepresearch_id: str
+    status: str
+
+
+class BatchAddTasksResponse(BaseModel):
+    """Response from adding tasks to a batch."""
+
+    success: bool
+    batch_id: Optional[str] = None
+    added: Optional[int] = None
+    tasks: Optional[List[BatchTaskCreated]] = None
+    task_ids: Optional[List[str]] = None  # Kept for backward compatibility
+    counts: Optional[BatchCounts] = None
+    message: Optional[str] = None
+    error: Optional[str] = None
+
+
+class BatchStatusResponse(BaseModel):
+    """Response from getting batch status."""
+
+    success: bool
+    batch: Optional[DeepResearchBatch] = None
+    error: Optional[str] = None
+
+
+class BatchTaskListItem(BaseModel):
+    """Task info in batch list. Extended fields included when include_output=True."""
+
+    deepresearch_id: str
+    task_id: Optional[str] = None
+    query: str
+    status: DeepResearchStatus
+    created_at: str
+    completed_at: Optional[str] = None
+    # Included when include_output=True
+    output_type: Optional[str] = None
+    output: Optional[Any] = None
+    sources: Optional[List[Any]] = None
+    images: Optional[List[Any]] = None
+    pdf_url: Optional[str] = None
+    deliverables: Optional[Any] = None
+    error: Optional[str] = None
+    cost: Optional[float] = None
+
+
+class BatchPagination(BaseModel):
+    """Pagination information for batch task lists."""
+
+    count: int
+    last_key: Optional[str] = None
+    has_more: bool
+
+
+class BatchTasksListResponse(BaseModel):
+    """Response from listing tasks in a batch."""
+
+    success: bool
+    batch_id: Optional[str] = None
+    tasks: Optional[List[BatchTaskListItem]] = None
+    pagination: Optional[BatchPagination] = None
+    error: Optional[str] = None
+
+
+class BatchCancelResponse(BaseModel):
+    """Response from cancelling a batch."""
+
+    success: bool
+    batch_id: Optional[str] = None
+    status: Optional[BatchStatus] = None
+    cancelled_count: Optional[int] = None
+    message: Optional[str] = None
+    error: Optional[str] = None
+
+
+class BatchListResponse(BaseModel):
+    """Response from listing batches."""
+
+    success: bool
+    batches: Optional[List[DeepResearchBatch]] = None
+    error: Optional[str] = None
+
+

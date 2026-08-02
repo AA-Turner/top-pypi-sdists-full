@@ -1,0 +1,472 @@
+import warnings
+
+import httpx
+import pytest
+from chatlas import ChatOpenAI, tool_web_search
+from chatlas._content import ContentUploaded
+from chatlas._provider_openai import OpenAIProvider, as_input_param
+from chatlas._provider_openai import (
+    normalize_finish_reason as openai_normalize_finish_reason,
+)
+from chatlas.types import ContentCitation, ContentText, ContentToolRequestSearch
+from openai.types.responses import (
+    Response,
+    ResponseOutputMessage,
+    ResponseOutputText,
+)
+
+from .conftest import (
+    assert_data_extraction,
+    assert_images_inline,
+    assert_images_remote,
+    assert_list_models,
+    assert_pdf_local,
+    assert_tool_web_search,
+    assert_tools_async,
+    assert_tools_parallel,
+    assert_tools_sequential,
+    assert_tools_simple,
+    assert_tools_simple_stream_content,
+    assert_turns_existing,
+    assert_turns_system,
+)
+
+
+def test_normalize_finish_reason_completed():
+    assert openai_normalize_finish_reason("completed") == "success"
+
+
+def test_normalize_finish_reason_incomplete_max_tokens():
+    assert (
+        openai_normalize_finish_reason("incomplete", "max_output_tokens")
+        == "max_tokens"
+    )
+
+
+def test_normalize_finish_reason_incomplete_content_filter():
+    assert (
+        openai_normalize_finish_reason("incomplete", "content_filter")
+        == "content_filter"
+    )
+
+
+def test_normalize_finish_reason_incomplete_unknown_reason():
+    assert (
+        openai_normalize_finish_reason("incomplete", "some_other_reason")
+        == "some_other_reason"
+    )
+
+
+def test_normalize_finish_reason_incomplete_no_reason():
+    assert openai_normalize_finish_reason("incomplete", None) == "incomplete"
+
+
+def test_normalize_finish_reason_passes_through_unknown_status():
+    assert openai_normalize_finish_reason("failed") == "failed"
+    assert openai_normalize_finish_reason("cancelled") == "cancelled"
+
+
+def test_normalize_finish_reason_handles_none():
+    assert openai_normalize_finish_reason(None) is None
+
+
+def test_openai_uploaded_serializes_to_input_file():
+    c = ContentUploaded(id="file_abc", mime_type="application/pdf", provider="openai")
+    param = as_input_param(c, role="user")
+    part = param["content"][0]
+    assert part["type"] == "input_file"
+    assert part["file_id"] == "file_abc"
+
+
+def test_openai_uploaded_image_serializes_to_input_image():
+    c = ContentUploaded(id="file_img", mime_type="image/png", provider="openai")
+    param = as_input_param(c, role="user")
+    part = param["content"][0]
+    assert part["type"] == "input_image"
+    assert part["file_id"] == "file_img"
+
+
+def test_openai_uploaded_wrong_provider_raises():
+    c = ContentUploaded(id="x", mime_type="application/pdf", provider="anthropic")
+    with pytest.raises(ValueError, match="uploaded to provider 'anthropic'"):
+        as_input_param(c, role="user")
+
+
+@pytest.mark.vcr
+def test_openai_simple_request():
+    chat = ChatOpenAI(
+        system_prompt="Be as terse as possible; no punctuation",
+    )
+    chat.chat("What is 1 + 1?")
+    turn = chat.get_last_turn()
+    assert turn is not None
+    assert turn.tokens is not None
+    assert len(turn.tokens) == 3
+    assert turn.tokens[0] == 26
+    # Not testing turn.tokens[1] because it's not deterministic. Typically 1 or 2.
+
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+async def test_openai_simple_streaming_request():
+    chat = ChatOpenAI(
+        system_prompt="Be as terse as possible; no punctuation",
+    )
+    res = []
+    async for x in await chat.stream_async("What is 1 + 1?"):
+        res.append(x)
+    assert "2" in "".join(res)
+    turn = chat.get_last_turn()
+    assert turn is not None
+
+
+@pytest.mark.vcr
+def test_openai_respects_turns_interface():
+    chat_fun = ChatOpenAI
+    assert_turns_system(chat_fun)
+    assert_turns_existing(chat_fun)
+
+
+@pytest.mark.vcr
+def test_openai_tool_variations():
+    chat_fun = ChatOpenAI
+    assert_tools_simple(chat_fun)
+    assert_tools_simple_stream_content(chat_fun)
+    assert_tools_parallel(chat_fun)
+    assert_tools_sequential(chat_fun, total_calls=6)
+
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+async def test_openai_tool_variations_async():
+    await assert_tools_async(ChatOpenAI)
+
+
+@pytest.mark.vcr
+def test_data_extraction():
+    assert_data_extraction(ChatOpenAI)
+
+
+@pytest.mark.vcr
+def test_openai_web_search():
+    def chat_fun(**kwargs):
+        return ChatOpenAI(model="gpt-4.1", **kwargs)
+
+    chat = assert_tool_web_search(
+        chat_fun,
+        tool_web_search(),
+        hint="The CRAN archive page has this info.",
+    )
+
+    # Citations should be ContentCitation items in the turn contents
+    cites = [
+        c
+        for turn in chat.get_turns()
+        for c in turn.contents
+        if isinstance(c, ContentCitation)
+    ]
+    assert cites, "expected ContentCitation items in turn contents"
+    assert all(c.source and c.source.url for c in cites)
+
+    # grounded_span should be sliced from the answer text on each turn
+    found_grounded_span = False
+    for turn in chat.get_turns():
+        answer = "".join(c.text for c in turn.contents if isinstance(c, ContentText))
+        for c in turn.contents:
+            if not isinstance(c, ContentCitation):
+                continue
+            assert c.grounded_span is not None
+            assert c.grounded_span in answer
+            found_grounded_span = True
+    assert found_grounded_span, "expected at least one citation with grounded_span"
+
+
+@pytest.mark.vcr
+def test_openai_web_search_streaming():
+    chat = ChatOpenAI(model="gpt-4.1")
+    chat.register_tool(tool_web_search())
+    items = list(
+        chat.stream(
+            "When was ggplot2 1.0.0 released to CRAN? Answer in YYYY-MM-DD format. The CRAN archive page has this info.",
+            content="all",
+        )
+    )
+    citations = [x for x in items if isinstance(x, ContentCitation)]
+    assert citations
+    assert all(c.source and c.source.url for c in citations)
+    # interleaved: at least one citation arrives before the last item in the stream
+    cite_idx = [i for i, x in enumerate(items) if isinstance(x, ContentCitation)]
+    assert cite_idx and min(cite_idx) < len(items) - 1
+    assert any(isinstance(x, ContentToolRequestSearch) for x in items)
+
+
+@pytest.mark.vcr
+def test_openai_images():
+    chat_fun = ChatOpenAI
+    assert_images_inline(chat_fun)
+    assert_images_remote(chat_fun)
+
+
+@pytest.mark.vcr
+@pytest.mark.asyncio
+async def test_openai_logprobs():
+    chat = ChatOpenAI()
+    chat.set_model_params(log_probs=True)
+
+    pieces = []
+    async for x in await chat.stream_async("Hi"):
+        pieces.append(x)
+
+    turn = chat.get_last_turn()
+    assert turn is not None
+    assert turn.completion is not None
+    output = turn.completion.output[0]
+    assert isinstance(output, ResponseOutputMessage)
+    content = output.content[0]
+    assert isinstance(content, ResponseOutputText)
+    logprobs = content.logprobs
+    assert logprobs is not None
+    assert len(logprobs) == len(pieces)
+
+
+@pytest.mark.vcr
+def test_openai_pdf():
+    assert_pdf_local(ChatOpenAI)
+
+
+@pytest.mark.vcr
+def test_openai_token_count_uses_endpoint_and_counts_tools():
+    def get_weather(city: str) -> str:
+        "Get weather for a city."
+        return "sunny"
+
+    chat = ChatOpenAI()
+    without_tool = chat.token_count("What is the weather?")
+
+    chat.register_tool(get_weather)
+    with_tool = chat.token_count("What is the weather?")
+
+    assert isinstance(without_tool, int) and without_tool > 0
+    assert with_tool > without_tool
+
+
+def test_openai_custom_http_client():
+    ChatOpenAI(kwargs={"http_client": httpx.AsyncClient()})
+
+
+@pytest.mark.vcr
+def test_openai_list_models():
+    assert_list_models(ChatOpenAI)
+
+
+def test_openai_service_tier():
+    chat = ChatOpenAI(service_tier="flex")
+    assert chat.kwargs_chat.get("service_tier") == "flex"
+
+
+@pytest.mark.vcr
+def test_openai_service_tier_affects_pricing():
+    from chatlas._tokens import get_token_cost
+
+    chat = ChatOpenAI(service_tier="priority")
+    chat.chat("What is 1+1?")
+
+    turn = chat.get_last_turn()
+    assert turn is not None
+    assert turn.tokens is not None
+    assert turn.cost is not None
+
+    # Verify that cost was calculated using priority pricing
+    tokens = turn.tokens
+    priority_cost = get_token_cost("OpenAI", chat.provider.model, tokens, "priority")
+    assert priority_cost is not None
+    assert turn.cost == priority_cost
+
+    # Verify priority pricing is more expensive than default
+    default_cost = get_token_cost("OpenAI", chat.provider.model, tokens, "")
+    assert default_cost is not None
+    assert turn.cost > default_cost
+
+
+def test_can_extract_custom_id_from_malformed_json():
+    from chatlas._provider_openai_generic import (
+        _extract_custom_id,
+        _openai_json_fallback,
+    )
+
+    # Test _extract_custom_id
+    assert _extract_custom_id('{"custom_id": "request-123", ') == "request-123"
+    assert _extract_custom_id('{"custom_id":"request-456"}') == "request-456"
+    assert _extract_custom_id('{"custom_id" : "request-789" }') == "request-789"
+    assert _extract_custom_id("no custom id here") == ""
+    assert _extract_custom_id("") == ""
+
+    # Test _openai_json_fallback
+    result = _openai_json_fallback('{"custom_id": "request-123", ')
+    assert result == {
+        "custom_id": "request-123",
+        "response": {"status_code": 500},
+    }
+
+
+def test_openai_web_search_call_action_types():
+    """Handle non-search web_search_call action types (open_page, find_in_page)."""
+    from chatlas._content import ContentToolRequestFetch, ContentToolRequestSearch
+    from chatlas._provider_openai import OpenAIProvider
+
+    chat = ChatOpenAI()
+    provider = chat.provider
+    assert isinstance(provider, OpenAIProvider)
+
+    def make_response(action: dict):
+        """Create a minimal Response with a web_search_call output."""
+        from openai.types.responses import Response
+
+        return Response.model_validate(
+            {
+                "id": "resp_1",
+                "created_at": 0,
+                "model": "gpt-4.1",
+                "object": "response",
+                "output": [
+                    {
+                        "id": "ws_1",
+                        "type": "web_search_call",
+                        "status": "completed",
+                        "action": action,
+                    }
+                ],
+                "parallel_tool_calls": True,
+                "tool_choice": "auto",
+                "tools": [],
+            }
+        )
+
+    # search action with query
+    resp = make_response({"type": "search", "query": "test query"})
+    turn = provider._response_as_turn(resp, has_data_model=False)
+    assert isinstance(turn.contents[0], ContentToolRequestSearch)
+    assert turn.contents[0].query == "test query"
+
+    # search action with only the plural `queries`
+    resp = make_response({"type": "search", "queries": ["first", "second"]})
+    turn = provider._response_as_turn(resp, has_data_model=False)
+    assert isinstance(turn.contents[0], ContentToolRequestSearch)
+    assert turn.contents[0].query == "first"
+
+    # open_page is a fetch, not a search
+    resp = make_response({"type": "open_page", "url": "https://example.com"})
+    turn = provider._response_as_turn(resp, has_data_model=False)
+    assert isinstance(turn.contents[0], ContentToolRequestFetch)
+    assert turn.contents[0].url == "https://example.com"
+
+    # find_in_page action carries an in-page pattern, not a query
+    resp = make_response(
+        {"type": "find_in_page", "pattern": "find this", "url": "https://example.com"}
+    )
+    turn = provider._response_as_turn(resp, has_data_model=False)
+    assert isinstance(turn.contents[0], ContentToolRequestSearch)
+    assert turn.contents[0].query == "find this"
+
+    # search action without query but with queries
+    resp = make_response({"type": "search", "query": "", "queries": ["first query"]})
+    turn = provider._response_as_turn(resp, has_data_model=False)
+    assert isinstance(turn.contents[0], ContentToolRequestSearch)
+    assert turn.contents[0].query == "first query"
+
+    # fallback to "web search" when no useful info
+    resp = make_response({"type": "search", "query": ""})
+    turn = provider._response_as_turn(resp, has_data_model=False)
+    assert isinstance(turn.contents[0], ContentToolRequestSearch)
+    assert turn.contents[0].query == "web search"
+
+
+def test_openai_function_call_finish_reason_is_tool_use():
+    """A completed response containing a function_call should normalize to tool_use."""
+    from chatlas._provider_openai import OpenAIProvider
+    from openai.types.responses import Response
+
+    chat = ChatOpenAI()
+    provider = chat.provider
+    assert isinstance(provider, OpenAIProvider)
+
+    resp = Response.model_validate(
+        {
+            "id": "resp_1",
+            "created_at": 0,
+            "model": "gpt-4.1",
+            "object": "response",
+            "status": "completed",
+            "output": [
+                {
+                    "id": "fc_1",
+                    "type": "function_call",
+                    "call_id": "call_1",
+                    "name": "get_date",
+                    "arguments": "{}",
+                }
+            ],
+            "parallel_tool_calls": True,
+            "tool_choice": "auto",
+            "tools": [],
+        }
+    )
+    turn = provider._response_as_turn(resp, has_data_model=False)
+    assert turn.finish_reason == "tool_use"
+
+
+def test_openai_custom_base_url_warning():
+    from chatlas._provider_openai import check_base_url
+
+    with pytest.warns(UserWarning, match="ChatOpenAICompletions"):
+        check_base_url("http://localhost:8000/v1")
+
+    with pytest.warns(UserWarning, match="ChatOpenAICompletions"):
+        check_base_url("https://my-proxy.example.com/v1")
+
+    # Default URL should not warn
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        check_base_url("https://api.openai.com/v1")
+
+
+def truncated_structured_response() -> "Response":
+    """A structured-output response cut short by the token limit (gh-315)."""
+    return Response.construct(
+        id="resp_1",
+        object="response",
+        model="gpt-4.1-nano",
+        status="incomplete",
+        incomplete_details={"reason": "max_output_tokens"},
+        output=[
+            {
+                "type": "message",
+                "id": "m1",
+                "role": "assistant",
+                "status": "incomplete",
+                "content": [
+                    {
+                        "type": "output_text",
+                        "text": '{"comments": [{"body": "trunc',
+                        "annotations": [],
+                    }
+                ],
+            }
+        ],
+    )
+
+
+def test_openai_truncated_structured_output_errors_helpfully():
+    with pytest.raises(ValueError, match="max_tokens"):
+        OpenAIProvider._response_as_turn(
+            truncated_structured_response(), has_data_model=True
+        )
+
+
+def test_openai_truncated_plain_text_still_returns_a_turn():
+    turn = OpenAIProvider._response_as_turn(
+        truncated_structured_response(), has_data_model=False
+    )
+
+    assert turn.text == '{"comments": [{"body": "trunc'
+    assert turn.finish_reason == "max_tokens"

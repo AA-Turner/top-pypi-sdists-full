@@ -1,0 +1,1828 @@
+//! C Foreign Function Interface (FFI) bindings
+//!
+//! This module provides C-compatible bindings for the Melody parsing library,
+//! primarily intended for use from Go but compatible with any language that can
+//! call C functions.
+//!
+//! # Memory Management
+//!
+//! **Critical**: All pointers returned by this API must be freed using the
+//! corresponding `_free` functions. Failure to do so will result in memory leaks.
+//!
+//! # Ownership Rules
+//!
+//! - Pointers returned by `_new` functions: **Caller owns**, must call `_free`
+//! - `CAggregatedResultResponse` returned by `write_decoded` and `flush_partials`: **Caller owns**, must call `melody_aggregated_result_free`
+//! - Pointers passed as arguments: **Caller retains ownership**, must remain valid for call duration
+//!
+//! # Thread Safety
+//!
+//! Filter instances are NOT thread-safe. Each filter must be used by only one
+//! thread at a time, or protected by external synchronization.
+//!
+
+use crate::parsing::FilterAggregatedResult;
+use crate::parsing::types::{FilterCitation, Source};
+use crate::parsing::{Filter, FilterImpl, FilterOptions, new_filter};
+use crate::templating::{
+    CitationQuality, Content, ContentType, Document, Grounding, Image, Message, ReasoningType,
+    Role, SafetyMode, Tool, ToolCall,
+};
+use crate::templating::{
+    RenderCmd3Options, RenderCmd4Options, render_cmd3, render_cmd4, render_cmd5,
+};
+use serde_json::{Map, Value};
+use std::ffi::{CStr, CString};
+use std::os::raw::c_char;
+use std::panic::{self, AssertUnwindSafe};
+use std::slice;
+
+// ============================================================================
+// Panic Guard Helpers
+// ============================================================================
+//
+// These helpers catch Rust panics at the FFI boundary to prevent them from
+// unwinding into the Go runtime, which would cause undefined behavior.
+//
+// IMPORTANT: Panics that cross FFI boundaries cause undefined behavior.
+// All extern "C" functions must catch panics and convert them to error returns.
+
+/// Catches panics and returns a `CAggregatedResultResponse` with an error if one occurs.
+fn catch_panic_aggregated_result<F>(f: F) -> *mut CAggregatedResultResponse
+where
+    F: FnOnce() -> *mut CAggregatedResultResponse + panic::UnwindSafe,
+{
+    match panic::catch_unwind(f) {
+        Ok(result) => result,
+        Err(e) => {
+            let msg = if let Some(s) = e.downcast_ref::<&str>() {
+                format!("Rust panic: {s}")
+            } else if let Some(s) = e.downcast_ref::<String>() {
+                format!("Rust panic: {s}")
+            } else {
+                "Rust panic: unknown error".to_string()
+            };
+            let err = CString::new(msg)
+                .unwrap_or_else(|_| {
+                    CString::new("Rust panic: error message contained null bytes").unwrap()
+                })
+                .into_raw();
+            Box::into_raw(Box::new(CAggregatedResultResponse {
+                result: std::ptr::null_mut(),
+                error: err,
+            }))
+        }
+    }
+}
+
+/// Catches panics and returns a `CRenderResult` with an error if one occurs.
+/// Use this for FFI functions that return render results.
+fn catch_panic_render_result<F>(f: F) -> *mut CRenderResult
+where
+    F: FnOnce() -> *mut CRenderResult + panic::UnwindSafe,
+{
+    match panic::catch_unwind(f) {
+        Ok(result) => result,
+        Err(e) => {
+            let msg = if let Some(s) = e.downcast_ref::<&str>() {
+                format!("Rust panic: {s}")
+            } else if let Some(s) = e.downcast_ref::<String>() {
+                format!("Rust panic: {s}")
+            } else {
+                "Rust panic: unknown error".to_string()
+            };
+            // Use unwrap_or to handle CString::new failure (if msg contains null bytes)
+            let err = CString::new(msg)
+                .unwrap_or_else(|_| {
+                    CString::new("Rust panic: error message contained null bytes").unwrap()
+                })
+                .into_raw();
+            Box::into_raw(Box::new(CRenderResult {
+                result: std::ptr::null_mut(),
+                error: err,
+            }))
+        }
+    }
+}
+
+/// Opaque pointer to a Filter instance
+#[repr(C)]
+pub struct CFilter {
+    /// Internal marker for opaque pointer
+    _private: [u8; 0],
+}
+
+/// Opaque pointer to `FilterOptions`
+#[repr(C)]
+pub struct CFilterOptions {
+    /// Internal marker for opaque pointer
+    _private: [u8; 0],
+}
+
+/// C-compatible representation of `AggregatedResult`
+#[repr(C)]
+pub struct CAggregatedResult {
+    /// Content text (null if none)
+    pub content: *mut c_char,
+    /// Reasoning text (null if none)
+    pub reasoning: *mut c_char,
+    /// Array of tool calls
+    pub tool_calls: *mut CAccumulatedToolCall,
+    /// Number of tool calls
+    pub tool_calls_len: usize,
+    /// Array of citations
+    pub citations: *mut CFilterCitation,
+    /// Number of citations
+    pub citations_len: usize,
+    /// Array of search query deltas
+    pub search_queries: *mut CSearchQueryDelta,
+    /// Number of search queries
+    pub search_queries_len: usize,
+}
+
+/// C-compatible representation of `AccumulatedToolCall`
+#[repr(C)]
+pub struct CAccumulatedToolCall {
+    /// Index of this tool call
+    pub index: usize,
+    /// Tool call ID
+    pub id: *mut c_char,
+    /// Tool name
+    pub name: *mut c_char,
+    /// Tool call arguments (JSON string)
+    pub arguments: *mut c_char,
+    /// Array of processed parameters
+    pub processed_params: *mut CFilterToolParameter,
+    /// Number of processed parameters
+    pub processed_params_len: usize,
+}
+
+/// C-compatible representation of `SearchQueryDelta`
+#[repr(C)]
+pub struct CSearchQueryDelta {
+    /// Index of this search query
+    pub index: usize,
+    /// Search query text
+    pub text: *mut c_char,
+}
+
+/// C-compatible representation of `FilterCitation`
+#[repr(C)]
+pub struct CFilterCitation {
+    /// Character index where the citation starts
+    pub start_index: usize,
+    /// Character index where the citation ends (exclusive)
+    pub end_index: usize,
+    /// Null-terminated C string containing the cited text
+    pub text: *mut c_char,
+    /// Array of sources for this citation
+    pub sources: *mut CSource,
+    /// Number of sources
+    pub sources_len: usize,
+    /// Whether this citation appears in a thinking block
+    pub is_thinking: bool,
+}
+
+/// C-compatible representation of Source
+#[repr(C)]
+pub struct CSource {
+    /// Index of the tool call that produced these results
+    pub tool_call_index: usize,
+    /// Array of tool result indices
+    pub tool_result_indices: *mut usize,
+    /// Number of tool result indices
+    pub tool_result_indices_len: usize,
+}
+
+/// Struct for returning either a `CAggregatedResult` or an error (mutually exclusive, one is always null)
+#[repr(C)]
+pub struct CAggregatedResultResponse {
+    /// Pointer to the aggregated result (null if error)
+    pub result: *mut CAggregatedResult,
+    /// Null-terminated C string containing the error (null if success)
+    pub error: *mut c_char,
+}
+
+/// Struct for returning either a render prompt result or an error (mutually exclusive, one is always null)
+#[repr(C)]
+pub struct CRenderResult {
+    /// Null-terminated C string containing the result (null if error)
+    pub result: *mut c_char,
+    /// Null-terminated C string containing the error (null if success)
+    pub error: *mut c_char,
+}
+
+/// C-compatible representation of `FilterToolParameter`
+#[repr(C)]
+pub struct CFilterToolParameter {
+    /// Parameter name (null-terminated C string)
+    pub name: *mut c_char,
+    /// Value delta (null-terminated C string)
+    pub value_delta: *mut c_char,
+}
+
+// ============================================================================
+// FilterOptions FFI functions
+// ============================================================================
+
+/// Creates a new `FilterOptions` instance
+///
+/// # Safety
+/// The returned pointer must be freed with `melody_filter_options_free`
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_filter_options_new() -> *mut CFilterOptions {
+    let options = Box::new(FilterOptions::new());
+    Box::into_raw(options).cast::<CFilterOptions>()
+}
+
+/// Frees a `FilterOptions` instance
+///
+/// # Safety
+/// `options` must be a valid pointer returned from `melody_filter_options_new`
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_filter_options_free(options: *mut CFilterOptions) {
+    if !options.is_null() {
+        unsafe {
+            let _ = Box::from_raw(options.cast::<FilterOptions>());
+        }
+    }
+}
+
+/// Configures options for multi-hop CMD3 format
+///
+/// # Safety
+/// `options` must be a valid pointer returned from `melody_filter_options_new`
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_filter_options_cmd3(options: *mut CFilterOptions) {
+    if !options.is_null() {
+        unsafe {
+            let opts = &mut *(options.cast::<FilterOptions>());
+            *opts = std::mem::take(opts).cmd3();
+        }
+    }
+}
+
+/// Configures options for multi-hop CMD4 format
+///
+/// # Safety
+/// `options` must be a valid pointer returned from `melody_filter_options_new`
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_filter_options_cmd4(options: *mut CFilterOptions) {
+    if !options.is_null() {
+        unsafe {
+            let opts = &mut *(options.cast::<FilterOptions>());
+            *opts = std::mem::take(opts).cmd4();
+        }
+    }
+}
+
+/// Configures options for multi-hop CMD5 format
+///
+/// # Safety
+/// `options` must be a valid pointer returned from `melody_filter_options_new`
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_filter_options_cmd5(options: *mut CFilterOptions) {
+    if !options.is_null() {
+        unsafe {
+            let opts = &mut *(options.cast::<FilterOptions>());
+            *opts = std::mem::take(opts).cmd5();
+        }
+    }
+}
+
+/// Configures options for RAG format
+///
+/// # Safety
+/// `options` must be a valid pointer returned from `melody_filter_options_new`
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_filter_options_handle_rag(options: *mut CFilterOptions) {
+    if !options.is_null() {
+        unsafe {
+            let opts = &mut *(options.cast::<FilterOptions>());
+            *opts = std::mem::take(opts).handle_rag();
+        }
+    }
+}
+
+/// Configures options for search query format
+///
+/// # Safety
+/// `options` must be a valid pointer returned from `melody_filter_options_new`
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_filter_options_handle_search_query(options: *mut CFilterOptions) {
+    if !options.is_null() {
+        unsafe {
+            let opts = &mut *(options.cast::<FilterOptions>());
+            *opts = std::mem::take(opts).handle_search_query();
+        }
+    }
+}
+
+/// Configures options for multi-hop format
+///
+/// # Safety
+/// `options` must be a valid pointer returned from `melody_filter_options_new`
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_filter_options_handle_multi_hop(options: *mut CFilterOptions) {
+    if !options.is_null() {
+        unsafe {
+            let opts = &mut *(options.cast::<FilterOptions>());
+            *opts = std::mem::take(opts).handle_multi_hop();
+        }
+    }
+}
+
+/// Enables streaming of non-grounded answers
+///
+/// # Safety
+/// `options` must be a valid pointer returned from `melody_filter_options_new`
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_filter_options_stream_non_grounded_answer(
+    options: *mut CFilterOptions,
+) {
+    if !options.is_null() {
+        unsafe {
+            let opts = &mut *(options.cast::<FilterOptions>());
+            *opts = std::mem::take(opts).stream_non_grounded_answer();
+        }
+    }
+}
+
+/// Enables streaming of tool actions
+///
+/// # Safety
+/// `options` must be a valid pointer returned from `melody_filter_options_new`
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_filter_options_stream_tool_actions(options: *mut CFilterOptions) {
+    if !options.is_null() {
+        unsafe {
+            let opts = &mut *(options.cast::<FilterOptions>());
+            *opts = std::mem::take(opts).stream_tool_actions();
+        }
+    }
+}
+
+/// Enables streaming of processed parameters
+///
+/// # Safety
+/// `options` must be a valid pointer returned from `melody_filter_options_new`
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_filter_options_stream_processed_params(
+    options: *mut CFilterOptions,
+) {
+    if !options.is_null() {
+        unsafe {
+            let opts = &mut *(options.cast::<FilterOptions>());
+            *opts = std::mem::take(opts).stream_processed_params();
+        }
+    }
+}
+
+/// Enable or disable XML entity decoding for cofl parameter bodies.
+///
+/// # Safety
+/// `options` must be a valid pointer returned from `melody_filter_options_new`
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_filter_options_cofl_decode_xml_text(
+    options: *mut CFilterOptions,
+    enabled: bool,
+) {
+    if !options.is_null() {
+        unsafe {
+            let opts = &mut *(options.cast::<FilterOptions>());
+            *opts = std::mem::take(opts).cofl_decode_xml_text(enabled);
+        }
+    }
+}
+
+/// Enable or disable nested `<cofl:value>` cofl parameter parsing.
+///
+/// # Safety
+/// `options` must be a valid pointer returned from `melody_filter_options_new`
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_filter_options_cofl_nested_xml(
+    options: *mut CFilterOptions,
+    enabled: bool,
+) {
+    if !options.is_null() {
+        unsafe {
+            let opts = &mut *(options.cast::<FilterOptions>());
+            *opts = std::mem::take(opts).cofl_nested_xml(enabled);
+        }
+    }
+}
+
+/// Sets left trimming
+///
+/// # Safety
+/// `options` must be a valid pointer returned from `melody_filter_options_new`
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_filter_options_with_left_trimmed(options: *mut CFilterOptions) {
+    if !options.is_null() {
+        unsafe {
+            let opts = &mut *(options.cast::<FilterOptions>());
+            *opts = std::mem::take(opts).with_left_trimmed();
+        }
+    }
+}
+
+/// Sets right trimming
+///
+/// # Safety
+/// `options` must be a valid pointer returned from `melody_filter_options_new`
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_filter_options_with_right_trimmed(options: *mut CFilterOptions) {
+    if !options.is_null() {
+        unsafe {
+            let opts = &mut *(options.cast::<FilterOptions>());
+            *opts = std::mem::take(opts).with_right_trimmed();
+        }
+    }
+}
+
+/// Sets chunk size
+///
+/// # Safety
+/// `options` must be a valid pointer returned from `melody_filter_options_new`
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_filter_options_with_chunk_size(
+    options: *mut CFilterOptions,
+    size: usize,
+) {
+    if !options.is_null() {
+        unsafe {
+            let opts = &mut *(options.cast::<FilterOptions>());
+            *opts = std::mem::take(opts).with_chunk_size(size);
+        }
+    }
+}
+
+/// Adds inclusive stops
+///
+/// # Safety
+/// `options` must be a valid pointer returned from `melody_filter_options_new`
+/// `stops` must be valid null-terminated C strings
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_filter_options_with_inclusive_stops(
+    options: *mut CFilterOptions,
+    stops: *const *const c_char,
+    stops_len: usize,
+) {
+    if !options.is_null() && !stops.is_null() {
+        unsafe {
+            let opts = &mut *(options.cast::<FilterOptions>());
+            let stops_slice = slice::from_raw_parts(stops, stops_len);
+            let stop_strings: Vec<String> = stops_slice
+                .iter()
+                .map(|&s| CStr::from_ptr(s).to_string_lossy().into_owned())
+                .collect();
+            *opts = std::mem::take(opts).with_inclusive_stops(stop_strings);
+        }
+    }
+}
+
+/// Adds exclusive stops
+///
+/// # Safety
+/// `options` must be a valid pointer returned from `melody_filter_options_new`
+/// `stops` must be valid null-terminated C strings
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_filter_options_with_exclusive_stops(
+    options: *mut CFilterOptions,
+    stops: *const *const c_char,
+    stops_len: usize,
+) {
+    if !options.is_null() && !stops.is_null() {
+        unsafe {
+            let opts = &mut *(options.cast::<FilterOptions>());
+            let stops_slice = slice::from_raw_parts(stops, stops_len);
+            let stop_strings: Vec<String> = stops_slice
+                .iter()
+                .map(|&s| CStr::from_ptr(s).to_string_lossy().into_owned())
+                .collect();
+            *opts = std::mem::take(opts).with_exclusive_stops(stop_strings);
+        }
+    }
+}
+
+/// Removes a token from the special token map
+///
+/// # Safety
+/// `options` must be a valid pointer returned from `melody_filter_options_new`
+/// `token` must be a valid null-terminated C string
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_filter_options_remove_token(
+    options: *mut CFilterOptions,
+    token: *const c_char,
+) {
+    if !options.is_null() && !token.is_null() {
+        unsafe {
+            let opts = &mut *(options.cast::<FilterOptions>());
+            let token_str = CStr::from_ptr(token).to_string_lossy();
+            *opts = std::mem::take(opts).remove_token(&token_str);
+        }
+    }
+}
+
+// ============================================================================
+// Filter FFI functions
+// ============================================================================
+
+/// Creates a new filter with the given options
+///
+/// # Safety
+/// - `options` can be null for default options, or must be a valid pointer from `melody_filter_options_new`
+/// - The returned pointer must be freed with `melody_filter_free`
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_filter_new(options: *const CFilterOptions) -> *mut CFilter {
+    unsafe {
+        let filter = if options.is_null() {
+            Box::new(FilterImpl::new())
+        } else {
+            let opts = &*(options.cast::<FilterOptions>());
+            Box::new(new_filter(opts.clone()))
+        };
+        Box::into_raw(filter).cast::<CFilter>()
+    }
+}
+
+/// Frees a filter instance
+///
+/// # Safety
+/// `filter` must be a valid pointer returned from `melody_filter_new`
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_filter_free(filter: *mut CFilter) {
+    if !filter.is_null() {
+        unsafe {
+            let _ = Box::from_raw(filter.cast::<FilterImpl>());
+        }
+    }
+}
+
+/// Writes a decoded token to the filter
+///
+/// # Safety
+/// - `filter` must be a valid pointer returned from `melody_filter_new`
+/// - `decoded_token` must be a valid null-terminated C string
+/// - The returned `CAggregatedResultResponse` must be freed with `melody_aggregated_result_free`
+///
+/// # Returns
+/// Returns null if inputs are invalid.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_filter_write_decoded(
+    filter: *mut CFilter,
+    decoded_token: *const c_char,
+) -> *mut CAggregatedResultResponse {
+    if filter.is_null() || decoded_token.is_null() {
+        return std::ptr::null_mut();
+    }
+
+    catch_panic_aggregated_result(AssertUnwindSafe(|| unsafe {
+        let filter = &mut *(filter.cast::<FilterImpl>());
+        let token_str = CStr::from_ptr(decoded_token).to_string_lossy();
+
+        let result = filter.write_decoded(&token_str);
+        let c_result = convert_aggregated_to_c(result);
+        Box::into_raw(Box::new(CAggregatedResultResponse {
+            result: c_result,
+            error: std::ptr::null_mut(),
+        }))
+    }))
+}
+
+/// Flushes any partial outputs from the filter
+///
+/// # Safety
+/// - `filter` must be a valid pointer returned from `melody_filter_new`
+/// - The returned `CAggregatedResultResponse` must be freed with `melody_aggregated_result_free`
+///
+/// # Returns
+/// Returns null if filter is null.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_filter_flush_partials(
+    filter: *mut CFilter,
+) -> *mut CAggregatedResultResponse {
+    if filter.is_null() {
+        return std::ptr::null_mut();
+    }
+
+    catch_panic_aggregated_result(AssertUnwindSafe(|| unsafe {
+        let filter = &mut *(filter.cast::<FilterImpl>());
+        let result = filter.flush_partials();
+        let c_result = convert_aggregated_to_c(result);
+        Box::into_raw(Box::new(CAggregatedResultResponse {
+            result: c_result,
+            error: std::ptr::null_mut(),
+        }))
+    }))
+}
+
+/// Converts an `AggregatedResult` to its C representation.
+///
+/// # Safety
+/// The returned pointer must be freed with `melody_aggregated_result_free`.
+unsafe fn convert_aggregated_to_c(result: FilterAggregatedResult) -> *mut CAggregatedResult {
+    let content = result.content.map_or(std::ptr::null_mut(), |s| {
+        CString::new(s).unwrap().into_raw()
+    });
+
+    let reasoning = result.reasoning.map_or(std::ptr::null_mut(), |s| {
+        CString::new(s).unwrap().into_raw()
+    });
+
+    let tool_calls_len = result.tool_calls.len();
+    let tool_calls = if tool_calls_len > 0 {
+        let c_tcs: Vec<CAccumulatedToolCall> = result
+            .tool_calls
+            .into_iter()
+            .map(|tc| {
+                let processed_params_len = tc.processed_params.len();
+                let processed_params = if processed_params_len > 0 {
+                    let c_params: Vec<CFilterToolParameter> = tc
+                        .processed_params
+                        .into_iter()
+                        .map(|p| CFilterToolParameter {
+                            name: CString::new(p.name).unwrap().into_raw(),
+                            value_delta: CString::new(p.value_delta).unwrap().into_raw(),
+                        })
+                        .collect();
+                    Box::into_raw(c_params.into_boxed_slice()).cast::<CFilterToolParameter>()
+                } else {
+                    std::ptr::null_mut()
+                };
+                CAccumulatedToolCall {
+                    index: tc.index,
+                    id: CString::new(tc.id).unwrap().into_raw(),
+                    name: CString::new(tc.name).unwrap().into_raw(),
+                    arguments: CString::new(tc.arguments).unwrap().into_raw(),
+                    processed_params,
+                    processed_params_len,
+                }
+            })
+            .collect();
+        Box::into_raw(c_tcs.into_boxed_slice()).cast::<CAccumulatedToolCall>()
+    } else {
+        std::ptr::null_mut()
+    };
+
+    let citations_len = result.citations.len();
+    let citations = if citations_len > 0 {
+        unsafe {
+            let c_citations: Vec<CFilterCitation> = result
+                .citations
+                .into_iter()
+                .map(|c| convert_citation_to_c(c))
+                .collect();
+            Box::into_raw(c_citations.into_boxed_slice()).cast::<CFilterCitation>()
+        }
+    } else {
+        std::ptr::null_mut()
+    };
+
+    let search_queries_len = result.search_queries.len();
+    let search_queries = if search_queries_len > 0 {
+        let c_sqs: Vec<CSearchQueryDelta> = result
+            .search_queries
+            .into_iter()
+            .map(|sq| CSearchQueryDelta {
+                index: sq.index,
+                text: CString::new(sq.text).unwrap().into_raw(),
+            })
+            .collect();
+        Box::into_raw(c_sqs.into_boxed_slice()).cast::<CSearchQueryDelta>()
+    } else {
+        std::ptr::null_mut()
+    };
+
+    Box::into_raw(Box::new(CAggregatedResult {
+        content,
+        reasoning,
+        tool_calls,
+        tool_calls_len,
+        citations,
+        citations_len,
+        search_queries,
+        search_queries_len,
+    }))
+}
+
+/// Converts a single `FilterCitation` to its C representation.
+///
+/// # Safety
+/// The returned struct contains heap-allocated pointers that must be freed.
+unsafe fn convert_citation_to_c(citation: FilterCitation) -> CFilterCitation {
+    let text = CString::new(citation.text).unwrap().into_raw();
+
+    let sources_len = citation.sources.len();
+    let sources = if sources_len > 0 {
+        let c_sources: Vec<CSource> = citation
+            .sources
+            .into_iter()
+            .map(|s| {
+                let indices_len = s.tool_result_indices.len();
+                let indices = if indices_len > 0 {
+                    let boxed = s.tool_result_indices.into_boxed_slice();
+                    Box::into_raw(boxed).cast::<usize>()
+                } else {
+                    std::ptr::null_mut()
+                };
+
+                CSource {
+                    tool_call_index: s.tool_call_index,
+                    tool_result_indices: indices,
+                    tool_result_indices_len: indices_len,
+                }
+            })
+            .collect();
+        let boxed = c_sources.into_boxed_slice();
+        Box::into_raw(boxed).cast::<CSource>()
+    } else {
+        std::ptr::null_mut()
+    };
+
+    CFilterCitation {
+        start_index: citation.start_index,
+        end_index: citation.end_index,
+        text,
+        sources,
+        sources_len,
+        is_thinking: citation.is_thinking,
+    }
+}
+
+/// Frees a `CAggregatedResultResponse` struct and all nested allocations
+///
+/// # Safety
+/// `res` must be a valid pointer returned from `melody_filter_write_decoded` or `melody_filter_flush_partials`
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_aggregated_result_free(res: *mut CAggregatedResultResponse) {
+    if res.is_null() {
+        return;
+    }
+
+    unsafe {
+        let res_box = Box::from_raw(res);
+        if !res_box.error.is_null() {
+            let _ = CString::from_raw(res_box.error);
+        }
+        if !res_box.result.is_null() {
+            let r = Box::from_raw(res_box.result);
+            if !r.content.is_null() {
+                let _ = CString::from_raw(r.content);
+            }
+            if !r.reasoning.is_null() {
+                let _ = CString::from_raw(r.reasoning);
+            }
+            if !r.tool_calls.is_null() && r.tool_calls_len > 0 {
+                let tcs = Box::from_raw(std::ptr::slice_from_raw_parts_mut(
+                    r.tool_calls,
+                    r.tool_calls_len,
+                ))
+                .into_vec();
+                for tc in tcs {
+                    if !tc.id.is_null() {
+                        let _ = CString::from_raw(tc.id);
+                    }
+                    if !tc.name.is_null() {
+                        let _ = CString::from_raw(tc.name);
+                    }
+                    if !tc.arguments.is_null() {
+                        let _ = CString::from_raw(tc.arguments);
+                    }
+                    if !tc.processed_params.is_null() && tc.processed_params_len > 0 {
+                        let params = Box::from_raw(std::ptr::slice_from_raw_parts_mut(
+                            tc.processed_params,
+                            tc.processed_params_len,
+                        ))
+                        .into_vec();
+                        for p in params {
+                            if !p.name.is_null() {
+                                let _ = CString::from_raw(p.name);
+                            }
+                            if !p.value_delta.is_null() {
+                                let _ = CString::from_raw(p.value_delta);
+                            }
+                        }
+                    }
+                }
+            }
+            if !r.citations.is_null() && r.citations_len > 0 {
+                let citations = Box::from_raw(std::ptr::slice_from_raw_parts_mut(
+                    r.citations,
+                    r.citations_len,
+                ))
+                .into_vec();
+                for citation in citations {
+                    if !citation.text.is_null() {
+                        let _ = CString::from_raw(citation.text);
+                    }
+                    if !citation.sources.is_null() && citation.sources_len > 0 {
+                        let sources = Box::from_raw(std::ptr::slice_from_raw_parts_mut(
+                            citation.sources,
+                            citation.sources_len,
+                        ))
+                        .into_vec();
+                        for source in sources {
+                            if !source.tool_result_indices.is_null()
+                                && source.tool_result_indices_len > 0
+                            {
+                                let _ = Box::from_raw(std::ptr::slice_from_raw_parts_mut(
+                                    source.tool_result_indices,
+                                    source.tool_result_indices_len,
+                                ))
+                                .into_vec();
+                            }
+                        }
+                    }
+                }
+            }
+            if !r.search_queries.is_null() && r.search_queries_len > 0 {
+                let sqs = Box::from_raw(std::ptr::slice_from_raw_parts_mut(
+                    r.search_queries,
+                    r.search_queries_len,
+                ))
+                .into_vec();
+                for sq in sqs {
+                    if !sq.text.is_null() {
+                        let _ = CString::from_raw(sq.text);
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ============================================================================
+// Templating FFI types (C-compatible equivalents)
+// ============================================================================
+
+/// C-compatible enum for role types.
+///
+/// Represents the role of a message in the conversation.
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub enum CRole {
+    /// Unknown or unspecified role.
+    Unknown = 0,
+    /// System message role.
+    System = 1,
+    /// User message role.
+    User = 2,
+    /// Chatbot message role.
+    Chatbot = 3,
+    /// Tool message role.
+    Tool = 4,
+}
+
+/// C-compatible enum for content types.
+///
+/// Represents the type of content in a message.
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub enum CContentType {
+    /// Unknown or unspecified content type.
+    Unknown = 0,
+    /// Text content.
+    Text = 1,
+    /// Thinking/reasoning content.
+    Thinking = 2,
+    /// Image content.
+    Image = 3,
+    /// Document content.
+    Document = 4,
+    /// Multipart content.
+    Multipart = 5,
+}
+
+/// C-compatible enum for citation quality.
+///
+/// Indicates the quality or presence of citations.
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub enum CCitationQuality {
+    /// Unknown or unspecified citation quality.
+    Unknown = 0,
+    /// Citations are off.
+    Off = 1,
+    /// Citations are on.
+    On = 2,
+}
+
+/// C-compatible enum for grounding options.
+///
+/// Specifies whether grounding is enabled or disabled.
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub enum CGrounding {
+    /// Unknown or unspecified grounding.
+    Unknown = 0,
+    /// Grounding is enabled.
+    Enabled = 1,
+    /// Grounding is disabled.
+    Disabled = 2,
+}
+
+/// C-compatible enum for safety modes.
+///
+/// Represents the safety mode for rendering.
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub enum CSafetyMode {
+    /// Unknown or unspecified safety mode.
+    Unknown = 0,
+    /// No safety mode.
+    None = 1,
+    /// Strict safety mode.
+    Strict = 2,
+    /// Contextual safety mode.
+    Contextual = 3,
+}
+
+/// C-compatible enum for reasoning types.
+///
+/// Indicates whether reasoning is enabled or disabled.
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub enum CReasoningType {
+    /// Unknown or unspecified reasoning type.
+    Unknown = 0,
+    /// Reasoning is enabled.
+    Enabled = 1,
+    /// Reasoning is disabled.
+    Disabled = 2,
+}
+
+/// C-compatible struct for tool definitions.
+#[repr(C)]
+pub struct CTool {
+    /// Tool name as a null-terminated C string
+    pub name: *const c_char,
+    /// Tool description as a null-terminated C string
+    pub description: *const c_char,
+    /// JSON string representing parameters (Map<String, Value>)
+    pub parameters_json: *const c_char,
+}
+
+/// C-compatible struct for image placeholders.
+#[repr(C)]
+pub struct CImage {
+    /// Image template placeholder as a null-terminated C string
+    pub template_placeholder: *const c_char,
+}
+
+/// C-compatible struct for content.
+#[repr(C)]
+pub struct CContent {
+    /// Content type enum
+    pub content_type: CContentType,
+    /// Text content as a null-terminated C string
+    pub text: *const c_char,
+    /// Thinking content as a null-terminated C string
+    pub thinking: *const c_char,
+    /// Pointer to image struct (null if None)
+    pub image: *const CImage,
+    /// Document as a JSON string (null if None)
+    pub document_json: *const c_char,
+    /// Pointer to array of multipart content structs (null if None)
+    pub multipart: *const CContent,
+    /// Number of multipart content items
+    pub multipart_len: usize,
+}
+
+/// C-compatible struct for tool calls.
+#[repr(C)]
+pub struct CToolCall {
+    /// Tool call ID as a null-terminated C string
+    pub id: *const c_char,
+    /// Tool call name as a null-terminated C string
+    pub name: *const c_char,
+    /// Parameters as a JSON string
+    pub parameters_json: *const c_char,
+}
+
+/// C-compatible struct for messages.
+#[repr(C)]
+pub struct CMessage {
+    /// Message role enum
+    pub role: CRole,
+    /// Pointer to array of content structs
+    pub content: *const CContent,
+    /// Number of content items
+    pub content_len: usize,
+    /// Pointer to array of tool calls
+    pub tool_calls: *const CToolCall,
+    /// Number of tool calls
+    pub tool_calls_len: usize,
+    /// Tool call ID as a null-terminated C string (null if None)
+    pub tool_call_id: *const c_char,
+    /// Citations
+    pub citations: *const CFilterCitation,
+    /// Number of citations
+    pub citations_len: usize,
+}
+
+/// C-compatible struct for CMD3 render options.
+#[repr(C)]
+pub struct CRenderCmd3Options {
+    /// Pointer to array of messages
+    pub messages: *const CMessage,
+    /// Number of messages
+    pub messages_len: usize,
+    /// Optional template ID to use instead of template string
+    pub template_id: *const c_char,
+    /// Template as a null-terminated C string
+    pub template: *const c_char,
+    /// Jinja template as a null-terminated C string
+    pub template_jinja: *const c_char,
+    /// Whether to use the jinja template
+    pub use_jinja: bool,
+    /// Developer instruction as a null-terminated C string
+    pub dev_instruction: *const c_char,
+    /// Pointer to array of document JSON strings
+    pub documents_json: *const *const c_char,
+    /// Number of documents
+    pub documents_len: usize,
+    /// Pointer to array of available tools
+    pub available_tools: *const CTool,
+    /// Number of available tools
+    pub available_tools_len: usize,
+    /// Safety mode enum
+    pub safety_mode: CSafetyMode,
+    /// Whether safety mode is set
+    pub has_safety_mode: bool,
+    /// Citation quality enum
+    pub citation_quality: CCitationQuality,
+    /// Whether citation quality is set
+    pub has_citation_quality: bool,
+    /// Reasoning type enum
+    pub reasoning_type: CReasoningType,
+    /// Whether reasoning type is set
+    pub has_reasoning_type: bool,
+    /// Whether to skip preamble
+    pub skip_preamble: bool,
+    /// Response prefix as a null-terminated C string
+    pub response_prefix: *const c_char,
+    /// JSON schema as a null-terminated C string
+    pub json_schema: *const c_char,
+    /// Whether JSON mode is enabled
+    pub json_mode: bool,
+    /// Additional template fields as a JSON string
+    pub additional_template_fields_json: *const c_char,
+    /// Escaped special tokens as a JSON string
+    pub escaped_special_tokens_json: *const c_char,
+}
+
+/// C-compatible struct for CMD5 render options.
+///
+/// CMD5 shares its option schema with CMD4, so `CRenderCmd5Options` is a type
+/// alias for `CRenderCmd4Options`. The `melody_render_cmd5` function delegates
+/// to the CMD5 jinja template internally.
+pub type CRenderCmd5Options = CRenderCmd4Options;
+
+/// C-compatible struct for CMD4 render options.
+#[repr(C)]
+pub struct CRenderCmd4Options {
+    /// Pointer to array of messages
+    pub messages: *const CMessage,
+    /// Number of messages
+    pub messages_len: usize,
+    /// Optional template ID to use instead of template string
+    pub template_id: *const c_char,
+    /// Template as a null-terminated C string
+    pub template: *const c_char,
+    /// Jinja template as a null-terminated C string
+    pub template_jinja: *const c_char,
+    /// Whether to use the jinja template
+    pub use_jinja: bool,
+    /// Developer instruction as a null-terminated C string
+    pub dev_instruction: *const c_char,
+    /// Platform instruction as a null-terminated C string
+    pub platform_instruction: *const c_char,
+    /// Pointer to array of document JSON strings
+    pub documents_json: *const *const c_char,
+    /// Number of documents
+    pub documents_len: usize,
+    /// Pointer to array of available tools
+    pub available_tools: *const CTool,
+    /// Number of available tools
+    pub available_tools_len: usize,
+    /// Grounding enum
+    pub grounding: CGrounding,
+    /// Whether grounding is set
+    pub has_grounding: bool,
+    /// Reasoning type enum
+    pub reasoning_type: CReasoningType,
+    /// Whether reasoning type is set
+    pub has_reasoning_type: bool,
+    /// Response prefix as a null-terminated C string
+    pub response_prefix: *const c_char,
+    /// JSON schema as a null-terminated C string
+    pub json_schema: *const c_char,
+    /// Whether JSON mode is enabled
+    pub json_mode: bool,
+    /// Additional template fields as a JSON string
+    pub additional_template_fields_json: *const c_char,
+    /// Escaped special tokens as a JSON string
+    pub escaped_special_tokens_json: *const c_char,
+}
+
+// ============================================================================
+// Templating FFI conversion helpers
+// ============================================================================
+
+/// Maps a `CRole` to a Rust Role.
+fn map_role(r: CRole) -> Role {
+    match r {
+        CRole::Unknown => Role::Unknown,
+        CRole::System => Role::System,
+        CRole::User => Role::User,
+        CRole::Chatbot => Role::Chatbot,
+        CRole::Tool => Role::Tool,
+    }
+}
+
+/// Maps a `CContentType` to a Rust `ContentType`.
+fn map_content_type(t: CContentType) -> ContentType {
+    match t {
+        CContentType::Unknown => ContentType::Unknown,
+        CContentType::Text => ContentType::Text,
+        CContentType::Thinking => ContentType::Thinking,
+        CContentType::Image => ContentType::Image,
+        CContentType::Document => ContentType::Document,
+        CContentType::Multipart => ContentType::Multipart,
+    }
+}
+
+/// Maps a `CCitationQuality` to a Rust `CitationQuality`.
+fn map_citation_quality(c: CCitationQuality) -> CitationQuality {
+    match c {
+        CCitationQuality::Unknown => CitationQuality::Unknown,
+        CCitationQuality::Off => CitationQuality::Off,
+        CCitationQuality::On => CitationQuality::On,
+    }
+}
+
+/// Maps a `CGrounding` to a Rust Grounding.
+fn map_grounding(g: CGrounding) -> Grounding {
+    match g {
+        CGrounding::Unknown => Grounding::Unknown,
+        CGrounding::Enabled => Grounding::Enabled,
+        CGrounding::Disabled => Grounding::Disabled,
+    }
+}
+
+/// Maps a `CSafetyMode` to a Rust `SafetyMode`.
+fn map_safety_mode(s: CSafetyMode) -> SafetyMode {
+    match s {
+        CSafetyMode::Unknown => SafetyMode::Unknown,
+        CSafetyMode::None => SafetyMode::None,
+        CSafetyMode::Strict => SafetyMode::Strict,
+        CSafetyMode::Contextual => SafetyMode::Contextual,
+    }
+}
+
+/// Maps a `CReasoningType` to a Rust `ReasoningType`.
+fn map_reasoning_type(r: CReasoningType) -> ReasoningType {
+    match r {
+        CReasoningType::Unknown => ReasoningType::Unknown,
+        CReasoningType::Enabled => ReasoningType::Enabled,
+        CReasoningType::Disabled => ReasoningType::Disabled,
+    }
+}
+
+/// Converts a nullable C string pointer to an Option<String>.
+unsafe fn cstr_opt(ptr: *const c_char) -> Option<String> {
+    if ptr.is_null() {
+        None
+    } else {
+        unsafe { Some(CStr::from_ptr(ptr).to_string_lossy().into_owned()) }
+    }
+}
+
+/// Parses a C string pointer as a JSON object.
+unsafe fn parse_json_object(ptr: *const c_char) -> Map<String, Value> {
+    if ptr.is_null() {
+        Map::new()
+    } else {
+        unsafe {
+            let s = CStr::from_ptr(ptr).to_string_lossy();
+            serde_json::from_str::<Map<String, Value>>(&s).unwrap_or_else(|_| Map::new())
+        }
+    }
+}
+unsafe fn parse_json_value(ptr: *const c_char) -> Value {
+    if ptr.is_null() {
+        Value::Null
+    } else {
+        unsafe {
+            let s = CStr::from_ptr(ptr).to_string_lossy();
+            serde_json::from_str::<Value>(&s).unwrap_or(Value::Null)
+        }
+    }
+}
+
+unsafe fn convert_ctool(tool: &CTool) -> Tool {
+    Tool {
+        name: unsafe { CStr::from_ptr(tool.name).to_string_lossy().into_owned() },
+        description: unsafe {
+            CStr::from_ptr(tool.description)
+                .to_string_lossy()
+                .into_owned()
+        },
+        parameters: unsafe { parse_json_object(tool.parameters_json) },
+    }
+}
+
+unsafe fn convert_cimage(image: &CImage) -> Image {
+    Image {
+        template_placeholder: unsafe {
+            CStr::from_ptr(image.template_placeholder)
+                .to_string_lossy()
+                .into_owned()
+        },
+    }
+}
+
+unsafe fn convert_ccontent(content: &CContent) -> Content {
+    let image = if content.image.is_null() {
+        None
+    } else {
+        Some(unsafe { convert_cimage(&*content.image) })
+    };
+    let document = if content.document_json.is_null() {
+        None
+    } else {
+        match unsafe { parse_json_value(content.document_json) } {
+            Value::Object(m) => Some(m),
+            _ => None,
+        }
+    };
+    let multipart = if content.multipart.is_null() {
+        None
+    } else {
+        let parts = unsafe { slice::from_raw_parts(content.multipart, content.multipart_len) };
+        Some(
+            parts
+                .iter()
+                .map(|c| unsafe { convert_ccontent(c) })
+                .collect(),
+        )
+    };
+    Content {
+        content_type: map_content_type(content.content_type),
+        text: unsafe { cstr_opt(content.text) },
+        thinking: unsafe { cstr_opt(content.thinking) },
+        image,
+        document,
+        multipart,
+    }
+}
+
+unsafe fn convert_ctool_call(tc: &CToolCall) -> ToolCall {
+    ToolCall {
+        id: unsafe { CStr::from_ptr(tc.id).to_string_lossy().into_owned() },
+        name: unsafe { CStr::from_ptr(tc.name).to_string_lossy().into_owned() },
+        parameters: unsafe {
+            CStr::from_ptr(tc.parameters_json)
+                .to_string_lossy()
+                .into_owned()
+        },
+    }
+}
+
+unsafe fn convert_csource(source: &CSource) -> Source {
+    let tool_result_indices: Vec<usize> = if !source.tool_result_indices.is_null()
+        && source.tool_result_indices_len > 0
+    {
+        unsafe { slice::from_raw_parts(source.tool_result_indices, source.tool_result_indices_len) }
+            .to_vec()
+    } else {
+        Vec::new()
+    };
+
+    Source {
+        tool_call_index: source.tool_call_index,
+        tool_result_indices,
+        // document_ids resolution isn't wired through the C FFI (the
+        // parser can't be configured with a lookup table via C right now).
+        // Rust callers should use `FilterOptions::with_message_history`.
+        document_ids: Vec::new(),
+    }
+}
+
+unsafe fn convert_ccitation(cit: &CFilterCitation) -> FilterCitation {
+    let sources = if !cit.sources.is_null() && cit.sources_len > 0 {
+        unsafe { slice::from_raw_parts(cit.sources, cit.sources_len) }
+            .iter()
+            .map(|x| unsafe { convert_csource(x) })
+            .collect()
+    } else {
+        Vec::new()
+    };
+
+    FilterCitation {
+        start_index: cit.start_index,
+        end_index: cit.end_index,
+        text: unsafe { cstr_opt(cit.text).unwrap_or_default() },
+        sources,
+        is_thinking: cit.is_thinking,
+    }
+}
+
+unsafe fn convert_cmessage(msg: &CMessage) -> Message {
+    let contents = if !msg.content.is_null() && msg.content_len > 0 {
+        unsafe { slice::from_raw_parts(msg.content, msg.content_len) }
+            .iter()
+            .map(|c| unsafe { convert_ccontent(c) })
+            .collect()
+    } else {
+        Vec::new()
+    };
+
+    let tool_calls = if !msg.tool_calls.is_null() && msg.tool_calls_len > 0 {
+        unsafe { slice::from_raw_parts(msg.tool_calls, msg.tool_calls_len) }
+            .iter()
+            .map(|c| unsafe { convert_ctool_call(c) })
+            .collect()
+    } else {
+        Vec::new()
+    };
+
+    let citations = if !msg.citations.is_null() && msg.citations_len > 0 {
+        unsafe { slice::from_raw_parts(msg.citations, msg.citations_len) }
+            .iter()
+            .map(|c| unsafe { convert_ccitation(c) })
+            .collect()
+    } else {
+        Vec::new()
+    };
+
+    Message {
+        role: map_role(msg.role),
+        content: contents,
+        tool_calls,
+        tool_call_id: unsafe { cstr_opt(msg.tool_call_id) },
+        citations,
+    }
+}
+
+unsafe fn convert_cmd3_options<'a>(opts: &CRenderCmd3Options) -> RenderCmd3Options<'a> {
+    let messages = if !opts.messages.is_null() && opts.messages_len > 0 {
+        unsafe { slice::from_raw_parts(opts.messages, opts.messages_len) }
+            .iter()
+            .map(|m| unsafe { convert_cmessage(m) })
+            .collect()
+    } else {
+        Vec::new()
+    };
+
+    let documents: Vec<Document> = if !opts.documents_json.is_null() && opts.documents_len > 0 {
+        unsafe { slice::from_raw_parts(opts.documents_json, opts.documents_len) }
+            .iter()
+            .map(|&ptr| {
+                if ptr.is_null() {
+                    Map::new()
+                } else {
+                    match unsafe { parse_json_value(ptr) } {
+                        Value::Object(m) => m,
+                        _ => Map::new(),
+                    }
+                }
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+
+    let tools = if !opts.available_tools.is_null() && opts.available_tools_len > 0 {
+        unsafe { slice::from_raw_parts(opts.available_tools, opts.available_tools_len) }
+            .iter()
+            .map(|t| unsafe { convert_ctool(t) })
+            .collect()
+    } else {
+        Vec::new()
+    };
+
+    let additional_template_fields =
+        unsafe { parse_json_object(opts.additional_template_fields_json) };
+    let escaped_special_tokens_raw = unsafe { parse_json_object(opts.escaped_special_tokens_json) };
+    let escaped_special_tokens = escaped_special_tokens_raw
+        .into_iter()
+        .filter_map(|(k, v)| v.as_str().map(|s| (k, s.to_string())))
+        .collect();
+
+    let mut rs_opts = RenderCmd3Options {
+        messages,
+        dev_instruction: unsafe { cstr_opt(opts.dev_instruction) },
+        documents,
+        available_tools: tools,
+        safety_mode: if opts.has_safety_mode {
+            Some(map_safety_mode(opts.safety_mode))
+        } else {
+            None
+        },
+        skip_preamble: opts.skip_preamble,
+        response_prefix: unsafe { cstr_opt(opts.response_prefix) },
+        json_schema: unsafe { cstr_opt(opts.json_schema) },
+        json_mode: opts.json_mode,
+        additional_template_fields,
+        escaped_special_tokens,
+        template_id: unsafe { cstr_opt(opts.template_id) },
+        use_jinja: opts.use_jinja,
+        ..Default::default()
+    };
+
+    if opts.has_citation_quality {
+        rs_opts.citation_quality = Some(map_citation_quality(opts.citation_quality));
+    }
+
+    if opts.has_reasoning_type {
+        rs_opts.reasoning_type = Some(map_reasoning_type(opts.reasoning_type));
+    }
+
+    let template = unsafe { CStr::from_ptr(opts.template).to_str().unwrap() };
+    let template_jinja = unsafe { CStr::from_ptr(opts.template_jinja).to_str().unwrap() };
+    if !template_jinja.is_empty() && opts.use_jinja {
+        return RenderCmd3Options {
+            template_jinja,
+            ..rs_opts
+        };
+    }
+    if !template.is_empty() && !opts.use_jinja {
+        return RenderCmd3Options {
+            template,
+            ..rs_opts
+        };
+    }
+    rs_opts
+}
+
+unsafe fn convert_cmd4_options<'a>(opts: &CRenderCmd4Options) -> RenderCmd4Options<'a> {
+    let messages = if !opts.messages.is_null() && opts.messages_len > 0 {
+        unsafe { slice::from_raw_parts(opts.messages, opts.messages_len) }
+            .iter()
+            .map(|m| unsafe { convert_cmessage(m) })
+            .collect()
+    } else {
+        Vec::new()
+    };
+
+    let documents: Vec<Document> = if !opts.documents_json.is_null() && opts.documents_len > 0 {
+        unsafe { slice::from_raw_parts(opts.documents_json, opts.documents_len) }
+            .iter()
+            .map(|&ptr| {
+                if ptr.is_null() {
+                    Map::new()
+                } else {
+                    match unsafe { parse_json_value(ptr) } {
+                        Value::Object(m) => m,
+                        _ => Map::new(),
+                    }
+                }
+            })
+            .collect()
+    } else {
+        Vec::new()
+    };
+
+    let tools = if !opts.available_tools.is_null() && opts.available_tools_len > 0 {
+        unsafe { slice::from_raw_parts(opts.available_tools, opts.available_tools_len) }
+            .iter()
+            .map(|t| unsafe { convert_ctool(t) })
+            .collect()
+    } else {
+        Vec::new()
+    };
+
+    let additional_template_fields =
+        unsafe { parse_json_object(opts.additional_template_fields_json) };
+    let escaped_special_tokens_raw = unsafe { parse_json_object(opts.escaped_special_tokens_json) };
+    let escaped_special_tokens = escaped_special_tokens_raw
+        .into_iter()
+        .filter_map(|(k, v)| v.as_str().map(|s| (k, s.to_string())))
+        .collect();
+
+    let mut rs_opts = RenderCmd4Options {
+        messages,
+        dev_instruction: unsafe { cstr_opt(opts.dev_instruction) },
+        platform_instruction: unsafe { cstr_opt(opts.platform_instruction) },
+        documents,
+        available_tools: tools,
+        response_prefix: unsafe { cstr_opt(opts.response_prefix) },
+        json_schema: unsafe { cstr_opt(opts.json_schema) },
+        json_mode: opts.json_mode,
+        additional_template_fields,
+        escaped_special_tokens,
+        template_id: unsafe { cstr_opt(opts.template_id) },
+        use_jinja: opts.use_jinja,
+        ..Default::default()
+    };
+    if opts.has_grounding {
+        rs_opts.grounding = Some(map_grounding(opts.grounding));
+    }
+    if opts.has_reasoning_type {
+        rs_opts.reasoning_type = Some(map_reasoning_type(opts.reasoning_type));
+    }
+    let template = unsafe { CStr::from_ptr(opts.template).to_str().unwrap() };
+    let template_jinja = unsafe { CStr::from_ptr(opts.template_jinja).to_str().unwrap() };
+    if !template_jinja.is_empty() {
+        rs_opts.template_jinja = template_jinja;
+    }
+    if !template.is_empty() && !opts.use_jinja {
+        rs_opts.template = template;
+    }
+    rs_opts
+}
+
+// ============================================================================
+// Templating FFI functions
+// ============================================================================
+
+/// Renders CMD3 template and returns a struct with result or error.
+/// # Safety
+/// Caller must free return value with `melody_render_result_free`.
+///
+/// # Returns
+/// Returns a result struct with either the rendered output or an error message.
+/// If a panic occurs, returns a result struct with an error describing the panic.
+#[unsafe(no_mangle)]
+#[allow(clippy::missing_panics_doc)]
+pub unsafe extern "C" fn melody_render_cmd3(opts: *const CRenderCmd3Options) -> *mut CRenderResult {
+    catch_panic_render_result(AssertUnwindSafe(|| {
+        if opts.is_null() {
+            let err = CString::new("null options pointer")
+                .unwrap_or_else(|_| CString::new("null options").unwrap())
+                .into_raw();
+            return Box::into_raw(Box::new(CRenderResult {
+                result: std::ptr::null_mut(),
+                error: err,
+            }));
+        }
+        let rust_opts = unsafe { convert_cmd3_options(&*opts) };
+        match render_cmd3(&rust_opts) {
+            Ok(s) => {
+                let result = CString::new(s)
+                    .unwrap_or_else(|_| CString::new("result contained null bytes").unwrap())
+                    .into_raw();
+                Box::into_raw(Box::new(CRenderResult {
+                    result,
+                    error: std::ptr::null_mut(),
+                }))
+            }
+            Err(e) => {
+                let error = CString::new(e.to_string())
+                    .unwrap_or_else(|_| CString::new("error message contained null bytes").unwrap())
+                    .into_raw();
+                Box::into_raw(Box::new(CRenderResult {
+                    result: std::ptr::null_mut(),
+                    error,
+                }))
+            }
+        }
+    }))
+}
+
+/// Renders CMD4 template and returns a struct with result or error.
+/// # Safety
+/// Caller must free return value with `melody_render_result_free`.
+///
+/// # Returns
+/// Returns a result struct with either the rendered output or an error message.
+/// If a panic occurs, returns a result struct with an error describing the panic.
+#[unsafe(no_mangle)]
+#[allow(clippy::missing_panics_doc)]
+pub unsafe extern "C" fn melody_render_cmd4(opts: *const CRenderCmd4Options) -> *mut CRenderResult {
+    catch_panic_render_result(AssertUnwindSafe(|| {
+        if opts.is_null() {
+            let err = CString::new("null options pointer")
+                .unwrap_or_else(|_| CString::new("null options").unwrap())
+                .into_raw();
+            return Box::into_raw(Box::new(CRenderResult {
+                result: std::ptr::null_mut(),
+                error: err,
+            }));
+        }
+        let rust_opts = unsafe { convert_cmd4_options(&*opts) };
+        match render_cmd4(&rust_opts) {
+            Ok(s) => {
+                let result = CString::new(s)
+                    .unwrap_or_else(|_| CString::new("result contained null bytes").unwrap())
+                    .into_raw();
+                Box::into_raw(Box::new(CRenderResult {
+                    result,
+                    error: std::ptr::null_mut(),
+                }))
+            }
+            Err(e) => {
+                let error = CString::new(e.to_string())
+                    .unwrap_or_else(|_| CString::new("error message contained null bytes").unwrap())
+                    .into_raw();
+                Box::into_raw(Box::new(CRenderResult {
+                    result: std::ptr::null_mut(),
+                    error,
+                }))
+            }
+        }
+    }))
+}
+
+/// Renders CMD5 template and returns a struct with result or error.
+///
+/// CMD5 shares its option layout with CMD4 (`CRenderCmd5Options` is a typedef
+/// alias for `CRenderCmd4Options`); only the underlying jinja template differs.
+///
+/// # Safety
+/// Caller must free return value with `melody_render_result_free`.
+///
+/// # Returns
+/// Returns a result struct with either the rendered output or an error message.
+/// If a panic occurs, returns a result struct with an error describing the panic.
+#[unsafe(no_mangle)]
+#[allow(clippy::missing_panics_doc)]
+pub unsafe extern "C" fn melody_render_cmd5(opts: *const CRenderCmd5Options) -> *mut CRenderResult {
+    catch_panic_render_result(AssertUnwindSafe(|| {
+        if opts.is_null() {
+            let err = CString::new("null options pointer")
+                .unwrap_or_else(|_| CString::new("null options").unwrap())
+                .into_raw();
+            return Box::into_raw(Box::new(CRenderResult {
+                result: std::ptr::null_mut(),
+                error: err,
+            }));
+        }
+        let rust_opts = unsafe { convert_cmd4_options(&*opts) };
+        match render_cmd5(&rust_opts) {
+            Ok(s) => {
+                let result = CString::new(s)
+                    .unwrap_or_else(|_| CString::new("result contained null bytes").unwrap())
+                    .into_raw();
+                Box::into_raw(Box::new(CRenderResult {
+                    result,
+                    error: std::ptr::null_mut(),
+                }))
+            }
+            Err(e) => {
+                let error = CString::new(e.to_string())
+                    .unwrap_or_else(|_| CString::new("error message contained null bytes").unwrap())
+                    .into_raw();
+                Box::into_raw(Box::new(CRenderResult {
+                    result: std::ptr::null_mut(),
+                    error,
+                }))
+            }
+        }
+    }))
+}
+
+/// Frees a `CRenderResult` struct and its strings.
+///
+/// # Safety
+/// `res` must be a valid pointer returned from a melody render function.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn melody_render_result_free(res: *mut CRenderResult) {
+    if res.is_null() {
+        return;
+    }
+    unsafe {
+        let res_box = Box::from_raw(res);
+        if !res_box.result.is_null() {
+            let _ = CString::from_raw(res_box.result);
+        }
+        if !res_box.error.is_null() {
+            let _ = CString::from_raw(res_box.error);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ptr;
+
+    fn empty_cmd4_c_options(
+        template: &str,
+        template_jinja: &str,
+        use_jinja: bool,
+    ) -> (CRenderCmd4Options, CString, CString) {
+        let (opts, c_template, c_template_jinja, _c_template_id) =
+            empty_cmd4_c_options_with_template_id(template, template_jinja, use_jinja, None);
+        (opts, c_template, c_template_jinja)
+    }
+
+    fn empty_cmd4_c_options_with_template_id(
+        template: &str,
+        template_jinja: &str,
+        use_jinja: bool,
+        template_id: Option<&str>,
+    ) -> (CRenderCmd4Options, CString, CString, Option<CString>) {
+        let c_template = CString::new(template).unwrap();
+        let c_template_jinja = CString::new(template_jinja).unwrap();
+        let c_template_id = template_id.map(|id| CString::new(id).unwrap());
+        let opts = CRenderCmd4Options {
+            messages: ptr::null(),
+            messages_len: 0,
+            template_id: c_template_id.as_ref().map_or(ptr::null(), |s| s.as_ptr()),
+            template: c_template.as_ptr(),
+            template_jinja: c_template_jinja.as_ptr(),
+            use_jinja,
+            dev_instruction: ptr::null(),
+            platform_instruction: ptr::null(),
+            documents_json: ptr::null(),
+            documents_len: 0,
+            available_tools: ptr::null(),
+            available_tools_len: 0,
+            grounding: CGrounding::Disabled,
+            has_grounding: false,
+            reasoning_type: CReasoningType::Enabled,
+            has_reasoning_type: false,
+            response_prefix: ptr::null(),
+            json_schema: ptr::null(),
+            json_mode: false,
+            additional_template_fields_json: ptr::null(),
+            escaped_special_tokens_json: ptr::null(),
+        };
+        (opts, c_template, c_template_jinja, c_template_id)
+    }
+
+    #[test]
+    fn test_convert_cmd4_options_preserves_template_jinja_without_use_jinja() {
+        let custom = "CUSTOM_CMD5_TEMPLATE_OUTPUT";
+        let (opts, _t, _tj) = empty_cmd4_c_options("", custom, false);
+        let rust_opts = unsafe { convert_cmd4_options(&opts) };
+        assert_eq!(rust_opts.template_jinja, custom);
+    }
+
+    #[test]
+    fn test_render_cmd5_rejects_liquid_template_after_ffi_conversion() {
+        let (opts, _t, _tj) = empty_cmd4_c_options("{% liquid %}", "", false);
+        let rust_opts = unsafe { convert_cmd4_options(&opts) };
+        let err = render_cmd5(&rust_opts).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("does not support liquid templates"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn test_render_cmd5_uses_template_jinja_after_ffi_conversion_without_use_jinja() {
+        let custom = "CUSTOM_CMD5_TEMPLATE_OUTPUT";
+        let (opts, _t, _tj) = empty_cmd4_c_options("", custom, false);
+        let rust_opts = unsafe { convert_cmd4_options(&opts) };
+        let rendered = render_cmd5(&rust_opts).unwrap();
+        assert_eq!(rendered, custom);
+    }
+
+    #[test]
+    fn test_render_cmd5_template_id_ignores_leftover_liquid_template_after_ffi_conversion() {
+        let (opts, _t, _tj, _tid) =
+            empty_cmd4_c_options_with_template_id("{% liquid %}", "", false, Some("cmd5"));
+        let rust_opts = unsafe { convert_cmd4_options(&opts) };
+        let rendered = render_cmd5(&rust_opts).unwrap();
+        assert!(
+            rendered.contains("CHATBOT"),
+            "template_id=cmd5 should render via jinja, ignoring leftover liquid template"
+        );
+    }
+
+    #[test]
+    fn test_catch_panic_aggregated_result_catches_panic() {
+        let result_ptr = catch_panic_aggregated_result(|| {
+            panic!("test panic message");
+        });
+
+        assert!(!result_ptr.is_null());
+
+        unsafe {
+            let result = &*result_ptr;
+            assert!(result.result.is_null());
+            assert!(!result.error.is_null());
+
+            let error_str = CStr::from_ptr(result.error).to_str().unwrap();
+            assert!(error_str.contains("test panic message"));
+
+            melody_aggregated_result_free(result_ptr);
+        }
+    }
+
+    #[test]
+    fn test_catch_panic_aggregated_result_success() {
+        let result_ptr = catch_panic_aggregated_result(|| {
+            let c_result = unsafe { convert_aggregated_to_c(FilterAggregatedResult::default()) };
+            Box::into_raw(Box::new(CAggregatedResultResponse {
+                result: c_result,
+                error: std::ptr::null_mut(),
+            }))
+        });
+
+        assert!(!result_ptr.is_null());
+
+        unsafe {
+            let result = &*result_ptr;
+            assert!(!result.result.is_null());
+            assert!(result.error.is_null());
+
+            melody_aggregated_result_free(result_ptr);
+        }
+    }
+}

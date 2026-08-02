@@ -1,0 +1,17 @@
+[package]
+name = "dtt_macros"
+description = "Miscellaneious macros used in dttlib.  Includes the builder-lite macro for easy setup of a build-lite structure."
+version = {workspace = true}
+authors = {workspace = true}
+edition = {workspace = true}
+homepage = {workspace = true}
+repository = {workspace = true}
+license = {workspace = true}
+
+[dependencies]
+quote = "*"
+syn = { version = "2", features = ["extra-traits", "full"]}
+proc-macro2 = "1.0.92"
+
+[lib]
+proc-macro = true

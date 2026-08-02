@@ -1,0 +1,332 @@
+"""Check command implementation for lintro CLI.
+
+This module provides the core logic for the 'check' command.
+
+Functions:
+    check_command: CLI command for checking files with various tools.
+    check: Programmatic function for backward compatibility.
+"""
+
+import sys
+
+import click
+
+from lintro.api import core as api
+from lintro.api.pipeline import run_lint_with_ai
+from lintro.cli_utils.diff_option import validate_diff_base_ref
+from lintro.utils.git_diff import DIFF_DEFAULT_SENTINEL
+
+# Constants
+DEFAULT_PATHS: list[str] = ["."]
+DEFAULT_EXIT_CODE: int = 0
+DEFAULT_ACTION: str = "check"
+
+
+@click.command("check")
+@click.argument("paths", nargs=-1, type=click.Path(exists=True))
+@click.option(
+    "--tools",
+    type=str,
+    help='Comma-separated list of tools to run. Use "all" to run all available tools.',
+)
+@click.option(
+    "--tool-options",
+    type=str,
+    help="Tool-specific options in the format tool:option=value,tool:option=value",
+)
+@click.option(
+    "--exclude",
+    type=str,
+    help="Comma-separated list of patterns to exclude from processing",
+)
+@click.option(
+    "--include-venv",
+    is_flag=True,
+    help="Include virtual environment directories in processing",
+)
+@click.option(
+    "--output",
+    type=click.Path(),
+    help="Output file path for writing results",
+)
+@click.option(
+    "--output-format",
+    type=click.Choice(
+        ["plain", "grid", "markdown", "html", "json", "csv", "github", "sarif"],
+    ),
+    default="grid",
+    help="Output format for displaying results",
+)
+@click.option(
+    "--group-by",
+    type=click.Choice(["file", "code", "none", "auto"]),
+    default="file",
+    help="How to group issues in the output",
+)
+@click.option(
+    "--ignore-conflicts",
+    is_flag=True,
+    help="Ignore potential conflicts between tools",
+)
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Show verbose output",
+)
+@click.option(
+    "--no-log",
+    is_flag=True,
+    hidden=True,
+    help="Disable logging to file (not yet implemented)",
+)
+@click.option(
+    "--raw-output",
+    is_flag=True,
+    help="Show raw tool output instead of formatted output",
+)
+@click.option(
+    "--incremental",
+    is_flag=True,
+    help="Only check files that have changed since the last run",
+)
+@click.option(
+    "--no-cache",
+    is_flag=True,
+    help="Clear incremental cache before running (forces full check)",
+)
+@click.option(
+    "--diff",
+    "diff_base",
+    is_flag=False,
+    flag_value=DIFF_DEFAULT_SENTINEL,
+    default=None,
+    metavar="[BASE]",
+    help=(
+        "Only check files changed vs a git base ref. With no value, diffs "
+        "against the repository default branch (origin/HEAD); pass a ref like "
+        "'main' or 'origin/dev' to override. Falls back to a full scan outside "
+        "a git repository."
+    ),
+)
+@click.option(
+    "--stream/--no-stream",
+    default=False,
+    hidden=True,
+    help="Stream tool output in real-time (not yet implemented)",
+)
+@click.option(
+    "--debug",
+    is_flag=True,
+    help="Enable debug output on console",
+)
+@click.option(
+    "--auto-install",
+    is_flag=True,
+    help="Auto-install Node.js dependencies if node_modules is missing",
+)
+@click.option(
+    "--yes",
+    "-y",
+    is_flag=True,
+    help="Skip confirmation prompt and proceed immediately",
+)
+@click.option(
+    "--fix",
+    "ai_fix",
+    is_flag=True,
+    help="Generate AI fix suggestions (safe fixes auto-apply in CI)",
+)
+@click.option(
+    "--transport",
+    type=click.Choice(["api", "cli"], case_sensitive=False),
+    default=None,
+    help="Override ai.transport for this AI invocation.",
+)
+@click.option(
+    "--score",
+    is_flag=True,
+    help="Print only the 0-100 health score (suppresses the normal summary).",
+)
+@click.option(
+    "--fail-under",
+    type=click.FloatRange(0, 100),
+    default=None,
+    help="Exit 1 if the health score is below this threshold (0-100).",
+)
+@click.option(
+    "--no-art",
+    is_flag=True,
+    help="Suppress the decorative ASCII art printed after the run.",
+)
+def check_command(
+    paths: tuple[str, ...],
+    tools: str | None,
+    tool_options: str | None,
+    exclude: str | None,
+    include_venv: bool,
+    output: str | None,
+    output_format: str,
+    group_by: str,
+    ignore_conflicts: bool,
+    verbose: bool,
+    no_log: bool,
+    raw_output: bool,
+    incremental: bool,
+    no_cache: bool,
+    diff_base: str | None,
+    stream: bool,
+    debug: bool,
+    auto_install: bool,
+    yes: bool,
+    ai_fix: bool,
+    transport: str | None,
+    score: bool,
+    fail_under: float | None,
+    no_art: bool,
+) -> None:
+    """Check files for issues using the specified tools.
+
+    \u000c
+
+    Args:
+        paths: tuple: List of file/directory paths to check.
+        tools: str | None: Comma-separated list of tool names to run.
+        tool_options: str | None: Tool-specific configuration options.
+        exclude: str | None: Comma-separated patterns of files/dirs to exclude.
+        include_venv: bool: Whether to include virtual environment directories.
+        output: str | None: Path to output file for results.
+        output_format: str: Format for displaying results (table, json, etc).
+        group_by: str: How to group issues in output (tool, file, etc).
+        ignore_conflicts: bool: Whether to ignore tool configuration conflicts.
+        verbose: bool: Whether to show verbose output during execution.
+        no_log: bool: Whether to disable logging to file.
+        raw_output: bool: Whether to show raw tool output instead of formatted output.
+        incremental: bool: Whether to only check files changed since last run.
+        no_cache: bool: Whether to clear the incremental cache before running.
+        diff_base: str | None: Git base ref for ``--diff`` scanning. ``None``
+            scans all files; the default sentinel resolves the repo default
+            branch; any other value is used as the base ref.
+        stream: bool: Whether to stream tool output in real-time.
+        debug: bool: Whether to enable debug output on console.
+        auto_install: bool: Whether to auto-install Node.js deps if missing.
+        yes: bool: Skip confirmation prompt and proceed immediately.
+        ai_fix: bool: Generate AI fix suggestions with interactive review.
+        transport: str | None: Override AI transport (``api`` or ``cli``).
+        score: bool: Print only the health score, suppressing the summary.
+        fail_under: float | None: Exit 1 if the health score is below this value.
+        no_art: bool: Suppress the decorative ASCII art printed after the run.
+
+    Raises:
+        SystemExit: Process exit with the aggregated exit code from tools.
+    """
+    # Handle cache clearing
+    if no_cache:
+        from lintro.utils.file_cache import clear_all_caches
+
+        clear_all_caches()
+
+    validate_diff_base_ref(diff_base=diff_base)
+
+    # Add default paths if none provided
+    path_list: list[str] = list(paths) if paths else list(DEFAULT_PATHS)
+
+    # Build tool-specific options string
+    tool_option_parts: list[str] = []
+    if tool_options:
+        tool_option_parts.append(tool_options)
+
+    combined_tool_options: str | None = (
+        ",".join(tool_option_parts) if tool_option_parts else None
+    )
+
+    # Run the AI-aware pipeline: execute, AI-enhance, render.
+    exit_code: int = run_lint_with_ai(
+        action=DEFAULT_ACTION,
+        paths=path_list,
+        tools=tools,
+        tool_options=combined_tool_options,
+        exclude=exclude,
+        include_venv=include_venv,
+        group_by=group_by,
+        output_format=output_format,
+        verbose=verbose,
+        raw_output=raw_output,
+        output_file=output,
+        incremental=incremental,
+        diff_base=diff_base,
+        debug=debug,
+        stream=stream,
+        no_log=no_log,
+        auto_install=auto_install,
+        yes=yes,
+        ai_fix=ai_fix,
+        ignore_conflicts=ignore_conflicts,
+        transport=transport,
+        score=score,
+        fail_under=fail_under,
+        no_art=no_art,
+    )
+
+    # Exit with code only; CLI uses this as process exit code and avoids any
+    # additional trailing output after the logger's ASCII art.
+    raise SystemExit(exit_code)
+
+
+def check(
+    paths: tuple[str, ...],
+    tools: str | None,
+    tool_options: str | None,
+    exclude: str | None,
+    include_venv: bool,
+    output: str | None,
+    output_format: str,
+    group_by: str,
+    ignore_conflicts: bool,
+    verbose: bool,
+    no_log: bool,
+    auto_install: bool = False,
+    yes: bool = False,
+    ai_fix: bool = False,
+) -> None:
+    """Programmatic check function for backward compatibility.
+
+    Args:
+        paths: tuple: List of file/directory paths to check.
+        tools: str | None: Comma-separated list of tool names to run.
+        tool_options: str | None: Tool-specific configuration options.
+        exclude: str | None: Comma-separated patterns of files/dirs to exclude.
+        include_venv: bool: Whether to include virtual environment directories.
+        output: str | None: Path to output file for results.
+        output_format: str: Format for displaying results (table, json, etc).
+        group_by: str: How to group issues in output (tool, file, etc).
+        ignore_conflicts: bool: Whether to ignore tool configuration conflicts.
+        verbose: bool: Whether to show verbose output during execution.
+        no_log: bool: Whether to disable logging to file.
+        auto_install: bool: Whether to auto-install Node.js deps if missing.
+        yes: bool: Skip confirmation prompt and proceed immediately.
+        ai_fix: bool: Generate AI fix suggestions with interactive review.
+
+    Returns:
+        None: This function does not return a value.
+    """
+    result = api.check(
+        paths=paths,
+        tools=tools,
+        tool_options=tool_options,
+        exclude=exclude,
+        include_venv=include_venv,
+        output=output,
+        output_format=output_format,
+        group_by=group_by,
+        ignore_conflicts=ignore_conflicts,
+        verbose=verbose,
+        no_log=no_log,
+        auto_install=auto_install,
+        yes=yes,
+        ai_fix=ai_fix,
+    )
+
+    if result.exit_code != DEFAULT_EXIT_CODE:
+        sys.exit(result.exit_code)
+    return None

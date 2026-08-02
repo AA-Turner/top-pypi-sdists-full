@@ -88,6 +88,7 @@ __all__ = ("ARCRegionswitchClient",)
 class Exceptions(BaseClientExceptions):
     AccessDeniedException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
     IllegalArgumentException: type[BotocoreClientError]
     IllegalStateException: type[BotocoreClientError]
     InternalServerException: type[BotocoreClientError]

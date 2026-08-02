@@ -1,0 +1,588 @@
+/*
+ * track_ext_carrier_nda.c — CarrierNda type for the track module.
+ *
+ * Included by track_ext.c (the module aggregator).
+ * Hand-patches to this file are preserved across jm commands.
+ * Do NOT compile this file directly — only track_ext.c is compiled.
+ */
+/* ======================================================== */
+/* CarrierNdaObject — wraps carrier_nda_state_t *       */
+/* ======================================================== */
+
+#include "carrier_nda/carrier_nda_core.h"
+
+typedef struct
+{
+  PyObject_HEAD carrier_nda_state_t *handle;
+} CarrierNdaObject;
+
+static void
+CarrierNdaObj_dealloc (CarrierNdaObject *self)
+{
+  if (self->handle)
+    carrier_nda_destroy (self->handle);
+  Py_TYPE (self)->tp_free ((PyObject *)self);
+}
+
+static PyObject *
+CarrierNdaObj_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+  CarrierNdaObject *self = (CarrierNdaObject *)type->tp_alloc (type, 0);
+  if (self)
+    self->handle = NULL;
+  return (PyObject *)self;
+}
+
+static int
+CarrierNdaObj_init (CarrierNdaObject *self, PyObject *args, PyObject *kwds)
+{
+  static char *kwlist[]
+      = { "bn", "zeta", "init_norm_freq", "sps", "n", "m", NULL };
+  double             bn             = 0.01;
+  double             zeta           = 0.707;
+  double             init_norm_freq = 0.0;
+  unsigned long long sps_raw        = 8;
+  int                n              = 4;
+  int                m              = 4;
+
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "|dddKii", kwlist, &bn, &zeta,
+                                    &init_norm_freq, &sps_raw, &n, &m))
+    return -1;
+  size_t sps   = (size_t)sps_raw;
+  self->handle = carrier_nda_create (bn, zeta, init_norm_freq, sps, n, m);
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_MemoryError, "carrier_nda_create returned NULL");
+      return -1;
+    }
+  return 0;
+}
+
+static PyObject *
+CarrierNdaObj_steps_max_out (CarrierNdaObject *self,
+                             PyObject         *Py_UNUSED (ignored))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  return PyLong_FromSize_t (carrier_nda_steps_max_out (self->handle));
+}
+
+static PyObject *
+CarrierNdaObj_steps (CarrierNdaObject *self, PyObject *args, PyObject *kwds)
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  static char   *_kwlist[] = { "x", "out", NULL };
+  PyObject      *x_obj     = NULL;
+  PyArrayObject *x_arr     = NULL;
+  PyObject      *out_obj   = NULL;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "O|O", _kwlist, &x_obj,
+                                    &out_obj))
+    return NULL;
+  x_arr = (PyArrayObject *)PyArray_FROM_OTF (x_obj, NPY_COMPLEX64,
+                                             NPY_ARRAY_C_CONTIGUOUS);
+  if (!x_arr)
+    return NULL;
+  if (out_obj && out_obj != Py_None)
+    {
+      /* Require the exact dtype AND C-contiguity — either mismatch makes
+       * the marshal write into a temp copy, not the caller's buffer. */
+      if (!PyArray_Check (out_obj)
+          || PyArray_TYPE ((PyArrayObject *)out_obj) != NPY_COMPLEX64
+          || !PyArray_IS_C_CONTIGUOUS ((PyArrayObject *)out_obj)
+          || !PyArray_ISWRITEABLE ((PyArrayObject *)out_obj))
+        {
+          PyErr_SetString (PyExc_TypeError,
+                           "out must be a writable, C-contiguous"
+                           " ndarray of the output dtype");
+          Py_DECREF (x_arr);
+          return NULL;
+        }
+      PyArrayObject *out_arr = (PyArrayObject *)PyArray_FROM_OTF (
+          out_obj, NPY_COMPLEX64,
+          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE);
+      if (!out_arr)
+        {
+          Py_DECREF (x_arr);
+          return NULL;
+        }
+      size_t _cap     = (size_t)PyArray_SIZE (out_arr);
+      size_t _omax    = carrier_nda_steps_max_out (self->handle);
+      size_t _min_cap = _omax > (size_t)PyArray_SIZE (x_arr)
+                            ? _omax
+                            : ((size_t)PyArray_SIZE (x_arr));
+      if (_cap < _min_cap)
+        {
+          PyErr_Format (PyExc_ValueError, "out has %zu elements, need >= %zu",
+                        _cap, _min_cap);
+          Py_DECREF (out_arr);
+          Py_DECREF (x_arr);
+          return NULL;
+        }
+      /* nogil: GIL released across the pure-C kernel — sound only when
+       * this object is not shared across threads concurrently (one
+       * object per stream); the kernel touches only this object's
+       * state/buffers and the caller's input. */
+      const float complex *_ng0 = (const float complex *)PyArray_DATA (x_arr);
+      size_t               _ng1 = (size_t)PyArray_SIZE (x_arr);
+      float complex       *_ng2 = (float complex *)PyArray_DATA (out_arr);
+      size_t               n_out;
+      Py_BEGIN_ALLOW_THREADS
+        n_out = carrier_nda_steps (self->handle, _ng0, _ng1, _ng2, _cap);
+      Py_END_ALLOW_THREADS
+      Py_DECREF (x_arr);
+      npy_intp  _odim  = (npy_intp)n_out;
+      PyObject *_oview = PyArray_SimpleNewFromData (1, &_odim, NPY_COMPLEX64,
+                                                    PyArray_DATA (out_arr));
+      if (!_oview)
+        {
+          Py_DECREF (out_arr);
+          return NULL;
+        }
+      PyArray_SetBaseObject ((PyArrayObject *)_oview, (PyObject *)out_arr);
+      return _oview;
+    }
+  size_t _need = (size_t)PyArray_SIZE (x_arr);
+  size_t _cap  = carrier_nda_steps_max_out (self->handle);
+  if (!_cap || _cap < _need)
+    _cap = _need;
+  npy_intp  _adim = (npy_intp)_cap;
+  PyObject *arr0  = PyArray_SimpleNew (1, &_adim, NPY_COMPLEX64);
+  if (!arr0)
+    {
+      Py_DECREF (x_arr);
+      return NULL;
+    }
+  float complex *_d0 = (float complex *)PyArray_DATA ((PyArrayObject *)arr0);
+  /* nogil: GIL released across the pure-C kernel — sound only when
+   * this object is not shared across threads concurrently (one
+   * object per stream); the kernel touches only this object's
+   * state/buffers and the caller's input. */
+  const float complex *_ng0 = (const float complex *)PyArray_DATA (x_arr);
+  size_t               _ng1 = (size_t)PyArray_SIZE (x_arr);
+  size_t               n_out;
+  Py_BEGIN_ALLOW_THREADS
+    n_out = carrier_nda_steps (self->handle, _ng0, _ng1, _d0, _cap);
+  Py_END_ALLOW_THREADS
+  Py_DECREF (x_arr);
+  if ((size_t)n_out == _cap)
+    {
+      return arr0;
+    }
+  npy_intp     _odim = (npy_intp)n_out;
+  PyArray_Dims _rs0  = { &_odim, 1 };
+  PyObject *v0 = PyArray_Resize ((PyArrayObject *)arr0, &_rs0, 0, NPY_CORDER);
+  if (!v0)
+    {
+      Py_DECREF (arr0);
+      return NULL;
+    }
+  Py_DECREF (v0);
+  return arr0;
+}
+
+static PyObject *
+CarrierNdaObj_set_telemetry (CarrierNdaObject *self, PyObject *args,
+                             PyObject *kwds)
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  static char  *_kwlist[] = { "tlm", "prefix", "decim", NULL };
+  PyObject     *tlm_obj   = Py_None;
+  const char   *prefix    = NULL;
+  unsigned long decim_raw = 1;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "Os|k", _kwlist, &tlm_obj,
+                                    &prefix, &decim_raw))
+    return NULL;
+  dp_tlm_t *tlm = NULL;
+  if (tlm_obj != Py_None)
+    {
+      PyObject *tlm_cap = tlm_obj;
+      Py_INCREF (tlm_cap);
+      if (!PyCapsule_CheckExact (tlm_cap))
+        {
+          Py_DECREF (tlm_cap);
+          tlm_cap = PyObject_GetAttrString (tlm_obj, "_capsule");
+          if (!tlm_cap)
+            return NULL;
+        }
+      tlm = (dp_tlm_t *)PyCapsule_GetPointer (tlm_cap,
+                                              "doppler.telemetry.dp_tlm");
+      Py_DECREF (tlm_cap);
+      if (!tlm)
+        return NULL;
+    }
+  uint32_t decim = (uint32_t)decim_raw;
+  int      _rc = carrier_nda_set_telemetry (self->handle, tlm, prefix, decim);
+  if (_rc != 0)
+    {
+      PyErr_Format (PyExc_ValueError, "set_telemetry failed (rc=%d)", _rc);
+      return NULL;
+    }
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+CarrierNdaObj_configure_lock (CarrierNdaObject *self, PyObject *args,
+                              PyObject *kwds)
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  static char *_kwlist[]
+      = { "up_thresh", "down_thresh", "n_up", "n_down", NULL };
+  double        up_thresh   = 0.0;
+  double        down_thresh = 0.0;
+  unsigned long n_up_raw    = 0UL;
+  unsigned long n_down_raw  = 0UL;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "ddkk", _kwlist, &up_thresh,
+                                    &down_thresh, &n_up_raw, &n_down_raw))
+    return NULL;
+  uint32_t n_up   = (uint32_t)n_up_raw;
+  uint32_t n_down = (uint32_t)n_down_raw;
+  carrier_nda_configure_lock (self->handle, up_thresh, down_thresh, n_up,
+                              n_down);
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+CarrierNdaObj_reset (CarrierNdaObject *self, PyObject *Py_UNUSED (ignored))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  carrier_nda_reset (self->handle);
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+CarrierNdaObj_state_bytes (CarrierNdaObject *self,
+                           PyObject         *Py_UNUSED (ignored))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  return PyLong_FromSize_t (carrier_nda_state_bytes (self->handle));
+}
+
+static PyObject *
+CarrierNdaObj_get_state (CarrierNdaObject *self, PyObject *Py_UNUSED (ignored))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  size_t    _n = carrier_nda_state_bytes (self->handle);
+  PyObject *_b = PyBytes_FromStringAndSize (NULL, (Py_ssize_t)_n);
+  if (!_b)
+    return NULL;
+  carrier_nda_get_state (self->handle, PyBytes_AS_STRING (_b));
+  return _b;
+}
+
+static PyObject *
+CarrierNdaObj_set_state (CarrierNdaObject *self, PyObject *arg)
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  if (!PyBytes_Check (arg))
+    {
+      PyErr_SetString (PyExc_TypeError, "set_state expects bytes");
+      return NULL;
+    }
+  if ((size_t)PyBytes_GET_SIZE (arg) != carrier_nda_state_bytes (self->handle))
+    {
+      PyErr_SetString (PyExc_ValueError, "state blob size mismatch");
+      return NULL;
+    }
+  if (carrier_nda_set_state (self->handle, PyBytes_AS_STRING (arg)) != 0)
+    {
+      PyErr_SetString (PyExc_ValueError, "set_state rejected the blob");
+      return NULL;
+    }
+  Py_RETURN_NONE;
+}
+static PyObject *
+CarrierNda_getprop_norm_freq (CarrierNdaObject *self,
+                              void             *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  /* <<IMPLEMENT: return the computed or stored value>> */
+  return PyFloat_FromDouble (carrier_nda_get_norm_freq (self->handle));
+}
+static int
+CarrierNda_setprop_norm_freq (CarrierNdaObject *self, PyObject *value,
+                              void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return -1;
+    }
+  double v = 0.0;
+  if (!PyArg_Parse (value, "d", &v))
+    return -1;
+  carrier_nda_set_norm_freq (self->handle, v);
+  return 0;
+}
+static PyObject *
+CarrierNda_getprop_lock (CarrierNdaObject *self, void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  /* <<IMPLEMENT: return the computed or stored value>> */
+  return PyFloat_FromDouble (carrier_nda_get_lock (self->handle));
+}
+static PyObject *
+CarrierNda_getprop_locked (CarrierNdaObject *self, void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  /* <<IMPLEMENT: return the computed or stored value>> */
+  return PyBool_FromLong ((long)(carrier_nda_get_locked (self->handle)));
+}
+static PyObject *
+CarrierNda_getprop_last_error (CarrierNdaObject *self,
+                               void             *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  /* <<IMPLEMENT: return the computed or stored value>> */
+  return PyFloat_FromDouble (carrier_nda_get_last_error (self->handle));
+}
+static PyObject *
+CarrierNda_getprop_bn (CarrierNdaObject *self, void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  /* <<IMPLEMENT: return the computed or stored value>> */
+  return PyFloat_FromDouble (carrier_nda_get_bn (self->handle));
+}
+static int
+CarrierNda_setprop_bn (CarrierNdaObject *self, PyObject *value,
+                       void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return -1;
+    }
+  double v = 0.0;
+  if (!PyArg_Parse (value, "d", &v))
+    return -1;
+  carrier_nda_set_bn (self->handle, v);
+  return 0;
+}
+static PyObject *
+CarrierNda_getprop_m (CarrierNdaObject *self, void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  /* <<IMPLEMENT: return the computed or stored value>> */
+  return PyLong_FromLong ((long)carrier_nda_get_m (self->handle));
+}
+static PyObject *
+CarrierNda_getprop_n (CarrierNdaObject *self, void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  /* <<IMPLEMENT: return the computed or stored value>> */
+  return PyLong_FromLong ((long)carrier_nda_get_n (self->handle));
+}
+static PyObject *
+CarrierNda_getprop_sps (CarrierNdaObject *self, void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  /* <<IMPLEMENT: return the computed or stored value>> */
+  return PyLong_FromUnsignedLongLong (
+      (unsigned long long)carrier_nda_get_sps (self->handle));
+}
+
+static PyGetSetDef CarrierNda_getset[]
+    = { { "norm_freq", (getter)CarrierNda_getprop_norm_freq,
+          (setter)CarrierNda_setprop_norm_freq, "Norm freq.\n", NULL },
+        { "lock", (getter)CarrierNda_getprop_lock, NULL, "Lock.\n", NULL },
+        { "locked", (getter)CarrierNda_getprop_locked, NULL,
+          "Current lock decision: True after the verify count of consecutive "
+          "above-threshold samples, False again after the drop count of "
+          "consecutive below-threshold ones (see configure_lock).\n",
+          NULL },
+        { "last_error", (getter)CarrierNda_getprop_last_error, NULL,
+          "Last error.\n", NULL },
+        { "bn", (getter)CarrierNda_getprop_bn, (setter)CarrierNda_setprop_bn,
+          "Bn.\n", NULL },
+        { "m", (getter)CarrierNda_getprop_m, NULL, "M.\n", NULL },
+        { "n", (getter)CarrierNda_getprop_n, NULL, "N.\n", NULL },
+        { "sps", (getter)CarrierNda_getprop_sps, NULL, "Sps.\n", NULL },
+        { NULL } };
+
+static PyObject *
+CarrierNdaObj_destroy (CarrierNdaObject *self, PyObject *Py_UNUSED (ignored))
+{
+  if (self->handle)
+    {
+      carrier_nda_destroy (self->handle);
+      self->handle = NULL;
+    }
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+CarrierNdaObj_enter (CarrierNdaObject *self, PyObject *Py_UNUSED (ignored))
+{
+  Py_INCREF (self);
+  return (PyObject *)self;
+}
+
+static PyObject *
+CarrierNdaObj_exit (CarrierNdaObject *self, PyObject *args)
+{
+  (void)args;
+  if (self->handle)
+    {
+      carrier_nda_destroy (self->handle);
+      self->handle = NULL;
+    }
+  Py_RETURN_NONE;
+}
+
+static PyMethodDef CarrierNdaObj_methods[] = {
+
+  { "steps", (PyCFunction)(void *)CarrierNdaObj_steps,
+    METH_VARARGS | METH_KEYWORDS,
+    "steps(x) -> ndarray\n"
+    "\n"
+    "De-rotate a cf32 block with the integer-NCO carrier and return the "
+    "de-rotated samples (one per input sample). Internally the loop runs a "
+    "non-data-aided M-th-power discriminator on an I/Q arm integrate-and-dump "
+    "at n dumps per symbol and steers the NCO, so it acquires the carrier "
+    "with no symbol timing and no data present (it strips the M-PSK "
+    "modulation by raising the arm sample to the Mth power). It locks to one "
+    "of m phases (M-fold ambiguity), resolved downstream. Read norm_freq for "
+    "the tracked carrier and lock for the carrier lock metric.\n"
+    "\n"
+    "    >>> import numpy as np\n"
+    "    >>> from doppler import CarrierNda\n"
+    "    >>> obj = CarrierNda(0.01, 0.707, 0.0, 8, 4, 4)\n"
+    "    >>> y = obj.steps(np.zeros(4))\n"
+    "    >>> y.dtype\n"
+    "    dtype('complex64')\n" },
+  { "steps_max_out", (PyCFunction)CarrierNdaObj_steps_max_out, METH_NOARGS,
+    "steps_max_out() -> int\n\nMax output length steps() can produce for the "
+    "current state.\nUse to size the ``out=`` buffer." },
+  { "set_telemetry", (PyCFunction)(void *)CarrierNdaObj_set_telemetry,
+    METH_VARARGS | METH_KEYWORDS,
+    "set_telemetry(tlm, prefix, decim) -> int\n"
+    "\n"
+    "Attach (or detach) a telemetry context and register the carrier loop's "
+    "probes on it — including the embedded arm AGC's. Registers four probes "
+    "of its own, emitted once per input sample (this is a sample-rate loop — "
+    "use decim to thin the stream) plus the embedded AGC's "
+    "\"<prefix>.agc.gain_db\" (emitted at the AGC's own amortized gain-update "
+    "rate): \"<prefix>.lock\" (the lock-signal EMA, ~1 when phase-locked), "
+    "\"<prefix>.e\" (the M-th-power phase discriminator — the loop stress), "
+    "\"<prefix>.freq\" (the tracked carrier frequency, cycles/sample) and "
+    "\"<prefix>.locked\" (the verify-counted lockdet decision, 0/1).  Passing "
+    "NULL detaches the loop and the embedded AGC. Setup path, never hot: call "
+    "before the producer thread starts stepping; the context is borrowed and "
+    "must outlive the attachment (SPSC rules in telemetry/telemetry.h).\n"
+    "\n"
+    "    >>> import numpy as np\n"
+    "    >>> from doppler import CarrierNda\n"
+    "    >>> obj = CarrierNda(0.01, 0.707, 0.0, 8, 4, 4)\n"
+    "    >>> obj.set_telemetry(0, 0, 0)\n"
+    "    0\n" },
+  { "configure_lock", (PyCFunction)(void *)CarrierNdaObj_configure_lock,
+    METH_VARARGS | METH_KEYWORDS,
+    "configure_lock(up_thresh, down_thresh, n_up, n_down) -> None\n"
+    "\n"
+    "Re-tune the carrier lock detector: locked flips up after n_up "
+    "consecutive samples with the lock-signal EMA above up_thresh, and drops "
+    "after n_down consecutive samples below down_thresh (level + time "
+    "hysteresis; see detection.LockDet). Defaults (0.5/0.4, 8 up / 32 down) "
+    "mirror MpskReceiver's own pre-existing acquisition<->tracking handover, "
+    "which already steps a lockdet on this exact statistic and is validated "
+    "by that receiver's BER regression gate. A live lock survives the "
+    "re-tune; the in-flight verify run restarts.\n"
+    "\n"
+    "    >>> import numpy as np\n"
+    "    >>> from doppler import CarrierNda\n"
+    "    >>> obj = CarrierNda(0.01, 0.707, 0.0, 8, 4, 4)\n"
+    "    >>> obj.configure_lock(0.0, 0.0, 0, 0)\n" },
+  { "reset", (PyCFunction)CarrierNdaObj_reset, METH_NOARGS,
+    "reset() -> None\n"
+    "\n"
+    "Re-seed the loop to the create-time frequency/phase; preserve config.\n"
+    "\n"
+    "    >>> from doppler import CarrierNda\n"
+    "    >>> obj = CarrierNda(0.01, 0.707, 0.0, 8, 4, 4)\n"
+    "    >>> obj.reset()\n" },
+  { "state_bytes", (PyCFunction)CarrierNdaObj_state_bytes, METH_NOARGS,
+    "Serialized state size in bytes." },
+  { "get_state", (PyCFunction)CarrierNdaObj_get_state, METH_NOARGS,
+    "Serialize the engine's mutable state to bytes." },
+  { "set_state", (PyCFunction)CarrierNdaObj_set_state, METH_O,
+    "Restore mutable state from a get_state() blob." },
+  { "destroy", (PyCFunction)CarrierNdaObj_destroy, METH_NOARGS,
+    "Release resources." },
+  { "__enter__", (PyCFunction)CarrierNdaObj_enter, METH_NOARGS, NULL },
+  { "__exit__", (PyCFunction)CarrierNdaObj_exit, METH_VARARGS, NULL },
+  { NULL }
+};
+
+static PyTypeObject CarrierNdaObjType = {
+  PyVarObject_HEAD_INIT (NULL, 0).tp_name = "track.CarrierNda",
+  .tp_basicsize                           = sizeof (CarrierNdaObject),
+  .tp_dealloc                             = (destructor)CarrierNdaObj_dealloc,
+  .tp_flags                               = Py_TPFLAGS_DEFAULT,
+  .tp_doc     = "Create an NDA carrier loop instance.\n",
+  .tp_methods = CarrierNdaObj_methods,
+  .tp_getset  = CarrierNda_getset,
+  .tp_new     = CarrierNdaObj_new,
+  .tp_init    = (initproc)CarrierNdaObj_init,
+};

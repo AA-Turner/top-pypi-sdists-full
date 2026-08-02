@@ -1,0 +1,131 @@
+site_name: ome-zarr-models
+site_url: https://ome-zarr-models-py.readthedocs.io
+repo_url: https://github.com/ome-zarr-models/ome-zarr-models-py
+repo_name: ome-zarr-models-py
+theme:
+  name: material
+  language: en
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - navigation.indexes
+  palette:
+    # Palette toggle for light mode
+
+    - media: "(prefers-color-scheme: light)"
+      primary: pink
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      primary: pink
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - toc:
+      toc_depth: 3
+  # Code highlighting extensions
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.details
+
+plugins:
+  - search
+  - mkdocs-jupyter:
+      execute: true
+      allow_errors: false
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          inventories:
+            - https://docs.python.org/3/objects.inv
+            - https://pydantic-zarr.readthedocs.io/stable/objects.inv
+            - https://docs.pydantic.dev/latest/objects.inv
+            - https://zarr.readthedocs.io/en/stable/objects.inv
+
+          options:
+            docstring_style: numpy
+            show_root_toc_entry: false
+            show_root_members_full_path: true
+            group_by_category: true
+            heading_level: 3
+            show_symbol_type_heading: true
+            separate_signature: true
+            show_source: false
+            show_signature_annotations: true
+            signature_crossrefs: true
+            show_labels: false
+            extensions:
+              - griffe_fieldz:
+                  include_inherited: true
+                  strip_annotated: true
+                  add_fields_to: "docstring-attributes"
+
+strict: true
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
+
+nav:
+  - Home: index.md
+  - Command line: cli.md
+  - Python tutorial: tutorial.py
+  - How do I...?: how-to.md
+  - Metadata fixes: fixes.md
+  - API reference:
+      - api/index.md
+      - v05:
+          - api/v05/groups.md
+          - Metadata classes:
+              - api/v05/hcs.md
+              - api/v05/image.md
+              - api/v05/image-label.md
+              - api/v05/labels.md
+              - api/v05/well.md
+              - api/v05/bioformats2raw.md
+              - api/v05/other.md
+      - v04:
+          - api/v04/groups.md
+          - Metadata classes:
+              - api/v04/hcs.md
+              - api/v04/image.md
+              - api/v04/image-label.md
+              - api/v04/labels.md
+              - api/v04/well.md
+              - api/v04/bioformats2raw.md
+              - api/v04/other.md
+      - Shared:
+          - Base objects: api/common/base.md
+          - Validation: api/common/validation.md
+          - Exceptions: api/common/exceptions.md
+          - Well: api/common/well.md
+      - Dev:
+          - api/dev/groups.md
+          - Metadata classes:
+              - api/dev/hcs.md
+              - api/dev/image.md
+              - api/dev/image-label.md
+              - api/dev/labels.md
+              - api/dev/well.md
+              - api/dev/bioformats2raw.md
+              - api/dev/other.md
+  - Changelog: changelog.md
+  - Contributing: contributing.md
+
+watch:
+  - src

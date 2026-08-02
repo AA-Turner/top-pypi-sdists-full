@@ -1,9 +1,66 @@
 pipeline:
+  - test-focal
+  - test-jammy
+  - test-noble
+  # - test-resolute
   - lint
+  - docs
+  - audit
 
 jobs:
+  # focal's apt tox (3.13.2) cannot build a pyproject-only sdist
+  # ("error: option --formats not recognized"), so install a modern tox in a
+  # throwaway venv. skip_install envs (lint/docs/audit on noble) are unaffected.
+  test-focal:
+    series: focal
+    architectures: amd64
+    packages: [git, python3-venv, python3.9]
+    run: |
+      python3 -m venv /tmp/tox
+      /tmp/tox/bin/pip install --upgrade pip
+      # 4.26.0 dropped Python 3.8 (which runs this venv); 4.25.0 is the newest
+      # tox that still runs on 3.8. focal ships both 3.8 (default) and 3.9.
+      /tmp/tox/bin/pip install "tox<4.26"
+      /tmp/tox/bin/tox -e py38,py39
+
+  test-jammy:
+    series: jammy
+    architectures: amd64
+    packages: [git, python3-venv, python3.11]
+    # jammy's apt tox (3.x) also cannot build a pyproject-only sdist, so use a
+    # throwaway venv with a modern tox. jammy ships both 3.10 (default) and 3.11.
+    run: |
+      python3 -m venv /tmp/tox
+      /tmp/tox/bin/pip install --upgrade pip
+      /tmp/tox/bin/pip install tox
+      /tmp/tox/bin/tox -e py310,py311
+
+  test-noble:
+    series: noble
+    architectures: amd64
+    packages: [git, tox]
+    run: tox -e py312
+
+  test-resolute:
+    series: resolute
+    architectures: amd64
+    packages: [git, tox]
+    run: tox -e py314
+
   lint:
+    series: noble  # align with Python versions used in tox configuration
     architectures: amd64
     packages: [tox, git]
     run: tox -e lint
+
+  docs:
     series: noble  # align with Python versions used in tox configuration
+    architectures: amd64
+    packages: [tox, git]
+    run: tox -e docs
+
+  audit:
+    series: noble  # align with Python versions used in tox configuration
+    architectures: amd64
+    packages: [tox, git]
+    run: tox -e audit

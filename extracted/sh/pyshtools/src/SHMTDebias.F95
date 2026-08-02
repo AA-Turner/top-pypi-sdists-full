@@ -1,0 +1,272 @@
+subroutine SHMTDebias (mtdebias, mtspectra, lmax, tapers, lwin, K, nl, lmid, &
+                       n, taper_wt, exitstatus)
+!------------------------------------------------------------------------------
+!
+!   This routine will invert for the global power spectrum given a
+!   multitaper spectrum estimate, its associated uncertiainty, the
+!   coefficients of the windows used in the mutitaper analysis, and
+!   the wieghts used with each window. This routine will only work using
+!   tapers obtained from the spherical cap concentration problem. It is
+!   assumed that the global power spectrum is constant in bins of nl. It
+!   is furthermore assumed that the global spectrum is constant beyond lmax.
+!   The inverse problem is solved by SVD as described in Numerical
+!   Recipes (pp. 670-672)
+!
+!   Copyright (c) 2005-2019, SHTOOLS
+!   All rights reserved.
+!
+!------------------------------------------------------------------------------
+    use SHTOOLS, only: wigner3j
+    use ftypes
+
+    implicit none
+
+    real(dp), intent(out) :: mtdebias(:,:), lmid(:)
+    real(dp), intent(in) :: mtspectra(:,:), tapers(:,:)
+    real(dp), intent(in), optional :: taper_wt(:)
+    integer(int32), intent(in) :: lmax, K, lwin, nl
+    integer(int32), intent(out) :: n
+    integer(int32), intent(out), optional :: exitstatus
+    real(dp) :: w3j(lwin+2*lmax+1), sum1, y(lmax+1), ss(lmax+1)
+    integer(int32) :: i, j, l, wmin, wmax, nstart, nstop, info, lwork, m, astat(5), &
+               iwork(8*(lmax+lwin+1))
+    real(dp), allocatable :: work(:), Mmt(:,:), a(:,:), vt(:,:), uu(:,:)
+#ifdef LAPACK_UNDERSCORE
+#define dgesdd dgesdd_
+#endif
+    external :: dgesdd
+
+    if (present(exitstatus)) exitstatus = 0
+
+    n = ceiling(dble(lmax+1) / dble(nl))
+    m = lmax + 1
+
+    if (size(mtspectra(:,1)) /= 2 .or. size(mtspectra(1,:)) < lmax+1) then
+        print*, "Error --- SHMTDebias"
+        print*, "MTSPECTRA must be dimensioned as (2, LMAX+1) " // &
+                "where LMAX is ", lmax
+        print*, "Input array is dimensioned as ", size(mtspectra(:,1)), &
+                size(mtspectra(1,:))
+        if (present(exitstatus)) then
+            exitstatus = 1
+            return
+        else
+            stop
+        end if
+
+    else if (size(mtdebias(:,1)) /= 2 .or. size(mtdebias(1,:)) < n) then
+        print*, "Error --- SHMTDebias"
+        print*, "MTDEBIAS must be dimensioned as (2, N) where " //&
+                "N=ceiling(dble(lmax+1)/dble(nl) ", N
+        print*, "Input array is dimensioned as ", size(mtdebias(:,1)), &
+                size(mtdebias(1,:))
+        if (present(exitstatus)) then
+            exitstatus = 1
+            return
+        else
+            stop
+        end if
+
+    else if (size(tapers(:,1)) < lwin+1 .or. size(tapers(1,:)) < K) then
+        print*, "Error --- SHMTDebias"
+        print*, "TAPERS must be dimensioned as (LWIN+1, K) where " // &
+                "LWIN and K are ", lwin, k
+        print*, "Input array is dimensioned as ", size(tapers(:,1)), &
+                size(tapers(1,:))
+        if (present(exitstatus)) then
+            exitstatus = 1
+            return
+        else
+            stop
+        end if
+
+    else if (size(lmid) < n) then
+        print*, "Error --- SHMTDebias"
+        print*, "LMID must be dimensioned as " // &
+                "N=ceiling(dble(lmax+1)/dble(nl), where N is ", n
+        print*, "Input array is dimensioned as ", size(lmid)
+        if (present(exitstatus)) then
+            exitstatus = 1
+            return
+        else
+            stop
+        end if
+
+    end if
+
+    if (present(taper_wt)) then
+        if (size(taper_wt) < K) then
+            print*, "Error ---  SHMTDebias"
+            print*, "TAPER_WT must be dimensioned as (K) where K is ", k 
+            print*, "Input array is dimensioned as ", size(taper_wt)
+            if (present(exitstatus)) then
+                exitstatus = 1
+                return
+            else
+                stop
+            end if
+
+        end if
+
+    end if
+
+    lwork = 3 * n**2 + max(m, 4 * n**2 + 4 * n)
+
+    allocate (Mmt(lmax+1, lmax+lwin+1), stat = astat(1))
+    allocate (a(lmax+1, (lmax+2)/nl), stat = astat(2))
+    allocate (vt(lmax+lwin+1, lmax+lwin+1), stat = astat(3))
+    allocate (uu(lmax+1, lmax+1), stat = astat(4))
+    allocate (work(lwork), stat=astat(5))
+
+    if (astat(1) /= 0 .or. astat(2) /= 0 .or. astat(3) /= 0 .or. &
+            astat(4) /= 0 .or. astat(5) /= 0) then
+        print*, "Error --- SHMTDebias"
+        print*, "Problem allocating arrays MMT, A, VT, UU and WORK", &
+            astat(1), astat(2), astat(3), astat(4), astat(5)
+        if (present(exitstatus)) then
+             exitstatus = 3
+            return
+        else
+            stop
+        end if
+
+    end if
+
+    !--------------------------------------------------------------------------
+    !
+    !   Compute coupling matrix, M^(mt)
+    !
+    !--------------------------------------------------------------------------
+    if (present(taper_wt)) then
+
+        do i = 0, lmax
+            do j = 0, lmax+lwin
+                if (present(exitstatus)) then
+                    call Wigner3j(w3j, wmin, wmax, i, j, 0, 0, 0, &
+                                  exitstatus = exitstatus)
+                    if (exitstatus /= 0) return
+                else
+                    call Wigner3j(w3j, wmin, wmax, i, j, 0, 0, 0)
+                end if
+                sum1 = 0.0_dp
+
+                do l = wmin, min(wmax,lwin), 2
+                    sum1 = sum1 + dot_product(taper_wt(1:K), &
+                           tapers(l+1,1:K)**2) * w3j(l-wmin+1)**2
+
+                end do
+                Mmt(i+1,j+1) = sum1 * dble(2*i+1)
+
+            end do
+
+        end do
+
+    else
+        do i = 0, lmax
+            do j = 0, lmax+lwin
+                if (present(exitstatus)) then
+                    call Wigner3j(w3j, wmin, wmax, i, j, 0, 0, 0, &
+                                  exitstatus = exitstatus)
+                    if (exitstatus /= 0) return
+                else
+                    call Wigner3j(w3j, wmin, wmax, i, j, 0, 0, 0)
+                end if
+
+                sum1 = 0.0_dp
+
+                do l = wmin, min(wmax,lwin), 2
+                    sum1 = sum1 + sum(tapers(l+1,1:K)**2) * w3j(l-wmin+1)**2
+                end do
+
+                Mmt(i+1,j+1) = sum1 * dble(2*i+1) / dble(K)
+
+            end do
+
+        end do
+
+    end if
+
+    ! Divide linear equations by their uncertainty.
+    do i = 1, m
+        Mmt(i,:) = Mmt(i,:) / mtspectra(2,i)
+        y(i) = mtspectra(1,i) / mtspectra(2,i)
+
+    end do
+
+    !--------------------------------------------------------------------------
+    !
+    !   Compute matrix A by assuming that the global power spectrum is constant
+    !   in intervals of deltal.
+    !
+    !--------------------------------------------------------------------------
+    a = 0.0_dp
+
+    do j = 1, n
+
+        nstart = 1 + (j-1) * nl
+
+        if (j == n) then
+            nstop = lmax + lwin + 1
+
+        else
+            nstop = nstart + nl - 1
+
+        end if
+
+        lmid(j) = dble(nstart+nstop) / 2.0_dp - 1
+
+        do i = 1, m
+            a(i,j) = sum(Mmt(i,nstart:nstop))
+
+        end do
+
+    end do
+
+    !--------------------------------------------------------------------------
+    !
+    !   Do least squares inversion by SVD
+    !
+    !--------------------------------------------------------------------------
+    call dgesdd('a', m, n, a, m, ss, uu, m, vt, lmax+lwin+1, work, &
+                    lwork, iwork, info)
+
+    if (info /= 0) then
+        print*, "Error --- SHMTDebias"
+        print*, "Problem with DGESDD, INFO = ", info
+        print*, "if INFO = -i, the i-th argument had an illegal value."
+        print*, "if INFO > 0:  DBDSDC did not converge, " // &
+                "updating process failed."
+        if (present(exitstatus)) then
+            exitstatus = 5
+            return
+        else
+            stop
+        end if
+
+    end if
+
+    mtdebias = 0.0_dp
+
+    do i = 1, n
+        mtdebias(1,1:n) = mtdebias(1,1:n) + dot_product(uu(1:m,i), &
+                          y(1:m)) * vt(i, 1:n) / ss(i)
+
+    end do
+
+    do j = 1, n
+        do i = 1, n
+            mtdebias(2,j) = mtdebias(2,j) + (vt(i,j) / ss(i))**2
+
+        end do
+
+    end do
+
+    mtdebias(2,1:n) = sqrt(mtdebias(2,1:n))
+
+    deallocate (Mmt)
+    deallocate (a)
+    deallocate (vt)
+    deallocate (uu)
+    deallocate (work)
+
+end subroutine SHMTDebias

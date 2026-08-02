@@ -57,6 +57,7 @@ except ImportError:
         parser.readfp(f, source)
 
 
+from lazr.delegates import delegate_to
 from zope.interface import implementer
 
 from lazr.config.interfaces import (
@@ -75,7 +76,6 @@ from lazr.config.interfaces import (
     UnknownKeyError,
     UnknownSectionError,
 )
-from lazr.delegates import delegate_to
 
 _missing = object()
 

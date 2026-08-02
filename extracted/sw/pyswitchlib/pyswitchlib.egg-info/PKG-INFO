@@ -1,0 +1,16 @@
+Metadata-Version: 1.1
+Name: pyswitchlib
+Version: 1.2.0
+Summary: pySwitchLib Library for Extreme switches (SLXOS/NOS/NI)
+Home-page: https://stackstorm.github.io/PySwitchLib/
+Author: Extreme Networks Inc
+Author-email: UNKNOWN
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Topic :: Utilities
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS

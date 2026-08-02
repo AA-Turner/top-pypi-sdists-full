@@ -1,0 +1,46 @@
+Metadata-Version: 2.4
+Name: parse-errors
+Version: 0.5.0
+Summary: re-raise parse errors with filename and line number
+Home-page: https://github.com/advice-animal/parse-errors/
+Author: Tim Hatch
+Author-email: tim@timhatch.com
+License: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: json-source-map
+Requires-Dist: pyyaml
+Requires-Dist: tree-sitter
+Requires-Dist: tree-sitter-toml
+Provides-Extra: dev
+Requires-Dist: checkdeps==0.9.0; extra == "dev"
+Requires-Dist: mypy==1.19.1; extra == "dev"
+Requires-Dist: ruff==0.15.6; extra == "dev"
+Requires-Dist: tox==4.50.0; extra == "dev"
+Requires-Dist: tox-uv==1.33.4; extra == "dev"
+Requires-Dist: types-pyyaml; extra == "dev"
+Provides-Extra: test
+Requires-Dist: coverage>=6; extra == "test"
+Requires-Dist: pytest>=8; extra == "test"
+Requires-Dist: msgspec; extra == "test"
+Dynamic: license-file
+
+# parse-errors
+
+
+# Version Compat
+
+This library is compatile with Python 3.10+, but should be linted under the
+newest stable version.
+
+# Versioning
+
+This library follows [meanver](https://meanver.org/) which basically means
+[semver](https://semver.org/) along with a promise to rename when the major
+version changes.
+
+# License
+
+parse-errors is copyright [Tim Hatch](https://timhatch.com/), and licensed under
+the MIT license.  See the `LICENSE` file for details.

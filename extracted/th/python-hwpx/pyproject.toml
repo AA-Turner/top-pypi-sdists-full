@@ -1,0 +1,251 @@
+[build-system]
+requires = ["setuptools==83.0.0", "wheel==0.47.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "python-hwpx"
+version = "5.5.0"
+description = "한글 없이 HWPX 문서를 열고, 편집하고, 생성하고, 검증하는 Python 문서 라이브러리"
+readme = { file = "README.md", content-type = "text/markdown" }
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+requires-python = ">=3.10"
+authors = [
+    { name = "python-hwpx Maintainers" },
+]
+keywords = ["hwp", "hwpx", "hancom", "opc", "xml", "document-automation", "validation", "template"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Text Processing :: Markup :: XML",
+    "Typing :: Typed",
+]
+dependencies = [
+    "lxml>=4.9,<7",
+]
+
+[project.optional-dependencies]
+# 5.0에서 core는 PDF도 이미지도 읽지 않는다. 렌더 백엔드와 word-box 추출은
+# 주입받는 계약이고, 그 스택은 companion 계층이 소유한다. 이름은 기존 설치가
+# `python-hwpx[visual]`로 깨지지 않도록 남기되 아무것도 끌어오지 않는다.
+visual = []
+# Excel(.xlsx/.xlsm) 명부 ingestion for mail_merge. Lazy-imported; absent => clear error.
+xlsx = [
+    "openpyxl>=3.1",
+]
+# Document preview viewer equation rendering: LaTeX -> MathML. Optional; without
+# it the preview fails closed to a LaTeX code block instead of dropping equations.
+preview = [
+    "latex2mathml>=3.77",
+]
+dev = [
+    "build>=1.0",
+    "twine>=4.0",
+    "pytest>=7.4",
+    "latex2mathml>=3.77",
+]
+test = [
+    "build>=1.0",
+    "numpy>=1.26",
+    "openpyxl>=3.1",
+    "pillow>=10.0",
+    "pytest>=7.4",
+    "pytest-cov>=5.0",
+    "pyyaml>=6.0,<7",
+    "ruff>=0.12",
+    "latex2mathml>=3.77",
+]
+typecheck = [
+    "mypy>=1.10",
+    "pyright>=1.1.390",
+]
+
+[project.urls]
+Homepage = "https://github.com/airmang/python-hwpx"
+Documentation = "https://airmang.github.io/python-hwpx/"
+Issues = "https://github.com/airmang/python-hwpx/issues"
+
+[project.scripts]
+# The `hwpx` application CLI moved to python-hwpx-automation, which declares the
+# name in the train that raises its core floor to 5.0 — so no valid install ever
+# has two declarers of it. `hwpx-conformance` is gone too: its package is
+# repository QA and no longer ships, and a console script pointing into an
+# excluded package would install as a command that cannot start.
+hwpx-unpack = "hwpx.tools.archive_cli:unpack_main"
+hwpx-pack = "hwpx.tools.archive_cli:pack_main"
+hwpx-validate = "hwpx.tools.validator:main"
+hwpx-validate-package = "hwpx.tools.package_validator:main"
+hwpx-page-guard = "hwpx.tools.page_guard:main"
+hwpx-analyze-template = "hwpx.tools.template_analyzer:main"
+hwpx-text-extract = "hwpx.tools.text_extract_cli:main"
+hwpx-repair = "hwpx.tools.repair:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+include-package-data = true
+# Namespace-aware discovery. hwpx/opc and hwpx/data carry no __init__.py, so a
+# plain find_packages misses them, and they only ever shipped because
+# include-package-data swept them in as data files of hwpx. That same sweep kept
+# hwpx/benchmark and hwpx/conformance in the wheel after they were excluded from
+# the package list — one mechanism, helping in one place and hurting in the other.
+# The list is deliberately exact. A wildcard made any new directory below
+# ``src/hwpx`` publishable without a packaging review, which is the opposite of
+# the library/application boundary. Namespace packages (``opc`` and ``data``)
+# are valid explicit entries.
+packages = [
+    "hwpx",
+    "hwpx._document",
+    "hwpx.data",
+    "hwpx.equation",
+    "hwpx.form_fit",
+    "hwpx.ingest",
+    "hwpx.layout",
+    "hwpx.opc",
+    "hwpx.oxml",
+    "hwpx.quality",
+    "hwpx.tools",
+    "hwpx.tools._schemas",
+]
+
+# Only packages that ship. A key here for an excluded or deleted package pulls it
+# back into the wheel: hwpx.conformance was excluded from packages.find and still
+# shipped because this table named it, and hwpx.design no longer exists at all.
+
+# Listed explicitly rather than discovered with an exclude pattern. The exclude
+# form silently failed to keep hwpx.benchmark and hwpx.conformance out of the
+# wheel, and a packaging rule that looks right while shipping the opposite is
+# worse than a longer list. Adding a package here is a deliberate act.
+[tool.setuptools.package-data]
+"hwpx" = ["py.typed"]
+"hwpx.tools" = ["_schemas/*.xsd"]
+"hwpx.data" = ["Skeleton.hwpx"]
+
+[tool.pytest.ini_options]
+# scripts/ carries repository QA harnesses that are not library surface — the
+# fuzz loop moved there in 5.0 because it needs the MCP owner's builder, and
+# core must never import a companion layer.
+pythonpath = ["src", "scripts"]
+addopts = "-ra"
+testpaths = ["tests"]
+
+
+[tool.mypy]
+python_version = "3.10"
+# Explicit gradual-migration allowlist: transitive imports enter the gate only
+# after they are added here and made clean themselves.
+follow_imports = "skip"
+files = [
+    "src/hwpx/document.py",
+    "src/hwpx/errors.py",
+    "src/hwpx/mutation_report.py",
+    "src/hwpx/equation/__init__.py",
+    "src/hwpx/equation/tokens.py",
+    "src/hwpx/equation/eqedit.py",
+    "src/hwpx/equation/authoring.py",
+    "src/hwpx/equation/mathml.py",
+    "src/hwpx/equation/render.py",
+    "src/hwpx/tools/document_viewer.py",
+    "src/hwpx/tools/mail_merge.py",
+    "src/hwpx/tools/redline.py",
+    "src/hwpx/_document/_units.py",
+    "src/hwpx/_document/fields.py",
+    "src/hwpx/_document/layout.py",
+    "src/hwpx/_document/media.py",
+    "src/hwpx/_document/memos.py",
+    "src/hwpx/_document/persistence.py",
+    "src/hwpx/_document/shapes.py",
+    "src/hwpx/_document/tracked.py",
+    "src/hwpx/oxml/_document_impl.py",
+    "src/hwpx/oxml/_document_primitives.py",
+    "src/hwpx/oxml/document.py",
+    "src/hwpx/oxml/document_parts.py",
+    "src/hwpx/oxml/header_part.py",
+    "src/hwpx/oxml/memo.py",
+    "src/hwpx/oxml/numbering.py",
+    "src/hwpx/oxml/objects.py",
+    "src/hwpx/opc/package.py",
+    "src/hwpx/opc/relationships.py",
+    "src/hwpx/oxml/paragraph.py",
+    "src/hwpx/oxml/run.py",
+    "src/hwpx/oxml/section.py",
+    "src/hwpx/oxml/section_format.py",
+    "src/hwpx/oxml/section_story.py",
+    "src/hwpx/oxml/simple_parts.py",
+    "src/hwpx/oxml/table.py",
+    "src/hwpx/quality/policy.py",
+    "src/hwpx/quality/rendering.py",
+    "src/hwpx/quality/report.py",
+    "src/hwpx/tools/archive_cli.py",
+    "src/hwpx/tools/package_validator.py",
+    "src/hwpx/tools/page_guard.py",
+    "src/hwpx/tools/template_analyzer.py",
+    "src/hwpx/tools/text_extract_cli.py",
+    "src/hwpx/tools/text_extractor.py",
+    "tests/template_automation/helpers.py",
+    "tests/template_automation/generate_fixtures.py",
+]
+ignore_missing_imports = true
+
+[tool.pyright]
+# Keep basic pyright focused on the explicit gradual scope. Feature 025 adds
+# both central facades and every extracted/touched runtime owner to the gate.
+include = [
+    "src/hwpx/document.py",
+    "src/hwpx/errors.py",
+    "src/hwpx/mutation_report.py",
+    "src/hwpx/equation/__init__.py",
+    "src/hwpx/equation/tokens.py",
+    "src/hwpx/equation/eqedit.py",
+    "src/hwpx/equation/authoring.py",
+    "src/hwpx/equation/mathml.py",
+    "src/hwpx/equation/render.py",
+    "src/hwpx/tools/document_viewer.py",
+    "src/hwpx/tools/mail_merge.py",
+    "src/hwpx/tools/redline.py",
+    "src/hwpx/_document/_units.py",
+    "src/hwpx/_document/fields.py",
+    "src/hwpx/_document/layout.py",
+    "src/hwpx/_document/media.py",
+    "src/hwpx/_document/memos.py",
+    "src/hwpx/_document/persistence.py",
+    "src/hwpx/_document/shapes.py",
+    "src/hwpx/_document/tracked.py",
+    "src/hwpx/oxml/_document_impl.py",
+    "src/hwpx/oxml/_document_primitives.py",
+    "src/hwpx/oxml/document.py",
+    "src/hwpx/oxml/document_parts.py",
+    "src/hwpx/oxml/header_part.py",
+    "src/hwpx/oxml/memo.py",
+    "src/hwpx/oxml/numbering.py",
+    "src/hwpx/oxml/objects.py",
+    "src/hwpx/opc/package.py",
+    "src/hwpx/opc/relationships.py",
+    "src/hwpx/oxml/paragraph.py",
+    "src/hwpx/oxml/run.py",
+    "src/hwpx/oxml/section.py",
+    "src/hwpx/oxml/section_format.py",
+    "src/hwpx/oxml/section_story.py",
+    "src/hwpx/oxml/simple_parts.py",
+    "src/hwpx/oxml/table.py",
+    "src/hwpx/quality/policy.py",
+    "src/hwpx/quality/rendering.py",
+    "src/hwpx/quality/report.py",
+    "src/hwpx/tools/archive_cli.py",
+    "src/hwpx/tools/package_validator.py",
+    "src/hwpx/tools/page_guard.py",
+    "src/hwpx/tools/template_analyzer.py",
+    "src/hwpx/tools/text_extract_cli.py",
+    "src/hwpx/tools/text_extractor.py",
+    "tests/template_automation/helpers.py",
+    "tests/template_automation/generate_fixtures.py",
+]
+pythonVersion = "3.10"
+typeCheckingMode = "basic"
+reportMissingTypeStubs = false

@@ -1,0 +1,1464 @@
+"""Core Growatt API client and helpers."""
+
+# ruff: noqa: S324
+
+from __future__ import annotations
+
+import datetime
+import hashlib
+import json
+import re
+import secrets
+import warnings
+from enum import IntEnum
+from typing import Any
+
+import requests
+
+from .exceptions import GrowattError
+
+name = "growattServer"
+
+BATT_MODE_LOAD_FIRST = 0
+BATT_MODE_BATTERY_FIRST = 1
+BATT_MODE_GRID_FIRST = 2
+
+
+def hash_password(password: str) -> str:
+    """
+    Return a modified MD5-like hex digest with 'c' substitutions.
+
+    The algorithm computes an MD5 hex digest and replaces bytes with a '0'
+    nibble by the character 'c' at every other position.
+    """
+    password_md5 = hashlib.md5(password.encode("utf-8")).hexdigest()  # nosec
+    for i in range(0, len(password_md5), 2):
+        if password_md5[i] == "0":
+            password_md5 = password_md5[0:i] + "c" + password_md5[i + 1:]
+    return password_md5
+
+
+class Timespan(IntEnum):
+    """Enumeration of supported timespans."""
+
+    hour = 0
+    day = 1
+    month = 2
+
+
+class GrowattApi:
+    """Base client for Growatt API endpoints."""
+
+    server_url = "https://openapi.growatt.com/"
+    agent_identifier = "Dalvik/2.1.0 (Linux; U; Android 12; https://github.com/indykoning/PyPi_GrowattServer)"
+
+    def __init__(self, add_random_user_id: bool = False, agent_identifier: str | None = None) -> None:
+        """
+        Initialize the Growatt API client.
+
+        Args:
+            add_random_user_id: Append a short random suffix to the user-agent.
+            agent_identifier: Optional override for the user-agent string.
+
+        """
+        if agent_identifier is not None:
+            self.agent_identifier = agent_identifier
+
+        # If a random user id is required, generate a 5 digit number and add it to the user agent
+        if add_random_user_id:
+            random_number = "".join(str(secrets.randbelow(10)) for _ in range(5))
+            self.agent_identifier += " - " + random_number
+
+        self.session = requests.Session()
+
+        def _raise_for_status(response, *args: object, **kwargs: object) -> None:
+            _ = args
+            _ = kwargs
+            response.raise_for_status()
+
+        self.session.hooks = {"response": [_raise_for_status]}
+
+        headers = {"User-Agent": self.agent_identifier}
+        self.session.headers.update(headers)
+
+    def __get_date_string(self, timespan: Timespan | None = None, date: datetime.datetime | None = None) -> str:
+        if timespan is not None and not isinstance(timespan, Timespan):
+            raise ValueError("timespan must be a Timespan enum value")
+
+        if date is None:
+            date = datetime.datetime.now(datetime.UTC)
+
+        date_str = ""
+        if timespan == Timespan.month:
+            date_str = date.strftime("%Y-%m")
+        else:
+            date_str = date.strftime("%Y-%m-%d")
+
+        return date_str
+
+    def get_url(self, page: str) -> str:
+        """Return the page URL."""
+        return self.server_url + page
+
+    def login(self, username: str, password: str, is_password_hashed: bool = False) -> dict[str, Any]:
+        """
+        Log the user in.
+
+        Returns
+        -------
+        'data' -- A List containing Objects containing the folowing
+            'plantName' -- Friendly name of the plant
+            'plantId'   -- The ID of the plant
+        'service'
+        'quality'
+        'isOpenSmartFamily'
+        'totalData' -- An Object
+        'success'   -- True or False
+        'msg'
+        'app_code'
+        'user' -- An Object containing a lot of user information
+            'uid'
+            'userLanguage'
+            'inverterGroup' -- A List
+            'timeZone' -- A Number
+            'lat'
+            'lng'
+            'dataAcqList' -- A List
+            'type'
+            'accountName' -- The username
+            'password' -- The password hash of the user
+            'isValiPhone'
+            'kind'
+            'mailNotice' -- True or False
+            'id'
+            'lasLoginIp'
+            'lastLoginTime'
+            'userDeviceType'
+            'phoneNum'
+            'approved' -- True or False
+            'area' -- Continent of the user
+            'smsNotice' -- True or False
+            'isAgent'
+            'token'
+            'nickName'
+            'parentUserId'
+            'customerCode'
+            'country'
+            'isPhoneNumReg'
+            'createDate'
+            'rightlevel'
+            'appType'
+            'serverUrl'
+            'roleId'
+            'enabled' -- True or False
+            'agentCode'
+            'inverterList' -- A list
+            'email'
+            'company'
+            'activeName'
+            'codeIndex'
+            'appAlias'
+            'isBigCustomer'
+            'noticeType'
+
+        """
+        if not is_password_hashed:
+            password = hash_password(password)
+
+        response = self.session.post(self.get_url("newTwoLoginAPI.do"), data={
+            "userName": username,
+            "password": password
+        })
+
+        data = response.json()["back"]
+        if data["success"]:
+            data.update({
+                "userId": data["user"]["id"],
+                "userLevel": data["user"]["rightlevel"]
+            })
+        return data
+
+    def plant_list(self, user_id: str) -> list[dict[str, Any]]:
+        """
+        Get a list of plants connected to this account.
+
+        Args:
+            user_id (str): The ID of the user.
+
+        Returns:
+            list: A list of plants connected to the account.
+
+        Raises:
+            Exception: If the request to the server fails.
+
+        """
+        response = self.session.get(
+            self.get_url("PlantListAPI.do"),
+            params={"userId": user_id},
+            allow_redirects=False
+        )
+
+        return response.json().get("back", [])
+
+    def plant_detail(self, plant_id: str, timespan: Timespan, date: datetime.datetime | None = None) -> dict[str, Any]:
+        """
+        Get plant details for specified timespan.
+
+        Args:
+            plant_id (str): The ID of the plant.
+            timespan (Timespan): The ENUM value conforming to the time window you want e.g. hours from today, days, or months.
+            date (datetime, optional): The date you are interested in. Defaults to datetime.datetime.now().
+
+        Returns:
+            dict: A dictionary containing the plant details.
+
+        Raises:
+            Exception: If the request to the server fails.
+
+        """
+        date_str = self.__get_date_string(timespan, date)
+
+        response = self.session.get(self.get_url("PlantDetailAPI.do"), params={
+            "plantId": plant_id,
+            "type": timespan.value,
+            "date": date_str
+        })
+
+        return response.json().get("back", {})
+
+    def plant_list_two(self) -> list[dict[str, Any]]:
+        """
+        Get a list of all plants with detailed information.
+
+        Returns:
+            list: A list of plants with detailed information.
+
+        """
+        response = self.session.post(
+            self.get_url("newTwoPlantAPI.do"),
+            params={"op": "getAllPlantListTwo"},
+            data={
+                "language": "1",
+                "nominalPower": "",
+                "order": "1",
+                "pageSize": "15",
+                "plantName": "",
+                "plantStatus": "",
+                "toPageNum": "1"
+            }
+        )
+
+        return response.json().get("PlantList", [])
+
+    def inverter_data(self, inverter_id: str, date: datetime.datetime | None = None) -> dict[str, Any]:
+        """
+        Get inverter data for specified date or today.
+
+        Args:
+            inverter_id (str): The ID of the inverter.
+            date (datetime, optional): The date you are interested in. Defaults to datetime.datetime.now().
+
+        Returns:
+            dict: A dictionary containing the inverter data.
+
+        Raises:
+            Exception: If the request to the server fails.
+
+        """
+        date_str = self.__get_date_string(date=date)
+        params: dict[str, str | int] = {
+            "op": "getInverterData",
+            "id": inverter_id,
+            "type": 1,
+            "date": date_str,
+        }
+        response = self.session.get(self.get_url("newInverterAPI.do"), params=params)
+
+        return response.json()
+
+    def inverter_detail(self, inverter_id: str) -> dict[str, Any]:
+        """
+        Get detailed data from PV inverter.
+
+        Args:
+            inverter_id (str): The ID of the inverter.
+
+        Returns:
+            dict: A dictionary containing the inverter details.
+
+        Raises:
+            Exception: If the request to the server fails.
+
+        """
+        response = self.session.get(self.get_url("newInverterAPI.do"), params={
+            "op": "getInverterDetailData",
+            "inverterId": inverter_id
+        })
+
+        return response.json()
+
+    def inverter_detail_two(self, inverter_id: str) -> dict[str, Any]:
+        """
+        Get detailed data from PV inverter (alternative endpoint).
+
+        Args:
+            inverter_id (str): The ID of the inverter.
+
+        Returns:
+            dict: A dictionary containing the inverter details.
+
+        Raises:
+            Exception: If the request to the server fails.
+
+        """
+        response = self.session.get(self.get_url("newInverterAPI.do"), params={
+            "op": "getInverterDetailData_two",
+            "inverterId": inverter_id
+        })
+
+        return response.json()
+
+    def tlx_system_status(self, plant_id: str, tlx_id: str) -> dict[str, Any]:
+        """
+        Get status of the system.
+
+        Args:
+            plant_id (str): The ID of the plant.
+            tlx_id (str): The ID of the TLX inverter.
+
+        Returns:
+            dict: A dictionary containing system status.
+
+        Raises:
+            Exception: If the request to the server fails.
+
+        """
+        response = self.session.post(
+            self.get_url("newTlxApi.do"),
+            params={"op": "getSystemStatus_KW"},
+            data={"plantId": plant_id,
+                  "id": tlx_id}
+        )
+
+        return response.json().get("obj", {})
+
+    def tlx_energy_overview(self, plant_id: str, tlx_id: str) -> dict[str, Any]:
+        """
+        Get energy overview.
+
+        Args:
+            plant_id (str): The ID of the plant.
+            tlx_id (str): The ID of the TLX inverter.
+
+        Returns:
+            dict: A dictionary containing energy data.
+
+        Raises:
+            Exception: If the request to the server fails.
+
+        """
+        response = self.session.post(
+            self.get_url("newTlxApi.do"),
+            params={"op": "getEnergyOverview"},
+            data={"plantId": plant_id,
+                  "id": tlx_id}
+        )
+
+        return response.json().get("obj", {})
+
+    def tlx_energy_prod_cons(self, plant_id: str, tlx_id: str, timespan: Timespan = Timespan.hour, date: datetime.datetime | None = None) -> dict[str, Any]:
+        """
+        Get energy production and consumption (kW).
+
+        Args:
+            plant_id: The plant identifier.
+            tlx_id: The ID of the TLX inverter.
+            timespan: Timespan enum for the requested range.
+            date: Date of interest.
+
+        Returns:
+            dict: A dictionary containing energy data.
+
+        Raises:
+            Exception: If the request to the server fails.
+
+        """
+        date_str = self.__get_date_string(timespan, date)
+
+        response = self.session.post(
+            self.get_url("newTlxApi.do"),
+            params={"op": "getEnergyProdAndCons_KW"},
+            data={"date": date_str,
+                  "plantId": plant_id,
+                  "language": "1",
+                  "id": tlx_id,
+                  "type": timespan.value}
+        )
+
+        return response.json().get("obj", {})
+
+    def tlx_data(self, tlx_id: str, date: datetime.datetime | None = None) -> dict[str, Any]:
+        """
+        Get TLX inverter data for specified date or today.
+
+        Args:
+            tlx_id (str): The ID of the TLX inverter.
+            date (datetime, optional): The date you are interested in. Defaults to datetime.datetime.now().
+
+        Returns:
+            dict: A dictionary containing the TLX inverter data.
+
+        Raises:
+            Exception: If the request to the server fails.
+
+        """
+        date_str = self.__get_date_string(date=date)
+        params: dict[str, str | int] = {
+            "op": "getTlxData",
+            "id": tlx_id,
+            "type": 1,
+            "date": date_str,
+        }
+        response = self.session.get(self.get_url("newTlxApi.do"), params=params)
+
+        return response.json()
+
+    def tlx_detail(self, tlx_id: str) -> dict[str, Any]:
+        """
+        Get detailed data from TLX inverter.
+
+        Args:
+            tlx_id (str): The ID of the TLX inverter.
+
+        Returns:
+            dict: A dictionary containing the detailed TLX inverter data.
+
+        Raises:
+            Exception: If the request to the server fails.
+
+        """
+        response = self.session.get(self.get_url("newTlxApi.do"), params={
+            "op": "getTlxDetailData",
+            "id": tlx_id
+        })
+
+        return response.json()
+
+    def tlx_params(self, tlx_id: str) -> dict[str, Any]:
+        """
+        Get parameters for TLX inverter.
+
+        Args:
+            tlx_id (str): The ID of the TLX inverter.
+
+        Returns:
+            dict: A dictionary containing the TLX inverter parameters.
+
+        Raises:
+            Exception: If the request to the server fails.
+
+        """
+        response = self.session.get(self.get_url("newTlxApi.do"), params={
+            "op": "getTlxParams",
+            "id": tlx_id
+        })
+
+        return response.json()
+
+    def tlx_all_settings(self, tlx_id: str) -> dict[str, Any] | None:
+        """
+        Get all possible settings from TLX inverter.
+
+        Args:
+            tlx_id (str): The ID of the TLX inverter.
+
+        Returns:
+            dict: A dictionary containing all possible settings for the TLX inverter.
+
+        Raises:
+            Exception: If the request to the server fails.
+
+        """
+        response = self.session.post(self.get_url("newTlxApi.do"), params={
+            "op": "getTlxSetData"
+        }, data={
+            "serialNum": tlx_id
+        })
+
+        return response.json().get("obj", {}).get("tlxSetBean")
+
+    def tlx_enabled_settings(self, tlx_id: str) -> dict[str, Any]:
+        """
+        Get "Enabled settings" from TLX inverter.
+
+        Args:
+            tlx_id (str): The ID of the TLX inverter.
+
+        Returns:
+            dict: A dictionary containing the enabled settings.
+
+        Raises:
+            Exception: If the request to the server fails.
+
+        """
+        string_time = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
+        response = self.session.post(
+            self.get_url("newLoginAPI.do"),
+            params={"op": "getSetPass"},
+            data={"deviceSn": tlx_id, "stringTime": string_time, "type": "5"}
+        )
+
+        return response.json().get("obj", {})
+
+    def tlx_battery_info(self, serial_num: str) -> dict[str, Any]:
+        """
+        Get battery information.
+
+        Args:
+            serial_num (str): The serial number of the battery.
+
+        Returns:
+            dict: A dictionary containing the battery information.
+
+        Raises:
+            Exception: If the request to the server fails.
+
+        """
+        response = self.session.post(
+            self.get_url("newTlxApi.do"),
+            params={"op": "getBatInfo"},
+            data={"lan": 1, "serialNum": serial_num}
+        )
+
+        return response.json().get("obj", {})
+
+    def tlx_battery_info_detailed(self, plant_id: str, serial_num: str) -> dict[str, Any]:
+        """
+        Get detailed battery information.
+
+        Args:
+            plant_id (str): The ID of the plant.
+            serial_num (str): The serial number of the battery.
+
+        Returns:
+            dict: A dictionary containing the detailed battery information.
+
+        Raises:
+            Exception: If the request to the server fails.
+
+        """
+        response = self.session.post(
+            self.get_url("newTlxApi.do"),
+            params={"op": "getBatDetailData"},
+            data={"lan": 1, "plantId": plant_id, "id": serial_num}
+        )
+
+        return response.json()
+
+    def mix_info(self, mix_id: str, plant_id: str | None = None) -> dict[str, Any]:
+        """
+        Get high-level values from a Mix device.
+
+        Args:
+            mix_id: The device serial number.
+            plant_id: Optional plant identifier.
+
+        Returns:
+            dict:
+                'acChargeEnergyToday' -- ??? 2.7
+                'acChargeEnergyTotal' -- ??? 25.3
+                'acChargePower' -- ??? 0
+                'capacity': '45' -- The current remaining capacity of the batteries (same as soc but without the % sign)
+                'eBatChargeToday' -- Battery charged today in kWh
+                'eBatChargeTotal' -- Battery charged total (all time) in kWh
+                'eBatDisChargeToday' -- Battery discharged today in kWh
+                'eBatDisChargeTotal' -- Battery discharged total (all time) in kWh
+                'epvToday' -- Energy generated from PVs today in kWh
+                'epvTotal' -- Energy generated from PVs total (all time) in kWh
+                'isCharge'-- ??? 0 - Possible a 0/1 based on whether or not the battery is charging
+                'pCharge1' -- ??? 0
+                'pDischarge1' -- Battery discharging rate in W
+                'soc' -- Statement of charge including % symbol
+                'upsPac1' -- ??? 0
+                'upsPac2' -- ??? 0
+                'upsPac3' -- ??? 0
+                'vbat' -- Battery Voltage
+                'vbatdsp' -- ??? 51.8
+                'vpv1' -- Voltage PV1
+                'vpv2' -- Voltage PV2
+
+        """
+        request_params = {
+            "op": "getMixInfo",
+            "mixId": mix_id
+        }
+
+        if (plant_id):
+            request_params["plantId"] = plant_id
+
+        response = self.session.get(self.get_url(
+            "newMixApi.do"), params=request_params)
+
+        return response.json().get("obj", {})
+
+    def mix_totals(self, mix_id: str, plant_id: str) -> dict[str, Any]:
+        """
+        Get totals values from a Mix device.
+
+        Args:
+            mix_id: The device serial number.
+            plant_id: Plant identifier.
+
+        Returns:
+            dict: Totals response object.
+                'echargetoday' -- Battery charged today in kWh (same as eBatChargeToday from mix_info)
+                'echargetotal' -- Battery charged total (all time) in kWh (same as eBatChargeTotal from mix_info)
+                'edischarge1Today' -- Battery discharged today in kWh (same as eBatDisChargeToday from mix_info)
+                'edischarge1Total' -- Battery discharged total (all time) in kWh (same as eBatDisChargeTotal from mix_info)
+                'elocalLoadToday' -- Load consumption today in kWh
+                'elocalLoadTotal' -- Load consumption total (all time) in kWh
+                'epvToday' -- Energy generated from PVs today in kWh (same as epvToday from mix_info)
+                'epvTotal' -- Energy generated from PVs total (all time) in kWh (same as epvTotal from mix_info)
+                'etoGridToday' -- Energy exported to the grid today in kWh
+                'etogridTotal' -- Energy exported to the grid total (all time) in kWh
+                'photovoltaicRevenueToday' -- Revenue earned from PV today in 'unit' currency
+                'photovoltaicRevenueTotal' -- Revenue earned from PV total (all time) in 'unit' currency
+                'unit' -- Unit of currency for 'Revenue'
+
+        """
+        response = self.session.post(self.get_url("newMixApi.do"), params={
+            "op": "getEnergyOverview",
+            "mixId": mix_id,
+            "plantId": plant_id
+        })
+
+        return response.json().get("obj", {})
+
+    def mix_system_status(self, mix_id: str, plant_id: str) -> dict[str, Any]:
+        """
+        Get current status from a Mix device.
+
+        Args:
+            mix_id: The device serial number.
+            plant_id: Plant identifier.
+
+        Returns:
+            dict: Status response object.
+                'SOC' -- Statement of charge (remaining battery %)
+                'chargePower' -- Battery charging rate in kw
+                'fAc' -- Frequency (Hz)
+                'lost' -- System status e.g. 'mix.status.normal'
+                'pLocalLoad' -- Load conumption in kW
+                'pPv1' -- PV1 Wattage in W
+                'pPv2' -- PV2 Wattage in W
+                'pactogrid' -- Export to grid rate in kW
+                'pactouser' -- Import from grid rate in kW
+                'pdisCharge1' -- Discharging batteries rate in kW
+                'pmax' -- ??? 6 ??? PV Maximum kW ??
+                'ppv' -- PV combined Wattage in kW
+                'priorityChoose' -- Priority setting - 0=Local load
+                'status' -- System statue - ENUM - Unknown values
+                'unit' -- Unit of measurement e.g. 'kW'
+                'upsFac' -- ??? 0
+                'upsVac1' -- ??? 0
+                'uwSysWorkMode' -- ??? 6
+                'vAc1' -- Grid voltage in V
+                'vBat' -- Battery voltage in V
+                'vPv1' -- PV1 voltage in V
+                'vPv2' -- PV2 voltage in V
+                'vac1' -- Grid voltage in V (same as vAc1)
+                'wBatteryType' -- ??? 1
+
+        """
+        response = self.session.post(self.get_url("newMixApi.do"), params={
+            "op": "getSystemStatus_KW",
+            "mixId": mix_id,
+            "plantId": plant_id
+        })
+
+        return response.json().get("obj", {})
+
+    def mix_detail(self, mix_id: str, plant_id: str, timespan: Timespan = Timespan.hour, date: datetime.datetime | None = None) -> dict[str, Any]:
+        """
+        Get Mix details for the given timespan.
+
+        Args:
+            mix_id: Serial number (device_sn) of the inverter.
+            plant_id: Plant identifier.
+            timespan: Timespan enum for the requested range.
+            date: Date of interest (defaults to now).
+
+        Returns:
+            dict: The response object containing mix details.
+                A chartData object where each entry is for a specific 5 minute window e.g. 00:05 and 00:10 respectively (below)
+                'chartData': {   '00:05': {   'pacToGrid' -- Export rate to grid in kW
+                                            'pacToUser' -- Import rate from grid in kW
+                                            'pdischarge' -- Battery discharge in kW
+                                            'ppv' -- Solar generation in kW
+                                            'sysOut' -- Load consumption in kW
+                                        },
+                                '00:10': {   'pacToGrid': '0',
+                                            'pacToUser': '0.93',
+                                            'pdischarge': '0',
+                                            'ppv': '0',
+                                            'sysOut': '0.93'},
+                                ......
+                            }
+                'eAcCharge' -- Exported to grid in kWh
+                'eCharge' -- System production in kWh = Self-consumption + Exported to Grid
+                'eChargeToday' -- Load consumption from solar in kWh
+                'eChargeToday1' -- Self-consumption in kWh
+                'eChargeToday2' -- Self-consumption in kWh (eChargeToday + echarge1)
+                'echarge1' -- Load consumption from battery in kWh
+                'echargeToat' -- Total battery discharged (all time) in kWh
+                'elocalLoad' -- Load consumption in kW (battery + solar + imported)
+                'etouser' -- Load consumption imported from grid in kWh
+                'photovoltaic' -- Load consumption from solar in kWh (same as eChargeToday)
+                'ratio1' -- % of system production that is self-consumed
+                'ratio2' -- % of system production that is exported
+                'ratio3' -- % of Load consumption that is "self consumption"
+                'ratio4' -- % of Load consumption that is "imported from grid"
+                'ratio5' -- % of Self consumption that is directly from Solar
+                'ratio6' -- % of Self consumption that is from batteries
+                'unit' -- Unit of measurement e.g kWh
+                'unit2' -- Unit of measurement e.g kW
+
+
+                NOTE - It is possible to calculate the PV generation that went into charging the batteries by performing the following calculation:
+                Solar to Battery = Solar Generation - Export to Grid - Load consumption from solar
+                                epvToday (from mix_info) - eAcCharge - eChargeToday
+
+        """
+        date_str = self.__get_date_string(timespan, date)
+
+        response = self.session.post(
+            self.get_url("newMixApi.do"),
+            params={
+                "op": "getEnergyProdAndCons_KW",
+                "plantId": plant_id,
+                "mixId": mix_id,
+                "type": timespan.value,
+                "date": date_str,
+            },
+        )
+
+        return response.json().get("obj", {})
+
+    def get_mix_inverter_settings(self, serial_number: str) -> dict[str, Any]:
+        """
+        Get the inverter settings related to battery modes.
+
+        Args:
+            serial_number: -- The serial number (device_sn) of the inverter.
+
+        Returns:
+            dict: A dictionary of settings.
+
+        """
+        default_params: dict[str, str | int] = {
+            "op": "getMixSetParams",
+            "serialNum": serial_number,
+            "kind": 0,
+        }
+        response = self.session.get(self.get_url("newMixApi.do"), params=default_params)
+        return response.json()
+
+    def dashboard_data(self, plant_id: str, timespan: Timespan = Timespan.hour, date: datetime.datetime | None = None) -> dict[str, Any]:
+        """
+        Get dashboard data for a plant over a timespan.
+
+        Args:
+            plant_id: Plant identifier.
+            timespan: Timespan enum for the requested range.
+            date: Date of interest (defaults to now).
+
+        Returns:
+            dict: Dashboard chart and summary data.
+                A chartData object where each entry is for a specific 5 minute window e.g. 00:05 and 00:10 respectively (below)
+                NOTE: The keys are interpreted differently, the examples below describe what they are used for in a 'Mix' system
+                'chartData': {   '00:05': {   'pacToUser' -- Power from battery in kW
+                                            'ppv' -- Solar generation in kW
+                                            'sysOut' -- Load consumption in kW
+                                            'userLoad' -- Export in kW
+                                        },
+                                '00:10': {   'pacToUser': '0',
+                                            'ppv': '0',
+                                            'sysOut': '0.7',
+                                            'userLoad': '0'},
+                                ......
+                            }
+                'chartDataUnit' -- Unit of measurement e.g. 'kW',
+                'eAcCharge' -- Energy exported to the grid in kWh e.g. '20.5kWh' (not accurate for Mix systems)
+                'eCharge' -- System production in kWh = Self-consumption + Exported to Grid e.g '23.1kWh' (not accurate for Mix systems - actually showing the total 'load consumption'
+                'eChargeToday1' -- Self-consumption of PPV (possibly including excess diverted to batteries) in kWh e.g. '2.6kWh' (not accurate for Mix systems)
+                'eChargeToday2' -- Total self-consumption (PPV consumption(eChargeToday2Echarge1) + Battery Consumption(echarge1)) e.g. '10.1kWh' (not accurate for Mix systems)
+                'eChargeToday2Echarge1' -- Self-consumption of PPV only e.g. '0.8kWh' (not accurate for Mix systems)
+                'echarge1' -- Self-consumption from Battery only e.g. '9.3kWh'
+                'echargeToat' -- Not used on Dashboard view, likely to be total battery discharged e.g. '152.1kWh'
+                'elocalLoad' -- Total load consumption (etouser + eChargeToday2) e.g. '20.3kWh', (not accurate for Mix systems)
+                'etouser'-- Energy imported from grid today (includes both directly used by load and AC battery charging e.g. '10.2kWh'
+                'keyNames' -- Keys to be used for the graph data e.g. ['Solar', 'Load Consumption', 'Export To Grid', 'From Battery']
+                'photovoltaic' -- Same as eChargeToday2Echarge1 e.g. '0.8kWh'
+                'ratio1' -- % of 'Solar production' that is self-consumed e.g. '11.3%' (not accurate for Mix systems)
+                'ratio2' -- % of 'Solar production' that is exported e.g. '88.7%' (not accurate for Mix systems)
+                'ratio3' -- % of 'Load consumption' that is self consumption e.g. '49.8%' (not accurate for Mix systems)
+                'ratio4' -- % of 'Load consumption' that is imported from the grid e.g '50.2%' (not accurate for Mix systems)
+                'ratio5' -- % of Self consumption that is from batteries e.g. '92.1%' (not accurate for Mix systems)
+                'ratio6' -- % of Self consumption that is directly from Solar e.g. '7.9%' (not accurate for Mix systems)
+
+                NOTE: Does not return any data for a tlx system. Use plant_energy_data() instead.
+
+        """
+        date_str = self.__get_date_string(timespan, date)
+
+        response = self.session.post(self.get_url("newPlantAPI.do"), params={
+            "action": "getEnergyStorageData",
+            "date": date_str,
+            "type": timespan.value,
+            "plantId": plant_id,
+        })
+        return response.json()
+
+    def plant_settings(self, plant_id: str) -> dict[str, Any]:
+        """
+        Get a dictionary containing the settings for the specified plant.
+
+        Args:
+            plant_id: The id of the plant you want the settings of
+
+        Returns:
+            dict: A python dictionary containing the settings for the specified plant.
+
+        """
+        response = self.session.get(self.get_url("newPlantAPI.do"), params={
+            "op": "getPlant",
+            "plantId": plant_id
+        })
+
+        return response.json()
+
+    def storage_detail(self, storage_id: str) -> dict[str, Any]:
+        """Get "All parameters" from battery storage."""
+        response = self.session.get(self.get_url("newStorageAPI.do"), params={
+            "op": "getStorageInfo_sacolar",
+            "storageId": storage_id
+        })
+
+        return response.json()
+
+    def storage_params(self, storage_id: str) -> dict[str, Any]:
+        """Get much more detail from battery storage."""
+        response = self.session.get(self.get_url("newStorageAPI.do"), params={
+            "op": "getStorageParams_sacolar",
+            "storageId": storage_id
+        })
+
+        return response.json()
+
+    def storage_energy_overview(self, plant_id: str, storage_id: str) -> dict[str, Any]:
+        """Get some energy/generation overview data."""
+        response = self.session.post(self.get_url("newStorageAPI.do?op=getEnergyOverviewData_sacolar"), params={
+            "plantId": plant_id,
+            "storageSn": storage_id
+        })
+
+        return response.json().get("obj", {})
+
+    def inverter_list(self, plant_id: str) -> list[dict[str, Any]]:
+        """Use device_list, it's more descriptive since the list contains more than inverters."""
+        warnings.warn(
+            "This function may be deprecated in the future because naming is not correct, use device_list instead", DeprecationWarning, stacklevel=2)
+        return self.device_list(plant_id)
+
+    def __get_all_devices(self, plant_id: str) -> dict[str, Any]:
+        """Get basic plant information with device list."""
+        params: dict[str, str | int] = {
+            "op": "getAllDeviceList",
+            "plantId": plant_id,
+            "language": 1,
+        }
+        response = self.session.get(self.get_url("newTwoPlantAPI.do"), params=params)
+
+        return response.json().get("deviceList", {})
+
+    def device_list(self, plant_id: str) -> list[dict[str, Any]]:
+        """Get a list of all devices connected to plant."""
+        device_list = self.plant_info(plant_id).get("deviceList", [])
+
+        if not device_list:
+            # for tlx systems, the device_list in plant is empty, so use __get_all_devices() instead
+            device_list = self.__get_all_devices(plant_id)
+
+        return device_list
+
+    def plant_info(self, plant_id: str) -> dict[str, Any]:
+        """Get basic plant information with device list."""
+        params: dict[str, str | int] = {
+            "op": "getAllDeviceListTwo",
+            "plantId": plant_id,
+            "pageNum": 1,
+            "pageSize": 1,
+        }
+        response = self.session.get(self.get_url("newTwoPlantAPI.do"), params=params)
+
+        return response.json()
+
+    def plant_energy_data(self, plant_id: str) -> dict[str, Any]:
+        """Get the energy data used in the 'Plant' tab in the phone."""
+        response = self.session.post(self.get_url("newTwoPlantAPI.do"),
+                                     params={
+                                         "op": "getUserCenterEnertyDataByPlantid"},
+                                     data={"language": 1,
+                                           "plantId": plant_id})
+
+        return response.json()
+
+    def is_plant_noah_system(self, plant_id: str) -> dict[str, Any]:
+        """
+        Check whether a plant is a Noah system.
+
+        Args:
+            plant_id: The id of the plant.
+
+        Returns:
+            dict: API response indicating Noah configuration.
+                'msg'
+                'result'    -- True or False
+                'obj'   -- An Object containing if noah devices are configured
+                    'isPlantNoahSystem' -- Is the specified plant a noah system (True or False)
+                    'plantId'   -- The ID of the plant
+                    'isPlantHaveNoah'   -- Are noah devices configured in the specified plant (True or False)
+                    'deviceSn'  -- Serial number of the configured noah device
+                    'plantName' -- Friendly name of the plant
+
+        """
+        response = self.session.post(self.get_url("noahDeviceApi/noah/isPlantNoahSystem"), data={
+            "plantId": plant_id
+        })
+        return response.json()
+
+    def noah_system_status(self, serial_number: str) -> dict[str, Any]:
+        """
+        Get the Noah device status.
+
+        Args:
+            serial_number: Noah device serial number.
+
+        Returns:
+            dict: Status response object.
+                'msg'
+                'result'    -- True or False
+                'obj' -- An Object containing the noah device status
+                    'chargePower'   -- Battery charging rate in watt e.g. '200Watt'
+                    'workMode'  -- Workingmode of the battery (0 = Load First, 1 = Battery First)
+                    'soc'   -- Statement of charge (remaining battery %)
+                    'associatedInvSn'   -- ???
+                    'batteryNum'    -- Numbers of batterys
+                    'profitToday'   -- Today generated profit through noah device
+                    'plantId'   -- The ID of the plant
+                    'disChargePower'    -- Battery discharging rate in watt e.g. '200Watt'
+                    'eacTotal'  -- Total energy exported to the grid in kWh e.g. '20.5kWh'
+                    'eacToday'  -- Today energy exported to the grid in kWh e.g. '20.5kWh'
+                    'pac'   -- Export to grid rate in watt e.g. '200Watt'
+                    'ppv'   -- Solar generation in watt e.g. '200Watt'
+                    'alias' -- Friendly name of the noah device
+                    'profitTotal'   -- Total generated profit through noah device
+                    'moneyUnit' -- Unit of currency e.g. '€'
+                    'status'    -- Is the noah device online (True or False)
+
+        """
+        response = self.session.post(self.get_url("noahDeviceApi/noah/getSystemStatus"), data={
+            "deviceSn": serial_number
+        })
+        return response.json()
+
+    def noah_info(self, serial_number: str) -> dict[str, Any]:
+        """
+        Get detailed Noah device information.
+
+        Args:
+            serial_number: Noah device serial number.
+
+        Returns:
+            dict: Detailed Noah device info.
+                'msg'
+                'result'    -- True or False
+                'obj' -- An Object containing the noah device informations
+                    'neoList'   -- A List containing Objects
+                    'unitList'  -- A Object containing currency units e.g. "Euro": "euro", "DOLLAR": "dollar"
+                    'noah'  -- A Object containing the folowing
+                        'time_segment'  -- A List containing Objects with configured "Operation Mode"
+                            NOTE: The keys are generated numerical, the values are generated with folowing syntax "[workingmode (0 = Load First, 1 = Battery First)]_[starttime]_[endtime]_[output power]"
+                            'time_segment': {
+                                'time_segment1': "0_0:0_8:0_150", ([Load First]_[00:00]_[08:00]_[150 watt])
+                                'time_segment2': "1_8:0_18:0_0", ([Battery First]_[08:00]_[18:00]_[0 watt])
+                                ....
+                            }
+                        'batSns'    -- A List containing all battery Serial Numbers
+                        'associatedInvSn'   -- ???
+                        'plantId'   -- The ID of the plant
+                        'chargingSocHighLimit'  -- Configured "Battery Management" charging upper limit
+                        'chargingSocLowLimit'   -- Configured "Battery Management" charging lower limit
+                        'defaultPower'  -- Configured "System Default Output Power"
+                        'version'   -- The Firmware Version of the noah device
+                        'deviceSn'  -- The Serial number of the noah device
+                        'formulaMoney'  -- Configured "Select Currency" energy cost per kWh e.g. '0.22'
+                        'alias' -- Friendly name of the noah device
+                        'model' -- Model Name of the noah device
+                        'plantName' -- Friendly name of the plant
+                        'tempType'  -- ???
+                        'moneyUnitText' -- Configured "Select Currency" (Value from the unitList) e.G. "euro"
+                    'plantList' -- A List containing Objects containing the folowing
+                        'plantId'   -- The ID of the plant
+                        'plantImgName'  -- Friendly name of the plant Image
+                        'plantName' -- Friendly name of the plant
+
+        """
+        response = self.session.post(self.get_url("noahDeviceApi/noah/getNoahInfoBySn"), data={
+            "deviceSn": serial_number
+        })
+        return response.json()
+
+    def update_plant_settings(self, plant_id: str, changed_settings: dict[str, Any], current_settings: dict[str, Any] | None = None) -> dict[str, Any]:
+        """
+        Update plant settings.
+
+        Args:
+            plant_id: Plant identifier.
+            changed_settings: Dict of settings to change.
+            current_settings: Current settings dict or None.
+
+        Returns:
+            dict: Server response indicating success or failure.
+
+        """
+        # If no existing settings have been provided then get them from the growatt server
+        if current_settings is None:
+            current_settings = self.plant_settings(plant_id)
+
+        # These are the parameters that the form requires, without these an error is thrown. Pre-populate their values with the current values
+        form_settings = {
+            "plantCoal": (None, str(current_settings["formulaCoal"])),
+            "plantSo2": (None, str(current_settings["formulaSo2"])),
+            "accountName": (None, str(current_settings["userAccount"])),
+            "plantID": (None, str(current_settings["id"])),
+            # Hardcoded to 0 as I can't work out what value it should have
+            "plantFirm": (None, "0"),
+            "plantCountry": (None, str(current_settings["country"])),
+            "plantType": (None, str(current_settings["plantType"])),
+            "plantIncome": (None, str(current_settings["formulaMoneyStr"])),
+            "plantAddress": (None, str(current_settings["plantAddress"])),
+            "plantTimezone": (None, str(current_settings["timezone"])),
+            "plantLng": (None, str(current_settings["plant_lng"])),
+            "plantCity": (None, str(current_settings["city"])),
+            "plantCo2": (None, str(current_settings["formulaCo2"])),
+            "plantMoney": (None, str(current_settings["formulaMoneyUnitId"])),
+            "plantPower": (None, str(current_settings["nominalPower"])),
+            "plantLat": (None, str(current_settings["plant_lat"])),
+            "plantDate": (None, str(current_settings["createDateText"])),
+            "plantName": (None, str(current_settings["plantName"])),
+        }
+
+        # Overwrite the current value of the setting with the new value
+        for setting, value in changed_settings.items():
+            form_settings[setting] = (None, str(value))
+
+        response = self.session.post(self.get_url(
+            "newTwoPlantAPI.do?op=updatePlant"), files=form_settings)
+
+        return response.json()
+
+    def update_inverter_setting(self, serial_number: str, setting_type: str,
+                                default_parameters: dict[str, Any], parameters: dict[str, Any] | list[Any]) -> dict[str, Any]:
+        """
+        Apply inverter settings.
+
+        Args:
+            serial_number: Serial number of the inverter.
+            setting_type: Type of setting to configure.
+            default_parameters: Default parameter mapping for the request. This
+                    should contain the required keys for the specific endpoint
+                    (commonly keys like ``op``, ``serialNum`` and ``type``).
+            parameters: Parameters to send. May be either a ``dict`` mapping
+                    parameter names to values, or a ``list`` of values. If a
+                    ``list`` is supplied it will be converted to a dictionary of
+                    the form ``{"param1": value1, "param2": value2, ...}``.
+
+        Notes:
+            - The function merges ``default_parameters`` with the provided
+                ``parameters`` and issues a POST request to ``newTcpsetAPI.do``.
+            - For Mix/AC/other inverter types the caller may wrap this helper
+                with specific defaults (see ``update_mix_inverter_setting`` and
+                ``update_ac_inverter_setting``).
+
+        Returns:
+            dict: Server response JSON.
+
+        """
+        # Ensure declared but unused args are referenced to satisfy linters
+        _ = serial_number
+        _ = setting_type
+
+        # If we've been passed an array then convert it into a dictionary
+        if isinstance(parameters, list):
+            settings_parameters: dict[str, Any] = {}
+            for index, param in enumerate(parameters, start=1):
+                settings_parameters["param" + str(index)] = param
+        else:
+            settings_parameters = parameters
+
+        merged = {**default_parameters, **settings_parameters}
+
+        response = self.session.post(self.get_url("newTcpsetAPI.do"),
+                                     params=merged)
+
+        return response.json()
+
+    def update_mix_inverter_setting(self, serial_number: str, setting_type: str, parameters: dict[str, Any] | list[Any]) -> dict[str, Any]:
+        """
+        Set inverter parameters for a Mix inverter.
+
+        Args:
+            serial_number: Inverter serial number.
+            setting_type: Setting type.
+            parameters: Parameters to send.
+
+        Returns:
+            dict: Server response JSON.
+
+        """
+        default_parameters = {
+            "op": "mixSetApiNew",
+            "serialNum": serial_number,
+            "type": setting_type
+        }
+        return self.update_inverter_setting(serial_number, setting_type,
+                                            default_parameters, parameters)
+
+    def update_ac_inverter_setting(self, serial_number: str, setting_type: str, parameters: dict[str, Any] | list[Any]) -> dict[str, Any]:
+        """
+        Set inverter parameters for an AC-coupled inverter.
+
+        Args:
+            serial_number: Inverter serial number.
+            setting_type: Setting type.
+            parameters: Parameters to send.
+
+        Returns:
+            dict: Server response JSON.
+
+        """
+        default_parameters = {
+            "op": "spaSetApi",
+            "serialNum": serial_number,
+            "type": setting_type
+        }
+        return self.update_inverter_setting(serial_number, setting_type,
+                                            default_parameters, parameters)
+
+    def update_tlx_inverter_time_segment(self, serial_number: str, segment_id: int, batt_mode: int, start_time: datetime.time, end_time: datetime.time, enabled: bool) -> dict[str, Any]:
+        """
+        Update a TLX inverter time segment.
+
+        Args:
+            serial_number: Inverter serial number.
+            segment_id: ID of the time segment.
+            batt_mode: Battery mode.
+            start_time: Segment start time (datetime.time).
+            end_time: Segment end time (datetime.time).
+            enabled: Whether the segment is enabled.
+
+        Returns:
+            dict: Server JSON response.
+
+        """
+        params = {
+            "op": "tlxSet"
+        }
+        data = {
+            "serialNum": serial_number,
+            "type": f"time_segment{segment_id}",
+            "param1": batt_mode,
+            "param2": start_time.strftime("%H"),
+            "param3": start_time.strftime("%M"),
+            "param4": end_time.strftime("%H"),
+            "param5": end_time.strftime("%M"),
+            "param6": "1" if enabled else "0"
+        }
+
+        response = self.session.post(self.get_url(
+            "newTcpsetAPI.do"), params=params, data=data)
+        result = response.json()
+
+        if not result.get("success", False):
+            msg = f"Failed to update TLX inverter time segment: {result.get('msg', 'Unknown error')}"
+            raise GrowattError(msg)
+
+        return result
+
+    def update_tlx_inverter_setting(self, serial_number: str, setting_type: str, parameter: dict[str, Any] | list[Any] | str) -> dict[str, Any]:
+        """
+        Set parameters on a TLX inverter.
+
+        Args:
+            serial_number: Inverter serial number.
+            setting_type: Setting type to configure.
+            parameter: Parameter(s) to send (dict, list or single value).
+
+        Returns:
+            dict: Server JSON response.
+
+        """
+        default_parameters = {
+            "op": "tlxSet",
+            "serialNum": serial_number,
+            "type": setting_type
+        }
+
+        # If parameter is a single value, convert it to a dictionary
+        if not isinstance(parameter, (dict, list)):
+            parameter = {"param1": parameter}
+        elif isinstance(parameter, list):
+            parameter = {f"param{index+1}": param for index,
+                         param in enumerate(parameter)}
+
+        return self.update_inverter_setting(serial_number, setting_type,
+                                            default_parameters, parameter)
+
+    def update_noah_settings(self, serial_number: str, setting_type: str, parameters: dict[str, Any] | list[Any]) -> dict[str, Any]:
+        """
+        Apply settings for a Noah device.
+
+        Args:
+            serial_number: Noah device serial number.
+            setting_type: Setting to be configured.
+            parameters: Parameters to send (dict or list).
+
+        Returns:
+            dict: Server JSON response.
+
+        """
+        default_parameters = {
+            "serialNum": serial_number,
+            "type": setting_type,
+        }
+
+        # If we've been passed an array then convert it into a dictionary
+        if isinstance(parameters, list):
+            settings_parameters: dict[str, Any] = {}
+            for index, param in enumerate(parameters, start=1):
+                settings_parameters["param" + str(index)] = param
+        else:
+            settings_parameters = parameters
+
+        merged = {**default_parameters, **settings_parameters}
+
+        response = self.session.post(self.get_url("noahDeviceApi/noah/set"),
+                                     data=merged)
+
+        return response.json()
+
+    def classic_inverter_info(self, device_sn: str) -> dict[str, Any]:
+        """
+        Get classic inverter information by scraping the inverter settings page.
+
+        The Growatt server does not provide a JSON API for classic inverter status,
+        so this method fetches the HTML settings page and extracts the inverter
+        data from an embedded JSON object in the JavaScript.
+
+        Args:
+            device_sn: The serial number of the inverter.
+
+        Returns:
+            dict: A dictionary containing the inverter information.
+                'innerVersion'
+                'timezone'
+                'isBig'
+                'voltageHighLimit' -- High voltage limit e.g. '263.0'
+                'wideVoltageEnable'
+                'reactiveRate'
+                'modelText'
+                'haveAfci'
+                'activeRate' -- Active power rate e.g. '100'
+                'lost'
+                'alias' -- Friendly name of the inverter
+                'datalogSn' -- Serial number of the datalogger
+                'sysTime' -- System time e.g. '2026-03-01 10:02:45'
+                'fwVersion' -- Firmware version e.g. 'AH1.0'
+                'model' -- Model number
+                'sn' -- Serial number of the inverter
+                'pvPfCmdMemoryState'
+                'onOff' -- Inverter on/off status ('0' = off, '1' = on)
+                'voltageLowLimit' -- Low voltage limit e.g. '186.0'
+                'plantId' -- The ID of the plant
+                'pfModel'
+                'workingFrequencyMin' -- Minimum working frequency e.g. '47.53'
+                'nominalPower' -- Nominal power in watts e.g. '3600'
+                'workingFrequencyMax' -- Maximum working frequency e.g. '51.5'
+                'pf' -- Power factor e.g. '1.0'
+                'location' -- Location string
+                'deviceModel' -- Device model name e.g. 'GROWATT 3000MTL-S'
+                'status' -- Inverter status code
+                'lastUpdateTime' -- Last data update time
+
+        Raises:
+            GrowattError: If the inverter data cannot be extracted from the response.
+
+        """
+        response = self.session.get(
+            self.get_url("commonDeviceSetC/setInverter"),
+            params={"type": "server", "invSn": device_sn},
+        )
+
+        match = re.search(r"inv=JSON\.parse\('(\{.*?\})'\)", response.text)
+        if not match:
+            msg = f"Could not find inverter data in response for device {device_sn}"
+            raise GrowattError(msg)
+
+        try:
+            return json.loads(match.group(1))
+        except json.JSONDecodeError as err:
+            msg = f"Failed to parse inverter data JSON for device {device_sn}"
+            raise GrowattError(msg) from err
+
+    def update_classic_inverter_setting(self, default_parameters: dict[str, Any], parameters: dict[str, Any] | list[Any]) -> dict[str, Any]:
+        """
+        Apply classic inverter settings.
+
+        Args:
+            default_parameters: Default parameters dict. For classic inverters
+                this commonly contains keys such as "action": "inverterSet"
+                and "serialNum": <device_sn> (see examples/settings_example_classic.py).
+            parameters: Parameters to send. Two common forms are accepted:
+                - dict: mapping of parameter names to values (e.g. {"param1": "..."}).
+                - list: positional values which will be converted to
+                  {"param1": v1, "param2": v2, ...}.
+
+        Example:
+            The classic inverter settings example uses a parameter structure
+            like::
+
+                default_parameters = {
+                    "action": "inverterSet",
+                    "serialNum": device_sn,
+                }
+
+                # Example A: toggle PV on/off
+                parameters = {
+                    "paramId": "pv_on_off",
+                    "command_1": "0001",  # 0001 to turn on, 0000 to turn off
+                    "command_2": "",
+                }
+
+                # Example B: set active PV power percentage
+                parameters = {
+                    "paramId": "pv_active_p_rate",
+                    "command_1": "100",  # percentage (0-100)
+                    "command_2": "",
+                }
+
+                # Example C: set reactive PV power percentage
+                parameters = {
+                    "paramId": "pv_reactive_p_rate",
+                    "command_1": "100",  # percentage (0-100)
+                    "command_2": "over", # "over" for Inductive, "under" for Capacitive
+                }
+
+                # Example D: set time
+                parameters = {
+                    "paramId": "pf_sys_year",
+                    "command_1": "2026-01-01 20:00:00",  # Time in "YYYY-MM-DD HH:MM:SS" format
+                    "command_2": "",
+                }
+
+                # Example E: set Powerfactor (PF)
+                parameters = {
+                    "paramId": "pv_power_factor",
+                    "command_1": "1.0",  # PF Value (-0.8 ~ -1/0.8 ~ 1)
+                    "command_2": "",
+                }
+
+                # Example F: Set Grid Voltage High
+                parameters = {
+                    "paramId": "pv_grid_voltage_high",
+                    "command_1": "263.0",  # Voltage in volts
+                    "command_2": "",
+                }
+
+                # Example G: Set Grid Voltage Low
+                parameters = {
+                    "paramId": "pv_grid_voltage_low",
+                    "command_1": "186.0",  # Voltage in volts
+                    "command_2": "",
+                }
+
+            This method will POST the merged parameters to "tcpSet.do".
+
+        Returns:
+            dict: Server JSON response.
+
+        """
+        # If we've been passed an array then convert it into a dictionary
+        if isinstance(parameters, list):
+            settings_parameters: dict[str, Any] = {}
+            for index, param in enumerate(parameters, start=1):
+                settings_parameters["param" + str(index)] = param
+        else:
+            settings_parameters = parameters
+
+        settings_parameters = {**default_parameters, **settings_parameters}
+
+        response = self.session.post(self.get_url("tcpSet.do"),
+                                     params=settings_parameters)
+
+        return response.json()
+
+    def set_classic_inverter_active_power_rate(self, serial_number, power_rate):
+        """
+        Set the active power rate (output power limit) for a classic inverter.
+
+        Args:
+            serial_number: Inverter serial number.
+            power_rate: Active power rate as percentage (0-100).
+
+        Returns:
+            dict: Server JSON response.
+
+        """
+        default_parameters = {
+            "action": "inverterSet",
+            "serialNum": serial_number,
+        }
+
+        parameters = {
+            "paramId": "pv_active_p_rate",
+            "command_1": str(power_rate),
+            "command_2": "",
+        }
+
+        return self.update_classic_inverter_setting(default_parameters, parameters)
+
+    def set_classic_inverter_on_off(self, serial_number, enabled):
+        """
+        Turn a classic inverter on or off.
+
+        Args:
+            serial_number: Inverter serial number.
+            enabled: True to turn on, False to turn off.
+
+        Returns:
+            dict: Server JSON response.
+
+        """
+        default_parameters = {
+            "action": "inverterSet",
+            "serialNum": serial_number,
+        }
+
+        parameters = {
+            "paramId": "pv_on_off",
+            "command_1": "0001" if enabled else "0000",
+            "command_2": "",
+        }
+
+        return self.update_classic_inverter_setting(default_parameters, parameters)

@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: meilisearch-mcp
+Version: 0.6.0
+Summary: MCP server for Meilisearch
+Requires-Python: >=3.10
+License-File: LICENSE
+Requires-Dist: meilisearch>=0.37.0
+Requires-Dist: mcp>=1.12.4
+Requires-Dist: httpx>=0.28.1
+Requires-Dist: pydantic>=2.11.7
+Dynamic: license-file

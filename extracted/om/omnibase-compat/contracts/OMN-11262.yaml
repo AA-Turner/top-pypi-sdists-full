@@ -1,0 +1,50 @@
+---
+schema_version: "1.0.0"
+ticket_id: "OMN-11262"
+title: "Remove omnibase_compat contract evidence shim (migrated to omnibase_core)"
+summary: >
+  Removes the temporary omnibase_compat.contracts.evidence module introduced in OMN-11261. The canonical
+  models now live in omnibase_core.models.contracts.evidence. Consumers must import from omnibase_core
+  instead of omnibase_compat.
+is_seam_ticket: false
+interface_change: true
+interfaces_touched:
+  - public_api
+evidence_requirements:
+  - kind: "tests"
+    description: "All compat tests pass with evidence shim removed."
+    command: "uv run pytest src/omnibase_compat/tests/ -q"
+  - kind: "ci"
+    description: "No upstream dependency on omnibase_core introduced."
+    command: "uv run python scripts/validate_no_upstream_deps.py"
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: "dod-shim-removed"
+    description: "Compat evidence shim files are absent from the repository."
+    source: "generated"
+    checks:
+      - check_type: "command"
+        check_value: "test ! -f src/omnibase_compat/contracts/evidence/__init__.py"
+  - id: "dod-no-upstream-dep"
+    description: "omnibase_compat still has zero upstream runtime dependencies."
+    source: "generated"
+    checks:
+      - check_type: "command"
+        check_value: "uv run python scripts/validate_no_upstream_deps.py"
+  - id: "dod-tests-pass"
+    description: "All 110 remaining compat unit tests pass."
+    source: "generated"
+    checks:
+      - check_type: "command"
+        check_value: "uv run pytest src/omnibase_compat/tests/ -q"
+  - id: "dod-deploy"
+    description: "Deploy-gate evidence: removal of temporary DTOs, no runtime process or service deploy
+      required."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "echo 'deploy-gate: OMN-11262 removes temporary Pydantic shim; no Docker image, daemon,
+          broker topic, runtime process, or service deploy required'"

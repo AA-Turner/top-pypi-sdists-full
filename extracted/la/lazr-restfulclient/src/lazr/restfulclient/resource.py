@@ -18,7 +18,6 @@
 
 """Common support for web service resources."""
 
-__metaclass__ = type
 __all__ = [
     "Collection",
     "CollectionWithKeyBasedLookup",
@@ -32,30 +31,15 @@ __all__ = [
 from email.message import Message
 from io import BytesIO
 from json import dumps, loads
+from urllib.parse import parse_qs, unquote, urlencode, urljoin, urlparse
 
-try:
-    # Python 3.
-    from urllib.parse import parse_qs, unquote, urlencode, urljoin, urlparse
-except ImportError:
-    from urlparse import urljoin, urlparse, parse_qs
-    from urllib import unquote, urlencode
-
-import sys
-
-if sys.version_info[0] >= 3:
-    text_type = str
-    binary_type = bytes
-else:
-    text_type = unicode  # noqa: F821
-    binary_type = str
-
+from lazr.uri import URI
 from wadllib.application import Resource as WadlResource
 
 from lazr.restfulclient import __version__
 from lazr.restfulclient._browser import Browser, RestfulHttp
 from lazr.restfulclient._json import DatetimeJSONEncoder
 from lazr.restfulclient.errors import HTTPError
-from lazr.uri import URI
 
 missing = object()
 
@@ -179,6 +163,16 @@ class Resource(RestfulBase):
         )
 
     __methods__ = lp_operations
+
+    def __dir__(self):
+        """Include web service-derived members in dir() output."""
+        base = set(object.__dir__(self))
+        try:
+            base |= set(self.__members__)
+            base |= set(self.lp_operations)
+        except Exception:
+            pass
+        return sorted(base)
 
     def _get_parameter_names(self, *kinds):
         """Retrieve some subset of the resource's parameters."""
@@ -354,7 +348,7 @@ class Resource(RestfulBase):
             return self.lp_get_parameter(attr)
         except KeyError:
             raise AttributeError(
-                "%s object has no attribute '%s'" % (self, attr)
+                "{} object has no attribute '{}'".format(self, attr)
             )
 
     def lp_values_for(self, param_name):
@@ -380,7 +374,7 @@ class Resource(RestfulBase):
         if self._wadl_resource.representation is None:
             # Get a representation of the linked resource.
             representation = self._root._browser.get(self._wadl_resource)
-            if isinstance(representation, binary_type):
+            if isinstance(representation, bytes):
                 representation = representation.decode("utf-8")
             representation = loads(representation)
 
@@ -515,7 +509,7 @@ class ServiceRoot(Resource):
         bound_root = root_resource.bind(
             self._browser.get(root_resource), "application/json"
         )
-        super(ServiceRoot, self).__init__(None, bound_root)
+        super().__init__(None, bound_root)
 
     @property
     def _user_agent(self):
@@ -555,7 +549,7 @@ class ServiceRoot(Resource):
                 url = url[1:]
             url = str(self._root_uri.append(url))
         document = self._browser.get(url)
-        if isinstance(document, binary_type):
+        if isinstance(document, bytes):
             document = document.decode("utf-8")
         try:
             representation = loads(document)
@@ -688,7 +682,7 @@ class NamedOperation(RestfulBase):
             # The operation returned a document with nothing
             # special about it.
             if content_type == self.JSON_MEDIA_TYPE:
-                if isinstance(content, binary_type):
+                if isinstance(content, bytes):
                     content = content.decode("utf-8")
                 return loads(content)
             # We don't know how to process the content.
@@ -696,7 +690,7 @@ class NamedOperation(RestfulBase):
 
         # The operation returned a representation of some
         # resource. Instantiate a Resource object for it.
-        if isinstance(content, binary_type):
+        if isinstance(content, bytes):
             content = content.decode("utf-8")
 
         document = loads(content)
@@ -746,7 +740,7 @@ class Entry(Resource):
     """A class for an entry-type resource that can be updated with PATCH."""
 
     def __init__(self, root, wadl_resource):
-        super(Entry, self).__init__(root, wadl_resource)
+        super().__init__(root, wadl_resource)
         # Initialize this here in a semi-magical way so as to stop a
         # particular infinite loop that would follow.  Setting
         # self._dirty_attributes would call __setattr__(), which would
@@ -758,11 +752,11 @@ class Entry(Resource):
         # the check for self._dirty_attributes won't call __getattr__(),
         # breaking the cycle.
         self.__dict__["_dirty_attributes"] = {}
-        super(Entry, self).__init__(root, wadl_resource)
+        super().__init__(root, wadl_resource)
 
     def __repr__(self):
         """Return the WADL resource type and the URL to the resource."""
-        return "<%s at %s>" % (
+        return "<{} at {}>".format(
             URI(self.resource_type_link).fragment,
             self.self_link,
         )
@@ -780,7 +774,7 @@ class Entry(Resource):
         if name != "_dirty_attributes":
             if name in self._dirty_attributes:
                 return self._dirty_attributes[name]
-        return super(Entry, self).__getattr__(name)
+        return super().__getattr__(name)
 
     def __setattr__(self, name, value):
         """Set the parameter of the given name."""
@@ -808,7 +802,7 @@ class Entry(Resource):
     def lp_refresh(self, new_url=None):
         """Update this resource's representation."""
         etag = getattr(self, "http_etag", None)
-        super(Entry, self).lp_refresh(new_url, etag)
+        super().lp_refresh(new_url, etag)
         self._dirty_attributes.clear()
 
     def lp_save(self):
@@ -838,7 +832,7 @@ class Entry(Resource):
         if response.status == 209 and content_type == self.JSON_MEDIA_TYPE:
             # The server sent back a new representation of the object.
             # Use it in preference to the existing representation.
-            if isinstance(content, binary_type):
+            if isinstance(content, bytes):
                 content = content.decode("utf-8")
             new_representation = loads(content)
             self._wadl_resource.representation = new_representation
@@ -850,7 +844,7 @@ class Collection(Resource):
 
     def __init__(self, root, wadl_resource):
         """Create a collection object."""
-        super(Collection, self).__init__(root, wadl_resource)
+        super().__init__(root, wadl_resource)
 
     def __len__(self):
         """The number of items in the collection.
@@ -879,15 +873,14 @@ class Collection(Resource):
         self._ensure_representation()
         current_page = self._wadl_resource.representation
         while True:
-            for resource in self._convert_dicts_to_entries(
+            yield from self._convert_dicts_to_entries(
                 current_page.get("entries", {})
-            ):
-                yield resource
+            )
             next_link = current_page.get("next_collection_link")
             if next_link is None:
                 break
             next_get = self._root._browser.get(URI(next_link))
-            if isinstance(next_get, binary_type):
+            if isinstance(next_get, bytes):
                 next_get = next_get.decode("utf-8")
             current_page = loads(next_get)
 
@@ -918,7 +911,7 @@ class Collection(Resource):
             raise ValueError(
                 "Collection slices must have a nonnegative " "start point."
             )
-        if stop < 0:
+        if stop is None or stop < 0:
             raise ValueError(
                 "Collection slices must have a definite, "
                 "nonnegative end point."
@@ -967,7 +960,7 @@ class Collection(Resource):
         # Iterate over pages until we have the correct number of entries.
         while more_needed > 0 and page_url is not None:
             page_get = self._root._browser.get(page_url)
-            if isinstance(page_get, binary_type):
+            if isinstance(page_get, bytes):
                 page_get = page_get.decode("utf-8")
             representation = loads(page_get)
             current_page_entries = representation["entries"]
@@ -1052,7 +1045,7 @@ class CollectionWithKeyBasedLookup(Collection):
     def __getitem__(self, key):
         """Look up a slice, or a subordinate resource by unique ID."""
         if isinstance(key, slice):
-            return super(CollectionWithKeyBasedLookup, self).__getitem__(key)
+            return super().__getitem__(key)
 
         try:
             url = self._get_url_from_id(key)
@@ -1101,7 +1094,7 @@ class CollectionWithKeyBasedLookup(Collection):
             # the resource describes itself.
             try:
                 url_get = self._root._browser.get(url)
-                if isinstance(url_get, binary_type):
+                if isinstance(url_get, bytes):
                     url_get = url_get.decode("utf-8")
                 representation = loads(url_get)
             except HTTPError as error:
@@ -1181,7 +1174,7 @@ class HostedFileBuffer(BytesIO):
         BytesIO.__init__(self, value)
 
     def close(self):
-        if self.mode == "w":
+        if getattr(self, "mode", None) == "w":
             disposition = 'attachment; filename="%s"' % self.filename
             self.hosted_file._root._browser.put(
                 self.url,

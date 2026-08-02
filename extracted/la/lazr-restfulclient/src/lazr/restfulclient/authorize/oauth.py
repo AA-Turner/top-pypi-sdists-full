@@ -18,26 +18,18 @@
 
 """OAuth classes for use with lazr.restfulclient."""
 
-
-try:
-    # Python 3, SafeConfigParser was renamed to just ConfigParser.
-    from configparser import ConfigParser as SafeConfigParser
-except ImportError:
-    from ConfigParser import SafeConfigParser
-
 import os
 import platform
 import socket
 import stat
+from configparser import ConfigParser
+from urllib.parse import parse_qs, urlencode
 
-import six
 from oauthlib import oauth1
-from six.moves.urllib.parse import parse_qs, urlencode
 
 from lazr.restfulclient.authorize import HttpAuthorizer
 from lazr.restfulclient.errors import CredentialsFileError
 
-__metaclass__ = type
 __all__ = [
     "AccessToken",
     "Consumer",
@@ -95,15 +87,6 @@ class AccessToken:
         return cls(key, secret)
 
 
-class TruthyString(six.text_type):
-    """A Unicode string which is always true."""
-
-    def __bool__(self):
-        return True
-
-    __nonzero__ = __bool__
-
-
 class SystemWideConsumer(Consumer):
     """A consumer associated with the logged-in user rather than an app.
 
@@ -122,9 +105,7 @@ class SystemWideConsumer(Consumer):
         :param secret: The OAuth consumer secret. Don't use this. It's
             a misfeature, and lazr.restful doesn't expect it.
         """
-        super(SystemWideConsumer, self).__init__(
-            self.consumer_key, secret, application_name
-        )
+        super().__init__(self.consumer_key, secret, application_name)
 
     @property
     def consumer_key(self):
@@ -190,12 +171,8 @@ class OAuthAuthorizer(HttpAuthorizer):
             method
         """
         # Attempt to load the access token from the file.
-        parser = SafeConfigParser()
-        if hasattr(parser, "read_file"):
-            reader = parser.read_file
-        else:
-            reader = parser.readfp
-        reader(readable_file)
+        parser = ConfigParser()
+        parser.read_file(readable_file)
         # Check the version number and extract the access token and
         # secret.  Then convert these to the appropriate instances.
         if not parser.has_section(CREDENTIALS_FILE_VERSION):
@@ -225,7 +202,7 @@ class OAuthAuthorizer(HttpAuthorizer):
         :rtype: `Credentials`
         """
         credentials = cls()
-        credentials_file = open(path, "r")
+        credentials_file = open(path)
         credentials.load(credentials_file)
         credentials_file.close()
         return credentials
@@ -244,7 +221,7 @@ class OAuthAuthorizer(HttpAuthorizer):
         if self.access_token is None:
             raise CredentialsFileError("No access token")
 
-        parser = SafeConfigParser()
+        parser = ConfigParser()
         parser.add_section(CREDENTIALS_FILE_VERSION)
         parser.set(CREDENTIALS_FILE_VERSION, "consumer_key", self.consumer.key)
         parser.set(
@@ -254,7 +231,9 @@ class OAuthAuthorizer(HttpAuthorizer):
             CREDENTIALS_FILE_VERSION, "access_token", self.access_token.key
         )
         parser.set(
-            CREDENTIALS_FILE_VERSION, "access_secret", self.access_token.secret
+            CREDENTIALS_FILE_VERSION,
+            "access_secret",
+            self.access_token.secret,
         )
         parser.write(writable_file)
 
@@ -284,21 +263,11 @@ class OAuthAuthorizer(HttpAuthorizer):
         client = oauth1.Client(
             self.consumer.key,
             client_secret=self.consumer.secret,
-            resource_owner_key=TruthyString(self.access_token.key or ""),
+            resource_owner_key=self.access_token.key or "",
             resource_owner_secret=self.access_token.secret,
             signature_method=oauth1.SIGNATURE_PLAINTEXT,
             realm=self.oauth_realm,
         )
-        # The older oauth library (which may still be used on the server)
-        # requires the oauth_token parameter to be present and will fail
-        # authentication if it isn't.  This hack forces it to be present
-        # even if its value is the empty string.
-        client.resource_owner_key = TruthyString(client.resource_owner_key)
         _, signed_headers, _ = client.sign(absolute_uri)
         for key, value in signed_headers.items():
-            # client.sign returns Unicode headers; convert these to native
-            # strings.
-            if six.PY2:
-                key = key.encode("UTF-8")
-                value = value.encode("UTF-8")
             headers[key] = value

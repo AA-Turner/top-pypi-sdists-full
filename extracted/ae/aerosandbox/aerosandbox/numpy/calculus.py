@@ -1,0 +1,346 @@
+"""Calculus functions for the AeroSandbox NumPy-like interface.
+
+This module provides numerical differentiation and integration functions
+that work with both NumPy arrays and CasADi symbolic arrays.
+"""
+
+import numpy as _onp
+import casadi as _cas
+from aerosandbox.numpy.determine_type import is_casadi_type
+from aerosandbox.numpy.arithmetic_dyadic import centered_mod as _centered_mod
+from aerosandbox.numpy.array import array, asarray, concatenate, reshape
+from aerosandbox.numpy.typing import ArrayLike, Array, Scalar
+from typing import Any
+
+
+def diff(
+    a: ArrayLike,
+    n: int = 1,
+    axis: int = -1,
+    period: float | None = None,
+) -> Array:
+    """Calculate the n-th discrete difference along the given axis.
+
+    Parameters
+    ----------
+    a : ArrayLike
+        Input array.
+    n : int, optional
+        The number of times values are differenced. Default is 1.
+    axis : int, optional
+        The axis along which the difference is taken. Default is -1.
+    period : float, optional
+        The period of the data. If provided, the difference is taken assuming
+        the data "wraps around" at the period (i.e., modulo the period).
+
+    Returns
+    -------
+    Array
+        The n-th differences. The shape along the given axis is reduced by n.
+
+    See Also
+    --------
+    numpy.diff : https://numpy.org/doc/stable/reference/generated/numpy.diff.html
+
+    Examples
+    --------
+    >>> diff([345, 355, 5, 15], period=360)
+    array([10, 10, 10])
+    """
+    a = asarray(a)
+    if period is not None:
+        return _centered_mod(diff(a, n=n, axis=axis), period)
+
+    if not is_casadi_type(a):
+        return _onp.diff(a, n=n, axis=axis)
+
+    else:
+        if axis != -1:
+            raise NotImplementedError(
+                "This could be implemented, but haven't had the need yet."
+            )
+
+        result = a
+        for i in range(n):
+            result = _cas.diff(result)
+        return result
+
+
+def gradient(
+    f: ArrayLike,
+    *varargs: Scalar | ArrayLike,
+    axis: int | None = None,
+    edge_order: int = 1,
+    n: int = 1,
+    period: float | None = None,
+) -> Array | list[Array]:
+    """Return the gradient of an N-dimensional array.
+
+    Compute the gradient using second-order accurate central differences in
+    the interior and first- or second-order one-sided differences at the
+    boundaries. The returned gradient has the same shape as the input array.
+
+    Parameters
+    ----------
+    f : ArrayLike
+        The array-like object to take the gradient of.
+    *varargs : Scalar | ArrayLike
+        The spacing between the points of ``f``. If a scalar, spacing is
+        assumed to be uniform in all dimensions. If an array, it must have
+        the same shape as ``f``.
+    axis : int, optional
+        The axis along which the gradient is taken. If None, the gradient
+        is computed for all axes.
+    edge_order : {1, 2}, optional
+        The order of accuracy at the boundaries. 1 means first order
+        (forward/backward difference), 2 means second order. Default is 1.
+    n : int, optional
+        Order of the derivative to compute. Default is 1. Using ``n=2``
+        results in less discretization error than ``gradient(gradient(f))``.
+    period : float, optional
+        The period of the data for periodic boundary conditions. If provided,
+        the gradient assumes the data wraps around at this period.
+
+    Returns
+    -------
+    Array | list[Array]
+        The gradient of ``f``. If ``axis`` is None and ``f`` is N-dimensional,
+        returns a list of N arrays. Otherwise, returns a single array.
+
+    See Also
+    --------
+    numpy.gradient : https://numpy.org/doc/stable/reference/generated/numpy.gradient.html
+    """
+    if (
+        not is_casadi_type(f)
+        and all([not is_casadi_type(vararg) for vararg in varargs])
+        and n == 1
+        and period is None
+    ):
+        return _onp.gradient(f, *varargs, axis=axis, edge_order=edge_order)
+    else:
+        f = array(f)
+        shape = f.shape
+
+        # Handle the varargs argument - use a separate list variable
+        varargs_list: list[Any]
+        if len(varargs) == 0:
+            varargs_list = [1.0 for _ in range(len(shape))]
+        elif len(varargs) == 1:
+            varargs_list = [varargs[0] for _ in range(len(shape))]
+        else:
+            varargs_list = list(varargs)
+
+        if len(varargs_list) != len(shape):
+            raise ValueError(
+                "You must specify either 0, 1, or N varargs, where N is the number of dimensions of f."
+            )
+
+        dxes: list[Any] = []
+        for i, vararg in enumerate(varargs_list):
+            if (
+                _onp.prod(array(vararg).shape) == 1
+            ):  # If it's a scalar, you have dx values
+                dxes.append(vararg * _onp.ones(shape[i] - 1))
+            else:
+                dxes.append(
+                    diff(
+                        vararg,
+                    )
+                )
+
+        # Handle the axis argument - use a separate variable for processed axis
+        axis_processed: int | tuple[int, ...]
+        if axis is None:
+            if is_casadi_type(f, recursive=False) and shape[1] == 1:
+                axis_processed = 0
+            elif len(shape) <= 1:
+                axis_processed = 0
+            else:
+                axis_processed = tuple(int(i) for i in _onp.arange(len(shape)))
+        else:
+            axis_processed = axis
+
+        # Use isinstance check instead of try/except
+        if isinstance(axis_processed, tuple):
+            return [
+                gradient(
+                    f,
+                    varargs_list[axis_i],
+                    axis=axis_i,
+                    edge_order=edge_order,
+                    n=n,
+                    period=period,
+                )
+                for axis_i in axis_processed
+            ]
+
+        else:
+            # axis_processed is an int
+            axis_int: int = axis_processed
+            # Check validity of axis
+            if axis_int < 0:
+                axis_int = len(shape) + axis_int
+            if is_casadi_type(f, recursive=False):
+                if axis_int not in [0, 1]:
+                    raise ValueError("axis must be 0 or 1 for CasADi arrays.")
+
+            dx = dxes[axis_int]
+            dx_shape: list[int] = [1] * len(shape)
+            dx_shape[axis_int] = shape[axis_int] - 1
+            dx = reshape(dx, tuple(dx_shape))
+
+            def get_slice(slice_obj: slice) -> tuple[slice, ...]:
+                slices: list[slice] = [slice(None)] * len(shape)
+                slices[axis_int] = slice_obj
+                return tuple(slices)
+
+            hm = dx[get_slice(slice(None, -1))]
+            hp = dx[get_slice(slice(1, None))]
+
+            dfp = f[get_slice(slice(2, None))] - f[get_slice(slice(1, -1))]
+            dfm = f[get_slice(slice(1, -1))] - f[get_slice(slice(None, -2))]
+
+            if period is not None:
+                dfp = _centered_mod(dfp, period)
+                dfm = _centered_mod(dfm, period)
+
+            if n == 1:
+                grad_f = (hm**2 * dfp + hp**2 * dfm) / (hm * hp * (hm + hp))
+
+                if edge_order == 1:
+                    # First point
+                    df_f = dfm[get_slice(slice(0, 1))]
+                    h_f = hm[get_slice(slice(0, 1))]
+                    grad_f_first = df_f / h_f
+
+                    # Last point
+                    df_l = dfp[get_slice(slice(-1, None))]
+                    h_l = hp[get_slice(slice(-1, None))]
+                    grad_f_last = df_l / h_l
+
+                elif edge_order == 2:
+                    # First point
+                    dfm_f = dfm[get_slice(slice(0, 1))]
+                    dfp_f = dfp[get_slice(slice(0, 1))]
+                    hm_f = hm[get_slice(slice(0, 1))]
+                    hp_f = hp[get_slice(slice(0, 1))]
+                    grad_f_first = (
+                        2 * dfm_f * hm_f * hp_f + dfm_f * hp_f**2 - dfp_f * hm_f**2
+                    ) / (hm_f * hp_f * (hm_f + hp_f))
+
+                    # Last point
+                    dfm_l = dfm[get_slice(slice(-1, None))]
+                    dfp_l = dfp[get_slice(slice(-1, None))]
+                    hm_l = hm[get_slice(slice(-1, None))]
+                    hp_l = hp[get_slice(slice(-1, None))]
+                    grad_f_last = (
+                        -dfm_l * hp_l**2 + dfp_l * hm_l**2 + 2 * dfp_l * hm_l * hp_l
+                    ) / (hm_l * hp_l * (hm_l + hp_l))
+
+                else:
+                    raise ValueError("Invalid edge_order.")
+
+                grad_f = concatenate((grad_f_first, grad_f, grad_f_last), axis=axis_int)
+
+                return grad_f
+
+            elif n == 2:
+                grad_grad_f = 2 / (hm + hp) * (dfp / hp - dfm / hm)
+
+                grad_grad_f_first = grad_grad_f[get_slice(slice(0, 1))]
+                grad_grad_f_last = grad_grad_f[get_slice(slice(-1, None))]
+
+                grad_grad_f = concatenate(
+                    (grad_grad_f_first, grad_grad_f, grad_grad_f_last), axis=axis_int
+                )
+
+                return grad_grad_f
+
+            else:
+                raise ValueError(
+                    "A second-order reconstructor only supports first derivatives (n=1) and second derivatives (n=2)."
+                )
+
+
+def trapz(x: ArrayLike, modify_endpoints: bool = False) -> Array:
+    """Compute trapezoidal integration pieces with unit spacing.
+
+    Compute each piece of the approximate integral of ``x`` via the
+    trapezoidal method with unit spacing. Can be viewed as the opposite of
+    ``diff()``.
+
+    .. deprecated::
+        Use ``integrate_discrete_intervals(f, method="trapz")`` instead.
+        NumPy plans to remove ``trapz`` in NumPy 2.0.
+
+    Parameters
+    ----------
+    x : ArrayLike
+        The 1D array to be integrated.
+    modify_endpoints : bool, optional
+        If True, add half the endpoint values to the first and last
+        intervals. Default is False.
+
+    Returns
+    -------
+    Array
+        A vector of length N-1 with each element corresponding to the mean
+        value of the function on the interval starting at index i.
+
+    See Also
+    --------
+    numpy.trapz : https://numpy.org/doc/stable/reference/generated/numpy.trapz.html
+    integrate_discrete_intervals : Preferred alternative.
+    """
+    import warnings
+    from aerosandbox.numpy.array import asarray
+
+    warnings.warn(
+        "trapz() will eventually be deprecated, since NumPy plans to remove it in the upcoming NumPy 2.0 release (2024). \n"
+        'For discrete intervals, use asb.numpy.integrate_discrete_intervals(f, method="trapz") instead.',
+        PendingDeprecationWarning,
+    )
+
+    x = asarray(x)  # Convert to Array for subscripting
+    integral = (x[1:] + x[:-1]) / 2
+    if modify_endpoints:
+        integral[0] = integral[0] + x[0] * 0.5
+        integral[-1] = integral[-1] + x[-1] * 0.5
+
+    return integral
+
+
+if __name__ == "__main__":
+    import aerosandbox.numpy as np
+
+    # print(diff(cas.DM([355, 5]), period=360))
+
+    print(gradient(np.linspace(45, 55, 11) % 50, period=50))
+
+    #
+    # # a = np.linspace(-500, 500, 21) % 360 - 180
+    # # print(diff(a, period=360))
+    #
+    # x = np.cumsum(np.arange(10))
+    # y = x ** 2
+    #
+    # print(gradient(y, x, edge_order=1))
+    # print(gradient(y, x, edge_order=1))
+    # print(gradient(y, x, edge_order=1, n=2))
+    #
+    # opti = asb.Opti()
+    # x = opti.variable(init_guess=[355, 5])
+    # d = diff(x, period=360)
+    # opti.subject_to([
+    #     # x[0] == 3,
+    #     x[0] > 180,
+    #     x[1] < 180,
+    #     d < 20,
+    #     d > -20
+    # ])
+    # opti.maximize(np.sum(np.cosd(x)))
+    # sol = opti.solve(
+    #     behavior_on_failure="return_last"
+    # )
+    # print(sol(x))

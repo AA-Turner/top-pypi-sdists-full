@@ -1,0 +1,100 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+repos:
+  # YAML formatting (standard across ecosystem, OMN-4862)
+  - repo: https://github.com/google/yamlfmt
+    rev: v0.21.0
+    hooks:
+      - id: yamlfmt
+        exclude: ^\.github/
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.6
+    hooks:
+      - id: ruff-format
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+
+  # Cross-repo enforcement hooks from onex_change_control
+  - repo: https://github.com/OmniNode-ai/onex_change_control
+    rev: 8d7e85bc00e7f1b1306d1cb40949be1ab6e7e91a
+    hooks:
+      - id: no-untracked-todos
+        stages: [pre-commit]
+
+  - repo: local
+    hooks:
+      - id: validate-spdx-headers
+        name: ONEX SPDX Header Requirement
+        entry: bash scripts/validate_spdx_headers.sh
+        language: system
+        pass_filenames: true
+        files: ^(src|tests|scripts|examples)/.*\.py$
+        exclude: ^(archived/|archive/)
+        stages: [pre-commit]
+
+      # --------------------------------------------------------------------------
+      # mypy Type Checking (OMN-4863, ONEX ecosystem parity)
+      # Matches the ecosystem standard from omnibase_core
+      # --------------------------------------------------------------------------
+      - id: mypy-type-check
+        name: mypy (type checking - strict)
+        entry: bash -c 'uv run mypy "$@" --show-error-codes --no-error-summary' --
+        language: system
+        types: [python]
+        files: ^src/omnibase_compat/.*\.py$
+        pass_filenames: true
+        stages: [pre-push]
+
+      # No-infra-edge invariant (OMN-12599, durability-plan Task 3.1).
+      # compat must validate without resolving/installing omnibase_infra; this
+      # guard scans pyproject + uv.lock for any omnibase_infra/core/spi edge and
+      # fails fast when one appears. Runs on every commit so a dependency edge
+      # cannot slip in via pyproject or a re-lock.
+      - id: compat-no-infra-edge
+        name: compat no-infra-edge gate (OMN-12599)
+        entry: python scripts/check_no_infra_edge.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      - id: check-dep-provenance
+        name: Forbid first-party git-source overrides (OMN-13873)
+        entry: uv run --frozen python scripts/check_dep_provenance.py
+        language: system
+        files: ^pyproject\.toml$
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: normalization-symmetry
+        name: normalization-symmetry
+        entry: python -m omnibase_core.validation.checker_normalization_symmetry src
+        language: python
+        additional_dependencies:
+          - "omnibase-core @ git+https://github.com/OmniNode-ai/omnibase_core.git@187871b3c3c84cc4c876781c6f160c0fde378978"
+        pass_filenames: false
+
+      # Skip-token rejection gate (OMN-11412 / OMN-10414)
+      # Blocks [skip-*] bypass tokens in staged markdown/yaml/txt files.
+      # Escape hatch: add '# skip-token-allowed: <receipt-id>' with a traceable approval receipt.
+      - id: reject-deploy-gate-skip-token
+        name: Reject skip-gate bypass tokens (OMN-10414)
+        entry: .pre-commit-hooks/reject-deploy-gate-skip-token.sh
+        language: script
+        pass_filenames: true
+        always_run: true
+        stages: [pre-commit]
+        exclude: ^tests/.*fixtures/
+      - id: reject-deploy-gate-skip-token-commit-msg
+        name: Reject skip-gate bypass tokens in commit messages (OMN-10414)
+        entry: .pre-commit-hooks/reject-deploy-gate-skip-token.sh
+        language: script
+        pass_filenames: true
+        stages: [commit-msg]
+
+# Configuration
+default_install_hook_types: [pre-commit, pre-push]
+default_stages: [pre-commit]
+fail_fast: false

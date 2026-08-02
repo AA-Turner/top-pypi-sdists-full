@@ -1,0 +1,157 @@
+from __future__ import annotations
+
+import functools
+import sys
+from concurrent.futures import ThreadPoolExecutor
+from glob import glob
+from logging import getLogger
+from pathlib import Path
+from posixpath import dirname
+from typing import Sequence, Type
+
+from keke import ktrace
+from msgspec import ValidationError
+from msgspec.json import encode as encode_json
+from msgspec.toml import decode as decode_toml
+from parse_errors import ParseContext
+from vmodule import VLOG_1, VLOG_2
+
+from ..base_rule import BaseRule
+from ..git import local_cache_path, update_local_cache
+from . import PyprojectRulesConfig, RuleConfig, RuleRepoConfig, Ruleset, RuntimeConfig
+
+LOG = getLogger(__name__)
+
+
+@ktrace()
+def discover_rules(rtc: RuntimeConfig) -> Sequence[RuleConfig]:
+    """
+    Returns list of rules in the order that they would be applied.
+
+    It is the responsibility of the caller to filter and handle things like
+    project-level ignores.
+    """
+    rules: list[RuleConfig] = []
+
+    skip_update = rtc.settings.skip_update
+    rulesets_list = list(rtc.rules_config.ruleset)
+    for ruleset in rulesets_list:
+        LOG.log(VLOG_1, "Processing %s", ruleset)
+
+    # Update all remote caches in parallel first, so that file loading never
+    # races with a git pull on the same working tree.  The FileLock in
+    # update_local_cache serialises any duplicate URLs naturally.
+    _update = functools.partial(maybe_update_local_cache, skip_update=skip_update)
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [(r, executor.submit(_update, r)) for r in rulesets_list]
+
+        for ruleset, future in futures:
+            try:
+                future.result()
+            except Exception as e:
+                LOG.warning("Failed to update rule repo %s: %s", ruleset.prefix, e)
+                rulesets_list.remove(ruleset)
+
+        # Note: We want all of the map to finish before we do any of the loading below.
+
+        load_futures = [(r, executor.submit(load_rule_repo, r)) for r in rulesets_list]
+
+    # Prefixes should be unique; they override here
+    rulesets: dict[str, RuleRepoConfig] = {}
+    for load_ruleset, load_future in load_futures:
+        try:
+            rulesets[load_ruleset.prefix] = load_future.result()
+        except Exception as e:
+            LOG.warning("Failed to load rule repo %s: %s", load_ruleset.prefix, e)
+
+    for k, v in rulesets.items():
+        rules.extend(v.rule)
+
+    rules.sort(key=lambda h: (h.order, h.prefixed_name))
+
+    return rules
+
+
+@ktrace("ruleset.url", "ruleset.path")
+def maybe_update_local_cache(ruleset: Ruleset, *, skip_update: bool) -> None:
+    if ruleset.url:
+        update_local_cache(ruleset.url, skip_update=skip_update)
+
+
+@ktrace("ruleset.url", "ruleset.path")
+def load_rule_repo(ruleset: Ruleset) -> RuleRepoConfig:
+    if ruleset.url:
+        # TODO config for a subdir within?
+        # This never updates for you, that is in the function above.
+        repo_path = local_cache_path(ruleset.url)
+    else:
+        assert isinstance(ruleset.path, str)
+        repo_path = Path(ruleset.base_path or "", ruleset.path).resolve()
+
+    rc = RuleRepoConfig(repo_path=repo_path)
+
+    LOG.log(VLOG_1, "Loading rules from %s", repo_path)
+    # We use a regular glob here because it might not be from a git repo, or
+    # that repo might be modified.  It also will let us more easily refer to a
+    # subdir in the future.
+    potential_configs = [f for f in glob("**/ick.toml", root_dir=repo_path, recursive=True) if "tests" not in Path(f).parts]
+    potential_configs += [f for f in glob("**/ick.toml.local", root_dir=repo_path, recursive=True) if "tests" not in Path(f).parts]
+    potential_configs += [f for f in glob("**/pyproject.toml", root_dir=repo_path, recursive=True) if "tests" not in Path(f).parts]
+    for filename in potential_configs:
+        p = Path(repo_path, filename)
+        LOG.log(VLOG_1, "Config found at %s", filename)
+        if p.name == "pyproject.toml":
+            c = load_pyproject(p, p.read_bytes())
+        else:
+            c = load_regular(p, p.read_bytes())
+
+        if not c.rule:
+            continue
+
+        LOG.log(VLOG_2, "Loaded %s", encode_json(c).decode("utf-8"))
+        base = dirname(filename).lstrip("/")
+        if base:
+            base += "/"
+        prefix = ruleset.prefix + ":" if (ruleset.prefix not in ["", "."]) else ""  # type: ignore[operator] # FIX ME
+        for rule in c.rule:
+            rule.full_name = base + rule.name
+            rule.prefixed_name = prefix + rule.full_name
+            rule.test_path = repo_path / base / "tests" / rule.name
+            rule.script_path = repo_path / base / rule.name
+            rule.repo_path = repo_path
+            if not rule.url:
+                rule.url = ruleset.url
+
+        rc.inherit(c)
+
+    return rc
+
+
+def load_pyproject(p: Path, data: bytes) -> RuleRepoConfig:
+    with ParseContext(p, data=data):
+        try:
+            c = decode_toml(data, type=PyprojectRulesConfig).tool.ick
+        except ValidationError as e:
+            # TODO surely there's a cleaner way to validate _inside_
+            # but not care if [tool.other] is present...
+            if "Object missing required field `ick` - at `$.tool`" in e.args[0]:
+                return RuleRepoConfig()
+            if "Object missing required field `tool`" in e.args[0]:
+                return RuleRepoConfig()
+            raise
+    return c
+
+
+def load_regular(p: Path, data: bytes) -> RuleRepoConfig:
+    with ParseContext(p, data=data):
+        return decode_toml(data, type=RuleRepoConfig)
+
+
+@ktrace("rule.impl")
+def get_impl(rule: RuleConfig) -> Type[BaseRule]:
+    name = f"ick.rules.{rule.impl}"
+    name = name.replace("-", "_")
+    __import__(name)
+    impl: Type[BaseRule] = sys.modules[name].Rule
+    assert issubclass(impl, BaseRule)
+    return impl

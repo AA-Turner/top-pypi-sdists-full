@@ -1,0 +1,10 @@
+[tool.black]
+exclude = '''
+  (
+    /(
+      \.venv.*
+      | \.riot
+      | \.eggs
+    )/
+  )
+'''

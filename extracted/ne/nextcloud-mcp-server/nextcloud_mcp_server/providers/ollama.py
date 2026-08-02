@@ -1,0 +1,238 @@
+"""Unified Ollama provider for embeddings."""
+
+import logging
+
+import httpx
+
+from .base import Provider
+
+logger = logging.getLogger(__name__)
+
+
+class OllamaProvider(Provider):
+    """
+    Ollama provider for embeddings.
+
+    Supports TLS, SSL verification, and automatic model loading.
+    """
+
+    def __init__(
+        self,
+        base_url: str,
+        embedding_model: str | None = None,
+        verify_ssl: bool = True,
+        timeout: httpx.Timeout | None = None,
+    ):
+        """
+        Initialize Ollama provider.
+
+        Args:
+            base_url: Ollama API base URL (e.g., https://ollama.internal.example.com:443)
+            embedding_model: Model for embeddings (e.g., "nomic-embed-text"). None disables embeddings.
+            verify_ssl: Verify SSL certificates (default: True)
+            timeout: HTTP timeout configuration
+        """
+        self.base_url = base_url.rstrip("/")
+        self.embedding_model = embedding_model
+        self.verify_ssl = verify_ssl
+
+        if timeout is None:
+            timeout = httpx.Timeout(timeout=120, connect=5)
+
+        self.client = httpx.AsyncClient(verify=verify_ssl, timeout=timeout)
+        self._dimension: int | None = None  # Detected dynamically for embeddings
+
+        logger.info(
+            "Initialized Ollama provider: %s (embedding_model=%s, verify_ssl=%s)",
+            base_url,
+            embedding_model,
+            verify_ssl,
+        )
+
+        # Pre-check and auto-load models
+        if embedding_model:
+            self._check_model_is_loaded(embedding_model, autoload=True)
+
+    @property
+    def supports_embeddings(self) -> bool:
+        """Whether this provider supports embedding generation."""
+        return self.embedding_model is not None
+
+    async def embed(self, text: str) -> list[float]:
+        """
+        Generate embedding vector for text.
+
+        Args:
+            text: Input text to embed
+
+        Returns:
+            Vector embedding as list of floats
+
+        Raises:
+            NotImplementedError: If embeddings not enabled (no embedding_model)
+        """
+        # Delegate to embed_with_usage so single and batch embeds use the same
+        # /api/embed endpoint (the legacy /api/embeddings differs in payload and
+        # omits prompt_eval_count). _detect_dimension() and other embed() callers
+        # therefore stay consistent with the search/indexing path.
+        embedding, _ = await self.embed_with_usage(text)
+        return embedding
+
+    async def embed_batch(
+        self, texts: list[str], batch_size: int = 32
+    ) -> list[list[float]]:
+        """
+        Generate embeddings for multiple texts using Ollama's batch API.
+
+        Uses /api/embed endpoint with array input for efficient batch processing.
+        Conservative batch size (32) prevents quality degradation observed in
+        Ollama issue #6262 with larger batches.
+
+        Note: Ollama processes batches serially, not in parallel.
+
+        Args:
+            texts: List of texts to embed
+            batch_size: Maximum texts per batch (default: 32)
+
+        Returns:
+            List of vector embeddings
+
+        Raises:
+            NotImplementedError: If embeddings not enabled (no embedding_model)
+        """
+        embeddings, _ = await self.embed_batch_with_usage(texts, batch_size=batch_size)
+        return embeddings
+
+    async def embed_with_usage(self, text: str) -> tuple[list[float], int]:
+        """Embed one text, reporting the request's token count.
+
+        Routes through ``/api/embed`` (which carries ``prompt_eval_count``)
+        rather than the legacy ``/api/embeddings`` so a token count is
+        available; falls back to a char-based estimate when the field is
+        absent. Used by the usage-metering hooks (Deck #67).
+        """
+        embeddings, tokens = await self.embed_batch_with_usage([text])
+        if not embeddings:
+            raise RuntimeError(
+                "Ollama embeddings API returned no embedding for model "
+                f"{self.embedding_model}"
+            )
+        return embeddings[0], tokens
+
+    async def embed_batch_with_usage(
+        self, texts: list[str], batch_size: int = 32
+    ) -> tuple[list[list[float]], int]:
+        """Embed multiple texts, summing ``prompt_eval_count`` token usage.
+
+        Returns ``(embeddings, total_tokens)``. Ollama's ``/api/embed`` may
+        omit ``prompt_eval_count`` (older versions); a char-based estimate is
+        used per batch when it does.
+        """
+        if not self.supports_embeddings:
+            raise NotImplementedError(
+                "Embedding not supported - no embedding_model configured"
+            )
+
+        if not texts:
+            return [], 0
+
+        all_embeddings: list[list[float]] = []
+        total_tokens = 0
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i : i + batch_size]
+            response = await self.client.post(
+                f"{self.base_url}/api/embed",
+                json={"model": self.embedding_model, "input": batch},
+            )
+            response.raise_for_status()
+            data = response.json()
+            all_embeddings.extend(data["embeddings"])
+
+            # Cache the dimension inline (mirrors OpenAI/Mistral) so it is set
+            # via any embed path, not only an explicit _detect_dimension() call.
+            if self._dimension is None and data["embeddings"]:
+                self._dimension = len(data["embeddings"][0])
+
+            # ``prompt_eval_count`` is assumed to be the batch-level total for a
+            # multi-input /api/embed call. Ollama's API docs aren't explicit
+            # about batch aggregation; if a version reports only the last
+            # input's tokens this understates the batch. Unverified against a
+            # live instance — Ollama isn't the Cloud billing provider (Mistral
+            # is). If it proves last-item-only, switch to per-item requests and
+            # sum. The char-based estimate covers versions that omit the field.
+            prompt_eval = data.get("prompt_eval_count")
+            total_tokens += (
+                round(prompt_eval)
+                if isinstance(prompt_eval, (int, float))
+                else self._estimate_tokens(batch)
+            )
+
+        return all_embeddings, total_tokens
+
+    async def _detect_dimension(self):
+        """
+        Detect embedding dimension by generating a test embedding.
+
+        This method queries the model to determine the actual dimension
+        instead of relying on hardcoded values.
+        """
+        if self._dimension is None and self.supports_embeddings:
+            logger.debug(
+                "Detecting embedding dimension for model %s...", self.embedding_model
+            )
+            test_embedding = await self.embed("test")
+            self._dimension = len(test_embedding)
+            logger.info(
+                "Detected embedding dimension: %s for model %s",
+                self._dimension,
+                self.embedding_model,
+            )
+
+    def get_dimension(self) -> int:
+        """
+        Get embedding dimension.
+
+        Returns:
+            Vector dimension for the configured embedding model
+
+        Raises:
+            NotImplementedError: If embeddings not enabled (no embedding_model)
+            RuntimeError: If dimension not detected yet (call _detect_dimension first)
+        """
+        if not self.supports_embeddings:
+            raise NotImplementedError(
+                "Embedding not supported - no embedding_model configured"
+            )
+
+        if self._dimension is None:
+            raise RuntimeError(
+                f"Embedding dimension not detected yet for model {self.embedding_model}. "
+                "Call _detect_dimension() first or generate an embedding."
+            )
+        return self._dimension
+
+    def _check_model_is_loaded(self, model: str, autoload: bool = True):
+        """
+        Check if model is loaded in Ollama, optionally auto-loading it.
+
+        Args:
+            model: Model name to check
+            autoload: Whether to automatically pull the model if not loaded
+        """
+        response = httpx.get(f"{self.base_url}/api/tags")
+        response.raise_for_status()
+
+        models = [m["name"] for m in response.json().get("models", [])]
+        logger.info("Ollama has following models pre-loaded: %s", models)
+
+        if (model not in models) and autoload:
+            logger.warning(
+                "Model '%s' not yet available in ollama, attempting to pull now...",
+                model,
+            )
+            response = httpx.post(f"{self.base_url}/api/pull", json={"model": model})
+            response.raise_for_status()
+
+    async def close(self) -> None:
+        """Close HTTP client."""
+        await self.client.aclose()

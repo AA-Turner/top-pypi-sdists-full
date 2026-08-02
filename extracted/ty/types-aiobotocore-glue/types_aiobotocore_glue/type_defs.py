@@ -3576,17 +3576,13 @@ class GetUserDefinedFunctionRequestTypeDef(TypedDict):
     CatalogId: NotRequired[str]
 
 
-GetUserDefinedFunctionsRequestTypeDef = TypedDict(
-    "GetUserDefinedFunctionsRequestTypeDef",
-    {
-        "Pattern": str,
-        "CatalogId": NotRequired[str],
-        "DatabaseName": NotRequired[str],
-        "FunctionType": NotRequired[FunctionTypeType],
-        "NextToken": NotRequired[str],
-        "MaxResults": NotRequired[int],
-    },
-)
+class GetUserDefinedFunctionsRequestTypeDef(TypedDict):
+    Pattern: str
+    CatalogId: NotRequired[str]
+    DatabaseName: NotRequired[str]
+    FunctionType: NotRequired[FunctionTypeType]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
 
 
 class GetWorkflowRequestTypeDef(TypedDict):
@@ -6394,16 +6390,12 @@ class GetTriggersRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
-GetUserDefinedFunctionsRequestPaginateTypeDef = TypedDict(
-    "GetUserDefinedFunctionsRequestPaginateTypeDef",
-    {
-        "Pattern": str,
-        "CatalogId": NotRequired[str],
-        "DatabaseName": NotRequired[str],
-        "FunctionType": NotRequired[FunctionTypeType],
-        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
-    },
-)
+class GetUserDefinedFunctionsRequestPaginateTypeDef(TypedDict):
+    Pattern: str
+    CatalogId: NotRequired[str]
+    DatabaseName: NotRequired[str]
+    FunctionType: NotRequired[FunctionTypeType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class GetWorkflowRunsRequestPaginateTypeDef(TypedDict):

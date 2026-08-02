@@ -1,0 +1,45 @@
+Metadata-Version: 2.4
+Name: dttlib
+Version: 0.10.8
+License-File: COPYING
+License-File: COPYING-GPL-3
+Summary: Advanced LIGO core library for online and offline frequency-domain diagnostics tool.
+Keywords: dtt,diaggui,fft,swept-sine
+Home-Page: https://git.ligo.org/cds/software/cr-tools/dtt_rust
+Author: Erik von Reis <erik.vonreis@ligo.org>
+Author-email: Erik von Reis <erik.vonreis@ligo.org>
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+# DTT
+A frequency-domain analysis tool for LIGO data.
+
+# C library dependencies
+
+The following static LIGO libraries are required:
+
+libcds
+libgds-sigp
+
+The following static third party libraries are required:
+libfftw3
+libglib-2.0
+libstdc++
+
+Additionally, the following dynamic libraries need
+to be installed for building and running:
+
+libsasl2
+libz
+libexpat
+
+# Building as python module.
+
+From the command line, build with 
+
+```aiignore
+maturin develop --features python,python-pipe,nds
+```
+
+

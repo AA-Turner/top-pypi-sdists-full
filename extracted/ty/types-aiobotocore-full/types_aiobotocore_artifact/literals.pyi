@@ -26,6 +26,8 @@ __all__ = (
     "AgreementTypeType",
     "ArtifactServiceName",
     "CustomerAgreementStateType",
+    "FeedbackRatingType",
+    "FeedbackReasonCodeType",
     "InputSourceType",
     "InquiryStatusMessageType",
     "InquiryStatusType",
@@ -49,6 +51,8 @@ __all__ = (
 AcceptanceTypeType = Literal["EXPLICIT", "PASSTHROUGH"]
 AgreementTypeType = Literal["CUSTOM", "DEFAULT", "MODIFIED"]
 CustomerAgreementStateType = Literal["ACTIVE", "AWS_TERMINATED", "CUSTOMER_TERMINATED"]
+FeedbackRatingType = Literal["THUMBS_DOWN", "THUMBS_UP"]
+FeedbackReasonCodeType = Literal["IRRELEVANT_RESPONSE", "OTHER", "PARTIAL_RESPONSE"]
 InputSourceType = Literal["FILE", "TEXT"]
 InquiryStatusMessageType = Literal[
     "An internal error occurred while processing the inquiry. Try again at a later time.",

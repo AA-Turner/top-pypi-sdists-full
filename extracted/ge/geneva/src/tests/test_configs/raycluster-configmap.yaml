@@ -1,0 +1,59 @@
+# save this in k8s with `kubectl apply -f raycluster-configmap.yaml -n geneva`
+# load this with RayCluster.from_config_map("my_k8s_cluster", "geneva-cluster-config-dev")
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: geneva-cluster-config-dev
+  namespace: geneva
+data:
+  head_group: |
+    service_account: geneva-service-account
+    # for integ tests, use default image with ray/python version based on the test environment
+    # image: rayproject/ray:2.54.0-py312
+    num_cpus: 2
+    num_gpus: 0
+    memory: 4Gi
+    node_selector:
+      geneva.lancedb.com/ray-head: "true"    
+    labels:
+      foo: bar
+    tolerations:
+    - key: "key1"
+      operator: "Equal"
+      value: "value1"
+      effect: "NoSchedule"
+    - key: "key2"
+      operator: "Equal"
+      value: "value2"
+      effect: "NoSchedule"
+  worker_groups: |
+    - service_account: geneva-service-account
+      # image: rayproject/ray:2.54.0-py312
+      num_cpus: 1
+      memory: 4Gi
+      replicas: 2
+      min_replicas: 1
+      max_replicas: 10
+      node_selector:
+        geneva.lancedb.com/ray-worker-cpu: "true"
+      labels:
+        foo: bar
+      tolerations:
+      - key: "key1"
+        operator: "Equal"
+        value: "value1"
+        effect: "NoSchedule"
+      - key: "key2"
+        operator: "Equal"
+        value: "value2"
+        effect: "NoSchedule"
+    - service_account: geneva-service-account
+      # image: rayproject/ray:2.54.0-py312
+      num_cpus: 1
+      num_gpus: 1
+      memory: 4Gi
+      replicas: 1
+      node_selector:
+        geneva.lancedb.com/ray-worker-gpu: "true"
+      labels:
+        foo: bar

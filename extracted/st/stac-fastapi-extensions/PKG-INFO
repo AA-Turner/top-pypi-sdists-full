@@ -1,0 +1,20 @@
+Metadata-Version: 2.4
+Name: stac-fastapi-extensions
+Version: 6.4.1
+Summary: Extensions for stac-fastapi apis.
+Project-URL: Homepage, https://github.com/stac-utils/stac-fastapi
+Author-email: ArturoAI <engineering@arturo.ai>
+Maintainer-email: Vincent Sarago <vincent@developmentseed.org>, Jonathan Healy <jonathan.d.healy@gmail.com>, Pete Gadomski <pete.gadomski@gmail.com>, Jeff Albrecht <geospatialjeff@gmail.com>, Nathan Zimmerman <npzimmerman@gmail.com>
+License-Expression: MIT
+Keywords: FastAPI,STAC,STAC-API,STAC-API-Extensions
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.11
+Requires-Dist: stac-fastapi-api~=6.4
+Requires-Dist: stac-fastapi-types~=6.4

@@ -1,0 +1,28 @@
+[project]
+name = "dttlib"
+requires-python = ">=3.9"
+dependencies = [
+#    "maturin>=1.8.2",
+#    "patchelf>=0.17.2.1",
+#    "pytest>=8.3.4",
+]
+
+dynamic = [
+    "version",
+    "description",
+    "authors",
+    "readme",
+    "license-files",
+    "keywords",
+]
+
+[build-system]
+requires = ["setuptools", "wheel>0.36.2", "patchelf", "maturin>=1.8,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+features = ["all", "extension"]
+auditwheel = "repair"
+
+[tool.uv]
+config-settings = { build-args = '--auditwheel repair --manylinux' }

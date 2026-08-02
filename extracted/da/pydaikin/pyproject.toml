@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=77.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+authors = [
+  { name = "Fredrik Erlandsson", email = "fredrik.e@gmail.com" },
+  { name = "Yari Adan", email = "mustang@yadan.org" },
+]
+name = "pydaikin"
+version = "2.18.4"
+license = "GPL-3.0-or-later"
+description = "Python Daikin HVAC appliances interface"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+  "Topic :: Software Development :: Libraries :: Application Frameworks",
+  "Topic :: Home Automation",
+]
+dependencies = ['netifaces', 'aiohttp', 'urllib3', 'tenacity']
+requires-python = ">= 3.12"
+readme = "README.md"
+maintainers = [
+  { name = "Fredrik Erlandsson", email = "fredrik.e@gmail.com" },
+  { name = "Matthias Lemainque", email = "matthias.lemainque+pydaikin@gmail.com" },
+]
+
+[project.urls]
+Homepage = "https://github.com/fredrike/pydaikin"
+Repository = "https://github.com/fredrike/pydaikin.git"
+Issues = "https://github.com/fredrike/pydaikin/issues"
+
+[tool.setuptools]
+script-files = ['bin/pydaikin']
+
+[tool.pytype]
+python_version = 3.12
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+exclude = [".venv", ".git", ".tox", "docs", "venv", "lib", "deps", "build"]
+
+[tool.ruff.format]
+quote-style = "preserve"
+
+[tool.ruff.lint]
+# Ruff linting configuration
+ignore = [
+    "E501",  # line too long (handled by ruff formatting)
+    "D202",  # No blank lines allowed after function docstring
+]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pydaikin"]
+force-sort-within-sections = true
+
+[tool.ruff.lint.flake8-quotes]
+inline-quotes = "double"
+multiline-quotes = "double"
+docstring-quotes = "double"
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

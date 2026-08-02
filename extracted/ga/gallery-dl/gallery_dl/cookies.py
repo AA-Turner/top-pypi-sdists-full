@@ -427,7 +427,10 @@ def _chromium_cookies_database(profile, config):
         config["directory"] = (os.path.dirname(profile)
                                if config["profiles"] else profile)
     elif config["profiles"]:
-        search_root = os.path.join(config["directory"], profile)
+        if isinstance(search_root := config["directory"], str):
+            search_root = os.path.join(search_root, profile)
+        else:
+            search_root = [os.path.join(dir, profile) for dir in search_root]
     else:
         _log_warning("%s does not support profiles", config["browser"])
         search_root = config["directory"]
@@ -448,8 +451,10 @@ def _chromium_browser_settings(browser_name):
         appdata_local = os.path.expandvars("%LOCALAPPDATA%")
         appdata_roaming = os.path.expandvars("%APPDATA%")
         browser_dir = {
-            "brave"   : join(appdata_local,
-                             R"BraveSoftware\Brave-Browser\User Data"),
+            "brave"   : (join(appdata_local,
+                              R"BraveSoftware\Brave-Browser\User Data"),
+                         join(appdata_local,
+                              R"BraveSoftware\Brave-Origin\User Data")),
             "chrome"  : join(appdata_local, R"Google\Chrome\User Data"),
             "chromium": join(appdata_local, R"Chromium\User Data"),
             "edge"    : join(appdata_local, R"Microsoft\Edge\User Data"),
@@ -461,7 +466,8 @@ def _chromium_browser_settings(browser_name):
     elif sys.platform == "darwin":
         appdata = os.path.expanduser("~/Library/Application Support")
         browser_dir = {
-            "brave"   : join(appdata, "BraveSoftware/Brave-Browser"),
+            "brave"   : (join(appdata, "BraveSoftware/Brave-Browser"),
+                         join(appdata, "BraveSoftware/Brave-Origin")),
             "chrome"  : join(appdata, "Google/Chrome"),
             "chromium": join(appdata, "Chromium"),
             "edge"    : join(appdata, "Microsoft Edge"),
@@ -474,7 +480,8 @@ def _chromium_browser_settings(browser_name):
         config = (os.environ.get("XDG_CONFIG_HOME") or
                   os.path.expanduser("~/.config"))
         browser_dir = {
-            "brave"   : join(config, "BraveSoftware/Brave-Browser"),
+            "brave"   : (join(config, "BraveSoftware/Brave-Browser"),
+                         join(config, "BraveSoftware/Brave-Origin")),
             "chrome"  : join(config, "google-chrome"),
             "chromium": join(config, "chromium"),
             "edge"    : join(config, "microsoft-edge"),

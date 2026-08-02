@@ -1,0 +1,166 @@
+Metadata-Version: 2.4
+Name: RLEMaskLib
+Version: 0.8.0
+Summary: Manipulate run-length-encoded image masks
+Author-email: István Sárándi <istvan.sarandi@uni-tuebingen.de>
+License: Copyright (c) 2023-2025, Istvan Sarandi
+        Copyright (c) 2014, Piotr Dollar and Tsung-Yi Lin
+        All rights reserved.
+        
+        Redistribution and use in source and binary forms, with or without
+        modification, are permitted provided that the following conditions are met:
+        
+        1. Redistributions of source code must retain the above copyright notice, this
+           list of conditions and the following disclaimer.
+        2. Redistributions in binary form must reproduce the above copyright notice,
+           this list of conditions and the following disclaimer in the documentation
+           and/or other materials provided with the distribution.
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+        ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+        WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+        ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+        (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+        LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+        ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+        (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+        SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+        
+        The views and conclusions contained in the software and documentation are those
+        of the authors and should not be interpreted as representing official policies,
+        either expressed or implied, of the FreeBSD Project.
+Project-URL: Homepage, https://github.com/isarandi/rlemasklib
+Project-URL: Repository, https://github.com/isarandi/rlemasklib
+Project-URL: Documentation, https://rlemasklib.readthedocs.io/
+Project-URL: Issues, https://github.com/isarandi/rlemasklib/issues
+Project-URL: Changelog, https://github.com/isarandi/rlemasklib/releases
+Project-URL: Author, https://istvansarandi.com
+Keywords: computer-vision,cython,image-processing,segmentation,run-length-encoding,rle,image-segmentation,mask,compression-algorithm,image-mask,runlengthencoding,run-length,image-masking
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Scientific/Engineering :: Image Processing
+Classifier: Topic :: Software Development :: Libraries
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: C
+Classifier: Programming Language :: Cython
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy
+Provides-Extra: docs
+Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinxcontrib-bibtex; extra == "docs"
+Requires-Dist: sphinx-autoapi; extra == "docs"
+Requires-Dist: sphinx-autobuild; extra == "docs"
+Requires-Dist: sphinx-autodoc-typehints; extra == "docs"
+Requires-Dist: sphinxcontrib-prettyspecialmethods; extra == "docs"
+Requires-Dist: sphinx-autodoc-napoleon-typehints; extra == "docs"
+Requires-Dist: sphinx-codeautolink; extra == "docs"
+Requires-Dist: sphinx-rtd-theme; extra == "docs"
+Requires-Dist: pydata-sphinx-theme; extra == "docs"
+Requires-Dist: sphinxcontrib-napoleon; extra == "docs"
+Requires-Dist: Cython>=3.0.0; extra == "docs"
+Requires-Dist: numpy; extra == "docs"
+Requires-Dist: setuptools-scm; extra == "docs"
+Requires-Dist: toml; extra == "docs"
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: numpy; extra == "test"
+Requires-Dist: hypothesis; extra == "test"
+Requires-Dist: opencv-python; extra == "test"
+Requires-Dist: docutils; extra == "test"
+Provides-Extra: test-headless
+Requires-Dist: pytest; extra == "test-headless"
+Requires-Dist: numpy; extra == "test-headless"
+Requires-Dist: hypothesis; extra == "test-headless"
+Requires-Dist: opencv-python-headless; extra == "test-headless"
+Requires-Dist: scikit-image; extra == "test-headless"
+Requires-Dist: docutils; extra == "test-headless"
+Dynamic: license-file
+
+# RLEMaskLib: Run-Length Encoded Mask Operations
+[![Read the Docs](https://img.shields.io/readthedocs/rlemasklib)](https://rlemasklib.readthedocs.io/)
+[![PyPI - Version](https://img.shields.io/pypi/v/rlemasklib)](https://pypi.org/project/rlemasklib/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+Fast run-length encoded (RLE) binary mask operations in Python. Core implemented in C via Cython for efficiency.
+
+The API is designed to feel like NumPy and OpenCV, with familiar slicing, boolean operators, and method names.
+
+Fully compatible with the COCO mask format.
+
+## Installation
+
+```bash
+pip install rlemasklib
+```
+
+## Quick Start
+
+```python
+import numpy as np
+from rlemasklib import RLEMask
+
+# Create from numpy array
+mask = RLEMask(np.array([
+    [0, 1, 1],
+    [1, 1, 0],
+    [0, 0, 1]
+]))
+mask1 = RLEMask.from_array(np.eye(3, dtype=np.uint8))
+mask2 = RLEMask.from_array(np.eye(3, dtype=np.uint8)[::-1])
+
+# Boolean operations
+union = mask1 | mask2
+intersection = mask1 & mask2
+difference = mask1 - mask2
+complement = ~mask
+
+# Morphology
+eroded = mask.erode3x3()
+dilated = mask.dilate3x3()
+
+# Geometric transforms (NumPy/OpenCV style)
+flipped = mask.fliplr()
+rotated = mask.rot90()
+cropped = mask[10:50, 20:80]  # slicing like numpy
+resized = mask.resize((256, 256))
+
+# Analysis
+area = mask.area()
+bbox = mask.bbox()
+components = mask.connected_components()
+
+# COCO format I/O
+coco_dict = mask.to_dict()  # {'size': [h, w], 'counts': b'...'}
+mask = RLEMask.from_dict(coco_dict)
+```
+
+## Features
+
+- **Boolean operations**: union, intersection, difference, complement, XOR, custom functions
+- **Morphology**: erode, dilate, open, close (circle/square/diamond/cross kernels of any size)
+- **Geometric**: crop, pad, tile, flip, transpose, rotate, resize, warp (affine/perspective)
+- **Analysis**: area, bounding box, connected components, largest interior rectangle, IoU
+- **I/O**: COCO format, numpy arrays, polygons, bounding boxes, circles
+- **Compression**: LEB128 (COCO-compatible) + optional gzip (~40% smaller)
+
+## APIs
+
+**Object-oriented** (recommended): Work with `RLEMask` objects for chained operations.
+
+**Functional** (legacy): Dict-to-dict operations, compatible with COCO's `pycocotools.mask`.
+
+## Documentation
+
+Full documentation with visual examples: [rlemasklib.readthedocs.io](https://rlemasklib.readthedocs.io/)
+
+## Origin
+
+Fork of [COCO API](https://github.com/cocodataset/cocoapi)'s `pycocotools.mask` (by Piotr Dollár and Tsung-Yi Lin), now mostly new code.

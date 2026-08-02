@@ -25,7 +25,10 @@ from .literals import (
     AdminStatusType,
     AutoEnableMembersType,
     ClusterStatusType,
+    ConfidenceLevelType,
     ConfidenceType,
+    ContentPolicyFilterActionType,
+    ContentPolicyFilterTypeType,
     CoverageFilterCriterionKeyType,
     CoverageSortKeyType,
     CoverageStatisticsTypeType,
@@ -48,6 +51,8 @@ from .literals import (
     FindingResourceTypeType,
     FreeTrialFeatureResultType,
     GroupByTypeType,
+    GuardrailActionType,
+    GuardrailSourceType,
     IndicatorTypeType,
     InvestigationSortFieldType,
     InvestigationStatusType,
@@ -68,6 +73,7 @@ from .literals import (
     OrgFeatureStatusType,
     OrgFeatureType,
     ProfileSubtypeType,
+    ProfileTypeType,
     PublicAccessStatusType,
     PublicAclIgnoreBehaviorType,
     PublicBucketRestrictBehaviorType,
@@ -124,6 +130,8 @@ __all__ = (
     "AutonomousSystemTypeDef",
     "AutoscalingAutoScalingGroupTypeDef",
     "AwsApiCallActionTypeDef",
+    "BedrockGuardrailDetailsTypeDef",
+    "BedrockGuardrailTypeDef",
     "BlockPublicAccessTypeDef",
     "BucketLevelPermissionsTypeDef",
     "BucketPolicyTypeDef",
@@ -136,6 +144,7 @@ __all__ = (
     "ContainerFindingResourceTypeDef",
     "ContainerInstanceDetailsTypeDef",
     "ContainerTypeDef",
+    "ContentPolicyFilterTypeDef",
     "ContinuousScanDetailsTypeDef",
     "CountryTypeDef",
     "CoverageEc2InstanceDetailsTypeDef",
@@ -389,6 +398,7 @@ __all__ = (
     "MemberFeaturesConfigurationResultTypeDef",
     "MemberFeaturesConfigurationTypeDef",
     "MemberTypeDef",
+    "ModelDetailTypeDef",
     "NetworkConnectionActionTypeDef",
     "NetworkConnectionTypeDef",
     "NetworkEndpointTypeDef",
@@ -669,6 +679,7 @@ ObservationsTypeDef = TypedDict(
     "ObservationsTypeDef",
     {
         "Text": NotRequired[list[str]],
+        "Number": NotRequired[list[int]],
     },
 )
 
@@ -694,6 +705,21 @@ class DomainDetailsTypeDef(TypedDict):
 class RemoteAccountDetailsTypeDef(TypedDict):
     AccountId: NotRequired[str]
     Affiliated: NotRequired[bool]
+
+
+class BedrockGuardrailTypeDef(TypedDict):
+    Arn: NotRequired[str]
+    Version: NotRequired[str]
+
+
+ContentPolicyFilterTypeDef = TypedDict(
+    "ContentPolicyFilterTypeDef",
+    {
+        "Type": NotRequired[ContentPolicyFilterTypeType],
+        "Confidence": NotRequired[ConfidenceLevelType],
+        "Action": NotRequired[ContentPolicyFilterActionType],
+    },
+)
 
 
 class BucketPolicyTypeDef(TypedDict):
@@ -1461,6 +1487,10 @@ class MemberAdditionalConfigurationTypeDef(TypedDict):
     Status: NotRequired[FeatureStatusType]
 
 
+class ModelDetailTypeDef(TypedDict):
+    ModelId: NotRequired[str]
+
+
 class RemotePortDetailsTypeDef(TypedDict):
     Port: NotRequired[int]
     PortName: NotRequired[str]
@@ -1542,9 +1572,9 @@ class RdsDbUserDetailsTypeDef(TypedDict):
     AuthMethod: NotRequired[str]
 
 
-class RecoveryPointDetailsTypeDef(TypedDict):
-    RecoveryPointArn: NotRequired[str]
-    BackupVaultName: NotRequired[str]
+class ScanConfigurationContinuousScanDetailsTypeDef(TypedDict):
+    EndTime: datetime
+    StartTime: NotRequired[datetime]
 
 
 class S3ObjectTypeDef(TypedDict):
@@ -1574,11 +1604,6 @@ class S3ObjectForSendObjectMalwareScanTypeDef(TypedDict):
 class ScanConditionPairTypeDef(TypedDict):
     Key: str
     Value: NotRequired[str]
-
-
-class ScanConfigurationContinuousScanDetailsTypeDef(TypedDict):
-    EndTime: datetime
-    StartTime: NotRequired[datetime]
 
 
 class TriggerDetailsTypeDef(TypedDict):
@@ -1739,9 +1764,18 @@ class CoverageEc2InstanceDetailsTypeDef(TypedDict):
 
 
 class AnomalyObjectTypeDef(TypedDict):
-    ProfileType: NotRequired[Literal["FREQUENCY"]]
+    ProfileType: NotRequired[ProfileTypeType]
     ProfileSubtype: NotRequired[ProfileSubtypeType]
     Observations: NotRequired[ObservationsTypeDef]
+
+
+class BedrockGuardrailDetailsTypeDef(TypedDict):
+    GuardrailArn: NotRequired[str]
+    GuardrailVersion: NotRequired[str]
+    Guardrails: NotRequired[list[BedrockGuardrailTypeDef]]
+    GuardrailAction: NotRequired[GuardrailActionType]
+    GuardrailSource: NotRequired[GuardrailSourceType]
+    ContentPolicyFilters: NotRequired[list[ContentPolicyFilterTypeDef]]
 
 
 class BucketLevelPermissionsTypeDef(TypedDict):
@@ -2431,6 +2465,17 @@ class S3BucketTypeDef(TypedDict):
     S3ObjectUids: NotRequired[list[str]]
 
 
+class RecoveryPointDetailsTypeDef(TypedDict):
+    RecoveryPointArn: NotRequired[str]
+    BackupVaultName: NotRequired[str]
+    ContinuousScanDetails: NotRequired[ScanConfigurationContinuousScanDetailsTypeDef]
+
+
+class ScanConfigurationRecoveryPointTypeDef(TypedDict):
+    BackupVaultName: NotRequired[str]
+    ContinuousScanDetails: NotRequired[ScanConfigurationContinuousScanDetailsTypeDef]
+
+
 class SendObjectMalwareScanRequestTypeDef(TypedDict):
     S3Object: NotRequired[S3ObjectForSendObjectMalwareScanTypeDef]
 
@@ -2441,11 +2486,6 @@ class ScanConditionOutputTypeDef(TypedDict):
 
 class ScanConditionTypeDef(TypedDict):
     MapEquals: Sequence[ScanConditionPairTypeDef]
-
-
-class ScanConfigurationRecoveryPointTypeDef(TypedDict):
-    BackupVaultName: NotRequired[str]
-    ContinuousScanDetails: NotRequired[ScanConfigurationContinuousScanDetailsTypeDef]
 
 
 class ScanThreatNameTypeDef(TypedDict):
@@ -2542,6 +2582,9 @@ class GetFilterResponseTypeDef(TypedDict):
     Rank: int
     FindingCriteria: FindingCriteriaOutputTypeDef
     Tags: dict[str, str]
+    CreatedAt: datetime
+    UpdatedAt: datetime
+    Version: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2828,6 +2871,13 @@ ResourceDataTypeDef = TypedDict(
 )
 
 
+class ScanConfigurationTypeDef(TypedDict):
+    Role: NotRequired[str]
+    TriggerDetails: NotRequired[TriggerDetailsTypeDef]
+    IncrementalScanDetails: NotRequired[IncrementalScanDetailsTypeDef]
+    RecoveryPoint: NotRequired[ScanConfigurationRecoveryPointTypeDef]
+
+
 class ScanResourceCriteriaOutputTypeDef(TypedDict):
     Include: NotRequired[dict[Literal["EC2_INSTANCE_TAG"], ScanConditionOutputTypeDef]]
     Exclude: NotRequired[dict[Literal["EC2_INSTANCE_TAG"], ScanConditionOutputTypeDef]]
@@ -2836,13 +2886,6 @@ class ScanResourceCriteriaOutputTypeDef(TypedDict):
 class ScanResourceCriteriaTypeDef(TypedDict):
     Include: NotRequired[Mapping[Literal["EC2_INSTANCE_TAG"], ScanConditionTypeDef]]
     Exclude: NotRequired[Mapping[Literal["EC2_INSTANCE_TAG"], ScanConditionTypeDef]]
-
-
-class ScanConfigurationTypeDef(TypedDict):
-    Role: NotRequired[str]
-    TriggerDetails: NotRequired[TriggerDetailsTypeDef]
-    IncrementalScanDetails: NotRequired[IncrementalScanDetailsTypeDef]
-    RecoveryPoint: NotRequired[ScanConfigurationRecoveryPointTypeDef]
 
 
 class ThreatDetectedByNameTypeDef(TypedDict):
@@ -3312,6 +3355,8 @@ class ResourceTypeDef(TypedDict):
     EbsSnapshotDetails: NotRequired[EbsSnapshotDetailsTypeDef]
     Ec2ImageDetails: NotRequired[Ec2ImageDetailsTypeDef]
     RecoveryPointDetails: NotRequired[RecoveryPointDetailsTypeDef]
+    BedrockGuardrailDetails: NotRequired[BedrockGuardrailDetailsTypeDef]
+    ModelDetails: NotRequired[list[ModelDetailTypeDef]]
 
 
 class GetMemberDetectorsResponseTypeDef(TypedDict):

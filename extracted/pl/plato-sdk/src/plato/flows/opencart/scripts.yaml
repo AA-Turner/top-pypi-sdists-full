@@ -1,0 +1,217 @@
+flows:
+- name: login
+  description: Standard login flow for OpenCart
+  steps:
+  - description: Navigate to OpenCart admin login page
+    type: navigate
+    url: /administration
+  - description: Screenshot before login (initial page)
+    filename: 01_before_login.png
+    type: screenshot
+  - description: Wait for page to fully load
+    duration: 5000
+    type: wait
+  - description: Wait for username/email field
+    selector: 'input[name="username"], input[name="email"], #input-username, #input-email,
+      input[type="text"]'
+    timeout: 15000
+    type: wait_for_selector
+  - description: Fill username/email field
+    selector: 'input[name="username"], input[name="email"], #input-username, #input-email,
+      input[type="text"]'
+    type: fill
+    value: admin
+  - description: Click on username field to ensure form is active
+    selector: 'input[name="username"], input[name="email"], #input-username, #input-email,
+      input[type="text"]'
+    type: click
+  - description: Wait for password field to appear
+    duration: 3000
+    type: wait
+  - description: Screenshot before attempting to find password field
+    filename: 01b_before_password.png
+    type: screenshot
+  - description: Wait for password field with broader selector
+    selector: 'input[type="password"], [name="password"], #input-password, .password-field,
+      form input:not([name="username"]):not([name="email"])'
+    timeout: 20000
+    type: wait_for_selector
+  - description: Fill password field with broader selector
+    selector: 'input[type="password"], [name="password"], #input-password, .password-field,
+      form input:not([name="username"]):not([name="email"])'
+    type: fill
+    value: password
+  - description: Wait for form to fully load
+    duration: 1000
+    type: wait
+  - description: Wait for any dynamic form elements to load
+    duration: 2000
+    type: wait
+  - description: Wait for submit button
+    selector: button[type="submit"], input[type="submit"], .btn-primary, .btn-login
+    timeout: 15000
+    type: wait_for_selector
+  - description: Screenshot after credentials entered, before submission
+    filename: 02_credentials_entered.png
+    type: screenshot
+  - description: Click login submit button
+    selector: button[type="submit"], input[type="submit"], .btn-primary
+    type: click
+  - description: Wait for login to process
+    duration: 3000
+    type: wait
+  - description: Screenshot after login attempt
+    filename: 03_after_login.png
+    type: screenshot
+  - description: Wait for login to process
+    duration: 5000
+    type: wait
+  - description: Verify no login errors are displayed
+    error_selectors:
+    - .alert-danger
+    - .alert-error
+    - .error-message
+    - .text-danger
+    - .invalid-feedback
+    - .login-error
+    - .auth-error
+    - .error
+    - .alert
+    type: verify_no_errors
+  - description: Verify successful login by checking for main interface elements
+    selector: '.dashboard, .main-content, .navbar, .sidebar, #menu, .breadcrumb, .panel'
+    type: verify
+    verify_type: element_exists
+- name: incorrect_login
+  description: Verify login fails with incorrect password
+  steps:
+  - description: Navigate to OpenCart admin login page
+    type: navigate
+    url: /administration
+  - description: Screenshot before incorrect login attempt
+    filename: 01_before_incorrect_login.png
+    type: screenshot
+  - description: Wait for page to fully load
+    duration: 3000
+    type: wait
+  - description: Wait for username/email field
+    selector: 'input[name="username"], input[name="email"], #input-username, #input-email,
+      input[type="text"]'
+    timeout: 15000
+    type: wait_for_selector
+  - description: Fill username/email field with valid username
+    selector: 'input[name="username"], input[name="email"], #input-username, #input-email,
+      input[type="text"]'
+    type: fill
+    value: admin
+  - description: Wait for password field
+    selector: 'input[type="password"], [name="password"], #input-password, .password-field,
+      form input:not([name="username"]):not([name="email"])'
+    timeout: 5000
+    type: wait_for_selector
+  - description: Fill password field with incorrect password
+    selector: 'input[type="password"], [name="password"], #input-password, .password-field,
+      form input:not([name="username"]):not([name="email"])'
+    type: fill
+    value: wrongpassword
+  - description: Screenshot after entering incorrect credentials
+    filename: 02_incorrect_credentials_entered.png
+    type: screenshot
+  - description: Click login submit button
+    selector: button[type="submit"], input[type="submit"], .btn-primary
+    type: click
+  - description: Wait for login attempt to process
+    duration: 3000
+    type: wait
+  - description: Screenshot after incorrect login attempt
+    filename: 03_after_incorrect_login.png
+    type: screenshot
+  - description: Wait for error message to appear
+    duration: 2000
+    type: wait
+  - description: Verify error message is displayed
+    selector: '.alert-danger, .alert.alert-danger, div.alert-dismissible.alert-danger,
+      .alert, [class*="alert"], [class*="error"], [class*="danger"], .text-danger,
+      .warning, #alert, .message, .notification, div[role="alert"], .has-error, .panel-danger'
+    type: verify
+    verify_type: element_exists
+- name: consumer
+  description: Consumer login flow for OpenCart
+  steps:
+  - description: Navigate to OpenCart consumer login page
+    type: navigate
+    url: /index.php?route=account/login
+  - description: Screenshot before login (initial page)
+    filename: 01_before_login.png
+    type: screenshot
+  - description: Wait for page to fully load
+    duration: 3000
+    type: wait
+  - description: Wait for returning customer login form to appear
+    selector: '#form-login'
+    timeout: 15000
+    type: wait_for_selector
+  - description: Wait for email field in returning customer form
+    selector: '#form-login #input-email'
+    timeout: 15000
+    type: wait_for_selector
+  - description: Fill email field in returning customer section
+    selector: '#form-login #input-email'
+    type: fill
+    value: robfarlow@gmail.com
+  - description: Brief wait after filling email
+    duration: 1000
+    type: wait
+  - description: Wait for password field in returning customer form
+    selector: '#form-login #input-password'
+    timeout: 15000
+    type: wait_for_selector
+  - description: Fill password field in returning customer section
+    selector: '#form-login #input-password'
+    type: fill
+    value: password
+  - description: Brief wait after filling password
+    duration: 1000
+    type: wait
+  - description: Screenshot after credentials entered, before submission
+    filename: 02_credentials_entered.png
+    type: screenshot
+  - description: Wait for login submit button in returning customer form
+    selector: '#form-login button[type="submit"]'
+    timeout: 15000
+    type: wait_for_selector
+  - description: Click login submit button in returning customer form
+    selector: '#form-login button[type="submit"]'
+    type: click
+  - description: Wait for login to process
+    duration: 3000
+    type: wait
+  - description: Screenshot after login attempt
+    filename: 03_after_login.png
+    type: screenshot
+  - description: Wait for page redirect and load
+    duration: 3000
+    type: wait
+  - description: Verify no login errors are displayed
+    error_selectors:
+    - .alert-danger
+    - .alert-error
+    - .error-message
+    - .text-danger
+    - .invalid-feedback
+    - .login-error
+    - .auth-error
+    - div[class*="alert-danger"]
+    type: verify_no_errors
+  - contains: true
+    description: Verify URL contains 'account' indicating successful login
+    type: verify_url
+    url: account
+  - description: Verify successful login by checking for account menu or logout link
+    selector: 'a[href*="account/logout"], .account-menu, #account-menu, a[href*="account/account"],
+      .list-group a[href*="account"], .dropdown-menu a[href*="logout"]'
+    type: verify
+    verify_type: element_exists
+  - description: Screenshot after successful login verification
+    filename: 04_login_verified.png
+    type: screenshot

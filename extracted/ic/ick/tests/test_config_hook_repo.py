@@ -1,0 +1,136 @@
+import logging
+import threading
+from pathlib import Path
+from subprocess import CalledProcessError
+
+import pytest
+from pytest_mock import MockerFixture
+
+from ick.config import MainConfig, RuleConfig, RuleRepoConfig, RulesConfig, Ruleset, RuntimeConfig, Settings
+from ick.config.rule_repo import discover_rules, get_impl, load_pyproject, load_rule_repo
+from ick_protocol import Scope
+
+
+def test_load_rule_repo() -> None:
+    r = Ruleset(base_path=Path.cwd(), path="tests/fixture_rules")
+    rc = load_rule_repo(r)
+    assert len(rc.rule) == 3
+
+
+def test_load_rule_repo_ignores_tests_dir() -> None:
+    # ick.toml files inside tests/ (e.g. rule test input fixtures) must not be
+    # treated as rule definitions.
+    r = Ruleset(base_path=Path.cwd(), path="tests/fixture_rules")
+    rc = load_rule_repo(r)
+    names = [rule.name for rule in rc.rule]
+    assert "should_not_be_discovered" not in names
+
+    assert rc.rule[0].name == "hello"
+    assert rc.rule[0].impl == "shell"
+    assert rc.rule[0].scope == Scope.REPO
+    assert rc.rule[0].command == "echo hi"
+    assert rc.rule[0].test_path == Path("tests/fixture_rules/tests/hello").resolve()
+
+    # load_rule_repo doesn't sort yet, so these are in discovered order
+    assert rc.rule[1].name == "shouty"
+
+    assert rc.rule[2].name == "goodbye"
+    assert rc.rule[2].impl == "shell"
+    assert rc.rule[2].command == "exit 1"
+    assert rc.rule[2].scope == Scope.FILE
+    assert rc.rule[2].test_path == Path("tests/fixture_rules/tests/goodbye").resolve()
+
+
+def test_load_pyproject_errors() -> None:
+    assert load_pyproject(Path(), b"") == RuleRepoConfig()
+    assert load_pyproject(Path(), b"[tool]") == RuleRepoConfig()
+    assert load_pyproject(Path(), b"[tool.ick]") == RuleRepoConfig()
+    assert load_pyproject(Path(), b"[tool.ick.baz]") == RuleRepoConfig()
+
+
+def test_get_impl() -> None:
+    assert get_impl(RuleConfig(name="foo", impl="shell"))
+
+
+def test_discover() -> None:
+    r = Ruleset(base_path=Path.cwd(), path="tests/fixture_rules")
+    h = RulesConfig(ruleset=[r])
+    rules = discover_rules(rtc=RuntimeConfig(main_config=MainConfig(), rules_config=h, settings=Settings()))
+    assert len(rules) == 3
+
+
+def test_load_rule_repo_ruleset_url_propagates(mocker: MockerFixture) -> None:
+    fixture_path = Path("tests/fixture_rules").resolve()
+    mocker.patch("ick.config.rule_repo.update_local_cache", return_value=fixture_path)
+    r = Ruleset(url="https://github.com/example/rules.git", prefix="rule")
+    rc = load_rule_repo(r)
+    for rule in rc.rule:
+        assert rule.url == "https://github.com/example/rules.git"
+        assert rule.full_name
+        assert rule.prefixed_name.startswith("rule:")
+
+
+def test_ruleset_url_and_path_error() -> None:
+    """Test that specifying both url and path raises a clear error."""
+    with pytest.raises(ValueError, match="Can't specify both url and path"):
+        Ruleset(url="https://github.com/example/rules.git", path=".")
+
+
+def test_ruleset_merge_url_with_path() -> None:
+    """Test that we can use merge to override a Ruleset with url with a Ruleset with path."""
+    # Base config with a ruleset that has a URL
+    base_config = RulesConfig(ruleset=[Ruleset(url="https://github.com/example/rules.git", prefix="prefix", base_path=Path.cwd())])
+
+    # More specific config with a ruleset that has a local path
+    specific_config = RulesConfig(ruleset=[Ruleset(path="./local-rules", prefix="prefix", base_path=Path.cwd())])
+
+    # Merge: specific_config inherits from base_config
+    specific_config.inherit(base_config)
+
+    # After merging, we should have a single ruleset
+    # The more specific (path) should override the base (url)
+    assert len(specific_config.ruleset) == 1
+    assert specific_config.ruleset[0].path == "./local-rules"
+    assert specific_config.ruleset[0].url is None  # url from base is not kept
+    assert specific_config.ruleset[0].prefix == "prefix"
+
+
+def test_discover_parallel(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Multiple rulesets are loaded concurrently, not serially."""
+    barrier = threading.Barrier(2, timeout=5)
+    original_load = load_rule_repo
+
+    def blocking_load(ruleset: Ruleset) -> RuleRepoConfig:
+        barrier.wait()  # both threads must reach here before either proceeds
+        return original_load(ruleset)
+
+    monkeypatch.setattr("ick.config.rule_repo.load_rule_repo", blocking_load)
+
+    r1 = Ruleset(base_path=Path.cwd(), path="tests/fixture_rules", prefix="a")
+    r2 = Ruleset(base_path=Path.cwd(), path="tests/fixture_rules", prefix="b")
+    h = RulesConfig(ruleset=[r1, r2])
+    rules = discover_rules(rtc=RuntimeConfig(main_config=MainConfig(), rules_config=h, settings=Settings()))
+    assert len(rules) == 6
+
+
+def test_discover_warns_on_failure(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+    """A failing ruleset logs a warning and is skipped rather than raising."""
+    good = Ruleset(base_path=Path.cwd(), path="tests/fixture_rules")
+    bad = Ruleset(url="https://git.example.com/nonexistent.git", prefix="broken")
+    h = RulesConfig(ruleset=[good, bad])
+
+    git_error = CalledProcessError(128, ["git", "clone"], stderr=b"unable to resolve hostname")
+    original_load = load_rule_repo
+
+    def selective_load(ruleset: Ruleset) -> RuleRepoConfig:
+        if ruleset is bad:
+            raise git_error
+        return original_load(ruleset)
+
+    monkeypatch.setattr("ick.config.rule_repo.load_rule_repo", selective_load)
+
+    with caplog.at_level(logging.WARNING, logger="ick.config.rule_repo"):
+        rules = discover_rules(rtc=RuntimeConfig(main_config=MainConfig(), rules_config=h, settings=Settings()))
+
+    assert len(rules) == 3
+    assert "broken" in caplog.text

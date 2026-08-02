@@ -1,0 +1,338 @@
+"""
+Session Store Protocol for PraisonAI Agents.
+
+Defines the minimal interface contract for session persistence backends.
+Any class implementing these methods can be used as a session store.
+
+Built-in implementations:
+- DefaultSessionStore (JSON file-based)
+- HierarchicalSessionStore (extends DefaultSessionStore with fork/snapshot)
+
+Custom implementations (e.g. Redis, MongoDB, PostgreSQL) can implement
+this protocol for seamless swapping.
+
+Usage:
+    from praisonaiagents.session.protocols import SessionStoreProtocol
+    
+    class RedisSessionStore:
+        def add_message(self, session_id, role, content, metadata=None):
+            ...  # Store in Redis
+        
+        def get_chat_history(self, session_id, max_messages=None):
+            ...  # Retrieve from Redis
+        
+        # ... other methods
+    
+    # Type-check at runtime
+    store: SessionStoreProtocol = RedisSessionStore()
+    assert isinstance(store, SessionStoreProtocol)
+"""
+
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
+
+
+@dataclass
+class SessionHit:
+    """A single cross-session search match with surrounding context.
+
+    Returned by :meth:`SearchableSessionStoreProtocol.search` so the agent
+    gets the match *in context* (a short window of messages around the hit).
+    """
+
+    session_id: str
+    title: str = ""
+    when: Optional[str] = None
+    snippet: str = ""
+    score: float = 0.0
+    anchor_index: int = -1
+    messages: List[Dict[str, Any]] = field(default_factory=list)
+    # Anchored discovery: the first/last N user+assistant messages of the
+    # session so the agent can reconstruct goal → match → resolution in one
+    # call. ``{"opening": [...], "closing": [...]}``. Empty when unavailable.
+    bookends: Dict[str, List[Dict[str, Any]]] = field(default_factory=dict)
+
+    def as_dict(self) -> Dict[str, Any]:
+        """Convert to a JSON-serialisable dict."""
+        result = {
+            "session_id": self.session_id,
+            "title": self.title,
+            "when": self.when,
+            "snippet": self.snippet,
+            "score": self.score,
+            "anchor_index": self.anchor_index,
+            "messages": self.messages,
+        }
+        if self.bookends:
+            result["bookends"] = self.bookends
+        return result
+
+
+@dataclass
+class SessionSummary:
+    """A lightweight summary of a session for "browse" / recent listings."""
+
+    session_id: str
+    title: str = ""
+    when: Optional[str] = None
+    message_count: int = 0
+
+    def as_dict(self) -> Dict[str, Any]:
+        """Convert to a JSON-serialisable dict."""
+        return {
+            "session_id": self.session_id,
+            "title": self.title,
+            "when": self.when,
+            "message_count": self.message_count,
+        }
+
+
+@runtime_checkable
+class SessionStoreProtocol(Protocol):
+    """Protocol for session persistence backends.
+    
+    Defines the minimal interface for storing and retrieving
+    agent conversation sessions. Implementations must provide
+    these five core methods.
+    
+    Built-in implementations:
+    - DefaultSessionStore (JSON files with atomic writes)
+    - HierarchicalSessionStore (fork, snapshot, revert)
+    
+    Example custom implementation::
+    
+        class MyStore:
+            def add_message(self, session_id, role, content, metadata=None):
+                ...
+            def get_chat_history(self, session_id, max_messages=None):
+                return [{"role": "user", "content": "Hi"}]
+            def clear_session(self, session_id):
+                return True
+            def delete_session(self, session_id):
+                return True
+            def session_exists(self, session_id):
+                return False
+        
+        store: SessionStoreProtocol = MyStore()
+        assert isinstance(store, SessionStoreProtocol)  # True
+    """
+    
+    def add_message(
+        self,
+        session_id: str,
+        role: str,
+        content: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Add a message to a session.
+        
+        Args:
+            session_id: Unique session identifier.
+            role: Message role ("user", "assistant", "system").
+            content: Message content text.
+            metadata: Optional metadata dict.
+            
+        Returns:
+            True if saved successfully.
+        """
+        ...
+    
+    def get_chat_history(
+        self,
+        session_id: str,
+        max_messages: Optional[int] = None,
+    ) -> List[Dict[str, str]]:
+        """Get chat history in LLM-compatible format.
+        
+        Args:
+            session_id: Unique session identifier.
+            max_messages: Maximum messages to return (most recent).
+            
+        Returns:
+            List of {"role": "...", "content": "..."} dicts.
+        """
+        ...
+    
+    def clear_session(self, session_id: str) -> bool:
+        """Clear all messages from a session (keep session metadata).
+        
+        Args:
+            session_id: Unique session identifier.
+            
+        Returns:
+            True if cleared successfully.
+        """
+        ...
+    
+    def delete_session(self, session_id: str) -> bool:
+        """Delete a session completely (data + metadata).
+        
+        Args:
+            session_id: Unique session identifier.
+            
+        Returns:
+            True if deleted successfully.
+        """
+        ...
+    
+    def session_exists(self, session_id: str) -> bool:
+        """Check if a session exists.
+        
+        Args:
+            session_id: Unique session identifier.
+            
+        Returns:
+            True if the session exists.
+        """
+        ...
+
+
+@runtime_checkable
+class SearchableSessionStoreProtocol(Protocol):
+    """Protocol for cross-session conversation recall.
+
+    Extends the storage contract with the ability for an agent to search its
+    own past conversations: full-text *discovery* over transcripts, *scroll*
+    around an anchor message, and *browse* of recent sessions.
+
+    The default JSON store implements this with a dependency-free substring
+    scan. ``SqliteSessionStore`` provides a stdlib ``sqlite3`` + FTS5-backed
+    implementation for scale (Issue #2927), turning recall into a bounded
+    index lookup instead of a full-directory scan.
+
+    Example::
+
+        store: SearchableSessionStoreProtocol = DefaultSessionStore()
+        hits = store.search("billing migration", limit=5, window=5)
+        more = store.window("session-123", around_message_id="42", window=10)
+        recent = store.recent(limit=10)
+    """
+
+    def search(
+        self,
+        query: str,
+        *,
+        limit: int = 5,
+        window: int = 5,
+    ) -> List[SessionHit]:
+        """Full-text search across stored sessions.
+
+        Args:
+            query: Free-text query to match against message content.
+            limit: Maximum number of matching sessions to return.
+            window: Number of messages to include around each hit for context.
+
+        Returns:
+            List of :class:`SessionHit`, best matches first.
+        """
+        ...
+
+    def window(
+        self,
+        session_id: str,
+        around_message_id: Optional[str] = None,
+        *,
+        window: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Return ±``window`` messages around an anchor message in a session.
+
+        Args:
+            session_id: The session to read from.
+            around_message_id: Index (as string) of the anchor message. If
+                omitted or invalid, the most recent messages are returned.
+            window: Number of messages to include on each side of the anchor.
+
+        Returns:
+            List of message dicts with their index for further scrolling.
+        """
+        ...
+
+    def recent(self, *, limit: int = 10) -> List[SessionSummary]:
+        """Return the most recently updated sessions.
+
+        Args:
+            limit: Maximum number of sessions to return.
+
+        Returns:
+            List of :class:`SessionSummary`, most recent first.
+        """
+        ...
+
+
+@runtime_checkable
+class RuntimeStateMirroringProtocol(Protocol):
+    """Protocol for runtime state mirroring in sessions (Issue #1943).
+    
+    Enables native runtime to persist lightweight runtime-specific execution 
+    artifacts for replay, debugging, or cross-turn mirroring when users mix 
+    runtimes in one session.
+    """
+    
+    def set_runtime_state(
+        self, 
+        session_id: str, 
+        runtime_id: str, 
+        turn_id: str, 
+        state: Dict[str, Any],
+        mirror_enabled: bool = True
+    ) -> bool:
+        """Set runtime state for a specific runtime and turn.
+        
+        Args:
+            session_id: Session identifier
+            runtime_id: Runtime identifier (e.g., "native", "plugin_harness") 
+            turn_id: Turn identifier within the runtime
+            state: Runtime state data (tool call ids, transcript slices, etc.)
+            mirror_enabled: Whether runtime state mirroring is enabled (from SessionConfig.mirror_runtime_state)
+            
+        Returns:
+            True if saved successfully
+        """
+        ...
+    
+    def get_runtime_state(
+        self, 
+        session_id: str, 
+        runtime_id: str, 
+        turn_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Get runtime state for a specific runtime and optionally a turn.
+        
+        Args:
+            session_id: Session identifier
+            runtime_id: Runtime identifier
+            turn_id: Optional turn identifier (if None, returns all turns for runtime)
+            
+        Returns:
+            Runtime state data
+        """
+        ...
+    
+    def clear_runtime_state(
+        self, 
+        session_id: str, 
+        runtime_id: Optional[str] = None
+    ) -> bool:
+        """Clear runtime state for a session, optionally filtered by runtime_id.
+        
+        Args:
+            session_id: Session identifier
+            runtime_id: Optional runtime identifier (if None, clears all runtime state)
+            
+        Returns:
+            True if cleared successfully
+        """
+        ...
+
+
+@runtime_checkable
+class CheckpointQueryProtocol(Protocol):
+    """Read path for session checkpoints / rollback snapshots."""
+
+    def list_checkpoints(self, session_id: str) -> List[Dict[str, Any]]:
+        """Return checkpoint metadata for a session."""
+        ...
+
+    def get_checkpoint(self, session_id: str, checkpoint_id: str) -> Optional[Dict[str, Any]]:
+        """Return a single checkpoint payload."""
+        ...

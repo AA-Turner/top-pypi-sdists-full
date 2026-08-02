@@ -1,0 +1,28 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""
+Agent Status Type Enum.
+
+Strongly-typed enumeration for agent status types.
+"""
+
+from enum import Enum, unique
+
+from omnibase_core.enums.enum_str_enum_base import UtilStrValueHelper
+
+
+@unique
+class EnumAgentStatusType(UtilStrValueHelper, str, Enum):
+    """Agent status enumeration."""
+
+    IDLE = "idle"
+    WORKING = "working"
+    ERROR = "error"
+    TERMINATING = "terminating"
+    STARTING = "starting"
+    SUSPENDED = "suspended"
+
+
+__all__ = ["EnumAgentStatusType"]

@@ -1,0 +1,568 @@
+"""Shared mock objects and session factories for wafer tests."""
+
+import asyncio
+import json
+from urllib.parse import urlparse
+
+from wafer._base import (
+    DEFAULT_CONNECT_TIMEOUT,
+    DEFAULT_EMULATION,
+    DEFAULT_HEADERS,
+    DEFAULT_TIMEOUT,
+    _new_reddit_bootstrap_stats,
+    _normalize_timeout,
+)
+from wafer._fingerprint import FingerprintManager
+from wafer._profiles import Profile
+
+# ---------------------------------------------------------------------------
+# Mock wreq types
+# ---------------------------------------------------------------------------
+
+
+class MockStatus:
+    def __init__(self, code: int):
+        self._code = code
+
+    def as_int(self) -> int:
+        return self._code
+
+    def is_success(self) -> bool:
+        return 200 <= self._code < 300
+
+
+class MockHeaderMap:
+    """Mock wreq HeaderMap with bytes keys and bytes values.
+
+    Mirrors wreq's real HeaderMap behavior:
+    - keys() returns unique bytes keys
+    - get()/[] returns first value only
+    - get_all() returns list of all values for a key
+    """
+
+    def __init__(
+        self,
+        data: dict[str, str | list[str]] | None = None,
+    ):
+        self._raw: dict[bytes, list[bytes]] = {}
+        for k, v in (data or {}).items():
+            bk = k.lower().encode("ascii")
+            if bk not in self._raw:
+                self._raw[bk] = []
+            values = v if isinstance(v, list) else [v]
+            self._raw[bk].extend(
+                value.encode("utf-8") for value in values
+            )
+
+    def keys(self):
+        return list(self._raw.keys())
+
+    def __getitem__(self, key):
+        if isinstance(key, str):
+            key = key.lower().encode("ascii")
+        return self._raw[key][0]
+
+    def get(self, key):
+        try:
+            return self[key]
+        except KeyError:
+            return None
+
+    def get_all(self, key):
+        if isinstance(key, str):
+            key = key.lower().encode("ascii")
+        return list(self._raw.get(key, []))
+
+
+class _MockStreamer:
+    """Mock wreq Streamer: yields body bytes in fixed-size chunks.
+
+    Supports both sync (for ... in) and async (async for ... in) iteration
+    plus context-manager use, mirroring wreq's real Streamer. Used to
+    exercise wafer's streamed early-abort (max_response_size) path.
+    """
+
+    def __init__(self, data: bytes, chunk_size: int = 16):
+        self._chunks = [
+            data[i : i + chunk_size]
+            for i in range(0, max(len(data), 1), chunk_size)
+        ] if data else []
+
+    def __iter__(self):
+        return iter(self._chunks)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def __aiter__(self):
+        async def _gen():
+            for c in self._chunks:
+                yield c
+        return _gen()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *a):
+        return False
+
+
+class MockResponse:
+    def __init__(
+        self,
+        status_code: int,
+        headers: dict[str, str | list[str]] | None = None,
+        body: str = "",
+        content_length: int | None = None,
+    ):
+        self.status = MockStatus(status_code)
+        self.headers = MockHeaderMap(headers)
+        self._body = body
+        # Declared Content-Length for the response-size-cap short-circuit.
+        # None (default) = no declared length, so the cap (if any) falls
+        # through to the streamed read - matching chunked responses.
+        self.content_length = content_length
+
+    def text(self):
+        return self._body
+
+    def bytes(self):
+        return self._body.encode("utf-8")
+
+    def stream(self):
+        return _MockStreamer(self._body.encode("utf-8"))
+
+    def json(self):
+        return json.loads(self._body)
+
+
+class AsyncMockResponse:
+    """Mock response with async text() for AsyncSession tests."""
+
+    def __init__(
+        self,
+        status_code: int,
+        headers: dict[str, str | list[str]] | None = None,
+        body: str = "",
+        content_length: int | None = None,
+    ):
+        self.status = MockStatus(status_code)
+        self.headers = MockHeaderMap(headers)
+        self._body = body
+        self.content_length = content_length
+
+    async def text(self):
+        return self._body
+
+    async def bytes(self):
+        return self._body.encode("utf-8")
+
+    def stream(self):
+        return _MockStreamer(self._body.encode("utf-8"))
+
+    def json(self):
+        return json.loads(self._body)
+
+
+class MockCookie:
+    def __init__(self, name, value, domain, path, secure):
+        self.name = name
+        self.value = value
+        self.domain = domain
+        self.path = path
+        self.secure = secure
+
+
+class MockJar:
+    """Small wreq-like jar that records and resolves cookies."""
+
+    def __init__(self):
+        self.added = []
+        self._cookies: dict[tuple[str, str, str], MockCookie] = {}
+
+    def add(self, cookie_str, url):
+        self.added.append((cookie_str, url))
+        parts = [part.strip() for part in cookie_str.split(";")]
+        name, separator, value = parts[0].partition("=")
+        if not separator or not name:
+            return
+        parsed = urlparse(url)
+        domain = parsed.hostname or ""
+        path = "/"
+        secure = False
+        for part in parts[1:]:
+            attr, attr_separator, attr_value = part.partition("=")
+            attr = attr.strip().lower()
+            if attr == "domain" and attr_separator:
+                domain = attr_value.strip().lstrip(".").lower()
+            elif attr == "path" and attr_separator:
+                path = attr_value.strip() or "/"
+            elif attr == "secure":
+                secure = True
+        self._cookies[(domain, path, name)] = MockCookie(
+            name, value, domain, path, secure
+        )
+
+    def get(self, name, url):
+        parsed = urlparse(url)
+        host = (parsed.hostname or "").lower()
+        request_path = parsed.path or "/"
+        candidates = [
+            cookie
+            for (_, _, cookie_name), cookie in self._cookies.items()
+            if cookie_name == name
+            and (
+                host == cookie.domain
+                or host.endswith("." + cookie.domain)
+            )
+            and request_path.startswith(cookie.path)
+            and (not cookie.secure or parsed.scheme == "https")
+        ]
+        if not candidates:
+            return None
+        return max(candidates, key=lambda cookie: len(cookie.path))
+
+    def get_all(self):
+        return list(self._cookies.values())
+
+
+def _install_response_cookies(cookie_jar, response, url):
+    for raw in response.headers.get_all("set-cookie"):
+        cookie_jar.add(raw.decode("utf-8"), url)
+
+
+class MockClient:
+    """Mock wreq client that returns responses from a sequence.
+
+    Unified superset: tracks request_count, last_kwargs, request_log,
+    and optionally has a cookie_jar.
+    """
+
+    def __init__(
+        self,
+        responses: list[MockResponse | Exception],
+        cookie_jar: MockJar | None = None,
+    ):
+        self._responses = responses
+        self._index = 0
+        self.request_count = 0
+        self.last_kwargs: dict = {}
+        self.request_log: list[tuple] = []
+        self.cookie_jar = cookie_jar or MockJar()
+
+    def request(self, method, url, **kwargs):
+        self.last_kwargs = kwargs
+        resp = self._responses[
+            min(self._index, len(self._responses) - 1)
+        ]
+        self._index += 1
+        self.request_count += 1
+        self.request_log.append((method, url, kwargs))
+        if isinstance(resp, Exception):
+            raise resp
+        _install_response_cookies(self.cookie_jar, resp, url)
+        return resp
+
+    def get(self, url, **kwargs):
+        return self.request("GET", url, **kwargs)
+
+    def post(self, url, **kwargs):
+        return self.request("POST", url, **kwargs)
+
+
+class AsyncMockClient:
+    """Async mock wreq client."""
+
+    def __init__(
+        self,
+        responses: list[AsyncMockResponse | Exception],
+        cookie_jar: MockJar | None = None,
+    ):
+        self._responses = responses
+        self._index = 0
+        self.request_count = 0
+        self.last_kwargs: dict = {}
+        self.request_log: list[tuple] = []
+        self.cookie_jar = cookie_jar or MockJar()
+
+    async def request(self, method, url, **kwargs):
+        self.last_kwargs = kwargs
+        resp = self._responses[
+            min(self._index, len(self._responses) - 1)
+        ]
+        self._index += 1
+        self.request_count += 1
+        self.request_log.append((method, url, kwargs))
+        if isinstance(resp, Exception):
+            raise resp
+        _install_response_cookies(self.cookie_jar, resp, url)
+        return resp
+
+    async def get(self, url, **kwargs):
+        return await self.request("GET", url, **kwargs)
+
+    async def post(self, url, **kwargs):
+        return await self.request("POST", url, **kwargs)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def to_async_responses(responses):
+    """Convert MockResponse/Exception list to AsyncMockResponse list.
+
+    Exceptions and pre-built AsyncMockResponse instances (including
+    subclasses with custom bytes()) pass through unchanged.
+    """
+    result = []
+    for r in responses:
+        if isinstance(r, (Exception, AsyncMockResponse)):
+            result.append(r)
+        else:
+            # Preserve repeated header values, especially Set-Cookie.
+            headers = {}
+            for bk, vals in r.headers._raw.items():
+                headers[bk.decode()] = [
+                    value.decode() for value in vals
+                ]
+            result.append(
+                AsyncMockResponse(
+                    r.status.as_int(),
+                    headers,
+                    r._body,
+                    content_length=r.content_length,
+                )
+            )
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Session factories
+# ---------------------------------------------------------------------------
+
+
+def make_sync_session(responses, **session_kwargs):
+    """Create a SyncSession with a mocked client.
+
+    All BaseSession attributes are defaulted. Override via session_kwargs:
+    - max_retries, max_rotations, max_failures
+    - follow_redirects, max_redirects
+    - embed_origin, embed_referers
+    - browser_solver
+    - cookie_cache, rate_limiter
+    """
+    from wafer._sync import SyncSession
+
+    session = SyncSession.__new__(SyncSession)
+
+    session.headers = dict(DEFAULT_HEADERS)
+    session._chrome_headers = dict(DEFAULT_HEADERS)
+    session._user_headers = False
+
+    session.connect_timeout = DEFAULT_CONNECT_TIMEOUT
+    session.timeout = DEFAULT_TIMEOUT
+    _attempt = session_kwargs.get("attempt_timeout", None)
+    session.attempt_timeout = (
+        _normalize_timeout(_attempt) if _attempt is not None else None
+    )
+    session.max_retries = session_kwargs.get("max_retries", 3)
+    session.max_rotations = session_kwargs.get("max_rotations", 10)
+
+    session.max_failures = session_kwargs.get(
+        "max_failures", 3
+    )
+    session.max_response_size = session_kwargs.get(
+        "max_response_size", None
+    )
+    session._fingerprint = FingerprintManager(DEFAULT_EMULATION)
+    _pool = session_kwargs.get("fingerprint_pool", None)
+    session._fingerprint_pool = list(_pool) if _pool else None
+    session._pool_index = 0
+    session._pool_strikes = {}
+    session._cookie_cache = session_kwargs.get("cookie_cache", None)
+    session._cookie_scopes = {}
+    session._reddit_bootstrap_stats = _new_reddit_bootstrap_stats()
+    session._rate_limiter = session_kwargs.get("rate_limiter", None)
+    session._domain_failures = {}
+    session._last_url = {}
+    session._body_capable_domains = set()
+    embed_origin = session_kwargs.get("embed_origin", None)
+    embed = session_kwargs.get("embed", None)
+    if embed_origin and embed is None:
+        embed = "xhr"
+    session._embed = embed
+    session._embed_origin = embed_origin
+    session._embed_referers = session_kwargs.get(
+        "embed_referers", []
+    )
+    session.follow_redirects = session_kwargs.get(
+        "follow_redirects", True
+    )
+    session.max_redirects = session_kwargs.get("max_redirects", 10)
+    session._browser_solver = session_kwargs.get(
+        "browser_solver", None
+    )
+    session._owns_solver = session_kwargs.get("owns_solver", False)
+    session._solve_origin = session_kwargs.get("solve_origin", None)
+    session._recaptcha_v = {}
+    session._native_tls = None
+    session._native_tls_domains = set()
+    session._resolve = session_kwargs.get("resolve", None) or {}
+    session._proxy = None
+    session._proxy_url = None
+    session._rotate_every = session_kwargs.get("rotate_every", None)
+    session._request_count = 0
+    profile = session_kwargs.get("profile", None)
+    session._profile = profile
+    session._om_identity = None
+    session._safari_identity = None
+    session._ios_safari_identity = None
+    session._dart_identity = None
+    session._safari_locale = "us"
+    session._tried_safari = profile in (
+        Profile.SAFARI,
+        Profile.IOS_SAFARI,
+        Profile.DART,
+    )
+
+    if profile is Profile.DART:
+        from wafer._dart import DartIdentity
+
+        session._dart_identity = DartIdentity()
+        session.headers = session._dart_identity.client_headers()
+        session._chrome_headers = None
+        session._fingerprint = None
+    elif profile is Profile.IOS_SAFARI:
+        from wafer._ios import IOSSafariIdentity
+
+        session._ios_safari_identity = IOSSafariIdentity()
+        session.headers = session._ios_safari_identity.client_headers()
+        session._chrome_headers = None
+        session._fingerprint = None
+
+    session._client_headers = session._compute_client_headers()
+
+    use_cookie_jar = session_kwargs.get("use_cookie_jar", False)
+    jar = MockJar() if use_cookie_jar else None
+    mock = MockClient(responses, cookie_jar=jar)
+    session._client = mock
+    session._rebuild_client = lambda: None
+    session._retire_session = lambda domain: None
+    return session, mock
+
+
+def make_async_session(responses, **session_kwargs):
+    """Create an AsyncSession with a mocked client."""
+    from wafer._async import AsyncSession
+
+    session = AsyncSession.__new__(AsyncSession)
+
+    session.headers = dict(DEFAULT_HEADERS)
+    session._chrome_headers = dict(DEFAULT_HEADERS)
+    session._user_headers = False
+
+    session.connect_timeout = DEFAULT_CONNECT_TIMEOUT
+    session.timeout = DEFAULT_TIMEOUT
+    _attempt = session_kwargs.get("attempt_timeout", None)
+    session.attempt_timeout = (
+        _normalize_timeout(_attempt) if _attempt is not None else None
+    )
+    session.max_retries = session_kwargs.get("max_retries", 3)
+    session.max_rotations = session_kwargs.get("max_rotations", 10)
+
+    session.max_failures = session_kwargs.get(
+        "max_failures", 3
+    )
+    session.max_response_size = session_kwargs.get(
+        "max_response_size", None
+    )
+    session._fingerprint = FingerprintManager(DEFAULT_EMULATION)
+    _pool = session_kwargs.get("fingerprint_pool", None)
+    session._fingerprint_pool = list(_pool) if _pool else None
+    session._pool_index = 0
+    session._pool_strikes = {}
+    session._cookie_cache = session_kwargs.get("cookie_cache", None)
+    session._cookie_scopes = {}
+    session._reddit_bootstrap_stats = _new_reddit_bootstrap_stats()
+    session._rate_limiter = session_kwargs.get("rate_limiter", None)
+    session._domain_failures = {}
+    session._last_url = {}
+    session._body_capable_domains = set()
+    embed_origin = session_kwargs.get("embed_origin", None)
+    embed = session_kwargs.get("embed", None)
+    if embed_origin and embed is None:
+        embed = "xhr"
+    session._embed = embed
+    session._embed_origin = embed_origin
+    session._embed_referers = session_kwargs.get(
+        "embed_referers", []
+    )
+    session.follow_redirects = session_kwargs.get(
+        "follow_redirects", True
+    )
+    session.max_redirects = session_kwargs.get("max_redirects", 10)
+    session._browser_solver = session_kwargs.get(
+        "browser_solver", None
+    )
+    session._owns_solver = session_kwargs.get("owns_solver", False)
+    session._solve_origin = session_kwargs.get("solve_origin", None)
+    session._recaptcha_v = {}
+    session._native_tls = None
+    session._native_tls_domains = set()
+    session._resolve = session_kwargs.get("resolve", None) or {}
+    session._proxy = None
+    session._proxy_url = None
+    session._rotate_every = session_kwargs.get("rotate_every", None)
+    session._request_count = 0
+    session._rotate_lock = asyncio.Lock()
+    session._reddit_bootstrap_lock = asyncio.Lock()
+    session._reddit_bootstrap_generation = 0
+    session._reddit_bootstrap_client_generation = None
+    session._client_generation = 0
+    profile = session_kwargs.get("profile", None)
+    session._profile = profile
+    session._om_identity = None
+    session._safari_identity = None
+    session._ios_safari_identity = None
+    session._dart_identity = None
+    session._safari_locale = "us"
+    session._tried_safari = profile in (
+        Profile.SAFARI,
+        Profile.IOS_SAFARI,
+        Profile.DART,
+    )
+
+    if profile is Profile.DART:
+        from wafer._dart import DartIdentity
+
+        session._dart_identity = DartIdentity()
+        session.headers = session._dart_identity.client_headers()
+        session._chrome_headers = None
+        session._fingerprint = None
+    elif profile is Profile.IOS_SAFARI:
+        from wafer._ios import IOSSafariIdentity
+
+        session._ios_safari_identity = IOSSafariIdentity()
+        session.headers = session._ios_safari_identity.client_headers()
+        session._chrome_headers = None
+        session._fingerprint = None
+
+    session._client_headers = session._compute_client_headers()
+
+    async_responses = to_async_responses(responses)
+    use_cookie_jar = session_kwargs.get("use_cookie_jar", False)
+    jar = MockJar() if use_cookie_jar else None
+    mock = AsyncMockClient(async_responses, cookie_jar=jar)
+    session._client = mock
+    session._rebuild_client = lambda: None
+
+    async def _noop_retire(domain):
+        pass
+
+    session._retire_session = _noop_retire
+    return session, mock

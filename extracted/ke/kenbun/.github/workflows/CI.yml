@@ -1,0 +1,470 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  release-state:
+    name: Release State
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    outputs:
+      has_release: ${{ steps.release.outputs.has-release }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for release file
+        id: release
+        run: |
+          has_release=false
+
+          if [ "${{ github.event_name }}" = "push" ] && \
+             [ "${{ github.ref }}" = "refs/heads/main" ] && \
+             [ -f RELEASE.md ]; then
+            has_release=true
+          fi
+
+          echo "has-release=$has_release" >> "$GITHUB_OUTPUT"
+
+      - name: Check release metadata
+        if: steps.release.outputs.has-release == 'true'
+        uses: autopub/autopub-action@5fdc82e84c048a82303de6b5c5a9d027665e73cf # v1.1.1
+        with:
+          command: check
+          autopub-version: "1.0.0a60"
+
+      - name: Install uv
+        if: steps.release.outputs.has-release == 'true'
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      # Compute the release version once, here on Linux (autopub needs a
+      # cryptography wheel, which doesn't exist for windows-arm). Build jobs
+      # just stamp this value with a tomlkit-only script.
+      - name: Compute release version
+        id: version
+        if: steps.release.outputs.has-release == 'true'
+        run: |
+          version=$(uvx --from autopub==1.0.0a60 --with tomlkit python scripts/version_tool.py compute)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - name: Install dev dependencies
+        run: uv sync --group dev --no-install-project
+      - name: Ruff check
+        run: uv run --no-sync ruff check .
+      - name: Ruff format check
+        run: uv run --no-sync ruff format --check .
+      - name: Cargo fmt
+        run: cargo fmt --check
+      - name: Cargo clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Cargo test
+        run: cargo test --all-targets --all-features
+      - name: Cargo deny
+        uses: EmbarkStudios/cargo-deny-action@8a45e1c7c9a95dfae3276e89a553705e40ae45a2 # v2.0.20
+
+  linux:
+    needs: release-state
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      matrix:
+        platform:
+          - runner: ubuntu-22.04
+            arch: x86_64
+            target: x86_64-unknown-linux-gnu
+          - runner: ubuntu-22.04
+            arch: x86
+            target: i686-unknown-linux-gnu
+          - runner: ubuntu-22.04
+            arch: aarch64
+            target: aarch64-unknown-linux-gnu
+          - runner: ubuntu-22.04
+            arch: armv7
+            target: armv7-unknown-linux-gnueabihf
+          - runner: ubuntu-22.04
+            arch: s390x
+            target: s390x-unknown-linux-gnu
+          - runner: ubuntu-22.04
+            arch: ppc64le
+            target: powerpc64le-unknown-linux-gnu
+          - runner: ubuntu-22.04
+            arch: riscv64
+            target: riscv64gc-unknown-linux-gnu
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/prepare-release
+        with:
+          enabled: ${{ needs.release-state.outputs.has_release }}
+          version: ${{ needs.release-state.outputs.version }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: 3.x
+          allow-prereleases: true
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --release --out dist --interpreter python3.10 python3.11 python3.12 python3.13 python3.14 python3.14t pypy3.11
+          sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          manylinux: auto
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-linux-${{ matrix.platform.arch }}
+          path: dist
+
+  musllinux:
+    needs: release-state
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      matrix:
+        platform:
+          - runner: ubuntu-22.04
+            target: x86_64
+          - runner: ubuntu-22.04
+            target: x86
+          - runner: ubuntu-22.04
+            target: aarch64
+          - runner: ubuntu-22.04
+            target: armv7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/prepare-release
+        with:
+          enabled: ${{ needs.release-state.outputs.has_release }}
+          version: ${{ needs.release-state.outputs.version }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: 3.x
+          allow-prereleases: true
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --release --out dist --interpreter python3.10 python3.11 python3.12 python3.13 python3.14 python3.14t pypy3.11
+          sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          manylinux: musllinux_1_2
+          before-script-linux: |
+            apt-get update
+            apt-get install -y software-properties-common
+            add-apt-repository ppa:deadsnakes/ppa -y
+            apt-get update
+            apt-get install -y python3.14 python3.14-dev python3.14-venv
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-musllinux-${{ matrix.platform.target }}
+          path: dist
+
+  windows:
+    needs: release-state
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      matrix:
+        platform:
+          - runner: windows-latest
+            target: x64
+          - runner: windows-latest
+            target: x86
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/prepare-release
+        with:
+          enabled: ${{ needs.release-state.outputs.has_release }}
+          version: ${{ needs.release-state.outputs.version }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: |
+            3.10
+            3.11
+            3.12
+            3.13
+            3.14
+          architecture: ${{ matrix.platform.target }}
+          allow-prereleases: true
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --release --out dist --interpreter 3.10 3.11 3.12 3.13 3.14
+          sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-windows-${{ matrix.platform.target }}
+          path: dist
+
+  windows-x64-freethreaded:
+    needs: release-state
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/prepare-release
+        with:
+          enabled: ${{ needs.release-state.outputs.has_release }}
+          version: ${{ needs.release-state.outputs.version }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14t'
+          architecture: x64
+          allow-prereleases: true
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: x64
+          args: --release --out dist --interpreter 3.14t
+          sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-windows-x64-freethreaded
+          path: dist
+
+  windows-x86-freethreaded:
+    needs: release-state
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/prepare-release
+        with:
+          enabled: ${{ needs.release-state.outputs.has_release }}
+          version: ${{ needs.release-state.outputs.version }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14t'
+          architecture: x86
+          allow-prereleases: true
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: x86
+          args: --release --out dist --interpreter 3.14t
+          sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-windows-x86-freethreaded
+          path: dist
+
+  windows-arm:
+    needs: release-state
+    runs-on: windows-11-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/prepare-release
+        with:
+          enabled: ${{ needs.release-state.outputs.has_release }}
+          version: ${{ needs.release-state.outputs.version }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: |
+            3.11
+            3.12
+            3.13
+            3.14
+          architecture: arm64
+          allow-prereleases: true
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: aarch64
+          args: --release --out dist --interpreter 3.11 3.12 3.13 3.14
+          sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-windows-arm64
+          path: dist
+
+  windows-arm-freethreaded:
+    needs: release-state
+    runs-on: windows-11-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/prepare-release
+        with:
+          enabled: ${{ needs.release-state.outputs.has_release }}
+          version: ${{ needs.release-state.outputs.version }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14t'
+          architecture: arm64
+          allow-prereleases: true
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: aarch64
+          args: --release --out dist --interpreter 3.14t
+          sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-windows-arm64-freethreaded
+          path: dist
+
+  macos:
+    needs: release-state
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      matrix:
+        platform:
+          - runner: macos-15-intel
+            target: x86_64
+          - runner: macos-14
+            target: aarch64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/prepare-release
+        with:
+          enabled: ${{ needs.release-state.outputs.has_release }}
+          version: ${{ needs.release-state.outputs.version }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: 3.x
+          allow-prereleases: true
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          args: --release --out dist --interpreter 3.10 3.11 3.12 3.13 3.14 3.14t pypy3.11
+          sccache: ${{ !startsWith(github.ref, 'refs/tags/') }}
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-macos-${{ matrix.platform.target }}
+          path: dist
+
+  sdist:
+    needs: release-state
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/prepare-release
+        with:
+          enabled: ${{ needs.release-state.outputs.has_release }}
+          version: ${{ needs.release-state.outputs.version }}
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+      - name: Upload sdist
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-sdist
+          path: dist
+
+  test:
+    name: Test with Coverage
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version:
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+          - "3.14"
+          - "3.14t"
+          - "pypy3.11"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install dependencies
+        run: uv sync --group dev --python "${{ matrix.python-version }}"
+      - name: Build package
+        run: uv run maturin develop --uv
+      - name: Run tests with coverage
+        run: uv run pytest --cov=kenbun --cov-report=term-missing --cov-report=xml --cov-context=test
+      - name: Store coverage XML
+        uses: actions/upload-artifact@v4
+        if: matrix.python-version == '3.12'
+        with:
+          name: coverage-xml
+          path: coverage.xml
+
+  summary:
+    name: Build Summary
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [release-state, linux, musllinux, windows, windows-x64-freethreaded, windows-x86-freethreaded, windows-arm, windows-arm-freethreaded, macos]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          path: all-wheels
+      - name: Generate build summary
+        uses: patrick91/wheels-ci-action@main
+        with:
+          wheels-path: all-wheels
+          require-matrix: |
+            [
+              {
+                "platform": "Linux*",
+                "versions": "3.10-3.14,3.14t,PyPy3.11"
+              },
+              {
+                "platform": "musllinux*",
+                "versions": "3.10-3.14,3.14t,PyPy3.11"
+              },
+              {
+                "platform": "macOS*",
+                "versions": "3.10-3.14,3.14t,PyPy3.11"
+              },
+              {
+                "platform": "Windows x64",
+                "versions": "3.10-3.14,3.14t"
+              },
+              {
+                "platform": "Windows x86",
+                "versions": "3.10-3.14,3.14t"
+              },
+              {
+                "platform": "Windows ARM64",
+                "versions": "3.11-3.14,3.14t"
+              }
+            ]
+      - name: Upload build summary
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-summary
+          path: ${{ runner.temp }}/wheels-summary.md

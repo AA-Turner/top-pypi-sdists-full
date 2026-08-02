@@ -1,0 +1,1566 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+import os
+from typing import Any, cast
+
+import pytest
+
+from lithic import Lithic, AsyncLithic
+from tests.utils import assert_matches_type
+from lithic._utils import parse_date, parse_datetime
+from lithic.pagination import SyncCursorPage, AsyncCursorPage
+from lithic.types.auth_rules import (
+    AuthRule,
+    V2ListResultsResponse,
+    V2ListVersionsResponse,
+    V2RetrieveReportResponse,
+    V2RetrieveFeaturesResponse,
+)
+
+base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
+
+
+class TestV2:
+    parametrize = pytest.mark.parametrize("client", [False, True], indirect=True, ids=["loose", "strict"])
+
+    @parametrize
+    def test_method_create_overload_1(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.create(
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            type="CONDITIONAL_BLOCK",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_method_create_with_all_params_overload_1(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.create(
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            type="CONDITIONAL_BLOCK",
+            account_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            business_account_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            event_stream="AUTHORIZATION",
+            name="name",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_raw_response_create_overload_1(self, client: Lithic) -> None:
+        response = client.auth_rules.v2.with_raw_response.create(
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            type="CONDITIONAL_BLOCK",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_streaming_response_create_overload_1(self, client: Lithic) -> None:
+        with client.auth_rules.v2.with_streaming_response.create(
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            type="CONDITIONAL_BLOCK",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = response.parse()
+            assert_matches_type(AuthRule, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_method_create_overload_2(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.create(
+            card_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            type="CONDITIONAL_BLOCK",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_method_create_with_all_params_overload_2(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.create(
+            card_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            type="CONDITIONAL_BLOCK",
+            event_stream="AUTHORIZATION",
+            name="name",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_raw_response_create_overload_2(self, client: Lithic) -> None:
+        response = client.auth_rules.v2.with_raw_response.create(
+            card_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            type="CONDITIONAL_BLOCK",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_streaming_response_create_overload_2(self, client: Lithic) -> None:
+        with client.auth_rules.v2.with_streaming_response.create(
+            card_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            type="CONDITIONAL_BLOCK",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = response.parse()
+            assert_matches_type(AuthRule, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_method_create_overload_3(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.create(
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            program_level=True,
+            type="CONDITIONAL_BLOCK",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_method_create_with_all_params_overload_3(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.create(
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            program_level=True,
+            type="CONDITIONAL_BLOCK",
+            event_stream="AUTHORIZATION",
+            excluded_account_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            excluded_business_account_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            excluded_card_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            name="name",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_raw_response_create_overload_3(self, client: Lithic) -> None:
+        response = client.auth_rules.v2.with_raw_response.create(
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            program_level=True,
+            type="CONDITIONAL_BLOCK",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_streaming_response_create_overload_3(self, client: Lithic) -> None:
+        with client.auth_rules.v2.with_streaming_response.create(
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            program_level=True,
+            type="CONDITIONAL_BLOCK",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = response.parse()
+            assert_matches_type(AuthRule, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_method_retrieve(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.retrieve(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_raw_response_retrieve(self, client: Lithic) -> None:
+        response = client.auth_rules.v2.with_raw_response.retrieve(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_streaming_response_retrieve(self, client: Lithic) -> None:
+        with client.auth_rules.v2.with_streaming_response.retrieve(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = response.parse()
+            assert_matches_type(AuthRule, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_retrieve(self, client: Lithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `auth_rule_token` but received ''"):
+            client.auth_rules.v2.with_raw_response.retrieve(
+                "",
+            )
+
+    @parametrize
+    def test_method_update_overload_1(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_method_update_with_all_params_overload_1(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            account_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            business_account_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            name="name",
+            state="INACTIVE",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_raw_response_update_overload_1(self, client: Lithic) -> None:
+        response = client.auth_rules.v2.with_raw_response.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_streaming_response_update_overload_1(self, client: Lithic) -> None:
+        with client.auth_rules.v2.with_streaming_response.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = response.parse()
+            assert_matches_type(AuthRule, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_update_overload_1(self, client: Lithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `auth_rule_token` but received ''"):
+            client.auth_rules.v2.with_raw_response.update(
+                auth_rule_token="",
+            )
+
+    @parametrize
+    def test_method_update_overload_2(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_method_update_with_all_params_overload_2(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            card_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            name="name",
+            state="INACTIVE",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_raw_response_update_overload_2(self, client: Lithic) -> None:
+        response = client.auth_rules.v2.with_raw_response.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_streaming_response_update_overload_2(self, client: Lithic) -> None:
+        with client.auth_rules.v2.with_streaming_response.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = response.parse()
+            assert_matches_type(AuthRule, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_update_overload_2(self, client: Lithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `auth_rule_token` but received ''"):
+            client.auth_rules.v2.with_raw_response.update(
+                auth_rule_token="",
+            )
+
+    @parametrize
+    def test_method_update_overload_3(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_method_update_with_all_params_overload_3(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            excluded_account_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            excluded_business_account_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            excluded_card_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            name="name",
+            program_level=True,
+            state="INACTIVE",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_raw_response_update_overload_3(self, client: Lithic) -> None:
+        response = client.auth_rules.v2.with_raw_response.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_streaming_response_update_overload_3(self, client: Lithic) -> None:
+        with client.auth_rules.v2.with_streaming_response.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = response.parse()
+            assert_matches_type(AuthRule, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_update_overload_3(self, client: Lithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `auth_rule_token` but received ''"):
+            client.auth_rules.v2.with_raw_response.update(
+                auth_rule_token="",
+            )
+
+    @parametrize
+    def test_method_list(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.list()
+        assert_matches_type(SyncCursorPage[AuthRule], v2, path=["response"])
+
+    @parametrize
+    def test_method_list_with_all_params(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.list(
+            account_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            business_account_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            card_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            ending_before="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            event_stream="AUTHORIZATION",
+            event_streams=["AUTHORIZATION"],
+            page_size=1,
+            scope="PROGRAM",
+            starting_after="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(SyncCursorPage[AuthRule], v2, path=["response"])
+
+    @parametrize
+    def test_raw_response_list(self, client: Lithic) -> None:
+        response = client.auth_rules.v2.with_raw_response.list()
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(SyncCursorPage[AuthRule], v2, path=["response"])
+
+    @parametrize
+    def test_streaming_response_list(self, client: Lithic) -> None:
+        with client.auth_rules.v2.with_streaming_response.list() as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = response.parse()
+            assert_matches_type(SyncCursorPage[AuthRule], v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_method_delete(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.delete(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert v2 is None
+
+    @parametrize
+    def test_raw_response_delete(self, client: Lithic) -> None:
+        response = client.auth_rules.v2.with_raw_response.delete(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert v2 is None
+
+    @parametrize
+    def test_streaming_response_delete(self, client: Lithic) -> None:
+        with client.auth_rules.v2.with_streaming_response.delete(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = response.parse()
+            assert v2 is None
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_delete(self, client: Lithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `auth_rule_token` but received ''"):
+            client.auth_rules.v2.with_raw_response.delete(
+                "",
+            )
+
+    @parametrize
+    def test_method_draft(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.draft(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_method_draft_with_all_params(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.draft(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_raw_response_draft(self, client: Lithic) -> None:
+        response = client.auth_rules.v2.with_raw_response.draft(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_streaming_response_draft(self, client: Lithic) -> None:
+        with client.auth_rules.v2.with_streaming_response.draft(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = response.parse()
+            assert_matches_type(AuthRule, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_draft(self, client: Lithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `auth_rule_token` but received ''"):
+            client.auth_rules.v2.with_raw_response.draft(
+                auth_rule_token="",
+            )
+
+    @parametrize
+    def test_method_list_results(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.list_results()
+        assert_matches_type(SyncCursorPage[V2ListResultsResponse], v2, path=["response"])
+
+    @parametrize
+    def test_method_list_results_with_all_params(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.list_results(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            begin=parse_datetime("2019-12-27T18:11:19.117Z"),
+            end=parse_datetime("2019-12-27T18:11:19.117Z"),
+            ending_before="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            event_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            has_actions=True,
+            page_size=1,
+            starting_after="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(SyncCursorPage[V2ListResultsResponse], v2, path=["response"])
+
+    @parametrize
+    def test_raw_response_list_results(self, client: Lithic) -> None:
+        response = client.auth_rules.v2.with_raw_response.list_results()
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(SyncCursorPage[V2ListResultsResponse], v2, path=["response"])
+
+    @parametrize
+    def test_streaming_response_list_results(self, client: Lithic) -> None:
+        with client.auth_rules.v2.with_streaming_response.list_results() as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = response.parse()
+            assert_matches_type(SyncCursorPage[V2ListResultsResponse], v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_method_list_versions(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.list_versions(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(V2ListVersionsResponse, v2, path=["response"])
+
+    @parametrize
+    def test_raw_response_list_versions(self, client: Lithic) -> None:
+        response = client.auth_rules.v2.with_raw_response.list_versions(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(V2ListVersionsResponse, v2, path=["response"])
+
+    @parametrize
+    def test_streaming_response_list_versions(self, client: Lithic) -> None:
+        with client.auth_rules.v2.with_streaming_response.list_versions(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = response.parse()
+            assert_matches_type(V2ListVersionsResponse, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_list_versions(self, client: Lithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `auth_rule_token` but received ''"):
+            client.auth_rules.v2.with_raw_response.list_versions(
+                "",
+            )
+
+    @parametrize
+    def test_method_promote(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.promote(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_raw_response_promote(self, client: Lithic) -> None:
+        response = client.auth_rules.v2.with_raw_response.promote(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    def test_streaming_response_promote(self, client: Lithic) -> None:
+        with client.auth_rules.v2.with_streaming_response.promote(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = response.parse()
+            assert_matches_type(AuthRule, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_promote(self, client: Lithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `auth_rule_token` but received ''"):
+            client.auth_rules.v2.with_raw_response.promote(
+                "",
+            )
+
+    @parametrize
+    def test_method_retrieve_features(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.retrieve_features(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(V2RetrieveFeaturesResponse, v2, path=["response"])
+
+    @parametrize
+    def test_method_retrieve_features_with_all_params(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.retrieve_features(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            account_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            card_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(V2RetrieveFeaturesResponse, v2, path=["response"])
+
+    @parametrize
+    def test_raw_response_retrieve_features(self, client: Lithic) -> None:
+        response = client.auth_rules.v2.with_raw_response.retrieve_features(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(V2RetrieveFeaturesResponse, v2, path=["response"])
+
+    @parametrize
+    def test_streaming_response_retrieve_features(self, client: Lithic) -> None:
+        with client.auth_rules.v2.with_streaming_response.retrieve_features(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = response.parse()
+            assert_matches_type(V2RetrieveFeaturesResponse, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_retrieve_features(self, client: Lithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `auth_rule_token` but received ''"):
+            client.auth_rules.v2.with_raw_response.retrieve_features(
+                auth_rule_token="",
+            )
+
+    @parametrize
+    def test_method_retrieve_report(self, client: Lithic) -> None:
+        v2 = client.auth_rules.v2.retrieve_report(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            begin=parse_date("2019-12-27"),
+            end=parse_date("2019-12-27"),
+        )
+        assert_matches_type(V2RetrieveReportResponse, v2, path=["response"])
+
+    @parametrize
+    def test_raw_response_retrieve_report(self, client: Lithic) -> None:
+        response = client.auth_rules.v2.with_raw_response.retrieve_report(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            begin=parse_date("2019-12-27"),
+            end=parse_date("2019-12-27"),
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(V2RetrieveReportResponse, v2, path=["response"])
+
+    @parametrize
+    def test_streaming_response_retrieve_report(self, client: Lithic) -> None:
+        with client.auth_rules.v2.with_streaming_response.retrieve_report(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            begin=parse_date("2019-12-27"),
+            end=parse_date("2019-12-27"),
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = response.parse()
+            assert_matches_type(V2RetrieveReportResponse, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_retrieve_report(self, client: Lithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `auth_rule_token` but received ''"):
+            client.auth_rules.v2.with_raw_response.retrieve_report(
+                auth_rule_token="",
+                begin=parse_date("2019-12-27"),
+                end=parse_date("2019-12-27"),
+            )
+
+
+class TestAsyncV2:
+    parametrize = pytest.mark.parametrize(
+        "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
+    )
+
+    @parametrize
+    async def test_method_create_overload_1(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.create(
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            type="CONDITIONAL_BLOCK",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_method_create_with_all_params_overload_1(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.create(
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            type="CONDITIONAL_BLOCK",
+            account_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            business_account_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            event_stream="AUTHORIZATION",
+            name="name",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_raw_response_create_overload_1(self, async_client: AsyncLithic) -> None:
+        response = await async_client.auth_rules.v2.with_raw_response.create(
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            type="CONDITIONAL_BLOCK",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_create_overload_1(self, async_client: AsyncLithic) -> None:
+        async with async_client.auth_rules.v2.with_streaming_response.create(
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            type="CONDITIONAL_BLOCK",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = await response.parse()
+            assert_matches_type(AuthRule, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_method_create_overload_2(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.create(
+            card_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            type="CONDITIONAL_BLOCK",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_method_create_with_all_params_overload_2(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.create(
+            card_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            type="CONDITIONAL_BLOCK",
+            event_stream="AUTHORIZATION",
+            name="name",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_raw_response_create_overload_2(self, async_client: AsyncLithic) -> None:
+        response = await async_client.auth_rules.v2.with_raw_response.create(
+            card_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            type="CONDITIONAL_BLOCK",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_create_overload_2(self, async_client: AsyncLithic) -> None:
+        async with async_client.auth_rules.v2.with_streaming_response.create(
+            card_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            type="CONDITIONAL_BLOCK",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = await response.parse()
+            assert_matches_type(AuthRule, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_method_create_overload_3(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.create(
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            program_level=True,
+            type="CONDITIONAL_BLOCK",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_method_create_with_all_params_overload_3(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.create(
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            program_level=True,
+            type="CONDITIONAL_BLOCK",
+            event_stream="AUTHORIZATION",
+            excluded_account_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            excluded_business_account_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            excluded_card_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            name="name",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_raw_response_create_overload_3(self, async_client: AsyncLithic) -> None:
+        response = await async_client.auth_rules.v2.with_raw_response.create(
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            program_level=True,
+            type="CONDITIONAL_BLOCK",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_create_overload_3(self, async_client: AsyncLithic) -> None:
+        async with async_client.auth_rules.v2.with_streaming_response.create(
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+            program_level=True,
+            type="CONDITIONAL_BLOCK",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = await response.parse()
+            assert_matches_type(AuthRule, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_method_retrieve(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.retrieve(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_raw_response_retrieve(self, async_client: AsyncLithic) -> None:
+        response = await async_client.auth_rules.v2.with_raw_response.retrieve(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_retrieve(self, async_client: AsyncLithic) -> None:
+        async with async_client.auth_rules.v2.with_streaming_response.retrieve(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = await response.parse()
+            assert_matches_type(AuthRule, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_retrieve(self, async_client: AsyncLithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `auth_rule_token` but received ''"):
+            await async_client.auth_rules.v2.with_raw_response.retrieve(
+                "",
+            )
+
+    @parametrize
+    async def test_method_update_overload_1(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_method_update_with_all_params_overload_1(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            account_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            business_account_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            name="name",
+            state="INACTIVE",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_raw_response_update_overload_1(self, async_client: AsyncLithic) -> None:
+        response = await async_client.auth_rules.v2.with_raw_response.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_update_overload_1(self, async_client: AsyncLithic) -> None:
+        async with async_client.auth_rules.v2.with_streaming_response.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = await response.parse()
+            assert_matches_type(AuthRule, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_update_overload_1(self, async_client: AsyncLithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `auth_rule_token` but received ''"):
+            await async_client.auth_rules.v2.with_raw_response.update(
+                auth_rule_token="",
+            )
+
+    @parametrize
+    async def test_method_update_overload_2(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_method_update_with_all_params_overload_2(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            card_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            name="name",
+            state="INACTIVE",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_raw_response_update_overload_2(self, async_client: AsyncLithic) -> None:
+        response = await async_client.auth_rules.v2.with_raw_response.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_update_overload_2(self, async_client: AsyncLithic) -> None:
+        async with async_client.auth_rules.v2.with_streaming_response.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = await response.parse()
+            assert_matches_type(AuthRule, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_update_overload_2(self, async_client: AsyncLithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `auth_rule_token` but received ''"):
+            await async_client.auth_rules.v2.with_raw_response.update(
+                auth_rule_token="",
+            )
+
+    @parametrize
+    async def test_method_update_overload_3(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_method_update_with_all_params_overload_3(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            excluded_account_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            excluded_business_account_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            excluded_card_tokens=["182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e"],
+            name="name",
+            program_level=True,
+            state="INACTIVE",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_raw_response_update_overload_3(self, async_client: AsyncLithic) -> None:
+        response = await async_client.auth_rules.v2.with_raw_response.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_update_overload_3(self, async_client: AsyncLithic) -> None:
+        async with async_client.auth_rules.v2.with_streaming_response.update(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = await response.parse()
+            assert_matches_type(AuthRule, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_update_overload_3(self, async_client: AsyncLithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `auth_rule_token` but received ''"):
+            await async_client.auth_rules.v2.with_raw_response.update(
+                auth_rule_token="",
+            )
+
+    @parametrize
+    async def test_method_list(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.list()
+        assert_matches_type(AsyncCursorPage[AuthRule], v2, path=["response"])
+
+    @parametrize
+    async def test_method_list_with_all_params(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.list(
+            account_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            business_account_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            card_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            ending_before="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            event_stream="AUTHORIZATION",
+            event_streams=["AUTHORIZATION"],
+            page_size=1,
+            scope="PROGRAM",
+            starting_after="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(AsyncCursorPage[AuthRule], v2, path=["response"])
+
+    @parametrize
+    async def test_raw_response_list(self, async_client: AsyncLithic) -> None:
+        response = await async_client.auth_rules.v2.with_raw_response.list()
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(AsyncCursorPage[AuthRule], v2, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_list(self, async_client: AsyncLithic) -> None:
+        async with async_client.auth_rules.v2.with_streaming_response.list() as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = await response.parse()
+            assert_matches_type(AsyncCursorPage[AuthRule], v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_method_delete(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.delete(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert v2 is None
+
+    @parametrize
+    async def test_raw_response_delete(self, async_client: AsyncLithic) -> None:
+        response = await async_client.auth_rules.v2.with_raw_response.delete(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert v2 is None
+
+    @parametrize
+    async def test_streaming_response_delete(self, async_client: AsyncLithic) -> None:
+        async with async_client.auth_rules.v2.with_streaming_response.delete(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = await response.parse()
+            assert v2 is None
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_delete(self, async_client: AsyncLithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `auth_rule_token` but received ''"):
+            await async_client.auth_rules.v2.with_raw_response.delete(
+                "",
+            )
+
+    @parametrize
+    async def test_method_draft(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.draft(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_method_draft_with_all_params(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.draft(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            parameters={
+                "conditions": [
+                    {
+                        "attribute": "MCC",
+                        "operation": "IS_ONE_OF",
+                        "value": "string",
+                    }
+                ]
+            },
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_raw_response_draft(self, async_client: AsyncLithic) -> None:
+        response = await async_client.auth_rules.v2.with_raw_response.draft(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_draft(self, async_client: AsyncLithic) -> None:
+        async with async_client.auth_rules.v2.with_streaming_response.draft(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = await response.parse()
+            assert_matches_type(AuthRule, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_draft(self, async_client: AsyncLithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `auth_rule_token` but received ''"):
+            await async_client.auth_rules.v2.with_raw_response.draft(
+                auth_rule_token="",
+            )
+
+    @parametrize
+    async def test_method_list_results(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.list_results()
+        assert_matches_type(AsyncCursorPage[V2ListResultsResponse], v2, path=["response"])
+
+    @parametrize
+    async def test_method_list_results_with_all_params(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.list_results(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            begin=parse_datetime("2019-12-27T18:11:19.117Z"),
+            end=parse_datetime("2019-12-27T18:11:19.117Z"),
+            ending_before="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            event_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            has_actions=True,
+            page_size=1,
+            starting_after="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(AsyncCursorPage[V2ListResultsResponse], v2, path=["response"])
+
+    @parametrize
+    async def test_raw_response_list_results(self, async_client: AsyncLithic) -> None:
+        response = await async_client.auth_rules.v2.with_raw_response.list_results()
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(AsyncCursorPage[V2ListResultsResponse], v2, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_list_results(self, async_client: AsyncLithic) -> None:
+        async with async_client.auth_rules.v2.with_streaming_response.list_results() as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = await response.parse()
+            assert_matches_type(AsyncCursorPage[V2ListResultsResponse], v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_method_list_versions(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.list_versions(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(V2ListVersionsResponse, v2, path=["response"])
+
+    @parametrize
+    async def test_raw_response_list_versions(self, async_client: AsyncLithic) -> None:
+        response = await async_client.auth_rules.v2.with_raw_response.list_versions(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(V2ListVersionsResponse, v2, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_list_versions(self, async_client: AsyncLithic) -> None:
+        async with async_client.auth_rules.v2.with_streaming_response.list_versions(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = await response.parse()
+            assert_matches_type(V2ListVersionsResponse, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_list_versions(self, async_client: AsyncLithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `auth_rule_token` but received ''"):
+            await async_client.auth_rules.v2.with_raw_response.list_versions(
+                "",
+            )
+
+    @parametrize
+    async def test_method_promote(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.promote(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_raw_response_promote(self, async_client: AsyncLithic) -> None:
+        response = await async_client.auth_rules.v2.with_raw_response.promote(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(AuthRule, v2, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_promote(self, async_client: AsyncLithic) -> None:
+        async with async_client.auth_rules.v2.with_streaming_response.promote(
+            "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = await response.parse()
+            assert_matches_type(AuthRule, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_promote(self, async_client: AsyncLithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `auth_rule_token` but received ''"):
+            await async_client.auth_rules.v2.with_raw_response.promote(
+                "",
+            )
+
+    @parametrize
+    async def test_method_retrieve_features(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.retrieve_features(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(V2RetrieveFeaturesResponse, v2, path=["response"])
+
+    @parametrize
+    async def test_method_retrieve_features_with_all_params(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.retrieve_features(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            account_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            card_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+        assert_matches_type(V2RetrieveFeaturesResponse, v2, path=["response"])
+
+    @parametrize
+    async def test_raw_response_retrieve_features(self, async_client: AsyncLithic) -> None:
+        response = await async_client.auth_rules.v2.with_raw_response.retrieve_features(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(V2RetrieveFeaturesResponse, v2, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_retrieve_features(self, async_client: AsyncLithic) -> None:
+        async with async_client.auth_rules.v2.with_streaming_response.retrieve_features(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = await response.parse()
+            assert_matches_type(V2RetrieveFeaturesResponse, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_retrieve_features(self, async_client: AsyncLithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `auth_rule_token` but received ''"):
+            await async_client.auth_rules.v2.with_raw_response.retrieve_features(
+                auth_rule_token="",
+            )
+
+    @parametrize
+    async def test_method_retrieve_report(self, async_client: AsyncLithic) -> None:
+        v2 = await async_client.auth_rules.v2.retrieve_report(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            begin=parse_date("2019-12-27"),
+            end=parse_date("2019-12-27"),
+        )
+        assert_matches_type(V2RetrieveReportResponse, v2, path=["response"])
+
+    @parametrize
+    async def test_raw_response_retrieve_report(self, async_client: AsyncLithic) -> None:
+        response = await async_client.auth_rules.v2.with_raw_response.retrieve_report(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            begin=parse_date("2019-12-27"),
+            end=parse_date("2019-12-27"),
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        v2 = response.parse()
+        assert_matches_type(V2RetrieveReportResponse, v2, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_retrieve_report(self, async_client: AsyncLithic) -> None:
+        async with async_client.auth_rules.v2.with_streaming_response.retrieve_report(
+            auth_rule_token="182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
+            begin=parse_date("2019-12-27"),
+            end=parse_date("2019-12-27"),
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            v2 = await response.parse()
+            assert_matches_type(V2RetrieveReportResponse, v2, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_retrieve_report(self, async_client: AsyncLithic) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `auth_rule_token` but received ''"):
+            await async_client.auth_rules.v2.with_raw_response.retrieve_report(
+                auth_rule_token="",
+                begin=parse_date("2019-12-27"),
+                end=parse_date("2019-12-27"),
+            )

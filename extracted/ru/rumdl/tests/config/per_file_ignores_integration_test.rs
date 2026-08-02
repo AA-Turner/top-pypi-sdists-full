@@ -1,6 +1,5 @@
 use rumdl_lib::config::Config;
 use rumdl_lib::rules;
-use serial_test::serial;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
@@ -364,127 +363,240 @@ fn test_per_file_ignores_config_in_subdirectory() {
     );
 }
 
-/// Test for issue #246: Verify relative path handling in find_project_root_from
-/// This test changes the current directory to exercise the relative path code path
+/// Run `rumdl check` in `dir` and return its normalized (stdout, stderr).
+///
+/// The working directory belongs to the subprocess, which is the only way to
+/// exercise a relative `--config` path: changing this process's directory would
+/// leak into every other test sharing the binary.
+fn run_check_output(dir: &Path, args: &[&str]) -> (String, String) {
+    let output = Command::new(rumdl_bin())
+        .current_dir(dir)
+        .arg("check")
+        .arg("--no-cache")
+        .args(args)
+        .output()
+        .unwrap();
+    (
+        String::from_utf8_lossy(&output.stdout).replace("\r\n", "\n"),
+        String::from_utf8_lossy(&output.stderr).replace("\r\n", "\n"),
+    )
+}
+
+/// Run `rumdl check` in `dir` and return its normalized stdout.
+fn run_check(dir: &Path, args: &[&str]) -> String {
+    run_check_output(dir, args).0
+}
+
+/// Whether any reported issue names both this file and this rule.
+fn reports(stdout: &str, file: &str, rule: &str) -> bool {
+    stdout
+        .lines()
+        .any(|line| line.starts_with(file) && line.contains(&format!("[{rule}]")))
+}
+
+/// A relative `--config` path resolves against the working directory, and the
+/// project root derived from it is what per-file-ignores patterns are matched
+/// against. A root that came out empty silently matched nothing.
 #[test]
-#[serial]
 fn test_per_file_ignores_with_actual_relative_path() {
     let temp_dir = tempdir().unwrap();
 
     // Create .config subdirectory with config file
     let config_dir = temp_dir.path().join(".config");
     fs::create_dir(&config_dir).unwrap();
-    let config_path = config_dir.join("rumdl.toml");
-    let config_content = r#"
+    fs::write(
+        config_dir.join("rumdl.toml"),
+        r#"
 [per-file-ignores]
 "CHANGELOG.md" = ["MD024"]
-"#;
-    fs::write(&config_path, config_content).unwrap();
+"#,
+    )
+    .unwrap();
 
     // Create .git directory to mark project root
-    let git_dir = temp_dir.path().join(".git");
-    fs::create_dir(&git_dir).unwrap();
+    fs::create_dir(temp_dir.path().join(".git")).unwrap();
 
-    // Create a markdown file
-    let changelog_path = temp_dir.path().join("CHANGELOG.md");
-    fs::write(&changelog_path, "# Changelog\n").unwrap();
+    // Both files repeat a heading, so MD024 has something to report in each
+    let duplicate_headings = "# Release\n\ntext\n\n## Notes\n\ntext\n\n## Notes\n\ntext\n";
+    fs::write(temp_dir.path().join("CHANGELOG.md"), duplicate_headings).unwrap();
+    fs::write(temp_dir.path().join("NOTES.md"), duplicate_headings).unwrap();
 
-    // Save original directory
-    let original_dir = std::env::current_dir().unwrap();
-
-    // Change to temp directory and use RELATIVE path
-    std::env::set_current_dir(temp_dir.path()).unwrap();
-
-    // Use relative path ".config/rumdl.toml" - this exercises the bug fix
-    let relative_config_path = ".config/rumdl.toml";
-    let load_result = rumdl_lib::config::SourcedConfig::load(Some(relative_config_path), None);
-
-    // Restore original directory before any assertions (cleanup on panic)
-    std::env::set_current_dir(&original_dir).unwrap();
-
-    // Now check results
-    let sourced = load_result.expect("Should load config from relative path");
-    let config: Config = sourced.into_validated_unchecked().into();
-
-    // Verify project_root is set and points to the temp dir (not empty string!)
-    assert!(
-        config.project_root.is_some(),
-        "project_root should be set when loading from relative path"
-    );
-    let project_root = config.project_root.as_ref().unwrap();
-    assert!(
-        !project_root.as_os_str().is_empty(),
-        "project_root should NOT be empty string (this was the bug)"
-    );
-    assert!(
-        project_root.join(".git").exists() || project_root == temp_dir.path(),
-        "project_root should be the directory containing .git"
+    let stdout = run_check(
+        temp_dir.path(),
+        &["--config", ".config/rumdl.toml", "CHANGELOG.md", "NOTES.md"],
     );
 
-    // Verify per-file-ignores works with the correctly resolved project_root
     assert!(
-        config.per_file_ignores.contains_key("CHANGELOG.md"),
-        "per_file_ignores should contain CHANGELOG.md"
+        reports(&stdout, "NOTES.md", "MD024"),
+        "MD024 must fire on the file the pattern does not cover. stdout={stdout}"
     );
-
-    // Test pattern matching works (this failed with empty project_root)
-    let ignored_rules = config.get_ignored_rules_for_file(&changelog_path);
     assert!(
-        ignored_rules.contains("MD024"),
-        "MD024 should be ignored for CHANGELOG.md, but ignored_rules = {ignored_rules:?}"
+        !reports(&stdout, "CHANGELOG.md", "MD024"),
+        "MD024 must be ignored for CHANGELOG.md. stdout={stdout}"
     );
 }
 
-/// Test the edge case where relative path parent is empty string
-/// This directly tests the scenario that caused issue #246
+/// The same resolution with a single-component config directory, where the
+/// parent of the relative path is one bare name: walking up from it used to run
+/// out at the empty path instead of reaching the project root.
 #[test]
-#[serial]
 fn test_relative_path_with_single_component() {
     let temp_dir = tempdir().unwrap();
 
     // Create config directly in a subdirectory (simulating ".config" as the parent)
     let config_dir = temp_dir.path().join("configs");
     fs::create_dir(&config_dir).unwrap();
-    let config_path = config_dir.join("lint.toml");
-    let config_content = r#"
+    fs::write(
+        config_dir.join("lint.toml"),
+        r#"
 [per-file-ignores]
 "docs/*.md" = ["MD013"]
-"#;
-    fs::write(&config_path, config_content).unwrap();
+"#,
+    )
+    .unwrap();
 
     // Create .git in temp_dir
     fs::create_dir(temp_dir.path().join(".git")).unwrap();
 
-    // Create a docs directory with a markdown file
+    // Both files have an over-long line; only the one under docs/ is covered by
+    // the pattern. The duplicate heading is a control: it proves the covered
+    // file was linted rather than skipped.
+    let long_line = "This paragraph is deliberately far longer than the eighty character default so MD013 reports it.";
     let docs_dir = temp_dir.path().join("docs");
     fs::create_dir(&docs_dir).unwrap();
-    let readme_path = docs_dir.join("README.md");
-    fs::write(&readme_path, "# Docs\n").unwrap();
+    fs::write(
+        docs_dir.join("README.md"),
+        format!("# Docs\n\n{long_line}\n\n## Notes\n\ntext\n\n## Notes\n\ntext\n"),
+    )
+    .unwrap();
+    fs::write(
+        temp_dir.path().join("TOPLEVEL.md"),
+        format!("# Top level\n\n{long_line}\n"),
+    )
+    .unwrap();
 
-    let original_dir = std::env::current_dir().unwrap();
-    std::env::set_current_dir(temp_dir.path()).unwrap();
-
-    // Load with relative path "configs/lint.toml"
-    // Before the fix: Path::new("configs/lint.toml").parent() = "configs"
-    // find_project_root_from("configs") would traverse: "configs" -> "" -> panic/wrong behavior
-    let load_result = rumdl_lib::config::SourcedConfig::load(Some("configs/lint.toml"), None);
-
-    std::env::set_current_dir(&original_dir).unwrap();
-
-    let sourced = load_result.expect("Should load config");
-    let config: Config = sourced.into_validated_unchecked().into();
-
-    // The critical assertion: project_root should be valid, not empty
-    let project_root = config.project_root.as_ref().expect("project_root should be set");
-    assert!(
-        !project_root.as_os_str().is_empty(),
-        "project_root must not be empty string"
+    let stdout = run_check(
+        temp_dir.path(),
+        &["--config", "configs/lint.toml", "docs/README.md", "TOPLEVEL.md"],
     );
 
-    // Glob pattern matching should work
-    let ignored = config.get_ignored_rules_for_file(&readme_path);
     assert!(
-        ignored.contains("MD013"),
-        "MD013 should be ignored for docs/README.md via glob pattern"
+        reports(&stdout, "TOPLEVEL.md", "MD013"),
+        "MD013 must fire on the file the pattern does not cover. stdout={stdout}"
+    );
+    assert!(
+        reports(&stdout, "docs/README.md", "MD024"),
+        "the covered file must still be linted. stdout={stdout}"
+    );
+    assert!(
+        !reports(&stdout, "docs/README.md", "MD013"),
+        "MD013 must be ignored for docs/README.md via the glob pattern. stdout={stdout}"
+    );
+}
+
+/// An inline `enable` cannot resurrect a rule per-file-ignores excludes: the rule
+/// is dropped before the file is linted. Without a notice that is a silent no-op,
+/// with the reader sent to a config-level `disable` they do not have set.
+#[test]
+fn test_inline_enable_of_per_file_ignored_rule_warns() {
+    let temp_dir = tempdir().unwrap();
+
+    fs::write(
+        temp_dir.path().join("ignored.toml"),
+        r#"
+[per-file-ignores]
+"CHANGELOG.md" = ["MD024"]
+"#,
+    )
+    .unwrap();
+    // The same file under a pattern that does not cover it, as the control.
+    fs::write(
+        temp_dir.path().join("unrelated.toml"),
+        r#"
+[per-file-ignores]
+"OTHER.md" = ["MD024"]
+"#,
+    )
+    .unwrap();
+
+    fs::write(
+        temp_dir.path().join("CHANGELOG.md"),
+        "<!-- rumdl-enable MD024 -->\n\n# Release\n\ntext\n\n## Notes\n\ntext\n\n## Notes\n\ntext\n",
+    )
+    .unwrap();
+
+    let (stdout, stderr) = run_check_output(temp_dir.path(), &["--config", "ignored.toml", "CHANGELOG.md"]);
+    assert!(
+        stderr.contains("Rule MD024 is ignored for this file by per-file-ignores"),
+        "the notice must name per-file-ignores. stderr={stderr}"
+    );
+    assert!(
+        !reports(&stdout, "CHANGELOG.md", "MD024"),
+        "the enable must remain a no-op. stdout={stdout}"
+    );
+
+    let (control_stdout, control_stderr) =
+        run_check_output(temp_dir.path(), &["--config", "unrelated.toml", "CHANGELOG.md"]);
+    assert!(
+        !control_stderr.contains("has no effect"),
+        "a pattern that does not cover the file must not warn. stderr={control_stderr}"
+    );
+    assert!(
+        reports(&control_stdout, "CHANGELOG.md", "MD024"),
+        "the control must show MD024 running. stdout={control_stdout}"
+    );
+}
+
+/// The notice is a config problem, so `--deny-config-warnings` must fail the run
+/// on it, the same as for a config-disabled rule.
+#[test]
+fn test_inline_enable_of_per_file_ignored_rule_denies() {
+    let temp_dir = tempdir().unwrap();
+
+    fs::write(
+        temp_dir.path().join("ignored.toml"),
+        r#"
+[per-file-ignores]
+"clean.md" = ["MD024"]
+"#,
+    )
+    .unwrap();
+    fs::write(
+        temp_dir.path().join("clean.md"),
+        "<!-- rumdl-enable MD024 -->\n\n# Release\n\ntext\n",
+    )
+    .unwrap();
+
+    let deny = Command::new(rumdl_bin())
+        .current_dir(temp_dir.path())
+        .args([
+            "check",
+            "--no-cache",
+            "--deny-config-warnings",
+            "--config",
+            "ignored.toml",
+            "clean.md",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(
+        deny.status.code(),
+        Some(2),
+        "a no-effect enable must be a tool error under the flag. stderr={}",
+        String::from_utf8_lossy(&deny.stderr)
+    );
+
+    // Without the flag the same file is clean, so the notice alone does not
+    // decide the exit code.
+    let plain = Command::new(rumdl_bin())
+        .current_dir(temp_dir.path())
+        .args(["check", "--no-cache", "--config", "ignored.toml", "clean.md"])
+        .output()
+        .unwrap();
+    assert_eq!(
+        plain.status.code(),
+        Some(0),
+        "the notice must stay non-fatal by default. stderr={}",
+        String::from_utf8_lossy(&plain.stderr)
     );
 }

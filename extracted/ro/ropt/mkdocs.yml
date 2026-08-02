@@ -1,0 +1,151 @@
+site_name: ropt Documentation
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - navigation.expand
+    - navigation.footer
+    - navigation.sections
+    - content.code.copy
+    - content.code.annotate
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      primary: indigo
+      accent: blue
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      primary: teal
+      accent: lime
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+plugins:
+  - search
+  - mike
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [ src, examples ]
+          options:
+            show_source: false
+            show_bases: true
+            show_root_toc_entry: false
+            show_root_heading: true
+            show_root_full_path: true
+            show_root_members_full_path: false
+            heading_level: 2
+            members_order: source
+            show_symbol_type_heading: true
+            separate_signature: true
+            show_signature_annotations: true
+            group_by_category: false
+          inventories:
+            - https://docs.python.org/3/objects.inv
+            - https://docs.pydantic.dev/latest/objects.inv
+
+markdown_extensions:
+  - admonition
+  - def_list
+  - footnotes
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.snippets:
+      base_path: [ "docs/snippets" ]
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji ""
+      emoji_generator:
+        !!python/name:material.extensions.emoji.to_svg ""
+  - pymdownx.caret
+  - pymdownx.mark
+  - pymdownx.tilde
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
+
+extra:
+  version:
+    provider: mike
+
+watch:
+  - src
+
+repo_url: https://github.com/TNO-ropt/ropt
+repo_name: TNO-ropt/ropt
+
+nav:
+  - "About": index.md
+  - "Usage":
+      - "Background": usage/background.md
+      - "Installation": usage/installation.md
+      - "Quickstart": usage/quickstart.md
+      - "Basic Optimization": usage/basic.md
+      - "Configuration": usage/configuration.md
+      - "Writing Evaluation Callbacks": usage/evaluation_callbacks.md
+      - "Working with Results": usage/results.md
+      - "Realization Filters": usage/realization_filters.md
+      - "Function Estimators": usage/function_estimators.md
+      - "Transforms": usage/transforms.md
+      - "Stochastic Gradients": usage/gradients.md
+      - "Optimization Workflows": usage/workflows.md
+      - "Parallel Evaluation": usage/parallel.md
+      - "Logging": usage/logging.md
+  - "Tutorials":
+      - "Overview": tutorials/index.md
+      - "Deterministic Optimization": tutorials/deterministic.md
+      - "Ensemble-based Optimization": tutorials/ensemble.md
+      - "Using FunctionEvaluator": tutorials/function_evaluator.md
+      - "Using the Workflow Framework": tutorials/workflow.md
+      - "Constrained Optimization": tutorials/constrained.md
+  - "Reference":
+      - "Configuration":
+        - "Context Class": reference/context.md
+        - "Configuration Classes": reference/config.md
+      - "Basic Optimizer": reference/basic_optimizer.md
+      - "Results & Events":
+        - "Evaluation Results": reference/results.md
+        - "Optimization Events": reference/events.md
+      - "Optimization Engine":
+        - "Core Classes": reference/core.md
+        - "Evaluation Classes": reference/evaluation.md
+      - "Optimization Components":
+        - "Function Estimators": reference/function_estimator.md
+        - "Realization Filters": reference/realization_filter.md
+        - "Optimizer Backends": reference/backend.md
+        - "Samplers": reference/sampler.md
+        - "Transforms": reference/transforms.md
+      - "Workflow System":
+        - "Compute Steps": reference/workflow_compute_steps.md
+        - "Event Handlers": reference/workflow_event_handlers.md
+        - "Evaluators": reference/workflow_evaluators.md
+        - "Servers": reference/workflow_servers.md
+        - "Workflow Utilities": reference/workflow_utils.md
+      - "Plugin System":
+        - "Plugin Bases": reference/plugin_bases.md
+        - "Plugin Manager": reference/plugin_manager.md
+        - "Default Plugins": reference/default_plugins.md
+      - "Enumerations": reference/enums.md
+      - "Exceptions": reference/exceptions.md
+
+exclude_docs: |
+  /snippets/

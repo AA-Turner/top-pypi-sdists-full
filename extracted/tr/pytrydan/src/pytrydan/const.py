@@ -1,0 +1,25 @@
+KEYWORDS = {
+    "ChargeState",
+    "ChargePower",
+    "VoltageInstallation",
+    "ChargeEnergy",
+    "ChargeMode",
+    "SlaveError",
+    "ChargeTime",
+    "HousePower",
+    "FVPower",
+    "Paused",
+    "Locked",
+    "Timer",
+    "Intensity",
+    "Dynamic",
+    "MinIntensity",
+    "MaxIntensity",
+    "PauseDynamic",
+    "LightLED",
+    "LogoLED",
+    "DynamicPowerMode",
+    "ContractedPower",
+}
+
+API_TIMEOUT = 10

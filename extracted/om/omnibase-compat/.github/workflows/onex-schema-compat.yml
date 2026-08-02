@@ -1,0 +1,147 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+name: ONEX Schema Compatibility
+
+# Verifies omnibase_compat compatibility with the current ONEX Change Control schema.
+#
+# This gate:
+#   1. Checks out onex_change_control (the upstream schema authority)
+#   2. Validates any YAML schema artifacts in this repo against the current schema
+#   3. Runs is_compatible() from omnibase_spi to verify major version compatibility
+#
+# Graceful behavior: If no schema artifacts are found, the gate passes.
+
+on:
+  push:
+    branches: [main, develop, dev, "hotfix/**"]
+  pull_request:
+    branches: [main, develop, dev]
+  merge_group:
+    branches: [main, develop, dev]
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  schema-compat:
+    name: ONEX Change Control Schema Compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Checkout onex_change_control
+        uses: actions/checkout@v6
+        with:
+          repository: OmniNode-ai/onex_change_control
+          path: onex_change_control
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.6.1"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Load cached venv
+        uses: actions/cache@v5
+        with:
+          path: .venv
+          key: uv-schema-compat-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+
+      - name: Install omnibase_compat dependencies
+        run: uv sync --frozen
+
+      - name: Install onex_change_control schema validator
+        run: uv pip install ./onex_change_control
+
+      - name: Find schema artifact files
+        id: find-artifacts
+        run: |
+          set -e
+          FILES=""
+          for dir in contracts schemas artifacts drift; do
+            if [ -d "$dir" ]; then
+              FOUND=$(find "$dir" \
+                \( -name '*contract*.yaml' -o -name '*contract*.yml' \
+                   -o -name '*day_close*.yaml' -o -name '*day_close*.yml' \) \
+                2>/dev/null | sort || true)
+              if [ -n "$FOUND" ]; then
+                FILES="${FILES}${FILES:+$'\n'}${FOUND}"
+              fi
+            fi
+          done
+
+          if [ -n "$FILES" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "files<<EOF"
+              echo "$FILES"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+            echo "Schema artifacts found:"
+            echo "$FILES"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "No schema artifacts found -- skipping artifact validation"
+          fi
+
+      - name: Validate schema artifacts
+        if: steps.find-artifacts.outputs.found == 'true'
+        run: |
+          while IFS= read -r file; do
+            [ -n "$file" ] || continue
+            echo "Validating: $file"
+            uv run validate-yaml "$file"
+          done <<< "${{ steps.find-artifacts.outputs.files }}"
+
+      - name: Check schema version compatibility
+        run: |
+          OCC_VERSION=$(python3 -c "
+          import tomllib
+          with open('onex_change_control/pyproject.toml', 'rb') as f:
+              d = tomllib.load(f)
+          if 'project' in d:
+              print(d['project']['version'])
+          else:
+              print(d['tool']['poetry']['version'])
+          ")
+          echo "onex_change_control upstream version: $OCC_VERSION"
+
+          # Inline major-version compatibility check (equivalent to
+          # omnibase_spi.contracts.pipeline.contract_schema_compat.is_compatible).
+          # omnibase_compat has no omnibase_spi dependency, so we inline the logic
+          # to avoid pulling in the full SPI dependency chain.
+          OCC_VERSION="$OCC_VERSION" python3 -c "
+          import os, sys
+
+          wire_version = os.environ['OCC_VERSION']
+          reader_version = '0.1.0'
+
+          wire_major = int(wire_version.split('.')[0])
+          reader_major = int(reader_version.split('.')[0])
+
+          print(f'Compatibility check: upstream={wire_version}, reader={reader_version}')
+
+          if wire_major != reader_major:
+              print('ERROR: Schema compatibility broken!')
+              print(f'  onex_change_control upstream version: {wire_version}')
+              print(f'  omnibase_compat reader version:       {reader_version}')
+              print()
+              print('  Major version mismatch. onex_change_control released a breaking')
+              print('  schema change. To resolve:')
+              print('  1. Review breaking changes in onex_change_control CHANGELOG')
+              print('  2. Update schema artifacts in omnibase_compat to comply')
+              print('  3. Update reader_version in .github/workflows/onex-schema-compat.yml')
+              sys.exit(1)
+
+          print(f'OK: Schema compatible (upstream={wire_version}, reader={reader_version})')
+          "

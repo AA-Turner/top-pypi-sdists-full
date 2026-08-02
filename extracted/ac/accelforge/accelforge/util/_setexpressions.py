@@ -1,0 +1,339 @@
+import functools
+import itertools
+import re
+from accelforge.util.exceptions import EvaluationError
+from accelforge.util._frozenset import _sorted_iter, oset
+from pydantic import BaseModel, ConfigDict, model_serializer
+from typing import Iterator, Optional, TypeVar, Generic, Any, Union
+from accelforge.util._eval_expressions import MATH_FUNCS
+
+T = TypeVar("T")
+
+
+def _reconstruct_invertible_set(dict_state, pydantic_private):
+    """Helper function to reconstruct InvertibleSet during unpickling."""
+    obj = object.__new__(InvertibleSet)
+    obj.__dict__.update(dict_state)
+    object.__setattr__(obj, "__pydantic_fields_set__", set())
+    object.__setattr__(obj, "__pydantic_extra__", {})
+    object.__setattr__(obj, "__pydantic_private__", pydantic_private or {})
+    return obj
+
+
+class InvertibleSet(BaseModel, Generic[T]):
+    instance: frozenset[T]
+    full_space: frozenset[T]
+    space_type: type[T]
+    # child_access_name: Optional[str] = None
+    element_to_child_space: Optional[dict[str, Any]] = None
+    _bits_per_value: Optional[int] = None
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    @model_serializer
+    def _serialize_model(self):
+        """Custom serializer for InvertibleSet to avoid Pydantic serialization warnings."""
+        return {
+            "instance": list(self.instance),
+            "full_space": list(self.full_space),
+            "space_type": self.space_type.__name__,
+            "element_to_child_space": self.element_to_child_space,
+            "_bits_per_value": self._bits_per_value,
+        }
+
+    @property
+    def bits_per_value(self) -> int:
+        if len(self.instance) != 1:
+            raise ValueError(
+                f"Can not access bits_per_value for a set !=1 elements: "
+                f"{self.instance}."
+            )
+        if self._bits_per_value is None:
+            raise ValueError(f"Bits per value is not defined for set {self.instance}.")
+        return self._bits_per_value
+
+    @bits_per_value.setter
+    def bits_per_value(self, value: int):
+        self._bits_per_value = value
+
+    def __reduce__(self):
+        return (
+            _reconstruct_invertible_set,
+            (
+                self.__dict__,
+                getattr(self, "__pydantic_private__", {}),
+            ),
+        )
+
+    def __getstate__(self):
+        return self.__dict__, getattr(self, "__pydantic_private__", {})
+
+    def __setstate__(self, state):
+        dict_state, pydantic_private = state
+        self.__dict__.update(dict_state)
+        object.__setattr__(self, "__pydantic_fields_set__", set())
+        object.__setattr__(self, "__pydantic_extra__", {})
+        object.__setattr__(self, "__pydantic_private__", pydantic_private or {})
+
+    def __deepcopy__(self, memo):
+        # Share the immutable fields (frozenset[str], type, int, None) and
+        # only deep-copy the element_to_child_space dict. Faster than
+        # recursing pydantic's deepcopy path.
+        import copy
+
+        new_obj = type(self).__new__(type(self))
+        memo[id(self)] = new_obj
+        for k, v in self.__dict__.items():
+            new_obj.__dict__[k] = (
+                copy.deepcopy(v, memo)
+                if k == "element_to_child_space" and v is not None
+                else v
+            )
+        object.__setattr__(new_obj, "__pydantic_fields_set__", set())
+        object.__setattr__(new_obj, "__pydantic_extra__", {})
+        object.__setattr__(new_obj, "__pydantic_private__", {})
+        return new_obj
+
+    def __repr__(self):
+        return f"InvertibleSet({self.instance})"
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __invert__(self):
+        return self.to_my_space(self.full_space - self.instance)
+
+    def check_match_space_name(self, other):
+        if self.space_type != other.space_type:
+            raise ValueError(
+                f"Can not perform set operations between different spaces "
+                f"{self.space_type} and {other.space_type}."
+            )
+
+    def to_my_space(self, other) -> Union[set, "InvertibleSet"]:
+        return InvertibleSet(
+            instance=other.instance if isinstance(other, InvertibleSet) else other,
+            full_space=self.full_space,
+            space_type=self.space_type,
+            # child_access_name=self.child_access_name,
+            element_to_child_space=self.element_to_child_space,
+        )
+
+    @staticmethod
+    def _make_set(x) -> set:
+        return x.instance if isinstance(x, InvertibleSet) else x
+
+    def __and__(self, other: "InvertibleSet[T]") -> "InvertibleSet[T]":
+        a, b = self._make_set(self), self._make_set(other)
+        return self.to_my_space(a & b)
+
+    def __or__(self, other: "InvertibleSet[T]") -> "InvertibleSet[T]":
+        a, b = self._make_set(self), self._make_set(other)
+        return self.to_my_space(a | b)
+
+    def __sub__(self, other: "InvertibleSet[T]") -> "InvertibleSet[T]":
+        a, b = self._make_set(self), self._make_set(other)
+        return self.to_my_space(a - b)
+
+    def __xor__(self, other: "InvertibleSet[T]") -> "InvertibleSet[T]":
+        a, b = self._make_set(self), self._make_set(other)
+        return self.to_my_space(a ^ b)
+
+    def __call__(self):
+        return self
+
+    def _cast_to_child_space(self, *args, **kwargs):
+        if not self.full_space:
+            raise ValueError(f"Full space is empty for set {self.space_type}.")
+        for item in self:
+            if item not in self.element_to_child_space:
+                raise ValueError(
+                    f"Item {item} is not in the element_to_child_space "
+                    f"for set {self.space_type}."
+                )
+
+        if not self.element_to_child_space:
+            raise ValueError(
+                f"Element to child space is not set for set {self.space_type}."
+            )
+
+        first_child_space_item: InvertibleSet = next(
+            iter(self.element_to_child_space.values())
+        )
+        return first_child_space_item.to_my_space(
+            oset.union(
+                oset(), *(oset(self.element_to_child_space[item]) for item in self)
+            )
+        )
+
+    def __bool__(self):
+        return bool(self.instance)
+
+    def __len__(self):
+        return len(self.instance)
+
+    def __contains__(self, item):
+        return item in self.instance
+
+    def __iter__(self):
+        return _sorted_iter(self.instance)
+
+    def __getitem__(self, item):
+        return self.instance[item]
+
+    def iter_one_element_sets(self) -> Iterator["InvertibleSet[T]"]:
+        for item in _sorted_iter(self.instance):
+            yield InvertibleSet(
+                instance=oset((item,)),
+                full_space=self.full_space,
+                space_type=self.space_type,
+                # child_access_name=self.child_access_name,
+                element_to_child_space=self.element_to_child_space,
+            )
+
+    @property
+    def rank_variables(self) -> set["RankVariable"]:
+        from accelforge.frontend.workload import RankVariable
+        from accelforge.frontend.renames import TensorName
+
+        if self.space_type == TensorName:
+            return self._cast_to_child_space()
+        raise ValueError(
+            f"Can not get rank variables for a set with space type "
+            f"{self.space_type.__name__}."
+        )
+
+    @property
+    def tensors(self) -> set["TensorName"]:
+        from accelforge.frontend.renames import TensorName
+
+        if self.space_type == TensorName:
+            return self
+        raise ValueError(
+            f"Can not get tensors for a set with space type "
+            f"{self.space_type.__name__}."
+        )
+
+
+def set_expression_type_check(
+    result: InvertibleSet[T],
+    expected_space: type[T],
+    expected_count: int | None = None,
+    location: str | None = None,
+) -> None:
+    if not isinstance(result, InvertibleSet):
+        raise TypeError(f"Expected a InvertibleSet, got {type(result)}: {result}")
+    if expected_space is not None and result.space_type != expected_space:
+        raise ValueError(
+            f"Expected a set with space type '{expected_space.__name__}', got {result.space_type.__name__}"
+        )
+    if expected_count is not None and len(result) != expected_count:
+        raise ValueError(
+            f"Expected {expected_count=} elements, got {len(result)}: {result.instance}"
+        )
+
+
+def eval_set_expression(
+    expression: str | InvertibleSet,
+    symbol_table: dict[str, InvertibleSet],
+    expected_space: type[T],
+    location: str,
+    expected_count: int | None = None,
+    fast_error: bool = False,
+) -> InvertibleSet[T]:
+    try:
+        err = None
+        if not isinstance(expression, (InvertibleSet, str)):
+            raise TypeError(f"Expected a string, got {type(expression)}: {expression}")
+
+        prev_result = "NOT_FOUND"
+        if isinstance(expression, str):
+            result = prev_result
+            if expression in symbol_table:
+                result = symbol_table[expression]
+            elif expression[-2:] == "()" and expression[:-2] in symbol_table:
+                try:
+                    result = symbol_table[expression[:-2]]()
+                except:
+                    pass
+        else:
+            result = expression
+
+        if id(result) == id(prev_result):
+            result = eval(expression, {"__builtins__": MATH_FUNCS}, symbol_table)
+
+        if not isinstance(result, InvertibleSet):
+            raise TypeError(
+                f"Returned a non-InvertibleSet with type {type(result)}: {result}"
+            )
+        set_expression_type_check(result, expected_space, expected_count, location)
+
+    except Exception as e:
+        if fast_error:
+            err = EvaluationError(f'{e}. Set expression: "{expression}".')
+        else:
+
+            def strformat(v):
+                v = str(v)
+                return v if len(v) <= 100 else v[:100] + "..."
+
+            err = EvaluationError(
+                f'{e}. Set expression: "{expression}". Symbol table:\n\t'
+                + "\n\t".join(f"{k}: {strformat(v)}" for k, v in symbol_table.items())
+            )
+        if location is not None:
+            err.add_field(location)
+    if err:
+        raise err
+    return result
+
+
+def eval_set_expression_dict(
+    d: dict[str, Any],
+    symbol_table: dict[str, InvertibleSet],
+    expected_space: type[T],
+    location: str,
+    disjoint: bool=True,
+) -> list[tuple[str, "frozenset[T]", Any]]:
+    """
+    Evaluate a dict whose keys are set expressions, returning an ordered list of
+    ``(original_key, evaluated_instance, value)``. Implements the "Other" key and checks
+    that keys are disjoint.
+    """
+    items = list(d.items())
+    others = [i for i, (k, _) in enumerate(items) if re.findall(r"\bOther\b", k)]
+    if len(others) > 1:
+        raise EvaluationError(
+            f"Other appears more than once (indexes {others}) in {location}. "
+            "It may appear at most once."
+        )
+
+    evaluated: list[tuple[str, Any, Any]] = []
+    
+    symbol_table = symbol_table.copy()
+    symbol_table["Other"] = symbol_table["All"]
+
+    def _eval(i):
+        k, v = items[i]
+        ins = eval_set_expression(
+            expression=k,
+            symbol_table=symbol_table,
+            expected_space=expected_space,
+            location=f"{location}[{k}]",
+        ).instance
+        symbol_table["Other"] -= ins
+        return k, ins, v
+    
+    eval_order = [i for i in range(len(items)) if i not in others] + others
+    for i in eval_order:
+        evaluated.append(_eval(i))
+
+    if disjoint:
+        for (ka, a, _), (kb, b, _) in itertools.combinations(evaluated, 2):
+            if a & b:
+                raise EvaluationError(
+                    f"{location} keys {ka} and {kb} overlap on {set(a & b)}."
+                )
+
+    return evaluated

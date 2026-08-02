@@ -1,0 +1,17 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+  "setuptools>=40.6.0",
+  "versioneer-518",
+  "wheel"
+]
+
+[tool.black]
+line-length = 88
+python-version = ["py38"]
+
+[[tool.mypy.overrides]]
+module = [
+    "importlib_metadata",
+]
+ignore_missing_imports = true

@@ -1,0 +1,59 @@
+from enum import StrEnum, auto
+
+
+class TissueBlockEnum(StrEnum):
+    SMALL: str = auto()
+    LARGE: str = auto()
+    BLANK: str = ""
+
+
+class ElutionBuffer(StrEnum):
+    """The choices of buffers."""
+
+    OTHER = "Other"
+    TRIS_HCL = "Tris-HCl"
+    WATER = "Nuclease-free water"
+
+
+ALLOWED_SKIP_RC_BUFFERS = [ElutionBuffer.TRIS_HCL, ElutionBuffer.WATER]
+
+MINIMUM_VOLUME, MAXIMUM_VOLUME = 20, 130
+
+
+class ExtractionMethod(StrEnum):
+    EZ1 = "EZ1"
+    MAELSTROM = "Maelstrom"
+    MAGNAPURE_96 = "MagNaPure 96"
+    QIAGEN_MAGATTRACT = "Qiagen MagAttract"
+    QIASYMPHONE = "QIAsymphony"
+    OTHER = 'Other (specify in "Comments")'
+
+
+class IndexEnum(StrEnum):
+    ARCHER_SET_B = "Archer Set B"
+    AVIDA_INDEX_PLATE = "Avida Index plate"
+    AVIDA_INDEX_STRIP = "Avida Index strip"
+    BIOMODAL = "Biomodal"
+    IDT_DS_A_V2 = "IDT DupSeq 10bp Set A v2"
+    IDT_DS_B = "IDT DupSeq 10 bp Set B"
+    IDT_DS_D_V2 = "IDT DupSeq 10bp Set D v2"
+    IDT_DS_E_V2 = "IDT DupSeq 10bp Set E v2"
+    IDT_DS_F = "IDT DupSeq 10 bp Set F"
+    IDT_XGEN_UDI = "IDT xGen UDI Adapters"
+    IDT10_UDI_NIPT = "IDT10 UDI NIPT"
+    KAPA_UDI_NIPT = "KAPA UDI NIPT"
+    NEBNEXT_LV_Unique_Dual_2A = "NEBNext LV Unique Dual Index Primers Set 2A"
+    NEB_E6440 = "NEB E6440"
+    NEXTERA_XT = "Nextera XT Dual"
+    NEXTFLEX_UDI_96 = "NEXTflex® Unique Dual Index Barcodes 1 - 96"
+    NEXTFLEX_V2_UDI_96 = "NEXTflex® v2 UDI Barcodes 1 - 96"
+    TEN_X_TN_A = "10X Genomics Dual Index kit TN Set A"
+    TEN_X_TT_A = "10X Genomics Dual Index kit TT Set A"
+    TWIST_UDI_A = "TWIST UDI Set A"
+    TWIST_UDI_B = "TWIST UDI Set B"
+    TWIST_UDI_C = "TWIST UDI Set C"
+    TRUSEQ_DNA_HT = "TruSeq DNA HT Dual-index (D7-D5)"
+    WM_FLY_UDI = "WM FLY UDI"
+    WM_STUBBY_UDI = "WM stubby UDI"
+    XGEN_UDI_10_1_4 = "xGen UDI 10nt Primer Plates 1-4"
+    NO_INDEX = "NoIndex"

@@ -23,13 +23,13 @@
 """Style-related constants and mappings for ODF documents.
 
 This module defines constants and dictionaries that map style family names
-to their corresponding ODF tag names, as specified in the ODF 1.2 standard.
+to their corresponding ODF tag names, as specified in the ODF standard.
 It is used internally to manage and register different types of styles.
 """
 
 from __future__ import annotations
 
-# style:family as defined by ODF 1.2, e.g. xxx possibily for:
+# style:family as defined by the ODF standard, e.g. xxx possibly for:
 # 'style:style style:family="xxx"'
 FAMILY_ODF_STD = {
     "chart",
@@ -90,6 +90,40 @@ SUBCLASSED_STYLES = {
 }
 STYLES_TO_REGISTER = (set(FAMILY_MAPPING.values()) | OTHER_STYLES) - SUBCLASSED_STYLES
 
+REQUIRES_FAMILY_STYLE_TAGS = {
+    "style:style",
+    "style:default-style",
+}
+
+FAMILY_LESS_STYLE_TAGS = {
+    "draw:fill-image",
+    "draw:gradient",
+    "draw:hatch",
+    "draw:marker",
+    "draw:opacity",
+    "draw:stroke-dash",
+    "number:boolean-style",
+    "number:currency-style",
+    "number:date-style",
+    "number:number-style",
+    "number:percentage-style",
+    "number:text-style",
+    "number:time-style",
+    "style:font-face",
+    "style:footer-style",
+    "style:header-style",
+    "style:master-page",
+    "style:page-layout",
+    "style:presentation-page-layout",
+    "svg:linearGradient",
+    "svg:radialGradient",
+    "text:bibliography-configuration",
+    "text:linenumbering-configuration",
+    "text:list-style",
+    "text:notes-configuration",
+    "text:outline-style",
+}
+
 # This mapping is not exhaustive, it only contains cases where
 # replacing '_' with '-' and adding the "fo:" prefix is not enough
 _BASE_PROPERTY_MAPPING = {  # text
@@ -118,6 +152,8 @@ _BASE_PROPERTY_MAPPING = {  # text
     # TODO 'page-break-before': 'fo:page-break-before',
     # TODO 'page-break-after': 'fo:page-break-after',
     # Graphic
+    "allow_overlap": "draw:allow-overlap",
+    "decorative": "draw:decorative",
     "fill_color": "draw:fill-color",
     "fill_image_height": "draw:fill-image-height",
     "fill_image_width": "draw:fill-image-width",
@@ -298,6 +334,7 @@ STYLE_ATTRIBUTES = {
         "style:border-line-width-top",
         "style:first-page-number",
         "style:footnote-max-height",
+        "style:margin-gutter",
         "style:footnote-sep",
         "style:layout-grid-base-height",
         "style:layout-grid-base-width",
@@ -439,6 +476,7 @@ STYLE_ATTRIBUTES = {
         "dr3d:texture-kind",
         "dr3d:texture-mode",
         "dr3d:vertical-segments",
+        "draw:allow-overlap",
         "draw:auto-grow-height",
         "draw:auto-grow-width",
         "draw:blue",
@@ -454,6 +492,7 @@ STYLE_ATTRIBUTES = {
         "draw:color-mode",
         "draw:contrast",
         "draw:decimal-places",
+        "draw:decorative",
         "draw:draw-aspect",
         "draw:end-guide",
         "draw:end-line-spacing-horizontal",

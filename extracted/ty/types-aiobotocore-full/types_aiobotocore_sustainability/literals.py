@@ -28,11 +28,15 @@ __all__ = (
     "EmissionsUnitType",
     "GetEstimatedCarbonEmissionsDimensionValuesPaginatorName",
     "GetEstimatedCarbonEmissionsPaginatorName",
+    "GetEstimatedWaterAllocationDimensionValuesPaginatorName",
+    "GetEstimatedWaterAllocationPaginatorName",
     "PaginatorName",
     "ResourceServiceName",
     "ServiceName",
     "SustainabilityServiceName",
     "TimeGranularityType",
+    "WaterAllocationTypeType",
+    "WaterAllocationUnitType",
 )
 
 
@@ -51,9 +55,15 @@ GetEstimatedCarbonEmissionsDimensionValuesPaginatorName = Literal[
     "get_estimated_carbon_emissions_dimension_values"
 ]
 GetEstimatedCarbonEmissionsPaginatorName = Literal["get_estimated_carbon_emissions"]
+GetEstimatedWaterAllocationDimensionValuesPaginatorName = Literal[
+    "get_estimated_water_allocation_dimension_values"
+]
+GetEstimatedWaterAllocationPaginatorName = Literal["get_estimated_water_allocation"]
 TimeGranularityType = Literal[
     "MONTHLY", "QUARTERLY_CALENDAR", "QUARTERLY_FISCAL", "YEARLY_CALENDAR", "YEARLY_FISCAL"
 ]
+WaterAllocationTypeType = Literal["TOTAL_WATER_WITHDRAWALS"]
+WaterAllocationUnitType = Literal["m3"]
 SustainabilityServiceName = Literal["sustainability"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -486,5 +496,8 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
-    "get_estimated_carbon_emissions", "get_estimated_carbon_emissions_dimension_values"
+    "get_estimated_carbon_emissions",
+    "get_estimated_carbon_emissions_dimension_values",
+    "get_estimated_water_allocation",
+    "get_estimated_water_allocation_dimension_values",
 ]

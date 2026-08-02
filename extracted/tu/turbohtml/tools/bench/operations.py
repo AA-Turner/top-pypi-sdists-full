@@ -1,0 +1,1015 @@
+"""
+Operation metadata and shared inputs: the single source of truth for what is benchmarked.
+
+``OPERATIONS`` (title plus time unit) is pure data the orchestrator and renderer read in any environment. ``INPUTS``
+holds the cases lazily -- a callable per operation returning ``(case name, input)`` pairs -- so corpora load only inside
+a worker that asks for them, never when the orchestrator imports this module. Both turbohtml's core timing and every
+competitor consume the identical input for an operation, so a speedup is a like-for-like ratio. ``build``-family cases
+are integer row counts; the rest are HTML strings or corpus documents.
+"""
+
+from __future__ import annotations
+
+import unicodedata
+from dataclasses import dataclass
+from textwrap import dedent
+from typing import TYPE_CHECKING, Final
+
+from bench import corpus
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+_ROWS = (("100 rows", 100), ("1k rows", 1_000), ("10k rows", 10_000))
+
+_SOCIAL_HEAD = dedent("""\
+    <head>
+      <meta property="og:title" content="Widget">
+      <meta property="og:type" content="product">
+      <meta property="og:image" content="https://x/i.png">
+      <meta property="og:description" content="A small widget">
+      <meta name="twitter:card" content="summary">
+      <meta name="twitter:site" content="@x">
+    </head>""")
+
+_STRUCTURED_PAGE = dedent("""\
+    <head>
+      <meta property="og:title" content="Widget">
+      <meta property="og:type" content="product">
+      <meta property="og:image" content="https://x/i.png">
+      <meta name="twitter:card" content="summary">
+    </head>
+    <body>
+      <script type="application/ld+json">
+        {"@context": "https://schema.org", "@type": "Product", "name": "Widget", "sku": "W-1",
+         "offers": {"@type": "Offer", "price": "9.99", "priceCurrency": "USD", "availability": "InStock"}}
+      </script>
+      <div itemscope itemtype="https://schema.org/Product">
+        <span itemprop="name">Widget</span>
+        <meta itemprop="sku" content="W-1">
+        <div itemprop="offers" itemscope itemtype="https://schema.org/Offer">
+          <span itemprop="price">9.99</span>
+          <meta itemprop="priceCurrency" content="USD">
+          <link itemprop="availability" href="https://schema.org/InStock">
+        </div>
+      </div>
+    </body>""")
+
+_MICRODATA_ITEMREF: Final = (
+    '<div itemscope itemref="'
+    + " ".join(f"r{index}" for index in range(1_000))
+    + '"></div>'
+    + "<i></i>" * 4_000
+    + "".join(f"<meta id=r{index} itemprop=p content=x>" for index in range(1_000))
+)
+
+_FEED_ITEM = dedent("""\
+    <item>
+      <title>Release {index}: what changed</title>
+      <link>https://blog.example/posts/{index}</link>
+      <guid isPermaLink="false">tag:blog.example,2026:{index}</guid>
+      <pubDate>Tue, 07 Jul 2026 09:00:00 GMT</pubDate>
+      <dc:creator>A. Writer</dc:creator>
+      <description>Short summary of release {index}.</description>
+      <content:encoded>&lt;p&gt;The full body of release {index}, with details.&lt;/p&gt;</content:encoded>
+    </item>
+""")
+
+_FEED_XML = (
+    '<?xml version="1.0" encoding="utf-8"?>\n'
+    '<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/"'
+    ' xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel>\n'
+    "<title>Example Engineering Blog</title>\n"
+    "<link>https://blog.example/</link>\n"
+    "<description>Notes from the Example engineering team.</description>\n"
+    "<lastBuildDate>Tue, 07 Jul 2026 09:00:00 GMT</lastBuildDate>\n"
+    + "".join(_FEED_ITEM.format(index=index) for index in range(30))
+    + "</channel></rss>"
+)
+
+_XML_ITEM = (
+    '<book id="b{index}" xmlns:dc="http://purl.org/dc/elements/1.1/">'
+    "<dc:title>Book number {index} &amp; friends</dc:title>"
+    "<dc:creator>Author {index}</dc:creator>"
+    '<price currency="USD">{index}.99</price>'
+    "<description><![CDATA[Plain <text> with & symbols]]></description>"
+    "<tags><tag>alpha</tag><tag>beta</tag><tag>gamma</tag></tags>"
+    "</book>"
+)
+
+# A well-formed namespaced catalog both parse_xml and lxml.etree accept: 400 records with
+# prefixes, attributes, entities and CDATA, sized to clear the CodSpeed heap-jitter floor.
+_XML_DOC = (
+    '<?xml version="1.0" encoding="UTF-8"?>\n'
+    "<!-- generated catalog -->\n"
+    '<catalog xmlns="urn:example:catalog">'
+    + "".join(_XML_ITEM.format(index=index) for index in range(400))
+    + "</catalog>"
+)
+
+_SHADOW_CARD = (
+    '<article class="card">'
+    '<template shadowrootmode="open" shadowrootclonable shadowrootdelegatesfocus>'
+    '<style>:host{{display:block}}</style><header><slot name="title">Untitled {index}</slot></header>'
+    '<section><slot>No description</slot></section><footer><slot name="meta"></slot></footer>'
+    "</template>"
+    '<span slot="title">Card {index}</span>'
+    '<p>Body copy for card number {index} with some inline <a href="/item/{index}">detail</a> text.</p>'
+    '<span slot="meta">tag-{index}</span>'
+    "</article>"
+)
+
+# A document of declarative shadow hosts: 200 web-component cards whose <template shadowrootmode> attaches an open
+# shadow root (with slots and the delegatesfocus/clonable flags) to each host, sized to clear the CodSpeed jitter floor.
+_SHADOW_DOC = (
+    "<!doctype html><html><head><title>Component gallery</title></head><body><main>"
+    + "".join(_SHADOW_CARD.format(index=index) for index in range(200))
+    + "</main></body></html>"
+)
+
+# A single-namespace records catalog and a matching XSD, sized like the parse corpus so the
+# validation walk clears the CodSpeed heap-jitter floor. Both turbohtml and lxml validate it.
+_VALIDATE_RECORD = (
+    '<record id="r{index}">'
+    "<name>Item {index}</name>"
+    "<qty>{index}</qty>"
+    "<price>{index}.99</price>"
+    "<tags><tag>alpha</tag><tag>beta</tag></tags>"
+    "</record>"
+)
+_VALIDATE_DOC = (
+    '<?xml version="1.0"?>'
+    '<catalog xmlns="urn:example:records">'
+    + "".join(_VALIDATE_RECORD.format(index=index) for index in range(400))
+    + "</catalog>"
+)
+_VALIDATE_XSD = (
+    '<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" targetNamespace="urn:example:records"'
+    ' xmlns="urn:example:records" elementFormDefault="qualified">'
+    '<xs:element name="catalog"><xs:complexType><xs:sequence>'
+    '<xs:element name="record" maxOccurs="unbounded"><xs:complexType><xs:sequence>'
+    '<xs:element name="name" type="xs:string"/>'
+    '<xs:element name="qty" type="xs:nonNegativeInteger"/>'
+    '<xs:element name="price" type="xs:decimal"/>'
+    '<xs:element name="tags"><xs:complexType><xs:sequence>'
+    '<xs:element name="tag" type="xs:string" maxOccurs="unbounded"/>'
+    "</xs:sequence></xs:complexType></xs:element>"
+    "</xs:sequence>"
+    '<xs:attribute name="id" type="xs:string" use="required"/>'
+    "</xs:complexType></xs:element>"
+    "</xs:sequence></xs:complexType></xs:element></xs:schema>"
+)
+_VALIDATE_GLOBAL_XSD: Final = (
+    '<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">'
+    + "".join(f'<xs:element name="element{index}" type="xs:string"/>' for index in range(512))
+    + "".join(
+        f'<xs:simpleType name="Type{index}"><xs:restriction base="xs:string"/></xs:simpleType>' for index in range(512)
+    )
+    + '<xs:simpleType name="TargetType"><xs:restriction base="xs:string"/></xs:simpleType>'
+    '<xs:element name="target" type="TargetType"/></xs:schema>'
+)
+_VALIDATE_GLOBAL_DOC: Final = "<target>value</target>"
+# the same records catalog described in RELAX NG (XML syntax): grammar/define/ref, an interleave over the record's four
+# child patterns, oneOrMore, and XSD datatypes. RelaxNG drives a separate C compiler and validator (relaxng.h) that the
+# XSD validate op never reaches, so this is the only bench that exercises the RELAX NG engine.
+_VALIDATE_RNG = (
+    '<grammar xmlns="http://relaxng.org/ns/structure/1.0"'
+    ' datatypeLibrary="http://www.w3.org/2001/XMLSchema-datatypes" ns="urn:example:records">'
+    '<start><ref name="catalog"/></start>'
+    '<define name="catalog"><element name="catalog"><oneOrMore><ref name="record"/></oneOrMore></element></define>'
+    '<define name="record"><element name="record">'
+    '<attribute name="id" ns=""><data type="string"/></attribute>'
+    "<interleave>"
+    '<element name="name"><text/></element>'
+    '<element name="qty"><data type="nonNegativeInteger"/></element>'
+    '<element name="price"><data type="decimal"/></element>'
+    '<element name="tags"><oneOrMore><element name="tag"><text/></element></oneOrMore></element>'
+    "</interleave>"
+    "</element></define>"
+    "</grammar>"
+)
+_COMPILE_RNG: Final = (
+    '<grammar xmlns="http://relaxng.org/ns/structure/1.0"><start><ref name="target"/></start>'
+    + "".join(f'<define name="definition{index}"><empty/></define>' for index in range(1_023))
+    + '<define name="target"><element name="target"><text/></element></define></grammar>'
+)
+
+_SANITIZE_TEMPLATES = dedent("""\
+    <article class=card>
+      <h1>{{ post.title }}</h1>
+      <p data-id="${post.id}">By {{ author.name }} on <% post.date %> in {{ post.section }}.</p>
+      <ul>
+        <li>{{ item.label }}: ${item.value}</li>
+        <li>Rating <% stars %> out of {{ max }}</li>
+      </ul>
+    </article>
+""")
+
+_SANITIZE_POST = dedent("""\
+    <div class=post>
+      <h1>Title</h1>
+      <p>Some <a href='http://example.com'>link</a> and <b>bold</b> text with
+        <img src=http://x/i.png onerror=alert(1)> and <script>evil()</script>.</p>
+      <ul><li>one</li><li>two</li></ul>
+    </div>""")
+
+# dense in the deprecated presentational tags a transform map renames (b/i/center/font/tt/big/strike), so the walk hits
+# the rename + attribute-injection path on most elements rather than passing them through unchanged
+_SANITIZE_LEGACY = dedent("""\
+    <center><font size=4><b>Heading</b></font></center>
+    <p><i>Intro</i> with <tt>inline code</tt>, <strike>struck</strike>, and <big>emphatic</big> text.</p>
+    <blockquote><b>Quote</b> from <i>an author</i> with a <font color=red>colored</font> aside.</blockquote>
+    <ul><li><b>one</b></li><li><i>two</i></li><li><tt>three</tt></li></ul>""")
+
+# dense in id/name attributes whose values collide with document/form properties (DOM clobbering), so the named-prop
+# isolation prefixes most attributes rather than skipping past a value it never touches
+_SANITIZE_NAMED = dedent("""\
+    <form name="config" id="settings">
+      <input name="attributes" id="body"><input name="method" id="location">
+      <input name="submit" id="cookie"><input name="nodeName" id="documentElement">
+      <a id="forms" name="images" href="http://example.com/x">links</a>
+      <a id="anchors" name="scripts" href="http://example.com/y">scripts</a>
+    </form>""")
+
+# dense in an app's own x-* custom elements and data-* attributes, so the custom-element matcher and attribute matcher
+# run on most elements rather than short-circuiting on a policy that keeps only the standard allowlist
+_SANITIZE_CUSTOM = dedent("""\
+    <x-shell data-theme="dark">
+      <x-card data-id="1" onclick="steal()"><b>Title</b> and <x-badge data-kind="new">new</x-badge></x-card>
+      <x-card data-id="2"><a href="javascript:evil()">bad</a> then <x-rating data-stars="4">****</x-rating> ok.</x-card>
+      <x-list><x-item data-i="1">one</x-item><x-item data-i="2">two</x-item><x-item data-i="3">three</x-item></x-list>
+    </x-shell>""")
+
+# rich in style attributes with a mix of pattern-matching and rejected values, so the allowed_styles scrub does real
+# per-declaration regex work rather than short-circuiting on an empty rule
+_SANITIZE_STYLES = dedent("""\
+    <div style="color: #ff0000; text-align: center; position: fixed">
+      <p style="color: rgb(1, 2, 3); font-size: 40px">Styled
+        <span style="text-align: left; color: green">inline</span> text.</p>
+      <p style="color: #abc; text-align: justify">More <b style="color: #123456">bold</b> content.</p>
+    </div>""")
+
+
+@dataclass(frozen=True)
+class Operation:
+    """One benchmarked operation: its display title and the time unit (``ns``, ``us``, ``ms``) its table prints in."""
+
+    title: str
+    unit: str
+
+
+# The minify operations shrink their input, so their tables carry an output-size column alongside time. Their
+# functions return the minified text; the worker records its byte length once (deterministic) beside the timing.
+SIZE_OPS: Final[frozenset[str]] = frozenset({"minify", "minify-css", "minify-js"})
+
+# Peak RSS runs in a fresh process so allocator reuse from pyperf's timed loops cannot hide the retained tree or buffer.
+MEMORY_OPS: Final[frozenset[str]] = frozenset({"parse-dense", "rewrite"})
+
+
+OPERATIONS: dict[str, Operation] = {
+    "build": Operation("build a list (constructors)", "us"),
+    "build-e": Operation("build a list (terse builders)", "us"),
+    "construct": Operation("construct N elements (no serialize)", "us"),
+    "emit": Operation("emit a built tree", "us"),
+    "shadow": Operation("attach a shadow tree with slots and flatten", "us"),
+    "parse": Operation("parse to a tree", "us"),
+    "parse-dense": Operation("parse a node-dense document", "ms"),
+    "parse-xml": Operation("parse XML to a tree", "us"),
+    "parse-xml-names": Operation("parse growing XML names", "ms"),
+    "validate": Operation("validate a document against an XSD schema", "us"),
+    "validate-rng": Operation("validate a document against a RELAX NG schema", "us"),
+    "compile-rng": Operation("compile a RELAX NG schema", "us"),
+    "parse-scripting": Operation("parse to a tree (scripting on)", "us"),
+    "parse-locations": Operation("parse to a tree (source locations)", "us"),
+    "parse-shadow": Operation("parse declarative shadow roots", "us"),
+    "fragment": Operation("parse a fragment", "us"),
+    "escape": Operation("escape", "us"),
+    "unescape": Operation("unescape", "us"),
+    "tokenize": Operation("tokenize", "us"),
+    "find": Operation("find every anchor", "us"),
+    "select": Operation("select div a[href]", "us"),
+    "select-has": Operation("select div:has(a)", "us"),
+    "computed-style": Operation("computed style for every element", "us"),
+    "computed-style-dense": Operation("computed style over a property-dense sheet", "us"),
+    "match": Operation("match each anchor against div a[href]", "us"),
+    "find-text": Operation("find by text content", "us"),
+    "find-text-overlap": Operation("find by overlapping literal regex", "us"),
+    "text-content": Operation("collect visible text", "us"),
+    "serialize": Operation("serialize a parsed tree", "us"),
+    "conformance": Operation("check HTML5 authoring conformance", "us"),
+    "serialize-xml": Operation("serialize a parsed tree to XML", "us"),
+    "canonicalize": Operation("canonicalize a parsed tree (c14n)", "us"),
+    "canonicalize-deep": Operation("canonicalize a deep xlink-free tree (c14n)", "us"),
+    "lossless-serialize": Operation("edit then re-emit untouched bytes (to_source)", "us"),
+    "minify": Operation("minify a document", "us"),
+    "edit": Operation("tag every link rel=nofollow", "us"),
+    "class-edit": Operation("class add/remove on every link", "us"),
+    "strip-remove": Operation("drop tags with content (remove)", "us"),
+    "strip-tags": Operation("unwrap tags keep content (strip_tags)", "us"),
+    "set-html": Operation("replace body inner HTML", "us"),
+    "set-text": Operation("replace body text", "us"),
+    "observe": Operation("observe a subtree through many edits", "us"),
+    "navigate": Operation("walk every descendant", "us"),
+    "treewalk": Operation("walk every element (TreeWalker)", "us"),
+    "chain": Operation("fluent jQuery-style chain", "us"),
+    "range-clone": Operation("clone a Range over the body", "us"),
+    "links-extract": Operation("extract every link", "us"),
+    "links-absolutize": Operation("absolutize every link", "us"),
+    "links-rewrite": Operation("rewrite every link", "us"),
+    "socialcard": Operation("social-card extraction", "us"),
+    "structured": Operation("structured-data extraction", "us"),
+    "microdata": Operation("Microdata item extraction", "us"),
+    "microdata-itemref": Operation("resolve 1,000 Microdata item references", "ms"),
+    "syndication": Operation("RSS/Atom feed parsing", "us"),
+    "sanitize": Operation("sanitize", "us"),
+    "sanitize-templates": Operation("sanitize (template-safe)", "us"),
+    "sanitize-named-props": Operation("sanitize (named-prop isolation)", "us"),
+    "sanitize-report": Operation("sanitize with audit trail", "us"),
+    "sanitize-styles": Operation("sanitize (style allowlist)", "us"),
+    "sanitize-transform": Operation("sanitize (tag transform)", "us"),
+    "sanitize-custom-elements": Operation("sanitize (custom elements)", "us"),
+    "sanitize-xml": Operation("sanitize (XML/XHTML output)", "us"),
+    "markup": Operation("markupsafe-compatible escape", "ns"),
+    "markup-op": Operation("Markup operations", "ns"),
+    "linkify": Operation("linkify HTML", "us"),
+    "detect": Operation("detect links in text", "us"),
+    "markdown": Operation("HTML to Markdown", "us"),
+    "markdown-google": Operation("Google Docs export to Markdown", "us"),
+    "tables": Operation("extract table grids", "us"),
+    "tables-wide": Operation("extract a wide table grid", "us"),
+    "article": Operation("article extraction", "us"),
+    "boilerplate": Operation("paragraph boilerplate classification", "us"),
+    "date": Operation("publication-date extraction", "us"),
+    "text-render": Operation("layout-aware text", "us"),
+    "text-collapsed": Operation("collapsed word stream", "us"),
+    "text-main": Operation("main-content text", "us"),
+    "text-annotated": Operation("annotated layout text", "us"),
+    "extract-attr": Operation("extract @href per match", "us"),
+    "extract-text": Operation("extract text per match", "us"),
+    "extract-url": Operation("extract URL hints", "us"),
+    "htmlparser": Operation("feed and dispatch a page", "us"),
+    "sax": Operation("SAX parse a page (no tree)", "us"),
+    "treebuild": Operation("parse into a custom tree (no DOM)", "us"),
+    "rewrite": Operation("streaming rewrite a page (no tree)", "us"),
+    "rewrite-attributes": Operation("add 1,000 custom attributes", "us"),
+    "path": Operation("css_path for every element", "us"),
+    "path-xpath": Operation("xpath_path for every element", "us"),
+    "translate": Operation("CSS selector to XPath 1.0", "us"),
+    "specificity": Operation("CSS selector specificity", "us"),
+    "xpath": Operation("XPath feature surface (9.6 kB)", "us"),
+    "xpath-id": Operation("resolve 1,000 XPath id tokens", "us"),
+    "transform": Operation("XSLT transform a catalog (120 rows)", "us"),
+    "transform-sort": Operation("XSLT sort node sets", "ms"),
+    "transform-dense": Operation("XSLT transform an instruction-dense sheet", "us"),
+    "minify-css": Operation("minify CSS", "us"),
+    "minify-js": Operation("minify a JS library", "ms"),
+    "stream": Operation("push-parse a page in chunks", "us"),
+    "encoding": Operation("detect a byte stream's encoding", "us"),
+    "decode": Operation("decode a legacy byte stream", "us"),
+    "normalize": Operation("normalize text to Unicode NFC", "us"),
+    "detect-language": Operation("detect a text's natural language", "us"),
+    "escape-identifier": Operation("escape 1,000 raw CSS identifiers", "us"),
+    "idna": Operation("normalize 4,100 URLs with Unicode hosts", "ms"),
+    "urls-clean": Operation("clean and normalize 100 URLs", "us"),
+    "links-filter": Operation("extract filtered page links", "us"),
+    "links-external": Operation("extract links outside the base site", "ms"),
+}
+
+
+def _parse_cases() -> tuple[tuple[str, object], ...]:
+    """Return the corpus documents the parse suite runs over (loaded from the html5lib-python submodule)."""
+    return (
+        *((name, corpus.corpus_text(relative, encoding)) for name, relative, encoding in corpus.CORPUS_FILES),
+        ("common tags (13 kB)", "<div><span>x</span></div>" * 500),
+    )
+
+
+def _readpath_cases() -> tuple[tuple[str, object], ...]:
+    """
+    Return the pages the read-path operations parse once then query.
+
+    Real saved web pages (a blog, a news article, a product blog) spanning 10-95 kB, plus the whatwg spec at 235 kB.
+    The wpt fixtures they replace are CSS layout tests with no nested ``div``/``a`` or links, so ``div a[href]``,
+    ``div:has(a)``, and the link/edit/chain/extract operations matched nothing and timed empty walks; these carry the
+    real structure those operations exist to traverse.
+    """
+    pages = [(name, corpus.large_text(filename, url)) for name, filename, url in corpus.REAL_PAGES]
+    label, relative, encoding = corpus.CORPUS_FILES[5]  # whatwg spec (235 kB), the large content page
+    pages.append((label, corpus.corpus_text(relative, encoding)))
+    return tuple(pages)
+
+
+def _deep_tree(depth: int, leaves: int) -> str:
+    """
+    Build a deep, wide, xlink-free tree: a spine of ``depth`` nested divs, each carrying ``leaves`` leaf spans.
+
+    Canonicalization decides every element's xmlns:xlink from whether the prefix is in scope, which the c14n serializer
+    resolved by walking node->root; the deep spine makes that per-element walk O(depth) and, xlink-free, the walk always
+    ran to the root before short-circuiting. It is the workload the drop-the-redundant-walk change (#603) turned into a
+    single local attr scan, which a shallow real page barely registers.
+    """
+    spine = "".join(
+        f"<div class='n{level}'>" + "".join(f"<span>t{level}-{leaf}</span>" for leaf in range(leaves))
+        for level in range(depth)
+    )
+    body = spine + "</div>" * depth
+    return f"<!doctype html><html><body>{body}</body></html>"
+
+
+_TOKENIZE_CASES = (
+    ("typical markup", '<div class="row"><p>Tom &amp; Jerry said "hi" to <b>O\'Brien</b>!</p><br/></div>\n' * 60),
+    ("text-heavy prose", "<p>" + "the quick brown fox jumps over the lazy dog " * 100 + "</p>"),
+    (
+        "attribute-heavy",
+        '<a href="https://example.com/path?q=1" title="example" rel="noopener" target="_blank" data-x=y>link</a>\n'
+        * 60,
+    ),
+    ("script-heavy", "<script>function f(a, b) { return a < b && b > a; }</script>\n" * 60),
+    ("entity-heavy", "<p>caf&eacute; &amp; r&eacute;sum&eacute; &#127881; &lt;tag&gt;</p>\n" * 60),
+)
+
+_FRAGMENT_HTML = "<tr><td>cell</td><td><a href='/x'>link</a></td></tr>" * 40
+
+_MARKUP_ESCAPE_CASES = (
+    ("clean (8 B)", "a value!"),
+    ("clean (32 B)", "The quick brown fox jumped ok"),
+    ("clean (256 B)", "The quick brown fox jumps over the lazy dog. " * 6),
+    ("name with ' and &", "O'Brien & Sons"),
+    ("escape-heavy markup", '<a href="/x?a=1&b=2">click & go</a>' * 2),
+)
+
+_MARKUP_OPS_HTML = "<p>Hello <b>bold</b> &amp; <i>italic</i>, see <a href='/x'>caf&eacute;</a> &#127881;</p>"
+_MARKUP_FORMAT_ARGS = ("<script>alert(1)</script>", "Tom & Jerry")
+_MARKUP_JOIN_PARTS = ("<a href='/x'>link</a>", "Tom & Jerry", "<b>bold</b>", "plain text")
+
+_LINKIFY_CASES = (
+    ("comment (1 link, 1 email)", "Ping me at bob@example.com or see https://example.com for details."),
+    ("prose (1 KiB)", "See https://example.com/path?q=1 and visit www.example.org for more. " * 15),
+    ("markup (4 KiB)", '<p>Read <a href="https://kept.example">the post</a> then go to https://example.com/x. ' * 45),
+)
+
+_MARKDOWN_ARTICLE = "<h2>Heading</h2><p>A <b>bold</b> <a href='/x'>link</a> and <code>code</code>.</p>" * 18
+_MARKDOWN_LIST = "<ul><li>item <em>one</em></li><li>item two<ul><li>nested</li></ul></li></ul>" * 40
+_MARKDOWN_TABLE = "<table><tr><th>Name</th><th>Value</th></tr><tr><td>a</td><td>1</td></tr></table>" * 35
+_MARKDOWN_CONFIGURED = (
+    "<h2>H</h2><p>A <b>b</b> & <a href='/x'>l</a>.</p>"
+    "<table><tr><th>K</th><th>V</th></tr><tr><td>a</td><td>1</td></tr></table>"
+) * 18
+_MARKDOWN_GOOGLE = (
+    '<p><span style="font-weight:700">Bold</span> and <span style="font-style:italic">italic</span> and '
+    "<span style=\"font-family:'Courier New'\">code()</span> in a line.</p>"
+) * 18
+
+_TEXT_ARTICLE = "<h2>Heading</h2><p>A paragraph of plain prose with a <a href='/x'>link</a> in it.</p>" * 16
+_TEXT_TABLE = "<table><tr><th>Region</th><th>Total</th></tr><tr><td>North</td><td>120</td></tr></table>" * 30
+_TEXT_MAIN = (
+    "<html><head><title>Comets</title></head><body>"
+    "<nav><a href='/'>Home</a> <a href='/science'>Science</a></nav>"
+    "<article><h1>Comets</h1>"
+    + (
+        "<p>A comet is an icy small body that, when it passes close to the Sun, warms up and releases gases, forming a "
+        "glowing coma around it.</p>" * 12
+    )
+    + "</article><footer><p>Copyright notice, all rights reserved here.</p></footer></body></html>"
+)
+_TEXT_ANNOTATED = "<h1>Q3</h1><p>Up <b>12%</b> with a <a href='/x'>link</a> in prose.</p>" * 16
+
+_URL_HINT_HTML = (
+    "<html><head><base href='/sub/'>"
+    "<meta http-equiv='refresh' content='5; url=next.html'>"
+    "<title>Doc</title></head><body><p>Body copy.</p></body></html>"
+)
+
+_TRANSLATE_CASES = (
+    ("type", "div"),
+    ("compound", "div.item a[href^='https']"),
+    ("structural", "ul li:nth-child(2n+1)"),
+    ("complex", "nav ul > li a[href$='.pdf']:not(.external)"),
+    ("group", "h1, h2, h3, section .title"),
+)
+
+_SVG_FRAGMENT = "<svg><rect/><rect/></svg>"
+_XPATH_FEATURES = (
+    "//div",
+    "//a[@href]",
+    "//div//a[@href]",
+    "/html/body/div",
+    "//div//a[1]",
+    "//a[contains(@href, '/')]",
+    "//div[position() <= 3]",
+    "//a/ancestor::div",
+    "//a | //span",
+    "//*[local-name() = 'a']",
+    "count(//a)",
+)
+_XPATH_PARITY = (
+    ("//a[@href=$x] (variable)", "variable"),
+    ("//a[re:test(@href, ...)] (EXSLT)", "re:test"),
+    ("//a[ends-with(@href, ...)] (XPath 2.0)", "ends-with"),
+    ("string-join(//a/@href, ...) (XPath 2.0)", "string-join"),
+    ("//a[lower-case(@href) = ...] (XPath 2.0)", "lower-case"),
+    ("//a[matches(@href, ...)] (XPath 2.0)", "matches"),
+    ("replace(//a/@href, ...) (XPath 2.0)", "replace"),
+    ("set:distinct(//a) (EXSLT)", "set:distinct"),
+    ("//a/@href (smart_strings)", "smart_strings"),
+    ("ext(//a) (extensions)", "extension"),
+    ("ext(//a)/@href (node-set extension)", "nodeset_extension"),
+    ("//svg:rect (namespaces=)", "namespaces"),
+    ("$rows/div (node-set variable)", "node_set_variable"),
+    ("//a[@href] (precompiled, reused)", "precompiled"),
+)
+_XPATH_ID_DOC: Final = "".join(f"<i id=r{index}></i>" for index in range(5_000))
+
+
+def _table_html(data_rows: int) -> str:
+    """Build a header plus ``data_rows`` four-column body rows, with a colspan to exercise span resolution."""
+    header = "<tr><th>Region</th><th>Quarter</th><th>Revenue</th><th>Units</th></tr>"
+    body = "".join(
+        f"<tr><td>R{index}</td><td>Q{index % 4 + 1}</td><td colspan=2>{index * 10}</td></tr>"
+        for index in range(data_rows)
+    )
+    return f"<table>{header}{body}</table>"
+
+
+def _article_page(paragraphs: int) -> str:
+    """Build a full page -- navigation, a scored article of ``paragraphs`` paragraphs, and a footer."""
+    head = (
+        "<html lang=en><head><title>Comets: A Field Guide</title>"
+        "<meta name=author content='Ada Lovelace'>"
+        "<meta property=article:published_time content='2024-05-06'>"
+        "<meta name=description content='A short guide to comets and the tails they trail past the Sun.'></head>"
+    )
+    nav = "<body><nav><a href='/'>Home</a> <a href='/science'>Science</a> <a href='/space'>Space</a></nav>"
+    para = (
+        "<p>A comet is an icy small body that, when it passes close to the Sun, warms up, begins to release gases, "
+        "and forms a glowing coma, a thin atmosphere, around it.</p>"
+    )
+    article = f"<article class=post><h1>Comets</h1>{para * paragraphs}</article>"
+    return f"{head}{nav}{article}<footer><p>Copyright notice, all rights reserved here.</p></footer></body></html>"
+
+
+_STYLE_SHEET = dedent("""\
+    body { color: #222; font-size: 16px; line-height: 1.5; margin: 0 }
+    a { color: navy; text-decoration: underline }
+    a:hover { color: teal }
+    nav a { font-weight: bold; text-transform: uppercase }
+    article { max-width: 40em; margin: 0 auto; padding: 1em 2em }
+    article h2 { font-size: 24px; border-bottom: 1px solid #ccc }
+    article p { margin: 0 0 1em }
+    .note { background-color: #ffd; border: 1px dashed #cc0; padding: 4px 8px }
+    .note.warning { border-color: red; color: darkred }
+    #lead { font-size: 18px !important; font-weight: 300 }
+    ul.tags li { display: inline; margin-right: 6px; color: gray }
+    footer { color: #888; font-size: 12px; text-align: center }
+    """)
+
+
+def _styled_page(sections: int) -> str:
+    """Build a styled page: a ``<style>`` sheet plus ``sections`` repeated, class- and id-tagged content blocks."""
+    section = (
+        "<article><h2>Comets</h2><p id=lead>An icy small body that warms near the Sun.</p>"
+        "<p class=note>Read the <a href='/space'>space</a> guide.</p>"
+        "<p class='note warning'>Do not stare at the Sun.</p>"
+        "<ul class=tags><li>ice</li><li>coma</li><li>tail</li></ul></article>"
+    )
+    nav = "<nav><a href='/'>Home</a> <a href='/science'>Science</a> <a href='/space'>Space</a></nav>"
+    return (
+        f"<html lang=en><head><style>{_STYLE_SHEET}</style></head><body>{nav}"
+        f"{section * sections}<footer>Copyright notice</footer></body></html>"
+    )
+
+
+# every longhand the cascade tracks, each declared once, so resolving one rule runs css_prop_id (the name->id lookup)
+# over the whole property surface -- the lookup the property table's binary search (#604) replaced a 63-row linear scan
+_DENSE_DECLS = (
+    "color:#123456;font-size:15px;font-style:italic;font-weight:600;font-variant:small-caps;"
+    "line-height:1.4;text-align:justify;text-indent:2px;text-transform:uppercase;letter-spacing:1px;"
+    "word-spacing:2px;white-space:nowrap;visibility:visible;list-style-type:square;list-style-position:inside;"
+    "cursor:pointer;direction:ltr;caption-side:bottom;display:block;position:relative;top:1px;right:2px;"
+    "bottom:3px;left:4px;float:left;clear:both;width:50px;height:60px;min-width:10px;min-height:20px;"
+    "max-width:500px;max-height:600px;margin-top:1px;margin-right:2px;margin-bottom:3px;margin-left:4px;"
+    "padding-top:1px;padding-right:2px;padding-bottom:3px;padding-left:4px;border-top-width:1px;"
+    "border-right-width:2px;border-bottom-width:3px;border-left-width:4px;border-top-style:solid;"
+    "border-right-style:dashed;border-bottom-style:dotted;border-left-style:double;border-top-color:#111;"
+    "border-right-color:#222;border-bottom-color:#333;border-left-color:#444;background-color:#eee;"
+    "background-image:none;opacity:0.9;z-index:5;overflow-x:hidden;overflow-y:scroll;vertical-align:middle;"
+    "box-sizing:border-box;outline-width:1px;outline-style:solid;outline-color:#555"
+)
+# four rules every element matches (the universal rule plus the three classes it carries), so each element resolves the
+# full longhand set four times over, the per-declaration css_prop_id lookup a utility-class framework really produces
+_DENSE_SHEET = "".join(f"{selector} {{{_DENSE_DECLS}}}\n" for selector in ("*", ".u", ".v", ".w"))
+
+
+def _dense_styled_page(sections: int) -> str:
+    """Build a page whose stylesheet declares every longhand across four rules each of ``sections`` blocks matches."""
+    section = (
+        "<section class='u v w'><div class='u v w'><p class='u v w'>Text with a "
+        "<a class='u v w' href='/x'>link</a> and <span class='u v w'>inline</span>.</p>"
+        "<ul class='u v w'><li class='u v w'>one</li><li class='u v w'>two</li></ul></div></section>"
+    )
+    return f"<html><head><style>{_DENSE_SHEET}</style></head><body>{section * sections}</body></html>"
+
+
+def _xpath_cases() -> tuple[tuple[str, object], ...]:
+    """Return one (label, (kind, text)) pair per XPath feature over the 9.6 kB page; the namespaced row carries SVG."""
+    _name, relative, encoding = corpus.CORPUS_FILES[2]
+    text = corpus.corpus_text(relative, encoding)
+    structural = tuple((f"``{feature}``", (feature, text)) for feature in _XPATH_FEATURES)
+    parity = tuple(
+        (label, (kind, text + _SVG_FRAGMENT if kind == "namespaces" else text)) for label, kind in _XPATH_PARITY
+    )
+    return structural + parity
+
+
+_XSLT_SHEET = (
+    '<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">'
+    '<xsl:output method="html"/>'
+    '<xsl:key name="by-cat" match="book" use="@cat"/>'
+    '<xsl:template match="/"><table>'
+    '<xsl:apply-templates select="catalog/book">'
+    '<xsl:sort select="price" data-type="number" order="descending"/></xsl:apply-templates>'
+    "</table></xsl:template>"
+    '<xsl:template match="book"><tr class="{@cat}"><td><xsl:number format="1"/></td>'
+    '<td><xsl:value-of select="title"/></td>'
+    "<td><xsl:value-of select=\"format-number(price, '#,##0.00')\"/></td>"
+    "<td><xsl:value-of select=\"count(key('by-cat', @cat))\"/></td></tr></xsl:template>"
+    "</xsl:stylesheet>"
+)
+_XSLT_SOURCE = (
+    "<catalog>"
+    + "".join(
+        f'<book cat="c{index % 5}"><title>Book number {index}</title><price>{index % 97 + 0.99}</price></book>'
+        for index in range(120)
+    )
+    + "</catalog>"
+)
+
+
+def _transform_cases() -> tuple[tuple[str, object], ...]:
+    """Return the one XSLT case: a real stylesheet (sort, key, number, format-number) over a 120-row catalog."""
+    return (("catalog (120 rows)", (_XSLT_SHEET, _XSLT_SOURCE)),)
+
+
+_XSLT_SORT_SHEET: Final = (
+    '<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">'
+    '<xsl:template match="/"><out><xsl:for-each select="r/n">'
+    '<xsl:sort select="@key" data-type="number"/><xsl:value-of select="@key"/><xsl:text>,</xsl:text>'
+    "</xsl:for-each></out></xsl:template></xsl:stylesheet>"
+)
+
+
+def _transform_sort_cases() -> tuple[tuple[str, object], ...]:
+    """Return shuffled numeric sorts at sizes that expose node-set scaling."""
+    return tuple(
+        (
+            f"numeric sort ({rows:,} rows)",
+            (_XSLT_SORT_SHEET, "<r>" + "".join(f'<n key="{index * 73 % rows}"/>' for index in range(rows)) + "</r>"),
+        )
+        for rows in (120, 2_000)
+    )
+
+
+# one instruction unit weighted toward the elements late in the old is_xsl probe chain: copy-of, variable, number,
+# comment and message (the last probe). Instantiating each dispatched through a chain of is_xsl calls that re-tested
+# the xsl prefix per candidate; the classify-once switch (#605) tests it once, so a late instruction stops paying for
+# the earlier probes. message is near free to run (a non-terminating one is discarded), so dispatch dominates its cost.
+_XSLT_LATE_UNIT = (
+    '<xsl:variable name="v{index}" select="@cat"/>'
+    '<xsl:number format="1"/>'
+    "<xsl:comment>c{index}</xsl:comment>"
+    '<xsl:copy-of select="title"/>'
+    "<xsl:message>m{index}</xsl:message>"
+    "<xsl:message>n{index}</xsl:message>"
+    "<xsl:message>o{index}</xsl:message>"
+)
+_XSLT_DENSE_SHEET = (
+    '<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">'
+    '<xsl:output method="xml"/>'
+    '<xsl:template match="/"><out><xsl:apply-templates select="catalog/book"/></out></xsl:template>'
+    '<xsl:template match="book"><row><xsl:value-of select="title"/>'
+    + "".join(_XSLT_LATE_UNIT.format(index=unit) for unit in range(8))
+    + "</row></xsl:template>"
+    "</xsl:stylesheet>"
+)
+_XSLT_DENSE_SOURCE = (
+    "<catalog>"
+    + "".join(
+        f'<book cat="c{index % 5}"><title>Book number {index}</title><price>{index % 97 + 0.99}</price></book>'
+        for index in range(200)
+    )
+    + "</catalog>"
+)
+
+
+def _transform_dense_cases() -> tuple[tuple[str, object], ...]:
+    """Return the instruction-dense XSLT case: a template of 56 xsl:* instructions applied over 200 nodes."""
+    return (("instruction-dense (200 nodes)", (_XSLT_DENSE_SHEET, _XSLT_DENSE_SOURCE)),)
+
+
+def _tokenize_cases() -> tuple[tuple[str, object], ...]:
+    """Return synthetic and corpus documents for the tokenization table."""
+    corpus_cases = tuple(
+        (name, corpus.corpus_text(relative, encoding)) for name, relative, encoding in corpus.CORPUS_FILES
+    )
+    large_cases = tuple((name, corpus.large_text(filename, url)) for name, filename, url in corpus.LARGE_FILES)
+    return _TOKENIZE_CASES + corpus_cases + large_cases
+
+
+def _minify_cases() -> tuple[tuple[str, object], ...]:
+    """Return the real-world stylesheets the CSS-minify suite runs over (fetched and cached on first use)."""
+    return tuple((name, corpus.large_text(filename, url)) for name, filename, url in corpus.STYLESHEETS)
+
+
+def _minify_js_cases() -> tuple[tuple[str, object], ...]:
+    """Return the real-world JavaScript libraries the minify operation shrinks, a size ladder."""
+    return tuple((name, corpus.large_text(filename, url)) for name, filename, url in corpus.JS_FILES)
+
+
+_URL_SHAPES = (
+    "https://www.example.org/dir/page-{index}.html",
+    "HTTPS://EXAMPLE.ORG:443/dir/../page/{index}?utm_source=rss&utm_medium=email&id={index}",
+    "https://example.org/de/beitrag-{index}?lang=de&page={index}#frag",
+    " https://sub.example.org//double/{index}/&amp;x=1 ",
+    "http://münchen.example/straße/{index}?b=2&a=1",
+)
+_URL_BATCH = tuple(shape.format(index=index) for index in range(20) for shape in _URL_SHAPES)
+_IDNA_URLS: Final[tuple[str, ...]] = tuple(f"https://münchen-{index}.example/" for index in range(4100))
+# The münchen workload repeats one host, so every lookup walks the same rows. These labels spread the searches across
+# ranges a single Latin-1 vowel does not reach: Latin Extended, Greek (with the final sigma the mapping rewrites),
+# Cyrillic, Arabic, Hebrew, Devanagari, Thai, CJK, and Hangul, whose jamo compose arithmetically rather than through
+# the table. The last two labels are typed decomposed, so composition and canonical ordering run instead of falling
+# through.
+_IDNA_LABELS: Final[tuple[str, ...]] = (
+    "münchen",
+    "zürich",
+    "gdańsk",
+    "kraków",
+    "plzeň",
+    "tromsø",
+    "straße",
+    "ΟΔΥΣΣΕΥΣ",
+    "αθήνα",
+    "москва",
+    "київ",
+    "القاهرة",
+    "ירושלים",
+    "मुंबई",
+    "กรุงเทพ",
+    "東京",
+    "北京",
+    "서울",
+    "cafe\u0301",  # e + combining acute, which composition folds back to the precomposed é
+    "viet\u0301\u0323",  # an above mark typed before a below one, so canonical ordering has to swap them
+)
+_IDNA_VARIED_URLS: Final[tuple[str, ...]] = tuple(
+    f"https://{_IDNA_LABELS[index % len(_IDNA_LABELS)]}-{index}.example/" for index in range(4100)
+)
+_EXTERNAL_LINKS_HTML: Final = "".join(
+    f'<a href="https://{host}/post/{index}">link</a>'
+    for index in range(300)
+    for host in (f"news-{index}.example.co.uk", f"tenant-{index}.github.io", f"bucket-{index}.s3.amazonaws.com")
+)
+
+_ENCODING_ASCII = "The quick brown fox jumps over the lazy dog near the river bank early today. "
+_ENCODING_FRENCH = "Précédemment, la créativité française était très développée près de Paris ici. "
+_ENCODING_RUSSIAN = "Программирование помогает понять структуру вычислительных систем сегодня здесь. "
+_ENCODING_JAPANESE = "日本語のテキストをここに書きます。今日はとても良い天気ですね。"
+
+
+def _encoding_cases() -> tuple[tuple[str, object], ...]:
+    """
+    Return the byte streams the encoding-detection suite sniffs.
+
+    Natural-language prose re-encoded into the legacy encodings the detectors compete on, plus pure ASCII (the
+    short-circuit every detector special-cases) and a real saved page (the whole-document workload).
+    """
+    _name, filename, url = corpus.REAL_PAGES[2]  # the mozilla blog, 95 kB of real UTF-8 markup
+    return (
+        ("ascii (1 kB)", (_ENCODING_ASCII * 13).encode()),
+        ("utf-8 russian (4 kB)", (_ENCODING_RUSSIAN * 27).encode()),
+        ("windows-1251 russian (4 kB)", (_ENCODING_RUSSIAN * 50).encode("cp1251")),
+        ("windows-1252 french (4 kB)", (_ENCODING_FRENCH * 50).encode("cp1252")),
+        ("shift_jis japanese (4 kB)", (_ENCODING_JAPANESE * 70).encode("shift_jis")),
+        ("utf-8 page (95 kB)", corpus.large_text(filename, url).encode()),
+    )
+
+
+def _decode_cases() -> tuple[tuple[str, object], ...]:
+    """
+    Return the byte streams the WHATWG decoders turn into str, each paired with the label that names its decoder.
+
+    windows-1252 covers the single-byte tables, shift_jis and gb18030 the two- and four-byte state machines, and
+    iso-2022-jp the stateful escapes. Every case encodes with the CPython codec the spec's decoder maps back to the
+    prose, so a case times decoding rather than error recovery. Shift_JIS leads because CodSpeed gates the first case,
+    and it is the state machine an inlined decoder regressed.
+    """
+    japanese = _decode_page(_ENCODING_JAPANESE)
+    return (
+        ("shift_jis japanese (8 kB)", ("shift_jis", japanese.encode("cp932"))),
+        (
+            "gb18030 astral (16 kB)",
+            ("gb18030", "".join(chr(0x10000 + (index * 7919) % 0xE0000) for index in range(4096)).encode("gb18030")),
+        ),
+        ("windows-1252 french (9 kB)", ("windows-1252", _decode_page(_ENCODING_FRENCH).encode("cp1252"))),
+        ("gb18030 japanese (8 kB)", ("gb18030", japanese.encode("gb18030"))),
+        ("iso-2022-jp japanese (8 kB)", ("iso-2022-jp", japanese.encode("iso2022_jp"))),
+    )
+
+
+def _decode_page(text: str) -> str:
+    """Wrap prose in tags, so the bytes are mostly ASCII markup: the shape of a real page in a legacy encoding."""
+    rows = "".join(f'<p class="line" id="l{index}">{text}</p>' for index in range(60))
+    return f"<html><body>{rows}</body></html>"
+
+
+def _normalize_cases() -> tuple[tuple[str, object], ...]:
+    """
+    Return the strings the Unicode-normalization suite folds to NFC.
+
+    The ASCII book matches the CodSpeed case. Already-NFC prose and a real page exercise the quick-check path, while
+    the NFD-decomposed French forces the full decompose/reorder/compose pipeline.
+    """
+    _name, filename, url = corpus.REAL_PAGES[2]  # the mozilla blog, 95 kB of real UTF-8 markup
+    french = _ENCODING_FRENCH * 50
+    return (
+        ("ascii book (64 KiB)", corpus.corpus("war-and-peace/2600.txt", 1 << 16)),
+        ("nfc french (4 kB)", french),
+        ("nfd french (4 kB)", unicodedata.normalize("NFD", french)),
+        ("utf-8 page (95 kB)", corpus.large_text(filename, url)),
+    )
+
+
+def _language_cases() -> tuple[tuple[str, object], ...]:
+    return (
+        ("english book (64 KiB)", corpus.corpus("war-and-peace/2600.txt", 1 << 16)),
+        ("cyrillic prose (4 KiB)", _ENCODING_RUSSIAN * 50),
+        ("hangul prose (4 KiB)", "한국어는 아름다운 언어이며 배우기 쉽고 재미있는 언어입니다. " * 100),
+    )
+
+
+INPUTS: dict[str, Callable[[], tuple[tuple[str, object], ...]]] = {
+    "build": lambda: _ROWS,
+    "build-e": lambda: _ROWS,
+    "construct": lambda: _ROWS,
+    "emit": lambda: _ROWS,
+    "shadow": lambda: _ROWS,
+    "parse": _parse_cases,
+    "parse-dense": lambda: (("2.6 MB / 200k nodes", "<div><span>x</span></div>" * 100_000),),
+    "parse-xml": lambda: (("catalog XML", _XML_DOC),),
+    "parse-xml-names": lambda: (
+        (
+            "1k growing attributes",
+            "<r>" + "".join("<e " + "a" * length + '="x"/>' for length in range(1, 1_001)) + "</r>",
+        ),
+    ),
+    "validate": lambda: (
+        ("catalog XSD + doc", (_VALIDATE_XSD, _VALIDATE_DOC)),
+        ("1,024 global declarations", (_VALIDATE_GLOBAL_XSD, _VALIDATE_GLOBAL_DOC)),
+    ),
+    "validate-rng": lambda: (("catalog RNG + doc", (_VALIDATE_RNG, _VALIDATE_DOC)),),
+    "compile-rng": lambda: (("catalog grammar", _VALIDATE_RNG), ("1,024 definitions", _COMPILE_RNG)),
+    "parse-scripting": _readpath_cases,  # the real pages carry <noscript>, so the scripting rawtext path runs
+    "parse-locations": _readpath_cases,  # real attribute-dense pages exercise the per-attribute span stamping
+    "parse-shadow": lambda: (("component gallery", _SHADOW_DOC),),
+    "fragment": lambda: (("table-row fragment (2 kB)", _FRAGMENT_HTML),),
+    "escape": corpus.escape_cases,
+    "unescape": corpus.unescape_cases,
+    "tokenize": _tokenize_cases,
+    "edit": _readpath_cases,
+    "class-edit": _readpath_cases,
+    "strip-remove": _readpath_cases,
+    "strip-tags": _readpath_cases,
+    "set-html": _readpath_cases,
+    "set-text": _readpath_cases,
+    "observe": _readpath_cases,
+    "navigate": _readpath_cases,
+    "treewalk": _readpath_cases,
+    "chain": _readpath_cases,
+    "range-clone": _readpath_cases,
+    "links-extract": _readpath_cases,
+    "links-absolutize": _readpath_cases,
+    "links-rewrite": _readpath_cases,
+    "find": _readpath_cases,
+    "select": _readpath_cases,
+    "select-has": _readpath_cases,
+    "computed-style": lambda: (("styled page (3 kB)", _styled_page(8)), ("styled page (11 kB)", _styled_page(40))),
+    "computed-style-dense": lambda: (("dense sheet (9 kB)", _dense_styled_page(20)),),
+    "match": _readpath_cases,
+    "find-text": _readpath_cases,
+    "find-text-overlap": lambda: (("100 KiB overlapping miss", f"<p>{'a' * 100_000}</p>"),),
+    "text-content": _readpath_cases,
+    "serialize": _readpath_cases,
+    "conformance": _readpath_cases,
+    "serialize-xml": _readpath_cases,
+    "canonicalize": _readpath_cases,
+    "canonicalize-deep": lambda: (("deep tree (150 deep)", _deep_tree(150, 3)),),
+    "lossless-serialize": _readpath_cases,
+    "minify": _readpath_cases,
+    "socialcard": lambda: (
+        ("head", _SOCIAL_HEAD),
+        ("article 8 KiB", f"{_SOCIAL_HEAD}<body>{'<p>filler text</p>' * 400}</body>"),
+    ),
+    "structured": lambda: (("product", _STRUCTURED_PAGE), ("catalog 8 KiB", _STRUCTURED_PAGE * 12)),
+    "microdata": lambda: (("product", _STRUCTURED_PAGE), ("catalog 8 KiB", _STRUCTURED_PAGE * 12)),
+    "microdata-itemref": lambda: (("references after 4,000 nodes", _MICRODATA_ITEMREF),),
+    "syndication": lambda: (("rss 30 items", _FEED_XML),),
+    "sanitize": lambda: (
+        ("comment", "<p>Thanks for the <a href='http://example.com'>link</a>! <script>evil()</script></p>"),
+        ("post 4 KiB", _SANITIZE_POST * 20),
+    ),
+    "sanitize-templates": lambda: (("templated 4 KiB", _SANITIZE_TEMPLATES * 20),),
+    "sanitize-named-props": lambda: (("clobbering 4 KiB", _SANITIZE_NAMED * 11),),
+    "sanitize-report": lambda: (("post 4 KiB", _SANITIZE_POST * 20),),
+    "sanitize-styles": lambda: (("styled 4 KiB", _SANITIZE_STYLES * 20),),
+    "sanitize-transform": lambda: (("legacy 4 KiB", _SANITIZE_LEGACY * 13),),
+    "sanitize-custom-elements": lambda: (("custom 4 KiB", _SANITIZE_CUSTOM * 11),),
+    "sanitize-xml": lambda: (("post 4 KiB", _SANITIZE_POST * 20),),
+    "markup": lambda: _MARKUP_ESCAPE_CASES,
+    "markup-op": lambda: (
+        ("striptags", ("striptags", _MARKUP_OPS_HTML)),
+        ("unescape", ("unescape", _MARKUP_OPS_HTML)),
+        ("format (escapes operands)", ("format", _MARKUP_FORMAT_ARGS)),
+        ("join (escapes operands)", ("join", _MARKUP_JOIN_PARTS)),
+    ),
+    "linkify": lambda: _LINKIFY_CASES,
+    "detect": lambda: (
+        ("find comment (1 link, 1 email)", ("find", _LINKIFY_CASES[0][1])),
+        ("find prose (1 KiB)", ("find", _LINKIFY_CASES[1][1])),
+        ("has_link comment", ("has", _LINKIFY_CASES[0][1])),
+        ("has_link prose (1 KiB)", ("has", _LINKIFY_CASES[1][1])),
+    ),
+    "markdown": lambda: (
+        ("article (2 KiB)", ("default", _MARKDOWN_ARTICLE)),
+        ("list (4 KiB)", ("default", _MARKDOWN_LIST)),
+        ("table (4 KiB)", ("default", _MARKDOWN_TABLE)),
+        ("configured (4 KiB)", ("configured", _MARKDOWN_CONFIGURED)),
+    ),
+    "markdown-google": lambda: (("google_doc (4 KiB)", _MARKDOWN_GOOGLE),),
+    "tables": lambda: (
+        ("rows (10 rows)", ("rows", _table_html(10))),
+        ("records (10 rows)", ("records", _table_html(10))),
+        ("rows (100 rows)", ("rows", _table_html(100))),
+        ("records (100 rows)", ("records", _table_html(100))),
+        ("rows (1000 rows)", ("rows", _table_html(1_000))),
+        ("records (1000 rows)", ("records", _table_html(1_000))),
+    ),
+    "tables-wide": lambda: (("10k columns", ("rows", "<table><tr>" + "<td>x</td>" * 10_000 + "</tr></table>")),),
+    "article": lambda: (("post (4 KiB)", _article_page(16)), ("longform (16 KiB)", _article_page(72))),
+    "boilerplate": lambda: (("post (4 KiB)", _article_page(16)), ("longform (16 KiB)", _article_page(72))),
+    "date": lambda: (
+        ("post (4 KiB)", _article_page(16)),
+        ("longform (16 KiB)", _article_page(72)),
+        ("100 meta candidates", "<head>" + "<meta name=date content=2024-05-06>" * 100 + "</head>"),
+    ),
+    "text-render": lambda: (("article (2 KiB)", _TEXT_ARTICLE), ("table (4 KiB)", _TEXT_TABLE)),
+    "text-collapsed": lambda: (("collapsed (2 KiB)", _TEXT_ARTICLE),),
+    "text-main": lambda: (("main (4 KiB)", _TEXT_MAIN),),
+    "text-annotated": lambda: (("annotated (4 KiB)", _TEXT_ANNOTATED),),
+    "extract-attr": _readpath_cases,
+    "extract-text": _readpath_cases,
+    "extract-url": lambda: (
+        ("base_url / get_base_url", ("base", _URL_HINT_HTML)),
+        ("meta_refresh / get_meta_refresh", ("refresh", _URL_HINT_HTML)),
+    ),
+    "htmlparser": _readpath_cases,
+    "sax": _readpath_cases,
+    "treebuild": _readpath_cases,
+    "rewrite": _readpath_cases,
+    "rewrite-attributes": lambda: (("1,000 new names", "<x></x>"),),
+    "path": _readpath_cases,
+    "path-xpath": _readpath_cases,
+    "translate": lambda: _TRANSLATE_CASES,
+    "specificity": lambda: _TRANSLATE_CASES,
+    "xpath": _xpath_cases,
+    "xpath-id": lambda: (("1,000 ids among 5,000 elements", _XPATH_ID_DOC),),
+    "transform": _transform_cases,
+    "transform-sort": _transform_sort_cases,
+    "transform-dense": _transform_dense_cases,
+    "minify-css": _minify_cases,
+    "minify-js": _minify_js_cases,
+    "stream": _readpath_cases,
+    "encoding": _encoding_cases,
+    "decode": _decode_cases,
+    "normalize": _normalize_cases,
+    "detect-language": _language_cases,
+    "escape-identifier": lambda: (
+        (
+            "mixed shapes (1,000)",
+            tuple(
+                shape.format(index)
+                for index in range(200)
+                for shape in ("item-{}", "{}leading-digit", "no escape {} needed?", "emoji-\U0001f642-{}", "-")
+            ),
+        ),
+    ),
+    "idna": lambda: (
+        ("4,100 uncached Unicode hosts", _IDNA_URLS),
+        ("4,100 varied-script hosts", _IDNA_VARIED_URLS),
+    ),
+    "urls-clean": lambda: (
+        ("clean 100 URLs", ("clean", _URL_BATCH)),
+        ("normalize 100 URLs", ("normalize", _URL_BATCH)),
+    ),
+    "links-filter": _readpath_cases,
+    "links-external": lambda: (("900 mixed-site links", _EXTERNAL_LINKS_HTML),),
+}

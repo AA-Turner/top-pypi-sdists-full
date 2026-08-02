@@ -1,0 +1,160 @@
+from pandas import DataFrame
+import numpy as np
+from .....exceptions import (
+    DataNotFound,
+    DriverError
+)
+from .....types import is_empty
+from .....types.dt import filters as dffunctions
+from .....types.dt.filters import create_filter
+from ..abstract import AbstractOperator
+
+class Filter(AbstractOperator):
+    """Filter rows in a DataFrame based on declarative conditions or field mappings.
+
+    Applies one or more filter conditions to the DataFrame, supporting both
+    column-value comparisons and field renaming/selection. Conditions are
+    combined with a logical AND (``&``) or OR (``|``) operator.
+
+    Usage: Use in a MultiQuery pipeline to reduce a DataFrame to only the rows
+    that satisfy specified conditions, equivalent to SQL WHERE clauses.
+
+    Attributes:
+        conditions: List of condition dicts ``[{column, expression, value}, ...]``.
+        fields: Dict mapping new column names to source column names for field
+            selection/renaming, e.g. ``{"name": "full_name", "total": "revenue"}``.
+        filter: List of filter specification dicts (alternative to ``conditions``).
+        operator: Logical operator to combine conditions — ``'&'`` (AND) or ``'|'`` (OR).
+            Default: ``'&'``.
+
+    Example:
+        {
+            "Filter": {
+                "conditions": [
+                    {"column": "status", "expression": "==", "value": "active"},
+                    {"column": "revenue", "expression": ">", "value": 1000}
+                ],
+                "operator": "&"
+            }
+        }
+    """
+
+    @classmethod
+    def filter_functions(cls) -> list[str]:
+        """Return the named filter functions accepted as ``filter_conditions`` keys.
+
+        Single source of truth shared by the runtime — which resolves each key
+        via ``getattr(dffunctions, name)`` — and the ``Filter.catalog.yaml``
+        ``filterFunc`` enum (resolved through the ``enum_from_class`` companion
+        directive). The condition/expression builders are excluded; only the
+        DataFrame-transforming functions are valid here.
+        """
+        import inspect
+        _builders = {
+            'getFunction', 'build_condition', 'create_filter_chain', 'create_filter'
+        }
+        return [
+            name for name, obj in vars(dffunctions).items()
+            if inspect.isfunction(obj)
+            and not name.startswith('_')
+            and name not in _builders
+        ]
+
+    def __init__(self, data: dict, **kwargs) -> None:
+        self.conditions = kwargs.pop('conditions', None)
+        self.fields: dict = kwargs.pop('fields', {})
+        self._filter = kwargs.pop('filter', [])
+        # ``filter_conditions`` is intentionally NOT popped: AbstractMulti.__init__
+        # sets it from kwargs via setattr (default {} when not provided).
+        self.filter_conditions: dict = {}
+        self._applied: list = []
+        self._operator: str = kwargs.get('operator', '&')
+        super(Filter, self).__init__(data, **kwargs)
+
+    async def start(self):
+        if isinstance(self.data, dict):
+            for _, data in self.data.items():
+                ## TODO: add support for polars and datatables
+                if not isinstance(data, DataFrame):
+                    raise DriverError(
+                        f'Wrong type of data for JOIN, required Pandas dataframe: {type(data)}'
+                    )
+        return True
+
+    async def run(self):
+        if self.data is None or is_empty(self.data):
+            return None
+        # start filtering
+        if hasattr(self, "clean_strings"):
+            u = self.data.select_dtypes(include=["object", "string"])
+            self.data[u.columns] = self.data[u.columns].fillna("")
+        if hasattr(self, "clean_numbers"):
+            u = self.data.select_dtypes(include=["Int64"])
+            # self.data[u.columns] = self.data[u.columns].fillna('')
+            self.data[u.columns] = self.data[u.columns].replace(
+                ["nan", np.nan], 0, regex=True
+            )
+            u = self.data.select_dtypes(include=["float64"])
+            self.data[u.columns] = self.data[u.columns].replace(
+                ["nan", np.nan], 0, regex=True
+            )
+        if hasattr(self, "clean_dates"):
+            u = self.data.select_dtypes(include=["datetime64[ns]"])
+            self.data[u.columns] = self.data[u.columns].replace({np.nan: None})
+            # df[u.columns] = df[u.columns].astype('datetime64[ns]')
+        if hasattr(self, "drop_empty"):
+            # First filter out those rows which
+            # does not contain any data
+            self.data.dropna(how="all")
+            # removing empty cols
+            self.data.is_copy = None
+            self.data.dropna(axis=1, how="all")
+            self.data.dropna(axis=0, how="all")
+        if hasattr(self, "dropna"):
+            self.data.dropna(subset=self.dropna, how="all")
+        # iterate over all filtering conditions:
+        it = self.data.copy()
+        for ft, args in self.filter_conditions.items():
+            self._applied.append(f"Filter: {ft!s} args: {args}")
+            # TODO: create an expression builder
+            # condition = dataframe[(dataframe[column].empty) & (dataframe[column]=='')].index
+            # check if is a function
+            try:
+                try:
+                    func = getattr(dffunctions, ft)
+                except AttributeError:
+                    func = globals()[ft]
+                if callable(func):
+                    it = func(it, **args)
+            except Exception as err:
+                print(f"Error on {ft}: {err}")
+        df = it
+        if df is None or df.empty:
+            raise DataNotFound(
+                "No Data was Found after Filtering."
+            )
+        # Applying filter expressions by Column:
+        if self.fields:
+            for column, value in self.fields.items():
+                if column in df.columns:
+                    if isinstance(value, list):
+                        for v in value:
+                            df = df[df[column] == v]
+                    else:
+                        df = df[df[column] == value]
+        # ``filter`` and ``conditions`` share the create_filter spec format and
+        # are both optional/combinable — apply them together.
+        filter_specs = list(self._filter or []) + list(self.conditions or [])
+        if filter_specs:
+            conditions = create_filter(filter_specs, df)
+            # Joining all conditions
+            self.condition = f" {self._operator} ".join(conditions)
+            df = df.loc[
+                eval(self.condition)
+            ]  # pylint: disable=W0123
+        if df is None or df.empty:
+            raise DataNotFound(
+                "Filter: No Data was Found after Filtering."
+            )
+        self._print_info(df)
+        return df

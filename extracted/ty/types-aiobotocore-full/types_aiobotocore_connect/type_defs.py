@@ -1210,10 +1210,16 @@ __all__ = (
     "RuleActionOutputTypeDef",
     "RuleActionTypeDef",
     "RuleActionUnionTypeDef",
+    "RuleAttributeAndConditionTypeDef",
+    "RuleAttributeFilterTypeDef",
+    "RuleSearchSummaryTypeDef",
     "RuleSummaryTypeDef",
     "RuleTriggerEventSourceTypeDef",
     "RuleTypeDef",
     "RulesConfigurationTypeDef",
+    "RulesSearchCriteriaPaginatorTypeDef",
+    "RulesSearchCriteriaTypeDef",
+    "RulesSearchFilterTypeDef",
     "S3ConfigTypeDef",
     "SearchAgentStatusesRequestPaginateTypeDef",
     "SearchAgentStatusesRequestTypeDef",
@@ -1271,6 +1277,9 @@ __all__ = (
     "SearchRoutingProfilesRequestPaginateTypeDef",
     "SearchRoutingProfilesRequestTypeDef",
     "SearchRoutingProfilesResponseTypeDef",
+    "SearchRulesRequestPaginateTypeDef",
+    "SearchRulesRequestTypeDef",
+    "SearchRulesResponseTypeDef",
     "SearchSecurityProfilesRequestPaginateTypeDef",
     "SearchSecurityProfilesRequestTypeDef",
     "SearchSecurityProfilesResponseTypeDef",
@@ -5164,6 +5173,7 @@ class RuleSummaryTypeDef(TypedDict):
     ActionSummaries: list[ActionSummaryTypeDef]
     CreatedTime: datetime
     LastUpdatedTime: datetime
+    RuleCapabilityTiers: NotRequired[list[Literal["GenerativeAI"]]]
 
 
 class ActivateEvaluationFormResponseTypeDef(TypedDict):
@@ -5798,6 +5808,18 @@ class RoutingProfileSearchCriteriaTypeDef(TypedDict):
     StringCondition: NotRequired[StringConditionTypeDef]
 
 
+class RulesSearchCriteriaPaginatorTypeDef(TypedDict):
+    OrConditions: NotRequired[Sequence[Mapping[str, Any]]]
+    AndConditions: NotRequired[Sequence[Mapping[str, Any]]]
+    StringCondition: NotRequired[StringConditionTypeDef]
+
+
+class RulesSearchCriteriaTypeDef(TypedDict):
+    OrConditions: NotRequired[Sequence[Mapping[str, Any]]]
+    AndConditions: NotRequired[Sequence[Mapping[str, Any]]]
+    StringCondition: NotRequired[StringConditionTypeDef]
+
+
 class SecurityProfileSearchCriteriaPaginatorTypeDef(TypedDict):
     OrConditions: NotRequired[Sequence[Mapping[str, Any]]]
     AndConditions: NotRequired[Sequence[Mapping[str, Any]]]
@@ -6125,6 +6147,10 @@ class ControlPlaneTagFilterTypeDef(TypedDict):
     OrConditions: NotRequired[Sequence[Sequence[TagConditionTypeDef]]]
     AndConditions: NotRequired[Sequence[TagConditionTypeDef]]
     TagCondition: NotRequired[TagConditionTypeDef]
+
+
+class RuleAttributeAndConditionTypeDef(TypedDict):
+    TagConditions: NotRequired[Sequence[TagConditionTypeDef]]
 
 
 class DescribeInstanceAttributeResponseTypeDef(TypedDict):
@@ -6656,6 +6682,20 @@ class UpdateQueueOutboundEmailConfigRequestTypeDef(TypedDict):
     InstanceId: str
     QueueId: str
     OutboundEmailConfig: OutboundEmailConfigTypeDef
+
+
+class RuleSearchSummaryTypeDef(TypedDict):
+    Name: str
+    RuleId: str
+    RuleArn: str
+    TriggerEventSource: RuleTriggerEventSourceTypeDef
+    ActionSummaries: list[ActionSummaryTypeDef]
+    PublishStatus: RulePublishStatusType
+    CreatedTime: datetime
+    LastUpdatedTime: datetime
+    LastUpdatedBy: str
+    RuleCapabilityTiers: NotRequired[list[Literal["GenerativeAI"]]]
+    Tags: NotRequired[dict[str, str]]
 
 
 class ListSecurityProfileFlowModulesResponseTypeDef(TypedDict):
@@ -8362,6 +8402,12 @@ class TestCaseSearchFilterTypeDef(TypedDict):
     TagFilter: NotRequired[ControlPlaneTagFilterTypeDef]
 
 
+class RuleAttributeFilterTypeDef(TypedDict):
+    OrConditions: NotRequired[Sequence[RuleAttributeAndConditionTypeDef]]
+    AndCondition: NotRequired[RuleAttributeAndConditionTypeDef]
+    TagCondition: NotRequired[TagConditionTypeDef]
+
+
 class MeetingTypeDef(TypedDict):
     MediaRegion: NotRequired[str]
     MediaPlacement: NotRequired[MediaPlacementTypeDef]
@@ -8545,6 +8591,13 @@ class DescribeQueueResponseTypeDef(TypedDict):
 
 class SearchQueuesResponseTypeDef(TypedDict):
     Queues: list[QueueTypeDef]
+    ApproximateTotalCount: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class SearchRulesResponseTypeDef(TypedDict):
+    Rules: list[RuleSearchSummaryTypeDef]
     ApproximateTotalCount: int
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
@@ -9506,6 +9559,10 @@ class SearchTestCasesRequestTypeDef(TypedDict):
     SearchCriteria: NotRequired[TestCaseSearchCriteriaTypeDef]
 
 
+class RulesSearchFilterTypeDef(TypedDict):
+    AttributeFilter: NotRequired[RuleAttributeFilterTypeDef]
+
+
 class ConnectionDataTypeDef(TypedDict):
     Attendee: NotRequired[AttendeeTypeDef]
     Meeting: NotRequired[MeetingTypeDef]
@@ -10072,6 +10129,21 @@ class SearchWorkspacesRequestTypeDef(TypedDict):
     SearchCriteria: NotRequired[WorkspaceSearchCriteriaTypeDef]
 
 
+class SearchRulesRequestPaginateTypeDef(TypedDict):
+    InstanceId: str
+    SearchCriteria: NotRequired[RulesSearchCriteriaPaginatorTypeDef]
+    SearchFilter: NotRequired[RulesSearchFilterTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class SearchRulesRequestTypeDef(TypedDict):
+    InstanceId: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    SearchCriteria: NotRequired[RulesSearchCriteriaTypeDef]
+    SearchFilter: NotRequired[RulesSearchFilterTypeDef]
+
+
 class StartWebRTCContactResponseTypeDef(TypedDict):
     ConnectionData: ConnectionDataTypeDef
     ContactId: str
@@ -10091,6 +10163,7 @@ class RuleTypeDef(TypedDict):
     CreatedTime: datetime
     LastUpdatedTime: datetime
     LastUpdatedBy: str
+    RuleCapabilityTiers: NotRequired[list[Literal["GenerativeAI"]]]
     Tags: NotRequired[dict[str, str]]
 
 

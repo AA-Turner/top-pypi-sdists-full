@@ -1,0 +1,329 @@
+Metadata-Version: 2.4
+Name: BrazilFiscalReport
+Version: 1.0.1
+Summary: Python library for generating Brazilian auxiliary fiscal documents in PDF from XML documents.
+Author: Engenere
+License:   GNU LESSER GENERAL PUBLIC LICENSE
+                               Version 3, 29 June 2007
+        
+         Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+         Everyone is permitted to copy and distribute verbatim copies
+         of this license document, but changing it is not allowed.
+        
+        
+          This version of the GNU Lesser General Public License incorporates
+        the terms and conditions of version 3 of the GNU General Public
+        License, supplemented by the additional permissions listed below.
+        
+          0. Additional Definitions.
+        
+          As used herein, "this License" refers to version 3 of the GNU Lesser
+        General Public License, and the "GNU GPL" refers to version 3 of the GNU
+        General Public License.
+        
+          "The Library" refers to a covered work governed by this License,
+        other than an Application or a Combined Work as defined below.
+        
+          An "Application" is any work that makes use of an interface provided
+        by the Library, but which is not otherwise based on the Library.
+        Defining a subclass of a class defined by the Library is deemed a mode
+        of using an interface provided by the Library.
+        
+          A "Combined Work" is a work produced by combining or linking an
+        Application with the Library.  The particular version of the Library
+        with which the Combined Work was made is also called the "Linked
+        Version".
+        
+          The "Minimal Corresponding Source" for a Combined Work means the
+        Corresponding Source for the Combined Work, excluding any source code
+        for portions of the Combined Work that, considered in isolation, are
+        based on the Application, and not on the Linked Version.
+        
+          The "Corresponding Application Code" for a Combined Work means the
+        object code and/or source code for the Application, including any data
+        and utility programs needed for reproducing the Combined Work from the
+        Application, but excluding the System Libraries of the Combined Work.
+        
+          1. Exception to Section 3 of the GNU GPL.
+        
+          You may convey a covered work under sections 3 and 4 of this License
+        without being bound by section 3 of the GNU GPL.
+        
+          2. Conveying Modified Versions.
+        
+          If you modify a copy of the Library, and, in your modifications, a
+        facility refers to a function or data to be supplied by an Application
+        that uses the facility (other than as an argument passed when the
+        facility is invoked), then you may convey a copy of the modified
+        version:
+        
+           a) under this License, provided that you make a good faith effort to
+           ensure that, in the event an Application does not supply the
+           function or data, the facility still operates, and performs
+           whatever part of its purpose remains meaningful, or
+        
+           b) under the GNU GPL, with none of the additional permissions of
+           this License applicable to that copy.
+        
+          3. Object Code Incorporating Material from Library Header Files.
+        
+          The object code form of an Application may incorporate material from
+        a header file that is part of the Library.  You may convey such object
+        code under terms of your choice, provided that, if the incorporated
+        material is not limited to numerical parameters, data structure
+        layouts and accessors, or small macros, inline functions and templates
+        (ten or fewer lines in length), you do both of the following:
+        
+           a) Give prominent notice with each copy of the object code that the
+           Library is used in it and that the Library and its use are
+           covered by this License.
+        
+           b) Accompany the object code with a copy of the GNU GPL and this license
+           document.
+        
+          4. Combined Works.
+        
+          You may convey a Combined Work under terms of your choice that,
+        taken together, effectively do not restrict modification of the
+        portions of the Library contained in the Combined Work and reverse
+        engineering for debugging such modifications, if you also do each of
+        the following:
+        
+           a) Give prominent notice with each copy of the Combined Work that
+           the Library is used in it and that the Library and its use are
+           covered by this License.
+        
+           b) Accompany the Combined Work with a copy of the GNU GPL and this license
+           document.
+        
+           c) For a Combined Work that displays copyright notices during
+           execution, include the copyright notice for the Library among
+           these notices, as well as a reference directing the user to the
+           copies of the GNU GPL and this license document.
+        
+           d) Do one of the following:
+        
+               0) Convey the Minimal Corresponding Source under the terms of this
+               License, and the Corresponding Application Code in a form
+               suitable for, and under terms that permit, the user to
+               recombine or relink the Application with a modified version of
+               the Linked Version to produce a modified Combined Work, in the
+               manner specified by section 6 of the GNU GPL for conveying
+               Corresponding Source.
+        
+               1) Use a suitable shared library mechanism for linking with the
+               Library.  A suitable mechanism is one that (a) uses at run time
+               a copy of the Library already present on the user's computer
+               system, and (b) will operate properly with a modified version
+               of the Library that is interface-compatible with the Linked
+               Version.
+        
+           e) Provide Installation Information, but only if you would otherwise
+           be required to provide such information under section 6 of the
+           GNU GPL, and only to the extent that such information is
+           necessary to install and execute a modified version of the
+           Combined Work produced by recombining or relinking the
+           Application with a modified version of the Linked Version. (If
+           you use option 4d0, the Installation Information must accompany
+           the Minimal Corresponding Source and Corresponding Application
+           Code. If you use option 4d1, you must provide the Installation
+           Information in the manner specified by section 6 of the GNU GPL
+           for conveying Corresponding Source.)
+        
+          5. Combined Libraries.
+        
+          You may place library facilities that are a work based on the
+        Library side by side in a single library together with other library
+        facilities that are not Applications and are not covered by this
+        License, and convey such a combined library under terms of your
+        choice, if you do both of the following:
+        
+           a) Accompany the combined library with a copy of the same work based
+           on the Library, uncombined with any other library facilities,
+           conveyed under the terms of this License.
+        
+           b) Give prominent notice with the combined library that part of it
+           is a work based on the Library, and explaining where to find the
+           accompanying uncombined form of the same work.
+        
+          6. Revised Versions of the GNU Lesser General Public License.
+        
+          The Free Software Foundation may publish revised and/or new versions
+        of the GNU Lesser General Public License from time to time. Such new
+        versions will be similar in spirit to the present version, but may
+        differ in detail to address new problems or concerns.
+        
+          Each version is given a distinguishing version number. If the
+        Library as you received it specifies that a certain numbered version
+        of the GNU Lesser General Public License "or any later version"
+        applies to it, you have the option of following the terms and
+        conditions either of that published version or of any later version
+        published by the Free Software Foundation. If the Library as you
+        received it does not specify a version number of the GNU Lesser
+        General Public License, you may choose any version of the GNU Lesser
+        General Public License ever published by the Free Software Foundation.
+        
+          If the Library as you received it specifies that a proxy can decide
+        whether future versions of the GNU Lesser General Public License shall
+        apply, that proxy's public statement of acceptance of any version is
+        permanent authorization for you to choose that version for the
+        Library.
+        
+Project-URL: homepage, https://github.com/Engenere/BrazilFiscalReport
+Keywords: nfe,nf-e,danfe,cte,ct-e,dacte,mdfe,mdf-e,damdfe,cce,cc-e,dacce,nfse,nfs-e,danfse,xml,pdf,sefaz,brazil,brasil,nota-fiscal-eletronica,documento,fiscal,auxiliar,converter,generator
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU Affero General Public License v3
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: fpdf2>=2.8.3
+Requires-Dist: phonenumbers
+Requires-Dist: python-barcode
+Provides-Extra: dacte
+Requires-Dist: qrcode; extra == "dacte"
+Provides-Extra: damdfe
+Requires-Dist: qrcode; extra == "damdfe"
+Provides-Extra: danfse
+Requires-Dist: qrcode; extra == "danfse"
+Provides-Extra: cli
+Requires-Dist: click; extra == "cli"
+Requires-Dist: PyYAML; extra == "cli"
+Dynamic: license-file
+
+[![tests](https://github.com/Engenere/BrazilFiscalReport/workflows/tests/badge.svg)](https://github.com/Engenere/BrazilFiscalReport/actions)
+[![codecov](https://codecov.io/gh/Engenere/BrazilFiscalReport/branch/main/graph/badge.svg)](https://app.codecov.io/gh/Engenere/BrazilFiscalReport)
+[![pypi](https://img.shields.io/pypi/v/brazilfiscalreport.svg)](https://pypi.org/project/BrazilFiscalReport/)
+[![license](https://img.shields.io/github/license/Engenere/BrazilFiscalReport)](https://github.com/Engenere/BrazilFiscalReport/blob/main/LICENSE)
+[![contributors](https://img.shields.io/github/contributors/Engenere/BrazilFiscalReport)](https://github.com/Engenere/BrazilFiscalReport/graphs/contributors)
+[![pypi-downloads](https://static.pepy.tech/badge/brazilfiscalreport)](https://pepy.tech/projects/brazilfiscalreport)
+[![Open in Streamlit](https://img.shields.io/badge/Open%20in-Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://brazilfiscalreport.streamlit.app)
+
+# Brazil Fiscal Report
+
+Python library for generating Brazilian auxiliary fiscal documents in PDF from XML documents.
+
+Every Brazilian electronic invoice is issued by the tax authority as an XML file. This library turns that XML into the official, printable PDF that has to accompany the goods or service: **NF-e → DANFE**, **CT-e → DACTE**, **MDF-e → DAMDFE** and **NFS-e → DANFSe**. It also renders the **DACCe**, the printout for the NF-e correction-letter event (CC-e).
+
+> 🇧🇷 Biblioteca Python para gerar em PDF os documentos fiscais auxiliares — **DANFE**, **DACTE**, **DAMDFE** e **DANFSe** — a partir do XML de NF-e, CT-e, MDF-e e NFS-e. Também gera a **DACCe**, representação da carta de correção (CC-e) da NF-e. **[Documentação em português →](https://engenere.github.io/BrazilFiscalReport/pt/)**
+
+**[Documentation](https://engenere.github.io/BrazilFiscalReport/)** | **[PyPI](https://pypi.org/project/BrazilFiscalReport/)** | **[Try it Online](https://brazilfiscalreport.streamlit.app)**
+
+## Output Examples
+
+<table>
+  <tr>
+    <td align="center" width="25%"><a href="https://engenere.github.io/BrazilFiscalReport/danfe/"><b>DANFE</b></a></td>
+    <td align="center" width="25%"><a href="https://engenere.github.io/BrazilFiscalReport/dacte/"><b>DACTE</b></a></td>
+    <td align="center" width="25%"><a href="https://engenere.github.io/BrazilFiscalReport/damdfe/"><b>DAMDFE</b></a></td>
+    <td align="center" width="25%"><a href="https://engenere.github.io/BrazilFiscalReport/danfse/"><b>DANFSe</b></a></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://engenere.github.io/BrazilFiscalReport/danfe/"><img src="https://raw.githubusercontent.com/Engenere/BrazilFiscalReport/main/docs/assets/screenshots/danfe.png" alt="DANFE generated in PDF" width="150"></a></td>
+    <td align="center"><a href="https://engenere.github.io/BrazilFiscalReport/dacte/"><img src="https://raw.githubusercontent.com/Engenere/BrazilFiscalReport/main/docs/assets/screenshots/dacte.png" alt="DACTE generated in PDF" width="150"></a></td>
+    <td align="center"><a href="https://engenere.github.io/BrazilFiscalReport/damdfe/"><img src="https://raw.githubusercontent.com/Engenere/BrazilFiscalReport/main/docs/assets/screenshots/damdfe.png" alt="DAMDFE generated in PDF" width="150"></a></td>
+    <td align="center"><a href="https://engenere.github.io/BrazilFiscalReport/danfse/"><img src="https://raw.githubusercontent.com/Engenere/BrazilFiscalReport/main/docs/assets/screenshots/danfse.png" alt="DANFSe generated in PDF" width="150"></a></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>NF-e</b> → PDF<br>Electronic invoice (goods)</sub></td>
+    <td align="center"><sub><b>CT-e</b> → PDF<br>Freight bill</sub></td>
+    <td align="center"><sub><b>MDF-e</b> → PDF<br>Cargo manifest</sub></td>
+    <td align="center"><sub><b>NFS-e</b> → PDF<br>Service invoice</sub></td>
+  </tr>
+</table>
+
+## Why BrazilFiscalReport?
+
+- 🐍 **Pure Python** — built on [fpdf2](https://github.com/py-pdf/fpdf2); no wkhtmltopdf, no headless browser, no HTML templates
+- 📄 **4 document types** — DANFE, DACTE, DAMDFE and DANFSe (plus the DACCe correction-letter event), straight from the official XML
+- 🎨 **Customizable** — issuer logo, margins, fonts, decimal precision, cancellation watermarks and more
+- ⚡ **3 ways to use it** — Python API, `bfrep` command line, or the [online demo](https://brazilfiscalreport.streamlit.app)
+- ✅ **Python 3.8+** — tested on Python 3.8 through 3.13
+
+## Installation
+
+```bash
+pip install brazilfiscalreport
+```
+
+This installs the core library with support for **DANFE** and **DACCe**. For additional document types and features:
+
+```bash
+pip install 'brazilfiscalreport[dacte]'   # DACTE support (requires qrcode)
+pip install 'brazilfiscalreport[damdfe]'  # DAMDFE support (requires qrcode)
+pip install 'brazilfiscalreport[danfse]'  # DANFSe support (requires qrcode)
+pip install 'brazilfiscalreport[cli]'     # CLI tool
+pip install 'brazilfiscalreport[dacte,damdfe,danfse,cli]'  # All extras
+```
+
+## Quick Start
+
+```python
+from brazilfiscalreport.danfe import Danfe
+
+with open("nfe.xml", "r", encoding="utf8") as file:
+    xml_content = file.read()
+
+danfe = Danfe(xml=xml_content)
+danfe.output("danfe.pdf")
+```
+
+> `nfe.xml` is the authorized XML your ERP or the SEFAZ portal returns once the invoice is approved.
+
+The same pattern works for every document type — import the matching class (`Dacte`, `Damdfe`, `Danfse`, `DaCCe`), pass the XML and call `.output()`.
+
+### Customization
+
+Need a logo, custom margins or a different font? Pass a config object:
+
+```python
+from brazilfiscalreport.danfe import Danfe, DanfeConfig, Margins, FontType
+
+with open("nfe.xml", encoding="utf8") as file:
+    xml_content = file.read()
+
+config = DanfeConfig(
+    logo="logo.png",
+    margins=Margins(top=5, right=5, bottom=5, left=5),
+    font_type=FontType.TIMES,
+)
+danfe = Danfe(xml=xml_content, config=config)
+danfe.output("danfe.pdf")
+```
+
+See the [documentation](https://engenere.github.io/BrazilFiscalReport/) for every option — watermarks, decimal precision, receipt position and more.
+
+> 🚀 **No setup?** [Try it online](https://brazilfiscalreport.streamlit.app) — upload your fiscal XML, download the PDF.
+
+## CLI
+
+```bash
+pip install 'brazilfiscalreport[cli]'
+
+bfrep danfe nfe.xml        # writes nfe.pdf in the current folder
+```
+
+`bfrep` ships one subcommand per document — `danfe`, `dacte`, `damdfe` and `danfse` (plus `dacce` for the NF-e correction letter) — each turning its XML into the matching PDF. Drop a `config.yaml` next to your files to set issuer data, logo and margins.
+
+See the [CLI documentation](https://engenere.github.io/BrazilFiscalReport/cli/) for all options.
+
+## License
+
+BrazilFiscalReport is free software licensed under the [LGPL-3.0](https://github.com/Engenere/BrazilFiscalReport/blob/main/LICENSE) license.
+
+## Maintainer
+
+Developed and maintained by [Engenere](https://engenere.one/). Issues and pull requests are welcome — see the [contributing guide](https://engenere.github.io/BrazilFiscalReport/contributing/).
+
+[![Engenere](https://storage.googleapis.com/eng-imagens/logo-fundo-preto.webp)](https://engenere.one/)

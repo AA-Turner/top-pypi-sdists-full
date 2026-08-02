@@ -21,6 +21,13 @@
 # exported.
 from lazr.config._config import *  # noqa: F401, F403
 from lazr.config._config import __all__  # noqa: F401, F402
-from lazr.config._version import __version__
 
-__version__
+try:
+    import importlib.metadata as importlib_metadata
+except ImportError:  # pragma: no cover
+    import importlib_metadata
+
+try:
+    __version__ = importlib_metadata.version("lazr.config")
+except importlib_metadata.PackageNotFoundError:  # pragma: no cover
+    __version__ = importlib_metadata.version("lazr-config")

@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""
+Message role enum for LLM chat conversations.
+
+Provides strongly-typed message roles for chat conversations
+with proper ONEX enum naming conventions.
+"""
+
+from enum import Enum, unique
+
+from omnibase_core.enums.enum_str_enum_base import UtilStrValueHelper
+
+
+@unique
+class EnumMessageRole(UtilStrValueHelper, str, Enum):
+    """Message roles for LLM chat conversations."""
+
+    USER = "user"
+    SYSTEM = "system"
+    ASSISTANT = "assistant"
+
+
+__all__ = ["EnumMessageRole"]

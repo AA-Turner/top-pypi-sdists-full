@@ -1,3 +1,0 @@
-import typing
-
-def override(_type: typing.Type) -> typing.Type: ...

@@ -51,6 +51,8 @@ from .type_defs import (
     DeleteJobTemplateResponseTypeDef,
     DeleteManagedEndpointRequestTypeDef,
     DeleteManagedEndpointResponseTypeDef,
+    DeleteSecurityConfigurationRequestTypeDef,
+    DeleteSecurityConfigurationResponseTypeDef,
     DeleteVirtualClusterRequestTypeDef,
     DeleteVirtualClusterResponseTypeDef,
     DescribeJobRunRequestTypeDef,
@@ -204,6 +206,16 @@ class EMRContainersClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr-containers/client/delete_managed_endpoint.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_emr_containers/client/#delete_managed_endpoint)
+        """
+
+    async def delete_security_configuration(
+        self, **kwargs: Unpack[DeleteSecurityConfigurationRequestTypeDef]
+    ) -> DeleteSecurityConfigurationResponseTypeDef:
+        """
+        Deletes a security configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/emr-containers/client/delete_security_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_emr_containers/client/#delete_security_configuration)
         """
 
     async def delete_virtual_cluster(

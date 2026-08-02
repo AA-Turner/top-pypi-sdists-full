@@ -1,0 +1,339 @@
+"""Server-side operator authentication gate for console-side management routes.
+
+WHY
+---
+Authentication for the console used to be enforced ONLY in the React UI. The
+Flask layer was wide open, so anyone who could reach the API origin could mint
+API keys, mint/revoke worker enrollment tokens, admit/assign workers (→ prompt
+exfiltration + SSRF), and drive the Discord console — all unauthenticated. This
+gate closes that by validating the operator at the server.
+
+DESIGN
+------
+A single ``before_request`` matches the request against an explicit allowlist of
+SENSITIVE routes (operator-only, mutating, or secret-bearing) and requires
+operator auth for those. Everything else — health/readiness, model reads,
+inference (``/v1`` is gated by the API-key system), and the machine-to-machine
+endpoints the worker / bot / phone arms depend on — is left untouched, so this
+never breaks those flows.
+
+Auth modes (resolved from ``HUGPY_AUTH_MODE``, same as ``/auth/config``):
+  * ``external`` — validate the first-party session cookie by forwarding it to
+    the upstream auth service's ``/me`` (the same session the React UI uses),
+    with a short positive/negative cache. A configured ``HUGPY_OPERATOR_TOKEN``
+    is also accepted (CLI/automation). Fails CLOSED (deny) if the auth service
+    is unreachable — a sensitive route must not open up during an auth outage.
+  * ``open`` — the self-hosted single-operator default (``pip install hugpy``).
+    Permissive UNLESS ``HUGPY_OPERATOR_TOKEN`` is set, in which case that token
+    is required. So the localhost product keeps its no-login UX, while a public
+    open deployment can still lock the management surface with one env var.
+
+The gate only ENFORCES in external mode (or when an operator token is set), so
+installing it changes nothing until the operator flips ``HUGPY_AUTH_MODE`` —
+making rollout safe to deploy and verify before activation.
+"""
+from __future__ import annotations
+
+import os
+import re
+import time
+import hashlib
+import logging
+
+from flask import request, abort
+
+logger = logging.getLogger(__name__)
+
+# Sensitive routes: (allowed-methods-that-require-auth, normalized-path regex).
+# Paths are matched AFTER stripping a leading "/api" (gunicorn dual-mounts the
+# worker/discord/phone blueprints under /api as well as bare). Only the listed
+# methods are gated, so e.g. GET /discord/bridges (bot M2M) stays open while
+# POST /discord/bridges (operator) is gated.
+_SENSITIVE = [
+    # API key management (key minting was anonymously reachable — CRITICAL)
+    ({"GET", "POST"},            re.compile(r"^/keys$")),
+    ({"DELETE"},                 re.compile(r"^/keys/[^/]+$")),
+    ({"PUT"},                    re.compile(r"^/keys/require$")),
+    # k9 VIDEO-SHARE key management: mint/list/revoke the video-scoped share
+    # links. Operator-only, and deliberately NOT on the /video surface — so a
+    # video-share principal (which CAN pass the /video gate) can never reach the
+    # mint route to bootstrap another key ("no key-minting-by-key"). The list GET
+    # doubles as the SPA's operator-auth probe (200 => show the Share button).
+    # (The generic DELETE /keys/<id> rule above matches DELETE /keys/video-share
+    # too, but never the 2-segment /keys/video-share/<id> revoke — hence its own.)
+    ({"GET", "POST"},            re.compile(r"^/keys/video-share$")),
+    ({"DELETE"},                 re.compile(r"^/keys/video-share/[^/]+$")),
+    # Worker enrollment tokens (minting/revoking enrollment — CRITICAL)
+    ({"GET", "POST"},            re.compile(r"^/llm/enroll-tokens$")),
+    ({"DELETE"},                 re.compile(r"^/llm/enroll-tokens/[^/]+$")),
+    # Model review (review_routes): /run spends disk, bandwidth and GPU time on
+    # weights chosen by the caller, and /criteria writes the saved queries the
+    # unattended timer later executes — both are operator intent, not public
+    # reads. /screen and the result GETs stay open: metadata only, no side
+    # effects. Anonymous /run would be a remote "fill the model store" button.
+    ({"POST"},                   re.compile(r"^/llm/review/run$")),
+    ({"PUT"},                    re.compile(r"^/llm/review/criteria/[^/]+$")),
+    # Worker admission / control — operator actions (register & heartbeat are
+    # M2M and deliberately NOT here). Admission is what makes a worker
+    # dispatch-eligible, so gating it closes anonymous self-admission → SSRF.
+    # (alloc-all = bulk GPU-allocation write for a selection of a worker's models
+    #  — worker_routes._apply_alloc_map; same registry-write privilege as assign.)
+    ({"POST"},                   re.compile(r"^/llm/workers/[^/]+/(admit|block|admission|assign|unassign|alloc-all|unload|probe|pool|limits|load)$")),
+    # Per-worker KEEP-WARM STAR ("star") — operator intent that projects onto the
+    # fleet (which model a worker keeps warm; reconcile-kept every beat), same
+    # registry-write privilege tier as assign. The GET map
+    # (/llm/workers/boot-prewarm) and the per-worker read (surfaced on the roster)
+    # stay open — only the write is gated. Two path segments (worker id + verb)
+    # with a hyphen, so it needs its own rule (the single-segment worker-verb rule
+    # above does not match it).
+    ({"POST"},                   re.compile(r"^/llm/workers/[^/]+/boot-prewarm$")),
+    # Per-worker WILDCARD routing opt-in ("take all comers", operator doctrine
+    # 2026-07-23) — a routing-registry write, same tier as assign/boot-prewarm.
+    # The GET map (/llm/workers/wildcard) and the roster surfacing stay open —
+    # only the write is gated. Sibling rule to boot-prewarm above (the
+    # worker-verb alternation rule doesn't list this verb).
+    ({"POST"},                   re.compile(r"^/llm/workers/[^/]+/wildcard$")),
+    ({"DELETE"},                 re.compile(r"^/llm/workers/[^/]+$")),
+    # k10: sanctioned ghost-cleanup for the assignment-memory sidecar
+    # (worker_assignments.json) — same operator-only tier as the row DELETE above.
+    ({"DELETE"},                 re.compile(r"^/llm/workers/[^/]+/memory$")),
+    # Model-level BLOCK from the serving pool (operator pool primitive — the
+    # global sibling of the per-worker block verb above). Same operator-only tier
+    # as assign: block/unblock are routing-registry writes. model_key can contain
+    # slashes (`<path:...>`), so `.+` spans it; the GET placement/meta reads stay
+    # open. Matched after the /api strip, bare and dual-mounted.
+    ({"POST"},                   re.compile(r"^/llm/models/.+/(un)?block$")),
+    # Serving / slot control (operator) — the GET status reads stay open.
+    ({"POST"},                   re.compile(r"^/llm/serving/[^/]+$")),
+    ({"POST"},                   re.compile(r"^/llm/slots/(load|unload)$")),
+    # File uploads are intentionally NOT operator-gated: the media-intelligence
+    # arm needs them for any authenticated user (upload -> /ml/vision|/ml/extract).
+    # Same exposure tier as /chat/stream and /ml/* — the user-facing product routes.
+    # Discord HUMAN console routes. The bot's M2M calls (GET /discord/resolve,
+    # POST /discord/outbox/drain, POST /discord/channels, POST /discord/users,
+    # POST /discord/inbox, GET /discord/bridges) are intentionally excluded.
+    ({"GET", "POST", "DELETE"},  re.compile(r"^/discord/bindings(/[^/]+)?$")),
+    ({"POST"},                   re.compile(r"^/discord/bridges$")),
+    ({"DELETE"},                 re.compile(r"^/discord/bridges/[^/]+$")),
+    ({"POST"},                   re.compile(r"^/discord/bridges/[^/]+/(send|keeper-reply|approve|reject)$")),
+    ({"GET", "DELETE"},          re.compile(r"^/discord/bridges/[^/]+/messages$")),
+    # Comms sessions: minting/listing/revoking the scoped bearer tokens is
+    # operator-only. The /discord/session/<token>/… verbs are deliberately NOT
+    # here — the session token IS their credential (same rationale as
+    # principal tokens below).
+    ({"GET", "POST"},            re.compile(r"^/discord/sessions$")),
+    ({"DELETE"},                 re.compile(r"^/discord/sessions/[^/]+$")),
+    # F2 principals: minting identities/tokens is operator-only. The
+    # /auth/discord-link handshake and /auth/whoami stay open — the principal
+    # token IS their credential.
+    ({"GET", "POST"},            re.compile(r"^/auth/principals$")),
+    ({"DELETE"},                 re.compile(r"^/auth/principals/[^/]+$")),
+    ({"POST"},                   re.compile(r"^/auth/principals/[^/]+/token$")),
+    # F4 settings: reads stay open (UIs render from them); writes are the
+    # console's authoritative control plane (CON-08) -> operator-only.
+    ({"POST", "PUT", "DELETE"},  re.compile(r"^/settings/.+$")),
+    # Fleet templates (FLEET-TEMPLATES-DESIGN §6): the template DEFINITIONS are
+    # operator intent that projects onto the fleet, so writes are operator-only.
+    # GET (list/get/active) and POST .../diff stay OPEN — diff is a read-only
+    # dry-run (no writes, no relays), the review gate the console renders before
+    # any (Slice 1+) apply. Save/delete a named template + snapshot-the-live-fleet
+    # are the writes gated here. (The "snapshot" literal is caught by the
+    # <name> rule under PUT/DELETE too, harmlessly — it's a write either way.)
+    ({"PUT", "DELETE"},          re.compile(r"^/fleet/templates/[^/]+$")),
+    ({"POST"},                   re.compile(r"^/fleet/templates/snapshot$")),
+    # Worker ops (CON-05/06, UTIL-02): restart / module update / pip install /
+    # serving-config are privileged executor actions on a worker —
+    # operator-only, audited. (config added 2026-07-03: it re-execs the agent
+    # and rewrites its runtime settings — same privilege tier as update.)
+    # pin-all/unpin-all relay the SAME /ops/config write in bulk (see
+    # worker_routes._relay_pin_all) — same privilege tier as config.
+    # residency-all (todo t12) sets the RESIDENCY tier of a SELECTED set of a
+    # worker's models in one /ops/config write (worker_routes._relay_residency_map)
+    # — the same privilege tier as config/pin-all; residency only, never pin.
+    # reap-approve = operator-approved eviction of cold local models (drives the
+    # same guarded reaper as /reap, with a central intersection second guard).
+    # free-ram = non-destructive host-RAM reclaim (gc + malloc_trim + CUDA
+    # empty_cache on the worker); it runs a privileged executor op on the box,
+    # so it sits in the same operator-only tier as the other worker ops.
+    # evict = targeted per-model RAM+VRAM reclaim (slot child kill / in-process
+    # ref-drop / comfy /free) — a privileged destructive executor op on the box,
+    # same operator-only tier as unload/free-ram.
+    # reap-orphans (k32) = kill a worker's own-venv GPU children whose slot
+    # claim cleared but whose process never exited — the ONE place central
+    # reaches a worker's raw PIDs (agent._reap_gpu_orphans, fail-closed 4-gate
+    # admission). Same operator-only, destructive-executor tier as evict/reap;
+    # dry_run defaults true so a bare POST previews before it ever kills.
+    ({"POST"},                   re.compile(r"^/llm/workers/[^/]+/(restart|update|pip|config|reap|reap-approve|reap-orphans|pin-all|unpin-all|residency-all|free-ram|evict)$")),
+    # FLEET-WIDE eviction policy (2026-07-25): the drop-pass switch applies to
+    # EVERY worker at once and changes which models an admission unloads, so the
+    # write sits in the same operator-only tier as the per-worker config it
+    # complements. The GET stays open (same tier as the /llm/workers roster).
+    ({"POST"},                   re.compile(r"^/llm/evict-policy$")),
+    # k14: relaunch a worker's slot child with a new GPU-offload depth / context
+    # (the offload speed-cliff sweep lever). A privileged executor op on the box —
+    # it STOP->RESPAWNs a llama-server child — so it sits in the same operator-only
+    # tier as the other worker ops above. Two path segments (slot id + verb), so it
+    # needs its own rule (the single-segment worker-verb rule does not match it).
+    ({"POST"},                   re.compile(r"^/llm/workers/[^/]+/slots/[^/]+/relaunch$")),
+    # stranded-slot fix (2026-07-25): unconditional slot-id-addressed unload —
+    # kills whatever a slot's child currently is regardless of its model_key
+    # claim (the gap /evict's model_key-addressing and /reap-orphans' claimed-
+    # pid gate both miss). Same privileged-executor, operator-only tier as
+    # relaunch/evict; sibling rule (same two-segment shape as relaunch above).
+    ({"POST"},                   re.compile(r"^/llm/workers/[^/]+/slots/[^/]+/unload$")),
+    # P3.1 agent-node fleet: the operator-facing routes only. GET /agent/nodes
+    # (the fleet roster) and POST /agent/<id>/dispatch (queue a task on a node)
+    # are operator intent — gated here too, belt-and-suspenders with the
+    # blueprint's own operator_authenticated() check. The node-facing M2M routes
+    # (POST /agent/register, POST /agent/<id>/heartbeat, GET /agent/<id>/tasks)
+    # are deliberately NOT here — their credential is the node's enroll token.
+    ({"GET"},                    re.compile(r"^/agent/nodes$")),
+    ({"POST"},                   re.compile(r"^/agent/[^/]+/dispatch$")),
+    # 2026-07-23 secure one-time install links: mint/list/revoke are CREDENTIAL-
+    # MINTING operator actions (each link mints a scoped api key) — same tier as
+    # /keys and /keys/video-share. Belt-and-suspenders with the blueprint's own
+    # _require_operator_strict (which, unlike the fleet-view gates, does NOT
+    # honor the HUGPY_AGENT_OPEN testing waiver — see _path_is_sensitive: these
+    # two rules are excluded from that waiver too). The download GET
+    # /agent/install/<link_id> is deliberately NOT here — the unguessable
+    # link_id IS its capability, exactly like the video-share links.
+    ({"GET", "POST"},            re.compile(r"^/agent/install-links$")),
+    ({"DELETE"},                 re.compile(r"^/agent/install-links/[^/]+$")),
+    # P3.1b: the single-task detail read (a run's full row incl. its result) is
+    # the operator's drill-in for the P3.3 console — gated like /agent/nodes.
+    # Scoped to GET and to the /tasks/<seq> shape (with a trailing seq), so the
+    # node-token pull (GET /agent/<id>/tasks — no seg) and the node-token result
+    # POST (POST /agent/<id>/tasks/<seq>/result — extra seg) both stay M2M-open.
+    ({"GET"},                    re.compile(r"^/agent/[^/]+/tasks/[^/]+$")),
+    # Civitai checkpoint download — writes multi-GB files into central's
+    # /checkpoints store (which self-registers models) — operator-only.
+    ({"POST"},                   re.compile(r"^/civitai/download$")),
+    # Disk discovery sweep — rebuilds the discovery report (walks the whole
+    # model tree + hub enrichment); the GET state poll stays open.
+    ({"POST"},                   re.compile(r"^/models/discover$")),
+    # Hugging Face credentials (k29): the stored HF token is a secret and the
+    # write path mutates central's auth to HF — operator-only for GET/POST/DELETE.
+    # GET is gated too (it validates the token against HF and reveals its source);
+    # the token itself is never returned (only last4).
+    ({"GET", "POST", "DELETE"},  re.compile(r"^/llm/hf/auth$")),
+    # HF metadata cache forget (fetch-once policy hatch): dropping a repo's
+    # cached rows re-arms a LIVE HF fetch on next access — an operator-only
+    # refresh affordance. The GET /hf/cache stats read stays open.
+    ({"DELETE"},                 re.compile(r"^/hf/cache/.+$")),
+    # Store reconcile (the flattening migration) — MOVES/ARCHIVES model dirs and
+    # rewrites the registry + markers when {"apply": true}. A mutating store op,
+    # same operator-only tier as discover/delete. The dry-run is also POST (it
+    # writes a plan report), so the whole route is gated.
+    ({"POST"},                   re.compile(r"^/models/reconcile$")),
+]
+
+_SESSION_CACHE: dict[str, tuple[bool, float]] = {}
+_CACHE_TTL = 30.0
+
+
+def _auth_mode() -> str:
+    mode = (os.environ.get("HUGPY_AUTH_MODE") or "external").lower()
+    return mode if mode in ("open", "external") else "external"
+
+
+def _operator_token() -> str:
+    return (os.environ.get("HUGPY_OPERATOR_TOKEN") or "").strip()
+
+
+def _provided_token() -> str:
+    t = request.headers.get("X-Operator-Token")
+    if t:
+        return t.strip()
+    auth = request.headers.get("Authorization", "")
+    if auth.lower().startswith("bearer "):
+        return auth[7:].strip()
+    return ""
+
+
+def _validate_session_external() -> bool:
+    """True iff the request's cookies authenticate against the upstream /me."""
+    cookie_hdr = request.headers.get("Cookie", "")
+    if not cookie_hdr:
+        return False
+    key = hashlib.sha256(cookie_hdr.encode("utf-8")).hexdigest()
+    now = time.time()
+    cached = _SESSION_CACHE.get(key)
+    if cached and cached[1] > now:
+        return cached[0]
+    ok = False
+    try:
+        import requests
+        from .routes.auth_proxy_routes import upstream_base
+        resp = requests.get(f"{upstream_base()}/me", cookies=request.cookies, timeout=8)
+        if resp.status_code == 200:
+            try:
+                data = resp.json()
+                ok = bool(data) and not (isinstance(data, dict) and data.get("error"))
+            except Exception:
+                ok = True
+    except Exception as exc:
+        # Fail closed: a sensitive route must not open up if auth is unreachable.
+        logger.warning("operator session validation failed (auth service): %s", exc)
+        return False
+    _SESSION_CACHE[key] = (ok, now + _CACHE_TTL)
+    return ok
+
+
+def operator_authenticated() -> bool:
+    mode = _auth_mode()
+    tok = _operator_token()
+    if tok and _provided_token() and _provided_token() == tok:
+        return True
+    if mode == "open":
+        # Self-hosted single-operator default: permissive unless a token is set.
+        return not tok
+    return _validate_session_external()
+
+
+def _agent_gates_open() -> bool:
+    """Mirror of agent_routes._agent_gates_open (operator-directed 2026-07-15:
+    agents feature ungated "for now"): ``HUGPY_AGENT_OPEN`` truthy exempts the
+    /agent/* operator rules in THIS belt-and-suspenders layer too, so the flag
+    opens the feature end-to-end. Every other sensitive path stays gated."""
+    return (os.environ.get("HUGPY_AGENT_OPEN", "") or "").strip().lower() in (
+        "1", "true", "yes", "on")
+
+
+def _path_is_sensitive() -> bool:
+    path = request.path or "/"
+    if path == "/api" or path.startswith("/api/"):
+        path = path[len("/api"):] or "/"
+    method = request.method
+    for methods, rx in _SENSITIVE:
+        if method in methods and rx.match(path):
+            # The agent-fleet VIEW rules honor the open flag — but never the
+            # install-link rules: those MINT credentials (each link mints a
+            # scoped api key), the same category the 2026-07-16 ruling made
+            # un-waivable on /agent/register. Open mode may open the fleet
+            # view; it can never open a key-minting surface.
+            if (path.startswith("/agent/")
+                    and not path.startswith("/agent/install-links")
+                    and _agent_gates_open()):
+                continue
+            return True
+    return False
+
+
+def install_operator_gate(app) -> None:
+    """Register the before_request gate on a Flask app (idempotent)."""
+    if getattr(app, "_operator_gate_installed", False):
+        return
+    app._operator_gate_installed = True
+
+    @app.before_request
+    def _operator_gate():
+        if request.method == "OPTIONS":
+            return None  # never block CORS preflight
+        if not _path_is_sensitive():
+            return None
+        if not operator_authenticated():
+            abort(401, description="Operator authentication required for this route.")
+        return None
+
+    logger.info("operator auth gate installed (mode=%s, token_set=%s)",
+                _auth_mode(), bool(_operator_token()))

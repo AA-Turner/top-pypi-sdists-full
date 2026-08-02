@@ -1,0 +1,38 @@
+---
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+# shim-ttl-gate.yml
+#
+# CI gate: fail if any forward-compat shim has a past-TTL sunset annotation.
+# Implements OMN-8820.
+
+name: Shim TTL Gate
+
+on:
+  pull_request:
+    branches: [main, dev]
+  push:
+    branches: [main, dev, "hotfix/**"]
+
+jobs:
+  shim-ttl-gate:
+    name: Shim TTL Gate
+    runs-on: >-
+      ${{
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.5.21"
+
+      - name: Install package
+        run: uv sync --dev
+
+      - name: Check shim TTLs
+        run: uv run python -m omnibase_compat.tooling.shim_ttl_check src/

@@ -1,0 +1,1361 @@
+"""
+Task Management Module for xpander.ai SDK.
+
+This module provides the Task class which serves as the primary interface
+for managing task execution within the xpander.ai platform. It handles
+task lifecycle operations including loading, saving, status updates,
+and termination.
+
+The Task class integrates with the xpander.ai Backend-as-a-Service (BaaS)
+platform to provide seamless task management capabilities with both
+synchronous and asynchronous operations.
+
+Typical usage example:
+    >>> from xpander_sdk.modules.tasks.sub_modules.task import Task
+    >>> from xpander_sdk.modules.tasks.models.task import AgentExecutionStatus
+
+    >>> # Load an existing task
+    >>> task = Task.load(task_id="task_123")
+
+    >>> # Update task status
+    >>> task.set_status(AgentExecutionStatus.Running)
+
+    >>> # Save changes
+    >>> task.save()
+
+    >>> # Stop the task when needed
+    >>> task.stop()
+"""
+
+from datetime import datetime
+from typing import (
+    Any,
+    AsyncGenerator,
+    Dict,
+    Generator,
+    List,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+)
+from httpx import HTTPStatusError
+import httpx
+import json
+from httpx_sse import aconnect_sse
+from loguru import logger
+from pydantic import Field, PrivateAttr
+
+from xpander_sdk.consts.api_routes import APIRoute
+from xpander_sdk.core.xpander_api_client import APIClient
+from xpander_sdk.exceptions.module_exception import ModuleException
+from xpander_sdk.models.activity import AgentActivityThread
+from xpander_sdk.models.configuration import Configuration
+from xpander_sdk.models.deep_planning import PlanFollowingStatus, DeepPlanning
+from xpander_sdk.models.events import (
+    TaskUpdateEventType,
+    ToolCallRequest,
+    ToolCallResult,
+)
+from xpander_sdk.models.shared import (
+    ExecutionTokens,
+    OutputFormat,
+    ThinkMode,
+    Tokens,
+    XPanderSharedModel,
+)
+from xpander_sdk.modules.agents.models.agent import LLMReasoningEffort
+from xpander_sdk.modules.events.utils.generic import get_events_base, get_events_headers
+from xpander_sdk.modules.tasks.models.task import (
+    AgentExecutionInput,
+    AgentExecutionStatus,
+    HumanInTheLoopRequest,
+    ExecutionMetricsReport,
+    PendingECARequest,
+    TaskReportRequest,
+)
+from xpander_sdk.modules.tasks.utils.files import (
+    AttachmentPlan,
+    categorize_files,
+    fetch_urls,
+    fetch_file,
+    fetch_image,
+    extract_document_text,
+    plan_attachments,
+    truncate_inline_text,
+    _MAX_INLINE_TOTAL_CHARS,
+)
+from xpander_sdk.modules.tasks.utils.media import prepare_image, prepare_pdf
+from xpander_sdk.modules.tasks.utils.model_capabilities import (
+    DEFAULT_CAPABILITIES,
+    ModelCapabilities,
+    media_pipeline_disabled,
+)
+from xpander_sdk.modules.tools_repository.models.mcp import (
+    MCPOAuthGetTokenResponse,
+    MCPServerDetails,
+)
+from xpander_sdk.utils.event_loop import run_sync
+from xpander_sdk.models.compactization import TaskCompactizationEvent
+
+# Type variable for Task class methods
+T = TypeVar("T", bound="Task")
+
+TaskUpdateEventData = Union[
+    TaskCompactizationEvent,
+    T,
+    ToolCallRequest,
+    ToolCallResult,
+    MCPOAuthGetTokenResponse,
+    DeepPlanning,
+]
+
+
+class MessageIdentity(XPanderSharedModel):
+    """Display identity stamped on events produced under a skill (identified-as)."""
+
+    name: str
+    icon: Optional[str] = None
+
+
+class TaskUpdateEvent(XPanderSharedModel):
+    type: TaskUpdateEventType
+    task_id: str
+    organization_id: str
+    time: datetime
+    data: Any
+    # display identity of the skill driving this event (identified-as), when any
+    identity: Optional[MessageIdentity] = None
+
+
+class Task(XPanderSharedModel):
+    """
+    Represents a task entity in the xpander.ai platform.
+
+    This class manages task-related operations, including state updates,
+    API interaction, status control, and lifecycle management.
+
+    Attributes:
+        configuration (Optional[Configuration]): The current configuration settings for the task.
+        id (str): Unique identifier for the task.
+        agent_id (str): Identifier for the associated agent.
+        organization_id (str): Identifier for the organization.
+        input (AgentExecutionInput): The input parameters for agent execution.
+        status (Optional[AgentExecutionStatus]): Current status of the task.
+        last_executed_node_id (Optional[str]): ID of the last executed node.
+        agent_version (Optional[str]): Version of the agent.
+        created_at (datetime): Timestamp when the task was created.
+        started_at (Optional[datetime]): Timestamp when the task was started.
+        paused_at (Optional[datetime]): Timestamp when the task was paused.
+        finished_at (Optional[datetime]): Timestamp when the task was finished.
+        result (Optional[str]): Result of the task execution.
+        parent_execution (Optional[str]): Parent execution ID, if applicable.
+        sub_executions (Optional[List[str]]): List of sub-execution IDs.
+        is_manually_stopped (Optional[bool]): Flag indicating if the task was manually stopped.
+        payload_extension (Optional[dict]): Additional data for the task.
+        hitl_request (Optional[HumanInTheLoopRequest]): Human-in-the-loop request state.
+        pending_eca_request (Optional[PendingECARequest]): Pending ECA request, if any.
+        source (Optional[str]): Source information of the task.
+        output_format (Optional[OutputFormat]): Desired output format of the task.
+        output_schema (Optional[Dict]): Schema for the task's output.
+        events_streaming (Optional[bool]): Flag indicating if the task has events streaming.
+        additional_context (Optional[str]): Additional context to be passed to the agent.
+        instructions_override (Optional[str]): Additional instructions to be appended to the agent's system prompt.
+        test_run_node_id (Optional[str]): Internal test purpose workflow node id to execute.
+        user_oidc_token (Optional[str]): OIDC Token to be used for pre-auth
+        expected_output (Optional[str]): Expected output of the execution.
+        mcp_servers (Optional[List[MCPServerDetails]]): Optional list of mcp servers to use.
+        triggering_agent_id (Optional[str]): Optional triggering agent id.
+        title (Optional[str]): Optional task title.
+        deep_planning: Optional[DeepPlanning] = Field(default_factory=DeepPlanning)
+        execution_attempts: Optional[int] = 1
+        llm_model_provider (Optional[str]): Per-task override of the agent's LLM provider (e.g. ``"openai"``, ``"anthropic"``). Defaults to the agent's settings.
+        llm_model_name (Optional[str]): Per-task override of the model name (e.g. ``"gpt-5"``). Defaults to the agent's settings.
+        llm_reasoning_effort (Optional[LLMReasoningEffort]): Per-task override of the reasoning effort. Defaults to the agent's settings.
+
+    Example:
+        >>> task = Task.load(task_id="task_123")
+        >>> task.set_status(AgentExecutionStatus.Running)
+        >>> task.save()
+        >>>
+        >>> # Get files for Agno integration
+        >>> files = task.get_files()  # PDF files as Agno File objects
+        >>> images = task.get_images()  # Image files as Agno Image objects
+        >>> result = await agno_agent.arun(
+        ...     input=task.to_message(),
+        ...     files=files,
+        ...     images=images
+        ... )
+    """
+
+    configuration: Optional[Configuration] = None
+    id: str
+    agent_id: str
+    organization_id: str
+    input: AgentExecutionInput
+    status: Optional[AgentExecutionStatus] = AgentExecutionStatus.Pending
+    internal_status: Optional[str] = None
+    last_executed_node_id: Optional[str] = None
+    agent_version: Optional[str] = None
+    created_at: datetime
+    started_at: Optional[datetime] = None
+    paused_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+    result: Optional[str] = None
+    parent_execution: Optional[str] = None
+    sub_executions: Optional[List[str]] = []
+    should_update_parent: Optional[bool] = False
+    is_manually_stopped: Optional[bool] = False
+    payload_extension: Optional[dict] = None
+    hitl_request: Optional[HumanInTheLoopRequest] = None
+    pending_eca_request: Optional[PendingECARequest] = None
+    source: Optional[str] = None
+    voice_id: Optional[str] = None
+    output_format: Optional[OutputFormat] = None
+    output_schema: Optional[Dict] = None
+    events_streaming: Optional[bool] = False
+    is_orchestration: Optional[bool] = False
+    is_gateway: Optional[bool] = False
+    is_app: Optional[bool] = False
+    additional_context: Optional[str] = None
+    instructions_override: Optional[str] = None
+    test_run_node_id: Optional[str] = None
+    user_oidc_token: Optional[str] = None
+    expected_output: Optional[str] = None
+    mcp_servers: Optional[List[MCPServerDetails]] = []
+    triggering_agent_id: Optional[str] = None
+    title: Optional[str] = None
+    think_mode: Optional[ThinkMode] = ThinkMode.Default
+    disable_attachment_injection: Optional[bool] = False
+    user_tokens: Optional[Dict] = None
+    deep_planning: Optional[DeepPlanning] = Field(default_factory=DeepPlanning)
+    must_deep_plan: Optional[bool] = False
+    execution_attempts: Optional[int] = 1
+    return_metrics: Optional[bool] = False
+    llm_model_provider: Optional[str] = None
+    llm_model_name: Optional[str] = None
+    llm_reasoning_effort: Optional[LLMReasoningEffort] = None
+
+    # metrics
+    tokens: Optional[Tokens] = None
+    used_tools: Optional[List[str]] = []
+    duration: Optional[float] = 0
+
+    # Attachment pipeline runtime state (never serialized; task.save() untouched).
+    # _model_capabilities is set by agno._load_llm_model once the provider/model resolve.
+    _model_capabilities: Optional[ModelCapabilities] = PrivateAttr(default=None)
+    _attachment_plan: Optional[AttachmentPlan] = PrivateAttr(default=None)
+    _attachment_images: Optional[List[Any]] = PrivateAttr(default=None)
+    _attachment_files: Optional[List[Any]] = PrivateAttr(default=None)
+    _attachment_pdf_texts: Optional[List[Dict]] = PrivateAttr(default=None)
+
+    def model_post_init(self, context):
+        """
+        Post-initialization hook for the model.
+
+        This method is called after the model is initialized. It sets the current
+        task state and then calls the parent class's `model_post_init` method.
+
+        Parameters:
+            context (Any): Context object provided during model initialization.
+
+        Returns:
+            Any: The result from the superclass `model_post_init` method.
+
+        Note:
+            This method uses `self.configuration.state.task = self` to register the current task
+            in the global state.
+
+        Powered by xpander.ai
+        """
+        self.configuration.state.task = self
+        return super().model_post_init(context)
+
+    async def areload(self):
+        """
+        Reload the current object asynchronously.
+
+        This method fetches a new instance of the object from the data source
+        using the current object's `id` and `configuration`, then updates the
+        current object's attributes with the new instance's attributes.
+
+        Returns:
+            self: The reloaded instance of the object.
+
+        Powered by xpander.ai
+        """
+        # Snapshot deep_planning before reload — the API may return stale data
+        local_plan = (
+            self.deep_planning.model_copy(deep=True)
+            if self.deep_planning and self.deep_planning.tasks
+            else None
+        )
+        local_additional_context = self.additional_context
+
+        new_obj = await self.aload(
+            task_id=self.id,
+            configuration=self.configuration,
+        )
+        self.__dict__.update(new_obj.__dict__)
+
+        # Restore deep_planning if the API returned an empty/stale plan
+        if (
+            local_plan
+            and local_plan.tasks
+            and (not self.deep_planning or not self.deep_planning.tasks)
+        ):
+            self.deep_planning = local_plan
+        # Restore additional_context if the API lost it
+        if local_additional_context and not self.additional_context:
+            self.additional_context = local_additional_context
+
+        return self
+
+    def reload(self):
+        """
+        Reload the current object synchronously.
+
+        This method runs the asynchronous `areload` method synchronously
+        to update the current object's attributes.
+
+        Returns:
+            self: The reloaded instance of the object.
+
+        Powered by xpander.ai
+        """
+        run_sync(self.areload())
+
+    @classmethod
+    async def aload(
+        cls: Type[T], task_id: str, configuration: Optional[Configuration] = None
+    ) -> T:
+        """
+        Asynchronously loads a task by its ID.
+
+        Args:
+            task_id (str): Unique identifier for the task to load.
+            configuration (Optional[Configuration]): Configuration settings for API interaction.
+
+        Returns:
+            T: Instance of the Task class.
+
+        Raises:
+            ModuleException: Error related to HTTP requests or task fetching.
+
+        Example:
+            >>> task = await Task.aload(task_id="task_123")
+        """
+        try:
+            client = APIClient(configuration=configuration)
+            response_data = await client.make_request(
+                path=APIRoute.GetTask.format(task_id=task_id)
+            )
+            task = cls.model_validate(
+                {**response_data, "configuration": configuration or Configuration()}
+            )
+            return task
+        except HTTPStatusError as e:
+            raise ModuleException(
+                status_code=e.response.status_code, description=e.response.text
+            )
+        except Exception as e:
+            raise ModuleException(
+                status_code=500, description=f"Failed to get tas - {str(e)}"
+            )
+
+    @classmethod
+    def load(
+        cls: Type[T], task_id: str, configuration: Optional[Configuration] = None
+    ) -> T:
+        """
+        Loads a task by its ID synchronously.
+
+        This function wraps the asynchronous aload method.
+
+        Args:
+            task_id (str): Unique identifier for the task to load.
+            configuration (Optional[Configuration]): Configuration settings for API interaction.
+
+        Returns:
+            T: Instance of the Task class.
+
+        Example:
+            >>> task = Task.load(task_id="task_123")
+        """
+        return run_sync(cls.aload(task_id=task_id, configuration=configuration))
+
+    async def aset_status(
+        self, status: AgentExecutionStatus, result: Optional[str] = None
+    ):
+        """
+        Asynchronously sets the task status and updates it in the backend.
+
+        Args:
+            status (AgentExecutionStatus): The new status to apply.
+            result (str): The result to apply.
+
+        Example:
+            >>> await task.aset_status(AgentExecutionStatus.Running, "task started")
+        """
+        self.status = status
+        self.result = result
+        await self.asave()
+
+    def set_status(self, status: AgentExecutionStatus, result: Optional[str] = None):
+        """
+        Sets the task status synchronously.
+
+        This function wraps the asynchronous aset_status method.
+
+        Args:
+            status (AgentExecutionStatus): The new status to apply.
+            result (str): The result to apply.
+
+        Example:
+            >>> task.set_status(AgentExecutionStatus.Running, "task started")
+        """
+        return run_sync(self.aset_status(status=status, result=result))
+
+    async def asave(self, with_deep_plan_update: Optional[bool] = False):
+        """
+        Asynchronously saves the current task state to the backend.
+
+        Args:
+            with_deep_plan_update (Optional[bool]): should update deep plan as well? default false.
+
+        Raises:
+            ModuleException: Error related to HTTP requests or task saving.
+
+        Example:
+            >>> await task.asave()
+        """
+        client = APIClient(configuration=self.configuration)
+        try:
+            exclude = {"configuration"}
+
+            if not with_deep_plan_update:
+                exclude.add("deep_planning")
+
+            # Snapshot deep_planning before API call — the API response may
+            # return a stale/empty plan when deep_planning was excluded from the PATCH.
+            local_plan = (
+                self.deep_planning.model_copy(deep=True)
+                if self.deep_planning and self.deep_planning.tasks
+                else None
+            )
+            local_additional_context = self.additional_context
+
+            response = await client.make_request(
+                path=APIRoute.UpdateTask.format(task_id=self.id),
+                method="PATCH",
+                payload=self.model_dump_safe(exclude=exclude),
+            )
+            updated_task = Task(**response, configuration=self.configuration)
+            for field, value in updated_task.__dict__.items():
+                setattr(self, field, value)
+
+            # Restore deep_planning if the API returned an empty/stale plan
+            # but we had a valid local plan (common during retries after session deletion)
+            if (
+                local_plan
+                and local_plan.tasks
+                and (not self.deep_planning or not self.deep_planning.tasks)
+            ):
+                self.deep_planning = local_plan
+            # Restore additional_context if the API lost it
+            if local_additional_context and not self.additional_context:
+                self.additional_context = local_additional_context
+        except HTTPStatusError as e:
+            raise ModuleException(e.response.status_code, e.response.text)
+        except Exception as e:
+            raise ModuleException(500, f"Failed to save task: {str(e)}")
+
+    def save(self, with_deep_plan_update: Optional[bool] = False):
+        """
+        Saves the current task state synchronously.
+
+        This function wraps the asynchronous asave method.
+
+        Args:
+            with_deep_plan_update (Optional[bool]): should update deep plan as well? default false.
+
+        Example:
+            >>> task.save()
+        """
+        return run_sync(self.asave(with_deep_plan_update=with_deep_plan_update))
+
+    async def astop(self):
+        """
+        Asynchronously stops the task.
+
+        Communicates with the backend to terminate the task execution.
+
+        Raises:
+            ModuleException: Error related to HTTP requests or task stopping.
+
+        Example:
+            >>> await task.astop()
+        """
+        client = APIClient(configuration=self.configuration)
+        try:
+            response = await client.make_request(
+                path=APIRoute.TaskCrud.format(agent_or_task_id=self.id), method="DELETE"
+            )
+            updated_task = Task(**response, configuration=self.configuration)
+            for field, value in updated_task.__dict__.items():
+                setattr(self, field, value)
+        except HTTPStatusError as e:
+            raise ModuleException(e.response.status_code, e.response.text)
+        except Exception as e:
+            raise ModuleException(500, f"Failed to stop task: {str(e)}")
+
+    def stop(self):
+        """
+        Stops the task synchronously.
+
+        This function wraps the asynchronous astop method.
+
+        Example:
+            >>> task.stop()
+        """
+        return run_sync(self.astop())
+
+    def _attachment_caps(self) -> ModelCapabilities:
+        return self._model_capabilities or DEFAULT_CAPABILITIES
+
+    def get_attachment_plan(self) -> AttachmentPlan:
+        """Per-URL attachment decisions for this task's resolved model capabilities (built once, cached)."""
+        if self._attachment_plan is None:
+            self._attachment_plan = plan_attachments(
+                self.input.files or [], self._attachment_caps()
+            )
+        return self._attachment_plan
+
+    def _materialize_attachments(self) -> None:
+        """Execute the attachment plan once (downloads/transforms), caching images, files, and inline PDF text."""
+        if self._attachment_images is not None:
+            return
+        plan = self.get_attachment_plan()
+        caps = self._attachment_caps()
+        images: List[Any] = []
+        files: List[Any] = []
+        pdf_texts: List[Dict] = []
+
+        try:
+            from agno.media import File, Image  # noqa: F401 - availability probe
+
+            agno_available = True
+        except Exception:
+            agno_available = False
+
+        if not agno_available:
+            # Legacy fallback shape: raw URLs when agno's media types are absent.
+            images = [i.url for i in plan.by_category("image") if i.action == "inline"]
+            files = [i.url for i in plan.by_category("pdf") if i.action == "inline"]
+        else:
+            for item in plan.by_category("image"):
+                if item.action != "inline":
+                    continue
+                try:
+                    image = prepare_image(item.url, caps, item.size)
+                except Exception as e:
+                    logger.warning(f"dropping unfetchable/invalid image {item.url}: {e}")
+                    item.action = "skip"
+                    item.reason = str(e)
+                    continue
+                if image is None:
+                    item.action = "url_only"
+                    item.reason = "huge"
+                    plan.notes.append(
+                        f"{item.url}: too large to attach inline; fetch it via your tools/workspace using the URL"
+                    )
+                else:
+                    images.append(image)
+
+            for item in plan.by_category("pdf"):
+                if item.action == "url_only":
+                    continue
+                if item.action == "text_extract" and self.disable_attachment_injection:
+                    continue
+                try:
+                    action, payload, note = prepare_pdf(item.url, caps, item.size)
+                except Exception as e:
+                    logger.warning(f"dropping unfetchable pdf {item.url}: {e}")
+                    item.action = "skip"
+                    item.reason = str(e)
+                    continue
+                item.action = "inline" if action == "file" else action
+                if action == "file":
+                    files.append(payload)
+                elif action == "text" and not self.disable_attachment_injection:
+                    pdf_texts.append({"url": item.url, "content": payload})
+                if note:
+                    plan.notes.append(f"{item.url}: {note}")
+
+        self._attachment_images = images
+        self._attachment_files = files
+        self._attachment_pdf_texts = pdf_texts
+
+    def _legacy_get_files(self) -> list[Any]:
+        categorized_files = categorize_files(file_urls=self.input.files)
+        if not categorized_files.pdfs:
+            return []
+        try:
+            from agno.media import File  # noqa: F401 - availability probe
+
+            return [fetch_file(url=url) for url in categorized_files.pdfs]
+        except Exception:
+            return categorized_files.pdfs
+
+    def _legacy_get_images(self) -> list[Any]:
+        categorized_files = categorize_files(file_urls=self.input.files)
+        if not categorized_files.images:
+            return []
+        try:
+            from agno.media import Image  # noqa: F401 - availability probe
+        except Exception:
+            return categorized_files.images
+        images: list[Any] = []
+        for url in categorized_files.images:
+            try:
+                images.append(fetch_image(url=url))
+            except Exception as e:
+                logger.warning(f"dropping unfetchable/invalid image {url}: {e}")
+        return images
+
+    def get_files(self) -> list[Any]:
+        """
+        Get PDF files from task input, formatted for Agno integration.
+
+        Executes the cached attachment plan: PDFs are attached natively (page-truncated
+        when over the provider cap), text-extracted for providers that reject file
+        blobs, or left URL-only when huge. Returns URL strings when Agno is missing.
+
+        Example:
+            >>> files = task.get_files()
+            >>> result = await agno_agent.arun(
+            ...     input=task.to_message(),
+            ...     files=files
+            ... )
+        """
+        if not self.input.files or len(self.input.files) == 0:
+            return []
+        if media_pipeline_disabled():
+            return self._legacy_get_files()
+        self._materialize_attachments()
+        return list(self._attachment_files or [])
+
+    def get_images(self) -> list[Any]:
+        """
+        Get image files from task input, formatted for Agno integration.
+
+        Executes the cached attachment plan: healthy images pass through byte-identical,
+        oversized/BMP/TIFF ones are downscaled/converted instead of dropped, and
+        non-vision models get [] so the provider never 400s on image content.
+
+        Example:
+            >>> images = task.get_images()
+            >>> result = await agno_agent.arun(
+            ...     input=task.to_message(),
+            ...     images=images
+            ... )
+        """
+        if not self.input.files or len(self.input.files) == 0:
+            return []
+        if media_pipeline_disabled():
+            return self._legacy_get_images()
+        self._materialize_attachments()
+        return list(self._attachment_images or [])
+
+    def get_human_readable_files(self) -> list[Any]:
+        """
+        Get human-readable files from task input with their content.
+
+        Returns text-based files (like .txt, .csv, .json, .py, etc.) with their content
+        fetched and parsed. This method is automatically used by to_message() to include
+        file contents in the task message.
+
+        Returns:
+            list[dict[str, str]]: List of dictionaries with 'url' and 'content' keys.
+                                 Returns empty list if no human-readable files are present.
+
+        Example:
+            >>> readable_files = task.get_human_readable_files()
+            >>> for file_data in readable_files:
+            ...     print(f"File: {file_data['url']}")
+            ...     print(f"Content: {file_data['content']}")
+        """
+        if not self.input.files or len(self.input.files) == 0:
+            return []
+
+        categorized_files = categorize_files(file_urls=self.input.files)
+
+        raw_results: list[Any] = []
+        if categorized_files.files:
+            raw_results.extend(
+                run_sync(
+                    fetch_urls(
+                        urls=categorized_files.files,
+                        disable_attachment_injection=self.disable_attachment_injection,
+                    )
+                )
+            )
+
+        # Office docs aren't model-readable as raw bytes, so extract their text inline.
+        if categorized_files.documents and not self.disable_attachment_injection:
+            for url in categorized_files.documents:
+                text = extract_document_text(url=url)
+                if text:
+                    raw_results.append({"url": url, "content": text})
+
+        # Cap inlined text per-file and in aggregate so a large CSV/JSON can't blow context.
+        results: list[Any] = []
+        remaining = _MAX_INLINE_TOTAL_CHARS
+        for item in raw_results:
+            if isinstance(item, dict) and isinstance(item.get("content"), str):
+                content = truncate_inline_text(item["content"], item.get("url", ""), remaining)
+                remaining -= len(content)
+                results.append({**item, "content": content})
+            else:
+                results.append(item)
+
+        return results
+
+    def to_message(self, retry_count: int = 0) -> str:
+        """
+        Converts the input data into a formatted message string.
+
+        This method constructs a message from text and file inputs.
+        If text exists, it is included first. If files are present,
+        they are appended as a comma-separated list under "Files:".
+
+        On retries, generates a lightweight continuation prompt to guide
+        the agent to complete remaining plan tasks.
+
+        Args:
+            retry_count (int): The current retry attempt number (0 = first execution).
+
+        Returns:
+            str: A formatted message string including text and/or file names.
+
+        Powered by xpander.ai
+        """
+        message = ""
+        if self.input.text:
+            message = self.input.text
+
+        if self.input.files and len(self.input.files) != 0:
+            if len(message) != 0:
+                message += "\n"
+            message += "Files: " + (", ".join(self.input.files))
+
+        # append human readable content like csv and such
+        readable_files = self.get_human_readable_files()
+
+        # Materialize the attachment plan so provider-rejected PDFs inline as
+        # extracted text and skip/huge/scanned notes reach the agent.
+        pdf_texts: List[Dict] = []
+        attachment_notes: List[str] = []
+        if self.input.files and not media_pipeline_disabled():
+            self._materialize_attachments()
+            remaining = _MAX_INLINE_TOTAL_CHARS
+            for item in self._attachment_pdf_texts or []:
+                content = truncate_inline_text(item["content"], item["url"], remaining)
+                remaining -= len(content)
+                pdf_texts.append({"url": item["url"], "content": content})
+            attachment_notes = list(self.get_attachment_plan().notes)
+
+        if readable_files or pdf_texts:
+            message += "\nFiles contents:"
+            for f in list(readable_files or []) + pdf_texts:
+                message += f"\n{json.dumps(f)}"
+
+        if attachment_notes:
+            message += "\nAttachment notes:"
+            for note in attachment_notes:
+                message += f"\n- {note}"
+
+        if (
+            self.deep_planning
+            and self.deep_planning.enabled == True
+            and self.deep_planning.started
+        ):
+            task_backup = self.model_copy()  # backup result and status
+            deep_planning_backup = self.deep_planning.model_copy(
+                deep=True
+            )  # deep copy plan state
+
+            self.reload()
+
+            # restore result, status, and deep planning (reload may wipe plan)
+            self.result = task_backup.result
+            self.status = task_backup.status
+            self.tokens = task_backup.tokens
+            if deep_planning_backup and deep_planning_backup.tasks:
+                self.deep_planning = deep_planning_backup
+
+            if not self.deep_planning.question_raised:
+                uncompleted_tasks = [
+                    task for task in self.deep_planning.tasks if not task.completed
+                ]
+                if len(uncompleted_tasks) != 0:
+                    message = self._build_retry_message(
+                        message=message,
+                        uncompleted_tasks=uncompleted_tasks,
+                        retry_count=retry_count,
+                    )
+            else:
+                self.deep_planning.question_raised = (
+                    False  # reset question raised indicator
+                )
+                self.save(with_deep_plan_update=True)
+
+        return message
+
+    def _build_retry_message(
+        self, message: str, uncompleted_tasks: list, retry_count: int
+    ) -> str:
+        """Build a continuation prompt for plan-following retries.
+
+        Args:
+            message: The original user message.
+            uncompleted_tasks: List of uncompleted DeepPlanningItem.
+            retry_count: Current retry attempt number.
+
+        Returns:
+            str: A continuation prompt string.
+        """
+        completed_tasks = [t for t in self.deep_planning.tasks if t.completed]
+
+        plan_status_lines = []
+        for t in self.deep_planning.tasks:
+            status_mark = "[✓]" if t.completed else "[ ]"
+            plan_status_lines.append(f"  {status_mark} {t.title} (ID: {t.id})")
+
+        plan_status = "\n".join(plan_status_lines)
+        first_uncompleted = uncompleted_tasks[0]
+
+        # Reference compacted context if available
+        context_hint = ""
+        if self.additional_context and "<compacted_context>" in self.additional_context:
+            context_hint = (
+                "\nCRITICAL: Your previous work context (including ALL research data, findings, "
+                "pricing details, and key facts) has been preserved in the system prompt under "
+                "<compacted_context>. This summary contains EVERYTHING you need to continue. "
+                "Do NOT re-search or re-fetch data that is already in the summary. "
+                "Use the data directly from the summary to complete remaining tasks.\n"
+            )
+
+        retry_prompt = (
+            f"You stopped before completing all tasks. This is attempt {retry_count + 1}. "
+            f"You MUST finish ALL remaining tasks.\n\n"
+            f"Current plan status:\n{plan_status}\n\n"
+            f"Completed: {len(completed_tasks)}/{len(self.deep_planning.tasks)} tasks\n\n"
+            f"Your next task: {first_uncompleted.title} (ID: {first_uncompleted.id})\n"
+            f"{context_hint}\n"
+            f"IMPORTANT: Do NOT stop early. Do NOT re-research completed tasks. "
+            f"Complete each remaining task and mark it done using "
+            f"xpcomplete_agent_plan_items with the FULL UUID immediately after finishing it."
+        )
+
+        # Preserve original input (text, file URL listing, inlined readable file
+        # contents) so retries don't lose access to user-provided files.
+        if message:
+            return f"<task_input>\n{message}\n</task_input>\n\n{retry_prompt}"
+        return retry_prompt
+
+    async def acompact_session_for_retry(self, custom_instructions: str = ""):
+        """Force L2 compaction on the session before a plan retry.
+
+        Loads the xpander agent, creates an optimizer, and delegates to
+        ``XPanderContextOptimizer.acompact_session_for_retry()``.
+
+        Args:
+            custom_instructions: Optional retry-focus guidance forwarded to
+                the L2 compaction LLM (rendered after ``Additional focus:``
+                in the user prompt).
+
+        Returns:
+            CompactRetryResult with compaction status and token usage.
+        """
+        from xpander_sdk.core.context_optimizer.context_optimizer import (
+            CompactRetryResult,
+            XPanderContextOptimizer,
+        )
+        from xpander_sdk.modules.agents.agents_module import Agents
+        from xpander_sdk.modules.backend.frameworks.agno import _load_llm_model
+
+        try:
+            xpander_agent = await Agents(configuration=self.configuration).aget(
+                agent_id=self.agent_id
+            )
+            model = _load_llm_model(agent=xpander_agent, task=self)
+            optimizer = XPanderContextOptimizer(
+                model=model,
+                agent=xpander_agent,
+                task=self,
+            )
+            return await optimizer.acompact_session_for_retry(
+                xpander_agent,
+                self,
+                custom_instructions=custom_instructions,
+            )
+        except Exception as exc:
+            from loguru import logger
+
+            logger.warning(f"[task] acompact_session_for_retry failed: {exc}")
+            return CompactRetryResult()
+
+    async def aget_activity_log(self) -> AgentActivityThread:
+        """
+        Asynchronously retrieves the activity log for this task.
+
+        Fetches a detailed activity thread containing all messages, tool calls,
+        reasoning steps, sub-agent triggers, and authentication events that
+        occurred during the task execution.
+
+        Returns:
+            AgentActivityThread: Complete activity log including messages,
+                                tool calls, reasoning, and other execution events.
+
+        Raises:
+            ModuleException: If the activity log cannot be retrieved or doesn't exist.
+
+        Example:
+            >>> task = await Task.aload(task_id="task_123")
+            >>> activity_log = await task.aget_activity_log()
+            >>> for message in activity_log.messages:
+            ...     print(f"{message.role}: {message.content.text}")
+        """
+        try:
+            client = APIClient(configuration=self.configuration)
+            activity_log: AgentActivityThread = await client.make_request(
+                path=APIRoute.GetTaskActivityLog.format(
+                    agent_id=self.agent_id, task_id=self.id
+                ),
+                model=AgentActivityThread,
+            )
+            if not activity_log:
+                raise HTTPStatusError(404, "Log not found")
+
+            return activity_log
+        except HTTPStatusError as e:
+            raise ModuleException(
+                status_code=e.response.status_code, description=e.response.text
+            )
+        except Exception as e:
+            raise ModuleException(
+                status_code=500, description=f"Failed to get activity log - {str(e)}"
+            )
+
+    def get_activity_log(self) -> AgentActivityThread:
+        """
+        Retrieves the activity log for this task synchronously.
+
+        This method wraps the asynchronous aget_activity_log method for use
+        in synchronous environments.
+
+        Returns:
+            AgentActivityThread: Complete activity log including messages,
+                                tool calls, reasoning, and other execution events.
+
+        Raises:
+            ModuleException: If the activity log cannot be retrieved or doesn't exist.
+
+        Example:
+            >>> task = Task.load(task_id="task_123")
+            >>> activity_log = task.get_activity_log()
+            >>> for message in activity_log.messages:
+            ...     print(f"{message.role}: {message.content.text}")
+        """
+        return run_sync(self.aget_activity_log())
+
+    async def aevents(self) -> AsyncGenerator[TaskUpdateEvent, None]:
+        """
+        Asynchronously streams task events.
+
+        This method connects to the xpander.ai event stream using Server-Sent Events (SSE)
+        and yields each `TaskUpdateEvent` related to the current task as they arrive.
+
+        Requires that the task was created or loaded with `events_streaming=True`.
+
+        Yields:
+            TaskUpdateEvent: A parsed event containing real-time updates about the task.
+
+        Raises:
+            ValueError: If the task is not configured for event streaming.
+
+        Example:
+            >>> async for event in task.aevents():
+            >>>     print(event)
+        """
+        if not self.events_streaming:
+            raise ValueError(f"Task {self.id} does not set with events streaming")
+
+        headers = get_events_headers(configuration=self.configuration)
+        url = get_events_base(configuration=self.configuration).replace(
+            "/events", f"/agent-execution/{self.id}/events"
+        )
+
+        async with httpx.AsyncClient(timeout=None, headers=headers) as client:
+            async with aconnect_sse(client, method="GET", url=url) as sse:
+                async for event in sse.aiter_sse():
+                    if not event.data:
+                        continue
+                    # Try to parse task-typed events with a typed Task payload
+                    # so downstream consumers get a rich object. If that
+                    # fails (e.g. oversized / trimmed / newer fields), fall
+                    # through to the loose TaskUpdateEvent parse so the
+                    # envelope still propagates.
+                    try:
+                        json_event_data: dict = json.loads(event.data)
+                        evt_type = json_event_data.get("type", None)
+                        if isinstance(evt_type, str) and evt_type.startswith("task"):
+                            task_data = json_event_data.get("data")
+                            json_event_data.pop("data", None)
+                            try:
+                                yield TaskUpdateEvent(
+                                    **json_event_data,
+                                    data=Task(
+                                        **task_data, configuration=self.configuration
+                                    ),
+                                )
+                                continue
+                            except Exception as typed_exc:
+                                # Typed parse failed (e.g. extra fields like
+                                # _result_truncated, oversize, or provider
+                                # schema drift). Fall back to an untyped
+                                # envelope with the raw data dict so the
+                                # consumer's guard logic can still read
+                                # ``status`` / ``finished_at``.
+                                logger.warning(
+                                    f"task.aevents: typed Task parse failed "
+                                    f"for {evt_type} (falling back to dict): {typed_exc}"
+                                )
+                                yield TaskUpdateEvent(**json_event_data, data=task_data)
+                                continue
+                    except Exception as parse_exc:
+                        logger.warning(
+                            f"task.aevents: envelope JSON parse failed, "
+                            f"trying model_validate_json: {parse_exc}"
+                        )
+                    try:
+                        yield TaskUpdateEvent.model_validate_json(event.data)
+                    except Exception as final_exc:
+                        logger.warning(
+                            f"task.aevents: dropping unparseable event: {final_exc}"
+                        )
+
+    def events(self) -> Generator[TaskUpdateEvent, None, None]:
+        """
+        Synchronously streams task events.
+
+        This method wraps the asynchronous `aevents` generator and yields events in a
+        blocking manner for use in synchronous environments.
+
+        Requires that the task was created or loaded with `events_streaming=True`.
+
+        Yields:
+            TaskUpdateEvent: A parsed event containing real-time updates about the task.
+
+        Raises:
+            ValueError: If the task is not configured for event streaming.
+
+        Example:
+            >>> for event in task.events():
+            >>>     print(event)
+        """
+
+        async def _consume():
+            async for event in self.aevents():
+                yield event
+
+        queue = []
+
+        async def _run():
+            async for item in _consume():
+                queue.append(item)
+
+        run_sync(_run())
+
+        while queue:
+            yield queue.pop(0)
+
+    async def areport_metrics(self, configuration: Optional[Configuration] = None):
+        """
+        Asynchronously report LLM task metrics to xpander.ai.
+
+        Args:
+            configuration (Optional[Configuration], optional):
+                API client configuration. If not provided, a new instance is created. Defaults to None.
+
+        Raises:
+            ModuleException: If the request fails due to an HTTP or unexpected error.
+
+        Returns:
+            None
+        """
+        try:
+            configuration = configuration or Configuration()
+            client = APIClient(configuration=configuration)
+
+            if not self.tokens:
+                raise ValueError("tokens must be provided. task.tokens = Tokens()")
+
+            task_report_request = ExecutionMetricsReport(
+                execution_id=self.id,
+                source=self.source,
+                memory_thread_id=self.id,
+                task=self.input.text or "",
+                status=self.status.value,
+                internal_status=self.internal_status,
+                duration=0.0,
+                ai_model="xpander",
+                api_calls_made=(
+                    []
+                    if self.return_metrics and self.source == "orchestration"
+                    else self.used_tools
+                ),
+                result=self.result or None,
+                llm_tokens=(
+                    ExecutionTokens()
+                    if self.return_metrics and self.source == "orchestration"
+                    else ExecutionTokens(worker=self.tokens)
+                ),
+            )
+
+            await client.make_request(
+                path=APIRoute.ReportExecutionMetrics.format(agent_id=self.agent_id),
+                method="POST",
+                payload=task_report_request.model_dump_safe(),
+            )
+
+        except HTTPStatusError as e:
+            raise ModuleException(
+                status_code=e.response.status_code, description=e.response.text
+            )
+        except Exception as e:
+            raise ModuleException(
+                status_code=500, description=f"Failed to report metrics - {str(e)}"
+            )
+
+    def report_metrics(self, configuration: Optional[Configuration] = None):
+        """
+        Report LLM task metrics to xpander.ai.
+
+        Args:
+            configuration (Optional[Configuration], optional):
+                API client configuration. If not provided, a new instance is created. Defaults to None.
+
+        Raises:
+            ModuleException: If the request fails due to an HTTP or unexpected error.
+
+        Returns:
+            None
+        """
+        return run_sync(self.areport_metrics(configuration=configuration))
+
+    async def aget_plan_following_status(self) -> PlanFollowingStatus:
+        """
+        Asynchronously check if the task's deep planning is complete.
+
+        Reloads the task to get the latest deep planning state and checks for
+        any uncompleted tasks. If deep planning is disabled or all tasks are
+        completed, returns a status indicating the task can finish.
+
+        Returns:
+            PlanFollowingStatus: Status object containing:
+                - can_finish (bool): True if all tasks are completed or deep planning is disabled.
+                - uncompleted_tasks (List[DeepPlanningItem]): List of tasks not yet completed.
+
+        Example:
+            >>> status = await task.aget_plan_following_status()
+            >>> if not status.can_finish:
+            ...     print(f"Remaining tasks: {len(status.uncompleted_tasks)}")
+        """
+        try:
+            task_backup = self.model_copy()  # backup result and status
+            await self.areload()  # reload
+
+            # restore result and status
+            self.result = task_backup.result
+            self.status = task_backup.status
+            self.tokens = task_backup.tokens
+
+            if (
+                self.deep_planning
+                and self.deep_planning.enabled
+                and self.deep_planning.started
+                and self.deep_planning.enforce
+            ):
+
+                # allow early exit to ask question
+                if self.deep_planning.question_raised:
+                    return PlanFollowingStatus(can_finish=True)
+
+                uncompleted_tasks = [
+                    task for task in self.deep_planning.tasks if not task.completed
+                ]
+                if len(uncompleted_tasks) != 0:
+                    return PlanFollowingStatus(
+                        can_finish=False, uncompleted_tasks=uncompleted_tasks
+                    )
+        except Exception:
+            pass
+
+        return PlanFollowingStatus(can_finish=True)
+
+    def get_plan_following_status(self) -> PlanFollowingStatus:
+        """
+        Check if the task's deep planning is complete synchronously.
+
+        This function wraps the asynchronous aget_plan_following_status method.
+        Reloads the task to get the latest deep planning state and checks for
+        any uncompleted tasks.
+
+        Returns:
+            PlanFollowingStatus: Status object containing:
+                - can_finish (bool): True if all tasks are completed or deep planning is disabled.
+                - uncompleted_tasks (List[DeepPlanningItem]): List of tasks not yet completed.
+
+        Example:
+            >>> status = task.get_plan_following_status()
+            >>> if not status.can_finish:
+            ...     print(f"Remaining tasks: {len(status.uncompleted_tasks)}")
+        """
+        return run_sync(self.aget_plan_following_status())
+
+    @classmethod
+    async def areport_external_task(
+        cls: Type[T],
+        configuration: Optional[Configuration] = None,
+        agent_id: Optional[str] = None,
+        id: Optional[str] = None,
+        input: Optional[str] = None,
+        llm_response: Optional[Any] = None,
+        tokens: Optional[Tokens] = None,
+        is_success: Optional[bool] = True,
+        result: Optional[str] = None,
+        duration: Optional[float] = 0,
+        used_tools: Optional[List[str]] = [],
+    ) -> T:
+        """
+        Asynchronously reports an external task to the xpander.ai backend.
+
+        This method is used to report the result of a task that was executed
+        externally (outside the xpander.ai platform). It submits execution details,
+        including inputs, outputs, success status, and resource usage, to the backend.
+
+        Args:
+            configuration (Optional[Configuration]): Optional configuration for API calls.
+            agent_id (Optional[str]): Identifier of the agent associated with the task.
+            id (Optional[str]): Task identifier (external or internal).
+            input (Optional[str]): The input parameters or data used in execution.
+            llm_response (Optional[Any]): The raw LLM response or relevant output object.
+            tokens (Optional[Tokens]): Tokens used in the execution.
+            is_success (Optional[bool]): Whether the task execution was successful. Defaults to True.
+            result (Optional[str]): String representation of the final result.
+            duration (Optional[float]): Task execution duration, in seconds. Defaults to 0.
+            used_tools (Optional[List[str]]): List of tools used during the execution. Defaults to empty list.
+
+        Returns:
+            T: Instance of the Task class, representing the reported task.
+
+        Raises:
+            ModuleException: Raised on backend or network errors.
+
+        Example:
+            >>> task = await Task.areport_external_task(
+            ...     agent_id="agent_xyz",
+            ...     id="external_task_123",
+            ...     input="User message",
+            ...     result="Done"
+            ... )
+        """
+        try:
+            configuration = configuration or Configuration()
+            client = APIClient(configuration=configuration)
+            task_report_request = TaskReportRequest(
+                id=id,
+                input=input,
+                llm_response=llm_response,
+                tokens=tokens,
+                is_success=is_success,
+                result=result,
+                duration=duration,
+                used_tools=used_tools,
+            )
+            response_data = await client.make_request(
+                path=APIRoute.ReportExternalTask.format(agent_id=agent_id),
+                method="POST",
+                payload=task_report_request.model_dump_safe(),
+            )
+            return cls.model_validate({**response_data, "configuration": configuration})
+        except HTTPStatusError as e:
+            raise ModuleException(
+                status_code=e.response.status_code, description=e.response.text
+            )
+        except Exception as e:
+            raise ModuleException(
+                status_code=500,
+                description=f"Failed to report external task - {str(e)}",
+            )
+
+    @classmethod
+    def report_external_task(
+        cls: Type[T],
+        configuration: Optional[Configuration] = None,
+        agent_id: Optional[str] = None,
+        id: Optional[str] = None,
+        input: Optional[str] = None,
+        llm_response: Optional[Any] = None,
+        tokens: Optional[Tokens] = None,
+        is_success: Optional[bool] = True,
+        result: Optional[str] = None,
+        duration: Optional[float] = 0,
+        used_tools: Optional[List[str]] = [],
+    ) -> T:
+        """
+        Synchronously reports an external task to the xpander.ai backend.
+
+        This function wraps the asynchronous `areport_external_task` method for
+        synchronous usage. It submits execution details, including inputs, outputs,
+        success status, and resource usage, to the backend.
+
+        Args:
+            configuration (Optional[Configuration]): Optional configuration for API calls.
+            agent_id (Optional[str]): Identifier of the agent associated with the task.
+            id (Optional[str]): Task identifier (external or internal).
+            input (Optional[str]): The input parameters or data used in execution.
+            llm_response (Optional[Any]): The raw LLM response or relevant output object.
+            tokens (Optional[Tokens]): Tokens used in the execution.
+            is_success (Optional[bool]): Whether the task execution was successful. Defaults to True.
+            result (Optional[str]): String representation of the final result.
+            duration (Optional[float]): Task execution duration, in seconds. Defaults to 0.
+            used_tools (Optional[List[str]]): List of tools used during the execution. Defaults to empty list.
+
+        Returns:
+            T: Instance of the Task class, representing the reported task.
+
+        Example:
+            >>> task = Task.report_external_task(
+            ...     agent_id="agent_xyz",
+            ...     id="external_task_123",
+            ...     input="User message",
+            ...     result="Done"
+            ... )
+        """
+        return run_sync(
+            cls.areport_external_task(
+                configuration=configuration,
+                agent_id=agent_id,
+                id=id,
+                input=input,
+                llm_response=llm_response,
+                tokens=tokens,
+                is_success=is_success,
+                result=result,
+                duration=duration,
+                used_tools=used_tools,
+            )
+        )

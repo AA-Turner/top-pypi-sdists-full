@@ -1,0 +1,251 @@
+Metadata-Version: 2.4
+Name: geneva
+Version: 0.14.0
+Summary: Geneva - Multimodal Data Lake for AI
+License-Expression: LicenseRef-Proprietary
+License-File: LICENSE
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Science/Research
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Rust
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: <3.14,>=3.10
+Requires-Dist: aiohttp>=3.12.12
+Requires-Dist: attrs<25,>=23
+Requires-Dist: bidict
+Requires-Dist: cattrs
+Requires-Dist: cloudpickle
+Requires-Dist: docker==7.*
+Requires-Dist: emoji
+Requires-Dist: fsspec
+Requires-Dist: httpx
+Requires-Dist: jinja2==3.*
+Requires-Dist: kubernetes==35.0.0
+Requires-Dist: lance-namespace>=0.8.6
+Requires-Dist: lancedb>=0.34.0b4
+Requires-Dist: more-itertools
+Requires-Dist: multiprocess
+Requires-Dist: numpy
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc
+Requires-Dist: opentelemetry-sdk
+Requires-Dist: overrides>=7.7.0
+Requires-Dist: pip>=24.3.1
+Requires-Dist: pylance>=9.0.0b15
+Requires-Dist: pyyaml>=6.0.2
+Requires-Dist: ray[client]>=2.54
+Requires-Dist: ray[default]>=2.54
+Requires-Dist: requests
+Requires-Dist: tenacity
+Requires-Dist: textual-serve
+Requires-Dist: textual==1.*
+Requires-Dist: toml>=0.10.2
+Requires-Dist: tqdm
+Requires-Dist: typing-extensions>=4.12
+Requires-Dist: urllib3<3,>=2
+Provides-Extra: aws
+Requires-Dist: awscli; extra == 'aws'
+Requires-Dist: boto3; extra == 'aws'
+Requires-Dist: boto3-stubs[essential]; extra == 'aws'
+Provides-Extra: azure
+Requires-Dist: azure-identity; extra == 'azure'
+Requires-Dist: azure-storage-blob; extra == 'azure'
+Provides-Extra: azure-metrics
+Requires-Dist: azure-identity; extra == 'azure-metrics'
+Requires-Dist: azure-mgmt-storage; extra == 'azure-metrics'
+Requires-Dist: azure-monitor-query<2,>=1.2; extra == 'azure-metrics'
+Requires-Dist: azure-storage-blob; extra == 'azure-metrics'
+Provides-Extra: bulk-load
+Requires-Dist: pyarrow>=16; extra == 'bulk-load'
+Provides-Extra: docs
+Requires-Dist: mkdocs; extra == 'docs'
+Requires-Dist: mkdocs-material; extra == 'docs'
+Requires-Dist: mkdocstrings[python]; extra == 'docs'
+Provides-Extra: embedding
+Requires-Dist: sentence-transformers>=2.7; extra == 'embedding'
+Provides-Extra: flightsql
+Requires-Dist: flightsql-dbapi; extra == 'flightsql'
+Provides-Extra: gcp
+Requires-Dist: google-cloud-storage; extra == 'gcp'
+Provides-Extra: ipy
+Requires-Dist: ipython; extra == 'ipy'
+Provides-Extra: jupyter
+Requires-Dist: ipywidgets; extra == 'jupyter'
+Requires-Dist: jupyterlab; extra == 'jupyter'
+Provides-Extra: k8s
+Requires-Dist: pandas; extra == 'k8s'
+Provides-Extra: torch
+Requires-Dist: torch<3,>=2; extra == 'torch'
+Requires-Dist: torchvision; extra == 'torch'
+Provides-Extra: udf-audio-kokoro-base-onnx
+Requires-Dist: nltk==3.9.3; extra == 'udf-audio-kokoro-base-onnx'
+Requires-Dist: numpy>=1.26; extra == 'udf-audio-kokoro-base-onnx'
+Requires-Dist: onnxruntime==1.23.0; extra == 'udf-audio-kokoro-base-onnx'
+Requires-Dist: soundfile>=0.12.1; extra == 'udf-audio-kokoro-base-onnx'
+Requires-Dist: ttstokenizer<2,>=1.1; extra == 'udf-audio-kokoro-base-onnx'
+Provides-Extra: udf-audio-wavlm-tbr-onnx
+Requires-Dist: numpy>=1.26; extra == 'udf-audio-wavlm-tbr-onnx'
+Requires-Dist: onnxruntime==1.23.0; extra == 'udf-audio-wavlm-tbr-onnx'
+Provides-Extra: udf-audio-whisper
+Requires-Dist: numpy<2.0,>=1.26; extra == 'udf-audio-whisper'
+Requires-Dist: requests; extra == 'udf-audio-whisper'
+Requires-Dist: scipy>=1.11.0; extra == 'udf-audio-whisper'
+Requires-Dist: sentence-transformers>=2.7.0; extra == 'udf-audio-whisper'
+Requires-Dist: soundfile>=0.12.1; extra == 'udf-audio-whisper'
+Requires-Dist: torch==2.10.0; extra == 'udf-audio-whisper'
+Requires-Dist: transformers>=4.51.0; extra == 'udf-audio-whisper'
+Provides-Extra: udf-document-pdf
+Requires-Dist: langchain-text-splitters>=0.3.0; extra == 'udf-document-pdf'
+Requires-Dist: numpy<2.0,>=1.26; extra == 'udf-document-pdf'
+Requires-Dist: pypdf>=6.0; extra == 'udf-document-pdf'
+Requires-Dist: requests; extra == 'udf-document-pdf'
+Requires-Dist: sentence-transformers==5.4.0; extra == 'udf-document-pdf'
+Requires-Dist: torch==2.10.0; extra == 'udf-document-pdf'
+Requires-Dist: transformers==5.0.0; extra == 'udf-document-pdf'
+Provides-Extra: udf-image-blip
+Requires-Dist: pillow==12.1.1; extra == 'udf-image-blip'
+Requires-Dist: torch<3,>=2.1; extra == 'udf-image-blip'
+Requires-Dist: transformers>=4.35.0; extra == 'udf-image-blip'
+Provides-Extra: udf-image-dedupe
+Requires-Dist: imagehash>=4.3; extra == 'udf-image-dedupe'
+Requires-Dist: pillow==12.1.1; extra == 'udf-image-dedupe'
+Provides-Extra: udf-image-openclip
+Requires-Dist: open-clip-torch>=2.20; extra == 'udf-image-openclip'
+Requires-Dist: pillow==12.1.1; extra == 'udf-image-openclip'
+Requires-Dist: torch<3,>=2.1; extra == 'udf-image-openclip'
+Provides-Extra: udf-image-simple
+Requires-Dist: pillow==12.1.1; extra == 'udf-image-simple'
+Provides-Extra: udf-image-vit
+Requires-Dist: numpy<2.0,>=1.26; extra == 'udf-image-vit'
+Requires-Dist: pillow==12.1.1; extra == 'udf-image-vit'
+Requires-Dist: pybase64==1.4.2; extra == 'udf-image-vit'
+Requires-Dist: torch==2.10.0; extra == 'udf-image-vit'
+Requires-Dist: transformers==5.0.0; extra == 'udf-image-vit'
+Provides-Extra: udf-text-gemini
+Requires-Dist: google-genai>=1.0; extra == 'udf-text-gemini'
+Provides-Extra: udf-text-openai
+Requires-Dist: openai>=1.0; extra == 'udf-text-openai'
+Provides-Extra: udf-video-chunk
+Requires-Dist: av<14,>=12; extra == 'udf-video-chunk'
+Provides-Extra: udf-video-simple
+Requires-Dist: google-cloud-storage; extra == 'udf-video-simple'
+Provides-Extra: udfs
+Requires-Dist: av<14,>=12; extra == 'udfs'
+Requires-Dist: google-cloud-storage; extra == 'udfs'
+Requires-Dist: google-genai>=1.0; extra == 'udfs'
+Requires-Dist: imagehash>=4.3; extra == 'udfs'
+Requires-Dist: langchain-text-splitters>=0.3.0; extra == 'udfs'
+Requires-Dist: nltk==3.9.3; extra == 'udfs'
+Requires-Dist: numpy<2.0,>=1.26; extra == 'udfs'
+Requires-Dist: numpy>=1.26; extra == 'udfs'
+Requires-Dist: onnxruntime==1.23.0; extra == 'udfs'
+Requires-Dist: open-clip-torch>=2.20; extra == 'udfs'
+Requires-Dist: openai>=1.0; extra == 'udfs'
+Requires-Dist: pillow==12.1.1; extra == 'udfs'
+Requires-Dist: pybase64==1.4.2; extra == 'udfs'
+Requires-Dist: pypdf>=6.0; extra == 'udfs'
+Requires-Dist: requests; extra == 'udfs'
+Requires-Dist: scipy>=1.11.0; extra == 'udfs'
+Requires-Dist: sentence-transformers==5.4.0; extra == 'udfs'
+Requires-Dist: sentence-transformers>=2.7.0; extra == 'udfs'
+Requires-Dist: soundfile>=0.12.1; extra == 'udfs'
+Requires-Dist: torch<3,>=2.1; extra == 'udfs'
+Requires-Dist: torch==2.10.0; extra == 'udfs'
+Requires-Dist: torchcodec==0.10.0; extra == 'udfs'
+Requires-Dist: transformers==5.0.0; extra == 'udfs'
+Requires-Dist: transformers>=4.35.0; extra == 'udfs'
+Requires-Dist: transformers>=4.51.0; extra == 'udfs'
+Requires-Dist: ttstokenizer<2,>=1.1; extra == 'udfs'
+Provides-Extra: udfs-audio
+Requires-Dist: nltk==3.9.3; extra == 'udfs-audio'
+Requires-Dist: numpy<2.0,>=1.26; extra == 'udfs-audio'
+Requires-Dist: numpy>=1.26; extra == 'udfs-audio'
+Requires-Dist: onnxruntime==1.23.0; extra == 'udfs-audio'
+Requires-Dist: requests; extra == 'udfs-audio'
+Requires-Dist: scipy>=1.11.0; extra == 'udfs-audio'
+Requires-Dist: sentence-transformers>=2.7.0; extra == 'udfs-audio'
+Requires-Dist: soundfile>=0.12.1; extra == 'udfs-audio'
+Requires-Dist: torch==2.10.0; extra == 'udfs-audio'
+Requires-Dist: transformers>=4.51.0; extra == 'udfs-audio'
+Requires-Dist: ttstokenizer<2,>=1.1; extra == 'udfs-audio'
+Provides-Extra: udfs-document
+Requires-Dist: langchain-text-splitters>=0.3.0; extra == 'udfs-document'
+Requires-Dist: numpy<2.0,>=1.26; extra == 'udfs-document'
+Requires-Dist: pypdf>=6.0; extra == 'udfs-document'
+Requires-Dist: requests; extra == 'udfs-document'
+Requires-Dist: sentence-transformers==5.4.0; extra == 'udfs-document'
+Requires-Dist: torch==2.10.0; extra == 'udfs-document'
+Requires-Dist: transformers==5.0.0; extra == 'udfs-document'
+Provides-Extra: udfs-image
+Requires-Dist: imagehash>=4.3; extra == 'udfs-image'
+Requires-Dist: numpy<2.0,>=1.26; extra == 'udfs-image'
+Requires-Dist: open-clip-torch>=2.20; extra == 'udfs-image'
+Requires-Dist: pillow==12.1.1; extra == 'udfs-image'
+Requires-Dist: pybase64==1.4.2; extra == 'udfs-image'
+Requires-Dist: torch<3,>=2.1; extra == 'udfs-image'
+Requires-Dist: torch==2.10.0; extra == 'udfs-image'
+Requires-Dist: transformers==5.0.0; extra == 'udfs-image'
+Requires-Dist: transformers>=4.35.0; extra == 'udfs-image'
+Provides-Extra: udfs-text
+Requires-Dist: google-genai>=1.0; extra == 'udfs-text'
+Requires-Dist: openai>=1.0; extra == 'udfs-text'
+Provides-Extra: udfs-video
+Requires-Dist: av<14,>=12; extra == 'udfs-video'
+Requires-Dist: google-cloud-storage; extra == 'udfs-video'
+Requires-Dist: torchcodec==0.10.0; extra == 'udfs-video'
+Description-Content-Type: text/markdown
+
+# Geneva - Multimodal Data Platform
+
+Geneva is a petabyte-scale multimodal feature engineering and data management platform built on LanceDB.
+
+## What lives in this repo
+
+- `src/` - Geneva client library and core runtime
+- `src/tests/` - unit test suites
+- `src/integ_tests/` - integration test suites
+- `src/stress_tests/` - stress and load tests
+- `docs/` - mkdocs configuration and API docs (source for autogenerated public facing api documentation page)
+- `e2e/` - end-to-end test suites and UDF manifests
+- `notebook/` - quickstart notebooks (TODO replace with link to colab demo notebook)
+- `internal_docs/` - internal design and operational notes
+- `tools/` - helper scripts for local clusters and cleanup
+
+User facing documentation should be submitted [here](https://github.com/lancedb/docs/tree/main/docs/geneva).
+
+## Quickstart (local development)
+
+```bash
+uv sync --all-groups --all-extras --locked
+```
+
+```python
+import geneva
+import pyarrow as pa
+
+@geneva.udf(data_type=pa.int32())
+def double(x: int) -> int:
+    return x * 2
+
+conn = geneva.connect("./db")
+table = conn.create_table("numbers", [{"x": i} for i in range(10)])
+table.add_columns({"doubled": double})
+with conn.local_ray_context():
+    table.backfill("doubled")
+result = table.search().select(["doubled"]).to_arrow()
+```
+
+## Development
+
+See [Development](./DEVELOPMENT.md) for details.
+
+## Configuration
+
+Geneva supports specifying configuration in a few different ways. Refer to CONFIGURATION.md for more details.

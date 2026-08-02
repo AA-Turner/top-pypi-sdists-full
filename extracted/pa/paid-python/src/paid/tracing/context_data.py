@@ -1,0 +1,90 @@
+import contextvars
+from typing import Any, Optional
+
+from paid.logger import logger
+
+
+# this class is used like a namespace, it's not for instantiation
+class ContextData:
+    _EXTERNAL_CUSTOMER_ID = contextvars.ContextVar[Optional[str]]("external_customer_id", default=None)
+    _EXTERNAL_AGENT_ID = contextvars.ContextVar[Optional[str]]("external_agent_id", default=None)
+    _TRACE_ID = contextvars.ContextVar[Optional[int]]("trace_id", default=None)
+    _STORE_PROMPT = contextvars.ContextVar[Optional[bool]]("store_prompt", default=False)
+    _USER_METADATA = contextvars.ContextVar[Optional[dict[str, Any]]]("user_metadata", default=None)
+    _PAID_SCOPE_ID = contextvars.ContextVar[Optional[int]]("paid_scope_id", default=None)
+
+    _context: dict[str, contextvars.ContextVar] = {
+        "external_customer_id": _EXTERNAL_CUSTOMER_ID,
+        "external_agent_id": _EXTERNAL_AGENT_ID,
+        "trace_id": _TRACE_ID,
+        "store_prompt": _STORE_PROMPT,
+        "user_metadata": _USER_METADATA,
+        "paid_scope_id": _PAID_SCOPE_ID,
+    }
+
+    # Use ContextVar for reset tokens to avoid race conditions in async/concurrent scenarios
+    _reset_tokens: contextvars.ContextVar[Optional[dict[str, Any]]] = contextvars.ContextVar(
+        "reset_tokens", default=None
+    )
+
+    @classmethod
+    def _get_or_create_reset_tokens(cls) -> dict[str, Any]:
+        """Get the reset tokens dict for this context, creating a new one if needed."""
+        reset_tokens = cls._reset_tokens.get()
+        if reset_tokens is None:
+            reset_tokens = {}
+            cls._reset_tokens.set(reset_tokens)
+        return reset_tokens
+
+    @classmethod
+    def get_context(cls) -> dict[str, Any]:
+        return {key: var.get() for key, var in cls._context.items()}
+
+    @classmethod
+    def get_context_key(cls, key: str) -> Any:
+        return cls._context[key].get() if key in cls._context else None
+
+    @classmethod
+    def set_context_key(cls, key: str, value: Any) -> None:
+        if value is None:
+            return
+        if key not in cls._context:
+            logger.warning(f"Invalid context key: {key}")
+            return
+        reset_token = cls._context[key].set(value)
+        reset_tokens = cls._get_or_create_reset_tokens()
+        reset_tokens[key] = reset_token
+        logger.debug("[paid:ctx] set_context_key: %s (type=%s)", key, type(value).__name__)
+
+    @classmethod
+    def unset_context_key(cls, key: str) -> None:
+        """Unset a specific context key"""
+        if key not in cls._context:
+            logger.warning(f"Invalid context key: {key}")
+            return
+        logger.debug("[paid:ctx] unset_context_key: %s", key)
+        reset_tokens = cls._reset_tokens.get()
+        if reset_tokens:
+            _ = cls._context[key].set(None)
+            if key in reset_tokens:
+                del reset_tokens[key]
+
+    @classmethod
+    def reset_context(cls) -> None:
+        reset_tokens = cls._reset_tokens.get()
+        if reset_tokens:
+            logger.debug("[paid:ctx] reset_context: resetting keys=%s", list(reset_tokens.keys()))
+            for key, reset_token in reset_tokens.items():
+                cls._context[key].reset(reset_token)
+            reset_tokens.clear()
+
+    @classmethod
+    def reset_context_key(cls, key: str) -> None:
+        """Reset a specific context key to its previous value using the stored reset token."""
+        if key not in cls._context:
+            logger.warning(f"Invalid context key: {key}")
+            return
+        reset_tokens = cls._reset_tokens.get()
+        if reset_tokens and key in reset_tokens:
+            cls._context[key].reset(reset_tokens[key])
+            del reset_tokens[key]

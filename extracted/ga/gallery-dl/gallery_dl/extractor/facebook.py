@@ -166,7 +166,7 @@ class FacebookExtractor(Extractor):
             text.extr(
                 post_page, '"__isMedia":"Photo"', '"target_group"'
             ), '"url":"', ','
-        )
+        ).replace("\\/", "/").rstrip('"}')
 
         if post_page.count('"__isMedia":"Photo"') > 2:
             post = {
@@ -176,6 +176,8 @@ class FacebookExtractor(Extractor):
         else:
             post = {"set_id": None}
 
+        txt = text.extr(post_page, ',"text":"', '"},')
+        post["post_text"] = util.json_loads(f'"{txt}"')
         post["post_photo"] = first_photo_url
         return post
 
@@ -230,17 +232,18 @@ class FacebookExtractor(Extractor):
                 raw_url.split('BaseURL>', 1)[1]
             )
 
-        if not video["urls"]:
-            return video, audio
+        if video["urls"]:
+            video["url"] = max(
+                video["urls"].items(),
+                key=lambda x: text.parse_int(x[0][:-1])
+            )[1]
 
-        video["url"] = max(
-            video["urls"].items(),
-            key=lambda x: text.parse_int(x[0][:-1])
-        )[1]
-
-        text.nameext_from_url(video["url"], video)
-        audio["filename"] = video["filename"]
-        audio["extension"] = "m4a"
+            text.nameext_from_url(video["url"], video)
+            audio["filename"] = video["filename"]
+            audio["extension"] = "m4a"
+        elif url := text.extr(video_page, '"browser_native_hd_url":"', '"'):
+            video["url"] = util.json_loads(f'"{url}"')
+            text.nameext_from_url(video["url"], video)
 
         return video, audio
 
@@ -479,6 +482,7 @@ class FacebookSetExtractor(FacebookExtractor):
         if not set_id:
             set_id = set_id2
 
+        post = None
         if path:
             post_url = f"{self.root}/{path}"
             post_page = self.request(post_url).text
@@ -486,6 +490,7 @@ class FacebookSetExtractor(FacebookExtractor):
 
             set_id = post["set_id"]
             if not set_id:
+                self.kwdict.update(post)
                 params = text.parse_query(post["post_photo"].partition("?")[2])
                 self.groups = (params["fbid"],)
                 return FacebookPhotoExtractor.items(self)
@@ -498,6 +503,8 @@ class FacebookSetExtractor(FacebookExtractor):
         set_data = self.parse_set_page(set_page)
         if first_pid:
             set_data["first_photo_id"] = first_pid
+        if post:
+            set_data.update(post)
 
         return self.extract_set(set_data)
 
@@ -506,12 +513,12 @@ class FacebookVideoExtractor(FacebookExtractor):
     """Base class for Facebook Video extractors"""
     subcategory = "video"
     directory_fmt = ("{category}", "{username}", "{subcategory}")
-    pattern = BASE_PATTERN + r"/(?:[^/?#]+/videos/|watch/?\?v=)([^/?&#]+)"
+    pattern = BASE_PATTERN + r"/([^/?#]+/videos/|watch/?\?v=)([^/?&#]+)"
     example = "https://www.facebook.com/watch/?v=VIDEO_ID"
 
     def items(self):
-        video_id = self.groups[0]
-        video_url = self.root + "/watch/?v=" + video_id
+        path, video_id = self.groups
+        video_url = f"{self.root}/{path}{video_id}"
         video_page = self.request(video_url).text
 
         video, audio = self.parse_video_page(video_page)

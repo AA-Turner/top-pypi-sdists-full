@@ -1,0 +1,111 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "epaper-dithering"
+version = "6.0.0"
+description = "Dithering algorithms for e-paper/e-ink displays"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [
+    {name = "g4bri3lDev", email = "admin@g4bri3l.de"}
+]
+
+keywords = ["epaper", "eink", "dithering", "image-processing", "display"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Graphics",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    "pillow>=10.0.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+    "numpy>=1.24.0",
+]
+dev = [
+    "maturin>=1.0,<2.0",
+    "mypy>=1.19.1",
+    "ruff>=0.14.10",
+]
+
+[project.urls]
+Homepage = "https://opendisplay.org"
+Repository = "https://github.com/OpenDisplay-org/epaper-dithering"
+Documentation = "https://github.com/OpenDisplay-org/epaper-dithering#readme"
+
+[tool.maturin]
+# The sdist embeds the Rust workspace root (../../packages/rust/Cargo.toml) to resolve
+# the `epaper-dithering-core` path dependency, but ships only `core` — not `wasm`. The
+# workspace manifest must therefore not list `wasm` as a member, or downstream `cargo`
+# vendoring of the sdist breaks (issue #40). See `exclude = ["wasm"]` in that manifest.
+module-name = "epaper_dithering._rs"
+features = ["pyo3/extension-module"]
+manifest-path = "python/Cargo.toml"
+python-source = "src"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+
+
+[tool.pylint.main]
+ignore-patterns = [".*\\.pyi"]
+
+[tool.pylint.format]
+max-line-length = 120
+
+[tool.pylint.basic]
+# Allow single-letter and short uppercase names common in color science (L, C, Y, dL, dC, dH)
+good-names = ["i", "j", "k", "x", "y", "z", "L", "C", "Y"]
+variable-rgx = "^[a-zA-Z_][a-zA-Z0-9_]*$"
+argument-rgx = "^[a-zA-Z_][a-zA-Z0-9_]*$"
+
+[tool.pylint.design]
+max-args = 8
+max-positional-arguments = 8
+max-locals = 50
+max-returns = 10
+max-branches = 15
+max-statements = 60
+
+[tool.pylint.messages_control]
+disable = [
+    "fixme",                      # TODO comments are fine
+    "import-outside-toplevel",    # pytest lazy imports in test methods
+    "too-few-public-methods",     # single-test test classes are fine
+    "too-many-function-args",     # false positives from pylint path resolution in monorepo
+    "consider-using-from-import", # import epaper_dithering._rs as _rs is intentional (mypy submodule resolution)
+    "c-extension-no-member",      # compiled extension members are not visible to pylint static analysis
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "prek>=0.3.4",
+    "pylint>=4.0.5",
+]

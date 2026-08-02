@@ -12,6 +12,7 @@ Usage::
 
     from types_aiobotocore_healthlake.client import HealthLakeClient
     from types_aiobotocore_healthlake.waiter import (
+        DataTransformationJobCompletedWaiter,
         FHIRDatastoreActiveWaiter,
         FHIRDatastoreDeletedWaiter,
         FHIRExportJobCompletedWaiter,
@@ -22,6 +23,7 @@ Usage::
     async with session.create_client("healthlake") as client:
         client: HealthLakeClient
 
+        data_transformation_job_completed_waiter: DataTransformationJobCompletedWaiter = client.get_waiter("data_transformation_job_completed")
         fhir_datastore_active_waiter: FHIRDatastoreActiveWaiter = client.get_waiter("fhir_datastore_active")
         fhir_datastore_deleted_waiter: FHIRDatastoreDeletedWaiter = client.get_waiter("fhir_datastore_deleted")
         fhir_export_job_completed_waiter: FHIRExportJobCompletedWaiter = client.get_waiter("fhir_export_job_completed")
@@ -36,6 +38,7 @@ import sys
 from aiobotocore.waiter import AIOWaiter
 
 from .type_defs import (
+    DescribeDataTransformationJobRequestWaitTypeDef,
     DescribeFHIRDatastoreRequestWaitExtraTypeDef,
     DescribeFHIRDatastoreRequestWaitTypeDef,
     DescribeFHIRExportJobRequestWaitTypeDef,
@@ -49,11 +52,27 @@ else:
 
 
 __all__ = (
+    "DataTransformationJobCompletedWaiter",
     "FHIRDatastoreActiveWaiter",
     "FHIRDatastoreDeletedWaiter",
     "FHIRExportJobCompletedWaiter",
     "FHIRImportJobCompletedWaiter",
 )
+
+
+class DataTransformationJobCompletedWaiter(AIOWaiter):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/waiter/DataTransformationJobCompleted.html#HealthLake.Waiter.DataTransformationJobCompleted)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/waiters/#datatransformationjobcompletedwaiter)
+    """
+
+    async def wait(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeDataTransformationJobRequestWaitTypeDef]
+    ) -> None:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/waiter/DataTransformationJobCompleted.html#HealthLake.Waiter.DataTransformationJobCompleted.wait)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/waiters/#datatransformationjobcompletedwaiter)
+        """
 
 
 class FHIRDatastoreActiveWaiter(AIOWaiter):

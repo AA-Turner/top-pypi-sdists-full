@@ -1,0 +1,994 @@
+"""The ONE model load+place core, plus the CLI's hub-less resolve (pgw#515).
+
+Production (the executor's setup injection) and the local CLI
+(``gen-worker run`` / ``serve``) drive the SAME code for turning a resolved
+snapshot into a ready slot value: annotation-typed injection, binding
+dtype / storage-dtype honoring, the pre-load cast gate (th#737), the
+adaptive fit ladder outcome stamps (gw#491), worker-owned placement, and
+compiled-artifact arming. Structural reporting (ServePlan / FnDegraded)
+stays with the executor — :class:`SlotLoad` carries the outcomes so the
+caller reports them however it reports.
+
+Resolution differs by necessity: the executor's bytes come from
+orchestrator-resolved snapshots (``ModelStore.ensure_local``); the CLI has
+no orchestrator, so :func:`resolve_local_path` resolves standalone — local
+CAS, tensorhub's public resolve route (th#560), direct HF / Civitai /
+ModelScope downloads — through the same download layer.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextvars
+import logging
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Callable, Dict, Mapping, Optional, Tuple
+
+from ..component_vocab import denoiser_components
+from ..api.binding import ModelRef, wire_ref
+from ..config import get_settings
+from .cache_paths import tensorhub_cas_dir
+from .errors import UrlExpiredError
+from .ladder import maybe_rebind_family_fp8
+from .loading import (
+    RUNG_NF4_UNLANDED,
+    assert_uniform_compute_dtype,
+    composition_compute_dtype,
+    load_from_pretrained,
+    model_index_components,
+)
+from .memory import place_pipeline
+from .refs import DEFAULT_REF_TAG, parse_model_ref
+
+__all__ = ["model_index_components"]  # re-export: single source in loading.py (gw#521)
+
+logger = logging.getLogger(__name__)
+
+EmitFn = Callable[[Dict[str, Any]], None]
+
+
+class ModelResolutionError(Exception):
+    """A model binding cannot be resolved locally (CLI exit 3)."""
+
+
+# ---------------------------------------------------------------------------
+# Shared load + place + compile (executor and CLI)
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class SlotLoad:
+    """Outcome of loading one setup slot.
+
+    ``obj`` is what the slot receives: the local path (``str``/``Path``
+    annotations and unknown annotations), or a constructed + placed pipeline
+    for a class annotation exposing ``from_pretrained``. The remaining fields
+    are non-default only on the pipeline lane; detail fields are non-empty
+    exactly when the caller should report that degradation (the decision
+    logic lives here, once)."""
+
+    obj: Any
+    is_pipeline: bool = False
+    ran: str = ""                # compute precision label ("bf16" default)
+    # th#737 pre-load gate: the cast directive had no cast surface and was
+    # dropped before the load.
+    pre_drop_wanted: str = ""
+    pre_drop_detail: str = ""
+    # gw#491: the loader engaged an emergency fit rung ("fp8" / "nf4").
+    rung: str = ""
+    rung_detail: str = ""
+    # th#737 backstop: the resolved cast was attempted at load and failed on
+    # every component.
+    cast_fail_wanted: str = ""
+    cast_fail_detail: str = ""
+    # place_pipeline outcome ({} when placement was skipped).
+    placed: Dict[str, Any] = field(default_factory=dict)
+
+
+def load_slot(
+    annotation: Any,
+    path: str,
+    *,
+    binding: Any = None,
+    slot: str = "",
+    ref: str = "",
+    mode: str = "auto",
+    components: Optional[Dict[str, Any]] = None,
+    device: str = "",
+    declared_vram_gb: float = 0.0,
+    force_storage_dtype: str = "",
+    strict_vram: bool = False,
+) -> SlotLoad:
+    """Typed slot injection: the slot receives exactly what its ``setup``
+    annotation says — a ``str``/``Path`` local path, or a constructed
+    pipeline for a class annotation exposing ``from_pretrained`` (the
+    binding's dtype/storage_dtype honored, the worker's placement/offload
+    policy applied). Blocking; callers on an event loop run it via
+    ``asyncio.to_thread``.
+
+    ``mode`` is the placement mode (plan-time offload verdicts / learned
+    degraded floors — the executor's knowledge; the CLI passes ``auto``).
+    ``device="cpu"`` (CLI ``--device cpu``) skips placement entirely.
+    ``components`` are preloaded shared modules (gw#479) forwarded to
+    ``from_pretrained``. ``force_storage_dtype`` overrides the binding's own
+    storage_dtype (th#1043): a joint multi-lane fit decision made BEFORE any
+    lane in a shared-component group loads, so the first lane to load never
+    greedily consumes free VRAM at native precision and starves a sibling
+    lane into an offload placement the shared-component invariant refuses.
+    """
+    if annotation is None or annotation is str:
+        return SlotLoad(obj=path)
+    if annotation is Path:
+        return SlotLoad(obj=Path(path))
+    if not (isinstance(annotation, type)
+            and callable(getattr(annotation, "from_pretrained", None))):
+        return SlotLoad(obj=path)
+
+    dtype = str(getattr(binding, "dtype", "") or "")
+    storage_dtype = force_storage_dtype or str(getattr(binding, "storage_dtype", "") or "")
+    out = SlotLoad(obj=None, is_pipeline=True, ran=(dtype or "bf16"))
+
+    # th#737: a cast directive on a denoiser-less diffusers tree is a
+    # load-time no-op that would silently serve bf16. Gate it up front when
+    # the snapshot's model_index proves there is no cast surface (unknown
+    # layouts pass through; the post-load outcome check below is the
+    # backstop).
+    if storage_dtype in ("fp8", "fp8+te"):
+        comps = model_index_components(path)
+        if comps and not (set(denoiser_components()) & comps):
+            out.pre_drop_wanted = storage_dtype
+            out.pre_drop_detail = (
+                f"cast {storage_dtype!r} dropped for slot {slot!r}: pipeline "
+                f"has no denoiser/cast surface (components: {sorted(comps)}); "
+                "serving at base precision")
+            storage_dtype = ""
+
+    pipe = load_from_pretrained(
+        annotation, path, dtype=dtype, storage_dtype=storage_dtype,
+        components=components or None, declared_vram_gb=declared_vram_gb,
+    )
+    out.obj = pipe
+
+    # pgw#683: the composition must present ONE compute dtype to its GEMMs.
+    # Fail HERE, naming the component and the tensor, instead of at warm unit
+    # 4/18 with torch's `mat1 and mat2 must have the same dtype` — which names
+    # neither, and which cost `generate` on a live prod release.
+    assert_uniform_compute_dtype(
+        pipe, composition_compute_dtype(path, dtype), label=f"slot {slot!r} ({ref})")
+
+    rung = str(getattr(pipe, "_cozy_adaptive_rung", "") or "")
+    cast_failed = getattr(
+        pipe, "_cozy_fp8_storage_requested", False
+    ) and not getattr(pipe, "_cozy_fp8_storage_ok", True)
+    if rung == RUNG_NF4_UNLANDED:
+        # pgw#824: the emergency rung ENGAGED and landed on nothing. Routed
+        # through the same SlotLoad.rung path as every sibling rung, so it
+        # reaches ServePlan/FnDegraded via `_record_adaptive_rung` instead of
+        # dying in a log line. It used to clear the stamp, which suppressed the
+        # only report the ladder had — the worst outcome was the silent one.
+        out.rung = rung
+        out.rung_detail = (
+            f"adaptive fit rung 'nf4' engaged at load for slot {slot!r} "
+            f"({type(pipe).__name__}) and landed on ZERO modules; this slot "
+            f"serves FULL PRECISION over the VRAM it was budgeted, and only "
+            f"the offload ladder carries it")
+    elif rung == "nf4" or (rung == "fp8" and not cast_failed):
+        # gw#491: the loader engaged an emergency rung because free VRAM at
+        # load was tighter than planning assumed.
+        out.rung = rung
+        out.rung_detail = (
+            f"adaptive fit rung {rung!r} engaged at load for slot {slot!r} "
+            f"({type(pipe).__name__}); free VRAM below the stored-precision "
+            "footprint")
+    elif cast_failed and not rung:
+        # th#737 backstop: the RESOLUTION cast was attempted at load and
+        # failed on every target — structural report, not a silent bf16
+        # fallback. (A failed adaptive fp8 is not a plan deviation: the plan
+        # was base precision.)
+        out.cast_fail_wanted = storage_dtype or "fp8"
+        out.cast_fail_detail = (
+            f"fp8 storage failed on every component of slot {slot!r} "
+            f"({type(pipe).__name__}); serving at base precision")
+    elif (force_storage_dtype and not rung
+          and getattr(pipe, "_cozy_fp8_storage_requested", False)
+          and getattr(pipe, "_cozy_fp8_storage_ok", True)):
+        # th#1043: a joint shared-lane fit forced fp8 storage the binding
+        # never asked for — report it structurally (FnDegraded) exactly like
+        # an adaptive rung; a silent precision downgrade lies to placement.
+        out.rung = "fp8"
+        out.rung_detail = (
+            f"joint shared-lane fit forced fp8 storage for slot {slot!r} "
+            f"({type(pipe).__name__}); sibling lanes share the VRAM budget")
+
+    # Worker-owned placement/offload policy: one decider for the whole
+    # worker; endpoints never write device/offload code. A CUDA OOM inside
+    # is a ladder transition, not a failure.
+    if device.strip().lower() != "cpu":
+        out.placed = place_pipeline(pipe, mode=mode, ref=ref, strict_vram=strict_vram)
+    return out
+
+
+def arm_route(mode: str) -> Optional[str]:
+    """The name of the arm that serves cells of ``mode``, or ``None``.
+
+    ONE registry, asked by :func:`arm_aot` when it arms and by the mint
+    BEFORE it spends anything (``fleet_cells.mint_recipe``). pgw#827 is the
+    fourth defect in the "a gate that models the arm differently from the
+    arm" class (pgw#816, #822, #825): the regional recipe minted 72 entries
+    in 354 s of L4 and only then discovered that this runtime had no arm
+    that could adopt the kind of cell it had just built. "Can this runtime
+    adopt the kind of cell I am about to mint?" is answerable at
+    ``self_mint_started``, and it is answerable HERE, from the same table
+    the arm dispatches on.
+
+    pgw#846: regional cells are RETIRED, so the whole-graph arm is the only
+    row. A cell whose metadata still says ``mode='regional'`` is declined BY
+    NAME (``arm_aot`` stays eager and says why) — never handed to the
+    whole-graph arm, whose denoiser-scope bind table it cannot use (pgw#827).
+    """
+    return {
+        "": "aot_serve.enable",
+    }.get(str(mode or ""))
+
+
+def arm_aot(
+    pipe: Any, cfg: Any, cache_dir: Optional[Path], artifact: Path,
+    bucket: int, meta: Optional[Dict[str, Any]] = None,
+) -> bool:
+    """Arm ONE exported ``.pt2`` cell on ``pipe``. The whole AOT arm, in one
+    place, for every source of such an artifact.
+
+    pgw#805 extracted this from :func:`enable_compiled`'s kind dispatch: a
+    cell this pod MINTED ITSELF has to arm through exactly the same gates a
+    hub-delivered one does (that is the point of the delegated split — a
+    child-built cell EARNS adoption), but it must not re-enter
+    ``enable_compiled``, whose pgw#709 receipts gate would drop an artifact
+    that by construction carries no hub signature yet.
+
+    pgw#721: an exported cell rides the branch-bearing lane too — LoRA
+    adapters are lifted to graph INPUTS, so one artifact serves the whole
+    bucket. A lifted cell refuses an unlifted module
+    (``lifted_inputs_unbindable``), so for a bucket-bearing endpoint the
+    lifted binding is installed on the artifact's target module NOW — after
+    ``apply_lora_lane`` allocated the canonical branch containers, BEFORE
+    ``aot_serve.enable`` runs ``assert_lifted_contract`` (the exact C2 pod-10
+    proven order). Rolled back on a failed arm so a dynamo fallthrough never
+    traces a lifted forward it did not ask for.
+    """
+    from .. import aot_serve, trt_engine
+
+    if meta is None:
+        try:
+            meta = trt_engine.unpack_metadata(Path(artifact))
+        except Exception:
+            meta = None
+    lifted_target: Any = None
+    lifted_installed = False
+    mode = str((meta or {}).get("mode") or "")
+    if arm_route(mode) is None:
+        # A cell whose mode this runtime has no arm for must decline BY NAME
+        # rather than be handed to whichever arm happens to be the default —
+        # pgw#827 was exactly that: a regional cell routed into the
+        # whole-graph arm, which built ONE bind table at denoiser scope.
+        # Since pgw#846 retired regional, `mode='regional'` cells land here
+        # and stay eager, which is the correct retirement semantics.
+        logger.warning(
+            "aot arm: artifact declares mode=%r, which this runtime has no "
+            "arm for; staying eager", mode)
+        return False
+    if bucket and get_settings().compile_prefer_aot:
+        from . import lora_lifted
+
+        # The target module comes from the ARTIFACT's own recorded facts
+        # ("module", else its first compile target) — never a hardcoded
+        # component name (pgw#740: the vocabulary is not repeated in live
+        # code; a guessed name on a non-UNet family would silently skip the
+        # install and waste the arm).
+        targets = [str(t) for t in ((meta or {}).get("targets") or ())]
+        module_name = str(
+            (meta or {}).get("module") or (targets[0] if targets else ""))
+        lifted_target = (
+            getattr(pipe, module_name, None) if module_name else None)
+        if (lifted_target is not None
+                and lora_lifted.lifted_binding(lifted_target) is None):
+            try:
+                lora_lifted.install_lifted_lora_forward(lifted_target, bucket)
+                lifted_installed = True
+            except Exception as exc:  # noqa: BLE001 — arm decides
+                logger.warning(
+                    "aot arm: lifted-binding install failed on %r (%s); a "
+                    "lifted artifact will refuse at assert_lifted_contract",
+                    module_name, exc)
+    if aot_serve.enable(pipe, cfg, cache_dir, artifact):
+        _announce_unchecked_numerics(cfg)
+        return True
+    if lifted_installed:
+        from . import lora_lifted
+
+        lora_lifted.remove_lifted_lora_forward(lifted_target)
+    return False
+
+
+def _announce_unchecked_numerics(cfg: Any) -> None:
+    """Say out loud that this cell armed with NO numerics check (pgw#848).
+
+    This is NOT a gate and must never be mistaken for one. It exists because
+    the gate does not: `numerics_ladder` is imported by nothing in `src/`
+    except the pgw#800 ADAPTER gate, and `compare_outputs` / `Comparison` /
+    `flatten_outputs` have ZERO consumers anywhere. Nothing in the mint or
+    arm path ever computes a compiled-vs-eager comparison, so there is no
+    `Comparison` for a gate to consult.
+
+    Wiring `numerics_ladder.gate()` in here would have been worse than this.
+    It opens `if comparison is None: return None` — so with nothing computing
+    a comparison it would pass EVERY cell, always, while looking in the diff
+    and in the call graph exactly like a working gate, and pgw#849's guard 2
+    would then mark the surface covered. An absent gate that is obvious beats
+    an absent gate that is invisible.
+
+    So: every arm says so, on the wire, naming the floor the family DECLARED
+    and nobody checked. A future reader must not be able to mistake silence
+    for a pass — the declaration (`Compile.numerics_floor`, sdxl 0.995/0.999),
+    the thresholds, this activity kind and the ladder are all present and all
+    correct; the thing that MEASURES is what is missing, and it needs a
+    device, real weights and a real forward, so it cannot be built off-pod.
+
+    Best-effort: telemetry never fails an arm.
+    """
+    try:
+        from .. import activity as activity_mod, numerics_ladder
+
+        thresholds = numerics_ladder.declared_thresholds(cfg)
+        declared = getattr(cfg, "numerics_floor", None)
+        activity_mod.emit_event(
+            activity_mod.KIND_CELL_NUMERICS,
+            f"family={getattr(cfg, 'family', '?')} ARMED WITHOUT A NUMERICS "
+            f"CHECK — no compiled-vs-eager comparison is computed anywhere in "
+            f"this worker, so the declared floor was NOT enforced "
+            f"(floor={thresholds.floor} warn={thresholds.warn} "
+            f"source={'declared' if declared is not None else 'sdk-default'}). "
+            f"This is an absence, not a pass: nothing verified this cell's "
+            f"numerics (pgw#848 CP12)",
+            phase="unchecked",
+        )
+    except Exception:  # noqa: BLE001 — telemetry never fails an arm
+        logger.debug("could not announce unchecked numerics", exc_info=True)
+
+
+def enable_compiled(
+    pipe: Any, cfg: Any, cache_dir: Optional[Path] = None,
+    artifact: Optional[Path] = None,
+) -> bool:
+    """Arm the best available compiled path for a freshly loaded pipeline:
+    a TRT engine artifact swaps the module (fail-soft), anything else goes
+    through the torch.compile cache policy (which also covers the no-
+    artifact and ALLOW_COLD lanes).
+
+    ``Compile.lora_bucket`` (gw#561) puts the pipeline on the branch-bearing
+    graph family BEFORE arming, so only matching ``-lora<bucket>`` cells
+    adopt. Staying eager rolls the branches back — canonical zeroed slots
+    cost +21-32% eager (gw#547); the eager adapter path re-enables sparse
+    placement per request."""
+    from .. import aot_serve, compile_cache, trt_engine  # lazy: keeps `import gen_worker` off the compile/pb stack
+    from .. import receipts
+
+    # pgw#709: hub-delivered artifacts must carry a verifiable hub-signed
+    # receipt (signature + blake3/size + key binding + revocation check).
+    # A refused artifact is DROPPED — the ordinary miss policy (fleet
+    # self-mint / eager / typed refusal) takes over. No-op when the gate is
+    # unconfigured (cozy-local, CLI, unit rigs — local trust model).
+    if artifact is not None and not receipts.gate_delivered_artifact(
+        Path(artifact), family=str(getattr(cfg, "family", "") or "")
+    ):
+        artifact = None
+
+    bucket = int(getattr(cfg, "lora_bucket", 0) or 0)
+    if bucket and not compile_cache.has_compile_target(pipe, cfg):
+        # gw#627 live find: this arming runs for EVERY worker-loaded setup
+        # slot — a bare component slot (sdxl's AutoencoderKL vae) resolves
+        # none of cfg.targets and must stay branchless-eager, not raise.
+        # The loud no-denoiser error remains for real compile targets.
+        bucket = 0
+    if bucket:
+        compile_cache.apply_lora_lane(pipe, bucket)
+    if artifact is not None:
+        # ONE kind sniff for every non-inductor backend. `metadata.json` is
+        # the shared envelope member across all artifact kinds (the pgw#709
+        # receipts gate above reads it from the same place), so `kind` is the
+        # dispatch key: absent/unknown falls through to the inductor lane.
+        try:
+            meta = trt_engine.unpack_metadata(Path(artifact))
+        except Exception:
+            meta = None
+        kind = str((meta or {}).get("kind") or "")
+        if kind == aot_serve.ARTIFACT_KIND:
+            if arm_aot(pipe, cfg, cache_dir, Path(artifact), bucket, meta):
+                return True
+            artifact = None  # unusable artifact: fall through to eager policy
+        elif kind == "trt-engine" and not bucket:
+            # TRT engines expose only their plain contract — a lora_bucket
+            # declaration always rides the inductor lane.
+            if trt_engine.enable(pipe, cfg, cache_dir, artifact):
+                return True
+            artifact = None  # unusable engine: fall through to eager policy
+    try:
+        armed = compile_cache.enable(pipe, cfg, cache_dir, artifact)
+    except compile_cache.CellSelectionBugError:
+        # th#883: the loud invariant propagates, but the caller continuing
+        # eager must not inherit the branch-bearing lane.
+        if bucket:
+            compile_cache.drop_lora_lane(pipe)
+        raise
+    if bucket and not armed:
+        compile_cache.drop_lora_lane(pipe)
+    return armed
+
+
+# ---------------------------------------------------------------------------
+# pgw#517: the arming seam for SELF-loaded pipelines. `enable_compiled`
+# above is what the executor calls automatically for a worker-loaded
+# (pipeline-class-annotated) setup() slot; a str/Path-annotated slot never
+# builds a `pipe` the executor can see (the endpoint's own setup() does),
+# so that arming call is unreachable for it. `arm_compile` is the same
+# policy exposed to the endpoint itself: an explicit, ctx-less call the
+# author makes at the end of setup(), mirroring `place_pipeline`'s existing
+# "worker-owned policy, endpoint invokes it directly" pattern for self-
+# loaded pipelines (`gen_worker.models.memory.place_pipeline`).
+#
+# The (Compile, cache_dir, compile-artifact) triple `enable_compiled` needs
+# are executor/CLI internals an endpoint has no business constructing
+# itself — a `contextvars.ContextVar` carries them instead, scoped by the
+# caller (executor/CLI) to exactly the `setup()` call, so `arm_compile(pipe)`
+# needs no parameter beyond the pipeline and cannot leak past setup().
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class _ArmingContext:
+    compile: Any
+    cache_dir: Optional[Path]
+    artifact: Optional[Path]
+    # The executor owns this list and reads it only after setup() returns.
+    # Capturing the exact objects passed to arm_compile() is what lets
+    # self-loading endpoints participate in object-scoped compile targets;
+    # inferring them later from class attributes would be ambiguous.
+    objects: list[tuple[Any, bool]]
+    # gw#587: the scope owner's arming policy. The executor routes the fleet
+    # policy (delivered cell first, self-mint on miss) here so an endpoint's
+    # own arm_compile() call gets the SAME behavior as a worker-loaded slot;
+    # None keeps the bare delivered-artifact policy (CLI / unit rigs). The
+    # callable may return a bool or an object with `.armed`/`.self_mint`
+    # (fleet_cells.ArmOutcome) — provision cannot import fleet_cells (cycle).
+    enable: Optional[Callable[[Any, Any, Optional[Path], Optional[Path]], Any]]
+    # id(pipe) -> self-mint identity (fleet_cells.SelfMint) for pipes the
+    # scope's policy armed from their OWN mint rather than a delivered cell.
+    self_mints: dict[int, Any]
+    # id(pipe) -> caught CellSelectionBugError (th#1031): the fleet policy
+    # no longer raises this (it self-mints instead), so the executor reads
+    # it here to still send the loud th#883 wire event after setup() returns.
+    selection_bugs: dict[int, Any]
+
+
+_ARMING_CTX: "contextvars.ContextVar[Optional[_ArmingContext]]" = contextvars.ContextVar(
+    "gen_worker_compile_arming_ctx", default=None
+)
+
+
+class ArmingScope:
+    """Context manager the executor/CLI holds open around one ``setup()``
+    call so ``arm_compile()`` can reach the active ``Compile`` spec, compile
+    cache dir, and any hub-attached artifact. Re-entrant-safe (a nested
+    scope restores the outer one on exit); a no-op when ``compile`` is
+    ``None`` so callers can open it unconditionally."""
+
+    def __init__(
+        self, compile: Any, cache_dir: Optional[Path] = None,
+        artifact: Optional[Path] = None,
+        enable: Optional[
+            Callable[[Any, Any, Optional[Path], Optional[Path]], Any]
+        ] = None,
+    ) -> None:
+        self._objects: list[tuple[Any, bool]] = []
+        self._self_mints: dict[int, Any] = {}
+        self._selection_bugs: dict[int, Any] = {}
+        self._value = (
+            _ArmingContext(
+                compile=compile,
+                cache_dir=cache_dir,
+                artifact=artifact,
+                objects=self._objects,
+                enable=enable,
+                self_mints=self._self_mints,
+                selection_bugs=self._selection_bugs,
+            )
+            if compile is not None else None
+        )
+        self._token: Optional["contextvars.Token[Optional[_ArmingContext]]"] = None
+
+    def __enter__(self) -> "ArmingScope":
+        if self._value is not None:
+            self._token = _ARMING_CTX.set(self._value)
+        return self
+
+    def __exit__(self, *_exc_info: Any) -> None:
+        if self._token is not None:
+            _ARMING_CTX.reset(self._token)
+            self._token = None
+
+    @property
+    def objects(self) -> tuple[tuple[Any, bool], ...]:
+        """Exact ``(pipeline, armed)`` observations from this setup scope."""
+        return tuple(self._objects)
+
+    @property
+    def self_mints(self) -> dict[int, Any]:
+        """``id(pipe) -> SelfMint`` for scope pipes armed from their own mint."""
+        return dict(self._self_mints)
+
+    @property
+    def selection_bugs(self) -> dict[int, Any]:
+        """``id(pipe) -> CellSelectionBugError`` caught (and recovered from
+        via self-mint) for scope pipes, th#1031."""
+        return dict(self._selection_bugs)
+
+
+def arm_compile(pipe: Any) -> bool:
+    """Arm ``@endpoint(compile=Compile(...))`` on a pipeline the endpoint
+    loaded and placed itself (a str/Path-annotated ``setup()`` slot the
+    executor never materializes — pgw#517). Call once per pipeline object,
+    at the end of ``setup()``, after placement. Same cache-artifact-gated
+    policy as the automatic worker-loaded path: arms only when a verified
+    compiled artifact for (family, SKU, torch, triton) is seeded, otherwise
+    stays eager. Returns whether a compiled path was armed.
+
+    ie#522 (Paul's ruling, 2026-07-22): the endpoint's own ``setup()`` call
+    is a fixed declaration of intent ("this pipeline is compile-eligible");
+    whether that intent is ACTIVE is the release's decision (an eager
+    registration declares no ``compile=Compile(...)`` at all, so the
+    executor's ``ArmingScope`` opens as a no-op — see ``ArmingScope``'s own
+    "no-op when compile is None" contract above). A no-op scope must mean a
+    no-op ``arm_compile()``, not a crash: every ``@endpoint`` with a
+    self-loading setup() calls this unconditionally (sdxl, wan-2.2, ...),
+    and each of those must keep working under an eager registration exactly
+    like the automatic worker-loaded path already does. No active scope ->
+    log once at info and return False (never armed) — never raise."""
+    ctx = _ARMING_CTX.get()
+    if ctx is None:
+        logger.info(
+            "gen_worker.arm_compile(): no active compile-arming scope "
+            "(this release is eager — no compile=Compile(...) declared); "
+            "staying eager for %r", type(pipe).__name__,
+        )
+        return False
+    enable = ctx.enable if ctx.enable is not None else enable_compiled
+    outcome = enable(pipe, ctx.compile, ctx.cache_dir, ctx.artifact)
+    armed = bool(getattr(outcome, "armed", outcome))
+    mint = getattr(outcome, "self_mint", None)
+    if mint is not None:
+        ctx.self_mints[id(pipe)] = mint
+    bug = getattr(outcome, "selection_bug", None)
+    if bug is not None:
+        ctx.selection_bugs[id(pipe)] = bug
+    ctx.objects.append((pipe, armed))
+    return armed
+
+
+# ---------------------------------------------------------------------------
+# Standalone (hub-less) resolution — the CLI's half. The executor's bytes
+# come from orchestrator-resolved snapshots via ModelStore.ensure_local.
+# ---------------------------------------------------------------------------
+
+
+def resolve_bindings(
+    bindings: Mapping[str, Any],
+    *,
+    offline: bool,
+    emit: EmitFn,
+    slots: Optional[Mapping[str, Any]] = None,
+    payload: Any = None,
+) -> Dict[str, str]:
+    """Resolve every binding to a local path / loader-ready string.
+
+    ``slots``/``payload`` (pgw#520): when a binding's slot is Slot-declared
+    with a ``selected_by`` field, and this hub-less run has no hub to
+    resolve a curated/BYOM pick against, a payload that actually NAMES a
+    model (a non-empty ``selected_by`` field value) is a clear usage error
+    instead of silently running the slot's default — ``cozy run`` only ever
+    runs a Slot's ``default_checkpoint`` ref locally.
+    """
+
+    out: Dict[str, str] = {}
+    for param_name, binding in bindings.items():
+        slot = (slots or {}).get(param_name)
+        selected_by = str(getattr(slot, "selected_by", "") or "") if slot is not None else ""
+        if selected_by and payload is not None:
+            picked = str(getattr(payload, selected_by, "") or "").strip()
+            if picked:
+                raise ModelResolutionError(
+                    f"slot {param_name!r}: payload names model {picked!r} via "
+                    f"{selected_by!r}, but no hub is configured — "
+                    "hub-less mode (`cozy run` / `gen-worker run`) only runs "
+                    "a Slot's default_checkpoint= ref; configure HUB= (or "
+                    f"drop the {selected_by!r} field) to run against a hub."
+                )
+        if not isinstance(binding, ModelRef):
+            raise ModelResolutionError(
+                f"unknown binding type for param {param_name!r}: "
+                f"{type(binding).__name__}"
+            )
+        selected = binding if offline else _local_flavor_fold(binding, slot)
+        out[param_name] = resolve_local_path(
+            ref=wire_ref(selected), provider=selected.source,
+            offline=offline, emit=emit,
+            allow_patterns=tuple(getattr(selected, "files", ()) or ()),
+            components=tuple(getattr(selected, "components", ()) or ()),
+            civitai_version_id=str(getattr(selected, "version", "") or ""),
+        )
+    return out
+
+
+def _local_flavor_fold(binding: Any, slot: Any) -> Any:
+    """Local AUTO flavor folds over ONE shared resolve: family fp8 (th#964)
+    first, then the GGUF small-VRAM pick (cl#27). Fail-open — any resolve or
+    probe error keeps the binding as declared. Production stays hub-owned."""
+    from .gguf_local import maybe_rebind_gguf  # cycle: gguf_local imports loading
+
+    if (
+        getattr(binding, "source", "") != "tensorhub"
+        or getattr(binding, "flavor", "")
+        or getattr(binding, "storage_dtype", "")
+        or getattr(binding, "components", ())
+    ):
+        return binding
+    try:
+        thref = parse_model_ref(wire_ref(binding)).tensorhub
+        if thref is None or thref.digest or thref.flavor:
+            return binding
+        from .hub_client import resolve_repo
+        from .hub_policy import detect_worker_capabilities
+        from .memory import get_available_vram_gb
+
+        resolved = resolve_repo(thref)
+        caps = detect_worker_capabilities()
+        free = get_available_vram_gb()
+    except Exception as exc:
+        logger.debug("local flavor fold failed open: %s", exc)
+        return binding
+    picked = maybe_rebind_family_fp8(
+        binding, resolved=resolved,
+        slot_family=str(getattr(slot, "family", "") or ""),
+        gpu_sm=caps.gpu_sm, free_vram_gb=free,
+        installed_libs=tuple(caps.installed_libs),
+    )
+    if picked is not binding:
+        return picked
+    return maybe_rebind_gguf(
+        binding, resolved=resolved, gpu_sm=caps.gpu_sm,
+        free_vram_gb=free, installed_libs=tuple(caps.installed_libs),
+    )
+
+
+def _hub_ref_map_path(cache_dir: Path, thref: Any) -> Path:
+    """CAS-local memory of tag->snapshot resolutions, so a previously-fetched
+    tag ref keeps working offline: cas/refs/<owner>/<repo>/<tag>[#flavor]."""
+    name = str(thref.tag or DEFAULT_REF_TAG)
+    if thref.flavor:
+        name += "#" + str(thref.flavor)
+    safe = "".join(ch if (ch.isalnum() or ch in "._#-") else "_" for ch in name)
+    return cache_dir / "refs" / str(thref.owner) / str(thref.repo) / safe
+
+
+def _remember_hub_ref(cache_dir: Path, thref: Any, digest: str) -> None:
+    try:
+        p = _hub_ref_map_path(cache_dir, thref)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(digest)
+    except OSError:
+        pass
+
+
+def _fetch_tensorhub_snapshot(
+    thref: Any, *, cache_dir: Path, emit: EmitFn, components: Tuple[str, ...] = (),
+) -> str:
+    """Resolve a Hub ref via th#560 and download its snapshot into the CAS.
+
+    One re-resolve retry on a presigned-URL expiry mid-download (the same
+    contract the orchestrator honors on ``url_expired``).
+
+    ``components`` (pgw#505): th#560's resolve route always returns the
+    FULL repo manifest today (selective CAS resolve is the hub-side
+    desired-snapshot scoping — a separate, not-yet-built platform change).
+    Until then this narrows client-side: the worker fully owns this
+    resolve+download+materialize loop (unlike the production executor path,
+    which digest-verifies against an orchestrator-issued file list), so it
+    can safely fetch only the declared components — ``ensure_snapshot_async``
+    keys the materialized directory by ``(digest, components)`` so a partial
+    fetch never collides with a full one of the same ref. NOTE: offline
+    reuse (``--offline`` / the ``_hub_ref_map_path`` tag memory below) only
+    covers the FULL-repo case — a components=-scoped ref must be fetched
+    online at least once per component set.
+    """
+    # lazy: cozy_snapshot/hub_client import requests; keeps `import gen_worker` light
+    from .cozy_snapshot import ensure_snapshot_async, snapshot_dir_key
+    from .hub_client import HubResolveError, resolve_repo
+
+    canonical = thref.canonical()
+
+    def _resolve() -> Any:
+        try:
+            return resolve_repo(thref)
+        except HubResolveError as e:
+            raise ModelResolutionError(str(e)) from e
+
+    emit({"kind": "model_fetch.started", "ref": canonical, "provider": "tensorhub"})
+    resolved = _resolve()
+
+    # Already materialized under the resolved (digest, components) key? No download.
+    key = snapshot_dir_key(resolved.snapshot_digest, components)
+    snap_dir = cache_dir / "snapshots" / key
+    if snap_dir.exists():
+        if not components:
+            _remember_hub_ref(cache_dir, thref, resolved.snapshot_digest)
+        emit({"kind": "model_fetch.completed", "ref": canonical,
+              "provider": "tensorhub", "local_dir": str(snap_dir)})
+        return str(snap_dir)
+
+    last_at = [0.0]
+
+    def _progress(done: int, total: Optional[int]) -> None:
+        now = time.monotonic()
+        if now - last_at[0] < 1.0 and (total is None or done < total):
+            return
+        last_at[0] = now
+        emit({"kind": "model_fetch.progress", "ref": canonical,
+              "provider": "tensorhub", "done_bytes": int(done),
+              "total_bytes": int(total) if total else None})
+
+    async def _download(res: Any) -> Path:
+        return await ensure_snapshot_async(
+            base_dir=cache_dir, ref=thref, resolved=res, progress=_progress,
+            components=components,
+        )
+
+    try:
+        try:
+            snap = asyncio.run(_download(resolved))
+        except UrlExpiredError:
+            emit({"kind": "model_fetch.reresolve", "ref": canonical,
+                  "provider": "tensorhub", "reason": "url_expired"})
+            snap = asyncio.run(_download(_resolve()))
+    except ModelResolutionError:
+        raise
+    except Exception as e:
+        raise ModelResolutionError(
+            f"failed to download tensorhub snapshot for {canonical}: {e}"
+        ) from e
+    if not components:
+        _remember_hub_ref(cache_dir, thref, resolved.snapshot_digest)
+    emit({"kind": "model_fetch.completed", "ref": canonical,
+          "provider": "tensorhub", "local_dir": str(snap)})
+    return str(snap)
+
+
+def resolve_local_path(
+    *, ref: str, provider: str, offline: bool, emit: EmitFn,
+    allow_patterns: Tuple[str, ...] = (),
+    components: Tuple[str, ...] = (),
+    civitai_version_id: str = "",
+) -> str:
+    """Resolve one model ref to a local snapshot dir / loader-ready string.
+
+    Order matches the live worker:
+      1. local CAS lookup (digest-pinned snapshot dirs).
+      2. HF refs → ``download_hf`` (auto-fetches from HF).
+      3. ModelScope refs → ``modelscope.snapshot_download``.
+      4. Cozy refs missing from CAS: standalone resolve against tensorhub's
+         public resolve route (th#560); ``--offline`` stays CAS-only (exit 3).
+      5. Civitai refs → model → latest-version lookup (or the pinned
+         version), then ``download_civitai``.
+
+    ``components`` (pgw#505) narrows an HF/tensorhub fetch to the named
+    pipeline component subfolders (+ root config files) — see
+    ``download.select_component_paths`` / ``cozy_snapshot.snapshot_dir_key``.
+    """
+
+    env_cas = get_settings().tensorhub_cas_dir.strip()
+    cache_dir = Path(env_cas) if env_cas else Path(tensorhub_cas_dir())
+
+    # Decode the bare ref into typed parts using the explicit provider.
+    # No string-prefix sniffing — provider is the source of truth.
+    try:
+        parsed = parse_model_ref(ref, provider=provider)
+    except Exception as e:
+        raise ModelResolutionError(
+            f"failed to parse model ref {ref!r} (provider={provider!r}): {e}"
+        ) from e
+
+    if parsed.provider == "tensorhub" and parsed.tensorhub and parsed.tensorhub.digest:
+        # Snapshot dirs are keyed by the bare hex digest (no algo prefix).
+        digest = parsed.tensorhub.digest.split(":", 1)[-1]
+        snap_dir = cache_dir / "snapshots" / digest
+        if snap_dir.exists():
+            return str(snap_dir)
+
+    # HF refs: fall through to the shared HF downloader.
+    if parsed.provider == "hf" and parsed.hf is not None:
+        if offline:
+            # Best-effort: check the HF cache (huggingface_hub manages this
+            # itself; a cache hit returns a path, miss raises).
+            patterns = list(allow_patterns)
+            if components and not patterns:
+                patterns = [f"{c}/" for c in components] + ["*.json"]
+            try:
+                from ..net import hf
+                p = hf().snapshot_download(
+                    repo_id=parsed.hf.repo_id,
+                    revision=parsed.hf.revision,
+                    local_files_only=True,
+                    cache_dir=get_settings().hf_home or None,
+                    token=get_settings().hf_token or None,
+                    allow_patterns=patterns or None,
+                )
+                return str(p)
+            except Exception as e:
+                raise ModelResolutionError(
+                    f"--offline: huggingface ref {parsed.hf.canonical()} not "
+                    f"in local cache ({e}); warm the cache by running without "
+                    "--offline first."
+                ) from e
+
+        emit({"kind": "model_fetch.started", "ref": parsed.hf.canonical()})
+        try:
+            from .download import download_hf
+
+            local_dir = download_hf(
+                parsed.hf,
+                hf_home=get_settings().hf_home or None,
+                hf_token=get_settings().hf_token or None,
+                allow_patterns=tuple(allow_patterns),
+                components=components,
+            )
+        except Exception as e:
+            raise ModelResolutionError(
+                f"failed to fetch huggingface ref {parsed.hf.canonical()}: {e}"
+            ) from e
+        emit({
+            "kind": "model_fetch.completed",
+            "ref": parsed.hf.canonical(),
+            "local_dir": str(local_dir),
+        })
+        return str(local_dir)
+
+    # ModelScope refs: fetch directly via modelscope.snapshot_download. This is
+    # file-oriented (allow_patterns) and has NO diffusers-layout requirement, so
+    # it handles ComfyUI/DiffSynth split checkpoints the HF resolver rejects.
+    if parsed.provider == "modelscope" and parsed.modelscope is not None:
+        try:
+            from modelscope import snapshot_download as _ms_snap
+        except Exception as e:
+            raise ModelResolutionError(
+                f"modelscope is required for modelscope refs ({parsed.modelscope.canonical()}): {e}"
+            ) from e
+        kwargs: Dict[str, Any] = {}
+        if parsed.modelscope.revision:
+            kwargs["revision"] = parsed.modelscope.revision
+        if allow_patterns:
+            kwargs["allow_patterns"] = list(allow_patterns)
+        if offline:
+            kwargs["local_files_only"] = True
+        emit({"kind": "model_fetch.started", "ref": parsed.modelscope.canonical(), "provider": "modelscope"})
+        try:
+            local = _ms_snap(model_id=parsed.modelscope.repo_id, **kwargs)
+        except Exception as e:
+            raise ModelResolutionError(
+                f"failed to fetch modelscope ref {parsed.modelscope.canonical()}: {e}"
+            ) from e
+        emit({"kind": "model_fetch.completed", "ref": parsed.modelscope.canonical(), "local_dir": str(local)})
+        return str(local)
+
+    # Cozy refs that miss the CAS (#379): resolve standalone against
+    # tensorhub's public resolve route (th#560) and feed the shared
+    # cozy_snapshot downloader. TENSORHUB_URL selects the hub; TENSORHUB_TOKEN
+    # (optional) unlocks private repos. Offline stays CAS-only.
+    if parsed.provider == "tensorhub" and parsed.tensorhub is not None:
+        if offline:
+            # Tag refs: a previous online resolve remembered tag->digest.
+            ref_map = _hub_ref_map_path(cache_dir, parsed.tensorhub)
+            if ref_map.exists():
+                snap = cache_dir / "snapshots" / ref_map.read_text().strip()
+                if snap.exists():
+                    return str(snap)
+            raise ModelResolutionError(
+                f"--offline: tensorhub ref {parsed.tensorhub.canonical()} not in local "
+                f"CAS ({cache_dir}); warm the cache by running without "
+                "--offline once (or set TENSORHUB_CAS_DIR to a path with the "
+                "snapshot pre-seeded)."
+            )
+        from .gguf_local import fetch_gguf_snapshot, gguf_qtype
+
+        if gguf_qtype(str(parsed.tensorhub.flavor or "")):
+            if components:
+                raise ModelResolutionError(
+                    "GGUF composed snapshots require the complete base model; "
+                    "components= cannot be combined with a #gguf-* flavor"
+                )
+            try:
+                gguf_snap = fetch_gguf_snapshot(
+                    parsed.tensorhub, cache_dir=cache_dir, emit=emit,
+                )
+            except Exception as e:
+                raise ModelResolutionError(
+                    "failed to compose tensorhub GGUF snapshot for "
+                    f"{parsed.tensorhub.canonical()}: {e}"
+                ) from e
+            _remember_hub_ref(cache_dir, parsed.tensorhub, Path(gguf_snap).name)
+            return gguf_snap
+        return _fetch_tensorhub_snapshot(
+            parsed.tensorhub, cache_dir=cache_dir, emit=emit, components=components,
+        )
+
+    # Civitai refs: download the model-version files directly. Auth (for gated
+    # creators) comes from CIVITAI_API_KEY; public models need none.
+    if parsed.provider == "civitai" and parsed.civitai is not None:
+        if offline:
+            raise ModelResolutionError(
+                f"--offline: civitai ref {ref!r} not available offline (no local "
+                "civitai cache); run once online to fetch it."
+            )
+        from .download import (
+            download_civitai,
+            fetch_civitai_model,
+            parse_civitai_version_id,
+        )
+        api_key = get_settings().civitai_api_key
+
+        if civitai_version_id:
+            # Explicit version pin via Civitai(version="<id>"). The pinned id
+            # IS a model-VERSION id, so use it directly — no model lookup.
+            try:
+                version_id = parse_civitai_version_id(civitai_version_id)
+            except Exception as e:
+                raise ModelResolutionError(
+                    f"bad civitai version pin {civitai_version_id!r} on ref {ref!r}: {e}"
+                ) from e
+        else:
+            # Civitai's ref is a MODEL id by convention; map it to its latest
+            # version id. No silent fallback: if the lookup fails or the model
+            # has no versions, the ref is wrong (e.g. a bare version id was
+            # passed where a model id was expected) — surface it rather than
+            # guessing and downloading an unrelated model.
+            try:
+                model_id = parse_civitai_version_id(parsed.civitai.model_id)
+            except Exception as e:
+                raise ModelResolutionError(f"bad civitai ref {ref!r}: {e}") from e
+            try:
+                model = fetch_civitai_model(model_id, api_key=api_key)
+            except Exception as e:
+                raise ModelResolutionError(
+                    f"failed to resolve civitai model {model_id} for ref {ref!r}: {e}; "
+                    "Civitai's ref must be a MODEL id (pin a specific version "
+                    'with .version("<version_id>")).'
+                ) from e
+            versions = model.get("modelVersions") or []
+            version_id = int(versions[0].get("id") or 0) if versions else 0
+            if version_id <= 0:
+                raise ModelResolutionError(
+                    f"civitai model {model_id} (ref {ref!r}) has no published "
+                    'version to download (pin one with .version("<version_id>")).'
+                )
+        out_dir = cache_dir / "civitai" / str(version_id)
+        emit({"kind": "model_fetch.started", "ref": ref, "provider": "civitai"})
+        try:
+            local = download_civitai(version_id, out_dir, api_key=api_key)
+        except Exception as e:
+            raise ModelResolutionError(
+                f"failed to fetch civitai ref {ref!r} (resolved version {version_id}): {e}"
+            ) from e
+        emit({"kind": "model_fetch.completed", "ref": ref, "local_dir": str(local)})
+        return str(local)
+
+    raise ModelResolutionError(
+        f"unsupported model ref: {ref!r} (provider={provider!r})"
+    )

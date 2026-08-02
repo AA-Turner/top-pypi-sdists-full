@@ -62,7 +62,7 @@ from .util_helpers import (
 logger = logging.getLogger(__name__)
 
 # Configuration-body buckets the merged ``ha_search`` orchestrator collects
-# from ``ha_deep_search``. ``dashboards`` is opt-in (excluded from the default
+# from ``_ha_deep_search``. ``dashboards`` is opt-in (excluded from the default
 # response shape) — the orchestrator's pre-populated defaults intentionally
 # omit it; this tuple is the canonical "all five" list used by the bucket-copy
 # and metadata-shadow logic.
@@ -117,7 +117,7 @@ def _validate_search_types(parsed: list[str] | None) -> None:
     with no warning or partial flag. Also rejects empty list: ``[]`` pins
     branch eligibility to config-only while the response echoes the default
     type list — a silent caller / runtime / response mismatch. Centralised
-    here so ``ha_search`` and ``ha_deep_search`` share the contract — adding
+    here so ``ha_search`` and ``_ha_deep_search`` share the contract — adding
     a new valid type needs one change.
     """
     if parsed is None:
@@ -181,7 +181,8 @@ _ALWAYS_KEEP_PROJECTION: frozenset[str] = frozenset(
         # search actually scanned — caller value beyond the input echo.
         "area_names",
         # Entity-branch internal mode label ("exact_match", "fuzzy_search",
-        # "area_only", "area_filtered_query", "domain_listing"). E2E tests
+        # "area_only", "area_filtered_query", "domain_listing",
+        # "state_listing"). E2E tests
         # pin its presence at 17+ assertion sites — callers verifiably
         # rely on it to disambiguate which entity-search path produced
         # the result, so retained at the envelope top instead of stripped.
@@ -335,8 +336,10 @@ def _compute_eligibility(
     Returns ``(registry_eligible, body_eligible, body_skipped_by_intent_gate)``:
 
     - ``registry_eligible``: the entity-registry branch runs whenever any of
-      ``query`` / ``domain_filter`` / ``area_filter`` is set, except when the
-      caller pinned config-only via an explicit ``search_types``.
+      ``query`` / ``domain_filter`` / ``area_filter`` / ``state_filter`` is set,
+      except when the caller pinned config-only via an explicit ``search_types``.
+      ``state_filter`` alone is sufficient — it enumerates every entity in that
+      state (issue #2002), mirroring the ``domain_filter``-only listing mode.
     - ``body_eligible``: the config-body branch runs only when a ``query``
       term is set AND the caller's inputs do not signal entity-only intent.
       "Entity-only intent" = any of ``domain_filter`` / ``area_filter`` /
@@ -348,7 +351,9 @@ def _compute_eligibility(
       ``query`` + entity-filter without explicit pin). The orchestrator
       surfaces a warning in this case so callers can opt back in.
     """
-    any_registry_input = bool(query_text or domain_filter_text or area_filter_text)
+    any_registry_input = bool(
+        query_text or domain_filter_text or area_filter_text or state_filter_text
+    )
     registry_eligible = any_registry_input and not explicit_config_only
     entity_intent_signal = bool(
         domain_filter_text or area_filter_text or state_filter_text
@@ -912,6 +917,33 @@ def _normalize_component_config_record(
     return out
 
 
+# Body surfaces the ``ha_mcp_tools`` component's ``search`` command accepts
+# (its voluptuous allowlist also has ``entity``, appended separately by
+# ``_build_component_search_request``). ``dashboard`` is deliberately absent:
+# the component has no dashboard scanner, so a request naming it must stay on
+# the legacy path — forwarding it just bounced off the component schema into a
+# warning-laden fallback on every call (issue #2008).
+_COMPONENT_BODY_SEARCH_TYPES: frozenset[str] = frozenset(
+    {"automation", "script", "scene", "helper"}
+)
+
+
+def _component_serves_search_types(req: _ResolvedSearch) -> bool:
+    """True when the component's search command accepts every requested surface.
+
+    Only an explicit ``search_types`` list can name an unsupported surface, and
+    only the body-eligible branch forwards it to the component — a
+    body-ineligible request sends the entity surface alone, which the component
+    always accepts. Routing is all-or-nothing per command, so one unsupported
+    surface sends the whole request to the legacy path, silently — the same
+    treatment as the other route-ineligible modes, not the warning-emitting
+    failure fallback.
+    """
+    if not req.body_eligible or req.parsed_search_types is None:
+        return True
+    return all(t in _COMPONENT_BODY_SEARCH_TYPES for t in req.parsed_search_types)
+
+
 def _build_component_search_request(req: _ResolvedSearch) -> dict[str, Any]:
     """Translate resolved ha_search inputs into an ``ha_mcp_tools/search`` request.
 
@@ -966,6 +998,43 @@ def _merge_component_visibility_warnings(
             response,
             [w for w in component_visibility_warnings if isinstance(w, str)],
         )
+
+
+async def _scrub_component_config_buckets(
+    response: dict[str, Any], client: Any
+) -> None:
+    """Omit component config-body records referencing a hidden entity (enforce mode).
+
+    The component's ``search_visibility`` wire applies the hide dimensions to
+    ENTITY results only; its config-body records (automations/scripts/scenes/
+    helpers/dashboards) can still reference a hidden entity, and the enforcement
+    middleware's outbound scan would then refuse the whole search on contact
+    instead of the issue-#2015 "collection reads omit" contract. Mirror of the
+    legacy path's scrub (``_deep._scrub_results_for_enforce``), applied after
+    ``_shape_component_search_response``. Totals are decremented by the dropped
+    count — the component's corpus-side match count cannot be recomputed
+    server-side. No-op unless enforce mode is active.
+    """
+    from ..visibility.enforcement import active_hidden_regex, scrub_records
+
+    regex = await active_hidden_regex(client)
+    if regex is None:
+        return
+    dropped = 0
+    for bucket in _CONFIG_BUCKETS:
+        records = response.get(bucket)
+        if records:
+            kept = scrub_records(records, regex)
+            dropped += len(records) - len(kept)
+            response[bucket] = kept
+    if not dropped:
+        return
+    if isinstance(response.get("config_total_matches"), int):
+        response["config_total_matches"] = max(
+            0, response["config_total_matches"] - dropped
+        )
+    if isinstance(response.get("count"), int):
+        response["count"] = max(0, response["count"] - dropped)
 
 
 def _shape_component_search_response(
@@ -1248,13 +1317,30 @@ def _normalize_state_filter(state_filter: str | None) -> str | None:
     return state_filter
 
 
+def _state_matches(record: dict[str, Any], state_filter: str) -> bool:
+    """True when ``record``'s state equals ``state_filter``, case-insensitively.
+
+    ``state_filter`` is already lowercased by ``_normalize_state_filter``; the
+    record side is lowered here so an uppercase entity state (e.g. an
+    input_select holding "Vacation") still matches the documented
+    case-insensitive contract.
+    """
+    return (record.get("state") or "").lower() == state_filter
+
+
 def _validate_entity_search_params(
     query: str | None,
     domain_filter: str | None,
     area_filter: str | None,
     result_fields: Any,
+    state_filter: str | None = None,
 ) -> tuple[str, str | None, str | None, list[str] | None]:
-    """Validate and normalise inputs for entity search; returns (query, domain_filter, area_filter, parsed_result_fields)."""
+    """Validate and normalise inputs for entity search; returns (query, domain_filter, area_filter, parsed_result_fields).
+
+    ``state_filter`` is not returned (the caller normalises it separately via
+    ``_normalize_state_filter``); it participates here only in the
+    at-least-one-criterion check so a ``state_filter``-only call is accepted and
+    enumerates every entity in that state (issue #2002)."""
     parsed_result_fields: list[str] | None = None
     if result_fields is not None:
         try:
@@ -1278,10 +1364,16 @@ def _validate_entity_search_params(
         domain_filter = domain_filter.strip().lower()
     if area_filter:
         area_filter = area_filter.strip()
-    if not query.strip() and not domain_filter and not area_filter:
+    if (
+        not query.strip()
+        and not domain_filter
+        and not area_filter
+        and not _normalize_state_filter(state_filter)
+    ):
         raise_tool_error(
             create_validation_error(
-                "At least one of 'query', 'domain_filter', or 'area_filter' must be set.",
+                "At least one of 'query', 'domain_filter', 'area_filter', or "
+                "'state_filter' must be set.",
                 parameter="query",
             )
         )
@@ -1524,7 +1616,7 @@ async def _exact_match_search(
             results.append(match)
 
     if state_filter:
-        results = [r for r in results if r.get("state") == state_filter]
+        results = [r for r in results if _state_matches(r, state_filter)]
 
     # Sort by score descending, tie-break on entity_id for stable
     # pagination when many results share a score (visible substring
@@ -1575,10 +1667,11 @@ class SearchTools:
                     "script sequences, scene contents, helper bodies, "
                     "dashboard cards) in one call. Use this for any "
                     "find-something-in-HA question — entity OR config. "
-                    "Omit `query` to enumerate by `domain_filter` and/or "
-                    "`area_filter` alone (registry-listing mode); "
-                    "configuration-body search is skipped in that mode "
-                    "because there is no term to match against."
+                    "Omit `query` to enumerate by `domain_filter`, "
+                    "`area_filter`, and/or `state_filter` alone "
+                    "(registry-listing mode); configuration-body search is "
+                    "skipped in that mode because there is no term to match "
+                    "against."
                 ),
             ),
         ] = None,
@@ -1691,7 +1784,10 @@ class SearchTools:
                 default=None,
                 description=(
                     "Filter entity-registry results to a specific state "
-                    '(e.g. "on", "off", "unavailable"). Case-insensitive.'
+                    '(e.g. "on", "off", "unavailable"). Case-insensitive. '
+                    "Can be used standalone (no query/domain/area) to enumerate "
+                    "every entity in that state; entity_total_matches reflects "
+                    "the filtered count."
                 ),
             ),
         ] = None,
@@ -1757,8 +1853,8 @@ class SearchTools:
 
         Two surfaces run in parallel and return tagged results:
           - **entities**: entity-registry matches (entity_id, friendly name,
-            area). Filter with `domain_filter`/`area_filter`; omit `query` to
-            enumerate a domain/area.
+            area). Filter with `domain_filter`/`area_filter`/`state_filter`;
+            omit `query` to enumerate a domain, area, or state.
           - **automations / scripts / scenes / helpers / dashboards**: matches
             *inside* config definitions — triggers, actions, sequences, scene
             entity-sets, helper bodies, dashboard cards. Driven by `query`;
@@ -1800,6 +1896,7 @@ class SearchTools:
             - Which automations use an entity: ha_search("light.bed_light")
             - Scenes touching a light: ha_search("light.kitchen", search_types=["scene"])
             - Narrow the response to the entity bucket: ha_search("kitchen", fields=["entities"])
+            - All unavailable entities: ha_search(state_filter="unavailable")
         """
         try:
             parsed_search_types = parse_string_list_param(search_types, "search_types")
@@ -1848,7 +1945,7 @@ class SearchTools:
             raise_tool_error(
                 create_validation_error(
                     "ha_search requires a non-empty query, or one of "
-                    "domain_filter / area_filter to enumerate.",
+                    "domain_filter / area_filter / state_filter to enumerate.",
                     parameter="query",
                 )
             )
@@ -1888,7 +1985,9 @@ class SearchTools:
         # response keys) — keep the legacy path: their response contracts
         # differ per mode, and after the request-dedup work they are cheap
         # registry-only calls, so the component round-trip buys nothing worth
-        # the shape risk.
+        # the shape risk. A ``search_types`` naming a surface the component
+        # lacks (``dashboard``) also stays legacy — see
+        # ``_component_serves_search_types`` (issue #2008).
         #
         # Entity-visibility gate. A plain ``search`` component applies no
         # filtering, so an install with an ACTIVE visibility filter would leak
@@ -1903,7 +2002,11 @@ class SearchTools:
         # needs no analogous gate — it re-applies the filter server-side over the
         # component's raw slices. Checked only when the component would otherwise
         # serve, so the common (no-component / filter-off) install pays nothing.
-        if req.query_text and not (req.area_filter or "").strip():
+        if (
+            req.query_text
+            and not (req.area_filter or "").strip()
+            and _component_serves_search_types(req)
+        ):
             caps = await get_component_caps(self._client)
             if component_supports(caps, "search"):
                 (
@@ -2002,7 +2105,9 @@ class SearchTools:
                 "ha_mcp_tools/search connection error; fell back to legacy: %r", exc
             )
             return legacy
-        return _shape_component_search_response(req, raw.get("result") or {})
+        response = _shape_component_search_response(req, raw.get("result") or {})
+        await _scrub_component_config_buckets(response, self._client)
+        return response
 
     async def _send_component_search(
         self, req: _ResolvedSearch, visibility: dict[str, Any] | None = None
@@ -2128,8 +2233,8 @@ class SearchTools:
                 default=None,
                 description=(
                     "Entity name to search for (fuzzy or exact match). "
-                    "Omit to list entities; `domain_filter` or `area_filter` "
-                    "must be set in that mode."
+                    "Omit to list entities; `domain_filter`, `area_filter`, "
+                    "or `state_filter` must be set in that mode."
                 ),
             ),
         ] = None,
@@ -2215,8 +2320,10 @@ class SearchTools:
                     "Filter results to entities in a specific state "
                     '(e.g. "on", "off", "unavailable"). Case-insensitive — '
                     "input is lowercased before matching. Applied server-side after "
-                    "search results are collected. For exact-match and domain-listing "
-                    "searches, total_matches reflects the filtered count. For fuzzy "
+                    "search results are collected. Can be used standalone (no "
+                    "query/domain/area) to enumerate every entity in that state. "
+                    "For exact-match, domain-listing, and state-listing searches, "
+                    "total_matches reflects the filtered count. For fuzzy "
                     "searches, state_filter is page-only and total_matches remains "
                     "unfiltered (see state_filter_note in the response). "
                     "None = no state filter (default)."
@@ -2243,13 +2350,18 @@ class SearchTools:
     ) -> dict[str, Any]:
         """Search for entities (lights, sensors, switches, etc.) by name, domain, or area.
 
+        Internal helper reached through the `ha_search` tool; the examples below
+        use that tool as the entry point.
+
         When NOT to use: for searching inside automation, script, helper, or dashboard
         *configurations* (e.g. which automations call a service or reference an entity),
-        use `ha_deep_search`.
+        search config bodies via `ha_search(query=...)`.
 
-        To enumerate all entities of a domain, omit `query` and pass `domain_filter`. For
-        example, `ha_search_entities(domain_filter="calendar")` lists all calendars. At
-        least one of `query`, `domain_filter`, or `area_filter` must be set.
+        To enumerate all entities of a domain, omit `query` and pass `domain_filter` —
+        e.g. `ha_search(domain_filter="calendar")` lists all calendars. To enumerate
+        every entity in a state, omit `query` and pass `state_filter` — e.g.
+        `ha_search(state_filter="unavailable")`. At least one of `query`,
+        `domain_filter`, `area_filter`, or `state_filter` must be set.
 
         ``prefetched_states`` / ``prefetched_registry`` are the orchestrator's
         shared snapshots; they only reach the regular (non-area, non-domain-only)
@@ -2257,7 +2369,7 @@ class SearchTools:
         """
         query, domain_filter, area_filter, parsed_result_fields = (
             _validate_entity_search_params(
-                query, domain_filter, area_filter, result_fields
+                query, domain_filter, area_filter, result_fields, state_filter
             )
         )
         group_by_domain_bool = group_by_domain
@@ -2328,6 +2440,17 @@ class SearchTools:
                     parsed_result_fields,
                 )
 
+            if state_filter and not domain_filter and (not query or not query.strip()):
+                return await self._search_state_only(
+                    state_filter,
+                    limit,
+                    offset,
+                    include_hidden_bool,
+                    group_by_domain_bool,
+                    per_domain_limit_int,
+                    parsed_result_fields,
+                )
+
             return await self._search_regular(
                 query,
                 domain_filter,
@@ -2358,6 +2481,7 @@ class SearchTools:
                         "query": query,
                         "domain_filter": domain_filter,
                         "area_filter": area_filter,
+                        "state_filter": state_filter,
                     },
                 )
             )
@@ -2369,11 +2493,12 @@ class SearchTools:
                     "query": query,
                     "domain_filter": domain_filter,
                     "area_filter": area_filter,
+                    "state_filter": state_filter,
                 },
                 suggestions=[
                     "Check Home Assistant connection",
                     "Try simpler search terms",
-                    "Check area/domain filter spelling",
+                    "Check area/domain/state filter spelling",
                 ],
             )
             return None  # unreachable: error helpers above always raise
@@ -2639,7 +2764,7 @@ class SearchTools:
         ]
 
         if state_filter:
-            results = [r for r in results if r.get("state") == state_filter]
+            results = [r for r in results if _state_matches(r, state_filter)]
 
         pagination = _build_pagination_metadata(total_matches, offset, limit, results)
 
@@ -2720,7 +2845,7 @@ class SearchTools:
 
         all_results.sort(key=lambda x: (-x["score"], x["entity_id"]))
         if state_filter:
-            all_results = [r for r in all_results if r.get("state") == state_filter]
+            all_results = [r for r in all_results if _state_matches(r, state_filter)]
         paginated = all_results[offset : offset + limit]
 
         area_search_data: dict[str, Any] = {
@@ -2807,24 +2932,22 @@ class SearchTools:
         # No add_timezone_metadata — see _search_area_with_query.
         return empty_area_data
 
-    async def _search_domain_only(
+    async def _fetch_listing_snapshot(
         self,
-        query: str | None,
-        domain_filter: str,
-        state_filter: str | None,
-        limit: int,
-        offset: int,
-        include_hidden_bool: bool,
-        group_by_domain_bool: bool,
-        per_domain_limit_int: int | None,
-        parsed_result_fields: list[str] | None,
-    ) -> dict[str, Any]:
-        """List all entities of a single domain (empty query + domain_filter)."""
-        # Fetch states + registry list in parallel. Registry-list failure is
-        # tolerated (we just lose the hidden filter); states-fetch failure is
-        # fatal — auth/connection errors must propagate. The device registry is
-        # gated: it only feeds the visibility area/label dimensions, so a
-        # default/area-free config skips the fetch entirely.
+    ) -> tuple[list[dict[str, Any]], set[str], set[str], list[str]]:
+        """Fetch states + registries and resolve hidden/visibility sets for listing modes.
+
+        Shared by ``_search_domain_only`` and ``_search_state_only``: both
+        enumerate the full state machine and need the same ``/api/states``
+        snapshot, registry-derived hidden ids, and visibility-excluded set.
+        Returns ``(states, hidden_ids, visibility_hidden, visibility_warnings)``.
+
+        Fetches states + the entity registry in parallel. Registry-list failure is
+        tolerated (we just lose the hidden filter); states-fetch failure is fatal —
+        auth/connection errors must propagate. The device registry is gated: it
+        only feeds the visibility area/label dimensions, so a default/area-free
+        config skips the fetch entirely.
+        """
         need_device = await device_registry_needed_for_visibility()
         fetch_coros: list[Any] = [
             self._client.get_states(),
@@ -2860,6 +2983,27 @@ class SearchTools:
         visibility_hidden, visibility_warnings = await load_hidden_set(
             registry_result, states_result, self._client, device_result
         )
+        return states_result, hidden_ids, visibility_hidden, visibility_warnings
+
+    async def _search_domain_only(
+        self,
+        query: str | None,
+        domain_filter: str,
+        state_filter: str | None,
+        limit: int,
+        offset: int,
+        include_hidden_bool: bool,
+        group_by_domain_bool: bool,
+        per_domain_limit_int: int | None,
+        parsed_result_fields: list[str] | None,
+    ) -> dict[str, Any]:
+        """List all entities of a single domain (empty query + domain_filter)."""
+        (
+            states_result,
+            hidden_ids,
+            visibility_hidden,
+            visibility_warnings,
+        ) = await self._fetch_listing_snapshot()
 
         # Filter by domain. Hidden entities are kept by default (with score
         # penalty applied below); ``include_hidden=False`` filters them out.
@@ -2895,7 +3039,7 @@ class SearchTools:
         scored_entities.sort(key=lambda x: (-x["score"], x["entity_id"]))
         if state_filter:
             scored_entities = [
-                e for e in scored_entities if e.get("state") == state_filter
+                e for e in scored_entities if _state_matches(e, state_filter)
             ]
         results = scored_entities[offset : offset + limit]
 
@@ -2923,6 +3067,96 @@ class SearchTools:
         # No add_timezone_metadata — see _search_area_with_query.
         return merge_visibility_warnings(
             domain_list_data, [*visibility_warnings, *enrich_warnings]
+        )
+
+    async def _search_state_only(
+        self,
+        state_filter: str,
+        limit: int,
+        offset: int,
+        include_hidden_bool: bool,
+        group_by_domain_bool: bool,
+        per_domain_limit_int: int | None,
+        parsed_result_fields: list[str] | None,
+    ) -> dict[str, Any]:
+        """List all entities in a given state (state_filter with no query/domain/area).
+
+        Mirrors ``_search_domain_only`` but enumerates across every domain,
+        filtering on exact state equality (``state_filter`` is already lowercased
+        by ``_normalize_state_filter``) so a single call answers "all unavailable
+        entities" (issue #2002). The state filter is applied before pagination so
+        ``total_matches`` reflects the filtered count.
+        """
+        (
+            states_result,
+            hidden_ids,
+            visibility_hidden,
+            visibility_warnings,
+        ) = await self._fetch_listing_snapshot()
+
+        # Exact state match — identical semantics to the exact/domain paths.
+        # Hidden entities are kept by default (score-penalised below);
+        # ``include_hidden=False`` filters them out. The visibility exclude is
+        # applied before pagination so the counts below stay coherent.
+        filtered_entities = [
+            e
+            for e in states_result
+            if (eid := e.get("entity_id", "")) not in visibility_hidden
+            and _state_matches(e, state_filter)
+            and (include_hidden_bool or eid not in hidden_ids)
+        ]
+
+        # Score: 100 baseline for state membership (exact, not fuzzy); penalised
+        # for hidden entries so they sort below visible peers. ``domain`` is
+        # derived per record since results span every domain.
+        scored_entities = []
+        for entity in filtered_entities:
+            entity_id = entity.get("entity_id", "")
+            attributes = entity.get("attributes", {})
+            score = apply_hidden_penalty(
+                100, "_hidden" if entity_id in hidden_ids else None
+            )
+            scored_entities.append(
+                {
+                    "entity_id": entity_id,
+                    "friendly_name": attributes.get("friendly_name", entity_id),
+                    "domain": entity_id.split(".")[0],
+                    "state": entity.get("state", "unknown"),
+                    "score": score,
+                    "match_type": "state_listing",
+                }
+            )
+        scored_entities.sort(key=lambda x: (-x["score"], x["entity_id"]))
+        results = scored_entities[offset : offset + limit]
+
+        state_list_data: dict[str, Any] = {
+            "success": True,
+            "query": None,
+            "state_filter": state_filter,
+            **_build_pagination_metadata(len(scored_entities), offset, limit, results),
+            "results": results,
+            "search_type": "state_listing",
+            "note": (
+                f"Listing all entities in state '{state_filter}' "
+                "(state_filter with no query/domain/area)"
+            ),
+        }
+
+        enrich_warnings = await self._maybe_enrich_entity_records(
+            results, parsed_result_fields
+        )
+        _apply_result_fields_to_response(state_list_data, parsed_result_fields)
+        _apply_by_domain_grouping(
+            state_list_data,
+            results,
+            group_by_domain_bool,
+            per_domain_limit_int,
+            parsed_result_fields,
+        )
+
+        # No add_timezone_metadata — see _search_area_with_query.
+        return merge_visibility_warnings(
+            state_list_data, [*visibility_warnings, *enrich_warnings]
         )
 
     async def _search_regular(
@@ -3013,7 +3247,7 @@ class SearchTools:
         # page-only — smart_entity_search already paginated internally, so
         # total_matches/has_more reflect the unfiltered dataset.
         if state_filter and "results" in result and search_type == "fuzzy_search":
-            filtered = [r for r in result["results"] if r.get("state") == state_filter]
+            filtered = [r for r in result["results"] if _state_matches(r, state_filter)]
             result["results"] = filtered
             result["count"] = len(filtered)
             result["state_filter_note"] = (
@@ -3727,12 +3961,12 @@ class SearchTools:
             limit: Maximum total results to return (default: 5)
             exact_match: Use exact substring matching (default: True)
 
-        Examples:
-            - Find automations referencing an entity: ha_deep_search("sensor.temperature")
-            - Find with fuzzy matching: ha_deep_search("motion", exact_match=False)
-            - Find scenes touching a light: ha_deep_search("light.kitchen")
-            - Search dashboards for entity refs: ha_deep_search("sensor.temperature", search_types=["dashboard"])
-            - Search everything: ha_deep_search("light.bedroom", search_types=["automation","script","scene","helper","dashboard"])
+        Public entry-point examples (via ``ha_search``):
+            - Find automations referencing an entity: ha_search(query="sensor.temperature")
+            - Find with fuzzy matching: ha_search(query="motion", exact_match=False)
+            - Find scenes touching a light: ha_search(query="light.kitchen")
+            - Search dashboards for entity refs: ha_search(query="sensor.temperature", search_types=["dashboard"])
+            - Search everything: ha_search(query="light.bedroom", search_types=["automation","script","scene","helper","dashboard"])
         """
         try:
             parsed_search_types = parse_string_list_param(search_types, "search_types")

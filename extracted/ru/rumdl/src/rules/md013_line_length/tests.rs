@@ -1044,6 +1044,40 @@ And a bullet list:
 }
 
 #[test]
+fn test_reflow_paragraph_following_nested_list() {
+    let config = MD013Config {
+        line_length: crate::types::LineLength::from_const(80),
+        reflow: true,
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = indoc! {"
+        -   Parent Item
+
+            1.  Sub-item 1
+            2.  Sub-item 2
+
+            This paragraph is at the parent item level (indented by 4 spaces). It is a long paragraph that should be wrapped to stay within the 80-character limit, but the formatter fails to reflow it.
+    "};
+
+    let expected = indoc! {"
+        -   Parent Item
+
+            1.  Sub-item 1
+            2.  Sub-item 2
+
+            This paragraph is at the parent item level (indented by 4 spaces). It is a
+            long paragraph that should be wrapped to stay within the 80-character limit,
+            but the formatter fails to reflow it.
+    "};
+
+    let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let fixed = rule.fix(&ctx).unwrap();
+    assert_eq!(fixed, expected);
+}
+
+#[test]
 fn test_issue_83_numbered_list_with_backticks() {
     // Test for issue #83: enable_reflow was incorrectly handling numbered lists
     let config = MD013Config {
@@ -7725,6 +7759,30 @@ fn test_html_only_in_blockquote_exempt() {
 }
 
 #[test]
+fn test_html_only_in_blockquote_inside_list_item_exempt() {
+    let rule = MD013LineLength::new(80, false, false, false, false);
+    let content = r#"- > <a href="https://dotfyle.com/plugins/chrisgrieser/nvim-rulebook"><img alt="badge" src="https://dotfyle.com/plugins/chrisgrieser/nvim-rulebook/shield"/></a>"#;
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        result.is_empty(),
+        "HTML-only line in a blockquote inside a list item should be exempt, got: {result:?}"
+    );
+}
+
+#[test]
+fn test_html_only_in_list_item_inside_blockquote_exempt() {
+    let rule = MD013LineLength::new(80, false, false, false, false);
+    let content = r#"> - <a href="https://dotfyle.com/plugins/chrisgrieser/nvim-rulebook"><img alt="badge" src="https://dotfyle.com/plugins/chrisgrieser/nvim-rulebook/shield"/></a>"#;
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        result.is_empty(),
+        "HTML-only line in a list item inside a blockquote should be exempt, got: {result:?}"
+    );
+}
+
+#[test]
 fn test_html_only_media_elements_exempt() {
     let rule = MD013LineLength::new(80, false, false, false, false);
     let content = r#"<video src="https://example.com/very-long-path/to/video.mp4" poster="https://example.com/very-long-path/thumb.jpg" controls></video>"#;
@@ -8458,6 +8516,124 @@ fn test_md013_ignore_link_urls_off_still_exempts_unbreakable_link() {
         strict.check(&ctx).unwrap().len(),
         1,
         "strict flags the standalone link that stern + tolerance off exempts"
+    );
+}
+
+#[test]
+fn test_md013_stern_exempts_atomic_link_in_list_item_with_spaces() {
+    // Test Case 1 from bug fix prompt
+    let config = MD013Config {
+        line_length: crate::types::LineLength::from_const(80),
+        stern: true,
+        ignore_link_urls: false,
+        ..MD013Config::default()
+    };
+    let rule = make_rule(config);
+    // Link text has spaces, URL is long. Total line is ~110 chars.
+    let content =
+        "-   [Link Text](http://a-very-long-url-that-exceeds-eighty-characters-on-its-own-1234567890.com/path)\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        result.is_empty(),
+        "Expected no warnings for standalone long link (with spaces in text) in list item even with ignore_link_urls=false and stern=true, got {result:?}"
+    );
+}
+
+#[test]
+fn test_md013_stern_exempts_blockquote_in_list_item_with_long_link() {
+    let config = MD013Config {
+        line_length: crate::types::LineLength::from_const(80),
+        stern: true,
+        ignore_link_urls: false,
+        ..MD013Config::default()
+    };
+    let rule = make_rule(config);
+    let content =
+        "-   > [Link Text](http://a-very-long-url-that-exceeds-eighty-characters-on-its-own-1234567890.com/path)\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert!(
+        result.is_empty(),
+        "Expected no warnings for blockquote in list item with long link, got {result:?}"
+    );
+}
+
+#[test]
+fn test_md013_reflow_paragraph_with_long_link() {
+    // Test Case 2 from bug fix prompt
+    let config = MD013Config {
+        line_length: crate::types::LineLength::from_const(80),
+        stern: true,
+        ignore_link_urls: false,
+        reflow: true,
+        ..MD013Config::default()
+    };
+    let rule = make_rule(config);
+    let content = "This is some text that should be wrapped before the long link [Link Text](http://a-very-long-url-that-exceeds-eighty-characters-on-its-own-1234567890.com/path) and some text after.\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+
+    let fixed = rule.fix(&ctx).unwrap();
+    let expected = "This is some text that should be wrapped before the long link\n[Link Text](http://a-very-long-url-that-exceeds-eighty-characters-on-its-own-1234567890.com/path)\nand some text after.\n";
+    assert_eq!(fixed, expected);
+
+    let ctx_fixed = LintContext::new(&fixed, MarkdownFlavor::Standard, None);
+    let warnings_fixed = rule.check(&ctx_fixed).unwrap();
+    assert!(
+        warnings_fixed.is_empty(),
+        "Expected no warnings after fix, got {warnings_fixed:?}"
+    );
+}
+
+#[test]
+fn test_md013_reflow_list_item_with_long_link() {
+    // Test Case 3 from bug fix prompt
+    let config = MD013Config {
+        line_length: crate::types::LineLength::from_const(80),
+        stern: true,
+        ignore_link_urls: false,
+        reflow: true,
+        ..MD013Config::default()
+    };
+    let rule = make_rule(config);
+    let content = "-   Some text that should be wrapped before the link [Link Text](http://a-very-long-url-that-exceeds-eighty-characters-on-its-own-1234567890.com/path)\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+
+    let fixed = rule.fix(&ctx).unwrap();
+    let expected = "- Some text that should be wrapped before the link\n  [Link Text](http://a-very-long-url-that-exceeds-eighty-characters-on-its-own-1234567890.com/path)\n";
+    assert_eq!(fixed, expected);
+
+    let ctx_fixed = LintContext::new(&fixed, MarkdownFlavor::Standard, None);
+    let warnings_fixed = rule.check(&ctx_fixed).unwrap();
+    assert!(
+        warnings_fixed.is_empty(),
+        "Expected no warnings after fix, got {warnings_fixed:?}"
+    );
+}
+
+#[test]
+fn test_md013_reflow_list_item_with_long_link_followed_by_text() {
+    // Test Case: Link followed by text
+    let config = MD013Config {
+        line_length: crate::types::LineLength::from_const(80),
+        stern: true,
+        ignore_link_urls: false,
+        reflow: true,
+        ..MD013Config::default()
+    };
+    let rule = make_rule(config);
+    let content = "-   [Link Text](http://a-very-long-url-that-exceeds-eighty-characters-on-its-own-1234567890.com/path) and some text after\n";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+
+    let fixed = rule.fix(&ctx).unwrap();
+    let expected = "- [Link Text](http://a-very-long-url-that-exceeds-eighty-characters-on-its-own-1234567890.com/path)\n  and some text after\n";
+    assert_eq!(fixed, expected);
+
+    let ctx_fixed = LintContext::new(&fixed, MarkdownFlavor::Standard, None);
+    let warnings_fixed = rule.check(&ctx_fixed).unwrap();
+    assert!(
+        warnings_fixed.is_empty(),
+        "Expected no warnings after fix, got {warnings_fixed:?}"
     );
 }
 

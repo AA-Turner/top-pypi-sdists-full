@@ -1,0 +1,2041 @@
+include = ["objects/*.toml"]
+
+[project]
+jm_version = "0.33.15"
+name = "doppler"
+version = "0.1.0"
+build = "cmake"
+# doppler does not target Windows (signal-processing users run WSL2/VM/container
+# — see docs). Omitting "windows" drops jm's per-component MinGW DLL-copy
+# boilerplate (jm-gh-213); the drift gate treats its absence as correct.
+platforms = ["linux", "macos"]
+# NOT adopting [project] c_style = "clang-format" (gh-265): jm 0.30.1's
+# _cfmt.py walks and reformats ALL of native/inc/** + native/src/** with
+# no exclusion, including the sacred native/inc/** headers that doppler's
+# OWN pre-commit config deliberately excludes from clang-format (jm's
+# decl-injection detection is whitespace-sensitive, so reformatting a
+# header confuses a LATER `jm apply` into re-patching it — an endless
+# churn loop, reproduced directly on this repo: reformatting touched 148
+# files project-wide, and a second `jm apply` re-"patched" impls that had
+# not actually changed in the manifest). Revisit if jm adds a native/inc
+# exclusion/scope option to c_style.
+perf = "true"
+pytest = "true"
+pytest_benchmark = "true"
+schema = "7"
+c_deps = ["hbdecim", "resamp", "wfmcompose"]
+# dsss.pyi came OFF this list in jm 0.28.3 (gh-428): its ten hand-maintained
+# has_params-single-array-param members (despreader.steps/bits,
+# burst_despreader.steps/bits, burst_demod.demod, + each *_max_out()) are now
+# individually marked `# jm:hand` in the stub itself, and `jm apply`'s
+# member-level merge preserves exactly those spans byte-for-byte while
+# regenerating everything else — so new manifest-derived API (docstrings,
+# properties) flows into the file again instead of silently rotting behind
+# the old whole-file skip. Verified on the 0.28.3 pin bump: 10/10 marked
+# members survived; unmarked content picked up real accumulated doc updates.
+# The same migration is a good follow-up for the remaining files below —
+# not yet done, they still use the coarser whole-file skip.
+#
+# measure.pyi's analyze() methods are jm-generated (single=true, gh-244) but
+# spectrum_dbfs() is hand-maintained: jm's stub aggregator didn't reconcile
+# out=/spectrum_dbfs_max_out() for this has_params-single-array-param method
+# even after the sacred fragments freshly regenerated with the new binding —
+# the same gap analyzer.pyi/delay.pyi hit below.
+# analyzer.pyi is hand-maintained for the same has_params-single-array-param
+# stub-lag (a separate, pre-existing jm gap from the has_params predicate
+# fixed in gh-219's follow-up — the .c binding is correct, only the .pyi
+# stub lagged).
+# delay.pyi is hand-maintained for ptr()/push_ptr(): jm's stub generator drops
+# the implicit "count"/out= params for this has_params=False shape (the .c
+# binding gets them correctly; the .pyi generator doesn't) — a separate,
+# analogous jm gap. spectral.pyi is hand-maintained for FFT/FFT2D's execute*
+# methods and PSD's band_power() for the same reason (plus FFT's execute_ci16/
+# execute_ci8, which are hand-written and never had a stub at all).
+# resample.pyi came OFF this list with the RateConverter flavor migration:
+# its fragment was entirely hand-written (ctor dispatch between
+# RateConverter_create and _create_matched, a `stages` getset, `bank_shape`,
+# the growth/ping-pong logic) and is now fully manifest-generated — the
+# dispatch is a `[[RateConverter.views]]` flavor (gh-504), `stages` and
+# `bank_shape` are container properties over count/value accessors (gh-543),
+# and the buffer machinery is jm's own. Restore the remaining hand-fixes
+# after every `jm apply` until fixed upstream.
+#
+# source.pyi (NCO/LO.steps_ctrl) and accumulator.pyi (AccTrace.value) came
+# OFF this list on the 0.30.1 pin bump: both were here for the same
+# has_params-single-array-param stub-lag as analyzer.pyi/delay.pyi above,
+# and both now regenerate byte-identical to the prior hand-maintained
+# content (verified directly: dropped from status_allow, ran a full
+# `jm apply`, diffed — zero unwanted change, NCO's newly-added
+# steps_u32_ctrl picked up its stub correctly for free). wfm.pyi does NOT
+# come off despite being exempted for the same original reason
+# (PN.generate()) — a full regen silently drops Gold's entire class
+# docstring (the CCSDS Code #365 worked example, the "preferred pair"
+# three-valued autocorrelation description) in favour of generic
+# boilerplate, a different and still-live gap (the sacred header's own
+# doxygen for Gold apparently never carried this detail — jm has nothing
+# richer to pull from). Re-test wfm.pyi the same way after any future pin
+# bump; don't assume the fix generalizes without re-diffing.
+#
+# util_core.h's square_clip came OFF this list in jm 0.28.11 (gh-468):
+# jm's decl-injector previously had no case for a non-static, header-only,
+# self-defining module function (square_clip was made non-static to fix a
+# GCC -Wstatic-in-inline warning; jm then injected a redundant, malformed
+# forward declaration for it). The gh-133 check now treats `static` as
+# optional before inline/JM_FORCEINLINE, so the existing definition alone
+# satisfies the manifest again.
+status_allow = [
+    "zensical.toml",
+    "src/doppler/analyzer/analyzer.pyi",
+    "src/doppler/delay/delay.pyi",
+    "src/doppler/measure/measure.pyi",
+    "src/doppler/spectral/spectral.pyi",
+    "src/doppler/wfm/wfm.pyi",
+]
+
+# Benchmark only the 64k block (jm-gh-390). doppler dropped the small-block
+# (_1k) bench suite library-wide in #234 — 1k blocks are dominated by call
+# overhead and only add noise to any comparison. Without this, every
+# newly scaffolded object reintroduced a `test_bench_steps_1k`, which had to be
+# hand-trimmed after each `jm apply`. Declaring it here stops the reintroduction.
+[project.bench]
+block_sizes = [65536]
+
+# ── BLUE extended-header keyword codec (gh-554) ──────────────────────────────
+# ONE variant-codec table drives BOTH directions of the keyword binding:
+# Writer.add_keyword packs a Python value into a discriminant-tagged buffer, and
+# Reader.keywords decodes each entry back — so the two cannot drift, and neither
+# needs a hand-written fragment. Codes/widths mirror wfm_keywords.c's Table-26
+# set (Midas BLUE 1.1 §3.3.1); `T` is the deprecated 32-bit-int alias of `L`.
+[codec.blue_keyword]
+discriminant = "char"
+scalar_collapse = true
+entries = [
+  { code = "A", ctype = "char", bytes = true },  # -> str
+  { code = "B", ctype = "int8_t" },               # -> int
+  { code = "I", ctype = "int16_t" },              # -> int
+  { code = "L", ctype = "int32_t" },              # -> int
+  { code = "T", ctype = "int32_t" },              # -> int (deprecated alias of L)
+  { code = "X", ctype = "int64_t" },              # -> int
+  { code = "F", ctype = "float" },                # -> float
+  { code = "D", ctype = "double" },               # -> float
+]
+
+# ── Waveform enum single-source-of-truth (gh-285) ────────────────────────────
+# One string↔int table per synth enum; list order IS the C enum value
+# (append-only — never reorder). The wfm_compose composer (below) emits its C
+# lookup tables from these, collapsing the string tables historically duplicated
+# across wfmgen.c / wfm_json.c / wfmcompose_py.c / compose.py to this one source.
+[module.wfm_reader]
+objects = ["wfm_reader"]
+# gh-523: an object module can now live in an existing subpackage, so Reader
+# stays at doppler.wfm.Reader rather than minting a top-level package.
+package = "wfm"
+extra_link_libs = ["m"]
+
+# ── wfm_plan: "prepare once, materialize many" stimulus engine ───────────────
+# Constructed from a spec-JSON string (Composer.to_json()); render/at return a
+# cf32 array sized from the handle (wfm_plan_len) — the jm 0.25.0 string-arg +
+# out_len_fn handle features. The core (wfm_plan.c) is compiled into
+# wfm_compose_core, so the .so links the SAME cores as the composer module.
+[module.wfm_plan]
+kind            = "handle"
+backing         = "wfm_plan"
+header          = "wfm/wfm_plan.h"
+package         = "wfm"
+type_name       = "Plan"
+context_manager = true
+close_fn        = "wfm_plan_destroy"
+create_fn       = "wfm_plan_prepare"
+extra_link_libs = ["wfm_draw_core", "wfm_cjson_core", "m"]
+
+[[module.wfm_plan.create_args]]
+name = "spec_json"
+type = "string"
+
+# link=true cores (jm appends _core): wfm_compose_core carries wfm_plan.o +
+# the composer/json/resolve; the rest are the synth engine it reuses.
+[[module.wfm_plan.depends_on]]
+name = "wfm_compose"
+link = true
+[[module.wfm_plan.depends_on]]
+name = "wfm_dsp"
+link = true
+[[module.wfm_plan.depends_on]]
+name = "wfm_synth"
+link = true
+[[module.wfm_plan.depends_on]]
+name = "lo"
+link = true
+[[module.wfm_plan.depends_on]]
+name = "awgn"
+link = true
+[[module.wfm_plan.depends_on]]
+name = "pn"
+link = true
+[[module.wfm_plan.depends_on]]
+name = "fir"
+link = true
+[[module.wfm_plan.depends_on]]
+name = "resamp"
+link = true
+
+# General render: a small JSON override object → cf32 array (length from the
+# handle). Baseline (empty object) reproduces a full compose bit-for-bit.
+[[module.wfm_plan.methods]]
+name = "render"
+fn = "wfm_plan_render"
+returns = "float _Complex[]"
+out_len_fn = "wfm_plan_len"
+nogil = true
+[[module.wfm_plan.methods.args]]
+name = "overrides_json"
+type = "string"
+
+# Scalar fast-path for the hot SNR/Monte-Carlo loop (no JSON parse).
+[[module.wfm_plan.methods]]
+name = "at"
+fn = "wfm_plan_at"
+returns = "float _Complex[]"
+out_len_fn = "wfm_plan_len"
+nogil = true
+[[module.wfm_plan.methods.args]]
+name = "snr"
+type = "double"
+[[module.wfm_plan.methods.args]]
+name = "seed"
+type = "uint64_t"
+
+# Scalar introspection (no-arg → scalar): the Python wrapper reads anchor_seed
+# for render()'s default seed and n_sources to size override arrays.
+[[module.wfm_plan.methods]]
+name = "length"
+fn = "wfm_plan_len"
+returns = "size_t"
+[[module.wfm_plan.methods]]
+name = "n_sources"
+fn = "wfm_plan_n_sources"
+returns = "size_t"
+[[module.wfm_plan.methods]]
+name = "anchor_seed"
+fn = "wfm_plan_anchor_seed"
+returns = "uint64_t"
+
+# Zero-binding save/restore (jm gh-565): a prepared Plan persists to bytes/file
+# and reconstructs a fresh handle, skipping prepare()'s DSP. All I/O in C.
+# save() -> bytes: out_len_fn sizes the blob, fn fills a temp buffer.
+[[module.wfm_plan.methods]]
+name = "save"
+fn = "wfm_plan_save"
+out_len_fn = "wfm_plan_save_bytes"
+returns = "bytes"
+# dump(path) -> None: path arg (os.fspath -> const char*), int return raises
+# OSError on a non-zero result (a failed write) -- keeps file I/O in C.
+[[module.wfm_plan.methods]]
+name = "dump"
+fn = "wfm_plan_dump"
+returns = "int"
+error = "OSError"
+[[module.wfm_plan.methods.args]]
+name = "path"
+type = "path"
+
+# Module-level alternate constructors: reconstruct a fresh Plan from a blob or a
+# file. A mismatched DSP fingerprint transparently rebuilds (never wrong).
+[[module.wfm_plan.factories]]
+name = "PlanFromBlob"
+create_fn = "wfm_plan_restore"
+init_params = [{ name = "blob", type = "bytes" }]
+[[module.wfm_plan.factories]]
+name = "PlanFromFile"
+create_fn = "wfm_plan_load"
+init_params = [{ name = "path", type = "path" }]
+
+[module.sample_clock]
+kind            = "handle"
+backing         = "dp_sample_clock"
+handle_type     = "dp_sample_clock_t"
+header          = "timing/timing_core.h"
+package         = "wfm"
+type_name       = "SampleClock"
+init_fn         = "dp_sample_clock_init"
+# Empty close_fn: the clock owns no internal resources, so teardown is jm's
+# free(self->h) alone (no <backing>_close finalizer). init_fn makes jm own the
+# malloc/free.
+close_fn        = ""
+
+[[module.sample_clock.create_args]]
+name = "fs"
+type = "double"
+
+[[module.sample_clock.create_args]]
+name = "resync"
+type = "int"
+default = "0"
+kwonly = true
+[[module.sample_clock.depends_on]]
+name = "timing"
+link = true
+[[module.sample_clock.methods]]
+name = "pace"
+fn = "dp_sample_clock_pace"
+returns = "double"
+nogil = true
+
+[[module.sample_clock.methods.args]]
+name = "count"
+type = "size_t"
+
+[[module.sample_clock.methods]]
+name = "stamp"
+fn = "dp_sample_clock_stamp"
+returns = "uint64_t"
+
+[[module.sample_clock.methods]]
+name = "stamp_at"
+fn = "dp_sample_clock_stamp_at"
+returns = "uint64_t"
+
+[[module.sample_clock.methods.args]]
+name = "n"
+type = "uint64_t"
+
+[[module.sample_clock.methods]]
+name = "track"
+fn = "dp_sample_clock_track"
+returns = "int"
+
+[[module.sample_clock.methods.args]]
+name = "observed_timestamp_ns"
+type = "uint64_t"
+
+[[module.sample_clock.methods.args]]
+name = "n_at_observation"
+type = "uint64_t"
+
+[[module.sample_clock.methods.args]]
+name = "tolerance_ns"
+type = "uint64_t"
+
+[[module.sample_clock.methods]]
+name = "reset"
+fn = "dp_sample_clock_reset"
+
+[[module.sample_clock.methods]]
+name = "resync"
+fn = "dp_sample_clock_resync"
+[[module.sample_clock.getters]]
+fn = "dp_sample_clock_stats"
+out = "dp_sample_clock_t"
+cache = false
+
+[[module.sample_clock.getters.fields]]
+name = "samples"
+from = "n"
+type = "uint64_t"
+
+[[module.sample_clock.getters.fields]]
+name = "underruns"
+from = "underruns"
+type = "uint64_t"
+
+[[module.sample_clock.getters.fields]]
+name = "max_lateness"
+from = "max_late_ns"
+type = "double"
+scale = "1e-9"
+[module.wfm_writer]
+objects = ["wfm_writer"]
+package = "wfm"
+extra_link_libs = ["m"]
+
+# BLUE type-1000 HCB header writer, retiring the last hand binding (was
+# compose.py's write_blue_header + its 3rd copy of the stype/endian tables).
+# gh-353 path/enum args + gh-363 check_return — jm built these for exactly this
+# "path + string-enum header writer" shape; enum:stype/endian resolve against
+# the [[enum]] SSOT, and the int status raises on a failed write. Lives here,
+# not on the base wfm module, because wfm_writer_core (with its keyword/cJSON
+# deps) is already linked on this module.
+[[module.wfm_writer.functions]]
+name = "write_blue_header"
+doc = "Write a standalone BLUE type-1000 HCB header (the detached .hdr): 512 bytes carrying the BLUE magic, byte order, data_size (total x bytes-per-sample), the type-1000 tag and xdelta = 1/fs. Pair it with a detached .det body of raw interleaved I/Q. Raises on a failed write."
+return_type = "int"
+check_return = true
+[[module.wfm_writer.functions.params]]
+name = "path"
+type = "path"
+[[module.wfm_writer.functions.params]]
+name = "sample_type"
+type = "int"
+enum = "stype"
+default = "cf32"
+[[module.wfm_writer.functions.params]]
+name = "endian"
+type = "int"
+enum = "endian"
+default = "le"
+[[module.wfm_writer.functions.params]]
+name = "fs"
+type = "double"
+default = "1e6"
+[[module.wfm_writer.functions.params]]
+name = "fc"
+type = "double"
+default = "0.0"
+[[module.wfm_writer.functions.params]]
+name = "data_start"
+type = "double"
+default = "0.0"
+[[module.wfm_writer.functions.params]]
+name = "total"
+type = "size_t"
+default = "0"
+[[module.wfm_writer.functions.params]]
+name = "detached"
+type = "int"
+default = "1"
+
+[module.wfm_sink]
+kind            = "handle"
+backing         = "wfm_stream_sink"
+handle_type     = "wfm_stream_sink_t"
+header          = "wfm/wfm_sink.h"
+package         = "wfm"
+type_name       = "StreamSink"
+context_manager = true
+close_fn        = "wfm_stream_sink_close"
+create_fn       = "wfm_stream_sink_open"
+# telemetry_core: stream_core_obj's tlm_sink.c references dp_tlm_read.
+extra_link_libs = ["$<TARGET_OBJECTS:stream_core_obj>", "telemetry_core", "nats_vendor_static", "Threads::Threads", "m"]
+
+[[module.wfm_sink.create_args]]
+name = "endpoint"
+type = "const char *"
+
+[[module.wfm_sink.create_args]]
+name = "sample_type"
+type = "int"
+enum = "stype"
+default = "cf32"
+kwonly = true
+[[module.wfm_sink.depends_on]]
+name = "wfm_sink"
+link = true
+[[module.wfm_sink.methods]]
+name = "send"
+fn = "wfm_stream_sink_send"
+returns = "int"
+nogil = true
+
+[[module.wfm_sink.methods.args]]
+name = "iq"
+type = "float _Complex[]"
+
+[[module.wfm_sink.methods.args]]
+name = "fs"
+type = "double"
+
+[[module.wfm_sink.methods.args]]
+name = "fc"
+type = "double"
+
+[[module.wfm_sink.methods]]
+name = "track_clipping"
+fn = "wfm_stream_sink_track_clipping"
+
+[[module.wfm_sink.methods.args]]
+name = "on"
+type = "int"
+default = "1"
+[[module.wfm_sink.getters]]
+[[module.wfm_sink.getters.fields]]
+name = "clip_fraction"
+getter = "wfm_stream_sink_clip_fraction"
+type = "double"
+
+[[module.wfm_sink.getters.fields]]
+name = "peak_dbfs"
+getter = "wfm_stream_sink_peak"
+type = "double"
+returns = "double"
+expr = "tmp > 0 ? 20*log10(tmp) : -INFINITY"
+
+[[module.wfm_sink.getters.fields]]
+name = "clipped"
+getter = "wfm_stream_sink_peak"
+type = "bool"
+returns = "double"
+expr = "tmp > 1.0 && self->sample_type >= 2"
+[module.cvt]
+objects = ["f32_to_i16", "i16_to_f32", "i32_to_f32", "i8_to_f32", "f32_to_i16u32", "f32_to_i16u64", "i16u32_to_f32", "i16u64_to_f32", "f32_to_uq15", "uq15_to_f32", "adc"]
+
+[module.accumulator]
+objects = ["acc_f32", "acc_cf64", "acc_trace"]
+
+[module.filter]
+objects = ["fir", "boxcar"]
+# resample_core: kaiser_num_taps/kaiser_beta (FIR-design sizing/beta) for
+# design_lowpass. spectral_core: kaiser_window (formula-agnostic generator).
+extra_link_libs = ["spectral_core", "resample_core"]
+
+[[module.filter.functions]]
+name = "design_lowpass"
+doc = "Kaiser-windowed-sinc lowpass FIR taps, auto-sized by kaiser_num_taps (Nyquist-normalised fpass/fstop band edges, unit-DC-gain float32 taps)."
+out_type = "float"
+variable_output = true
+out_size = "kaiser_num_taps(1, atten_db, fpass / 2.0, fstop / 2.0) | 1"
+
+[[module.filter.functions.params]]
+name = "fpass"
+type = "double"
+default = "0.4"
+
+[[module.filter.functions.params]]
+name = "fstop"
+type = "double"
+default = "0.6"
+
+[[module.filter.functions.params]]
+name = "atten_db"
+type = "double"
+default = "60.0"
+
+[module.source]
+objects = ["nco", "lo", "awgn"]
+# libmvec backs AWGN's AVX2 vectorized log() (_ZGVdN8v_logf, weak-resolved at
+# runtime per awgn_core.c) — an x86 vector-call ABI, and glibc only ships
+# libmvec.so on x86_64 (confirmed missing on manylinux_2_28_aarch64: `ld:
+# cannot find -lmvec`, v0.32.0 release run). Gate on processor, not just
+# platform, so the link line is a no-op on aarch64 rather than failing it.
+extra_link_libs = ["$<$<AND:$<PLATFORM_ID:Linux>,$<STREQUAL:${CMAKE_SYSTEM_PROCESSOR},x86_64>>:mvec>"]
+
+[module.wfm]
+objects = ["pn", "wfm_synth", "gold"]
+# wfm_synth.toml's depends_on link=true (gh-225) links lo/awgn/fir _core into the
+# wfm .so; pn is in-module (linked via objects). Replaces extra_link_libs.
+# wfm_dsp_core (the rrc/dsss kernels in wfm_dsp.c) backs the rrc_taps/dsss_spread
+# module functions — linked module-wide since they're free fns, not an object.
+extra_link_libs = ["wfm_dsp_core"]
+
+# Fold the hand-written composition / I/O surface into doppler.wfm so the whole
+# subsystem has one import path (D7). The Python `Synth` (a thin wrapper in
+# compose.py over the C engine) is re-exported AFTER the C-extension import, so
+# it shadows the raw engine type — the public doppler.wfm.Synth is the wrapper
+# (its get_*/set_* engine accessors stay internal, D9).
+# Transport classes are now the generated kind="handle" types (re-exported
+# straight from their .so submodules — zero hand-Python). Composition surface +
+# the remaining free functions still come from compose.py.
+[module.wfm.reexports]
+compose = ["Synth", "tone", "bpsk", "qpsk", "pn", "noise", "chirp", "bits", "Segment", "Timeline", "Composer", "Plan", "prepare", "PlanFromBlob", "PlanFromFile"]
+wfm_writer = ["Writer", "write_blue_header"]
+wfm_reader = ["Reader"]
+wfm_sink = ["StreamSink"]
+sample_clock = ["SampleClock"]
+
+[[module.wfm.functions]]
+name = "bpsk_map"
+doc = "Map bits {0,1} to BPSK symbols {+1,-1} (cf32)."
+out_type = "float _Complex"
+
+[[module.wfm.functions.params]]
+name = "bits"
+type = "uint8_t[]"
+
+[[module.wfm.functions]]
+name = "qpsk_map"
+doc = "Map QPSK symbol indices {0,1,2,3} to Gray-coded symbols (cf32)."
+out_type = "float _Complex"
+
+[[module.wfm.functions.params]]
+name = "syms"
+type = "uint8_t[]"
+
+[[module.wfm.functions]]
+name = "wfm_awgn_amplitude"
+doc = "AWGN amplitude for a target SNR (dB, over fs) given signal power."
+return_type = "float"
+
+[[module.wfm.functions.params]]
+name = "snr_db"
+type = "float"
+
+[[module.wfm.functions.params]]
+name = "signal_power"
+type = "float"
+
+[[module.wfm.functions]]
+name = "wfm_ebno_to_snr_db"
+doc = "Convert Eb/No (dB) to SNR (dB over fs)."
+return_type = "float"
+
+[[module.wfm.functions.params]]
+name = "ebno_db"
+type = "float"
+
+[[module.wfm.functions.params]]
+name = "bits_per_symbol"
+type = "int"
+
+[[module.wfm.functions.params]]
+name = "samples_per_symbol"
+type = "float"
+
+[[module.wfm.functions]]
+name = "mls_poly"
+doc = "Maximal-length-sequence primitive polynomial for an LFSR of length n."
+return_type = "uint64_t"
+
+[[module.wfm.functions.params]]
+name = "n"
+type = "uint32_t"
+
+[[module.wfm.functions]]
+name = "crc16"
+doc = "CRC-16-CCITT (poly 0x1021, init 0xFFFF) over an unpacked 0/1 bit array, MSB-first — the DSSS burst frame trailer wfmgen appends and BurstDemod validates."
+return_type = "uint16_t"
+
+[[module.wfm.functions.params]]
+name = "bits"
+type = "uint8_t[]"
+
+[[module.wfm.functions]]
+name = "rrc_taps"
+doc = "Root-raised-cosine pulse-shaping taps (2*span*sps+1 unit-energy cf32 taps)."
+out_type = "float"
+variable_output = true
+out_size = "2 * span * sps + 1"
+
+[[module.wfm.functions.params]]
+name = "beta"
+type = "double"
+
+[[module.wfm.functions.params]]
+name = "sps"
+type = "int"
+
+[[module.wfm.functions.params]]
+name = "span"
+type = "int"
+
+[[module.wfm.functions]]
+name = "dsss_spread"
+doc = "Direct-sequence spread syms by the ±1 chip code; yields len(syms)*sf chips."
+out_type = "float _Complex"
+variable_output = true
+out_size = "syms_len * sf"
+
+[[module.wfm.functions.params]]
+name = "syms"
+type = "float _Complex[]"
+
+[[module.wfm.functions.params]]
+name = "code"
+type = "uint8_t[]"
+
+[[module.wfm.functions.params]]
+name = "sf"
+type = "int"
+[module.wfm_compose]
+kind         = "composer"
+backing      = "wfm_compose"
+capsule_name = "doppler.wfm.compose_state"
+package      = "wfm"
+header       = "wfm/wfm_compose.h"
+composes     = ["wfm_synth"]
+sample_type  = true
+# link=true cores (jm appends _core): wfm_compose (composer + wfm_json + resolve),
+# wfm_dsp (DSSS/RRC taps), and the synth chain wfm_synth/lo/awgn/pn/fir/resamp
+# (resamp backs the polyphase RRC pulse shaper). The
+# vendored cJSON OBJECT lib (wfm_cjson_core) + libm go in extra_link_libs. This mirrors
+# native/src/wfmcompose/CMakeLists.txt's test_wfm_compose link line.
+# wfm_keywords_core: the writer core's BLUE extended-header codec.
+extra_link_libs = ["wfm_draw_core", "wfm_cjson_core", "wfm_keywords_core", "m"]
+
+# The source type wraps wfm_source_t field-for-field (struct order); enum fields
+# cross as validated strings via the SSOT, `bits` as an owned bytes buffer.
+[[module.wfm_compose.depends_on]]
+name = "wfm_compose"
+link = true
+
+[[module.wfm_compose.depends_on]]
+name = "wfm_dsp"
+link = true
+
+[[module.wfm_compose.depends_on]]
+name = "wfm_synth"
+link = true
+
+[[module.wfm_compose.depends_on]]
+name = "lo"
+link = true
+
+[[module.wfm_compose.depends_on]]
+name = "awgn"
+link = true
+
+[[module.wfm_compose.depends_on]]
+name = "pn"
+link = true
+
+[[module.wfm_compose.depends_on]]
+name = "fir"
+link = true
+
+[[module.wfm_compose.depends_on]]
+name = "resamp"
+link = true
+
+[[module.wfm_compose.depends_on]]
+name = "timing"
+link = true
+
+[[module.wfm_compose.depends_on]]
+name = "wfm_writer"
+link = true
+[module.wfm_compose.source]
+object = "wfm_synth"
+struct = "wfm_source_t"
+type_name = "Synth"
+# Fields that accept a (lo, hi) pair drawn uniformly each repeat (composer
+# epoch) — not just a scalar. The struct carries a <name>_hi companion + a
+# `ranged` bitmask (wfm_compose.h); jm emits float-or-tuple parse/getset/.pyi.
+ranged = [
+    { name = "freq", flag = "WFM_RANGE_FREQ" },
+    { name = "snr", flag = "WFM_RANGE_SNR" },
+    { name = "level", flag = "WFM_RANGE_LEVEL" },
+    { name = "f_end", flag = "WFM_RANGE_FEND" },
+]
+
+[[module.wfm_compose.source.fields]]
+name = "type"
+type = "int"
+enum = "wfm_type"
+default = "tone"
+doc = "Waveform type."
+
+[[module.wfm_compose.source.fields]]
+name = "freq"
+type = "double"
+default = "0.0"
+aliases = ["f_start"]
+doc = "Carrier/offset frequency in Hz (normalised cycles/sample when fs=1); for chirp it is the start frequency."
+
+[[module.wfm_compose.source.fields]]
+name = "snr"
+type = "double"
+default = "100.0"
+doc = "Signal-to-noise ratio in dB, interpreted per snr_mode; >=100 is treated as clean (no AWGN)."
+
+[[module.wfm_compose.source.fields]]
+name = "snr_mode"
+type = "int"
+enum = "snr_mode"
+default = "auto"
+doc = "How snr is interpreted: auto picks fs for tone/pn/chirp/bits and Es/No for bpsk/qpsk."
+
+[[module.wfm_compose.source.fields]]
+name = "seed"
+type = "uint32_t"
+default = "0"
+doc = "PRNG/LFSR seed for the noise and PN streams."
+
+[[module.wfm_compose.source.fields]]
+name = "sps"
+type = "int"
+default = "1"
+doc = "Samples per symbol (PSK) or per chip (PN); the oversampling factor."
+
+[[module.wfm_compose.source.fields]]
+name = "pn_length"
+type = "int"
+default = "15"
+doc = "PN LFSR register length; the sequence period is 2^pn_length - 1."
+
+[[module.wfm_compose.source.fields]]
+name = "pn_poly"
+type = "uint64_t"
+default = "0"
+doc = "PN generator polynomial; 0 auto-selects a maximal-length (MLS) polynomial for pn_length."
+
+[[module.wfm_compose.source.fields]]
+name = "lfsr"
+type = "int"
+enum = "wfm_lfsr"
+default = "galois"
+doc = "PN LFSR realization (galois or fibonacci); same period, different chip order."
+
+[[module.wfm_compose.source.fields]]
+name = "level"
+type = "double"
+default = "0.0"
+doc = "Source power in dBFS (<=0; 0 = unit power). Applies only when summed in a Segment/Composer (gain 10^(level/20)); ignored by standalone Synth.steps()."
+
+[[module.wfm_compose.source.fields]]
+name = "background"
+type = "int"
+default = "0"
+doc = "Mark this source as part of the static background field (0/1). Plan.prepare() folds a contiguous leading run of background sources into ONE pre-summed cache entry instead of caching each separately, so a scene of many fixed emitters costs one buffer rather than hundreds. The composite is overridable as a unit: it takes a single slot in gains/phases/enable and counts as one in n_sources(), so scaling it trims the whole field while its members keep their relative levels. Background sources must come first in the segment (a non-prefix ordering is rejected by prepare, since the fold would no longer reproduce compose bit-for-bit). Ignored by compose() and by standalone Synth.steps()."
+
+[[module.wfm_compose.source.fields]]
+name = "f_end"
+type = "double"
+default = "0.0"
+doc = "Chirp end frequency in Hz; ignored by non-chirp types."
+
+[[module.wfm_compose.source.fields]]
+name = "bits"
+type = "uint8_t*"
+bytes = true
+aliases = ["pattern", "payload"]
+coerce = "bit_pattern"
+doc = "For type=bits: the 0/1 pattern, oversampled by sps and cycled to fill the request. For type=dsss (as `payload`): the payload bits of the burst frame."
+
+[[module.wfm_compose.source.fields]]
+name = "modulation"
+type = "int"
+enum = "bitmod"
+default = "bpsk"
+doc = "For type=bits: symbol mapping of the pattern (none=0/1 amplitude, bpsk, qpsk)."
+
+[[module.wfm_compose.source.fields]]
+name = "pulse"
+type = "int"
+enum = "wfm_pulse"
+default = "rect"
+doc = "Pulse shape for the symbol stream (pn/bpsk/qpsk/bits): rect sample-and-hold or rrc matched filter."
+
+[[module.wfm_compose.source.fields]]
+name = "rrc_beta"
+type = "double"
+default = "0.35"
+doc = "RRC roll-off factor in (0, 1] when pulse=rrc."
+
+[[module.wfm_compose.source.fields]]
+name = "rrc_span"
+type = "int"
+default = "8"
+doc = "RRC filter span in symbols when pulse=rrc (taps = 2*span*sps + 1)."
+
+[[module.wfm_compose.source.fields]]
+name = "symbols"
+type = "float _Complex*"
+complex = true
+doc = "For type=symbols: a complex64 constellation stream — each element is the output point itself, oversampled by sps, cycled, and RRC-shaped with pulse=rrc. Generalises any modulation (pi/4-QPSK, QAM, ...)."
+
+[[module.wfm_compose.source.fields]]
+name = "acq_code"
+type = "uint8_t*"
+bytes = true
+coerce = "bit_pattern"
+doc = "For type=dsss: the acquisition/preamble code (0/1 chips), repeated acq_reps times unmodulated at the head of the burst — the coherent pull-in target BurstDespreader.set_acq/BurstDemod.set_preamble lock to."
+
+[[module.wfm_compose.source.fields]]
+name = "acq_reps"
+type = "size_t"
+default = "1"
+doc = "For type=dsss: preamble repetitions (periods of acq_code before the frame)."
+
+[[module.wfm_compose.source.fields]]
+name = "data_code"
+type = "uint8_t*"
+bytes = true
+coerce = "bit_pattern"
+doc = "For type=dsss: the payload spreading code (0/1 chips) — a second code, distinct from acq_code; every frame bit (sync | payload | crc) is XOR-spread across its full length, so len(data_code) is the spreading factor."
+
+[[module.wfm_compose.source.fields]]
+name = "sync"
+type = "uint8_t*"
+bytes = true
+coerce = "bit_pattern"
+doc = "For type=dsss: the frame-sync word bits (e.g. Barker-13) between the preamble and the payload — what BurstDemod.set_sync correlates to resolve frame position and BPSK polarity. Optional."
+
+[[module.wfm_compose.source.fields]]
+name = "crc"
+type = "int"
+enum = "crc"
+default = "crc16"
+doc = "For type=dsss: the frame trailer — crc16 appends a CRC-16-CCITT over the payload bits (what BurstDemod validates as frame_valid); none omits it."
+
+[[module.wfm_compose.source.fields]]
+name = "symbol_rate"
+type = "double"
+default = "0.0"
+doc = "For type=dsss: > 0 selects CONTINUOUS asynchronous mode — the spreading code repeats endlessly and data rides on it at this symbol rate (Hz), independent of the code-epoch rate (chips/symbol = fs/sps/symbol_rate, non-integer). No preamble/sync/CRC frame; data comes from the payload when supplied, else a seeded PN a receiver regenerates. Absent/0 = burst."
+
+[[module.wfm_compose.source.fields]]
+name = "dsss_code_only"
+type = "int"
+default = "0"
+doc = "Continuous dsss data source: 1 = code-only (the pure spreading code, no data modulation); 0 = data-modulated (the payload when supplied, else the seeded PN). Ignored for burst dsss and non-dsss types."
+
+[module.wfm_compose.source.generates]
+generator = "wfm_synth"
+bridge_fn = "wfm_source_to_synth"
+
+[module.wfm_compose.segment]
+type_name = "Segment"
+struct = "wfm_segment_t"
+sources = "multi"
+flat_sources = true
+# Per-repeat (lo, hi) uniform draws (see source.ranged) — e.g. off_samples as
+# arrival jitter that shifts the next burst's code phase.
+ranged = [
+    { name = "num_samples", flag = "WFM_RANGE_NUM_SAMPLES" },
+    { name = "off_samples", flag = "WFM_RANGE_OFF_SAMPLES" },
+    { name = "delay_samples", flag = "WFM_RANGE_DELAY_SAMPLES" },
+]
+
+[[module.wfm_compose.segment.fields]]
+name = "fs"
+type = "double"
+default = "1.0"
+doc = "Sample rate in Hz — one per segment (all sources share it)."
+
+[[module.wfm_compose.segment.fields]]
+name = "num_samples"
+type = "size_t"
+default = "1024"
+doc = "Segment on-time in samples (the active span)."
+
+[[module.wfm_compose.segment.fields]]
+name = "off_samples"
+type = "size_t"
+default = "0"
+doc = "Trailing off-time gap in samples (zeros) appended after the segment."
+
+[[module.wfm_compose.segment.fields]]
+name = "repeats"
+type = "size_t"
+default = "1"
+doc = "Play the segment this many times back-to-back (each instance = delay + on-time + trailing gap) before advancing. Ranged fields re-draw and the AWGN is fresh per instance; the signal (codes, payload, PN phase) stays fixed."
+
+[[module.wfm_compose.segment.fields]]
+name = "delay_samples"
+type = "size_t"
+default = "0"
+doc = "Leading gap before the on-time (samples) — the burst arrives after this delay. Ranged like off_samples and re-drawn per repeats instance, so a (lo, hi) delay is per-burst arrival jitter. Use off_samples for inter-burst spacing, delay_samples for arrival jitter."
+
+[[module.wfm_compose.segment.fields]]
+name = "gap_noise"
+type = "int"
+enum = "gap_noise"
+default = "auto"
+doc = "Gap policy for this segment's delay and trailing gap. auto (default): gaps carry the segment's noise floor — the sources' AWGN keeps running while the signal stops (clean scenes still get exact-zero gaps). off: gaps are hard zeros."
+
+[module.wfm_compose.timeline]
+type_name = "Timeline"
+loop = ["once", "repeat", "continuous"]
+
+[module.wfm_compose.oo]
+factories = ["tone", "noise", "pn", "bpsk", "qpsk", "chirp", "bits"]
+emit = "ctypes"
+discriminant = "type"
+composer_type_name = "Composer"
+
+[module.wfm_compose.composer]
+stream = true
+to_dict = true
+
+[module.wfm_compose.composer.realtime]
+clock_create = "dp_sample_clock_create"
+pace = "dp_sample_clock_pace"
+destroy = "dp_sample_clock_destroy"
+header = "timing/timing_core.h"
+
+[module.wfm_compose.json]
+enabled = true
+to_json_fn = "wfm_spec_to_json"
+to_json_trailing = ["0.0"]
+
+[[module.wfm_compose.serializers]]
+name = "to_sigmf"
+fn = "wfm_sigmf_meta_json"
+returns = "str"
+header = "wfm_writer/wfm_writer_core.h"
+
+[[module.wfm_compose.serializers.params]]
+name = "sample_type"
+type = "int"
+enum = "stype"
+default = "cf32"
+
+[[module.wfm_compose.serializers.params]]
+name = "endian"
+type = "int"
+enum = "endian"
+default = "le"
+
+[[module.wfm_compose.serializers.params]]
+name = "fs"
+type = "double"
+default = "1e6"
+
+[[module.wfm_compose.serializers.params]]
+name = "fc"
+type = "double"
+default = "0.0"
+[module.delay]
+objects = ["delay"]
+
+[module.spectral]
+objects = ["fft", "fft2d", "corr", "corr2d", "detector", "detector2d", "psd"]
+# psd_core composes acc_trace_core (the AccTrace averager); its OBJECT symbols
+# are linked into the spectral .so via psd.toml's depends_on link=true (gh-225).
+
+[[module.spectral.functions]]
+name = "kaiser_enbw"
+return_type = "float"
+
+[[module.spectral.functions.params]]
+name = "w"
+type = "float[]"
+
+[[module.spectral.functions]]
+name = "kaiser_window"
+
+[[module.spectral.functions.params]]
+name = "w"
+type = "float[]"
+out = true
+
+[[module.spectral.functions.params]]
+name = "beta"
+type = "float"
+
+[[module.spectral.functions]]
+name = "kaiser_beta_for_sidelobe"
+return_type = "double"
+
+[[module.spectral.functions.params]]
+name = "atten_db"
+type = "double"
+
+[[module.spectral.functions]]
+name = "hann_window"
+
+[[module.spectral.functions.params]]
+name = "w"
+type = "float[]"
+out = true
+
+[[module.spectral.functions]]
+name = "blackman_harris_window"
+
+[[module.spectral.functions.params]]
+name = "w"
+type = "float[]"
+out = true
+
+[[module.spectral.functions]]
+name = "magnitude_db_cf32"
+out_type = "float"
+
+[[module.spectral.functions.params]]
+name = "x"
+type = "float _Complex[]"
+
+[[module.spectral.functions.params]]
+name = "lin_floor"
+type = "float"
+
+[[module.spectral.functions.params]]
+name = "offset_db"
+type = "float"
+
+[[module.spectral.functions]]
+name = "magnitude_db_cf64"
+out_type = "float"
+
+[[module.spectral.functions.params]]
+name = "x"
+type = "double _Complex[]"
+
+[[module.spectral.functions.params]]
+name = "lin_floor"
+type = "double"
+
+[[module.spectral.functions.params]]
+name = "offset_db"
+type = "float"
+
+[[module.spectral.functions]]
+name = "find_peaks_f32"
+return_type = "dp_peak_t"
+max_results_param = "n_peaks"
+
+[[module.spectral.functions.result_fields]]
+name = "freq_norm"
+type = "float"
+
+[[module.spectral.functions.result_fields]]
+name = "amplitude_db"
+type = "float"
+
+[[module.spectral.functions.params]]
+name = "db"
+type = "float[]"
+
+[[module.spectral.functions.params]]
+name = "n_peaks"
+type = "size_t"
+
+[[module.spectral.functions.params]]
+name = "min_db"
+type = "float"
+
+[[module.spectral.functions]]
+name = "obw_from_power"
+return_type = "double"
+
+[[module.spectral.functions.params]]
+name = "pwr"
+type = "double[]"
+
+[[module.spectral.functions.params]]
+name = "fs"
+type = "double"
+
+[[module.spectral.functions.params]]
+name = "frac"
+type = "double"
+
+[[module.spectral.functions]]
+name = "noise_floor_db"
+return_type = "double"
+
+[[module.spectral.functions.params]]
+name = "db"
+type = "float[]"
+[module.measure]
+objects = ["tonemeas", "nprmeas", "imdmeas"]
+# measure objects compose fft_core + the spectral_core window / find_peaks free
+# functions; tonemeas.toml's depends_on link=true (gh-225) links both OBJECT
+# libs into the measure .so (one link=true owner suffices for the module target).
+
+[[module.measure.functions]]
+name = "measure_min_samples"
+doc = "Samples for a target RBW (auto Kaiser from bits/dynamic_range_db; target_rbw<=0 -> span/1000)."
+return_type = "size_t"
+
+[[module.measure.functions.params]]
+name = "fs"
+type = "double"
+
+[[module.measure.functions.params]]
+name = "target_rbw"
+type = "double"
+
+[[module.measure.functions.params]]
+name = "bits"
+type = "size_t"
+
+[[module.measure.functions.params]]
+name = "dynamic_range_db"
+type = "double"
+
+[[module.measure.functions.params]]
+name = "complex_input"
+type = "int"
+
+[[module.measure.functions]]
+name = "measure_rec_nfft"
+doc = "Recommended zero-padded transform length: next_pow2(n * pad)."
+return_type = "size_t"
+
+[[module.measure.functions.params]]
+name = "n"
+type = "size_t"
+
+[[module.measure.functions.params]]
+name = "pad"
+type = "size_t"
+
+[[module.measure.functions]]
+name = "measure_proc_gain"
+doc = "FFT processing gain in dB: 10*log10(nfft / 2)."
+return_type = "double"
+
+[[module.measure.functions.params]]
+name = "nfft"
+type = "size_t"
+
+[[module.measure.functions]]
+name = "dp_coherent_freq"
+doc = "Nearest leakage-free coherent test frequency (J cycles, J coprime N)."
+return_type = "double"
+
+[[module.measure.functions.params]]
+name = "fs"
+type = "double"
+
+[[module.measure.functions.params]]
+name = "f_target"
+type = "double"
+
+[[module.measure.functions.params]]
+name = "N"
+type = "size_t"
+[module.buffer]
+no_generate = "true"
+
+[module.telemetry]
+no_generate = "true"
+
+[module.stream]
+no_generate = "true"
+
+[module.ddc]
+objects = ["ddc", "ddcr"]
+# ddc.toml's depends_on link=true (gh-225) links the composed cores into the ddc
+# .so AND ddc's own C test/bench. Only the non-component libm remains here.
+extra_link_libs = ["m"]
+
+[module.analyzer]
+objects = ["specan"]
+# Specan composes the Ddc cascade + the PSD averaging-PSD core; specan.toml's
+# depends_on link=true (gh-225) links every composed OBJECT core into the
+# analyzer .so (and, after the jm#271 CMakeLists reconcile, specan's own C
+# test/bench). Only the non-component libm remains here.
+extra_link_libs = ["m"]
+
+[module.resample]
+objects = ["Resampler", "HalfbandDecimator", "cic", "RateConverter", "farrow", "hbdecim_q15"]
+extra_types = ["HalfbandDecimatorDp", "HalfbandDecimatorR2C"]
+# Composed cores reach the resample .so via per-object depends_on link=true
+# (gh-225): RateConverter → resamp/fir, HalfbandDecimator → hbdecim/hbdecim_r2c
+# (the latter for the HalfbandDecimatorR2C extra_type). cic is in-module and
+# resample_core is the module's own core (both auto-linked). Only the
+# non-component libm remains here.
+extra_link_libs = ["m"]
+
+[[module.resample.functions]]
+name = "ciccompmf"
+out_type = "float64[M]"
+
+[[module.resample.functions.params]]
+name = "N"
+type = "uint32_t"
+
+[[module.resample.functions.params]]
+name = "R"
+type = "uint32_t"
+
+[[module.resample.functions.params]]
+name = "M"
+type = "uint32_t"
+
+[[module.resample.functions]]
+name = "kaiser_beta"
+return_type = "double"
+
+[[module.resample.functions.params]]
+name = "atten"
+type = "double"
+
+[[module.resample.functions]]
+name = "kaiser_num_taps"
+return_type = "int"
+
+[[module.resample.functions.params]]
+name = "num_phases"
+type = "int"
+
+[[module.resample.functions.params]]
+name = "atten"
+type = "double"
+
+[[module.resample.functions.params]]
+name = "pb"
+type = "double"
+
+[[module.resample.functions.params]]
+name = "sb"
+type = "double"
+[module.detection]
+objects = ["lockdet"]
+
+[[module.detection.functions]]
+name = "marcum_q"
+return_type = "double"
+
+[[module.detection.functions.params]]
+name = "m"
+type = "int"
+
+[[module.detection.functions.params]]
+name = "a"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "b"
+type = "double"
+
+[[module.detection.functions]]
+name = "det_threshold"
+return_type = "double"
+
+[[module.detection.functions.params]]
+name = "pfa"
+type = "double"
+
+[[module.detection.functions]]
+name = "det_pd"
+return_type = "double"
+
+[[module.detection.functions.params]]
+name = "snr"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "dwell"
+type = "int"
+
+[[module.detection.functions.params]]
+name = "threshold"
+type = "double"
+
+[[module.detection.functions]]
+name = "det_dwell"
+return_type = "int"
+
+[[module.detection.functions.params]]
+name = "snr"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "pd_min"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "pfa"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "max_dwell"
+type = "int"
+
+[[module.detection.functions]]
+name = "det_snr"
+return_type = "double"
+
+[[module.detection.functions.params]]
+name = "dwell"
+type = "int"
+
+[[module.detection.functions.params]]
+name = "pd_min"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "pfa"
+type = "double"
+
+[[module.detection.functions]]
+name = "det_threshold_noncoherent"
+return_type = "double"
+
+[[module.detection.functions.params]]
+name = "pfa"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "n_noncoh"
+type = "int"
+
+[[module.detection.functions]]
+name = "det_ema_alpha"
+return_type = "double"
+
+[[module.detection.functions.params]]
+name = "snr_in_db"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "snr_out_db"
+type = "double"
+
+[[module.detection.functions]]
+name = "det_verify_count"
+return_type = "int"
+
+[[module.detection.functions.params]]
+name = "p_look"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "p_target"
+type = "double"
+
+[[module.detection.functions]]
+name = "det_verify_delay"
+return_type = "double"
+
+[[module.detection.functions.params]]
+name = "p_look"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "n"
+type = "int"
+
+[[module.detection.functions]]
+name = "det_threshold_f"
+return_type = "double"
+
+[[module.detection.functions.params]]
+name = "pfa"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "n"
+type = "int"
+
+[[module.detection.functions]]
+name = "det_pd_noncoherent"
+return_type = "double"
+
+[[module.detection.functions.params]]
+name = "snr"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "n_coh"
+type = "int"
+
+[[module.detection.functions.params]]
+name = "n_noncoh"
+type = "int"
+
+[[module.detection.functions.params]]
+name = "threshold"
+type = "double"
+
+[[module.detection.functions]]
+name = "det_n_noncoh"
+return_type = "int"
+
+[[module.detection.functions.params]]
+name = "snr"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "n_coh"
+type = "int"
+
+[[module.detection.functions.params]]
+name = "pd_min"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "pfa"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "max_n_noncoh"
+type = "int"
+
+[[module.detection.functions]]
+name = "det_threshold_power"
+return_type = "double"
+
+[[module.detection.functions.params]]
+name = "pfa"
+type = "double"
+
+[[module.detection.functions]]
+name = "det_pd_power"
+return_type = "double"
+
+[[module.detection.functions.params]]
+name = "snr_power"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "dwell"
+type = "int"
+
+[[module.detection.functions.params]]
+name = "power_threshold"
+type = "double"
+
+[[module.detection.functions]]
+name = "det_dwell_power"
+return_type = "int"
+
+[[module.detection.functions.params]]
+name = "snr_power"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "pd_min"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "pfa"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "max_dwell"
+type = "int"
+
+[[module.detection.functions]]
+name = "det_snr_power"
+return_type = "double"
+
+[[module.detection.functions.params]]
+name = "dwell"
+type = "int"
+
+[[module.detection.functions.params]]
+name = "pd_min"
+type = "double"
+
+[[module.detection.functions.params]]
+name = "pfa"
+type = "double"
+
+[module.snr]
+objects = []
+
+[[module.snr.functions]]
+name = "snr_data_aided_db"
+doc = "Data-aided Es/N0 (dB): strip the known sign, Es/N0 = a^2 / mean(|z-a|^2)."
+return_type = "double"
+
+[[module.snr.functions.params]]
+name = "soft"
+type = "float _Complex[]"
+
+[[module.snr.functions.params]]
+name = "sign_bits"
+type = "uint8_t[]"
+
+[[module.snr.functions]]
+name = "snr_m2m4_db"
+doc = "Non-data-aided moment-based (M2M4) Es/N0 (dB) for a constant-modulus signal in AWGN."
+return_type = "double"
+
+[[module.snr.functions.params]]
+name = "x"
+type = "float _Complex[]"
+
+[[module.snr.functions]]
+name = "snr_data_aided_db_series"
+doc = "Sliding-window data-aided Es/N0 (dB) vs index, for visualizing drift."
+out_type = "double"
+variable_output = true
+out_size = "soft_len"
+
+[[module.snr.functions.params]]
+name = "soft"
+type = "float _Complex[]"
+
+[[module.snr.functions.params]]
+name = "sign_bits"
+type = "uint8_t[]"
+
+[[module.snr.functions.params]]
+name = "window"
+type = "size_t"
+
+[[module.snr.functions]]
+name = "snr_m2m4_db_series"
+doc = "Sliding-window blind (M2M4) Es/N0 (dB) vs index, for visualizing drift."
+out_type = "double"
+variable_output = true
+out_size = "x_len"
+
+[[module.snr.functions.params]]
+name = "x"
+type = "float _Complex[]"
+
+[[module.snr.functions.params]]
+name = "window"
+type = "size_t"
+
+[module.mpsk]
+objects = []
+
+# M-PSK constellation map/demap (Gray-coded; BPSK/QPSK/8PSK). Element-wise free
+# functions (one symbol-label byte <-> one cf32 point) + differential variants
+# (array-sequential). Inline slice/constellation helpers live in mpsk_core.h for
+# the carrier loop + receiver to compose. Docstrings (incl. @code doctests) are
+# synthesized from the mpsk_core.h Doxygen.
+[[module.mpsk.functions]]
+name = "mpsk_map"
+out_type = "float _Complex"
+
+[[module.mpsk.functions.params]]
+name = "sym"
+type = "uint8_t[]"
+
+[[module.mpsk.functions.params]]
+name = "m"
+type = "int"
+default = "4"
+
+[[module.mpsk.functions]]
+name = "mpsk_demap"
+out_type = "uint8_t"
+
+[[module.mpsk.functions.params]]
+name = "x"
+type = "float _Complex[]"
+
+[[module.mpsk.functions.params]]
+name = "m"
+type = "int"
+default = "4"
+
+[[module.mpsk.functions]]
+name = "mpsk_diff_map"
+out_type = "float _Complex"
+
+[[module.mpsk.functions.params]]
+name = "sym"
+type = "uint8_t[]"
+
+[[module.mpsk.functions.params]]
+name = "m"
+type = "int"
+default = "4"
+
+[[module.mpsk.functions]]
+name = "mpsk_diff_demap"
+out_type = "uint8_t"
+
+[[module.mpsk.functions.params]]
+name = "x"
+type = "float _Complex[]"
+
+[[module.mpsk.functions.params]]
+name = "m"
+type = "int"
+default = "4"
+
+[[module.mpsk.functions]]
+name = "mpsk_bits_per_symbol"
+return_type = "int"
+
+[[module.mpsk.functions.params]]
+name = "m"
+type = "int"
+default = "4"
+
+[module.agc]
+objects = ["agc"]
+
+# Propagation impairments: things that TRANSFORM a signal on its way from
+# transmitter to receiver, as opposed to source's awgn/lo/nco, which GENERATE
+# one. DopplerChannel is the first; multipath/fading/phase-noise belong here
+# when they land. doppler_channel.toml's depends_on link=true (gh-225) links
+# resamp_core into the impairment .so — the dilation is resamp_execute_ctrl,
+# not a hand-rolled resampler.
+[module.impairment]
+objects = ["doppler_channel"]
+
+[module.util]
+objects = []
+
+[[module.util.functions]]
+name = "square_clip"
+doc = "Square-clip a complex sample: clip the real and imaginary parts independently to [-lin, lin] (a square region in the IQ plane)."
+return_type = "float _Complex"
+
+[[module.util.functions.params]]
+name = "y"
+type = "float _Complex"
+
+[[module.util.functions.params]]
+name = "lin"
+type = "float"
+[module.arith]
+objects = ["acc_q15", "acc_q8"]
+
+[[module.arith.functions]]
+name = "add_q15"
+doc = "Elementwise saturating two's complement add of two Q15 arrays."
+out_type = "int16_t"
+
+[[module.arith.functions.params]]
+name = "a"
+type = "int16_t[]"
+
+[[module.arith.functions.params]]
+name = "b"
+type = "int16_t[]"
+
+[[module.arith.functions]]
+name = "sub_q15"
+doc = "Elementwise saturating two's complement subtract of two Q15 arrays."
+out_type = "int16_t"
+
+[[module.arith.functions.params]]
+name = "a"
+type = "int16_t[]"
+
+[[module.arith.functions.params]]
+name = "b"
+type = "int16_t[]"
+
+[[module.arith.functions]]
+name = "mul_q15"
+doc = "Elementwise Q15 multiply with round-half-up: out[i] = sat16((a[i]*b[i] + 16384) >> 15)."
+out_type = "int16_t"
+
+[[module.arith.functions.params]]
+name = "a"
+type = "int16_t[]"
+
+[[module.arith.functions.params]]
+name = "b"
+type = "int16_t[]"
+
+[[module.arith.functions]]
+name = "dot_q15"
+doc = "Inner product of two Q15 arrays. Returns the raw Q30 accumulation as int64_t. Shift right 15 to get a Q15 scalar."
+return_type = "int64_t"
+
+[[module.arith.functions.params]]
+name = "a"
+type = "int16_t[]"
+
+[[module.arith.functions.params]]
+name = "b"
+type = "int16_t[]"
+
+[[module.arith.functions]]
+name = "shl_q15"
+doc = "Elementwise arithmetic left shift of a Q15 array with saturation. Equivalent to multiplying by 2^n in fixed-point."
+out_type = "int16_t"
+
+[[module.arith.functions.params]]
+name = "a"
+type = "int16_t[]"
+
+[[module.arith.functions.params]]
+name = "n"
+type = "int"
+
+[[module.arith.functions]]
+name = "shr_q15"
+doc = "Elementwise arithmetic right shift of a Q15 array with round-half-up. Equivalent to dividing by 2^n."
+out_type = "int16_t"
+
+[[module.arith.functions.params]]
+name = "a"
+type = "int16_t[]"
+
+[[module.arith.functions.params]]
+name = "n"
+type = "int"
+
+[[module.arith.functions]]
+name = "add_q8"
+doc = "Elementwise saturating two's complement add of two Q8 arrays."
+out_type = "int8_t"
+
+[[module.arith.functions.params]]
+name = "a"
+type = "int8_t[]"
+
+[[module.arith.functions.params]]
+name = "b"
+type = "int8_t[]"
+
+[[module.arith.functions]]
+name = "sub_q8"
+doc = "Elementwise saturating two's complement subtract of two Q8 arrays."
+out_type = "int8_t"
+
+[[module.arith.functions.params]]
+name = "a"
+type = "int8_t[]"
+
+[[module.arith.functions.params]]
+name = "b"
+type = "int8_t[]"
+
+[[module.arith.functions]]
+name = "mul_q8"
+doc = "Elementwise Q8 multiply with round-half-up: out[i] = sat8((a[i]*b[i] + 64) >> 7)."
+out_type = "int8_t"
+
+[[module.arith.functions.params]]
+name = "a"
+type = "int8_t[]"
+
+[[module.arith.functions.params]]
+name = "b"
+type = "int8_t[]"
+
+[[module.arith.functions]]
+name = "dot_q8"
+doc = "Inner product of two Q8 arrays. Returns the raw Q14 accumulation as int32_t."
+return_type = "int32_t"
+
+[[module.arith.functions.params]]
+name = "a"
+type = "int8_t[]"
+
+[[module.arith.functions.params]]
+name = "b"
+type = "int8_t[]"
+
+[[module.arith.functions]]
+name = "shl_q8"
+doc = "Elementwise arithmetic left shift of a Q8 array with saturation."
+out_type = "int8_t"
+
+[[module.arith.functions.params]]
+name = "a"
+type = "int8_t[]"
+
+[[module.arith.functions.params]]
+name = "n"
+type = "int"
+
+[[module.arith.functions]]
+name = "shr_q8"
+doc = "Elementwise arithmetic right shift of a Q8 array with round-half-up."
+out_type = "int8_t"
+
+[[module.arith.functions.params]]
+name = "a"
+type = "int8_t[]"
+
+[[module.arith.functions.params]]
+name = "n"
+type = "int"
+
+[[module.arith.functions]]
+name = "shl_i64"
+doc = "Elementwise logical left shift of an int64_t array. No saturation (caller ensures no overflow)."
+out_type = "int64_t"
+
+[[module.arith.functions.params]]
+name = "a"
+type = "int64_t[]"
+
+[[module.arith.functions.params]]
+name = "n"
+type = "int"
+
+[[module.arith.functions]]
+name = "shr_i64"
+doc = "Elementwise arithmetic right shift of an int64_t array with round-half-up. Useful for normalising dot_q15 Q30 results back to Q15."
+out_type = "int64_t"
+
+[[module.arith.functions.params]]
+name = "a"
+type = "int64_t[]"
+
+[[module.arith.functions.params]]
+name = "n"
+type = "int"
+
+[[enum]]
+name = "wfm_type"
+values = ["tone", "noise", "pn", "bpsk", "qpsk", "chirp", "bits", "symbols", "dsss"]
+
+[[enum]]
+# Order IS rc_pulse_t (RateConverter_core.h): iandd = 0, rrc = 1, none = 2.
+name = "rc_pulse"
+values = ["iandd", "rrc", "none"]
+
+[[enum]]
+name = "crc"
+values = ["none", "crc16"]
+
+[[enum]]
+name = "gap_noise"
+values = ["auto", "off"]
+
+[[enum]]
+name = "snr_mode"
+values = ["auto", "fs", "ebno", "esno"]
+
+[[enum]]
+name = "wfm_lfsr"
+values = ["galois", "fibonacci"]
+
+[[enum]]
+name = "bitmod"
+values = ["none", "bpsk", "qpsk"]
+
+[[enum]]
+name = "wfm_pulse"
+values = ["rect", "rrc"]
+
+[[enum]]
+name = "ftype"
+values = ["raw", "csv", "blue", "sigmf"]
+
+[[enum]]
+name = "stype"
+values = ["cf32", "cf64", "ci32", "ci16", "ci8"]
+
+[[enum]]
+name = "endian"
+values = ["le", "be"]
+
+# BLUE `format` mode designator (HCB byte 52): components per sample.
+[[enum]]
+name = "sample_mode"
+values = ["complex", "scalar"]
+
+# Where Reader.fc was read from. Order IS wfm_fc_source_t
+# (wfm_reader_core.h): "none" is index 0, then one entry per tag in the
+# reader's FC_TAGS search order, then the SigMF JSON key.
+[[enum]]
+name = "fc_source"
+values = ["none", "FREQ", "RF_FREQ", "CENTER_FREQ", "F_C", "core:frequency"]
+
+[[enum]]
+name = "interp_method"
+values = ["floor", "nearest", "linear"]
+
+[module.interp]
+objects = ["interp_table"]
+
+[module.track]
+objects = ["loop_filter", "costas", "dll", "symsync", "ratesync", "carrier_mpsk", "carrier_nda", "mpsk_receiver", "mpsk_receiver_r"]
+
+[module.dsss]
+objects = ["despreader", "burst_despreader", "acq", "burst_acq", "ppe", "burst_demod", "dsss_receiver", "async_dsss_receiver"]
+
+[module.acquire]
+objects = ["carrier_acq"]
+
+# ── ber — error-rate measurement (the one tool) ──────────────────────────────
+# The settled window, the Pfa-gated alignment, inverse binomial sampling and
+# the exact Gamma/chi-square interval, in C once. Python is the thin face.
+[module.ber]
+objects = ["ber_meter"]
+
+[[module.ber.functions]]
+name = "ber_theory_ser"
+doc = "Coherent M-PSK symbol error rate at matched-filter Es/N0 (LINEAR, not dB). BPSK Q(sqrt(2 Es/N0)); QPSK 2Q(sqrt(Es/N0)); 8PSK 2Q(sqrt(2 Es/N0) sin(pi/8)). This is a COHERENT bound: a differentially-decoded rate is ~2x it, so pairing a differential measurement with this curve invents a factor of two of implementation loss."
+return_type = "double"
+
+[[module.ber.functions.params]]
+name = "m"
+type = "int"
+
+[[module.ber.functions.params]]
+name = "esn0"
+type = "double"
+
+[[module.ber.functions]]
+name = "ber_theory_ber"
+doc = "Coherent GRAY-coded M-PSK bit error rate at Es/N0 (LINEAR). BPSK and Gray QPSK are exactly Q(sqrt(2 Eb/N0)); 8PSK uses SER/log2(M)."
+return_type = "double"
+
+[[module.ber.functions.params]]
+name = "m"
+type = "int"
+
+[[module.ber.functions.params]]
+name = "esn0"
+type = "double"
+
+[[module.ber.functions]]
+name = "ber_esn0_db_for_ser"
+doc = "Es/N0 (dB) at which the coherent bound equals `ser`. How an implementation loss is quoted honestly: convert the MEASURED rate to the Es/N0 theory would need to produce it, and subtract. A loss in dB is comparable across M and across operating points; a ratio of rates is not."
+return_type = "double"
+
+[[module.ber.functions.params]]
+name = "m"
+type = "int"
+
+[[module.ber.functions.params]]
+name = "ser"
+type = "double"
+
+[[module.ber.functions]]
+name = "ber_evm_scatter_floor_db"
+doc = "EVM (dB) of an M-PSK constellation at a UNIFORMLY RANDOM rotation -- the FLOOR of a self-referenced EVM, i.e. what a completely destroyed constellation reads: -1.4 dB at BPSK, -7.0 at QPSK, -12.9 at 8PSK. ANY fixed EVM threshold must be stated against this, never against 0 dB: 'scattered reads ~0 dB' is the BPSK limit only, and at 8PSK a stream with no carrier recovery reads the same -12.9 dB a healthy 13 dB link does, so a `< -12.0` assertion is satisfied by pure noise. The room between 'on the bound at the SER=1e-3 anchor' and 'completely broken' collapses as M grows (5.4 / 3.3 / 2.8 dB), so at high M the EVM cannot carry a verdict alone. Not to be confused with the NOISE floor -(Es/N0)."
+return_type = "double"
+
+[[module.ber.functions.params]]
+name = "m"
+type = "int"
+
+[[module.ber.functions]]
+name = "ber_settle_syms"
+doc = "Symbols to discard before a steady-state measurement means anything: 2*(5/bn_timing + 5/bn_carrier). Three factors, and skipping any produces a confident wrong number -- 5/Bn per loop is the standard second-order settling time (in SYMBOLS, since both bn are symbol-rate normalised); the two budgets ADD because the loops are cascaded (the carrier discriminator reads the on-time strobe, so it cannot converge until timing has); and the sum DOUBLES for joint tracking. This is a FLOOR, not the answer: take the max of it and every lock indicator the receiver publishes, plus the handover instant again if one is enabled. Pass a loop's bn as 0 if it is not running."
+return_type = "size_t"
+
+[[module.ber.functions.params]]
+name = "bn_timing"
+type = "double"
+
+[[module.ber.functions.params]]
+name = "bn_carrier"
+type = "double"
+
+[[module.ber.functions]]
+name = "ber_lock_symbol"
+doc = "First symbol from which a verify-counted lock flag is SUSTAINED, or -1 for 'never locked'. Sustained means `sustain` consecutive symbols high AND at least `min_frac` of everything after that point high too: the run rejects a single lucky decision, the fraction rejects a detector that declares early then flaps. Dating the lock by the FINAL contiguous run instead is right with no noise and badly wrong with it -- one late dip once moved a reported lock from 415 to 2286 and left no measurement window at all. The -1 is deliberate: it forces the caller to say 'never locked' rather than quietly measure a transient."
+return_type = "int"
+
+[[module.ber.functions.params]]
+name = "flags"
+type = "uint8_t[]"
+
+[[module.ber.functions.params]]
+name = "sustain"
+type = "size_t"
+default = "200"
+
+[[module.ber.functions.params]]
+name = "min_frac"
+type = "double"
+default = "0.9"
+
+[[module.ber.functions]]
+name = "ber_evm_db"
+doc = "Self-referenced EVM (dB) over an EXPLICIT window [lo, hi): each symbol against the stream's OWN hard decision, with the constellation rotation estimated from the data. References neither the transmitted symbols nor a lag, so it cannot be fooled by an alignment search. A locked matched-filter output reads EVM_dB ~ -(Es/N0)_dB (an I/Q-plane quantity -- no factor of two; quoting one flatters the result by 3 dB). Read it against ber_evm_scatter_floor_db(m), NEVER against 0 dB. The window is explicit because BER and EVM must be measured on the SAME one: a convenience back-half default scores a different window than the error rate did, and the two eventually disagree in a way that reads as a receiver defect rather than the harness bug it is. Returns 0.0 for a window under 20 symbols."
+return_type = "double"
+
+[[module.ber.functions.params]]
+name = "rx"
+type = "float _Complex[]"
+
+[[module.ber.functions.params]]
+name = "lo"
+type = "size_t"
+default = "0"
+
+[[module.ber.functions.params]]
+name = "hi"
+type = "size_t"
+default = "0"
+
+[[module.ber.functions.params]]
+name = "m"
+type = "int"
+default = "4"
+
+[[module.ber.functions]]
+name = "ber_settle_from"
+doc = "Where a steady-state measurement may start: max(budget, timing lock, carrier lock, handover + budget). The analytic budget and the receiver's own indicators are both fallible in the SAME direction, so whichever settles last decides. A handover settles last of all -- it fires on carrier lock plus a warmup, strictly after every other term, and the decision-directed loop then has its own transient, so it contributes its instant PLUS the budget again (measured on 8PSK: handover at symbol 2525 against a 2000-symbol budget, SER 5.95x the coherent bound from 2000 versus 1.68x from 4525). Pass -1 for an indicator the receiver does not publish, which is what ber_lock_symbol() returns for 'never locked'. A -1 timing or carrier lock means there is NO valid steady-state window -- check that yourself before trusting the return; a -1 handover is not a failure, since a pure-NDA receiver never publishes one."
+return_type = "size_t"
+
+[[module.ber.functions.params]]
+name = "budget"
+type = "size_t"
+
+[[module.ber.functions.params]]
+name = "timing_lock"
+type = "int"
+default = "-1"
+
+[[module.ber.functions.params]]
+name = "carrier_lock"
+type = "int"
+default = "-1"
+
+[[module.ber.functions.params]]
+name = "handover"
+type = "int"
+default = "-1"

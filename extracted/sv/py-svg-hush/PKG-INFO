@@ -1,0 +1,24 @@
+Metadata-Version: 2.4
+Name: py_svg_hush
+Version: 0.3.0
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: maturin==1.11.5 ; extra == 'dev'
+Requires-Dist: ruff==0.11.0 ; extra == 'dev'
+Requires-Dist: pytest==8.3.3 ; extra == 'dev'
+Requires-Dist: pip>=24.2 ; extra == 'dev'
+Provides-Extra: dev
+License-File: LICENSE.txt
+Author-email: Joshua Munn <public@elysee-munn.family>
+Requires-Python: >=3.10
+Project-URL: changelog, https://github.com/jams2/py-svg-hush/blob/main/CHANGELOG.md
+Project-URL: documentation, https://github.com/jams2/py-svg-hush
+Project-URL: homepage, https://github.com/jams2/py-svg-hush
+Project-URL: repository, https://github.com/jams2/py-svg-hush

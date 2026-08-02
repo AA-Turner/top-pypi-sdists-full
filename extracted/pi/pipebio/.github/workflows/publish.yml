@@ -1,0 +1,120 @@
+name: Build and Publish
+
+on:
+  push:
+    branches: [testpypi, pypi]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build-and-publish:
+    environment:
+      name: Publish
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout code with tags
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # Needed so setuptools_scm can see the tags
+
+      - name: Skip if branch is not pypi or testpypi, or if is not tagged.
+        run: |
+          BRANCH=${{ github.ref_name }}
+          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+          if [[ "$BRANCH" != "pypi" && "$BRANCH" != "testpypi" ]]; then
+            echo "❌ Not a publishable branch: $BRANCH"
+            exit 1
+          fi
+          
+          TAG=$(git describe --tags --exact-match)
+          echo "Detected tag: $TAG"
+      
+          if [[ -z "$TAG" ]]; then
+          echo "❌ This commit is not tagged. Tag the release (e.g., git tag v0.1.2) before pushing."
+          exit 1
+          fi
+      
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "❌ Tag $TAG does not follow semantic versioning (vX.Y.Z)"
+          exit 1
+          fi
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          activate-environment: true
+          version: latest
+          python-version: "3.11"
+          
+      - name: Install dependencies
+        run: |
+          uv pip install setuptools_scm twine
+
+      - name: Build the package
+        run: uv build
+
+      - name: Verify built package works
+        run: |
+          echo "Installing built package..."
+          uv pip install dist/*.whl
+
+          echo "Running basic import test..."
+          python -c "import pipebio; print('Imported pipebio:', pipebio.__version__)"
+
+          # Optional: run a known working function if available
+          # python -c "import pipebio; pipebio.login(token='fake-token')"
+
+      - name: Extract version from built package
+        id: get_version
+        run: |
+          FILE=$(ls dist/*.tar.gz | head -n 1)
+          VERSION=$(basename "$FILE" | sed -E 's/^pipebio-([^-]+).*/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Built version: $VERSION"
+
+      - name: Publish to TestPyPI
+        if: env.BRANCH == 'testpypi'
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+        run: |
+          echo "Publishing to TestPyPI..."
+          twine upload --verbose --repository-url https://test.pypi.org/legacy/ -u __token__ -p $TWINE_PASSWORD dist/*
+
+      - name: Publish to PyPI
+        if: env.BRANCH == 'pypi'
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          echo "Publishing to production PyPI..."
+          twine upload --verbose -u __token__ -p $TWINE_PASSWORD dist/*
+
+      - name: Verify install from TestPyPI
+        if: env.BRANCH == 'testpypi'
+        run: |
+          uv pip uninstall -y pipebio || true
+          
+          echo "Installing from TestPyPI with PyPI fallback..."
+          uv pip install --no-cache-dir \
+            --index-url https://test.pypi.org/simple/ \
+            --extra-index-url https://pypi.org/simple \
+            pipebio
+          
+          python -c "import pipebio; print('Imported from TestPyPI:', pipebio.__version__)"
+
+      - name: Verify install from PyPI
+        if: env.BRANCH == 'pypi'
+        run: |
+          echo "Uninstalling any locally built version..."
+          uv pip uninstall -y pipebio || true
+          
+          echo "Installing from PyPI..."
+          uv pip install --no-cache-dir pipebio
+          
+          echo "Importing and checking version..."
+          python -c "import pipebio; print('Imported from PyPI:', pipebio.__version__)"

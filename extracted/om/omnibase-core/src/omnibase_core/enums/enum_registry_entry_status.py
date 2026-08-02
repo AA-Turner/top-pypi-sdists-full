@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+from enum import Enum, unique
+
+from omnibase_core.enums.enum_str_enum_base import UtilStrValueHelper
+
+
+# Enum for node registry entry status values (ONEX Standard)
+@unique
+class EnumRegistryEntryStatus(UtilStrValueHelper, str, Enum):
+    EPHEMERAL = "ephemeral"
+    ONLINE = "online"
+    VALIDATED = "validated"
+
+
+__all__ = ["EnumRegistryEntryStatus"]

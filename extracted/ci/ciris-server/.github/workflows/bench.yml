@@ -1,0 +1,157 @@
+name: bench
+
+# Run the criterion benches, turn them into an INTERPRETED page (video
+# throughput / replication speed / post-quantum overhead — what the numbers
+# mean, not just ns), and publish to GitHub Pages. Mirrors the substrate
+# sisters' publish-only bench discipline (not a pass/fail gate — shared runners
+# are too noisy), but with an interpretation layer on top (scripts/bench_report.py).
+#
+# Published at: https://cirisai.github.io/CIRISServer/
+# One-time: Settings → Pages → Source = "GitHub Actions" (the configure-pages
+# step below sets enablement: true to do this automatically on first run).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "benches/**"
+      - "src/benchmarks/**"
+      - "scripts/bench_report.py"
+      - ".github/workflows/bench.yml"
+  workflow_dispatch:
+  schedule:
+    - cron: "0 7 * * 1" # Mondays 07:00 UTC
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  packages: write   # CIRISCache save (GHCR) on main — CIRISServer#99
+
+# Never cancel an in-flight Pages deploy; let bench runs serialize.
+concurrency:
+  group: bench-pages
+  cancel-in-progress: false
+
+jobs:
+  bench-and-publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: sccache
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.97.0
+      - name: Set up sccache (compiler cache over GHA)
+        uses: mozilla-actions/sccache-action@v0.0.9
+      - name: Install build deps
+        run: |
+          # Drop the preinstalled Microsoft/azure-cli apt repo: it intermittently
+          # 403s and tanks apt-get update (its packages are not needed here).
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.list /etc/apt/sources.list.d/azure-cli.sources
+          sudo apt-get update
+          sudo apt-get install -y libtss2-dev libsqlite3-dev libudev-dev
+      # CIRISCache (CIRISServer#99) — 4-layer centipede over the Swatinem GHA L1.
+      # Single leg: PLAT=linux-x86_64. Restore verify→persist→edge→server; SAVE
+      # under the server-specific -s key on main.
+      - name: Compute CIRISCache keys (4-layer centipede, CIRISServer#99)
+        id: cachekey
+        shell: bash
+        run: |
+          PLAT="linux-x86_64"
+          RUSTC=$(rustc -V | awk '{print $2}')
+          S=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/^version = "([^"]+)".*/\1/')
+          P=$(grep -m1 'CIRISPersist.*tag = "v' Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          V=$(grep -m1 'CIRISVerify.*tag = "v'  Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          EDGE=$(grep -m1 'CIRISEdge.*tag = "v' Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          BASE="ciris-substrate-v1-${PLAT}-release-rustc${RUSTC}"
+          KEY_VERIFY="${BASE}-pnone-enone-v${V:-none}"
+          KEY_PERSIST="${BASE}-p${P:-none}-enone-v${V:-none}"
+          KEY_EDGE="${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}"
+          KEY_SERVER="${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}-s${S:-none}"
+          {
+            echo "key-verify=${KEY_VERIFY}"
+            echo "key-persist=${KEY_PERSIST}"
+            echo "key-edge=${KEY_EDGE}"
+            echo "key=${KEY_SERVER}"
+            echo "key-server-prefix=${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}-s"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::CIRISCache (${PLAT}): S=${S:-NONE} P=${P:-NONE} V=${V:-NONE} EDGE=${EDGE:-NONE} RUSTC=${RUSTC}"
+          echo "::notice::${KEY_VERIFY}"
+          echo "::notice::${KEY_PERSIST}"
+          echo "::notice::${KEY_EDGE}"
+          echo "::notice::${KEY_SERVER}"
+      # Deepest-first, first-hit-wins (CIRISCache restore@v2): one extraction of
+      # the deepest available blob (cumulative supersets) instead of N redundant.
+      - name: CIRISCache restore (server→edge→persist→verify, first hit)
+        uses: CIRISAI/CIRISCache/restore@v2
+        continue-on-error: true
+        with:
+          keys: |
+            ${{ steps.cachekey.outputs.key }}
+            ${{ steps.cachekey.outputs.key-server-prefix }}*
+            ${{ steps.cachekey.outputs.key-edge }}
+            ${{ steps.cachekey.outputs.key-persist }}
+            ${{ steps.cachekey.outputs.key-verify }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run benches (criterion)
+        # The throughput/latency criterion benches (each writes target/criterion/<group>/<id>).
+        # sig_overhead gives the classical-vs-hybrid signature numbers; the others give
+        # AEAD / replication / ALM / fan-out / N_eff / KEX.
+        run: cargo bench --bench pqc_av_streaming --bench replication_ingest --bench alm_chain --bench stream_fanout --bench n_eff_scoring --bench sig_overhead
+      - name: Run erasure-survival bench (empirical, real substrate codec)
+        # Writes target/erasure_survival.json — the MEASURED reconstruction rate per
+        # availability tier (RaptorQ encode → drop holders → real decode trials).
+        run: cargo bench --bench erasure_survival
+      - name: Emit unified bench_results.json (the source of truth — measured-or-gated only)
+        # Folds the criterion medians + the erasure sidecar + LIVE in-process mesh
+        # measurements (cohort propagation/isolation + A↔B replication over the real
+        # FountainSwarmRuntime) into one JSON. EVERY entry is "measured" or "gated";
+        # nothing modeled/attested. Publish-only — not a pass/fail gate (runners are noisy).
+        # RUST_LOG=error keeps the in-process mesh runtime's INFO chatter out of the
+        # runner log; the JSON goes to --out, not stdout.
+        run: |
+          RUST_LOG=error cargo run --release --quiet -- bench-results \
+            --criterion-dir target/criterion \
+            --erasure-sidecar target/erasure_survival.json \
+            --commit "$GITHUB_SHA" \
+            --date "$(date -u +%Y-%m-%d)" \
+            --out bench_results.json
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats
+      - name: Generate interpreted page
+        run: |
+          BENCH_DATE="$(date -u +%Y-%m-%d)" \
+            python3 scripts/bench_report.py --out bench-site --commit "$GITHUB_SHA" \
+              --bench-results bench_results.json
+      - name: Upload bench_results.json + rendered site as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-results
+          path: |
+            bench_results.json
+            bench-site
+          if-no-files-found: error
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: bench-site
+      - id: deploy
+        uses: actions/deploy-pages@v4
+      # Populate the cross-repo CIRISCache blob on main under the SERVER key
+      # (all cargo compilation above is now cached).
+      - name: CIRISCache save (server layer, main only)
+        uses: CIRISAI/CIRISCache/save@v1
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+        with:
+          key: ${{ steps.cachekey.outputs.key }}
+          token: ${{ secrets.GITHUB_TOKEN }}

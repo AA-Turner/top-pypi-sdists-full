@@ -102,7 +102,7 @@ class FuraffinityExtractor(Extractor):
             data["artist"] = extr('>', '<')
             data["_description"] = extr('user-submitted-links">', '</section>')
             data["views"] = pi(rh(extr('title="Views">', '</div>')))
-            data["comments"] = pi(rh(extr('title="Comments">', '</div>')))
+            #  data["comments"] = pi(rh(extr('title="Comments">', '</div>')))
             data["favorites"] = pi(rh(extr('title="Favorites">', '</div>')))
             data["rating"] = extr('inline c-contentRating--', '"')
             info = text.split_html(extr('<span class="highlight">', '</div>'))
@@ -123,6 +123,8 @@ class FuraffinityExtractor(Extractor):
                     '<div class="comments-list">').split('</a>')
                 if (name := rh(folder))
             ]
+            data["comments"] = self._extract_comments(extr(
+                'id="comments-submission"', '<script type="text/javascript">'))
             data["title"] = text.unescape(extr('data-artwork-title="', '"'))
         else:
             # old site layout
@@ -136,7 +138,7 @@ class FuraffinityExtractor(Extractor):
             data["species"] = extr("<b>Species:</b>", "<").strip()
             data["gender"] = extr("<b>Gender:</b>", "<").strip()
             data["favorites"] = pi(extr("<b>Favorites:</b>", "<"))
-            data["comments"] = pi(extr("<b>Comments:</b>", "<"))
+            #  data["comments"] = pi(extr("<b>Comments:</b>", "<"))
             data["views"] = pi(extr("<b>Views:</b>", "<"))
             data["width"] = pi(extr("<b>Resolution:</b>", "x"))
             data["height"] = pi(extr("", "<"))
@@ -146,6 +148,8 @@ class FuraffinityExtractor(Extractor):
             data["_description"] = extr(
                 '<td valign="top" align="left" width="70%" class="alt1" '
                 'style="padding:8px">', '                               </td>')
+            data["comments"] = self._extract_comments(extr(
+                "<b>User comments</b>", '<script type="text/javascript">'))
             data["folders"] = ()  # folders not present in old layout
 
         data["user"] = self.user or data["artist_url"]
@@ -157,6 +161,31 @@ class FuraffinityExtractor(Extractor):
 
     def _process_description(self, description):
         return text.unescape(text.remove_html(description, "", ""))
+
+    def _extract_comments(self, html):
+        extr = text.extract_from(html)
+
+        results = []
+        if self._new_layout:
+            while ts := extr('data-timestamp="', '"'):
+                results.append({
+                    "date": self.parse_timestamp(ts),
+                    "id"  : extr('id="cid:', '"'),
+                    "user": extr('href="/user/', '/'),
+                    "text": text.remove_html(extr(
+                        'class="comment_text">', '</comment-user-text>')),
+                })
+        else:
+            while cid := extr('id="cid:', '"'):
+                results.append({
+                    "id"  : cid,
+                    "date": self.parse_timestamp(extr(
+                        'data-timestamp="', '"')),
+                    "user": extr('href="/user/', '/'),
+                    "text": text.remove_html(extr(
+                        'class="message-text">', '</tr>')),
+                })
+        return results
 
     def _pagination(self, path, folder=None):
         num = 1

@@ -1,0 +1,154 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+# #1172: in-tree build backend that resolves `version` from the State Store
+# (local-first, with a `0.0.0+local` fallback when no store exists). It wraps
+# setuptools.build_meta and adds nothing but the dynamic version.
+build-backend = "atdd_version_backend"
+backend-path = ["build_meta_shim"]
+
+[project]
+name = "atdd"
+# #1172: version is sourced from the State Store at build time (see
+# [tool.setuptools.dynamic] below) — no hand-edited `version =` line to conflict
+# on across parallel PRs, and no GH006 direct-push bump.
+dynamic = ["version"]
+description = "ATDD Platform - Acceptance Test Driven Development toolkit"
+requires-python = ">=3.10"
+readme = "README.md"
+license = {text = "MIT"}
+dependencies = [
+    "pyyaml",
+    "pytest>=7.0",
+    "pytest-xdist",
+    "pytest-github-actions-annotate-failures",
+    "jsonschema",
+    "pytest-html",
+    "radon>=5.0",
+]
+
+# NOT dependencies, deliberately (#1518): `tree-sitter` and `tree-sitter-typescript`.
+#
+# They were runtime deps, so EVERY consumer — including pure-Python ones — installed a
+# TypeScript grammar in order to use a stack-agnostic engine. The only importer in core
+# was `coder/validators/_ast_tsx.py`, which loaded `language_tsx()` for the TSX validators;
+# both it and they now live in `frontend.extension.vite-coder` / `atdd.extension.coder`.
+#
+# Nothing in core parses Python with tree-sitter — that is `radon` plus the stdlib `ast`
+# module — so dropping the base `tree-sitter` package alongside the grammar is safe. If a
+# future core validator wants a non-TS grammar, add it back then, with the importer.
+
+[project.urls]
+Homepage = "https://github.com/afokapu/atdd"
+Repository = "https://github.com/afokapu/atdd"
+Issues = "https://github.com/afokapu/atdd/issues"
+Changelog = "https://github.com/afokapu/atdd/releases"
+
+[project.optional-dependencies]
+# #1474: the packaging acceptances (E062, C008, C009) build a REAL wheel into a REAL
+# venv — `_wheel_harness` shells out to `sys.executable -m build`. That makes `build`
+# a test-time dependency of the toolkit's own validator suite, and an undeclared one
+# is how it stays invisible: nothing imports it, so no import-discipline check sees
+# it, and `atdd validate --local` just dies with an opaque CalledProcessError.
+#
+# These are NOT runtime dependencies. The acceptances that need them are
+# `platform`-marked, so a consumer's `atdd validate <phase>` deselects them and never
+# builds anything. Putting `build` in `dependencies` would make every consumer install
+# a build backend for a test they never run.
+dev = ["build>=1.0", "setuptools>=61.0", "wheel"]
+viz = ["streamlit", "st-link-analysis"]
+
+[project.scripts]
+atdd = "atdd.cli:cli"
+# Pre-send classifier shim over `cmux send` — rejects raw `claude ...`
+# launches that bypass `atdd spawn` (issue #662).
+
+# Substrate pytest plugin (spec v12 §7.2, §9.3 — issues #411, #415).
+# Auto-loaded by pytest whenever atdd is importable; the plugin itself
+# early-returns when `.atdd/config.yaml::repo.substrate.enabled` is unset
+# (toolkit mode), so non-substrate consumers see no behavior change.
+[project.entry-points.pytest11]
+atdd_substrate = "atdd.tester.substrate.plugin"
+
+# #1172: dynamic version resolved by the in-tree build backend (build_meta_shim).
+# `atdd_version_backend.VERSION` is computed at build time from the State Store,
+# falling back to `0.0.0+local` when no store is present.
+[tool.setuptools.dynamic]
+version = {attr = "atdd_version_backend.VERSION"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+# Validator fixture trees are SHIPPED AS DATA via package-data below.
+# Excluding them here prevents setuptools from treating fixture sub-dirs
+# (which sometimes carry __init__.py for test-import purposes) as
+# importable packages, which in turn stops pip's compile-on-install from
+# generating __pycache__/*.pyc beside the fixture sources.
+exclude = ["atdd.*.validators.fixtures*"]
+
+# #1474: BROAD-SHIP + EXPLICIT-EXCLUDE. Ship every file under the package, and
+# name only what must NOT ship.
+#
+# This block used to enumerate one glob per directory, and enumeration is what
+# broke. A non-.py directory shipped only if someone remembered to add a glob for
+# it, and when the conventions were atomised into `nodes/` nobody did:
+# `atdd.coach.conventions` and `atdd.planner.conventions` gained `nodes/*.yaml`;
+# `atdd.coder.conventions` and `atdd.tester.conventions` did not. So 78 rule-node
+# YAMLs that `bind_rule()` reads AT IMPORT never shipped, and a consumer's
+# `atdd validate coder` aborted at pytest collection (#1369). Same shape for
+# `coach/schemas/*.md` (#663) and `coach/templates/bin/` (#952) — 174 of the 610
+# non-.py files were absent from the wheel.
+#
+# Inverting the default makes the failure mode LOUD instead of silent: a new data
+# directory ships by construction, and omitting one now takes a deliberate,
+# reviewable entry in the deny-list below. `test_wheel_completeness` is the gate
+# that holds this honest; the `validate-consumer` CI job is the oracle that proves
+# it against a real install.
+[tool.setuptools.package-data]
+"atdd" = ["**/*"]
+
+# The deny-list: build/OS cruft, and NOTHING ELSE. The invariant is deliberately
+# blunt — **the wheel is the source tree minus cruft**.
+#
+# It is tempting to also exclude `**/*.py` here, on the reasoning that setuptools
+# already installs .py as MODULES so the data copy is redundant. That is wrong, and
+# it silently drops 21 files: the `.py` under `**/validators/fixtures/**` are not
+# modules at all. `[tool.setuptools.packages.find] exclude` deliberately keeps those
+# directories from being importable packages, so nothing installs them as code —
+# they are DATA (fixture sources that validators read and parse), and a `**/*.py`
+# deny-list is the one thing that would remove them. Excluding nothing but cruft
+# sidesteps the whole "is this .py a module or data?" question, which is a question
+# the packaging config has no business having to answer correctly.
+#
+# The `"*"` key is load-bearing — it means EVERY package. setuptools resolves
+# exclusions PER PACKAGE, so a `"atdd"` key alone under-applies to files collected
+# under a subpackage (e.g. `atdd.coach.validators`) and lets byte-code through.
+[tool.setuptools.exclude-package-data]
+"*" = [
+    "**/*.pyc",
+    "**/*.pyo",
+    "**/__pycache__/**",
+    "**/.pytest_cache/**",
+    "**/.DS_Store",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["src/atdd", "tests"]
+markers = [
+    "tester: marks tests as tester validators",
+    "platform: marks tests as platform validators",
+    "github_api: marks tests that require live GitHub API access",
+    "security: marks tests as security validators",
+    "locale: marks tests as localization validators (Localization Manifest Spec v1)",
+    "coder: marks tests as coder phase validators",
+    "smoke: marks SMOKE-phase tests that verify against real infrastructure",
+    "parity: marks the lifecycle parity gate (required-CI; docs/coach-decomposition.md §10.1)",
+    # #1418/#1417 — the convention suite's mutation classes. The classes partition
+    # src/atdd/validators/conventions/ so the non-mutating majority can run under
+    # `pytest-xdist -n auto` against one shared checkout. `convention_readonly` is the
+    # residue class and is applied by the suite's conftest, so a new test is
+    # parallel-by-default; the other two are authored, and the runtime guard in
+    # _support/mutation_guard.py is what stops the classification from rotting.
+    "convention_readonly: convention test that only reads the repo or the clean graph — safe under -n auto",
+    "convention_inmemory_fault: convention test that injects its fault into a cloned graph — writes nothing, safe under -n auto",
+    "convention_filesystem_mutation: convention test that writes the checkout (or spawns a subprocess over it) — MUST run serially",
+]

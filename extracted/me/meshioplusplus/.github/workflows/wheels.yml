@@ -1,0 +1,121 @@
+name: wheels
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  build_wheels:
+    name: Wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # ubuntu-24.04-arm is GitHub's free-for-public-repos hosted arm64
+        # runner; cibuildwheel's CIBW_ARCHS defaults to "auto" (the runner's
+        # native arch), so this leg builds aarch64 wheels with no QEMU/binfmt
+        # setup, using CIBW_MANYLINUX_AARCH64_IMAGE (below) automatically.
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive  # vendored Eigen (MED transpose)
+
+      - name: Build wheels
+        # v2.21's manylinux alias table predates _2_34, and it hardcodes cp38 for its
+        # own before_all bootstrapping - manylinux_2_34 (AlmaLinux 9) doesn't ship
+        # cp38 (EOL'd Oct 2024), so that probe failed with "No such file or
+        # directory" before the actual build ever started. v3.1.0 added _2_34 alias
+        # support and v4.0.0 dropped cibuildwheel's own cp38 dependency; neither
+        # change affects us since CIBW_BUILD never targets cp38 wheels.
+        uses: pypa/cibuildwheel@v4.1.0
+        env:
+          # Portable wheels: the optional HDF5/netCDF/zlib native paths are
+          # turned OFF, so the only build requirement is a C++20 compiler.
+          # HDF5/netCDF formats and VTU zlib work through the h5py/netCDF4
+          # runtime extras and the stdlib, exactly as the fallback shims intend.
+          # The parallel backend is AUTO -> OpenMP (MSVC's built-in OpenMP on Windows,
+          # libomp on macOS; delvewheel/delocate bundle it automatically). Linux wheels
+          # are forced to SEQ instead - see the manylinux_2_34 comment below.
+          # macOS 13.3+ is required for std::format (its floating-point
+          # formatting symbols live in the OS libc++ dylib).
+          CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-*"
+          CIBW_SKIP: "*-musllinux* *_i686 *-win32"
+          CIBW_ARCHS_MACOS: "x86_64 arm64"
+          # macOS: libomp gives Apple clang an OpenMP runtime (libc++ has no PSTL).
+          CIBW_BEFORE_ALL_MACOS: "brew install libomp"
+          # manylinux2014's stock compiler (devtoolset-10, GCC 10) has no <format>
+          # (needs GCC 13+ per the C++20 std::format requirement above).
+          # manylinux_2_28 (AlmaLinux 8, glibc 2.28) + gcc-toolset-13 was tried first and
+          # never fully worked: even with MESHIOPLUSPLUS_STATIC_RUNTIME, auditwheel still
+          # rejected the wheel for GLIBC_2.32-2.38 symbols pulled directly from
+          # libc.so.6/libm.so.6 - gcc-toolset-13's own runtime calls glibc functions
+          # newer than AlmaLinux 8 ships, and unlike libstdc++, glibc can't be statically
+          # linked out of a normal .so. manylinux_2_34 (AlmaLinux 9, glibc 2.34) is a
+          # much closer match to what gcc-toolset-13 actually targets, but even there
+          # MESHIOPLUSPLUS_STATIC_RUNTIME is still required for the GLIBCXX/CXXABI side
+          # (libstdc++'s SONAME version tracks the compiler, not the target glibc, so
+          # gcc-toolset-13 always wants GLIBCXX_3.4.32 regardless of image).
+          # Verified end-to-end in a real manylinux_2_34 container (build -> `ldd`/
+          # `objdump -T` show zero libstdc++/GLIBCXX/CXXABI deps and GLIBC capped at
+          # 2.34 -> `auditwheel -v repair` succeeds -> installed the repaired wheel into
+          # a clean venv and ran the full pytest suite: 1018 passed).
+          # cibuildwheel v2.21's built-in alias table doesn't include manylinux_2_34
+          # yet (it tried to pull the literal image name "manylinux_2_34" from Docker
+          # Hub and failed) - the full quay.io reference works regardless of alias table.
+          CIBW_MANYLINUX_X86_64_IMAGE: "quay.io/pypa/manylinux_2_34_x86_64"
+          CIBW_MANYLINUX_AARCH64_IMAGE: "quay.io/pypa/manylinux_2_34_aarch64"
+          CIBW_BEFORE_ALL_LINUX: "yum install -y gcc-toolset-13-gcc gcc-toolset-13-gcc-c++"
+          # AUTO's OpenMP preference is forced to SEQ here too: gcc-toolset-13's libgomp
+          # has no static-link option GCC recognizes ("-static-libgomp" isn't a real GCC
+          # flag, unlike -static-libgcc/-static-libstdc++), so it would stay a dynamic
+          # dependency and could still hit a versioned-symbol rejection. These wheels
+          # already trade native HDF5/netCDF/zlib for portability (see above) - SEQ
+          # keeps that trade consistent; TBB/OpenMP builds remain available from source.
+          CIBW_ENVIRONMENT_LINUX: >-
+            CC="/opt/rh/gcc-toolset-13/root/usr/bin/gcc"
+            CXX="/opt/rh/gcc-toolset-13/root/usr/bin/g++"
+            CMAKE_ARGS="-DMESHIOPLUSPLUS_WITH_HDF5=OFF -DMESHIOPLUSPLUS_WITH_NETCDF=OFF -DMESHIOPLUSPLUS_WITH_ZLIB=OFF -DMESHIOPLUSPLUS_PARALLEL_BACKEND=SEQ -DMESHIOPLUSPLUS_STATIC_RUNTIME=ON"
+          # -v surfaces which specific symbol/library trips the manylinux policy check,
+          # instead of auditwheel's generic "too-recent versioned symbols" message.
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: "auditwheel -v repair -w {dest_dir} {wheel}"
+          CIBW_ENVIRONMENT: >-
+            CMAKE_ARGS="-DMESHIOPLUSPLUS_WITH_HDF5=OFF -DMESHIOPLUSPLUS_WITH_NETCDF=OFF -DMESHIOPLUSPLUS_WITH_ZLIB=OFF"
+            MACOSX_DEPLOYMENT_TARGET="13.3"
+          CIBW_TEST_REQUIRES: "pytest h5py"
+          CIBW_TEST_COMMAND: "python -c \"import meshioplusplus; print(meshioplusplus.__version__, meshioplusplus._core.__parallel_backend__)\""
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: ./wheelhouse/*.whl
+
+  build_sdist:
+    name: Source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build sdist
+        run: pipx run build --sdist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+  publish:
+    name: Publish to PyPI
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    environment:
+      name: pypi
+      url: https://pypi.org/p/meshioplusplus
+    permissions:
+      id-token: write # OIDC trusted publishing
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: pypa/gh-action-pypi-publish@release/v1

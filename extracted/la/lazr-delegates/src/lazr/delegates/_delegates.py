@@ -17,14 +17,14 @@
 """Decorator helpers that simplify class composition."""
 
 __all__ = [
-    'Passthrough',
-    'delegate_to',
-    ]
+    "Passthrough",
+    "delegate_to",
+]
 
 from zope.interface import classImplements
 
 
-def delegate_to(*interfaces, context='context'):
+def delegate_to(*interfaces, context="context"):
     """Make an adapter into a decorator.
 
     Use like:
@@ -60,7 +60,7 @@ def delegate_to(*interfaces, context='context'):
             self.context = context
     """
     if len(interfaces) == 0:
-        raise TypeError('At least one interface is required')
+        raise TypeError("At least one interface is required")
 
     def _decorator(cls):
         missing = object()
@@ -70,6 +70,7 @@ def delegate_to(*interfaces, context='context'):
                 if getattr(cls, name, missing) is missing:
                     setattr(cls, name, Passthrough(name, context))
         return cls
+
     return _decorator
 
 
@@ -81,6 +82,7 @@ class Passthrough:
     have the delegated attribute. The ``adaptation`` argument is expected to
     be used with an interface, to adapt the context.
     """
+
     def __init__(self, name, contextvar, adaptation=None):
         self.name = name
         self.contextvar = contextvar

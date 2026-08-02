@@ -1,0 +1,292 @@
+# ruff: noqa: D100,D103,TC001
+
+from __future__ import annotations
+
+import asyncio
+import getpass
+import os
+from pprint import pformat
+import re
+from typing import TYPE_CHECKING
+
+from axis.cli.core.contracts import CommandCapabilities, CommandResult
+from axis.cli.core.router import MenuItem, MenuNode
+from axis.cli.packs.devices import (
+    DeviceEntry,
+    _format_device_operations_label,
+    run_on_selected_device,
+)
+from axis.device import AxisDevice
+from axis.errors import Forbidden, PathNotFound
+from axis.models.pwdgrp_cgi import SecondaryGroup
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from axis.cli.core.context import CliContext
+    from axis.cli.core.io import CliIO
+    from axis.cli.core.registry import CommandRegistry
+    from axis.cli.core.router import CliRouter
+
+
+class _AccountsMenuCommand:
+    id = "accounts.menu"
+    title = "Account management"
+    capabilities = CommandCapabilities(requires_device=True)
+
+    async def run(self, ctx: CliContext, io: CliIO) -> CommandResult:
+        _ = io
+        if ctx.selected_serial is None or ctx.selected_device is None:
+            return CommandResult(
+                status="cancelled",
+                message="No selected device in context.",
+            )
+        await account_management_async(ctx.selected_serial, ctx.selected_device)
+        return CommandResult()
+
+
+_USERNAME_RE = re.compile(r"^[a-zA-Z0-9]{1,14}$")
+
+
+def _debug_enabled() -> bool:
+    value = os.getenv("AXIS_CLI_DEBUG", "").strip().lower()
+    return value in {"1", "true", "yes", "on"}
+
+
+def _debug_dump(label: str, payload: object) -> None:
+    if _debug_enabled():
+        print(f"[debug] {label}:\n{pformat(payload)}")  # noqa: T201
+
+
+def _render_accounts_node(ctx: CliContext, io: CliIO) -> None:
+    if ctx.selected_serial is None or ctx.selected_device is None:
+        io.write("\nNo selected device.")
+        return
+
+    device_label = _format_device_operations_label(
+        ctx.selected_serial,
+        ctx.selected_device,
+    )
+    io.write(f"\nAccount management for {device_label}:")
+
+
+def register(registry: CommandRegistry, router: CliRouter) -> None:
+    """Register account-pack commands and menu nodes."""
+    registry.register_command(_AccountsMenuCommand())
+
+    router.register_node(
+        MenuNode(
+            id="accounts",
+            title="Accounts",
+            parent_id="device_operations",
+            render=_render_accounts_node,
+            items=[
+                MenuItem(
+                    key="1",
+                    label="Account management",
+                    action="command",
+                    command_id="accounts.menu",
+                )
+            ],
+        )
+    )
+
+
+def _validate_username(username: str) -> str | None:
+    if not _USERNAME_RE.match(username):
+        return "Username must be 1-14 alphanumeric characters (a-z, A-Z, 0-9)."
+    return None
+
+
+def _select_privilege() -> SecondaryGroup | None:
+    options: list[tuple[str, SecondaryGroup]] = [
+        ("Viewer", SecondaryGroup.VIEWER),
+        ("Viewer + PTZ", SecondaryGroup.VIEWER_PTZ),
+        ("Operator", SecondaryGroup.OPERATOR),
+        ("Operator + PTZ", SecondaryGroup.OPERATOR_PTZ),
+        ("Admin", SecondaryGroup.ADMIN),
+        ("Admin + PTZ", SecondaryGroup.ADMIN_PTZ),
+    ]
+    print("\nPrivilege levels:")  # noqa: T201
+    for idx, (label, _) in enumerate(options, 1):
+        print(f"  {idx}. {label}")  # noqa: T201
+    print("  b. Back")  # noqa: T201
+    print("  e. Exit")  # noqa: T201
+    sel = input("Select privilege [b/e]: ").strip().lower()
+    if sel == "e":
+        print("Exiting.")  # noqa: T201
+        raise SystemExit(0)
+    if sel == "b":
+        return None
+    try:
+        idx = int(sel)
+    except ValueError:
+        print("Invalid selection.")  # noqa: T201
+        return None
+    if idx < 1 or idx > len(options):
+        print("Invalid selection.")  # noqa: T201
+        return None
+    return options[idx - 1][1]
+
+
+def _account_init_confirm(
+    target_user: str,
+    sgrp: SecondaryGroup,
+    exists: bool,
+) -> bool:
+    if exists:
+        answer = (
+            input(
+                f"User '{target_user}' already exists. "
+                "Update password and privilege? (y/n): "
+            )
+            .strip()
+            .lower()
+        )
+        if answer != "y":
+            print("Account update aborted.")  # noqa: T201
+            return False
+    else:
+        answer = (
+            input(
+                f"Create user '{target_user}' with "
+                f"{sgrp.name.lower()} privileges? (y/n): "
+            )
+            .strip()
+            .lower()
+        )
+        if answer != "y":
+            print("Account creation aborted.")  # noqa: T201
+            return False
+    return True
+
+
+async def _account_init_operation(
+    device: AxisDevice,
+    target_user: str,
+    target_pwd: str,
+    sgrp: SecondaryGroup,
+    existing_users: Mapping[str, object],
+) -> None:
+    exists = target_user in existing_users
+    if not _account_init_confirm(target_user, sgrp, exists):
+        return
+    if exists:
+        await device.vapix.users.modify(target_user, pwd=target_pwd, sgrp=sgrp)
+        print(f"User '{target_user}' updated.")  # noqa: T201
+    else:
+        await device.vapix.users.create(
+            target_user,
+            pwd=target_pwd,
+            sgrp=sgrp,
+            comment="Created via Axis CLI",
+        )
+        print(f"User '{target_user}' created.")  # noqa: T201
+
+
+async def _list_users_async(device_entry: DeviceEntry) -> None:
+    async def _op(device: AxisDevice) -> dict[str, object]:
+        return dict(await device.vapix.users.list())
+
+    users = await run_on_selected_device(device_entry, _op)
+    _debug_dump("users list raw", users)
+    if not users:
+        print("No users found (or insufficient privileges).")  # noqa: T201
+        return
+    print("\nUsers:")  # noqa: T201
+    for name, user in users.items():
+        privs = str(getattr(user, "privileges", "unknown"))
+        print(f"  - {name} ({privs})")  # noqa: T201
+
+
+async def _create_or_update_user_async(device_entry: DeviceEntry) -> None:
+    target_user = (await asyncio.to_thread(input, "Username: ")).strip()
+    err = _validate_username(target_user)
+    if err:
+        print(f"Invalid username: {err}")  # noqa: T201
+        return
+
+    target_pwd = await asyncio.to_thread(getpass.getpass, "Password: ")
+    if not (1 <= len(target_pwd) <= 64):
+        print("Password must be 1-64 characters.")  # noqa: T201
+        return
+
+    sgrp = _select_privilege()
+    if sgrp is None:
+        return
+
+    async def _op(device: AxisDevice) -> None:
+        existing = await device.vapix.users.list()
+        await _account_init_operation(device, target_user, target_pwd, sgrp, existing)
+
+    try:
+        await run_on_selected_device(device_entry, _op)
+    except (Forbidden, PathNotFound) as exc:
+        print(f"Access denied or unsupported on this device: {exc}")  # noqa: T201
+
+
+async def _delete_user_async(device_entry: DeviceEntry) -> None:
+    await _list_users_async(device_entry)
+    target_user = (await asyncio.to_thread(input, "\nUsername to delete: ")).strip()
+    if not target_user:
+        print("No username provided.")  # noqa: T201
+        return
+
+    confirm = (
+        (
+            await asyncio.to_thread(
+                input,
+                f"Permanently delete user '{target_user}'? (y/n): ",
+            )
+        )
+        .strip()
+        .lower()
+    )
+    if confirm != "y":
+        print("Deletion aborted.")  # noqa: T201
+        return
+
+    async def _op(device: AxisDevice) -> None:
+        await device.vapix.users.delete(target_user)
+        print(f"User '{target_user}' deleted.")  # noqa: T201
+
+    try:
+        await run_on_selected_device(device_entry, _op)
+    except (Forbidden, PathNotFound) as exc:
+        print(f"Access denied or unsupported on this device: {exc}")  # noqa: T201
+
+
+async def account_management_async(serial: str, device_entry: DeviceEntry) -> None:
+    device_label = _format_device_operations_label(serial, device_entry)
+    while True:
+        print(f"\nAccount management for {device_label}:")  # noqa: T201
+        print("  1. List users")  # noqa: T201
+        print("  2. Create or update user")  # noqa: T201
+        print("  3. Delete user")  # noqa: T201
+        print("  b. Back")  # noqa: T201
+        print("  e. Exit")  # noqa: T201
+        choice = (
+            (await asyncio.to_thread(input, "Select option [1/2/3/b/e]: "))
+            .strip()
+            .lower()
+        )
+
+        if choice == "e":
+            print("Exiting.")  # noqa: T201
+            raise SystemExit(0)
+        if choice == "b":
+            return
+
+        if choice == "1":
+            await _list_users_async(device_entry)
+            continue
+
+        if choice == "2":
+            await _create_or_update_user_async(device_entry)
+            continue
+
+        if choice == "3":
+            await _delete_user_async(device_entry)
+            continue
+
+        print("Invalid option. Please enter 1, 2, 3, b, or e.")  # noqa: T201

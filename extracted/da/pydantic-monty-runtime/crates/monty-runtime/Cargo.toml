@@ -1,0 +1,32 @@
+[package]
+name = "monty-runtime"
+readme = "README.md"
+version = { workspace = true }
+license = { workspace = true }
+rust-version = { workspace = true }
+edition = { workspace = true }
+authors = { workspace = true }
+description = { workspace = true }
+keywords = { workspace = true }
+categories = { workspace = true }
+homepage = { workspace = true }
+repository = { workspace = true }
+
+[[bin]]
+name = "monty"
+path = "src/main.rs"
+
+[dependencies]
+clap = { workspace = true }
+monty = { workspace = true }
+monty-fs = { workspace = true }
+monty-proto = { workspace = true, features = ["worker"] }
+monty-type-checking = { workspace = true }
+monty-types = { workspace = true }
+rustyline = "15"
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true

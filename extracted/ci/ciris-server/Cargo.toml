@@ -1,0 +1,407 @@
+[package]
+name = "ciris-server"
+version = "0.5.152" # 0.5.152 = THE COALESCING CUT — proper scores on proper emissions, and the producer half of location. 0.5.151 authored a NEW signed capacity row every 60s pass: 12 rows, 12 attestation_ids, 12 distinct content hashes in 12 minutes on the production canonical, every one asserting score 0.0 / sample_size 3 and differing ONLY in asserted_at, which lives inside the signed envelope. Against a 7-day valid_until that is ~10,000 simultaneously-live rows per agent per dimension all saying the same thing. I caused the 60x: 0.5.148 tightened the cadence 3600->60 to close an hour-long hole in the happy path, which was right for detection and multiplied the write volume without anyone looking at the emit side. THE CURE WAS A PRIMITIVE WE HAD DEFERRED AS UNUSED — persist #519 item 2a-iii freshness_floor, whose own doc says a producer SHOULD round to a bucket boundary so repeated touches dedupe on the wire. Second time this arc the substrate already had the answer and we shipped around it. Now: coalesce_touch_ts floors the assertion instant to an hourly bucket (attenuating to 24h for a score that will not move, capped so a live score is re-asserted 7x before it could expire), valid_until derives from the COALESCED instant not raw now (deriving it from now leaves the envelope varying anyway and makes the coalescing real but completely ineffective), and a standing-assertion check reads the row/s OWN stored fields rather than reproducing persist/s canonical hash — a second implementation of content-addressing would diverge SILENTLY and the duplication would return, green. FLOOR NEVER CEILING, and the reason inverts the instinct: asserted_at is a LOWER bound, so rounding up could assert past the real now() and trip the future-skew guard; an upper bound like valid_until rounds the other way. Two instruments of my own needed fixing mid-build: Ok(false) grew a second meaning (no-feature-rows vs unchanged are opposite conditions about to share a return value, a counter, and a log line reading "scored zero usable feature rows" that would print for every agent every pass on a healthy node) — now a ScoreOutcome enum with three named arms; and the zero-path WARN, because emitted==0 is now the HEALTHY steady state, so it only fires when the agents do not account for the zero (an alarm on the happy path trains people to miss the real one). My first flooring test was also worthless — it asserted persist/s pure function floors, which was never in doubt, and a mutation adding +bucket at OUR call site sailed through; extracted coalesced_assertion so the call site is what is tested. LOCATION (#341): mint_location_proof(lat, lng, resolution=None) — the agent CANNOT do this itself because h3 publishes no Android wheel and is a C extension, so Chaquopy cannot load it, while we already ship all three Android ABIs. The resolution bound is never written down here: omitted means persist/s MAX_LOCATION_PROOF_RESOLUTION, and every minted cell passes validate_location_cell BEFORE signing, so CEG 0.8 §0.8.1 rough-only is enforced by the substrate rather than promised by our copy. h3o pinned to persist/s own 0.7 so the lockfile resolves ONE — two CellIndex types would mean a cell we mint that persist refuses. NOT SHIPPED, deliberately: relay-capacity honesty scoring (#334). Edge names no CEG dimension for it and has no delivered counterpart keyed to the claim — counters are per MessageType/TransportId, a claim is per (advertiser, stream, epoch), and the keys do not join. An approximation would publish a fabricated reputational claim about a third party, which is the RCA/s own failure mode with consent-gated stakes. Filed CIRISEdge#439 with both halves named. Backlog: 9 issues closed with evidence (#260 #268 #288 #322 #324 #327 #331 #132), #337 narrowed, #315 commented — the stale TAIL is real untouched work, not done-but-open, and closing it would destroy information.
+edition = "2021"
+# MSRV floor is set by the substrate: ciris-verify v5.2.0 requires 1.86
+# (persist v6.0.1 is 1.83). Build with the higher of the two.
+rust-version = "1.86"
+authors = ["Eric Moore <eric@ciris.ai>"]
+description = "The fabric node — the federation's headless cohabitation runtime (registry + lens [+ node] over one shared substrate). agent = fabric node + brain. Shipped as both the ciris-server binary and a PyO3 abi3 wheel CIRISAgent consumes. See MISSION.md."
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/CIRISAI/CIRISServer"
+readme = "README.md"
+publish = false
+
+# CIRISServer is ONE cohabitation composition in TWO shapes (MISSION.md §1.2/§6):
+#   - [lib] cdylib  → the PyO3 abi3 wheel CIRISAgent pip-installs (the agent is
+#                     pure Python; it consumes ciris-server, not the cores).
+#   - [lib] rlib    → so the ciris-server binary links the same composition.
+#   - [[bin]]       → the headless fabric node deployment.
+# The composition lives in src/lib.rs; src/main.rs is a thin entry point.
+[workspace]
+# lens-core is absorbed in-tree (CIRISLensCore repo retired); the root package
+# composes it as a path dep. node-core folds in here the same way at Server 1.0.
+members = ["crates/ciris-lens-core"]
+resolver = "2"
+
+[lib]
+name = "ciris_server"
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
+[[bin]]
+name = "ciris-server"
+path = "src/main.rs"
+
+[features]
+# pkcs11 (the YubiKey / PKCS#11-PIV custody backend) ships in DEFAULT so the
+# published wheel + the `ciris-server` binary carry the hardware fed-ID + accord
+# custody path out of the box (no special build). `python`/`extension-module` are
+# deliberately NOT default — the binary must never link libpython; maturin turns
+# them on for the wheel (pyproject [tool.maturin]). TPM/postgres hardware backends
+# are auto-on per-target on Linux (see the [target.*] tables below).
+default = ["pkcs11"]
+# HARNESS-ONLY: forwards to verify-core's test-anchor. Feature unification then
+# applies it to the ONE verify instance persist's root_binding uses, so a SW
+# test root can anchor the local mesh. NEVER in the prod wheel (CIRISServer#258).
+test-anchor = ["ciris-verify-core/test-anchor", "ciris-persist/test-anchor", "ciris-edge/test-anchor"]
+# `python` pulls the PyO3 bindings (for the wheel). The binary builds WITHOUT it,
+# so a plain `cargo build` never links libpython.
+# ONE-WHEEL RE-EXPORT (CIRISServer#4): `python` ALSO turns on the substrate
+# crates' OWN pyo3 surfaces (`ciris-persist/pyo3`, `ciris-edge/pyo3`) so their
+# `#[pyclass]`es compile into THIS cdylib — one `.so`, one PyO3 type registry,
+# so the persist `Engine` handed to edge is the SAME type both sides see (the
+# CIRISPersist#109 cross-wheel type-identity bug CANNOT occur). persist names its
+# feature `pyo3` (not `python`); edge likewise, and edge's `pyo3` already pulls
+# `ciris-persist/pyo3` transitively — both listed for explicitness. verify is
+# deliberately ABSENT: it is a ctypes wheel (libciris_verify_ffi.so via
+# ctypes.CDLL), not a `#[pymodule]`, so it cannot be a pyo3 submodule.
+python = [
+    "dep:pyo3",
+    # Fold the verify FFI C surface into `_native.so` (CIRISServer#232) — only the
+    # wheel the agent loads needs it, so it rides the `python` feature, not the bin.
+    "dep:ciris-verify-ffi",
+    "ciris-lens-core/python",
+    "ciris-persist/pyo3",
+    "ciris-edge/pyo3",
+]
+# `extension-module` is what maturin builds the wheel with (tells PyO3 not to
+# link libpython). The bin must NOT enable it. See pyproject.toml [tool.maturin].
+# Propagated to the substrate crates so THEIR pyo3 surfaces also skip linking
+# libpython (each crate gates `extension-module` as its own feature).
+extension-module = [
+    "python",
+    "pyo3/extension-module",
+    "ciris-persist/extension-module",
+    "ciris-edge/extension-module",
+]
+# `pkcs11` turns on the YubiKey (PKCS#11 / PIV) custody backend for the USER
+# federation identity (`ciris-server identity create --backend pkcs11`). OFF by
+# default: a plain `cargo build` never links `cryptoki`, and the Pkcs11 backend
+# honestly returns NotSupported without it. It flips `ciris-keyring/pkcs11` on
+# (operator hardware; Linux). The YubiKey path is hardware-validated by the
+# operator — there is no token in CI, so it is gated + flagged, not unit-tested.
+# Like the per-target `tpm` posture, it is NOT in `default`; build it explicitly
+# (`--features pkcs11`) on a Linux box with a token attached.
+# `pkcs11` (the YubiKey custody path) pulls `ciris-keyring/pkcs11` directly and
+# GLOBALLY: CIRISVerify v6.12.0 made cryptoki build on ALL targets (feature
+# parity), so it no longer breaks the macos/android/ios wheels. The ciris-server
+# pkcs11 source compiles wherever this feature is on (gated on `feature = "pkcs11"`,
+# no target_os restriction). At runtime a target with no PKCS#11 module (e.g.
+# android, which reaches a YubiKey over NFC via YubiKit instead) returns
+# NotSupported — present everywhere, hardware-validated where a token is attached.
+pkcs11 = ["ciris-keyring/pkcs11"]
+# NOTE: hardware key custody (TPM/SE/StrongBox) is wired per-TARGET below, not as
+# a cargo feature — TPM (tss-esapi) is Linux-only, so a top-level `tpm` feature
+# made `--all-features` drag tss-esapi onto Windows/macOS (where it can't build).
+# The `[target.'cfg(target_os = "linux")']` table enables keyring/tpm + persist
+# postgres on Linux only; runtime auto-detects hardware and degrades to encrypted
+# software when absent (`is_hardware_backed()` reports the posture). This mirrors
+# the substrate crates' per-target keyring/postgres gating.
+
+# ----------------------------------------------------------------------------
+# Dependencies — CIRISServer AUTHORS NO PRIMITIVES. It composes the core
+# libraries over ONE shared persist Engine (registry + lens read/write the same
+# corpus in-process; per-slice views via Engine::from_shared).
+#
+# Substrate floor (SHIPPED): persist v8.6.0 / edge v4.5.0 / verify-family v5.11.0
+# (ciris-keyring + ciris-crypto + ciris-verify-core), CEG 1.0-RC12. The composition
+# root pins the singleton construction; the in-tree ciris-lens-core co-bumps in
+# lockstep (MAJOR caret pins persist "8" / edge "4"). edge v4.2.0 ships the relay
+# outer-open primitive (`open_av_outer`, CIRISEdge#149) → multi-tier ALM chains
+# (benches/alm_chain.rs). All additive; no composition-root API change. pyo3 0.29.
+# ----------------------------------------------------------------------------
+[dependencies]
+# Pinned to the SAME minor persist uses (its Cargo.toml: h3o = "0.7") so the
+# lockfile resolves ONE h3o. Two versions would mean two CellIndex types and a
+# cell this crate mints could fail persist's own parse — the duplicate-dep
+# shape the 2026-07-03 audit flagged, in the one place where it would surface
+# as a signed row persist refuses.
+h3o = "0.7"
+# The composed cores (authority + observation; node folds in at Server 1.0).
+# ciris-registry-core — re-added at Server 0.5, co-bumped to the 6.6/edge-3.2 floor
+# (CIRISRegistry#76). Held OUT of the 0.1 graph: registry-core@main still pins the
+# OLD floor (persist 5.5.5 / edge 2.2.2 / verify 5.1.3) and would drag a second
+# persist+edge rev into the build. The compose_registry() scaffold stays in
+# src/compose.rs; this dep returns once registry co-bumps.
+ciris-lens-core     = { path = "crates/ciris-lens-core" } # ABSORBED in-tree (workspace member); CIRISLensCore repo retired
+# ciris-node-core   — folds in at Server 1.0 / agent 2.9.10 (a substrate gen behind: persist 4.10).
+
+# The substrate trio (also pulled transitively by the cores; pinned here so the
+# composition root owns the singleton construction).
+# sqlite on all platforms; postgres is Linux-only (libpq/openssl don't link
+# cleanly on the macOS/Windows runners — same posture as persist's own CI). The
+# `[target.linux]` table below adds postgres.
+# `cirislens_wa_cert` + `cirislens_service_token_revocation` expose the auth
+# substrate the fabric absorbs (CIRISServer#9, src/auth): the agent's `wa_cert`
+# table (users/WA/OAuth/api-keys) + the `revoked_service_tokens` table.
+ciris-persist     = { git = "https://github.com/CIRISAI/CIRISPersist", tag = "v24.2.0", features = ["sqlite", "cirisgraph", "cirislens_wa_cert", "cirislens_service_token_revocation", "cirisaudit", "cirislens_tasks", "cirislens_thoughts", "cirislens_tickets", "cirislens_correlations", "cirislens_deferral_reports", "cirislens_maintenance_locks", "cirislens_creation_ceremonies", "cirislens_legacy_migration", "cirisincident", "telemetry", "secrets"] }
+ciris-edge        = { git = "https://github.com/CIRISAI/CIRISEdge", tag = "v15.9.1", features = ["transport-reticulum", "transport-http", "transport-packet-radio", "ffi-uniffi"] }
+# Founder-quorum verification + key-id fingerprint at the composition root
+# (threshold:: module path — NOT re-exported at the crate root).
+# LOCKSTEP: persist v9.4.0 transitively pins verify-core v6.6.x — the whole
+# verify family (verify-core/keyring/crypto) MUST ride the SAME tag or cargo
+# resolves two ciris_verify_core crates with incompatible ThresholdMember/keyring
+# types. v6.6.1 (CIRISVerify#89) adds the create_federation_identity `seal_alias`
+# arg the #247 user-key-derived fix consumes. (6.4–6.6 are HUMANITY_ACCORD + STH
+# stack — the accord-genesis surface CIRISServer#41 consumes.)
+ciris-verify-core = { git = "https://github.com/CIRISAI/CIRISVerify", tag = "v10.6.3" }
+# The hybrid crypto primitives (Ed25519 + ML-DSA-65 software signers) — used by
+# the portable software identity occurrence to build a `HybridSigningIdentity`
+# over two software seeds. Same tag as the rest of the verify family.
+ciris-crypto = { git = "https://github.com/CIRISAI/CIRISVerify", tag = "v10.6.3", version = "10", features = ["pqc-ml-dsa", "self-enc"] }
+# Hardware-backed transport-identity keystore (verify v5.2.0 #68 / edge #99).
+# Base = software keystore + byte-identical migration of an existing .rid (works
+# everywhere, no libtss2). The real TPM-2.0 / SE / StrongBox backend rides the
+# `tpm` feature; runtime auto-detects hardware and falls back to software.
+ciris-keyring = { git = "https://github.com/CIRISAI/CIRISVerify", tag = "v10.6.3", version = "10", features = ["software", "pqc-ml-dsa"] }
+# The verify FFI (C ABI) — folded into `ciris_server._native.so` (CIRISServer#232)
+# so the agent drops its standalone `ciris-verify` wheel and rides us for verify
+# too (kills the v9.0.0-vs-v5.1.3 wire/canonical-hash skew, CIRISAgent#917). v9.0.1
+# added `rlib` to its crate-type so we can link it; v9.0.2 added
+# `ciris_verify_ffi_link_anchor()` (CIRISVerify#189) — we reference it via `#[used]`
+# in src/lib.rs so `--gc-sections` cannot dead-strip the ~84 `ciris_verify_*` C
+# symbols out of our cdylib. Same tag as the rest of the verify family → the folded
+# FFI version == the bundled substrate version by construction (no skew possible).
+# Default features (secp256k1, key-grant, hybrid-kex) + the crypto features unify
+# with ciris-crypto's above (self-enc, pqc-ml-dsa) across the graph.
+ciris-verify-ffi = { git = "https://github.com/CIRISAI/CIRISVerify", tag = "v10.6.3", version = "10", optional = true }
+
+# PyO3 bindings for the abi3 wheel — optional, gated behind the `python` feature
+# so the binary never links them. 0.29 matches the persist/edge family floor.
+pyo3                = { version = "0.29", features = ["abi3-py310"], optional = true }
+
+tokio   = { version = "1", features = ["rt-multi-thread", "macros", "signal", "time", "sync"] }
+anyhow  = "1"
+fs2       = "0.4"   # available-disk check for realistic-minimum feature gating
+# GET /v1/identity (the fabric-node identity surface) — merged onto the lens
+# read-API listener. axum pinned to lens-core's 0.8 so the merged Router unifies.
+axum       = "0.8"
+base64     = "0.22"
+serde      = { version = "1", features = ["derive"] } # holonomic scoreboard model (benchmarks::)
+serde_json = "1"
+# Cosmetic v4 attestation-ids (the content hash is the integrity anchor). Direct
+# dep at the same major persist already pins transitively — no new resolution.
+uuid       = { version = "1", features = ["v4"] }
+# Auth subsystem (src/auth, CIRISServer#9): timestamps on the absorbed wa_cert
+# rows, SHA-256 for api-key / service-token hashing, hex for the digest wire form.
+# All three already in the lock as substrate-transitive deps (no new resolution).
+chrono     = { version = "0.4", features = ["serde"] }
+sha2       = "0.10"
+hex        = "0.4"
+# Auth gap-close (CIRISServer#9, src/auth): the byte-compatible password KDF +
+# the OAuth/native/device-auth outbound-HTTP + JWKS-verify halves. All already in
+# the lock as substrate-transitive deps (reqwest/jsonwebtoken via edge+verify;
+# pbkdf2/hmac/ed25519-dalek via the crypto family) — pinned here so the auth
+# subsystem owns them directly, no new resolution.
+# - pbkdf2: reproduce the agent's PBKDF2-HMAC-SHA256(100k) password hash
+#   (auth_service.py `_hash_password`/`_verify_password`) byte-for-byte via
+#   pbkdf2::pbkdf2_hmac::<Sha256> — the hmac crate is NOT used directly (#152).
+# - ed25519-dalek: verify the ROOT mint signature (the agent's `verify_root_signature`).
+# - jsonwebtoken: Apple Sign-In RS256 JWKS verification.
+# - reqwest (rustls): Google tokeninfo / OAuth code→token / Apple JWKS / Portal HTTP.
+# - urlencoding: build the provider authorize-URL query string (matches urlencode).
+pbkdf2     = { version = "0.12", default-features = false }
+subtle     = "2"     # constant-time password-hash compare (the agent's hmac.compare_digest)
+ed25519-dalek = "2"
+jsonwebtoken  = "9"
+urlencoding   = "2"
+async-trait   = "0.1"  # the ProviderClient HTTP seam (async fn in trait)
+reqwest    = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+# Mesh control-plane relay (#128 Phase D, src/mesh_relay.rs): the RNS responder
+# dispatches a verified control op into the node's OWN axum Router in-process via
+# `tower::ServiceExt::oneshot` (the same-handlers guarantee, RNS_CONTROL_RELAY.md
+# §5.4). Already in the lock as axum's own dependency (and a dev-dep) — promoting
+# it to a runtime dep adds no new resolution.
+tower      = { version = "0.5", features = ["util"] }
+# The /v1/federation/events/{channel} SSE bridge (CIRISServer#261,
+# src/federation_surface.rs): stream combinators (iter/chain/unfold/map) over
+# the edge event-bus broadcast receivers into axum's Sse. Already in the lock
+# as axum's own dependency — promoting it adds no new resolution.
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+flate2     = "1"     # read the gz'd legacy-trace dump (import-traces subcommand)
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+# Non-blocking rolling file sink for the node log (so a headless node launched by
+# the desktop app logs RELIABLY to <home>/logs/, not just the captured console).
+tracing-appender = "0.2"
+
+# Linux-only hardware + Postgres: cargo UNIONS these onto the base deps above.
+# - persist `postgres` (libpq/openssl) — Linux deployment + the postgres
+#   conformance lane; macOS/Windows stay sqlite-only.
+# - keyring `tpm` (tss-esapi / TPM 2.0) — the real hardware backend; needs
+#   libtss2 (Linux build dep). Other targets keep the software keystore.
+[target.'cfg(target_os = "linux")'.dependencies]
+ciris-persist = { git = "https://github.com/CIRISAI/CIRISPersist", tag = "v24.2.0", features = ["postgres", "cirisgraph", "cirislens_wa_cert", "cirislens_service_token_revocation", "cirisaudit", "cirislens_tasks", "cirislens_thoughts", "cirislens_tickets", "cirislens_correlations", "cirislens_deferral_reports", "cirislens_maintenance_locks", "cirislens_creation_ceremonies", "cirislens_legacy_migration", "cirisincident", "telemetry", "secrets"] }
+# keyring `tpm` (TPM-at-rest, Linux-only via tss-esapi). `pkcs11` is no longer
+# per-target — it rides the global `pkcs11` feature now that cryptoki builds on all
+# targets (CIRISVerify v6.12.0).
+ciris-keyring = { git = "https://github.com/CIRISAI/CIRISVerify", tag = "v10.6.3", version = "10", features = ["tpm-plugin"] }
+
+# Android (arm64/arm32/x86_64): the keyring `android` backend (JNI → Android
+# Keystore/StrongBox); sqlite bundles, no postgres/tpm. Mirrors persist/edge.
+[target.'cfg(target_os = "android")'.dependencies]
+ciris-keyring = { git = "https://github.com/CIRISAI/CIRISVerify", tag = "v10.6.3", version = "10", features = ["android"] }
+
+# serialport (the RNode LoRa driver dep, src/radio.rs) pulls libudev-sys on Linux,
+# which only resolves where libudev exists: desktop/server Linux (gnu, x86_64 or
+# aarch64), macOS, Windows. It does NOT cross-compile for armv7 / musl (no libudev
+# in the cross sysroot — the release armv7+musl legs panicked on it) and isn't
+# usable on android/ios. Gate to exactly the serial-capable targets — the SAME
+# predicate guards `pub mod radio` (lib.rs) + the edge attach (compose.rs).
+[target.'cfg(any(target_os = "macos", target_os = "windows", all(target_os = "linux", target_env = "gnu", any(target_arch = "x86_64", target_arch = "aarch64"))))'.dependencies]
+serialport = "4"
+
+# libsqlite3-sys (pulled by persist's `sqlite` feature) links the SYSTEM libsqlite3
+# by default — which the musl / armv7 CROSS sysroots don't provide, so the release
+# legs failed at LINK: `unable to find dynamic system library 'sqlite3'`. Compile
+# sqlite FROM SOURCE (`bundled`) for exactly those two cross triples — `zig cc`
+# builds the C in, statically, no dynamic dependency. Scoped per-triple so every
+# mainstream target keeps linking its system sqlite (smaller; matches persist's
+# non-mobile default). SAME libsqlite3-sys 0.28 the `sqlite` feature already locks,
+# so it UNIFIES to one crate (one `links = "sqlite3"`, no collision).
+[target.aarch64-unknown-linux-musl.dependencies]
+libsqlite3-sys = { version = "0.28", features = ["bundled"] }
+
+[target.armv7-unknown-linux-gnueabihf.dependencies]
+libsqlite3-sys = { version = "0.28", features = ["bundled"] }
+
+# Test-only — the two-node replication integration test (tests/replication.rs)
+# builds + signs CEG batches with the same primitives persist verifies against.
+# ed25519-dalek MUST match persist's locked 2.x (the SigningKey type crosses the
+# Engine::with_signer / put_public_key API boundary).
+[dev-dependencies]
+# Generate the mock YubiKey PIV attestation chain (root → f9 → 9c, Ed25519, with
+# the Yubico firmware/touch/FIPS extension OIDs) the CC 4.2.2.1 hardware-class
+# gate test drives (tests/hardware_class_admission.rs, CIRISServer#159). Nobody
+# can mint a cert under the REAL pinned Yubico Attestation Root 1, so proving
+# "a valid attestation admits at the claimed class" requires generating a chain
+# under a test root — the same way CIRISVerify tests `verify_yubikey_piv_attestation`.
+# Already in the locked graph at 0.13.2; dev/test only, no substrate pin touched.
+rcgen         = "0.13"
+ed25519-dalek = "2"
+base64        = "0.22"
+chrono        = { version = "0.4", features = ["serde"] }
+serde_json    = "1"
+criterion     = { version = "0.5", features = ["async_tokio"] }
+# Tamper-side raw SQLite handle for the audit hash-chain conformance gate
+# (tests/audit_chain.rs): opens the engine's file-backed DB on a SECOND
+# connection to corrupt one stored row, the only way to land a tampered entry
+# (record_entry validates + rejects, so a broken row can't go in through the
+# trait). Pinned to persist's locked 0.31 + same features (NO `bundled` — links
+# the platform libsqlite3, matching persist's non-mobile target so the two
+# `links = "sqlite3"` crates unify to one symbol set).
+rusqlite      = { version = "0.31", features = ["chrono", "serde_json"] }
+# Drive the merged axum Router in-process for the HTTP trace-ingest test
+# (tests/ingest_http.rs): `ServiceExt::oneshot` + read the response body. tower
+# 0.5 / http-body-util 0.1 match axum 0.8's floor (already in-tree transitively).
+tower            = { version = "0.5", features = ["util"] }
+http-body-util   = "0.1"
+# The PQC primitives the realtime-A/V E2E bench drives directly: hybrid KEX
+# (X25519 + ML-KEM-768) for the per-Link transit key, AES-256-GCM for the
+# two-layer chunk seal. Same pin/features edge composes (tag parity).
+ciris-crypto  = { git = "https://github.com/CIRISAI/CIRISVerify", tag = "v10.6.3", version = "10", features = ["hybrid-kex", "aes-gcm", "pqc-ml-dsa", "self-enc"] }
+# Enable edge's OWN fountain codec (`codec-fountain`, L1-A) for the survival-floor
+# proof — dev/test ONLY (feature unification applies to test/bench builds; the
+# shipped wheel stays codec-free, since a relay forwards sealed symbols opaquely
+# and never encodes/decodes). This lets tests/chaos_mesh.rs exercise the SUBSTRATE
+# codec (`fountain_encode`/`fountain_decode`) directly — a real MEASURED proof,
+# not a reference stand-in.
+ciris-edge    = { git = "https://github.com/CIRISAI/CIRISEdge", tag = "v15.9.1", features = ["codec-fountain"] }
+# Enable persist's TEST-ONLY genesis-seam (`test-genesis-seam`, CIRISPersist#387) for the
+# accord ceremony tests (tests/accord.rs): `Engine::with_signer_no_genesis_seed` yields a
+# clean engine with the baked HUMANITY_ACCORD family seed SKIPPED, so those tests can stand
+# up their OWN custom-holder family via the assemble ceremony. Dev/test ONLY — resolver-2
+# keeps this feature out of the shipped lib/bin/wheel (prod always seeds the baked family).
+ciris-persist = { git = "https://github.com/CIRISAI/CIRISPersist", tag = "v24.2.0", features = ["test-genesis-seam"] }
+
+# PQC realtime-A/V streaming E2E benchmark (CIRISEdge#62 realtime_av profile).
+[[bench]]
+name = "pqc_av_streaming"
+harness = false
+
+# Replication / corpus-ingest throughput (the CEG-RC5 receive spine).
+[[bench]]
+name = "replication_ingest"
+harness = false
+
+# Multi-tier ALM relay chain (CIRISEdge#149 open_av_outer) — per-hop + per-depth
+# cost; the E2E byte-survival invariant is gated in tests/alm_chain.rs.
+[[bench]]
+name = "alm_chain"
+harness = false
+
+# Sustained multi-stream seal throughput — measures the actual core-fraction to
+# seal N blob streams @30fps in a real loop (promotes the page's "2,000 blob
+# streams ≈ 6-10% of a core" from arithmetic to MEASURED).
+[[bench]]
+name = "stream_fanout"
+harness = false
+
+# N_eff capacity-scoring microbench — the lens constraint eigenspectrum pipeline
+# (ciris_server::scorer::n_eff). Feature-matrix build + Jacobi eigendecomposition
+# + PR/entropy derivation: the per-agent per-cadence-tick CPU cost of
+# `capacity:sustained_coherence:v1`. CI-runnable (pure arithmetic, no network,
+# no database).
+[[bench]]
+name = "n_eff_scoring"
+harness = false
+
+# Erasure-survival bench — EMPIRICAL reconstruction rate against the real substrate
+# fountain codec (edge codec-fountain / RaptorQ). Encodes a blob into H holders, drops
+# holders by a per-availability-tier Bernoulli(q) coin, runs many real decode trials,
+# and writes the measured p_reconstruct per tier to target/erasure_survival.json (read
+# by the scoreboard). `harness = false` — survival is a rate, not a latency. Codec is
+# dev-only, so this measurement lives in a bench. `cargo bench --bench erasure_survival`.
+[[bench]]
+name = "erasure_survival"
+harness = false
+
+# Signature-overhead micro-bench — per-event sign+verify latency for classical
+# (Ed25519-only) vs hybrid (Ed25519 + ML-DSA-65, the production provenance signature),
+# using the substrate's REAL ciris_crypto primitives. The scoreboard derives the honest
+# "+N%" post-quantum overhead from the two criterion medians. `cargo bench --bench sig_overhead`.
+[[bench]]
+name = "sig_overhead"
+harness = false
+
+# Mesh-propagation benchmark — N in-process software-key nodes; ONE group-A
+# publisher advertises a synthetic "video" and a FountainSwarmRuntime per node
+# converges the holding-claim to its cohort ONLY. Measures propagation latency /
+# fan-out / group isolation / throughput over an in-memory bus (swarm LOGIC +
+# cohort gate, not wire transport). `cargo run --example mesh_propagation`.
+[[example]]
+name = "mesh_propagation"
+path = "examples/mesh_propagation/main.rs"
+
+[profile.release]
+# panic strategy stays "unwind" (the Win7 build-std lane relies on this being
+# pinned here, not on the build-std crate list — see release.yml win7 lane).
+panic = "unwind"
+strip = false   # release workflow strips per-target after build
+
+# ── Build-memory guardrail (do NOT remove without reading this) ───────────────
+# `cargo test` does not build one binary — it links the ~32 integration-test
+# binaries in tests/*.rs, and EACH statically links the FULL substrate (persist +
+# edge + verify + the pyo3 cdylib and all their deps). At the dev/test default of
+# full DWARF (`debug = true`) that is ~2-3 GB of peak RSS per link, and cargo runs
+# `nproc` jobs by default (32 on this box) → ~32 simultaneous multi-GB links, tens
+# of GB over the 31 GiB of RAM. The kernel does not OOM-kill it (no `oom-kill` in
+# the log); it swap-THRASHES and the machine goes unresponsive. That is exactly
+# what happened once — hence this pin.
+#
+# `line-tables-only` keeps file:line in panic backtraces (all the suite actually
+# needs) while dropping the local-variable DWARF that dominates link memory —
+# roughly a 5-10x cut in per-link RSS, so even full-width parallelism fits. It
+# also makes CI links faster and lighter, so it is safe on small runners (unlike a
+# `[build] jobs` cap, which would OVER-subscribe a 4-core runner).
+#
+# Stepping through code in a debugger? Override per-invocation, don't edit this:
+#   cargo test --config 'profile.dev.debug=2' --config 'profile.test.debug=2'
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.test]
+debug = "line-tables-only"
+
+

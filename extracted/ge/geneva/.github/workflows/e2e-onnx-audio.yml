@@ -1,0 +1,25 @@
+name: E2E Tests - Synthetic Audio
+
+on:
+  workflow_dispatch:
+
+jobs:
+  synthetic-audio-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      UV_CACHE_DIR: /tmp/.uv-cache
+      RAY_ENABLE_UV_RUN_RUNTIME_ENV: "0"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+      - name: Install dependencies
+        run: uv sync --locked --extra udf-audio-kokoro-base-onnx --extra udf-audio-wavlm-tbr-onnx
+      - name: Run synthetic audio e2e tests
+        run: uv run -m pytest -c e2e/pytest.ini e2e/onnx_audio/test_drivers -v

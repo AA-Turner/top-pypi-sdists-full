@@ -18,10 +18,13 @@
 
 try:
     import importlib.metadata as importlib_metadata
-except ImportError:
-    import importlib_metadata
+except ImportError:  # pragma: no cover
+    import importlib_metadata  # pragma: no cover
 
-__version__ = importlib_metadata.version("lazr-uri")
+try:
+    __version__ = importlib_metadata.version("lazr.uri")
+except importlib_metadata.PackageNotFoundError:  # pragma: no cover
+    __version__ = importlib_metadata.version("lazr-uri")
 
 # Re-export in such a way that __version__ can still be imported if
 # dependencies are not yet available.

@@ -82,6 +82,23 @@ class AgentLoop:
         self._last_finding_loop: int = 0
         # Number of dynamic budget extensions applied this session (cap: 2)
         self._budget_extensions: int = 0
+        # WAF bypass technique registry — persist discovered encodings across loops
+        # key: short name, value: human-readable encoding description
+        self._waf_bypass_techniques: dict[str, str] = {}
+        # IP ban recovery — last loop where a ban recovery injection was sent
+        self._last_ip_ban_injection: int = -20
+        # CSRF detection — scope keys already promoted to avoid duplicates
+        self._csrf_found_scope_keys: set[str] = set()
+        # Dirlist revisit tracking — scope_key → last loop where revisit nudge was sent
+        self._dirlist_revisit_nudge: dict[str, int] = {}
+        # Dirlist pivot — injected once after ≥5 confirmed dirlist findings
+        self._dirlist_pivot_injected: bool = False
+        # Fix v7.0.66: Path deduplication — track visited URLs to prevent infinite re-exploration
+        self._visited_paths: set[str] = set()
+        # Fix v7.0.66: Consecutive 403 counter for early WAF ban detection
+        self._consecutive_403_count: int = 0
+        # Fix v7.0.66: No-progress loop counter — terminate if 15 loops without findings
+        self._loops_since_last_finding: int = 0
 
     def run(self, user_message: str) -> None:
         """Execute the full agent loop for a user message."""
@@ -154,8 +171,15 @@ class AgentLoop:
                     # Track last loop where any new finding was promoted (for dynamic budget)
                     if new_finding is not None:
                         self._last_finding_loop = self._loop_count
+                        self._loops_since_last_finding = 0
+                    else:
+                        self._loops_since_last_finding += 1
                     self._extract_related_domains(r)
                     self._display_tool_result(r)
+                    # Fix v7.0.66: Track visited paths to prevent infinite re-exploration
+                    self._track_visited_path(r)
+                    # Fix v7.0.66: Update consecutive 403 counter for WAF ban detection
+                    self._update_403_counter(r)
                 # HAL gate: validate model text claims against accumulated exec evidence.
                 # Runs after tools execute so the gate has the freshest facts.
                 if response_text:
@@ -208,6 +232,22 @@ class AgentLoop:
                     )
                     self._finalize()
                     return
+                # Fix v7.0.66: Early termination if 15 loops without any findings
+                if self._loops_since_last_finding >= 15 and self._loop_count >= 20:
+                    self.console.print(
+                        f"\n[#ffd600]⚡ No progress for {self._loops_since_last_finding} loops — generating report.[/]"
+                    )
+                    self._finalize()
+                    return
+                # Fix v7.0.66: Check for excessive 403 rate (WAF ban)
+                if self._consecutive_403_count >= 5:
+                    self.console.print(
+                        f"\n[#ff6d00]⚡ Excessive 403 responses ({self._consecutive_403_count}) — "
+                        f"WAF ban suspected. Pausing 10s and switching User-Agent.[/]"
+                    )
+                    import time
+                    time.sleep(10)
+                    self._consecutive_403_count = 0
                 self._maybe_compact()
                 continue
 
@@ -304,7 +344,24 @@ class AgentLoop:
             return sql_finding
         # Tertiary pass: WAF bypass signal — time-based SQLi payload that received
         # a non-403 response, indicating the payload reached the application layer.
-        return self._auto_waf_bypass_signal(result)
+        waf_finding = self._auto_waf_bypass_signal(result)
+        if waf_finding is not None:
+            return waf_finding
+        # Quaternary pass: directory listing detection → CONF_CONFIRMED info_disclosure.
+        dirlist_finding = self._auto_dirlist_from_output(result)
+        if dirlist_finding is not None:
+            return dirlist_finding
+        # Quinary pass: response size differential SQLi signal → CONF_PROBABLE.
+        sizediff_finding = self._auto_size_diff_sqli_detect(result)
+        if sizediff_finding is not None:
+            return sizediff_finding
+        # Side-effect pass: IP ban recovery injection (no finding returned).
+        self._auto_ip_ban_recovery(result)
+        # Senary pass: CSRF auto-detect — POST success without CSRF token signature.
+        csrf_finding = self._auto_csrf_detect(result)
+        if csrf_finding is not None:
+            return csrf_finding
+        return None
 
     # ── SQL error regex (定义为类常量, 避免每次编译) ──────────────────────────
     _SQL_ERROR_RE = None  # lazy init
@@ -434,6 +491,51 @@ class AgentLoop:
         if not _bypass_detected:
             return None
 
+        # ── Fix 8: Elapsed-time guard — skip when SLEEP bypassed WAF but query runs instantly ──
+        # If output contains SLEEP(N), verify that actual response time >= 50% of N (min 2.5s).
+        # "Bypassed WAF" ≠ "time-based channel confirmed" without a real delay.
+        _sleep_arg_m = _re.search(r'SLEEP\s*\(\s*(\d+)\s*\)', output, _re.I)
+        _waitfor_m   = _re.search(r'WAITFOR\s+DELAY\s+["\']0:0:(\d+)["\']', output, _re.I)
+        _expected_delay = 0.0
+        if _sleep_arg_m:
+            _expected_delay = float(_sleep_arg_m.group(1))
+        elif _waitfor_m:
+            _expected_delay = float(_waitfor_m.group(1))
+
+        if _expected_delay >= 1.0:
+            # Collect all elapsed-time floats from output (e.g. "0.32s", "elapsed: 3.21", "3.45s")
+            _elapsed_vals: list[float] = [float(m) for m in _re.findall(r'\b(\d+\.\d+)s\b', output)]
+            _elapsed_vals += [float(m) for m in _re.findall(r'elapsed[:\s]+(\d+\.\d+)', output, _re.I)]
+            if _elapsed_vals:
+                _max_elapsed = max(_elapsed_vals)
+                # Require at least 50% of expected delay (floor 2.5s) to count as real
+                _threshold = max(2.5, _expected_delay * 0.5)
+                if _max_elapsed < _threshold:
+                    return None  # payload bypassed WAF but query ran instantly → false positive
+            else:
+                # SLEEP present in payload but output has no timing info → can't confirm, skip
+                return None
+        # ─────────────────────────────────────────────────────────────────────────────────────
+
+        # ── Persist the WAF bypass technique for session-wide reuse ──────────
+        # Check which encoding got through and store it so the depth nudge
+        # can remind the model to reuse it on every subsequent payload.
+        _UNION_NL_RE = _re.compile(r'UNION[%\s]*0[Aa]SELECT|UNION\s*%0[aA]\s*SELECT', _re.I)
+        _CHUNKED_RE  = _re.compile(r'Transfer-Encoding:\s*chunked', _re.I)
+        if _UNION_NL_RE.search(output) and "union_newline" not in self._waf_bypass_techniques:
+            self._waf_bypass_techniques["union_newline"] = "UNION%0ASELECT (newline between UNION and SELECT)"
+            self._pending_injections.insert(0,
+                "[💡 UNION SELECT WAF BYPASS CONFIRMED]\n"
+                "UNION%0ASELECT (newline encoding) bypasses this WAF.\n"
+                "ALWAYS use this for column count and data extraction:\n"
+                "  ' UNION%0ASELECT NULL%23\n"
+                "  ' UNION%0ASELECT NULL,NULL%23\n"
+                "  ' UNION%0ASELECT database()%23\n"
+                "Do NOT revert to UNION%20SELECT or plain UNION SELECT — WAF blocks those."
+            )
+        elif "time_based" not in self._waf_bypass_techniques:
+            self._waf_bypass_techniques["time_based"] = "time-based SQLi channel (WAF passes SLEEP/WAITFOR)"
+
         # Extract endpoint URL
         _url_m = _re.search(r'https?://[^\s"\'<>]{5,200}', output)
         target_url = _url_m.group(0) if _url_m else self.target
@@ -463,6 +565,302 @@ class AgentLoop:
             confirmed=False,
             confidence=CONF_PROBABLE,
             reason_code="time_based_waf_bypass",
+            scope_key=scope_key,
+        )
+        self.findings._findings.append(finding)
+        return finding
+
+    def _auto_dirlist_from_output(self, result: ToolResult) -> Optional["Finding"]:
+        """Detect Apache/Nginx directory listing and auto-promote to CONF_CONFIRMED.
+
+        Directory listing is immediately verifiable from the HTML response —
+        no oracle or inference needed. Promotes directly to confirmed.
+        """
+        if not result.output:
+            return None
+        import re as _re
+        import hashlib as _hashlib
+        import time as _time
+        from ..tools.findings_exporter import (
+            Finding, CONF_CONFIRMED, FINDING_INFO_DISC,
+        )
+        SEVERITY_MEDIUM = "medium"
+        output = result.output
+        # Apache/Nginx directory listing signature
+        if not (_re.search(r'<title>\s*Index of\s+/', output, _re.I) or
+                _re.search(r'<h1>\s*Index of\s+/', output, _re.I)):
+            return None
+        # Extract the exposed path
+        path_m = _re.search(r'Index of\s+(/[^\s<"]*)', output, _re.I)
+        dir_path = path_m.group(1).rstrip() if path_m else "/"
+        target_url = self.target.rstrip("/") + dir_path
+        scope_key = f"dirlist:{target_url[:120]}"
+        # Dedup — one finding per path; inject revisit nudge when re-detected (Fix 6)
+        for existing in self.findings._findings:
+            if existing.scope_key == scope_key:
+                last_nudge = self._dirlist_revisit_nudge.get(scope_key, -20)
+                if (self._loop_count - last_nudge) >= 10:
+                    self._dirlist_revisit_nudge[scope_key] = self._loop_count
+                    self._pending_injections.append(
+                        f"[ℹ️ Dirlist revisit] {target_url} 이미 confirmed dirlist로 기록됨 "
+                        f"(loop {self._loop_count}). 같은 경로 반복 불필요 — "
+                        f"SQLi/LFI/admin 패널/파일 업로드 등 다른 공격 벡터로 전환하세요."
+                    )
+                return None
+        # Count sensitive file types exposed
+        file_hits = _re.findall(
+            r'href="[^"]*\.(php|asp|aspx|jsp|html|js|txt|cfg|conf|bak|sql|zip|tar|gz|env|key|pem)"',
+            output, _re.I,
+        )
+        file_count = len(file_hits)
+        finding_id = "dirlist_" + _hashlib.md5(scope_key.encode()).hexdigest()[:8]
+        finding = Finding(
+            id=finding_id,
+            vuln_type=FINDING_INFO_DISC,
+            severity=SEVERITY_MEDIUM,
+            target=target_url,
+            payload="Directory listing enabled",
+            evidence=(
+                f"[Directory listing CONFIRMED] {target_url}\n"
+                f"Sensitive files exposed: {file_count} ({', '.join(set(f.lower() for f in file_hits[:10]))})\n"
+                f"{output[:1200]}"
+            ),
+            timestamp=_time.time(),
+            confirmed=True,
+            confidence=CONF_CONFIRMED,
+            reason_code="directory_listing",
+            scope_key=scope_key,
+        )
+        self.findings._findings.append(finding)
+        # Fix 7: ≥5 dirlist findings 확인되면 pivot nudge 한 번 주입
+        if not self._dirlist_pivot_injected:
+            dirlist_count = sum(
+                1 for f in self.findings._findings
+                if getattr(f, "reason_code", "") == "directory_listing"
+            )
+            if dirlist_count >= 5:
+                self._dirlist_pivot_injected = True
+                self._pending_injections.append(
+                    f"[📋 Dirlist pivot 권고] {dirlist_count}개 디렉토리 리스팅 confirmed — "
+                    f"충분한 정보 수집 완료. 이제 SQLi/LFI/파일 업로드/admin 패널 공격으로 "
+                    f"전환하세요. 새로운 dirlist 탐색을 중단하고 고위험 취약점 공략에 집중하세요."
+                )
+        return finding
+
+    def _auto_size_diff_sqli_detect(self, result: ToolResult) -> Optional["Finding"]:
+        """Detect SQLi signal from response size differential in bash output.
+
+        Matches the pattern where the model probes a parameter with a quote
+        and reports the size change (e.g. 41515B → 28129B). A diff > 20%
+        with baseline > 1000B is promoted to CONF_PROBABLE.
+        """
+        if not result.output:
+            return None
+        import re as _re
+        import hashlib as _hashlib
+        import time as _time
+        from ..tools.findings_exporter import (
+            Finding, CONF_PROBABLE, FINDING_SQLI, SEVERITY_HIGH,
+        )
+        output = result.output
+        # Must contain quote/injection context keywords
+        if not _re.search(r"(?:quote|'|inject|ERR\d|SQLI|ptype|param|baseline)", output, _re.I):
+            return None
+        # Extract all meaningful size values (skip WAF-block sizes ~199)
+        # Matches: "Size: 41515", "S:28129", "SIZE: 30028", "size=41515"
+        all_sizes = [
+            int(m) for m in _re.findall(
+                r'(?:Size|SIZE|S)[:\s=]+(\d+)', output
+            )
+            if int(m) > 500  # ignore tiny (WAF/error) responses
+        ]
+        if len(all_sizes) < 2:
+            return None
+        max_size = max(all_sizes)
+        min_size = min(all_sizes)
+        if max_size < 1000:
+            return None
+        diff_ratio = (max_size - min_size) / max_size
+        if diff_ratio < 0.20:  # require at least 20% difference
+            return None
+        diff_bytes = max_size - min_size
+        # Extract URL from output or use target
+        _url_m = _re.search(r'https?://[^\s"\'<>]{5,200}', output)
+        target_url = _url_m.group(0) if _url_m else self.target
+        scope_key = f"sqli_sizediff:{target_url[:120]}"
+        # Dedup — one size-diff finding per endpoint
+        for existing in self.findings._findings:
+            if existing.vuln_type == FINDING_SQLI and existing.scope_key == scope_key:
+                return None
+        finding_id = "sizediff_" + _hashlib.md5(scope_key.encode()).hexdigest()[:8]
+        finding = Finding(
+            id=finding_id,
+            vuln_type=FINDING_SQLI,
+            severity=SEVERITY_HIGH,
+            target=target_url,
+            payload=f"size_diff={diff_bytes}B ({diff_ratio * 100:.0f}%)",
+            evidence=(
+                f"[SQLi size differential] baseline={max_size}B → injected={min_size}B "
+                f"(diff={diff_bytes}B, {diff_ratio * 100:.0f}%)\n"
+                f"{output[:1500]}"
+            ),
+            timestamp=_time.time(),
+            confirmed=False,
+            confidence=CONF_PROBABLE,
+            reason_code="response_size_differential",
+            scope_key=scope_key,
+        )
+        self.findings._findings.append(finding)
+        return finding
+
+    def _auto_ip_ban_recovery(self, result: ToolResult) -> None:
+        """Detect IP ban from consecutive 403s in bash output and inject recovery hints.
+
+        Throttled to once every 10 loops to avoid injection spam.
+        Side-effect only — does not return a Finding.
+        """
+        if not result.output:
+            return
+        import re as _re
+        import random as _random
+        output = result.output
+        # Count 403 WAF-block signatures in output
+        ban_hits = len(_re.findall(
+            r'(?:HTTP:403|HTTP/1\.[01]\s+403|status[:\s]+403|C:403)',
+            output, _re.I,
+        ))
+        if ban_hits < 2:
+            return
+        # Throttle: don't inject more than once per 10 loops
+        if (self._loop_count - self._last_ip_ban_injection) < 10:
+            return
+        self._last_ip_ban_injection = self._loop_count
+        _UAS = [
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
+            "(KHTML, like Gecko) Version/17.5 Safari/605.1.15",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:127.0) "
+            "Gecko/20100101 Firefox/127.0",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        ]
+        ua = _random.choice(_UAS)
+        xff = (f"{_random.randint(1,254)}.{_random.randint(1,254)}."
+               f"{_random.randint(1,254)}.{_random.randint(1,254)}")
+        if self.lang == "zh":
+            msg = (
+                f"[🚫 IP封禁检测 — 自动恢复提示 (loop {self._loop_count})]\n"
+                f"连续403响应 ({ban_hits}次) — IP可能被临时封禁。立即:\n"
+                f"1. 切换 User-Agent 为: {ua}\n"
+                f"2. 添加请求头: X-Forwarded-For: {xff}\n"
+                f"3. 同时添加: X-Real-IP: {xff}, True-Client-IP: {xff}\n"
+                f"4. 等待5秒后重试主页确认解封\n"
+                f"5. 如仍封禁，加Referer头: {self.target}"
+            )
+        elif self.lang == "ko":
+            msg = (
+                f"[🚫 IP차단 감지 — 자동 복구 힌트 (loop {self._loop_count})]\n"
+                f"연속 403 ({ban_hits}회) — IP 임시 차단 가능성. 즉시:\n"
+                f"1. User-Agent 변경: {ua}\n"
+                f"2. 헤더 추가: X-Forwarded-For: {xff}\n"
+                f"3. 추가: X-Real-IP: {xff}, True-Client-IP: {xff}\n"
+                f"4. 5초 대기 후 메인 페이지로 차단 해제 확인\n"
+                f"5. 여전히 차단되면 Referer: {self.target} 추가"
+            )
+        else:
+            msg = (
+                f"[🚫 IP ban detected — recovery hints (loop {self._loop_count})]\n"
+                f"Consecutive 403 ({ban_hits}x) — IP may be temporarily banned. Now:\n"
+                f"1. Switch User-Agent to: {ua}\n"
+                f"2. Add header: X-Forwarded-For: {xff}\n"
+                f"3. Also add: X-Real-IP: {xff}, True-Client-IP: {xff}\n"
+                f"4. Wait 5s and retry homepage to confirm unban\n"
+                f"5. If still banned, add Referer: {self.target}"
+            )
+        self._pending_injections.append(msg)
+
+    def _auto_csrf_detect(self, result: ToolResult) -> Optional["Finding"]:
+        """Detect CSRF vulnerability from POST success response without CSRF token.
+
+        Triggers when:
+          1. Tool output contains a POST success phrase (접수완료/success/완료 등)
+          2. The tool arguments do NOT contain a CSRF token signature
+             (ptSignature, csSignature, csrf_token, _token, nonce)
+        Promotes to CONF_PROBABLE csrf finding.
+        """
+        if not result.output:
+            return None
+        import re as _re
+        import hashlib as _hashlib
+        import time as _time
+        from ..tools.findings_exporter import (
+            Finding, CONF_PROBABLE, SEVERITY_MEDIUM,
+        )
+        FINDING_CSRF = "csrf"
+        output = result.output
+        # 1. Must contain a POST success phrase
+        _SUCCESS_RE = _re.compile(
+            r"정상적으로\s*접수|접수되었습니다|접수\s*완료"
+            r"|successfully\s*(?:sent|submitted|processed|received)"
+            r"|submission\s*(?:success|accepted|received)"
+            r"|완료되었습니다|전송\s*완료|발송\s*완료"
+            r"|메시지가\s*전송|문자가\s*발송|SMS.*발송.*완료"
+            r"|your\s*(?:message|request|form)\s*(?:has\s*been\s*)?(?:sent|submitted|received)",
+            _re.I,
+        )
+        if not _SUCCESS_RE.search(output):
+            return None
+        # 2. The tool arguments must NOT contain a CSRF token field
+        args_str = ""
+        if result.arguments:
+            import json as _json
+            try:
+                args_str = _json.dumps(result.arguments, ensure_ascii=False, default=str)
+            except Exception:
+                args_str = str(result.arguments)
+        _CSRF_TOKEN_RE = _re.compile(
+            r"ptSignature|csSignature|csrf[_\-]?token|_token\b|X-CSRF|nonce\b"
+            r"|authenticity_token|__RequestVerificationToken",
+            _re.I,
+        )
+        if _CSRF_TOKEN_RE.search(args_str):
+            return None  # has CSRF protection — skip
+        # 3. Extract endpoint URL
+        _url_m = _re.search(r'https?://[^\s"\'<>]{5,200}', args_str) or \
+                 _re.search(r'https?://[^\s"\'<>]{5,200}', output)
+        target_url = _url_m.group(0) if _url_m else self.target
+        # Normalize URL to endpoint only (strip query string for scope_key)
+        _ep_m = _re.match(r'(https?://[^\s?#]{3,200})', target_url)
+        endpoint = _ep_m.group(1) if _ep_m else target_url
+        scope_key = f"csrf:{endpoint[:120]}"
+        # Dedup
+        if scope_key in self._csrf_found_scope_keys:
+            return None
+        for existing in self.findings._findings:
+            if existing.scope_key == scope_key:
+                self._csrf_found_scope_keys.add(scope_key)
+                return None
+        self._csrf_found_scope_keys.add(scope_key)
+        # Extract the matching success phrase for evidence
+        _sm = _SUCCESS_RE.search(output)
+        success_snip = output[max(0, _sm.start() - 60): _sm.end() + 120] if _sm else output[:200]
+        finding_id = "csrf_" + _hashlib.md5(scope_key.encode()).hexdigest()[:8]
+        finding = Finding(
+            id=finding_id,
+            vuln_type=FINDING_CSRF,
+            severity=SEVERITY_MEDIUM,
+            target=endpoint,
+            payload="POST without CSRF token",
+            evidence=(
+                f"[CSRF PROBABLE] POST to {endpoint} succeeded without CSRF token signature.\n"
+                f"Success phrase: {success_snip.strip()[:300]}\n"
+                f"Args checked: {args_str[:300]}"
+            ),
+            timestamp=_time.time(),
+            confirmed=False,
+            confidence=CONF_PROBABLE,
+            reason_code="post_success_no_csrf_token",
             scope_key=scope_key,
         )
         self.findings._findings.append(finding)
@@ -700,6 +1098,10 @@ class AgentLoop:
         }
         tier = "CONFIRMED✓" if finding.confidence == CONF_CONFIRMED else "PROBABLE"
         hint = _TOOL_HINTS.get(finding.vuln_type, "http_request with negative control comparison")
+        # Prepend confirmed WAF bypass techniques so model reuses them
+        if finding.vuln_type == "sqli" and self._waf_bypass_techniques:
+            bypass_list = " | ".join(self._waf_bypass_techniques.values())
+            hint = f"[BYPASS TECHNIQUES CONFIRMED THIS SESSION]: {bypass_list}\n{hint}"
         evidence_snip = (finding.evidence or "")[:200].replace("\n", " ")
         if self.lang == "ko":
             msg = (
@@ -944,12 +1346,12 @@ class AgentLoop:
         t = target.lower()
         # High complexity: cloud / container / multi-service environments
         if any(k in t for k in ["amazonaws", "azure", "k8s", "kubernetes", "gitlab", "jenkins", "github"]):
-            return 120
+            return 60
         # Medium complexity: API-heavy / auth services
         if any(k in t for k in ["api", "graphql", "cognito", "oauth", "sso", "saml"]):
-            return 100
-        # Default: standard web app (raised from 80 → 100 to avoid premature cutoff)
-        return 100
+            return 50
+        # Default: standard web app — reduced from 100 → 40 for efficiency
+        return 40
 
     def _build_context_injection(self) -> str:
         """Build context to inject into system prompt: KB + Skills + TaskGraph."""
@@ -966,3 +1368,44 @@ class AgentLoop:
                 "Complete recon before moving to crawl, complete crawl before exploit attempts."
             )
         return "\n".join(parts) if parts else ""
+
+    def _track_visited_path(self, result: ToolResult) -> None:
+        """Track visited URLs to prevent infinite re-exploration of the same paths.
+
+        Extracts URLs from tool output and stores them in _visited_paths set.
+        When a path is revisited >3 times, inject a warning to redirect exploration.
+        """
+        if not result.output:
+            return
+        import re as _re
+        # Extract all URLs from the tool output
+        urls = _re.findall(r'https?://[^\s"\'<>]{5,200}', result.output)
+        for url in urls:
+            # Normalize URL: strip query params and trailing slash for deduplication
+            normalized = _re.sub(r'[?#].*$', '', url).rstrip('/')
+            if normalized in self._visited_paths:
+                # Path already visited — check if we should warn
+                visit_count = sum(1 for p in self._visited_paths if p == normalized)
+                if visit_count >= 3 and self._loop_count % 5 == 0:
+                    if self.lang == "ko":
+                        msg = f"[⚠️ 중복 탐색 경고] {normalized} 이미 {visit_count}회 방문 — 다른 경로 탐색 권장"
+                    elif self.lang == "zh":
+                        msg = f"[⚠️ 重复探测警告] {normalized} 已访问{visit_count}次 — 建议转向其他路径"
+                    else:
+                        msg = f"[⚠️ Duplicate exploration] {normalized} visited {visit_count}x — explore different paths"
+                    self._pending_injections.append(msg)
+            self._visited_paths.add(normalized)
+
+    def _update_403_counter(self, result: ToolResult) -> None:
+        """Track consecutive 403 responses for WAF ban detection.
+
+        Increments counter on 403, resets on non-403.
+        """
+        if not result.output:
+            return
+        import re as _re
+        has_403 = bool(_re.search(r'HTTP[/\s]+1\.[01]\s+403|status[:\s]+403|C:403', result.output, _re.I))
+        if has_403:
+            self._consecutive_403_count += 1
+        else:
+            self._consecutive_403_count = 0

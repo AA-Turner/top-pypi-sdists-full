@@ -97,7 +97,7 @@ impl FromStr for GitHubHost {
 }
 
 /// A sanitized GitHub access token.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub(crate) struct GitHubToken(String);
 
 impl GitHubToken {
@@ -110,7 +110,16 @@ impl GitHubToken {
     }
 
     fn to_header_value(&self) -> Result<HeaderValue, InvalidHeaderValue> {
-        HeaderValue::from_str(&format!("Bearer {}", self.0))
+        let mut hv = HeaderValue::from_str(&format!("Bearer {}", self.0))?;
+        hv.set_sensitive(true);
+
+        Ok(hv)
+    }
+}
+
+impl std::fmt::Debug for GitHubToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("GitHubToken").field(&"***").finish()
     }
 }
 
@@ -942,6 +951,24 @@ impl Client {
                 let mut contents = String::with_capacity(entry.size() as usize);
                 entry.read_to_string(&mut contents)?;
                 group.register(InputKind::Dependabot, contents, key, options.strict)?;
+            } else if options.mode_set.pre_commit() {
+                if matches!(
+                    file_path.file_name(),
+                    Some(".pre-commit-config.yml" | ".pre-commit-config.yaml")
+                ) {
+                    let key = InputKey::remote(slug, file_path.to_string());
+                    let mut contents = String::with_capacity(entry.size() as usize);
+                    entry.read_to_string(&mut contents)?;
+                    group.register(InputKind::PreCommitConfig, contents, key, options.strict)?;
+                } else if matches!(
+                    file_path.file_name(),
+                    Some(".pre-commit-hooks.yml" | ".pre-commit-hooks.yaml")
+                ) {
+                    let key = InputKey::remote(slug, file_path.to_string());
+                    let mut contents = String::with_capacity(entry.size() as usize);
+                    entry.read_to_string(&mut contents)?;
+                    group.register(InputKind::PreCommitHooks, contents, key, options.strict)?;
+                }
             }
         }
 
@@ -1068,6 +1095,18 @@ mod tests {
         ] {
             assert_eq!(GitHubToken::new(token).unwrap().0, expected);
         }
+
+        // Ensure our Debug impl redacts.
+        insta::assert_compact_debug_snapshot!(
+            GitHubToken::new("hackme").unwrap(),
+            @r#"GitHubToken("***")"#
+        );
+
+        // Ensure the header value also redacts.
+        insta::assert_compact_debug_snapshot!(
+            GitHubToken::new("hackme").unwrap().to_header_value().unwrap(),
+            @"Sensitive"
+        );
     }
 
     #[test]

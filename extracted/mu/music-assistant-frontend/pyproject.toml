@@ -1,0 +1,30 @@
+[project]
+name = "music-assistant-frontend"
+version = "2.17.253"
+description = "The Music Assistant frontend"
+readme = "README.md"
+authors = [
+    { name = "The Music Assistant Authors", email = "m.vanderveldt@outlook.com" },
+]
+requires-python = ">=3.11.0"
+
+[project.license]
+text = "Apache-2.0"
+
+[project.urls]
+Homepage = "https://github.com/music-assistant/frontend"
+
+[tool.setuptools]
+platforms = [
+    "any",
+]
+zip-safe = false
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = [
+    "music_assistant_frontend",
+]
+
+[tool.codespell]
+ignore-words-list = "provid,hass,followings"

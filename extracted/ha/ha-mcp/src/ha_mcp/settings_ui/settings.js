@@ -288,7 +288,13 @@ async function loadPolicyState() {
       return;
     }
     const p = await r.json();
-    policyState.gatedTools = new Set((p.rules || []).map(rule => rule.tool_name));
+    // The Tools-tab gate toggle reflects the BARE unconditional rule only
+    // (no predicates); conditional rules are managed in the Policies tab.
+    policyState.gatedTools = new Set(
+      (p.rules || [])
+        .filter(rule => !rule.when || rule.when.length === 0)
+        .map(rule => rule.tool_name)
+    );
   } catch (e) {
     // Policy endpoint unavailable (sidecar stub) or network blip — keep the
     // prior gatedTools rather than resetting it to empty. On first load it
@@ -321,17 +327,33 @@ async function policyPut(policy, opLabel) {
   return await w.json();
 }
 
+// Where a NEW tool's rules belong in the rule list: before the first
+// wildcard rule, else at the end. find_matching_rule() is first-match (it
+// supplies remember_minutes and the matched_rule shown to the user), so a
+// tool-specific rule appended after a `*` rule would never be the match.
+function wildcardInsertIndex(rules) {
+  const idx = rules.findIndex(rule => rule.tool_name === '*');
+  return idx === -1 ? rules.length : idx;
+}
+
 async function syncPolicyRule(toolName, gated) {
   const r = await fetch('./api/policy/config');
   if (!r.ok) throw new Error(t('policies.errors.load', {status: r.status}, 'Could not load policy: ' + r.status));
   const policy = await r.json();
   policy.rules = policy.rules || [];
+  // The gate toggle manages ONLY the bare, unconditional rule (empty `when`)
+  // for this tool; predicate-bearing rules authored in the policy editor are
+  // preserved. A conditional rule must not be mistaken for the gate (enabling
+  // would silently no-op) nor wiped on un-gate.
+  const isBareGate = rule =>
+    rule.tool_name === toolName && (!rule.when || rule.when.length === 0);
   if (gated) {
-    if (!policy.rules.some(rule => rule.tool_name === toolName)) {
-      policy.rules.push({tool_name: toolName, when: [], remember_minutes: 0});
+    if (!policy.rules.some(isBareGate)) {
+      policy.rules.splice(wildcardInsertIndex(policy.rules), 0,
+        {tool_name: toolName, when: [], remember_minutes: 0});
     }
   } else {
-    policy.rules = policy.rules.filter(rule => rule.tool_name !== toolName);
+    policy.rules = policy.rules.filter(rule => !isBareGate(rule));
   }
   await policyPut(policy, t('policies.operations.sync_gated', {}, 'Sync gated toggle'));
 }
@@ -1813,48 +1835,46 @@ document.getElementById('modalBackdrop').addEventListener('click', (e) => {
 
 document.getElementById('stopSidecarBtn').addEventListener('click', stopSidecar);
 
-// Feature-flag metadata (display labels + help text). Keyed by the
-// Settings field name. The strings are intentionally copied verbatim
-// from ``homeassistant-addon-dev/translations/en.yaml`` so the web
-// UI and the add-on Configuration tab read identically — a user who
-// flips between the two surfaces never wonders if the option name
-// or warning text shifted meaning. Keep them in sync when one side
-// changes; the addon-dev translations file is the source of truth.
+// FEATURE_META:BEGIN GENERATED (scripts/generate_locales.py)
+// English fallback + row order for the feature toggles. Do not edit:
+// the strings and their order come from the features.* keys in
+// locales/en.json — edit that file, then run
+// scripts/generate_locales.py.
+// The master/sub-flag gating these rows describe is enforced by
+// config.py:_apply_feature_flag_overrides; the UI dims sub-rows and
+// re-renders live when the master toggle flips.
 const FEATURE_META = {
   enable_tool_search: {
     label: "Enable tool search",
-    help: "Replace the full tool catalog with search-based discovery. Reduces idle context from ~46K to ~5K tokens. ⚠️ Do NOT enable this if you use Claude in Sonnet or Opus modes. Those models have their own built-in tool search / deferred tools, which conflicts with ours. To use ha-mcp's tool search with Claude, disable Claude's built-in tool search first; otherwise leave this off. Use this only with LLMs that lack native deferred tools (e.g. Claude Haiku, local OpenAI-compatible models) or with smaller context windows. Tools are found via ha_search_tools and executed via categorized proxies (read/write/delete). Requires restart to take effect.",
+    help: "Replace the full tool catalog with search-based discovery. Reduces idle context by roughly 90%, to about 5K tokens. ⚠️ Do NOT enable this in clients with their own built-in tool search / deferred tools (claude.ai, Claude Desktop, Claude Code) — the two search layers conflict, and the client's built-in tool search is the better choice there; leave this off. Whether tools are deferred depends on your client and model combination: use this when your setup loads the full catalog up front — models without native deferred tools (e.g. Gemini, OpenAI-compatible local models, Claude Haiku), clients that inline all tool schemas regardless of model (e.g. GitHub Copilot CLI), or smaller context windows. Some Codex models and ChatGPT include deferred tools too — check your client/model directly to confirm its features so you don't leave this enabled unnecessarily. Tools are found via ha_search_tools and executed via categorized proxies (read/write/delete). Requires restart to take effect.",
   },
   tool_search_max_results: {
     label: "Tool search max results",
     help: "Maximum number of tools returned by ha_search_tools when tool search is enabled. Lower values (2-3) save context tokens but may miss relevant tools. Range: 2-10. Requires restart.",
   },
   enable_tool_security_policies: {
-    label: "Enable Tool Security Policies",
-    help: "Opt-in middleware that gates high-stakes MCP tool calls behind user approval. When enabled, tools that match a rule in the Tool Security Policies tab require you to click Approve in the web UI before they run. Off by default. Per-tool rules with optional argument conditions are configured in the Tool Security Policies tab. Requires restart to take effect.",
+    label: "Enable Tool Security Policies (advanced)",
+    help: "Gate high-stakes tool calls (lock/alarm control, automation writes, etc.) behind user approval. When a guarded tool is called, the agent tells the user to open the Tool Security Policies tab in the web UI and click Approve before the call proceeds. Per-tool rules with optional argument conditions are configured in the Tool Security Policies tab. Off by default. Requires restart to take effect.",
   },
   read_only_mode: {
     label: "Read Only Mode",
-    help: "Turns all write tools off and blocks tools from making any write or destructive calls. Mixed read/write tools (dashboard configuration, backups, Apps (add-ons), energy preferences, voice pipelines, and code mode when enabled) stay listed with their write operations blocked server-side. Dashboard screenshots remain blocked because Puppet can persist frontend preferences. The AI gets a clear READ_ONLY_MODE error if it tries. Mirrors the toggle at the top of the Tools tab. Off by default. Requires restart to take effect (applies live in standalone HTTP mode).",
+    help: "Toggles all write tools off, and removes ability for tools to make any write or destructive calls. Mixed read/write tools (backups, add-ons, energy preferences, voice pipelines, and code mode when enabled) stay available with their write operations blocked. Same toggle as the web UI Tools tab. Off by default. Requires restart to take effect.",
   },
   enable_mandatory_bps: {
     label: "Attach best-practice skills on writes",
-    help: "Master switch for the write-tool skill content delivery feature (issue #1182). When enabled (default), the six config write tools (automations, scripts, scenes, helpers, dashboards, raw YAML) attach the canonical Home Assistant best-practice reference files under skill_content on every successful write, plus auto-embed any reference sections cited by best-practice warnings. Each tool also exposes a per-call MandatoryBPS parameter the agent can set to false on subsequent calls once it has the content. When this master switch is off, NO skill_content goes out regardless of the per-call parameter or BP warnings. Recommended ON as the first choice; disable only for models with very small context windows. Turning this off may degrade write accuracy. Requires restart to take effect.",
+    help: "Master switch for the write-tool skill content delivery feature (issue #1182). When enabled (default), the six config write tools (automations, scripts, scenes, helpers, dashboards, raw YAML) attach the canonical Home Assistant best-practice reference files under `skill_content` on every successful write, plus auto-embed any reference sections cited by best-practice warnings. Each tool also exposes a per-call `MandatoryBPS` parameter the agent can set to false on subsequent calls once it has the content. When this master switch is off, NO skill_content goes out regardless of the per-call parameter or BP warnings. Recommended ON as the first choice; disable only for models with very small context windows. Turning this off may degrade write accuracy. Requires restart to take effect.",
   },
   enable_strict_mandatory_bps: {
     label: "Strict best-practices mode",
-    help: "Strict mode: prevents the client from using the tool until it can prove that it read the best practices. While on, the six best-practice write tools (automations, scripts, scenes, helpers, dashboards, raw YAML) are blocked and return an error directing the client to read the best-practices skill via ha_get_skill_guide and pass back the acknowledgment key it obtains there. While on, the ha_get_skill_guide tool is locked enabled — it is the only publisher of the acknowledgment key. Nested under \"Attach best-practice skills on writes\" above and inert while that parent toggle is off. Requires restart to take effect (applies live in standalone HTTP mode).",
+    help: "Strict mode: prevents the client from using the tool until it can prove that it read the best practices. While on, the six best-practice write tools (automations, scripts, scenes, helpers, dashboards, raw YAML) are blocked and return an error directing the client to read the best-practices skill via ha_get_skill_guide and pass back the acknowledgment key it obtains there. While on, the ha_get_skill_guide tool is locked enabled — it is the only publisher of the acknowledgment key. Child of the \"Attach best-practice skills on writes\" option above and inert while that parent is off. Requires restart to take effect.",
   },
-  // Master beta toggle — gates the 5 sub-flags below at runtime
-  // (see config.py:_apply_feature_flag_overrides master gate). UI
-  // dims sub-rows when this is off and re-renders live on flip.
   enable_beta_features: {
-    label: "Enable beta features",
-    help: "⚠ DANGER. These tools can PERMANENTLY DAMAGE your Home Assistant installation. They write to your YAML config, write to your filesystem, install custom components, run arbitrary sandboxed Python, and edit tool docstrings the AI sees. There is no warranty and no support guarantee. You enable them at your OWN RISK. Take a Home Assistant backup before turning this on, and never enable in production without one. Master toggle for the 5 experimental tools below; sub-toggles are dimmed and ignored at runtime while this is off (even a sub-flag set via env var is forced off until the master is on). Requires restart to take effect.",
+    label: "Enable beta features (master)",
+    help: "⚠ DANGER — these tools can PERMANENTLY DAMAGE your Home Assistant installation. They write to your YAML config, your filesystem, install custom components, run arbitrary sandboxed Python, and edit tool docstrings the AI sees. There is no warranty and no support guarantee — you enable them at your OWN RISK. Take a Home Assistant backup before turning this on, and never enable in production without one. Master gate for the 5 experimental sub-flags below; sub-flags are ignored at runtime while this master is off, even when explicitly set to true. The same toggle is also surfaced in the web settings UI under \"Beta features (dangerous)\" — either surface reflects the other on restart.",
   },
   enable_yaml_config_editing: {
     label: "Enable YAML config editing (beta)",
-    help: "Beta feature, disabled by default. Allows AI assistants to add, replace, or remove top-level keys in configuration.yaml and packages/*.yaml. Only whitelisted keys are allowed (e.g., template, sensor, command_line, mqtt, knx); core keys like homeassistant, http, and recorder are blocked. Each edit validates YAML syntax, runs a config check, and creates an automatic backup. Changes to most keys require a full HA restart to take effect. See docs/beta.md for known limitations. Dedicated tools (automations, scripts, scenes, helpers, template sensors) should be preferred when available.",
+    help: "Beta feature. Allows AI assistants to add, replace, or remove top-level keys in configuration.yaml and packages/*.yaml. Only whitelisted keys are allowed (e.g., template, sensor, command_line, mqtt, knx); core keys like homeassistant, http, and recorder are blocked. Each edit validates YAML syntax, runs a config check, and creates an automatic backup. Changes to most keys require a full HA restart to take effect. See docs/beta.md for known limitations. Dedicated tools (automations, scripts, scenes, helpers, template sensors) should be preferred when available. REQUIRES the master \"Enable beta features\" toggle above (and in the web UI) to be on — otherwise this sub-flag is ignored at runtime regardless of its value here.",
   },
   enable_yaml_edit_confirm: {
     label: "Require confirmation for YAML edits (diff preview)",
@@ -1874,21 +1894,22 @@ const FEATURE_META = {
   },
   enable_filesystem_tools: {
     label: "Enable filesystem tools (beta)",
-    help: "Sets HAMCP_ENABLE_FILESYSTEM_TOOLS=true. Enables direct file read/write access to your Home Assistant filesystem. WARNING: This gives the MCP server sensitive direct file access to your system. Only enable if you trust the AI assistant with file operations. Requires restart to take effect.",
+    help: "Sets HAMCP_ENABLE_FILESYSTEM_TOOLS=true. Enables direct file read/write access to your Home Assistant filesystem. WARNING: This gives the MCP server sensitive direct file access to your system. Only enable if you trust the AI assistant with file operations. Requires restart to take effect. REQUIRES the master \"Enable beta features\" toggle above (and in the web UI) to be on — otherwise this sub-flag is ignored at runtime regardless of its value here.",
   },
   enable_code_mode: {
-    label: "Enable code-mode sandbox (beta)",
-    help: "Beta feature, disabled by default. Enables ha_manage_custom_tool, a sandboxed Python interpreter (pydantic-monty) that lets AI assistants write/run/save/delete custom tools when no built-in tool covers the request. Sandbox cannot touch the filesystem or arbitrary network, but CAN call any registered MCP tool, hit the HA REST API, or send HA WebSocket commands, effectively 'do whatever existing tools allow you to do, in any combination'. Saved tools persist and are visible to any client that can connect to ha-mcp. See docs/beta.md for known limitations. Requires restart to take effect.",
+    label: "Enable custom tool sandbox (beta)",
+    help: "Beta feature. Enables the ha_manage_custom_tool tool, which lets AI assistants create, run, save, and delete custom Python code in a secure sandbox when no built-in tool can handle the request. Code runs in an isolated interpreter with no filesystem or arbitrary network access. Sandbox code can hit the HA REST API (api_get/api_post), send WebSocket commands (ws_send), call existing MCP tools (call_tool), or remove a saved tool (delete_saved_tool). Saved tools persist to /data/saved_tools.json by default so they survive add-on restarts, and are visible to any client that can connect. See docs/beta.md for known limitations. Requires restart to take effect. REQUIRES the master \"Enable beta features\" toggle above (and in the web UI) to be on — otherwise this sub-flag is ignored at runtime regardless of its value here.",
   },
   enable_lite_docstrings: {
     label: "Enable lite tool docstrings (beta)",
-    help: "Beta feature, disabled by default. Replaces the docstrings on a handful of heavy ha-mcp tools (automations, scripts, scenes, helpers, dashboards, ha_call_service, ha_config_set_yaml) with shorter variants that defer schema and example detail to the ha_get_skill_guide tool (or its skill:// resource). WARNING: this reduces idle token usage, but may degrade LLM performance. The trimmed descriptions rely on the LLM actually calling the skill tool or reading the skill resource for detail, which is not guaranteed (some models will skip the extra tool call and end up with less guidance than they had before). Best paired with a client that supports MCP resources or with enable_tool_search. Requires restart to take effect.",
+    help: "Beta feature. Replaces the docstrings on a handful of heavy ha-mcp tools (automations, scripts, scenes, helpers, dashboards, ha_call_service, ha_config_set_yaml) with shorter variants that defer schema and example detail to the ha_get_skill_guide tool (or its skill:// resource). WARNING: this reduces idle token usage, but may degrade LLM performance — the trimmed descriptions rely on the LLM actually calling the skill tool or reading the skill resource for detail, which is not guaranteed (some models will skip the extra tool call and end up with less guidance than they had before). Best paired with a client that supports MCP resources or with enable_tool_search. Requires restart to take effect. REQUIRES the master \"Enable beta features\" toggle above (and in the web UI) to be on — otherwise this sub-flag is ignored at runtime regardless of its value here.",
   },
   enable_dashboard_screenshot: {
     label: "Enable dashboard screenshot mode (beta)",
-    help: "Beta feature, disabled by default. Adds the ha_get_dashboard_screenshot tool plus include_screenshot / return_screenshot options on the dashboard get/set tools, so AI assistants can inspect one or more responsive Lovelace images (e.g. to verify a dashboard they just created). Supports stable named views, mobile/tablet/desktop batches, and PNG/JPEG/WebP/BMP output. Rendering runs in a separate, opt-in engine, balloob's \"Puppet\" App (add-on) (headless Chromium), which you install once (add balloob's App (add-on) repository, then install \"Puppet\") and give a long-lived access token; on Docker/Container deployments you run that engine as a sidecar and set HAMCP_DASHBOARD_SCREENSHOT_ENGINE_URL. Nothing heavy is installed unless you both enable this and install the engine. Requires restart to take effect. REQUIRES the master \"Enable beta features\" toggle above (and in the web UI) to be on. Otherwise this sub-flag is ignored at runtime regardless of its value here.",
+    help: "Beta feature — disabled by default. Adds the ha_get_dashboard_screenshot tool plus include_screenshot / return_screenshot options on the dashboard get/set tools, so AI assistants can inspect one or more responsive Lovelace images (e.g. to verify a dashboard they just created). Supports stable named views, mobile/tablet/desktop batches, and PNG/JPEG/WebP/BMP output. Rendering runs in a separate, opt-in engine — balloob's \"Puppet\" add-on (headless Chromium) — which you install once (add balloob's add-on repository, then install \"Puppet\") and give a long-lived access token; on Docker/Container deployments you run that engine as a sidecar and set HAMCP_DASHBOARD_SCREENSHOT_ENGINE_URL. Nothing heavy is installed unless you both enable this and install the engine. Requires restart to take effect. REQUIRES the master \"Enable beta features\" toggle above (and in the web UI) to be on — otherwise this sub-flag is ignored at runtime regardless of its value here.",
   },
 };
+// FEATURE_META:END GENERATED
 
 // The beta sub-flag fields gated by the master beta toggle. Populated
 // from the ``beta_sub_flags`` array in the /api/settings/features
@@ -2167,7 +2188,9 @@ function renderFeatureFlags(flags) {
     // bottom.
     if (fieldName === 'enable_code_mode') {
       const codeModeOn = !!f.value;
-      renderCodeModeSubRows(targetBody, masterOn, codeModeOn);
+      renderAdvancedSubRows(
+        targetBody, 'beta_codemode', 'codemode-sub', !masterOn || !codeModeOn
+      );
     }
     // After rendering the enable_yaml_config_editing parent, inject
     // its 3 per-key sub-rows (automation/script/scene). Dimmed when
@@ -2179,6 +2202,11 @@ function renderFeatureFlags(flags) {
         cssClass: 'yaml-packages-sub',
         lockedByGate: !masterOn || !parentOn,
       });
+      // Extra write keys (#1887) – same nesting depth as the per-key
+      // toggles above, but a text value from the advanced cache.
+      renderAdvancedSubRows(
+        targetBody, 'beta_yamlkeys', 'yaml-packages-sub', !masterOn || !parentOn
+      );
     }
     // After the enable_mandatory_bps parent row, inject its strict-mode
     // sub-row. This whole group is non-beta, so the only gate is the
@@ -2210,7 +2238,7 @@ function renderFeatureFlags(flags) {
 // master beta AND parent; mandatory-bps: parent only) and pass the CSS
 // class that carries the group's indent/guide-bar depth. The number/text
 // code-mode sub-numerics are NOT rendered here — they save through
-// commitAdvancedEdit and live in renderCodeModeSubRows.
+// commitAdvancedEdit and live in renderAdvancedSubRows.
 function renderSubFlagRows(flags, parentEl, subFieldNames, { cssClass, lockedByGate }) {
   subFieldNames.forEach(fieldName => {
     const f = flags[fieldName];
@@ -2276,8 +2304,13 @@ function renderSubFlagRows(flags, parentEl, subFieldNames, { cssClass, lockedByG
   });
 }
 
-function renderCodeModeSubRows(parentEl, masterOn, codeModeOn) {
-  const cmRows = (_advancedFields || []).filter(x => x.section === 'beta_codemode');
+// Shared renderer for non-bool sub-rows that live in ADVANCED_SETTINGS_FIELDS
+// but render nested under a feature toggle (code-mode numerics under
+// enable_code_mode, extra YAML write keys under enable_yaml_config_editing).
+// They save through commitAdvancedEdit rather than saveFeatureFlag, which is
+// why renderSubFlagRows (checkbox-only) cannot serve them.
+function renderAdvancedSubRows(parentEl, section, cssClass, lockedByGate) {
+  const cmRows = (_advancedFields || []).filter(x => x.section === section);
   cmRows.forEach(f => {
     const meta = localizeMeta(
       'advanced',
@@ -2285,9 +2318,7 @@ function renderCodeModeSubRows(parentEl, masterOn, codeModeOn) {
       ADVANCED_FIELD_META[f.field] || { label: f.field, help: '' }
     );
     const row = document.createElement('div');
-    const lockedByGate = !masterOn || !codeModeOn;
-    const dimmed = lockedByGate;
-    row.className = 'feature-row codemode-sub' + (dimmed ? ' dimmed' : '');
+    row.className = 'feature-row ' + cssClass + (lockedByGate ? ' dimmed' : '');
 
     const info = document.createElement('div');
     info.className = 'feature-info';
@@ -2494,22 +2525,35 @@ function renderPolicyCards(policy) {
     return;
   }
   emptyEl.style.display = 'none';
-  // Group rules by tool_name. The Tools-tab toggle creates exactly one
-  // rule per tool; defensively handle the case where a hand-edited file
-  // has multiple entries: each becomes its own card so the user can
-  // see/edit them all.
+  // Each condition is its own rule on disk (OR: the tool gates if ANY rule
+  // matches). Collapse all of a tool's rules into ONE card whose "conditions"
+  // are the tool's rules — one condition per rule, each being that rule's
+  // whole predicate list; the card re-expands to one rule per condition on
+  // save (savePolicyRule). Order preserved by first sight.
   const byTool = {};
-  rules.forEach((r, idx) => {
-    const key = r.tool_name + '\0' + idx;
-    byTool[key] = {tool_name: r.tool_name, rule: r, originalIndex: idx};
+  const order = [];
+  rules.forEach(r => {
+    if (!byTool[r.tool_name]) { byTool[r.tool_name] = []; order.push(r.tool_name); }
+    byTool[r.tool_name].push(r);
   });
-  Object.keys(byTool).forEach(key => {
-    const entry = byTool[key];
-    // Deep clone the rule into the edit buffer so card-local changes
-    // don't mutate the server response until "Save changes".
-    const editKey = entry.tool_name;
-    policyRuleEdits[editKey] = JSON.parse(JSON.stringify(entry.rule));
-    listEl.appendChild(renderPolicyCard(entry.tool_name, policyRuleEdits[editKey]));
+  order.forEach(toolName => {
+    const toolRules = byTool[toolName];
+    // One card per tool; each RULE is one condition row. A rule's predicates
+    // stay together as a unit (a condition with AND-ed sub-parameters), so a
+    // card edit round-trips multi-predicate rules intact instead of
+    // flattening them.
+    const conditions = toolRules.map(r => r.when || []);
+    // The card has ONE remember-minutes input; DISPLAY the max across the
+    // tool's rules, but keep each condition's own value (remembers[i]) so a
+    // save that never touched the input can't silently rewrite heterogeneous
+    // per-condition lifetimes (rememberDirty gates which one is persisted).
+    const remembers = toolRules.map(r => r.remember_minutes || 0);
+    const remember = Math.max(0, ...remembers);
+    policyRuleEdits[toolName] = JSON.parse(JSON.stringify(
+      {tool_name: toolName, conditions: conditions, remembers: remembers,
+       remember_minutes: remember, rememberDirty: false}
+    ));
+    listEl.appendChild(renderPolicyCard(toolName, policyRuleEdits[toolName]));
   });
 }
 
@@ -2524,15 +2568,24 @@ function renderPolicyCard(toolName, rule) {
   const card = document.createElement('div');
   card.className = 'policy-rule-card';
   card.dataset.tool = toolName;
-  rule.when = rule.when || [];
-  const predicateRows = rule.when.map((p, i) => (
+  rule.conditions = rule.conditions || [];
+  // A condition = one rule's predicate list. Multiple predicates in one
+  // condition AND together (sub-parameters); separate conditions OR. Only
+  // single-predicate conditions get the edit button — the form edits one
+  // predicate; multi-predicate conditions (hand-authored) can be removed.
+  const displayCondition = (preds) => (preds.length
+    ? preds.map(displayPredicate).join(t('policies.card.and_join', {}, ' AND '))
+    : t('policies.card.always_row', {}, '(always — gates every call to this tool)'));
+  const predicateRows = rule.conditions.map((preds, i) => (
     '<li class="policy-predicate-row" data-idx="' + i + '">' +
-      '<code>' + escapeHtml(displayPredicate(p)) + '</code>' +
-      '<button class="policy-edit-predicate" data-idx="' + i + '">' + escapeHtml(t('actions.edit', {}, 'edit')) + '</button>' +
+      '<code>' + escapeHtml(displayCondition(preds)) + '</code>' +
+      (preds.length === 1
+        ? '<button class="policy-edit-predicate" data-idx="' + i + '">' + escapeHtml(t('actions.edit', {}, 'edit')) + '</button>'
+        : '') +
       '<button class="policy-remove-predicate" data-idx="' + i + '" aria-label="' + escapeHtml(t('actions.remove', {}, 'Remove')) + '">×</button>' +
     '</li>'
   )).join('');
-  const emptyHint = rule.when.length === 0
+  const emptyHint = rule.conditions.length === 0
     ? '<li class="policy-predicate-row"><em style="color:var(--text-secondary);font-size:0.8rem">' +
       escapeHtml(t('policies.card.no_conditions', {}, '(no conditions, rule matches every call to this tool)')) + '</em></li>'
     : '';
@@ -2543,7 +2596,7 @@ function renderPolicyCard(toolName, rule) {
     '</div>' +
     '<div class="policy-rule-predicates">' +
       '<label class="features-sub" style="display:block;margin-bottom:4px">' +
-        escapeHtml(t('policies.card.conditions_intro', {}, 'Require approval when ALL of these conditions match (no conditions = always require approval):')) +
+        escapeHtml(t('policies.card.conditions_intro', {}, 'Require approval when ANY of these conditions matches (no conditions = always require approval):')) +
       '</label>' +
       '<ul class="policy-predicate-list">' + emptyHint + predicateRows + '</ul>' +
       '<button class="policy-add-predicate">' + escapeHtml(t('policies.card.add_condition', {}, '+ Add condition')) + '</button>' +
@@ -2592,7 +2645,8 @@ function renderPolicyCard(toolName, rule) {
 
   // Auto-save: every condition add/edit/remove and every remember-minutes
   // change immediately PUTs the rule to disk. No manual "Save changes"
-  // button — the only signal is the small status text below the card.
+  // button. Returns whether the save landed so callers skip re-rendering a
+  // card that no longer reflects the server.
   let autoSaveSeq = 0;
   const autoSave = async () => {
     const status = card.querySelector('.policy-save-status');
@@ -2602,10 +2656,22 @@ function renderPolicyCard(toolName, rule) {
       await savePolicyRule(toolName, rule);
       // Skip the success label if a newer save started (rapid edits)
       if (mySeq === autoSaveSeq) status.textContent = t('status.saved', {}, 'Saved.');
+      return true;
     } catch (err) {
-      if (mySeq === autoSaveSeq) {
-        status.textContent = t('errors.save_failed_detail', {message: err.message}, 'Save failed: ' + err.message);
+      // A failed save must be LOUD and must not leave the card displaying a
+      // condition the server never persisted — a phantom SECURITY rule the
+      // user would trust (the #1990 failure shape). The tiny status text is
+      // missable, so toast like every other save surface, then resync every
+      // card from the server's actual policy.
+      const message = t('errors.save_failed_detail', {message: err.message}, 'Save failed: ' + err.message);
+      if (mySeq === autoSaveSeq) status.textContent = message;
+      showToast(message, {isError: true});
+      try {
+        await policyLoadConfig();
+      } catch (_e) {
+        // Reload failed too (e.g. network down) — the toast already fired.
       }
+      return false;
     }
   };
 
@@ -2635,6 +2701,9 @@ function renderPolicyCard(toolName, rule) {
   let rmDebounce = null;
   card.querySelector('.policy-remember-minutes').addEventListener('input', (e) => {
     rule.remember_minutes = parseInt(e.target.value, 10) || 0;
+    // Only an explicit touch of this input rewrites every condition's
+    // lifetime on save; otherwise per-condition values are preserved.
+    rule.rememberDirty = true;
     if (rmDebounce) clearTimeout(rmDebounce);
     rmDebounce = setTimeout(autoSave, 500);
   });
@@ -2991,7 +3060,8 @@ function renderPolicyCard(toolName, rule) {
     formEl.style.display = '';
     await fetchToolSchema();
     if (idx >= 0) {
-      const p = rule.when[idx];
+      // Edit is only offered for single-predicate conditions.
+      const p = rule.conditions[idx][0];
       opEl.value = p.op || 'eq';
       populatePathSelect(p.path || '');
       await renderValueControl(p.value);
@@ -3011,9 +3081,11 @@ function renderPolicyCard(toolName, rule) {
   card.querySelectorAll('.policy-remove-predicate').forEach(btn => {
     btn.addEventListener('click', async () => {
       const idx = parseInt(btn.dataset.idx, 10);
-      rule.when.splice(idx, 1);
-      await autoSave();
-      rerenderCard();
+      rule.conditions.splice(idx, 1);
+      if (rule.remembers) rule.remembers.splice(idx, 1);
+      // On failure autoSave toasts + rebuilds all cards from the server, so
+      // only re-render this (now stale) card when the save actually landed.
+      if (await autoSave()) rerenderCard();
     });
   });
 
@@ -3054,12 +3126,15 @@ function renderPolicyCard(toolName, rule) {
       }
     }
     if (editingIdx >= 0) {
-      rule.when[editingIdx] = predicate;
+      rule.conditions[editingIdx] = [predicate];
     } else {
-      rule.when.push(predicate);
+      rule.conditions.push([predicate]);
+      // A new condition takes the card's current lifetime value.
+      (rule.remembers = rule.remembers || []).push(rule.remember_minutes || 0);
     }
-    await autoSave();
-    rerenderCard();
+    // On failure autoSave toasts + rebuilds all cards from the server, so
+    // only re-render this (now stale) card when the save actually landed.
+    if (await autoSave()) rerenderCard();
   });
 
   return card;
@@ -3070,23 +3145,53 @@ async function savePolicyRule(toolName, ruleObj) {
   if (!r.ok) throw new Error(t('policies.errors.load', {status: r.status}, 'Could not load policy: ' + r.status));
   const policy = await r.json();
   policy.rules = policy.rules || [];
-  const idx = policy.rules.findIndex(rule => rule.tool_name === toolName);
-  if (idx >= 0) {
-    policy.rules[idx] = ruleObj;
-  } else {
-    // Defensive: a card exists for a tool with no server-side rule
-    // (e.g. the user removed the rule from another tab between load
-    // and save). Append rather than silently drop the edit.
-    policy.rules.push(ruleObj);
-  }
+  // Expand the card's conditions into ONE rule each (they OR at evaluation —
+  // the tool gates if ANY condition matches; a condition's own predicates AND
+  // together as sub-parameters). No conditions = a single bare rule that
+  // always requires approval. Replaces all of this tool's rules.
+  const remember = ruleObj.remember_minutes || 0;
+  const conditions = ruleObj.conditions || [];
+  const remembers = ruleObj.remembers || [];
+  // Preserve each condition's own lifetime unless the user actually touched
+  // the card's remember input (rememberDirty) — an unrelated predicate edit
+  // must not silently rewrite heterogeneous per-condition remember values.
+  const rememberFor = (i) => (ruleObj.rememberDirty
+    ? remember
+    : (remembers[i] !== undefined ? remembers[i] : remember));
+  const expanded = conditions.length === 0
+    ? [{tool_name: toolName, when: [], remember_minutes: remember}]
+    : conditions.map((preds, i) => ({tool_name: toolName, when: preds, remember_minutes: rememberFor(i)}));
+  // Replace the tool's rules IN PLACE (at the position of its first rule)
+  // rather than appending at the end: rule order is behaviorally significant
+  // — find_matching_rule() takes the FIRST match's remember_minutes, so
+  // moving a tool-specific rule behind a wildcard rule would silently switch
+  // matching calls to the wildcard's approval lifetime.
+  const others = [];
+  let insertAt = -1;
+  policy.rules.forEach(rule => {
+    if (rule.tool_name === toolName) {
+      if (insertAt === -1) insertAt = others.length;
+    } else {
+      others.push(rule);
+    }
+  });
+  // A tool with no existing rule inserts before the first wildcard rule (not
+  // at the end): first-match would otherwise resolve the tool's calls to the
+  // wildcard's remember_minutes, never the new rule's.
+  if (insertAt === -1) insertAt = wildcardInsertIndex(others);
+  policy.rules = others.slice(0, insertAt).concat(expanded, others.slice(insertAt));
   await policyPut(policy, t('policies.operations.save_rule', {}, 'Save rule'));
 }
 
 async function removePolicyRule(toolName) {
-  // Mirror syncPolicyRule(toolName, false) — kept as a separate helper
-  // so the card's remove button stays self-contained, but the on-wire
-  // shape is identical.
-  await syncPolicyRule(toolName, false);
+  // The card's "Remove from policy" button removes ALL of the tool's rules
+  // (every condition), unlike the Tools-tab gate toggle which manages only
+  // the bare unconditional rule via syncPolicyRule.
+  const r = await fetch('./api/policy/config');
+  if (!r.ok) throw new Error(t('policies.errors.load', {status: r.status}, 'Could not load policy: ' + r.status));
+  const policy = await r.json();
+  policy.rules = (policy.rules || []).filter(rule => rule.tool_name !== toolName);
+  await policyPut(policy, t('policies.operations.save_rule', {}, 'Remove rule'));
 }
 
 async function saveGlobalSettings() {
@@ -3207,18 +3312,57 @@ async function policyDecide(token, action) {
     return;
   }
   if (!resp.ok) {
-    let body;
-    try { body = await resp.json(); } catch (_) { body = {error: 'HTTP ' + resp.status}; }
+    // Only a body that actually parsed can carry a server message, so an
+    // unparsable one leaves serverError empty rather than standing in with the
+    // status line: a stand-in reads as a server message to both branches that
+    // consult it — the 503 default and the generic detail — and shadows the
+    // translated line meant to cover exactly this case.
+    let body = {};
+    let serverError = '';
+    try {
+      body = (await resp.json()) || {};
+      if (typeof body.error === 'string') serverError = body.error;
+    } catch (_) { /* not JSON — no server message to show */ }
     if (resp.status === 409 && body.current_decision) {
+      // current_decision is a backend enum, not display text: interpolating it
+      // raw leaves an English word inside a translated sentence.
+      const decision = t(
+        'policies.pending.decision.' + body.current_decision,
+        {},
+        body.current_decision
+      );
       alert(t(
         'policies.pending.already_decided',
-        {decision: body.current_decision},
-        'This approval was already ' + body.current_decision + ', possibly by another tab or session.'
+        {decision},
+        'This approval was already ' + decision + ', possibly by another tab or session.'
       ));
     } else if (resp.status === 404) {
       alert(t('policies.pending.invalid_token', {}, 'This approval token is no longer valid (already consumed or expired).'));
+    } else if (resp.status === 503) {
+      // Same three causes as policyLoadPending's 503, answered the same way.
+      // The 503 body is a fixed English paragraph, so folding it into
+      // 'policies.pending.action_failed' spliced five English lines into the
+      // middle of a translated clause.
+      if (policyState.enabledKnown && !policyState.enabled) {
+        alert(t(
+          'policies.pending.disabled',
+          {},
+          'Tool Security Policies is turned off. Toggle it on (top of this tab or in Server Settings) and restart the App (add-on) to enable gating.'
+        ));
+      } else {
+        // Feature is on (or we could not determine the flag). The server's
+        // message names which of the remaining causes applied, so it stands
+        // on its own rather than inside a sentence. Without one — a 503 from
+        // an ingress or reverse proxy in front of us — the translated line is
+        // all the user gets, which is what policyLoadPending does too.
+        alert(serverError || t(
+          'policies.pending.unavailable',
+          {},
+          'Live approvals unavailable. Check the App (add-on) log for ImportError / RuntimeError details.'
+        ));
+      }
     } else {
-      const detail = body.error || resp.statusText;
+      const detail = serverError || resp.statusText || 'HTTP ' + resp.status;
       alert(t('policies.pending.action_failed', {detail}, 'Approval action failed: ' + detail));
     }
   }
@@ -3369,10 +3513,9 @@ const ADVANCED_FIELD_META = {
   max_retries:         { label: "HA request max retries",      help: "Retry budget per failed REST call. Range 0–20. Restart required." },
   verify_ssl:          { label: "Verify SSL certificates",     help: "Skip TLS verification only on trusted networks (self-signed certs, hostname mismatch). Restart required." },
   fuzzy_threshold:     { label: "Fuzzy-search threshold",      help: "Lower = looser entity match. Range 0–100." },
-  entity_search_limit: { label: "Entity search result limit",  help: "Max entities returned by ha_search_entities. Range 1–1000." },
-  automation_config_time_budget: { label: "Automation config time budget (s)", help: "Max seconds ha_search/ha_deep_search spends fetching automation configs before returning a partial result. Raise on instances with many automations. Range 1–600. Restart required." },
-  script_config_time_budget:     { label: "Script config time budget (s)",     help: "Max seconds ha_search/ha_deep_search spends fetching script configs before returning a partial result. Range 1–600. Restart required." },
-  scene_config_time_budget:      { label: "Scene config time budget (s)",      help: "Max seconds ha_search/ha_deep_search spends fetching scene configs before returning a partial result. Range 1–600. Restart required." },
+  automation_config_time_budget: { label: "Automation config time budget (s)", help: "Max seconds deep search spends fetching automation configs before returning a partial result. Raise on instances with many automations. Range 1–600. Restart required." },
+  script_config_time_budget:     { label: "Script config time budget (s)",     help: "Max seconds deep search spends fetching script configs before returning a partial result. Range 1–600. Restart required." },
+  scene_config_time_budget:      { label: "Scene config time budget (s)",      help: "Max seconds deep search spends fetching scene configs before returning a partial result. Range 1–600. Restart required." },
   individual_config_timeout:     { label: "Per-request config fetch timeout (s)", help: "Timeout for each individual automation/script/scene config fetch during deep search. On HA servers that serve config reads serially, raise this and/or lower the batch size so queued requests don't time out. Values above the HA request timeout (HA_TIMEOUT, default 30) have no extra effect — the HTTP client gives up first. Range 1–600. Restart required." },
   individual_fetch_batch_size:   { label: "Config fetch batch size",          help: "How many per-id config fetches deep search issues concurrently. Lower toward 1 on HA servers that serve config reads serially (symptom: 'timed out' partial-result warnings). Range 1–100. Restart required." },
   backup_hint:         { label: "Backup-hint level",           help: "Tunes how strongly the LLM is prompted to take a full-HA snapshot before risky writes." },
@@ -3390,6 +3533,7 @@ const ADVANCED_FIELD_META = {
   code_mode_max_recursion:   { label: "Code-mode max recursion",      help: "Recursion-depth cap per sandbox run. Restart required." },
   code_mode_max_invocations: { label: "Code-mode max invocations",    help: "API/tool-call cap per sandbox run. Restart required." },
   code_mode_saved_tools_path:{ label: "Saved-tools path",              help: "JSON file where ha_manage_custom_tool persists saved tools across restarts. Restart required." },
+  extra_yaml_write_keys:     { label: "Extra YAML write keys",        help: "Comma-separated top-level keys ha_config_set_yaml may write in addition to the built-in ones, for YAML-first integrations on this install (e.g. alert2). Keys that redefine Home Assistant's own trust boundary can never be added and are ignored. Requires custom component 1.2.4 or newer." },
   sidecar_pin_port:    { label: "Settings UI sidecar port",    help: "0 = a new free port each restart (default); set 1024–65535 to pin a fixed port so the settings URL stays stable across restarts. Falls back to a free port if the pinned one is busy. Restart required." },
   enable_dev_mode:     { label: "Developer mode",               help: "⚠ DANGER: registers hidden developer tools (ha_dev_manage_server, ha_dev_manage_settings) that let AI agents change server settings and replace the running server version (e.g. install a PR build). For development and testing only. Restart required." },
 };
@@ -3405,7 +3549,7 @@ const ADVANCED_RESTART_REQUIRED = new Set([
   "log_level", "debug",
   "mcp_server_name", "mcp_server_version", "environment",
   // fuzzy_threshold is read once by SmartSearchTools at the
-  // lazy-init singleton (tools/smart_search.py) — changes
+  // lazy-init singleton (tools/smart_search/) — changes
   // need restart to rebuild the searcher.
   "fuzzy_threshold",
   // The three smart-search time budgets are read once at import by
@@ -3493,10 +3637,10 @@ async function loadAdvancedSettings() {
   renderAdvancedSection('advSidecar', bySection.sidecar || []);
   renderAdvancedSection('advDeveloper', bySection.developer || []);
   applySidecarAvailability(data.is_stdio !== false);
-  // Re-render feature flags so the code_mode sub-numerics show up
-  // beneath enable_code_mode (race: loadFeatureFlags may have run
-  // before _advancedFields was populated). Cheap no-op if feature
-  // flags haven't loaded yet.
+  // Re-render feature flags so the advanced-backed sub-rows (code_mode
+  // numerics, extra YAML write keys) show up beneath their parent toggles
+  // (race: loadFeatureFlags may have run before _advancedFields was
+  // populated). Cheap no-op if feature flags haven't loaded yet.
   if (Object.keys(_lastFeatureFlags).length > 0) {
     renderFeatureFlags(_lastFeatureFlags);
   }
@@ -3512,7 +3656,7 @@ async function loadAdvancedSettings() {
 
 function applySidecarAvailability(isStdio) {
   // The sidecar-port setting only applies when this settings page is served
-  // by the stdio settings-UI sidecar. In HTTP/SSE/OAuth/addon deployments
+  // by the stdio settings-UI sidecar. In HTTP/OAuth/addon deployments
   // there is no sidecar, so dim + disable the section and explain why, rather
   // than letting a user save a value that does nothing.
   // Remove any note from a prior load first, so the <h2> title is once again
@@ -4105,6 +4249,7 @@ async function visibilityLoadConfig() {
   visibilityVersion = c.version ?? 1;
   const cats = c.exclude_categories || [];
   document.getElementById('visibility-enabled').checked = !!c.enabled;
+  document.getElementById('visibility-enforce').checked = !!c.enforce;
   document.getElementById('visibility-cat-diagnostic').checked = cats.includes('diagnostic');
   document.getElementById('visibility-cat-config').checked = cats.includes('config');
   document.getElementById('visibility-exclude-hidden').checked = !!c.exclude_hidden;
@@ -4125,6 +4270,7 @@ async function visibilitySaveConfig() {
   const config = {
     version: visibilityVersion,
     enabled: document.getElementById('visibility-enabled').checked,
+    enforce: document.getElementById('visibility-enforce').checked,
     exclude_categories: cats,
     exclude_hidden: document.getElementById('visibility-exclude-hidden').checked,
     deny_entity_ids: _visibilityParseList(document.getElementById('visibility-deny').value, '\n'),

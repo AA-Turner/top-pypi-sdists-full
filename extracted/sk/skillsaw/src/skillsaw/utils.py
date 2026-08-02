@@ -1,0 +1,837 @@
+"""Shared utilities for builtin rules."""
+
+import json
+import re
+import threading
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Tuple
+
+import yaml
+from ruamel.yaml import YAML as _RuamelYAML
+from ruamel.yaml import YAMLError as _RuamelYAMLError
+from ruamel.yaml.comments import CommentedMap, CommentedSeq
+
+
+class FileCache:
+    """Thread-safe cache that supports per-file invalidation.
+
+    Internally uses a two-level dictionary::
+
+        resolved_path -> { sub_key -> value }
+
+    ``invalidate(file_path)`` is O(1) -- it pops the entire inner dict
+    for that path.  A global ``maxsize`` caps the total number of entries
+    across all registered functions to prevent unbounded memory growth.
+    """
+
+    def __init__(self, maxsize: int = 2048):
+        self._lock = threading.Lock()
+        self._stores: List[Dict[Path, Dict[tuple, Any]]] = []
+        self._maxsize = maxsize
+        self._total_entries = 0
+
+    def cached(self, func: Callable) -> Callable:
+        """Decorator -- equivalent to ``@lru_cache`` but with per-key eviction."""
+        store: Dict[Path, Dict[tuple, Any]] = {}
+        self._stores.append(store)
+
+        def wrapper(*args, **kwargs):
+            # The first positional arg is always the file path.
+            file_path = args[0] if args else None
+            resolved = file_path.resolve() if isinstance(file_path, Path) else None
+            sub_key = (args[1:], tuple(sorted(kwargs.items())))
+            with self._lock:
+                bucket = store.get(resolved)
+                if bucket is not None and sub_key in bucket:
+                    return bucket[sub_key]
+            # Compute outside the lock to avoid holding it during I/O.
+            result = func(*args, **kwargs)
+            with self._lock:
+                if self._total_entries >= self._maxsize:
+                    self._evict_oldest()
+                bucket = store.setdefault(resolved, {})
+                if sub_key not in bucket:
+                    self._total_entries += 1
+                bucket[sub_key] = result
+            return result
+
+        wrapper._store = store  # type: ignore[attr-defined]
+
+        def _clear():
+            with self._lock:
+                n = sum(len(b) for b in store.values())
+                store.clear()
+                self._total_entries -= n
+
+        wrapper.cache_clear = _clear  # type: ignore[attr-defined]
+        return wrapper
+
+    def _evict_oldest(self):
+        """Drop roughly half the entries across all stores (called under lock)."""
+        target = self._maxsize // 2
+        evicted = 0
+        for store in self._stores:
+            paths_to_remove = []
+            for path, bucket in store.items():
+                evicted += len(bucket)
+                paths_to_remove.append(path)
+                if evicted >= target:
+                    break
+            for p in paths_to_remove:
+                del store[p]
+            if evicted >= target:
+                break
+        self._total_entries -= evicted
+
+    def invalidate(self, file_path: Optional[Path] = None):
+        """Drop cache entries.
+
+        If *file_path* is given, only entries keyed by that resolved path
+        are removed -- O(number of registered functions), safe to call from
+        a worker thread without disturbing other threads' cached results.
+
+        If *file_path* is ``None`` every entry in every registered store is
+        cleared (equivalent to the old ``invalidate_read_caches()``).
+        """
+        with self._lock:
+            if file_path is None:
+                for store in self._stores:
+                    store.clear()
+                self._total_entries = 0
+            else:
+                resolved = file_path.resolve()
+                for store in self._stores:
+                    bucket = store.pop(resolved, None)
+                    if bucket is not None:
+                        self._total_entries -= len(bucket)
+
+
+# Singleton cache used by all utility functions.
+_file_cache = FileCache()
+
+_extra_caches: list = []
+
+
+def register_cache(func):
+    """Register an lru_cache-decorated function for bulk invalidation."""
+    _extra_caches.append(func)
+    return func
+
+
+def invalidate_read_caches(file_path: Optional[Path] = None):
+    """Clear file-reading caches.
+
+    Args:
+        file_path: When given, only entries for this specific file are
+            evicted from the main ``FileCache``.  When ``None``, *all*
+            cached entries are dropped (legacy full-clear behaviour).
+
+    Note:
+        Functions registered via ``register_cache`` (legacy ``lru_cache``
+        decorators) are always fully cleared regardless of *file_path*,
+        as ``lru_cache`` does not support per-key eviction.
+    """
+    _file_cache.invalidate(file_path)
+    # lru_cache functions registered via register_cache do not support
+    # per-key eviction, so we must clear them entirely in both cases.
+    for cache in _extra_caches:
+        cache.cache_clear()
+
+
+@_file_cache.cached
+def read_text(file_path: Path) -> Optional[str]:
+    """Cached file read. Returns None on I/O or encoding errors.
+
+    Uses ``utf-8-sig`` so a leading UTF-8 BOM is stripped from the returned
+    text — otherwise the stray ``\\ufeff`` prevents ``^---`` frontmatter
+    detection and every ``startswith("---")`` check.  Newlines are left in
+    universal-newline form (CRLF collapses to ``\\n`` in the returned text);
+    the original line-ending style is restored at write time by
+    :func:`write_text_preserving`.
+    """
+    try:
+        return file_path.read_text(encoding="utf-8-sig")
+    except (IOError, UnicodeDecodeError):
+        return None
+
+
+def write_text_preserving(file_path: Path, content: str) -> None:
+    """Write *content*, restoring the file's original BOM and line endings.
+
+    ``read_text`` normalizes a file to BOM-free, ``\\n``-delimited text for
+    analysis, so ``content`` (spliced from that normalized text) is always
+    LF and BOM-free.  A naive ``write_text`` would therefore silently rewrite
+    a CRLF file to LF and drop a UTF-8 BOM on every autofix.  This reads the
+    on-disk bytes *before* overwriting, detects the original BOM and dominant
+    line ending, and re-applies them so an autofix only changes the span it
+    meant to.
+    """
+    try:
+        original = file_path.read_bytes()
+    except OSError:
+        original = b""
+
+    has_bom = original.startswith(b"\xef\xbb\xbf")
+    sample = original[3:] if has_bom else original
+    # Use the DOMINANT line ending: a single stray CRLF in an otherwise-LF
+    # file must not flip every line to CRLF (and vice versa).  Ties and
+    # lone-CR (classic Mac) files normalize to LF.
+    crlf_count = sample.count(b"\r\n")
+    bare_lf_count = sample.count(b"\n") - crlf_count
+    uses_crlf = crlf_count > bare_lf_count
+
+    # Normalize whatever the caller produced back to BOM-free LF first, so
+    # re-applying the original shape is idempotent even when a fix path read
+    # the file with plain utf-8 (leaving a BOM) or newline="" (leaving CRLF).
+    normalized = content.lstrip("\ufeff").replace("\r\n", "\n").replace("\r", "\n")
+    if uses_crlf:
+        normalized = normalized.replace("\n", "\r\n")
+
+    data = normalized.encode("utf-8")
+    if has_bom:
+        data = b"\xef\xbb\xbf" + data
+    file_path.write_bytes(data)
+
+
+@_file_cache.cached
+def read_json(file_path: Path) -> Tuple[Optional[object], Optional[str]]:
+    """Cached JSON file read. Returns (data, error)."""
+    content = read_text(file_path)
+    if content is None:
+        return None, f"Failed to read {file_path.name}"
+    try:
+        return json.loads(content), None
+    except json.JSONDecodeError as e:
+        return None, str(e)
+
+
+@_file_cache.cached
+def read_yaml(file_path: Path) -> Tuple[Optional[object], Optional[str]]:
+    """Cached YAML file read. Returns (data, error)."""
+    content = read_text(file_path)
+    if content is None:
+        return None, f"Failed to read {file_path.name}"
+    try:
+        return yaml.safe_load(content), None
+    except yaml.YAMLError as e:
+        return None, str(e)
+
+
+@_file_cache.cached
+def read_yaml_commented(
+    file_path: Path,
+) -> Tuple[Any, Optional[str], Optional[int]]:
+    """Cached YAML read preserving line-number info via ruamel.yaml.
+
+    Returns ``(data, error_msg, error_line)`` where *data* is a
+    ``CommentedMap`` / ``CommentedSeq`` supporting ``.lc.key()`` and
+    ``.lc.item()`` for line-number lookups.
+    """
+    content = read_text(file_path)
+    if content is None:
+        return None, f"Failed to read {file_path.name}", None
+    ry = _RuamelYAML()
+    ry.preserve_quotes = True
+    try:
+        data = ry.load(content)
+        return data, None, None
+    except _RuamelYAMLError as e:
+        line = None
+        if hasattr(e, "problem_mark") and e.problem_mark is not None:
+            line = e.problem_mark.line + 1
+        return None, str(e), line
+
+
+def commented_key_line(node: Any, key: str) -> Optional[int]:
+    """Get the 1-based line number of *key* in a ruamel ``CommentedMap``."""
+    if isinstance(node, CommentedMap) and key in node:
+        return node.lc.key(key)[0] + 1
+    return None
+
+
+def commented_item_line(node: Any, index: int) -> Optional[int]:
+    """Get the 1-based line number of item *index* in a ruamel ``CommentedSeq``."""
+    if isinstance(node, CommentedSeq) and index < len(node):
+        return node.lc.item(index)[0] + 1
+    return None
+
+
+def _fast_top_level_key_nodes(
+    text: str,
+) -> Optional[Dict[str, Tuple[yaml.Node, yaml.Node]]]:
+    """Map top-level mapping keys to their ``(key_node, value_node)`` pair
+    using PyYAML's composer (libyaml-backed when available).
+
+    The nodes carry ``start_mark`` / ``end_mark`` positions, so callers can
+    locate the exact character span a key and its value occupy.  Returns
+    ``None`` when the document needs the ruamel fallback to preserve exact
+    behavior: parse errors, non-string keys, or duplicate keys (which
+    ruamel rejects).
+    """
+    loader = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+    try:
+        node = yaml.compose(text, Loader=loader)
+    except yaml.YAMLError:
+        return None
+    if node is None or not isinstance(node, yaml.MappingNode):
+        return {}
+    result: Dict[str, Tuple[yaml.Node, yaml.Node]] = {}
+    for key_node, value_node in node.value:
+        if not isinstance(key_node, yaml.ScalarNode) or key_node.tag != "tag:yaml.org,2002:str":
+            return None
+        if key_node.value in result:
+            return None
+        result[key_node.value] = (key_node, value_node)
+    return result
+
+
+def _fast_top_level_key_lines(text: str) -> Optional[Dict[str, int]]:
+    """Map top-level mapping keys to 0-based lines using PyYAML's composer.
+
+    Much faster than a ruamel round-trip parse (libyaml-backed when
+    available).  Returns ``None`` when the document needs the ruamel
+    fallback to preserve exact behavior: parse errors, non-string keys,
+    or duplicate keys (which ruamel rejects).
+    """
+    nodes = _fast_top_level_key_nodes(text)
+    if nodes is None:
+        return None
+    return {key: key_node.start_mark.line for key, (key_node, _value) in nodes.items()}
+
+
+@_file_cache.cached
+def frontmatter_line_map_top_level(file_path: Path) -> Dict[str, int]:
+    """Map every top-level frontmatter key to its 1-based file line.
+
+    Parses the frontmatter once per file (cached), so per-key lookups via
+    :func:`frontmatter_key_line` are dictionary hits.
+    """
+    content = read_text(file_path)
+    if content is None:
+        return {}
+    fm_text, offset = _extract_frontmatter_text(content)
+    if fm_text is None:
+        return {}
+    fast = _fast_top_level_key_lines(fm_text)
+    if fast is not None:
+        return {key: line0 + 1 + offset for key, line0 in fast.items()}
+    # Exotic frontmatter (non-string keys, duplicates, parse errors):
+    # ruamel round-trip parse, matching the pre-fast-path behavior.
+    data = _ruamel_load(fm_text)
+    if not isinstance(data, CommentedMap):
+        return {}
+    return {key: data.lc.key(key)[0] + 1 + offset for key in data}
+
+
+def frontmatter_key_line(file_path: Path, key: str) -> Optional[int]:
+    """Find the 1-based line number of a top-level key in YAML frontmatter."""
+    return frontmatter_line_map_top_level(file_path).get(key)
+
+
+# The single source of truth for frontmatter block matching.  Tolerates CRLF
+# line endings (previously only the skills fix path did).
+_FRONTMATTER_RE = re.compile(r"^---[ \t]*\r?\n(.*?\r?\n)---[ \t]*\r?(?:\n|\Z)", re.DOTALL)
+FRONTMATTER_RE = _FRONTMATTER_RE
+
+# Variant that also matches an empty frontmatter block (``---\n---``); the
+# group is always present but may be the empty string.
+FRONTMATTER_RE_EMPTY_OK = re.compile(
+    r"^---[ \t]*\r?\n((?:.*?\r?\n)?)---[ \t]*\r?(?:\n|$)", re.DOTALL
+)
+
+
+def frontmatter_text(content: str) -> Optional[str]:
+    """Return the raw YAML text between the ``---`` delimiters, or ``None``."""
+    m = _FRONTMATTER_RE.match(content)
+    return m.group(1) if m else None
+
+
+def _frontmatter_newline(matched: str) -> str:
+    return "\r\n" if "\r\n" in matched else "\n"
+
+
+def insert_frontmatter_fields(content: str, additions: List[str]) -> Optional[str]:
+    """Insert field lines just before the closing ``---`` of the frontmatter.
+
+    Returns the new content, or ``None`` when *content* has no parseable
+    frontmatter block.
+    """
+    m = _FRONTMATTER_RE.match(content)
+    if not m:
+        return None
+    newline = _frontmatter_newline(m.group(0))
+    insert = "".join(line + newline for line in additions)
+    close_offset = m.end(1)
+    return content[:close_offset] + insert + content[close_offset:]
+
+
+def prepend_frontmatter_fields(content: str, additions: List[str]) -> Optional[str]:
+    """Insert field lines right after the opening ``---`` of the frontmatter."""
+    m = _FRONTMATTER_RE.match(content)
+    if not m:
+        return None
+    newline = _frontmatter_newline(m.group(0))
+    insert = "".join(line + newline for line in additions)
+    return content[: m.start(1)] + insert + content[m.start(1) :]
+
+
+def replace_frontmatter_field(content: str, key: str, replacement_line: str) -> Optional[str]:
+    """Replace an existing top-level ``key:`` field inside the frontmatter.
+
+    The true top-level key is located with the same libyaml-backed composer
+    that powers :func:`frontmatter_key_line` — a bare ``^key:`` regex also
+    matches column-0 *continuation* lines of another structure (e.g. the
+    second line of ``metadata: {tags: [x],\\nname: legacy-tag}``) and
+    replacing those corrupts previously-valid YAML (issue: agentskill-valid
+    SAFE-fix corruption).
+
+    Returns:
+        - the new content, with the key line **and its full value span**
+          replaced by *replacement_line* (a value continuing on following
+          lines — flow collection, block scalar, multi-line plain scalar —
+          is collapsed so no orphaned continuation lines remain);
+        - ``None`` when *content* has no parseable frontmatter block or no
+          genuine top-level ``key`` to replace (callers may then safely
+          insert the field instead);
+        - *content* unchanged when the key exists but the span cannot be
+          verified (exotic frontmatter: duplicate keys, non-string keys,
+          flow-style or quoted key lines) — a no-op beats corruption.
+    """
+    m = _FRONTMATTER_RE.match(content)
+    if not m:
+        return None
+    fm_text = m.group(1)
+    key_re = re.compile(rf"^{re.escape(key)}[ \t]*:[^\r\n]*", re.MULTILINE)
+    nodes = _fast_top_level_key_nodes(fm_text)
+    if nodes is None:
+        # Exotic frontmatter (duplicate keys, non-string keys, parse error):
+        # fall back to ruamel for key membership only.
+        data = _ruamel_load(fm_text)
+        if isinstance(data, CommentedMap):
+            if key not in data:
+                return None
+        elif key_re.search(fm_text) is None:
+            # Undeterminable structure and not even a key-shaped line: there
+            # is nothing to replace.
+            return None
+        # Key present (or structure undeterminable): a blind line splice
+        # could hit a continuation line, so leave the content untouched.
+        return content
+    if key not in nodes:
+        # Any regex hit would be a continuation line of another structure,
+        # not a top-level key.
+        return None
+    key_node, value_node = nodes[key]
+    if key_node.start_mark.column != 0:
+        # Flow-style top-level mapping ({key: ...}): no key *line* to splice.
+        return content
+
+    # 0-based offsets of each line start within fm_text (fm_text always ends
+    # with a newline, so line N's start exists for every mark line N).
+    line_starts = [0]
+    idx = fm_text.find("\n")
+    while idx != -1:
+        line_starts.append(idx + 1)
+        idx = fm_text.find("\n", idx + 1)
+
+    key_line = key_node.start_mark.line
+    if key_line >= len(line_starts):
+        return content
+    line_start = line_starts[key_line]
+    km = key_re.match(fm_text, line_start)
+    if km is None:
+        # Quoted or otherwise decorated key line the callers' replacement
+        # format does not cover.
+        return content
+
+    if value_node.end_mark.line <= key_line:
+        # Single-line inline value (or empty/null value): replace just the
+        # key line, preserving the original line ending.
+        start = m.start(1) + km.start()
+        end = m.start(1) + km.end()
+        return content[:start] + replacement_line + content[end:]
+
+    # Multi-line value: replace the whole span from the key line through the
+    # value's end mark so no orphaned continuation lines remain.
+    end_line = value_node.end_mark.line
+    end_col = value_node.end_mark.column
+    if end_line >= len(line_starts):
+        return content
+    end_off = line_starts[end_line] + end_col
+    if end_off > len(fm_text):
+        return content
+    replacement = replacement_line
+    if end_col == 0:
+        # The value consumed its final line break (block scalars end at the
+        # start of the following line); restore the newline.
+        replacement += _frontmatter_newline(m.group(0))
+    start = m.start(1) + line_start
+    end = m.start(1) + end_off
+    return content[:start] + replacement + content[end:]
+
+
+def parse_frontmatter(content: str) -> Tuple[Optional[Dict[str, Any]], str, Optional[int]]:
+    """Parse YAML frontmatter from markdown content.
+
+    Returns (frontmatter_dict, body_after_frontmatter, error_line).
+    ``error_line`` is set (1-indexed, relative to file) only on YAML parse errors.
+    If no valid frontmatter is found, returns (None, original_content, error_line).
+    """
+    m = _FRONTMATTER_RE.match(content)
+    if not m:
+        return None, content, None
+    try:
+        data = yaml.safe_load(m.group(1))
+    except yaml.YAMLError as e:
+        error_line = None
+        if hasattr(e, "problem_mark") and e.problem_mark is not None:
+            error_line = e.problem_mark.line + 2  # +1 for 0-indexed, +1 for opening ---
+        return None, content, error_line
+    if not isinstance(data, dict):
+        return None, content, None
+    body = content[m.end() :]
+    return data, body, None
+
+
+def extract_section(content: str, heading: str, level: int = 2) -> str:
+    """Extract content under a markdown heading, up to the next heading of same or higher level."""
+    prefix = "#" * level
+    # ``\r?`` must precede ``$``: in MULTILINE mode ``$`` matches before ``\n``,
+    # so on a CRLF line the ``\r`` sits before that position and the heading
+    # would never match if ``\r?`` came after ``$``.
+    pattern = re.compile(
+        rf"^{prefix}[ \t]+{re.escape(heading)}[ \t]*\r?$\n?(.*?)(?=^#{{{1},{level}}}[ \t]|\Z)",
+        re.MULTILINE | re.DOTALL,
+    )
+    m = pattern.search(content)
+    return m.group(1).strip() if m else ""
+
+
+@_file_cache.cached
+def heading_line(file_path: Path, heading: str, level: int = 2) -> Optional[int]:
+    """Find the line number of a markdown heading."""
+    content = read_text(file_path)
+    if content is None:
+        return None
+    prefix = "#" * level
+    pattern = re.compile(rf"^{prefix}\s+{re.escape(heading)}\s*$")
+    for i, line in enumerate(content.splitlines(), 1):
+        if pattern.match(line):
+            return i
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Centralized YAML line-number utilities (ruamel.yaml round-trip)
+# ---------------------------------------------------------------------------
+
+
+def _extract_frontmatter_text(content: str) -> Tuple[Optional[str], int]:
+    """Extract raw frontmatter YAML text and its line offset in the file.
+
+    Returns ``(yaml_text, offset)`` where *offset* is the number of lines
+    before the YAML content (i.e. the ``---`` line itself, so typically 1).
+    Returns ``(None, 0)`` when no frontmatter is found.
+    """
+    m = _FRONTMATTER_RE.match(content)
+    if not m:
+        return None, 0
+    # The opening --- is on line 1, so the YAML content starts at line 2.
+    return m.group(1), 1
+
+
+def _ruamel_load(text: str) -> Any:
+    """Parse YAML text with ruamel.yaml round-trip loader.
+
+    Returns the parsed data (CommentedMap/CommentedSeq) preserving line
+    numbers, or ``None`` on parse failure.
+    """
+    ry = _RuamelYAML()
+    ry.preserve_quotes = True
+    try:
+        return ry.load(text)
+    except _RuamelYAMLError:
+        return None
+
+
+def yaml_key_line(
+    text: str,
+    key: str,
+    *,
+    top_level: bool = False,
+    line_offset: int = 0,
+) -> Optional[int]:
+    """Find the 1-based line number of the first occurrence of *key*.
+
+    Args:
+        text: Raw YAML text to parse.
+        key: Key name to search for.
+        top_level: If ``True``, only search top-level keys.
+        line_offset: Added to the 0-based ruamel line to produce a
+            1-based file line (e.g. 1 for frontmatter after ``---``).
+
+    Returns:
+        The 1-based line number, or ``None`` if *key* is not found.
+    """
+    data = _ruamel_load(text)
+    if data is None:
+        return None
+
+    if top_level:
+        if isinstance(data, CommentedMap) and key in data:
+            return data.lc.key(key)[0] + 1 + line_offset
+        return None
+
+    # Depth-first search for first occurrence
+    result = _find_key_dfs(data, key)
+    if result is not None:
+        return result + 1 + line_offset
+    return None
+
+
+def yaml_key_lines(text: str, key: str, *, line_offset: int = 0) -> List[int]:
+    """Find 1-based line numbers of ALL occurrences of *key* in the YAML.
+
+    Performs a depth-first traversal, returning every mapping key that
+    matches *key* in document order.
+    """
+    data = _ruamel_load(text)
+    if data is None:
+        return []
+    results: List[int] = []
+    _collect_key_lines(data, key, results)
+    return [line0 + 1 + line_offset for line0 in results]
+
+
+def yaml_line_map(text: str, *, line_offset: int = 0) -> Dict[str, int]:
+    """Build a flat map of key names to 1-based line numbers.
+
+    Traverses the full YAML tree.  When the same key name appears at
+    multiple levels, the *last* occurrence wins (matching the old regex
+    behaviour which also returned the last match for a flat scan).
+    """
+    data = _ruamel_load(text)
+    if data is None:
+        return {}
+    result: Dict[str, int] = {}
+    _build_line_map(data, result, line_offset)
+    return result
+
+
+def yaml_node_line(
+    text: str,
+    path: str,
+    *,
+    line_offset: int = 0,
+) -> Optional[int]:
+    """Find the 1-based line number for a dotted-path key.
+
+    The path may include list indices, e.g. ``reviews.path_instructions[0].instructions``.
+
+    Args:
+        text: Raw YAML text.
+        path: Dotted key path, e.g. ``"metadata.openclaw.os"``.
+        line_offset: Added to produce a 1-based file line.
+
+    Returns:
+        1-based line number, or ``None`` if the path does not exist.
+    """
+    data = _ruamel_load(text)
+    if data is None:
+        return None
+    return _resolve_path_line(data, path, line_offset)
+
+
+def yaml_path_line_lookup(
+    text: str,
+    *,
+    line_offset: int = 0,
+) -> Callable[[str], Optional[int]]:
+    """Parse *text* once and return a dotted-path -> line-number lookup.
+
+    Equivalent to calling :func:`yaml_node_line` for each path, but the
+    YAML is parsed a single time (ruamel round-trip parsing is expensive,
+    so per-path parses must be avoided in rule loops).
+
+    The returned callable accepts paths like
+    ``metadata.openclaw.install[0].kind`` and returns the 1-based line
+    number, or ``None`` when the path does not exist or its line cannot
+    be determined (e.g. keys introduced via YAML merge keys).
+    """
+    data = _ruamel_load(text)
+
+    def lookup(path: str) -> Optional[int]:
+        if data is None:
+            return None
+        return _resolve_path_line(data, path, line_offset)
+
+    return lookup
+
+
+def yaml_key_line_after(
+    text: str,
+    key: str,
+    after_line: int,
+    *,
+    line_offset: int = 0,
+) -> Optional[int]:
+    """Find the first occurrence of *key* whose line number is > *after_line*.
+
+    Both *after_line* and the returned value are 1-based file line numbers.
+    """
+    all_lines = yaml_key_lines(text, key, line_offset=line_offset)
+    for line in all_lines:
+        if line > after_line:
+            return line
+    return None
+
+
+def yaml_nth_key_line(
+    text: str,
+    key: str,
+    n: int,
+    *,
+    line_offset: int = 0,
+) -> Optional[int]:
+    """Find the 1-based line of the *n*-th (0-based) occurrence of *key*."""
+    all_lines = yaml_key_lines(text, key, line_offset=line_offset)
+    if n < len(all_lines):
+        return all_lines[n]
+    return None
+
+
+def yaml_nth_list_item_key_line(
+    text: str,
+    key: str,
+    n: int,
+    *,
+    after_line: int = 0,
+    line_offset: int = 0,
+) -> Optional[int]:
+    """Find the *n*-th (0-based) list-item key after *after_line*.
+
+    In YAML, list items look like ``- key: value``.  This function finds
+    keys that are the *first* key of a mapping inside a sequence.
+    """
+    data = _ruamel_load(text)
+    if data is None:
+        return None
+    results: List[int] = []
+    _collect_list_item_key_lines(data, key, results)
+    # Filter to those after after_line and convert to 1-based
+    filtered = [
+        line0 + 1 + line_offset for line0 in results if line0 + 1 + line_offset > after_line
+    ]
+    if n < len(filtered):
+        return filtered[n]
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Internal tree-walking helpers
+# ---------------------------------------------------------------------------
+
+
+def _find_key_dfs(node: Any, key: str) -> Optional[int]:
+    """Return the 0-based line of the first occurrence of *key* (DFS)."""
+    if isinstance(node, CommentedMap):
+        if key in node:
+            return node.lc.key(key)[0]
+        for v in node.values():
+            result = _find_key_dfs(v, key)
+            if result is not None:
+                return result
+    elif isinstance(node, (CommentedSeq, list)):
+        for item in node:
+            result = _find_key_dfs(item, key)
+            if result is not None:
+                return result
+    return None
+
+
+def _collect_key_lines(node: Any, key: str, results: List[int]) -> None:
+    """Collect 0-based lines of every occurrence of *key* (DFS, document order)."""
+    if isinstance(node, CommentedMap):
+        for k in node:
+            if k == key:
+                results.append(node.lc.key(k)[0])
+        # Recurse into values after collecting keys at this level
+        for v in node.values():
+            _collect_key_lines(v, key, results)
+    elif isinstance(node, (CommentedSeq, list)):
+        for item in node:
+            _collect_key_lines(item, key, results)
+
+
+def _build_line_map(node: Any, result: Dict[str, int], line_offset: int) -> None:
+    """Populate *result* mapping every key name to its 1-based line."""
+    if isinstance(node, CommentedMap):
+        for k in node:
+            try:
+                result[k] = node.lc.key(k)[0] + 1 + line_offset
+            except (KeyError, TypeError):
+                # Keys introduced via YAML merge keys ('<<: *anchor') have no
+                # position of their own in this mapping — ruamel raises
+                # KeyError (or TypeError on some versions).  Skip them: an
+                # omitted line number is correct, a crash is not.
+                pass
+            _build_line_map(node[k], result, line_offset)
+    elif isinstance(node, (CommentedSeq, list)):
+        for item in node:
+            _build_line_map(item, result, line_offset)
+
+
+def _collect_list_item_key_lines(node: Any, key: str, results: List[int]) -> None:
+    """Collect 0-based lines of *key* when it appears as first key in a list item."""
+    if isinstance(node, CommentedMap):
+        for v in node.values():
+            _collect_list_item_key_lines(v, key, results)
+    elif isinstance(node, (CommentedSeq, list)):
+        for item in node:
+            if isinstance(item, CommentedMap):
+                # Check if the first key of this list-item mapping matches
+                keys = list(item.keys())
+                if keys and keys[0] == key:
+                    results.append(item.lc.key(key)[0])
+                # Also recurse into the values of this mapping
+                for v in item.values():
+                    _collect_list_item_key_lines(v, key, results)
+            elif isinstance(item, (CommentedSeq, list)):
+                _collect_list_item_key_lines(item, key, results)
+
+
+def _resolve_path_line(node: Any, path: str, line_offset: int) -> Optional[int]:
+    """Resolve a dotted path like ``a.b[0].c`` and return the 1-based line."""
+    parts = re.split(r"\.|(?=\[)", path)
+    current = node
+    last_container: Any = None
+    last_accessor: Any = None
+
+    for part in parts:
+        if not part:
+            continue
+        idx_match = re.fullmatch(r"\[(\d+)\]", part)
+        if idx_match:
+            idx = int(idx_match.group(1))
+            if not isinstance(current, (CommentedSeq, list)) or idx >= len(current):
+                return None
+            last_container = current
+            last_accessor = idx
+            current = current[idx]
+        else:
+            if not isinstance(current, CommentedMap) or part not in current:
+                return None
+            last_container = current
+            last_accessor = part
+            current = current[part]
+
+    try:
+        if isinstance(last_container, CommentedMap) and isinstance(last_accessor, str):
+            return last_container.lc.key(last_accessor)[0] + 1 + line_offset
+        if isinstance(last_container, CommentedSeq) and isinstance(last_accessor, int):
+            return last_container.lc.item(last_accessor)[0] + 1 + line_offset
+    except (KeyError, TypeError):
+        # Keys reachable only through a YAML merge key ('<<: *anchor') have
+        # no position in this mapping — report no line rather than crash.
+        return None
+    return None

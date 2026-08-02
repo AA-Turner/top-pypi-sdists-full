@@ -1,0 +1,319 @@
+Metadata-Version: 2.4
+Name: ascii-guard
+Version: 2.3.0
+Summary: A minimal-dependency Python linter for detecting and fixing misaligned ASCII art boxes in documentation
+Author-email: fxstein <fxstein@users.noreply.github.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/fxstein/ascii-guard
+Project-URL: Repository, https://github.com/fxstein/ascii-guard
+Project-URL: Issues, https://github.com/fxstein/ascii-guard/issues
+Keywords: ascii,linter,documentation,ascii-art,box-drawing
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Quality Assurance
+Classifier: Topic :: Text Processing
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: tomli>=2.0.0; python_version < "3.11"
+Provides-Extra: dev
+Requires-Dist: pytest>=7.4.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"
+Requires-Dist: mypy>=1.7.0; extra == "dev"
+Requires-Dist: pre-commit>=3.5.0; extra == "dev"
+Requires-Dist: build>=1.0.0; extra == "dev"
+Requires-Dist: twine>=4.0.0; extra == "dev"
+Dynamic: license-file
+
+# ascii-guard
+
+**Zero-dependency Python linter for detecting and fixing misaligned ASCII art boxes in documentation.**
+
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![CI](https://github.com/fxstein/ascii-guard/actions/workflows/ci.yml/badge.svg)](https://github.com/fxstein/ascii-guard/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/fxstein/ascii-guard/branch/main/graph/badge.svg)](https://codecov.io/gh/fxstein/ascii-guard)
+[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![Type checked: mypy](https://img.shields.io/badge/type%20checked-mypy-blue.svg)](https://mypy-lang.org/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/fxstein/ascii-guard/pulls)
+
+---
+
+## 🎯 Why ascii-guard?
+
+AI-generated ASCII flowcharts and diagrams often have subtle formatting errors where box borders are misaligned by 1-2 characters. This breaks visual integrity and makes documentation harder to read.
+
+**ascii-guard** automatically detects and fixes these alignment issues, ensuring your ASCII art looks perfect.
+
+### ✨ Key Features
+
+- 🚀 **Minimal dependencies** - Zero for Python 3.11+, one tiny dep for Python 3.10 (`tomli`)
+- 💾 **Tiny footprint** - Lightweight and fast
+- 🔒 **Minimal supply chain risk** - Pure stdlib on 3.11+
+- ⚡ **Quick startup** - No import overhead
+- 📦 **Simple installation** - One command, automatic dependency handling
+- 🐍 **Python API** - Stable programmatic interface for integration into pipelines and scripts
+- 🛡️ **Type-safe** - Full mypy strict mode
+- ✅ **Well tested** - Comprehensive test coverage
+
+---
+
+## 📦 Installation
+
+We recommend using `uv` for the fastest installation experience, but `pip` and `pipx` are fully supported alternatives. `uv` provides faster dependency resolution and better reproducibility, while `pip` and `pipx` work with any standard Python environment.
+
+### Recommended: Using uv (Fastest)
+
+```bash
+# Install ascii-guard
+uv tool install ascii-guard
+```
+
+> **Note:** If `uv` is not installed, you may install it with: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+
+### Alternative: Using pip
+
+```bash
+pip install ascii-guard
+```
+
+### Alternative: Using pipx (Isolated Environment)
+
+```bash
+pipx install ascii-guard
+```
+
+That's it! No other dependencies needed.
+
+---
+
+## 🚀 Quick Start
+
+### Check files for ASCII art issues
+
+```bash
+ascii-guard lint README.md
+ascii-guard lint docs/**/*.md
+```
+
+### Auto-fix alignment issues
+
+```bash
+ascii-guard fix README.md
+ascii-guard fix --dry-run docs/guide.md  # Preview changes first
+```
+
+### Example 1: Simple Box
+
+**Before** (misaligned):
+```
+┌─────────────────────┐
+│ Box Content         │
+└────────────────────┘   ← Missing one character!
+```
+
+**After** (fixed):
+```
+┌─────────────────────┐
+│ Box Content         │
+└─────────────────────┘  ← Perfect alignment ✓
+```
+
+### Example 2: Flowchart
+
+**Before** (multiple alignment issues):
+```
+┌──────────────┐
+│    Start     │
+└──────┬───────┘
+       │
+┌──────▼───────┐
+│    Step     │        ← Right border misaligned
+└──────┬───────┘
+       │
+┌──────▼───────┐
+│     End      ││      ← Duplicate right border
+└──────────────        ← Broken bottom right corner
+```
+
+**After** (all boxes aligned):
+```
+┌──────────────┐
+│    Start     │
+└──────┬───────┘
+       │
+┌──────▼───────┐
+│    Step      │
+└──────┬───────┘
+       │
+┌──────▼───────┐
+│     End      │
+└──────────────┘
+```
+
+ascii-guard automatically detects and fixes alignment issues across multiple boxes, nested structures, and complex flowcharts.
+
+---
+
+## 🎭 Ignore Markers
+
+Need to show intentionally broken boxes in your docs? Use ignore markers:
+
+```markdown
+**❌ Common Mistake (don't do this):**
+
+<!-- ascii-guard-ignore-next -->
+┌─────────────────────┐
+│ Box Content         │
+└────────────────────┘   ← Misaligned on purpose for demonstration
+
+**✅ Correct Way:**
+
+┌─────────────────────┐
+│ Box Content         │
+└─────────────────────┘  ← Perfect alignment
+```
+
+The ignore markers are invisible in rendered markdown but tell ascii-guard to skip validation. Perfect for:
+- Before/after comparisons
+- Tutorial examples showing common mistakes
+- Documentation with intentionally broken examples
+
+See [USAGE.md](docs/USAGE.md#ignore-markers) for complete syntax and examples.
+
+---
+
+## 🎨 Supported Box-Drawing Characters
+
+ascii-guard supports Unicode box-drawing characters:
+
+| Type | Characters | Description |
+|------|------------|-------------|
+| **Horizontal** | `─` (U+2500) | Horizontal line |
+| **Vertical** | `│` (U+2502) | Vertical line |
+| **Corners** | `┌` `┐` `└` `┘` | Standard corners |
+| **T-junctions** | `├` `┤` `┬` `┴` | Connection points |
+| **Cross** | `┼` | Four-way intersection |
+| **Heavy lines** | `━` `┃` `┏` `┓` `┗` `┛` | Bold variants |
+| **Double lines** | `═` `║` `╔` `╗` `╚` `╝` | Double-line variants |
+
+---
+
+## 📋 Validation Rules
+
+ascii-guard checks for:
+
+1. **Vertical alignment** - All `│` characters in a column align
+2. **Horizontal alignment** - All `─` characters connect properly
+3. **Corner correctness** - Corner characters match adjacent lines
+4. **Width consistency** - Top, middle, and bottom borders match
+5. **Content fit** - Content stays within box borders
+
+---
+
+## 🐍 Python API
+
+ascii-guard provides a stable Python API for programmatic use. Perfect for integrating into documentation pipelines, CI/CD scripts, or custom tooling.
+
+```python
+from ascii_guard import lint_file, fix_file, detect_boxes
+
+# Lint a file for issues
+result = lint_file("README.md")
+if result.has_errors:
+    print(f"Found {len(result.errors)} alignment errors")
+    for error in result.errors:
+        print(f"  Line {error.line + 1}: {error.message}")
+
+# Auto-fix alignment issues
+result = fix_file("README.md", dry_run=True)  # Preview first
+print(f"Would fix {result.boxes_fixed} boxes")
+
+# Detect boxes without validation
+boxes = detect_boxes("docs/guide.md")
+print(f"Found {len(boxes)} ASCII art boxes")
+```
+
+**Available functions:**
+- `lint_file()` - Lint a file for ASCII art alignment issues
+- `fix_file()` - Fix alignment issues in a file
+- `detect_boxes()` - Detect ASCII art boxes without validation
+- `validate_box()` - Validate a single Box object
+- `fix_box()` - Fix a single Box object
+
+**Data models:** `Box`, `ValidationError`, `LintResult`, `FixResult`
+
+> 📖 **Full API documentation**: See [API Reference](docs/API_REFERENCE.md) for complete details, type signatures, and advanced examples.
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Here's how to get started:
+
+**Prerequisites:**
+- Python 3.10+
+- [uv](https://github.com/astral-sh/uv) - Fast Python package manager
+
+```bash
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Fork and clone the repository
+git clone https://github.com/YOUR-USERNAME/ascii-guard.git
+cd ascii-guard
+
+# One-step setup (creates venv, installs deps, configures hooks)
+./setup.sh
+
+# Use uv run for commands
+uv run pytest              # Run tests
+uv run ruff check .        # Lint code
+uv run mypy src/           # Type check
+
+# Make your changes and submit a PR
+```
+
+**For detailed development guide, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)**
+
+**For contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md)**
+
+---
+
+## 📄 License
+
+Apache License 2.0 - see [LICENSE](LICENSE) for details.
+
+Copyright 2025 Oliver Ratzesberger
+
+---
+
+## 🔗 Links
+
+- **Repository**: https://github.com/fxstein/ascii-guard
+- **Issues**: https://github.com/fxstein/ascii-guard/issues
+- **PyPI**: https://pypi.org/project/ascii-guard/
+- **Documentation**:
+  - [User Guide](docs/USAGE.md) - Complete usage documentation
+  - [Python API Reference](docs/API_REFERENCE.md) - Complete API documentation
+  - [Development Guide](docs/DEVELOPMENT.md) - Setup, workflow, architecture
+  - [FAQ](docs/FAQ.md) - Frequently asked questions
+
+---
+
+## 🙏 Acknowledgments
+
+Inspired by the need for better ASCII art formatting in AI-generated documentation.
+
+Built with ❤️ using only Python's standard library.
+
+---
+
+**Note**: ascii-guard is stable and actively maintained. Contributions and feedback are welcome!

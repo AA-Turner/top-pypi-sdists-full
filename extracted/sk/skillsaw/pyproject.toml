@@ -1,0 +1,129 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "skillsaw"
+version = "0.17.0"
+description = "A configurable linter for agent skills, plugins, and AI coding assistant context"
+readme = "README.md"
+authors = [
+    {name = "Stephen Benjamin", email = "stephen@bitbin.de"}
+]
+license = {text = "Apache-2.0"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+]
+keywords = ["agentskills", "claude", "claude-code", "linter", "plugin", "skills", "validation", "skillsaw"]
+requires-python = ">=3.9"
+dependencies = [
+    "PyYAML>=6.0",
+    "ruamel.yaml>=0.18",
+    "markdown-it-py>=3,<5",
+]
+
+[project.optional-dependencies]
+docs = [
+    "mkdocs-material>=9.0",
+    "mkdocs-redirects>=1.2,<1.2.4",
+]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=7.0",
+    "coverage[toml]>=7.10",  # needed for [tool.coverage.run] patch = ["subprocess"]
+    "black>=26,<27",
+    "flake8>=6.0",
+    "mypy>=1.0",
+    "skillsaw-runbooks==0.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/stbenjam/skillsaw"
+Documentation = "https://github.com/stbenjam/skillsaw#readme"
+Repository = "https://github.com/stbenjam/skillsaw"
+Issues = "https://github.com/stbenjam/skillsaw/issues"
+
+[project.scripts]
+skillsaw = "skillsaw.__main__:main"
+claudelint = "skillsaw.__main__:claudelint_shim"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.package-data]
+"skillsaw.marketplace.templates" = ["**/*"]
+"skillsaw.rules" = ["docs/*.md"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["skillsaw*", "claudelint"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v"
+markers = [
+    "integration: end-to-end CLI integration tests",
+]
+
+[tool.coverage.run]
+# tests/test_integration.py drives the CLI via subprocess.run([sys.executable,
+# "-m", "skillsaw", ...]). pytest-cov 7 dropped automatic subprocess
+# instrumentation, so without this the entire src/skillsaw/cli/ package
+# reports ~0% despite being exercised by 200+ integration tests. `patch =
+# ["subprocess"]` (coverage.py >=7.10) makes coverage inject itself into
+# subprocesses started via the subprocess module, no COVERAGE_PROCESS_START
+# env var or sitecustomize.py needed.
+patch = ["subprocess"]
+
+[tool.black]
+line-length = 100
+target-version = ['py39', 'py310', 'py311', 'py312', 'py313']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = "yaml"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "ruamel.*"
+ignore_missing_imports = true

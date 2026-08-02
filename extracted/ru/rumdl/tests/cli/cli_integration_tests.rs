@@ -1262,10 +1262,15 @@ fn test_rule_command_json_output_single_rule() {
     assert!(rule.is_object(), "Expected JSON object for single rule");
 
     assert_eq!(rule.get("code").and_then(|c| c.as_str()), Some("MD041"));
-    assert_eq!(rule.get("name").and_then(|n| n.as_str()), Some("first-line-h1"));
-    // MD041 has "first-line-heading" as an alias
+    // MD041 answers to two names; the reported one is the name its documentation
+    // leads with, and the other is listed as an alias.
+    assert_eq!(rule.get("name").and_then(|n| n.as_str()), Some("first-line-heading"));
     let aliases = rule.get("aliases").and_then(|a| a.as_array()).unwrap();
-    assert!(aliases.iter().any(|a| a.as_str() == Some("first-line-heading")));
+    assert!(aliases.iter().any(|a| a.as_str() == Some("first-line-h1")));
+    assert!(
+        !aliases.iter().any(|a| a.as_str() == Some("first-line-heading")),
+        "the reported name is not repeated among the aliases: {aliases:?}"
+    );
     assert_eq!(
         rule.get("url").and_then(|u| u.as_str()),
         Some("https://rumdl.dev/md041/")
@@ -2671,6 +2676,260 @@ mod config_include_nonstandard_extensions {
 
         let fixed = fs::read_to_string(dir.join("template.md.jinja")).unwrap();
         assert_eq!(fixed, "# Heading\n", "fmt should fix the config-included file");
+    }
+}
+
+/// A rule whose fix is opt-in must be reported as fixable once it is turned on.
+///
+/// The CLI decides what to mark `[*]`, what to count in `Fixed N/M`, and what to
+/// offer in the "run `rumdl fmt`" hint from the rule's declared fix capability.
+/// MD041 rewrote the heading level under `fix = true` while still declaring itself
+/// unfixable, so the repair happened and the report denied it.
+mod md041_opt_in_fix_reporting {
+    use std::fs;
+    use std::process::Command;
+    use tempfile::tempdir;
+
+    fn run(config: &str) -> (String, String) {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join(".rumdl.toml"), config).unwrap();
+        fs::write(dir.path().join("test.md"), "## Wrong Level\n\nContent.\n").unwrap();
+
+        let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+            .args(["fmt", "--no-cache", "test.md"])
+            .current_dir(dir.path())
+            .output()
+            .expect("Failed to execute rumdl");
+
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        let content = fs::read_to_string(dir.path().join("test.md")).unwrap();
+        (stdout, content)
+    }
+
+    #[test]
+    fn test_enabled_fix_is_applied_and_counted() {
+        let (stdout, content) = run("[MD041]\nfix = true\n");
+
+        assert_eq!(content, "# Wrong Level\n\nContent.\n", "MD041 should rewrite the level");
+        assert!(
+            stdout.contains("Fixed 1/1"),
+            "the applied fix must be counted, got: {stdout}"
+        );
+        assert!(
+            stdout.contains("[fixed]"),
+            "the fixed warning must be marked, got: {stdout}"
+        );
+    }
+
+    #[test]
+    fn test_default_leaves_the_document_alone() {
+        let (stdout, content) = run("[MD041]\nlevel = 1\n");
+
+        assert_eq!(
+            content, "## Wrong Level\n\nContent.\n",
+            "MD041 must not fix without the opt-in"
+        );
+        assert!(
+            !stdout.contains("[fixed]") && !stdout.contains("Fixed 1/1"),
+            "nothing was fixed, so nothing should be reported as fixed, got: {stdout}"
+        );
+    }
+}
+
+/// A rule whose fix a document turns on for itself must be reported as fixable.
+///
+/// An inline `rumdl-configure-file` comment reconfigures a rule for one file, and
+/// the fixer runs that reconfigured rule. Reading the fix capability from the
+/// unconfigured instance instead made the CLI apply the fix and then report it as
+/// not applied.
+mod inline_configure_file_fix_reporting {
+    use std::fs;
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+    use tempfile::tempdir;
+
+    const OPT_IN: &str = "<!-- rumdl-configure-file { \"MD033\": { \"fix\": true } } -->\n\n";
+    const BODY: &str = "# Title\n\nSome <b>bold</b> text.\n";
+
+    fn run(args: &[&str], content: &str) -> (String, String) {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("test.md"), content).unwrap();
+
+        let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+            .args(args)
+            .arg("test.md")
+            .current_dir(dir.path())
+            .output()
+            .expect("Failed to execute rumdl");
+
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        let fixed = fs::read_to_string(dir.path().join("test.md")).unwrap();
+        (stdout, fixed)
+    }
+
+    #[test]
+    fn test_inline_opt_in_fix_is_counted() {
+        let (stdout, content) = run(&["fmt", "--no-cache", "--no-config"], &format!("{OPT_IN}{BODY}"));
+
+        assert_eq!(
+            content,
+            format!("{OPT_IN}# Title\n\nSome **bold** text.\n"),
+            "MD033 should replace the inline HTML"
+        );
+        assert!(
+            stdout.contains("Fixed 1/1"),
+            "the applied fix must be counted, got: {stdout}"
+        );
+        assert!(
+            stdout.contains("[fixed]"),
+            "the fixed warning must be marked, got: {stdout}"
+        );
+    }
+
+    #[test]
+    fn test_without_the_inline_opt_in_nothing_is_fixed() {
+        let (stdout, content) = run(&["fmt", "--no-cache", "--no-config"], BODY);
+
+        assert_eq!(content, BODY, "MD033 must not fix without the opt-in");
+        assert!(
+            !stdout.contains("[fixed]") && !stdout.contains("Fixed 1/1"),
+            "nothing was fixed, so nothing should be reported as fixed, got: {stdout}"
+        );
+    }
+
+    #[test]
+    fn test_check_offers_the_inline_opt_in_fix() {
+        let (opted_in, _) = run(&["check", "--no-cache", "--no-config"], &format!("{OPT_IN}{BODY}"));
+        let (plain, _) = run(&["check", "--no-cache", "--no-config"], BODY);
+
+        assert!(
+            opted_in.contains("[*]") && opted_in.contains("automatically fix 1"),
+            "the opt-in makes the violation fixable, so check should offer it, got: {opted_in}"
+        );
+        assert!(
+            !plain.contains("[*]") && !plain.contains("automatically fix"),
+            "without the opt-in there is nothing to offer, got: {plain}"
+        );
+    }
+
+    #[test]
+    fn test_stdin_counts_the_inline_opt_in_fix() {
+        // A violation the fix cannot touch keeps warnings on the report, which is
+        // the path that labels each one as fixed or not.
+        let content = format!("{OPT_IN}Not a heading.\n\nSome <b>bold</b> text.\n");
+
+        let mut child = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+            .args(["check", "--fix", "--stdin", "--no-cache", "--no-config"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("Failed to execute rumdl");
+        child
+            .stdin
+            .take()
+            .expect("stdin")
+            .write_all(content.as_bytes())
+            .expect("write stdin");
+        let output = child.wait_with_output().expect("Failed to read rumdl output");
+
+        let fixed = String::from_utf8_lossy(&output.stdout).into_owned();
+        let report = String::from_utf8_lossy(&output.stderr).into_owned();
+
+        assert!(
+            fixed.contains("**bold**"),
+            "MD033 should replace the inline HTML, got: {fixed}"
+        );
+        assert!(
+            report.contains("1 issue(s) fixed"),
+            "the applied fix must be counted, got: {report}"
+        );
+        assert!(
+            report.contains("MD033") && report.contains("[fixed]"),
+            "the fixed warning must be marked, got: {report}"
+        );
+    }
+}
+
+mod self_referential_links {
+    use std::fs;
+    use std::process::Command;
+    use tempfile::tempdir;
+
+    const CONFIG: &str = "[MD057]\nself-referential-links = true\n";
+    const DOC: &str = "# Markdown file heading\n\nSome text with a [self-referential link](test.md) and another\n[self-referential link to a heading](test.md#level-2-heading).\n\nAnd a [link elsewhere](other.md).\n\n## Level 2 heading\n\nSub-section content.\n";
+
+    fn run(args: &[&str], config: Option<&str>) -> (String, String) {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("test.md"), DOC).unwrap();
+        fs::write(dir.path().join("other.md"), "# Other\n").unwrap();
+        if let Some(config) = config {
+            fs::write(dir.path().join(".rumdl.toml"), config).unwrap();
+        }
+
+        let output = Command::new(env!("CARGO_BIN_EXE_rumdl"))
+            .args(args)
+            .arg("test.md")
+            .current_dir(dir.path())
+            .output()
+            .expect("Failed to execute rumdl");
+
+        let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+        let content = fs::read_to_string(dir.path().join("test.md")).unwrap();
+        (stdout, content)
+    }
+
+    #[test]
+    fn test_check_reports_both_forms_and_leaves_other_links_alone() {
+        let (stdout, _) = run(&["check", "--no-cache"], Some(CONFIG));
+
+        assert!(
+            stdout.contains("Relative link 'test.md' points to the file it is in"),
+            "the whole-file link should be reported, got: {stdout}"
+        );
+        assert!(
+            stdout.contains(
+                "Relative link 'test.md#level-2-heading' points to the file it is in and can be simplified to '#level-2-heading'"
+            ),
+            "the fragment link should suggest the fragment, got: {stdout}"
+        );
+        assert!(
+            !stdout.contains("other.md"),
+            "a link to another file is not self-referential, got: {stdout}"
+        );
+        assert!(
+            stdout.contains("automatically fix 1"),
+            "only the fragment form is fixable, got: {stdout}"
+        );
+    }
+
+    #[test]
+    fn test_the_check_is_off_without_the_opt_in() {
+        let (stdout, content) = run(&["fmt", "--no-cache", "--no-config"], None);
+
+        assert_eq!(content, DOC, "nothing should change without the opt-in");
+        assert!(
+            !stdout.contains("points to the file it is in"),
+            "the check is opt-in, got: {stdout}"
+        );
+    }
+
+    #[test]
+    fn test_fmt_rewrites_only_the_fragment_form() {
+        let (stdout, content) = run(&["fmt", "--no-cache"], Some(CONFIG));
+
+        assert!(
+            content.contains("[self-referential link to a heading](#level-2-heading)"),
+            "the fragment form should lose its redundant path, got: {content}"
+        );
+        assert!(
+            content.contains("[self-referential link](test.md)"),
+            "the whole-file link has no fix and must be left as written, got: {content}"
+        );
+        assert!(
+            stdout.contains("Fixed 1/2"),
+            "one of the two findings is fixable, got: {stdout}"
+        );
     }
 }
 

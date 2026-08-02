@@ -1,0 +1,140 @@
+from unittest.mock import AsyncMock
+
+import httpx
+import pytest
+
+from homematicip.connection.rest_connection import (
+    ConnectionContext,
+    RestConnection,
+    RestResult,
+)
+from homematicip.exceptions.connection_exceptions import HmipThrottlingError
+
+
+def test_rest_result():
+    result = RestResult(status=200)
+    assert result.status_text == "OK"
+
+    result = RestResult(status=9999)
+    assert result.status_text == "No status code"
+
+
+def test_conn_update_connection_context(mocker):
+    patched = mocker.patch("homematicip.connection.rest_connection.RestConnection._get_header")
+    patched.return_value = {"test_a": "a", "test_b": "b"}
+
+    context = ConnectionContext()
+    context2 = ConnectionContext(rest_url="asdf")
+    conn = RestConnection(context)
+
+    conn.update_connection_context(context2)
+
+    assert patched.called
+    assert conn._headers == {"test_a": "a", "test_b": "b"}
+    assert conn._context == context2
+
+@pytest.mark.asyncio
+async def test_conn_async_post(mocker):
+    response = mocker.Mock(spec=httpx.Response)
+    response.status_code = 200
+    patched = mocker.patch("homematicip.connection.rest_connection.httpx.AsyncClient.post")
+    patched.return_value = response
+
+    context = ConnectionContext(rest_url="http://asdf")
+    conn = RestConnection(context)
+
+    result = await conn.async_post("url", {"a": "b"}, {"c": "d"})
+
+    assert patched.called
+    assert patched.call_args[0][0] == "http://asdf/hmip/url"
+    assert patched.call_args[1] == {"json": {"a": "b"}, "headers": {"c": "d"}}
+    assert result.status == 200
+
+
+@pytest.mark.asyncio
+async def test_conn_async_post_throttle(mocker):
+    response = mocker.Mock(spec=httpx.Response)
+    response.status_code = 429
+    patched = mocker.patch("homematicip.connection.rest_connection.httpx.AsyncClient.post")
+    patched.return_value = response
+
+    context = ConnectionContext(rest_url="http://asdf")
+    conn = RestConnection(context)
+
+    with pytest.raises(HmipThrottlingError):
+        await conn.async_post("url", {"a": "b"}, {"c": "d"})
+
+@pytest.mark.asyncio
+async def test_conn_async_post_with_httpx_client_session(mocker):
+    response = mocker.Mock(spec=httpx.Response)
+    response.status_code = 200
+
+    mock_client = AsyncMock(spec=httpx.AsyncClient)
+    mock_client.post.return_value = response
+
+    context = ConnectionContext(rest_url="http://asdf")
+    conn = RestConnection(context, httpx_client_session=mock_client)
+
+    result = await conn.async_post("url", {"a": "b"}, {"c": "d"})
+
+    assert mock_client.post.called
+    assert mock_client.post.call_args[0][0] == "http://asdf/hmip/url"
+    assert mock_client.post.call_args[1] == {"json": {"a": "b"}, "headers": {"c": "d"}}
+    assert result.status == 200
+
+
+def test_redact_sensitive_data_nested():
+    redacted = RestConnection._redact_sensitive_data(
+        {
+            "id": "device-id",
+            "deviceId": "device-id",
+            "authToken": "secret-token",
+            "sgtin": "access-point-id",
+            "nested": {
+                "clientId": "client-id",
+                "PIN": "1234",
+                "safe": "value",
+            },
+            "items": [
+                {"ACCESSPOINT-ID": "access-point-id"},
+                {"value": "still-visible"},
+            ],
+        }
+    )
+
+    assert redacted["id"] == "REDACTED"
+    assert redacted["deviceId"] == "REDACTED"
+    assert redacted["authToken"] == "REDACTED"
+    assert redacted["sgtin"] == "REDACTED"
+    assert redacted["nested"]["clientId"] == "REDACTED"
+    assert redacted["nested"]["PIN"] == "REDACTED"
+    assert redacted["nested"]["safe"] == "value"
+
+
+    assert redacted["items"][0]["ACCESSPOINT-ID"] == "REDACTED"
+    assert redacted["items"][1]["value"] == "still-visible"
+
+
+def test_redact_sensitive_data_authorization_pin():
+    """Door-lock commands send authorizationPin in the request body and the
+    body is logged at debug level. Make sure the PIN is redacted."""
+    redacted = RestConnection._redact_sensitive_data(
+        {"authorizationPin": "1234", "channelIndex": 1}
+    )
+    assert redacted["authorizationPin"] == "REDACTED"
+    assert redacted["channelIndex"] == 1
+
+
+def test_get_verify_returns_ssl_context_when_provided():
+    sentinel = object()
+    assert RestConnection._get_verify(enforce_ssl=True, ssl_context=sentinel) is sentinel
+    assert RestConnection._get_verify(enforce_ssl=False, ssl_context=sentinel) is sentinel
+
+
+def test_get_verify_disables_ssl_when_enforce_false():
+    """enforce_ssl=False with no ssl_context must disable verification."""
+    assert RestConnection._get_verify(enforce_ssl=False, ssl_context=None) is False
+
+
+def test_get_verify_enforces_ssl_when_enforce_true():
+    assert RestConnection._get_verify(enforce_ssl=True, ssl_context=None) is True

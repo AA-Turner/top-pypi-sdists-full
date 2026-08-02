@@ -1,0 +1,165 @@
+[project]
+name = "nextcloud-mcp-server"
+version = "0.159.1"
+description = "Model Context Protocol (MCP) server for Nextcloud integration - enables AI assistants to interact with Nextcloud data"
+readme = "README.md"
+requires-python = ">=3.11"
+keywords = [
+    "nextcloud",
+    "mcp",
+    "model-context-protocol",
+    "llm",
+    "ai",
+    "claude",
+    "webdav",
+    "caldav",
+    "carddav",
+]
+dependencies = [
+    "mcp[cli] (>=1.29,<1.30)",
+    "httpx (>=0.28.1,<0.29.0)",
+    "pillow (>=10.3.0,<12.0.0)",
+    "icalendar (>=7.2.0,<7.3.0)",
+    "pythonvcard4>=0.2.0",
+    "pydantic>=2.11.4",
+    "click>=8.1.8",
+    "caldav>=3.0.1,<4.0",
+    "recurring-ical-events>=3.8.0,<4.0",
+    "pyjwt[crypto]>=2.8.0",
+    "aiosqlite>=0.20.0",
+    "alembic>=1.14.0",
+    "authlib>=1.6.5",
+    "qdrant-client>=1.17.0",
+    "fastembed>=0.7.3",
+    "boto3>=1.35.0",
+    "prometheus-client>=0.21.0",
+    "opentelemetry-api>=1.28.2",
+    "opentelemetry-sdk>=1.28.2",
+    "starlette<1.0",
+    "opentelemetry-instrumentation-asgi>=0.49b2",
+    "opentelemetry-instrumentation-httpx>=0.49b2",
+    "opentelemetry-instrumentation-logging>=0.49b2",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.28.2",
+    "python-json-logger>=3.2.0",
+    "jinja2>=3.1.6",
+    "langchain-text-splitters>=1.0.0",
+    "markdownify>=0.14.1",
+    "pymupdf==1.28.0",
+    "pymupdf4llm==1.28.0",
+    "openai>=2.8.1",
+    "dynaconf>=3.2.13,<4.0",
+    "mistralai>=2.4.5",
+    "sqlalchemy[asyncio]>=2.0",
+    "pypdfium2>=5.9.0",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Communications",
+    "Topic :: Internet :: WWW/HTTP",
+]
+
+[[project.authors]]
+name = "Chris Coutinho"
+email = "chris@coutinho.io"
+
+[project.license]
+text = "AGPL-3.0-only"
+
+[project.urls]
+Homepage = "https://github.com/cbcoutinho/nextcloud-mcp-server"
+Documentation = "https://github.com/cbcoutinho/nextcloud-mcp-server#readme"
+Repository = "https://github.com/cbcoutinho/nextcloud-mcp-server"
+"Bug Tracker" = "https://github.com/cbcoutinho/nextcloud-mcp-server/issues"
+Changelog = "https://github.com/cbcoutinho/nextcloud-mcp-server/blob/master/CHANGELOG.md"
+
+[project.scripts]
+nextcloud-mcp-server = "nextcloud_mcp_server.cli:cli"
+
+[project.optional-dependencies]
+postgres = [
+    "procrastinate>=3.8",
+    "psycopg[binary,pool]>=3.2",
+]
+observability = ["pyroscope-io>=0.8.0"]
+
+[tool.pytest.ini_options]
+anyio_mode = "auto"
+addopts = "-p no:asyncio"
+log_cli = 1
+log_cli_level = "ERROR"
+log_level = "ERROR"
+markers = [
+    "unit: Fast unit tests with mocked dependencies",
+    "integration: Integration tests requiring Docker containers",
+    "smoke: Critical path smoke tests for quick validation",
+    "keycloak: OAuth tests that utilize keycloak external identity provider",
+    "login_flow: Login Flow v2 integration tests (ADR-022)",
+    "multi_user_basic: Multi-user BasicAuth pass-through tests (ADR-020)",
+    "ldap: LDAP-backend tests reproducing divergent loginName/UID DAV paths (GH #980)",
+    "login_flow_ldap: Login Flow v2 deployment mode against the LDAP backend (GH #980, cross-mode)",
+    "postgres: Tests requiring the docker-compose postgres-test service (ADR-026)",
+    "contract: Pact consumer/provider contract tests (ADR-029)",
+    "docling: Tests requiring the docker-compose docling-serve backend (ADR-031)",
+]
+testpaths = ["tests"]
+timeout = 180
+timeout_func_only = false
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "v$version"
+version_scheme = "pep440"
+version_provider = "uv"
+update_changelog_on_bump = true
+major_version_zero = true
+
+[tool.ruff.lint]
+extend-select = [
+    "I",
+    "PLC0415",
+    "G004",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["PLC0415"]
+
+[tool.uv.build-backend]
+module-name = "nextcloud_mcp_server"
+module-root = ""
+
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true
+
+[build-system]
+requires = ["uv_build>=0.11.5,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "commitizen>=4.8.2",
+    "ipython>=9.2.0",
+    "playwright>=1.49.1",
+    "pytest>=8.3.5",
+    "pytest-cov>=6.1.1",
+    "pytest-mock>=3.15.1",
+    "pytest-playwright-asyncio>=0.7.1",
+    "pytest-timeout>=2.3.1",
+    "pytest-xdist>=3.6.1",
+    "ruff>=0.11.13",
+    "reportlab>=4.0.0",
+    "ty>=0.0.63,<0.0.64",
+    "pytest-otel>=2.0.1",
+    "procrastinate>=3.8",
+    "psycopg[binary,pool]>=3.2",
+    "pact-python>=3.4.0",
+    "pyroscope-io>=0.8.0",
+]

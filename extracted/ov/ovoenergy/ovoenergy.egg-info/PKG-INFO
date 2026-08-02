@@ -1,0 +1,41 @@
+Metadata-Version: 2.4
+Name: ovoenergy
+Version: 3.0.2
+Summary: OVO Energy
+Home-page: https://github.com/timmo001/ovoenergy
+Author: Aidan Timson (Timmo)
+Author-email: aidan@timmo.dev
+License: Apache-2.0
+Keywords: python,ovoenergy,api
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp>=3.8.5; python_version < "3.12"
+Requires-Dist: aiohttp>=3.9.0b0; python_version >= "3.12"
+Requires-Dist: typer>=0.6.1
+Requires-Dist: PyJWT>=2.0.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# OVO Energy Python Client
+
+[![PyPI](https://img.shields.io/pypi/v/ovoenergy)](https://pypi.org/project/ovoenergy/)
+
+Get energy data from the OVO Energy APIs.
+
+> [!IMPORTANT]
+> This package is not officially supported by OVO Energy and is provided as-is.
+> If OVO change their APIs, this package may break.
+>
+> This has only been tested with a UK account.
+> Some endpoints are pointing to EU servers.
+> If you are outside the UK, this package may not work.

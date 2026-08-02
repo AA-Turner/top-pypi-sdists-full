@@ -1,0 +1,80 @@
+version: "1.0"
+name: "Tester Coverage Convention"
+description: "Section 3 of ATDD Hierarchy Coverage Spec v0.1 - Ensures test artifacts have complete coverage"
+
+# Legacy rules-list registry consumed by bind_rule. The decomposed node forms
+# live at conventions/nodes/tester.coverage.*.convention.yaml (mirrors the
+# tester.acceptance-violation.* dual declaration). All four tester.coverage
+# rules were atomized into single-node files under nodes/ per #1225; the
+# registry now reads them there. The descriptive sections below
+# (coverage_graph, exception_handling, test_discovery, rollout) are retained
+# documentation and are NOT a rules:[] block.
+
+coverage_graph:
+  description: "The tester coverage graph ensures acceptance-to-test traceability and artifact completeness"
+  levels:
+    - name: "Acceptance"
+      covered_by: "Tests (Python, TypeScript, Dart)"
+      validators: ["COVERAGE-TEST-3.1"]
+
+    - name: "Contract"
+      referenced_by: "Wagon produce/consume"
+      validators: ["COVERAGE-TEST-3.2"]
+
+    - name: "Telemetry"
+      referenced_by: "Wagon produce"
+      validators: ["COVERAGE-TEST-3.3", "COVERAGE-TEST-3.4"]
+
+exception_handling:
+  description: "How exceptions are handled in tester coverage validation"
+  allow_lists:
+    acceptance_without_tests:
+      description: "Acceptance URNs that are allowed without test coverage"
+      use_case: "Future acceptances, integration-only criteria, or manual verification"
+      config_path: "coverage.exceptions.acceptance_without_tests"
+
+    contracts_unreferenced:
+      description: "Contract URNs that are allowed without produce/consume"
+      use_case: "External contracts, deprecated schemas, or system-level contracts"
+      config_path: "coverage.exceptions.contracts_unreferenced"
+
+    telemetry_unreferenced:
+      description: "Telemetry URNs that are allowed without references"
+      use_case: "System telemetry, deprecated signals, or external observability"
+      config_path: "coverage.exceptions.telemetry_unreferenced"
+
+  metadata_exemptions:
+    contracts:
+      field: "x-artifact-metadata.status"
+      values: ["draft", "external", "deprecated"]
+      reason: "Contract schemas with these statuses are exempt from coverage requirements"
+
+    telemetry:
+      field: "status"
+      values: ["draft", "external", "deprecated"]
+      reason: "Telemetry signals with these statuses are exempt from coverage requirements"
+
+test_discovery:
+  description: "How tests are discovered and linked to acceptances"
+  patterns:
+    python:
+      location: "python/{wagon}/"
+      filename: "test_*.py"
+      reference_method: "Docstring URN reference or header comment"
+      example: "# URN: acc:maintain-ux:D001-UNIT-001"
+
+    typescript:
+      location: "supabase/functions/{wagon}/{feature}/test/"
+      filename: "*.test.ts"
+      reference_method: "Comment at top of file or JSDoc annotation"
+      example: "// urn: acc:maintain-ux:D001-UNIT-001"
+
+    dart:
+      location: "test/"
+      filename: "*_test.dart"
+      reference_method: "Comment at top of file"
+      example: "// urn: acc:maintain-ux:D001-UNIT-001"
+
+rollout:
+  phase: "PLANNER_TESTER_ENFORCEMENT"
+  description: "Section 3 validators become strict in Phase 2"

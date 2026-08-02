@@ -1,4 +1,0 @@
----
-upgrade:
-  - |
-    Bumped the default Ubuntu release to focal.

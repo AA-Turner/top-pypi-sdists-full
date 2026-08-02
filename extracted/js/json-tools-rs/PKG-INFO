@@ -1,0 +1,559 @@
+Metadata-Version: 2.4
+Name: json-tools-rs
+Version: 0.9.22
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Rust
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Text Processing :: General
+Classifier: Topic :: Utilities
+Requires-Dist: orjson>=3.9
+License-File: LICENSE-APACHE
+License-File: LICENSE-MIT
+Summary: High-performance JSON manipulation library with SIMD-accelerated parsing, Rayon parallelism, and native DataFrame/Series support
+Keywords: json,flatten,manipulation,parsing,rust,simd,performance,dataframe
+Author: JSON Tools RS Contributors
+License: MIT OR Apache-2.0
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Bug Tracker, https://github.com/amaye15/JSON-Tools-rs/issues
+Project-URL: Documentation, https://amaye15.github.io/JSON-Tools-rs/
+Project-URL: Homepage, https://github.com/amaye15/JSON-Tools-rs
+Project-URL: Repository, https://github.com/amaye15/JSON-Tools-rs
+
+# JSON Tools RS
+
+A high-performance Rust library for advanced JSON manipulation with SIMD-accelerated parsing, providing unified flattening and unflattening operations through a clean builder pattern API. Ships with Rust and Python bindings.
+
+[![PyPI](https://img.shields.io/pypi/v/json-tools-rs.svg)](https://pypi.org/project/json-tools-rs/)
+[![Crates.io](https://img.shields.io/crates/v/json-tools-rs.svg)](https://crates.io/crates/json-tools-rs)
+[![Documentation](https://docs.rs/json-tools-rs/badge.svg)](https://docs.rs/json-tools-rs)
+[![Book](https://img.shields.io/badge/book-GitHub%20Pages-blue)](https://amaye15.github.io/JSON-Tools-rs/)
+[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](LICENSE-MIT)
+
+## Why JSON Tools RS?
+
+JSON Tools RS is designed for developers who need to:
+- **Transform nested JSON** into flat structures for databases, CSV exports, or analytics
+- **Clean and normalize** JSON data from external APIs or user input
+- **Process large batches** of JSON documents efficiently
+- **Maintain type safety** with perfect roundtrip support (flatten → unflatten → original)
+- **Work with both Rust and Python** using the same consistent API
+
+Unlike simple JSON parsers, JSON Tools RS provides a complete toolkit for JSON transformation with production-ready performance and error handling.
+
+## Features
+
+- 🚀 **Unified API**: Single `JSONTools` entry point for flattening, unflattening, or pass-through transforms (`.normal()`)
+- 🔧 **Builder Pattern**: Fluent, chainable API for easy configuration and method chaining
+- ⚡ **High Performance**: SIMD-accelerated JSON parsing with FxHashMap, SmallVec stack allocation, and tiered caching
+- 🚄 **Parallel Processing**: Built-in Rayon-based parallelism (persistent work-stealing pool) for faster batch operations and large nested structures
+- 🎯 **Complete Roundtrip**: Flatten JSON and unflatten back to original structure with perfect fidelity
+- 🧹 **Comprehensive Filtering**: Remove empty strings, nulls, empty objects, and empty arrays (works for both flatten and unflatten)
+- 🔄 **Advanced Replacements**: Key/value replacements, literal (exact substring match) by default, or regex by wrapping the pattern in `r'...'`
+- 🚫 **Key/Value Exclusion**: Drop entire keys (and their subtree) or key-value pairs by pattern match with `.exclude_key()`/`.exclude_value()`
+- 🛡️ **Collision Handling**: Intelligent `.handle_key_collision(true)` to collect colliding values into arrays
+- 📅 **Date Normalization**: Automatic detection and normalization of ISO-8601 dates to UTC
+- 🔀 **Automatic Type Conversion**: Convert strings to numbers, booleans, and nulls with `.auto_convert_types(true)`
+- 📦 **Batch Processing**: Process single JSON or batches; Python also supports dicts and lists of dicts
+- 🐍 **Python Bindings**: Full Python support with perfect type preservation (input type = output type)
+- 📊 **DataFrame/Series Support**: Native support for Pandas, Polars, PyArrow, and PySpark DataFrames and Series in Python
+
+## Table of Contents
+
+- [Why JSON Tools RS?](#why-json-tools-rs)
+- [Features](#features)
+- [Quick Start](#quick-start)
+  - [Rust Examples](#rust---unified-jsontools-api)
+  - [Python Examples](#python---unified-jsontools-api)
+  - [Runnable Examples](#runnable-examples)
+- [Quick Reference](#quick-reference)
+- [Installation](#installation)
+- [Architecture](#architecture)
+- [Performance](#performance)
+- [Contributing](#contributing)
+- [License](#license)
+- [Changelog](#changelog)
+
+## Quick Start
+
+### Rust - Unified JSONTools API
+
+The `JSONTools` struct provides a unified builder pattern API for all JSON manipulation operations. Simply call `.flatten()` or `.unflatten()` to set the operation mode, then chain configuration methods and call `.execute()`.
+
+#### Basic Flattening
+
+```rust
+use json_tools_rs::{JSONTools, JsonOutput};
+
+let json = r#"{"user": {"name": "John", "profile": {"age": 30, "city": "NYC"}}}"#;
+let result = JSONTools::new()
+    .flatten()
+    .execute(json)?;
+
+if let JsonOutput::Single(flattened) = result {
+    println!("{}", flattened);
+}
+// Output: {"user.name": "John", "user.profile.age": 30, "user.profile.city": "NYC"}
+
+```
+
+#### Advanced Flattening with Filtering
+
+```rust
+use json_tools_rs::{JSONTools, JsonOutput};
+
+let json = r#"{"user": {"name": "John", "details": {"age": null, "city": ""}}}"#;
+let result = JSONTools::new()
+    .flatten()
+    .separator("::")
+    .lowercase_keys(true)
+    .key_replacement("r'(User|Admin)_'", "")
+    .value_replacement("@example.com", "@company.org")
+    .remove_empty_strings(true)
+    .remove_nulls(true)
+    .remove_empty_objects(true)
+    .remove_empty_arrays(true)
+    .execute(json)?;
+
+if let JsonOutput::Single(flattened) = result {
+    println!("{}", flattened);
+}
+// Output: {"user::name": "John"}
+
+```
+
+#### Automatic Type Conversion
+
+Convert string values to numbers, booleans, dates, and null automatically for data cleaning and normalization.
+
+```rust
+use json_tools_rs::{JSONTools, JsonOutput};
+
+let json = r#"{
+    "id": "123",
+    "price": "$1,234.56",
+    "discount": "15%",
+    "active": "yes",
+    "verified": "1",
+    "created": "2024-01-15T10:30:00+05:00",
+    "status": "N/A"
+}"#;
+
+let result = JSONTools::new()
+    .flatten()
+    .auto_convert_types(true)
+    .execute(json)?;
+
+if let JsonOutput::Single(flattened) = result {
+    println!("{}", flattened);
+}
+// Output: {
+//   "id": 123,
+//   "price": 1234.56,
+//   "discount": 15.0,
+//   "active": true,
+//   "verified": 1,
+//   "created": "2024-01-15T05:30:00Z", // Normalized to UTC
+//   "status": null
+// }
+
+```
+
+### Python - Unified JSONTools API
+
+The Python bindings provide the same unified `JSONTools` API with **perfect type matching**: input type equals output type.
+
+#### Basic Usage
+
+```python
+import json_tools_rs as jt
+
+# Basic flattening - dict input → dict output
+result = jt.JSONTools().flatten().execute({"user": {"name": "John", "age": 30}})
+print(result)  # {'user.name': 'John', 'user.age': 30}
+
+# Basic unflattening - dict input → dict output
+result = jt.JSONTools().unflatten().execute({"user.name": "John", "user.age": 30})
+print(result)  # {'user': {'name': 'John', 'age': 30}}
+
+```
+
+#### Advanced Configuration & Parallelism
+
+```python
+import json_tools_rs as jt
+
+# Configure tools with parallel processing settings
+tools = (jt.JSONTools()
+    .flatten()
+    .separator("::")
+    .lowercase_keys(True)
+    .remove_empty_strings(True)
+    .parallel_threshold(50)       # Parallelize batches >= 50 items
+    .num_threads(4)               # Use 4 threads
+    .nested_parallel_threshold(200) # Parallelize large objects
+)
+
+# Process a batch of data
+batch = [{"data": i} for i in range(100)]
+results = tools.execute(batch)
+
+```
+
+#### DataFrame & Series Support
+
+```python
+import json_tools_rs as jt
+import pandas as pd
+
+# Pandas DataFrame input → Pandas DataFrame output
+df = pd.DataFrame([
+    {"user": {"name": "Alice", "age": 30}},
+    {"user": {"name": "Bob", "age": 25}},
+])
+result = jt.JSONTools().flatten().execute(df)
+print(type(result))  # <class 'pandas.core.frame.DataFrame'>
+
+# Also works with Polars, PyArrow Tables, and PySpark DataFrames
+# Series input → Series output (Pandas, Polars, PyArrow)
+
+# Or skip having a DataFrame at all -- normalise=True always returns a wide
+# DataFrame regardless of input shape (dict, str, list), with target= picking
+# the library (pandas/polars/pyarrow/pyspark) or auto-resolving if omitted.
+df = jt.JSONTools().flatten().execute(
+    {"user": {"name": "Alice", "age": 30}}, normalise=True
+)
+```
+
+### Runnable Examples
+
+Every builder feature has a standalone, runnable example in both languages,
+plus curated multi-feature pipelines (not an exhaustive combinatorial sweep --
+the builder has ~10 independent toggles -- but realistic groupings commonly used
+together, and one "kitchen sink" pipeline exercising nearly everything at once).
+Both language versions use matching inputs and produce matching output.
+
+| | Individual features | Curated combinations |
+| --- | --- | --- |
+| Rust | [`examples/feature_by_feature.rs`](examples/feature_by_feature.rs) | [`examples/feature_combinations.rs`](examples/feature_combinations.rs) |
+| Python | [`python/examples/feature_by_feature.py`](python/examples/feature_by_feature.py) | [`python/examples/feature_combinations.py`](python/examples/feature_combinations.py) |
+
+```bash
+# Rust
+cargo run --example feature_by_feature
+cargo run --example feature_combinations
+
+# Python
+python3 python/examples/feature_by_feature.py
+python3 python/examples/feature_combinations.py
+```
+
+There are also narrative walkthroughs for a quicker first read:
+[`examples/basic_usage.rs`](examples/basic_usage.rs) /
+[`examples/advance_usage.rs`](examples/advance_usage.rs) (Rust) and
+[`python/examples/examples.py`](python/examples/examples.py) (Python).
+
+## Quick Reference
+
+### Method Cheat Sheet
+
+| Method | Description | Example |
+| --- | --- | --- |
+| `.flatten()` | Set operation mode to flatten | `JSONTools::new().flatten()` |
+| `.unflatten()` | Set operation mode to unflatten | `JSONTools::new().unflatten()` |
+| `.normal()` | Set mode to pass-through (transform only) | `JSONTools::new().normal()` |
+| `.separator(sep)` | Set key separator (default: `"."`) | `.separator("::")` |
+| `.lowercase_keys(bool)` | Convert keys to lowercase | `.lowercase_keys(true)` |
+| `.remove_empty_strings(bool)` | Remove empty string values | `.remove_empty_strings(true)` |
+| `.remove_nulls(bool)` | Remove null values | `.remove_nulls(true)` |
+| `.remove_empty_objects(bool)` | Remove empty objects `{}` | `.remove_empty_objects(true)` |
+| `.remove_empty_arrays(bool)` | Remove empty arrays `[]` | `.remove_empty_arrays(true)` |
+| `.key_replacement(find, repl)` | Replace key patterns (literal, or regex via `r'...'`) | `.key_replacement("r'user_'", "")` |
+| `.value_replacement(find, repl)` | Replace value patterns (literal, or regex via `r'...'`) | `.value_replacement("@old.com", "@new.com")` |
+| `.exclude_key(pattern)` | Drop a key (and its entire subtree) matching a pattern | `.exclude_key("crypto")` |
+| `.exclude_value(pattern)` | Drop a key-value pair whose value matches a pattern | `.exclude_value("banned")` |
+| `.handle_key_collision(bool)` | Collect colliding keys into arrays | `.handle_key_collision(true)` |
+| `.always_array_keys([...])` | Always render these flattened keys as arrays, even with one value -- consistent shape across documents | `.always_array_keys(["name"])` |
+| `.auto_convert_types(bool)` | Convert types (nums, bools, dates, nulls) -- all 4 categories, default behavior | `.auto_convert_types(true)` |
+| `.convert_dates/nulls/booleans/numbers(bool)` | Convert types independently per category, with optional `_config(...)` customization | `.convert_numbers(true)` |
+| `.parallel_threshold(n)` | Min batch size for parallelism | `.parallel_threshold(500)` |
+| `.num_threads(n)` | Number of threads (default: CPU count) | `.num_threads(Some(4))` |
+| `.nested_parallel_threshold(n)` | Nested object parallelism size | `.nested_parallel_threshold(50)` |
+| `.max_array_index(n)` | Max array index for unflatten (DoS protection) | `.max_array_index(100_000)` |
+
+## Automatic Type Conversion
+
+When `.auto_convert_types(true)` is enabled, the library performs smart parsing on string values. For independent control over each category below (e.g. only converting numbers, or customizing date/null/boolean matching), use `.convert_dates()`/`.convert_nulls()`/`.convert_booleans()`/`.convert_numbers()` instead -- see [Automatic Type Conversion](https://amaye15.github.io/JSON-Tools-rs/guide/type-conversion.html) for the full per-category reference across all three language bindings.
+
+1. **Date & Time (ISO-8601)**:
+* Detects date strings to avoid converting them to numbers (e.g., "2024-01-01").
+* Normalizes datetimes to UTC.
+* Supports offsets (`+05:00`), Z suffix, and naive datetimes.
+
+
+2. **Numbers**:
+* **Basic**: `"123"` → `123`, `"45.67"` → `45.67`
+* **Separators**: `"1,234.56"` (US), `"1.234,56"` (EU), `"1 234.56"` (Space)
+* **Currency**: `"$123"`, `"€99"`, `"£50"`, `"¥1000"`, `"R$50"`
+* **Scientific**: `"1e5"` → `100000`
+* **Percentages**: `"50%"` → `50.0`, `"12.5%"` → `12.5`
+* **Basis Points**: `"50bps"` → `0.005`, `"100 bp"` → `0.01`
+* **Suffixes**: `"1K"`, `"2.5M"`, `"5B"` (Thousand, Million, Billion)
+
+
+3. **Booleans**:
+* `"true"`, `"false"`, `"yes"`, `"no"`, `"on"`, `"off"`, `"y"`, `"n"` (case-insensitive).
+* *Note*: `"1"` and `"0"` are treated as numbers, not booleans.
+
+
+4. **Nulls**:
+* `"null"`, `"nil"`, `"none"`, `"N/A"` (case-insensitive) → `null`.
+
+
+
+## Installation
+
+### Rust
+
+```bash
+cargo add json-tools-rs
+
+```
+
+### Python
+
+```bash
+pip install json-tools-rs
+```
+
+## Architecture
+
+The codebase is organized into focused, single-responsibility modules:
+
+```
+src/
+├── lib.rs            Facade: mod declarations + pub use re-exports
+├── json_parser.rs    Conditional SIMD parser (sonic-rs on 64-bit, simd-json on 32-bit)
+├── types.rs          Core types: JsonInput, JsonOutput
+├── error.rs          Error types with codes E001-E008
+├── config.rs         Configuration structs and operation modes
+├── cache.rs          Tiered regex pattern caching (compile-time table, thread-local, global)
+├── convert.rs        Type conversion: numbers, dates, booleans, nulls (SIMD-optimized)
+├── transform.rs      Filtering, key/value replacements, collision handling
+├── flatten.rs        Flattening algorithm with Rayon parallelism
+├── unflatten.rs      Unflattening with SIMD separator detection
+├── builder.rs        Public JSONTools builder API and execute() entry point
+├── python.rs         Python bindings via PyO3
+├── tests.rs          Unit tests
+└── main.rs           CLI examples
+```
+
+The processing pipeline:
+1. **Parse** -- SIMD-accelerated JSON parsing (`json_parser`)
+2. **Flatten/Unflatten** -- Recursive traversal with `CompactString`/arena-backed key storage (`flatten`/`unflatten`)
+3. **Transform** -- Lowercase, replacements (cached regex), collision handling (`transform`)
+4. **Filter** -- Remove empty strings, nulls, empty objects/arrays (`transform`)
+5. **Convert** -- Type conversion with first-byte discriminators (`convert`)
+6. **Serialize** -- Output to JSON string or native Python types
+
+## Performance
+
+### Benchmark Results
+
+| Benchmark | Time | Description |
+|-----------|------|-------------|
+| Deep nesting (100 levels) | ~2.17 µs | Deeply nested JSON objects |
+| Wide objects (1,000 keys) | ~24.8 µs | Flat objects with many keys |
+| Large arrays (5,000 items) | ~406 µs | Arrays with many elements |
+| Parallel batch (10,000 items) | ~635 µs | Batch processing with Rayon (`nested_parallel_threshold`) |
+
+*Measured on Apple Silicon (M4) via `cargo bench --bench stress_benchmarks`, v0.9.5. Results may vary by platform and data shape.*
+
+### Optimization Techniques
+
+JSON Tools RS uses several techniques to achieve high performance:
+
+* **SIMD-JSON**: Hardware-accelerated parsing via sonic-rs (64-bit) / simd-json (32-bit).
+* **SIMD Byte Search**: memchr/memmem for SIMD-accelerated string operations and pattern matching.
+* **FxHashMap**: Faster hashing for string keys via a hand-rolled FxHash-style hasher (`src/fxhash.rs`; no external hashing crate dependency).
+* **Tiered Caching**: Three-level regex cache (compile-time pattern table → thread-local FxHashMap → global `RwLock<FxHashMap>`).
+* **SmallVec & Cow**: Stack allocation for depth stacks and number buffers; zero-copy string handling.
+* **CompactString & Arena Keys**: Object keys are inlined via `CompactString` (no heap allocation up to 24 bytes); `flatten`'s slow path additionally uses a `bumpalo` arena for deep-nested keys, to minimize allocations in wide/deep JSON.
+* **First-Byte Discriminators**: Rapid rejection of non-convertible strings during type conversion.
+* **Parallelism**: Rayon's persistent work-stealing thread pool for batch processing and large nested structures (avoids per-call OS thread spawn cost).
+
+## CLI Demo
+
+The crate includes an educational demo binary that showcases library features:
+
+```bash
+cargo run
+```
+
+This prints progressive examples covering basic flattening, unflattening, custom separators, filtering, replacements, collision handling, type conversion, and batch processing.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, testing, benchmarking, and PR guidelines.
+
+## License
+
+Dual-licensed under either [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.
+
+## Changelog
+
+### v0.9.22 (Current)
+
+* **Added**: `.always_array_keys([...])` -- flattened key names that must always render as a JSON array, even with only one value present, keeping a key's shape consistent across every document/row of a batch regardless of `.handle_key_collision()`. Also guarantees `normalise()` resolves that column to `List<T>` even when a particular batch has zero collisions for it.
+* **Performance**: audited every clone/copy site in the codebase. `PyJsonOutput.get_single()`/`get_multiple()`/`__str__()` cloned a result before PyO3's own unavoidable copy at the FFI boundary -- fixed to build the Python object directly from the borrowed value. Measured ~25-27% faster via interleaved A/B, zero behavior change.
+
+See [CHANGELOG.md](CHANGELOG.md) for the full, itemized list.
+
+### v0.9.21
+
+* **Performance**: three rounds of profiling-driven fixes to hot allocation paths. Date/datetime normalization output no longer re-parses a `chrono` format string per value (~10.6% faster on date-heavy `convert_dates(True)` workloads); `unflatten()` reuses one path buffer across a document instead of allocating one per key (~3.8% faster on wide documents); the Arrow-native `normalise()` engine no longer double-parses list-valued columns (~5-6% faster on `handle_key_collision(True)`-heavy data) and no longer re-clones already-seen keys when unioning columns across rows (~13% faster at issue #31's scale, 754 rows x 4,042 columns); DataFrame extraction no longer allocates an owned `String` per JSON key when un-nesting or splicing embedded columns (~6-9% faster per call, ~8.9% faster end-to-end for embedded-JSON-string-column DataFrames). No behavior changes.
+
+See [CHANGELOG.md](CHANGELOG.md) for the full, itemized list.
+
+### v0.9.20
+
+* **Changed (BREAKING)**: DataFrame column expansion no longer prefixes with the source column's name -- a column named `payload` holding `{"user": {"name": "Alice"}}` now expands to `user.name`, not `payload.user.name`. Genuine nesting *within* a column's content still prefixes normally; array-valued columns are unaffected.
+* **Changed (BREAKING)**: `normalise=True`/`target=...` reconstruction is now Arrow-native -- one real Arrow `RecordBatch` built directly in Rust, no new methods. `handle_key_collision(True)` list columns and recognized date/datetime columns (gated on `.convert_dates()`) now build as real, correctly-typed `List<T>`/`Date32`/`Timestamp` columns instead of being stringified. `target="pandas"` output uses Arrow-backed dtypes (a breaking dtype change); `target="pandas"`/`"pyspark"` now require `pyarrow` installed, `target="polars"` does not.
+* **Removed (BREAKING)**: the JVM/Java/Scala binding has been removed entirely -- the Rust core and Python bindings are unaffected; the published Maven Central artifact will not receive new versions. Databricks/Spark users should switch to the Python bindings wrapped in a `pandas_udf`.
+* **Performance**: `normalise=True`/`target=...` reconstruction ~1-4% faster end-to-end; `.convert_dates(True)`'s own detection cost measured at ~0.1-4.5%, not charged when off.
+
+See [CHANGELOG.md](CHANGELOG.md) for the full, itemized list.
+
+### v0.9.19
+
+* **Changed**: MSRV raised from 1.80 to 1.85, required for current `pyo3-arrow` releases (see below). Affects every source (`cargo add`) consumer.
+* **Performance**: `execute()` on a Polars `DataFrame`/PyArrow `Table` with an embedded JSON-string column is ~41-48% faster end-to-end -- detection/extraction now uses `pyo3-arrow`'s zero-copy Arrow buffer access instead of round-tripping through the DataFrame's native JSON writer (escape, then immediately unescape). Column ordering is preserved exactly as before. Scoped to Polars/PyArrow; plain pandas and PySpark are unaffected.
+
+### v0.9.18
+
+* **Performance**: `execute()` on a PyArrow `Table`/`RecordBatch` is ~2x faster -- extraction now bridges through pandas's native JSON writer (using `types_mapper=pd.ArrowDtype` to avoid a real integer-with-nulls-to-float corruption bug caught while building this fix) instead of `to_pylist()` + per-item conversion. `splice_row`'s per-key escaping now reuses the crate's existing zero-allocation key writer instead of `serde_json::to_string`; a real cleanup, though measured end-to-end impact was within noise at realistic scale.
+
+### v0.9.17
+
+* **Performance**: core `flatten()`/`unflatten()` collision-handling paths ~5-8% faster (removed a redundant second hashmap lookup per unique key); the remaining non-`normalise` DataFrame/Series reconstruction functions now share the `PyOnceLock` import caching added in 0.9.16; `mimalloc`'s doc comment updated to real measured numbers (~14-28%, previously an unverified "~5-10%") plus new CI coverage.
+
+### v0.9.16
+
+* **Performance**: `execute(..., normalise=True, target=...)` and PySpark `execute(spark_df)` are 13-18% faster for large/wide results (e.g. 754 rows x 4,042 columns). `union_and_columnarize` rewritten from an O(rows x columns) `PyDict` hash-lookup pattern to a single forward pass, plus `PyOnceLock`-cached pandas/polars/pyarrow/pyspark module imports across the reconstruction path. Verified via interleaved A/B against the real Python API.
+
+### v0.9.15
+
+* **Fix**: `execute(spark_df)` no longer crashes when a `.key_replacement()`/`.handle_key_collision(True)` list column holds genuinely mixed element types ([#33](https://github.com/amaye15/JSON-Tools-rs/issues/33)). The list-flavored twin of the 0.9.14 fix: a collision list is built from each colliding key's own independently-converted value, so a single row's collision could already mix kinds (e.g. `[100, "abc"]`); such columns now fall back to string elements, while uniformly-typed list columns (e.g. all `int`) correctly get a typed array instead of unnecessary stringification.
+
+### v0.9.14
+
+* **Fix**: `execute(spark_df)` with `auto_convert_types(True)` no longer crashes on columns with genuinely mixed types ([#32](https://github.com/amaye15/JSON-Tools-rs/issues/32)). A column that ends up holding both `str` and `int` values across rows (a natural consequence of per-value auto-conversion) previously broke Spark's Arrow bridge with `PySparkTypeError`; such columns now fall back to a uniform string column instead, while `int`/`float`-only mixes still promote correctly to `double`. Also hardens `normalise(target=...)` for all four DataFrame backends, which share the same column-unioning step.
+
+### v0.9.13
+
+* **Fix**: `execute(df)` on a PySpark DataFrame now returns a real, distributed `pyspark.sql.DataFrame`, not a plain `list[dict]` ([#31](https://github.com/amaye15/JSON-Tools-rs/issues/31)). **Behavior change:** code relying on the old list fallback needs updating. Polars input was independently confirmed to already work correctly.
+* **Performance**: JSON-string-column auto-expansion (0.9.12) is ~40-43% faster for large embedded payloads, rewritten around `serde_json::value::RawValue` to avoid a redundant full-tree parse/reserialize per row, while keeping the same graceful per-row fallback behavior.
+
+### v0.9.12
+
+* **Fix**: `execute(df)` in `.flatten()` mode now auto-expands DataFrame columns holding JSON *strings*, not just columns already typed as dicts/structs ([#30](https://github.com/amaye15/JSON-Tools-rs/issues/30)). **Behavior change:** a DataFrame with a JSON-string column now produces more/differently-shaped output columns in flatten mode than before; `.unflatten()`/`.normal()` mode are unaffected.
+
+### v0.9.11
+
+* **Fix**: `execute(..., normalise=True, target="pyspark")` could silently corrupt an all-`None` column on Spark's non-Arrow fallback path (taken automatically when pyarrow isn't installed, which pyspark does not depend on) -- a missing value could serialize as the literal string `"<NA>"` instead of a real null. Fixed by computing an explicit `StructType` schema from the data (instead of relying on Spark to infer it) and using plain Python `None` instead of pandas's nullable extension type, verified correct with and without pyarrow installed.
+
+### v0.9.10
+
+* **New**: `execute(input, normalise=True, target=None)` (Python) -- always returns a wide DataFrame (one column per flattened key) regardless of input shape (`str`/`dict`/`list`/DataFrame/Series all supported), working natively across pandas, polars, pyarrow, and now genuinely **PySpark** (a real `pyspark.sql.DataFrame`, closing the previous list-of-dicts fallback for this path). See [DataFrame & Series Support](https://amaye15.github.io/JSON-Tools-rs/guide/dataframe-support.html#normalise-always-get-a-wide-dataframe).
+* **New**: `JSONTools` (Python) is now picklable (`pickle.dumps`/`pickle.loads`), including across a real process boundary (e.g. captured in a PySpark UDF/`mapInPandas` closure via cloudpickle) -- via `__reduce__` plus a new `to_config_json()`/`from_config_json()` method pair. ([#29](https://github.com/amaye15/JSON-Tools-rs/issues/29))
+* **Fix**: critical `auto_convert_types` panic on multi-byte UTF-8 content in specific positions (e.g. `"5€ García"`, a `"+1Á2"` timezone offset) -- two fixed-byte-offset string slices assumed the offset was always a UTF-8 character boundary. Fixed with an `is_char_boundary` guard at each site; no behavior change for valid inputs. ([#29](https://github.com/amaye15/JSON-Tools-rs/issues/29))
+
+See [CHANGELOG.md](CHANGELOG.md) for full details.
+
+### v0.9.8
+
+* **Changed**: [orjson](https://github.com/ijl/orjson) is now a required Python dependency, used automatically for dict/DataFrame-row JSON (de)serialization -- `pip install json-tools-rs` is all that's needed. A per-call fallback to the standard library still covers inputs orjson can't handle (e.g. integers beyond 64-bit range).
+* **Performance**: Python binding marshaling ~37% faster (dict calls) / ~39% faster (str calls) via a detection fast-path plus the orjson backend; JVM binding marshaling ~22-38% faster per call (UTF-8 `byte[]` across the JNI boundary instead of `String`); unflatten ~5-6% faster and roundtrip ~4-5% faster (corpus-tuned container capacity hints, single-lookup `entry()`); flatten ~13-16% faster across payload sizes (removed a double-scan in the core tape scanner).
+
+See [CHANGELOG.md](CHANGELOG.md) for full details.
+
+### v0.9.7
+
+* **New**: `.exclude_key(pattern)` (Rust/Python/JVM) -- drop any key, and its entire value/subtree, whose name contains `pattern` (literal by default, `r'...'` for regex). Matching a container key drops its entire subtree in O(1), without walking it. See [Key Exclusion](https://amaye15.github.io/JSON-Tools-rs/guide/replacements.html#key-exclusion).
+* **New**: `.exclude_value(pattern)` (Rust/Python/JVM) -- drop a key-value pair whose value contains `pattern`. Applies only to scalar leaf values; checked after `.value_replacement()`/`.auto_convert_types()` have run. See [Value Exclusion](https://amaye15.github.io/JSON-Tools-rs/guide/replacements.html#value-exclusion).
+* **Fix**: `.remove_nulls()` now runs consistently last across `.flatten()`/`.unflatten()`/`.normal()` mode -- previously `.value_replacement()` and `.auto_convert_types()` composed in different orders across the three engines, so a value that only became null after a replacement could slip past `.remove_nulls()` depending on mode.
+
+See [CHANGELOG.md](CHANGELOG.md) for full details, including edge-case coverage across all three languages.
+
+### v0.9.6
+
+* **New**: fine-grained, per-category control over automatic type conversion -- `.convert_dates()`, `.convert_nulls()`, `.convert_booleans()`, `.convert_numbers()` (Rust/Python/JVM) let each category be enabled/disabled independently, each also accepting real customization (date UTC-normalization toggles, extra null/boolean tokens, per-sub-format number toggles). `.auto_convert_types(bool)` is unchanged and still means "all four, default behavior." See [Automatic Type Conversion](#automatic-type-conversion).
+* **Breaking (pre-1.0)**: `ProcessingConfig`/`FilteringConfig`/`CollisionConfig`/`ReplacementConfig` are now `#[non_exhaustive]`; `ProcessingConfig.auto_convert_types: bool` removed in favor of `ProcessingConfig.type_conversion: TypeConversionConfig`. Only affects code constructing these via a bare struct literal or reading that field directly -- the `JSONTools` builder is unaffected.
+* **Performance**: the existing hot-path type-conversion function is untouched by this change; the new per-category dispatch is selected once per `execute()` call, confirmed within ~1% of prior `auto_convert_types` cost (Criterion).
+
+### v0.9.5
+
+* **Documentation-wide accuracy sweep**: every root-level doc, the full mdBook site, and the JVM Java source's own doc comments audited against actual source code and live runtime behavior (not just re-read) across four parallel passes. Corrected fabricated/stale internals (references to a `phf` key cache, `rustc-hash`, `Arc<str>` key dedup, and function names that no longer exist -- none of that is in the current codebase), stale benchmark numbers (some off by 3-14x), wrong error-handling semantics (e.g. `.separator("")` documented as panicking; it returns a config error), several broken guide examples, and stale "not yet published" claims for Maven Central/PyPI (both have been live for a while). Also fixed a real internal contradiction in the JVM Java source itself (`FlattenUDF`/`BatchTransform` javadoc claimed Lakeflow Pipeline support that Databricks doesn't actually allow) and added a missing [JVM API reference page](https://amaye15.github.io/JSON-Tools-rs/reference/jvm-api.html).
+* **New**: runnable examples covering every builder feature individually, plus curated multi-feature pipelines, mirrored across all three language bindings with matching inputs/outputs -- see [Runnable Examples](#runnable-examples) below.
+* **Performance**: regex pattern lookup for `key_replacement`/`value_replacement` no longer re-hashes and re-walks the cache on every key/value check (a thread-local "sticky" cache of recently-used patterns short-circuits the common case) -- regex scenarios 9-22% faster (Criterion). Consolidated two near-duplicate replacement-application code paths, which also fixed a missing SIMD fast-path for literal value replacement (~15-19% faster for that case).
+
+See [CHANGELOG.md](CHANGELOG.md) for full details on all of the above.
+
+### v0.9.4
+
+* **Bug fix**: `auto_convert_types` silently corrupted the trailing digits of large integer strings (17+ digits, e.g. Snowflake/Discord/database bigint IDs) by always round-tripping through `f64`, which only has ~15-17 significant decimal digits of exact precision. Now reuses already-canonical integer strings directly instead of reformatting through a float.
+* **Python bindings**: `dict`/`list[dict]`/DataFrame/Series conversion switched from the `pythonize` crate's generic serde-based traversal to direct calls to Python's own `json` module. Benchmarked against the actual built extension: ~18% faster for a single nested dict, ~1.6x faster for a 200-row pandas DataFrame (the realistic cases this library exists for); flat/tiny dicts see a smaller, reported-honestly regression. Removes the `pythonize` dependency entirely.
+* **Performance**: credit/debit currency suffix stripping (`"100CR"`/`"100DR"`) in `auto_convert_types` no longer goes through std's generic string-pattern search machinery -- ~13-17% faster on currency-heavy conversion (Criterion). Literal (non-regex) key/value replacement now uses SIMD substring search -- ~2.6-4.8% faster. `unflatten`'s internal object maps now start pre-sized instead of growing from empty -- ~7-9% faster combined. `auto_convert_types`'s date detection hand-rolled instead of using chrono's generic parser -- ~25% faster on mixed real-dates/false-positive workloads. `flatten`'s slow path (key transforms configured) now uses an arena allocator for deep-nested documents -- up to ~14% faster end-to-end.
+
+See [CHANGELOG.md](CHANGELOG.md) for full details on all of the above, including the honest trade-offs.
+
+### v0.9.3
+
+* **Bug fix**: `flatten` produced invalid JSON for any key containing an escaped character (`\"`, `\\`, control chars) when no key transform was configured -- the default, most common usage.
+* **Bug fix**: re-escaping corrupted multi-byte UTF-8 characters (e.g. `café "quoted"` became `cafÃ© \"quoted\"`) whenever a string needed escaping and also contained non-ASCII text -- affected key escaping under `lowercase_keys`/`key_replacement`/collision-handling, value escaping under `value_replacement`, and `unflatten`'s key serialization.
+* **Performance**: JSON object keys now use `CompactString` instead of `String` (inlines keys up to 24 bytes, no heap allocation) -- `unflatten` is ~19-22% faster (Criterion). Redundant separator re-scan eliminated in `unflatten`'s tree-building. Regex pattern cache now evicts genuinely least-recently-used entries instead of arbitrary ones. Key/value re-escaping is ~17-22% faster as a side effect of the UTF-8 corruption fix above.
+
+See [CHANGELOG.md](CHANGELOG.md) for full details on all of the above.
+
+### v0.9.2
+
+*(`v0.9.1` was tagged a day earlier but only completed publishing to Maven Central --
+a crates.io/PyPI release pipeline bug caused those two to fail before any upload.
+Fixed and re-cut as v0.9.2 across all three registries; no code changes beyond the
+release pipeline fix itself.)*
+
+* **JVM (Java) bindings** (BREAKING for `key_replacement`/`value_replacement`, see below): new Spark UDF bindings (`jvm/`) with full feature parity, via a JNI shim over the same Rust core -- see [`jvm/README.md`](jvm/README.md).
+* **`key_replacement`/`value_replacement` pattern syntax (BREAKING)**: patterns are now literal (exact substring match) by default; wrap in `r'...'` (e.g. `r'^admin_'`) for regex. Previously every pattern was always compiled as regex.
+* **Rayon parallelism**: batch processing switched back from `std::thread::scope` (per-call OS thread spawn) to Rayon's persistent work-stealing pool -- measurably faster for small-to-medium batches.
+* **`has_escape` scanner bug fix**: escape sequences not adjacent to a quote (`\n`, `\t`, `\r`, `\uXXXX`) were previously invisible to the tape scanner, silently skipping `auto_convert_types`/replacements/`lowercase_keys` for affected strings.
+* **crates.io and Maven Central publishing** enabled on tagged releases.
+
+See [CHANGELOG.md](CHANGELOG.md) for full details on all of the above.
+
+### v0.9.0
+
+* **Crossbeam Parallelism**: Migrated from Rayon to Crossbeam for finer-grained parallel control.
+* **DataFrame/Series Support**: Native Python support for Pandas, Polars, PyArrow, and PySpark DataFrames and Series.
+* **Modular Architecture**: Refactored into 10 focused modules for maintainability (zero API changes).
+* **Performance Optimizations**: Eliminated per-entry HashMap in parallel flatten, early-exit discriminators, SIMD literal fallback, thread-local regex cache half-eviction, vectorized `clean_number_string()`.
+* **Python Binding Optimizations**: `mem::take` for zero-cost builder mutations, O(1) DataFrame/Series reconstruction.
+
+### v0.8.0
+
+* **Python Feature Parity**: Added `auto_convert_types`, `parallel_threshold`, `num_threads`, and `nested_parallel_threshold` to Python bindings.
+* **Enhanced Type Conversion**: Added support for ISO-8601 dates, currency codes (USD, EUR), basis points (bps), and suffixed numbers (K/M/B).
+* **Date Normalization**: Automatic detection and UTC normalization of date strings.
+
+See [CHANGELOG.md](CHANGELOG.md) for full history.

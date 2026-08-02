@@ -1,0 +1,17 @@
+Metadata-Version: 1.1
+Name: pandas-td
+Version: 0.10.0
+Summary: Pandas extension for Treasure Data
+Home-page: https://github.com/treasure-data/pandas-td
+Author: Treasure Data, Inc.
+Author-email: support@treasure-data.com
+License: Apache License 2.0
+Description: UNKNOWN
+Platform: Posix; MacOS X; Windows
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Framework :: IPython
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development

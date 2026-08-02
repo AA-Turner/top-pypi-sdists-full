@@ -1,0 +1,110 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel", "setuptools-git-versioning>=2.0,<3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "universal-silabs-flasher"
+dynamic = ["version"]
+description = "Tool to flash firmware onto any Silicon Labs radio running EmberZNet, CPC multi-PAN, or just a bare Gecko Bootloader"
+urls = {repository = "https://github.com/NabuCasa/universal-silabs-flasher"}
+authors = [
+    {name = "Puddly", email = "puddly3@gmail.com"}
+]
+readme = "README.md"
+license = {text = "GPL-3.0"}
+requires-python = ">=3.11"
+dependencies = [
+    "aiohttp",
+    "tqdm",
+    "zigpy>=1.3.0",
+    "crc",
+    "bellows>=0.49.0",
+    'gpiod; platform_system=="Linux"',
+    "coloredlogs",
+    "typing_extensions",
+]
+
+[tool.setuptools.packages.find]
+exclude = ["tests", "tests.*"]
+
+[project.optional-dependencies]
+testing = [
+    "pytest>=7.3.1",
+    "pytest-asyncio>=0.21.0",
+    "pytest-timeout>=2.1.0",
+    "pytest-mock>=3.10.0",
+    "pytest-cov>=4.1.0",
+    "pytest-github-actions-annotate-failures",
+]
+
+[tool.setuptools-git-versioning]
+enabled = true
+
+[project.scripts]
+universal-silabs-flasher = "universal_silabs_flasher.__main__:main"
+
+[tool.codespell]
+ignore-words-list = ["zigpy", "hass"]
+skip = ["./.*", "pyproject.toml"]
+quiet-level = 2
+
+[tool.pytest.ini_options]
+addopts = "--showlocals --verbose"
+testpaths = ["tests"]
+timeout = 20
+log_format = "%(asctime)s.%(msecs)03d %(levelname)s %(message)s"
+log_date_format = "%Y-%m-%d %H:%M:%S"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.mypy]
+strict = true
+warn_unreachable = true
+show_error_codes = true
+show_error_context = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+disallow_untyped_decorators = false
+
+[tool.ruff]
+src = ["universal_silabs_flasher", "tests"]
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "F", # Pyflakes
+    "E", # Pycodestyle
+    "W",
+    "I", # isort
+    "TRY", # tryceratops
+    "UP", # pyupgrade
+    "W", # pycodestyle
+]
+
+ignore = [
+    "TRY003",
+]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+known-first-party = [
+    "universal_silabs_flasher",
+    "tests",
+]
+combine-as-imports = true
+split-on-trailing-comma = false
+
+[tool.coverage.run]
+source = ["universal_silabs_flasher"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if typing.TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "raise NotImplementedError()",
+]

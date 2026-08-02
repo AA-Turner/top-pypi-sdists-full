@@ -1,0 +1,135 @@
+Metadata-Version: 2.4
+Name: email-normalize
+Version: 3.2.0
+Summary: Return a normalized email-address stripping ISP specific behaviors
+Project-URL: Homepage, https://github.com/gmr/email-normalize
+Author-email: "Gavin M. Roy" <gavinmroy@gmail.com>
+License: BSD 3-Clause License
+License-File: LICENSE
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Framework :: AsyncIO
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Communications
+Classifier: Topic :: Communications :: Email
+Classifier: Topic :: Internet
+Classifier: Topic :: Software Development
+Classifier: Typing :: Typed
+Requires-Python: >=3.11
+Requires-Dist: aiodns
+Requires-Dist: tldextract
+Provides-Extra: dev
+Requires-Dist: coverage; extra == 'dev'
+Requires-Dist: pre-commit; extra == 'dev'
+Requires-Dist: ruff; extra == 'dev'
+Provides-Extra: docs
+Requires-Dist: mkdocs; extra == 'docs'
+Requires-Dist: mkdocs-material; extra == 'docs'
+Requires-Dist: mkdocstrings[python]; extra == 'docs'
+Description-Content-Type: text/markdown
+
+# email-normalize
+
+A Python 3.11+ library for normalizing email addresses by stripping
+mailbox-provider-specific behaviors such as plus addressing
+(`foo+bar@gmail.com`) and period ignoring (`f.o.o@gmail.com`).
+
+![Version](https://img.shields.io/pypi/v/email-normalize.svg?)
+![Status](https://github.com/gmr/email-normalize/workflows/Testing/badge.svg?)
+![Coverage](https://img.shields.io/codecov/c/github/gmr/email-normalize.svg?)
+![License](https://img.shields.io/pypi/l/email-normalize.svg?)
+
+## Installation
+
+```bash
+pip install email-normalize
+```
+
+## Usage
+
+### Synchronous
+
+```python
+import email_normalize
+
+result = email_normalize.normalize('f.o.o+bar@gmail.com')
+print(result.normalized_address)  # foo@gmail.com
+print(result.mailbox_provider)    # Google
+print(result.mx_records)          # [(5, 'gmail-smtp-in.l.google.com'), ...]
+```
+
+### Async
+
+For use within an asyncio application, use the `Normalizer` class directly:
+
+```python
+import asyncio
+
+import email_normalize
+
+
+async def main():
+    normalizer = email_normalize.Normalizer()
+    result = await normalizer.normalize('f.o.o+bar@gmail.com')
+    print(result.normalized_address)
+
+asyncio.run(main())
+```
+
+The `Normalizer` maintains a LFRU cache of MX lookups, making it efficient
+for batch processing.
+
+### Without DNS Lookups
+
+Use `skip_dns=True` to normalize against well-known domains without
+performing MX record lookups:
+
+```python
+result = email_normalize.normalize('user+tag@gmail.com', skip_dns=True)
+```
+
+This mode uses a static domain map and will not detect providers for
+custom domains.
+
+## Normalization Rules
+
+| Provider   | Plus Addressing | Strip Periods | Local Part as Hostname | Domain Folding |
+|------------|:---------------:|:-------------:|:----------------------:|:--------------:|
+| Apple      | x               |               |                        | x†             |
+| Fastmail   | x               |               | x                      |                |
+| Google     | x               | x*            |                        | x†             |
+| Microsoft  | x               |               |                        |                |
+| ProtonMail | x               |               |                        |                |
+| Rackspace  | x               |               |                        |                |
+| Yahoo      |                 |               |                        |                |
+| Yandex     | x               |               |                        |                |
+| Zoho       | x               |               |                        |                |
+
+- **Plus Addressing**: Strips everything after `+` in the local part
+- **Strip Periods**: Removes `.` from the local part
+- **Local Part as Hostname**: Extracts the subdomain as the local part (Fastmail custom domains)
+- **Domain Folding**: Rewrites provider alias domains to a single canonical domain
+
+\* Google strips periods only for consumer Gmail addresses (`gmail.com` and
+`googlemail.com`). Google Workspace custom domains route through the same MX
+servers but treat periods as significant, so periods are preserved for them
+(plus addressing is still stripped).
+
+† Some providers deliver one mailbox under several domain names. These alias
+domains are folded to a single canonical form so the same mailbox always
+normalizes to the same address: Google's `googlemail.com` → `gmail.com`, and
+Apple's `me.com` and `mac.com` → `icloud.com`. Domains that share a provider
+but are *separate* mailboxes (e.g. Microsoft's `outlook.com`/`hotmail.com`, or
+Yahoo's `yahoo.com`/`aol.com`) are intentionally left unchanged.
+
+## Documentation
+
+Full documentation is available at [gmr.github.io/email-normalize](https://gmr.github.io/email-normalize/).

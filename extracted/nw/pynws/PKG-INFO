@@ -1,0 +1,63 @@
+Metadata-Version: 2.4
+Name: pynws
+Version: 2.1.0
+Summary: Python library to retrieve observations and forecasts from NWS/NOAA
+Author-email: Matthew Flamm <matthewhflamm0@gmail.com>
+License-Expression: MIT
+Project-URL: Repository, https://github.com/MatthewFlamm/pynws
+Project-URL: Bug Tracker, https://github.com/MatthewFlamm/pynws/issues
+Keywords: nws,weather
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp
+Requires-Dist: metar
+Requires-Dist: yarl
+Provides-Extra: retry
+Requires-Dist: tenacity; extra == "retry"
+Dynamic: license-file
+
+# pynws
+
+A python library to asynchronously retrieve weather observation from NWS/NOAA.
+
+![PyPI - Downloads](https://img.shields.io/pypi/dm/pynws?style=flat-square)
+
+## Example
+See [example.py](example.py) for a runnable example.
+```python
+PHILLY = (39.95, -75.16)
+USERID = "testing@address.xyz"
+
+async def example():
+    async with aiohttp.ClientSession() as session:
+        nws = pynws.SimpleNWS(*PHILLY, USERID, session)
+        await nws.set_station()
+        await nws.update_observation()
+        await nws.update_forecast()
+        await nws.update_alerts_forecast_zone()
+        print(nws.observation)
+        print(nws.forecast[0])
+        print(nws.alerts_forecast_zone)
+```
+
+## Functionality
+pynws exposes the ability to retrieve raw data using `raw_data` module. `Nws` class offers ability to retrieve minimally processed data for a single location.  `SimpleNWS` class offers data caching and several other helpers for interpreting output.
+
+
+### Units for Observations in SimpleNWS
+NWS API does not expose all possible units for observations.  Known units are converted to the following:
+
+|unit type   | known NWS units| pynws unit |
+|------------|----------------|------------|
+|temperature | degF, degC     | Celsius    |
+|pressure    | Pa             | Pascal     |
+|speed       | m_s-1, km_h-1  | km_h-1     |
+|percent     | percent        | percent    |
+|angle       | degree_(angle) | degrees    |
+|distance    | m              | meter      |

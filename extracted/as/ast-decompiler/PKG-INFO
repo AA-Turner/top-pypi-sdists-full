@@ -1,0 +1,48 @@
+Metadata-Version: 2.1
+Name: ast_decompiler
+Version: 0.8.0
+Summary: Python module to decompile AST to Python code
+Keywords: ast,decompiler
+Author-email: Jelle Zijlstra <jelle.zijlstra@gmail.com>
+Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
+Classifier: Environment :: Console
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Python Software Foundation License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development
+Project-URL: Home, https://github.com/JelleZijlstra/ast_decompiler
+
+**************
+ast_decompiler
+**************
+
+ast_decompiler is a module for generating Python code given an AST.
+
+A usage example::
+
+    >> import ast
+    >> from ast_decompiler import decompile
+
+    >> decompile(ast.parse('(a + b) * c'))
+    (a + b) * c
+
+This module supports Python 3.8 through 3.13.
+
+====================
+Tests and formatting
+====================
+
+To run the tests, install ``pytest`` in a virtual environment. Then, either use
+``tox``, or simply run ``pytest tests/``.
+
+The code is formatted with Black.
+

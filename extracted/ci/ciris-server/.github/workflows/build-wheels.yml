@@ -1,0 +1,748 @@
+name: build-wheels
+
+# Reusable wheel-build matrix — the SINGLE source of truth for how every
+# ciris-server abi3 wheel is built. Called by:
+#   • publish-pypi.yml  (on a v* tag)        → builds + uploads, then gated + published
+#   • warm-release-cache.yml (on main, gated) → builds to WARM the release cache
+#
+# Why one shared workflow: the warmer and the release MUST build byte-identically
+# or the cache they share never hits. Keeping the steps in one place guarantees
+# that — there is no second copy to drift.
+#
+# Cache model (two tiers):
+#   • Swatinem rust-cache (GHA L1) — GitHub scopes GHA caches by ref, and a tag
+#     run can only READ the default branch's caches, so it SAVES only on main
+#     (`save-if: main`) and restores everywhere.
+#   • CIRISCache (GHCR L2, restore@v2) — a GHCR package is NOT ref-scoped, so the
+#     SERVER `-s<version>` blob is saved on main AND on the v* tag publish. That
+#     keeps a per-version `-s` blob so the next release's restore@v2 `-s*` prefix
+#     fallback pulls the latest lean ~1 GB server blob instead of the larger edge
+#     layer. (NB: the GHCR blob restores the target dir but its tar mtimes predate
+#     the fresh checkout, so cargo rebuilds — it warms the source/registry, not the
+#     compile. The maturin legs' real compile cache is sccache, below.)
+#   • sccache (GHA) — content-addressed, so mtime-immune. macOS/Windows get it via
+#     maturin-action `sccache: true`; the linux legs wire it directly (the
+#     mozilla-actions/sccache-action step + RUSTC_WRAPPER=sccache on the raw
+#     `maturin build`, mirroring PR #215's client-artifacts wiring) since they do
+#     NOT use maturin-action. GHA-scoped: a tag run only READS default-branch
+#     entries, so warm-release-cache.yml (on main, substrate-bump-gated) builds the
+#     wheels on main to POPULATE it; the tag publish then restores it warm. Without
+#     that warm the Windows tag build is 100% cold (v0.5.91: 0% sccache hits).
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+  packages: write   # CIRISCache save (GHCR) on main — CIRISServer#99
+
+jobs:
+  # ── Build abi3 wheels per platform ─────────────────────────────────────────
+  # Linux: build on the native runners with apt deps + patchelf (NOT a manylinux
+  # container). The keyring's tss-esapi-sys needs tpm2-tss >= 3.x; the
+  # manylinux_2_28/el8 container only ships 2.3.2 → "tss2-sys not found". Ubuntu
+  # 24.04 has 4.0.x, and maturin+patchelf produce a manylinux_2_39 wheel — the
+  # same recipe the sister wheels ship (persist manylinux_2_38, edge _2_39) and
+  # the one the green conformance build-wheel job uses.
+  linux:
+    name: wheel ${{ matrix.plat.name }}
+    runs-on: ${{ matrix.plat.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        plat:
+          - { name: linux-x86_64, runs-on: ubuntu-latest }
+          - { name: linux-aarch64, runs-on: ubuntu-24.04-arm }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.97.0
+      # Content-addressed compiler cache over the GHA backend — the ONLY tier that
+      # actually warms the compile on these raw-`maturin build` legs. The CIRISCache
+      # GHCR blob restores the target dir but its tar mtimes predate the fresh
+      # checkout, so cargo rebuilds anyway (mtime invalidation) → the linux compile
+      # was effectively cold. sccache keys on compilation-unit content, so it is
+      # mtime-immune and hits across substrate bumps for unchanged crates (this is
+      # why the maturin-action macOS/Windows legs already reach ~86%). Warmed on
+      # main by warm-release-cache.yml (substrate-bump-gated), restored on a tag.
+      - name: Set up sccache (compiler cache over GHA)
+        uses: mozilla-actions/sccache-action@v0.0.9
+      # CIRISCache (CIRISServer#99) — 4-layer centipede over the Swatinem GHA L1.
+      # Restore widest→narrowest (verify→persist→edge→server); SAVE under the
+      # server-specific -s key so we never collide with edge's canonical blob.
+      - name: Compute CIRISCache keys (4-layer centipede, CIRISServer#99)
+        id: cachekey
+        shell: bash
+        run: |
+          PLAT="${{ matrix.plat.name }}"
+          RUSTC=$(rustc -V | awk '{print $2}')
+          S=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/^version = "([^"]+)".*/\1/')
+          P=$(grep -m1 'CIRISPersist.*tag = "v' Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          V=$(grep -m1 'CIRISVerify.*tag = "v'  Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          EDGE=$(grep -m1 'CIRISEdge.*tag = "v' Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          BASE="ciris-substrate-v1-${PLAT}-release-rustc${RUSTC}"
+          KEY_VERIFY="${BASE}-pnone-enone-v${V:-none}"
+          KEY_PERSIST="${BASE}-p${P:-none}-enone-v${V:-none}"
+          KEY_EDGE="${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}"
+          KEY_SERVER="${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}-s${S:-none}"
+          {
+            echo "key-verify=${KEY_VERIFY}"
+            echo "key-persist=${KEY_PERSIST}"
+            echo "key-edge=${KEY_EDGE}"
+            echo "key=${KEY_SERVER}"
+            echo "key-server-prefix=${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}-s"
+            echo "key-any=${BASE}-p"  # CIRISServer#99 rolling substrate-head: newest prior build for this PLAT+rustc — restored ONLY on a full substrate-pin miss so a version bump recompiles the DELTA, not cold
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::CIRISCache (${PLAT}): S=${S:-NONE} P=${P:-NONE} V=${V:-NONE} EDGE=${EDGE:-NONE} RUSTC=${RUSTC}"
+          echo "::notice::${KEY_VERIFY}"
+          echo "::notice::${KEY_PERSIST}"
+          echo "::notice::${KEY_EDGE}"
+          echo "::notice::${KEY_SERVER}"
+      # Deepest-first, first-hit-wins (CIRISCache restore@v2): one extraction of
+      # the deepest available blob (cumulative supersets) instead of N redundant.
+      - name: CIRISCache restore (server→edge→persist→verify, first hit)
+        uses: CIRISAI/CIRISCache/restore@v2
+        continue-on-error: true
+        with:
+          keys: |
+            ${{ steps.cachekey.outputs.key }}
+            ${{ steps.cachekey.outputs.key-server-prefix }}*
+            ${{ steps.cachekey.outputs.key-edge }}
+            ${{ steps.cachekey.outputs.key-persist }}
+            ${{ steps.cachekey.outputs.key-verify }}
+            ${{ steps.cachekey.outputs.key-any }}*
+      - name: Install build deps
+        run: |
+          # Drop the preinstalled Microsoft/azure-cli apt repo: it intermittently
+          # 403s and tanks apt-get update (its packages are not needed here).
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.list /etc/apt/sources.list.d/azure-cli.sources          # CIRISServer#99 — retry apt (ports.ubuntu.com intermittently network-times-out
+          # on the arm64 runners; a bare failure tanked 0.5.117's linux-aarch64 wheel).
+          for i in 1 2 3; do
+            sudo apt-get update && sudo apt-get install -y libsqlite3-dev libudev-dev patchelf && break
+            echo "apt attempt $i failed; retrying in $((i*20))s"; sleep $((i*20))
+          done
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # ── Build + stage the per-platform desktop JAR BEFORE maturin ──────────
+      # The Compose uber-jar is named CIRIS-<platform>-<ver>.jar by the gradle
+      # plugin (e.g. CIRIS-linux-x64-2.6.0.jar). maturin then bundles it into
+      # the wheel via [tool.maturin] include (see pyproject.toml). System Java
+      # only — no JRE is bundled, keeping each wheel under PyPI's 100 MB cap.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      # CIRISServer#99 — cache the Compose 'packageUberJar' gradle build. It ran
+      # COLD on every wheel leg (~5 min, on the windows/macOS critical path) even
+      # though the JAR only changes when the CLIENT source does — near-never on a
+      # substrate/version bump. setup-gradle caches ~/.gradle + the build cache,
+      # read-only off main so tag runs restore the main-warmed cache.
+      - name: Cache gradle (desktop JAR)
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          gradle-home-cache-cleanup: true
+      - name: Build + stage desktop JAR
+        working-directory: client
+        run: |
+          chmod +x ./gradlew
+          # Keep the desktop client's CLIENT_VERSION in lockstep with the release
+          # version (Cargo.toml) so the node-vs-client "update recommended" banner
+          # never false-fires on a wheel-bundled local node.
+          # CLIENT_VERSION is authoritative in COMMITTED source (kept in lockstep by
+          # scripts/sync-client-version.sh + the pre-commit hook, CIRISServer#272).
+          # CI VERIFIES, never mutates — mutating source here recompiled the whole
+          # Compose client every leg and defeated the gradle cache warm->tag.
+          ../scripts/sync-client-version.sh --check
+          ./gradlew :desktopApp:packageUberJarForCurrentOS --no-daemon
+          mkdir -p ../python/ciris_server/desktop_app
+          cp desktopApp/build/compose/jars/CIRIS-*.jar ../python/ciris_server/desktop_app/
+          ls -l ../python/ciris_server/desktop_app/
+      - name: Build wheel (maturin)
+        env:
+          # Route rustc through sccache (mirrors PR #215's client-artifacts wiring).
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: sccache
+        run: |
+          python -m pip install --upgrade pip
+          pip install "maturin>=1.7,<2"
+          maturin build --release --strip --out dist
+          sccache --show-stats
+      # ── Verify-FFI fold smoke (CIRISServer#232) ─────────────────────────────
+      # We fold ciris-verify-ffi (rlib) into _native, but NOTHING in our Rust calls
+      # its #[no_mangle] fns (the agent reaches them via ctypes at runtime), so
+      # --gc-sections would happily dead-strip all ~84 ciris_verify_* symbols —
+      # PER-PLATFORM-SILENTLY. Assert the surface actually survived into the wheel.
+      #
+      # Two modes, because one leg cross-compiles:
+      #   native leg → pip-install the wheel and ctypes-load it: EXACTLY the path the
+      #                agent uses. The faithful check.
+      #   cross leg  → macos-x86_64 builds an x86_64 wheel on an arm64 runner, so pip
+      #                rightly refuses it ("not a supported wheel on this platform")
+      #                and ctypes is impossible. Fall back to a static symbol dump of
+      #                the .so inside the wheel — proves the same thing without
+      #                executing it. Only macOS takes this branch, and its `nm` reads
+      #                foreign-arch Mach-O fine (Mach-O underscore-prefixes symbols,
+      #                hence the substring grep rather than an exact match).
+      - name: Verify-FFI fold smoke (CIRISServer#232 — symbols must survive the linker strip)
+        shell: bash
+        env:
+          NEED: >-
+            ciris_verify_ffi_link_anchor ciris_verify_jcs_canonicalize
+            ciris_verify_self_enc_pubkeys ciris_verify_self_enc_respond
+            ciris_verify_wrap_dek_for_recipient ciris_verify_unwrap_dek
+            ciris_verify_kex_respond_hybrid_with_public
+            ciris_verify_create_federation_identity
+            ciris_verify_locale_merkle_root ciris_verify_admit_attestation
+        run: |
+          set -euo pipefail
+          WHL=$(ls dist/*.whl | head -1)
+          echo "wheel: $WHL"
+          if python -m pip install --force-reinstall --no-deps "$WHL"; then
+            python -c "import ctypes,os,ciris_server; p=ciris_server.verify_ffi_path(); print('verify_ffi_path ->',p); lib=ctypes.CDLL(p); need=os.environ['NEED'].split(); missing=[s for s in need if not hasattr(lib,s)]; assert not missing, 'verify FFI symbols MISSING from _native (--gc-sections stripped the fold): %s' % missing; print('OK (ctypes) - verify FFI folded: %d symbols resolvable from the built wheel' % len(need))"
+          else
+            echo "wheel is cross-compiled for another arch (pip cannot install it here) — using a static symbol dump instead"
+            TMP=$(mktemp -d)
+            unzip -q "$WHL" -d "$TMP"
+            LIB=$(find "$TMP" \( -name '_native*.so' -o -name '_native*.pyd' -o -name '_native*.dylib' \) | head -1)
+            test -n "$LIB" || { echo "FATAL: no _native lib found inside the wheel"; exit 1; }
+            echo "lib: $LIB"
+            # Dump the symbol table to a FILE, then grep the file. Do NOT pipe
+            # `echo "$SYMS" | grep -q`: `grep -q` exits the moment it matches, which
+            # closes the pipe while `echo` is still writing -> `echo` dies with EPIPE
+            # -> and under `set -o pipefail` the PIPELINE then reports failure even
+            # though grep FOUND the symbol -> the `||` fires and a PRESENT symbol is
+            # reported MISSING. That is a race, so it can false-PASS just as easily as
+            # it false-FAILS (it false-FAILED v0.5.108 on ciris_verify_kex_respond_
+            # hybrid_with_public, and got lucky on 0.5.107). A gate that lies in both
+            # directions is worse than no gate. No pipe = no EPIPE = deterministic.
+            SYMFILE=$(mktemp)
+            nm -g "$LIB" > "$SYMFILE" 2>/dev/null || llvm-nm -g "$LIB" > "$SYMFILE"
+            echo "symbols in _native: $(wc -l < "$SYMFILE")"
+            MISSING=""
+            for s in $NEED; do grep -q "$s" "$SYMFILE" || MISSING="$MISSING $s"; done
+            if [ -n "$MISSING" ]; then echo "verify FFI symbols MISSING from _native (--gc-sections stripped the fold):$MISSING"; exit 1; fi
+            echo "OK (nm) - verify FFI folded: all symbols present in the cross-built wheel"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.plat.name }}
+          path: dist/*.whl
+          if-no-files-found: error
+          retention-days: 1
+      # Populate the cross-repo CIRISCache blob on main under the SERVER key
+      # (restore is anonymous on PRs; only main writes — public package,
+      # GITHUB_TOKEN, no external secret).
+      - name: CIRISCache save (server layer, main only)
+        uses: CIRISAI/CIRISCache/save@v1
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+        continue-on-error: true
+        with:
+          key: ${{ steps.cachekey.outputs.key }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  macos:
+    name: wheel macos-${{ matrix.target }}
+    runs-on: macos-14
+    # KNOWN LIMITATION (macos x86_64 leg): the macos-14 runner is Apple Silicon,
+    # so `packageUberJarForCurrentOS` produces the arm64 macOS JAR for BOTH
+    # matrix legs. The x86_64 *wheel* (the Rust .so) is a proper cross-compile,
+    # but it carries the arm64 desktop JAR. Compose JARs are not single-arch JVM
+    # bytecode for the app classes, but the Compose/Skiko *native* libs inside
+    # are per-arch — so an Intel-mac user installing the x86_64 wheel may hit a
+    # Skiko load error. To ship a true Intel JAR, add a macos-13 (Intel) runner
+    # leg, or `gradlew packageUberJarForCurrentOS` under an x86_64 JDK. Left as a
+    # follow-up; arm64 (the common case) is correct.
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [aarch64, x86_64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      # The Compose plugin packages a current-OS uber-jar; on the macos-14
+      # runner that is the macOS JAR (CIRIS-macos-<arch>-<ver>.jar). The arch
+      # follows the runner/JDK, so the aarch64 + x86_64 matrix legs each stage
+      # the JAR matching their wheel target. maturin bundles it via include.
+      # CIRISServer#99 — cache the Compose 'packageUberJar' gradle build. It ran
+      # COLD on every wheel leg (~5 min, on the windows/macOS critical path) even
+      # though the JAR only changes when the CLIENT source does — near-never on a
+      # substrate/version bump. setup-gradle caches ~/.gradle + the build cache,
+      # read-only off main so tag runs restore the main-warmed cache.
+      - name: Cache gradle (desktop JAR)
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          gradle-home-cache-cleanup: true
+      - name: Build + stage desktop JAR
+        working-directory: client
+        run: |
+          chmod +x ./gradlew
+          # Keep the desktop client's CLIENT_VERSION in lockstep with the release
+          # version (Cargo.toml) so the node-vs-client "update recommended" banner
+          # never false-fires on a wheel-bundled local node.
+          # CLIENT_VERSION is authoritative in COMMITTED source (kept in lockstep by
+          # scripts/sync-client-version.sh + the pre-commit hook, CIRISServer#272).
+          # CI VERIFIES, never mutates — mutating source here recompiled the whole
+          # Compose client every leg and defeated the gradle cache warm->tag.
+          ../scripts/sync-client-version.sh --check
+          ./gradlew :desktopApp:packageUberJarForCurrentOS --no-daemon
+          mkdir -p ../python/ciris_server/desktop_app
+          cp desktopApp/build/compose/jars/CIRIS-*.jar ../python/ciris_server/desktop_app/
+          ls -l ../python/ciris_server/desktop_app/
+      # CIRISCache (CIRISServer#99) — 4-layer centipede, layered over
+      # maturin-action's sccache below. Restore verify→persist→edge→server;
+      # SAVE under the server-specific -s key.
+      - name: Compute CIRISCache keys (4-layer centipede, CIRISServer#99)
+        id: cachekey
+        shell: bash
+        run: |
+          PLAT="macos-${{ matrix.target }}"
+          RUSTC=$(rustc -V | awk '{print $2}')
+          S=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/^version = "([^"]+)".*/\1/')
+          P=$(grep -m1 'CIRISPersist.*tag = "v' Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          V=$(grep -m1 'CIRISVerify.*tag = "v'  Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          EDGE=$(grep -m1 'CIRISEdge.*tag = "v' Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          BASE="ciris-substrate-v1-${PLAT}-release-rustc${RUSTC}"
+          KEY_VERIFY="${BASE}-pnone-enone-v${V:-none}"
+          KEY_PERSIST="${BASE}-p${P:-none}-enone-v${V:-none}"
+          KEY_EDGE="${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}"
+          KEY_SERVER="${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}-s${S:-none}"
+          {
+            echo "key-verify=${KEY_VERIFY}"
+            echo "key-persist=${KEY_PERSIST}"
+            echo "key-edge=${KEY_EDGE}"
+            echo "key=${KEY_SERVER}"
+            echo "key-server-prefix=${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}-s"
+            echo "key-any=${BASE}-p"  # CIRISServer#99 rolling substrate-head: newest prior build for this PLAT+rustc — restored ONLY on a full substrate-pin miss so a version bump recompiles the DELTA, not cold
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::CIRISCache (${PLAT}): S=${S:-NONE} P=${P:-NONE} V=${V:-NONE} EDGE=${EDGE:-NONE} RUSTC=${RUSTC}"
+          echo "::notice::${KEY_VERIFY}"
+          echo "::notice::${KEY_PERSIST}"
+          echo "::notice::${KEY_EDGE}"
+          echo "::notice::${KEY_SERVER}"
+      # Deepest-first, first-hit-wins (CIRISCache restore@v2): one extraction of
+      # the deepest available blob (cumulative supersets) instead of N redundant.
+      - name: CIRISCache restore (server→edge→persist→verify, first hit)
+        uses: CIRISAI/CIRISCache/restore@v2
+        continue-on-error: true
+        with:
+          keys: |
+            ${{ steps.cachekey.outputs.key }}
+            ${{ steps.cachekey.outputs.key-server-prefix }}*
+            ${{ steps.cachekey.outputs.key-edge }}
+            ${{ steps.cachekey.outputs.key-persist }}
+            ${{ steps.cachekey.outputs.key-verify }}
+            ${{ steps.cachekey.outputs.key-any }}*
+      - name: Build wheel (maturin)
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          rust-toolchain: "1.97.0"
+          args: --release --strip --out dist
+          # maturin-action's built-in compiler cache (sccache over the GHA cache
+          # backend), warmed on main by warm-release-cache.yml calling this same
+          # workflow. Restores main-scoped sccache objects on a tag publish.
+          sccache: true
+      # ── Verify-FFI fold smoke (CIRISServer#232) ─────────────────────────────
+      # We fold ciris-verify-ffi (rlib) into _native, but NOTHING in our Rust calls
+      # its #[no_mangle] fns (the agent reaches them via ctypes at runtime), so
+      # --gc-sections would happily dead-strip all ~84 ciris_verify_* symbols —
+      # PER-PLATFORM-SILENTLY. Assert the surface actually survived into the wheel.
+      #
+      # Two modes, because one leg cross-compiles:
+      #   native leg → pip-install the wheel and ctypes-load it: EXACTLY the path the
+      #                agent uses. The faithful check.
+      #   cross leg  → macos-x86_64 builds an x86_64 wheel on an arm64 runner, so pip
+      #                rightly refuses it ("not a supported wheel on this platform")
+      #                and ctypes is impossible. Fall back to a static symbol dump of
+      #                the .so inside the wheel — proves the same thing without
+      #                executing it. Only macOS takes this branch, and its `nm` reads
+      #                foreign-arch Mach-O fine (Mach-O underscore-prefixes symbols,
+      #                hence the substring grep rather than an exact match).
+      - name: Verify-FFI fold smoke (CIRISServer#232 — symbols must survive the linker strip)
+        shell: bash
+        env:
+          NEED: >-
+            ciris_verify_ffi_link_anchor ciris_verify_jcs_canonicalize
+            ciris_verify_self_enc_pubkeys ciris_verify_self_enc_respond
+            ciris_verify_wrap_dek_for_recipient ciris_verify_unwrap_dek
+            ciris_verify_kex_respond_hybrid_with_public
+            ciris_verify_create_federation_identity
+            ciris_verify_locale_merkle_root ciris_verify_admit_attestation
+        run: |
+          set -euo pipefail
+          WHL=$(ls dist/*.whl | head -1)
+          echo "wheel: $WHL"
+          if python -m pip install --force-reinstall --no-deps "$WHL"; then
+            python -c "import ctypes,os,ciris_server; p=ciris_server.verify_ffi_path(); print('verify_ffi_path ->',p); lib=ctypes.CDLL(p); need=os.environ['NEED'].split(); missing=[s for s in need if not hasattr(lib,s)]; assert not missing, 'verify FFI symbols MISSING from _native (--gc-sections stripped the fold): %s' % missing; print('OK (ctypes) - verify FFI folded: %d symbols resolvable from the built wheel' % len(need))"
+          else
+            echo "wheel is cross-compiled for another arch (pip cannot install it here) — using a static symbol dump instead"
+            TMP=$(mktemp -d)
+            unzip -q "$WHL" -d "$TMP"
+            LIB=$(find "$TMP" \( -name '_native*.so' -o -name '_native*.pyd' -o -name '_native*.dylib' \) | head -1)
+            test -n "$LIB" || { echo "FATAL: no _native lib found inside the wheel"; exit 1; }
+            echo "lib: $LIB"
+            # Dump the symbol table to a FILE, then grep the file. Do NOT pipe
+            # `echo "$SYMS" | grep -q`: `grep -q` exits the moment it matches, which
+            # closes the pipe while `echo` is still writing -> `echo` dies with EPIPE
+            # -> and under `set -o pipefail` the PIPELINE then reports failure even
+            # though grep FOUND the symbol -> the `||` fires and a PRESENT symbol is
+            # reported MISSING. That is a race, so it can false-PASS just as easily as
+            # it false-FAILS (it false-FAILED v0.5.108 on ciris_verify_kex_respond_
+            # hybrid_with_public, and got lucky on 0.5.107). A gate that lies in both
+            # directions is worse than no gate. No pipe = no EPIPE = deterministic.
+            SYMFILE=$(mktemp)
+            nm -g "$LIB" > "$SYMFILE" 2>/dev/null || llvm-nm -g "$LIB" > "$SYMFILE"
+            echo "symbols in _native: $(wc -l < "$SYMFILE")"
+            MISSING=""
+            for s in $NEED; do grep -q "$s" "$SYMFILE" || MISSING="$MISSING $s"; done
+            if [ -n "$MISSING" ]; then echo "verify FFI symbols MISSING from _native (--gc-sections stripped the fold):$MISSING"; exit 1; fi
+            echo "OK (nm) - verify FFI folded: all symbols present in the cross-built wheel"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-macos-${{ matrix.target }}
+          path: dist/*.whl
+          if-no-files-found: error
+          retention-days: 1
+      # Populate the cross-repo CIRISCache blob on main under the SERVER key.
+      - name: CIRISCache save (server layer, main only)
+        uses: CIRISAI/CIRISCache/save@v1
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+        continue-on-error: true
+        with:
+          key: ${{ steps.cachekey.outputs.key }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  windows:
+    name: wheel windows-x64
+    runs-on: windows-latest
+    # The family's Windows wheel has historically failed on persist's Unix-only
+    # paths (CIRISPersist#200 / CIRISEdge#90). Don't block the release on it;
+    # publish whatever platforms succeed. Remove continue-on-error once green.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      # CIRISServer#99 — cache the Compose 'packageUberJar' gradle build. It ran
+      # COLD on every wheel leg (~5 min, on the windows/macOS critical path) even
+      # though the JAR only changes when the CLIENT source does — near-never on a
+      # substrate/version bump. setup-gradle caches ~/.gradle + the build cache,
+      # read-only off main so tag runs restore the main-warmed cache.
+      - name: Cache gradle (desktop JAR)
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          gradle-home-cache-cleanup: true
+      - name: Build + stage desktop JAR
+        working-directory: client
+        shell: bash
+        run: |
+          # Keep the desktop client's CLIENT_VERSION in lockstep with the release
+          # version (Cargo.toml) so the node-vs-client "update recommended" banner
+          # never false-fires on a wheel-bundled local node.
+          # CLIENT_VERSION is authoritative in COMMITTED source (kept in lockstep by
+          # scripts/sync-client-version.sh + the pre-commit hook, CIRISServer#272).
+          # CI VERIFIES, never mutates — mutating source here recompiled the whole
+          # Compose client every leg and defeated the gradle cache warm->tag.
+          ../scripts/sync-client-version.sh --check
+          ./gradlew :desktopApp:packageUberJarForCurrentOS --no-daemon
+          mkdir -p ../python/ciris_server/desktop_app
+          cp desktopApp/build/compose/jars/CIRIS-*.jar ../python/ciris_server/desktop_app/
+          ls -l ../python/ciris_server/desktop_app/
+      # CIRISCache (CIRISServer#99) — 4-layer centipede, layered over
+      # maturin-action's sccache below. shell: bash (default is pwsh). Restore
+      # verify→persist→edge→server; SAVE under the server-specific -s key.
+      - name: Compute CIRISCache keys (4-layer centipede, CIRISServer#99)
+        id: cachekey
+        shell: bash
+        run: |
+          PLAT="windows-x64"
+          RUSTC=$(rustc -V | awk '{print $2}')
+          S=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/^version = "([^"]+)".*/\1/')
+          P=$(grep -m1 'CIRISPersist.*tag = "v' Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          V=$(grep -m1 'CIRISVerify.*tag = "v'  Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          EDGE=$(grep -m1 'CIRISEdge.*tag = "v' Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          BASE="ciris-substrate-v1-${PLAT}-release-rustc${RUSTC}"
+          KEY_VERIFY="${BASE}-pnone-enone-v${V:-none}"
+          KEY_PERSIST="${BASE}-p${P:-none}-enone-v${V:-none}"
+          KEY_EDGE="${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}"
+          KEY_SERVER="${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}-s${S:-none}"
+          {
+            echo "key-verify=${KEY_VERIFY}"
+            echo "key-persist=${KEY_PERSIST}"
+            echo "key-edge=${KEY_EDGE}"
+            echo "key=${KEY_SERVER}"
+            echo "key-server-prefix=${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}-s"
+            echo "key-any=${BASE}-p"  # CIRISServer#99 rolling substrate-head: newest prior build for this PLAT+rustc — restored ONLY on a full substrate-pin miss so a version bump recompiles the DELTA, not cold
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::CIRISCache (${PLAT}): S=${S:-NONE} P=${P:-NONE} V=${V:-NONE} EDGE=${EDGE:-NONE} RUSTC=${RUSTC}"
+          echo "::notice::${KEY_VERIFY}"
+          echo "::notice::${KEY_PERSIST}"
+          echo "::notice::${KEY_EDGE}"
+          echo "::notice::${KEY_SERVER}"
+      # Deepest-first, first-hit-wins (CIRISCache restore@v2): one extraction of
+      # the deepest available blob (cumulative supersets) instead of N redundant.
+      - name: CIRISCache restore (server→edge→persist→verify, first hit)
+        uses: CIRISAI/CIRISCache/restore@v2
+        continue-on-error: true
+        with:
+          keys: |
+            ${{ steps.cachekey.outputs.key }}
+            ${{ steps.cachekey.outputs.key-server-prefix }}*
+            ${{ steps.cachekey.outputs.key-edge }}
+            ${{ steps.cachekey.outputs.key-persist }}
+            ${{ steps.cachekey.outputs.key-verify }}
+            ${{ steps.cachekey.outputs.key-any }}*
+      - name: Build wheel (maturin)
+        uses: PyO3/maturin-action@v1
+        with:
+          target: x64
+          rust-toolchain: "1.97.0"
+          args: --release --strip --out dist
+          # Compiler cache (sccache over the GHA backend), warmed on main via
+          # warm-release-cache.yml. Restore-on-tag; harmless otherwise.
+          sccache: true
+      # ── Verify-FFI fold smoke (CIRISServer#232) ─────────────────────────────
+      # We fold ciris-verify-ffi (rlib) into _native, but NOTHING in our Rust calls
+      # its #[no_mangle] fns (the agent reaches them via ctypes at runtime), so
+      # --gc-sections would happily dead-strip all ~84 ciris_verify_* symbols —
+      # PER-PLATFORM-SILENTLY. Assert the surface actually survived into the wheel.
+      #
+      # Two modes, because one leg cross-compiles:
+      #   native leg → pip-install the wheel and ctypes-load it: EXACTLY the path the
+      #                agent uses. The faithful check.
+      #   cross leg  → macos-x86_64 builds an x86_64 wheel on an arm64 runner, so pip
+      #                rightly refuses it ("not a supported wheel on this platform")
+      #                and ctypes is impossible. Fall back to a static symbol dump of
+      #                the .so inside the wheel — proves the same thing without
+      #                executing it. Only macOS takes this branch, and its `nm` reads
+      #                foreign-arch Mach-O fine (Mach-O underscore-prefixes symbols,
+      #                hence the substring grep rather than an exact match).
+      - name: Verify-FFI fold smoke (CIRISServer#232 — symbols must survive the linker strip)
+        shell: bash
+        env:
+          NEED: >-
+            ciris_verify_ffi_link_anchor ciris_verify_jcs_canonicalize
+            ciris_verify_self_enc_pubkeys ciris_verify_self_enc_respond
+            ciris_verify_wrap_dek_for_recipient ciris_verify_unwrap_dek
+            ciris_verify_kex_respond_hybrid_with_public
+            ciris_verify_create_federation_identity
+            ciris_verify_locale_merkle_root ciris_verify_admit_attestation
+        run: |
+          set -euo pipefail
+          WHL=$(ls dist/*.whl | head -1)
+          echo "wheel: $WHL"
+          if python -m pip install --force-reinstall --no-deps "$WHL"; then
+            python -c "import ctypes,os,ciris_server; p=ciris_server.verify_ffi_path(); print('verify_ffi_path ->',p); lib=ctypes.CDLL(p); need=os.environ['NEED'].split(); missing=[s for s in need if not hasattr(lib,s)]; assert not missing, 'verify FFI symbols MISSING from _native (--gc-sections stripped the fold): %s' % missing; print('OK (ctypes) - verify FFI folded: %d symbols resolvable from the built wheel' % len(need))"
+          else
+            echo "wheel is cross-compiled for another arch (pip cannot install it here) — using a static symbol dump instead"
+            TMP=$(mktemp -d)
+            unzip -q "$WHL" -d "$TMP"
+            LIB=$(find "$TMP" \( -name '_native*.so' -o -name '_native*.pyd' -o -name '_native*.dylib' \) | head -1)
+            test -n "$LIB" || { echo "FATAL: no _native lib found inside the wheel"; exit 1; }
+            echo "lib: $LIB"
+            # Dump the symbol table to a FILE, then grep the file. Do NOT pipe
+            # `echo "$SYMS" | grep -q`: `grep -q` exits the moment it matches, which
+            # closes the pipe while `echo` is still writing -> `echo` dies with EPIPE
+            # -> and under `set -o pipefail` the PIPELINE then reports failure even
+            # though grep FOUND the symbol -> the `||` fires and a PRESENT symbol is
+            # reported MISSING. That is a race, so it can false-PASS just as easily as
+            # it false-FAILS (it false-FAILED v0.5.108 on ciris_verify_kex_respond_
+            # hybrid_with_public, and got lucky on 0.5.107). A gate that lies in both
+            # directions is worse than no gate. No pipe = no EPIPE = deterministic.
+            SYMFILE=$(mktemp)
+            nm -g "$LIB" > "$SYMFILE" 2>/dev/null || llvm-nm -g "$LIB" > "$SYMFILE"
+            echo "symbols in _native: $(wc -l < "$SYMFILE")"
+            MISSING=""
+            for s in $NEED; do grep -q "$s" "$SYMFILE" || MISSING="$MISSING $s"; done
+            if [ -n "$MISSING" ]; then echo "verify FFI symbols MISSING from _native (--gc-sections stripped the fold):$MISSING"; exit 1; fi
+            echo "OK (nm) - verify FFI folded: all symbols present in the cross-built wheel"
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-windows-x64
+          path: dist/*.whl
+          if-no-files-found: warn
+          retention-days: 1
+      # Populate the cross-repo CIRISCache blob on main under the SERVER key.
+      - name: CIRISCache save (server layer, main only)
+        uses: CIRISAI/CIRISCache/save@v1
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+        continue-on-error: true
+        with:
+          key: ${{ steps.cachekey.outputs.key }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  # Android abi3 wheels (incl. arm32 armeabi-v7a) — the CIRISAgent KMP client's
+  # mobile targets. NDK cross-compile + libpython stub, the substrate recipe
+  # (CIRISVerify/Persist/Edge). continue-on-error while the cross lane iterates
+  # to green — it must not block the desktop/server publish.
+  android:
+    name: wheel android-${{ matrix.abi }}
+    runs-on: ubuntu-latest
+    # Green as of 0.2.1 (arm64-v8a + armeabi-v7a both package). A required gate now.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { abi: armeabi-v7a, target: armv7-linux-androideabi, clang: armv7a-linux-androideabi24, legacy: arm-linux-androideabi,  pw: 32 }
+          - { abi: arm64-v8a,   target: aarch64-linux-android,   clang: aarch64-linux-android24,    legacy: aarch64-linux-android, pw: 64 }
+          # x86_64 (CIRISServer#264 ask 4) — Android EMULATORS are x86_64; without
+          # this wheel every emulator QA run executes arm64 under ndk_translation
+          # (slower + one more variable in every repro). Same recipe, x86_64 names.
+          - { abi: x86_64,      target: x86_64-linux-android,    clang: x86_64-linux-android24,     legacy: x86_64-linux-android,  pw: 64 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.97.0
+        with:
+          targets: ${{ matrix.target }}
+      - name: Set up sccache (compiler cache over GHA)
+        uses: mozilla-actions/sccache-action@v0.0.9
+      # CIRISCache (CIRISServer#99) — 4-layer centipede over the Swatinem GHA L1,
+      # per-ABI NDK cross-compile of the substrate. Restore verify→persist→edge→
+      # server; SAVE under the server-specific -s key.
+      - name: Compute CIRISCache keys (4-layer centipede, CIRISServer#99)
+        id: cachekey
+        shell: bash
+        run: |
+          PLAT="android-${{ matrix.abi }}"
+          RUSTC=$(rustc -V | awk '{print $2}')
+          S=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/^version = "([^"]+)".*/\1/')
+          P=$(grep -m1 'CIRISPersist.*tag = "v' Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          V=$(grep -m1 'CIRISVerify.*tag = "v'  Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          EDGE=$(grep -m1 'CIRISEdge.*tag = "v' Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          BASE="ciris-substrate-v1-${PLAT}-release-rustc${RUSTC}"
+          KEY_VERIFY="${BASE}-pnone-enone-v${V:-none}"
+          KEY_PERSIST="${BASE}-p${P:-none}-enone-v${V:-none}"
+          KEY_EDGE="${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}"
+          KEY_SERVER="${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}-s${S:-none}"
+          {
+            echo "key-verify=${KEY_VERIFY}"
+            echo "key-persist=${KEY_PERSIST}"
+            echo "key-edge=${KEY_EDGE}"
+            echo "key=${KEY_SERVER}"
+            echo "key-server-prefix=${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}-s"
+            echo "key-any=${BASE}-p"  # CIRISServer#99 rolling substrate-head: newest prior build for this PLAT+rustc — restored ONLY on a full substrate-pin miss so a version bump recompiles the DELTA, not cold
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::CIRISCache (${PLAT}): S=${S:-NONE} P=${P:-NONE} V=${V:-NONE} EDGE=${EDGE:-NONE} RUSTC=${RUSTC}"
+          echo "::notice::${KEY_VERIFY}"
+          echo "::notice::${KEY_PERSIST}"
+          echo "::notice::${KEY_EDGE}"
+          echo "::notice::${KEY_SERVER}"
+      # Deepest-first, first-hit-wins (CIRISCache restore@v2): one extraction of
+      # the deepest available blob (cumulative supersets) instead of N redundant.
+      - name: CIRISCache restore (server→edge→persist→verify, first hit)
+        uses: CIRISAI/CIRISCache/restore@v2
+        continue-on-error: true
+        with:
+          keys: |
+            ${{ steps.cachekey.outputs.key }}
+            ${{ steps.cachekey.outputs.key-server-prefix }}*
+            ${{ steps.cachekey.outputs.key-edge }}
+            ${{ steps.cachekey.outputs.key-persist }}
+            ${{ steps.cachekey.outputs.key-verify }}
+            ${{ steps.cachekey.outputs.key-any }}*
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: nttld/setup-ndk@v1
+        id: ndk
+        with:
+          ndk-version: r26b
+          add-to-path: true
+      - name: PyO3 cross config + libpython stub
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+        run: |
+          CFG="${RUNNER_TEMP}/pyo3-android.config"
+          {
+            echo "implementation=CPython"; echo "version=3.10"; echo "shared=false"
+            echo "abi3=true"; echo "lib_name=python3.10"; echo "lib_dir="
+            echo "executable="; echo "pointer_width=${{ matrix.pw }}"; echo "build_flags="
+            echo "suppress_build_script_link_lines=true"
+          } > "$CFG"
+          echo "PYO3_CONFIG_FILE=${CFG}" >> "$GITHUB_ENV"
+          STUB="${RUNNER_TEMP}/python-stub"; mkdir -p "$STUB"
+          TC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64"
+          echo 'void __pystub(void){}' | \
+            "${TC}/bin/${{ matrix.clang }}-clang" -shared -nostdlib \
+              -Wl,-soname,libpython3.10.so -o "${STUB}/libpython3.10.so" -x c -
+      - name: Build wheel (maturin, Android NDK)
+        env:
+          ANDROID_NDK_HOME: ${{ steps.ndk.outputs.ndk-path }}
+          ANDROID_API_LEVEL: "24" # maturin can't infer the API level for armv7 (it can for arm64)
+          # Route rustc through sccache (content-addressed, mtime-immune) — this leg
+          # previously relied on Swatinem for its compiler cache.
+          SCCACHE_GHA_ENABLED: "true"
+          RUSTC_WRAPPER: sccache
+        run: |
+          # cc-rs guesses the wrong NDK clang name (arm-linux-androideabi-clang);
+          # point CC/CXX/AR + the cargo linker at the real r26b tools (what
+          # cargo-ndk would set). Var names use the underscore/SCREAMING target.
+          TC="${ANDROID_NDK_HOME}/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          CLANG="${TC}/${{ matrix.clang }}-clang"
+          TUS="$(echo '${{ matrix.target }}' | tr - _)"
+          TSC="$(echo "$TUS" | tr a-z A-Z)"
+          export "CC_${TUS}=${CLANG}"
+          export "CXX_${TUS}=${CLANG}++"
+          export "AR_${TUS}=${TC}/llvm-ar"
+          export "RANLIB_${TUS}=${TC}/llvm-ranlib"
+          export "CARGO_TARGET_${TSC}_LINKER=${CLANG}"
+          # openssl-src (pulled by persist on android) hardcodes the LEGACY NDK
+          # tool names that r26b dropped; shim them → the r26b llvm tools.
+          export ANDROID_NDK_ROOT="${ANDROID_NDK_HOME}"
+          ln -sf "${TC}/llvm-ar"     "${TC}/${{ matrix.legacy }}-ar"
+          ln -sf "${TC}/llvm-ranlib" "${TC}/${{ matrix.legacy }}-ranlib"
+          ln -sf "${CLANG}"          "${TC}/${{ matrix.legacy }}-clang"
+          ln -sf "${CLANG}++"        "${TC}/${{ matrix.legacy }}-clang++"
+          export PATH="${TC}:${PATH}"
+          export RUSTFLAGS="-L ${RUNNER_TEMP}/python-stub -C link-arg=-Wl,--no-as-needed -C link-arg=-lpython3.10"
+          python -m pip install --upgrade pip
+          pip install "maturin>=1.7,<2"
+          maturin build --release --strip --out dist --target ${{ matrix.target }}
+          sccache --show-stats
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-android-${{ matrix.abi }}
+          path: dist/*.whl
+          if-no-files-found: warn
+          retention-days: 1
+      # Populate the cross-repo CIRISCache blob on main under the SERVER key.
+      - name: CIRISCache save (server layer, main only)
+        uses: CIRISAI/CIRISCache/save@v1
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+        continue-on-error: true
+        with:
+          key: ${{ steps.cachekey.outputs.key }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  sdist:
+    name: sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
+          retention-days: 1

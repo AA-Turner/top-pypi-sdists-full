@@ -1,0 +1,48 @@
+flows:
+- name: render
+  description: Render flow for DoorDash - verify page loads and no 502 errors
+  steps:
+  - description: Navigate to DoorDash homepage
+    type: navigate
+    url: https://www.doordash.com
+  - description: Wait for page to fully initialize and load
+    duration: 5000
+    type: wait
+  - description: Screenshot of initial DoorDash page load
+    filename: 01_initial_page.png
+    type: screenshot
+  - description: Check for any error messages, 502s, or failed loads
+    error_selectors:
+    - .error
+    - .error-message
+    - .alert-danger
+    - .alert-error
+    - '[class*="error"]'
+    - '[class*="502"]'
+    - .server-error
+    - .gateway-error
+    - .service-unavailable
+    type: verify_no_errors
+  - description: Wait for main DoorDash application container to load
+    selector: 'body, main, .app, #root, [data-testid], .doordash-app, .homepage, .main-content,
+      .layout'
+    timeout: 30000
+    type: wait_for_selector
+  - description: Verify there is a span element containing the text 'Home' indicating
+      the main page has rendered correctly
+    selector: span:has-text("Home")
+    type: verify
+    verify_type: element_exists
+  - description: Final check for any error messages or server errors
+    error_selectors:
+    - .error
+    - .error-message
+    - .alert-danger
+    - .alert-error
+    - '[class*="error"]'
+    - '[class*="502"]'
+    - .server-error
+    - .gateway-error
+    - .service-unavailable
+    - .http-error
+    type: verify_no_errors

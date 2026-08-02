@@ -1,0 +1,279 @@
+Metadata-Version: 2.4
+Name: pegasus-cli
+Version: 0.15
+Summary: CLI for Django and SaaS Pegasus
+Author: czue, snopoke
+License: Apache-2.0
+Project-URL: Homepage, https://github.com/saaspegasus/pegasus-cli
+Project-URL: Changelog, https://github.com/saaspegasus/pegasus-cli/releases
+Project-URL: Issues, https://github.com/saaspegasus/pegasus-cli/issues
+Project-URL: CI, https://github.com/saaspegasus/pegasus-cli/actions
+Classifier: License :: OSI Approved :: Apache Software License
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: click
+Requires-Dist: cookiecutter
+Requires-Dist: pyyaml
+Requires-Dist: requests
+Requires-Dist: rich
+Dynamic: license-file
+
+# pegasus-cli
+
+[![PyPI](https://img.shields.io/pypi/v/pegasus-cli.svg)](https://pypi.org/project/pegasus-cli/)
+[![Changelog](https://img.shields.io/github/v/release/saaspegasus/cli?include_prereleases&label=changelog)](https://github.com/saaspegasus/cli/releases)
+[![Tests](https://github.com/saaspegasus/cli/actions/workflows/test.yml/badge.svg)](https://github.com/saaspegasus/cli/actions/workflows/test.yml)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/saaspegasus/cli/blob/master/LICENSE)
+
+
+## Demo
+
+A demo is worth 1,000 words. Click the image below to see the Pegasus CLI in action:
+
+[![Pegasus CLI Demo](https://img.youtube.com/vi/wKS_bbD5RVs/0.jpg)](https://www.youtube.com/watch?v=wKS_bbD5RVs)
+
+## Overview
+
+The Pegasus CLI is a command-line tool that streamlines the process of working in a Django project.
+It is currently designed to work with the [SaaS Pegasus Django boilerplate](https://www.saaspegasus.com/),
+but can be used more generally for any Django project (and will be updated to work with generic
+Django projects in the future).
+
+It is currently geared around the `startapp` command. This will create a new app in your Django project,
+and (optionally) spin up an entire Create / Update / Delete (CRUD) interface for it, built with
+Django forms and HTMX.
+
+Example usage:
+
+```bash
+pegasus startapp todos Project Todo
+```
+
+This will create a `todos` app in your Django project with models, URLs, views and templates to
+work with a `Project` and `Todo` model.
+
+## Installation
+
+Install this tool using `pip`:
+```bash
+pip install pegasus-cli
+```
+## Usage
+
+For help, run:
+```bash
+pegasus --help
+```
+You can also use:
+```bash
+python -m pegasus --help
+```
+## Configuration
+
+You can run `pegasus startapp --help` for configuration options.
+In addition to the command-line options, you can also set default values for configuration
+options by creating a `pegasus-config.yaml` file in your project directory.
+The format of the file is:
+
+```yaml
+cli:
+  app_directory: apps
+  module_path: apps
+  template_directory: templates
+  base_model: apps.teams.models.BaseTeamModel
+  use_teams: true
+  django_settings: myproject/settings.py  # optional, auto-detected from manage.py by default
+```
+
+The above configuration is the recommended configuration for SaaS Pegasus projects
+(with teams turned on, else set `use_teams: false` and `base_model: apps.utils.models.BaseModel`).
+
+A recommended default configuration for your project will be included in your project's `pegasus-config.yaml`
+file if you are on Pegasus version 2024.9 or later.
+
+The Pegasus config will create your apps in the `apps` directory, and will use the `templates` directory for your templates.
+
+## Automatic App Installation
+
+When you run `pegasus startapp`, the CLI will automatically try to add the new app to your
+Django project's `settings.py` and `urls.py` files. It does this by:
+
+1. Parsing `manage.py` in the current directory to find your `DJANGO_SETTINGS_MODULE`.
+2. Adding the app's `AppConfig` to `PROJECT_APPS` (preferred) or `INSTALLED_APPS` in your settings file.
+3. Adding a `path()` entry to `urlpatterns` (or `team_urlpatterns` if using teams) in the
+   `urls.py` file next to your settings.
+
+If the CLI can't find `manage.py` or your settings file, it will fall back to printing
+manual instructions instead.
+
+You can also specify the settings file explicitly:
+
+```bash
+pegasus startapp todos --django-settings myproject/settings.py
+```
+
+## Migrating pg- CSS classes
+
+If you're upgrading a Pegasus project that previously used the legacy `pg-` prefixed
+CSS classes (e.g. `pg-button`, `pg-card`), you can run:
+
+```bash
+pegasus migrate-css
+```
+
+from your project root to replace them with their native Tailwind/DaisyUI equivalents
+in your templates and JavaScript files. The class mappings are read from your
+project's `assets/styles/pegasus/tailwind.css` so they always match the version of
+Pegasus your project was built with.
+
+Use `--dry-run` to preview changes without modifying files. For non-standard
+project layouts, `--css-file` and `--search-dir` (repeatable) let you point at
+alternate paths.
+
+## Pushing to GitHub
+
+You can use the CLI to push your Pegasus project to GitHub directly from the command line.
+
+### Setup
+
+First, authenticate with your Pegasus API key:
+
+```bash
+pegasus auth
+```
+
+This will prompt for your API key and save it to `~/.pegasus/credentials`.
+You can also set the `PEGASUS_API_KEY` environment variable instead.
+
+### Listing projects
+
+To see your available projects:
+
+```bash
+pegasus projects list
+```
+
+### Configuring projects
+
+You can create and modify projects from the CLI, mirroring what's available
+in the web UI.
+
+To see all configurable fields with their types, choices, and the license
+tier each requires:
+
+```bash
+pegasus projects fields
+```
+
+By default this shows the schema for a *new* project, which omits fields
+whose only valid value is the default (e.g. deprecated bundlers or CSS
+frameworks). To see the schema as it applies to an existing project —
+including any legacy options that project can still configure — pass
+`--for`:
+
+```bash
+pegasus projects fields --for <project_id>
+```
+
+To show a project's full configuration:
+
+```bash
+pegasus projects show <project_id>
+```
+
+To create a new project, pass fields with `--set key=value` (repeatable),
+load them from a `pegasus-config.yaml` (or JSON) file with `--config-file`,
+or combine the two — `--set` values override values from the file:
+
+```bash
+pegasus projects create \
+  --set project_name="My App" \
+  --set project_slug=my_app \
+  --set use_subscriptions=true
+
+pegasus projects create --config-file pegasus-config.yaml
+
+pegasus projects create --config-file pegasus-config.yaml --set use_celery=true
+```
+
+To update an existing project, use the same flags with a project ID. Only
+the fields you specify are changed; everything else is left alone:
+
+```bash
+pegasus projects update <project_id> --set front_end_framework=react
+```
+
+Pass `--json` to any of these commands to get machine-readable output
+instead of a Rich table.
+
+### Pushing to GitHub
+
+To push a project to GitHub by ID:
+
+```bash
+pegasus projects push <project_id>
+```
+
+If you don't specify a project ID, you'll be prompted to choose from your projects:
+
+```bash
+pegasus projects push
+```
+
+To upgrade to the latest Pegasus version before pushing:
+
+```bash
+pegasus projects push <project_id> --upgrade
+```
+
+To upgrade to the latest development build instead of the stable release:
+
+```bash
+pegasus projects push <project_id> --upgrade --dev
+```
+
+To push as-is without upgrading and without the interactive prompt (useful
+in CI, scripts, or agent flows):
+
+```bash
+pegasus projects push <project_id> --no-upgrade
+```
+
+To set a custom pull request title (used when a PR is created):
+
+```bash
+pegasus projects push <project_id> --upgrade --pr-title "Upgrade Pegasus to 2025.2"
+```
+
+The CLI will show progress as the build runs and print the pull request or repository URL when complete.
+
+### Custom server URL
+
+By default, commands use `https://www.saaspegasus.com`.
+To use a different server, pass `--base-url` or set `PEGASUS_BASE_URL`:
+
+```bash
+pegasus projects --base-url https://your-server.com list
+```
+
+## Development
+
+To contribute to this tool, first checkout the code. Then create a new virtual environment:
+```bash
+cd cli
+python -m venv venv
+source venv/bin/activate
+```
+Now install the dependencies and dev dependencies:
+```bash
+pip install -e '.[dev]'
+```
+To run the tests:
+```bash
+pytest
+```
+Setup pre-commit hooks:
+```bash
+pre-commit install
+```

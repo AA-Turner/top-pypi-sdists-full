@@ -78,6 +78,41 @@ def extract_tool_error_message(te: ToolError) -> str:
         return str(te)
 
 
+def extract_structured_error_reason(exc: BaseException) -> str | None:
+    """Extract "message" + first actionable suggestion from a structured error.
+
+    Like ``extract_tool_error_message`` but for surfaces that show the reason
+    to a human (settings UI, degraded-result warnings): it appends the first
+    suggestion when one exists, and returns ``None`` — instead of the raw
+    ``str(exc)`` JSON envelope — when the payload is not a structured error
+    or carries no usable message, so callers pick their own fallback.
+    ``create_error_response`` emits only the singular ``suggestion`` key for
+    one-suggestion errors (the plural ``suggestions`` list needs two or
+    more), so both keys are honored.
+    """
+    try:
+        payload = json.loads(str(exc))
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    error = payload.get("error")
+    if not isinstance(error, dict):
+        return None
+    message = error.get("message")
+    if not isinstance(message, str) or not message:
+        return None
+    suggestions = error.get("suggestions")
+    first = (
+        suggestions[0]
+        if isinstance(suggestions, list) and suggestions
+        else error.get("suggestion")
+    )
+    if isinstance(first, str) and first:
+        return f"{message} {first}"
+    return message
+
+
 def validate_identifier_not_empty(
     value: str | None,
     param_name: str,
@@ -435,15 +470,21 @@ def exception_to_structured_error(
     # Tracebacks are operationally valuable only for genuinely unclassified
     # exceptions (programmer errors, library bugs) — every other branch in
     # _classify_exception produces a structured signal that's sufficient on
-    # its own. Logging at exception level here gives operators line numbers
-    # for the bug class where ``str(error)`` is least informative, without
+    # its own. Logging the traceback here gives operators line numbers for the
+    # bug class where ``str(error)`` is least informative, without
     # re-introducing the duplicate ERROR-log noise that classified failures
     # produced.
+    #
+    # ``exc_info=error`` rather than ``logger.exception()``: the traceback is
+    # taken from the exception we were handed, not from ``sys.exc_info()``.
+    # Every caller passes the exception explicitly, and the ``raise_error=False``
+    # paths may run outside an ``except`` block, where ``sys.exc_info()`` is
+    # empty and ``.exception()`` would log "NoneType: None" for the traceback.
     if (
         isinstance(error_response.get("error"), dict)
         and error_response["error"].get("code") == ErrorCode.INTERNAL_ERROR
     ):
-        logger.exception("Unclassified exception: %s", error_msg)
+        logger.error("Unclassified exception: %s", error_msg, exc_info=error)
 
     if (
         suggestions
@@ -491,9 +532,12 @@ def log_tool_usage(func: Any) -> Any:
             elif hasattr(result, "__len__"):
                 response_size = len(str(result).encode("utf-8"))
             return result
-        except Exception as e:
+        except BaseException as e:
+            # BaseException, not Exception: a cancelled tool call must not be
+            # recorded as a success. str() is empty on a bare CancelledError,
+            # so the class name stands in.
             success = False
-            error_message = str(e)
+            error_message = str(e) or type(e).__name__
             raise
         finally:
             execution_time_ms = (time.time() - start_time) * 1000

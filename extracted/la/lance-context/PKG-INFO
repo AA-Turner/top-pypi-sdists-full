@@ -1,0 +1,51 @@
+Metadata-Version: 2.4
+Name: lance-context
+Version: 0.6.5
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Rust
+Classifier: Topic :: Scientific/Engineering
+Requires-Dist: pyarrow>=14
+Requires-Dist: ruff ; extra == 'dev'
+Requires-Dist: pyright ; extra == 'dev'
+Requires-Dist: lance-graph==0.5.4 ; extra == 'graph'
+Requires-Dist: pylance>=7.0.0,<8 ; extra == 'lance-python'
+Requires-Dist: lance-namespace>=0.7.7,<0.8 ; extra == 'lance-python'
+Requires-Dist: lancedb==0.27.1 ; extra == 'lance-python'
+Requires-Dist: openai>=1.0 ; extra == 'openai'
+Requires-Dist: sentence-transformers>=2.0 ; extra == 'sentence-transformers'
+Requires-Dist: pytest ; extra == 'tests'
+Requires-Dist: pytest-asyncio ; extra == 'tests'
+Requires-Dist: ruff ; extra == 'tests'
+Requires-Dist: moto[s3,server] ; extra == 'tests'
+Requires-Dist: boto3 ; extra == 'tests'
+Requires-Dist: botocore ; extra == 'tests'
+Requires-Dist: pylance>=7.0.0,<8 ; extra == 'tests'
+Requires-Dist: lance-namespace>=0.7.7,<0.8 ; extra == 'tests'
+Requires-Dist: lancedb==0.27.1 ; extra == 'tests'
+Provides-Extra: dev
+Provides-Extra: graph
+Provides-Extra: lance-python
+Provides-Extra: openai
+Provides-Extra: sentence-transformers
+Provides-Extra: tests
+License-File: LICENSE
+Summary: Multimodal, versioned context storage for agentic workflows
+Keywords: context,memory,multimodal,lance,agents
+Author-email: Lance Devs <dev@lancedb.com>
+Requires-Python: >=3.11, <3.14
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+
+# lance-context (python)
+
+Python bindings for the lance-context core library.
+
+

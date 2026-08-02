@@ -1,0 +1,89 @@
+[agc]
+arg_type = "float _Complex"
+return_type = "float _Complex"
+mutable = "true"
+no_state = "true"
+no_step = "false"
+class_name = "AGC"
+serializable = "true"
+
+# Telemetry attach (jm gh-432): the dp_tlm_t* crosses as the named capsule
+# exposed by doppler.telemetry.Telemetry._capsule (the binding also accepts
+# the Telemetry object itself via the `_capsule` duck-typed unwrap). The
+# int status return binds -> None, ValueError on failure. link=true puts
+# telemetry_core on the collocated object's core/test/bench and the .so
+# (gh-254 additive semantics).
+[[agc.depends_on]]
+name = "telemetry"
+link = true
+
+[[agc.methods]]
+name = "set_telemetry"
+arg_type = "void"
+return_type = "int"
+status_return = true
+params = [
+  { name = "tlm", type = "dp_tlm_t *", capsule = "doppler.telemetry.dp_tlm", header = "telemetry/telemetry.h" },
+  { name = "prefix", type = "const char *" },
+  { name = "decim", type = "uint32_t", default = "1" },
+]
+
+[[agc.init_params]]
+name = "ref_db"
+type = "double"
+default = "0.0"
+
+[[agc.init_params]]
+name = "loop_bw"
+type = "double"
+default = "0.0025"
+
+[[agc.init_params]]
+name = "alpha"
+type = "double"
+default = "0.05"
+
+[[agc.properties]]
+name = "gain_db"
+type = "double"
+field = true
+
+[[agc.properties]]
+name = "applied_gain_db"
+type = "double"
+
+[[agc.properties]]
+name = "ref_db"
+type = "double"
+writable = true
+field = true
+
+[[agc.properties]]
+name = "loop_bw"
+type = "double"
+writable = true
+field = true
+
+[[agc.properties]]
+name = "alpha"
+type = "double"
+writable = true
+field = true
+
+[[agc.properties]]
+name = "decim"
+type = "size_t"
+writable = true
+field = true
+
+[[agc.properties]]
+name = "clip_db"
+type = "double"
+writable = true
+field = true
+
+[[agc.properties]]
+name = "gain_update_period"
+type = "size_t"
+writable = true
+field = true

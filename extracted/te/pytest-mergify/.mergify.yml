@@ -1,0 +1,58 @@
+extends: .github
+
+queue_rules:
+  - name: default
+    queue_conditions:
+      - base = main
+    commit_message_format:
+      title: pr-title
+      body: pr-body
+    merge_method: squash
+
+pull_request_rules:
+  - name: request review
+    conditions:
+      - author != dependabot[bot]
+      - -closed
+      - and: &CheckRuns
+          - check-success = test (3.8)
+          - check-success = test (3.9)
+          - check-success = test (3.10)
+          - check-success = test (3.11)
+          - check-success = test (3.12)
+          - check-success = test (3.13)
+          - check-success = test (3.14)
+          - check-success = codespell
+      - not:
+          or: &ApprovalConditions
+            - "#approved-reviews-by >= 2"
+            # A change the risk scoring workflow proved safe, or that a
+            # reviewer labeled as such, ships on a single approval.
+            - and:
+                - label = low risk
+                - "#approved-reviews-by >= 1"
+      - "#changes-requested-reviews-by=0"
+      - review-requested != @devs
+    actions:
+      request_reviews:
+        teams:
+          - devs
+
+merge_protections:
+  - name: Approval
+    if:
+      - author != dependabot[bot]
+    success_conditions:
+      - or: *ApprovalConditions
+
+  - name: Continuous Integration
+    if: []
+    success_conditions:
+      - and: *CheckRuns
+
+merge_queue:
+  max_parallel_checks: 3
+
+merge_protections_settings:
+  reporting_method: deployments
+  auto_merge_conditions: true

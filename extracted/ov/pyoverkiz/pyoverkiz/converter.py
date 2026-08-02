@@ -1,0 +1,184 @@
+"""Centralized cattrs converter for structuring Overkiz API responses."""
+
+from __future__ import annotations
+
+import logging
+import types
+from enum import Enum
+from typing import Any, Union, get_args, get_origin
+
+import attr
+import cattrs
+from cattrs.errors import ClassValidationError
+from cattrs.gen import make_dict_structure_fn, override
+
+from pyoverkiz._case import camelize_key
+from pyoverkiz.enums import EventName, GatewaySubType
+from pyoverkiz.exceptions import OverkizError
+from pyoverkiz.models import (
+    EVENT_TYPE_BY_NAME,
+    CommandDefinition,
+    CommandDefinitions,
+    Device,
+    Event,
+    State,
+    StateDefinition,
+    StateDefinitions,
+    States,
+)
+from pyoverkiz.obfuscate import obfuscate_id
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def _is_primitive_union(t: Any) -> bool:
+    """True for unions of JSON-native types (e.g. StateType).
+
+    Excludes unions containing attrs classes (e.g. Definition | None) since those
+    need actual structuring by cattrs.
+    """
+    origin = get_origin(t)
+    if origin is not Union and not isinstance(t, types.UnionType):
+        return False
+    non_none = [arg for arg in get_args(t) if arg is not type(None)]
+    if any(isinstance(arg, type) and attr.has(arg) for arg in non_none):
+        return False
+    return not all(isinstance(arg, type) and issubclass(arg, Enum) for arg in non_none)
+
+
+def _rename_hook_factory(cls: type, converter: cattrs.Converter) -> Any:
+    """Generate a structuring hook that maps camelCase API keys to snake_case fields."""
+    overrides = {}
+    for f in attr.fields(cls):
+        if not f.init or f.name.startswith("_"):
+            continue
+        if f.alias and f.alias != f.name:
+            continue
+        api_key = camelize_key(f.name)
+        if api_key != f.name:
+            overrides[f.name] = override(rename=api_key)
+    return make_dict_structure_fn(cls, converter, **overrides)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+
+
+def _make_converter() -> cattrs.Converter:
+    # Converter (not GenConverter) so unknown API keys are silently dropped for forward-compat.
+    c = cattrs.Converter()
+
+    # JSON-native unions like StateType (str | int | float | … | None) are already the
+    # correct Python type after JSON parsing — tell cattrs to pass them through as-is.
+    c.register_structure_hook_func(_is_primitive_union, lambda v, _: v)
+
+    # Enums: call the constructor so UnknownEnumMixin._missing_ can handle unknown values
+    c.register_structure_hook_func(
+        lambda t: isinstance(t, type) and issubclass(t, Enum),
+        lambda v, t: v if isinstance(v, t) else t(v),
+    )
+
+    # Gateways report subType 0 to mean "no specific sub-type" — surface that as None
+    # rather than GatewaySubType.UNKNOWN, which stays reserved for genuinely unrecognised
+    # values. Scoped to the Optional field (GatewaySubType | None) so bare GatewaySubType
+    # structuring keeps the generic enum behaviour; exact-type hook (direct dispatch) so it
+    # overrides the primitive-union and generic enum hooks.
+    c.register_structure_hook(
+        GatewaySubType | None,
+        lambda v, _: None if v in (0, None) else c.structure(v, GatewaySubType),
+    )
+
+    # Custom container types that wrap a list in __init__
+    def _structure_states(val: Any, _: type) -> States:
+        if val is None:
+            return States()
+        return States([c.structure(s, State) for s in val])
+
+    def _structure_command_definitions(val: Any, _: type) -> CommandDefinitions:
+        if val is None:
+            return CommandDefinitions()
+        return CommandDefinitions([c.structure(cd, CommandDefinition) for cd in val])
+
+    def _structure_state_definitions(val: Any, _: type) -> StateDefinitions:
+        if val is None:
+            return StateDefinitions()
+        return StateDefinitions([c.structure(sd, StateDefinition) for sd in val])
+
+    c.register_structure_hook(States, _structure_states)
+    c.register_structure_hook(CommandDefinitions, _structure_command_definitions)
+    c.register_structure_hook(StateDefinitions, _structure_state_definitions)
+
+    # For all other attrs classes: lazily generate a hook that renames camelCase
+    # API keys to snake_case on first use. This avoids manual dependency ordering.
+    skip = {States, CommandDefinitions, StateDefinitions}
+    c.register_structure_hook_factory(
+        lambda t: isinstance(t, type) and attr.has(t) and t not in skip,
+        _rename_hook_factory,
+    )
+
+    # Event is a discriminated union keyed on "name". Pre-build each subtype's
+    # hook and call it directly; routing via c.structure(val, subtype) would
+    # re-enter this hook (subclass dispatches to its base) and recurse forever.
+    event_types: set[type[Event]] = {Event, *EVENT_TYPE_BY_NAME.values()}
+    event_hooks: dict[type[Event], Any] = {
+        cls: _rename_hook_factory(cls, c) for cls in event_types
+    }
+
+    def _structure_event(val: Any, _: type) -> Event:
+        name = val.get("name") if isinstance(val, dict) else None
+        target: type[Event] = Event
+        if name is not None:
+            target = EVENT_TYPE_BY_NAME.get(EventName(name), Event)
+        try:
+            return event_hooks[target](val, target)  # type: ignore[no-any-return]
+        except ClassValidationError as err:
+            # A payload missing a required field degrades to base Event rather
+            # than failing the whole batch; the warning flags a field to loosen.
+            if target is Event:
+                raise
+            _LOGGER.warning(
+                "Could not structure %s as %s (%s); falling back to base Event",
+                name,
+                target.__name__,
+                err,
+            )
+            return event_hooks[Event](val, Event)  # type: ignore[no-any-return]
+
+    c.register_structure_hook(Event, _structure_event)
+
+    def _structure_event_list(val: Any, _: type) -> list[Event]:
+        # A single unstructurable event (e.g. missing "name", or not a dict) must
+        # not sink the whole poll. _structure_event already degrades known
+        # subtypes to base Event; here we drop the few items it can't build at all.
+        if not val:
+            return []
+        events: list[Event] = []
+        for raw in val:
+            try:
+                events.append(_structure_event(raw, Event))
+            except (ClassValidationError, ValueError, TypeError) as err:
+                _LOGGER.warning("Dropping unstructurable event %r (%s)", raw, err)
+        return events
+
+    c.register_structure_hook_func(lambda t: t == list[Event], _structure_event_list)
+
+    def _structure_device_list(val: Any, _: type) -> list[Device]:
+        # Some devices (e.g. OGP Sonos, Velux) are returned without required
+        # fields in Local API; drop those rather than fail the whole setup.
+        if not val:
+            return []
+        devices: list[Device] = []
+        for raw in val:
+            try:
+                devices.append(c.structure(raw, Device))
+            except (ClassValidationError, OverkizError, ValueError, TypeError) as err:
+                device_url = raw.get("deviceURL") if isinstance(raw, dict) else None
+                _LOGGER.warning(
+                    "Skipping device %s: incomplete data from hub (%s)",
+                    obfuscate_id(device_url),
+                    err,
+                )
+        return devices
+
+    c.register_structure_hook_func(lambda t: t == list[Device], _structure_device_list)
+
+    return c
+
+
+converter = _make_converter()

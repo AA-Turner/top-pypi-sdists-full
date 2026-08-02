@@ -1,0 +1,53 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+from typing import List
+from typing_extensions import Literal, TypedDict
+
+from .event_stream import EventStream
+
+__all__ = ["V2ListParams"]
+
+
+class V2ListParams(TypedDict, total=False):
+    account_token: str
+    """Only return Auth Rules that are bound to the provided account token."""
+
+    business_account_token: str
+    """Only return Auth Rules that are bound to the provided business account token."""
+
+    card_token: str
+    """Only return Auth Rules that are bound to the provided card token."""
+
+    ending_before: str
+    """A cursor representing an item's token before which a page of results should end.
+
+    Used to retrieve the previous page of results before this item.
+    """
+
+    event_stream: EventStream
+    """Deprecated: Use event_streams instead.
+
+    Only return Auth rules that are executed during the provided event stream.
+    """
+
+    event_streams: List[EventStream]
+    """
+    Only return Auth rules that are executed during any of the provided event
+    streams. If event_streams and event_stream are specified, the values will be
+    combined.
+    """
+
+    page_size: int
+    """Page size (for pagination)."""
+
+    scope: Literal["PROGRAM", "ACCOUNT", "BUSINESS_ACCOUNT", "CARD", "ANY"]
+    """Only return Auth Rules that are bound to the provided scope."""
+
+    starting_after: str
+    """A cursor representing an item's token after which a page of results should
+    begin.
+
+    Used to retrieve the next page of results after this item.
+    """

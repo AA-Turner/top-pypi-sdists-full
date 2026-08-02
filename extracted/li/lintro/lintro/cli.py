@@ -1,0 +1,297 @@
+"""Command-line interface for Lintro."""
+
+import codecs
+import contextlib
+import sys
+from typing import Any, TextIO, cast
+
+import click
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+from rich.text import Text
+
+from lintro import __version__
+from lintro.cli_utils.command_chainer import CommandChainer
+from lintro.utils.logger_setup import setup_cli_logging
+
+
+def _is_utf8_encoding(encoding: str | None) -> bool:
+    """Return whether *encoding* names UTF-8.
+
+    Args:
+        encoding: Encoding name from a text stream, or ``None``.
+
+    Returns:
+        ``True`` when *encoding* is UTF-8 (any common spelling).
+    """
+    if encoding is None:
+        return False
+    try:
+        return codecs.lookup(encoding).name == "utf-8"
+    except LookupError:
+        # Unknown codec name — cannot be a UTF-8 alias.
+        return False
+
+
+def _reconfigure_stream_utf8(stream: TextIO) -> None:
+    """Reconfigure *stream* to UTF-8 when it is not already UTF-8.
+
+    Args:
+        stream: Stdout/stderr (or compatible) text stream.
+    """
+    if _is_utf8_encoding(getattr(stream, "encoding", None)):
+        return
+    reconfigure = getattr(stream, "reconfigure", None)
+    if not callable(reconfigure):
+        return
+    # Closed streams or non-reconfigurable wrappers — leave as-is.
+    with contextlib.suppress(OSError, ValueError, AttributeError, TypeError):
+        reconfigure(encoding="utf-8", errors="replace")
+
+
+def ensure_utf8_stdio() -> None:
+    """Force UTF-8 on stdout/stderr for ASCII (and other non-UTF-8) locales.
+
+    Rich help output includes emoji (e.g. the wrench in the banner). Under
+    ASCII locales such as ``en_US.US-ASCII``, writing that output raises
+    ``UnicodeEncodeError``. CPython's UTF-8 mode rescues ``C``/``POSIX`` but
+    not other ASCII locales, and ``PYTHONUTF8``/``PYTHONIOENCODING`` do not
+    reach Nuitka onefile binaries — only an in-process reconfigure does.
+    """
+    _reconfigure_stream_utf8(sys.stdout)
+    _reconfigure_stream_utf8(sys.stderr)
+
+
+# Configure loguru for CLI commands (help, version, etc.)
+# Only WARNING and above will show. DEBUG logs go to file when tool_executor runs.
+setup_cli_logging()
+
+# E402: Module level imports below setup_cli_logging() are intentional.
+# Logging must be configured BEFORE importing modules that use loguru,
+# otherwise log messages during import get silently dropped or misconfigured.
+from lintro.cli_utils.commands.check import check_command  # noqa: E402
+from lintro.cli_utils.commands.completions import completions_command  # noqa: E402
+from lintro.cli_utils.commands.config import config_command  # noqa: E402
+from lintro.cli_utils.commands.doctor import doctor_command  # noqa: E402
+from lintro.cli_utils.commands.format import format_command  # noqa: E402
+from lintro.cli_utils.commands.init import init_command  # noqa: E402
+from lintro.cli_utils.commands.install import install_command  # noqa: E402
+from lintro.cli_utils.commands.licenses import licenses_command  # noqa: E402
+from lintro.cli_utils.commands.list_tools import list_tools_command  # noqa: E402
+from lintro.cli_utils.commands.mcp import mcp_command  # noqa: E402
+from lintro.cli_utils.commands.review import review_command  # noqa: E402
+from lintro.cli_utils.commands.setup import setup_command  # noqa: E402
+from lintro.cli_utils.commands.test import test_command  # noqa: E402
+from lintro.cli_utils.commands.versions import versions_command  # noqa: E402
+from lintro.tools.core.runtime_discovery import clear_discovery_cache  # noqa: E402
+from lintro.utils.config import clear_pyproject_cache  # noqa: E402
+
+
+class LintroGroup(click.Group):
+    """Custom Click group with enhanced help rendering and command chaining.
+
+    This group prints command aliases alongside their canonical names to make
+    the CLI help output more discoverable. It also supports command chaining
+    with comma-separated commands (e.g., lintro fmt , chk , tst).
+    """
+
+    def format_help(
+        self,
+        ctx: click.Context,
+        formatter: click.HelpFormatter,
+    ) -> None:
+        """Render help with Rich formatting.
+
+        Args:
+            ctx: click.Context: The Click context.
+            formatter: click.HelpFormatter: The help formatter (unused, we use Rich).
+        """
+        console = Console()
+
+        # Header panel
+        header = Text()
+        header.append("🔧 Lintro", style="bold cyan")
+        header.append(f" v{__version__}", style="dim")
+        console.print(Panel(header, border_style="cyan"))
+        console.print()
+
+        # Description
+        console.print(
+            "[white]Unified CLI for code formatting, linting, "
+            "and quality assurance.[/white]",
+        )
+        console.print()
+
+        # Usage
+        console.print("[bold cyan]Usage:[/bold cyan]")
+        console.print("  lintro [OPTIONS] COMMAND [ARGS]...")
+        console.print("  lintro COMMAND1 , COMMAND2 , ...  [dim](chain commands)[/dim]")
+        console.print()
+
+        # Commands table
+        commands = self.list_commands(ctx)
+        canonical_map: dict[str, tuple[click.Command, list[str]]] = {}
+        for name in commands:
+            cmd = self.get_command(ctx, name)
+            if cmd is None:
+                continue
+            cmd_any = cast(Any, cmd)
+            if not hasattr(cmd_any, "_canonical_name"):
+                cmd_any._canonical_name = name
+            canonical = cast(str, getattr(cmd_any, "_canonical_name", name))
+            if canonical not in canonical_map:
+                canonical_map[canonical] = (cmd, [])
+            if name != canonical:
+                canonical_map[canonical][1].append(name)
+
+        table = Table(title="Commands", show_header=True, header_style="bold cyan")
+        table.add_column("Command", style="cyan", no_wrap=True)
+        table.add_column("Alias", style="yellow", no_wrap=True)
+        table.add_column("Description", style="white")
+
+        for canonical, (cmd, aliases) in sorted(canonical_map.items()):
+            alias_str = ", ".join(aliases) if aliases else "-"
+            table.add_row(canonical, alias_str, cmd.get_short_help_str())
+
+        console.print(table)
+        console.print()
+
+        # Options
+        console.print("[bold cyan]Options:[/bold cyan]")
+        console.print("  [yellow]-v, --version[/yellow]  Show the version and exit.")
+        console.print("  [yellow]-h, --help[/yellow]     Show this message and exit.")
+        console.print()
+
+        # Examples
+        console.print("[bold cyan]Examples:[/bold cyan]")
+        console.print("  [dim]# Check all files[/dim]")
+        console.print("  lintro check .")
+        console.print()
+        console.print("  [dim]# Format and then check[/dim]")
+        console.print("  lintro fmt . , chk .")
+        console.print()
+        console.print("  [dim]# Show tool versions[/dim]")
+        console.print("  lintro versions")
+
+    def format_commands(
+        self,
+        ctx: click.Context,
+        formatter: click.HelpFormatter,
+    ) -> None:
+        """Render command list with aliases in the help output.
+
+        Args:
+            ctx: click.Context: The Click context.
+            formatter: click.HelpFormatter: The help formatter to write to.
+        """
+        # This is now handled by format_help, but keep for compatibility
+        pass
+
+    def invoke(
+        self,
+        ctx: click.Context,
+    ) -> int:
+        """Handle command execution with support for command chaining.
+
+        Supports chaining commands with commas, e.g.: lintro fmt , chk , tst
+
+        Args:
+            ctx: click.Context: The Click context.
+
+        Returns:
+            int: Exit code from command execution.
+
+        Raises:
+            SystemExit: If a command exits with a non-zero exit code.
+        """
+        # Clear caches at start of each invocation to ensure fresh tool
+        # detection and pyproject.toml loading across working directories
+        clear_discovery_cache()
+        clear_pyproject_cache()
+
+        all_args = ctx.protected_args + ctx.args
+
+        if all_args:
+            chainer = CommandChainer(self)
+
+            if chainer.should_chain(all_args):
+                # Normalize arguments and group into command chains
+                normalized = chainer.normalize_args(all_args)
+                groups = chainer.group_commands(normalized)
+
+                # Execute command chain
+                final_exit_code = chainer.execute_chain(ctx, groups)
+                if final_exit_code != 0:
+                    raise SystemExit(final_exit_code)
+                return 0
+
+        # Normal single command execution
+        result = super().invoke(ctx)
+        return int(result) if isinstance(result, int) else 0
+
+
+@click.group(
+    cls=LintroGroup,
+    invoke_without_command=True,
+    context_settings={"help_option_names": ["-h", "--help"]},
+)
+@click.version_option(__version__, "-v", "--version")
+def cli() -> None:
+    """Lintro: Unified CLI for code formatting, linting, and quality assurance."""
+    pass
+
+
+# Register canonical commands and set _canonical_name for help
+cast(Any, check_command)._canonical_name = "check"
+cast(Any, completions_command)._canonical_name = "completions"
+cast(Any, config_command)._canonical_name = "config"
+cast(Any, doctor_command)._canonical_name = "doctor"
+cast(Any, format_command)._canonical_name = "format"
+cast(Any, init_command)._canonical_name = "init"
+cast(Any, install_command)._canonical_name = "install"
+cast(Any, licenses_command)._canonical_name = "licenses"
+cast(Any, setup_command)._canonical_name = "setup"
+cast(Any, test_command)._canonical_name = "test"
+cast(Any, list_tools_command)._canonical_name = "list-tools"
+cast(Any, mcp_command)._canonical_name = "mcp"
+cast(Any, review_command)._canonical_name = "review"
+cast(Any, versions_command)._canonical_name = "versions"
+
+cli.add_command(check_command, name="check")
+cli.add_command(completions_command, name="completions")
+cli.add_command(config_command, name="config")
+cli.add_command(doctor_command, name="doctor")
+cli.add_command(format_command, name="format")
+cli.add_command(init_command, name="init")
+cli.add_command(install_command, name="install")
+cli.add_command(licenses_command, name="licenses")
+cli.add_command(setup_command, name="setup")
+cli.add_command(test_command, name="test")
+cli.add_command(list_tools_command, name="list-tools")
+cli.add_command(mcp_command, name="mcp")
+cli.add_command(review_command, name="review")
+cli.add_command(versions_command, name="versions")
+
+# Register aliases
+cli.add_command(check_command, name="chk")
+cli.add_command(check_command, name="lint")
+cli.add_command(completions_command, name="comp")
+cli.add_command(config_command, name="cfg")
+cli.add_command(format_command, name="fmt")
+cli.add_command(format_command, name="fix")
+cli.add_command(test_command, name="tst")
+cli.add_command(list_tools_command, name="ls")
+cli.add_command(list_tools_command, name="tools")
+cli.add_command(install_command, name="ins")
+cli.add_command(licenses_command, name="lic")
+cli.add_command(setup_command, name="su")
+cli.add_command(review_command, name="rev")
+cli.add_command(versions_command, name="ver")
+cli.add_command(versions_command, name="version")
+
+
+def main() -> None:
+    """Entry point for the CLI."""
+    ensure_utf8_stdio()
+    cli()

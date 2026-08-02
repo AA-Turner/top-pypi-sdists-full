@@ -26,6 +26,7 @@ from fastapi.testclient import TestClient
 
 from pydantic_ai_backends import StateBackend
 from pydantic_ai_backends.remote import RemoteSandbox, wire
+from pydantic_ai_backends.remote.client import TRANSPORT_SLACK_SECONDS
 from pydantic_ai_backends.remote.server import (
     SandboxdConfig,
     SandboxRuntime,
@@ -75,6 +76,14 @@ class FakeSandbox:
         # Lets a test hold an open inside `start()`, which is where a real one
         # spends its seconds pulling an image.
         self.start_gate: threading.Event | None = None
+        # Seconds every operation blocks for, standing in for a slow command or
+        # a grep over a large tree. Blocking rather than sleeping on the loop,
+        # because that is what a real sandbox does to its worker thread.
+        self.stall = 0.0
+
+    def _work(self) -> None:
+        if self.stall:
+            time.sleep(self.stall)
 
     # lifecycle -----------------------------------------------------------
     @property
@@ -110,18 +119,22 @@ class FakeSandbox:
 
     # operations ----------------------------------------------------------
     def execute(self, command: str, timeout: int | None = None) -> ExecuteResponse:
+        self._work()
         self.commands.append((command, timeout))
         return ExecuteResponse(output=f"ran {command}", exit_code=0, truncated=False)
 
     def read(self, path: str, offset: int = 0, limit: int = 2000) -> str:
+        self._work()
         return self._store.read(path, offset, limit)
 
     def read_bytes(self, path: str) -> bytes:
+        self._work()
         if path in self._blobs:
             return self._blobs[path]
         return self._store.read_bytes(path)
 
     def write(self, path: str, content: str | bytes) -> WriteResult:
+        self._work()
         raw = content if isinstance(content, bytes) else content.encode("utf-8")
         self._blobs[path] = raw
         return self._store.write(path, content)
@@ -129,15 +142,19 @@ class FakeSandbox:
     def edit(
         self, path: str, old_string: str, new_string: str, replace_all: bool = False
     ) -> EditResult:
+        self._work()
         return self._store.edit(path, old_string, new_string, replace_all)
 
     def exists(self, path: str) -> bool:
+        self._work()
         return self._store.exists(path)
 
     def ls_info(self, path: str) -> list[Any]:
+        self._work()
         return self._store.ls_info(path)
 
     def glob_info(self, pattern: str, path: str = "/") -> list[Any]:
+        self._work()
         return self._store.glob_info(pattern, path)
 
     def grep_raw(
@@ -147,6 +164,7 @@ class FakeSandbox:
         glob: str | None = None,
         ignore_hidden: bool = True,
     ) -> Any:
+        self._work()
         return self._store.grep_raw(pattern, path, glob, ignore_hidden)
 
 
@@ -1568,10 +1586,11 @@ class TestWorkspaceSweep:
 class TestSweepLoop:
     """The background pass that reclaims workspaces."""
 
-    def test_the_loop_runs_only_when_a_ttl_is_set(self, tmp_path):
+    def test_the_loop_runs_even_without_a_ttl(self, tmp_path):
+        """It ends long-asleep sessions too, which no TTL governs."""
         harness = Harness(workspace_root=str(tmp_path))
         with harness.client():
-            assert harness.app.state.service._sweep_task is None
+            assert harness.app.state.service._sweep_task is not None
 
         harness = Harness(workspace_root=str(tmp_path), workspace_ttl=60)
         with harness.client():
@@ -2048,6 +2067,7 @@ class TestPerRuntimeCeilings:
 
         assert limits == {
             "mem_limit": "512m",
+            "memswap_limit": None,
             "cpus": 1.0,
             "cpu_shares": None,
             "pids_limit": 128,
@@ -2088,7 +2108,10 @@ class TestPerRuntimeCeilings:
         assert config.limits_for(config.resolve_runtime("online")[1])["network_mode"] == "bridge"
 
     def test_the_builder_applies_the_runtime_ceilings(self):
-        from pydantic_ai_backends.remote.server import SandboxRuntime, _default_builder
+        from pydantic_ai_backends.remote.server import (
+            SandboxRuntime,
+            _default_builder,
+        )
 
         config = self._config(mem_limit="512m", cpus=1.0)
 
@@ -2103,7 +2126,10 @@ class TestPerRuntimeCeilings:
 
     def test_the_builder_forces_the_service_work_dir_on_a_built_runtime(self):
         """The volume mount, the archive and a client's paths must agree on one."""
-        from pydantic_ai_backends.remote.server import SandboxRuntime, _default_builder
+        from pydantic_ai_backends.remote.server import (
+            SandboxRuntime,
+            _default_builder,
+        )
 
         config = SandboxdConfig(
             token="t",
@@ -2146,11 +2172,20 @@ class TestRuntimePolicyReporting:
 class TestShippedCatalogues:
     """What an operator gets by default, and what they can opt into."""
 
-    def test_the_default_allowlist_builds_nothing(self):
-        """A fresh deployment's first session must not wait on an image build."""
+    def test_only_the_coding_runtime_builds_by_default(self):
+        """`coding` is the one entry worth a build, and it is not left alone.
+
+        A sandbox for an agent working on code without `git` is not one, so the
+        default pays for a build — covered by `prewarm` at startup rather than
+        inside a request. The ready-made entries stay beside it so a host that
+        cannot reach a Debian mirror still has something that runs.
+        """
         from pydantic_ai_backends.remote.server import DEFAULT_RUNTIMES
 
-        assert all(not entry.builds for entry in DEFAULT_RUNTIMES.values())
+        building = {alias for alias, entry in DEFAULT_RUNTIMES.items() if entry.builds}
+
+        assert building == {"coding"}
+        assert set(DEFAULT_RUNTIMES) - building
 
     def test_the_default_allowlist_is_the_config_default(self):
         from pydantic_ai_backends.remote.server import DEFAULT_RUNTIMES
@@ -2158,7 +2193,24 @@ class TestShippedCatalogues:
         config = SandboxdConfig(token="t")
 
         assert set(config.runtimes) == set(DEFAULT_RUNTIMES)
-        assert config.default_runtime in config.runtimes
+        assert config.default_runtime == "coding"
+
+    def test_a_custom_allowlist_defaults_to_whichever_entry_is_listed_first(self):
+        """Naming a fixed alias would make every custom allowlist carry that key."""
+        config = SandboxdConfig(token="t", runtimes={"mine": "img", "other": "img2"})
+
+        assert config.default_runtime == "mine"
+
+    def test_naming_one_explicitly_still_wins(self):
+        config = SandboxdConfig(
+            token="t", runtimes={"mine": "img", "other": "img2"}, default_runtime="other"
+        )
+
+        assert config.default_runtime == "other"
+
+    def test_naming_one_that_is_not_allowed_is_still_refused(self):
+        with pytest.raises(ValueError, match="is not in runtimes"):
+            SandboxdConfig(token="t", runtimes={"mine": "img"}, default_runtime="absent")
 
     def test_the_suggested_catalogue_is_usable_as_is(self):
         from pydantic_ai_backends.remote.server import SUGGESTED_RUNTIMES
@@ -2182,8 +2234,9 @@ class TestShippedCatalogues:
             alias for alias, entry in SUGGESTED_RUNTIMES.items() if entry.network_mode == "bridge"
         }
 
-        # Scraping fetches pages; polyglot exists to install what it is missing.
-        assert online == {"python-scraping", "polyglot"}
+        # Scraping fetches pages; polyglot exists to install what it is missing;
+        # coding installs whatever the project it is working on declares.
+        assert online == {"python-scraping", "polyglot", "coding"}
 
 
 class TestTmpfsAndCpuShares:
@@ -2191,7 +2244,10 @@ class TestTmpfsAndCpuShares:
 
     def test_every_sandbox_gets_an_in_memory_tmp_by_default(self):
         """Scratch writes otherwise land in the overlay and grow the disk."""
-        from pydantic_ai_backends.remote.server import SandboxRuntime, _default_builder
+        from pydantic_ai_backends.remote.server import (
+            SandboxRuntime,
+            _default_builder,
+        )
 
         config = SandboxdConfig(token="t")
         sandbox = _default_builder(config)("s1", SandboxRuntime(image="python:3.12-slim"))
@@ -2199,7 +2255,10 @@ class TestTmpfsAndCpuShares:
         assert sandbox._tmpfs == {"/tmp": "size=64m"}
 
     def test_tmpfs_can_be_turned_off(self):
-        from pydantic_ai_backends.remote.server import SandboxRuntime, _default_builder
+        from pydantic_ai_backends.remote.server import (
+            SandboxRuntime,
+            _default_builder,
+        )
 
         config = SandboxdConfig(token="t", tmpfs_size=None)
         sandbox = _default_builder(config)("s1", SandboxRuntime(image="python:3.12-slim"))
@@ -2517,9 +2576,12 @@ class TestEviction:
 
             assert response.status_code == 200
             service = harness.app.state.service
-            assert "oldest" not in service._sessions
-            assert "newest" in service._sessions
-            assert "third" in service._sessions
+            # Hibernated, not closed: the record survives so the caller's token
+            # and event log do, and only the sandbox is given up.
+            assert "oldest" not in service.manager.sessions
+            assert service._sessions["oldest"].hibernated_at is not None
+            assert "newest" in service.manager.sessions
+            assert "third" in service.manager.sessions
 
     async def test_an_evicted_session_keeps_its_workspace(self, tmp_path):
         """Which is what makes eviction cheap rather than destructive."""
@@ -2575,6 +2637,258 @@ class TestEviction:
             )
 
         assert policy.evict_idle_after == 45
+
+
+class TestHibernation:
+    """An evicted session gives up its sandbox, not its identity."""
+
+    def _harness(self, tmp_path, **kwargs) -> Harness:
+        return Harness(workspace_root=str(tmp_path), evict_idle_after=0, **kwargs)
+
+    async def test_a_hibernated_session_is_still_listed(self, tmp_path):
+        harness = self._harness(tmp_path)
+        with harness.client() as client:
+            _open_session(client, session_id="asleep")
+            await harness.app.state.service.hibernate("asleep")
+
+            listing = wire.SessionList.model_validate(
+                client.get("/sessions", headers=_service_headers()).json()
+            )
+
+        assert [session.session_id for session in listing.sessions] == ["asleep"]
+        assert listing.sessions[0].state == "hibernated"
+        assert listing.sessions[0].alive is False
+
+    async def test_inspecting_one_reports_it_rather_than_404(self, tmp_path):
+        """Looking at a session must not wake it, and must not lose it either."""
+        harness = self._harness(tmp_path)
+        with harness.client() as client:
+            _open_session(client, session_id="asleep")
+            service = harness.app.state.service
+            await service.hibernate("asleep")
+
+            response = client.get("/sessions/asleep?usage=true", headers=_service_headers())
+
+            assert response.status_code == 200
+            info = wire.SessionInfo.model_validate(response.json())
+            assert info.state == "hibernated"
+            assert info.usage is None
+            # Still asleep: inspection has no side effects.
+            assert "asleep" not in service.manager.sessions
+
+    async def test_the_next_command_wakes_it_on_the_same_token(self, tmp_path):
+        harness = self._harness(tmp_path)
+        with harness.client() as client:
+            _, token = _open_session(client, session_id="asleep")
+            service = harness.app.state.service
+            await service.hibernate("asleep")
+
+            response = client.post(
+                "/sessions/asleep/exec",
+                json={"command": "echo hi"},
+                headers={wire.TOKEN_HEADER: token},
+            )
+
+            assert response.status_code == 200
+            assert "asleep" in service.manager.sessions
+            assert service._sessions["asleep"].hibernated_at is None
+
+    async def test_reopening_one_wakes_it(self, tmp_path):
+        harness = self._harness(tmp_path)
+        with harness.client() as client:
+            _open_session(client, session_id="asleep")
+            service = harness.app.state.service
+            await service.hibernate("asleep")
+
+            response = client.post(
+                "/sessions",
+                json={"session_id": "asleep", "reuse": True},
+                headers=_service_headers(),
+            )
+
+            assert response.status_code == 200
+            created = wire.SessionCreated.model_validate(response.json())
+            assert created.session.state == "running"
+            assert "asleep" in service.manager.sessions
+
+    async def test_waking_is_refused_when_every_slot_is_busy(self, tmp_path):
+        """Backpressure, not an error: the work is still there to come back to."""
+        harness = Harness(workspace_root=str(tmp_path), max_sessions=1, evict_idle_after=60)
+        with harness.client() as client:
+            _, token = _open_session(client, session_id="asleep")
+            service = harness.app.state.service
+            await service.hibernate("asleep")
+            _open_session(client, session_id="busy")
+            harness.built["busy"]._last_activity = time.time()
+
+            response = client.post(
+                "/sessions/asleep/exec",
+                json={"command": "echo hi"},
+                headers={wire.TOKEN_HEADER: token},
+            )
+
+            assert response.status_code == 429
+            assert "Cannot wake session asleep" in response.json()["detail"]
+
+    async def test_one_asleep_past_the_idle_timeout_is_closed(self, tmp_path):
+        harness = self._harness(tmp_path, idle_timeout=0)
+        with harness.client() as client:
+            _open_session(client, session_id="forgotten")
+            service = harness.app.state.service
+            await service.hibernate("forgotten")
+
+            await service._reap_hibernated()
+
+            assert "forgotten" not in service._sessions
+
+    async def test_closing_one_forgets_it(self, tmp_path):
+        """The manager has nothing to release, so nothing fires `on_release`."""
+        harness = self._harness(tmp_path)
+        with harness.client() as client:
+            _open_session(client, session_id="asleep")
+            service = harness.app.state.service
+            await service.hibernate("asleep")
+
+            await service.close_session("asleep")
+
+            assert "asleep" not in service._sessions
+            assert "asleep" not in service._pending
+
+    async def test_purging_one_takes_its_workspace_too(self, tmp_path):
+        """No sandbox to discard and no daemon to ask; the files still go."""
+        harness = self._harness(tmp_path)
+        with harness.client() as client:
+            _open_session(client, session_id="asleep")
+            service = harness.app.state.service
+            await service.hibernate("asleep")
+
+            await service.close_session("asleep", purge=True)
+
+            assert "asleep" not in service._sessions
+            assert not (tmp_path / "asleep").exists()
+
+
+class TestOpenSessionCeiling:
+    """Hibernated sessions cost disk, so they are bounded separately."""
+
+    def _harness(self, tmp_path, **kwargs) -> Harness:
+        return Harness(workspace_root=str(tmp_path), evict_idle_after=0, **kwargs)
+
+    def test_it_cannot_sit_below_the_resident_ceiling(self):
+        with pytest.raises(ValueError, match="is below max_sessions"):
+            SandboxdConfig(token="t", max_sessions=10, max_open_sessions=5)
+
+    async def test_the_longest_asleep_session_is_closed_at_the_ceiling(self, tmp_path):
+        harness = self._harness(tmp_path, max_sessions=1, max_open_sessions=2)
+        with harness.client() as client:
+            _open_session(client, session_id="first")
+            service = harness.app.state.service
+            await service.hibernate("first")
+            _open_session(client, session_id="second")
+            await service.hibernate("second")
+            # Asleep longer than "second", and so the one given up.
+            service._sessions["first"].hibernated_at = time.time() - 500
+
+            response = client.post(
+                "/sessions", json={"session_id": "third"}, headers=_service_headers()
+            )
+
+            assert response.status_code == 200
+            assert "first" not in service._sessions
+            assert "second" in service._sessions
+
+    async def test_a_full_ceiling_of_working_sessions_refuses(self, tmp_path):
+        harness = self._harness(tmp_path, max_sessions=1, max_open_sessions=1)
+        with harness.client() as client:
+            _open_session(client, session_id="only")
+
+            response = client.post(
+                "/sessions", json={"session_id": "next"}, headers=_service_headers()
+            )
+
+            assert response.status_code == 429
+            assert "all of them are in use" in response.json()["detail"]
+
+    def test_both_ceilings_are_visible_in_the_policy(self, tmp_path):
+        harness = self._harness(tmp_path, max_sessions=2, max_open_sessions=50)
+        with harness.client() as client:
+            policy = wire.ServicePolicy.model_validate(
+                client.get("/policy", headers=_service_headers()).json()
+            )
+            health = wire.ServiceHealth.model_validate(client.get("/healthz").json())
+
+        assert (policy.max_sessions, policy.max_open_sessions) == (2, 50)
+        assert (health.limit, health.open_limit) == (2, 50)
+
+
+class TestPurgingAHibernatedSession:
+    """A stopped container is still a container, and a purge means all of it."""
+
+    def test_the_named_container_is_removed(self):
+        from pydantic_ai_backends.remote.server import _container_name, remove_persisted_container
+
+        removed: list[str] = []
+
+        class FakeContainer:
+            def remove(self, force: bool) -> None:
+                removed.append(f"force={force}")
+
+        class FakeContainers:
+            def get(self, name: str) -> FakeContainer:
+                removed.append(name)
+                return FakeContainer()
+
+        config = SandboxdConfig(token="t", persist_containers=True)
+        assert remove_persisted_container(
+            config, lambda: types.SimpleNamespace(containers=FakeContainers()), "gone"
+        )
+        assert removed == [_container_name(config, "gone"), "force=True"]
+
+    def test_a_service_that_persists_nothing_has_nothing_to_remove(self):
+        from pydantic_ai_backends.remote.server import remove_persisted_container
+
+        config = SandboxdConfig(token="t")
+
+        assert not remove_persisted_container(config, lambda: None, "gone")
+
+    def test_a_daemon_that_refuses_is_not_an_error(self):
+        """The container may already be gone, which is the outcome anyway."""
+        from pydantic_ai_backends.remote.server import remove_persisted_container
+
+        def explode() -> Any:
+            raise RuntimeError("no daemon")
+
+        config = SandboxdConfig(token="t", persist_containers=True)
+
+        assert not remove_persisted_container(config, explode, "gone")
+
+    async def test_purging_a_hibernated_session_reaches_its_container(self, tmp_path):
+        harness = Harness(workspace_root=str(tmp_path), evict_idle_after=0, persist_containers=True)
+        with harness.client() as client:
+            from pydantic_ai_backends.remote.server import _container_name
+
+            _open_session(client, session_id="asleep")
+            service = harness.app.state.service
+            await service.hibernate("asleep")
+            asked: list[str] = []
+            service._docker_client = lambda: types.SimpleNamespace(
+                containers=types.SimpleNamespace(
+                    get=lambda name: asked.append(name) or _Removable()
+                )
+            )
+
+            response = client.delete("/sessions/asleep?purge=true", headers=_service_headers())
+
+            assert response.status_code == 204
+            assert asked == [_container_name(service.config, "asleep")]
+            assert not (tmp_path / "asleep").exists()
+
+
+class _Removable:
+    """Stand-in for a container the purge reaches through the daemon."""
+
+    def remove(self, force: bool) -> None:
+        assert force
 
 
 class TestEvictionNeverInterruptsWork:
@@ -3417,3 +3731,291 @@ class TestAsyncSandboxThroughTheService:
 
         assert again.status_code == 200, again.text
         assert again.json()["session"]["alive"] is True
+
+
+class TestUnprivilegedSandboxes:
+    """`sandbox_uid` is what turns a root sandbox into an unprivileged one."""
+
+    def test_it_is_off_unless_an_operator_asks(self):
+        """It changes filesystem ownership, so it is not a silent default."""
+        assert SandboxdConfig(token="t").sandbox_uid is None
+
+    def test_a_built_runtime_is_handed_the_uid(self, tmp_path):
+        from pydantic_ai_backends.remote.server import (
+            SandboxRuntime,
+            _as_runtime,
+            _default_builder,
+        )
+
+        config = SandboxdConfig(
+            token="t",
+            runtimes={"built": SandboxRuntime(runtime="python-analytics")},
+            workspace_root=str(tmp_path),
+            sandbox_uid=os.getuid(),
+        )
+        sandbox = _default_builder(config)("s1", _as_runtime(config.runtimes["built"]))
+
+        assert sandbox._runtime.run_as_uid == os.getuid()
+
+    def test_a_ready_made_image_is_left_as_root(self, tmp_path):
+        """Nobody built it around the user, so it has no venv the agent owns —
+        an agent inside one could install nothing at all."""
+        from pydantic_ai_backends.remote.server import (
+            SandboxRuntime,
+            _as_runtime,
+            _default_builder,
+        )
+
+        config = SandboxdConfig(
+            token="t",
+            runtimes={"ready": SandboxRuntime(image="python:3.12-slim")},
+            workspace_root=str(tmp_path),
+            sandbox_uid=os.getuid(),
+        )
+        sandbox = _default_builder(config)("s1", _as_runtime(config.runtimes["ready"]))
+
+        assert sandbox._runtime is None
+
+    def test_the_workspace_is_given_to_the_user_that_will_write_it(self, tmp_path):
+        config = SandboxdConfig(token="t", workspace_root=str(tmp_path), sandbox_uid=os.getuid())
+
+        volumes = _session_volumes(config, "s1")
+
+        assert volumes is not None
+        assert Path(next(iter(volumes))).stat().st_uid == os.getuid()
+
+    def test_a_service_that_cannot_chown_is_told_so_at_once(self, tmp_path, monkeypatch):
+        """Rather than starting a sandbox whose first file write would fail."""
+        from pydantic_ai_backends.remote import server as server_mod
+
+        def refuse(*args: Any, **kwargs: Any) -> None:
+            raise PermissionError("not permitted")
+
+        monkeypatch.setattr(server_mod.os, "chown", refuse)
+        config = SandboxdConfig(token="t", workspace_root=str(tmp_path), sandbox_uid=4242)
+
+        with pytest.raises(RuntimeError, match="run sandboxd with the privilege to chown"):
+            _session_volumes(config, "s1")
+
+    def test_nothing_is_chowned_when_it_is_off(self, tmp_path, monkeypatch):
+        from pydantic_ai_backends.remote import server as server_mod
+
+        def refuse(*args: Any, **kwargs: Any) -> None:
+            raise AssertionError("chown must not be reached")
+
+        monkeypatch.setattr(server_mod.os, "chown", refuse)
+
+        assert _session_volumes(SandboxdConfig(token="t", workspace_root=str(tmp_path)), "s1")
+
+    def test_it_is_visible_in_the_policy(self, tmp_path):
+        harness = Harness(workspace_root=str(tmp_path), sandbox_uid=os.getuid())
+        with harness.client() as client:
+            policy = wire.ServicePolicy.model_validate(
+                client.get("/policy", headers=_service_headers()).json()
+            )
+
+        assert policy.sandbox_uid == os.getuid()
+
+
+class TestOperationsAreBoundedByTheServiceCeiling:
+    """`execute_timeout` is documented as applying to *every* command.
+
+    It was applied on `/exec` and nowhere else. `ls`, `glob`, `grep`, `read` and
+    `write` all reach the sandbox's shell too, so one slow search occupied a
+    worker of the `max_workers` pool with nothing able to reclaim it — and
+    `max_workers` of them wedged the service for every session.
+    """
+
+    @pytest.fixture
+    def slow(self):
+        harness = Harness(execute_timeout=1)
+        with harness.client() as running:
+            yield harness, running
+
+    @staticmethod
+    def _open(client: TestClient) -> tuple[str, dict[str, str]]:
+        created = client.post(
+            "/sessions", json={"session_id": "slow"}, headers=_service_headers()
+        ).json()
+        return created["session"]["session_id"], {wire.TOKEN_HEADER: created["token"]}
+
+    @pytest.mark.parametrize(
+        ("route", "body"),
+        [
+            ("exec", {"command": "sleep 60"}),
+            ("ls", {"path": "/"}),
+            ("read", {"path": "/f"}),
+            ("read_bytes", {"path": "/f"}),
+            ("write", {"path": "/f", "content_b64": "eA=="}),
+            ("edit", {"path": "/f", "old_string": "a", "new_string": "b"}),
+            ("exists", {"path": "/f"}),
+            ("glob", {"pattern": "*.py", "path": "/"}),
+            ("grep", {"pattern": "x"}),
+        ],
+    )
+    def test_an_operation_past_the_ceiling_is_a_504(self, slow, route: str, body: dict[str, Any]):
+        harness, client = slow
+        session_id, headers = self._open(client)
+        # Just past the ceiling: the worker thread cannot be interrupted, so a
+        # longer stall only makes the service's shutdown wait for it.
+        harness.built[session_id].stall = 1.2
+
+        response = client.post(f"/sessions/{session_id}/{route}", json=body, headers=headers)
+
+        assert response.status_code == 504
+        assert "service ceiling" in response.json()["detail"]
+
+    def test_an_operation_inside_the_ceiling_still_answers(self, slow):
+        harness, client = slow
+        session_id, headers = self._open(client)
+
+        response = client.post(f"/sessions/{session_id}/ls", json={"path": "/"}, headers=headers)
+
+        assert response.status_code == 200
+
+
+class TestClientWaitsOutTheServiceCeiling:
+    """The client's transport timeout and the service's ceiling are one contract.
+
+    `TRANSPORT_SLACK_SECONDS` exists so "the transport never gives up before the
+    command it is waiting for", but the two defaults were set independently — 60s
+    against 300s. Anything in between was reported to the agent as an unavailable
+    service while the command was in fact still running, and typically retried.
+    """
+
+    def test_the_ceiling_is_read_from_the_service(self, client: TestClient):
+        sandbox = RemoteSandbox(token=SERVICE_TOKEN, session_id="paired", client=client)
+
+        sandbox.start()
+
+        assert sandbox.server_timeout == float(SandboxdConfig(token="x").execute_timeout)
+
+    def test_a_command_with_no_timeout_waits_that_long_plus_slack(self, client: TestClient):
+        sandbox = RemoteSandbox(token=SERVICE_TOKEN, session_id="paired", client=client)
+        sandbox.start()
+        seen: list[float | None] = []
+        original = client.post
+
+        def record(url: str, **kwargs: Any):
+            seen.append(kwargs.get("timeout"))
+            return original(url, **kwargs)
+
+        sandbox._http.post = record  # type: ignore[method-assign]
+        sandbox.execute("sleep 120")
+
+        assert seen == [sandbox.server_timeout + TRANSPORT_SLACK_SECONDS]
+
+    def test_an_explicit_timeout_still_wins(self, client: TestClient):
+        sandbox = RemoteSandbox(token=SERVICE_TOKEN, session_id="paired", client=client)
+        sandbox.start()
+        seen: list[float | None] = []
+        original = client.post
+
+        def record(url: str, **kwargs: Any):
+            seen.append(kwargs.get("timeout"))
+            return original(url, **kwargs)
+
+        sandbox._http.post = record  # type: ignore[method-assign]
+        sandbox.execute("echo hi", timeout=5)
+
+        assert seen == [5 + TRANSPORT_SLACK_SECONDS]
+
+    def test_a_service_that_will_not_say_falls_back_to_the_local_default(self):
+        """No `/policy`, no pairing — the local timeout is the only answer left."""
+        harness = Harness()
+        with harness.client() as running:
+            sandbox = RemoteSandbox(
+                token=SERVICE_TOKEN, session_id="unpaired", timeout=12.0, client=running
+            )
+            sandbox._http = _NoPolicy(running)
+
+            sandbox.start()
+
+            assert sandbox.server_timeout == 12.0
+
+    def test_a_policy_that_is_not_one_falls_back_too(self):
+        """A proxy in front of the service answers 200 with an HTML page."""
+        harness = Harness()
+        with harness.client() as running:
+            sandbox = RemoteSandbox(
+                token=SERVICE_TOKEN, session_id="proxied", timeout=9.0, client=running
+            )
+            sandbox._http = _NonsensePolicy(running)
+
+            sandbox.start()
+
+            assert sandbox.server_timeout == 9.0
+
+    def test_a_forbidden_policy_falls_back_too(self):
+        """The session token cannot read `/policy`; only the service token can."""
+        harness = Harness()
+        with harness.client() as running:
+            sandbox = RemoteSandbox(
+                token="wrong-token", session_id="denied", timeout=7.0, client=running
+            )
+            sandbox._service_token = SERVICE_TOKEN
+            sandbox._http = _ForbiddenPolicy(running)
+
+            sandbox.start()
+
+            assert sandbox.server_timeout == 7.0
+
+
+class _PolicyProxy:
+    """Passes everything to the real client except `/policy`."""
+
+    def __init__(self, inner: TestClient) -> None:
+        self._inner = inner
+
+    def get(self, url: str, **kwargs: Any):
+        raise NotImplementedError
+
+    def post(self, url: str, **kwargs: Any):
+        return self._inner.post(url, **kwargs)
+
+    def delete(self, url: str, **kwargs: Any):
+        return self._inner.delete(url, **kwargs)
+
+    @property
+    def is_closed(self) -> bool:
+        return False
+
+    def close(self) -> None: ...
+
+
+class _NoPolicy(_PolicyProxy):
+    """A client whose `/policy` is unreachable, as one behind a proxy may be."""
+
+    def get(self, url: str, **kwargs: Any):
+        raise RuntimeError("no route to /policy")
+
+
+class _NonsensePolicy(_PolicyProxy):
+    """A 200 carrying something that is not a policy."""
+
+    def get(self, url: str, **kwargs: Any):
+        return self._inner.get("/healthz")
+
+
+class _ForbiddenPolicy(_PolicyProxy):
+    """A 403, which `_parse` is handed as no answer at all."""
+
+    def get(self, url: str, **kwargs: Any):
+        return self._inner.get("/policy", headers={wire.TOKEN_HEADER: "nope"})
+
+
+class TestEventsRaceWithTheReaper:
+    """`describe` re-looks-up and 404s; `events`, its sibling, subscripted."""
+
+    def test_a_session_reaped_mid_request_is_a_404_not_a_500(self, client: TestClient):
+        created = client.post(
+            "/sessions", json={"session_id": "vanishing"}, headers=_service_headers()
+        ).json()
+        service = client.app.state.service
+        service._sessions.pop("vanishing")
+
+        with pytest.raises(HTTPException) as raised:
+            service.events("vanishing", 0)
+
+        assert raised.value.status_code == 404
+        assert created["token"]

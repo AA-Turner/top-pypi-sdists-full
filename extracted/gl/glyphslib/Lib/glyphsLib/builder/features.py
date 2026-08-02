@@ -34,6 +34,7 @@ from .constants import (
     INSERT_FEATURE_MARKER_COMMENT,
 )
 from .tokens import TokenExpander, PassThruExpander
+from .variable_features import VariableFeatureConverter
 
 if TYPE_CHECKING:
     from ufoLib2 import Font
@@ -192,6 +193,10 @@ def _to_ufo_features(  # noqa: C901
 
     full_text = "\n\n".join(filter(None, [class_str, prefix_str, fea_str])) + "\n"
     full_text = full_text if full_text.strip() else ""
+
+    # Convert Glyphs conditional features and variable GPOS to feaLib syntax.
+    if master is not None:
+        full_text = VariableFeatureConverter(font).convert(full_text)
 
     if not full_text or not expand_includes:
         return full_text
@@ -439,15 +444,13 @@ def _normalize_whitespace(text):
 def _to_glyphs_features_basic(self):
     prefix = self.glyphs_module.GSFeaturePrefix()
     prefix.name = "WARNING"
-    prefix.code = dedent(
-        """\
+    prefix.code = dedent("""\
         # Do not use Glyphs to edit features.
         #
         # This Glyphs file was made from several UFOs that had different
         # features. As a result, the features are not editable in Glyphs and
         # the original features will be restored when you go back to UFOs.
-    """
-    )
+    """)
     self.font.featurePrefixes.append(prefix)
     for master_id, source in self._sources.items():
         master = self.font.masters[master_id]

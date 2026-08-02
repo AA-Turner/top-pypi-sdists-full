@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_emr_containers.type_defs import CancelJobRunRequestTypeDef
+    from types_aiobotocore_emr_containers.type_defs import IAMConfigurationTypeDef
 
-    data: CancelJobRunRequestTypeDef = ...
+    data: IAMConfigurationTypeDef = ...
     ```
 """
 
@@ -37,6 +37,7 @@ else:
     from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
+    "AuthenticationConfigurationTypeDef",
     "AuthorizationConfigurationTypeDef",
     "CancelJobRunRequestTypeDef",
     "CancelJobRunResponseTypeDef",
@@ -65,6 +66,8 @@ __all__ = (
     "DeleteJobTemplateResponseTypeDef",
     "DeleteManagedEndpointRequestTypeDef",
     "DeleteManagedEndpointResponseTypeDef",
+    "DeleteSecurityConfigurationRequestTypeDef",
+    "DeleteSecurityConfigurationResponseTypeDef",
     "DeleteVirtualClusterRequestTypeDef",
     "DeleteVirtualClusterResponseTypeDef",
     "DescribeJobRunRequestTypeDef",
@@ -83,6 +86,8 @@ __all__ = (
     "EndpointTypeDef",
     "GetManagedEndpointSessionCredentialsRequestTypeDef",
     "GetManagedEndpointSessionCredentialsResponseTypeDef",
+    "IAMConfigurationTypeDef",
+    "IdentityCenterConfigurationTypeDef",
     "InTransitEncryptionConfigurationTypeDef",
     "JobDriverOutputTypeDef",
     "JobDriverTypeDef",
@@ -145,6 +150,15 @@ __all__ = (
     "VirtualClusterTypeDef",
 )
 
+class IAMConfigurationTypeDef(TypedDict):
+    systemRole: NotRequired[str]
+
+class IdentityCenterConfigurationTypeDef(TypedDict):
+    enableIdentityCenter: NotRequired[bool]
+    identityCenterApplicationAssignmentRequired: NotRequired[bool]
+    identityCenterInstanceARN: NotRequired[str]
+    emrIdentityCenterApplicationARN: NotRequired[str]
+
 CancelJobRunRequestTypeDef = TypedDict(
     "CancelJobRunRequestTypeDef",
     {
@@ -205,6 +219,12 @@ DeleteManagedEndpointRequestTypeDef = TypedDict(
     {
         "id": str,
         "virtualClusterId": str,
+    },
+)
+DeleteSecurityConfigurationRequestTypeDef = TypedDict(
+    "DeleteSecurityConfigurationRequestTypeDef",
+    {
+        "id": str,
     },
 )
 DeleteVirtualClusterRequestTypeDef = TypedDict(
@@ -308,6 +328,7 @@ class ManagedLogsTypeDef(TypedDict):
 
 class S3MonitoringConfigurationTypeDef(TypedDict):
     logUri: str
+    encryptionKeyArn: NotRequired[str]
 
 class ParametricCloudWatchMonitoringConfigurationTypeDef(TypedDict):
     logGroupName: NotRequired[str]
@@ -323,6 +344,10 @@ class TagResourceRequestTypeDef(TypedDict):
 class UntagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tagKeys: Sequence[str]
+
+class AuthenticationConfigurationTypeDef(TypedDict):
+    identityCenterConfiguration: NotRequired[IdentityCenterConfigurationTypeDef]
+    iamConfiguration: NotRequired[IAMConfigurationTypeDef]
 
 CancelJobRunResponseTypeDef = TypedDict(
     "CancelJobRunResponseTypeDef",
@@ -385,6 +410,13 @@ DeleteManagedEndpointResponseTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
+DeleteSecurityConfigurationResponseTypeDef = TypedDict(
+    "DeleteSecurityConfigurationResponseTypeDef",
+    {
+        "id": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 DeleteVirtualClusterResponseTypeDef = TypedDict(
     "DeleteVirtualClusterResponseTypeDef",
     {
@@ -416,6 +448,7 @@ GetManagedEndpointSessionCredentialsResponseTypeDef = TypedDict(
     {
         "id": str,
         "credentials": CredentialsTypeDef,
+        "endpointCredentials": CredentialsTypeDef,
         "expiresAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -577,6 +610,7 @@ class CreateVirtualClusterRequestTypeDef(TypedDict):
     clientToken: str
     tags: NotRequired[Mapping[str, str]]
     securityConfigurationId: NotRequired[str]
+    sessionEnabled: NotRequired[bool]
 
 VirtualClusterTypeDef = TypedDict(
     "VirtualClusterTypeDef",
@@ -589,6 +623,7 @@ VirtualClusterTypeDef = TypedDict(
         "createdAt": NotRequired[datetime],
         "tags": NotRequired[dict[str, str]],
         "securityConfigurationId": NotRequired[str],
+        "sessionEnabled": NotRequired[bool],
     },
 )
 
@@ -611,6 +646,7 @@ EndpointTypeDef = TypedDict(
         "certificateAuthority": NotRequired[CertificateTypeDef],
         "configurationOverrides": NotRequired[ConfigurationOverridesOutputTypeDef],
         "serverUrl": NotRequired[str],
+        "authProxyUrl": NotRequired[str],
         "createdAt": NotRequired[datetime],
         "securityGroup": NotRequired[str],
         "subnetIds": NotRequired[list[str]],
@@ -657,6 +693,7 @@ EndpointPaginatorTypeDef = TypedDict(
         "certificateAuthority": NotRequired[CertificateTypeDef],
         "configurationOverrides": NotRequired[ConfigurationOverridesPaginatorTypeDef],
         "serverUrl": NotRequired[str],
+        "authProxyUrl": NotRequired[str],
         "createdAt": NotRequired[datetime],
         "securityGroup": NotRequired[str],
         "subnetIds": NotRequired[list[str]],
@@ -727,6 +764,7 @@ class ListVirtualClustersResponseTypeDef(TypedDict):
 
 class SecurityConfigurationDataTypeDef(TypedDict):
     authorizationConfiguration: NotRequired[AuthorizationConfigurationTypeDef]
+    authenticationConfiguration: NotRequired[AuthenticationConfigurationTypeDef]
 
 class DescribeManagedEndpointResponseTypeDef(TypedDict):
     endpoint: EndpointTypeDef
@@ -768,6 +806,7 @@ CreateManagedEndpointRequestTypeDef = TypedDict(
         "certificateArn": NotRequired[str],
         "configurationOverrides": NotRequired[ConfigurationOverridesUnionTypeDef],
         "tags": NotRequired[Mapping[str, str]],
+        "sessionIdleTimeoutInMinutes": NotRequired[int],
     },
 )
 

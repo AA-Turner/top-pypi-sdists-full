@@ -1,0 +1,100 @@
+[project]
+name = "godot-ai"
+version = "3.0.7"
+description = "Production-grade MCP server and AI tools for the Godot engine"
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.11"
+authors = [{ name = "Godot AI contributors" }]
+keywords = [
+    "godot",
+    "godot-engine",
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "llm",
+    "gamedev",
+    "editor-plugin",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Games/Entertainment",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Code Generators",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+    "Environment :: Console",
+    "Framework :: AsyncIO",
+]
+dependencies = [
+    # fastmcp 3.3.0/3.3.1 ship a circular import in fastmcp.server that surfaces
+    # as "FastMCP server support is not installed" at pytest collection time.
+    # Fixed in 3.4.0 (3.4.2 verified green in CI), so the range allows 3.4.x
+    # again while still excluding the broken 3.3.x.
+    "fastmcp>=3.0.0,!=3.3.*,<3.5.0",
+    "websockets>=13.0",
+    "pydantic>=2.0",
+    # The attach bridge uses AsyncClient, transport errors, and granular
+    # connect/read/write/pool timeouts directly. Do not rely on FastMCP's
+    # transitive installation for this public runtime dependency.
+    "httpx>=0.27",
+    # asgi.py imports these directly; declare them instead of relying on
+    # them arriving transitively through fastmcp (audit backlog).
+    "uvicorn>=0.23",
+    # Starlette < 0.40.0 is affected by CVE-2024-47874 (multipart/form-data
+    # denial of service). A normal install resolves far above this (fastmcp's
+    # own floor is starlette>=1.0.1), but this package's declared floor is
+    # what a *constrained* resolve is allowed to pick, so it must not name a
+    # version with a known advisory against it.
+    "starlette>=0.40.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/hi-godot/godot-ai"
+Repository = "https://github.com/hi-godot/godot-ai"
+Issues = "https://github.com/hi-godot/godot-ai/issues"
+Documentation = "https://github.com/hi-godot/godot-ai#readme"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "pytest-cov>=6.0",
+    "hypothesis>=6.0",
+    "ruff>=0.8",
+    # Used by script/ci-game-capture-smoke to decode PNG frames from the
+    # running game and assert the expected colored quadrants are present.
+    "pillow>=10.0",
+]
+build = [
+    "pyinstaller>=6.0",
+]
+
+[project.scripts]
+godot-ai = "godot_ai:main"
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+pythonpath = ["src"]
+markers = [
+    "historical_constraint: documentation-only self-update tests for old shipped runners; skipped unless explicitly enabled",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]

@@ -1,0 +1,1289 @@
+//! **Memory READ surface** — agent-compat endpoints for the CIRIS desktop/mobile
+//! Memory + GraphMemory cards (`GET /v1/memory/stats`, `GET /v1/memory/timeline`,
+//! `POST /v1/memory/query`, `GET /v1/memory/{node_id}`,
+//! `GET /v1/memory/{node_id}/edges`).
+//!
+//! ## Why these routes exist
+//!
+//! The desktop/mobile client's Memory card calls `getMemoryStats` and
+//! `getMemoryTimeline`; its GraphMemory card calls `getGraphData` (which fetches
+//! `/v1/memory/timeline?include_edges=true`). On the Python agent these are served
+//! by `LocalGraphMemoryService`. In server mode the same data lives in persist's
+//! `cirisgraph_nodes` / `cirisgraph_edges` tables (V013 migration). This module
+//! exposes it on the SAME wire contract the client expects, so both cards work
+//! unchanged.
+//!
+//! ## Wire contract (mirrors the agent's OpenAPI)
+//!
+//! - `GET /v1/memory/stats` → `{ "data": MemoryStats }` where `MemoryStats`:
+//!   `{ total_nodes, nodes_by_type, nodes_by_scope, recent_nodes_24h,
+//!      oldest_node_date?, newest_node_date? }`.
+//!
+//! - `GET /v1/memory/timeline?hours=<n>&scope=<s>&type=<t>&include_edges=<bool>
+//!                            &include_metrics=<bool>` →
+//!   `{ "data": TimelineResponse }` where `TimelineResponse`:
+//!   `{ memories: [GraphNode…], edges: [GraphEdge…], start_time, end_time,
+//!      total }`.
+//!   When `include_metrics=false` (the client default), `tsdb_data` nodes are
+//!   excluded. When `include_edges=true`, edges between the returned nodes are
+//!   batch-fetched and included.
+//!
+//! - `POST /v1/memory/query` (JSON body: `QueryRequest`) →
+//!   `{ "data": [GraphNode…] }`.  Supports `scope`, `type`, `query` (text
+//!   search on `attributes->>'content'`), `since`, `until`, and `limit`.
+//!
+//! - `GET /v1/memory/{node_id}` → `{ "data": GraphNode }` (404 if not found;
+//!   searches all four scopes until the first hit).
+//!
+//! - `GET /v1/memory/{node_id}/edges` → `{ "data": [GraphEdge…] }` (both
+//!   incoming + outgoing, all four scopes unioned).
+//!
+//! ## Data source
+//!
+//! Reads directly from the SQLite backend's `cirisgraph_nodes` and
+//! `cirisgraph_edges` tables via `ciris_persist::graph::sqlite::SqliteGraphBackend`
+//! (the same backend the SQLite `Engine` owns). The `Engine::sqlite_backend()`
+//! accessor returns `Option<&Arc<SqliteBackend>>`; `SqliteBackend::conn_handle()`
+//! returns the `Arc<Mutex<Connection>>` that `SqliteGraphBackend::new` takes.
+//! This avoids a second connection and re-uses the migrated DB.
+//!
+//! ## Scope fan-out
+//!
+//! The `GraphService` trait requires a specific scope on every read (AV-47 in
+//! persist's threat model). For endpoints that do not specify a scope (node
+//! look-up by ID, edge look-up, timeline without scope filter) this module fans
+//! out across all four scopes (`Local`, `Identity`, `Environment`, `Community`)
+//! and unions the results, deduplicated by `node_id`.
+//!
+//! ## Fields null/stubbed in server mode
+//!
+//! - `GraphNode.consent_stream` — always `null` (no consent object attached to
+//!   raw graph rows; the CEG owns consent separately).
+//! - `GraphNode.expires_at` — always `null` (retention enforced by the
+//!   eviction sweeper, not a per-row TTL field in the graph schema).
+//! - `GraphEdge.attributes.created_at` / `.context` — mapped from the raw row's
+//!   `created_at` / empty respectively.
+
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use axum::extract::{Path, Query, State};
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
+use axum::{Json, Router};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+
+use ciris_persist::federation::envelope::paths;
+use ciris_persist::graph::sqlite::SqliteGraphBackend;
+use ciris_persist::graph::types::{EdgeDirection, GraphScope, NodeFilter};
+use ciris_persist::graph::GraphService;
+use ciris_persist::prelude::Engine;
+
+// ── Boot-time identity seed ───────────────────────────────────────────────────
+
+/// Seed the node's own federation identity as a graph node so the client's Graph
+/// page is never empty on a fresh install — the node mirror of the agent's
+/// `agent/identity` startup seed (CIRISAgent `identity_manager.initialize_identity`).
+///
+/// Idempotent and **refreshes `updated_at` every boot** (so it stays inside the
+/// timeline's `updated_after` window). Best-effort: a Postgres-only node (no sqlite
+/// backend) is a no-op, and any write error is logged, never fatal to boot.
+pub async fn seed_identity_graph(engine: &Engine, node_key_id: &str, identity_type: &str) {
+    let Some(sq) = engine.sqlite_backend() else {
+        return;
+    };
+    let graph = SqliteGraphBackend::new(sq.conn_handle());
+    let node_id = "node/identity".to_string();
+    let scope = GraphScope::Identity;
+    let now = chrono::Utc::now();
+
+    // Read the current row (if any) so the upsert's optimistic-concurrency
+    // `expected_version` matches — a fresh insert uses expected_version = 0.
+    let (version, expected_version, created_at) = match graph.get_node(&node_id, scope).await {
+        Ok(Some(existing)) => (existing.version, existing.version, existing.created_at),
+        _ => (1, 0, now),
+    };
+
+    let node = ciris_persist::graph::types::GraphNode {
+        node_id,
+        scope,
+        node_type: "identity".to_string(),
+        attributes: serde_json::json!({
+            "key_id": node_key_id,
+            "identity_type": identity_type,
+            "role": "node",
+            "name": node_key_id,
+            "description": "This CIRIS fabric node's federation identity.",
+        }),
+        version,
+        updated_by: node_key_id.to_string(),
+        updated_at: now,
+        created_at,
+        signature: None,
+        signing_key_id: None,
+        signature_verified: false,
+    };
+
+    if let Err(e) = graph.upsert_node(node, expected_version, false).await {
+        tracing::warn!(error = %e, "seed_identity_graph: could not seed the node identity into the graph (Graph page may show empty)");
+    } else {
+        tracing::info!(
+            node_key_id,
+            "seeded node identity into the graph (node/identity)"
+        );
+    }
+}
+
+// ── Boot-time CEG projection (CIRISServer#127++) ──────────────────────────────
+//
+// `seed_identity_graph` seeds ONE node (`node/identity`). This projection turns
+// persist's rich CEG state into a **contextual graph** the client's Graph page
+// renders as a mesh of AttestationCards: the owner, owned nodes, the humanity
+// accord family + its holders, the canonical servers, every `config:*` value, and
+// the node's authored attestations (owner-bindings, delegations, consent grants,
+// structural supersede/withdraw/recant) — wired with CEG-native, typed edges.
+//
+// ## Node attribute schema (so the client can render each node AS an attestation
+//    card with a working ⋮ op menu)
+//
+// EVERY projected node carries a stable CEG-object identity in its `attributes`:
+//   - `kind`    — CEG-object token: `owner` | `owned_node` | `family` | `holder`
+//                 | `canonical_server` | `config` | `delegation` | `consent`
+//                 | `attestation` | `agent` | `peer`. Drives the op set + card style.
+//   - `subject` — the object's canonical id (what Supersede/Withdraw/Cosign target);
+//                 `key_id` is a duplicate for key-shaped objects.
+//   - `status`  — `live` | `pending` | `superseded` | `withdrawn` | `recanted`
+//                 (drives which hamburger ops are enabled).
+//   - `record`  — the object's canonical JSON (Copy/Export yields the real CEG object;
+//                 View/Evidence resolve). Absent only for pure projection nodes with
+//                 no single backing record (owner/agent/peer identity stubs).
+//   - `name` / `description` — display.
+//
+// Edges carry the CEG relationship as `relationship` so History/Evidence walk them:
+//   `delegates_to` (owner-binding + delegation), `has_member` (family seat),
+//   `scrub_conferral` (holder → canonical), `has_config` (node → config),
+//   `replicates_to` (consent:replication), `authored` (node → attestation
+//   provenance), and `supersedes`/`withdraws`/`recants` (structural composers).
+//
+// Idempotent + version-safe (mirrors `seed_identity_graph`) and fail-secure: a
+// per-source read error logs a warning and is skipped — never blocks boot.
+
+const CEG_SCOPE: GraphScope = GraphScope::Identity;
+
+/// "eric-moore-v1-2iplir3g6f" → "eric-moore-v1": strip a trailing short fingerprint
+/// segment (the `-<fp>` suffix an FSD-003 derived key_id carries). Best-effort — a
+/// key_id with no such suffix returns unchanged.
+fn derive_display_name(key_id: &str) -> String {
+    if let Some(idx) = key_id.rfind('-') {
+        let (prefix, suffix) = key_id.split_at(idx);
+        let suffix = &suffix[1..];
+        if !prefix.is_empty()
+            && (6..=12).contains(&suffix.len())
+            && suffix.chars().all(|c| c.is_ascii_alphanumeric())
+        {
+            return prefix.to_string();
+        }
+    }
+    key_id.to_string()
+}
+
+/// Get-then-upsert one CEG node with optimistic-concurrency safety (mirrors
+/// `seed_identity_graph`). Refreshes `updated_at` each boot so re-seeds stay inside
+/// the timeline window. Returns `true` on a successful write.
+async fn upsert_ceg_node(
+    graph: &SqliteGraphBackend,
+    node_id: &str,
+    node_type: &str,
+    updated_by: &str,
+    attributes: serde_json::Value,
+) -> bool {
+    let now = chrono::Utc::now();
+    let (version, expected_version, created_at) = match graph.get_node(node_id, CEG_SCOPE).await {
+        Ok(Some(existing)) => (existing.version, existing.version, existing.created_at),
+        _ => (1, 0, now),
+    };
+    let node = ciris_persist::graph::types::GraphNode {
+        node_id: node_id.to_string(),
+        scope: CEG_SCOPE,
+        node_type: node_type.to_string(),
+        attributes,
+        version,
+        updated_by: updated_by.to_string(),
+        updated_at: now,
+        created_at,
+        signature: None,
+        signing_key_id: None,
+        signature_verified: false,
+    };
+    match graph.upsert_node(node, expected_version, false).await {
+        Ok(()) => true,
+        Err(e) => {
+            tracing::warn!(node_id, error = %e, "seed_ceg_graph: node upsert skipped");
+            false
+        }
+    }
+}
+
+/// Insert one directed CEG edge with a STABLE, deterministic `edge_id` so re-seeds
+/// are idempotent (persist's `upsert_edge` is `ON CONFLICT DO NOTHING`). Returns
+/// `true` on a successful write.
+async fn upsert_ceg_edge(
+    graph: &SqliteGraphBackend,
+    source: &str,
+    target: &str,
+    relationship: &str,
+    attributes: serde_json::Value,
+) -> bool {
+    let edge = ciris_persist::graph::types::GraphEdge {
+        edge_id: format!("ceg:{relationship}:{source}->{target}"),
+        source_node_id: source.to_string(),
+        target_node_id: target.to_string(),
+        scope: CEG_SCOPE,
+        relationship: relationship.to_string(),
+        weight: None,
+        attributes,
+        created_at: chrono::Utc::now(),
+    };
+    match graph.upsert_edge(edge, false).await {
+        Ok(()) => true,
+        Err(e) => {
+            tracing::warn!(source, target, relationship, error = %e, "seed_ceg_graph: edge upsert skipped");
+            false
+        }
+    }
+}
+
+/// Project persist's CEG state into `cirisgraph_nodes` / `cirisgraph_edges` at boot,
+/// right after [`seed_identity_graph`]. Idempotent, version-safe, fail-secure
+/// (SQLite-only; a Postgres-only node is a no-op). See the module-level schema note.
+pub async fn seed_ceg_graph(engine: &std::sync::Arc<Engine>, node_key_id: &str) {
+    use ciris_persist::federation::types::attestation_type;
+    use ciris_verify_core::accord_genesis::HUMANITY_ACCORD_FAMILY_KEY_ID;
+
+    let Some(sq) = engine.sqlite_backend() else {
+        return;
+    };
+    let graph = SqliteGraphBackend::new(sq.conn_handle());
+    let self_node = "node/identity";
+    let mut n_nodes: usize = 0;
+    let mut n_edges: usize = 0;
+
+    // ── Owner + owner-binding ─────────────────────────────────────────────────
+    let owner = crate::auth::ownership::is_steward_bound(engine, node_key_id).await;
+    let owner_node = owner.as_ref().map(|o| format!("owner/{o}"));
+    if let (Some(owner_key_id), Some(owner_node)) = (owner.as_ref(), owner_node.as_ref()) {
+        if upsert_ceg_node(
+            &graph,
+            owner_node,
+            "identity",
+            node_key_id,
+            serde_json::json!({
+                "kind": "owner",
+                "subject": owner_key_id,
+                "key_id": owner_key_id,
+                "status": "live",
+                "role": "owner",
+                "name": derive_display_name(owner_key_id),
+                "description": "The federation identity that owns (steward-binds) this node.",
+            }),
+        )
+        .await
+        {
+            n_nodes += 1;
+        }
+        // owner --delegates_to (owner_binding)--> this node
+        if upsert_ceg_edge(
+            &graph,
+            owner_node,
+            self_node,
+            attestation_type::DELEGATES_TO,
+            serde_json::json!({ "purpose": "owner_binding" }),
+        )
+        .await
+        {
+            n_edges += 1;
+        }
+    }
+
+    // ── Owned nodes (owner-binding projection) ────────────────────────────────
+    if let (Some(owner_key_id), Some(owner_node)) = (owner.as_ref(), owner_node.as_ref()) {
+        for nk in crate::auth::ownership::nodes_stewarded_by(engine, owner_key_id).await {
+            let is_self = nk == *node_key_id;
+            let nid = if is_self {
+                self_node.to_string()
+            } else {
+                format!("owned/{nk}")
+            };
+            if !is_self
+                && upsert_ceg_node(
+                    &graph,
+                    &nid,
+                    "identity",
+                    node_key_id,
+                    serde_json::json!({
+                        "kind": "owned_node",
+                        "subject": nk,
+                        "key_id": nk,
+                        "status": "live",
+                        "role": "node",
+                        "name": derive_display_name(&nk),
+                        "description": "A node owned by this node's owner (owner-binding projection).",
+                    }),
+                )
+                .await
+            {
+                n_nodes += 1;
+            }
+            if upsert_ceg_edge(
+                &graph,
+                owner_node,
+                &nid,
+                attestation_type::DELEGATES_TO,
+                serde_json::json!({ "purpose": "owner_binding" }),
+            )
+            .await
+            {
+                n_edges += 1;
+            }
+        }
+    }
+
+    // ── HUMANITY_ACCORD family + holders (seats) ──────────────────────────────
+    let family_node = format!("family/{HUMANITY_ACCORD_FAMILY_KEY_ID}");
+    let mut family_present = false;
+    match crate::family::lookup(engine, HUMANITY_ACCORD_FAMILY_KEY_ID).await {
+        Ok(Some(family)) => {
+            family_present = true;
+            if upsert_ceg_node(
+                &graph,
+                &family_node,
+                "family",
+                node_key_id,
+                serde_json::json!({
+                    "kind": "family",
+                    "subject": HUMANITY_ACCORD_FAMILY_KEY_ID,
+                    "key_id": HUMANITY_ACCORD_FAMILY_KEY_ID,
+                    "status": "live",
+                    "name": "HUMANITY_ACCORD",
+                    "description": "The humanity accord family — the mesh's M-of-N kill-switch quorum.",
+                    "record": serde_json::to_value(&family).unwrap_or(serde_json::Value::Null),
+                }),
+            )
+            .await
+            {
+                n_nodes += 1;
+            }
+        }
+        Ok(None) => {}
+        Err(e) => tracing::warn!(error = %e, "seed_ceg_graph: family lookup skipped"),
+    }
+    // Holder seats (LIVE roster → pinned hybrid pubkeys). Collect their key_ids so
+    // canonical scrub-conferral edges can source from the holder node when known.
+    let mut holder_keys: std::collections::HashSet<String> = std::collections::HashSet::new();
+    match crate::family::active_threshold_roster(engine, HUMANITY_ACCORD_FAMILY_KEY_ID).await {
+        Ok(members) => {
+            for m in members {
+                holder_keys.insert(m.member_id.clone());
+                let hid = format!("holder/{}", m.member_id);
+                if upsert_ceg_node(
+                    &graph,
+                    &hid,
+                    "identity",
+                    node_key_id,
+                    serde_json::json!({
+                        "kind": "holder",
+                        "subject": m.member_id,
+                        "key_id": m.member_id,
+                        "status": "live",
+                        "role": "accord_holder",
+                        "name": derive_display_name(&m.member_id),
+                        "description": "An accord holder — a seat in the kill-switch quorum.",
+                        "pubkey_ed25519_base64": m.ed25519_public_key_base64,
+                        "pubkey_ml_dsa_65_base64": m.mldsa65_public_key_base64,
+                    }),
+                )
+                .await
+                {
+                    n_nodes += 1;
+                }
+                if family_present
+                    && upsert_ceg_edge(
+                        &graph,
+                        &family_node,
+                        &hid,
+                        "has_member",
+                        serde_json::json!({ "seat": "accord_holder" }),
+                    )
+                    .await
+                {
+                    n_edges += 1;
+                }
+            }
+        }
+        Err(e) => tracing::warn!(error = %e, "seed_ceg_graph: accord roster skipped"),
+    }
+
+    // ── Canonical servers + scrub conferral ───────────────────────────────────
+    match engine.list_canonical_servers().await {
+        Ok(servers) => {
+            for r in servers {
+                let cid = format!("canonical/{}", r.key_id);
+                let genesis = r.scrub_key_id == r.key_id; // self-signed bootstrap row
+                if upsert_ceg_node(
+                    &graph,
+                    &cid,
+                    "identity",
+                    node_key_id,
+                    serde_json::json!({
+                        "kind": "canonical_server",
+                        "subject": r.key_id,
+                        "key_id": r.key_id,
+                        "status": "live",
+                        "role": "canonical",
+                        "name": derive_display_name(&r.key_id),
+                        "description": "A canonical / founding bootstrap server (accord-scrub conferred).",
+                        "scrub_key_id": r.scrub_key_id,
+                        "genesis": genesis,
+                        "transport_hints": r.registration_envelope.get("transport_hints")
+                            .cloned().unwrap_or(serde_json::Value::Null),
+                        "record": serde_json::to_value(&r).unwrap_or(serde_json::Value::Null),
+                    }),
+                )
+                .await
+                {
+                    n_nodes += 1;
+                }
+                // Scrub conferral: each scrubbing holder → the canonical server. The
+                // genesis self-scrub is not a conferral (skip). Source the edge from
+                // the holder node when the scrub key is a known accord holder,
+                // otherwise from a generic identity node.
+                let scrubs = std::iter::once((r.scrub_key_id.as_str(), "primary_scrub")).chain(
+                    r.additional_scrubs
+                        .iter()
+                        .map(|s| (s.scrub_key_id.as_str(), "co_scrub")),
+                );
+                for (scrub_key, role) in scrubs {
+                    if scrub_key == r.key_id {
+                        continue; // genesis self-scrub, not a conferral
+                    }
+                    let src = if holder_keys.contains(scrub_key) {
+                        format!("holder/{scrub_key}")
+                    } else {
+                        format!("identity/{scrub_key}")
+                    };
+                    if upsert_ceg_edge(
+                        &graph,
+                        &src,
+                        &cid,
+                        "scrub_conferral",
+                        serde_json::json!({ "role": role }),
+                    )
+                    .await
+                    {
+                        n_edges += 1;
+                    }
+                }
+            }
+        }
+        Err(e) => tracing::warn!(error = %e, "seed_ceg_graph: canonical servers skipped"),
+    }
+
+    // ── config:* values (config-as-CEG) ───────────────────────────────────────
+    match crate::graph_config::list_configs(engine, None).await {
+        Ok(configs) => {
+            for (key, entry) in configs {
+                let cid = format!("config/{key}");
+                if upsert_ceg_node(
+                    &graph,
+                    &cid,
+                    "config",
+                    node_key_id,
+                    serde_json::json!({
+                        "kind": "config",
+                        "subject": key,
+                        "key": key,
+                        "status": "live",
+                        "name": key,
+                        "description": format!("Signed config:* value `{key}` (v{}).", entry.version),
+                        "value": serde_json::to_value(&entry.value).unwrap_or(serde_json::Value::Null),
+                        "version": entry.version,
+                        "config_scope": format!("{:?}", entry.scope),
+                        "updated_by": entry.updated_by,
+                        "record": serde_json::to_value(&entry).unwrap_or(serde_json::Value::Null),
+                    }),
+                )
+                .await
+                {
+                    n_nodes += 1;
+                }
+                if upsert_ceg_edge(
+                    &graph,
+                    self_node,
+                    &cid,
+                    "has_config",
+                    serde_json::json!({ "key": key }),
+                )
+                .await
+                {
+                    n_edges += 1;
+                }
+            }
+        }
+        Err(e) => tracing::warn!(error = %e, "seed_ceg_graph: config list skipped"),
+    }
+
+    // ── Authored attestations (delegations, consent, structural, scores) ──────
+    match engine
+        .federation_directory()
+        .list_attestations_by(node_key_id)
+        .await
+    {
+        Ok(atts) => {
+            // Pass 1 — derive revocation status from structural rows. A structural row
+            // targets its subject via `attested_key_id` and/or an envelope target field.
+            let mut status_of: std::collections::HashMap<String, &'static str> =
+                std::collections::HashMap::new();
+            let targets_of = |a: &ciris_persist::federation::types::Attestation| -> Vec<String> {
+                let mut out = vec![a.attested_key_id.clone()];
+                for k in [
+                    "target_attestation_id",
+                    "target",
+                    "supersedes",
+                    "withdraws",
+                    "recants",
+                ] {
+                    if let Some(s) = a.attestation_envelope.get(k).and_then(|v| v.as_str()) {
+                        out.push(s.to_string());
+                    }
+                }
+                out
+            };
+            for a in &atts {
+                let st = match a.attestation_type.as_str() {
+                    attestation_type::SUPERSEDES => "superseded",
+                    attestation_type::WITHDRAWS => "withdrawn",
+                    attestation_type::RECANTS => "recanted",
+                    _ => continue,
+                };
+                for t in targets_of(a) {
+                    status_of.insert(t, st);
+                }
+            }
+
+            // Pass 2 — project nodes (bounded: all delegations/consent/structural,
+            // plus a representative cap on other scores).
+            let mut other_scores = 0usize;
+            const OTHER_SCORE_CAP: usize = 25;
+            for a in atts {
+                let dim = a
+                    .attestation_envelope
+                    .get(paths::DIMENSION)
+                    .and_then(|v| v.as_str());
+                // config:* rows are already projected as richer config nodes.
+                if a.attestation_type == attestation_type::SCORES
+                    && dim == Some(crate::graph_config::CONFIG_DIMENSION)
+                {
+                    continue;
+                }
+                let is_consent = a.attestation_type == attestation_type::SCORES
+                    && dim == Some(crate::peer::CONSENT_DIMENSION);
+                let (kind, struct_rel): (&str, Option<&str>) = match a.attestation_type.as_str() {
+                    attestation_type::DELEGATES_TO => ("delegation", None),
+                    attestation_type::SUPERSEDES => {
+                        ("attestation", Some(attestation_type::SUPERSEDES))
+                    }
+                    attestation_type::WITHDRAWS => {
+                        ("attestation", Some(attestation_type::WITHDRAWS))
+                    }
+                    attestation_type::RECANTS => ("attestation", Some(attestation_type::RECANTS)),
+                    attestation_type::SCORES if is_consent => ("consent", None),
+                    _ => {
+                        other_scores += 1;
+                        if other_scores > OTHER_SCORE_CAP {
+                            continue;
+                        }
+                        ("attestation", None)
+                    }
+                };
+                let status = status_of.get(&a.attestation_id).copied().unwrap_or("live");
+                let aid = format!("attestation/{}", a.attestation_id);
+                let desc = match kind {
+                    "delegation" => "A delegates_to attestation (capability / owner-binding).",
+                    "consent" => {
+                        "A consent:replication grant — this node replicates to the subject."
+                    }
+                    _ => "A signed CEG attestation authored by this node.",
+                };
+                if upsert_ceg_node(
+                    &graph,
+                    &aid,
+                    "attestation",
+                    node_key_id,
+                    serde_json::json!({
+                        "kind": kind,
+                        "subject": a.attestation_id,
+                        "attestation_id": a.attestation_id,
+                        "attestation_type": a.attestation_type,
+                        "dimension": dim,
+                        "status": status,
+                        "name": format!("{}:{}", a.attestation_type, &a.attestation_id[..a.attestation_id.len().min(8)]),
+                        "description": desc,
+                        "attesting_key_id": a.attesting_key_id,
+                        "attested_key_id": a.attested_key_id,
+                        "subject_key_ids": a.subject_key_ids,
+                        "weight": a.weight,
+                        "asserted_at": a.asserted_at.to_rfc3339(),
+                        "record": serde_json::to_value(&a).unwrap_or(serde_json::Value::Null),
+                    }),
+                )
+                .await
+                {
+                    n_nodes += 1;
+                }
+                // Provenance: node --authored--> attestation.
+                if upsert_ceg_edge(&graph, self_node, &aid, "authored", serde_json::json!({})).await
+                {
+                    n_edges += 1;
+                }
+                // Structural composer edge → the attestation it acts on.
+                if let Some(rel) = struct_rel {
+                    for t in targets_of(&a) {
+                        if t == a.attestation_id {
+                            continue;
+                        }
+                        if upsert_ceg_edge(
+                            &graph,
+                            &aid,
+                            &format!("attestation/{t}"),
+                            rel,
+                            serde_json::json!({}),
+                        )
+                        .await
+                        {
+                            n_edges += 1;
+                        }
+                    }
+                }
+                // Delegation edge: delegator → delegatee (agent).
+                if a.attestation_type == attestation_type::DELEGATES_TO {
+                    let delegator = [
+                        "delegator_key_id",
+                        "owner_key_id",
+                        "responsible_user_key_id",
+                        "from",
+                    ]
+                    .iter()
+                    .find_map(|k| a.attestation_envelope.get(*k).and_then(|v| v.as_str()))
+                    .map(|s| s.to_string());
+                    let src = match &delegator {
+                        Some(d) if Some(d) == owner.as_ref() => owner_node.clone().unwrap(),
+                        Some(d) if *d == *node_key_id => self_node.to_string(),
+                        Some(d) => format!("identity/{d}"),
+                        None => self_node.to_string(),
+                    };
+                    let tgt = if a.attested_key_id == *node_key_id {
+                        self_node.to_string()
+                    } else {
+                        format!("agent/{}", a.attested_key_id)
+                    };
+                    let purpose = a
+                        .attestation_envelope
+                        .get("purpose")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("delegation");
+                    if upsert_ceg_edge(
+                        &graph,
+                        &src,
+                        &tgt,
+                        attestation_type::DELEGATES_TO,
+                        serde_json::json!({ "purpose": purpose }),
+                    )
+                    .await
+                    {
+                        n_edges += 1;
+                    }
+                }
+                // Consent:replication edge: node → each peer subject.
+                if is_consent {
+                    for peer in &a.subject_key_ids {
+                        let pid = format!("peer/{peer}");
+                        if upsert_ceg_node(
+                            &graph,
+                            &pid,
+                            "identity",
+                            node_key_id,
+                            serde_json::json!({
+                                "kind": "peer",
+                                "subject": peer,
+                                "key_id": peer,
+                                "status": "live",
+                                "role": "peer",
+                                "name": derive_display_name(peer),
+                                "description": "A federation peer this node consents to replicate to.",
+                            }),
+                        )
+                        .await
+                        {
+                            n_nodes += 1;
+                        }
+                        if upsert_ceg_edge(
+                            &graph,
+                            self_node,
+                            &pid,
+                            "replicates_to",
+                            serde_json::json!({ "grant": a.attestation_id }),
+                        )
+                        .await
+                        {
+                            n_edges += 1;
+                        }
+                    }
+                }
+            }
+        }
+        Err(e) => tracing::warn!(error = %e, "seed_ceg_graph: attestation list skipped"),
+    }
+
+    tracing::info!(
+        node_key_id,
+        projected_nodes = n_nodes,
+        projected_edges = n_edges,
+        "seed_ceg_graph: projected persist CEG state into the memory graph"
+    );
+}
+
+// ── State ────────────────────────────────────────────────────────────────────
+
+#[derive(Clone)]
+struct MemState {
+    graph: Arc<SqliteGraphBackend>,
+}
+
+fn err(code: StatusCode, error: &str) -> Response {
+    (code, Json(serde_json::json!({ "error": error }))).into_response()
+}
+
+// ── Wire types (mirrors the OpenAPI generated client) ─────────────────────────
+
+/// `GraphNode` in the agent wire format.
+#[derive(Debug, Serialize)]
+struct WireNode {
+    id: String,
+    #[serde(rename = "type")]
+    node_type: String,
+    scope: String,
+    attributes: serde_json::Value,
+    version: Option<i32>,
+    updated_by: Option<String>,
+    updated_at: Option<String>,
+    consent_stream: Option<serde_json::Value>,
+    expires_at: Option<serde_json::Value>,
+}
+
+/// `GraphEdge` in the agent wire format.
+#[derive(Debug, Serialize)]
+struct WireEdge {
+    source: String,
+    target: String,
+    relationship: String,
+    scope: String,
+    weight: Option<f64>,
+    attributes: WireEdgeAttributes,
+}
+
+#[derive(Debug, Serialize)]
+struct WireEdgeAttributes {
+    created_at: Option<String>,
+    context: Option<String>,
+}
+
+/// `MemoryStats` in the agent wire format.
+#[derive(Debug, Serialize)]
+struct WireStats {
+    total_nodes: u64,
+    nodes_by_type: HashMap<String, u64>,
+    nodes_by_scope: HashMap<String, u64>,
+    recent_nodes_24h: u64,
+    oldest_node_date: Option<String>,
+    newest_node_date: Option<String>,
+}
+
+/// `TimelineResponse` in the agent wire format.
+#[derive(Debug, Serialize)]
+struct WireTimeline {
+    memories: Vec<WireNode>,
+    edges: Vec<WireEdge>,
+    start_time: Option<String>,
+    end_time: Option<String>,
+    total: usize,
+    buckets: Option<serde_json::Value>,
+}
+
+// ── Persist type projections ──────────────────────────────────────────────────
+
+fn scope_to_str(s: &GraphScope) -> &'static str {
+    match s {
+        GraphScope::Local => "local",
+        GraphScope::Identity => "identity",
+        GraphScope::Environment => "environment",
+        GraphScope::Community => "community",
+    }
+}
+
+fn parse_scope(s: &str) -> Option<GraphScope> {
+    match s.to_ascii_uppercase().as_str() {
+        "LOCAL" => Some(GraphScope::Local),
+        "IDENTITY" => Some(GraphScope::Identity),
+        "ENVIRONMENT" => Some(GraphScope::Environment),
+        "COMMUNITY" => Some(GraphScope::Community),
+        _ => None,
+    }
+}
+
+fn to_wire_node(n: ciris_persist::graph::types::GraphNode) -> WireNode {
+    WireNode {
+        id: n.node_id,
+        node_type: n.node_type,
+        scope: scope_to_str(&n.scope).to_owned(),
+        attributes: n.attributes,
+        version: Some(n.version),
+        updated_by: Some(n.updated_by),
+        updated_at: Some(n.updated_at.to_rfc3339()),
+        consent_stream: None,
+        expires_at: None,
+    }
+}
+
+fn to_wire_edge(e: ciris_persist::graph::types::GraphEdge) -> WireEdge {
+    WireEdge {
+        source: e.source_node_id,
+        target: e.target_node_id,
+        relationship: e.relationship,
+        scope: scope_to_str(&e.scope).to_owned(),
+        weight: e.weight,
+        attributes: WireEdgeAttributes {
+            created_at: Some(e.created_at.to_rfc3339()),
+            context: None,
+        },
+    }
+}
+
+const ALL_SCOPES: &[GraphScope] = &[
+    GraphScope::Local,
+    GraphScope::Identity,
+    GraphScope::Environment,
+    GraphScope::Community,
+];
+
+// ── Query-param shapes ────────────────────────────────────────────────────────
+
+#[derive(Debug, Deserialize, Default)]
+struct TimelineParams {
+    hours: Option<i64>,
+    scope: Option<String>,
+    #[serde(rename = "type")]
+    node_type: Option<String>,
+    include_edges: Option<bool>,
+    include_metrics: Option<bool>,
+}
+
+/// JSON body for `POST /v1/memory/query`.
+#[derive(Debug, Deserialize, Default)]
+struct QueryBody {
+    node_id: Option<String>,
+    #[serde(rename = "type")]
+    node_type: Option<String>,
+    query: Option<String>,
+    since: Option<DateTime<Utc>>,
+    until: Option<DateTime<Utc>>,
+    scope: Option<String>,
+    limit: Option<i64>,
+    /// Pagination offset — accepted in the body for wire-compat but not yet
+    /// applied (cursor-based paging is the substrate's model; offset paging
+    /// over the full timeline is prohibitively expensive server-side).
+    #[serde(default)]
+    #[allow(dead_code)]
+    offset: Option<i64>,
+}
+
+// ── Handlers ─────────────────────────────────────────────────────────────────
+
+/// `GET /v1/memory/stats` — node counts, type histogram, scope histogram,
+/// 24h recency count, oldest/newest date.
+async fn get_stats(State(st): State<MemState>) -> Response {
+    let now = Utc::now();
+    let cutoff_24h = now - chrono::Duration::hours(24);
+
+    let mut total_nodes: u64 = 0;
+    let mut nodes_by_type: HashMap<String, u64> = HashMap::new();
+    let mut nodes_by_scope: HashMap<String, u64> = HashMap::new();
+    let mut recent_24h: u64 = 0;
+    let mut oldest: Option<DateTime<Utc>> = None;
+    let mut newest: Option<DateTime<Utc>> = None;
+
+    for &scope in ALL_SCOPES {
+        // Total count per scope.
+        let filter = NodeFilter {
+            scope: Some(scope),
+            ..Default::default()
+        };
+        let count = match st.graph.count_nodes(filter).await {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+        if count == 0 {
+            continue;
+        }
+        let scope_str = scope_to_str(&scope).to_owned();
+        *nodes_by_scope.entry(scope_str).or_insert(0) += count;
+        total_nodes += count;
+
+        // Type histogram.
+        if let Ok(by_type) = st.graph.count_nodes_by_type(scope).await {
+            for (t, c) in by_type {
+                *nodes_by_type.entry(t).or_insert(0) += c;
+            }
+        }
+
+        // Recent 24h count (page the first large batch and count updated_at > cutoff).
+        let filter_recent = NodeFilter {
+            scope: Some(scope),
+            updated_after: Some(cutoff_24h),
+            ..Default::default()
+        };
+        if let Ok(c) = st.graph.count_nodes(filter_recent).await {
+            recent_24h += c;
+        }
+
+        // Oldest / newest: fetch the first page (up to 1000) sorted newest-first,
+        // then track the trailing (oldest) updated_at from the last fetched row.
+        // This is a heuristic — a full scan would be expensive and the counts are
+        // already correct; the dates are informational dashboard metadata.
+        let filter_page = NodeFilter {
+            scope: Some(scope),
+            ..Default::default()
+        };
+        if let Ok(page) = st.graph.query_nodes(filter_page, None, 1000).await {
+            for node in &page.items {
+                let ts = node.updated_at;
+                newest = Some(newest.map_or(ts, |n: DateTime<Utc>| n.max(ts)));
+                oldest = Some(oldest.map_or(ts, |o: DateTime<Utc>| o.min(ts)));
+            }
+        }
+    }
+
+    let stats = WireStats {
+        total_nodes,
+        nodes_by_type,
+        nodes_by_scope,
+        recent_nodes_24h: recent_24h,
+        oldest_node_date: oldest.map(|t| t.to_rfc3339()),
+        newest_node_date: newest.map(|t| t.to_rfc3339()),
+    };
+    (StatusCode::OK, Json(serde_json::json!({ "data": stats }))).into_response()
+}
+
+/// `GET /v1/memory/timeline` — newest-first, time-windowed, optionally scoped
+/// and type-filtered. `include_edges=true` batch-fetches edges between returned
+/// nodes; `include_metrics=false` (the client default) suppresses `tsdb_data`.
+async fn get_timeline(
+    State(st): State<MemState>,
+    Query(params): Query<TimelineParams>,
+) -> Response {
+    let hours = params.hours.unwrap_or(24).max(1);
+    let include_edges = params.include_edges.unwrap_or(false);
+    let include_metrics = params.include_metrics.unwrap_or(true);
+
+    let now = Utc::now();
+    let start = now - chrono::Duration::hours(hours);
+
+    let scopes: Vec<GraphScope> = if let Some(ref s) = params.scope {
+        match parse_scope(s) {
+            Some(sc) => vec![sc],
+            None => return err(StatusCode::BAD_REQUEST, "unknown scope"),
+        }
+    } else {
+        ALL_SCOPES.to_vec()
+    };
+
+    let type_filter = params.node_type.clone();
+    let mut all_nodes: Vec<WireNode> = Vec::new();
+    let mut seen_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    for scope in scopes {
+        let filter = NodeFilter {
+            scope: Some(scope),
+            node_type: type_filter.clone(),
+            updated_after: Some(start),
+            ..Default::default()
+        };
+        match st.graph.query_nodes(filter, None, 500).await {
+            Ok(page) => {
+                for node in page.items {
+                    // `include_metrics=false` suppresses tsdb_data nodes.
+                    if !include_metrics && node.node_type == "tsdb_data" {
+                        continue;
+                    }
+                    if seen_ids.insert(node.node_id.clone()) {
+                        all_nodes.push(to_wire_node(node));
+                    }
+                }
+            }
+            Err(_) => continue,
+        }
+    }
+
+    // Newest-first (already newest-first per scope from query_nodes; re-sort union).
+    all_nodes.sort_by(|a, b| {
+        b.updated_at
+            .as_deref()
+            .unwrap_or("")
+            .cmp(a.updated_at.as_deref().unwrap_or(""))
+    });
+
+    let total = all_nodes.len();
+
+    // Batch-fetch edges if requested.
+    let edges: Vec<WireEdge> = if include_edges {
+        let mut edge_vec: Vec<WireEdge> = Vec::new();
+        let mut seen_edge_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for node in &all_nodes {
+            let node_scope = parse_scope(&node.scope).unwrap_or(GraphScope::Local);
+            if let Ok(raw_edges) = st
+                .graph
+                .get_edges_for_node(&node.id, node_scope, EdgeDirection::Both, None)
+                .await
+            {
+                for e in raw_edges {
+                    // Only include edges whose source AND target are in our result set.
+                    if seen_ids.contains(&e.source_node_id)
+                        && seen_ids.contains(&e.target_node_id)
+                        && seen_edge_ids.insert(e.edge_id.clone())
+                    {
+                        edge_vec.push(to_wire_edge(e));
+                    }
+                }
+            }
+        }
+        edge_vec
+    } else {
+        vec![]
+    };
+
+    let timeline = WireTimeline {
+        memories: all_nodes,
+        edges,
+        start_time: Some(start.to_rfc3339()),
+        end_time: Some(now.to_rfc3339()),
+        total,
+        buckets: None,
+    };
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({ "data": timeline })),
+    )
+        .into_response()
+}
+
+/// `POST /v1/memory/query` — flexible recall (by type, scope, text, time window).
+async fn query_memory(State(st): State<MemState>, Json(body): Json<QueryBody>) -> Response {
+    // If node_id is provided, do a direct point-lookup across all scopes.
+    if let Some(ref node_id) = body.node_id {
+        let mut found: Option<WireNode> = None;
+        for &scope in ALL_SCOPES {
+            match st.graph.get_node(node_id, scope).await {
+                Ok(Some(n)) => {
+                    found = Some(to_wire_node(n));
+                    break;
+                }
+                Ok(None) => continue,
+                Err(_) => continue,
+            }
+        }
+        let results: Vec<WireNode> = found.into_iter().collect();
+        return (StatusCode::OK, Json(serde_json::json!({ "data": results }))).into_response();
+    }
+
+    let limit = body.limit.unwrap_or(20).clamp(1, 500);
+
+    let scopes: Vec<GraphScope> = if let Some(ref s) = body.scope {
+        match parse_scope(s) {
+            Some(sc) => vec![sc],
+            None => return err(StatusCode::BAD_REQUEST, "unknown scope"),
+        }
+    } else {
+        ALL_SCOPES.to_vec()
+    };
+
+    let mut all_nodes: Vec<WireNode> = Vec::new();
+    let mut seen_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    for scope in scopes {
+        // Build attribute-containment filter for text search if provided.
+        // The agent stores content under `attributes->>'content'`; we use
+        // the JSONB-containment index for a prefix match by injecting the
+        // text as the `content` value. This is approximate (exact-string
+        // containment, not full-text), matching the agent's simple LIKE
+        // fallback for server mode.
+        let attrs_contains: Option<serde_json::Value> = body
+            .query
+            .as_ref()
+            .map(|q| serde_json::json!({ "content": q }));
+
+        let filter = NodeFilter {
+            scope: Some(scope),
+            node_type: body.node_type.clone(),
+            attributes_contains: attrs_contains,
+            updated_after: body.since,
+            updated_before: body.until,
+            ..Default::default()
+        };
+        match st.graph.query_nodes(filter, None, limit).await {
+            Ok(page) => {
+                for node in page.items {
+                    if seen_ids.insert(node.node_id.clone()) {
+                        all_nodes.push(to_wire_node(node));
+                        if all_nodes.len() >= limit as usize {
+                            break;
+                        }
+                    }
+                }
+            }
+            Err(_) => continue,
+        }
+        if all_nodes.len() >= limit as usize {
+            break;
+        }
+    }
+
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({ "data": all_nodes })),
+    )
+        .into_response()
+}
+
+/// `GET /v1/memory/{node_id}` — point-lookup across all scopes (first hit wins).
+async fn get_node(State(st): State<MemState>, Path(node_id): Path<String>) -> Response {
+    for &scope in ALL_SCOPES {
+        match st.graph.get_node(&node_id, scope).await {
+            Ok(Some(n)) => {
+                return (
+                    StatusCode::OK,
+                    Json(serde_json::json!({ "data": to_wire_node(n) })),
+                )
+                    .into_response();
+            }
+            Ok(None) => continue,
+            Err(e) => {
+                return err(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    &format!("graph store: {e}"),
+                );
+            }
+        }
+    }
+    err(StatusCode::NOT_FOUND, "node not found")
+}
+
+/// `GET /v1/memory/{node_id}/edges` — both directions, all scopes, union'd.
+async fn get_node_edges(State(st): State<MemState>, Path(node_id): Path<String>) -> Response {
+    let mut edges: Vec<WireEdge> = Vec::new();
+    let mut seen_edge_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    for &scope in ALL_SCOPES {
+        match st
+            .graph
+            .get_edges_for_node(&node_id, scope, EdgeDirection::Both, None)
+            .await
+        {
+            Ok(raw) => {
+                for e in raw {
+                    if seen_edge_ids.insert(e.edge_id.clone()) {
+                        edges.push(to_wire_edge(e));
+                    }
+                }
+            }
+            Err(_) => continue,
+        }
+    }
+
+    (StatusCode::OK, Json(serde_json::json!({ "data": edges }))).into_response()
+}
+
+// ── Router ────────────────────────────────────────────────────────────────────
+
+/// The memory READ router. Requires a SQLite-backed Engine (no-op graceful
+/// degradation if the engine is Postgres-only or has no SQLite backend — the
+/// routes return 503 rather than panic).
+pub fn router(engine: Arc<Engine>) -> Router {
+    // Build the graph backend from the Engine's SQLite connection handle.
+    // Engine::sqlite_backend() returns None on a Postgres-only node; in
+    // that case we still mount the routes but they 503 on every call.
+    let maybe_graph: Option<Arc<SqliteGraphBackend>> = engine
+        .sqlite_backend()
+        .map(|sq| Arc::new(SqliteGraphBackend::new(sq.conn_handle())));
+
+    if let Some(graph) = maybe_graph {
+        let state = MemState { graph };
+        Router::new()
+            .route("/v1/memory/stats", axum::routing::get(get_stats))
+            .route("/v1/memory/timeline", axum::routing::get(get_timeline))
+            .route("/v1/memory/query", axum::routing::post(query_memory))
+            .route("/v1/memory/{node_id}", axum::routing::get(get_node))
+            .route(
+                "/v1/memory/{node_id}/edges",
+                axum::routing::get(get_node_edges),
+            )
+            .with_state(state)
+    } else {
+        // Postgres-only node — mount stub routes that return 503.
+        Router::new()
+            .route(
+                "/v1/memory/stats",
+                axum::routing::get(|| async {
+                    err(
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "memory API requires SQLite backend",
+                    )
+                }),
+            )
+            .route(
+                "/v1/memory/timeline",
+                axum::routing::get(|| async {
+                    err(
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "memory API requires SQLite backend",
+                    )
+                }),
+            )
+            .route(
+                "/v1/memory/query",
+                axum::routing::post(|| async {
+                    err(
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "memory API requires SQLite backend",
+                    )
+                }),
+            )
+            .route(
+                "/v1/memory/{node_id}",
+                axum::routing::get(|| async {
+                    err(
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "memory API requires SQLite backend",
+                    )
+                }),
+            )
+            .route(
+                "/v1/memory/{node_id}/edges",
+                axum::routing::get(|| async {
+                    err(
+                        StatusCode::SERVICE_UNAVAILABLE,
+                        "memory API requires SQLite backend",
+                    )
+                }),
+            )
+    }
+}

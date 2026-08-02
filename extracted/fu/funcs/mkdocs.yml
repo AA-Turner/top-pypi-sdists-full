@@ -1,0 +1,74 @@
+site_name: funcs
+site_author: nekitdev
+site_description: Functional programming in Python.
+
+repo_name: nekitdev/funcs
+repo_url: https://github.com/nekitdev/funcs
+
+remote_branch: github-pages
+
+nav:
+  - Index: "index.md"
+  - Reference:
+      - Application: "reference/application.md"
+      - Callers: "reference/callers.md"
+      - Composition: "reference/composition.md"
+      - Debugging: "reference/debugging.md"
+      - Decorators: "reference/decorators.md"
+      - Flows: "reference/flows.md"
+      - Functions: "reference/functions.md"
+      - Getters: "reference/getters.md"
+      - Primitives: "reference/primitives.md"
+      - Reduction: "reference/reduction.md"
+      - Unpacking: "reference/unpacking.md"
+  - Changelog: "changelog.md"
+  - Security: "security.md"
+  - Code of Conduct: "code_of_conduct.md"
+  - Contributing: "contributing.md"
+
+watch:
+  - docs
+  - src
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+
+      primary: deep purple
+      accent: light blue
+
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to light mode
+
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+
+      primary: light blue
+      accent: deep purple
+
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to dark mode
+
+plugins:
+  - search
+
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            members_order: source
+            show_signature_annotations: true
+
+          import:
+            - https://docs.python.org/3/objects.inv
+            - https://nekitdev.github.io/typing-aliases/objects.inv
+
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences

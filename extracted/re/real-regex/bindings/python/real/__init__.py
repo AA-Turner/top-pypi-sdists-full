@@ -1,0 +1,515 @@
+r"""REAL — Regular Expression Algorithmic Library.
+
+A linear-time (ReDoS-safe) regex engine with an ``re``-compatible API:
+
+    import real
+    real.search(r"(\d{4})-(\d{2})", text)
+    real.compile(r"\w+").findall(text)
+
+Supported flags: IGNORECASE/I, MULTILINE/M, DOTALL/S, VERBOSE/X, ASCII/A (like
+re.A: keeps \\w \\W \\d \\D \\s \\S \\b \\B and case folding ASCII in str mode,
+where they are otherwise Unicode). UNICODE/U stays a no-op (Unicode is the
+str-mode default). Bounded
+lookarounds — lookahead ``(?=...)``/``(?!...)`` and lookbehind ``(?<=...)``/``(?<!...)``
+— are supported in linear time (each sub-pattern must be length-bounded and is
+capture-free). The remaining ``re`` features raise :class:`real.error` at compile
+time: backreferences and re.L. See the project README.
+"""
+
+import functools
+import os
+import re as _re
+import unicodedata
+
+from real._real import Match, Pattern, compile as _compile_core, _compile_set as _compile_set_core, error
+
+__all__ = [
+    "compile", "match", "fullmatch", "search", "findall", "count_matches",
+    "finditer", "split", "sub", "subn", "escape", "purge", "error", "Pattern",
+    "Match", "RegexSet", "A", "ASCII", "I", "IGNORECASE", "M", "MULTILINE",
+    "S", "DOTALL", "X", "VERBOSE", "U", "UNICODE", "NOFLAG", "get_include",
+    "get_config",
+]
+
+__version__ = "2026.8.2"
+
+NOFLAG = 0
+I = IGNORECASE = 2
+M = MULTILINE = 8
+S = DOTALL = 16
+U = UNICODE = 32
+X = VERBOSE = 64
+A = ASCII = 256
+
+# The drop-in policy for a pattern the linear engine cannot represent (backreferences, conditionals, an
+# unbounded lookaround, …). The default is STRICT: such a pattern raises real.error, so every compiled
+# pattern is a linear-time, ReDoS-safe guarantee. Set real.fallback = True (or pass fallback=True to
+# compile / the module functions) to delegate ineligible patterns to the standard library's re — which may
+# accept them but forfeits the linear-time guarantee for that pattern. A per-call kwarg wins over this.
+fallback = False
+
+
+class _FallbackMatch:
+    """A match produced by the ``re`` fallback (policy fallback), presenting real's Match API.
+
+    Every attribute delegates to the underlying :class:`re.Match` (``group`` / ``groups`` / ``groupdict`` /
+    ``start`` / ``end`` / ``span`` / ``expand`` / ``pos`` / ``endpos`` / ``string`` / ``lastindex`` /
+    ``lastgroup`` / ``regs``); only ``re`` is redirected to the owning fallback pattern for API uniformity.
+    """
+
+    __slots__ = ("_m", "_pattern")
+
+    def __init__(self, match, pattern):
+        self._m = match
+        self._pattern = pattern
+
+    def __getattr__(self, name):
+        return getattr(self._m, name)
+
+    def __getitem__(self, key):
+        return self._m[key]
+
+    def __bool__(self):
+        return True
+
+    @property
+    def re(self):  # noqa: A003 - mirrors re.Match.re
+        """The owning fallback pattern (mirrors ``re.Match.re``)."""
+        return self._pattern
+
+    def __repr__(self):
+        return f"<real.Match (re fallback) span={self._m.span()} match={self._m.group()!r}>"
+
+
+class _FallbackPattern:
+    """A pattern the linear engine cannot represent, delegated to the standard library ``re`` under the
+    fallback policy. Its :attr:`engine` is ``"re"`` (a native pattern's is ``"real"``), so it is **not**
+    ReDoS-safe — the choice is observable and was explicit at compile time.
+    """
+
+    engine = "re"
+
+    def __init__(self, re_pattern, source, flags):
+        self._p = re_pattern
+        self.pattern = source
+        self.flags = flags
+
+    def _wrap(self, match):
+        return _FallbackMatch(match, self) if match is not None else None
+
+    def search(self, string, *args, **kwargs):
+        """Delegate to ``re.Pattern.search``; the result is wrapped in real's Match API."""
+        return self._wrap(self._p.search(string, *args, **kwargs))
+
+    def match(self, string, *args, **kwargs):
+        """Delegate to ``re.Pattern.match``; the result is wrapped in real's Match API."""
+        return self._wrap(self._p.match(string, *args, **kwargs))
+
+    def fullmatch(self, string, *args, **kwargs):
+        """Delegate to ``re.Pattern.fullmatch``; the result is wrapped in real's Match API."""
+        return self._wrap(self._p.fullmatch(string, *args, **kwargs))
+
+    def finditer(self, string, *args, **kwargs):
+        """Delegate to ``re.Pattern.finditer``; each match is wrapped in real's Match API."""
+        return (self._wrap(m) for m in self._p.finditer(string, *args, **kwargs))
+
+    def findall(self, string, *args, **kwargs):
+        """Delegate to ``re.Pattern.findall`` (plain results — nothing to wrap)."""
+        return self._p.findall(string, *args, **kwargs)
+
+    def count_matches(self, string, *args, **kwargs):
+        """Count ``finditer`` matches (``re`` has no native counter). Extension beyond ``re``."""
+        return sum(1 for _ in self._p.finditer(string, *args, **kwargs))
+
+    def sub(self, repl, string, count=0):
+        """Delegate to ``re.Pattern.sub``."""
+        return self._p.sub(repl, string, count)
+
+    def subn(self, repl, string, count=0):
+        """Delegate to ``re.Pattern.subn``."""
+        return self._p.subn(repl, string, count)
+
+    def split(self, string, maxsplit=0):
+        """Delegate to ``re.Pattern.split``."""
+        return self._p.split(string, maxsplit)
+
+    @property
+    def groups(self):
+        """Number of capturing groups (from ``re``)."""
+        return self._p.groups
+
+    @property
+    def groupindex(self):
+        """Mapping of group name to group number (from ``re``)."""
+        return self._p.groupindex
+
+
+class RegexSet:
+    """Multi-pattern which-matched set (RE2::Set / rust ``RegexSet`` style).
+
+    Extension beyond ``re``.
+
+    Construction compiles every pattern (raises :class:`error` if any fails —
+    no silent skip). ``matches(text)`` returns a list of bools in construction
+    order; ``is_match(text)`` is any-match (stops at the first hit). Captures
+    are not reported — re-run the individual :class:`Pattern` if groups are
+    needed.
+
+    Wraps ``real::regex_set`` directly (the C++ engine's own multi-pattern
+    set, not a Python-level loop over individual :class:`Pattern` objects):
+    Stage-1 is N independent searches with per-pattern early-exit, but a
+    large-enough DFA-eligible subset (``fused_min_eligible`` in
+    ``regex_set.hpp``) instead runs as a single fused multi-accept DFA pass
+    (Stage-2) — the bitset stays in construction order either way.
+    """
+
+    def __init__(self, patterns, flags=0):
+        """Compile ``patterns`` (iterable of str/bytes) with optional ``flags``.
+
+        Args:
+            patterns: Iterable of pattern strings or bytes.
+            flags (int): Compilation flags applied to every pattern.
+        """
+        self._set = _compile_set_core(patterns, flags)
+        self.flags = flags
+
+    def __len__(self):
+        """Number of patterns in the set."""
+        return len(self._set)
+
+    def is_match(self, string, pos=0, endpos=None):
+        """True if any pattern matches ``string`` (stops at the first hit)."""
+        kwargs = {"pos": pos}
+        if endpos is not None:
+            kwargs["endpos"] = endpos
+        return self._set.is_match(string, **kwargs)
+
+    def matches(self, string, pos=0, endpos=None):
+        """Which patterns match at least once (construction-order list of bool)."""
+        kwargs = {"pos": pos}
+        if endpos is not None:
+            kwargs["endpos"] = endpos
+        return self._set.matches(string, **kwargs)
+
+    def which(self, string, pos=0, endpos=None):
+        """Indices of matching patterns (ascending, construction order)."""
+        kwargs = {"pos": pos}
+        if endpos is not None:
+            kwargs["endpos"] = endpos
+        return self._set.which(string, **kwargs)
+
+
+def get_include():
+    """Return the directory to add to a C++ include path.
+
+    ``#include <real/real.hpp>`` resolves against this directory. The
+    header-only C++ library is shipped inside the installed package, so a
+    project can compile against REAL located through its Python install:
+
+        c++ -std=c++20 $(python -c "import real; print(real.get_include())") …
+
+    Falls back to the repository's ``include/`` when imported from a source
+    checkout.
+
+    Returns:
+        str: Absolute path to the include directory.
+    """
+    here = os.path.dirname(os.path.abspath(__file__))
+    packaged = os.path.join(here, "include")
+    if os.path.isdir(os.path.join(packaged, "real")):
+        return packaged
+    return os.path.normpath(os.path.join(here, os.pardir, os.pardir, os.pardir, "include"))
+
+
+def get_config():
+    """Return metadata for embedding the C++ library.
+
+    Returns:
+        dict: Mapping with keys ``version`` (str), ``include`` (str, see
+        :func:`get_include`), and ``cxx_standard`` (str, the language standard
+        the headers require).
+    """
+    return {
+        "version": __version__,
+        "include": get_include(),
+        "cxx_standard": "c++20",
+    }
+
+
+def _rewrite_named_chars(pattern):
+    r"""Rewrite ``\N{NAME}`` to ``\N{U+XXXX}`` so the C++ engine only ever sees scalar values.
+
+    The engine understands ``\N{U+XXXX}`` (a code point, like ``\u``); a *name* is resolved here via
+    :mod:`unicodedata` — no character-name table lives in C++. The rewrite is textual and respects
+    backslash parity: ``\\N{`` is a literal backslash followed by ``N`` (not an escape) and is left
+    untouched, so it works inside a class for free. A ``\N`` already written ``\N{U+...}`` is passed
+    through. An unknown name raises :class:`error`, matching ``re``'s message.
+    """
+    if "\\N{" not in pattern:
+        return pattern  # fast path: nothing to rewrite
+    out = []
+    i = 0
+    n = len(pattern)
+    while i < n:
+        if pattern[i] != "\\":
+            out.append(pattern[i])
+            i += 1
+            continue
+        run = i
+        while run < n and pattern[run] == "\\":
+            run += 1
+        out.append(pattern[i:run])  # the backslash run, verbatim
+        odd = (run - i) % 2 == 1     # the last backslash escapes the next char iff the run is odd
+        i = run
+        if odd and i + 1 < n and pattern[i] == "N" and pattern[i + 1] == "{":
+            close = pattern.find("}", i + 2)
+            if close < 0:
+                raise error("missing }, unterminated name")
+            name = pattern[i + 2:close]
+            if name.startswith("U+"):
+                out.append(pattern[i:close + 1])  # already scalar — the engine handles it
+            else:
+                try:
+                    codepoint = ord(unicodedata.lookup(name))
+                except (KeyError, TypeError) as exc:
+                    raise error("undefined character name {!r}".format(name)) from exc
+                out.append("N{{U+{:04X}}}".format(codepoint))
+            i = close + 1
+    return "".join(out)
+
+
+@functools.lru_cache(maxsize=512)
+def _compile_cached(pattern, flags):
+    """Internal cached compilation helper.
+
+    Args:
+        pattern (str or bytes): Regular expression pattern.
+        flags (int): Bitwise OR of compilation flags.
+
+    Returns:
+        Pattern: Compiled pattern object.
+    """
+    if isinstance(pattern, str):
+        pattern = _rewrite_named_chars(pattern)
+    return _compile_core(pattern, flags)
+
+
+def compile(pattern, flags=0, fallback=None):  # noqa: A001 - mirrors re.compile
+    """Compile a regular expression pattern.
+
+    Mirrors ``re.compile``. If ``pattern`` is already a compiled pattern, it is
+    returned as-is and ``flags`` must be zero.
+
+    Args:
+        pattern (str, bytes, or Pattern): The regular expression to compile.
+        flags (int, optional): Bitwise OR of flags such as :data:`IGNORECASE`,
+            :data:`MULTILINE`, :data:`DOTALL`, :data:`VERBOSE`. Defaults to 0.
+        fallback (bool, optional): Policy for a pattern the linear engine cannot
+            represent. ``None`` (default) uses the module-level :data:`real.fallback`
+            (itself ``False`` = strict). ``True`` delegates such a pattern to the
+            standard library ``re`` (forfeiting the linear-time guarantee); ``False``
+            re-raises :class:`error`. Extension beyond ``re``.
+
+    Returns:
+        Pattern: A compiled pattern — native (``engine == "real"``) or, on fallback,
+        an ``re``-backed proxy (``engine == "re"``).
+
+    Raises:
+        ValueError: If ``pattern`` is a compiled pattern and ``flags`` is non-zero.
+        error: If the pattern is invalid, or unsupported and the policy is strict.
+    """
+    if isinstance(pattern, (Pattern, _FallbackPattern)):
+        if flags:
+            raise ValueError("cannot process flags argument with a compiled pattern")
+        return pattern
+    if fallback is None:
+        fallback = globals()["fallback"]  # the module-level default policy (real.fallback)
+    try:
+        return _compile_cached(pattern, flags)
+    except error:
+        if fallback:
+            return _FallbackPattern(_re.compile(pattern, flags), pattern, flags)
+        raise
+
+
+def purge():
+    """Clear the compiled-pattern cache (like ``re.purge``)."""
+    _compile_cached.cache_clear()
+
+
+def match(pattern, string, flags=0):
+    """Apply ``match()`` using a compiled pattern.
+
+    Mirrors ``re.match``: tries to match only at the beginning of ``string``.
+
+    Args:
+        pattern (str or bytes): Regular expression pattern.
+        string (str or bytes): Text to match against.
+        flags (int, optional): Compilation flags. Defaults to 0.
+
+    Returns:
+        Match or None: A match object on success, ``None`` otherwise.
+    """
+    return compile(pattern, flags).match(string)
+
+
+def fullmatch(pattern, string, flags=0):
+    """Apply ``fullmatch()`` using a compiled pattern.
+
+    Mirrors ``re.fullmatch``: tries to match the entirety of ``string``.
+
+    Args:
+        pattern (str or bytes): Regular expression pattern.
+        string (str or bytes): Text to match against.
+        flags (int, optional): Compilation flags. Defaults to 0.
+
+    Returns:
+        Match or None: A match object on success, ``None`` otherwise.
+    """
+    return compile(pattern, flags).fullmatch(string)
+
+
+def search(pattern, string, flags=0):
+    """Apply ``search()`` using a compiled pattern.
+
+    Mirrors ``re.search``: scans ``string`` for the leftmost match.
+
+    Args:
+        pattern (str or bytes): Regular expression pattern.
+        string (str or bytes): Text to search.
+        flags (int, optional): Compilation flags. Defaults to 0.
+
+    Returns:
+        Match or None: A match object on success, ``None`` otherwise.
+    """
+    return compile(pattern, flags).search(string)
+
+
+def findall(pattern, string, flags=0):
+    """Apply ``findall()`` using a compiled pattern.
+
+    Mirrors ``re.findall``: returns all non-overlapping matches.
+
+    Args:
+        pattern (str or bytes): Regular expression pattern.
+        string (str or bytes): Text to search.
+        flags (int, optional): Compilation flags. Defaults to 0.
+
+    Returns:
+        list: List of strings, tuples, or groups depending on the pattern.
+    """
+    return compile(pattern, flags).findall(string)
+
+
+def count_matches(pattern, string, flags=0):
+    """Count non-overlapping matches without building Match objects.
+
+    Extension beyond ``re``.
+
+    Matching-only counter (C++ ``regex::count_matches``). Prefer this over
+    ``len(findall(...))`` or counting ``finditer`` when only the count matters,
+    and for trailing-lookahead class+ patterns where the fast path lives on
+    this surface (not on ``finditer``).
+
+    Args:
+        pattern (str or bytes): Regular expression pattern.
+        string (str or bytes): Text to search.
+        flags (int, optional): Compilation flags. Defaults to 0.
+
+    Returns:
+        int: Number of non-overlapping matches.
+    """
+    return compile(pattern, flags).count_matches(string)
+
+
+def finditer(pattern, string, flags=0):
+    """Apply ``finditer()`` using a compiled pattern.
+
+    Mirrors ``re.finditer``: yields :class:`Match` objects lazily.
+
+    Args:
+        pattern (str or bytes): Regular expression pattern.
+        string (str or bytes): Text to search.
+        flags (int, optional): Compilation flags. Defaults to 0.
+
+    Returns:
+        iterator: Iterator of :class:`Match` objects.
+    """
+    return compile(pattern, flags).finditer(string)
+
+
+def split(pattern, string, maxsplit=0, flags=0):
+    """Apply ``split()`` using a compiled pattern.
+
+    Mirrors ``re.split``: splits ``string`` by occurrences of ``pattern``.
+
+    Args:
+        pattern (str or bytes): Regular expression pattern.
+        string (str or bytes): Text to split.
+        maxsplit (int, optional): Maximum number of splits. ``0`` means no
+            limit. Defaults to 0.
+        flags (int, optional): Compilation flags. Defaults to 0.
+
+    Returns:
+        list: List of substrings, with captured groups interleaved.
+    """
+    return compile(pattern, flags).split(string, maxsplit)
+
+
+def sub(pattern, repl, string, count=0, flags=0):
+    """Apply ``sub()`` using a compiled pattern.
+
+    Mirrors ``re.sub``: replaces occurrences of ``pattern`` in ``string``.
+
+    Args:
+        pattern (str or bytes): Regular expression pattern.
+        repl (str, bytes, or callable): Replacement template or callable
+            accepting a :class:`Match` object.
+        string (str or bytes): Text to modify.
+        count (int, optional): Maximum number of replacements. ``0`` means all.
+            Defaults to 0.
+        flags (int, optional): Compilation flags. Defaults to 0.
+
+    Returns:
+        str or bytes: The resulting string after replacements.
+    """
+    return compile(pattern, flags).sub(repl, string, count)
+
+
+def subn(pattern, repl, string, count=0, flags=0):
+    """Apply ``subn()`` using a compiled pattern.
+
+    Mirrors ``re.subn``: replaces occurrences and returns the count.
+
+    Args:
+        pattern (str or bytes): Regular expression pattern.
+        repl (str, bytes, or callable): Replacement template or callable
+            accepting a :class:`Match` object.
+        string (str or bytes): Text to modify.
+        count (int, optional): Maximum number of replacements. ``0`` means all.
+            Defaults to 0.
+        flags (int, optional): Compilation flags. Defaults to 0.
+
+    Returns:
+        tuple: ``(result, number_of_substitutions)``.
+    """
+    return compile(pattern, flags).subn(repl, string, count)
+
+
+_SPECIALS = frozenset("()[]{}?*+-|^$\\.&~# \t\n\r\v\f")
+
+
+def escape(pattern):
+    """Escape special characters in a pattern (like ``re.escape``).
+
+    Args:
+        pattern (str or bytes): Input pattern.
+
+    Returns:
+        str or bytes: Escaped pattern with the same type as ``pattern``.
+    """
+    if isinstance(pattern, bytes):
+        text = pattern.decode("latin1")
+        escaped = "".join("\\" + c if c in _SPECIALS else c for c in text)
+        return escaped.encode("latin1")
+    return "".join("\\" + c if c in _SPECIALS else c for c in pattern)

@@ -41,11 +41,19 @@ class BRLocalFlavorTests(SimpleTestCase):
 
         long_version_valid = {
             '64.132.916/0001-88': '64.132.916/0001-88',
-            '64-132-916/0001-88': '64-132-916/0001-88',
             '64132916/0001-88': '64132916/0001-88',
+            '12.ABC.345/01DE-35': '12.ABC.345/01DE-35',
+            '12.abc.345/01de-35': '12.ABC.345/01DE-35',
+            'AB.CCC.DEF/GHIJ-08': 'AB.CCC.DEF/GHIJ-08',
         }
         short_version_valid = {
             '64132916000188': '64132916000188',
+            '12ABC34501DE35': '12ABC34501DE35',
+            'ABCDEFGHIJKL80': 'ABCDEFGHIJKL80',
+            'abcdefghijkl80': 'ABCDEFGHIJKL80',
+            'MNOPQRSTUVWX50': 'MNOPQRSTUVWX50',
+            'YZOPQRSTUVWX76': 'YZOPQRSTUVWX76',
+            '03634711000106': '03634711000106',
         }
         valid = long_version_valid.copy()
         valid.update(short_version_valid)
@@ -56,8 +64,17 @@ class BRLocalFlavorTests(SimpleTestCase):
             '12.345.678/9012-10': error_format['invalid'],
             '12345678/9012-10': error_format['invalid'],
             '64.132.916/0001-XX': error_format['invalid'],
+            '64.132.916/0001-80': error_format['invalid'],
+            '64,132,916/0001-80': error_format['invalid'],
+            '2ABC34501DEF35': error_format['invalid'],
         }
         self.assertFieldOutput(BRCNPJField, valid, invalid)
+
+        # Test valid inputs for model field.
+        cnpj_model_field = models.BRCNPJField()
+        for input, output in valid.items():
+            with self.subTest(input=input, output=output):
+                self.assertEqual(cnpj_model_field.clean(input, None), output)
 
         # The short versions should be invalid when 'min_length=16' passed to the field.
         invalid_short = dict([(k, error_format['only_long_version']) for k in short_version_valid.keys()])
@@ -228,6 +245,7 @@ class BRLocalFlavorTests(SimpleTestCase):
                 form = BRPersonProfileForm(case)
                 self.assertTrue(form.is_valid())
 
+
 class BRLocalFlavorModelFormTests (TestCase):
     def setUp(self):
         self.form = BRPersonProfileForm({
@@ -236,7 +254,7 @@ class BRLocalFlavorModelFormTests (TestCase):
             'postal_code':'12345-123',
         })
 
-    def test_BRCPFFiedlHtml(self):
+    def test_BRCPFFieldHtml(self):
         name = 'cpf'
         value = '111.111.111-11'
         model_form_field = self.form.fields[name]
@@ -244,7 +262,7 @@ class BRLocalFlavorModelFormTests (TestCase):
         self.assertTrue('minlength="11"' in model_form_field_render)
         self.assertTrue('maxlength="14"' in model_form_field_render)
 
-    def test_BRCNPJFiedlHtml(self):
+    def test_BRCNPJFieldHtml(self):
         name = 'cnpj'
         value = '64-132-916/0001-88'
         model_form_field = self.form.fields[name]
@@ -252,13 +270,14 @@ class BRLocalFlavorModelFormTests (TestCase):
         self.assertTrue('minlength="14"' in model_form_field_render)
         self.assertTrue('maxlength="18"' in model_form_field_render)
 
-    def test_BRPostalCodeFiedlHtml(self):
+    def test_BRPostalCodeFieldHtml(self):
         name = 'postal_code'
         value = '12345-123'
         model_form_field = self.form.fields[name]
         model_form_field_render = model_form_field.widget.render(name,value)
         self.assertTrue('minlength="8"' in model_form_field_render)
         self.assertTrue('maxlength="9"' in model_form_field_render)
+
 
 class BRLocalFlavorModelTests(SimpleTestCase):
 

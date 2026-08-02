@@ -1,0 +1,40 @@
+Metadata-Version: 2.1
+Name: DeepFilterNet
+Version: 0.5.6
+Summary: Noise supression using deep filtering
+Home-page: https://github.com/Rikorose/DeepFilterNet
+License: MIT
+Keywords: noise reduction,neural network
+Author: Hendrik Schröter
+Requires-Python: >=3.8,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Rust
+Classifier: Topic :: Multimedia :: Sound/Audio :: Speech
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Utilities
+Provides-Extra: dnsmos-local
+Provides-Extra: eval
+Provides-Extra: soundfile
+Provides-Extra: train
+Requires-Dist: appdirs (>=1.4,<2.0)
+Requires-Dist: deepfilterdataloader (==0.5.6) ; extra == "train"
+Requires-Dist: deepfilterlib (==0.5.6)
+Requires-Dist: icecream (>=2,<3) ; extra == "train"
+Requires-Dist: loguru (>=0.5)
+Requires-Dist: numpy (>=1.22,<2.0)
+Requires-Dist: onnxruntime (>=1.15,<2.0) ; extra == "dnsmos-local"
+Requires-Dist: packaging (>=23.0,<24.0)
+Requires-Dist: pesq (>=0.0.3,<0.0.5) ; extra == "eval"
+Requires-Dist: pystoi (>=0.3,<0.4) ; extra == "eval"
+Requires-Dist: requests (>=2.27,<3.0)
+Requires-Dist: scipy (>=1,<2) ; extra == "eval"
+Requires-Dist: soundfile (>=0.10,<0.13) ; extra == "soundfile"
+Requires-Dist: sympy (>=1.6)
+Project-URL: Repository, https://github.com/Rikorose/DeepFilterNet

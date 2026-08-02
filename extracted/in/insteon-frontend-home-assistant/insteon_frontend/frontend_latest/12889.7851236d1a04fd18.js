@@ -1,0 +1,1 @@
+class RecorderProcessor extends AudioWorkletProcessor{process(r,e,o){if(r[0].length<1)return!0;const s=r[0][0],t=new Int16Array(s.length);for(let c=0;c<s.length;c++){const r=Math.max(-1,Math.min(1,s[c]));t[c]=r<0?32768*r:32767*r}return this.port.postMessage(t),!0}}registerProcessor("recorder-worklet",RecorderProcessor);

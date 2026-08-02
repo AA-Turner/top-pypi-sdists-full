@@ -30,8 +30,8 @@ classifiers = [
 ]
 requires-python = ">=3.14"
 dependencies = [
-    "aiohomematic>=2026.5.10",
-    "openccu-data>=2026.5.0",
+    "aiohomematic>=2026.8.0",
+    "openccu-data>=2026.7.2",
     "pydantic>=2.10.0",
 ]
 
@@ -39,7 +39,7 @@ dependencies = [
 "Homepage" = "https://github.com/sukramj/aiohomematic-config"
 "Source Code" = "https://github.com/sukramj/aiohomematic-config"
 "Bug Reports" = "https://github.com/sukramj/aiohomematic-config/issues"
-"Changelog" = "https://github.com/sukramj/aiohomematic-config/blob/devel/changelog.md"
+"Changelog" = "https://github.com/sukramj/aiohomematic-config/blob/main/changelog.md"
 
 [tool.setuptools]
 include-package-data = true

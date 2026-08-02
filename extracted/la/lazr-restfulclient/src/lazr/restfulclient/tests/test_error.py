@@ -17,8 +17,6 @@
 
 """Tests for the error_for helper function."""
 
-__metaclass__ = type
-
 import unittest
 
 from lazr.restfulclient.errors import (
@@ -34,7 +32,7 @@ from lazr.restfulclient.errors import (
 )
 
 
-class StubRequest(object):
+class StubRequest:
     """Just enough of a request to fool error_for()."""
 
     def __init__(self, status):

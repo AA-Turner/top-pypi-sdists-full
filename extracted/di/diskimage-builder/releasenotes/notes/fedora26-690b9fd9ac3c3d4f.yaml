@@ -1,5 +1,0 @@
----
-upgrade:
-  - The ``fedora-minimal`` and ``fedora`` elements have been updated
-    to default to Fedora 26.  Note if you to pin to specific versions,
-    be sure to specify ``DIB_RELEASE``.

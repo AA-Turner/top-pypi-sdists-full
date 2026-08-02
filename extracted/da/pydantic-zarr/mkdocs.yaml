@@ -1,0 +1,69 @@
+site_name: "pydantic-zarr"
+site_url: https://pydantic-zarr.readthedocs.io/
+site_author: Davis Bennett
+site_description: >-
+  Documentation for pydantic-zarr
+
+# Repository
+repo_name: zarr-developers/pydantic-zarr
+repo_url: https://github.com/zarr-developers/pydantic-zarr
+
+theme:
+  name: material
+  palette:
+  # Palette toggle for light mode
+  - scheme: default
+    toggle:
+      icon: material/brightness-7
+      name: Switch to dark mode
+
+  # Palette toggle for dark mode
+  - scheme: slate
+    toggle:
+      icon: material/brightness-4
+      name: Switch to light mode
+
+nav:
+    - About: index.md
+    - Usage (Zarr V3): usage_zarr_v3.md
+    - Usage (Zarr V2): usage_zarr_v2.md
+    - Experimental features:
+      - Overview: experimental/index.md
+      - Usage: experimental/usage.md
+    - API:
+      - core: api/core.md
+      - v2: api/v2.md
+      - v3: api/v3.md
+      - experimental:
+        - core: api/experimental/core.md
+        - v2: api/experimental/v2.md
+        - v3: api/experimental/v3.md
+    - Release Notes: release-notes.md
+plugins:
+- search
+- mkdocstrings:
+    handlers:
+        python:
+          options:
+            docstring_style: numpy
+            members_order: source
+            separate_signature: true
+            filters: ["!^_"]
+            docstring_options:
+              ignore_init_summary: true
+            merge_init_into_class: true
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      baselevel: 2
+      toc_depth: 4
+      permalink: "#"

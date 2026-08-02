@@ -18,14 +18,10 @@
 
 """Classes to authorize lazr.restfulclient with various web services.
 
-This module includes an authorizer classes for HTTP Basic Auth,
+This module includes an authorizer class for HTTP Basic Auth,
 as well as a base-class authorizer that does nothing.
-
-A set of classes for authorizing with OAuth is located in the 'oauth'
-module.
 """
 
-__metaclass__ = type
 __all__ = [
     "BasicHttpAuthorizer",
     "HttpAuthorizer",
@@ -88,12 +84,10 @@ class BasicHttpAuthorizer(HttpAuthorizer):
 
         This sets the authorization header with the username/password.
         """
-        headers["authorization"] = (
-            "Basic "
-            + base64.b64encode(
-                "%s:%s" % (self.username, self.password)
-            ).strip()
-        )
+        credentials = base64.b64encode(
+            f"{self.username}:{self.password}".encode()
+        ).decode("ascii")
+        headers["authorization"] = "Basic " + credentials
 
     def authorizeSession(self, client):
         client.add_credentials(self.username, self.password)

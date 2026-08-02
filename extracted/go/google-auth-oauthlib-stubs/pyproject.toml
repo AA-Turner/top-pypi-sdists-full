@@ -1,0 +1,17 @@
+[project]
+name = "google-auth-oauthlib-stubs"
+version = "1.2.0"
+description = "Type stubs for google-auth-oauthlib"
+urls.source = "https://github.com/sakgoyal/google-auth-oauthlib-stubs.git"
+authors = [{name = "CaffeinePower", email = "cffnpwr@gmail.com"}]
+license = "MIT"
+readme = "README.md"
+classifiers = ["Typing :: Typed", "Typing :: Stubs Only"]
+requires-python = ">=3.12"
+
+dependencies = [
+	"google-auth-oauthlib>=1.2.0",
+	"requests-oauthlib>=1.3.1",
+	"google>=3.0.0",
+	"google-auth-stubs>=0.2.0"
+]

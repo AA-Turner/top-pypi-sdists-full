@@ -1,0 +1,80 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# command-category handler 'event_model' gate [OMN-13028]
+#
+# Required status check context: "command-category Event Model Validator / validate"
+#
+# Runs the validator unit tests, then self-scans omnibase_core/src for any
+# handler_routing entry tagged 'message_category: command' that omits 'event_model'.
+# A command entry with no event_model is the OMN-13003 failure (command handler with
+# no event_model) — ladder layer 1 of the OMN-13003/13005 top-10 failure. Consumer
+# repos wire this by adding the command-category-requires-event-model pre-commit hook
+# and a mirror of the `validate` job in their own CI.
+
+# MIGRATED INTO ci.yml (OMN-14877, OMN-14430 fast-follow): this workflow used to
+# trigger on push/pull_request, giving it its OWN github.run_id — structurally
+# invisible to ci.yml's ci-summary default-deny poller and gating nothing
+# (pre-commit, if installed and not --no-verify'd, was the only enforcement).
+# Its validate steps now run UNCONDITIONALLY inside ci.yml under the required
+# "CI Summary" rollup, and its embedded occ-preflight caller no longer fires on
+# PRs. This file is retained workflow_dispatch-only for manual/ad-hoc invocation.
+#
+name: command-category Event Model Validator
+
+on:
+  workflow_dispatch: {}
+
+env:
+  PYTHON_VERSION: "3.12"
+  UV_VERSION: "0.8.3"
+
+concurrency:
+  group: validator-command-category-event-model-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  occ-preflight:
+    uses: ./.github/workflows/occ-preflight.yml
+    permissions:
+      contents: read
+      pull-requests: read
+    with:
+      contracts-dir: contracts
+      receipts-dir: drift/dod_receipts
+
+  validate:
+    needs: occ-preflight
+    name: validate
+    runs-on: >-
+      ${{
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run validator unit tests
+        run: |
+          uv run pytest tests/unit/validators/test_command_category_requires_event_model.py -v
+
+      - name: Self-scan omnibase_core/src
+        run: |
+          uv run python -m omnibase_core.validators.command_category_requires_event_model src/omnibase_core

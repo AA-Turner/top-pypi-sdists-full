@@ -1,0 +1,317 @@
+"""Use of this source code is governed by the MIT license found in the LICENSE file.
+
+Plugwise Smile protocol helpers.
+"""
+
+from __future__ import annotations
+
+from typing import cast
+
+from plugwise.constants import (
+    ANNA,
+    DHW_SETPOINT,
+    GROUP_TYPES,
+    NONE,
+    PRIORITY_DEVICE_CLASSES,
+    SPECIAL_PLUG_TYPES,
+    SWITCH_GROUP_TYPES,
+    ActuatorData,
+    ApplianceType,
+    GwEntityData,
+    ModuleData,
+)
+from plugwise.util import (
+    check_heater_central,
+    check_model,
+    get_vendor_name,
+    return_valid,
+)
+
+from defusedxml import ElementTree as etree
+from munch import Munch
+
+
+def get_zigbee_data(
+    module: etree.Element, module_data: ModuleData, legacy: bool
+) -> None:
+    """Helper-function for _get_module_data()."""
+    if legacy:
+        # Stretches
+        if (router := module.find("./protocols/network_router")) is not None:
+            module_data["zigbee_mac_address"] = router.find("mac_address").text
+        # Also look for the Circle+/Stealth M+
+        if (coord := module.find("./protocols/network_coordinator")) is not None:
+            module_data["zigbee_mac_address"] = coord.find("mac_address").text
+    # Adam
+    elif (zb_node := module.find("./protocols/zig_bee_node")) is not None:
+        module_data["zigbee_mac_address"] = zb_node.find("mac_address").text
+        module_data["reachable"] = zb_node.find("reachable").text == "true"
+
+
+class SmileCommon:
+    """The SmileCommon class."""
+
+    def __init__(self) -> None:
+        """Init."""
+        self._cooling_present: bool
+        self._count: int
+        self._domain_objects: etree.Element
+        self._heater_id: str = NONE
+        self._on_off_device: bool
+        self.gw_entities: dict[str, GwEntityData] = {}
+        self.smile: Munch
+
+    @property
+    def heater_id(self) -> str:
+        """Return the heater-id."""
+        return self._heater_id
+
+    def check_name(self, name: str) -> bool:
+        """Helper-function checking the smile-name.
+
+        20251101: modified for finding name = `Smile Anna` in `Smile Anna P1`.
+        """
+        return bool(name in self.smile.name)
+
+    def _appl_heater_central_info(
+        self,
+        appl: Munch,
+        xml_1: etree.Element,
+        legacy: bool,
+        xml_2: etree.Element = None,
+        xml_3: etree.Element = None,
+    ) -> Munch:
+        """Helper-function for _appliance_info_finder()."""
+        # Find the valid heater_central
+        # xml_2 self._appliances for legacy, self._domain_objects for actual
+        xml_2 = return_valid(xml_2, self._domain_objects)
+        self._heater_id = check_heater_central(xml_2)
+
+        if self._heater_id == NONE:
+            return Munch()  # pragma: no cover
+
+        #  Info for On-Off device
+        if self._on_off_device:
+            appl.name = "OnOff"  # pragma: no cover
+            appl.model = "Unknown"  # pragma: no cover
+            appl.vendor_name = None  # pragma: no cover
+            return appl  # pragma: no cover
+
+        # Info for OpenTherm device
+        appl.name = "OpenTherm"
+        locator_1 = "./logs/point_log[type='flame_state']/boiler_state"
+        locator_2 = "./services/boiler_state"
+        # xml_1: appliance
+        # xml_3: self._modules for legacy, self._domain_objects for actual
+        xml_3 = return_valid(xml_3, self._domain_objects)
+        module_data = self._get_module_data(xml_1, locator_1, xml_2=xml_3)
+        if not module_data["contents"]:
+            module_data = self._get_module_data(xml_1, locator_2, xml_2=xml_3)
+            if not module_data["contents"]:
+                self._heater_id = NONE
+                return (
+                    Munch()
+                )  # no module-data present means the device has been removed
+        appl.vendor_name = module_data["vendor_name"]
+        appl.hardware = module_data["hardware_version"]
+        appl.model_id = module_data["vendor_model"] if not legacy else None
+        appl.model = (
+            "Generic heater/cooler" if self._cooling_present else "Generic heater"
+        )
+
+        return appl
+
+    def _appl_thermostat_info(
+        self, appl: Munch, xml_1: etree.Element, xml_2: etree.Element = None
+    ) -> Munch:
+        """Helper-function for _appliance_info_finder()."""
+        locator = "./logs/point_log[type='thermostat']/thermostat"
+        xml_2 = return_valid(xml_2, self._domain_objects)
+        module_data = self._get_module_data(xml_1, locator, xml_2=xml_2)
+        if not module_data["contents"]:
+            return Munch()  # no module-data present means the device has been removed
+
+        appl.vendor_name = module_data["vendor_name"]
+        appl.model = module_data["vendor_model"]
+        if (
+            appl.model != "ThermoTouch"
+        ):  # model_id for Anna not present as stand-alone device
+            appl.model_id = appl.model
+            appl.model = check_model(appl.model, appl.vendor_name)
+
+        appl.available = module_data["reachable"]
+        appl.hardware = module_data["hardware_version"]
+        appl.firmware = module_data["firmware_version"]
+        appl.zigbee_mac = module_data["zigbee_mac_address"]
+
+        return appl
+
+    def _create_gw_entities(self, appl: Munch) -> None:
+        """Helper-function for creating/updating gw_entities."""
+        self.gw_entities[appl.entity_id] = {"dev_class": appl.pwclass}
+        self._count += 1
+        for key, value in {
+            "available": appl.available,
+            "firmware": appl.firmware,
+            "hardware": appl.hardware,
+            "location": appl.location,
+            "mac_address": appl.mac,
+            "model": appl.model,
+            "model_id": appl.model_id,
+            "name": appl.name,
+            "vendor": appl.vendor_name,
+            "zigbee_mac_address": appl.zigbee_mac,
+        }.items():
+            if value is not None or key == "location":
+                appl_key = cast(ApplianceType, key)
+                self.gw_entities[appl.entity_id][appl_key] = value
+                self._count += 1
+
+    def _reorder_devices(self) -> None:
+        """Place the gateway and optional heater_central devices as 1st and 2nd."""
+        reordered = {}
+        for dev_class in PRIORITY_DEVICE_CLASSES:
+            for entity_id, entity in dict(self.gw_entities).items():
+                if entity["dev_class"] == dev_class:
+                    reordered[entity_id] = self.gw_entities.pop(entity_id)
+                    break
+        self.gw_entities = {**reordered, **self.gw_entities}
+
+    def _entity_switching_group(self, entity: GwEntityData) -> None:
+        """Helper-function for _get_device_zone_data().
+
+        Determine switching group device data.
+        """
+        if entity["dev_class"] in SWITCH_GROUP_TYPES:
+            counter = 0
+            for member in entity["members"]:
+                if self.gw_entities[member]["switches"].get("relay"):
+                    counter += 1
+            entity["switches"]["relay"] = counter != 0
+            self._count += 1
+
+    def _get_groups(self) -> None:
+        """Helper-function for smile.py: get_all_gateway_entities().
+
+        Collect switching-, pumping- or report-group info.
+        """
+        # P1 and Anna don't have groups
+        if self.smile.type == "power" or self.check_name(ANNA):
+            return
+
+        for group in self._domain_objects.findall("./group"):
+            group_id = group.get("id")
+            if group_id is None:
+                continue  # pragma: no cover
+
+            if not (members := self._collect_members(group)):
+                continue
+
+            group_name = group.find("name").text
+            group_type = group.find("type").text
+            if group_type in GROUP_TYPES:
+                self.gw_entities[group_id] = {
+                    "dev_class": group_type,
+                    "model": "Group",
+                    "name": group_name,
+                    "members": members,
+                    "vendor": "Plugwise",
+                }
+                self._count += 5
+
+    def _collect_members(self, element: etree.Element) -> list[str]:
+        """Check and collect members."""
+        members: list[str] = []
+        group_appliances = element.findall("appliances/appliance")
+        for item in group_appliances:
+            if (member_id := item.get("id")) in self.gw_entities:
+                members.append(member_id)
+
+        return members
+
+    def _get_lock_state(
+        self, xml: etree.Element, data: GwEntityData, stretch_v2: bool = False
+    ) -> None:
+        """Helper-function for _get_measurement_data().
+
+        Adam & Stretches: obtain the relay-switch lock state.
+        """
+        actuator = "actuator_functionalities"
+        func_type = "relay_functionality"
+        if stretch_v2:
+            actuator = "actuators"
+            func_type = "relay"
+        if xml.find("type").text not in SPECIAL_PLUG_TYPES:
+            locator = f"./{actuator}/{func_type}/lock"
+            if (found := xml.find(locator)) is not None:
+                data["switches"]["lock"] = found.text == "true"
+                self._count += 1
+
+    def _get_module_data(
+        self,
+        xml_1: etree.Element,
+        locator: str,
+        key: str | None = None,
+        xml_2: etree.Element | None = None,
+        legacy: bool = False,
+    ) -> ModuleData:
+        """Helper-function for _energy_device_info_finder() and _appliance_info_finder().
+
+        Collect requested info from MODULES.
+        """
+        module_data: ModuleData = {
+            "contents": False,
+            "firmware_version": None,
+            "hardware_version": None,
+            "reachable": None,
+            "vendor_name": None,
+            "vendor_model": None,
+            "zigbee_mac_address": None,
+        }
+
+        for appl_search in xml_1.findall(locator):
+            link_tag = appl_search.tag
+            if key is not None and key not in link_tag:
+                continue
+
+            link_id = appl_search.get("id")
+            loc = f".//services/{link_tag}[@id='{link_id}']...."
+            # Not possible to walrus for some reason...
+            # xml_2: self._modules for legacy, self._domain_objects for actual
+            search = return_valid(xml_2, self._domain_objects)
+            module = search.find(loc)
+            if module is not None:  # pylint: disable=consider-using-assignment-expr
+                module_data["contents"] = True
+                get_vendor_name(module, module_data)
+                module_data["vendor_model"] = module.find("vendor_model").text
+                module_data["hardware_version"] = module.find("hardware_version").text
+                module_data["firmware_version"] = module.find("firmware_version").text
+                get_zigbee_data(module, module_data, legacy)
+
+            break
+
+        return module_data
+
+    def _create_special_dicts(
+        self, item: str, data: GwEntityData, temp_dict: ActuatorData
+    ) -> tuple[str, ActuatorData]:
+        """Update the max_dhw_temperature and maximum_boiler_temperature dicts with a current key."""
+        if item == DHW_SETPOINT:
+            item = "max_dhw_temperature"
+            if DHW_SETPOINT in data["sensors"]:
+                data["sensors"].pop(DHW_SETPOINT)
+                self._count -= 1
+            # Use dhw_temperature when available, otherwise use water_temperature
+            if "dhw_temperature" in data["sensors"]:
+                temp_dict["current"] = data["sensors"]["dhw_temperature"]
+                self._count += 1
+            elif "water_temperature" in data["sensors"]:
+                temp_dict["current"] = data["sensors"]["water_temperature"]
+                self._count += 1
+
+        if item == "maximum_boiler_temperature":
+            if "water_temperature" in data["sensors"]:
+                temp_dict["current"] = data["sensors"]["water_temperature"]
+                self._count += 1
+
+        return item, temp_dict

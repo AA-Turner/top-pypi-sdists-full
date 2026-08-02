@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+  workflow_dispatch:  # allow manual re-runs
+
+jobs:
+  linting:
+    name: "Perform linting checks"
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          activate-environment: true
+          python-version: "${{ matrix.python-version }}"
+
+      - name: Install dependencies
+        run: |
+          uv sync --group test
+
+      - name: "Ruff link"
+        run: |
+          uv run ruff check .
+
+      - name: "Ruff format check"
+        run: |
+          uv run ruff format --check .
+
+      - name: "Ty type checking"
+        run: |
+          uv run ty check .
+
+      - name: Run prek
+        run: |
+          uv run prek run \
+            end-of-file-fixer \
+            trailing-whitespace \
+            check-yaml \
+            check-json \
+            check-toml \
+            mixed-line-ending \
+            --all-files
+
+      - name: "Run tests"
+        run: |
+          uv run pytest tests --cov=pybravia --cov-report=term-missing

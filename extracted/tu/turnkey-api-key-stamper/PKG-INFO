@@ -1,0 +1,58 @@
+Metadata-Version: 2.4
+Name: turnkey-api-key-stamper
+Version: 0.1.0
+Summary: API key authentication stamper for Turnkey API
+Author-email: Turnkey <hello@turnkey.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/tkhq/python-sdk
+Project-URL: Repository, https://github.com/tkhq/python-sdk
+Project-URL: Documentation, https://github.com/tkhq/python-sdk/tree/main/packages/stamper
+Keywords: turnkey,api,authentication,stamper
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: cryptography>=41.0.0
+Dynamic: license-file
+
+# Turnkey API Key Stamper
+
+Authentication utility for Turnkey API requests. The stamper signs requests with your API key credentials.
+
+## Installation
+
+```bash
+pip install turnkey-api-key-stamper
+```
+
+## Usage
+
+```python
+from turnkey_api_key_stamper import ApiKeyStamper, ApiKeyStamperConfig
+import requests
+import json
+
+# Initialize the stamper with your API credentials
+config = ApiKeyStamperConfig(
+    api_public_key="<Turnkey API Public Key (that starts with 02 or 03)>",
+    api_private_key="<Turnkey API Private Key>"
+)
+stamper = ApiKeyStamper(config)
+
+# Create your request payload
+payload = {
+    "organizationId": "<your org ID>"
+}
+payload_str = json.dumps(payload)
+
+# Generate the authentication stamp
+stamp = stamper.stamp(payload_str)
+```
+

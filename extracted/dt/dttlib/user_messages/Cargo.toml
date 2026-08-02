@@ -1,0 +1,20 @@
+[package]
+name = "user_messages"
+description = "Tracks user measages in an asynchronous task.  Messages have a severity level, and must be cleared after they are set, or they remain active."
+version = {workspace = true}
+authors = {workspace = true}
+edition = {workspace = true}
+homepage = {workspace = true}
+repository = {workspace = true}
+license = {workspace = true}
+
+[dependencies]
+log.workspace = true
+tokio.workspace = true
+pretty_env_logger = {version = "0.5.0"}
+pyo3 = {workspace=true, optional=true}
+pyo3-stub-gen = {workspace=true, optional=true}
+
+
+[features]
+python = ["dep:pyo3", "dep:pyo3-stub-gen"]

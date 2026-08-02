@@ -1,0 +1,47 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "lttb"
+version = "0.3.2"
+description = "Largest-Triangle-Three-Buckets algorithm for downsampling time series-like data"
+authors = [{ name = "JA Viljoen", email = "javiljoen@javiljoen.net" }]
+readme = "README.rst"
+requires-python = "~=3.8"
+license = { file = "LICENSES/MIT.txt" }
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Financial and Insurance Industry",
+  "Intended Audience :: Information Technology",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Topic :: Office/Business :: Financial :: Investment",
+  "Topic :: Scientific/Engineering :: Visualization",
+]
+dependencies = [
+  "numpy ~= 1.17",
+]
+
+[project.urls]
+Homepage = "https://sr.ht/~javiljoen/lttb/"
+Source = "https://git.sr.ht/~javiljoen/lttb-numpy"
+Tracker = "https://codeberg.org/javiljoen/lttb-numpy/issues"
+MailingList = "https://lists.sr.ht/~javiljoen/lttb-devel"
+
+[project.optional-dependencies]
+test = [
+  "pytest ~= 8.3",
+  "hypothesis[numpy] ~= 6.0",
+]
+dev = [
+  "black ~= 24.2",
+  "flake8 ~= 7.0",
+  "flake8-bugbear ~= 23.7",
+  "flit ~= 3.9",
+  "isort ~= 5.6",
+]
+
+[tool.isort]
+profile = "black"

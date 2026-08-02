@@ -1,0 +1,159 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "deebot-client"
+license = "GPL-3.0-or-later"
+description = "Deebot client library in python 3"
+readme = "README.md"
+authors = [{ name = "Robert Resch", email = "robert@resch.dev" }]
+keywords = [
+    "home",
+    "automation",
+    "homeassistant",
+    "vacuum",
+    "robot",
+    "deebot",
+    "ecovacs",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Home Automation",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+requires-python = ">=3.14.0"
+dependencies = [
+    "aiohttp>=3.13.3,<4.0",
+    "aiomqtt>=2.5.0,<3.0",
+    "cachetools>=5.0.0,<8.0",
+    "cryptography>=48.0.1,<50.0",
+    "defusedxml>=0.7.1",
+    "orjson>=3.11.3",
+]
+version = "18.5.1"
+
+[project.urls]
+"Homepage" = "https://deebot.readthedocs.io/"
+"Source Code" = "https://github.com/DeebotUniverse/client.py"
+"Bug Reports" = "https://github.com/DeebotUniverse/client.py/issues"
+
+[tool.uv]
+# Rebuild package when any rust files change
+cache-keys = [
+    { file = "pyproject.toml" },
+    { file = "Cargo.toml" },
+    { file = "**/*.rs" },
+]
+
+[dependency-groups]
+dev = [
+    { include-group = "test" },
+    { include-group = "lint" },
+    "maturin[patchelf]==1.14.1",
+    "maturin-import-hook==0.3.0",
+]
+lint = [
+    "mypy==2.3.0",
+    "prek==0.4.11",
+    "types-cachetools>=5.5.0.20240820",
+    "types-mock>=5.1.0.20240425",
+]
+test = [
+    "pycountry==26.2.16",
+    "pytest-asyncio==1.4.0",
+    "pytest-codspeed>=3.1.2",
+    "pytest-cov==7.1.0",
+    "pytest-docker-fixtures==1.4.4",
+    "pytest-timeout==2.4.0",
+    "pytest==9.1.1",
+    "testfixtures==12.3.0",
+    "pytest-github-actions-annotate-failures==0.4.2",
+    "pytest-xdist==3.8.0",
+    "syrupy==5.5.3",
+]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+module-name = "deebot_client.rs"
+auditwheel = "repair"
+exclude = [
+    { path = "**/.*/**", format = "sdist" },
+    { path = "**/.*", format = "sdist" },
+    { path = "*.ini", format = "sdist" },
+    { path = "tests/**", format = "sdist" },
+    { path = "scripts/**", format = "sdist" },
+    { path = "ci/**", format = "sdist" },
+]
+
+[tool.ruff.lint]
+select = ["ALL"]
+
+ignore = [
+    "ANN401", # Opinioated warning on disallowing dynamically typed expressions
+    "D203",   # Conflicts with other rules
+    "D213",   # Conflicts with other rules
+    "EM101",  # raw-string-in-exception
+
+    "D105", # Missing docstring in magic method
+    "D107", # Missing docstring in `__init__`
+    "E501", # line too long
+
+    "FBT", # flake8-boolean-trap
+
+    "PLR2004", # Magic value used in comparison, consider replacing {value} with a constant variable
+
+    # Conflicts with the Ruff formatter
+    "COM812",
+
+    "TRY003", # raise-vanilla-args: Avoid specifying long messages outside the exception class
+
+    # Remove later
+    "TD",     # Todos
+    "FIX002", # Line contains TODO, consider resolving the issue
+    "BLE001", # Do not catch blind exception: `Exception`
+
+]
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-sort-within-sections = true
+known-first-party = ["deebot_client"]
+required-imports = ["from __future__ import annotations"]
+
+
+[tool.ruff.lint.per-file-ignores]
+"tests/fixtures/**" = [
+    "T201",   # print found
+    "TRY002", # raise-vanilla-class: Create your own exception
+]
+"tests/**" = [
+    "D100",    # Missing docstring in public module
+    "D103",    # Missing docstring in public function
+    "D104",    # Missing docstring in public package
+    "N802",    # Function name {name} should be lowercase
+    "N816",    # Variable {name} in global scope should not be mixedCase
+    "PLR0913", # Too many arguments in function definition
+    "S101",    # Use of assert detected
+    "SLF001",  # Private member accessed: {access}
+    "T201",    # print found
+]
+"deebot_client/hardware/*" = [
+    "N999", # Invalid module name
+]
+"deebot_client/rs/*.pyi" = [
+    "PYI021", #  docstring-in-stub
+]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"json".msg = "Use orjson instead"
+
+
+[tool.ruff.lint.mccabe]
+max-complexity = 13

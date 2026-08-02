@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openccu-loom-types"
+dynamic = ["version"]
+description = "Generated Pydantic / enum types for the openccu-loom REST + WebSocket contract"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "OpenCCU-Loom authors" }]
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.6",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "License :: OSI Approved :: MIT License",
+    "Topic :: Home Automation",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/SukramJ/openccu-loom-types"
+"Bug Tracker" = "https://github.com/SukramJ/openccu-loom-types/issues"
+"Source Repo" = "https://github.com/SukramJ/openccu-loom"
+
+[project.optional-dependencies]
+dev = [
+    "datamodel-code-generator>=0.57",
+    "pytest>=7.4",
+    "ruff>=0.6",
+]
+
+[tool.setuptools.dynamic]
+version = { attr = "openccu_loom_types.const.VERSION" }
+
+[tool.setuptools.packages.find]
+include = ["openccu_loom_types*"]
+
+[tool.setuptools.package-data]
+openccu_loom_types = ["py.typed"]

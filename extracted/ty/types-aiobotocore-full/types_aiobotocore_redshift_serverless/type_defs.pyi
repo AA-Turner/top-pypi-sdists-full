@@ -553,11 +553,13 @@ class RestoreFromRecoveryPointRequestTypeDef(TypedDict):
     namespaceName: str
     recoveryPointId: str
     workgroupName: str
+    maintainIntegration: NotRequired[bool]
 
 class RestoreFromSnapshotRequestTypeDef(TypedDict):
     namespaceName: str
     workgroupName: str
     adminPasswordSecretKmsKeyId: NotRequired[str]
+    maintainIntegration: NotRequired[bool]
     manageAdminPassword: NotRequired[bool]
     ownerAccount: NotRequired[str]
     snapshotArn: NotRequired[str]

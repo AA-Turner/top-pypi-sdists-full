@@ -1,0 +1,2471 @@
+"""BaseSession -- shared configuration and logic, zero I/O."""
+
+import contextlib
+import datetime
+import inspect
+import logging
+import platform
+import random
+import re
+import socket
+import subprocess
+import time
+from html import unescape
+from typing import Any
+from urllib.parse import parse_qs, urlencode, urljoin, urlparse
+
+from wreq import CertStore, Emulation, Method
+
+from wafer import _psl
+from wafer._cookies import CookieCache, _default_cookie_path
+from wafer._dart import DartIdentity
+from wafer._fingerprint import (
+    ROTATION_LADDER,
+    FingerprintManager,
+    build_fingerprint_envelope,
+    chrome_version_from_ua,
+    emulation_family,
+    emulation_user_agent,
+    family_headers,
+)
+from wafer._ios import IOSSafariIdentity
+from wafer._kasada import get_session as get_kasada_session  # noqa: F401
+from wafer._opera_mini import OperaMiniIdentity
+from wafer._profiles import Profile
+from wafer._ratelimit import RateLimiter
+from wafer._safari import SafariIdentity
+from wafer._solvers import (
+    REDDIT_BROWSER_OUTCOME_ESTABLISHED,
+    REDDIT_BROWSER_OUTCOME_INTERRUPTED,
+    REDDIT_OUTCOME_ESTABLISHED,
+    reddit_cookie_name_summary,
+    reddit_has_cookie_evidence,
+)
+
+logger = logging.getLogger("wafer")
+
+_IDENTITY_PROFILES = (
+    Profile.SAFARI,
+    Profile.IOS_SAFARI,
+    Profile.OPERA_MINI,
+    Profile.DART,
+)
+
+_METHOD_MAP: dict[str, Method] = {
+    "GET": Method.GET,
+    "POST": Method.POST,
+    "PUT": Method.PUT,
+    "DELETE": Method.DELETE,
+    "HEAD": Method.HEAD,
+    "OPTIONS": Method.OPTIONS,
+    "PATCH": Method.PATCH,
+    "TRACE": Method.TRACE,
+}
+
+
+def _browser_solve_timeout(remaining: float) -> float:
+    """Reserve part of a request deadline for cookie replay after solving.
+
+    A browser result delivered at the exact request deadline is unusable: the
+    caller still has to inject its cookies and retry the protected HTTP
+    request. Keep ten percent, capped at five seconds, outside the solver.
+    """
+
+    if remaining <= 0:
+        return 0.0
+    replay_reserve = min(5.0, remaining * 0.1)
+    return max(0.0, remaining - replay_reserve)
+
+
+_MISSING = object()
+
+# Upper bound on remembered Set-Cookie host-only bits (see _record_cookie_scope).
+# Generous enough that ordinary sessions never evict.
+_MAX_COOKIE_SCOPES = 16384
+
+_TMD_PUNISH_SUFFIX = "/_____tmd_____/punish"
+
+
+def _new_reddit_bootstrap_stats() -> dict[str, Any]:
+    """Per-session counters behind reddit_bootstrap_state()."""
+    return {
+        "attempts": 0,
+        "successes": 0,
+        "last_outcome": None,
+        "last_status": None,
+        "last_cookie_names": (),
+        "browser_attempts": 0,
+        "last_browser_outcome": None,
+        "last_browser_budget": None,
+    }
+
+
+def _tmd_is_punish_url(candidate: str | None) -> bool:
+    """Return whether a URL is itself an issued TMD punishment document.
+
+    wafer is normally handed the *application* URL whose response carries the
+    punishment redirect; only a caller that requested a punishment URL
+    directly supplies one here. Classification helpers must know which of the
+    two they hold, because an application URL never carries the issued
+    ``action`` and would otherwise be read as "not reCAPTCHA".
+    """
+
+    if not candidate:
+        return False
+    try:
+        path = urlparse(candidate).path
+    except (TypeError, ValueError):
+        return False
+    if not isinstance(path, str) or not path.startswith("/"):
+        return False
+    return ("/" + path.lstrip("/")).rstrip("/").endswith(_TMD_PUNISH_SUFFIX)
+
+
+_TMD_PUNISH_IN_BODY_RE = re.compile(
+    r"""["'(]?((?:https?:)?//[^\s"'<>()]*)?(/_____tmd_____/punish\?[^\s"'<>()\\]*)""",
+)
+
+
+def _tmd_punish_url_from_body(body: str, base_url: str) -> str | None:
+    """Extract the issued TMD punishment URL carried by a response body.
+
+    MTop answers an API call with the punishment URL already bearing its
+    ``action`` (``captcharecaptcha`` for the Google reCAPTCHA flavour). A
+    plain page navigation only carries a bare redirect and MTop issues the
+    action later, inside the browser -- so this returns None there and the
+    caller keeps its conservative default.
+    """
+
+    if not body:
+        return None
+    match = _TMD_PUNISH_IN_BODY_RE.search(body)
+    if match is None:
+        return None
+    host, path = match.group(1), match.group(2)
+    candidate = f"{host}{path}" if host else path
+    try:
+        resolved = urljoin(base_url, unescape(candidate))
+    except (TypeError, ValueError):
+        return None
+    return resolved if _tmd_is_punish_url(resolved) else None
+
+
+def _tmd_is_recaptcha_challenge(challenge_url: str) -> bool:
+    """Return whether an immutable issued TMD URL selects reCAPTCHA."""
+
+    try:
+        action = parse_qs(
+            urlparse(challenge_url).query,
+            keep_blank_values=True,
+        ).get("action")
+    except (TypeError, ValueError):
+        return False
+    return action == ["captcharecaptcha"]
+
+
+def _tmd_browser_attempt_count(
+    remaining: float,
+    challenge_url: str = "",
+) -> int:
+    """Return how many useful TMD browser contexts fit in *remaining*.
+
+    Baxia punishment documents are disposable and benefit from fresh-context
+    trace retries. An issued reCAPTCHA challenge can require several image
+    rounds in one single-use document, so it must retain one long context.
+    """
+
+    if _tmd_is_recaptcha_challenge(challenge_url):
+        return 1
+    solve_budget = _tmd_browser_solve_timeout(remaining)
+    return min(3, max(1, int(solve_budget // 45.0)))
+
+
+def _browser_attempt_timeout(remaining: float, attempts_left: int) -> float:
+    """Partition solve time fairly while preserving the HTTP replay reserve."""
+
+    if attempts_left <= 0:
+        return 0.0
+    return _browser_solve_timeout(remaining) / attempts_left
+
+
+def _tmd_browser_solve_timeout(remaining: float) -> float:
+    """Reserve a useful native replay attempt after interactive TMD solving."""
+
+    if remaining <= 0:
+        return 0.0
+    replay_reserve = min(15.0, remaining * 0.25)
+    return max(0.0, remaining - replay_reserve)
+
+
+def _tmd_browser_attempt_timeout(remaining: float, attempts_left: int) -> float:
+    """Fairly partition TMD browser time with its larger replay reserve."""
+
+    if attempts_left <= 0:
+        return 0.0
+    return _tmd_browser_solve_timeout(remaining) / attempts_left
+
+
+def _callable_accepts_keyword(callable_obj, keyword: str) -> bool:
+    """Return whether a solver callable supports an optional protocol field.
+
+    Custom browser solvers predate newer BrowserSolver-only keywords. Inspect
+    their established callable contract instead of passing a new keyword and
+    turning a solvable challenge into a ``TypeError``. An uninspectable
+    callable gets the conservative legacy protocol.
+    """
+
+    try:
+        parameters = inspect.signature(callable_obj).parameters
+    except (TypeError, ValueError):
+        return False
+    parameter = parameters.get(keyword)
+    if parameter is not None and parameter.kind in {
+        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+        inspect.Parameter.KEYWORD_ONLY,
+    }:
+        return True
+    return any(
+        item.kind is inspect.Parameter.VAR_KEYWORD for item in parameters.values()
+    )
+
+
+def _to_method(method: str) -> Method:
+    """Convert a string HTTP method to wreq Method enum."""
+    try:
+        return _METHOD_MAP[method.upper()]
+    except KeyError:
+        raise ValueError(f"Unknown HTTP method: {method}") from None
+
+
+def _load_system_cert_store() -> CertStore | None:
+    """Load system CA certificates into a wreq CertStore."""
+    try:
+        if platform.system() == "Darwin":
+            result = subprocess.run(
+                [
+                    "security",
+                    "find-certificate",
+                    "-a",
+                    "-p",
+                    "/System/Library/Keychains/SystemRootCertificates.keychain",
+                ],
+                capture_output=True,
+            )
+            if result.returncode == 0 and result.stdout:
+                return CertStore.from_pem_stack(result.stdout)
+        elif platform.system() == "Linux":
+            for path in [
+                "/etc/ssl/certs/ca-certificates.crt",
+                "/etc/pki/tls/certs/ca-bundle.crt",
+                "/etc/ssl/ca-bundle.pem",
+            ]:
+                try:
+                    with open(path, "rb") as f:
+                        return CertStore.from_pem_stack(f.read())
+                except FileNotFoundError:
+                    continue
+        # Fallback: try certifi if available
+        try:
+            import certifi
+
+            with open(certifi.where(), "rb") as f:
+                return CertStore.from_pem_stack(f.read())
+        except ImportError:
+            pass
+    except Exception:
+        logger.debug("Failed to load system certs", exc_info=True)
+    return None
+
+
+# Cache the cert store at module load time
+_SYSTEM_CERT_STORE = _load_system_cert_store()
+if _SYSTEM_CERT_STORE:
+    logger.debug("Loaded system CA certificate store")
+else:
+    logger.debug("No system CA store found; using wreq defaults")
+
+# Default to newest Chrome emulation profile
+DEFAULT_EMULATION = Emulation.Chrome149
+
+DEFAULT_HEADERS = {
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,"
+        "image/avif,image/webp,image/apng,*/*;q=0.8,"
+        "application/signed-exchange;v=b3;q=0.7"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br, zstd",
+    "Cache-Control": "max-age=0",
+    "Upgrade-Insecure-Requests": "1",
+}
+
+DEFAULT_CONNECT_TIMEOUT = datetime.timedelta(seconds=10)
+DEFAULT_TIMEOUT = datetime.timedelta(seconds=30)
+
+
+def _normalize_timeout(val) -> datetime.timedelta:
+    if isinstance(val, datetime.timedelta):
+        return val
+    return datetime.timedelta(seconds=float(val))
+
+
+def _content_length_over_cap(resp, cap: int) -> int | None:
+    """Declared Content-Length if it exceeds ``cap``, else None.
+
+    Lets a caller short-circuit before reading the body when the server
+    declared a length over the cap. Returns the declared length (so the
+    caller can put it on the error), or None when there is no usable
+    Content-Length or it is within the cap. Never raises on a malformed
+    value - an absent/garbage length just falls through to the streamed
+    read, which enforces the cap on actual bytes.
+    """
+    try:
+        declared = resp.content_length
+    except Exception:
+        return None
+    if declared is not None and declared > cap:
+        return declared
+    return None
+
+
+def _read_body_capped(resp, cap: int) -> bytes:
+    """Read a wreq Response body, aborting early once ``cap`` is exceeded.
+
+    Streams chunks via ``resp.stream()`` and stops the moment the running
+    total passes ``cap`` (the body is never fully buffered past the cap -
+    the memory-safety win). Raises ``_CapExceeded`` carrying the bytes seen
+    so far; the caller wraps it in ``ResponseTooLarge`` with the URL.
+
+    Note: ``stream()`` yields ``bytes`` chunks interleaved with HTTP-trailer
+    ``HeaderMap`` objects; only ``bytes`` count toward the size.
+    """
+    buf = bytearray()
+    with resp.stream() as streamer:
+        for chunk in streamer:
+            if not isinstance(chunk, (bytes, bytearray)):
+                continue  # HTTP trailers (HeaderMap), not body bytes
+            buf += chunk
+            if len(buf) > cap:
+                raise _CapExceeded(len(buf))
+    return bytes(buf)
+
+
+async def _aread_body_capped(resp, cap: int) -> bytes:
+    """Async twin of ``_read_body_capped`` - same early-abort semantics."""
+    buf = bytearray()
+    async with resp.stream() as streamer:
+        async for chunk in streamer:
+            if not isinstance(chunk, (bytes, bytearray)):
+                continue  # HTTP trailers (HeaderMap), not body bytes
+            buf += chunk
+            if len(buf) > cap:
+                raise _CapExceeded(len(buf))
+    return bytes(buf)
+
+
+class _CapExceeded(Exception):
+    """Internal: a streamed read passed the size cap. ``size`` = bytes seen.
+
+    Caught in the request loop and re-raised as the public
+    ``ResponseTooLarge`` (which needs the URL the loop has in hand).
+    """
+
+    def __init__(self, size: int):
+        self.size = size
+        super().__init__(size)
+
+
+_BINARY_CONTENT_PREFIXES = (
+    "image/",
+    "audio/",
+    "video/",
+    "font/",
+    "application/pdf",
+    "application/zip",
+    "application/gzip",
+    "application/x-gzip",
+    "application/octet-stream",
+    "application/wasm",
+    "application/x-tar",
+    "application/x-7z-compressed",
+    "application/vnd.",
+)
+
+
+def _is_binary_content_type(content_type: str) -> bool:
+    """Check if a Content-Type indicates binary (non-text) content.
+
+    Binary responses skip challenge detection and body-as-text decoding.
+    WAF challenges always return text/html, so this is safe.
+    Unknown or missing content types are treated as text (conservative).
+    """
+    ct = content_type.lower().split(";")[0].strip()
+    if not ct:
+        return False
+    return any(ct.startswith(p) for p in _BINARY_CONTENT_PREFIXES)
+
+
+def _is_challengeable_content_type(content_type: str) -> bool:
+    """Check if a Content-Type could be a WAF challenge page.
+
+    WAF challenges are always HTML pages. JSON/XML API responses should
+    never be browser-solved - even if they contain challenge markers in
+    cookies/headers (e.g. AliExpress MTop API returns x5secdata cookies
+    on JSON 200 responses). Browser-solving a JSON endpoint just renders
+    raw JSON and times out.
+
+    Returns True for HTML and unknown/missing content types (conservative).
+    """
+    ct = content_type.lower().split(";")[0].strip()
+    if not ct:
+        return True  # Unknown - assume HTML (conservative)
+    # Explicit non-HTML text types that should NOT trigger challenge solving
+    if ct in (
+        "application/json",
+        "application/xml",
+        "text/xml",
+        "text/plain",
+        "text/csv",
+    ):
+        return False
+    return True
+
+
+def _decode_headers(header_map) -> dict[str, str]:
+    """Decode wreq HeaderMap to lowercase string dict.
+
+    wreq's HeaderMap: keys() returns unique bytes keys (deduped),
+    get()/[] returns only the first value, get_all() returns all
+    values for a key. We use get_all() so multi-value headers
+    (especially Set-Cookie) are fully captured, joined with "; ".
+    """
+    result: dict[str, str] = {}
+    for raw_key in header_map.keys():
+        k = raw_key.decode("ascii", errors="replace").lower()
+        all_vals = header_map.get_all(k)
+        parts = [v.decode("utf-8", errors="replace") for v in all_vals]
+        result[k] = "; ".join(parts)
+    return result
+
+
+def _extract_location(header_map) -> str:
+    """Extract Location header from raw HeaderMap without full decode.
+
+    Used on redirect hops to avoid decoding every header just to
+    read Location.
+    """
+    raw = header_map.get("location")
+    if raw is None:
+        return ""
+    if isinstance(raw, bytes):
+        return raw.decode("utf-8", errors="replace")
+    return str(raw)
+
+
+# The unspecified addresses. A resolver that answers with one of these has
+# not named a destination -- it has refused the name, which is what a DNS
+# sinkhole, a blocklist, and some captive networks do.
+_UNSPECIFIED_ADDRESSES = frozenset({"0.0.0.0", "::"})
+
+
+def _connection_failure_reason(url: str, error: Exception) -> str:
+    """Explain a connect failure, naming a sinkholed DNS answer when that is it.
+
+    The transport can only report what it tried, so a name that resolved to
+    0.0.0.0 surfaces as a refused connection to ``[::]:443`` -- which reads
+    like the host is down when the host was never looked up successfully.
+    Resolving once here, on the failure path only, tells the two apart.
+    """
+
+    reason = str(error)
+    host = urlparse(url).hostname
+    if not host:
+        return reason
+    try:
+        infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
+    except OSError:
+        return reason
+    addresses = {info[4][0] for info in infos if info[4]}
+    if not addresses or not addresses <= _UNSPECIFIED_ADDRESSES:
+        return reason
+    return (
+        f"DNS resolved {host} to {', '.join(sorted(addresses))}, an "
+        "unspecified address rather than a destination -- the resolver "
+        "refused the name (sinkhole, blocklist, or filtered DNS). The host "
+        "itself may be perfectly reachable; try another resolver, or pin the "
+        "address with resolve="
+    )
+
+
+def _canonical_host(host: str) -> str:
+    """Normalize a hostname for resolve-map keys and lookups.
+
+    Hostnames are case-insensitive (RFC 3986 s3.2.2) and a trailing dot
+    denotes the same name, so ``Example.COM.`` and ``example.com`` are one
+    host. Both the stored pin keys and every lookup (wreq URL host + native
+    path) run through this so the pin can't be silently missed on a
+    case/dot variant -which would fall through to real DNS and reopen the
+    SSRF window the pin exists to close.
+
+    IDN hosts are folded to their punycode (IDNA/ToASCII) form, matching what
+    wreq puts on the wire, so a Unicode pin key isn't silently missed either.
+    Already-ASCII hosts (incl. underscore/`xn--` labels the IDNA codec rejects
+    or leaves alone) fall back to the lowercased form -no behavior change.
+
+    Uses Python's stdlib IDNA (IDNA2003), which is weaker than UTS-46 (e.g. it
+    folds `faß` -> `fass`). This is applied to BOTH the pin key and the request
+    URL host, so the two never diverge and the pin can't miss inside wafer (the
+    security-critical property; empirically verified). The only residual is a
+    narrow FUNCTIONAL one: an exotic IDN a UTS-46 caller resolved differently
+    would fail CLOSED here (cert mismatch on the wrong-cased host), never open.
+    A stronger IDNA needs the `idna` PyPI lib; not worth a dep for this.
+    """
+    h = host.strip().rstrip(".").lower()
+    try:
+        h = h.encode("idna").decode("ascii")
+    except (UnicodeError, ValueError):
+        pass  # already-ASCII or un-encodable: keep the lowercased form
+    return h
+
+
+def _canonicalize_url_host(url: str) -> str:
+    """Return ``url`` with only its hostname canonicalized (see _canonical_host).
+
+    wreq's DnsOptions matches the resolve map against the URL's host
+    *verbatim* (case- and trailing-dot-sensitive), while the pin keys are
+    stored canonical. So the host in the URL handed to wreq must be
+    canonicalized too, or a mixed-case/trailing-dot request host bypasses the
+    pin. Scheme, userinfo, port, path, query, and fragment are preserved
+    byte-for-byte; IPv6 literals (no DNS host to pin) are returned unchanged.
+
+    Note: ``urlparse(...).hostname`` already lowercases, so the raw ``netloc``
+    is split by hand to see the host's original case and detect a difference.
+    """
+    parsed = urlparse(url)
+    netloc = parsed.netloc
+    if not netloc:
+        return url
+    if "@" in netloc:
+        userinfo, hostport = netloc.rsplit("@", 1)
+        userinfo += "@"
+    else:
+        userinfo, hostport = "", netloc
+    if hostport.startswith("["):  # IPv6 literal: no DNS host to pin
+        return url
+    if ":" in hostport:
+        host, portpart = hostport.rsplit(":", 1)
+        portpart = f":{portpart}"
+    else:
+        host, portpart = hostport, ""
+    canon = _canonical_host(host)
+    if canon == host:
+        return url
+    return parsed._replace(netloc=f"{userinfo}{canon}{portpart}").geturl()
+
+
+class BaseSession:
+    """Shared logic for sync and async sessions. No I/O."""
+
+    def __init__(
+        self,
+        emulation: Emulation | None = None,
+        headers: dict[str, str] | None = None,
+        connect_timeout: datetime.timedelta | float | int | None = None,
+        timeout: datetime.timedelta | float | int | None = None,
+        attempt_timeout: datetime.timedelta | float | int | None = None,
+        max_retries: int = 3,
+        max_rotations: int = 2,
+        cache_dir: str | None = None,
+        max_failures: int | None = 3,
+        rate_limit: float = 0.0,
+        rate_jitter: float = 0.0,
+        follow_redirects: bool = True,
+        max_redirects: int = 10,
+        embed_origin: str | None = None,
+        embed_referers: list[str] | None = None,
+        embed: str | None = None,
+        proxy: str | None = None,
+        browser_solver=None,
+        solve_origin: str | None = None,
+        rotate_every: int | None = None,
+        profile: Profile | None = None,
+        safari_locale: str = "us",
+        fingerprint_pool: list | None = None,
+        max_response_size: int | None = None,
+        resolve: dict[str, list[str]] | None = None,
+    ):
+        self._profile = profile
+        # Optional byte cap on response bodies. None (default) = no cap,
+        # behavior byte-identical to before. Enforced via Content-Length
+        # short-circuit + streamed early-abort in the request loop; a
+        # per-request ``max_response_size=`` overrides this session value.
+        self.max_response_size = max_response_size
+        self._om_identity = (
+            OperaMiniIdentity() if profile is Profile.OPERA_MINI else None
+        )
+        self._safari_locale = safari_locale
+        self._safari_identity = (
+            SafariIdentity(locale=safari_locale) if profile is Profile.SAFARI else None
+        )
+        self._ios_safari_identity = (
+            IOSSafariIdentity(locale=safari_locale)
+            if profile is Profile.IOS_SAFARI
+            else None
+        )
+        self._dart_identity = DartIdentity() if profile is Profile.DART else None
+
+        # Resolve the browser family of the chosen TLS Emulation so a
+        # non-Chrome emulation (Firefox/Edge) gets a coherent HTTP header
+        # envelope instead of Chrome's DEFAULT_HEADERS. Only meaningful for
+        # Emulation-based profiles (not Safari/iOS Safari/Opera Mini/Dart,
+        # which carry their own identity headers).
+        self._emulation_family = (
+            emulation_family(emulation or DEFAULT_EMULATION)
+            if profile not in _IDENTITY_PROFILES
+            else None
+        )
+
+        if headers is not None:
+            self.headers = headers
+        elif self._ios_safari_identity is not None:
+            self.headers = self._ios_safari_identity.client_headers()
+        elif self._safari_identity is not None:
+            self.headers = self._safari_identity.client_headers()
+        elif self._dart_identity is not None:
+            self.headers = self._dart_identity.client_headers()
+        else:
+            # Per-family navigation envelope. Firefox sends NO sec-ch-ua and
+            # a Firefox-shaped Accept; Edge is Chromium (Chrome-like headers,
+            # Microsoft Edge brand in sec-ch-ua). Falls back to Chrome's
+            # DEFAULT_HEADERS for the Chrome family and any unrecognized one.
+            env = family_headers(self._emulation_family)
+            self.headers = env if env is not None else dict(DEFAULT_HEADERS)
+        # Chrome-mode headers, restored by _switch_to_chrome() when rotation
+        # escalates back to a Chrome fingerprint. This MUST be the real Chrome
+        # navigation envelope, NOT the session's starting family envelope: a
+        # Firefox/Edge-emulation session would otherwise send Firefox's Accept
+        # / "...;q=0.5" Accept-Language on a Chrome TLS fingerprint -
+        # incoherent. When the user passed explicit headers=, the documented
+        # full-replace contract wins (we keep their set across rotation so the
+        # rotated request still reflects what they asked for). Identity
+        # profiles (Safari/iOS Safari/Dart) carry their own headers, so None.
+        # Did the user pass explicit headers=? If so, the full-replace contract
+        # means their set rides every rotated family (vs. swapping to each
+        # family's navigation envelope). Tracked so _switch_to_emulation knows
+        # whether _chrome_headers holds the user's set or just DEFAULT_HEADERS.
+        self._user_headers = headers is not None
+        if (
+            self._safari_identity is not None
+            or self._ios_safari_identity is not None
+            or self._dart_identity is not None
+        ):
+            self._chrome_headers = None
+        elif headers is not None:
+            self._chrome_headers = dict(headers)
+        else:
+            self._chrome_headers = dict(DEFAULT_HEADERS)
+        self.connect_timeout = (
+            _normalize_timeout(connect_timeout)
+            if connect_timeout is not None
+            else DEFAULT_CONNECT_TIMEOUT
+        )
+        self.timeout = (
+            _normalize_timeout(timeout) if timeout is not None else DEFAULT_TIMEOUT
+        )
+        # Per-attempt cap: bounds each individual wreq attempt so the
+        # retry/rotation machinery can fire within the total budget.
+        # None (default) = no per-attempt cap (an attempt may use the
+        # whole remaining budget, matching requests/httpx-naive usage).
+        self.attempt_timeout = (
+            _normalize_timeout(attempt_timeout) if attempt_timeout is not None else None
+        )
+        self.max_retries = max_retries
+        self.max_rotations = max_rotations
+        self.follow_redirects = follow_redirects
+        self.max_redirects = max_redirects
+        self.max_failures = max_failures
+
+        if profile in _IDENTITY_PROFILES:
+            # Safari/iOS Safari/Dart use TlsOptions. Opera Mini
+            # bypasses wreq entirely. None need FingerprintManager.
+            self._fingerprint = None
+        else:
+            self._fingerprint = FingerprintManager(emulation or DEFAULT_EMULATION)
+
+        # Opt-in fingerprint pool: a fixed list of Emulation identities to
+        # rotate through on failure with per-identity backoff, INSTEAD of the
+        # default cross-family ladder. When set, a failing identity rests
+        # (its backoff multiplier grows) while the next pool member is tried,
+        # and the session is NOT retired on N strikes (see _record_failure).
+        # Pools are Emulation-only (no Safari/iOS Safari/Dart/Opera Mini);
+        # those profiles ignore the pool. Ignored entirely when None.
+        self._fingerprint_pool = (
+            list(fingerprint_pool)
+            if fingerprint_pool and self._fingerprint is not None
+            else None
+        )
+        self._pool_index = 0
+        # Per-identity strike count (keyed by repr, since Emulation is not
+        # hashable). Drives per-identity backoff: an identity that keeps
+        # failing rests longer before it is tried again (vs. a flat delay).
+        self._pool_strikes: dict[str, int] = {}
+
+        # Per-hostname rate limiter. Validate rather than let a wrong type fall
+        # into the comparison below as a bare TypeError from deep inside
+        # __init__: "disable this" reads as None to a caller, but the knob is
+        # a float where 0.0 is off.
+        if isinstance(rate_limit, bool) or not isinstance(rate_limit, (int, float)):
+            raise TypeError(
+                "rate_limit must be a number of seconds "
+                f"(0.0 disables it), got {type(rate_limit).__name__}"
+            )
+        if rate_limit < 0:
+            raise ValueError("rate_limit must be non-negative (0.0 disables it)")
+        if rate_limit > 0:
+            self._rate_limiter: RateLimiter | None = RateLimiter(
+                min_interval=rate_limit,
+                jitter=rate_jitter,
+            )
+        else:
+            self._rate_limiter = None
+
+        # Session health: consecutive failure count per hostname
+        self._domain_failures: dict[str, int] = {}
+        self._tried_safari = profile in (
+            Profile.SAFARI,
+            Profile.IOS_SAFARI,
+            Profile.DART,
+        )
+
+        # Cookie cache (disk persistence)
+        if cache_dir is not None and profile is not Profile.OPERA_MINI:
+            self._cookie_cache: CookieCache | None = CookieCache(cache_dir)
+        else:
+            self._cookie_cache = None
+        # wreq's public Cookie objects do not expose whether a cookie was
+        # host-only (Set-Cookie omitted Domain). Keep that RFC scope bit while
+        # headers are still available so get_cookie() can safely support
+        # parent-domain cookies without leaking host-only cookies to siblings.
+        # Keyed by the RFC cookie identity (name, normalized domain, path).
+        self._cookie_scopes: dict[tuple[str, str, str], bool] = {}
+
+        # Reddit anonymous-bootstrap diagnostics (see reddit_bootstrap_state).
+        self._reddit_bootstrap_stats = _new_reddit_bootstrap_stats()
+
+        # Referer chain tracking: last URL fetched per hostname
+        self._last_url: dict[str, str] = {}
+
+        # Hosts that have served a NON-EMPTY 200 this session ("200-capable").
+        # An empty 200 from such a host is bell's primary "this identity is
+        # hot" signal: the host clearly CAN return content, so a blank body is
+        # most likely a soft block on the current fingerprint, not a real empty
+        # resource. The retry loop feeds that into rotation (a fresh identity)
+        # before raising EmptyResponse. A first-request empty 200 is NOT
+        # treated this way (could legitimately be an empty endpoint).
+        self._body_capable_domains: set[str] = set()
+
+        # Embed mode: "xhr" or "iframe"
+        # embed_origin without embed= defaults to "xhr"
+        if embed_origin and embed is None:
+            embed = "xhr"
+        if embed and profile is Profile.DART:
+            raise ValueError(
+                "Embed mode is not supported with Profile.DART "
+                "(Dart apps don't send Sec-Fetch-* headers)"
+            )
+        self._embed = embed
+        self._embed_origin = embed_origin
+        self._embed_referers = embed_referers or []
+
+        # Proxy
+        self._proxy = None
+        self._proxy_url = proxy  # raw URL, for the native-TLS transport
+        if proxy:
+            from wreq import Proxy
+
+            self._proxy = Proxy.all(proxy)
+
+        # Optional browser solver for JS challenges. The session closes
+        # a solver only if it created the solver itself (_owns_solver);
+        # a solver passed in via browser_solver= is shared and its
+        # lifecycle belongs to the caller. wafer never auto-creates a
+        # solver today, so _owns_solver is always False for now -- the
+        # flag keeps the ownership invariant explicit and future-proof.
+        self._browser_solver = browser_solver
+        self._owns_solver = False
+        if profile is Profile.IOS_SAFARI and (
+            browser_solver is not None or solve_origin is not None
+        ):
+            raise ValueError(
+                "Browser solving is not supported with Profile.IOS_SAFARI: "
+                "wafer's solver is desktop Chromium, so replaying its cookies "
+                "would break the iOS Safari identity"
+            )
+        if browser_solver is not None:
+            self._align_browser_proxy(proxy)
+            self._align_preflight_browser_identity()
+
+        # Per-session origin page for the AUTO-SOLVE browser path. When the
+        # session's request URL is a JSON/XHR API that can't be top-navigated
+        # (a real browser never navigates to a raw-JSON endpoint -- it would
+        # render the JSON and never run the WAF's challenge JS, so the solve
+        # times out), but the WAF token IS mintable on the site's real origin
+        # page, set solve_origin to that page (e.g. "https://www.example.com/").
+        # The browser solver navigates there first to earn the token, then the
+        # token (cookies, registrable-domain-scoped) replays back to the API
+        # session. Applies to ALL challenge types. Generalizes the Imperva
+        # "Error 15" embedder: when solve_origin is set, it is used as the
+        # navigation target for every challenge; the Imperva-specific embedder
+        # heuristic still runs as a fallback when solve_origin is None.
+        self._solve_origin = solve_origin
+
+        # Cache of scraped reCAPTCHA api.js release versions (the ``v``
+        # token), keyed by mode -- "std" for api.js, "ent" for
+        # enterprise.js. Populated lazily on the first mint_recaptcha_v3
+        # call that doesn't pass an explicit v=, so the api.js fetch
+        # happens at most once per mode per session.
+        self._recaptcha_v: dict[str, str] = {}
+
+        # SSRF-safe DNS pinning: a pre-validated host->IP map. wafer connects
+        # the socket to exactly these IPs while TLS SNI + cert validation still
+        # key on the original hostname, closing the TOCTOU rebinding window
+        # between a caller's public-IP check and wafer's connect. Passed
+        # through to wreq's DnsOptions on the wreq path (see
+        # _build_client_kwargs) and honored by the native-TLS path (see
+        # _native_transport). Keys are canonicalized (_canonical_host: case /
+        # trailing-dot / IDNA) and the request URL host is canonicalized the
+        # same way before dispatch, so a case/dot/IDN variant of the host can't
+        # miss the pin and fall through to real DNS. IPs are validated up front
+        # so a later _rebuild_client (fingerprint rotation) can never raise on
+        # a bad address. An explicitly listed host with no IPs is a caller bug
+        # that would silently reopen the hole, so it raises rather than
+        # falling through to real DNS.
+        self._resolve: dict[str, list[str]] = {}
+        if resolve:
+            # A proxy resolves the target host itself, so the pin would be
+            # silently ignored through one (both transports skip pinning when
+            # a proxy is set). For an SSRF guard that is a fail-open: refuse
+            # the unsatisfiable contract loudly instead of pretending to pin.
+            if proxy:
+                raise ValueError(
+                    "resolve= (SSRF DNS pinning) cannot be combined with a "
+                    "proxy: the proxy resolves the target host, so the pin "
+                    "would be silently ignored. Pass one or the other."
+                )
+            from ipaddress import ip_address
+
+            for host, addrs in resolve.items():
+                norm = _canonical_host(host)
+                if not norm:
+                    raise ValueError("resolve host must be a non-empty string")
+                # Materialize before the empty check so a single-use iterable
+                # (generator) can't slip past it and store [] -which would
+                # silently fall through to real DNS and reopen the hole.
+                addrs = list(addrs)
+                if not addrs:
+                    raise ValueError(
+                        f"resolve[{host!r}] has no IP addresses; a pinned "
+                        "host must map to at least one IP"
+                    )
+                for a in addrs:
+                    ip_address(a)  # validate now; raises ValueError if bad
+                self._resolve[norm] = addrs
+
+        # Native-TLS fallback (urllib/OpenSSL) for WAFs that fingerprint
+        # the BoringSSL stack wreq is built on (Imperva/Incapsula). Lazily
+        # created. Hostnames proven to need it are routed through it on
+        # later requests too: wreq gets challenged even *with* the WAF
+        # cookies, so once a domain goes native the whole flow stays there.
+        self._native_tls = None
+        self._native_tls_domains: set[str] = set()
+
+        # TLS session rotation: rebuild client every N requests
+        self._rotate_every = rotate_every
+        self._request_count = 0
+
+        # Cache client-level headers for fast delta in _build_headers
+        self._client_headers = self._compute_client_headers()
+
+        if self._fingerprint is None:
+            logger.debug(
+                "Session created with %s profile, timeout=%s",
+                profile.name if profile else "custom",
+                self.timeout,
+            )
+        elif embed_origin:
+            logger.info(
+                "Session created in embed mode: origin=%s, referers=%d, emulation=%s",
+                embed_origin,
+                len(self._embed_referers),
+                self._fingerprint.current,
+            )
+        else:
+            logger.debug(
+                "Session created with emulation=%s, timeout=%s",
+                self._fingerprint.current,
+                self.timeout,
+            )
+
+    def _align_browser_proxy(self, proxy: str | None) -> None:
+        """Require the HTTP and browser solve paths to use one egress.
+
+        WAF cookies are commonly bound to the source IP. Allowing the wreq
+        request through a proxy while Chrome connects directly (or vice versa)
+        both leaks the caller's direct IP and guarantees incoherent replay.
+        """
+
+        solver = self._browser_solver
+        configured = getattr(solver, "proxy_server", None)
+        matches = getattr(solver, "proxy_matches", None)
+
+        if proxy is None:
+            if configured is not None:
+                raise ValueError(
+                    "browser_solver uses a proxy but the session does not; "
+                    "configure the same proxy= on both paths"
+                )
+            return
+
+        if callable(matches) and matches(proxy):
+            return
+        if configured == proxy:
+            return
+        if configured is None:
+            configure = getattr(solver, "configure_proxy", None)
+            if callable(configure):
+                configure(proxy)
+                if callable(matches) and not matches(proxy):
+                    raise ValueError("browser_solver did not accept the session proxy")
+                return
+
+        raise ValueError(
+            "proxy= and browser_solver= must use the same proxy; the solver "
+            "must expose configure_proxy(proxy), or an identical proxy_server, "
+            "so browser solves cannot bypass the session proxy"
+        )
+
+    def _ensure_browser_solver(self):
+        """Return this session's browser solver, creating one if needed.
+
+        Only a render calls this. A solver created here is owned by the
+        session (closed on exit); one passed in via ``browser_solver=`` is
+        shared and its lifecycle stays with the caller. The session proxy is
+        applied to a solver we create, so the browser and the transport can
+        never egress from different addresses.
+        """
+
+        if self._browser_solver is not None:
+            return self._browser_solver
+        if self._profile is Profile.IOS_SAFARI:
+            raise ValueError(
+                "Browser solving is not supported with Profile.IOS_SAFARI: "
+                "wafer's solver is desktop Chromium, so replaying its cookies "
+                "would break the iOS Safari identity"
+            )
+        from wafer.browser import BrowserSolver
+
+        solver = BrowserSolver()
+        self._browser_solver = solver
+        self._owns_solver = True
+        try:
+            self._align_browser_proxy(self._proxy_url)
+        except Exception:
+            self._browser_solver = None
+            self._owns_solver = False
+            try:
+                solver.close()
+            except Exception:
+                logger.debug("BrowserSolver.close() failed")
+            raise
+        return solver
+
+    def _align_preflight_browser_identity(self) -> None:
+        """Pin transport identity to an already-preflighted Chrome instance.
+
+        A protected request can itself issue a challenge and bind that
+        challenge to UA/client hints.  Waiting until a later browser solve to
+        discover Chrome's version means the *first* request advertises wreq's
+        stale default instead.  BrowserSolver preflight records its real
+        headed identity, and this no-I/O accessor lets the initial wreq client
+        use the same UA and client hints from the start.
+
+        Browser challenge cookies are bound to the complete UA/client-hint
+        envelope. An explicit caller UA is valid only when it is exactly the
+        already-preflighted browser UA; otherwise reject the mixed transport
+        rather than replay browser state through a contradictory client.
+        """
+
+        identity = getattr(self._browser_solver, "browser_identity", None)
+        explicit_ua = next(
+            (
+                value
+                for key, value in self.headers.items()
+                if key.lower() == "user-agent"
+            ),
+            None,
+        )
+        if self._fingerprint is None:
+            return
+        if not isinstance(identity, tuple) or len(identity) != 2:
+            if explicit_ua is not None:
+                raise ValueError(
+                    "browser_solver with an explicit User-Agent requires "
+                    "a completed matching browser preflight"
+                )
+            return
+        user_agent, browser_version = identity
+        if not isinstance(user_agent, str) or not isinstance(browser_version, str):
+            return
+        if explicit_ua is not None and explicit_ua != user_agent:
+            raise ValueError(
+                "explicit User-Agent must exactly match the preflighted "
+                "browser_solver identity"
+            )
+        major_version = chrome_version_from_ua(user_agent)
+        if major_version is None:
+            logger.warning(
+                "Ignoring preflight browser identity with no Chrome UA version"
+            )
+            return
+
+        self._fingerprint.pin_to_browser(user_agent, major_version, browser_version)
+        logger.info(
+            "Pre-aligned transport identity to preflight Chrome %s",
+            major_version,
+        )
+
+    def _validate_browser_request_identity(
+        self, extra_headers: dict[str, str] | None
+    ) -> None:
+        """Reject a per-request UA that would split browser replay identity."""
+
+        if self._browser_solver is None or not extra_headers:
+            return
+        request_ua = next(
+            (
+                value
+                for key, value in extra_headers.items()
+                if key.lower() == "user-agent"
+            ),
+            None,
+        )
+        if request_ua is None:
+            return
+        identity = getattr(self._browser_solver, "browser_identity", None)
+        if (
+            not isinstance(identity, tuple)
+            or len(identity) != 2
+            or request_ua != identity[0]
+        ):
+            raise ValueError(
+                "per-request User-Agent must exactly match the preflighted "
+                "browser_solver identity"
+            )
+
+    @property
+    def emulation(self) -> Emulation | None:
+        """Current Emulation profile (delegates to FingerprintManager)."""
+        if self._fingerprint is None:
+            return None
+        return self._fingerprint.current
+
+    def _serving_user_agent(self) -> str | None:
+        """The User-Agent actually serving requests for this session.
+
+        Identity profiles (Safari/iOS Safari/Dart/Opera Mini) carry their own
+        UA in self.headers; Emulation-based sessions get the UA from wreq,
+        which we reconstruct from the current Emulation.
+        """
+        # User-supplied headers fully replace an identity profile's defaults,
+        # so consult the actual header set before the identity object. This
+        # also handles ordinary Emulation sessions with an explicit UA.
+        for k, v in self.headers.items():
+            if k.lower() == "user-agent":
+                return v or None
+        if self._user_headers and self._fingerprint is None:
+            # An identity profile's UA lives only in the headers it installs,
+            # so a caller set that replaced them left no UA on the wire. An
+            # Emulation session is different: wreq still supplies the profile
+            # UA (DEFAULT_HEADERS never carried one), so fall through to it
+            # rather than reporting None for every headers= caller.
+            return None
+        if self._ios_safari_identity is not None:
+            return self._ios_safari_identity.user_agent
+        if self._safari_identity is not None:
+            return self._safari_identity.user_agent
+        if self._dart_identity is not None:
+            return self._dart_identity.user_agent
+        if self._om_identity is not None:
+            return self._om_identity.user_agent
+        if self._fingerprint is not None:
+            # A browser solve pins the solving browser's exact UA (see
+            # FingerprintManager.pin_to_browser); it's what's on the wire.
+            if self._fingerprint.ua_override:
+                return self._fingerprint.ua_override
+            return emulation_user_agent(self._fingerprint.current)
+        return None
+
+    def fingerprint_envelope(self) -> dict:
+        """Return the coherent client identity this session serves with.
+
+        A snapshot of the User-Agent + Client Hint identity that wafer puts
+        on the wire, consistent with the headers actually sent. Useful for
+        feeding the same identity to other tooling (e.g. signing a JS
+        challenge) or diagnosing a 403.
+
+        Always returns a dict with these keys:
+
+        - ``user_agent``: ``str | None``
+        - ``family``: ``"chrome" | "edge" | "firefox" | "opera" |
+          "safari" | "dart" | "opera_mini" | None``
+        - ``emulation``: ``repr()`` of the Emulation, or the Profile name
+          for Safari/iOS Safari/Dart/Opera Mini (e.g.
+          ``"Profile.Chrome149"``, ``"ios_safari"``)
+        - ``sec_ch_ua`` / ``sec_ch_ua_mobile`` / ``sec_ch_ua_platform``:
+          the low-entropy Client Hints. ``None`` for Firefox/Safari (no
+          client hints) and for Opera (wreq's Emulation emits accurate
+          Opera hints itself; wafer doesn't re-derive them)
+        - ``full_version_list``: ``Sec-CH-UA-Full-Version-List`` (or None)
+        - ``platform_version``: ``Sec-CH-UA-Platform-Version`` (or None)
+        - ``user_agent_data``: the ``navigator.userAgentData`` shape Chromium
+          exposes (``None`` for Firefox/Safari)
+        - ``is_mobile``: ``True`` for a mobile wreq Emulation identity
+          (iOS/iPad Safari, Android Firefox) or ``Profile.IOS_SAFARI``;
+          ``False`` otherwise. Mobile identities still send no ``sec-ch-ua``
+          (no mobile Chromium profile exists in wreq), so this is the only
+          mobility signal.
+
+        For non-Emulation profiles (Safari/iOS Safari/Dart/Opera Mini) only the
+        ``user_agent``, ``family``, and ``emulation`` fields are populated;
+        the Client-Hint fields are ``None`` (those identities send none).
+        """
+        ua = self._serving_user_agent()
+        if self._fingerprint is not None:
+            # Pass any browser-solve override so the snapshot matches the wire
+            # (a solve pins the browser's real version, newer than the TLS
+            # profile) rather than the Emulation's default client hints.
+            env = build_fingerprint_envelope(
+                self._fingerprint.current,
+                ua,
+                ch_major_version=self._fingerprint.ch_version_override,
+                ch_full_version=self._fingerprint.ch_full_version_override,
+            )
+            return env
+        # Non-Emulation identity profile (Safari / iOS Safari / Dart /
+        # Opera Mini). Most are their own "family"; both Safari variants use
+        # the "safari" family. A default Chrome session that ROTATED to Safari
+        # has _safari_identity set but _profile is None -- still report
+        # "safari" for it.
+        if self._safari_identity is not None or self._ios_safari_identity is not None:
+            family = "safari"
+        elif self._profile is not None:
+            family = self._profile.value
+        else:
+            family = None
+        return {
+            "user_agent": ua,
+            "family": family,
+            "emulation": self._serving_emulation_repr(),
+            "sec_ch_ua": None,
+            "sec_ch_ua_mobile": None,
+            "sec_ch_ua_platform": None,
+            "full_version_list": None,
+            "platform_version": None,
+            "user_agent_data": None,
+            "is_mobile": self._ios_safari_identity is not None,
+        }
+
+    def _serving_emulation_repr(self) -> str | None:
+        """The repr()/profile string of the identity serving requests.
+
+        Stamped on every WaferResponse as ``resp.emulation`` so callers can
+        diagnose which fingerprint served a 403/regression. For Emulation
+        sessions it's ``repr(Emulation.XxxNNN)``; for Safari/iOS
+        Safari/Dart/Opera Mini it's the profile name. A default Chrome
+        session that ROTATED onto the ladder's Safari rung has
+        _safari_identity set but _profile None -- still report "safari".
+        """
+        if self._fingerprint is not None:
+            return repr(self._fingerprint.current)
+        if self._ios_safari_identity is not None:
+            return Profile.IOS_SAFARI.value
+        if self._safari_identity is not None:
+            return Profile.SAFARI.value
+        if self._profile is not None:
+            return self._profile.value
+        return None
+
+    def _compute_client_headers(self) -> dict[str, str]:
+        """Compute client-level headers snapshot.
+
+        Cached as self._client_headers to avoid regenerating sec-ch-ua
+        strings on every _build_headers call. Must be refreshed after
+        fingerprint rotation (_build_client_kwargs does this).
+
+        Embed mode adjustments happen here (not in _build_headers) because
+        wreq's header model is additive: per-request headers cannot remove
+        or replace client-level headers, they only add. Setting a header
+        at both levels creates HTTP/2 duplicates that WAFs detect.
+        """
+        headers = dict(self.headers)
+        if self._fingerprint is not None:
+            # After a browser solve, replay the solving browser's exact UA so
+            # UA-bound WAF cookies (cf_clearance, ...) validate. wreq derives
+            # the UA from the Emulation unless a User-Agent header is set, so
+            # inject it here. A user-supplied UA (in self.headers) still wins.
+            ua_override = self._fingerprint.ua_override
+            if ua_override and not any(k.lower() == "user-agent" for k in headers):
+                headers["User-Agent"] = ua_override
+            headers.update(self._fingerprint.sec_ch_ua_headers())
+
+        if self._embed:
+            # Strip Sec-Fetch-* from client level. _build_headers sets
+            # the correct values per-request (they vary by URL for
+            # Sec-Fetch-Site). Leaving them at client level would create
+            # HTTP/2 duplicates, especially after Safari fallback (which
+            # sets Sec-Fetch-Dest: document, Sec-Fetch-Mode: navigate).
+            for key in list(headers):
+                if key.startswith("Sec-Fetch-"):
+                    del headers[key]
+
+        if self._embed in ("xhr", "xhr-jquery"):
+            # XHR/fetch never sends navigation-only headers. Strip from
+            # client level since wreq can't remove them per-request.
+            headers.pop("Cache-Control", None)
+            headers.pop("Upgrade-Insecure-Requests", None)
+            # Replace navigation Accept with XHR Accept at client level
+            # (setting it per-request would duplicate with the old value).
+            # Plain xhr emulates fetch() (Accept: */*); xhr-jquery emulates a
+            # legacy jQuery $.ajax / XMLHttpRequest call, which sends the
+            # jQuery Accept and the X-Requested-With marker (both at client
+            # level to avoid HTTP/2 header duplication).
+            if self._embed == "xhr-jquery":
+                headers["Accept"] = "application/json, text/javascript, */*; q=0.01"
+                headers["X-Requested-With"] = "XMLHttpRequest"
+            else:
+                headers["Accept"] = "*/*"
+
+        return headers
+
+    def _compute_sec_fetch_site(self, url: str) -> str:
+        """Compute Sec-Fetch-Site based on embed_origin vs request URL.
+
+        Returns "same-origin", "same-site", or "cross-site" per the spec.
+
+        Same-site uses ``_psl`` (a curated PSL-lite subset of multi-label
+        public suffixes), so two unrelated ``.co.uk`` / ``.com.au`` /
+        ``.github.io`` domains are correctly classified cross-site. The
+        subset is intentionally incomplete; an unlisted multi-label TLD
+        degrades to the TLD+1 heuristic. Override per-request if needed:
+        ``headers={"Sec-Fetch-Site": "cross-site"}``.
+        """
+        if not self._embed_origin:
+            return "cross-site"
+
+        origin = urlparse(self._embed_origin)
+        request = urlparse(url)
+        origin_host = origin.hostname or ""
+        request_host = request.hostname or ""
+
+        # Same origin: same scheme + host + port
+        origin_port = origin.port or (443 if origin.scheme == "https" else 80)
+        request_port = request.port or (443 if request.scheme == "https" else 80)
+        if (
+            origin.scheme == request.scheme
+            and origin_host == request_host
+            and origin_port == request_port
+        ):
+            return "same-origin"
+
+        # Same site: same scheme + same registrable domain (PSL-lite aware,
+        # so two unrelated hosts under a public suffix like .co.uk are
+        # cross-site, not same-site).
+        if origin.scheme == request.scheme and _psl.same_site(
+            origin_host, request_host
+        ):
+            return "same-site"
+
+        return "cross-site"
+
+    def _build_headers(
+        self,
+        url: str,
+        extra: dict[str, str] | None = None,
+        method: str = "GET",
+    ) -> dict[str, str]:
+        """Build per-request headers as a delta over client-level headers.
+
+        Returns only headers that differ from what's already set on the
+        wreq Client (via _build_client_kwargs). This avoids sending
+        duplicate headers in HTTP/2 frames, which strict WAFs like
+        Cloudflare detect as non-browser behavior.
+
+        Order: session defaults → sec-ch-ua → auto Host → referer/embed →
+        per-request overrides. Any auto-header can be suppressed by
+        setting it to empty string in session headers or per-request
+        overrides; empty-string values are stripped at the end.
+        """
+        self._validate_browser_request_identity(extra)
+
+        # Opera Mini / Dart: identity headers are already at client level
+        # (set in _build_client_kwargs). Only return per-request
+        # overrides -- returning the full identity here would duplicate
+        # every header at both client and request level.
+        if self._profile in (Profile.OPERA_MINI, Profile.DART):
+            return dict(extra) if extra else {}
+
+        # Use cached client-level headers (refreshed on rotation/rebuild)
+        client_headers = self._client_headers
+
+        # Full merged headers (same logic as before)
+        merged = dict(client_headers)
+
+        parsed = urlparse(url)
+        domain = parsed.hostname or ""
+
+        if self._embed in ("xhr", "xhr-jquery"):
+            # XHR/fetch impersonation. Accept, X-Requested-With (jQuery only),
+            # and navigation headers are already fixed at client level by
+            # _compute_client_headers. The Sec-Fetch-* / Origin / Referer
+            # behavior is identical for fetch() and jQuery XHR -- both are CORS
+            # requests issued from the embed_origin page.
+            merged["Origin"] = self._embed_origin or ""
+            merged["Sec-Fetch-Site"] = self._compute_sec_fetch_site(url)
+            merged["Sec-Fetch-Mode"] = "cors"
+            merged["Sec-Fetch-Dest"] = "empty"
+            if self._embed_referers:
+                merged["Referer"] = random.choice(self._embed_referers)
+            logger.debug(
+                "Embed mode (%s): Origin=%s, Sec-Fetch-Site=%s, Referer=%s",
+                self._embed,
+                self._embed_origin,
+                merged["Sec-Fetch-Site"],
+                merged.get("Referer", "(none)"),
+            )
+        elif self._embed == "iframe":
+            # Iframe navigation impersonation
+            merged["Sec-Fetch-Site"] = self._compute_sec_fetch_site(url)
+            merged["Sec-Fetch-Mode"] = "navigate"
+            merged["Sec-Fetch-Dest"] = "iframe"
+            # POST/PUT/PATCH/DELETE navigations send Origin (Fetch spec);
+            # GET/HEAD navigations do not.
+            if method.upper() not in ("GET", "HEAD"):
+                merged["Origin"] = self._embed_origin or ""
+            if self._embed_referers:
+                merged["Referer"] = random.choice(self._embed_referers)
+            logger.debug(
+                "Embed mode (iframe): Sec-Fetch-Site=%s, Referer=%s",
+                merged["Sec-Fetch-Site"],
+                merged.get("Referer", "(none)"),
+            )
+        else:
+            # Normal referer chain: auto-set from last URL on same hostname
+            if "Referer" not in merged and domain in self._last_url:
+                merged["Referer"] = self._last_url[domain]
+                logger.debug("Auto-Referer: %s", self._last_url[domain])
+
+        # Kasada: CT+CD headers require x-kpsdk-h HMAC to be valid.
+        # Without H, sending CT+CD causes server rejection (worse
+        # than cookies alone). Cookie-only auth works for most
+        # deployments; passthrough handles the rest. CT/ST are
+        # still captured and cached for future H generation.
+        # kasada = get_kasada_session(domain)
+        # if kasada and kasada.st:
+        #     merged["x-kpsdk-ct"] = kasada.ct
+        #     merged["x-kpsdk-cd"] = generate_cd(kasada.st)
+
+        # Per-request overrides (last to win). Replace case-insensitively:
+        # HTTP header names are case-insensitive, so a caller passing
+        # ``accept`` against a merged ``Accept`` must REPLACE it. Letting both
+        # survive puts two Accept fields on the HTTP/2 wire, which strict WAFs
+        # read as non-browser behaviour.
+        if extra:
+            for key, value in extra.items():
+                folded = key.lower()
+                for existing in [k for k in merged if k.lower() == folded]:
+                    if existing != key:
+                        del merged[existing]
+                merged[key] = value
+
+        # Return only the delta: headers not already at client level, or with
+        # a different value (e.g. user per-request override). The client-level
+        # comparison is also case-insensitive, so an override that differs
+        # only in casing is not re-sent alongside the client's own copy.
+        # Strip empty-string values (suppression mechanism).
+        folded_client = {k.lower(): (k, v) for k, v in client_headers.items()}
+        delta = {}
+        for k, v in merged.items():
+            if v == "":
+                continue
+            canonical, existing = folded_client.get(k.lower(), (k, _MISSING))
+            if existing is _MISSING or existing != v:
+                # Emit under the CLIENT's spelling when the header already
+                # exists there. wreq overrides a same-named per-request header
+                # but treats a differently-cased one as a separate field, so
+                # sending "accept" beside the client's "Accept" duplicates it
+                # on the HTTP/2 wire.
+                delta[canonical] = v
+        return delta
+
+    def _record_url(self, url: str) -> None:
+        """Record the URL for referer chain tracking."""
+        domain = urlparse(url).hostname
+        if domain:
+            self._last_url[domain] = url
+
+    def _record_failure(self, domain: str) -> bool:
+        """Record a 403/429 failure for a hostname.
+
+        Returns True if the session should be retired (threshold hit).
+
+        When a ``fingerprint_pool`` is in use the session is never retired.
+        Rotation failures accrue per-identity backoff in
+        ``_advance_rotation``; a full identity reset would defeat that model.
+        """
+        count = self._domain_failures.get(domain, 0) + 1
+        self._domain_failures[domain] = count
+        if (
+            self.max_failures is not None
+            and count >= self.max_failures
+            and self._fingerprint_pool is None
+        ):
+            logger.warning(
+                "Session health: %d consecutive failures for %s "
+                "(threshold=%d), retiring",
+                count,
+                domain,
+                self.max_failures,
+            )
+            return True
+        return False
+
+    def _record_success(self, domain: str) -> None:
+        """Record a successful response for a hostname, resetting failures."""
+        if domain in self._domain_failures:
+            del self._domain_failures[domain]
+
+    def _switch_to_safari(self) -> None:
+        """Switch from Chrome to Safari identity for rotation fallback.
+
+        Safari supplies a different TLS/H2 fingerprint from Chromium-family
+        profiles.
+        Only called for default Chrome sessions (not Safari or Opera Mini).
+        """
+        self._safari_identity = SafariIdentity(locale=self._safari_locale)
+        self._fingerprint = None
+        self._tried_safari = True
+        self.headers = self._safari_identity.client_headers()
+        logger.info("Rotation fallback: switched to Safari profile")
+
+    def _switch_to_chrome(self) -> None:
+        """Switch back from Safari to Chrome with a rotated version.
+
+        Called during rotation escalation when Safari didn't help either.
+        Restores Chrome TLS identity with a different version than default.
+        """
+        self._safari_identity = None
+        self._fingerprint = FingerprintManager(DEFAULT_EMULATION)
+        self._fingerprint.rotate()
+        self.headers = (
+            dict(self._chrome_headers)
+            if self._chrome_headers
+            else dict(DEFAULT_HEADERS)
+        )
+        logger.info(
+            "Rotation: switched to Chrome %s",
+            self._fingerprint.current,
+        )
+
+    def _switch_to_emulation(self, emulation: Emulation) -> None:
+        """Switch the session to a specific Emulation, swapping the header
+        envelope to that browser family's.
+
+        Coherence is the whole point of cross-family rotation: a Firefox TLS
+        fingerprint with Chrome's Accept / sec-ch-ua is self-defeating, so the
+        navigation header envelope (family_headers: Firefox's Accept and
+        ``Accept-Language: ...;q=0.5``, no sec-ch-ua; Edge's Chromium Accept;
+        etc.) is swapped to match the new family. The family-specific
+        sec-ch-ua client hints follow automatically because
+        ``_compute_client_headers`` calls ``FingerprintManager.sec_ch_ua_headers``
+        on the now-current Emulation. Pins nothing and clears any Safari
+        identity. The caller rebuilds the wreq client afterwards.
+
+        When the user supplied explicit ``headers=`` we keep their full set
+        (documented full-replace contract: ``_chrome_headers`` holds that set),
+        so their headers ride every rotated family.
+        """
+        self._safari_identity = None
+        self._fingerprint = FingerprintManager(emulation)
+        family = emulation_family(emulation)
+        if self._chrome_headers is not None and self._user_headers:
+            # User passed explicit headers= -- honor the full-replace contract.
+            self.headers = dict(self._chrome_headers)
+        else:
+            env = family_headers(family)
+            self.headers = env if env is not None else dict(DEFAULT_HEADERS)
+        logger.info(
+            "Rotation: switched to %s (family=%s)",
+            emulation,
+            family,
+        )
+
+    def _advance_rotation(self, rotation_index: int) -> None:
+        """Advance the session's identity for rotation step ``rotation_index``.
+
+        ``rotation_index`` is ``state.rotation_retries`` AFTER ``use_rotation()``
+        (so the first rotation is 1). Mutates the session's identity in place;
+        the caller rebuilds the wreq client. A no-op for a pinned fingerprint
+        (the caller guards that) and for ``profile=`` identity sessions
+        (Safari/iOS Safari/Dart/Opera Mini), which keep their coherent identity.
+
+        Two modes:
+
+        * **Pool mode** (``fingerprint_pool`` set): step to the next pool
+          member, cycling. A failing identity rests while the others are
+          tried; no Safari/family ladder, no retirement.
+        * **Default cross-family ladder**: rotation 1 is a fresh TLS session on
+          the *same* family (handled by the caller; this is a no-op here).
+          Rotations 2+ walk ``ROTATION_LADDER`` -- Firefox, then Safari, then
+          Edge -- each swapping the matching header envelope. A rung that is
+          the session's CURRENT family (e.g. a Firefox-start session at the
+          Firefox rung), or the Safari rung once Safari was already tried, is
+          skipped to the NEXT rung so the cross-family order is preserved.
+          Beyond the ladder it cycles versions within the current Emulation
+          family.
+        """
+        if self._fingerprint_pool is not None:
+            # The identity we're leaving just failed: charge it a strike so it
+            # rests longer the next time the cycle reaches it (_rotation_delay
+            # reads the incoming identity's strike count).
+            if self._fingerprint is not None:
+                cur_repr = repr(self._fingerprint.current)
+                self._pool_strikes[cur_repr] = self._pool_strikes.get(cur_repr, 0) + 1
+            self._pool_index += 1
+            em = self._fingerprint_pool[self._pool_index % len(self._fingerprint_pool)]
+            self._switch_to_emulation(em)
+            return
+
+        # The cross-family ladder (Firefox/Safari/Edge rungs + version cycling)
+        # is for Emulation-based (Chrome-family-capable) sessions only. A
+        # profile=Dart/Safari/iOS-Safari/Opera-Mini session carries its coherent
+        # TLS+headers identity; swapping in a family envelope (or re-rolling
+        # Safari's version) would produce an incoherent fingerprint (e.g. Dart
+        # TLS + Safari headers). Key off self._profile, NOT _fingerprint: a
+        # default (Chrome-start) session that the ladder has ALREADY rotated
+        # onto Safari also has _fingerprint=None, but it must keep climbing the
+        # ladder (Safari -> Edge -> Chrome cycling), so it must NOT be bounced
+        # out here. For profile= sessions rotation only refreshes the TLS
+        # session / cookies (the caller's _rebuild_client); identity stays put.
+        if self._profile in _IDENTITY_PROFILES:
+            return
+
+        # Default cross-family ladder. rotation_index 1 == fresh-session retry
+        # on the starting family (no identity change here).
+        if rotation_index <= 1:
+            return
+        # The family this session is CURRENTLY serving with. When the ladder has
+        # already put us on Safari, _fingerprint is None -- treat that as the
+        # "safari" family so the same-family skip below is computed correctly.
+        cur_family = (
+            "safari"
+            if self._safari_identity is not None
+            else emulation_family(self._fingerprint.current)
+            if self._fingerprint is not None
+            else None
+        )
+        # Map rotation 2 -> ladder[0], rotation 3 -> ladder[1], etc. When a
+        # rung would repeat this session's current family -- the "safari" rung after
+        # Safari was already tried, or an Emulation rung that IS the session's
+        # current family (e.g. a Firefox-START session reaching the Firefox
+        # rung) -- advance to the NEXT ladder rung rather than dropping straight
+        # into Chrome-version cycling. This keeps the cross-family order intact
+        # for non-Chrome starts (Firefox-start: Safari -> Edge before cycling).
+        # The common Chrome start is unaffected: rung 0 (Firefox) already
+        # differs from "chrome", so the first rung is used with no scan.
+        for rung in range(rotation_index - 2, len(ROTATION_LADDER)):
+            target = ROTATION_LADDER[rung]
+            if target == "safari":
+                # Safari is a custom-TLS identity, not an Emulation. Restore
+                # the OLD guard semantics: only swap to Safari from a session
+                # that hasn't already tried it (profile= Safari/iOS
+                # Safari/Dart sessions already returned above).
+                if not self._tried_safari:
+                    self._switch_to_safari()
+                    return
+                # Already tried Safari this session: skip to the next rung.
+                continue
+            if target is not None:
+                # Skip a family rung that IS the session's current family
+                # rather than repeating it; try the next rung.
+                if emulation_family(target) != cur_family:
+                    self._switch_to_emulation(target)
+                    return
+                continue
+            # target is None: the trailing "cycle versions" sentinel -- stop
+            # scanning and fall into version cycling below.
+            break
+        # Beyond the ladder (or a fully-skipped scan): fall back to
+        # cycling Chrome versions (FingerprintManager.rotate only knows the
+        # Chrome profile set). If still on Safari, restore Chrome first; if on
+        # a non-Chrome Emulation (Firefox/Edge), rotate() lands on Chrome and
+        # then cycles Chrome versions on later rotations.
+        if self._safari_identity is not None:
+            self._switch_to_chrome()
+        elif self._fingerprint is not None:
+            self._fingerprint.rotate()
+            # rotate() may have crossed back into the Chrome family from a
+            # Firefox/Edge rung; resync the header envelope to match.
+            self.headers = (
+                dict(self._chrome_headers)
+                if self._user_headers and self._chrome_headers is not None
+                else (
+                    family_headers(emulation_family(self._fingerprint.current))
+                    or dict(DEFAULT_HEADERS)
+                )
+            )
+
+    def _rotation_delay(self) -> float:
+        """Delay before a rotation retry: rate limiter interval + 1s.
+
+        Ensures rotation retries never fire faster than the user's
+        configured rate limit, with an extra 1s penalty on top.
+
+        In ``fingerprint_pool`` mode the penalty grows with the INCOMING
+        identity's strike count (per-identity backoff): a pool member that has
+        failed before rests proportionally longer before it is retried, capped
+        at +15s so a hot identity never starves the others.
+        """
+        base = self._rate_limiter.min_interval if self._rate_limiter else 0.0
+        penalty = 1.0
+        if self._fingerprint_pool is not None and self._fingerprint is not None:
+            strikes = self._pool_strikes.get(repr(self._fingerprint.current), 0)
+            if strikes:
+                penalty = min(1.0 * (2**strikes), 15.0)
+        return base + penalty
+
+    @staticmethod
+    def _clamp_delay(delay: float, deadline: float | None) -> float:
+        """Clamp a retry/rotation sleep so it never overshoots the deadline.
+
+        Every retry, rotation, backoff, and Retry-After sleep is routed
+        through here so a single hostile response (e.g. ``429 Retry-After:
+        3600``) or a slow rate-limit interval can never hold a caller past
+        its total ``timeout=`` budget. Returns 0.0 once the deadline is
+        reached, letting the loop-top deadline check raise ``WaferTimeout``.
+        """
+        if deadline is not None:
+            delay = min(delay, max(0.0, deadline - time.monotonic()))
+        return delay
+
+    def _clear_cached_cookies(self, domain: str) -> None:
+        """Clear cached cookies for an identity rotation.
+
+        Most sites use one cache file per request host. Reddit is different:
+        a JSON gate may originate on ``api``/``old`` while its verification
+        cookies are earned on ``www`` and stored in the canonical
+        ``reddit.com`` namespace. Clear every Reddit namespace together so a
+        rebuilt client never rehydrates cookies earned by the old fingerprint.
+        """
+        if self._cookie_cache is None:
+            return
+        normalized = (domain or "").rstrip(".").lower()
+        domains = {domain}
+        if normalized == "reddit.com" or normalized.endswith(".reddit.com"):
+            domains.add("reddit.com")
+            try:
+                for cached in self._cookie_cache.list_domains():
+                    host = cached.rstrip(".").lower()
+                    if host == "reddit.com" or host.endswith(".reddit.com"):
+                        domains.add(cached)
+            except Exception:
+                logger.debug(
+                    "Failed to enumerate Reddit cookie cache",
+                    exc_info=True,
+                )
+        for cached in domains:
+            self._cookie_cache.clear(cached)
+
+    @staticmethod
+    def _apply_params(url: str, params: dict[str, str] | None) -> str:
+        """Append query parameters to a URL.
+
+        wreq doesn't support a params= kwarg, so wafer handles it by
+        building the query string into the URL before passing to wreq.
+        """
+        if not params:
+            return url
+        sep = "&" if "?" in url else "?"
+        return url + sep + urlencode(params)
+
+    @staticmethod
+    def _is_cross_origin(old_url: str, new_url: str) -> bool:
+        """True if redirect crosses origin (different host)."""
+        old_host = urlparse(old_url).hostname or ""
+        new_host = urlparse(new_url).hostname or ""
+        return old_host != new_host
+
+    @staticmethod
+    def _strip_sensitive_headers(
+        extra_headers: dict[str, str] | None,
+        cross_origin: bool,
+        method_changed: bool,
+    ) -> dict[str, str] | None:
+        """Strip headers that should not survive a redirect hop.
+
+        Per the Fetch spec and consistent with requests/httpx/curl:
+        - Authorization is stripped on cross-origin redirects
+        - Content-Type is stripped when method changes (POST → GET)
+        """
+        if extra_headers is None:
+            return None
+        drop = set()
+        if cross_origin:
+            drop.add("authorization")
+        if method_changed:
+            drop.update(("content-type", "content-length"))
+        if not drop:
+            return extra_headers
+        filtered = {k: v for k, v in extra_headers.items() if k.lower() not in drop}
+        if len(filtered) != len(extra_headers):
+            logger.debug(
+                "Redirect: stripped headers %s",
+                drop & {k.lower() for k in extra_headers},
+            )
+        return filtered or None
+
+    @staticmethod
+    def _resolve_redirect_url(base_url: str, location: str) -> str:
+        """Resolve a Location header value to an absolute URL.
+
+        Handles:
+        - Absolute URLs (https://...)
+        - Protocol-relative URLs (//host/path)
+        - Relative URLs (/path, path)
+        """
+        location = location.strip()
+        if location.startswith("//"):
+            # Protocol-relative: inherit scheme from base URL
+            scheme = urlparse(base_url).scheme or "https"
+            location = f"{scheme}:{location}"
+        resolved = urljoin(base_url, location)
+        # Ensure path is not empty (some servers omit it)
+        parsed = urlparse(resolved)
+        if not parsed.path:
+            resolved = parsed._replace(path="/").geturl()
+        return resolved
+
+    @classmethod
+    def bulk(cls, **kwargs):
+        """Constructor with defaults tuned for high-volume bulk scraping.
+
+        Returns responses instead of raising on 429/challenge/empty when
+        rotation/retry is opted out. Disables health retirement.
+        """
+        defaults = {
+            "max_retries": 1,
+            "max_rotations": 0,
+            "max_failures": None,
+        }
+        defaults.update(kwargs)
+        return cls(**defaults)
+
+    def _build_client_kwargs(self) -> dict:
+        """Build kwargs for wreq Client construction.
+
+        Not called for Opera Mini (which bypasses wreq entirely).
+        Safari and iOS Safari use TlsOptions + Http2Options (no Emulation).
+        Chrome uses Emulation (no TlsOptions).
+
+        Also refreshes the cached _client_headers snapshot so that
+        _build_headers picks up any fingerprint changes.
+        """
+        # Refresh cached client headers (fingerprint may have rotated)
+        self._client_headers = self._compute_client_headers()
+
+        if self._dart_identity is not None:
+            # Dart: custom TLS, no Emulation. HTTP/1.1 is forced by
+            # omitting ALPN in TlsOptions (not http1_only, which
+            # injects an ALPN extension that breaks the fingerprint).
+            kwargs = {
+                "tls_options": self._dart_identity.tls_options(),
+                "headers": dict(self._client_headers),
+                "connect_timeout": self.connect_timeout,
+                "timeout": self.timeout,
+                "cookie_store": True,
+            }
+        elif self._ios_safari_identity is not None:
+            # iOS Safari: custom mobile TLS + H2, no Emulation.
+            kwargs = {
+                "tls_options": self._ios_safari_identity.tls_options(),
+                "http2_options": self._ios_safari_identity.http2_options(),
+                "headers": dict(self._client_headers),
+                "connect_timeout": self.connect_timeout,
+                "timeout": self.timeout,
+                "cookie_store": True,
+            }
+        elif self._safari_identity is not None:
+            # Safari: custom TLS + H2, no Emulation.
+            # Use _client_headers (not self.headers) so embed mode
+            # stripping of Sec-Fetch-* is reflected at client level,
+            # matching what _build_headers uses for delta computation.
+            kwargs = {
+                "tls_options": self._safari_identity.tls_options(),
+                "http2_options": self._safari_identity.http2_options(),
+                "headers": dict(self._client_headers),
+                "connect_timeout": self.connect_timeout,
+                "timeout": self.timeout,
+                "cookie_store": True,
+            }
+        else:
+            # Chrome: Emulation + sec-ch-ua headers
+            # (reuse cached _client_headers instead of regenerating)
+            kwargs = {
+                "emulation": self._fingerprint.current,
+                "headers": dict(self._client_headers),
+                "connect_timeout": self.connect_timeout,
+                "timeout": self.timeout,
+                "cookie_store": True,
+            }
+        if _SYSTEM_CERT_STORE is not None:
+            kwargs["tls_verify"] = _SYSTEM_CERT_STORE
+        if self._proxy is not None:
+            kwargs["proxies"] = [self._proxy]
+        if self._resolve:
+            # SSRF DNS pinning. Applies to all three fingerprint branches
+            # (Dart / Safari / Chrome) and, because this runs on every
+            # _rebuild_client(), survives fingerprint rotation/retirement
+            # for free. dns_options is orthogonal to emulation/TLS options,
+            # so the anti-detection fingerprint is untouched.
+            from ipaddress import ip_address
+
+            from wreq import DnsOptions
+
+            opts = DnsOptions()
+            for host, addrs in self._resolve.items():
+                opts.add_resolve(host, [ip_address(a) for a in addrs])
+            kwargs["dns_options"] = opts
+        return kwargs
+
+    @contextlib.contextmanager
+    def _embed_suspended(self):
+        """Temporarily turn off embed mode for the wrapped requests.
+
+        ``mint_recaptcha_v3`` issues cross-origin requests to ``google.com``;
+        those must NOT carry the session's embed-mode header transforms. In
+        ``embed="xhr-jquery"`` the client-level ``X-Requested-With`` and the
+        jQuery ``Accept`` would leak to Google, and ``embed="xhr"`` sets a
+        client-level ``Accept: */*`` that the reload's per-request ``Accept``
+        would duplicate on the HTTP/2 wire. Those headers live at the wreq
+        *client* level (``_compute_client_headers``), so a per-request delta
+        cannot remove them - the client must be rebuilt without embed.
+
+        This saves the embed config, clears it, rebuilds the client (cookies
+        rehydrate from cache, fingerprint stays put), yields, then restores
+        the embed config and rebuilds again. Not concurrency-safe within a
+        single session - same as the rotation path, which also mutates the
+        client - so don't share one session across threads mid-mint.
+        """
+        if not self._embed:
+            # No embed mode: nothing to suspend, no client churn.
+            yield
+            return
+        saved_embed = self._embed
+        saved_origin = self._embed_origin
+        saved_referers = self._embed_referers
+        self._embed = None
+        self._embed_origin = None
+        self._embed_referers = []
+        self._rebuild_client()
+        try:
+            yield
+        finally:
+            self._embed = saved_embed
+            self._embed_origin = saved_origin
+            self._embed_referers = saved_referers
+            self._rebuild_client()
+
+    # ------------------------------------------------------------------
+    # Native-TLS fallback (urllib / system OpenSSL)
+    # ------------------------------------------------------------------
+
+    def _native_tls_usable(self) -> bool:
+        """Whether the native-TLS path can be used for this session.
+
+        The iOS Safari profile is a fixed mobile transport identity. Falling
+        back to system OpenSSL while retaining its iPhone UA would be
+        incoherent, so that profile always stays on its captured TLS stack.
+
+        http.client can only CONNECT-tunnel an ``http://`` proxy. With a
+        ``socks://``/``https://`` proxy the native transport would have to
+        either leak the real IP or fail every attempt, so we skip it entirely
+        and let the (proxy-aware) wreq path handle the challenge instead.
+        """
+        if self._profile is Profile.IOS_SAFARI:
+            return False
+        if not self._proxy_url:
+            return True
+        return urlparse(self._proxy_url).scheme == "http"
+
+    def _imperva_embedder(self, challenge, url, extra_headers, kwargs):
+        """Origin page to browser-solve an Imperva API-host challenge, or None.
+
+        Imperva serves a top-level navigation to an API host its interactive
+        "Error 15" block; the real flow loads the site's origin page (earning
+        the registrable-domain reese84/incap cookies) and calls the API via
+        same-site XHR. Returns that embedder origin for Imperva when a browser
+        solver is present, else None - callers pass it unconditionally.
+        """
+        from wafer._challenge import ChallengeType
+
+        if challenge != ChallengeType.IMPERVA or self._browser_solver is None:
+            return None
+        from wafer.browser._imperva import imperva_embedder
+
+        merged: dict = {}
+        if extra_headers:
+            merged.update(extra_headers)
+        hdrs = kwargs.get("headers")
+        if hdrs:
+            merged.update(hdrs)
+        return imperva_embedder(url, merged)
+
+    def _browser_replay(self, method, kwargs) -> dict:
+        """Replay descriptor (method/body/content-type) for an in-page XHR.
+
+        Lets the Imperva embedder solve re-issue the *original* request -
+        GET or POST with its form/json/body - as a same-site fetch from the
+        origin page, so the caller gets the real response directly.
+        """
+        body, content_type = self._extract_native_body(kwargs)
+        return {
+            "method": (method if isinstance(method, str) else "GET").upper(),
+            "body": body.decode("utf-8", errors="replace") if body else None,
+            "content_type": content_type,
+        }
+
+    def _native_transport(self):
+        """Lazily create the per-session native-TLS transport."""
+        if self._native_tls is None:
+            from wafer._native_tls import NativeTLSTransport
+
+            self._native_tls = NativeTLSTransport(
+                follow_redirects=self.follow_redirects,
+                proxy_url=self._proxy_url,
+                max_redirects=self.max_redirects,
+                resolve=self._resolve,
+            )
+        return self._native_tls
+
+    def _native_user_agent(self, extra_headers: dict[str, str] | None) -> str:
+        """Pick a User-Agent for the native path.
+
+        Prefer a caller-supplied UA, then the session identity's UA
+        (Safari/iOS Safari/Dart set one in self.headers), then a host Chrome UA
+        derived from the current fingerprint version.
+        """
+        if extra_headers:
+            for k, v in extra_headers.items():
+                if k.lower() == "user-agent" and v:
+                    return v
+        for k, v in self.headers.items():
+            if k.lower() == "user-agent" and v:
+                return v
+        from wafer._fingerprint import chrome_version, host_user_agent
+
+        major = None
+        if self._fingerprint is not None:
+            major = chrome_version(self._fingerprint.current)
+        if major is None:
+            major = chrome_version(DEFAULT_EMULATION) or 149
+        return host_user_agent(major)
+
+    def _native_prepare(
+        self,
+        extra_headers: dict[str, str] | None,
+        kwargs: dict,
+    ) -> tuple[dict[str, str], bytes | None]:
+        """Build the sanitized header set and request body for the native path.
+
+        Strips browser-fingerprint headers (Sec-Fetch-*, Sec-Ch-Ua) so the
+        request reads as a generic OpenSSL client, and mirrors wreq's
+        ``form=``/``json=``/``body=`` kwargs into a raw body + Content-Type.
+        """
+        from wafer._native_tls import sanitize_headers
+
+        # Minimal "API client" shape: UA + Accept, plus whatever the caller
+        # passed (Origin/Referer). sanitize_headers then drops anything
+        # browser-typical (Sec-Fetch-*, Accept-Language/Encoding) that would
+        # make Imperva challenge an OpenSSL client under rate pressure.
+        headers = {
+            "User-Agent": self._native_user_agent(extra_headers),
+            "Accept": "*/*",
+        }
+        if extra_headers:
+            headers.update(extra_headers)
+        headers = sanitize_headers(headers)
+
+        body, content_type = self._extract_native_body(kwargs)
+        if content_type and not any(k.lower() == "content-type" for k in headers):
+            headers["Content-Type"] = content_type
+        return headers, body
+
+    @staticmethod
+    def _extract_native_body(kwargs: dict) -> tuple[bytes | None, str | None]:
+        """Convert wreq body kwargs (form/json/body) to raw bytes + Content-Type."""
+        form = kwargs.get("form")
+        if form is not None:
+            return (
+                urlencode(form).encode(),
+                "application/x-www-form-urlencoded",
+            )
+        payload = kwargs.get("json")
+        if payload is not None:
+            import json as _json
+
+            return _json.dumps(payload).encode(), "application/json"
+        raw = kwargs.get("body")
+        if raw is not None:
+            return (
+                raw.encode() if isinstance(raw, str) else raw,
+                None,
+            )
+        return None, None
+
+    def _native_make_response(
+        self,
+        status: int,
+        headers: dict[str, str],
+        body_bytes: bytes,
+        final_url: str,
+        start_time: float,
+        state=None,
+        raw_set_cookie: list[str] | None = None,
+    ):
+        """Build a WaferResponse from a native-TLS result, tagging any challenge."""
+        from wafer._challenge import detect_challenge
+        from wafer._response import WaferResponse
+
+        content_type = headers.get("content-type", "")
+        challenge_type = None
+        if not _is_binary_content_type(content_type) and _is_challengeable_content_type(
+            content_type
+        ):
+            text = body_bytes.decode("utf-8", errors="replace")
+            detected = detect_challenge(status, headers, text)
+            challenge_type = detected.value if detected else None
+        return WaferResponse(
+            status_code=status,
+            content=body_bytes,
+            # text deliberately not pre-set: .text decodes lazily from
+            # content with charset detection (header param / meta tag).
+            text=None,
+            headers=headers,
+            url=final_url,
+            elapsed=time.monotonic() - start_time,
+            # The native path is only ever reached as a fallback (after an
+            # Imperva challenge, or for an already-pinned host), so the caller
+            # never got this from a clean first attempt -> was_retried=True even
+            # though the wreq retry/rotation counters stay 0.
+            was_retried=True,
+            retries=state.normal_retries if state else 0,
+            rotations=state.rotation_retries if state else 0,
+            inline_solves=state.inline_solves if state else 0,
+            challenge_type=challenge_type,
+            emulation=self._serving_emulation_repr(),
+            raw_set_cookie=raw_set_cookie,
+        )
+
+    @staticmethod
+    def _cookie_applies_to_host(cookie_domain: str | None, host: str) -> bool:
+        """True if a stored cookie's Domain covers ``host`` (domain-match).
+
+        Approximates RFC 6265 5.1.3 domain-matching plus the 5.3 public-suffix
+        rejection, but the public-suffix check is backed by ``_psl`` - a
+        CURATED SUBSET of the Mozilla PSL, NOT the full list and NOT full RFC
+        6265 5.3. It rejects a public-suffix ``Domain`` that IS listed (e.g.
+        ``Domain=co.uk`` never applies to a sibling like ``victim.co.uk``),
+        but an UNLISTED multi-label public suffix degrades to the bare-TLD
+        (TLD+1) check and FAILS OPEN: a cookie on an unlisted suffix can
+        over-match siblings. Expand ``_psl._MULTI_LABEL_SUFFIXES`` to close a
+        specific gap. ``localhost`` is exempt (a ``Domain=localhost`` cookie
+        legitimately applies to ``localhost``).
+        """
+        domain = (cookie_domain or "").lstrip(".").lower()
+        if not domain or not host:
+            return False
+        # Normalize the host's FQDN trailing dot (``www.example.com.``) just
+        # as the cookie Domain's leading dot was stripped above, so a
+        # ``Domain=example.com`` cookie still matches an absolute-form host.
+        host = host.lower().rstrip(".")
+        # A Domain equal to a public suffix (``co.uk``, ``github.io``, or a
+        # bare TLD like ``com``) is not a registrable domain - treating it
+        # as one would let it over-match every sibling. Ignore it. The
+        # reserved name ``localhost`` is exempt (RFC 6265 5.3): a
+        # ``Domain=localhost`` cookie legitimately applies to ``localhost``.
+        if domain != "localhost" and domain == _psl.public_suffix(domain):
+            return False
+        return host == domain or host.endswith("." + domain)
+
+    @staticmethod
+    def _cookie_path_matches(cookie_path: str | None, request_path: str) -> bool:
+        """Return RFC 6265 path-match for a stored cookie and request path."""
+
+        path = cookie_path or "/"
+        request_path = request_path if request_path.startswith("/") else "/"
+        if request_path == path:
+            return True
+        if not request_path.startswith(path):
+            return False
+        return path.endswith("/") or request_path[len(path) :].startswith("/")
+
+    def _record_cookie_scope(
+        self,
+        raw_set_cookie: str,
+        url: str,
+        *,
+        domain: str | None = None,
+        path: str | None = None,
+        host_only: bool | None = None,
+    ) -> None:
+        """Remember the host-only bit that wreq omits from Cookie objects."""
+
+        if not isinstance(raw_set_cookie, str):
+            return
+        first, *parts = raw_set_cookie.split(";")
+        name, separator, _value = first.strip().partition("=")
+        if not separator or not name:
+            return
+        attributes: dict[str, str] = {}
+        for part in parts:
+            key, has_value, value = part.strip().partition("=")
+            attributes[key.lower()] = value.strip() if has_value else ""
+
+        parsed = urlparse(url)
+        request_host = (parsed.hostname or "").lower().rstrip(".")
+        raw_domain = domain
+        if raw_domain is None:
+            raw_domain = attributes.get("domain")
+        normalized_domain = (raw_domain or request_host).lstrip(".").lower()
+        normalized_domain = normalized_domain.rstrip(".")
+        if not normalized_domain:
+            return
+
+        raw_path = path if path is not None else attributes.get("path")
+        normalized_path = raw_path or ""
+        if not normalized_path.startswith("/"):
+            normalized_path = _default_cookie_path(url)
+
+        if host_only is None:
+            host_only = domain is None and "domain" not in attributes
+        key = (name, normalized_domain, normalized_path)
+        # Refresh recency: re-assigning an existing dict key keeps its original
+        # insertion position, so without the pop a cookie that is rewritten on
+        # every response would still age out ahead of one-shot entries.
+        self._cookie_scopes.pop(key, None)
+        self._cookie_scopes[key] = bool(host_only)
+        # A session that walks many hosts would otherwise grow this map for
+        # its whole lifetime. Evict oldest-first; a dropped entry only costs
+        # get_cookie() its parent-domain lookup for that cookie.
+        while len(self._cookie_scopes) > _MAX_COOKIE_SCOPES:
+            self._cookie_scopes.pop(next(iter(self._cookie_scopes)), None)
+
+    def _record_response_cookie_scopes(self, url: str, resp) -> list[str]:
+        """Record Set-Cookie scope metadata and return the raw header values."""
+
+        try:
+            raw_cookies = list(resp.headers.get_all("set-cookie"))
+        except Exception:
+            logger.debug("Failed to inspect cookie scope for %s", url, exc_info=True)
+            return []
+        normalized = []
+        for raw in raw_cookies:
+            if isinstance(raw, bytes):
+                raw = raw.decode("utf-8", errors="replace")
+            else:
+                raw = str(raw)
+            normalized.append(raw)
+            self._record_cookie_scope(raw, url)
+        return normalized
+
+    def _scoped_cookie_value(
+        self,
+        cookies,
+        name: str,
+        host: str,
+        request_path: str,
+        secure_ok: bool,
+        *,
+        native: bool,
+    ) -> str | None:
+        """Select the longest-path cookie that is valid for the target URL."""
+
+        candidates: list[tuple[int, bool, int, str]] = []
+        for cookie in cookies:
+            if cookie.name != name or (not secure_ok and cookie.secure):
+                continue
+            domain = (cookie.domain or "").lstrip(".").lower().rstrip(".")
+            path = cookie.path or "/"
+            if not self._cookie_path_matches(path, request_path):
+                continue
+
+            if native:
+                host_only = not bool(getattr(cookie, "domain_specified", False))
+            else:
+                host_only = self._cookie_scopes.get((cookie.name, domain, path))
+                # Unknown scope is safe on the exact host, but must never be
+                # promoted to a sibling/child host as a Domain cookie.
+                if host_only is None and host != domain:
+                    # Logged because the caller just gets None: without this a
+                    # parent-domain cookie that was never observed via
+                    # Set-Cookie (or whose scope aged out) is indistinguishable
+                    # from one that does not exist.
+                    logger.debug(
+                        "Cookie %r on %s skipped: no recorded scope for domain "
+                        "%s path %s, cannot prove it is not host-only",
+                        name,
+                        host,
+                        domain,
+                        path,
+                    )
+                    continue
+
+            if host_only:
+                applies = host == domain
+            else:
+                applies = self._cookie_applies_to_host(domain, host)
+            if applies:
+                candidates.append(
+                    (len(path), host == domain, len(domain), cookie.value)
+                )
+
+        if not candidates:
+            return None
+        return max(candidates, key=lambda item: item[:3])[3]
+
+    def get_cookie(self, name: str, url: str) -> str | None:
+        """Read a cookie value from the session's cookie jar(s).
+
+        Looks up ``name`` scoped to ``url``'s host: exact-host cookies
+        first, then parent-domain cookies (``Domain=.example.com``
+        matching ``www.example.com``). Reads whichever jars the session
+        actually uses -- the wreq jar, the native-TLS (Imperva bypass)
+        jar, and the Opera Mini jar. Cookies with the ``Secure`` flag
+        are only returned for ``https://`` URLs (RFC 6265 5.4). Returns
+        the cookie value, or None if not found. Never raises.
+
+        Parent-domain matching uses ``_cookie_applies_to_host``, which is
+        backed by a CURATED-SUBSET PSL (not the full Mozilla PSL / not full
+        RFC 6265 5.3): a cookie on an UNLISTED multi-label public suffix
+        degrades to the TLD+1 check and can fail open (over-match a sibling
+        host) on this read-only path. Expand ``_psl._MULTI_LABEL_SUFFIXES``
+        to close a specific gap.
+        """
+        parsed_url = urlparse(url)
+        host = (parsed_url.hostname or "").lower().rstrip(".")
+        request_path = parsed_url.path or "/"
+        # Secure cookies must not be exposed to non-https origins
+        # (wreq's Jar.get does not enforce this itself).
+        secure_ok = parsed_url.scheme == "https"
+        client = getattr(self, "_client", None)
+        if client is not None:
+            jar = getattr(client, "cookie_jar", None)
+            if jar is not None:
+                try:
+                    # wreq's Jar.get() only matches an exact stored path, and
+                    # alternate jar implementations may parent-match without
+                    # retaining the host-only bit. Resolve from all entries
+                    # using the scope metadata captured from Set-Cookie.
+                    value = self._scoped_cookie_value(
+                        jar.get_all(),
+                        name,
+                        host,
+                        request_path,
+                        secure_ok,
+                        native=False,
+                    )
+                    if value is not None:
+                        return value
+                except Exception:
+                    logger.debug("Cookie jar read failed for %r", name, exc_info=True)
+        # Native-TLS jar (Imperva OpenSSL bypass): http.cookiejar.CookieJar
+        if self._native_tls is not None:
+            value = self._scoped_cookie_value(
+                self._native_tls._jar,
+                name,
+                host,
+                request_path,
+                secure_ok,
+                native=True,
+            )
+            if value is not None:
+                return value
+        # Opera Mini urllib jar: http.cookiejar.CookieJar
+        if self._om_identity is not None:
+            value = self._scoped_cookie_value(
+                self._om_identity._cookie_jar,
+                name,
+                host,
+                request_path,
+                secure_ok,
+                native=True,
+            )
+            if value is not None:
+                return value
+        return None
+
+    def cookie_scope_summary(self, url: str) -> list[dict[str, object]]:
+        """Return bounded, value-free wreq cookie scope diagnostics.
+
+        This is deliberately an inspection API: it never exposes cookie
+        values and is intended for opt-in protected-flow diagnostics.
+        """
+        client = getattr(self, "_client", None)
+        jar = getattr(client, "cookie_jar", None) if client is not None else None
+        if jar is None:
+            return []
+        try:
+            cookies = jar.get_all()
+        except Exception:
+            return []
+        summary = []
+        for cookie in cookies[:32]:
+            try:
+                summary.append(
+                    {
+                        "name": str(cookie.name),
+                        "domain": str(cookie.domain),
+                        "path": str(cookie.path),
+                        "secure": bool(cookie.secure),
+                    }
+                )
+            except Exception:
+                continue
+        return summary
+
+    def _reddit_stats(self) -> dict[str, Any]:
+        stats = getattr(self, "_reddit_bootstrap_stats", None)
+        if stats is None:
+            stats = _new_reddit_bootstrap_stats()
+            self._reddit_bootstrap_stats = stats
+        return stats
+
+    def _record_reddit_bootstrap_attempt(self) -> None:
+        """Count one inline bootstrap that reached the network."""
+        stats = self._reddit_stats()
+        stats["attempts"] = stats["attempts"] + 1
+
+    def _record_reddit_bootstrap_outcome(
+        self,
+        outcome: str,
+        *,
+        status: int | None = None,
+        cookie_names=(),
+    ) -> None:
+        """Record which inline bootstrap branch ended the attempt."""
+        stats = self._reddit_stats()
+        stats["last_outcome"] = outcome
+        stats["last_status"] = status
+        stats["last_cookie_names"] = reddit_cookie_name_summary(cookie_names)
+        if outcome == REDDIT_OUTCOME_ESTABLISHED:
+            stats["successes"] = stats["successes"] + 1
+
+    def _record_reddit_browser_attempt(self, budget: float | None = None) -> None:
+        """Count a browser recovery before the solver is invoked.
+
+        Counting on return instead would lose the attempt entirely when the
+        solver raises, leaving ``browser_attempts`` and
+        ``last_browser_outcome`` describing some earlier recovery. The
+        provisional outcome recorded here is what survives that raise; every
+        normal return path overwrites it.
+        """
+        stats = self._reddit_stats()
+        stats["browser_attempts"] = stats["browser_attempts"] + 1
+        stats["last_browser_outcome"] = REDDIT_BROWSER_OUTCOME_INTERRUPTED
+        stats["last_browser_budget"] = budget
+
+    def _record_reddit_browser_outcome(
+        self,
+        outcome: str,
+        *,
+        budget: float | None = None,
+    ) -> None:
+        """Record how the browser fallback ended, separately from the inline
+        branch. The attempt itself is counted by
+        ``_record_reddit_browser_attempt`` before the solver runs.
+        """
+        stats = self._reddit_stats()
+        stats["last_browser_outcome"] = outcome
+        stats["last_browser_budget"] = budget
+        if outcome == REDDIT_BROWSER_OUTCOME_ESTABLISHED:
+            stats["successes"] = stats["successes"] + 1
+
+    def _reddit_jar_cookie_names(self) -> frozenset[str]:
+        """Cookie names currently in the wreq jar for the reddit.com space."""
+        client = getattr(self, "_client", None)
+        jar = getattr(client, "cookie_jar", None) if client is not None else None
+        if jar is None:
+            return frozenset()
+        try:
+            cookies = jar.get_all()
+        except Exception:
+            return frozenset()
+        names = set()
+        for cookie in cookies:
+            try:
+                domain = str(cookie.domain).strip(".").lower()
+                name = str(cookie.name)
+            except Exception:
+                continue
+            if domain == "reddit.com" or domain.endswith(".reddit.com"):
+                names.add(name)
+        return frozenset(names)
+
+    def reddit_bootstrap_state(self) -> dict[str, object]:
+        """Return value-free diagnostics for the Reddit anonymous bootstrap.
+
+        Cookie names are reported; cookie values, verification tokens, and the
+        solved submission query never are.
+
+        Keys:
+            attempts: inline bootstraps that reached the network this session.
+            successes: bootstraps (inline or browser) that established the
+                anonymous cookie set.
+            last_outcome: label of the branch that ended the last inline
+                bootstrap -- ``"established"``, ``"verification_status"``,
+                ``"verification_too_large"``, ``"verification_encoding"``,
+                ``"verification_structure"``, ``"submission_status"``,
+                ``"cookie_evidence"``, ``"transport"``,
+                ``"client_rotated"`` (abandoned mid-leg by a concurrent
+                rotation and retried) -- or ``None`` when no bootstrap has run.
+            last_status: HTTP status behind a ``*_status`` outcome, else the
+                status of the leg the outcome came from, else ``None``.
+            last_cookie_names: Set-Cookie names observed on that leg.
+            browser_attempts: browser-fallback solves started this session.
+            last_browser_outcome: ``"established"``, ``"failed"``,
+                ``"no_time_budget"``, ``"unavailable"``, ``"interrupted"``
+                (the solver raised, so the recovery has no result), or
+                ``None``.
+            last_browser_budget: seconds the last browser fallback was given,
+                or ``None`` when the request carried no deadline (the solver's
+                own ``solve_timeout`` applied) or no fallback has run. A small
+                number here is why a browser solve failed.
+            cookie_names: reddit.com cookie names in the client jar right now,
+                including a warm ``cache_dir`` hydrated at construction.
+            has_cookie_evidence: whether ``cookie_names`` proves anonymous
+                setup (``loid`` plus ``token_v2`` or ``csv``). This is the
+                hydration-aware answer to "is this session set up for Reddit".
+        """
+        stats = self._reddit_stats()
+        jar_names = self._reddit_jar_cookie_names()
+        return {
+            "attempts": stats["attempts"],
+            "successes": stats["successes"],
+            "last_outcome": stats["last_outcome"],
+            "last_status": stats["last_status"],
+            "last_cookie_names": list(stats["last_cookie_names"]),
+            "browser_attempts": stats["browser_attempts"],
+            "last_browser_outcome": stats["last_browser_outcome"],
+            "last_browser_budget": stats["last_browser_budget"],
+            "cookie_names": list(reddit_cookie_name_summary(jar_names)),
+            "has_cookie_evidence": reddit_has_cookie_evidence(jar_names),
+        }

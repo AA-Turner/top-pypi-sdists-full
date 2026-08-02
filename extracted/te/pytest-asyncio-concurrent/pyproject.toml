@@ -1,0 +1,120 @@
+[build-system]
+requires = [
+  "setuptools>=61.0",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pytest-asyncio-concurrent"
+description = "Pytest plugin to execute python async tests concurrently."
+version = "0.5.2"
+readme = "README.rst"
+requires-python = ">=3.8"
+authors = [
+    { name = "Zane Chen", email = "czl970721@gmail.com" },
+]
+maintainers = [
+    { name = "Zane Chen", email = "czl970721@gmail.com" },
+]
+license = {file = "LICENSE"}
+classifiers = [
+    "Framework :: Pytest",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Testing",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "License :: OSI Approved :: MIT License",
+]
+dependencies = [
+    "pytest>=6.2.0",
+]
+optional-dependencies.testing = [
+    "coverage>=7.6.0",
+]
+[project.urls]
+Repository = "https://github.com/czl9707/pytest-asyncio-concurrent"
+Homepage = "https://github.com/czl9707/pytest-asyncio-concurrent"
+Issues = "https://github.com/czl9707/pytest-asyncio-concurrent/issues"
+
+[project.entry-points.pytest11]
+asyncio-concurrent = "pytest_asyncio_concurrent.plugin"
+
+[tool.setuptools]
+packages = [
+  "pytest_asyncio_concurrent",
+]
+include-package-data = true
+license-files = [
+  "LICENSE",
+]
+
+[tool.black]
+line-length = 100
+
+[tool.flake8]
+max-line-length = 100
+
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.coverage.run]
+source = [
+  "pytest_asyncio_concurrent",
+]
+branch = true
+data_file = "coverage/coverage"
+omit = [
+  "*/_version.py",
+]
+parallel = true
+concurrency = [ 
+    "multiprocessing"
+]
+
+[tool.coverage.report]
+show_missing = true
+
+[tool.bumpversion]
+current_version = "0.5.2"
+parse = """(?x)
+  (?P<major>0|[1-9]\\d*)\\.
+  (?P<minor>0|[1-9]\\d*)\\.
+  (?P<patch>0|[1-9]\\d*)
+  (?:
+      -prerelease-(?P<pre>0|[1-9]\\d*)
+  )?
+"""
+serialize = [
+  "{major}.{minor}.{patch}-prerelease-{pre}",
+  "{major}.{minor}.{patch}",
+]
+search = "{current_version}"
+replace = "{new_version}"
+regex = false
+ignore_missing_version = false
+ignore_missing_files = false
+tag = false
+sign_tags = false
+tag_name = "v{new_version}"
+tag_message = "Bump version: {current_version} → {new_version}"
+allow_dirty = false
+commit = true
+message = "Bump version: {current_version} → {new_version}"
+commit_args = ""
+setup_hooks = []
+pre_commit_hooks = []
+post_commit_hooks = []
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = "version = \"{current_version}\""
+replace = "version = \"{new_version}\""

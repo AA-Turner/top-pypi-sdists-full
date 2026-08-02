@@ -1,0 +1,69 @@
+[project]
+name = "fastapi-keycloak-middleware"
+version = "1.6.0"
+description = "Middleware for FastAPI to authenticate a user against keycloak"
+authors = [{ name = "Daniel Herrmann", email = "daniel.herrmann1@gmail.com" }]
+readme = "README.md"
+requires-python = ">=3.11,<4"
+dependencies = ["fastapi>=0.73.0", "python-keycloak>=4.1,!=7.0.0,<8"]
+
+[tool.poetry]
+packages = [{ include = "fastapi_keycloak_middleware" }]
+
+[tool.poetry.group.dev.dependencies]
+sphinx = [
+    { version = "^9,<9.1", markers = "python_version < '3.12'" },
+    { version = "^9", markers = "python_version >= '3.12'" },
+]
+sphinx-rtd-theme = "^3"
+ruff = "^0"
+ruff-lsp = "^0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+fix = true
+
+[tool.ruff.lint.isort]
+case-sensitive = true
+
+[tool.ruff.lint]
+select = [
+    # https://docs.astral.sh/ruff/rules/#pyflakes-f
+    "F", # Pyflakes
+    # https://docs.astral.sh/ruff/rules/#pycodestyle-e-w
+    "E", # pycodestyle
+    "W", # Warning
+    # https://docs.astral.sh/ruff/rules/#flake8-comprehensions-c4
+    # https://docs.astral.sh/ruff/rules/#mccabe-c90
+    "C", # Complexity (mccabe+) & comprehensions
+    # https://docs.astral.sh/ruff/rules/#pyupgrade-up
+    "UP", # pyupgrade
+    # https://docs.astral.sh/ruff/rules/#isort-i
+    "I", # isort
+]
+ignore = [
+    # https://docs.astral.sh/ruff/rules/#pyupgrade-up
+    "UP006", # use-pep585-annotation
+    "UP007", # use-pep604-annotation
+    "E741",  # Ambiguous variable name
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 24
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = [
+    "F401", # unused import
+    "F403", # star imports
+]
+
+[tool.mypy]
+disable_error_code = "import-untyped"

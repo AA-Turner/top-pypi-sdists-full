@@ -1,4 +1,0 @@
----
-deprecations:
-  - |
-    ``qperf`` package has been removed as from the mellanox element

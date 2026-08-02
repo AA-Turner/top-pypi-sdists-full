@@ -1,0 +1,57 @@
+---
+schema_version: "1.0.0"
+ticket_id: "OMN-11832"
+title: "Wire contract.yaml topic definitions for evidence pipeline"
+summary: >
+  Creates canonical Kafka topic constants for the evidence pipeline in omnibase_compat.contracts.evidence_pipeline.wire.topics,
+  backed by a contracts/evidence-pipeline.yaml topic definition file. Replaces all hardcoded topic strings
+  in tests with constant references.
+is_seam_ticket: false
+interface_change: true
+interfaces_touched:
+  - public_api
+evidence_requirements:
+  - kind: "tests"
+    description: "All compat tests pass with new topics module and updated test file."
+    command: "uv run pytest tests/ src/ -v"
+  - kind: "lint"
+    description: "Ruff and pre-commit pass with no errors."
+    command: "pre-commit run --all-files"
+emergency_bypass:
+  enabled: false
+  justification: ""
+  follow_up_ticket_id: ""
+dod_evidence:
+  - id: "dod-topics-module"
+    description: "topics.py module exists with 8 canonical topic constants."
+    source: "generated"
+    checks:
+      - check_type: "file_exists"
+        check_value: "src/omnibase_compat/contracts/evidence_pipeline/wire/topics.py"
+  - id: "dod-contract-yaml"
+    description: "contracts/evidence-pipeline.yaml defines all 8 topics."
+    source: "generated"
+    checks:
+      - check_type: "file_exists"
+        check_value: "contracts/evidence-pipeline.yaml"
+  - id: "dod-no-hardcoded-topics"
+    description: "No hardcoded topic strings remain in evidence pipeline test file."
+    source: "generated"
+    checks:
+      - check_type: "command"
+        check_value: "! grep -n 'onex\\.cmd\\.omnimarket\\.evidence\\|onex\\.evt\\.omnimarket\\.evidence'
+          src/omnibase_compat/tests/contracts/evidence_pipeline/wire/test_dashboard_wire_dtos.py"
+  - id: "dod-tests-pass"
+    description: "All 264 compat unit tests pass."
+    source: "generated"
+    checks:
+      - check_type: "command"
+        check_value: "uv run pytest tests/ src/ -q"
+  - id: "dod-deploy"
+    description: "Deploy-gate evidence: new Pydantic DTOs and YAML config; no Docker image, daemon, broker
+      topic creation, runtime process, or service deploy required."
+    source: "manual"
+    checks:
+      - check_type: "command"
+        check_value: "echo 'deploy-gate: adds topic constant module and contract YAML; no Docker image,
+          daemon, broker topic, runtime process, or service deploy required'"

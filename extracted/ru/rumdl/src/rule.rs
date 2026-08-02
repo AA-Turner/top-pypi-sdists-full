@@ -174,6 +174,32 @@ pub enum CrossFileScope {
     Workspace,
 }
 
+/// A warning an inline disable comment kept out of a document's results.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SuppressedWarning {
+    /// Canonical id of the rule that raised the warning, e.g. `MD013`
+    pub rule_name: String,
+    /// 1-indexed line of the warning's range the rule was found disabled on
+    pub line: usize,
+    /// The kind of directive that disabled the rule there
+    pub layer: crate::inline_config::DisableLayer,
+}
+
+/// What a run's inline disable comments actually suppressed.
+///
+/// Assembled once per document, after every single-file rule has run, so a rule
+/// reading it sees the complete picture.
+#[derive(Debug, Clone, Default)]
+pub struct SuppressionReport {
+    /// Every warning an inline disable comment removed, in the order raised
+    pub suppressed: Vec<SuppressedWarning>,
+    /// Canonical ids of the rules whose findings this report accounts for.
+    ///
+    /// A rule outside this set produced nothing the report can see, so nothing
+    /// can be concluded about a comment naming it.
+    pub judged_rules: std::collections::HashSet<String>,
+}
+
 pub trait Rule: DynClone + Send + Sync {
     fn name(&self) -> &'static str;
     fn description(&self) -> &'static str;
@@ -188,6 +214,17 @@ pub trait Rule: DynClone + Send + Sync {
     /// Get the category of this rule for selective processing
     fn category(&self) -> RuleCategory {
         RuleCategory::Other // Default implementation returns Other
+    }
+
+    /// Whether the content-category prefilter may skip this rule.
+    ///
+    /// The prefilter reads the document's shape alone: a `Link` rule is skipped
+    /// for a document holding no links. A rule whose configuration widens what
+    /// it reads answers `false` for that configuration, so that `should_skip`
+    /// and `check` decide instead. MD051 and MD057 read frontmatter values on
+    /// request, and a document can carry those with no link syntax at all.
+    fn skippable_by_category(&self) -> bool {
+        true
     }
 
     fn as_any(&self) -> &dyn std::any::Any;
@@ -270,6 +307,26 @@ pub trait Rule: DynClone + Send + Sync {
         _workspace_index: &crate::workspace_index::WorkspaceIndex,
     ) -> LintResult {
         Ok(Vec::new()) // Default: no cross-file warnings
+    }
+
+    /// Whether this rule reports on the inline comments that suppressed warnings
+    ///
+    /// Recording every suppression costs work on each file, so the linting driver
+    /// does it only when a rule asks for it. A rule answering `true` receives the
+    /// result through `check_suppressions`.
+    fn observes_suppressions(&self) -> bool {
+        false
+    }
+
+    /// Report on a document's inline disable comments
+    ///
+    /// Called once per document after every single-file rule has run, for rules
+    /// that return `true` from `observes_suppressions`. The report says which
+    /// warnings the comments removed and which rules the run can account for.
+    ///
+    /// Returns warnings that join the single-file warnings.
+    fn check_suppressions(&self, _ctx: &LintContext, _report: &SuppressionReport) -> LintResult {
+        Ok(Vec::new()) // Default: nothing to report
     }
 
     /// Factory: create a rule from config (if present), or use defaults.

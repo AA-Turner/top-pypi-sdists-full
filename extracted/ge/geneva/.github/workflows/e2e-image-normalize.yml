@@ -1,0 +1,12 @@
+name: E2E Tests - Image Normalize
+
+on:
+  # Manual trigger - can be run on any branch
+  workflow_dispatch:
+
+jobs:
+  e2e-test-image-normalize-stub:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stub
+        run: echo "STUB image normalize e2e tests not yet implemented"

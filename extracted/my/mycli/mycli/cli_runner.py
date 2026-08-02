@@ -1,5 +1,25 @@
 from __future__ import annotations
 
+__lazy_modules__ = [
+    'io',
+    're',
+    'sys',
+    'typing',
+    'urllib.parse',
+    'click',
+    'mycli.config',
+    'mycli.constants',
+    'mycli.main_modes.batch',
+    'mycli.main_modes.checkup',
+    'mycli.main_modes.completions',
+    'mycli.main_modes.execute',
+    'mycli.main_modes.list_dsn',
+    'mycli.packages.cli_utils',
+    'mycli.packages.special.dsn_aliases',
+    'mycli.password_sources',
+    'mycli.vault',
+]
+
 import os
 import re
 import sys
@@ -9,12 +29,14 @@ from urllib.parse import parse_qs, unquote, urlparse
 import click
 
 from mycli.config import str_to_bool
-from mycli.constants import EMPTY_PASSWORD_FLAG_SENTINEL
+from mycli.constants import EMPTY_PASSWORD_FLAG_SENTINEL, KNOWN_DSN_QUERY_PARAMS
 from mycli.main_modes.batch import main_batch_from_stdin, main_batch_with_progress_bar, main_batch_without_progress_bar
 from mycli.main_modes.checkup import main_checkup
+from mycli.main_modes.completions import main_completions
 from mycli.main_modes.execute import main_execute_from_cli
 from mycli.main_modes.list_dsn import main_list_dsn
 from mycli.packages.cli_utils import is_valid_connection_scheme
+from mycli.packages.special.dsn_aliases import INVALID_DSN_ALIAS_ERROR, is_valid_dsn_alias
 from mycli.password_sources import PasswordCandidates
 from mycli.vault import (
     DEFAULT_VAULT_EXECUTABLE,
@@ -29,25 +51,6 @@ if TYPE_CHECKING:
 
 ClientFactory = Callable[..., Any]
 ENV_VAR_PATTERN = re.compile(r'^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$')
-KNOWN_DSN_QUERY_PARAMS = {
-    'character_set',
-    'keepalive_ticks',
-    'socket',
-    'ssh_jump',
-    'ssl_ca',
-    'ssl_capath',
-    'ssl_cert',
-    'ssl_cipher',
-    'ssl_key',
-    'ssl_mode',
-    'ssl_verify_server_cert',
-    'tls_version',
-    'vault_address',
-    'vault_mount',
-    'vault_secret',
-    'vault_password_field',
-    'vault_username_field',
-}
 
 
 class DsnAliasEnvVarError(ValueError):
@@ -124,6 +127,10 @@ def expand_dsn_alias_env_vars(
 def run_from_cli_args(cli_args: 'CliArgs', client_factory: ClientFactory) -> None:
     from mycli import main as main_module
 
+    if cli_args.completions:
+        main_completions(cli_args.completions)
+        return
+
     cli_verbosity = main_module.preprocess_cli_args(cli_args, is_valid_connection_scheme)
 
     mycli = client_factory(
@@ -162,43 +169,108 @@ def run_from_cli_args(cli_args: 'CliArgs', client_factory: ClientFactory) -> Non
     if cli_args.list_dsn:
         sys.exit(main_list_dsn(mycli))
 
-    # Choose which ever one has a valid value.
-    database = cli_args.dbname or cli_args.database
-
     dsn_uri = None
     dsn_password: str | None = None
+    database: str | None = ''
+    explicit_dsn = bool(cli_args.dsn)
 
-    # Treat the database argument as a DSN alias only if it matches a configured alias
-    # todo why is port tested but not socket?
-    truthy_password = (
-        cli_args.password not in (None, EMPTY_PASSWORD_FLAG_SENTINEL)
-        or cli_args.password_file is not None
-        or os.environ.get('MYSQL_PWD') is not None
-    )
+    # This could be better written, but it is all made harder by the fact that a DSN is recognized after --database
     if (
-        database
-        and "://" not in database
-        and not any([
+        cli_args.positional_database
+        and "://" not in cli_args.positional_database
+        and cli_args.positional_database in mycli.config.get("alias_dsn", {})
+    ):
+        if any([
             cli_args.user,
-            truthy_password,
             cli_args.host,
             cli_args.port,
+            cli_args.socket,
             cli_args.login_path,
-        ])
-        and database in mycli.config.get("alias_dsn", {})
-    ):
-        cli_args.dsn, database = database, ""
+            cli_args.dsn,
+        ]):
+            if cli_verbosity:
+                click.secho(
+                    f'Interpreting ambiguous positional database/DSN-alias argument "{cli_args.positional_database}" as a database name.',
+                    err=True,
+                    fg='yellow',
+                )
+            database = cli_args.database or cli_args.positional_database
+        else:
+            if not is_valid_dsn_alias(cli_args.positional_database):
+                click.secho(INVALID_DSN_ALIAS_ERROR, err=True, fg='red')
+                sys.exit(1)
+            cli_args.dsn, database = cli_args.positional_database, cli_args.database or ''
+    elif cli_args.positional_database and '://' in cli_args.positional_database:
+        if cli_args.dsn:
+            click.secho(
+                f'Ignoring duplicate positional DSN argument "{cli_args.positional_database}".',
+                err=True,
+                fg='yellow',
+            )
+            database = cli_args.database or ''
+        else:
+            cli_args.dsn, database = cli_args.positional_database, cli_args.database or ''
+    elif cli_args.positional_database:
+        if cli_args.database:
+            click.secho(
+                f'Ignoring ambiguous positional database argument "{cli_args.positional_database}" since --database was given.',
+                err=True,
+                fg='yellow',
+            )
+            database = cli_args.database
+        else:
+            database = cli_args.positional_database
+    elif cli_args.database:
+        database = cli_args.database
 
-    if database and "://" in database:
-        dsn_uri, database = database, ""
+    database_from_option = bool(cli_args.database and database == cli_args.database)
+
+    if database and '://' not in database and database in mycli.config.get('alias_dsn', {}):
+        if any([
+            cli_args.user,
+            cli_args.host,
+            cli_args.port,
+            cli_args.socket,
+            cli_args.login_path,
+            cli_args.dsn,
+        ]):
+            if database_from_option and (cli_args.verbose or 0) >= 2:
+                click.secho(
+                    f'Interpreting ambiguous --database argument "{cli_args.database}" as a database name, not a DSN alias, '
+                    ' since other connection coordinates were given.',
+                    err=True,
+                    fg='yellow',
+                )
+        else:
+            if not is_valid_dsn_alias(database):
+                click.secho(INVALID_DSN_ALIAS_ERROR, err=True, fg='red')
+                sys.exit(1)
+            cli_args.dsn, database = database, ''
+    elif database and '://' in database:
+        if explicit_dsn:
+            click.secho(
+                f'Ignoring duplicate DSN argument in --database "{database}".',
+                err=True,
+                fg='yellow',
+            )
+            database = ''
+        else:
+            cli_args.dsn = ''
+            dsn_uri, database = database, ''
 
     if cli_args.dsn:
+        if not is_valid_dsn_alias(cli_args.dsn):
+            click.secho(INVALID_DSN_ALIAS_ERROR, err=True, fg='red')
+            sys.exit(1)
         try:
             dsn_uri = mycli.config["alias_dsn"][cli_args.dsn]
         except KeyError:
             is_valid_scheme, scheme = is_valid_connection_scheme(cli_args.dsn)
             if is_valid_scheme:
                 dsn_uri = cli_args.dsn
+            elif '://' in cli_args.dsn:
+                click.secho(f'Error: Unknown connection scheme provided for DSN URI ({scheme}://)', err=True, fg='red')
+                sys.exit(1)
             else:
                 click.secho(
                     "Could not find the specified DSN in the config file. Please check the \"[alias_dsn]\" section in your myclirc.",
@@ -283,6 +355,8 @@ def run_from_cli_args(cli_args: 'CliArgs', client_factory: ClientFactory) -> Non
                 cli_args.keepalive_ticks = int(params[0])
         if params := dsn_params.get('character_set'):
             cli_args.character_set = cli_args.character_set or params[0]
+        if params := dsn_params.get('prompt'):
+            mycli.prompt_format = cli_args.prompt or params[0] or mycli.prompt_format
         if params := dsn_params.get('ssh_jump'):
             cli_args.ssh_jump = cli_args.ssh_jump or params[0]
         if params := dsn_params.get('vault_address'):

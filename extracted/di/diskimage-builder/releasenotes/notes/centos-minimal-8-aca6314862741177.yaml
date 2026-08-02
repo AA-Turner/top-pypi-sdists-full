@@ -1,5 +1,0 @@
----
-features:
-  - |
-    The ``centos-minimal`` supports CentOS 8 builds when run with
-    ``DIB_RELEASE=8``

@@ -1,0 +1,31 @@
+Metadata-Version: 1.0
+Name: django-rest-framework-docs
+Version: 0.1.7
+Summary: An inventory tool for Django Rest Framework v2 API
+Home-page: http://github.com/marcgibbons
+Author: Marc Gibbons
+Author-email: marc_gibbons@rogers.com
+License: FreeBSD License
+Download-URL: https://github.com/marcgibbons/django-rest-framework-docs/raw/master/dist/django-rest-framework-docs-0.1.7.tar.gz
+Description: 
+        Django REST Framework Docs
+        
+        Rest Framework Docs is an application built to produce an inventory and documentation for your Django Rest Framework v2 endpoints.
+        
+        Installation
+        From pip:
+        
+        pip install django-rest-framework-docs
+        
+        Docs & details @
+        https://github.com/marcgibbons/django-rest-framework-docs
+        
+Platform: UNKNOWN
+Classifier: Environment :: Web Environment
+Classifier: Framework :: Django
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Topic :: Internet :: WWW/HTTP
+Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content

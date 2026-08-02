@@ -17,22 +17,14 @@
 
 """Tests for the atomic file cache."""
 
-__metaclass__ = type
-
 import shutil
-import sys
 import tempfile
 import unittest
+import warnings
 
 import httplib2
 
 from lazr.restfulclient._browser import AtomicFileCache, safename
-
-PY3 = sys.version_info[0] >= 3
-if PY3:
-    binary_type = bytes
-else:
-    binary_type = str
 
 
 class TestFileCacheInterface(unittest.TestCase):
@@ -44,12 +36,12 @@ class TestFileCacheInterface(unittest.TestCase):
     unicode_text = unicode_bytes.decode("utf-8")
 
     def setUp(self):
-        super(TestFileCacheInterface, self).setUp()
+        super().setUp()
         self.cache_dir = tempfile.mkdtemp()
 
     def tearDown(self):
         shutil.rmtree(self.cache_dir)
-        super(TestFileCacheInterface, self).tearDown()
+        super().tearDown()
 
     def make_file_cache(self):
         """Make a FileCache-like object to be tested."""
@@ -107,7 +99,11 @@ class TestFileCacheInterface(unittest.TestCase):
         # Attempts to retrieve that value return the empty string.  This is
         # probably a bug in httplib2.FileCache.
         cache = self.make_file_cache()
-        self.assertRaises(TypeError, cache.set, "answer", 42)
+        with warnings.catch_warnings():
+            # httplib2.FileCache leaves the cache file open when write() fails;
+            # suppress the resulting ResourceWarning since it is not our bug.
+            warnings.simplefilter("ignore", ResourceWarning)
+            self.assertRaises(TypeError, cache.set, "answer", 42)
         self.assertEqual(b"", cache.get("answer"))
 
     def test_get_unicode(self):
@@ -123,8 +119,11 @@ class TestFileCacheInterface(unittest.TestCase):
     def test_set_unicode_value(self):
         # set() cannot store unicode values.  Values must be bytes.
         cache = self.make_file_cache()
-        error = TypeError if PY3 else UnicodeEncodeError
-        self.assertRaises(error, cache.set, "key", self.unicode_text)
+        with warnings.catch_warnings():
+            # httplib2.FileCache leaves the cache file open when write() fails;
+            # suppress the resulting ResourceWarning since it is not our bug.
+            warnings.simplefilter("ignore", ResourceWarning)
+            self.assertRaises(TypeError, cache.set, "key", self.unicode_text)
 
     def test_delete_unicode(self):
         # delete() can remove unicode keys.
@@ -141,7 +140,7 @@ class TestAtomicFileCache(TestFileCacheInterface):
 
     @staticmethod
     def prefix_safename(x):
-        if isinstance(x, binary_type):
+        if isinstance(x, bytes):
             x = x.decode("utf-8")
         return AtomicFileCache.TEMPFILE_PREFIX + x
 

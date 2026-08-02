@@ -242,7 +242,9 @@ class ThresholdOptimizer(base.BaseGeo):
         df = pd.read_csv(path, low_memory=False)
         # configparser-style booleans in the CSV ("True"/"False" strings)
         # → real bools. Defensive: leave already-bool columns alone.
-        if df["fallback_used"].dtype == object:
+        # is_string_dtype covers pandas<3 object AND pandas>=3 str dtype
+        # (CSV string columns are no longer `object` in pandas 3).
+        if pd.api.types.is_string_dtype(df["fallback_used"]):
             df["fallback_used"] = df["fallback_used"].astype(str).str.strip().str.lower() == "true"
         var_col = self.detect_var_column(df, csv_path=path)
         return df, var_col

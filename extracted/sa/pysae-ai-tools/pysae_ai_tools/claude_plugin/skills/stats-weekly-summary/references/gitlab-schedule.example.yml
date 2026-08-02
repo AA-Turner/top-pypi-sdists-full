@@ -1,0 +1,33 @@
+# Weekly recap -> Slack, laptop-free, via a GitLab *scheduled pipeline*.
+# Reference for repos that already include the Pysae infra templates (ref 2.x):
+# the `.ai-tools` base brings the image + `setup --auth` (claude / glab / Slack),
+# so the job is a one-liner.
+#
+# Two pieces are needed so the schedule runs ONLY this job:
+#
+# 1. infra `env_rules.yml` carries a `$WEEKLY_RECAP` guard (mirrors `$DAST_SCHEDULE`)
+#    so every regular job is skipped on the recap pipeline.
+# 2. the hosting repo's `.gitlab-ci.yml` allows the schedule in `workflow.rules`:
+#
+#      workflow:
+#        rules:
+#          - if: $CI_PIPELINE_SOURCE == 'schedule' && $WEEKLY_RECAP == "true"
+#
+# One-time GitLab setup: a pipeline schedule (Settings > CI/CD > Pipeline schedules)
+#   cron:      0 9 * * 1
+#   timezone:  Europe/Brussels
+#   variables: WEEKLY_RECAP=true
+# The schedule runs on the default branch, so this job must be merged there first.
+# Verify the ai-tools image's `setup --auth` provisions SLACK_BOT_TOKEN; if not,
+# add it as a CI variable and invite the bot to the target channel.
+
+weekly_recap:
+  extends: .ai-tools
+  stage: ai-tools
+  interruptible: false
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $WEEKLY_RECAP == "true"
+  variables:
+    RECAP_CHANNEL: "C0BAYRNKMGB"   # target Slack channel
+  script:
+    - claude-ci "/pysae:stats-weekly-summary --summary --repo shift --channel ${RECAP_CHANNEL}"

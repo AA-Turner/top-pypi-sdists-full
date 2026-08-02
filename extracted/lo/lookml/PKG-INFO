@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: lookml
+Version: 3.0.3
+Summary: A batteries included API for automating your LookML
+License: MIT
+Author: Russell Garner
+Requires-Python: >=3.7,<4.0
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Requires-Dist: PyGithub (>=1.47,<2.0)
+Requires-Dist: PyYAML (>=5.3.1,<6.0.0)
+Requires-Dist: click (>=7.1.2,<8.0.0)
+Requires-Dist: looker-sdk (>=0.1.3-beta.20,<0.2.0)

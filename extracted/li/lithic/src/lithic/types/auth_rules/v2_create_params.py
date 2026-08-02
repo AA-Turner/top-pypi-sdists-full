@@ -1,0 +1,189 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+from typing import Union, Optional
+from typing_extensions import Literal, Required, TypeAlias, TypedDict
+
+from ..._types import SequenceNotStr
+from .event_stream import EventStream
+from .velocity_limit_params_param import VelocityLimitParamsParam
+from .merchant_lock_parameters_param import MerchantLockParametersParam
+from .typescript_code_parameters_param import TypescriptCodeParametersParam
+from .conditional_block_parameters_param import ConditionalBlockParametersParam
+from .conditional_3ds_action_parameters_param import Conditional3DSActionParametersParam
+from .conditional_ach_action_parameters_param import ConditionalACHActionParametersParam
+from .conditional_tokenization_action_parameters_param import ConditionalTokenizationActionParametersParam
+from .conditional_authorization_action_parameters_param import ConditionalAuthorizationActionParametersParam
+from .conditional_authorization_adjustment_parameters_param import ConditionalAuthorizationAdjustmentParametersParam
+from .conditional_card_transaction_update_action_parameters_param import (
+    ConditionalCardTransactionUpdateActionParametersParam,
+)
+
+__all__ = [
+    "V2CreateParams",
+    "AccountLevelRule",
+    "AccountLevelRuleParameters",
+    "CardLevelRule",
+    "CardLevelRuleParameters",
+    "ProgramLevelRule",
+    "ProgramLevelRuleParameters",
+]
+
+
+class AccountLevelRule(TypedDict, total=False):
+    parameters: Required[AccountLevelRuleParameters]
+    """Parameters for the Auth Rule"""
+
+    type: Required[
+        Literal["CONDITIONAL_BLOCK", "VELOCITY_LIMIT", "MERCHANT_LOCK", "CONDITIONAL_ACTION", "TYPESCRIPT_CODE"]
+    ]
+    """The type of Auth Rule.
+
+    For certain rule types, this determines the event stream during which it will be
+    evaluated. For rules that can be applied to one of several event streams, the
+    effective one is defined by the separate `event_stream` field.
+
+    - `CONDITIONAL_BLOCK`: Deprecated. Use `CONDITIONAL_ACTION` instead.
+      AUTHORIZATION event stream.
+    - `VELOCITY_LIMIT`: AUTHORIZATION event stream.
+    - `MERCHANT_LOCK`: AUTHORIZATION event stream.
+    - `CONDITIONAL_ACTION`: AUTHORIZATION, THREE_DS_AUTHENTICATION, TOKENIZATION,
+      ACH_CREDIT_RECEIPT, ACH_DEBIT_RECEIPT, or CARD_TRANSACTION_UPDATE event
+      stream.
+    - `TYPESCRIPT_CODE`: AUTHORIZATION, THREE_DS_AUTHENTICATION, TOKENIZATION,
+      ACH_CREDIT_RECEIPT, or ACH_DEBIT_RECEIPT event stream.
+    """
+
+    account_tokens: SequenceNotStr[str]
+    """Account tokens to which the Auth Rule applies."""
+
+    business_account_tokens: SequenceNotStr[str]
+    """Business Account tokens to which the Auth Rule applies."""
+
+    event_stream: EventStream
+    """The event stream during which the rule will be evaluated."""
+
+    name: Optional[str]
+    """Auth Rule Name"""
+
+
+AccountLevelRuleParameters: TypeAlias = Union[
+    ConditionalBlockParametersParam,
+    VelocityLimitParamsParam,
+    MerchantLockParametersParam,
+    Conditional3DSActionParametersParam,
+    ConditionalAuthorizationActionParametersParam,
+    ConditionalACHActionParametersParam,
+    ConditionalTokenizationActionParametersParam,
+    ConditionalCardTransactionUpdateActionParametersParam,
+    TypescriptCodeParametersParam,
+    ConditionalAuthorizationAdjustmentParametersParam,
+]
+
+
+class CardLevelRule(TypedDict, total=False):
+    card_tokens: Required[SequenceNotStr[str]]
+    """Card tokens to which the Auth Rule applies."""
+
+    parameters: Required[CardLevelRuleParameters]
+    """Parameters for the Auth Rule"""
+
+    type: Required[
+        Literal["CONDITIONAL_BLOCK", "VELOCITY_LIMIT", "MERCHANT_LOCK", "CONDITIONAL_ACTION", "TYPESCRIPT_CODE"]
+    ]
+    """The type of Auth Rule.
+
+    For certain rule types, this determines the event stream during which it will be
+    evaluated. For rules that can be applied to one of several event streams, the
+    effective one is defined by the separate `event_stream` field.
+
+    - `CONDITIONAL_BLOCK`: Deprecated. Use `CONDITIONAL_ACTION` instead.
+      AUTHORIZATION event stream.
+    - `VELOCITY_LIMIT`: AUTHORIZATION event stream.
+    - `MERCHANT_LOCK`: AUTHORIZATION event stream.
+    - `CONDITIONAL_ACTION`: AUTHORIZATION, THREE_DS_AUTHENTICATION, TOKENIZATION,
+      ACH_CREDIT_RECEIPT, ACH_DEBIT_RECEIPT, or CARD_TRANSACTION_UPDATE event
+      stream.
+    - `TYPESCRIPT_CODE`: AUTHORIZATION, THREE_DS_AUTHENTICATION, TOKENIZATION,
+      ACH_CREDIT_RECEIPT, or ACH_DEBIT_RECEIPT event stream.
+    """
+
+    event_stream: EventStream
+    """The event stream during which the rule will be evaluated."""
+
+    name: Optional[str]
+    """Auth Rule Name"""
+
+
+CardLevelRuleParameters: TypeAlias = Union[
+    ConditionalBlockParametersParam,
+    VelocityLimitParamsParam,
+    MerchantLockParametersParam,
+    Conditional3DSActionParametersParam,
+    ConditionalAuthorizationActionParametersParam,
+    ConditionalACHActionParametersParam,
+    ConditionalTokenizationActionParametersParam,
+    ConditionalCardTransactionUpdateActionParametersParam,
+    TypescriptCodeParametersParam,
+    ConditionalAuthorizationAdjustmentParametersParam,
+]
+
+
+class ProgramLevelRule(TypedDict, total=False):
+    parameters: Required[ProgramLevelRuleParameters]
+    """Parameters for the Auth Rule"""
+
+    program_level: Required[bool]
+    """Whether the Auth Rule applies to all authorizations on the card program."""
+
+    type: Required[
+        Literal["CONDITIONAL_BLOCK", "VELOCITY_LIMIT", "MERCHANT_LOCK", "CONDITIONAL_ACTION", "TYPESCRIPT_CODE"]
+    ]
+    """The type of Auth Rule.
+
+    For certain rule types, this determines the event stream during which it will be
+    evaluated. For rules that can be applied to one of several event streams, the
+    effective one is defined by the separate `event_stream` field.
+
+    - `CONDITIONAL_BLOCK`: Deprecated. Use `CONDITIONAL_ACTION` instead.
+      AUTHORIZATION event stream.
+    - `VELOCITY_LIMIT`: AUTHORIZATION event stream.
+    - `MERCHANT_LOCK`: AUTHORIZATION event stream.
+    - `CONDITIONAL_ACTION`: AUTHORIZATION, THREE_DS_AUTHENTICATION, TOKENIZATION,
+      ACH_CREDIT_RECEIPT, ACH_DEBIT_RECEIPT, or CARD_TRANSACTION_UPDATE event
+      stream.
+    - `TYPESCRIPT_CODE`: AUTHORIZATION, THREE_DS_AUTHENTICATION, TOKENIZATION,
+      ACH_CREDIT_RECEIPT, or ACH_DEBIT_RECEIPT event stream.
+    """
+
+    event_stream: EventStream
+    """The event stream during which the rule will be evaluated."""
+
+    excluded_account_tokens: SequenceNotStr[str]
+    """Account tokens to which the Auth Rule does not apply."""
+
+    excluded_business_account_tokens: SequenceNotStr[str]
+    """Business account tokens to which the Auth Rule does not apply."""
+
+    excluded_card_tokens: SequenceNotStr[str]
+    """Card tokens to which the Auth Rule does not apply."""
+
+    name: Optional[str]
+    """Auth Rule Name"""
+
+
+ProgramLevelRuleParameters: TypeAlias = Union[
+    ConditionalBlockParametersParam,
+    VelocityLimitParamsParam,
+    MerchantLockParametersParam,
+    Conditional3DSActionParametersParam,
+    ConditionalAuthorizationActionParametersParam,
+    ConditionalACHActionParametersParam,
+    ConditionalTokenizationActionParametersParam,
+    ConditionalCardTransactionUpdateActionParametersParam,
+    TypescriptCodeParametersParam,
+    ConditionalAuthorizationAdjustmentParametersParam,
+]
+
+V2CreateParams: TypeAlias = Union[AccountLevelRule, CardLevelRule, ProgramLevelRule]

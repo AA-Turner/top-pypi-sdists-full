@@ -1,5 +1,20 @@
 from __future__ import annotations
 
+__lazy_modules__ = [
+    'dataclasses',
+    'io',
+    'sys',
+    'textwrap',
+    'typing',
+    'click',
+    'clickdc',
+    'mycli',
+    'mycli.cli_runner',
+    'mycli.client',
+    'mycli.constants',
+    'mycli.packages.cli_utils',
+]
+
 from dataclasses import dataclass
 from io import TextIOWrapper
 import os
@@ -39,8 +54,9 @@ INT_OR_STRING_CLICK_TYPE = IntOrStringClickParamType()
 
 @dataclass(slots=True)
 class CliArgs:
-    database: str | None = clickdc.argument(
+    positional_database: str | None = clickdc.argument(
         type=str,
+        metavar='DATABASE',
         default=None,
         nargs=1,
     )
@@ -151,10 +167,9 @@ class CliArgs:
         is_flag=True,
         help='Less verbose output and feedback.',
     )
-    dbname: str | None = clickdc.option(
+    database: str | None = clickdc.option(
         '-D',
         '--database',
-        'dbname',
         type=str,
         clickdc=None,
         help='Database or DSN to use for the connection.',
@@ -169,6 +184,10 @@ class CliArgs:
     list_dsn: bool = clickdc.option(
         is_flag=True,
         help='Show list of DSN aliases configured in the [alias_dsn] section of ~/.myclirc.',
+    )
+    completions: str | None = clickdc.option(
+        type=click.Choice(['bash', 'zsh', 'fish']),
+        help='Print a completion script for the selected shell.',
     )
     prompt: str | None = clickdc.option(
         '-R',
@@ -382,12 +401,12 @@ def preprocess_cli_args(
     cli_args: CliArgs,
     is_valid_connection_scheme: Callable[[str], tuple[bool, str | None]],
 ) -> int:
-    if cli_args.database is None and isinstance(cli_args.password, str) and '://' in cli_args.password:
+    if cli_args.positional_database is None and isinstance(cli_args.password, str) and '://' in cli_args.password:
         is_valid_scheme, scheme = is_valid_connection_scheme(cli_args.password)
         if not is_valid_scheme:
             click.secho(f'Error: Unknown connection scheme provided for DSN URI ({scheme}://)', err=True, fg='red')
             sys.exit(1)
-        cli_args.database = cli_args.password
+        cli_args.positional_database = cli_args.password
         cli_args.password = EMPTY_PASSWORD_FLAG_SENTINEL
 
     if cli_args.resume and not cli_args.checkpoint:

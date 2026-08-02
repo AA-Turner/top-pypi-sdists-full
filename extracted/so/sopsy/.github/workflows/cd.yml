@@ -1,0 +1,72 @@
+name: CD
+
+on:
+  schedule:
+    - cron: "0 0 1 * *"
+  workflow_dispatch:
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
+  release:
+    name: Release
+    needs: [ci]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      id: ${{ steps.release.outputs.id }}
+      revision: ${{ env.REVISION }}
+      previous_revision: ${{ env.PREVIOUS_REVISION }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4
+        with:
+          fetch-depth: 0
+
+      - name: Bump
+        uses: commitizen-tools/commitizen-action@5b0848cd060263e24602d1eba03710e056ef7711  # 0.24.0
+        with:
+          changelog_increment_filename: _changelog.md
+          github_token: ${{ github.token }}
+          no_raise: 3,21
+
+      - name: Download artifacts
+        if: env.PREVIOUS_REVISION != env.REVISION
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          name: sopsy-dist
+          path: ./dist/
+
+      - name: Release
+        id: release
+        if: env.PREVIOUS_REVISION != env.REVISION
+        uses: softprops/action-gh-release@72f2c25fcb47643c292f7107632f7a47c1df5cd8  # v2
+        with:
+          body_path: _changelog.md
+          files: ./dist/*
+          tag_name: ${{ env.REVISION }}
+
+  publish:
+    name: Publish
+    needs: [release]
+    if: needs.release.outputs.id != ''
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    environment: release
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4
+        with:
+          name: sopsy-dist
+          path: ./dist/
+
+      - name: Publish package to PyPI
+        if: needs.release.outputs.previous_revision != needs.release.outputs.revision
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          attestations: true

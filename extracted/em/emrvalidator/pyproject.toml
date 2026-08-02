@@ -1,0 +1,10 @@
+[tool]
+name = "emrvalidator"
+version = "1.0.2"
+
+[options]
+packages = ["emrvalidator"]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"

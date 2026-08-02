@@ -484,6 +484,13 @@ class PatreonCreatorExtractor(PatreonExtractor):
                 page, r'{\"value\":{\"campaign\":{\"data\":{\"id\":\"', '\\"'):
             return cid
 
+        if (curl := text.extr(page, '"contentUrl":', ",")) and \
+                (cid := text.extr(curl, "/campaign/", "/")):
+            return cid
+
+        if cid := text.extr(page, r'\"id\":\"NavigationBar_', '\\"'):
+            return cid
+
         raise self.exc.AbortExtraction("Failed to extract campaign ID")
 
     def _get_filters(self, params):

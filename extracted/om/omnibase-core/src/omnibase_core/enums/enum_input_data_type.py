@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""
+Input data type enum for discriminated union.
+"""
+
+from enum import Enum, unique
+
+from omnibase_core.enums.enum_str_enum_base import UtilStrValueHelper
+
+
+@unique
+class EnumInputDataType(UtilStrValueHelper, str, Enum):
+    """Types of input data structures."""
+
+    STRUCTURED = "structured"
+    PRIMITIVE = "primitive"
+    MIXED = "mixed"
+
+
+__all__ = ["EnumInputDataType"]

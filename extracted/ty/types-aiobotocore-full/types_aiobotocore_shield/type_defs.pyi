@@ -187,17 +187,13 @@ class TimeRangeOutputTypeDef(TypedDict):
 class DescribeProtectionGroupRequestTypeDef(TypedDict):
     ProtectionGroupId: str
 
-ProtectionGroupTypeDef = TypedDict(
-    "ProtectionGroupTypeDef",
-    {
-        "ProtectionGroupId": str,
-        "Aggregation": ProtectionGroupAggregationType,
-        "Pattern": ProtectionGroupPatternType,
-        "Members": list[str],
-        "ResourceType": NotRequired[ProtectedResourceTypeType],
-        "ProtectionGroupArn": NotRequired[str],
-    },
-)
+class ProtectionGroupTypeDef(TypedDict):
+    ProtectionGroupId: str
+    Aggregation: ProtectionGroupAggregationType
+    Pattern: ProtectionGroupPatternType
+    Members: list[str]
+    ResourceType: NotRequired[ProtectedResourceTypeType]
+    ProtectionGroupArn: NotRequired[str]
 
 class DescribeProtectionRequestTypeDef(TypedDict):
     ProtectionId: NotRequired[str]
@@ -258,16 +254,12 @@ class UntagResourceRequestTypeDef(TypedDict):
     ResourceARN: str
     TagKeys: Sequence[str]
 
-UpdateProtectionGroupRequestTypeDef = TypedDict(
-    "UpdateProtectionGroupRequestTypeDef",
-    {
-        "ProtectionGroupId": str,
-        "Aggregation": ProtectionGroupAggregationType,
-        "Pattern": ProtectionGroupPatternType,
-        "ResourceType": NotRequired[ProtectedResourceTypeType],
-        "Members": NotRequired[Sequence[str]],
-    },
-)
+class UpdateProtectionGroupRequestTypeDef(TypedDict):
+    ProtectionGroupId: str
+    Aggregation: ProtectionGroupAggregationType
+    Pattern: ProtectionGroupPatternType
+    ResourceType: NotRequired[ProtectedResourceTypeType]
+    Members: NotRequired[Sequence[str]]
 
 class UpdateSubscriptionRequestTypeDef(TypedDict):
     AutoRenew: NotRequired[AutoRenewType]
@@ -305,17 +297,13 @@ class AttackVolumeTypeDef(TypedDict):
     PacketsPerSecond: NotRequired[AttackVolumeStatisticsTypeDef]
     RequestsPerSecond: NotRequired[AttackVolumeStatisticsTypeDef]
 
-CreateProtectionGroupRequestTypeDef = TypedDict(
-    "CreateProtectionGroupRequestTypeDef",
-    {
-        "ProtectionGroupId": str,
-        "Aggregation": ProtectionGroupAggregationType,
-        "Pattern": ProtectionGroupPatternType,
-        "ResourceType": NotRequired[ProtectedResourceTypeType],
-        "Members": NotRequired[Sequence[str]],
-        "Tags": NotRequired[Sequence[TagTypeDef]],
-    },
-)
+class CreateProtectionGroupRequestTypeDef(TypedDict):
+    ProtectionGroupId: str
+    Aggregation: ProtectionGroupAggregationType
+    Pattern: ProtectionGroupPatternType
+    ResourceType: NotRequired[ProtectedResourceTypeType]
+    Members: NotRequired[Sequence[str]]
+    Tags: NotRequired[Sequence[TagTypeDef]]
 
 class CreateProtectionRequestTypeDef(TypedDict):
     Name: str

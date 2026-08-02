@@ -22,7 +22,7 @@ from lazr.delegates import Passthrough
 
 
 class Base:
-    foo = 'foo from Base'
+    foo = "foo from Base"
 
     @classmethod
     def clsmethod(cls):
@@ -31,8 +31,8 @@ class Base:
 
 class TestPassthrough(unittest.TestCase):
     def setUp(self):
-        self.p = Passthrough('foo', 'mycontext')
-        self.p2 = Passthrough('clsmethod', 'mycontext')
+        self.p = Passthrough("foo", "mycontext")
+        self.p2 = Passthrough("clsmethod", "mycontext")
 
         self.base = Base()
 
@@ -43,17 +43,16 @@ class TestPassthrough(unittest.TestCase):
         self.adapter = Adapter()
 
     def test_get(self):
-        self.assertEqual(self.p.__get__(self.adapter), 'foo from Base')
+        self.assertEqual(self.p.__get__(self.adapter), "foo from Base")
         self.assertTrue(self.p.__get__(None, self.Adapter) is self.p)
-        self.assertEqual(self.p2.__get__(self.adapter)(), 'Base')
+        self.assertEqual(self.p2.__get__(self.adapter)(), "Base")
 
     def test_set(self):
-        self.p.__set__(self.adapter, 'new value')
-        self.assertEqual(self.base.foo, 'new value')
+        self.p.__set__(self.adapter, "new value")
+        self.assertEqual(self.base.foo, "new value")
 
     def test_no_delete(self):
-        self.assertRaises(NotImplementedError,
-                          self.p.__delete__, self.adapter)
+        self.assertRaises(NotImplementedError, self.p.__delete__, self.adapter)
 
     def test_adaptation(self):
         # Passthrough's third argument (adaptation) is optional and, when
@@ -62,6 +61,7 @@ class TestPassthrough(unittest.TestCase):
         # before getting/setting the delegated attribute.
         class HasNoFoo:
             _foo = 1
+
         no_foo = HasNoFoo()
         # ... but IHasFooAdapter uses HasNoFoo._foo to provide its own .foo,
         # so it works like an adapter for HasNoFoo into some interface that
@@ -82,7 +82,7 @@ class TestPassthrough(unittest.TestCase):
         class Example:
             context = no_foo
 
-        p = Passthrough('foo', 'context', adaptation=IHasFooAdapter)
+        p = Passthrough("foo", "context", adaptation=IHasFooAdapter)
         e = Example()
 
         self.assertEqual(p.__get__(e), 1)

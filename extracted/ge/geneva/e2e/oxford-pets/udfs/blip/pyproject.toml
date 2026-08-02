@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: Copyright The Geneva Authors
+
+# BLIP caption UDF for Oxford Pets dataset
+# GPU-accelerated image captioning using Salesforce BLIP model
+
+[project]
+name = "geneva-udf-blip"
+version = "0.1.0"
+description = "BLIP caption UDF for GPU-accelerated image captioning"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "geneva",
+    "transformers>=4.35.0",
+    "torch>=2.1,<3",
+    "pillow>=12.1.1",
+    "tomli>=2.0; python_version<'3.11'",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[tool.uv]
+index-strategy = "unsafe-best-match"
+
+[tool.uv.sources]
+geneva = { path = "../../../..", editable = true }
+
+[[tool.uv.index]]
+name = "fury"
+url = "https://pypi.fury.io/lancedb/"
+
+[[tool.uv.index]]
+name = "lance-format"
+url = "https://pypi.fury.io/lance-format/"

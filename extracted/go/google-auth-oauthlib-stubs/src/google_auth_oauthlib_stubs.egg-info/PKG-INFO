@@ -1,0 +1,27 @@
+Metadata-Version: 2.4
+Name: google-auth-oauthlib-stubs
+Version: 1.2.0
+Summary: Type stubs for google-auth-oauthlib
+Author-email: CaffeinePower <cffnpwr@gmail.com>
+License-Expression: MIT
+Project-URL: source, https://github.com/sakgoyal/google-auth-oauthlib-stubs.git
+Classifier: Typing :: Typed
+Classifier: Typing :: Stubs Only
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: google-auth-oauthlib>=1.2.0
+Requires-Dist: requests-oauthlib>=1.3.1
+Requires-Dist: google>=3.0.0
+Requires-Dist: google-auth-stubs>=0.2.0
+
+# Google Auth OAuthlib Stubs
+
+***This is in no way affiliated with Google.***
+
+The stubs were written by [cffnpwr](https://github.com/cffnpwr).
+
+## Installation
+
+```sh
+poetry add -G dev google-auth-oauthlib-atubs
+```

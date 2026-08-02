@@ -1,0 +1,81 @@
+[project]
+name = "pictex"
+version = "2.3.0"
+description = "A Python library for efficient image generation using CSS Flexbox."
+authors = [
+    { name = "Franco Zanardi", email = "francozanardi97@gmail.com" },
+]
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = ["skia", "text-to-image", "image-generation", "typography", "graphics", "text-rendering"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Operating System :: OS Independent",
+    "Natural Language :: English",
+    "Topic :: Text Processing :: Fonts",
+    "Topic :: Scientific/Engineering :: Visualization",
+    "Typing :: Typed"
+]
+
+dependencies = [
+  "skia-python==138.*",
+  "stretchable>=0.3.0",
+  "typing_extensions >=4.0; python_version < '3.11'",
+  "importlib_resources >=5.0; python_version < '3.10'",
+  "regex",
+  "uharfbuzz",
+  "python-bidi"
+]
+
+[project.urls]
+Homepage = "https://github.com/francozanardi/pictex"
+Repository = "https://github.com/francozanardi/pictex"
+Issues = "https://github.com/francozanardi/pictex/issues"
+Changelog = "https://github.com/francozanardi/pictex/releases"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+sources = ["src"]
+exclude = [
+  "/.github",
+  "/docs",
+  "/examples",
+  "/tests",
+  ".gitignore",
+  "Dockerfile.test",
+  "*.yml",
+  "*.yaml",
+]
+artifacts = [
+  "pictex/fonts/*.ttf",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-cov",
+    "pytest-regressions",
+    "Pillow",
+    "mypy"
+]
+docs = [
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocstrings[python]"
+]
+
+[tool.mypy]
+ignore_missing_imports = true

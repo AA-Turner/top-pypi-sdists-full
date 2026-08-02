@@ -99,13 +99,18 @@ toggle.name = "Switch to light mode"
 
 [[project.extra.alternate]]
 name = "English"
-link = "/"
+link = "/sahi/"
 lang = "en"
 
 [[project.extra.alternate]]
 name = "中文"
-link = "/zh/"
+link = "/sahi/zh/"
 lang = "zh"
+
+[[project.extra.alternate]]
+name = "Türkçe"
+link = "/sahi/tr/"
+lang = "tr"
 
 # --- Social links ---
 

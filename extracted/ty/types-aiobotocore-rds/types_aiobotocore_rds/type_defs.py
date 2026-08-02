@@ -143,6 +143,7 @@ __all__ = (
     "CreateTenantDatabaseMessageTypeDef",
     "CreateTenantDatabaseResultTypeDef",
     "CustomDBEngineVersionAMITypeDef",
+    "DBClusterAssociatedRoleTypeDef",
     "DBClusterAutomatedBackupMessageTypeDef",
     "DBClusterAutomatedBackupTypeDef",
     "DBClusterBacktrackMessageTypeDef",
@@ -766,6 +767,11 @@ class DBParameterGroupTypeDef(TypedDict):
     DBParameterGroupFamily: NotRequired[str]
     Description: NotRequired[str]
     DBParameterGroupArn: NotRequired[str]
+
+
+class DBClusterAssociatedRoleTypeDef(TypedDict):
+    RoleArn: str
+    FeatureName: NotRequired[str]
 
 
 class ScalingConfigurationTypeDef(TypedDict):
@@ -2236,6 +2242,7 @@ class ModifyDBClusterMessageTypeDef(TypedDict):
     EnableLimitlessDatabase: NotRequired[bool]
     CACertificateIdentifier: NotRequired[str]
     MasterUserAuthenticationType: NotRequired[MasterUserAuthenticationTypeType]
+    EngineLifecycleSupport: NotRequired[str]
 
 
 class DBSnapshotTypeDef(TypedDict):
@@ -3711,6 +3718,7 @@ class CreateDBClusterMessageTypeDef(TypedDict):
     TagSpecifications: NotRequired[Sequence[TagSpecificationTypeDef]]
     MasterUserAuthenticationType: NotRequired[MasterUserAuthenticationTypeType]
     WithExpressConfiguration: NotRequired[bool]
+    AssociatedRoles: NotRequired[Sequence[DBClusterAssociatedRoleTypeDef]]
     SourceRegion: NotRequired[str]
 
 
@@ -3902,6 +3910,7 @@ class ModifyDBInstanceMessageTypeDef(TypedDict):
     AdditionalStorageVolumes: NotRequired[Sequence[ModifyAdditionalStorageVolumeTypeDef]]
     TagSpecifications: NotRequired[Sequence[TagSpecificationTypeDef]]
     MasterUserAuthenticationType: NotRequired[MasterUserAuthenticationTypeType]
+    EngineLifecycleSupport: NotRequired[str]
 
 
 class PromoteReadReplicaMessageTypeDef(TypedDict):
@@ -3950,6 +3959,7 @@ class RestoreDBClusterFromS3MessageTypeDef(TypedDict):
     MasterUserSecretKmsKeyId: NotRequired[str]
     EngineLifecycleSupport: NotRequired[str]
     TagSpecifications: NotRequired[Sequence[TagSpecificationTypeDef]]
+    AssociatedRoles: NotRequired[Sequence[DBClusterAssociatedRoleTypeDef]]
 
 
 class RestoreDBClusterFromSnapshotMessageTypeDef(TypedDict):
@@ -3993,6 +4003,7 @@ class RestoreDBClusterFromSnapshotMessageTypeDef(TypedDict):
     TagSpecifications: NotRequired[Sequence[TagSpecificationTypeDef]]
     EnableVPCNetworking: NotRequired[bool]
     EnableInternetAccessGateway: NotRequired[bool]
+    AssociatedRoles: NotRequired[Sequence[DBClusterAssociatedRoleTypeDef]]
 
 
 class RestoreDBClusterToPointInTimeMessageTypeDef(TypedDict):
@@ -4036,6 +4047,7 @@ class RestoreDBClusterToPointInTimeMessageTypeDef(TypedDict):
     TagSpecifications: NotRequired[Sequence[TagSpecificationTypeDef]]
     EnableVPCNetworking: NotRequired[bool]
     EnableInternetAccessGateway: NotRequired[bool]
+    AssociatedRoles: NotRequired[Sequence[DBClusterAssociatedRoleTypeDef]]
 
 
 class RestoreDBInstanceFromDBSnapshotMessageTypeDef(TypedDict):

@@ -1,0 +1,277 @@
+"""Registry (taps) commands: tap, untap, taps, outdated."""
+from __future__ import annotations
+
+import argparse
+import json
+from contextlib import suppress
+
+from .. import cliparse, spin
+from ..core import (
+    catalog,
+    complete,
+    config,
+    gitutil,
+    journal,
+    lockfile,
+    paths,
+    registry,
+    staleness,
+    store,
+    util,
+)
+from ..core import output as out
+from ..errors import BoostError
+
+_tilde = paths.tilde
+
+
+def _tap_catalog(args) -> int:
+    """Tap every registry in the filtered catalog selection."""
+    selection = _catalog_selection(args)
+    if not selection:
+        out.warn("no catalog registries match that filter")
+        return 1
+    if args.dry_run:
+        rows = [(e["name"], e["type"], e.get("category", ""),
+                 "~%d" % (e.get("est_items") or 0),
+                 out.role(e.get("focus", ""), "muted")) for e in selection]
+        out.table(rows, headers=("NAME", "TYPE", "CATEGORY", "EST", "FOCUS"))
+        print()
+        out.dim("%d registries · ~%d items (dry run — nothing tapped)"
+                % (len(selection), sum(e.get("est_items") or 0 for e in selection)))
+        return 0
+    existing = {t.name for t in registry.list_taps()}
+    rc = 0
+    for e in selection:
+        if e["name"] in existing:
+            out.info(out.role("%s already tapped" % e["name"], "muted"))
+            continue
+        try:
+            tap = registry.add(str(e["url"]), curated=True)
+            entries = catalog.rebuild_tap(tap)
+        except BoostError as err:
+            out.warn("could not tap %s: %s" % (e["name"], err.message))
+            rc = 1
+            continue
+        journal.log("tap", tap.name)
+        out.ok("tapped %s (%d items) — %s"
+               % (tap.name, len(entries), e.get("focus", "")))
+    return rc
+
+
+def _catalog_selection(args) -> list:
+    """Filter the bundled registry catalog by --type/--category/--limit."""
+    entries = config.load_registry_catalog()
+    if args.type:
+        entries = [e for e in entries
+                   if e.get("type") == args.type or args.type in e.get("also_types", [])]
+    if args.category:
+        entries = [e for e in entries if e.get("category") == args.category]
+    if not args.include_lists:
+        entries = [e for e in entries if not e.get("list_only")]
+    entries.sort(key=lambda e: (-int(e.get("est_items") or 0), e["name"].lower()))
+    if args.limit:
+        entries = entries[:args.limit]
+    return entries
+
+
+def cmd_tap(argv) -> int:
+    """boost tap [SPEC] [--defaults] [--catalog] [--curated]"""
+    p = cliparse.parser(
+        prog="boost tap",
+        description="Add a GitHub repo as a skill registry")
+    p.add_argument("spec", nargs="?",
+                   help="owner/repo, a git URL, or a local directory")
+    p.add_argument("--defaults", action="store_true",
+                   help="tap the recommended public registries")
+    p.add_argument("--catalog", action="store_true",
+                   help="tap from the bundled curated registry catalog")
+    p.add_argument("--type", choices=("skill", "rule", "workflow"),
+                   help="with --catalog: restrict to one item type")
+    p.add_argument("--category", help="with --catalog: restrict to one category")
+    p.add_argument("--limit", type=int, metavar="N",
+                   help="with --catalog: only the top N registries by est. size")
+    p.add_argument("--include-lists", action="store_true",
+                   help="with --catalog: also tap awesome-list/index repos")
+    p.add_argument("--dry-run", action="store_true",
+                   help="with --catalog: print what would be tapped, tap nothing")
+    p.add_argument("--curated", action="store_true",
+                   help="mark the tap as curated (★ in listings)")
+    args = p.parse_args(argv)
+    if not args.spec and not args.defaults and not args.catalog:
+        p.error("provide a SPEC, --defaults, or --catalog")
+
+    rc = 0
+    if args.catalog:
+        rc |= _tap_catalog(args)
+    if args.defaults:
+        existing = {t.name for t in registry.list_taps()}
+        for default in config.DEFAULT_TAPS:
+            if default["name"] in existing:
+                out.info(out.role("%s already tapped" % default["name"], "muted"))
+                continue
+            try:
+                tap = registry.add(str(default["url"]), curated=True)
+                entries = catalog.rebuild_tap(tap)
+            except BoostError as e:
+                out.warn("could not tap %s: %s" % (default["name"], e.message))
+                rc = 1
+                continue
+            journal.log("tap", tap.name)
+            out.ok("tapped %s (%d skills) — %s"
+                   % (tap.name, len(entries), default.get("focus", "")))
+    if args.spec:
+        with spin.Spinner("cloning %s" % args.spec):
+            tap = registry.add(args.spec, curated=args.curated)
+            entries = catalog.rebuild_tap(tap)
+        journal.log("tap", tap.name)
+        out.ok("Tapped %s (%d skills)" % (tap.name, len(entries)))
+    # Refresh the TAB-completion name cache so `boost install <TAB>` sees
+    # whatever this call just tapped instead of the pre-tap snapshot.
+    complete.refresh_names()
+    return rc
+
+
+def cmd_untap(argv) -> int:
+    """boost untap NAME [--force]"""
+    p = cliparse.parser(
+        prog="boost untap",
+        description="Remove a registry tap")
+    p.add_argument("name", help="tap name (owner/repo or short alias)")
+    p.add_argument("-f", "--force", action="store_true",
+                   help="skip the confirmation prompt")
+    p.add_argument("-y", "--yes", action="store_true", help=argparse.SUPPRESS)
+    args = p.parse_args(argv)
+
+    tap = registry.get(args.name)
+    dependent = sorted(n for n, e in lockfile.installed().items()
+                       if e.get("tap") == tap.name)
+    if dependent:
+        out.warn("%d skill(s) installed from %s: %s"
+                 % (len(dependent), tap.name, ", ".join(dependent)))
+        out.warn("installed skills keep working but lose their update source")
+        if not (args.force or args.yes) and not out.confirm(
+                "untap %s anyway?" % tap.name):
+            out.info("cancelled")
+            return 1
+    registry.remove(tap.name)
+    complete.refresh_names()
+    journal.log("untap", tap.name)
+    out.ok("untapped %s" % tap.name)
+    return 0
+
+
+def _tap_updated(tap: registry.Tap) -> str:
+    """Last-commit date of a tap clone, else the cache's generated age."""
+    if tap.is_cloned:
+        with suppress(BoostError):
+            # --date=short --format=%cd == %cs, but works on git < 2.21 too
+            proc = gitutil.run(["-C", str(tap.path), "log", "-1",
+                                "--date=short", "--format=%cd"], check=False)
+            if proc.returncode == 0 and proc.stdout.strip():
+                return proc.stdout.strip()
+    try:
+        data = json.loads(tap.cache_file.read_text(encoding="utf-8"))
+        return util.rel_time(data.get("generated", ""))
+    except (OSError, ValueError):
+        return "?"
+
+
+def cmd_taps(argv) -> int:
+    """boost taps [--json]"""
+    p = cliparse.parser(
+        prog="boost taps",
+        description="List all configured registry taps")
+    p.add_argument("--json", action="store_true",
+                   help="machine-readable output")
+    args = p.parse_args(argv)
+
+    taps = []
+    total = 0
+    for tap in registry.list_taps():
+        skills = catalog.load_tap(tap)
+        total += len(skills)
+        taps.append({"name": tap.name, "url": tap.url, "curated": tap.curated,
+                     "skills": len(skills), "updated": _tap_updated(tap)})
+    if args.json:
+        print(json.dumps(taps, indent=2))
+        return 0
+    if not taps:
+        out.info("no taps configured")
+        out.info(out.role("add the recommended registries with `boost tap --defaults`", "muted"))
+        return 0
+    rows = [(t["name"], str(t["skills"]), t["updated"],
+             "★" if t["curated"] else "", out.role(_tilde(t["url"]), "muted"))
+            for t in taps]
+    out.table(rows, headers=("NAME", "SKILLS", "UPDATED", "", "URL"))
+    print()
+    out.dim("%d taps · %d skills" % (len(taps), total))
+    return 0
+
+
+def cmd_outdated(argv) -> int:
+    """boost outdated [--json]"""
+    p = cliparse.parser(
+        prog="boost outdated",
+        description="Show skills with available updates")
+    p.add_argument("--json", action="store_true",
+                   help="machine-readable output")
+    args = p.parse_args(argv)
+
+    results = []
+    heads = {}  # tap name -> HEAD commit ("" when unknown)
+    for name, lk in sorted(lockfile.installed().items()):
+        tap_name = lk.get("tap", "local")
+        if tap_name == "local":
+            continue
+        matches = [e for e in catalog.find(name) if e["tap"] == tap_name]
+        if not matches:
+            continue
+        entry = matches[0]
+        latest = str(entry.get("version") or "0.0.0")
+        installed_v = str(lk.get("version") or "0.0.0")
+        stale, latest_disp = False, latest
+        head, src_sha, src_missing = "", None, False
+        if not util.semver_gt(latest, installed_v):
+            if tap_name not in heads:
+                try:
+                    tap = registry.get(tap_name)
+                    heads[tap_name] = (gitutil.head_commit(tap.path)
+                                       if tap.is_cloned else "")
+                except BoostError:
+                    heads[tap_name] = ""
+            head = heads[tap_name]
+            if head and head != lk.get("commit"):
+                try:
+                    src_sha = util.sha256_dir(store.source_dir_for(entry))
+                except BoostError:
+                    src_missing = True
+        if src_missing:
+            stale, latest_disp = True, "source missing"
+        else:
+            reason = staleness.upstream_reason(
+                installed_v, latest, lk.get("commit", ""), head,
+                lk.get("sha256", ""), src_sha)
+            if reason == staleness.VERSION:
+                stale = True
+            elif reason == staleness.CONTENT:
+                stale, latest_disp = True, "%s (%s)" % (latest, head[:7])
+        if stale:
+            results.append({"name": name, "installed": installed_v,
+                            "latest": latest_disp, "tap": tap_name,
+                            "pinned": bool(lk.get("pinned"))})
+
+    if args.json:
+        print(json.dumps(results, indent=2))
+        return 0
+    if not results:
+        out.ok("everything up to date")
+        return 0
+    rows = [(r["name"],
+             r["installed"] + (" (pinned)" if r["pinned"] else ""),
+             r["latest"], r["tap"]) for r in results]
+    out.table(rows, headers=("NAME", "INSTALLED", "LATEST", "TAP"))
+    print()
+    out.dim("%d outdated · `boost update` upgrades (pinned skills stay put)"
+            % len(results))
+    return 0

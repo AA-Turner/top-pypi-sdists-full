@@ -1,0 +1,101 @@
+name: E2E Bench - Large Image Embedding
+
+on:
+  # Manual trigger - can be run on any branch
+  workflow_dispatch:
+    inputs:
+      csp:
+        description: 'Cloud provider'
+        required: false
+        type: choice
+        options:
+          - gcp
+          - aws
+          - azure
+        default: 'aws'
+      num_images:
+        description: 'Number of images to process (max 1431167)'
+        required: false
+        default: '1000'
+      min_checkpoint_size:
+        description: 'Minimum checkpoint size for backfill operations'
+        required: false
+        default: '1'
+      max_checkpoint_size:
+        description: 'Maximum checkpoint size for backfill operations'
+        required: false
+        default: '512'
+      task_size:
+        description: 'Rows per read task for backfill operations'
+        required: false
+        default: ''
+      dataset_path:
+        description: 'Existing dataset path (gs://.../table or s3://.../table)'
+        required: false
+        default: ''
+      fresh_run:
+        description: 'Ignore checkpoints (if dataset_path is set, delete the table checkpoint directory first)'
+        required: false
+        type: boolean
+        default: true
+      num_cpu_workers:
+        description: 'The number of Ray CPU workers'
+        required: false
+        default: '5'
+      num_gpu_workers:
+        description: 'The number of Ray GPU workers'
+        required: false
+        default: '5'
+      use_merged_preprocess:
+        description: 'Use the merged decode+preprocess UDF for the preprocessed column'
+        required: false
+        type: boolean
+        default: false
+      skip_gpu:
+        description: 'Skip the final GPU-backed UDF and do not create GPU workers'
+        required: false
+        type: boolean
+        default: false
+      intra_applier_concurrency:
+        description: 'Threads per worker process for backfill tasks'
+        required: false
+        default: '1'
+  # Weekly schedule: Monday 2am Pacific = Tuesday 9am UTC (runs on main only)
+  schedule:
+    - cron: '0 9 * * 2'
+
+jobs:
+  e2e-bench-large-image-embedding:
+    name: e2e-bench-large-image-embedding-${{ (github.event_name == 'workflow_dispatch' && (inputs.csp || 'aws')) || 'aws' }}
+    # Scheduled runs are always on main, manual runs can be on any branch
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.ref == 'refs/heads/main')
+    uses: ./.github/workflows/e2e-shared.yml
+    with:
+      # Scheduled runs and manual dispatch default to AWS. Manual runs can be overridden.
+      # See GEN-439.
+      csp: ${{ github.event_name == 'schedule' && 'aws' || inputs.csp || 'aws' }}
+      e2e_dir: e2e/large_image_embedding
+      checkout_ref: ${{ github.event_name == 'schedule' && 'main' || github.ref }}
+      timeout_minutes: 720
+      cluster_name_prefix: e2e-large-image-embedding
+      prepare_command: |
+        test -f e2e/large_image_embedding/upload_manifests.py
+      run_command: |
+        make -f e2e/Makefile bench-e2e-large-image-embedding-${{ github.event_name == 'schedule' && 'aws' || inputs.csp || 'aws' }} \
+          SLUG=$SLUG \
+          CLUSTER_NAME=$CLUSTER_NAME \
+          DATASET_PATH="${{ inputs.dataset_path }}" \
+          FRESH_RUN=${{ inputs.fresh_run }} \
+          NUM_BENCH_IMAGES=${{ inputs.num_images || '300' }} \
+          MIN_CHECKPOINT_SIZE=${{ inputs.min_checkpoint_size || '1' }} \
+          MAX_CHECKPOINT_SIZE=${{ inputs.max_checkpoint_size || '512' }} \
+          TASK_SIZE="${{ inputs.task_size }}" \
+          NUM_CPU_WORKERS=${{ inputs.num_cpu_workers || '5' }} \
+          NUM_GPU_WORKERS=${{ inputs.num_gpu_workers || '5' }} \
+          USE_MERGED_PREPROCESS=${{ inputs.use_merged_preprocess }} \
+          SKIP_GPU=${{ inputs.skip_gpu }} \
+          INTRA_APPLIER_CONCURRENCY=${{ inputs.intra_applier_concurrency || '1' }}
+      cleanup_command: |
+        echo "Deleting raycluster $CLUSTER_NAME"
+        kubectl delete raycluster -n lancedb "$CLUSTER_NAME" --ignore-not-found --timeout=300s --wait
+    secrets: inherit

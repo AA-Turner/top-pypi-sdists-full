@@ -1,0 +1,53 @@
+Metadata-Version: 2.4
+Name: merge3
+Version: 0.0.16
+Summary: Python implementation of 3-way merge
+Maintainer-email: Breezy Developers <team@breezy-vcs.org>
+License-Expression: GPL-2.0-or-later
+Project-URL: Homepage, https://www.breezy-vcs.org/
+Project-URL: GitHub, https://github.com/breezy-team/merge3
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Operating System :: POSIX
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
+License-File: COPYING
+License-File: AUTHORS
+Provides-Extra: dev
+Requires-Dist: ruff==0.14.0; extra == "dev"
+Requires-Dist: mypy>=1.0.0; extra == "dev"
+Dynamic: license-file
+
+A Python implementation of 3-way merge of texts.
+
+Given BASE, OTHER, THIS, tries to produce a combined text
+incorporating the changes from both BASE->OTHER and BASE->THIS.
+All three will typically be sequences of lines.
+
+Usage
+=====
+
+From the command-line::
+
+    $ echo foo > mine
+    $ echo bar > base
+    $ echo blah > other
+    $ python -m merge3 mine base other > merged
+    $ cat merged
+
+Or from Python::
+
+    >>> import merge3
+    >>> m3 = merge3.Merge3(
+    ...                    ['common\n', 'base\n'],
+    ...                    ['common\n', 'a\n'],
+    ...                    ['common\n', 'b\n'])
+    >>> list(m3.merge_annotated())
+    ['u | common\n', '<<<<\n', 'A | a\n', '----\n', 'B | b\n', '>>>>\n']

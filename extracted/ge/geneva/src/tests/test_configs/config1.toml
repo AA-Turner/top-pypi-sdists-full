@@ -1,0 +1,4 @@
+[nested_config]
+config.value1 = "41"
+config.value2 = "42"
+config.value3 = "43"

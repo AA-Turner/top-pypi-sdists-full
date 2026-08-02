@@ -1,55 +1,47 @@
 Metadata-Version: 2.4
 Name: tika
-Version: 3.1.0
+Version: 3.3.2
 Summary: Apache Tika Python library
-Home-page: http://github.com/chrismattmann/tika-python
-Download-URL: http://github.com/chrismattmann/tika-python
-Author: Chris Mattmann
-Author-email: chris.a.mattmann@jpl.nasa.gov
-License: Apache License version 2 ("ALv2")
-Keywords: tika digital babel fish apache
+Author-email: Chris Mattmann <chris.mattmann@gmail.com>
+License-Expression: Apache-2.0
+Project-URL: homepage, http://github.com/chrismattmann/tika-python
+Project-URL: repository, http://github.com/chrismattmann/tika-python.git
+Project-URL: documentation, https://chrismattmann.github.io/tika-python
+Keywords: tika,digital,babel fish,apache
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Database :: Front-Ends
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: setuptools
+Requires-Dist: beautifulsoup4>=4.13.3
 Requires-Dist: requests
-Provides-Extra: tests
-Requires-Dist: memory-profiler>=0.57.0; extra == "tests"
-Requires-Dist: pytest-benchmark>=3.2.2; extra == "tests"
-Provides-Extra: all
-Requires-Dist: memory-profiler>=0.57.0; extra == "all"
-Requires-Dist: pytest-benchmark>=3.2.2; extra == "all"
-Requires-Dist: memory-profiler>=0.57.0; extra == "all"
-Requires-Dist: pytest-benchmark>=3.2.2; extra == "all"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: download-url
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: summary
-
-[![Build Status](https://travis-ci.org/chrismattmann/tika-python.svg?branch=master)](https://travis-ci.org/chrismattmann/tika-python)
-[![Coverage Status](https://coveralls.io/repos/github/chrismattmann/tika-python/badge.svg?branch=master)](https://coveralls.io/github/chrismattmann/tika-python?branch=master)
 
 tika-python
 ===========
+
+[![PyPI Downloads](https://static.pepy.tech/badge/tika)](https://pepy.tech/projects/tika)
+[![Latest release](https://img.shields.io/pypi/v/tika.svg?style=flat)](https://pypi.python.org/pypi/tika/)
+[![License](https://img.shields.io/github/license/chrismattmann/tika-python?style=flat)](https://github.com/chrismattmann/tika-python/blob/master/LICENSE.txt)
+
+[![Build Status](https://github.com/chrismattmann/tika-python/actions/workflows/ci.yml/badge.svg)](https://github.com/chrismattmann/tika-python/actions/workflows/ci.yml)
+[![Coverage Status](https://coveralls.io/repos/github/chrismattmann/tika-python/badge.svg?branch=master)](https://coveralls.io/github/chrismattmann/tika-python?branch=master)
+[![Docs Status](https://github.com/chrismattmann/tika-python/actions/workflows/documentation.yml/badge.svg)](https://github.com/chrismattmann/tika-python/actions/workflows/documentation.yml)
+
 A Python port of the [Apache Tika](http://tika.apache.org/)
 library that makes Tika available using the
 [Tika REST Server](https://cwiki.apache.org/confluence/display/TIKA/TikaServer).
@@ -57,7 +49,7 @@ library that makes Tika available using the
 This makes Apache Tika available as a Python library,
 installable via Setuptools, Pip and Easy Install.
 
-To use this library, you need to have Java 7+ installed on your
+To use this library, you need to have Java 11+ installed on your
 system as tika-python starts up the Tika REST server in the
 background.
 
@@ -66,11 +58,6 @@ Inspired by [Aptivate Tika](https://github.com/aptivate/python-tika).
 Installation (with pip)
 -----------------------
 1. `pip install tika`
-
-Installation (without pip)
---------------------------
-1. `python setup.py build`
-2. `python setup.py install`
 
 Airgap Environment Setup
 ------------------------
@@ -86,15 +73,18 @@ These are read once, when tika/tika.py is initially loaded and used throughout a
 2. `TIKA_SERVER_JAR` - set to the full URL to the remote Tika server jar to download and cache.
 3. `TIKA_SERVER_ENDPOINT` - set to the host (local or remote) for the running Tika server jar.
 4. `TIKA_CLIENT_ONLY` - if set to True, then `TIKA_SERVER_JAR` is ignored, and relies on the value for `TIKA_SERVER_ENDPOINT` and treats Tika like a REST client.
-5. `TIKA_TRANSLATOR` - set to the fully qualified class name (defaults to Lingo24) for the Tika translator implementation.
-6. `TIKA_SERVER_CLASSPATH` - set to a string (delimited by ':' for each additional path) to prepend to the Tika server jar path.
-7. `TIKA_LOG_PATH` - set to a directory with write permissions and the `tika.log` and `tika-server.log` files will be placed in this directory.
-8. `TIKA_PATH` - set to a directory with write permissions and the `tika_server.jar` file will be placed in this directory.
-9. `TIKA_JAVA` - set the Java runtime name, e.g., `java` or `java9`
-10. `TIKA_STARTUP_SLEEP` - number of seconds (`float`) to wait per check if Tika server is launched at runtime
-11. `TIKA_STARTUP_MAX_RETRY` - number of checks (`int`) to attempt for Tika server startup if launched at runtime
-12. `TIKA_JAVA_ARGS` - set java runtime arguments, e.g, `-Xmx4g`
-13. `TIKA_LOG_FILE` - set the filename for the log file. default: `tika.log`. if it is an empty string (`''`), no log file is created.
+3. `TIKA_JAR_HASH_ALGO` - set to `sha1` when running on FIPS-compliant systems; default value is `md5`.
+4. `TIKA_SERVER_ENDPOINT` - set to the host (local or remote) for the running Tika server jar.
+5. `TIKA_CLIENT_ONLY` - if set to True, then `TIKA_SERVER_JAR` is ignored, and relies on the value for `TIKA_SERVER_ENDPOINT` and treats Tika like a REST client.
+6. `TIKA_TRANSLATOR` - set to the fully qualified class name (defaults to Lingo24) for the Tika translator implementation.
+7. `TIKA_SERVER_CLASSPATH` - set to a string (delimited by ':' for each additional path) to prepend to the Tika server jar path.
+8. `TIKA_LOG_PATH` - set to a directory with write permissions and the `tika.log` and `tika-server.log` files will be placed in this directory.
+9. `TIKA_PATH` - set to a directory with write permissions and the `tika_server.jar` file will be placed in this directory.
+10. `TIKA_JAVA` - set the Java runtime name, e.g., `java` or `java9`
+11. `TIKA_STARTUP_SLEEP` - number of seconds (`float`) to wait per check if Tika server is launched at runtime
+12. `TIKA_STARTUP_MAX_RETRY` - number of checks (`int`) to attempt for Tika server startup if launched at runtime
+13. `TIKA_JAVA_ARGS` - set java runtime arguments, e.g, `-Xmx4g`
+14. `TIKA_LOG_FILE` - set the filename for the log file. default: `tika.log`. if it is an empty string (`''`), no log file is created.
 
 Testing it out
 ==============
@@ -102,7 +92,6 @@ Testing it out
 Parser Interface (backwards compat prior to REST)
 -------------------------------------------------
 ```python
-#!/usr/bin/env python
 import tika
 tika.initVM()
 from tika import parser
@@ -123,8 +112,6 @@ The parser interface needs the following environment variable set on the console
 ```export PYTHONIOENCODING=utf8```
 
 ```python
-#!/usr/bin/env python
-import tika
 from tika import parser
 parsed = parser.from_file('/path/to/file')
 print(parsed["metadata"])
@@ -140,34 +127,35 @@ string_parsed = parser.from_buffer('Good evening, Dave', 'http://tika:9998/tika'
 ```
 
 You can also pass a binary stream
-```
+
+```python
 with open(file, 'rb') as file_obj:
     response = tika.parser.from_file(file_obj)
 ```
 
 Gzip compression
 ---------------------
-Since Tika 1.24.1 gzip compression of input and output streams is allowed. 
+Since Tika 1.24.1 gzip compression of input and output streams is allowed.
 
 Input compression can be achieved with gzip or zlib:
-```
-    import zlib 
+```python
+import zlib
 
-    with open(file, 'rb') as file_obj:
-        return tika.parser.from_buffer(zlib.compress(file_obj.read()))
+with open(file, 'rb') as file_obj:
+    return tika.parser.from_buffer(zlib.compress(file_obj.read()))
 
 ...
 
-    import gzip
- 
-    with open(file, 'rb') as file_obj:
-        return tika.parser.from_buffer(gzip.compress(file_obj.read()))
+import gzip
+
+with open(file, 'rb') as file_obj:
+    return tika.parser.from_buffer(gzip.compress(file_obj.read()))
 ```
 
 And output with the header:
-```
-    with open(file, 'rb') as file_obj:
-        return tika.parser.from_file(file_obj, headers={'Accept-Encoding': 'gzip, deflate'})
+```python
+with open(file, 'rb') as file_obj:
+    return tika.parser.from_file(file_obj, headers={'Accept-Encoding': 'gzip, deflate'})
 ```
 
 Specify Output Format To XHTML
@@ -180,8 +168,6 @@ The parser interface needs the following environment variable set on the console
 ```export PYTHONIOENCODING=utf8```
 
 ```python
-#!/usr/bin/env python
-import tika
 from tika import parser
 parsed = parser.from_file('/path/to/file', xmlContent=True)
 print(parsed["metadata"])
@@ -197,8 +183,6 @@ call and internally returns back a tarball of metadata and text entries that
 is internally unpacked, reducing the wire load for extraction.
 
 ```python
-#!/usr/bin/env python
-import tika
 from tika import unpack
 parsed = unpack.from_file('/path/to/file')
 ```
@@ -209,8 +193,6 @@ The detect interface provides a IANA MIME type classification for the
 provided file.
 
 ```python
-#!/usr/bin/env python
-import tika
 from tika import detector
 print(detector.from_file('/path/to/file'))
 ```
@@ -222,8 +204,6 @@ configuration including what parsers, mime types, and detectors the
 server has been configured with.
 
 ```python
-#!/usr/bin/env python
-import tika
 from tika import config
 print(config.getParsers())
 print(config.getMimeTypes())
@@ -236,7 +216,6 @@ The language detection interface provides a 2 character language
 code texted based on the text in provided file.
 
 ```python
-#!/usr/bin/env python
 from tika import language
 print(language.from_file('/path/to/file'))
 ```
@@ -247,7 +226,6 @@ The translate interface translates the text automatically extracted
 by Tika from the source language to the destination language.
 
 ```python
-#!/usr/bin/env python
 from tika import translate
 print(translate.from_file('/path/to/spanish', 'es', 'en'))
 ```
@@ -259,6 +237,7 @@ Note you can also use a Parser and Detector
 a string or bytes buffer in Python and/or detect its MIME
 type. This is useful if you've already loaded
 the content into memory.
+
 ```python
 string_parsed = parser.from_buffer('Good evening, Dave')
 byte_data: bytes = b'B\xc3\xa4ume'
@@ -268,9 +247,10 @@ parsed = parser.from_buffer(io.BytesIO(byte_data))
 Using Client Only Mode
 ----------------------
 You can set Tika to use Client only mode by setting
+
 ```python
-import tika
-tika.TikaClientOnly = True
+import tika.tika
+tika.tika.TikaClientOnly = True
 ```
 
 Then you can run any of the methods and it will fully
@@ -295,8 +275,8 @@ kill -9 PID
 ```
 
 ```python
-import tika.tika
 import os
+import tika.tika
 from tika import parser
 home = os.getenv('HOME')
 tika.tika.TikaServerClasspath = home + '/git/geotopicparser-utils/mime:'+home+'/git/geotopicparser-utils/models/polar'
@@ -368,7 +348,7 @@ Example usage as python client:
 
 Questions, comments?
 ===================
-Send them to [Chris A. Mattmann](mailto:chris.a.mattmann@jpl.nasa.gov).
+Send them to [Chris A. Mattmann](mailto:chris.mattmann@gmail.com).
 
 Contributors
 ============
@@ -391,6 +371,7 @@ Contributors
 * Juan Elosua, TEGRA Cybersecurity Center
 * Carina de Oliveira Antunes, CERN
 * Ana Mensikova, JPL
+* Heinz-Alexander Fütterer, WZB Berlin Social Science Center
 
 Thanks
 ======

@@ -17,9 +17,6 @@
 
 """Tests for the OAuth-aware classes."""
 
-__metaclass__ = type
-
-
 import os
 import os.path
 import stat

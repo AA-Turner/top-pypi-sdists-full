@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: extra-platforms
-Version: 13.5.1
+Version: 13.5.2
 Summary: 🔎 Detect architectures, platforms, shells, terminals, CI systems and agents, grouped by family
 Keywords: Agent detection,Alacritty,Almquist Shell,Alpine Linux,ALT Linux,Amazon Linux,Android,Apple Terminal,Arch Linux,Architecture detection,ARM (32-bit),ARM64 (AArch64),ARMv5TE (little-endian),ARMv6 (little-endian),ARMv7 (little-endian),ARMv8 (32-bit, little-endian),AT&T System Five,Azure Pipelines,Bamboo,Bash,Bourne Shell,Buildkite,Buildroot,C shell,CachyOS,CentOS,ChromeOS,CI detection,Circle CI,Cirrus CI,Claude Code,Clear Linux OS,Cline,CloudLinux OS,CodeBuild,Command Prompt,Contour,CPU architecture,Cursor,Cygwin,Dash,Debian,Distro detection,DragonFly BSD,Exherbo Linux,Fedora,Fish,foot,FreeBSD,Generic Linux,Gentoo Linux,Ghostty,GitHub Actions runner,GitLab CI,GNOME Terminal,GNU Screen,GNU/Hurd,Guix System,Haiku,Hardware detection,Hermetic Build,Heroku CI,Hyper,IBM AIX,IBM i,IBM PowerKVM,IBM z/Architecture (s390x),illumos,Intel 80386 (i386),Intel Pentium (i586),Intel Pentium Pro (i686),iTerm2,Kali Linux,Kitty,Konsole,Korn shell,KVM for IBM z Systems,Linux distribution,Linux Mint,LoongArch (64-bit),macOS,Mageia,Mandriva Linux,Manjaro Linux,MidnightBSD,MIPS (32-bit, big-endian),MIPS (32-bit, little-endian),MIPS64 (big-endian),MIPS64 (little-endian),multiplatform,NetBSD,NixOS,Nobara,Nushell,OpenBSD,openSUSE,OpenWrt,Oracle Linux,OS detection,OS info,Parallels,Pidora,PikaOS,Platform detection,PowerPC (32-bit),PowerPC 64-bit (big-endian),PowerPC 64-bit (little-endian),PowerShell,Pytest,Pytest fixtures,Pytest plugin,Raspbian,RedHat Enterprise Linux,Rio,RISC-V (32-bit),RISC-V (64-bit),Rocky Linux,Scientific Linux,Shell detection,Slackware,SliTaz GNU/Linux,Solaris,Source Mage GNU/Linux,SPARC (32-bit),SPARC (64-bit),SunOS,SUSE Linux Enterprise Server,System information,Tabby,tcsh,TeamCity,Terminal detection,Tilix,tmux,Travis CI,Tuxedo OS,Ubuntu,Ultramarine,Unix,Void Linux,VS Code Terminal,WebAssembly (32-bit),WebAssembly (64-bit),WezTerm,Windows,Windows Subsystem for Linux,Windows Terminal,x86-64 (AMD64),XenServer,Xonsh,xterm,Zellij,Zsh
 Author: Kevin Deldycke
@@ -79,7 +79,7 @@ Requires-Dist: pytest>=8.2.1 ; extra == 'pytest'
 Requires-Python: >=3.10
 Project-URL: Changelog, https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md
 Project-URL: Documentation, https://kdeldycke.github.io/extra-platforms
-Project-URL: Download, https://github.com/kdeldycke/extra-platforms/releases/tag/v13.5.1
+Project-URL: Download, https://github.com/kdeldycke/extra-platforms/releases/tag/v13.5.2
 Project-URL: Funding, https://github.com/sponsors/kdeldycke
 Project-URL: Homepage, https://github.com/kdeldycke/extra-platforms
 Project-URL: Issues, https://github.com/kdeldycke/extra-platforms/issues
@@ -118,7 +118,7 @@ Quickly inspect your current environment without installing anything, thanks to 
 
 ```shell-session
 $ uvx extra-platforms
-extra-platforms 13.4.0
+extra-platforms 13.5.1
 
 ── Architecture ── 📱 ARM64 (AArch64) ──[AARCH64]────────────
             id: aarch64
@@ -161,7 +161,7 @@ $ uvx --with extra-platforms python
 ```pycon
 >>> import extra_platforms
 >>> extra_platforms.__version__
-'13.4.0'
+'13.5.1'
 ```
 
 ## Examples
@@ -350,7 +350,11 @@ frozenset({
 
 All recognized architectures and how they're grouped:
 
-<!-- architecture-mindmap-start -->
+<!-- mirror-src
+from extra_platforms import ALL_ARCHITECTURES, ALL_ARCHITECTURE_GROUPS, CANONICAL_GROUPS
+from extra_platforms._docs import generate_traits_mindmap
+print(generate_traits_mindmap(list(CANONICAL_GROUPS & ALL_ARCHITECTURE_GROUPS) + [ALL_ARCHITECTURES]))
+-->
 
 ```mermaid
 ---
@@ -394,13 +398,17 @@ mindmap
             (📱 ARMV8L)
 ```
 
-<!-- architecture-mindmap-end -->
+<!-- mirror-src-end -->
 
 ## Platforms
 
 All recognized platforms and how they're grouped:
 
-<!-- platform-mindmap-start -->
+<!-- mirror-src
+from extra_platforms import ALL_PLATFORMS, ALL_PLATFORM_GROUPS, CANONICAL_GROUPS
+from extra_platforms._docs import generate_traits_mindmap
+print(generate_traits_mindmap(list(CANONICAL_GROUPS & ALL_PLATFORM_GROUPS) + [ALL_PLATFORMS]))
+-->
 
 ```mermaid
 ---
@@ -479,7 +487,7 @@ mindmap
             (🪟 WINDOWS)
 ```
 
-<!-- platform-mindmap-end -->
+<!-- mirror-src-end -->
 
 > [!TIP]
 > More groups exist beyond those shown in the diagram, and more utilities are available for each platform. See the [platform documentation](https://kdeldycke.github.io/extra-platforms/platforms.html#groups-of-platforms) for details.
@@ -488,7 +496,11 @@ mindmap
 
 All recognized shells:
 
-<!-- shell-mindmap-start -->
+<!-- mirror-src
+from extra_platforms import ALL_SHELLS, ALL_SHELL_GROUPS, CANONICAL_GROUPS
+from extra_platforms._docs import generate_traits_mindmap
+print(generate_traits_mindmap(list(CANONICAL_GROUPS & ALL_SHELL_GROUPS) + [ALL_SHELLS]))
+-->
 
 ```mermaid
 ---
@@ -515,13 +527,17 @@ mindmap
             (ℤ ZSH)
 ```
 
-<!-- shell-mindmap-end -->
+<!-- mirror-src-end -->
 
 ## Terminals
 
 All recognized terminals:
 
-<!-- terminal-mindmap-start -->
+<!-- mirror-src
+from extra_platforms import ALL_TERMINALS, ALL_TERMINAL_GROUPS, CANONICAL_GROUPS
+from extra_platforms._docs import generate_traits_mindmap
+print(generate_traits_mindmap(list(CANONICAL_GROUPS & ALL_TERMINAL_GROUPS) + [ALL_TERMINALS]))
+-->
 
 ```mermaid
 ---
@@ -555,13 +571,17 @@ mindmap
             (🔡 WEZTERM)
 ```
 
-<!-- terminal-mindmap-end -->
+<!-- mirror-src-end -->
 
 ## CI systems
 
 All recognized CI systems:
 
-<!-- ci-mindmap-start -->
+<!-- mirror-src
+from extra_platforms import ALL_CI, ALL_CI_GROUPS, CANONICAL_GROUPS
+from extra_platforms._docs import generate_traits_mindmap
+print(generate_traits_mindmap(list(CANONICAL_GROUPS & ALL_CI_GROUPS) + [ALL_CI]))
+-->
 
 ```mermaid
 ---
@@ -583,13 +603,17 @@ mindmap
         (👷 TRAVIS_CI)
 ```
 
-<!-- ci-mindmap-end -->
+<!-- mirror-src-end -->
 
 ## Agents
 
 All recognized AI coding agents:
 
-<!-- agent-mindmap-start -->
+<!-- mirror-src
+from extra_platforms import ALL_AGENTS, ALL_AGENT_GROUPS, CANONICAL_GROUPS
+from extra_platforms._docs import generate_traits_mindmap
+print(generate_traits_mindmap(list(CANONICAL_GROUPS & ALL_AGENT_GROUPS) + [ALL_AGENTS]))
+-->
 
 ```mermaid
 ---
@@ -602,7 +626,7 @@ mindmap
         (➤ CURSOR)
 ```
 
-<!-- agent-mindmap-end -->
+<!-- mirror-src-end -->
 
 ## Used in
 

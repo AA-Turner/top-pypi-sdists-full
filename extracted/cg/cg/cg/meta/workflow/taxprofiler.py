@@ -1,0 +1,69 @@
+"""Module for Taxprofiler Analysis API."""
+
+import logging
+from pathlib import Path
+
+from cg.constants import Workflow
+from cg.constants.constants import GenomeVersion
+from cg.meta.workflow.nf_analysis import MultiQCSearchPattern, NfAnalysisAPI
+from cg.models.analysis import NextflowAnalysis
+from cg.models.cg_config import CGConfig
+from cg.models.deliverables.metric_deliverables import MetricsBase
+from cg.models.taxprofiler.taxprofiler import TaxprofilerQCMetrics
+from cg.store.models import Sample
+
+LOG = logging.getLogger(__name__)
+
+
+class TaxprofilerAnalysisAPI(NfAnalysisAPI):
+    """Handles communication between Taxprofiler processes
+    and the rest of CG infrastructure."""
+
+    def __init__(
+        self,
+        config: CGConfig,
+        workflow: Workflow = Workflow.TAXPROFILER,
+    ):
+        super().__init__(config=config, workflow=workflow)
+        self.account: str = config.taxprofiler.slurm.account
+        self.conda_binary: str = config.taxprofiler.conda_binary
+        self.conda_env: str = config.taxprofiler.conda_env
+        self.email: str = config.taxprofiler.slurm.mail_user
+        self.params: str = config.taxprofiler.params
+        self.pipeline_deliverables = Path(config.taxprofiler.pipeline_deliverables)
+        self.platform: str = config.taxprofiler.platform
+        self.profile: str = config.taxprofiler.profile
+        self.resources: str = config.taxprofiler.resources
+        self.revision: str = config.taxprofiler.revision
+        self.root_dir: str = config.taxprofiler.root
+        self.tower_binary_path: str = config.tower_binary_path
+        self.tower_workflow: str = config.taxprofiler.tower_workflow
+        self.workflow_bin_path: str = config.taxprofiler.workflow_bin_path
+        self.workflow_config_path: str = config.taxprofiler.config
+
+    @property
+    def is_multiqc_pattern_search_exact(self) -> bool:
+        """Only exact pattern search is allowed to collect metrics information from multiqc file."""
+        return True
+
+    def get_multiqc_search_patterns(self, case_id: str) -> list[MultiQCSearchPattern]:
+        """Return search patterns for MultiQC for Taxprofiler."""
+        samples: list[Sample] = self.status_db.get_samples_by_case_id(case_id=case_id)
+        search_patterns: list[MultiQCSearchPattern] = [
+            MultiQCSearchPattern(
+                pattern=f"{sample.name}_{sample.name}", sample_id=sample.internal_id
+            )
+            for sample in samples
+        ]
+        return search_patterns
+
+    def get_genome_build(self, case_id: str) -> str:
+        """Return the reference genome build version of a Taxprofiler analysis."""
+        return GenomeVersion.T2T_CHM13.value
+
+    def parse_analysis(self, qc_metrics_raw: list[MetricsBase], **kwargs) -> NextflowAnalysis:
+        """Parse Nextflow output analysis files and return an analysis model."""
+        qc_metrics_model = TaxprofilerQCMetrics
+        return super().parse_analysis(
+            qc_metrics_raw=qc_metrics_raw, qc_metrics_model=qc_metrics_model, **kwargs
+        )

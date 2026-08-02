@@ -1,0 +1,61 @@
+[build-system]
+requires = ["setuptools>=60", "setuptools_scm[toml]>=6.2", "wheel", "packaging"]
+build-backend = "backend.build_backend"
+backend-path = ["."]
+
+[project]
+name = "pipebio"
+description = "A PipeBio client package"
+readme = "DESCRIPTION.md"
+requires-python = ">=3.10,<3.14"
+license = { text = "BSD 3-clause" }
+# license-file isn't recognized in project metadata in newer packaging tools
+# Specify license files to include in the source distribution in setuptools section
+authors = [{ name = "PipeBio", email = "support@pipebio.com" }]
+urls = { Homepage = "https://www.pipebio.com" }
+dynamic = ["version"]
+
+dependencies = [
+    "requests~=2.32",
+    "urllib3>=2.0.0,<3.0.0",
+    "pandas>=2.0.0,<3.0.0",
+    "biopython~=1.78",
+    "python-dotenv>=1.1,<1.3",
+    "requests-toolbelt~=1.0.0",
+    "openpyxl~=3.1.5",
+    "pyarrow>=23.0.0",
+]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+[project.optional-dependencies]
+build = ["twine"]
+dev = ["python-dotenv", "pytest", "boto3>=1.35,<1.43", "botocore>=1.35,<1.43"]
+# Tooling for generating the (in-repo, not hosted) API reference and AI artifacts.
+docs = ["pdoc>=14,<16"]
+
+[tool.setuptools]
+packages = ["pipebio", "pipebio.models", "pipebio.annotate", "pipebio.shared_python", "backend"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+# Bundle the AI-context artifacts into the wheel/sdist so they install into the
+# customer's site-packages alongside the code (see scripts/generate_llms_txt.py).
+pipebio = ["vendor/pyarrow/*.whl", "llms.txt", "llms-full.txt"]
+
+# This is not a valid section for setuptools_scm, moving the LICENSE specification to a better location
+
+[tool.setuptools_scm]
+version_scheme = "post-release"
+local_scheme = "node-and-date"

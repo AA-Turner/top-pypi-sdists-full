@@ -1,0 +1,84 @@
+[build-system]
+requires = [
+    "maturin>=1.0,<2.0",
+    # Platform-specific dependencies
+    # patchelf is only needed on Linux for building Python wheels
+    "patchelf>=0.17.0; platform_system == 'Linux'"
+]
+build-backend = "maturin"
+
+[project]
+name = "json-tools-rs"
+description = "High-performance JSON manipulation library with SIMD-accelerated parsing, Rayon parallelism, and native DataFrame/Series support"
+readme = "README.md"
+license = {text = "MIT OR Apache-2.0"}
+authors = [
+    {name = "JSON Tools RS Contributors"},
+]
+keywords = ["json", "flatten", "manipulation", "parsing", "rust", "simd", "performance", "dataframe"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Rust",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing :: General",
+    "Topic :: Utilities",
+]
+requires-python = ">=3.9"
+dynamic = ["version"]
+# orjson accelerates the Python-side dict <-> JSON-string conversion done for
+# dict/list[dict]/DataFrame inputs (~5-10x faster than stdlib `json` for that
+# step). Has published wheels for every platform/arch this project ships
+# wheels for (manylinux/musllinux x86_64/x86/aarch64/armv7/ppc64le, Windows
+# amd64, macOS x86_64/arm64) plus Python 3.9 (via an older-but-current
+# release; pip resolves per-interpreter automatically), so this is safe as a
+# hard dependency rather than an opt-in extra.
+dependencies = ["orjson>=3.9"]
+
+[project.urls]
+Homepage = "https://github.com/amaye15/JSON-Tools-rs"
+Repository = "https://github.com/amaye15/JSON-Tools-rs"
+Documentation = "https://amaye15.github.io/JSON-Tools-rs/"
+"Bug Tracker" = "https://github.com/amaye15/JSON-Tools-rs/issues"
+
+[tool.maturin]
+features = ["python"]
+python-source = "python"
+module-name = "json_tools_rs"
+
+[tool.pytest.ini_options]
+testpaths = ["python/tests"]
+python_files = ["test_*.py", "*_test.py", "tests.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py38']
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+# More lenient settings for test files and examples
+[[tool.mypy.overrides]]
+module = ["tests.*", "*.tests.*", "examples.*", "*.examples.*", "python.examples.*", "python.tests.*"]
+disallow_untyped_defs = false
+check_untyped_defs = false

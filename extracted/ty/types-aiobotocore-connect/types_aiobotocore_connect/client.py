@@ -103,6 +103,7 @@ from .paginator import (
     SearchQuickConnectsPaginator,
     SearchResourceTagsPaginator,
     SearchRoutingProfilesPaginator,
+    SearchRulesPaginator,
     SearchSecurityProfilesPaginator,
     SearchTestCasesPaginator,
     SearchUserHierarchyGroupsPaginator,
@@ -585,6 +586,8 @@ from .type_defs import (
     SearchResourceTagsResponseTypeDef,
     SearchRoutingProfilesRequestTypeDef,
     SearchRoutingProfilesResponseTypeDef,
+    SearchRulesRequestTypeDef,
+    SearchRulesResponseTypeDef,
     SearchSecurityProfilesRequestTypeDef,
     SearchSecurityProfilesResponseTypeDef,
     SearchTestCasesRequestTypeDef,
@@ -3632,6 +3635,16 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_routing_profiles)
         """
 
+    async def search_rules(
+        self, **kwargs: Unpack[SearchRulesRequestTypeDef]
+    ) -> SearchRulesResponseTypeDef:
+        """
+        Searches rules in an Connect Customer instance, with optional filtering.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_rules.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_rules)
+        """
+
     async def search_security_profiles(
         self, **kwargs: Unpack[SearchSecurityProfilesRequestTypeDef]
     ) -> SearchSecurityProfilesResponseTypeDef:
@@ -5487,6 +5500,17 @@ class ConnectClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["search_routing_profiles"]
     ) -> SearchRoutingProfilesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_rules"]
+    ) -> SearchRulesPaginator:
         """
         Create a paginator for an operation.
 

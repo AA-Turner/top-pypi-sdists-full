@@ -1,0 +1,175 @@
+"""
+Rule definitions, merged from repo config and user config.
+"""
+
+from __future__ import annotations
+
+from logging import getLogger
+from pathlib import Path
+from typing import Optional, Sequence
+
+from keke import ktrace
+from msgspec import Struct, ValidationError, field
+from msgspec.structs import replace as replace
+from msgspec.toml import decode as decode_toml
+from parse_errors import ParseContext
+from vmodule import VLOG_1
+
+from ick_protocol import Risk, Scope, Success, Urgency
+
+from ..util import merge
+from .search import config_files
+
+LOG = getLogger(__name__)
+
+
+class RulesConfig(Struct):
+    """ """
+
+    # This should really be called `rulesets`, but this name lets us use
+    # `[[ruleset]]` syntax in the TOML files.
+    ruleset: Sequence[Ruleset] = ()
+
+    def inherit(self, less_specific_defaults: RulesConfig) -> None:
+        # Merge rulesets by prefix. Order after merge doesn't matter - rules get sorted anyway.
+        rulesets_by_prefix: dict[Optional[str], Ruleset] = {}
+
+        # Add defaults first
+        for ruleset in less_specific_defaults.ruleset:
+            rulesets_by_prefix[ruleset.prefix] = ruleset
+
+        # Override/merge with more specific values
+        for ruleset in self.ruleset:
+            LOG.log(VLOG_1, "Overriding %r with other config", ruleset.prefix)
+            rulesets_by_prefix[ruleset.prefix] = ruleset
+
+        self.ruleset = list(rulesets_by_prefix.values())
+
+
+class Ruleset(Struct):
+    url: Optional[str] = None
+    path: Optional[str] = None
+
+    prefix: Optional[str] = None
+    base_path: Optional[Path] = None  # Dir of the config that referenced this
+
+    repo: Optional[RuleRepoConfig] = None
+
+    def __post_init__(self) -> None:
+        if self.url and self.path:
+            raise ValueError("Can't specify both url and path")
+        if self.prefix is None:
+            self.prefix = (self.path or self.url).rstrip("/").split("/")[-1]  # type: ignore[union-attr] # FIX ME
+
+
+class PyprojectRulesConfig(Struct):
+    tool: PyprojectToolConfig
+
+
+class PyprojectToolConfig(Struct):
+    ick: RuleRepoConfig
+
+
+class RuleRepoConfig(Struct):
+    rule: list[RuleConfig] = field(default_factory=list)
+    repo_path: Optional[Path] = None
+
+    def inherit(self, less_specific_defaults: RuleRepoConfig) -> None:
+        self.rule = merge(self.rule, less_specific_defaults.rule)  # type: ignore[no-untyped-call] # FIX ME
+
+
+class RuleConfig(Struct):
+    """
+    Configuration for a single rule
+    """
+
+    name: str
+    impl: str
+
+    scope: Scope = Scope.FILE
+    success: Success = Success.EXIT_STATUS
+
+    risk: Risk = Risk.HIGH
+    urgency: Urgency = Urgency.LATER
+    order: int = 50
+    hours: int | None = None
+
+    command: str | Sequence[str] | None = None
+    data: Optional[str] = None
+    entry: Optional[str] = None
+
+    search: Optional[str] = None
+    # ruff bug: https://github.com/astral-sh/ruff/issues/10874
+    replace: Optional[str] = None  # noqa: F811
+
+    deps: Optional[list[str]] = None
+    test_path: Optional[Path] = None
+    script_path: Optional[Path] = None
+    repo_path: Optional[Path] = None
+    full_name: str = ""  # subdir + name, e.g. "python/move_isort_cfg" — prefix excluded
+    prefixed_name: str = ""  # user prefix + ':' + full_name, e.g. "rule:python/move_isort_cfg"
+
+    batch_size: int = 10
+    inputs: Optional[Sequence[str]] = None
+    outputs: Optional[Sequence[str]] = None
+    extra_inputs: Optional[Sequence[str]] = None
+    project_types: Optional[Sequence[str]] = None
+
+    description: Optional[str] = None
+    contact: Optional[str] = None
+    url: Optional[str] = None
+    tags: Sequence[str] = ()
+
+    def __post_init__(self) -> None:
+        if not self.full_name:
+            self.full_name = self.name
+        if not self.prefixed_name:
+            self.prefixed_name = self.full_name
+
+
+@ktrace()
+def load_rules_config(cur: Path, isolated_repo: bool) -> RulesConfig:
+    conf = RulesConfig()
+    for config_path in config_files(cur, isolated_repo):
+        if config_path.name == "pyproject.toml":
+            data = config_path.read_bytes()
+            with ParseContext(config_path, data=data):
+                try:
+                    c = decode_toml(data, type=PyprojectToolConfig).tool.ick  # type: ignore[attr-defined] # FIX ME
+                except ValidationError as e:
+                    # TODO surely there's a cleaner way to validate _inside_
+                    # but not care if [tool.other] is present...
+                    if "Object missing required field `ick`" not in e.args[0]:
+                        raise
+                    else:
+                        LOG.log(VLOG_1, "No ick config found in %s", config_path)
+                        continue
+        else:
+            data = config_path.read_bytes()
+            with ParseContext(config_path, data=data):
+                c = decode_toml(data, type=RulesConfig)
+
+        for ruleset in c.ruleset:
+            ruleset.base_path = config_path.parent
+
+        # TODO finalize ruleset paths so relative works
+        try:
+            conf.inherit(c)
+        except Exception as e:
+            raise Exception(f"While merging {config_path}: {e!r}")
+
+    return conf
+
+
+def one_repo_config(repo: str) -> RulesConfig:
+    """Create a configuration for just one repo.
+
+    `repo`: either a file path or a URL.
+    """
+    conf = RulesConfig()
+    potential_local_path = Path(repo).expanduser()
+    if potential_local_path.exists():
+        conf.ruleset = [Ruleset(path=potential_local_path.as_posix(), prefix="")]
+    else:
+        conf.ruleset = [Ruleset(url=repo, prefix="")]
+    return conf

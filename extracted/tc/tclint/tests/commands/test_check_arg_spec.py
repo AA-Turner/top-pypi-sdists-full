@@ -1,0 +1,364 @@
+import contextlib
+
+import pytest
+
+import tclint.syntax_tree as ast
+from tclint.commands import CommandArgError
+from tclint.commands.checks import check_arg_spec
+from tclint.parser import Parser
+from tclint.syntax_tree import ArgExpansion, BareWord, BracedWord, VarSub
+
+
+def test_repeated_switch_allowed():
+    args = [BareWord("-abc"), BareWord("-abc")]
+    spec = {
+        "positionals": [],
+        "switches": {
+            "-abc": {"required": False, "value": None, "repeated": True},
+        },
+    }
+    check_arg_spec("command", args, None, spec)
+
+
+def test_repeated_switch_not_allowed():
+    args = [BareWord("-abc"), BareWord("-abc")]
+    spec = {
+        "positionals": [],
+        "switches": {
+            "-abc": {"required": False, "value": None, "repeated": False},
+        },
+    }
+    with pytest.raises(CommandArgError) as exc_info:
+        check_arg_spec("command", args, None, spec)
+    assert str(exc_info.value).startswith("duplicate argument")
+
+
+def test_positional_count_too_many():
+    args = [BareWord("foo")]
+    spec = {"positionals": [], "switches": {}}
+    with pytest.raises(CommandArgError):
+        check_arg_spec("command", args, None, spec)
+
+
+def test_positional_count_too_few():
+    args = [BareWord("foo")]
+    spec = {
+        "positionals": [
+            {"name": "arg1", "value": {"type": "any"}, "required": True},
+            {"name": "arg2", "value": {"type": "any"}, "required": True},
+        ],
+        "switches": {},
+    }
+    with pytest.raises(CommandArgError):
+        check_arg_spec("command", args, None, spec)
+
+
+def test_positional_count_unlimited():
+    args = [BareWord("foo")] * 10
+    spec = {
+        "positionals": [
+            {"name": "args", "value": {"type": "variadic"}, "required": True}
+        ],
+        "switches": {},
+    }
+    check_arg_spec("command", args, None, spec)
+
+
+def test_positional_count_arg_expansion():
+    args = [BareWord("foo"), ArgExpansion(VarSub("foo"))]
+    spec = {
+        "positionals": [
+            {"name": "arg1", "value": {"type": "any"}, "required": True},
+            {"name": "arg2", "value": {"type": "any"}, "required": True},
+            {"name": "remaining", "value": {"type": "variadic"}, "required": True},
+        ],
+        "switches": {},
+    }
+    check_arg_spec("command", args, None, spec)
+
+
+def test_required_switch():
+    spec = {
+        "positionals": [],
+        "switches": {
+            "-foo": {
+                "required": True,
+                "value": None,
+                "repeated": False,
+            },
+            "-bar": {
+                "required": False,
+                "value": None,
+                "repeated": False,
+            },
+        },
+    }
+
+    check_arg_spec("command", [BareWord("-foo"), BareWord("-bar")], None, spec)
+    check_arg_spec("command", [BareWord("-foo")], None, spec)
+
+    with pytest.raises(CommandArgError) as excinfo:
+        check_arg_spec("command", [BareWord("-bar")], None, spec)
+    if excinfo is not None:
+        print(excinfo.value)
+
+    with pytest.raises(CommandArgError) as excinfo:
+        check_arg_spec("command", [], None, spec)
+    if excinfo is not None:
+        print(excinfo.value)
+
+
+def test_missing_switch_value_hint_uses_type():
+    spec = {
+        "positionals": [],
+        "switches": {
+            "-foo": {
+                "required": False,
+                "value": {"type": "int"},
+                "repeated": False,
+            },
+        },
+    }
+
+    with pytest.raises(CommandArgError) as excinfo:
+        check_arg_spec("command", [BareWord("-foo")], None, spec)
+
+    assert (
+        str(excinfo.value)
+        == "invalid arguments for command: expected int value after -foo"
+    )
+
+
+def test_invalid_int_switch_value():
+    spec = {
+        "positionals": [],
+        "switches": {
+            "-foo": {
+                "required": False,
+                "value": {"type": "int"},
+                "repeated": False,
+            },
+        },
+    }
+
+    with pytest.raises(CommandArgError) as excinfo:
+        check_arg_spec("command", [BareWord("-foo"), BareWord("abc")], None, spec)
+
+    assert str(excinfo.value) == "invalid value for command -foo: got abc, expected int"
+
+
+def test_unknown_switch_suggestion():
+    spec = {
+        "positionals": [],
+        "switches": {
+            "-verbose": {
+                "required": False,
+                "value": None,
+                "repeated": False,
+            },
+        },
+    }
+
+    with pytest.raises(CommandArgError) as excinfo:
+        check_arg_spec("command", [BareWord("-verboes")], None, spec)
+
+    assert (
+        str(excinfo.value)
+        == "unrecognized argument for command: -verboes; did you mean -verbose?"
+    )
+
+
+def test_missing_switch_value_hint_uses_metavar():
+    spec = {
+        "positionals": [],
+        "switches": {
+            "-foo": {
+                "required": False,
+                "value": {"type": "any"},
+                "repeated": False,
+                "metavar": "channelId",
+            },
+        },
+    }
+
+    with pytest.raises(CommandArgError) as excinfo:
+        check_arg_spec("command", [BareWord("-foo")], None, spec)
+
+    assert (
+        str(excinfo.value)
+        == "invalid arguments for command: expected channelId after -foo"
+    )
+
+
+@pytest.mark.parametrize(
+    "args,valid",
+    [
+        ([BareWord("foo"), BareWord("arg1")], True),
+        ([BareWord("foo")], False),  # missing required argument
+        ([BareWord("bar"), BareWord("-asdf")], True),
+        ([BareWord("baz"), BareWord("quz")], True),
+        ([BareWord("baz")], False),  # missing subcommand
+        ([BareWord("-default"), BareWord("val")], True),
+        ([BareWord("arg1")], False),
+    ],
+)
+def test_subcommands(args, valid):
+    spec = {
+        "subcommands": {
+            "foo": {
+                "positionals": [
+                    {"name": "arg1", "required": True, "value": {"type": "any"}}
+                ],
+                "switches": {},
+            },
+            "bar": None,
+            "baz": {
+                "subcommands": {
+                    "quz": None,
+                }
+            },
+            "": {
+                "positionals": [],
+                "switches": {
+                    "-default": {
+                        "required": True,
+                        "value": {"type": "any"},
+                        "repeated": False,
+                    }
+                },
+            },
+        }
+    }
+
+    if valid:
+        cm = contextlib.nullcontext(None)
+    else:
+        cm = pytest.raises(CommandArgError)
+    with cm as excinfo:
+        check_arg_spec("command", args, None, spec)
+
+    if excinfo is not None:
+        print(excinfo.value)
+
+
+def test_subcommand_suggestion():
+    spec = {
+        "subcommands": {
+            "append": None,
+            "remove": None,
+        }
+    }
+
+    with pytest.raises(CommandArgError) as excinfo:
+        check_arg_spec("dict", [BareWord("appendd")], None, spec)
+
+    assert (
+        str(excinfo.value)
+        == "invalid subcommand for dict: got appendd, expected one of append, remove;"
+        " did you mean append?"
+    )
+
+
+def test_arg_replacement_subcommands():
+    args = [BareWord("subcommand"), BracedWord("arg")]
+
+    def _parse(args, _):
+        return [BareWord(args[0].contents)]
+
+    spec = {
+        "subcommands": {
+            "subcommand": _parse,
+        }
+    }
+    new_args = check_arg_spec("command", args, None, spec)
+    assert new_args == [BareWord("subcommand"), BareWord("arg")]
+
+
+def test_no_switches():
+    # Tcl command: append l -1
+    args = [BareWord("l"), BareWord("-1")]
+    spec = {
+        "positionals": [
+            {"name": "varname", "value": {"type": "any"}, "required": True},
+            {"name": "value", "value": {"type": "variadic"}, "required": False},
+        ],
+        "switches": {},
+    }
+    check_arg_spec("command", args, None, spec)
+
+    # Tcl command: puts -nonewline stdout foo
+    args = [BareWord("-nonewline"), BareWord("stdout"), BareWord("foo")]
+    spec = {
+        "positionals": [
+            {"name": "-nonewline", "value": {"type": "any"}, "required": False},
+            {"name": "channelId", "value": {"type": "any"}, "required": False},
+            {"name": "string", "value": {"type": "any"}, "required": True},
+        ],
+        "switches": {},
+    }
+    check_arg_spec("command", args, None, spec)
+
+
+def test_script():
+    args = [
+        BareWord("-myswitch"),
+        BareWord("value"),
+        ast.BareWord("optional_value"),
+        BracedWord('puts "hello"', pos=(1, 0), end_pos=(1, 13)),
+    ]
+    spec = {
+        "positionals": [
+            {"name": "optional", "value": {"type": "any"}, "required": False},
+            {"name": "body", "value": {"type": "script"}, "required": True},
+        ],
+        "switches": {
+            "-myswitch": {
+                "required": True,
+                "value": {"type": "any"},
+                "repeated": False,
+            },
+        },
+    }
+    parser = Parser()
+    parsed = check_arg_spec("command", args, parser, spec)
+    assert parsed == [
+        args[0],
+        args[1],
+        args[2],
+        ast.Script(
+            ast.Command(ast.BareWord("puts"), ast.QuotedWord(ast.BareWord("hello")))
+        ),
+    ]
+
+
+def test_int_type():
+    args = [BareWord("-myswitch"), BareWord("42"), BareWord("17")]
+    spec = {
+        "positionals": [
+            {"name": "arg", "value": {"type": "int"}, "required": True},
+        ],
+        "switches": {
+            "-myswitch": {
+                "required": True,
+                "value": {"type": "int"},
+                "repeated": False,
+            },
+        },
+    }
+
+    assert check_arg_spec("command", args, None, spec) == args
+
+
+def test_invalid_int_positional_value():
+    args = [BareWord("abc")]
+    spec = {
+        "positionals": [
+            {"name": "arg", "value": {"type": "int"}, "required": True},
+        ],
+        "switches": {},
+    }
+
+    with pytest.raises(CommandArgError) as excinfo:
+        check_arg_spec("command", args, None, spec)
+
+    assert str(excinfo.value) == "invalid value for command arg: got abc, expected int"

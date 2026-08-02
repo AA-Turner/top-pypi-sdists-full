@@ -18,17 +18,10 @@
 
 __all__ = []
 
-import atexit
 import doctest
+import importlib.util
 import os
-
-from pkg_resources import (
-    resource_filename,
-    resource_exists,
-    resource_listdir,
-    cleanup_resources,
-)
-
+from pathlib import Path
 
 DOCTEST_FLAGS = (
     doctest.ELLIPSIS | doctest.NORMALIZE_WHITESPACE | doctest.REPORT_NDIFF
@@ -38,21 +31,19 @@ DOCTEST_FLAGS = (
 def load_tests(loader, tests, pattern):
     """Load the doc tests (docs/*, if any exist)."""
     doctest_files = []
-    if resource_exists("lazr.delegates", "docs"):
-        for name in resource_listdir("lazr.delegates", "docs"):
-            if name.endswith(".rst"):
-                doctest_files.append(
-                    os.path.abspath(
-                        resource_filename("lazr.delegates", "docs/%s" % name)
-                    )
-                )
-    atexit.register(cleanup_resources)
+    spec = importlib.util.find_spec("lazr.delegates")
+    if spec and spec.submodule_search_locations:
+        docs_path = Path(list(spec.submodule_search_locations)[0]) / "docs"
+        if docs_path.is_dir():
+            for path in sorted(docs_path.iterdir()):
+                if path.name.endswith(".rst"):
+                    doctest_files.append(os.path.abspath(str(path)))
     tests.addTest(
         doctest.DocFileSuite(
             *doctest_files,
             module_relative=False,
             optionflags=DOCTEST_FLAGS,
-            encoding="UTF-8"
+            encoding="UTF-8",
         )
     )
     return tests

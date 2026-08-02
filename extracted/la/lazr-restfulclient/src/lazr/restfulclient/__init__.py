@@ -18,7 +18,10 @@
 
 try:
     import importlib.metadata as importlib_metadata
-except ImportError:
-    import importlib_metadata
+except ImportError:  # pragma: no cover
+    import importlib_metadata  # pragma: no cover
 
-__version__ = importlib_metadata.version("lazr.restfulclient")
+try:
+    __version__ = importlib_metadata.version("lazr.restfulclient")
+except importlib_metadata.PackageNotFoundError:  # pragma: no cover
+    __version__ = importlib_metadata.version("lazr-restfulclient")

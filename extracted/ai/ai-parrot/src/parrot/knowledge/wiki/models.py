@@ -1,0 +1,327 @@
+"""Pydantic data models for the LLM Wiki feature (FEAT-260).
+
+Defines all shared data structures used across the wiki package:
+- WikiPageCategory: Karpathy's wiki page type taxonomy
+- WikiConfig: per-wiki-instance configuration
+- SourceManifestEntry: tracks an ingested source document
+- WikiSearchResult: unified result from combined search
+- WikiLintReport: extended lint report with wiki-specific checks
+
+Design notes:
+- All models follow the same Pydantic v2 pattern used throughout ai-parrot.
+- WikiConfig.search_weights is validated to ensure all values are in [0, 1]
+  and their sum is approximately 1.0 (within 0.01 tolerance).
+"""
+
+from __future__ import annotations
+
+from enum import Enum
+from pathlib import Path
+from typing import Any, Literal, Optional
+
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+
+class WikiPageCategory(str, Enum):
+    """Karpathy's wiki page type taxonomy.
+
+    Attributes:
+        SUMMARY: High-level summary of a source document or topic.
+        ENTITY: Named entity page (person, organisation, product, etc.).
+        CONCEPT: Abstract concept or idea extracted from sources.
+        COMPARISON: Side-by-side comparison of two or more topics.
+        OVERVIEW: Broad overview spanning multiple related topics.
+        SYNTHESIS: LLM-synthesised insight across several sources.
+        ANSWER: Direct answer to a query, filed as a wiki page.
+        ARCHIVE: Supervised-ingestion archive category (FEAT-402) —
+            content that was triaged and routed to the wiki as a page
+            but excluded from default query ranking (retrievable only
+            via an explicit category filter).
+    """
+
+    SUMMARY = "summary"
+    ENTITY = "entity"
+    CONCEPT = "concept"
+    COMPARISON = "comparison"
+    OVERVIEW = "overview"
+    SYNTHESIS = "synthesis"
+    ANSWER = "answer"
+    ARCHIVE = "archive"
+
+
+class WikiConfig(BaseModel):
+    """Configuration for a single wiki instance.
+
+    Attributes:
+        wiki_name: Unique identifier / human-readable name for the wiki.
+        storage_dir: Root directory where all wiki data is persisted.
+        source_dir: Optional dedicated directory for raw source documents.
+            Defaults to ``{storage_dir}/sources`` when omitted.
+        page_categories: Ordered list of page categories that this wiki
+            supports.  Defaults to all seven WikiPageCategory values.
+        search_weights: Relative weighting applied to each search backend
+            during combined-search score merging.  Keys must be
+            ``"pageindex"`` and ``"graphindex"``; values must sum to ~1.0.
+        lightweight_model: Optional model identifier for the fast CoT
+            (analysis) step of TwoStepIngester.  Falls back to ``model``
+            when ``None``.
+        model: Optional model identifier for the heavyweight generation
+            step of TwoStepIngester.
+        sync_graph: When ``True``, wiki writes also mirror pages into
+            GraphIndex.  Off by default — the WikiStore plane is the
+            wiki's retrieval backend.
+        storage_backend: ``"sqlite"`` (default; single-file ``wiki.db``),
+            ``"memory"`` (in-memory indexes + OKF markdown bundle
+            directory — no SQLite dependency), or ``"arangodb"``
+            (server-hosted, shared retrieval plane).
+        charter_path: Optional path to a supervised-ingestion editorial
+            charter YAML file (FEAT-402, see
+            ``parrot.knowledge.wiki.charter.load_charter``). ``None``
+            when this wiki does not use supervised ingestion.
+    """
+
+    wiki_name: str = Field(..., description="Unique wiki name / identifier")
+    storage_dir: Path = Field(..., description="Root storage directory")
+    source_dir: Optional[Path] = Field(
+        default=None,
+        description="Raw sources directory; defaults to storage_dir/sources",
+    )
+    page_categories: list[WikiPageCategory] = Field(
+        default_factory=lambda: list(WikiPageCategory),
+        description="Supported page categories (all by default)",
+    )
+    search_weights: dict[str, float] = Field(
+        default_factory=lambda: {"pageindex": 0.6, "graphindex": 0.4},
+        description="Score weights per search backend; must sum to ~1.0",
+    )
+    lightweight_model: Optional[str] = Field(
+        default=None,
+        description="LLM model for fast CoT analysis step",
+    )
+    model: Optional[str] = Field(
+        default=None,
+        description="LLM model for heavyweight generation step",
+    )
+    sync_graph: bool = Field(
+        default=False,
+        description=(
+            "Mirror wiki pages into GraphIndex on write. Off by default — "
+            "the WikiStore plane is the retrieval backend."
+        ),
+    )
+    storage_backend: Literal["sqlite", "memory", "arangodb"] = Field(
+        default="sqlite",
+        description=(
+            "Retrieval-plane backend: 'sqlite' (single-file wiki.db, "
+            "FTS5/BM25), 'memory' (in-memory indexes persisted as an "
+            "OKF markdown bundle under {storage_dir}/pages/), or "
+            "'arangodb' (server-hosted, shared retrieval plane). "
+            "Explicit selection only — no auto-fallback."
+        ),
+    )
+    charter_path: Optional[Path] = Field(
+        default=None,
+        description=(
+            "Path to a supervised-ingestion editorial charter YAML file "
+            "(FEAT-402). None when this wiki does not use supervised "
+            "ingestion (`wikitoolkit ingest`)."
+        ),
+    )
+
+    @field_validator("search_weights")
+    @classmethod
+    def validate_search_weights(cls, v: dict[str, float]) -> dict[str, float]:
+        """Ensure each weight is in [0, 1] and the total is approximately 1.
+
+        Args:
+            v: The raw search_weights mapping.
+
+        Returns:
+            The validated mapping unchanged.
+
+        Raises:
+            ValueError: If any weight is outside [0, 1] or the sum deviates
+                from 1.0 by more than 0.01.
+        """
+        for key, weight in v.items():
+            if not (0.0 <= weight <= 1.0):
+                raise ValueError(
+                    f"search_weights['{key}'] = {weight} is outside [0, 1]"
+                )
+        total = sum(v.values())
+        if abs(total - 1.0) > 0.01:
+            raise ValueError(
+                f"search_weights values must sum to ~1.0 (got {total:.4f})"
+            )
+        return v
+
+
+class SourceManifestEntry(BaseModel):
+    """Tracks an ingested source document in the wiki's source manifest.
+
+    Attributes:
+        source_id: Stable deterministic identifier for the source (e.g.,
+            SHA-1 of the URI path).
+        source_uri: Absolute URI / path to the original source file.
+        file_hash: SHA-1 hex digest of the source file contents at ingest time.
+        mtime: File modification timestamp (``os.stat().st_mtime``) at
+            ingest time, used for quick staleness pre-check.
+        ingested_at: ISO-8601 UTC timestamp of when the ingest completed.
+        pages_generated: Ordered list of wiki page IDs that were created or
+            updated during this ingest.
+        status: Lifecycle status.  ``"ingested"`` after a successful ingest;
+            may be ``"stale"`` or ``"error"`` as appropriate.
+        destination: Supervised-ingestion (FEAT-402) triage destination —
+            ``"wiki"``, ``"archive"``, or ``"discard"``. ``None`` for
+            sources that never went through triage (e.g. `wikitoolkit
+            build`).
+        decision_source: Who/what made the triage decision —
+            ``"heuristic"``, ``"model"``, ``"human"``, or ``"auto"``.
+            ``None`` when not applicable.
+        charter_version: Version of the editorial charter the decision
+            was made against, for audit/reproducibility. ``None`` when
+            not applicable.
+        composite_score: The weighted composite triage score in
+            ``[0, 1]``, or ``None`` when not applicable.
+    """
+
+    source_id: str = Field(..., description="Stable source identifier")
+    source_uri: str = Field(..., description="Absolute path or URI")
+    file_hash: str = Field(..., description="SHA-1 hex digest at ingest time")
+    mtime: float = Field(..., description="File mtime at ingest time")
+    ingested_at: str = Field(..., description="ISO-8601 UTC ingest timestamp")
+    pages_generated: list[str] = Field(
+        default_factory=list,
+        description="Wiki page IDs produced by this ingest",
+    )
+    status: str = Field(
+        default="ingested",
+        description="Source lifecycle status",
+    )
+    destination: Optional[str] = Field(
+        default=None,
+        description=(
+            "Supervised-ingestion (FEAT-402) triage destination: "
+            "'wiki' | 'archive' | 'discard'. None when not triaged."
+        ),
+    )
+    decision_source: Optional[str] = Field(
+        default=None,
+        description=(
+            "Who/what made the triage decision: 'heuristic' | 'model' | "
+            "'human' | 'auto'. None when not triaged."
+        ),
+    )
+    charter_version: Optional[str] = Field(
+        default=None,
+        description="Editorial charter version the decision was made against.",
+    )
+    composite_score: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Weighted composite triage score in [0, 1].",
+    )
+
+
+class WikiSearchResult(BaseModel):
+    """Unified wiki search result.
+
+    Attributes:
+        node_id: Stable page identifier (``concept_id`` on the WikiStore
+            path; index node id on the legacy path).
+        title: Human-readable page or node title.
+        score: Normalised relevance score in [0, 1] after weight application.
+        source: Which search leg produced this result — ``"lexical"`` /
+            ``"vector"`` (WikiStore plane) or ``"pageindex"`` /
+            ``"graphindex"`` (legacy toolkit path).
+        snippet: Short excerpt or summary extracted from the page content.
+        category: Optional WikiPageCategory if the page has one.
+        token_count: Token cost of reading the full page body — used by
+            context packing to budget progressive disclosure.
+    """
+
+    node_id: str = Field(..., description="Stable node/page identifier")
+    title: str = Field(..., description="Page or node title")
+    score: float = Field(
+        ...,
+        ge=0.0,
+        le=1.0,
+        description="Normalised relevance score in [0, 1]",
+    )
+    source: str = Field(
+        ...,
+        description=(
+            "Search leg: 'lexical'/'vector' (WikiStore) or "
+            "'pageindex'/'graphindex' (legacy)"
+        ),
+    )
+    token_count: Optional[int] = Field(
+        default=None,
+        ge=0,
+        description="Token cost of the full page body (for budgeting)",
+    )
+    snippet: str = Field(
+        default="",
+        description="Short content excerpt or summary",
+    )
+    category: Optional[WikiPageCategory] = Field(
+        default=None,
+        description="Wiki page category if known",
+    )
+
+
+class WikiLintReport(BaseModel):
+    """Extended lint report combining OKF checks with wiki-specific checks.
+
+    Attributes:
+        okf_report: Raw dictionary returned by OKFToolkit.lint_knowledge_base().
+        orphan_sources: Source IDs present in the manifest but with no
+            corresponding wiki pages.
+        stale_sources: Source IDs whose file hash or mtime has changed since
+            the last ingest.
+        uncovered_sources: Source IDs that were never ingested at all.
+        cross_ref_issues: List of dicts describing broken cross-references
+            between wiki pages.
+        total_issues: Aggregate count of all issues across all checks.
+    """
+
+    okf_report: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Raw output from lint_knowledge_base()",
+    )
+    orphan_sources: list[str] = Field(
+        default_factory=list,
+        description="Source IDs with no wiki pages",
+    )
+    stale_sources: list[str] = Field(
+        default_factory=list,
+        description="Source IDs whose content has changed",
+    )
+    uncovered_sources: list[str] = Field(
+        default_factory=list,
+        description="Source IDs that were never ingested",
+    )
+    cross_ref_issues: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Broken cross-reference descriptors",
+    )
+    total_issues: int = Field(
+        default=0,
+        description="Aggregate issue count",
+    )
+
+    @model_validator(mode="after")
+    def compute_total_issues(self) -> WikiLintReport:
+        """Recompute total_issues from the individual issue lists.
+
+        Returns:
+            The model instance with an updated ``total_issues`` count.
+        """
+        self.total_issues = (
+            len(self.orphan_sources)
+            + len(self.stale_sources)
+            + len(self.uncovered_sources)
+            + len(self.cross_ref_issues)
+        )
+        return self

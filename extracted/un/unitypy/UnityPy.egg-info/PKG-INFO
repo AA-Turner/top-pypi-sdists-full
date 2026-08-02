@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: UnityPy
-Version: 1.25.2
+Version: 1.25.3
 Summary: A Unity extraction and patching package
 Author-email: Rudolf Kolbe <rkolbe96@gmail.com>
 License: MIT License
         
-        Copyright (c) 2019-2021 K0lb3
+        Copyright (c) 2019-2026 K0lb3
         
         Permission is hereby granted, free of charge, to any person obtaining a copy
         of this software and associated documentation files (the "Software"), to deal
@@ -56,6 +56,7 @@ Requires-Dist: astc-encoder-py>=0.1.12
 Requires-Dist: fmod_toolkit
 Requires-Dist: fsspec
 Requires-Dist: attrs
+Requires-Dist: tpk_ar
 Provides-Extra: ttgen
 Requires-Dist: typetreegeneratorapi>=0.0.10; extra == "ttgen"
 Provides-Extra: full

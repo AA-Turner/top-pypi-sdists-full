@@ -20,7 +20,13 @@ import sys
 from collections.abc import Sequence
 from datetime import datetime
 
-from .literals import ResultFormatStringType, StatementStatusStringType, StatusStringType
+from .literals import (
+    ExecutionModeType,
+    ResultFormatStringType,
+    SessionStatusStringType,
+    StatementStatusStringType,
+    StatusStringType,
+)
 
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
@@ -54,6 +60,9 @@ __all__ = (
     "ListSchemasRequestPaginateTypeDef",
     "ListSchemasRequestTypeDef",
     "ListSchemasResponseTypeDef",
+    "ListSessionsRequestPaginateTypeDef",
+    "ListSessionsRequestTypeDef",
+    "ListSessionsResponseTypeDef",
     "ListStatementsRequestPaginateTypeDef",
     "ListStatementsRequestTypeDef",
     "ListStatementsResponseTypeDef",
@@ -63,6 +72,7 @@ __all__ = (
     "PaginatorConfigTypeDef",
     "QueryRecordsTypeDef",
     "ResponseMetadataTypeDef",
+    "SessionDataTypeDef",
     "SqlParameterTypeDef",
     "StatementDataTypeDef",
     "SubStatementDataTypeDef",
@@ -105,6 +115,7 @@ class ColumnMetadataTypeDef(TypedDict):
 
 class DescribeStatementRequestTypeDef(TypedDict):
     Id: str
+    WaitTimeSeconds: NotRequired[int]
 
 
 class SubStatementDataTypeDef(TypedDict):
@@ -152,11 +163,13 @@ class FieldTypeDef(TypedDict):
 class GetStatementResultRequestTypeDef(TypedDict):
     Id: str
     NextToken: NotRequired[str]
+    WaitTimeSeconds: NotRequired[int]
 
 
 class GetStatementResultV2RequestTypeDef(TypedDict):
     Id: str
     NextToken: NotRequired[str]
+    WaitTimeSeconds: NotRequired[int]
 
 
 class QueryRecordsTypeDef(TypedDict):
@@ -183,6 +196,31 @@ class ListSchemasRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
     WorkgroupName: NotRequired[str]
+
+
+class ListSessionsRequestTypeDef(TypedDict):
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    SessionId: NotRequired[str]
+    Status: NotRequired[SessionStatusStringType]
+    RoleLevel: NotRequired[bool]
+    ClusterIdentifier: NotRequired[str]
+    WorkgroupName: NotRequired[str]
+    Database: NotRequired[str]
+
+
+class SessionDataTypeDef(TypedDict):
+    SessionId: str
+    Status: SessionStatusStringType
+    CreatedAt: datetime
+    UpdatedAt: NotRequired[datetime]
+    Database: NotRequired[str]
+    DbUser: NotRequired[str]
+    ClusterIdentifier: NotRequired[str]
+    WorkgroupName: NotRequired[str]
+    SessionAliveSeconds: NotRequired[int]
+    SessionTtl: NotRequired[datetime]
+    CurrentStatementId: NotRequired[str]
 
 
 class ListStatementsRequestTypeDef(TypedDict):
@@ -233,6 +271,8 @@ class BatchExecuteStatementInputTypeDef(TypedDict):
     ResultFormat: NotRequired[ResultFormatStringType]
     SessionKeepAliveSeconds: NotRequired[int]
     SessionId: NotRequired[str]
+    ExecutionMode: NotRequired[ExecutionModeType]
+    WaitTimeSeconds: NotRequired[int]
 
 
 class ExecuteStatementInputTypeDef(TypedDict):
@@ -249,6 +289,7 @@ class ExecuteStatementInputTypeDef(TypedDict):
     ResultFormat: NotRequired[ResultFormatStringType]
     SessionKeepAliveSeconds: NotRequired[int]
     SessionId: NotRequired[str]
+    WaitTimeSeconds: NotRequired[int]
 
 
 class StatementDataTypeDef(TypedDict):
@@ -276,6 +317,9 @@ class BatchExecuteStatementOutputTypeDef(TypedDict):
     SecretArn: str
     WorkgroupName: str
     SessionId: str
+    Status: StatementStatusStringType
+    RedshiftPid: int
+    HasResultSet: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -294,6 +338,9 @@ class ExecuteStatementOutputTypeDef(TypedDict):
     SecretArn: str
     WorkgroupName: str
     SessionId: str
+    Status: StatementStatusStringType
+    RedshiftPid: int
+    HasResultSet: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -338,6 +385,7 @@ class DescribeStatementResponseTypeDef(TypedDict):
     WorkgroupName: str
     ResultFormat: ResultFormatStringType
     SessionId: str
+    ExecutionMode: ExecutionModeType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -355,11 +403,13 @@ class DescribeTableRequestPaginateTypeDef(TypedDict):
 
 class GetStatementResultRequestPaginateTypeDef(TypedDict):
     Id: str
+    WaitTimeSeconds: NotRequired[int]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class GetStatementResultV2RequestPaginateTypeDef(TypedDict):
     Id: str
+    WaitTimeSeconds: NotRequired[int]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -380,6 +430,16 @@ class ListSchemasRequestPaginateTypeDef(TypedDict):
     ConnectedDatabase: NotRequired[str]
     SchemaPattern: NotRequired[str]
     WorkgroupName: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListSessionsRequestPaginateTypeDef(TypedDict):
+    SessionId: NotRequired[str]
+    Status: NotRequired[SessionStatusStringType]
+    RoleLevel: NotRequired[bool]
+    ClusterIdentifier: NotRequired[str]
+    WorkgroupName: NotRequired[str]
+    Database: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -418,6 +478,12 @@ class GetStatementResultV2ResponseTypeDef(TypedDict):
     ColumnMetadata: list[ColumnMetadataTypeDef]
     TotalNumRows: int
     ResultFormat: ResultFormatStringType
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListSessionsResponseTypeDef(TypedDict):
+    Sessions: list[SessionDataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

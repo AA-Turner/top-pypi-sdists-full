@@ -1,0 +1,15 @@
+queue_rules:
+  - name: default
+    # Use branch protection settings
+    conditions: []
+
+pull_request_rules:
+  - name: automatic merge
+    conditions:
+      - base=master
+      - label!=manual merge
+      - "#approved-reviews-by>=1"
+    actions:
+      queue:
+        name: default
+        method: squash

@@ -1,0 +1,33 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "datafusion-query-builder"
+version = "0.2.0"
+description = "Programmatic, injection-safe builder for DataFusion SQL."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.9"
+authors = [{ name = "Pydantic", email = "engineering@pydantic.dev" }]
+keywords = ["datafusion", "sql", "query-builder", "sqlparser"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Database",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/pydantic/datafusion-query-builder"
+Source = "https://github.com/pydantic/datafusion-query-builder"
+
+[tool.maturin]
+# Mixed Rust/Python layout: the compiled extension is datafusion_query_builder._native; the
+# hand-written package (re-exports + type stubs) lives under python/.
+module-name = "datafusion_query_builder._native"
+python-source = "python"
+features = ["python", "extension-module"]

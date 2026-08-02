@@ -1,0 +1,91 @@
+Metadata-Version: 2.4
+Name: ruff-format
+Version: 0.5.2
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3 :: Only
+License-File: LICENSE
+Summary: Python bindings for the Ruff code formatter, built with Rust and PyO3.
+License: MIT
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Repository, https://github.com/reflex-dev/ruff-format
+
+# ruff-format
+
+A fast Python code formatter powered by [Ruff](https://github.com/astral-sh/ruff)'s formatting engine.
+
+## Overview
+
+`ruff-format` is a Python package that provides Python bindings to Ruff's Python formatter.
+
+## Installation
+
+```bash
+pip install ruff-format
+```
+
+## Usage
+
+```python
+from ruff_format import format_string, is_valid_syntax, parse_code
+
+code = """
+def hello(  x,y,   z  ):
+    print( x+y+z )
+"""
+
+# Check if code has valid syntax
+assert is_valid_syntax(code)
+
+# Parse code (raises RuntimeError on syntax errors)
+parse_code(code)
+
+# Format code (default line width: 80)
+formatted = format_string(code)
+print(formatted)
+
+# Format with a custom line width
+formatted = format_string(code, line_width=120)
+print(formatted)
+```
+
+## Development
+
+### Prerequisites
+
+- Rust (latest stable)
+- Python 3.8+
+- [maturin](https://github.com/PyO3/maturin)
+
+### Building from source
+
+```bash
+# Install maturin
+pip install maturin
+
+# Build the package
+maturin develop
+
+# Or build a release version
+maturin build --release
+```
+
+## License
+
+MIT
+
+## Links
+
+- [Repository](https://github.com/reflex-dev/ruff-format)
+- [Ruff](https://github.com/astral-sh/ruff)
+

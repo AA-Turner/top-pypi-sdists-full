@@ -1,0 +1,26 @@
+# PinchBench reference playbook. Requires ``services.model`` (solver) and
+# ``services.judge`` (LLM-as-judge for llm_judge/hybrid tasks) plus AWS
+# credentials for the ECS Fargate sandbox.
+
+name: pinchbench
+timeout: 1800.0
+max_concurrent: 30
+solver:
+  type: openclaw
+  service: model
+  # PinchBench v2 research tasks require OpenClaw web search.
+  web_search_provider: tavily
+sandbox:
+  type: ecs_fargate
+  image: 463701203462.dkr.ecr.us-west-2.amazonaws.com/pinchbench:nemo-evaluator-pinchbench-openclaw-2026-5-4
+  ecr_repository: ""
+  cpu: "2048"
+  memory: "4096"
+  timeout: 1800.0
+  concurrency: 30
+  log_stream_prefix: pinchbench
+scoring:
+  metrics:
+    - type: judge
+      name: pinchbench_rubric
+      service: judge

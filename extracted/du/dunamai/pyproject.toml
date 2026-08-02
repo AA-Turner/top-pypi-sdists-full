@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dunamai"
-version = "1.26.1"
+version = "1.26.2"
 description = "Dynamic version generation"
 license = "MIT"
 authors = ["Matthew T. Kennerly <mtkennerly@gmail.com>"]
@@ -48,7 +48,7 @@ line-length = 120
 
 [tool.ruff]
 line-length = 120
-extend-select = ["W605", "N"]
+extend-select = ["ARG", "N", "W605"]
 ignore = ["E501"]
 
 [build-system]

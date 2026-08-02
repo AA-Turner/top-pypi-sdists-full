@@ -12,6 +12,16 @@ import pytest
 from dunamai import Version, Vcs, Concern, _get_git_version, _run_cmd
 
 
+@pytest.fixture(scope="session", autouse=True)
+def set_env_vars():
+    os.environ["GIT_AUTHOR_NAME"] = "foo"
+    os.environ["GIT_AUTHOR_EMAIL"] = "foo@example.com"
+    os.environ["GIT_COMMITTER_NAME"] = "foo"
+    os.environ["GIT_COMMITTER_EMAIL"] = "foo@example.com"
+    os.environ["DARCS_EMAIL"] = "foo <foo@example.com>"
+    os.environ["BZR_EMAIL"] = "foo <foo@example.com>"
+
+
 def avoid_identical_ref_timestamps() -> None:
     time.sleep(1.2)
 
@@ -53,6 +63,8 @@ def set_missing_env(key: str, value: str, alts: Optional[List[str]] = None) -> N
 
 def make_run_callback(where: Path) -> Callable:
     def inner(command, expected_code: int = 0, env: Optional[dict] = None):
+        if env is not None:
+            env = {**os.environ, **env}
         _, out = _run_cmd(command, where=where, codes=[expected_code], env=env)
         return out
 
@@ -312,6 +324,100 @@ def test__version__from_git__with_mixed_tags(tmp_path) -> None:
 
 
 @pytest.mark.skipif(shutil.which("git") is None, reason="Requires Git")
+def test__version__from_git__highest_tag_with_pattern_prefix(tmp_path) -> None:
+    # Regression test: with `highest_tag=True` and a `pattern_prefix`, the
+    # highest matching tag must be selected even when a tag with a different
+    # (non-matching) prefix is the most recent tag and sorts higher numerically.
+    run = make_run_callback(tmp_path)
+    from_vcs = make_from_callback(Version.from_git)
+    b = "master"
+
+    def from_foo(**kwargs):
+        return from_vcs(pattern="default-unprefixed", pattern_prefix="foo-", **kwargs)
+
+    with chdir(tmp_path):
+        run("git init")
+        (tmp_path / "foo.txt").write_text("1")
+        run("git add .")
+        run('git commit --no-gpg-sign -m "First"')
+        run("git tag --no-sign foo-1.0.0 -m Annotated")
+
+        (tmp_path / "foo.txt").write_text("2")
+        run("git add .")
+        avoid_identical_ref_timestamps()
+        run('git commit --no-gpg-sign -m "Second"')
+        run("git tag --no-sign foo-1.1.0 -m Annotated")
+
+        # A higher-numbered tag with a different prefix, applied most recently so
+        # it is the newest tag chronologically.
+        (tmp_path / "foo.txt").write_text("3")
+        run("git add .")
+        avoid_identical_ref_timestamps()
+        run('git commit --no-gpg-sign -m "Third"')
+        run("git tag --no-sign bar-9.9.9 -m Annotated")
+
+        (tmp_path / "foo.txt").write_text("4")
+        run("git add .")
+        avoid_identical_ref_timestamps()
+        run('git commit --no-gpg-sign -m "Fourth"')
+
+        # The closest matching tag is foo-1.1.0, two commits back.
+        assert from_foo() == Version("1.1.0", distance=2, dirty=False, branch=b)
+        # The highest matching tag is also foo-1.1.0; bar-9.9.9 must be ignored.
+        assert from_foo(highest_tag=True) == Version("1.1.0", distance=2, dirty=False, branch=b)
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="Requires Git")
+def test__version__from_git__highest_tag_picks_numerically_highest(tmp_path) -> None:
+    # With a single prefix, `highest_tag=True` must pick the numerically highest
+    # tag even when a later commit carries a lower tag number.
+    run = make_run_callback(tmp_path)
+    from_vcs = make_from_callback(Version.from_git)
+    b = "master"
+
+    def from_foo(**kwargs):
+        return from_vcs(pattern="default-unprefixed", pattern_prefix="foo-", **kwargs)
+
+    with chdir(tmp_path):
+        run("git init")
+        (tmp_path / "foo.txt").write_text("1")
+        run("git add .")
+        run('git commit --no-gpg-sign -m "First"')
+        run("git tag --no-sign foo-2.0.0 -m Annotated")
+
+        (tmp_path / "foo.txt").write_text("2")
+        run("git add .")
+        avoid_identical_ref_timestamps()
+        run('git commit --no-gpg-sign -m "Second"')
+        run("git tag --no-sign foo-1.5.0 -m Annotated")
+
+        # latest_tag follows chronology, highest_tag follows version ordering.
+        assert from_foo(latest_tag=True) == Version("1.5.0", dirty=False, branch=b)
+        assert from_foo(highest_tag=True) == Version("2.0.0", distance=1, dirty=False, branch=b)
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="Requires Git")
+def test__version__from_git__highest_tag_with_no_matching_tags(tmp_path) -> None:
+    run = make_run_callback(tmp_path)
+    from_vcs = make_from_callback(Version.from_git)
+
+    def from_missing(**kwargs):
+        return from_vcs(pattern="default-unprefixed", pattern_prefix="missing-", **kwargs)
+
+    with chdir(tmp_path):
+        run("git init")
+        (tmp_path / "foo.txt").write_text("1")
+        run("git add .")
+        run('git commit --no-gpg-sign -m "First"')
+        run("git tag --no-sign foo-1.0.0 -m Annotated")
+
+        # No tag matches the prefix: fall back without raising when not strict.
+        assert from_missing(highest_tag=True).base == "0.0.0"
+        with pytest.raises(ValueError):
+            from_missing(highest_tag=True, strict=True)
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="Requires Git")
 def test__version__from_git__with_nonchronological_commits(tmp_path) -> None:
     run = make_run_callback(tmp_path)
     from_vcs = make_from_callback(Version.from_git, chronological=False)
@@ -327,7 +433,6 @@ def test__version__from_git__with_nonchronological_commits(tmp_path) -> None:
             env={
                 "GIT_COMMITTER_DATE": "2000-01-02T01:00:00",
                 "GIT_AUTHOR_DATE": "2000-01-02T01:00:00",
-                **os.environ,
             },
         )
 
@@ -340,7 +445,6 @@ def test__version__from_git__with_nonchronological_commits(tmp_path) -> None:
             env={
                 "GIT_COMMITTER_DATE": "2000-01-01T01:00:00",
                 "GIT_AUTHOR_DATE": "2000-01-01T01:00:00",
-                **os.environ,
             },
         )
 

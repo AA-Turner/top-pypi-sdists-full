@@ -1,0 +1,167 @@
+# wfm_reader — the input-side Reader (raw / CSV / BLUE-1000 / SigMF).
+#
+# A file-backed object: no step(), a hand-written state struct, and a streaming
+# read(). Migrated from kind="handle" once jm could express what the handle
+# already did — a path ctor arg (gh-515), a meaningful create() failure
+# (gh-514), enum-valued properties (gh-519) and a package placement (gh-523).
+[wfm_reader]
+arg_type = "float _Complex"
+return_type = "float _Complex"
+mutable = "true"
+no_state = "true"
+no_step = "true"
+class_name = "Reader"
+create_error = "ValueError"
+create_error_message = "cannot open capture: no such file, unrecognised file type, or an unsupported BLUE format mode (only S and C are supported)"
+
+# The CORE's own dependencies. gh-254 makes link=true additive for a collocated
+# module-object, so these land on the object's core/test/bench AND the .so.
+[[wfm_reader.depends_on]]
+name = "wfm_cjson"
+link = true
+
+[[wfm_reader.depends_on]]
+name = "wfm_keywords"
+link = true
+
+# The reader's C test round-trips through the writer (it writes the captures it
+# then reads back), and jm has no test-only dependency: `depends_on` lands on
+# the .so as well. A few KB of writer objects in the reader module is the cost
+# of keeping the round-trip test honest.
+[[wfm_reader.depends_on]]
+name = "wfm_writer"
+link = true
+
+[[wfm_reader.depends_on]]
+name = "wfm_draw"
+link = true
+
+# gh-515: `path` crosses as a borrowed const char * (PyUnicode_FSConverter), so
+# str and os.PathLike both work; wfm_reader_create copies it during the call.
+[[wfm_reader.init_params]]
+name = "path"
+type = "path"
+
+[[wfm_reader.init_params]]
+name = "sample_type"
+type = "string_enum:cf32,cf64,ci32,ci16,ci8"
+default = "cf32"
+
+[[wfm_reader.init_params]]
+name = "endian"
+type = "string_enum:le,be"
+default = "le"
+
+# arg_type="void" + variable_output is the generator shape: read(n) -> ndarray.
+# (`out_type` is a jm *function* feature; on a method it renders `-> complex`.)
+[[wfm_reader.methods]]
+name = "read"
+arg_type = "void"
+return_type = "float _Complex"
+variable_output = true
+# Kernel is told its write limit (jm gh-138): an under-reporting
+# max_out truncates the emission instead of overrunning `out`.
+pass_capacity = true
+
+# Computed properties (no `field`): jm declares wfm_reader_get_<prop>() for the
+# core to implement and calls it from the binding, so the state struct stays
+# private to wfm_reader_core.c. gh-519 makes the enum decode work either way, so
+# file_type/sample_type/mode/endian still return their strings.
+[[wfm_reader.properties]]
+name = "file_type"
+type = "int"
+enum = "ftype"
+doc = """Which file type the capture turned out to be -- `"raw"`, `"csv"`, `"blue"` or `"sigmf"`. Detected from the file's CONTENT, not its name, so a CSV called `capture.dat` reports `"csv"` and a BLUE file called `capture.csv` reports `"blue"`. `"raw"` is also the fallback for a file nothing else recognised, so it means "headerless interleaved I/Q at the sample_type you passed" rather than a positive identification."""
+
+[[wfm_reader.properties]]
+name = "sample_type"
+type = "int"
+enum = "stype"
+doc = """The wire sample type the samples are being decoded FROM -- `"cf32"`, `"cf64"`, `"ci32"`, `"ci16"` or `"ci8"`. For BLUE and SigMF this was read from the file's metadata and is authoritative; for raw and CSV it is simply the hint passed to the constructor, echoed back. `read()` returns `complex64` at unit scale regardless."""
+
+[[wfm_reader.properties]]
+name = "mode"
+type = "int"
+enum = "sample_mode"
+doc = """Components per wire sample: `"complex"` for interleaved I/Q, `"scalar"` for a real capture. Only BLUE carries this (its `format` field's mode designator, `C` or `S`); every other file type is complex. A scalar capture still reads back as `complex64` -- the imaginary part is exactly 0, so a real signal lands on the real axis."""
+
+[[wfm_reader.properties]]
+name = "endian"
+type = "int"
+enum = "endian"
+doc = """Byte order of the samples on the wire, `"le"` or `"be"`. Read from the metadata for BLUE (the HCB's `head_rep`) and SigMF (the `_be`/`_le` datatype suffix); for raw it is the constructor hint echoed back. CSV is text and ignores it."""
+
+[[wfm_reader.properties]]
+name = "fs"
+type = "double"
+doc = """Sample rate in Hz, or 0.0 when the file type does not carry one. BLUE derives it from the header's `xdelta` (fs = 1/xdelta); SigMF reads `core:sample_rate`. Raw and CSV have nowhere to record a rate, so they always report 0.0 -- whatever rate the capture was taken at has to travel with it by other means."""
+
+[[wfm_reader.properties]]
+name = "fc"
+type = "double"
+doc = """Centre frequency in Hz, or 0.0 when nothing in the capture declares one. **0.0 is ambiguous on its own** -- a genuine baseband capture and a capture whose frequency could not be found report the same number -- so read `fc_source` alongside it: `"none"` there is what distinguishes them. SigMF takes it from `captures[0]["core:frequency"]`; BLUE from a `FREQ` keyword (see `fc_source` for the tags tried), in either the ASCII HCB keyword area or the typed extended header. Raw and CSV carry no metadata at all."""
+
+[[wfm_reader.properties]]
+name = "num_samples"
+type = "size_t"
+doc = """Total samples in the capture, or 0 when the file type cannot say. BLUE takes it from the header's `data_size`; raw and SigMF divide the file length by the sample stride. A CSV has to be counted, so the first read of this property scans the file once (the scan is exact -- it parses rows the same way `read` does -- and leaves the read position alone); every later read is free."""
+
+# Where `fc` came from. Declared as its own property rather than folded into
+# fc's docstring because 0.0 is a legitimate centre frequency: without this,
+# a baseband capture and a capture whose FREQ keyword we failed to parse are
+# the same answer. gh-519 decodes the int to the tag's own name.
+[[wfm_reader.properties]]
+name = "fc_source"
+type = "int"
+enum = "fc_source"
+doc = """Which piece of metadata `fc` was read from -- the keyword's own tag (`"FREQ"`, `"RF_FREQ"`, `"CENTER_FREQ"`, `"F_C"`), `"core:frequency"` for SigMF, or `"none"` when nothing carried it. Check this before trusting `fc == 0.0`: `"none"` means not found, anything else means the capture really does say 0 Hz. BLUE type-1000 has no header field for centre frequency, so an RF capture conveys it as a keyword; `FREQ` in the HCB keyword area is the X-Midas convention and is tried first."""
+
+[[wfm_reader.properties]]
+name = "trailing_bytes"
+type = "size_t"
+doc = """Payload bytes left over after the last whole sample; 0 for a capture whose declared sample type and mode match its content, and always 0 for CSV. Non-zero means either the `sample_type`/`endian` hint is wrong for a headerless file type or the capture is truncated -- the reader cannot tell which, and stops at the last complete sample either way. This is the only signal available for a raw file: a wrong hint does not fail, it returns plausible garbage at the wrong stride."""
+
+# `.keywords` — the BLUE extended header as a {tag: value} dict (gh-543). jm
+# generates the dict loop, refcounting and every error path; the per-keyword
+# VALUE is data-dependent (its Python type comes from the keyword's own type
+# code in the file -- str for A, int/float for a scalar numeric, list for a
+# multi-element one), so value_type="object" routes it to a hand-written
+# wfm_reader_keyword_value() in wfm_reader_ext_extra.c that returns the PyObject
+# itself. count_fn/key_fn default from the object+property name. Making it
+# declarative also lands `keywords` in the .pyi, which a fragment method never
+# reached.
+# The BLUE extended header as a {tag: value} dict (gh-554). The variant codec
+# [codec.blue_keyword] decodes each entry to its Python type; jm generates the
+# whole getter (loop + per-code decode + scalar_collapse), so the hand-written
+# wfm_reader_keyword_value / wfm_reader_ext_extra.c is gone. entry_fn is the
+# existing cursor returning a wfm_keyword_t* (type/count/elem_size/value).
+[[wfm_reader.properties]]
+name = "keywords"
+type = "dict"
+codec = "blue_keyword"
+count_fn = "wfm_reader_num_keywords"
+key_fn = "wfm_reader_keyword_tag"
+entry_fn = "wfm_reader_keyword"
+entry_type = "wfm_keyword_t"
+doc = """The BLUE extended header as a {tag: value} dict, in file order; empty when the capture carries no extended header. Values follow the keyword type: a str for A, an int/float for a single-element numeric keyword, a list for a multi-element one. For a detached capture these come from the HEADER file."""
+
+# The 512-byte header control block, decoded field-by-field. Same codec and
+# same cursor shape as `keywords` above: the C side carries each HCB field as a
+# wfm_keyword_t, so the header and the keywords share one tag/value marshaller
+# rather than growing a second one that could disagree with it.
+[[wfm_reader.properties]]
+name = "header"
+type = "dict"
+codec = "blue_keyword"
+count_fn = "wfm_reader_num_header_fields"
+key_fn = "wfm_reader_header_tag"
+entry_fn = "wfm_reader_header_field"
+entry_type = "wfm_keyword_t"
+doc = """The BLUE header control block as a {field: value} dict, under the names the format itself uses -- `version`, `head_rep`, `data_rep`, `detached`, `protected`, `pipe`, `ext_start`, `ext_size`, `data_start`, `data_size`, `type`, `format`, `flagmask`, `timecode`, `inlet`, `outlets`, `outmask`, `pipeloc`, `pipesize`, `in_byte`, `out_byte`, `outbytes`, `keylength`, and the type-1000 adjunct `xstart`, `xdelta`, `xunits`. Empty for a non-BLUE file type. Nothing is renamed or omitted, so what you see is what the file holds; the decoded keywords are in `keywords`."""
+
+# close() is the name this type has always released its file under, and every
+# caller and doc example uses it. gh-544 names the destructor; `destroy()` (jm's
+# default) stays as an alias. Void -- a reader's close cannot fail.
+[wfm_reader.destroy]
+name = "close"
+aliases = ["destroy"]

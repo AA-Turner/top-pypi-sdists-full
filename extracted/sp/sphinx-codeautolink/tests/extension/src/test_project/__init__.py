@@ -1,0 +1,76 @@
+"""Docstring."""
+
+from collections.abc import Iterator
+from typing import List  # noqa: UP035
+
+from .sub import SubBar, subfoo  # noqa: F401
+
+
+class Baz:
+    """Baz test class."""
+
+    bute = 1
+
+
+class Foo:
+    """Foo test class."""
+
+    attr: str = "test"
+    type_attr = Baz
+
+    def meth(self) -> Baz:
+        """Test method."""
+
+    def selfref(self) -> "Foo":
+        """Return self."""
+
+    def __call__(self) -> Baz:
+        """Test call."""
+
+
+mod_attr: Foo = Foo()
+"""Module attribute."""
+
+mod_int: int = 0
+"""Module attribute with a builtin type."""
+
+mod_type = Foo
+"""Module attribute whose value is a class, not an instance."""
+
+mod_list: list[Foo] = []
+"""Module list attribute."""
+
+mod_typing_list: List[Foo] = []  # noqa: UP006
+"""Typing module list attribute."""
+
+
+def bar() -> Foo:
+    """Bar test function."""
+
+
+def iter_foos() -> "Iterator[Foo]":
+    """Return an iterator of Foos."""
+
+
+def optional() -> Foo | None:
+    """Return optional type."""
+
+
+def optional_manual() -> None | Foo:  # noqa: RUF036
+    """Return manually constructed optional type."""
+
+
+def optional_counter() -> Foo | Baz:
+    """Failing case for incorrect optional type handling."""
+
+
+def compile():  # noqa: A001
+    """Shadows built in compile function."""
+
+
+class Child(Foo):
+    """Foo child class."""
+
+
+def sub_return() -> SubBar:
+    """Returns a type in a submodule."""

@@ -1,0 +1,146 @@
+Metadata-Version: 2.4
+Name: omnibase-compat
+Version: 0.5.6
+Summary: Thin shared structural package for cross-repo enums, wire DTOs, event envelopes, primitives, and experimental schemas.
+License-File: LICENSE
+Requires-Python: >=3.12
+Requires-Dist: pydantic>=2.11.7
+Requires-Dist: typing-extensions>=4.5.0
+Provides-Extra: dev
+Requires-Dist: mypy>=1.9; extra == 'dev'
+Requires-Dist: pre-commit; extra == 'dev'
+Requires-Dist: pytest-cov; extra == 'dev'
+Requires-Dist: pytest>=8.0; extra == 'dev'
+Requires-Dist: ruff>=0.4; extra == 'dev'
+Description-Content-Type: text/markdown
+
+# omnibase_compat
+
+`omnibase_compat` is the thin shared structural package for cross-repo enums,
+wire DTOs, event envelopes, concurrency helpers, and compatibility primitives.
+
+It has zero OmniNode upstream runtime dependencies. Runtime dependencies are
+limited to third-party structural support packages listed in `pyproject.toml`.
+
+[![CI](https://github.com/OmniNode-ai/omnibase_compat/actions/workflows/ci.yml/badge.svg)](https://github.com/OmniNode-ai/omnibase_compat/actions/workflows/ci.yml)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
+
+## Who Uses It
+
+Use this package when two or more OmniNode repos need to share stable structural
+types without creating an import cycle through `omnibase_core`,
+`omnibase_spi`, or `omnibase_infra`.
+
+Common consumers include dashboard, intelligence, memory, market, infrastructure,
+and governance repos that need shared event envelopes, status enums, routing
+DTOs, or transitional compatibility shims.
+
+## What This Repo Owns
+
+- Cross-repo structural DTOs and wire models
+- Minimal event envelopes intended for cross-repo transport compatibility
+- Minimal enum copies with explicit source provenance
+- Concurrency and environment primitives that do not depend on OmniNode runtime packages
+- Experimental artifacts with ticket and review milestone metadata
+- Temporary migration shims with `COMPAT_MIGRATION_TARGET` and `COMPAT_REMOVAL_DATE`
+
+## What This Repo Does Not Own
+
+- Runtime execution, node behavior, validators, and implementation helpers. Those belong in `omnibase_core`.
+- Protocol interfaces that implementations satisfy. Those belong in `omnibase_spi`.
+- Concrete infrastructure, clients, storage, registration operations, or runtime host behavior. Those belong in `omnibase_infra`.
+- Domain-specific workflow ownership. That belongs in the relevant domain repo, such as `omnimarket`, `omnimemory`, or `omniintelligence`.
+
+## Install
+
+```bash
+uv add omnibase-compat
+```
+
+For local development:
+
+```bash
+uv sync --dev --frozen
+```
+
+## Usage
+
+```python
+from omnibase_compat.enums.enum_message_category import EnumMessageCategory
+from omnibase_compat.enums.enum_node_kind import EnumNodeKind
+from omnibase_compat.models.event_envelope import EventEnvelopeV1Minimal
+```
+
+Import from explicit submodules. Treat package-root exports as convenience
+exports only, not the stable compatibility surface.
+
+## Dependency Boundary
+
+`omnibase_compat` must not import these packages at runtime:
+
+- `omnibase_core`
+- `omnibase_spi`
+- `omnibase_infra`
+
+CI enforces this with:
+
+```bash
+uv run python scripts/validate_no_upstream_deps.py
+```
+
+Do not add `omnibase_core` only to make documentation validation convenient.
+Docs validation should run through standalone CI tooling or from the repo that
+owns the validator entrypoint. If this repo adopts `onex-validate-links`, it
+must remain dev-only tooling and must not change runtime dependencies.
+
+## Role vs `omnibase_spi`
+
+| Layer | Purpose |
+|-------|---------|
+| `omnibase_spi` | Protocols and abstract interfaces that service implementations must satisfy |
+| `omnibase_compat` | Shared enums, wire DTOs, event envelopes, and structural types across repo boundaries |
+
+Rule of thumb: protocols go in `omnibase_spi`; structural data that crosses repo
+boundaries goes in `omnibase_compat`.
+
+## Common Workflows
+
+```bash
+uv run python scripts/validate_no_upstream_deps.py
+uv run python scripts/check_compat_retention.py
+uv run ruff check src/
+uv run mypy src/omnibase_compat --strict
+uv run pytest -m unit --tb=short
+uv build
+```
+
+Release workflow:
+
+```bash
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
+
+The tag must match `[project].version` in `pyproject.toml`. See
+[Release Workflow](docs/runbooks/release.md) for the full runbook.
+
+## Key Features
+
+- Zero dependency on `omnibase_core`, `omnibase_spi`, or `omnibase_infra` (CI-enforced)
+- Experimental artifact registry with lifecycle governance (`ticket` + `review_milestone` required)
+- Provenance-tracked enum seeding from upstream canonical sources
+- Strict mypy + ruff + AST-based import validation
+
+## Docs
+
+- [Documentation index](docs/README.md)
+- [Release workflow](docs/runbooks/release.md)
+- [CLAUDE.md](CLAUDE.md) - developer conventions and repo context
+- [AGENT.md](AGENT.md) - LLM navigation guide
+- [Changelog](CHANGELOG.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security](SECURITY.md)
+
+## License
+
+See [LICENSE](LICENSE).

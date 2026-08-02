@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-peewee"
-version = "4.2.6.20260723"
+version = "4.3.0.20260802"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for peewee"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`peewee`](https://github.com/coleifer/peewee) package. It can be used by type checkers
 to check code that uses `peewee`. This version of
 `types-peewee` aims to provide accurate annotations for
-`peewee==4.2.6`.
+`peewee==4.3.0`.
 
 This stub package is marked as [partial](https://typing.python.org/en/latest/spec/distributing.html#partial-stub-packages).
 If you find that annotations are missing, feel free to contribute and help complete them.
@@ -31,9 +31,10 @@ directory.
 This package was tested with the following type checkers:
 * [mypy](https://github.com/python/mypy/) 2.3.0
 * [pyright](https://github.com/microsoft/pyright) 1.1.411
+* [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`a8887d5ba9061d90d2a671961b3341a420704c54`](https://github.com/python/typeshed/commit/a8887d5ba9061d90d2a671961b3341a420704c54).
+[`7ee1807de401359ff16cab195aeb9b2a6f2fd8b8`](https://github.com/python/typeshed/commit/7ee1807de401359ff16cab195aeb9b2a6f2fd8b8).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -41,6 +42,8 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = []
+
+
 
 [project.urls]
 "Homepage" = "https://github.com/python/typeshed"

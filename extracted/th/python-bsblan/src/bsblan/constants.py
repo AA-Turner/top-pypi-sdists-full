@@ -1,0 +1,739 @@
+"""BSBLAN constants."""
+
+from __future__ import annotations
+
+from enum import IntEnum
+from typing import Final, TypedDict
+
+# Supported heating circuits (1-based)
+MIN_CIRCUIT: Final[int] = 1
+MAX_CIRCUIT: Final[int] = 2
+
+
+# JSON-API version thresholds (from /JV).
+# The /JV endpoint reports the BSB-LAN JSON-API version (e.g. "2.0"), which is
+# the documented, firmware-independent compatibility signal and the sole input
+# for selecting the API config: a JSON-API version below MIN_SUPPORTED_JSON_API
+# is rejected, the [MIN_SUPPORTED_JSON_API, V3_JSON_API_MINIMUM) range selects
+# the basic single-circuit config, and a version >= V3_JSON_API_MINIMUM selects
+# the full config. The adapter firmware version (from /JI) is retrieved for
+# informational purposes only and is not used to select the config.
+MIN_SUPPORTED_JSON_API: Final[str] = "1.0"
+V2_JSON_API_MINIMUM: Final[str] = "2.0"
+
+
+class APIConfig(TypedDict):
+    """Type for API configuration."""
+
+    heating: dict[str, str]
+    staticValues: dict[str, str]
+    device: dict[str, str]
+    sensor: dict[str, str]
+    hot_water: dict[str, str]
+    # Multi-circuit sections (heating circuit 2)
+    heating_circuit2: dict[str, str]
+    staticValues_circuit2: dict[str, str]
+
+
+# Supported BSB-LAN v3 API parameters
+BASE_HEATING_PARAMS: Final[dict[str, str]] = {
+    "700": "hvac_mode",
+    "710": "target_temperature",
+    "900": "hvac_mode_changeover",
+    "901": "cooling_operating_mode",
+    "902": "target_temperature_high",
+    # -------
+    "8000": "hvac_action",
+    "8740": "current_temperature",
+    "770": "room1_temp_setpoint_boost",
+}
+
+BASE_STATIC_VALUES_PARAMS: Final[dict[str, str]] = {
+    "712": "temp_reduced_setpoint",
+    "714": "heating_protective_setpoint",
+    "716": "comfort_setpoint_max",
+    "905": "cooling_comfort_setpoint_min",
+    "903": "cooling_reduced_setpoint",
+}
+
+BASE_DEVICE_PARAMS: Final[dict[str, str]] = {
+    "6224": "device_identification",
+    "6225": "controller_family",
+    "6226": "controller_variant",
+}
+
+BASE_SENSOR_PARAMS: Final[dict[str, str]] = {
+    "8700": "outside_temperature",
+    "8740": "current_temperature",
+    "3113": "total_energy",
+}
+
+BASE_HOT_WATER_PARAMS: Final[dict[str, str]] = {
+    "1600": "operating_mode",
+    "1601": "eco_mode_selection",
+    "1610": "nominal_setpoint",
+    "1614": "nominal_setpoint_max",
+    "1612": "reduced_setpoint",
+    "1620": "release",
+    "1630": "dhw_charging_priority",
+    "1640": "legionella_function",
+    "1641": "legionella_function_periodicity",
+    "1642": "legionella_function_day",
+    "1644": "legionella_function_time",
+    "1645": "legionella_function_setpoint",
+    "1646": "legionella_function_dwelling_time",
+    "1647": "legionella_circulation_pump",
+    "1648": "legionella_circulation_temp_diff",
+    "1660": "dhw_circulation_pump_release",
+    "1661": "dhw_circulation_pump_cycling",
+    "1663": "dhw_circulation_setpoint",
+    "1680": "operating_mode_changeover",
+    # -------
+    "8830": "dhw_actual_value_top_temperature",
+    "8820": "state_dhw_pump",
+    # -------
+    "561": "dhw_time_program_monday",
+    "562": "dhw_time_program_tuesday",
+    "563": "dhw_time_program_wednesday",
+    "564": "dhw_time_program_thursday",
+    "565": "dhw_time_program_friday",
+    "566": "dhw_time_program_saturday",
+    "567": "dhw_time_program_sunday",
+    "576": "dhw_time_program_standard_values",
+}
+
+# --- Heating Circuit 2 parameters (1000-series) ---
+# These mirror HC1 (700-series) with an offset of +300
+BASE_HEATING_CIRCUIT2_PARAMS: Final[dict[str, str]] = {
+    "1000": "hvac_mode",
+    "1010": "target_temperature",
+    "1200": "hvac_mode_changeover",
+    "1201": "cooling_operating_mode",
+    "1202": "target_temperature_high",
+    # -------
+    "8001": "hvac_action",
+    "8770": "current_temperature",
+    "1070": "room1_temp_setpoint_boost",
+}
+
+BASE_STATIC_VALUES_CIRCUIT2_PARAMS: Final[dict[str, str]] = {
+    "1012": "temp_reduced_setpoint",
+    "1014": "heating_protective_setpoint",
+    "1016": "comfort_setpoint_max",
+    "1205": "cooling_comfort_setpoint_min",
+    "1203": "cooling_reduced_setpoint",
+}
+
+# --- Basic configuration parameters ---
+# A deliberately minimal, single-circuit set covering core heating control and
+# the min/max bounds needed for a thermostat. Cooling, boost and circuit 2 are
+# intentionally excluded because they are not reliably available on devices
+# without full-config support. Hot water, sensor and device params reuse the
+# shared base sets and are filtered per-section against what the device
+# actually exposes.
+BASIC_HEATING_PARAMS: Final[dict[str, str]] = {
+    "700": "hvac_mode",
+    "710": "target_temperature",
+    "8000": "hvac_action",
+    "8740": "current_temperature",
+}
+
+BASIC_STATIC_VALUES_PARAMS: Final[dict[str, str]] = {
+    "714": "heating_protective_setpoint",
+    "716": "comfort_setpoint_max",
+}
+
+# PPS bus supports one room-unit style climate circuit. These parameters are
+# exposed by BSB-LAN in the 15000+ range and mirror the circuit 1 climate model.
+PPS_HEATING_PARAMS: Final[dict[str, str]] = {
+    "15000": "hvac_mode",
+    "15004": "target_temperature",
+    "15008": "current_temperature",
+}
+
+PPS_STATIC_VALUES_PARAMS: Final[dict[str, str]] = {
+    "15006": "min_temp",
+    "15007": "max_temp",
+}
+
+
+# Circuit configuration
+class CircuitConfig:
+    """Circuit-related constants for BSBLAN."""
+
+    VALID: Final[set[int]] = {1, 2}
+    HEATING_SECTIONS: Final[dict[int, str]] = {
+        1: "heating",
+        2: "heating_circuit2",
+    }
+    STATIC_SECTIONS: Final[dict[int, str]] = {
+        1: "staticValues",
+        2: "staticValues_circuit2",
+    }
+    THERMOSTAT_PARAMS: Final[dict[int, dict[str, str]]] = {
+        1: {
+            "target_temperature": "710",
+            "target_temperature_high": "902",
+            "hvac_mode": "700",
+            "cooling_operating_mode": "901",
+        },
+        2: {
+            "target_temperature": "1010",
+            "target_temperature_high": "1202",
+            "hvac_mode": "1000",
+            "cooling_operating_mode": "1201",
+        },
+    }
+    PROBE_PARAMS: Final[dict[int, str]] = {
+        1: "700",
+        2: "1000",
+    }
+    STATUS_PARAMS: Final[dict[int, str]] = {
+        1: "8000",
+        2: "8001",
+    }
+    INACTIVE_MARKER: Final[str] = "---"
+
+
+def build_api_config(*, full: bool = True) -> APIConfig:
+    """Build the API configuration.
+
+    Args:
+        full: When ``True`` (default) return the full multi-circuit
+            configuration. When ``False`` return the reduced single-circuit
+            basic configuration (essential heating, hot water and sensor
+            params) for devices without full-config support.
+
+    Returns:
+        APIConfig: The complete API configuration.
+
+    """
+    if not full:
+        # Basic single-circuit config. Circuit 2 and cooling are intentionally
+        # empty/omitted.
+        return {
+            "heating": BASIC_HEATING_PARAMS.copy(),
+            "staticValues": BASIC_STATIC_VALUES_PARAMS.copy(),
+            "device": BASE_DEVICE_PARAMS.copy(),
+            "sensor": BASE_SENSOR_PARAMS.copy(),
+            "hot_water": BASE_HOT_WATER_PARAMS.copy(),
+            "heating_circuit2": {},
+            "staticValues_circuit2": {},
+        }
+
+    config: APIConfig = {
+        "heating": BASE_HEATING_PARAMS.copy(),
+        "staticValues": BASE_STATIC_VALUES_PARAMS.copy(),
+        "device": BASE_DEVICE_PARAMS.copy(),
+        "sensor": BASE_SENSOR_PARAMS.copy(),
+        "hot_water": BASE_HOT_WATER_PARAMS.copy(),
+        # Multi-circuit sections
+        "heating_circuit2": BASE_HEATING_CIRCUIT2_PARAMS.copy(),
+        "staticValues_circuit2": BASE_STATIC_VALUES_CIRCUIT2_PARAMS.copy(),
+    }
+    return config
+
+
+# Pre-built API configurations
+API_BASIC: Final[APIConfig] = build_api_config(full=False)
+API_FULL: Final[APIConfig] = build_api_config()
+
+
+# Validation constants
+class Validation:
+    """Validation-related constants for BSBLAN."""
+
+    HVAC_MODES: Final[set[int]] = {0, 1, 2, 3}
+    # 901/1201 cooling circuit operating mode (ENUM, verified on device):
+    # 0=Protection, 1=Automatic, 2=Reduced, 3=Comfort
+    COOLING_OPERATING_MODES: Final[set[int]] = {0, 1, 2, 3}
+    PPS_HVAC_MODES: Final[set[int]] = {0, 1, 3}
+    PPS_HVAC_MODE_TO_BSBLAN: Final[dict[int, str]] = {
+        0: "2",  # off
+        1: "0",  # auto
+        3: "1",  # manual/comfort
+    }
+    PPS_HVAC_MODE_FROM_BSBLAN: Final[dict[int, int]] = {
+        0: 1,  # auto
+        1: 3,  # manual/comfort
+        2: 0,  # off
+    }
+    MIN_YEAR: Final[int] = 1900
+    MAX_YEAR: Final[int] = 2100
+
+
+class HVACActionCategory(IntEnum):
+    """Categories for HVAC action states.
+
+    These represent the simplified action states that can be used
+    by home automation systems like Home Assistant.
+    """
+
+    HEATING = 1
+    COOLING = 2
+    PREHEATING = 3
+    DRYING = 4
+    FAN = 5
+    OFF = 6
+    DEFROSTING = 7
+    IDLE = 0  # Default for unmapped status codes
+
+
+class HeatingCircuitStatus(IntEnum):
+    """BSB-LAN Parameter 8000 status codes for heating circuit 1.
+
+    These are the vendor-specific status codes returned by BSB-LAN devices.
+    Each status code has a descriptive name based on BSB-LAN documentation
+    (LANG_DE_LEGACY.h / LANG_EN.h).
+
+    Usage:
+        >>> status = HeatingCircuitStatus(state.hvac_action.value)
+        >>> print(status.name)  # e.g., "HEATING_COMFORT"
+        >>> category = status.category  # e.g., HVACActionCategory.HEATING
+
+    """
+
+    # Off/Standby states
+    FAULT_ERROR = 0x02
+    STANDBY_1 = 0x19
+    OFF = 0x76
+    DAY_ECO = 0x77
+    SETBACK_REDUCED = 0x78
+    SETBACK_FROST_PROTECTION = 0x79
+    ROOM_TEMPERATURE_LIMIT = 0x7A
+    STANDBY_2 = 0x8C
+    COOLING_OFF = 0x8A
+    COOLING_LOCKED = 0x92
+    HEATING_GENERATOR_OFF = 0xA1
+    HEATING_OFF = 0xA2
+    LOCKED_HEATING_MODE = 0xCC
+    LOCKED_GENERATOR = 0xCD
+    LOCKED_BUFFER = 0xCE
+
+    # Heating states
+    MANUAL_CONTROL = 0x04
+    OVERRUN = 0x11
+    FROST_PROTECTION_PLANT = 0x16
+    FROST_PROTECTION = 0x17
+    RESERVED_HEATING_1 = 0x18
+    OVERHEAT_PROTECTION = 0x38
+    ROOM_FROST_PROTECTION = 0x65
+    LIMITED_BOILER_PROTECTION = 0x67
+    LIMITED_DHW_PRIORITY = 0x68
+    LIMITED_BUFFER = 0x69
+    HEATING_LIMITED = 0x6A
+    HEATING_COMFORT = 0x72
+    SWITCHOFF_OPTIMIZATION = 0x73
+    HEATING_REDUCED = 0x74
+    FLOW_FROST_PROTECTION = 0x75
+    RESERVED_HEATING_2 = 0x89
+
+    # Preheating states
+    SWITCHON_OPTIMIZATION_QUICK_HEATUP = 0x6F
+    SWITCHON_OPTIMIZATION = 0x70
+    QUICK_HEATUP = 0x71
+
+    # Drying state
+    SCREED_FUNCTION = 0x66
+
+    # Fan/Forced consumption states
+    FORCED_CONSUMPTION_BUFFER = 0x6B
+    FORCED_CONSUMPTION_DHW = 0x6C
+    FORCED_CONSUMPTION_GENERATOR = 0x6D
+    FORCED_CONSUMPTION = 0x6E
+
+    # Cooling states
+    COOLING_ACTIVE = 0x7F
+    COOLING_PASSIVE = 0x80
+    COOLING_EVAPORATOR = 0x81
+    COOLING_RELATED_1 = 0x84
+    DEW_POINT_MONITOR = 0x85
+    COOLING_LIMIT_OUTDOOR_TEMP = 0x86
+    COOLING_MODE = 0x88
+    RECOOLING_DHW_HC = 0x8E
+    COOLING_LIMITED = 0x90
+    COOLING_LIMIT_OUTSIDE_TEMP_MAX = 0x91
+    RESERVED_COOLING_1 = 0x94
+    RESERVED_COOLING_2 = 0x95
+    COOLING_COMFORT = 0x96
+    LIMIT_FLOW_DEW_POINT = 0xB1
+    LIMIT_FLOW_OUTDOOR_TEMP = 0xB2
+    FLOW_LIMIT_REACHED = 0xB3
+    LIMIT_SOURCE_TEMP_MIN_COOLING = 0xC4
+    COMPRESSOR_RUNTIME_MIN_COOLING = 0xCF
+    COMPRESSOR_1_AND_2_COOLING = 0xD0
+    COMPRESSOR_1_COOLING = 0xD1
+    COMPRESSOR_2_COOLING = 0xD2
+    PROTECTION_MODE_COOLING = 0x11D
+
+    # Defrosting states
+    DEFROST = 0x7D
+    DRIP_OFF = 0x7E
+    PREHEAT_DEFROST = 0x82
+    DEFROST_RELATED_1 = 0x83
+    FORCED_DEFROST_COMPRESSOR = 0xC0
+    FORCED_DEFROST_FAN = 0xC1
+    DEFROST_COMPRESSOR = 0xC2
+    DEFROST_FAN = 0xC3
+    FROST_PROTECTION_COOLING = 0xCA
+    DEFROST_RELATED_2 = 0x101
+
+    @property
+    def category(self) -> HVACActionCategory:
+        """Get the HVAC action category for this status code.
+
+        Returns:
+            HVACActionCategory: The category this status belongs to.
+
+        """
+        return _STATUS_TO_CATEGORY.get(self, HVACActionCategory.IDLE)
+
+    @classmethod
+    def from_value(cls, value: int) -> HeatingCircuitStatus | None:
+        """Create a HeatingCircuitStatus from a raw value.
+
+        Args:
+            value: The raw status code from BSB-LAN parameter 8000.
+
+        Returns:
+            HeatingCircuitStatus if the value is known, None otherwise.
+
+        """
+        try:
+            return cls(value)
+        except ValueError:
+            return None
+
+
+# Internal mapping from status codes to categories
+_STATUS_TO_CATEGORY: dict[HeatingCircuitStatus, HVACActionCategory] = {
+    # Off states
+    HeatingCircuitStatus.FAULT_ERROR: HVACActionCategory.OFF,
+    HeatingCircuitStatus.STANDBY_1: HVACActionCategory.OFF,
+    HeatingCircuitStatus.OFF: HVACActionCategory.OFF,
+    HeatingCircuitStatus.STANDBY_2: HVACActionCategory.OFF,
+    HeatingCircuitStatus.COOLING_OFF: HVACActionCategory.OFF,
+    HeatingCircuitStatus.COOLING_LOCKED: HVACActionCategory.OFF,
+    HeatingCircuitStatus.HEATING_GENERATOR_OFF: HVACActionCategory.OFF,
+    HeatingCircuitStatus.HEATING_OFF: HVACActionCategory.OFF,
+    HeatingCircuitStatus.LOCKED_HEATING_MODE: HVACActionCategory.OFF,
+    HeatingCircuitStatus.LOCKED_GENERATOR: HVACActionCategory.OFF,
+    HeatingCircuitStatus.LOCKED_BUFFER: HVACActionCategory.OFF,
+    HeatingCircuitStatus.DAY_ECO: HVACActionCategory.OFF,
+    HeatingCircuitStatus.SETBACK_REDUCED: HVACActionCategory.OFF,
+    HeatingCircuitStatus.SETBACK_FROST_PROTECTION: HVACActionCategory.OFF,
+    HeatingCircuitStatus.ROOM_TEMPERATURE_LIMIT: HVACActionCategory.OFF,
+    # Heating states
+    HeatingCircuitStatus.MANUAL_CONTROL: HVACActionCategory.HEATING,
+    HeatingCircuitStatus.OVERRUN: HVACActionCategory.HEATING,
+    HeatingCircuitStatus.FROST_PROTECTION_PLANT: HVACActionCategory.HEATING,
+    HeatingCircuitStatus.FROST_PROTECTION: HVACActionCategory.HEATING,
+    HeatingCircuitStatus.RESERVED_HEATING_1: HVACActionCategory.HEATING,
+    HeatingCircuitStatus.OVERHEAT_PROTECTION: HVACActionCategory.HEATING,
+    HeatingCircuitStatus.ROOM_FROST_PROTECTION: HVACActionCategory.HEATING,
+    HeatingCircuitStatus.LIMITED_BOILER_PROTECTION: HVACActionCategory.HEATING,
+    HeatingCircuitStatus.LIMITED_DHW_PRIORITY: HVACActionCategory.HEATING,
+    HeatingCircuitStatus.LIMITED_BUFFER: HVACActionCategory.HEATING,
+    HeatingCircuitStatus.HEATING_LIMITED: HVACActionCategory.HEATING,
+    HeatingCircuitStatus.HEATING_COMFORT: HVACActionCategory.HEATING,
+    HeatingCircuitStatus.SWITCHOFF_OPTIMIZATION: HVACActionCategory.HEATING,
+    HeatingCircuitStatus.HEATING_REDUCED: HVACActionCategory.HEATING,
+    HeatingCircuitStatus.FLOW_FROST_PROTECTION: HVACActionCategory.HEATING,
+    HeatingCircuitStatus.RESERVED_HEATING_2: HVACActionCategory.HEATING,
+    # Preheating states
+    HeatingCircuitStatus.SWITCHON_OPTIMIZATION_QUICK_HEATUP: (
+        HVACActionCategory.PREHEATING
+    ),
+    HeatingCircuitStatus.SWITCHON_OPTIMIZATION: HVACActionCategory.PREHEATING,
+    HeatingCircuitStatus.QUICK_HEATUP: HVACActionCategory.PREHEATING,
+    # Drying state
+    HeatingCircuitStatus.SCREED_FUNCTION: HVACActionCategory.DRYING,
+    # Fan states
+    HeatingCircuitStatus.FORCED_CONSUMPTION_BUFFER: HVACActionCategory.FAN,
+    HeatingCircuitStatus.FORCED_CONSUMPTION_DHW: HVACActionCategory.FAN,
+    HeatingCircuitStatus.FORCED_CONSUMPTION_GENERATOR: HVACActionCategory.FAN,
+    HeatingCircuitStatus.FORCED_CONSUMPTION: HVACActionCategory.FAN,
+    # Cooling states
+    HeatingCircuitStatus.COOLING_ACTIVE: HVACActionCategory.COOLING,
+    HeatingCircuitStatus.COOLING_PASSIVE: HVACActionCategory.COOLING,
+    HeatingCircuitStatus.COOLING_EVAPORATOR: HVACActionCategory.COOLING,
+    HeatingCircuitStatus.COOLING_RELATED_1: HVACActionCategory.COOLING,
+    HeatingCircuitStatus.DEW_POINT_MONITOR: HVACActionCategory.COOLING,
+    HeatingCircuitStatus.COOLING_LIMIT_OUTDOOR_TEMP: HVACActionCategory.COOLING,
+    HeatingCircuitStatus.COOLING_MODE: HVACActionCategory.COOLING,
+    HeatingCircuitStatus.RECOOLING_DHW_HC: HVACActionCategory.COOLING,
+    HeatingCircuitStatus.COOLING_LIMITED: HVACActionCategory.COOLING,
+    HeatingCircuitStatus.COOLING_LIMIT_OUTSIDE_TEMP_MAX: HVACActionCategory.COOLING,
+    HeatingCircuitStatus.RESERVED_COOLING_1: HVACActionCategory.COOLING,
+    HeatingCircuitStatus.RESERVED_COOLING_2: HVACActionCategory.COOLING,
+    HeatingCircuitStatus.COOLING_COMFORT: HVACActionCategory.COOLING,
+    HeatingCircuitStatus.LIMIT_FLOW_DEW_POINT: HVACActionCategory.COOLING,
+    HeatingCircuitStatus.LIMIT_FLOW_OUTDOOR_TEMP: HVACActionCategory.COOLING,
+    HeatingCircuitStatus.FLOW_LIMIT_REACHED: HVACActionCategory.COOLING,
+    HeatingCircuitStatus.LIMIT_SOURCE_TEMP_MIN_COOLING: HVACActionCategory.COOLING,
+    HeatingCircuitStatus.COMPRESSOR_RUNTIME_MIN_COOLING: HVACActionCategory.COOLING,
+    HeatingCircuitStatus.COMPRESSOR_1_AND_2_COOLING: HVACActionCategory.COOLING,
+    HeatingCircuitStatus.COMPRESSOR_1_COOLING: HVACActionCategory.COOLING,
+    HeatingCircuitStatus.COMPRESSOR_2_COOLING: HVACActionCategory.COOLING,
+    HeatingCircuitStatus.PROTECTION_MODE_COOLING: HVACActionCategory.COOLING,
+    # Defrosting states
+    HeatingCircuitStatus.DEFROST: HVACActionCategory.DEFROSTING,
+    HeatingCircuitStatus.DRIP_OFF: HVACActionCategory.DEFROSTING,
+    HeatingCircuitStatus.PREHEAT_DEFROST: HVACActionCategory.DEFROSTING,
+    HeatingCircuitStatus.DEFROST_RELATED_1: HVACActionCategory.DEFROSTING,
+    HeatingCircuitStatus.FORCED_DEFROST_COMPRESSOR: HVACActionCategory.DEFROSTING,
+    HeatingCircuitStatus.FORCED_DEFROST_FAN: HVACActionCategory.DEFROSTING,
+    HeatingCircuitStatus.DEFROST_COMPRESSOR: HVACActionCategory.DEFROSTING,
+    HeatingCircuitStatus.DEFROST_FAN: HVACActionCategory.DEFROSTING,
+    HeatingCircuitStatus.FROST_PROTECTION_COOLING: HVACActionCategory.DEFROSTING,
+    HeatingCircuitStatus.DEFROST_RELATED_2: HVACActionCategory.DEFROSTING,
+}
+
+
+def get_hvac_action_category(status_code: int) -> HVACActionCategory:
+    """Get the HVAC action category for a given status code.
+
+    This is a convenience function for getting the category of any status code,
+    including unknown ones (which return IDLE).
+
+    Args:
+        status_code: The raw status code from BSB-LAN parameter 8000.
+
+    Returns:
+        HVACActionCategory: The category for this status code.
+
+    Example:
+        >>> category = get_hvac_action_category(0x72)
+        >>> print(category)  # HVACActionCategory.HEATING
+        >>> print(category.name)  # "HEATING"
+
+    """
+    status = HeatingCircuitStatus.from_value(status_code)
+    if status is None:
+        return HVACActionCategory.IDLE
+    return status.category
+
+
+# Error Messages
+class ErrorMsg:
+    """Error message constants for BSBLAN."""
+
+    NO_STATE = "No state provided."
+    NO_SCHEDULE = "No schedule provided."
+    VERSION = "Version not supported"
+    TEMPERATURE_RANGE = "Temperature range not initialized"
+    CONFIG_NOT_RESOLVED = "API configuration not resolved"
+    MULTI_PARAMETER = "Only one parameter can be set at a time"
+    SESSION_NOT_INITIALIZED = "Session not initialized"
+    API_DATA_NOT_INITIALIZED = "API data not initialized"
+    API_VALIDATOR_NOT_INITIALIZED = "API validator not initialized"
+    SECTION_NOT_FOUND = "Section '{}' not found in API data"
+    INVALID_CIRCUIT = "Invalid circuit number: {}. Must be 1 or 2."
+    INVALID_RESPONSE = "Invalid response format from BSB-LAN device: {}"
+    EMPTY_SECTION_PARAMS = (
+        "No valid parameters found for section '{}'. "
+        "The device may not support this circuit or section."
+    )
+    NO_PARAMETER_IDS = "No parameter IDs provided"
+    NO_PARAMETER_NAMES = "No parameter names provided"
+    PARAMETER_NAMES_NOT_RESOLVED = "Could not resolve any parameter names"
+    INVALID_INCLUDE_PARAMS = (
+        "None of the requested parameters are valid for this section"
+    )
+    EMPTY_INCLUDE_LIST = (
+        "Empty include list provided. Use None to fetch all parameters."
+    )
+    NO_HEATING_SCHEDULE_PARAMS = "No heating schedule parameters available"
+    TIME_SYNC_NOT_SUPPORTED = "Time synchronization is not supported by this device"
+    BUS_WRITE_NOT_SUPPORTED = "Writing parameters is not supported by this device"
+
+
+# Handle both ASCII and Unicode degree symbols
+TEMPERATURE_UNITS = {"°C", "°F", "&#176;C", "&#176;F", "&deg;C", "&deg;F"}
+
+# HA-compatible device class mapping from BSB-LAN units
+# Maps unit strings (incl. HTML-encoded variants)
+# to HA SensorDeviceClass values
+UNIT_DEVICE_CLASS_MAP: Final[dict[str, str]] = {
+    # Temperature
+    "°C": "temperature",
+    "°F": "temperature",
+    "&#176;C": "temperature",
+    "&#176;F": "temperature",
+    "&deg;C": "temperature",
+    "&deg;F": "temperature",
+    # Energy
+    "kWh": "energy",
+    "MWh": "energy",
+    "Wh": "energy",
+    # Power
+    "kW": "power",
+    "W": "power",
+    # Pressure
+    "bar": "pressure",
+    "Pa": "pressure",
+    "hPa": "pressure",
+    # Voltage
+    "V": "voltage",
+    # Current
+    "A": "current",
+    "mA": "current",
+    # Frequency
+    "Hz": "frequency",
+    # Volume flow rate
+    "l/min": "volume_flow_rate",
+    "l/h": "volume_flow_rate",
+    # Duration
+    "h": "duration",
+    "min": "duration",
+    "s": "duration",
+    # Percentage
+    "%": "power_factor",
+}
+
+# HA-compatible state class mapping from BSB-LAN units
+# Maps unit strings to HA SensorStateClass values
+UNIT_STATE_CLASS_MAP: Final[dict[str, str]] = {
+    # Energy counters are always total_increasing
+    "kWh": "total_increasing",
+    "MWh": "total_increasing",
+    "Wh": "total_increasing",
+    # All other numeric measurements
+    "°C": "measurement",
+    "°F": "measurement",
+    "&#176;C": "measurement",
+    "&#176;F": "measurement",
+    "&deg;C": "measurement",
+    "&deg;F": "measurement",
+    "kW": "measurement",
+    "W": "measurement",
+    "bar": "measurement",
+    "Pa": "measurement",
+    "hPa": "measurement",
+    "V": "measurement",
+    "A": "measurement",
+    "mA": "measurement",
+    "Hz": "measurement",
+    "l/min": "measurement",
+    "l/h": "measurement",
+    "%": "measurement",
+    "h": "measurement",
+    "min": "measurement",
+    "s": "measurement",
+}
+
+
+# Hot Water Parameter Groups
+class HotWaterParams:
+    """Hot water parameter group constants for BSBLAN."""
+
+    # Essential parameters for frequent monitoring
+    ESSENTIAL: Final[set[str]] = {
+        param_id
+        for param_id, name in BASE_HOT_WATER_PARAMS.items()
+        if name
+        in {
+            "operating_mode",
+            "nominal_setpoint",
+            "release",
+            "dhw_actual_value_top_temperature",
+            "state_dhw_pump",
+        }
+    }
+
+    # Configuration parameters checked less frequently
+    CONFIG: Final[set[str]] = {
+        param_id
+        for param_id, name in BASE_HOT_WATER_PARAMS.items()
+        if name
+        in {
+            "eco_mode_selection",
+            "nominal_setpoint_max",
+            "reduced_setpoint",
+            "dhw_charging_priority",
+            "operating_mode_changeover",
+            "legionella_function",
+            "legionella_function_setpoint",
+            "legionella_function_periodicity",
+            "legionella_function_day",
+            "legionella_function_time",
+            "legionella_function_dwelling_time",
+            "legionella_circulation_pump",
+            "legionella_circulation_temp_diff",
+            "dhw_circulation_pump_release",
+            "dhw_circulation_pump_cycling",
+            "dhw_circulation_setpoint",
+        }
+    }
+
+    # Schedule parameters (time programs)
+    SCHEDULE: Final[set[str]] = {
+        param_id
+        for param_id, name in BASE_HOT_WATER_PARAMS.items()
+        if name
+        in {
+            "dhw_time_program_monday",
+            "dhw_time_program_tuesday",
+            "dhw_time_program_wednesday",
+            "dhw_time_program_thursday",
+            "dhw_time_program_friday",
+            "dhw_time_program_saturday",
+            "dhw_time_program_sunday",
+            "dhw_time_program_standard_values",
+        }
+    }
+
+    # Settable parameters mapping (param_id -> attribute name)
+    SETTABLE: Final[dict[str, str]] = {
+        "1610": "nominal_setpoint",
+        "1612": "reduced_setpoint",
+        "1614": "nominal_setpoint_max",
+        "1600": "operating_mode",
+        "1601": "eco_mode_selection",
+        "1630": "dhw_charging_priority",
+        "1645": "legionella_function_setpoint",
+        "1641": "legionella_function_periodicity",
+        "1642": "legionella_function_day",
+        "1644": "legionella_function_time",
+        "1646": "legionella_function_dwelling_time",
+        "1680": "operating_mode_changeover",
+    }
+
+    # DHW time program parameter mappings
+    TIME_PROGRAMS: Final[dict[str, str]] = {
+        "561": "monday",
+        "562": "tuesday",
+        "563": "wednesday",
+        "564": "thursday",
+        "565": "friday",
+        "566": "saturday",
+        "567": "sunday",
+        "576": "standard_values",
+    }
+
+
+class HeatingScheduleParams:
+    """Heating schedule parameter mappings per circuit."""
+
+    TIME_PROGRAMS: Final[dict[int, dict[str, str]]] = {
+        1: {
+            "501": "monday",
+            "502": "tuesday",
+            "503": "wednesday",
+            "504": "thursday",
+            "505": "friday",
+            "506": "saturday",
+            "507": "sunday",
+            "516": "standard_values",
+        },
+        2: {
+            "521": "monday",
+            "522": "tuesday",
+            "523": "wednesday",
+            "524": "thursday",
+            "525": "friday",
+            "526": "saturday",
+            "527": "sunday",
+            "536": "standard_values",
+        },
+    }

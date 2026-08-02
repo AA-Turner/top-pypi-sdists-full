@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cachebox
-Version: 6.2.1
+Version: 6.2.2
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: 3
@@ -41,6 +41,7 @@ Project-URL: Homepage, https://github.com/awolverp/cachebox
 
 [![License](https://img.shields.io/github/license/awolverp/cachebox.svg?style=flat-square)](https://github.com/awolverp/cachebox/blob/main/LICENSE)
 [![Downloads](https://img.shields.io/pypi/dm/cachebox?style=flat-square&color=%23314bb5)](https://pepy.tech/projects/cachebox)
+[![Donate](https://img.shields.io/badge/donate-PayRequest-blue)](https://payrequest.me/ali-pooralijan-awolverp)
 
 </div>
 

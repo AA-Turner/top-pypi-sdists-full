@@ -1,0 +1,236 @@
+"""Redis cache helpers for ontology pipeline results.
+
+Provides key building, serialization, TTL management, and pattern-based
+invalidation for the full ontology RAG pipeline cache.
+
+FEAT-159 (TASK-1099): Extended with ``subscribe_invalidation()`` — a long-running
+async coroutine that listens to the Redis ``ontology:invalidate:*`` pub/sub channel
+and triggers both in-memory manager invalidation and Redis key deletion on receipt.
+"""
+from __future__ import annotations
+
+import asyncio
+import logging
+from typing import TYPE_CHECKING, Any
+
+from .schema import EnrichedContext
+
+if TYPE_CHECKING:
+    from parrot.knowledge.ontology.tenant import TenantOntologyManager
+
+logger = logging.getLogger("Parrot.Ontology.Cache")
+
+# Default values (overridden by conf at runtime)
+_DEFAULT_PREFIX = "parrot:ontology"
+_DEFAULT_TTL = 86400
+
+
+def _get_conf_value(name: str, default: Any) -> Any:
+    """Safely get a config value from parrot.conf."""
+    try:
+        from parrot import conf
+        val = getattr(conf, name, None)
+        return val if val is not None else default
+    except (ImportError, AttributeError):
+        return default
+
+
+class OntologyCache:
+    """Redis cache for ontology pipeline results.
+
+    Cache key format: ``{prefix}:{tenant}:{user}:{pattern}``
+    Extended format (FEAT-158): ``{prefix}:{tenant}:{user}:{pattern}:e={k1}={v1},...``
+    when ``resolved_entities`` is provided and non-empty.
+
+    Args:
+        redis_client: An async Redis client (aioredis or redis.asyncio).
+    """
+
+    def __init__(self, redis_client: Any = None) -> None:
+        self._redis = redis_client
+
+    @staticmethod
+    def build_key(
+        tenant_id: str,
+        user_id: str,
+        pattern: str,
+        resolved_entities: dict[str, str] | None = None,
+    ) -> str:
+        """Build a cache key for a pipeline result.
+
+        When ``resolved_entities`` is provided and non-empty, appends a
+        deterministic suffix ``':e={k1}={v1},{k2}={v2},...'`` (sorted by key)
+        to prevent cross-target cache poisoning (FEAT-158).
+
+        Backwards compatible: omitting ``resolved_entities`` (or passing
+        ``None`` or ``{}``) returns the identical key as the pre-FEAT-158
+        format ``'{prefix}:{tenant_id}:{user_id}:{pattern}'``.
+
+        Args:
+            tenant_id: Tenant identifier.
+            user_id: User identifier.
+            pattern: Traversal pattern name.
+            resolved_entities: Optional mapping of rule_name → graph _id from
+                entity extraction (FEAT-158). Sorted by key for determinism.
+
+        Returns:
+            Formatted cache key string.
+        """
+        prefix = _get_conf_value("ONTOLOGY_CACHE_PREFIX", _DEFAULT_PREFIX)
+        base = f"{prefix}:{tenant_id}:{user_id}:{pattern}"
+        if not resolved_entities:
+            return base
+        # Sanitize ArangoDB _id values (e.g. "Employee/E001") — replace "/" with "_"
+        # to avoid confusing Redis admin tools and wildcard SCAN patterns.
+        safe_entities = {k: v.replace("/", "_") for k, v in resolved_entities.items()}
+        items = ",".join(
+            f"{k}={v}" for k, v in sorted(safe_entities.items())
+        )
+        return f"{base}:e={items}"
+
+    async def get(self, key: str) -> EnrichedContext | None:
+        """Retrieve a cached EnrichedContext.
+
+        Args:
+            key: Cache key.
+
+        Returns:
+            EnrichedContext if found, None on cache miss or error.
+        """
+        if not self._redis:
+            return None
+        try:
+            cached = await self._redis.get(key)
+            if cached is None:
+                return None
+            if isinstance(cached, bytes):
+                cached = cached.decode("utf-8")
+            return EnrichedContext.from_cache(cached)
+        except Exception as e:
+            logger.warning("Cache get failed for key '%s': %s", key, e)
+            return None
+
+    async def set(
+        self, key: str, context: EnrichedContext, ttl: int | None = None
+    ) -> None:
+        """Store an EnrichedContext in cache.
+
+        Args:
+            key: Cache key.
+            context: EnrichedContext to cache.
+            ttl: TTL in seconds. If None, uses ONTOLOGY_CACHE_TTL from conf.
+        """
+        if not self._redis:
+            return
+        if ttl is None:
+            ttl = _get_conf_value("ONTOLOGY_CACHE_TTL", _DEFAULT_TTL)
+        try:
+            await self._redis.set(key, context.to_cache(), ex=ttl)
+            logger.debug("Cached key '%s' (TTL=%ds)", key, ttl)
+        except Exception as e:
+            logger.warning("Cache set failed for key '%s': %s", key, e)
+
+    async def invalidate_tenant(self, tenant_id: str) -> None:
+        """Delete all cache keys for a specific tenant.
+
+        Args:
+            tenant_id: Tenant identifier.
+        """
+        if not self._redis:
+            return
+        prefix = _get_conf_value("ONTOLOGY_CACHE_PREFIX", _DEFAULT_PREFIX)
+        pattern = f"{prefix}:{tenant_id}:*"
+        try:
+            keys = []
+            async for key in self._redis.scan_iter(match=pattern):
+                keys.append(key)
+            if keys:
+                await self._redis.delete(*keys)
+                logger.info(
+                    "Invalidated %d cache keys for tenant '%s'",
+                    len(keys), tenant_id,
+                )
+        except Exception as e:
+            logger.warning(
+                "Cache invalidation failed for tenant '%s': %s",
+                tenant_id, e,
+            )
+
+    async def invalidate_all(self) -> None:
+        """Delete all ontology cache keys across all tenants."""
+        if not self._redis:
+            return
+        prefix = _get_conf_value("ONTOLOGY_CACHE_PREFIX", _DEFAULT_PREFIX)
+        pattern = f"{prefix}:*"
+        try:
+            keys = []
+            async for key in self._redis.scan_iter(match=pattern):
+                keys.append(key)
+            if keys:
+                await self._redis.delete(*keys)
+                logger.info("Invalidated all %d ontology cache keys", len(keys))
+        except Exception as e:
+            logger.warning("Full cache invalidation failed: %s", e)
+
+    # ── FEAT-159: pub/sub invalidation subscriber ──────────────────────────────
+
+    async def subscribe_invalidation(
+        self, manager: "TenantOntologyManager"
+    ) -> None:
+        """Subscribe to ontology:invalidate:* and trigger cache + manager invalidation.
+
+        Long-running coroutine designed to be launched with
+        ``asyncio.create_task()`` during application bootstrap.
+
+        On each ``pmessage`` received on the ``ontology:invalidate:<tenant_id>``
+        channel, this method:
+        1. Extracts ``tenant_id`` from the channel name.
+        2. Calls ``manager.invalidate(tenant_id)`` (sync — clears in-memory cache).
+        3. Calls ``self.invalidate_tenant(tenant_id)`` (async — deletes Redis keys).
+
+        If the Redis connection drops, the error is logged and the method
+        attempts to resubscribe after a short delay.
+
+        Args:
+            manager: ``TenantOntologyManager`` whose in-memory cache will be
+                invalidated alongside the Redis key cache.
+        """
+        _RECONNECT_DELAY_S = 5.0
+        pubsub = None
+
+        while True:
+            try:
+                pubsub = self._redis.pubsub()
+                await pubsub.psubscribe("ontology:invalidate:*")
+                logger.info("Subscribed to ontology:invalidate:* (pub/sub)")
+
+                async for message in pubsub.listen():
+                    if message["type"] != "pmessage":
+                        continue
+                    channel = message["channel"]
+                    if isinstance(channel, bytes):
+                        channel = channel.decode()
+                    # channel format: "ontology:invalidate:<tenant_id>"
+                    tenant_id = channel.rsplit(":", 1)[-1]
+                    logger.info(
+                        "Pub/sub invalidation for tenant '%s'", tenant_id
+                    )
+                    manager.invalidate(tenant_id)
+                    await self.invalidate_tenant(tenant_id)
+
+            except Exception as exc:
+                logger.error(
+                    "OntologyCache pub/sub subscriber error — "
+                    "reconnecting in %.0fs: %s",
+                    _RECONNECT_DELAY_S,
+                    exc,
+                )
+                # S3 fix: close the stale pubsub handle to avoid duplicate
+                # subscriptions after the connection is re-established.
+                if pubsub is not None:
+                    try:
+                        await pubsub.close()
+                    except Exception:
+                        pass
+                    pubsub = None
+                await asyncio.sleep(_RECONNECT_DELAY_S)

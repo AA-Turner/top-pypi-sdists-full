@@ -33,15 +33,13 @@ OAUTH_MODE_TOKEN = "oauth-mode-token"
 # Support for different environment files via HAMCP_ENV_FILE
 env_file = os.getenv("HAMCP_ENV_FILE", ".env")
 env_path = project_root / env_file
+if not env_path.exists():
+    # Fallback to default .env
+    env_path = project_root / ".env"
 
-# Load the specified environment file (silently, since env vars may come from other sources)
+# Load the environment file (silently, since env vars may come from other sources)
 if env_path.exists():
     load_dotenv(env_path)
-else:
-    # Fallback to default .env
-    default_env_path = project_root / ".env"
-    if default_env_path.exists():
-        load_dotenv(default_env_path)
 
 
 class Settings(BaseSettings):
@@ -63,10 +61,9 @@ class Settings(BaseSettings):
 
     # Tool configuration
     fuzzy_threshold: int = Field(60, alias="FUZZY_THRESHOLD")
-    entity_search_limit: int = Field(20, alias="ENTITY_SEARCH_LIMIT")
 
     # Smart-search config-fetch time budgets (seconds). Bound how long
-    # ha_search / ha_deep_search spends fetching automation/script/scene
+    # ha_search spends fetching automation/script/scene
     # definitions during the per-id fallback before reporting a partial
     # result. Surfaced in the Advanced settings panel (issue #1538) so
     # add-on users — who cannot set raw env vars — can tune them. Consumed
@@ -202,6 +199,25 @@ class Settings(BaseSettings):
         False, alias="ENABLE_YAML_PACKAGES_SCRIPT"
     )
     enable_yaml_packages_scene: bool = Field(False, alias="ENABLE_YAML_PACKAGES_SCENE")
+
+    # Operator-configured extra top-level keys ha_config_set_yaml may write,
+    # comma-separated, on top of the custom component's built-in allowlist
+    # (#1887). For YAML-first integrations that are valid on one install but
+    # not worth hardcoding globally. Additive only, and never a way past the
+    # component's YAML_KEY_DENYLIST: that floor is enforced component-side
+    # (the authoritative layer) and is deliberately not mirrored here, so
+    # there is one copy to keep correct. A denied key typed into this setting
+    # is simply ignored, with the component's explanation on first use.
+    # Nor does it lift the packages-only restriction on automation/script/
+    # scene: those keep reaching packages/*.yaml through their own per-key
+    # toggles and stay rejected in configuration.yaml.
+    # Empty (the default) keeps today's behaviour exactly.
+    # Registered in ADVANCED_SETTINGS_FIELDS (section ``beta_yamlkeys``), not
+    # FEATURE_FLAG_FIELDS, because it is a value rather than a toggle – the
+    # same placement the code-mode sub-settings use. Meaningful only when
+    # ``enable_yaml_config_editing`` is on; the UI nests it under that parent
+    # like the per-key toggles above.
+    extra_yaml_write_keys: str = Field("", alias="HA_MCP_EXTRA_YAML_KEYS")
 
     # Seed values for tool visibility (comma-separated tool names).
     # Used as initial config when no tool_config.json exists.
@@ -447,11 +463,6 @@ class Settings(BaseSettings):
             return int(val)
         return val
 
-    @property
-    def env_file_name(self) -> str:
-        """Get the current environment file name."""
-        return os.getenv("HAMCP_ENV_FILE", ".env")
-
     @field_validator("homeassistant_url")
     @classmethod
     def validate_homeassistant_url(cls, v: str) -> str:
@@ -552,35 +563,21 @@ class Settings(BaseSettings):
         return port
 
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow"
+        # Absolute, and the same file load_dotenv already resolved above. A
+        # relative ".env" here would be a second, independent read that
+        # pydantic-settings resolves against the process's working directory —
+        # so HAMCP_ENV_FILE would not govern it, and a stray .env in whatever
+        # directory the server was launched from would silently supply values.
+        env_file=str(env_path),
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="allow",
     )
 
 
 def get_settings() -> Settings:
     """Get application settings."""
     return Settings()  # type: ignore[call-arg]
-
-
-def validate_settings() -> tuple[bool, str | None]:
-    """
-    Validate settings and return (is_valid, error_message).
-
-    Returns:
-        tuple: (True, None) if valid, (False, error_message) if invalid
-    """
-    try:
-        settings = get_settings()
-
-        # Additional validation
-        if not settings.homeassistant_url:
-            return False, "Home Assistant URL is required"
-
-        if not settings.homeassistant_token:
-            return False, "Home Assistant token is required"
-
-        return True, None
-    except Exception as e:
-        return False, str(e)
 
 
 # Runtime-editable feature flags surfaced in the /settings web UI
@@ -621,6 +618,7 @@ AdvancedSection = Literal[
     "tools_surface",
     "sidecar",
     "beta_codemode",
+    "beta_yamlkeys",
     "developer",
 ]
 
@@ -791,7 +789,6 @@ ADVANCED_SETTINGS_FIELDS: tuple[AdvancedField, ...] = (
     AdvancedField("verify_ssl", "HA_VERIFY_SSL", bool, "operations", True),
     # Search & matching.
     AdvancedField("fuzzy_threshold", "FUZZY_THRESHOLD", int, "search", True),
-    AdvancedField("entity_search_limit", "ENTITY_SEARCH_LIMIT", int, "search", True),
     # Smart-search config-fetch time budgets (#1538). Restart-required
     # (consumed as import-time constants in smart_search/_config.py).
     AdvancedField(
@@ -896,6 +893,18 @@ ADVANCED_SETTINGS_FIELDS: tuple[AdvancedField, ...] = (
         "beta_codemode",
         True,
     ),
+    # Extra YAML write keys (issue #1887). Same shape as the code-mode
+    # sub-settings above: a non-bool value that belongs visually under a
+    # feature toggle rather than in the advanced panel, so it lives here
+    # with its own section and the features renderer nests it beneath
+    # "Enable YAML config editing".
+    AdvancedField(
+        "extra_yaml_write_keys",
+        "HA_MCP_EXTRA_YAML_KEYS",
+        str,
+        "beta_yamlkeys",
+        True,
+    ),
     # Developer mode (issue #1775). Lives in ADVANCED_SETTINGS_FIELDS —
     # not FEATURE_FLAG_FIELDS — so it renders in its own "Developer"
     # section at the very bottom of the Server Settings tab instead of
@@ -909,12 +918,11 @@ ADVANCED_SETTINGS_FIELDS: tuple[AdvancedField, ...] = (
 # Bounds present on the Settings field today (mirrored):
 #   fuzzy_threshold (validator 0-100), code_mode_* (Field ge/le).
 # Bounds added purely as UI/POST guardrails (no Field constraint):
-#   timeout, max_retries, entity_search_limit.
+#   timeout, max_retries.
 _ADVANCED_SETTINGS_BOUNDS: dict[str, tuple[float, float]] = {
     "timeout": (1, 600),
     "max_retries": (0, 20),
     "fuzzy_threshold": (0, 100),
-    "entity_search_limit": (1, 1000),
     "automation_config_time_budget": (1.0, 600.0),
     "script_config_time_budget": (1.0, 600.0),
     "scene_config_time_budget": (1.0, 600.0),
@@ -1183,6 +1191,30 @@ def _apply_one_feature_flag_override(
             coerced,
             err,
         )
+
+
+def parse_extra_yaml_write_keys(settings: "Settings") -> list[str]:
+    """Parse ``extra_yaml_write_keys`` into a clean key list (#1887).
+
+    Whitespace and empty entries are dropped and the result is deduplicated
+    and sorted, so the service payload is deterministic and unaffected by how
+    the operator spaced the setting.
+
+    The component's ``YAML_KEY_DENYLIST`` is NOT applied here: that floor
+    lives component-side, in the layer that authorizes the write. Mirroring it
+    would mean a second copy to keep in lockstep for no gain: a denied key sent
+    on the wire is dropped there anyway.
+
+    Lives in this module rather than next to the YAML tool because the backup
+    restore path needs it too, and ``backup_manager`` importing a ``tools_*``
+    module would add an import edge that binds ``tools_yaml_config``'s
+    module-level names at restore time.
+    """
+    # Direct attribute access, matching ``_disabled_packages_keys``: a future
+    # rename must raise loudly rather than silently return an empty list,
+    # which would read as "the operator configured nothing".
+    raw = settings.extra_yaml_write_keys or ""
+    return sorted({segment.strip() for segment in raw.split(",") if segment.strip()})
 
 
 def _apply_beta_master_gate(settings: "Settings") -> None:

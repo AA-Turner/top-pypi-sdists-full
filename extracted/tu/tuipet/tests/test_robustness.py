@@ -1,0 +1,169 @@
+"""Edge-case robustness (Workstream B).
+
+A fuzz of ~30 edge inputs found the game degrades gracefully everywhere a user can
+reach: a brand-new empty account, 0-bit purchases, dead-pet actions, corrupt /
+partial / unknown-num saves, offline extremes, out-of-range egg indices. (The lone
+crash, Pet.from_num on a nonexistent num, is an internal fail-loud on a data-
+integrity error, not user-reachable — left as-is.) These tests pin the graceful
+paths so a refactor can't turn them back into crashes.
+"""
+import json
+
+
+from tuipet import data, egg, persistence
+from tuipet.pet import Pet
+
+
+# ---- brand-new empty account (gen 1, no previous-generation snapshot) ------
+
+def test_empty_account_egg_flow():
+    prog = persistence.get_progress()           # nothing saved yet
+    assert prog["max_gen"] == 1
+    assert prog["last_field"] == "None"         # no prev-gen snapshot -> safe defaults
+    states = egg.egg_states(prog, set())
+    assert states                               # no crash, full map
+    sel = egg.hatchable_eggs(prog, set())
+    assert sel, "a fresh account must still have its starter eggs selectable"
+    assert egg.locked_hint(prog, set()) is not None
+    assert egg.auto_owned(prog, set()) is not None
+
+
+# ---- purchase / inventory bounds -------------------------------------------
+
+def test_buy_with_zero_bits():
+    # shop.buy is the ONE purchase path (the town-counter buy_slot was cut
+    # with the town chain, 2026-07-19) -- a broke pet is refused in words
+    from tuipet import shop
+    p = Pet(num=-1, stage="Rookie", bits=0)
+    msg, sfx = shop.buy(p, {"key": "energy_drink", "name": "EnergyDrink",
+                            "price": 500})
+    assert "500b" in msg and sfx == "error"
+    assert p.bits == 0 and not p.inventory
+
+
+def test_the_town_chain_is_cut():
+    """Cut-is-total (Joel 2026-07-19): the town storefront chain died with
+    the towns; nothing may creep back."""
+    from tuipet import shop
+    from tuipet.pet import Pet as _P
+    for name in ("home_shop_open", "town_shop_open", "town_shop_hours",
+                 "roll_town_shop", "slot_label", "slot_info", "sell_info",
+                 "purchase_price"):
+        assert not hasattr(shop, name), name
+    assert not hasattr(_P, "buy_slot")
+
+
+def test_sell_empty_bag():
+    p = Pet(num=-1, stage="Rookie")
+    # shop.sell is the one live resell path (CareMixin.sell cut, LOW audit)
+    from tuipet import shop
+    assert not hasattr(p, "sell")
+    msg, sfx = shop.sell(p, {"key": "f:1", "name": "Meat"})
+    assert sfx == "error" and "don't have" in msg
+
+
+def test_use_missing_item():
+    assert Pet(num=-1, stage="Rookie").use_item("i:99999") == "None left."
+
+
+def test_consumable_by_key_bad_input():
+    assert data.consumable_by_key("zzz") is None
+    assert data.consumable_by_key("i:99999") is None
+
+
+# ---- dead-pet interactions are inert and safe ------------------------------
+
+def test_dead_pet_actions_safe():
+    p = Pet(num=-1, stage="Rookie", dead=True)
+    p.inventory["f:1"] = 1
+    # none of these may crash, and the pet stays dead with its bag intact
+    assert isinstance(p.use_item("f:1"), str)
+    p.train_result(True)
+    p.tick(100)
+    assert p.dead is True
+    assert p.inventory.get("f:1") == 1, "a dead pet must not consume items"
+
+
+# ---- save/load resilience --------------------------------------------------
+
+def test_load_corrupt_json():
+    """A corrupt save with no usable backup announces itself (professionalism
+    sweep 2026-07-14) -- it used to return (None, '') and play off as a first
+    launch, silently hatching a new egg over a lost pet."""
+    persistence.save(Pet(num=-1, stage="Rookie"))
+    with open(persistence.SAVE_PATH, "w") as fh:
+        fh.write("{ not json")
+    pet, msg = persistence.load()
+    assert pet is None and "couldn't be read" in msg
+
+
+def test_load_partial_save():
+    with open(persistence.SAVE_PATH, "w") as fh:
+        json.dump({"num": -1, "stage": "Rookie"}, fh)   # missing _saved_at + many fields
+    pet, _ = persistence.load()
+    assert pet is not None and pet.stage == "Rookie"
+
+
+def test_load_unknown_num():
+    """A save whose species num no longer exists (data refresh) still loads."""
+    persistence.save(Pet(num=999999, name="Ghost", stage="Rookie"))
+    pet, _ = persistence.load()
+    assert pet is not None and pet.num == 999999
+
+
+def test_unknown_num_survives_the_first_paint():
+    """Loading an unknown num is only half the contract: the FIRST LCD paint
+    raw-indexed the sprite dict and crashed -- a loop, since the .bak holds
+    the same num (audit 2026-07-13).  Every sprite fetch wears the
+    placeholder instead."""
+    from tuipet import data
+    rec = data.record_for(999999)
+    assert rec["frames"] and rec.get("_placeholder"), "unknown nums wear the placeholder"
+    fr = data.bob_frame(999999, 0)
+    assert fr is not None, "bob_frame must never hand a scene a None for a positive num"
+    from tuipet.arena import Screen
+    ghost = Pet(num=999999, name="Ghost", stage="Rookie")
+    scr = Screen.__new__(Screen)
+    rows = scr._pose_rows(ghost, "idle", 0)       # raw-indexed before the fix
+    assert rows is not None
+
+
+def test_future_timestamp_no_time_travel():
+    """A save dated in the future must not produce negative offline time."""
+    p = Pet(num=-1, name="Fwd", stage="Rookie")
+    persistence.save(p)
+    blob = json.load(open(persistence.SAVE_PATH))
+    import time
+    blob["_saved_at"] = time.time() + 10_000      # future
+    json.dump(blob, open(persistence.SAVE_PATH, "w"))
+    pet, msg = persistence.load()
+    assert pet is not None
+    assert pet.world_seconds >= 0, "future save must clamp offline elapsed to 0"
+
+
+# ---- a stopped clock has no extremes --------------------------------------
+
+def test_absurd_elapsed_is_simply_ignored(tmp_path):
+    """The old catch-up needed clamps at both ends (0s, 10**9s, a future
+    stamp).  With nothing replayed from wall-time, an absurd gap is not
+    bounded -- it is irrelevant.  A save stamped a thousand years ago loads
+    as the pet that was written."""
+    import json
+    import time
+    from tuipet import persistence
+    pet = Pet(num=-1, stage="Rookie", hunger=4)
+    persistence.save(pet)
+    data = json.load(open(persistence.SAVE_PATH))
+    data["_saved_at"] = time.time() - 1000 * 365 * 24 * 3600
+    json.dump(data, open(persistence.SAVE_PATH, "w"))
+    loaded, _ = persistence.load()
+    assert loaded is not None
+    assert (loaded.hunger, loaded.age_seconds, loaded.stage_seconds) == (
+        4, pet.age_seconds, pet.stage_seconds)
+
+
+# ---- egg helpers tolerate out-of-range indices -----------------------------
+
+def test_egg_helpers_out_of_range():
+    assert egg.frames(10 ** 6)                       # modulo-wrapped, returns frames
+    assert egg.hatch_name(10 ** 6) is not None

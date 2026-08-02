@@ -28,8 +28,10 @@ from .literals import (
     DeploymentStatusType,
     DeploymentStrategyType,
     DescribePackagesFilterNameType,
+    DomainEngineModeType,
     DomainPackageStatusType,
     DomainProcessingStatusTypeType,
+    DomainUseCaseType,
     EngineTypeType,
     ESPartitionInstanceTypeType,
     ESWarmPartitionInstanceTypeType,
@@ -169,6 +171,7 @@ __all__ = (
     "EmptyResponseMetadataTypeDef",
     "EncryptionAtRestOptionsStatusTypeDef",
     "EncryptionAtRestOptionsTypeDef",
+    "EngineModeStatusTypeDef",
     "ErrorDetailsTypeDef",
     "FilterTypeDef",
     "GetCompatibleElasticsearchVersionsRequestTypeDef",
@@ -251,6 +254,7 @@ __all__ = (
     "UpgradeElasticsearchDomainResponseTypeDef",
     "UpgradeHistoryTypeDef",
     "UpgradeStepItemTypeDef",
+    "UseCaseStatusTypeDef",
     "VPCDerivedInfoStatusTypeDef",
     "VPCDerivedInfoTypeDef",
     "VPCOptionsTypeDef",
@@ -772,6 +776,16 @@ class AdvancedOptionsStatusTypeDef(TypedDict):
 
 class ElasticsearchVersionStatusTypeDef(TypedDict):
     Options: str
+    Status: OptionStatusTypeDef
+
+
+class EngineModeStatusTypeDef(TypedDict):
+    Options: DomainEngineModeType
+    Status: OptionStatusTypeDef
+
+
+class UseCaseStatusTypeDef(TypedDict):
+    Options: DomainUseCaseType
     Status: OptionStatusTypeDef
 
 
@@ -1364,6 +1378,8 @@ class ElasticsearchDomainStatusTypeDef(TypedDict):
     ModifyingProperties: NotRequired[list[ModifyingPropertiesTypeDef]]
     DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
     AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseOptionsTypeDef]
+    UseCase: NotRequired[DomainUseCaseType]
+    EngineMode: NotRequired[DomainEngineModeType]
 
 
 class DescribeElasticsearchInstanceTypeLimitsResponseTypeDef(TypedDict):
@@ -1390,6 +1406,8 @@ class CreateElasticsearchDomainRequestTypeDef(TypedDict):
     TagList: NotRequired[Sequence[TagTypeDef]]
     DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
     AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseRequestOptionsTypeDef]
+    UseCase: NotRequired[DomainUseCaseType]
+    EngineMode: NotRequired[DomainEngineModeType]
 
 
 class UpdateElasticsearchDomainConfigRequestTypeDef(TypedDict):
@@ -1410,6 +1428,8 @@ class UpdateElasticsearchDomainConfigRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
     DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsTypeDef]
     AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseRequestOptionsTypeDef]
+    UseCase: NotRequired[DomainUseCaseType]
+    EngineMode: NotRequired[DomainEngineModeType]
 
 
 class ElasticsearchDomainConfigTypeDef(TypedDict):
@@ -1431,6 +1451,8 @@ class ElasticsearchDomainConfigTypeDef(TypedDict):
     ModifyingProperties: NotRequired[list[ModifyingPropertiesTypeDef]]
     DeploymentStrategyOptions: NotRequired[DeploymentStrategyOptionsStatusTypeDef]
     AutomatedSnapshotPauseOptions: NotRequired[AutomatedSnapshotPauseOptionsStatusTypeDef]
+    UseCase: NotRequired[UseCaseStatusTypeDef]
+    EngineMode: NotRequired[EngineModeStatusTypeDef]
 
 
 class CreateElasticsearchDomainResponseTypeDef(TypedDict):

@@ -1,0 +1,30 @@
+name: Fault-injection nightly (differential durability sweep)
+on:
+  schedule:
+    - cron: "30 7 * * *" # 07:30 UTC daily
+  workflow_dispatch:
+
+jobs:
+  fault-sweep:
+    permissions:
+      contents: read
+    runs-on: warp-ubuntu-latest-x64-32x
+    timeout-minutes: 240
+    env:
+      UV_CACHE_DIR: /tmp/.uv-cache
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+      - name: Install dependencies
+        run: make pydeps
+      - name: Differential fault sweep (L=3)
+        run: make test-fault-sweep
+        env:
+          GENEVA_FAULTSWEEP_MAXLEN: "3"
+          SWEEP_WORKERS: "24"

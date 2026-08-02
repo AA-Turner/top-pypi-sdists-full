@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# encoding: utf-8
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -58,7 +56,6 @@ or:
     detected = detector.from_buffer('some buffered content', config_path='/path/to/configfile')
 
 '''
-import types
 
 USAGE = """
 tika.py [-v] [-e] [-o <outputDir>] [--server <TikaServerEndpoint>] [--install <UrlToTikaServerJar>] [--port <portNumber>] <command> <option> <urlOrPathToFile>
@@ -88,7 +85,7 @@ Commands:
 
 Arguments:
   urlOrPathToFile = file to be parsed, if URL it will first be retrieved and then passed to Tika
-  
+
 Switches:
   --verbose, -v                  = verbose mode
   --encode, -e           = encode response in UTF-8
@@ -104,22 +101,14 @@ Example usage as python client:
 
 """
 
-import sys, os, getopt, time, codecs, re
-try:
-    unicode_string = unicode 
-    binary_string = str
-except NameError:
-    unicode_string = str
-    binary_string = bytes
-
-try:
-    from urllib import urlretrieve
-except ImportError:
-    from urllib.request import urlretrieve
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse as urlparse
+import codecs
+import getopt
+import os
+import re
+import sys
+import time
+from pathlib import Path
+from urllib.parse import urlparse as urlparse
 
 try:
     from rfc6266 import build_header
@@ -129,21 +118,18 @@ except ImportError:
     def make_content_disposition_header(fn):
         return 'attachment; filename=%s' % os.path.basename(fn)
 
-if sys.version_info[0] < 3:
-    open = codecs.open
+import ctypes
+import hashlib
+import io
+import logging
+import platform
+import signal
+import socket
+import tempfile
+from os import walk
+from subprocess import STDOUT, Popen
 
 import requests
-import socket 
-import tempfile
-import hashlib
-import platform
-from subprocess import Popen
-from subprocess import STDOUT
-from os import walk
-import signal
-import logging
-import io
-import ctypes
 
 log_path = os.getenv('TIKA_LOG_PATH', tempfile.gettempdir())
 log_file = os.path.join(log_path, os.getenv('TIKA_LOG_FILE', 'tika.log'))
@@ -166,13 +152,14 @@ if os.getenv('TIKA_LOG_FILE', 'tika.log'):
 log.setLevel(logging.INFO)
 
 Windows = True if platform.system() == "Windows" else False
-TikaVersion = os.getenv('TIKA_VERSION', '3.1.0')
+TikaVersion = os.getenv('TIKA_VERSION', '3.3.2')
 TikaJarPath = os.getenv('TIKA_PATH', tempfile.gettempdir())
 TikaFilesPath = tempfile.gettempdir()
 TikaServerLogFilePath = log_path
 TikaServerJar = os.getenv(
     'TIKA_SERVER_JAR',
     "http://search.maven.org/remotecontent?filepath=org/apache/tika/tika-server-standard/"+TikaVersion+"/tika-server-standard-"+TikaVersion+".jar")
+TikaJarHashAlgo=os.getenv('TIKA_JAR_HASH_ALGO', 'md5')
 ServerHost = "localhost"
 Port = "9998"
 ServerEndpoint = os.getenv(
@@ -197,7 +184,7 @@ TikaServerProcess = False
 class TikaException(Exception):
     pass
 
-def echo2(*s): sys.stderr.write(unicode_string('tika.py: %s\n') % unicode_string(' ').join(map(unicode_string, s)))
+def echo2(*s): sys.stderr.write(str('tika.py: %s\n') % str(' ').join(map(str, s)))
 def warn(*s):  echo2('Warn:', *s)
 def die(*s):   warn('Error:',  *s); echo2(USAGE); sys.exit()
 
@@ -218,7 +205,7 @@ def runCommand(cmd, option, urlOrPaths, port, outDir=None,
     :return: response for the command, usually a ``dict``
     '''
     # import pdb; pdb.set_trace()
-    if (cmd in 'parse' or cmd in 'detect') and (urlOrPaths == [] or urlOrPaths == None):
+    if (cmd in 'parse' or cmd in 'detect') and (urlOrPaths == [] or urlOrPaths is None):
         log.exception('No URLs/paths specified.')
         raise TikaException('No URLs/paths specified.')
     serverEndpoint = 'http://' + serverHost + ':' + port
@@ -229,7 +216,7 @@ def runCommand(cmd, option, urlOrPaths, port, outDir=None,
     elif cmd == "language":
         return detectLang(option, urlOrPaths, serverEndpoint, verbose, tikaServerJar)
     elif cmd == "translate":
-        return doTranslate(option, urlOrPaths, serverEndpoint, verbose, tikaServerJar)        
+        return doTranslate(option, urlOrPaths, serverEndpoint, verbose, tikaServerJar)
     elif cmd == "config":
         status, resp = getConfig(option, serverEndpoint, verbose, tikaServerJar)
         return resp
@@ -246,7 +233,7 @@ def getPaths(urlOrPaths):
     :param urlOrPaths: the url or path to be scanned
     :return: ``list`` of paths
     '''
-    if isinstance(urlOrPaths, unicode_string):
+    if isinstance(urlOrPaths, str):
         urlOrPaths = [urlOrPaths]  # do not recursively walk over letters of a single path which can include "/"
     paths = []
     for eachUrlOrPaths in urlOrPaths:
@@ -290,7 +277,7 @@ def parseAndSave(option, urlOrPaths, outDir=None, serverEndpoint=ServerEndpoint,
     return metaPaths
 
 
-def parse(option, urlOrPaths, serverEndpoint=ServerEndpoint, verbose=Verbose, tikaServerJar=TikaServerJar, 
+def parse(option, urlOrPaths, serverEndpoint=ServerEndpoint, verbose=Verbose, tikaServerJar=TikaServerJar,
           responseMimeType='application/json',
           services={'meta': '/meta', 'text': '/tika', 'all': '/rmeta'}, rawResponse=False):
     '''
@@ -326,13 +313,13 @@ def parse1(option, urlOrPath, serverEndpoint=ServerEndpoint, verbose=Verbose, ti
     headers = headers or {}
 
     path, file_type = getRemoteFile(urlOrPath, TikaFilesPath)
-    headers.update({'Accept': responseMimeType, 'Content-Disposition': make_content_disposition_header(path.encode('utf-8') if type(path) is unicode_string else path)})
+    headers.update({'Accept': responseMimeType, 'Content-Disposition': make_content_disposition_header(path.encode('utf-8') if type(path) is str else path)})
 
     if option not in services:
         log.warning('config option must be one of meta, text, or all; using all.')
     service = services.get(option, services['all'])
     if service == '/tika': responseMimeType = 'text/plain'
-    headers.update({'Accept': responseMimeType, 'Content-Disposition': make_content_disposition_header(path.encode('utf-8') if type(path) is unicode_string else path)})
+    headers.update({'Accept': responseMimeType, 'Content-Disposition': make_content_disposition_header(path.encode('utf-8') if type(path) is str else path)})
     with urlOrPath if _is_file_object(urlOrPath) else open(path, 'rb') as f:
         status, response = callServer('put', serverEndpoint, service, f,
                                       headers, verbose, tikaServerJar, config_path=config_path,
@@ -359,7 +346,7 @@ def detectLang(option, urlOrPaths, serverEndpoint=ServerEndpoint, verbose=Verbos
     return [detectLang1(option, path, serverEndpoint, verbose, tikaServerJar, responseMimeType, services)
             for path in paths]
 
-def detectLang1(option, urlOrPath, serverEndpoint=ServerEndpoint, verbose=Verbose, tikaServerJar=TikaServerJar, 
+def detectLang1(option, urlOrPath, serverEndpoint=ServerEndpoint, verbose=Verbose, tikaServerJar=TikaServerJar,
                responseMimeType='text/plain',
                services={'file' : '/language/stream'}, requestOptions={}):
     '''
@@ -375,14 +362,14 @@ def detectLang1(option, urlOrPath, serverEndpoint=ServerEndpoint, verbose=Verbos
     '''
     path, mode = getRemoteFile(urlOrPath, TikaFilesPath)
     if option not in services:
-        log.exception('Language option must be one of %s ' % binary_string(services.keys()))
-        raise TikaException('Language option must be one of %s ' % binary_string(services.keys()))
+        log.exception('Language option must be one of %s ' % bytes(services.keys()))
+        raise TikaException('Language option must be one of %s ' % bytes(services.keys()))
     service = services[option]
     status, response = callServer('put', serverEndpoint, service, open(path, 'rb'),
             {'Accept': responseMimeType}, verbose, tikaServerJar, requestOptions=requestOptions)
     return (status, response)
 
-def doTranslate(option, urlOrPaths, serverEndpoint=ServerEndpoint, verbose=Verbose, tikaServerJar=TikaServerJar, 
+def doTranslate(option, urlOrPaths, serverEndpoint=ServerEndpoint, verbose=Verbose, tikaServerJar=TikaServerJar,
                 responseMimeType='text/plain',
                 services={'all': '/translate/all'}):
     '''
@@ -399,9 +386,9 @@ def doTranslate(option, urlOrPaths, serverEndpoint=ServerEndpoint, verbose=Verbo
     paths = getPaths(urlOrPaths)
     return [doTranslate1(option, path, serverEndpoint, verbose, tikaServerJar, responseMimeType, services)
             for path in paths]
-    
+
 def doTranslate1(option, urlOrPath, serverEndpoint=ServerEndpoint, verbose=Verbose, tikaServerJar=TikaServerJar,
-                 responseMimeType='text/plain', 
+                 responseMimeType='text/plain',
                  services={'all': '/translate/all'}, requestOptions={}):
     '''
 
@@ -417,7 +404,7 @@ def doTranslate1(option, urlOrPath, serverEndpoint=ServerEndpoint, verbose=Verbo
     path, mode = getRemoteFile(urlOrPath, TikaFilesPath)
     srcLang = ""
     destLang = ""
-    
+
     if ":" in option:
         options = option.rsplit(':')
         srcLang = options[0]
@@ -427,17 +414,17 @@ def doTranslate1(option, urlOrPath, serverEndpoint=ServerEndpoint, verbose=Verbo
             raise TikaException('Translate options are specified as srcLang:destLang or as destLang')
     else:
         destLang = option
-          
+
     if srcLang != "" and destLang != "":
         service = services["all"] + "/" + Translator + "/" + srcLang + "/" + destLang
     else:
-        service = services["all"] + "/" + Translator + "/" + destLang  
+        service = services["all"] + "/" + Translator + "/" + destLang
     status, response = callServer('put', serverEndpoint, service, open(path, 'rb'),
                                   {'Accept' : responseMimeType},
                                   verbose, tikaServerJar, requestOptions=requestOptions)
     return (status, response)
-                       
-def detectType(option, urlOrPaths, serverEndpoint=ServerEndpoint, verbose=Verbose, tikaServerJar=TikaServerJar, 
+
+def detectType(option, urlOrPaths, serverEndpoint=ServerEndpoint, verbose=Verbose, tikaServerJar=TikaServerJar,
                responseMimeType='text/plain',
                services={'type': '/detect/stream'}):
     '''
@@ -455,7 +442,7 @@ def detectType(option, urlOrPaths, serverEndpoint=ServerEndpoint, verbose=Verbos
     return [detectType1(option, path, serverEndpoint, verbose, tikaServerJar, responseMimeType, services)
              for path in paths]
 
-def detectType1(option, urlOrPath, serverEndpoint=ServerEndpoint, verbose=Verbose, tikaServerJar=TikaServerJar, 
+def detectType1(option, urlOrPath, serverEndpoint=ServerEndpoint, verbose=Verbose, tikaServerJar=TikaServerJar,
                responseMimeType='text/plain',
                services={'type': '/detect/stream'}, config_path=None, requestOptions={}):
     '''
@@ -471,13 +458,13 @@ def detectType1(option, urlOrPath, serverEndpoint=ServerEndpoint, verbose=Verbos
     '''
     path, mode = getRemoteFile(urlOrPath, TikaFilesPath)
     if option not in services:
-        log.exception('Detect option must be one of %s' % binary_string(services.keys()))
-        raise TikaException('Detect option must be one of %s' % binary_string(services.keys()))
+        log.exception('Detect option must be one of %s' % bytes(services.keys()))
+        raise TikaException('Detect option must be one of %s' % bytes(services.keys()))
     service = services[option]
     status, response = callServer('put', serverEndpoint, service, open(path, 'rb'),
             {
                 'Accept': responseMimeType,
-                'Content-Disposition': make_content_disposition_header(path.encode('utf-8') if type(path) is unicode_string else path)
+                'Content-Disposition': make_content_disposition_header(path.encode('utf-8') if type(path) is str else path)
             },
             verbose, tikaServerJar, config_path=config_path, requestOptions=requestOptions)
     if csvOutput == 1:
@@ -519,29 +506,29 @@ def callServer(verb, serverEndpoint, service, data, headers, verbose=Verbose, ti
     :param classpath:
     :return:
     '''
-    parsedUrl = urlparse(serverEndpoint) 
+    parsedUrl = urlparse(serverEndpoint)
     serverHost = parsedUrl.hostname
     scheme = parsedUrl.scheme
 
     port = parsedUrl.port
     if classpath is None:
         classpath = TikaServerClasspath
-    
+
     global TikaClientOnly
     if not TikaClientOnly:
         serverEndpoint = checkTikaServer(scheme, serverHost, port, tikaServerJar, classpath, config_path)
 
     serviceUrl  = serverEndpoint + service
     if verb not in httpVerbs:
-        log.exception('Tika Server call must be one of %s' % binary_string(httpVerbs.keys()))
-        raise TikaException('Tika Server call must be one of %s' % binary_string(httpVerbs.keys()))
+        log.exception('Tika Server call must be one of %s' % bytes(httpVerbs.keys()))
+        raise TikaException('Tika Server call must be one of %s' % bytes(httpVerbs.keys()))
     verbFn = httpVerbs[verb]
 
     if Windows and hasattr(data, "read"):
         data = data.read()
-        
+
     encodedData = data
-    if type(data) is unicode_string:
+    if type(data) is str:
         encodedData = data.encode('utf-8')
 
     requestOptionsDefault = {
@@ -609,13 +596,15 @@ def checkJarSig(tikaServerJar, jarPath):
     :param jarPath:
     :return: ``True`` if the signature of the jar matches
     '''
-    if not os.path.isfile(jarPath + ".md5"):
-        getRemoteJar(tikaServerJar + ".md5", jarPath + ".md5")
-    m = hashlib.md5()
+    localChecksumPath = '.'.join([jarPath, TikaJarHashAlgo])
+    if not os.path.isfile(localChecksumPath):
+        remoteChecksum = '.'.join([tikaServerJar, TikaJarHashAlgo])
+        getRemoteJar(remoteChecksum, localChecksumPath)
+    m = hashlib.new(TikaJarHashAlgo)
     with open(jarPath, 'rb') as f:
         binContents = f.read()
         m.update(binContents)
-        with open(jarPath + ".md5", "r") as em:
+        with open(f"{jarPath}.{TikaJarHashAlgo}", "r") as em:
             existingContents = em.read()
             return existingContents == m.hexdigest()
 
@@ -673,12 +662,7 @@ def startServer(tikaServerJar, java_path = TikaJava, java_args = TikaJavaArgs, s
     global TikaServerProcess
     # Patch for Windows support
     if Windows:
-        if sys.version.startswith("2"):
-            # Python 2.x     
-            TikaServerProcess = Popen(cmd_string, stdout=logFile, stderr=STDOUT, shell=True)
-        elif sys.version.startswith("3"):
-            # Python 3.x
-            TikaServerProcess = Popen(cmd_string, stdout=logFile, stderr=STDOUT, shell=True, start_new_session=True)
+        TikaServerProcess = Popen(cmd_string, stdout=logFile, stderr=STDOUT, shell=True, start_new_session=True)
     else:
         TikaServerProcess = Popen(cmd_string, stdout=logFile, stderr=STDOUT, shell=True, preexec_fn=os.setsid)
 
@@ -710,26 +694,17 @@ def killServer():
         try:
             os.killpg(os.getpgid(TikaServerProcess.pid), signal.SIGTERM)
         except:
-            log.error("Failed to kill the current server session")    
+            log.error("Failed to kill the current server session")
         time.sleep(1)
         # patch to support subprocess killing for windows
         if Windows:
-            if sys.version.startswith("2"):
-                # Python 2.x
-                PROCESS_TERMINATE = 1
-                handle = ctypes.windll.kernel32.OpenProcess(PROCESS_TERMINATE, False, TikaServerProcess.pid)
-                ctypes.windll.kernel32.TerminateProcess(handle, -1)
-                ctypes.windll.kernel32.CloseHandle(handle)
-                time.sleep(1)
-            elif sys.version.startswith("3"):
-                # Python 3.x
-                os.kill(TikaServerProcess.pid, signal.SIGTERM)
-                time.sleep(1)
+            os.kill(TikaServerProcess.pid, signal.SIGTERM)
+            time.sleep(1)
         else:
             try:
                 os.killpg(os.getpgid(TikaServerProcess.pid), signal.SIGTERM)
             except:
-                log.error("Failed to kill the current server session")    
+                log.error("Failed to kill the current server session")
             time.sleep(1)
     else:
         log.error("Server not running, or was already running before")
@@ -747,12 +722,61 @@ def toFilename(url):
 
 
 def _is_file_object(f):
-    try:
-        file_types = (types.FileType, io.IOBase)
-    except AttributeError:
-        file_types = (io.IOBase,)
+    return isinstance(f, io.IOBase)
 
-    return isinstance(f, file_types)
+
+def _urlretrieve(
+    url: str,
+    filename: str,
+    chunk_size: int = 8192,
+    timeout: int = 30,
+    verify_ssl: bool = True,
+) -> str:
+    """
+    Download a file from a URL using requests with streaming support.
+
+    Args:
+        url: The URL to download from.
+        filepath: The local file path where the file will be saved.
+        chunk_size: Size of chunks to download at a time in bytes (default: 8192).
+        timeout: Request timeout in seconds (default: 30).
+        verify_ssl: Whether to verify SSL certificates (default: True).
+
+    Returns:
+        The filepath where the file was saved.
+
+    Raises:
+        requests.RequestException: If the download fails.
+        IOError: If there's an issue writing to the file.
+    """
+    headers = {"user-agent": "tika-python"}
+
+    # Ensure the directory exists
+    Path(filename).parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        response = requests.get(
+            url,
+            headers=headers,
+            stream=True,
+            timeout=timeout,
+            verify=verify_ssl,
+        )
+        response.raise_for_status()
+
+        with open(filename, "wb") as f:
+            for chunk in response.iter_content(chunk_size=chunk_size):
+                if chunk:  # Filter out keep-alive chunks
+                    f.write(chunk)
+
+        return filename
+
+    except requests.RequestException as e:
+        # Clean up partial file on error
+        if os.path.exists(filename):
+            os.remove(filename)
+        raise RuntimeError(f"Failed to download {url}: {e}") from e
+
 
 def getRemoteFile(urlOrPath, destPath):
     '''
@@ -774,18 +798,7 @@ def getRemoteFile(urlOrPath, destPath):
         filename = toFilename(urlOrPath)
         destPath = destPath + '/' + filename
         log.info('Retrieving %s to %s.' % (urlOrPath, destPath))
-        try:
-            urlretrieve(urlOrPath, destPath)
-        except IOError:
-            # monkey patch fix for SSL/Windows per Tika-Python #54 
-            # https://github.com/chrismattmann/tika-python/issues/54
-            import ssl
-            if hasattr(ssl, '_create_unverified_context'):
-                ssl._create_default_https_context = ssl._create_unverified_context
-            # delete whatever we had there
-            if os.path.exists(destPath) and os.path.isfile(destPath):
-                os.remove(destPath)
-            urlretrieve(urlOrPath, destPath)
+        _urlretrieve(urlOrPath, destPath)
         return (destPath, 'remote')
 
 def getRemoteJar(urlOrPath, destPath):
@@ -800,21 +813,9 @@ def getRemoteJar(urlOrPath, destPath):
         return (os.path.abspath(urlOrPath), 'local')
     else:
         log.info('Retrieving %s to %s.' % (urlOrPath, destPath))
-        try:
-            urlretrieve(urlOrPath, destPath)
-        except IOError:
-            # monkey patch fix for SSL/Windows per Tika-Python #54 
-            # https://github.com/chrismattmann/tika-python/issues/54
-            import ssl
-            if hasattr(ssl, '_create_unverified_context'):
-                ssl._create_default_https_context = ssl._create_unverified_context
-            # delete whatever we had there
-            if os.path.exists(destPath) and os.path.isfile(destPath):
-                os.remove(destPath)
-            urlretrieve(urlOrPath, destPath) 
-               
+        _urlretrieve(urlOrPath, destPath)
         return (destPath, 'remote')
-    
+
 def checkPortIsOpen(remoteServerHost=ServerHost, port = Port):
     '''
     Checks if the specified port is open
@@ -895,16 +896,10 @@ if __name__ == '__main__':
     resp = main(sys.argv)
 
     # Set encoding of the terminal to UTF-8
-    if sys.version.startswith("2"):
-        # Python 2.x
-        out = codecs.getwriter("UTF-8")(sys.stdout)
-    elif sys.version.startswith("3"):
-        # Python 3.x
-        out = codecs.getwriter("UTF-8")(sys.stdout.buffer)
+    out = codecs.getwriter("UTF-8")(sys.stdout.buffer)
 
     if type(resp) == list:
         out.write('\n'.join([r[1] for r in resp]))
     else:
         out.write(resp)
     out.write('\n')
-

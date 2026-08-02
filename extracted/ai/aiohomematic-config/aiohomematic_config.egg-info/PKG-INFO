@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: aiohomematic-config
-Version: 2026.5.0
+Version: 2026.8.0
 Summary: Presentation-layer library for Homematic device configuration UI.
 Author-email: SukramJ <sukramj@icloud.com>
 License: MIT License
 Project-URL: Homepage, https://github.com/sukramj/aiohomematic-config
 Project-URL: Source Code, https://github.com/sukramj/aiohomematic-config
 Project-URL: Bug Reports, https://github.com/sukramj/aiohomematic-config/issues
-Project-URL: Changelog, https://github.com/sukramj/aiohomematic-config/blob/devel/changelog.md
+Project-URL: Changelog, https://github.com/sukramj/aiohomematic-config/blob/main/changelog.md
 Keywords: home,automation,homematic,configuration,paramset
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
@@ -26,15 +26,15 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.14
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: aiohomematic>=2026.5.10
-Requires-Dist: openccu-data>=2026.5.0
+Requires-Dist: aiohomematic>=2026.8.0
+Requires-Dist: openccu-data>=2026.7.2
 Requires-Dist: pydantic>=2.10.0
 Dynamic: license-file
 
 # aiohomematic-config
 
 [![CI](https://github.com/sukramj/aiohomematic-config/actions/workflows/test-run.yaml/badge.svg)](https://github.com/sukramj/aiohomematic-config/actions/workflows/test-run.yaml)
-[![codecov](https://codecov.io/gh/sukramj/aiohomematic-config/branch/devel/graph/badge.svg)](https://codecov.io/gh/sukramj/aiohomematic-config)
+[![codecov](https://codecov.io/gh/sukramj/aiohomematic-config/branch/main/graph/badge.svg)](https://codecov.io/gh/sukramj/aiohomematic-config)
 [![PyPI](https://img.shields.io/pypi/v/aiohomematic-config.svg)](https://pypi.org/project/aiohomematic-config/)
 
 Presentation-layer library for Homematic device configuration UI.
@@ -73,6 +73,16 @@ print(schema.model_dump_json(indent=2))
 | `ConfigExporter`      | Serialize/deserialize device configurations      |
 | `WidgetType` mapping  | ParameterType -> appropriate UI widget           |
 
+## Development
+
+Parts of aiohomematic-config are developed with agentic AI assistance, primarily [Claude Code](https://www.anthropic.com/claude-code). Incoming issues are also triaged and analysed with agentic help. Every change is still reviewed by a human maintainer and must pass the project's test suite before it lands -- the AI speeds up the work, it does not replace the review gate.
+
+For the rules that apply to AI-assisted contributions, see the [AI Contribution Policy](AI_POLICY.md).
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
+
+## Acknowledgments
+
+This library builds on the data structures of [aiohomematic](https://github.com/sukramj/aiohomematic) and the wider Homematic Python ecosystem. Special thanks to [Daniel Perna](https://github.com/danielperna84), whose original work on `pyhomematic` and `hahomematic` laid the foundation for this ecosystem.

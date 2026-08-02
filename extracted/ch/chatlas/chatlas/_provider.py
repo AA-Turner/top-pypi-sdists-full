@@ -1,0 +1,488 @@
+from __future__ import annotations
+
+import os
+from abc import ABC, abstractmethod
+from datetime import date
+from typing import (
+    IO,
+    Any,
+    AsyncIterable,
+    Generic,
+    Iterable,
+    Literal,
+    Optional,
+    Sequence,
+    TypeVar,
+    overload,
+)
+
+from pydantic import BaseModel
+
+from ._content import Content, ContentUploaded
+from ._files import FileMetadata
+from ._tools import Tool, ToolBuiltIn
+from ._turn import AssistantTurn, Turn
+from ._typing_extensions import NotRequired, TypedDict
+
+ChatCompletionT = TypeVar("ChatCompletionT")
+ChatCompletionChunkT = TypeVar("ChatCompletionChunkT")
+# A dictionary representation of a chat completion
+ChatCompletionDictT = TypeVar("ChatCompletionDictT")
+
+
+class AnyTypeDict(TypedDict, total=False):
+    pass
+
+
+SubmitInputArgsT = TypeVar("SubmitInputArgsT", bound=AnyTypeDict)
+"""
+A TypedDict representing the provider specific arguments that can specified when
+submitting input to a model provider.
+"""
+
+
+class ModelInfo(TypedDict):
+    "Information returned from the `.list_models()` method"
+
+    id: str
+    "The model ID (this gets passed to the `model` parameter of the `Chat` constructor)"
+
+    cached_input: NotRequired[float | None]
+    "The cost per user token in USD per million tokens for cached input"
+
+    input: NotRequired[float | None]
+    "The cost per user token in USD per million tokens"
+
+    output: NotRequired[float | None]
+    "The cost per assistant token in USD per million tokens"
+
+    created_at: NotRequired[date]
+    "The date the model was created"
+
+    name: NotRequired[str]
+    "The model name"
+
+    owned_by: NotRequired[str]
+    "The owner of the model"
+
+    size: NotRequired[int]
+    "The size of the model in bytes"
+
+    provider: NotRequired[str]
+    "The provider of the model"
+
+    url: NotRequired[str]
+    "A URL to learn more about the model"
+
+
+class StandardModelParams(TypedDict, total=False):
+    """
+    A TypedDict representing the standard model parameters that can be set
+    when using a [](`~chatlas.Chat`) instance.
+    """
+
+    temperature: float
+    top_p: float
+    top_k: int
+    frequency_penalty: float
+    presence_penalty: float
+    seed: int
+    max_tokens: int
+    log_probs: bool
+    stop_sequences: list[str]
+
+
+StandardModelParamNames = Literal[
+    "temperature",
+    "top_p",
+    "top_k",
+    "frequency_penalty",
+    "presence_penalty",
+    "seed",
+    "max_tokens",
+    "log_probs",
+    "stop_sequences",
+]
+
+
+# Provider-agnostic batch status info
+class BatchStatus(BaseModel):
+    """Status information for a batch job."""
+
+    working: bool
+    n_processing: int
+    n_succeeded: int
+    n_failed: int
+
+
+class Provider(
+    ABC,
+    Generic[
+        ChatCompletionT, ChatCompletionChunkT, ChatCompletionDictT, SubmitInputArgsT
+    ],
+):
+    """
+    A model provider interface for a [](`~chatlas.Chat`).
+
+    This abstract class defines the interface a model provider must implement in
+    order to be used with a [](`~chatlas.Chat`) instance. The provider is
+    responsible for performing the actual chat completion, and for handling the
+    streaming of the completion results.
+
+    Note that this class is exposed for developers who wish to implement their
+    own provider. In general, you should not need to interact with this class
+    directly.
+    """
+
+    def __init__(self, *, name: str, model: str):
+        self._name = name
+        self._model = model
+
+    @property
+    def name(self):
+        """
+        Get the name of the provider
+        """
+        return self._name
+
+    @property
+    def model(self):
+        """
+        Get the model used by the provider
+        """
+        return self._model
+
+    @model.setter
+    def model(self, value: str):
+        self._model = value
+
+    @abstractmethod
+    def list_models(self) -> list[ModelInfo]:
+        """
+        List all available models for the provider.
+        """
+        pass
+
+    @overload
+    @abstractmethod
+    def chat_perform(
+        self,
+        *,
+        stream: Literal[False],
+        turns: list[Turn],
+        tools: dict[str, Tool | ToolBuiltIn],
+        data_model: Optional[type[BaseModel]],
+        kwargs: SubmitInputArgsT,
+    ) -> ChatCompletionT: ...
+
+    @overload
+    @abstractmethod
+    def chat_perform(
+        self,
+        *,
+        stream: Literal[True],
+        turns: list[Turn],
+        tools: dict[str, Tool | ToolBuiltIn],
+        data_model: Optional[type[BaseModel]],
+        kwargs: SubmitInputArgsT,
+    ) -> Iterable[ChatCompletionChunkT]: ...
+
+    @abstractmethod
+    def chat_perform(
+        self,
+        *,
+        stream: bool,
+        turns: list[Turn],
+        tools: dict[str, Tool | ToolBuiltIn],
+        data_model: Optional[type[BaseModel]],
+        kwargs: SubmitInputArgsT,
+    ) -> Iterable[ChatCompletionChunkT] | ChatCompletionT: ...
+
+    @overload
+    @abstractmethod
+    async def chat_perform_async(
+        self,
+        *,
+        stream: Literal[False],
+        turns: list[Turn],
+        tools: dict[str, Tool | ToolBuiltIn],
+        data_model: Optional[type[BaseModel]],
+        kwargs: SubmitInputArgsT,
+    ) -> ChatCompletionT: ...
+
+    @overload
+    @abstractmethod
+    async def chat_perform_async(
+        self,
+        *,
+        stream: Literal[True],
+        turns: list[Turn],
+        tools: dict[str, Tool | ToolBuiltIn],
+        data_model: Optional[type[BaseModel]],
+        kwargs: SubmitInputArgsT,
+    ) -> AsyncIterable[ChatCompletionChunkT]: ...
+
+    @abstractmethod
+    async def chat_perform_async(
+        self,
+        *,
+        stream: bool,
+        turns: list[Turn],
+        tools: dict[str, Tool | ToolBuiltIn],
+        data_model: Optional[type[BaseModel]],
+        kwargs: SubmitInputArgsT,
+    ) -> AsyncIterable[ChatCompletionChunkT] | ChatCompletionT: ...
+
+    @abstractmethod
+    def stream_content(
+        self,
+        chunk: ChatCompletionChunkT,
+        completion: Optional[ChatCompletionDictT],
+    ) -> "Sequence[Content]":
+        """
+        Content to yield for `chunk`.
+
+        `completion` is the result of merging every chunk up to and including
+        `chunk` (i.e. `stream_merge_chunks` runs first). Providers needing
+        cross-chunk state read it from there rather than storing it on `self`: a
+        single provider instance is shared across forked chats
+        (`Chat.__deepcopy__` keeps `provider` by reference), so several streams
+        can be in flight at once.
+        """
+        ...
+
+    @abstractmethod
+    def stream_merge_chunks(
+        self,
+        completion: Optional[ChatCompletionDictT],
+        chunk: ChatCompletionChunkT,
+    ) -> Optional[ChatCompletionDictT]: ...
+
+    @abstractmethod
+    def stream_turn(
+        self,
+        completion: ChatCompletionDictT,
+        has_data_model: bool,
+    ) -> AssistantTurn[ChatCompletionT]: ...
+
+    @abstractmethod
+    def value_turn(
+        self,
+        completion: ChatCompletionT,
+        has_data_model: bool,
+    ) -> AssistantTurn[ChatCompletionT]: ...
+
+    @abstractmethod
+    def value_tokens(
+        self,
+        completion: ChatCompletionT,
+    ) -> tuple[int, int, int] | None: ...
+
+    def value_cost(
+        self,
+        completion: ChatCompletionT,
+        tokens: tuple[int, int, int] | None = None,
+    ) -> float | None:
+        """
+        Compute the cost for a completion.
+
+        Parameters
+        ----------
+        completion
+            The completion object from the provider.
+        tokens
+            Optional pre-computed tokens tuple. If not provided, will be extracted
+            from the completion.
+
+        Returns
+        -------
+        float | None
+            The cost in USD, or None if cost cannot be computed.
+        """
+        from ._tokens import get_token_cost
+
+        if tokens is None:
+            tokens = self.value_tokens(completion)
+        if tokens is None:
+            return None
+
+        return get_token_cost(self.name, self.model, tokens)
+
+    @abstractmethod
+    def token_count(
+        self,
+        turns: list[Turn],
+        *,
+        tools: dict[str, Tool | ToolBuiltIn],
+        data_model: Optional[type[BaseModel]],
+    ) -> int: ...
+
+    @abstractmethod
+    async def token_count_async(
+        self,
+        turns: list[Turn],
+        *,
+        tools: dict[str, Tool | ToolBuiltIn],
+        data_model: Optional[type[BaseModel]],
+    ) -> int: ...
+
+    @abstractmethod
+    def translate_model_params(
+        self, params: StandardModelParams
+    ) -> SubmitInputArgsT: ...
+
+    @abstractmethod
+    def supported_model_params(self) -> set[StandardModelParamNames]: ...
+
+    def has_batch_support(self) -> bool:
+        """
+        Returns whether this provider supports batch processing.
+        Override this method to return True for providers that implement batch methods.
+        """
+        return False
+
+    def batch_submit(
+        self,
+        conversations: list[list[Turn]],
+        data_model: Optional[type[BaseModel]] = None,
+    ) -> dict[str, Any]:
+        """
+        Submit a batch of conversations for processing.
+
+        Args:
+            conversations: List of conversation histories (each is a list of Turns)
+            data_model: Optional structured data model for responses
+
+        Returns:
+            BatchInfo containing batch job information
+        """
+        raise NotImplementedError("This provider does not support batch processing")
+
+    def batch_poll(self, batch: dict[str, Any]) -> dict[str, Any]:
+        """
+        Poll the status of a submitted batch.
+
+        Args:
+            batch: Batch information returned from batch_submit
+
+        Returns:
+            Updated batch information
+        """
+        raise NotImplementedError("This provider does not support batch processing")
+
+    def batch_status(self, batch: dict[str, Any]) -> BatchStatus:
+        """
+        Get the status of a batch.
+
+        Args:
+            batch: Batch information
+
+        Returns:
+            BatchStatus with processing status information
+        """
+        raise NotImplementedError("This provider does not support batch processing")
+
+    def batch_retrieve(self, batch: dict[str, Any]) -> list[dict[str, Any]]:
+        """
+        Retrieve results from a completed batch.
+
+        Args:
+            batch: Batch information
+
+        Returns:
+            List of BatchResult objects, one for each request in the batch
+        """
+        raise NotImplementedError("This provider does not support batch processing")
+
+    def batch_result_turn(
+        self,
+        result: dict[str, Any],
+        has_data_model: bool = False,
+    ) -> AssistantTurn[ChatCompletionT] | None:
+        """
+        Convert a batch result to a Turn.
+
+        Args:
+            result: Individual BatchResult from batch_retrieve
+            has_data_model: Whether the request used a structured data model
+
+        Returns:
+            Turn object or None if the result was an error
+        """
+        raise NotImplementedError("This provider does not support batch processing")
+
+    def file_upload(
+        self,
+        file: "str | os.PathLike[str] | IO[bytes]",
+        *,
+        mime_type: Optional[str] = None,
+    ) -> "ContentUploaded":
+        raise self._no_file_support()
+
+    async def file_upload_async(
+        self,
+        file: "str | os.PathLike[str] | IO[bytes]",
+        *,
+        mime_type: Optional[str] = None,
+    ) -> "ContentUploaded":
+        raise self._no_file_support()
+
+    def file_list(self) -> "list[FileMetadata]":
+        raise self._no_file_support()
+
+    async def file_list_async(self) -> "list[FileMetadata]":
+        raise self._no_file_support()
+
+    def file_get(self, id: str) -> "FileMetadata":  # noqa: A002
+        raise self._no_file_support()
+
+    async def file_get_async(self, id: str) -> "FileMetadata":  # noqa: A002
+        raise self._no_file_support()
+
+    def file_download(
+        self,
+        id: str,  # noqa: A002
+        path: "str | os.PathLike[str] | None" = None,
+    ) -> bytes:
+        raise self._no_file_support()
+
+    async def file_download_async(
+        self,
+        id: str,  # noqa: A002
+        path: "str | os.PathLike[str] | None" = None,
+    ) -> bytes:
+        raise self._no_file_support()
+
+    def file_delete(self, id: str) -> None:  # noqa: A002
+        raise self._no_file_support()
+
+    async def file_delete_async(self, id: str) -> None:  # noqa: A002
+        raise self._no_file_support()
+
+    def _no_file_support(self) -> NotImplementedError:
+        return NotImplementedError(
+            f"Provider '{self.name}' does not support file management. "
+            "Supported providers: ChatOpenAI, ChatAnthropic, ChatGoogle."
+        )
+
+
+ProviderClassT = TypeVar("ProviderClassT", bound=type[Provider[Any, Any, Any, Any]])
+
+
+def no_file_management(cls: ProviderClassT) -> ProviderClassT:
+    """
+    Opt a provider class out of the file management it inherits.
+
+    Some providers subclass a parent for its chat behavior while the underlying
+    service has no Files API (e.g. `OpenAIAzureProvider` subclasses
+    `OpenAIProvider`). Decorating such a subclass restores the `Provider` base
+    methods, which raise `NotImplementedError`.
+
+    Every `file_*` method is opted out, so adding one to `Provider` later can't
+    leave these subclasses silently inheriting an implementation their client
+    can't serve.
+    """
+    for name, member in vars(Provider).items():
+        if name.startswith("file_"):
+            setattr(cls, name, member)
+    return cls

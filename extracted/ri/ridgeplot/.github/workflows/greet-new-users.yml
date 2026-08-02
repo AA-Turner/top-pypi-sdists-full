@@ -1,0 +1,30 @@
+name: Greet new users
+
+on:
+  issues:
+    types: [ opened ]
+  pull_request_target:
+    types: [ opened ]
+
+jobs:
+  greeting:
+    runs-on: ubuntu-latest
+    timeout-minutes: 1
+    steps:
+      - uses: actions/first-interaction@v3
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          issue_message: |
+            **Thank you for submitting your first issue with us!** 🎉
+
+            Our response times may vary, but we'll get back to you as soon as we can!
+
+            Welcome aboard! 🚀
+          pr_message: |
+            **Thank you for submitting your first pull request with us!** 🎉
+
+            Our response times may vary, but we'll get back to you as soon as we can!
+
+            To help us help you, please make sure you have ticked all the boxes in the pull request template.
+
+            Welcome aboard! 🚀

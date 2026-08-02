@@ -1,0 +1,562 @@
+[build-system]
+requires = ["setuptools>=80.9.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-utilities"
+version = "1.26.4"
+description = "Agent Utilities for Pydantic AI Agents"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Environment :: Console",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3"]
+requires-python = ">=3.11,<3.15"
+# LEAN BASE (the serving/connector floor). Only light, portable, pure-Python (or
+# small-native) libs that the bare-import / config / gateway path actually touches.
+# Everything heavy — the engine client, the agent runtime (pydantic-ai/dspy), code
+# parsing (tree-sitter, now delegated to the engine), llama-index, kafka, monty, acp,
+# rss, ladybug — moved to optional extras so `pip install agent-utilities` (and any
+# connector's `[mcp]`) stays small. See "Dependency discipline" in AGENTS.md.
+dependencies = [
+    "pydantic[email]>=2.13.4",
+    "pydantic-settings>=2.14.2",
+    "PyYAML>=6.0.3",
+    "python-dotenv>=1.2.2",
+    "requests>=2.34.2",
+    "urllib3>=2.7.0",
+    # Security floor: pulled transitively by requests/httpx/anyio; CVE-2026-45409.
+    "idna>=3.15",
+    "cryptography>=48.0.0,<49",
+    "pathspec>=1.1.1",
+    "platformdirs>=4.10.0",
+    "packaging>=24.2,<26",
+    "psutil>=7.2.2",
+    "filelock>=3.29.4",
+    # Tiny pure-Python safe-XML parser used on the hydration path; kept in base so the
+    # XML path is never unguarded.
+    "defusedxml>=0.7.1",
+    # CONCEPT:KG-2.324 / CONCEPT:AU-OS.deployment.engine-resolver-auto-provision — the
+    # engine is a HARD base dependency, so a bare `pip install agent-utilities` already
+    # yields a self-contained, FULLY-CAPABLE graph-os: the published `epistemic-graph` wheel
+    # is built with the whole main CPU feature set (`MATURIN_FEATURES=full,ast-extended` →
+    # compute/finance/datascience/mining/graphlearn/reasoning + query/cypher +
+    # redb-authoritative durability + security + every wire protocol), and bundles the
+    # `epistemic-graph-server` binary (next to `sys.executable`) that graph-os autostarts +
+    # supervises over a private UDS socket (EngineResolver, OS-5.63) — no external DB/service.
+    # `[numeric]` pulls the compiled `epistemic_graph.numeric` kernel (the SOLE numeric
+    # backend — ImportError without it) plus the numpy it uses INTERNALLY for rust-numpy
+    # zero-copy interop; agent-utilities imports numpy nowhere.
+    #
+    # `[full]` (= `[owl,lmcache,numeric]`) adds the pyoxigraph SPARQL/RDF Python interop +
+    # httpx accel on top of the numeric kernel; the published wheel has exposed this extra
+    # since v2.15.0, so graph-os ships the full CPU capability out of the box. NOT
+    # `[full-extras]`: that is the engine's opt-in GPU (cudarc) + ROS2/DDS cargo layer, which
+    # needs an external CUDA/robotics TOOLCHAIN to run — the opposite of "self-contained, no
+    # external dependency" — and is a wheel BUILD variant, not a pip extra (absent from the
+    # published CPU wheel).
+    #
+    # Floor `>=2.15.0` — the first release that publishes the `[full]` extra (and carries the
+    # full Surface-A op set: array constructors + axis/keepdims reductions +
+    # eigsh/spearmanr/ks_2samp/norm). Never an exact pin. See docs/guides/numeric-kernel.md.
+    "epistemic-graph[full]>=2.15.0",
+]
+
+[[project.authors]]
+name = "Audel Rouhi"
+email = "knucklessg1@gmail.com"
+
+[project.license]
+text = "MIT"
+
+[project.optional-dependencies]
+# CONCEPT:ORCH-1.38 — RLM sandbox tiers. `monty` is the default fast/isolated tier
+# (small pure-Rust wheel, no transitive deps; backend import guarded so absence degrades
+# to the local floor); the CPython-WASI/wasm tier needs `wasmtime`. Both kept here so the
+# base install stays light — the RLM router degrades to the local floor when neither is present.
+sandbox = [
+    "wasmtime>=45.0.0",
+    "pydantic-monty>=0.0.18,<0.1.0"
+]
+# The Rust epistemic-graph compute engine client (KG compute, code AST parsing via the
+# engine's native tree-sitter, vector/graph algorithms). Pulled by `serving` and `agent`,
+# NOT by `mcp` — a pure tool server never needs the engine.
+# Floor pinned to the PUBLISHED 1.0.0 wheel: its client ships `compare_and_set`
+# plus the `.rdf` / `.timeseries` / `.streaming` / `.txn` sub-clients and the
+# LPG→RDF projection config, and the wheel bundles the prebuilt
+# `epistemic-graph-server` binary (next to `sys.executable`) so the test fixture
+# resolves it with NO cargo build. The supervised reference-counted
+# `--idle-shutdown-secs` autostart contract (CONCEPT:OS-5.63) is in this wheel.
+# Floor bumped to 2.6.0 — the engine release that ships the abi3 `eg-numeric`
+# kernel wheel (cp39-abi3) folded in behind its `numeric` maturin feature. Still a
+# floor (`>=`), never an exact pin: published deps express minimums; dev overlays
+# live source via source-mounts + PYTHONPATH.
+    # Self-contained, fully-capable engine (the published wheel is the full CPU build;
+    # graph-os autostarts + supervises it locally — see the base-deps note above). `[full]`
+    # (= `[owl,lmcache,numeric]`) is published since v2.15.0; NOT `[full-extras]` (engine
+    # GPU/ROS2 cargo layer — external toolchain, not a pip extra).
+engine = [
+    "epistemic-graph[full]>=2.15.0",
+    # Security floor: pulled transitively by epistemic-graph; CVE-2026-57585.
+    "msgpack>=1.2.1"
+]
+# CONCEPT:KG-2.324 — the SOLE numeric backend (Analytics Program P5 final, the numpy/scipy
+# drop). The numeric kernel is already a HARD BASE dependency (see base `dependencies`
+# above: `epistemic-graph[full]>=2.15.0`, which folds in `[numeric]`), so
+# `agent_utilities.numeric` is kernel-LIVE in
+# every install and raises ImportError if the compiled `epistemic_graph.numeric` kernel is
+# absent — there is NO numpy fallback. This extra is kept as an explicit, named alias for
+# operators who want to pull the kernel deliberately; it resolves the SAME single published
+# package (the `eg-numeric` `.so` folded into the `epistemic-graph` wheel behind its
+# `numeric` extra, engine CONCEPT:EG-346 — no separate `eg-numeric` on PyPI), at a LOOSE
+# FLOOR (`>=2.7.0`, never an exact pin). `[numeric]` also brings the numpy the kernel uses
+# INTERNALLY (rust-numpy interop); agent-utilities imports numpy nowhere.
+#   DEV (non-publishing) builds the kernel from source instead: source-mounts +
+#   `PYTHONPATH=/au:/eg` (services/graph-os/compose.dev.yml) plus an editable install via
+#   `maturin develop -m crates/eg-numeric/Cargo.toml --features python`
+#   (`PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1`) on the epistemic-graph project. Dev never
+#   depends on the published wheel. See docs/guides/numeric-kernel.md.
+numeric-kernel = [
+    "epistemic-graph[numeric]>=2.7.0"
+]
+# CONCEPT:KG-2.121 — native RSS/Atom feed connector (robust feed parsing). Pulled by
+# `serving` (ingestion) and lazily imported by the connector; absent from the lean core.
+feeds = [
+    "feedparser>=6.0.0"
+]
+kafka = [
+    "aiokafka>=0.14.0"
+]
+# CONCEPT:OS-5.23 — Python-tier gateway Prometheus metrics. Optional so the
+# base install stays light; without it every gateway metric degrades to a
+# no-op and GET /metrics returns a placeholder.
+metrics = [
+    "prometheus-client>=0.25.0"
+]
+nats = [
+    "nats-py>=2.15.0"
+]
+mcp = [
+    "fastmcp>=3.4.2",
+    "eunomia-mcp>=0.3.10",
+    "fastapi>=0.137.0",
+    "httpx>=0.28.1",
+    # Security floors: pulled transitively by mcp/fastmcp/fastapi.
+    "pyjwt>=2.13.0",            # CVE-2026-48522..48526 (PyJWKClient SSRF/DoS/bypass)
+    "starlette>=1.3.1",        # CVE-2026-54283 (form() limits ignored)
+    "python-multipart>=0.0.31", # CVE-2026-42561/53537-53540 (DoS / param smuggling)
+    # Default LLM connector for graph-os: the OpenAI-compatible model client. Local
+    # LLMs (vLLM/llama.cpp/Ollama) all speak the OpenAI API, so `openai` is the ONE
+    # provider graph-os ships by default (`graph_orchestrate` drives the local model
+    # through it). Other providers are opt-in add-ons — `[agent-anthropic]`,
+    # `[agent-google]`, `[agent-groq]`, `[agent-mistral]`, `[agent-huggingface]`.
+    # `pydantic-ai-slim[openai]` is the lean provider extra (httpx + openai SDK, no
+    # torch) — dependency-discipline safe on the serving plane.
+    "pydantic-ai-slim[openai]>=2.0.0,<3.0.0"
+]
+agent = [
+    "agent-utilities[mcp,engine,ag-ui,terminal,sandbox]>=1.0.0",
+    "universal-skills>=0.45.0",
+    "skill-graphs>=0.38.0",
+    "pydantic-ai-skills>=0.11.0",
+    # openai is the default bundled provider (local LLMs use the OpenAI API); other
+    # providers are opt-in add-ons (`[agent-anthropic]`, `[agent-google]`, …).
+    "pydantic-ai-slim[mcp,openai,ag-ui,ui,web,cli]>=2.0.0,<3.0.0",
+    "pydantic-graph>=2.0.0,<3.0.0",
+    "fasta2a[pydantic-ai]>=0.6.1",
+    "dspy-ai>=3.2.1"
+]
+# Server-side agent runtime WITHOUT the frontend component libraries. `agent`
+# pulls `ag-ui` (agent-webui) + `terminal` (agent-terminal-ui), which a serving
+# process never renders — and agent-webui depends on the FULL `pydantic-ai`
+# meta-package, dragging temporalio/botocore/google-genai/grpc/mistralai onto the
+# serving image (~140 MB). `agent-headless` is the same skill/runtime stack the
+# agent actually needs at serve time, minus those two frontend libs. Used by
+# `[serving]`. See AGENTS.md "Dependency discipline".
+agent-headless = [
+    "agent-utilities[mcp,engine,sandbox]>=1.0.0",
+    "universal-skills>=0.45.0",
+    "skill-graphs>=0.38.0",
+    "pydantic-ai-skills>=0.11.0",
+    # openai is the default bundled provider (local LLMs use the OpenAI API); other
+    # providers are opt-in add-ons (`[agent-anthropic]`, `[agent-google]`, …).
+    "pydantic-ai-slim[mcp,openai,web,cli]>=2.0.0,<3.0.0",
+    "pydantic-graph>=2.0.0,<3.0.0",
+    "fasta2a[pydantic-ai]>=0.6.1",
+    "dspy-ai>=3.2.1"
+]
+agent-google = [
+    "pydantic-ai-slim[google]>=2.0.0,<3.0.0"
+]
+agent-groq = [
+    "pydantic-ai-slim[groq]>=2.0.0,<3.0.0"
+]
+agent-mistral = [
+    "pydantic-ai-slim[mistral]>=2.0.0,<3.0.0"
+]
+agent-anthropic = [
+    "pydantic-ai-slim[anthropic]>=2.0.0,<3.0.0"
+]
+agent-huggingface = [
+    "pydantic-ai-slim[huggingface]>=2.0.0,<3.0.0"
+]
+ag-ui = [
+    "agent-webui>=0.41.0"]
+terminal = [
+    "agent-terminal-ui>=0.14.0"]
+browser = [
+    "playwright>=1.60.0"]
+# CONCEPT:ECO-4.93 — GUI computer-use over a gui-sandbox container. Reuses
+# container-manager-mcp's manager abstraction (which transitively brings the
+# docker[ssh] + tunnel-manager deps), so the actuator never re-implements
+# exec-over-ssh. Imported lazily by the driver; absent from lean core.
+computer-use = [
+    "container-manager-mcp>=1.43.0"]
+acp = [
+    "pydantic-acp>=0.9.6",
+    "acpkit[pydantic]>=0.9.6"
+]
+documents = [
+    "llama-index-core>=0.14.22",
+    "llama-index-readers-file>=0.6.0",
+    # PyMuPDF (fitz): GIL-releasing C PDF parser used as the primary PDF reader
+    # (PyMuPDFReader). ~0.2s vs pypdf's multi-minute stall that wedges the host
+    # task queue on pathological PDFs. See engine_tasks._pdf_file_extractor.
+    "pymupdf>=1.27.2.3",
+    # Security floors: transitive via llama-index-*. uv resolves one version
+    # graph-wide, so these raise the floor for the whole all-extras lock.
+    "banks>=2.4.2",     # CVE-2026-44209 — CRITICAL Jinja2 SSTI RCE
+    "nltk>=3.10.0",     # CVE-2026-54293 — path traversal in nltk.data.load
+    "pypdf>=6.13.3",    # CVE-2026-57204 — stream-length limit bypass
+    "aiohttp>=3.14.1"   # CVE-2026-50269/54274/54275 — CRLF / websocket limit bypass
+]
+embeddings = [
+    "llama-index-core>=0.14.22"]
+embeddings-openai = [
+    "agent-utilities[embeddings]>=1.0.0",
+    "llama-index-embeddings-openai>=0.6.0",
+    # OpenAI LLM bindings (previously provided unconditionally via base); the embeddings
+    # plane that talks to OpenAI needs it.
+    "llama-index-llms-openai>=0.7.9"]
+embeddings-huggingface = [
+    "agent-utilities[embeddings]>=1.0.0",
+    "llama-index-embeddings-huggingface>=0.7.0"]
+embeddings-ollama = [
+    "agent-utilities[embeddings]>=1.0.0",
+    "llama-index-embeddings-ollama>=0.9.0"]
+logfire = [
+    "agent-utilities[agent]>=1.0.0",
+    "pydantic-ai-slim[logfire]>=2.0.0,<3.0.0"
+]
+graph = [
+    "ladybug>=0.17.1"
+]
+ann = [
+    "hnswlib>=0.8.0"
+]
+neo4j = [
+    "neo4j>=6.2.0"
+]
+falkordb = [
+    "falkordb>=1.6.1"
+]
+owl = [
+    "owlready2>=0.50",
+    "rdflib>=7.6.0",
+    "pyshacl>=0.31.0"
+]
+stardog = [
+    "agent-utilities[owl]",
+    "pystardog>=0.20.0"
+]
+fuseki = [
+    "httpx>=0.28.1",
+    "rdflib>=7.6.0"
+]
+event-kafka = [
+    "confluent-kafka>=2.14.2"
+]
+ingest-dedup = [
+    # CONCEPT:AHE-3.70 — cheap deterministic name normalizers for the entity-
+    # resolution ladder: transliteration + singularization. Pure-Python, no native
+    # ML wheel, so safe to add anywhere; kept optional (import-guarded, no-op when
+    # absent) so the lean serving plane stays minimal.
+    "unidecode>=1.3.0",
+    "inflect>=7.0.0"
+]
+vault = [
+    "hvac>=2.4.0"
+]
+auth = [
+    "joserfc>=1.7.1"
+]
+serving = [
+    # The serving plane (graph-os MCP, host daemon, messaging): NO heavy ML/native deps.
+    # Heavy compute is remote (vLLM) or in the Rust engine; torch/transformers/AVX-ann are
+    # excluded on purpose (they SIGILL on old CPUs + bloat the image). See AGENTS.md dep rule.
+    #
+    # Deliberately EXCLUDED from the serving plane (kept in the host-daemon / domain images):
+    #   - finance: scipy + pandas + statsmodels (~360 MB). The only serving consumer was the
+    #     `quant` MCP tool's boot-time registration; that registration is now guarded
+    #     (mcp/tools/ontology_tools.py) so kg_server boots cleanly without it.
+    #   - agent (→ ag-ui/terminal): agent-webui + agent-terminal-ui are FRONTEND component
+    #     libs a server never renders, and agent-webui pulls the full pydantic-ai meta
+    #     (temporalio/botocore/google-genai/grpc/mistralai, ~140 MB). Replaced by the
+    #     `agent-headless` extra (same skill/runtime stack, no frontends).
+    #   - documents: pymupdf (~62 MB) is the host daemon's PDF ingestion reader
+    #     (engine_tasks._pdf_file_extractor); the MCP query/serving surface never parses PDFs.
+    #
+    #   - graph (ladybug): a contrib MIRROR backend only (primary store is engine + postgres);
+    #     it is opt-in via `[graph]`, never shipped on the serving default. neo4j/falkordb stay
+    #     because they remain actively-selectable mirrors; ladybug does not.
+    #
+    # `engine` (epistemic-graph) + `feeds` (feedparser) moved OUT of base, so the serving
+    # plane re-acquires them here: the host daemon needs the engine client (KG compute +
+    # code AST parsing) and the rss connector (feed ingestion). Code parsing is delegated to
+    # the engine's native tree-sitter — no Python tree-sitter on the serving plane.
+    #
+    # `owl` (rdflib/owlready2/pyshacl) is DELIBERATELY EXCLUDED from the serving plane
+    # (CONCEPT:KG-2.242): the semantic-web stack — SPARQL, OWL DL reasoning, SHACL — is
+    # demoted to the engine's native RDF/SPARQL/OWL surface (`client.rdf.*`), which ships
+    # in every profile (the pi-tier binary included). rdflib/owlready2/pyshacl are now a
+    # true last-resort Python fallback in the `[owl]` extra only, kept import-lazy so
+    # `import agent_utilities` + a kg_server boot pull none of them. See AGENTS.md dep rule.
+    # CONCEPT:KG-2.3 — the serving/host plane RUNS ingestion + enrichment, so it needs the
+    # CANONICAL embedder, not the bare `embeddings` core. `embeddings` pulls only
+    # `llama-index-core` (no provider), so `create_embedding_model()` / `make_embed_fn()`
+    # (which import `llama_index.embeddings.openai` to talk to the bge-m3 vLLM endpoint) raise
+    # `ModuleNotFoundError: No module named 'llama_index.embeddings'` on the host — dead-lettering
+    # every document ingest and producing ZERO embeddings fleet-wide. `embeddings-openai` ships the
+    # OpenAI-compatible provider (+ llms-openai) the vLLM embedding plane requires. See AGENTS.md.
+    "agent-utilities[mcp,engine,feeds,embeddings-openai,neo4j,falkordb,auth,metrics,agent-headless]",
+]
+finance = [
+    # NO torch / scikit-learn here: the torch-backed TradingLSTM walk-forward
+    # trainer (the only sklearn user in finance) was re-homed to
+    # data-science-mcp[training]. See AGENTS.md "Dependency discipline".
+    # numpy/scipy are NOT declared here (CONCEPT:KG-2.324 — the hard drop): the finance
+    # domain code computes through the `agent_utilities.numeric` kernel shim, and
+    # statsmodels / hmmlearn / pandas pull numpy/scipy transitively for their own use.
+    "statsmodels>=0.14.6",
+    "yfinance>=1.4.1",
+    "pandas>=2.0.0,<3",
+    "httpx>=0.28.1",
+    "websockets>=16.0",
+    "hmmlearn>=0.3.3"
+]
+finance-kronos = [
+    "agent-utilities[finance]",
+    "transformers>=5.12.0",
+    "safetensors>=0.8.0"
+]
+hr = []
+medical = []
+science = []
+law = []
+government = []
+postgresql = [
+    "psycopg[binary]>=3.3.4",
+    "psycopg-pool>=3.3.1"
+]
+# Native Messaging Backend Abstraction (CONCEPT:ECO-4.5)
+messaging-discord = ["discord.py>=2.7.1"]
+messaging-slack = ["slack-bolt>=1.28.0"]
+messaging-telegram = ["python-telegram-bot>=22.8"]
+messaging-whatsapp = ["neonize>=0.3.18.post0", "httpx>=0.28.1"]
+messaging-teams = ["botbuilder-core>=4.17.1"]
+messaging-googlechat = ["google-api-python-client>=2.197.0", "google-auth>=2.54.0"]
+messaging-googlemeet = ["google-api-python-client>=2.197.0", "google-auth>=2.54.0"]
+messaging-mattermost = ["mattermostdriver>=7.3.2"]
+messaging-matrix = ["matrix-nio>=0.25.2"]
+messaging-irc = ["irc>=20.5.0"]
+messaging-signal = []
+messaging-imessage = []  # macOS-only, AppleScript bridge
+messaging-line = ["line-bot-sdk>=3.23.0"]
+messaging-twitch = ["twitchio>=3.2.2"]
+messaging-synology = ["httpx>=0.28.1"]
+messaging-voicecall = ["twilio>=9.10.9"]
+messaging-nextcloud = ["httpx>=0.28.1"]
+messaging = [
+    "agent-utilities[messaging-discord,messaging-slack,messaging-telegram,messaging-whatsapp,messaging-teams,messaging-googlechat,messaging-googlemeet,messaging-mattermost,messaging-matrix,messaging-irc,messaging-signal,messaging-line,messaging-twitch,messaging-synology,messaging-voicecall,messaging-nextcloud]"
+]
+test = [
+    "pytest-xdist>=3.8.0",
+    "hypothesis>=6.155.2",
+    "pytest-cov>=7.1.0",
+    "mypy>=2.1.0",
+    "ruff>=0.15.17",
+    "mutmut>=3.6.0",
+    "pytest-asyncio>=1.4.0", "pytest-cov>=7.1.0",
+    "pytest-env>=1.6.0",
+    "pytest-timeout>=2.4.0",
+    "syrupy>=4.0",
+    "opentelemetry-instrumentation-starlette",
+    "opentelemetry-instrumentation-fastapi",
+    "opentelemetry-instrumentation-asgi",
+    # CONCEPT:KG-2.324 — numpy is a DEV/TEST-ONLY dependency (never runtime): it is the
+    # GROUND-TRUTH reference in tests/test_numeric_parity.py that proves the compiled
+    # `epistemic_graph.numeric` kernel matches numpy. The runtime path imports numpy
+    # nowhere (the `xp` shim is kernel-or-raise). scipy is NOT needed — the four scipy ops
+    # are native kernel exports (`xp.eigsh`/`spearmanr`/`ks_2samp`/`norm_ppf`/`norm_pdf`).
+    "numpy>=2.4.6",
+    # `agent` already implies mcp+engine+sandbox+dspy; add `feeds` (rss ingestion tests)
+    # and the explicit backend extras the suite exercises.
+    "agent-utilities[agent,engine,feeds,sandbox,graph,acp,owl,finance,event-kafka]"
+]
+# CONCEPT:KG-2.0 / KG-2.7 — live cross-backend parity + enterprise-profile e2e.
+# Pulls every storage/queue/SPARQL driver plus testcontainers so
+# `pytest -m live` can stand up throwaway pg-age/Neo4j/FalkorDB/Fuseki/Kafka.
+test-backends = [
+    "agent-utilities[test,neo4j,falkordb,postgresql,kafka,owl,fuseki]",
+    "testcontainers>=4.14.2"
+]
+all = [
+    "agent-utilities[mcp,engine,feeds,agent,agent-google,agent-groq,agent-mistral,agent-anthropic,agent-huggingface,embeddings-openai,embeddings-huggingface,embeddings-ollama,logfire,acp,documents,graph,ann,sandbox,browser,test,owl,stardog,vault,auth,finance,messaging]>=1.0.0"]
+
+[project.scripts]
+graph-os = "agent_utilities.mcp.kg_server:mcp_server"
+graph-os-daemon = "agent_utilities.gateway.daemon:main"
+agent-utilities-messaging = "agent_utilities.messaging.daemon:main"
+agent-utilities-memory = "agent_utilities.knowledge_graph.memory.cli:main"
+agent-utilities = "agent_utilities.cli:main"
+# Provision the database environment (Stardog + pg-age) from credentials; also
+# `python -m agent_utilities.knowledge_graph.setup.cli`.
+setup-databases = "agent_utilities.knowledge_graph.setup.cli:main"
+# Generate/validate/document the FULL deployment config (all AgentConfig options);
+# also `python -m agent_utilities.deployment.cli`.
+setup-config = "agent_utilities.deployment.cli:main"
+# Holistic deployment health sweep (brew/flutter-doctor style); also
+# `python -m agent_utilities.deployment.doctor`.
+agent-utilities-doctor = "agent_utilities.deployment.doctor:main"
+# CONCEPT:KG-2.57 — decoupled kg-ingest consumer-group worker (engine client, no
+# KG host role); also `python -m agent_utilities.knowledge_graph.ingest_worker`.
+kg-ingest-worker = "agent_utilities.knowledge_graph.ingest_worker:main"
+# CONCEPT:ORCH-1.45 — stateless agent dispatch worker (agent-dispatch group);
+# also `python -m agent_utilities.orchestration.agent_dispatch_worker`.
+agent-dispatch-worker = "agent_utilities.orchestration.agent_dispatch_worker:main"
+
+[project.entry-points."agent_utilities.messaging"]
+discord = "agent_utilities.messaging.backends.discord:DiscordBackend"
+slack = "agent_utilities.messaging.backends.slack:SlackBackend"
+telegram = "agent_utilities.messaging.backends.telegram:TelegramBackend"
+whatsapp = "agent_utilities.messaging.backends.whatsapp:WhatsAppBackend"
+teams = "agent_utilities.messaging.backends.teams:TeamsBackend"
+googlechat = "agent_utilities.messaging.backends.googlechat:GoogleChatBackend"
+googlemeet = "agent_utilities.messaging.backends.googlemeet:GoogleMeetBackend"
+mattermost = "agent_utilities.messaging.backends.mattermost:MattermostBackend"
+matrix = "agent_utilities.messaging.backends.matrix:MatrixBackend"
+irc = "agent_utilities.messaging.backends.irc:IRCBackend"
+signal = "agent_utilities.messaging.backends.signal:SignalBackend"
+imessage = "agent_utilities.messaging.backends.imessage:IMessageBackend"
+line = "agent_utilities.messaging.backends.line:LINEBackend"
+twitch = "agent_utilities.messaging.backends.twitch:TwitchBackend"
+synology = "agent_utilities.messaging.backends.synology:SynologyChatBackend"
+voicecall = "agent_utilities.messaging.backends.voicecall:VoiceCallBackend"
+nextcloud = "agent_utilities.messaging.backends.nextcloud:NextcloudTalkBackend"
+
+# CONCEPT:OS-5.52 — agent-utilities ships its OWN unique skills (and the
+# agent-utilities skill-graph + the agent-os-genesis workflow) and contributes
+# them like any other agent-package, so `install-skills` drops them into the
+# XDG skills dir. The hub is already the BASE prompt provider via the packaged
+# `prompts/*.json` (registry_builder ingests them with bare `prompt:<name>` ids),
+# so it deliberately does NOT also declare a `prompt_providers` entry-point —
+# that would re-ingest the base prompts under a second `agent-utilities/` namespace.
+[project.entry-points."agent_utilities.skill_providers"]
+agent-utilities = "agent_utilities.skills"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-data]
+agent_utilities = ["agent_data/**", "prompts/*.json", "skills/**", "**/*.ttl", "**/*.owl", "py.typed", "knowledge_graph/ontology/connector_manifests/**"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E402", "B008", "E501", "B007"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+check_untyped_defs = true
+disallow_untyped_defs = false
+
+# --- mypy debt baseline (see .specify/reports/mypy-remediation-plan.md) ---
+# 596 of ~723 errors are [attr-defined] false positives from pydantic-graph generic
+# state/deps access: mypy cannot resolve concrete fields (ctx.state.query,
+# node.plan, NodeSnapshot.run_id, ...) through BaseNode[StateT, ...] /
+# GraphRunContext[StateT, DepsT]. These are framework-pattern noise, not bugs.
+# Scope the suppression to attr-defined in the five graph/checkpoint hot files ONLY,
+# so every other module — and all NEW code — stays strictly checked. The real fix
+# (typed State/Deps protocols on each node generic) is tracked in the remediation
+# plan as Phase 2; remove an entry here as each file is properly annotated.
+[[tool.mypy.overrides]]
+module = [
+    "agent_utilities.graph._router_impl",
+    "agent_utilities.graph.executor",
+    "agent_utilities.graph.verification",
+    "agent_utilities.graph.hierarchical_planner",
+    "agent_utilities.core.checkpoint.manager",
+]
+disable_error_code = ["attr-defined"]
+
+[tool.uv]
+# pydantic-acp 0.9.7 (the optional `[acp]` extra) over-pins
+# `pydantic-ai-slim==1.106.0`, but its code is verified-compatible with v2 — every
+# pydantic_ai symbol it imports (AgentRunResultEvent, ModelRequestContext,
+# CombinedCapability, DeferredToolResults, ToolApproved/Denied, FunctionModel,
+# OutputSpec, …) exists in 2.0.0. Override that transitive pin so `[acp]`
+# co-installs on the v2 floor instead of dragging the resolver back to 1.106.
+# Remove once pydantic-acp ships a v2-compatible release.
+# See docs/architecture/pydantic-ai-v2-migration.md.
+override-dependencies = ["pydantic-ai-slim>=2.0.0,<3.0.0"]
+
+[dependency-groups]
+
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = "."
+timeout = 30
+testpaths = ["tests/unit", "tests/integration"]
+markers = [
+    "integration: Integration tests using subprocess/TestClient (no external services)",
+    "live: Tests requiring live external services (LLM endpoints, real networks)",
+    "slow: Slow / real-resource timing tests excluded from the fast pre-commit gate (run in full/nightly)",
+    "concept(id): Mark test as validating a specific documentation concept (e.g., CONCEPT:ORCH-1.2)"
+]
+env = [
+    "AGENT_UTILITIES_TESTING=true",
+    "VALIDATION_MODE=true"
+]
+
+[tool.coverage.run]
+source = ["agent_utilities"]
+omit = ["tests/*", "setup.py"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 70
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if __name__ == .__main__.:",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "pass",
+    "except ImportError:"
+]
+
+[tool.bandit]
+exclude_dirs = ["build", "dist", ".venv", "tests"]
+skips = ["B101"]

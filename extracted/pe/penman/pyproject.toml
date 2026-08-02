@@ -1,0 +1,93 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "Penman"
+dynamic = ["version"]
+description = "PENMAN notation for graphs (e.g., AMR)"
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+authors = [
+  {name = "Michael Wayne Goodman", email = "goodman.m.w@gmail.com"}
+]
+keywords = ["nlp", "semantics", "amr"]
+classifiers = [
+  'Development Status :: 4 - Beta',
+  'Environment :: Console',
+  'Intended Audience :: Developers',
+  'Intended Audience :: Information Technology',
+  'Intended Audience :: Science/Research',
+  'License :: OSI Approved :: MIT License',
+  'Programming Language :: Python :: 3',
+  'Programming Language :: Python :: 3.8',
+  'Programming Language :: Python :: 3.9',
+  'Programming Language :: Python :: 3.10',
+  'Programming Language :: Python :: 3.11',
+  'Programming Language :: Python :: 3.12',
+  'Topic :: Scientific/Engineering :: Information Analysis',
+  'Topic :: Software Development :: Libraries :: Python Modules',
+  'Topic :: Text Processing :: Linguistic',
+  'Topic :: Utilities'
+]
+
+[project.scripts]
+penman = "penman.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/goodmami/penman"
+Documentation = "https://penman.readthedocs.io/"
+Changelog = "https://github.com/goodmami/penman/blob/main/CHANGELOG.md"
+Source = "https://github.com/goodmami/penman"
+
+[tool.hatch.version]
+path = "penman/__about__.py"
+
+[tool.hatch.build.targets.sdist]
+exclude = [
+  "/.github",
+]
+
+[tool.hatch.envs.dev]
+dependencies = [
+  "pytest",
+  "mypy",
+  "ruff",
+]
+[tool.hatch.envs.dev.scripts]
+test = "pytest {args:--doctest-glob=*.rst --doctest-modules --ignore-glob=penman/interface.py}"
+lint = "ruff check {args} penman/"
+typecheck = "mypy penman/"
+format = "ruff format {args} penman/"
+
+[tool.hatch.envs.docs]
+dependencies = [
+  "sphinx",
+  "furo",
+  "pygments",
+  "sphinx-copybutton",
+]
+[tool.hatch.envs.docs.scripts]
+build = "make -C docs html"
+clean = "make -C docs clean"
+
+[tool.ruff]
+target-version = "py38"
+line-length = 79
+
+[tool.ruff.lint]
+select = [
+  "B",    # flake8-bugbear
+  "C90",  # McCabe cyclomatic complexity
+  "E",    # pycodestyle errors
+  "I",    # isort
+  "F",    # Pyflakes
+  "N",    # PEP-8 naming
+  "W",    # pycodestyle warnings
+]
+isort.combine-as-imports = true
+isort.force-wrap-aliases = true
+
+[tool.ruff.format]
+quote-style = "single"

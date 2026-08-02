@@ -17,6 +17,7 @@ Usage::
         GetStatementResultV2Paginator,
         ListDatabasesPaginator,
         ListSchemasPaginator,
+        ListSessionsPaginator,
         ListStatementsPaginator,
         ListTablesPaginator,
     )
@@ -30,6 +31,7 @@ Usage::
         get_statement_result_v2_paginator: GetStatementResultV2Paginator = client.get_paginator("get_statement_result_v2")
         list_databases_paginator: ListDatabasesPaginator = client.get_paginator("list_databases")
         list_schemas_paginator: ListSchemasPaginator = client.get_paginator("list_schemas")
+        list_sessions_paginator: ListSessionsPaginator = client.get_paginator("list_sessions")
         list_statements_paginator: ListStatementsPaginator = client.get_paginator("list_statements")
         list_tables_paginator: ListTablesPaginator = client.get_paginator("list_tables")
     ```
@@ -53,6 +55,8 @@ from .type_defs import (
     ListDatabasesResponseTypeDef,
     ListSchemasRequestPaginateTypeDef,
     ListSchemasResponseTypeDef,
+    ListSessionsRequestPaginateTypeDef,
+    ListSessionsResponseTypeDef,
     ListStatementsRequestPaginateTypeDef,
     ListStatementsResponseTypeDef,
     ListTablesRequestPaginateTypeDef,
@@ -70,6 +74,7 @@ __all__ = (
     "GetStatementResultV2Paginator",
     "ListDatabasesPaginator",
     "ListSchemasPaginator",
+    "ListSessionsPaginator",
     "ListStatementsPaginator",
     "ListTablesPaginator",
 )
@@ -162,6 +167,24 @@ class ListSchemasPaginator(_ListSchemasPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/redshift-data/paginator/ListSchemas.html#RedshiftDataAPIService.Paginator.ListSchemas.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_redshift_data/paginators/#listschemaspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListSessionsPaginatorBase = AioPaginator[ListSessionsResponseTypeDef]
+else:
+    _ListSessionsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListSessionsPaginator(_ListSessionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/redshift-data/paginator/ListSessions.html#RedshiftDataAPIService.Paginator.ListSessions)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_redshift_data/paginators/#listsessionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListSessionsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListSessionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/redshift-data/paginator/ListSessions.html#RedshiftDataAPIService.Paginator.ListSessions.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_redshift_data/paginators/#listsessionspaginator)
         """
 
 if TYPE_CHECKING:

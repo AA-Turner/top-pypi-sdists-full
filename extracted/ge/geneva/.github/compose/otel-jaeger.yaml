@@ -1,0 +1,53 @@
+# Config for the NATIVE collector (brew `otelcol-contrib`), not a container --
+# the collector Docker image won't exec on this machine, but the native binary
+# is fine. Receives OTLP from geneva on :4317; fans traces out to Jaeger and
+# prints metrics (and a copy of traces) to stdout.
+receivers:
+  # Push: geneva/indexer push OTLP here (LANCEDB_OTEL_COLLECTOR_URL=http://localhost:4317).
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+  # Pull/scrape: the collector actively scrapes a local Ray's Prometheus
+  # /metrics, mirroring the in-cluster collector's scrape_ray_* jobs. Ray must
+  # expose metrics on this port -- start it with metrics-export-port 8080, e.g.
+  # `RAY_metrics_export_port=8080 uv run python otel_demo.py` (or ray start
+  # --metrics-export-port=8080). Pushed + scraped metrics merge in the pipeline.
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: ray-local
+          scrape_interval: 10s
+          static_configs:
+            - targets: ['127.0.0.1:8080']
+
+exporters:
+  # Trace waterfall UI. Jaeger's OTLP port is published on the host by
+  # otel-compose.yaml at :4319 (it moved off :4317 so this collector can use it).
+  otlp/jaeger:
+    endpoint: 127.0.0.1:4319
+    tls:
+      insecure: true
+  # Metrics (and a copy of traces) to this collector's stdout.
+  debug:
+    verbosity: detailed
+  # Re-expose received metrics as a Prometheus /metrics endpoint so you can
+  # verify pushes with: curl -s localhost:9464/metrics | grep geneva
+  # 9464 is OTel's conventional exporter port; :8889 collides with jupyter-lab's
+  # fallback port (8888 taken -> 8889), which shadows it on localhost and 403s.
+  prometheus:
+    endpoint: 0.0.0.0:9464
+    # Keep metrics (and their # HELP/# TYPE descriptions) on /metrics long after
+    # a job stops emitting them. Default is 5m, after which the exporter drops
+    # the series *and* its metadata, so descriptions vanish from the Prom UI
+    # between runs. 24h keeps them visible for inspection in a dev setup.
+    metric_expiration: 24h
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [otlp/jaeger, debug]
+    metrics:
+      receivers: [otlp, prometheus]
+      exporters: [debug, prometheus]

@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lazr.delegates"
+version = "4.0.0"
+description = "Easily write objects that delegate behavior"
+readme = "README.rst"
+requires-python = ">=3.8"
+license = { text = "LGPL v3" }
+maintainers = [
+    { name = "LAZR Developers" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "zope.interface",
+]
+
+[project.optional-dependencies]
+docs = ["Sphinx"]
+test = [
+    "zope.testing>=4.6.0",
+    "zope.testrunner>=6.6.1",
+]
+
+[project.urls]
+Homepage = "https://launchpad.net/lazr.delegates"
+Source = "https://code.launchpad.net/lazr.delegates"
+"Issue Tracker" = "https://bugs.launchpad.net/lazr.delegates"
+Documentation = "https://lazrdelegates.readthedocs.io/en/latest/"
+Download = "https://launchpad.net/lazr.delegates/+download"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = true
+
+[tool.black]
+line-length = 79
+target-version = ["py38"]
+
+[tool.isort]
+known_first_party = "lazr.delegates"
+line_length = 79
+profile = "black"
+
+[tool.coverage.run]
+source = ["lazr.delegates"]
+omit = ["*/docs/conf.py"]
+
+[tool.coverage.paths]
+source = ["src", ".tox/*/site-packages"]

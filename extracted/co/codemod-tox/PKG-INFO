@@ -1,0 +1,73 @@
+Metadata-Version: 2.4
+Name: codemod-tox
+Version: 0.5.4
+Summary: Utilities for editing tox.ini
+Home-page: https://github.com/advice-animal/codemod-tox
+Author: Tim Hatch
+Author-email: tim@timhatch.com
+License: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: dev
+Requires-Dist: black==24.2.0; extra == "dev"
+Requires-Dist: checkdeps==0.9.0; extra == "dev"
+Requires-Dist: flake8==7.0.0; extra == "dev"
+Requires-Dist: mypy==1.8.0; extra == "dev"
+Requires-Dist: tox==4.12.1; extra == "dev"
+Requires-Dist: twine==4.0.2; extra == "dev"
+Requires-Dist: ufmt==2.5.1; extra == "dev"
+Requires-Dist: usort==1.0.7; extra == "dev"
+Requires-Dist: wheel==0.42.0; extra == "dev"
+Provides-Extra: test
+Requires-Dist: coverage>=6; extra == "test"
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Dynamic: license-file
+
+# codemod-tox
+
+Handles parsing and modifying some basic `tox.ini` configuration strings.
+
+```ini
+# ToxEnvlist.parse("py{37,38}, style")
+envlist = py{37,38}, style
+
+# ToxEnv.parse("foo")
+[toxenv:foo]
+
+# ToxConditional.parse("-rrequirements.txt\nflask: flask>0")
+deps = -rrequirements.txt
+       flask: flask>0
+```
+
+You can then do basic modifications on them, or expand by iterating.
+
+```pycon
+>>> str(ToxEnv.parse("py37") | "py38")
+"py3{7,8}"
+>>> (ToxEnv.parse("py37") | "py38").startswith("py")
+True
+>>> list(ToxEnv.parse("py37") | "py38")
+["py37", "py38"]
+>>> str(ToxEnvlist.parse("py37, style").transform_matching(
+...     (lambda x: x.startswith("py3")),
+...     (lambda y: y | "py38"),
+... ))
+"py3{7,8}, style"
+```
+
+# Version Compatibility
+
+Python 3.10+.
+
+# Versioning
+
+This library follows [meanver](https://meanver.org/) which basically means
+[semver](https://semver.org/) along with a promise to rename when the major
+version changes.
+
+# License
+
+codemod-tox is copyright [Tim Hatch](https://timhatch.com/), and licensed under
+the MIT license.  See the `LICENSE` file for details.

@@ -21,7 +21,6 @@ import openstep_plist
 import os
 import sys
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -123,7 +122,7 @@ def load_glyphspackage(package_dir):
 
     data["glyphs"] = []
     for glyphfile in (package / "glyphs").glob("*.glyph"):
-        with open(glyphfile, "r") as fh:
+        with open(glyphfile, "r", encoding="utf-8") as fh:
             glyph = openstep_plist.load(fh, use_numbers=True)
         data["glyphs"].append(glyph)
     # Sort according to glyphorder

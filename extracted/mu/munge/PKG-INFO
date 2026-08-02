@@ -1,0 +1,61 @@
+Metadata-Version: 2.4
+Name: munge
+Version: 1.4.0
+Summary: data manipulation library and client
+Project-URL: Repository, https://github.com/20c/munge/
+Author-email: 20C <code@20c.com>
+License: Apache-2.0
+License-File: LICENSE.txt
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development
+Requires-Python: >=3.8
+Requires-Dist: charset-normalizer>=3.3.0
+Requires-Dist: click>=8.0.1
+Requires-Dist: pyyaml>=6.0.1
+Requires-Dist: requests>=2.32.0
+Requires-Dist: toml>=0.10.2
+Requires-Dist: tomlkit>=0.11.6
+Requires-Dist: urllib3>=2.0.0
+Provides-Extra: toml
+Requires-Dist: toml>=0.10.2; extra == 'toml'
+Provides-Extra: tomlkit
+Requires-Dist: tomlkit>=0.7.2; extra == 'tomlkit'
+Provides-Extra: yaml
+Requires-Dist: pyyaml>=6.0.1; extra == 'yaml'
+Description-Content-Type: text/markdown
+
+# munge
+
+[![PyPI](https://img.shields.io/pypi/v/munge.svg?maxAge=3600)](https://pypi.python.org/pypi/munge)
+[![PyPI](https://img.shields.io/pypi/pyversions/munge.svg?maxAge=600)](https://pypi.python.org/pypi/munge)
+[![Tests](https://github.com/20c/munge/workflows/tests/badge.svg)](https://github.com/20c/munge)
+[![tests](https://github.com/20c/munge/actions/workflows/tests.yaml/badge.svg)](https://github.com/20c/munge/actions/workflows/tests.yaml)
+[![Codecov](https://img.shields.io/codecov/c/github/20c/munge/main.svg?maxAge=3600)](https://codecov.io/github/20c/munge?branch=main)
+
+data manipulation library and client
+
+## Changes
+
+The current change log is available at <https://github.com/20c/munge/blob/main/CHANGELOG.md>
+
+
+## License
+
+Copyright 2015-2021 20C, LLC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this softare except in compliance with the License.
+You may obtain a copy of the License at
+
+   http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.

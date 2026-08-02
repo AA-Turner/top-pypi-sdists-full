@@ -59,7 +59,7 @@ class TrackedChangesMixin(Element):
                 not found.
         """
         return cast(
-            None | TrackedChanges, self.get_element("//text:tracked-changes")
+            TrackedChanges | None, self.get_element("//text:tracked-changes")
         )
 
     @property
@@ -211,7 +211,7 @@ class TextInsertion(Element):
             ChangeInfo | None: The ChangeInfo element, or None if not found.
         """
         return cast(
-            None | ChangeInfo, self.get_element("descendant::office:change-info")
+            ChangeInfo | None, self.get_element("descendant::office:change-info")
         )
 
     def set_change_info(
@@ -377,7 +377,7 @@ class TextChangedRegion(Element):
 
     Warning:
         This implementation expects that a 'text:changed-region' is
-        referenced only once, which differs from the ODF 1.2 specification.
+        referenced only once, which differs from the ODF specification.
     """
 
     _tag = "text:changed-region"
@@ -392,7 +392,7 @@ class TextChangedRegion(Element):
             ChangeInfo | None: The ChangeInfo element, or None if not found.
         """
         return cast(
-            None | ChangeInfo, self.get_element("descendant::office:change-info")
+            ChangeInfo | None, self.get_element("descendant::office:change-info")
         )
 
     def set_change_info(

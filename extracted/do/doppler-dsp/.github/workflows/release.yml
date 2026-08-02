@@ -1,0 +1,670 @@
+name: Release
+
+# Triggered by pushing a version tag: git tag v0.2.0 && git push --tags
+on:
+  push:
+    tags:
+      - 'v[0-9]*'
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  # ------------------------------------------------------------------
+  # Sanity check: tag version matches pyproject.toml
+  # ------------------------------------------------------------------
+  verify-version:
+    name: Verify version consistency
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract tag version
+        id: get
+        run: |
+          TAG="${GITHUB_REF_NAME}"          # e.g. v0.2.1
+          VERSION="${TAG#v}"                # e.g.   0.2.1
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Check pyproject.toml matches tag
+        run: |
+          PY=$(grep '^version' pyproject.toml | head -1 | \
+               sed 's/version = "\(.*\)"/\1/')
+          TAG="${{ steps.get.outputs.version }}"
+          if [ "$PY" != "$TAG" ]; then
+            echo "ERROR: pyproject.toml version ($PY) != tag ($TAG)"
+            echo "Run: make bump-version VERSION=$TAG"
+            exit 1
+          fi
+
+      - name: Check Cargo.toml matches tag
+        run: |
+          CARGO=$(grep '^version' ffi/rust/Cargo.toml | head -1 | \
+                  sed 's/version = "\(.*\)"/\1/')
+          TAG="${{ steps.get.outputs.version }}"
+          if [ "$CARGO" != "$TAG" ]; then
+            echo "ERROR: Cargo.toml version ($CARGO) != tag ($TAG)"
+            echo "Run: make bump-version VERSION=$TAG"
+            exit 1
+          fi
+
+      - name: Check CMakeLists.txt matches tag
+        run: |
+          CMAKE=$(grep '^project' CMakeLists.txt | \
+                  sed 's/.*VERSION \([0-9.]*\).*/\1/')
+          TAG="${{ steps.get.outputs.version }}"
+          if [ "$CMAKE" != "$TAG" ]; then
+            echo "ERROR: CMakeLists.txt version ($CMAKE) != tag ($TAG)"
+            echo "Run: make bump-version VERSION=$TAG"
+            exit 1
+          fi
+
+  # ------------------------------------------------------------------
+  # Belt-and-suspenders test gate.
+  #
+  # release.yml is tag-triggered and runs independently of ci.yml — so without
+  # this, a tag on a red commit would still publish to PyPI (irreversible). The
+  # PR flow keeps `main` green, but this re-runs the suite on the tagged commit,
+  # and `publish-python` needs it, so a failing test blocks the PyPI upload.
+  #
+  # Scoped to ubuntu-latest — the same surface ci.yml's `python` job gates. The
+  # macOS *Python* suite has never been part of CI (the macOS CI job runs only
+  # CTest), and running it here surfaced two pre-existing, macOS-only bugs that
+  # are not release regressions and must be fixed on their own:
+  #   * #66 — ring buffers assume 4 KB pages; broken on macOS arm64 (16 KB)
+  #   * #67 — qpsk/cf32 compose-vs-CLI byte-parity divergence on macOS
+  # Re-add macos-latest once both are fixed. macOS wheels still build + the
+  # macOS CTest suite still runs in ci.yml.
+  # ------------------------------------------------------------------
+  # ------------------------------------------------------------------
+  # Confirm the tagged commit already passed CI on main — don't re-run the
+  # suite. The release bump lands via a PR, so the merge to main is the real
+  # gate; here we just poll the "CI passed" aggregator check on this SHA (see
+  # the ci-passed job in ci.yml and the release-process skill).
+  # ------------------------------------------------------------------
+  verify-ci:
+    name: Verify CI passed on the tagged commit
+    needs: verify-version
+    runs-on: ubuntu-latest
+    permissions:
+      checks: read
+      contents: read
+    steps:
+      - name: Poll for the "CI passed" check on this SHA
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          for i in $(seq 1 60); do
+            line="$(gh api "repos/$REPO/commits/$SHA/check-runs" --paginate \
+              --jq '.check_runs[] | select(.name == "CI passed")
+                    | "\(.status) \(.conclusion)"' | head -n1)"
+            status="${line%% *}"; conclusion="${line#* }"
+            if [[ "$status" == "completed" && "$conclusion" == "success" ]]; then
+              echo "CI passed on $SHA."; exit 0
+            elif [[ "$status" == "completed" && -n "$conclusion" \
+                    && "$conclusion" != "success" ]]; then
+              echo "::error::CI concluded '$conclusion' on $SHA — refusing to release."
+              exit 1
+            fi
+            echo "Waiting for 'CI passed' on $SHA... ($i/60)"; sleep 20
+          done
+          echo "::error::Timed out waiting for 'CI passed' on $SHA."; exit 1
+
+  # ------------------------------------------------------------------
+  # Build Python wheels
+  #
+  # just-buildit is a minimal PEP 517 backend
+  # that calls `make just-build` (cmake + pyext), assembles the wheel
+  # from output_dir, detects the platform tag from the .so suffix, and
+  # runs `uvx auditwheel repair` to produce a manylinux wheel.
+  #
+  # Each Python version gets its own docker run so the .so suffix
+  # (cpXYZ) matches the interpreter that will load it.
+  #
+  # The sdist is built once on the host runner.
+  # ------------------------------------------------------------------
+  build-python:
+    name: Build wheels (manylinux_2_28 ${{ matrix.arch.tag }})
+    needs: verify-version
+    runs-on: ${{ matrix.arch.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python: [cp39, cp310, cp311, cp312, cp313, cp314]
+        # aarch64 wheels build NATIVELY on GitHub's arm64 runners (free
+        # for public repos) — same manylinux flow as x86_64, no QEMU or
+        # cross-toolchain anywhere. Publishing the aarch64 wheel is also
+        # what lets Dockerfile.cli pip-install on linux/arm64 instead of
+        # compiling the whole tree under emulation (~19 min/release).
+        arch:
+          - { tag: x86_64, runner: ubuntu-latest }
+          - { tag: aarch64, runner: ubuntu-24.04-arm }
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build wheel (${{ matrix.python }}) in manylinux container
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/project" \
+            -w /project \
+            quay.io/pypa/manylinux_2_28_${{ matrix.arch.tag }} \
+            bash -euxc "
+              dnf install -y cmake pkg-config
+              PYTHON=/opt/python/${{ matrix.python }}-${{ matrix.python }}/bin/python
+              export PATH=\"\$(dirname \$PYTHON):\$PATH\"
+              \$PYTHON -m pip install --quiet numpy uv build just-buildit
+              mkdir -p dist
+              \$PYTHON -m build --no-isolation --wheel --outdir dist/
+            "
+
+      - name: Verify wheel is portable (no -march=native AVX2/AVX-512)
+        if: matrix.arch.tag == 'x86_64'
+        run: |
+          # Defense in depth: a distributed wheel must run on any x86-64 CPU.
+          # -march=native on the build host would spray AVX2 (%ymm) / AVX-512
+          # (%zmm) across every function and SIGILL on older hardware
+          # (doppler-dsp 0.5.1 shipped exactly this bug).
+          #
+          # Wide SIMD is allowed ONLY inside runtime-dispatched functions whose
+          # name contains "avx512" (e.g. awgn's generate_avx512). Those carry a
+          # per-function target attribute and are reached only behind a
+          # __builtin_cpu_supports() check — present in the binary but never
+          # executed on a baseline CPU. Wide SIMD in any other function means
+          # -march=native leaked in → reject.
+          #
+          # Scan ONLY doppler's own compiled extensions (*.cpython-*.so), not
+          # the third-party libraries auditwheel/delocate vendor into the
+          # `<dist>.libs/` (Linux) or `.dylibs/` (macOS) bundle dir. Those
+          # vendored libs are not ours to make portable: glibc's libmvec, for
+          # instance, ships AVX vector-math variants (e.g. _ZGVcN4v_cos) that
+          # are ifunc-/caller-ISA-selected and never executed on a baseline
+          # CPU — scanning them is a guaranteed false positive (it flagged the
+          # cp39 wheel, whose build happened to vendor libmvec).
+          fail=0
+          tmp="$(mktemp -d)"
+          for whl in dist/*.whl; do
+            unzip -q -o "$whl" -d "$tmp/extract"
+            while IFS= read -r so; do
+              bad=$(objdump -d "$so" 2>/dev/null | awk '
+                /^[0-9a-f]+ <.*>:/ { fn=$2; gsub(/[<>:]/, "", fn) }
+                /%zmm[0-9]|%ymm[0-9]/ { if (fn !~ /avx512/) { print fn; exit } }
+              ')
+              if [ -n "$bad" ]; then
+                echo "::error::$(basename "$whl"): $(basename "$so") has wide SIMD in non-dispatched function '${bad}' — non-portable (built with -march=native?)"
+                fail=1
+              fi
+              # The bundled wfmgen CLI binary (wfm/_bin/wfmgen) gets the same
+              # scan — it links the runtime-dispatched AWGN, so wide SIMD is
+              # only legal in *avx512* functions, exactly like the extensions.
+            done < <(find "$tmp/extract" \( -name '*.cpython-*.so' -o -path '*/wfm/_bin/wfmgen' \))
+            rm -rf "$tmp/extract"
+          done
+          rm -rf "$tmp"
+          if [ "$fail" -ne 0 ]; then
+            echo "Refusing to publish a non-portable wheel. Build the wheel WITHOUT -DDOPPLER_NATIVE." >&2
+            exit 1
+          fi
+          echo "Portable: wide SIMD only in runtime-dispatched *avx512* functions."
+
+      - name: Verify wheel is portable (no -mcpu=native SVE)
+        if: matrix.arch.tag == 'aarch64'
+        run: |
+          # The aarch64 analogue of the AVX check above. Baseline for the
+          # wheel is ARMv8.0 — NEON is architecturally guaranteed, so it
+          # needs no scan. What -mcpu=native on a Neoverse build host
+          # would leak is SVE/SVE2 (z vector registers, p predicate
+          # registers), which SIGILLs on non-SVE cores (Raspberry Pi,
+          # Apple Silicon under Docker). doppler has no SVE runtime
+          # dispatch today, so any SVE instruction is a leak; the *sve*
+          # function-name allowance mirrors *avx512* for when it grows
+          # one. Same scan surface: our own extensions + bundled wfmgen.
+          fail=0
+          tmp="$(mktemp -d)"
+          for whl in dist/*.whl; do
+            unzip -q -o "$whl" -d "$tmp/extract"
+            while IFS= read -r so; do
+              bad=$(objdump -d "$so" 2>/dev/null | awk '
+                /^[0-9a-f]+ <.*>:/ { fn=$2; gsub(/[<>:]/, "", fn) }
+                /[ ,](z[0-9]+\.[bhsdq]|p[0-9]+\/[mz])/ { if (fn !~ /sve/) { print fn; exit } }
+              ')
+              if [ -n "$bad" ]; then
+                echo "::error::$(basename "$whl"): $(basename "$so") has SVE in non-dispatched function '${bad}' — non-portable (built with -mcpu=native?)"
+                fail=1
+              fi
+            done < <(find "$tmp/extract" \( -name '*.cpython-*.so' -o -path '*/wfm/_bin/wfmgen' \))
+            rm -rf "$tmp/extract"
+          done
+          rm -rf "$tmp"
+          if [ "$fail" -ne 0 ]; then
+            echo "Refusing to publish a non-portable wheel. Build the wheel WITHOUT -DDOPPLER_NATIVE." >&2
+            exit 1
+          fi
+          echo "Portable: no SVE outside runtime-dispatched *sve* functions."
+
+      - name: Upload wheel (${{ matrix.python }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-dist-${{ matrix.python }}-${{ matrix.arch.tag }}
+          path: dist/*.whl
+
+  # ------------------------------------------------------------------
+  # Build Python wheels (macOS arm64)
+  #
+  # Uses the same just-buildit backend; delocate-wheel (run via uvx)
+  # bundles dylib deps and stamps the macosx platform tag.
+  # ------------------------------------------------------------------
+  build-macos:
+    name: Build wheels (macOS arm64)
+    needs: verify-version
+    runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install jbx
+        run: |
+          curl -sSL https://just-buildit.github.io/get-jb.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Install system dependencies
+        run: jbx just-bashit:install-deps -g runtime,dev -s brew
+
+      - name: Build wheel (Python ${{ matrix.python }})
+        run: |
+          uv python install ${{ matrix.python }}
+          uv venv .venv --python ${{ matrix.python }}
+          uv pip install --python .venv/bin/python numpy build just-buildit
+          mkdir -p dist
+          .venv/bin/python -m build --no-isolation --wheel --outdir dist/
+
+      - name: Upload wheel (Python ${{ matrix.python }})
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-dist-macos-${{ matrix.python }}
+          path: dist/*.whl
+
+  # ------------------------------------------------------------------
+  # Build sdist (source distribution for PyPI)
+  # ------------------------------------------------------------------
+  build-sdist:
+    name: Build sdist
+    needs: verify-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Build sdist
+        run: |
+          uv venv .venv
+          uv pip install --python .venv/bin/python build just-buildit numpy
+          mkdir -p dist
+          .venv/bin/python -m build --no-isolation --sdist --outdir dist/
+
+      - name: Upload sdist
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-dist-sdist
+          path: dist/*.tar.gz
+
+  # ------------------------------------------------------------------
+  # Build and package C libraries (headers + static + shared)
+  # for Linux x86_64, Linux aarch64, and macOS arm64.
+  # ------------------------------------------------------------------
+  build-c-linux:
+    name: Package C library (manylinux_2_28 x86_64)
+    needs: verify-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build in manylinux container and install to prefix
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/project" \
+            -w /project \
+            quay.io/pypa/manylinux_2_28_x86_64 \
+            bash -euxc "
+              dnf install -y cmake pkg-config
+              # lib/ not lib64/ (the manylinux/RHEL default) so the tarball's
+              # cmake config is found by find_package via CMAKE_PREFIX_PATH on
+              # every distro — see the macOS job for the full rationale.
+              cmake -B build \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DBUILD_PYTHON=OFF \
+                -DCMAKE_INSTALL_LIBDIR=lib
+              cmake --build build --parallel
+              cmake --install build --prefix /project/install
+            "
+
+      - name: Create tarball
+        run: |
+          VERSION="${{ needs.verify-version.outputs.version }}"
+          mkdir -p dist
+          tar -czf "dist/doppler-${VERSION}-linux-x86_64.tar.gz" \
+            -C install .
+
+      - name: Upload C library (Linux x86_64)
+        uses: actions/upload-artifact@v4
+        with:
+          name: c-dist-linux
+          path: dist/doppler-*-linux-x86_64.tar.gz
+
+  build-c-linux-arm64:
+    name: Package C library (manylinux_2_28 aarch64)
+    needs: verify-version
+    # Native ARM64 runner (free for public repos), same as build-python's
+    # aarch64 leg — no QEMU or cross-toolchain anywhere.
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build in manylinux container and install to prefix
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/project" \
+            -w /project \
+            quay.io/pypa/manylinux_2_28_aarch64 \
+            bash -euxc "
+              dnf install -y cmake pkg-config
+              cmake -B build \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DBUILD_PYTHON=OFF \
+                -DCMAKE_INSTALL_LIBDIR=lib
+              cmake --build build --parallel
+              cmake --install build --prefix /project/install
+            "
+
+      - name: Create tarball
+        run: |
+          VERSION="${{ needs.verify-version.outputs.version }}"
+          mkdir -p dist
+          tar -czf "dist/doppler-${VERSION}-linux-aarch64.tar.gz" \
+            -C install .
+
+      - name: Upload C library (Linux aarch64)
+        uses: actions/upload-artifact@v4
+        with:
+          name: c-dist-linux-arm64
+          path: dist/doppler-*-linux-aarch64.tar.gz
+
+  build-c-macos:
+    name: Package C library (macOS arm64)
+    needs: verify-version
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: brew install cmake pkg-config
+
+      - name: Build and install to prefix
+        run: |
+          # Install to lib/ (not lib64) so the relocatable tarball's
+          # cmake config is found by find_package via CMAKE_PREFIX_PATH on
+          # every distro — CMake searches lib/ universally, but lib64/ only
+          # where the platform opts in (a Debian/Ubuntu consumer of an
+          # lib64 tarball would not find the package). macOS already uses
+          # lib/; set it explicitly so both tarballs share one layout.
+          cmake -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_PYTHON=OFF \
+            -DCMAKE_INSTALL_LIBDIR=lib
+          cmake --build build --parallel
+          cmake --install build \
+            --prefix "${{ github.workspace }}/install"
+
+      - name: Create tarball
+        run: |
+          VERSION="${{ needs.verify-version.outputs.version }}"
+          mkdir -p dist
+          tar -czf "dist/doppler-${VERSION}-macos-arm64.tar.gz" \
+            -C install .
+
+      - name: Upload C library (macOS)
+        uses: actions/upload-artifact@v4
+        with:
+          name: c-dist-macos
+          path: dist/doppler-*-macos-arm64.tar.gz
+
+  # ------------------------------------------------------------------
+  # Publish to PyPI (uses trusted publishing — configure in PyPI)
+  # ------------------------------------------------------------------
+  # ------------------------------------------------------------------
+  # Pre-publish smoke: install the just-built wheel in a clean interpreter and
+  # run the published-wheel e2e (deploy/validation/wfm_e2e.py) — validates the
+  # actual artifact, not the source tree, before it goes to PyPI.
+  # ------------------------------------------------------------------
+  smoke-wheel:
+    name: Smoke-test the built wheel (${{ matrix.arch.tag }})
+    needs: build-python
+    runs-on: ${{ matrix.arch.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - { tag: x86_64, runner: ubuntu-latest }
+          - { tag: aarch64, runner: ubuntu-24.04-arm }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Download the cp312 wheel
+        uses: actions/download-artifact@v4
+        with:
+          name: python-dist-cp312-${{ matrix.arch.tag }}
+          path: dist/
+
+      - name: Install the built wheel + run the e2e from a clean dir
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install dist/*.whl
+          # cd out of the repo so `import doppler` resolves to the installed
+          # wheel, not the ./src tree.
+          cd "${RUNNER_TEMP}"
+          python "${GITHUB_WORKSPACE}/deploy/validation/wfm_e2e.py"
+          python -c "import doppler; print('doppler', doppler.__version__)"
+
+  publish-python:
+    name: Publish to PyPI
+    needs: [verify-version, verify-ci, smoke-wheel, build-sdist, build-python, build-macos]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write   # required for OIDC trusted publishing
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: python-dist-*
+          merge-multiple: true
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  # ------------------------------------------------------------------
+  # Publish a "pull and run" container: ghcr.io/doppler-dsp/doppler:X.Y.Z
+  # (+ :latest). BOTH architectures install the just-published PyPI wheel
+  # rather than rebuilding from source — the manylinux wheels (x86_64 +
+  # aarch64) already bundle their shared-lib deps via auditwheel repair,
+  # so the image needs no build toolchain, and it guarantees the
+  # container runs the exact artifact smoke-wheel already tested, not an
+  # independent rebuild that could drift from it. See
+  # deploy/docker/Dockerfile.cli.
+  # ------------------------------------------------------------------
+  publish-container:
+    name: Publish container image
+    needs: [verify-version, publish-python]
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for the version to be resolvable on PyPI
+        run: |
+          VERSION="${{ needs.verify-version.outputs.version }}"
+          for i in $(seq 1 30); do
+            if pip index versions doppler-dsp 2>/dev/null | grep -q "$VERSION"; then
+              echo "doppler-dsp==$VERSION is live on PyPI."; exit 0
+            fi
+            echo "Waiting for PyPI to index doppler-dsp==$VERSION... ($i/30)"
+            sleep 10
+          done
+          echo "::error::doppler-dsp==$VERSION never appeared on PyPI."; exit 1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The emulator only ever executes `pip install <wheel>` for the
+      # linux/arm64 image layer and the arm64 smoke `docker run` below —
+      # never a compiler (the aarch64 wheel is built natively by
+      # build-python). Emulated pip is a ~1 min cost, vs the ~19 min
+      # emulated source build this job carried before v0.32.0.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/Dockerfile.cli
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            DOPPLER_VERSION=${{ needs.verify-version.outputs.version }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:${{ needs.verify-version.outputs.version }}
+            ghcr.io/${{ github.repository }}:latest
+
+      - name: Smoke-test the pushed image (both architectures)
+        run: |
+          docker run --rm --platform linux/amd64 \
+            "ghcr.io/${{ github.repository }}:${{ needs.verify-version.outputs.version }}" \
+            python -c "import doppler; print('doppler (amd64)', doppler.__version__)"
+          docker run --rm --platform linux/arm64 \
+            "ghcr.io/${{ github.repository }}:${{ needs.verify-version.outputs.version }}" \
+            python -c "import doppler; print('doppler (arm64)', doppler.__version__)"
+
+  # ------------------------------------------------------------------
+  # GitHub Release with auto-generated notes
+  # ------------------------------------------------------------------
+  github-release:
+    name: Create GitHub Release
+    needs:
+      - verify-version
+      - verify-ci
+      - build-sdist
+      - build-python
+      - build-macos
+      - build-c-linux
+      - build-c-linux-arm64
+      - build-c-macos
+      - publish-python
+      - publish-container
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Python artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: python-dist-*
+          merge-multiple: true
+          path: dist/
+
+      - name: Download C artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: c-dist-*
+          merge-multiple: true
+          path: dist/
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: dist/*
+          body: |
+            ## Install
+
+            **Python:**
+            ```sh
+            pip install doppler-dsp==${{ needs.verify-version.outputs.version }}
+            pip install "doppler-dsp[cli]==${{ needs.verify-version.outputs.version }}"
+            pip install "doppler-dsp[specan]==${{ needs.verify-version.outputs.version }}"
+            ```
+
+            **C library:** download the pre-built tarballs from the assets below.
+
+            **Container** (`linux/amd64` + `linux/arm64`, `cli`/`specan-web`
+            extras pre-installed):
+            ```sh
+            docker pull ghcr.io/${{ github.repository }}:${{ needs.verify-version.outputs.version }}
+            docker run --rm ghcr.io/${{ github.repository }}:${{ needs.verify-version.outputs.version }} doppler --help
+            docker run --rm ghcr.io/${{ github.repository }}:${{ needs.verify-version.outputs.version }} wfmgen --help
+            ```
+            See [Docker](https://doppler-dsp.github.io/doppler/install/docker/#published-container) for details.
+
+            See [CHANGELOG.md](CHANGELOG.md) for details.
+
+  # ------------------------------------------------------------------
+  # Post-release smoke test: download the just-published C-library
+  # tarball and verify a downstream can consume it via find_package and
+  # pkg-config, static and shared, with no libzmq dependency anywhere.
+  # ------------------------------------------------------------------
+  smoke-c:
+    name: Post-release C smoke (${{ matrix.plat }})
+    needs:
+      - verify-version
+      - github-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            plat: linux-x86_64
+          - os: ubuntu-24.04-arm
+            plat: linux-aarch64
+          - os: macos-14
+            plat: macos-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pkg-config (macOS)
+        if: runner.os == 'macOS'
+        run: brew install pkg-config
+
+      - name: Smoke-test the published tarball
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash tests/install/release-smoke.sh "${{ needs.verify-version.outputs.version }}"

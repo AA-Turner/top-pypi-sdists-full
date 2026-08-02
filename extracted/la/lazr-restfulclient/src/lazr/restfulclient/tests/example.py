@@ -15,17 +15,12 @@
 # along with lazr.restfulclient.  If not, see <http://www.gnu.org/licenses/>.
 "Test client for the lazr.restful example web service."
 
-__metaclass__ = type
 __all__ = [
     "CookbookWebServiceClient",
 ]
 
 
-try:
-    # Python 3.
-    from urllib.parse import quote
-except ImportError:
-    from urllib import quote
+from urllib.parse import quote
 
 from lazr.restfulclient.resource import (
     CollectionWithKeyBasedLookup,
@@ -72,6 +67,4 @@ class CookbookWebServiceClient(ServiceRoot):
         version=DEFAULT_VERSION,
         cache=None,
     ):
-        super(CookbookWebServiceClient, self).__init__(
-            None, service_root, cache=cache, version=version
-        )
+        super().__init__(None, service_root, cache=cache, version=version)

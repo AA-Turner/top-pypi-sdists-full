@@ -1,0 +1,111 @@
+name: Sync from everything
+run-name: Sync SDK models/docs from everything
+
+# Regenerates the SDK's canonical enums, the vendored OpenAPI contract snapshot
+# and the AI-context artifacts from the everything monorepo, then opens a PR if
+# anything changed. Runs weekly and on demand.
+#
+# Requires a repository secret EVERYTHING_REPO_TOKEN: a token (PAT or GitHub App
+# token) with read access to the everything repo (benchling/pipebio).
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Mondays at 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      everything_ref:
+        description: 'Git ref of the everything repo to sync from'
+        type: string
+        default: master
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout python-library
+        uses: actions/checkout@v6
+
+      - name: Checkout everything (pinned ref)
+        uses: actions/checkout@v6
+        with:
+          repository: benchling/pipebio
+          ref: ${{ github.event.inputs.everything_ref || 'master' }}
+          token: ${{ secrets.EVERYTHING_REPO_TOKEN }}
+          path: everything
+          sparse-checkout: |
+            jobs/shared_python/models
+            shared/types
+            shared/openapi
+          sparse-checkout-cone-mode: false
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          activate-environment: true
+          version: latest
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          uv pip install ".[dev,build,docs]"
+
+      - name: Regenerate canonical enums
+        run: |
+          python scripts/generate_models.py --everything-dir everything
+
+      - name: Vendor the OpenAPI contract snapshot
+        run: |
+          if [ -f everything/shared/openapi/swagger-spec.json ]; then
+            mkdir -p scripts/contract
+            cp everything/shared/openapi/swagger-spec.json scripts/contract/swagger-spec.json
+          else
+            echo "No committed OpenAPI spec in everything yet; skipping vendor step."
+          fi
+
+      - name: Regenerate SDK method docstrings from the contract
+        run: |
+          python scripts/generate_docstrings.py --spec scripts/contract/swagger-spec.json
+
+      - name: Regenerate AI-context artifacts
+        run: |
+          python scripts/generate_llms_txt.py
+
+      - name: Strict drift check
+        run: |
+          python scripts/check_drift.py --everything-dir everything --strict
+
+      - name: Strict docstring drift check
+        run: |
+          python scripts/generate_docstrings.py --spec scripts/contract/swagger-spec.json --check
+
+      - name: Open or update sync PR
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: BNCH-152105-sdk-sync
+          base: master
+          # Keep everything/ (the transient checkout) out of the commit.
+          add-paths: |
+            pipebio/**
+            scripts/contract/**
+          commit-message: "eng (#BNCH-152105): sync SDK models/docs from everything"
+          title: "eng: sync SDK models, contract and AI artifacts from everything BNCH-152105"
+          body: |
+            Automated sync from the everything monorepo.
+
+            This regenerates:
+            - canonical enums (`scripts/generate_models.py`)
+            - the vendored OpenAPI contract snapshot (`scripts/contract/swagger-spec.json`)
+            - the AI-context artifacts (`pipebio/llms.txt`, `pipebio/llms-full.txt`)
+
+            Review the enum changes carefully: new customer-facing values are added
+            automatically, but confirm none are internal-only before merging.
+
+            Reminder: when this SDK is next released, bump the `pipebio==<version>`
+            pin in the everything repo's `jobs/requirements.txt` so the consumer
+            stays current.
+          delete-branch: true

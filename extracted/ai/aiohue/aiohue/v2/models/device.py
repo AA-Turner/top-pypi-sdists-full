@@ -1,0 +1,214 @@
+"""
+Model(s) for device resource on HUE bridge.
+
+https://developers.meethue.com/develop/hue-api-v2/api-reference/#resource_device
+"""
+
+from dataclasses import dataclass, field
+from enum import Enum
+
+from .feature import ConfigurationStatus, GeometryFeature, IdentifyFeature
+from .resource import SENSOR_RESOURCE_TYPES, ResourceIdentifier, ResourceTypes
+from .switch_input_configuration import SwitchModeType
+
+
+class DeviceArchetypes(Enum):
+    """Enum with all possible Device archetypes."""
+
+    BRIDGE_V2 = "bridge_v2"
+    UNKNOWN_ARCHETYPE = "unknown_archetype"
+    CLASSIC_BULB = "classic_bulb"
+    SULTAN_BULB = "sultan_bulb"
+    FLOOD_BULB = "flood_bulb"
+    SPOT_BULB = "spot_bulb"
+    CANDLE_BULB = "candle_bulb"
+    LUSTER_BULB = "luster_bulb"
+    PENDANT_ROUND = "pendant_round"
+    PENDANT_LONG = "pendant_long"
+    CEILING_ROUND = "ceiling_round"
+    CEILING_SQUARE = "ceiling_square"
+    FLOOR_SHADE = "floor_shade"
+    FLOOR_LANTERN = "floor_lantern"
+    TABLE_SHADE = "table_shade"
+    RECESSED_CEILING = "recessed_ceiling"
+    RECESSED_FLOOR = "recessed_floor"
+    SINGLE_SPOT = "single_spot"
+    DOUBLE_SPOT = "double_spot"
+    TABLE_WASH = "table_wash"
+    WALL_LANTERN = "wall_lantern"
+    WALL_SHADE = "wall_shade"
+    FLEXIBLE_LAMP = "flexible_lamp"
+    GROUND_SPOT = "ground_spot"
+    WALL_SPOT = "wall_spot"
+    PLUG = "plug"
+    HUE_GO = "hue_go"
+    HUE_LIGHTSTRIP = "hue_lightstrip"
+    HUE_IRIS = "hue_iris"
+    HUE_BLOOM = "hue_bloom"
+    BOLLARD = "bollard"
+    WALL_WASHER = "wall_washer"
+    HUE_PLAY = "hue_play"
+    VINTAGE_BULB = "vintage_bulb"
+    CHRISTMAS_TREE = "christmas_tree"
+    STRING_LIGHT = "string_light"
+    HUE_CENTRIS = "hue_centris"
+    HUE_LIGHTSTRIP_TV = "hue_lightstrip_tv"
+    HUE_LIGHTSTRIP_PC = "hue_lightstrip_pc"
+    HUE_TUBE = "hue_tube"
+    HUE_SIGNE = "hue_signe"
+    PENDANT_SPOT = "pendant_spot"
+    CEILING_HORIZONTAL = "ceiling_horizontal"
+    CEILING_TUBE = "ceiling_tube"
+    BRIDGE_V3 = "bridge_v3"
+    HUE_CHIME = "hue_chime"
+    VINTAGE_CANDLE_BULB = "vintage_candle_bulb"
+    ELLIPSE_BULB = "ellipse_bulb"
+    TRIANGLE_BULB = "triangle_bulb"
+    SMALL_GLOBE_BULB = "small_globe_bulb"
+    LARGE_GLOBE_BULB = "large_globe_bulb"
+    EDISON_BULB = "edison_bulb"
+    UP_AND_DOWN = "up_and_down"
+    UP_AND_DOWN_UP = "up_and_down_up"
+    UP_AND_DOWN_DOWN = "up_and_down_down"
+    HUE_FLOODLIGHT_CAMERA = "hue_floodlight_camera"
+    TWILIGHT = "twilight"
+    TWILIGHT_FRONT = "twilight_front"
+    TWILIGHT_BACK = "twilight_back"
+    HUE_PLAY_WALLWASHER = "hue_play_wallwasher"
+    HUE_OMNIGLOW = "hue_omniglow"
+    HUE_OMNIGLOW_ARC = "hue_omniglow_arc"
+    HUE_NEON = "hue_neon"
+    HUE_FLUX_ARC = "hue_flux_arc"
+    HUE_GO_XXL = "hue_go_xxl"
+    HUE_SWITCH_MODULE = "hue_switch_module"
+    STRING_GLOBE = "string_globe"
+    STRING_PERMANENT = "string_permanent"
+    STRING_ICICLE = "string_icicle"
+    STRING_GRID = "string_grid"
+    STRING_NET = "string_net"
+    RIGID_TUBE = "rigid_tube"
+    FLEXIBLE_TUBE = "flexible_tube"
+    PENDANT_TUBE = "pendant_tube"
+    VERTICAL_TUBE = "vertical_tube"
+    RECESSED_CEILING_TUBE = "recessed_ceiling_tube"
+    PANELS = "panels"
+    WALL_RECTANGLE = "wall_rectangle"
+
+    @classmethod
+    def _missing_(cls: type, value: object):  # noqa: ARG003
+        """Set default enum member if an unknown value is provided."""
+        return DeviceArchetypes.UNKNOWN_ARCHETYPE
+
+
+@dataclass
+class DeviceProductData:
+    """Represent a DeviceProductData object as used by the Hue api."""
+
+    model_id: str
+    manufacturer_name: str
+    product_name: str
+    product_archetype: DeviceArchetypes
+    certified: bool
+    software_version: str
+    # Hardware type; identified by Manufacturer code and ImageType
+    hardware_platform_type: str | None = None
+
+
+@dataclass
+class DeviceMetaData:
+    """Represent MetaData for a device object as used by the Hue api."""
+
+    archetype: DeviceArchetypes
+    name: str
+
+
+@dataclass
+class DeviceMetaDataPut:
+    """Represent MetaData for a device object on update/PUT."""
+
+    archetype: DeviceArchetypes | None
+    name: str | None
+
+
+@dataclass
+class DeviceUserTest:
+    """
+    Represent the usertest mode of a device as used by the Hue api.
+
+    In usertest mode, devices report changes in state faster and indicate state
+    changes on the device LED (if applicable).
+    """
+
+    usertest: bool = False
+    status: ConfigurationStatus = ConfigurationStatus.UNKNOWN
+
+
+@dataclass
+class DeviceMode:
+    """
+    Represent the mode of a switch device as used by the Hue api.
+
+    Deprecated: use `switch_mode` on the switch_input_configuration resource.
+    """
+
+    mode: SwitchModeType = SwitchModeType.UNKNOWN
+    status: ConfigurationStatus = ConfigurationStatus.UNKNOWN
+    # mode_values: the modes that the switch supports
+    mode_values: list[SwitchModeType] = field(default_factory=list)
+
+
+@dataclass
+class Device:
+    """
+    Represent a (full) `Device` resource as retrieved from the Hue api.
+
+    https://developers.meethue.com/develop/hue-api-v2/api-reference/#resource_device_get
+    """
+
+    id: str
+    # services: required(array of ResourceIdentifierGet)
+    # References all services aggregating control and state of children in the group
+    # This includes all services grouped in the group hierarchy given by child relation
+    # This includes all services of a device grouped in the group hierarchy given by child relation
+    # Aggregation is per service type, ie every service type which can be grouped has a
+    # corresponding definition of grouped type
+    # Supported types “light”
+    services: list[ResourceIdentifier]
+    product_data: DeviceProductData
+    metadata: DeviceMetaData
+
+    id_v1: str | None = None
+    identify: IdentifyFeature | None = None
+    # geometry: positioning of the light services of this device
+    geometry: GeometryFeature | None = None
+    # device_mode: only present on switch devices
+    device_mode: DeviceMode | None = None
+    usertest: DeviceUserTest | None = None
+    type: ResourceTypes = ResourceTypes.DEVICE
+
+    @property
+    def lights(self) -> set[str]:
+        """Return a set of light id's belonging to this group/device."""
+        return {x.rid for x in self.services if x.rtype == ResourceTypes.LIGHT}
+
+    @property
+    def sensors(self) -> set[str]:
+        """Return a set of sensor id's belonging to this group/device."""
+        return {x.rid for x in self.services if x.rtype in SENSOR_RESOURCE_TYPES}
+
+    @property
+    def speakers(self) -> set[str]:
+        """Return a set of speaker id's belonging to this group/device."""
+        return {x.rid for x in self.services if x.rtype == ResourceTypes.SPEAKER}
+
+
+@dataclass
+class DevicePut:
+    """
+    Device resource properties that can be set/updated with a PUT request.
+
+    https://developers.meethue.com/develop/hue-api-v2/api-reference/#resource_device__id__put
+    """
+
+    metadata: DeviceMetaDataPut | None = None
+    identify: IdentifyFeature | None = None

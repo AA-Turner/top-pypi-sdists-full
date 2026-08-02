@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+#
+# Wave D CI gate: runtime-change PRs must cite a ticket with deploy evidence.
+# Ticket: OMN-8912 | DGM-Phase6 (OMN-9734): thin caller — validator lives in omniclaude.
+# Ref points at @main; omniclaude PR #1418 merged 2026-04-25 and the prior pinned SHA
+# (16d9355f) is on a deleted branch and unreachable to Actions cross-repo `uses:` (OMN-9892).
+#
+# Required status check: "deploy-gate"
+# Must pass before merging to main on all repos with runtime code.
+
+name: Deploy Gate
+
+on:
+  pull_request:
+    branches: [main, develop, dev]
+  merge_group:
+    branches: [main, develop, dev]
+
+concurrency:
+  group: deploy-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  occ-preflight:
+    uses: ./.github/workflows/occ-preflight.yml
+    permissions:
+      contents: read
+      pull-requests: read
+    with:
+      contracts-dir: contracts
+      receipts-dir: drift/dod_receipts
+
+  deploy-gate:
+    needs: occ-preflight
+    if: always()
+    uses: OmniNode-ai/omniclaude/.github/workflows/deploy-gate-reusable.yml@main
+    with:
+      contracts-dir: contracts

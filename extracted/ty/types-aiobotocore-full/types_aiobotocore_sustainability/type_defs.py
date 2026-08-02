@@ -33,6 +33,7 @@ __all__ = (
     "DimensionEntryTypeDef",
     "EmissionsTypeDef",
     "EstimatedCarbonEmissionsTypeDef",
+    "EstimatedWaterAllocationTypeDef",
     "FilterExpressionTypeDef",
     "GetEstimatedCarbonEmissionsDimensionValuesRequestPaginateTypeDef",
     "GetEstimatedCarbonEmissionsDimensionValuesRequestTypeDef",
@@ -40,6 +41,12 @@ __all__ = (
     "GetEstimatedCarbonEmissionsRequestPaginateTypeDef",
     "GetEstimatedCarbonEmissionsRequestTypeDef",
     "GetEstimatedCarbonEmissionsResponseTypeDef",
+    "GetEstimatedWaterAllocationDimensionValuesRequestPaginateTypeDef",
+    "GetEstimatedWaterAllocationDimensionValuesRequestTypeDef",
+    "GetEstimatedWaterAllocationDimensionValuesResponseTypeDef",
+    "GetEstimatedWaterAllocationRequestPaginateTypeDef",
+    "GetEstimatedWaterAllocationRequestTypeDef",
+    "GetEstimatedWaterAllocationResponseTypeDef",
     "GranularityConfigurationTypeDef",
     "PaginatorConfigTypeDef",
     "ResponseMetadataTypeDef",
@@ -47,6 +54,7 @@ __all__ = (
     "TimePeriodTypeDef",
     "TimePeriodUnionTypeDef",
     "TimestampTypeDef",
+    "WaterAllocationTypeDef",
 )
 
 
@@ -63,6 +71,11 @@ class EmissionsTypeDef(TypedDict):
 class TimePeriodOutputTypeDef(TypedDict):
     Start: datetime
     End: datetime
+
+
+class WaterAllocationTypeDef(TypedDict):
+    Value: float
+    Unit: Literal["m3"]
 
 
 class FilterExpressionTypeDef(TypedDict):
@@ -97,7 +110,20 @@ class EstimatedCarbonEmissionsTypeDef(TypedDict):
     EmissionsValues: dict[EmissionsTypeType, EmissionsTypeDef]
 
 
+class EstimatedWaterAllocationTypeDef(TypedDict):
+    TimePeriod: TimePeriodOutputTypeDef
+    DimensionsValues: dict[DimensionType, str]
+    ModelVersion: str
+    AllocationValues: dict[Literal["TOTAL_WATER_WITHDRAWALS"], WaterAllocationTypeDef]
+
+
 class GetEstimatedCarbonEmissionsDimensionValuesResponseTypeDef(TypedDict):
+    Results: list[DimensionEntryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class GetEstimatedWaterAllocationDimensionValuesResponseTypeDef(TypedDict):
     Results: list[DimensionEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
@@ -110,6 +136,12 @@ class TimePeriodTypeDef(TypedDict):
 
 class GetEstimatedCarbonEmissionsResponseTypeDef(TypedDict):
     Results: list[EstimatedCarbonEmissionsTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class GetEstimatedWaterAllocationResponseTypeDef(TypedDict):
+    Results: list[EstimatedWaterAllocationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -147,5 +179,37 @@ class GetEstimatedCarbonEmissionsRequestTypeDef(TypedDict):
     EmissionsTypes: NotRequired[Sequence[EmissionsTypeType]]
     Granularity: NotRequired[TimeGranularityType]
     GranularityConfiguration: NotRequired[GranularityConfigurationTypeDef]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class GetEstimatedWaterAllocationDimensionValuesRequestPaginateTypeDef(TypedDict):
+    TimePeriod: TimePeriodUnionTypeDef
+    Dimensions: Sequence[DimensionType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class GetEstimatedWaterAllocationDimensionValuesRequestTypeDef(TypedDict):
+    TimePeriod: TimePeriodUnionTypeDef
+    Dimensions: Sequence[DimensionType]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class GetEstimatedWaterAllocationRequestPaginateTypeDef(TypedDict):
+    TimePeriod: TimePeriodUnionTypeDef
+    GroupBy: NotRequired[Sequence[DimensionType]]
+    FilterBy: NotRequired[FilterExpressionTypeDef]
+    AllocationTypes: NotRequired[Sequence[Literal["TOTAL_WATER_WITHDRAWALS"]]]
+    Granularity: NotRequired[TimeGranularityType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class GetEstimatedWaterAllocationRequestTypeDef(TypedDict):
+    TimePeriod: TimePeriodUnionTypeDef
+    GroupBy: NotRequired[Sequence[DimensionType]]
+    FilterBy: NotRequired[FilterExpressionTypeDef]
+    AllocationTypes: NotRequired[Sequence[Literal["TOTAL_WATER_WITHDRAWALS"]]]
+    Granularity: NotRequired[TimeGranularityType]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]

@@ -1,0 +1,62 @@
+[tool.poetry]
+name = "motioneye-client"
+version = "0.3.14"
+description = "motionEye client library Python Package"
+authors = ["Dermot Duffy <dermot.duffy@gmail.com>"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Home Automation",
+]
+keywords = [
+    "motioneye",
+]
+repository = "https://github.com/dermotduffy/motioneye-client"
+include = ["motioneye_client/py.typed", "LICENSE"]
+readme = "README.md"
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.8 | ^3.9"
+
+# Home Assistant does not allow aiohttp 3.8.{2,3} due to a memory leak.
+aiohttp = "^3.8.1,!=3.8.2,!=3.8.3"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.2.0"
+codecov = "^2.1.12"
+pre-commit = "^2.21.0"
+pytest-xdist = "^3.1.0"
+pytest-timeout = "^2.1.0"
+pytest-aiohttp = "^1.0.4"
+pytest-codecov = "^0.5.1"
+pytest-asyncio = "^0.20.3"
+mypy = "^0.991"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+# https://github.com/PyCQA/isort/wiki/isort-Settings
+profile = "black"
+# will group `import x` and `from x import` of the same module.
+force_sort_within_sections = true
+known_first_party = [
+    "motioneye_client",
+    "tests",
+]
+forced_separate = [
+    "tests",
+]
+combine_as_imports = true
+
+[tool.pytest.ini_options]
+addopts = "-qq --timeout=9 --cov-report=html:htmlcov --cov-report=xml:coverage.xml --cov-report=term-missing --cov=motioneye_client --cov-fail-under=100"
+console_output_style = "count"
+testpaths = [
+  "tests",
+]

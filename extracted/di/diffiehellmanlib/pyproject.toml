@@ -1,0 +1,32 @@
+[build-system]
+requires = ["maturin>=1.0"]
+build-backend = "maturin"
+
+[project]
+name = "diffiehellmanlib"
+version = "5.0.1"
+description = "Diffie-Hellman key exchange library"
+readme = "README.md"
+authors = [{name = "Gorshkov Kostantin", email = "kostya_gorshkov_06@vk.com"}]
+license = "MIT"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent"
+]
+
+[tool.maturin]
+include = [
+    "src/**/*",           # Включаем все файлы в папке src
+    "pyproject.toml",     # Включаем pyproject.toml
+    "diffiehellmanlib.pyi",  # Включаем файл с типами
+    "LICENSE",            # Включаем лицензию
+    "Cargo.toml",         # Включаем Cargo.toml
+    "Cargo.lock",         # Включаем Cargo.lock
+]
+exclude = [
+    "venv/**/*",          # Исключаем папку venv
+    "target/**/*",        # Исключаем папку target
+]

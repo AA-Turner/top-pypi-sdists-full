@@ -1,0 +1,25 @@
+Metadata-Version: 2.1
+Name: seba-sqlite
+Version: 0.1.2
+Summary: Legacy sqlite storage for Seba
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: GNU General Public License v3 (GPLv3)
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Topic :: Scientific/Engineering
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+
+# Legacy Seba sqlite code
+This repository contains a legacy sqlite storage to be used with the Everest optimizer.
+
+All files in this repository are released under the The GNU General Public
+License v3.0 (a copy is provided in the LICENSE file).

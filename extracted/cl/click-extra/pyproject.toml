@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "uv_build"
-requires = ["uv-build>=0.9"]
+requires = ["uv-build>=0.8"]
 
 [project]
 name = "click-extra"
-version = "8.8.0"
+version = "8.8.1"
 description = "🌈 Drop-in replacement for Click to make user-friendly and colorful CLI"
 readme = "readme.md"
 keywords = [
@@ -143,7 +143,7 @@ click-extra = "click_extra.__main__:main"
 
 [project.urls]
 Homepage = "https://github.com/kdeldycke/click-extra"
-Download = "https://github.com/kdeldycke/click-extra/releases/tag/v8.8.0"
+Download = "https://github.com/kdeldycke/click-extra/releases/tag/v8.8.1"
 Changelog = "https://github.com/kdeldycke/click-extra/blob/main/changelog.md"
 Issues = "https://github.com/kdeldycke/click-extra/issues"
 Repository = "https://github.com/kdeldycke/click-extra"
@@ -207,7 +207,7 @@ click_extra = [
 
 [tool.uv]
 exclude-newer = "1 week"
-required-version = ">=0.11.23,<0.13"
+required-version = ">=0.11.15"
 
 [tool.uv.dependency-groups.docs]
 requires-python = ">= 3.14"
@@ -305,7 +305,7 @@ precision = 2
 file = "tests/cli-test-suite.toml"
 
 [tool.bumpversion]
-current_version = "8.8.0"
+current_version = "8.8.1"
 parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(\.dev(?P<dev>\d+))?'
 serialize = [
     "{major}.{minor}.{patch}.dev{dev}",

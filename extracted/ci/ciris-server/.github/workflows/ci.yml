@@ -1,0 +1,183 @@
+name: CI
+
+on:
+  # The main run is NOT a redundant gate — it is the CACHE WARMER. Swatinem below
+  # is `save-if: main`, and GHA caches are only cross-readable from the default
+  # branch, so a PR can only restore a warm cache if this workflow has RUN + SAVED
+  # on main. Dropping the main trigger (the earlier "redundancy trim") left every
+  # PR's clippy+test fully COLD (no base cache to restore). Keep push:main so main
+  # populates the shared Swatinem cache the PR matrix restores; paths-ignore keeps
+  # doc-only churn off both. (The gate value of the main re-run is incidental; the
+  # cache warm is the point.)
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "FSD/**"
+      - "docs/**"
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "FSD/**"
+      - "docs/**"
+
+# Cancel a superseded run on the same ref (PR re-push / newer main commit). A tag
+# ref is distinct, so this never cancels a release pipeline.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write   # CIRISCache save (GHCR) on main — CIRISServer#99
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.97.0
+        with:
+          components: rustfmt
+      - run: cargo fmt --all --check
+
+  clippy-test:
+    name: clippy + test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    env:
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: sccache
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.97.0
+        with:
+          components: clippy
+      - name: Set up sccache (compiler cache over GHA)
+        uses: mozilla-actions/sccache-action@v0.0.9
+      - name: Install build deps (Linux)
+        if: runner.os == 'Linux'
+        # libtss2-dev: the Linux-only keyring/tpm backend (cfg(target_os=linux)).
+        # libsqlite3-dev: persist's sqlite. macOS/Windows pull NEITHER tss-esapi
+        # nor openssl (postgres+tpm are Linux-only per Cargo.toml [target.linux]).
+        run: |
+          # Drop the preinstalled Microsoft/azure-cli apt repo: it intermittently
+          # 403s and tanks apt-get update (its packages are not needed here).
+          sudo rm -f /etc/apt/sources.list.d/microsoft-prod.list /etc/apt/sources.list.d/azure-cli.list /etc/apt/sources.list.d/azure-cli.sources
+          sudo apt-get update
+          sudo apt-get install -y libtss2-dev libsqlite3-dev libudev-dev
+      # CIRISCache (CIRISServer#99) — 4-layer centipede over the Swatinem GHA L1.
+      # PLAT from the NATIVE target of each runner (macos-latest = arm64). Restore
+      # verify→persist→edge→server; SAVE under the server-specific -s key on main.
+      - name: Compute CIRISCache keys (4-layer centipede, CIRISServer#99)
+        id: cachekey
+        shell: bash
+        run: |
+          case "${{ matrix.os }}" in
+            ubuntu-latest)  PLAT=linux-x86_64 ;;
+            macos-latest)   PLAT=macos-aarch64 ;;
+            windows-latest) PLAT=windows-x64 ;;
+            *)              PLAT=unknown ;;
+          esac
+          RUSTC=$(rustc -V | awk '{print $2}')
+          S=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/^version = "([^"]+)".*/\1/')
+          P=$(grep -m1 'CIRISPersist.*tag = "v' Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          V=$(grep -m1 'CIRISVerify.*tag = "v'  Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          EDGE=$(grep -m1 'CIRISEdge.*tag = "v' Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          BASE="ciris-substrate-v1-${PLAT}-release-rustc${RUSTC}"
+          KEY_VERIFY="${BASE}-pnone-enone-v${V:-none}"
+          KEY_PERSIST="${BASE}-p${P:-none}-enone-v${V:-none}"
+          KEY_EDGE="${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}"
+          KEY_SERVER="${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}-s${S:-none}"
+          {
+            echo "key-verify=${KEY_VERIFY}"
+            echo "key-persist=${KEY_PERSIST}"
+            echo "key-edge=${KEY_EDGE}"
+            echo "key=${KEY_SERVER}"
+            echo "key-server-prefix=${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}-s"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::CIRISCache (${PLAT}): S=${S:-NONE} P=${P:-NONE} V=${V:-NONE} EDGE=${EDGE:-NONE} RUSTC=${RUSTC}"
+          echo "::notice::${KEY_VERIFY}"
+          echo "::notice::${KEY_PERSIST}"
+          echo "::notice::${KEY_EDGE}"
+          echo "::notice::${KEY_SERVER}"
+      # Deepest-first, first-hit-wins (CIRISCache restore@v2): the layers are
+      # cumulative supersets, so one restore of the deepest available blob beats
+      # extracting verify→persist→edge→server in sequence (the edge layer alone
+      # measured 452s/7.5min on v1 — redundant overwrite I/O).
+      - name: CIRISCache restore (server→edge→persist→verify, first hit)
+        uses: CIRISAI/CIRISCache/restore@v2
+        continue-on-error: true
+        with:
+          keys: |
+            ${{ steps.cachekey.outputs.key }}
+            ${{ steps.cachekey.outputs.key-server-prefix }}*
+            ${{ steps.cachekey.outputs.key-edge }}
+            ${{ steps.cachekey.outputs.key-persist }}
+            ${{ steps.cachekey.outputs.key-verify }}
+      # Default features build everywhere (sqlite + the binary path); postgres +
+      # tpm are Linux-only (per-target). NOT --all-features: that drags
+      # `extension-module` (libpython-no-link) into the test binary.
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+      # The NOISE FLOOR proof (CIRISServer#14, CEG §19.7 / §19.3 N5) — provable
+      # individual-unrecoverability for erasure compliance, run explicitly so the
+      # MEASURED residual-fidelity numbers land in the CI log (Linux only — one
+      # canonical record; the test also runs on every OS via `cargo test` above).
+      # The three gated cases: (a) revocation ⇒ EjectHardDelete leaves NO
+      # recoverable tier, (b) the measured noise floor below n_source symbols,
+      # (c) N→1 aggregation erases the individual below the 1/N gist bound.
+      - name: Noise floor proof (MEASURED, Linux)
+        if: runner.os == 'Linux'
+        run: cargo test --test noise_floor -- --nocapture
+      # The PyO3 wheel surface (Linux only; libpython linked, no extension-module).
+      # --lib, NOT --all-targets: the `python` feature is used ONLY in the lib
+      # (src/lib.rs + src/federation_delivery.rs) — no test/bin/example gates on it —
+      # so --all-targets recompiled the entire test surface (and the binary, which
+      # must never link libpython) with python for ZERO added lint coverage. --lib
+      # is faster and strictly more correct.
+      - name: clippy (python surface, Linux)
+        if: runner.os == 'Linux'
+        run: cargo clippy --lib --features python -- -D warnings
+      # The test-anchor surface. NOT covered by the two clippy runs above, which
+      # build default + python only — so a struct-shape change that breaks
+      # `--features test-anchor` compiled green here and shipped, and the break
+      # only surfaced when someone built the QA wheel. A cut that does not
+      # compile under test-anchor breaks the mesh harness for every downstream
+      # consumer, which is exactly the audience least able to diagnose it.
+      #
+      # Caught in the wild: v24.0.0 added `Attestation.additional_scrubs`, and
+      # the one initializer behind this feature gate was invisible to CI. The
+      # agent team hit it building their harness wheel and flagged it before we
+      # tagged. Build, not clippy: compilation is the failure mode.
+      # --all-targets, NOT --lib: the break that motivated this lives in a
+      # cfg(test) initializer (src/trust_root_qa.rs), which a --lib build cannot
+      # see. Shipped past the --lib version of this very step once — the gate has
+      # to compile the same targets the QA wheel and the test suite do.
+      - name: clippy (test-anchor surface, Linux)
+        if: runner.os == 'Linux'
+        run: cargo clippy --all-targets --features test-anchor -- -D warnings
+      # Evidence registry (CIRISServer#155 / CIRISConstitution#17): every impl:
+      # pointer in evidence/cc_impl.tsv MUST resolve at the pinned crate version —
+      # a moved/renamed symbol is a spec-regression failure. Runs here because the
+      # cargo git checkouts (needed to resolve the substrate symbols) are populated
+      # by the build above. Linux-only (one canonical run).
+      - name: "Evidence manifest resolves (CC impl: tier)"
+        if: runner.os == 'Linux'
+        run: python3 tools/check_evidence.py
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats
+      # NB: CI does NOT save a cache blob. It builds DEBUG (clippy+test); saving a
+      # debug `target/` measured ~586s (10 min) on main to spare only the ~30s
+      # debug ciris-server recompile next run — a net loss — and it collided with
+      # conformance's RELEASE `-s<version>` blob (same key). The release `-s` is
+      # populated by conformance (on main) + build-wheels (on tags); CI only
+      # RESTORES (the centipede above) and lets cargo do the cheap debug delta.

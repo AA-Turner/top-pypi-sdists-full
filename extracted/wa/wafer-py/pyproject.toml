@@ -1,0 +1,81 @@
+[project]
+name = "wafer-py"
+dynamic = ["version"]
+description = "Anti-detection HTTP client for Python"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.12"
+authors = [{name = "Avery"}]
+keywords = ["http", "client", "anti-detection", "tls", "fingerprint", "waf", "scraping"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP",
+]
+dependencies = [
+    "wreq>=0.12.1,<0.13",
+]
+
+[project.urls]
+Homepage = "https://github.com/Averyy/wafer"
+Repository = "https://github.com/Averyy/wafer"
+Issues = "https://github.com/Averyy/wafer/issues"
+Changelog = "https://github.com/Averyy/wafer/releases"
+
+[project.optional-dependencies]
+browser = ["patchright>=1.59.1", "opencv-python-headless", "onnxruntime", "Pillow", "huggingface_hub", "faster-whisper"]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.9",
+    "datasets",
+    "Pillow",
+]
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "vcs"
+fallback-version = "0.0.0"
+
+[tool.hatch.build.targets.wheel]
+packages = ["wafer"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/wafer",
+    "/tests",
+    "/docs",
+    "/README.md",
+    "/LICENSE",
+    "/llms.txt",
+    "/pyproject.toml",
+    "/uv.lock",
+    "/training/recaptcha/classes.py",
+    "/training/recaptcha/dataset_manifest.py",
+    "/training/recaptcha/durable_io.py",
+    "/training/recaptcha/export.py",
+    "/training/recaptcha/train_mps.py",
+    "/training/recaptcha/training_contract.py",
+]
+
+[tool.hatch.build]
+exclude = [".DS_Store", "**/.DS_Store", "**/.gitkeep"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+markers = [
+    "live: test hits the real network (skipped unless WAFER_LIVE=1)",
+]
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]

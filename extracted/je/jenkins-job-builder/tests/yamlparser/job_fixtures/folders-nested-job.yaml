@@ -1,4 +1,0 @@
-- job:
-    name: sample-job
-    project-type: freestyle
-    folder: folders/test-nested-folder

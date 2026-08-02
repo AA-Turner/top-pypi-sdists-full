@@ -1,0 +1,26 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""
+Transition Type Enum.
+
+Enumeration for state transition types in contract-driven state management.
+"""
+
+from enum import Enum, unique
+
+from omnibase_core.enums.enum_str_enum_base import UtilStrValueHelper
+
+
+@unique
+class EnumTransitionType(UtilStrValueHelper, str, Enum):
+    """Types of state transitions."""
+
+    SIMPLE = "simple"  # Direct field updates
+    TOOL_BASED = "tool_based"  # Delegate to tool for computation
+    CONDITIONAL = "conditional"  # Apply based on conditions
+    COMPOSITE = "composite"  # Combine multiple transitions
+
+
+__all__ = ["EnumTransitionType"]

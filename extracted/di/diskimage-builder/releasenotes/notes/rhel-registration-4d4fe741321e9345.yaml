@@ -1,4 +1,0 @@
----
-fixes:
-  - rhel element fixes trying to install python3 before registering
-    subscriptions.

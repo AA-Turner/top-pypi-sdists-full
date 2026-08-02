@@ -1,0 +1,27 @@
+from pathlib import Path
+
+from setuptools import find_packages, setup
+
+setup(
+    name="pyimouapi",
+    version="1.3.3",
+    packages=find_packages(),
+    python_requires=">=3.11",
+    install_requires=[
+        "aiohttp>=3.11.9,<4.0",
+        "simpleeval>=1.0.3",
+    ],
+    description="A package for imou open api",
+    long_description=Path("README.md").read_text(encoding="utf-8"),
+    long_description_content_type="text/markdown",
+    url="https://github.com/Imou-OpenPlatform/Py-Imou-Open-Api",
+    author="Imou-OpenPlatform",
+    author_email="cloud_openteam_service@imou.com",
+    license="MIT",
+    classifiers=[
+        "Intended Audience :: Developers",
+        "Operating System :: OS Independent",
+        "Programming Language :: Python :: 3",
+        "Topic :: Software Development :: Libraries",
+    ],
+)

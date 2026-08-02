@@ -1,0 +1,224 @@
+name: E2E Shared
+
+on:
+  workflow_call:
+    inputs:
+      csp:
+        type: string
+        default: gcp
+      python_version:
+        type: string
+        default: "3.10"
+      e2e_dir:
+        type: string
+        required: true
+      run_command:
+        type: string
+        required: true
+      prepare_command:
+        type: string
+        default: ""
+      cleanup_command:
+        type: string
+        required: true
+      runs_on:
+        type: string
+        default: warp-ubuntu-latest-x64-8x
+      timeout_minutes:
+        type: number
+        default: 120
+      checkout_ref:
+        type: string
+        required: true
+      cluster_name_prefix:
+        type: string
+        default: ""
+      post_command:
+        type: string
+        default: ""
+      artifact_name:
+        type: string
+        default: ""
+jobs:
+  e2e:
+    strategy:
+      fail-fast: false
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ${{ inputs.runs_on }}
+    timeout-minutes: ${{ inputs.timeout_minutes }}
+    env:
+      UV_PYTHON: ${{ inputs.python_version }}
+      UV_CACHE_DIR: /tmp/.uv-cache
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.checkout_ref }}
+          submodules: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+      - name: Set up Cloud SDK
+        if: ${{ inputs.csp == 'gcp' }}
+        uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/auth@v2
+        if: ${{ inputs.csp == 'gcp' }}
+        with:
+          credentials_json: ${{ secrets.GCP_GENEVA_CLIENT_SA_KEY }}
+      # Configure kubectl with a non-expiring static token for the
+      # geneva-service-account in the lancedb GKE cluster.
+      - name: Configure kubectl with static token (GCP)
+        if: ${{ inputs.csp == 'gcp' }}
+        run: |
+          CLUSTER_ENDPOINT=$(gcloud container clusters describe lancedb \
+            --region=us-central1 \
+            --project=lancedb-dev-enterprise-1 \
+            --format='value(endpoint)')
+          echo "${{ secrets.GKE_CA_CERT }}" | base64 --decode > /tmp/gke-ca.crt
+          kubectl config set-cluster lancedb \
+            --server=https://${CLUSTER_ENDPOINT} \
+            --certificate-authority=/tmp/gke-ca.crt \
+            --embed-certs=true
+          kubectl config set-credentials gha-sa \
+            --token=${{ secrets.GKE_STATIC_TOKEN }}
+          kubectl config set-context default \
+            --cluster=lancedb \
+            --user=gha-sa \
+            --namespace=lancedb
+          kubectl config use-context default
+          rm /tmp/gke-ca.crt
+      - name: Configure AWS Credentials
+        if: ${{ inputs.csp == 'aws' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::054483968661:role/github_actions_role
+          role-duration-seconds: 43200
+      # Configure kubectl with a non-expiring static token for the
+      # geneva-service-account in the lancedb EKS cluster.
+      - name: Configure kubectl with static token (AWS)
+        if: ${{ inputs.csp == 'aws' }}
+        run: |
+          CLUSTER_ENDPOINT=$(aws eks describe-cluster \
+            --name lancedb \
+            --region us-east-1 \
+            --query 'cluster.endpoint' \
+            --output text)
+          echo "${{ secrets.EKS_CA_CERT }}" | base64 --decode > /tmp/eks-ca.crt
+          kubectl config set-cluster lancedb \
+            --server=${CLUSTER_ENDPOINT} \
+            --certificate-authority=/tmp/eks-ca.crt \
+            --embed-certs=true
+          kubectl config set-credentials gha-sa \
+            --token=${{ secrets.EKS_STATIC_TOKEN }}
+          kubectl config set-context default \
+            --cluster=lancedb \
+            --user=gha-sa \
+            --namespace=lancedb
+          kubectl config use-context default
+          rm /tmp/eks-ca.crt
+      - name: Azure Login
+        if: ${{ inputs.csp == 'azure' }}
+        uses: azure/login@v2
+        with:
+          client-id: 8671ea50-af15-49cd-a234-0077c1e20c43
+          tenant-id: 4d0b3e97-e90c-4c8f-9b18-1146dd5f22f6
+          subscription-id: 2251a256-3e12-4197-b94f-e847b55dd69e
+      - name: Get Azure Storage Token
+        if: ${{ inputs.csp == 'azure' }}
+        run: |
+          TOKEN=$(az account get-access-token --resource https://storage.azure.com/ --query accessToken -o tsv)
+          echo "AZURE_STORAGE_TOKEN=$TOKEN" >> $GITHUB_ENV
+          # Both variants needed: Lance/object_store uses AZURE_STORAGE_ACCOUNT,
+          # Geneva code prefers AZURE_STORAGE_ACCOUNT_NAME
+          echo "AZURE_STORAGE_ACCOUNT=lancedbdevlancedb" >> $GITHUB_ENV
+          echo "AZURE_STORAGE_ACCOUNT_NAME=lancedbdevlancedb" >> $GITHUB_ENV
+          echo "AZURE_TENANT_ID=4d0b3e97-e90c-4c8f-9b18-1146dd5f22f6" >> $GITHUB_ENV
+      - name: Configure kubectl with static token (Azure)
+        if: ${{ inputs.csp == 'azure' }}
+        run: |
+          CLUSTER_ENDPOINT=$(az aks show \
+            --resource-group lancedb-dev-lancedb-eastus-rg \
+            --name lancedb \
+            --query 'fqdn' \
+            --output tsv)
+          echo "${{ secrets.AKS_CA_CERT }}" | base64 --decode > /tmp/aks-ca.crt
+          kubectl config set-cluster lancedb \
+            --server=https://${CLUSTER_ENDPOINT} \
+            --certificate-authority=/tmp/aks-ca.crt \
+            --embed-certs=true
+          kubectl config set-credentials gha-sa \
+            --token=${{ secrets.AKS_STATIC_TOKEN }}
+          kubectl config set-context default \
+            --cluster=lancedb \
+            --user=gha-sa \
+            --namespace=lancedb
+          kubectl config use-context default
+          rm /tmp/aks-ca.crt
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y kubectl
+          uv sync --extra k8s --extra ${{ inputs.csp }} --locked
+          cd ${{ inputs.e2e_dir }} && uv sync --locked
+      - name: Generate test slug
+        run: |
+          SLUG=$(printf "%05d" $((RANDOM % 10001)))
+          echo "SLUG=$SLUG" >> $GITHUB_ENV
+          if [ -n "${{ inputs.cluster_name_prefix }}" ]; then
+            echo "CLUSTER_NAME=${{ inputs.cluster_name_prefix }}-$SLUG" >> $GITHUB_ENV
+          else
+            echo "CLUSTER_NAME=e2e-$SLUG" >> $GITHUB_ENV
+          fi
+      - name: Prepare test inputs
+        if: ${{ inputs.prepare_command != '' }}
+        run: ${{ inputs.prepare_command }}
+      - name: Run e2e tests
+        run: ${{ inputs.run_command }}
+      - name: Post-test command
+        if: ${{ always() && inputs.post_command != '' }}
+        run: ${{ inputs.post_command }}
+      - name: Upload test artifacts
+        if: ${{ always() && inputs.artifact_name != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: /tmp/test-results/
+          retention-days: 90
+          if-no-files-found: warn
+      - name: Refresh AWS Credentials for Cleanup
+        if: ${{ always() && inputs.csp == 'aws' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::054483968661:role/github_actions_role
+          role-duration-seconds: 43200
+      - name: Refresh GCP Credentials for Cleanup
+        if: ${{ always() && inputs.csp == 'gcp' }}
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_GENEVA_CLIENT_SA_KEY }}
+      - name: Refresh kubeconfig (AWS)
+        if: ${{ always() && inputs.csp == 'aws' }}
+        run: |
+          aws eks update-kubeconfig --region us-east-1 --name lancedb
+      - name: Re-authenticate with Azure for Cleanup
+        if: ${{ always() && inputs.csp == 'azure' }}
+        uses: azure/login@v2
+        with:
+          client-id: 8671ea50-af15-49cd-a234-0077c1e20c43
+          tenant-id: 4d0b3e97-e90c-4c8f-9b18-1146dd5f22f6
+          subscription-id: 2251a256-3e12-4197-b94f-e847b55dd69e
+      - name: Refresh Azure storage token for Cleanup
+        if: ${{ always() && inputs.csp == 'azure' }}
+        run: |
+          TOKEN=$(az account get-access-token --resource https://storage.azure.com/ --query accessToken -o tsv)
+          echo "AZURE_STORAGE_TOKEN=$TOKEN" >> $GITHUB_ENV
+      - name: Cleanup Ray Clusters
+        if: always()
+        run: ${{ inputs.cleanup_command }}
+      - name: Minimize uv cache
+        run: uv cache prune --ci

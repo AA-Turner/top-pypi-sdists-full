@@ -1,0 +1,315 @@
+[project]
+name = "lib_log_rich"
+version = "6.3.7"
+description = "Rich-powered logging runtime with contextual metadata, multi-sink fan-out, and ring-buffer dumps"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "lib_cli_exit_tools>=2.3.4",
+  "orjson>=3.11.9",
+  "pydantic>=2.13.4",
+  "rich-click>=1.9.8",
+  "rich>=15.0.0",
+  "python-dotenv>=1.2.2",
+]
+license = { text = "MIT" }
+authors = [{ name = "bitranox", email = "bitranox@gmail.com" }]
+keywords = ["logging", "rich", "terminal", "ansi", "color", "colored", "coulored", "eventlog", "journal", "journald", "dump", "logdump"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "License :: OSI Approved :: MIT License",
+  "Environment :: Console",
+  "Operating System :: OS Independent",
+  "Typing :: Typed",
+]
+
+# System packages required for CI runners (read by GitHub Actions workflow template)
+# Format: "apt_package_name" for Ubuntu, future: {"apt": "...", "brew": "...", "choco": "..."}
+[tool.ci]
+system-dependencies-ubuntu = []
+system-dependencies-macos = []
+system-dependencies-windows-pip = []
+system-dependencies-windows-choco = []
+os = ["ubuntu-latest", "windows-latest", "macos-latest"]
+
+[project.urls]
+Homepage = "https://github.com/bitranox/lib_log_rich"
+Repository = "https://github.com/bitranox/lib_log_rich.git"
+Issues = "https://github.com/bitranox/lib_log_rich/issues"
+
+[project.optional-dependencies]
+journald = [
+  "systemd-python>=235; sys_platform == 'linux'",
+]
+dev = [
+  "rtoml>=0.13.0",
+  "pytest>=9.1.1",
+  "pytest-asyncio>=1.4.0",
+  "pytest-cov>=7.1.0",
+  "ruff>=0.16.1",
+  "pyright[nodejs]>=1.1.411",
+  "bandit>=1.9.4",
+  # 1.5.1 was yanked upstream (unintended breaking changes), so 1.5.0 is the newest usable
+  # release; a >=1.5.1 floor has ZERO candidates and makes this extra unresolvable.
+  "build>=1.5.0",
+  "twine>=7.0.0",
+  # codecov-cli is disabled, not dropped: it requires click<8.3.0, which drags click back to
+  # 8.2.1 - the version with CVE-2026-7246 (command injection in click.edit(), fixed in 8.3.3).
+  # Nothing else here caps click, so with this line active the audit gate goes red on every
+  # clean install. Leaving it off costs nothing: CI uploads coverage via codecov/codecov-action,
+  # not this CLI, and "bmk codecov" resolves codecovcli from PATH and only warns when absent.
+  # Re-enable once codecov-cli relaxes its click<8.3.0 pin.
+  # "codecov-cli>=11.2.8",
+  # Transitive CVE pins
+  "click>=8.4.2",                # CVE-2026-7246
+  "pip-audit>=2.10.1",
+  "textual>=8.2.8",
+  "import-linter>=2.13",
+  "hypothesis>=6.164.0",
+  "httpx2>=2.9.1",
+]
+
+[project.scripts]
+lib_log_rich = "lib_log_rich.__main__:main"
+
+[build-system]
+requires = ["hatchling>=1.31.0"]
+build-backend = "hatchling.build"
+
+
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lib_log_rich"]
+include = ["src/lib_log_rich/py.typed"]
+
+[tool.ruff]
+line-length = 160
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+  "E", "W",     # pycodestyle
+  "F",           # pyflakes
+  "I",           # isort
+  "N",           # pep8-naming
+  "UP",          # pyupgrade
+  "B",           # bugbear
+  "A",           # builtins shadowing
+  "C4",          # comprehension simplification
+  "SIM",         # simplification
+  "TCH",         # type-checking imports
+  "RUF",         # ruff-specific
+  "G",           # logging format (catches f-string in logger)
+  "T20",         # print statements
+  "PTH",         # pathlib preference
+  "PLC", "PLE",  # pylint conventions/errors
+  "S",           # flake8-bandit security checks
+  "PERF",        # performance anti-patterns
+  "ERA",         # eradicate dead/commented-out code
+  "FBT",         # boolean trap (boolean positional args)
+  "PLR",         # pylint refactor
+  "PLW",         # pylint warnings
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.flake8-type-checking]
+# The Pydantic models in runtime/settings/models.py and adapters/_schemas.py resolve
+# their field annotations at model-build time, so their field-type imports must stay
+# at runtime even under `from __future__ import annotations`. Telling ruff about the
+# Pydantic base keeps TC001/TC002/TC003 from moving those imports into a
+# TYPE_CHECKING block and breaking model construction.
+runtime-evaluated-base-classes = ["pydantic.BaseModel"]
+
+[tool.ruff.lint.per-file-ignores]
+# ignore the "unused import sys" in the jupyter notebook - which we need (it is a linter hickup)
+"notebooks/*.ipynb" = ["F401"]
+# Tests: assert is standard, test fixtures have passwords/tokens, magic values are clearer inline,
+# and temp paths are fine. PLC0415: local/deferred imports are a deliberate test idiom - several
+# tests import inside the test body to exercise import-time and cache behaviour. A002/N803: test
+# doubles intentionally mirror external API parameter names (builtins.__import__, pywin32).
+# RUF001/RUF012: tests assert on the library's real icon glyphs and use mutable class defaults on
+# throwaway test-double classes.
+"tests/**/*.py" = [
+  "S101", "S105", "S106", "S107", "S108", "T20", "PLR2004", "PLR0913", "FBT001", "FBT002", "FBT003",
+  "PLC0415", "A002", "N803", "RUF001", "RUF012",
+]
+# tests/analytics: standalone profiling script excluded from pytest collection and pyright, not a
+# real test module - its own long-running loop legitimately needs a broad except/pass and has more
+# than 50 statements.
+"tests/analytics/*.py" = ["S110", "PLR0915"]
+# Domain/application/adapters/composition all carry config- and context-heavy signatures by design
+# (LogContext/RuntimeSettings fan out into many keyword-only parameters); PLR0917 already forces
+# those keyword-only above, so the remaining PLR0913 count is a width nitpick, not a smell.
+"src/lib_log_rich/**/*.py" = ["PLR0913"]
+# _text_utils.py documents/exercises literal emoji and Unicode-symbol ranges (comments describing
+# regex ranges, doctests demonstrating the actual glyphs) - not typos to "fix" to ASCII lookalikes.
+"src/lib_log_rich/adapters/_text_utils.py" = ["RUF002", "RUF003"]
+# cli_stresstest.py is a standalone Textual TUI dev/diagnostic tool (already excluded from strict
+# pyright above), not part of the public library API. FBT001/FBT003: Textual widgets and the
+# SettingSpec table are inherently boolean-flag-heavy. PLC0415/N806: Textual classes are imported
+# lazily and rebound to their original PascalCase names as local base classes. RUF012: BINDINGS is
+# the standard Textual class-attribute idiom. PLR0911/PLR0912/PERF203/T201: pre-existing complexity
+# and console output in this large, isolated UI module - not touched to avoid destabilising it.
+"src/lib_log_rich/cli_stresstest.py" = ["FBT001", "FBT003", "PLC0415", "N806", "RUF012", "PLR0911", "PLR0912", "PERF203", "T201"]
+# Pre-existing repo-root exploration scripts comparing icon glyph choices for the console/domain
+# icon table; the Unicode symbols are the entire point, not typos.
+"test_icons.py" = ["RUF001"]
+"test_more_icons.py" = ["RUF001"]
+"test_colorful_icons.py" = ["RUF001"]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+exclude = [
+  "scripts/menu.py",
+  "scripts/dependencies.py",
+  "examples/*",
+  "src/lib_log_rich/cli_stresstest.py",
+  "tests/analytics/*",
+  "LLM-CONTEXT/*",
+  ".venv*",
+]
+
+[tool.pytest.ini_options]
+addopts = ["--doctest-modules", "--ignore=examples", "--ignore=tests/analytics"]
+pythonpath = ["src"]
+doctest_optionflags = ["ELLIPSIS", "NORMALIZE_WHITESPACE"]
+markers = [
+  "os_agnostic: test runs on every supported operating system",
+  "os_windows: test exercises Windows-only behavior",
+  "os_macos: test exercises macOS-only behavior",
+  "os_posix: test exercises behavior requiring POSIX semantics",
+  "os_linux: test exercises Linux-only behavior",
+]
+
+[tool.coverage.run]
+branch = true
+parallel = false
+data_file = ".coverage.unit"
+source = ["src/lib_log_rich"]
+
+[tool.coverage.report]
+omit = [
+  "tests/*",
+  "src/lib_log_rich/__init__conf__.py",
+  "src/lib_log_rich/cli_stresstest.py",
+]
+fail_under = 85
+show_missing = true
+
+[tool.clean]
+# Patterns to remove when running `make clean`
+patterns = [
+  "**/__pycache__",
+  ".hypothesis",
+  ".import_linter_cache",
+  ".pytest_cache",
+  ".ruff_cache",
+  ".pyright",
+  ".mypy_cache",
+  ".tox",
+  ".nox",
+  ".eggs",
+  "*.egg-info",
+  "build",
+  "dist",
+  "htmlcov",
+  ".coverage",
+  "coverage.xml",
+  "codecov.sh",
+  ".cache",
+  "result",
+]
+
+[tool.git]
+# Default git remote for push/release commands
+default-remote = "origin"
+
+
+[tool.scripts.test]
+# Configuration for scripts/test.py test runner
+pytest-verbosity = "-vv"
+coverage-report-file = "coverage.xml"
+src-path = "src"
+[tool.importlinter]
+root_package = "lib_log_rich"
+
+[[tool.importlinter.contracts]]
+name = "Clean architecture layers"
+type = "layers"
+layers = [
+  "lib_log_rich.adapters",
+  "lib_log_rich.application",
+  "lib_log_rich.domain",
+]
+
+[tool.pip-audit]
+# Known vulnerabilities to ignore with rationale and risk assessment.
+# Only entries currently flagged by pip-audit (against the bmk-augmented local
+# venv) are listed here; stale entries are removed when their packages are
+# upgraded past the fix version. None of these CVEs affect the deps that
+# lib_log_rich actually ships - they all originate from bmk tooling or build/CI
+# tooling that ships with uv/pip.
+#
+# CVE-2025-8869 / GHSA-4xh5-x5gv-qwph (pip 24.3.1 - tarfile symlink path traversal in fallback)
+#   Risk: LOW - Triggered only when extracting maliciously crafted sdists on a Python
+#   build that lacks PEP 706. Status: Fix in pip 25.3; bundled-pip refresh pending.
+#
+# CVE-2026-1703 (pip 24.3.1 - wheel install path traversal limited to install prefix)
+#   Risk: LOW - Limited blast radius and requires installing a hostile wheel.
+#   Status: Fix in pip 26.0; bundled-pip refresh pending.
+#
+# PYSEC-2022-42969 (py 1.11.0 - ReDoS in InfoSvnCommand)
+#   Risk: LOW - Requires attacker-controlled SVN repository data. Not exercised by
+#   lib_log_rich. Status: No upstream fix; py is unmaintained.
+#
+# CVE-2026-25990 (pillow 12.0.0 - out-of-bounds write in PSD loader)
+#   Risk: NONE - pillow is not a dependency of lib_log_rich; pulled in only by the
+#   bmk tooling venv, and lib_log_rich never decodes PSD images. Status: Fix in
+#   pillow 12.1.1; awaiting bmk dependency update.
+#
+# CVE-2026-40192 (pillow 12.0.0 - FITS decompression bomb causing OOM)
+#   Risk: NONE - same scope as CVE-2026-25990. Status: Fix in pillow 12.2.0;
+#   awaiting bmk dependency update.
+#
+# GHSA-jj8c-mmj3-mmgv (authlib 1.6.9 - missing CSRF protection in cache-backed integrations)
+#   Risk: NONE - authlib is not a dependency of lib_log_rich; bmk tooling only.
+#   Status: Fix in authlib 1.6.11; awaiting bmk dependency update.
+#
+# CVE-2026-39892 (cryptography 46.0.6 - buffer overflow on non-contiguous buffers)
+#   Risk: NONE - cryptography is not a dependency of lib_log_rich; bmk tooling only.
+#   Status: Fix in cryptography 46.0.7; awaiting bmk dependency update.
+#
+# CVE-2026-41066 (lxml 6.0.2 - XXE / local file disclosure with default resolve_entities)
+#   Risk: NONE - lxml is not a dependency of lib_log_rich; bmk tooling only.
+#   Status: Fix in lxml 6.1.0; awaiting bmk dependency update.
+#
+# CVE-2026-40347 (python-multipart 0.0.22 - multipart parsing DoS via large preamble/epilogue)
+#   Risk: NONE - python-multipart is not a dependency of lib_log_rich; bmk tooling only.
+#   Status: Fix in python-multipart 0.0.26; awaiting bmk dependency update.
+#
+# GHSA-pjjw-68hj-v9mw (uv 0.9.11 - wheel RECORD path traversal on uninstall)
+#   Risk: LOW - uv is a build/install tool, not a runtime dependency. Exploitation
+#   requires installing AND uninstalling a maliciously crafted wheel. Status: Fix in
+#   uv 0.11.6; awaiting bmk tool-chain refresh.
+#
+ignore-vulns = [
+  "CVE-2025-8869",
+  "GHSA-4xh5-x5gv-qwph",
+  "CVE-2026-1703",
+  "PYSEC-2022-42969",
+  "CVE-2026-25990",
+  "CVE-2026-40192",
+  "GHSA-jj8c-mmj3-mmgv",
+  "CVE-2026-39892",
+  "CVE-2026-41066",
+  "CVE-2026-40347",
+  "GHSA-pjjw-68hj-v9mw",
+]

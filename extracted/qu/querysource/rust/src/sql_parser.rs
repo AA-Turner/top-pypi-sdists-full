@@ -1,0 +1,811 @@
+// Copyright (C) 2018-present Jesus Lara
+//
+// sql_parser.rs — Rust reimplementation of querysource/parsers/sql.pyx
+// Core SQL processing functions with rayon parallelism for build_sql().
+
+use pyo3::prelude::*;
+use pyo3::types::PyDict;
+use std::collections::HashMap;
+
+use crate::safe_dict::safe_format_map_rust;
+use crate::validators::{escape_string, field_components, quote_string};
+
+/// Comparison tokens recognized in filter conditions.
+const COMPARISON_TOKENS: &[&str] = &[">=", "<=", "<>", "!=", "<", ">"];
+
+/// Valid SQL operators for list-based conditions.
+const VALID_OPERATORS: &[&str] = &["<", ">", ">=", "<=", "<>", "!=", "IS NOT", "IS"];
+
+// ---------------------------------------------------------------------------
+// Security helpers — key/operator validation
+// ---------------------------------------------------------------------------
+
+/// Quote a key string as a safe SQL identifier.
+///
+/// Any key that is not a simple identifier (`[A-Za-z0-9_]+`) is rejected with Err.
+/// Numeric-only keys are double-quoted. Simple identifier keys are returned as-is.
+fn safe_identifier_key(key: &str) -> Result<String, String> {
+    // Strip QS suffix chars (|, !, ~, #, @, :) from the *raw* key before validation
+    let stripped = key.trim_end_matches(|c: char| matches!(c, '|' | '!' | '~' | '#' | '@' | ':'));
+
+    if stripped.parse::<i64>().is_ok() {
+        // Numeric identifier — wrap in double quotes
+        return Ok(format!("\"{}\"", key));
+    }
+
+    // Allow simple identifiers (letters, digits, underscore) plus schema-qualified names
+    // (single dot allowed: schema.table). Anything else (quotes, spaces, SQL chars) is
+    // rejected.
+    if stripped.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '.') {
+        Ok(key.to_string())
+    } else {
+        Err(format!("Invalid identifier key: contains unsafe characters"))
+    }
+}
+
+/// Validate that an operator is in the allowlist.
+fn validate_operator(op: &str) -> Result<(), String> {
+    if COMPARISON_TOKENS.contains(&op) || VALID_OPERATORS.contains(&op) {
+        Ok(())
+    } else {
+        Err(format!("Operator not in allowlist"))
+    }
+}
+
+/// Validate and escape a scalar value for use in a WHERE clause.
+///
+/// Null sentinels (`null`/`NULL`) pass through; everything else is `quote_string`-escaped.
+fn safe_scalar_value(value: &str) -> String {
+    match value {
+        "null" | "NULL" | "!null" | "!NULL" => value.to_string(),
+        v if v.parse::<i64>().is_ok() || v.parse::<f64>().is_ok() => v.to_string(),
+        _ => quote_string(&escape_string(value), true),
+    }
+}
+
+/// Validate a BETWEEN clause string to ensure it doesn't contain injection.
+///
+/// Expected form: `BETWEEN 'a' AND 'b'` or `BETWEEN 1 AND 2`.
+/// Returns Err if the value looks malformed or contains injection markers.
+fn validate_between_clause(value: &str) -> Result<(), String> {
+    let upper = value.to_uppercase();
+    if !upper.contains("BETWEEN") {
+        return Err("Not a BETWEEN clause".to_string());
+    }
+    // Reject comment markers and statement terminators
+    if value.contains("--") || value.contains("/*") || value.contains(';') {
+        return Err("Injection markers in BETWEEN clause".to_string());
+    }
+    // Reject UNION/SELECT inside BETWEEN
+    if upper.contains("UNION") || upper.contains("SELECT") {
+        return Err("SQL keywords in BETWEEN clause".to_string());
+    }
+    Ok(())
+}
+
+// NOTE: Rust regex crate does not support lookaheads.
+// We use manual string parsing for GROUP BY and SELECT..FROM extraction.
+
+/// Find the starting position of a SQL keyword (case-insensitive, word-boundary aware).
+fn find_keyword(upper_sql: &str, keyword: &str) -> Option<usize> {
+    let keyword_upper = keyword.to_uppercase();
+    let bytes = upper_sql.as_bytes();
+    let kw_bytes = keyword_upper.as_bytes();
+    let kw_len = kw_bytes.len();
+
+    for i in 0..=bytes.len().saturating_sub(kw_len) {
+        if &bytes[i..i + kw_len] == kw_bytes {
+            // Check word boundary before
+            let before_ok = i == 0 || !bytes[i - 1].is_ascii_alphanumeric();
+            // Check word boundary after
+            let after_ok =
+                i + kw_len >= bytes.len() || !bytes[i + kw_len].is_ascii_alphanumeric();
+            if before_ok && after_ok {
+                return Some(i);
+            }
+        }
+    }
+    None
+}
+
+/// Find a keyword at a specific parenthesis depth, skipping content inside
+/// single-quoted string literals. Used to locate the *outer* GROUP BY in
+/// queries that contain CTEs or subqueries with their own GROUP BY.
+///
+/// Case-insensitive and word-boundary aware over ASCII; non-ASCII bytes
+/// inside identifiers are treated as non-alphanumeric (the same behavior as
+/// `is_ascii_alphanumeric`).
+fn find_keyword_at_depth(sql: &str, keyword: &str, target_depth: i32) -> Option<usize> {
+    let raw = sql.as_bytes();
+    let kw_upper: Vec<u8> = keyword.bytes().map(|b| b.to_ascii_uppercase()).collect();
+    let kw_len = kw_upper.len();
+    let n = raw.len();
+
+    let mut depth: i32 = 0;
+    let mut in_string = false;
+    let mut i = 0;
+    while i < n {
+        let c = raw[i];
+        if in_string {
+            if c == b'\'' {
+                // SQL standard: '' inside a string literal is an escaped quote
+                if i + 1 < n && raw[i + 1] == b'\'' {
+                    i += 2;
+                    continue;
+                }
+                in_string = false;
+            }
+            i += 1;
+            continue;
+        }
+        match c {
+            b'\'' => {
+                in_string = true;
+                i += 1;
+                continue;
+            }
+            b'(' => {
+                depth += 1;
+                i += 1;
+                continue;
+            }
+            b')' => {
+                depth -= 1;
+                i += 1;
+                continue;
+            }
+            _ => {}
+        }
+        if depth == target_depth && i + kw_len <= n {
+            let mut matched = true;
+            for k in 0..kw_len {
+                if raw[i + k].to_ascii_uppercase() != kw_upper[k] {
+                    matched = false;
+                    break;
+                }
+            }
+            if matched {
+                let before_ok = i == 0 || !raw[i - 1].is_ascii_alphanumeric();
+                let after_ok =
+                    i + kw_len >= n || !raw[i + kw_len].is_ascii_alphanumeric();
+                if before_ok && after_ok {
+                    return Some(i);
+                }
+            }
+        }
+        i += 1;
+    }
+    None
+}
+
+/// Earliest occurrence of any of `keywords` at the given parenthesis depth.
+fn find_first_keyword_at_depth(
+    sql: &str,
+    keywords: &[&str],
+    target_depth: i32,
+) -> Option<usize> {
+    keywords
+        .iter()
+        .filter_map(|kw| find_keyword_at_depth(sql, kw, target_depth))
+        .min()
+}
+
+
+// ---------------------------------------------------------------------------
+// Individual SQL clause builders
+// ---------------------------------------------------------------------------
+
+/// Build WHERE clauses from a filter map.
+///
+/// Mirrors `SQLParser.filter_conditions()` from sql.pyx.
+///
+/// SECURITY: All interpolation sites are now escaped/validated:
+/// - Keys: must be valid identifiers (alphanumeric + underscore) or numeric (double-quoted).
+/// - Operators: must be in the COMPARISON_TOKENS / VALID_OPERATORS allowlist.
+/// - Values: scalar → escaped via `safe_scalar_value`; lists → each item via `quote_string`;
+///            BETWEEN clauses → validated for injection markers.
+#[pyfunction]
+#[pyo3(signature = (sql, filter_dict, cond_definition))]
+pub fn filter_conditions(
+    sql: &str,
+    filter_dict: &Bound<'_, PyDict>,
+    cond_definition: &Bound<'_, PyDict>,
+) -> PyResult<String> {
+    let mut where_cond: Vec<String> = Vec::new();
+
+    for (key_obj, value_obj) in filter_dict.iter() {
+        let key: String = key_obj.extract()?;
+
+        // SECURITY: Validate and produce a safe identifier for this key.
+        let formatted_key = safe_identifier_key(&key)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+
+        // Get format hint from cond_definition
+        let _format: Option<String> = cond_definition
+            .get_item(&key)?
+            .and_then(|v| v.extract().ok());
+
+        // Parse field_components for the key (suffix detection)
+        let components = field_components(&key);
+        let (_, name, end) = if !components.is_empty() {
+            components[0].clone()
+        } else {
+            ("".to_string(), key.clone(), "".to_string())
+        };
+
+        // Handle different value types
+        if let Ok(dict_val) = value_obj.downcast::<PyDict>() {
+            // Dict value → comparison operator + value
+            if let Some((op_obj, v_obj)) = dict_val.iter().next() {
+                let op: String = op_obj.extract()?;
+                // SECURITY: Operator must be in allowlist
+                if validate_operator(&op).is_err() {
+                    // Discard unknown/unsafe operators (same behavior as before: skip)
+                    continue;
+                }
+                // SECURITY: Escape the comparison value
+                let v: String = v_obj.extract().unwrap_or_default();
+                let safe_v = safe_scalar_value(&v);
+                where_cond.push(format!("{formatted_key} {op} {safe_v}"));
+            }
+        } else if let Ok(list_val) = value_obj.extract::<Vec<String>>() {
+            if !list_val.is_empty() {
+                let first = &list_val[0];
+                if VALID_OPERATORS.contains(&first.as_str()) && list_val.len() > 1 {
+                    // SECURITY: Operator allowlisted above; escape the second value
+                    let safe_v = safe_scalar_value(&list_val[1]);
+                    where_cond.push(format!("{formatted_key} {first} {safe_v}"));
+                } else {
+                    // IN clause — escape each item
+                    let val_str: String = list_val
+                        .iter()
+                        .map(|v| quote_string(&escape_string(v), true))
+                        .collect::<Vec<_>>()
+                        .join(",");
+                    if end == "!" {
+                        where_cond.push(format!("{name} NOT IN ({val_str})"));
+                    } else {
+                        where_cond.push(format!("{formatted_key} IN ({val_str})"));
+                    }
+                }
+            }
+        } else if let Ok(bool_val) = value_obj.extract::<bool>() {
+            // Boolean: TRUE/FALSE are safe SQL literals
+            where_cond.push(format!("{formatted_key} = {bool_val}"));
+        } else if let Ok(str_val) = value_obj.extract::<String>() {
+            build_string_condition(
+                &formatted_key,
+                &str_val,
+                &name,
+                &end,
+                &mut where_cond,
+            )?;
+        } else if let Ok(int_val) = value_obj.extract::<i64>() {
+            let str_val = int_val.to_string();
+            build_string_condition(
+                &formatted_key,
+                &str_val,
+                &name,
+                &end,
+                &mut where_cond,
+            )?;
+        } else {
+            // Fallback: extract as string and quote (always safe via quote_string)
+            if let Ok(s) = value_obj.str() {
+                let s_str = s.to_string();
+                where_cond.push(format!(
+                    "{formatted_key}={}",
+                    quote_string(&escape_string(&s_str), true)
+                ));
+            }
+        }
+    }
+
+    apply_where_clause(sql, &where_cond)
+}
+
+/// Build a WHERE condition from a string or integer value.
+///
+/// SECURITY: validates BETWEEN clauses; escapes negation and default values.
+fn build_string_condition(
+    key: &str,
+    value: &str,
+    name: &str,
+    end: &str,
+    where_cond: &mut Vec<String>,
+) -> PyResult<()> {
+    if value.contains("BETWEEN") {
+        // SECURITY: validate the BETWEEN clause for injection markers
+        validate_between_clause(value)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e))?;
+        where_cond.push(format!("({key} {value})"));
+    } else if value == "null" || value == "NULL" {
+        where_cond.push(format!("{key} IS NULL"));
+    } else if value == "!null" || value == "!NULL" {
+        where_cond.push(format!("{key} IS NOT NULL"));
+    } else if end == "!" {
+        // SECURITY: escape the negated value
+        where_cond.push(format!("{name} != {}", quote_string(&escape_string(value), true)));
+    } else if value.starts_with('!') {
+        where_cond.push(format!(
+            "{key} != {}",
+            quote_string(&escape_string(&value[1..]), true)
+        ));
+    } else {
+        where_cond.push(format!("{key}={}", quote_string(&escape_string(value), true)));
+    }
+    Ok(())
+}
+
+/// Apply WHERE conditions to SQL, handling {filter}, {where_cond}, {and_cond} placeholders.
+fn apply_where_clause(sql: &str, where_cond: &[String]) -> PyResult<String> {
+    let mut result = sql.to_string();
+
+    if !where_cond.is_empty() {
+        let and_clause = where_cond.join(" AND ");
+
+        if result.contains("and_cond") {
+            let filter = format!(" AND {and_clause}");
+            let mut m = HashMap::new();
+            m.insert("and_cond".to_string(), filter);
+            result = safe_format_map_rust(&result, &m);
+        } else if result.contains("where_cond") {
+            let filter = format!(" WHERE {and_clause}");
+            let mut m = HashMap::new();
+            m.insert("where_cond".to_string(), filter);
+            result = safe_format_map_rust(&result, &m);
+        } else if result.contains("filter") {
+            let filter = format!(" WHERE {and_clause}");
+            let mut m = HashMap::new();
+            m.insert("filter".to_string(), filter);
+            result = safe_format_map_rust(&result, &m);
+        } else {
+            // Attach condition directly
+            let filter = if result.contains("WHERE") {
+                format!(" AND {and_clause}")
+            } else {
+                format!(" WHERE {and_clause}")
+            };
+            result = format!("{result}{filter}");
+        }
+    }
+
+    // Clean up unused placeholders
+    let mut cleanup = HashMap::new();
+    cleanup.insert("where_cond".to_string(), String::new());
+    cleanup.insert("and_cond".to_string(), String::new());
+    cleanup.insert("filter".to_string(), String::new());
+    result = safe_format_map_rust(&result, &cleanup);
+
+    Ok(result)
+}
+
+/// Build GROUP BY clause.
+///
+/// Mirrors `SQLParser.group_by()` from sql.pyx.
+#[pyfunction]
+#[pyo3(signature = (sql, grouping))]
+pub fn group_by(sql: &str, grouping: Vec<String>) -> String {
+    if grouping.is_empty() {
+        return sql.to_string();
+    }
+
+    // Only consider an *outer* GROUP BY (depth 0). A GROUP BY nested inside a
+    // CTE or subquery must not be modified — appending columns to it would
+    // splice the inner CTE's GROUP BY into the outer FROM clause.
+    if let Some(gb_pos) = find_keyword_at_depth(sql, "GROUP BY", 0) {
+        let after_gb = gb_pos + 8; // len("GROUP BY")
+        let suffix = &sql[after_gb..];
+        let end_pos =
+            find_first_keyword_at_depth(suffix, &["HAVING", "ORDER", "LIMIT", "WHERE"], 0)
+                .map(|p| after_gb + p)
+                .unwrap_or(sql.len());
+
+        let current_cols: Vec<&str> =
+            sql[after_gb..end_pos].split(',').map(|c| c.trim()).collect();
+        let mut all_cols: Vec<String> =
+            current_cols.iter().map(|s| s.to_string()).collect();
+        all_cols.extend(grouping);
+
+        format!("{} GROUP BY {} {}",
+            sql[..gb_pos].trim_end(),
+            all_cols.join(", "),
+            sql[end_pos..].trim_start()
+        ).trim().to_string()
+    } else {
+        let group = grouping.join(", ");
+        format!("{sql} GROUP BY {group}")
+    }
+}
+
+/// Build ORDER BY clause.
+///
+/// Mirrors `SQLParser.order_by()` from sql.pyx.
+#[pyfunction]
+#[pyo3(signature = (sql, ordering))]
+pub fn order_by(sql: &str, ordering: Vec<String>) -> String {
+    if ordering.is_empty() {
+        return sql.to_string();
+    }
+    let order = ordering.join(", ");
+    format!("{sql} ORDER BY {order}")
+}
+
+/// Build LIMIT/OFFSET clause.
+///
+/// Mirrors `SQLParser.limiting()` from sql.pyx.
+#[pyfunction]
+#[pyo3(signature = (sql, limit="", offset=""))]
+pub fn limiting(sql: &str, limit: &str, offset: &str) -> String {
+    let mut result = sql.to_string();
+
+    // Handle {limit} placeholder
+    if result.contains("{limit}") {
+        let limit_clause = if !limit.is_empty() {
+            format!("LIMIT {limit}")
+        } else {
+            String::new()
+        };
+        let mut m = HashMap::new();
+        m.insert("limit".to_string(), limit_clause);
+        result = safe_format_map_rust(&result, &m);
+    } else if !limit.is_empty() {
+        result = format!("{result} LIMIT {limit}");
+    }
+
+    // Handle {offset} placeholder
+    if result.contains("{offset}") {
+        if !offset.is_empty() {
+            let offset_clause = format!("OFFSET {offset}");
+            let mut m = HashMap::new();
+            m.insert("offset".to_string(), offset_clause);
+            result = safe_format_map_rust(&result, &m);
+        }
+    } else if !offset.is_empty() {
+        result = format!("{result} OFFSET {offset}");
+    }
+
+    result
+}
+
+/// Process and replace fields in a SQL query.
+///
+/// Mirrors `SQLParser.process_fields()` from sql.pyx.
+#[pyfunction]
+#[pyo3(signature = (sql, fields, add_fields=false, query_raw=""))]
+pub fn process_fields(
+    sql: &str,
+    fields: Vec<String>,
+    add_fields: bool,
+    query_raw: &str,
+) -> String {
+    if !fields.is_empty() {
+        if add_fields {
+            // Extract existing fields between SELECT and FROM
+            let upper = sql.to_uppercase();
+            if let (Some(sel_pos), Some(from_pos)) = (find_keyword(&upper, "SELECT"), find_keyword(&upper, "FROM")) {
+                let after_select = sel_pos + 6; // len("SELECT")
+                let current_fields: Vec<&str> =
+                    sql[after_select..from_pos].split(',').map(|f| f.trim()).collect();
+                let mut all_fields: Vec<String> =
+                    current_fields.iter().map(|s| s.to_string()).collect();
+                all_fields.extend(fields);
+                return format!(
+                    "{} {} {}",
+                    &sql[..after_select],
+                    all_fields.join(", "),
+                    &sql[from_pos..]
+                );
+            }
+        }
+        let mut result = sql.replace(" * FROM", " {fields} FROM");
+        let field_str = fields.join(", ");
+        let mut m = HashMap::new();
+        m.insert("fields".to_string(), field_str);
+        result = safe_format_map_rust(&result, &m);
+        return result;
+    }
+
+    // Check if {fields} is in the raw query but fields list is empty
+    if query_raw.contains("{fields}") {
+        return sql.to_string();
+    }
+
+    sql.to_string()
+}
+
+// ---------------------------------------------------------------------------
+// build_sql — Parallel orchestrator via rayon
+// ---------------------------------------------------------------------------
+
+/// Build a complete SQL query by orchestrating all clause builders.
+///
+/// Uses `rayon::join` to process independent operations in parallel:
+/// - Branch A: process_fields
+/// - Branch B: group_by + order_by
+///
+/// filter_conditions is called from Python because it needs PyDict.
+/// After fields, grouping, and ordering are done, limiting is applied.
+#[pyfunction]
+#[pyo3(signature = (sql, fields, add_fields, grouping, ordering, limit, offset, query_raw, conditions))]
+pub fn build_sql(
+    sql: &str,
+    fields: Vec<String>,
+    add_fields: bool,
+    grouping: Vec<String>,
+    ordering: Vec<String>,
+    limit: &str,
+    offset: &str,
+    query_raw: &str,
+    conditions: &Bound<'_, PyDict>,
+) -> PyResult<String> {
+    // Step 1: Process fields (can run in parallel with group/order prep)
+    let (fields_result, (group_cols, order_cols)) = rayon::join(
+        || process_fields(sql, fields, add_fields, query_raw),
+        || {
+            // Prepare group and order strings (cheap, but demonstrates the pattern)
+            let g = grouping;
+            let o = ordering;
+            (g, o)
+        },
+    );
+
+    // Step 2: Apply GROUP BY
+    let result = group_by(&fields_result, group_cols);
+
+    // Step 3: Apply ORDER BY
+    let result = if !order_cols.is_empty() {
+        order_by(&result, order_cols)
+    } else {
+        result
+    };
+
+    // Step 4: Apply LIMIT/OFFSET
+    let result = limiting(&result, limit, offset);
+
+    // Step 5: Apply remaining conditions via safe_format_map
+    let mut cond_map: HashMap<String, String> = HashMap::new();
+    for (k, v) in conditions.iter() {
+        if let (Ok(key), Ok(val)) = (k.extract::<String>(), v.extract::<String>()) {
+            cond_map.insert(key, val);
+        }
+    }
+
+    let result = if !cond_map.is_empty() {
+        safe_format_map_rust(&result, &cond_map)
+    } else {
+        result
+    };
+
+    Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_build_string_condition_basic() {
+        let mut conds = Vec::new();
+        build_string_condition("name", "John", "name", "", &mut conds);
+        assert_eq!(conds[0], "name='John'");
+    }
+
+    #[test]
+    fn test_build_string_condition_null() {
+        let mut conds = Vec::new();
+        build_string_condition("name", "null", "name", "", &mut conds);
+        assert_eq!(conds[0], "name IS NULL");
+    }
+
+    #[test]
+    fn test_build_string_condition_not_null() {
+        let mut conds = Vec::new();
+        build_string_condition("name", "!null", "name", "", &mut conds);
+        assert_eq!(conds[0], "name IS NOT NULL");
+    }
+
+    #[test]
+    fn test_build_string_condition_negation() {
+        let mut conds = Vec::new();
+        build_string_condition("status", "!active", "status", "", &mut conds);
+        assert_eq!(conds[0], "status != 'active'");
+    }
+
+    #[test]
+    fn test_build_string_condition_between() {
+        let mut conds = Vec::new();
+        build_string_condition(
+            "date",
+            "BETWEEN '2024-01-01' AND '2024-12-31'",
+            "date",
+            "",
+            &mut conds,
+        );
+        assert_eq!(
+            conds[0],
+            "(date BETWEEN '2024-01-01' AND '2024-12-31')"
+        );
+    }
+
+    #[test]
+    fn test_build_string_condition_end_bang() {
+        let mut conds = Vec::new();
+        build_string_condition("status!", "active", "status", "!", &mut conds);
+        assert_eq!(conds[0], "status != active");
+    }
+
+    #[test]
+    fn test_apply_where_clause_with_filter() {
+        let result = apply_where_clause(
+            "SELECT * FROM t {filter}",
+            &["a=1".to_string()],
+        )
+        .unwrap();
+        assert_eq!(result, "SELECT * FROM t  WHERE a=1");
+    }
+
+    #[test]
+    fn test_apply_where_clause_with_where_cond() {
+        let result = apply_where_clause(
+            "SELECT * FROM t {where_cond}",
+            &["a=1".to_string()],
+        )
+        .unwrap();
+        assert_eq!(result, "SELECT * FROM t  WHERE a=1");
+    }
+
+    #[test]
+    fn test_apply_where_clause_no_placeholder() {
+        let result = apply_where_clause(
+            "SELECT * FROM t",
+            &["a=1".to_string(), "b=2".to_string()],
+        )
+        .unwrap();
+        assert_eq!(result, "SELECT * FROM t WHERE a=1 AND b=2");
+    }
+
+    #[test]
+    fn test_apply_where_clause_existing_where() {
+        let result = apply_where_clause(
+            "SELECT * FROM t WHERE x=0",
+            &["a=1".to_string()],
+        )
+        .unwrap();
+        assert_eq!(result, "SELECT * FROM t WHERE x=0 AND a=1");
+    }
+
+    #[test]
+    fn test_apply_where_clause_empty() {
+        let result =
+            apply_where_clause("SELECT * FROM t {filter}", &[]).unwrap();
+        assert_eq!(result, "SELECT * FROM t ");
+    }
+
+    #[test]
+    fn test_group_by_new() {
+        let result = group_by("SELECT * FROM t", vec!["col1".to_string()]);
+        assert_eq!(result, "SELECT * FROM t GROUP BY col1");
+    }
+
+    #[test]
+    fn test_group_by_multiple() {
+        let result = group_by(
+            "SELECT * FROM t",
+            vec!["col1".to_string(), "col2".to_string()],
+        );
+        assert_eq!(result, "SELECT * FROM t GROUP BY col1, col2");
+    }
+
+    #[test]
+    fn test_group_by_empty() {
+        let result = group_by("SELECT * FROM t", vec![]);
+        assert_eq!(result, "SELECT * FROM t");
+    }
+
+    #[test]
+    fn test_group_by_skips_cte_inner_group_by() {
+        // Regression: a GROUP BY inside a CTE must not be modified — we must
+        // append a new outer GROUP BY instead.
+        let sql = "WITH agg AS (\n    SELECT a, b, SUM(c) AS s FROM t GROUP BY a, b\n)\nSELECT a, SUM(s) FROM agg WHERE a > 0";
+        let result = group_by(sql, vec!["a".to_string()]);
+        // The CTE's inner GROUP BY must remain intact
+        assert!(
+            result.contains("FROM t GROUP BY a, b"),
+            "inner GROUP BY corrupted: {result}"
+        );
+        // A new outer GROUP BY is appended at the end
+        assert!(result.trim_end().ends_with("GROUP BY a"));
+        // No spurious comma-injection into the FROM clause
+        assert!(!result.contains("FROM agg, a"));
+    }
+
+    #[test]
+    fn test_group_by_extends_outer_group_by() {
+        // Outer GROUP BY at depth 0 should still be extended.
+        let sql = "SELECT a, b FROM t GROUP BY a";
+        let result = group_by(sql, vec!["b".to_string()]);
+        assert_eq!(result, "SELECT a, b FROM t GROUP BY a, b");
+    }
+
+    #[test]
+    fn test_group_by_outer_with_subquery() {
+        // A subquery's GROUP BY must be ignored; the outer GROUP BY is extended.
+        let sql = "SELECT a FROM t WHERE a IN (SELECT b FROM u GROUP BY b) GROUP BY a";
+        let result = group_by(sql, vec!["c".to_string()]);
+        assert!(result.contains("(SELECT b FROM u GROUP BY b)"));
+        assert!(result.contains("GROUP BY a, c"));
+    }
+
+    #[test]
+    fn test_find_keyword_at_depth_skips_string_literals() {
+        // A keyword inside a single-quoted literal must not match.
+        let sql = "SELECT 'GROUP BY x' AS lit FROM t";
+        assert_eq!(find_keyword_at_depth(sql, "GROUP BY", 0), None);
+    }
+
+    #[test]
+    fn test_order_by() {
+        let result =
+            order_by("SELECT * FROM t", vec!["col1 ASC".to_string()]);
+        assert_eq!(result, "SELECT * FROM t ORDER BY col1 ASC");
+    }
+
+    #[test]
+    fn test_order_by_empty() {
+        let result = order_by("SELECT * FROM t", vec![]);
+        assert_eq!(result, "SELECT * FROM t");
+    }
+
+    #[test]
+    fn test_limiting_basic() {
+        let result = limiting("SELECT * FROM t", "10", "");
+        assert_eq!(result, "SELECT * FROM t LIMIT 10");
+    }
+
+    #[test]
+    fn test_limiting_with_offset() {
+        let result = limiting("SELECT * FROM t", "10", "20");
+        assert_eq!(result, "SELECT * FROM t LIMIT 10 OFFSET 20");
+    }
+
+    #[test]
+    fn test_limiting_placeholder() {
+        let result = limiting("SELECT * FROM t {limit}", "10", "");
+        assert_eq!(result, "SELECT * FROM t LIMIT 10");
+    }
+
+    #[test]
+    fn test_limiting_empty() {
+        let result = limiting("SELECT * FROM t", "", "");
+        assert_eq!(result, "SELECT * FROM t");
+    }
+
+    #[test]
+    fn test_process_fields_list() {
+        let result = process_fields(
+            "SELECT * FROM t",
+            vec!["a".to_string(), "b".to_string()],
+            false,
+            "",
+        );
+        assert_eq!(result, "SELECT a, b FROM t");
+    }
+
+    #[test]
+    fn test_process_fields_with_placeholder() {
+        let result = process_fields(
+            "SELECT {fields} FROM t",
+            vec!["x".to_string(), "y".to_string()],
+            false,
+            "",
+        );
+        assert_eq!(result, "SELECT x, y FROM t");
+    }
+
+    #[test]
+    fn test_process_fields_empty() {
+        let result = process_fields("SELECT * FROM t", vec![], false, "");
+        assert_eq!(result, "SELECT * FROM t");
+    }
+}

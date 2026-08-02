@@ -1,0 +1,308 @@
+Metadata-Version: 2.3
+Name: tako-sdk
+Version: 2.2.10
+Summary: The official Python library for the tako API
+Project-URL: Homepage, https://tako.com
+Project-URL: Documentation, https://docs.tako.com
+Author-email: Tako <support@tako.com>
+License: MIT
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: OS Independent
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Requires-Dist: httpx-sse>=0.4
+Requires-Dist: httpx<1,>=0.27
+Requires-Dist: pydantic<3,>=2
+Requires-Dist: python-dateutil>=2.8.2
+Requires-Dist: typing-extensions>=4.7.1
+Requires-Dist: urllib3<3,>=2.7.0
+Provides-Extra: pandas
+Requires-Dist: pandas>=1.5; extra == 'pandas'
+Description-Content-Type: text/markdown
+
+# Tako Python SDK
+
+<!-- prettier-ignore -->
+[![PyPI version](https://img.shields.io/pypi/v/tako-sdk.svg?label=pypi%20(stable))](https://pypi.org/project/tako-sdk/)
+
+The Tako Python SDK provides convenient access to the [Tako](https://tako.com) API from any
+Python 3.9+ application. It ships fully typed request and response models and offers both
+synchronous and asynchronous clients.
+
+## Documentation
+
+API reference and guides are available at [docs.tako.com](https://docs.tako.com).
+
+## Installation
+
+```sh
+pip install tako-sdk
+```
+
+The import package is `tako`:
+
+```python
+from tako.lib import Tako
+```
+
+## Authentication
+
+Create an API key from your Tako account and provide it when building the client. We recommend
+keeping it out of source control — for example, reading it from an environment variable:
+
+```python
+import os
+
+from tako import Configuration
+from tako.lib import Tako
+
+config = Configuration()
+config.api_key["apiKey"] = os.environ["TAKO_API_KEY"]
+client = Tako(config)
+```
+
+## Usage
+
+```python
+import os
+
+from tako import Configuration, SearchRequest
+from tako.lib import Tako
+
+config = Configuration()
+config.api_key["apiKey"] = os.environ["TAKO_API_KEY"]
+client = Tako(config)
+
+results = client.search(SearchRequest(query="S&P 500 performance this year"))
+print(results.request_id)
+for card in results.cards or []:
+    print(card.title, card.webpage_url)
+```
+
+### Operations
+
+| Method | Description |
+| ------ | ----------- |
+| `client.search(SearchRequest(...))` | Search the Tako knowledge base; returns matching cards and web results. |
+| `client.answer(SearchRequest(...))` | Get a written answer with supporting cards. |
+| `client.create_card(CreateCardRequest(...))` | Build a visualization card from component configurations. |
+| `client.contents(ContentsRequest(...))` | Fetch downloadable content (e.g. a CSV) for a card or web URL. |
+
+For example, fetch the underlying data for a card returned by a search. Not every
+card is exportable (some come from protected sources), so guard for the case where
+no card has downloadable `content`:
+
+```python
+from tako import ContentsRequest, SearchRequest
+
+results = client.search(SearchRequest(query="US Oil Prices"))
+card = next(
+    (c for c in (results.cards or []) if c.webpage_url and c.content and c.content.formats),
+    None,
+)
+if card is None:
+    print("No exportable card found")
+else:
+    contents = client.contents(ContentsRequest(url=card.webpage_url))
+    for item in contents.contents or []:
+        print(item.content_format, item.url)
+```
+
+## Async usage
+
+Use `AsyncTako` with the `tako.aio` package and `await` each call:
+
+```python
+import asyncio
+import os
+
+from tako.aio import Configuration, SearchRequest
+from tako.lib import AsyncTako
+
+
+async def main() -> None:
+    config = Configuration()
+    config.api_key["apiKey"] = os.environ["TAKO_API_KEY"]
+    client = AsyncTako(config)
+
+    results = await client.search(SearchRequest(query="S&P 500 performance this year"))
+    print(results.request_id)
+
+
+asyncio.run(main())
+```
+
+The async client exposes the same operations as the synchronous one.
+
+## Agents
+
+Two agent products hang off `client.agent`:
+
+| Namespace | Endpoint | Product |
+| --- | --- | --- |
+| `client.agent.retrieval.*` | `/v1/agent/retrieval/runs` | **Retrieval Agent** — agentic data retrieval (multi-hop lookup, cohort resolution, structured outputs) |
+| `client.agent.answer.*` | `/v1/agent/answer/runs` | **Answer Agent** — opinionated agentic research returning cited prose |
+
+Each exposes `run(req)` (202 dispatch → run object), `get(run_id)` (poll for
+status), and `stream(req)` (live SSE). (`client.agent.answer.*`, the Answer
+*Agent*, is distinct from `client.answer()`, the one-shot `/v1/answer` call.)
+
+### Streaming
+
+Stream a run live over Server-Sent Events. The stream yields typed per-product
+envelopes (`RetrievalAgentStreamEnvelope` / `AnswerAgentStreamEnvelope`) and
+auto-reconnects (resuming via the last `seq`) on transient network drops. Use it
+as a context manager so the connection is always closed.
+
+```python
+from tako import Configuration
+from tako.lib import Tako
+from tako.models.retrieval_agent_run_request import RetrievalAgentRunRequest
+
+config = Configuration()
+config.api_key["apiKey"] = "YOUR_API_KEY"
+client = Tako(config)
+
+req = RetrievalAgentRunRequest(query="Which S&P 500 semis grew revenue fastest in 2024?")
+with client.agent.retrieval.stream(req) as stream:
+    for event in stream:
+        block = event.block.actual_instance
+        print(event.seq, block.kind)
+    # The stream ends at `stream_done`. If it ended without a terminal result
+    # (and produced at least one event, so `run_id` is known), poll for status:
+    if stream.result is None and stream.run_id is not None:
+        run = client.agent.retrieval.get(stream.run_id)
+        print(run.status)
+```
+
+Async usage mirrors this — `stream = await client.agent.retrieval.stream(req)` then `async with stream: async for event in stream: ...`. The Answer Agent is identical with `client.agent.answer.*` and `AnswerAgentRunRequest`.
+
+### Structured output (Retrieval Agent)
+
+Pass an `output_schema` (JSON Schema) to shape the response. Mark a property with
+`"x-tako-dataset": true` to request a **dataset slot** — filled with exact
+retrieved rows as a `TakoDataset`. Two helpers make this ergonomic:
+
+- **`derive_response_schema(schema)`** — the schema `structured_output` actually
+  validates against (each slot becomes `TakoDataset | null`). Pair with `jsonschema`.
+- **`TakoDatasetView`** — a records / DataFrame view over a filled slot. `.records`
+  needs no extra dependency; `.to_dataframe()` needs the `pandas` extra
+  (`pip install tako-sdk[pandas]`).
+
+```python
+import jsonschema
+from tako.lib import Tako, TakoDatasetView, derive_response_schema
+from tako.models.retrieval_agent_run_request import RetrievalAgentRunRequest
+
+schema = {
+    "type": "object",
+    "properties": {
+        "headline": {"type": "string"},
+        "cohort": {"x-tako-dataset": True, "columns": ["company", "revenue"]},
+    },
+    "required": ["headline", "cohort"],
+}
+
+run = client.agent.retrieval.run(RetrievalAgentRunRequest(query="...", output_schema=schema))
+run = client.agent.retrieval.get(run.run_id)  # poll to a terminal status
+
+if run.result and run.result.structured_output:
+    jsonschema.validate(run.result.structured_output, derive_response_schema(schema))
+    view = TakoDatasetView(run.result.structured_output["cohort"])
+    print(view.records)          # list[dict], one per row
+    print(view.to_dataframe())   # typed pandas DataFrame (needs tako-sdk[pandas])
+```
+
+See `examples/` for runnable scripts — sync (`retrieval_agent_streaming.py`,
+`answer_agent_streaming.py`, `retrieval_agent_structured_output.py`) and async
+(`retrieval_agent_streaming_async.py`, `answer_agent_streaming_async.py`).
+
+## Requests and responses
+
+Request and response models are [Pydantic models](https://docs.pydantic.dev). Access fields as
+attributes (`results.request_id`), and use the usual helpers to serialize:
+
+```python
+results.model_dump()        # -> dict
+results.model_dump_json()   # -> JSON string
+```
+
+## Configuration
+
+By default the client targets the Tako production API. To point at a different host, pass it to
+`Configuration`:
+
+```python
+from tako import Configuration
+
+config = Configuration(host="https://staging.tako.com/api")
+```
+
+## Handling errors
+
+API errors raise a subclass of `tako.ApiException`. The exception carries the HTTP `status`,
+`reason`, and response `body`:
+
+```python
+from tako import Configuration, SearchRequest
+from tako.exceptions import ApiException, UnauthorizedException
+from tako.lib import Tako
+
+config = Configuration()
+config.api_key["apiKey"] = "invalid-key"
+client = Tako(config)
+
+try:
+    client.search(SearchRequest(query="US GDP growth rate"))
+except UnauthorizedException:
+    print("Invalid or missing API key")
+except ApiException as exc:
+    print(f"Request failed: {exc.status} {exc.reason}")
+    print(exc.body)
+```
+
+The async client (`AsyncTako`) raises the **same** exception classes, so you can
+catch `tako.exceptions.ApiException` around `await` calls exactly as above — no
+async-specific imports are needed.
+
+Status codes map to the following exception types (all subclasses of `ApiException`):
+
+| Status Code | Exception                     |
+| ----------- | ----------------------------- |
+| 400         | `BadRequestException`         |
+| 401         | `UnauthorizedException`       |
+| 403         | `ForbiddenException`          |
+| 404         | `NotFoundException`           |
+| 409         | `ConflictException`           |
+| 422         | `UnprocessableEntityException`|
+| >=500       | `ServiceException`            |
+
+## Versioning
+
+This package follows [SemVer](https://semver.org/spec/v2.0.0.html). You can check the installed
+version at runtime:
+
+```python
+import tako
+
+print(tako.__version__)
+```
+
+## Requirements
+
+Python 3.9 or higher.
+
+## Support
+
+Questions, bugs, or feedback? See the documentation at [docs.tako.com](https://docs.tako.com).

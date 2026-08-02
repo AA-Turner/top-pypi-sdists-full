@@ -14,6 +14,7 @@ use crate::{
         AsDocument,
         action::{Action, CompositeStep, DockerAction},
         dependabot::Dependabot,
+        pre_commit::{self, PreCommitConfig, PreCommitHooks},
         workflow::{Job, NormalJob, ReusableWorkflowCallJob, Step, Workflow},
     },
     registry::input::InputKey,
@@ -37,6 +38,7 @@ pub(crate) mod github_env;
 pub(crate) mod hardcoded_container_credentials;
 pub(crate) mod impostor_commit;
 pub(crate) mod insecure_commands;
+pub(crate) mod insecure_url_scheme;
 pub(crate) mod known_vulnerable_actions;
 pub(crate) mod misfeature;
 pub(crate) mod obfuscation;
@@ -65,6 +67,8 @@ pub(crate) enum AuditInput {
     Workflow(Workflow),
     Action(Action),
     Dependabot(Dependabot),
+    PreCommitConfig(PreCommitConfig),
+    PreCommitHooks(PreCommitHooks),
 }
 
 impl AuditInput {
@@ -73,6 +77,8 @@ impl AuditInput {
             AuditInput::Workflow(workflow) => &workflow.key,
             AuditInput::Action(action) => &action.key,
             AuditInput::Dependabot(dependabot) => &dependabot.key,
+            AuditInput::PreCommitConfig(pre_commit_config) => &pre_commit_config.key,
+            AuditInput::PreCommitHooks(pre_commit_hooks) => &pre_commit_hooks.key,
         }
     }
 
@@ -81,6 +87,8 @@ impl AuditInput {
             AuditInput::Workflow(workflow) => workflow.link.as_deref(),
             AuditInput::Action(action) => action.link.as_deref(),
             AuditInput::Dependabot(dependabot) => dependabot.link.as_deref(),
+            AuditInput::PreCommitConfig(pre_commit_config) => pre_commit_config.link.as_deref(),
+            AuditInput::PreCommitHooks(pre_commit_hooks) => pre_commit_hooks.link.as_deref(),
         }
     }
 
@@ -89,7 +97,21 @@ impl AuditInput {
             AuditInput::Workflow(workflow) => workflow.location(),
             AuditInput::Action(action) => action.location(),
             AuditInput::Dependabot(dependabot) => dependabot.location(),
+            AuditInput::PreCommitConfig(pre_commit_config) => pre_commit_config.location(),
+            AuditInput::PreCommitHooks(pre_commit_hooks) => pre_commit_hooks.location(),
         }
+    }
+
+    /// Returns whether this kind of input supports GitHub Actions' template syntax,
+    /// i.e. "actions expressions."
+    ///
+    /// This exists because some [`Audit::audit_raw`] implementations exist to walk
+    /// actions expressions, but not all raw inputs can actually contain those expressions.
+    ///
+    /// TODO: This is kind of goofy. Maybe we should do this by construction,
+    /// i.e. have an `Audit::audit_raw_gha` instead.
+    pub(crate) fn supports_gha_template_syntax(&self) -> bool {
+        matches!(self, AuditInput::Workflow(_) | AuditInput::Action(_))
     }
 }
 
@@ -99,6 +121,8 @@ impl<'a> AsDocument<'a, 'a> for AuditInput {
             AuditInput::Workflow(workflow) => workflow.as_document(),
             AuditInput::Action(action) => action.as_document(),
             AuditInput::Dependabot(dependabot) => dependabot.as_document(),
+            AuditInput::PreCommitConfig(pre_commit_config) => pre_commit_config.as_document(),
+            AuditInput::PreCommitHooks(pre_commit_hooks) => pre_commit_hooks.as_document(),
         }
     }
 }
@@ -109,6 +133,8 @@ impl<'a> Routable<'a, 'a> for AuditInput {
             AuditInput::Workflow(workflow) => workflow.location().route,
             AuditInput::Action(action) => action.location().route,
             AuditInput::Dependabot(dependabot) => dependabot.location().route,
+            AuditInput::PreCommitConfig(pre_commit_config) => pre_commit_config.location().route,
+            AuditInput::PreCommitHooks(pre_commit_hooks) => pre_commit_hooks.location().route,
         }
     }
 }
@@ -128,6 +154,18 @@ impl From<Action> for AuditInput {
 impl From<Dependabot> for AuditInput {
     fn from(value: Dependabot) -> Self {
         Self::Dependabot(value)
+    }
+}
+
+impl From<PreCommitConfig> for AuditInput {
+    fn from(value: PreCommitConfig) -> Self {
+        Self::PreCommitConfig(value)
+    }
+}
+
+impl From<PreCommitHooks> for AuditInput {
+    fn from(value: PreCommitHooks) -> Self {
+        Self::PreCommitHooks(value)
     }
 }
 
@@ -232,7 +270,7 @@ impl AuditError {
 /// Auditing trait.
 ///
 /// Implementors of this trait can choose the level of specificity/context
-/// they need for workflows and/or action definitions:
+/// they need for their kind(s) of input:
 ///
 /// For workflows:
 ///
@@ -243,11 +281,19 @@ impl AuditError {
 ///
 /// For actions:
 ///
-/// 1. [`Audit::audit_action`]: runs at the top of the action (most general)
-/// 2. [`Audit::audit_composite_step`]: runs on each composite step within the
+/// 1. [`Audit::audit_docker_action`]: runs at the top of the Docker action (most general)
+/// 1. [`Audit::audit_action`]: runs at the top of the composite action (most general)
+/// 1. [`Audit::audit_composite_step`]: runs on each composite step within the
 ///    action (most specific)
 ///
-/// For both:
+/// For pre-commit inputs:
+///
+/// 1. [`Audit::audit_pre_commit_config`]: runs at the top of the pre-commit configuration (most general)
+/// 1. [`Audit::audit_pre_commit_hooks`]: runs at the top of the pre-commit hooks definition (most general)
+/// 1. [`Audit::audit_pre_commit_config_repo`]: runs on each `repo` definition within the pre-commit
+///    configuration
+///
+/// For all:
 ///
 /// 1. [`Audit::audit_raw`]: runs on the raw, unparsed YAML document source
 ///
@@ -354,6 +400,36 @@ pub(crate) trait Audit: AuditCore {
         Ok(vec![])
     }
 
+    async fn audit_pre_commit_config_repo<'doc>(
+        &self,
+        _repo: &pre_commit::Repo<'doc>,
+        _config: &Config,
+    ) -> Result<Vec<Finding<'doc>>, AuditError> {
+        Ok(vec![])
+    }
+
+    async fn audit_pre_commit_config<'doc>(
+        &self,
+        pre_commit: &'doc PreCommitConfig,
+        config: &Config,
+    ) -> Result<Vec<Finding<'doc>>, AuditError> {
+        let mut results = vec![];
+
+        for repo in pre_commit.repos() {
+            results.extend(self.audit_pre_commit_config_repo(&repo, config).await?);
+        }
+
+        Ok(results)
+    }
+
+    async fn audit_pre_commit_hooks<'doc>(
+        &self,
+        _hooks: &'doc PreCommitHooks,
+        _config: &Config,
+    ) -> Result<Vec<Finding<'doc>>, AuditError> {
+        Ok(vec![])
+    }
+
     async fn audit_raw<'doc>(
         &self,
         _input: &'doc AuditInput,
@@ -362,7 +438,7 @@ pub(crate) trait Audit: AuditCore {
         Ok(vec![])
     }
 
-    /// The top-level auditing function for both workflows and actions.
+    /// The top-level auditing function for all inputs.
     ///
     /// Implementors **should not** override this blanket implementation,
     /// since it's marked with tracing instrumentation.
@@ -393,6 +469,10 @@ pub(crate) trait Audit: AuditCore {
             AuditInput::Workflow(workflow) => self.audit_workflow(workflow, config).await,
             AuditInput::Action(action) => self.audit_action(action, config).await,
             AuditInput::Dependabot(dependabot) => self.audit_dependabot(dependabot, config).await,
+            AuditInput::PreCommitConfig(pre_commit) => {
+                self.audit_pre_commit_config(pre_commit, config).await
+            }
+            AuditInput::PreCommitHooks(hooks) => self.audit_pre_commit_hooks(hooks, config).await,
         }?;
 
         results.extend(self.audit_raw(input, config).await?);

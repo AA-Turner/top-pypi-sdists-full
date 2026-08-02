@@ -1,0 +1,2 @@
+export const __rspack_esm_id=87656;export const __rspack_esm_ids=[87656];export const __webpack_modules__={73851(e,t,r){r.r(t);var a=r(15697),s=r(57527),n=r(8399);class i extends s.mN{static async generate(e){return{views:[{strategy:e}]}}static async getConfigElement(){return await r.e(65433).then(r.bind(r,59296)),document.createElement("hui-iframe-dashboard-strategy-editor")}}i.registryDependencies=[],i.configRequired=!0,i=(0,a.Cg)([(0,n.EM)("iframe-dashboard-strategy")],i),r.d(t,{IframeDashboardStrategy:()=>i})}};
+//# sourceMappingURL=87656.6599aff0b673f58d.js.map

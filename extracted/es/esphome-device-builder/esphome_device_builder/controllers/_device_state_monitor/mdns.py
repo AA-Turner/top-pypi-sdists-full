@@ -31,7 +31,7 @@ from zeroconf.const import _CLASS_IN, _TYPE_A, _TYPE_AAAA, _TYPE_SRV, _TYPE_TXT
 
 from ...helpers.async_ import drain_tasks, log_task_exit
 from ...helpers.hostname import normalize_hostname
-from ...helpers.ip import drop_unspecified_addresses
+from ...helpers.ip import drop_unusable_addresses
 from ...models import DeviceState
 from .._reachability_tracker import MdnsCacheInfo
 from .helpers import (
@@ -304,7 +304,7 @@ class MdnsSource:
         if not info.load_from_cache(self._zeroconf.zeroconf):
             return None
         addresses = info.parsed_scoped_addresses(IPVersion.All)
-        return drop_unspecified_addresses(addresses) or None
+        return drop_unusable_addresses(addresses) or None
 
     def reconcile_from_cache(self, device_name: str) -> None:
         """
@@ -387,7 +387,7 @@ class MdnsSource:
             or self._cached_ptr(service_name, service_type) is not None
         )
 
-    def probe_device(self, device_name: str, service_name: str | None = None) -> None:
+    def probe_device(self, device_name: str) -> None:
         """
         Eagerly resolve a device's ``_esphomelib._tcp.local.`` service.
 
@@ -395,17 +395,10 @@ class MdnsSource:
         announce — flips the card from "Unknown" to fully-populated
         immediately by reading the zeroconf cache (sync hit) or
         kicking off a fire-and-forget ``async_request``.
-
-        ``service_name`` defaults to ``device_name``; pass it
-        explicitly when the device's mDNS-advertised name (its
-        original factory-firmware hostname) differs from the
-        user-chosen YAML name so the lookup hits the cache while
-        the apply still keys to the configured name.
         """
         if (zc := self._zeroconf) is None:
             return
-        broadcast = service_name or device_name
-        info = AsyncServiceInfo(_ESPHOME_SERVICE_TYPE, f"{broadcast}.{_ESPHOME_SERVICE_TYPE}")
+        info = AsyncServiceInfo(_ESPHOME_SERVICE_TYPE, f"{device_name}.{_ESPHOME_SERVICE_TYPE}")
         self.cache_apply_or_resolve(zc.zeroconf, info, device_name)
 
     async def resolve_then(
@@ -542,7 +535,7 @@ class MdnsSource:
         announce never claims.
         """
         monitor = self._monitor
-        # Claimed before the apply-path unspecified-address filter, unlike
+        # Claimed before the apply-path unusable-address filter, unlike
         # the active-resolve path: a resolved service is liveness evidence
         # on its own (already claimed even when addressless), and the
         # browser's ``Removed`` lifecycle withdraws the claim so ping

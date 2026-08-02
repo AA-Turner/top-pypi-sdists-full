@@ -1,0 +1,72 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+name: Check Architecture Handshake
+
+on:
+  push:
+    branches: [main, develop, dev, "hotfix/**"]
+  pull_request:
+    branches: [main, develop, dev]
+  workflow_dispatch:
+
+jobs:
+  occ-preflight:
+    uses: ./.github/workflows/occ-preflight.yml
+    permissions:
+      contents: read
+      pull-requests: read
+    with:
+      contracts-dir: contracts
+      receipts-dir: drift/dod_receipts
+
+  check-handshake:
+    needs: occ-preflight
+    if: always()
+    name: Check architecture handshake
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    runs-on: >-
+      ${{
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+
+      # omnibase_core IS the source-of-truth for architecture handshakes.
+      # No separate checkout needed -- check-handshake.sh auto-detects
+      # the handshakes directory via its parent path (option 3).
+
+      - name: Check architecture handshake
+        run: bash architecture-handshakes/check-handshake.sh .
+
+      # OMN-9115: Enforce validator-requirements.yaml so the compliance-gate
+      # spec shipped by OMN-9051 is actually consumed. Runs against
+      # omnibase_core itself; downstream repos copy this workflow and change
+      # --repo accordingly (OMN-9049 universal rollout).
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Enforce validator-requirements.yaml
+        run: |
+          uv sync --all-extras
+          uv run python -m omnibase_core.validation.validator_requirements_consumer \
+            --repo omnibase_core \
+            --repo-root . \
+            --baseline architecture-handshakes/validator-requirements-baseline.yaml
+
+      # OMN-13574 (Model B): prove the single required rollup (CI Summary) is
+      # AIRTIGHT — its transitive needs graph reaches a non-failure-swallowing
+      # job for every opted-in spec-required validator. Per-repo opt-in
+      # (model_b_rollup_enforcement.repos); non-opted repos exit 0 (pilot scope,
+      # fleet rollout OMN-13576). This is the enforcement half of Model B (the
+      # consumer above only proves presence, not that the rollup gates).
+      - name: Verify Model-B rollup coverage (OMN-13574)
+        run: |
+          uv run python -m omnibase_core.validation.validator_rollup_coverage \
+            --repo omnibase_core \
+            --repo-root .

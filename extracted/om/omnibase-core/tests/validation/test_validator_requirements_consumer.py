@@ -1,0 +1,507 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""Tests for the validator-requirements.yaml enforcement consumer (OMN-9115).
+
+OMN-9051 shipped the spec file; OMN-9115 wires the enforcement consumer. These
+tests verify the consumer:
+
+1. Loads the spec and detects missing pre-commit registrations per repo.
+2. Detects missing CI workflows / workflow steps per repo.
+3. Detects silent-skip advisory modes (`|| true`, warning-mode wrappers).
+4. Exits non-zero when any required validator is unwired (blocking gate per
+   feedback_no_informational_gates.md).
+5. Self-validates this repo (omnibase_core) at import time so the spec's own
+   host repo cannot regress.
+
+These are unit tests — they run against synthetic repo fixtures in ``tmp_path``
+to exercise the detection logic without coupling to the live state of other
+repos (which is covered by the on-repo pre-commit hook + CI workflow step).
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+import yaml
+
+from omnibase_core.enums.enum_validator_requirement_gap_kind import (
+    EnumValidatorRequirementGapKind,
+)
+from omnibase_core.models.validation.model_validator_requirement_gap import (
+    ModelValidatorRequirementGap,
+)
+from omnibase_core.validation.validator_requirements_consumer import (
+    ValidatorRequirementsConsumer,
+)
+
+SPEC_PATH = (
+    Path(__file__).resolve().parent.parent.parent
+    / "architecture-handshakes"
+    / "validator-requirements.yaml"
+)
+
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def spec_data() -> dict:
+    with SPEC_PATH.open() as fh:
+        return yaml.safe_load(fh)
+
+
+def _write_precommit(
+    root: Path, hook_ids: list[str], *, warn_ids: list[str] | None = None
+) -> None:
+    warn_ids = warn_ids or []
+    blocks: list[dict] = [
+        {
+            "repo": "local",
+            "hooks": [
+                {"id": hid, "name": hid, "entry": f"run-{hid}", "language": "system"}
+                for hid in hook_ids
+            ]
+            + [
+                {
+                    "id": hid,
+                    "name": hid,
+                    # Warning-mode wrapper — the consumer must flag this as a silent-skip.
+                    "entry": f"bash -c 'run-{hid} || true'",
+                    "language": "system",
+                }
+                for hid in warn_ids
+            ],
+        }
+    ]
+    (root / ".pre-commit-config.yaml").write_text(yaml.safe_dump({"repos": blocks}))
+
+
+def _write_workflow(root: Path, filename: str, step_names: list[str]) -> None:
+    workflows = root / ".github" / "workflows"
+    workflows.mkdir(parents=True, exist_ok=True)
+    (workflows / filename).write_text(
+        yaml.safe_dump(
+            {
+                "name": filename.rsplit(".", 1)[0],
+                "on": {"pull_request": {}, "push": {"branches": ["main"]}},
+                "jobs": {
+                    "check": {
+                        "runs-on": "ubuntu-latest",
+                        "steps": [
+                            {"name": step, "run": f"echo {step}"} for step in step_names
+                        ],
+                    }
+                },
+            }
+        )
+    )
+
+
+# ---------------------------------------------------------------------------
+# Spec loading
+# ---------------------------------------------------------------------------
+
+
+def test_consumer_loads_spec_from_canonical_path() -> None:
+    consumer = ValidatorRequirementsConsumer.from_spec_path(SPEC_PATH)
+    assert consumer.validators, "consumer must expose the required_validators map"
+    assert "hardcoded-local-paths" in consumer.validators
+
+
+def test_consumer_rejects_missing_spec(tmp_path: Path) -> None:
+    missing = tmp_path / "missing.yaml"
+    with pytest.raises(FileNotFoundError):
+        ValidatorRequirementsConsumer.from_spec_path(missing)
+
+
+def test_consumer_rejects_malformed_spec(tmp_path: Path) -> None:
+    bad = tmp_path / "bad.yaml"
+    bad.write_text("not-a-mapping")
+    with pytest.raises(ValueError, match="spec root must be a mapping"):
+        ValidatorRequirementsConsumer.from_spec_path(bad)
+
+
+def test_consumer_normalizes_entry_validation_to_value_error(tmp_path: Path) -> None:
+    """A malformed validator entry must surface as ``ValueError`` at the loader
+    boundary (documented contract) rather than leaking Pydantic's
+    ``ValidationError`` to callers."""
+    bad = tmp_path / "bad_entry.yaml"
+    # pre_commit must be 'required'|'optional' (EnumValidatorRequirementScope);
+    # 'warn' is a scope typo that used to be accepted when the field was a bare str.
+    bad.write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": {"major": 1, "minor": 1, "patch": 0},
+                "required_validators": {
+                    "bogus-validator": {
+                        "description": "x",
+                        "central_source": "x",
+                        "pre_commit": "warn",
+                        "ci_workflow": "required",
+                        "required_check_on_main": None,
+                        "silent_skip_allowed": False,
+                        "excludes": {"allowed": [], "forbidden": []},
+                        "applies_to_repos": "all",
+                    }
+                },
+                "metadata": {},
+                "known_repos": [],
+            }
+        )
+    )
+    with pytest.raises(
+        ValueError, match=r"spec.required_validators\['bogus-validator'\] is malformed"
+    ):
+        ValidatorRequirementsConsumer.from_spec_path(bad)
+
+
+def test_consumer_rejects_unknown_entry_field(tmp_path: Path) -> None:
+    """Unknown fields on a validator entry must fail loud (extra='forbid') so
+    schema drift surfaces at load time rather than silently being ignored."""
+    bad = tmp_path / "extra_field.yaml"
+    bad.write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": {"major": 1, "minor": 1, "patch": 0},
+                "required_validators": {
+                    "drifty-validator": {
+                        "description": "x",
+                        "central_source": "x",
+                        "pre_commit": "required",
+                        "ci_workflow": "required",
+                        "required_check_on_main": None,
+                        "silent_skip_allowed": False,
+                        "excludes": {"allowed": [], "forbidden": []},
+                        "applies_to_repos": "all",
+                        "unexpected_drift_field": "oops",
+                    }
+                },
+                "metadata": {},
+                "known_repos": [],
+            }
+        )
+    )
+    with pytest.raises(ValueError, match="drifty-validator"):
+        ValidatorRequirementsConsumer.from_spec_path(bad)
+
+
+# ---------------------------------------------------------------------------
+# Per-repo compliance scanning
+# ---------------------------------------------------------------------------
+
+
+def test_scan_reports_missing_pre_commit_registration(tmp_path: Path) -> None:
+    """If a required validator is missing from .pre-commit-config.yaml, the
+    consumer must emit a MISSING_PRE_COMMIT gap."""
+    # Simulate omnibase_compat with only ruff + spdx wired; missing detect-secrets.
+    _write_precommit(
+        tmp_path, ["ruff-format", "validate-spdx-headers", "check-ai-slop"]
+    )
+    _write_workflow(tmp_path, "ci.yml", ["ruff", "spdx", "aislop"])
+
+    consumer = ValidatorRequirementsConsumer.from_spec_path(SPEC_PATH)
+    gaps = consumer.scan_repo(repo_name="omnibase_compat", repo_root=tmp_path)
+
+    kinds = {(g.validator, g.kind) for g in gaps}
+    assert (
+        "detect-secrets",
+        EnumValidatorRequirementGapKind.MISSING_PRE_COMMIT,
+    ) in kinds
+
+
+def test_scan_reports_missing_ci_workflow(tmp_path: Path) -> None:
+    """If a required validator has no CI workflow step anywhere, the consumer
+    must emit a MISSING_CI_WORKFLOW gap."""
+    _write_precommit(
+        tmp_path,
+        [
+            "ruff-format",
+            "validate-spdx-headers",
+            "detect-secrets",
+            "check-ai-slop",
+            "validate-local-paths",
+        ],
+    )
+    # Workflow only mentions ruff — SPDX has no CI step.
+    _write_workflow(tmp_path, "ci.yml", ["ruff"])
+
+    consumer = ValidatorRequirementsConsumer.from_spec_path(SPEC_PATH)
+    gaps = consumer.scan_repo(repo_name="omnibase_compat", repo_root=tmp_path)
+
+    kinds = {(g.validator, g.kind) for g in gaps}
+    assert (
+        "spdx-headers",
+        EnumValidatorRequirementGapKind.MISSING_CI_WORKFLOW,
+    ) in kinds
+
+
+def test_scan_flags_warning_mode_wrapper(tmp_path: Path) -> None:
+    """A hook wrapped in ``|| true`` is a silent-skip violation. feedback
+    no_informational_gates forbids advisory modes."""
+    _write_precommit(
+        tmp_path,
+        ["validate-spdx-headers", "ruff-format", "detect-secrets", "check-ai-slop"],
+        warn_ids=["validate-local-paths"],
+    )
+    _write_workflow(
+        tmp_path,
+        "ci.yml",
+        ["spdx", "ruff", "detect-secrets", "aislop", "validate-local-paths"],
+    )
+
+    consumer = ValidatorRequirementsConsumer.from_spec_path(SPEC_PATH)
+    gaps = consumer.scan_repo(repo_name="omnibase_compat", repo_root=tmp_path)
+
+    kinds = {(g.validator, g.kind) for g in gaps}
+    assert (
+        "hardcoded-local-paths",
+        EnumValidatorRequirementGapKind.SILENT_SKIP_WRAPPER,
+    ) in kinds
+
+
+def test_scan_flags_silent_skip_formatting_variants(tmp_path: Path) -> None:
+    """The silent-skip detector must catch formatting variants without spaces
+    or with alternative no-op commands (``||true``, ``;exit 0``, ``&& :``)."""
+    from omnibase_core.validation.validator_requirements_consumer import (
+        _hook_is_silent_skip,
+    )
+
+    variants = [
+        ("validate-local-paths", "bash -c 'run-x ||true'"),
+        ("validate-local-paths", "bash -c 'run-x ||exit 0'"),
+        ("validate-local-paths", "bash -c 'run-x ;exit 0'"),
+        ("validate-local-paths", "bash -c 'run-x ;true'"),
+        ("validate-local-paths", "bash -c 'run-x || :'"),
+    ]
+    for hid, entry in variants:
+        assert _hook_is_silent_skip((hid, entry)), (
+            f"Silent-skip detector missed variant: {entry!r}"
+        )
+
+    # Negative control: not a silent-skip wrapper (``&&`` propagates failures,
+    # ``|| false`` still returns non-zero on failure).
+    assert not _hook_is_silent_skip(("validate", "bash -c 'run-x && verify'"))
+    assert not _hook_is_silent_skip(("validate", "bash -c 'run-x || false'"))
+    assert not _hook_is_silent_skip(("validate", "run-x"))
+
+
+def test_scan_respects_applies_to_repos(tmp_path: Path) -> None:
+    """A validator that does not apply to the target repo must NOT produce
+    gaps even if its pre-commit hook id is absent. For example, omniweb (PHP)
+    should not be required to wire Python validators."""
+    # omniweb has nothing Python.
+    _write_precommit(tmp_path, [])
+    _write_workflow(tmp_path, "ci.yml", [])
+
+    consumer = ValidatorRequirementsConsumer.from_spec_path(SPEC_PATH)
+    gaps = consumer.scan_repo(repo_name="omniweb", repo_root=tmp_path)
+
+    flagged_validators = {g.validator for g in gaps}
+    # mypy-type-check and pydantic-patterns apply_to_repos list does not include omniweb.
+    assert "mypy-type-check" not in flagged_validators
+    assert "pydantic-patterns" not in flagged_validators
+
+
+def test_scan_rejects_unknown_repo(tmp_path: Path) -> None:
+    consumer = ValidatorRequirementsConsumer.from_spec_path(SPEC_PATH)
+    with pytest.raises(ValueError, match="unknown repo"):
+        consumer.scan_repo(repo_name="not-a-real-repo", repo_root=tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# Blocking exit behavior
+# ---------------------------------------------------------------------------
+
+
+def test_report_exit_code_zero_on_clean_repo(tmp_path: Path, spec_data: dict) -> None:
+    """When every required validator for the target repo is present with
+    required pre-commit + CI wiring and no warning-mode wrapper, scan_repo
+    must return an empty list."""
+    # Build a repo that satisfies every validator listed as applies-to omnibase_core.
+    pre_commit_ids = [
+        "validate-local-paths",
+        "check-private-ip-compute",  # OMN-13294 (G2): hardcoded private-IP scanner
+        "check-localhost-url-compute",  # OMN-13480 (G2 residual): hardcoded localhost-URL scanner
+        "validate-spdx-headers",
+        "no-hardcoded-topics",
+        "check-stub-implementations",
+        "check-enum-governance",
+        "validate-naming-conventions",
+        "check-self-gating-workflows",
+        "bandit",
+        "mypy-type-check",
+        "ruff-format",
+        "check-ai-slop",
+        "validate-pydantic-patterns",
+        "onex-single-class-per-file",
+        "detect-secrets",
+        "no-untracked-todos",
+        "validate-no-transport-imports",
+        "check-doc-content-scan",  # OMN-13572: doc-content scan (applies_to_repos: [omnibase_core])
+        "no-new-os-environ",  # OMN-13566: canonical AST env-read gate (applies_to_repos: [omnibase_core])
+        "check-duplicate-registry-ids",  # OMN-14401: duplicate registry id guard (applies_to_repos: [omnibase_core])
+    ]
+    _write_precommit(tmp_path, pre_commit_ids)
+
+    # Flatten into a single CI workflow that exposes a step per validator.
+    _write_workflow(tmp_path, "ci.yml", pre_commit_ids)
+
+    consumer = ValidatorRequirementsConsumer.from_spec_path(SPEC_PATH)
+    gaps = consumer.scan_repo(repo_name="omnibase_core", repo_root=tmp_path)
+
+    # Nothing else applies to omnibase_core in the current spec, so zero gaps expected.
+    assert gaps == [], f"expected clean repo to produce zero gaps, got: {gaps}"
+
+
+# ---------------------------------------------------------------------------
+# Baseline loading — structured + legacy formats (OMN-13291)
+# ---------------------------------------------------------------------------
+
+
+def test_load_baseline_legacy_flat_list(tmp_path: Path) -> None:
+    """The legacy flat-list baseline format must still load to the same
+    ``(repo, validator, kind)`` tuple set (backward compatibility)."""
+    from omnibase_core.validation.validator_requirements_consumer import _load_baseline
+
+    baseline = tmp_path / "baseline.yaml"
+    baseline.write_text(
+        yaml.safe_dump(
+            [
+                {
+                    "repo": "omnibase_core",
+                    "validator": "bandit-security",
+                    "kind": "MISSING_CI_WORKFLOW",
+                }
+            ]
+        )
+    )
+    accepted = _load_baseline(baseline)
+    assert accepted == {("omnibase_core", "bandit-security", "MISSING_CI_WORKFLOW")}
+
+
+def test_load_baseline_structured_schema(tmp_path: Path) -> None:
+    """The structured baseline (schema_version + report_format + classification
+    + gaps) must load the gaps[] list identically to the legacy flat list."""
+    from omnibase_core.validation.validator_requirements_consumer import _load_baseline
+
+    baseline = tmp_path / "baseline.yaml"
+    baseline.write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": {"major": 1, "minor": 0, "patch": 0},
+                "repo": "omnibase_core",
+                "report_format": "all_gaps",
+                "classification": {
+                    "bandit-security": {
+                        "pre_commit": "backlog",
+                        "tracking": "OMN-9048",
+                    }
+                },
+                "gaps": [
+                    {
+                        "repo": "omnibase_core",
+                        "validator": "bandit-security",
+                        "kind": "MISSING_CI_WORKFLOW",
+                    },
+                    {
+                        "repo": "omnibase_core",
+                        "validator": "detect-secrets",
+                        "kind": "MISSING_PRE_COMMIT",
+                    },
+                ],
+            }
+        )
+    )
+    accepted = _load_baseline(baseline)
+    assert accepted == {
+        ("omnibase_core", "bandit-security", "MISSING_CI_WORKFLOW"),
+        ("omnibase_core", "detect-secrets", "MISSING_PRE_COMMIT"),
+    }
+
+
+def test_load_baseline_structured_missing_gaps_key_fails(tmp_path: Path) -> None:
+    """A dict-root baseline without a 'gaps' list key must fail loud — a typo
+    that silently dropped every accepted gap would turn the ratchet permissive."""
+    from omnibase_core.validation.validator_requirements_consumer import _load_baseline
+
+    baseline = tmp_path / "baseline.yaml"
+    baseline.write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": {"major": 1, "minor": 0, "patch": 0},
+                "repo": "omnibase_core",
+                "report_format": "all_gaps",
+            }
+        )
+    )
+    with pytest.raises(ValueError, match="missing a 'gaps' list key"):
+        _load_baseline(baseline)
+
+
+def test_load_baseline_rejects_invalid_kind_in_gaps(tmp_path: Path) -> None:
+    """An unknown gap kind anywhere in gaps[] must fail loud (no silent drift)."""
+    from omnibase_core.validation.validator_requirements_consumer import _load_baseline
+
+    baseline = tmp_path / "baseline.yaml"
+    baseline.write_text(
+        yaml.safe_dump(
+            {
+                "gaps": [
+                    {
+                        "repo": "omnibase_core",
+                        "validator": "bandit-security",
+                        "kind": "NOT_A_REAL_KIND",
+                    }
+                ]
+            }
+        )
+    )
+    with pytest.raises(ValueError, match="kind invalid"):
+        _load_baseline(baseline)
+
+
+def test_canonical_baseline_is_structured_and_clean() -> None:
+    """The repo's own canonical baseline must use the structured schema and the
+    consumer scan of omnibase_core must reproduce exactly the baseline gaps
+    (no new gaps, no stale entries) — proving the meta-gate is green on a clean
+    tree for the source-of-truth repo itself."""
+    import yaml as _yaml
+
+    from omnibase_core.validation.validator_requirements_consumer import (
+        _load_baseline,
+    )
+
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    baseline_path = (
+        repo_root / "architecture-handshakes" / "validator-requirements-baseline.yaml"
+    )
+    raw = _yaml.safe_load(baseline_path.read_text())
+    assert isinstance(raw, dict), "canonical baseline must use the structured schema"
+    assert raw["report_format"] == "all_gaps"
+    assert raw["repo"] == "omnibase_core"
+    assert isinstance(raw["schema_version"], dict)
+
+    accepted = _load_baseline(baseline_path)
+    consumer = ValidatorRequirementsConsumer.from_spec_path(SPEC_PATH)
+    gaps = consumer.scan_repo(repo_name="omnibase_core", repo_root=repo_root)
+    observed = {(g.repo, g.validator, g.kind.value) for g in gaps}
+    assert observed - accepted == set(), "new gap not in baseline (regression)"
+    assert accepted - observed == set(), "stale baseline entry no longer reproduced"
+
+
+def test_scan_gap_model_is_frozen() -> None:
+    """ModelValidatorRequirementGap must be a frozen Pydantic model (per repo pydantic
+    conventions) — gaps are facts about a point-in-time scan and must not be
+    mutated post-construction."""
+    gap = ModelValidatorRequirementGap(
+        repo="omnibase_compat",
+        validator="detect-secrets",
+        kind=EnumValidatorRequirementGapKind.MISSING_PRE_COMMIT,
+        detail="missing hook id",
+    )
+    with pytest.raises(ValueError):
+        gap.detail = "mutated"  # type: ignore[misc]

@@ -61,12 +61,16 @@ from .type_defs import (
     ListTagsForResourceResponseTypeDef,
     PutProcurementPortalPreferenceRequestTypeDef,
     PutProcurementPortalPreferenceResponseTypeDef,
+    SendProcurementPortalValidationRequestTypeDef,
+    SendProcurementPortalValidationResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateInvoiceUnitRequestTypeDef,
     UpdateInvoiceUnitResponseTypeDef,
     UpdateProcurementPortalPreferenceStatusRequestTypeDef,
     UpdateProcurementPortalPreferenceStatusResponseTypeDef,
+    VerifyProcurementPortalValidationRequestTypeDef,
+    VerifyProcurementPortalValidationResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -253,6 +257,16 @@ class InvoicingClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#put_procurement_portal_preference)
         """
 
+    async def send_procurement_portal_validation(
+        self, **kwargs: Unpack[SendProcurementPortalValidationRequestTypeDef]
+    ) -> SendProcurementPortalValidationResponseTypeDef:
+        """
+        <i> <b>This feature API is subject to changing at any time.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/client/send_procurement_portal_validation.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#send_procurement_portal_validation)
+        """
+
     async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds a tag to a resource.
@@ -288,6 +302,16 @@ class InvoicingClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/client/update_procurement_portal_preference_status.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#update_procurement_portal_preference_status)
+        """
+
+    async def verify_procurement_portal_validation(
+        self, **kwargs: Unpack[VerifyProcurementPortalValidationRequestTypeDef]
+    ) -> VerifyProcurementPortalValidationResponseTypeDef:
+        """
+        <i> <b>This feature API is subject to changing at any time.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/client/verify_procurement_portal_validation.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#verify_procurement_portal_validation)
         """
 
     @overload  # type: ignore[override]

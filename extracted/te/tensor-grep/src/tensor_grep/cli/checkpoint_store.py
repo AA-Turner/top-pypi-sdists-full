@@ -1,0 +1,1500 @@
+from __future__ import annotations
+
+import json
+import os
+import shlex
+import shutil
+import subprocess
+import tempfile
+import time
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+from uuid import uuid4
+
+from tensor_grep.cli._index_lock import atomic_write_json, index_lock
+from tensor_grep.cli.subprocess_policy import configured_git_timeout_seconds, run_subprocess
+
+_CHECKPOINT_VERSION = 1
+_CHECKPOINT_DIRNAME = ".tensor-grep"
+_CHECKPOINTS_SUBDIR = "checkpoints"
+_INDEX_FILE = "index.json"
+_SNAPSHOT_SUBDIR = "snapshot"
+_METADATA_FILE = "metadata.json"
+_DISCOVERY_CACHE_FILE = "checkpoint-discovery-cache.json"
+_DISCOVERY_CACHE_VERSION = 2
+_DISCOVERY_MAX_DEPTH = 6
+_DISCOVERY_MAX_DIRECTORIES = 10_000
+_DISCOVERY_CACHE_TTL_SECONDS = 300.0
+# round-4 DoS: bound on-disk checkpoint retention. Each checkpoint copies the WHOLE scope into a
+# new snapshot dir, so an uncapped store grows without limit. Keep only the newest N.
+_CHECKPOINT_MAX_ENV = "TG_CHECKPOINT_MAX"
+_DEFAULT_CHECKPOINT_MAX = 64
+# audit H4: create_checkpoint() copied every entry with no per-file cap, no cumulative-size
+# budget, and no free-space check, so a single huge file (or a large scope) could exhaust disk
+# in one `tg checkpoint create` -- reachable from the CLI, the MCP tg_checkpoint_create tool, and
+# tg_rewrite_apply(checkpoint=true). All three knobs are env-configurable so a repo with
+# legitimately large tracked assets is not permanently blocked.
+_CHECKPOINT_MAX_FILE_BYTES_ENV = "TG_CHECKPOINT_MAX_FILE_BYTES"
+_DEFAULT_CHECKPOINT_MAX_FILE_BYTES = 512 * 1024 * 1024  # 512 MiB per file
+_CHECKPOINT_MAX_TOTAL_BYTES_ENV = "TG_CHECKPOINT_MAX_TOTAL_BYTES"
+_DEFAULT_CHECKPOINT_MAX_TOTAL_BYTES = 4 * 1024 * 1024 * 1024  # 4 GiB per checkpoint
+_CHECKPOINT_FREE_SPACE_MARGIN_BYTES_ENV = "TG_CHECKPOINT_FREE_SPACE_MARGIN_BYTES"
+_DEFAULT_CHECKPOINT_FREE_SPACE_MARGIN_BYTES = 256 * 1024 * 1024  # keep >=256 MiB free after copy
+_NON_GIT_IGNORED_DIRS = {
+    ".git",
+    ".hg",
+    ".svn",
+    ".venv",
+    "node_modules",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".tensor-grep",
+    "artifacts",
+    "build",
+    "dist",
+    "site",
+    "target",
+}
+_DISCOVERY_IGNORED_DIRS = _NON_GIT_IGNORED_DIRS - {"artifacts"}
+
+
+class CheckpointCorruptError(RuntimeError):
+    """Raised when a checkpoint snapshot is missing or unreadable.
+
+    Distinct from ``FileNotFoundError`` (checkpoint metadata not found) so
+    callers can tell "the checkpoint record doesn't exist" apart from "the
+    checkpoint record exists but one or more snapshot blobs are corrupt /
+    missing, so undo was aborted before touching any working-tree file".
+
+    The ``message`` attribute is always a clean, human-readable string with
+    no raw OS error text (e.g. no ``[WinError 2]``).  If multiple files are
+    corrupt the first one is reported; ``missing_files`` carries the full list.
+    """
+
+    def __init__(self, message: str, missing_files: list[str] | None = None) -> None:
+        super().__init__(message)
+        self.missing_files: list[str] = missing_files or []
+
+
+class CheckpointUndoUnsafeError(RuntimeError):
+    """Raised when undo would have to destroy a working-tree file it cannot revert (task #297).
+
+    Distinct from ``CheckpointCorruptError``: there the SNAPSHOT is unusable, here the snapshot
+    is fine and the WORKING TREE holds a file that cannot be read. The commit phase must capture
+    a file's bytes before unlinking or overwriting it, because that copy is the only thing the
+    revert path can restore from. If the read fails, proceeding would delete content that nothing
+    can bring back -- so undo aborts instead, and the revert rolls back whatever it had already
+    applied.
+
+    ``path`` is the offending working-tree file.
+    """
+
+    def __init__(self, message: str, path: str) -> None:
+        super().__init__(message)
+        self.path: str = path
+
+
+def _bytes_or_abort_undo(path: Path, checkpoint_id: str) -> bytes:
+    """Read ``path`` for the revert log, or abort the undo.
+
+    The commit phase is only crash-safe because every destructive step records the bytes it is
+    about to destroy. A file we cannot read has no such record, so destroying it is irreversible
+    -- the one outcome undo exists to prevent.
+    """
+    try:
+        return path.read_bytes()
+    except OSError as exc:
+        raise CheckpointUndoUnsafeError(
+            f"Undo of checkpoint {checkpoint_id!r} was aborted: the working-tree file "
+            f"{str(path)!r} could not be read, so its current content could not be saved for "
+            "rollback and removing it would lose that content permanently. Changes already "
+            "applied by this undo have been rolled back. Make the file readable (or move it "
+            "aside) and re-run.",
+            path=str(path),
+        ) from exc
+
+
+class CheckpointBudgetExceededError(RuntimeError):
+    """Raised when create_checkpoint() would exceed a configured disk-usage budget (audit H4).
+
+    Guards against unbounded disk exhaustion: the copy loop previously had no per-file cap,
+    no cumulative-size cap, and no free-space check, so a single ``tg checkpoint create`` could
+    fill the disk. Always raised BEFORE the copy loop creates a snapshot directory (the
+    per-file/total-bytes/free-space pre-flight); a mid-copy failure of any kind (this error or
+    an ordinary OSError) also removes the partial snapshot directory before re-raising, so a
+    refused or interrupted checkpoint never leaves partial state on disk.
+    """
+
+
+def _is_generated_discovery_dir(path: Path) -> bool:
+    return path.name in _DISCOVERY_IGNORED_DIRS or path.name.startswith(".tmp")
+
+
+def _write_json_atomic(path: Path, payload: Any) -> None:
+    """Write ``payload`` as pretty JSON to ``path`` atomically, refusing a pre-existing symlink.
+
+    Thin wrapper over the shared C4/#659 hardening baseline (`_index_lock.atomic_write_json`).
+    This module's own copy of the atomic-write pattern predated the C4 fix and never gained the
+    `is_symlink()` precheck `session_store`/`evidence_signing` already carry (task #211 residual)
+    -- routing through the shared helper closes that gap uniformly instead of re-patching a third
+    copy of the same pattern in place.
+    """
+    atomic_write_json(path, payload)
+
+
+def _resolve_within_root(root: Path, root_resolved: Path, rel_path: str) -> Path:
+    """Resolve a checkpoint metadata entry key under ``root`` and assert containment.
+
+    Checkpoint metadata is read from disk and the undo path is reachable from the MCP
+    ``tg_checkpoint_undo`` tool, the CLI, and policy rollback, so the entry keys are
+    attacker-influenceable. Refuse absolute paths, ``..`` traversal, and symlink
+    escapes before any unlink/copy, so a tampered manifest can never write to or delete
+    a file outside the checkpoint root (audit S1).
+    """
+    candidate = Path(rel_path)
+    if candidate.is_absolute() or any(part == ".." for part in candidate.parts):
+        raise ValueError(f"Refusing checkpoint entry outside root: {rel_path!r}")
+    resolved = (root / candidate).resolve()
+    if resolved != root_resolved and root_resolved not in resolved.parents:
+        raise ValueError(f"Refusing checkpoint entry outside root: {rel_path!r}")
+    return resolved
+
+
+@dataclass
+class CheckpointRecord:
+    version: int
+    checkpoint_id: str
+    mode: str
+    root: str
+    created_at: str
+    file_count: int
+
+
+@dataclass
+class CheckpointCreateResult:
+    checkpoint_id: str
+    mode: str
+    root: str
+    created_at: str
+    file_count: int
+    undo_argv: list[str]
+    undo_command: str
+    # audit #130d: paths skipped because they are a nested repo (a git submodule / embedded
+    # repo tracked as a gitlink, mode 160000) rather than a plain tracked file. Additive
+    # field, default-empty, so every existing caller/serializer stays backward-compatible.
+    skipped_nested_repos: list[str] = field(default_factory=list)
+
+
+@dataclass
+class CheckpointScopeResult:
+    root: str
+    mode: str
+    checkpoint_count: int
+    checkpoints: list[CheckpointRecord]
+
+
+@dataclass
+class CheckpointDiscoveryResult:
+    scopes: list[CheckpointScopeResult]
+    truncated: bool = False
+
+
+@dataclass
+class CheckpointUndoResult:
+    checkpoint_id: str
+    mode: str
+    root: str
+    restored_files: int
+    removed_paths: int
+    # Task #308. Paths whose working-tree copy was MODIFIED AFTER this checkpoint was taken and
+    # whose post-checkpoint content undo then discarded. Defaults to an empty list so an ordinary
+    # undo payload is unchanged; the CLI/JSON surface emits it only when non-empty.
+    #
+    # Undo ALWAYS discards post-checkpoint work -- that is what it is for -- so this is not a
+    # warning that something went wrong. It is the answer to "what did I just lose?", which the
+    # result previously could not express at all: it carried counts and no paths. That gap is the
+    # concurrent-agent hazard, because a second agent's edits are reverted with the same silent
+    # success as your own.
+    diverged_paths: list[str] = field(default_factory=list)
+    # Paths whose mtime could not be read, so divergence is UNKNOWN for them -- distinct from
+    # "checked and unchanged". Empty by default; the CLI emits it only when non-empty.
+    divergence_unchecked_paths: list[str] = field(default_factory=list)
+
+
+@dataclass
+class CheckpointLatestResult:
+    checkpoint_id: str
+    root: str
+    mode: str
+
+
+@dataclass(frozen=True)
+class _CheckpointScope:
+    root: Path
+    mode: str
+    original_path: Path
+    target_relative: Path | None = None
+
+    @property
+    def scope_kind(self) -> str:
+        return "file" if self.target_relative is not None else "tree"
+
+
+def _detect_checkpoint_scope(path: Path) -> _CheckpointScope:
+    resolved = path.expanduser().resolve()
+    if resolved.is_file() or (not resolved.exists() and resolved.suffix):
+        return _CheckpointScope(
+            root=resolved.parent,
+            mode="filesystem-snapshot",
+            original_path=resolved,
+            target_relative=Path(resolved.name),
+        )
+
+    probe_root = resolved if resolved.is_dir() else resolved.parent
+    try:
+        completed = run_subprocess(
+            ["git", "-C", str(probe_root), "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout_seconds=configured_git_timeout_seconds(),
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return _CheckpointScope(
+            root=resolved if resolved.is_dir() else resolved.parent,
+            mode="filesystem-snapshot",
+            original_path=resolved,
+        )
+
+    git_root = Path(completed.stdout.strip())
+    if resolved == git_root:
+        return _CheckpointScope(
+            root=git_root,
+            mode="git-worktree-snapshot",
+            original_path=resolved,
+        )
+    return _CheckpointScope(
+        root=resolved if resolved.is_dir() else resolved.parent,
+        mode="filesystem-snapshot",
+        original_path=resolved,
+    )
+
+
+def _detect_checkpoint_root(path: Path) -> tuple[Path, str]:
+    scope = _detect_checkpoint_scope(path)
+    return scope.root, scope.mode
+
+
+def _checkpoint_storage_dir(root: Path) -> Path:
+    return root / _CHECKPOINT_DIRNAME / _CHECKPOINTS_SUBDIR
+
+
+def _display_command(argv: list[str]) -> str:
+    if os.name == "nt":
+        return subprocess.list2cmdline(argv)
+    return shlex.join(argv)
+
+
+def _undo_argv(scope: _CheckpointScope, checkpoint_id: str) -> list[str]:
+    undo_path = scope.original_path if scope.scope_kind == "file" else scope.root
+    return ["tg", "checkpoint", "undo", checkpoint_id, str(undo_path)]
+
+
+def _index_path(root: Path) -> Path:
+    return _checkpoint_storage_dir(root) / _INDEX_FILE
+
+
+def _discovery_cache_path(search_root: Path) -> Path:
+    return search_root / _CHECKPOINT_DIRNAME / _DISCOVERY_CACHE_FILE
+
+
+def _discovery_cache_key(*, full: bool, max_depth: int) -> str:
+    return f"{'full' if full else 'bounded'}:{max_depth}"
+
+
+def _fingerprint_index_path(index_path: Path) -> dict[str, Any] | None:
+    try:
+        stat = index_path.stat()
+    except OSError:
+        return None
+    return {
+        "path": str(index_path),
+        "mtime_ns": stat.st_mtime_ns,
+        "size": stat.st_size,
+    }
+
+
+def _read_cached_checkpoint_index_paths(
+    search_root: Path,
+    *,
+    full: bool,
+    max_depth: int,
+) -> tuple[set[Path], bool] | None:
+    cache_path = _discovery_cache_path(search_root)
+    try:
+        payload = json.loads(cache_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(payload, dict) or payload.get("version") != _DISCOVERY_CACHE_VERSION:
+        return None
+    entries_by_key = payload.get("entries")
+    if not isinstance(entries_by_key, dict):
+        return None
+    entry = entries_by_key.get(_discovery_cache_key(full=full, max_depth=max_depth))
+    if not isinstance(entry, dict):
+        return None
+    created_at = entry.get("created_at_epoch_s")
+    if not isinstance(created_at, (int, float)):
+        return None
+    if time.time() - float(created_at) > _DISCOVERY_CACHE_TTL_SECONDS:
+        return None
+    fingerprints = entry.get("index_paths")
+    if not isinstance(fingerprints, list):
+        return None
+
+    index_paths: set[Path] = set()
+    for fingerprint in fingerprints:
+        if not isinstance(fingerprint, dict):
+            return None
+        raw_path = fingerprint.get("path")
+        if not isinstance(raw_path, str):
+            return None
+        index_path = Path(raw_path)
+        current = _fingerprint_index_path(index_path)
+        if current is None:
+            return None
+        if current.get("mtime_ns") != fingerprint.get("mtime_ns") or current.get(
+            "size"
+        ) != fingerprint.get("size"):
+            return None
+        index_paths.add(index_path)
+    return index_paths, bool(entry.get("truncated", False))
+
+
+def _write_cached_checkpoint_index_paths(
+    search_root: Path,
+    index_paths: set[Path],
+    *,
+    full: bool,
+    max_depth: int,
+    truncated: bool = False,
+) -> None:
+    cache_path = _discovery_cache_path(search_root)
+    payload: dict[str, Any] = {"version": _DISCOVERY_CACHE_VERSION, "entries": {}}
+    try:
+        existing = json.loads(cache_path.read_text(encoding="utf-8"))
+        if isinstance(existing, dict) and existing.get("version") == _DISCOVERY_CACHE_VERSION:
+            payload = existing
+            payload.setdefault("entries", {})
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        pass
+    entries = payload.get("entries")
+    if not isinstance(entries, dict):
+        entries = {}
+        payload["entries"] = entries
+    entries[_discovery_cache_key(full=full, max_depth=max_depth)] = {
+        "created_at_epoch_s": time.time(),
+        "index_paths": [
+            fingerprint
+            for index_path in sorted(index_paths)
+            if (fingerprint := _fingerprint_index_path(index_path)) is not None
+        ],
+        "truncated": bool(truncated),
+    }
+    _write_json_atomic(cache_path, payload)
+
+
+def _valid_cached_checkpoint_index_paths_from_entry(entry: Any) -> set[Path]:
+    if not isinstance(entry, dict):
+        return set()
+    fingerprints = entry.get("index_paths")
+    if not isinstance(fingerprints, list):
+        return set()
+
+    index_paths: set[Path] = set()
+    for fingerprint in fingerprints:
+        if not isinstance(fingerprint, dict):
+            continue
+        raw_path = fingerprint.get("path")
+        if not isinstance(raw_path, str):
+            continue
+        index_path = Path(raw_path)
+        if _fingerprint_index_path(index_path) is not None:
+            index_paths.add(index_path)
+    return index_paths
+
+
+def _checkpoint_discovery_home_boundary() -> Path | None:
+    try:
+        return Path.home().expanduser().resolve()
+    except OSError:
+        return None
+
+
+def _path_is_relative_to(path: Path, parent: Path) -> bool:
+    try:
+        path.relative_to(parent)
+    except ValueError:
+        return False
+    return True
+
+
+def _bounded_discovery_cache_roots_for_checkpoint(root: Path) -> list[Path]:
+    root = root.expanduser().resolve()
+    cache_roots = [root]
+    home_boundary = _checkpoint_discovery_home_boundary()
+    root_is_under_home = home_boundary is not None and _path_is_relative_to(root, home_boundary)
+    for candidate in root.parents:
+        if candidate.parent == candidate:
+            break
+        if root_is_under_home and home_boundary is not None and candidate == home_boundary.parent:
+            break
+        try:
+            distance = len(root.relative_to(candidate).parts)
+        except ValueError:
+            continue
+        if distance > _DISCOVERY_MAX_DEPTH:
+            break
+        cache_roots.append(candidate)
+    return cache_roots
+
+
+def _checkpoint_index_has_records(index_path: Path) -> bool:
+    try:
+        payload = json.loads(index_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
+        return False
+    return isinstance(payload, list) and bool(payload)
+
+
+def _refresh_bounded_discovery_caches_for_root(root: Path) -> None:
+    index_path = _index_path(root)
+    key = _discovery_cache_key(full=False, max_depth=_DISCOVERY_MAX_DEPTH)
+    for search_root in _bounded_discovery_cache_roots_for_checkpoint(root):
+        cache_path = _discovery_cache_path(search_root)
+        payload: dict[str, Any] = {"version": _DISCOVERY_CACHE_VERSION, "entries": {}}
+        try:
+            existing = json.loads(cache_path.read_text(encoding="utf-8"))
+            if isinstance(existing, dict) and existing.get("version") == _DISCOVERY_CACHE_VERSION:
+                payload = existing
+        except (FileNotFoundError, OSError, json.JSONDecodeError):
+            pass
+
+        entries = payload.get("entries")
+        if not isinstance(entries, dict):
+            entries = {}
+            payload["entries"] = entries
+
+        index_paths = {
+            current
+            for current in _valid_cached_checkpoint_index_paths_from_entry(entries.get(key))
+            if _checkpoint_index_has_records(current)
+        }
+        if _checkpoint_index_has_records(index_path):
+            index_paths.add(index_path)
+        else:
+            index_paths.discard(index_path)
+        previous_entry = entries.get(key)
+        truncated = (
+            bool(previous_entry.get("truncated", False))
+            if isinstance(previous_entry, dict)
+            else False
+        )
+        entries[key] = {
+            "created_at_epoch_s": time.time(),
+            "index_paths": [
+                fingerprint
+                for cached_index_path in sorted(index_paths)
+                if (fingerprint := _fingerprint_index_path(cached_index_path)) is not None
+            ],
+            "truncated": truncated,
+        }
+        for entry_key in list(entries):
+            if isinstance(entry_key, str) and entry_key.startswith("full:"):
+                del entries[entry_key]
+        try:
+            _write_json_atomic(cache_path, payload)
+        except OSError:
+            continue
+
+
+def _prime_bounded_discovery_caches_for_root(root: Path) -> None:
+    _refresh_bounded_discovery_caches_for_root(root)
+
+
+def _load_index(root: Path) -> list[CheckpointRecord]:
+    index_path = _index_path(root)
+    if not index_path.exists():
+        return []
+    payload = json.loads(index_path.read_text(encoding="utf-8"))
+    return [CheckpointRecord(**entry) for entry in payload]
+
+
+def _rebuild_index_from_checkpoint_metadata(root: Path) -> Path | None:
+    storage_dir = _checkpoint_storage_dir(root)
+    if not storage_dir.exists():
+        return None
+    records: list[CheckpointRecord] = []
+    for metadata_path in sorted(storage_dir.glob(f"*/{_METADATA_FILE}")):
+        try:
+            payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, dict) or payload.get("active", True) is False:
+            continue
+        checkpoint_id = str(payload.get("checkpoint_id") or metadata_path.parent.name)
+        created_at = str(payload.get("created_at") or "")
+        if not checkpoint_id or not created_at:
+            continue
+        records.append(
+            CheckpointRecord(
+                version=int(payload.get("version") or _CHECKPOINT_VERSION),
+                checkpoint_id=checkpoint_id,
+                mode=str(payload.get("mode") or "filesystem-snapshot"),
+                root=str(Path(str(payload.get("root") or root)).expanduser().resolve()),
+                created_at=created_at,
+                file_count=int(payload.get("file_count") or 0),
+            )
+        )
+    records.sort(key=lambda record: record.created_at, reverse=True)
+    if not records:
+        return None
+    # q10 RMW race: this is a 4th writer of index.json (reached from the discovery/list path
+    # via _full_checkpoint_index_paths) that can otherwise clobber, or be clobbered by,
+    # create_checkpoint's RMW outside the new lock.
+    with index_lock(_index_path(root)):
+        _write_index(root, records)
+    return _index_path(root)
+
+
+def _write_index(root: Path, records: list[CheckpointRecord]) -> None:
+    index_path = _index_path(root)
+    _write_json_atomic(index_path, [asdict(record) for record in records])
+
+
+def _git_snapshot_entries(root: Path) -> tuple[dict[str, bool], list[str]]:
+    """Return (entries, skipped_nested_repos) for a git-worktree-snapshot checkpoint scope.
+
+    audit #130d: `git ls-files` reports a submodule / embedded repo (any path tracked as a
+    gitlink, mode 160000 -- e.g. `benchmarks/external_repos/chalk`) as ONE path; it is never
+    expanded into the nested repo's own tracked files. That path is a real DIRECTORY on disk,
+    so treating it like an ordinary file entry marks a directory as an existing entry, and
+    `create_checkpoint`'s copy loop then calls `shutil.copy2()` on a directory and crashes
+    (`IsADirectoryError` on POSIX, `PermissionError` on Windows). Skip any entry that is a
+    real directory on disk -- it can never be a plain tracked file -- and report it separately
+    so the gap is DISCLOSED (never a silent under-cover), instead of raising or silently
+    dropping it with no trace.
+
+    The directory check excludes symlinks (`is_dir() and not is_symlink()`): a tracked
+    SYMLINK whose target happens to be a directory is a normal file entry (git stores it as a
+    mode-120000 blob, not a gitlink) and was already handled correctly by the copy loop's
+    `shutil.copy2(..., follow_symlinks=False)`, which copies the link itself rather than
+    opening its target. Treating that case as a "nested repo" would silently drop a
+    legitimately tracked path instead of skipping only genuine gitlink directories.
+    """
+    git_timeout = configured_git_timeout_seconds()
+    tracked = run_subprocess(
+        ["git", "-C", str(root), "ls-files", "-z"],
+        capture_output=True,
+        text=False,
+        check=True,
+        timeout_seconds=git_timeout,
+    ).stdout.split(b"\x00")
+    untracked = run_subprocess(
+        ["git", "-C", str(root), "ls-files", "--others", "--exclude-standard", "-z"],
+        capture_output=True,
+        text=False,
+        check=True,
+        timeout_seconds=git_timeout,
+    ).stdout.split(b"\x00")
+
+    entries: dict[str, bool] = {}
+    skipped_nested_repos: list[str] = []
+    for raw in [*tracked, *untracked]:
+        if not raw:
+            continue
+        rel = raw.decode("utf-8", errors="surrogateescape")
+        if _CHECKPOINT_DIRNAME in Path(rel).parts:
+            continue
+        candidate = root / rel
+        if candidate.is_dir() and not candidate.is_symlink():
+            skipped_nested_repos.append(rel)
+            continue
+        entries[rel] = candidate.exists()
+    return dict(sorted(entries.items())), sorted(skipped_nested_repos)
+
+
+def _filesystem_snapshot_entries(root: Path) -> dict[str, bool]:
+    entries: dict[str, bool] = {}
+    # Audit HIGH (symlink disclosure): os.walk with followlinks=False (the default) does NOT
+    # descend symlinked directories, so a symlink pointing OUTSIDE the checkpoint root cannot pull
+    # out-of-root file CONTENT into the snapshot. Symlinked files are skipped too — a checkpoint
+    # restores content, and copying a link's target would disclose out-of-root data (and could
+    # re-materialize it into the tree on undo). rglob previously followed symlinked dirs.
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=False):
+        dirnames[:] = sorted(name for name in dirnames if name not in _NON_GIT_IGNORED_DIRS)
+        for filename in sorted(filenames):
+            full = Path(dirpath) / filename
+            if full.is_symlink():
+                continue
+            try:
+                relative = full.relative_to(root)
+            except ValueError:
+                continue
+            if any(part in _NON_GIT_IGNORED_DIRS for part in relative.parts):
+                continue
+            entries[relative.as_posix()] = True
+    return dict(sorted(entries.items()))
+
+
+def _snapshot_entries(scope: _CheckpointScope) -> tuple[dict[str, bool], list[str]]:
+    """Return (entries, skipped_nested_repos) for the given checkpoint scope.
+
+    Only the git-worktree-snapshot path can produce a nonempty ``skipped_nested_repos``
+    (audit #130d) -- a single-file scope has nothing to skip, and the filesystem-snapshot
+    walk (`os.walk`, non-git-toplevel scopes) only ever adds filenames, never a gitlink-shaped
+    directory entry, so it has no equivalent hazard.
+    """
+    if scope.target_relative is not None:
+        return {scope.target_relative.as_posix(): (scope.root / scope.target_relative).exists()}, []
+    if scope.mode == "git-worktree-snapshot":
+        return _git_snapshot_entries(scope.root)
+    return _filesystem_snapshot_entries(scope.root), []
+
+
+def _checkpoint_dir(root: Path, checkpoint_id: str) -> Path:
+    # Audit HIGH (path traversal): checkpoint_id reaches here from the CLI, the MCP
+    # tg_checkpoint_undo tool, and policy rollback. An absolute or `..`-shaped id would
+    # escape the checkpoint store — arbitrary metadata.json read (load_checkpoint_metadata)
+    # and, on undo, an attacker-controlled snapshot SOURCE dir. Reuse the entry-key
+    # containment guard so the id can never leave the store. Generated ids
+    # (`ckpt-<ts>-<hex>`) are plain segments and always pass.
+    storage_dir = _checkpoint_storage_dir(root)
+    return _resolve_within_root(storage_dir, storage_dir.resolve(), checkpoint_id)
+
+
+def _snapshot_path(root: Path, checkpoint_id: str) -> Path:
+    return _checkpoint_dir(root, checkpoint_id) / _SNAPSHOT_SUBDIR
+
+
+def _metadata_path(root: Path, checkpoint_id: str) -> Path:
+    return _checkpoint_dir(root, checkpoint_id) / _METADATA_FILE
+
+
+def _write_checkpoint_metadata(
+    root: Path,
+    result: CheckpointCreateResult,
+    entries: dict[str, bool],
+    *,
+    scope_kind: str,
+    original_path: Path,
+) -> None:
+    payload: dict[str, Any] = {
+        "version": _CHECKPOINT_VERSION,
+        "checkpoint_id": result.checkpoint_id,
+        "mode": result.mode,
+        "root": result.root,
+        "scope": scope_kind,
+        "original_path": str(original_path),
+        "created_at": result.created_at,
+        "file_count": result.file_count,
+        "entries": entries,
+        # audit #130d: disclose what create_checkpoint skipped (nested repos / submodules)
+        # so `tg checkpoint create --json` and a later `load_checkpoint_metadata` never
+        # silently under-cover -- mirrors the honesty culture of resolution_gaps /
+        # deadline_limit / possibly_truncated elsewhere in this codebase.
+        "skipped_nested_repos": result.skipped_nested_repos,
+        "active": True,
+    }
+    _write_json_atomic(_metadata_path(root, result.checkpoint_id), payload)
+
+
+def _configured_checkpoint_max() -> int:
+    raw = os.environ.get(_CHECKPOINT_MAX_ENV)
+    if raw is None:
+        return _DEFAULT_CHECKPOINT_MAX
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return _DEFAULT_CHECKPOINT_MAX
+    return value if value > 0 else _DEFAULT_CHECKPOINT_MAX
+
+
+def _select_retained_checkpoints(
+    root: Path,
+    records: list[CheckpointRecord],
+    *,
+    max_records: int | None = None,
+) -> tuple[list[CheckpointRecord], list[Path]]:
+    """Pure selector for bounded on-disk checkpoint retention (round-4 DoS).
+
+    Keep at most ``max_records`` newest records. Returns ``(retained, dirs_to_delete)`` and
+    performs NO filesystem mutation -- the caller removes ``dirs_to_delete`` (metadata.json +
+    the full snapshot copy for each dropped checkpoint). Doing no I/O here lets
+    ``create_checkpoint`` run this selector INSIDE the index lock and defer the slow,
+    index-unrelated ``rmtree`` calls until after the lock is released (q10 RMW race fix).
+
+    M8: ``created_at`` is stamped BEFORE the caller acquires ``index_lock``, so under
+    concurrent writers the insert (lock-arrival) order does not reliably match creation
+    order -- trusting list position for the ``[:limit]`` cut can prune a genuinely newer
+    checkpoint (the ``checkpoint undo`` safety net) and keep an older one. Re-sort by
+    ``created_at`` (newest first) immediately before slicing.
+    """
+    limit = _configured_checkpoint_max() if max_records is None else max(1, int(max_records))
+    if len(records) <= limit:
+        return records, []
+    ordered = sorted(records, key=lambda record: record.created_at, reverse=True)
+    retained = ordered[:limit]
+    dirs_to_delete: list[Path] = []
+    for dropped in ordered[limit:]:
+        try:
+            dirs_to_delete.append(_checkpoint_dir(root, dropped.checkpoint_id))
+        except (OSError, ValueError):
+            # ValueError: a traversal-shaped id in a tampered index is refused by _checkpoint_dir.
+            pass
+    return retained, dirs_to_delete
+
+
+def _prune_checkpoint_records(
+    root: Path,
+    records: list[CheckpointRecord],
+    *,
+    max_records: int | None = None,
+) -> list[CheckpointRecord]:
+    """Bound on-disk checkpoint retention (round-4 DoS).
+
+    Thin wrapper over ``_select_retained_checkpoints`` that removes the dropped checkpoints'
+    directories immediately, so any existing caller/test that expects synchronous pruning is
+    unchanged. Each dropped checkpoint's entire directory (metadata.json + the full snapshot
+    copy) is removed so disk usage stays bounded — an uncapped store grows by ~one full scope
+    copy per checkpoint.
+    """
+    retained, dirs_to_delete = _select_retained_checkpoints(root, records, max_records=max_records)
+    for directory in dirs_to_delete:
+        shutil.rmtree(directory, ignore_errors=True)
+    return retained
+
+
+def _configured_positive_int(env_var: str, default: int) -> int:
+    raw = os.environ.get(env_var)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return default
+    return value if value > 0 else default
+
+
+def _configured_checkpoint_max_file_bytes() -> int:
+    return _configured_positive_int(
+        _CHECKPOINT_MAX_FILE_BYTES_ENV, _DEFAULT_CHECKPOINT_MAX_FILE_BYTES
+    )
+
+
+def _configured_checkpoint_max_total_bytes() -> int:
+    return _configured_positive_int(
+        _CHECKPOINT_MAX_TOTAL_BYTES_ENV, _DEFAULT_CHECKPOINT_MAX_TOTAL_BYTES
+    )
+
+
+def _configured_checkpoint_free_space_margin_bytes() -> int:
+    return _configured_positive_int(
+        _CHECKPOINT_FREE_SPACE_MARGIN_BYTES_ENV, _DEFAULT_CHECKPOINT_FREE_SPACE_MARGIN_BYTES
+    )
+
+
+def _check_checkpoint_disk_budget(root: Path, entries: dict[str, bool]) -> None:
+    """Pre-flight disk-usage budget for create_checkpoint (audit H4).
+
+    Stats every entry that will be copied (cheap; no copying yet) and refuses BEFORE any
+    snapshot directory is created if a single file exceeds the per-file cap, the cumulative
+    snapshot size exceeds the total-per-checkpoint cap, or performing the copy would leave
+    less than the configured free-space margin on the destination filesystem. All three caps
+    are env-configurable (sane defaults) so a repo with legitimately large tracked assets can
+    raise the limit instead of being permanently blocked.
+    """
+    max_file_bytes = _configured_checkpoint_max_file_bytes()
+    max_total_bytes = _configured_checkpoint_max_total_bytes()
+    free_margin_bytes = _configured_checkpoint_free_space_margin_bytes()
+
+    total_bytes = 0
+    for rel_path, exists in entries.items():
+        if not exists:
+            continue
+        try:
+            size = (root / rel_path).stat().st_size
+        except OSError:
+            # A vanished/unreadable source is reported by the copy loop itself; the budget
+            # pre-flight only needs a best-effort size estimate, not definitive readability.
+            continue
+        if size > max_file_bytes:
+            raise CheckpointBudgetExceededError(
+                f"Checkpoint refused: {rel_path!r} is {size} bytes, over the per-file limit "
+                f"of {max_file_bytes} bytes (raise {_CHECKPOINT_MAX_FILE_BYTES_ENV} to allow "
+                "larger files)."
+            )
+        total_bytes += size
+        if total_bytes > max_total_bytes:
+            raise CheckpointBudgetExceededError(
+                "Checkpoint refused: snapshot size exceeds the per-checkpoint limit of "
+                f"{max_total_bytes} bytes (raise {_CHECKPOINT_MAX_TOTAL_BYTES_ENV} to allow a "
+                "larger checkpoint)."
+            )
+
+    try:
+        free_bytes = shutil.disk_usage(root).free
+    except OSError:
+        # Cannot introspect free space on this filesystem; do not block the checkpoint on a
+        # diagnostic we could not compute -- the per-file/total-bytes caps above still apply.
+        return
+    required_bytes = total_bytes + free_margin_bytes
+    if free_bytes < required_bytes:
+        raise CheckpointBudgetExceededError(
+            f"Checkpoint refused: only {free_bytes} bytes free, but this checkpoint needs "
+            f"{total_bytes} bytes plus a {free_margin_bytes}-byte safety margin (lower "
+            f"{_CHECKPOINT_FREE_SPACE_MARGIN_BYTES_ENV} to change the margin)."
+        )
+
+
+def create_checkpoint(path: str = ".") -> CheckpointCreateResult:
+    scope = _detect_checkpoint_scope(Path(path))
+    root = scope.root
+    mode = scope.mode
+    created_at = datetime.now(UTC).isoformat()
+    checkpoint_id = f"ckpt-{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}-{uuid4().hex[:8]}"
+    entries, skipped_nested_repos = _snapshot_entries(scope)
+
+    # audit H4: refuse BEFORE any snapshot directory exists if the copy would blow a
+    # configured size/free-space budget -- see _check_checkpoint_disk_budget.
+    _check_checkpoint_disk_budget(root, entries)
+
+    # Create the storage root up front so its resolve() is stable: under concurrent first-time
+    # creates, resolving _snapshot_path while another writer is still mkdir-ing .tensor-grep/
+    # checkpoints can transiently mis-resolve and trip the containment guard on a valid id.
+    _checkpoint_storage_dir(root).mkdir(parents=True, exist_ok=True)
+
+    snapshot_dir = _snapshot_path(root, checkpoint_id)
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        for rel_path, exists in entries.items():
+            if not exists:
+                continue
+            source = root / rel_path
+            destination = snapshot_dir / rel_path
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            # follow_symlinks=False: store a symlink AS a link, never copy its (possibly
+            # out-of-root) target content into the snapshot (audit HIGH — symlink disclosure).
+            shutil.copy2(source, destination, follow_symlinks=False)
+
+        result = CheckpointCreateResult(
+            checkpoint_id=checkpoint_id,
+            mode=mode,
+            root=str(root),
+            created_at=created_at,
+            file_count=len(entries),
+            undo_argv=_undo_argv(scope, checkpoint_id),
+            undo_command=_display_command(_undo_argv(scope, checkpoint_id)),
+            skipped_nested_repos=skipped_nested_repos,
+        )
+        _write_checkpoint_metadata(
+            root,
+            result,
+            entries,
+            scope_kind=scope.scope_kind,
+            original_path=scope.original_path,
+        )
+
+        # audit #178 (surfaced by the #610 gate): the guarded region must also extend through
+        # the index write below -- q10's load->mutate->write RMW of index.json, cross-process
+        # and cross-thread (see _index_lock.index_lock docstring / AGENTS.md Backend Fail-Closed
+        # Contract). Before this fix that RMW ran entirely OUTSIDE this try/except: a failure
+        # loading, parsing, or writing index.json after the copy loop AND metadata.json had both
+        # already fully succeeded still orphaned the fully-populated per-checkpoint directory
+        # forever -- audit #125a's widening (below) only reached the metadata write, not this
+        # index write. Retention selection stays inside the lock (pure, no I/O); the actual
+        # rmtree of dropped (OTHER, already-retired) snapshot dirs happens AFTER this try/except
+        # -- once our own new checkpoint is durably indexed, a failure pruning old dirs is a
+        # separate, best-effort concern and must not roll back the checkpoint just committed.
+        with index_lock(_index_path(root)):
+            records = _load_index(root)
+            records.insert(
+                0,
+                CheckpointRecord(
+                    version=_CHECKPOINT_VERSION,
+                    checkpoint_id=checkpoint_id,
+                    mode=mode,
+                    root=str(root),
+                    created_at=created_at,
+                    file_count=len(entries),
+                ),
+            )
+            records, dropped_dirs = _select_retained_checkpoints(root, records)
+            _write_index(root, records)
+    except BaseException:
+        # audit #125a: catch BaseException, not Exception -- KeyboardInterrupt/SystemExit
+        # subclass BaseException directly (not Exception), so a Ctrl+C here previously escaped
+        # this handler entirely and left an uncleaned checkpoint dir behind. The guarded region
+        # extends through the metadata write AND (audit #178) the index write above: a failure
+        # writing metadata.json OR index.json after a fully successful copy must not orphan that
+        # directory either -- audit H4's original cleanup only covered the copy loop. Remove the
+        # WHOLE per-checkpoint dir (metadata.json may or may not have been written yet, but
+        # snapshot_dir's own parent must go too, not just the snapshot/ subdir) -- matches how
+        # _prune_checkpoint_records removes a checkpoint. Always re-raise: the interrupt or
+        # exception must still propagate to the caller, never be swallowed here.
+        shutil.rmtree(snapshot_dir.parent, ignore_errors=True)
+        raise
+
+    for directory in dropped_dirs:
+        shutil.rmtree(directory, ignore_errors=True)
+    _prime_bounded_discovery_caches_for_root(root)
+    return result
+
+
+def list_checkpoints(path: str = ".") -> list[CheckpointRecord]:
+    root, _mode = _detect_checkpoint_root(Path(path))
+    return _load_index(root)
+
+
+def describe_checkpoint_scope(path: str = ".") -> CheckpointScopeResult:
+    root, mode = _detect_checkpoint_root(Path(path))
+    records = _load_index(root)
+    return CheckpointScopeResult(
+        root=str(root),
+        mode=mode,
+        checkpoint_count=len(records),
+        checkpoints=records,
+    )
+
+
+def _bounded_checkpoint_index_paths(
+    search_root: Path,
+    *,
+    include_generated: bool,
+    max_depth: int = _DISCOVERY_MAX_DEPTH,
+) -> tuple[set[Path], bool]:
+    truncated = False
+    index_paths: set[Path] = set()
+    stack: list[tuple[Path, int]] = [(search_root, 0)]
+    visited_directories = 0
+    while stack:
+        current, depth = stack.pop()
+        visited_directories += 1
+        if visited_directories > _DISCOVERY_MAX_DIRECTORIES:
+            truncated = True
+            break
+        index_path = _index_path(current)
+        if not index_path.exists():
+            rebuilt = _rebuild_index_from_checkpoint_metadata(current)
+            if rebuilt is not None:
+                index_path = rebuilt
+        if index_path.exists():
+            index_paths.add(index_path)
+
+        if depth >= max_depth:
+            continue
+
+        child_dirs: list[Path] = []
+        try:
+            with os.scandir(current) as entries:
+                for entry in entries:
+                    try:
+                        if not entry.is_dir(follow_symlinks=False):
+                            continue
+                    except OSError:
+                        continue
+                    if entry.name == _CHECKPOINT_DIRNAME:
+                        continue
+                    child = Path(entry.path)
+                    if not include_generated and _is_generated_discovery_dir(child):
+                        continue
+                    child_dirs.append(child)
+        except OSError:
+            continue
+        for child in reversed(child_dirs):
+            stack.append((child, depth + 1))
+    return index_paths, truncated
+
+
+def _nearby_checkpoint_index_paths(search_root: Path) -> set[Path]:
+    candidates: list[Path] = [search_root]
+    candidates.extend(parent for parent in search_root.parents if parent != search_root)
+    try:
+        candidates.extend(
+            child
+            for child in sorted(search_root.iterdir(), key=lambda candidate: candidate.name)
+            if child.is_dir() and not _is_generated_discovery_dir(child)
+        )
+    except OSError:
+        pass
+
+    index_paths: set[Path] = set()
+    seen: set[str] = set()
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            resolved = candidate
+        key = str(resolved).lower() if os.name == "nt" else str(resolved)
+        if key in seen:
+            continue
+        seen.add(key)
+        index_path = _index_path(resolved)
+        if index_path.exists():
+            index_paths.add(index_path)
+    return index_paths
+
+
+def _full_checkpoint_index_paths(search_root: Path) -> set[Path]:
+    index_paths: set[Path] = set()
+    own_index = _index_path(search_root)
+    if not own_index.exists():
+        rebuilt = _rebuild_index_from_checkpoint_metadata(search_root)
+        if rebuilt is not None:
+            own_index = rebuilt
+    if own_index.exists():
+        index_paths.add(own_index)
+    try:
+        index_paths.update(
+            candidate
+            for candidate in search_root.rglob(_INDEX_FILE)
+            if candidate.parent.name == _CHECKPOINTS_SUBDIR
+            and candidate.parent.parent.name == _CHECKPOINT_DIRNAME
+        )
+    except OSError:
+        pass
+    try:
+        for metadata_path in search_root.rglob(_METADATA_FILE):
+            if (
+                metadata_path.parent.parent.name != _CHECKPOINTS_SUBDIR
+                or metadata_path.parent.parent.parent.name != _CHECKPOINT_DIRNAME
+            ):
+                continue
+            root = metadata_path.parent.parent.parent.parent
+            rebuilt = _rebuild_index_from_checkpoint_metadata(root)
+            if rebuilt is not None:
+                index_paths.add(rebuilt)
+    except OSError:
+        pass
+    return index_paths
+
+
+def _scopes_from_index_paths(index_paths: set[Path]) -> list[CheckpointScopeResult]:
+    scopes: list[CheckpointScopeResult] = []
+    seen_roots: set[Path] = set()
+    for index_path in sorted(index_paths):
+        root = index_path.parent.parent.parent
+        if root in seen_roots:
+            continue
+        seen_roots.add(root)
+        records = _load_index(root)
+        if not records:
+            continue
+        mode = records[0].mode if records else "filesystem-snapshot"
+        scopes.append(
+            CheckpointScopeResult(
+                root=str(root),
+                mode=mode,
+                checkpoint_count=len(records),
+                checkpoints=records,
+            )
+        )
+    return scopes
+
+
+def discover_checkpoint_scopes(
+    path: str = ".",
+    *,
+    full: bool = False,
+) -> list[CheckpointScopeResult]:
+    return discover_checkpoint_scopes_result(path, full=full).scopes
+
+
+def discover_checkpoint_scopes_result(
+    path: str = ".",
+    *,
+    full: bool = False,
+) -> CheckpointDiscoveryResult:
+    resolved = Path(path).expanduser().resolve()
+    search_root = resolved if resolved.is_dir() else resolved.parent
+    max_depth = 2**31 - 1 if full else _DISCOVERY_MAX_DEPTH
+    truncated = False
+    cached = _read_cached_checkpoint_index_paths(
+        search_root,
+        full=full,
+        max_depth=max_depth,
+    )
+    if cached is None:
+        if full:
+            index_paths = _full_checkpoint_index_paths(search_root)
+            truncated = False
+        else:
+            index_paths, truncated = _bounded_checkpoint_index_paths(
+                search_root,
+                include_generated=False,
+            )
+        _write_cached_checkpoint_index_paths(
+            search_root,
+            index_paths,
+            full=full,
+            max_depth=max_depth,
+            truncated=truncated,
+        )
+    else:
+        index_paths, truncated = cached
+    return CheckpointDiscoveryResult(
+        scopes=_scopes_from_index_paths(index_paths),
+        truncated=truncated,
+    )
+
+
+def discover_nearby_checkpoint_scopes(path: str = ".") -> list[CheckpointScopeResult]:
+    resolved = Path(path).expanduser().resolve()
+    search_root = resolved if resolved.is_dir() else resolved.parent
+    scopes = _scopes_from_index_paths(_nearby_checkpoint_index_paths(search_root))
+    return [
+        scope
+        for scope in scopes
+        if _path_is_relative_to(Path(scope.root).expanduser().resolve(), search_root)
+    ]
+
+
+def discover_cached_checkpoint_scopes(path: str = ".") -> list[CheckpointScopeResult]:
+    resolved = Path(path).expanduser().resolve()
+    search_root = resolved if resolved.is_dir() else resolved.parent
+    cached = _read_cached_checkpoint_index_paths(
+        search_root,
+        full=False,
+        max_depth=_DISCOVERY_MAX_DEPTH,
+    )
+    if cached is None:
+        return []
+    index_paths, _truncated = cached
+    return _scopes_from_index_paths(index_paths)
+
+
+def resolve_latest_checkpoint(path: str = ".") -> CheckpointLatestResult:
+    scope = describe_checkpoint_scope(path)
+    if scope.checkpoints:
+        record = scope.checkpoints[0]
+        return CheckpointLatestResult(
+            checkpoint_id=record.checkpoint_id,
+            root=scope.root,
+            mode=scope.mode,
+        )
+
+    resolved = Path(path).expanduser().resolve()
+    search_root = resolved if resolved.is_dir() else resolved.parent
+    discovered = [
+        child_scope
+        for child_scope in [
+            *discover_nearby_checkpoint_scopes(path),
+            *discover_cached_checkpoint_scopes(path),
+        ]
+        if child_scope.checkpoints
+        and _path_is_relative_to(Path(child_scope.root).expanduser().resolve(), search_root)
+    ]
+    deduped: list[CheckpointScopeResult] = []
+    seen_roots: set[str] = set()
+    for child_scope in discovered:
+        key = child_scope.root.lower() if os.name == "nt" else child_scope.root
+        if key in seen_roots:
+            continue
+        seen_roots.add(key)
+        deduped.append(child_scope)
+    discovered = deduped
+    if not discovered:
+        raise FileNotFoundError(f"No checkpoints found under {resolved}.")
+    if len(discovered) > 1:
+        roots = ", ".join(scope.root for scope in discovered[:5])
+        suffix = "" if len(discovered) <= 5 else f", ... ({len(discovered)} total)"
+        raise ValueError(
+            "Multiple checkpoint scopes found under "
+            f"{Path(path).expanduser().resolve()}; pass a narrower PATH or explicit checkpoint id. "
+            f"Scopes: {roots}{suffix}"
+        )
+
+    child_scope = discovered[0]
+    record = child_scope.checkpoints[0]
+    return CheckpointLatestResult(
+        checkpoint_id=record.checkpoint_id,
+        root=child_scope.root,
+        mode=child_scope.mode,
+    )
+
+
+def load_checkpoint_metadata(checkpoint_id: str, path: str = ".") -> dict[str, Any]:
+    root, _mode = _detect_checkpoint_root(Path(path))
+    metadata_path = _metadata_path(root, checkpoint_id)
+    if not metadata_path.exists():
+        raise FileNotFoundError(f"Checkpoint not found: {checkpoint_id}")
+
+    payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("Checkpoint metadata must be a JSON object.")
+    return payload
+
+
+def _paths_modified_since_checkpoint(
+    created_at: str, resolved_targets: dict[str, Path]
+) -> tuple[list[str], list[str]]:
+    """Which targets were modified AFTER the checkpoint was taken (task #308).
+
+    `created_at` is written at create time as `datetime.now(UTC).isoformat()`
+    (checkpoint_store.py:855, stored in the metadata file at :690), so no format change or
+    migration is needed -- this reads what already ships.
+
+    mtime, not content hashing, is the discriminator on purpose. "Differs from the snapshot" is
+    the NORMAL case for undo and would flag every file every time, which is noise rather than
+    signal. "Changed since the checkpoint was taken" is the thing a caller cannot otherwise see.
+
+    Fails OPEN, deliberately and narrowly: an unparseable timestamp or an unstattable file yields
+    NO claim rather than a false one. This function only ever adds disclosure -- it gates no
+    behaviour, so a missing entry costs a caller information, while a fabricated entry would tell
+    them a file was clobbered when it was not. Under-claiming is the safer error here, and it is
+    the opposite of the fail-closed rule that applies to completeness fields.
+    """
+    try:
+        checkpoint_time = datetime.fromisoformat(created_at)
+    except (TypeError, ValueError):
+        return [], []
+    if checkpoint_time.tzinfo is None:
+        checkpoint_time = checkpoint_time.replace(tzinfo=UTC)
+    threshold = checkpoint_time.timestamp()
+
+    diverged: list[str] = []
+    unchecked: list[str] = []
+    for rel_path, target in resolved_targets.items():
+        try:
+            if target.is_file() and target.stat().st_mtime > threshold:
+                diverged.append(rel_path)
+        except OSError:
+            # RECORDED, not skipped. The first cut of this used a bare `continue`, and the
+            # silent-loss census ratchet caught it (checkpoint_store.py 6 -> 7): a file whose
+            # mtime could not be read is a file this function CANNOT say anything about, and
+            # dropping it produces the same output as "checked it, it was fine". That is the
+            # exact confusion #292 exists to remove, so the unreadable ones are carried out
+            # separately and disclosed rather than folded into silence.
+            unchecked.append(rel_path)
+    return sorted(diverged), sorted(unchecked)
+
+
+def undo_checkpoint(checkpoint_id: str, path: str = ".") -> CheckpointUndoResult:
+    root, mode = _detect_checkpoint_root(Path(path))
+    metadata_path = _metadata_path(root, checkpoint_id)
+    if not metadata_path.exists():
+        raise FileNotFoundError(f"Checkpoint not found: {checkpoint_id}")
+
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    entries: dict[str, bool] = metadata["entries"]
+    snapshot_dir = _snapshot_path(root, checkpoint_id)
+    root_resolved = root.resolve()
+    snapshot_dir_resolved = snapshot_dir.resolve()
+
+    # --- PRE-FLIGHT PHASE (read-only; abort before touching any working-tree file) ---
+
+    # 1. Validate every metadata entry stays inside the checkpoint root (S1) AND that its
+    #    snapshot SOURCE stays inside the snapshot dir (audit H3). Target containment alone
+    #    left the source composition (`snapshot_dir / rel_path`) unguarded: shutil.copy2(...,
+    #    follow_symlinks=False) only refuses a symlink at the FINAL path component, so a
+    #    snapshot tree with a symlinked (or, on Windows, junctioned) ANCESTOR directory --
+    #    e.g. `snapshot/subdir` pointing outside the snapshot -- is transparently traversed by
+    #    the OS, reading host-file content through the link and copying it into a confined
+    #    working-tree target (arbitrary-file-read-into-working-tree). Reuse the same
+    #    containment helper used for targets, scoped to snapshot_dir, so any entry whose
+    #    resolved source escapes the snapshot is refused before any file is touched.
+    resolved_targets = {
+        rel_path: _resolve_within_root(root, root_resolved, rel_path) for rel_path in entries
+    }
+    resolved_sources = {
+        rel_path: _resolve_within_root(snapshot_dir, snapshot_dir_resolved, rel_path)
+        for rel_path in entries
+    }
+
+    # Task #308: sample divergence NOW, while this is still read-only. Computing it after the
+    # commit phase would read the mtimes undo itself just wrote and report nothing every time --
+    # a field that cannot fire.
+    diverged_paths, divergence_unchecked_paths = _paths_modified_since_checkpoint(
+        str(metadata.get("created_at") or ""), resolved_targets
+    )
+
+    # 2. Verify every snapshot source that should exist is present and readable BEFORE
+    #    mutating any file.  A missing or unreadable blob means the checkpoint is corrupt;
+    #    we must raise CheckpointCorruptError NOW — before removing or overwriting a
+    #    single working-tree file — so the caller's tree is left completely intact (H2).
+    missing: list[str] = []
+    for rel_path, exists in entries.items():
+        if not exists:
+            continue
+        source = resolved_sources[rel_path]
+        if not source.exists():
+            missing.append(rel_path)
+        else:
+            # Probe readability: a zero-length open is enough to catch permission errors.
+            try:
+                source.open("rb").close()
+            except OSError:
+                missing.append(rel_path)
+
+    if missing:
+        first = missing[0]
+        raise CheckpointCorruptError(
+            f"Checkpoint {checkpoint_id!r} is corrupt: "
+            f"{len(missing)} snapshot file(s) are missing or unreadable "
+            f"(first: {first!r}). "
+            "No working-tree files were modified.",
+            missing_files=missing,
+        )
+
+    # --- STAGING PHASE (copy into temp dir, no working-tree mutations yet) ---
+    #
+    # Build a staging area inside the system temp dir.  All copies happen here first;
+    # only after every copy succeeds do we swap files into the working tree.  This
+    # ensures that a crash or error mid-copy cannot leave a partially-restored tree.
+
+    scope_kind = str(metadata.get("scope", "tree"))
+    if scope_kind == "file":
+        current_entries: dict[str, bool] = {}
+    elif mode == "git-worktree-snapshot":
+        # audit #130d: the is_dir() gitlink skip lives inside _git_snapshot_entries itself
+        # (not just the create-time copy loop), so a nested-repo directory is excluded from
+        # this re-scan too -- otherwise it would show up as "in the tree but not in the
+        # snapshot" below and the removal branch would try to unlink() a directory.
+        current_entries, _skipped_nested_repos_now = _git_snapshot_entries(root)
+    else:
+        current_entries = _filesystem_snapshot_entries(root)
+    expected_paths = set(entries.keys())
+
+    # Build a list of (staged_source, final_target) pairs for files to restore.
+    staging_pairs: list[tuple[Path, Path]] = []
+    staging_dir_obj = tempfile.TemporaryDirectory(prefix="tg-undo-staging-")
+    try:
+        staging_root = Path(staging_dir_obj.name)
+
+        restored_files = 0
+        for rel_path, exists in entries.items():
+            target = resolved_targets[rel_path]
+            if exists:
+                source = resolved_sources[rel_path]
+                staged = staging_root / Path(rel_path)
+                staged.parent.mkdir(parents=True, exist_ok=True)
+                # This copy is safe: source existence AND containment were verified in
+                # pre-flight (H2 + H3). follow_symlinks=False: a stored symlink stays a link
+                # and is never followed to re-materialize out-of-root content on undo
+                # (audit HIGH — symlink disclosure).
+                shutil.copy2(source, staged, follow_symlinks=False)
+                staging_pairs.append((staged, target))
+                restored_files += 1
+
+        # --- COMMIT PHASE (mutate working tree only after all copies succeed) ---
+        #
+        # At this point every file to be restored lives in the staging dir.
+        # Now we perform the actual working-tree mutations.  If any step fails
+        # here we attempt a best-effort revert of already-committed changes.
+
+        removed_paths = 0
+        # round-7 rank-6: store (path, prior_bytes) -- NOT just the path -- so a commit-phase
+        # failure can recreate a file it already unlinked. Previously the revert had only the path
+        # and permanently lost the content.
+        committed_removes: list[tuple[Path, bytes]] = []
+        committed_overwrites: list[tuple[Path, bytes]] = []
+
+        try:
+            # Remove files that exist in the current tree but not in the snapshot.
+            for rel_path in sorted(set(current_entries) - expected_paths, reverse=True):
+                current_path = root / Path(rel_path)
+                if current_path.exists():
+                    # Task #297: fail CLOSED. Setting `removed_bytes = None` and unlinking anyway
+                    # destroys a file whose content was never captured, so `committed_removes`
+                    # cannot recreate it and the revert below provably cannot restore it -- the
+                    # exact permanent loss the round-7 rank-6 note above says was fixed. Aborting
+                    # here is strictly better: the `except Exception` handler rolls back every
+                    # mutation already applied and re-raises, so the tree stays consistent.
+                    removed_bytes = _bytes_or_abort_undo(current_path, checkpoint_id)
+                    current_path.unlink()
+                    committed_removes.append((current_path, removed_bytes))
+                    removed_paths += 1
+
+            # Remove files that the snapshot records as deleted.
+            for rel_path, exists in entries.items():
+                if not exists:
+                    target = resolved_targets[rel_path]
+                    if target.exists():
+                        # Task #297, same reasoning as the branch above.
+                        removed_bytes = _bytes_or_abort_undo(target, checkpoint_id)
+                        target.unlink()
+                        committed_removes.append((target, removed_bytes))
+                        removed_paths += 1
+
+            # Swap staged copies into the working tree.
+            for staged, target in staging_pairs:
+                # Record pre-existing content for revert.
+                prior_bytes: bytes | None = None
+                if target.exists():
+                    # Task #297: an unreadable target used to be OVERWRITTEN with
+                    # `prior_bytes = None`, so its original content never reached
+                    # `committed_overwrites` and the revert left it clobbered for good.
+                    prior_bytes = _bytes_or_abort_undo(target, checkpoint_id)
+
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(staged, target, follow_symlinks=False)
+                if prior_bytes is not None:
+                    committed_overwrites.append((target, prior_bytes))
+
+        except Exception:
+            # Best-effort revert: undo any working-tree mutations already committed.
+            for path_to_restore, prior_bytes in reversed(committed_overwrites):
+                try:
+                    path_to_restore.write_bytes(prior_bytes)
+                except OSError:
+                    pass
+            for removed_path, removed_bytes in reversed(committed_removes):
+                # round-7 rank-6: recreate files unlinked earlier in THIS commit phase from the
+                # bytes snapshotted before their unlink, so a partial commit does not lose data.
+                try:
+                    removed_path.parent.mkdir(parents=True, exist_ok=True)
+                    removed_path.write_bytes(removed_bytes)
+                except OSError:
+                    pass
+            raise
+
+    finally:
+        staging_dir_obj.cleanup()
+
+    if scope_kind != "file" and mode != "git-worktree-snapshot":
+        for directory in sorted(root.rglob("*"), reverse=True):
+            # Never follow or remove a symlink during the empty-dir cleanup sweep: is_dir() follows
+            # the link (True for a symlink -> dir), so an rmdir here could delete a user-placed
+            # directory symlink (or, on some platforms, act through it) -- the symlink-follow
+            # deletion class from the AGENTS.md hardening lens. Only real dirs we created are pruned.
+            if directory.is_symlink():
+                continue
+            if not directory.is_dir():
+                continue
+            if directory == _checkpoint_storage_dir(root).parent:
+                continue
+            try:
+                relative = directory.relative_to(root)
+            except ValueError:
+                continue
+            if any(part in {".git", _CHECKPOINT_DIRNAME} for part in relative.parts):
+                continue
+            if not any(directory.iterdir()):
+                directory.rmdir()
+
+    _refresh_bounded_discovery_caches_for_root(root)
+
+    return CheckpointUndoResult(
+        checkpoint_id=checkpoint_id,
+        mode=mode,
+        root=str(root),
+        restored_files=restored_files,
+        removed_paths=removed_paths,
+        diverged_paths=diverged_paths,
+        divergence_unchecked_paths=divergence_unchecked_paths,
+    )

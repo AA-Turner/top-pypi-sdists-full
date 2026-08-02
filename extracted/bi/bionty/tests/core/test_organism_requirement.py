@@ -1,0 +1,74 @@
+import bionty as bt
+import pytest
+from bionty._organism import OrganismNotSet
+
+
+def test_from_values_organism():
+    bt.settings._organism = None
+    with pytest.raises(OrganismNotSet):
+        bt.Gene.from_values(["ABC1"], bt.Gene.symbol)
+    # no organism is needed if the values are ensembl gene ids
+    result = bt.Gene.from_values(["ENSG00000068097"], bt.Gene.ensembl_gene_id)
+    assert len(result) == 1
+    result = bt.Gene.from_values(
+        ["ENSMUSG00000102862", "ENSMUSG00000000003"], field=bt.Gene.ensembl_gene_id
+    )
+    assert len(result) == 2
+
+    result = bt.Gene.from_values(
+        ["HRA1", "ETS1-1"], field=bt.Gene.stable_id, organism="saccharomyces cerevisiae"
+    )
+    assert len(result) == 2
+
+    # test global organism setting
+    bt.settings.organism = "human"
+    values = ["ABC1"]
+    standardized_values = bt.Gene.public().standardize(values)
+    records = bt.Gene.from_values(standardized_values, bt.Gene.symbol)
+    assert records[0].ensembl_gene_id in ("ENSG00000068097", "ENSG00000165029")
+    bt.settings._organism = None
+
+    # Gene.public() should raise error if organism is not provided
+    with pytest.raises(OrganismNotSet):
+        bt.Gene.public().standardize(values)
+    standardized_values = bt.Gene.public(organism="mouse").standardize(values)
+    records = bt.Gene.from_values(standardized_values, bt.Gene.symbol, organism="mouse")
+    assert records[0].ensembl_gene_id == "ENSMUSG00000015243"
+
+    # clean up
+    bt.Gene.filter().delete(permanent=True)
+    bt.Organism.filter().delete(permanent=True)
+
+
+def test_organism_all():
+    assert bt.CellLine.public(organism="all")
+
+
+def test_infer_organism_from_ensembl_id():
+    from bionty._organism import infer_organism_from_ensembl_id
+
+    # Test with a rat Ensembl ID, which has duplicate entries in the ensembl_prefixes parquet
+    # (e.g., "ENSRNOG") and would return a Series from .loc if not handled correctly.
+    organism_source = bt.Source.get(name="ncbitaxon")
+    bt.Organism.from_source(
+        ontology_id="NCBITaxon:10116", source=organism_source
+    ).save()
+    organism = infer_organism_from_ensembl_id("ENSRNOG00000001284")
+    assert organism is not None
+    assert organism.name == "rat"
+
+
+def test_pass_scientific_name_as_organism():
+    bt.Organism.filter().delete(permanent=True)
+    # check organism rat doesn't yet exist in the database
+    assert bt.Organism.filter(scientific_name="Rattus norvegicus").one_or_none() is None
+    # registering a protein with organism rat should also register the organism
+    protein = bt.Protein.from_source(
+        uniprotkb_id="B4F769", organism="Rattus norvegicus"
+    )
+    assert protein is not None
+    assert protein.organism.scientific_name == "Rattus norvegicus"
+    assert bt.Protein.from_source(
+        uniprotkb_id="B4F769",
+        organism=bt.Organism.get(scientific_name="Rattus norvegicus"),
+    )

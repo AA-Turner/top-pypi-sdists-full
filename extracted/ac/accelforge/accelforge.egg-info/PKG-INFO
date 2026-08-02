@@ -1,0 +1,102 @@
+Metadata-Version: 2.4
+Name: accelforge
+Version: 1.0.467
+Summary: AccelForge
+Author-email: Tanner Andrulis <tannerandrulis@gmail.com>, Michael Gilbert <gilbertm@mit.edu>
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: numpy>=2.2.0
+Requires-Dist: pandas>=2.2.0
+Requires-Dist: tqdm>=4.67.0
+Requires-Dist: pydantic>=2.0.0
+Requires-Dist: pydantic_core>=2.33.0
+Requires-Dist: ruamel.yaml>=0.18.0
+Requires-Dist: jinja2>=3.1.0
+Requires-Dist: islpy-barvinok>=2025.2.5
+Requires-Dist: sympy>=1.14.0
+Requires-Dist: symengine>=0.14.0
+Requires-Dist: paretoset>=1.2.5
+Requires-Dist: matplotlib>=3.10.0
+Requires-Dist: plotly>=6.1.0
+Requires-Dist: pydot>=4.0.0
+Requires-Dist: platformdirs>=4.3.0
+Requires-Dist: joblib>=1.5.1
+Requires-Dist: requests>=2.33.1
+Requires-Dist: hwcomponents
+Requires-Dist: hwcomponents-adc
+Requires-Dist: hwcomponents-cacti
+Requires-Dist: hwcomponents-library
+Requires-Dist: hwcomponents-neurosim
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: black; extra == "dev"
+Requires-Dist: flake8; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
+Requires-Dist: pydocstyle; extra == "dev"
+Requires-Dist: nbconvert; extra == "dev"
+Requires-Dist: nbformat; extra == "dev"
+Requires-Dist: ipykernel; extra == "dev"
+Dynamic: license-file
+
+<div align="center">
+
+<img src="https://capsule-render.vercel.app/api?type=rect&color=0:004CFF,100:00CFFF&height=100&section=header&text=AccelForge&fontSize=52&fontColor=ffffff&fontAlignY=55" alt="AccelForge" />
+
+<h3 align="center"><em>Model, design, and explore tensor algebra accelerators.</em></h3>
+
+<img src="docs/source/_static/logo.svg" alt="AccelForge logo" height="120" />
+
+<br>
+<br>
+
+[![PyPI](https://img.shields.io/pypi/v/accelforge?style=for-the-badge&logo=pypi&logoColor=white&labelColor=3775A9&color=0B4F6C)](https://pypi.org/project/accelforge/)
+[![Python](https://img.shields.io/badge/Python-3.8+-3776AB?style=for-the-badge&logo=python&logoColor=white&labelColor=1E415E)](https://www.python.org/)
+[![License](https://img.shields.io/badge/License-MIT-A31F34?style=for-the-badge&labelColor=2D2D2D)](https://opensource.org/licenses/MIT)
+[![Docs](https://img.shields.io/badge/Docs-online-0A7BBB?style=for-the-badge&logo=readthedocs&logoColor=white&labelColor=1A1A1A)](https://accelergy-project.github.io/accelforge/)
+
+[![CI](https://img.shields.io/github/actions/workflow/status/Accelergy-Project/accelforge/tests_and_publish.yaml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=CI&labelColor=24292F&color=2EA043)](https://github.com/Accelergy-Project/accelforge/actions)
+[![Code style: black](https://img.shields.io/badge/code_style-black-000000?style=for-the-badge&logo=python&logoColor=white&labelColor=2D2D2D)](https://github.com/psf/black)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-2EA043?style=for-the-badge&logo=github&logoColor=white&labelColor=24292F)](https://github.com/Accelergy-Project/accelforge/pulls)
+
+</div>
+
+---
+
+AccelForge is a framework for modeling, designing, and exploring tensor algebra
+accelerators. It uses [HWComponents](https://github.com/accelergy-project/hwcomponents)
+as a backend for component cost modeling.
+
+Learn more at the [website](https://accelergy-project.github.io/accelforge/) or on
+[GitHub](https://github.com/Accelergy-Project/accelforge).
+
+## ⚡ Features
+
+- **Flexible Full-Stack Modeling** of a wide variety of devices, circuits,
+  architectures, workloads, and mappings. We integrate with
+  [HWComponents](https://github.com/accelergy-project/hwcomponents), with
+  easily-modifiable models for component costs (area, energy, leak power, and
+  throughput).
+- **Fast and optimal mapping** of workloads onto architectures, yielding the
+  best-possible performance and energy efficiency.
+- **Fusion-aware mapping** that optimizes fusion for cascades of Einsums, enabling
+  end-to-end optimization of entire workloads.
+- **Heterogenous Architectures** that can include multiple types of compute units.
+- **Strong input validation** via Pydantic, with clear error reports for invalid
+  specifications.
+- **Pythonic Interfaces** that enable easy automation and integration with other tools.
+
+## 📦 Install
+
+```bash
+pip install accelforge
+```
+
+## 🧪 Examples
+
+See [`examples/`](examples) for architectures and workloads, and [`notebooks/`](notebooks) for tutorials.
+
+## 📚 Cite
+
+If you use AccelForge in your work, please see [Citing AccelForge](https://accelergy-project.github.io/accelforge/guide/citation.html) for the relevant papers.

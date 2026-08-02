@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-     The yum-minimal element now removes the linux-firmware and
-     linux-firmware-whence packages to save space in cloud images.

@@ -1,0 +1,376 @@
+"""Test zhaws binary sensor."""
+
+import asyncio
+from collections.abc import Awaitable, Callable
+from typing import Any
+from unittest.mock import call
+
+import pytest
+from zhaquirks.builder import QuirkBuilder
+from zhaquirks.device import CustomZigpyDevice
+from zigpy.profiles import zha
+import zigpy.profiles.zha
+from zigpy.typing import UNDEFINED
+from zigpy.zcl.clusters import general, measurement, security
+from zigpy.zcl.clusters.general import OnOff
+
+from tests.common import (
+    SIG_EP_INPUT,
+    SIG_EP_OUTPUT,
+    SIG_EP_PROFILE,
+    SIG_EP_TYPE,
+    create_mock_zigpy_device,
+    find_entity,
+    get_entity,
+    join_zigpy_device,
+    make_zcl_header,
+    send_attributes_report,
+    update_attribute_cache,
+    zigpy_device_from_json,
+)
+from zha.application import Platform
+from zha.application.gateway import Gateway
+from zha.application.platforms import PlatformEntity
+from zha.application.platforms.binary_sensor import (
+    Accelerometer,
+    BinarySensor,
+    IASZone,
+    Occupancy,
+)
+from zha.application.platforms.const import SMARTTHINGS_ACCELERATION_CLUSTER
+from zha.quirks import DeviceRegistry
+
+DEVICE_IAS = {
+    1: {
+        SIG_EP_PROFILE: zigpy.profiles.zha.PROFILE_ID,
+        SIG_EP_TYPE: zigpy.profiles.zha.DeviceType.IAS_ZONE,
+        SIG_EP_INPUT: [security.IasZone.cluster_id],
+        SIG_EP_OUTPUT: [],
+    }
+}
+
+
+DEVICE_OCCUPANCY = {
+    1: {
+        SIG_EP_PROFILE: zigpy.profiles.zha.PROFILE_ID,
+        SIG_EP_TYPE: zigpy.profiles.zha.DeviceType.OCCUPANCY_SENSOR,
+        SIG_EP_INPUT: [measurement.OccupancySensing.cluster_id],
+        SIG_EP_OUTPUT: [],
+    }
+}
+
+DEVICE_GENERAL = {
+    1: {
+        SIG_EP_PROFILE: zigpy.profiles.zha.PROFILE_ID,
+        SIG_EP_TYPE: zigpy.profiles.zha.DeviceType.ON_OFF_SENSOR,
+        SIG_EP_INPUT: [general.BinaryInput.cluster_id],
+        SIG_EP_OUTPUT: [],
+    }
+}
+
+DEVICE_SMARTTHINGS_MULTI = {
+    1: {
+        SIG_EP_PROFILE: zigpy.profiles.zha.PROFILE_ID,
+        SIG_EP_TYPE: zigpy.profiles.zha.DeviceType.IAS_ZONE,
+        SIG_EP_INPUT: [
+            general.Basic.cluster_id,
+            general.PowerConfiguration.cluster_id,
+            general.Identify.cluster_id,
+            general.PollControl.cluster_id,
+            measurement.TemperatureMeasurement.cluster_id,
+            security.IasZone.cluster_id,
+            SMARTTHINGS_ACCELERATION_CLUSTER,
+        ],
+        SIG_EP_OUTPUT: [general.Identify.cluster_id, general.Ota.cluster_id],
+    }
+}
+
+
+async def async_test_binary_sensor_occupancy(
+    zha_gateway: Gateway,
+    cluster: general.OnOff,
+    entity: Occupancy,
+    plugs: dict[str, int],
+) -> None:
+    """Test getting on and off messages for binary sensors."""
+    # binary sensor on
+    await send_attributes_report(zha_gateway, cluster, {1: 0, 0: 1, 2: 2})
+    assert entity.is_on
+
+    # binary sensor off
+    await send_attributes_report(zha_gateway, cluster, {1: 1, 0: 0, 2: 2})
+    assert entity.is_on is False
+
+    # test refresh
+    cluster.read_attributes.reset_mock()
+    assert entity.is_on is False
+    cluster.PLUGGED_ATTR_READS = plugs
+    update_attribute_cache(cluster)
+    await entity.async_update()
+    await zha_gateway.async_block_till_done()
+    assert cluster.read_attributes.await_count == 1
+    assert cluster.read_attributes.await_args == call(
+        ["occupancy"], allow_cache=False, only_cache=False, manufacturer=UNDEFINED
+    )
+    assert entity.is_on
+
+
+async def async_test_iaszone_on_off(
+    zha_gateway: Gateway,
+    cluster: security.IasZone,
+    entity: IASZone,
+    plugs: dict[str, int],
+) -> None:
+    """Test getting on and off messages for iaszone binary sensors."""
+    # binary sensor on
+    cluster.listener_event("cluster_command", 1, 0, [1])
+    await zha_gateway.async_block_till_done()
+    assert entity.is_on
+
+    # binary sensor off
+    cluster.listener_event("cluster_command", 1, 0, [0])
+    await zha_gateway.async_block_till_done()
+    assert entity.is_on is False
+
+    # check that binary sensor remains off when non-alarm bits change
+    cluster.listener_event("cluster_command", 1, 0, [0b1111111100])
+    await zha_gateway.async_block_till_done()
+    assert entity.is_on is False
+
+    # test refresh
+    cluster.read_attributes.reset_mock()
+    assert entity.is_on is False
+    cluster.PLUGGED_ATTR_READS = plugs
+    update_attribute_cache(cluster)
+    await entity.async_update()
+    await zha_gateway.async_block_till_done()
+    assert cluster.read_attributes.await_count == 1
+    assert cluster.read_attributes.await_args == call(
+        ["zone_status"], allow_cache=False, only_cache=False, manufacturer=UNDEFINED
+    )
+    assert entity.is_on
+
+
+@pytest.mark.parametrize(
+    "device, on_off_test, cluster_name, entity_type, plugs",
+    [
+        (
+            DEVICE_IAS,
+            async_test_iaszone_on_off,
+            "ias_zone",
+            IASZone,
+            {"zone_status": 1},
+        ),
+        (
+            DEVICE_OCCUPANCY,
+            async_test_binary_sensor_occupancy,
+            "occupancy",
+            Occupancy,
+            {"occupancy": 1},
+        ),
+    ],
+)
+async def test_binary_sensor(
+    zha_gateway: Gateway,
+    device: dict,
+    on_off_test: Callable[..., Awaitable[None]],
+    cluster_name: str,
+    entity_type: type,
+    plugs: dict[str, int],
+) -> None:
+    """Test ZHA binary_sensor platform."""
+    zigpy_device = create_mock_zigpy_device(zha_gateway, device)
+    zha_device = await join_zigpy_device(zha_gateway, zigpy_device)
+
+    entity: PlatformEntity = find_entity(zha_device, Platform.BINARY_SENSOR)
+    assert entity is not None
+    assert isinstance(entity, entity_type)
+    assert entity.PLATFORM == Platform.BINARY_SENSOR
+
+    assert entity.fallback_name is None
+    assert entity.is_on is False
+
+    # test getting messages that trigger and reset the sensors
+    cluster = getattr(zigpy_device.endpoints[1], cluster_name)
+    await on_off_test(zha_gateway, cluster, entity, plugs)
+
+
+async def test_binary_sensor_general(
+    zha_gateway: Gateway,
+) -> None:
+    """Test binary sensor general - description."""
+    zigpy_device = create_mock_zigpy_device(
+        zha_gateway, DEVICE_GENERAL, manufacturer="DevManuf", model="DevModel"
+    )
+
+    cluster = getattr(zigpy_device.endpoints[1], "binary_input")
+    cluster.PLUGGED_ATTR_READS = {"description": "Binary Input", "present_value": 1}
+    update_attribute_cache(cluster)
+    zha_device = await join_zigpy_device(zha_gateway, zigpy_device)
+    entity: PlatformEntity = find_entity(zha_device, Platform.BINARY_SENSOR)
+
+    await entity.async_update()
+    await zha_gateway.async_block_till_done()
+    assert entity.fallback_name == "Binary Input"
+    assert entity.translation_key is None
+
+
+async def test_smarttthings_multi(
+    zha_gateway: Gateway,
+) -> None:
+    """Test smartthings multi."""
+    zigpy_device = create_mock_zigpy_device(
+        zha_gateway, DEVICE_SMARTTHINGS_MULTI, manufacturer="Samjin", model="multi"
+    )
+    zha_device = await join_zigpy_device(zha_gateway, zigpy_device)
+
+    entity: PlatformEntity = get_entity(
+        zha_device, Platform.BINARY_SENSOR, entity_type=Accelerometer
+    )
+    assert entity is not None
+    assert isinstance(entity, Accelerometer)
+    assert entity.PLATFORM == Platform.BINARY_SENSOR
+    assert entity.is_on is False
+
+    # SmartThingsAccelerationEvent (virtual entity) re-emits attribute updates on
+    # the SmartThings acceleration cluster as zha_events on the device.
+    accel_cluster = zigpy_device.endpoints[1].in_clusters[
+        SMARTTHINGS_ACCELERATION_CLUSTER
+    ]
+    events: list[Any] = []
+    zha_device.on_event("zha_event", events.append)
+
+    await send_attributes_report(zha_gateway, accel_cluster, {"x_axis": 120})
+
+    zha_events = [
+        e
+        for e in events
+        if e.data.get("command") == "attribute_updated"
+        and e.data.get("cluster_id") == SMARTTHINGS_ACCELERATION_CLUSTER
+    ]
+    assert len(zha_events) == 1
+    assert zha_events[0].data["args"] == {
+        "attribute_id": 18,
+        "attribute_name": "x_axis",
+        "attribute_value": 120,
+    }
+
+
+async def test_quirks_binary_sensor_attr_converter(zha_gateway: Gateway) -> None:
+    """Test ZHA quirks v2 binary_sensor with attribute_converter."""
+
+    registry = DeviceRegistry()
+    zigpy_dev = create_mock_zigpy_device(
+        zha_gateway,
+        {
+            1: {
+                SIG_EP_INPUT: [general.Basic.cluster_id, general.OnOff.cluster_id],
+                SIG_EP_OUTPUT: [],
+                SIG_EP_TYPE: zha.DeviceType.SIMPLE_SENSOR,
+                SIG_EP_PROFILE: zha.PROFILE_ID,
+            }
+        },
+        manufacturer="manufacturer",
+        model="model",
+    )
+
+    (
+        QuirkBuilder(zigpy_dev.manufacturer, zigpy_dev.model)
+        .binary_sensor(
+            OnOff.AttributeDefs.on_off.name,
+            OnOff.cluster_id,
+            translation_key="on_off",
+            fallback_name="On/off",
+            attribute_converter=lambda x: not bool(x),  # invert value with lambda
+        )
+        .add_to_registry(registry)
+    )
+
+    zigpy_device_ = registry.resolve(zigpy_dev)
+
+    assert isinstance(zigpy_device_, CustomZigpyDevice)
+    cluster = zigpy_device_.endpoints[1].on_off
+
+    zha_device = await join_zigpy_device(zha_gateway, zigpy_device_)
+    entity = get_entity(zha_device, platform=Platform.BINARY_SENSOR)
+    assert isinstance(entity, BinarySensor)
+
+    # send updated value, check if the value is inverted
+    await send_attributes_report(zha_gateway, cluster, {"on_off": 1})
+    assert entity.is_on is False
+
+    await send_attributes_report(zha_gateway, cluster, {"on_off": 0})
+    assert entity.is_on is True
+
+
+async def test_onoff_client_binary_sensor_on_with_timed_off(
+    zha_gateway: Gateway,
+) -> None:
+    """Test binary sensor with client OnOff cluster handles on_with_timed_off.
+
+    This tests motion sensors that use output/client OnOff clusters and send
+    on_with_timed_off commands when motion is detected.
+    """
+    zigpy_device = await zigpy_device_from_json(
+        zha_gateway.application_controller,
+        "tests/data/devices/ikea-of-sweden-tradfri-motion-sensor.json",
+    )
+
+    zha_device = await join_zigpy_device(zha_gateway, zigpy_device)
+    entity = find_entity(zha_device, Platform.BINARY_SENSOR)
+    assert entity is not None
+    assert isinstance(entity, BinarySensor)
+
+    # Initial state should be off
+    assert entity.is_on is False
+
+    # Get the client/output cluster
+    cluster = zigpy_device.endpoints[1].out_clusters[OnOff.cluster_id]
+
+    # Simulate motion sensor sending on_with_timed_off command
+    # on_off_control=0 means always accept, on_time=1800 (180 seconds in 10ths)
+    hdr = make_zcl_header(
+        OnOff.ServerCommandDefs.on_with_timed_off.id, global_command=False
+    )
+    cluster.handle_message(hdr, [0, 1800, 0])
+    await zha_gateway.async_block_till_done()
+
+    # Binary sensor should now be on
+    assert entity.is_on is True
+
+    # Send another on_with_timed_off while timer is active (covers timer cancel logic)
+    hdr = make_zcl_header(
+        OnOff.ServerCommandDefs.on_with_timed_off.id, global_command=False
+    )
+    cluster.handle_message(hdr, [0, 500, 0])  # 50 seconds
+    await zha_gateway.async_block_till_done()
+    assert entity.is_on is True
+
+    # Advance time past the new timeout (50 seconds)
+    await asyncio.sleep(60)
+    await zha_gateway.async_block_till_done()
+
+    # Binary sensor should now be off
+    assert entity.is_on is False
+
+    # Test toggle command
+    hdr = make_zcl_header(OnOff.ServerCommandDefs.toggle.id, global_command=False)
+    cluster.handle_message(hdr, [])
+    await zha_gateway.async_block_till_done()
+    assert entity.is_on is True
+
+    hdr = make_zcl_header(OnOff.ServerCommandDefs.toggle.id, global_command=False)
+    cluster.handle_message(hdr, [])
+    await zha_gateway.async_block_till_done()
+    assert entity.is_on is False
+
+    # Test on/off command
+    hdr = make_zcl_header(OnOff.ServerCommandDefs.on.id, global_command=False)
+    cluster.handle_message(hdr, [])
+    await zha_gateway.async_block_till_done()
+    assert entity.is_on is True
+
+    hdr = make_zcl_header(OnOff.ServerCommandDefs.off.id, global_command=False)
+    cluster.handle_message(hdr, [])
+    await zha_gateway.async_block_till_done()
+    assert entity.is_on is False

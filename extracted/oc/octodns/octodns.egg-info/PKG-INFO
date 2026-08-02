@@ -1,12 +1,28 @@
 Metadata-Version: 2.4
 Name: octodns
-Version: 1.21.0
+Version: 1.21.1
 Summary: OctoDNS: DNS as code - Tools for managing DNS across multiple providers
-Home-page: https://github.com/octodns/octodns
-Author: Ross McFarland
-Author-email: rwmcfa1@gmail.com
-License: MIT
-Requires-Python: >=3.9
+Author-email: Ross McFarland <rwmcfa1@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://octodns.github.io/octodns/
+Project-URL: Documentation, https://octodns.readthedocs.io/
+Project-URL: Source, https://github.com/octodns/octodns
+Project-URL: Issues, https://github.com/octodns/octodns/issues
+Keywords: dns,octodns,dns-as-code
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Internet :: Name Service (DNS)
+Classifier: Topic :: System :: Systems Administration
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: PyYaml>=4.2b1
@@ -15,6 +31,11 @@ Requires-Dist: fqdn>=1.5.0
 Requires-Dist: idna>=3.3
 Requires-Dist: natsort>=5.5.0
 Requires-Dist: python-dateutil>=2.8.1
+Provides-Extra: test
+Requires-Dist: jsonschema>=4.0.0; extra == "test"
+Requires-Dist: pytest>=6.2.5; extra == "test"
+Requires-Dist: pytest-cov>=3.0.0; extra == "test"
+Requires-Dist: pytest-network>=0.0.1; extra == "test"
 Provides-Extra: dev
 Requires-Dist: jsonschema>=4.0.0; extra == "dev"
 Requires-Dist: pytest>=6.2.5; extra == "dev"
@@ -36,22 +57,7 @@ Requires-Dist: Sphinx>=8.1.0; extra == "docs"
 Requires-Dist: sphinxcontrib-mermaid>=1.0.0; extra == "docs"
 Requires-Dist: sphinx-copybutton>=0.5.2; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"
-Provides-Extra: test
-Requires-Dist: jsonschema>=4.0.0; extra == "test"
-Requires-Dist: pytest>=6.2.5; extra == "test"
-Requires-Dist: pytest-cov>=3.0.0; extra == "test"
-Requires-Dist: pytest-network>=0.0.1; extra == "test"
-Dynamic: author
-Dynamic: author-email
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 <img src="https://raw.githubusercontent.com/octodns/octodns/main/docs/assets/octodns-logo.png?" alt="octoDNS Logo" height=251 width=404>
 

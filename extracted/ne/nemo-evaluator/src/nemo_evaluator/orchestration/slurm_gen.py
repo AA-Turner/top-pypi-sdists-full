@@ -1,0 +1,2938 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Generate self-contained sbatch scripts from EvalConfig."""
+
+from __future__ import annotations
+
+import os
+import re
+import shlex
+import uuid
+from pathlib import Path
+
+import yaml
+
+from nemo_evaluator.config import (
+    ApptainerSandbox,
+    DynamoService,
+    EvalConfig,
+    ExternalApiService,
+    GymResourceService,
+    NatAgentService,
+    SlurmCluster,
+    SlurmSandbox,
+)
+from nemo_evaluator.config.clusters import _parse_walltime
+from nemo_evaluator.config.solvers import ContainerSolverConfig
+from nemo_evaluator.environments.container import (
+    _NEL_PROTOCOL_TO_LEGACY_TYPE,
+    build_legacy_run_config,
+)
+from nemo_evaluator.orchestration.artifact_access import chmod_a_rx, warn_if_parent_chain_lacks_execute
+from nemo_evaluator.orchestration.image_resolver import (
+    default_base_image,
+    resolve_deployment_image,
+    resolve_eval_image,
+)
+from nemo_evaluator.orchestration.secrets_env import (
+    SecretsEnvResult,
+    build_reexport_commands,
+    generate_secrets_env,
+    redact_secrets_env_content,
+    reexport_keys,
+)
+
+_HEADER = """\
+#!/bin/bash
+#SBATCH --job-name=nel-eval-{job_name}
+#SBATCH --output={output_dir}/logs/slurm-%j.log
+#SBATCH --error={output_dir}/logs/slurm-%j.log
+#SBATCH --time={walltime}
+#SBATCH --nodes={nodes}
+#SBATCH --ntasks-per-node={ntasks_per_node}
+#SBATCH --no-requeue
+{gres_line}
+{gpus_per_node_line}
+{partition_line}
+{account_line}
+{sbatch_comment_line}
+{sbatch_extra_lines}
+
+set -uo pipefail
+export NEL_INNER_EXECUTION=1
+export PYTHONUNBUFFERED=1
+# Stable namespace for shared filesystem coordination between sibling
+# Pyxis containers (e.g. legacy gym deployment companion + eval container).
+# Pinned at submit time so auto-resume chain links share the same path.
+export NEL_INVOCATION_ID={nel_invocation_id}
+
+export OUTPUT_DIR="{output_dir}"
+NEL_EXIT_CODE=0
+JOB_START_EPOCH=$(date +%s)
+mkdir -p "$OUTPUT_DIR/logs"
+chmod a+rx "$OUTPUT_DIR" "$OUTPUT_DIR/logs" 2>/dev/null || true
+
+echo "=== NeMo Evaluator ==="
+echo "Job ID: $SLURM_JOB_ID"
+echo "Node: $(hostname)"
+echo "Start: $(date -Iseconds)"
+"""
+
+_SHARD_ENV = """\
+# Shard {shard_idx} of {total_shards} (independent job)
+export NEL_SHARD_IDX={shard_idx}
+export NEL_TOTAL_SHARDS={total_shards}
+rm -f "$OUTPUT_DIR/.shard_done"
+echo "Shard: $NEL_SHARD_IDX / $NEL_TOTAL_SHARDS  (output: $OUTPUT_DIR)"
+"""
+
+_SHARD_FINISH = """\
+# Mark this shard as complete and auto-merge if last
+_PARENT_DIR="{parent_output_dir}"
+if [[ $NEL_EXIT_CODE -eq 0 ]]; then
+    touch "$OUTPUT_DIR/.shard_done"
+    _DONE=0
+    for _s in $(seq 0 $(({total_shards} - 1))); do
+        [[ -f "$_PARENT_DIR/shard_$_s/.shard_done" ]] && _DONE=$((_DONE + 1))
+    done
+    echo "Shard {shard_idx} complete ($_DONE/{total_shards} shards done)."
+    if [[ $_DONE -eq {total_shards} ]]; then
+        # Remove stale lock from a previously failed merge attempt
+        if [[ -d "$_PARENT_DIR/.merge_lock" ]] && [[ ! -f "$_PARENT_DIR/.merge_lock/.done" ]]; then
+            rm -rf "$_PARENT_DIR/.merge_lock"
+        fi
+        if mkdir "$_PARENT_DIR/.merge_lock" 2>/dev/null; then
+            echo ""
+            echo "=== All {total_shards} shards complete — running merge ==="
+            {merge_prefix}nel eval merge "$_PARENT_DIR"
+            _MERGE_RC=$?
+            if [[ $_MERGE_RC -ne 0 ]]; then
+                echo "ERROR: Merge failed (exit $_MERGE_RC). To retry:"
+                echo "  rmdir '{parent_output_dir}/.merge_lock' 2>/dev/null; nel eval merge '{parent_output_dir}'"
+                rm -rf "$_PARENT_DIR/.merge_lock"
+                NEL_EXIT_CODE=1
+            else
+                touch "$_PARENT_DIR/.merge_lock/.done"
+                {report_commands}
+                find "$_PARENT_DIR" -mindepth 1 -maxdepth 1 -type d ! -name 'shard_*' ! -name '.merge_lock' -exec chmod -R a+rx {{}} + 2>/dev/null || true
+                chmod a+rx "$_PARENT_DIR" "$_PARENT_DIR"/report.* 2>/dev/null || true
+            fi
+        fi
+    fi
+else
+    echo "Shard {shard_idx} failed (exit $NEL_EXIT_CODE). Skipping completion marker."
+    echo "  Manual merge: nel eval merge $_PARENT_DIR"
+fi
+"""
+
+_HEADER_HETJOB_PREAMBLE = """\
+#!/bin/bash
+"""
+
+_HEADER_HETJOB_POOL = """\
+# ── Het Group {het_idx}: {pool_name} ──
+#SBATCH --nodes={nodes}
+#SBATCH --ntasks-per-node={ntasks_per_node}
+#SBATCH --time={walltime}
+{gres_line}
+{gpus_per_node_line}
+{partition_line}
+{account_line}
+{pool_extra_lines}
+"""
+
+_HEADER_HETJOB_SEPARATOR = """\
+#SBATCH hetjob
+"""
+
+_HEADER_HETJOB_FOOTER = """\
+#SBATCH --job-name=nel-eval-{job_name}
+#SBATCH --output={output_dir}/logs/slurm-%j.log
+#SBATCH --error={output_dir}/logs/slurm-%j.log
+#SBATCH --time={walltime}
+#SBATCH --no-requeue
+{account_line}
+{sbatch_comment_line}
+{sbatch_extra_lines}
+
+set -uo pipefail
+export NEL_INNER_EXECUTION=1
+export PYTHONUNBUFFERED=1
+# Stable namespace for shared filesystem coordination between sibling
+# Pyxis containers (e.g. legacy gym deployment companion + eval container).
+# Pinned at submit time so auto-resume chain links share the same path.
+export NEL_INVOCATION_ID={nel_invocation_id}
+
+export OUTPUT_DIR="{output_dir}"
+NEL_EXIT_CODE=0
+JOB_START_EPOCH=$(date +%s)
+mkdir -p "$OUTPUT_DIR/logs"
+chmod a+rx "$OUTPUT_DIR" "$OUTPUT_DIR/logs" 2>/dev/null || true
+
+echo "=== NeMo Evaluator (het-job) ==="
+echo "Job ID: $SLURM_JOB_ID"
+{het_echo_lines}
+echo "Start: $(date -Iseconds)"
+"""
+
+_SECRETS_SOURCE = """\
+# Load credentials from separate file (not embedded in this script).
+# Restrict permissions: chmod 600 "$BASE_OUTPUT_DIR/.secrets.env"
+BASE_OUTPUT_DIR="$OUTPUT_DIR"
+if [ -f "$BASE_OUTPUT_DIR/.secrets.env" ]; then
+    set -a
+    source "$BASE_OUTPUT_DIR/.secrets.env"
+    set +a
+fi
+"""
+
+_CONDA_ACTIVATE = """\
+source /opt/anaconda3/bin/activate {conda_env}
+"""
+
+_MODEL_SERVICE = """\
+# Service: {name} ({svc_type})
+echo "Starting {svc_type} server: {name}..."
+echo "  Logs: $OUTPUT_DIR/logs/server-{name}-$SLURM_JOB_ID.log"
+{srun_prefix}{cuda_prefix}{service_cmd}>> "$OUTPUT_DIR/logs/server-{name}-$SLURM_JOB_ID.log" 2>&1 &
+{name_upper}_PID=$!
+ln -sf "server-{name}-$SLURM_JOB_ID.log" "$OUTPUT_DIR/logs/server-{name}.log"
+{name_upper}_URL="http://localhost:{port}/v1"
+{name_upper}_MODEL={model}
+"""
+
+_GYM_SERVICE = """\
+# Service: {name} (gym)
+echo "Starting benchmark server: {name}..."
+echo "  Logs: $OUTPUT_DIR/logs/server-{name}-$SLURM_JOB_ID.log"
+nel serve -b {benchmark} --host 0.0.0.0 -p {port} >> "$OUTPUT_DIR/logs/server-{name}-$SLURM_JOB_ID.log" 2>&1 &
+{name_upper}_PID=$!
+ln -sf "server-{name}-$SLURM_JOB_ID.log" "$OUTPUT_DIR/logs/server-{name}.log"
+"""
+
+_GYM_CMD_SERVICE = """\
+# Service: {name} (gym / custom server)
+echo "Starting server: {name}..."
+echo "  Logs: $OUTPUT_DIR/logs/server-{name}-$SLURM_JOB_ID.log"
+{srun_prefix}bash -c '{server_cmd}' >> "$OUTPUT_DIR/logs/server-{name}-$SLURM_JOB_ID.log" 2>&1 &
+{name_upper}_PID=$!
+ln -sf "server-{name}-$SLURM_JOB_ID.log" "$OUTPUT_DIR/logs/server-{name}.log"
+"""
+
+_NAT_SERVICE = """\
+# Service: {name} (nat agent)
+echo "Starting NAT agent server: {name}..."
+echo "  Logs: $OUTPUT_DIR/logs/server-{name}-$SLURM_JOB_ID.log"
+{srun_prefix}nat serve --config_file {config_file} --port {port} --host 0.0.0.0 >> "$OUTPUT_DIR/logs/server-{name}-$SLURM_JOB_ID.log" 2>&1 &
+{name_upper}_PID=$!
+ln -sf "server-{name}-$SLURM_JOB_ID.log" "$OUTPUT_DIR/logs/server-{name}.log"
+{name_upper}_URL="http://localhost:{port}"
+{name_upper}_MODEL="nat-agent"
+"""
+
+_MULTINODE_IP_DISCOVERY = """\
+# Multi-node IP discovery
+MASTER_IP=$(scontrol show hostname "${nodelist_var}" | head -n 1)
+echo "Master IP: $MASTER_IP"
+export MASTER_IP
+"""
+
+_SGLANG_MULTINODE_SERVICE = """\
+# Service: {name} ({svc_type}, multi-node torch.distributed: {num_nodes} nodes)
+echo "Starting multi-node {svc_type} server: {name}..."
+echo "  Logs: $OUTPUT_DIR/logs/server-{name}-$SLURM_JOB_ID.log"
+
+# All N nodes run identical `sglang serve --node-rank <R> --dist-init-addr
+# $MASTER_IP:$DIST_PORT` in parallel. SGLang's torch.distributed rendezvous
+# synchronizes them at init. Only rank 0 (on MASTER_IP) hosts the HTTP API;
+# other ranks are TP workers without an HTTP server.
+DIST_PORT={dist_port}
+export DIST_PORT
+_NODES=$(scontrol show hostnames "{nodelist_var}")
+_RANK=0
+for _NODE in $_NODES; do
+    {srun_prefix_single_node}--container-name=nel-{safe_name}-rank$_RANK -w $_NODE bash "$OUTPUT_DIR/logs/{script_file}" $_RANK >> "$OUTPUT_DIR/logs/server-{name}-$SLURM_JOB_ID.log" 2>&1 &
+    if [ $_RANK -eq 0 ]; then
+        {name_upper}_PID=$!
+    fi
+    _RANK=$((_RANK + 1))
+done
+
+ln -sf "server-{name}-$SLURM_JOB_ID.log" "$OUTPUT_DIR/logs/server-{name}.log"
+{name_upper}_URL="http://localhost:{port}/v1"
+{name_upper}_MODEL={model}
+"""
+
+# ---------------------------------------------------------------------------
+# Dynamo (ai-dynamo) templates
+# ---------------------------------------------------------------------------
+#
+# Dynamo's HTTP frontend (`python3 -m dynamo.frontend`) is the user-facing
+# OpenAI-compatible endpoint. Workers (`python3 -m dynamo.sglang`) self-register
+# via NATS using DYN_REQUEST_PLANE=nats; the frontend dispatches requests.
+#
+# Aggregated: one worker, possibly multi-node TP via sglang's rendezvous.
+# Disaggregated: separate prefill + decode workers; frontend lives on the
+# first prefill node. KV transfer goes over NIxl (RDMA) between roles.
+
+_DYNAMO_NATS_PORT = 4222
+_DYNAMO_ETCD_PORT = 2379
+# Worker's internal HTTP port (not user-facing — frontend is on svc.port).
+_DYNAMO_WORKER_PORT_OFFSET = 1
+# Prefill workers run SGLang's CommonKVBootstrapServer; the sglang default
+# (8998) needs an explicit override to keep the contract obvious and avoid
+# surprises with future SGLang version drift (srt-slurm makes the same choice).
+_DYNAMO_PREFILL_BOOTSTRAP_PORT_OFFSET = 2
+_DYNAMO_DIST_INIT_PORT = 29500
+
+_DYNAMO_AGG_SERVICE = """\
+# Service: {name} (dynamo, aggregated{multinode_note})
+echo "Starting dynamo aggregated service: {name}..."
+echo "  Logs: $OUTPUT_DIR/logs/server-{name}-$SLURM_JOB_ID.log"
+{launch_block}
+ln -sf "server-{name}-$SLURM_JOB_ID.log" "$OUTPUT_DIR/logs/server-{name}.log"
+{name_upper}_URL="http://localhost:{port}/v1"
+{name_upper}_MODEL={model}
+"""
+
+_DYNAMO_AGG_SINGLENODE_LAUNCH = """\
+{srun_prefix}bash "$OUTPUT_DIR/logs/{script_file}" >> "$OUTPUT_DIR/logs/server-{name}-$SLURM_JOB_ID.log" 2>&1 &
+{name_upper}_PID=$!"""
+
+_DYNAMO_AGG_MULTINODE_LAUNCH = """\
+_NODES=$(scontrol show hostnames "{nodelist_var}")
+_RANK=0
+for _NODE in $_NODES; do
+    {srun_prefix_single_node}--container-name=nel-{safe_name}-rank$_RANK -w $_NODE bash "$OUTPUT_DIR/logs/{script_file}" $_RANK >> "$OUTPUT_DIR/logs/server-{name}-$SLURM_JOB_ID.log" 2>&1 &
+    if [ $_RANK -eq 0 ]; then
+        {name_upper}_PID=$!
+    fi
+    _RANK=$((_RANK + 1))
+done"""
+
+_DYNAMO_DISAGG_SERVICE = """\
+# Service: {name} (dynamo, disaggregated: {num_prefill_workers}P × {prefill_nodes_per_worker}n + {num_decode_workers}D × {decode_nodes_per_worker}n)
+echo "Starting dynamo disaggregated service: {name}..."
+echo "  Logs: $OUTPUT_DIR/logs/server-{name}-$SLURM_JOB_ID.log"
+
+# Each worker (prefill or decode) forms its OWN torch.distributed TP
+# rendezvous; they MUST NOT share --dist-init-addr — verified against
+# srt-slurm's HSG 2664281 production run (distinct leader IP per worker).
+# The leader IP is passed to each per-node script as a positional arg so
+# every worker spawned by the outer loop gets its slice's first hostname.
+# MASTER_IP (set earlier from the prefill nodelist) is still used by
+# NATS/etcd/frontend; that runs only on prefill worker 0, rank 0.
+{nodelist_split_block}
+
+{prefill_fanout}
+
+{decode_fanout}
+
+ln -sf "server-{name}-$SLURM_JOB_ID.log" "$OUTPUT_DIR/logs/server-{name}.log"
+{name_upper}_URL="http://localhost:{port}/v1"
+{name_upper}_MODEL={model}
+"""
+
+_RAY_MULTINODE_SERVICE = """\
+# Service: {name} ({svc_type}, multi-node Ray: {num_nodes} nodes)
+echo "Starting multi-node Ray {svc_type} server: {name}..."
+echo "  Logs: $OUTPUT_DIR/logs/server-{name}-$SLURM_JOB_ID.log"
+
+RAY_PORT={ray_port}
+_GPUS_PER_NODE=${{SLURM_GPUS_ON_NODE:-$(nvidia-smi -L 2>/dev/null | wc -l)}}
+if [ "$_GPUS_PER_NODE" -eq 0 ] 2>/dev/null || [ -z "$_GPUS_PER_NODE" ]; then
+    echo "FATAL: Cannot determine GPU count for Ray. Set gpus_per_node in cluster config."
+    exit 1
+fi
+export RAY_ADDRESS="$MASTER_IP:$RAY_PORT"
+
+# Per-node srun pattern: one srun --ntasks=1 per node (matches ray.sub).
+# Multi-task srun (--ntasks=N) can fail to initialize container envs properly.
+_WORKER_NODES=$(scontrol show hostnames "{nodelist_var}" | tail -n +2)
+
+# Head node (first node)
+{srun_prefix_single_node}bash -c '
+set -uo pipefail
+trap "kill 0 2>/dev/null" EXIT
+echo "[Ray head] Starting on $(hostname) with '"$_GPUS_PER_NODE"' GPUs"
+{ray_binary} start --head --port='"$RAY_PORT"' --num-gpus='"$_GPUS_PER_NODE"' --node-manager-port=8266 --object-manager-port=8267 --metrics-export-port=8269 --dashboard-agent-grpc-port=8270 --dashboard-agent-listen-port=8271 --runtime-env-agent-port=8272 --block &
+RAY_HEAD_PID=$!
+for _i in $(seq 1 120); do
+    {ray_binary} status 2>/dev/null && break
+    sleep 2
+done
+# Wait for worker nodes to join Ray cluster.
+# ray.sub uses sleep 90; we wait proportionally to node count.
+echo "[Ray head] Waiting 90s for {num_nodes} worker nodes to join..."
+sleep 90
+{ray_binary} status 2>/dev/null || true
+echo "[Ray head] Launching {svc_type}..."
+export RAY_ADDRESS="localhost:'"$RAY_PORT"'"
+{service_cmd}
+_SVC_RC=$?
+if [ $_SVC_RC -ne 0 ]; then
+    echo "[Ray head] {svc_type} exited with code $_SVC_RC"
+    {ray_binary} stop 2>/dev/null; kill $RAY_HEAD_PID 2>/dev/null
+    exit $_SVC_RC
+fi
+wait $RAY_HEAD_PID
+' >> "$OUTPUT_DIR/logs/server-{name}-$SLURM_JOB_ID.log" 2>&1 &
+{name_upper}_PID=$!
+
+# Worker nodes (remaining nodes)
+for _WORKER in $_WORKER_NODES; do
+    {srun_prefix_single_node_worker}bash -c '
+set -uo pipefail
+echo "[Ray worker on $(hostname)] Joining '"$MASTER_IP"':'"$RAY_PORT"' with '"$_GPUS_PER_NODE"' GPUs"
+_joined=0
+for _i in $(seq 1 60); do
+    {ray_binary} start --address="'"$MASTER_IP"':'"$RAY_PORT"'" --num-gpus='"$_GPUS_PER_NODE"' --node-manager-port=8266 --object-manager-port=8267 --metrics-export-port=8269 --dashboard-agent-grpc-port=8270 --dashboard-agent-listen-port=8271 --runtime-env-agent-port=8272 --block && {{ _joined=1; break; }}
+    echo "[Ray worker $(hostname)] Retry $_i/60..."
+    sleep 5
+done
+if [ "$_joined" -eq 0 ]; then
+    echo "[Ray worker $(hostname)] FATAL: Failed to join after 60 attempts"
+    exit 1
+fi
+' >> "$OUTPUT_DIR/logs/server-{name}-$SLURM_JOB_ID.log" 2>&1 &
+done
+
+ln -sf "server-{name}-$SLURM_JOB_ID.log" "$OUTPUT_DIR/logs/server-{name}.log"
+{name_upper}_URL="http://localhost:{port}/v1"
+{name_upper}_MODEL={model}
+"""
+
+_HEALTH_WAIT = """\
+# Wait for {name}
+echo "Waiting for {name} at {url}..."
+{name_upper}_READY=0
+for _i in $(seq 1 {max_attempts}); do
+    if curl -sf "{url}{health_path}" > /dev/null 2>&1; then
+        echo "  {name} ready."
+        {name_upper}_READY=1
+        break
+    fi
+    if [ -n "${{{name_upper}_PID:-}}" ] && ! kill -0 ${name_upper}_PID 2>/dev/null; then
+        echo "  {name} died during startup."
+        exit 1
+    fi
+    sleep 5
+done
+if [ ${name_upper}_READY -eq 0 ]; then
+    echo "ERROR: {name} did not become healthy after {max_attempts} attempts."
+    exit 1
+fi
+"""
+
+_HEALTH_WAIT_DYNAMO = """\
+# Wait for {name} (dynamo: >={expected_prefill} prefill + >={expected_decode} decode/backend workers registered)
+echo "Waiting for {name} at {url} (workers registered via NATS)..."
+{name_upper}_READY=0
+for _i in $(seq 1 {max_attempts}); do
+    # Dynamo frontend /health returns 200 the moment its FastAPI binds,
+    # well before any worker registers. Parse the JSON body and count
+    # instances per ``component`` — matches the readiness rule srt-slurm's
+    # ``check_dynamo_health`` uses (srtctl/core/health.py). Aggregated
+    # workers report as ``component="backend"``; disagg as ``"prefill"`` or
+    # ``"decode"``/``"tensorrt_llm"``.
+    _RESP=$(curl -sf "{url}/health" 2>/dev/null)
+    if [ -n "$_RESP" ] && echo "$_RESP" | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+inst = d.get("instances") or []
+gens = [i for i in inst if i.get("endpoint") == "generate"]
+n_p = sum(1 for i in gens if i.get("component") == "prefill")
+n_d = sum(1 for i in gens if i.get("component") in ("decode", "tensorrt_llm", "backend"))
+sys.exit(0 if (n_p >= {expected_prefill} and n_d >= {expected_decode}) else 1)
+' 2>/dev/null; then
+        echo "  {name} ready (>={expected_prefill} prefill + >={expected_decode} decode/backend registered)."
+        {name_upper}_READY=1
+        break
+    fi
+    if [ -n "${{{name_upper}_PID:-}}" ] && ! kill -0 ${name_upper}_PID 2>/dev/null; then
+        echo "  {name} died during startup."
+        exit 1
+    fi
+    sleep 5
+done
+if [ ${name_upper}_READY -eq 0 ]; then
+    echo "ERROR: {name} did not have the expected workers register after {max_attempts} attempts."
+    exit 1
+fi
+"""
+
+_HEALTH_WAIT_MULTI = """\
+# Wait for {name} (try multiple health endpoints)
+echo "Waiting for {name} at {url}..."
+{name_upper}_READY=0
+for _i in $(seq 1 {max_attempts}); do
+    if curl -sf "{url}/health" > /dev/null 2>&1 || curl -sf "{url}/openapi.json" > /dev/null 2>&1; then
+        echo "  {name} ready."
+        {name_upper}_READY=1
+        break
+    fi
+    if [ -n "${{{name_upper}_PID:-}}" ] && ! kill -0 ${name_upper}_PID 2>/dev/null; then
+        echo "  {name} died during startup."
+        exit 1
+    fi
+    sleep 5
+done
+if [ ${name_upper}_READY -eq 0 ]; then
+    echo "ERROR: {name} did not become healthy after {max_attempts} attempts."
+    exit 1
+fi
+"""
+
+_TASK_CONFIG = """\
+# Benchmark {idx}/{total}: {bench_name} (full config)
+echo ""
+echo "============================================================"
+echo "  Benchmark {idx}/{total}: {bench_name} (repeats={repeats})"
+echo "============================================================"
+echo "  Logs: $OUTPUT_DIR/logs/eval-{safe_name}-$SLURM_JOB_ID.log"
+export {svc_url_var}="${{{model_url_bash}:-}}"
+export {svc_model_var}="${{{model_id_bash}:-}}"
+export NEL_OUTPUT_DIR="$OUTPUT_DIR/{safe_name}"
+mkdir -p "$NEL_OUTPUT_DIR"
+{run_prefix}nel eval run "$OUTPUT_DIR/config_{safe_name}.yaml" {extra_flags}2>&1 | stdbuf -oL tee -a "$OUTPUT_DIR/logs/eval-{safe_name}-$SLURM_JOB_ID.log"
+_EVAL_RC=${{PIPESTATUS[0]}}
+ln -sf "eval-{safe_name}-$SLURM_JOB_ID.log" "$OUTPUT_DIR/logs/eval-{safe_name}.log"
+chmod -R a+rx "$NEL_OUTPUT_DIR" 2>/dev/null || true
+if [ $_EVAL_RC -ne 0 ]; then echo "  FAILED: {bench_name}"; NEL_EXIT_CODE=1; fi
+"""
+
+_TASK_CONFIG_WITH_PROBE = """\
+# Benchmark {idx}/{total}: {bench_name} (full config)
+echo ""
+echo "============================================================"
+echo "  Benchmark {idx}/{total}: {bench_name} (repeats={repeats})"
+echo "============================================================"
+echo "  Logs: $OUTPUT_DIR/logs/eval-{safe_name}-$SLURM_JOB_ID.log"
+export {svc_url_var}="${{{model_url_bash}:-}}"
+export {svc_model_var}="${{{model_id_bash}:-}}"
+export NEL_OUTPUT_DIR="$OUTPUT_DIR/{safe_name}"
+mkdir -p "$NEL_OUTPUT_DIR"
+_PROBE_SENTINEL="$OUTPUT_DIR/.nel_model_died"
+rm -f "$_PROBE_SENTINEL"
+{run_prefix}nel eval run "$OUTPUT_DIR/config_{safe_name}.yaml" {extra_flags}> >(stdbuf -oL tee -a "$OUTPUT_DIR/logs/eval-{safe_name}-$SLURM_JOB_ID.log") 2>&1 &
+_EVAL_PID=$!
+_nel_probe_health "{probe_url}" $_EVAL_PID "$_PROBE_SENTINEL" 30 3 &
+_PROBE_PID=$!
+wait $_EVAL_PID
+_EVAL_RC=$?
+kill $_PROBE_PID 2>/dev/null; wait $_PROBE_PID 2>/dev/null
+ln -sf "eval-{safe_name}-$SLURM_JOB_ID.log" "$OUTPUT_DIR/logs/eval-{safe_name}.log"
+chmod -R a+rx "$NEL_OUTPUT_DIR" 2>/dev/null || true
+if [ -f "$_PROBE_SENTINEL" ]; then
+    echo "FATAL: Model server died during {bench_name}. Aborting."
+    exit 1
+fi
+if [ $_EVAL_RC -ne 0 ]; then echo "  FAILED: {bench_name}"; NEL_EXIT_CODE=1; fi
+"""
+
+
+_TASK_LEGACY_CONTAINER = """\
+# Benchmark {idx}/{total}: {bench_name} (legacy container, direct dispatch)
+echo ""
+echo "============================================================"
+echo "  Benchmark {idx}/{total}: {bench_name} (legacy, repeats={repeats})"
+echo "============================================================"
+echo "  Logs: $OUTPUT_DIR/logs/eval-{safe_name}-$SLURM_JOB_ID.log"
+mkdir -p "{results_dir}"
+{reexport}\
+if [ -f "{results_dir}/results.yml" ] || [ -f "{results_dir}/results.json" ]; then
+    echo "  Already complete (results.yml present), skipping."
+else
+    srun --mpi=pmix --overlap --unbuffered --nodes 1 --ntasks 1{node_flag} \\
+        --container-image {harness_image} \\
+        --container-mounts={mounts} \\
+        {home_flag}{env_flags} \\
+        bash -c '$(command -v nemo-evaluator >/dev/null 2>&1 && echo nemo-evaluator || echo eval-factory) run_eval --run_config {run_config_in_container}' \\
+        2>&1 | stdbuf -oL tee -a "$OUTPUT_DIR/logs/eval-{safe_name}-$SLURM_JOB_ID.log"
+    _EVAL_RC=${{PIPESTATUS[0]}}
+    ln -sf "eval-{safe_name}-$SLURM_JOB_ID.log" "$OUTPUT_DIR/logs/eval-{safe_name}.log"
+    if [ $_EVAL_RC -ne 0 ]; then echo "  FAILED: {bench_name}"; NEL_EXIT_CODE=1; fi
+fi
+"""
+
+_REPORT = """\
+# Generate reports
+echo ""
+echo "=== Generating reports ==="
+{report_commands}
+chmod a+rx "$OUTPUT_DIR"/report.* 2>/dev/null || true
+"""
+
+_EXPORT = """\
+# Export results
+echo ""
+echo "=== Exporting results ==="
+{export_commands}
+"""
+
+_EXPORT_CONFIG_FILE = "export_config.yaml"
+_LEGACY_SHARDING_ERROR = (
+    "cluster.shards is not supported for legacy container:// benchmarks. "
+    "Legacy harness run_config.yaml has no NEL shard range, so each shard would run the same work."
+)
+
+
+def _has_multiple_shards(shards: int | None) -> bool:
+    return shards is not None and shards > 1
+
+
+_PREFLIGHT_IMAGE_CHECK = """\
+# Pre-flight: verify container images are pullable
+echo "Checking container images..."
+{checks}
+echo "  All images OK."
+"""
+
+_IMAGE_CHECK_LINE = """\
+echo "  {label}: {image}"
+srun --overlap --nodes 1 --ntasks 1 --container-image {image} {mount_flag}true 2>&1 \\
+    | head -5 || {{ echo "FATAL: cannot pull image for {label}: {image}"; exit 1; }}"""
+
+
+def _preflight_image_checks(config: EvalConfig, cluster: SlurmCluster) -> str:
+    """Generate bash that validates all container images before starting services."""
+    images: dict[str, str] = {}
+    for name, svc in config.services.items():
+        img = getattr(svc, "image", None)
+        if img:
+            images[name] = img
+    eval_img = getattr(cluster, "eval_image", None)
+    if eval_img:
+        images["eval-runner"] = eval_img
+
+    if not images:
+        return ""
+
+    cluster_mounts = list(getattr(cluster, "container_mounts", None) or [])
+    mount_flag = f"--container-mounts={','.join(cluster_mounts)} " if cluster_mounts else ""
+
+    checks = [_IMAGE_CHECK_LINE.format(label=label, image=img, mount_flag=mount_flag) for label, img in images.items()]
+    return _PREFLIGHT_IMAGE_CHECK.format(checks="\n".join(checks))
+
+
+_CLEANUP_FUNC = """\
+# Cleanup function — called on EXIT (success, failure, or signal)
+cleanup() {{
+    echo ""
+    echo "Shutting down services..."
+    {kill_commands}
+    chmod a+rx "$OUTPUT_DIR" 2>/dev/null || true
+    chmod a+rx "$OUTPUT_DIR/logs" "$OUTPUT_DIR/logs"/*-"$SLURM_JOB_ID".log 2>/dev/null || true
+    echo "=== Evaluation complete ==="
+    echo "End: $(date -Iseconds)"
+    echo "Results: $OUTPUT_DIR"
+}}
+trap cleanup EXIT
+"""
+
+# Plain string — never call .format() on this; all braces are bash syntax.
+_PROBE_FUNC = """\
+# Model liveness probe — kills eval if the model server dies mid-run.
+# Usage: _nel_probe_health <health_url> <eval_pid> <sentinel_file> [interval_s] [max_consecutive_failures]
+_nel_probe_health() {
+    local health_url="$1" eval_pid="$2" sentinel="$3"
+    local interval="${4:-30}" max_fails="${5:-3}" fails=0
+    sleep "$interval"
+    while kill -0 "$eval_pid" 2>/dev/null; do
+        if curl -sf "$health_url" > /dev/null 2>&1; then
+            fails=0
+        else
+            fails=$((fails + 1))
+            echo "WARNING: Model health check failed ($fails/$max_fails) at $health_url" >&2
+            if [ "$fails" -ge "$max_fails" ]; then
+                echo "FATAL: Model server unreachable after $max_fails consecutive checks. Killing eval (PID=$eval_pid)." >&2
+                touch "$sentinel"
+                kill "$eval_pid" 2>/dev/null || true
+                return 1
+            fi
+        fi
+        sleep "$interval"
+    done
+}
+"""
+
+_FOOTER = """\
+exit $NEL_EXIT_CODE
+"""
+
+_SANDBOX_NODES_HETJOB = """\
+# Sandbox node allocation (het-group {het_group})
+SANDBOX_NODES=$(scontrol show hostname $SLURM_JOB_NODELIST_HET_GROUP_{het_group})
+export NEL_SANDBOX_NODES=$(echo $SANDBOX_NODES | tr ' ' ',')
+export NEL_SANDBOX_HET_GROUP={het_group}
+echo "Sandbox nodes (${{NEL_SANDBOX_NODES}}): {sandbox_node_count} nodes x {slots_per_node} slots = {total_slots} max concurrent"
+"""
+
+_SANDBOX_NODES_INLINE = """\
+# Sandbox node allocation
+SANDBOX_NODES=$(scontrol show hostname $SLURM_JOB_NODELIST | tail -n +{sandbox_start_node} | head -n {sandbox_node_count})
+export NEL_SANDBOX_NODES=$(echo $SANDBOX_NODES | tr ' ' ',')
+echo "Sandbox nodes (${{NEL_SANDBOX_NODES}}): {sandbox_node_count} nodes x {slots_per_node} slots = {total_slots} max concurrent"
+"""
+
+_SANDBOX_PRE_PULL = """\
+# Pre-pull sandbox images on sandbox nodes
+echo "Pre-pulling sandbox images..."
+for node in $SANDBOX_NODES; do
+    for img in {images}; do
+        srun --overlap --nodelist=$node --ntasks=1 enroot import "docker://$img" &
+    done
+done
+wait
+echo "Pre-pull complete."
+"""
+
+_APPTAINER_PRE_PROVISION = """\
+# Pre-provision Apptainer SIF on shared filesystem
+SIF_CACHE="{sif_cache_dir}"
+mkdir -p "$SIF_CACHE"
+echo "Building SIF images in $SIF_CACHE ..."
+for img in {images}; do
+    SAFE=$(echo "$img" | sed 's|/|_|g; s|:|__|g')
+    SIF_PATH="$SIF_CACHE/${{SAFE}}.sif"
+    if [ ! -f "$SIF_PATH" ]; then
+        echo "  Building $SIF_PATH from docker://$img ..."
+        apptainer build "$SIF_PATH" "docker://$img"
+    else
+        echo "  $SIF_PATH already exists."
+    fi
+done
+# Verify SIF accessible from all sandbox nodes
+echo "Verifying SIF accessibility on sandbox nodes..."
+for node in $SANDBOX_NODES; do
+    srun --overlap --nodelist=$node --ntasks=1{het_group_flag} test -d "$SIF_CACHE" || {{
+        echo "ERROR: $SIF_CACHE not accessible on $node"; exit 1;
+    }}
+done
+echo "SIF pre-provision complete."
+"""
+
+_APPTAINER_CLEANUP = """\
+# Cleanup Apptainer instances on sandbox nodes
+echo "Cleaning up Apptainer instances on sandbox nodes..."
+for node in $SANDBOX_NODES; do
+    srun --overlap --nodelist=$node --ntasks=1{het_group_flag} \\
+        bash -c 'for inst in $(apptainer instance list -j 2>/dev/null | python3 -c "import sys,json; [print(i[\\"instance\\"]) for i in json.load(sys.stdin).get(\\"instances\\",[]) if i[\\"instance\\"].startswith(\\"nel-\\")]" 2>/dev/null); do apptainer instance stop "$inst" 2>/dev/null; done' &
+done
+wait
+"""
+
+_AUTORESUME_PROLOGUE = """\
+# --- Auto-resume chain ---
+_this_script="$OUTPUT_DIR/nel_eval.sbatch"
+_prev_slurm_job_id="${{1:-}}"
+_walltime_file="$OUTPUT_DIR/.nel_accumulated_walltime"
+_retry_file="$OUTPUT_DIR/.nel_infra_retries"
+
+if [[ "$_prev_slurm_job_id" != "" ]]; then
+    for _sacct_try in 1 2 3 4 5; do
+        _prev_state=$(sacct -j $_prev_slurm_job_id -P -n -o State | head -n 1)
+        [[ -n "$_prev_state" ]] && break
+        sleep 2
+    done
+    _prev_elapsed=$(sacct -j $_prev_slurm_job_id -P -n -o ElapsedRaw | head -n 1)
+    _prev_elapsed=${{_prev_elapsed:-0}}
+    _accumulated=$(cat "$_walltime_file" 2>/dev/null || echo 0)
+    _accumulated=$((_accumulated + _prev_elapsed))
+    echo $_accumulated > "$_walltime_file"
+
+    if [[ $_prev_state == 'COMPLETED' ]]; then
+        echo "Previous job $_prev_slurm_job_id completed successfully. Exiting."
+        exit 0
+    elif [[ $_prev_state == CANCELLED* ]]; then
+        echo "Previous job $_prev_slurm_job_id was cancelled. Stopping chain."
+        exit 0
+    elif [[ $_prev_state == 'TIMEOUT' || $_prev_state == 'PREEMPTED' || $_prev_state == 'NODE_FAIL' ]]; then
+        echo "Previous job $_prev_slurm_job_id: $_prev_state. Resuming..."
+{max_walltime_check}
+    else
+        _retries=$(cat "$_retry_file" 2>/dev/null || echo 0)
+        _retries=$((_retries + 1))
+        echo $_retries > "$_retry_file"
+        if [[ $_retries -ge {max_retries} ]]; then
+            echo "Infra retry limit ({max_retries}) reached after $_prev_state. Stopping."
+            exit 1
+        fi
+        echo "Previous job $_prev_slurm_job_id: $_prev_state. Infra retry $_retries/{max_retries}..."
+    fi
+fi
+
+echo "$SLURM_JOB_ID" >> "$OUTPUT_DIR/.nel_job_chain"
+_next_output=$(sbatch --dependency=afternotok:$SLURM_JOB_ID "$_this_script" $SLURM_JOB_ID 2>&1) && {{
+    _next_id=$(echo "$_next_output" | grep -oE '[0-9]+')
+    if [[ -n "$_next_id" ]]; then
+        echo "Auto-resume follow-up queued: $_next_id (afternotok:$SLURM_JOB_ID)"
+    fi
+}} || echo "WARNING: Failed to submit auto-resume follow-up. Chain will NOT continue on failure."
+"""
+
+_MAX_WALLTIME_CHECK = """\
+        if [[ $_accumulated -ge {max_walltime_seconds} ]]; then
+            echo "Max walltime ({max_walltime}) exceeded ($_accumulated s). Stopping chain."
+            exit 1
+        fi"""
+
+
+def _safe(s: str) -> str:
+    return re.sub(r"[^a-zA-Z0-9_]", "_", s)
+
+
+_MODEL_CMD = {
+    "vllm": ("vllm serve", "", "--tensor-parallel-size", "--pipeline-parallel-size", "--data-parallel-size"),
+    "sglang": ("sglang serve", "--model-path", "--tp-size", "--pp-size", "--dp-size"),
+}
+
+
+def _collect_used_pools(config: EvalConfig) -> list[str]:
+    """Collect node pool names actually referenced by services and sandboxes,
+    preserving declaration order from node_pools dict."""
+    if not isinstance(config.cluster, SlurmCluster):
+        return []
+    all_pools = list(config.cluster.node_pools.keys())
+    used: set[str] = set()
+    for svc in config.services.values():
+        pool = getattr(svc, "node_pool", None)
+        if pool:
+            used.add(pool)
+        # Dynamo disagg exposes a node_pool per role (prefill/decode) rather
+        # than a single service-level pool; surface both so they each get
+        # their own het-group when they differ.
+        for role_attr in ("prefill", "decode"):
+            role_cfg = getattr(svc, role_attr, None)
+            role_pool = getattr(role_cfg, "node_pool", None) if role_cfg else None
+            if role_pool:
+                used.add(role_pool)
+    for sb in config.sandboxes.values():
+        pool = getattr(sb, "node_pool", None)
+        if pool:
+            used.add(pool)
+    for bench in config.benchmarks:
+        pool = getattr(bench.sandbox, "node_pool", None)
+        if pool:
+            used.add(pool)
+    if not used:
+        return all_pools[:1]
+    return [p for p in all_pools if p in used]
+
+
+def _resolve_service_image(svc) -> str:
+    if getattr(svc, "image", None):
+        return svc.image
+    return resolve_deployment_image(svc.type)
+
+
+def _build_srun_prefix(
+    svc,
+    deploy_image: str,
+    *,
+    het_flag: str,
+    cluster_mounts: list[str],
+    env_keys: list[str],
+    mount_home: bool,
+    extra_mounts: list[str] | None = None,
+    pin_to_master: bool = False,
+) -> str:
+    """Build a per-service srun command with merged mounts and env.
+
+    ``env_keys`` is the already-resolved list of original env var names
+    that this container needs (from the group's remappings + implicit vars).
+    The caller is responsible for emitting re-export commands beforehand.
+
+    When *pin_to_master* is True, the srun is pinned to ``$MASTER_IP`` so
+    that single-node services (Gym, eval) share the master's host network
+    namespace and can reach each other via localhost.
+    """
+    if not deploy_image:
+        return ""
+
+    svc_mounts = getattr(svc, "container_mounts", [])
+    all_mounts = list(dict.fromkeys(cluster_mounts + svc_mounts + (extra_mounts or [])))
+    if mount_home:
+        all_mounts.append("$HOME:$HOME")
+    mount_flag = f"--container-mounts={','.join(all_mounts)} " if all_mounts else ""
+    home_flag = "" if mount_home else "--no-container-mount-home "
+
+    env_parts = [f"--container-env={k}" for k in env_keys]
+
+    num_nodes = getattr(svc, "num_nodes", 1)
+    ntasks = num_nodes if num_nodes > 1 else 1
+    label_flag = " --label" if num_nodes > 1 else ""
+    pin_flag = " -w $MASTER_IP" if pin_to_master and num_nodes == 1 else ""
+    if num_nodes > 1:
+        for extra_key in ("MASTER_IP", "RAY_ADDRESS"):
+            if f"--container-env={extra_key}" not in env_parts:
+                env_parts.append(f"--container-env={extra_key}")
+    return (
+        f"srun --mpi=pmix --overlap --mem=0 --nodes {num_nodes} --ntasks {ntasks}{label_flag}{het_flag}{pin_flag} "
+        f"--container-image {deploy_image} "
+        f"{mount_flag}{home_flag}{' '.join(env_parts)} "
+    )
+
+
+def _dynamo_worker_command(
+    *,
+    model_for_cmd: str,
+    model_api_name: str,
+    worker_port: int,
+    tp: int | None,
+    pp: int | None,
+    dp: int | None,
+    role: str | None,
+    bootstrap_port: int | None,
+    dist_init_var: str = "MASTER_IP",
+    num_nodes: int,
+    extra_args: list[str],
+) -> str:
+    """Build a single ``python3 -m dynamo.sglang`` command.
+
+    ``role`` is None for aggregated, "prefill" or "decode" for disagg.
+    ``bootstrap_port`` is only meaningful for prefill workers (the
+    CommonKVBootstrapServer port that decode workers connect to).
+    ``dist_init_var`` is the env-var name holding the worker's TP-rendezvous
+    leader (``MASTER_IP`` for aggregated; ``LEADER_IP`` for disagg, which the
+    per-node script sets from positional arg ``$2`` so every worker spawned
+    by the disagg fan-out picks up its OWN slice's leader). The production
+    multi-node disagg shape (HSG GB200 2664281) confirms each worker dumps
+    its own ``dist_init_addr`` IP."""
+    parts = [
+        "python3 -m dynamo.sglang",
+        f"--model-path {model_for_cmd}" if model_for_cmd else "",
+        f"--served-model-name {shlex.quote(model_api_name)}" if model_api_name else "",
+        "--host 0.0.0.0",
+        f"--port {worker_port}",
+    ]
+    if tp:
+        parts.append(f"--tp-size {tp}")
+    if pp:
+        parts.append(f"--pp-size {pp}")
+    if dp:
+        parts.append(f"--dp-size {dp}")
+    if role in ("prefill", "decode"):
+        parts.append(f"--disaggregation-mode {role}")
+    if role == "prefill" and bootstrap_port is not None:
+        parts.append(f"--disaggregation-bootstrap-port {bootstrap_port}")
+    if num_nodes > 1:
+        parts.extend(
+            [
+                f"--nnodes {num_nodes}",
+                '--node-rank "${NEL_NODE_RANK:-0}"',
+                f'--dist-init-addr "${{{dist_init_var}}}:{_DYNAMO_DIST_INIT_PORT}"',
+            ]
+        )
+    if extra_args:
+        parts.append(" ".join(shlex.quote(a) for a in extra_args))
+    return " ".join(p for p in parts if p)
+
+
+def _dynamo_infra_env_exports(infra_host: str = "${MASTER_IP}") -> list[str]:
+    """Env vars every dynamo process (frontend + workers) needs.
+
+    ``infra_host`` defaults to ``${MASTER_IP}`` so workers on non-rank-0 nodes
+    can reach the NATS broker and etcd that rank 0 brings up. For single-node
+    aggregated runs ``${MASTER_IP}`` resolves to the lone allocated node."""
+    return [
+        "export DYN_REQUEST_PLANE=nats",
+        f'export NATS_SERVER="nats://{infra_host}:{_DYNAMO_NATS_PORT}"',
+        f'export ETCD_ENDPOINTS="http://{infra_host}:{_DYNAMO_ETCD_PORT}"',
+        "export DYN_SKIP_SGLANG_LOG_FORMATTING=1",
+    ]
+
+
+def _dynamo_infra_bootstrap_block(name: str, frontend_port: int) -> list[str]:
+    """Lines that start NATS broker + etcd + dynamo frontend in the background.
+
+    Caller is responsible for gating this on rank 0 in multi-node setups —
+    only one node should run the broker/etcd/frontend or they'll fight over
+    ports.
+
+    The trailing readiness loop waits for NATS and etcd to actually accept
+    TCP connections before returning, so the worker spawn that follows can
+    safely register with NATS. The frontend's own readiness is gated later
+    by the eval-side ``/health`` poll (which only succeeds once a worker
+    has registered)."""
+    safe = _safe(name)
+    return [
+        f'nats-server -js >> "$OUTPUT_DIR/logs/dynamo-nats-{safe}-$SLURM_JOB_ID.log" 2>&1 &',
+        (
+            f"etcd "
+            f"--listen-client-urls http://0.0.0.0:{_DYNAMO_ETCD_PORT} "
+            f"--advertise-client-urls http://localhost:{_DYNAMO_ETCD_PORT} "
+            f'>> "$OUTPUT_DIR/logs/dynamo-etcd-{safe}-$SLURM_JOB_ID.log" 2>&1 &'
+        ),
+        (
+            f"python3 -m dynamo.frontend --http-port {frontend_port} "
+            f'>> "$OUTPUT_DIR/logs/dynamo-frontend-{safe}-$SLURM_JOB_ID.log" 2>&1 &'
+        ),
+        "for _i in $(seq 1 60); do",
+        (
+            f"    (exec 3<>/dev/tcp/localhost/{_DYNAMO_NATS_PORT}) 2>/dev/null"
+            f" && (exec 3<>/dev/tcp/localhost/{_DYNAMO_ETCD_PORT}) 2>/dev/null && break"
+        ),
+        "    sleep 1",
+        "done",
+    ]
+
+
+_DYNAMO_EXTRA_ENV_KEYS = ("OUTPUT_DIR", "SLURM_JOB_ID")
+
+
+def _dynamo_service_block(
+    name: str,
+    svc: DynamoService,
+    *,
+    use_containers: bool,
+    cluster_mounts: list[str],
+    env_keys: list[str],
+    reexport_cmds: str,
+    mount_home: bool,
+    pool_to_het: dict[str, int] | None,
+) -> str:
+    """Emit the bash for a ``type: dynamo`` service (aggregated or disagg).
+
+    Mode is implicit: ``svc.prefill is None`` → aggregated; otherwise disagg
+    (the schema validator guarantees prefill and decode are both set or both
+    None)."""
+    upper = _safe(name).upper()
+    safe_name = _safe(name)
+    deploy_image = _resolve_service_image(svc)
+
+    model_for_cmd = svc.model
+    model_mount: list[str] = []
+    if svc.model and svc.model.startswith("/") and use_containers:
+        model_for_cmd = "/model"
+        model_mount = [f"{svc.model}:/model:ro"]
+    model_api_name = getattr(svc, "served_model_name", None) or name
+
+    reexport_block = f"{reexport_cmds}\n" if reexport_cmds else ""
+    worker_port = svc.port + _DYNAMO_WORKER_PORT_OFFSET
+    bootstrap_port = svc.port + _DYNAMO_PREFILL_BOOTSTRAP_PORT_OFFSET
+
+    if svc.prefill is None:
+        return _dynamo_aggregated_block(
+            name=name,
+            upper=upper,
+            safe_name=safe_name,
+            svc=svc,
+            deploy_image=deploy_image,
+            model_for_cmd=model_for_cmd or "",
+            model_mount=model_mount,
+            model_api_name=model_api_name,
+            worker_port=worker_port,
+            use_containers=use_containers,
+            cluster_mounts=cluster_mounts,
+            env_keys=env_keys,
+            mount_home=mount_home,
+            pool_to_het=pool_to_het,
+            reexport_block=reexport_block,
+        )
+
+    return _dynamo_disaggregated_block(
+        name=name,
+        upper=upper,
+        safe_name=safe_name,
+        svc=svc,
+        deploy_image=deploy_image,
+        model_for_cmd=model_for_cmd or "",
+        model_mount=model_mount,
+        model_api_name=model_api_name,
+        worker_port=worker_port,
+        bootstrap_port=bootstrap_port,
+        use_containers=use_containers,
+        cluster_mounts=cluster_mounts,
+        env_keys=env_keys,
+        mount_home=mount_home,
+        pool_to_het=pool_to_het,
+        reexport_block=reexport_block,
+    )
+
+
+def _dynamo_aggregated_block(
+    *,
+    name: str,
+    upper: str,
+    safe_name: str,
+    svc: DynamoService,
+    deploy_image: str,
+    model_for_cmd: str,
+    model_mount: list[str],
+    model_api_name: str,
+    worker_port: int,
+    use_containers: bool,
+    cluster_mounts: list[str],
+    env_keys: list[str],
+    mount_home: bool,
+    pool_to_het: dict[str, int] | None,
+    reexport_block: str,
+) -> str:
+    num_nodes = svc.num_nodes
+    pool = getattr(svc, "node_pool", None)
+    het_flag = ""
+    if pool and pool_to_het and pool in pool_to_het:
+        het_flag = f" --het-group={pool_to_het[pool]}"
+
+    srun_prefix = ""
+    if use_containers:
+        srun_prefix = _build_srun_prefix(
+            svc,
+            deploy_image,
+            het_flag=het_flag,
+            cluster_mounts=cluster_mounts,
+            env_keys=list(env_keys) + list(_DYNAMO_EXTRA_ENV_KEYS),
+            mount_home=mount_home,
+            extra_mounts=model_mount + ["$OUTPUT_DIR:$OUTPUT_DIR"],
+        )
+
+    worker_cmd = _dynamo_worker_command(
+        model_for_cmd=model_for_cmd,
+        model_api_name=model_api_name,
+        worker_port=worker_port,
+        tp=svc.tensor_parallel_size,
+        pp=svc.pipeline_parallel_size,
+        dp=svc.data_parallel_size,
+        role=None,
+        bootstrap_port=None,
+        num_nodes=num_nodes,
+        extra_args=list(svc.extra_args),
+    )
+
+    infra_host = "${MASTER_IP}" if num_nodes > 1 else "localhost"
+    infra_lines = _dynamo_infra_bootstrap_block(name, svc.port)
+    env_exports = _dynamo_infra_env_exports(infra_host)
+
+    script_lines = ["set -euo pipefail"]
+    setup_list = getattr(svc, "setup_commands", []) or []
+    script_lines.extend(setup_list)
+    if num_nodes > 1:
+        script_lines.append('NEL_NODE_RANK="${1:-0}"')
+        script_lines.append("export NEL_NODE_RANK")
+    script_lines.extend(env_exports)
+    if num_nodes > 1:
+        script_lines.append('if [ "$NEL_NODE_RANK" -eq 0 ]; then')
+        script_lines.extend(f"    {line}" for line in infra_lines)
+        script_lines.append("fi")
+    else:
+        script_lines.extend(infra_lines)
+    script_lines.append(worker_cmd)
+
+    script_file = f"_svc_{safe_name}_cmd_$SLURM_JOB_ID.sh"
+    script_heredoc = (
+        f"cat > \"$OUTPUT_DIR/logs/{script_file}\" <<'_NEMO_SVC_CMD_EOF_'\n"
+        + "\n".join(script_lines)
+        + "\n_NEMO_SVC_CMD_EOF_\n"
+    )
+
+    if num_nodes > 1:
+        head_srun = srun_prefix.replace(f"--nodes {num_nodes} --ntasks {num_nodes}", "--nodes 1 --ntasks 1").replace(
+            " --label", ""
+        )
+        per_node_srun = head_srun.rstrip() + " "
+        nodelist_var = "$SLURM_JOB_NODELIST"
+        if het_flag:
+            het_idx = het_flag.strip().split("=")[-1]
+            nodelist_var = f"$SLURM_JOB_NODELIST_HET_GROUP_{het_idx}"
+        launch_block = _DYNAMO_AGG_MULTINODE_LAUNCH.format(
+            name=name,
+            name_upper=upper,
+            safe_name=safe_name,
+            srun_prefix_single_node=per_node_srun,
+            nodelist_var=nodelist_var,
+            script_file=script_file,
+        )
+        multinode_note = f", multi-node torch.distributed: {num_nodes} nodes"
+    else:
+        launch_block = _DYNAMO_AGG_SINGLENODE_LAUNCH.format(
+            name=name,
+            name_upper=upper,
+            srun_prefix=srun_prefix,
+            script_file=script_file,
+        )
+        multinode_note = ""
+
+    return (
+        reexport_block
+        + script_heredoc
+        + _DYNAMO_AGG_SERVICE.format(
+            name=name,
+            name_upper=upper,
+            port=svc.port,
+            model=shlex.quote(model_api_name or ""),
+            multinode_note=multinode_note,
+            launch_block=launch_block,
+        )
+    )
+
+
+def _dynamo_disagg_role_fanout(
+    *,
+    role: str,
+    name: str,
+    name_upper: str,
+    safe_name: str,
+    num_workers: int,
+    nodes_per_worker: int,
+    srun_prefix: str,
+    script_file: str,
+    nodes_var: str,
+    set_pid_var: bool,
+) -> str:
+    """Emit the bash that spawns ``num_workers`` workers for a role.
+
+    Each worker is one independent dynamo.sglang process group with its own
+    TP rendezvous. We carve the role's nodelist into contiguous slices of
+    ``nodes_per_worker`` hosts; worker ``w`` claims slice
+    ``[w * nodes_per_worker + 1 : (w+1) * nodes_per_worker]`` (1-based to
+    match ``sed -n`` semantics), with the slice's first host serving as the
+    worker's torch.distributed leader.
+
+    For prefill, worker 0 / rank 0 is the global infra host (NATS + etcd +
+    dynamo frontend). For decode, no worker runs infra. ``set_pid_var`` ties
+    ``${{NAME_UPPER}}_PID`` to that infra-host srun so the cleanup trap can
+    track the service. The per-node script receives positional args
+    ``$1=rank``, ``$2=leader_ip``, ``$3=is_infra_host``."""
+    is_infra_assign = (
+        '        if [ "$_W" -eq 0 ] && [ "$_NR" -eq 0 ]; then\n            _IS_INFRA=1\n        fi'
+        if role == "prefill"
+        else ""
+    )
+    pid_assign = (
+        f'\n        if [ "$_W" -eq 0 ] && [ "$_NR" -eq 0 ]; then\n            {name_upper}_PID=$!\n        fi'
+        if set_pid_var
+        else ""
+    )
+    container_suffix = f"{role}-w$_W-r$_NR"
+    return (
+        f"# {role.capitalize()} workers ({num_workers} worker(s) × {nodes_per_worker} node(s) each)\n"
+        f"_W=0\n"
+        f"while [ $_W -lt {num_workers} ]; do\n"
+        f"    _OFF=$((_W * {nodes_per_worker} + 1))\n"
+        f"    _END=$((_OFF + {nodes_per_worker} - 1))\n"
+        f'    _SLICE=$(echo "${nodes_var}" | sed -n "${{_OFF}},${{_END}}p")\n'
+        f'    _LEADER=$(echo "$_SLICE" | head -n 1)\n'
+        f"    echo \"  {role} worker $_W: leader=$_LEADER nodes=$(echo \"$_SLICE\" | tr '\\n' ' ')\"\n"
+        f"    _NR=0\n"
+        f"    for _NODE in $_SLICE; do\n"
+        f"        _IS_INFRA=0\n"
+        + (is_infra_assign + "\n" if is_infra_assign else "")
+        + f"        {srun_prefix}--container-name=nel-{safe_name}-{container_suffix} -w $_NODE "
+        f'bash "$OUTPUT_DIR/logs/{script_file}" $_NR $_LEADER $_IS_INFRA '
+        f'>> "$OUTPUT_DIR/logs/server-{name}-$SLURM_JOB_ID.log" 2>&1 &' + pid_assign + "\n        _NR=$((_NR + 1))\n"
+        "    done\n"
+        "    _W=$((_W + 1))\n"
+        "done"
+    )
+
+
+def _dynamo_disaggregated_block(
+    *,
+    name: str,
+    upper: str,
+    safe_name: str,
+    svc: DynamoService,
+    deploy_image: str,
+    model_for_cmd: str,
+    model_mount: list[str],
+    model_api_name: str,
+    worker_port: int,
+    bootstrap_port: int,
+    use_containers: bool,
+    cluster_mounts: list[str],
+    env_keys: list[str],
+    mount_home: bool,
+    pool_to_het: dict[str, int] | None,
+    reexport_block: str,
+) -> str:
+    assert svc.prefill is not None
+    assert svc.decode is not None
+    prefill = svc.prefill
+    decode = svc.decode
+
+    def _role_script(role: str, role_cfg, *, run_infra: bool) -> tuple[str, str]:
+        """Build the per-node script + script_file for a role.
+
+        Returns ``(script_file, heredoc)``. ``run_infra`` is True for prefill
+        (only the very first prefill rank — worker 0, node-rank 0 — runs
+        NATS+etcd+frontend); False for decode.
+
+        Each worker forms its OWN TP=N rendezvous on its own leader, so the
+        leader IP is injected per invocation as positional arg ``$2``. The
+        worker command uses ``LEADER_IP`` (set from that arg) — NOT a shared
+        ``MASTER_IP`` or per-role global. Verified against srt-slurm's HSG
+        2664281 logs (prefill_w0=10.109.24.19, prefill_w1=10.109.30.165,
+        decode_w0=10.109.31.91 — distinct per worker).
+
+        Positional args: ``$1`` = node-rank within this worker's TP group;
+        ``$2`` = the worker's leader IP (== first host of its node slice);
+        ``$3`` = 1 iff this is the global infra host (prefill w0, rank 0)."""
+        worker_cmd = _dynamo_worker_command(
+            model_for_cmd=model_for_cmd,
+            model_api_name=model_api_name,
+            worker_port=worker_port,
+            tp=role_cfg.tensor_parallel_size,
+            pp=role_cfg.pipeline_parallel_size,
+            dp=role_cfg.data_parallel_size,
+            role=role,
+            bootstrap_port=bootstrap_port if role == "prefill" else None,
+            dist_init_var="LEADER_IP",
+            num_nodes=role_cfg.num_nodes,
+            extra_args=list(role_cfg.extra_args),
+        )
+
+        lines = ["set -euo pipefail"]
+        lines.append('NEL_NODE_RANK="${1:-0}"')
+        lines.append('LEADER_IP="${2:-$MASTER_IP}"')
+        lines.append('IS_INFRA_HOST="${3:-0}"')
+        lines.append("export NEL_NODE_RANK LEADER_IP IS_INFRA_HOST")
+        lines.extend(_dynamo_infra_env_exports("${MASTER_IP}"))
+        for k, v in role_cfg.extra_env.items():
+            lines.append(f"export {k}={shlex.quote(v)}")
+        if run_infra:
+            lines.append('if [ "$IS_INFRA_HOST" = "1" ]; then')
+            lines.extend(f"    {line}" for line in _dynamo_infra_bootstrap_block(name, svc.port))
+            lines.append("fi")
+        lines.append(worker_cmd)
+
+        script_file = f"_svc_{safe_name}_{role}_cmd_$SLURM_JOB_ID.sh"
+        heredoc = (
+            f"cat > \"$OUTPUT_DIR/logs/{script_file}\" <<'_NEMO_SVC_CMD_EOF_'\n"
+            + "\n".join(lines)
+            + "\n_NEMO_SVC_CMD_EOF_\n"
+        )
+        return script_file, heredoc
+
+    prefill_script_file, prefill_heredoc = _role_script("prefill", prefill, run_infra=True)
+    decode_script_file, decode_heredoc = _role_script("decode", decode, run_infra=False)
+
+    def _role_srun(role_cfg) -> str:
+        pool = role_cfg.node_pool
+        het_flag = ""
+        if pool and pool_to_het and pool in pool_to_het:
+            het_flag = f" --het-group={pool_to_het[pool]}"
+        if not use_containers:
+            return ""
+        srun = _build_srun_prefix(
+            role_cfg,
+            deploy_image,
+            het_flag=het_flag,
+            cluster_mounts=cluster_mounts,
+            env_keys=list(env_keys) + list(_DYNAMO_EXTRA_ENV_KEYS),
+            mount_home=mount_home,
+            extra_mounts=model_mount + ["$OUTPUT_DIR:$OUTPUT_DIR"],
+        )
+        srun = srun.replace(
+            f"--nodes {role_cfg.num_nodes} --ntasks {role_cfg.num_nodes}", "--nodes 1 --ntasks 1"
+        ).replace(" --label", "")
+        return srun.rstrip() + " "
+
+    prefill_srun = _role_srun(prefill)
+    decode_srun = _role_srun(decode)
+
+    def _role_nodelist_var(role_cfg) -> str:
+        pool = role_cfg.node_pool
+        if pool and pool_to_het and pool in pool_to_het:
+            return f"$SLURM_JOB_NODELIST_HET_GROUP_{pool_to_het[pool]}"
+        return "$SLURM_JOB_NODELIST"
+
+    # Two modes for splitting the allocation between prefill and decode:
+    # (a) HET-JOB MODE (different pools): each role has its own het-group
+    #     nodelist — emit `scontrol show hostnames` per role.
+    # (b) SINGLE-POOL MODE (same pool): the SBATCH header is flat, so the
+    #     pool's nodelist contains BOTH roles. Slice it with head/tail to
+    #     give prefill the first N and decode the rest. This is what
+    #     srt-slurm production recipes do (e.g. gb200-fp8-nvl72-port:
+    #     #SBATCH --nodes=6 --segment=6 with the orchestrator splitting
+    #     workers across the 6 nodes). Required to get all roles on one
+    #     NVL72 rack via `cluster.sbatch_extra_flags.segment: <total>`.
+    p_total = prefill.num_workers * prefill.num_nodes
+    d_total = decode.num_workers * decode.num_nodes
+    same_pool = prefill.node_pool is not None and prefill.node_pool == decode.node_pool
+    if same_pool:
+        pool_nodelist = _role_nodelist_var(prefill)  # same for both
+        nodelist_split_block = (
+            f'_ALL_NODES=$(scontrol show hostnames "{pool_nodelist}")\n'
+            f'_PREFILL_NODES=$(echo "$_ALL_NODES" | head -n {p_total})\n'
+            f'_DECODE_NODES=$(echo "$_ALL_NODES" | sed -n "{p_total + 1},{p_total + d_total}p")'
+        )
+    else:
+        nodelist_split_block = (
+            f'_PREFILL_NODES=$(scontrol show hostnames "{_role_nodelist_var(prefill)}")\n'
+            f'_DECODE_NODES=$(scontrol show hostnames "{_role_nodelist_var(decode)}")'
+        )
+
+    prefill_fanout = _dynamo_disagg_role_fanout(
+        role="prefill",
+        name=name,
+        name_upper=upper,
+        safe_name=safe_name,
+        num_workers=prefill.num_workers,
+        nodes_per_worker=prefill.num_nodes,
+        srun_prefix=prefill_srun,
+        script_file=prefill_script_file,
+        nodes_var="_PREFILL_NODES",
+        set_pid_var=True,
+    )
+    decode_fanout = _dynamo_disagg_role_fanout(
+        role="decode",
+        name=name,
+        name_upper=upper,
+        safe_name=safe_name,
+        num_workers=decode.num_workers,
+        nodes_per_worker=decode.num_nodes,
+        srun_prefix=decode_srun,
+        script_file=decode_script_file,
+        nodes_var="_DECODE_NODES",
+        set_pid_var=False,
+    )
+
+    body = _DYNAMO_DISAGG_SERVICE.format(
+        name=name,
+        name_upper=upper,
+        safe_name=safe_name,
+        port=svc.port,
+        model=shlex.quote(model_api_name or ""),
+        num_prefill_workers=prefill.num_workers,
+        num_decode_workers=decode.num_workers,
+        prefill_nodes_per_worker=prefill.num_nodes,
+        decode_nodes_per_worker=decode.num_nodes,
+        nodelist_split_block=nodelist_split_block,
+        prefill_fanout=prefill_fanout,
+        decode_fanout=decode_fanout,
+    )
+
+    return reexport_block + prefill_heredoc + decode_heredoc + body
+
+
+def _service_block(
+    name: str,
+    svc,
+    *,
+    use_containers: bool = False,
+    cluster_mounts: list[str] | None = None,
+    env_keys: list[str] | None = None,
+    reexport_cmds: str = "",
+    mount_home: bool = True,
+    pool_to_het: dict[str, int] | None = None,
+    extra_mounts: list[str] | None = None,
+) -> str:
+    upper = _safe(name).upper()
+    pool = getattr(svc, "node_pool", None)
+    het_flag = ""
+    if pool and pool_to_het and pool in pool_to_het:
+        het_flag = f" --het-group={pool_to_het[pool]}"
+    # In single-pool (no het-job) multi-node configs, pin single-node services
+    # (like Gym) to $MASTER_IP so they share the host network namespace with
+    # the batch script and eval srun, enabling localhost communication.
+    _pin = not pool_to_het and use_containers
+
+    if isinstance(svc, DynamoService):
+        return _dynamo_service_block(
+            name,
+            svc,
+            use_containers=use_containers,
+            cluster_mounts=cluster_mounts or [],
+            env_keys=env_keys or [],
+            reexport_cmds=reexport_cmds,
+            mount_home=mount_home,
+            pool_to_het=pool_to_het,
+        )
+
+    if svc.type in _MODEL_CMD:
+        cmd, model_flag, tp_flag_name, pp_flag_name, dp_flag_name = _MODEL_CMD[svc.type]
+        deploy_image = _resolve_service_image(svc)
+
+        # Auto-mount local model paths into the container at /model (read-only),
+        # mirroring the checkpoint_path:/checkpoint pattern from nemo-evaluator-launcher.
+        model_for_cmd = svc.model
+        model_mount: list[str] = []
+        if svc.model and svc.model.startswith("/") and use_containers:
+            model_for_cmd = "/model"
+            model_mount = [f"{svc.model}:/model:ro"]
+
+        model_api_name = getattr(svc, "served_model_name", None) or name
+
+        srun_prefix = ""
+        if use_containers:
+            srun_prefix = _build_srun_prefix(
+                svc,
+                deploy_image,
+                het_flag=het_flag,
+                cluster_mounts=cluster_mounts or [],
+                env_keys=env_keys or [],
+                mount_home=mount_home,
+                extra_mounts=model_mount + ["$OUTPUT_DIR:$OUTPUT_DIR"] + list(extra_mounts or []),
+            )
+        tp_flag = f"{tp_flag_name} {svc.tensor_parallel_size} " if svc.tensor_parallel_size else ""
+        pp_flag = (
+            f"{pp_flag_name} {svc.pipeline_parallel_size} " if getattr(svc, "pipeline_parallel_size", None) else ""
+        )
+        dp_flag = f"{dp_flag_name} {svc.data_parallel_size} " if svc.data_parallel_size else ""
+        extra = " ".join(shlex.quote(a) for a in svc.extra_args)
+        cuda = ""
+        if svc.gpus and isinstance(svc.gpus, list):
+            cuda = f"CUDA_VISIBLE_DEVICES={','.join(str(g) for g in svc.gpus)} "
+
+        model_flag_part = (
+            f" {model_flag} {model_for_cmd}" if model_flag else f" {model_for_cmd}" if model_for_cmd else ""
+        )
+        served_name_flag = f"--served-model-name {shlex.quote(model_api_name)} "
+        main_cmd = f"{cmd}{model_flag_part} --port {svc.port} {tp_flag}{pp_flag}{dp_flag}{served_name_flag}{extra}"
+
+        setup_list = getattr(svc, "setup_commands", []) or []
+        num_nodes = getattr(svc, "num_nodes", 1)
+        safe_name = _safe(name)
+
+        sglang_dist_port = 29500
+        if num_nodes > 1:
+            if svc.type == "sglang":
+                full_cmd = (
+                    f"{main_cmd} --nnodes {num_nodes} "
+                    f'--node-rank "${{NEL_NODE_RANK:-0}}" '
+                    f'--dist-init-addr "${{MASTER_IP}}:{sglang_dist_port}"'
+                )
+            else:
+                full_cmd = f"{main_cmd} --distributed-executor-backend ray"
+        else:
+            full_cmd = main_cmd
+
+        if getattr(svc, "pre_cmd", None):
+            # User-supplied pre_cmd replaces the default service command
+            # (e.g. ``vllm serve``).  Used to port v1 launcher
+            # ``deployment.pre_cmd`` blocks for legacy gym etc., where the
+            # user owns the entire service-side script (vLLM startup,
+            # fake-health, gym poll-execute).  ``set -euo pipefail`` stays
+            # off — the user controls error semantics.
+            script_lines = [svc.pre_cmd]
+        else:
+            script_lines = ["set -euo pipefail"] + list(setup_list)
+            if num_nodes > 1 and svc.type == "sglang":
+                script_lines.append('NEL_NODE_RANK="${1:-0}"')
+                script_lines.append("export NEL_NODE_RANK")
+            script_lines.append(full_cmd)
+        script_file = f"_svc_{safe_name}_cmd_$SLURM_JOB_ID.sh"
+        script_heredoc = (
+            f"cat > \"$OUTPUT_DIR/logs/{script_file}\" <<'_NEMO_SVC_CMD_EOF_'\n"
+            + "\n".join(script_lines)
+            + "\n_NEMO_SVC_CMD_EOF_\n"
+        )
+
+        reexport_block = f"{reexport_cmds}\n" if reexport_cmds else ""
+
+        if num_nodes > 1:
+            # Inside the template's bash -c '...' block, break out of single
+            # quotes to expand $OUTPUT_DIR, then re-enter single quotes.
+            ray_service_cmd = f"""bash '"$OUTPUT_DIR"'/logs/{script_file}"""
+
+            # Build per-node srun prefix (--nodes=1 --ntasks=1 per node).
+            # Multi-task srun (--ntasks=N) fails with some containers (e.g.
+            # NeMo RL sqsh) because pyxis doesn't fully initialize the
+            # container env on each task. Named containers (--container-name)
+            # ensure proper initialization, matching ray.sub's pattern.
+            head_srun = srun_prefix.replace(
+                f"--nodes {num_nodes} --ntasks {num_nodes}", "--nodes 1 --ntasks 1"
+            ).replace(" --label", "")
+            safe = _safe(name)
+            # Head node: named container + -w $MASTER_IP
+            head_srun_prefix = f"{head_srun.rstrip()} --container-name=nel-{safe}-head -w $MASTER_IP "
+            # Worker node: named container + -w $_WORKER
+            worker_srun_prefix = f"{head_srun.rstrip()} --container-name=nel-{safe}-worker -w $_WORKER "
+
+            # Nodelist variable for het-job support
+            nodelist_var = "$SLURM_JOB_NODELIST"
+            if het_flag:
+                het_idx = het_flag.strip().split("=")[-1]
+                nodelist_var = f"$SLURM_JOB_NODELIST_HET_GROUP_{het_idx}"
+
+            if svc.type == "sglang":
+                # Per-node srun prefix WITHOUT the Ray head/worker baked-in
+                # naming or pinning. The for-loop in _SGLANG_MULTINODE_SERVICE
+                # appends `--container-name=...rank$_RANK -w $_NODE` itself.
+                sglang_per_node_srun = head_srun.rstrip() + " "
+                return (
+                    reexport_block
+                    + script_heredoc
+                    + _SGLANG_MULTINODE_SERVICE.format(
+                        name=name,
+                        name_upper=upper,
+                        svc_type=svc.type,
+                        model=shlex.quote(model_api_name or ""),
+                        port=svc.port,
+                        num_nodes=num_nodes,
+                        dist_port=sglang_dist_port,
+                        srun_prefix_single_node=sglang_per_node_srun,
+                        nodelist_var=nodelist_var,
+                        safe_name=safe,
+                        script_file=script_file,
+                    )
+                )
+
+            return (
+                reexport_block
+                + script_heredoc
+                + _RAY_MULTINODE_SERVICE.format(
+                    name=name,
+                    name_upper=upper,
+                    svc_type=svc.type,
+                    service_cmd=ray_service_cmd,
+                    model=shlex.quote(model_api_name or ""),
+                    port=svc.port,
+                    num_nodes=num_nodes,
+                    ray_port=6379,
+                    srun_prefix=srun_prefix,
+                    srun_prefix_single_node=head_srun_prefix,
+                    srun_prefix_single_node_worker=worker_srun_prefix,
+                    ray_binary=getattr(svc, "ray_binary", "ray"),
+                    nodelist_var=nodelist_var,
+                )
+            )
+
+        service_cmd = f'bash "$OUTPUT_DIR/logs/{script_file}" '
+        return (
+            reexport_block
+            + script_heredoc
+            + _MODEL_SERVICE.format(
+                name=name,
+                name_upper=upper,
+                svc_type=svc.type,
+                service_cmd=service_cmd,
+                model=shlex.quote(model_api_name or ""),
+                port=svc.port,
+                cuda_prefix=cuda,
+                srun_prefix=srun_prefix,
+            )
+        )
+
+    if isinstance(svc, NatAgentService):
+        deploy_image = _resolve_service_image(svc)
+        srun_prefix = ""
+        if use_containers:
+            srun_prefix = _build_srun_prefix(
+                svc,
+                deploy_image,
+                het_flag=het_flag,
+                cluster_mounts=cluster_mounts or [],
+                env_keys=env_keys or [],
+                mount_home=mount_home,
+            )
+        config_file = svc.nat_config_file or "config.yml"
+        return _NAT_SERVICE.format(
+            name=name,
+            name_upper=upper,
+            port=svc.port,
+            config_file=config_file,
+            srun_prefix=srun_prefix,
+        )
+
+    if isinstance(svc, GymResourceService):
+        deploy_image = _resolve_service_image(svc) if getattr(svc, "image", None) else None
+        srun_prefix = ""
+        if use_containers and deploy_image:
+            srun_prefix = _build_srun_prefix(
+                svc,
+                deploy_image,
+                het_flag=het_flag,
+                cluster_mounts=cluster_mounts or [],
+                env_keys=env_keys or [],
+                mount_home=mount_home,
+                pin_to_master=_pin,
+            )
+        if svc.server_cmd:
+            return _GYM_CMD_SERVICE.format(
+                name=name,
+                name_upper=upper,
+                server_cmd=svc.server_cmd,
+                srun_prefix=srun_prefix,
+            )
+        return _GYM_SERVICE.format(
+            name=name,
+            name_upper=upper,
+            benchmark=svc.benchmark or "",
+            port=svc.port,
+            srun_prefix=srun_prefix,
+        )
+
+    if isinstance(svc, ExternalApiService):
+        return (
+            f"# Service: {name} (external API)\n"
+            f'{upper}_URL="{svc.url or ""}"\n'
+            f"{upper}_MODEL={shlex.quote(svc.model or '')}\n"
+            f'{upper}_PID=""\n'
+        )
+
+    fallback_model = getattr(svc, "served_model_name", None) or name
+    return (
+        f"# Service: {name} ({svc.type})\n"
+        f'{upper}_URL="http://localhost:{getattr(svc, "port", 8000)}/v1"\n'
+        f"{upper}_MODEL={shlex.quote(fallback_model)}\n"
+        f'{upper}_PID=""\n'
+    )
+
+
+def _health_block(name: str, svc, *, pool_to_het: dict[str, int] | None = None) -> str:
+    if isinstance(svc, ExternalApiService):
+        return ""
+    upper = _safe(name).upper()
+    port = getattr(svc, "port", 8000)
+
+    # For het-job services on a different node pool, the batch script (on het-group 0)
+    # cannot reach the service's container port on another het-group's node.
+    # Skip the health check — the eval srun runs on the same het-group as the service
+    # and can reach localhost, plus max_system_retries handles startup delay.
+    pool = getattr(svc, "node_pool", None)
+    if pool and pool_to_het and pool in pool_to_het and pool_to_het[pool] != 0:
+        return (
+            f'echo "Skipping health check for {name} (het-group {pool_to_het[pool]}, not reachable from batch node)"\n'
+        )
+    url = f"http://localhost:{port}"
+
+    timeout = getattr(svc, "startup_timeout", 600.0)
+    max_attempts = int(timeout / 5) or 120
+
+    if isinstance(svc, GymResourceService) and svc.server_cmd:
+        return _HEALTH_WAIT_MULTI.format(
+            name=name,
+            name_upper=upper,
+            url=svc.base_url or url,
+            max_attempts=max_attempts,
+        )
+
+    if isinstance(svc, DynamoService):
+        # Aggregated mode: one ``backend`` worker, counted as decode by the
+        # frontend's /health response (matches srt-slurm's
+        # ``check_dynamo_health`` convention). Disagg: gate on the configured
+        # per-role ``num_workers`` so 2P+1D etc. only flips ready once every
+        # worker has registered (a partial registration round-robins traffic
+        # to a worker that isn't actually serving).
+        if svc.prefill is None:
+            expected_prefill = 0
+            expected_decode = 1
+        else:
+            expected_prefill = svc.prefill.num_workers
+            expected_decode = svc.decode.num_workers
+        return _HEALTH_WAIT_DYNAMO.format(
+            name=name,
+            name_upper=upper,
+            url=url,
+            max_attempts=max_attempts,
+            expected_prefill=expected_prefill,
+            expected_decode=expected_decode,
+        )
+
+    health = getattr(svc, "health_path", "/health") or "/health"
+    return _HEALTH_WAIT.format(
+        name=name,
+        name_upper=upper,
+        url=url,
+        health_path=health,
+        max_attempts=max_attempts,
+    )
+
+
+def _metrics_block(
+    name: str,
+    svc,
+    *,
+    eval_image: str | None = None,
+    pool_to_het: dict[str, int] | None = None,
+) -> str:
+    """Spawn a backgrounded Prometheus ``/metrics`` scraper for *svc*.
+
+    The scraper runs **inside the eval container** via ``srun --overlap
+    --container-image=<eval_image>`` so ``nemo_evaluator`` is on the path.
+    Without the container wrap, the bare batch node's system Python has no
+    ``nemo_evaluator`` package and the spawn fails immediately.
+
+    The srun is pinned to ``$MASTER_IP`` (``-w $MASTER_IP``) so the scraper
+    always lands on the head node where the model server's api server (and
+    therefore ``/metrics``) is bound. Without the pin, multi-node DP/TP
+    deployments would let srun land on a worker, and the ``localhost``
+    URL would refuse-connect.
+
+    Auto-skips at runtime if the endpoint isn't Prometheus-shaped (e.g.
+    OpenAI-compat-only servers without a ``/metrics`` path), so the spawn
+    is safe across all service types. The scraper inherits the global
+    ``trap "kill 0 EXIT"`` from the sbatch preamble; no explicit cleanup.
+
+    Returns ``""`` when:
+    * the service is external (we don't manage its lifecycle)
+    * the service is on a het-group pool that's not reachable from the batch node
+    * no eval_image is configured (no way to run the scraper with deps)
+    """
+    if isinstance(svc, ExternalApiService):
+        return ""
+    pool = getattr(svc, "node_pool", None)
+    if pool and pool_to_het and pool in pool_to_het and pool_to_het[pool] != 0:
+        return ""
+    if not eval_image:
+        return ""
+    port = getattr(svc, "port", 8000)
+    safe_name = _safe(name)
+    # Multi-node services bind their api server on the head node only, so the
+    # scraper must pin to ``$MASTER_IP``. Single-node services don't export
+    # ``MASTER_IP`` (only the multi-node Ray preamble does), and a bare
+    # ``-w $MASTER_IP`` would abort under ``set -u``. For single-node configs
+    # srun lands on the only allocated node anyway, so the pin is unnecessary.
+    pin_flag = "-w $MASTER_IP " if getattr(svc, "num_nodes", 1) > 1 else ""
+    return (
+        f'echo "Spawning Prometheus /metrics scraper for {name} -> $OUTPUT_DIR/{safe_name}_engine_metrics.jsonl"\n'
+        f"srun --overlap --nodes 1 --ntasks 1 {pin_flag}"
+        f"--container-image {eval_image} "
+        f'--container-mounts="$OUTPUT_DIR:$OUTPUT_DIR" '
+        f"--no-container-mount-home "
+        f"--container-env=NEL_TRACING_METRICS_DISABLED "
+        f"python -m nemo_evaluator.observability.scrape_metrics "
+        f'--url "http://localhost:{port}/metrics" '
+        f'--out "$OUTPUT_DIR/{safe_name}_engine_metrics.jsonl" &\n'
+    )
+
+
+_DCGM_EXPORTER_PORT = 9400
+
+
+def _dcgm_metrics_block(*, eval_image: str | None = None) -> str:
+    """Spawn a per-node Prometheus scraper that polls a system ``dcgm-exporter``.
+
+    For each node in ``$SLURM_JOB_NODELIST``, one background srun task runs
+    ``nemo_evaluator.observability.scrape_metrics`` inside the eval
+    container, polling ``http://localhost:9400/metrics`` (DCGM's standard
+    port) and dumping JSONL to ``$OUTPUT_DIR/gpu_metrics_<host>.jsonl`` —
+    one file per node.
+
+    Why no ``dcgm-exporter`` spawn: NVIDIA production clusters (HSG, CW,
+    SVG) ship a system ``dcgm-exporter`` already running on :9400 — our
+    own spawn collides with it (``bind: address already in use``,
+    confirmed on HSG by smoke 2554268). Just scraping the existing
+    endpoint avoids the collision and removes the nvcr.io image
+    dependency entirely. On clusters without a system exporter, the
+    scraper's auto-detect logs ``no /metrics endpoint, skipping`` and
+    exits cleanly — no broken file, eval unaffected.
+
+    Captures: ``DCGM_FI_PROF_SM_ACTIVE`` (real SM occupancy),
+    ``DCGM_FI_PROF_PIPE_TENSOR_ACTIVE``, ``DCGM_FI_PROF_DRAM_ACTIVE``,
+    ``DCGM_FI_PROF_NVLINK_{TX,RX}_BYTES``, ``DCGM_FI_DEV_FB_{USED,FREE,TOTAL}``,
+    power, temp, clocks. Per-GPU labels ``{gpu="<n>", Hostname="<host>",
+    hpc_job="<slurm-job-id>"}`` — direct attribution.
+
+    The block is gated by ``$NEL_GPU_METRICS_DISABLED``; setting it to any
+    non-empty value at sbatch-submit time makes this a no-op. Inherits the
+    global ``trap "kill 0 EXIT"`` for cleanup.
+
+    Returns ``""`` when no eval_image is configured (no way to run the
+    scraper). Het-job worker pools are not yet covered: the loop iterates
+    over ``$SLURM_JOB_NODELIST`` only, which on multi-pool deployments
+    covers the head het-group only.
+    """
+    if not eval_image:
+        return ""
+    return (
+        'if [ -z "${NEL_GPU_METRICS_DISABLED:-}" ]; then\n'
+        '  for _NODE in $(scontrol show hostnames "$SLURM_JOB_NODELIST"); do\n'
+        '    echo "Spawning GPU /metrics scraper on $_NODE -> $OUTPUT_DIR/gpu_metrics_${_NODE}.jsonl"\n'
+        '    srun --overlap --nodes 1 --ntasks 1 --nodelist="$_NODE" '
+        f"--container-image {eval_image} "
+        '--container-mounts="$OUTPUT_DIR:$OUTPUT_DIR" '
+        "--no-container-mount-home "
+        "--container-env=NEL_TRACING_METRICS_DISABLED "
+        "python -m nemo_evaluator.observability.scrape_metrics "
+        f'--url "http://localhost:{_DCGM_EXPORTER_PORT}/metrics" '
+        '--out "$OUTPUT_DIR/gpu_metrics_${_NODE}.jsonl" &\n'
+        "  done\n"
+        "fi\n"
+    )
+
+
+def _get_solver_service(bench) -> str | None:
+    return getattr(bench.solver, "service", None)
+
+
+def _get_probe_url(
+    svc_name: str,
+    config: EvalConfig,
+    pool_to_het: dict[str, int],
+) -> str:
+    """Return the health URL for a managed model service, or ``""`` if probing isn't possible.
+
+    Probing is skipped for external APIs and for het-group services that aren't
+    reachable from the batch node (het-group 0).
+    """
+    if not svc_name:
+        return ""
+    svc = config.services.get(svc_name)
+    if svc is None or isinstance(svc, ExternalApiService):
+        return ""
+    pool = getattr(svc, "node_pool", None)
+    if pool and pool_to_het and pool in pool_to_het and pool_to_het[pool] != 0:
+        return ""
+    port = getattr(svc, "port", 8000)
+    health = getattr(svc, "health_path", "/health") or "/health"
+    return f"http://localhost:{port}{health}"
+
+
+def _is_legacy_container_bench(bench) -> bool:
+    """True iff a benchmark uses the v1 BC container bridge."""
+    return isinstance(bench.solver, ContainerSolverConfig)
+
+
+def _runs_legacy_container_bench(config: EvalConfig) -> bool:
+    return any(_is_legacy_container_bench(bench) for bench in config.benchmarks)
+
+
+# Where the pre-rendered run_config.yaml is mounted inside the harness.
+_LEGACY_RUN_CONFIG_PATH = "/config/run_config.yaml"
+# Where /results is mounted inside the harness; matches container.py.
+_LEGACY_RESULTS_PATH = "/results"
+
+
+def _parse_container_uri(name: str) -> tuple[str, str]:
+    """Split ``container://image#task`` into (image, task)."""
+    rest = name[len("container://") :] if name.startswith("container://") else name
+    if "#" in rest:
+        image, task = rest.rsplit("#", 1)
+        return image, task
+    return rest, ""
+
+
+def _resolve_legacy_url(svc, service_name: str, protocol_to_legacy: dict[str, str]) -> tuple[str, str, str]:
+    """Resolve (model_url, model_id, endpoint_type) for a legacy harness.
+
+    Mirrors the runtime path in ``orchestrator._resolve_service_connection``
+    + ``_build_batch_config`` so submit-time rendering produces the same
+    ``run_config.yaml`` the live dispatch path would generate.
+    """
+    if isinstance(svc, ExternalApiService):
+        url = svc.url
+        model_id = svc.model or service_name
+    else:
+        # Managed model server (vllm/sglang/nim/docker_model): URL is
+        # ``http://localhost:<port>/v1/<protocol-suffix>``.  We append the
+        # protocol-specific suffix so the harness sees the full endpoint.
+        suffix = {
+            "chat_completions": "/chat/completions",
+            "completions": "/completions",
+            "responses": "/responses",
+        }.get(getattr(svc, "protocol", "chat_completions"), "/chat/completions")
+        url = f"{svc.base_url}{suffix}"
+        model_id = getattr(svc, "served_model_name", None) or getattr(svc, "model", "")
+    proto = getattr(svc, "protocol", "chat_completions")
+    endpoint_type = protocol_to_legacy.get(proto, "chat")
+    return url, model_id, endpoint_type
+
+
+def _render_legacy_run_config(bench, services) -> dict:
+    """Render the legacy ``run_config.yaml`` dict for a v1 BC bench.
+
+    Pure function — no filesystem side effects.  The caller
+    (:func:`_write_single_script`) writes the result to disk so that
+    ``generate_sbatch`` stays a pure script-generator.
+    """
+    solver: ContainerSolverConfig = bench.solver  # type: ignore[assignment]
+    svc = services.get(solver.service)
+    if svc is None:
+        raise ValueError(f"Benchmark {bench.name!r} references service {solver.service!r} which is not defined")
+    proxy_cfg = getattr(svc, "proxy", None)
+    if proxy_cfg is not None and proxy_cfg.needs_proxy:
+        raise ValueError(
+            f"Service {solver.service!r} configures a nel-next adapter proxy "
+            f"(interceptors/extra_body/extra_headers/verbose), but benchmark {bench.name!r} "
+            "uses legacy container:// SLURM dispatch. Configure legacy adapter behavior via "
+            "'solver.adapter_config' instead."
+        )
+
+    _image, task = _parse_container_uri(bench.name)
+    model_url, model_id, default_endpoint = _resolve_legacy_url(svc, solver.service, _NEL_PROTOCOL_TO_LEGACY_TYPE)
+    endpoint_type = solver.endpoint_type or default_endpoint
+
+    return build_legacy_run_config(
+        task=task,
+        model_url=model_url,
+        model_id=model_id,
+        endpoint_type=endpoint_type,
+        extra_params=bench.params or None,
+        adapter_config=solver.adapter_config,
+        api_key=getattr(svc, "api_key", None),
+    )
+
+
+def _find_sandbox_bench(config: EvalConfig):
+    """Return the first benchmark with a SLURM/Apptainer sandbox that has a node_pool."""
+    for b in config.benchmarks:
+        if isinstance(b.sandbox, (SlurmSandbox, ApptainerSandbox)):
+            if getattr(b.sandbox, "node_pool", None):
+                return b
+    for b in config.benchmarks:
+        if isinstance(b.sandbox, (SlurmSandbox, ApptainerSandbox)):
+            return b
+    return None
+
+
+def _extract_bench_config(config: EvalConfig, bench_idx: int, svc_url_var: str, svc_model_var: str) -> dict:
+    """Build a standalone config dict for one benchmark.
+
+    Managed model services are replaced with external API services whose
+    ``url`` and ``model`` reference shell env-vars (expanded by NEL at
+    load time).  Cluster is forced to ``local`` since this runs inside
+    the sbatch job.
+    """
+    bench = config.benchmarks[bench_idx]
+    svc_name = _get_solver_service(bench) or ""
+    svc = config.services.get(svc_name)
+
+    _PROTO_SUFFIX = {
+        "chat_completions": "/chat/completions",
+        "completions": "/completions",
+        "responses": "/responses",
+    }
+
+    services: dict = {}
+    if svc:
+        proto = getattr(svc, "protocol", "chat_completions")
+        url_suffix = _PROTO_SUFFIX.get(proto, "/chat/completions")
+        svc_dict: dict = {
+            "type": "api",
+            "url": f"${{{svc_url_var}}}{url_suffix}",
+            "protocol": proto,
+            "model": f"${{{svc_model_var}}}",
+        }
+        api_key = getattr(svc, "api_key", None)
+        if api_key:
+            svc_dict["api_key"] = api_key
+        proxy = getattr(svc, "proxy", None)
+        if proxy is not None:
+            svc_dict["proxy"] = proxy.model_dump(exclude_none=True, exclude_defaults=True)
+        if hasattr(svc, "generation"):
+            gen = svc.generation.model_dump(exclude_none=True)
+            if gen:
+                svc_dict["generation"] = gen
+        services[svc_name] = svc_dict
+
+    # Include non-model services (gym) so the inner eval runner can resolve them.
+    for attr in ("resource_service", "gym_service"):
+        extra_svc_name = getattr(bench.solver, attr, None)
+        if extra_svc_name and extra_svc_name not in services:
+            extra_svc = config.services.get(extra_svc_name)
+            if extra_svc and not extra_svc.is_model_server:
+                services[extra_svc_name] = {
+                    "type": extra_svc.type,
+                    "url": extra_svc.base_url,
+                }
+
+    scoring = getattr(bench, "scoring", None)
+    if scoring is not None:
+        referenced: list[str] = []
+        for metric in scoring.metrics or []:
+            for fld in ("service", "judge_service", "baseline_service"):
+                name = getattr(metric, fld, None)
+                if name:
+                    referenced.append(name)
+            for name in getattr(metric, "services", []) or []:
+                referenced.append(name)
+        for name in referenced:
+            if name in services:
+                continue
+            extra_svc = config.services.get(name)
+            if extra_svc is None:
+                continue
+            services[name] = extra_svc.model_dump(exclude_none=True)
+
+    bench_dict = bench.model_dump(exclude_none=True)
+
+    return {
+        "services": services,
+        "benchmarks": [bench_dict],
+        "output": {"dir": "${NEL_OUTPUT_DIR}"},
+    }
+
+
+def _format_sbatch_extra_flags(flags: dict) -> str:
+    """Format sbatch_extra_flags dict into #SBATCH lines."""
+    lines = []
+    for key, val in flags.items():
+        if val is True:
+            lines.append(f"#SBATCH --{key}")
+        elif val is not False and val is not None:
+            lines.append(f"#SBATCH --{key}={val}")
+    return "\n".join(lines)
+
+
+def _any_multinode_service(config: EvalConfig) -> bool:
+    """Return True if any service requests multiple nodes.
+
+    Dynamo disagg surfaces per-role ``num_nodes`` on ``prefill`` / ``decode``
+    sub-configs; the service-level ``num_nodes`` stays at the 1-default for
+    those configs, so the role sub-blocks have to be checked too — otherwise
+    the batch script's ``MASTER_IP=$(scontrol ...)`` discovery never gets
+    emitted and the worker scripts hit ``MASTER_IP: unbound variable``."""
+    for svc in config.services.values():
+        if getattr(svc, "num_nodes", 1) > 1:
+            return True
+        for role_attr in ("prefill", "decode"):
+            role_cfg = getattr(svc, role_attr, None)
+            if role_cfg and getattr(role_cfg, "num_nodes", 1) > 1:
+                return True
+    return False
+
+
+def _compute_pool_nodes(config: EvalConfig, pool_name: str) -> int:
+    """Compute total nodes needed for a pool, accounting for multi-node services.
+
+    Returns the max of the pool's declared nodes and the largest sizing among
+    services referencing this pool. For dynamo disagg with prefill+decode
+    BOTH pointing at the same pool (the single-rack-enforcement shape), sums
+    their per-role ``num_nodes`` since they share the allocation.
+    """
+    cluster = config.cluster
+    if not isinstance(cluster, SlurmCluster):
+        return 1
+    base = cluster.node_pools[pool_name].nodes
+    svc_max = 0
+    for svc in config.services.values():
+        svc_pool = getattr(svc, "node_pool", None)
+        if svc_pool == pool_name:
+            svc_max = max(svc_max, getattr(svc, "num_nodes", 1))
+        # Sum prefill + decode if both share this pool (single-pool disagg).
+        # Per-role footprint = num_workers * num_nodes (each worker forms its
+        # own TP-rendezvous group, so the allocation must cover all of them).
+        prefill = getattr(svc, "prefill", None)
+        decode = getattr(svc, "decode", None)
+        if prefill is not None and decode is not None:
+            p_total = prefill.num_workers * prefill.num_nodes
+            d_total = decode.num_workers * decode.num_nodes
+            p_pool = getattr(prefill, "node_pool", None)
+            d_pool = getattr(decode, "node_pool", None)
+            if p_pool == pool_name and d_pool == pool_name:
+                svc_max = max(svc_max, p_total + d_total)
+            elif p_pool == pool_name:
+                svc_max = max(svc_max, p_total)
+            elif d_pool == pool_name:
+                svc_max = max(svc_max, d_total)
+    return max(base, svc_max)
+
+
+def generate_sbatch(
+    config: EvalConfig,
+    *,
+    shard_idx: int | None = None,
+    total_shards: int | None = None,
+) -> tuple[str, dict[str, dict], SecretsEnvResult]:
+    """Generate sbatch script content, sidecar configs, and secrets env.
+
+    When *shard_idx* and *total_shards* are given the generated script is a
+    standalone per-shard job (no ``--array``).  Each shard gets its own
+    output sub-directory (``shard_N/``) and auto-resume chain.
+
+    Pure script-generator: never touches the filesystem.  For
+    ``container://`` benchmarks the script references a pre-rendered
+    ``run_config.yaml`` at ``{output_dir}/{safe_name}/run_config.yaml`` —
+    :func:`write_sbatch` is responsible for materializing that file (via
+    :func:`_render_legacy_run_config` + ``yaml.dump``).
+
+    Returns:
+        (script_text, sidecar_configs, secrets_result)
+    """
+    cluster = config.cluster
+    if not isinstance(cluster, SlurmCluster):
+        raise ValueError(f"generate_sbatch requires a SlurmCluster, got {type(cluster).__name__}")
+
+    parent_output_dir = config.output.dir
+    output_dir = f"{parent_output_dir}/shard_{shard_idx}" if shard_idx is not None else parent_output_dir
+    job_name = _safe(config.benchmarks[0].name) if len(config.benchmarks) == 1 else "multi"
+    # NEL_INVOCATION_ID: a hex token unique to this submission, exported in
+    # the sbatch header and propagated into every Pyxis container via
+    # --container-env=NEL_INVOCATION_ID.  Used by legacy gym deployments
+    # to namespace their shared-filesystem coordination dir
+    # (/cache/huggingface/$NEL_INVOCATION_ID/).
+    nel_invocation_id = uuid.uuid4().hex
+    account_line = f"#SBATCH --account={cluster.account}" if cluster.account else ""
+    sbatch_comment_line = f"#SBATCH --comment={shlex.quote(cluster.sbatch_comment)}" if cluster.sbatch_comment else ""
+    sbatch_extra_lines = _format_sbatch_extra_flags(cluster.sbatch_extra_flags)
+
+    used_pools = _collect_used_pools(config)
+    use_het = len(used_pools) > 1
+    pool_to_het = {name: i for i, name in enumerate(used_pools)} if use_het else {}
+    _has_multinode_service = _any_multinode_service(config)
+
+    # --- Build env groups for disambiguated .secrets.env ---
+    env_groups: dict[str, dict[str, str]] = {}
+
+    # v1 BC: solver.env_vars on a container:// benchmark mirrors v1
+    # launcher's container-agnostic ``env_vars:`` block — values reach
+    # both deployment and evaluation containers.  Pre-aggregate per-svc
+    # so a multi-bench config sharing a service unions correctly.
+    legacy_svc_env_vars: dict[str, dict[str, str]] = {}
+    for bench in config.benchmarks:
+        if not _is_legacy_container_bench(bench):
+            continue
+        solver: ContainerSolverConfig = bench.solver  # type: ignore[assignment]
+        if not solver.env_vars:
+            continue
+        legacy_svc_env_vars.setdefault(solver.service, {}).update({k: str(v) for k, v in solver.env_vars.items()})
+
+    for name, svc in config.services.items():
+        svc_env = {**cluster.container_env, **getattr(svc, "extra_env", {}), **legacy_svc_env_vars.get(name, {})}
+        if svc_env:
+            env_groups[f"svc_{name}"] = svc_env
+
+    for bench in config.benchmarks:
+        eval_env = dict(cluster.container_env)
+        # Legacy v1 BC bridge: also fold in the harness's bearer token
+        # (NEMO_API_KEY, drawn from the linked service's resolved api_key)
+        # and the solver's user-declared env_vars (HF_TOKEN,
+        # OPENAI_API_KEY, …).  Going through the secrets mechanism keeps
+        # values out of the sbatch script and out of git.
+        if _is_legacy_container_bench(bench):
+            solver: ContainerSolverConfig = bench.solver  # type: ignore[assignment]
+            svc = config.services.get(solver.service)
+            api_key = getattr(svc, "api_key", None) if svc else None
+            if api_key:
+                eval_env["NEMO_API_KEY"] = str(api_key)
+            for k, v in (solver.env_vars or {}).items():
+                eval_env[k] = str(v)
+        if eval_env:
+            env_groups[f"eval_{_safe(bench.name)}"] = eval_env
+
+    secrets_result = generate_secrets_env(env_groups)
+
+    _IMPLICIT_KEYS = [
+        "PYTHONUNBUFFERED",
+        "NEL_INNER_EXECUTION",
+        "NEL_SHARD_IDX",
+        "NEL_TOTAL_SHARDS",
+        # Forwarded into every Pyxis container so user pre_cmd scripts and
+        # gym's eval-factory wrapper can use it as a shared-mount namespace.
+        "NEL_INVOCATION_ID",
+    ]
+
+    parts: list[str] = []
+
+    if use_het:
+        parts.append(_HEADER_HETJOB_PREAMBLE)
+        for i, pool_name in enumerate(used_pools):
+            pool = cluster.node_pools[pool_name]
+            effective_nodes = _compute_pool_nodes(config, pool_name)
+            gres_line = f"#SBATCH --gres={pool.gres}" if pool.gres else ""
+            gpus_per_node_line = f"#SBATCH --gpus-per-node={pool.gpus_per_node}" if pool.gpus_per_node else ""
+            partition_line = f"#SBATCH --partition={pool.partition}" if pool.partition else ""
+            account_line = f"#SBATCH --account={cluster.account}" if cluster.account else ""
+            pool_extra_lines = _format_sbatch_extra_flags(getattr(pool, "sbatch_extra_flags", {}) or {})
+            parts.append(
+                _HEADER_HETJOB_POOL.format(
+                    het_idx=i,
+                    pool_name=pool_name,
+                    nodes=effective_nodes,
+                    ntasks_per_node=pool.ntasks_per_node,
+                    walltime=cluster.walltime,
+                    gres_line=gres_line,
+                    gpus_per_node_line=gpus_per_node_line,
+                    pool_extra_lines=pool_extra_lines,
+                    partition_line=partition_line,
+                    account_line=account_line,
+                )
+            )
+            if i < len(used_pools) - 1:
+                parts.append(_HEADER_HETJOB_SEPARATOR)
+
+        het_echo_lines = "\n".join(
+            f'echo "Het-group {i} ({name}): $SLURM_JOB_NODELIST_HET_GROUP_{i}"' for i, name in enumerate(used_pools)
+        )
+        parts.append(
+            _HEADER_HETJOB_FOOTER.format(
+                job_name=job_name,
+                output_dir=output_dir,
+                walltime=cluster.walltime,
+                account_line=account_line,
+                sbatch_comment_line=sbatch_comment_line,
+                sbatch_extra_lines=sbatch_extra_lines,
+                het_echo_lines=het_echo_lines,
+                nel_invocation_id=nel_invocation_id,
+            )
+        )
+    else:
+        pool = cluster.node_pools[used_pools[0]]
+        effective_nodes = _compute_pool_nodes(config, used_pools[0])
+        gres_line = f"#SBATCH --gres={pool.gres}" if pool.gres else ""
+        gpus_per_node_line = f"#SBATCH --gpus-per-node={pool.gpus_per_node}" if pool.gpus_per_node else ""
+        partition_line = f"#SBATCH --partition={pool.partition}" if pool.partition else ""
+        parts.append(
+            _HEADER.format(
+                job_name=job_name,
+                output_dir=output_dir,
+                walltime=cluster.walltime,
+                nodes=effective_nodes,
+                ntasks_per_node=pool.ntasks_per_node,
+                gres_line=gres_line,
+                gpus_per_node_line=gpus_per_node_line,
+                partition_line=partition_line,
+                account_line=account_line,
+                sbatch_comment_line=sbatch_comment_line,
+                sbatch_extra_lines=sbatch_extra_lines,
+                nel_invocation_id=nel_invocation_id,
+            )
+        )
+
+    is_shard_script = shard_idx is not None
+
+    if is_shard_script and _runs_legacy_container_bench(config) and _has_multiple_shards(total_shards):
+        raise ValueError(_LEGACY_SHARDING_ERROR)
+
+    if _has_multiple_shards(cluster.shards) and not is_shard_script:
+        raise ValueError(
+            "generate_sbatch must not be called directly with cluster.shards set. "
+            "Use write_sbatch which generates per-shard scripts."
+        )
+
+    has_secrets = bool(secrets_result.secrets_content.strip())
+    if has_secrets:
+        parts.append(_SECRETS_SOURCE)
+
+    if _any_multinode_service(config):
+        nodelist_var = "SLURM_JOB_NODELIST"
+        if use_het:
+            for svc in config.services.values():
+                if getattr(svc, "num_nodes", 1) > 1:
+                    svc_pool = getattr(svc, "node_pool", None)
+                    if svc_pool and svc_pool in pool_to_het:
+                        nodelist_var = f"SLURM_JOB_NODELIST_HET_GROUP_{pool_to_het[svc_pool]}"
+                    break
+                # Dynamo disagg: NATS+etcd+frontend live on the prefill rank-0
+                # node, so MASTER_IP must resolve to the prefill pool's first
+                # host. ``prefill`` is checked first regardless of which is
+                # multi-node so disagg + decode-only-multi-node still works.
+                prefill = getattr(svc, "prefill", None)
+                prefill_pool = getattr(prefill, "node_pool", None) if prefill else None
+                if prefill_pool and prefill_pool in pool_to_het:
+                    nodelist_var = f"SLURM_JOB_NODELIST_HET_GROUP_{pool_to_het[prefill_pool]}"
+                    break
+        parts.append(_MULTINODE_IP_DISCOVERY.format(nodelist_var=nodelist_var))
+
+    if is_shard_script:
+        parts.append(_SHARD_ENV.format(shard_idx=shard_idx, total_shards=total_shards))
+
+    _any_service_has_image = any(getattr(s, "image", None) for s in config.services.values())
+    use_containers = (
+        cluster.container_mounts
+        or cluster.container_env
+        or _any_service_has_image
+        or any(getattr(s, "container_mounts", []) for s in config.services.values())
+        or getattr(cluster, "eval_image", None)
+    )
+
+    if use_containers:
+        parts.append(_preflight_image_checks(config, cluster))
+
+    if cluster.conda_env:
+        parts.append(_CONDA_ACTIVATE.format(conda_env=cluster.conda_env))
+
+    # When a legacy ``container://`` benchmark depends on a service, the
+    # gym CLI (or whatever harness runs in that container) writes results
+    # to ``/results``.  In nel-next, ``_TASK_LEGACY_CONTAINER`` mounts
+    # ``<run_dir>/<safe>/results`` at ``/results`` *only* in the eval
+    # container.  When the harness's actual writes happen on the
+    # deployment side via ``pre_cmd`` (gym Pattern A), the deployment
+    # container needs the same ``/results`` bind so those writes persist
+    # — otherwise gym writes into ephemeral container storage and the
+    # eval-factory output parser finds an empty results dir.  v1 launcher
+    # auto-adds ``<task_artifacts>:/results`` as the first deployment
+    # mount unconditionally (slurm/executor.py:826-828); we mirror that.
+    #
+    # Restriction: ``/results`` is a single bind point per container, so
+    # if multiple legacy benchmarks reference the same service we use the
+    # first one's results dir.  In Pattern A topologies this is 1:1.
+    legacy_results_mount_by_svc: dict[str, str] = {}
+    legacy_results_dirs: list[str] = []
+    for bench in config.benchmarks:
+        if not _is_legacy_container_bench(bench):
+            continue
+        bench_svc = _get_solver_service(bench)
+        if not bench_svc or bench_svc in legacy_results_mount_by_svc:
+            continue
+        bench_safe = _safe(bench.name)
+        bench_results_dir = f"{output_dir}/{bench_safe}/results"
+        legacy_results_mount_by_svc[bench_svc] = f"{bench_results_dir}:{_LEGACY_RESULTS_PATH}"
+        legacy_results_dirs.append(bench_results_dir)
+
+    # Pyxis requires the host-side bind source to exist BEFORE the service
+    # srun starts.  ``_TASK_LEGACY_CONTAINER`` mkdir's its own ``results/``
+    # later in the script, but that's too late for the service block we're
+    # about to emit — so create those dirs up front.
+    if legacy_results_dirs:
+        mkdir_lines = "\n".join(f'mkdir -p "{d}"' for d in legacy_results_dirs)
+        parts.append(mkdir_lines + "\n")
+
+    for name, svc in config.services.items():
+        group_name = f"svc_{name}"
+        svc_env_keys = reexport_keys(group_name, secrets_result) + _IMPLICIT_KEYS
+        svc_env_keys = list(dict.fromkeys(svc_env_keys))
+        svc_reexport = build_reexport_commands(group_name, secrets_result)
+        legacy_mount = legacy_results_mount_by_svc.get(name)
+        parts.append(
+            _service_block(
+                name,
+                svc,
+                use_containers=use_containers,
+                cluster_mounts=cluster.container_mounts,
+                env_keys=svc_env_keys,
+                reexport_cmds=svc_reexport,
+                mount_home=cluster.mount_home,
+                pool_to_het=pool_to_het if use_het else None,
+                extra_mounts=[legacy_mount] if legacy_mount else None,
+            )
+        )
+
+    parts.append("")
+
+    for name, svc in config.services.items():
+        block = _health_block(name, svc, pool_to_het=pool_to_het if use_het else None)
+        if block:
+            parts.append(block)
+
+    _eval_image_for_metrics = getattr(cluster, "eval_image", None)
+    for name, svc in config.services.items():
+        block = _metrics_block(
+            name,
+            svc,
+            eval_image=_eval_image_for_metrics,
+            pool_to_het=pool_to_het if use_het else None,
+        )
+        if block:
+            parts.append(block)
+
+    dcgm_block = _dcgm_metrics_block(eval_image=_eval_image_for_metrics)
+    if dcgm_block:
+        parts.append(dcgm_block)
+
+    sb_bench = _find_sandbox_bench(config)
+    sandbox_pool_name = getattr(sb_bench.sandbox, "node_pool", None) if sb_bench else None
+
+    if sb_bench and isinstance(sb_bench.sandbox, (SlurmSandbox, ApptainerSandbox)):
+        sb = sb_bench.sandbox
+        slots = sb.slots_per_node
+
+        if sandbox_pool_name and sandbox_pool_name in pool_to_het:
+            het_idx = pool_to_het[sandbox_pool_name]
+            pool = cluster.node_pools[sandbox_pool_name]
+            total_slots = pool.nodes * slots
+            parts.append(
+                _SANDBOX_NODES_HETJOB.format(
+                    het_group=het_idx,
+                    sandbox_node_count=pool.nodes,
+                    slots_per_node=slots,
+                    total_slots=total_slots,
+                )
+            )
+        elif sandbox_pool_name and sandbox_pool_name in cluster.node_pools:
+            pool = cluster.node_pools[sandbox_pool_name]
+            total_slots = pool.nodes * slots
+            sandbox_start = sum(cluster.node_pools[p].nodes for p in used_pools if p != sandbox_pool_name) + 1
+            parts.append(
+                _SANDBOX_NODES_INLINE.format(
+                    sandbox_start_node=sandbox_start,
+                    sandbox_node_count=pool.nodes,
+                    slots_per_node=slots,
+                    total_slots=total_slots,
+                )
+            )
+
+        het_group_flag = (
+            f" --het-group={pool_to_het[sandbox_pool_name]}"
+            if sandbox_pool_name and sandbox_pool_name in pool_to_het
+            else ""
+        )
+        sb_image = sb.image
+
+        if isinstance(sb, ApptainerSandbox) and sb_image:
+            sif_cache = sb.sif_cache_dir or "/tmp/nel_sif_cache"
+            parts.append(
+                _APPTAINER_PRE_PROVISION.format(
+                    sif_cache_dir=sif_cache,
+                    images=shlex.quote(sb_image),
+                    het_group_flag=het_group_flag,
+                )
+            )
+        elif isinstance(sb, SlurmSandbox) and sb_image:
+            parts.append(
+                _SANDBOX_PRE_PULL.format(
+                    images=shlex.quote(sb_image),
+                )
+            )
+
+    base_override = getattr(cluster, "eval_image", None)
+    total = len(config.benchmarks)
+    sidecar_configs: dict[str, dict] = {}
+
+    def _eval_srun_prefix(bench_name: str, image: str) -> str:
+        """Build srun prefix for eval containers with per-benchmark env keys."""
+        group_name = f"eval_{_safe(bench_name)}"
+        eval_env_keys = reexport_keys(group_name, secrets_result) + _IMPLICIT_KEYS
+        eval_env_keys = list(dict.fromkeys(eval_env_keys))
+        _all_mounts = list(cluster.container_mounts) + [f"{output_dir}:{output_dir}"]
+        if cluster.mount_home:
+            _all_mounts.append("$HOME:$HOME")
+        _mount_flag = f"--container-mounts={','.join(_all_mounts)} " if _all_mounts else ""
+        _home_flag = "" if cluster.mount_home else "--no-container-mount-home "
+        _envs = [f"--container-env={k}" for k in eval_env_keys]
+        reexport = build_reexport_commands(group_name, secrets_result)
+        # For het-jobs, the eval srun must run on the same het-group as the
+        # Gym service (so it can reach localhost:11000). Determine the het-group
+        # from the benchmark's gym_service node_pool.
+        # For single-pool multi-node configs, pin to $MASTER_IP instead so
+        # eval shares the host network with the Gym srun (also pinned there).
+        _eval_node_flag = ""
+        if use_het:
+            gym_svc_name = getattr(config.benchmarks[0].solver, "gym_service", None) if config.benchmarks else None
+            if gym_svc_name and gym_svc_name in config.services:
+                gym_pool = getattr(config.services[gym_svc_name], "node_pool", None)
+                if gym_pool and gym_pool in pool_to_het:
+                    _eval_node_flag = f" --het-group={pool_to_het[gym_pool]}"
+        elif _has_multinode_service:
+            _eval_node_flag = " -w $MASTER_IP"
+
+        prefix = (
+            f"srun --mpi=pmix --overlap --unbuffered --nodes 1 --ntasks 1{_eval_node_flag} "
+            f"--container-image {image} "
+            f"{_mount_flag}{_home_flag}{' '.join(_envs)} \\\n    "
+        )
+        return f"{reexport}\n{prefix}" if reexport else prefix
+
+    eval_run_prefix = ""
+    merge_run_prefix = ""
+    if use_containers and base_override:
+        eval_run_prefix = _eval_srun_prefix(
+            config.benchmarks[0].name if config.benchmarks else "_report", base_override
+        )
+        # Merge/report need access to the PARENT output dir (all shards),
+        # not just a single shard directory.
+        _merge_mounts = list(cluster.container_mounts) + [f"{parent_output_dir}:{parent_output_dir}"]
+        if cluster.mount_home:
+            _merge_mounts.append("$HOME:$HOME")
+        _merge_mount_flag = f"--container-mounts={','.join(_merge_mounts)} " if _merge_mounts else ""
+        _merge_home_flag = "" if cluster.mount_home else "--no-container-mount-home "
+        merge_run_prefix = (
+            f"srun --mpi=pmix --overlap --unbuffered --nodes 1 --ntasks 1 "
+            f"--container-image {base_override} "
+            f"{_merge_mount_flag}{_merge_home_flag}\\\n    "
+        )
+
+    needs_probe = False
+    for i, bench in enumerate(config.benchmarks, 1):
+        svc_name = _get_solver_service(bench) or ""
+        upper = _safe(svc_name).upper() if svc_name else "MODEL"
+        model_url_var = f"{upper}_URL"
+        model_id_var = f"{upper}_MODEL"
+        safe_name = _safe(bench.name)
+
+        # ----- Legacy v1 BC bridge: direct sibling-srun for the harness.
+        # The harness is self-contained (eval-factory owns the loop), so
+        # nel-next has nothing to do mid-eval.  We pre-render run_config.yaml
+        # at submit time and emit a single ``srun --container-image=<harness>``
+        # alongside (not nested inside) any eval_image wrap — the same
+        # sibling pattern slurm_gen already uses for managed services.
+        # See `_TASK_LEGACY_CONTAINER` for the rendered shape.
+        if _is_legacy_container_bench(bench):
+            harness_image, _task = _parse_container_uri(bench.name)
+            # Validate render works at submit time (raises early on
+            # missing/misconfigured service); the actual file is written by
+            # write_sbatch via the same helper.
+            _render_legacy_run_config(bench, config.services)
+            rc_path = f"{output_dir}/{safe_name}/run_config.yaml"
+            results_dir = f"{output_dir}/{safe_name}/results"
+
+            solver: ContainerSolverConfig = bench.solver  # type: ignore[assignment]
+            user_mounts = [f"{h}:{c}" for h, c in (solver.mounts or {}).items()]
+            mounts = list(
+                dict.fromkeys(
+                    [
+                        f"{rc_path}:{_LEGACY_RUN_CONFIG_PATH}:ro",
+                        f"{results_dir}:{_LEGACY_RESULTS_PATH}",
+                        *list(cluster.container_mounts),
+                        *user_mounts,
+                    ]
+                )
+            )
+
+            # Env keys come from the secrets group built above (NEMO_API_KEY
+            # + solver.env_vars + cluster.container_env), so values stay in
+            # the sourced .secrets.env and never appear in the script itself.
+            group_name = f"eval_{safe_name}"
+            env_keys = reexport_keys(group_name, secrets_result) + _IMPLICIT_KEYS
+            env_keys = list(dict.fromkeys(env_keys))
+            env_flags = " ".join(f"--container-env={k}" for k in env_keys)
+            reexport_lines = build_reexport_commands(group_name, secrets_result)
+            reexport_block = (reexport_lines + "\n") if reexport_lines else ""
+            home_flag = "" if cluster.mount_home else "--no-container-mount-home "
+
+            # Co-locate the legacy harness srun with the head node of the
+            # service it depends on.  Pyxis on the same node shares the host
+            # network namespace, so the eval-factory adapter proxy on
+            # 127.0.0.1:<port> in this container is reachable from the
+            # service's container (e.g. gym CLI) only when both run on the
+            # same node.  Mirror the existing ``_eval_srun_prefix`` rule:
+            # het-mode → pin to the service's het-group; single-pool
+            # multi-node → pin to ``$MASTER_IP`` (the service head).  Single-
+            # node services need no flag — sbatch already runs there.
+            _legacy_node_flag = ""
+            solver_svc = config.services.get(svc_name) if svc_name else None
+            if solver_svc is not None:
+                if use_het:
+                    svc_pool = getattr(solver_svc, "node_pool", None)
+                    if svc_pool and svc_pool in pool_to_het:
+                        _legacy_node_flag = f" --het-group={pool_to_het[svc_pool]}"
+                elif getattr(solver_svc, "num_nodes", 1) > 1:
+                    _legacy_node_flag = " -w $MASTER_IP"
+
+            parts.append(
+                _TASK_LEGACY_CONTAINER.format(
+                    idx=i,
+                    total=total,
+                    bench_name=bench.name,
+                    repeats=bench.repeats,
+                    safe_name=safe_name,
+                    results_dir=results_dir,
+                    reexport=reexport_block,
+                    harness_image=harness_image,
+                    mounts=",".join(mounts),
+                    home_flag=home_flag,
+                    env_flags=env_flags,
+                    node_flag=_legacy_node_flag,
+                    run_config_in_container=_LEGACY_RUN_CONFIG_PATH,
+                )
+            )
+            continue
+
+        # ----- Native env path (unchanged).
+        eval_image = ""
+        if use_containers:
+            eval_image = resolve_eval_image(bench.name, base_override=base_override) or default_base_image(
+                base_override
+            )
+
+        run_prefix = ""
+        if use_containers and eval_image:
+            run_prefix = _eval_srun_prefix(bench.name, eval_image)
+
+        sidecar = _extract_bench_config(
+            config,
+            i - 1,
+            svc_url_var=model_url_var,
+            svc_model_var=model_id_var,
+        )
+        sidecar_configs[safe_name] = sidecar
+        config_extra_flags = "--resume " if (cluster.auto_resume or is_shard_script) else ""
+
+        probe_url = _get_probe_url(svc_name, config, pool_to_het)
+        fmt_kwargs = dict(
+            idx=i,
+            total=total,
+            bench_name=bench.name,
+            svc_url_var=model_url_var,
+            svc_model_var=model_id_var,
+            model_url_bash=model_url_var,
+            model_id_bash=model_id_var,
+            repeats=bench.repeats,
+            safe_name=safe_name,
+            run_prefix=run_prefix,
+            extra_flags=config_extra_flags,
+        )
+        if probe_url:
+            needs_probe = True
+            fmt_kwargs["probe_url"] = probe_url
+            parts.append(_TASK_CONFIG_WITH_PROBE.format(**fmt_kwargs))
+        else:
+            parts.append(_TASK_CONFIG.format(**fmt_kwargs))
+
+    if is_shard_script:
+        report_lines = []
+        ext_map = {
+            "markdown": "md",
+            "html": "html",
+            "csv": "csv",
+            "json": "json",
+            "latex": "tex",
+        }
+        for fmt in config.output.report:
+            ext = ext_map.get(fmt, fmt)
+            report_lines.append(
+                f'{merge_run_prefix}nel eval report "$_PARENT_DIR" -f {fmt} -o "$_PARENT_DIR/report.{ext}"'
+            )
+        parts.append(
+            _SHARD_FINISH.format(
+                shard_idx=shard_idx,
+                total_shards=total_shards,
+                parent_output_dir=parent_output_dir,
+                merge_prefix=merge_run_prefix,
+                report_commands="\n            ".join(report_lines) if report_lines else "",
+            )
+        )
+    else:
+        report_cmds = []
+        ext_map = {
+            "markdown": "md",
+            "html": "html",
+            "csv": "csv",
+            "json": "json",
+            "latex": "tex",
+        }
+        for fmt in config.output.report:
+            ext = ext_map.get(fmt, fmt)
+            report_cmds.append(f'{eval_run_prefix}nel eval report "$OUTPUT_DIR" -f {fmt} -o "$OUTPUT_DIR/report.{ext}"')
+        if report_cmds:
+            parts.append(_REPORT.format(report_commands="\n".join(report_cmds)))
+        export_cmds = []
+        export_config_arg = f' --config "$OUTPUT_DIR/{_EXPORT_CONFIG_FILE}"' if config.output.export_config else ""
+        if _runs_legacy_container_bench(config):
+            for exporter_name in config.output.export:
+                export_cmds.append(
+                    f'{eval_run_prefix}nel export "$OUTPUT_DIR" --dest {shlex.quote(exporter_name)}'
+                    f'{export_config_arg} --output-dir "$OUTPUT_DIR"'
+                )
+        if export_cmds:
+            parts.append(_EXPORT.format(export_commands="\n".join(export_cmds)))
+
+    if sb_bench and isinstance(sb_bench.sandbox, ApptainerSandbox):
+        het_group_flag = (
+            f" --het-group={pool_to_het[sandbox_pool_name]}"
+            if sandbox_pool_name and sandbox_pool_name in pool_to_het
+            else ""
+        )
+        parts.append(_APPTAINER_CLEANUP.format(het_group_flag=het_group_flag))
+
+    kill_cmds = []
+    for name, svc in config.services.items():
+        if not isinstance(svc, ExternalApiService):
+            upper = _safe(name).upper()
+            kill_cmds.append(f'    [ -n "${{{upper}_PID:-}}" ] && kill ${upper}_PID 2>/dev/null || true')
+    for name, svc in config.services.items():
+        if not isinstance(svc, ExternalApiService):
+            upper = _safe(name).upper()
+            kill_cmds.append(f'    [ -n "${{{upper}_PID:-}}" ] && wait ${upper}_PID 2>/dev/null || true')
+
+    # For het-jobs, auto-resume prologue and cleanup MUST go after all #SBATCH
+    # headers (after the het-job footer), otherwise SLURM stops reading SBATCH
+    # directives at the first non-comment bash code.
+    if use_het:
+        # Footer is the last part added during het-job header generation.
+        # Insert after it so all #SBATCH lines are contiguous at the top.
+        after_headers_idx = len(parts)
+    else:
+        after_headers_idx = 1
+
+    if cluster.auto_resume:
+        max_walltime_check = ""
+        if cluster.max_walltime is not None:
+            max_walltime_seconds = _parse_walltime(cluster.max_walltime)
+            max_walltime_check = _MAX_WALLTIME_CHECK.format(
+                max_walltime_seconds=max_walltime_seconds,
+                max_walltime=cluster.max_walltime,
+            )
+        prologue = _AUTORESUME_PROLOGUE.format(
+            max_retries=cluster.max_retries,
+            max_walltime_check=max_walltime_check,
+        )
+        parts.insert(after_headers_idx, prologue)
+        after_headers_idx += 1  # shift for the cleanup insert
+
+    cleanup_body = "\n".join(kill_cmds) if kill_cmds else "    echo 'No managed services.'"
+    parts.insert(after_headers_idx, _CLEANUP_FUNC.format(kill_commands=cleanup_body))
+
+    if needs_probe:
+        parts.insert(after_headers_idx + 1, _PROBE_FUNC)
+
+    parts.append(_FOOTER)
+
+    script = "\n".join(parts)
+    script = re.sub(r"\n{3,}", "\n\n", script)
+    return script, sidecar_configs, secrets_result
+
+
+def stamp_output_dir(config: EvalConfig) -> str | None:
+    """Append a timestamped run-ID subdirectory to config.output.dir.
+
+    Called once before write_sbatch / generate_sbatch so the timestamped
+    path is baked into the sbatch script and all metadata.  Skipped when
+    running inside a SLURM job (NEL_INNER_EXECUTION=1) or when the user
+    has opted out (output.timestamped=false).
+
+    Returns the generated run_id so callers can reuse it (avoids a second
+    call to generate_run_id producing a different timestamp).
+    """
+    if not config.output.timestamped or os.environ.get("NEL_INNER_EXECUTION") == "1":
+        return None
+    from nemo_evaluator.run_store import generate_run_id
+
+    rid = generate_run_id(config)
+    config.output.dir = str(Path(config.output.dir) / rid)
+    return rid
+
+
+def _sidecar_contains_secret(cfg_dict: dict) -> bool:
+    """Whether a sidecar config embeds any non-empty ``api_key`` value."""
+    services = cfg_dict.get("services") or {}
+    for svc in services.values():
+        if isinstance(svc, dict) and svc.get("api_key"):
+            return True
+    return False
+
+
+def _write_export_config(out: Path, export_config: dict) -> Path | None:
+    if not export_config:
+        return None
+    path = out / _EXPORT_CONFIG_FILE
+    path.write_text(yaml.dump(export_config, default_flow_style=False, sort_keys=False), encoding="utf-8")
+    path.chmod(0o600)
+    return path
+
+
+def _write_single_script(
+    out: Path,
+    script: str,
+    sidecar_configs: dict[str, dict],
+    secrets_result: SecretsEnvResult,
+    *,
+    dry_run: bool = False,
+    legacy_run_configs: dict[str, dict] | None = None,
+) -> tuple[Path, list[Path]]:
+    """Write one sbatch script + its sidecar/secrets into *out*.
+
+    For ``container://`` benchmarks (passed in *legacy_run_configs*), the
+    pre-rendered legacy ``run_config.yaml`` is written under
+    ``{out}/{safe_name}/run_config.yaml`` so the harness srun can
+    bind-mount it.
+    """
+    out.mkdir(parents=True, exist_ok=True)
+    logs_dir = out / "logs"
+    logs_dir.mkdir(exist_ok=True)
+    chmod_a_rx(out)
+    chmod_a_rx(logs_dir)
+
+    path = out / "nel_eval.sbatch"
+    path.write_text(script, encoding="utf-8")
+    path.chmod(0o755)
+
+    extra_paths: list[Path] = []
+
+    if secrets_result.secrets_content.strip():
+        secrets_path = out / ".secrets.env"
+        secrets_path.write_text(secrets_result.secrets_content, encoding="utf-8")
+        secrets_path.chmod(0o600)
+        extra_paths.append(secrets_path)
+
+        if dry_run:
+            import click
+
+            click.echo("\n.secrets.env (redacted):")
+            click.echo(redact_secrets_env_content(secrets_result.secrets_content))
+
+    for safe_name, cfg_dict in sidecar_configs.items():
+        cfg_path = out / f"config_{safe_name}.yaml"
+        cfg_path.write_text(yaml.dump(cfg_dict, default_flow_style=False, sort_keys=False), encoding="utf-8")
+        if _sidecar_contains_secret(cfg_dict):
+            cfg_path.chmod(0o600)
+        else:
+            chmod_a_rx(cfg_path)
+        extra_paths.append(cfg_path)
+
+    for safe_name, run_config in (legacy_run_configs or {}).items():
+        bench_dir = out / safe_name
+        bench_dir.mkdir(parents=True, exist_ok=True)
+        rc_path = bench_dir / "run_config.yaml"
+        rc_path.write_text(yaml.dump(run_config, default_flow_style=False, sort_keys=False), encoding="utf-8")
+        extra_paths.append(rc_path)
+
+    return path, extra_paths
+
+
+def write_sbatch(
+    config: EvalConfig,
+    output_dir: str | Path | None = None,
+    *,
+    dry_run: bool = False,
+) -> tuple[list[Path], list[Path]]:
+    """Write sbatch script(s) + sidecar config YAMLs + .secrets.env.
+
+    When ``cluster.shards`` is set, generates N independent per-shard
+    scripts under ``shard_0/``, ``shard_1/``, etc.  Each shard is a
+    standalone SLURM job with its own auto-resume chain.
+
+    Returns ``(script_paths, extra_paths)`` where *script_paths* has one
+    entry per shard (or a single entry when not sharded).
+    """
+    out = Path(output_dir or config.output.dir)
+    artifact_root = Path(config.output.dir)
+    cluster = config.cluster
+    n_shards = getattr(cluster, "shards", None) if isinstance(cluster, SlurmCluster) else None
+    if _has_multiple_shards(n_shards) and _runs_legacy_container_bench(config):
+        raise ValueError(_LEGACY_SHARDING_ERROR)
+    if n_shards == 1 and _runs_legacy_container_bench(config):
+        n_shards = None
+
+    common_extras: list[Path] = []
+    if config.output.export and _runs_legacy_container_bench(config):
+        out.mkdir(parents=True, exist_ok=True)
+        export_config_path = _write_export_config(out, config.output.export_config)
+        if export_config_path is not None:
+            common_extras.append(export_config_path)
+
+    # Pre-render legacy run_config.yaml content for any container:// benchmark.
+    # generate_sbatch references {output_dir}/{safe_name}/run_config.yaml; we
+    # materialize that file alongside the sbatch script so the harness srun
+    # can bind-mount it.
+    legacy_run_configs: dict[str, dict] = {
+        _safe(b.name): _render_legacy_run_config(b, config.services)
+        for b in config.benchmarks
+        if _is_legacy_container_bench(b)
+    }
+
+    out.mkdir(parents=True, exist_ok=True)
+    chmod_a_rx(out)
+    # output_dir may be local staging for remote submissions; warn on the path users will access.
+    warn_if_parent_chain_lacks_execute(artifact_root)
+
+    if n_shards:
+        script_paths: list[Path] = []
+        all_extras: list[Path] = []
+        for i in range(n_shards):
+            script, sidecars, secrets = generate_sbatch(
+                config,
+                shard_idx=i,
+                total_shards=n_shards,
+            )
+            shard_dir = out / f"shard_{i}"
+            path, extras = _write_single_script(
+                shard_dir,
+                script,
+                sidecars,
+                secrets,
+                dry_run=dry_run,
+                legacy_run_configs=legacy_run_configs,
+            )
+            script_paths.append(path)
+            all_extras.extend(extras)
+        return script_paths, all_extras
+
+    script, sidecar_configs, secrets_result = generate_sbatch(config)
+    path, extras = _write_single_script(
+        out,
+        script,
+        sidecar_configs,
+        secrets_result,
+        dry_run=dry_run,
+        legacy_run_configs=legacy_run_configs,
+    )
+    return [path], [*common_extras, *extras]

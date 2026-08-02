@@ -1,0 +1,2304 @@
+# CONCEPT:AU-KG.compute.graph-compute-engine - High-Performance Graph Compute Engine
+# CONCEPT:AU-ORCH.sandbox.compiled-orchestration-kernel - Compiled Orchestration Kernel
+# CONCEPT:AU-KG.compute.tokio-service-layer - Tokio Service Layer (Tokio-first)
+# CONCEPT:AU-KG.sharding.tenant-partitioned-sharding-hrw - Tenant-Partitioned Engine Sharding (HRW over GRAPH_SERVICE_ENDPOINTS)
+
+import json
+import logging
+import os
+from collections.abc import Mapping
+from typing import Any
+
+from agent_utilities.core.config import setting
+
+logger = logging.getLogger(__name__)
+
+# Engine snapshot checkpoint cadence in seconds (config discipline): one correct
+# default, passed to the spawned engine — a named constant, not an env knob
+# (replaces GRAPH_SERVICE_CHECKPOINT_INTERVAL).
+_CHECKPOINT_INTERVAL_S = 60
+
+# Linux prctl(2) option to deliver a signal to the calling thread when its
+# parent dies — used to lifecycle-couple an embedded engine to its spawner.
+_PR_SET_PDEATHSIG = 1
+
+# Children spawned in *coupled* mode (the embedded/tiny path) so the embedded
+# engine dies with this process. The parent-death signal (Linux) is the primary
+# guard; this registry backs an atexit + SIGTERM/SIGINT handler so the child is
+# reaped on a clean interpreter exit too. Detached daemons (graph-os-host /
+# enterprise shards) are NOT tracked here — they intentionally outlive us.
+_coupled_children: list[Any] = []
+_coupled_handlers_installed = False
+
+
+# Cache the engine binary's --idle-shutdown-secs support per binary path so the
+# graceful-degradation probe (a single `--help` exec) runs at most once.
+_idle_shutdown_support: dict[str, bool] = {}
+
+# Sentinel for "the connection pool has not been built yet" — distinct from a
+# built-but-unavailable pool (which caches as ``None``). (CONCEPT:AU-KG.compute.when-exposes)
+_POOL_UNSET: Any = object()
+
+
+def _engine_supports_idle_shutdown(server_path: str) -> bool:
+    """Whether the installed engine binary advertises ``--idle-shutdown-secs``.
+
+    CONCEPT:AU-OS.deployment.engine-resolver-auto-provision — engine-flag graceful degradation. A sibling agent is adding
+    this flag to the engine; against an OLDER engine binary that doesn't know it,
+    passing the flag would make the spawn fail. So we probe ``--help``
+    once per binary path and only pass the flag when it appears. The probe is
+    best-effort: a failure to introspect is treated as "supported" only when the
+    binary is missing entirely (the spawn will fail for another reason and be
+    reported); a successful --help that lacks the flag means "not supported".
+    """
+    cached = _idle_shutdown_support.get(server_path)
+    if cached is not None:
+        return cached
+    import subprocess  # nosec B404 — introspect our own engine binary
+
+    supported = False
+    try:
+        out = subprocess.run(  # nosec B603 — fixed argv, our own binary
+            [server_path, "--help"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        haystack = f"{out.stdout}\n{out.stderr}"
+        supported = "--idle-shutdown-secs" in haystack
+    except FileNotFoundError:
+        # No binary yet — let the spawn proceed and fail loudly for the real
+        # reason; don't suppress the flag based on a missing binary.
+        supported = False
+    except Exception:  # noqa: BLE001 — introspection is best-effort
+        supported = False
+    _idle_shutdown_support[server_path] = supported
+    return supported
+
+
+def _set_pdeathsig() -> None:
+    """preexec_fn: ask the kernel to SIGTERM this child when its parent dies.
+
+    Best-effort and Linux-only (``prctl`` via ``ctypes``). On any other platform
+    — or if libc/prctl is unavailable — this is a no-op and the atexit/signal
+    handler remains the coupling mechanism. Runs in the forked child between
+    fork and exec, so it must stay tiny and dependency-free.
+    """
+    try:
+        import ctypes
+
+        libc = ctypes.CDLL("libc.so.6", use_errno=True)
+        import signal as _signal
+
+        libc.prctl(_PR_SET_PDEATHSIG, _signal.SIGTERM, 0, 0, 0)
+    except Exception:  # noqa: BLE001 — coupling is best-effort
+        pass
+
+
+def _terminate_coupled_children() -> None:
+    """Terminate every coupled embedded engine we spawned. Idempotent."""
+    while _coupled_children:
+        child = _coupled_children.pop()
+        try:
+            if child.poll() is None:
+                child.terminate()
+        except Exception:  # noqa: BLE001 — teardown must never raise
+            pass
+
+
+def _install_coupled_handlers() -> None:
+    """Register the atexit + SIGTERM/SIGINT teardown for coupled children once.
+
+    The parent-death signal handles the hard-kill case on Linux; this covers the
+    clean-exit and signalled-shutdown cases (and is the only mechanism on
+    non-Linux). Existing signal handlers are chained, not clobbered.
+    """
+    global _coupled_handlers_installed
+    if _coupled_handlers_installed:
+        return
+    import atexit
+    import signal
+
+    atexit.register(_terminate_coupled_children)
+
+    for _sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            prev = signal.getsignal(_sig)
+
+            def _handler(signum: int, frame: Any, _prev: Any = prev) -> None:
+                _terminate_coupled_children()
+                if callable(_prev) and _prev not in (
+                    signal.SIG_IGN,
+                    signal.SIG_DFL,
+                ):
+                    _prev(signum, frame)
+
+            signal.signal(_sig, _handler)
+        except (ValueError, OSError, RuntimeError):
+            # Not on the main thread (e.g. inside a server worker) — the atexit
+            # hook still covers clean shutdown; skip the signal handler.
+            pass
+    _coupled_handlers_installed = True
+
+
+def _load_or_create_engine_secret() -> str:
+    """Load (or generate once) the per-install engine HMAC secret.
+
+    CONCEPT:AU-OS.identity.authenticated-identity-enforcement — Authenticated Identity Enforcement. The secret lives at
+    ``data_dir()/engine_secret`` with mode 0600 so every local process — and
+    every engine this launcher spawns — shares it. Creation is race-safe
+    (``O_EXCL``; the loser re-reads the winner's secret). If the data dir is
+    unwritable a process-local secret is used (warned: siblings won't share it).
+    """
+    import secrets as _secrets
+
+    from agent_utilities.core.paths import data_dir
+
+    path = data_dir() / "engine_secret"
+    try:
+        if path.exists():
+            existing = path.read_text(encoding="utf-8").strip()
+            if existing:
+                return existing
+        path.parent.mkdir(parents=True, exist_ok=True)
+        secret = _secrets.token_hex(32)
+        try:
+            fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError:
+            return path.read_text(encoding="utf-8").strip() or secret
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(secret)
+        return secret
+    except OSError as exc:
+        logger.warning(
+            "Could not persist engine secret at %s (%s); using a process-local "
+            "secret — sibling processes will not share it.",
+            path,
+            exc,
+        )
+        return _secrets.token_hex(32)
+
+
+def resolve_engine_auth(config: Any) -> tuple[str | None, bool]:
+    """Resolve the engine HMAC auth material as ``(secret, insecure)``.
+
+    CONCEPT:AU-OS.identity.authenticated-identity-enforcement — secure by default:
+
+    * ``KG_ENGINE_INSECURE=1`` → ``(None, True)``: no client auth token, and a
+      spawned engine gets ``EPISTEMIC_GRAPH_ALLOW_INSECURE=1`` so binaries that
+      refuse to start without a secret still come up for dev.
+    * ``GRAPH_SERVICE_AUTH_SECRET`` set → use it verbatim.
+    * Otherwise → the persisted per-install secret
+      (:func:`_load_or_create_engine_secret`).
+
+    Always sending a secret is backward-compatible: an engine running without
+    one ignores auth tokens entirely, so this works with both old (empty-secret
+    tolerant) and new (refuse-insecure) engine binaries.
+    """
+    if getattr(config, "kg_engine_insecure", False):
+        return None, True
+    if config.graph_service_auth_secret:
+        return config.graph_service_auth_secret, False
+    return _load_or_create_engine_secret(), False
+
+
+def ensure_local_engine() -> Any | None:
+    """Scan-or-spawn a coupled embedded engine for an embedded/tiny deployment.
+
+    CONCEPT:AU-OS.deployment.embedded-auto-provision — embedded auto-provision. For a server that has no remote
+    engine configured (the resolved endpoint is local per
+    :func:`shard_topology.is_local_endpoint`) this provisions the ONE engine
+    authority as a lifecycle-COUPLED child via the EXISTING scan-or-spawn
+    machinery — instantiating a :class:`GraphComputeEngine` with ``coupled=True``,
+    whose ``__init__`` runs the lock-guarded (``engine_lock.engine_spawn_guard``)
+    scan-or-spawn (the resolver's autostart leg, CONCEPT:AU-OS.deployment.engine-resolver-auto-provision). The explicit
+    ``coupled=True`` is the true single-process embedded case: the engine dies
+    with this process (vs the resolver's DEFAULT detached+supervised engine that
+    other entrypoints share). Host-reuse via ``host_lock``/``engine_lock`` means
+    co-located servers share the ONE engine; this adds no new locking.
+
+    Off unless the embedded path is enabled (``EPISTEMIC_GRAPH_AUTOSTART=1``) and
+    no-op when ``GRAPH_SERVICE_ENDPOINTS`` points at a remote (``tcp://``) shard.
+    Returns the engine handle (also used to key teardown) or ``None`` when it
+    did not provision anything. Best-effort: never raises.
+    """
+    from agent_utilities.core.config import AgentConfig
+
+    from .shard_topology import is_local_endpoint, resolve_endpoints
+
+    if setting("EPISTEMIC_GRAPH_AUTOSTART", "") != "1":
+        return None
+    try:
+        config = AgentConfig()
+        endpoints = resolve_endpoints(config)
+        # Embedded only: a single, local-by-construction endpoint. A remote shard
+        # (or multi-shard topology) is enterprise — never auto-provision a local
+        # stand-in for it (same fail-loud contract as the autostart guard).
+        if len(endpoints) != 1 or not is_local_endpoint(endpoints[0]):
+            return None
+        # Triggers the resolver's scan-or-spawn; coupled=True selects the
+        # embedded lifetime-bound child (vs the default detached engine).
+        return GraphComputeEngine(coupled=True)
+    except Exception as exc:  # noqa: BLE001 — provisioning is best-effort
+        logger.warning(
+            "ensure_local_engine: could not provision embedded engine: %s", exc
+        )
+        return None
+
+
+def teardown_local_engine(_engine: Any | None = None) -> None:
+    """Tear down any coupled embedded engine this process spawned.
+
+    Pairs with :func:`ensure_local_engine` for server shutdown. The coupled
+    children are also reaped by the atexit/SIGTERM handler, so this is the
+    explicit early-teardown hook for a graceful server stop. Idempotent.
+    """
+    _terminate_coupled_children()
+
+
+class GraphComputeEngine:
+    """Graph compute engine backed by the epistemic-graph Tokio service.
+
+    All graph operations route through the Tokio service layer via UDS/TCP
+    (length-prefixed MessagePack, HMAC-authenticated). There is **no PyO3 /
+    in-process mode** — the service is a separate process and must be running
+    before this engine is instantiated.
+    """
+
+    def __init__(self, graph_name: str | None = None, **kwargs: Any) -> None:
+        from epistemic_graph.client import SyncEpistemicGraphClient
+
+        from agent_utilities.core.config import AgentConfig
+
+        from .engine_resolver import resolve_engine
+        from .shard_topology import (
+            record_shard_connect,
+            resolve_endpoints,
+            resolve_routing_graph,
+        )
+
+        self.graph: dict[str, Any] = {}
+        # SyncEpistemicGraphClient wrapped in a BreakerClientProxy
+        # — attribute-transparent; raw client at
+        # ``self._client.__wrapped__``. (CONCEPT:AU-OS.observability.no-op-without-metrics)
+        self._client: Any
+        self._mode: str = "service"
+
+        config = AgentConfig()
+        endpoints = resolve_endpoints(config)
+        sharded = len(endpoints) > 1
+        if sharded:
+            # Tenant-partitioned sharding (CONCEPT:AU-KG.sharding.tenant-partitioned-sharding-hrw): tenant → named
+            # graph → HRW → shard. An explicit non-default graph routes by its
+            # own name; the default graph maps to the ambient ActorContext
+            # tenant's graph (tenant__<t>__<base>) when one is in scope.
+            graph_name = resolve_routing_graph(graph_name, config)
+        elif graph_name is None:
+            # Per-tenant named-graph isolation must NOT require multiple shards
+            # (CONCEPT:AU-KG.compute.data-is-private-its): with enforcement on, route the ambient tenant to
+            # its own named graph even on a single endpoint (HRW over one
+            # endpoint is the identity). With enforcement off this is byte-for-byte
+            # the legacy default-graph behaviour.
+            from .company_brain_runtime import brain_enforcement_enabled
+
+            if brain_enforcement_enabled():
+                graph_name = resolve_routing_graph(None, config)
+            else:
+                graph_name = config.kg_default_graph
+        # Retained so downstream consumers (e.g. the delta-ingestion manifest)
+        # can key state by tenant graph. (CONCEPT:EG-KG.storage.nonblocking-checkpoint)
+        self.graph_name = graph_name
+
+        # Note: Since GraphComputeEngine is synchronous and often used as a long-lived
+        # wrapper, we still use the standard SyncEpistemicGraphClient but point it at
+        # the graph's HRW-owning shard (identity with one endpoint). True async
+        # connection pooling callers should use epistemic_graph.pool.ShardRouter,
+        # which shares this exact placement function. (CONCEPT:AU-KG.sharding.tenant-partitioned-sharding-hrw)
+        # ONE engine resolver (CONCEPT:AU-OS.deployment.engine-resolver-auto-provision): remote → share-running-local →
+        # autostart-shared-supervised. The resolver owns endpoint placement (HRW),
+        # the local-vs-remote classification, the share-probe, the auth secret,
+        # and whether autostart is permitted — so this chokepoint carries no
+        # inline autostart sequence. ``endpoint`` here is the dedicated-engine
+        # override for the ingest path (CONCEPT:AU-KG.sharding.tenant-partitioned-sharding-hrw / Phase D): it pins parse +
+        # community-scratch work to a SEPARATE engine, bypassing HRW (the caller
+        # health-gates it and falls back to the query engine).
+        endpoint_override = kwargs.get("endpoint")
+        resolved = resolve_engine(
+            config, graph_name, endpoint_override=endpoint_override
+        )
+        endpoint = resolved.endpoint
+        auth_secret = resolved.auth_secret
+        engine_insecure = resolved.insecure
+        idle_shutdown_secs = resolved.idle_shutdown_secs
+        # Export the shared secret so sibling clients (the epistemic_graph pool and
+        # any direct SyncEpistemicGraphClient user falling back to this env var) and
+        # spawned engines agree on it (CONCEPT:AU-OS.identity.authenticated-identity-enforcement).
+        if auth_secret:
+            os.environ.setdefault("GRAPH_SERVICE_AUTH_SECRET", auth_secret)
+        connect_kwargs = {
+            "auth_secret": auth_secret,
+            "graph_name": graph_name,
+        }
+        if endpoint.startswith("tcp://"):
+            connect_kwargs["tcp_addr"] = endpoint[6:]
+        elif endpoint.startswith("unix://"):
+            connect_kwargs["socket_path"] = endpoint[7:]
+        else:
+            connect_kwargs["socket_path"] = endpoint
+
+        # Circuit breaker — ONE shared breaker per endpoint (CONCEPT:AU-OS.observability.no-op-without-metrics).
+        # When the engine is down, N consecutive connect/timeout failures open
+        # the circuit and every caller fails fast with the typed
+        # EngineCircuitOpenError (a ConnectionError) instead of hammering a
+        # dead socket; a half-open probe after the cooldown heals it.
+        from agent_utilities.knowledge_graph.core.engine_breaker import (
+            get_breaker,
+            wrap_client_with_breaker,
+        )
+
+        breaker = get_breaker(endpoint)
+        breaker.before_call()  # fast-fail BEFORE attempting a connect when open
+
+        # The resolver already gated this to a LOCAL endpoint the process may
+        # spawn (never a remote/sharded shard — that stays fail-loud below).
+        autostart_allowed = resolved.autostart_allowed
+
+        try:
+            self._client = SyncEpistemicGraphClient.connect(**connect_kwargs)
+        except Exception as initial_e:
+            if isinstance(initial_e, OSError | EOFError):
+                breaker.record_failure()
+            if autostart_allowed:
+                import subprocess
+                import sys
+                import time
+                from pathlib import Path
+
+                from .engine_lock import engine_spawn_guard
+
+                sock = connect_kwargs.get("socket_path")
+                try:
+                    # Single-instance spawn (CONCEPT:EG-KG.storage.nonblocking-checkpoint / OS-5.9): serialize all
+                    # autostart spawners for this socket behind a flock and
+                    # double-check connectivity before spawning. Without this, two
+                    # connects racing — or a client spawning while a displaced engine
+                    # still holds the socket — produce a split-brain (two engines on
+                    # one socket, clobbering the same --persist-dir). The guard is
+                    # held across spawn+wait so a concurrent spawner finds the engine
+                    # already up on re-check instead of spawning a second one.
+                    with engine_spawn_guard(sock):
+                        try:
+                            # Double check: a peer may have brought it up while we
+                            # waited for the guard.
+                            self._client = SyncEpistemicGraphClient.connect(
+                                **connect_kwargs
+                            )
+                        except Exception:  # noqa: BLE001 - still down; we spawn
+                            # Detached + supervised (CONCEPT:AU-OS.deployment.engine-resolver-auto-provision): the engine
+                            # survives this spawner so OTHER entrypoints on the
+                            # host share it (NOT coupled=pdeathsig), and it
+                            # self-terminates ``idle_shutdown_secs`` after its last
+                            # client disconnects (0 = persistent, never auto-stop).
+                            self._client = self._autostart_engine(
+                                connect_kwargs,
+                                sock,
+                                engine_insecure,
+                                auth_secret,
+                                subprocess,
+                                sys,
+                                time,
+                                Path,
+                                coupled=bool(kwargs.get("coupled", False)),
+                                idle_shutdown_secs=idle_shutdown_secs,
+                            )
+                except ConnectionError:
+                    record_shard_connect(endpoint, False)
+                    raise
+                except Exception as retry_e:
+                    if isinstance(retry_e, OSError | EOFError):
+                        breaker.record_failure()
+                    record_shard_connect(endpoint, False)
+                    raise ConnectionError(
+                        f"Cannot connect to epistemic-graph Tokio service after auto-start: {retry_e}. "
+                        "Ensure the epistemic-graph-server daemon is running."
+                    ) from retry_e
+            elif sharded:
+                # Fail-loud per-shard contract (CONCEPT:AU-KG.sharding.tenant-partitioned-sharding-hrw, CONCEPT:AU-KG.backend.selectable-queue-backend-style):
+                # name the shard so the operator fixes the topology instead of
+                # half the keyspace quietly degrading.
+                record_shard_connect(endpoint, False)
+                raise ConnectionError(
+                    f"Configured engine shard {endpoint!r} (owner of graph "
+                    f"{graph_name!r} per the engine placement catalog, or by "
+                    "HRW over GRAPH_SERVICE_ENDPOINTS when no catalog is "
+                    f"reachable) is unreachable: {initial_e}. Start that shard's "
+                    "epistemic-graph-server (or remove it from "
+                    "GRAPH_SERVICE_ENDPOINTS — moving a graph between shards "
+                    "requires a manual snapshot export/import). Autostart "
+                    "applies only to the local unix:// endpoint, never to "
+                    "remote shards."
+                ) from initial_e
+            else:
+                record_shard_connect(endpoint, False)
+                raise ConnectionError(
+                    f"Cannot connect to epistemic-graph Tokio service: {initial_e}. "
+                    "Ensure the epistemic-graph-server daemon is running, or set EPISTEMIC_GRAPH_AUTOSTART=1."
+                ) from initial_e
+
+        # Connected: close/reset the breaker and guard every subsequent call
+        # with it. The proxy is attribute-transparent, and the raw client
+        # stays reachable via ``self._client.__wrapped__``. (CONCEPT:AU-OS.observability.no-op-without-metrics)
+        breaker.record_success()
+        record_shard_connect(endpoint, True)
+        self._client = wrap_client_with_breaker(self._client, breaker)
+
+        logger.info(
+            "Connected to epistemic-graph Tokio service (graph: %s, endpoint: %s).",
+            graph_name,
+            endpoint,
+        )
+
+        try:
+            if self._client:
+                # Try to create the graph so tests and dynamic instances don't fail
+                # if the graph doesn't exist in the Rust backend yet.
+                self._client.tenants.create(graph_name)
+        except Exception as e:
+            if "already exists" in str(e).lower():
+                logger.debug(f"Tenant graph {graph_name} already exists.")
+            else:
+                logger.warning(f"Failed to create tenant graph {graph_name}: {repr(e)}")
+            pass
+
+        # Bridging local events to the rust service when kafka isn't running
+        if (
+            setting("KAFKA_BOOTSTRAP_SERVERS") is None
+            or setting("KAFKA_BOOTSTRAP_SERVERS") == ""
+        ):
+            self._start_event_bridge()
+
+    def _autostart_engine(
+        self,
+        connect_kwargs: dict[str, Any],
+        sock: str | None,
+        engine_insecure: bool,
+        auth_secret: str | None,
+        subprocess: Any,
+        sys: Any,
+        time: Any,
+        Path: Any,
+        coupled: bool = True,
+        idle_shutdown_secs: int = 0,
+    ) -> Any:
+        """Spawn the local epistemic-graph engine and return a connected client.
+
+        Called ONLY while holding the per-socket spawn guard (see
+        :func:`engine_lock.engine_spawn_guard`) and only after a double-checked
+        connect confirmed the engine is still down — so this is the sole spawner
+        for ``sock``. Mirrors the prior inline autostart: durable ``--persist-dir``
+        + checkpoint, the same auth secret the client uses (CONCEPT:AU-OS.identity.authenticated-identity-enforcement).
+
+        ``coupled`` (CONCEPT:AU-OS.deployment.embedded-auto-provision — embedded auto-provision) selects the child
+        lifecycle. ``coupled=True`` (the ``ensure_local_engine`` / true
+        single-process case) lifecycle-couples the engine to its spawner — it
+        gets a parent-death signal (Linux ``prctl``) plus an atexit/SIGTERM/SIGINT
+        teardown so it dies with the process that needs it. ``coupled=False`` (the
+        resolver's autostart leg, CONCEPT:AU-OS.deployment.engine-resolver-auto-provision, and the graph-os-host /
+        enterprise shard) detaches the child into its own session so it OUTLIVES
+        the launcher and OTHER entrypoints on the host share it.
+        ``KG_ENGINE_DETACHED=1`` forces detached for the autostart path too.
+
+        ``idle_shutdown_secs`` (CONCEPT:AU-OS.deployment.engine-resolver-auto-provision — supervised, reference-counted)
+        is passed to a detached engine as ``--idle-shutdown-secs <secs>`` so it
+        self-terminates that many seconds after its LAST client disconnects
+        (robust to client crashes). ``0`` = persistent: NO flag passed, the engine
+        runs forever like a local service. A coupled engine ignores this (its
+        spawner already bounds its lifetime). The flag is omitted gracefully if
+        the installed engine binary does not advertise it (older engine).
+        """
+        if setting("KG_ENGINE_DETACHED", "") == "1":
+            coupled = False
+        from epistemic_graph.client import SyncEpistemicGraphClient
+
+        logger.info(
+            "epistemic-graph Tokio service not running. Auto-starting daemon (single-instance guard held)..."
+        )
+        # The maturin wheel installs the binary next to the interpreter; on Windows
+        # it carries a `.exe` suffix (Scripts/epistemic-graph-server.exe).
+        _server_exe = (
+            "epistemic-graph-server.exe"
+            if os.name == "nt"
+            else "epistemic-graph-server"
+        )
+        server_path = str(Path(sys.executable).parent / _server_exe)
+        cmd = [server_path]
+        if sock:
+            cmd += ["--socket-path", str(sock)]
+        # Durable by default (CONCEPT:EG-KG.storage.nonblocking-checkpoint / OS-5.9): snapshot the graphs to disk
+        # so an auto-spawned engine warm-restarts from the last checkpoint instead
+        # of starting empty. pggraph stays the durable system-of-record; this is
+        # the fast local cache.
+        persist_dir = setting("GRAPH_SERVICE_PERSIST_DIR")
+        if persist_dir is None:
+            try:
+                from agent_utilities.core.paths import data_dir
+
+                persist_dir = str(data_dir() / "graph_snapshots")
+            except Exception:
+                persist_dir = None
+        if persist_dir:
+            cmd += [
+                "--persist-dir",
+                persist_dir,
+                "--checkpoint-interval",
+                str(_CHECKPOINT_INTERVAL_S),
+            ]
+        # Reference-counted supervision (CONCEPT:AU-OS.deployment.engine-resolver-auto-provision): a DETACHED engine that
+        # outlives its spawner needs a self-shutdown so a crashed/exited fleet of
+        # clients doesn't leave it running forever. >0 → arm idle shutdown;
+        # 0 → persistent (omit the flag, engine runs forever like a service). A
+        # coupled engine is already lifetime-bound to its spawner, so skip it.
+        if (
+            not coupled
+            and idle_shutdown_secs > 0
+            and _engine_supports_idle_shutdown(server_path)
+        ):
+            cmd += ["--idle-shutdown-secs", str(idle_shutdown_secs)]
+        # Engine auth (CONCEPT:AU-OS.identity.authenticated-identity-enforcement): the spawned engine gets the SAME secret
+        # this client authenticates with (the engine reads GRAPH_SERVICE_AUTH_SECRET).
+        # With KG_ENGINE_INSECURE the explicit allow flag keeps refuse-insecure
+        # binaries bootable for dev.
+        child_env = dict(os.environ)
+        if engine_insecure:
+            child_env["EPISTEMIC_GRAPH_ALLOW_INSECURE"] = "1"
+            child_env.pop("GRAPH_SERVICE_AUTH_SECRET", None)
+        else:
+            child_env["GRAPH_SERVICE_AUTH_SECRET"] = auth_secret or ""
+        if coupled:
+            # Embedded/tiny path: the engine's lifetime is tied to ours. Do NOT
+            # start a new session (that would detach it); instead arm the
+            # parent-death signal in the child and track it for atexit/SIGTERM
+            # teardown so the embedded engine never outlives its spawner.
+            #
+            # `preexec_fn` is POSIX-only — on Windows subprocess.Popen REFUSES it
+            # (ValueError). The parent-death signal is Linux-only anyway, so on
+            # non-POSIX we pass no preexec_fn and rely entirely on the
+            # atexit/SIGTERM/SIGINT teardown registered by _install_coupled_handlers
+            # (the documented cross-platform coupling mechanism).
+            coupled_kwargs: dict[str, Any] = {
+                "stdout": subprocess.DEVNULL,
+                "stderr": subprocess.DEVNULL,
+                "env": child_env,
+            }
+            if os.name == "posix":
+                coupled_kwargs["start_new_session"] = False
+                coupled_kwargs["preexec_fn"] = _set_pdeathsig
+            child = subprocess.Popen(cmd, **coupled_kwargs)  # nosec B603
+            _coupled_children.append(child)
+            _install_coupled_handlers()
+        else:
+            # Explicit long-lived daemon (graph-os-host / enterprise shard):
+            # detach so it survives this launcher. On POSIX that's a new session;
+            # on Windows there is no setsid — DETACHED_PROCESS + a new process group
+            # detaches the child from the launcher's console/job instead.
+            detach_kwargs: dict[str, Any] = {
+                "stdout": subprocess.DEVNULL,
+                "stderr": subprocess.DEVNULL,
+                "env": child_env,
+            }
+            if os.name == "posix":
+                detach_kwargs["start_new_session"] = True
+            else:  # Windows
+                detach_kwargs["creationflags"] = (
+                    subprocess.DETACHED_PROCESS  # type: ignore[attr-defined]
+                    | subprocess.CREATE_NEW_PROCESS_GROUP  # type: ignore[attr-defined]
+                )
+            subprocess.Popen(cmd, **detach_kwargs)  # nosec B603
+        time.sleep(1.0)
+        return SyncEpistemicGraphClient.connect(**connect_kwargs)
+
+    def _start_event_bridge(self) -> None:
+        """Starts a background bridge to forward local EventBus events to the Rust service."""
+        import asyncio
+        import threading
+
+        from agent_utilities.knowledge_graph.core.event_backend import get_event_backend
+
+        def bridge_worker() -> None:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            eb = get_event_backend()
+
+            async def handle_mutation(topic: str, payload: dict) -> None:
+                if "event_type" in payload and "query" in payload:
+                    try:
+                        if self._client:
+                            self._client.apply_mutation(
+                                payload["event_type"], payload["query"]
+                            )
+                    except Exception as exc:
+                        logger.error(
+                            "Failed to forward mutation to epistemic-graph: %s", exc
+                        )
+
+            async def run_subscriber() -> None:
+                await eb.subscribe("kg.mutations", "epistemic-bridge", handle_mutation)
+                # Keep loop alive to process events
+                while True:
+                    await asyncio.sleep(3600)
+
+            try:
+                loop.run_until_complete(run_subscriber())
+            except Exception as e:
+                logger.error("Event bridge worker failed: %s", e)
+
+        t = threading.Thread(
+            target=bridge_worker, daemon=True, name="EventBridgeWorker"
+        )
+        t.start()
+        logger.info("Started Local-First EventBus bridge to epistemic-graph")
+
+    # ── Node CRUD ────────────────────────────────────────────────────────
+
+    def add_node(self, node_id: str, properties: Any = None, **kwargs: Any) -> None:
+        """Add a node with properties to the graph.
+
+        Supports both explicit dict and NX-style kwargs::
+
+            engine.add_node("n1", {"type": "Agent"})
+            engine.add_node("n1", type="Agent", name="foo")
+        """
+
+        def clean_props(d: Mapping[str, Any]) -> dict[str, Any]:
+            import datetime
+
+            from pydantic import BaseModel
+
+            def serialize(val: Any) -> Any:
+                if hasattr(val, "model_dump"):
+                    try:
+                        return val.model_dump(mode="json")
+                    except Exception:
+                        pass
+                if isinstance(val, BaseModel):
+                    return val.model_dump(mode="json")
+                if isinstance(val, dict):
+                    return {k: serialize(v) for k, v in val.items()}
+                if isinstance(val, list | tuple | set):
+                    return [serialize(v) for v in val]
+                if isinstance(val, datetime.datetime):
+                    return val.isoformat()
+                return val
+
+            return {k: serialize(v) for k, v in d.items()}
+
+        props = dict(properties or {})
+        props.update(kwargs)
+        props = clean_props(props)
+        self._client.nodes.add(node_id, props)
+
+    def add_edge(
+        self,
+        source_id: str,
+        target_id: str,
+        properties: Any = None,
+        **kwargs: Any,
+    ) -> None:
+        """Add a directed edge between two nodes with properties.
+
+        Supports both explicit dict and NX-style kwargs::
+
+            engine.add_edge("a", "b", {"type": "DEPENDS_ON"})
+            engine.add_edge("a", "b", type="DEPENDS_ON")
+        """
+
+        def clean_props(d: dict[str, Any]) -> dict[str, Any]:
+            import datetime
+
+            from pydantic import BaseModel
+
+            def serialize(val: Any) -> Any:
+                if hasattr(val, "model_dump"):
+                    try:
+                        return val.model_dump(mode="json")
+                    except Exception:
+                        pass
+                if isinstance(val, BaseModel):
+                    return val.model_dump(mode="json")
+                if isinstance(val, dict):
+                    return {k: serialize(v) for k, v in val.items()}
+                if isinstance(val, list | tuple | set):
+                    return [serialize(v) for v in val]
+                if isinstance(val, datetime.datetime):
+                    return val.isoformat()
+                return val
+
+            return {k: serialize(v) for k, v in d.items()}
+
+        props = dict(properties or {})
+        props.update(kwargs)
+        props = clean_props(props)
+
+        if self.has_edge(source_id, target_id):
+            self.remove_edge(source_id, target_id)
+
+        try:
+            self._client.edges.add(source_id, target_id, props)
+        except Exception:
+            # Ensure nodes exist without overwriting their existing properties
+            if not self.has_node(source_id):
+                self._client.nodes.add(source_id, {})
+            if not self.has_node(target_id):
+                self._client.nodes.add(target_id, {})
+            self._client.edges.add(source_id, target_id, props)
+
+    def remove_node(self, node_id: str) -> None:
+        """Remove a node and all of its associated edges."""
+        self._client.nodes.remove(node_id)
+
+    def remove_edge(self, source_id: str, target_id: str, key: Any = None) -> None:
+        """Remove a directed edge between source and target."""
+        self._client.edges.remove(source_id, target_id)
+
+    def has_node(self, node_id: str) -> bool:
+        """Check if node_id exists in the graph."""
+        return self._client.nodes.has(node_id)
+
+    def has_batch(self, node_ids: list[str]) -> dict[str, bool]:
+        """Existence of many nodes in ONE round-trip → ``{id: exists}`` (KG-2.147).
+
+        The engine is a separate process behind a MessagePack/UDS socket, so each
+        call is a round-trip — N per-element ``has_node`` calls = N round-trips.
+        This surfaces the engine client's existing one-round-trip existence op
+        (CONCEPT:EG-KG.compute.graph-compute-engine) through the facade so orchestration code (ingestion dedup)
+        can check a whole batch natively instead of looping. (Bulk writes already
+        flow through :meth:`batch_update`.)
+        """
+        ids = list(node_ids)
+        if not ids:
+            return {}
+        return dict(self._client.nodes.has_batch(ids))
+
+    def has_edge(self, source_id: str, target_id: str) -> bool:
+        """Check if a directed edge exists between source and target."""
+        return self._client.edges.has(source_id, target_id)
+
+    def compare_and_set_node_fields(
+        self,
+        node_id: str,
+        conditions: dict[str, Any],
+        updates: dict[str, Any],
+    ) -> bool:
+        """Atomic engine-side compare-and-set on a node's top-level fields.
+
+        Under the engine's graph write lock: if for every ``(field, expected)``
+        in ``conditions`` the node's current top-level property equals
+        ``expected`` (a missing field reads as null), merge every
+        ``(field, value)`` in ``updates`` into the node and return ``True``;
+        otherwise return ``False`` with no mutation. This is the authoritative,
+        backend-agnostic primitive behind cross-host :Task claiming
+        (CONCEPT:AU-KG.compute.user-override-prompt-library). Mirrors ``add_node``: the call goes straight to
+        ``self._client.nodes.*``; the SyncEpistemicGraphClient wrapper handles
+        the run-in-loop dispatch.
+        """
+        return bool(self._client.nodes.compare_and_set(node_id, conditions, updates))
+
+    def node_count(self) -> int:
+        """Return the number of nodes in the graph."""
+        return self._client.nodes.count()
+
+    def edge_count(self) -> int:
+        """Return the number of edges in the graph."""
+        return self._client.edges.count()
+
+    # ── Graph Algorithms ─────────────────────────────────────────────────
+
+    def topological_sort(self) -> list[str]:
+        """Perform topological sort across the graph.
+
+        Raises:
+            ValueError: If the graph contains dependency cycles.
+        """
+        try:
+            return self._client.graph.topological_sort()
+        except Exception as e:
+            raise ValueError("Graph contains cycles") from e
+
+    def find_cycle(self) -> list[str] | None:
+        """Detect and return any cycles found within the graph."""
+        return self._client.graph.find_cycle()
+
+    def add_embedding(self, node_id: str, embedding: list[float]) -> None:
+        """Index an embedding in the engine's native HNSW (CONCEPT:AU-KG.query.object-graph-mapper).
+
+        Distinct from storing an ``embedding`` node property: this registers the
+        vector in the engine's SemanticStore so ``semantic_search`` is O(log N),
+        instead of an O(N) cosine scan in Python.
+        """
+        self._client.graph.add_embedding(node_id, embedding)
+
+    def semantic_search(
+        self, query_embedding: list[float], n_results: int = 5
+    ) -> list[tuple[str, float]]:
+        """Native HNSW vector search via the engine — returns (node_id, score)."""
+        return self._client.graph.semantic_search(query_embedding, n_results) or []
+
+    def query_unified(
+        self,
+        plan: list[dict[str, Any]],
+        *,
+        reorder_filter_selectivity: float | None = None,
+        include_epistemic: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Run ONE cross-modal unified plan in a single costed round-trip (CONCEPT:AU-KG.compute.kg-2).
+
+        ``plan`` is the engine's closed algebra over a shared ``RowSet`` — an
+        ordered list of externally-tagged ``Op`` dicts (``Scan``/``Filter``/
+        ``Traverse``/``Rank``/``RankText``/``FuseRrf``/``AsOf``/``Limit``) the
+        engine sequences over ONE off-lock snapshot (filter via DataFusion,
+        traverse via petgraph BFS, rank via the native ANN, RRF fusion in-plan).
+        This is the engine doing filter+traverse+vector+rerank itself instead of
+        the old hand-orchestrated Python pipeline of siloed round-trips
+        (CONCEPT:AU-KG.compute.vector/214/215). Returns ``[{"id": str, "score": float|None}]``
+        in the plan's final (post-``Rank``) order.
+
+        Requires an engine built with the ``query`` feature; on a build without it
+        the call raises a clear engine error — there is no O(N) Python fallback.
+
+        Args:
+            include_epistemic: Opt-in (CONCEPT:AU-KB-CURRENCY, Seam 1 — the
+                ``KnowledgeBatch`` currency, extended from ``KnowledgeGraph.query``
+                to this cross-modal surface). Default ``False`` — byte-for-byte the
+                same ``[{"id", "score"}]`` rows as before this parameter existed.
+                When ``True``, currency-upgrades the SAME ids (in the SAME
+                post-``Rank`` order) via ``explain_provenance_by_ids`` into
+                :class:`~.epistemic_row.EpistemicRow` results carrying the
+                engine's confidence, bitemporal window, evidence provenance, and
+                policy labels — never fabricated, resolved server-side. See
+                ``docs/architecture/epistemic-columns-currency.md``.
+        """
+        rows = (
+            self._client.query.unified(
+                plan, reorder_filter_selectivity=reorder_filter_selectivity
+            )
+            or []
+        )
+        if include_epistemic:
+            from .epistemic_row import attach_epistemic_rows
+
+            return attach_epistemic_rows(rows, self.explain_provenance_by_ids)  # type: ignore[return-value]
+        # Light epistemic layer (CONCEPT:AU-KB-CURRENCY, Native by default) —
+        # see `KnowledgeGraph.query`'s identical wiring for the full rationale.
+        from agent_utilities.core.config import config as _app_config
+
+        from .epistemic_row import (
+            attach_epistemic_columns,
+            should_attach_epistemic_columns,
+        )
+
+        if should_attach_epistemic_columns(
+            rows, default=_app_config.epistemic_light_default
+        ):
+            rows = attach_epistemic_columns(rows, self.explain_provenance_by_ids)
+        return rows
+
+    def query_cypher(self, query: str) -> list[dict[str, Any]]:
+        """Run a native Cypher-subset ``query`` server-side and return row dicts (CONCEPT:AU-KG.query.object-graph-mapper).
+
+        This is the engine's OWN Cypher executor (``eg-query::cypher``, compiled
+        to the label index / VF2 / BFS — no Python-side regex interpretation),
+        reached via ``client.query.cypher``. It requires an engine built with the
+        ``cypher`` feature; on a build without it, or on a query the parser
+        rejects, the call raises a clear engine error naming the problem — there
+        is NO client-side fallback that silently narrows or drops the query.
+
+        The wire protocol carries only the literal query text (no separate params
+        map): callers must inline every ``$param`` as a Cypher literal before
+        calling this method (see ``EpistemicGraphBackend._inline_cypher_params``).
+        """
+        return self._client.query.cypher(query) or []
+
+    def explain_provenance_by_ids(self, ids: list[str]) -> list[dict[str, Any]]:
+        """Resolve the engine's per-row epistemic envelope for exactly ``ids``
+        (CONCEPT:EG-KB-CURRENCY — Seam 1, the ``KnowledgeBatch`` currency).
+
+        Reaches ``Method::ExplainProvenanceByIds`` via
+        ``client.query.explain_provenance_by_ids`` — the ID-seeded sibling of
+        ``ExplainProvenance`` that needs no ``Op`` plan. Each returned row dict is
+        shaped like ``ExplainProvenanceRowWire``: ``{"id", "kind", "score",
+        "confidence", "valid_time", "tx_time", "source_refs", "policy_labels",
+        "evidence_spans"}`` — straight field copies off the engine's
+        ``KnowledgeSet``, never fabricated client-side. This is the primitive
+        :meth:`KnowledgeGraph.query`'s ``include_epistemic=True`` path builds
+        :class:`~agent_utilities.knowledge_graph.core.epistemic_row.EpistemicRow`
+        results from. Requires an engine built with the ``query`` feature; an id
+        absent from the graph is silently skipped (never fabricated).
+        """
+        if not ids:
+            return []
+        result = self._client.query.explain_provenance_by_ids(list(ids)) or {}
+        rows = result.get("rows") if isinstance(result, dict) else None
+        return rows or []
+
+    def register_materialization(self, derived_id: str) -> dict[str, Any]:
+        """Register ``derived_id`` as a live engine-side TruthMaintenance
+        materialization (CONCEPT:EG-KG.epistemic.truth-maintenance, Seam 3 — X-6
+        across the storage boundary).
+
+        Reaches ``Method::RegisterMaterialization`` via
+        ``client.query.register_materialization`` — the engine reads
+        ``derived_id``'s OWN already-stored provenance (its ``invalidation_deps``
+        property plus any outgoing ``:DerivedFrom``/``:GeneratedBy`` edge) into a
+        dependency set and tracks it on its process-global truth-maintenance index.
+        Call this ONCE, right after writing a derived node (a mined claim, a
+        computed capability index entry, ...) plus its provenance edges — from then
+        on, ANY committed change to a dependency (through the normal write path)
+        automatically marks this materialization stale, with no further action
+        needed here. Returns ``{"id", "depends_on", "generating_activity"}`` — the
+        dependency set the engine actually resolved, never fabricated client-side;
+        an empty ``depends_on`` means the node carried no recognized provenance
+        (a legitimate answer, not an error). Requires an engine built with the
+        ``epistemic-tms`` feature (opt-in, not part of ``full``); on a build
+        without it the call raises a clear engine error — callers writing a
+        derived artifact should treat this as best-effort, the same posture as
+        every other write-path audit overlay in this codebase.
+        """
+        return self._client.query.register_materialization(derived_id) or {}
+
+    def materialization_status(self, id: str) -> str | None:
+        """Current status (``"Fresh"``/``"Stale"``/``"Retracted"``, or ``None`` if
+        never registered) of a materialization tracked on the SAME index
+        :meth:`register_materialization` writes to (CONCEPT:EG-KG.epistemic.truth-maintenance, Seam 3).
+        Read-only — does not itself recompute anything. Requires an engine built
+        with the ``epistemic-tms`` feature (opt-in, not part of ``full``)."""
+        result = self._client.query.materialization_status(id) or {}
+        return result.get("status") if isinstance(result, dict) else None
+
+    def match_ontology_terms(self, query: str) -> list[dict[str, Any]]:
+        """Embedding-free lexical capability gate via the engine (CONCEPT:EG-ORCH.routing.lexical-capability-escalation).
+
+        Returns the capability-node terms (Tool/Skill/MCPServer names+synonyms)
+        that appear as whole words in ``query``, each ``{term, node_type, label,
+        score}``. A non-empty result means the turn names a real fleet capability
+        — the "free" (~µs) tier between structural routing and ``semantic_search``.
+        """
+        return self._client.graph.match_ontology_terms(query) or []
+
+    def discover(
+        self,
+        keywords: list[str],
+        query_embedding: list[float] | None = None,
+        k: int = 5,
+    ) -> list[dict[str, Any]]:
+        """Engine-side hybrid keyword+semantic discovery in ONE round-trip.
+
+        Ranks nodes by lexical keyword overlap (over ``name``/``description``/``type``)
+        AND semantic similarity to ``query_embedding``, server-side, returning the
+        top-``k`` hydrated as ``[{id, name, description, type, score}, ...]``. Pass an
+        empty/omitted embedding for a keyword-only ranking (the engine degrades to a
+        bounded keyword scan). This is the engine-scalable keyword primitive — it
+        replaces the O(N) ``MATCH (n) WHERE … CONTAINS`` full-node scan that the engine
+        does not filter server-side (per the dependency edict: keyword/vector ranking
+        belongs on the engine, never an O(N) Python loop).
+        """
+        return self._client.graph.discover(keywords, query_embedding or [], k) or []
+
+    def get_nodes_by_label(
+        self, label: str, limit: int = 0
+    ) -> list[tuple[str, dict[str, Any]]]:
+        """Engine-side labeled fetch (CONCEPT:EG-KG.txn.per-graph-write-isolation) — at most ``limit`` nodes of
+        ``label`` (``limit=0`` ⇒ no cap), bounding the wire payload so a
+        ``MATCH (n:Label) … LIMIT k`` never materializes the whole graph."""
+        return self._client.nodes.list_by_label(label, limit) or []
+
+    def get_shortest_path(self, source_id: str, target_id: str) -> list[str] | None:
+        """Get the shortest path between source and target nodes."""
+        return self._client.graph.shortest_path(source_id, target_id)
+
+    @staticmethod
+    def _bfs_collect(
+        start: Any,
+        max_depth: int,
+        neighbors_fn: Any,
+        node_info_fn: Any,
+    ) -> list[dict[str, Any]]:
+        """Backend-agnostic BFS traversal collecting blast radius results.
+
+        Args:
+            start: Starting node identifier (backend-specific).
+            max_depth: Maximum traversal depth.
+            neighbors_fn: Callable(node) -> iterable of neighbor nodes.
+            node_info_fn: Callable(node) -> dict with 'id' and 'type' keys.
+        """
+        visited: set = {start}
+        queue: list[tuple[Any, int]] = [(start, 0)]
+        results: list[dict[str, Any]] = []
+        while queue:
+            curr, depth = queue.pop(0)
+            if curr != start:
+                info = node_info_fn(curr)
+                info["depth"] = depth
+                results.append(info)
+            if depth < max_depth:
+                for neighbor in neighbors_fn(curr):
+                    if neighbor not in visited:
+                        visited.add(neighbor)
+                        queue.append((neighbor, depth + 1))
+        return results
+
+    def get_blast_radius(self, node_id: str, max_depth: int) -> list[dict[str, Any]]:
+        """Compute the blast radius dependencies from a starting node.
+
+        Returns a list of dicts: [{'id': str, 'type': str, 'depth': int}]
+        """
+        nodes = self._client.graph.blast_radius(node_id, max_depth)
+        res = []
+        for i, nid in enumerate(nodes, start=1):
+            res.append({"id": nid, "type": "Node", "depth": min(i, max_depth)})
+        return res
+
+    def parse_repository(self, root_path: str) -> None:
+        """Parse repository AST natively using the Rust backend."""
+        self._client.graph.parse_repository(root_path)
+
+    def parse_file(self, file_path: str, source: bytes) -> dict[str, Any]:
+        """Parse one source file's AST natively via the Rust engine.
+
+        Returns the ``ParseFile`` result (symbols + native test-quality metrics
+        for Python). The compute layer — not Python — does the AST work.
+        """
+        return self._client.graph.parse_file(file_path, source)
+
+    def parse_files(self, files: list[tuple[str, bytes]]) -> list[dict[str, Any]]:
+        """Batch-parse many files in ONE engine round-trip (CONCEPT:EG-KG.compute.graph-compute-engine).
+
+        Returns one ``ParseFile``-shaped result per input file, in input order.
+        Collapses a per-file parse storm into a single RPC. Requires an engine
+        that advertises ``ParseFiles`` — gate on :attr:`supports_batch_parse`.
+        """
+        return self._client.graph.parse_files(files)
+
+    @property
+    def supports_batch_parse(self) -> bool:
+        """Whether the connected engine supports the batched ``ParseFiles`` op.
+
+        Cached. Lets callers fall back to per-file ``parse_file`` against an
+        engine built before ``ParseFiles`` existed (backward-compatible rollout).
+        """
+        cached = getattr(self, "_supports_batch_parse", None)
+        if cached is None:
+            try:
+                cached = bool(self._client.supports("ParseFiles"))
+            except Exception:
+                cached = False
+            self._supports_batch_parse = cached
+        return cached
+
+    def index_repository(self, files: list[tuple[str, bytes]]) -> dict[str, Any]:
+        """Parse a batch AND resolve cross-file edges in ONE round-trip (CONCEPT:EG-KG.compute.turn-each-project).
+
+        Treats ``files`` as one resolution scope (a repository, or a delta set):
+        unlike :meth:`parse_files` (one raw result per file), this returns a SINGLE
+        merged ``IndexResult`` dict whose ``calls`` (symbol→symbol) and
+        ``depends_on`` (file→file) edges point at real node ids — the cross-file
+        binding the GitLab code graph and impact analysis are built on. Requires an
+        engine that advertises ``IndexRepository`` — gate on
+        :attr:`supports_index_repository`.
+        """
+        return self._client.graph.index_repository(files)
+
+    def observe_screen(
+        self,
+        png: bytes,
+        *,
+        session_id: str,
+        frame_seq: int = 0,
+        prev_frame_id: str = "",
+        prev_hash: int = 0,
+        elements: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Materialise a captured desktop frame as durable graph entities in ONE
+        round-trip (CONCEPT:AU-KG.ontology.owl-screen-bridge).
+
+        Turns the screenshot ``png`` (only its dimensions + content hash persist) plus
+        the AT-SPI ``elements`` (``[{role,name,x,y,w,h}, ...]``) into a
+        ``ComputerUseSession`` + ``ScreenObservation`` frame + one ``UIElement`` per
+        accessible, returning a ``ScreenObservationResult`` (nodes/edges + frame_id,
+        hash, changed). Requires an engine advertising ``ObserveScreen`` — gate on
+        :attr:`supports_observe_screen`.
+        """
+        return self._client.graph.observe_screen(
+            png,
+            session_id=session_id,
+            frame_seq=frame_seq,
+            prev_frame_id=prev_frame_id,
+            prev_hash=prev_hash,
+            elements=elements or [],
+        )
+
+    @property
+    def supports_observe_screen(self) -> bool:
+        """Whether the connected engine supports the ``ObserveScreen`` enrichment (KG-2.185).
+
+        Cached. Lets the computer-use driver fall back to a11y-only grounding against
+        an engine built before ``ObserveScreen`` existed.
+        """
+        cached = getattr(self, "_supports_observe_screen", None)
+        if cached is None:
+            try:
+                cached = bool(self._client.supports("ObserveScreen"))
+            except Exception:
+                cached = False
+            self._supports_observe_screen = cached
+        return cached
+
+    @property
+    def supports_index_repository(self) -> bool:
+        """Whether the connected engine supports the resolved ``IndexRepository`` op.
+
+        Cached. Lets callers fall back to ``parse_files`` (raw, unresolved) against
+        an engine built before ``IndexRepository`` existed.
+        """
+        cached = getattr(self, "_supports_index_repository", None)
+        if cached is None:
+            try:
+                cached = bool(self._client.supports("IndexRepository"))
+            except Exception:
+                cached = False
+            self._supports_index_repository = cached
+        return cached
+
+    def vf2_subgraph_match(self, pattern: "GraphComputeEngine") -> list[dict[str, str]]:
+        """Find all subgraph isomorphism matches from pattern to target graph."""
+        from agent_utilities.knowledge_graph.core.engine_breaker import unwrap_client
+
+        # The wire call needs the RAW client of the pattern engine, not its
+        # breaker proxy (CONCEPT:AU-OS.observability.no-op-without-metrics).
+        return self._client.graph.vf2_subgraph_match(unwrap_client(pattern._client))
+
+    # ── Ledger Operations ────────────────────────────────────────────────
+
+    def get_ledger(self) -> list[str]:
+        """Retrieve the mutation transaction ledger log."""
+        return self._client.ledger.get()
+
+    def clear_ledger(self) -> None:
+        """Clear the mutation transaction ledger log."""
+        self._client.ledger.clear()
+
+    @staticmethod
+    def _parse_ledger_entry(tx: str) -> tuple[str, list[str]]:
+        """Parse a ledger transaction string into (operation, args).
+
+        Shared parser to ensure Rust and Python ledger formats stay in sync.
+        """
+        parts = tx.split("|")
+        if not parts:
+            return ("", [])
+        return (parts[0], parts[1:])
+
+    def apply_ledger(self, transactions: list[str]) -> None:
+        """Replay mutations from a transaction ledger log."""
+        self._client.ledger.apply(transactions)
+
+    def audit_verify(self) -> dict[str, Any]:
+        """Cryptographically verify this graph's tamper-evident hash-chained audit log.
+
+        CONCEPT:AU-KG.audit.hash-chain-verify — routes to the engine's native
+        ``Method::AuditVerify`` (``epistemic-graph/src/audit.rs``): every durable
+        mutation already chains into a per-graph SHA-256 hash chain (the redb
+        ``AUDIT`` table, keyed ``(graph, seq)``); this walks it and reports whether
+        every entry's stored hash still matches its recomputed link — i.e. whether
+        the durable write history has been tampered with post-hoc. The engine
+        client (``epistemic_graph.client``) does not yet wrap ``AuditVerify`` as a
+        typed ``LedgerClient`` method, so this uses the same raw wire escape hatch
+        as :meth:`get_triples`/:meth:`remove_triples` (``_send_wire``) rather than
+        waiting on that package to add one — no Rust rebuild is required, the wire
+        ``Method`` already exists and is dispatched by any engine built with the
+        ``security`` feature (part of the default ``full`` build).
+
+        Returns the engine's ``AuditReport``: ``{"graph", "ok", "entries",
+        "first_broken_seq", "detail"}``. Raises if the engine build/config doesn't
+        support it (no ``security`` feature, or no durable redb persist dir
+        configured) so callers can degrade cleanly instead of silently trusting an
+        unverified log.
+        """
+        return dict(self._send_wire("AuditVerify"))
+
+    def flush_ledger_to_backend(self, backend: Any) -> int:
+        """Flush the epistemic-graph mutation ledger to a persistent backend.
+
+        Args:
+            backend: A GraphBackend instance (e.g., LadybugBackend)
+
+        Returns:
+            int: The number of transactions flushed.
+        """
+        txs = self.get_ledger()
+        if not txs:
+            return 0
+
+        count = 0
+        for tx in txs:
+            op, args = self._parse_ledger_entry(tx)
+            if op == "AddNode" and len(args) >= 2:
+                node_id = args[0]
+                props_str = args[1]
+                try:
+                    props = json.loads(props_str)
+                except Exception:
+                    props = {}
+
+                node_type = props.get("type", props.get("node_type", "Entity"))
+                if node_type == "SYMBOL":
+                    symbol_type = props.get("symbol_type", "Unknown")
+                    file_path = props.get("file_path", "")
+                    ast_hash = props.get("ast_hash", "")
+                    name = props.get("name", node_id)
+                    metadata_str = json.dumps(props)
+
+                    query = (
+                        "MERGE (n:Symbol {id: $id}) "
+                        "SET n.type = 'SYMBOL', n.name = $name, "
+                        "n.symbol_type = $sym_type, n.file_path = $fp, "
+                        "n.ast_hash = $ast_hash, n.metadata = $meta"
+                    )
+                    try:
+                        backend.execute_write(
+                            query,
+                            parameters={
+                                "id": node_id,
+                                "name": name,
+                                "sym_type": symbol_type,
+                                "fp": file_path,
+                                "ast_hash": ast_hash,
+                                "meta": metadata_str,
+                            },
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to sync Symbol node {node_id}: {e}")
+                else:
+                    # Generic node fallback
+                    query = f"MERGE (n:{node_type} {{id: $id}}) SET n.metadata = $meta"
+                    try:
+                        backend.execute_write(
+                            query,
+                            parameters={
+                                "id": node_id,
+                                "meta": props_str,
+                            },
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to sync Node {node_id}: {e}")
+                count += 1
+            elif op == "AddEdge" and len(args) >= 3:
+                src = args[0]
+                tgt = args[1]
+                props_str = args[2]
+                try:
+                    props = json.loads(props_str)
+                except Exception:
+                    props = {}
+
+                edge_type = props.get("type") or props.get("edge_type") or "RELATED_TO"
+                # Sanitize edge type for cypher
+                edge_type = edge_type.replace(" ", "_").upper()
+                query = (
+                    f"MATCH (a {{id: $src}}), (b {{id: $tgt}}) "
+                    f"MERGE (a)-[r:{edge_type}]->(b) "
+                    "SET r.metadata = $meta"
+                )
+                try:
+                    backend.execute_write(
+                        query,
+                        parameters={
+                            "src": src,
+                            "tgt": tgt,
+                            "meta": props_str,
+                        },
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to sync Edge {src}->{tgt}: {e}")
+                count += 1
+
+        self.clear_ledger()
+        return count
+
+    # ── Serialization ────────────────────────────────────────────────────
+
+    def to_json(self) -> str:
+        """Serialize the graph to a JSON string representation."""
+        nodes = []
+        for nid in self._get_all_nodes():
+            props = self._get_node_properties(nid)
+            nodes.append({"id": nid, "properties": props})
+
+        edges = []
+        for src, tgt in self._get_all_edges():
+            props = self._get_edge_properties(src, tgt)
+            edges.append({"source": src, "target": tgt, "properties": props})
+
+        return json.dumps({"nodes": nodes, "edges": edges}, default=str)
+
+    def from_json(self, json_str: str) -> None:
+        """Deserialize and rebuild the graph from a JSON string."""
+        data = json.loads(json_str)
+        # Clear existing graph nodes/edges via client if possible or just rebuild
+        for nid in self._get_all_nodes():
+            try:
+                self.remove_node(nid)
+            except Exception:
+                pass
+
+        # Re-add nodes
+        for node_data in data.get("nodes", []):
+            nid = node_data["id"]
+            props = node_data.get("properties", {})
+            self.add_node(nid, props)
+
+        # Re-add edges
+        for edge_data in data.get("edges", []):
+            src = edge_data["source"]
+            tgt = edge_data["target"]
+            props = edge_data.get("properties", {})
+            self.add_edge(src, tgt, props)
+
+    def drop_graph(self) -> bool:
+        """Unload this engine's named graph from the engine authority (free memory).
+
+        The engine-side per-graph unload behind the KG-2.62 pool eviction hook:
+        deletes the tenant's named graph from the engine process. **Lossy unless
+        the data is durably mirrored to a backend mirror**, so the pool only
+        calls this when ``KG_ENGINE_POOL_DROP_ON_EVICT`` is set. Returns True on
+        success. Never raises — eviction must not crash a request.
+        """
+        try:
+            self._client.tenants.delete(self.graph_name)
+            return True
+        except Exception as exc:  # noqa: BLE001 — best-effort unload
+            logger.debug("drop_graph(%s) failed: %s", self.graph_name, exc)
+            return False
+
+    def to_msgpack(self) -> bytes:
+        """Serialize graph to MsgPack binary representation."""
+        return self._client.lifecycle.to_msgpack()
+
+    def from_msgpack(self, msgpack_bytes: bytes) -> None:
+        """Deserialize graph from MsgPack binary representation."""
+        self._client.lifecycle.from_msgpack(msgpack_bytes)
+
+    # ── Internal Helpers ─────────────────────────────────────────────────
+
+    def _get_all_nodes(self) -> list[str]:
+        return [nid for nid, _ in self._client.nodes.list()]
+
+    def _get_all_nodes_with_properties(self) -> list[tuple[str, dict[str, Any]]]:
+        """Return every ``(node_id, properties)`` pair in a SINGLE round-trip.
+
+        ``nodes.list()`` already returns the full properties alongside each id, so
+        a full-graph scan must consume them here rather than issuing one
+        ``_get_node_properties`` round-trip per node (an N+1 that cost ~45s on a
+        40K-node graph and held the GIL, starving foreground ingestion).
+        (CONCEPT:EG-KG.storage.nonblocking-checkpoint ingestion throughput)
+        """
+        out: list[tuple[str, dict[str, Any]]] = []
+        for nid, props in self._client.nodes.list():
+            if isinstance(props, dict):
+                out.append((nid, props))
+            elif isinstance(props, str):
+                try:
+                    parsed = json.loads(props)
+                    out.append((nid, parsed if isinstance(parsed, dict) else {}))
+                except Exception:
+                    out.append((nid, {}))
+            else:
+                out.append((nid, {}))
+        return out
+
+    def _get_node_properties(self, node_id: str) -> dict[str, Any]:
+        props = self._client.nodes.properties(node_id)
+        if isinstance(props, dict):
+            return props
+        if isinstance(props, str):
+            try:
+                parsed = json.loads(props)
+                return parsed if isinstance(parsed, dict) else {}
+            except Exception:
+                return {}
+        return {}
+
+    def _get_all_edges(self) -> list[tuple[str, str]]:
+        return [(src, tgt) for src, tgt, _ in self._client.edges.list()]
+
+    def _get_all_edges_with_properties(
+        self,
+    ) -> list[tuple[str, str, dict[str, Any]]]:
+        """Return every ``(src, tgt, properties)`` triple in a SINGLE round-trip.
+
+        ``edges.list()`` already ships each edge's (msgpack) properties alongside
+        its endpoints, so a full-graph edge scan must decode them locally rather
+        than issuing one ``_get_edge_properties`` round-trip per edge — the same
+        N+1 the bulk node scan avoids. On a 67K-edge graph the per-edge path cost
+        ~100s/scan and was re-run once per assimilation stage.
+        (CONCEPT:EG-KG.storage.nonblocking-checkpoint throughput)
+        """
+        import msgpack
+
+        out: list[tuple[str, str, dict[str, Any]]] = []
+        for src, tgt, raw in self._client.edges.list():
+            props: Any = raw
+            if isinstance(raw, bytes | bytearray | list):
+                try:
+                    props = msgpack.unpackb(bytes(raw), raw=False)
+                except Exception:
+                    props = {}
+            out.append((src, tgt, props if isinstance(props, dict) else {}))
+        return out
+
+    # ── Rust-native API wrappers ─────────────────────────────────────────
+
+    def in_degree(self, node_id: str) -> int:
+        """Return the in-degree of a node."""
+        try:
+            return self._client.nodes.in_degree(node_id)
+        except Exception:
+            return 0
+
+    def out_degree(self, node_id: str) -> int:
+        """Return the out-degree of a node."""
+        try:
+            return self._client.nodes.out_degree(node_id)
+        except Exception:
+            return 0
+
+    def get_predecessors(self, node_id: str) -> list[str]:
+        """Return predecessor node IDs."""
+        try:
+            return self._client.nodes.predecessors(node_id)
+        except Exception:
+            return []
+
+    def get_successors(self, node_id: str) -> list[str]:
+        """Return successor node IDs."""
+        try:
+            return self._client.nodes.successors(node_id)
+        except Exception:
+            return []
+
+    def get_neighbors(self, node_id: str) -> list[str]:
+        """Return all neighbor node IDs (predecessors + successors, deduplicated)."""
+        try:
+            return self._client.nodes.neighbors(node_id)
+        except Exception:
+            return []
+
+    def node_ids(self) -> list[str]:
+        """Return all node IDs in the graph."""
+        return self._client.nodes.ids()
+
+    def get_triples(self) -> list[list[str]]:
+        """Bulk-export the graph as ``[subject, predicate, object]`` RDF triples.
+
+        Uses the engine's native ``GetTriples`` op (one round-trip) — the fast path
+        for local SPARQL materialization. Raises if the engine/op is unavailable so
+        callers can fall back to per-node iteration.
+        """
+        import asyncio
+
+        sc = getattr(self._client, "__wrapped__", self._client)  # unwrap breaker
+        async_client = getattr(sc, "_client", None)
+        loop = getattr(sc, "_loop", None)
+        if async_client is None or loop is None:
+            raise RuntimeError("GetTriples unavailable (no sync engine client/loop)")
+        fut = asyncio.run_coroutine_threadsafe(async_client._send("GetTriples"), loop)
+        return fut.result() or []
+
+    def sparql(
+        self,
+        query: str,
+        base_iri: str = "",
+        type_convention: str = "",
+    ) -> list[dict[str, str | None]]:
+        """Run a SPARQL 1.1 query over the LIVE engine graph (one round-trip).
+
+        CONCEPT:AU-KG.compute.native-sparql-owl-shacl — Engine-native SPARQL/OWL/SHACL: the Python semantic-web stack
+        (rdflib/owlready2/pyshacl) is demoted to the engine's native RDF surface. This
+        routes to the engine's native ``client.rdf.sparql`` so the
+        query executes against the engine's RDF projection of the live property graph
+        (resource object -> typed edge, literal -> typed property cell, ``rdf:type`` ->
+        the engine ``type`` label) -- NOT a rdflib materialization. Returns one dict per
+        result row keyed by projected variable. Raises if the engine/op is unavailable
+        (e.g. a server built without the ``sparql`` feature) so callers can fall back to
+        the rdflib path.
+
+        ``base_iri`` + ``type_convention`` select the engine's LPG→RDF projection
+        vocabulary (engine concept KG-2.240): empty ⇒ the identity projection (verbatim keys);
+        an ontology namespace + ``"camel"`` makes the engine emit ``<node> rdf:type
+        <base + CamelCase(type)>`` and ``<node> <base + prop> <v>``. ``owl_bridge``
+        passes its ``au:`` namespace so by-class queries resolve engine-native.
+        """
+        return list(
+            self._client.rdf.sparql(
+                query, base_iri=base_iri, type_convention=type_convention
+            )
+        )
+
+    def owl_reason(
+        self, ontology: str | None = None, target_class: str | None = None
+    ) -> dict[str, Any]:
+        """Run the engine's native OWL 2 (EL+/RL) reasoner over the live graph.
+
+        CONCEPT:AU-KG.compute.native-sparql-owl-shacl — routes to ``client.rdf.owl_reason``: classifies the OWL
+        axioms in the graph (plus any extra ``ontology`` Turtle) and materializes
+        entailments, returning ``{"subclasses", "instances", "consistent",
+        "unsatisfiable"}`` (confidence/decay-weighted, read-only -- does NOT mutate the
+        graph). ``target_class`` restricts ``instances`` to that class's inferred
+        members. Raises if the engine/op is unavailable (server built without the
+        ``owl`` feature) so callers can fall back to the Python/owlready2 path.
+        """
+        return dict(
+            self._client.rdf.owl_reason(ontology=ontology, target_class=target_class)
+        )
+
+    def add_triples(
+        self, turtle: str | None = None, ntriples: str | None = None
+    ) -> dict[str, int]:
+        """Load Turtle or N-Triples into the engine's RDF dataset (one round-trip).
+
+        CONCEPT:AU-KG.compute.native-sparql-owl-shacl — routes to ``client.rdf.add_triples``. Used to seed OWL
+        axioms / RDF facts the native reasoner and SPARQL surface operate over. Raises
+        if the engine/op is unavailable.
+        """
+        return dict(self._client.rdf.add_triples(turtle=turtle, ntriples=ntriples))
+
+    def _send_wire(self, method: str, payload: dict[str, Any] | None = None) -> Any:
+        """Invoke a raw engine wire op by name (one round-trip).
+
+        Escape hatch for wire ops the typed Python ``client.rdf``/``client.query``
+        namespaces don't yet wrap (e.g. the engine's ``RemoveTriples`` /
+        ``DropNamedGraph`` retract ops). Mirrors :meth:`get_triples` — it unwraps the
+        circuit-breaker proxy, reaches the underlying async client + loop, and runs the
+        coroutine on it. Raises if no sync engine client/loop is available.
+        """
+        import asyncio
+
+        sc = getattr(self._client, "__wrapped__", self._client)  # unwrap breaker
+        async_client = getattr(sc, "_client", None)
+        loop = getattr(sc, "_loop", None)
+        if async_client is None or loop is None:
+            raise RuntimeError(f"{method} unavailable (no sync engine client/loop)")
+        coro = (
+            async_client._send(method, payload)
+            if payload
+            else async_client._send(method)
+        )
+        return asyncio.run_coroutine_threadsafe(coro, loop).result()
+
+    def remove_triples(
+        self, turtle: str | None = None, ntriples: str | None = None
+    ) -> dict[str, int]:
+        """Physically retract Turtle / N-Triples from the engine's RDF dataset (KG-2.266).
+
+        The retract counterpart to :meth:`add_triples` — used by the ontology
+        lifecycle (KG-2.265) to drop an unloaded ontology's axioms from the engine so
+        they stop being reasoned over, not just deactivated in a registry record.
+        Prefers a typed ``client.rdf.remove_triples`` wrapper when the installed
+        engine client exposes one, else falls back to the raw ``RemoveTriples`` wire op
+        (the engine ships the op even where the Python client lacks the wrapper).
+        Raises if the engine/op is unavailable so callers can report the gap honestly.
+        """
+        rdf = getattr(self._client, "rdf", None)
+        fn = getattr(rdf, "remove_triples", None)
+        if callable(fn):
+            return dict(fn(turtle=turtle, ntriples=ntriples))
+        return dict(
+            self._send_wire("RemoveTriples", {"turtle": turtle, "ntriples": ntriples})
+            or {}
+        )
+
+    def drop_named_graph(self, graph: str) -> dict[str, Any]:
+        """Drop an entire named RDF graph from the engine (KG-2.266).
+
+        Retracts every triple in the ``graph`` named-graph IRI in one op — the
+        coarse-grained retract used when an ontology owns a dedicated named graph.
+        Prefers a typed ``client.rdf.drop_named_graph`` wrapper, else falls back to the
+        raw ``DropNamedGraph`` wire op. Raises if the engine/op is unavailable.
+        """
+        rdf = getattr(self._client, "rdf", None)
+        fn = getattr(rdf, "drop_named_graph", None)
+        if callable(fn):
+            return dict(fn(graph) or {})
+        return dict(self._send_wire("DropNamedGraph", {"graph": graph}) or {})
+
+    def sql_exec(self, statement: str) -> Any:
+        """Execute a write-capable SQL statement (DDL/DML) on the engine (KG-2.266).
+
+        The write sibling of the read-only ``client.query.sql`` surface: lets us
+        ``CREATE TABLE`` / ``INSERT`` / ``DROP TABLE`` against the engine's native
+        DataFusion user-table store so connector + ETL data can be mirrored into
+        engine SQL tables. Routes through ``client.query.sql`` (the same ``Sql`` wire
+        op) — the engine, not this client, enforces what statements its user-table
+        surface accepts. Raises if no engine query surface is available.
+        """
+        query_ns = getattr(self._client, "query", None)
+        sql_fn = getattr(query_ns, "sql", None)
+        if not callable(sql_fn):
+            raise RuntimeError(
+                "The active backend has no epistemic-graph SQL surface; "
+                "engine SQL tables require the engine backend (build with the "
+                "'query' feature)."
+            )
+        return sql_fn(statement)
+
+    def degree_centrality_all(self) -> list[tuple[str, float]]:
+        """Compute degree centrality for all nodes."""
+        return self._client.analytics.degree_centrality_all()
+
+    def pagerank(
+        self, damping: float = 0.85, iterations: int = 100
+    ) -> list[tuple[str, float]]:
+        """Compute PageRank scores for all nodes."""
+        return self._client.analytics.pagerank(damping, iterations)
+
+    def connected_components(self) -> list[list[str]]:
+        """Return weakly connected components as lists of node IDs."""
+        return self._client.graph.connected_components()
+
+    def strongly_connected_components(self) -> list[list[str]]:
+        """Return strongly connected components via Tarjan's algorithm.
+
+        CONCEPT:AU-KG.compute.tokio-service-layer — Tarjan's SCC via Tokio service (GIL-free).
+        """
+        return self._client.graph.strongly_connected_components()
+
+    def minimum_spanning_tree(self) -> list[tuple[str, str, float]]:
+        """Return the minimum spanning tree as (source, target, weight) edges.
+
+        CONCEPT:AU-KG.compute.tokio-service-layer — Kruskal's MST via Tokio service (GIL-free).
+        """
+        return self._client.graph.minimum_spanning_tree()
+
+    def community_detection(self, resolution: float = 1.0) -> list[list[str]]:
+        """Detect communities using label propagation."""
+        return self._client.graph.community_detection(resolution)
+
+    def community_detect_ephemeral(
+        self,
+        node_ids: list[str],
+        edges: list[tuple[str, str]],
+        resolution: float = 1.0,
+    ) -> list[list[str]]:
+        """Stateless community detection over an inline call graph (KG-2.58).
+
+        Runs detection on the passed nodes/edges in an in-memory throwaway graph on
+        the engine — no tenant load, no persistence. Eliminates the bulk-load
+        round-trip + comm-tenant churn of the load-then-detect pattern.
+        """
+        return self._client.graph.community_detect_ephemeral(
+            node_ids, edges, resolution
+        )
+
+    def betweenness_centrality(self) -> list[tuple[str, float]]:
+        """Compute betweenness centrality via Brandes' algorithm."""
+        return self._client.analytics.betweenness_centrality()
+
+    def graph_coloring(self) -> list[tuple[str, int]]:
+        """Greedy graph coloring — assigns colors so no adjacent nodes share a color."""
+        return self._client.graph.graph_coloring()
+
+    def compute_similarity_edges(
+        self, threshold: float = 0.8
+    ) -> list[tuple[str, str, float]]:
+        """Compute similarity edges between nodes with embeddings."""
+        return self._client.graph.compute_similarity_edges(threshold)
+
+    def resolve_candidates(
+        self,
+        sim_threshold: float = 0.8,
+        merge_threshold: float = 0.92,
+        node_type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Native entity-resolution candidate generation (CONCEPT:AU-KG.compute.when-exposes-native).
+
+        Returns merge proposals (``{canonical, members, score, kind}``;
+        ``kind`` = ``same_as`` | ``extends``) — the server-side escalation tier the
+        dedup ladder routes its residual through. Read/propose only; apply via
+        ``batch_update``.
+        """
+        return (
+            self._client.graph.resolve_candidates(
+                sim_threshold, merge_threshold, node_type
+            )
+            or []
+        )
+
+    def prune_by_lifecycle(
+        self, max_age_secs: int = 0, min_score: float = 0.0
+    ) -> dict[str, Any]:
+        """Lifecycle-aware pruning: remove nodes past max_age or below min_score."""
+        result_json = self._client.lifecycle.prune(max_age_secs, min_score)
+        return json.loads(result_json)
+
+    def get_context_view(self, agent_id: str, max_tokens: int = 8000) -> dict[str, Any]:
+        """Get an optimized context view for an agent within a token budget."""
+        result_json = self._client.lifecycle.get_context_view(agent_id, max_tokens)
+        return json.loads(result_json)
+
+    def batch_update(self, operations: list[dict[str, Any]]) -> dict[str, Any]:
+        """Batch update: apply multiple operations in a single service call."""
+        result = self._client.lifecycle.batch_update(operations)
+        # The client already decodes the MessagePack response to a dict; only
+        # decode if a raw JSON string/bytes came back (older transports).
+        if isinstance(result, str | bytes | bytearray):
+            return json.loads(result)
+        return result
+
+    def multi_graph_batch_update(
+        self, batches: dict[str, list[dict[str, Any]]]
+    ) -> dict[str, Any]:
+        """Batched CROSS-GRAPH write in ONE round-trip (CONCEPT:AU-KG.ingest.batched-cross-graph-writer).
+
+        ``batches`` maps ``graph_name → operations`` (each op-list has the same
+        shape as :meth:`batch_update`). When the engine supports the
+        ``MultiGraphBatchUpdate`` op (CONCEPT:EG-KG.storage.multi-graph-batch-write) the whole
+        map ships in ONE round-trip and the engine applies each graph's sub-batch
+        CONCURRENTLY across the K redb shard writers — the write stage then scales
+        with the number of DISTINCT destination graphs (the per-shard content-keyed
+        fanout, CONCEPT:AU-KG.ingest.unified-query-routing) instead of pinning one lock.
+
+        Degrades cleanly against an OLDER engine that lacks the op: each graph's
+        sub-batch is applied through its own graph-bound engine via
+        :func:`~agent_utilities.knowledge_graph.core.ingest_routing.engine_for_graph`
+        (correctness preserved; the client-side pool still overlaps submission).
+        Returns ``{"results": {graph: <batch_result>}, "errors": {graph: msg}}``.
+        """
+        if not batches:
+            return {"results": {}, "errors": {}}
+
+        lifecycle = getattr(self._client, "lifecycle", None)
+        fn = getattr(lifecycle, "multi_graph_batch_update", None)
+        if callable(fn):
+            try:
+                result = fn(batches)
+            except Exception as exc:  # noqa: BLE001 — degrade to per-graph writes
+                logger.debug(
+                    "multi_graph_batch_update RPC failed (%s); per-graph fallback",
+                    exc,
+                )
+            else:
+                if isinstance(result, str | bytes | bytearray):
+                    return json.loads(result)
+                # Register the touched content graphs so unified read unions them.
+                self._register_multi_graph_targets(batches)
+                return result
+
+        # Fallback: apply each sub-batch on its own graph-bound engine.
+        from .ingest_routing import engine_for_graph, is_content_graph
+
+        results: dict[str, Any] = {}
+        errors: dict[str, str] = {}
+        for graph, ops in batches.items():
+            try:
+                if graph == self.graph_name:
+                    results[graph] = self.batch_update(list(ops))
+                else:
+                    eng = engine_for_graph(graph)
+                    gc = getattr(eng, "graph_compute", None) or getattr(
+                        eng, "backend", None
+                    )
+                    target: Any = getattr(gc, "graph", None) or gc
+                    if target is None:
+                        raise RuntimeError(
+                            f"no batch_update target for graph {graph!r}"
+                        )
+                    results[graph] = target.batch_update(list(ops))
+                if is_content_graph(graph):
+                    self._register_multi_graph_targets({graph: ops})
+            except Exception as exc:  # noqa: BLE001 — partial-success contract
+                errors[graph] = str(exc)
+        return {"results": results, "errors": errors}
+
+    @staticmethod
+    def _register_multi_graph_targets(
+        batches: dict[str, list[dict[str, Any]]],
+    ) -> None:
+        """Register any routed content graphs touched by a multi-graph write so the
+        unified read path fans across them (CONCEPT:AU-KG.ingest.unified-query-routing)."""
+        try:
+            from .ingest_routing import register_content_graph
+
+            for graph in batches:
+                register_content_graph(graph)
+        except Exception:  # noqa: BLE001 — registration is best-effort
+            pass
+
+    def metrics(self) -> dict[str, Any]:
+        """Runtime metrics for monitoring and observability."""
+        result_json = self._client.lifecycle.metrics()
+        return json.loads(result_json)
+
+    def personalized_pagerank(
+        self,
+        seed_nodes: dict[str, float] | None = None,
+        damping: float = 0.85,
+        iterations: int = 100,
+    ) -> dict[str, float]:
+        """Personalized PageRank with seed teleport nodes."""
+        seeds = list((seed_nodes or {}).items())
+        result = self._client.analytics.personalized_pagerank(
+            seeds, damping, iterations
+        )
+        return dict(result)
+
+    # ── Batch Operations ─────────────────────────────────────────────────
+
+    def bulk_mutate(self, operations: list[dict[str, Any]]) -> Any:
+        """Send a batch of mutations in a single service call.
+
+        Each operation dict should have a ``method`` key and any required
+        parameters.  Example::
+
+            engine.bulk_mutate([
+                {"method": "AddNode", "node_id": "A", "properties_json": "{}"},
+                {"method": "AddEdge", "source_id": "A", "target_id": "B", ...},
+            ])
+        """
+        return self._client.lifecycle.batch_update(operations)
+
+    def evict_lru(self, max_nodes: int = 50_000) -> int:
+        """Evict oldest nodes to enforce an in-memory cap.
+
+        Returns the number of evicted nodes.
+        """
+        return self._client.lifecycle.evict_lru(max_nodes)
+
+    # ── Multiplexed engine connection pool (CONCEPT:AU-KG.compute.when-exposes) ─────────────
+    # Consumer-side adoption of the epistemic_graph ShardRouter / ConnectionPool
+    # (CONCEPT:EG-KG.backend.multiplexed-connections). This engine's own ``SyncEpistemicGraphClient`` is ONE
+    # connection — M concurrent callers serialize on it (and on the engine's
+    # serial per-connection read loop). For INDEPENDENT ops we instead fan out
+    # across an auto-sized pool: each op rides its OWN pooled connection, which the
+    # engine services as a separate ``tokio::spawn`` task, so wall-clock collapses
+    # from the serial sum toward one op. Ordering-dependent ops (node-before-edge in
+    # ONE logical write) stay on ONE connection — they belong INSIDE a single op
+    # closure, never split across two entries (the engine still serializes per
+    # shard; this only parallelizes the client→engine submission).
+
+    def _engine_loop(self) -> Any:
+        """The background asyncio loop the sync client runs on, or ``None``.
+
+        The pool's asyncio primitives (Queue/Lock) and its pooled connections are
+        bound to this loop, so every pool op MUST be driven on it (via
+        ``run_coroutine_threadsafe``). Reached through the breaker proxy.
+        """
+        sc = getattr(self._client, "__wrapped__", self._client)
+        return getattr(sc, "_loop", None)
+
+    def _ensure_pool(self) -> Any:
+        """Lazily build an auto-sized ShardRouter sharing this engine's endpoints.
+
+        Built ONCE, on the sync client's background loop, so its pooled connections
+        live on the same loop the bridge drives. The pool auto-sizes to the box
+        (``epistemic_graph.pool`` — no knob). Returns the router, or ``None`` when
+        the pool is unavailable (import/build/loop failure); callers then fall back
+        to the single shared connection. Never raises.
+
+        Single-endpoint homelab: the router still hands out N connections to the one
+        endpoint, so the server's task-per-connection still parallelizes — the pool
+        is a win even without multiple shards.
+        """
+        cached = getattr(self, "_pool_router", _POOL_UNSET)
+        if cached is not _POOL_UNSET:
+            return cached
+        router: Any = None
+        try:
+            import asyncio as _asyncio
+
+            from epistemic_graph.pool import ShardRouter
+
+            from agent_utilities.core.config import AgentConfig
+
+            from .shard_topology import resolve_endpoints
+
+            loop = self._engine_loop()
+            if loop is None:
+                self._pool_router = None
+                return None
+            config = AgentConfig()
+            endpoints = resolve_endpoints(config)
+            auth_secret, insecure = resolve_engine_auth(config)
+            router = ShardRouter(
+                endpoints, auth_secret=None if insecure else auth_secret
+            )
+            # Open the per-endpoint pools' min_size connections ON the engine loop.
+            fut = _asyncio.run_coroutine_threadsafe(router.initialize(), loop)
+            fut.result(timeout=30)
+        except Exception as exc:  # noqa: BLE001 — the pool is an optional accelerator
+            logger.debug(
+                "connection pool unavailable; using single connection: %s", exc
+            )
+            router = None
+        self._pool_router = router
+        return router
+
+    def batch_update_concurrent(
+        self,
+        batches: list[list[dict[str, Any]]],
+        graph: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Apply INDEPENDENT op-batches concurrently, each on its OWN pooled
+        connection (CONCEPT:AU-KG.compute.when-exposes).
+
+        Each entry of ``batches`` is a ``batch_update`` op-list (same shape as
+        :meth:`batch_update`). The batches must be independent of one another; ops
+        WITHIN a batch keep their order (one batch rides one ``BatchUpdate`` RPC on
+        one connection). The batches fan out across the auto-sized pool so the engine
+        services them as parallel per-connection tasks instead of serializing behind
+        the single shared client. Results are returned in input order.
+
+        Degrades cleanly: with no pool available the batches apply SEQUENTIALLY
+        through the existing single connection (correctness preserved, no
+        parallelism). Use this only for independent batches — a node-before-edge
+        ordering must live within ONE batch, not split across two entries.
+        """
+        if not batches:
+            return []
+        router = self._ensure_pool()
+        loop = self._engine_loop()
+        graph_name = graph or self.graph_name
+        if router is None or loop is None:
+            return [self.batch_update(b) for b in batches]
+        import asyncio as _asyncio
+
+        def _make_op(batch: list[dict[str, Any]]) -> Any:
+            async def _run(client: Any) -> Any:
+                return await client.lifecycle.batch_update(batch)
+
+            return _run
+
+        async def _drive() -> list[Any]:
+            return await router.map_concurrent(
+                graph_name, [_make_op(b) for b in batches]
+            )
+
+        try:
+            fut = _asyncio.run_coroutine_threadsafe(_drive(), loop)
+            results = fut.result()
+        except Exception as exc:  # noqa: BLE001 — degrade to the single connection
+            logger.debug(
+                "concurrent batch submit failed (%s); sequential fallback", exc
+            )
+            return [self.batch_update(b) for b in batches]
+        out: list[dict[str, Any]] = []
+        for result in results:
+            if isinstance(result, str | bytes | bytearray):
+                out.append(json.loads(result))
+            else:
+                out.append(result)
+        return out
+
+    async def map_concurrent(
+        self,
+        ops: list[Any],
+        graph: str | None = None,
+    ) -> list[Any]:
+        """Run INDEPENDENT engine ops concurrently across the pool (CONCEPT:AU-KG.compute.when-exposes).
+
+        ``ops`` is a list of ``async (client) -> result`` callables; each runs on its
+        OWN pooled connection so the engine services them as parallel per-connection
+        tasks. Awaitable from ANY event loop: the pool lives on the sync client's
+        background loop, so the work is bridged there and the result awaited via
+        ``asyncio.wrap_future``. Results keep ``ops`` order. Independent ops ONLY —
+        an ordered node-before-edge sequence goes inside a single ``op`` (one
+        connection), never split across two entries.
+
+        Degrades cleanly: with no pool the ops run SEQUENTIALLY on the single shared
+        async connection (correctness preserved, no parallelism).
+        """
+        if not ops:
+            return []
+        import asyncio as _asyncio
+
+        router = self._ensure_pool()
+        loop = self._engine_loop()
+        if loop is None:
+            raise RuntimeError("no engine loop available for map_concurrent")
+        graph_name = graph or self.graph_name
+        if router is not None:
+            coro = router.map_concurrent(graph_name, ops)
+        else:
+
+            async def _seq() -> list[Any]:
+                raw = getattr(self._client, "__wrapped__", self._client)
+                async_client = getattr(raw, "_client", None)
+                return [await op(async_client) for op in ops]
+
+            coro = _seq()
+        fut = _asyncio.run_coroutine_threadsafe(coro, loop)
+        return await _asyncio.wrap_future(fut)
+
+    def close_pool(self) -> None:
+        """Close the pooled connections (best-effort). Idempotent; safe if no pool."""
+        router = getattr(self, "_pool_router", None)
+        if router is None:
+            return
+        loop = self._engine_loop()
+        if loop is None:
+            self._pool_router = None
+            return
+        try:
+            import asyncio as _asyncio
+
+            fut = _asyncio.run_coroutine_threadsafe(router.close_all(), loop)
+            fut.result(timeout=10)
+        except Exception:  # noqa: BLE001 — teardown is best-effort
+            pass
+        self._pool_router = None
+
+    # ── Graph Traversal API ──────────────────────────────────────────────
+    # These provide the standard graph traversal interface used across
+    # the codebase (owl_bridge, graph_validator, memory_retriever, etc).
+    # All hot paths route to the Rust Tokio service; these are thin wrappers.
+
+    @property
+    def nodes(self) -> "_NodeView":
+        """NX-compatible node view.  Supports iteration, ``in``, and ``[id]``."""
+        return _NodeView(self)
+
+    @property
+    def edges(self) -> "_EdgeView":
+        """NX-compatible edge view.  Supports iteration and ``data=True``."""
+        return _EdgeView(self)
+
+    def number_of_nodes(self) -> int:
+        """Alias for ``node_count()``."""
+        return self.node_count()
+
+    def number_of_edges(self) -> int:
+        """Alias for ``edge_count()``."""
+        return self.edge_count()
+
+    def degree(self, node_id: str) -> int:
+        """Total degree (in + out) of *node_id*."""
+        return self.in_degree(node_id) + self.out_degree(node_id)
+
+    def successors(self, node_id: str) -> list[str]:
+        """Return successors of *node_id*."""
+        return self.get_successors(node_id)
+
+    def predecessors(self, node_id: str) -> list[str]:
+        """Return predecessors of *node_id*."""
+        return self.get_predecessors(node_id)
+
+    def neighbors(self, node_id: str) -> list[str]:
+        """Return neighbors (successors + predecessors) of *node_id*."""
+        return self.get_neighbors(node_id)
+
+    def get_edge_data(self, source_id: str, target_id: str, default: Any = None) -> Any:
+        """NX-compatible edge data lookup."""
+        props = self._get_edge_properties(source_id, target_id)
+        if not props:
+            return default if not self.has_edge(source_id, target_id) else {0: {}}
+
+        class MultiDiGraphCompatDict(dict):
+            def __init__(self, p: dict[str, Any]):
+                super().__init__({0: p})
+                self._props = p
+
+            def __getitem__(self, key: Any) -> Any:
+                if key == 0:
+                    return self._props
+                return self._props[key]
+
+            def get(self, key: Any, default_val: Any = None) -> Any:
+                if key == 0:
+                    return self._props
+                return self._props.get(key, default_val)
+
+        return MultiDiGraphCompatDict(props)
+
+    def out_edges(self, node_id: str, data: bool = False) -> list:
+        """Return outgoing edges from *node_id*.
+
+        When *data* is True, returns ``(src, tgt, props)`` triples.
+        """
+        succs = self.get_successors(node_id)
+        if data:
+            return [(node_id, s, self._get_edge_properties(node_id, s)) for s in succs]
+        return [(node_id, s) for s in succs]
+
+    def in_edges(self, node_id: str, data: bool = False) -> list:
+        """Return incoming edges to *node_id*.
+
+        When *data* is True, returns ``(src, tgt, props)`` triples.
+        """
+        preds = self.get_predecessors(node_id)
+        if data:
+            return [(p, node_id, self._get_edge_properties(p, node_id)) for p in preds]
+        return [(p, node_id) for p in preds]
+
+    def _get_edge_properties(self, source_id: str, target_id: str) -> dict[str, Any]:
+        """Retrieve edge properties between two nodes."""
+        props_list = self._client.edges.properties(source_id, target_id)
+        if props_list:
+            props = props_list[0]
+            if isinstance(props, dict):
+                return props
+            if isinstance(props, str):
+                try:
+                    parsed = json.loads(props)
+                    return parsed if isinstance(parsed, dict) else {}
+                except Exception:
+                    return {}
+        return {}
+
+    def __contains__(self, node_id: str) -> bool:
+        """Support ``node_id in engine`` syntax."""
+        return self.has_node(node_id)
+
+    def __getitem__(self, node_id: str) -> dict[str, Any]:
+        """Support ``engine[node_id]`` to get node properties."""
+        return self._get_node_properties(node_id)
+
+
+class _NodePropertiesProxy(dict):
+    def __init__(
+        self, engine: GraphComputeEngine, node_id: str, properties: dict[str, Any]
+    ):
+        super().__init__(properties)
+        self._engine = engine
+        self._node_id = node_id
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        super().__setitem__(key, value)
+        self._engine.add_node(self._node_id, properties=dict(self))
+
+    def __delitem__(self, key: str) -> None:
+        super().__delitem__(key)
+        self._engine.add_node(self._node_id, properties=dict(self))
+
+    def update(self, *args, **kwargs) -> None:
+        super().update(*args, **kwargs)
+        self._engine.add_node(self._node_id, properties=dict(self))
+
+
+class _EdgePropertiesProxy(dict):
+    def __init__(
+        self,
+        engine: GraphComputeEngine,
+        source_id: str,
+        target_id: str,
+        properties: dict[str, Any],
+    ):
+        super().__init__(properties)
+        self._engine = engine
+        self._source_id = source_id
+        self._target_id = target_id
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        super().__setitem__(key, value)
+        self._engine.add_edge(self._source_id, self._target_id, properties=dict(self))
+
+    def __delitem__(self, key: str) -> None:
+        super().__delitem__(key)
+        self._engine.add_edge(self._source_id, self._target_id, properties=dict(self))
+
+    def update(self, *args, **kwargs) -> None:
+        super().update(*args, **kwargs)
+        self._engine.add_edge(self._source_id, self._target_id, properties=dict(self))
+
+
+class _NodeView:
+    """Lightweight proxy providing NX-style ``graph.nodes`` access."""
+
+    __slots__ = ("_engine",)
+
+    def __init__(self, engine: GraphComputeEngine) -> None:
+        self._engine = engine
+
+    def __iter__(self):
+        return iter(self._engine.node_ids())
+
+    def __len__(self) -> int:
+        return self._engine.node_count()
+
+    def __contains__(self, node_id: str) -> bool:
+        return self._engine.has_node(node_id)
+
+    def __getitem__(self, node_id: str) -> dict[str, Any]:
+        props = self._engine._get_node_properties(node_id)
+        return _NodePropertiesProxy(self._engine, node_id, props)
+
+    def get(self, node_id: str, default: Any = None) -> Any:
+        """Support ``graph.nodes.get(id, default)`` pattern."""
+        if self._engine.has_node(node_id):
+            props = self._engine._get_node_properties(node_id)
+            return _NodePropertiesProxy(self._engine, node_id, props)
+        return default
+
+    def __call__(self, data: bool = False):
+        """Support ``graph.nodes(data=True)`` iteration."""
+        if data:
+            # One bulk round-trip (props ship with the node list) instead of an
+            # ``_get_node_properties`` round-trip per node. (CONCEPT:EG-KG.storage.nonblocking-checkpoint)
+            return [
+                (nid, _NodePropertiesProxy(self._engine, nid, props))
+                for nid, props in self._engine._get_all_nodes_with_properties()
+            ]
+        return self._engine.node_ids()
+
+
+class _EdgeView:
+    """Lightweight proxy providing NX-style ``graph.edges`` access."""
+
+    __slots__ = ("_engine",)
+
+    def __init__(self, engine: GraphComputeEngine) -> None:
+        self._engine = engine
+
+    def __iter__(self):
+        return iter(self._engine._get_all_edges())
+
+    def __len__(self) -> int:
+        return self._engine.edge_count()
+
+    def __call__(
+        self, data: bool = False, keys: bool = False, default: Any = None, **kwargs: Any
+    ):
+        """Support ``graph.edges(data=True, keys=True)`` iteration."""
+        result: list[Any] = []
+        # One bulk round-trip (props ship with the edge list, decoded locally)
+        # instead of an ``_get_edge_properties`` round-trip per edge. (KG-2.8)
+        for src, tgt, props in self._engine._get_all_edges_with_properties():
+            proxy = _EdgePropertiesProxy(self._engine, src, tgt, props)
+            if data and keys:
+                result.append((src, tgt, 0, proxy))
+            elif data:
+                result.append((src, tgt, proxy))
+            elif keys:
+                result.append((src, tgt, 0))
+            else:
+                result.append((src, tgt))
+        return result
+
+    def __getitem__(self, key: Any) -> Any:
+        """Support edge properties lookup by tuple key."""
+        if not isinstance(key, tuple) or len(key) < 2:
+            raise KeyError(key)
+        src, tgt = key[0], key[1]
+        props = self._engine._get_edge_properties(src, tgt)
+        if props is None:
+            raise KeyError(key)
+
+        proxy = _EdgePropertiesProxy(self._engine, src, tgt, props)
+        if len(key) >= 3:
+            return proxy
+
+        class MultiDiGraphCompatEdgeDict(dict):
+            def __getitem__(self, k):
+                return proxy
+
+            def get(self, k, default=None):
+                return proxy
+
+        return MultiDiGraphCompatEdgeDict({0: proxy})

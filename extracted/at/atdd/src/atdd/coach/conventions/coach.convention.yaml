@@ -1,0 +1,123 @@
+version: "1.0"
+name: "Coach Activation + Operating Protocol Convention"
+description: |
+  How the ATDD coach is activated and how it operates on a parallel ATDD run.
+  A single durable coach (`atdd coach`) owns dispatch, the cmux-native launch
+  transport (#978), Feed mediation of worker decisions (#966/#971/#987/#993),
+  and the autonomous feed daemon (#998).
+
+# =============================================================================
+# Core principle (unchanged from the v1 model, now owned by `atdd coach`)
+# =============================================================================
+# One issue → one git worktree → one cmux workspace/surface → one independent
+# agent session. No sub-agent delegation, no shared workspaces. Waves are
+# computed by a topological sort over the issue dependency DAG
+# (commands/wave_planning.py) and worktrees are created two-phase with rollback
+# (handlers/two_phase_commit.py).
+
+core_principle:
+  unit: "one issue → one worktree → one cmux session unit → one agent"
+  wave_planning: "src/atdd/coach/commands/wave_planning.py (build_plan + compute_waves)"
+  two_phase_commit: "src/atdd/coach/handlers/two_phase_commit.py (Phase A worktrees, Phase B launch)"
+  anti_pattern: "Reusing a worktree across issues, or sub-agent delegation that shares one agent's context."
+
+# =============================================================================
+# Activation surface (#998)
+# =============================================================================
+activation:
+  description: |
+    The coach is a long-lived process driven by the `atdd coach` subcommand.
+    Dispatch plans waves and launches sessions; live inspection is `status`.
+    The worker-orchestration runtime verbs (start/wait/next/stop/daemons, the
+    #998 coach_runtime) were retired with mediate-worker-decisions (#1520).
+  commands:
+    dispatch: "atdd coach <issue-numbers...>   # plan waves + launch sessions"
+    status: "atdd coach status                  # live per-surface inspection (#616)"
+
+# =============================================================================
+# Launch transport — cmux-native (#978)
+# =============================================================================
+launch_transport:
+  description: |
+    Workers are launched cmux-native: the cmux new-workspace/new-surface command
+    runs `claude` with the launch prompt as its positional first turn, which the
+    TUI auto-submits (#978). The launch path owns no pty and writes no separate
+    launch inbox; worker decisions ride the cmux Feed hooks.
+  implementation: "src/atdd/runtime/agent_control/cmux_launch.py"
+  freedom_set: "session.convention.yaml::spawn_time.freedom_layer (--permission-mode acceptEdits --allowedTools ...)"
+
+# =============================================================================
+# Observer corrections (leash) — cli-return CORRECTION transport (#824)
+# =============================================================================
+observer_corrections:
+  description: |
+    The observer detects out-of-contract behaviour in worker output and appends
+    corrections to `cli-return.jsonl` (issue #824) — this is the live CORRECTION
+    transport, distinct from the decommissioned spawn transport of the same
+    name. Detection + correction primitives live in
+    `observer_rules/detectors.py`; rule definitions in observer.convention.yaml.
+  transport: "cli-return.jsonl (correction inbox, #824)"
+  rules: "observer.convention.yaml + .atdd/observer/rules/*.yaml"
+
+# =============================================================================
+# Documentation-only operating-protocol rules
+# =============================================================================
+# These encode the protocol for discoverability; they are dispatched by the
+# coach runtime, not by a pytest validator (disposition: documentation-only, so
+# no validator pointer is required).
+rules:
+  - id: "coach.phase-label.projection-only"
+    severity: 4
+    disposition: strict
+    description: "The atdd:<PHASE> label is a PROJECTION of objects.state and may be written only by IssueManager.update, which writes the store first and renders the label from it. No workflow, shell script or module may write an atdd:<PHASE> label directly (`gh issue edit --add-label/--remove-label`, or a GitHub-client `add_label`/`remove_label` carrying an `atdd:` phase token). A direct write bypasses the phase machine, the train gate, the COMPLETE gates and the store write in one step: the label moves and objects.state does not. Strict disposition: bypass is forbidden; no inline suppress."
+    introduced_in: "4.13.0"
+    aliases: []
+    validator: "test_phase_label_projection_only::test_no_raw_atdd_phase_label_writes_outside_issue_manager"
+    fix_hint: |
+      A workflow, script or module writes an `atdd:<PHASE>` label directly. The
+      label is a rendering of `objects.state`, not a record — authoring it
+      independently is how 236 of 421 issues (56%, measured 2026-07-13) came to
+      carry a phase their store never earned, 217 of them the single signature
+      `label=COMPLETE` with the store parked at the last legitimately-driven
+      phase.
+
+      Repair:
+
+        1. Read the violation — it cites `path:line` of the raw write.
+        2. DELETE the raw write. Do not "also" write the store next to it;
+           two writers is the defect, not the ordering.
+        3. Route the phase change through the authoritative writer:
+             atdd coach transition <N> <PHASE>
+           which runs the per-transition gate, the compliance gate and the
+           train/COMPLETE gates, then calls `IssueManager.update` →
+           `_store_set_status` (store) → `_write_phase_label` (projection).
+        4. On PR merge the advance is already owned by
+           .github/workflows/atdd-auto-phase.yml → `atdd auto-phase`. A merge
+           workflow needs no label step at all.
+        5. Re-run the validator:
+             pytest src/atdd/coach/validators/test_phase_label_projection_only.py -v
+
+      If the phase genuinely must move outside a transition — it almost never
+      must — that is a change to `IssueManager.update`, not a second writer.
+
+      This rule is strict by design. The writer it forbids already survived
+      #1434, the issue whose stated purpose was to remove it: #1434 was itself
+      stamped `atdd:COMPLETE` with its own store at `SMOKE`. See #1452.
+
+  - id: "coach.activation.one-agent-per-session-unit"
+    severity: 3
+    disposition: documentation-only
+    description: "Exactly one agent session per cmux session unit (workspace or surface); no sub-agent delegation that shares context."
+    introduced_in: "4.0.0"
+
+  - id: "coach.activation.cmux-native-launch"
+    severity: 3
+    disposition: documentation-only
+    description: "Workers launch cmux-native (claude positional-prompt first turn); the launch path owns no pty and writes no separate launch inbox."
+    introduced_in: "4.0.0"
+
+  - id: "coach.activation.decisions-surface-to-feed"
+    severity: 3
+    disposition: documentation-only
+    description: "Worker decisions (Bash / AskUserQuestion / ExitPlanMode) are absent from the spawn allowlist so they surface to the cmux Feed rather than auto-executing (#971)."
+    introduced_in: "4.0.0"

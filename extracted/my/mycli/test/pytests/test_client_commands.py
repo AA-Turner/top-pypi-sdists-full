@@ -8,6 +8,8 @@ import pytest
 
 from mycli import client_commands
 from mycli.client_commands import ClientCommandsMixin
+from mycli.packages import special
+from mycli.packages.special import main as special_main
 from mycli.packages.sqlresult import SQLResult
 
 
@@ -83,6 +85,7 @@ def test_register_special_commands_registers_expected_commands(monkeypatch: pyte
     assert calls[4][0] == client.change_redirect_format
     assert calls[5][0] == client.execute_from_file
     assert calls[6][0] == client.change_prompt_format
+    assert calls[6][2:4] == ('/prompt [string]', 'Show or change prompt format.')
 
 
 def test_manual_reconnect_reports_not_connected() -> None:
@@ -224,17 +227,64 @@ def test_execute_from_file_runs_file_query(tmp_path: Path) -> None:
     assert client.sqlexecute.runs == ['select 1;']
 
 
-def test_change_prompt_format_requires_argument() -> None:
+def test_change_prompt_format_without_argument_shows_current_format() -> None:
     client = DummyClient()
+    client.prompt_format = '\\u> '
 
-    assert client.change_prompt_format('') == [SQLResult(status='Missing required argument, format.')]
+    assert client.change_prompt_format('') == [SQLResult(status='Prompt format: "\\u> "')]
+    assert client.prompt_format == '\\u> '
 
 
 def test_change_prompt_format_updates_prompt_format() -> None:
     client = DummyClient()
 
-    assert client.change_prompt_format('\\u> ') == [SQLResult(status='Changed prompt format to \\u> ')]
+    assert client.change_prompt_format('\\u> ') == [SQLResult(status='Changed prompt format to: "\\u> "')]
     assert client.prompt_format == '\\u> '
+
+
+@pytest.mark.parametrize(
+    ('command', 'quote'),
+    [
+        ('/prompt', '"'),
+        (r'\R', "'"),
+    ],
+)
+def test_change_prompt_format_accepts_quoted_value(
+    monkeypatch: pytest.MonkeyPatch,
+    command: str,
+    quote: str,
+) -> None:
+    monkeypatch.setattr(special_main, 'COMMANDS', {})
+    monkeypatch.setattr(special_main, 'CASE_SENSITIVE_COMMANDS', set())
+    monkeypatch.setattr(special_main, 'CASE_INSENSITIVE_COMMANDS', set())
+    client = DummyClient()
+    client.prompt_format = 'old> '
+    client.register_special_commands()
+
+    result = special.execute(None, f'{command} {quote} \\u> {quote}')
+
+    assert result == [SQLResult(status='Changed prompt format to: " \\u> "')]
+    assert client.prompt_format == ' \\u> '
+
+
+@pytest.mark.parametrize('arg', ["''", '""'])
+def test_change_prompt_format_accepts_quoted_empty_value(arg: str) -> None:
+    client = DummyClient()
+    client.prompt_format = 'old> '
+
+    result = client.change_prompt_format(arg)
+
+    assert result == [SQLResult(status='Changed prompt format to: ""')]
+    assert client.prompt_format == ''
+
+
+@pytest.mark.parametrize('arg', ["'unmatched", '"unmatched'])
+def test_change_prompt_format_keeps_unmatched_quote(arg: str) -> None:
+    client = DummyClient()
+
+    client.change_prompt_format(arg)
+
+    assert client.prompt_format == arg
 
 
 def test_initialize_logging_uses_null_handler_for_none_level(monkeypatch: pytest.MonkeyPatch) -> None:

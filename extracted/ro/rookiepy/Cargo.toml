@@ -1,7 +1,0 @@
-[workspace]
-members = ["bindings/python"]
-
-exclude = ["examples/rust/http"]
-
-default-members = ["rookie-rs", "bindings/python"]
-resolver = "2"

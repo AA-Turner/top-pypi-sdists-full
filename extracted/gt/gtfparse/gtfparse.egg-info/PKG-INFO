@@ -1,0 +1,77 @@
+Metadata-Version: 2.4
+Name: gtfparse
+Version: 2.8.0
+Summary: Parsing library for extracting data frames of genomic features from GTF files
+Author-email: Alex Rubinsteyn <alex.rubinsteyn@unc.edu>
+Project-URL: Homepage, https://github.com/openvax/gtfparse
+Project-URL: Bug Tracker, https://github.com/openvax/gtfparse/issues
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Operating System :: OS Independent
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: polars>=0.20.2
+Requires-Dist: pyarrow>=18.0.0
+Requires-Dist: pandas>=2.1.0
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: coveralls; extra == "dev"
+Dynamic: license-file
+
+[![Tests](https://github.com/openvax/gtfparse/actions/workflows/tests.yml/badge.svg)](https://github.com/openvax/gtfparse/actions/workflows/tests.yml)
+[![Coverage Status](https://coveralls.io/repos/openvax/gtfparse/badge.svg?branch=master&service=github)](https://coveralls.io/github/openvax/gtfparse?branch=master)
+<a href="https://pypi.python.org/pypi/gtfparse/">
+    <img src="https://img.shields.io/pypi/v/gtfparse.svg?maxAge=1000" alt="PyPI" />
+</a>
+
+gtfparse
+========
+Parsing tools for GTF (gene transfer format) files.
+
+# Example usage
+
+## Parsing all rows of a GTF file into a Pandas DataFrame
+
+```python
+from gtfparse import read_gtf
+
+# returns GTF with essential columns such as "feature", "seqname", "start", "end"
+# alongside the names of any optional keys which appeared in the attribute column
+df = read_gtf("gene_annotations.gtf")
+
+# filter DataFrame to gene entries on chrY
+df_genes = df[df["feature"] == "gene"]
+df_genes_chrY = df_genes[df_genes["seqname"] == "Y"]
+```
+
+
+## Getting gene FPKM values from a StringTie GTF file
+
+```python
+from gtfparse import read_gtf
+
+df = read_gtf(
+    "Transcripts.gtf",
+    column_converters={"FPKM": float})
+
+gene_fpkms = {
+    gene_name: fpkm
+    for (gene_name, fpkm, feature)
+    in zip(df["seqname"], df["FPKM"], df["feature"])
+    if feature == "gene"
+}
+```
+
+

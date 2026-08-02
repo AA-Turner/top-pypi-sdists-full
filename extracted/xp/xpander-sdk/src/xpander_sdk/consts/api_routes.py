@@ -1,0 +1,89 @@
+"""
+API routes configuration for the xpander.ai SDK.
+
+This module defines all API endpoint paths used by the xpander.ai SDK for
+autonomous agent management, task operations, and knowledge base interactions.
+"""
+
+from enum import Enum
+
+
+class APIRoute(str, Enum):
+    """
+        Enumeration of API endpoints for xpander.ai services.
+
+        This class defines the paths for interacting with various APIs, including
+        agents, tasks, and knowledge bases, standardizing route management across
+    the SDK.
+
+        Attributes include paths for listing, retrieving, creating, updating,
+    and deleting resources.
+
+        Example:
+            >>> route = APIRoute.ListAgent
+            >>> print(route)  # Outputs: /agents/list
+    """
+
+    # Agents Endpoints
+    ListAgent = "/agents/list"
+    GetAgent = "/agents/{agent_id}"
+    CheckAgentLLMEligibility = "/agents/{agent_id}/llm_preflight"
+    GetStreamingSpec = "/agents/{agent_id}/streaming_spec"
+    SyncLocalTools = "/agents/{agent_id}/sync_local_tools"
+    GetAgentConnectionString = "/agents/{agent_id}/db"
+    InvokeTool = "/agents/{agent_id}/operations/{tool_id}"
+
+    # Tasks Endpoints
+    ListTasks = "/agent-execution/executions/history/{agent_id}"
+    ListUserTasks = "/agent-execution/executions/history/user/{user_id}"
+    GetTask = "/agent-execution/{task_id}/status"
+    GetTaskActivityLog = "/activity/{agent_id}/{task_id}"
+    TaskCrud = "/agent-execution/{agent_or_task_id}"
+    UpdateTask = "/agent-execution/{task_id}/update"
+    ReportExternalTask = "/agent-execution/{agent_id}/report_task"
+    ReportExecutionMetrics = "/agents-metrics/{agent_id}/execution"
+    PushExecutionEventToQueue = "/agent-execution/{task_id}/events/push"
+
+    # Knowledge Bases Endpoints
+    ListKnowledgeBases = "/knowledge_bases"
+    CreateKnowledgeBase = "/knowledge_bases/create"
+    DeleteKnowledgeBase = "/knowledge_bases/{knowledge_base_id}/erase"
+    ListKnowledgeBaseDocuments = "/knowledge_bases/{knowledge_base_id}/list"
+    KnowledgeBaseDocumentsCrud = "/knowledge_bases/{knowledge_base_id}"
+    GetKnowledgeBaseDetails = "/knowledge_bases/{knowledge_base_id}/details"
+
+    # MCP Auth
+    GetUserMCPAuthToken = "/mcp_auth/{agent_id}/{user_id}/get_token"
+
+    # Tools
+    GetOrInvokeToolById = "/tools/{tool_id}"
+    GetOrInvokeToolByUUID = "/tools/{connector_id}_{tool_id}"
+    ExecuteCodeInWorkspace = "/tools/{task_id}/xp-code-executor"
+    ResolveDynamicPrompt = "/tools/{agent_id}/dynamic-prompt"
+
+    # HITL (Human-in-the-Loop)
+    HITLRequest = "/hitl/request"
+    HITLApprove = "/hitl/{task_id}/approve"
+    HITLReject = "/hitl/{task_id}/reject"
+
+    # Metadata
+    GetOrgDefaultLLMExtraHeaders = "/metadata/default_llm_extra_headers"
+    GetAPIKeyAllowance = "/metadata/api_key_allowance"
+
+    # Agentic context
+    GetOrSetAgenticContext = "/agentic_context/{agent_id}"
+
+    # User/agent memories
+    UserMemories = "/memories/{agent_id}"
+
+    # Workspace
+    WorkspaceToolInvoke = "/workspace/{agent_id}/tools/{tool_name}"
+
+    # Summarizer
+    RunSummarizer = "/summarizer/run"
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+    def __repr__(self) -> str:
+        return str(self.value)

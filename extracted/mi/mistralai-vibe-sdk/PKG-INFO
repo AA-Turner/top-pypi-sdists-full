@@ -1,0 +1,258 @@
+Metadata-Version: 2.3
+Name: mistralai-vibe-sdk
+Version: 0.12.1
+Summary: Vibe SDK
+Author: Mistral AI
+Author-email: Mistral AI <support@mistral.ai>
+Requires-Dist: certifi>=2024.0
+Requires-Dist: pydantic>=2.12
+Requires-Dist: httpx>=0.27
+Requires-Dist: markdownify>=1.2.2
+Requires-Dist: mistralai>=2.6.0
+Requires-Dist: structlog>=24.0
+Requires-Dist: starlette>=0.37
+Requires-Dist: tenacity>=9.1.4
+Requires-Dist: mcp>=1.28.1
+Requires-Dist: pytest>=8.0 ; extra == 'dev'
+Requires-Dist: pytest-asyncio>=0.23 ; extra == 'dev'
+Requires-Dist: mypy>=1.0 ; extra == 'dev'
+Requires-Dist: python-dotenv>=1.1 ; extra == 'dev'
+Requires-Dist: rich>=13.0 ; extra == 'dev'
+Requires-Dist: ruff==0.14.5 ; extra == 'dev'
+Requires-Dist: prompt-toolkit>=3.0 ; extra == 'examples'
+Requires-Dist: python-dotenv>=1.1 ; extra == 'examples'
+Requires-Dist: rich>=13.0 ; extra == 'examples'
+Requires-Dist: textual>=1.0 ; extra == 'examples'
+Requires-Dist: uvicorn>=0.29 ; extra == 'examples'
+Requires-Dist: pyyaml>=6.0 ; extra == 'examples'
+Requires-Dist: opentelemetry-api>=1.0 ; extra == 'telemetry'
+Requires-Dist: opentelemetry-sdk>=1.0 ; extra == 'telemetry'
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc>=1.0 ; extra == 'telemetry'
+Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.0 ; extra == 'telemetry'
+Requires-Dist: mistralai-workflows>=3.1.0 ; extra == 'workflow'
+Requires-Python: >=3.12
+Provides-Extra: dev
+Provides-Extra: examples
+Provides-Extra: telemetry
+Provides-Extra: workflow
+Description-Content-Type: text/markdown
+
+# Vibe SDK
+
+High-level Python interface for running Vibe agents.
+
+The SDK gives you:
+
+- `Agent` and stateful async/sync sessions
+- Pydantic-based tool authoring
+- Built-in filesystem tools
+- Client-handled tools for UI- or host-dependent actions, such as asking the user a question
+- Skills: reusable instruction sets advertised in the prompt and loaded on demand
+- MCP server integration — discover a server's tools and expose them to the agent
+
+For architecture and design references, see [ARCHITECTURE.md](ARCHITECTURE.md)
+and [documentation/INDEX.md](documentation/INDEX.md).
+
+Advanced raw task-protocol examples live in
+[examples/advanced_task_protocol_examples](examples/advanced_task_protocol_examples/README.md).
+They are not the primary public SDK API, but they are useful end-to-end probes
+for local, HTTP, and workflow execution.
+
+## Quick Start
+
+Use `run_to_completion()` when you just want the final task state for one turn:
+
+```python
+from mistralai.vibe.sdk import Agent, AgentConfig
+from mistralai.vibe.sdk.providers.completion import MistralCompletionConfig
+
+agent = Agent(
+    config=AgentConfig(
+        completion=MistralCompletionConfig(model="mistral-large-latest"),
+        system_prompt="You are a concise assistant.",
+    )
+)
+
+async with agent.session() as session:
+    state = await session.run_to_completion("Hello")
+    print(state.output)
+```
+
+Use `run()` when the host needs streaming updates, callback requests, or direct
+access to task protocol events:
+
+```python
+from mistralai.vibe.sdk import Agent, AgentConfig
+from mistralai.vibe.sdk.execution_record.patching.json_patch import apply_patches
+from mistralai.vibe.sdk.execution_record.state import TaskState
+from mistralai.vibe.sdk.providers.completion import MistralCompletionConfig
+from mistralai.vibe.sdk.transports.events import TaskResultEvent, TaskStateUpdateEvent
+
+agent = Agent(
+    config=AgentConfig(
+        completion=MistralCompletionConfig(model="mistral-large-latest"),
+        system_prompt="You are a concise assistant.",
+    )
+)
+
+async with agent.session() as session:
+    state = TaskState(input="Hello")
+    async for event in session.run("Hello"):
+        if isinstance(event, TaskStateUpdateEvent):
+            state = apply_patches(state, event.payload.patches)
+        elif isinstance(event, TaskResultEvent):
+            state = event.payload.result
+
+    print(state.output)
+```
+
+## Tool annotations
+
+Use `ToolResult` to return metadata to non-model consumers while keeping the
+model-visible result compact:
+
+```python
+from pydantic import BaseModel
+
+from mistralai.vibe.sdk.capabilities import ToolResult, tool
+
+
+class EditFileArgs(BaseModel):
+    path: str
+    previous_content: str
+
+
+class EditFileResult(BaseModel):
+    lines_changed: int
+
+
+@tool(name="edit_file", description="Edit a file", input_schema=EditFileArgs)
+def edit_file(args: EditFileArgs) -> ToolResult[EditFileResult]:
+    return ToolResult(
+        value=EditFileResult(lines_changed=2),
+        annotations={"example.file_before": args.previous_content},
+    )
+```
+
+Annotations are stored on the corresponding task-result history entry and are
+not included in the tool result sent to the model.
+
+## Skills
+
+Skills let an agent discover short task-specific summaries up front and load the
+full instructions only when needed through the builtin `skill` tool.
+
+```python
+from mistralai.vibe.sdk import Agent, AgentConfig, SkillDefinition
+from mistralai.vibe.sdk.providers.completion import MistralCompletionConfig
+
+agent = Agent(
+    config=AgentConfig(
+        completion=MistralCompletionConfig(model="mistral-large-latest"),
+        skills=[
+            SkillDefinition(
+                name="interview",
+                description="Use when running a structured user interview.",
+                content="Ask one question at a time and summarize decisions at the end.",
+            )
+        ],
+    )
+)
+```
+
+## MCP Servers
+
+Add MCP servers in the `mcps` field of `AgentConfig` as a dict mapping a short local name
+to each server's config.
+
+See the [agent README](mistralai/vibe/sdk/agent/README.md#mcp-integration) for details on MCP support implementation.
+
+### Local (stdio) servers
+
+Use `StdioMcpConfig` to launch a local subprocess and talk to it over stdio:
+
+```python
+from mistralai.vibe.sdk import Agent, AgentConfig
+from mistralai.vibe.sdk.capabilities.mcp import StdioMcpConfig
+
+agent = Agent(
+    config=AgentConfig(
+        model="mistral-large-latest",
+        mcps={
+            "demo": StdioMcpConfig(command="python", args=["demo_mcp_server.py"]),
+        },
+    )
+)
+```
+
+Secrets are never stored in the config. To pass host environment variables into
+the subprocess, list their names with `env_key_names`; the values are read from
+the host at launch:
+
+```python
+StdioMcpConfig(
+    command="my-mcp-server",
+    args=[],
+    env_key_names=["MY_SERVER_TOKEN"],
+    timeout_ms=30_000,
+)
+```
+
+### Connector-backed servers
+
+Use `ConnectorMcpConfig` to reach a Mistral connector instead of a local
+subprocess. By default it uses the SDK transport, reading the API key from
+`MISTRAL_API_KEY`. `ConnectorMcpConfig` accepts:
+
+- `connector_id_or_name` — the connector to reach, by id or name (required).
+- `credentials_name` — selects which named credential set the connector uses to
+  resolve, list, and call tools. Leave unset to use the connector's default
+  credential resolution.
+- `transport` — how to reach the connector. Two modes are available:
+
+1. **`ConnectorMcpSdkTransport`** reaches the connector through the public Mistral SDK. Accepts:
+
+    - `api_key_env_var` — name of the host environment variable holding the Mistral
+    API key. The value is read at runtime, so the secret is never stored in the
+    serialized config. Defaults to `MISTRAL_API_KEY`.
+    - `server_url` — override the Mistral API base URL. Optional; unset uses the SDK
+    default.
+    - `timeout_ms` — request timeout in milliseconds passed to the Mistral client.
+    Optional; unset uses the SDK default.
+
+2. **`ConnectorMcpDirectTransport`** reaches the connector directly over JSON-RPC HTTP, bypassing the public SDK. Accepts:
+
+    - `base_url` — base URL of the connectors service to call (required).
+    - `origin_service` — name of the calling service, used to identify the caller
+    (required).
+    - `scoped_headers` — extra HTTP headers sent with each request. Defaults to an
+    empty mapping.
+    - `timeout_ms` — request timeout in milliseconds. Must be greater than 0.
+    Defaults to `30000`.
+    - `mcp_path_template` — endpoint path, relative to `base_url`, of the direct
+    MCP endpoint. May include a `{{connector_id}}` placeholder that is substituted
+    at runtime. Optional; rarely overridden. Defaults to
+    `/connectors-gateway/{{connector_id}}/mcp`.
+
+Example of a connector config for direct transport:
+
+```python
+from mistralai.vibe.sdk.capabilities.mcp import (
+    ConnectorMcpConfig,
+    ConnectorMcpDirectTransport,
+)
+
+ConnectorMcpConfig(
+    connector_id_or_name="<your-connector-id-or-name>",
+    transport=ConnectorMcpDirectTransport(
+        base_url="<base-url>",
+        origin_service="<my-service>",
+        scoped_headers={"x-tenant-id": "acme"},
+        timeout_ms=30_000,
+    ),
+)
+```
+
+See [agent/](mistralai/vibe/sdk/agent/README.md#mcp-integration) for
+how MCP tools are wired into the runtime, and
+[examples/basic_repl](examples/basic_repl/README.md) for a runnable stdio demo.

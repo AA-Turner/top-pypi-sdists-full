@@ -1,0 +1,661 @@
+Metadata-Version: 2.4
+Name: xpander-sdk
+Version: 2.0.436
+Summary: xpander.ai Backend-as-a-service for AI Agents - SDK
+Home-page: https://www.xpander.ai
+Author: xpanderAI
+Author-email: dev@xpander.ai
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: python-dotenv>=1.2.1
+Requires-Dist: packaging>=25.0
+Requires-Dist: pydantic>=2.12.5
+Requires-Dist: loguru>=0.7.3
+Requires-Dist: httpx>=0.28.1
+Requires-Dist: httpx_sse>=0.4.3
+Requires-Dist: fastapi>=0.115.0
+Requires-Dist: uvicorn>=0.30.0
+Requires-Dist: nest-asyncio>=1.6.0
+Requires-Dist: strands-agents>=1.20.0
+Requires-Dist: openai-agents>=0.6.4
+Requires-Dist: headroom-ai>=0.26.0
+Requires-Dist: python-docx>=1.1.2
+Requires-Dist: openpyxl>=3.1.5
+Requires-Dist: python-pptx>=1.0.2
+Requires-Dist: pillow
+Requires-Dist: pypdf
+Provides-Extra: agno
+Requires-Dist: agno==2.5.14; extra == "agno"
+Requires-Dist: sqlalchemy; extra == "agno"
+Requires-Dist: psycopg[binary,pool]; extra == "agno"
+Requires-Dist: greenlet; extra == "agno"
+Requires-Dist: aioboto3==15.5.0; extra == "agno"
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-asyncio; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: agno==2.5.14; extra == "test"
+Requires-Dist: sqlalchemy; extra == "test"
+Requires-Dist: psycopg[binary,pool]; extra == "test"
+Requires-Dist: greenlet; extra == "test"
+Requires-Dist: anthropic; extra == "test"
+Requires-Dist: aioboto3==15.5.0; extra == "test"
+Provides-Extra: dev
+Requires-Dist: black; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-asyncio; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: anthropic; extra == "dev"
+Requires-Dist: mcp; extra == "dev"
+Requires-Dist: openai; extra == "dev"
+Requires-Dist: fireworks-ai; extra == "dev"
+Requires-Dist: aioboto3==15.5.0; extra == "dev"
+Requires-Dist: google-genai; extra == "dev"
+Requires-Dist: azure-ai-inference; extra == "dev"
+Requires-Dist: aiohttp; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# xpander.ai SDK
+
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Documentation](https://img.shields.io/badge/docs-available-brightgreen.svg)](https://docs.xpander.ai) [![PyPI Version](https://img.shields.io/pypi/v/xpander-sdk?label=PyPI)](https://pypi.org/project/xpander-sdk/) [![Downloads](https://pepy.tech/badge/xpander-sdk)](https://pepy.tech/project/xpander-sdk)
+
+The official Python SDK for xpander.ai - a powerful Backend-as-a-Service (BaaS) platform for building, deploying, and managing AI agents at scale.
+
+## 🚀 Overview
+
+xpander.ai SDK provides comprehensive tools for:
+
+- **Agent Management**: Create, configure, and manage AI agents
+- **Task Execution**: Handle complex task workflows and execution
+- **Tools Repository**: Integrate external tools and services
+- **Knowledge Bases**: Manage and search knowledge repositories
+- **Event Handling**: Event-driven programming with decorators
+- **Real-time Monitoring**: Track agent performance and execution
+
+## 📦 Installation
+
+```bash
+pip install xpander-sdk
+```
+
+### With Optional Dependencies
+
+```bash
+# For Agno framework support (2.0+)
+pip install xpander-sdk[agno]
+
+# For development
+pip install xpander-sdk[dev]
+```
+
+## 🔧 Quick Start
+
+### 1. Configuration
+
+```python
+from xpander_sdk import Configuration
+
+# Using environment variables (recommended)
+config = Configuration()
+
+# Or explicit configuration
+config = Configuration(
+    api_key="your-api-key",
+    organization_id="your-org-id",
+    base_url="https://inbound.xpander.ai"
+)
+```
+
+### 2. Basic Agent Operations
+
+```python
+from xpander_sdk import Agents, Agent, Tasks, AgentDeploymentType
+
+# Initialize agents module
+agents = Agents(configuration=config)
+
+# List all agents
+agent_list = await agents.alist()
+
+# Load existing agent
+agent = await agents.aget("agent-id")
+
+# Create and execute a task
+task = await agent.acreate_task(
+    prompt="Help me analyze this data",
+    file_urls=["https://example.com/data.csv"]
+)
+```
+
+### 3. Task Management
+
+```python
+from xpander_sdk import Tasks, Task
+
+# Initialize tasks module
+tasks = Tasks(configuration=config)
+
+# Load and manage tasks
+task = await tasks.aget("task-id")
+await task.aset_status(AgentExecutionStatus.Running)
+await task.asave()
+
+# Retrieve task activity log
+activity_log = await task.aget_activity_log()
+for message in activity_log.messages:
+    print(f"{message.role}: {message.content.text}")
+```
+
+### 4. Tools Integration
+
+```python
+from xpander_sdk import register_tool, ToolsRepository
+
+# Register a local tool
+@register_tool
+def check_weather(location: str) -> str:
+    """Check weather for a given location."""
+    return f"Weather in {location}: Sunny, 25°C"
+
+# Register a tool with graph synchronization
+@register_tool(add_to_graph=True)
+async def analyze_data(data: list, analysis_type: str) -> dict:
+    """Analyze data from multiple sources."""
+    return {
+        "analysis_type": analysis_type,
+        "data_points": len(data),
+        "status": "completed"
+    }
+
+# Use tools repository
+tools = ToolsRepository(configuration=config)
+weather_tool = tools.get_tool_by_id("check_weather")
+result = await weather_tool.ainvoke(
+    agent_id="agent-id",
+    payload={"location": "New York"}
+)
+```
+
+### 5. Knowledge Base Operations
+
+```python
+from xpander_sdk import KnowledgeBases, KnowledgeBase
+
+# Initialize knowledge bases
+kb_module = KnowledgeBases(configuration=config)
+
+# Create knowledge base
+kb = await kb_module.acreate(
+    name="Company Docs",
+    description="Internal documentation"
+)
+
+# Add documents
+documents = await kb.aadd_documents([
+    "https://example.com/doc1.pdf",
+    "https://example.com/doc2.txt"
+])
+
+# Search knowledge base
+results = await kb.asearch(
+    search_query="product pricing",
+    top_k=5
+)
+```
+
+### 6. Event-Driven Programming
+
+```python
+from xpander_sdk import on_task, Events
+
+# Basic task handler
+@on_task
+async def handle_task(task):
+    print(f"Processing task: {task.id}")
+    # Task processing logic here
+    task.result = "Task processed successfully"
+    return task
+
+# Task handler with configuration
+@on_task(configuration=config)
+def sync_task_handler(task):
+    print(f"Handling task synchronously: {task.id}")
+    task.result = "Sync processing complete"
+    return task
+
+```
+
+## 🧠 Context Optimization
+
+The SDK includes a progressive context management pipeline that keeps agent conversations within the model's token window:
+
+| Layer | Name                  | Cost       | Description                                                                                                                                                                                                                                                                                                |
+| ----- | --------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0     | **Toon Encoding**     | Zero       | Reduces JSON verbosity in tool results before they enter context                                                                                                                                                                                                                                           |
+| 1     | **Microcompaction**   | Zero       | Offloads large tool results (>8KB) through an in-memory cache + async workspace write queue. The agent sees the preview + retrieval pointer immediately; the encrypted blob lands on the sandbox in the background. `xpworkspace-context-retrieve` is served from the cache without a workspace round-trip |
+| 2     | **Auto-Compaction**   | 1 LLM call | Streaming LLM summarization when approaching token ceiling (~167K tokens). Structured 9-section summary persisted to `task.additional_context` for retry continuity. Circuit breaker after 3 failures                                                                                                      |
+| 3     | **Manual Compaction** | 1 LLM call | Agent-triggered compression via `xpcompact_context` tool at task boundaries with optional focus hint                                                                                                                                                                                                       |
+| —     | **Emergency**         | 1 LLM call | Safety net at 88% context capacity. Bypasses circuit breaker                                                                                                                                                                                                                                               |
+| —     | **Pre-Retry**         | 1 LLM call | Session backup + compaction before plan-following retries (up to 5 retries via `MAX_PLAN_RETRIES`)                                                                                                                                                                                                         |
+
+Offloaded results are encrypted at rest using a stdlib-only stream cipher. The agent retrieves full results via `xpworkspace-context-retrieve` — decryption is handled transparently, and the cache short-circuits the workspace round-trip when the bytes were produced earlier in the same task. Any non-cache workspace op (bash, exec, generic file I/O) awaits a barrier flush so the sandbox is consistent before it runs. Compaction events are published to the task activity log and token usage is tracked for billing.
+
+See [`docs/CONTEXT_OPTIMIZATION.md`](docs/CONTEXT_OPTIMIZATION.md) for the full architecture document.
+
+## 📚 Core Modules
+
+| Module              | Description                               | Documentation                                                                            |
+| ------------------- | ----------------------------------------- | ---------------------------------------------------------------------------------------- |
+| **Agents**          | Agent creation, management, and execution | [Agents Guide](https://github.com/xpander-ai/xpander-sdk/blob/main/docs/AGENTS.md)       |
+| **Tasks**           | Task lifecycle and execution management   | [Tasks Guide](https://github.com/xpander-ai/xpander-sdk/blob/main/docs/TASKS.md)         |
+| **ToolsRepository** | External tools and integrations           | [Tools Guide](https://github.com/xpander-ai/xpander-sdk/blob/main/docs/TOOLS.md)         |
+| **KnowledgeBases**  | Knowledge management and search           | [Knowledge Guide](https://github.com/xpander-ai/xpander-sdk/blob/main/docs/KNOWLEDGE.md) |
+| **Events**          | Event-driven programming                  | [Events Guide](https://github.com/xpander-ai/xpander-sdk/blob/main/docs/EVENTS.md)       |
+| **Backend**         | Agent runtime arguments for frameworks    | [Backend Guide](https://github.com/xpander-ai/xpander-sdk/blob/main/docs/BACKEND.md)     |
+
+## 🔄 Async/Sync Support
+
+The SDK provides both asynchronous and synchronous interfaces:
+
+```python
+# Asynchronous (recommended for production)
+agent = await Agent.aload("agent-id")
+task = await agent.acreate_task(prompt="input data")
+
+# Synchronous (convenient for scripts)
+agent = Agent.load("agent-id")
+task = agent.create_task(prompt="input data")
+```
+
+## 📖 Advanced Examples
+
+### Multi-Agent Orchestration
+
+```python
+# Load multiple specialized agents
+agents_list = await agents.alist()
+data_agent = await agents.aget("data-agent-id")
+writer_agent = await agents.aget("writer-agent-id")
+
+# Chain agent executions
+analysis_task = await data_agent.acreate_task(prompt="Analyze sales data")
+report_task = await writer_agent.acreate_task(
+    prompt=f"Write a report based on: {analysis_task.result}"
+)
+```
+
+### Tool Integration with MCP Servers
+
+```python
+from xpander_sdk import MCPServerDetails, MCPServerType
+
+# Configure MCP server
+mcp_server = MCPServerDetails(
+    name="data-server",
+    type=MCPServerType.STDIO,
+    command="python",
+    args=["-m", "mcp_server"],
+    env={"API_KEY": "your-key"}
+)
+
+# MCP servers are configured at the platform level
+# and tools become available through ToolsRepository
+```
+
+### Streaming Task Execution
+
+```python
+# Create a task with event streaming enabled
+task = await agent.acreate_task(
+    prompt="complex analysis task",
+    events_streaming=True
+)
+
+# Stream events from the task
+async for event in task.aevents():
+    print(f"Event Type: {event.type}")
+    print(f"Event Data: {event.data}")
+```
+
+### Authentication Events Callback
+
+Handle authentication events in real-time. This callback is triggered only for authentication flows (e.g., MCP OAuth requiring user login).
+
+**You can use both approaches simultaneously** - decorated handlers will always be invoked, and you can also pass an explicit callback for additional handling.
+
+You can provide the callback in two ways:
+
+#### Option 1: Direct Function
+
+```python
+from xpander_sdk import Backend
+from xpander_sdk.modules.agents.sub_modules.agent import Agent
+from xpander_sdk.modules.tasks.sub_modules.task import Task, TaskUpdateEvent
+from agno.agent import Agent as AgnoAgent
+
+# Define event callback (async or sync)
+async def my_event_callback(agent: Agent, task: Task, event: TaskUpdateEvent):
+    """Called for authentication events only"""
+    # event.type will always be "auth_event"
+    print(f"Authentication required: {event.data}")
+    # Display login URL or handle OAuth flow
+
+# Get args with callback
+backend = Backend(configuration=config)
+args = await backend.aget_args(
+    agent_id="agent-123",
+    task=my_task,
+    auth_events_callback=my_event_callback
+)
+```
+
+#### Option 2: Decorator (Auto-registered)
+
+```python
+from xpander_sdk import Backend, on_auth_event
+from xpander_sdk.modules.agents.sub_modules.agent import Agent
+from xpander_sdk.modules.tasks.sub_modules.task import Task, TaskUpdateEvent
+from agno.agent import Agent as AgnoAgent
+
+# Use decorator - auto-registers globally
+@on_auth_event
+async def handle_auth(agent: Agent, task: Task, event: TaskUpdateEvent):
+    # event.type will always be "auth_event"
+    print(f"Authentication required for {agent.name}")
+    print(f"Auth data: {event.data}")
+
+# Decorated handler is automatically invoked - no need to pass it
+backend = Backend(configuration=config)
+args = await backend.aget_args(
+    agent_id="agent-123",
+    task=my_task
+)
+```
+
+#### Option 3: Combine Both
+
+```python
+from xpander_sdk import Backend, on_auth_event
+
+# Global handler for all auth events
+@on_auth_event
+async def log_auth(agent, task, event):
+    print(f"[GLOBAL] Auth event for {agent.name}")
+
+# Additional one-time handler
+async def custom_handler(agent, task, event):
+    print(f"[CUSTOM] Specific handling for this call")
+
+# Both handlers will be invoked
+args = await backend.aget_args(
+    agent_id="agent-123",
+    auth_events_callback=custom_handler  # Optional additional callback
+)
+
+# Use with Agno
+agno_agent = AgnoAgent(**args)
+result = await agno_agent.arun(
+    input="Process this data",
+    stream=True
+)
+```
+
+### Task Activity Monitoring
+
+```python
+from xpander_sdk import Task
+from xpander_sdk.models.activity import (
+    AgentActivityThreadMessage,
+    AgentActivityThreadToolCall,
+    AgentActivityThreadReasoning
+)
+
+# Load a completed task
+task = await Task.aload("task-id")
+
+# Get detailed activity log
+activity_log = await task.aget_activity_log()
+
+# Analyze messages between user and agent
+for message in activity_log.messages:
+    if isinstance(message, AgentActivityThreadMessage):
+        print(f"{message.role}: {message.content.text}")
+    elif isinstance(message, AgentActivityThreadToolCall):
+        # Tool call
+        print(f"Tool: {message.tool_name}")
+        print(f"Payload: {message.payload}")
+        print(f"Result: {message.result}")
+    elif isinstance(message, AgentActivityThreadReasoning):
+        # Reasoning step
+        print(f"Reasoning ({message.type}): {message.thought}")
+
+# Synchronous version
+task = Task.load("task-id")
+activity_log = task.get_activity_log()
+```
+
+### Local Task Testing
+
+```python
+from xpander_sdk.modules.tasks.models.task import LocalTaskTest, AgentExecutionInput
+from xpander_sdk.models.shared import OutputFormat
+from xpander_sdk import on_task
+
+# Define a local test task
+local_task = LocalTaskTest(
+    input=AgentExecutionInput(text="What can you do?"),
+    output_format=OutputFormat.Json,
+    output_schema={"capabilities": "list of capabilities"}
+)
+
+# Test with local task
+@on_task(test_task=local_task)
+async def handle_test_task(task):
+    task.result = {
+        "capabilities": [
+            "Data analysis",
+            "Text processing",
+            "API integration"
+        ]
+    }
+    return task
+```
+
+## 🧪 Testing
+
+```bash
+# Run tests
+pytest tests/
+
+# Run with coverage
+pytest tests/ --cov=xpander_sdk
+
+# Run specific test
+pytest tests/test_agents.py::test_agent_creation
+```
+
+## 🏗️ Architecture
+
+```plaintext
+xpander_sdk/
+├── core/                   # Core API client and base classes
+├── models/                 # Pydantic models and configurations
+├── modules/
+│   ├── agents/            # Agent management
+│   ├── tasks/             # Task execution
+│   ├── tools_repository/  # Tools and integrations
+│   ├── knowledge_bases/   # Knowledge management
+│   ├── events/            # Event handling
+│   └── backend/           # Agent runtime arguments for frameworks
+└── utils/                 # Utility functions
+```
+
+## 🔒 Authentication
+
+The SDK supports multiple authentication methods:
+
+### Environment Variables (Recommended)
+
+```bash
+export XPANDER_API_KEY="your-api-key"
+export XPANDER_ORGANIZATION_ID="your-org-id"
+export XPANDER_BASE_URL="https://inbound.xpander.ai" # Optional
+export XPANDER_AGENT_ID="your-agent-id" # Optional for Backend module
+```
+
+### Configuration Object
+
+```python
+config = Configuration(
+    api_key="your-api-key",
+    organization_id="your-org-id"
+)
+```
+
+### From File
+
+```python
+# .env file
+XPANDER_API_KEY=your-api-key
+XPANDER_ORGANIZATION_ID=your-org-id
+
+# Python code
+from dotenv import load_dotenv
+load_dotenv()
+config = Configuration()
+```
+
+## 🏢 Self-Hosted Deployment
+
+If you're using a self-hosted xpander.ai deployment, configure the SDK to point to your Agent Controller endpoint.
+
+**Important**: Use the **Agent Controller API key** generated during Helm installation, not your xpander.ai cloud API key.
+
+### Configuration
+
+```bash
+# Set environment variables
+export XPANDER_API_KEY="your-agent-controller-api-key"  # From Helm installation
+export XPANDER_ORGANIZATION_ID="your-org-id"
+export XPANDER_BASE_URL="https://agent-controller.my-company.com"
+```
+
+Or configure explicitly:
+
+```python
+from xpander_sdk import Configuration
+
+config = Configuration(
+    api_key="your-agent-controller-api-key",  # From Helm installation
+    organization_id="your-org-id",
+    base_url="https://agent-controller.my-company.com"
+)
+```
+
+### Using with Agno Framework
+
+```python
+from xpander_sdk import Backend, Configuration
+from agno.agent import Agent
+
+# Configure for self-hosted
+config = Configuration(
+    api_key="your-agent-controller-api-key",  # From Helm installation
+    organization_id="your-org-id",
+    base_url="https://agent-controller.my-company.com"
+)
+
+# Initialize Backend with self-hosted config
+backend = Backend(configuration=config)
+
+# Create agent - it will use your self-hosted infrastructure
+agno_agent = Agent(**backend.get_args(agent_id="agent-123"))
+
+# Run agent
+result = await agno_agent.arun(
+    input="What can you help me with?",
+    stream=True
+)
+```
+
+### Complete Self-Hosted Example
+
+```python
+import asyncio
+from xpander_sdk import Configuration, Agent
+
+async def main():
+    # Configure for self-hosted deployment
+    config = Configuration(
+        api_key="your-agent-controller-api-key",  # From Helm installation
+        organization_id="your-org-id",
+        base_url="https://agent-controller.my-company.com"
+    )
+
+    # Load agent from self-hosted deployment
+    agent = await Agent.aload("agent-123", configuration=config)
+    print(f"Agent: {agent.name}")
+
+    # Create and execute task
+    task = await agent.acreate_task(
+        prompt="Analyze Q4 sales data",
+        file_urls=["https://example.com/sales-q4.csv"]
+    )
+    print(f"Task created: {task.id}")
+    print(f"Status: {task.status}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+**Important**: Make sure your `base_url` points to the Agent Controller endpoint (e.g., `https://agent-controller.{your-domain}`), not the root domain.
+
+📖 **Full Guide**: [Self-Hosted Configuration Documentation](https://docs.xpander.ai/api-reference/configuration/self-hosted)
+
+## 🔄 Error Handling
+
+```python
+from xpander_sdk.exceptions import ModuleException
+
+try:
+    agent = await Agent.aload("invalid-agent-id")
+except ModuleException as e:
+    print(f"Error {e.status_code}: {e.description}")
+```
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/{base_branch}/amazing-feature`)
+3. Commit your changes (`git commit -m 'feat/chore/fix: Add amazing feature'`)
+4. Push to the branch (`git push origin feature/{base_branch}/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🆘 Support
+
+- **Documentation**: [https://docs.xpander.ai](https://docs.xpander.ai)
+- **Issues**: [GitHub Issues](https://github.com/xpander-ai/xpander-sdk/issues)
+- **Email**: support@xpander.ai
+
+---
+
+Built with ❤️ by the xpander.ai team

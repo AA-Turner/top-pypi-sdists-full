@@ -1,0 +1,53 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>=82.0.1"]
+
+[project]
+name = "types-assertpy"
+version = "1.1.0.20260518"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+description = "Typing stubs for assertpy"
+readme = { text = """\
+## Typing stubs for assertpy
+
+This is a [type stub package](https://typing.python.org/en/latest/tutorials/external_libraries.html)
+for the [`assertpy`](https://github.com/assertpy/assertpy) package. It can be used by type checkers
+to check code that uses `assertpy`. This version of
+`types-assertpy` aims to provide accurate annotations for
+`assertpy==1.1.*`.
+
+This package is part of the [typeshed project](https://github.com/python/typeshed).
+All fixes for types and metadata should be contributed there.
+See [the README](https://github.com/python/typeshed/blob/main/README.md)
+for more details. The source for this package can be found in the
+[`stubs/assertpy`](https://github.com/python/typeshed/tree/main/stubs/assertpy)
+directory.
+
+This package was tested with the following type checkers:
+* [mypy](https://github.com/python/mypy/) 2.1.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.409
+
+It was generated from typeshed commit
+[`3402466d17144ed7edfc92940c6973167ba285af`](https://github.com/python/typeshed/commit/3402466d17144ed7edfc92940c6973167ba285af).
+""", content-type = "text/markdown" }
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Typing :: Stubs Only",
+]
+requires-python = ">=3.10"
+dependencies = []
+
+[project.urls]
+"Homepage" = "https://github.com/python/typeshed"
+"GitHub" = "https://github.com/python/typeshed"
+"Changes" = "https://github.com/typeshed-internal/stub_uploader/blob/main/data/changelogs/assertpy.md"
+"Issue tracker" = "https://github.com/python/typeshed/issues"
+"Chat" = "https://gitter.im/python/typing"
+
+[tool.setuptools]
+packages = ['assertpy-stubs']
+include-package-data = false
+
+[tool.setuptools.package-data]
+'assertpy-stubs' = ['__init__.pyi', 'assertpy.pyi', 'base.pyi', 'collection.pyi', 'contains.pyi', 'date.pyi', 'dict.pyi', 'dynamic.pyi', 'exception.pyi', 'extracting.pyi', 'file.pyi', 'helpers.pyi', 'numeric.pyi', 'snapshot.pyi', 'string.pyi', 'METADATA.toml', 'py.typed']

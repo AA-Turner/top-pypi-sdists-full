@@ -67,6 +67,8 @@ from webob.etag import (
 
 from webob.headers import EnvironHeaders
 
+from webob.util import urljoin
+
 from webob.multidict import (
     NestedMultiDict,
     MultiDict,
@@ -511,7 +513,10 @@ class BaseRequest(object):
                 url += '/'
         else:
             url = self.path_url
-        return urlparse.urljoin(url, other_url)
+        # Use WebOb's own RFC 3986 urljoin() rather than
+        # urllib.parse.urljoin(), which removes ASCII tab/CR/LF and strips
+        # leading/trailing C0 control and space characters before parsing.
+        return urljoin(url, other_url)
 
     def path_info_pop(self, pattern=None):
         """

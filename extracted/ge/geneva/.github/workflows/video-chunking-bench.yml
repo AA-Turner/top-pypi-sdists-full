@@ -1,0 +1,71 @@
+name: Video Chunking Benchmark
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/geneva/chunkers/**"
+      - "src/geneva/udfs/audio/_chunking.py"
+      - "src/geneva/transformer.py"
+      - "src/benches/test_video_chunking_bench.py"
+      - ".github/workflows/video-chunking-bench.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+  schedule:
+    # Weekly, Monday 14:00 UTC
+    - cron: "0 14 * * 1"
+
+jobs:
+  video-chunking-bench:
+    runs-on: ubuntu-latest
+    # Full matrix (2048-8192 x 1/2/4/8) is a stress-scale run; PRs run a smoke.
+    timeout-minutes: 180
+    env:
+      UV_CACHE_DIR: /tmp/.uv-cache
+      RAY_ENABLE_UV_RUN_RUNTIME_ENV: "0"
+      RESULTS_DIR: /tmp/test-results/video-chunking-bench
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+      - name: Install dependencies
+        run: uv sync --locked --extra udfs-video
+      - name: Run video chunking benchmark
+        # On PRs, run a fast smoke; the full matrix only on dispatch/schedule.
+        env:
+          BENCH_MIN: ${{ github.event_name == 'pull_request' && '4' || '2048' }}
+          BENCH_MAX: ${{ github.event_name == 'pull_request' && '64' || '8192' }}
+          BENCH_CONC: ${{ github.event_name == 'pull_request' && '1,2' || '1,2,4,8' }}
+        run: |
+          mkdir -p "$RESULTS_DIR"
+          GENEVA_BENCH_RESULTS_DIR="$RESULTS_DIR" \
+            GENEVA_BENCH_MIN_VIDEOS="$BENCH_MIN" \
+            GENEVA_BENCH_MAX_VIDEOS="$BENCH_MAX" \
+            GENEVA_BENCH_CONCURRENCY="$BENCH_CONC" \
+            uv run -m pytest src/benches/test_video_chunking_bench.py \
+            -v -s -m slow \
+            --benchmark-json="$RESULTS_DIR/benchmark.json"
+      - name: Write job summary
+        if: always()
+        run: |
+          scores="$RESULTS_DIR/video_chunking_scores.csv"
+          echo "### Video chunking benchmark" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f "$scores" ]; then
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat "$scores" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "_No scores produced (benchmark may have failed)._" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-chunking-bench-${{ github.run_number }}
+          path: ${{ env.RESULTS_DIR }}/
+          retention-days: 90
+          if-no-files-found: warn

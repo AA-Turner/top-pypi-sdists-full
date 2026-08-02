@@ -338,6 +338,7 @@ __all__ = (
     "DeleteWorkloadIdentityRequestTypeDef",
     "DescriptorsTypeDef",
     "EfsAccessPointConfigurationTypeDef",
+    "EfsConfigurationTypeDef",
     "EpisodicConsolidationOverrideTypeDef",
     "EpisodicExtractionOverrideTypeDef",
     "EpisodicMemoryStrategyInputTypeDef",
@@ -470,6 +471,7 @@ __all__ = (
     "HarnessGatewayOutboundAuthOutputTypeDef",
     "HarnessGatewayOutboundAuthTypeDef",
     "HarnessGatewayOutboundAuthUnionTypeDef",
+    "HarnessGeminiModelConfigOutputTypeDef",
     "HarnessGeminiModelConfigTypeDef",
     "HarnessInlineFunctionConfigOutputTypeDef",
     "HarnessInlineFunctionConfigTypeDef",
@@ -794,6 +796,7 @@ __all__ = (
     "RuntimeTargetConfigurationTypeDef",
     "S3ConfigurationTypeDef",
     "S3FilesAccessPointConfigurationTypeDef",
+    "S3FilesConfigurationTypeDef",
     "S3LocationTypeDef",
     "S3SourceTypeDef",
     "SalesforceOauth2ProviderConfigInputTypeDef",
@@ -875,6 +878,7 @@ __all__ = (
     "ToolSchemaOutputTypeDef",
     "ToolSchemaTypeDef",
     "ToolsDefinitionTypeDef",
+    "ToolsFileSystemConfigurationTypeDef",
     "TrafficSplitEntryOutputTypeDef",
     "TrafficSplitEntryTypeDef",
     "TrafficSplitEntryUnionTypeDef",
@@ -1248,6 +1252,7 @@ class ConnectorParameterOverrideTypeDef(TypedDict):
 
 class ConnectorSourceTypeDef(TypedDict):
     connectorId: str
+    version: NotRequired[str]
 
 
 ContentConfigurationTypeDef = TypedDict(
@@ -1645,6 +1650,12 @@ class EfsAccessPointConfigurationTypeDef(TypedDict):
     mountPath: str
 
 
+class EfsConfigurationTypeDef(TypedDict):
+    accessPointArn: str
+    mountPath: str
+    fileSystemArn: str
+
+
 class EvaluatorSummaryTypeDef(TypedDict):
     evaluatorArn: str
     evaluatorId: str
@@ -1893,6 +1904,16 @@ class HarnessBedrockModelConfigTypeDef(TypedDict):
     additionalParams: NotRequired[Mapping[str, Any]]
 
 
+class HarnessGeminiModelConfigOutputTypeDef(TypedDict):
+    modelId: str
+    apiKeyArn: str
+    maxTokens: NotRequired[int]
+    temperature: NotRequired[float]
+    topP: NotRequired[float]
+    topK: NotRequired[int]
+    additionalParams: NotRequired[dict[str, Any]]
+
+
 class HarnessGeminiModelConfigTypeDef(TypedDict):
     modelId: str
     apiKeyArn: str
@@ -1900,6 +1921,7 @@ class HarnessGeminiModelConfigTypeDef(TypedDict):
     temperature: NotRequired[float]
     topP: NotRequired[float]
     topK: NotRequired[int]
+    additionalParams: NotRequired[Mapping[str, Any]]
 
 
 class HarnessInlineFunctionConfigOutputTypeDef(TypedDict):
@@ -2555,6 +2577,12 @@ class SamplingConfigTypeDef(TypedDict):
 
 class SessionConfigTypeDef(TypedDict):
     sessionTimeoutMinutes: int
+
+
+class S3FilesConfigurationTypeDef(TypedDict):
+    accessPointArn: str
+    mountPath: str
+    fileSystemArn: str
 
 
 SchemaDefinitionOutputTypeDef = TypedDict(
@@ -3898,7 +3926,7 @@ HarnessManagedMemoryConfigurationUnionTypeDef = Union[
 class HarnessModelConfigurationOutputTypeDef(TypedDict):
     bedrockModelConfig: NotRequired[HarnessBedrockModelConfigOutputTypeDef]
     openAiModelConfig: NotRequired[HarnessOpenAiModelConfigOutputTypeDef]
-    geminiModelConfig: NotRequired[HarnessGeminiModelConfigTypeDef]
+    geminiModelConfig: NotRequired[HarnessGeminiModelConfigOutputTypeDef]
     liteLlmModelConfig: NotRequired[HarnessLiteLlmModelConfigOutputTypeDef]
 
 
@@ -4324,6 +4352,11 @@ RegistryRecordOAuthCredentialProviderUnionTypeDef = Union[
 RequestHeaderConfigurationUnionTypeDef = Union[
     RequestHeaderConfigurationTypeDef, RequestHeaderConfigurationOutputTypeDef
 ]
+
+
+class ToolsFileSystemConfigurationTypeDef(TypedDict):
+    s3FilesConfiguration: NotRequired[S3FilesConfigurationTypeDef]
+    efsConfiguration: NotRequired[EfsConfigurationTypeDef]
 
 
 class ToolDefinitionOutputTypeDef(TypedDict):
@@ -5129,6 +5162,7 @@ class CreateCodeInterpreterRequestTypeDef(TypedDict):
     description: NotRequired[str]
     executionRoleArn: NotRequired[str]
     certificates: NotRequired[Sequence[CertificateTypeDef]]
+    filesystemConfigurations: NotRequired[Sequence[ToolsFileSystemConfigurationTypeDef]]
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
@@ -5142,6 +5176,7 @@ class GetCodeInterpreterResponseTypeDef(TypedDict):
     networkConfiguration: CodeInterpreterNetworkConfigurationOutputTypeDef
     status: CodeInterpreterStatusType
     certificates: list[CertificateTypeDef]
+    filesystemConfigurations: list[ToolsFileSystemConfigurationTypeDef]
     failureReason: str
     createdAt: datetime
     lastUpdatedAt: datetime
@@ -5172,6 +5207,7 @@ class CreateBrowserRequestTypeDef(TypedDict):
     browserSigning: NotRequired[BrowserSigningConfigInputTypeDef]
     enterprisePolicies: NotRequired[Sequence[BrowserEnterprisePolicyTypeDef]]
     certificates: NotRequired[Sequence[CertificateTypeDef]]
+    filesystemConfigurations: NotRequired[Sequence[ToolsFileSystemConfigurationTypeDef]]
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
@@ -5187,6 +5223,7 @@ class GetBrowserResponseTypeDef(TypedDict):
     browserSigning: BrowserSigningConfigOutputTypeDef
     enterprisePolicies: list[BrowserEnterprisePolicyTypeDef]
     certificates: list[CertificateTypeDef]
+    filesystemConfigurations: list[ToolsFileSystemConfigurationTypeDef]
     status: BrowserStatusType
     failureReason: str
     createdAt: datetime

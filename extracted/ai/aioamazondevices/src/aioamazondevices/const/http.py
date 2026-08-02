@@ -1,0 +1,63 @@
+"""HTTP constants for Amazon devices."""
+
+HTTP_ERROR_199 = 199
+HTTP_ERROR_299 = 299
+
+HTTP_CONTENT_TYPE_JSON = "application/json"
+HTTP_CONTENT_TYPE_STREAM = "application/octet-stream"
+
+ARRAY_WRAPPER = "generatedArrayWrapper"
+
+# Amazon APP info
+AMAZON_APP_BUNDLE_ID = "com.amazon.echo"
+AMAZON_APP_ID = "MAPiOSLib/6.0/ToHideRetailLink"
+AMAZON_APP_NAME = "AioAmazonDevices"
+AMAZON_APP_VERSION = "2.2.663733.0"
+AMAZON_DEVICE_SOFTWARE_VERSION = "35602678"
+AMAZON_DEVICE_TYPE = "A2IVLV5VM2W81"
+AMAZON_CLIENT_OS = "18.5"
+
+DEFAULT_SITE = "https://www.amazon.com"
+FE_SITE = "https://www.amazon.co.jp"
+DEFAULT_HEADERS = {
+    "Accept-Charset": "utf-8",
+    "Accept-Encoding": "gzip",
+    "Connection": "keep-alive",
+}
+CSRF_A2Z = "anti-csrftoken-a2z"
+CSRF_COOKIE = "csrf"
+REQUEST_AGENT = {
+    "Amazon": f"AmazonWebView/AmazonAlexa/{AMAZON_APP_VERSION}/iOS/{AMAZON_CLIENT_OS}/iPhone",  # noqa: E501
+    "Browser": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0",  # noqa: E501
+}
+
+REFRESH_ACCESS_TOKEN = "access_token"  # noqa: S105
+REFRESH_AUTH_COOKIES = "auth_cookies"
+
+URI_BEHAVIORS_AUTOMATIONS = "api/behaviors/v2/automations"
+URI_BEHAVIORS_PREVIEW = "api/behaviors/preview"
+URI_CAPABILITIES = "v1/devices/@self/capabilities"
+URI_COMM_PREFERENCES = "devicesTypes/{device_type}/deviceId/{serial_number}/preferences"
+URI_DEVICE_VOLUMES = "api/devices/deviceType/dsn/audio/v1/allDeviceVolumes"
+URI_DEVICES = "api/devices-v2/device"
+URI_DND_STATUS_ALL = "api/dnd/device-status-list"
+URI_DND_STATUS_DEVICE = "api/dnd/status"
+URI_HISTORY_DATA = "alexa-privacy/apd/rah/alexa-history-records-v2"
+URI_HISTORY_FRONTEND = "alexa-privacy/apd/rvh"
+URI_MEDIA_CONTROL = "api/np/command"
+URI_MEDIA_STATE = "api/np/list-media-sessions"
+URI_MUSIC_PROVIDERS = "api/behaviors/entities"
+URI_NEXUS_GRAPHQL = "nexus/v1/graphql"
+URI_NOTIFICATIONS = "api/notifications"
+URI_REBOOT = "v1/alexa/device/reboot/{device_type}/{serial_number}"
+URI_REGISTER = "auth/register"
+URI_SIGNIN = "ap/signin"
+URI_TODO_BASE = "alexashoppinglists/api/v2/lists"
+URI_TOKEN = "auth/token"  # noqa: S105
+URI_WELCOME = "api/welcome"
+
+HTTP2_SITE = "https://bob-dispatch-prod-{region}.amazon.com"
+HTTP2_DIRECTIVES_VERSION = "20160207"
+HTTP2_RECONNECT_DELAY = 5  # seconds
+
+COMM_SITE = "https://alexa-comms-mobile-service.amazon.com"

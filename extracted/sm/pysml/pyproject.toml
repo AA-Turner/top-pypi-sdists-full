@@ -1,0 +1,25 @@
+[build-system]
+requires = ["poetry-core>=2.0"]
+build-backend = "poetry.core.masonry.api"
+
+[project]
+name = "pysml"
+description = "Python library for EDL21 smart meters using Smart Message Language (SML)"
+license = "MIT"
+version = "0.1.8"
+readme = "README.md"
+authors = [{name = "Andreas Oberritter", email = "obi@saftware.de"}]
+requires-python = '>=3.11,<4.0'
+dependencies = ['bitstring (>=3.1)', 'serialx (>=1.8.0)', 'aiohttp (>=3.8.4,<4.0.0)']
+
+[project.urls]
+source = "https://codeberg.org/obi/pysml"
+issues = "https://codeberg.org/obi/pysml/issues"
+
+[tool.poetry]
+packages = [
+    { include = "sml" },
+    { include = "sml-mqtt-bridge.py", from = "examples" },
+    { include = "sml-mqtt-bridge.service", from = "examples" },
+    { include = "test_asyncio.py", from = "examples" },
+]

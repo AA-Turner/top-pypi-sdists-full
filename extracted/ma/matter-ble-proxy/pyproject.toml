@@ -1,0 +1,212 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = [
+    "setuptools>=62.3",
+]
+
+[project]
+authors = [
+    { name = "Open Home Foundation", email = "hello@openhomefoundation.io" },
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Home Automation",
+]
+dependencies = [
+    "aiohttp",
+    "bleak",
+]
+description = "Python client library for the OHF Matter Server BLE proxy protocol"
+license = "Apache-2.0"
+name = "matter-ble-proxy"
+readme = "README.md"
+requires-python = ">=3.12"
+version = "1.3.3"
+
+[project.urls]
+Homepage = "https://github.com/matter-js/matterjs-server"
+Source = "https://github.com/matter-js/matterjs-server/tree/main/python_ble_proxy"
+"Bug Tracker" = "https://github.com/matter-js/matterjs-server/issues"
+Changelog = "https://github.com/matter-js/matterjs-server/blob/main/CHANGELOG.md"
+
+[project.scripts]
+matter-ble-proxy = "matter_ble_proxy.cli:main"
+
+[project.optional-dependencies]
+test = [
+    "codespell==2.4.1",
+    "isort==7.0.0",
+    "mypy==1.19.1",
+    "pylint==4.0.4",
+    "pytest>=9.0",
+    "pytest-asyncio>=0.24",
+    "pytest-aiohttp>=1.0",
+    "pytest-cov>=7.0",
+    "ruff==0.14.9",
+]
+
+[tool.setuptools]
+include-package-data = true
+platforms = [
+    "any",
+]
+zip-safe = false
+
+[tool.setuptools.package-data]
+matter_ble_proxy = [
+    "py.typed",
+]
+
+[tool.setuptools.packages.find]
+include = [
+    "matter_ble_proxy*",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[tool.codespell]
+ignore-words-list = "requestor"
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_any_generics = false
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_decorators = true
+disallow_untyped_defs = true
+follow_imports = "normal"
+ignore_missing_imports = true
+no_implicit_optional = true
+no_implicit_reexport = true
+python_version = "3.12"
+strict_optional = true
+warn_incomplete_stub = true
+warn_no_return = true
+warn_redundant_casts = false
+warn_return_any = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
+overrides = [
+    { module = "tests.*", disallow_untyped_defs = false, disallow_untyped_calls = false },
+]
+
+[tool.pylint.MAIN]
+extension-pkg-allow-list = []
+
+[tool.pylint.BASIC]
+good-names = [
+    "_",
+    "T",
+]
+
+[tool.pylint.DESIGN]
+max-args = 10
+max-attributes = 15
+max-positional-arguments = 10
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = [
+    "duplicate-code",
+    "format",
+    "unsubscriptable-object",
+    "unused-argument",
+    "unspecified-encoding",
+    "isinstance-second-argument-not-valid-type",
+    "fixme",
+    "too-few-public-methods",
+]
+
+[tool.pylint.SIMILARITIES]
+ignore-imports = true
+
+[tool.pylint.FORMAT]
+max-line-length = 120
+
+[tool.ruff]
+fix = true
+line-length = 120
+show-fixes = true
+target-version = "py312"
+
+[tool.ruff.lint]
+ignore = [
+    "ANN002",
+    "ANN003",
+    "ANN401",
+    "D203",
+    "D213",
+    "D417",
+    "EM101",
+    "EM102",
+    "FIX002",
+    "PLR2004",
+    "S101",
+    "TD002",
+    "TD003",
+    "COM812",
+    "ISC001",
+    "TC006",
+    "SLF001",
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D107",
+    "PLC0415",
+    "N818",
+    "FBT001",
+    "FBT002",
+    "FBT003",
+    "TRY003",
+    "ASYNC109",
+    "ARG001",
+    "ARG002",
+    "ERA001",
+    "BLE001",
+    "TRY300",
+    "TRY301",
+    "PYI036",
+    "SIM117",
+]
+select = [
+    "ALL",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+force-sort-within-sections = true
+known-first-party = [
+    "matter_ble_proxy",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 25
+
+[tool.ruff.lint.pylint]
+max-args = 10
+max-branches = 25
+max-returns = 15
+max-statements = 50
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "D",
+    "ANN",
+    "S",
+    "PLR2004",
+]

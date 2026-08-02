@@ -1,0 +1,165 @@
+[project]
+name = "pyoverkiz"
+version = "2.1.0"
+description = "A fully asynchronous API client for interaction with smart devices connected to OverKiz, supporting multiple vendors such as Somfy TaHoma and Atlantic Cozytouch."
+readme = "README.md"
+authors = [
+    {name = "Mick Vleeshouwer", email = "mick@imick.nl"},
+    {name = "Vincent Le Bourlot"},
+    {name = "Thibaut Etienne"},
+]
+license = {text = "MIT"}
+requires-python = "<4.0,>=3.12"
+packages = [
+    { include = "pyoverkiz" }
+]
+dependencies = [
+    "aiohttp>=3.10.3,<4.0.0",
+    "backoff<3.0,>=1.10.0",
+    "attrs>=22.2",
+    "cattrs>=23.2",
+]
+
+[project.optional-dependencies]
+nexity = [
+    "boto3>=1.18.59,<2.0.0",
+    "warrant-lite<2.0.0,>=1.0.4",
+]
+docs = [
+    "mkdocs>=1.5.0,<2.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=1.0.4",
+    "mkdocs-autorefs>=1.0.0",
+    "pymdown-extensions>=10.21.3",
+]
+
+[project.urls]
+homepage = "https://github.com/iMicknl/python-overkiz-api"
+repository = "https://github.com/iMicknl/python-overkiz-api"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.2,<10.0.0",
+    "pytest-cov>=5,<8",
+    "pytest-asyncio>=1.4.0,<1.5.0",
+    "ruff>=0.15.15",
+    "mypy>=1.16.1",
+    "ty>=0.0.43",
+    "prek>=0.4.3",
+]
+
+[tool.ruff.lint]
+select = [
+    # pydocstyle
+    "D",
+    # flake8-async
+    "ASYNC",
+    # pycodestyle
+    "E",
+    "W",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+    # ruff
+    "RUF",
+    # flake8-bandit (security)
+    "S",
+    # flake8-print
+    "T",
+    # flake8-comprehensions
+    "C4",
+    # pep8-naming
+    "N",
+    # flake8-pytest-style
+    "PT",
+    # flake8-logging
+    "LOG",
+    # flake8-datetimez
+    "DTZ",
+    # flynt
+    "FLY",
+    # flake8-implicit-str-concat
+    "ISC",
+    # pygrep-hooks
+    "PGH",
+    # flake8-self
+    "SLF",
+    # flake8-slots
+    "SLOT",
+    # tidy imports
+    "TID",
+    # flake8-no-pep420
+    "INP",
+    # import conventions
+    "ICN",
+    # flake8-logging-format
+    "G",
+    # blind exception
+    "BLE",
+    # tryceratops
+    "TRY",
+    # flake8-quotes
+    "Q",
+    # refurb
+    "FURB",
+    # perflint
+    "PERF",
+    # flake8-raise
+    "RSE",
+    # flake8-return
+    "RET",
+    # flake8-pie
+    "PIE",
+    # eradicate
+    "ERA",
+    # flake8-pyi
+    "PYI",
+    # flake8-pathlib
+    "PTH",
+    # flake8-builtins
+    "A",
+    # pylint
+    "PL",
+]
+ignore = [
+    "E501",    # Line too long
+    "TRY003",  # Long exception messages are acceptable for domain-specific errors
+    "A002",    # Shadowing builtins (id, type) is intentional for API field names
+    "PLR0913", # Too many arguments — expected for API model constructors
+    "PLC0415", # Import not at top level — intentional lazy imports
+    "PLR0911", # Too many return statements — acceptable in factory functions
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "SLF001", "PLR2004"]  # Allow assert, private member access, and magic values in tests
+"utils/**" = ["INP001", "BLE001", "PLR0912", "PLR0915"]  # Utils are scripts, not packages; complex generators acceptable
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"  # Accepts: "google", "numpy", or "pep257".
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "pyoverkiz/*",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["pyoverkiz"]
+only-packages = true
+
+[tool.mypy]
+exclude = ["tests/"]
+ignore_missing_imports = true
+
+[tool.ty.src]
+exclude = ["tests/"]

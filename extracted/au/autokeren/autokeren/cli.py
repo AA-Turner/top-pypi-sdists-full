@@ -1,0 +1,1291 @@
+"""autokeren CLI."""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import time
+from pathlib import Path
+
+if sys.platform == "win32":
+    import asyncio
+    try:
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    except Exception:
+        pass
+
+from rich.console import Console
+from rich.panel import Panel
+from rich.prompt import Confirm, Prompt
+
+from autokeren import __version__
+from autokeren.agent import Agent
+from autokeren.config import ensure_config, init_config, load_config, save_config
+from autokeren.genome import GuardianChecker
+from autokeren.memory import MemoryManager
+from autokeren.tools import (
+    CamofoxTool,
+    CloudflareBuildTool,
+    CloudflareD1Tool,
+    CloudflareDeployTool,
+    CloudflareKVTool,
+    CollaborateTool,
+    CreateProjectTool,
+    DeployProjectTool,
+    FDDMTool,
+    FetchURLTool,
+    GenomeTool,
+    GitBranchTool,
+    GitCommitTool,
+    GitDiffTool,
+    GitLogTool,
+    GitStatusTool,
+    ListFilesTool,
+    ListProjectsTool,
+    PatchFileTool,
+    ReadFileTool,
+    RememberTool,
+    RepoMapTool,
+    ResearchTool,
+    ReviewTool,
+    RewindTool,
+    SearchCodeTool,
+    ShellTool,
+    SpawnAgentTool,
+    CheckAgentTool,
+    TodoTool,
+    KanbanTool,
+    ToolRegistry,
+    TmuxTool,
+    WriteFileTool,
+    ProofTool,
+)
+from autokeren.ui import AK_THEME, AgentUI
+from autokeren.mcp import MCPClient, MCPTool
+
+console = Console(theme=AK_THEME)
+
+
+def build_registry(cfg, project_root: Path, memory: MemoryManager) -> ToolRegistry:
+    reg = ToolRegistry()
+    reg.register(ReadFileTool(project_root))
+    reg.register(WriteFileTool(project_root))
+    reg.register(PatchFileTool(project_root))
+    reg.register(ListFilesTool(project_root))
+    reg.register(ShellTool(project_root, allowlist=cfg.autokeren.shell_allowlist, default_timeout=cfg.autokeren.shell_timeout))
+    reg.register(SearchCodeTool(project_root))
+    reg.register(RepoMapTool(project_root))
+    reg.register(FetchURLTool())
+    reg.register(GitStatusTool(project_root))
+    reg.register(GitDiffTool(project_root))
+    reg.register(GitCommitTool(project_root))
+    reg.register(GitLogTool(project_root))
+    reg.register(GitBranchTool(project_root))
+    reg.register(CamofoxTool(cfg))
+    reg.register(CloudflareDeployTool(project_root))
+    reg.register(CloudflareBuildTool(project_root))
+    reg.register(CloudflareKVTool(cfg))
+    reg.register(CloudflareD1Tool(cfg))
+    reg.register(TmuxTool(project_root))
+    reg.register(TodoTool())
+    reg.register(KanbanTool(project_root))
+    reg.register(ProofTool(project_root))
+    reg.register(RememberTool(memory))
+    reg.register(SpawnAgentTool(cfg, str(project_root), memory))
+    reg.register(CheckAgentTool(cfg, str(project_root), memory))
+    reg.register(CollaborateTool(cfg, str(project_root), memory))
+    if cfg.autokeren.fddm.enabled and cfg.autokeren.fddm.url:
+        reg.register(FDDMTool(cfg.autokeren.fddm.url, cfg.autokeren.fddm.api_key))
+    if cfg.auth.mode == "platform":
+        reg.register(CreateProjectTool(cfg))
+        reg.register(DeployProjectTool(cfg))
+        reg.register(ListProjectsTool(cfg))
+
+    # Load dynamic tools from .ak-tools/
+    from autokeren.tools.dynamic_loader import load_dynamic_tools
+    load_dynamic_tools(project_root, reg, cfg, memory)
+
+    return reg
+
+
+_mcp_clients: list[MCPClient] = []
+
+
+def load_mcp_servers(cfg, registry: ToolRegistry) -> None:
+    """Start semua MCP servers yang dikonfigurasi dan daftarkan tool-nya."""
+    global _mcp_clients
+    for srv_cfg in cfg.mcp_servers:
+        if not srv_cfg.enabled:
+            continue
+        try:
+            client = MCPClient(name=srv_cfg.name, command=srv_cfg.command, env=srv_cfg.env or {})
+            client.start()
+            _mcp_clients.append(client)
+            for tool_schema in client.tools():
+                registry.register(MCPTool(client, tool_schema))
+            console.print(f"[green]✓ MCP server '[bold]{srv_cfg.name}[/bold]' terhubung — {len(client.tools())} tools.[/green]")
+        except Exception as exc:
+            console.print(f"[yellow]⚠ MCP server '[bold]{srv_cfg.name}[/bold]' gagal dimulai: {exc}[/yellow]")
+
+
+def stop_mcp_servers() -> None:
+    """Hentikan semua MCP server saat program keluar."""
+    for client in _mcp_clients:
+        try:
+            client.stop()
+        except Exception:
+            pass
+    _mcp_clients.clear()
+
+
+def _read_input(console: Console) -> str:
+    """Read user input. Simple Prompt.ask, no paste detection."""
+    return Prompt.ask("[bold blue]kamu[/bold blue]").strip()
+
+
+def chat_loop(agent: Agent, cfg, ui: AgentUI):
+    ui.show_banner(__version__)
+    if cfg.auth.mode == "platform" and not cfg.auth.api_key:
+        console.print("[yellow]Warning: API key belum diisi. Jalankan autokeren --login.[/yellow]")
+    elif cfg.auth.mode == "direct" and (not cfg.cloudflare.account_id or not cfg.cloudflare.api_token):
+        console.print("[yellow]Warning: Cloudflare account_id/api_token belum diisi. Jalankan autokeren --init.[/yellow]")
+    elif cfg.auth.mode == "aistudio" and not cfg.auth.gemini_api_key:
+        console.print("[yellow]Warning: Gemini API key belum diisi. Set GEMINI_API_KEY env var atau update config.yaml.[/yellow]")
+    else:
+        console.print(f"[dim]Auth: {cfg.auth.mode}[/dim]")
+    if agent.memory.exists():
+        console.print(f"[dim]Memory: {agent.memory.line_count()} baris[/dim]")
+    sessions = agent.sessions.list()
+    if sessions:
+        console.print(f"[dim]Saved sessions: {len(sessions)} (ketik /sessions untuk lihat)[/dim]")
+    console.print("[dim]Ketik /help untuk bantuan, atau langsung tanya apa saja.[/dim]\n")
+
+    _last_ctrl_c: float = 0
+
+    while True:
+        ui.show_status_bar(agent.status_bar_info())
+        try:
+            user_input = _read_input(console)
+        except EOFError:
+            console.print("\nSampai jumpa!")
+            break
+        except KeyboardInterrupt:
+            now = time.time()
+            if now - _last_ctrl_c < 3:
+                console.print("\n[yellow]Keluar.[/yellow]")
+                break
+            _last_ctrl_c = now
+            console.print("\n[yellow]Ctrl+C lagi dalam 3 detik untuk keluar.[/yellow]")
+            continue
+
+        if not user_input:
+            continue
+        if user_input in ("/quit", "/q"):
+            break
+        if user_input == "/help":
+            from autokeren.commands import handle_slash_command_sync
+            sync_res = handle_slash_command_sync("/help", agent, cfg, _mcp_clients, lambda val: setattr(ui, "_allow_all", val))
+            if sync_res:
+                console.print(sync_res)
+            continue
+        parts = user_input.strip().split(" ", 1)
+        cmd = parts[0].lower()
+        if cmd in ("/config", "/local", "/approval", "/mcp"):
+            from autokeren.commands import handle_slash_command_sync
+            sync_res = handle_slash_command_sync(user_input, agent, cfg, _mcp_clients, lambda val: setattr(ui, "_allow_all", val))
+            if sync_res:
+                console.print(sync_res)
+            continue
+        if user_input == "/model" or user_input.startswith("/model "):
+            arg = user_input[6:].strip()
+            if arg:
+                if cfg.auth.mode in ("antigravity", "aistudio"):
+                    resolved = arg
+                else:
+                    from autokeren.models.cloudflare import resolve_model_id
+                    resolved = resolve_model_id(arg, getattr(agent.router.models[0], "auth_mode", "direct"))
+                if agent.router.switch_model(resolved):
+                    ui.set_model_name(agent.router.current_model_id())
+                    console.print(f"[green]Model aktif: {arg}[/green]")
+                else:
+                    console.print(f"[red]Model '{arg}' tidak ditemukan.[/red]")
+            else:
+                if cfg.auth.mode == "antigravity":
+                    from autokeren.models.antigravity import fetch_antigravity_models
+                    all_models = fetch_antigravity_models()
+                elif cfg.auth.mode == "aistudio":
+                    from autokeren.models.aistudio import fetch_aistudio_models
+                    all_models = fetch_aistudio_models(cfg)
+                elif cfg.auth.mode == "openai":
+                    from autokeren.models.openai import fetch_openai_models
+                    all_models = fetch_openai_models(cfg)
+                else:
+                    from autokeren.models.cloudflare import fetch_available_models
+                    all_models = fetch_available_models(cfg)
+
+                from autokeren.selector import select_option
+                current = agent.router.current_model_id()
+                for m in all_models:
+                    m["active"] = m["id"] == current
+
+                idx = select_option(all_models, title="Pilih Model", console=console)
+                if idx is not None:
+                    chosen = all_models[idx]["id"]
+                    if cfg.auth.mode in ("antigravity", "aistudio", "openai"):
+                        resolved = chosen
+                    else:
+                        from autokeren.models.cloudflare import resolve_model_id
+                        resolved = resolve_model_id(chosen, getattr(agent.router.models[0], "auth_mode", "direct"))
+                    agent.router.switch_model(resolved)
+                    console.print(f"[green]Model aktif: {all_models[idx]['name']} ({chosen})[/green]")
+                else:
+                    console.print("[dim]Dibatalkan.[/dim]")
+            continue
+        if user_input == "/status":
+            console.print_json(json.dumps(agent.status()))
+            ui.show_context_status(agent.context_info())
+            continue
+        if user_input == "/proof" or user_input.startswith("/proof "):
+            cmd_args = user_input[7:].strip()
+            if not cmd_args:
+                console.print("[yellow]Penggunaan /proof:[/yellow]")
+                console.print("  /proof plan <title> | <kriteria 1> | <kriteria 2> ...")
+                console.print("  /proof list")
+                console.print("  /proof report <proof-id>")
+                console.print("  /proof record <proof-id> <nomor-kriteria> <status> | <evidence>")
+                continue
+
+            parts = cmd_args.split(" ", 1)
+            action = parts[0].strip()
+            rest = parts[1].strip() if len(parts) > 1 else ""
+
+            tool = agent.tools.get("proof")
+            if not tool:
+                console.print("[red]Tool 'proof' tidak terdaftar di registry.[/red]")
+                continue
+
+            if action == "list":
+                res = tool.run(action="list")
+                if res.ok:
+                    console.print(res.output)
+                else:
+                    console.print(f"[red]Gagal list proof:[/red] {res.error}")
+            elif action == "report":
+                if not rest:
+                    console.print("[red]Format salah. Contoh: /proof report proof-xxxx[/red]")
+                    continue
+                res = tool.run(action="report", proof_id=rest)
+                if res.ok:
+                    console.print(res.output)
+                else:
+                    console.print(f"[red]Gagal report proof:[/red] {res.error}")
+            elif action == "plan":
+                if not rest:
+                    console.print("[red]Format salah. Contoh: /proof plan Judul Rilis | Kriteria 1 | Kriteria 2[/red]")
+                    continue
+                subparts = [p.strip() for p in rest.split("|")]
+                title = subparts[0]
+                criteria = subparts[1:]
+                if not title or not criteria:
+                    console.print("[red]Judul dan kriteria minimal 1 harus diisi.[/red]")
+                    continue
+                res = tool.run(action="plan", title=title, criteria=criteria)
+                if res.ok and isinstance(res.output, dict):
+                    console.print(f"[green]{res.output.get('message')}[/green]")
+                else:
+                    console.print(f"[red]Gagal membuat rencana bukti:[/red] {res.error}")
+            elif action == "record":
+                if not rest:
+                    console.print("[red]Format salah. Contoh: /proof record proof-xxxx 1 passed | tes passed[/red]")
+                    continue
+                evidence_parts = rest.split("|", 1)
+                left_side = evidence_parts[0].strip()
+                evidence = evidence_parts[1].strip() if len(evidence_parts) > 1 else ""
+
+                left_tokens = left_side.split()
+                if len(left_tokens) < 3:
+                    console.print("[red]Format salah. Harus berisi: proof_id, nomor kriteria, dan status.[/red]")
+                    continue
+                proof_id = left_tokens[0]
+                try:
+                    criterion_num = int(left_tokens[1])
+                except ValueError:
+                    console.print("[red]Nomor kriteria harus berupa angka.[/red]")
+                    continue
+                status = left_tokens[2]
+
+                res = tool.run(
+                    action="record",
+                    proof_id=proof_id,
+                    criterion_num=criterion_num,
+                    status=status,
+                    evidence=evidence,
+                )
+                if res.ok and isinstance(res.output, dict):
+                    console.print(f"[green]{res.output.get('message')}[/green]")
+                else:
+                    console.print(f"[red]Gagal merekam bukti:[/red] {res.error}")
+            else:
+                console.print(f"[red]Aksi /proof '{action}' tidak dikenal.[/red]")
+            continue
+        if user_input == "/compact":
+            console.print("[dim]mengompak context…[/dim]")
+            try:
+                msg = agent.compact()
+                console.print(f"[green]{msg}[/green]")
+                ui.show_context_status(agent.context_info())
+            except Exception as e:
+                console.print(f"[red]Compact gagal:[/red] {e}")
+            continue
+        if user_input == "/reset":
+            agent.reset()
+            ui.reset_permissions()
+            console.print("Sesi direset. Permission juga direset.")
+            continue
+        if user_input == "/debug":
+            import os
+            import logging
+            current_debug = os.environ.get("AUTOKEREN_DEBUG") == "1"
+            if current_debug:
+                os.environ.pop("AUTOKEREN_DEBUG", None)
+                logging.getLogger().setLevel(logging.WARNING)
+                console.print("[blue]Mode Debug NON-AKTIF. Traceback internal tidak akan ditampilkan secara detail.[/blue]")
+            else:
+                os.environ["AUTOKEREN_DEBUG"] = "1"
+                logging.basicConfig(filename="autokeren-debug.log", level=logging.DEBUG, force=True)
+                logging.debug("Debug mode activated in CLI.")
+                console.print("[blue]Mode Debug AKTIF. Traceback internal akan ditampilkan. Detail debug dicatat di autokeren-debug.log.[/blue]")
+            continue
+        if user_input.startswith("/rewind"):
+            if not agent.checkpoints:
+                console.print("[yellow]Time-Travel tidak diaktifkan.[/yellow]")
+                continue
+            arg = user_input[7:].strip()
+            if arg == "list":
+                cps = agent.checkpoints.list_checkpoints()
+                if not cps:
+                    console.print("[dim]Tidak ada checkpoint.[/dim]")
+                else:
+                    for cp in cps:
+                        import datetime
+                        ts = datetime.datetime.fromtimestamp(cp["timestamp"]).strftime("%H:%M:%S")
+                        path = cp["args"].get("path", cp["args"].get("query", ""))
+                        console.print(f"  #{cp['id']} [{ts}] {cp['tool']}({path}) — {cp['changes']} changes {'✗' if not cp['ok'] else '✓'}")
+                continue
+            steps = int(arg) if arg.isdigit() else 1
+            if steps < 1:
+                steps = 1
+            total = agent.checkpoints.count()
+            if total == 0:
+                console.print("[dim]Tidak ada checkpoint untuk di-rewind.[/dim]")
+                continue
+            console.print(f"[dim]Rewinding {min(steps, total)} tool call…[/dim]")
+            undone = agent.checkpoints.rewind(steps)
+            if undone:
+                for entry in undone:
+                    path = entry.tool_args.get("path", entry.tool_args.get("query", ""))
+                    n = len(entry.file_changes)
+                    console.print(f"  ⏪ #{entry.id} {entry.tool_name}({path}) — {n} file di-revert")
+                console.print(f"[green]Rewind selesai. {agent.checkpoints.count()} checkpoint tersisa.[/green]")
+            else:
+                console.print("[yellow]Tidak ada yang di-rewind.[/yellow]")
+            continue
+        if user_input == "/diagram":
+            ui.render_last_diagram()
+            continue
+        if user_input.startswith("/security"):
+            if not agent.security_scanner:
+                console.print("[yellow]Vibe-Security tidak diaktifkan.[/yellow]")
+                continue
+            arg = user_input[9:].strip()
+            if arg:
+                findings = agent.security_scanner.scan_file(arg)
+            else:
+                findings = []
+                for p in Path(agent.project_root).rglob("*"):
+                    if p.is_file() and p.suffix in (".py", ".js", ".ts", ".jsx", ".tsx"):
+                        rel = str(p.relative_to(agent.project_root))
+                        if ".ak-" in rel or "node_modules" in rel or ".venv" in rel:
+                            continue
+                        findings.extend(agent.security_scanner.scan_file(str(p)))
+            console.print(agent.security_scanner.format_findings(findings))
+            continue
+        if user_input.startswith("/review"):
+            from autokeren.tools.review import collect_git_diff
+            arg = user_input[7:].strip()
+            diff = collect_git_diff(agent.project_root, staged=(arg == "staged"))
+            if not diff:
+                console.print("[dim]Tidak ada diff untuk di-review.[/dim]")
+                continue
+            coder_model = agent.router.current_model_id()
+            from autokeren.review.selector import ReviewerSelector
+            from autokeren.review.parser import parse_review_output, format_review_for_agent
+            reviewer = ReviewerSelector().select(coder_model)
+            console.print(f"[dim]Reviewing dengan model: {reviewer}…[/dim]")
+            review_prompt = (
+                "Review code diff berikut. Cek: bugs, security, architecture, edge cases.\n\n"
+                f"Diff:\n{diff[:8000]}\n\n"
+                "Format: SEVERITY/ISSUE/FILE/FIX atau 'NO ISSUES FOUND'"
+            )
+            try:
+                resp = agent.router.complete(
+                    [{"role": "user", "content": review_prompt}],
+                    max_tokens=2048,
+                    temperature=0.0,
+                )
+                result = parse_review_output(resp.content or "", reviewer)
+                console.print(format_review_for_agent(result))
+            except Exception as e:
+                console.print(f"[red]Review gagal:[/red] {e}")
+            continue
+        if user_input.startswith("/loop"):
+            if not agent.loop_breaker:
+                console.print("[yellow]Loop Breaker tidak diaktifkan.[/yellow]")
+                continue
+            arg = user_input[5:].strip()
+            if arg == "reset":
+                agent.loop_breaker.reset()
+                if agent._pattern_detector:
+                    agent._pattern_detector.reset()
+                console.print("[green]Loop Breaker di-reset.[/green]")
+            elif arg == "status":
+                st = agent.loop_breaker.status()
+                console.print(f"Total errors tracked: {st['total_errors']}")
+                console.print(f"Unique recent: {st['unique_recent']}")
+                for h in st["history"]:
+                    console.print(f"  {h['tool']} — {h['error']}")
+            elif arg == "break":
+                agent.router.swap_models()
+                agent.loop_breaker.reset()
+                console.print("[green]Manual loop break: model di-swap, history di-reset.[/green]")
+            else:
+                console.print("/loop status | reset | break")
+            continue
+        if user_input.startswith("/genome"):
+            if not agent._genome_scanner:
+                console.print("[yellow]Architecture Guardian tidak diaktifkan.[/yellow]")
+                continue
+            arg = user_input[6:].strip()
+            if arg == "rescan":
+                agent._genome = agent._genome_scanner.scan()
+                agent._guardian_checker = GuardianChecker(agent._genome) if agent._genome else None
+                console.print(f"[green]Genome di-rescan. {len(agent._genome.modules)} modules, {len(agent._genome.dependencies)} deps.[/green]")
+            elif arg == "check":
+                dups = agent._genome.find_duplicate_functions() if agent._genome else {}
+                if not dups:
+                    console.print("[green]Tidak ada duplicate functions.[/green]")
+                else:
+                    for name, entries in dups.items():
+                        locs = ", ".join(f"{e.module}:{e.file}:{e.line}" for e in entries)
+                        console.print(f"  [yellow]{name}[/yellow] — {locs}")
+            else:
+                g = agent._genome
+                if g:
+                    console.print(f"[bold]Project Genome[/bold] — {len(g.modules)} modules, {len(g.dependencies)} deps")
+                    for mod in g.modules:
+                        console.print(f"  [{mod.language}] {mod.name} — {len(mod.functions)} functions")
+                    dups = g.find_duplicate_functions()
+                    if dups:
+                        console.print(f"\n[yellow]⚠ {len(dups)} duplicate functions[/yellow]")
+                else:
+                    console.print("[dim]Genome kosong.[/dim]")
+            continue
+        if user_input == "/permissions":
+            ps = ui.permission_status()
+            if ps["allow_all"]:
+                console.print("[green]Semua tool diizinkan untuk session ini.[/green]")
+            elif ps["allowed_tools"]:
+                console.print(f"[green]Tool diizinkan:[/green] {', '.join(ps['allowed_tools'])}")
+            else:
+                console.print("[dim]Belum ada tool yang diizinkan. Akan tanya saat tool destruktif dipanggil.[/dim]")
+            continue
+        if user_input == "/memory":
+            mem = agent.memory.load()
+            if mem:
+                console.print(Panel(mem, title=f"[bold]memory[/bold] ({agent.memory.line_count()} baris)", border_style="magenta"))
+                console.print(f"[dim]File: {agent.memory.get_path()}[/dim]")
+            else:
+                console.print("[dim]Memory kosong. Agent akan simpan otomatis via tool remember.[/dim]")
+            continue
+        if user_input.startswith("/save"):
+            name = user_input[5:].strip() or f"session-{len(agent.sessions.list()) + 1}"
+            try:
+                sid = agent.save_session(name)
+                console.print(f"[green]Session '{name}' disimpan. ID: {sid}[/green]")
+            except Exception as e:
+                console.print(f"[red]Save gagal:[/red] {e}")
+            continue
+        if user_input.startswith("/resume"):
+            identifier = user_input[7:].strip()
+            if not identifier:
+                console.print("[yellow]Pakai: /resume <nama|id>[/yellow]")
+                continue
+            try:
+                msg = agent.resume_session(identifier)
+                console.print(f"[green]{msg}[/green]")
+                ui.show_context_status(agent.context_info())
+            except Exception as e:
+                console.print(f"[red]Resume gagal:[/red] {e}")
+            continue
+        if user_input.startswith("/spec"):
+            from autokeren.spec import SpecPlanner
+            if not hasattr(agent, "_spec_planner"):
+                agent._spec_planner = SpecPlanner(router=agent.router, num_questions=cfg.autokeren.spec_driven.num_questions)  # type: ignore[attr-defined]
+            sp = agent._spec_planner  # type: ignore[attr-defined]
+            arg = user_input[5:].strip()
+            if not arg:
+                console.print("/spec <request> | answer <text> | generate | show | progress")
+                continue
+            if arg.startswith("answer "):
+                text = arg[7:]
+                if sp.session:
+                    nxt = sp.session.answer(text)
+                    if nxt:
+                        console.print(f"[cyan]Q{sp.session.current}:[/cyan] {nxt}")
+                    else:
+                        console.print("[green]Interview selesai. Ketik /spec generate untuk buat plan.[/green]")
+                else:
+                    console.print("[yellow]Belum ada interview. Ketik /spec <request>.[/yellow]")
+            elif arg == "generate":
+                plan = sp.generate_plan()
+                if plan:
+                    plan.save(Path(agent.project_root))
+                    console.print("[green]Plan disimpan: plan.md + technical-plan.md[/green]")
+                    console.print(f"[dim]{len(plan.steps)} implementation steps[/dim]")
+                else:
+                    console.print("[yellow]Interview belum selesai.[/yellow]")
+            elif arg == "show":
+                if sp.plan:
+                    console.print(Panel(sp.plan.plan_md[:2000], title="plan.md", border_style="cyan"))
+                else:
+                    console.print("[dim]Belum ada plan. Ketik /spec generate.[/dim]")
+            elif arg == "progress":
+                if sp.plan:
+                    console.print(f"Progress: {sp.plan.progress:.0f}% ({len(sp.plan.completed_steps)}/{len(sp.plan.steps)} steps)")
+                else:
+                    console.print("[dim]Belum ada plan.[/dim]")
+            else:
+                session = sp.start_interview(arg)
+                if session.questions:
+                    console.print(f"[green]Interview dimulai: {len(session.questions)} pertanyaan.[/green]")
+                    console.print(f"[cyan]Q1:[/cyan] {session.questions[0]}")
+                    console.print("[dim]Jawab dengan: /spec answer <jawaban>[/dim]")
+                else:
+                    console.print("[yellow]Gagal generate pertanyaan.[/yellow]")
+            continue
+        if user_input.startswith("/ghost"):
+            from autokeren.ghost import GhostManager
+            if not hasattr(agent, "_ghost_manager"):
+                gc = cfg.autokeren.ghost_agent
+                agent._ghost_manager = GhostManager(  # type: ignore[attr-defined]
+                    project_root=agent.project_root,
+                    max_agents=gc.max_background,
+                    prefix=gc.tmux_prefix,
+                )
+            gm = agent._ghost_manager  # type: ignore[attr-defined]
+            arg = user_input[6:].strip()
+            if not arg:
+                console.print("/ghost <task> | list | show <id> | kill <id>|all")
+                continue
+            if arg == "list":
+                agents = gm.list_agents()
+                if not agents:
+                    console.print("[dim]Tidak ada ghost agent.[/dim]")
+                else:
+                    for a in agents:
+                        gm.check_status(a.id)
+                        console.print(f"  #{a.id} [{a.status}] {a.task[:60]} ({a.runtime:.0f}s)")
+            elif arg.startswith("show "):
+                aid = int(arg[5:].strip()) if arg[5:].strip().isdigit() else 0
+                output = gm.get_output(aid)
+                if output:
+                    console.print(Panel(output[-3000:], title=f"Ghost #{aid}", border_style="cyan"))
+                else:
+                    console.print("[dim]Tidak ada output.[/dim]")
+            elif arg.startswith("kill "):
+                target = arg[5:].strip()
+                if target == "all":
+                    for a in gm.list_agents():
+                        gm.kill(a.id)
+                    console.print("[green]Semua ghost agent di-kill.[/green]")
+                elif target.isdigit():
+                    gm.kill(int(target))
+                    console.print(f"[green]Ghost #{target} di-kill.[/green]")
+                else:
+                    console.print("[yellow]Pakai: /ghost kill <id>|all[/yellow]")
+            else:
+                try:
+                    info = gm.spawn(arg)
+                    console.print(f"[green]👻 Ghost Agent #{info.id} di-spawn: {arg[:60]}[/green]")
+                    console.print(f"[dim]Lihat: /ghost show {info.id} | /ghost list[/dim]")
+                except Exception as e:
+                    console.print(f"[red]Spawn gagal:[/red] {e}")
+            continue
+        if user_input.startswith("/research"):
+            if not cfg.autokeren.research.enabled:
+                console.print("[yellow]Research tool tidak diaktifkan.[/yellow]")
+                continue
+            arg = user_input[9:].strip()
+            if not arg:
+                console.print("/research <query> | reddit <q> | hn <q> | web <q>")
+                continue
+            sources: list[str] | None = None
+            query = arg
+            if arg.startswith("reddit "):
+                sources = ["reddit"]
+                query = arg[7:]
+            elif arg.startswith("hn "):
+                sources = ["hackernews"]
+                query = arg[3:]
+            elif arg.startswith("web "):
+                sources = ["web"]
+                query = arg[4:]
+            rc = cfg.autokeren.research
+            tool = ResearchTool(
+                router=agent.router,
+                max_results=rc.max_results,
+                max_depth=rc.max_depth,
+                summarize=rc.summarize,
+                min_comment_score=rc.min_comment_score,
+            )
+            console.print(f"[dim]Researching: {query}…[/dim]")
+            res = tool.run(query=query, sources=sources, depth=rc.max_depth)
+            if res.ok:
+                console.print(Panel(res.to_string(), title=f"Research: {query}", border_style="cyan"))
+            else:
+                console.print(f"[red]Research gagal:[/red] {res.error}")
+            continue
+        if user_input.startswith("/deploy"):
+            arg = user_input[7:].strip()
+            if not arg:
+                console.print("[yellow]Pakai: /deploy <deskripsi app>[/yellow]")
+                console.print("[dim]Contoh: /deploy toko online dengan keranjang dan checkout[/dim]")
+                console.print("[dim]AI akan: create_project → write_file → deploy_project → URL live[/dim]")
+                continue
+            deploy_prompt = (
+                f"User minta deploy app ke Cloudflare: {arg}\n\n"
+                "LANGKAH WAJIB (jangan skip):\n"
+                "1. Panggil create_project(name=\"nama-project-yang-singkat\") untuk provisioning D1+R2+AI.\n"
+                "2. Tulis Worker code ke file lokal pakai write_file(path=\"worker.js\", content=\"...\").\n"
+                "   - MAX 500 BARIS PER FILE. Kalau app besar, tulis bertahap:\n"
+                "     a. write_file untuk base structure (HTML skeleton + API routes + D1 init)\n"
+                "     b. patch_file untuk tambah CSS (ganti /* STYLES */ placeholder)\n"
+                "     c. patch_file untuk tambah JS (ganti /* SCRIPT */ placeholder)\n"
+                "   - Gunakan template literals (backtick) untuk HTML/CSS/JS.\n"
+                "   - Responsive, modern, clean. Bukan HTML basic.\n"
+                "3. Panggil deploy_project(project_id, file_path=\"worker.js\") untuk deploy.\n"
+                "4. Return URL live ke user.\n"
+                "JANGAN inline script ke deploy_project. Tulis ke file dulu."
+            )
+            try:
+                resp = agent.run(deploy_prompt)
+                ui.show_response(resp)
+            except Exception as e:
+                console.print(f"[red]Deploy gagal:[/red] {e}")
+            continue
+        if user_input == "/sessions":
+            sessions = agent.sessions.list()
+            if not sessions:
+                console.print("[dim]Belum ada saved session.[/dim]")
+            else:
+                lines = []
+                for s in sessions:
+                    lines.append(f"  [cyan]{s['id']}[/cyan]  [bold]{s['name']}[/bold]  [dim]{s['timestamp'][:19]}  {s['messages']} pesan[/dim]")
+                console.print(Panel("\n".join(lines), title=f"[bold]sessions[/bold] ({len(sessions)})", border_style="cyan"))
+                console.print("[dim]Ketik /resume <nama|id> untuk resume[/dim]")
+            continue
+
+        try:
+            resp = agent.run(user_input)
+            ui.show_response(resp)
+
+            # Plan mode loop
+            while cfg.autokeren.plan_mode and not agent.plan_approved:
+                approved = Confirm.ask("Setujui rencana ini?")
+                if approved:
+                    agent.approve_plan()
+                    resp = agent.run("")
+                    ui.show_response(resp)
+                else:
+                    agent.context.add_user("User menolak rencana. Tanya apa yang perlu diubah.")
+                    resp = agent.run("")
+                    ui.show_response(resp)
+
+            # Context status after each response
+            info = agent.context_info()
+            ui.show_context_status(info)
+
+            # Auto-compact suggestion
+            if info["pct"] >= cfg.autokeren.auto_compact_threshold * 100:
+                console.print(f"[yellow]⚠ Context sudah {info['pct']:.0f}%. Ketik /compact untuk meringkas.[/yellow]")
+        except KeyboardInterrupt:
+            now = time.time()
+            if now - _last_ctrl_c < 3:
+                console.print("\n[yellow]Keluar.[/yellow]")
+                break
+            _last_ctrl_c = now
+            console.print("\n[yellow]Dibatalkan. Ctrl+C lagi dalam 3 detik untuk keluar.[/yellow]")
+        except Exception as e:
+            console.print(f"[red]Error:[/red] {e}")
+        finally:
+            ui.cleanup()
+
+
+def _try_run_go_runtime(args: argparse.Namespace, sys_argv: list[str]) -> bool:
+    """Menjalankan runtime Go untuk semua alur utama; Python hanya untuk kompatibilitas eksplisit."""
+    if (
+        args.engine == "python"
+        or args.role
+        or args.agy
+        or args.telegram
+        or args.telegram_token
+        or args.telegram_allow_user
+    ):
+        return False
+
+    import os
+    import sys
+    import shutil
+    import platform
+    import subprocess
+    from pathlib import Path
+    from autokeren import __version__
+
+    os.environ["AUTOKEREN_PYTHON_PATH"] = sys.executable
+    os.environ["AUTOKEREN_VERSION"] = __version__
+    cache_dir = Path.home() / ".cache" / "autokeren" / "bin"
+    ak_bin = cache_dir / ("ak.exe" if os.name == "nt" else "ak")
+    version_file = cache_dir / "version.txt"
+
+    # Cek apakah cache version cocok dengan versi package saat ini
+    cache_valid = False
+    if version_file.exists():
+        try:
+            cached_version = version_file.read_text().strip()
+            if cached_version == __version__:
+                cache_valid = True
+        except Exception:
+            pass
+
+    # Resolve pre-built binary path
+    package_dir = Path(__file__).parent
+    os_name = platform.system().lower()
+    arch = platform.machine().lower()
+
+    prebuilt_name = ""
+    if os_name == "windows":
+        if "amd64" in arch or "x86_64" in arch:
+            prebuilt_name = "ak-windows-amd64.exe"
+    elif os_name == "linux":
+        if "amd64" in arch or "x86_64" in arch:
+            prebuilt_name = "ak-linux-amd64"
+        elif "arm64" in arch or "aarch64" in arch:
+            prebuilt_name = "ak-linux-arm64"
+    elif os_name == "darwin":
+        if "arm64" in arch or "aarch64" in arch:
+            prebuilt_name = "ak-darwin-arm64"
+        elif "amd64" in arch or "x86_64" in arch:
+            prebuilt_name = "ak-darwin-amd64"
+
+    prebuilt_path = package_dir / "bin" / prebuilt_name if prebuilt_name else None
+    if prebuilt_path and not prebuilt_path.exists():
+        prebuilt_path = package_dir.parent / "autokeren" / "bin" / prebuilt_name
+
+    # Cek apakah biner prebuilt lebih baru dari biner cached (untuk development mode)
+    prebuilt_is_newer = False
+    if prebuilt_path and prebuilt_path.exists() and ak_bin.exists():
+        try:
+            prebuilt_is_newer = prebuilt_path.stat().st_mtime > ak_bin.stat().st_mtime
+        except Exception:
+            pass
+
+    # Jika cache version tidak cocok, biner tidak ada, atau prebuilt lebih baru, salin ulang biner
+    if not cache_valid or not ak_bin.exists() or prebuilt_is_newer:
+        if ak_bin.exists():
+            try:
+                ak_bin.unlink()
+            except Exception:
+                pass
+
+        cache_dir.mkdir(parents=True, exist_ok=True)
+
+        # Jika biner prebuilt ada, salin ke cache_dir
+        if prebuilt_path and prebuilt_path.exists():
+            try:
+                shutil.copy2(str(prebuilt_path), str(ak_bin))
+                # Set permission executable di Linux/macOS
+                if os.name != "nt":
+                    os.chmod(str(ak_bin), 0o755)
+                # Tulis file versi untuk mencatat kecocokan cache
+                version_file.write_text(__version__)
+            except Exception:
+                pass
+
+        # 3. Jika salinan prebuilt gagal atau tidak ada, coba compile lokal (fallback)
+        if not ak_bin.exists():
+            go_path = shutil.which("go")
+            if go_path:
+                go_src_dir = package_dir / "go"
+                if not go_src_dir.exists():
+                    go_src_dir = package_dir.parent
+                    if not (go_src_dir / "main.go").exists():
+                        return False
+
+                try:
+                    subprocess.run(
+                        [go_path, "build", "-ldflags=-s -w", "-o", str(ak_bin), "main.go"],
+                        cwd=str(go_src_dir),
+                        check=True,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                except Exception:
+                    return False
+            else:
+                return False  # Tidak ada Go compiler, dan tidak ada prebuilt, fallback ke Python TUI
+
+        # Tulis penanda versi baru ke cache setelah biner terpasang
+        if ak_bin.exists():
+            try:
+                version_file.write_text(__version__)
+            except Exception:
+                pass
+
+    if ak_bin.exists():
+        argv = [str(ak_bin), "--engine", "go"] + sys_argv[1:]
+        try:
+            if os.name == "nt":
+                sys.exit(subprocess.call(argv))
+            else:
+                os.execvp(str(ak_bin), argv)
+        except Exception:
+            return False
+
+    return False
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(prog="autokeren", description="Cloudflare-first agentic coding CLI")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    parser.add_argument("--about", action="store_true", help="Tampilkan info & disclaimer")
+    parser.add_argument("--init", action="store_true", help="Create or overwrite config interactively")
+    parser.add_argument("--login", action="store_true", help="Login dengan API key dari developers.autokeren.com")
+    parser.add_argument("--config", help="Path to config YAML")
+    parser.add_argument("--plan", action="store_true", help="Start in plan mode")
+    parser.add_argument("--engine", choices=("go", "python", "auto"), default="go", help="Pilih runtime (default: go)")
+    parser.add_argument("--project-root", default=".", help="Project root path")
+    parser.add_argument("--workspace", "-w", dest="project_root", help="Alias for --project-root")
+    parser.add_argument("--model", "-m", help="Override primary model (alias atau @cf/... ID)")
+    parser.add_argument("--role", help="Persona/role kustom untuk Agent")
+    parser.add_argument("--agy", action="store_true", help="Otomatis gunakan Google Antigravity backend")
+    parser.add_argument("--aistudio", action="store_true", help="Otomatis gunakan Google AI Studio backend")
+    parser.add_argument("--non-interactive", action="store_true", help="Run single task, no REPL (for ghost agent)")
+    parser.add_argument("--task", help="Task untuk non-interactive mode")
+    parser.add_argument("--resume", "-r", help="Resume sesi percakapan dari disk")
+    parser.add_argument("--telegram", action="store_true", help="Jalankan Telegram gateway")
+    parser.add_argument("--telegram-token", help="Telegram bot token (override config)")
+    parser.add_argument("--telegram-allow-user", action="append", help="Username Telegram yang diizinkan (bisa berkali-kali)")
+    parser.add_argument("--proof", nargs="+", help="Jalankan proof action (list, report, replay, plan, record)")
+    parser.add_argument("prompt", nargs="?", help="Single prompt to run non-interactively")
+    args = parser.parse_args()
+
+    _try_run_go_runtime(args, sys.argv)
+
+    if args.about:
+        console.print(f"\n[bold]autokeren[/bold] v{__version__}")
+        console.print("Cloudflare-first agentic coding CLI buat developer Indonesia\n")
+        console.print("[dim]GitHub:[/dim] https://github.com/autokeren/autokeren")
+        console.print("[dim]Platform:[/dim] https://developers.autokeren.com\n")
+        console.print("[yellow]Disclaimer:[/yellow]")
+        console.print("[dim]autokeren adalah proyek independen dan tidak berafiliasi dengan,")
+        console.print("[dim]diendorsing oleh, atau sponsori oleh Cloudflare, Inc.")
+        console.print('[dim]"Cloudflare" serta produk terkait adalah merek dagang Cloudflare, Inc.\n')
+        return 0
+
+    if args.init:
+        cfg = init_config(interactive=True)
+        console.print(f"Config saved to {save_config(cfg)}")
+        return 0
+
+    if args.login:
+        import httpx as _httpx
+        from autokeren.selector import select_option
+        from rich.panel import Panel
+
+        providers = [
+            {
+                "id": "platform",
+                "name": "AutoKeren Platform",
+                "desc": "Akses Cloudflare Workers AI via developers.autokeren.com",
+                "icon": "🔮",
+            },
+            {
+                "id": "openai",
+                "name": "OpenAI API",
+                "desc": "Gunakan GPT-5.6 / GPT-4o dengan OpenAI API Key",
+                "icon": "🤖",
+            },
+            {
+                "id": "aistudio",
+                "name": "Google AI Studio",
+                "desc": "Gunakan Gemini 3.5 Pro/Flash secara langsung",
+                "icon": "♊",
+            },
+            {
+                "id": "local",
+                "name": "Local LLM",
+                "desc": "Hubungkan ke model lokal via Ollama atau LocalAI",
+                "icon": "🖥️",
+            },
+        ]
+
+        console.print("[bold cyan]🔑 AUTOKEREN LOGIN & CONFIGURATION WIZARD[/bold cyan]\n")
+        idx = select_option(providers, title="Pilih Provider/Mode Autentikasi:", console=console)
+        if idx is None:
+            console.print("[dim]Batal.[/dim]")
+            return 0
+
+        provider_id = providers[idx]["id"]
+        cfg = load_config(Path(args.config)) if args.config else ensure_config()
+
+        if provider_id == "platform":
+            console.print("\n[bold]Login AutoKeren Platform[/bold]")
+            console.print("Buka [cyan]https://developers.autokeren.com/dashboard/keys[/cyan] buat API key.")
+            console.print("Format: [dim]ak_live_...[/dim]\n")
+            api_key = Prompt.ask("API key").strip()
+            if not api_key or not api_key.startswith("ak_"):
+                console.print("[red]API key tidak valid. Harus diawali 'ak_'[/red]")
+                return 1
+            console.print("[dim]Memvalidasi API key...[/dim]")
+            try:
+                r = _httpx.get(
+                    "https://api.developers.autokeren.com/v1/usage",
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    timeout=15,
+                )
+                if r.status_code == 200:
+                    data = r.json()
+                    console.print(f"[green]Login berhasil![/green] Tier: {data.get('tier', '?')}")
+                    cfg.auth.mode = "platform"
+                    cfg.auth.api_key = api_key
+                else:
+                    err = r.json().get("error", {}).get("message", "unknown error")
+                    console.print(f"[red]Validasi gagal: {err}[/red]")
+                    return 1
+            except Exception as e:
+                console.print(f"[red]Connection error: {e}[/red]")
+                return 1
+
+        elif provider_id == "openai":
+            console.print("\n[bold]🔑 SETUP OPENAI API[/bold]")
+            api_key = Prompt.ask("OpenAI API Key (sk-...)").strip()
+            if not api_key or not api_key.startswith("sk-"):
+                console.print("[red]API key tidak valid. Harus diawali 'sk-'[/red]")
+                return 1
+            console.print("[dim]Memvalidasi API key...[/dim]")
+            try:
+                r = _httpx.get(
+                    "https://api.openai.com/v1/models",
+                    headers={"Authorization": f"Bearer {api_key}"},
+                    timeout=15,
+                )
+                if r.status_code == 200:
+                    console.print("[green]Login berhasil! Kunci API OpenAI valid.[/green]")
+                    cfg.auth.mode = "openai"
+                    cfg.auth.openai_api_key = api_key
+
+                    from autokeren.models.openai import fetch_openai_models
+                    all_models = fetch_openai_models(cfg)
+                    console.print("")
+                    primary_idx = select_option(all_models, title="Pilih Model Utama (Primary Model):", console=console)
+                    if primary_idx is not None:
+                        cfg.cloudflare.primary_model = all_models[primary_idx]["id"]
+
+                    console.print("")
+                    secondary_idx = select_option(all_models, title="Pilih Model Cadangan (Secondary/Fallback Model):", console=console)
+                    if secondary_idx is not None:
+                        cfg.cloudflare.secondary_model = all_models[secondary_idx]["id"]
+                else:
+                    console.print(f"[red]Validasi gagal (Status {r.status_code}): {r.text}[/red]")
+                    return 1
+            except Exception as e:
+                console.print(f"[red]Connection error: {e}[/red]")
+                return 1
+
+        elif provider_id == "aistudio":
+            console.print("\n[bold]🔑 SETUP GOOGLE AI STUDIO[/bold]")
+            api_key = Prompt.ask("Gemini API Key (AIzaSy...)").strip()
+            if not api_key:
+                console.print("[red]API key tidak boleh kosong.[/red]")
+                return 1
+            console.print("[dim]Memvalidasi API key...[/dim]")
+            try:
+                r = _httpx.get(
+                    f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}",
+                    timeout=15,
+                )
+                if r.status_code == 200:
+                    console.print("[green]Login berhasil! Kunci API Gemini valid.[/green]")
+                    cfg.auth.mode = "aistudio"
+                    cfg.auth.gemini_api_key = api_key
+
+                    from autokeren.models.aistudio import fetch_aistudio_models
+                    all_models = fetch_aistudio_models(cfg)
+                    console.print("")
+                    primary_idx = select_option(all_models, title="Pilih Model Utama (Primary Model):", console=console)
+                    if primary_idx is not None:
+                        cfg.cloudflare.primary_model = all_models[primary_idx]["id"]
+
+                    console.print("")
+                    secondary_idx = select_option(all_models, title="Pilih Model Cadangan (Secondary/Fallback Model):", console=console)
+                    if secondary_idx is not None:
+                        cfg.cloudflare.secondary_model = all_models[secondary_idx]["id"]
+                else:
+                    console.print(f"[red]Validasi gagal: {r.text}[/red]")
+                    return 1
+            except Exception as e:
+                console.print(f"[red]Connection error: {e}[/red]")
+                return 1
+
+        elif provider_id == "antigravity":
+            from autokeren.models.google_auth import verify_or_login
+            if not verify_or_login(console):
+                return 1
+            cfg.auth.mode = "antigravity"
+            cfg.cloudflare.primary_model = "gemini-3.5-flash"
+            cfg.cloudflare.secondary_model = "gemini-3.5-pro"
+
+        elif provider_id == "local":
+            console.print("\n[bold]🖥️ SETUP LOCAL LLM[/bold]")
+            endpoint = Prompt.ask("Masukkan Endpoint URL", default="http://localhost:11434").strip()
+            cfg.auth.mode = "local"
+            cfg.auth.local_endpoint = endpoint
+
+            primary = Prompt.ask("Pilih Model Utama (Ollama ID)", default="qwen2.5-coder:7b").strip()
+            secondary = Prompt.ask("Pilih Model Cadangan (Ollama ID)", default="llama3-coder:8b").strip()
+            cfg.cloudflare.primary_model = primary
+            cfg.cloudflare.secondary_model = secondary
+
+        config_path = save_config(cfg)
+        summary_text = (
+            f"🎉 [bold green]LOGIN BERHASIL & KONFIGURASI DISIMPAN[/bold green]\n\n"
+            f"  • [bold]Provider[/bold]      : {providers[idx]['name']}\n"
+            f"  • [bold]Mode[/bold]          : {provider_id}\n"
+            f"  • [bold]Model Utama[/bold]   : {cfg.cloudflare.primary_model}\n"
+            f"  • [bold]Model Backup[/bold]  : {cfg.cloudflare.secondary_model}\n"
+            f"  • [bold]Konfigurasi[/bold]   : [cyan]{config_path}[/cyan]\n\n"
+            f"Jalankan '[bold]autokeren[/bold]' untuk mulai koding!"
+        )
+        console.print(Panel(summary_text, border_style="green", expand=False))
+        return 0
+
+    cfg = load_config(Path(args.config)) if args.config else ensure_config()
+    if args.agy:
+        from autokeren.models.google_auth import verify_or_login
+        if not verify_or_login(console):
+            return 1
+        cfg.auth.mode = "antigravity"
+        if not args.model:
+            cfg.cloudflare.primary_model = "Gemini 3.5 Flash (Low)"
+    elif args.aistudio:
+        if not cfg.auth.gemini_api_key:
+            console.print("\n[bold yellow]🔑 SETUP GOOGLE AI STUDIO (GEMINI API)[/bold yellow]")
+            console.print("API Key tidak ditemukan di config atau env var GEMINI_API_KEY.")
+            key = Prompt.ask("Masukkan API Key Google AI Studio Anda").strip()
+            if not key:
+                console.print("[red]API Key tidak boleh kosong.[/red]")
+                return 1
+            cfg.auth.gemini_api_key = key
+            save_config(cfg)
+            console.print("[green]✓ API Key disimpan ke config.yaml![/green]")
+        cfg.auth.mode = "aistudio"
+        if not args.model:
+            cfg.cloudflare.primary_model = "gemini-3.5-flash"
+    if args.plan:
+        cfg.autokeren.plan_mode = True
+    if args.model:
+        if cfg.auth.mode in ("antigravity", "aistudio"):
+            cfg.cloudflare.primary_model = args.model
+        else:
+            from autokeren.models.cloudflare import resolve_model_id
+            if cfg.auth.mode == "platform":
+                cfg.cloudflare.primary_model = resolve_model_id(args.model, "platform")
+            else:
+                cfg.cloudflare.primary_model = args.model
+
+    project_root = Path(args.project_root).expanduser().resolve()
+    memory = MemoryManager(str(project_root))
+    reg = build_registry(cfg, project_root, memory)
+
+    if args.proof:
+        tool = reg.get("proof")
+        if not tool:
+            console.print("[red]Tool 'proof' tidak terdaftar.[/red]")
+            return 1
+
+        action = args.proof[0]
+        if action == "list":
+            res = tool.run(action="list")
+            if res.ok:
+                console.print(res.output)
+                return 0
+            else:
+                console.print(f"[red]Gagal list proof:[/red] {res.error}")
+                return 1
+        elif action == "report":
+            if len(args.proof) < 2:
+                console.print("[red]Format salah. Gunakan: autokeren --proof report <proof-id>[/red]")
+                return 1
+            res = tool.run(action="report", proof_id=args.proof[1])
+            if res.ok:
+                console.print(res.output)
+                return 0
+            else:
+                console.print(f"[red]Gagal report proof:[/red] {res.error}")
+                return 1
+        elif action == "replay":
+            if len(args.proof) < 2:
+                console.print("[red]Format salah. Gunakan: autokeren --proof replay <file-path>[/red]")
+                return 1
+            res = tool.run(action="replay", proof_id=args.proof[1])
+            if res.ok:
+                console.print(res.output)
+                return 0
+            else:
+                console.print(f"[red]Gagal replay proof:[/red] {res.error}")
+                return 1
+        elif action == "plan":
+            if len(args.proof) < 3:
+                console.print("[red]Format salah. Gunakan: autokeren --proof plan <title> | <kriteria1> | <kriteria2>[/red]")
+                return 1
+            rest = " ".join(args.proof[1:])
+            subparts = [p.strip() for p in rest.split("|")]
+            title = subparts[0]
+            criteria = subparts[1:]
+            if not title or not criteria:
+                console.print("[red]Judul dan minimal 1 kriteria harus diisi.[/red]")
+                return 1
+            res = tool.run(action="plan", title=title, criteria=criteria)
+            if res.ok and isinstance(res.output, dict):
+                console.print(res.output.get("message"))
+                return 0
+            else:
+                console.print(f"[red]Gagal plan proof:[/red] {res.error}")
+                return 1
+        elif action == "record":
+            if len(args.proof) < 4:
+                console.print("[red]Format salah. Gunakan: autokeren --proof record <proof-id> <nomor> <status> | <evidence>[/red]")
+                return 1
+            rest = " ".join(args.proof[1:])
+            evidence_parts = rest.split("|", 1)
+            left_side = evidence_parts[0].strip()
+            evidence = evidence_parts[1].strip() if len(evidence_parts) > 1 else ""
+
+            left_tokens = left_side.split()
+            if len(left_tokens) < 3:
+                console.print("[red]Format salah. Harus berisi: proof_id, nomor kriteria, dan status.[/red]")
+                return 1
+            proof_id = left_tokens[0]
+            try:
+                criterion_num = int(left_tokens[1])
+            except ValueError:
+                console.print("[red]Nomor kriteria harus berupa angka.[/red]")
+                return 1
+            status = left_tokens[2]
+
+            res = tool.run(
+                action="record",
+                proof_id=proof_id,
+                criterion_num=criterion_num,
+                status=status,
+                evidence=evidence,
+            )
+            if res.ok and isinstance(res.output, dict):
+                console.print(res.output.get("message"))
+                return 0
+            else:
+                console.print(f"[red]Gagal record proof:[/red] {res.error}")
+                return 1
+        else:
+            console.print(f"[red]Aksi proof '{action}' tidak dikenal. Pilihan: list, report, replay, plan, record.[/red]")
+            return 1
+
+    load_mcp_servers(cfg, reg)
+    agent = Agent(cfg, reg, str(project_root), memory=memory, role=args.role)
+    if agent.checkpoints:
+        reg.register(RewindTool(agent.checkpoints))
+    if agent._genome_scanner and agent._genome:
+        reg.register(GenomeTool(agent._genome_scanner, agent._genome))
+    if cfg.autokeren.cross_model_review.enabled:
+        coder_model = agent.router.current_model_id()
+        reg.register(ReviewTool(str(project_root), coder_model=coder_model, router=agent.router))
+    if cfg.autokeren.research.enabled:
+        rc = cfg.autokeren.research
+        reg.register(ResearchTool(
+            router=agent.router,
+            max_results=rc.max_results,
+            max_depth=rc.max_depth,
+            summarize=rc.summarize,
+            min_comment_score=rc.min_comment_score,
+        ))
+
+    if args.resume:
+        try:
+            msg = agent.resume_session(args.resume)
+            console.print(f"[green]{msg}[/green]")
+        except Exception as e:
+            console.print(f"[red]Resume gagal:[/red] {e}")
+
+    ui = AgentUI(console)
+    ui.set_model_name(agent.router.current_model_id())
+    agent.on_model_start = ui.on_model_start
+    agent.on_model_end = ui.on_model_end
+    agent.on_tool_start = ui.on_tool_start
+    agent.on_tool_end = ui.on_tool_end
+    agent.on_tool_output = ui.on_tool_output
+    agent.on_chunk = ui.on_chunk
+    agent.on_retry = ui.on_retry
+    agent.permission_callback = ui.confirm_permission
+
+    if args.telegram:
+        from autokeren.telegram_gateway import run_telegram_gateway
+        token = args.telegram_token or cfg.autokeren.telegram.token
+        if not token:
+            console.print("[red]Token Telegram tidak ditemukan. Set via --telegram-token atau config telegram.token[/red]")
+            return 1
+        allowed = args.telegram_allow_user or cfg.autokeren.telegram.allowed_usernames
+        console.print("[green]Memulai Telegram gateway...[/green]")
+        try:
+            run_telegram_gateway(token, str(project_root), args.config, allowed)
+        except Exception as e:
+            console.print(f"[red]Telegram gateway gagal: {e}[/red]")
+            return 1
+        return 0
+
+    if args.prompt or args.task or args.non_interactive:
+        ui.mermaid_render = cfg.autokeren.mermaid_render
+        ui._allow_all = True
+        task = args.task or args.prompt or ""
+        if not task:
+            console.print("[red]Task kosong. Pakai: autokeren --non-interactive --task \"…\"[/red]")
+            return 1
+        try:
+            resp = agent.run(task)
+            ui.show_response(resp)
+        except Exception as e:
+            console.print(f"[red]Error:[/red] {e}")
+        finally:
+            ui.cleanup()
+        return 0
+
+    from autokeren.tui import run_tui
+    try:
+        run_tui(agent, cfg)
+    finally:
+        stop_mcp_servers()
+    return 0
+
+
+
+if __name__ == "__main__":
+    sys.exit(main())

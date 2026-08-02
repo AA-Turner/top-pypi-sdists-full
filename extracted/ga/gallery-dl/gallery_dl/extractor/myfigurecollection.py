@@ -111,14 +111,17 @@ class MyfigurecollectionItemExtractor(MyfigurecollectionExtractor):
 
             parts = date.split("/")
             try:
-                date = f"{parts[2]}-{parts[1]}-{parts[0]}"
+                name = f"{parts[2]}-{parts[1]}-{parts[0]}"
             except Exception:
                 if len(parts) < 2:
                     results.append(text.remove_html(item))
                     continue
-                date = f"{parts[1]}-{parts[0]}"
-            name = f"{date}: {price.replace('<small>', '').strip()}"
-            results.append(f"{name} ({type})" if type else name)
+                name = f"{parts[1]}-{parts[0]}"
+            if price:
+                name = f"{name}: {price.replace('<small>', '').strip()}"
+            if type:
+                name = f"{name} ({type})"
+            results.append(name)
         return results
 
 
@@ -161,6 +164,49 @@ class MyfigurecollectionPictureExtractor(MyfigurecollectionExtractor):
         yield Message.Url, url, text.nameext_from_url(url, item)
 
 
+class MyfigurecollectionArticleExtractor(MyfigurecollectionExtractor):
+    subcategory = "article"
+    directory_fmt = ("{category}", "{user}", "Articles",
+                     "{date:%Y-%m-%d} {id} {title}")
+    filename_fmt = "{num:>02}.{extension}"
+    archive_fmt = "a{id}_{num}"
+    pattern = BASE_PATTERN + r"/blogpost/(\d+)"
+    example = "https://myfigurecollection.net/blogpost/12345"
+
+    def items(self):
+        item_id = self.groups[0]
+        url = f"{self.root}/blogpost/{item_id}"
+        extr = text.extract_from(self.request(url).text)
+
+        item = {
+            "id"      : item_id,
+            "title"   : text.unescape(extr(
+                'property="og:title" content="', '"')),
+            "post_url": text.unescape(extr(
+                'property="og:url" content="', '"')),
+            "Category": text.split_html(extr(
+                'class="categories">', "</div></div><")),
+            "user"  : text.remove_html(extr("<section>", "</a><span")),
+            "date"  : self.parse_datetime(extr(
+                '<span title="', '"'), "%m/%d/%Y, %H:%M:%S"),
+            "body"  : extr(
+                'eBody"><div class="bbcode">', '</div></div></div></div><div'),
+            "views" : extr(">", " ").replace(",", ""),
+            "likes" : extr(">", " ").replace(",", ""),
+            "comments": extr('/comments/">', " ").replace(",", ""),
+            "tags"  : text.split_html(extr(
+                '<div class="object-tags">', "</section>"))[::2],
+        }
+
+        files = text.re(r'<img[^>]*? alt="([^"]+)').findall(
+            item["body"])
+        item["count"] = len(files)
+
+        yield Message.Directory, "", item
+        for item["num"], url in enumerate(files, 1):
+            yield Message.Url, url, text.nameext_from_url(url, item)
+
+
 class MyfigurecollectionUserExtractor(Dispatch, MyfigurecollectionExtractor):
     pattern = USER_PATTERN + r"/?(?:$|\?|#)"
     example = "https://myfigurecollection.net/profile/USER"
@@ -170,7 +216,8 @@ class MyfigurecollectionUserExtractor(Dispatch, MyfigurecollectionExtractor):
         return self._dispatch_extractors((
             (MyfigurecollectionUserCollectionExtractor, base + "collection/"),
             (MyfigurecollectionUserPicturesExtractor  , base + "pictures/"),
-        ), ("pictures",))
+            (MyfigurecollectionUserArticlesExtractor  , base + "blogposts/"),
+        ), ("user-pictures",))
 
 
 class MyfigurecollectionUserCollectionExtractor(MyfigurecollectionExtractor):
@@ -233,6 +280,37 @@ class MyfigurecollectionUserPicturesExtractor(MyfigurecollectionExtractor):
         data = {"_extractor": MyfigurecollectionPictureExtractor}
         base = self.root + "/picture/"
         for item_id in self._pagination(params):
+            yield Message.Queue, base + item_id, data
+
+
+class MyfigurecollectionUserArticlesExtractor(MyfigurecollectionExtractor):
+    subcategory = "user-articles"
+    pattern = (BASE_PATTERN + r"/(?:profile/([^/?#]+)/blogposts"
+               r"|\?(mode=view&username=[^&#]+&tab=blogposts[^#]*))")
+    example = "https://myfigurecollection.net/profile/USER/blogposts/"
+
+    def items(self):
+        username, query = self.groups
+
+        if username:
+            params = {
+                "mode"      : "view",
+                "username"  : username,
+                "tab"       : "blogposts",
+                "current"   : "keywords",
+                "sort"      : "date",
+                "order"     : "desc",
+                "categoryId": "-1",
+                "isSelected": "0",
+                "_tb"       : "user",
+                "page"      : "1",
+            }
+        else:
+            params = text.parse_query(query)
+
+        data = {"_extractor": MyfigurecollectionArticleExtractor}
+        base = self.root + "/blogpost/"
+        for item_id in util.unique_sequence(self._pagination(params)):
             yield Message.Queue, base + item_id, data
 
 

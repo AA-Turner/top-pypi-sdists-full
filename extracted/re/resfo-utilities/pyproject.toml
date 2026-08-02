@@ -1,0 +1,125 @@
+[build-system]
+requires = [
+    "scikit-build-core>=0.10",
+    "pybind11>=2.12",
+    "setuptools_scm[toml]>=6.2",
+]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "resfo-utilities"
+description="A utility library for working with the output of reservoir simulators."
+readme = "README.md"
+requires-python = ">=3.11, <=3.15"
+classifiers=[
+    "Development Status :: 1 - Planning",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = ["numpy", "resfo>=5", "scipy", "natsort"]
+dynamic=["version"]
+
+authors = [
+    {name="Equinor", email="fg_sib-scout@equinor.com"},
+]
+
+maintainers = [
+    {name="Eivind Jahren", email="ejah@equinor.com"},
+    {name="Håkon Steinkopf Søhoel", email="hsoho@equinor.com"},
+]
+license = "LGPL-3.0-or-later"
+
+[project.urls]
+"Homepage" = "https://github.com/equinor/resfo-utilities"
+"Repository" = "https://github.com/equinor/resfo-utilities"
+"Documentation" = "https://resfo-utilities.readthedocs.io/en/stable/"
+"Bug Tracker" = "https://github.com/equinor/resfo-utilities/issues"
+
+[project.optional-dependencies]
+testing = [ # for the testing submodule
+    "hypothesis",
+    "pydantic",
+]
+doc = [
+    "sphinx",
+    "sphinx-rtd-theme",
+]
+dev = [
+    "pytest",
+    "pre-commit",
+    "mypy",
+    "pytest-benchmark",
+    "scipy-stubs",
+]
+
+[tool.setuptools_scm]
+
+[tool.scikit-build]
+minimum-version = "0.10"
+build-dir = "build/{wheel_tag}"
+metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
+wheel.packages = ["src/resfo_utilities"]
+
+[tool.ruff]
+src = ["src"]
+line-length = 88
+
+[tool.ruff.lint]
+select = [
+    "A",
+    "AIR",
+    "ARG",
+    "ASYNC",
+    "B",
+    "BLE",
+    "COM",
+    "CPY",
+    "DJ",
+    "DOC",
+    "E",
+    "ERA",
+    "EXE",
+    "F",
+    "FA",
+    "FAST",
+    "FIX",
+    "FLY",
+    "FURB",
+    "G",
+    "I",
+    "INP",
+    "ICN",
+    "INT",
+    "ISC",
+    "LOG",
+    "NPY",
+    "PD",
+    "PERF",
+    "PIE",
+    "PLC",
+    "PLE",
+    "PLW",
+    "PT",
+    "PYI",
+    "Q",
+    "RET",
+    "RSE",
+    "RUF",    # ruff specific rules
+    "SIM",    # flake8-simplify
+    "SLOT",
+    "T",
+    "TD",
+    "TID",
+    "UP",     # pyupgrade
+    "W",
+    "YTT",
+]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers"
+
+[tool.uv]
+fork-strategy = "requires-python"

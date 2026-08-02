@@ -1,0 +1,82 @@
+Metadata-Version: 2.1
+Name: pytrafikverket
+Version: 1.1.1
+Summary: Retrieve values from public API at the Swedish Transport Administration (Trafikverket).
+Home-page: https://github.com/gjohansson-ST/pytrafikverket
+License: MIT
+Keywords: trafikverket,api,async,client
+Author: G Johansson
+Author-email: goran.johansson@shiftit.se
+Maintainer: G Johansson
+Maintainer-email: goran.johansson@shiftit.se
+Requires-Python: >=3.11,<4.0
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Dist: aiohttp (>=3.9.2)
+Requires-Dist: aiozoneinfo (>=0.2.1)
+Requires-Dist: lxml (>=5.1.0)
+Requires-Dist: yarl (>=1.9.4)
+Project-URL: Bug Tracker, https://github.com/gjohansson-ST/pytrafikverket/issues
+Project-URL: Changelog, https://github.com/gjohansson-ST/pytrafikverket/releases
+Project-URL: Documentation, https://github.com/gjohansson-ST/pytrafikverket
+Project-URL: Repository, https://github.com/gjohansson-ST/pytrafikverket
+Description-Content-Type: text/markdown
+
+# pytrafikverket
+python module for communicating with the swedish trafikverket api
+
+Development and testing done with 3.11
+
+## Code example
+
+```python
+from pytrafikverket import TrafikverketTrain, StationInfo
+import aiohttp
+import asyncio
+from datetime import datetime
+
+
+async def main(loop):
+    async with aiohttp.ClientSession(loop=loop) as session:
+        train_api = TrafikverketTrain(session, "api_key_here")
+        stations = await train_api.async_search_train_stations("kristianstad")
+        for station in stations:
+            print(station.name + " " + station.signature)
+
+        from_station = await train_api.async_get_train_station("Sölvesborg")
+        to_station = await train_api.async_get_train_station("Kristianstad C")
+        product_description = "SJ Regional"  # Optional search field
+        print("from_station_signature: " + from_station.signature)
+        print("to_station_signature:   " + to_station.signature)
+        train_stop = await train_api.async_get_train_stop(
+            from_station, to_station, datetime(2022, 4, 11, 12, 57), product_description
+        )
+        print(train_stop.get_state())
+
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(main(loop))
+```
+
+## CLI example
+<!-- blacken-docs:off -->
+```python
+trafikverket_cli -key <api_key> -method search-for-station -station "Kristianstad"
+trafikverket_cli -key <api_key> -method get-next-train-stop -from-station "Kristianstad C" -to-station "Sölvesborg"
+trafikverket_cli -key <api_key> -method get-next-train-stop -from-station "Kristianstad C" -to-station "Sölvesborg" -train-product "SJ Regional"
+trafikverket_cli -key <api_key> -method get-train-stop -from-station "Kristianstad C" -to-station "Sölvesborg" -date-time "2017-05-19T16:38:00"
+trafikverket_cli -key <api_key> -method get-weather -station "Nöbbele"
+trafikverket_cli -key <api_key> -method search-for-ferry-route -route "sund"
+trafikverket_cli -key <api_key> -method get-ferry-route -route "Adelsöleden"
+trafikverket_cli -key <api_key> -method get-next-ferry-stop -from-harbor "Ekerö"
+trafikverket_cli -key <api_key> -method get-next-ferry-stop -from-harbor "Furusund" -date-time "2019-12-24T00:00:00"
+```
+<!-- blacken-docs:on -->
+

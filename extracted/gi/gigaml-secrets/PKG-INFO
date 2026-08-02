@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: gigaml_secrets
+Version: 0.50
+Summary: A library to manage AWS secrets with caching and environment variable integration
+Home-page: https://github.com/GigaML/GigaML-Secrets
+Author: GigaML
+Author-email: eng@gigaml.com
+Requires-Dist: boto3
+Requires-Dist: botocore
+Dynamic: author
+Dynamic: author-email
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: summary

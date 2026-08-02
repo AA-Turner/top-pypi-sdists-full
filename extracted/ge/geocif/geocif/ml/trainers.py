@@ -747,7 +747,11 @@ def auto_train(
                     if hasattr(X, "columns"):
                         for c in X.columns:
                             col = X[c]
-                            if hasattr(col, "cat") or col.dtype == object:
+                            # is_string_dtype catches BOTH pandas<3 object and
+                            # pandas>=3 str dtype (string columns are no longer
+                            # `object` in pandas 3 — `dtype == object` misses
+                            # them, silently disabling this guard).
+                            if hasattr(col, "cat") or pd.api.types.is_string_dtype(col):
                                 s = col.astype(str)
                                 if not self._is_numeric(s):
                                     self._levels[c] = set(s.unique())

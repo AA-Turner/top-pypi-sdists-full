@@ -107,6 +107,8 @@ pub struct LintContext<'a> {
     code_span_byte_ranges: Vec<(usize, usize)>, // Pre-computed code span byte ranges from pulldown-cmark
     inline_config: InlineConfig,           // Parsed inline configuration comments for rule disabling
     obsidian_comment_ranges: Vec<(usize, usize)>, // Pre-computed Obsidian comment ranges (%%...%%)
+    unterminated_html_comment: Option<usize>, // Byte offset of a `<!--` with no `-->`
+    unterminated_obsidian_comment: Option<usize>, // Byte offset of a `%%` with no closing `%%`
     lazy_cont_lines_cache: OnceLock<Arc<Vec<LazyContLine>>>, // Lazy-loaded lazy continuation lines
     myst_directive_ranges: Vec<(usize, usize)>, // Pre-computed MyST colon directive byte ranges (:::{name} ... :::)
     myst_comment_ranges: Vec<(usize, usize)>, // Pre-computed MyST comment byte ranges (% comment)
@@ -150,28 +152,67 @@ impl<'a> LintContext<'a> {
         let strong_spans = parse_result.strong_spans;
         let line_to_list = parse_result.line_to_list;
         let list_start_values = parse_result.list_start_values;
+        let html_blocks = parse_result.html_blocks;
+
+        // Container structure the parser cannot see. Computed from the line text
+        // alone, so it is available here, before the line info it corrects.
+        let containers = profile_section!(
+            "Container lines",
+            profile,
+            flavor_detection::detect_container_lines(&content_lines, flavor)
+        );
 
         // Pre-compute HTML comment ranges ONCE for all operations.
-        // Code-span and fenced-code-block ranges are passed so `<!--`/`-->`
-        // inside code are treated as literal text, not comment delimiters that
-        // could pair across code regions on different lines. Only *fenced* blocks
-        // are used: pulldown-cmark misclassifies 4-space-indented content inside
-        // containers (MkDocs admonitions, etc.) as indented code blocks, and a
-        // real comment indented there must still be recognized as a comment.
-        let fenced_code_block_ranges: Vec<(usize, usize)> = code_block_details
+        // Code-span and code-block ranges are passed so `<!--`/`-->` inside code
+        // are treated as literal text, not comment delimiters that could pair
+        // across code regions on different lines. An indented block over
+        // container content is the parser reading a MkDocs admonition or a
+        // `<div markdown>` body as code, and a comment written there is a real
+        // comment, so only the parts of such a block that a fence really does
+        // hold as code are kept.
+        let comment_code_block_ranges: Vec<(usize, usize)> = code_block_details
             .iter()
-            .filter(|detail| detail.is_fenced)
-            .map(|detail| (detail.start, detail.end))
+            .flat_map(|detail| {
+                if detail.is_fenced {
+                    return vec![(detail.start, detail.end)];
+                }
+                let start_line = line_offsets
+                    .partition_point(|&offset| offset <= detail.start)
+                    .saturating_sub(1);
+                let end_line = line_offsets.partition_point(|&offset| offset < detail.end);
+                containers
+                    .code_line_spans_in(start_line..end_line)
+                    .into_iter()
+                    .map(|span| {
+                        let start = line_offsets[span.start].max(detail.start);
+                        let end = line_offsets
+                            .get(span.end)
+                            .copied()
+                            .unwrap_or(content.len())
+                            .min(detail.end);
+                        (start, end)
+                    })
+                    .collect()
+            })
             .collect();
-        let html_comment_ranges = profile_section!(
+        // Front matter is data, not markdown: a `<!--` in a YAML value would
+        // otherwise pair with a `-->` in the body and hide everything between
+        // them from every rule. `front_matter_end` is the 1-indexed closing
+        // delimiter line, so the body starts at the line after it, and a
+        // document without front matter starts at byte 0.
+        let body_start = line_offsets.get(front_matter_end).copied().unwrap_or(content.len());
+        let html_comment_scan = profile_section!(
             "HTML comment ranges",
             profile,
-            crate::utils::skip_context::compute_html_comment_ranges_filtered(
+            crate::utils::skip_context::scan_html_comments(
                 content,
                 &code_span_ranges,
-                &fenced_code_block_ranges
+                &comment_code_block_ranges,
+                body_start
             )
         );
+        let mut html_comment_ranges = html_comment_scan.ranges;
+        let unterminated_html_comment = html_comment_scan.unterminated;
 
         // Pre-compute autodoc block ranges (avoids O(n^2) scaling)
         // Detected for all flavors except AzureDevOps, where `:::` denotes code fences
@@ -259,14 +300,14 @@ impl<'a> LintContext<'a> {
         profile_section!(
             "Markdown-in-HTML blocks",
             profile,
-            flavor_detection::detect_markdown_html_blocks(&content_lines, &mut lines)
+            flavor_detection::detect_markdown_html_blocks(&mut lines, &containers)
         );
 
         // Detect MkDocs-specific constructs (admonitions, tabs, definition lists)
         profile_section!(
             "MkDocs constructs",
             profile,
-            flavor_detection::detect_mkdocs_line_info(&content_lines, &mut lines, flavor)
+            flavor_detection::detect_mkdocs_line_info(&content_lines, &mut lines, flavor, &containers)
         );
 
         // Detect footnote definitions and correct false code block detection.
@@ -504,11 +545,92 @@ impl<'a> LintContext<'a> {
         }
 
         // Detect Obsidian comments (%%...%%) in Obsidian flavor
-        let obsidian_comment_ranges = profile_section!(
+        let obsidian_comment_scan = profile_section!(
             "Obsidian comments",
             profile,
-            flavor_detection::detect_obsidian_comments(content, &mut lines, flavor, &code_span_ranges)
+            flavor_detection::detect_obsidian_comments(
+                content,
+                &mut lines,
+                flavor,
+                &code_span_ranges,
+                &html_comment_ranges,
+                body_start
+            )
         );
+        let mut obsidian_comment_ranges = obsidian_comment_scan.ranges;
+        let mut unterminated_obsidian_comment = obsidian_comment_scan.unterminated;
+
+        // An Obsidian comment hides the text it wraps, so a `<!--` inside one is
+        // not a comment opener. The HTML scan cannot know that yet - detecting
+        // Obsidian comments needs its ranges - so the opener it reported is
+        // re-resolved here, now that the comments that hide it are known.
+        let unterminated_html_comment = crate::utils::skip_context::unterminated_html_comment_outside(
+            unterminated_html_comment,
+            &obsidian_comment_ranges,
+            content,
+            &code_span_ranges,
+            &comment_code_block_ranges,
+            body_start,
+        );
+
+        // An unclosed `<!--` that opens an HTML block comments out the rest of
+        // that block, so the text below it is not content any rule should judge.
+        // Without this the block-structure rules and the comment-aware rules
+        // disagree about the same lines: the parser reports no list inside the
+        // block, while a bare URL there is still flagged.
+        //
+        // The opener stays reported either way. This governs what the rest of
+        // the linter sees, not whether the missing closer is raised.
+        //
+        // It waits for the re-resolution above because an opener a `%%` pair
+        // hides is not an opener, and giving that one a range would hide the
+        // rest of the note from every rule.
+        if let Some(range) = unterminated_html_comment.and_then(|opener| {
+            crate::utils::skip_context::unterminated_comment_range(opener, &html_blocks)
+                .or_else(|| container_comment_range(opener, &containers, &lines, content))
+        }) {
+            // Every complete comment starts before the unclosed opener, so this
+            // keeps the ranges sorted for the binary searches over them.
+            html_comment_ranges.push(range);
+
+            // The line flags are computed before the Obsidian comments are
+            // known, so they predate this range. Recomputing them through the
+            // same helper keeps `is_in_html_comment` and the per-line flag
+            // answering alike, which is the agreement this range exists to
+            // create.
+            for line in &mut lines {
+                let text = line.content(content);
+                let content_start = line.byte_offset + line.indent;
+                let content_end = line.byte_offset + text.trim_end().len();
+                line.in_html_comment = crate::utils::skip_context::is_line_entirely_in_html_comment(
+                    &html_comment_ranges,
+                    content_start,
+                    content_end,
+                );
+                line.in_obsidian_comment = false;
+            }
+
+            // The `%%` delimiters the block covers are comment text, so a
+            // delimiter below the block opens a comment rather than closing the
+            // one those appeared to open. Only a rescan pairs them correctly;
+            // dropping the ranges that start inside the block would leave the
+            // delimiter below it paired with nothing and unreported.
+            //
+            // This is the mirror of the re-resolution above, and it needs no
+            // second round: the block starts at or after the opener, so the
+            // pairing before the opener is what it already was, and the opener
+            // resolved against it cannot change.
+            let obsidian_rescan = flavor_detection::detect_obsidian_comments(
+                content,
+                &mut lines,
+                flavor,
+                &code_span_ranges,
+                &html_comment_ranges,
+                body_start,
+            );
+            obsidian_comment_ranges = obsidian_rescan.ranges;
+            unterminated_obsidian_comment = obsidian_rescan.unterminated;
+        }
 
         // Detect MyST role syntax ({role}`content`)
         let myst_role_ranges = profile_section!(
@@ -927,6 +1049,8 @@ impl<'a> LintContext<'a> {
             code_span_byte_ranges: code_span_ranges,
             inline_config,
             obsidian_comment_ranges,
+            unterminated_html_comment,
+            unterminated_obsidian_comment,
             lazy_cont_lines_cache: OnceLock::new(),
             myst_directive_ranges,
             myst_comment_ranges,
@@ -1032,6 +1156,21 @@ impl<'a> LintContext<'a> {
     /// Get HTML comment ranges - pre-computed during LintContext construction
     pub fn html_comment_ranges(&self) -> &[crate::utils::skip_context::ByteRange] {
         &self.html_comment_ranges
+    }
+
+    /// Byte offset of a `<!--` that no `-->` closes, if the document has one.
+    ///
+    /// Everything after it is inside the comment as far as the parser is
+    /// concerned, so no rule sees that text.
+    pub fn unterminated_html_comment(&self) -> Option<usize> {
+        self.unterminated_html_comment
+    }
+
+    /// Byte offset of a `%%` that no second `%%` closes, if the document has
+    /// one. Always `None` outside the Obsidian flavor, where `%%` is ordinary
+    /// text rather than a comment delimiter.
+    pub fn unterminated_obsidian_comment(&self) -> Option<usize> {
+        self.unterminated_obsidian_comment
     }
 
     /// Check if a byte position is inside an Obsidian comment
@@ -1732,6 +1871,40 @@ impl<'a> LintContext<'a> {
             .iter()
             .any(|line| line.heading.as_ref().is_some_and(|h| h.is_valid))
     }
+}
+
+/// The range an unclosed `<!--` hides when it opens a block the parser missed.
+///
+/// A MkDocs admonition or a `<div markdown>` body is rendered as markdown in its
+/// own right, so a `<!--` starting one of its lines opens an HTML block there
+/// just as it would at the top level. The parser has no notion of either
+/// container, reads the body as indented code or as a lazy paragraph
+/// continuation, and so reports no block for the opener to run to the end of.
+///
+/// The block ends where the container's body ends, which is what CommonMark
+/// gives an unclosed comment in any other container. An opener that is not the
+/// first thing on its line is inline HTML and opens nothing, here as anywhere.
+fn container_comment_range(
+    opener: usize,
+    containers: &flavor_detection::ContainerLines,
+    lines: &[types::LineInfo],
+    content: &str,
+) -> Option<crate::utils::skip_context::ByteRange> {
+    let line_index = lines
+        .partition_point(|line| line.byte_offset <= opener)
+        .checked_sub(1)?;
+    let line = lines.get(line_index)?;
+    if line.byte_offset + line.indent != opener {
+        return None;
+    }
+    if !containers.is_container_body(line_index) {
+        return None;
+    }
+    let end_line = lines.get(containers.body_end_line(line_index)?)?;
+    Some(crate::utils::skip_context::ByteRange {
+        start: opener,
+        end: (end_line.byte_offset + end_line.byte_len).min(content.len()),
+    })
 }
 
 /// Detect footnote definitions and mark their continuation lines.

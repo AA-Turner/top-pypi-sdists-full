@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "percentify"
+version = "1.0.2"
+description = "Data Exploratory stats and Quality diagnostics for pandas and Polars DataFrames. One easy call each."
+authors = [{ name = "Daniel Emakporuena", email = "danielemakporuena1@gmail.com" }]
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "pandas>=2.0",
+    "scipy",
+]
+keywords = ["data-science", "statistics", "pandas", "eda", "multicollinearity", "vif", "pca", "outliers", "data-analysis"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+
+[tool.setuptools]
+packages = ["percentify"]

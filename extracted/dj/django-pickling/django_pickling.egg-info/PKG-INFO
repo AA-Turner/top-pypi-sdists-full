@@ -1,0 +1,61 @@
+Metadata-Version: 1.1
+Name: django-pickling
+Version: 1.0
+Summary: Efficient pickling for django models.
+Home-page: http://github.com/Suor/django-pickling
+Author: Alexander Schepanovski
+Author-email: suor.web@gmail.com
+License: BSD
+Description: Django pickling
+        ===============
+        
+        Makes django models pickling 2-3 times faster and compact.
+        
+        
+        Requirements
+        ------------
+        
+        | Python 2.7 or 3.3+, Django 1.8+
+        
+        
+        Installation and setup
+        ----------------------
+        
+            $ pip install django-pickling
+        
+        Then add ``django_pickling`` to your ``INSTALLED_APPS``.
+        
+        
+        CAVEATS
+        -------
+        
+        1. No Django version checks are performed.
+        2. If fields list changes you will see TypeErrors instead of AttributeErrors.
+        
+        In both cases you should wipe your cache or change keys.
+        Note that you will need to deal with this anyway,
+        with django-pickling you'll just get weirder errors.
+        
+        Another thing is that objects with deferred fields are not optimized.
+        
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.3
+Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Framework :: Django
+Classifier: Framework :: Django :: 1.8
+Classifier: Framework :: Django :: 1.9
+Classifier: Framework :: Django :: 1.10
+Classifier: Framework :: Django :: 1.11
+Classifier: Framework :: Django
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Libraries :: Python Modules

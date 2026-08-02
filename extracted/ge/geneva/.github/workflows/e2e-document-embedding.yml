@@ -1,0 +1,47 @@
+name: E2E Tests - Document Embedding
+
+on:
+  # Manual trigger - can be run on any branch
+  workflow_dispatch:
+    inputs:
+      csp:
+        description: 'Cloud provider'
+        required: false
+        type: choice
+        options:
+          - gcp
+          - aws
+          - azure
+        default: 'gcp'
+      num_docs:
+        description: 'Number of documents to process'
+        required: false
+        default: '20'
+      batch_size:
+        description: 'Batch size for backfill operations'
+        required: false
+        default: '4'
+  # Weekly schedule: Monday 1am Pacific = Tuesday 8am UTC (runs on main only)
+  schedule:
+    - cron: '0 8 * * 2'
+
+jobs:
+  e2e-test-document-embedding:
+    name: e2e-test-document-embedding-${{ (github.event_name == 'workflow_dispatch' && (inputs.csp || 'gcp')) || 'azure' }}
+    # Scheduled runs are always on main, manual runs can be on any branch.
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.ref == 'refs/heads/main')
+    uses: ./.github/workflows/e2e-shared.yml
+    with:
+      # Scheduled runs target Azure for GPU availability (always-on GPU nodes).
+      # Manual dispatch defaults to GCP but can be overridden.  See GEN-439.
+      csp: ${{ github.event_name == 'schedule' && 'azure' || inputs.csp || 'gcp' }}
+      e2e_dir: e2e/document_embedding
+      checkout_ref: ${{ (github.event_name == 'schedule' && 'main') || github.ref }}
+      prepare_command: |
+        test -f e2e/document_embedding/upload_manifests.py
+      run_command: |
+        make -f e2e/Makefile test-e2e-document-embedding-${{ github.event_name == 'schedule' && 'azure' || inputs.csp || 'gcp' }} SLUG=$SLUG NUM_DOCS=${{ inputs.num_docs || '20' }} BATCH_SIZE=${{ inputs.batch_size || '4' }}
+      cleanup_command: |
+        echo "Deleting rayclusters matching slug $SLUG"
+        kubectl get raycluster -n lancedb --no-headers -o custom-columns=":metadata.name" | grep $SLUG | xargs -r -n1 kubectl delete raycluster -n lancedb --wait
+    secrets: inherit

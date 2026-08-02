@@ -1,0 +1,20 @@
+Metadata-Version: 1.1
+Name: python-hpilo
+Version: 4.4.3
+Summary: iLO automation from python or shell
+Home-page: http://github.com/seveas/python-hpilo
+Author: Dennis Kaarsemaker
+Author-email: dennis@kaarsemaker.net
+License: UNKNOWN
+Description: UNKNOWN
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: GNU General Public License (GPL)
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: System :: Hardware
+Classifier: Topic :: System :: Systems Administration
+Classifier: Topic :: System :: Networking

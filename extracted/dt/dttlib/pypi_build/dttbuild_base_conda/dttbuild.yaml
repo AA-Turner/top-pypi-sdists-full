@@ -1,0 +1,28 @@
+channels:
+  - conda-forge
+dependencies:
+  - patchelf
+  - python
+  - pip
+  - maturin
+  - pytest
+  - c-compiler
+  - cxx-compiler
+  - make
+  - pkg-config
+  - ruff
+  - micromamba
+  - rust
+  - pip
+  - libcds
+  - gds-sigp
+  - glib
+  - nds2-client
+  - libcds
+  - gds-sigp
+  - fftw
+  - zstd
+  - rapidjson
+  - libclang
+  - gcc
+  - clang

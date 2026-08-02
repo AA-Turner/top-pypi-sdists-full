@@ -1,0 +1,23 @@
+Metadata-Version: 2.4
+Name: wiim
+Version: 0.1.5
+Summary: A Python-based API interface for controlling and communicating with WiiM audio devices.
+Home-page: https://github.com/Linkplay2020/wiim
+Author: Linkplay
+Author-email: tao.jiang@linkplay.com
+License: MIT
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+License-File: LICENSE
+Requires-Dist: aiohttp
+Requires-Dist: async-upnp-client
+Requires-Dist: zeroconf
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary

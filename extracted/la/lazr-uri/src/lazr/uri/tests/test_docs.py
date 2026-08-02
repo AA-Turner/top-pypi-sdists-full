@@ -16,7 +16,6 @@
 
 """Test harness for doctests."""
 
-
 __all__ = [
     "load_tests",
 ]

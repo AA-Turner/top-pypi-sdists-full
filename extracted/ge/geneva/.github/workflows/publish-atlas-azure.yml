@@ -1,0 +1,55 @@
+name: Publish to Atlas Azure Artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: "Comma-separated packages to publish (e.g. geneva=0.12.2b38,pylance=5.0.0b5)"
+        required: true
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Publish packages
+        env:
+          ATLAS_AZURE_PYPI_TOKEN: ${{ secrets.ATLAS_AZURE_PYPI_TOKEN }}
+          PACKAGES: ${{ github.event.inputs.packages }}
+        run: |
+          trim() {
+            local value="$1"
+            value="${value#"${value%%[![:space:]]*}"}"
+            value="${value%"${value##*[![:space:]]}"}"
+            printf '%s' "$value"
+          }
+
+          IFS=',' read -ra ENTRIES <<< "$PACKAGES"
+          for entry in "${ENTRIES[@]}"; do
+            entry="$(trim "$entry")"
+            if [[ -z "$entry" || "$entry" != *=* ]]; then
+              echo "::error::Invalid package entry: ${entry}"
+              exit 1
+            fi
+
+            package="${entry%%=*}"
+            version="${entry#*=}"
+            package="$(trim "$package")"
+            version="$(trim "$version")"
+            if [[ -z "$package" || -z "$version" ]]; then
+              echo "::error::Invalid package entry: ${entry}"
+              exit 1
+            fi
+
+            echo "::group::Publishing ${package}==${version}"
+            uv run tools/copy_pypi_to_azure.py "$package" "$version"
+            echo "::endgroup::"
+          done

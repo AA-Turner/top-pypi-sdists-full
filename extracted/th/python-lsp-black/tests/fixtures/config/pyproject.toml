@@ -1,7 +1,0 @@
-[tool.black]
-line-length = 20
---fast = true
-pyi = true
-skip-magic-trailing-comma = true
-skip-string-normalization = true
-preview = true

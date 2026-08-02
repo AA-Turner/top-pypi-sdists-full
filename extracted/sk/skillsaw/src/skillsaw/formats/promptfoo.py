@@ -1,0 +1,89 @@
+"""Promptfoo eval-config format helpers.
+
+Pure detection and file-reference resolution for promptfoo eval configs,
+with no dependency on the rest of skillsaw.  Core modules (``context``,
+``lint_tree``) use these to discover promptfoo configs while building the
+lint tree; the promptfoo rule package re-exports them (under their legacy
+underscore names) so existing rule code keeps working.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import List, Optional
+
+# promptfoo eval configs are recognized by the presence of at least one of
+# these top-level keys.
+PROMPTFOO_KEYS = frozenset(
+    {
+        "providers",
+        "prompts",
+        "tests",
+        "scenarios",
+        "defaultTest",
+        "evaluateOptions",
+        "redteam",
+        "targets",
+    }
+)
+
+
+def is_promptfoo_config(data: object) -> bool:
+    """True if data is a mapping with at least one promptfoo-specific key."""
+    return isinstance(data, dict) and bool(PROMPTFOO_KEYS & set(data.keys()))
+
+
+def resolve_file_ref(ref: str, config_dir: Path, root: Optional[Path] = None) -> Optional[Path]:
+    """Resolve a file:// reference relative to config_dir.
+
+    Returns the resolved path (which may or may not exist on disk).
+    Returns None for glob patterns, non-YAML extensions, and remote URLs.
+
+    When ``root`` is given, refs whose resolved path (symlinks followed)
+    falls outside of it are rejected and None is returned — a config must
+    not pull files from outside the repository into the lint tree.
+    """
+    if not ref.startswith("file://"):
+        if ref.startswith(("http://", "https://", "huggingface://")):
+            return None
+        raw = ref
+    else:
+        raw = ref[len("file://") :]
+
+    if not raw:
+        return None
+    if any(c in raw for c in ("*", "?")):
+        return None
+
+    suffix = Path(raw).suffix.lower()
+    if suffix not in (".yaml", ".yml"):
+        return None
+
+    # resolve() on user-controlled paths can raise (e.g. OSError on
+    # permission problems, RuntimeError on symlink loops before 3.13);
+    # a broken ref should be skipped, not crash the linter.
+    try:
+        resolved = (config_dir / raw).resolve()
+
+        # Disallow escaping the repo root (mirrors
+        # context._resolve_plugin_source).  root is re-resolved because this
+        # helper is standalone and callers may pass an unresolved root.
+        if root is not None and not resolved.is_relative_to(root.resolve()):
+            return None
+    except (OSError, RuntimeError):
+        return None
+
+    return resolved
+
+
+def extract_file_refs(data: dict) -> List[str]:
+    """Extract string file references from a parsed promptfoo config's tests field."""
+    refs: List[str] = []
+    tests = data.get("tests")
+    if isinstance(tests, str):
+        refs.append(tests)
+    elif isinstance(tests, list):
+        for entry in tests:
+            if isinstance(entry, str):
+                refs.append(entry)
+    return refs

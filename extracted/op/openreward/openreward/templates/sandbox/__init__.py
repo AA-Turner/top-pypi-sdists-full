@@ -1,1 +1,0 @@
-"""Sandbox template assets."""

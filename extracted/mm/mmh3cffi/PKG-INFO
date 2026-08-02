@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: mmh3cffi
+Version: 0.2.1
+Summary: CFFI interface to murmurhash3/32 from aappleby/smhasher
+Home-page: https://github.com/splitio/mmh3cffi
+Author: Split software
+Author-email: python@split.io
+License: Apache 2.0
+Description: UNKNOWN
+Platform: UNKNOWN

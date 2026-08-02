@@ -1,0 +1,24 @@
+# paths to exclude when searching directories. defaults to empty list.
+exclude = ["ignore_me/", "ignore*.tcl", "/ignore_from_here"]
+# lint violations to ignore. defaults to empty list.
+ignore = ["unbraced-expr"]
+# extensions of files to lint when searching directories. defaults to tcl, sdc,
+# xdc, and upf.
+extensions = ["tcl"]
+# path(s) to command specs defining tool-specific commands and arguments.
+commands = ["~/.tclint/openroad.json"]
+
+[style]
+# number of spaces to indent. can also be set to "tab". defaults to 4.
+indent = 2
+# maximum allowed line length. defaults to 100.
+line-length = 80
+# maximum allowed number of consecutive blank lines. defaults to 2.
+max-blank-lines = 1
+# whether to require indenting of "namespace eval" blocks. defaults to true.
+indent-namespace-eval = false
+# whether to expect a single space (true) or no spaces (false) surrounding the contents of a braced expression or script argument.
+# defaults to false.
+spaces-in-braces = true
+# whether to use the emacs formatting style.  defaults to false.
+emacs = true

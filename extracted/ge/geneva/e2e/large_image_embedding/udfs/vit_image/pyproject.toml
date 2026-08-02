@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: PROPRIETARY
+# SPDX-FileCopyrightText: Copyright The Geneva Authors
+
+# UDF package for the large image embedding pipeline.
+
+[project]
+name = "geneva-udf-large-image-embedding"
+version = "0.1.0"
+description = "UDFs for decoding base64 images and running ViT inference"
+requires-python = ">=3.10,<3.14"
+dependencies = [
+    "geneva",
+    "tomli>=2.0; python_version<'3.11'",
+    "numpy>=1.26,<2.0",
+    "pillow==12.1.1",
+    "pybase64==1.4.2",
+    "torch==2.10.0",
+    "transformers==5.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[tool.uv]
+index-strategy = "unsafe-best-match"
+
+[tool.uv.sources]
+geneva = { path = "../../../..", editable = true }
+
+[[tool.uv.index]]
+name = "fury"
+url = "https://pypi.fury.io/lancedb/"
+
+[[tool.uv.index]]
+name = "lance-format"
+url = "https://pypi.fury.io/lance-format/"
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+explicit = true

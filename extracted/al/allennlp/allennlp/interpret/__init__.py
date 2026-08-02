@@ -1,3 +1,0 @@
-from allennlp.interpret.attackers.attacker import Attacker
-from allennlp.interpret.saliency_interpreters.saliency_interpreter import SaliencyInterpreter
-from allennlp.interpret.influence_interpreters.influence_interpreter import InfluenceInterpreter

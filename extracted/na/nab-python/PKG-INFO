@@ -1,0 +1,50 @@
+Metadata-Version: 2.4
+Name: nab-python
+Version: 0.0.12
+Summary: Index-backed provider, lockfile emitter, and downloader for nab
+Project-URL: Homepage, https://github.com/notatallshaw/nab
+Project-URL: Documentation, https://nab.readthedocs.io/
+Project-URL: Issues, https://github.com/notatallshaw/nab/issues
+Project-URL: Source, https://github.com/notatallshaw/nab
+Project-URL: Changelog, https://github.com/notatallshaw/nab/releases
+Author-email: Damian Shaw <damian.peter.shaw@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Requires-Dist: build>=1.2
+Requires-Dist: installer>=0.7
+Requires-Dist: nab-index==0.0.12
+Requires-Dist: nab-resolver==0.0.12
+Requires-Dist: pyproject-hooks>=1.2
+Requires-Dist: tomli-w>=1.2
+Requires-Dist: tomli>=2.0
+Requires-Dist: typing-extensions>=4.6
+Description-Content-Type: text/markdown
+
+# nab-python
+
+The Python package index provider that drives [`nab-resolver`](https://pypi.org/project/nab-resolver/)
+for Python packages.
+
+It owns all the mechanics of how the resolver needs to interact with standards
+based Python package indexes and packages.
+
+It implements build and distribution policies to allow the user to control
+resolver and install behavior.
+
+## When to use it
+
+Use `nab-python` if you need to embed Python package resolution in
+another tool and want the resolver, provider, and lockfile emitter
+without the CLI.
+
+The API is currently under rapid experimentation, use exact version
+pinning.

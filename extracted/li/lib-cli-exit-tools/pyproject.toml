@@ -1,0 +1,246 @@
+[project]
+name = "lib_cli_exit_tools"
+version = "2.3.4"
+description = "CLI exit handling helpers: clean signals, exit codes, and error printing"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["rich-click>=1.9.8"]
+license = { text = "MIT" }
+authors = [{ name = "bitranox", email = "bitranox@gmail.com" }]
+keywords = ["cli", "exit", "signals", "errors", "click"]
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Environment :: Console",
+  "Operating System :: OS Independent",
+  "Typing :: Typed",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+]
+
+# System packages required for CI runners (read by GitHub Actions workflow template)
+# Format: "apt_package_name" for Ubuntu, future: {"apt": "...", "brew": "...", "choco": "..."}
+[tool.ci]
+system-dependencies-ubuntu = []
+system-dependencies-macos = []
+system-dependencies-windows-pip = []
+system-dependencies-windows-choco = []
+os = ["ubuntu-latest", "windows-latest", "macos-latest"]
+
+[project.urls]
+Homepage = "https://github.com/bitranox/lib_cli_exit_tools"
+Repository = "https://github.com/bitranox/lib_cli_exit_tools.git"
+Issues = "https://github.com/bitranox/lib_cli_exit_tools/issues"
+
+[project.optional-dependencies]
+dev = [
+  # 1.5.1 was yanked upstream (unintended breaking changes), so 1.5.0 is the newest usable
+  # release; a >=1.5.1 floor has ZERO candidates and makes this extra unresolvable.
+  "build>=1.5.0",
+  # codecov-cli is disabled, not dropped: it requires click<8.3.0, which drags click back to
+  # 8.2.1 - the version with CVE-2026-7246 (command injection in click.edit(), fixed in 8.3.3).
+  # Nothing else here caps click, so with this line active the audit gate goes red on every
+  # clean install. Leaving it off costs nothing: CI uploads coverage via codecov/codecov-action,
+  # not this CLI, and "bmk codecov" resolves codecovcli from PATH and only warns when absent.
+  # Re-enable once codecov-cli relaxes its click<8.3.0 pin.
+  # "codecov-cli>=11.2.8",
+  # Transitive CVE pins
+  "click>=8.4.2",                # CVE-2026-7246
+  "coverage[toml]>=7.15.2",
+  "hypothesis>=6.163.0",
+  "import-linter>=2.13",
+  "bandit>=1.9.4",
+  "pip-audit>=2.10.1",
+  "pyright[nodejs]>=1.1.411",
+  "pytest>=9.1.1",
+  "pytest-asyncio>=1.4.0",
+  "pytest-cov>=7.1.0",
+  "ruff>=0.16.0",
+  "textual>=8.2.8",
+  "rtoml>=0.13.0",
+  "twine>=7.0.0"
+]
+
+[project.scripts]
+lib_cli_exit_tools = "lib_cli_exit_tools.cli:main"
+# Friendly alias (optional):
+cli-exit-tools = "lib_cli_exit_tools.cli:main"
+lib-cli-exit-tools = "lib_cli_exit_tools.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.31.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lib_cli_exit_tools"]
+include = ["src/lib_cli_exit_tools/py.typed"]
+
+[tool.ruff]
+line-length = 160
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+  "E", "W",     # pycodestyle
+  "F",           # pyflakes
+  "I",           # isort
+  "N",           # pep8-naming
+  "UP",          # pyupgrade
+  "B",           # bugbear
+  "A",           # builtins shadowing
+  "C4",          # comprehension simplification
+  "SIM",         # simplification
+  "TCH",         # type-checking imports
+  "RUF",         # ruff-specific
+  "G",           # logging format (catches f-string in logger)
+  "T20",         # print statements
+  "PTH",         # pathlib preference
+  "PLC", "PLE",  # pylint conventions/errors
+  "S",           # flake8-bandit security checks
+  "PERF",        # performance anti-patterns
+  "ERA",         # eradicate dead/commented-out code
+  "FBT",         # boolean trap (boolean positional args)
+  "PLR",         # pylint refactor
+  "PLW",         # pylint warnings
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# ignore the "unused import sys" in the jupyter notebook - which we need (it is a linter hickup)
+# T201: notebook cells print to show output inline, the point of a demo. FBT001/FBT003: the
+# notebook-local demo helper takes a plain bool and is called positionally for readability;
+# it is not published API, so the boolean-trap guard does not apply.
+"notebooks/*.ipynb" = ["F401", "T201", "FBT001", "FBT003"]
+# Tests: assert is standard, test fixtures have passwords, magic values are clearer inline, temp paths are fine.
+# PLC0415: local/deferred imports are a deliberate test idiom - several tests import inside the test
+# body to exercise import-time and cache behaviour, so moving them to module top would defeat intent.
+# S603: subprocess integration tests spawn sys.executable against a script the test itself wrote to
+# tmp_path - the input is trusted, not attacker-controlled.
+"tests/*.py" = ["T20", "S101", "S105", "S106", "S108", "S603", "FBT001", "FBT003", "PLR0913", "PLR2004", "PLC0415"]
+# CLI: Click framework injects boolean params; commands have many options
+"src/lib_cli_exit_tools/cli/*.py" = ["FBT001", "FBT002", "PLR0913"]
+# Application runner: run_cli/cli_session expose many independently-optional DI seams
+# (signal specs, exception handler, signal installer, argv, prog_name) by design so tests
+# can inject fakes at each seam; splitting into a config object would just move the params.
+"src/lib_cli_exit_tools/application/runner.py" = ["PLR0913"]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+exclude = [
+  "scripts/",
+  ".venv*",
+]
+
+[tool.pytest.ini_options]
+addopts = ["--doctest-modules"]
+pythonpath = ["src"]
+testpaths = ["src", "tests"]
+doctest_optionflags = ["ELLIPSIS", "NORMALIZE_WHITESPACE"]
+markers = [
+  "os_agnostic: test exercises behavior that is the same on every operating system",
+  "posix_only: test applies only to POSIX-style operating systems",
+  "windows_only: test applies only to Windows operating systems",
+  "macos_only: test applies only to macOS operating systems",
+]
+
+[tool.coverage.run]
+branch = true
+parallel = false
+data_file = ".coverage.unit"
+source = ["src/lib_cli_exit_tools"]
+
+[tool.coverage.report]
+omit = [
+  "tests/*",
+]
+fail_under = 85
+show_missing = true
+
+[tool.clean]
+# Patterns to remove when running `make clean`
+patterns = [
+  "**/__pycache__",
+  ".hypothesis",
+  ".import_linter_cache",
+  ".pytest_cache",
+  ".ruff_cache",
+  ".pyright",
+  ".mypy_cache",
+  ".tox",
+  ".nox",
+  ".eggs",
+  "*.egg-info",
+  "build",
+  "dist",
+  "htmlcov",
+  ".coverage",
+  "coverage.xml",
+  "codecov.sh",
+  ".cache",
+  "result",
+]
+
+[tool.git]
+# Default git remote for push/release commands
+default-remote = "origin"
+
+
+[tool.scripts.test]
+# Configuration for scripts/test.py test runner
+pytest-verbosity = "-vv"
+coverage-report-file = "coverage.xml"
+src-path = "src"
+[tool.importlinter]
+root_package = "lib_cli_exit_tools"
+
+[[tool.importlinter.contracts]]
+name = "Core isolation"
+type = "forbidden"
+source_modules = [
+  "lib_cli_exit_tools.core",
+]
+forbidden_modules = [
+  "lib_cli_exit_tools.application",
+  "lib_cli_exit_tools.adapters",
+  "lib_cli_exit_tools.cli",
+  "lib_cli_exit_tools.lib_cli_exit_tools",
+]
+
+[[tool.importlinter.contracts]]
+name = "Application avoids CLI layer"
+type = "forbidden"
+source_modules = [
+  "lib_cli_exit_tools.application",
+]
+forbidden_modules = [
+  "lib_cli_exit_tools.cli",
+]
+
+[tool.pip-audit]
+# Known vulnerabilities to ignore (unfixable or accepted risk)
+# Runtime deps of lib_cli_exit_tools are limited to rich-click; entries below
+# are dev/env-only transitive vulnerabilities that do not affect library users.
+ignore-vulns = [
+  "GHSA-4xh5-x5gv-qwph",          # py library ReDoS, no fix available, dev-only
+  "PYSEC-2022-42969",             # alias of GHSA-4xh5-x5gv-qwph
+  "CVE-2026-1703",                # transitive dev dependency, upstream tracking
+  "CVE-2026-25990",               # transitive dev dependency, upstream tracking
+  "CVE-2026-26007",               # transitive dev dependency, upstream tracking
+  "CVE-2026-25645",               # transitive dev dependency, upstream tracking
+  "GHSA-jj8c-mmj3-mmgv",          # authlib <1.6.11 CSRF in cache feature, dev-only (bmk tooling chain)
+  "CVE-2026-39892",               # cryptography <46.0.7 Hash.update buffer overflow, dev-only
+  "GHSA-p423-j2cm-9vmq",          # alias of CVE-2026-39892
+  "CVE-2026-41066",               # lxml <6.1.0 XXE via default resolve_entities, dev-only
+  "GHSA-vfmq-68hx-4jfw",          # alias of CVE-2026-41066
+  "CVE-2026-40192",               # Pillow <12.2.0 FITS decompression bomb, dev-only
+  "GHSA-whj4-6x5x-4v2j",          # alias of CVE-2026-40192
+  "CVE-2026-40347",               # python-multipart <0.0.26 DoS via crafted preamble/epilogue, dev-only
+  "GHSA-mj87-hwqh-73pj",          # alias of CVE-2026-40347
+  "GHSA-pjjw-68hj-v9mw",          # uv <0.11.6 wheel RECORD path traversal on uninstall, dev tooling
+]

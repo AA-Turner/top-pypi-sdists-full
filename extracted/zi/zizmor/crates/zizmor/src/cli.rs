@@ -6,11 +6,10 @@ use annotate_snippets::renderer::{AnsiColor, Effects};
 use anstream::stream::IsTerminal;
 use camino::Utf8PathBuf;
 use clap::builder::{NonEmptyStringValueParser, Styles};
-use clap::{ArgAction, Args, CommandFactory as _, Parser, ValueEnum, ValueHint};
+use clap::{ArgAction, Args, Parser, ValueEnum, ValueHint};
 use clap_complete::Generator;
 use clap_verbosity_flag::InfoLevel;
 use etcetera::AppStrategy as _;
-use tracing::warn;
 
 use crate::config::Config;
 use crate::finding::Persona;
@@ -504,22 +503,15 @@ pub(crate) enum CliCollectionMode {
     /// Collect all possible inputs, respecting `.gitignore` files.
     #[default]
     Default,
-    /// Collect only workflow definitions.
-    ///
-    /// Deprecated; use `--collect=workflows`
-    #[value(hide = true)]
-    WorkflowsOnly,
-    /// Collect only action definitions (i.e. `action.yml`).
-    ///
-    /// Deprecated; use `--collect=actions`
-    #[value(hide = true)]
-    ActionsOnly,
     /// Collect workflows.
     Workflows,
     /// Collect action definitions (i.e. `action.yml`).
     Actions,
     /// Collect Dependabot configuration files (i.e. `dependabot.yml`).
     Dependabot,
+    /// Collect pre-commit configuration and hooks files,
+    /// i.e. `.pre-commit-config.yml` and `.pre-commit-hooks.yml`.
+    PreCommit,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
@@ -529,50 +521,23 @@ pub(crate) enum CollectionMode {
     Workflows,
     Actions,
     Dependabot,
+    PreCommit,
 }
 
 pub(crate) struct CollectionModeSet(HashSet<CollectionMode>);
 
 impl From<&[CliCollectionMode]> for CollectionModeSet {
     fn from(modes: &[CliCollectionMode]) -> Self {
-        if modes.len() > 1
-            && modes.iter().any(|mode| {
-                matches!(
-                    mode,
-                    CliCollectionMode::WorkflowsOnly | CliCollectionMode::ActionsOnly
-                )
-            })
-        {
-            let mut cmd = App::command();
-
-            cmd.error(
-                clap::error::ErrorKind::ArgumentConflict,
-                "`workflows-only` and `actions-only` cannot be combined with other collection modes",
-            )
-            .exit();
-        }
-
         Self(
             modes
                 .iter()
                 .map(|mode| match mode {
                     CliCollectionMode::All => CollectionMode::All,
                     CliCollectionMode::Default => CollectionMode::Default,
-                    CliCollectionMode::WorkflowsOnly => {
-                        warn!("--collect=workflows-only is deprecated; use --collect=workflows instead");
-                        warn!("future versions of zizmor will reject this mode");
-
-                        CollectionMode::Workflows
-                    }
-                    CliCollectionMode::ActionsOnly => {
-                        warn!("--collect=actions-only is deprecated; use --collect=actions instead");
-                        warn!("future versions of zizmor will reject this mode");
-
-                        CollectionMode::Actions
-                    }
                     CliCollectionMode::Workflows => CollectionMode::Workflows,
                     CliCollectionMode::Actions => CollectionMode::Actions,
                     CliCollectionMode::Dependabot => CollectionMode::Dependabot,
+                    CliCollectionMode::PreCommit => CollectionMode::PreCommit,
                 })
                 .collect(),
         )
@@ -617,6 +582,16 @@ impl CollectionModeSet {
             matches!(
                 mode,
                 CollectionMode::All | CollectionMode::Default | CollectionMode::Dependabot
+            )
+        })
+    }
+
+    /// Shouldn we collect pre-commit files?
+    pub(crate) fn pre_commit(&self) -> bool {
+        self.0.iter().any(|mode| {
+            matches!(
+                mode,
+                CollectionMode::All | CollectionMode::Default | CollectionMode::PreCommit
             )
         })
     }

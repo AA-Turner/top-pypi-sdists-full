@@ -1,0 +1,61 @@
+Metadata-Version: 2.4
+Name: codemod-yaml
+Version: 0.7.0
+Summary: Lib to modify yaml inplace
+Home-page: https://github.com/advice-animal/codemod-yaml/
+Author: Tim Hatch
+Author-email: tim@timhatch.com
+License: MIT
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: tree-sitter>=0.23.2
+Requires-Dist: tree-sitter-yaml>=0.6.0
+Provides-Extra: demo
+Requires-Dist: moreorless; extra == "demo"
+Provides-Extra: dev
+Requires-Dist: ruff==0.8.0; extra == "dev"
+Requires-Dist: checkdeps==0.9.0; extra == "dev"
+Requires-Dist: mypy==1.13.0; extra == "dev"
+Requires-Dist: tox==4.23.2; extra == "dev"
+Provides-Extra: test
+Requires-Dist: coverage>=6; extra == "test"
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: moreorless; extra == "test"
+Requires-Dist: pyyaml; extra == "test"
+Dynamic: license-file
+
+# codemod-yaml
+
+This library makes surgical edits to YAML documents, based on tree-sitter and
+inspired by tomlkit and pyupgrade.  Preserves _all_ whitespace and formatting
+on lines that don't require changes, and generally within a line as well, so
+you can make minimal diffs in your codemod tools.
+
+# Basic Usage
+
+```py
+from codemod_yaml import parse
+stream = parse(somepath.read_bytes())
+if stream["version"] == ["2.7"]:
+    stream["version"][:] = ["3.6", "3.13"]
+somepath.write_bytes(stream.text)
+```
+
+# Version Compat
+
+Usage of this library should work back to 3.9 (because of the tree-sitter dep),
+but development (and mypy compatibility) only on 3.10-3.12.  Linting requires
+3.12+ for full fidelity.
+
+# Versioning
+
+This library follows [meanver](https://meanver.org/) which basically means
+[semver](https://semver.org/) along with a promise to rename when the major
+version changes.
+
+# License
+
+codemod-yaml is copyright [Tim Hatch](https://timhatch.com/), and licensed under
+the MIT license.  See the `LICENSE` file for details.

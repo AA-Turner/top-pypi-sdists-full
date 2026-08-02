@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/github-actions-expressions", "crates/github-actions-models", "crates/subfeature", "crates/tree-sitter-iter", "crates/yamlpatch", "crates/yamlpath", "crates/zizmor", "crates/zizmor-sarif"]
+members = ["crates/github-actions-expressions", "crates/github-actions-models", "crates/pre-commit-models", "crates/subfeature", "crates/tree-sitter-iter", "crates/yamlpatch", "crates/yamlpath", "crates/zizmor", "crates/zizmor-sarif"]
 
 [workspace.package]
 authors = ["William Woodruff <william@yossarian.net>"]
@@ -9,16 +9,17 @@ homepage = "https://docs.zizmor.sh"
 edition = "2024"
 license = "MIT"
 rust-version = "1.97.0"
-version = "1.28.0"
+version = "1.29.0"
 
 [workspace.dependencies]
-github-actions-expressions = { path = "crates/github-actions-expressions", version = "1.28.0" }
-github-actions-models = { path = "crates/github-actions-models", version = "1.28.0" }
-subfeature = { path = "crates/subfeature", version = "1.28.0" }
-tree-sitter-iter = { path = "crates/tree-sitter-iter", version = "1.28.0" }
-yamlpath = { path = "crates/yamlpath", version = "1.28.0" }
-yamlpatch = { path = "crates/yamlpatch", version = "1.28.0" }
-zizmor-sarif = { path = "crates/zizmor-sarif", version = "1.28.0" }
+github-actions-expressions = { path = "crates/github-actions-expressions", version = "1.29.0" }
+github-actions-models = { path = "crates/github-actions-models", version = "1.29.0" }
+subfeature = { path = "crates/subfeature", version = "1.29.0" }
+tree-sitter-iter = { path = "crates/tree-sitter-iter", version = "1.29.0" }
+yamlpath = { path = "crates/yamlpath", version = "1.29.0" }
+yamlpatch = { path = "crates/yamlpatch", version = "1.29.0" }
+zizmor-sarif = { path = "crates/zizmor-sarif", version = "1.29.0" }
+pre-commit-models = { path = "crates/pre-commit-models", version = "1.29.0" }
 
 anyhow = "1.0.102"
 itertools = "0.15.0"
@@ -43,7 +44,7 @@ ignore = "0.4.25"
 indexmap = { version = "2.13.1", features = ["serde"] }
 indicatif = "0.18"
 insta = "1.47.1"
-jsonschema = { version = "0.47.0", default-features = false }
+jsonschema = { version = "0.48.1", default-features = false }
 line-index = "0.1.2"
 memchr = "2.8.0"
 owo-colors = "4.3.0"
@@ -63,7 +64,7 @@ tokio = { version = "1.52.2", features = ["rt-multi-thread", "io-std"] }
 tower-lsp-server = "0.23"
 tracing = "0.1.44"
 tracing-indicatif = "0.3.14"
-tracing-subscriber = "0.3.23"
+tracing-subscriber = { version = "0.3.23" }
 tree-sitter = "0.26.9"
 tree-sitter-bash = "0.25.1"
 # Exact version since the upstream performed a breaking change outside of semver.
@@ -72,6 +73,8 @@ tree-sitter-powershell = "=0.26.4"
 tree-sitter-yaml = "0.7.2"
 tikv-jemallocator = "0.7"
 typomania = { version = "0.2.0", default-features = false }
+url = "2.5.8"
+walkdir = "2.5.0"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

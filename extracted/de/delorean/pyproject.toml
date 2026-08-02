@@ -1,0 +1,106 @@
+[project]
+name = "delorean"
+version = "2.0.0"
+description = "library for manipulating datetimes with ease and clarity"
+readme = "README.rst"
+license = "MIT"
+license-files = ["LICENSE.txt"]
+authors = [{ name = "Mahdi Yusuf", email = "yusuf.mahdi@gmail.com" }]
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "babel>=2.10.3",
+    "humanize>=4.2.2",
+    "python-dateutil>=2.8.2",
+    "tzlocal>=4.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/myusuf3/delorean"
+
+[dependency-groups]
+dev = [
+    "black",
+    "pytest",
+    "ruff",
+    "towncrier",
+]
+docs = [
+    "sphinx",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["delorean"]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+# Ruff's documented default (E4/E7/E9 + F) plus import sorting. Pinned explicitly
+# because the implicit default set changes between ruff releases. E501 is left
+# out on purpose: black owns line length.
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.ruff.lint.per-file-ignores]
+# Re-exports that make up the public API, e.g. delorean.DAILY and delorean.parse.
+"delorean/__init__.py" = ["F401"]
+
+[tool.black]
+# Pin the floor we support; without this black infers the whole open-ended
+# range from requires-python and warns that it cannot verify its own output.
+target-version = ["py310"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["delorean_tests.py", "behavior_tests.py"]
+
+[tool.towncrier]
+directory = "changelog.d"
+filename = "CHANGES.rst"
+package = "delorean"
+start_string = "Release History\n---------------\n"
+title_format = "{version}"
+underlines = ["+", "~", "^"]
+issue_format = "#{issue}"
+
+[[tool.towncrier.type]]
+directory = "breaking"
+name = "Breaking changes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "added"
+name = "Added"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "changed"
+name = "Changed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "fixed"
+name = "Fixed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "removed"
+name = "Removed"
+showcontent = true

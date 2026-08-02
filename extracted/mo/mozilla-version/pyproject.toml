@@ -1,0 +1,67 @@
+[project]
+name = "mozilla-version"
+version = "5.1.0"
+description = "Process Firefox versions numbers. Tells whether they are valid or not, whether they are nightlies or regular releases, whether this version precedes that other."
+readme = "README.md"
+authors = [
+    { name = "Mozilla Release Engineering", email="release+python@mozilla.com" },
+]
+requires-python = ">=3.9"
+dependencies = ["attrs>=19.2"]
+license = "MPL-2.0"
+
+[project.urls]
+Homepage = "https://github.com/mozilla-releng/mozilla-version"
+
+[tool.ruff.lint]
+select = [
+    "A",            # flake8-builtins
+    "ARG",          # flake8-unused-arguments
+    "B",            # flake8-bugbear
+    "C4",           # flake8-comprehensions
+    "C90",          # mccabe
+    "DTZ",          # flake8-datetimez
+    "E", "W",       # pycodestyle
+    "EXE",          # flake8-executable
+    "F",            # pyflakes
+    "I",            # isort
+    "ISC",          # flake8-implicit-str-concat
+    "N",            # pep8-naming
+    "PIE",          # flake8-pie
+    "PLC", "PLE",   # pylint
+    "PTH",          # flake8-use-pathlib
+    "RET",          # flake8-return
+    "RUF",          # Ruff-specific rules
+    "SIM",          # flake8-simplify
+    "T10",          # flake8-debugger
+    "T20",          # flake8-print
+    "TID",          # flake8-tidy-imports
+    "UP",           # pyupgrade
+    "YTT",          # flake8-2020
+]
+
+[tool.ruff.lint.flake8-builtins]
+builtins-allowed-modules = ["parser"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+  "coverage",
+  "flake8",
+  "flake8_docstrings",
+  "more-itertools",
+  "pytest",
+  "pytest-cov",
+  "requests",
+  "setuptools",
+]
+docs = [
+  "Sphinx",
+  "m2r2",
+]
+
+[tool.uv.dependency-groups]
+docs = { requires-python = ">=3.12" }

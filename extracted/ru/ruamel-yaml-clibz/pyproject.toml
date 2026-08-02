@@ -1,4 +1,0 @@
-[build-system]
-requires = ["setuptools>=80.9.0", "setuptools-zig>=0.5.1", "ziglang>=0.15,<0.16"]
-
-# build-backend = "setuptools.build_meta"

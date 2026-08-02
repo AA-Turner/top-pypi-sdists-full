@@ -1,0 +1,199 @@
+from enum import StrEnum, auto
+
+from cg.constants import FileExtensions
+from cg.constants.housekeeper_tags import AlignmentFileTag, NalloAnalysisTag
+
+HGNC_ID = "hgnc_id"
+
+
+class ScoutExportFileName(StrEnum):
+    MANAGED_VARIANTS = f"managed_variants{FileExtensions.VCF}"
+    PANELS = f"gene_panels{FileExtensions.BED}"
+    PANELS_TSV = f"gene_panels{FileExtensions.TSV}"
+
+
+class UploadTrack(StrEnum):
+    RARE_DISEASE = "rare"
+    CANCER = "cancer"
+
+
+class ScoutCustomCaseReportTags(StrEnum):
+    DELIVERY: str = "delivery_report"
+    RNA_DELIVERY: str = "rna_delivery_report"
+    CNV: str = "cnv_report"
+    COV_QC: str = "coverage_qc_report"
+    MULTIQC: str = "multiqc"
+    MULTIQC_RNA: str = "multiqc_rna"
+    GENE_FUSION: str = "gene_fusion"
+    GENE_FUSION_RESEARCH: str = "gene_fusion_research"
+
+
+class ScoutUploadKey(StrEnum):
+    SMN_TSV = auto()
+    SNV_VCF = auto()
+    SV_VCF = auto()
+    VCF_STR = auto()
+    VCF_FUSION = auto()
+    VCF_SNV = auto()
+    VCF_SV = auto()
+
+
+RAREDISEASE_CASE_TAGS = dict(
+    delivery_report={"delivery-report"},
+    multiqc={"multiqc-html"},
+    peddy_check={"ped-check", "peddy"},
+    peddy_ped={"ped", "peddy"},
+    peddy_sex={"sex-check", "peddy"},
+    smn_tsv={"smn-calling"},
+    vcf_mei={"mobile-elements", "clinical", "vcf"},
+    vcf_mei_research={"mobile-elements", "research", "vcf"},
+    vcf_snv_research={"vcf-snv-research"},
+    vcf_snv={"vcf-snv-clinical"},
+    vcf_snv_research_mt={"vcf-snv-research", "mitochondria"},
+    vcf_snv_mt={"vcf-snv-clinical", "mitochondria"},
+    vcf_sv_research={"vcf-sv-research"},
+    vcf_sv={"vcf-sv-clinical"},
+    vcf_str={"vcf-str"},
+)
+
+NALLO_CASE_TAGS = dict(
+    delivery_report={"delivery-report"},
+    multiqc={"multiqc-html"},
+    paraphrase={"paraphrase"},
+    peddy_check={"ped-check", "peddy"},
+    peddy_ped={"ped", "peddy"},
+    somalier_samples={"somalier", "relate-samples"},
+    vcf_snv={"vcf-snv-clinical"},
+    vcf_snv_research={"vcf-snv-research"},
+    vcf_str={"vcf-str"},
+    vcf_sv={"vcf-sv-clinical"},
+    vcf_sv_research={"vcf-sv-research"},
+)
+
+MIP_CASE_TAGS: dict[str, set[str]] = dict(
+    delivery_report={"delivery-report"},
+    multiqc_report={"multiqc-html"},
+    peddy_check={"ped-check", "peddy"},
+    peddy_ped={"ped", "peddy"},
+    peddy_sex={"sex-check", "peddy"},
+    smn_tsv={"smn-calling"},
+    snv_research_vcf={"vcf-snv-research"},
+    snv_vcf={"vcf-snv-clinical"},
+    sv_research_vcf={"vcf-sv-research"},
+    sv_vcf={"vcf-sv-clinical"},
+    vcf_mei={"mobile-elements", "clinical", "vcf"},
+    vcf_mei_research={"mobile-elements", "research", "vcf"},
+    vcf_str={"vcf-str"},
+)
+
+BALSAMIC_CASE_TAGS = dict(
+    sv_vcf={"vcf-sv-clinical"},
+    snv_vcf={"vcf-snv-clinical"},
+    cnv_report={"cnv-report"},
+    multiqc_report={"multiqc-html"},
+    delivery_report={"delivery-report"},
+)
+
+BALSAMIC_UMI_CASE_TAGS = dict(
+    sv_vcf={"vcf-sv-clinical"},
+    snv_vcf={"vcf-umi-snv-clinical"},
+    cnv_report={"cnv-report"},
+    multiqc_report={"multiqc-html"},
+    delivery_report={"delivery-report"},
+)
+
+RNAFUSION_CASE_TAGS: dict[str, set[str]] = dict(
+    multiqc_rna={"multiqc-html", "rna"},
+    gene_fusion={"arriba-visualisation", "clinical"},
+    gene_fusion_report_research={"arriba-visualisation", "research"},
+    RNAfusion_report={"fusionreport", "clinical"},
+    RNAfusion_report_research={"fusionreport", "research"},
+    RNAfusion_inspector={"fusioninspector-html", "clinical"},
+    RNAfusion_inspector_research={"fusioninspector-html", "research"},
+    delivery_report={"delivery-report"},
+    vcf_fusion={"vcf-fusion"},
+)
+
+RAREDISEASE_SAMPLE_TAGS: dict[str, set[str]] = dict(
+    alignment_file={AlignmentFileTag.CRAM},
+    vcf2cytosure={"vcf2cytosure"},
+    mt_bam={"bam-mt"},
+    saltshaker_path={"saltshaker-png"},
+    chromograph_autozyg={"chromograph", "autozyg"},
+    chromograph_coverage={"chromograph", "tcov"},
+    chromograph_regions={"chromograph", "regions"},
+    chromograph_sites={"chromograph", "sites"},
+    reviewer_alignment={"expansionhunter", "bam"},
+    reviewer_alignment_index={"expansionhunter", "bam-index"},
+    reviewer_vcf={"expansionhunter", "vcf-str"},
+    reviewer_catalog={"expansionhunter", "variant-catalog"},
+    mitodel_file={"mitodel"},
+    tiddit_coverage_wig={"bigwig", "tiddit-coverage"},
+)
+
+NALLO_SAMPLE_TAGS: dict[str, set[str]] = dict(
+    alignment_path={AlignmentFileTag.BAM, "haplotags"},
+    assembly_alignment_path={AlignmentFileTag.BAM, "assembly"},
+    chromograph_autozyg={"chromograph", "autozyg"},
+    chromograph_coverage={"chromograph", "tcov"},
+    d4_file={"coverage", "d4"},
+    hificnv_coverage={"hificnv", "bigwig"},
+    paraphase_alignment_path={AlignmentFileTag.BAM, NalloAnalysisTag.PARAPHASE},
+    phase_blocks={"whatshap", "gtf"},
+    reviewer_alignment={"repeats", "spanning", "bam"},
+    reviewer_alignment_index={"repeats", "spanning", "bam-index"},
+    reviewer_vcf={"repeats", "sorted", "vcf"},
+    reviewer_catalog={"trgt", "variant-catalog"},
+    minor_allele_frequency_wig={"hificnv", "bigwig", "maf"},
+)
+
+MIP_SAMPLE_TAGS: dict[str, set[str]] = dict(
+    bam_file={"bam"},
+    alignment_file={"cram"},
+    vcf2cytosure={"vcf2cytosure"},
+    mt_bam={"bam-mt"},
+    chromograph_autozyg={"chromograph", "autozyg"},
+    chromograph_coverage={"chromograph", "tcov"},
+    chromograph_regions={"chromograph", "regions"},
+    chromograph_sites={"chromograph", "sites"},
+    reviewer_alignment={"expansionhunter", "bam"},
+    reviewer_alignment_index={"expansionhunter", "bam-index"},
+    reviewer_vcf={"expansionhunter", "vcf-str"},
+    reviewer_catalog={"expansionhunter", "variant-catalog"},
+    mitodel_file={"mitodel"},
+    tiddit_coverage_wig={"tiddit-coverage", "bigwig"},
+    rhocall_wig={"rhocall-viz"},
+    upd_regions_bed={"upd", "regions", "bigbed"},
+    upd_sites_bed={"upd", "sites", "bigbed"},
+)
+
+BALSAMIC_SAMPLE_TAGS = dict(
+    bam_file={"bam"},
+    alignment_file={"cram"},
+    vcf2cytosure={"vcf2cytosure"},
+)
+
+BALSAMIC_UMI_SAMPLE_TAGS = dict(
+    bam_file={"umi-bam"},
+    alignment_file={"umi-cram"},
+)
+
+
+RNAFUSION_SAMPLE_TAGS = dict(
+    alignment_file={AlignmentFileTag.CRAM},
+)
+
+RANK_MODEL_THRESHOLD = 5
+
+
+class ScoutAnalysisType(StrEnum):
+    EXTERNAL = "external"  # Supported by Scout but not currently generated by CG
+    MIXED = "mixed"  # Supported by Scout but not currently generated by CG
+    PANEL = "panel"
+    PANEL_LR = "panel-lr"
+    PANEL_UMI = "panel-umi"
+    UNKNOWN = "unknown"  # Supported by Scout but not currently generated by CG
+    WES = "wes"
+    WGS = "wgs"
+    WGS_LR = "wgs-lr"
+    WTS = "wts"

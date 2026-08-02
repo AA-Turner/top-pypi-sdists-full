@@ -1,0 +1,24 @@
+[package]
+name = "pipelines"
+description = "Asynchronnous data piepline types, configurable at run-time."
+version = {workspace = true}
+authors = {workspace = true}
+edition = {workspace = true}
+homepage = {workspace = true}
+repository = {workspace = true}
+license = {workspace = true}
+
+[dependencies]
+futures = {version = "0.3"}
+num-traits = {version = "0.2"}
+tokio = {version = "1", features = ["full"]}
+pipeline_macros = {path="../pipeline_macros"}
+user_messages = {path='../user_messages'}
+thiserror = {version = "2"}
+num-complex = {version="0.4"}
+pyo3 = {workspace = true, features=["num-complex"], optional = true}
+numpy = {version = "0.24",  optional = true}
+
+[features]
+python = ["dep:pyo3", "dep:numpy"]
+all = ["python"]

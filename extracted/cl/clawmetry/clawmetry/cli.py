@@ -976,7 +976,7 @@ def _cmd_connect(args) -> None:
     import platform
     import socket
 
-    api_key = args.key or os.environ.get("CLAWMETRY_API_KEY") or ""
+    api_key = getattr(args, "key", None) or os.environ.get("CLAWMETRY_API_KEY") or ""
     if not api_key:
         api_key = _get_api_key_interactive()
 
@@ -993,7 +993,7 @@ def _cmd_connect(args) -> None:
     # actual security bar: the cm_ key is a bearer credential the server
     # accepts directly on /auth and ingest, so the client-side OTP never
     # stopped anyone who already holds the key.
-    if args.key:
+    if getattr(args, "key", None):
         if _saved_api_key and api_key == _saved_api_key:
             pass  # Already verified — reconnecting with same key
         elif getattr(args, "start_sync_now", False):
@@ -6398,6 +6398,38 @@ def main() -> None:
     )
 
     # proxy
+    # secure — numbat (Perplexity agent-EDR) install + hook status
+    p_secure = sub.add_parser(
+        "secure",
+        help="Agent security via numbat: install hooks, show status (docs/NUMBAT.md)",
+    )
+    secure_sub = p_secure.add_subparsers(dest="secure_cmd")
+    p_secure_enable = secure_sub.add_parser(
+        "enable", help="Install numbat + monitor-only hooks wired to ClawMetry"
+    )
+    p_secure_enable.add_argument(
+        "--yes", action="store_true",
+        help="Skip the confirmation prompt (hook install edits agent configs)",
+    )
+    p_secure_enable.add_argument(
+        "--port", type=int, default=None,
+        help="Dashboard port for the HTTP sink (default: 8900)",
+    )
+    p_secure_enable.add_argument(
+        "--emit-all", action="store_true",
+        help="Emit full event stream to the file sink, not just findings",
+    )
+    p_secure_enable.add_argument(
+        "--reinstall", action="store_true",
+        help="Re-download the numbat binary even if one is already installed",
+    )
+    secure_sub.add_parser(
+        "status", help="Per-agent hook wiring + findings ingested by ClawMetry"
+    )
+    secure_sub.add_parser(
+        "disable", help="Remove numbat hooks from all agent configs"
+    )
+
     p_proxy = sub.add_parser(
         "proxy", help="Local enforcement proxy (budget, loops, routing)"
     )
@@ -6987,6 +7019,7 @@ def main() -> None:
         "sync",
         "status",
         "proxy",
+        "secure",
         "reports",
         "eval",
         "mcp",
@@ -7031,6 +7064,9 @@ def main() -> None:
             _cmd_status(args)
         elif args.cmd == "proxy":
             _cmd_proxy(args)
+        elif args.cmd == "secure":
+            from clawmetry.secure import cmd_secure
+            sys.exit(cmd_secure(args))
         elif args.cmd == "reports":
             _cmd_reports(args)
         elif args.cmd == "eval":

@@ -1,0 +1,27 @@
+repos:
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.15.22
+  hooks:
+    - id: ruff
+      args: [--fix]
+    - id: ruff-format
+
+- repo: https://github.com/NSPBot911/ty-pre-commit
+  rev: v0.0.47
+  hooks:
+    - id: ty-check
+      args:
+        - --python=.venv
+
+- repo: builtin
+  hooks:
+    - id: end-of-file-fixer
+    - id: trailing-whitespace
+    - id: check-yaml
+    - id: check-json
+    - id: check-toml
+    - id: detect-private-key
+    - id: mixed-line-ending
+    - id: no-commit-to-branch
+      args:
+        - --branch=master

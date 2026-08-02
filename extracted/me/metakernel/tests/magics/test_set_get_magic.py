@@ -1,0 +1,31 @@
+import asyncio
+
+from tests.utils import EvalKernel, clear_log_text, get_kernel, get_log_text
+
+
+def test_set_get_int_magic() -> None:
+    kernel = get_kernel(EvalKernel)
+    asyncio.run(kernel.do_execute("%set x 42"))
+    # Clear log so the assert can't pass from the error message of %set
+    clear_log_text(kernel)
+    asyncio.run(kernel.do_execute("%get x"))
+    text = get_log_text(kernel)
+    assert "42" in text, text
+
+
+def test_set_get_list_magic() -> None:
+    kernel = get_kernel(EvalKernel)
+    asyncio.run(kernel.do_execute("%set variable [1., 2., 3., 4.]"))
+    clear_log_text(kernel)
+    asyncio.run(kernel.do_execute("%get variable"))
+    text = get_log_text(kernel)
+    assert "[1.0, 2.0, 3.0, 4.0]" in text, text
+
+
+def test_set_get_range_magic() -> None:
+    kernel = get_kernel(EvalKernel)
+    asyncio.run(kernel.do_execute("%set variable range(2)"))
+    clear_log_text(kernel)
+    asyncio.run(kernel.do_execute("%get variable"))
+    text = get_log_text(kernel)
+    assert "range(0, 2)" in text, text

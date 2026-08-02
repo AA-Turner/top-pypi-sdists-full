@@ -1,0 +1,69 @@
+import aerosandbox as asb
+import pytest
+
+
+def get_airfoil_database() -> list[asb.Airfoil]:
+    airfoil_database_root = asb._asb_root / "geometry" / "airfoil" / "airfoil_database"
+
+    afs = [
+        asb.Airfoil(
+            name=airfoil_file.stem,
+        )
+        for airfoil_file in airfoil_database_root.glob("*.dat")
+    ]
+
+    return afs
+
+
+def test_repaneling_validity():
+    try:
+        import shapely
+    except ModuleNotFoundError:
+        pytest.skip("Shapely not installed; skipping this test.")
+
+    afs = get_airfoil_database()
+
+    for af in afs:
+        try:
+            similarity = af.jaccard_similarity(af.repanel(n_points_per_side=100))
+        except shapely.errors.GEOSException:
+            continue  # Jaccard similarity is not defined for self-intersecting polygons
+            # similarity = np.nan
+        assert similarity > 1 - 3 / af.n_points(), (
+            f"Airfoil {af.name} failed repaneling validity check with similarity {similarity}!"
+        )
+
+
+def test_repaneling_duplicate_point_error_message():
+    """
+    Repaneling an airfoil with a duplicated point should raise the friendly "duplicate point" ValueError
+    (regression test for a misparenthesized strict-monotonicity check).
+    """
+    import numpy as np
+
+    af = asb.Airfoil("naca2412")
+    duplicated_coordinates = np.concatenate(
+        [
+            af.coordinates[:50],
+            af.coordinates[49:],  # Repeats point 49
+        ],
+        axis=0,
+    )
+    af_duplicated = asb.Airfoil("naca2412_with_duplicate", duplicated_coordinates)
+
+    with pytest.raises(ValueError, match="duplicate point"):
+        af_duplicated.repanel()
+
+
+def debug_draw(af: asb.Airfoil):
+    if isinstance(af, str):
+        af = asb.Airfoil(af)
+
+    for af in [af, af.repanel()]:
+        af.draw(draw_mcl=False, backend="plotly", show=False).update_layout(
+            yaxis=dict(scaleanchor=None)
+        ).show()
+
+
+if __name__ == "__main__":
+    test_repaneling_validity()

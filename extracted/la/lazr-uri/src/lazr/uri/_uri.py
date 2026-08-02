@@ -631,9 +631,7 @@ possible_uri_re = r"""
   \#
   [{unreserved}:@/\?]*
 )?
-""".format(
-    unreserved="-a-zA-Z0-9._~%!$&'()*+,;="
-)
+""".format(unreserved="-a-zA-Z0-9._~%!$&'()*+,;=")
 
 possible_uri_pat = re.compile(possible_uri_re, re.IGNORECASE | re.VERBOSE)
 uri_trailers_pat = re.compile(r"([,.?:);>]+)$")

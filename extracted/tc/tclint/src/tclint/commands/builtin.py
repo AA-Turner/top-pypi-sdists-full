@@ -1,0 +1,1203 @@
+"""Parse-time handling of Tcl's builtin commands.
+
+Based on Tcl 8.6, https://www.tcl-lang.org/man/tcl8.6/TclCmd/contents.htm.
+
+Note that the following commands are not currently supported. If support for any of
+these would be helpful for your use case, please file an issue.
+
+- Anything related to TclOO:
+  - https://www.tcl.tk/man/tcl/TclCmd/my.html
+  - https://www.tcl.tk/man/tcl/TclCmd/next.html
+  - https://www.tcl.tk/man/tcl/TclCmd/class.html
+  - https://www.tcl.tk/man/tcl/TclCmd/copy.html
+  - https://www.tcl.tk/man/tcl/TclCmd/define.html
+  - https://www.tcl.tk/man/tcl/TclCmd/object.html
+  - https://www.tcl.tk/man/tcl/TclCmd/self.html
+
+- Things that are imported via `package require`
+  - https://www.tcl.tk/man/tcl/TclCmd/dde.html
+  - https://www.tcl.tk/man/tcl/TclCmd/http.html
+  - https://www.tcl.tk/man/tcl/TclCmd/msgcat.html
+  - https://www.tcl.tk/man/tcl/TclCmd/platform.html
+  - https://www.tcl.tk/man/tcl/TclCmd/platform_shell.html
+  - https://www.tcl.tk/man/tcl/TclCmd/transchan.html
+  - https://www.tcl.tk/man/tcl/TclCmd/tcltest.html
+
+- Tcl library commands: https://www.tcl.tk/man/tcl/TclCmd/library.html
+
+- The "unknown" command: https://www.tcl.tk/man/tcl/TclCmd/unknown.html
+
+- Math ops:
+  - https://www.tcl.tk/man/tcl/TclCmd/mathfunc.html
+  - https://www.tcl.tk/man/tcl/TclCmd/mathop.html
+"""
+
+from tclint.commands.checks import CommandArgError, check_arg_spec, check_count, eval
+from tclint.commands.schema import commands_schema
+from tclint.syntax_tree import BareWord, Node
+
+
+def _check_code(arg):
+    """Check 'code' argument used by return and try."""
+
+    val = arg.contents
+    if val is None:
+        return
+
+    try:
+        int(val)
+    except ValueError:
+        pass
+    else:
+        return
+
+    if val in {"ok", "error", "return", "break", "continue"}:
+        return
+
+    raise CommandArgError(
+        f"got {val}, expected one of ok, error, return, break, continue, or an integer"
+    )
+
+
+def _after(args, parser):
+    """after ms [script...]"""
+    # ref: https://www.tcl.tk/man/tcl/TclCmd/after.html
+
+    script_arg = []
+    if len(args) > 1:
+        script_arg = eval(args[1:], parser, "after")
+
+    return args[0:1] + script_arg
+
+
+def _after_cancel(args, parser):
+    """after id|(script...)"""
+    # ref: https://www.tcl.tk/man/tcl/TclCmd/after.html
+    check_count("after cancel", 1, None)(args, parser)
+
+    # TODO: raise warning about not checking code
+
+    return None
+
+
+def _after_idle(args, parser):
+    """after idle [script...]"""
+    # ref: https://www.tcl.tk/man/tcl/TclCmd/after.html
+    return eval(args, parser, "after idle")
+
+
+def _apply(args, parser):
+    """apply func [arg...]"""
+    # ref: https://www.tcl.tk/man/tcl/TclCmd/apply.html
+    if len(args) < 1:
+        raise CommandArgError(
+            f"not enough args to apply: got {len(args)}, expected at least 1"
+        )
+
+    func_list = parser.parse_list(args[0])
+    list_len = len(func_list.children)
+    if list_len < 2 or list_len > 3:
+        raise CommandArgError(
+            f"Invalid first argument to apply: got list of {list_len} elements,"
+            " expected 2 or 3"
+        )
+
+    body = parser.parse_script(func_list.children[1])
+    func_list.children[1] = body
+
+    return [func_list] + args[1:]
+
+
+_array = {
+    "subcommands": {
+        "anymore": {
+            "positionals": [
+                {"name": "arrayName", "value": {"type": "any"}, "required": True},
+                {"name": "searchId", "value": {"type": "any"}, "required": True},
+            ]
+        },
+        "donesearch": {
+            "positionals": [
+                {"name": "arrayName", "value": {"type": "any"}, "required": True},
+                {"name": "searchId", "value": {"type": "any"}, "required": True},
+            ]
+        },
+        "exists": {
+            "positionals": [
+                {"name": "arrayName", "value": {"type": "any"}, "required": True},
+            ]
+        },
+        "get": {
+            "positionals": [
+                {"name": "arrayName", "value": {"type": "any"}, "required": True},
+                {"name": "pattern", "value": {"type": "any"}, "required": False},
+            ]
+        },
+        "names": {
+            "positionals": [
+                {"name": "arrayName", "value": {"type": "any"}, "required": True},
+                {"name": "mode", "value": {"type": "any"}, "required": False},
+                {"name": "pattern", "value": {"type": "any"}, "required": False},
+            ]
+        },
+        "nextelement": {
+            "positionals": [
+                {"name": "arrayName", "value": {"type": "any"}, "required": True},
+                {"name": "searchId", "value": {"type": "any"}, "required": True},
+            ]
+        },
+        "set": {
+            "positionals": [
+                {"name": "arrayName", "value": {"type": "any"}, "required": True},
+                {"name": "list", "value": {"type": "any"}, "required": True},
+            ]
+        },
+        "size": {
+            "positionals": [
+                {"name": "arrayName", "value": {"type": "any"}, "required": True},
+            ]
+        },
+        "startsearch": {
+            "positionals": [
+                {"name": "arrayName", "value": {"type": "any"}, "required": True},
+            ]
+        },
+        "statistics": {
+            "positionals": [
+                {"name": "arrayName", "value": {"type": "any"}, "required": True},
+            ]
+        },
+        "unset": {
+            "positionals": [
+                {"name": "arrayName", "value": {"type": "any"}, "required": True},
+                {"name": "pattern", "value": {"type": "any"}, "required": False},
+            ]
+        },
+    },
+}
+
+
+_chan = {
+    "subcommands": {
+        "blocked": {
+            "positionals": [
+                {"name": "channelId", "value": {"type": "any"}, "required": True},
+            ]
+        },
+        "close": {
+            "positionals": [
+                {"name": "channelId", "value": {"type": "any"}, "required": True},
+                {"name": "direction", "value": {"type": "any"}, "required": False},
+            ]
+        },
+        "configure": {
+            "positionals": [
+                {"name": "channelId", "value": {"type": "any"}, "required": True},
+                {"name": "options", "value": {"type": "variadic"}, "required": False},
+            ],
+        },
+        "copy": {
+            "positionals": [
+                {"name": "inputChan", "value": {"type": "any"}, "required": True},
+                {"name": "outputChan", "value": {"type": "any"}, "required": True},
+                {"name": "options", "value": {"type": "variadic"}, "required": False},
+            ],
+        },
+        "create": {
+            "positionals": [
+                {"name": "mode", "value": {"type": "any"}, "required": True},
+                {"name": "cmdPrefix", "value": {"type": "any"}, "required": True},
+            ]
+        },
+        "eof": {
+            "positionals": [
+                {"name": "channelId", "value": {"type": "any"}, "required": True},
+            ]
+        },
+        "event": {
+            "positionals": [
+                {"name": "channelId", "value": {"type": "any"}, "required": True},
+                {"name": "event", "value": {"type": "any"}, "required": True},
+                # TODO: parse this as script
+                {"name": "script", "value": {"type": "any"}, "required": False},
+            ]
+        },
+        "flush": {
+            "positionals": [
+                {"name": "channelId", "value": {"type": "any"}, "required": True},
+            ]
+        },
+        "gets": {
+            "positionals": [
+                {"name": "channelId", "value": {"type": "any"}, "required": True},
+                {"name": "varName", "value": {"type": "any"}, "required": False},
+            ]
+        },
+        "names": {
+            "positionals": [
+                {"name": "pattern", "value": {"type": "any"}, "required": False},
+            ]
+        },
+        "pending": {
+            "positionals": [
+                {"name": "mode", "value": {"type": "any"}, "required": True},
+                {"name": "channelId", "value": {"type": "any"}, "required": True},
+            ]
+        },
+        "pipe": {},
+        "pop": {
+            "positionals": [
+                {"name": "channelId", "value": {"type": "any"}, "required": True},
+            ]
+        },
+        "postevent": {
+            "positionals": [
+                {"name": "channelId", "value": {"type": "any"}, "required": True},
+                {"name": "eventSpec", "value": {"type": "any"}, "required": True},
+            ]
+        },
+        "push": {
+            "positionals": [
+                {"name": "channelId", "value": {"type": "any"}, "required": True},
+                {"name": "cmdPrefix", "value": {"type": "any"}, "required": True},
+            ]
+        },
+        "puts": {
+            "positionals": [
+                {"name": "-nonewline", "value": {"type": "any"}, "required": False},
+                {"name": "channelId", "value": {"type": "any"}, "required": False},
+                {"name": "string", "value": {"type": "any"}, "required": True},
+            ],
+        },
+        "read": {
+            "positionals": [
+                {"name": "-nonewline", "value": {"type": "any"}, "required": False},
+                {"name": "channelId", "value": {"type": "any"}, "required": True},
+                {"name": "numChars", "value": {"type": "any"}, "required": False},
+            ],
+        },
+        "seek": {
+            "positionals": [
+                {"name": "channelId", "value": {"type": "any"}, "required": True},
+                {"name": "offset", "value": {"type": "any"}, "required": True},
+                {"name": "origin", "value": {"type": "any"}, "required": False},
+            ]
+        },
+        "tell": {
+            "positionals": [
+                {"name": "channelId", "value": {"type": "any"}, "required": True},
+            ]
+        },
+        "truncate": {
+            "positionals": [
+                {"name": "channelId", "value": {"type": "any"}, "required": True},
+                {"name": "length", "value": {"type": "any"}, "required": False},
+            ]
+        },
+    },
+}
+
+
+def _dict_filter(args, parser):
+    """dict filter <dictionaryValue> <filterType> <arg> [arg...]
+    dict filter <dictionaryValue> key [globPattern...]
+    dict filter <dictionaryValue> value [globPattern...]
+    """
+
+    # ref: https://www.tcl.tk/man/tcl/TclCmd/dict.html#M8
+
+    if len(args) < 2:
+        raise CommandArgError(
+            f"not enough args to 'dict filter': got {len(args)}, expected at least 2"
+        )
+
+    if args[1].contents not in {"key", "script", "value"}:
+        raise CommandArgError(
+            "invalid argument to 'dict filter': expected filter type to be one of key,"
+            " script, or value"
+        )
+
+    if args[1].contents == "script":
+        kv_pair = parser.parse_list(args[2])
+        list_len = len(kv_pair.children)
+        if len(kv_pair.children) != 2:
+            raise CommandArgError(
+                "invalid argument to 'dict filter': expected list of 2 elements in"
+                f" second-to-last argument, got {list_len}"
+            )
+        return args[0:2] + [kv_pair, parser.parse_script(args[3])]
+
+    return None
+
+
+def _dict_map_for(cmd):
+    def check(args, parser):
+        spec = {
+            "positionals": [
+                {"name": "keyValueList", "value": {"type": "any"}, "required": True},
+                {"name": "dictionaryValue", "value": {"type": "any"}, "required": True},
+                {"name": "body", "value": {"type": "script"}, "required": True},
+            ],
+            "switches": {},
+        }
+        # TODO: might be worth checking that arg[0] is a pair?
+        return check_arg_spec(cmd, args, parser, spec)
+
+    return check
+
+
+def _dict_update(args, parser):
+    """dict update dictionaryVariable key varName ?key varName ...? body
+
+    ref: https://www.tcl-lang.org/man/tcl8.6/TclCmd/dict.htm#M25
+    """
+    spec = {
+        "positionals": [
+            {"name": "dictionaryVariable", "value": {"type": "any"}, "required": True},
+            {"name": "key", "value": {"type": "any"}, "required": True},
+            {"name": "varName", "value": {"type": "any"}, "required": True},
+            {"name": "key varName", "value": {"type": "variadic"}, "required": False},
+            {"name": "body", "value": {"type": "script"}, "required": True},
+        ],
+        "switches": {},
+    }
+    # TODO: Check that number of variadic words is even.
+    return check_arg_spec("dict update", args, parser, spec)
+
+
+def _eval(args, parser):
+    return eval(args, parser, "eval")
+
+
+def _expr(args, parser):
+    if len(args) == 0:
+        raise CommandArgError("not enough args to 'expr': got 0, expected at least 1")
+
+    # Handle single argument consisting of BareWord, BracedWord, or concrete QuotedWord.
+    if len(args) == 1 and args[0].contents is not None:
+        # this method will handle the `node.contents is None` case fine, but
+        # will throw an error. We'll instead pass thru silently, since that error
+        # will be caught by a separate lint check.
+        return [parser.parse_expression(args[0])]
+
+    # Handle multiple BareWord arguments. Non-BareWords are hard to handle in this case,
+    # since we need to pop the contents out of quoted or braced words, but then we have
+    # no way of storing the original info about these words in the syntax tree.
+    contents = ""
+    last_pos = args[0].pos
+    for arg in args:
+        if not isinstance(arg, BareWord):
+            return None
+
+        if arg.pos[0] != last_pos[0]:
+            contents += "\n" * (arg.pos[0] - last_pos[0])
+            contents += " " * (arg.pos[1] - 1)
+        else:
+            contents += " " * (arg.pos[1] - last_pos[1])
+        contents += arg.contents
+        last_pos = arg.end_pos
+
+    node = BareWord(contents, pos=args[0].pos, end_pos=args[-1].end_pos)
+    return [parser.parse_expression(node)]
+
+
+def _fileevent(args, parser):
+    # ref: https://www.tcl.tk/man/tcl8.4/TclCmd/fileevent.html
+    # TODO: implement
+    raise CommandArgError(
+        "argument parsing for 'fileevent' not implemented, script argument will not be"
+        " checked for violations"
+    )
+
+
+def foreach(args, parser):
+    """
+    foreach varname list ?varlist list ...? body
+
+    ref: https://www.tcl-lang.org/man/tcl8.6/TclCmd/foreach.htm
+    """
+    spec = {
+        "positionals": [
+            {"name": "varname", "value": {"type": "any"}, "required": True},
+            {"name": "list", "value": {"type": "any"}, "required": True},
+            {"name": "varlist list", "value": {"type": "variadic"}, "required": False},
+            {"name": "body", "value": {"type": "script"}, "required": True},
+        ],
+        "switches": {},
+    }
+    # TODO: check that "varlist list" comes in pairs.
+    return check_arg_spec("foreach", args, parser, spec)
+
+
+def _if(args, parser) -> list[Node]:
+    # ref: https://www.tcl-lang.org/man/tcl8.6/TclCmd/if.htm
+
+    new_args: list[Node] = []
+
+    # Parse if condition.
+    if len(new_args) == len(args):
+        raise CommandArgError("Expected condition argument in 'if'")
+    new_args.append(parser.parse_expression(args[0]))
+
+    # Parse optional noise word then.
+    if len(new_args) == len(args):
+        raise CommandArgError("Expected then or body argument in 'if'")
+    arg = args[len(new_args)]
+    if arg.contents == "then":
+        new_args.append(arg)
+
+    # Parse if body.
+    if len(new_args) == len(args):
+        raise CommandArgError("Expected body argument in 'if'")
+    new_args.append(parser.parse_script(args[len(new_args)]))
+
+    # Parse elseif.
+    while (
+        len(new_args) < len(args)
+        and (arg := args[len(new_args)])
+        and arg.contents == "elseif"
+    ):
+        new_args.append(arg)
+
+        # Parse elseif condition.
+        if len(new_args) == len(args):
+            raise CommandArgError(
+                "Expected condition argument in 'elseif' part of 'if'"
+            )
+        new_args.append(parser.parse_expression(args[len(new_args)]))
+
+        # Parse optional noise word then.
+        if len(new_args) == len(args):
+            raise CommandArgError(
+                "Expected then or body argument in 'elseif' part of 'if'"
+            )
+        arg = args[len(new_args)]
+        if arg.contents == "then":
+            new_args.append(arg)
+
+        # Parse elseif body.
+        if len(new_args) == len(args):
+            raise CommandArgError("Expected body argument in 'elseif' part of 'if'")
+        new_args.append(parser.parse_script(args[len(new_args)]))
+
+    if len(new_args) == len(args):
+        # No else part, we're done.
+        return new_args
+
+    # Parse optional noise word else.
+    arg = args[len(new_args)]
+    if arg.contents == "else":
+        new_args.append(arg)
+
+    # Parse else body.
+    if len(new_args) == len(args):
+        raise CommandArgError("Expected body argument to 'else' part of 'if'")
+    new_args.append(parser.parse_script(args[len(new_args)]))
+
+    if len(new_args) == len(args):
+        # Else part parsed, we're done.
+        return new_args
+
+    # Handle superfluous args.
+    arg = args[len(new_args)]
+    if arg.contents is None or not arg.contents:
+        raise CommandArgError("Argument after complete 'if'")
+    else:
+        raise CommandArgError(f"Argument after complete 'if': {arg.contents}")
+
+
+def _interp_eval(args, parser):
+    if len(args) < 2:
+        raise CommandArgError(
+            f"not enough args to 'interp eval': got {len(args)}, expected at least 2"
+        )
+    return args[0:1] + eval(args[1:], parser, "interp eval")
+
+
+def _lmap(args, parser):
+    """
+    lmap varlist1 list1 ?varlist2 list2 ...? body
+
+    ref: https://www.tcl-lang.org/man/tcl8.6/TclCmd/lmap.htm
+    """
+    spec = {
+        "positionals": [
+            {"name": "varlist1", "value": {"type": "any"}, "required": True},
+            {"name": "list1", "value": {"type": "any"}, "required": True},
+            {"name": "varlist list", "value": {"type": "variadic"}, "required": False},
+            {"name": "body", "value": {"type": "script"}, "required": True},
+        ],
+        "switches": {},
+    }
+    # TODO: Check that number of variadic words is even.
+    return check_arg_spec("lmap", args, parser, spec)
+
+
+def _namespace_code(args, parser):
+    # ref: https://www.tcl.tk/man/tcl8.4/TclCmd/namespace.html#M6
+    # TODO: seems like a possible pattern is to execute things in these scripts
+    # with additional args provided, so command-args checks within this might
+    # actually be false positive. will keep as-is for now though.
+    return [parser.parse_script(args[0])]
+
+
+def _namespace_eval(args, parser):
+    if len(args) < 2:
+        raise CommandArgError(
+            f"not enough args to 'namespace eval': got {len(args)}, expected at least 2"
+        )
+    return args[0:1] + eval(args[1:], parser, "namespace eval")
+
+
+def _namespace_inscope(args, parser):
+    # ref: https://www.tcl.tk/man/tcl8.4/TclCmd/namespace.html#M14
+    raise CommandArgError(
+        "'namespace inscope' is not meant to be called directly, consider using"
+        " 'namespace code' or 'namespace eval' instead"
+    )
+
+
+def _package_ifneeded(args, parser):
+    # ref: https://www.tcl.tk/man/tcl/TclCmd/package.html
+
+    # TODO: implement
+
+    # one issue with this one - it seems like calls to package ifneeded are
+    # often generated by pkg_MkIndex and these calls won't lint clean. Probably
+    # need a special case to ensure that these don't generate violations
+
+    raise CommandArgError(
+        "argument parsing for 'package ifneeded' not implemented, any script argument"
+        " will not be checked for violations"
+    )
+
+
+def _proc(args, parser):
+    required_args = ["name", "args", "body"]
+    if len(args) < len(required_args):
+        missing_args = ", ".join(required_args[len(args) :])
+        raise CommandArgError(
+            "missing required"
+            f" argument{'s' if len(args) < len(required_args) - 1 else ''} for proc:"
+            f" {missing_args}"
+        )
+
+    if len(args) > len(required_args):
+        raise CommandArgError(f"wrong # of args to proc: got {len(args)}, expected 3")
+
+    # Parse args as list, then iterate over each item to parse arg specifier lists and
+    # do some validation. We don't store non-defaulted arguments as Lists so that they
+    # don't get formatted inside braces.
+    arg_list = parser.parse_list(args[1])
+    for i, arg in enumerate(arg_list.children):
+        if isinstance(arg, BareWord):
+            continue
+
+        arg_specifier = parser.parse_list(arg)
+        arg_specifier_len = len(arg_specifier.children)
+
+        if arg_specifier_len == 2:
+            arg_list.children[i] = arg_specifier
+        elif arg_specifier_len != 1:
+            raise CommandArgError(
+                f"too many fields in argument specifier: got {arg_specifier_len},"
+                " expected no more than 2"
+            )
+
+    return args[0:1] + [arg_list, parser.parse_script(args[2])]
+
+
+def _return(args, parser):
+    args = list(args)
+    while len(args) > 0:
+        option = args.pop(0).contents
+
+        try:
+            if option == "-code":
+                arg = args.pop(0)
+                try:
+                    _check_code(arg)
+                except CommandArgError as e:
+                    raise CommandArgError(f"invalid value for return -code: {e}")
+            elif option == "-level":
+                val = args.pop(0).contents
+
+                if val is None:
+                    continue
+
+                try:
+                    if int(val) >= 0:
+                        continue
+                except ValueError:
+                    pass
+
+                raise CommandArgError(
+                    f"invalid value for return -level: got {val}, expected a"
+                    " non-negative integer"
+                )
+            elif option in {"-errorcode", "-errorinfo", "-errorstack", "-options"}:
+                args.pop(0)
+            else:
+                break
+        except IndexError:
+            raise CommandArgError(
+                f"insufficient args to return: expected value after {option}"
+            )
+
+    if len(args) > 0:
+        raise CommandArgError(
+            "too many arguments to return: expected no more than 1 argument after"
+            " explicit options. Provide -options argument if you intend to specify"
+            " additional return options."
+        )
+
+    return None
+
+
+def _switch(args, parser):
+    # ref: https://www.tcl.tk/man/tcl/TclCmd/switch.html
+    # This one's complicated...
+
+    # TODO: better checking of malformed switch command
+
+    arg_contents = [arg.contents for arg in args]
+    arg_i = 0
+
+    try:
+        arg_i = arg_contents.index("--") + 1
+    except ValueError:
+        while True:
+            contents = args[arg_i].contents
+            if contents in {"-exact", "-glob", "-regexp", "-nocase"}:
+                arg_i += 1
+            elif contents in {"-matchvar", "-indexvar"}:
+                arg_i += 2
+            else:
+                break
+
+    # accounts for string to be matched
+    arg_i += 1
+
+    new_args = args[0:arg_i]
+
+    # one argument left => form where patterns and bodies are in list
+    last_arg_is_list = arg_i == len(args) - 1
+
+    if last_arg_is_list:
+        pattern_and_commands_list = parser.parse_list(args[arg_i])
+        new_args.append(pattern_and_commands_list)
+        pattern_and_commands = pattern_and_commands_list.children
+    else:
+        pattern_and_commands = args[arg_i:]
+
+    if len(pattern_and_commands) % 2 != 0:
+        raise CommandArgError("Expected even number of patterns and commands")
+
+    parsed_patterns_and_commands = []
+    for i, node in enumerate(pattern_and_commands):
+        if i % 2 == 0:
+            parsed_patterns_and_commands.append(node)
+        elif node.contents == "-":
+            # Detect passthrough.
+            parsed_patterns_and_commands.append(node)
+        else:
+            parsed_patterns_and_commands.append(parser.parse_script(node))
+
+    if last_arg_is_list:
+        pattern_and_commands_list.children = parsed_patterns_and_commands
+    else:
+        new_args.extend(parsed_patterns_and_commands)
+
+    return new_args
+
+
+def _time(args, parser):
+    # ref: https://www.tcl.tk/man/tcl/TclCmd/time.html
+    if len(args) < 1:
+        raise CommandArgError(
+            f"not enough args to time: got {len(args)}, expected at least 1"
+        )
+
+    if len(args) > 2:
+        raise CommandArgError(
+            f"too many args to time: got {len(args)}, expected no more than 2"
+        )
+
+    if len(args) == 2:
+        time = args[1].contents
+        if time is not None:
+            try:
+                int(time)
+            except ValueError:
+                raise CommandArgError(
+                    "invalid argument to time: expected integer for last argument"
+                )
+
+    return [parser.parse_script(args[0])] + args[1:]
+
+
+def _timerate(args, parser):
+    # ref: https://www.tcl.tk/man/tcl/TclCmd/timerate.html
+    # timerate doesn't seem to be implemented in tclsh 8.6 for me - why?
+
+    args = list(args)
+    new_args = []
+
+    while True:
+        try:
+            arg = args.pop(0)
+        except IndexError:
+            raise CommandArgError("invalid arguments to timerate: expected script body")
+
+        if arg.contents in {"-direct", "-calibrate"}:
+            new_args.append(arg)
+        elif arg.contents in {"-overhead"}:
+            new_args.append(arg)
+            try:
+                val = args.pop(0)
+                if val.contents is not None:
+                    float(val.contents)
+            except (ValueError, IndexError, TypeError):
+                raise CommandArgError(
+                    "invalid argument to timerate: -overhead must be followed by a"
+                    " double"
+                )
+            new_args.append(val)
+        else:
+            break
+
+    new_args.append(parser.parse_script(arg))
+
+    if len(args) > 2:
+        raise CommandArgError(
+            "too many arguments to timerate: expected no more than 2 arguments"
+            " following script body"
+        )
+
+    try:
+        [int(arg.contents) for arg in args]
+    except ValueError:
+        raise CommandArgError(
+            "invalid argument to timerate: expected one or two integers following"
+            " script body"
+        )
+
+    return new_args + args
+
+
+def _try(args, parser):
+    # ref: https://www.tcl.tk/man/tcl/TclCmd/try.html
+    args = list(args)
+    new_args = []
+
+    while True:
+        try:
+            arg = args.pop(0)
+        except IndexError:
+            raise CommandArgError("invalid arguments to try: missing script body")
+        new_args.append(parser.parse_script(arg))
+
+        try:
+            arg = args.pop(0)
+        except IndexError:
+            break
+
+        new_args.append(arg)
+
+        if arg.contents == "on":
+            try:
+                code = args.pop(0)
+                try:
+                    _check_code(code)
+                except CommandArgError as e:
+                    raise CommandArgError(
+                        f"invalid code argument to 'on' handler in try: {e}"
+                    )
+                new_args.append(code)
+                new_args.append(args.pop(0))
+            except IndexError:
+                raise CommandArgError(
+                    "invalid arguments to try: expected 3 arguments after 'on' handler"
+                )
+        elif arg.contents == "trap":
+            try:
+                new_args.append(args.pop(0))
+                new_args.append(args.pop(0))
+            except IndexError:
+                raise CommandArgError(
+                    "invalid arguments to try: expected 3 arguments after 'trap'"
+                    " handler"
+                )
+        elif arg.contents == "finally":
+            continue
+        else:
+            raise CommandArgError(
+                "invalid handler argument to try: expected one of 'on', 'trap', or"
+                " 'finally'"
+            )
+
+    return new_args
+
+
+commands = commands_schema({
+    "after": {
+        "subcommands": {
+            "cancel": _after_cancel,
+            "idle": _after_idle,
+            "info": {
+                "positionals": [
+                    {"name": "id", "value": {"type": "any"}, "required": False}
+                ]
+            },
+            "": _after,
+        },
+    },
+    "append": {
+        "positionals": [
+            {"name": "varname", "value": {"type": "any"}, "required": True},
+            {"name": "value", "value": {"type": "variadic"}, "required": False},
+        ]
+    },
+    "apply": _apply,
+    "array": _array,
+    "binary": {
+        "subcommands": {
+            "decode": {
+                "positionals": [
+                    {"name": "format", "value": {"type": "any"}, "required": True},
+                    {
+                        "name": "options",
+                        "value": {"type": "variadic"},
+                        "required": False,
+                    },
+                    {"name": "data", "value": {"type": "any"}, "required": True},
+                ],
+            },
+            "encode": {
+                "positionals": [
+                    {"name": "format", "value": {"type": "any"}, "required": True},
+                    {
+                        "name": "options",
+                        "value": {"type": "variadic"},
+                        "required": False,
+                    },
+                    {"name": "data", "value": {"type": "any"}, "required": True},
+                ],
+            },
+            "format": {
+                "positionals": [
+                    {
+                        "name": "formatString",
+                        "value": {"type": "any"},
+                        "required": True,
+                    },
+                    {"name": "args", "value": {"type": "variadic"}, "required": False},
+                ],
+            },
+            "scan": {
+                "positionals": [
+                    {"name": "string", "value": {"type": "any"}, "required": True},
+                    {
+                        "name": "formatString",
+                        "value": {"type": "any"},
+                        "required": True,
+                    },
+                    {
+                        "name": "varName",
+                        "value": {"type": "variadic"},
+                        "required": False,
+                    },
+                ],
+            },
+        },
+    },
+    "break": {},
+    "catch": {
+        "positionals": [
+            {"name": "script", "value": {"type": "script"}, "required": True},
+            {"name": "resultVarName", "value": {"type": "any"}, "required": False},
+            {"name": "optionsVarName", "value": {"type": "any"}, "required": False},
+        ]
+    },
+    "cd": {
+        "positionals": [
+            {"name": "dirName", "value": {"type": "any"}, "required": False}
+        ],
+    },
+    "chan": _chan,
+    # TODO: check subcommands
+    "clock": check_count("clock"),
+    "close": {
+        "positionals": [
+            {"name": "channelId", "value": {"type": "any"}, "required": True},
+            {"name": "read|write", "value": {"type": "any"}, "required": False},
+        ],
+    },
+    "concat": {
+        "positionals": [
+            {"name": "arg", "value": {"type": "variadic"}, "required": True},
+        ]
+    },
+    "continue": {},
+    "coroutine": {
+        "positionals": [
+            {"name": "name", "value": {"type": "any"}, "required": True},
+            {"name": "command", "value": {"type": "any"}, "required": True},
+            {"name": "arg", "value": {"type": "variadic"}, "required": False},
+        ]
+    },
+    "dict": {
+        "subcommands": {
+            "append": check_count("dict append", 2, None),
+            "create": check_count("dict create"),
+            "exists": check_count("dict exists", 2, None),
+            "filter": _dict_filter,
+            "for": _dict_map_for("dict for"),
+            "get": check_count("dict get", 1, None),
+            "incr": check_count("dict incr", 2, 3),
+            "info": check_count("dict info", 1, 1),
+            "keys": check_count("dict keys", 1, 2),
+            "lappend": check_count("dict lappend", 2, None),
+            "map": _dict_map_for("dict map"),
+            "merge": check_count("dict merge"),
+            "remove": check_count("dict remove", 1, None),
+            "replace": check_count("dict replace", 1, None),
+            "set": check_count("dict set", 3, None),
+            "size": check_count("dict size", 1, 1),
+            "unset": check_count("dict unset", 2, None),
+            "update": _dict_update,
+            "values": check_count("dict values", 1, 2),
+            "with": {
+                "positionals": [
+                    {
+                        "name": "dictionaryVariable",
+                        "value": {"type": "any"},
+                        "required": True,
+                    },
+                    {"name": "key", "value": {"type": "variadic"}, "required": False},
+                    {"name": "script", "value": {"type": "script"}, "required": True},
+                ]
+            },
+        },
+    },
+    "encoding": {
+        "subcommands": {
+            "convertfrom": check_count("encoding convertfrom", 1, 2),
+            "convertto": check_count("encoding convertto", 1, 2),
+            "dirs": check_count("encoding dirs", 0, 1),
+            "names": check_count("encoding names", 0, 0),
+            "system": check_count("encoding system", 0, 1),
+        },
+    },
+    "eof": check_count("eof", 1, 1),
+    "error": check_count("error", 1, 3),
+    "eval": _eval,
+    "exec": check_count("exec", 1, None),
+    "exit": check_count("exit", 0, 1),
+    "expr": _expr,
+    "fblocked": check_count("fblocked", 1, 1),
+    "fconfigure": check_count("fconfigure", 1, None),
+    "fcopy": check_count("fcopy", 2, 6),
+    # TODO: check subcommands
+    "file": check_count("file", 1, None),
+    "fileevent": _fileevent,
+    "flush": check_count("flush", 1, 1),
+    "for": {
+        "positionals": [
+            {"name": "start", "value": {"type": "script"}, "required": True},
+            {"name": "test", "value": {"type": "expression"}, "required": True},
+            {"name": "next", "value": {"type": "script"}, "required": True},
+            {"name": "body", "value": {"type": "script"}, "required": True},
+        ],
+    },
+    "foreach": foreach,
+    "format": check_count("format", 1, None),
+    "gets": check_count("gets", 1, 2),
+    "glob": check_count("glob"),
+    "global": check_count("global"),
+    "history": check_count("history"),
+    "if": _if,
+    "incr": check_count("incr", 1, 2),
+    # TODO: check subcommands
+    "info": check_count("info", 1, None),
+    # TODO: check other subcommands
+    "interp": {
+        "subcommands": {
+            "eval": _interp_eval,
+            "": check_count("interp", 1, None),
+        },
+    },
+    "join": check_count("join", 1, 2),
+    "lappend": check_count("lappend", 1, None),
+    "lassign": check_count("lassign", 1, None),
+    "lindex": check_count("lindex", 1, None),
+    "linsert": check_count("linsert", 2, None),
+    "list": check_count("list", 0, None),
+    "llength": check_count("llength", 1, 1),
+    "lrepeat": check_count("lrepeat", 1, None),
+    "lreplace": check_count("lreplace", 3, None),
+    "lreverse": check_count("lreverse", 1, 1),
+    "lset": check_count("lset", 2, None),
+    "lsort": check_count("lsort", 1, None),
+    "lmap": _lmap,
+    "load": check_count("load", 1, 6),
+    "lrange": check_count("lrange", 3, 3),
+    "lsearch": check_count("lsearch", 2, None),
+    "memory": {
+        "subcommands": {
+            "active": check_count("memory active", 1, 1),
+            "break_on_malloc": check_count("memory break_on_malloc", 1, 1),
+            "info": check_count("memory info", 0, 0),
+            # just on or off
+            "init": check_count("memory init", 1, 1),
+            "objs": check_count("memory objs", 1, 1),
+            "onexit": check_count("memory onexit", 1, 1),
+            "tag": check_count("memory tag", 1, 1),
+            # just on or off
+            "trace": check_count("memory trace", 1, 1),
+            "trace_on_at_malloc": check_count("memory trace_on_at_malloc", 1, 1),
+            # just on or off
+            "validate": check_count("memory validate", 1, 1),
+        },
+    },
+    "namespace": {
+        "subcommands": {
+            "children": check_count("namespace children", 0, 2),
+            "code": _namespace_code,
+            "current": check_count("namespace current", 0, 0),
+            "delete": None,
+            "eval": _namespace_eval,
+            "exists": check_count("namespace exists", 1, 1),
+            "export": None,
+            "forget": None,
+            "import": None,
+            "inscope": _namespace_inscope,
+            "origin": check_count("namespace origin", 1, 1),
+            "parent": check_count("namespace parent", 0, 1),
+            "path": {
+                "positionals": [
+                    {
+                        "name": "namespaceList",
+                        "value": {"type": "any"},
+                        "required": False,
+                    },
+                ]
+            },
+            "qualifiers": check_count("namespace qualifiers", 1, 1),
+            "tail": check_count("namespace tail", 1, 1),
+            "unknown": {
+                "positionals": [
+                    {"name": "script", "value": {"type": "script"}, "required": False}
+                ]
+            },
+            "upvar": {
+                "positionals": [
+                    {"name": "namespace", "value": {"type": "any"}, "required": True},
+                    {"name": "var", "value": {"type": "variadic"}, "required": False},
+                ]
+            },
+            "which": check_count("namespace which", 1, 2),
+            "ensemble": {
+                "subcommands": {
+                    "create": None,
+                    "configure": check_count("namespace ensemble configure", 1, None),
+                    "exists": check_count("namespace ensemble exists", 1, 1),
+                },
+            },
+        },
+    },
+    "open": check_count("open", 1, 3),
+    "package": {
+        "subcommands": {
+            "forget": None,
+            "ifneeded": _package_ifneeded,
+            "names": check_count("package names", 0, 0),
+            "present": check_count("package present", 0, None),
+            "provide": check_count("package provide", 1, 2),
+            "require": check_count("package require", 1, None),
+            "unknown": check_count("package unknown", 1, None),
+            "vcompare": check_count("package vcompare", 2, 2),
+            "versions": check_count("package versions", 1, 1),
+            "vsatisfies": check_count("package vsatisfies", 2, None),
+            "prefer": check_count("package prefer", 1, 1),
+        },
+    },
+    "pid": check_count("pid", 0, 1),
+    "pkg::create": check_count("pkg::create", 2, None),
+    "pkg_mkIndex": check_count("pkg_mkIndex", 1, None),
+    "proc": _proc,
+    "puts": {
+        "positionals": [
+            {"name": "-nonewline", "value": {"type": "any"}, "required": False},
+            {"name": "channelId", "value": {"type": "any"}, "required": False},
+            {"name": "string", "value": {"type": "any"}, "required": True},
+        ],
+    },
+    "pwd": check_count("pwd", 0, 0),
+    "read": check_count("read", 1, 2),
+    "regexp": check_count("regexp", 2, None),
+    "regsub": check_count("regsub", 3, None),
+    "rename": check_count("rename", 2, 2),
+    "return": _return,
+    # TODO: check subcommands
+    "safe": check_count("safe", 1, None),
+    "scan": check_count("scan", 2, None),
+    "seek": check_count("seek", 2, 3),
+    "set": check_count("set", 1, 2),
+    "socket": check_count("socket", 2, None),
+    "source": check_count("source", 1, 3),
+    "split": check_count("split", 1, 2),
+    # TODO: check subcommands
+    "string": check_count("string", 1, None),
+    "subst": check_count("subst", 1, 4),
+    "switch": _switch,
+    "tailcall": check_count("tailcall", 1, None),
+    "tcl::prefix": {
+        "subcommands": {
+            "all": check_count("tcl::prefix all", 2, 2),
+            "longest": check_count("tcl::prefix longest", 2, 2),
+            "match": check_count("tcl::prefix match", 2, None),
+        },
+    },
+    "tell": check_count("tell", 1, 1),
+    "throw": check_count("throw", 2, 2),
+    "time": _time,
+    "timerate": _timerate,
+    "tcl::tm::path": {
+        "subcommands": {
+            "add": check_count("tcl::tm::path add"),
+            "remove": check_count("tcl::tm::path remove"),
+            "list": check_count("tcl::tm::path list", 0, 0),
+        },
+    },
+    "tcl::tm::roots": check_count("tcl::tm::roots"),
+    # TODO: check subcommands
+    "trace": check_count("trace", 2, None),
+    "try": _try,
+    "unload": check_count("unload", 1, 6),
+    "unset": check_count("unset"),
+    "update": check_count("update", 0, 1),
+    "uplevel": check_count("uplevel", 1, None),
+    "upvar": check_count("upvar", 2, None),
+    "variable": check_count("variable", 1, None),
+    "vwait": check_count("vwait", 1, 1),
+    "while": {
+        "positionals": [
+            {"name": "test", "value": {"type": "expression"}, "required": True},
+            {"name": "body", "value": {"type": "script"}, "required": True},
+        ],
+    },
+    "yield": {
+        "positionals": [
+            {"name": "value", "value": {"type": "any"}, "required": False},
+        ]
+    },
+    "yieldto": {
+        "positionals": [
+            {"name": "command", "value": {"type": "any"}, "required": True},
+            {"name": "arg", "value": {"type": "variadic"}, "required": False},
+        ]
+    },
+    # TODO: check subcommands
+    "zlib": check_count("zlib", 2, None),
+})

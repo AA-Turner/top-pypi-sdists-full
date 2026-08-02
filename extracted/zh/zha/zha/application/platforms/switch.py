@@ -1,0 +1,1124 @@
+"""Switches on Zigbee Home Automation networks."""
+
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+import logging
+from typing import TYPE_CHECKING, Any, cast
+
+from zigpy import types as t
+from zigpy.profiles import zha, zll
+import zigpy.zcl
+from zigpy.zcl import (
+    AttributeReadEvent,
+    AttributeReportedEvent,
+    AttributeUpdatedEvent,
+    AttributeWrittenEvent,
+    ReportingConfig,
+)
+from zigpy.zcl.clusters.closures import ConfigStatus, WindowCovering, WindowCoveringMode
+from zigpy.zcl.clusters.general import Basic, BinaryOutput, OnOff
+from zigpy.zcl.clusters.hvac import Thermostat
+from zigpy.zcl.foundation import Status
+
+from zha.application import Platform
+from zha.application.helpers import safe_read, write_attributes_safe
+from zha.application.platforms import (
+    AttrConfig,
+    BaseEntity,
+    BaseEntityState,
+    ClusterConfig,
+    ClusterMatch,
+    EntityCategory,
+    GroupEntity,
+    PlatformEntity,
+    PlatformFeatureGroup,
+    register_entity,
+    register_group_entity,
+)
+from zha.application.platforms.const import (
+    IKEA_AIR_PURIFIER_CLUSTER,
+    SINOPE_MANUFACTURER_CLUSTER,
+    TUYA_MANUFACTURER_CLUSTER,
+)
+from zha.application.platforms.legacy_quirks import AQARA_OPPLE_CLUSTER
+from zha.application.platforms.light.const import LIGHT_PROFILE_DEVICE_TYPES
+from zha.exceptions import ZHAException
+from zha.quirks import DANFOSS_ALLY_THERMOSTAT, TUYA_PLUG_ONOFF
+from zha.zigbee.group import Group
+
+if TYPE_CHECKING:
+    from zha.zigbee.device import Device
+    from zha.zigbee.endpoint import Endpoint
+
+_LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, kw_only=True)
+class SwitchState(BaseEntityState):
+    """State for switch entities."""
+
+    is_on: bool
+
+
+@dataclass(frozen=True, kw_only=True)
+class ConfigurableAttributeSwitchState(SwitchState):
+    """State for configurable attribute switch entities."""
+
+    inverted: bool
+    attribute_name: str
+    invert_attribute_name: str | None
+    force_inverted: bool
+    off_value: int
+    on_value: int
+
+
+class BaseSwitch(BaseEntity, ABC):
+    """Common base class for zhawss switches."""
+
+    PLATFORM = Platform.SWITCH
+
+    @property
+    def state(self) -> SwitchState:
+        """Return the state of the switch."""
+        return SwitchState(
+            **super().state.__dict__,
+            is_on=self.is_on,
+        )
+
+    @property
+    @abstractmethod
+    def is_on(self) -> bool:
+        """Return if the switch is on based on the statemachine."""
+
+    @abstractmethod
+    async def async_turn_on(self) -> None:
+        """Turn the entity on."""
+
+    @abstractmethod
+    async def async_turn_off(self) -> None:
+        """Turn the entity off."""
+
+
+@register_entity(OnOff.cluster_id)
+class Switch(PlatformEntity, BaseSwitch):  # type: ignore[misc]
+    """ZHA switch."""
+
+    _attr_translation_key = "switch"
+    _attr_primary_weight = 10
+    _attribute_name = OnOff.AttributeDefs.on_off.name
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({OnOff.cluster_id}),
+        # Switch entities have the lowest priority
+        feature_priority=(PlatformFeatureGroup.LIGHT_OR_SWITCH_OR_SHADE, -1),
+    )
+
+    _server_cluster_config = {
+        OnOff.cluster_id: ClusterConfig(
+            bind=True,
+            attributes={
+                OnOff.AttributeDefs.on_off: AttrConfig(
+                    read_on_startup=True,
+                    reporting=ReportingConfig(
+                        min_interval=0, max_interval=900, reportable_change=1
+                    ),
+                ),
+                OnOff.AttributeDefs.start_up_on_off: AttrConfig(
+                    read_on_startup=False,
+                ),
+            },
+        ),
+    }
+
+    def __init__(
+        self,
+        endpoint: Endpoint,
+        device: Device,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize the ZHA switch."""
+        legacy_discovery_unique_id = (
+            f"{endpoint.device.ieee}-{endpoint.id}"
+            if (
+                endpoint.zigpy_endpoint.profile_id,
+                endpoint.zigpy_endpoint.device_type,
+            )
+            in {
+                (zha.PROFILE_ID, zha.DeviceType.ON_OFF_BALLAST),
+                (zha.PROFILE_ID, zha.DeviceType.ON_OFF_PLUG_IN_UNIT),
+                (zha.PROFILE_ID, zha.DeviceType.SMART_PLUG),
+                (zll.PROFILE_ID, zll.DeviceType.ON_OFF_PLUGIN_UNIT),
+            }
+            | (
+                # For platform overrides, to account for the `unique_id` format from the
+                # Light platform, Switch needs to be aware of the device types that
+                # trigger the old "{ieee}-{ep}" format instead of the "{ieee}-{ep}-
+                # {cluster}" format.
+                LIGHT_PROFILE_DEVICE_TYPES
+            )
+            else f"{endpoint.device.ieee}-{endpoint.id}-{int(OnOff.cluster_id)}"
+        )
+
+        super().__init__(
+            endpoint=endpoint,
+            device=device,
+            **kwargs,
+            legacy_discovery_unique_id=legacy_discovery_unique_id,
+        )
+        self._cluster = endpoint.zigpy_endpoint.in_clusters[OnOff.cluster_id]
+
+    @property
+    def is_on(self) -> bool:
+        """Return if the switch is on based on the statemachine."""
+        value = self._cluster.get(OnOff.AttributeDefs.on_off.name)
+        if value is None:
+            return False
+        return value
+
+    async def async_turn_on(self) -> None:
+        """Turn the entity on."""
+        result = await self._cluster.on()
+        if result[1] is not Status.SUCCESS:
+            raise ZHAException(f"Failed to turn on: {result[1]}")
+        self._cluster.update_attribute(OnOff.AttributeDefs.on_off.id, t.Bool.true)
+        self.maybe_emit_state_changed_event()
+
+    async def async_turn_off(self) -> None:
+        """Turn the entity off."""
+        result = await self._cluster.off()
+        if result[1] is not Status.SUCCESS:
+            raise ZHAException(f"Failed to turn off: {result[1]}")
+        self._cluster.update_attribute(OnOff.AttributeDefs.on_off.id, t.Bool.false)
+        self.maybe_emit_state_changed_event()
+
+    def on_add(self) -> None:
+        """Run when entity is added."""
+        super().on_add()
+        for event_type in (
+            AttributeReadEvent,
+            AttributeReportedEvent,
+            AttributeUpdatedEvent,
+            AttributeWrittenEvent,
+        ):
+            self._on_remove_callbacks.append(
+                self._cluster.on_event(
+                    event_type.event_type, self.handle_attribute_updated
+                )
+            )
+
+    def _is_supported(self) -> bool:
+        if self._cluster.is_attribute_unsupported(self._attribute_name):
+            _LOGGER.debug(
+                "%s is not supported - skipping %s entity creation",
+                self._attribute_name,
+                self.__class__.__name__,
+            )
+            return False
+
+        return super()._is_supported()
+
+    def handle_attribute_updated(
+        self,
+        event: AttributeReadEvent
+        | AttributeReportedEvent
+        | AttributeUpdatedEvent
+        | AttributeWrittenEvent,
+    ) -> None:
+        """Handle state update from cluster."""
+        if event.attribute_name == self._attribute_name:
+            self.maybe_emit_state_changed_event()
+
+    async def async_update(self) -> None:
+        """Retrieve latest state."""
+        self.debug("polling current state")
+        await safe_read(
+            self._cluster,
+            [self._attribute_name],
+            allow_cache=False,
+            only_cache=False,
+        )
+        self.maybe_emit_state_changed_event()
+
+
+@register_entity(BinaryOutput.cluster_id)
+class BinaryOutputSwitch(PlatformEntity, BaseSwitch):  # type: ignore[misc]
+    """BinaryOutputCluster switch."""
+
+    _attr_primary_weight = 10
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({BinaryOutput.cluster_id}),
+    )
+
+    _server_cluster_config = {
+        BinaryOutput.cluster_id: ClusterConfig(
+            bind=True,
+            attributes={
+                BinaryOutput.AttributeDefs.present_value: AttrConfig(
+                    read_on_startup=True,
+                    reporting=ReportingConfig(
+                        min_interval=0, max_interval=900, reportable_change=1
+                    ),
+                ),
+                BinaryOutput.AttributeDefs.description: AttrConfig(
+                    read_on_startup=False,
+                ),
+            },
+        ),
+    }
+
+    def _is_supported(self) -> bool:
+        if self._cluster.get(BinaryOutput.AttributeDefs.description.name) is None:
+            return False
+
+        return super()._is_supported()
+
+    def recompute_capabilities(self) -> None:
+        """Recompute capabilities."""
+        super().recompute_capabilities()
+        self._attr_fallback_name = self._cluster.get(
+            BinaryOutput.AttributeDefs.description.name
+        )
+
+    def on_add(self) -> None:
+        """Run when entity is added."""
+        super().on_add()
+        for event_type in (
+            AttributeReadEvent,
+            AttributeReportedEvent,
+            AttributeUpdatedEvent,
+            AttributeWrittenEvent,
+        ):
+            self._on_remove_callbacks.append(
+                self._cluster.on_event(
+                    event_type.event_type, self.handle_attribute_updated
+                )
+            )
+
+    @property
+    def is_on(self) -> bool:
+        """Return if the switch is on."""
+        value = self._cluster.get(BinaryOutput.AttributeDefs.present_value.name)
+        if value is None:
+            return False
+        return bool(value)
+
+    async def async_turn_on(self) -> None:
+        """Turn the entity on."""
+        await write_attributes_safe(
+            self._cluster, {BinaryOutput.AttributeDefs.present_value.name: True}
+        )
+        self.maybe_emit_state_changed_event()
+
+    async def async_turn_off(self) -> None:
+        """Turn the entity off."""
+        await write_attributes_safe(
+            self._cluster, {BinaryOutput.AttributeDefs.present_value.name: False}
+        )
+        self.maybe_emit_state_changed_event()
+
+    def handle_attribute_updated(
+        self,
+        event: AttributeReadEvent
+        | AttributeReportedEvent
+        | AttributeUpdatedEvent
+        | AttributeWrittenEvent,
+    ) -> None:
+        """Handle state update from cluster."""
+        if event.attribute_name == BinaryOutput.AttributeDefs.present_value.name:
+            self.maybe_emit_state_changed_event()
+
+    async def async_update(self) -> None:
+        """Retrieve latest state."""
+        self.debug("polling current state")
+        await safe_read(
+            self._cluster,
+            [BinaryOutput.AttributeDefs.present_value.name],
+            allow_cache=False,
+            only_cache=False,
+        )
+        self.maybe_emit_state_changed_event()
+
+
+@register_group_entity
+class SwitchGroup(GroupEntity, BaseSwitch):  # type: ignore[misc]
+    """Representation of a switch group."""
+
+    _attr_primary_weight = 10
+
+    def __init__(self, group: Group):
+        """Initialize a switch group."""
+        super().__init__(group)
+        self._state: bool
+        self._cluster = group.zigpy_group.endpoint[OnOff.cluster_id]
+        self.update()
+
+    @property
+    def is_on(self) -> bool:
+        """Return if the switch is on based on the statemachine."""
+        return bool(self._state)
+
+    async def async_turn_on(self) -> None:
+        """Turn the entity on."""
+        result = await self._cluster.on()
+        if result[1] is not Status.SUCCESS:
+            return
+        self._state = True
+        self.maybe_emit_state_changed_event()
+
+    async def async_turn_off(self) -> None:
+        """Turn the entity off."""
+        result = await self._cluster.off()
+        if result[1] is not Status.SUCCESS:
+            return
+        self._state = False
+        self.maybe_emit_state_changed_event()
+
+    def update(self, _: Any | None = None) -> None:
+        """Query all members and determine the light group state."""
+        self.debug("Updating switch group entity state")
+        platform_entities = self._group.get_platform_entities(self.PLATFORM)
+        all_states = [cast(SwitchState, entity.state) for entity in platform_entities]
+        self.debug(
+            "All platform entity states for group entity members: %s", all_states
+        )
+        on_states = [state for state in all_states if state.is_on]
+
+        self._state = len(on_states) > 0
+
+        self.maybe_emit_state_changed_event()
+
+
+class ConfigurableAttributeSwitch(PlatformEntity):
+    """Representation of a ZHA switch configuration entity."""
+
+    PLATFORM = Platform.SWITCH
+
+    _attr_entity_category = EntityCategory.CONFIG
+    _attribute_name: str
+    _inverter_attribute_name: str | None = None
+    _force_inverted: bool = False
+    _off_value: int = 0
+    _on_value: int = 1
+
+    def __init__(
+        self,
+        endpoint: Endpoint,
+        device: Device,
+        *,
+        cluster: zigpy.zcl.Cluster,
+        from_quirk: bool = False,
+        attribute_name: str | None = None,
+        invert_attribute_name: str | None = None,
+        force_inverted: bool = False,
+        off_value: int = 0,
+        on_value: int = 1,
+        legacy_discovery_unique_id: str | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Init this switch configuration entity."""
+        if legacy_discovery_unique_id is None and not from_quirk:
+            legacy_discovery_unique_id = (
+                f"{endpoint.device.ieee}-{endpoint.id}"
+                if (
+                    endpoint.zigpy_endpoint.profile_id,
+                    endpoint.zigpy_endpoint.device_type,
+                )
+                in {
+                    (zha.PROFILE_ID, zha.DeviceType.ON_OFF_BALLAST),
+                    (zha.PROFILE_ID, zha.DeviceType.ON_OFF_PLUG_IN_UNIT),
+                    (zha.PROFILE_ID, zha.DeviceType.SMART_PLUG),
+                    (zll.PROFILE_ID, zll.DeviceType.ON_OFF_PLUGIN_UNIT),
+                }
+                else f"{endpoint.device.ieee}-{endpoint.id}-{int(cluster.cluster_id)}"
+            )
+
+        if attribute_name is not None:
+            self._attribute_name = attribute_name
+        if invert_attribute_name:
+            self._inverter_attribute_name = invert_attribute_name
+        if force_inverted:
+            self._force_inverted = force_inverted
+        self._off_value = off_value
+        self._on_value = on_value
+
+        super().__init__(
+            endpoint=endpoint,
+            device=device,
+            cluster=cluster,
+            from_quirk=from_quirk,
+            legacy_discovery_unique_id=legacy_discovery_unique_id,
+            **kwargs,
+        )
+
+    def on_add(self) -> None:
+        """Run when entity is added."""
+        super().on_add()
+        for event_type in (
+            AttributeReadEvent,
+            AttributeReportedEvent,
+            AttributeUpdatedEvent,
+            AttributeWrittenEvent,
+        ):
+            self._on_remove_callbacks.append(
+                self._cluster.on_event(
+                    event_type.event_type, self.handle_attribute_updated
+                )
+            )
+
+    def _is_supported(self) -> bool:
+        if (
+            self._attribute_name not in self._cluster.attributes_by_name
+            or self._cluster.is_attribute_unsupported(self._attribute_name)
+            or self._cluster.get(self._attribute_name) is None
+        ):
+            _LOGGER.debug(
+                "%s is not supported - skipping %s entity creation",
+                self._attribute_name,
+                self.__class__.__name__,
+            )
+            return False
+
+        return super()._is_supported()
+
+    @property
+    def state(self) -> ConfigurableAttributeSwitchState:
+        """Return the state of the switch."""
+        return ConfigurableAttributeSwitchState(
+            **super().state.__dict__,
+            is_on=self.is_on,
+            inverted=self.inverted,
+            attribute_name=self._attribute_name,
+            invert_attribute_name=self._inverter_attribute_name,
+            force_inverted=self._force_inverted,
+            off_value=self._off_value,
+            on_value=self._on_value,
+        )
+
+    @property
+    def inverted(self) -> bool:
+        """Return True if the switch is inverted."""
+        if self._inverter_attribute_name:
+            return bool(self._cluster.get(self._inverter_attribute_name))
+        return self._force_inverted
+
+    @property
+    def is_on(self) -> bool:
+        """Return if the switch is on based on the statemachine."""
+        if self._on_value != 1:
+            val = self._cluster.get(self._attribute_name)
+            val = val == self._on_value
+        else:
+            val = bool(self._cluster.get(self._attribute_name))
+        return (not val) if self.inverted else val
+
+    def handle_attribute_updated(
+        self,
+        event: AttributeReadEvent
+        | AttributeReportedEvent
+        | AttributeUpdatedEvent
+        | AttributeWrittenEvent,
+    ) -> None:
+        """Handle state update from cluster."""
+        if event.attribute_name == self._attribute_name:
+            self.maybe_emit_state_changed_event()
+
+    async def async_turn_on_off(self, state: bool) -> None:
+        """Turn the entity on or off."""
+        if self.inverted:
+            state = not state
+        if state:
+            await write_attributes_safe(
+                self._cluster, {self._attribute_name: self._on_value}
+            )
+        else:
+            await write_attributes_safe(
+                self._cluster, {self._attribute_name: self._off_value}
+            )
+        self.maybe_emit_state_changed_event()
+
+    async def async_turn_on(self) -> None:
+        """Turn the entity on."""
+        await self.async_turn_on_off(True)
+
+    async def async_turn_off(self) -> None:
+        """Turn the entity off."""
+        await self.async_turn_on_off(False)
+
+    async def async_update(self) -> None:
+        """Attempt to retrieve the state of the entity."""
+        self.debug("Polling current state")
+
+        polling_attrs = [self._attribute_name]
+        if self._inverter_attribute_name:
+            polling_attrs.append(self._inverter_attribute_name)
+
+        results = await safe_read(
+            self._cluster, polling_attrs, allow_cache=False, only_cache=False
+        )
+
+        self.debug("read values=%s", results)
+        self.maybe_emit_state_changed_event()
+
+
+@register_entity(TUYA_MANUFACTURER_CLUSTER)
+class OnOffWindowDetectionFunctionConfigurationEntity(ConfigurableAttributeSwitch):
+    """Representation of a ZHA window detection configuration entity."""
+
+    _unique_id_suffix = "on_off_window_opened_detection"
+    _attribute_name = "window_detection_function"
+    _inverter_attribute_name = "window_detection_function_inverter"
+    _attr_translation_key = "window_detection_function"
+    _cluster_id = TUYA_MANUFACTURER_CLUSTER
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({TUYA_MANUFACTURER_CLUSTER}),
+        manufacturers=frozenset({"_TZE200_b6wax7g0"}),
+    )
+
+
+@register_entity(AQARA_OPPLE_CLUSTER)
+class P1MotionTriggerIndicatorSwitch(ConfigurableAttributeSwitch):
+    """Representation of a ZHA motion triggering configuration entity."""
+
+    _unique_id_suffix = "trigger_indicator"
+    _attribute_name = "trigger_indicator"
+    _attr_translation_key = "trigger_indicator"
+    _cluster_id = AQARA_OPPLE_CLUSTER
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({AQARA_OPPLE_CLUSTER}),
+        models=frozenset({"lumi.motion.ac02"}),
+    )
+
+
+@register_entity(AQARA_OPPLE_CLUSTER)
+class XiaomiPlugPowerOutageMemorySwitch(ConfigurableAttributeSwitch):
+    """Representation of a ZHA power outage memory configuration entity."""
+
+    _unique_id_suffix = "power_outage_memory"
+    _attribute_name = "power_outage_memory"
+    _attr_translation_key = "power_outage_memory"
+    _cluster_id = AQARA_OPPLE_CLUSTER
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({AQARA_OPPLE_CLUSTER}),
+        models=frozenset({"lumi.plug.mmeu01", "lumi.plug.maeu01"}),
+    )
+
+
+@register_entity(Basic.cluster_id)
+class HueMotionTriggerIndicatorSwitch(ConfigurableAttributeSwitch):
+    """Representation of a ZHA motion triggering configuration entity."""
+
+    _unique_id_suffix = "trigger_indicator"
+    _attribute_name = "trigger_indicator"
+    _attr_translation_key = "trigger_indicator"
+    _cluster_id = Basic.cluster_id
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({Basic.cluster_id}),
+        manufacturers=frozenset({"Philips", "Signify Netherlands B.V."}),
+        models=frozenset({"SML001", "SML002", "SML003", "SML004"}),
+    )
+
+    _server_cluster_config = {
+        Basic.cluster_id: ClusterConfig(
+            attributes={
+                "trigger_indicator": AttrConfig(read_on_startup=False),
+            },
+        ),
+    }
+
+
+@register_entity(IKEA_AIR_PURIFIER_CLUSTER)
+class ChildLock(ConfigurableAttributeSwitch):
+    """ZHA BinarySensor."""
+
+    _unique_id_suffix = "child_lock"
+    _attribute_name = "child_lock"
+    _attr_translation_key = "child_lock"
+    _cluster_id = IKEA_AIR_PURIFIER_CLUSTER
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({IKEA_AIR_PURIFIER_CLUSTER}),
+        models=frozenset({"STARKVIND Air purifier", "STARKVIND Air purifier table"}),
+    )
+
+
+@register_entity(IKEA_AIR_PURIFIER_CLUSTER)
+class DisableLed(ConfigurableAttributeSwitch):
+    """ZHA BinarySensor."""
+
+    _unique_id_suffix = "disable_led"
+    _attribute_name = "disable_led"
+    _attr_translation_key = "disable_led"
+    _cluster_id = IKEA_AIR_PURIFIER_CLUSTER
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({IKEA_AIR_PURIFIER_CLUSTER}),
+        models=frozenset({"STARKVIND Air purifier", "STARKVIND Air purifier table"}),
+    )
+
+
+@register_entity(AQARA_OPPLE_CLUSTER)
+class AqaraPetFeederLEDIndicator(ConfigurableAttributeSwitch):
+    """Representation of a LED indicator configuration entity."""
+
+    _unique_id_suffix = "disable_led_indicator"
+    _attribute_name = "disable_led_indicator"
+    _attr_translation_key = "led_indicator"
+    _force_inverted = True
+    _cluster_id = AQARA_OPPLE_CLUSTER
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({AQARA_OPPLE_CLUSTER}),
+        models=frozenset({"aqara.feeder.acn001"}),
+    )
+
+
+@register_entity(AQARA_OPPLE_CLUSTER)
+class AqaraPetFeederChildLock(ConfigurableAttributeSwitch):
+    """Representation of a child lock configuration entity."""
+
+    _unique_id_suffix = "child_lock"
+    _attribute_name = "child_lock"
+    _attr_translation_key = "child_lock"
+    _cluster_id = AQARA_OPPLE_CLUSTER
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({AQARA_OPPLE_CLUSTER}),
+        models=frozenset({"aqara.feeder.acn001"}),
+    )
+
+
+@register_entity(OnOff.cluster_id)
+class TuyaChildLockSwitch(ConfigurableAttributeSwitch):
+    """Representation of a child lock configuration entity."""
+
+    _unique_id_suffix = "child_lock"
+    _attribute_name = "child_lock"
+    _attr_translation_key = "child_lock"
+    _cluster_id = OnOff.cluster_id
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({OnOff.cluster_id}),
+        exposed_features=frozenset({TUYA_PLUG_ONOFF}),
+    )
+
+    _server_cluster_config = {
+        OnOff.cluster_id: ClusterConfig(
+            bind=True,
+            attributes={
+                "child_lock": AttrConfig(read_on_startup=False),
+            },
+        ),
+    }
+
+
+@register_entity(AQARA_OPPLE_CLUSTER)
+class AqaraThermostatWindowDetection(ConfigurableAttributeSwitch):
+    """Representation of an Aqara thermostat window detection configuration entity."""
+
+    _unique_id_suffix = "window_detection"
+    _attribute_name = "window_detection"
+    _attr_translation_key = "window_detection"
+    _cluster_id = AQARA_OPPLE_CLUSTER
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({AQARA_OPPLE_CLUSTER}),
+        models=frozenset({"lumi.airrtc.agl001"}),
+    )
+
+
+@register_entity(AQARA_OPPLE_CLUSTER)
+class AqaraThermostatValveDetection(ConfigurableAttributeSwitch):
+    """Representation of an Aqara thermostat valve detection configuration entity."""
+
+    _unique_id_suffix = "valve_detection"
+    _attribute_name = "valve_detection"
+    _attr_translation_key = "valve_detection"
+    _cluster_id = AQARA_OPPLE_CLUSTER
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({AQARA_OPPLE_CLUSTER}),
+        models=frozenset({"lumi.airrtc.agl001"}),
+    )
+
+
+@register_entity(AQARA_OPPLE_CLUSTER)
+class AqaraThermostatChildLock(ConfigurableAttributeSwitch):
+    """Representation of an Aqara thermostat child lock configuration entity."""
+
+    _unique_id_suffix = "child_lock"
+    _attribute_name = "child_lock"
+    _attr_translation_key = "child_lock"
+    _cluster_id = AQARA_OPPLE_CLUSTER
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({AQARA_OPPLE_CLUSTER}),
+        models=frozenset({"lumi.airrtc.agl001"}),
+    )
+
+
+@register_entity(AQARA_OPPLE_CLUSTER)
+class AqaraHeartbeatIndicator(ConfigurableAttributeSwitch):
+    """Representation of a heartbeat indicator configuration entity for Aqara smoke sensors."""
+
+    _unique_id_suffix = "heartbeat_indicator"
+    _attribute_name = "heartbeat_indicator"
+    _attr_translation_key = "heartbeat_indicator"
+    _cluster_id = AQARA_OPPLE_CLUSTER
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({AQARA_OPPLE_CLUSTER}),
+        models=frozenset({"lumi.sensor_smoke.acn03"}),
+    )
+
+
+@register_entity(AQARA_OPPLE_CLUSTER)
+class AqaraLinkageAlarm(ConfigurableAttributeSwitch):
+    """Representation of a linkage alarm configuration entity for Aqara smoke sensors."""
+
+    _unique_id_suffix = "linkage_alarm"
+    _attribute_name = "linkage_alarm"
+    _attr_translation_key = "linkage_alarm"
+    _cluster_id = AQARA_OPPLE_CLUSTER
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({AQARA_OPPLE_CLUSTER}),
+        models=frozenset({"lumi.sensor_smoke.acn03"}),
+    )
+
+
+@register_entity(AQARA_OPPLE_CLUSTER)
+class AqaraBuzzerManualMute(ConfigurableAttributeSwitch):
+    """Representation of a buzzer manual mute configuration entity for Aqara smoke sensors."""
+
+    _unique_id_suffix = "buzzer_manual_mute"
+    _attribute_name = "buzzer_manual_mute"
+    _attr_translation_key = "buzzer_manual_mute"
+    _cluster_id = AQARA_OPPLE_CLUSTER
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({AQARA_OPPLE_CLUSTER}),
+        models=frozenset({"lumi.sensor_smoke.acn03"}),
+    )
+
+
+@register_entity(AQARA_OPPLE_CLUSTER)
+class AqaraBuzzerManualAlarm(ConfigurableAttributeSwitch):
+    """Representation of a buzzer manual mute configuration entity for Aqara smoke sensors."""
+
+    _unique_id_suffix = "buzzer_manual_alarm"
+    _attribute_name = "buzzer_manual_alarm"
+    _attr_translation_key = "buzzer_manual_alarm"
+    _cluster_id = AQARA_OPPLE_CLUSTER
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({AQARA_OPPLE_CLUSTER}),
+        models=frozenset({"lumi.sensor_smoke.acn03"}),
+    )
+
+
+@register_entity(WindowCovering.cluster_id)
+class WindowCoveringInversionSwitch(ConfigurableAttributeSwitch):
+    """Representation of a switch that controls inversion for window covering devices.
+
+    This is necessary because this cluster uses 2 attributes to control inversion.
+    """
+
+    _unique_id_suffix = "inverted"
+    _attribute_name = WindowCovering.AttributeDefs.config_status.name
+    _attr_translation_key = "inverted"
+    _cluster_id = WindowCovering.cluster_id
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({WindowCovering.cluster_id}),
+    )
+
+    _server_cluster_config = {
+        WindowCovering.cluster_id: ClusterConfig(
+            bind=True,
+            attributes={
+                WindowCovering.AttributeDefs.config_status: AttrConfig(
+                    read_on_startup=False,
+                ),
+                WindowCovering.AttributeDefs.window_covering_mode: AttrConfig(
+                    read_on_startup=False,
+                ),
+            },
+        ),
+    }
+
+    def _is_supported(self) -> bool:
+        window_covering_mode_attr = (
+            WindowCovering.AttributeDefs.window_covering_mode.name
+        )
+
+        # this entity needs a second attribute to function
+        if (
+            self._cluster.is_attribute_unsupported(window_covering_mode_attr)
+            or window_covering_mode_attr not in self._cluster.attributes_by_name
+            or self._cluster.get(window_covering_mode_attr) is None
+        ):
+            _LOGGER.debug(
+                "%s is not supported - skipping %s entity creation",
+                self._attribute_name,
+                self.__class__.__name__,
+            )
+            return False
+
+        return super()._is_supported()
+
+    @property
+    def is_on(self) -> bool:
+        """Return if the switch is on based on the statemachine."""
+        config_status = ConfigStatus(self._cluster.get(self._attribute_name))
+        return ConfigStatus.Open_up_commands_reversed in config_status
+
+    async def async_turn_on(self) -> None:
+        """Turn the entity on."""
+        await self._async_on_off(True)
+
+    async def async_turn_off(self) -> None:
+        """Turn the entity off."""
+        await self._async_on_off(False)
+
+    async def async_update(self) -> None:
+        """Attempt to retrieve the state of the entity."""
+        self.debug("Polling current state")
+        await safe_read(
+            self._cluster,
+            [
+                self._attribute_name,
+                WindowCovering.AttributeDefs.window_covering_mode.name,
+            ],
+            allow_cache=False,
+            only_cache=False,
+        )
+        self.maybe_emit_state_changed_event()
+
+    async def _async_on_off(self, invert: bool) -> None:
+        """Turn the entity on or off."""
+        name: str = WindowCovering.AttributeDefs.window_covering_mode.name
+        current_mode: WindowCoveringMode = WindowCoveringMode(self._cluster.get(name))
+        send_command: bool = False
+        if invert and WindowCoveringMode.Motor_direction_reversed not in current_mode:
+            current_mode |= WindowCoveringMode.Motor_direction_reversed
+            send_command = True
+        elif not invert and WindowCoveringMode.Motor_direction_reversed in current_mode:
+            current_mode &= ~WindowCoveringMode.Motor_direction_reversed
+            send_command = True
+        if send_command:
+            await write_attributes_safe(self._cluster, {name: current_mode})
+            await self.async_update()
+
+
+@register_entity(AQARA_OPPLE_CLUSTER)
+class AqaraE1CurtainMotorHooksLockedSwitch(ConfigurableAttributeSwitch):
+    """Representation of a switch that controls whether the curtain motor hooks are locked."""
+
+    _unique_id_suffix = "hooks_lock"
+    _attribute_name = "hooks_lock"
+    _attr_translation_key = "hooks_locked"
+    _cluster_id = AQARA_OPPLE_CLUSTER
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({AQARA_OPPLE_CLUSTER}),
+        models=frozenset({"lumi.curtain.agl001"}),
+    )
+
+
+@register_entity(Thermostat.cluster_id)
+class DanfossExternalOpenWindowDetected(ConfigurableAttributeSwitch):
+    """Danfoss proprietary attribute for communicating an open window."""
+
+    _unique_id_suffix = "external_open_window_detected"
+    _attribute_name: str = "external_open_window_detected"
+    _attr_translation_key: str = "external_window_sensor"
+
+    _cluster_id = Thermostat.cluster_id
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({Thermostat.cluster_id}),
+        exposed_features=frozenset({DANFOSS_ALLY_THERMOSTAT}),
+    )
+
+    _server_cluster_config = {
+        Thermostat.cluster_id: ClusterConfig(
+            bind=True,
+            attributes={
+                "external_open_window_detected": AttrConfig(read_on_startup=False),
+            },
+        ),
+    }
+
+
+@register_entity(Thermostat.cluster_id)
+class DanfossWindowOpenFeature(ConfigurableAttributeSwitch):
+    """Danfoss proprietary attribute enabling open window detection."""
+
+    _unique_id_suffix = "window_open_feature"
+    _attribute_name: str = "window_open_feature"
+    _attr_translation_key: str = "use_internal_window_detection"
+
+    _cluster_id = Thermostat.cluster_id
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({Thermostat.cluster_id}),
+        exposed_features=frozenset({DANFOSS_ALLY_THERMOSTAT}),
+    )
+
+    _server_cluster_config = {
+        Thermostat.cluster_id: ClusterConfig(
+            bind=True,
+            attributes={
+                "window_open_feature": AttrConfig(read_on_startup=False),
+            },
+        ),
+    }
+
+
+@register_entity(Thermostat.cluster_id)
+class DanfossMountingModeControl(ConfigurableAttributeSwitch):
+    """Danfoss proprietary attribute for switching to mounting mode."""
+
+    _unique_id_suffix = "mounting_mode_control"
+    _attribute_name: str = "mounting_mode_control"
+    _attr_translation_key: str = "mounting_mode"
+
+    _cluster_id = Thermostat.cluster_id
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({Thermostat.cluster_id}),
+        exposed_features=frozenset({DANFOSS_ALLY_THERMOSTAT}),
+    )
+
+    _server_cluster_config = {
+        Thermostat.cluster_id: ClusterConfig(
+            bind=True,
+            attributes={
+                "mounting_mode_control": AttrConfig(read_on_startup=False),
+            },
+        ),
+    }
+
+
+@register_entity(Thermostat.cluster_id)
+class DanfossRadiatorCovered(ConfigurableAttributeSwitch):
+    """Danfoss proprietary attribute for communicating full usage of the external temperature sensor."""
+
+    _unique_id_suffix = "radiator_covered"
+    _attribute_name: str = "radiator_covered"
+    _attr_translation_key: str = "prioritize_external_temperature_sensor"
+
+    _cluster_id = Thermostat.cluster_id
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({Thermostat.cluster_id}),
+        exposed_features=frozenset({DANFOSS_ALLY_THERMOSTAT}),
+    )
+
+    _server_cluster_config = {
+        Thermostat.cluster_id: ClusterConfig(
+            bind=True,
+            attributes={
+                "radiator_covered": AttrConfig(read_on_startup=False),
+            },
+        ),
+    }
+
+
+@register_entity(Thermostat.cluster_id)
+class DanfossHeatAvailable(ConfigurableAttributeSwitch):
+    """Danfoss proprietary attribute for communicating available heat."""
+
+    _unique_id_suffix = "heat_available"
+    _attribute_name: str = "heat_available"
+    _attr_translation_key: str = "heat_available"
+
+    _cluster_id = Thermostat.cluster_id
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({Thermostat.cluster_id}),
+        exposed_features=frozenset({DANFOSS_ALLY_THERMOSTAT}),
+    )
+
+    _server_cluster_config = {
+        Thermostat.cluster_id: ClusterConfig(
+            bind=True,
+            attributes={
+                "heat_available": AttrConfig(read_on_startup=False),
+            },
+        ),
+    }
+
+
+@register_entity(Thermostat.cluster_id)
+class DanfossLoadBalancingEnable(ConfigurableAttributeSwitch):
+    """Danfoss proprietary attribute for enabling load balancing."""
+
+    _unique_id_suffix = "load_balancing_enable"
+    _attribute_name: str = "load_balancing_enable"
+    _attr_translation_key: str = "use_load_balancing"
+
+    _cluster_id = Thermostat.cluster_id
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({Thermostat.cluster_id}),
+        exposed_features=frozenset({DANFOSS_ALLY_THERMOSTAT}),
+    )
+
+    _server_cluster_config = {
+        Thermostat.cluster_id: ClusterConfig(
+            bind=True,
+            attributes={
+                "load_balancing_enable": AttrConfig(read_on_startup=False),
+            },
+        ),
+    }
+
+
+@register_entity(Thermostat.cluster_id)
+class DanfossAdaptationRunSettings(ConfigurableAttributeSwitch):
+    """Danfoss proprietary attribute for enabling daily adaptation run.
+
+    Actually a bitmap, but only the first bit is used.
+    """
+
+    _unique_id_suffix = "adaptation_run_settings"
+    _attribute_name: str = "adaptation_run_settings"
+    _attr_translation_key: str = "adaptation_run_enabled"
+
+    _cluster_id = Thermostat.cluster_id
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({Thermostat.cluster_id}),
+        exposed_features=frozenset({DANFOSS_ALLY_THERMOSTAT}),
+    )
+
+    _server_cluster_config = {
+        Thermostat.cluster_id: ClusterConfig(
+            bind=True,
+            attributes={
+                "adaptation_run_settings": AttrConfig(read_on_startup=False),
+            },
+        ),
+    }
+
+
+@register_entity(SINOPE_MANUFACTURER_CLUSTER)
+class SinopeLightDoubleTapFullSwitch(ConfigurableAttributeSwitch):
+    """Representation of a config option that controls whether Double Tap Full option is enabled on a Sinope light switch."""
+
+    _unique_id_suffix = "double_up_full"
+    _attribute_name = "double_up_full"
+    _attr_translation_key: str = "double_up_full"
+    _cluster_id = SINOPE_MANUFACTURER_CLUSTER
+
+    _cluster_match = ClusterMatch(
+        server_clusters=frozenset({SINOPE_MANUFACTURER_CLUSTER}),
+        models=frozenset({"DM2500ZB", "DM2500ZB-G2", "DM2550ZB", "DM2550ZB-G2"}),
+    )

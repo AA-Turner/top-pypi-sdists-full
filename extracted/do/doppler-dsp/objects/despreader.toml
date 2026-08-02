@@ -1,0 +1,176 @@
+[despreader]
+arg_type = "float _Complex"
+return_type = "float _Complex"
+mutable = "false"
+no_state = "true"
+no_step = "true"
+class_name = "Despreader"
+# detection: dll_core's configure_lock now derives the CFAR threshold via
+# det_threshold_noncoherent, so anything linking dll_core links detection_core.
+depends_on = [
+  { name = "costas", link = true },
+  { name = "dll", link = true },
+  { name = "lo", link = true },
+  { name = "loop_filter", link = true },
+  { name = "lockdet", link = true },
+  { name = "telemetry", link = true },
+  { name = "detection", link = true },
+]
+serializable = "true"
+
+[[despreader.init_params]]
+name = "code"
+type = "uint8_t[]"
+
+[[despreader.init_params]]
+name = "sps"
+type = "size_t"
+default = "4"
+
+[[despreader.init_params]]
+name = "init_norm_freq"
+type = "double"
+default = "0.0"
+
+[[despreader.init_params]]
+name = "init_chip"
+type = "double"
+default = "0.0"
+
+[[despreader.init_params]]
+name = "bn_carrier"
+type = "double"
+default = "0.05"
+
+[[despreader.init_params]]
+name = "bn_code"
+type = "double"
+default = "0.005"
+
+[[despreader.init_params]]
+name = "bn_fll"
+type = "double"
+default = "0.0"
+
+[[despreader.init_params]]
+name = "zeta"
+type = "double"
+default = "0.707"
+
+[[despreader.init_params]]
+name = "spacing"
+type = "double"
+default = "0.5"
+
+[[despreader.init_params]]
+name = "periods_per_bit"
+type = "size_t"
+default = "1"
+
+[[despreader.methods]]
+name = "steps"
+doc = "Track carrier + code and despread a cf32 block: per sample wipe the carrier (Costas) and correlate early/prompt/late against the code (DLL), update both loops each code period, and emit one complex prompt symbol per period."
+arg_type = "void"
+return_type = "float _Complex"
+variable_output = true
+pass_capacity = true
+nogil = true
+params = [{ name = "x", type = "float _Complex[]" }]
+
+[[despreader.methods]]
+name = "bits"
+doc = "Same tracking kernel as steps(), but bit-sync the per-period prompts into hard data bits: periods_per_bit prompts are coherently summed across each detected bit boundary and one 0/1 bit is emitted per data bit."
+arg_type = "void"
+return_type = "uint8_t"
+variable_output = true
+pass_capacity = true
+nogil = true
+params = [{ name = "x", type = "float _Complex[]" }]
+
+# Telemetry attach (jm gh-432; mirrors objects/mpsk_receiver.toml): a pure
+# forwarder to the embedded loops — "<prefix>.car.lock/.e/.freq/.locked"
+# (Costas) + "<prefix>.code.e/.rate/.lock/.locked" (DLL; the .locked pair
+# are the loops' verify-counted lockdet decisions), eight probes emitted
+# once per code period. None detaches everything; the int status binds ->
+# None with ValueError on failure.
+[[despreader.methods]]
+name = "set_telemetry"
+arg_type = "void"
+return_type = "int"
+status_return = true
+params = [
+  { name = "tlm", type = "dp_tlm_t *", capsule = "doppler.telemetry.dp_tlm", header = "telemetry/telemetry.h" },
+  { name = "prefix", type = "const char *" },
+  { name = "decim", type = "uint32_t", default = "1" },
+]
+
+[[despreader.methods]]
+name = "configure_carrier_lock"
+doc = "Re-tune the embedded carrier loop's lock detector directly: forwards to the Costas loop's configure_lock (locked flips up after n_up consecutive symbols with the lock-metric EMA above up_thresh, and drops after n_down consecutive symbols below down_thresh; see Costas.configure_lock). Symmetric with the carrier_locked state property: state is readable, so config should be writable too, rather than forcing a caller who needs this control to drop to raw Dll+Costas composition."
+arg_type = "void"
+return_type = "void"
+params = [
+  { name = "up_thresh", type = "double" },
+  { name = "down_thresh", type = "double" },
+  { name = "n_up", type = "uint32_t" },
+  { name = "n_down", type = "uint32_t" },
+]
+
+[[despreader.methods]]
+name = "configure_code_lock"
+doc = "Re-tune the embedded code loop's lock detector: forwards to the DLL's configure_lock (see Dll.configure_lock) -- the derived (pfa-style) entry point, matching Despreader's role as the easy composed API (Dll's raw escape hatch, configure_lock_raw, stays a Dll-only control for a caller that composes Dll+Costas directly). Raises ValueError for pfa outside (0, 1)."
+arg_type = "void"
+return_type = "int"
+status_return = true
+params = [
+  { name = "pfa", type = "double" },
+  { name = "n_looks", type = "size_t" },
+  { name = "ref_snr_db", type = "double", default = "0.0" },
+]
+
+[[despreader.methods]]
+name = "reset"
+doc = "Re-seed both loops to the create-time frequency/phase; preserve config."
+arg_type = "void"
+return_type = "void"
+
+[[despreader.properties]]
+name = "norm_freq"
+type = "double"
+writable = true
+
+[[despreader.properties]]
+name = "code_phase"
+type = "double"
+
+[[despreader.properties]]
+name = "code_rate"
+type = "double"
+
+[[despreader.properties]]
+name = "lock_metric"
+type = "double"
+
+[[despreader.properties]]
+name = "carrier_locked"
+type = "bool"
+doc = "Carrier lock decision: the embedded Costas loop's verify-counted detector on its lock-metric EMA (True = locked; see Costas.configure_lock)."
+
+[[despreader.properties]]
+name = "code_locked"
+type = "bool"
+doc = "Code lock decision: the embedded DLL's verify-counted CFAR detector (True = locked; see Dll.configure_lock). Live in composition — the despreader runs the same always-on detector Dll.steps does."
+
+[[despreader.properties]]
+name = "bit_phase"
+type = "size_t"
+
+[[despreader.properties]]
+name = "bn_carrier"
+type = "double"
+writable = true
+
+[[despreader.properties]]
+name = "bn_code"
+type = "double"
+writable = true

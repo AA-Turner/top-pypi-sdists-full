@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=68.0", "setuptools-scm>=8.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orthography2ipa"
+dynamic = ["version", "dependencies"]
+description = "Linguistically motivated grapheme-to-IPA and allophone mappings for 350+ language codes"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Text Processing :: Linguistic",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+]
+keywords = ["ipa", "phonetics", "phonology", "grapheme", "allophone", "linguistics", "nlp"]
+
+[tool.setuptools.dynamic]
+version = {attr = "orthography2ipa.version.VERSION_STR"}
+dependencies = {file = ["requirements.txt"]}
+
+[project.optional-dependencies]
+hf = ["huggingface_hub"]
+validation = ["pydantic>=2"]
+# A real Portuguese syllabifier. Optional: the bundled splitter is correct on its
+# own (pt-PT declares its diphthongs), and this only draws better boundaries.
+portuguese = ["silabificador>=2.1.0a1"]
+test = ["pytest", "pytest-timeout", "pytest-cov", "pydantic>=2", "hypothesis"]
+# dev-only extra for scripts/compare_systems.py; never a runtime dependency
+compare = ["epitran", "gruut", "pycotovia", "ahotts-g2p"]
+
+[project.entry-points."orthography2ipa.syllabify"]
+silabificador = "orthography2ipa.syllabifiers:SilabificadorSyllabifier"
+
+[project.urls]
+Homepage = "https://github.com/TigreGotico/orthography2ipa"
+Issues = "https://github.com/TigreGotico/orthography2ipa/issues"
+
+[project.scripts]
+orthography2ipa = "orthography2ipa.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["orthography2ipa*"]
+
+[tool.setuptools.package-data]
+"orthography2ipa" = ["data/*.json", "data/SCHEMA.md"]

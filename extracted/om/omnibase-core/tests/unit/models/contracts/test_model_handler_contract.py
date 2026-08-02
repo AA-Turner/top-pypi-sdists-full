@@ -1,0 +1,602 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""
+Unit tests for ModelHandlerContract.
+
+Tests handler contract specification including:
+- Basic creation and validation
+- Handler ID format validation
+- Version format validation
+- Descriptor consistency validation
+- Capability dependency handling
+- Helper methods
+"""
+
+from __future__ import annotations
+
+import pytest
+from pydantic import ValidationError
+
+from omnibase_core.models.capabilities.model_capability_requirement_set import (
+    ModelRequirementSet,
+)
+from omnibase_core.models.contracts.model_contract_capability_dependency import (
+    ModelCapabilityDependency,
+)
+from omnibase_core.models.contracts.model_execution_constraints import (
+    ModelExecutionConstraints,
+)
+from omnibase_core.models.contracts.model_handler_contract import ModelHandlerContract
+from omnibase_core.models.errors.model_onex_error import ModelOnexError
+from omnibase_core.models.primitives.model_semver import ModelSemVer
+from omnibase_core.models.runtime.model_handler_behavior import (
+    ModelHandlerBehavior,
+)
+
+
+@pytest.mark.unit
+class TestModelHandlerContractCreation:
+    """Tests for ModelHandlerContract creation."""
+
+    def test_minimal_creation(self) -> None:
+        """Test creation with only required fields."""
+        contract = ModelHandlerContract(
+            handler_id="node.test.handler",
+            name="Test Handler",
+            contract_version=ModelSemVer(major=1, minor=0, patch=0),
+            descriptor=ModelHandlerBehavior(node_archetype="compute"),
+            input_model="myapp.models.Input",
+            output_model="myapp.models.Output",
+        )
+        assert contract.handler_id == "node.test.handler"
+        assert contract.name == "Test Handler"
+        assert str(contract.contract_version) == "1.0.0"
+        assert contract.descriptor.node_archetype == "compute"
+
+    def test_full_creation(self) -> None:
+        """Test creation with all fields."""
+        contract = ModelHandlerContract(
+            handler_id="reducer.user.registration",
+            name="User Registration Reducer",
+            contract_version=ModelSemVer(
+                major=2, minor=1, patch=0, prerelease=("beta", "1")
+            ),
+            description="Handles user registration lifecycle",
+            descriptor=ModelHandlerBehavior(
+                node_archetype="reducer",
+                purity="side_effecting",
+                idempotent=True,
+                timeout_ms=30000,
+            ),
+            capability_inputs=[
+                ModelCapabilityDependency(
+                    alias="db",
+                    capability="database.relational",
+                    requirements=ModelRequirementSet(
+                        must={"supports_transactions": True},
+                    ),
+                ),
+            ],
+            capability_outputs=["user.created", "user.registered"],
+            input_model="myapp.models.RegistrationEvent",
+            output_model="myapp.models.UserState",
+            execution_constraints=ModelExecutionConstraints(
+                requires_before=["capability:auth"],
+                requires_after=["capability:logging"],
+            ),
+            supports_lifecycle=True,
+            supports_health_check=True,
+            supports_provisioning=False,
+            tags=["registration", "user"],
+            metadata={"owner": "user-team"},
+        )
+        assert contract.handler_id == "reducer.user.registration"
+        assert contract.descriptor.node_archetype == "reducer"
+        assert len(contract.capability_inputs) == 1
+        assert contract.capability_inputs[0].alias == "db"
+        assert contract.supports_lifecycle is True
+
+
+@pytest.mark.unit
+class TestHandlerIdValidation:
+    """Tests for handler_id format validation."""
+
+    def test_valid_two_segment_id(self) -> None:
+        """Test valid two-segment handler ID."""
+        contract = ModelHandlerContract(
+            handler_id="node.handler",
+            name="Test",
+            contract_version=ModelSemVer(major=1, minor=0, patch=0),
+            descriptor=ModelHandlerBehavior(node_archetype="compute"),
+            input_model="a.Input",
+            output_model="a.Output",
+        )
+        assert contract.handler_id == "node.handler"
+
+    def test_valid_multi_segment_id(self) -> None:
+        """Test valid multi-segment handler ID."""
+        contract = ModelHandlerContract(
+            handler_id="effect.database.user.repository",
+            name="Test",
+            contract_version=ModelSemVer(major=1, minor=0, patch=0),
+            descriptor=ModelHandlerBehavior(node_archetype="effect"),
+            input_model="a.Input",
+            output_model="a.Output",
+        )
+        assert contract.handler_id == "effect.database.user.repository"
+
+    def test_single_segment_id_rejected(self) -> None:
+        """Test that single segment handler ID is rejected."""
+        with pytest.raises(ValidationError, match="at least 2 segments"):
+            ModelHandlerContract(
+                handler_id="handler",
+                name="Test",
+                contract_version=ModelSemVer(major=1, minor=0, patch=0),
+                descriptor=ModelHandlerBehavior(node_archetype="compute"),
+                input_model="a.Input",
+                output_model="a.Output",
+            )
+
+    def test_empty_segment_id_rejected(self) -> None:
+        """Test that handler ID with empty segment is rejected."""
+        with pytest.raises(ValidationError, match="empty segment"):
+            ModelHandlerContract(
+                handler_id="node..handler",
+                name="Test",
+                contract_version=ModelSemVer(major=1, minor=0, patch=0),
+                descriptor=ModelHandlerBehavior(node_archetype="compute"),
+                input_model="a.Input",
+                output_model="a.Output",
+            )
+
+    def test_underscore_prefix_allowed(self) -> None:
+        """Test that underscore prefix is allowed in segments."""
+        contract = ModelHandlerContract(
+            handler_id="node._internal.handler",
+            name="Test",
+            contract_version=ModelSemVer(major=1, minor=0, patch=0),
+            descriptor=ModelHandlerBehavior(node_archetype="compute"),
+            input_model="a.Input",
+            output_model="a.Output",
+        )
+        assert contract.handler_id == "node._internal.handler"
+
+
+@pytest.mark.unit
+class TestVersionValidation:
+    """Tests for contract_version field validation."""
+
+    @pytest.mark.parametrize(
+        ("major", "minor", "patch", "prerelease", "build"),
+        [
+            (1, 0, 0, None, None),
+            (0, 0, 1, None, None),
+            (10, 20, 30, None, None),
+            (1, 0, 0, ("alpha",), None),
+            (1, 0, 0, ("beta", "1"), None),
+            (1, 0, 0, ("rc", "1"), None),
+            (1, 0, 0, None, ("build", "123")),
+            (1, 0, 0, ("beta", "1"), ("build", "456")),
+        ],
+    )
+    def test_valid_semver_accepted(
+        self,
+        major: int,
+        minor: int,
+        patch: int,
+        prerelease: tuple[str, ...] | None,
+        build: tuple[str, ...] | None,
+    ) -> None:
+        """Test various valid ModelSemVer configurations are accepted."""
+        version = ModelSemVer(
+            major=major, minor=minor, patch=patch, prerelease=prerelease, build=build
+        )
+        contract = ModelHandlerContract(
+            handler_id="node.test",
+            name="Test",
+            contract_version=version,
+            descriptor=ModelHandlerBehavior(node_archetype="compute"),
+            input_model="a.Input",
+            output_model="a.Output",
+        )
+        assert contract.contract_version == version
+
+    def test_deprecated_version_field_rejected(self) -> None:
+        """Test that deprecated 'version' string field is rejected."""
+        with pytest.raises(ModelOnexError, match="must use 'contract_version'"):
+            ModelHandlerContract(
+                handler_id="node.test",
+                name="Test",
+                version="1.0.0",  # type: ignore[call-arg]
+                descriptor=ModelHandlerBehavior(node_archetype="compute"),
+                input_model="a.Input",
+                output_model="a.Output",
+            )
+
+
+@pytest.mark.unit
+class TestDescriptorConsistencyValidation:
+    """Tests for handler_id prefix vs descriptor.node_archetype consistency."""
+
+    def test_compute_prefix_matches_compute_kind(self) -> None:
+        """Test compute prefix accepts compute node_archetype."""
+        contract = ModelHandlerContract(
+            handler_id="compute.data.transformer",
+            name="Test",
+            contract_version=ModelSemVer(major=1, minor=0, patch=0),
+            descriptor=ModelHandlerBehavior(node_archetype="compute"),
+            input_model="a.Input",
+            output_model="a.Output",
+        )
+        assert contract.descriptor.node_archetype == "compute"
+
+    def test_effect_prefix_matches_effect_kind(self) -> None:
+        """Test effect prefix accepts effect node_archetype."""
+        contract = ModelHandlerContract(
+            handler_id="effect.database.writer",
+            name="Test",
+            contract_version=ModelSemVer(major=1, minor=0, patch=0),
+            descriptor=ModelHandlerBehavior(node_archetype="effect"),
+            input_model="a.Input",
+            output_model="a.Output",
+        )
+        assert contract.descriptor.node_archetype == "effect"
+
+    def test_reducer_prefix_matches_reducer_kind(self) -> None:
+        """Test reducer prefix accepts reducer node_archetype."""
+        contract = ModelHandlerContract(
+            handler_id="reducer.user.state",
+            name="Test",
+            contract_version=ModelSemVer(major=1, minor=0, patch=0),
+            descriptor=ModelHandlerBehavior(node_archetype="reducer"),
+            input_model="a.Input",
+            output_model="a.Output",
+        )
+        assert contract.descriptor.node_archetype == "reducer"
+
+    def test_generic_node_prefix_accepts_any_kind(self) -> None:
+        """Test 'node' prefix accepts any node_archetype."""
+        for kind in ["compute", "effect", "reducer", "orchestrator"]:
+            contract = ModelHandlerContract(
+                handler_id="node.test.handler",
+                name="Test",
+                contract_version=ModelSemVer(major=1, minor=0, patch=0),
+                descriptor=ModelHandlerBehavior(node_archetype=kind),  # type: ignore[arg-type]
+                input_model="a.Input",
+                output_model="a.Output",
+            )
+            assert contract.descriptor.node_archetype == kind
+
+    def test_generic_handler_prefix_accepts_any_kind(self) -> None:
+        """Test 'handler' prefix accepts any node_archetype."""
+        for kind in ["compute", "effect", "reducer", "orchestrator"]:
+            contract = ModelHandlerContract(
+                handler_id="handler.test.impl",
+                name="Test",
+                contract_version=ModelSemVer(major=1, minor=0, patch=0),
+                descriptor=ModelHandlerBehavior(node_archetype=kind),  # type: ignore[arg-type]
+                input_model="a.Input",
+                output_model="a.Output",
+            )
+            assert contract.descriptor.node_archetype == kind
+
+    def test_compute_prefix_rejects_effect_kind(self) -> None:
+        """Test compute prefix rejects effect node_archetype."""
+        with pytest.raises(ModelOnexError, match="implies node_archetype='compute'"):
+            ModelHandlerContract(
+                handler_id="compute.data.transformer",
+                name="Test",
+                contract_version=ModelSemVer(major=1, minor=0, patch=0),
+                descriptor=ModelHandlerBehavior(node_archetype="effect"),
+                input_model="a.Input",
+                output_model="a.Output",
+            )
+
+
+@pytest.mark.unit
+class TestCapabilityDependencyHandling:
+    """Tests for capability dependency handling."""
+
+    def test_unique_aliases_required(self) -> None:
+        """Test that capability input aliases must be unique."""
+        with pytest.raises(ValidationError, match="Duplicate capability input aliases"):
+            ModelHandlerContract(
+                handler_id="node.test",
+                name="Test",
+                contract_version=ModelSemVer(major=1, minor=0, patch=0),
+                descriptor=ModelHandlerBehavior(node_archetype="effect"),
+                capability_inputs=[
+                    ModelCapabilityDependency(alias="db", capability="database"),
+                    ModelCapabilityDependency(alias="db", capability="cache"),
+                ],
+                input_model="a.Input",
+                output_model="a.Output",
+            )
+
+    def test_get_capability_aliases(self) -> None:
+        """Test get_capability_aliases helper method."""
+        contract = ModelHandlerContract(
+            handler_id="node.test",
+            name="Test",
+            contract_version=ModelSemVer(major=1, minor=0, patch=0),
+            descriptor=ModelHandlerBehavior(node_archetype="effect"),
+            capability_inputs=[
+                ModelCapabilityDependency(alias="db", capability="database"),
+                ModelCapabilityDependency(alias="cache", capability="cache"),
+            ],
+            input_model="a.Input",
+            output_model="a.Output",
+        )
+        aliases = contract.get_capability_aliases()
+        assert aliases == ["db", "cache"]
+
+    def test_get_required_capabilities(self) -> None:
+        """Test get_required_capabilities helper method."""
+        contract = ModelHandlerContract(
+            handler_id="node.test",
+            name="Test",
+            contract_version=ModelSemVer(major=1, minor=0, patch=0),
+            descriptor=ModelHandlerBehavior(node_archetype="effect"),
+            capability_inputs=[
+                ModelCapabilityDependency(
+                    alias="db", capability="database", strict=True
+                ),
+                ModelCapabilityDependency(
+                    alias="cache", capability="cache", strict=False
+                ),
+            ],
+            input_model="a.Input",
+            output_model="a.Output",
+        )
+        required = contract.get_required_capabilities()
+        assert required == ["database"]
+
+    def test_get_optional_capabilities(self) -> None:
+        """Test get_optional_capabilities helper method."""
+        contract = ModelHandlerContract(
+            handler_id="node.test",
+            name="Test",
+            contract_version=ModelSemVer(major=1, minor=0, patch=0),
+            descriptor=ModelHandlerBehavior(node_archetype="effect"),
+            capability_inputs=[
+                ModelCapabilityDependency(
+                    alias="db", capability="database", strict=True
+                ),
+                ModelCapabilityDependency(
+                    alias="cache", capability="cache", strict=False
+                ),
+            ],
+            input_model="a.Input",
+            output_model="a.Output",
+        )
+        optional = contract.get_optional_capabilities()
+        assert optional == ["cache"]
+
+
+@pytest.mark.unit
+class TestExecutionConstraintsHelpers:
+    """Tests for execution constraints helper methods."""
+
+    def test_has_execution_constraints_none(self) -> None:
+        """Test has_execution_constraints with no constraints."""
+        contract = ModelHandlerContract(
+            handler_id="node.test",
+            name="Test",
+            contract_version=ModelSemVer(major=1, minor=0, patch=0),
+            descriptor=ModelHandlerBehavior(node_archetype="compute"),
+            input_model="a.Input",
+            output_model="a.Output",
+        )
+        assert contract.has_execution_constraints() is False
+
+    def test_has_execution_constraints_empty(self) -> None:
+        """Test has_execution_constraints with empty constraints."""
+        contract = ModelHandlerContract(
+            handler_id="node.test",
+            name="Test",
+            contract_version=ModelSemVer(major=1, minor=0, patch=0),
+            descriptor=ModelHandlerBehavior(node_archetype="compute"),
+            execution_constraints=ModelExecutionConstraints(),
+            input_model="a.Input",
+            output_model="a.Output",
+        )
+        assert contract.has_execution_constraints() is False
+
+    def test_has_execution_constraints_with_ordering(self) -> None:
+        """Test has_execution_constraints with ordering constraints."""
+        contract = ModelHandlerContract(
+            handler_id="node.test",
+            name="Test",
+            contract_version=ModelSemVer(major=1, minor=0, patch=0),
+            descriptor=ModelHandlerBehavior(node_archetype="compute"),
+            execution_constraints=ModelExecutionConstraints(
+                requires_before=["capability:auth"],
+            ),
+            input_model="a.Input",
+            output_model="a.Output",
+        )
+        assert contract.has_execution_constraints() is True
+
+
+@pytest.mark.unit
+class TestHandlerClassValidation:
+    """Tests for handler_class field validation (OMN-1420)."""
+
+    def test_handler_class_defaults_to_none(self) -> None:
+        """Test handler_class defaults to None when not provided."""
+        contract = ModelHandlerContract(
+            handler_id="node.test",
+            name="Test",
+            contract_version=ModelSemVer(major=1, minor=0, patch=0),
+            descriptor=ModelHandlerBehavior(node_archetype="compute"),
+            input_model="a.Input",
+            output_model="a.Output",
+        )
+        assert contract.handler_class is None
+
+    def test_valid_handler_class_accepted(self) -> None:
+        """Test valid fully qualified class path is accepted."""
+        contract = ModelHandlerContract(
+            handler_id="node.test",
+            name="Test",
+            contract_version=ModelSemVer(major=1, minor=0, patch=0),
+            descriptor=ModelHandlerBehavior(node_archetype="compute"),
+            input_model="a.Input",
+            output_model="a.Output",
+            handler_class="omnibase_infra.handlers.handler_consul.HandlerConsul",
+        )
+        assert (
+            contract.handler_class
+            == "omnibase_infra.handlers.handler_consul.HandlerConsul"
+        )
+
+    def test_two_segment_handler_class_accepted(self) -> None:
+        """Test minimal two-segment class path is accepted."""
+        contract = ModelHandlerContract(
+            handler_id="node.test",
+            name="Test",
+            contract_version=ModelSemVer(major=1, minor=0, patch=0),
+            descriptor=ModelHandlerBehavior(node_archetype="compute"),
+            input_model="a.Input",
+            output_model="a.Output",
+            handler_class="mymodule.MyClass",
+        )
+        assert contract.handler_class == "mymodule.MyClass"
+
+    def test_handler_class_with_underscores_accepted(self) -> None:
+        """Test class path with underscores in segments is accepted."""
+        contract = ModelHandlerContract(
+            handler_id="node.test",
+            name="Test",
+            contract_version=ModelSemVer(major=1, minor=0, patch=0),
+            descriptor=ModelHandlerBehavior(node_archetype="compute"),
+            input_model="a.Input",
+            output_model="a.Output",
+            handler_class="_private.module._internal.Handler",
+        )
+        assert contract.handler_class == "_private.module._internal.Handler"
+
+    def test_single_segment_handler_class_rejected(self) -> None:
+        """Test that single segment (no dots) is rejected."""
+        with pytest.raises(ValidationError, match="fully qualified Python class path"):
+            ModelHandlerContract(
+                handler_id="node.test",
+                name="Test",
+                contract_version=ModelSemVer(major=1, minor=0, patch=0),
+                descriptor=ModelHandlerBehavior(node_archetype="compute"),
+                input_model="a.Input",
+                output_model="a.Output",
+                handler_class="HandlerConsul",
+            )
+
+    def test_handler_class_too_short_rejected(self) -> None:
+        """Test that handler_class shorter than 3 chars is rejected."""
+        with pytest.raises(ValidationError):
+            ModelHandlerContract(
+                handler_id="node.test",
+                name="Test",
+                contract_version=ModelSemVer(major=1, minor=0, patch=0),
+                descriptor=ModelHandlerBehavior(node_archetype="compute"),
+                input_model="a.Input",
+                output_model="a.Output",
+                handler_class="a",
+            )
+
+    def test_handler_class_starting_with_digit_rejected(self) -> None:
+        """Test that segment starting with digit is rejected."""
+        with pytest.raises(ValidationError, match="fully qualified Python class path"):
+            ModelHandlerContract(
+                handler_id="node.test",
+                name="Test",
+                contract_version=ModelSemVer(major=1, minor=0, patch=0),
+                descriptor=ModelHandlerBehavior(node_archetype="compute"),
+                input_model="a.Input",
+                output_model="a.Output",
+                handler_class="3module.Handler",
+            )
+
+    def test_handler_class_with_empty_segment_rejected(self) -> None:
+        """Test that empty segment (double dots) is rejected."""
+        with pytest.raises(ValidationError, match="fully qualified Python class path"):
+            ModelHandlerContract(
+                handler_id="node.test",
+                name="Test",
+                contract_version=ModelSemVer(major=1, minor=0, patch=0),
+                descriptor=ModelHandlerBehavior(node_archetype="compute"),
+                input_model="a.Input",
+                output_model="a.Output",
+                handler_class="module..Handler",
+            )
+
+    def test_handler_class_with_spaces_rejected(self) -> None:
+        """Test that spaces in class path are rejected."""
+        with pytest.raises(ValidationError):
+            ModelHandlerContract(
+                handler_id="node.test",
+                name="Test",
+                contract_version=ModelSemVer(major=1, minor=0, patch=0),
+                descriptor=ModelHandlerBehavior(node_archetype="compute"),
+                input_model="a.Input",
+                output_model="a.Output",
+                handler_class="my module.Handler",
+            )
+
+    def test_handler_class_none_explicitly(self) -> None:
+        """Test handler_class can be explicitly set to None."""
+        contract = ModelHandlerContract(
+            handler_id="node.test",
+            name="Test",
+            contract_version=ModelSemVer(major=1, minor=0, patch=0),
+            descriptor=ModelHandlerBehavior(node_archetype="compute"),
+            input_model="a.Input",
+            output_model="a.Output",
+            handler_class=None,
+        )
+        assert contract.handler_class is None
+
+    def test_full_creation_with_handler_class(self) -> None:
+        """Test full contract creation including handler_class."""
+        contract = ModelHandlerContract(
+            handler_id="effect.database.writer",
+            name="DB Writer",
+            contract_version=ModelSemVer(major=1, minor=0, patch=0),
+            descriptor=ModelHandlerBehavior(node_archetype="effect"),
+            input_model="a.Input",
+            output_model="a.Output",
+            handler_class="myapp.handlers.db_writer.DBWriter",
+            supports_lifecycle=True,
+        )
+        assert contract.handler_class == "myapp.handlers.db_writer.DBWriter"
+        assert contract.supports_lifecycle is True
+
+
+@pytest.mark.unit
+class TestImmutability:
+    """Tests for model immutability."""
+
+    def test_model_is_frozen(self) -> None:
+        """Test that model instances are immutable."""
+        contract = ModelHandlerContract(
+            handler_id="node.test",
+            name="Test",
+            contract_version=ModelSemVer(major=1, minor=0, patch=0),
+            descriptor=ModelHandlerBehavior(node_archetype="compute"),
+            input_model="a.Input",
+            output_model="a.Output",
+        )
+        with pytest.raises(ValidationError):
+            contract.name = "New Name"  # type: ignore[misc]
+
+    def test_extra_fields_rejected(self) -> None:
+        """Test that extra fields are rejected."""
+        with pytest.raises(ValidationError, match="extra_forbidden"):
+            ModelHandlerContract(
+                handler_id="node.test",
+                name="Test",
+                contract_version=ModelSemVer(major=1, minor=0, patch=0),
+                descriptor=ModelHandlerBehavior(node_archetype="compute"),
+                input_model="a.Input",
+                output_model="a.Output",
+                unknown_field="value",  # type: ignore[call-arg]
+            )

@@ -1,0 +1,167 @@
+"""Test HTML rendering improvements for ContentToolResult and related classes."""
+
+from chatlas.types import ContentToolRequest, ContentToolResult
+
+
+class TestContentToolRequestHTML:
+    """Test HTML rendering for ContentToolRequest."""
+
+    def test_content_tool_request_repr_html(self):
+        """Test _repr_html_ method."""
+        request = ContentToolRequest(
+            id="test-id", name="test_tool", arguments={"x": 1, "y": 2}
+        )
+
+        # Should return string representation of tagify()
+        html = request._repr_html_()
+        assert isinstance(html, str)
+        assert "test_tool" in html
+
+
+class TestContentToolResultHTML:
+    """Test HTML rendering improvements for ContentToolResult."""
+
+    def test_content_tool_result_repr_html(self):
+        """Test _repr_html_ method."""
+        # Create a request first
+        request = ContentToolRequest(
+            id="test-id", name="test_tool", arguments={"x": 1, "y": 2}
+        )
+
+        result = ContentToolResult(value="test result", request=request)
+
+        # Should return string representation of tagify()
+        html = result._repr_html_()
+        assert isinstance(html, str)
+        assert "test_tool" in html
+
+    def test_improved_html_structure(self):
+        """Test the improved HTML structure with nested details."""
+
+        request = ContentToolRequest(
+            id="test-id",
+            name="test_tool",
+            arguments={"x": 1, "y": 2},
+        )
+
+        result = ContentToolResult(value="test result", request=request)
+
+        html = result.tagify()
+        html_str = str(html)
+
+        # Should contain the new structure with nested details
+        assert 'class="chatlas-tool-result"' in html_str
+        assert "<details>" in html_str
+        assert (
+            "<summary>Result from tool call: <code>test_tool</code></summary>"
+            in html_str
+        )
+        assert "<summary><strong>Result:</strong></summary>" in html_str
+        assert "<summary><strong>Input parameters:</strong></summary>" in html_str
+
+        # Should contain escaped content
+        assert "test result" in html_str
+        assert "1" in html_str
+        assert "2" in html_str
+
+    def test_html_with_error(self):
+        """Test HTML rendering when there's an error."""
+
+        request = ContentToolRequest(id="test-id", name="test_tool", arguments={"x": 1})
+
+        result = ContentToolResult(
+            value=None, error=ValueError("Test error"), request=request
+        )
+
+        html = result.tagify()
+        html_str = str(html)
+
+        # Should show error header
+        assert "❌ Failed to call tool <code>test_tool</code>" in html_str
+        assert "Tool call failed with error" in html_str
+
+    def test_html_with_dict_arguments(self):
+        """Test HTML rendering with dictionary arguments."""
+
+        request = ContentToolRequest(
+            id="test-id",
+            name="test_tool",
+            arguments={"param1": "value1", "param2": "value2"},
+        )
+
+        result = ContentToolResult(value="result", request=request)
+
+        html = result.tagify()
+        html_str = str(html)
+
+        # Should have separate sections for each parameter
+        assert "input-parameter-label" in html_str
+        assert "param1" in html_str
+        assert "param2" in html_str
+        assert "value1" in html_str
+        assert "value2" in html_str
+
+    def test_html_with_non_dict_arguments(self):
+        """Test HTML rendering with non-dictionary arguments."""
+
+        request = ContentToolRequest(
+            id="test-id", name="test_tool", arguments="simple string argument"
+        )
+
+        result = ContentToolResult(value="result", request=request)
+
+        html = result.tagify()
+        html_str = str(html)
+
+        # Should contain the argument as a string
+        assert "simple string argument" in html_str
+
+    def test_html_escaping(self):
+        """Test that HTML content is properly escaped."""
+
+        request = ContentToolRequest(
+            id="test-id",
+            name="test_tool",
+            arguments={"param": "<img src=x onerror=alert(1)>"},
+        )
+
+        result = ContentToolResult(
+            value="<script>alert('xss')</script>", request=request
+        )
+
+        html = result.tagify()
+        html_str = str(html)
+
+        # HTML should be escaped
+        assert "&lt;script&gt;" in html_str
+        assert "&lt;img src=x" in html_str
+        assert "<script>" not in html_str
+        assert "<img" not in html_str
+
+    def test_get_display_value_always_returns_string(self):
+        """Test that _get_display_value always returns a string."""
+        # Test with various value types
+        test_cases = [
+            ("string value", "string value"),
+            (123, "123"),
+            ([1, 2, 3], "[1, 2, 3]"),
+            ({"key": "value"}, "{'key': 'value'}"),
+            (None, "None"),
+        ]
+
+        for value, expected in test_cases:
+            request = ContentToolRequest(id="test-id", name="test_tool", arguments={})
+            result = ContentToolResult(value=value, request=request)
+            display_value = result._get_display_value()
+            assert isinstance(display_value, str)
+            assert str(expected) == display_value
+
+    def test_get_display_value_with_error(self):
+        """Test _get_display_value when there's an error."""
+        error = ValueError("Test error message")
+        request = ContentToolRequest(id="test-id", name="test_tool", arguments={})
+        result = ContentToolResult(value=None, error=error, request=request)
+
+        display_value = result._get_display_value()
+        assert isinstance(display_value, str)
+        assert "Tool call failed with error: 'Test error message'" == display_value

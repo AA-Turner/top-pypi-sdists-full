@@ -1,6 +1,0 @@
----
-features:
-  - |
-    This removes automatic detection and activation of virtualenv
-    environments, which is no longer necessary.  This fixes installation
-    under Python 3's inbuilt ``venv`` module.

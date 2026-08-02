@@ -1,0 +1,129 @@
+import time
+
+import requests
+
+
+class PegasusApiError(Exception):
+    """Raised when the Pegasus API returns an error response."""
+
+    def __init__(
+        self,
+        message: str,
+        status_code: int | None = None,
+        help_url: str | None = None,
+    ):
+        self.status_code = status_code
+        self.help_url = help_url
+        if help_url:
+            message = f"{message}\nMore info: {help_url}"
+        super().__init__(message)
+
+
+class PegasusClient:
+    def __init__(self, base_url: str, api_key: str):
+        self.base_url = base_url
+        self.session = requests.Session()
+        self.session.headers["Authorization"] = f"Api-Key {api_key}"
+
+    def _url(self, path: str) -> str:
+        return f"{self.base_url}/projects/api/{path.lstrip('/')}"
+
+    @staticmethod
+    def _format_validation_errors(data: dict) -> str:
+        lines = []
+        for field, value in data.items():
+            if isinstance(value, list):
+                msg = "; ".join(str(v) for v in value)
+            else:
+                msg = str(value)
+            lines.append(f"{field}: {msg}")
+        return "\n".join(lines)
+
+    def _handle_error(self, response: requests.Response) -> None:
+        if response.status_code == 403:
+            raise PegasusApiError(
+                "Authentication failed. Check your API key.", response.status_code
+            )
+        if response.status_code == 404:
+            raise PegasusApiError(
+                "Project not found or you don't have access.", response.status_code
+            )
+        if response.status_code == 400:
+            data = response.json()
+            help_url = None
+            if isinstance(data, dict):
+                help_url = data.pop("help_url", None)
+            if isinstance(data, dict) and "error" in data:
+                message = data["error"]
+            elif isinstance(data, dict) and data:
+                message = self._format_validation_errors(data)
+            else:
+                message = "Bad request."
+            raise PegasusApiError(message, response.status_code, help_url=help_url)
+        if not response.ok:
+            raise PegasusApiError(
+                f"Unexpected error (HTTP {response.status_code}).", response.status_code
+            )
+
+    def list_projects(self) -> list[dict]:
+        response = self.session.get(self._url("projects/"))
+        self._handle_error(response)
+        return response.json()
+
+    def get_project(self, project_id: int) -> dict:
+        response = self.session.get(self._url(f"projects/{project_id}/"))
+        self._handle_error(response)
+        return response.json()
+
+    def create_project(self, payload: dict) -> dict:
+        response = self.session.post(self._url("projects/"), json=payload)
+        self._handle_error(response)
+        return response.json()
+
+    def update_project(self, project_id: int, payload: dict) -> dict:
+        response = self.session.patch(
+            self._url(f"projects/{project_id}/"), json=payload
+        )
+        self._handle_error(response)
+        return response.json()
+
+    def get_schema(self, project_id: int | None = None) -> dict:
+        params = {"project_id": project_id} if project_id else None
+        response = self.session.get(self._url("projects/schema/"), params=params)
+        self._handle_error(response)
+        return response.json()
+
+    def push_to_github(
+        self,
+        project_id: int,
+        upgrade_to_latest: bool = False,
+        release_channel: str = "stable",
+        pr_title: str | None = None,
+    ) -> dict:
+        payload = {}
+        if upgrade_to_latest:
+            payload["upgrade_to_latest"] = True
+            if release_channel != "stable":
+                payload["release_channel"] = release_channel
+        if pr_title:
+            payload["pr_title"] = pr_title
+        response = self.session.post(
+            self._url(f"{project_id}/push-to-github/"),
+            json=payload,
+        )
+        self._handle_error(response)
+        return response.json()
+
+    def get_task_status(self, project_id: int, task_id: str) -> dict:
+        response = self.session.get(self._url(f"{project_id}/tasks/{task_id}/"))
+        self._handle_error(response)
+        return response.json()
+
+    def poll_task(self, project_id: int, task_id: str, poll_interval: float = 3.0):
+        """Poll a task until completion, yielding status dicts along the way."""
+        while True:
+            status = self.get_task_status(project_id, task_id)
+            yield status
+            if status.get("complete"):
+                return
+            time.sleep(poll_interval)

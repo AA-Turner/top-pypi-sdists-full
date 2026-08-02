@@ -1,0 +1,775 @@
+#!/usr/bin/env python3
+
+_license = """
+big
+Copyright 2022-2026 Larry Hastings
+All rights reserved.
+
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the
+Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included
+in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+"""
+
+import bigtestlib
+bigtestlib.preload_local_big()
+
+from big.test import raises, raises_regex
+
+
+import big.all as big
+from big.state import State, StateManager, accessor, dispatch, TransitionError
+import collections
+import sys
+
+def test_repr():
+    state_manager = StateManager(1)
+    assert repr(state_manager) == '<StateManager state=1 next=None observers=[]>'
+
+
+def test_invalid_parameters():
+    with raises(TypeError):
+        state_manager = StateManager(..., state_class=45)
+    with raises(TypeError):
+        state_manager = StateManager(..., state_class='voodoo')
+
+    with raises(ValueError):
+        state_manager = StateManager(..., on_enter=56)
+    with raises(ValueError):
+        state_manager = StateManager(..., on_enter=b'goofy')
+    with raises(ValueError):
+        state_manager = StateManager(..., on_enter='hey man')
+
+    with raises(ValueError):
+        state_manager = StateManager(..., on_exit=67)
+    with raises(ValueError):
+        state_manager = StateManager(..., on_exit=b'donald')
+    with raises(ValueError):
+        state_manager = StateManager(..., on_exit='what\'s up')
+
+
+def test_invalid_states():
+    state_manager = StateManager(...)
+    with raises(ValueError):
+        state_manager.state = None
+
+    state_manager = StateManager(State(), state_class=State)
+    with raises(TypeError):
+        state_manager.state = 3
+
+    state_manager = StateManager(3)
+    with raises(TransitionError):
+        state_manager.state = 3
+
+
+def test_transition_inside_on_exit():
+    state_manager = StateManager(...)
+    class Stateoroonie(big.State):
+        def on_exit(self):
+            state_manager.state = 3
+    state_manager.state = Stateoroonie()
+    with raises(TransitionError):
+        state_manager.state = 4
+
+
+def test_transition_inside_observer():
+    def malicious_observer(state_manager):
+        state_manager.state = 5
+    state_manager = StateManager(...)
+    state_manager.observers.append(malicious_observer)
+    with raises(TransitionError):
+        state_manager.state = 6
+
+
+def test_observer_is_called():
+    seen = []
+    def observer(state_manager):
+        seen.append(state_manager.next)
+    state_manager = StateManager(...)
+    state_manager.observers.append(observer)
+    for i in range(1, 6):
+        state_manager.state = i
+    assert seen == [1, 2, 3, 4, 5]
+
+
+def test_on_exit_exception_aborts_transition_and_clears_next():
+    class Stateoroonie(big.State):
+        def on_exit(self):
+            raise RuntimeError("boom")
+
+    initial = Stateoroonie()
+    state_manager = StateManager(initial)
+
+    with raises_regex(RuntimeError, "boom"):
+        state_manager.state = 2
+
+    assert state_manager.state is initial
+    assert state_manager.next is None
+
+    state_manager.on_exit = None
+    state_manager.state = 3
+    assert state_manager.state == 3
+    assert state_manager.next is None
+
+
+def test_observer_exception_does_not_cancel_transition():
+    seen = []
+
+    state_manager = StateManager('old')
+
+    class NewState(big.State):
+        def on_enter(self):
+            seen.append(('enter', state_manager.state, state_manager.next))
+
+    def observer1(state_manager):
+        seen.append(('observer1', state_manager.state, state_manager.next))
+        raise RuntimeError('observer1')
+
+    def observer2(state_manager):
+        seen.append(('observer2', state_manager.state, state_manager.next))
+
+    def observer3(state_manager):
+        seen.append(('observer3', state_manager.state, state_manager.next))
+        raise ValueError('observer3')
+
+    new_state = NewState()
+    state_manager.observers.extend((observer1, observer2, observer3))
+
+    with raises_regex(RuntimeError, 'observer1'):
+        state_manager.state = new_state
+
+    assert state_manager.state is new_state
+    assert state_manager.next is None
+    assert seen == [
+        ('observer1', 'old', new_state),
+        ('observer2', 'old', new_state),
+        ('observer3', 'old', new_state),
+        ('enter', new_state, None),
+        ]
+
+
+def test_transition_error_base_class():
+    # TransitionError subclasses RuntimeError: illegal-at-this-
+    # moment misuse is RuntimeError's beat.  it deliberately no
+    # longer subclasses RecursionError (its pre-0.14 base)--
+    # 'except RecursionError' handlers guarding against actual
+    # runaway recursion shouldn't swallow state-machine misuse.
+    assert issubclass(big.TransitionError, RuntimeError)
+    assert not (issubclass(big.TransitionError, RecursionError))
+
+def test_first_exception_wins_when_on_enter_also_raises():
+    # the first-exception-wins rule, with both an observer and
+    # on_enter raising in the same transition.  the observer's
+    # exception came first, so it's what gets re-raised; the
+    # on_enter exception is chained to it as its __cause__.
+    # (it used to be silently lost--on_enter's exception
+    # propagated and the pending observer exception was never
+    # raised, not even chained.)
+    state_manager = StateManager('old')
+
+    class ExplodingState(big.State):
+        def on_enter(self):
+            raise KeyError('on_enter')
+
+    def bad_observer(state_manager):
+        raise RuntimeError('observer was first')
+
+    state_manager.observers.append(bad_observer)
+    new_state = ExplodingState()
+
+    with raises_regex(RuntimeError, 'observer was first') as cm:
+        state_manager.state = new_state
+
+    # the transition still completed.
+    assert state_manager.state is new_state
+    assert state_manager.next is None
+    # nothing was lost: on_enter's exception is the cause.
+    assert isinstance(cm.exception.__cause__, KeyError)
+
+def test_on_enter_exception_alone_propagates():
+    # with no observer exception pending, on_enter's exception
+    # is the first (and only) exception--it propagates, and the
+    # transition is still complete.
+    state_manager = StateManager('old')
+
+    class ExplodingState(big.State):
+        def on_enter(self):
+            raise KeyError('on_enter')
+
+    new_state = ExplodingState()
+    with raises(KeyError):
+        state_manager.state = new_state
+    assert state_manager.state is new_state
+    assert state_manager.next is None
+
+def test_observer_list_is_snapshotted():
+    seen = []
+
+    def observer1(state_manager):
+        seen.append('observer1')
+        state_manager.observers.append(observer2)
+
+    def observer2(state_manager):
+        seen.append('observer2')
+
+    state_manager = StateManager(...)
+    state_manager.observers.append(observer1)
+    state_manager.state = 1
+    assert seen == ['observer1']
+    state_manager.state = 2
+    assert seen == ['observer1', 'observer1', 'observer2']
+
+
+def test_replacing_equal_observer_uses_new_observer():
+    seen = []
+
+    class Observer:
+        def __init__(self, name):
+            self.name = name
+
+        def __call__(self, state_manager):
+            seen.append(self.name)
+
+        def __eq__(self, other):
+            return isinstance(other, Observer)
+
+    observer1 = Observer('observer1')
+    observer2 = Observer('observer2')
+    assert observer1 == observer2
+
+    state_manager = StateManager(...)
+    state_manager.observers.append(observer1)
+    state_manager.state = 1
+    state_manager.observers[0] = observer2
+    state_manager.state = 2
+
+    assert seen == ['observer1', 'observer2']
+
+
+def test_methods_as_states():
+    @accessor()
+    class StateMachine:
+        def __init__(self):
+            self.state_manager = StateManager(self.false)
+
+        def false(self):
+            return False
+
+        def true(self):
+            return True
+
+        def toggle(self):
+            self.state = self.true if (self.state == self.false) else self.false
+
+    sm = StateMachine()
+    assert sm.state() is False
+    sm.toggle()
+    assert sm.state() is True
+    sm.toggle()
+    assert sm.state() is False
+
+
+def test_accessor_funny_names():
+    @accessor('estate', 'estate_mangler')
+    class MiamiStateMachine:
+        def __init__(self):
+            self.estate_mangler = StateManager(self.false)
+
+        def false(self):
+            return False
+
+        def true(self):
+            return True
+
+        def toggle(self):
+            self.estate = self.true if (self.estate == self.false) else self.false
+
+    msm = MiamiStateMachine()
+    assert msm.estate() is False
+    msm.toggle()
+    assert msm.estate() is True
+    msm.toggle()
+    assert msm.estate() is False
+
+
+def test_dispatch_funny_names():
+    events = []
+    event = events.append
+
+    @accessor(state_manager='estate_mangler')
+    class MiamiStateMachine:
+        def __init__(self):
+            self.estate_mangler = StateManager(self.FalseState(),
+                on_enter='hey_lets_enter',
+                on_exit='oh_no_exit_time',
+                )
+
+        @big.BoundInnerClass
+        class FalseState:
+            def __init__(self, state_machine):
+                self.state_machine = state_machine
+
+            def hey_lets_enter(self):
+                event("enter false!")
+
+            def oh_no_exit_time(self):
+                event("exit false.")
+
+            def on_toggle_already(self):
+                event("false.toggle")
+                self.state_machine.state = self.state_machine.TrueState()
+
+        @big.BoundInnerClass
+        class TrueState:
+            def __init__(self, state_machine):
+                self.state_machine = state_machine
+
+            def hey_lets_enter(self):
+                event("enter true!")
+
+            def oh_no_exit_time(self):
+                event("exit true.")
+
+            def on_toggle_already(self):
+                event("true.toggle") ; self.state_machine.state = self.state_machine.FalseState()
+
+        @dispatch('estate_mangler', prefix='on_', suffix='_already')
+        def toggle(self): # pragma: no cover
+            ...
+
+    msm = MiamiStateMachine()
+    event("before first toggle")
+    msm.toggle()
+    event("between the two toggles")
+    msm.toggle()
+    event("end.")
+
+    expected_events = [
+        'enter false!',
+        'before first toggle',
+        'false.toggle',
+        'exit false.',
+        'enter true!',
+        'between the two toggles',
+        'true.toggle',
+        'exit true.',
+        'enter false!',
+        'end.',
+        ]
+    assert events == expected_events
+
+def test_dispatch_funny_names_direct_true_toggle():
+    events = []
+    event = events.append
+
+    @accessor(state_manager='estate_mangler')
+    class MiamiStateMachine:
+        def __init__(self):
+            self.estate_mangler = StateManager(self.TrueState(),
+                on_enter='hey_lets_enter',
+                on_exit='oh_no_exit_time',
+                )
+
+        @big.BoundInnerClass
+        class FalseState:
+            def __init__(self, state_machine):
+                self.state_machine = state_machine
+
+            def hey_lets_enter(self):
+                event("enter false!")
+
+            def oh_no_exit_time(self):
+                event("exit false.")
+
+            def on_toggle_already(self):
+                event("false.toggle")
+                self.state_machine.state = self.state_machine.TrueState()
+
+        @big.BoundInnerClass
+        class TrueState:
+            def __init__(self, state_machine):
+                self.state_machine = state_machine
+
+            def hey_lets_enter(self):
+                event("enter true!")
+
+            def oh_no_exit_time(self):
+                event("exit true.")
+
+            def on_toggle_already(self):
+                event("true.toggle")
+                self.state_machine.state = self.state_machine.FalseState()
+
+    msm = MiamiStateMachine()
+    msm.state.on_toggle_already()
+    assert msm.state.__class__.__name__ == 'FalseState'
+    msm.state.on_toggle_already()
+    assert msm.state.__class__.__name__ == 'TrueState'
+    assert events == [
+        'enter true!',
+        'true.toggle',
+        'exit true.',
+        'enter false!',
+        'false.toggle',
+        'exit false.',
+        'enter true!',
+        ]
+
+def test_integers_as_states():
+    @accessor()
+    class IntegerStateMachine:
+        def __init__(self):
+            self.state_manager = StateManager(0)
+
+        def increment(self):
+            self.state += 1
+
+    ism = IntegerStateMachine()
+    for i in range(20):
+        assert ism.state is i
+        ism.increment()
+
+
+def test_on_exit_and_on_enter():
+    methods_called = []
+
+    @accessor()
+    class StateMachine:
+        def __init__(self):
+            self.state_manager = StateManager(self.ZerothState(self), state_class=self.MyState, on_exit='on_my_exit')
+
+        class MyState(State):
+            def __init__(self, sm):
+                self.sm = sm
+
+        class ZerothState(MyState):
+            pass
+
+        class FirstState(MyState):
+            def on_enter(self):
+                assert self.sm.state == self
+                assert self.sm.state_manager.next is None
+                methods_called.append('FirstState.on_enter')
+                sm.state = sm.SecondState(sm)
+
+        class SecondState(MyState):
+            def on_my_exit(self):
+                assert self.sm.state == self
+                assert self.sm.state_manager.next == self.next
+                methods_called.append('SecondState.on_exit')
+
+            def on_enter(self):
+                assert self.sm.state == self
+                assert self.sm.state_manager.next is None
+                methods_called.append('SecondState.on_enter')
+                self.next = sm.ThirdState(sm)
+                sm.state = self.next
+
+        class ThirdState(MyState):
+            def on_my_exit(self):
+                assert self.sm.state == self
+                assert isinstance(self.sm.state_manager.next, self.sm.FourthState)
+                methods_called.append('ThirdState.on_exit')
+
+        class FourthState(MyState):
+            pass
+
+    sm = StateMachine()
+    sm.state = sm.FirstState(sm)
+    sm.state = sm.FourthState(sm)
+
+    assert methods_called == [
+        'FirstState.on_enter',
+        'SecondState.on_enter',
+        'SecondState.on_exit',
+        'ThirdState.on_exit',
+        ]
+
+    # None is rejected with its dedicated ValueError, even when
+    # state_class is configured (the isinstance TypeError used to
+    # preempt it).
+    with raises(ValueError):
+        sm.state = None
+
+
+def test_deactivated_on_exit_and_on_enter():
+    class MyState(State):
+        def on_enter(self): # pragma: no cover
+            raise RuntimeError("this on_enter should never get called")
+        def on_exit(self): # pragma: no cover
+            raise RuntimeError("this on_exit should never get called")
+
+    state_manager = StateManager(..., on_enter=None, on_exit='')
+    state_manager.state = MyState()
+    state_manager.state = 45
+
+
+def test_vending_machine():
+    import decimal
+    from decimal import Decimal
+
+    decimal.getcontext().prec = 2
+    Money = Decimal
+
+    @accessor()
+    class VendingMachine:
+        """
+        Super dumb vending machine.
+        You wouldn't really write a vending machine this way,
+        this is just to exercise StateManager.
+
+        Everything in the machine has the same price;
+        that price is set by the "dollars" and "cents"
+        arguments to the constructor.
+
+        Because it's just a dumb example, and because this was easier,
+        the machine doesn't auto-refund the remaining balance after
+        vending.  You have to call refund() after vend() to get your
+        money back.
+        """
+        def __init__(self, price):
+            self.balance = Money(0)
+            self.price = price
+
+            self.stock = collections.defaultdict(int)
+            self.not_ready = self.NotReadyToVend()
+            self.ready = self.ReadyToVend()
+            self.state_manager = StateManager(self.not_ready, state_class=self.VendingMachineState)
+
+        def restock(self, product, count):
+            assert isinstance(count, int)
+            assert count > 0
+            self.stock[product] += count
+
+        def status(self):
+            """
+            Returns a dict containing current status
+            """
+            return {
+                'balance': self.balance,
+                'stock': { product: count for product, count in self.stock.items() if count },
+                'ready': self.state == self.ready,
+            }
+
+        def refund(self):
+            """
+            Refunds the machine's current balance.
+            Returns a Money object containing the remaining balance.
+            """
+            if not self.balance:
+                return Money(0)
+            amount = self.balance
+            self.balance = Money(0)
+            self.state.on_refund()
+            return amount
+
+        def insert_money(self, money):
+            """
+            Adds money to the machine's current balance.
+            """
+            assert isinstance(money, Money)
+            assert money >= 0
+            self.balance += money
+            self.state.on_insert_money()
+
+        @dispatch()
+        def vend(self, product): # pragma: no cover
+            """
+            If you've put enough money in the machine,
+            and the requested product is in stock,
+            vends product.
+
+            Returns the product on success
+            and None for failure.
+            """
+            ...
+
+        @big.BoundInnerClass
+        class VendingMachineState(State):
+
+            def __init__(self, machine):
+                self.machine = machine
+
+            def on_refund(self): # pragma: no cover
+                pass
+
+            def on_insert_money(self): # pragma: no cover
+                pass
+
+            def on_vend(self, product): # pragma: no cover
+                pass
+
+        @big.BoundInnerClass
+        class NotReadyToVend(VendingMachineState.cls):
+            def on_insert_money(self):
+                machine = self.machine
+                if machine.balance >= machine.price:
+                    machine.state = machine.ready
+
+            def vend(self, product):
+                return None
+
+        @big.BoundInnerClass
+        class ReadyToVend(VendingMachineState.cls):
+            def on_refund(self):
+                # balance is now zero
+                machine = self.machine
+                machine.state = machine.not_ready
+
+            def vend(self, product):
+                machine = self.machine
+                if not machine.stock[product]:
+                    return None
+
+                machine.stock[product] -= 1
+                assert machine.stock[product] >= 0
+
+                machine.balance -= machine.price
+                assert machine.balance >= 0
+
+                if machine.balance < machine.price:
+                    machine.state = machine.not_ready
+                return product
+
+    no_money = Money(0)
+    quarter = Money(1) / Money(4)
+    dime = Money(1) / Money(10)
+    nickel = Money(1) / Money(20)
+
+    vm = VendingMachine(quarter + quarter + nickel)
+
+    rc_cola = 'Royal Crown Cola'
+    vm.restock(rc_cola, 12)
+
+    squirt = 'Squirt'
+    vm.restock(squirt, 1)
+
+    assert vm.refund() == no_money
+
+
+    for round in range(1, 3):
+        if round == 1:
+            assert vm.status() == {
+                'balance': Money(0),
+                'stock': { rc_cola: 12, squirt: 1 },
+                'ready': False,
+                }
+        elif round == 2:
+            assert vm.status() == {
+                'balance': Money(0),
+                'stock': { rc_cola: 11 },
+                'ready': False,
+                }
+
+        # not enough money yet, vending should fail
+        result = vm.vend(rc_cola)
+        assert result == None
+
+        vm.insert_money(quarter)
+        vm.insert_money(quarter)
+        vm.insert_money(nickel)
+
+        # should vend one item now
+        result = vm.vend(rc_cola)
+        assert result == rc_cola
+
+        # ... but not two
+        result = vm.vend(squirt)
+        assert result == None
+
+        vm.insert_money(quarter)
+        vm.insert_money(quarter)
+        # still not enough money yet, vending should fail
+        result = vm.vend(squirt)
+        assert result == None
+
+        vm.insert_money(dime)
+        result = vm.vend(squirt)
+        change = vm.refund()
+
+        if round == 1:
+            assert result == squirt
+            assert change == nickel
+        elif round == 2:
+            assert result == None
+            assert change == quarter + quarter + dime
+
+
+
+
+def test_dispatch_funny_names_direct_round_trip():
+    events = []
+    event = events.append
+
+    @accessor(state_manager='estate_mangler')
+    class MiamiStateMachine:
+        def __init__(self):
+            self.estate_mangler = StateManager(self.TrueState(),
+                on_enter='hey_lets_enter',
+                on_exit='oh_no_exit_time',
+                )
+
+        @big.BoundInnerClass
+        class FalseState:
+            def __init__(self, state_machine):
+                self.state_machine = state_machine
+
+            def hey_lets_enter(self):
+                event('enter false!')
+
+            def oh_no_exit_time(self):
+                event('exit false.')
+
+            def on_toggle_already(self):
+                event('false.toggle')
+                self.state_machine.state = self.state_machine.TrueState()
+
+        @big.BoundInnerClass
+        class TrueState:
+            def __init__(self, state_machine):
+                self.state_machine = state_machine
+
+            def hey_lets_enter(self):
+                event('enter true!')
+
+            def oh_no_exit_time(self):
+                event('exit true.')
+
+            def on_toggle_already(self):
+                event('true.toggle')
+                self.state_machine.state = self.state_machine.FalseState()
+
+    msm = MiamiStateMachine()
+    msm.state.on_toggle_already()
+    msm.state.on_toggle_already()
+    assert events == [
+        'enter true!',
+        'true.toggle',
+        'exit true.',
+        'enter false!',
+        'false.toggle',
+        'exit false.',
+        'enter true!',
+        ]
+    assert msm.state.__class__.__name__ == 'TrueState'
+
+def run_tests(run=None):
+    (run or bigtestlib.run)(name="big.state", module=__name__)
+
+
+if __name__ == "__main__": # pragma: no cover
+    run_tests()
+    bigtestlib.finish()

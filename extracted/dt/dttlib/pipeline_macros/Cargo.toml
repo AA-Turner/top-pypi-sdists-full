@@ -1,0 +1,20 @@
+[package]
+name = "pipeline_macros"
+description = "macros useful for the definition of a pipeline"
+version = {workspace = true}
+authors = {workspace = true}
+edition = {workspace = true}
+homepage = {workspace = true}
+repository = {workspace = true}
+license = {workspace = true}
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+quote = "*"
+syn = { version = "*", features = ["extra-traits", "full"]}
+proc-macro2 = "*"
+#futures = "*"
+
+[lib]
+proc-macro = true

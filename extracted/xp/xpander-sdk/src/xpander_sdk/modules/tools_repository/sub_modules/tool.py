@@ -1,0 +1,783 @@
+"""
+Tool Module - XPander SDK
+
+This module provides the Tool class for managing and invoking tools within the XPander AI system.
+It supports both local and remote tool execution with comprehensive schema validation, error handling,
+and flexible invocation patterns.
+
+Recent Enhancements:
+- Added get_invocation_function() factory method for creating pre-configured invocation functions
+- Enhanced payload_schema computed property with comprehensive documentation
+- Improved error handling and validation throughout
+- Added support for standalone tool invocation patterns
+- Enhanced type hints and documentation coverage
+
+Key Features:
+- Schema-based payload validation using Pydantic
+- Support for both sync and async invocation patterns
+- Local and remote tool execution capabilities
+- Configurable schema overrides and validation
+- Comprehensive error handling and reporting
+"""
+
+import asyncio
+import hashlib
+import json
+import uuid
+from copy import deepcopy
+from typing import Dict, Any, Literal, Optional, Callable
+from httpx import HTTPStatusError
+from pydantic import BaseModel, computed_field, create_model, model_validator, Field
+from xpander_sdk.consts.api_routes import APIRoute
+from xpander_sdk.core.xpander_api_client import APIClient
+from xpander_sdk.models.configuration import Configuration
+from xpander_sdk.models.shared import XPanderSharedModel
+from xpander_sdk.modules.agents.models.agent import AgentGraphItemSchema
+from xpander_sdk.modules.backend.utils.tool_call_events import (
+    extract_reasoning,
+    is_reasoning_tool,
+    report_reasoning_event,
+    report_tool_call_request,
+    report_tool_call_result,
+    resolve_plan_task_id,
+    should_skip_tool_report,
+)
+from xpander_sdk.modules.tools_repository.models.tool_invocation_result import (
+    ToolInvocationResult,
+)
+from xpander_sdk.modules.tools_repository.utils.billing_context import (
+    current_tool_call_id,
+)
+from xpander_sdk.modules.tools_repository.utils.generic import deep_merge, pascal_case
+from xpander_sdk.modules.tools_repository.utils.local_tools import invoke_local_fn
+from xpander_sdk.modules.tools_repository.utils.schemas import (
+    apply_permanent_values_to_payload,
+    build_model_from_schema,
+    enforce_schema_on_response,
+    schema_enforcement_block_and_descriptions,
+)
+from xpander_sdk.utils.cache import tool_schema_cache
+from xpander_sdk.utils.event_loop import run_sync
+from xpander_sdk.modules.events.decorators.on_tool import ToolHooksRegistry
+
+
+class Tool(XPanderSharedModel):
+    """
+    Represents a callable tool in the xpander.ai system.
+
+    A tool can be invoked either locally or remotely. This class handles input validation,
+    dynamic schema generation, preflight checks, and invocation logic.
+
+    Attributes:
+        id (str): Unique identifier for the tool.
+        name (str): Name of the tool.
+        method (str): HTTP method used for remote invocation.
+        path (str): Endpoint path for the tool.
+        should_add_to_graph (Optional[bool]): Whether the tool should be added to the execution graph.
+        is_local (Optional[bool]): Whether the tool is local.
+        is_synced (Optional[bool]): Whether the tool is synchronized.
+        description (str): Description of the tool.
+        parameters (Dict[str, Any]): Parameter schema for the tool.
+        configuration (Optional[Configuration]): Configuration for the tool.
+        fn (Optional[Callable]): Callable function for local tools.
+    """
+
+    configuration: Optional[Configuration] = Configuration()
+
+    id: str
+    name: str
+    method: str
+    path: str
+    should_add_to_graph: Optional[bool] = False
+    is_local: Optional[bool] = False
+    is_standalone: Optional[bool] = False
+    is_synced: Optional[bool] = False
+    schema_overrides: Optional[AgentGraphItemSchema] = None
+    description: str = ""
+    parameters: Dict[str, Any] = {}
+    connector_id: Optional[str] = None
+    operation_id: Optional[str] = None
+
+    fn: Optional[Callable] = Field(default=None, exclude=True)
+
+    def set_configuration(self, configuration: Configuration):
+        """
+        Set the configuration object for this tool.
+
+        Args:
+            configuration (Configuration): The configuration instance to associate with this tool.
+        """
+        self.configuration = configuration
+
+    def set_schema_overrides(self, agent_graph: Any):
+        """
+        Apply schema overrides from the agent graph item if available.
+
+        This method retrieves the graph item associated with this tool's ID
+        from the provided agent graph. If the item exists and contains valid
+        schema configuration, it sets the tool's internal `schema_overrides`
+        attribute accordingly.
+
+        Args:
+            agent_graph (AgentGraph): The agent graph containing graph items. Must provide
+                a `get_graph_item(key: str, value: Any)` method to retrieve a graph item
+                by a key-value match, where the key is 'item_id' and value is `self.id`.
+        """
+        if gi := agent_graph.get_graph_item("item_id", self.id):
+            if (
+                gi.settings
+                and gi.settings.schemas
+                and isinstance(gi.settings.schemas, AgentGraphItemSchema)
+            ):
+                self.schema_overrides = gi.settings.schemas
+
+    def has_schema_override(self, type: Literal["input", "output"]) -> bool:
+        return (
+            self.schema_overrides
+            and hasattr(self.schema_overrides, type)
+            and isinstance(getattr(self.schema_overrides, type), dict)
+        )
+
+    def _schema_fingerprint(self) -> str:
+        """Stable content key over every input that determines the built schema.
+
+        Includes schema_overrides (org/graph-scoped) so one tenant's overridden
+        schema is never served to another; excludes configuration/task state,
+        which do not affect the schema shape."""
+        payload = {
+            "id": self.id,
+            "is_local": bool(self.is_local),
+            "parameters": self.parameters,
+            "overrides": (
+                self.schema_overrides.model_dump(mode="json")
+                if self.schema_overrides is not None
+                else None
+            ),
+        }
+        return hashlib.sha256(
+            json.dumps(payload, sort_keys=True, default=str).encode()
+        ).hexdigest()
+
+    def _build_schema(self) -> type[BaseModel]:
+        """Construct the payload pydantic class from this tool's parameters."""
+        model_name = f"{pascal_case(self.id)}PayloadSchema"
+
+        schema = deepcopy(self.parameters)
+
+        # apply input schema enforcement
+        if self.has_schema_override(type="input"):
+            schema = schema_enforcement_block_and_descriptions(
+                target_schema=schema, reference_schema=self.schema_overrides.input
+            )
+
+        # SDK-internal tools (workspace, schedule, compaction) never accept the
+        # workspace_path payload offload — they ARE the workspace surface or
+        # produce structured side-effects directly. Mirror exactly the predicate
+        # in agno.on_tool_call_hook so prompt scope and runtime stripping stay
+        # in lockstep.
+        is_sdk_internal_tool = (
+            self.id.startswith("xpworkspace-")
+            or self.id.startswith("xpschedule-")
+            or self.id == "xpcompact_context"
+        )
+
+        return build_model_from_schema(
+            model_name=model_name,
+            schema=schema,
+            with_defaults=self.is_local == False,
+            inject_workspace_path=not is_sdk_internal_tool,
+        )
+
+    @computed_field
+    @property
+    def schema(self) -> type[BaseModel]:
+        """
+        Generate and return a Pydantic model schema based on the tool's parameters.
+
+        Memoized process-wide by a content fingerprint of the schema inputs:
+        ``build_model_from_schema`` was previously re-run on every access (3x per
+        tool per dispatch in the tools list, plus once per invocation), all pure
+        CPU. The class is a deterministic function of the inputs and carries no
+        tenant state, so the shared cache is tenant-safe.
+
+        Returns:
+            type[BaseModel]: A dynamically constructed Pydantic model class.
+        """
+        return tool_schema_cache.get_or_build(
+            self._schema_fingerprint(), self._build_schema
+        )
+
+    @model_validator(mode="before")
+    @classmethod
+    def set_description_from_function_desc(
+        cls, values: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Automatically sets the tool's description from the 'function_description' field if not already set.
+
+        Args:
+            values (Dict[str, Any]): Initial model values.
+
+        Returns:
+            Dict[str, Any]: Updated model values with description set if applicable.
+        """
+        if not values.get("description") and values.get("function_description"):
+            values["description"] = values["function_description"]
+        return values
+
+    async def acall_remote_tool(
+        self,
+        agent_id: str,
+        payload: Any,
+        agent_version: Optional[str] = None,
+        payload_extension: Optional[Dict[str, Any]] = {},
+        configuration: Optional[Configuration] = None,
+        task_id: Optional[str] = None,
+        is_preflight: Optional[bool] = False,
+        append_payload: Optional[bool] = False,
+        tool_call_id: Optional[str] = None,
+    ) -> Any:
+        """
+        Asynchronously invoke the tool remotely using xpander.ai API.
+
+        Args:
+            agent_id (str): The ID of the agent calling the tool.
+            payload (Any): The request payload to be sent.
+            agent_version (Optional[str]): Optional agent version to use.
+            payload_extension (Optional[Dict[str, Any]]): Additional values to merge into the payload.
+            configuration (Optional[Configuration]): Optional configuration override.
+            task_id (Optional[str]): ID of the execution task.
+            is_preflight (Optional[bool]): If True, performs a preflight check only.
+            append_payload (Optional[bool]): If True, appends the payload also for preflights.
+            tool_call_id (Optional[str]): Unique ID of this tool call; the backend uses it
+                to build a deterministic billing idempotency key, so retried or replayed
+                requests are billed exactly once.
+
+        Returns:
+            Any: The response from the remote API.
+        """
+        client = APIClient(configuration=configuration or self.configuration)
+        headers = {}
+
+        if agent_version:
+            headers["x-agent-version"] = str(agent_version)
+
+        if task_id:
+            headers["x-execution-id"] = task_id
+
+        # Explicit id wins over the hook-minted ContextVar so retries reuse one billing key.
+        effective_tool_call_id = (
+            tool_call_id if tool_call_id is not None else current_tool_call_id.get()
+        )
+        if effective_tool_call_id:
+            headers["x-tool-call-id"] = str(effective_tool_call_id)
+
+        if (
+            isinstance(payload, dict)
+            and isinstance(payload_extension, dict)
+            and payload_extension
+        ):
+            payload = deep_merge(a=payload, b=payload_extension)
+
+        if is_preflight:
+            headers["x-preflight-check"] = "true"
+
+        # apply input schema
+        if (
+            not is_preflight
+            and self.has_schema_override(type="input")
+            and payload
+            and (isinstance(payload, dict) or isinstance(payload, list))
+        ):
+            payload = apply_permanent_values_to_payload(
+                schema=self.schema_overrides.input, payload=payload
+            )
+
+        result = await client.make_request(
+            path=APIRoute.InvokeTool.format(agent_id=agent_id, tool_id=self.id),
+            method="POST",
+            payload=None if is_preflight and not append_payload else payload,
+            headers=headers,
+        )
+
+        # apply output schema
+        if (
+            not is_preflight
+            and self.has_schema_override(type="output")
+            and result
+            and (isinstance(result, dict) or isinstance(result, list))
+        ):
+            result = enforce_schema_on_response(
+                schema=self.schema_overrides.output, response=result
+            )
+
+        return result
+
+    def call_remote_tool(
+        self,
+        agent_id: str,
+        payload: Any,
+        agent_version: Optional[str] = None,
+        payload_extension: Optional[Dict[str, Any]] = {},
+        configuration: Optional[Configuration] = None,
+        task_id: Optional[str] = None,
+        is_preflight: Optional[bool] = False,
+        tool_call_id: Optional[str] = None,
+    ) -> Any:
+        """
+        Synchronous wrapper for `acall_remote_tool`.
+
+        Args:
+            agent_id (str): The ID of the agent calling the tool.
+            payload (Any): The request payload.
+            agent_version (Optional[str]): Optional agent version to use.
+            payload_extension (Optional[Dict[str, Any]]): Additional payload values.
+            configuration (Optional[Configuration]): Configuration override.
+            task_id (Optional[str]): Execution task ID.
+            is_preflight (Optional[bool]): Preflight mode flag.
+            tool_call_id (Optional[str]): Unique ID of this tool call (billing idempotency).
+
+        Returns:
+            Any: The response from the API.
+        """
+        return run_sync(
+            self.acall_remote_tool(
+                agent_id=agent_id,
+                payload=payload,
+                agent_version=agent_version,
+                payload_extension=payload_extension,
+                configuration=configuration,
+                task_id=task_id,
+                is_preflight=is_preflight,
+                tool_call_id=tool_call_id,
+            )
+        )
+
+    async def agraph_preflight_check(
+        self,
+        agent_id: str,
+        agent_version: Optional[str] = None,
+        configuration: Optional[Configuration] = None,
+        task_id: Optional[str] = None,
+        payload: Optional[Any] = None,
+        tool_call_id: Optional[str] = None,
+    ) -> None:
+        """
+        Perform an asynchronous preflight check on the tool execution graph.
+
+        Args:
+            agent_id (str): The ID of the agent.
+            agent_version (Optional[str]): Optional agent version to use.
+            configuration (Optional[Configuration]): Optional configuration override.
+            task_id (Optional[str]): Execution task ID.
+            payload (Optional[Any]): Tool call payload.
+            tool_call_id (Optional[str]): Unique ID of this tool call (billing idempotency).
+
+        Raises:
+            Exception: If the preflight check returns an error.
+        """
+        try:
+            if not task_id:
+                return
+
+            result = await self.acall_remote_tool(
+                agent_id=agent_id,
+                configuration=configuration,
+                agent_version=agent_version,
+                task_id=task_id,
+                payload={"body_params": payload} if isinstance(payload, dict) else None,
+                is_preflight=True,
+                append_payload=True,
+                tool_call_id=tool_call_id,
+            )
+
+            if isinstance(result, dict) and (error := result.get("error")):
+                raise Exception(error)
+        except Exception:
+            raise
+
+    def graph_preflight_check(
+        self,
+        agent_id: str,
+        agent_version: Optional[str] = None,
+        configuration: Optional[Configuration] = None,
+        task_id: Optional[str] = None,
+        tool_call_id: Optional[str] = None,
+    ) -> None:
+        """
+        Synchronous wrapper for `agraph_preflight_check`.
+
+        Args:
+            agent_id (str): The ID of the agent.
+            agent_version (Optional[str]): Optional agent version to use.
+            configuration (Optional[Configuration]): Optional configuration override.
+            task_id (Optional[str]): Execution task ID.
+            tool_call_id (Optional[str]): Unique ID of this tool call (billing idempotency).
+
+        Raises:
+            Exception: If the preflight check returns an error.
+        """
+        return run_sync(
+            self.agraph_preflight_check(
+                agent_id=agent_id,
+                agent_version=agent_version,
+                configuration=configuration,
+                task_id=task_id,
+                tool_call_id=tool_call_id,
+            )
+        )
+
+    async def ainvoke(
+        self,
+        agent_id: str,
+        payload: Any,
+        agent_version: Optional[str] = None,
+        payload_extension: Optional[Dict[str, Any]] = {},
+        configuration: Optional[Configuration] = None,
+        task_id: Optional[str] = None,
+        tool_call_id: Optional[str] = None,
+        report_activity: bool = False,
+    ) -> ToolInvocationResult:
+        """
+        Asynchronously invoke the tool (local or remote), with schema validation and error handling.
+
+        Args:
+            agent_id (str): ID of the agent making the call.
+            payload (Any): The input payload to the tool.
+            agent_version (Optional[str]): Optional agent version to use.
+            payload_extension (Optional[Dict[str, Any]]): Optional additional payload data.
+            configuration (Optional[Configuration]): Optional configuration override.
+            task_id (Optional[str]): ID of the current task context.
+            tool_call_id (Optional[str]): Unique ID of the tool call.
+            report_activity (bool): When True, push ToolCallRequest/ToolCallResult events to the task
+                activity queue. Enable this for callers that do not go through the agno tool hook
+                (e.g. OpenClaw's /execute_tool route). Defaults to False so agno-routed invocations
+                do not double-emit (the agno hook reports in that path).
+
+        Returns:
+            ToolInvocationResult: Result object encapsulating invocation output and status.
+        """
+        tool_invocation_result = ToolInvocationResult(
+            tool_id=self.id,
+            payload=payload,
+            is_local=self.is_local,
+            tool_call_id=tool_call_id,
+            task_id=task_id,
+        )
+
+        # Resolve the task for activity reporting (falls back to config state.task).
+        # Deep-planning tools are excluded entirely; reasoning tools
+        # (think/analyze) are emitted as a Think/Analyze reasoning event
+        # rather than as a regular tool call.
+        reporting_task = None
+        request_id: Optional[str] = None
+        # Plan step this call advances — captured once so the request and its
+        # result share it (mirrors the agno hook). None when no plan / no step.
+        plan_task_id: Optional[str] = None
+        if report_activity:
+            try:
+                cfg = configuration or self.configuration
+                state = getattr(cfg, "state", None) if cfg else None
+                candidate_task = getattr(state, "task", None) if state else None
+                if candidate_task and getattr(candidate_task, "id", None):
+                    plan_task_id = resolve_plan_task_id(
+                        payload if isinstance(payload, dict) else None,
+                        candidate_task,
+                    )
+                    if is_reasoning_tool(self.id) or is_reasoning_tool(self.name):
+                        asyncio.create_task(
+                            report_reasoning_event(
+                                task=candidate_task,
+                                tool_name=self.id or self.name,
+                                arguments=(
+                                    payload if isinstance(payload, dict) else None
+                                ),
+                                plan_task_id=plan_task_id,
+                            )
+                        )
+                    elif not should_skip_tool_report(
+                        self.id
+                    ) and not should_skip_tool_report(self.name):
+                        reporting_task = candidate_task
+                        request_id = str(uuid.uuid4())
+                        asyncio.create_task(
+                            report_tool_call_request(
+                                task=reporting_task,
+                                request_id=request_id,
+                                operation_id=self.id,
+                                # backend tools carry the long description in `name`; the id is the real tool name
+                                tool_name=self.id or self.name,
+                                payload=payload,
+                                reasoning=extract_reasoning(
+                                    payload if isinstance(payload, dict) else None
+                                ),
+                                tool_call_id=tool_call_id,
+                                plan_task_id=plan_task_id,
+                            )
+                        )
+            except Exception:
+                reporting_task = None
+                request_id = None
+                plan_task_id = None
+
+        # Execute before hooks
+        await ToolHooksRegistry.execute_before_hooks(
+            tool=self,
+            payload=payload,
+            payload_extension=payload_extension,
+            tool_call_id=tool_call_id,
+            agent_version=agent_version,
+        )
+
+        try:
+            if self.schema and payload:
+                try:
+                    self.schema.model_validate(payload)
+                except Exception as validation_error:
+                    raise ValueError(
+                        f"Invalid payload for tool '{self.name}': {validation_error}"
+                    ) from validation_error
+
+            if self.is_local:
+                if self.fn is None:
+                    raise RuntimeError(
+                        f"No local function provided for this tool ({self.id})."
+                    )
+
+                result = await invoke_local_fn(fn=self.fn, payload=payload)
+
+                await self.agraph_preflight_check(
+                    agent_id=agent_id,
+                    agent_version=agent_version,
+                    configuration=configuration,
+                    task_id=task_id,
+                    payload={
+                        "input": payload,
+                        "output": (
+                            result.model_dump()
+                            if isinstance(result, BaseModel)
+                            else result
+                        ),
+                    },
+                    tool_call_id=tool_call_id,
+                )
+
+                tool_invocation_result.result = result
+                tool_invocation_result.is_success = True
+            else:
+                tool_invocation_result.result = await self.acall_remote_tool(
+                    agent_id=agent_id,
+                    agent_version=agent_version,
+                    payload=payload,
+                    payload_extension=payload_extension,
+                    configuration=configuration,
+                    task_id=task_id,
+                    tool_call_id=tool_call_id,
+                )
+                tool_invocation_result.is_success = True
+
+            # Execute after hooks on success
+            await ToolHooksRegistry.execute_after_hooks(
+                tool=self,
+                payload=payload,
+                payload_extension=payload_extension,
+                tool_call_id=tool_call_id,
+                agent_version=agent_version,
+                result=tool_invocation_result.result,
+            )
+
+        except Exception as e:
+            tool_invocation_result.is_error = True
+            if isinstance(e, HTTPStatusError):
+                tool_invocation_result.status_code = e.response.status_code
+                tool_invocation_result.result = e.response.text
+            else:
+                tool_invocation_result.status_code = 500
+                tool_invocation_result.result = str(e)
+
+            # Execute error hooks on failure
+            await ToolHooksRegistry.execute_error_hooks(
+                tool=self,
+                payload=payload,
+                payload_extension=payload_extension,
+                tool_call_id=tool_call_id,
+                agent_version=agent_version,
+                error=e,
+            )
+
+        # Emit the ToolCallResult event (after-call, covers both success and error paths).
+        if report_activity and reporting_task and request_id:
+            try:
+                asyncio.create_task(
+                    report_tool_call_result(
+                        task=reporting_task,
+                        request_id=request_id,
+                        operation_id=self.id,
+                        result=tool_invocation_result.result,
+                        is_error=bool(tool_invocation_result.is_error),
+                        tool_name=self.id or self.name,
+                        payload=payload,
+                        tool_call_id=tool_call_id,
+                        plan_task_id=plan_task_id,
+                    )
+                )
+            except Exception:
+                pass
+
+        return tool_invocation_result
+
+    def invoke(
+        self,
+        agent_id: str,
+        payload: Any,
+        agent_version: Optional[str] = None,
+        payload_extension: Optional[Dict[str, Any]] = {},
+        configuration: Optional[Configuration] = None,
+        task_id: Optional[str] = None,
+        tool_call_id: Optional[str] = None,
+        report_activity: bool = False,
+    ) -> ToolInvocationResult:
+        """
+        Synchronous wrapper for `ainvoke`.
+
+        Args:
+            agent_id (str): ID of the agent making the call.
+            payload (Any): Payload to pass to the tool.
+            agent_version (Optional[str]): Optional agent version to use.
+            payload_extension (Optional[Dict[str, Any]]): Optional additional payload.
+            configuration (Optional[Configuration]): Optional override configuration.
+            task_id (Optional[str]): Optional execution task ID.
+            tool_call_id (Optional[str]): Optional tool call ID.
+            report_activity (bool): When True, push tool-call activity events. See `ainvoke`.
+
+        Returns:
+            ToolInvocationResult: Result of the tool invocation.
+        """
+        return run_sync(
+            self.ainvoke(
+                agent_id=agent_id,
+                payload=payload,
+                agent_version=agent_version,
+                payload_extension=payload_extension,
+                configuration=configuration,
+                task_id=task_id,
+                tool_call_id=tool_call_id,
+                report_activity=report_activity,
+            )
+        )
+
+    def get_invocation_function(
+        self,
+        is_async: Optional[bool] = False,
+        configuration: Optional[Configuration] = None,
+    ) -> Callable:
+        """
+        Factory method that creates a tool invocation function with bound configuration.
+
+        This method provides a convenient way to create a pre-configured invocation function
+        that can be used without repeatedly passing configuration parameters. The returned
+        function will handle schema validation, API communication, and error handling.
+
+        Args:
+            is_async (Optional[bool]): If True, returns an async function. If False, returns
+                a synchronous function that wraps the async implementation. Defaults to False.
+            configuration (Optional[Configuration]): Configuration to bind to the invocation
+                function. If None, uses the tool's default configuration.
+
+        Returns:
+            Callable: A function that takes payload and returns ToolInvocationResult.
+                The function signature depends on is_async:
+                - If async: async def(payload: schema) -> ToolInvocationResult
+                - If sync: def(payload: schema) -> ToolInvocationResult
+
+        Example:
+            >>> # Get async invocation function
+            >>> async_invoke = tool.get_invocation_function(is_async=True)
+            >>> result = await async_invoke({"param": "value"})
+
+            >>> # Get sync invocation function
+            >>> sync_invoke = tool.get_invocation_function(is_async=False)
+            >>> result = sync_invoke({"param": "value"})
+
+        Note:
+            This method is primarily intended for standalone tool invocation where you
+            don't have agent context. For agent-based invocations, use the `ainvoke`
+            or `invoke` methods instead.
+        """
+        bound_config = configuration or self.configuration
+
+        async def ainvoke_standalone(payload: Any) -> ToolInvocationResult:
+            """Async standalone invocation implementation."""
+            tool_invocation_result = ToolInvocationResult(
+                tool_id=self.id,
+                payload=payload,
+                is_local=self.is_local,
+            )
+
+            try:
+                # Validate payload against schema if available
+                if self.schema and payload:
+                    try:
+                        self.schema.model_validate(payload)
+                    except Exception as validation_error:
+                        raise ValueError(
+                            f"Invalid payload for tool '{self.name}': {validation_error}"
+                        ) from validation_error
+
+                # Make API request to invoke the tool
+                client = APIClient(configuration=bound_config)
+                tool_invocation_result.result = await client.make_request(
+                    path=APIRoute.GetOrInvokeToolById.format(
+                        tool_id=f"{self.connector_id}_{self.operation_id}"
+                    ),
+                    method="POST",
+                    payload=payload,
+                )
+                tool_invocation_result.is_success = True
+
+            except Exception as e:
+                tool_invocation_result.is_error = True
+                if isinstance(e, HTTPStatusError):
+                    tool_invocation_result.status_code = e.response.status_code
+                    tool_invocation_result.result = e.response.text
+                else:
+                    tool_invocation_result.status_code = 500
+                    tool_invocation_result.result = str(e)
+
+            return tool_invocation_result
+
+        if is_async:
+            return ainvoke_standalone
+
+        def invoke_standalone(payload: Any) -> ToolInvocationResult:
+            """Sync standalone invocation implementation."""
+            return run_sync(ainvoke_standalone(payload=payload))
+
+        return invoke_standalone
+
+    @computed_field
+    @property
+    def payload_schema(self) -> type[BaseModel]:
+        """
+        Computed property that creates a wrapper schema for the tool's payload.
+
+        This property dynamically generates a Pydantic model that wraps the tool's
+        schema in a 'payload' field. This is useful for APIs or frameworks that
+        expect a specific payload structure.
+
+        Returns:
+            type[BaseModel]: A dynamically created Pydantic model class with a single
+                'payload' field containing the tool's schema.
+
+        Example:
+            >>> tool = Tool(...)
+            >>> PayloadModel = tool.payload_schema
+            >>> instance = PayloadModel(payload={"param": "value"})
+            >>> print(instance.payload)  # Access the actual tool payload
+
+        Note:
+            The generated model class name follows the pattern: {OriginalSchema}Payload
+        """
+        return create_model(
+            f"{self.schema.__name__}Payload", payload=(self.schema, ...)
+        )

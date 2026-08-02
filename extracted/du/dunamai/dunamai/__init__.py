@@ -270,6 +270,13 @@ def _match_version_pattern(
         selected_source = None
         selected_parsed = None
         for source in sources:
+            # Only rank tags that actually match the pattern/prefix. Otherwise a
+            # tag for a different prefix could be selected and then fail to match,
+            # collapsing the result to the fallback version.
+            match = re.search(pattern, source)
+            if match is None:
+                continue
+
             parsed = Version.parse(source, pattern)
             try:
                 if selected_parsed is None or parsed > selected_parsed:
@@ -1813,18 +1820,18 @@ class Version:
         code, msg = _run_cmd("fossil branch current", path)
         branch = msg
 
-        code, msg = _run_cmd("fossil sql \"SELECT value FROM vvar WHERE name = 'checkout-hash' LIMIT 1\"", path)
+        code, msg = _run_cmd("fossil sql --quote \"SELECT value FROM vvar WHERE name = 'checkout-hash' LIMIT 1\"", path)
         commit = msg.strip("'")[:commit_length]
 
         code, msg = _run_cmd(
-            'fossil sql "'
+            'fossil sql --quote "'
             "SELECT DATETIME(mtime) FROM event JOIN blob ON event.objid=blob.rid WHERE type = 'ci'"
             " AND uuid = (SELECT value FROM vvar WHERE name = 'checkout-hash' LIMIT 1) LIMIT 1\"",
             path,
         )
         timestamp = dt.datetime.strptime(msg.strip("'") + "+0000", "%Y-%m-%d %H:%M:%S%z")
 
-        code, msg = _run_cmd("fossil sql \"SELECT count() FROM event WHERE type = 'ci'\"", path)
+        code, msg = _run_cmd("fossil sql --quote \"SELECT count() FROM event WHERE type = 'ci'\"", path)
         # The repository creation itself counts as a commit.
         total_commits = int(msg) - 1
         if total_commits <= 0:
@@ -1863,7 +1870,7 @@ class Version:
                 WHERE tagxref.tagtype = 1
                 ORDER BY event.mtime DESC, tagxref.mtime DESC;
         """
-        code, msg = _run_cmd('fossil sql "{}"'.format(" ".join(query.splitlines())), path)
+        code, msg = _run_cmd('fossil sql --quote "{}"'.format(" ".join(query.splitlines())), path)
         if not msg:
             try:
                 distance = int(total_commits)
@@ -1879,9 +1886,13 @@ class Version:
                 vcs=vcs,
             )
 
-        tags_to_distance = [
-            (line.rsplit(",", 1)[0][5:-1], int(line.rsplit(",", 1)[1]) - 1) for line in msg.splitlines()
-        ]
+        tags_to_distance = []
+        for line in msg.splitlines():
+            # Lines look like: 'sym-v0.1.0',1
+            parts = line.rsplit(",", 1)
+            tag = parts[0][5:-1]
+            distance = int(parts[1]) - 1
+            tags_to_distance.append((tag, distance))
 
         matched_pattern = _match_version_pattern(
             pattern, [t for t, d in tags_to_distance], latest_tag, highest_tag, strict, pattern_prefix

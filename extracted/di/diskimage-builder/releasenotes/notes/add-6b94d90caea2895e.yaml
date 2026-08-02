@@ -1,5 +1,0 @@
----
-features:
-  - |
-    The ``centos`` element supports CentOS 8 Stream builds when run with
-    ``DIB_RELEASE=8-stream``

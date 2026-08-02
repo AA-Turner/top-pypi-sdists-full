@@ -1,0 +1,1735 @@
+"""Auto-extracted graph-os MCP tools: query_tools (register_query_tools).
+
+Split out of kg_server._build_server to deepen the MCP surface into focused
+modules without changing tool behavior or names.
+"""
+
+from __future__ import annotations
+
+import json
+import re as _re
+from typing import Any
+
+from pydantic import Field
+
+from agent_utilities.mcp import kg_server
+
+#: Cypher aggregate functions. A query that calls one of these in a projection
+#: collapses many rows into per-group rows, so it CANNOT be fanned across graphs
+#: and id-deduped — each graph returns its own ``count(*)``/``sum(...)`` row and
+#: naive concatenation repeats every group once per graph (CONCEPT:AU-KG.query.query-aggregation).
+_AGG_FUNCS = (
+    "count",
+    "sum",
+    "avg",
+    "min",
+    "max",
+    "collect",
+    "stdev",
+    "stdevp",
+    "percentilecont",
+    "percentiledisc",
+    "variance",
+)
+_AGG_CALL_RE = _re.compile(r"\b(?:" + "|".join(_AGG_FUNCS) + r")\s*\(", _re.IGNORECASE)
+
+
+def _parse_ranges(spec: str) -> list[tuple[int, int]]:
+    """Parse a char-range spec like '96..208,300..420' into (lo, hi) pairs.
+
+    CONCEPT:AU-KG.retrieval.tree-navigation — the fetch half of map-then-fetch.
+    """
+    out: list[tuple[int, int]] = []
+    for part in (spec or "").split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if ".." not in part:
+            raise ValueError(f"invalid range {part!r}: use 'start..end'")
+        lo_s, hi_s = part.split("..", 1)
+        try:
+            lo, hi = int(lo_s), int(hi_s)
+        except ValueError as e:
+            raise ValueError(f"invalid range {part!r}: {e}") from e
+        if hi < lo:
+            raise ValueError(f"invalid range {part!r}: end < start")
+        out.append((lo, hi))
+    if not out:
+        raise ValueError("no ranges given (use 'start..end,start..end')")
+    return out
+
+
+def _persist_sections(
+    engine: Any,
+    nodes: list[dict[str, Any]],
+    edges: list[dict[str, Any]],
+) -> bool:
+    """Write section-tree nodes/edges through the engine's own API (CONCEPT:AU-KG.retrieval.section-tree).
+
+    Uses ``engine.add_node(id, type, props)`` / ``engine.add_edge(src, tgt, rel)``
+    — the same convenience write path ``write_ingest_tools`` uses — so the tree
+    persists regardless of the backend's keyword-writer support. Best-effort.
+    """
+    ok = False
+    for n in nodes:
+        props = {k: v for k, v in n.items() if k not in ("id", "type")}
+        try:
+            engine.add_node(n["id"], n["type"], props)
+            ok = True
+        except Exception:  # noqa: BLE001 — best-effort per node
+            pass
+    for e in edges:
+        props = {k: v for k, v in e.items() if k not in ("source", "target", "type")}
+        try:
+            engine.add_edge(e["source"], e["target"], e["type"], **props)
+            ok = True
+        except Exception:  # noqa: BLE001 — best-effort per edge
+            pass
+    return ok
+
+
+def _json_default(obj: Any) -> Any:
+    """``json.dumps(default=...)`` helper that dataclass-serializes an
+    :class:`~agent_utilities.knowledge_graph.core.epistemic_row.EpistemicRow`
+    (or any other dataclass instance) instead of stringifying it (CONCEPT:AU-KB-CURRENCY).
+
+    Used wherever a tool's result may carry ``include_epistemic=True`` rows —
+    plain dicts pass through ``json.dumps`` untouched; only genuinely
+    non-serializable values (dataclass instances) reach this hook.
+    """
+    import dataclasses
+
+    if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+        return dataclasses.asdict(obj)
+    return str(obj)
+
+
+def is_aggregation_cypher(cypher: str) -> bool:
+    """True when ``cypher`` projects an aggregate (CONCEPT:AU-KG.query.query-aggregation).
+
+    Strips quoted string literals first so a literal like ``'count(*)'`` or a
+    property named ``max_depth`` is not misread as an aggregate call. Used by the
+    unified read path: an aggregation under ingestion graph routing runs against
+    the canonical default graph only (never fanned), because aggregate rows have
+    no node id to dedup on and summing them generically is not safe across
+    avg/min/max/distinct.
+    """
+    no_literals = _re.sub(r"'[^']*'|\"[^\"]*\"", "", cypher or "")
+    return bool(_AGG_CALL_RE.search(no_literals))
+
+
+#: Code-symbol nav actions over the resolved graph (CONCEPT:AU-KG.backend.declared-columns-so-schema).
+CODE_NAV_ACTIONS = frozenset(
+    {"find_definition", "find_references", "trace_call_graph", "impact_of_change"}
+)
+
+#: Symbol→symbol path action (CONCEPT:EG-KG.compute.handled-outside-single-anchor) — handled outside the single-anchor
+#: Cypher template because it resolves TWO endpoints and runs a native path search.
+PATH_ACTIONS = frozenset({"connects"})
+
+# Columns returned for a :Code node (kept identical across actions for a stable shape).
+_CODE_COLS = (
+    "{var}.id AS id, {var}.name AS name, {var}.file_path AS file_path, "
+    "{var}.line AS line, {var}.language AS language, {var}.kind_detail AS kind, "
+    "{var}.instance AS instance, {var}.source_system AS source_system"
+)
+
+
+def build_code_nav_query(
+    *,
+    action: str,
+    symbol: str = "",
+    node_id: str = "",
+    source_system: str = "",
+    depth: int = 3,
+    limit: int = 200,
+) -> tuple[str, dict[str, Any]]:
+    """Build the (read-only) Cypher + params for a ``graph_code_nav`` action.
+
+    Pure and side-effect-free so the templates are unit-tested without an engine.
+    Operates on the resolved code graph: ``:Code`` symbols joined by ``calls``
+    (symbol→symbol) edges. ``depth`` is validated and inlined (Cypher forbids a
+    parameterized variable-length bound); everything else is parameterized.
+    """
+    if action not in CODE_NAV_ACTIONS:
+        raise ValueError(
+            f"unknown action '{action}'; expected one of {sorted(CODE_NAV_ACTIONS)}"
+        )
+    if not symbol and not node_id:
+        raise ValueError("provide 'symbol' or 'node_id'")
+    try:
+        depth = max(1, min(10, int(depth)))
+        limit = max(1, min(5000, int(limit)))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("depth/limit must be integers") from exc
+
+    params: dict[str, Any] = {}
+    # Match clause for the anchor :Code node (id wins over name), plus an optional
+    # source_system scope, built as a WHERE so it composes across actions.
+    conds: list[str] = []
+    if node_id:
+        conds.append("{var}.id = $node_id")
+        params["node_id"] = node_id
+    else:
+        conds.append("{var}.name = $symbol")
+        params["symbol"] = symbol
+    if source_system:
+        conds.append("{var}.source_system = $src")
+        params["src"] = source_system
+
+    def where_for(var: str) -> str:
+        return " AND ".join(c.format(var=var) for c in conds)
+
+    cols = _CODE_COLS
+
+    if action == "find_definition":
+        cypher = (
+            f"MATCH (c:Code) WHERE {where_for('c')} "
+            f"RETURN {cols.format(var='c')} LIMIT {limit}"
+        )
+    elif action == "find_references":
+        # Callers: incoming `calls` edges to the anchor symbol.
+        cypher = (
+            f"MATCH (caller:Code)-[:calls]->(def:Code) WHERE {where_for('def')} "
+            f"RETURN DISTINCT {cols.format(var='caller')} LIMIT {limit}"
+        )
+    elif action == "trace_call_graph":
+        # Transitive callees reachable from the anchor (downstream).
+        cypher = (
+            f"MATCH (s:Code)-[:calls*1..{depth}]->(callee:Code) WHERE {where_for('s')} "
+            f"RETURN DISTINCT {cols.format(var='callee')} LIMIT {limit}"
+        )
+    else:  # impact_of_change — transitive callers (upstream blast radius).
+        cypher = (
+            f"MATCH (caller:Code)-[:calls*1..{depth}]->(t:Code) WHERE {where_for('t')} "
+            f"RETURN DISTINCT {cols.format(var='caller')} LIMIT {limit}"
+        )
+    return cypher, params
+
+
+def _evidence_bundle_for_rows(engine: Any, rows: list[Any]) -> Any:
+    """Build an :class:`~agent_utilities.models.evidence_bundle.EvidenceBundle`
+    over a plain Cypher result ``rows`` (``graph_query``'s ``envelope='bundle'``).
+
+    Currency-upgrades ``rows`` the SAME way
+    :meth:`~agent_utilities.knowledge_graph.facade.KnowledgeGraph._attach_epistemic`
+    does for its per-row ``EpistemicRow`` path: extract the distinct ids
+    (:func:`~agent_utilities.knowledge_graph.core.epistemic_row.row_ids_from_plain_rows`),
+    resolve their engine-side epistemic envelope in ONE round-trip via
+    ``engine.graph.explain_provenance_by_ids`` (``Method::ExplainProvenanceByIds``),
+    then fold the resulting ``KnowledgeSet`` rows into ONE aggregate
+    :class:`EvidenceBundle` via :meth:`EvidenceBundle.from_engine_wire` — confidence
+    (top-scored row), freshness (bitemporal min/max), contradictions (scanned across
+    row claims), and policy exclusions, never fabricated. Degrades to an empty
+    bundle (never raises) when the engine has no ``explain_provenance_by_ids``
+    primitive or no row carries a resolvable id.
+    """
+    from agent_utilities.knowledge_graph.core.epistemic_row import (
+        row_ids_from_plain_rows,
+    )
+    from agent_utilities.models.evidence_bundle import EvidenceBundle
+
+    fetch = getattr(getattr(engine, "graph", None), "explain_provenance_by_ids", None)
+    if fetch is None:
+        return EvidenceBundle.from_engine_wire({"rows": []})
+    plain_rows = (
+        [r for r in rows if isinstance(r, dict)] if isinstance(rows, list) else []
+    )
+    id_props = row_ids_from_plain_rows(plain_rows)
+    if not id_props:
+        return EvidenceBundle.from_engine_wire({"rows": []})
+    wire_rows = fetch([ip["id"] for ip in id_props]) or []
+    return EvidenceBundle.from_engine_wire({"rows": wire_rows})
+
+
+def _resolve_symbol_id(engine, *, symbol: str, node_id: str) -> dict[str, Any] | None:
+    """Resolve a symbol name (or exact id) to its best :Code node row."""
+    if node_id:
+        cypher, params = build_code_nav_query(
+            action="find_definition", node_id=node_id, limit=1
+        )
+    else:
+        cypher, params = build_code_nav_query(
+            action="find_definition", symbol=symbol, limit=1
+        )
+    rows = engine.query_cypher(cypher, params)
+    return rows[0] if rows else None
+
+
+def code_connects(
+    engine,
+    *,
+    symbol: str = "",
+    node_id: str = "",
+    target_symbol: str = "",
+    target_node_id: str = "",
+) -> dict[str, Any]:
+    """CONCEPT:EG-KG.compute.handled-outside-single-anchor — "what connects A to B": the shortest path between two
+    :Code symbols, rendered hop-by-hop with the relation + confidence of each edge.
+
+    Resolves both endpoints, runs the engine's native path search (BFS over the
+    resolved graph; tries A→B then B→A so an undirected connection is found), and
+    annotates each consecutive pair with the connecting edge. This is the durable,
+    KG-native equivalent of Graphify's ``path`` command.
+    """
+    src = _resolve_symbol_id(engine, symbol=symbol, node_id=node_id)
+    dst = _resolve_symbol_id(engine, symbol=target_symbol, node_id=target_node_id)
+    if not src:
+        return {"error": f"could not resolve source symbol '{symbol or node_id}'"}
+    if not dst:
+        return {
+            "error": f"could not resolve target symbol '{target_symbol or target_node_id}'"
+        }
+    src_id, dst_id = src.get("id"), dst.get("id")
+    if src_id == dst_id:
+        return {"error": "source and target resolve to the same symbol", "id": src_id}
+
+    path = engine.get_shortest_path(src_id, dst_id) or engine.get_shortest_path(
+        dst_id, src_id
+    )
+    if not path:
+        return {
+            "source": src_id,
+            "target": dst_id,
+            "connected": False,
+            "path": [],
+        }
+
+    # Annotate each hop with the connecting edge (undirected match for the relation).
+    hops: list[dict[str, Any]] = []
+    for a, b in zip(path, path[1:], strict=False):
+        rel, conf = None, None
+        try:
+            erows = engine.query_cypher(
+                "MATCH (x {id: $a})-[r]-(y {id: $b}) "
+                "RETURN type(r) AS rel, r.confidence AS confidence LIMIT 1",
+                {"a": a, "b": b},
+            )
+            if erows:
+                rel = erows[0].get("rel")
+                conf = erows[0].get("confidence")
+        except Exception:  # noqa: BLE001 — annotation is best-effort
+            pass
+        hops.append({"from": a, "to": b, "rel": rel, "confidence": conf})
+
+    return {
+        "source": src_id,
+        "target": dst_id,
+        "connected": True,
+        "length": len(path) - 1,
+        "path": path,
+        "hops": hops,
+    }
+
+
+def register_query_tools(mcp):
+    """Register the query_tools group on the given FastMCP server."""
+
+    @mcp.tool(
+        name="graph_query",
+        description="Execute a read-only Cypher query against the Knowledge Graph.",
+        tags=["graph-os", "query"],
+    )
+    def graph_query(
+        cypher: str = Field(
+            description="A Cypher query string (read-only — no CREATE/MERGE/DELETE)."
+        ),
+        params: str = Field(default="{}", description="JSON-encoded query parameters."),
+        scope: str = Field(
+            default="local",
+            description=(
+                "'local' for the internal KG (Cypher), 'sql' to run read-only SQL over the "
+                "KG + user tables via the engine's DataFusion surface (e.g. SELECT ... FROM "
+                "nodes — CONCEPT:AU-KG.query.read-only-sql-over, same path as the pg-wire listener), 'sparql' to "
+                "run a SPARQL 1.1 SELECT/ASK over the engine's RDF projection of the graph "
+                "(CONCEPT:AU-KG.ingest.mirror-inbound), or 'federated' to query an external graph endpoint. For "
+                "'sql'/'sparql' the `cypher` arg carries the SQL/SPARQL string."
+            ),
+        ),
+        reference_id: str = Field(
+            default="",
+            description="Required when scope='federated'. The ExternalGraphReference node ID.",
+        ),
+        as_of: str = Field(
+            default="",
+            description=(
+                "CONCEPT:AU-KG.query.as-of-instant-filter — optional ISO-8601 instant. When set, rows are filtered to "
+                "those whose bi-temporal validity (valid_from <= as_of < valid_to) holds, "
+                "answering 'what was true as of date T'."
+            ),
+        ),
+        target: str = Field(
+            default="",
+            description=(
+                "CONCEPT:AU-KG.backend.multi-connection-registry — named graph connection to query (default = primary). "
+                "Use a registered connection name (e.g. 'prod-neo4j'), or 'all' (or a "
+                "comma-separated list) to fan out the same query to several backends and "
+                "get per-connection labeled results."
+            ),
+        ),
+        envelope: str = Field(
+            default="raw",
+            description="'raw' (default; byte-identical legacy shape — a bare JSON row "
+            "array) or 'bundle' (single-connection local Cypher only: return "
+            '`{"rows": [...], "evidence_bundle": {...}}`, wrapping the rows\' '
+            "engine-resolved epistemic envelope — confidence/provenance/bitemporal "
+            "coverage/contradictions — as an EvidenceBundle via "
+            "`Method::ExplainProvenanceByIds`). Additive/opt-in.",
+        ),
+        include_epistemic: bool = Field(
+            default=False,
+            description=(
+                "CONCEPT:AU-KB-CURRENCY — opt-in, single-connection local Cypher only "
+                "(ignored on scope='sql'/'sparql'/'federated' and on a fan-out "
+                "target). When true, each result row is currency-upgraded via the "
+                "engine's `explain_provenance_by_ids` into a per-row epistemic "
+                "envelope — confidence, bitemporal valid/tx time, evidence "
+                "provenance, policy labels — alongside the row's own properties "
+                "(never fabricated, resolved server-side). Overrides `envelope`: "
+                "the response becomes a JSON array of these widened rows instead "
+                "of the plain/bundle shape. Degrades to an empty array when the "
+                "connected backend has no epistemic primitive."
+            ),
+        ),
+    ) -> str:
+        """Execute a read-only Cypher query against the Knowledge Graph. Use this to fetch graph data, explore relationships, and read node properties."""
+        parsed_params = json.loads(params) if params else {}
+
+        if scope == "sql":
+            # CONCEPT:AU-KG.query.read-only-sql-over — read-only SQL over the KG via the engine's
+            # DataFusion surface (the same path the pg-wire listener uses). The
+            # `cypher` arg carries the SQL string. RLS-governed + read-path-first
+            # (engine.sql refuses non-SELECT). Honors `target` fan-out like Cypher.
+            try:
+                entries, errors, fanout = kg_server._resolve_target_engines(target)
+            except Exception as e:
+                return json.dumps({"error": str(e)})
+            if not fanout:
+                _name, engine = entries[0]
+                try:
+                    return json.dumps(engine.sql(cypher), default=str)
+                except Exception as e:
+                    return json.dumps({"error": str(e)})
+            results, fan_errors = kg_server.fanout_execute(
+                entries, lambda name, engine: engine.sql(cypher)
+            )
+            return json.dumps(
+                {"targets": results, "errors": {**errors, **fan_errors}},
+                default=str,
+            )
+
+        if scope == "sparql":
+            # CONCEPT:AU-KG.ingest.mirror-inbound — SPARQL 1.1 (SELECT/ASK/CONSTRUCT/DESCRIBE) over the
+            # engine's RDF projection of the live graph. The `cypher` arg carries the
+            # SPARQL string. RLS-governed (engine.sparql visibility-filters rows) and
+            # honors `target` fan-out like Cypher/SQL.
+            try:
+                entries, errors, fanout = kg_server._resolve_target_engines(target)
+            except Exception as e:
+                return json.dumps({"error": str(e)})
+            if not fanout:
+                _name, engine = entries[0]
+                try:
+                    return json.dumps(engine.sparql(cypher), default=str)
+                except Exception as e:
+                    return json.dumps({"error": str(e)})
+            results, fan_errors = kg_server.fanout_execute(
+                entries, lambda name, engine: engine.sparql(cypher)
+            )
+            return json.dumps(
+                {"targets": results, "errors": {**errors, **fan_errors}},
+                default=str,
+            )
+
+        if scope == "federated":
+            engine = kg_server._get_engine()
+            if not reference_id:
+                return json.dumps(
+                    {"error": "reference_id required for federated queries"}
+                )
+            try:
+                results = engine.execute_federated_query(
+                    reference_id, cypher, parsed_params
+                )
+                return json.dumps(results, default=str)
+            except Exception as e:
+                return json.dumps({"error": str(e)})
+
+        # Local query — block writes. Match write keywords only as whole Cypher
+        # clause keywords (word boundaries) and ignore quoted string literals, so
+        # identifiers like ``created_at``/``offset`` or a literal ``'CREATE …'`` are
+        # not misread as a mutation. (CONCEPT:AU-KG.backend.multi-connection-registry)
+        import re
+
+        _cypher_no_literals = re.sub(r"'[^']*'|\"[^\"]*\"", "", cypher)
+        _write_kw = re.search(
+            r"\b(CREATE|MERGE|DELETE|REMOVE|DROP|SET)\b",
+            _cypher_no_literals,
+            re.IGNORECASE,
+        )
+        if _write_kw:
+            return json.dumps(
+                {
+                    "error": f"Write operation '{_write_kw.group(1).upper()}' not allowed. Use kg_write for mutations."
+                }
+            )
+
+        # CONCEPT:AU-KG.backend.multi-connection-registry — resolve the target connection(s). CONCEPT:AU-KG.ingest.unified-query-routing —
+        # with ingestion graph routing on, an implicit-default read fans across the
+        # active content-graph set so split content is still queryable as one KG.
+        try:
+            entries, errors, fanout = kg_server._resolve_read_engines(target)
+        except Exception as e:
+            return json.dumps({"error": str(e)})
+
+        # Whether this fan-out is the implicit content-graph UNION (no explicit
+        # target) — those rows are merged into one flat list to preserve the legacy
+        # JSON-list shape; an explicit ``target='all'``/list keeps the per-target map.
+        _union_read = fanout and (
+            target is None
+            or (isinstance(target, str) and target.strip().lower() in ("", "default"))
+        )
+
+        # CONCEPT:AU-KG.query.query-aggregation — an aggregation (count/sum/group-by) under the implicit
+        # content-graph union CANNOT be fanned: aggregate rows carry no node id to
+        # dedup on, so the legacy id-dedup leaves one copy of every group row PER
+        # graph (the bug: a Task count repeated ~24×). Summing them generically is
+        # unsafe (wrong for avg/min/max/distinct). Run the aggregation against the
+        # canonical default graph only — control-plane/aggregate reads resolve there.
+        if _union_read and is_aggregation_cypher(cypher):
+            engine = kg_server._get_engine()
+            try:
+                results = engine.query_cypher(
+                    cypher, parsed_params, as_of=as_of or None
+                )
+                return json.dumps(results, default=str)
+            except Exception as e:
+                return json.dumps({"error": str(e)})
+
+        if not fanout:
+            # Single connection (default or one named) — identical shape to legacy
+            # when envelope='raw' (the default).
+            _name, engine = entries[0]
+            # Same raw-call defensive normalization as `envelope` below (a direct
+            # call bypassing FastMCP schema resolution binds an omitted bool Field
+            # to its FieldInfo, not the `False` default).
+            include_epistemic_flag = (
+                include_epistemic if isinstance(include_epistemic, bool) else False
+            )
+            try:
+                if include_epistemic_flag:
+                    # Only pass the new kwarg when actually requested — keeps the
+                    # default call shape byte-identical for any `query_cypher`
+                    # implementation (real or test double) that predates this
+                    # parameter and doesn't accept it.
+                    results = engine.query_cypher(
+                        cypher,
+                        parsed_params,
+                        as_of=as_of or None,
+                        include_epistemic=True,
+                    )
+                    # Per-row epistemic envelope takes precedence over `envelope`
+                    # (there is no aggregate-bundle-of-epistemic-rows shape).
+                    return json.dumps(results, default=_json_default)
+                results = engine.query_cypher(
+                    cypher, parsed_params, as_of=as_of or None
+                )
+                # A raw direct call (bypassing FastMCP schema resolution /
+                # _execute_tool) that omits `envelope` binds it to the Field(...)
+                # descriptor itself, not the string default — normalize
+                # defensively so that degrades to "raw" (mirrors graph_ask).
+                envelope_mode = envelope if isinstance(envelope, str) else "raw"
+                if envelope_mode.strip().lower() == "bundle":
+                    return json.dumps(
+                        {
+                            "rows": results,
+                            "evidence_bundle": _evidence_bundle_for_rows(
+                                engine, results
+                            ).model_dump(),
+                        },
+                        default=str,
+                    )
+                return json.dumps(results, default=str)
+            except Exception as e:
+                return json.dumps({"error": str(e)})
+
+        # Fan-out — per-target timeout so one slow backend can't stall the set.
+        results, fan_errors = kg_server.fanout_execute(
+            entries,
+            lambda name, engine: engine.query_cypher(
+                cypher, parsed_params, as_of=as_of or None
+            ),
+        )
+        if _union_read:
+            # Merge the per-graph row lists into one flat, id-deduped list so the
+            # unified default query returns the legacy shape (a JSON array of rows).
+            merged: list[Any] = []
+            seen_ids: set[str] = set()
+            for _name in results:
+                for row in results[_name] or []:
+                    rid = row.get("id") if isinstance(row, dict) else None
+                    if rid is not None:
+                        if rid in seen_ids:
+                            continue
+                        seen_ids.add(rid)
+                    merged.append(row)
+            return json.dumps(merged, default=str)
+        return json.dumps(
+            {"targets": results, "errors": {**errors, **fan_errors}}, default=str
+        )
+
+    kg_server.REGISTERED_TOOLS["graph_query"] = graph_query
+
+    # ══════════════════════════════════════════════════════════════════
+    # 1a-bis. graph_ask — CONCEPT:AU-KG.ingest.mirror-inbound natural-language → query
+    # ══════════════════════════════════════════════════════════════════
+    @mcp.tool(
+        name="graph_ask",
+        description=(
+            "CONCEPT:AU-KG.ingest.mirror-inbound — ask the Knowledge Graph in plain English. An LLM "
+            "translates your question (grounded in the live node-label + SQL-table "
+            "schema) into a single read-only query in the best dialect — Cypher over "
+            "the property graph, SQL over the KG + user tables, or SPARQL over the RDF "
+            "projection — then executes it through the matching engine surface. Returns "
+            "the GENERATED query (auditable), the result rows, and citations (the node/"
+            "source ids touched), so the answer is grounded and verifiable, not a black "
+            "box. Set execute=false to preview the query without running it; pin "
+            "dialect='cypher'|'sql'|'sparql' to force one (default 'auto' lets the model "
+            "choose)."
+        ),
+        tags=["graph-os", "query", "nl"],
+    )
+    def graph_ask(
+        question: str = Field(description="The natural-language question to answer."),
+        dialect: str = Field(
+            default="auto",
+            description="'auto' (model chooses) or 'cypher'|'sql'|'sparql' to force one.",
+        ),
+        execute: bool = Field(
+            default=True,
+            description="When false, return only the generated query (preview/dry-run).",
+        ),
+        limit: int = Field(default=50, description="Max result rows to return."),
+        envelope: str = Field(
+            default="raw",
+            description="'raw' (default; byte-identical legacy shape) or 'bundle' "
+            "(additionally wrap the result as an EvidenceBundle under "
+            "`evidence_bundle`). Additive/opt-in.",
+        ),
+        include_epistemic: bool = Field(
+            default=False,
+            description=(
+                "CONCEPT:AU-KB-CURRENCY — opt-in. Only takes effect when the "
+                "generated (or forced) query resolves to the 'cypher' dialect "
+                "(sql/sparql have no epistemic-envelope surface, so this is a "
+                "silent no-op for those). When true and honored, `results` holds "
+                "per-row epistemic envelopes (confidence, bitemporal valid/tx "
+                "time, evidence provenance, policy labels) instead of plain rows, "
+                "and `citations` degrades to an empty list."
+            ),
+        ),
+    ) -> str:
+        from agent_utilities.knowledge_graph.core.nl_query import nl_to_query
+
+        try:
+            engine = kg_server._get_engine()
+        except Exception as e:  # noqa: BLE001
+            return json.dumps({"error": f"no active engine: {e}"})
+        try:
+            result = nl_to_query(
+                engine,
+                str(question),
+                dialect=str(dialect),
+                execute=bool(execute),
+                limit=int(limit),
+                include_epistemic=bool(include_epistemic),
+            )
+            # A raw direct call (bypassing FastMCP schema resolution / _execute_tool)
+            # that omits `envelope` binds it to the Field(...) descriptor itself, not
+            # the string default — normalize defensively so that degrades to "raw".
+            envelope_mode = envelope if isinstance(envelope, str) else "raw"
+            if envelope_mode.strip().lower() == "bundle" and not include_epistemic:
+                from agent_utilities.models.evidence_bundle import EvidenceBundle
+
+                result = {
+                    **result,
+                    "evidence_bundle": EvidenceBundle.from_nl_query(
+                        result
+                    ).model_dump(),
+                }
+            return json.dumps(result, default=_json_default)
+        except Exception as e:  # noqa: BLE001
+            return json.dumps({"error": str(e)})
+
+    kg_server.REGISTERED_TOOLS["graph_ask"] = graph_ask
+
+    # ══════════════════════════════════════════════════════════════════
+    # 1a-quater. nl_query — CONCEPT:AU-KG.query.ask-gateway-rest-twin AU-fleet-LLM as the engine's NL planner
+    # ══════════════════════════════════════════════════════════════════
+    @mcp.tool(
+        name="nl_query",
+        description=(
+            "CONCEPT:AU-KG.query.ask-gateway-rest-twin — ask the Knowledge Graph in plain English, planned by "
+            "agent-utilities' OWN configured fleet LLM (the local vLLM / provider the rest "
+            "of AU uses) acting as the engine's NL planner. The fleet model translates your "
+            "request (grounded in the live node-label + SQL-table schema) into a single "
+            "read-only query — preferring UQL, the engine's native cross-modal language "
+            "(also cypher/sql/sparql) — which is then submitted to the engine's OWN "
+            "deterministic executor via the existing AU->engine query path. This is the "
+            "'LLM opt-out from AU' half of the NL->query dual-mode: it uses the fleet LLM "
+            "instead of the engine's standalone ureq client. Returns the GENERATED query "
+            "(auditable), result rows, and citations. Set execute=false to preview without "
+            "running; pin dialect='uql'|'cypher'|'sql'|'sparql' to force one. Falls back to "
+            "a clean error when no LLM is configured."
+        ),
+        tags=["graph-os", "query", "nl"],
+    )
+    def nl_query(
+        text: str = Field(description="The natural-language request to answer."),
+        dialect: str = Field(
+            default="auto",
+            description="'auto' (model chooses, prefers uql) or 'uql'|'cypher'|'sql'|'sparql'.",
+        ),
+        schema_hint: str = Field(
+            default="",
+            description="Optional extra schema/context hint to ground the planner.",
+        ),
+        execute: bool = Field(
+            default=True,
+            description="When false, return only the generated query (preview/dry-run).",
+        ),
+        limit: int = Field(default=50, description="Max result rows to return."),
+        envelope: str = Field(
+            default="raw",
+            description="'raw' (default; byte-identical legacy shape) or 'bundle' "
+            "(additionally wrap the result as an EvidenceBundle under "
+            "`evidence_bundle`). Additive/opt-in.",
+        ),
+    ) -> str:
+        from agent_utilities.knowledge_graph.core import nl_planner
+
+        try:
+            engine = kg_server._get_engine()
+        except Exception as e:  # noqa: BLE001
+            return json.dumps({"error": f"no active engine: {e}"})
+        try:
+            result = nl_planner.nl_query(
+                engine,
+                str(text),
+                dialect=str(dialect),
+                schema_hint=str(schema_hint),
+                execute=bool(execute),
+                limit=int(limit),
+            )
+            # A raw direct call (bypassing FastMCP schema resolution / _execute_tool)
+            # that omits `envelope` binds it to the Field(...) descriptor itself, not
+            # the string default — normalize defensively so that degrades to "raw".
+            envelope_mode = envelope if isinstance(envelope, str) else "raw"
+            if envelope_mode.strip().lower() == "bundle":
+                from agent_utilities.models.evidence_bundle import EvidenceBundle
+
+                result = {
+                    **result,
+                    "evidence_bundle": EvidenceBundle.from_nl_query(
+                        result
+                    ).model_dump(),
+                }
+            return json.dumps(result, default=str)
+        except Exception as e:  # noqa: BLE001
+            return json.dumps({"error": str(e)})
+
+    kg_server.REGISTERED_TOOLS["nl_query"] = nl_query
+    # CONCEPT:AU-KG.query.ask-gateway-rest-twin — gateway REST twin (W1 exposure; MCP⇄REST parity)
+    kg_server.ACTION_TOOL_ROUTES["nl_query"] = "/graph/nl-query"
+
+    # ══════════════════════════════════════════════════════════════════
+    # 1a-quinquies. ask_data — CONCEPT:AU-KG.query.data-gateway-rest-twin DB-GPT-style data-analysis agent loop
+    # ══════════════════════════════════════════════════════════════════
+    @mcp.tool(
+        name="ask_data",
+        description=(
+            "CONCEPT:AU-KG.query.data-gateway-rest-twin — answer a DATA question over the Knowledge Graph with a "
+            "DB-GPT-style, multi-step data-analysis agent (distinct from the single-shot "
+            "nl_query). The agent runs a bounded ReAct loop: schema-link the question to the "
+            "most relevant tables/labels, generate a read-only query via the AU fleet-LLM "
+            "planner (KG-2.305), execute it through the engine's own deterministic executor, "
+            "and — on a query error — feed the failing query + error back for up to "
+            "'max_corrections' self-correction retries; on success it synthesizes a "
+            "natural-language ANSWER from the rows. Returns the synthesized answer, the "
+            "query used (auditable), the result rows, citations, the linked schema, and the "
+            "full attempt trace. Falls back to a clean error when no LLM is configured."
+        ),
+        tags=["graph-os", "query", "nl", "data-analysis"],
+    )
+    def ask_data(
+        question: str = Field(
+            description="The natural-language DATA question to answer."
+        ),
+        dialect: str = Field(
+            default="auto",
+            description="'auto' (planner chooses, prefers uql) or 'uql'|'cypher'|'sql'|'sparql'.",
+        ),
+        max_corrections: int = Field(
+            default=2,
+            description="Bounded self-correction retries after a failed query (0 disables).",
+        ),
+        limit: int = Field(default=50, description="Max result rows to return."),
+    ) -> str:
+        from agent_utilities.knowledge_graph.orchestration import data_analyst
+
+        try:
+            engine = kg_server._get_engine()
+        except Exception as e:  # noqa: BLE001
+            return json.dumps({"error": f"no active engine: {e}"})
+        try:
+            return json.dumps(
+                data_analyst.ask_data(
+                    engine,
+                    str(question),
+                    dialect=str(dialect),
+                    max_corrections=int(max_corrections),
+                    limit=int(limit),
+                ),
+                default=str,
+            )
+        except Exception as e:  # noqa: BLE001
+            return json.dumps({"error": str(e)})
+
+    kg_server.REGISTERED_TOOLS["ask_data"] = ask_data
+    # CONCEPT:AU-KG.query.data-gateway-rest-twin — gateway REST twin (W1 exposure; MCP⇄REST parity)
+    kg_server.ACTION_TOOL_ROUTES["ask_data"] = "/graph/ask-data"
+
+    # ══════════════════════════════════════════════════════════════════
+    # 1a-ter. graph_table — CONCEPT:AU-KG.ingest.mirror-inbound connector/ETL → native engine SQL tables
+    # ══════════════════════════════════════════════════════════════════
+    @mcp.tool(
+        name="graph_table",
+        description=(
+            "CONCEPT:AU-KG.ingest.mirror-inbound — mirror data into native engine SQL tables (DataFusion + "
+            "pg-wire) and manage them. Actions: 'ingest' (mirror a registered source "
+            "connector's documents into a table via CREATE TABLE + bulk INSERT — "
+            "source=<connector> e.g. rest/database/web/rss/filesystem/reader, "
+            "config_json=connector config, table=<name>, replace=true to recreate), "
+            "'rows' (bulk-INSERT arbitrary rows from rows_json into table), 'create' "
+            "(CREATE TABLE table with columns_json), 'list' (list user tables), 'drop' "
+            "(DROP TABLE table), 'query' (run a read-only SELECT via the engine SQL "
+            "surface — sql=<SELECT ...>). This is how 'ingest tables from any connector "
+            "/ mirror data into our DB' works."
+        ),
+        tags=["graph-os", "ingestion", "table"],
+    )
+    def graph_table(
+        action: str = Field(
+            default="list",
+            description="'ingest' | 'rows' | 'create' | 'list' | 'drop' | 'query'.",
+        ),
+        source: str = Field(
+            default="", description="Registered connector key (action='ingest')."
+        ),
+        table: str = Field(default="", description="Target SQL table name."),
+        config_json: str = Field(
+            default="{}", description="JSON connector config (action='ingest')."
+        ),
+        columns_json: str = Field(
+            default="[]", description="JSON list of column names (action='create')."
+        ),
+        rows_json: str = Field(
+            default="[]", description="JSON list of row dicts (action='rows')."
+        ),
+        sql: str = Field(
+            default="", description="A read-only SELECT statement (action='query')."
+        ),
+        limit: int = Field(
+            default=1000, description="Max rows to mirror (action='ingest')."
+        ),
+        replace: bool = Field(
+            default=False, description="Drop+recreate the table first (ingest/rows)."
+        ),
+    ) -> str:
+        from agent_utilities.knowledge_graph.core import table_ingest
+
+        try:
+            engine = kg_server._get_engine()
+        except Exception as e:  # noqa: BLE001
+            return json.dumps({"error": f"no active engine: {e}"})
+
+        try:
+            if action == "ingest":
+                if not source:
+                    return json.dumps({"error": "ingest needs a source connector"})
+                return json.dumps(
+                    table_ingest.ingest_connector_to_table(
+                        engine,
+                        str(source),
+                        table=table or None,
+                        config=json.loads(config_json) if config_json else None,
+                        limit=int(limit),
+                        replace=bool(replace),
+                    ),
+                    default=str,
+                )
+            if action == "rows":
+                if not table:
+                    return json.dumps({"error": "rows needs a table"})
+                return json.dumps(
+                    table_ingest.ingest_rows_to_table(
+                        engine,
+                        str(table),
+                        json.loads(rows_json) if rows_json else [],
+                        replace=bool(replace),
+                    ),
+                    default=str,
+                )
+            if action == "create":
+                if not table:
+                    return json.dumps({"error": "create needs a table"})
+                cols = json.loads(columns_json) if columns_json else []
+                if not cols:
+                    return json.dumps({"error": "create needs columns_json"})
+                return json.dumps(
+                    table_ingest.ensure_table(engine, str(table), cols), default=str
+                )
+            if action == "list":
+                return json.dumps({"tables": table_ingest.list_tables(engine)})
+            if action == "drop":
+                if not table:
+                    return json.dumps({"error": "drop needs a table"})
+                return json.dumps(
+                    table_ingest.drop_table(engine, str(table)), default=str
+                )
+            if action == "query":
+                if not sql:
+                    return json.dumps({"error": "query needs a sql SELECT"})
+                return json.dumps(engine.sql(str(sql)), default=str)
+            return json.dumps({"error": f"unknown action {action!r}"})
+        except Exception as e:  # noqa: BLE001
+            return json.dumps({"error": str(e)})
+
+    kg_server.REGISTERED_TOOLS["graph_table"] = graph_table
+
+    # ══════════════════════════════════════════════════════════════════
+    # 1b. graph_context — CONCEPT:AU-ORCH.session.invoker-agent-handoff cross-process curated-context store
+    # ══════════════════════════════════════════════════════════════════
+    @mcp.tool(
+        name="graph_context",
+        description=(
+            "CONCEPT:AU-ORCH.session.invoker-agent-handoff — store/fetch curated context for invoker→spawned-agent "
+            "handoff, persisted in the epistemic-graph so a SEPARATELY-spawned agent can read "
+            "it by id. Actions: 'put' (store content, returns context_id), 'get' (fetch by "
+            "context_id), 'list' (by session_id). Pass the returned context_id to "
+            "graph_orchestrate(action='execute_agent', context_ref=...)."
+        ),
+        tags=["graph-os", "orchestrate", "context"],
+    )
+    async def graph_context(
+        action: str = Field(default="put", description="put | get | list"),
+        content: str = Field(
+            default="", description="Context text to store (action=put)."
+        ),
+        context_id: str = Field(default="", description="ContextBlob id (action=get)."),
+        session_id: str = Field(default="", description="Session scope key."),
+        key: str = Field(
+            default="", description="Optional sub-key within the session."
+        ),
+        ttl_s: int = Field(
+            default=0, description="Optional time-to-live in seconds (0 = persistent)."
+        ),
+    ) -> str:
+        import contextlib
+        import time
+        import uuid as _uuid
+
+        engine = kg_server._get_engine()
+        if not engine:
+            return json.dumps({"error": "IntelligenceGraphEngine not active."})
+        if action == "put":
+            if not content:
+                return json.dumps({"error": "content required for put"})
+            sid = session_id or _uuid.uuid4().hex[:8]
+            cid = context_id or f"ctx:{sid}:{key or _uuid.uuid4().hex[:6]}"
+            engine.add_node(
+                cid,
+                "ContextBlob",
+                properties={
+                    "id": cid,
+                    "content": content,
+                    "session_id": sid,
+                    "key": key,
+                    "ttl_s": int(ttl_s),
+                    "created_at": time.time(),
+                    "producer": kg_server._SESSION_ID,
+                },
+            )
+            # CONCEPT:AU-ORCH.session.session-anchored-collections-native — session-anchored collection: upsert the id-addressable
+            # Session node and link it, so "list by session" is a reliable id-anchored
+            # traversal (the engine has no property index; property scans are unreliable).
+            snode = f"session:{sid}"
+            with contextlib.suppress(Exception):
+                engine.add_node(
+                    snode, "Session", properties={"id": snode, "session_id": sid}
+                )
+                engine.add_edge(snode, cid, "HAS_CONTEXT")
+            return json.dumps({"context_id": cid, "session_id": sid})
+        if action == "get":
+            if not context_id:
+                return json.dumps({"error": "context_id required for get"})
+            try:
+                rows = engine.query_cypher(
+                    "MATCH (c:ContextBlob) WHERE c.id = $id "
+                    "RETURN c.content AS content, c.session_id AS session_id, "
+                    "c.created_at AS created_at, c.ttl_s AS ttl_s",
+                    {"id": context_id},
+                )
+                if not rows:
+                    return json.dumps({})
+                row = rows[0]
+                # TTL: treat an expired blob as gone (created_at + ttl_s < now).
+                _ttl = row.get("ttl_s") or 0
+                _created = row.get("created_at") or 0
+                if _ttl and _created and (float(_created) + float(_ttl) < time.time()):
+                    return json.dumps({"error": "context expired", "expired": True})
+                return json.dumps(row, default=str)
+            except Exception as exc:  # noqa: BLE001
+                return json.dumps({"error": str(exc)})
+        if action == "prune":
+            # Delete expired ContextBlobs (CONCEPT:AU-ORCH.session.invoker-agent-handoff lifecycle).
+            try:
+                rows = engine.query_cypher(
+                    "MATCH (c:ContextBlob) WHERE c.ttl_s > 0 AND "
+                    "(c.created_at + c.ttl_s) < $now RETURN c.id AS id",
+                    {"now": time.time()},
+                )
+                pruned = 0
+                _del = getattr(engine, "delete_node", None) or getattr(
+                    getattr(engine, "backend", None), "delete_node", None
+                )
+                for r in rows or []:
+                    if callable(_del):
+                        with contextlib.suppress(Exception):
+                            _del(r["id"])
+                            pruned += 1
+                return json.dumps({"pruned": pruned, "expired": len(rows or [])})
+            except Exception as exc:  # noqa: BLE001
+                return json.dumps({"error": str(exc)})
+        if action == "list":
+            try:
+                # CONCEPT:AU-ORCH.session.session-anchored-collections-native — id-anchored traversal from the Session node (the engine's
+                # reliable, fast O(degree) path; the index-less backend can't serve property
+                # scans). The traversal reader returns whole nodes (`RETURN c`), so project +
+                # sort + limit client-side.
+                rows = engine.query_cypher(
+                    "MATCH (s {id: $snode})-[:HAS_CONTEXT]->(c:ContextBlob) RETURN c",
+                    {"snode": f"session:{session_id}"},
+                )
+                items = []
+                for r in rows or []:
+                    c = r.get("c") if isinstance(r, dict) else None
+                    if isinstance(c, dict) and str(c.get("id", "")).startswith("ctx:"):
+                        items.append(
+                            {
+                                "context_id": c.get("id"),
+                                "key": c.get("key"),
+                                "created_at": c.get("created_at"),
+                            }
+                        )
+                items.sort(key=lambda x: x.get("created_at") or 0, reverse=True)
+                return json.dumps(items[:50], default=str)
+            except Exception as exc:  # noqa: BLE001
+                return json.dumps({"error": str(exc)})
+        return json.dumps({"error": f"unknown action: {action}"})
+
+    kg_server.REGISTERED_TOOLS["graph_context"] = graph_context
+
+    # ══════════════════════════════════════════════════════════════════
+    # 1c. graph_message — CONCEPT:AU-ORCH.session.session-anchored-collections-native invoker↔spawned-agent message channel
+    # ══════════════════════════════════════════════════════════════════
+    @mcp.tool(
+        name="graph_message",
+        description=(
+            "CONCEPT:AU-ORCH.session.session-anchored-collections-native — bidirectional, cross-process, ordered message channel between "
+            "an invoking agent and a spawned agent, over the epistemic-graph native channels. "
+            "Actions: 'open' (session_id+run_id → channel_id), 'send' (channel_id+sender+payload "
+            "[+durable]), 'receive' (channel_id [+since cursor] → new messages + cursor), "
+            "'history' (durable replay, survives restart), 'close'. Use the channel_id returned "
+            "by graph_orchestrate(execute_agent, open_channel=True) to talk to the spawned agent."
+        ),
+        tags=["graph-os", "orchestrate", "messaging"],
+    )
+    async def graph_message(
+        action: str = Field(
+            default="receive", description="open | send | receive | history | close"
+        ),
+        channel_id: str = Field(
+            default="", description="Channel id (send/receive/history/close)."
+        ),
+        session_id: str = Field(default="", description="Session id (open)."),
+        run_id: str = Field(default="", description="Spawned run id (open)."),
+        sender: str = Field(default="invoker", description="Sender label (send)."),
+        payload: str = Field(default="", description="Message text (send)."),
+        since: int = Field(
+            default=0, description="Cursor: messages already consumed (receive)."
+        ),
+        durable: bool = Field(
+            default=False,
+            description="When True (send), also persist the message as a graph AgentMessage "
+            "node so it survives engine restart and is replayable via action='history'.",
+        ),
+    ) -> str:
+        from agent_utilities.messaging import agent_channel
+
+        engine = kg_server._get_engine()
+        if not engine:
+            return json.dumps({"error": "IntelligenceGraphEngine not active."})
+        if action == "open":
+            cid = agent_channel.open_channel(engine, session_id, run_id)
+            return json.dumps({"channel_id": cid})
+        if action == "send":
+            return json.dumps(
+                {
+                    "sent": agent_channel.send(
+                        engine, channel_id, sender, payload, durable=bool(durable)
+                    )
+                }
+            )
+        if action == "receive":
+            try:
+                msgs, cursor = agent_channel.receive(engine, channel_id, since=since)
+            except agent_channel.ChannelNotFoundError:
+                # BUG-8: surface the not-found condition instead of a silent
+                # empty result indistinguishable from "no new messages".
+                return json.dumps(
+                    {"error": "channel not found", "channel_id": channel_id}
+                )
+            return json.dumps({"messages": msgs, "cursor": cursor}, default=str)
+        if action == "history":
+            return json.dumps(
+                {"messages": agent_channel.history(engine, channel_id)}, default=str
+            )
+        if action == "close":
+            return json.dumps({"closed": agent_channel.close(engine, channel_id)})
+        return json.dumps({"error": f"unknown action: {action}"})
+
+    kg_server.REGISTERED_TOOLS["graph_message"] = graph_message
+
+    # ══════════════════════════════════════════════════════════════════
+    # 2. kg_search — Unified search (hybrid, concept, analogy, memory)
+    # ══════════════════════════════════════════════════════════════════
+
+    @mcp.tool(
+        name="graph_search",
+        description="Search the Knowledge Graph using multiple strategies (hybrid, concept, analogy, memory, discover, dci).",
+        tags=["graph-os", "search"],
+    )
+    def graph_search(
+        query: str = Field(description="Natural language search query or concept ID."),
+        mode: str = Field(
+            default="hybrid",
+            description="Search strategy:\n- 'hybrid': Semantic + keyword weighted search (default).\n- 'hyde': Memory-first HyDE multi-query plan + dual threshold (CONCEPT:AU-KG.retrieval.self-correcting-second-pass).\n- 'deep': Wide-recall single query at the 0.28 deep threshold.\n- 'concept': Look up a CONCEPT:ID (e.g. 'AU-KG.query.vendor-agnostic-traversal', 'AU-ORCH.execution.inject-signal-board-observations').\n- 'analogy': Find structurally similar concepts.\n- 'memory': Search tiered memory (episodic/semantic/procedural).\n- 'discover': Cross-reference query against all ingested content.\n- 'dci': Direct Corpus Interaction.\n- 'latent': Latent-topology hierarchical routing (CONCEPT:AU-KG.memory.auto-similarity-memory-graph).\n- 'sira': Single-shot SIRA sparsity-aligned context.\n- 'hard_negatives': Mine hard negatives for the query (CONCEPT:AU-KG.memory.auto-similarity-memory-graph).\n- 'rerank': Hybrid semantic+keyword re-scoring of candidates.\n- 'adore': Iterative query expansion with retrieval-grounded graded relevance feedback + training-free stopping (CONCEPT:AU-KG.query.adore-concept-expansion/2.87).\n- 'chrono_ids': Attach an explicit temporal semantic ID (+recency bucket) to each result for generative retrieval (CONCEPT:AU-KG.query.chronoid-fits-residual-quantization).\n- 'compiled': Policy-aware ``ContextCompiler`` bundle (CONCEPT:AU-KG.retrieval.context-compiler) — MMR-diversified, evidence/freshness-weighted, token-budgeted, policy-filtered context with citations + a proof graph, instead of the plain relevance-sorted text the other modes return.",
+        ),
+        top_k: int = Field(default=10, description="Maximum results to return."),
+        self_correct: bool = Field(
+            default=False,
+            description="CONCEPT:AU-KG.retrieval.self-correcting-second-pass — run a self-correcting second retrieval pass at the deep threshold when the quality gate fails.",
+        ),
+        as_of: str = Field(
+            default="",
+            description="Optional ISO-8601 instant. Pack-driven recency decay is measured relative to this time, enabling knowledge-state-as-of-date-D retrieval such as an academic literature state. Defaults to now (CONCEPT:EG-KG.compute.rust-native-training-loss).",
+        ),
+        target: str = Field(
+            default="",
+            description=(
+                "CONCEPT:AU-KG.backend.multi-connection-registry — named graph connection to search (default = primary). "
+                "Use a registered connection name, or 'all' (or a comma-separated list) to "
+                "fan out and get per-connection labeled results."
+            ),
+        ),
+        token_budget: int = Field(
+            default=0,
+            description=(
+                "mode='compiled' only: token budget the assembled bundle must fit "
+                "inside (CONCEPT:AU-KG.retrieval.context-compiler). 0 uses the compiler's default budget."
+            ),
+        ),
+    ) -> str:
+        """Search the Knowledge Graph using multiple strategies. Useful for finding context, concepts, memories, and capabilities across the ecosystem."""
+
+        def _run_search(engine: Any) -> str:
+            if not engine:
+                return "Error: IntelligenceGraphEngine not active."
+            try:
+                return _search_with_engine(engine)
+            except Exception as e:
+                return f"Search error: {str(e)}"
+
+        def _search_with_engine(engine: Any) -> str:
+            if mode in ("hyde", "deep"):
+                results = engine.search_hybrid(
+                    query=query, top_k=top_k, mode=mode, self_correct=self_correct
+                )
+            elif mode == "hybrid":
+                results = engine.search_hybrid(
+                    query=query,
+                    top_k=top_k,
+                    self_correct=self_correct,
+                    as_of=as_of or None,
+                )
+            elif mode == "concept":
+                results = engine.search_hybrid(query=query, top_k=top_k)
+            elif mode == "analogy":
+                results = engine.search_hybrid(query=query, top_k=top_k)
+            elif mode == "adore":
+                results = engine.search_adore(query=query, top_k=top_k)
+            elif mode == "chrono_ids":
+                results = engine.temporal_semantic_ids(query=query, top_k=top_k)
+            elif mode == "dci":
+                results = engine.search_dci(query=query, top_k=top_k)
+            elif mode == "memory":
+                results = engine.search_memories(query=query, top_k=top_k)
+            elif mode == "discover":
+                try:
+                    from agent_utilities.capabilities.manager import CapabilityManager
+
+                    manager = CapabilityManager(engine)
+                    results = manager.discover_capabilities(query)
+                    if not results:
+                        return f"No capabilities found for '{query}'"
+                    return "\n".join([f"- {r.name}: {r.description}" for r in results])
+                except ImportError:
+                    return "Error: capabilities module not available"
+            elif mode == "latent":
+                # KG-2.3 — route through the latent topology hierarchy.
+                from agent_utilities.knowledge_graph.retrieval.latent_topology_rag import (  # noqa: E501
+                    LatentTopologicalRAG,
+                )
+
+                results = LatentTopologicalRAG(engine).retrieve(query, top_k=top_k)
+            elif mode == "sira":
+                # Single-shot SIRA: hybrid-retrieve, then sparsity-align the set.
+                from agent_utilities.knowledge_graph.retrieval.single_shot_sira import (
+                    SingleShotSIRA,
+                )
+
+                base = engine.search_hybrid(query=query, top_k=top_k) or []
+                results = SingleShotSIRA(engine).align_context(base)
+            elif mode == "hard_negatives":
+                # KG-2.3 — mine hard negatives via the engine's hybrid retriever.
+                from agent_utilities.knowledge_graph.retrieval.hard_negative_miner import (  # noqa: E501
+                    HardNegativeMiner,
+                )
+
+                retriever = getattr(engine, "hybrid_retriever", None)
+                if retriever is None:
+                    return (
+                        "Error: hybrid retriever unavailable for hard-negative mining."
+                    )
+                negs = HardNegativeMiner(retriever).mine(query)
+                if not negs:
+                    return f"No hard negatives mined for: '{query}'"
+                return "\n".join(
+                    f"- {n.doc_id}: {getattr(n, 'reason', '')}" for n in negs
+                )
+            elif mode == "rerank":
+                # Semantic-retrieval hybrid re-scoring of a candidate set.
+                from agent_utilities.knowledge_graph.retrieval.semantic_retrieval_engine import (  # noqa: E501
+                    HybridSearchScorer,
+                )
+
+                base = engine.search_hybrid(query=query, top_k=top_k) or []
+                docs = [
+                    {
+                        "id": (r.get("node", r) or {}).get("id", ""),
+                        "text": (r.get("node", r) or {}).get("description", ""),
+                        "embedding": (r.get("node", r) or {}).get("embedding"),
+                    }
+                    for r in base
+                ]
+                qemb: list[float] = []
+                embed_model = getattr(
+                    getattr(engine, "hybrid_retriever", None), "embed_model", None
+                )
+                if embed_model is not None:
+                    try:
+                        qemb = embed_model.get_text_embedding(query)
+                    except Exception:  # noqa: BLE001
+                        qemb = []
+                results = HybridSearchScorer().score_documents(query, qemb, docs)
+            elif mode == "compiled":
+                # CONCEPT:AU-KG.retrieval.context-compiler — policy-aware ContextCompiler bundle: reuses the
+                # SAME engine ANN/hybrid retriever the other modes call, but
+                # additionally MMR-diversifies, scores evidence-quality/freshness
+                # from the epistemic columns (EPI-P3-1), fits a token budget, and
+                # runs every candidate through the live permissioning gate before
+                # returning citations + a proof graph — replacing the plain
+                # relevance-sorted concat the branch below performs for every
+                # other mode.
+                from agent_utilities.knowledge_graph.core.session import (
+                    GraphSession,
+                )
+                from agent_utilities.knowledge_graph.retrieval.context_compiler import (  # noqa: E501
+                    ContextCompiler,
+                )
+
+                session = GraphSession.from_ambient()
+                compiler = ContextCompiler(engine)
+                kwargs: dict[str, Any] = {"top_k": top_k, "as_of": as_of or None}
+                if token_budget:
+                    kwargs["token_budget"] = token_budget
+                bundle = compiler.compile(query, session=session, **kwargs)
+                return bundle.as_text()
+            else:
+                return f"Error: Unknown search mode '{mode}'"
+
+            if not results:
+                return f"No results found for query: '{query}'"
+
+            # Legacy relevance-only formatter (pre-CONCEPT:AU-KG.retrieval.context-compiler). Every mode
+            # above lands here and gets a flat, score-sorted text block with no
+            # diversity/evidence/freshness/policy/budget shaping — prefer
+            # mode='compiled' for a citation- and proof-graph-bearing bundle.
+            formatted_results = []
+            for res in results:
+                score = res.get("score", 0)
+                score = float(score) if score is not None else 0.0
+                node = res.get("node", res)
+                label = node.get("type", node.get("label", "Unknown"))
+                name = node.get("name", "Unnamed")
+                desc = node.get("description", "")
+                nid = node.get("id", "N/A")
+                formatted_results.append(
+                    f"[{label}] {name} (ID: {nid}) - Score: {score:.2f}\n{desc}"
+                )
+            return "\n---\n".join(formatted_results)
+
+        # CONCEPT:AU-KG.backend.multi-connection-registry — resolve target connection(s). CONCEPT:AU-KG.ingest.unified-query-routing — an
+        # implicit-default search fans across the active content-graph set so content
+        # routed to ``code:*``/``src:*`` graphs stays findable as one KG.
+        try:
+            entries, errors, fanout = kg_server._resolve_read_engines(target)
+        except Exception as e:
+            return f"Search error: {str(e)}"
+
+        if not fanout:
+            return _run_search(entries[0][1])
+
+        # CONCEPT:AU-KG.ingest.unified-query-routing — an implicit-default target
+        # (no ``target`` passed, or explicitly "default") fans across every active
+        # content graph, which can be dozens of ``code:<repo>``/``src:<repo>``
+        # connections, often idle/unreachable. An explicit ``target='all'``/list is
+        # a deliberate cross-repo search and keeps the full per-backend budget.
+        is_implicit_target = target is None or (
+            isinstance(target, str) and target.strip().lower() in ("", "default")
+        )
+        if is_implicit_target:
+            # The PRIMARY/``default`` backend must ALWAYS ground: it holds the
+            # legacy ``__commons__`` + control-plane content and is the source of
+            # the real ranked hits. So run it separately at the normal budget
+            # (never the skip-timeout) and apply the SHORT skip-timeout ONLY to the
+            # supplementary content backends. Under a wide implicit fan-out (~70
+            # ``code:*`` graphs) a single shared short wall-clock across ALL targets
+            # starved the primary — it was queued behind the hung code backends and
+            # timed out too, so the search returned zero results even though the
+            # engine was healthy. Splitting the primary out fixes that: a search
+            # still returns the primary's real hits in a few seconds when every
+            # supplementary backend is dead.
+            primary = [(n, e) for n, e in entries if n == "default"]
+            supplementary = [(n, e) for n, e in entries if n != "default"]
+            # Robustness: if the resolver produced no ``default`` entry, treat the
+            # first as primary so SOMETHING always grounds at the full budget.
+            if not primary and entries:
+                primary, supplementary = [entries[0]], entries[1:]
+            results: dict[str, Any] = {}
+            fan_errors: dict[str, str] = {}
+            for name, engine in primary:
+                results[name] = _run_search(engine)
+            if supplementary:
+                sup_results, sup_errors = kg_server.fanout_execute(
+                    supplementary,
+                    lambda name, engine: _run_search(engine),
+                    timeout=kg_server.DEFAULT_CONTENT_FANOUT_TIMEOUT_S,
+                )
+                results.update(sup_results)
+                fan_errors.update(sup_errors)
+        else:
+            # Explicit cross-repo fan-out — per-target timeout at the full budget so
+            # one slow backend can't stall the set.
+            results, fan_errors = kg_server.fanout_execute(
+                entries, lambda name, engine: _run_search(engine)
+            )
+        out_lines = [f"=== {name} ===\n{results[name]}" for name in results]
+        out_lines += [
+            f"=== {name} (error) ===\n{err}"
+            for name, err in {**errors, **fan_errors}.items()
+        ]
+        return "\n\n".join(out_lines)
+
+    kg_server.REGISTERED_TOOLS["graph_search"] = graph_search
+
+    @mcp.tool(
+        name="graph_search_synthesis",
+        description=(
+            "Synthesize a shortcut-resistant deep-search task from the evidence graph, "
+            "or diagnose realized search difficulty of solver trajectories "
+            "(CONCEPT:AU-KG.retrieval.evidence-graph-workspace/2.71/2.72, AHE-3.30; distills arXiv:2606.12087)."
+        ),
+        tags=["graph-os", "search", "synthesis", "training-data"],
+    )
+    def graph_search_synthesis(
+        action: str = Field(
+            default="synthesize",
+            description=(
+                "'synthesize': build an evidence subgraph around an answer entity and "
+                "formulate + adversarially refine a question that forces multi-hop "
+                "search (no exposed constants / single-clue / co-coverage shortcuts). "
+                "'diagnose': score solver trajectories with the FORT signatures "
+                "(solving cost, answer hit time, prior-shortcut rate) + a search-heavy "
+                "verdict."
+            ),
+        ),
+        answer_id: str = Field(
+            default="",
+            description="action=synthesize — node id of the gold answer entity to build the task around.",
+        ),
+        hops: int = Field(
+            default=2, description="action=synthesize — evidence-graph BFS depth."
+        ),
+        fanout: int = Field(
+            default=8,
+            description="action=synthesize — max neighbors expanded per node.",
+        ),
+        min_trust: float = Field(
+            default=0.0,
+            description="action=synthesize — drop facts whose source_trust is below this.",
+        ),
+        max_per_source: int = Field(
+            default=1,
+            description="action=synthesize — max clues allowed to share one evidence source before co-coverage trips.",
+        ),
+        root_popularity: float = Field(
+            default=0.0,
+            description="action=synthesize — 0..1 familiarity of the answer entity (high → prior-binding risk).",
+        ),
+        trajectories: str = Field(
+            default="",
+            description='action=diagnose — JSON list of trajectories: [{"steps":[{"kind","observation","model_text"}],"answer_aliases":[...]}].',
+        ),
+    ) -> str:
+        """Shortcut-resistant search-task synthesis and realized-difficulty diagnosis."""
+        import json as _json
+
+        from agent_utilities.graph.training_signals import realized_difficulty
+
+        if action == "diagnose":
+            try:
+                trajs = _json.loads(trajectories) if trajectories else []
+            except Exception as e:  # noqa: BLE001
+                return f"Error: invalid trajectories JSON: {e}"
+            return _json.dumps(realized_difficulty(trajs))
+
+        if action != "synthesize":
+            return f"Error: unknown action '{action}' (expected 'synthesize' or 'diagnose')."
+        if not answer_id:
+            return "Error: action=synthesize requires answer_id."
+
+        from agent_utilities.knowledge_graph.search_synthesis import synthesize
+
+        class _Reader:
+            def __init__(self, eng: Any) -> None:
+                self._eng = eng
+
+            def query(self, cypher: str, params: Any = None) -> list[dict[str, Any]]:
+                backend = getattr(self._eng, "backend", None)
+                if backend is not None and hasattr(backend, "execute"):
+                    return backend.execute(cypher, params or {}) or []
+                if hasattr(self._eng, "query"):
+                    return self._eng.query(cypher, params or {}) or []
+                return []
+
+        engine = kg_server._get_engine()
+        if not engine:
+            return "Error: IntelligenceGraphEngine not active."
+        try:
+            task = synthesize(
+                _Reader(engine),
+                answer_id,
+                hops=hops,
+                fanout=fanout,
+                min_trust=min_trust,
+                root_popularity=root_popularity,
+                max_per_source=max_per_source,
+            )
+        except Exception as e:  # noqa: BLE001
+            return f"Synthesis error: {str(e)}"
+        return _json.dumps(task.to_dict())
+
+    kg_server.REGISTERED_TOOLS["graph_search_synthesis"] = graph_search_synthesis
+
+    # ══════════════════════════════════════════════════════════════════
+    # graph_code_nav — CONCEPT:AU-KG.backend.declared-columns-so-schema code-symbol navigation over the
+    # RESOLVED graph (`:Code` + `calls`/`depends_on`/`IMPLEMENTS`). Templated
+    # so agents (and Duo-style flows) get gkg's find-def / find-refs / trace /
+    # impact as first-class tools instead of hand-written Cypher.
+    # ══════════════════════════════════════════════════════════════════
+    @mcp.tool(
+        name="graph_code_nav",
+        description=(
+            "Navigate the resolved code graph (CONCEPT:AU-KG.backend.declared-columns-so-schema). action: "
+            "'find_definition' (locate a symbol's :Code node), 'find_references' "
+            "(callers of a symbol), 'trace_call_graph' (transitive callees), "
+            "'impact_of_change' (transitive callers = blast radius), 'connects' "
+            "(shortest path between TWO symbols — set symbol/node_id AND "
+            "target_symbol/target_node_id — rendered hop-by-hop with each edge's "
+            "relation + confidence, CONCEPT:EG-KG.compute.handled-outside-single-anchor). Start from a symbol name or "
+            "an exact node_id; optionally scope to a source_system "
+            "(e.g. 'gitlab:gitlab.com')."
+        ),
+        tags=["graph-os", "query", "code"],
+    )
+    def graph_code_nav(
+        action: str = Field(
+            description="find_definition | find_references | trace_call_graph | impact_of_change | connects"
+        ),
+        symbol: str = Field(
+            default="", description="Symbol name to start from (function/class/method)."
+        ),
+        node_id: str = Field(
+            default="", description="Exact :Code node id (overrides 'symbol' when set)."
+        ),
+        target_symbol: str = Field(
+            default="",
+            description="For action='connects': the destination symbol name.",
+        ),
+        target_node_id: str = Field(
+            default="",
+            description="For action='connects': the destination :Code node id.",
+        ),
+        source_system: str = Field(
+            default="",
+            description="Optional source_system filter, e.g. 'gitlab:gitlab.com'.",
+        ),
+        depth: int = Field(
+            default=3,
+            description="Max hops for trace_call_graph / impact_of_change (1-10).",
+        ),
+        limit: int = Field(default=200, description="Max rows to return."),
+    ) -> str:
+        """Templated code-symbol navigation over the resolved KG code graph."""
+        engine = kg_server._get_engine()
+        if not engine:
+            return json.dumps({"error": "IntelligenceGraphEngine not active"})
+
+        # 'connects' resolves two endpoints + runs a native path search — it lives
+        # outside the single-anchor Cypher template.
+        if action in PATH_ACTIONS:
+            try:
+                return json.dumps(
+                    {
+                        "action": action,
+                        "results": code_connects(
+                            engine,
+                            symbol=symbol,
+                            node_id=node_id,
+                            target_symbol=target_symbol,
+                            target_node_id=target_node_id,
+                        ),
+                    },
+                    default=str,
+                )
+            except Exception as e:  # noqa: BLE001
+                return json.dumps({"error": str(e)})
+
+        try:
+            cypher, qparams = build_code_nav_query(
+                action=action,
+                symbol=symbol,
+                node_id=node_id,
+                source_system=source_system,
+                depth=depth,
+                limit=limit,
+            )
+        except ValueError as e:
+            return json.dumps({"error": str(e)})
+
+        try:
+            rows = engine.query_cypher(cypher, qparams)
+            return json.dumps({"action": action, "results": rows}, default=str)
+        except Exception as e:  # noqa: BLE001
+            return json.dumps({"error": str(e)})
+
+    kg_server.REGISTERED_TOOLS["graph_code_nav"] = graph_code_nav
+
+    # ══════════════════════════════════════════════════════════════════
+    # graph_document_tree — CONCEPT:AU-KG.retrieval.section-tree +
+    # CONCEPT:AU-KG.retrieval.tree-navigation. PageIndex-style map-then-fetch over
+    # a document's section tree: build the tree, view the text-free structure,
+    # fetch cited char/page ranges, or navigate the tree by relevance. Complements
+    # (does not replace) graph_search's vector/community retrieval — route long
+    # single-document queries here where "similar != relevant".
+    # ══════════════════════════════════════════════════════════════════
+    @mcp.tool(
+        name="graph_document_tree",
+        description=(
+            "Reasoning-tree (vectorless) document retrieval over a per-document "
+            "section tree (CONCEPT:AU-KG.retrieval.section-tree/tree-navigation; "
+            "distills PageIndex). action: 'build' (build + optionally persist the "
+            "section tree from text or a stored document), 'structure' (return the "
+            "text-free table-of-contents map = get_document_structure), 'content' "
+            "(fetch section bodies for cited char ranges like '96..208,300..420' = "
+            "get_page_content), 'retrieve' (walk the tree by relevance and return "
+            "sections with cited start..end ranges). Complements graph_search for "
+            "long single documents where similar != relevant."
+        ),
+        tags=["graph-os", "retrieval", "document", "tree"],
+    )
+    def graph_document_tree(
+        action: str = Field(
+            description="build | structure | content | retrieve",
+        ),
+        document_id: str = Field(
+            default="",
+            description="Target Document id (structure/content, and build/retrieve when loading from the graph).",
+        ),
+        text: str = Field(
+            default="",
+            description="action=build/retrieve — inline document text (markdown) to build the tree from, instead of loading a stored document.",
+        ),
+        query: str = Field(
+            default="",
+            description="action=retrieve — the natural-language query to navigate the tree with.",
+        ),
+        ranges: str = Field(
+            default="",
+            description="action=content — char ranges to fetch, e.g. '96..208,300..420'.",
+        ),
+        top_k: int = Field(
+            default=5, description="action=retrieve — max sections to return."
+        ),
+        persist: bool = Field(
+            default=True,
+            description="action=build — write the Section nodes/edges to the graph (requires document_id).",
+        ),
+        thin: bool = Field(
+            default=True,
+            description="action=build — collapse tiny sections into their parent (token-budget thinning).",
+        ),
+        summarize: bool = Field(
+            default=True,
+            description="action=build — compute per-node summaries for a text-free structure map.",
+        ),
+        use_llm: bool = Field(
+            default=False,
+            description="action=retrieve — try LLM tree navigation before the lexical walk.",
+        ),
+    ) -> str:
+        """Map-then-fetch + tree-navigation retrieval over a document section tree."""
+        from agent_utilities.knowledge_graph.ontology.document_processing import (
+            SectionTreeConfig,
+            build_section_tree,
+            section_nodes_and_edges,
+        )
+        from agent_utilities.knowledge_graph.retrieval.hierarchical_document_retriever import (
+            HierarchicalDocumentRetriever,
+            content_for_ranges,
+            structure_view,
+        )
+
+        engine = kg_server._get_engine()
+
+        if action == "build":
+            if not text and not document_id:
+                return json.dumps({"error": "build requires 'text' or 'document_id'"})
+            cfg = SectionTreeConfig(thin=thin, summarize=summarize)
+            roots = build_section_tree(text, config=cfg)
+            nodes, edges = section_nodes_and_edges(document_id or "doc:inline", roots)
+            persisted = False
+            if persist and document_id and engine is not None:
+                persisted = _persist_sections(engine, nodes, edges)
+            return json.dumps(
+                {
+                    "action": "build",
+                    "document_id": document_id,
+                    "section_count": len(nodes),
+                    "persisted": persisted,
+                    "structure": structure_view(roots),
+                },
+                default=str,
+            )
+
+        if action == "structure":
+            if not document_id:
+                return json.dumps({"error": "structure requires 'document_id'"})
+            if engine is None:
+                return json.dumps({"error": "IntelligenceGraphEngine not active"})
+            roots = HierarchicalDocumentRetriever(engine).load_tree(document_id)
+            if not roots:
+                return json.dumps(
+                    {"error": f"no section tree for document {document_id!r}"}
+                )
+            return json.dumps(
+                {
+                    "action": "structure",
+                    "document_id": document_id,
+                    "structure": structure_view(roots),
+                },
+                default=str,
+            )
+
+        if action == "content":
+            if not document_id:
+                return json.dumps({"error": "content requires 'document_id'"})
+            if engine is None:
+                return json.dumps({"error": "IntelligenceGraphEngine not active"})
+            try:
+                parsed = _parse_ranges(ranges)
+            except ValueError as e:
+                return json.dumps({"error": str(e)})
+            roots = HierarchicalDocumentRetriever(engine).load_tree(document_id)
+            if not roots:
+                return json.dumps(
+                    {"error": f"no section tree for document {document_id!r}"}
+                )
+            return json.dumps(
+                {
+                    "action": "content",
+                    "document_id": document_id,
+                    "sections": content_for_ranges(roots, parsed),
+                },
+                default=str,
+            )
+
+        if action == "retrieve":
+            if not query:
+                return json.dumps({"error": "retrieve requires 'query'"})
+            retriever = HierarchicalDocumentRetriever(engine)
+            tree = None
+            if text:
+                tree = build_section_tree(
+                    text, config=SectionTreeConfig(thin=True, summarize=True)
+                )
+            elif not document_id:
+                return json.dumps(
+                    {"error": "retrieve requires 'text' or 'document_id'"}
+                )
+            matches = retriever.retrieve(
+                query,
+                document_id=document_id,
+                tree=tree,
+                top_k=top_k,
+                use_llm=use_llm,
+            )
+            return json.dumps(
+                {
+                    "action": "retrieve",
+                    "query": query,
+                    "results": [m.as_dict() for m in matches],
+                },
+                default=str,
+            )
+
+        return json.dumps(
+            {
+                "error": f"unknown action '{action}' "
+                "(expected build|structure|content|retrieve)"
+            }
+        )
+
+    kg_server.REGISTERED_TOOLS["graph_document_tree"] = graph_document_tree

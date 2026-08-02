@@ -1,0 +1,303 @@
+from __future__ import annotations
+
+import re
+import shutil
+from pathlib import Path
+
+import click
+from lamin_utils import logger
+
+from ._context import get_current_run_file
+from ._notes import is_path_within, parse_note_target, resolve_note_record
+from ._save import infer_registry_from_path, parse_title_r_notebook
+from .urls import decompose_url
+
+
+def load(
+    entity: str | None = None,
+    uid: str | None = None,
+    key: str | None = None,
+    with_env: bool = False,
+):
+    """Load artifact, collection, or transform from LaminDB.
+
+    Args:
+        entity: URL containing 'lamin', or 'artifact', 'collection', or 'transform'
+        uid: Unique identifier (prefix matching supported)
+        key: Key identifier
+        with_env: If True, also load environment requirements file for transforms
+
+    Returns:
+        Path to loaded transform, or None for artifacts/collections
+    """
+    import lamindb_setup as ln_setup
+
+    def _note_type_chain_from_record(note_record) -> list[str]:
+        chain: list[str] = []
+        parent = note_record.type
+        visited: set[str] = set()
+        while parent is not None:
+            parent_uid = getattr(parent, "uid", None)
+            if parent_uid is not None:
+                if parent_uid in visited:
+                    break
+                visited.add(parent_uid)
+            if parent.name is not None:
+                chain.append(parent.name)
+            parent = parent.type
+        return list(reversed(chain))
+
+    note_target: tuple[list[str], str] | None = None
+    if entity is not None and uid is None and key is None:
+        note_target = parse_note_target(entity)
+        if note_target is not None:
+            entity = "record"
+
+    if entity is None:
+        if key is None:
+            raise SystemExit("Either entity or key has to be provided.")
+        else:
+            entity = infer_registry_from_path(key)
+
+    if entity.startswith("https://") and "lamin" in entity:
+        url = entity
+        instance, entity, uid = decompose_url(url)
+    elif entity not in {"artifact", "transform", "collection", "record"}:
+        raise SystemExit(
+            "Entity has to be a laminhub URL or 'artifact', 'collection', or 'transform'"
+        )
+    else:
+        instance = ln_setup.settings.instance.slug
+
+    ln_setup.connect(instance)
+    import lamindb as ln
+
+    current_run = None
+    if get_current_run_file().exists():
+        current_run = ln.Run.get(uid=get_current_run_file().read_text().strip())
+
+    def script_to_notebook(
+        transform: ln.Transform, notebook_path: Path, bump_revision: bool = False
+    ) -> None:
+        import jupytext
+        from lamin_utils._base62 import increment_base62
+
+        if notebook_path.suffix == ".ipynb":
+            # below is backward compat
+            if "# # transform.name" in transform.source_code:
+                new_content = transform.source_code.replace(
+                    "# # transform.name", f"# # {transform.description}"
+                )
+            elif transform.source_code.startswith("# %% [markdown]"):
+                source_code_split = transform.source_code.split("\n")
+                if source_code_split[1] == "#":
+                    source_code_split[1] = f"# # {transform.description}"
+                new_content = "\n".join(source_code_split)
+            else:
+                new_content = transform.source_code
+        else:  # R notebook
+            new_content = transform.source_code
+            current_title = parse_title_r_notebook(new_content)
+            if current_title is not None and current_title != transform.description:
+                pattern = r'^(---\n.*?title:\s*)"([^"]*)"(.*?---)'
+                replacement = f'\\1"{transform.description}"\\3'
+                new_content = re.sub(
+                    pattern,
+                    replacement,
+                    new_content,
+                    flags=re.DOTALL | re.MULTILINE,
+                )
+                logger.important(
+                    f"updated title to match description: {current_title} →"
+                    f" {transform.description}"
+                )
+        if bump_revision:
+            uid = transform.uid
+            if (
+                uid in new_content
+            ):  # this only hits if it has the full uid, not for the stem uid
+                new_uid = f"{uid[:-4]}{increment_base62(uid[-4:])}"
+                new_content = new_content.replace(uid, new_uid)
+                logger.important(f"updated uid: {uid} → {new_uid}")
+        if notebook_path.suffix == ".ipynb":
+            notebook = jupytext.reads(new_content, fmt="py:percent")
+            jupytext.write(notebook, notebook_path)
+        else:
+            notebook_path.write_text(new_content)
+
+    query_by_uid = uid is not None
+
+    match entity:
+        case "record":
+            if note_target is not None:
+                type_chain, note_name = note_target
+                note_record = resolve_note_record(
+                    ln=ln,
+                    type_chain=type_chain,
+                    note_name=note_name,
+                    create_if_missing=False,
+                )
+                if note_record is None:
+                    note_path = (
+                        "/".join([*type_chain, note_name]) if type_chain else note_name
+                    )
+                    raise click.ClickException(
+                        f"Record note '{note_path}' does not exist. Save it first with `lamin save`."
+                    )
+            elif uid is not None:
+                records = ln.Record.objects.filter(uid__startswith=uid)
+                if (n_records := len(records)) == 0:
+                    raise click.ClickException(f"Record with uid={uid} does not exist.")
+                if n_records > 1:
+                    records = records.order_by("-created_at")
+                note_record = records.first()
+                type_chain = _note_type_chain_from_record(note_record)
+                note_name = note_record.name
+            else:
+                raise click.ClickException(
+                    "For record note loads, pass a note target like <topic>/<note> or <topic>/<note>.md."
+                )
+            readme_block = (
+                note_record.ablocks.filter(kind="readme")
+                .order_by("-created_at")
+                .first()
+            )
+            if readme_block is None:
+                raise click.ClickException(
+                    f"Record note '{note_name}' has no readme block to load."
+                )
+
+            cwd = Path.cwd().resolve()
+            if ln_setup.settings.dev_dir is not None and is_path_within(
+                cwd, ln_setup.settings.dev_dir
+            ):
+                target_path = (
+                    ln_setup.settings.dev_dir / Path(*type_chain) / f"{note_name}.md"
+                    if type_chain
+                    else ln_setup.settings.dev_dir / f"{note_name}.md"
+                )
+            else:
+                target_path = cwd / f"{note_name}.md"
+
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            if target_path.exists():
+                response = input(f"! {target_path} exists: replace? (y/n)")
+                if response != "y":
+                    raise SystemExit("Aborted.")
+
+            target_path.write_text(readme_block.content, encoding="utf-8")
+            logger.important(f"note is here: {target_path}")
+            return target_path
+        case "transform":
+            if query_by_uid:
+                # we don't use .get here because DoesNotExist is hard to catch
+                # due to private django API
+                # here full uid is not expected anymore as before
+                # via ln.Transform.objects.get(uid=uid)
+                transforms = ln.Transform.objects.filter(uid__startswith=uid)
+            else:
+                # if below, we take is_latest=True as the criterion, we might get draft notebooks
+                # hence, we use source_code__isnull=False and order by created_at instead
+                transforms = ln.Transform.objects.filter(
+                    key=key, source_code__isnull=False
+                )
+
+            if (n_transforms := len(transforms)) == 0:
+                err_msg = f"uid {uid}" if query_by_uid else f"key={key} and source_code"
+                raise SystemExit(f"Transform with {err_msg} does not exist.")
+
+            if n_transforms > 1:
+                transforms = transforms.order_by("-created_at")
+            transform = transforms.first()
+
+            target_path = Path(transform.key)
+            if ln_setup.settings.dev_dir is not None:
+                target_path = ln_setup.settings.dev_dir / target_path
+            if len(target_path.parents) > 1:
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+            if target_path.exists():
+                response = input(f"! {target_path} exists: replace? (y/n)")
+                if response != "y":
+                    raise SystemExit("Aborted.")
+
+            if transform.source_code is not None:
+                if target_path.suffix in (".ipynb", ".Rmd", ".qmd"):
+                    script_to_notebook(transform, target_path, bump_revision=True)
+                else:
+                    target_path.write_text(transform.source_code)
+            else:
+                raise SystemExit("No source code available for this transform.")
+
+            logger.important(f"{transform.type} is here: {target_path}")
+
+            if with_env:
+                ln.settings.track_run_inputs = False
+                if (
+                    transform.latest_run is not None
+                    and transform.latest_run.environment is not None
+                ):
+                    filepath_env_cache = transform.latest_run.environment.cache()
+                    target_env_filename = (
+                        target_path.parent / f"{target_path.stem}__requirements.txt"
+                    )
+                    shutil.move(filepath_env_cache, target_env_filename)
+                    logger.important(f"environment is here: {target_env_filename}")
+                else:
+                    logger.warning(
+                        "latest transform run with environment doesn't exist"
+                    )
+
+            return target_path
+        case "artifact" | "collection":
+            ln.settings.track_run_inputs = False
+
+            EntityClass = ln.Artifact if entity == "artifact" else ln.Collection
+
+            # we don't use .get here because DoesNotExist is hard to catch due to private django API
+            # we use `.objects` here because we don't want to exclude kind = __lamindb_run__ artifacts
+            if query_by_uid:
+                entities = EntityClass.objects.filter(uid__startswith=uid)
+            else:
+                entities = EntityClass.objects.filter(key=key)
+
+            if (n_entities := len(entities)) == 0:
+                err_msg = f"uid={uid}" if query_by_uid else f"key={key}"
+                raise SystemExit(
+                    f"{entity.capitalize()} with {err_msg} does not exist."
+                )
+
+            if n_entities > 1:
+                entities = entities.order_by("-created_at")
+
+            entity_obj = entities.first()
+            cache_path = entity_obj.cache(is_run_input=current_run)
+
+            # collection gives us a list of paths
+            if isinstance(cache_path, list):
+                logger.important(f"{entity} paths ({len(cache_path)} files):")
+                for i, path in enumerate(cache_path):
+                    if i < 5 or i >= len(cache_path) - 5:
+                        logger.important(f"  [{i + 1}/{len(cache_path)}] {path}")
+                    elif i == 5:
+                        logger.important(f"  ... {len(cache_path) - 10} more files ...")
+            else:
+                if entity == "artifact" and entity_obj.key == "README.md":
+                    # TODO: switch to reading from README block in the future.
+                    # Current behavior is transitional and reads from README artifact cache.
+                    target_root = (
+                        ln_setup.settings.dev_dir
+                        if ln_setup.settings.dev_dir is not None
+                        else Path.cwd().resolve()
+                    )
+                    target_path = target_root / "README.md"
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+                    if target_path.exists():
+                        response = input(f"! {target_path} exists: replace? (y/n)")
+                        if response != "y":
+                            raise SystemExit("Aborted.")
+                    shutil.copyfile(Path(cache_path), target_path)
+                    logger.important(f"README is here: {target_path}")
+                    return target_path
+                logger.important(f"{entity} is here: {cache_path}")
+        case _:
+            raise AssertionError(f"unknown entity {entity}")

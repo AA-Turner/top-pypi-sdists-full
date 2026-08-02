@@ -1,0 +1,83 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "zuko"
+description = "Normalizing flows in PyTorch"
+authors = [
+  {name = "The Probabilists", email = "theprobabilists@gmail.com"}
+]
+classifiers = [
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Natural Language :: English",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+]
+dependencies = [
+  "numpy>=1.20.0",
+  "torch>=1.12.0",
+]
+dynamic = ["version"]
+keywords = [
+  "torch",
+  "normalizing flows",
+  "probability",
+  "distribution",
+  "generative",
+  "deep learning",
+]
+license = "MIT"
+readme = "README.md"
+requires-python = ">=3.10"
+
+[project.optional-dependencies]
+dev = [
+  "ipykernel>=6.29.0",
+  "matplotlib>=3.8.0",
+  "pre-commit>=3.7.0",
+  "ruff==0.9.9",
+]
+docs = [
+  "docutils==0.19",
+  "furo==2024.5.6",
+  "myst-nb==1.0.0",
+  "sphinx==7.3.7",
+]
+test = [
+  "pytest>=8.0.0",
+]
+
+[project.urls]
+documentation = "https://zuko.readthedocs.io"
+source = "https://github.com/probabilists/zuko"
+tracker = "https://github.com/probabilists/zuko/issues"
+
+[tool.ruff]
+extend-include = ["*.ipynb"]
+line-length = 99
+
+[tool.ruff.lint]
+extend-select = ["ANN", "B", "I", "UP", "W"]
+ignore = ["ANN002", "ANN003", "E731", "E741"]
+preview = true
+
+[tool.ruff.lint.extend-per-file-ignores]
+"__init__.py" = ["F401"]
+"test_*.py" = ["F403", "F405"]
+"*.ipynb" = ["B007"]
+
+[tool.ruff.lint.isort]
+lines-between-types = 1
+relative-imports-order = "closest-to-furthest"
+section-order = ["future", "third-party", "first-party", "local-folder"]
+
+[tool.ruff.format]
+preview = true
+
+[tool.setuptools.dynamic]
+version = {attr = "zuko.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["zuko*"]

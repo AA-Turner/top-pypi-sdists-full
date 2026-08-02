@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openccu-data
-Version: 2026.7.1
+Version: 2026.7.2
 Summary: Extract and distribute Homematic CCU/OpenCCU configuration metadata (translations, easymodes, link profiles).
 Author-email: SukramJ <sukramj@icloud.com>
 License: MIT License
@@ -69,7 +69,9 @@ openccu-data/
 ├── NOTICE.md              Data-artifact licensing (EQ-3/OCCU)
 ├── README.md              this file
 ├── CLAUDE.md              guide for AI assistants
+├── AI_POLICY.md           AI contribution policy
 ├── changelog.md
+├── Makefile               common dev tasks (`make help`)
 ├── pyproject.toml
 ├── openccu_data/
 │   ├── const.py
@@ -143,6 +145,21 @@ repository and open a PR there as well.
 
 ## Development
 
+The common tasks are wrapped in a `Makefile`:
+
+```bash
+make setup       # install dev dependencies + prek hooks
+make test        # run the pytest suite
+make lint        # ruff check
+make format      # ruff format
+make typecheck   # mypy
+make check       # lint + typecheck + test
+```
+
+`make help` lists all targets, including `make extract` /
+`make extract-<name>` to regenerate the data artifacts. The same commands
+also work without make:
+
 ```bash
 python -m pip install -e .[test]
 pytest tests/
@@ -155,6 +172,9 @@ Parts of openccu-data are developed with agentic AI assistance, primarily
 also triaged and analyzed with agentic help. Every change is still reviewed
 by a human maintainer and must pass the project's tests before it lands —
 AI accelerates the work, it does not replace the review gate.
+
+Contributions may use AI tools as well — see [AI_POLICY.md](./AI_POLICY.md)
+for the rules that apply.
 
 ## License
 

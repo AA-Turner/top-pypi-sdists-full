@@ -1,4 +1,4 @@
-use crate::linguist_data::{default_alias, get_aliases, is_valid_alias, resolve_canonical};
+use crate::linguist_data::{default_alias, resolve_canonical};
 use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
 use crate::rule_config_serde::{RuleConfig, load_rule_config};
 use crate::utils::range_utils::calculate_line_range;
@@ -52,55 +52,68 @@ impl MD040FencedCodeLanguage {
         Self { config }
     }
 
+    /// The language a fence label names, or `None` when nothing recognizes it.
+    ///
+    /// Linguist stays authoritative, so a label it resolves keeps its canonical
+    /// name and its aliases. `custom-languages` answers for the labels Linguist
+    /// has no entry for, which lets a project name the languages it actually
+    /// uses instead of accepting every unknown label.
+    fn resolve_language(&self, label: &str) -> Option<&str> {
+        resolve_canonical(label).or_else(|| self.config.custom_language(label))
+    }
+
     /// Validate the configuration and return any errors
     fn validate_config(&self) -> Vec<String> {
         let mut errors = Vec::new();
 
-        // Validate preferred-aliases: check that each alias is valid for its language
-        for (canonical, alias) in &self.config.preferred_aliases {
-            // Find the actual canonical name (case-insensitive)
-            if let Some(actual_canonical) = resolve_canonical(canonical) {
-                if !is_valid_alias(actual_canonical, alias)
-                    && let Some(valid_aliases) = get_aliases(actual_canonical)
-                {
-                    let valid_list: Vec<_> = valid_aliases.iter().take(5).collect();
-                    let valid_str = valid_list
-                        .iter()
-                        .map(|s| format!("'{s}'"))
-                        .collect::<Vec<_>>()
-                        .join(", ");
-                    let suffix = if valid_aliases.len() > 5 { ", ..." } else { "" };
-                    errors.push(format!(
-                        "Invalid alias '{alias}' for language '{actual_canonical}'. Valid aliases include: {valid_str}{suffix}"
-                    ));
-                }
-            } else {
+        // A fence label is the first whitespace-separated word of the info
+        // string, so an entry holding whitespace anywhere, surrounding it
+        // included, could never match one.
+        for declared in &self.config.custom_languages {
+            if declared.trim().is_empty() {
+                errors.push("Empty entry in custom-languages.".to_string());
+            } else if declared.chars().any(char::is_whitespace) {
                 errors.push(format!(
-                    "Unknown language '{canonical}' in preferred-aliases. Use GitHub Linguist canonical names."
+                    "Custom language '{declared}' contains whitespace, so no fence label can match it."
                 ));
             }
         }
 
+        errors.extend(
+            self.config
+                .preferred_aliases
+                .iter()
+                .filter_map(|(language, alias)| self.config.preferred_alias_problem(language, alias)),
+        );
+
         errors
+    }
+
+    /// Whether an inline comment turns this rule off for the block's fence line.
+    ///
+    /// A fence the rule is disabled for takes no part in the document's choice of
+    /// label, so this is asked while counting labels as well as while reporting.
+    fn is_disabled_at(&self, ctx: &crate::lint_context::LintContext, block: &FencedCodeBlock) -> bool {
+        ctx.is_rule_disabled(self.name(), block.line_idx + 1)
     }
 
     /// Determine the preferred label for each canonical language in the document
     fn compute_preferred_labels(
         &self,
+        ctx: &crate::lint_context::LintContext,
         blocks: &[FencedCodeBlock],
-        disabled_ranges: &[(usize, usize)],
     ) -> HashMap<String, String> {
         // Group labels by canonical language
         let mut by_canonical: HashMap<String, Vec<&str>> = HashMap::new();
 
         for block in blocks {
-            if is_line_disabled(disabled_ranges, block.line_idx) {
+            if self.is_disabled_at(ctx, block) {
                 continue;
             }
             if block.language.is_empty() {
                 continue;
             }
-            if let Some(canonical) = resolve_canonical(&block.language) {
+            if let Some(canonical) = self.resolve_language(&block.language) {
                 by_canonical
                     .entry(canonical.to_string())
                     .or_default()
@@ -113,14 +126,8 @@ impl MD040FencedCodeLanguage {
 
         for (canonical, labels) in by_canonical {
             // Check for user override first (case-insensitive lookup)
-            let winner = if let Some(preferred) = self
-                .config
-                .preferred_aliases
-                .iter()
-                .find(|(k, _)| k.eq_ignore_ascii_case(&canonical))
-                .map(|(_, v)| v.clone())
-            {
-                preferred
+            let winner = if let Some(preferred) = self.config.preferred_label(&canonical) {
+                preferred.to_string()
             } else {
                 // Find most prevalent label
                 let mut counts: HashMap<&str, usize> = HashMap::new();
@@ -138,8 +145,10 @@ impl MD040FencedCodeLanguage {
                 if winners.len() == 1 {
                     winners[0].to_string()
                 } else {
-                    // Tie-break: use curated default if available, otherwise alphabetically first
+                    // Tie-break: use the curated default (or, for a custom
+                    // language, its declared spelling), otherwise alphabetically first
                     default_alias(&canonical)
+                        .or_else(|| self.config.custom_language(&canonical))
                         .filter(|default| winners.contains(default))
                         .map_or_else(
                             || winners.into_iter().min().unwrap().to_string(),
@@ -193,18 +202,22 @@ impl MD040FencedCodeLanguage {
         // GitHub accepts names, aliases, AND file extensions as fence labels
         // (```pytb highlights via the .pytb extension), so the unknown check
         // consults the full accept-set, not just resolvable aliases.
-        if crate::linguist_data::is_known_language(label) {
+        if crate::linguist_data::is_known_language(label) || self.config.custom_language(label).is_some() {
             return None;
         }
 
         match self.config.unknown_language_action {
             UnknownLanguageAction::Ignore => None,
             UnknownLanguageAction::Warn => Some((
-                format!("Unknown language '{label}' (not in GitHub Linguist). Syntax highlighting may not work."),
+                format!(
+                    "Unknown language '{label}' (not in GitHub Linguist). Syntax highlighting may not work. Add it to custom-languages to accept it."
+                ),
                 Severity::Warning,
             )),
             UnknownLanguageAction::Error => Some((
-                format!("Unknown language '{label}' (not in GitHub Linguist)"),
+                format!(
+                    "Unknown language '{label}' (not in GitHub Linguist). Add it to custom-languages to accept it."
+                ),
                 Severity::Error,
             )),
         }
@@ -221,7 +234,6 @@ impl Rule for MD040FencedCodeLanguage {
     }
 
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
-        let content = ctx.content;
         let mut warnings = Vec::new();
 
         // Validate config and emit warnings for invalid configuration
@@ -241,12 +253,9 @@ impl Rule for MD040FencedCodeLanguage {
         // Derive fenced code blocks from pre-computed context
         let fenced_blocks = derive_fenced_code_blocks(ctx);
 
-        // Pre-compute disabled ranges for efficient lookup
-        let disabled_ranges = compute_disabled_ranges(content, self.name());
-
         // Compute preferred labels for consistent mode
         let preferred_labels = if self.config.style == LanguageStyle::Consistent {
-            self.compute_preferred_labels(&fenced_blocks, &disabled_ranges)
+            self.compute_preferred_labels(ctx, &fenced_blocks)
         } else {
             HashMap::new()
         };
@@ -254,8 +263,7 @@ impl Rule for MD040FencedCodeLanguage {
         let lines = ctx.raw_lines();
 
         for block in &fenced_blocks {
-            // Skip if this line is in a disabled range
-            if is_line_disabled(&disabled_ranges, block.line_idx) {
+            if self.is_disabled_at(ctx, block) {
                 continue;
             }
 
@@ -351,7 +359,7 @@ impl Rule for MD040FencedCodeLanguage {
                 continue;
             }
 
-            let canonical = resolve_canonical(&block.language);
+            let canonical = self.resolve_language(&block.language);
 
             // Check language restrictions (allowlist/denylist)
             if let Some(msg) = self.check_language_allowed(canonical, &block.language) {
@@ -514,42 +522,6 @@ fn derive_fenced_code_blocks(ctx: &crate::lint_context::LintContext) -> Vec<Fenc
             }
         })
         .collect()
-}
-
-/// Compute disabled line ranges from disable/enable comments
-fn compute_disabled_ranges(content: &str, rule_name: &str) -> Vec<(usize, usize)> {
-    let mut ranges = Vec::new();
-    let mut disabled_start: Option<usize> = None;
-
-    for (i, line) in content.lines().enumerate() {
-        let trimmed = line.trim();
-
-        if let Some(rules) = crate::inline_config::parse_disable_comment(trimmed)
-            && (rules.is_empty() || rules.contains(&rule_name))
-            && disabled_start.is_none()
-        {
-            disabled_start = Some(i);
-        }
-
-        if let Some(rules) = crate::inline_config::parse_enable_comment(trimmed)
-            && (rules.is_empty() || rules.contains(&rule_name))
-            && let Some(start) = disabled_start.take()
-        {
-            ranges.push((start, i));
-        }
-    }
-
-    // Handle unclosed disable
-    if let Some(start) = disabled_start {
-        ranges.push((start, usize::MAX));
-    }
-
-    ranges
-}
-
-/// Check if a line index is within a disabled range
-fn is_line_disabled(ranges: &[(usize, usize)], line_idx: usize) -> bool {
-    ranges.iter().any(|&(start, end)| line_idx >= start && line_idx < end)
 }
 
 /// Byte offset within `line` where the fence marker begins.
@@ -873,6 +845,89 @@ echo again
     }
 
     #[test]
+    fn test_disable_comment_naming_the_rule_by_alias_disables_it() {
+        let content = r#"```bash
+echo hi
+```
+<!-- rumdl-disable fenced-code-language -->
+```sh
+echo there
+```
+```sh
+echo again
+```
+<!-- rumdl-enable fenced-code-language -->
+"#;
+        let config = MD040Config {
+            style: LanguageStyle::Consistent,
+            ..Default::default()
+        };
+        let result = run_check_with_config(content, config.clone()).unwrap();
+        assert!(
+            result.is_empty(),
+            "an alias names the same rule as the ID does: {result:?}"
+        );
+
+        let names_another_rule = content.replace("fenced-code-language", "line-length");
+        let result = run_check_with_config(&names_another_rule, config).unwrap();
+        assert_eq!(
+            result.len(),
+            1,
+            "a directive naming another rule leaves the sh blocks voting: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_a_line_scoped_directive_takes_the_fence_out_of_the_vote() {
+        let directive = "<!-- rumdl-disable-next-line MD040 -->\n";
+        let content =
+            format!("```bash\necho one\n```\n\n{directive}```sh\necho two\n```\n\n{directive}```sh\necho three\n```\n");
+        let config = MD040Config {
+            style: LanguageStyle::Consistent,
+            ..Default::default()
+        };
+
+        let without_directives = content.replace(directive, "");
+        assert_eq!(
+            run_check_with_config(&without_directives, config.clone())
+                .unwrap()
+                .len(),
+            1,
+            "control: two sh fences outvote the bash one"
+        );
+
+        // A fence the rule is disabled for cannot decide the label for the fences
+        // that are still checked, so bash stands alone and is left as it is.
+        let result = run_check_with_config(&content, config).unwrap();
+        assert!(result.is_empty(), "a disabled fence casts no vote: {result:?}");
+    }
+
+    #[test]
+    fn test_a_directive_shown_inside_a_code_block_disables_nothing() {
+        // A document explaining the directive quotes it as sample text. Quoted or
+        // not, the sh blocks outvote the bash one, so the bash fence is reported.
+        let sample = "```text\n<!-- rumdl-disable RULE -->\n```\n";
+        let blocks = "\n```bash\necho one\n```\n\n```sh\necho two\n```\n\n```sh\necho three\n```\n";
+        let config = MD040Config {
+            style: LanguageStyle::Consistent,
+            ..Default::default()
+        };
+
+        let without_sample = run_check_with_config(blocks, config.clone()).unwrap();
+        assert_eq!(without_sample.len(), 1, "control: the bash fence is reported");
+
+        for name in ["MD040", "fenced-code-language"] {
+            let content = format!("{}{blocks}", sample.replace("RULE", name));
+            let result = run_check_with_config(&content, config.clone()).unwrap();
+            assert_eq!(
+                result.len(),
+                1,
+                "`{name}` inside a code block is sample text, not a directive: {result:?}"
+            );
+        }
+    }
+
+    #[test]
     fn test_fix_preserves_attributes() {
         let content = "```sh {.highlight}\ncode\n```\n\n```bash\nmore\n```";
         let config = MD040Config {
@@ -1108,6 +1163,43 @@ echo again
     }
 
     #[test]
+    fn test_invalid_preferred_alias_is_not_normalized_to() {
+        // An alias the language does not have is a configuration error, so
+        // fixing to it would rewrite valid labels into an invalid one.
+        let content = "```sh\necho one\n```\n\n```bash\necho two\n```\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+
+        let rule = MD040FencedCodeLanguage::with_config(MD040Config {
+            style: LanguageStyle::Consistent,
+            preferred_aliases: HashMap::from([("Shell".to_string(), "invalid_alias".to_string())]),
+            ..Default::default()
+        });
+        let fixed = rule.fix(&ctx).unwrap();
+        assert!(
+            !fixed.contains("invalid_alias"),
+            "an invalid alias must not reach the document, got:\n{fixed}"
+        );
+        assert!(
+            rule.check(&ctx)
+                .unwrap()
+                .iter()
+                .any(|w| w.message.contains("Invalid alias")),
+            "the invalid alias is still reported"
+        );
+
+        // Control: a valid alias for the same language is still normalized to.
+        let rule = MD040FencedCodeLanguage::with_config(MD040Config {
+            style: LanguageStyle::Consistent,
+            preferred_aliases: HashMap::from([("Shell".to_string(), "zsh".to_string())]),
+            ..Default::default()
+        });
+        assert_eq!(
+            rule.fix(&ctx).unwrap(),
+            "```zsh\necho one\n```\n\n```zsh\necho two\n```\n"
+        );
+    }
+
+    #[test]
     fn test_unknown_language_in_preferred_aliases_detected() {
         let mut preferred = HashMap::new();
         preferred.insert("NotARealLanguage".to_string(), "nope".to_string());
@@ -1174,6 +1266,196 @@ echo again
     }
 
     // =========================================================================
+    // custom-languages tests
+    // =========================================================================
+
+    fn custom_languages_config(declared: &[&str]) -> MD040Config {
+        MD040Config {
+            unknown_language_action: UnknownLanguageAction::Error,
+            custom_languages: declared.iter().map(|s| (*s).to_string()).collect(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_declared_custom_language_is_not_unknown() {
+        let content = "```cddl\nfoo = tstr\n```\n";
+
+        let flagged = run_check_with_config(content, custom_languages_config(&[])).unwrap();
+        assert_eq!(flagged.len(), 1, "an undeclared unknown label must still be reported");
+        assert!(flagged[0].message.contains("Unknown language 'cddl'"));
+
+        let accepted = run_check_with_config(content, custom_languages_config(&["cddl"])).unwrap();
+        assert!(accepted.is_empty(), "a declared label must be accepted: {accepted:?}");
+    }
+
+    #[test]
+    fn test_custom_language_matches_a_label_case_insensitively() {
+        let content = "```CDDL\nfoo = tstr\n```\n";
+        let result = run_check_with_config(content, custom_languages_config(&["cddl"])).unwrap();
+        assert!(result.is_empty(), "label case must not matter: {result:?}");
+    }
+
+    #[test]
+    fn test_custom_language_does_not_shadow_linguist() {
+        // Declaring a label Linguist knows leaves Linguist's answer in place, so
+        // `sh` still resolves to Shell and normalizes with the rest of that language.
+        let content = "```sh\necho hi\n```\n\n```bash\necho there\n```\n\n```bash\necho again\n```\n";
+        let config = MD040Config {
+            style: LanguageStyle::Consistent,
+            custom_languages: vec!["sh".to_string()],
+            ..Default::default()
+        };
+        let result = run_check_with_config(content, config.clone()).unwrap();
+        assert_eq!(result.len(), 1, "sh must still be judged against Shell: {result:?}");
+        assert!(result[0].message.contains("use 'bash'"));
+
+        let fixed = run_fix_with_config(content, config).unwrap();
+        assert!(!fixed.contains("```sh\n"));
+    }
+
+    #[test]
+    fn test_custom_language_normalizes_under_consistent_style() {
+        let content = "```cddl\nfoo = tstr\n```\n\n```CDDL\nbar = int\n```\n";
+        let config = MD040Config {
+            style: LanguageStyle::Consistent,
+            custom_languages: vec!["cddl".to_string()],
+            ..Default::default()
+        };
+        let result = run_check_with_config(content, config.clone()).unwrap();
+        assert_eq!(result.len(), 1, "the two spellings are one language: {result:?}");
+
+        // Both spellings appear once, and the declared spelling breaks the tie.
+        let fixed = run_fix_with_config(content, config).unwrap();
+        assert!(fixed.contains("```cddl"));
+        assert!(!fixed.contains("```CDDL"));
+    }
+
+    #[test]
+    fn test_custom_language_participates_in_allowed_and_disallowed_lists() {
+        let content = "```cddl\nfoo = tstr\n```\n";
+
+        let allowed = run_check_with_config(
+            content,
+            MD040Config {
+                allowed_languages: vec!["cddl".to_string()],
+                custom_languages: vec!["cddl".to_string()],
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert!(allowed.is_empty(), "an allowed custom language passes: {allowed:?}");
+
+        let disallowed = run_check_with_config(
+            content,
+            MD040Config {
+                disallowed_languages: vec!["cddl".to_string()],
+                custom_languages: vec!["cddl".to_string()],
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(disallowed.len(), 1, "a disallowed custom language is reported");
+        assert!(disallowed[0].message.contains("is disallowed"));
+    }
+
+    #[test]
+    fn test_undeclared_language_is_not_allowed_by_the_allowlist() {
+        // Without a declaration the label resolves to nothing, so the allowlist
+        // cannot admit it even when its own name is on the list.
+        let result = run_check_with_config(
+            "```cddl\nfoo = tstr\n```\n",
+            MD040Config {
+                allowed_languages: vec!["cddl".to_string()],
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(result[0].message.contains("is not in the allowed list"));
+    }
+
+    #[test]
+    fn test_unusable_custom_language_entries_are_config_errors() {
+        let rule =
+            MD040FencedCodeLanguage::with_config(custom_languages_config(&["c ddl", "cddl ", " cddl", "   ", "cddl"]));
+        let errors = rule.validate_config();
+        assert_eq!(errors.len(), 4, "only the unusable entries are reported: {errors:?}");
+        assert_eq!(
+            errors.iter().filter(|e| e.contains("contains whitespace")).count(),
+            3,
+            "whitespace around an entry is as unmatchable as whitespace inside it: {errors:?}"
+        );
+        assert!(errors.iter().any(|e| e.contains("Empty entry in custom-languages")));
+    }
+
+    #[test]
+    fn test_custom_language_with_surrounding_whitespace_does_not_match_a_label() {
+        let content = "```cddl\nfoo = int\n```";
+        let result = run_check_with_config(content, custom_languages_config(&["cddl "])).unwrap();
+        assert_eq!(
+            result.len(),
+            2,
+            "the label stays unknown and the entry is reported: {result:?}"
+        );
+        assert!(result[0].message.contains("[config error]"));
+        assert!(result[0].message.contains("contains whitespace"));
+        assert!(result[1].message.contains("Unknown language 'cddl'"));
+    }
+
+    #[test]
+    fn test_preferred_alias_for_a_custom_language() {
+        let accepted = MD040FencedCodeLanguage::with_config(MD040Config {
+            preferred_aliases: HashMap::from([("CDDL".to_string(), "cddl".to_string())]),
+            custom_languages: vec!["cddl".to_string()],
+            ..Default::default()
+        });
+        assert!(
+            accepted.validate_config().is_empty(),
+            "a spelling of the declared name is a valid preference"
+        );
+
+        let rejected = MD040FencedCodeLanguage::with_config(MD040Config {
+            preferred_aliases: HashMap::from([("cddl".to_string(), "cbor-dl".to_string())]),
+            custom_languages: vec!["cddl".to_string()],
+            ..Default::default()
+        });
+        let errors = rejected.validate_config();
+        assert_eq!(errors.len(), 1, "a custom language has no aliases: {errors:?}");
+        assert!(errors[0].contains("Invalid alias 'cbor-dl' for custom language 'cddl'"));
+
+        // The rejected preference does not reach the document either: labels
+        // normalize to the declared spelling, not to the invalid alias.
+        let ctx = LintContext::new(
+            "```cddl\nfoo = tstr\n```\n\n```CDDL\nbar = int\n```\n",
+            crate::config::MarkdownFlavor::Standard,
+            None,
+        );
+        let rejected = MD040FencedCodeLanguage::with_config(MD040Config {
+            style: LanguageStyle::Consistent,
+            preferred_aliases: HashMap::from([("cddl".to_string(), "cbor-dl".to_string())]),
+            custom_languages: vec!["cddl".to_string()],
+            ..Default::default()
+        });
+        assert_eq!(
+            rejected.fix(&ctx).unwrap(),
+            "```cddl\nfoo = tstr\n```\n\n```cddl\nbar = int\n```\n"
+        );
+
+        // Control: an accepted preference does drive normalization.
+        let accepted = MD040FencedCodeLanguage::with_config(MD040Config {
+            style: LanguageStyle::Consistent,
+            preferred_aliases: HashMap::from([("cddl".to_string(), "CDDL".to_string())]),
+            custom_languages: vec!["cddl".to_string()],
+            ..Default::default()
+        });
+        assert_eq!(
+            accepted.fix(&ctx).unwrap(),
+            "```CDDL\nfoo = tstr\n```\n\n```CDDL\nbar = int\n```\n"
+        );
+    }
+
+    // =========================================================================
     // Linguist resolution tests
     // =========================================================================
 
@@ -1197,6 +1479,8 @@ echo again
 
     #[test]
     fn test_alias_validation() {
+        use crate::linguist_data::is_valid_alias;
+
         assert!(is_valid_alias("Shell", "bash"));
         assert!(is_valid_alias("Shell", "sh"));
         assert!(is_valid_alias("Shell", "zsh"));

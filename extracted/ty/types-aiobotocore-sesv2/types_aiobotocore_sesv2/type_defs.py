@@ -54,6 +54,7 @@ from .literals import (
     MetricAggregationType,
     MetricDimensionNameType,
     MetricType,
+    PricingPlanType,
     QueryErrorCodeType,
     RecommendationImpactType,
     RecommendationStatusType,
@@ -298,8 +299,10 @@ __all__ = (
     "PaginatorConfigTypeDef",
     "PinpointDestinationTypeDef",
     "PlacementStatisticsTypeDef",
+    "PricingAttributesTypeDef",
     "PutAccountDedicatedIpWarmupAttributesRequestTypeDef",
     "PutAccountDetailsRequestTypeDef",
+    "PutAccountPricingAttributesRequestTypeDef",
     "PutAccountSendingAttributesRequestTypeDef",
     "PutAccountSuppressionAttributesRequestTypeDef",
     "PutAccountVdmAttributesRequestTypeDef",
@@ -757,6 +760,11 @@ class FailureInfoTypeDef(TypedDict):
     ErrorMessage: NotRequired[str]
 
 
+class PricingAttributesTypeDef(TypedDict):
+    CurrentPlan: NotRequired[PricingPlanType]
+    NextPlan: NotRequired[PricingPlanType]
+
+
 class SendQuotaTypeDef(TypedDict):
     Max24HourSend: NotRequired[float]
     MaxSendRate: NotRequired[float]
@@ -1083,6 +1091,10 @@ class PutAccountDetailsRequestTypeDef(TypedDict):
     UseCaseDescription: NotRequired[str]
     AdditionalContactEmailAddresses: NotRequired[Sequence[str]]
     ProductionAccessEnabled: NotRequired[bool]
+
+
+class PutAccountPricingAttributesRequestTypeDef(TypedDict):
+    Plan: PricingPlanType
 
 
 class PutAccountSendingAttributesRequestTypeDef(TypedDict):
@@ -2194,6 +2206,7 @@ class GetAccountResponseTypeDef(TypedDict):
     SuppressionAttributes: SuppressionAttributesTypeDef
     Details: AccountDetailsTypeDef
     VdmAttributes: VdmAttributesTypeDef
+    PricingAttributes: PricingAttributesTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 

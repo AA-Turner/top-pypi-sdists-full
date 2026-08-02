@@ -1,0 +1,485 @@
+import asyncio
+import contextlib
+import time
+from unittest.mock import AsyncMock, MagicMock
+
+import aiohttp
+import pytest
+
+from homematicip.connection.websocket_handler import WebsocketHandler
+
+
+class DummyMsg:
+    def __init__(self, data, type_):
+        self.data = data
+        self.type = type_
+
+
+def _receive_side_effect(messages):
+    pending = list(messages)
+
+    async def _receive():
+        return pending.pop(0)
+
+    return _receive
+
+
+@pytest.mark.asyncio
+async def test_add_on_message_handler():
+    client = WebsocketHandler()
+    handler = MagicMock()
+    client.add_on_message_handler(handler)
+    assert handler in client._on_message_handlers
+
+
+@pytest.mark.asyncio
+async def test_is_connected_false_initial():
+    client = WebsocketHandler()
+    assert not client.is_connected()
+
+
+@pytest.mark.asyncio
+async def test_is_connected_true():
+    client = WebsocketHandler()
+    client._websocket_connected.set()
+    assert client.is_connected()
+
+
+@pytest.mark.asyncio
+async def test_is_running_false_initial():
+    client = WebsocketHandler()
+    assert not client.is_running()
+
+
+@pytest.mark.asyncio
+async def test_handle_task_result_logs_cancelled(caplog):
+    client = WebsocketHandler()
+    task = MagicMock()
+    task.result.side_effect = asyncio.CancelledError()
+    with caplog.at_level("INFO"):
+        client._handle_task_result(task)
+    assert any("cancelled" in message for message in caplog.text.splitlines())
+
+
+@pytest.mark.asyncio
+async def test_handle_task_result_logs_exception(caplog):
+    client = WebsocketHandler()
+    task = MagicMock()
+    task.result.side_effect = Exception("fail")
+    with caplog.at_level("ERROR"):
+        client._handle_task_result(task)
+    assert any("Error in reconnect" in message for message in caplog.text.splitlines())
+
+
+@pytest.mark.asyncio
+async def test_cleanup_closes_ws_and_session():
+    callback_mock = AsyncMock()
+    client = WebsocketHandler()
+    client._websocket_connected.set()
+    client._disconnect_notified = False
+    client.add_on_disconnected_handler(callback_mock)
+
+    await client._cleanup()
+    await client._cleanup()
+
+    assert not client._websocket_connected.is_set()
+    callback_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_start_and_stop(monkeypatch):
+    client = WebsocketHandler()
+    context = MagicMock()
+    monkeypatch.setattr(client, "_connect", AsyncMock())
+    await client.start(context)
+    assert client._reconnect_task is not None
+    assert client.is_running()
+    await client.stop()
+    assert client._reconnect_task is None
+
+
+@pytest.mark.asyncio
+async def test_start_applies_context_settings(monkeypatch):
+    client = WebsocketHandler()
+    context = MagicMock()
+    context.websocket_heartbeat_interval = 11
+    context.websocket_connect_timeout = 22
+    context.websocket_message_stale_timeout = 33
+    context.websocket_initial_backoff = 4
+    context.websocket_max_backoff = 55
+    monkeypatch.setattr(client, "_connect", AsyncMock())
+
+    await client.start(context)
+
+    assert client.HEARTBEAT_INTERVAL == 11
+    assert client.CONNECT_TIMEOUT == 22
+    assert client.MESSAGE_STALE_TIMEOUT == 33
+    assert client.INITIAL_BACKOFF == 4
+    assert client.MAX_BACKOFF == 55
+
+
+@pytest.mark.asyncio
+async def test_listen_calls_handlers():
+    client = WebsocketHandler()
+    handler = AsyncMock()
+    client.add_on_message_handler(handler)
+    ws_mock = MagicMock()
+    ws_mock.receive = AsyncMock(
+        side_effect=_receive_side_effect(
+            [
+                DummyMsg("test", type_=aiohttp.WSMsgType.TEXT),
+                DummyMsg("test2", type_=aiohttp.WSMsgType.BINARY),
+                DummyMsg("err", type_=aiohttp.WSMsgType.ERROR),
+            ]
+        )
+    )
+
+    await client._listen(ws_mock)
+
+    handler.assert_any_await("test")
+    handler.assert_any_await("test2")
+    assert client.message_count() == 2
+    assert client.last_message_time() is not None
+
+
+@pytest.mark.asyncio
+async def test_listen_stops_on_close_without_calling_handlers():
+    client = WebsocketHandler()
+    handler = AsyncMock()
+    client.add_on_message_handler(handler)
+
+    ws_mock = MagicMock()
+    ws_mock.receive = AsyncMock(
+        side_effect=_receive_side_effect(
+            [
+                DummyMsg(None, type_=aiohttp.WSMsgType.CLOSE),
+                DummyMsg("after", type_=aiohttp.WSMsgType.TEXT),
+            ]
+        )
+    )
+
+    await client._listen(ws_mock)
+
+    handler.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_listen_logs_error_on_error_message(caplog):
+    client = WebsocketHandler()
+    ws_mock = MagicMock()
+    ws_mock.receive = AsyncMock(
+        side_effect=_receive_side_effect(
+            [
+                DummyMsg("bad", type_=aiohttp.WSMsgType.ERROR),
+            ]
+        )
+    )
+
+    with caplog.at_level("ERROR"):
+        await client._listen(ws_mock)
+
+    assert "Error in websocket" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_listen_stale_timeout_triggers_close_and_warning(monkeypatch, caplog):
+    client = WebsocketHandler()
+
+    ws_mock = MagicMock()
+    ws_mock.close = AsyncMock()
+
+    monkeypatch.setattr(
+        asyncio,
+        "wait_for",
+        AsyncMock(side_effect=TimeoutError()),
+    )
+
+    with caplog.at_level("WARNING"):
+        await client._listen(ws_mock)
+
+    ws_mock.close.assert_awaited_once()
+    assert "stale-connection safety net" in caplog.text
+    assert "No HomematicIP websocket events received" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_seconds_since_last_message_returns_none_without_messages():
+    client = WebsocketHandler()
+    assert client.seconds_since_last_message() is None
+
+
+@pytest.mark.asyncio
+async def test_handle_reconnect_updates_reason_and_attempt_count():
+    client = WebsocketHandler()
+
+    await client._handle_reconnect("connection dropped")
+
+    assert client.reconnect_attempt_count() == 1
+    assert client.last_disconnect_reason() == "connection dropped"
+
+
+def test_seconds_since_last_message_works_without_running_loop():
+    client = WebsocketHandler()
+    client._last_message_time = time.monotonic() - 5
+
+    elapsed = client.seconds_since_last_message()
+
+    assert elapsed is not None
+    assert 0 < elapsed < 60
+
+
+@pytest.mark.asyncio
+async def test_connect_passes_enforce_ssl_false_to_ws_connect(monkeypatch):
+    """When context.enforce_ssl=False and ssl_ctx is None, ws_connect must
+    receive ssl=False. Regression: the handler used to pass only ssl_ctx
+    (defaulting to True), ignoring context.enforce_ssl entirely."""
+    client = WebsocketHandler()
+    client.INITIAL_BACKOFF = 0  # don't sleep on the reconnect loop after our raise
+    captured = {}
+
+    class FakeSession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def ws_connect(self, url, **kwargs):
+            captured.update(kwargs)
+            client._stop_event.set()
+            raise TimeoutError("stop after capture")
+
+    monkeypatch.setattr(
+        "homematicip.connection.websocket_handler.aiohttp.ClientSession",
+        FakeSession,
+    )
+
+    context = MagicMock()
+    context.websocket_url = "wss://example.invalid/ws"
+    context.auth_token = "t"
+    context.client_auth_token = "c"
+    context.accesspoint_id = "a"
+    context.ssl_ctx = None
+    context.enforce_ssl = False
+
+    await client._connect(context)
+
+    assert captured["ssl"] is False
+
+
+@pytest.mark.asyncio
+async def test_connect_passes_ssl_ctx_when_provided(monkeypatch):
+    """When context.ssl_ctx is set, it takes precedence over enforce_ssl."""
+    client = WebsocketHandler()
+    client.INITIAL_BACKOFF = 0
+    captured = {}
+    sentinel = object()
+
+    class FakeSession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def ws_connect(self, url, **kwargs):
+            captured.update(kwargs)
+            client._stop_event.set()
+            raise TimeoutError("stop after capture")
+
+    monkeypatch.setattr(
+        "homematicip.connection.websocket_handler.aiohttp.ClientSession",
+        FakeSession,
+    )
+
+    context = MagicMock()
+    context.websocket_url = "wss://example.invalid/ws"
+    context.auth_token = "t"
+    context.client_auth_token = "c"
+    context.accesspoint_id = "a"
+    context.ssl_ctx = sentinel
+    context.enforce_ssl = False  # should be ignored when ssl_ctx is provided
+
+    await client._connect(context)
+
+    assert captured["ssl"] is sentinel
+
+
+@pytest.mark.asyncio
+async def test_connect_relookups_host_after_repeated_failures(monkeypatch):
+    """After RELOOKUP_AFTER_ATTEMPTS consecutive failures the handler re-resolves
+    the cloud host and connects to the freshly looked-up url instead of retrying
+    the dead one forever."""
+    client = WebsocketHandler()
+    client.INITIAL_BACKOFF = 0
+    client.RELOOKUP_AFTER_ATTEMPTS = 2
+    tried = []
+
+    class FakeSession:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def ws_connect(self, url, **kwargs):
+            tried.append(url)
+            if url == "wss://healthy.invalid/ws":
+                client._stop_event.set()
+            raise TimeoutError("dead host")
+
+    monkeypatch.setattr(
+        "homematicip.connection.websocket_handler.aiohttp.ClientSession",
+        FakeSession,
+    )
+
+    fresh = MagicMock()
+    fresh.websocket_url = "wss://healthy.invalid/ws"
+    build_mock = AsyncMock(return_value=fresh)
+    monkeypatch.setattr(
+        "homematicip.connection.websocket_handler.ConnectionContextBuilder.build_context_async",
+        build_mock,
+    )
+
+    context = MagicMock()
+    context.websocket_url = "wss://dead.invalid/ws"
+    context.accesspoint_id = "a"
+
+    await client._connect(context)
+
+    build_mock.assert_awaited()
+    assert tried[:2] == ["wss://dead.invalid/ws", "wss://dead.invalid/ws"]
+    assert "wss://healthy.invalid/ws" in tried
+
+
+@pytest.mark.asyncio
+async def test_relookup_context_falls_back_on_error(monkeypatch):
+    """A failing re-lookup keeps the current context instead of raising."""
+    client = WebsocketHandler()
+    monkeypatch.setattr(
+        "homematicip.connection.websocket_handler.ConnectionContextBuilder.build_context_async",
+        AsyncMock(side_effect=Exception("lookup down")),
+    )
+
+    context = MagicMock()
+    context.websocket_url = "wss://dead.invalid/ws"
+
+    result = await client._relookup_context(context)
+
+    assert result is context
+
+
+@pytest.mark.asyncio
+async def test_add_on_stale_handler_registers():
+    client = WebsocketHandler()
+    handler = MagicMock()
+    client.add_on_stale_handler(handler)
+    assert handler in client._on_stale_handler
+
+
+@pytest.mark.asyncio
+async def test_staleness_monitor_skips_when_disconnected():
+    """No fire when not connected, even if last_message_time is old."""
+    client = WebsocketHandler()
+    client.STALE_CHECK_INTERVAL = 0.01
+    client.STALE_WARNING_SECONDS = 1
+    handler = MagicMock()
+    client.add_on_stale_handler(handler)
+    client._last_message_time = time.monotonic() - 100  # very stale
+    # Note: _websocket_connected is NOT set
+
+    task = asyncio.create_task(client._staleness_monitor())
+    await asyncio.sleep(0.05)
+    client._stop_event.set()
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+
+    handler.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_staleness_monitor_fires_warning_then_error():
+    client = WebsocketHandler()
+    client.STALE_CHECK_INTERVAL = 0.01
+    client.STALE_WARNING_SECONDS = 1
+    client.STALE_ERROR_SECONDS = 5
+    handler = MagicMock()
+    client.add_on_stale_handler(handler)
+    client._websocket_connected.set()
+    # 2s stale: above warning, below error
+    client._last_message_time = time.monotonic() - 2
+
+    task = asyncio.create_task(client._staleness_monitor())
+    await asyncio.sleep(0.05)
+
+    handler.assert_called_once()
+    args = handler.call_args[0]
+    assert args[0] == "warning"
+    assert args[1] >= 1
+
+    # Now bump to error severity
+    handler.reset_mock()
+    client._last_message_time = time.monotonic() - 6
+    await asyncio.sleep(0.05)
+
+    handler.assert_called_once()
+    assert handler.call_args[0][0] == "error"
+
+    client._stop_event.set()
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+
+
+@pytest.mark.asyncio
+async def test_staleness_monitor_does_not_refire_same_severity():
+    client = WebsocketHandler()
+    client.STALE_CHECK_INTERVAL = 0.01
+    client.STALE_WARNING_SECONDS = 1
+    client.STALE_ERROR_SECONDS = 100
+    handler = MagicMock()
+    client.add_on_stale_handler(handler)
+    client._websocket_connected.set()
+    client._last_message_time = time.monotonic() - 2
+
+    task = asyncio.create_task(client._staleness_monitor())
+    await asyncio.sleep(0.1)  # multiple check cycles
+
+    handler.assert_called_once()  # still only one call
+
+    client._stop_event.set()
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
+
+
+@pytest.mark.asyncio
+async def test_staleness_monitor_resets_on_fresh_message():
+    client = WebsocketHandler()
+    client.STALE_CHECK_INTERVAL = 0.01
+    client.STALE_WARNING_SECONDS = 1
+    client.STALE_ERROR_SECONDS = 100
+    handler = MagicMock()
+    client.add_on_stale_handler(handler)
+    client._websocket_connected.set()
+    client._last_message_time = time.monotonic() - 2
+
+    task = asyncio.create_task(client._staleness_monitor())
+    await asyncio.sleep(0.05)
+    handler.assert_called_once()
+
+    # Fresh message arrives
+    client._last_message_time = time.monotonic()
+    await asyncio.sleep(0.05)
+    handler.reset_mock()
+
+    # Go stale again
+    client._last_message_time = time.monotonic() - 2
+    await asyncio.sleep(0.05)
+    handler.assert_called_once()  # fired again after reset
+
+    client._stop_event.set()
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError):
+        await task

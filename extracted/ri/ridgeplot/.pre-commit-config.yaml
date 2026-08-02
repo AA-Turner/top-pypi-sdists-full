@@ -1,0 +1,111 @@
+default_language_version:
+  python: python3.10
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args: [ '--maxkb=500' ]
+      - id: check-ast
+      - id: check-executables-have-shebangs
+      - id: check-json
+        exclude: ^pyrightconfig\.json$
+      - id: check-merge-conflict
+      - id: check-shebang-scripts-are-executable
+      - id: check-symlinks
+      - id: check-toml
+      - id: check-vcs-permalinks
+      - id: check-xml
+      - id: check-yaml
+      - id: destroyed-symlinks
+      - id: detect-aws-credentials
+        args: [ "--allow-missing-credentials" ]
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: fix-byte-order-marker
+      - id: forbid-submodules
+      - id: mixed-line-ending
+        args: [ "--fix=lf" ]
+      - id: name-tests-test
+        args: [ "--pytest-test-first" ]
+      - id: no-commit-to-branch
+        args: [ "--branch=main" ]
+      - id: pretty-format-json
+        args: [ --autofix, --no-sort-keys ]
+        # ignore jupyter notebooks
+        exclude: (^.*\.ipynb$|^pyrightconfig\.json$|^tests/e2e/artifacts/.*\.json$)
+      - id: pretty-format-json
+        args: [ --autofix, --no-sort-keys, --indent=1, --no-ensure-ascii ]
+        # only jupyter notebooks
+        files: ^.*\.ipynb$
+      - id: trailing-whitespace
+        exclude: ^\.bumpversion\.cfg$
+
+  - repo: https://github.com/python-jsonschema/check-jsonschema.git
+    rev: 0.37.1
+    hooks:
+      - id: check-github-actions
+      - id: check-github-workflows
+      - id: check-jsonschema
+        name: "Check GitHub Workflows set timeout-minutes"
+        files: ^\.github/workflows/[^/]+$
+        types: [ yaml ]
+        args: [ "--builtin-schema", "github-workflows-require-timeout" ]
+      - id: check-readthedocs
+
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.12
+    hooks:
+      - id: actionlint
+
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.9.1
+    hooks:
+      - id: nbstripout
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.2
+    hooks:
+      - id: codespell
+        args: [ "-L", "probly", "-L", "mis" ]
+        exclude: ^docs/_static/.*\.(js|html)$|^src/ridgeplot/.*\.c$
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck
+        # Exclude zsh scripts (unsupported by shellcheck)
+        exclude: ^cicd_utils/find-unmentioned-prs\.sh$
+
+  # mdformat is not enabled by default, but can be run manually with:
+  #   pre-commit run mdformat --all-files --hook-stage manual
+  - repo: https://github.com/executablebooks/mdformat
+    rev: 1.0.0
+    hooks:
+      - id: mdformat
+        stages: [ manual ]
+        files: '^docs/.*\.md$'
+        args: [ --check ]
+        additional_dependencies:
+          - mdformat-gfm
+          - mdformat-myst
+
+  - repo: https://github.com/abravalheri/validate-pyproject
+    rev: v0.25
+    hooks:
+      - id: validate-pyproject
+
+  - repo: https://github.com/mgedmin/check-manifest
+    rev: "0.51"
+    hooks:
+      - id: check-manifest
+        args: [ --no-build-isolation ]
+        additional_dependencies: [setuptools-scm]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.9
+    hooks:
+      - id: ruff-format
+      - id: ruff
+        args: [ --show-fixes, --exit-non-zero-on-fix ]

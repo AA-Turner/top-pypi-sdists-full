@@ -1,0 +1,44 @@
+name: Publish Python Package
+
+on:
+  workflow_dispatch:
+  release:
+    types: [created]
+
+jobs:
+  build-n-publish:
+    name: Build and publish Python 🐍 distributions 📦 to PyPI
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+    - uses: actions/checkout@v6.0.2
+      with:
+        fetch-depth: 0
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7.3.0
+
+    - name: Set up Python
+      uses: actions/setup-python@v6.2.0
+      with:
+        python-version: 3.14
+
+    - name: Build source and wheel archives
+      env:
+        OAK_BUILD_TAG: ${{ github.event.release.tag_name }}
+      run: |
+        make build-whl
+
+    - name: Verify release artifact version
+      run: |
+        ls -1 dist
+        ! ls dist/oaklib-0.0.0* 1>/dev/null 2>&1
+
+    - name: Publish distribution 📦 to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        verbose: true

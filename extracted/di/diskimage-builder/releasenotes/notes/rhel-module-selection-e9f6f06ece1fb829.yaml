@@ -1,5 +1,0 @@
----
-features:
-  - |
-    New environment variable enables the ability to select specific module
-    streams prior to RPM installation on RHEL8 and later.

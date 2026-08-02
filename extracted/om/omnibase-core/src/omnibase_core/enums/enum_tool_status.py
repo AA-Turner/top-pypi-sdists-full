@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""
+Tool Status Enums.
+
+Tool lifecycle status values.
+"""
+
+from enum import Enum, unique
+
+from omnibase_core.enums.enum_str_enum_base import UtilStrValueHelper
+
+
+@unique
+class EnumToolStatus(UtilStrValueHelper, str, Enum):
+    """Tool lifecycle status values."""
+
+    ACTIVE = "active"
+    DEPRECATED = "deprecated"
+    EXPERIMENTAL = "experimental"
+    MAINTENANCE = "maintenance"
+    END_OF_LIFE = "end_of_life"
+
+
+__all__ = ["EnumToolStatus"]

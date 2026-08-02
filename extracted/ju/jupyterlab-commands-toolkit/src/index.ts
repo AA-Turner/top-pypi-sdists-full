@@ -1,0 +1,177 @@
+import {
+  JupyterFrontEnd,
+  JupyterFrontEndPlugin
+} from '@jupyterlab/application';
+import { Event } from '@jupyterlab/services';
+import { IEventListener } from 'jupyterlab-eventlistener';
+
+const JUPYTERLAB_COMMAND_SCHEMA_ID =
+  'https://events.jupyter.org/jupyterlab_command_toolkit/lab_command/v1';
+
+const JUPYTERLAB_COMMAND_RESULT_SCHEMA_ID =
+  'https://events.jupyter.org/jupyterlab_command_toolkit/lab_command_result/v1';
+
+type JupyterLabCommand = {
+  name: string;
+  args: any;
+  requestId?: string;
+};
+
+type JupyterLabCommandResult = {
+  requestId: string;
+  success: boolean;
+  result?: any;
+  error?: string;
+};
+
+/**
+ * Initialization data for the jupyterlab-commands-toolkit extension.
+ */
+const plugin: JupyterFrontEndPlugin<void> = {
+  id: 'jupyterlab-commands-toolkit:plugin',
+  description:
+    'A Jupyter extension that provides an AI toolkit for JupyterLab commands.',
+  autoStart: true,
+  requires: [IEventListener],
+  activate: (app: JupyterFrontEnd, eventListener: IEventListener) => {
+    const { commands } = app;
+
+    eventListener.addListener(
+      JUPYTERLAB_COMMAND_SCHEMA_ID,
+      async (manager, _, event: Event.Emission) => {
+        const data = event as any as JupyterLabCommand;
+        const result: JupyterLabCommandResult = {
+          requestId: data.requestId || '',
+          success: false
+        };
+
+        try {
+          const commandResult = await app.commands.execute(
+            data.name,
+            data.args
+          );
+          result.success = true;
+
+          // Handle Widget objects specially (including subclasses like DocumentWidget)
+          let serializedResult;
+          if (
+            commandResult &&
+            typeof commandResult === 'object' &&
+            commandResult.constructor?.name?.includes('Widget')
+          ) {
+            serializedResult = {
+              type: commandResult.constructor?.name || 'Widget',
+              id: commandResult.id,
+              title: commandResult.title?.label || commandResult.title,
+              className: commandResult.className
+            };
+          } else {
+            // For other objects, try JSON serialization with fallback
+            try {
+              serializedResult = JSON.parse(JSON.stringify(commandResult));
+            } catch {
+              serializedResult = commandResult
+                ? '[Complex object - cannot serialize]'
+                : 'Command executed successfully';
+            }
+          }
+
+          result.result = serializedResult;
+        } catch (error) {
+          result.success = false;
+          result.error = error instanceof Error ? error.message : String(error);
+        }
+
+        // Emit the result back if we have a requestId
+        if (data.requestId) {
+          manager.emit({
+            schema_id: JUPYTERLAB_COMMAND_RESULT_SCHEMA_ID,
+            version: '1',
+            data: result
+          });
+        }
+      }
+    );
+
+    commands.addCommand('jupyterlab-commands-toolkit:list-all-commands', {
+      label: 'List All Commands',
+      describedBy: {
+        args: {}
+      },
+      execute: async (args: any) => {
+        const query = args['query'] as string | undefined;
+
+        const commandList: Array<{
+          id: string;
+          label?: string;
+          caption?: string;
+          description?: string;
+          args?: any;
+        }> = [];
+
+        // Get all command IDs
+        const commandIds = commands.listCommands();
+
+        for (const id of commandIds) {
+          // Get command metadata using various CommandRegistry methods
+          // Wrap each call in try/catch since some commands throw internally
+          let description: any = null;
+          let label = '';
+          let caption = '';
+          let usage = '';
+          try {
+            description = await commands.describedBy(id);
+          } catch (e) {
+            console.warn(`Failed to get describedBy for command "${id}":`, e);
+          }
+          try {
+            label = commands.label(id);
+          } catch (e) {
+            console.warn(`Failed to get label for command "${id}":`, e);
+          }
+          try {
+            caption = commands.caption(id);
+          } catch (e) {
+            console.warn(`Failed to get caption for command "${id}":`, e);
+          }
+          try {
+            usage = commands.usage(id);
+          } catch (e) {
+            console.warn(`Failed to get usage for command "${id}":`, e);
+          }
+
+          const command = {
+            id,
+            label: label || undefined,
+            caption: caption || undefined,
+            description: usage || undefined,
+            args: description?.args || undefined
+          };
+
+          // Filter by query if provided
+          if (query) {
+            const searchTerm = query.toLowerCase();
+            const matchesQuery =
+              id.toLowerCase().includes(searchTerm) ||
+              label?.toLowerCase().includes(searchTerm) ||
+              caption?.toLowerCase().includes(searchTerm) ||
+              usage?.toLowerCase().includes(searchTerm);
+
+            if (matchesQuery) {
+              commandList.push(command);
+            }
+          } else {
+            commandList.push(command);
+          }
+        }
+        return {
+          success: true,
+          commandCount: commandList.length,
+          commands: commandList
+        };
+      }
+    });
+  }
+};
+
+export default plugin;

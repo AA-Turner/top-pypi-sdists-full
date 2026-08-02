@@ -34,8 +34,18 @@ SLURM_CONTAINER_MARKER_FILE = '.sky_slurm_container'
 # Regex pattern for parsing GPU GRES strings.
 # Format: 'gpu[:acc_type]:acc_count(optional_extra_info)'
 # Examples: 'gpu:8', 'gpu:H100:8', 'gpu:nvidia_h100_80gb_hbm3:8(S:0-1)'
-_GRES_GPU_PATTERN = re.compile(r'\bgpu:(?:(?P<type>[^:(]+):)?(?P<count>\d+)',
-                               re.IGNORECASE)
+# Also accepts '=' as the count separator to handle TRES-style strings
+# that appear in some Slurm outputs (e.g. squeue %b can return
+# 'gres/gpu=1' or 'gres/gpu:h100=2').
+_GRES_GPU_PATTERN = re.compile(
+    r'\bgpu[:=](?:(?P<type>[^:=(,]+)[:=])?(?P<count>\d+)', re.IGNORECASE)
+
+# Regex pattern for parsing GPU entries in TRES strings from
+# `scontrol show node` (CfgTRES/AllocTRES), e.g.
+# 'cpu=64,mem=800G,billing=64,gres/gpu=8' or typed entries such as
+# 'gres/gpu=8,gres/gpu:h100=8'.
+_TRES_GPU_PATTERN = re.compile(
+    r'(?:^|,)gres/gpu(?::(?P<type>[^=,]+))?=(?P<count>\d+)', re.IGNORECASE)
 
 _SLURM_NODES_INFO_CACHE_TTL = 30 * 60
 # Proctrack type is highly unlikely to change.
@@ -74,6 +84,24 @@ def get_gpu_type_and_count(gres_str: str) -> Tuple[Optional[str], int]:
     if not match:
         return None, 0
     return match.group('type'), int(match.group('count'))
+
+
+def get_gpu_count_from_tres(tres_str: str) -> int:
+    """Parses the GPU count from a TRES string (CfgTRES/AllocTRES).
+
+    A TRES string may contain both an untyped total (``gres/gpu=8``) and
+    typed entries (``gres/gpu:h100=8``). The untyped total is preferred;
+    if only typed entries are present, their counts are summed.
+
+    Returns:
+        The GPU count. If no GPU entry is found, returns 0.
+    """
+    typed_total = 0
+    for match in _TRES_GPU_PATTERN.finditer(tres_str):
+        if match.group('type') is None:
+            return int(match.group('count'))
+        typed_total += int(match.group('count'))
+    return typed_total
 
 
 def pyxis_container_name(cluster_name_on_cloud: str) -> str:
@@ -973,6 +1001,18 @@ def resolve_gres_gpu_type(
     return chosen
 
 
+@annotations.lru_cache(scope='request')
+def _get_all_jobs_gres(
+        slurm_client: 'slurm.SlurmClient') -> Dict[str, List[str]]:
+    """Request-scoped cached wrapper around SlurmClient.get_all_jobs_gres().
+
+    Fetched lazily: `squeue` is only queried when at least one node falls
+    back to job-level GPU accounting (see _get_slurm_node_info_list), and
+    at most once per client instance.
+    """
+    return slurm_client.get_all_jobs_gres()
+
+
 def _parse_int_or_none(value: Optional[str]) -> Optional[int]:
     """Parse an int from an scontrol attribute value; None on N/A/garbage."""
     if value is None:
@@ -996,10 +1036,16 @@ def _parse_float_or_none(value: Optional[str]) -> Optional[float]:
 def _get_slurm_node_info_list(slurm_cluster_name: str) -> List[Dict[str, Any]]:
     """Gathers detailed information about each node in the Slurm cluster.
 
+    Args:
+        slurm_cluster_name: The Slurm cluster to query. Must be a host defined
+            in the Slurm SSH config (~/.slurm/config).
+
     Raises:
         FileNotFoundError: If the Slurm configuration file does not exist.
-        ValueError: If no Slurm cluster name is found in the Slurm
-                    configuration file.
+        KeyError: If the cluster's entry in the Slurm configuration file is
+            missing a required field, e.g. `User`.
+        exceptions.CommandError: If a Slurm command fails on the cluster, e.g.
+            because the login node is unreachable.
     """
     # 1. Get node state and GRES using sinfo
 
@@ -1041,7 +1087,6 @@ def _get_slurm_node_info_list(slurm_cluster_name: str) -> List[Dict[str, Any]]:
     # 2. Process each node, aggregating partitions per node
     slurm_nodes_info: Dict[str, Dict[str, Any]] = {}
 
-    nodes_to_jobs_gres = slurm_client.get_all_jobs_gres()
     for node_info in node_infos:
         node_name = node_info.node
         state = node_info.state
@@ -1060,22 +1105,47 @@ def _get_slurm_node_info_list(slurm_cluster_name: str) -> List[Dict[str, Any]]:
             else:
                 node_gpu_type = 'GPU'
 
-        # Get allocated GPUs
+        # Per-node scontrol attributes (fetched once above); empty when
+        # scontrol was unavailable.
+        details = node_details_by_name.get(node_name, {})
+
+        # Get allocated GPUs.
+        # Node-level TRES accounting (AllocTRES from `scontrol show node`)
+        # is the preferred source for allocated GPUs: job-level
+        # `squeue -o "%b"` can be `N/A` even when the job has allocated
+        # GPUs (e.g. jobs requesting GPUs via --tres-per-task), or can use
+        # GRES formats the parser does not recognize, causing free GPUs to
+        # be overestimated.
+        # See https://github.com/skypilot-org/skypilot/issues/10283.
         allocated_gpus = 0
-        # TODO(zhwu): move to enum
-        if state in ('alloc', 'mix', 'drain', 'drng', 'drained', 'resv',
-                     'comp'):
-            jobs_gres = nodes_to_jobs_gres.get(node_name, [])
-            if jobs_gres:
-                for job_line in jobs_gres:
-                    _, job_gpu_count = get_gpu_type_and_count(job_line)
-                    allocated_gpus += job_gpu_count
-            elif state == 'alloc':
-                # If no GRES info found but node is fully allocated,
-                # assume all GPUs are in use.
-                allocated_gpus = total_gpus
-        elif state == 'idle':
-            allocated_gpus = 0
+        use_tres = False
+        if details and total_gpus > 0:
+            # Only trust AllocTRES if the cluster actually tracks
+            # gres/gpu in TRES: on clusters that do not project GRES
+            # into TRES, CfgTRES reports 0 GPUs while sinfo %G reports
+            # the real count, and AllocTRES would silently under-report
+            # the allocation.
+            cfg_tres = details.get('CfgTRES', '')
+            alloc_tres = details.get('AllocTRES', '')
+            if get_gpu_count_from_tres(cfg_tres) >= total_gpus:
+                allocated_gpus = get_gpu_count_from_tres(alloc_tres)
+                use_tres = True
+        if not use_tres and total_gpus > 0:
+            # Fall back to job-level accounting via squeue.
+            # TODO(zhwu): move to enum
+            if state in ('alloc', 'mix', 'drain', 'drng', 'drained', 'resv',
+                         'comp'):
+                jobs_gres = _get_all_jobs_gres(slurm_client).get(node_name, [])
+                if jobs_gres:
+                    for job_line in jobs_gres:
+                        _, job_gpu_count = get_gpu_type_and_count(job_line)
+                        allocated_gpus += job_gpu_count
+                elif state == 'alloc':
+                    # If no GRES info found but node is fully allocated,
+                    # assume all GPUs are in use.
+                    allocated_gpus = total_gpus
+            elif state == 'idle':
+                allocated_gpus = 0
 
         free_gpus = total_gpus - allocated_gpus if state not in ('down',
                                                                  'drain',
@@ -1086,7 +1156,6 @@ def _get_slurm_node_info_list(slurm_cluster_name: str) -> List[Dict[str, Any]]:
         # CPU/memory allocation + sampled usage from scontrol. All of
         # these are None when scontrol was unavailable or reported N/A
         # (e.g. on down nodes).
-        details = node_details_by_name.get(node_name, {})
         cpu_alloc = _parse_int_or_none(details.get('CPUAlloc'))
         cpu_tot = _parse_int_or_none(details.get('CPUTot'))
         free_vcpus = None
@@ -1131,6 +1200,20 @@ def _get_slurm_node_info_list(slurm_cluster_name: str) -> List[Dict[str, Any]]:
     return list(slurm_nodes_info.values())
 
 
+def slurm_cluster_names() -> List[str]:
+    """Gets the names of the Slurm clusters this server is configured with.
+
+    Derived from ~/.slurm/config and the ``allowed_clusters`` config alone —
+    nothing here contacts a login node, so a cluster that is currently
+    unreachable is still reported. Callers that need node or GPU data still
+    have to query the cluster itself.
+
+    Returns:
+        List[str]: The configured and allowed Slurm cluster names.
+    """
+    return clouds.Slurm.existing_allowed_clusters()
+
+
 def slurm_node_info(
         slurm_cluster_name: Optional[str] = None) -> List[Dict[str, Any]]:
     """Gets detailed information for each node in the Slurm cluster(s).
@@ -1148,25 +1231,44 @@ def slurm_node_info(
             cpu_load / free_memory_gb (slurmd-sampled usage) — the
             enrichment fields are None when scontrol is unavailable or
             reports N/A.
+
+    Raises:
+        exceptions.CommandError: If a single cluster is explicitly requested
+            and querying it fails. Failures are never raised when aggregating
+            across clusters, so that one unreachable cluster does not hide the
+            nodes of the reachable ones.
     """
     if slurm_cluster_name is not None:
-        clusters_to_query = [slurm_cluster_name]
-    else:
-        clusters_to_query = clouds.Slurm.existing_allowed_clusters()
-        if not clusters_to_query:
+        # An explicitly requested cluster propagates query failures, so that
+        # callers can tell an unreachable cluster apart from a cluster with no
+        # nodes. `sky show-gpus` and the dashboard's per-cluster GPU tile rely
+        # on this to report the cluster as failed instead of empty, see
+        # `core.realtime_slurm_gpu_availability`.
+        try:
+            return _get_slurm_node_info_list(
+                slurm_cluster_name=slurm_cluster_name)
+        except (FileNotFoundError, RuntimeError,
+                exceptions.NotSupportedError) as e:
+            logger.debug(f'Could not retrieve Slurm node info: {e}')
             return []
+
+    clusters_to_query = clouds.Slurm.existing_allowed_clusters()
+    if not clusters_to_query:
+        return []
 
     def _query_cluster(cluster_name: str) -> List[Dict[str, Any]]:
         try:
             return _get_slurm_node_info_list(slurm_cluster_name=cluster_name)
-        except (FileNotFoundError, RuntimeError,
-                exceptions.NotSupportedError) as e:
-            logger.debug('Could not retrieve Slurm node info for cluster '
-                         f'{cluster_name!r}: {e}')
+        except Exception as e:  # pylint: disable=broad-except
+            # Best-effort aggregation: an unreachable login node raises
+            # exceptions.CommandError and a malformed ~/.slurm/config entry
+            # raises KeyError. run_in_parallel re-raises the first exception,
+            # so anything escaping here would drop every cluster's nodes.
+            logger.warning(
+                f'Skipping Slurm cluster {cluster_name!r} while collecting '
+                f'node info: {common_utils.format_exception(e)}')
             return []
 
-    if len(clusters_to_query) == 1:
-        return _query_cluster(clusters_to_query[0])
     node_info_lists = subprocess_utils.run_in_parallel(_query_cluster,
                                                        clusters_to_query)
     return [

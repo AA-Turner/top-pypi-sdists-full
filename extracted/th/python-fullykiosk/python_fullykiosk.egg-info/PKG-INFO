@@ -1,0 +1,33 @@
+Metadata-Version: 2.4
+Name: python-fullykiosk
+Version: 0.0.15
+Summary: Python wrapper for Fully Kiosk Browser REST API
+Home-page: https://github.com/cgarwood/python-fullykiosk
+Download-URL: https://github.com/cgarwood/python-fullykiosk
+Author: Charles Garwood
+Author-email: cgarwood@gmail.com
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Topic :: Home Automation
+Classifier: License :: OSI Approved :: Apache Software License
+Requires-Python: >=3.6
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-python
+Dynamic: summary
+
+# python-fullykiosk
+Python wrapper for Fully Kiosk Browser REST interface

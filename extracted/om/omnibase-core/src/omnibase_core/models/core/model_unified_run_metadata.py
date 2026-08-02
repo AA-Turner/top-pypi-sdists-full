@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+from __future__ import annotations
+
+from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel
+
+
+class ModelUnifiedRunMetadata(BaseModel):
+    """
+    Run metadata model for unified results
+    """
+
+    start_time: datetime
+    end_time: datetime | None = None
+    duration: float | None = None
+    run_id: UUID | None = None

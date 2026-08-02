@@ -1,0 +1,724 @@
+/*
+ * track_ext_dll.c — Dll type for the track module.
+ *
+ * Included by track_ext.c (the module aggregator).
+ * Hand-patches to this file are preserved across jm commands.
+ * Do NOT compile this file directly — only track_ext.c is compiled.
+ */
+/* ======================================================== */
+/* DllObject — wraps dll_state_t *       */
+/* ======================================================== */
+
+#include "dll/dll_core.h"
+
+typedef struct
+{
+  PyObject_HEAD dll_state_t *handle;
+} DllObject;
+
+static void
+DllObj_dealloc (DllObject *self)
+{
+  if (self->handle)
+    dll_destroy (self->handle);
+  Py_TYPE (self)->tp_free ((PyObject *)self);
+}
+
+static PyObject *
+DllObj_new (PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+  DllObject *self = (DllObject *)type->tp_alloc (type, 0);
+  if (self)
+    self->handle = NULL;
+  return (PyObject *)self;
+}
+
+static int
+DllObj_init (DllObject *self, PyObject *args, PyObject *kwds)
+{
+  static char       *kwlist[]     = { "code", "sps",     "init_chip", "bn",
+                                      "zeta", "spacing", "segments",  NULL };
+  PyObject          *code_obj     = NULL;
+  unsigned long long sps_raw      = 2;
+  double             init_chip    = 0.0;
+  double             bn           = 0.01;
+  double             zeta         = 0.707;
+  double             spacing      = 0.5;
+  unsigned long long segments_raw = 1;
+
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "O|KddddK", kwlist, &code_obj,
+                                    &sps_raw, &init_chip, &bn, &zeta, &spacing,
+                                    &segments_raw))
+    return -1;
+  size_t         sps      = (size_t)sps_raw;
+  size_t         segments = (size_t)segments_raw;
+  PyArrayObject *code_arr = (PyArrayObject *)PyArray_FROM_OTF (
+      code_obj, NPY_UINT8, NPY_ARRAY_C_CONTIGUOUS);
+  if (!code_arr)
+    {
+      return -1;
+    }
+  size_t code_len = (size_t)PyArray_SIZE (code_arr);
+  self->handle
+      = dll_create ((const uint8_t *)PyArray_DATA (code_arr), code_len, sps,
+                    init_chip, bn, zeta, spacing, segments);
+  Py_DECREF (code_arr);
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_MemoryError, "dll_create returned NULL");
+      return -1;
+    }
+  return 0;
+}
+
+static PyObject *
+DllObj_steps_max_out (DllObject *self, PyObject *Py_UNUSED (ignored))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  return PyLong_FromSize_t (dll_steps_max_out (self->handle));
+}
+
+static PyObject *
+DllObj_steps (DllObject *self, PyObject *args, PyObject *kwds)
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  static char   *_kwlist[] = { "x", "out", NULL };
+  PyObject      *x_obj     = NULL;
+  PyArrayObject *x_arr     = NULL;
+  PyObject      *out_obj   = NULL;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "O|O", _kwlist, &x_obj,
+                                    &out_obj))
+    return NULL;
+  x_arr = (PyArrayObject *)PyArray_FROM_OTF (x_obj, NPY_COMPLEX64,
+                                             NPY_ARRAY_C_CONTIGUOUS);
+  if (!x_arr)
+    return NULL;
+  if (out_obj && out_obj != Py_None)
+    {
+      /* Require the exact dtype AND C-contiguity — either mismatch makes
+       * the marshal write into a temp copy, not the caller's buffer. */
+      if (!PyArray_Check (out_obj)
+          || PyArray_TYPE ((PyArrayObject *)out_obj) != NPY_COMPLEX64
+          || !PyArray_IS_C_CONTIGUOUS ((PyArrayObject *)out_obj)
+          || !PyArray_ISWRITEABLE ((PyArrayObject *)out_obj))
+        {
+          PyErr_SetString (PyExc_TypeError,
+                           "out must be a writable, C-contiguous"
+                           " ndarray of the output dtype");
+          Py_DECREF (x_arr);
+          return NULL;
+        }
+      PyArrayObject *out_arr = (PyArrayObject *)PyArray_FROM_OTF (
+          out_obj, NPY_COMPLEX64,
+          NPY_ARRAY_C_CONTIGUOUS | NPY_ARRAY_WRITEABLE);
+      if (!out_arr)
+        {
+          Py_DECREF (x_arr);
+          return NULL;
+        }
+      size_t _cap     = (size_t)PyArray_SIZE (out_arr);
+      size_t _omax    = dll_steps_max_out (self->handle);
+      size_t _min_cap = _omax > (size_t)PyArray_SIZE (x_arr)
+                            ? _omax
+                            : ((size_t)PyArray_SIZE (x_arr));
+      if (_cap < _min_cap)
+        {
+          PyErr_Format (PyExc_ValueError, "out has %zu elements, need >= %zu",
+                        _cap, _min_cap);
+          Py_DECREF (out_arr);
+          Py_DECREF (x_arr);
+          return NULL;
+        }
+      /* nogil: GIL released across the pure-C kernel — sound only when
+       * this object is not shared across threads concurrently (one
+       * object per stream); the kernel touches only this object's
+       * state/buffers and the caller's input. */
+      const float complex *_ng0 = (const float complex *)PyArray_DATA (x_arr);
+      size_t               _ng1 = (size_t)PyArray_SIZE (x_arr);
+      float complex       *_ng2 = (float complex *)PyArray_DATA (out_arr);
+      size_t               n_out;
+      Py_BEGIN_ALLOW_THREADS
+        n_out = dll_steps (self->handle, _ng0, _ng1, _ng2, _cap);
+      Py_END_ALLOW_THREADS
+      Py_DECREF (x_arr);
+      npy_intp  _odim  = (npy_intp)n_out;
+      PyObject *_oview = PyArray_SimpleNewFromData (1, &_odim, NPY_COMPLEX64,
+                                                    PyArray_DATA (out_arr));
+      if (!_oview)
+        {
+          Py_DECREF (out_arr);
+          return NULL;
+        }
+      PyArray_SetBaseObject ((PyArrayObject *)_oview, (PyObject *)out_arr);
+      return _oview;
+    }
+  size_t _need = (size_t)PyArray_SIZE (x_arr);
+  size_t _cap  = dll_steps_max_out (self->handle);
+  if (!_cap || _cap < _need)
+    _cap = _need;
+  npy_intp  _adim = (npy_intp)_cap;
+  PyObject *arr0  = PyArray_SimpleNew (1, &_adim, NPY_COMPLEX64);
+  if (!arr0)
+    {
+      Py_DECREF (x_arr);
+      return NULL;
+    }
+  float complex *_d0 = (float complex *)PyArray_DATA ((PyArrayObject *)arr0);
+  /* nogil: GIL released across the pure-C kernel — sound only when
+   * this object is not shared across threads concurrently (one
+   * object per stream); the kernel touches only this object's
+   * state/buffers and the caller's input. */
+  const float complex *_ng0 = (const float complex *)PyArray_DATA (x_arr);
+  size_t               _ng1 = (size_t)PyArray_SIZE (x_arr);
+  size_t               n_out;
+  Py_BEGIN_ALLOW_THREADS
+    n_out = dll_steps (self->handle, _ng0, _ng1, _d0, _cap);
+  Py_END_ALLOW_THREADS
+  Py_DECREF (x_arr);
+  if ((size_t)n_out == _cap)
+    {
+      return arr0;
+    }
+  npy_intp     _odim = (npy_intp)n_out;
+  PyArray_Dims _rs0  = { &_odim, 1 };
+  PyObject *v0 = PyArray_Resize ((PyArrayObject *)arr0, &_rs0, 0, NPY_CORDER);
+  if (!v0)
+    {
+      Py_DECREF (arr0);
+      return NULL;
+    }
+  Py_DECREF (v0);
+  return arr0;
+}
+
+static PyObject *
+DllObj_set_telemetry (DllObject *self, PyObject *args, PyObject *kwds)
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  static char  *_kwlist[] = { "tlm", "prefix", "decim", NULL };
+  PyObject     *tlm_obj   = Py_None;
+  const char   *prefix    = NULL;
+  unsigned long decim_raw = 1;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "Os|k", _kwlist, &tlm_obj,
+                                    &prefix, &decim_raw))
+    return NULL;
+  dp_tlm_t *tlm = NULL;
+  if (tlm_obj != Py_None)
+    {
+      PyObject *tlm_cap = tlm_obj;
+      Py_INCREF (tlm_cap);
+      if (!PyCapsule_CheckExact (tlm_cap))
+        {
+          Py_DECREF (tlm_cap);
+          tlm_cap = PyObject_GetAttrString (tlm_obj, "_capsule");
+          if (!tlm_cap)
+            return NULL;
+        }
+      tlm = (dp_tlm_t *)PyCapsule_GetPointer (tlm_cap,
+                                              "doppler.telemetry.dp_tlm");
+      Py_DECREF (tlm_cap);
+      if (!tlm)
+        return NULL;
+    }
+  uint32_t decim = (uint32_t)decim_raw;
+  int      _rc   = dll_set_telemetry (self->handle, tlm, prefix, decim);
+  if (_rc != 0)
+    {
+      PyErr_Format (PyExc_ValueError, "set_telemetry failed (rc=%d)", _rc);
+      return NULL;
+    }
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+DllObj_configure (DllObject *self, PyObject *args, PyObject *kwds)
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  static char *_kwlist[] = { "bn", "zeta", NULL };
+  double       bn        = 0.0;
+  double       zeta      = 0.0;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "dd", _kwlist, &bn, &zeta))
+    return NULL;
+  dll_configure (self->handle, bn, zeta);
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+DllObj_set_rate_aid (DllObject *self, PyObject *args, PyObject *kwds)
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  static char *_kwlist[] = { "rate_aid", NULL };
+  double       rate_aid  = 0.0;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "d", _kwlist, &rate_aid))
+    return NULL;
+  dll_set_rate_aid (self->handle, rate_aid);
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+DllObj_configure_lock (DllObject *self, PyObject *args, PyObject *kwds)
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  static char       *_kwlist[]   = { "pfa", "n_looks", "ref_snr_db", NULL };
+  double             pfa         = 0.0;
+  unsigned long long n_looks_raw = 0ULL;
+  double             ref_snr_db  = 0.0;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "dK|d", _kwlist, &pfa,
+                                    &n_looks_raw, &ref_snr_db))
+    return NULL;
+  size_t n_looks = (size_t)n_looks_raw;
+  int    _rc     = dll_configure_lock (self->handle, pfa, n_looks, ref_snr_db);
+  if (_rc != 0)
+    {
+      PyErr_Format (PyExc_ValueError, "configure_lock failed (rc=%d)", _rc);
+      return NULL;
+    }
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+DllObj_configure_lock_raw (DllObject *self, PyObject *args, PyObject *kwds)
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  static char *_kwlist[]   = { "up_thresh", "down_thresh", "n_looks", "alpha",
+                               "n_up",      "n_down",      NULL };
+  double       up_thresh   = 0.0;
+  double       down_thresh = 0.0;
+  unsigned long long n_looks_raw = 0ULL;
+  double             alpha       = 0.0;
+  unsigned long      n_up_raw    = 0UL;
+  unsigned long      n_down_raw  = 0UL;
+  if (!PyArg_ParseTupleAndKeywords (args, kwds, "ddKdkk", _kwlist, &up_thresh,
+                                    &down_thresh, &n_looks_raw, &alpha,
+                                    &n_up_raw, &n_down_raw))
+    return NULL;
+  size_t   n_looks = (size_t)n_looks_raw;
+  uint32_t n_up    = (uint32_t)n_up_raw;
+  uint32_t n_down  = (uint32_t)n_down_raw;
+  dll_configure_lock_raw (self->handle, up_thresh, down_thresh, n_looks, alpha,
+                          n_up, n_down);
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+DllObj_reset (DllObject *self, PyObject *Py_UNUSED (ignored))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  dll_reset (self->handle);
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+DllObj_state_bytes (DllObject *self, PyObject *Py_UNUSED (ignored))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  return PyLong_FromSize_t (dll_state_bytes (self->handle));
+}
+
+static PyObject *
+DllObj_get_state (DllObject *self, PyObject *Py_UNUSED (ignored))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  size_t    _n = dll_state_bytes (self->handle);
+  PyObject *_b = PyBytes_FromStringAndSize (NULL, (Py_ssize_t)_n);
+  if (!_b)
+    return NULL;
+  dll_get_state (self->handle, PyBytes_AS_STRING (_b));
+  return _b;
+}
+
+static PyObject *
+DllObj_set_state (DllObject *self, PyObject *arg)
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  if (!PyBytes_Check (arg))
+    {
+      PyErr_SetString (PyExc_TypeError, "set_state expects bytes");
+      return NULL;
+    }
+  if ((size_t)PyBytes_GET_SIZE (arg) != dll_state_bytes (self->handle))
+    {
+      PyErr_SetString (PyExc_ValueError, "state blob size mismatch");
+      return NULL;
+    }
+  if (dll_set_state (self->handle, PyBytes_AS_STRING (arg)) != 0)
+    {
+      PyErr_SetString (PyExc_ValueError, "set_state rejected the blob");
+      return NULL;
+    }
+  Py_RETURN_NONE;
+}
+static PyObject *
+Dll_getprop_bn (DllObject *self, void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  /* <<IMPLEMENT: return the computed or stored value>> */
+  return PyFloat_FromDouble (dll_get_bn (self->handle));
+}
+static int
+Dll_setprop_bn (DllObject *self, PyObject *value, void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return -1;
+    }
+  double v = 0.0;
+  if (!PyArg_Parse (value, "d", &v))
+    return -1;
+  dll_set_bn (self->handle, v);
+  return 0;
+}
+static PyObject *
+Dll_getprop_code_phase (DllObject *self, void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  /* <<IMPLEMENT: return the computed or stored value>> */
+  return PyFloat_FromDouble (dll_get_code_phase (self->handle));
+}
+static PyObject *
+Dll_getprop_code_rate (DllObject *self, void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  /* <<IMPLEMENT: return the computed or stored value>> */
+  return PyFloat_FromDouble (dll_get_code_rate (self->handle));
+}
+static PyObject *
+Dll_getprop_last_error (DllObject *self, void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  /* <<IMPLEMENT: return the computed or stored value>> */
+  return PyFloat_FromDouble (dll_get_last_error (self->handle));
+}
+static PyObject *
+Dll_getprop_segments (DllObject *self, void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  /* <<IMPLEMENT: return the computed or stored value>> */
+  return PyLong_FromUnsignedLongLong (
+      (unsigned long long)dll_get_segments (self->handle));
+}
+static PyObject *
+Dll_getprop_locked (DllObject *self, void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  /* <<IMPLEMENT: return the computed or stored value>> */
+  return PyBool_FromLong ((long)(dll_get_locked (self->handle)));
+}
+static PyObject *
+Dll_getprop_lock_stat (DllObject *self, void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  /* <<IMPLEMENT: return the computed or stored value>> */
+  return PyFloat_FromDouble (dll_get_lock_stat (self->handle));
+}
+static PyObject *
+Dll_getprop_noise_est (DllObject *self, void *Py_UNUSED (closure))
+{
+  if (!self->handle)
+    {
+      PyErr_SetString (PyExc_RuntimeError, "destroyed");
+      return NULL;
+    }
+  /* <<IMPLEMENT: return the computed or stored value>> */
+  return PyFloat_FromDouble (dll_get_noise_est (self->handle));
+}
+
+static PyGetSetDef Dll_getset[] = {
+  { "bn", (getter)Dll_getprop_bn, (setter)Dll_setprop_bn, "Bn.\n", NULL },
+  { "code_phase", (getter)Dll_getprop_code_phase, NULL, "Code phase.\n",
+    NULL },
+  { "code_rate", (getter)Dll_getprop_code_rate, NULL, "Code rate.\n", NULL },
+  { "last_error", (getter)Dll_getprop_last_error, NULL, "Last error.\n",
+    NULL },
+  { "segments", (getter)Dll_getprop_segments, NULL, "Segments.\n", NULL },
+  { "locked", (getter)Dll_getprop_locked, NULL,
+    "Current lock decision: True after the verify count of consecutive "
+    "above-threshold N-look decisions, False again after the drop count of "
+    "consecutive below-threshold ones (see configure_lock).\n",
+    NULL },
+  { "lock_stat", (getter)Dll_getprop_lock_stat, NULL,
+    "Last code-lock test statistic R = sqrt(2*sum|P|^2 / E|O|^2); compare "
+    "against det_threshold_noncoherent(pfa, n_looks).\n",
+    NULL },
+  { "noise_est", (getter)Dll_getprop_noise_est, NULL,
+    "Current CFAR noise-power estimate E|O|^2 from the off-peak (noise) tap "
+    "EMA.\n",
+    NULL },
+  { NULL }
+};
+
+static PyObject *
+DllObj_destroy (DllObject *self, PyObject *Py_UNUSED (ignored))
+{
+  if (self->handle)
+    {
+      dll_destroy (self->handle);
+      self->handle = NULL;
+    }
+  Py_RETURN_NONE;
+}
+
+static PyObject *
+DllObj_enter (DllObject *self, PyObject *Py_UNUSED (ignored))
+{
+  Py_INCREF (self);
+  return (PyObject *)self;
+}
+
+static PyObject *
+DllObj_exit (DllObject *self, PyObject *args)
+{
+  (void)args;
+  if (self->handle)
+    {
+      dll_destroy (self->handle);
+      self->handle = NULL;
+    }
+  Py_RETURN_NONE;
+}
+
+static PyMethodDef DllObj_methods[] = {
+
+  { "steps", (PyCFunction)(void *)DllObj_steps, METH_VARARGS | METH_KEYWORDS,
+    "steps(x) -> ndarray\n"
+    "\n"
+    "Correlate a cf32 block against the local code with early/prompt/late "
+    "taps and steer the code NCO each code period on the non-coherent "
+    "(sum|E|-sum|L|)/(sum|E|+sum|L|) discriminator. With segments=1 (default) "
+    "this is a coherent full-epoch integrate-and-dump: one prompt symbol per "
+    "period. With segments>1 each epoch is split into that many sub-epoch "
+    "partial correlations: it emits that many partial prompts per period (a "
+    "stream at ~segments samples/symbol when the symbol rate is near the code "
+    "rate) and tracks the code non-coherently across the partials, which a "
+    "data flip cannot collapse (robust to an asynchronous data-symbol clock). "
+    "segments>1 is the streaming despreader: it removes the PN code and "
+    "outputs samples. The non-coherent loop is carrier-blind, so it tracks "
+    "with a residual carrier still on the input; carrier recovery (Costas) "
+    "and symbol-timing recovery (SymbolSync) are downstream stages fed from "
+    "the partial output. Returned blocks are safe to keep across calls "
+    "(block-size invariant): a block whose array is still referenced is never "
+    "overwritten by a later call (jm gh-437).\n"
+    "\n"
+    "    >>> import numpy as np\n"
+    "    >>> from doppler import Dll\n"
+    "    >>> obj = Dll(np.zeros(1, dtype=np.uint8), 2, 0.0, 0.01, 0.707, 0.5, "
+    "1)\n"
+    "    >>> y = obj.steps(np.zeros(4))\n"
+    "    >>> y.dtype\n"
+    "    dtype('complex64')\n" },
+  { "steps_max_out", (PyCFunction)DllObj_steps_max_out, METH_NOARGS,
+    "steps_max_out() -> int\n\nMax output length steps() can produce for the "
+    "current state.\nUse to size the ``out=`` buffer." },
+  { "set_telemetry", (PyCFunction)(void *)DllObj_set_telemetry,
+    METH_VARARGS | METH_KEYWORDS,
+    "set_telemetry(tlm, prefix, decim) -> int\n"
+    "\n"
+    "Attach (or detach) a telemetry context and register the code loop's "
+    "probes on it. Registers four probes, emitted once per code epoch "
+    "(period) and further thinned by decim: \"<prefix>.e\" (the "
+    "early-minus-late envelope discriminator — the loop stress), "
+    "\"<prefix>.rate\" (the tracked code rate, chips advanced per nominal "
+    "chip, ~1.0 at lock), \"<prefix>.lock\" (the CFAR lock statistic R; "
+    "compare against the configured threshold) and \"<prefix>.locked\" (the "
+    "verify-counted lock decision, 0/1 — the lockdet output, so a consumer "
+    "sees where the declare/drop rule fired without re-deriving it from the "
+    "statistic).  Passing NULL detaches. Setup path, never hot: call before "
+    "the producer thread starts stepping; the context is borrowed and must "
+    "outlive the attachment (SPSC rules in telemetry/telemetry.h).\n"
+    "\n"
+    "    >>> import numpy as np\n"
+    "    >>> from doppler import Dll\n"
+    "    >>> obj = Dll(np.zeros(1, dtype=np.uint8), 2, 0.0, 0.01, 0.707, 0.5, "
+    "1)\n"
+    "    >>> obj.set_telemetry(0, 0, 0)\n"
+    "    0\n" },
+  { "configure", (PyCFunction)(void *)DllObj_configure,
+    METH_VARARGS | METH_KEYWORDS,
+    "configure(bn, zeta) -> None\n"
+    "\n"
+    "Recompute the loop gains for a new (bn, zeta); preserves the code "
+    "phase/rate.\n"
+    "\n"
+    "    >>> import numpy as np\n"
+    "    >>> from doppler import Dll\n"
+    "    >>> obj = Dll(np.zeros(1, dtype=np.uint8), 2, 0.0, 0.01, 0.707, 0.5, "
+    "1)\n"
+    "    >>> obj.configure(0.0, 0.0)\n" },
+  { "set_rate_aid", (PyCFunction)(void *)DllObj_set_rate_aid,
+    METH_VARARGS | METH_KEYWORDS,
+    "set_rate_aid(rate_aid) -> None\n"
+    "\n"
+    "Set the carrier-aiding code-rate deviation (ratio; 0 = off): a fixed "
+    "fractional rate bias summed into the code NCO's phase_inc every epoch, "
+    "on top of the loop's own control. For physically-coupled Doppler, pass "
+    "carrier_offset_hz / carrier_freq_hz so the code NCO rides the code-rate "
+    "dilation the discriminator alone can't pull in at low SNR. Applied "
+    "continuously across the epoch (not a phase pulse), and nudges the "
+    "current phase_inc so the aid takes effect before the first period "
+    "update. code_rate stays the loop's own observable and is unaffected.\n"
+    "\n"
+    "    >>> import numpy as np\n"
+    "    >>> from doppler import Dll\n"
+    "    >>> obj = Dll(np.zeros(1, dtype=np.uint8), 2, 0.0, 0.01, 0.707, 0.5, "
+    "1)\n"
+    "    >>> obj.set_rate_aid(0.0)\n" },
+  { "configure_lock", (PyCFunction)(void *)DllObj_configure_lock,
+    METH_VARARGS | METH_KEYWORDS,
+    "configure_lock(pfa, n_looks, ref_snr_db) -> int\n"
+    "\n"
+    "Tune the always-on code-lock detector to a target (pfa, n_looks). The "
+    "detector reuses acquisition's non-coherent statistic R = sqrt(2*sum|P|^2 "
+    "/ E|O|^2), where the prompt powers of n_looks consecutive looks are "
+    "summed and E|O|^2 is an EMA of a random off-peak (noise) correlation "
+    "re-drawn each epoch; a decision compares R against "
+    "det_threshold_noncoherent(pfa, n_looks). Size n_looks with "
+    "detection.det_n_noncoh(snr, ...) for your operating C/N0. The EMA "
+    "bandwidth is sized probabilistically (detection.det_ema_alpha): "
+    "ref_snr_db sets the noise reference's estimator SNR (mean^2/variance of "
+    "the EMA output); the default 0.0 derives it from n_looks so the "
+    "reference's std stays an eighth of the statistic's intrinsic H0 spread, "
+    "floored at ~33 dB. Decisions feed a verify-counted lock detector rather "
+    "than a single-comparison latch: locked flips up only after "
+    "det_verify_count(pfa, pfa*1e-3) consecutive above-threshold decisions (2 "
+    "for the default pfa=1e-3, compounding the false-declare rate three "
+    "decades under pfa) and drops only after 2 consecutive below-threshold "
+    "decisions, so a statistic grazing the threshold cannot chatter the flag. "
+    "The default config is pfa=1e-3 over 20 looks. Raises ValueError for pfa "
+    "outside (0, 1). Read the result from the locked / lock_stat / noise_est "
+    "properties.\n"
+    "\n"
+    "    >>> import numpy as np\n"
+    "    >>> from doppler import Dll\n"
+    "    >>> obj = Dll(np.zeros(1, dtype=np.uint8), 2, 0.0, 0.01, 0.707, 0.5, "
+    "1)\n"
+    "    >>> obj.configure_lock(0.0, 0, 0.0)\n"
+    "    0\n" },
+  { "configure_lock_raw", (PyCFunction)(void *)DllObj_configure_lock_raw,
+    METH_VARARGS | METH_KEYWORDS,
+    "configure_lock_raw(up_thresh, down_thresh, n_looks, alpha, n_up, n_down) "
+    "-> None\n"
+    "\n"
+    "Escape hatch under configure_lock() for direct control of the lock "
+    "detector's geometry: a split declare/drop threshold pair on the "
+    "statistic R (level hysteresis), the noise-EMA coefficient alpha, and "
+    "both verify counts n_up/n_down (time hysteresis) independently -- "
+    "configure_lock() only ever derives a symmetric threshold (up_thresh == "
+    "down_thresh) and a fixed n_down=2. Re-tuning clears the in-flight "
+    "statistic and drops the lock so the next decision uses only looks "
+    "gathered under the new config. Size up_thresh/down_thresh with "
+    "detection.det_threshold_noncoherent(pfa, n_looks), alpha with "
+    "detection.det_ema_alpha, and n_up/n_down with "
+    "detection.det_verify_count. Read the result from the locked / lock_stat "
+    "/ noise_est properties.\n"
+    "\n"
+    "    >>> import numpy as np\n"
+    "    >>> from doppler import Dll\n"
+    "    >>> obj = Dll(np.zeros(1, dtype=np.uint8), 2, 0.0, 0.01, 0.707, 0.5, "
+    "1)\n"
+    "    >>> obj.configure_lock_raw(0.0, 0.0, 0, 0.0, 0, 0)\n" },
+  { "reset", (PyCFunction)DllObj_reset, METH_NOARGS,
+    "reset() -> None\n"
+    "\n"
+    "Re-seed the loop to the create-time code phase; preserve config.\n"
+    "\n"
+    "    >>> from doppler import Dll\n"
+    "    >>> obj = Dll(np.zeros(1, dtype=np.uint8), 2, 0.0, 0.01, 0.707, 0.5, "
+    "1)\n"
+    "    >>> obj.reset()\n" },
+  { "state_bytes", (PyCFunction)DllObj_state_bytes, METH_NOARGS,
+    "Serialized state size in bytes." },
+  { "get_state", (PyCFunction)DllObj_get_state, METH_NOARGS,
+    "Serialize the engine's mutable state to bytes." },
+  { "set_state", (PyCFunction)DllObj_set_state, METH_O,
+    "Restore mutable state from a get_state() blob." },
+  { "destroy", (PyCFunction)DllObj_destroy, METH_NOARGS,
+    "Release resources." },
+  { "__enter__", (PyCFunction)DllObj_enter, METH_NOARGS, NULL },
+  { "__exit__", (PyCFunction)DllObj_exit, METH_VARARGS, NULL },
+  { NULL }
+};
+
+static PyTypeObject DllObjType = {
+  PyVarObject_HEAD_INIT (NULL, 0).tp_name = "track.Dll",
+  .tp_basicsize                           = sizeof (DllObject),
+  .tp_dealloc                             = (destructor)DllObj_dealloc,
+  .tp_flags                               = Py_TPFLAGS_DEFAULT,
+  .tp_doc     = "Create a DLL instance (COPIES code).\n",
+  .tp_methods = DllObj_methods,
+  .tp_getset  = Dll_getset,
+  .tp_new     = DllObj_new,
+  .tp_init    = (initproc)DllObj_init,
+};

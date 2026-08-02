@@ -1,1 +1,0 @@
-from .fetcher import fetch_all_publications as fetch_publications

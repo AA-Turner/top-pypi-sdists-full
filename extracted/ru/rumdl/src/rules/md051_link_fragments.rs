@@ -1,6 +1,8 @@
 use crate::rule::{CrossFileScope, FixCapability, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
 use crate::rule_config_serde::RuleConfig;
 use crate::utils::anchor_styles::AnchorStyle;
+use crate::utils::frontmatter_values;
+use crate::utils::range_utils::byte_to_char_count;
 use crate::workspace_index::{CrossFileLinkIndex, FileIndex, HeadingIndex};
 use pulldown_cmark::LinkType;
 use regex::Regex;
@@ -30,6 +32,33 @@ pub struct MD051Config {
     /// (e.g., footnote IDs) that aren't visible to the linter.
     #[serde(default, alias = "ignored_pattern")]
     pub ignored_pattern: Option<String>,
+
+    /// Also check fragments in path-shaped frontmatter values.
+    ///
+    /// Off by default, because frontmatter has no syntax marking a value as a
+    /// link: a path-shaped value is only a guess at one. Static-site generators
+    /// also resolve frontmatter paths from the site root rather than the
+    /// document's own directory, so checking them like body links reports
+    /// working paths as broken.
+    ///
+    /// Enable it for projects whose frontmatter links really are relative to
+    /// the document, and use `ignore-frontmatter-fields` for the keys that are
+    /// not.
+    ///
+    /// Example:
+    /// ```toml
+    /// [MD051]
+    /// check-frontmatter = true
+    /// ignore-frontmatter-fields = ["image", "cover"]
+    /// ```
+    #[serde(default)]
+    pub check_frontmatter: bool,
+
+    /// Top-level frontmatter keys whose values are not checked. Matched
+    /// case-insensitively. A parent key excludes its whole subtree. Applies
+    /// only when `check-frontmatter` is enabled.
+    #[serde(default)]
+    pub ignore_frontmatter_fields: Vec<String>,
 }
 
 fn default_ignore_case() -> bool {
@@ -42,6 +71,8 @@ impl Default for MD051Config {
             anchor_style: AnchorStyle::default(),
             ignore_case: true,
             ignored_pattern: None,
+            check_frontmatter: false,
+            ignore_frontmatter_fields: Vec::new(),
         }
     }
 }
@@ -93,6 +124,8 @@ pub struct MD051LinkFragments {
     /// option, or if the pattern failed to compile (a `log::warn!` is emitted
     /// once at construction time so the user can fix the config).
     ignored_pattern_regex: Option<Regex>,
+    /// `ignore_frontmatter_fields` lowercased for case-insensitive matching.
+    ignored_front_matter_fields: HashSet<String>,
 }
 
 /// Anchor sets extracted from a single document, with parallel lowercase and
@@ -143,9 +176,15 @@ impl MD051LinkFragments {
                     None
                 }
             });
+        let ignored_front_matter_fields = config
+            .ignore_frontmatter_fields
+            .iter()
+            .map(|field| field.to_lowercase())
+            .collect();
         Self {
             config,
             ignored_pattern_regex,
+            ignored_front_matter_fields,
         }
     }
 
@@ -462,7 +501,7 @@ impl MD051LinkFragments {
         }
     }
 
-    /// Check if a path part (without fragment) is an extension-less path
+    /// Check if a path part (without fragment or query) is an extension-less path
     ///
     /// Extension-less paths are potential cross-file links that need resolution
     /// with markdown extensions (e.g., `page#section` -> `page.md#section`).
@@ -470,7 +509,7 @@ impl MD051LinkFragments {
     /// We recognize them as extension-less if:
     /// 1. Path has no extension (no dot)
     /// 2. Path is not empty
-    /// 3. Path doesn't look like a query parameter or special syntax
+    /// 3. Path doesn't look like query syntax
     /// 4. Path contains at least one alphanumeric character (valid filename)
     /// 5. Path contains only valid path characters (alphanumeric, slashes, hyphens, underscores)
     ///
@@ -478,12 +517,7 @@ impl MD051LinkFragments {
     #[inline]
     fn is_extensionless_path(path_part: &str) -> bool {
         // Quick rejections for common non-extension-less cases
-        if path_part.is_empty()
-            || path_part.contains('.')
-            || path_part.contains('?')
-            || path_part.contains('&')
-            || path_part.contains('=')
-        {
+        if path_part.is_empty() || path_part.contains('.') || path_part.contains('&') || path_part.contains('=') {
             return false;
         }
 
@@ -535,6 +569,15 @@ impl MD051LinkFragments {
                 return true;
             }
 
+            // A query string belongs to the destination, not to the path it names,
+            // so `page.md?raw=true` and `page?raw=true` name `page.md` and `page`.
+            let path_part = path_part.split('?').next().unwrap_or(path_part);
+
+            // A destination that is only a query and a fragment stays on this page
+            if path_part.is_empty() {
+                return false;
+            }
+
             // Check if it looks like a file path:
             // - Contains a file extension (dot followed by letters)
             // - Contains path separators
@@ -542,12 +585,11 @@ impl MD051LinkFragments {
             // - OR is an extension-less path with a fragment (GitHub-style: page#section)
             let has_extension = path_part.contains('.')
                 && (
-                    // Has file extension pattern (handle query parameters by splitting on them first)
+                    // Has file extension pattern
                     {
-                    let clean_path = path_part.split('?').next().unwrap_or(path_part);
                     // Handle files starting with dot
-                    if let Some(after_dot) = clean_path.strip_prefix('.') {
-                        let dots_count = clean_path.matches('.').count();
+                    if let Some(after_dot) = path_part.strip_prefix('.') {
+                        let dots_count = path_part.matches('.').count();
                         if dots_count == 1 {
                             // Could be ".ext" (file extension) or ".hidden" (hidden file)
                             // Treat short alphanumeric suffixes as file extensions
@@ -555,13 +597,13 @@ impl MD051LinkFragments {
                             after_dot.chars().all(|c| c.is_ascii_alphanumeric())
                         } else {
                             // Hidden file with extension like ".hidden.txt"
-                            clean_path.split('.').next_back().is_some_and(|ext| {
+                            path_part.split('.').next_back().is_some_and(|ext| {
                                 !ext.is_empty() && ext.len() <= 10 && ext.chars().all(|c| c.is_ascii_alphanumeric())
                             })
                         }
                     } else {
                         // Regular file path
-                        clean_path.split('.').next_back().is_some_and(|ext| {
+                        path_part.split('.').next_back().is_some_and(|ext| {
                             !ext.is_empty() && ext.len() <= 10 && ext.chars().all(|c| c.is_ascii_alphanumeric())
                         })
                     }
@@ -581,6 +623,102 @@ impl MD051LinkFragments {
             false
         }
     }
+
+    /// Whether this document has frontmatter the rule is configured to check.
+    ///
+    /// Gates the body-link early exits, which would otherwise skip a document
+    /// whose only links sit in its frontmatter.
+    fn checks_front_matter_of(&self, ctx: &crate::lint_context::LintContext) -> bool {
+        self.config.check_frontmatter && ctx.front_matter_end_line() > 0
+    }
+
+    /// Frontmatter values that read as link destinations, or nothing when the
+    /// rule is not configured to check frontmatter.
+    fn front_matter_links(&self, ctx: &crate::lint_context::LintContext) -> Vec<frontmatter_values::FrontMatterLink> {
+        if !self.checks_front_matter_of(ctx) {
+            return Vec::new();
+        }
+        frontmatter_values::link_destinations(ctx, &self.ignored_front_matter_fields)
+    }
+
+    /// Whether a fragment is one the flavor or the configuration resolves
+    /// outside the document's own anchors.
+    fn fragment_is_exempt(&self, ctx: &crate::lint_context::LintContext, fragment: &str) -> bool {
+        // MkDocs runtime-generated anchors:
+        // - #fn:NAME, #fnref:NAME from the footnotes extension
+        // - #+key.path or #+key:value from Material for MkDocs option references
+        //   (e.g., #+type:abstract, #+toc.slugify, #+pymdownx.highlight.anchor_linenums)
+        if ctx.flavor == crate::config::MarkdownFlavor::MkDocs
+            && (fragment.starts_with("fn:")
+                || fragment.starts_with("fnref:")
+                || (fragment.starts_with('+') && (fragment.contains('.') || fragment.contains(':'))))
+        {
+            return true;
+        }
+
+        // Fragments matching the user-configured ignored_pattern
+        self.ignored_pattern_regex
+            .as_ref()
+            .is_some_and(|re| re.is_match(fragment))
+    }
+
+    /// Whether a fragment names an anchor this document defines. Both HTML and
+    /// markdown anchors honor the `ignore_case` option, mirroring markdownlint
+    /// and the cross-file path.
+    fn fragment_resolves(&self, fragment: &str, anchors: &AnchorSets) -> bool {
+        if self.config.ignore_case {
+            let lower = fragment.to_lowercase();
+            anchors.html_anchors.contains(&lower) || anchors.markdown_headings.contains(&lower)
+        } else {
+            anchors.html_anchors_exact.contains(fragment) || anchors.markdown_headings_exact.contains(fragment)
+        }
+    }
+
+    /// Report frontmatter fragments that name no anchor in this document.
+    ///
+    /// Only a fragment-only value is resolved here. A value that carries a path
+    /// (`page.md#section`) is a cross-file link: `contribute_to_index` hands it
+    /// to the workspace index and `cross_file_check` resolves it against the
+    /// target file's anchors.
+    fn check_front_matter(
+        &self,
+        ctx: &crate::lint_context::LintContext,
+        links: &[frontmatter_values::FrontMatterLink],
+        anchors: &AnchorSets,
+        warnings: &mut Vec<LintWarning>,
+    ) {
+        for link in links {
+            let line = ctx.lines[link.line - 1].content(ctx.content);
+            let Some(fragment) = line[link.range.clone()].strip_prefix('#') else {
+                continue;
+            };
+            if fragment.is_empty() {
+                continue;
+            }
+
+            // Pandoc and Quarto slugs diverge from GitHub style for headings
+            // that contain punctuation.
+            if ctx.flavor.is_pandoc_compatible() && ctx.has_pandoc_slug(fragment) {
+                continue;
+            }
+
+            if self.fragment_is_exempt(ctx, fragment) || self.fragment_resolves(fragment, anchors) {
+                continue;
+            }
+
+            let column = byte_to_char_count(line, link.range.start);
+            warnings.push(LintWarning {
+                rule_name: Some(self.name().to_string()),
+                message: format!("Link anchor '#{fragment}' does not exist in document headings"),
+                line: link.line,
+                column,
+                end_line: link.line,
+                end_column: column + 1 + fragment.chars().count(),
+                severity: Severity::Error,
+                fix: None,
+            });
+        }
+    }
 }
 
 impl Rule for MD051LinkFragments {
@@ -597,8 +735,10 @@ impl Rule for MD051LinkFragments {
     }
 
     fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
-        // Skip if no link fragments present
-        if !ctx.likely_has_links_or_images() {
+        // Skip if no link fragments present. A document whose only links sit in
+        // its frontmatter has no link syntax to find, so that shortcut only
+        // applies when frontmatter is not being checked.
+        if !ctx.likely_has_links_or_images() && !self.checks_front_matter_of(ctx) {
             return true;
         }
         // Check for # character (fragments)
@@ -608,17 +748,16 @@ impl Rule for MD051LinkFragments {
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
         let mut warnings = Vec::new();
 
-        if ctx.content.is_empty() || ctx.links.is_empty() || self.should_skip(ctx) {
+        if ctx.content.is_empty() || self.should_skip(ctx) {
             return Ok(warnings);
         }
 
-        let AnchorSets {
-            markdown_headings,
-            markdown_headings_exact,
-            html_anchors,
-            html_anchors_exact,
-        } = self.extract_headings_from_context(ctx);
-        let ignored_pattern = self.ignored_pattern_regex.as_ref();
+        let front_matter_links = self.front_matter_links(ctx);
+        if ctx.links.is_empty() && front_matter_links.is_empty() {
+            return Ok(warnings);
+        }
+
+        let anchors = self.extract_headings_from_context(ctx);
 
         for link in &ctx.links {
             if link.is_reference {
@@ -704,34 +843,11 @@ impl Rule for MD051LinkFragments {
                 continue;
             }
 
-            // Skip MkDocs runtime-generated anchors:
-            // - #fn:NAME, #fnref:NAME from the footnotes extension
-            // - #+key.path or #+key:value from Material for MkDocs option references
-            //   (e.g., #+type:abstract, #+toc.slugify, #+pymdownx.highlight.anchor_linenums)
-            if ctx.flavor == crate::config::MarkdownFlavor::MkDocs
-                && (fragment.starts_with("fn:")
-                    || fragment.starts_with("fnref:")
-                    || (fragment.starts_with('+') && (fragment.contains('.') || fragment.contains(':'))))
-            {
+            if self.fragment_is_exempt(ctx, fragment) {
                 continue;
             }
 
-            // Skip fragments matching the user-configured ignored_pattern
-            if ignored_pattern.is_some_and(|re| re.is_match(fragment)) {
-                continue;
-            }
-
-            // Validate fragment against document headings. Both HTML and
-            // markdown anchors honor the `ignore_case` option, mirroring
-            // markdownlint and the cross-file path.
-            let found = if self.config.ignore_case {
-                let lower = fragment.to_lowercase();
-                html_anchors.contains(&lower) || markdown_headings.contains(&lower)
-            } else {
-                html_anchors_exact.contains(fragment) || markdown_headings_exact.contains(fragment)
-            };
-
-            if !found {
+            if !self.fragment_resolves(fragment, &anchors) {
                 warnings.push(LintWarning {
                     rule_name: Some(self.name().to_string()),
                     message: format!("Link anchor '#{fragment}' does not exist in document headings"),
@@ -744,6 +860,8 @@ impl Rule for MD051LinkFragments {
                 });
             }
         }
+
+        self.check_front_matter(ctx, &front_matter_links, &anchors, &mut warnings);
 
         Ok(warnings)
     }
@@ -783,6 +901,12 @@ impl Rule for MD051LinkFragments {
 
     fn category(&self) -> RuleCategory {
         RuleCategory::Link
+    }
+
+    fn skippable_by_category(&self) -> bool {
+        // A frontmatter fragment is a link this rule resolves, and the document
+        // holding it needs no link syntax anywhere else.
+        !self.config.check_frontmatter
     }
 
     fn cross_file_scope(&self) -> CrossFileScope {
@@ -929,6 +1053,34 @@ impl Rule for MD051LinkFragments {
                 });
             }
         }
+
+        // Extract cross-file links from frontmatter values that carry a fragment
+        for link in self.front_matter_links(ctx) {
+            let line = ctx.lines[link.line - 1].content(ctx.content);
+            let value = &line[link.range.clone()];
+
+            if Self::is_external_url_fast(value) || !Self::is_cross_file_link(value) {
+                continue;
+            }
+
+            let Some(fragment_pos) = value.find('#') else {
+                continue;
+            };
+            let path_part = &value[..fragment_pos];
+            let fragment = &value[fragment_pos + 1..];
+
+            // Skip empty fragments or template syntax
+            if fragment.is_empty() || fragment.contains("{{") || fragment.contains("{%") {
+                continue;
+            }
+
+            file_index.add_cross_file_link(CrossFileLinkIndex {
+                target_path: path_part.to_string(),
+                fragment: fragment.to_string(),
+                line: link.line,
+                column: byte_to_char_count(line, link.range.start),
+            });
+        }
     }
 
     fn cross_file_check(
@@ -967,11 +1119,19 @@ impl Rule for MD051LinkFragments {
                 continue;
             }
 
+            // A query string is not part of the file name: `other.md?raw=true`
+            // names `other.md`. The message keeps the destination as written.
+            let target_path = cross_link
+                .target_path
+                .split('?')
+                .next()
+                .unwrap_or(&cross_link.target_path);
+
             // Resolve the target file path relative to the current file
             let base_target_path = if let Some(parent) = file_path.parent() {
-                parent.join(&cross_link.target_path)
+                parent.join(target_path)
             } else {
-                Path::new(&cross_link.target_path).to_path_buf()
+                Path::new(target_path).to_path_buf()
             };
 
             // Normalize the path (remove . and ..)
@@ -1471,6 +1631,274 @@ See [link](#nonexistent) for details."#;
             pandoc_result.len(),
             1,
             "Pandoc must flag `#a.-2` when only `-1` exists (two duplicates): {pandoc_result:?}"
+        );
+    }
+
+    fn front_matter_checked() -> MD051Config {
+        MD051Config {
+            check_frontmatter: true,
+            ..MD051Config::default()
+        }
+    }
+
+    fn check_front_matter(content: &str, config: MD051Config) -> Vec<LintWarning> {
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        MD051LinkFragments::from_config_struct(config).check(&ctx).unwrap()
+    }
+
+    #[test]
+    fn a_broken_frontmatter_fragment_is_reported_when_enabled() {
+        let content = "---\nanchor: '#missing'\nvalid: '#title'\n---\n\n# Title\n";
+        let result = check_front_matter(content, front_matter_checked());
+
+        assert_eq!(
+            result.len(),
+            1,
+            "Only the unresolved fragment is reported. Got: {result:?}"
+        );
+        assert_eq!(
+            result[0].message,
+            "Link anchor '#missing' does not exist in document headings"
+        );
+        assert_eq!(result[0].line, 2);
+        assert_eq!(result[0].column, 10, "The warning points at the value, not the key");
+        assert_eq!(result[0].end_column, 18);
+    }
+
+    #[test]
+    fn frontmatter_fragments_are_not_checked_by_default() {
+        let content = "---\nanchor: '#missing'\n---\n\n# Title\n";
+        let result = check_front_matter(content, MD051Config::default());
+
+        assert!(
+            result.is_empty(),
+            "Frontmatter is only checked on request. Got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn an_ignored_frontmatter_field_is_not_checked() {
+        let content = "---\nhero: '#missing'\nanchor: '#other'\n---\n\n# Title\n";
+        let config = MD051Config {
+            check_frontmatter: true,
+            ignore_frontmatter_fields: vec!["Hero".to_string()],
+            ..MD051Config::default()
+        };
+        let result = check_front_matter(content, config);
+
+        assert_eq!(
+            result.len(),
+            1,
+            "The ignored field is skipped and the other is not. Got: {result:?}"
+        );
+        assert_eq!(result[0].line, 3);
+    }
+
+    #[test]
+    fn the_ignored_pattern_applies_to_frontmatter_fragments() {
+        let content = "---\nnote: '#fn:1'\nanchor: '#missing'\n---\n\n# Title\n";
+        let config = MD051Config {
+            check_frontmatter: true,
+            ignored_pattern: Some("^fn:".to_string()),
+            ..MD051Config::default()
+        };
+        let result = check_front_matter(content, config);
+
+        assert_eq!(
+            result.len(),
+            1,
+            "The matching fragment is skipped and the other is not. Got: {result:?}"
+        );
+        assert_eq!(result[0].line, 3);
+    }
+
+    #[test]
+    fn a_frontmatter_fragment_honors_ignore_case() {
+        let content = "---\nanchor: '#Title'\n---\n\n# Title\n";
+
+        let permissive = check_front_matter(content, front_matter_checked());
+        assert!(
+            permissive.is_empty(),
+            "The default resolves a case mismatch. Got: {permissive:?}"
+        );
+
+        let strict = check_front_matter(
+            content,
+            MD051Config {
+                check_frontmatter: true,
+                ignore_case: false,
+                ..MD051Config::default()
+            },
+        );
+        assert_eq!(strict.len(), 1, "Strict matching reports it. Got: {strict:?}");
+    }
+
+    #[test]
+    fn prose_in_frontmatter_is_not_read_as_a_fragment() {
+        let content = "---\ntitle: Node.js\ntags: ci/cd\n---\n\n# Title\n";
+        let result = check_front_matter(content, front_matter_checked());
+
+        assert!(
+            result.is_empty(),
+            "Only path-shaped values are destinations. Got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn a_frontmatter_path_with_a_fragment_is_validated_across_files() {
+        let rule = MD051LinkFragments::from_config_struct(front_matter_checked());
+        let source = "---\ntemplate: other.md#missing\nvalid: other.md#target\n---\n\n# Source\n";
+
+        let source_ctx = LintContext::new(source, crate::config::MarkdownFlavor::Standard, None);
+        let mut source_index = FileIndex::default();
+        rule.contribute_to_index(&source_ctx, &mut source_index);
+
+        let target_ctx = LintContext::new("# Target\n", crate::config::MarkdownFlavor::Standard, None);
+        let mut target_index = FileIndex::default();
+        rule.contribute_to_index(&target_ctx, &mut target_index);
+
+        let source_path = PathBuf::from("docs/source.md");
+        let mut workspace = crate::workspace_index::WorkspaceIndex::new();
+        workspace.insert_file(source_path.clone(), source_index.clone());
+        workspace.insert_file(PathBuf::from("docs/other.md"), target_index);
+
+        let warnings = rule.cross_file_check(&source_path, &source_index, &workspace).unwrap();
+
+        assert_eq!(
+            warnings.len(),
+            1,
+            "Only the unresolved fragment is reported. Got: {warnings:?}"
+        );
+        assert_eq!(warnings[0].message, "Link fragment 'missing' not found in 'other.md'");
+        assert_eq!(warnings[0].line, 2);
+        assert_eq!(warnings[0].column, 11);
+    }
+
+    #[test]
+    fn a_query_string_does_not_hide_the_target_file() {
+        let rule = MD051LinkFragments::new();
+        let source = "# Source\n\n- [a](other.md?raw=true#missing)\n- [b](other.md?raw=true#target)\n";
+
+        let source_ctx = LintContext::new(source, crate::config::MarkdownFlavor::Standard, None);
+        let mut source_index = FileIndex::default();
+        rule.contribute_to_index(&source_ctx, &mut source_index);
+
+        let target_ctx = LintContext::new("# Target\n", crate::config::MarkdownFlavor::Standard, None);
+        let mut target_index = FileIndex::default();
+        rule.contribute_to_index(&target_ctx, &mut target_index);
+
+        let source_path = PathBuf::from("docs/source.md");
+        let mut workspace = crate::workspace_index::WorkspaceIndex::new();
+        workspace.insert_file(source_path.clone(), source_index.clone());
+        workspace.insert_file(PathBuf::from("docs/other.md"), target_index);
+
+        let warnings = rule.cross_file_check(&source_path, &source_index, &workspace).unwrap();
+
+        assert_eq!(
+            warnings.len(),
+            1,
+            "The query is stripped to find the file, so both fragments resolve against it. Got: {warnings:?}"
+        );
+        assert_eq!(
+            warnings[0].message,
+            "Link fragment 'missing' not found in 'other.md?raw=true'"
+        );
+        assert_eq!(warnings[0].line, 3);
+    }
+
+    #[test]
+    fn a_query_string_does_not_hide_an_extensionless_target_file() {
+        let rule = MD051LinkFragments::new();
+        let source = "# Source\n\n- [a](other?raw=true#target)\n- [b](other#target)\n- [c](other?raw=true#absent)\n";
+
+        let source_ctx = LintContext::new(source, crate::config::MarkdownFlavor::Standard, None);
+        let same_document = rule.check(&source_ctx).unwrap();
+        assert!(
+            same_document.is_empty(),
+            "Every fragment here belongs to another file, so none is a missing anchor of this one. Got: {same_document:?}"
+        );
+
+        let mut source_index = FileIndex::default();
+        rule.contribute_to_index(&source_ctx, &mut source_index);
+
+        let target_ctx = LintContext::new("# Other\n\n## Target\n", crate::config::MarkdownFlavor::Standard, None);
+        let mut target_index = FileIndex::default();
+        rule.contribute_to_index(&target_ctx, &mut target_index);
+
+        let source_path = PathBuf::from("docs/source.md");
+        let mut workspace = crate::workspace_index::WorkspaceIndex::new();
+        workspace.insert_file(source_path.clone(), source_index.clone());
+        workspace.insert_file(PathBuf::from("docs/other.md"), target_index);
+
+        let warnings = rule.cross_file_check(&source_path, &source_index, &workspace).unwrap();
+
+        assert_eq!(
+            warnings.len(),
+            1,
+            "The query is stripped before the markdown extension is added. Got: {warnings:?}"
+        );
+        assert_eq!(
+            warnings[0].message,
+            "Link fragment 'absent' not found in 'other?raw=true'"
+        );
+        assert_eq!(warnings[0].line, 5);
+    }
+
+    #[test]
+    fn a_destination_that_is_only_a_query_stays_on_this_page() {
+        let rule = MD051LinkFragments::new();
+        let source = "# Source\n\n## Here\n\n- [a](?raw=true#here)\n- [b](?raw=true#nowhere)\n";
+
+        let source_ctx = LintContext::new(source, crate::config::MarkdownFlavor::Standard, None);
+        let warnings = rule.check(&source_ctx).unwrap();
+
+        assert_eq!(
+            warnings.len(),
+            1,
+            "Only the absent anchor is reported. Got: {warnings:?}"
+        );
+        assert_eq!(
+            warnings[0].message,
+            "Link anchor '#nowhere' does not exist in document headings"
+        );
+        assert_eq!(warnings[0].line, 6);
+
+        let mut source_index = FileIndex::default();
+        rule.contribute_to_index(&source_ctx, &mut source_index);
+        assert!(
+            source_index.cross_file_links.is_empty(),
+            "A query with no path names no other file. Got: {:?}",
+            source_index.cross_file_links
+        );
+    }
+
+    #[test]
+    fn a_frontmatter_path_carrying_a_query_is_indexed() {
+        let rule = MD051LinkFragments::from_config_struct(front_matter_checked());
+        let source = "---\ntemplate: docs/other.md?raw=true#missing\n---\n\n# Source\n";
+
+        let source_ctx = LintContext::new(source, crate::config::MarkdownFlavor::Standard, None);
+        let mut source_index = FileIndex::default();
+        rule.contribute_to_index(&source_ctx, &mut source_index);
+
+        assert_eq!(source_index.cross_file_links.len(), 1);
+        assert_eq!(source_index.cross_file_links[0].target_path, "docs/other.md?raw=true");
+        assert_eq!(source_index.cross_file_links[0].fragment, "missing");
+    }
+
+    #[test]
+    fn frontmatter_cross_file_paths_are_not_indexed_by_default() {
+        let rule = MD051LinkFragments::new();
+        let source = "---\ntemplate: other.md#missing\n---\n\n# Source\n";
+
+        let source_ctx = LintContext::new(source, crate::config::MarkdownFlavor::Standard, None);
+        let mut source_index = FileIndex::default();
+        rule.contribute_to_index(&source_ctx, &mut source_index);
+
+        assert!(
+            source_index.cross_file_links.is_empty(),
+            "Frontmatter is only checked on request. Got: {:?}",
+            source_index.cross_file_links
         );
     }
 }

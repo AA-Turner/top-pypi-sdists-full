@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-# encoding: utf-8
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -16,9 +14,10 @@
 # limitations under the License.
 #
 
-from .tika import parse1, callServer, ServerEndpoint
-import os
 import json
+
+from .tika import ServerEndpoint, callServer, parse1
+
 
 def from_file(filename, serverEndpoint=ServerEndpoint, service='all', xmlContent=False, headers=None, config_path=None, requestOptions={}, raw_response=False):
     '''
@@ -86,7 +85,7 @@ def _parse(output, service='all'):
         return parsed
 
     parsed["status"] = output[0]
-    if output[1] == None or output[1] == "":
+    if output[1] is None or output[1] == "":
         return parsed
 
     if service == "text":

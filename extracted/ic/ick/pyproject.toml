@@ -1,0 +1,19 @@
+[tool.pytest.ini_options]
+# Many tests are network/io-bound; larger numbers don't make the run faster
+# (and in fact, auto makes it slower than 4-ish)
+addopts = "-q -n 5"
+# Don't accidentally find *_test.py files in the scenarios
+testpaths = ["tests"]
+norecursedirs = ["tests/scenarios"]
+markers = [
+    "no_mock_platformdirs: disable the autouse isolated_user_directories fixture",
+]
+
+[tool.ruff]
+line-length = 140
+extend-exclude = ["demo"]
+
+[tool.ruff.lint]
+extend-select = ["I"]
+
+[tool.setuptools_scm]

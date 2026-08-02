@@ -56,6 +56,8 @@ from .type_defs import (
     AdminForgetDeviceRequestTypeDef,
     AdminGetDeviceRequestTypeDef,
     AdminGetDeviceResponseTypeDef,
+    AdminGetUserAuthFactorsRequestTypeDef,
+    AdminGetUserAuthFactorsResponseTypeDef,
     AdminGetUserRequestTypeDef,
     AdminGetUserResponseTypeDef,
     AdminInitiateAuthRequestTypeDef,
@@ -492,6 +494,16 @@ class CognitoIdentityProviderClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/admin_get_user.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#admin_get_user)
+        """
+
+    async def admin_get_user_auth_factors(
+        self, **kwargs: Unpack[AdminGetUserAuthFactorsRequestTypeDef]
+    ) -> AdminGetUserAuthFactorsResponseTypeDef:
+        """
+        Lists the authentication options for a user in a user pool.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/admin_get_user_auth_factors.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cognito_idp/client/#admin_get_user_auth_factors)
         """
 
     async def admin_initiate_auth(

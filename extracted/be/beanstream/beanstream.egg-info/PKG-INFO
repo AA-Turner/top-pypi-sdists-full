@@ -1,0 +1,12 @@
+Metadata-Version: 1.1
+Name: beanstream
+Version: 1.0.1
+Summary: Beanstream SDK library for processing credit card payments.
+Home-page: https://github.com/Beanstream-DRWP/beanstream-python
+Author: Beanstream
+Author-email: support@beanstream.com
+License: Apache2
+Download-URL: https://github.com/Beanstream/beanstream-python/archive/1.0.1.zip
+Description: UNKNOWN
+Keywords: payments,credit card,ecommerce,tokenization,direct deposit,reporting
+Platform: UNKNOWN

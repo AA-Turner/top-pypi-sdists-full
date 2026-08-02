@@ -1,0 +1,45 @@
+name: Run Rustfmt
+
+concurrency:
+  {% raw %}group: ${{ github.workflow }}-${{ github.ref }}{% endraw %}
+  cancel-in-progress: true
+
+on: pull_request
+
+jobs:
+  rustfmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: "true"
+
+      - name: Set up Python {{ DEFAULT_PY_VER }}
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: "{{ DEFAULT_PY_VER }}"
+
+      - name: install prerequisites
+        run: |
+          python -m pip install --upgrade pip wheel
+          python -m pip install -r {{ NOX_DEP_PATH }}
+
+      - uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af
+        with:
+            toolchain: nightly
+            components: rustfmt
+            override: true
+
+      - name: Reformat
+        run: cargo +nightly fmt
+
+      - name: Package
+        run: python -m nox -s bot-package-diff
+
+      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882
+        with:
+          name: gogo.patch
+          path: gogo.patch
+
+      - name: Check diff file
+        run: python -m nox -s is-diff-file-empty

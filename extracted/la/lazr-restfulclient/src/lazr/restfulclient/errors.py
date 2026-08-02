@@ -18,7 +18,6 @@
 
 """lazr.restfulclient errors."""
 
-__metaclass__ = type
 __all__ = [
     "BadRequest",
     "Conflict",
@@ -62,7 +61,7 @@ class UnexpectedResponseError(ResponseError):
     """An unexpected response was received."""
 
     def __str__(self):
-        return "%s: %s" % (self.response.status, self.response.reason)
+        return "{}: {}".format(self.response.status, self.response.reason)
 
 
 class HTTPError(ResponseError):

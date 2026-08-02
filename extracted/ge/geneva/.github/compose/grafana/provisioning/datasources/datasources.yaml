@@ -1,0 +1,18 @@
+# Auto-provisioned Grafana datasources for the local geneva observability stack.
+# Grafana, Prometheus, and Jaeger all run in the same compose network, so they
+# reach each other by service name (not localhost / host.docker.internal).
+apiVersion: 1
+datasources:
+  - name: Prometheus
+    type: prometheus
+    uid: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    jsonData:
+      httpMethod: POST
+  - name: Jaeger
+    type: jaeger
+    uid: jaeger
+    access: proxy
+    url: http://jaeger:16686

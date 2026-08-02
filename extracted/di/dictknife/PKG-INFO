@@ -1,0 +1,71 @@
+Metadata-Version: 2.4
+Name: dictknife
+Version: 0.14.2
+Summary: utility set of handling dict
+Project-URL: Homepage, https://github.com/podhmo/dictknife
+Project-URL: Documentation, http://dictknife.readthedocs.io
+Project-URL: Repository, https://github.com/podhmo/dictknife
+Author-email: podhmo <ababjam61@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: dict,dict-handling
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.10
+Provides-Extra: command
+Requires-Dist: magicalimport; extra == 'command'
+Requires-Dist: prestring; extra == 'command'
+Requires-Dist: ruamel-yaml; extra == 'command'
+Provides-Extra: dev
+Requires-Dist: black; extra == 'dev'
+Requires-Dist: flake8; extra == 'dev'
+Requires-Dist: jsonpatch; extra == 'dev'
+Requires-Dist: magicalimport; extra == 'dev'
+Requires-Dist: mypy; extra == 'dev'
+Requires-Dist: prestring; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: ruamel-yaml; extra == 'dev'
+Requires-Dist: tomlkit; extra == 'dev'
+Provides-Extra: docs
+Requires-Dist: recommonmark; extra == 'docs'
+Requires-Dist: sphinx; extra == 'docs'
+Requires-Dist: sphinx-rtd-theme; extra == 'docs'
+Provides-Extra: lint
+Requires-Dist: black; extra == 'lint'
+Requires-Dist: flake8; extra == 'lint'
+Requires-Dist: mypy; extra == 'lint'
+Provides-Extra: load
+Requires-Dist: ruamel-yaml; extra == 'load'
+Requires-Dist: tomlkit; extra == 'load'
+Provides-Extra: spreadsheet
+Requires-Dist: google-api-python-client; extra == 'spreadsheet'
+Requires-Dist: google-auth-oauthlib; extra == 'spreadsheet'
+Provides-Extra: testing
+Requires-Dist: jsonpatch; extra == 'testing'
+Requires-Dist: pytest; extra == 'testing'
+Requires-Dist: ruamel-yaml; extra == 'testing'
+Description-Content-Type: text/markdown
+
+# dictknife ![Python package](https://github.com/podhmo/dictknife/workflows/Python%20package/badge.svg) [![PyPi version](https://img.shields.io/pypi/v/dictknife.svg)](https://pypi.python.org/pypi/dictknife) [![](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/download/releases/3.10.0/) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://black.readthedocs.io/en/stable/)
+
+swiss army knife for handling dict.
+
+## install
+
+```console
+$ pip install dictknife[load,command]
+```
+
+## examples
+
+see [./examples/dictknife](https://github.com/podhmo/dictknife/tree/master/examples/dictknife)
+
+## doc
+
+http://dictknife.readthedocs.io
+
+(:warning: this document is obsoleted)

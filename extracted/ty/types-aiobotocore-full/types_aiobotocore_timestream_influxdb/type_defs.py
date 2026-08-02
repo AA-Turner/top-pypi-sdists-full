@@ -401,6 +401,8 @@ class InfluxDBv3CoreParametersTypeDef(TypedDict):
     retentionCheckInterval: NotRequired[DurationTypeDef]
     deleteGracePeriod: NotRequired[DurationTypeDef]
     hardDeleteDefaultDuration: NotRequired[DurationTypeDef]
+    pluginRepositoryUrl: NotRequired[str]
+    pluginRepositorySecretArn: NotRequired[str]
 
 
 class InfluxDBv3EnterpriseParametersTypeDef(TypedDict):
@@ -446,6 +448,8 @@ class InfluxDBv3EnterpriseParametersTypeDef(TypedDict):
     retentionCheckInterval: NotRequired[DurationTypeDef]
     deleteGracePeriod: NotRequired[DurationTypeDef]
     hardDeleteDefaultDuration: NotRequired[DurationTypeDef]
+    pluginRepositoryUrl: NotRequired[str]
+    pluginRepositorySecretArn: NotRequired[str]
     compactionRowLimit: NotRequired[int]
     compactionMaxNumFilesPerPlan: NotRequired[int]
     compactionGen2Duration: NotRequired[DurationTypeDef]

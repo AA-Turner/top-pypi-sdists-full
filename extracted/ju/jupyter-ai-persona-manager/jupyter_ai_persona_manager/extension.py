@@ -1,0 +1,300 @@
+from __future__ import annotations
+
+import asyncio
+import time
+from asyncio import get_event_loop_policy
+from typing import TYPE_CHECKING
+
+from jupyter_server.extension.application import ExtensionApp
+from jupyter_server.serverapp import ServerApp
+from jupyter_server_fileid.manager import BaseFileIdManager
+from traitlets import Type
+from traitlets.config import Config
+
+from jupyter_ai_persona_manager.handlers import (
+    AvatarHandler,
+    CancelHandler,
+    MessageHandler,
+    build_avatar_cache,
+)
+
+from .persona_manager import PersonaManager
+
+if TYPE_CHECKING:
+    from typing import Any
+    from asyncio import AbstractEventLoop
+    from jupyterlab_chat.ychat import YChat
+
+
+class PersonaManagerExtension(ExtensionApp):
+    """
+    Jupyter AI Persona Manager Extension
+    
+    This extension handles persona management for Jupyter AI chat interactions.
+    It depends on jupyter-ai-router for message routing and coordination.
+    """
+    
+    name = "jupyter_ai_persona_manager"
+    handlers = [
+        (r"/api/ai/avatars/(.*)", AvatarHandler),
+        (r"/api/ai/message/(.*)", MessageHandler),
+        (r"/api/ai/personas/cancel", CancelHandler),
+    ]
+    
+    persona_manager_class = Type(
+        klass=PersonaManager,
+        default_value=PersonaManager,
+        config=True,
+        help="The `PersonaManager` class.",
+    )
+    
+    def initialize(self, argv: Any = None) -> None:
+        super().initialize()
+        
+    @property
+    def event_loop(self) -> AbstractEventLoop:
+        if self.serverapp is not None:
+            if getattr(self.serverapp, "io_loop", None) is not None:
+                return self.serverapp.io_loop.asyncio_loop
+
+        try:
+            return asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.get_event_loop_policy().get_event_loop()
+    
+    def initialize_settings(self):
+        """Initialize persona manager settings and router integration."""
+        start = time.time()
+
+        # Ensure 'jupyter-ai.persona-managers' is in `self.settings`, which gets
+        # copied to `self.serverapp.web_app.settings` after this method returns
+        if 'jupyter-ai' not in self.settings:
+            self.settings['jupyter-ai'] = {}
+        if 'persona-managers' not in self.settings['jupyter-ai']:
+            self.settings['jupyter-ai']['persona-managers'] = {}
+
+        # Advertise the default persona ID to the frontend via PageConfig, so a
+        # chat with no prior persona selection can pre-select it without a
+        # network round-trip. Read on the frontend via
+        # `PageConfig.getOption('jupyter_ai_default_persona')`.
+        page_config = self.serverapp.web_app.settings.setdefault("page_config_data", {})
+        page_config["jupyter_ai_default_persona"] = self._default_persona_id()
+
+        # Set up router integration task
+        self.event_loop.create_task(self._setup_router_integration())
+
+        # Dictionary of room_id -> Task for rooms currently being stopped
+        self._stopping_rooms: dict[str, asyncio.Task] = {}
+
+        # Lock to serialize persona manager shutdowns. This prevents a race
+        # condition where two ACP personas sharing a subprocess both see each
+        # other's sessions as active and neither kills the subprocess. This is
+        # fine because persona shutdown is fast (just ends the ACP session).
+        self._stop_lock = asyncio.Lock()
+
+        # Log server extension startup time
+        self.log.info(f"Registered {self.name} server extension")
+        startup_time = round((time.time() - start) * 1000)
+        self.log.info(f"Initialized Persona Manager server extension in {startup_time} ms.")
+
+    def _default_persona_id(self) -> str:
+        """
+        The configured default persona ID, resolving any user override of
+        `PersonaManager.default_persona_id` before any `PersonaManager` is
+        instantiated. Returns "" when the default is disabled (`allow_none`).
+        """
+        PersonaManagerClass = self.persona_manager_class
+        class_config = self.config.get(PersonaManagerClass.__name__, {})
+        if "default_persona_id" in class_config:
+            # An explicit `None` override disables the default persona.
+            return class_config["default_persona_id"] or ""
+        return PersonaManagerClass.default_persona_id.default_value or ""
+
+    async def _setup_router_integration(self) -> None:
+        """
+        Set up integration with jupyter-ai-router.
+        This allows persona manager to work through the centralized MessageRouter.
+        """
+        self.log.info("Waiting for the router to be ready")
+        
+        # Wait until the router field is available
+        while True:
+            router = self.serverapp.web_app.settings.get("jupyter-ai", {}).get("router")
+            if router is not None:
+                self.log.info("Router is ready, continuing with persona manager integration")
+                break
+            await asyncio.sleep(0.1)  # Check every 100ms
+        
+        # Wait for the 'jupyter-ai.persona-managers' dictionary to be available
+        # in `self.serverapp.web_app.settings`. This will occur after
+        # `initialize_settings()` returns.
+        while self.serverapp.web_app.settings.get("jupyter-ai", {}).get("persona-managers") is None:
+            self.log.warning("PersonaManagers dictionary not found, retrying in 100ms")
+            await asyncio.sleep(0.1)
+
+        try:
+            self.log.info("Found jupyter-ai-router, registering persona manager callbacks")
+            
+            # Register callback for new chat initialization
+            router.observe_chat_init(self._on_router_chat_init)
+            router.observe_chat_stop(self._on_router_chat_stop)
+            
+            # Store reference to router for later use
+            self.router = router
+            
+        except Exception as e:
+            self.log.error(f"Error setting up router integration: {e}")
+    
+    def _on_router_chat_init(self, room_id: str, ychat: "YChat") -> None:
+        """
+        Callback for when router detects a new chat initialization.
+        This initializes persona manager for the new chat room.
+        """
+        self.log.info(f"Router detected new chat room, initializing persona manager: {room_id}")
+
+        # Initialize persona manager for this chat
+        persona_manager = self._init_persona_manager(room_id, ychat)
+        if not persona_manager:
+            self.log.error(
+                "Jupyter AI was unable to initialize its AI personas. They are not available for use in chat until this error is resolved. "
+                + "Please verify your configuration and open a new issue on GitHub if this error persists."
+            )
+            return
+
+        # Cache the persona manager in server settings dictionary.
+        #
+        # NOTE: This must be added to `self.serverapp.web_app.settings`, not
+        # `self.settings`. `self.settings` is a local dictionary that is only
+        # copied to `self.serverapp.web_app.settings` immediately after
+        # `self.initialize_settings` returns.
+        persona_managers_by_room = self.serverapp.web_app.settings['jupyter-ai']['persona-managers']
+        persona_managers_by_room[room_id] = persona_manager
+
+        # Rebuild avatar cache to include the new personas
+        build_avatar_cache(persona_managers_by_room)
+
+        # Register persona manager callbacks with router
+        self.router.observe_chat_msg(room_id, persona_manager.on_chat_message)
+    
+    def _on_router_chat_stop(self, room_id: str) -> None:
+        """
+        Callback for when a chat room's YRoom is permanently stopped.
+        Shuts down personas and removes the PersonaManager for that room.
+        """
+        persona_managers = self.serverapp.web_app.settings['jupyter-ai']['persona-managers']
+        if room_id not in persona_managers:
+            return
+
+        self.log.info(f"Chat room '{room_id}' stopped. Shutting down persona manager.")
+        task = self.event_loop.create_task(self._stop_persona_manager(room_id))
+        self._stopping_rooms[room_id] = task
+    
+    def _init_persona_manager(
+        self, room_id: str, ychat: "YChat"
+    ) -> PersonaManager | None:
+        """
+        Initializes a `PersonaManager` instance scoped to a `YChat`.
+        
+        This method should not raise an exception. Upon encountering an
+        exception, this method will catch it, log it, and return `None`.
+        """
+        persona_manager: PersonaManager | None = None
+        
+        try:
+            assert self.serverapp
+            assert self.serverapp.web_app
+            assert self.serverapp.web_app.settings
+            fileid_manager = self.serverapp.web_app.settings.get(
+                "file_id_manager", None
+            )
+            assert isinstance(fileid_manager, BaseFileIdManager)
+            
+            contents_manager = self.serverapp.contents_manager
+            root_dir = getattr(contents_manager, "root_dir", None)
+            assert isinstance(root_dir, str)
+            
+            base_url = self.serverapp.web_app.settings.get("base_url", "/")
+
+            PersonaManagerClass = self.persona_manager_class
+            persona_manager = PersonaManagerClass(
+                parent=self,
+                room_id=room_id,
+                ychat=ychat,
+                fileid_manager=fileid_manager,
+                root_dir=root_dir,
+                event_loop=self.event_loop,
+                base_url=base_url,
+            )
+        except Exception as e:
+            self.log.error(
+                f"Unable to initialize PersonaManager in YChat with ID '{ychat.get_id()}' due to an exception printed below."
+            )
+            self.log.exception(e)
+        finally:
+            return persona_manager
+    
+    async def _stop_persona_manager(self, room_id: str) -> None:
+        """Shuts down personas for a room and removes it from settings."""
+        async with self._stop_lock:
+            persona_managers = self.serverapp.web_app.settings['jupyter-ai']['persona-managers']
+            persona_manager = persona_managers.get(room_id)
+            if persona_manager is None:
+                return
+
+            try:
+                await persona_manager.shutdown_personas()
+                self.log.info(f"Shut down persona manager in room '{room_id}'.")
+            except Exception as e:
+                self.log.exception(f"Error shutting down persona manager in room '{room_id}'.")
+            finally:
+                persona_managers.pop(room_id, None)
+                self._stopping_rooms.pop(room_id, None)
+    
+    async def stop_extension(self):
+        """
+        Public method called by Jupyter Server when the server is stopping.
+        """
+        try:
+            await self._stop_extension()
+        except Exception as e:
+            self.log.error("Persona Manager extension raised an exception while stopping:")
+            self.log.exception(e)
+    
+    async def _stop_extension(self):
+        """
+        Private method that defines the cleanup code to run when the server is
+        stopping.
+        """
+        # Await all in-progress stop tasks from chat_stop events
+        if self._stopping_rooms:
+            await asyncio.gather(*self._stopping_rooms.values(), return_exceptions=True)
+
+        # Stop any remaining rooms that did not receive a stop event
+        persona_managers = self.serverapp.web_app.settings.get('jupyter-ai', {}).get('persona-managers', {})
+        if not persona_managers:
+            return
+
+        for room_id in list(persona_managers.keys()):
+            self.log.warning(f"Room '{room_id}' did not receive a stop event. Stopping it manually.")
+            await self._stop_persona_manager(room_id)
+    
+    def _link_jupyter_server_extension(self, server_app: ServerApp):
+        """Setup custom config needed by this extension."""
+        c = Config()
+        c.ContentsManager.allow_hidden = True
+        c.ContentsManager.hide_globs = [
+            "__pycache__",  # Python bytecode cache directories
+            "*.pyc",  # Compiled Python files
+            "*.pyo",  # Optimized Python files
+            ".DS_Store",  # macOS system files
+            "*~",  # Editor backup files
+            ".ipynb_checkpoints",  # Jupyter notebook checkpoint files
+            ".git",  # Git version control directory
+            ".venv",  # Python virtual environment directory
+            "venv",  # Python virtual environment directory
+            ".pytest_cache",  # PyTest cache directory
+            ".mypy_cache",  # MyPy type checker cache directory
+            "*.egg-info",  # Python package metadata directories
+        ]
+        server_app.update_config(c)
+        super()._link_jupyter_server_extension(server_app)

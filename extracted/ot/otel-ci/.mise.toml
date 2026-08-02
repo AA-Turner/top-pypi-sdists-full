@@ -1,0 +1,62 @@
+[env]
+OTEL_METRICS_EXPORTER = "none"
+OTEL_LOGS_EXPORTER = "none"
+OTEL_EXPORTER_OTLP_TIMEOUT = "10000"
+OTEL_RESOURCE_ATTRIBUTES = "server_name=wombat"
+
+OTEL_TRACES_EXPORTER="otlp"
+OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
+_.python.venv = { path = "{{config_root}}/.venv", create = true }
+
+
+[tools]
+python = { version = "3.12.1", venv = ".venv" }
+uv = { version = "0.5" }
+pre-commit = "3.8.0"
+
+[tasks.install]
+run = ["pre-commit install", "pre-commit install --hook-type commit-msg", "uv run sync"]
+
+[tasks.clean]
+run = "rm -rf dist || true"
+
+[tasks.publish]
+depends = ["clean"]
+description = "publish to pypi"
+run = "uv build && uv publish "
+
+[tasks."lint"]
+run = ["uv run ruff check ."]
+
+[tasks."format"]
+run = ["uv run ruff format ."]
+
+[tasks."test"]
+run = ["uv run py.test"]
+
+[tasks."ci:test"]
+depends = ["postgres"]
+run = ["uv run py.test"]
+
+[tasks."mypy"]
+run = ["uv run mypy ."]
+
+[tasks."ci"]
+depends = ["lint", "format", "mypy"]
+
+[tasks."trace:a"]
+run = "otel-ci exec echo trace:a"
+
+[tasks."trace:manual:a"]
+run = "otel-ci exec echo trace:manual:a"
+
+[tasks."trace:manual:b"]
+run = "otel-ci exec echo trace:manual:b"
+
+[tasks.trace]
+env = { OTEL_TRACES_EXPORTER = "otlp", OTEL_EXPORTER_OTLP_PROTOCOL = "grpc" , OTEL_EXPORTER_OTLP_ENDPOINT = "localhost:4317" }
+depends = ["trace:a"]
+run = ["""
+otel-ci exec mise run trace:manual:a ::: trace:manual:b
+"""
+]

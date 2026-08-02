@@ -1,0 +1,248 @@
+#! /usr/bin/env python
+
+import sys
+import onnx
+import onnxruntime
+import numpy as np
+from typing import Optional, Dict, Tuple
+from rich.table import Table
+from rich import print as rich_print
+from argparse import ArgumentParser
+from collections import defaultdict
+import onnx_graphsurgeon as gs
+
+
+class Color:
+    BLACK          = '\033[30m'
+    RED            = '\033[31m'
+    GREEN          = '\033[32m'
+    YELLOW         = '\033[33m'
+    BLUE           = '\033[34m'
+    MAGENTA        = '\033[35m'
+    CYAN           = '\033[36m'
+    WHITE          = '\033[37m'
+    COLOR_DEFAULT  = '\033[39m'
+    BOLD           = '\033[1m'
+    UNDERLINE      = '\033[4m'
+    INVISIBLE      = '\033[08m'
+    REVERCE        = '\033[07m'
+    BG_BLACK       = '\033[40m'
+    BG_RED         = '\033[41m'
+    BG_GREEN       = '\033[42m'
+    BG_YELLOW      = '\033[43m'
+    BG_BLUE        = '\033[44m'
+    BG_MAGENTA     = '\033[45m'
+    BG_CYAN        = '\033[46m'
+    BG_WHITE       = '\033[47m'
+    BG_DEFAULT     = '\033[49m'
+    RESET          = '\033[0m'
+
+
+ONNX_DTYPES_TO_NUMPY_DTYPES: dict = {
+    f'{onnx.TensorProto.FLOAT16}': np.float16,
+    f'{onnx.TensorProto.FLOAT}': np.float32,
+    f'{onnx.TensorProto.DOUBLE}': np.float64,
+    f'{onnx.TensorProto.INT8}': np.int8,
+    f'{onnx.TensorProto.INT16}': np.int16,
+    f'{onnx.TensorProto.INT32}': np.int32,
+    f'{onnx.TensorProto.INT64}': np.int64,
+    f'{onnx.TensorProto.UINT8}': np.uint8,
+    f'{onnx.TensorProto.UINT16}': np.uint16,
+    f'{onnx.TensorProto.UINT32}': np.uint32,
+    f'{onnx.TensorProto.UINT64}': np.uint64,
+}
+
+
+def human_readable_size(num, suffix="B"):
+    for unit in ["", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"]:
+        if abs(num) < 1024.0:
+            return f"{num:3.1f}{unit}{suffix}"
+        num /= 1024.0
+    return f"{num:,.1f}Yi{suffix}"
+
+
+class ModelInfo:
+    """
+    Model info contains:
+    1. Num of every op
+    2. Model size
+    """
+    def __init__(self, model: onnx.ModelProto):
+        gs_graph = gs.import_onnx(model)
+        self.op_nums = defaultdict(int)
+        self.op_bytesizes = defaultdict(int)
+        self.model_params_size = 0
+        self.model_params = 0
+        for graph_node in gs_graph.nodes:
+            self.op_nums[graph_node.op] += 1
+            if hasattr(graph_node, 'attrs') \
+                and 'value' in graph_node.attrs \
+                and isinstance(graph_node.attrs['value'].values, np.ndarray):
+                    value: np.ndarray = graph_node.attrs['value'].values
+                    self.op_bytesizes[graph_node.op] += value.nbytes
+                    self.model_params_size += value.nbytes
+                    self.model_params += np.prod(value.shape)
+            if hasattr(graph_node, 'attrs') \
+                and len(graph_node.attrs) > 0:
+                for key, value in graph_node.attrs.items():
+                    if key != 'value':
+                        self.op_bytesizes[graph_node.op] += sys.getsizeof(value)
+                        self.model_params_size += sys.getsizeof(value)
+            for graph_node_input in graph_node.inputs:
+                if isinstance(graph_node_input, gs.Constant) \
+                    and isinstance(graph_node_input.values, np.ndarray):
+                    self.op_bytesizes[graph_node.op] += graph_node_input.values.nbytes
+                    self.model_params_size += graph_node_input.values.nbytes
+                    self.model_params += np.prod(graph_node_input.values.shape)
+                else:
+                    self.op_bytesizes[graph_node.op] += 0
+        self.model_size = model.ByteSize()
+
+
+def structure_check(
+    input_onnx_file_path: Optional[str] = '',
+    onnx_graph: Optional[onnx.ModelProto] = None,
+) -> Tuple[Dict[str, int], int]:
+    """
+
+    Parameters
+    ----------
+    input_onnx_file_path: Optional[str]
+        Input onnx file path.\n\
+        Either input_onnx_file_path or onnx_graph must be specified.\n\
+        Default: ''
+
+    onnx_graph: Optional[onnx.ModelProto]
+        onnx.ModelProto.\n\
+        Either input_onnx_file_path or onnx_graph must be specified.\n\
+        onnx_graph If specified, ignore input_onnx_file_path and process onnx_graph.
+
+    Returns
+    -------
+    op_num: Dict[str, int]
+        Num of every op
+    model_size: int
+        Model byte size
+    """
+
+    # Unspecified check for input_onnx_file_path and onnx_graph
+    if not input_onnx_file_path and not onnx_graph:
+        print(
+            f'{Color.RED}ERROR:{Color.RESET} '+
+            f'One of input_onnx_file_path or onnx_graph must be specified.'
+        )
+        sys.exit(1)
+
+    # Loading Graphs
+    # onnx_graph If specified, onnx_graph is processed first
+    if not onnx_graph:
+        onnx_graph = onnx.load(input_onnx_file_path)
+
+    if input_onnx_file_path != '':
+        onnx_session = onnxruntime.InferenceSession(
+            input_onnx_file_path,
+            providers=['CPUExecutionProvider'],
+        )
+
+        # Generation of dict for onnxruntime input
+        ort_inputs = onnx_session.get_inputs()
+        ort_outputs = onnx_session.get_outputs()
+        onnx_inputs = onnx_graph.graph.input
+        onnx_outputs = onnx_graph.graph.output
+
+        ort_input_names = [
+            ort_input.name for ort_input in ort_inputs
+        ]
+        ort_output_names = [
+            ort_output.name for ort_output in ort_outputs
+        ]
+
+        ort_input_shapes = [ort_input.shape for ort_input in ort_inputs]
+        ort_output_shapes = [ort_output.shape for ort_output in ort_outputs]
+
+        onnx_input_types = [
+            ONNX_DTYPES_TO_NUMPY_DTYPES[f'{onnx_input.type.tensor_type.elem_type}'] for onnx_input in onnx_inputs
+        ]
+        onnx_output_types = [
+            ONNX_DTYPES_TO_NUMPY_DTYPES[f'{onnx_output.type.tensor_type.elem_type}'] for onnx_output in onnx_outputs
+        ]
+
+    # Print info
+    model_info = ModelInfo(onnx_graph)
+    table = Table()
+    table.add_column('OP Type')
+    table.add_column('OPs')
+    table.add_column('Sizes')
+    sorted_list = sorted(list(set(model_info.op_nums.keys())))
+    sorted_bytes_list = sorted(list(set(model_info.op_bytesizes.keys())))
+    _ = [table.add_row(key1, f"{model_info.op_nums[key1]:,}", f"{human_readable_size(model_info.op_bytesizes[key2])}") for key1, key2 in zip(sorted_list, sorted_bytes_list)]
+    table.add_row('----------------------', '----------', '----------')
+    ops_count = sum([model_info.op_nums[key] for key in sorted_list])
+    table.add_row('Total number of OPs', f"{ops_count:,}")
+    table.add_row('----------------------', '----------', '----------')
+    table.add_row('Total params', f"{human_readable_size(model_info.model_params).replace('iB','')}")
+    table.add_row('======================', '==========', '==========')
+    table.add_row('Model Size', human_readable_size(model_info.model_size), human_readable_size(model_info.model_params_size))
+    rich_print(table)
+    print(\
+        f'{Color.GREEN}INFO:{Color.RESET} '+ \
+        f'{Color.BLUE}file:{Color.RESET} {input_onnx_file_path}'
+    )
+    producer_name = ''
+    if hasattr(onnx_graph, 'producer_name'):
+        producer_name = onnx_graph.producer_name
+    producer_version = ''
+    if hasattr(onnx_graph, 'producer_version'):
+        producer_version = onnx_graph.producer_version
+    if producer_name:
+        print(\
+            f'{Color.GREEN}INFO:{Color.RESET} '+ \
+            f'{Color.BLUE}producer:{Color.RESET} {producer_name} {producer_version}'
+        )
+    if hasattr(onnx_graph, 'opset_import') and len(onnx_graph.opset_import) > 0:
+        print(\
+            f'{Color.GREEN}INFO:{Color.RESET} '+ \
+            f'{Color.BLUE}opset:{Color.RESET} {onnx_graph.opset_import[0].version}'
+        )
+
+    if input_onnx_file_path != '':
+        for idx, ort_input_name, ort_input_shape, onnx_input_type in zip(range(1, len(ort_input_names)+1), ort_input_names, ort_input_shapes, onnx_input_types):
+            print(\
+                f'{Color.GREEN}INFO:{Color.RESET} '+ \
+                f'{Color.BLUE}input_name.{idx}:{Color.RESET} {ort_input_name} '+ \
+                f'{Color.BLUE}shape:{Color.RESET} {ort_input_shape} '+ \
+                f'{Color.BLUE}dtype:{Color.RESET} {onnx_input_type.__name__}'
+            )
+
+        for idx, ort_output_name, ort_output_shape, onnx_output_type in zip(range(1, len(ort_output_names)+1), ort_output_names, ort_output_shapes, onnx_output_types):
+            print(\
+                f'{Color.GREEN}INFO:{Color.RESET} '+ \
+                f'{Color.BLUE}output_name.{idx}:{Color.RESET} {ort_output_name} '+ \
+                f'{Color.BLUE}shape:{Color.RESET} {ort_output_shape} '+ \
+                f'{Color.BLUE}dtype:{Color.RESET} {onnx_output_type.__name__}'
+            )
+    print(f'{Color.GREEN}INFO:{Color.RESET} Finish!')
+    return dict(model_info.op_nums), model_info.model_size
+
+
+def main():
+    parser = ArgumentParser()
+    parser.add_argument(
+        '-if',
+        '--input_onnx_file_path',
+        type=str,
+        required=True,
+        help='Input onnx file path.'
+    )
+    args = parser.parse_args()
+
+    input_onnx_file_path = args.input_onnx_file_path
+
+    # structure check
+    structure_check(
+        input_onnx_file_path=input_onnx_file_path,
+    )
+
+
+if __name__ == '__main__':
+    main()

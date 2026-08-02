@@ -1,0 +1,206 @@
+from __future__ import annotations
+
+import dataclasses
+import os
+import shlex
+import shutil
+import subprocess
+import sys
+import textwrap
+from pathlib import Path
+from typing import Iterable
+
+import pytest
+import rich as _rich
+from click.testing import CliRunner
+
+from ick.cmdline import main
+from ick.util import clean_output
+
+SCENARIO_DIR = Path(__file__).parent / "scenarios"
+SCENARIOS = sorted(str(f.relative_to(SCENARIO_DIR)) for f in SCENARIO_DIR.glob("*/*.txt"))
+
+
+@pytest.mark.parametrize("filename", SCENARIOS)
+def test_scenario(filename: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    __tracebackhide__ = True
+    # Avoid reading user-level config in tests, as they probably would change
+    # the available rules
+    monkeypatch.setenv("XDG_CONFIG_HOME", "/")
+    # Reset a couple of common ways that locale might cause differences in
+    # output (for example, the sorted output of `ls`)
+    monkeypatch.setenv("LANG", "C")
+    monkeypatch.setenv("LC_ALL", "C")
+    # Rich's Console caches _width from COLUMNS at construction time, so
+    # monkeypatching COLUMNS later has no effect if the Console already exists.
+    # Reset it here so it's recreated fresh with COLUMNS=200 on first use.
+    monkeypatch.setenv("COLUMNS", "200")
+    monkeypatch.setattr(_rich, "_console", None)
+
+    path = SCENARIO_DIR / filename
+    commands = load_scenario(path)
+    update = bool(int(os.getenv("UPDATE_SCENARIOS", "0")))
+
+    cli_runner = CliRunner()
+    with cli_runner.isolated_filesystem():
+        repo_data = path.parent / "repo"
+        Path(".gitconfig").write_text(
+            textwrap.dedent("""
+                [user]
+                name = Tests
+                email = test@example.com
+                [init]
+                defaultBranch = main    # just to quiet the hints
+                """)
+        )
+        monkeypatch.setenv("HOME", os.getcwd())
+        if repo_data.exists():
+            shutil.copytree(repo_data, ".", dirs_exist_ok=True)
+            # TODO the commit here is necessary; project finding only works based
+            # on files that are present in the original repo, and this doesn't work
+            # with NullRepo either. Oops.
+            subprocess.check_call(["git", "init"])
+            subprocess.check_call(["git", "add", "-N", "."])
+            subprocess.check_call(["git", "commit", "-a", "-m", "foo"])
+        for command in commands:
+            if command.command[:6] == "$ ick ":
+                # TODO: handle global options like -vv
+                args = shlex.split(command.command[6:])
+                result = cli_runner.invoke(main, args, catch_exceptions=False)
+                output = result.output
+                if result.exit_code != 0:
+                    output += f"(exit status: {result.exit_code})\n"
+            elif command.command[:9] == "$ export ":
+                # Simulate export commands in the scenario
+                pairs = shlex.split(command.command[9:])
+                for pair in pairs:
+                    var, _, value = pair.partition("=")
+                    monkeypatch.setenv(var, value)
+                output = ""
+            elif command.command == "":
+                # This happens with trailing comment lines in the scenario, so
+                # there's no command or output.
+                output = ""
+            else:
+                assert command.command[:2] == "$ "
+                # We use shell=True so that scenarios can use shell features
+                # like redirection, pipes, sub-commands, and so on.
+                #
+                # Prepend the test venv's bin dir so that tools installed
+                # alongside pytest (e.g. coverage) are findable in PATH.
+                venv_bin = str(Path(sys.executable).parent)
+                env = os.environ.copy()
+                env["PATH"] = venv_bin + ":" + env.get("PATH", "")
+                proc = subprocess.run(
+                    command.command[2:],
+                    encoding="utf-8",
+                    shell=True,
+                    check=False,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    env=env,
+                )
+                output = proc.stdout
+                if proc.returncode != 0:
+                    output += f"(exit status: {proc.returncode})\n"
+
+            cleaned_output = clean_output(output)
+            if update:
+                command.output = cleaned_output  # pragma: nocover
+            else:
+                assert cleaned_output == command.output
+
+    if update:  # pragma: nocover
+        save_scenario(path, commands)
+
+
+@dataclasses.dataclass
+class ScenarioCommand:
+    comments: str = ""
+    command: str = ""
+    output: str = ""
+
+
+def load_scenario(path: Path) -> Iterable[ScenarioCommand]:
+    with open(path) as f:
+        return parse_scenario(f)
+
+
+def parse_scenario(lines: Iterable[str]) -> Iterable[ScenarioCommand]:
+    commands: list[ScenarioCommand] = []
+    command: ScenarioCommand = ScenarioCommand()
+    found_command = False
+
+    def new_command() -> None:
+        nonlocal command, found_command
+        commands.append(command)
+        command = ScenarioCommand()
+        found_command = False
+
+    for line in lines:
+        if line.startswith("#") or (line.strip() == "" and not found_command):
+            if found_command:
+                new_command()
+            command.comments += line
+        elif line.startswith("$"):
+            if found_command:
+                new_command()
+            command.command = line
+            found_command = True
+        else:
+            command.output += line
+
+    new_command()
+    return commands
+
+
+@pytest.mark.parametrize(
+    "text, commands",
+    [
+        # These tests only parse the scenarios, not run them, so the scenario
+        # data here doesn't show actual execution.
+        (
+            """
+            # a comment
+
+            $ echo hello
+            hello
+            """,
+            [ScenarioCommand("# a comment\n\n", "$ echo hello\n", "hello\n")],
+        ),
+        (
+            """
+            $ echo hello
+            hello
+            # Another command coming
+
+            # Look:
+            $ do_nothing
+            $ cat the_file.txt
+            line 1
+
+            line 3
+            # All done.
+            """,
+            [
+                ScenarioCommand("", "$ echo hello\n", "hello\n"),
+                ScenarioCommand("# Another command coming\n\n# Look:\n", "$ do_nothing\n", ""),
+                ScenarioCommand("", "$ cat the_file.txt\n", "line 1\n\nline 3\n"),
+                ScenarioCommand("# All done.\n", "", ""),
+            ],
+        ),
+    ],
+)
+def test_parse_scenario(text: str, commands: list[ScenarioCommand]) -> None:
+    lines = textwrap.dedent(text[1:]).splitlines(keepends=True)
+    assert list(parse_scenario(lines)) == commands
+
+
+def save_scenario(path: Path, commands: Iterable[ScenarioCommand]) -> None:  # pragma: nocover
+    lines = []
+    for command in commands:
+        lines.append(command.comments)
+        lines.append(command.command)
+        lines.append(command.output)
+
+    path.write_text("".join(lines))

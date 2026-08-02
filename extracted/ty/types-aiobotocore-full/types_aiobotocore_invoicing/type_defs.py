@@ -109,6 +109,8 @@ __all__ = (
     "ReceiverAddressTypeDef",
     "ResourceTagTypeDef",
     "ResponseMetadataTypeDef",
+    "SendProcurementPortalValidationRequestTypeDef",
+    "SendProcurementPortalValidationResponseTypeDef",
     "SupplementalDocumentTypeDef",
     "TagResourceRequestTypeDef",
     "TaxesBreakdownAmountTypeDef",
@@ -121,6 +123,8 @@ __all__ = (
     "UpdateInvoiceUnitResponseTypeDef",
     "UpdateProcurementPortalPreferenceStatusRequestTypeDef",
     "UpdateProcurementPortalPreferenceStatusResponseTypeDef",
+    "VerifyProcurementPortalValidationRequestTypeDef",
+    "VerifyProcurementPortalValidationResponseTypeDef",
 )
 
 
@@ -285,6 +289,11 @@ class TestEnvPreferenceTypeDef(TypedDict):
     PurchaseOrderRetrievalEndpoint: NotRequired[str]
 
 
+class SendProcurementPortalValidationRequestTypeDef(TypedDict):
+    ProcurementPortalPreferenceArn: str
+    ClientToken: NotRequired[str]
+
+
 class TaxesBreakdownAmountTypeDef(TypedDict):
     Description: NotRequired[str]
     Amount: NotRequired[str]
@@ -302,6 +311,12 @@ class UpdateProcurementPortalPreferenceStatusRequestTypeDef(TypedDict):
     EinvoiceDeliveryPreferenceStatusReason: NotRequired[str]
     PurchaseOrderRetrievalPreferenceStatus: NotRequired[ProcurementPortalPreferenceStatusType]
     PurchaseOrderRetrievalPreferenceStatusReason: NotRequired[str]
+    ClientToken: NotRequired[str]
+
+
+class VerifyProcurementPortalValidationRequestTypeDef(TypedDict):
+    ProcurementPortalPreferenceArn: str
+    Code: str
     ClientToken: NotRequired[str]
 
 
@@ -330,12 +345,22 @@ class PutProcurementPortalPreferenceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class SendProcurementPortalValidationResponseTypeDef(TypedDict):
+    ProcurementPortalPreferenceArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class UpdateInvoiceUnitResponseTypeDef(TypedDict):
     InvoiceUnitArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UpdateProcurementPortalPreferenceStatusResponseTypeDef(TypedDict):
+    ProcurementPortalPreferenceArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class VerifyProcurementPortalValidationResponseTypeDef(TypedDict):
     ProcurementPortalPreferenceArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 

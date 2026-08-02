@@ -1,14 +1,14 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: djoser
-Version: 2.3.3
+Version: 2.3.4
 Summary: REST implementation of Django authentication system.
-Home-page: https://github.com/sunscrapers/djoser
+Project-URL: Homepage, https://github.com/sunscrapers/djoser
+Project-URL: Repository, https://github.com/sunscrapers/djoser
+Project-URL: Documentation, https://djoser.readthedocs.io/
+Author-email: Sunscrapers <info@sunscrapers.com>
+Maintainer-email: Tomasz Wojcik <djoser@tomwojcik.com>
 License: MIT
-Author: Sunscrapers
-Author-email: info@sunscrapers.com
-Maintainer: Tomasz Wojcik
-Maintainer-email: djoser@tomwojcik.com
-Requires-Python: >=3.9,<4.0
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 3.2
@@ -28,16 +28,15 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.9
+Requires-Dist: django>=3.2
+Requires-Dist: djangorestframework-simplejwt<6.0,>=5.0
+Requires-Dist: djangorestframework>=3.14
+Requires-Dist: social-auth-app-django<6.0.0,>=5.0.0
 Provides-Extra: djet
+Requires-Dist: djet<0.4.0,>=0.3.0; extra == 'djet'
 Provides-Extra: webauthn
-Requires-Dist: django (>=3.2)
-Requires-Dist: djangorestframework (>=3.14)
-Requires-Dist: djangorestframework-simplejwt (>=5.0,<6.0)
-Requires-Dist: djet (>=0.3.0,<0.4.0) ; extra == "djet"
-Requires-Dist: social-auth-app-django (>=5.0.0,<6.0.0)
-Requires-Dist: webauthn (<1.0) ; extra == "webauthn"
-Project-URL: Documentation, https://djoser.readthedocs.io/
-Project-URL: Repository, https://github.com/sunscrapers/djoser
+Requires-Dist: webauthn<1.0; extra == 'webauthn'
 Description-Content-Type: text/x-rst
 
 ======
@@ -88,9 +87,9 @@ Requirements
 
 To be able to run **djoser** you have to meet the following requirements:
 
-- Python>=3.9,<4.0 (including 3.10, 3.11, and 3.12)
-- Django>=3.0.0 (supporting Django 3.2 through 5.1)
-- Django REST Framework>=3.12
+- Python>=3.9,<4.0 (including 3.10, 3.11, 3.12, and 3.13)
+- Django>=3.2 (supporting Django 3.2 through 5.2)
+- Django REST Framework>=3.14
 
 Installation
 ============
@@ -121,12 +120,12 @@ To start developing on **djoser**, clone the repository:
 
     $ git clone git@github.com:sunscrapers/djoser.git
 
-We use `poetry <https://python-poetry.org/>`_ as dependency management and packaging tool.
+We use `uv <https://docs.astral.sh/uv/>`_ as dependency management and packaging tool.
 
 .. code-block:: bash
 
     $ cd djoser
-    $ poetry install --all-extras
+    $ uv sync --all-extras --all-groups
 
 This will create a virtualenv with all development dependencies.
 
@@ -134,7 +133,7 @@ To run the test just type:
 
 .. code-block:: bash
 
-    $ poetry run pytest
+    $ uv run pytest testproject/
 
 We also prepared a convenient ``Makefile`` to automate commands above:
 
@@ -147,12 +146,12 @@ To activate the virtual environment run
 
 .. code-block:: bash
 
-    $ poetry shell
+    $ source .venv/bin/activate
 
-Without poetry
+Without uv
 --------------
 
-New versions of ``pip`` can use ``pyproject.toml`` to build the package and install its dependencies.
+You can also use ``pip`` with ``pyproject.toml`` to build the package and install its dependencies.
 
 .. code-block:: bash
 
@@ -180,7 +179,7 @@ Before sending patches please make sure you have `pre-commit <https://pre-commit
 
 .. code-block:: bash
 
-    $ poetry run pre-commit install
+    $ uv run pre-commit install
 
 This will ensure that your code is cleaned before you commit it. The pre-commit hooks will run:
 
@@ -200,4 +199,3 @@ List of projects related to Django, REST and authentication:
 Please, keep in mind that while using custom authentication and TokenCreateSerializer
 validation, there is a path that **ignores intentional return of None** from authenticate()
 and try to find User using parameters. Probably, that will be changed in the future.
-

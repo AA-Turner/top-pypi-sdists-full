@@ -1,0 +1,57 @@
+# Jaeger UI for traces, in Docker (works on arm64). The OTLP *collector* runs
+# natively via brew (its Docker image won't exec on this setup), so Jaeger's
+# OTLP receiver is published on :4319 to leave :4317 free for the collector.
+#
+#   geneva (:4317) -> otelcol-contrib -> jaeger :4319 (traces) + stdout (metrics)
+#   Jaeger UI: http://localhost:16686
+#
+# Prometheus (UI :9090) scrapes the native collector's :9464 exporter, so you
+# get the metrics geneva pushes. Grafana (UI :3000) sits on top of Prometheus +
+# Jaeger for nicer browsing (datasources auto-provisioned, no login). Jaeger
+# (UI :16686) is for traces.
+#
+#   docker compose -f otel-compose.yaml up -d    # jaeger + prometheus + grafana
+#   otelcol-contrib --config otel-jaeger.yaml    # native collector
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:1.62.0
+    platform: linux/arm64
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - "16686:16686" # Jaeger UI
+      - "4319:4317" # OTLP gRPC in (from the native collector)
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    platform: linux/arm64
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090" # Prometheus UI
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # Grafana for browsing the metrics (nicer than the Prometheus UI) and traces.
+  # Prometheus + Jaeger are auto-provisioned as datasources; anonymous admin is
+  # on so you land straight on the UI with no login. Use Explore -> Prometheus
+  # for ad-hoc PromQL (metric autocomplete shows the # HELP descriptions).
+  grafana:
+    image: grafana/grafana:11.4.0
+    platform: linux/arm64
+    depends_on:
+      - prometheus
+      - jaeger
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_DISABLE_LOGIN_FORM=true
+      - GF_AUTH_BASIC_ENABLED=false
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000" # Grafana UI
+
+volumes:
+  grafana-data:

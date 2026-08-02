@@ -1,0 +1,110 @@
+Metadata-Version: 2.1
+Name: structout
+Version: 0.1.63
+Summary: pretty print data structures
+Home-page: https://github.com/smautner/StructOut_py3
+Author: Stefan Mautner
+Author-email: myl4stn4m3@cs.uni-freiburg.de
+License: GPLv3
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+
+# StructOut
+
+prints networkx graphs and large int lists pleasantly to terminal.
+
+
+
+```python
+import structout as so
+so.lprint(range(1000),length=70)
+
+import networkx as nx
+g=nx.path_graph(5)
+so.gprint(g)
+
+```
+
+![''](https://raw.githubusercontent.com/smautner/StructOut/master/example.png)
+![''](https://raw.githubusercontent.com/smautner/StructOut/master/heatmapexample.png)
+
+
+## install
+
+```
+pip install structout
+```
+
+## numberlists
+
+```
+
+# implemented options: -> i should update this at some point :)
+def doALine(values,
+        length=-1,minmax=False, chunk_operation=max,
+        method = 'log', methodhow =2)
+
+# there is also a convenience function 'bins' that
+# does evenly spaced out bins :)
+
+```
+
+## Graphs
+
+### Colors
+
+```python
+# this will color nodes 1,2,3 in one color and 4,0 in another
+gprint(graph, color=([1,2,3],[4,0]))
+```
+
+-  edge labels are always blue
+-  digraphs should mark the direction with a blue dot
+
+### cut graph down to a subgraph
+
+```python
+# print nodes with max distance 1 to the nodes 1 and 2
+gprint(graph, zoomlevel=1, zoomnodes=[1,2])
+```
+
+
+### other options
+
+```python
+nodelabel='label',  # node and edge labels
+edgelabel='label',
+size=10,            # size
+pos=None,           # pass a coordinate dictionary ; {nodeid : x,y}
+n_graphs_per_line= 5 # when passing multiple graphs, wrap here
+```
+
+### RNAprint
+```
+                        G.-.G.-.G
+                          -.    -
+                            G.=.G
+                            -   -
+                            G.=.G
+                            -   -
+                            G   G
+                            -   -
+                            G   U.....             .U
+                            -         -.....     .- -
+A.-.A.-.A.-.A.-.A.-.A.-.A.-.A               U.-.U   U
+                =   =   =   =               =   =   -
+        A.-.A.-.A.-.A.-.A.-.A      .U.-.U.-.U.-.U.-.U
+                            -    .-
+                            A.=.A
+                            -   -
+                            A.=.A.
+                              -.  -.
+                                A.-.A
+```
+
+## heatmap
+
+```
+heatmap(matrix,dim = (20,20),operator= np.max, wide = True)
+```
+wide makes each symbol take up 2 characters.

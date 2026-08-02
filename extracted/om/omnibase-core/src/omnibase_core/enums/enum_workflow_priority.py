@@ -1,0 +1,25 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""
+Workflow Priority Enumeration
+Defines valid priority levels for AI workflow execution
+"""
+
+from enum import Enum, unique
+
+from omnibase_core.enums.enum_str_enum_base import UtilStrValueHelper
+
+
+@unique
+class EnumWorkflowPriority(UtilStrValueHelper, str, Enum):
+    """Priority levels for workflow execution"""
+
+    LOW = "low"
+    NORMAL = "normal"
+    HIGH = "high"
+    URGENT = "urgent"
+
+
+__all__ = ["EnumWorkflowPriority"]

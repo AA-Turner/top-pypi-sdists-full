@@ -1,0 +1,83 @@
+"""IMGW-PIB constants."""
+
+from datetime import timedelta
+from pathlib import Path
+
+from aiohttp import ClientTimeout
+from yarl import URL
+
+BASE_DIR = Path(__file__).resolve().parent
+RIVERS_INFO_FILE = BASE_DIR / "data" / "rivers.json"
+WEATHER_STATIONS_INFO_FILE = BASE_DIR / "data" / "weather_stations_info.json"
+PROXY_WEATHER_STATIONS_FILE = BASE_DIR / "data" / "proxy_weather_stations.json"
+
+API_BASE_ENDPOINT = URL("https://danepubliczne.imgw.pl/api/data")
+API_HYDROLOGICAL_ENDPOINT = API_BASE_ENDPOINT / "hydro"
+API_HYDROLOGICAL_WARNINGS_ENDPOINT = API_BASE_ENDPOINT / "warningshydro"
+API_WEATHER_ENDPOINT = API_BASE_ENDPOINT / "synop"
+API_WEATHER_WARNINGS_ENDPOINT = API_BASE_ENDPOINT / "warningsmeteo"
+API_WEATHER_PROXY_ENDPOINT = URL("https://imgw-api-proxy.evtlab.pl/forecast")
+API_HYDROLOGICAL_DETAILS_ENDPOINT = URL(
+    "https://hydro-back.imgw.pl/station/hydro/status"
+)
+
+HEADERS = {"Content-Type": "application/json"}
+TIMEOUT = ClientTimeout(total=10)
+
+DATA_VALIDITY_PERIOD = timedelta(hours=6)
+ICE_PHENOMENA_DATA_VALIDITY_PERIOD = timedelta(days=2)
+VEGETATION_PHENOMENA_DATA_VALIDITY_PERIOD = timedelta(days=30)
+DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+
+NO_ALERT = "no_alert"
+WEATHER_ALERTS_MAP = {
+    "brak": "no_alert",
+    "burze": "storms",
+    "gęsta mgła": "dense_fog",
+    "intensywne opady deszczu": "heavy_rainfall",
+    "intensywne opady śniegu": "heavy_snowfall",
+    "oblodzenie": "icing",
+    "opady marznące": "freezing_rain",
+    "opady śniegu": "snowfall",
+    "przymrozki": "frosts",
+    "roztopy": "thaw",
+    "silny deszcz z burzami": "heavy_rain_with_storms",
+    "silny mróz": "heavy_frost",
+    "silny wiatr": "strong_wind",
+    "upał": "heat",
+    "zawieje/zamiecie śnieżne": "snow_blizzard",
+}
+HYDROLOGICAL_ALERTS_MAP = {
+    "brak": "no_alert",
+    "susza hydrologiczna": "hydrological_drought",
+    "gwałtowne wzrosty stanów wody": "rapid_water_level_rise",
+    "wezbranie z przekroczeniem stanów alarmowych": "exceeding_the_alarm_level",
+    "wezbranie z przekroczeniem stanów ostrzegawczych": "exceeding_the_warning_level",
+}
+ALERT_LEVEL_MAP = {
+    "-1": "none",
+    "1": "yellow",
+    "2": "orange",
+    "3": "red",
+}
+
+VEGETATION_DIGIT_TO_PERCENT: dict[int, int] = {0: 0, 1: 33, 2: 67, 3: 100}
+
+ICON_TO_CONDITION: dict[tuple[str, str], str] = {
+    ("clear", "d"): "sunny",
+    ("clear", "n"): "clear-night",
+    ("partly", "d"): "partlycloudy",
+    ("partly", "n"): "partlycloudy",
+    ("cloudy", "d"): "cloudy",
+    ("cloudy", "n"): "cloudy",
+    ("drizzle", "d"): "rainy",
+    ("drizzle", "n"): "rainy",
+    ("rain", "d"): "rainy",
+    ("rain", "n"): "rainy",
+    ("rain_heavy", "d"): "pouring",
+    ("rain_heavy", "n"): "pouring",
+    ("snow", "d"): "snowy",
+    ("snow", "n"): "snowy",
+    ("sleet", "d"): "snowy-rainy",
+    ("sleet", "n"): "snowy-rainy",
+}

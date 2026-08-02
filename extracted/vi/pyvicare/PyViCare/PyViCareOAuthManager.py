@@ -1,0 +1,193 @@
+import logging
+import os
+import pickle
+import warnings
+from contextlib import suppress
+from pickle import UnpicklingError
+
+import requests
+from authlib.common.security import generate_token
+from authlib.integrations.base_client.errors import OAuthError
+from authlib.integrations.requests_client import OAuth2Session
+
+from PyViCare.PyViCareAbstractOAuthManager import (
+    AUTHORIZE_URL,
+    SCOPE_IOT,
+    SCOPE_OFFLINE_ACCESS,
+    SCOPE_USER,
+    TOKEN_URL,
+    AbstractViCareOAuthManager,
+)
+from PyViCare.PyViCareUtils import (PyViCareInvalidConfigurationError,
+                                    PyViCareInvalidCredentialsError)
+
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.NullHandler())
+
+REDIRECT_URI = "vicare://oauth-callback/everest"
+
+
+def obtain_token_via_basic_auth_pkce(
+    client_id: str, username: str, password: str
+) -> dict[str, object]:
+    """Obtain an OAuth2 token via PKCE auth-code flow with HTTP Basic auth.
+
+    .. deprecated::
+        One-shot migration helper for Home Assistant's password-to-OAuth2
+        migration (see home-assistant/core#165621). Scheduled for removal
+        once the migration window has closed. New code should use the
+        standard OAuth2 auth-code flow.
+
+    Viessmann's authorization endpoint accepts HTTP Basic auth and returns
+    the auth code in the redirect Location header (no browser involved).
+    Useful for one-shot migration from stored username/password to OAuth2,
+    so users don't need to re-authenticate interactively.
+
+    Requests scopes ``IoT`` and ``offline_access`` (sufficient for all
+    PyViCare API endpoints; ``offline_access`` is required to receive a
+    refresh token).
+
+    Returns the token dict (access_token, refresh_token, expires_at, etc.)
+    on success, or an empty dict on any failure (auth server unreachable,
+    credentials rejected, token exchange failed). Failures are logged at
+    WARNING level.
+    """
+    warnings.warn(
+        "obtain_token_via_basic_auth_pkce is a one-shot migration helper "
+        "for Home Assistant's password-to-OAuth2 migration and is scheduled "
+        "for removal. New code should use the standard OAuth2 auth-code flow.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    oauth = OAuth2Session(
+        client_id,
+        redirect_uri=REDIRECT_URI,
+        scope=[SCOPE_IOT, SCOPE_OFFLINE_ACCESS],
+        code_challenge_method="S256",
+    )
+    code_verifier = generate_token(48)
+    auth_url, _ = oauth.create_authorization_url(
+        AUTHORIZE_URL, code_verifier=code_verifier
+    )
+
+    try:
+        response = requests.post(
+            auth_url,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            auth=(username, password),
+            allow_redirects=False,
+            timeout=15,
+        )
+    except requests.RequestException:
+        logger.warning("Failed to reach Viessmann auth server")
+        return {}
+
+    if response.status_code != 302 or "Location" not in response.headers:
+        logger.warning("Basic-auth authorization failed")
+        return {}
+
+    try:
+        oauth.fetch_token(
+            TOKEN_URL,
+            authorization_response=response.headers["Location"],
+            code_verifier=code_verifier,
+            timeout=15,
+        )
+    except (requests.RequestException, OAuthError, KeyError, ValueError):
+        logger.warning("Token exchange failed")
+        return {}
+
+    return dict(oauth.token)
+
+
+class ViCareOAuthManager(AbstractViCareOAuthManager):
+    def __init__(self, username, password, client_id, token_file):
+        self.username = username
+        self.password = password
+        self.token_file = token_file
+        self.client_id = client_id
+        oauth_session = self.__restore_oauth_session_from_token(token_file)
+        super().__init__(oauth_session)
+
+    def __restore_oauth_session_from_token(self, token_file):
+        existing_token = self.__deserialize_token(token_file)
+        if existing_token is not None:
+            return OAuth2Session(self.client_id, token=existing_token)
+
+        return self.__create_new_session(self.username, self.password, token_file)
+
+    def __create_new_session(self, username, password, token_file=None):
+        """Create a new oAuth2 sessions
+        Viessmann tokens expire after 3600s (60min)
+        Parameters
+        ----------
+        username : str
+            e-mail address
+        password : str
+            password
+        token_file: str
+            path to serialize the token (will restore if already existing). No serialisation if not present
+
+        Returns
+        -------
+        oauth:
+            oauth sessions object
+        """
+        oauth_session = OAuth2Session(
+            self.client_id, redirect_uri=REDIRECT_URI, scope=[SCOPE_IOT, SCOPE_USER], code_challenge_method='S256')
+        code_verifier = generate_token(48)
+        authorization_url, _ = oauth_session.create_authorization_url(AUTHORIZE_URL, code_verifier=code_verifier)
+        logger.debug("Auth URL is: %s", authorization_url)
+
+        header = {'Content-Type': 'application/x-www-form-urlencoded'}
+        response = requests.post(
+            authorization_url, headers=header, auth=(username, password), allow_redirects=False)
+
+        if response.status_code == 401:
+            raise PyViCareInvalidConfigurationError(response.json())
+
+        if 'Location' not in response.headers:
+            logger.debug('Response: %s', response)
+            raise PyViCareInvalidCredentialsError()
+
+        oauth_session.fetch_token(TOKEN_URL, authorization_response=response.headers['Location'], code_verifier=code_verifier)
+
+        if oauth_session.token is None:
+            raise PyViCareInvalidCredentialsError()
+
+        logger.debug("Token received: %s",oauth_session.token)
+        self.__serialize_token(oauth_session.token, token_file)
+        logger.info("New token created")
+        return oauth_session
+
+    def renewToken(self):
+        logger.info("Token expired, renewing")
+        self.replace_session(self.__create_new_session(
+            self.username, self.password, self.token_file))
+        logger.info("Token renewed successfully")
+
+    def __serialize_token(self, oauth, token_file):
+        logger.debug("Start serial")
+        if token_file is None:
+            logger.debug("Skip serial, no file provided.")
+            return
+
+        with open(token_file, mode='wb') as binary_file:
+            pickle.dump(oauth, binary_file)
+
+        logger.info("Token serialized to %s", token_file)
+
+    def __deserialize_token(self, token_file):
+        if token_file is None or not os.path.isfile(token_file):
+            logger.debug(
+                "Token file argument not provided or file does not exist")
+            return None
+
+        logger.info("Token file exists")
+        with suppress(UnpicklingError):
+            with open(token_file, mode='rb') as binary_file:
+                s_token = pickle.load(binary_file)
+                logger.info("Token restored from file")
+                return s_token
+        logger.warning("Could not restore token")
+        return None

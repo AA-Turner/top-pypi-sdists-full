@@ -1,0 +1,260 @@
+#!/usr/bin/env python3
+"""Generate README.md's body from docs/index.md.
+
+docs/index.md and README.md deliberately show the identical landing
+content, but render on two different engines -- mkdocs-material
+admonitions (``!!! tip``) on the docs site, GitHub's native alert syntax
+(``> [!TIP]``) on GitHub -- so the two pages can never be byte-identical.
+Keeping them in sync by hand rotted repeatedly (a live tagline edit, a
+missing `git clone` step, a stale quickstart link -- and later a
+Performance/Licensing drift in exactly the sections the first,
+quickstart-only version of this generator didn't cover). docs/index.md
+is the single source of truth: this script extracts everything after
+its ``<!-- readme-sync:source-start -->`` marker (tagline, navigation,
+Why, Performance, Quick start, Build, Docs, Licensing -- through end of
+file), rewrites it for GitHub rendering, and writes the result into
+README.md between marker comments -- same idiom as
+``gen_related_pages.py``'s ``<!-- related-pages:start -->``/``:end``
+block. Only the wordmark + badge header above the markers stays
+hand-owned in each file (the two heads genuinely differ: image sizing,
+glightbox classes, absolute-vs-relative badge targets).
+
+Rewrites applied:
+    - any mkdocs ``!!! type ["Title"]`` admonition, with its 4-space
+      indented body (prose, code fences, whatever), becomes GitHub's
+      native ``> [!TYPE]`` blockquote alert -- a custom title (when it
+      differs from the type name) is kept as a bold first line, since
+      GitHub alerts have no separate title slot.
+    - a relative link to another docs page (``quickstart.md``,
+      ``install/c.md#anchor``) is rewritten to ``docs/...`` so it
+      resolves from the repo root, where README.md lives -- docs/index.md
+      itself lives *inside* docs/, so its relative links are one level
+      shallower than README.md needs.
+
+Usage
+-----
+    python scripts/gen_readme.py --write   # regenerate the block
+    python scripts/gen_readme.py --check   # exit 1 on any drift
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import re
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+INDEX_MD = os.path.join(ROOT, "docs", "index.md")
+README_MD = os.path.join(ROOT, "README.md")
+
+START_MARKER = "<!-- readme-sync:start -->"
+END_MARKER = "<!-- readme-sync:end -->"
+# Everything in docs/index.md after this marker (which sits right after
+# the badge header) is the synced region -- through end of file.
+SOURCE_MARKER = "<!-- readme-sync:source-start -->"
+
+# !!! type ["Title"]  -- the type is a bare word; the title, if present,
+# must be double-quoted (mkdocs/pymdownx requires this for a multi-word
+# title -- an unquoted title silently fails to parse as an admonition at
+# all, a real bug this caught once already).
+ADMONITION_HEADER_RE = re.compile(r'^!!! (\w+)(?:\s+"([^"]*)")?\s*$')
+
+# GitHub's alert syntax supports exactly these five types (case-sensitive
+# marker, any case in practice but GitHub's own docs use upper). Map each
+# mkdocs-material admonition type doppler might plausibly use onto the
+# closest GitHub equivalent; anything unmapped is a hard error (below)
+# rather than a silent guess.
+GITHUB_ALERT_TYPES = {
+    "note": "NOTE",
+    "info": "NOTE",
+    "abstract": "NOTE",
+    "summary": "NOTE",
+    "tldr": "NOTE",
+    "question": "NOTE",
+    "tip": "TIP",
+    "hint": "TIP",
+    "success": "TIP",
+    "check": "TIP",
+    "done": "TIP",
+    "important": "IMPORTANT",
+    "warning": "WARNING",
+    "caution": "WARNING",
+    "attention": "WARNING",
+    "danger": "CAUTION",
+    "error": "CAUTION",
+    "failure": "CAUTION",
+    "fail": "CAUTION",
+    "bug": "CAUTION",
+}
+
+# A markdown link whose target isn't a full URL, an in-page anchor, or
+# already docs/-prefixed -- e.g. [Quick Start](quickstart.md) or
+# [C Library](install/c.md#install-from-a-release-tarball). The
+# leading-``!``-exclusion skips image embeds (``![alt](src)``).
+LINK_RE = re.compile(r"(?<!!)\[([^\]]+)\]\((?!https?://|#|docs/)([^)]+)\)")
+
+
+def extract_section() -> str:
+    with open(INDEX_MD, encoding="utf-8") as f:
+        text = f.read()
+    _, sep, section = text.partition(SOURCE_MARKER)
+    if not sep:
+        raise SystemExit(
+            f"gen_readme: docs/index.md has no {SOURCE_MARKER} marker "
+            "-- it must sit right after the badge header, before the "
+            "tagline paragraph."
+        )
+    if "## Quick start" not in section:
+        raise SystemExit(
+            "gen_readme: the extracted docs/index.md region has no "
+            "'## Quick start' heading -- is the source marker misplaced?"
+        )
+    return section.lstrip("\n")
+
+
+def _rewrite_admonitions(section: str) -> str:
+    """Replace every mkdocs ``!!! type "Title"`` block (header + blank
+    line + 4-space-indented body, however long) with GitHub's native
+    ``> [!TYPE]`` blockquote alert."""
+    lines = section.split("\n")
+    out: list[str] = []
+    i = 0
+    n_found = 0
+    while i < len(lines):
+        m = ADMONITION_HEADER_RE.match(lines[i])
+        if not m:
+            out.append(lines[i])
+            i += 1
+            continue
+
+        kind, title = m.group(1), m.group(2)
+        github_type = GITHUB_ALERT_TYPES.get(kind.lower())
+        if github_type is None:
+            raise SystemExit(
+                f"gen_readme: unmapped admonition type "
+                f"'{kind}' in docs/index.md's synced region -- "
+                f"add it to GITHUB_ALERT_TYPES (closest GitHub alert: "
+                f"NOTE/TIP/IMPORTANT/WARNING/CAUTION)."
+            )
+
+        j = i + 1
+        if j < len(lines) and lines[j] == "":
+            j += 1
+        body: list[str] = []
+        while j < len(lines) and (
+            lines[j] == "" or lines[j].startswith("    ")
+        ):
+            body.append(lines[j][4:] if lines[j] else "")
+            j += 1
+        while body and body[-1] == "":
+            body.pop()
+        if not body:
+            raise SystemExit(
+                f"gen_readme: '!!! {kind}' at docs/index.md "
+                f"line {i + 1} (within the synced region) has no 4-space "
+                f"indented body -- nothing to rewrite."
+            )
+
+        out.append(f"> [!{github_type}]")
+        default_title = kind.capitalize()
+        if title and title != default_title:
+            out.append(f"> **{title}**")
+            out.append(">")
+        for body_line in body:
+            out.append(f"> {body_line}" if body_line else ">")
+        # The body-consuming loop above swallows every blank line up to
+        # the next real content (it treats blank-or-indented as "still
+        # inside the admonition"), so put exactly one back -- otherwise
+        # the blockquote runs straight into whatever follows with no
+        # separator.
+        out.append("")
+        i = j
+        n_found += 1
+
+    if n_found == 0:
+        raise SystemExit(
+            "gen_readme: found no '!!!' admonition to rewrite "
+            "in docs/index.md's synced region -- did it lose its "
+            "last one? (harmless if intentional -- delete this check if so)"
+        )
+    return "\n".join(out)
+
+
+def rewrite_for_readme(section: str) -> str:
+    rewritten = _rewrite_admonitions(section)
+
+    def link_sub(m: re.Match[str]) -> str:
+        return f"[{m.group(1)}](docs/{m.group(2)})"
+
+    return LINK_RE.sub(link_sub, rewritten)
+
+
+def render_readme_block(section: str) -> str:
+    body = rewrite_for_readme(section).rstrip("\n")
+    # mdformat (pre-commit) inserts a blank line between an HTML comment
+    # and adjacent content -- emit it ourselves so --write and mdformat
+    # agree on the same fixed point instead of fighting each other.
+    return f"{START_MARKER}\n\n{body}\n\n{END_MARKER}\n"
+
+
+def apply(write: bool) -> bool:
+    """Regenerate README.md's marked block. Returns True if already
+    up to date (no drift)."""
+    new_block = render_readme_block(extract_section())
+
+    with open(README_MD, encoding="utf-8") as f:
+        readme = f.read()
+    pattern = re.compile(
+        re.escape(START_MARKER) + r".*?" + re.escape(END_MARKER) + r"\n?",
+        re.DOTALL,
+    )
+    if not pattern.search(readme):
+        raise SystemExit(
+            f"gen_readme: no {START_MARKER} .. {END_MARKER} "
+            "block found in README.md -- add the marker pair after the "
+            "badge header once, then re-run."
+        )
+
+    # A function replacement, not a string one -- new_block can contain
+    # literal backslash sequences (e.g. a C snippet's "\n"), and
+    # re.Pattern.sub() interprets backslash escapes in a string
+    # replacement (\n, \1, \g<name>, ...), corrupting them silently.
+    updated = pattern.sub(lambda _: new_block, readme, count=1)
+    if updated == readme:
+        return True
+    if write:
+        with open(README_MD, "w", encoding="utf-8") as f:
+            f.write(updated)
+    return False
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument(
+        "--write", action="store_true", help="regenerate README.md's block"
+    )
+    group.add_argument(
+        "--check",
+        action="store_true",
+        help="exit 1 on any drift, write nothing",
+    )
+    args = parser.parse_args()
+
+    up_to_date = apply(write=args.write)
+    if not up_to_date:
+        if args.check:
+            print(
+                "README.md's synced body is out of sync with "
+                "docs/index.md -- run: "
+                "python scripts/gen_readme.py --write",
+                file=sys.stderr,
+            )
+            return 1
+        print("README.md's body regenerated from docs/index.md")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

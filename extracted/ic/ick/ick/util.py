@@ -1,0 +1,116 @@
+import os
+import re
+from collections.abc import Sequence
+from pathlib import Path
+from typing import Any
+
+
+def merge(a, b):  # type: ignore[no-untyped-def] # FIX ME
+    if a is None:
+        return b
+    elif b is None:
+        return a
+    elif isinstance(a, Sequence):
+        return [*a, *b]
+    elif not a and isinstance(b, Sequence):
+        return b
+    elif isinstance(a, dict):
+        keys = a.keys() | b.keys()
+        d = {}
+        for k in keys:
+            d[k] = merge(a.get(k), b.get(k))  # type: ignore[no-untyped-call] # FIX ME
+        return d
+    raise NotImplementedError(f"Can't merge {type(a)} with {type(b)} having values {a} and {b}")
+
+
+def dir_in_dirlist(d: str, dlist: Sequence[str]) -> bool:
+    """Is directory `d` exactly in `dlist`? Normalizes trailing slashes."""
+    for dd in dlist:
+        if d.rstrip("/") == dd.rstrip("/"):
+            return True
+    return False
+
+
+def dir_in_dirlist_or_subdir(d: str, dlist: Sequence[str]) -> bool:
+    """Is directory `d` in `dlist` or inside one of its entries?"""
+    d = d.rstrip("/")
+    for dd in dlist:
+        dd = dd.rstrip("/")
+        if d == dd or d.startswith(f"{dd}/"):
+            return True
+    return False
+
+
+def merge_dicts(d1: dict[str, Any] | None, d2: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not d1:
+        return d2
+
+    elif not d2:
+        return d1
+
+    else:
+        for k in d1:
+            if k in d2:
+                if isinstance(d2[k], dict):
+                    # we technically should check if d1[k] is also a but since both jsons are created by the same script it's fine
+                    d1[k] = merge_dicts(d1[k], d2[k])
+
+                elif isinstance(d2[k], list):
+                    d1[k] = d1[k] + d2[k]
+
+                elif isinstance(d2[k], str) and isinstance(d1[k], str):
+                    # concat messages as best as we can
+                    if not d1[k].endswith("\n"):
+                        d1[k] += "\n"
+
+                    d1[k] += d2[k]
+
+                else:
+                    # this is hard. Override one of the values and then recommend in docs that rule writers only use lists and dicts.
+                    d1[k] = d2[k]
+
+        for k in d2:
+            if k not in d1:
+                d1[k] = d2[k]
+
+        return d1
+
+
+def diffstat(diff_text: str) -> str:
+    # A typical diff stars with the lines
+    #
+    # --- a
+    # +++ b
+    #
+    # Only the + line needs to subtract one; this approximate.
+    added = diff_text.count("\n+") - 1
+    removed = diff_text.count("\n-")
+    s = ""
+    if added:
+        s += f"+{added}"
+    if removed:
+        s += f"-{removed}"
+    return s
+
+
+def convert_path_to_python_identifiers(path: Path) -> Path:
+    return Path(*[part.replace("-", "_") for part in path.parts])
+
+
+TRACEBACK_LINE_NUM_RE = re.compile(r"(, line )\d+(,)")
+LOG_LINE_TIMESTAMP_RE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} ", re.M)
+LOG_LINE_NUMERIC_LINE_RE = re.compile(r"^([A-Z]+\s+[a-z_.]+:)\d+(?= )", re.M)
+GIT_VERSION_RE = re.compile(r"(\d+\.)\d+(?:\.\d+)?(?:\.dev\d+\S+)?")
+TRAILING_WHITESPACE = re.compile(r"(?m) +$")
+ICK_OUTPUT_DIR_RE = re.compile(r"ICK_OUTPUT_DIR=\S+")
+
+
+def clean_output(output: str) -> str:
+    cleaned_output = TRACEBACK_LINE_NUM_RE.sub(r"\1<n>\2", output)
+    cleaned_output = LOG_LINE_TIMESTAMP_RE.sub("", cleaned_output)
+    cleaned_output = LOG_LINE_NUMERIC_LINE_RE.sub(r"\1<n>", cleaned_output)
+    cleaned_output = GIT_VERSION_RE.sub(r"\1<stuff>", cleaned_output)
+    cleaned_output = TRAILING_WHITESPACE.sub("", cleaned_output)
+    cleaned_output = cleaned_output.replace(os.getcwd(), "/CWD")
+    cleaned_output = ICK_OUTPUT_DIR_RE.sub("ICK_OUTPUT_DIR=<tmp>", cleaned_output)
+    return cleaned_output

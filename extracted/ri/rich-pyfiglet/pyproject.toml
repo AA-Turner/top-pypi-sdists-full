@@ -1,0 +1,84 @@
+[project]
+name = "rich-pyfiglet"
+version = "2.0.1"
+requires-python = ">=3.10"
+description = "A library that wraps PyFiglet with the Rich library for rendering ASCII art in the terminal."
+readme = "README.md"
+authors = [
+    { name = "edward-jazzhands", email = "ed.jazzhands@gmail.com" }
+]
+license = { text = "MIT" }
+keywords = [
+    "python", "pyfiglet", "figlet", "ascii", "rich", "cli", "color", "terminal", "banner"
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3 :: Only",
+]
+
+dependencies = [
+    "pyfiglet>=1.0.3",
+    "rich>=12.0.0,<16.0.0",
+    "rich-click>=1.9.7",
+]
+
+[project.urls]
+Repository = "https://github.com/edward-jazzhands/rich-pyfiglet"
+Changelog = "https://github.com/edward-jazzhands/rich-pyfiglet/blob/master/CHANGELOG.md"
+
+[project.scripts]
+rich-pyfiglet = "rich_pyfiglet.cli:cli"
+
+[build-system]
+requires = ["uv_build>=0.9.24,<0.10.0"]
+build-backend = "uv_build"
+
+##########################
+# Dev Dependency Configs #
+##########################
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.29.2",
+    "black>=24.8.0",
+    "mypy>=1.14.1",
+    "pytest>=8.3.5",
+    "ruff>=0.11.9",
+    "tomli>=2.2.1",
+]
+
+[tool.black]
+line-length = 90
+
+[tool.mypy]
+pretty = true
+strict = true
+disallow_untyped_defs = true
+disallow_untyped_calls = true
+
+[tool.basedpyright]
+include = ["src"]
+typeCheckingMode = "strict"
+
+# Virtual environment
+venvPath = "."
+venv = ".venv"
+
+# Specific rule overrides
+# These all take ( "none", "warning", "error", "information" )
+reportUnknownMemberType = "information"
+# reportMissingImports = "error"
+# reportMissingTypeStubs = "warning"
+# reportUnusedVariable = "warning"
+# reportUnusedImport = "none"
+
+# [tool.pytest.ini_options]
+# asyncio_mode = "auto"

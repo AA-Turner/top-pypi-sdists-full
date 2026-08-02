@@ -1,0 +1,7 @@
+# Exact-pin the toolchain to match the substrate repos (persist/edge/verify),
+# so the CIRISCache key (`...-rustc<VER>-...`) aligns and the windows/linux
+# wheel restore hits the substrate layer instead of compiling cold (CIRISEdge#291,
+# CIRISServer#99). All four repos MUST agree on this version.
+[toolchain]
+channel = "1.97.0"
+components = ["clippy", "rustfmt"]

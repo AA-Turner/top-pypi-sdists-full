@@ -1,0 +1,291 @@
+import itertools
+import json
+from collections import defaultdict
+
+from django.core.serializers.json import DjangoJSONEncoder
+
+from data_browser.orm_lookups import get_django_filter
+from data_browser.query import BoundQuery
+from data_browser.types import DSC
+
+
+def _filter(qs, path_str, filter_):
+    negation = False
+    lookup = filter_.lookup
+
+    if lookup.startswith("not_"):
+        negation = True
+        lookup = lookup[4:]
+
+    filter_expression = get_django_filter(
+        filter_.orm_bound_field.type_, path_str, lookup, filter_.parsed
+    )
+    if negation:
+        return qs.exclude(filter_expression)
+    else:
+        return qs.filter(filter_expression)
+
+
+def _cols_sub_query(bound_query):
+    filters = [
+        filter_
+        for filter_ in bound_query.valid_filters
+        if filter_.orm_bound_field.filter_
+    ]
+
+    return BoundQuery(
+        bound_query.model_name,
+        bound_query.col_fields,
+        filters,
+        bound_query.limit,
+        bound_query.orm_model,
+    )
+
+
+def _rows_sub_query(bound_query):
+    filters = [
+        filter_
+        for filter_ in bound_query.valid_filters
+        if filter_.orm_bound_field.filter_
+    ]
+    body_fields = [f for f in bound_query.body_fields if f.direction]
+    return BoundQuery(
+        bound_query.model_name,
+        bound_query.row_fields + body_fields,
+        filters,
+        bound_query.limit,
+        bound_query.orm_model,
+    )
+
+
+def get_result_queryset(bound_query, debug=False):
+    all_fields = {f.queryset_path_str: f for f in bound_query.bound_fields}
+    all_fields.update({f.queryset_path_str: f for f in bound_query.bound_filters})
+
+    qs = bound_query.orm_model.get_queryset(
+        {f.split("__")[0] for f in all_fields}, debug=debug
+    )
+
+    # sql functions and qs annotations
+    for field in all_fields.values():
+        qs = field.annotate(qs, debug=debug)
+
+    # filter normal and sql function fields (aka __date)
+    for filter_ in bound_query.valid_filters:
+        if filter_.orm_bound_field.filter_:
+            qs = _filter(qs, filter_.orm_bound_field.queryset_path_str, filter_)
+
+    # nothing to group on, early out with an aggregate
+    if not any(f.group_by for f in bound_query.bound_fields):
+        return [
+            qs.aggregate(**{
+                field.queryset_path_str: field.aggregate_clause
+                for field in bound_query.bound_fields + bound_query.bound_filters
+                if field.aggregate_clause
+            })
+        ]
+
+    # group by
+    group_by_fields = [
+        field.queryset_path_str for field in bound_query.bound_fields if field.group_by
+    ]
+    qs = qs.values(*group_by_fields).distinct()
+
+    # aggregates
+    aggregate_clauses = {
+        field.queryset_path_str: field.aggregate_clause
+        for field in bound_query.bound_fields + bound_query.bound_filters
+        if field.aggregate_clause
+    }
+    qs = qs.annotate(**aggregate_clauses)
+
+    # having, aka filter aggregate fields
+    for filter_ in bound_query.valid_filters:
+        if filter_.orm_bound_field.having:
+            qs = _filter(qs, filter_.orm_bound_field.queryset_path_str, filter_)
+
+    # sort
+    sort_fields = []
+    for field in bound_query.sort_fields:
+        if field.direction is DSC:
+            sort_fields.append(f"-{field.orm_bound_field.queryset_path_str}")
+        else:
+            # if it's not descending then it must be ascending
+            # this comes up with impliclty ordered fields, which are neither
+            sort_fields.append(field.orm_bound_field.queryset_path_str)
+    qs = qs.order_by(*sort_fields)
+
+    return qs[: bound_query.limit]
+
+
+def get_result_list(bound_query):
+    return list(get_result_queryset(bound_query))
+
+
+def _get_objs_for_calculated_fields(bound_query, orm_models, res):
+    # gather up all the objects to fetch for calculated fields
+    to_load = defaultdict(set)
+    loading_for = defaultdict(set)
+    for field in bound_query.bound_fields:
+        if field.model_name:
+            loading_for[field.model_name].add(field.name)
+            pks = to_load[field.model_name]
+            for row in res:
+                pks.add(row[field.queryset_path_str])
+
+    # fetch all the calculated field objects
+    objs = {}
+    for model_name, pks in to_load.items():
+        objs[model_name] = (
+            orm_models[model_name].get_queryset(loading_for[model_name]).in_bulk(pks)
+        )
+
+    return objs
+
+
+def _format_table(fields, data, objs):
+    # dump out the results
+    # do this JIT style by building the minimal code to do the dump and then eval'ing it
+    namespace = {"objs": objs, "data": data}
+
+    field_lines = []
+    for i, field in enumerate(fields):
+        namespace[f"format_{i}"] = field.get_formatter()
+        value = f"row[{field.queryset_path_str!r}]"
+        if field.model_name:
+            value = f"objs[{field.model_name!r}].get({value})"
+        field_lines.append(f"{field.path_str!r}: format_{i}({value}),")
+
+    code = ["[None if row is None else {", *field_lines, "} for row in data]"]
+
+    return eval("\n".join(code), namespace)  # noqa: S307
+
+
+def _get_fields(row, fields):
+    res = []
+    for field in fields:
+        v = row[field.queryset_path_str]
+        if isinstance(v, (list, set)):
+            v = tuple(v)
+        try:
+            hash(v)
+        except TypeError:
+            v = json.dumps(v, cls=DjangoJSONEncoder)
+        res.append((field.queryset_path_str, v))
+    return tuple(res)
+
+
+def _get_data_and_all_keys(bound_query, res):
+    data = defaultdict(dict)
+    all_row_keys = set()
+    all_col_keys = set()
+    for row in res:
+        row_key = _get_fields(row, bound_query.bound_row_fields)
+        col_key = _get_fields(row, bound_query.bound_col_fields)
+        data[row_key][col_key] = dict(_get_fields(row, bound_query.bound_body_fields))
+        all_row_keys.add(row_key)
+        all_col_keys.add(col_key)
+    return data, all_row_keys, all_col_keys
+
+
+def _get_keys(res, fields, all_keys):
+    keys = {}  # abuse dict to preserve order while removing duplicates
+    if fields:
+        for row in res:
+            key = _get_fields(row, fields)
+            if key in all_keys:
+                keys[key] = None
+    else:
+        keys[()] = None
+    return keys
+
+
+def _format_grid(data, col_keys, row_keys, fields, objs):
+    body_data = []
+    for col_key in col_keys:
+        table = [data[row_key].get(col_key) for row_key in row_keys]
+        body_data.append(_format_table(fields, table, objs))
+    return body_data
+
+
+def get_results(bound_query, orm_models, with_format_hints):
+    if not bound_query.fields:
+        return {"rows": [], "cols": [], "body": [], "length": 0}
+
+    res = get_result_list(bound_query)
+
+    if not res:
+        return {"rows": [], "cols": [], "body": [], "length": 0}
+
+    if bound_query.bound_col_fields and bound_query.bound_row_fields:
+        # need to fetch rows and col titles seperately to get correct sort
+        rows_res = get_result_list(_rows_sub_query(bound_query))
+        cols_res = get_result_list(_cols_sub_query(bound_query))
+    else:
+        rows_res = res
+        cols_res = res
+
+    objs = _get_objs_for_calculated_fields(bound_query, orm_models, res)
+
+    if bound_query.bound_col_fields or bound_query.bound_body_fields:
+        raw_body_data, raw_row_data, raw_col_data = _get_data_and_all_keys(
+            bound_query, res
+        )
+
+        # the raw versions have the subset of correct results
+        # the res versions have the correct ordering
+        col_keys = _get_keys(cols_res, bound_query.bound_col_fields, raw_col_data)
+        row_keys = _get_keys(rows_res, bound_query.bound_row_fields, raw_row_data)
+
+        body_data = _format_grid(
+            raw_body_data, col_keys, row_keys, bound_query.bound_body_fields, objs
+        )
+        row_data = _format_table(
+            bound_query.bound_row_fields, [dict(row) for row in row_keys], objs
+        )
+        col_data = _format_table(
+            bound_query.bound_col_fields, [dict(col) for col in col_keys], objs
+        )
+
+        format_hints = {}
+        for fields, data in [
+            (bound_query.bound_row_fields, row_data),
+            (bound_query.bound_col_fields, col_data),
+            (
+                bound_query.bound_body_fields,
+                list(itertools.chain.from_iterable(body_data)),
+            ),
+        ]:
+            format_hints.update({
+                field.path_str: field.get_format_hints(data) for field in fields
+            })
+
+        return {
+            "rows": row_data,
+            "cols": col_data,
+            "body": body_data,
+            "length": len(res),
+            "formatHints": format_hints,
+        }
+    else:
+        row_data = _format_table(
+            bound_query.bound_row_fields,
+            [dict(_get_fields(row, bound_query.bound_row_fields)) for row in res],
+            objs,
+        )
+
+        if with_format_hints:
+            format_hints = {
+                field.path_str: field.get_format_hints(row_data)
+                for field in bound_query.bound_row_fields
+            }
+        else:
+            format_hints = None
+
+        return {
+            "rows": row_data,
+            "cols": [{}] if res else [],
+            "body": [[{}] * len(res)],
+            "length": len(res),
+            "formatHints": format_hints,
+        }

@@ -468,6 +468,17 @@ def test_pip_install_pyzmq(
     if pyzmq_version == "26.2.0" and sys.platform == "win32":
         pytest.xfail("vcredist not found as of 9/9/24")
 
+    if pyzmq_version == "26.2.0" and sys.platform == "linux":
+        # pyzmq 26.2.0's pyproject.toml uses scikit-build-core's
+        # `cmake.targets = ["pyzmq"]` option, which was renamed to
+        # `build.targets` in scikit-build-core 1.0.0 (released 2026-07-06).
+        # pyzmq 26.2.0 leaves scikit-build-core unpinned in build-system.requires,
+        # so pip picks up the newest release and the build errors out with:
+        #   ERROR: Use build.targets instead of cmake.targets for
+        #   scikit-build-core >= 0.10
+        # Fixed upstream in pyzmq 26.4.0 (which uses build.targets).
+        pytest.xfail("pyzmq 26.2.0 incompatible with scikit-build-core >= 1.0")
+
     if pyzmq_version == "26.4.0" and sys.platform == "win32":
         pytest.xfail("Needs troubleshooting 4/12/25")
 
@@ -2033,7 +2044,7 @@ def test_import_ssl_module(pyexec):
 
 
 @pytest.mark.skip_unless_on_linux
-@pytest.mark.parametrize("pip_version", ["25.2", "25.3"])
+@pytest.mark.parametrize("pip_version", ["25.2", "25.3", "26.2"])
 def test_install_setuptools_25_2_to_25_3(pipexec, build, minor_version, pip_version):
     """
     Validate we handle the changes to pip._internal.req.InstallRequirement.install signature.

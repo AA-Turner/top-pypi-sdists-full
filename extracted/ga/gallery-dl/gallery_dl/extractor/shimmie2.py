@@ -186,11 +186,19 @@ class Shimmie2PostExtractor(Shimmie2Extractor):
             "id"  : post_id,
             "tags": extr(": ", "<").partition(" - ")[0].rstrip(")"),
             "md5" : extr("/_thumbs/", "/"),
-            "size": 0,
+            ""    : (extr(f"id={qt}main_image{qt}", ">") or
+                     extr("<source ", ">")),
+            "source": text.extr(
+                extr(">Source Link<", "</tr>"), "href="+qt, qt),
+            "parent_id": text.parse_int(text.remove_html(
+                extr("Parent</th>", "</tr>")), None),
+            "rating": text.remove_html(
+                extr(">Rating</th>", "</tr>")),
+            "size": text.parse_bytes(
+                extr(">Info</th>", "B</").rpartition(" // ")[2]),
         }
 
-        file = (extr(f"id={qt}main_image{qt}", ">") or
-                extr("<source ", ">"))
+        file = post.pop("")
         post["file_url"] = base + text.extr(file, "src="+qt, qt).lstrip(".")
         post["width"] = text.extr(file, "data-width="+qt, qt)
         post["height"] = text.extr(

@@ -1,0 +1,1944 @@
+"""
+A module containing the visualization and types needed to run mapspace exploratioon
+in AccelForge.
+"""
+
+import copy
+from dataclasses import dataclass
+import inspect
+import itertools
+from math import ceil
+import pydot
+
+from accelforge.util._frozenset import oset
+from typing import (
+    # Collections
+    Any,
+    List,
+    # Object definitions
+    Annotated,
+    Callable,
+    Literal,
+    Self,
+    # Type constructions
+    Type,
+    TypeVar,
+    TypeAlias,
+    # Variable meta-mandates
+    Optional,
+    Union,
+    override,
+)
+from collections.abc import Set
+from pydantic import ConfigDict, Discriminator, Tag, computed_field
+import sympy
+
+from accelforge.frontend.arch._flattened_arch import FlattenedArch
+from accelforge.frontend.renames import EinsumName, TensorName
+from accelforge.util._basetypes import (
+    # Parsing helpers for the input files.
+    EvalableModel,
+    EvalableList,
+    EvalsTo,
+    # Retrieves information from YAML tags.
+    _get_tag,
+    _uninstantiable,
+    NoParse,
+)
+from accelforge.frontend.workload import RankVariable, TensorName
+from accelforge.util._visualization import ColorMap, _pydot_graph
+from accelforge.util.parallel import _SVGJupyterRender
+from accelforge.frontend import arch
+from accelforge.util.indent import print
+
+T = TypeVar("T", bound="MappingNode")
+"""TypeVar T: Restricts the allowable types to types of MappingNodes."""
+
+NodeList: TypeAlias = EvalableList[
+    Annotated[
+        Union[
+            Annotated["Split", Tag("Split")],
+            Annotated["Compute", Tag("Compute")],
+            Annotated["Storage", Tag("Storage")],
+            Annotated["Temporal", Tag("Temporal")],
+            Annotated["Spatial", Tag("Spatial")],
+            Annotated["Sequential", Tag("Sequential")],
+            Annotated["Pipeline", Tag("Pipeline")],
+            Annotated["Nested", Tag("Nested")],
+            Annotated["Reservation", Tag("Reservation")],
+            Annotated["Mapping", Tag("Mapping")],
+            Annotated["Toll", Tag("Toll")],
+        ],
+        Discriminator(_get_tag),
+    ]
+]
+"""
+TypeAlias NodeList: EvalableList that can contain and discriminate between
+MappingNodes of different types.
+"""
+
+_NO_JOIN_MAPPING_VISUALIZATION = False
+
+# =============================================================================
+# LoopTree Mapping Nodes
+# =============================================================================
+
+
+def _as_oset(x):
+    """Wrap a single rank variable as a singleton oset; pass an oset through."""
+    return oset(x) if isinstance(x, (set, frozenset)) else oset([x])
+
+
+@_uninstantiable
+class MappingNode(EvalableModel):
+    """
+    Represents a Node in the Mapping, which can be a loop, a storage node, a compute
+    node, etc.
+    """
+
+    _constraint_lambdas: List[Callable[[], bool]] = []
+    """ Constraints that apply to this node. """
+
+    _must_be_here: bool = False
+    """ Can the mapper move this node? """
+
+    _required: bool = False
+    """ Must the mapper keep this node? """
+
+    def _render_node_name(self) -> str:
+        """The name for a Pydot node."""
+        return f"{self.__class__.__name__}_{id(self)}"
+
+    def _render_node_label(self, **kwargs) -> str:
+        """The label for a Pydot node."""
+        return self.__str__()
+
+    def _render_node_shape(self) -> str:
+        """The shape for a Pydot node."""
+        return "box"
+
+    def _render_node(self, **kwargs) -> str:
+        """Render this node using Pydot."""
+        return pydot.Node(
+            self._render_node_name(),
+            label=self._render_node_label(**kwargs),
+            shape=self._render_node_shape(),
+            style="filled",
+            fillcolor=self._render_node_color(),
+            margin=0.05,
+        )
+
+    def _parent2next(self) -> "MappingNode":
+        """
+        Return the parent to the next node in the tree. This is used for nodes that
+        don't appear in the tree, like Nested nodes.
+        """
+        return self
+
+    def _parent2child(
+        self, parent: "MappingNode"
+    ) -> list[tuple["MappingNode", "MappingNode"]]:
+        """
+        Returns a list of tuples, each one being a parent and child node.
+        """
+        return []
+
+    def _render_make_children(self, **kwargs) -> list[str]:
+        """
+        Renders the children of this node and returns them as a list of strings.
+        """
+        return []
+
+    def get_nodes_of_type(self, types: Type[T] | tuple[Type[T], ...]) -> List[T]:
+        """
+        Returns all sub-nodes, including this one, that match the given types.
+        """
+        nodes: List[T] = []
+        if isinstance(self, types):
+            nodes.append(self)
+        if isinstance(self, MappingNodeWithChildren):
+            for node in self.nodes:
+                if isinstance(node, types):
+                    nodes.append(node)
+                if isinstance(node, MappingNodeWithChildren):
+                    nodes.extend(node.get_nodes_of_type(types))
+        return nodes
+
+    def _flatten(self) -> list["MappingNode"]:
+        if isinstance(self, MappingNodeWithChildren):
+            result = [self]
+            for node in self.nodes:
+                result.extend(node._flatten())
+            return result
+        return [self]
+
+    def _render_node_color(self) -> str:
+        """The color for a Pydot node."""
+        return "white"
+
+    def __hash__(self):
+        """
+        Hashing functor to create mappings of nodes to other objects.
+        """
+        return id(self)
+
+    def __eq__(self, other: Any):
+        return self is other
+
+    def __init_subclass__(cls, **kwargs):
+        # Let Pydantic build the subclass first.
+        super().__init_subclass__(**kwargs)
+        # Read the *raw* attribute without descriptor binding,
+        h = inspect.getattr_static(cls, "__hash__", None)
+        # Replace if unhashable (None) or if it's just BaseModel’s default.
+        if h is None or h is EvalableModel.__hash__:
+            cls.__hash__ = MappingNode.__hash__
+
+    def compact_str(self) -> str:
+        """Returns a compact string representation of this node."""
+        return self.__str__()
+
+
+@dataclass(frozen=True)
+class TilePattern:
+    tile_shape: EvalsTo[
+        Literal["symbol"] | sympy.Symbol | int | str | None | sympy.Expr
+    ] = "symbol"
+    """
+    The common tile shape of the pattern. This is the number of indices by which
+    the tile moves each iteration.
+    """
+
+    initial_tile_shape: EvalsTo[
+        Literal["symbol"] | sympy.Symbol | int | None | str | sympy.Expr
+    ] = "symbol"
+    """
+    The initial tile shape. This is the shape of the tile at the first iteration.
+    Subsequent iterations may be smaller if they overlap previous iterations.
+    """
+
+    calculated_n_iterations: (
+        Literal["symbol"] | sympy.Symbol | int | None | str | sympy.Expr
+    ) = None
+    """ The number of iterations in the pattern. Do not set this! Used internally by the
+    mapper. """
+
+    def _symbol_attrs(self) -> tuple[str, ...]:
+        """The attributes that may be symbols."""
+        return ("tile_shape", "initial_tile_shape", "calculated_n_iterations")
+
+    def __str__(self) -> str:
+        return self.as_str()
+
+    def as_str(self, with_initial_tile_shape=True, with_tile_shape=True):
+        s = []
+        if self.calculated_n_iterations not in (None, "symbol"):
+            s.append(f"in [0..{self.calculated_n_iterations})")
+        if with_initial_tile_shape and (
+            self.initial_tile_shape not in (None, "symbol")
+        ):
+            s.append(f"initial={self.initial_tile_shape}")
+        if with_tile_shape and (self.tile_shape not in (None, "symbol")):
+            s.append(f"shape={self.tile_shape}")
+        return " ".join(s)
+
+    def update(self, **kwargs) -> "TilePattern":
+        """Update the TilePattern with the given keyword arguments."""
+        return type(self)(**{**self.__dict__, **kwargs})
+
+    def _symbol2str(self) -> "TilePattern":
+        """
+        Convert the symbols in the TilePattern to strings, and return a new TilePattern
+        with the symbols replaced by their names.
+        """
+
+        def _symbol2str(x: sympy.Symbol | int | None) -> str | int | None:
+            return x.name if isinstance(x, sympy.Symbol) else x
+
+        return type(self)(
+            **{x: _symbol2str(getattr(self, x)) for x in self._symbol_attrs()}
+        )
+
+    def _prepend_symbols(self, prepend: str) -> "TilePattern":
+        def _prepend(x: sympy.Symbol | int | None) -> str | int | None:
+            if isinstance(x, sympy.Symbol):
+                x = x.name
+            return prepend + x if isinstance(x, str) else x
+
+        return self.update(
+            {x: _prepend(getattr(self, x)) for x in self._symbol_attrs()}
+        )
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, TilePattern):
+            return False
+        return all(getattr(self, x) == getattr(other, x) for x in self._symbol_attrs())
+
+    def __hash__(self) -> int:
+        return hash((self.initial_tile_shape, self.tile_shape))
+
+    def _rename_to_match(
+        self, other: "TilePattern"
+    ) -> tuple["TilePattern", dict[str, str]]:
+        """
+        Changes the symbols in this TilePattern to match the other TilePattern.
+
+        Parameters
+        ----------
+        other:
+            The TilePattern to match.
+
+        Returns
+        -------
+        A tuple containing the updated TilePattern and a dictionary of source->target
+        symbol renames.
+        """
+        renames = {}
+        setattrs = {}
+        for x in self._symbol_attrs():
+            if getattr(self, x) != getattr(other, x):
+                renames[getattr(self, x)] = getattr(other, x)
+                setattrs[x] = getattr(other, x)
+        return self.update(**setattrs), renames
+
+    def _clear_symbols(self) -> "TilePattern":
+        """
+        Clears the symbols in this TilePattern, replacing them with None.
+        """
+
+        def desymbol(x: str | sympy.Symbol | int | None) -> str | int | None:
+            if isinstance(x, (str, sympy.Symbol)):
+                return None
+            return x
+
+        return self.update(
+            **{x: desymbol(getattr(self, x)) for x in self._symbol_attrs()}
+        )
+
+
+@_uninstantiable
+class Loop(MappingNode):
+    """
+    A bounded loop over a rank variable with a given shape and/or pattern.
+
+    Do not instantiate directly; inherited by :class:`~.Temporal` and
+    :class:`~.Spatial`.
+    """
+
+    rank_variable: set[RankVariable] | RankVariable
+    """ The rank variable(s) iterated over in this loop. This may be a
+    single rank variable, or a set of rank variables if the loop is shared between
+    multiple Einsums.
+
+    NOTE FOR DEVELOPERS: If the rank variable is a set DURING PMAPPIN GENERATION, then
+    it means that the loop is a placeholder for multiple loops in the given Einsum. They
+    will be split into multiple loops later. If the rank variable
+
+    """
+
+    tile_shape: EvalsTo[sympy.Symbol | sympy.Expr | int | str] = "symbol"
+    """
+    The (common) tile shape of the iteration. For example, if the iteration
+    space is range(6) and the tile shape is 3, then we create and iterate over
+    two tiles [0, 1, 2] and [3, 4, 5].
+
+    This attribute specifies the *common* tile shape because
+    `initial_tile_shape` may be specified.
+
+    For users writing YAML, the value should be an integer.
+
+    For those developing the mapper, the literal string "symbol" is often used
+    to tell the model to create a sympy symbol to use as the tile shape. Any
+    other string may be specified to explicitly request a variable name (later
+    converted to a sympy variable).
+    """
+
+    initial_tile_shape: EvalsTo[sympy.Symbol | sympy.Expr | int | str | None] = None
+    """
+    The shape of the first tile shape. This attribute is optional. If not
+    specified, all tiles have the same shape.
+
+    If specified, the initial tile shape may differ. For example, an initial
+    tile shape of 3 and tile shape of 2 creates the following tiles in the
+    iteration space: [0, 1, 2], [3, 4], [5, 6], ...
+
+    Similarly to tile shape, this value should be an integer when writing a
+    YAML input.
+
+    For those developing the mapper, this attribute can be a string. See
+    tile_shape for details.
+    """
+
+    _einsum_to_rank_variable: dict[EinsumName, RankVariable] = {}
+    """
+    If this loop has multiple rank variables (because it was merged from loops
+    of different Einsums), this dictionary records which rank variable each
+    Einsum originally used for this loop.
+    """
+
+    _calculated_n_iterations: (
+        Literal["symbol"] | sympy.Symbol | sympy.Expr | int | str | None
+    ) = None
+
+    _fused: bool = None
+    """ Whether this Loop is shared with another Einsum. """
+
+    _shared_tensor_binding: bool = False
+    """ Whether this loop is used to determine shared tensor binding. """
+
+    _may_cause_imperfect: bool = False
+    """
+    This means that the tile shape of this loop may not perfectly factorize the rank
+    shape.
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    def __str__(self) -> str:
+        return f"for {self.rank_variable} {self.tile_pattern}"
+
+    def __eq__(self, other: Any) -> bool:
+        return (
+            isinstance(other, Loop)
+            and self.rank_variable == other.rank_variable
+            and self.tile_pattern == other.tile_pattern
+        )
+
+    def _render_node_shape(self) -> str:
+        return "box"
+
+    def _render_node_color(self) -> str:
+        return "#FCC2FC"
+
+    @override
+    def compact_str(self) -> str:
+        """Returns a compact string representation of this Loop."""
+        rv = self.rank_variable
+        if isinstance(rv, (set, frozenset)):
+            rv = ",".join(sorted(rv))
+        return f"{rv} {self.tile_pattern}"
+
+    def _merge(self, other: "Loop", **kwargs) -> "Loop":
+        """Merge this Loop with another Loop, returning the result."""
+        if not isinstance(other, Loop):
+            raise ValueError(f"Expected Loop, got {type(other)}")
+        if self.tile_pattern != other.tile_pattern:
+            raise ValueError(
+                f"Tile patterns do not match: {self.tile_pattern} != {other.tile_pattern}"
+            )
+
+        my_rv, other_rv = self.rank_variable, other.rank_variable
+        my_rv = my_rv if isinstance(my_rv, (set, frozenset)) else oset((my_rv,))
+        other_rv = (
+            other_rv if isinstance(other_rv, (set, frozenset)) else oset((other_rv,))
+        )
+        return type(self)(
+            rank_variable=my_rv | other_rv,
+            tile_pattern=self.tile_pattern,
+            **kwargs,
+        )
+
+    @property
+    def tile_pattern(self) -> TilePattern:
+        return TilePattern(
+            tile_shape=self.tile_shape,
+            initial_tile_shape=self.initial_tile_shape,
+            calculated_n_iterations=self.calculated_n_iterations,
+        )
+
+    @tile_pattern.setter
+    def tile_pattern(self, value: TilePattern):
+        self.tile_shape = value.tile_shape
+        self.initial_tile_shape = value.initial_tile_shape
+        self.calculated_n_iterations = value.calculated_n_iterations
+
+    @property
+    def calculated_n_iterations(self) -> int:
+        """The number of iterations performed by this loop."""
+        return self._calculated_n_iterations
+
+    @calculated_n_iterations.setter
+    def calculated_n_iterations(self, value: int) -> None:
+        """Set the number of iterations performed by this loop. Do not set this!
+        This is calculated by the Mapper."""
+        self._calculated_n_iterations = value
+
+
+class Temporal(Loop):
+    """A Temporal :class:`~.Loop`."""
+
+    @override
+    def compact_str(self) -> str:
+        return f"T-{super().compact_str()}"
+
+    def __eq__(self, other: "Temporal") -> bool:
+        return isinstance(other, Temporal) and super().__eq__(other)
+
+    def _merge(self, other: "Temporal") -> "Temporal":
+        if not isinstance(other, Temporal):
+            raise ValueError(f"Expected Temporal, got {type(other)}")
+        return super()._merge(other)
+
+    def _render_node_label(self, **kwargs) -> str:
+        with_initial_tile_shape = True
+        with_tile_shape = kwargs.get("with_tile_shape", True)
+        return (
+            f"for {self.rank_variable} "
+            f"{self.tile_pattern.as_str(with_initial_tile_shape, with_tile_shape)}"
+        )
+
+
+class Spatial(Loop):
+    """A spatial :class:`~.Loop`."""
+
+    name: int | str
+    """ The dimension over which the spatial is occuring. """
+
+    component: str
+    """ The component name across which different spatial iterations occur. """
+
+    component_object: NoParse[arch.ArchNode] = None
+    """ The component object across which different spatial iterations occur. """
+
+    _constrained_to_one: bool = False
+    """ Whether this Spatial loop is constrained to one iteration. Do not set this; used
+    internally by the Mapper."""
+
+    @override
+    def compact_str(self) -> str:
+        return f"S-{self.name}-{super().compact_str()}"
+
+    def __str__(self) -> str:
+        return f"S-{self.name} " + super().__str__()
+
+    def __repr__(self) -> str:
+        return f"Spatial({self.rank_variable}, {self.tile_pattern}, {self.name}, {self.component})"
+
+    def __eq__(self, other: "Spatial") -> bool:
+        return (
+            isinstance(other, Spatial)
+            and super().__eq__(other)
+            and self.name == other.name
+            and self.component == other.component
+        )
+
+    def _merge(self, other: "Spatial") -> "Spatial":
+        if not isinstance(other, Spatial):
+            raise ValueError(f"Expected Spatial, got {type(other)}")
+        if self.name != other.name:
+            raise ValueError(f"Names do not match: {self.name} != {other.name}")
+        if self.component != other.component:
+            raise ValueError(
+                f"Components do not match: {self.component} != {other.component}"
+            )
+        return super()._merge(
+            other,
+            name=self.name,
+            component=self.component,
+            component_object=self.component_object,
+        )
+
+    def _render_node_label(self, **kwargs) -> str:
+        with_initial_tile_shape = kwargs.get("with_initial_tile_shape", True)
+        with_tile_shape = kwargs.get("with_tile_shape", True)
+        return (
+            f"S-{self.name}-for {self.rank_variable} "
+            f"{self.tile_pattern.as_str(with_initial_tile_shape, with_tile_shape)}"
+        )
+
+
+class TensorHolder(MappingNode):
+    """A node that represents a hardware Component holding a set of tensors."""
+
+    tensors: EvalableList[TensorName]
+    """ The names of the tensors being held in this node. """
+
+    component: str
+    """ The name of the component holding the tensors. """
+
+    component_object: NoParse[arch.TensorHolder] = None
+    """ The component object holding the tensors. """
+
+    _must_keep_tensors: EvalableList[TensorName] = EvalableList()
+    """ Which tensor(s) the Mapper must keep here. Do not set this! Used internally by
+    the Mapper."""
+
+    _backing: Set[TensorName] = oset()
+    """ Which tensor(s) are backed by this node. Do not set this! Used internally by
+    the Mapper."""
+
+    _lower: bool = True
+    """ Whether this tensor holder can be lowered. Do not set this! Used internally by
+    the Mapper."""
+
+    persistent: bool = False
+    """
+    Whether this tensor holder is persistent. Persistent tensors can't be tiled and must
+    be kept in backing storage for the full duration of the workload's execution.
+    """
+
+    def __eq__(self, other: Any) -> bool:
+        return (
+            isinstance(other, TensorHolder)
+            and oset(self.tensors) == oset(other.tensors)
+            and self.component == other.component
+        )
+
+    @override
+    def compact_str(self) -> str:
+        tname = ",".join(self.tensors)
+        return f"[{tname} in {self.component}]"
+
+    def __str__(self, color_map: ColorMap = None) -> str:
+        tensors = self.tensors
+        if color_map is not None:
+            format_list = [f"{self.component} reuses"] + list(tensors)
+            return color_map.format_list(format_list)
+        return f"{self.component} reuses {', '.join(tensors)}"
+
+    @property
+    def tensor(self) -> TensorName:
+        """If there is one tensor held in this tensor holder, returns its name.
+        Otherwise, raises an error."""
+        if len(self.tensors) != 1:
+            raise ValueError(
+                f"TensorHolder node {repr(self)} has {len(self.tensors)} tensors. "
+                f"Access the tensors property instead."
+            )
+        return self.tensors[0]
+
+    def _render_node_shape(self) -> str:
+        return "cylinder"
+
+    def _render_node_color(self) -> str:
+        return "#D7FCD7"
+
+    def _merge(self, other: "TensorHolder") -> "TensorHolder":
+        if not isinstance(other, TensorHolder):
+            raise ValueError(f"Expected TensorHolder, got {type(other)}")
+
+        if self.component != other.component:
+            raise ValueError(
+                f"Components do not match: {self.component} != {other.component}"
+            )
+
+        if self._lower != other._lower:
+            raise ValueError(
+                f"Lower flags do not match: {self._lower} != {other._lower}"
+            )
+
+        new = type(self)(
+            tensors=self.tensors + other.tensors,
+            component=self.component,
+            component_object=self.component_object,
+            _lower=self._lower,
+        )
+        return new
+
+
+class Storage(TensorHolder):
+    """
+    A Storage :class:`~.TensorHolder` that can hold tensors for reuse.
+    """
+
+    binding: EvalableList[Spatial] = []
+    """
+    Spatial loops that make up the binding of the tensor. Should only be used
+    if `tensors` only has one tensor.
+    """
+
+    def _merge(self, other: "Storage") -> "Storage":
+        if not isinstance(other, Storage):
+            raise ValueError(f"Expected Storage, got {type(other)}")
+
+        if len(self.binding) > 0 or len(other.binding) > 0:
+            raise ValueError(
+                f"Cannot merge if binding is used because binding is per-tensor."
+            )
+
+        return super()._merge(other)
+
+
+class Toll(TensorHolder):
+    """
+    A Toll :class:`~.TensorHolder` that acts as a pass-through, where data is
+    not reused but incurs accesses into this Toll.
+    """
+
+    def _render_node_shape(self) -> str:
+        return "rarrow"
+
+    def _render_node_color(self) -> str:
+        return "#FFCC99"
+
+    def __str__(self, color_map: ColorMap = None) -> str:
+        tensors = self.tensors
+        if color_map is not None:
+            format_list = [f"{self.component} passes"] + list(tensors)
+            return color_map.format_list(format_list)
+        return f"{self.component} passes {', '.join(tensors)}"
+
+
+class Compute(MappingNode):
+    """A node that represents a compute operation. These nodes are the leaves of the
+    LoopTree."""
+
+    einsum: str
+    """ The Einsum being computed. """
+
+    component: str
+    """ The name of the compute component performing the computation. """
+
+    component_object: NoParse[arch.Compute | None] = None
+    """ The :class:`~accelforge.frontend.arch.Compute` object performing the
+    computation. """
+
+    @override
+    def compact_str(self) -> str:
+        return f"{self.component} computes {self.einsum}"
+
+    def __str__(self) -> str:
+        return f"{self.component} computes {self.einsum}"
+
+    def _render_node_shape(self) -> str:
+        return "ellipse"
+
+    def _render_node_color(self) -> str:
+        return "#E0EEFF"
+
+
+class MappingNodeWithChildren(MappingNode):
+    """
+    A :class:`~.MappingNode` that also has child nodes.
+    """
+
+    nodes: NodeList = EvalableList()
+    """ The child nodes. """
+
+    @override
+    def _parent2child(
+        self, parent: MappingNode
+    ) -> list[tuple[MappingNode, MappingNode]]:
+        mine = [(self, node) for node in self.nodes]
+        for child in self.nodes:
+            mine.extend(child._parent2child(self))
+        return mine
+
+    @override
+    def _parent2next(self) -> MappingNode:
+        return None
+
+    @override
+    def _render_make_children(self, **kwargs) -> list[str]:
+        exclude_types = kwargs.get("exclude_types", tuple())
+        lines = []
+        for child in self.nodes:
+            if not isinstance(child, exclude_types):
+                lines.append(child._render_node(**kwargs))
+            lines.extend(child._render_make_children(**kwargs))
+        return lines
+
+    @override
+    def _get_backers(self) -> list[TensorHolder]:
+        backing = []
+        for child in self.nodes:
+            if isinstance(child, TensorHolder) and child._backing:
+                backing.append(child)
+            elif isinstance(child, MappingNodeWithChildren):
+                backing.extend(child._get_backers())
+        return backing
+
+    def clear_nodes_of_type(self, types: type | tuple[type]) -> None:
+        """Clears all child nodes that match the given type(s)."""
+        new_nodes = []
+        for node in self.nodes:
+            if isinstance(node, types):
+                continue
+            if isinstance(node, MappingNodeWithChildren):
+                node.clear_nodes_of_type(types)
+            new_nodes.append(node)
+        self.nodes = EvalableList(new_nodes)
+
+    def clear_nodes(self, *nodes: MappingNode) -> None:
+        """Removes nodes that equal any of the given nodes."""
+        new_nodes: list[MappingNode] = []
+        for node in self.nodes:
+            if any(n == node for n in nodes):
+                continue
+            if node in nodes:
+                continue
+            if isinstance(node, MappingNodeWithChildren):
+                node.clear_nodes(*nodes)
+            new_nodes.append(node)
+        self.nodes = EvalableList(new_nodes)
+
+    def _consolidate_tensor_holders(self) -> None:
+        new_nodes = []
+        for node in self.nodes:
+            if isinstance(node, TensorHolder):
+                # Remove duplicates
+                seen_loop = False
+                node = copy.deepcopy(node)
+                for n in new_nodes[::-1]:
+                    if isinstance(n, TensorHolder) and n.component == node.component:
+                        drop_tensors = [t for t in node.tensors if t in n.tensors]
+                        assert not (drop_tensors and seen_loop), "BUG"
+                        node.tensors = [t for t in node.tensors if t not in n.tensors]
+                    if isinstance(n, Loop):
+                        seen_loop = True
+
+                found = False
+                for n in new_nodes[::-1]:
+                    if isinstance(n, TensorHolder) and n.component == node.component:
+                        n.tensors.extend(
+                            n2 for n2 in node.tensors if n2 not in n.tensors
+                        )
+                        found = True
+                        break
+                    if isinstance(n, Loop):
+                        break
+                    # Don't lift a storage above a storage for the same tensor
+                    if isinstance(n, TensorHolder) and oset(n.tensors) & oset(
+                        node.tensors
+                    ):
+                        break
+                    # Don't lift a storage above a reservation for the same tensor & a
+                    # different component
+                    if (
+                        isinstance(n, Reservation)
+                        and oset(n.purposes) & oset(node.tensors)
+                        and n.resource != node.component
+                    ):
+                        break
+                if not found and node.tensors:
+                    new_nodes.append(node)
+            else:
+                new_nodes.append(node)
+            if isinstance(node, MappingNodeWithChildren):
+                node._consolidate_tensor_holders()
+        assert new_nodes, "BUG"
+        self.nodes = EvalableList(new_nodes)
+
+    def _consolidate_reservations(self) -> None:
+        new_nodes = []
+        for node in self.nodes:
+            if isinstance(node, Reservation):
+                # Remove duplicates
+                seen_loop = False
+                node = copy.deepcopy(node)
+                for n in new_nodes[::-1]:
+                    if isinstance(n, Reservation) and n.resource == node.resource:
+                        drop_purposes = [p for p in node.purposes if p in n.purposes]
+                        assert not (drop_purposes and seen_loop), "BUG"
+                        node.purposes = [
+                            p for p in node.purposes if p not in n.purposes
+                        ]
+                    if isinstance(n, Loop):
+                        seen_loop = True
+
+                found = False
+                for n in new_nodes[::-1]:
+                    if isinstance(n, Reservation) and n.resource == node.resource:
+                        n.purposes.extend(
+                            n2 for n2 in node.purposes if n2 not in n.purposes
+                        )
+                        found = True
+                        break
+                    if isinstance(n, Loop):
+                        break
+                    # Don't lift a reservation above a reservation for the same tensor
+                    if isinstance(n, TensorHolder) and oset(node.purposes) & oset(
+                        n.tensors
+                    ):
+                        break
+                    # Don't lift a reservation above a storage for the same tensor
+                    if isinstance(n, Reservation) and oset(n.purposes) & oset(
+                        node.purposes
+                    ):
+                        break
+                if not found and node.purposes:
+                    new_nodes.append(node)
+            else:
+                new_nodes.append(node)
+            if isinstance(node, MappingNodeWithChildren):
+                node._consolidate_reservations()
+        assert new_nodes, "BUG"
+        self.nodes = EvalableList(new_nodes)
+
+    def _elevate_persistent_nodes_above_splits(self) -> None:
+        new_nodes: list[MappingNode] = []
+        for node in self.nodes:
+            if isinstance(node, Split):
+                persistent_nodes = node._get_persistent_nodes()
+                new_nodes.extend(persistent_nodes)
+                node.clear_nodes(*persistent_nodes)
+            if isinstance(node, MappingNodeWithChildren):
+                node._elevate_persistent_nodes_above_splits()
+            new_nodes.append(node)
+        self.nodes = EvalableList(new_nodes)
+
+    def _elevate_tensor_holders_above_splits(self) -> None:
+        new_nodes: list[MappingNode] = []
+        for node in self.nodes:
+            if isinstance(node, Split):
+                shared_tensor_holders = node._get_shared_tensor_holders()
+                new_nodes.extend(shared_tensor_holders)
+                node.clear_nodes(*shared_tensor_holders)
+            if isinstance(node, MappingNodeWithChildren):
+                node._elevate_tensor_holders_above_splits()
+            new_nodes.append(node)
+        self.nodes = EvalableList(new_nodes)
+
+    def _propagate_backing_reservations_between_splits(self) -> None:
+        for node in self.nodes:
+            if isinstance(node, MappingNodeWithChildren):
+                node._propagate_backing_reservations_between_splits()
+
+        if not isinstance(self, Split):
+            return
+
+        for i, node1 in enumerate(self.nodes):
+            # + 2 because if it's in back-to-back branches, then there's nothing in
+            # between to add the reservation to.
+            for j in range(i + 2, len(self.nodes)):
+                node2 = self.nodes[j]
+                reservations1 = node1.get_nodes_of_type(Reservation)
+                reservations2 = node2.get_nodes_of_type(Reservation)
+
+                reservations1 = [r for r in reservations1 if r._backing]
+                reservations2 = [r for r in reservations2 if r._backing]
+
+                shared_reservations = []
+                for reservation1 in reservations1:
+                    for reservation2 in reservations2:
+                        if reservation1 == reservation2:
+                            shared_reservations.append(reservation1)
+                            break
+
+                for s in shared_reservations:
+                    for k in range(i + 1, j):
+                        node3 = self.nodes[k]
+                        if not isinstance(node3, Nested):
+                            raise ValueError(f"Expected Nested node, got {type(node3)}")
+                        reservations3 = node3.get_nodes_of_type(Reservation)
+                        if s not in reservations3:
+                            node3.nodes.insert(0, copy.deepcopy(s))
+
+    def _move_tensor_holders_above_reservations(self) -> None:
+        groups = []
+        cur_group = []
+        for node in self.nodes:
+            if isinstance(node, MappingNodeWithChildren):
+                node._move_tensor_holders_above_reservations()
+            if not isinstance(node, (TensorHolder, Reservation)):
+                groups.append(cur_group)
+                cur_group = []
+            cur_group.append(node)
+        groups.append(cur_group)
+        groups = [g for g in groups if g]
+
+        groups = [
+            [x for x in g if not isinstance(x, (TensorHolder, Reservation))]
+            + [x for x in g if isinstance(x, (TensorHolder))]
+            + [x for x in g if isinstance(x, (Reservation))]
+            for g in groups
+        ]
+        self.nodes = EvalableList([x for g in groups for x in g])
+
+    def _remove_reservations_for_tolls(self) -> None:
+        tolls = self.get_nodes_of_type(Toll)
+        toll_names = oset(ps.component for ps in tolls)
+        reservations = self.get_nodes_of_type(Reservation)
+        remove = [r for r in reservations if r.resource in toll_names]
+        self.clear_nodes(*remove)
+
+
+class Split(MappingNodeWithChildren):
+    """
+    A :class:`~.MappingNodeWithChildren` that splits the tree into multiple branches,
+    each applying to different Einsums.
+    """
+
+    def __str__(self) -> str:
+        return "Split"
+
+    def _render_node_shape(self) -> str:
+        return "hexagon"
+
+    def _get_persistent_nodes(self) -> list[MappingNode]:
+        nodes = []
+        for n in self.nodes:
+            nodes.extend(n.get_nodes_of_type(TensorHolder))
+            nodes.extend(n.get_nodes_of_type(Reservation))
+        return [n for n in nodes if n.persistent]
+
+    def _get_shared_tensor_holders(self) -> list[TensorHolder]:
+        tensor_holders = [n.get_nodes_of_type(TensorHolder) for n in self.nodes]
+        shared_tensor_holders = []
+        for i in range(len(tensor_holders)):
+            for j in range(i + 1, len(tensor_holders)):
+                for a in tensor_holders[i]:
+                    for b in tensor_holders[j]:
+                        if a._backing & b._backing and a not in shared_tensor_holders:
+                            assert len(a.tensors) == 1 and len(b.tensors) == 1, "BUG"
+                            shared_tensor_holders.append(a)
+                            break
+        return shared_tensor_holders
+
+    def _render_node_color(self) -> str:
+        return "#FFFFE0"
+
+
+class Nested(MappingNodeWithChildren):
+    """
+    A :class:`~.MappingNodeWithChildren` that represents a nested set of nodes. Each
+    node is the parent of the next node.
+    """
+
+    def model_post_init(self, __context__=None) -> None:
+        for node in list(self.nodes)[:-1]:
+            assert not isinstance(
+                node, MappingNodeWithChildren
+            ), f"Nested node has a child with children. Only the last child can have children."
+
+    def _parent2child(
+        self, parent: MappingNode
+    ) -> list[tuple[MappingNode, MappingNode]]:
+        parent2child = []
+        for node in self.nodes:
+            parent2child.append((parent, node))
+            parent2child.extend(node._parent2child(parent))
+            parent = node._parent2next()
+        return parent2child
+
+    def _parent2next(self) -> MappingNode:
+        if not self.nodes:
+            raise ValueError("Nested node has no children")
+        return self.nodes[-1]._parent2next()
+
+    # def _render_connect_children(self, names_lines: list[tuple[str, str]], parent_name: str=None) -> list[str]:
+    #     return super()._render_connect_children(names_lines)
+
+    def _render_node_label(self, **kwargs) -> str:
+        if not self.nodes:
+            raise ValueError("Nested node has no children")
+        return self.nodes[0]._render_node_label(**kwargs)
+
+    def _render_node_name(self) -> str:
+        if not self.nodes:
+            raise ValueError("Nested node has no children")
+        return self.nodes[0]._render_node_name()
+
+    def _get_n_shared_loops(self, other: "Nested") -> int:
+        my_backing = oset(
+            (t, s.component) for s in self._get_backers() for t in s._backing
+        )
+        other_backing = oset(
+            (t, s.component) for s in other._get_backers() for t in s._backing
+        )
+        shared_backing = my_backing & other_backing
+
+        if not shared_backing:
+            return 0
+
+        n_shared_loops = 0
+        for i, node in enumerate(self.nodes):
+            if isinstance(node, Loop):
+                n_shared_loops += 1
+            if (
+                isinstance(node, Reservation)
+                and (node.purpose, node.resource) in shared_backing
+            ):
+                return n_shared_loops
+            if isinstance(node, Split):
+                for child in node.nodes:
+                    max_child_n_shared_loops = 0
+                    try:
+                        max_child_n_shared_loops = max(
+                            max_child_n_shared_loops, child._get_n_shared_loops(other)
+                        )
+                    except ValueError:
+                        pass
+                    return max_child_n_shared_loops + n_shared_loops
+
+        raise ValueError("BUG")
+
+    def _break_into_reorderable_groups(
+        self, stop_at_n_loops: int
+    ) -> list[list[MappingNode]]:
+        # We can reorder loops relative to each other
+        groups = []
+        cur_group = None
+
+        seen_loops = 0
+
+        if stop_at_n_loops == 0 and not any(
+            isinstance(node, Loop) for node in self.nodes
+        ):
+            return [list(self.nodes)]
+
+        i = 0
+        for i, node in enumerate(self.nodes):
+            if seen_loops >= stop_at_n_loops:
+                break
+            is_iteration = isinstance(node, Loop)
+            if cur_group is None:
+                cur_group = []
+            elif (is_iteration and not all(isinstance(x, Loop) for x in cur_group)) or (
+                not is_iteration and any(isinstance(x, Loop) for x in cur_group)
+            ):
+                groups.append(cur_group)
+                cur_group = []
+            cur_group.append(node)
+            assert not isinstance(node, Sequential) or i == len(self.nodes) - 1, "BUG"
+            if isinstance(node, Loop):
+                seen_loops += 1
+
+        if cur_group:
+            groups.append(cur_group)
+
+        final_group = self.nodes[i:]
+        groups.append(final_group)
+
+        if seen_loops < stop_at_n_loops:
+            raise ValueError(
+                f"Expected {stop_at_n_loops} loops, but only found {seen_loops}"
+            )
+
+        # Lower reservations. If reservations are in the second-to-last group
+        # # non-iteration group, lower them to the last group.
+        # if len(groups) > 3:
+        #     assert not any(isinstance(x, Loop) for x in groups[-1]), "BUG"
+        #     assert not any(isinstance(x, Loop) for x in groups[-3]), "BUG"
+        #     reservations = [x for x in groups[-2] if isinstance(x, Reservation)]
+        #     groups[-1].extend(reservations)
+        #     groups[-3] = [x for x in groups[-3] if x not in reservations]
+
+        return groups
+
+    def _merge(self, other: "Nested", n_shared_loops: int) -> "Nested":
+
+        # Break up the nodes above the indices. We need to have them in the format of
+        # [(loop, other stuff...), (loop, other stuff...), ...]
+        my_groups = self._break_into_reorderable_groups(stop_at_n_loops=n_shared_loops)
+        my_remaining = my_groups.pop(-1)
+        other_groups = other._break_into_reorderable_groups(
+            stop_at_n_loops=n_shared_loops
+        )
+        other_remaining = other_groups.pop(-1)
+
+        # Reorder so that the loops are in the same order. We can't reorder groups that
+        # have other stuff in them because that'll change the behavior of the mapping.
+        zipped_groups = []
+
+        def _pop_loop_group(groups: list[list[MappingNode]]) -> list[MappingNode]:
+            while groups and not any(isinstance(x, Loop) for x in groups[0]):
+                zipped_groups.append(groups.pop(0))
+            return groups.pop(0) if groups else []
+
+        my_loop_group = _pop_loop_group(my_groups)
+        other_loop_group = _pop_loop_group(other_groups)
+        while (my_groups or my_loop_group) and (other_groups or other_loop_group):
+            if not my_loop_group:
+                my_loop_group = _pop_loop_group(my_groups)
+                continue
+            if not other_loop_group:
+                other_loop_group = _pop_loop_group(other_groups)
+                continue
+
+            # Add matching loops from the two groups. If we can't find a match, raise an
+            # error.
+            to_add = None
+            for i, a in enumerate(my_loop_group):
+                for j, b in enumerate(other_loop_group):
+                    if a == b:
+                        to_add = [a]
+                        my_loop_group.pop(i)
+                        other_loop_group.pop(j)
+                        break
+                if to_add is not None:
+                    break
+
+            if to_add is None:
+                # TODO: This check for one is only to early catch bugs coming here. The
+                # code below says that if we couldn't find a match, then ignore rank
+                # variables and assume that rank variable translation would fix it.
+                assert len(my_loop_group) == 1 or len(other_loop_group) == 1
+                has_one, may_not_have_one = my_loop_group, other_loop_group
+                has_one_side, may_not_side = self, other
+                if len(has_one) != 1:
+                    has_one, may_not_have_one = may_not_have_one, has_one
+                    has_one_side, may_not_side = may_not_side, has_one_side
+
+                l = copy.deepcopy(has_one.pop(0))
+                l.rank_variable = _as_oset(l.rank_variable)
+                for l2 in may_not_have_one:
+                    if l2.calculated_n_iterations == l.calculated_n_iterations:
+                        break
+                else:
+                    raise ValueError(
+                        f"No matching loop found for {my_loop_group} and {other_loop_group}"
+                    )
+                print(
+                    f"Warning. Matching loops {l} and {l2}. Need rank variable translation here."
+                )
+
+                # For each einsum, record which rank variable it used for this
+                # loop.
+                for src_loop, src_side in [(l, has_one_side), (l2, may_not_side)]:
+                    src_rv = _as_oset(src_loop.rank_variable)
+                    for compute in src_side.get_nodes_of_type(Compute):
+                        rv = src_loop._einsum_to_rank_variable.get(compute.einsum)
+                        if rv is None:
+                            assert len(src_rv) == 1, (
+                                f"Loop {src_loop} has no mapping for einsum "
+                                f"{compute.einsum} and has multiple rank "
+                                f"variables {src_rv}. A prior merge should have "
+                                f"populated _einsum_to_rank_variable."
+                            )
+                            rv = next(iter(src_rv))
+                        l._einsum_to_rank_variable[compute.einsum] = rv
+
+                may_not_have_one.remove(l2)
+                l.rank_variable = l.rank_variable | _as_oset(l2.rank_variable)
+                to_add = [l]
+
+            zipped_groups.append(to_add)
+
+        assert not my_loop_group and not other_loop_group, "BUG"
+
+        zipped_groups.extend(my_groups)
+        zipped_groups.extend(other_groups)
+
+        flattened = list(x for group in zipped_groups for x in group)
+        new_nodes = [x for x in flattened if not isinstance(x, Sequential)]
+        new_nodes.extend([x for x in flattened if isinstance(x, Sequential)])
+
+        if isinstance(my_remaining[0], Sequential) and isinstance(
+            other_remaining[0], Sequential
+        ):
+            my_remaining[0].nodes.extend(other_remaining[0].nodes)
+            assert len(my_remaining) == 1 and len(other_remaining) == 1, "BUG"
+            new_nodes.append(my_remaining[0])
+        elif isinstance(my_remaining[0], Sequential):
+            my_remaining[0].nodes.append(Nested(nodes=other_remaining))
+            assert len(my_remaining) == 1, "BUG"
+            new_nodes.append(my_remaining[0])
+        elif isinstance(other_remaining[0], Sequential):
+            other_remaining[0].nodes.append(Nested(nodes=my_remaining))
+            assert len(other_remaining) == 1, "BUG"
+            new_nodes.append(other_remaining[0])
+        else:
+            new_nodes.append(
+                Sequential(
+                    nodes=[Nested(nodes=my_remaining), Nested(nodes=other_remaining)]
+                )
+            )
+
+        return Nested(nodes=new_nodes)
+
+    def _beautify_loops(
+        self, rank_variable_bounds: Optional[dict[str, dict[str, int]]] = None
+    ):
+        to_remove = []
+        rank_variable_bounds = rank_variable_bounds or {}
+
+        for i, node in enumerate(self.nodes):
+            if not isinstance(node, Loop):
+                continue
+            prev_tile_shape = None
+            for j in range(i - 1, -1, -1):
+                node2 = self.nodes[j]
+                if not isinstance(node2, Loop):
+                    continue
+                if node2.tile_shape is None:
+                    continue
+                if node2.rank_variable != node.rank_variable:
+                    continue
+                prev_tile_shape = node2.tile_shape
+                break
+            if prev_tile_shape is None:
+                prev_tile_shape = rank_variable_bounds.get(node.rank_variable, None)
+            if prev_tile_shape is not None:
+                if node.tile_shape == prev_tile_shape:
+                    to_remove.append(i)
+                    continue
+                elif node.tile_shape is not None and prev_tile_shape is not None:
+                    node.tile_pattern = node.tile_pattern.update(
+                        calculated_n_iterations=ceil(prev_tile_shape / node.tile_shape),
+                    )
+
+        def safe_int_cast(x: int | float | None) -> int | float | None:
+            try:
+                int_x = int(x)
+                return int_x if int_x == x else x
+            except:
+                pass
+            return x
+
+        for i, node in enumerate(self.nodes):
+            if not isinstance(node, Loop):
+                continue
+            node.tile_pattern = node.tile_pattern.update(
+                initial_tile_shape=safe_int_cast(node.tile_pattern.initial_tile_shape),
+                tile_shape=safe_int_cast(node.tile_pattern.tile_shape),
+            )
+
+        self.nodes = [node for i, node in enumerate(self.nodes) if i not in to_remove]
+
+    @override
+    def compact_str(self) -> str:
+        result = []
+        prev = None
+        for node in self.nodes:
+            try:
+                prev = prev._merge(node)
+            except:
+                if prev is not None:
+                    result.append(prev)
+                prev = node
+        if prev is not None:
+            result.append(prev)
+
+        return " ".join(f"{node.compact_str()}" for node in result)
+
+    def _get_single_tensor_mapping(
+        self,
+        tensor_name: TensorName,
+        flattened_arch: FlattenedArch,
+        tensor_rank_variables: set[str],
+    ) -> Self:
+        """
+        Ctrl-F for CONTIGUOUS_ITERATION_SPACE_DISCUSSION
+
+        Returns this Nested node with only the nodes associated with the given tensor.
+
+        Includes loops and compute nodes, plus any tensor holders and reservations that
+        are associated with the given tensor.
+
+        Puts spatials as high as they can go while being below any node that is above
+        them in the memory hierarchy. Between two tensor holders, generally puts spatial
+        loops at the bottom, but may put them above temporal loops if that better lines
+        up with the original order. When memory hierarchy order is followed globally
+        (e.g., output in buffer must be above input in reg), the loop order going into
+        this function will always match that going out.
+
+        This function expects, as input, all spatials to be placed as low as they can
+        go, but above their respective fanouts.
+
+        When memory hierarchy order is only followed per-tensor (e.g., output in buffer
+        must be above output in reg, but can be below input in reg), things may be more
+        complicated. We discuss this in more detail using the following example:
+
+        Hierarchy:
+
+        - Buffer
+        - 2x fanout
+        - Reg
+
+        Mapping:
+            S-reg for m1 in [0, 2):
+              [Reg reuses input]
+                for m0 in [0, 2):
+                  [Buffer reuses output]
+
+        When given a mapping and architecture like the above, this function may reorder
+        the spatial and temporal loops, yielding the following:
+
+        Mapping for input:
+            S-reg for m1 in [0, 2):
+              [Reg reuses input]
+                for m0 in [0, 2):
+
+        Mapping for output:
+            for m0 in [0, 2):
+              [Buffer reuses output]
+                S-reg for m1 in [0, 2):
+
+        Unfortunately, such reordering is inevitable given our assumptions of an
+        inclusive memory hierarchy (because any tile stored in the reg must be stored in
+        the buffer), and our desire to place the reg storage node higher. It's also a
+        symptom of the following other issues:
+
+        - In cases like these, storage nodes may need to keep non-contiguous chunks of
+          the iteration space. For example, if the spatial loop is on top, then one reg
+          holds [0, 1] while the other holds [2, 3]. Meanwhile, in the first temporal
+          iteration, the buffer holds [0, 2] and in the second temporal iteration, the
+          buffer holds [2, 4].
+        - We get weird dependencies between loop order and compatibility for fusion
+          because loop order affects the iteration space tiles that are stored.
+
+        To prevent these problems from occuring, we raise an error if there any temporal
+        loops in between that affect the same indexing expressions as the spatial loops.
+        I tried to have it work with our model and then constraining the temporal loops
+        to be null (have the same tile shape as their outer loop), but when we run it
+        per-tensor and reorder, the loop above the temporal changes, so the model
+        returns inconsistent results for each tensor as the tile shape is different.
+        With this constraint, we'll never reorder spatial and temporal loops that affect
+        one another.
+
+        The result of the above is that we'll never reorder spatial and temporal loops
+        that affect one another.
+
+        I haven't thought through how this will work with more complex rank variable
+        expressions, so to be safe, will say that there can not be a temporal and
+        spatial loop that affect the same indexing expression or each others' loop
+        bounds.
+
+        These problems also aren't necessarily impossible to solve; I just haven't
+        thought it through. If we do think it through, a good place to start would be to
+        update the model to support non-contiguous chunks of the iteration space, then
+        come up with some way to explore mappings and fusion while using non-contiguous
+        chunks of the iteration space.
+
+        TODO: Mapper then also needs explore swapping temporal/spatial loops
+        """
+        spatials = [n for n in self.nodes if isinstance(n, Spatial)]
+        tensor_holders = [
+            n for n in self.nodes if isinstance(n, (TensorHolder, Compute))
+        ]
+        others = [
+            n
+            for n in self.nodes
+            if not isinstance(n, (TensorHolder, Reservation, Spatial))
+            or (isinstance(n, TensorHolder) and n.tensor == tensor_name)
+            or (isinstance(n, Reservation) and n.purpose == tensor_name)
+        ]
+        assert not any(isinstance(n, MappingNodeWithChildren) for n in others), "BUG"
+
+        def arch_idx(node: MappingNode) -> int:
+            for i, n in enumerate(flattened_arch):
+                if n.name == node.component:
+                    return i
+            raise ValueError(f"Component {node.component} not found in flattened arch")
+
+        spatials_above = {
+            id(node): [s for s in spatials if arch_idx(s) <= arch_idx(node)]
+            for node in tensor_holders
+        }
+        spatials_below = {
+            id(node): [s for s in spatials if arch_idx(s) >= arch_idx(node)]
+            for node in tensor_holders
+        }
+
+        mapping = []
+        for to_add in others:
+            if isinstance(to_add, (TensorHolder, Compute)):
+                cur_spatials_above = [
+                    s for s in spatials if s in spatials_above[id(to_add)]
+                ]
+                spatials = [s for s in spatials if s not in cur_spatials_above]
+                mapping.extend(cur_spatials_above)
+            mapping.append(to_add)
+
+        mapping.extend(spatials)
+
+        # Check that spatials are always above their respective fanouts
+        for i, node in enumerate(mapping):
+            if not isinstance(node, (TensorHolder, Compute)):
+                continue
+            for node2 in mapping[i + 1 :]:
+                if not isinstance(node2, Spatial):
+                    continue
+                assert node2 in spatials_below[id(node)], "BUG"
+                assert node2 not in spatials_above[id(node)], "BUG"
+
+        # Split the mapping into groups of tensor holders and sequential loops
+        id2idx = {id(node): i for i, node in enumerate(self.nodes)}
+        groups = []
+        for node in mapping:
+            if (
+                isinstance(node, Loop)
+                and len(groups) > 0
+                and isinstance(groups[-1][0], Loop)
+            ):
+                groups[-1].append(node)
+            else:
+                groups.append([node])
+
+        groups = [sorted(g, key=lambda x: id2idx[id(x)]) for g in groups]
+        mapping = [x for g in groups for x in g]
+
+        # Check that all storage-temporal relations are held from before.
+        # Precomputed id-sets avoid pydantic __instancecheck__ in the O(N²)
+        # combinations loops.
+        node2idx = {id(node): i for i, node in enumerate(mapping)}
+        prev_node2idx = {id(node): i for i, node in enumerate(self.nodes)}
+        th_ids = {id(n) for n in mapping if isinstance(n, TensorHolder)}
+        sp_ids = {id(n) for n in mapping if isinstance(n, Spatial)}
+        loop_ids = {id(n) for n in mapping if isinstance(n, Loop)}
+        for n1, n2 in itertools.combinations(mapping, 2):
+            i1, i2 = id(n1), id(n2)
+            if (i1 in th_ids and i2 in th_ids) or (i1 in sp_ids and i2 in sp_ids):
+                assert (node2idx[i1] > node2idx[i2]) == (
+                    prev_node2idx[i1] > prev_node2idx[i2]
+                ), "BUG"
+
+        # Check for spatial/temporal loops that have been reordered for the
+        # same rank variable. These can't co-exist because the tiling is
+        # inconsistent. OK for irrelevant loops.
+        node2idx = {id(node): i for i, node in enumerate(self.nodes)}
+        for node1, node2 in itertools.combinations(mapping, 2):
+            if id(node1) not in loop_ids or id(node2) not in loop_ids:
+                continue
+            if node2idx[id(node1)] <= node2idx[id(node2)]:
+                continue
+            if node1.rank_variable not in tensor_rank_variables:
+                continue
+            if node1.rank_variable != node2.rank_variable:
+                continue
+            s = """
+            In the given mapping, there exists (potentially with other nodes in
+            between) a spatial loop above a temporal loop above a storage node,
+            where the loops index into the same indexing expression, and the storage
+            node is not fanned out by the spatial loop. This is not allowed.
+
+            Mapping:
+            """
+            s = s.replace("                ", "")
+
+            to_add = []
+            for n in self.nodes:
+                if id(n) == id(node1) or id(n) == id(node2):
+                    to_add.append(f"\t{n.compact_str()} <-- Offending Loop")
+                else:
+                    to_add.append(f"\t{n.compact_str()}")
+
+            raise ValueError(s + "\n".join(to_add))
+
+        return type(self)(nodes=mapping)
+
+
+class _Parallel(Split):
+    """
+    A :class:`~.Split` where each branch operates at the same time in different
+    spatially-organized hardware.
+    """
+
+    pass
+
+
+class Pipeline(Split):
+    """
+    A :class:`~.Split` where each branch operates at the same time in different
+    spatially-organized hardware.
+    """
+
+    pass
+
+
+class Sequential(Split):
+    """
+    A :class:`~.Split` where branches are processed one-after-another.
+    """
+
+    pass
+
+
+# =============================================================================
+# Nodes That May Only be Inserted by the Model
+# =============================================================================
+
+
+class Reservation(MappingNode):
+    """A node that reserves a hardware resource for a specific task."""
+
+    purposes: EvalableList[str]
+    """ The reasons for reserving the resource. """
+
+    resource: str
+    """ The resource being reserved. """
+
+    _backing: Set[str] = oset()
+    """ Tensors for which this reservation is reserving the tensor's backing storage.
+    """
+
+    _component_object: "arch.Component | None" = None
+    """ The arch component backing the reserved resource, taken from the Storage node
+    this Reservation was created from. Used internally by the Mapper; do not set. """
+
+    _tensor_holder: TensorHolder | None = None
+    """
+    The TensorHolder node from which this reservation is created.
+    """
+
+    persistent: bool = False
+    """
+    Whether this reservation is persistent. Persistent reservations can't be tiled and
+    must be kept in backing storage for the full duration of the workload's execution.
+    """
+
+    @override
+    def compact_str(self) -> str:
+        return f'{",".join(self.purposes)} reserves {self.resource}'
+
+    def __str__(self, color_map: ColorMap = None) -> str:
+        purposes = self.purposes
+        if color_map is not None:
+            format_list = [f"{self.resource} reserved for"] + list(purposes)
+            return color_map.format_list(format_list)
+        return f"{self.resource} reserved for {",".join(purposes)}"
+
+    def __repr__(self):
+        return f"Reservation({self.purposes}, {self.resource}, {self.persistent})"
+
+    def _render_node_shape(self) -> str:
+        return "component"
+
+    @property
+    def purpose(self) -> str:
+        if len(self.purposes) == 1:
+            return self.purposes[0]
+        raise ValueError(f"Reservation has multiple purposes: {self.purposes}")
+
+    @property
+    def binding(self) -> EvalableList[Spatial]:
+        assert isinstance(self._tensor_holder, Storage)
+        return self._tensor_holder.binding
+
+    def __eq__(self, other: "Reservation") -> bool:
+        return (
+            isinstance(other, Reservation)
+            and self.purposes == other.purposes
+            and self.resource == other.resource
+        )
+
+    def _render_node_color(self) -> str:
+        return "#E8E8E8"  # Light gray
+
+
+# =============================================================================
+# Top-level Mapping
+# =============================================================================
+
+MappingNodeTypes: TypeAlias = Union[
+    Temporal,
+    Spatial,
+    Storage,
+    Pipeline,
+    Sequential,
+    Compute,
+    Reservation,
+    # Fill,
+    TensorHolder,
+]
+"""TypeAlias MappingNodeTypes: The types of MappingNodes possible."""
+
+
+class Mapping(Nested):
+    """A Mapping of a workload onto a hardware architecture."""
+
+    _n_loop_orders: int | None = None
+    """ Used for counting number of unique mappings. Do not touch. """
+
+    _template_index: int | None = None
+    """ Used for tracking which mapping is which. """
+
+    def remove_reservations(self):
+        self.nodes = [n for n in self.nodes if not isinstance(n, Reservation)]
+
+    def split_reservations(self):
+        new_nodes = []
+        for node in self.nodes:
+            if isinstance(node, Reservation):
+                for purpose in node.purposes:
+                    new_node = copy.copy(node)
+                    new_node.purposes = [purpose]
+                    new_nodes.append(new_node)
+            else:
+                new_nodes.append(node)
+        self.nodes = new_nodes
+
+    def split_loop_with_multiple_rank_variables(self, einsum_name: EinsumName):
+        new_nodes = []
+        for node in self.nodes:
+            if isinstance(node, Loop) and isinstance(node.rank_variable, set):
+                if einsum_name not in node._einsum_to_rank_variable:
+                    raise ValueError(
+                        f"Loop {node.compact_str()} has multiple rank variables. Make "
+                        f"sure to populate _einsum_to_rank_variable for this loop."
+                    )
+                new_node = copy.copy(node)
+                new_node.rank_variable = node._einsum_to_rank_variable[einsum_name]
+                new_nodes.append(new_node)
+            else:
+                new_nodes.append(node)
+        self.nodes = new_nodes
+
+    def clear_irrelevant_reservations(self, relevant_tensors: set[TensorName]):
+        new_nodes = []
+        for node in self.nodes:
+            if isinstance(node, Reservation):
+                if node.purpose not in relevant_tensors:
+                    continue
+                new_nodes.append(node)
+            elif isinstance(node, TensorHolder):
+                node.tensors = [t for t in node.tensors if t in relevant_tensors]
+                if node.tensors:
+                    new_nodes.append(node)
+            elif isinstance(node, MappingNodeWithChildren):
+                node.clear_irrelevant_reservations(relevant_tensors)
+                new_nodes.append(node)
+            else:
+                new_nodes.append(node)
+        self.nodes = new_nodes
+
+    def clear_reservations(self):
+        new_nodes = []
+        for node in self.nodes:
+            if isinstance(node, Reservation):
+                continue
+            new_nodes.append(node)
+        self.nodes = new_nodes
+
+    def clear_bindings(self):
+        for node in self.nodes:
+            if isinstance(node, Storage):
+                node.binding = EvalableList()
+
+    def split_tensor_holders_with_multiple_tensors(self):
+        new_nodes = []
+        for node in self.nodes:
+            if isinstance(node, TensorHolder) and len(node.tensors) > 1:
+                for tensor in node.tensors:
+                    new_node = copy.copy(node)
+                    new_node.tensors = [tensor]
+                    new_nodes.append(new_node)
+            else:
+                new_nodes.append(node)
+        self.nodes = new_nodes
+
+    def _get_fused_slice(self, fusable_tensors: set[TensorName]) -> "Mapping":
+        """
+        Return a mapping with:
+        - All backing reservation nodes for intermediate tensors
+        - Loop nodes above any backing reservation nodes
+        """
+        # All intermediate tensors that can be found in this mapping
+        # Note: `fusable_tensors` may be for **whole workload**.
+        relevant_intermediate_tensors = oset()
+        for node in self.nodes:
+            if isinstance(node, Reservation):
+                if node.purpose in fusable_tensors:
+                    relevant_intermediate_tensors.add(node.purpose)
+
+        fused_slice = Mapping(nodes=[])
+        to_add = []
+        for node in self.nodes:
+            node = copy.copy(node)
+            if isinstance(node, Reservation):
+                if node.purpose not in relevant_intermediate_tensors:
+                    continue
+                fused_slice.nodes.extend(to_add + [node])
+                to_add = []
+                relevant_intermediate_tensors.remove(node.purpose)
+                if len(relevant_intermediate_tensors) == 0:
+                    break
+            elif isinstance(node, Loop):
+                to_add.append(node)
+        return fused_slice
+
+    @property
+    def loops(self) -> list[Loop]:
+        """Returns all :class:`~.Loop` nodes in the Mapping."""
+        return self.get_nodes_of_type(Loop)
+
+    def _render_node_label(self, **kwargs) -> str:
+        return f"Root"
+
+    def _repr_svg_(self) -> str:
+        return self.render()
+
+    def render_pydot(self, with_reservations=True, with_tile_shape=True) -> pydot.Dot:
+        """Renders the mapping as a Pydot graph. Returns an SVG string."""
+        graph = _pydot_graph()
+        # Enable HTML-like labels for color support
+        graph.set_node_defaults(label="")
+        if not with_reservations:
+            exclude_types = (Reservation,)
+        else:
+            exclude_types = tuple()
+        for node in self._render_make_children(
+            exclude_types=exclude_types, with_tile_shape=with_tile_shape
+        ):
+            graph.add_node(node)
+
+        color_keys = oset()
+        all_nodes = self._flatten()
+        for node in all_nodes:
+            if isinstance(node, TensorHolder):
+                color_keys.update(node.tensors)
+            if isinstance(node, Reservation):
+                color_keys.update(node.purposes)
+
+        color_map = ColorMap(sorted(color_keys))
+
+        for node in all_nodes:
+            if isinstance(node, (TensorHolder, Reservation)):
+                graph_nodes = graph.get_node(node._render_node_name())
+                for graph_node in graph_nodes:
+                    # Set HTML-like label for color support
+                    new_label = node.__str__(color_map)
+                    graph_node.set_label(new_label)
+                    # graph_node.set_fillcolor(color_map[node._color_key()])
+                    # graph_node.set_style('filled')
+
+        added_edges = oset()
+        child2included_parent = {}
+        for parent, child in self._parent2child(None):
+            parent_name = parent._render_node_name() if parent is not None else None
+            child_name = child._render_node_name()
+            if isinstance(parent, exclude_types):
+                parent_name = child2included_parent.get(parent_name, None)
+            child2included_parent[child_name] = parent_name
+            if not isinstance(child, exclude_types):
+                added_edges.add((parent_name, child_name))
+        for parent_name, child_name in added_edges:
+            if parent_name is not None:
+                graph.add_edge(pydot.Edge(parent_name, child_name))
+        return graph
+
+    def render(self, with_reservations=True, with_tile_shape=True) -> _SVGJupyterRender:
+        graph = self.render_pydot(with_reservations, with_tile_shape)
+        return _SVGJupyterRender(graph.create_svg(prog="dot").decode("utf-8"))
+
+    def _update_component_objects(self, spec: "Spec"):
+        """
+        Resolve every node's string ``component`` from a spec.
+        """
+        name_to_object = {}
+        for compute in self.get_nodes_of_type(Compute):
+            flattened = spec._get_flattened_architecture(compute_node=compute.component)
+            for leaf in flattened:
+                name_to_object[leaf.name] = leaf
+
+        def resolve(name: str):
+            try:
+                return name_to_object[name]
+            except KeyError:
+                raise KeyError(
+                    f"Component {name!r} referenced by the mapping was not found "
+                    f"in the flattened architecture."
+                )
+
+        for node in self._flatten():
+            if isinstance(node, (Spatial, TensorHolder, Compute)):
+                node.component_object = resolve(node.component)
+            elif isinstance(node, Reservation):
+                node._component_object = resolve(node.resource)
+
+    @classmethod
+    def _from_pmappings(
+        cls,
+        pmappings: list[Nested],
+        rank_variable_bounds: Optional[dict[str, dict[str, int]]] = None,
+        _for_model: bool = False,
+    ) -> "Mapping":
+        orig_pmappings = pmappings
+        pmappings = list(copy.deepcopy(pmappings))
+        for pmapping in pmappings:
+            pmapping._beautify_loops(rank_variable_bounds)
+
+        import os
+
+        no_join = (
+            _NO_JOIN_MAPPING_VISUALIZATION
+            or os.environ.get("NO_JOIN_MAPPING_VISUALIZATION", "False") == "True"
+        )
+
+        while len(pmappings) > 1:
+            highest_n_shared_loops = 0
+            highest_shared_pmapping_index = 0
+            for i, pmapping in enumerate(pmappings):
+                shared_index = 0
+                for j in range(i + 1, len(pmappings)):
+                    shared_index = max(
+                        pmapping._get_n_shared_loops(pmappings[j]), shared_index
+                    )
+                if shared_index > highest_n_shared_loops:
+                    highest_n_shared_loops = shared_index
+                    highest_shared_pmapping_index = i
+
+            def einsum_names(pmapping: Nested) -> str:
+                return ",".join(n.einsum for n in pmapping.get_nodes_of_type(Compute))
+
+            names_a = einsum_names(pmappings[highest_shared_pmapping_index])
+            names_b = einsum_names(pmappings[highest_shared_pmapping_index + 1])
+            # print(
+            #     f"Merging with shared loops {highest_n_shared_loops}: {names_a} <--> {names_b}."
+            # )
+            # print(pmappings[highest_shared_pmapping_index]._get_n_shared_loops(pmappings[highest_shared_pmapping_index + 1]))
+            pmappings[highest_shared_pmapping_index] = pmappings[
+                highest_shared_pmapping_index
+            ]._merge(
+                pmappings.pop(highest_shared_pmapping_index + 1),
+                0 if no_join else highest_n_shared_loops,
+            )
+
+        mapping: Mapping = cls(nodes=pmappings[0].nodes)
+        mapping._elevate_persistent_nodes_above_splits()
+
+        # This was messing up the model because it could do relative reordering of
+        # storage nodes. Specifically, in copy ops, it would cause problems in the
+        # following case:
+        #
+        # [Copy source] [Copy destination]
+        #
+        # Where copy destination is shared between multiple einsums. Then, source and
+        # destination would both be below the split, causing destination to be elevated
+        # above, and the actual copy operation to move things from destination ->
+        # source.
+        if not _for_model:
+            mapping._elevate_tensor_holders_above_splits()
+        mapping._propagate_backing_reservations_between_splits()
+        mapping._consolidate_tensor_holders()
+        mapping._consolidate_reservations()
+        mapping._move_tensor_holders_above_reservations()
+        # mapping._remove_reservations_for_tolls()
+        return mapping
+
+        # import mermaid as md
+        # from mermaid.graph import Graph
+        # lines = []
+        # lines = [
+        #     "graph TD",
+        #     "%%{init: {'flowchart': {'nodeSpacing': 30, 'rankSpacing': 30, 'padding': 2}, 'themeVariables': {'fontFamily': 'Arial, sans-serif'}}}%%"
+        # ]
+        # lines.extend(self._render_make_children())
+        # for parent, child in self._parent2child(None):
+        #     if parent is not None:
+        #         lines.append(f"{parent._render_node_name()} --> {child._render_node_name()}")
+        #     # if _is_root:
+        # #     lines.extend([
+        # #         "",
+        # #         "classDef default fill:#fff,stroke:#000,stroke-width:1px,color:#000,font-family:Arial,font-size:12px,padding:2px;",
+        # #         "classDef compact fill:#fff,stroke:#000,stroke-width:1px,color:#000,font-family:Arial,font-size:12px,padding:2px;"
+        # #     ])
+
+        # # Create the graph with the flowchart script
+        # flowchart_script = "\n".join(lines)
+        # graph = Graph('Flowchart', flowchart_script)
+
+        # # Set the configuration for compact layout
+        # config = md.Config()
+        # config.theme = 'base'
+        # # config.theme_variables = {
+        # #     'primaryColor': '#ffffff',
+        # #     'primaryTextColor': '#000000',
+        # #     'primaryBorderColor': '#000000',
+        # #     'lineColor': '#000000',
+        # #     'fontSize': '12px'
+        # # }
+        # # config.flowchart = {
+        # #     'nodeSpacing': 20,
+        # #     'rankSpacing': 10,
+        # #     'curve': 'linear'
+        # # }
+        # graph.config = config
+
+        # return md.Mermaid(graph)
+
+
+Split.model_rebuild()
+Nested.model_rebuild()
+Mapping.model_rebuild()

@@ -1,0 +1,450 @@
+Metadata-Version: 2.4
+Name: exteragram-alib
+Version: 1.0.6
+Summary: A reactive declarative UI and threading utility library for exteraGram / Telegram plugins.
+Author-email: Your Name <your.email@example.com>
+License: MIT
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Dynamic: license-file
+
+# exteragram-alib 🚀
+
+Мощная библиотека реактивного декларативного UI и утилит управления потоками для разработки плагинов **exteraGram** (Android-клиент Telegram).
+
+A powerful reactive declarative UI and threading utility library for writing **exteraGram** (Android Telegram client) plugins.
+
+---
+
+## Содержание / Table of Contents
+1. [Установка / Installation](#1-установка--installation)
+2. [Реактивное состояние / Reactive States (State)](#2-реактивное-состояние--reactive-states-state)
+3. [Декларативный UI / Declarative UI](#3-декларативный-ui--declarative-ui)
+4. [Интерактивные виджеты / Interactive Widgets](#4-интерактивные-виджеты--interactive-widgets)
+5. [Контейнеры разметки / Layout Containers](#5-контейнеры-разметки--layout-containers)
+6. [Экран настроек / Settings Wrapper (to_setting)](#6-экран-настроек--settings-wrapper-to_setting)
+7. [Всплывающие экраны / Bottom Sheets](#7-всплывающие-экраны--bottom-sheets)
+8. [Управление потоками / Threading & Dispatching](#8-управление-потоками--threading--dispatching)
+9. [Утилиты рефлексии Java / Java Reflection Helpers](#9-утилиты-рефлексии-java--java-reflection-helpers)
+10. [Локальная база данных JSON / SimpleDB](#10-локальная-база-данных-json--simpledb)
+11. [Шина событий / EventBus](#11-шина-событий--eventbus)
+12. [Сетевые декораторы / Network Utilities (Caching & Rate-Limiting)](#12-сетевые-декораторы--network-utilities-caching--rate-limiting)
+
+---
+
+## 1. Установка / Installation
+
+Укажите библиотеку в списке внешних зависимостей вашего плагина в переменной `__requirements__` (exteraGram автоматически скачает её при установке плагина):
+Add the library to the `__requirements__` metadata list in your exteraGram plugin:
+
+```python
+__requirements__ = ["exteragram-alib"]
+```
+
+---
+
+## 2. Реактивное состояние / Reactive States (`State`)
+
+Класс `State` связывает переменные с UI-компонентами. При обновлении значения через `.set()`, все подписанные элементы интерфейса автоматически перерисовываются на Android-устройстве.
+
+```python
+from alib import State
+
+# Инициализация состояния
+my_state = State("Начальный текст")
+
+# Получение значения
+current_val = my_state.get()
+
+# Обновление значения (вызывает автоматическую перерисовку привязанных UI-элементов)
+my_state.set("Новый реактивный текст")
+
+# Подписка на изменение вручную (если необходимо)
+def on_change(val):
+    print(f"Значение изменилось на: {val}")
+
+my_state.add_listener(on_change)
+```
+
+---
+
+## 3. Декларативный UI / Declarative UI
+
+Каждый виджет наследуется от базового класса `Widget` и поддерживает следующие настройки макета (layout properties):
+
+* `width` — `"match"` (по всей ширине), `"wrap"` (по размеру содержимого) или числовое значение в dp.
+* `height` — `"match"`, `"wrap"` или числовое значение в dp.
+* `weight` — вес элемента в распределении пространства (float, например `1.0`).
+* `gravity` — выравнивание (используется из `android.view.Gravity`).
+* `margins` — внешние отступы в формате списка `[left, top, right, bottom]` в dp.
+* `padding` — внутренние отступы в формате списка `[left, top, right, bottom]` в dp.
+
+---
+
+## 4. Интерактивные виджеты / Interactive Widgets
+
+### Label (Текст)
+Обычное текстовое поле. Может принимать `State` в качестве параметра `text` для реактивного обновления.
+```python
+from alib import Label
+
+lbl = Label(
+    text=my_state,          # Текст или реактивный State
+    text_size=15,           # Размер шрифта в sp
+    color=0xFF3390EC,       # Цвет текста в формате ARGB/HEX
+    bold=True               # Жирный шрифт (True/False)
+)
+```
+
+### Button (Кнопка)
+Простая кликабельная кнопка.
+```python
+from alib import Button
+
+btn = Button(
+    text="Нажми меня",
+    on_click=lambda view: print("Кнопка нажата!"),
+    padding=[8, 16, 8, 16]
+)
+```
+
+### Field (Поле ввода)
+Поле текстового ввода. Позволяет реактивно синхронизировать текст с `State`.
+```python
+from alib import Field
+
+field = Field(
+    text=my_text_state,     # Привязанный State для двусторонней синхронизации
+    hint="Введите имя..."   # Подсказка
+)
+```
+
+### Toggle (Переключатель)
+Двухпозиционный переключатель (активен/неактивен).
+```python
+from alib import Toggle
+
+toggle = Toggle(
+    value=my_boolean_state, # Привязанный boolean State
+    on_change=lambda val: print(f"Новое состояние: {val}")
+)
+```
+
+### Radio (Радио-кнопка)
+Круглая радио-кнопка для выбора из вариантов.
+```python
+from alib import Radio
+
+# radio_state принимает checked_value при выборе
+radio = Radio(
+    value=radio_state,       # Общий State выбора
+    checked_value=1,         # Значение данного варианта
+    on_change=lambda val: print(f"Выбран вариант: {val}")
+)
+```
+
+### Selector (Выпадающий список)
+Строка выбора значения. При нажатии открывает системный `AlertDialog` со списком вариантов.
+```python
+from alib import Selector
+
+sel = Selector(
+    text="Выбор языка",
+    items=["Русский", "English", "Deutsch"],
+    value=lang_index_state,   # Реактивный State (хранит индекс выбранного элемента)
+    icon="msg_language",      # Иконка Telegram
+    on_change=lambda idx: print(f"Выбран индекс: {idx}")
+)
+```
+
+### Slider (Слайдер)
+Слайдер для выбора числового значения.
+```python
+from alib import Slider
+
+slider = Slider(
+    value=num_state,          # Привязанный State (int)
+    min_val=12,               # Минимальное значение
+    max_val=30,               # Максимальное значение
+    to_string=lambda label_type, val: f"Шрифт: {val}sp"  # Форматирование отображения
+)
+```
+
+### AltSeekbar (Альтернативный слайдер)
+Слайдер с отображением заголовка и крайних текстовых значений (слева/справа).
+```python
+from alib import AltSeekbar
+
+alt_slider = AltSeekbar(
+    value=float_state,
+    min_val=0,
+    max_val=28,
+    title="Скругление углов",
+    left_text="0%",
+    right_text="100%",
+    on_change=lambda val: print(f"Значение изменено: {val}")
+)
+```
+
+### RowItem (Ячейка списка)
+Строка в стиле настроек Telegram. Поддерживает иконку, заголовок, описание и правый виджет.
+```python
+from alib import RowItem, Toggle
+
+row = RowItem(
+    title="Оповещения",
+    subtext="Включить всплывающие уведомления чатов",
+    icon="msg_notifications",
+    right_widget=Toggle(value=notif_state)
+)
+```
+
+### ActionRow (Ячейка действия)
+Ячейка со встроенной кнопкой действия справа.
+```python
+from alib import ActionRow
+
+action = ActionRow(
+    title="Счетчик кликов",
+    subtext=click_counter_state, # Реактивный текст
+    button_text="Кликнуть",      # Текст на кнопке
+    icon="msg_folders",          # Иконка слева
+    on_button_click=lambda view: click_counter_state.set(click_counter_state.get() + 1)
+)
+```
+
+---
+
+## 5. Контейнеры разметки / Layout Containers
+
+### VBox (Вертикальный контейнер)
+Размещает дочерние элементы вертикально один под другим.
+```python
+from alib import VBox
+
+vbox = VBox(
+    padding=[16, 16, 16, 16], # Внутренние отступы
+    children=[widget1, widget2]
+)
+```
+
+### HBox (Горизонтальный контейнер)
+Размещает дочерние элементы горизонтально в ряд.
+```python
+from alib import HBox
+
+hbox = HBox(
+    children=[widget1, widget2]
+)
+```
+
+### Card (Карточка/Секция)
+Контейнер со скругленными углами и фоном. По умолчанию автоматически отрисовывает разделительные линии (`Divider`) между дочерними элементами.
+```python
+from alib import Card, RowItem, Toggle
+
+card = Card(
+    radius=20,               # Радиус скругления углов карточки
+    show_dividers=True,      # Показывать разделители между ячейками
+    children=[
+        RowItem(title="Пункт 1", right_widget=Toggle(value=s1)),
+        RowItem(title="Пункт 2", right_widget=Toggle(value=s2)),
+    ]
+)
+```
+
+---
+
+## 6. Экран настроек / Settings Wrapper (`to_setting`)
+
+Для внедрения кастомных декларативных UI-интерфейсов на стандартный экран настроек плагина в exteraGram, оберните виджет функцией `to_setting()`:
+
+```python
+from alib import to_setting, RowItem, Toggle
+
+class MyPlugin(BasePlugin):
+    def create_settings(self) -> List[Any]:
+        return [
+            to_setting(
+                RowItem(title="Включить хуки", right_widget=Toggle(value=self.state))
+            )
+        ]
+```
+
+> [!IMPORTANT]
+> **Важно**: На стандартном экране настроек плагина (`create_settings`) exteraGram **автоматически** группирует возвращаемые элементы в системные карточки. Не оборачивайте элементы в контейнер `Card` внутри `create_settings` вручную, иначе это приведет к двойному вложению карточек.
+>
+> Класс `Card` предназначен главным образом для использования внутри всплывающих окон (`show_bottom_sheet`), где группировка по умолчанию отсутствует и карточки нужно собирать вручную.
+
+---
+
+## 7. Всплывающие экраны / Bottom Sheets
+
+Функция `show_bottom_sheet()` позволяет отобразить кастомный диалог в стиле BottomSheet Telegram поверх любого экрана приложения. Она автоматически обрабатывает жесты смахивания вниз для закрытия с учетом состояния прокрутки.
+
+```python
+from alib import show_bottom_sheet, VBox, Header, Card, Button
+
+def open_my_sheet(fragment):
+    sheet_layout = VBox(
+        padding=[0, 0, 0, 16],
+        children=[
+            Header(text="Кастомное меню"),
+            Card(children=[...])
+        ]
+    )
+    
+    # Возвращает экземпляр BottomSheet диалога
+    sheet = show_bottom_sheet(
+        fragment=fragment,      # Контекст/фрагмент Telegram
+        title="Мой Заголовок",   # Текст заголовка
+        content_layout=sheet_layout, # Корневой декларативный виджет
+        center_header=True,     # Центрировать ли заголовок
+        height_pct=0.8          # Высота экрана (80% от высоты экрана)
+    )
+```
+
+---
+
+## 8. Управление потоками / Threading & Dispatching
+
+Упрощает асинхронное выполнение задач и потокобезопасную работу с интерфейсом.
+
+### `@main_thread` (алиас `@run_on_ui`)
+Декоратор перенаправляет выполнение функции в главный (UI) поток Android для безопасного взаимодействия с интерфейсом.
+```python
+from alib import main_thread
+
+@main_thread
+def update_status(message: str):
+    # Этот код гарантированно выполнится на UI-потоке Android
+    status_label.set(message)
+```
+
+### `@background_thread` (алиас `@run_on_background`)
+Декоратор запускает функцию асинхронно в одной из фоновых очередей Telegram с возможностью задержки.
+* `queue` — имя очереди: `"plugins"` (по умолчанию), `"global"`, `"network"`, `"search"`.
+* `delay` — задержка запуска в миллисекундах (по умолчанию `0`).
+
+```python
+from alib import background_thread
+
+@background_thread(queue="network", delay=1500)
+def load_web_data():
+    # Запустится через 1.5 секунды в фоне на сетевом потоке
+    result = make_api_request()
+    update_status(result) # Отправляем результат обратно на UI-поток
+```
+
+### Запуск анонимных функций (`run_main` и `run_bg`)
+Если не нужно создавать именованную функцию с декоратором, используйте хелперы:
+```python
+from alib import run_main, run_bg
+
+# Выполнить в фоне
+run_bg(lambda: save_cache_to_disk(), queue="plugins", delay=500)
+
+# Вернуть управление на UI
+run_main(lambda: show_success_toast())
+```
+
+---
+
+## 9. Утилиты рефлексии Java / Java Reflection Helpers
+
+Библиотека предоставляет безопасные функции-хелперы для инспектирования и модификации полей/методов Java-объектов на Android (без написания громоздкого рефлексивного кода).
+
+* `get_field(obj, field_name)` — Возвращает значение приватного/публичного поля. Автоматически ищет в суперклассах.
+* `set_field(obj, field_name, value)` — Устанавливает значение поля. Возвращает `True` при успехе.
+* `call_method(obj, method_name, *args)` — Вызывает метод по имени с автоматическим сопоставлением сигнатуры и количества аргументов.
+
+```python
+from alib import get_field, set_field, call_method
+
+# Получить приватное значение
+username = get_field(telegram_user, "username")
+
+# Перезаписать флаг редактирования сообщения
+set_field(message_object, "isEdited", True)
+
+# Вызвать скрытый метод
+call_method(chat_activity, "showChatInfo", chat_id)
+```
+
+---
+
+## 10. Локальная база данных JSON / SimpleDB
+
+Потокобезопасная Key-Value база данных, хранящая данные в формате JSON в директории плагина на устройстве. Запись на диск выполняется атомарно через создание временного файла, что предотвращает повреждение базы при внезапном выходе из приложения.
+
+* `db.set(key, value)` — Сохраняет значение.
+* `db.get(key, default=None)` — Читает значение.
+* `db.delete(key)` — Удаляет ключ.
+* `db.clear()` — Очищает базу данных.
+* `db.increment(key, amount=1)` — Потокобезопасно увеличивает числовой счетчик на указанное значение.
+
+```python
+from alib import SimpleDB
+
+# База данных "userdata" автоматически создается в надежной папке плагина
+db = SimpleDB("userdata")
+
+# Сохранение и чтение любых типов (строки, числа, списки, словари)
+db.set("banned_users", [12345, 67890])
+users = db.get("banned_users", default=[])
+
+# Быстрый счетчик кликов/просмотров
+db.increment("total_clicks")
+```
+
+---
+
+## 11. Шина событий / EventBus
+
+Позволяет связывать различные компоненты плагина (например, фоновые сетевые службы и UI-элементы) с помощью легковесной событийной архитектуры (Pub/Sub).
+
+* `@EventBus.subscribe(event_name)` — Декоратор для подписки на событие.
+* `EventBus.publish(event_name, *args, **kwargs)` — Публикация события (запускает выполнение всех подписанных обработчиков).
+* `EventBus.unsubscribe(event_name, callback)` — Отмена подписки.
+
+```python
+from alib import EventBus
+
+# Подписка на событие (например, в настройках UI)
+@EventBus.subscribe("on_message_deleted")
+def handle_deleted(msg_id):
+    print(f"Сообщение {msg_id} удалено")
+
+# Публикация из любой точки программы (например, из фонового потока логов)
+EventBus.publish("on_message_deleted", 987654)
+```
+
+---
+
+## 12. Сетевые декораторы / Network Utilities (Caching & Rate-Limiting)
+
+Утилиты для предотвращения дублирования запросов и соблюдения лимитов API.
+
+* `@cached_request(ttl_seconds)` — Кэширует результат выполнения функции на указанное время (в секундах) в зависимости от переданных аргументов.
+* `@rate_limit(max_calls, period_seconds)` — Ограничивает частоту вызовов функции. Если лимит превышен, поток засыпает (`time.sleep`) до начала следующего окна, гарантируя отправку всех вызовов.
+
+```python
+from alib import cached_request, rate_limit
+
+# Результат запроса к API кэшируется на 5 минут для одинаковых URL
+@cached_request(ttl_seconds=300)
+def fetch_api_data(url):
+    import requests
+    return requests.get(url).json()
+
+# Ограничивает частоту запросов к API Telegram: не более 3 запросов в секунду
+@rate_limit(max_calls=3, period_seconds=1.0)
+def send_analytics(data):
+    # Отправка статистики на сервер
+    pass
+```

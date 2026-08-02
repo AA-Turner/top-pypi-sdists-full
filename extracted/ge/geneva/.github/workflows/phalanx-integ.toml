@@ -1,0 +1,20 @@
+# Phalanx config for geneva integ tests.
+# This is a template — envsubst expands $VARS at container startup
+# (see docker-compose-integ.yml command).
+stage = "dev"
+region = "us-east-1"
+use_db_header = true
+manifest_enabled = true
+
+# geneva should still work when phalanx is configured with weak read consistency
+weak_read_consistency_interval_seconds=30
+
+[namespace_client_properties]
+# Return storage options in declare_table/describe_table responses so
+# clients without local cloud credentials can write to storage.
+"vend_input_storage_options" = "true"
+"vend_input_storage_options_refresh_interval_millis" = "3600000"
+"storage.region" = "${AWS_REGION}"
+"storage.aws_access_key_id" = "${AWS_ACCESS_KEY_ID}"
+"storage.aws_secret_access_key" = "${AWS_SECRET_ACCESS_KEY}"
+"storage.aws_session_token" = "${AWS_SESSION_TOKEN}"

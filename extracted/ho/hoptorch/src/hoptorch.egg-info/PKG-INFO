@@ -1,0 +1,109 @@
+Metadata-Version: 2.4
+Name: hoptorch
+Version: 0.1.4
+Summary: Compatibility helpers for PyTorch higher-order operators.
+Author: Vincent Moens
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/vmoens/hoptorch
+Project-URL: Repository, https://github.com/vmoens/hoptorch
+Project-URL: Issues, https://github.com/vmoens/hoptorch/issues
+Keywords: pytorch,torch,scan,higher-order-operators,autograd
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: torch>=2.7
+Requires-Dist: pyvers>=0.2.2
+Dynamic: license-file
+
+# hoptorch
+
+`hoptorch` is a small compatibility package for PyTorch higher-order operators.
+Its first helper is a safe wrapper around `torch._higher_order_ops.scan` that
+checks whether scan backward is healthy on the requested device and lazily
+installs version-specific compatibility patches for affected PyTorch internals.
+For PyTorch 2.7, where scan backward is not implemented, `hoptorch` backports
+a small eager scan implementation with ordinary autograd support.
+
+## Install
+
+```bash
+pip install hoptorch
+```
+
+Runtime dependency:
+
+```text
+torch>=2.7
+pyvers>=0.2.2
+```
+
+## Usage
+
+```python
+import torch
+from hoptorch import scan
+from hoptorch.scan import ensure_scan_backward, scan_unavailable_reason
+
+if ensure_scan_backward("cpu"):
+    xs = torch.arange(4.0)
+
+    def step(carry, x):
+        next_carry = carry + x
+        return next_carry, next_carry.clone()
+
+    carry, ys = scan(step, torch.zeros(()), xs)
+else:
+    print(scan_unavailable_reason("cpu"))
+```
+
+For compiled code, warm the health check before entering `torch.compile`:
+
+```python
+from hoptorch.scan import ensure_scan_backward
+
+ensure_scan_backward("cpu")
+compiled_fn = torch.compile(fn)
+```
+
+If a wrapper call happens during Dynamo tracing before the health result is
+cached, `hoptorch` fails closed instead of tracing the probe.
+
+## Public API
+
+```python
+from hoptorch import scan
+from hoptorch.scan import (
+    ensure_scan_backward,
+    has_scan,
+    patch_scan_backward,
+    scan_unavailable_reason,
+)
+```
+
+- `scan(fn, init, xs, *, dim=0, **kwargs)`: calls PyTorch scan only when scan
+  backward is known to be healthy for the inferred device.
+- `has_scan()`: reports whether `torch._higher_order_ops.scan.scan` exists.
+- `ensure_scan_backward(device=None)`: runs or reads the cached health check,
+  patching lazily if needed, and returns `True` only after a passing probe.
+- `scan_unavailable_reason(device=None)`: returns `None` when scan backward is
+  usable, otherwise a stable human-readable reason.
+- `patch_scan_backward()`: attempts to install the compatibility patch and is
+  intended mainly for diagnostics.
+
+## Tests
+
+```bash
+python -m unittest discover -s tests
+```

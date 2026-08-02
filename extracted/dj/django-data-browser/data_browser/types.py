@@ -1,0 +1,602 @@
+import json
+import re
+import uuid
+from functools import cache
+
+import dateutil.parser
+from dateutil import relativedelta
+from django.conf import settings
+from django.core.serializers.json import DjangoJSONEncoder
+from django.utils import dateparse
+from django.utils import html
+from django.utils import timezone
+
+from data_browser.common import all_subclasses
+from data_browser.common import debug_log
+from data_browser.common import get_optimal_decimal_places
+
+ASC, DSC = "asc", "dsc"
+
+
+class TypeMeta(type):
+    def __init__(cls, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        if cls.raw_type and cls.element_type:
+            assert cls.raw_type.element_type == cls.element_type.raw_type
+
+    def __repr__(cls):
+        return cls.__name__
+
+    @property
+    def default_lookup(cls):
+        lookups = cls.lookups
+        return next(iter(lookups)) if lookups else None
+
+    @property
+    def lookups(cls):
+        res = {}
+        for name, type_ in cls._lookups().items():
+            assert isinstance(type_, tuple), type_
+            if len(type_) == 3:
+                type_, keep_choices, verbose_name = type_
+                assert keep_choices is not None, (cls, name)
+            else:
+                type_, keep_choices = type_
+                verbose_name = name.replace("_", " ")
+            res[name] = verbose_name, type_.name, keep_choices
+        return res
+
+    @property
+    def verbose_name(cls):
+        name = cls.__name__
+        assert name.endswith("Type")
+        return name[: -len("Type")]
+
+    @property
+    def name(cls):
+        return cls.verbose_name.lower()
+
+
+class BaseType(metaclass=TypeMeta):
+    default_value = None
+    choices = ()
+    raw_type = None
+    element_type = None
+
+    def __init__(self):
+        raise AssertionError()
+
+    @classmethod
+    def _lookups(cls):
+        return {
+            "equals": (cls, True),
+            "not_equals": (cls, True),
+            "is_null": (IsNullType, False),
+        }
+
+    @staticmethod
+    def _get_formatter(choices):
+        assert not choices
+        return lambda value: value
+
+    @classmethod
+    def get_formatter(cls, choices):
+        return cls._get_formatter(choices)
+
+    @staticmethod
+    def _parse(value, choices):
+        assert not choices
+        return value
+
+    @classmethod
+    def parse(cls, value, choices):
+        try:
+            return cls._parse(value, choices), None
+        except Exception as e:
+            debug_log("Error parsing filter value", e)
+            msg = str(e) if str(e) else repr(e)
+            return None, msg[0].upper() + msg[1:]
+
+    @classmethod
+    def parse_lookup(cls, lookup, value, choices):
+        lookups = cls.lookups
+        if lookup not in lookups:
+            return None, "Bad lookup"
+        else:
+            verbose_name, type_name, keep_choices = lookups[lookup]
+            if not keep_choices:
+                choices = ()
+            type_ = TYPES[type_name]
+            return type_.parse(value, choices)
+
+    @classmethod
+    def format_lookup(cls, lookup, value, choices):
+        verbose_name, type_name, keep_choices = cls.lookups[lookup]
+        if not keep_choices:
+            choices = ()
+        return TYPES[type_name]._get_formatter(choices)(value)
+
+    @staticmethod
+    def get_format_hints(name, data):
+        return {}
+
+
+class StringType(BaseType):
+    default_value = ""
+
+    @classmethod
+    def _lookups(cls):
+        return {
+            "equals": (cls, True),
+            "contains": (cls, True),
+            "starts_with": (cls, True),
+            "ends_with": (cls, True),
+            "regex": (RegexType, False),
+            "not_equals": (cls, True),
+            "not_contains": (cls, True),
+            "not_starts_with": (cls, True),
+            "not_ends_with": (cls, True),
+            "not_regex": (RegexType, False),
+            "is_null": (IsNullType, False),
+        }
+
+
+class StringableType(BaseType):
+    default_value = ""
+
+    @staticmethod
+    def _get_formatter(choices):  # pragma: no cover
+        assert not choices
+        return lambda value: None if value is None else str(value)
+
+
+class SequenceTypeMixin:
+    @classmethod
+    def _lookups(cls):
+        return {
+            "equals": (cls, True),
+            "not_equals": (cls, True),
+            "gt": (cls, True, ">"),
+            "gte": (cls, True, ">="),
+            "lt": (cls, True, "<"),
+            "lte": (cls, True, "<="),
+            "is_null": (IsNullType, False),
+        }
+
+
+class NumberType(SequenceTypeMixin, BaseType):
+    default_value = 0
+
+    @staticmethod
+    def _get_formatter(choices):
+        assert not choices
+        return lambda value: None if value is None else float(value)
+
+    @staticmethod
+    def _parse(value, choices):
+        assert not choices
+        return float(value)
+
+    @staticmethod
+    def get_format_hints(name, data):
+        nums = [
+            row[name] for row in data if row and row[name] and abs(row[name] > 0.0001)
+        ]
+        dp = get_optimal_decimal_places(nums)
+        return {
+            "minimumFractionDigits": dp,
+            "maximumFractionDigits": dp,
+            "significantFigures": 3,
+            "lowCutOff": 0.0001,
+            "highCutOff": 1e10,
+        }
+
+
+class RegexType(BaseType):
+    default_value = ".*"
+
+    @staticmethod
+    @cache
+    def _parse(value, choices):
+        assert not choices
+        from django.contrib.contenttypes.models import ContentType
+        from django.db.transaction import atomic
+
+        # this is dirty
+        # we need to check if the regex is going to cause a db exception
+        # and not kill any in progress transaction as we check
+        try:
+            with atomic():
+                list(ContentType.objects.filter(model__regex=value))
+        except Exception as e:
+            debug_log("Error parsing filter value", e)
+            raise Exception("Invalid regex") from e
+        return value
+
+
+class DurationType(SequenceTypeMixin, BaseType):
+    default_value = ""
+
+    @staticmethod
+    def _parse(value, choices):
+        assert not choices
+
+        if value.count(":") == 1:
+            value += ":0"
+
+        res = dateparse.parse_duration(value)
+        if res is None:
+            raise Exception("Duration value should be 'DD HH:MM:SS'")
+        return res
+
+    @staticmethod
+    def _get_formatter(choices):
+        assert not choices
+        return lambda value: None if value is None else str(value)
+
+
+class DateTimeParseMixin:
+    _clause = re.compile(r"(\w{3,})([-+=])(\d+) *")
+
+    _clause_types = {
+        "yea": "year",
+        "mont": "month",
+        "day": "day",
+        "hou": "hour",
+        "min": "minute",
+        "sec": "second",
+        "mic": "microsecond",
+        "wee": "week",
+        "mond": relativedelta.MO,
+        "tue": relativedelta.TU,
+        "wed": relativedelta.WE,
+        "thu": relativedelta.TH,
+        "fri": relativedelta.FR,
+        "sat": relativedelta.SA,
+        "sun": relativedelta.SU,
+    }
+
+    for c1 in _clause_types:
+        for c2 in _clause_types:
+            assert c1 == c2 or not c1.startswith(c2), c2
+
+    @staticmethod
+    def _unambiguous_date_parse(value, **kwargs):
+        if not any(c.isdigit() for c in value):
+            return None
+
+        try:
+            res = {
+                dateutil.parser.parse(value, dayfirst=False, yearfirst=False, **kwargs),
+                dateutil.parser.parse(value, dayfirst=True, yearfirst=False, **kwargs),
+                dateutil.parser.parse(value, dayfirst=False, yearfirst=True, **kwargs),
+                dateutil.parser.parse(value, dayfirst=True, yearfirst=True, **kwargs),
+            }
+            if len(res) != 1:
+                raise Exception("Ambiguous value")
+            return res.pop()
+        except dateutil.parser.ParserError:
+            return None
+
+    @staticmethod
+    def _truncate_dt(value):
+        return timezone.localtime(value).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+
+    @classmethod
+    def _parse(cls, value, choices):
+        assert not choices
+
+        d8 = r"(\d{8})"
+        d422 = r"(\d{4}[^\d]+\d{1,2}[^\d]+\d{1,2}([^\d]|$))"
+
+        res = timezone.now()
+
+        # iterate the clauses in the expression
+        for clause_str in value.split():
+            clause_str = clause_str.lower()
+            match = cls._clause.fullmatch(clause_str)
+
+            if clause_str == "now":
+                res = timezone.now()
+            elif clause_str == "today":
+                res = cls._truncate_dt(timezone.now())
+            elif re.match(rf"[^\d]*({d8}|{d422})", clause_str):
+                # looks like some kinda iso date, roll with the defaults
+                # includes T delimited like 2018-03-20T22:31:23
+                res = dateutil.parser.parse(clause_str, default=cls._truncate_dt(res))
+            elif match:
+                # relative delta stuff, cut up the clause
+                field, op, val = match.groups()
+                val = int(val)
+                human_op = {"+": "add", "-": "subtract", "=": "set"}[op]
+
+                # find the field
+                for prefix, arg in cls._clause_types.items():
+                    if field.startswith(prefix):
+                        break
+                else:
+                    raise Exception(f"Unrecognized field '{field}'")
+
+                # year month day etc
+                if isinstance(arg, str):
+                    if op == "+":
+                        kwargs = {f"{arg}s": val}
+                    elif op == "-":
+                        kwargs = {f"{arg}s": -val}
+                    else:  # op == "="
+                        if arg in ["week"]:
+                            raise Exception(f"'{op}' not supported for '{field}'")
+                        elif arg in ["year", "month", "day"]:
+                            if val <= 0:
+                                raise Exception(
+                                    f"Can't {human_op} '{field}' to '{val}'"
+                                )
+                        kwargs = {arg: val}
+
+                # weekdays
+                else:
+                    if op == "=":
+                        raise Exception(f"'{op}' not supported for '{field}'")
+                    else:
+                        if val <= 0:
+                            raise Exception(f"Can't {human_op} '{val}' '{field}'s")
+                        if op == "+":
+                            kwargs = {"weekday": arg(val)}
+                        else:  # op == "-"
+                            kwargs = {"weekday": arg(-val)}
+
+                res += relativedelta.relativedelta(**kwargs)
+            elif parsed := cls._unambiguous_date_parse(
+                clause_str, default=cls._truncate_dt(res)
+            ):
+                res = parsed
+            else:
+                raise Exception(f"Unrecognized clause '{clause_str}'")
+
+        return res
+
+
+class DateTimeType(DateTimeParseMixin, SequenceTypeMixin, BaseType):
+    default_value = "now"
+
+    @staticmethod
+    def _get_formatter(choices):
+        assert not choices
+        if settings.USE_TZ:
+            return lambda value: (
+                None
+                if value is None
+                else str(timezone.make_naive(value).replace(microsecond=0))
+            )
+        else:
+            return lambda value: (
+                None if value is None else str(value.replace(microsecond=0))
+            )
+
+
+class DateType(DateTimeParseMixin, SequenceTypeMixin, BaseType):
+    default_value = "today"
+
+    @classmethod
+    def _parse(cls, value, choices):
+        return super()._parse(value, choices).date()
+
+    @staticmethod
+    def _get_formatter(choices):
+        assert not choices
+        return lambda value: None if value is None else str(value)
+
+
+class HTMLType(StringType):
+    @staticmethod
+    def _lookups():
+        return {"is_null": (IsNullType, False)}
+
+    @staticmethod
+    def _get_formatter(choices):
+        assert not choices
+        return lambda value: None if value is None else html.conditional_escape(value)
+
+
+class URLType(StringType):
+    pass
+
+
+class BooleanType(BaseType):
+    default_value = True
+
+    @staticmethod
+    def _parse(value, choices):
+        assert not choices
+
+        value = value.lower()
+        if value == "true":
+            return True
+        elif value == "false":
+            return False
+        else:
+            raise ValueError("Expected 'true' or 'false'")
+
+    @staticmethod
+    def _get_formatter(choices):
+        assert not choices
+        return lambda value: None if value is None else bool(value)
+
+
+class UUIDType(BaseType):
+    @staticmethod
+    def _get_formatter(choices):
+        assert not choices
+        return lambda value: None if value is None else str(value)
+
+    @staticmethod
+    def _parse(value, choices):
+        assert not choices
+
+        return uuid.UUID(value)
+
+
+class UnknownType(BaseType):
+    @staticmethod
+    def _get_formatter(choices):
+        assert not choices
+        return lambda value: None if value is None else str(value)
+
+    @staticmethod
+    def _lookups():
+        return {"is_null": (IsNullType, False)}
+
+
+def _json_loads(value):
+    try:
+        return json.loads(value.strip())
+    except json.JSONDecodeError as e:
+        raise ValueError("Invalid JSON value") from e
+
+
+class JSONFieldType(BaseType):
+    default_value = "|"
+
+    @staticmethod
+    def _parse(value, choices):
+        assert not choices
+
+        value = value.strip()
+        if "|" not in value:
+            raise ValueError("Missing seperator '|'")
+        field, value = value.split("|", 1)
+        if not field:
+            raise ValueError("Invalid field name")
+        return [field, _json_loads(value)]
+
+
+class JSONType(BaseType):
+    @classmethod
+    def _lookups(cls):
+        return {
+            "equals": (cls, True),
+            "has_key": (StringType, None),
+            "field_equals": (JSONFieldType, None),
+            "not_equals": (cls, True),
+            "not_has_key": (StringType, None),
+            "not_field_equals": (JSONFieldType, None),
+            "is_null": (IsNullType, False),
+        }
+
+    @staticmethod
+    def _parse(value, choices):
+        assert not choices
+
+        return _json_loads(value)
+
+
+class ChoiceTypeMixin:
+    default_value = None
+
+    @classmethod
+    def _get_formatter(cls, choices):
+        assert choices
+        choices = dict(choices)
+        return lambda value: choices.get(value, value)
+
+    @classmethod
+    def _parse(cls, value, choices):
+        assert choices
+        choices = {v: k for k, v in choices}
+        if value not in choices:
+            raise ValueError(f"Unknown choice '{value}'")
+        return choices[value]
+
+
+class StringChoiceType(ChoiceTypeMixin, BaseType):
+    raw_type = StringType
+
+
+class NumberChoiceType(ChoiceTypeMixin, BaseType):
+    raw_type = NumberType
+
+
+class IsNullType(ChoiceTypeMixin, BaseType):
+    choices = [(None, "IsNull"), (True, "IsNull"), (False, "NotNull")]
+    default_value = choices[0][1]
+
+    @staticmethod
+    def _lookups():
+        return {"equals": (IsNullType, False)}
+
+    @classmethod
+    def _get_formatter(cls, choices):
+        assert not choices
+        return super()._get_formatter(cls.choices)
+
+    @classmethod
+    def _parse(cls, value, choices):
+        assert not choices
+        return super()._parse(value, cls.choices)
+
+
+class ArrayTypeMixin:
+    default_value = "[]"
+
+    @classmethod
+    def _get_formatter(cls, choices):
+        element_formatter = cls.element_type._get_formatter(choices)
+        return lambda value: (
+            None
+            if value is None
+            else json.dumps(
+                [element_formatter(v) for v in value], cls=DjangoJSONEncoder
+            )
+        )
+
+    @classmethod
+    def _lookups(cls):
+        return {
+            "equals": (cls, True),
+            "contains": (cls.element_type, True),
+            "length": (NumberType, False),
+            "not_equals": (cls, True),
+            "not_contains": (cls.element_type, True),
+            "not_length": (NumberType, False),
+            "is_null": (IsNullType, False),
+        }
+
+    @classmethod
+    def _parse(cls, value, choices):
+        value = _json_loads(value)
+        if not isinstance(value, list):
+            raise ValueError("Expected a list")
+        return [cls.element_type._parse(v, choices) for v in value]
+
+
+# Array types
+for _cls in [
+    BooleanType,
+    DurationType,
+    DateTimeType,
+    DateType,
+    UUIDType,
+    URLType,
+    StringType,
+    NumberType,
+    StringableType,
+]:
+    _name = f"{_cls.verbose_name}ArrayType"
+    globals()[_name] = type(_name, (ArrayTypeMixin, BaseType), {"element_type": _cls})
+
+
+class StringChoiceArrayType(ArrayTypeMixin, BaseType):
+    element_type = StringChoiceType
+    raw_type = StringArrayType  # noqa: F821
+
+
+class NumberChoiceArrayType(ArrayTypeMixin, BaseType):
+    element_type = NumberChoiceType
+    raw_type = NumberArrayType  # noqa: F821
+
+
+TYPES = {cls.name: cls for cls in all_subclasses(BaseType)}
+ARRAY_TYPES = {cls.name: cls for cls in all_subclasses(ArrayTypeMixin)}

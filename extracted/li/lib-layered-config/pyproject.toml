@@ -1,0 +1,247 @@
+[project]
+name = "lib_layered_config"
+version = "5.6.2"
+description = "Cross-platform layered configuration loader for Python"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "rich-click>=1.9.8",
+  "lib_cli_exit_tools>=2.3.4",
+  "rtoml>=0.13.0",
+  "orjson>=3.11.9",
+]
+license = { text = "MIT" }
+authors = [{ name = "bitranox", email = "bitranox@gmail.com" }]
+keywords = ["configuration", "layered", "dotenv", "env", "toml"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Typing :: Typed",
+]
+
+# System packages required for CI runners (read by GitHub Actions workflow template)
+# Format: "apt_package_name" for Ubuntu, future: {"apt": "...", "brew": "...", "choco": "..."}
+[tool.ci]
+system-dependencies-ubuntu = []
+system-dependencies-macos = []
+system-dependencies-windows-pip = []
+system-dependencies-windows-choco = []
+os = ["ubuntu-latest", "windows-latest", "macos-latest"]
+
+[project.urls]
+Homepage = "https://github.com/bitranox/lib_layered_config"
+Repository = "https://github.com/bitranox/lib_layered_config.git"
+Issues = "https://github.com/bitranox/lib_layered_config/issues"
+
+[project.optional-dependencies]
+dev = [
+  # 1.5.1 was yanked upstream (unintended breaking changes), so 1.5.0 is the newest usable
+  # release; a >=1.5.1 floor has ZERO candidates and makes this extra unresolvable.
+  "build>=1.5.0",
+  # codecov-cli is disabled, not dropped: it requires click<8.3.0, which drags click back to
+  # 8.2.1 - the version with CVE-2026-7246 (command injection in click.edit(), fixed in 8.3.3).
+  # Nothing else here caps click, so with this line active the audit gate goes red on every
+  # clean install. Leaving it off costs nothing: CI uploads coverage via codecov/codecov-action,
+  # not this CLI, and "bmk codecov" resolves codecovcli from PATH and only warns when absent.
+  # Re-enable once codecov-cli relaxes its click<8.3.0 pin.
+  # "codecov-cli>=11.3.1",
+  # Transitive CVE pins
+  "click>=8.4.2",                # CVE-2026-7246
+  "coverage[toml]>=7.15.2",
+  "httpx2>=2.9.1",
+  "hypothesis>=6.164.0",
+  "import-linter>=2.13",
+  "bandit>=1.9.4",
+  "pip-audit>=2.10.1",
+  "PyYAML>=6.0.3",
+  "pyright[nodejs]>=1.1.411",
+  "pytest>=9.1.1",
+  "pytest-asyncio>=1.4.0",
+  "pytest-cov>=7.1.0",
+  "ruff>=0.16.0",
+  "textual>=8.2.8",
+  "twine>=7.0.0"
+]
+yaml = [
+  "PyYAML>=6.0.3"
+]
+
+[project.scripts]
+lib_layered_config = "lib_layered_config.cli:main"
+lib-layered-config = "lib_layered_config.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.31.0"]
+build-backend = "hatchling.build"
+
+
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lib_layered_config"]
+include = ["src/lib_layered_config/py.typed"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = [
+  "notebooks/Quickstart.ipynb",
+  "tests/benchmark",
+]
+
+[tool.ruff.lint]
+select = [
+  "E", "W",     # pycodestyle
+  "F",           # pyflakes
+  "I",           # isort
+  "N",           # pep8-naming
+  "UP",          # pyupgrade
+  "B",           # bugbear
+  "A",           # builtins shadowing
+  "C4",          # comprehension simplification
+  "SIM",         # simplification
+  "TCH",         # type-checking imports
+  "RUF",         # ruff-specific
+  "G",           # logging format (catches f-string in logger)
+  "T20",         # print statements
+  "PTH",         # pathlib preference
+  "PLC", "PLE",  # pylint conventions/errors
+  "S",           # flake8-bandit security checks
+  "PERF",        # performance anti-patterns
+  "ERA",         # eradicate dead/commented-out code
+  "FBT",         # boolean trap (boolean positional args)
+  "PLR",         # pylint refactor
+  "PLW",         # pylint warnings
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# ignore the "unused import sys" in the jupyter notebook - which we need (it is a linter hickup)
+"notebooks/*.ipynb" = ["F401"]
+"notebooks/Quickstart.ipynb" = ["E999"]
+# Tests: assert is standard, test fixtures have passwords, magic values are clearer inline, temp
+# paths are fine. PLC0415: local/deferred imports are a deliberate test idiom - several tests
+# import inside the test body to exercise import-time and cache behaviour. PLR0911: a helper that
+# mirrors a coercion chain under test reads clearest as one branch per case.
+"tests/**/*.py" = ["S101", "S105", "S106", "S108", "T20", "PLR2004", "PLR0913", "PLR0911", "FBT001", "FBT003", "PLC0415"]
+# These modules are the composition/orchestration layer: every function threads the same
+# many named identifiers (vendor/app/slug/profile/prefer/start_dir/default_file/dotenv_path)
+# or merge-recursion state (target/provenance/key/value/dotted/snapshot/segments) through
+# keyword-only parameters by design; splitting them into a params object would be a real
+# API/behaviour change, not a lint fix.
+"src/lib_layered_config/core.py" = ["PLR0913"]
+"src/lib_layered_config/_layers.py" = ["PLR0913"]
+"src/lib_layered_config/application/merge.py" = ["PLR0913"]
+"src/lib_layered_config/adapters/path_resolvers/default.py" = ["PLR0913"]
+"src/lib_layered_config/cli/*.py" = ["PLR0913"]
+"src/lib_layered_config/examples/*.py" = ["PLR0913"]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+include = [
+  "src/lib_layered_config",
+]
+exclude = [
+  "scripts/menu.py",
+  "tests",
+  "notebooks",
+  "docs",
+  "dist",
+]
+
+[tool.pytest.ini_options]
+addopts = ["--maxfail=1", "--no-cov", "--doctest-modules", "--ignore=scripts/menu.py", "--ignore=tests/benchmark"]
+pythonpath = ["src"]
+doctest_optionflags = ["ELLIPSIS", "NORMALIZE_WHITESPACE", "IGNORE_EXCEPTION_DETAIL"]
+testpaths = ["tests"]
+python_files = ["tests/**/test_*.py"]
+markers = [
+  "slow: marks tests as slow (deselect with -m 'not slow')",
+  "os_agnostic: executes on every supported operating system",
+  "posix_only: requires POSIX semantics",
+  "mac_only: requires macOS semantics",
+  "windows_only: requires Windows semantics",
+]
+
+[tool.coverage.run]
+branch = true
+parallel = false
+data_file = "/tmp/.coverage.lib_layered_config"
+source = ["src/lib_layered_config"]
+
+[tool.coverage.report]
+omit = [
+  "tests/*",
+  "tests/benchmark/*",
+]
+fail_under = 90
+show_missing = true
+
+[tool.clean]
+# Patterns to remove when running `make clean`
+patterns = [
+  "**/__pycache__",
+  ".hypothesis",
+  ".import_linter_cache",
+  ".pytest_cache",
+  ".ruff_cache",
+  ".pyright",
+  ".mypy_cache",
+  ".tox",
+  ".nox",
+  ".eggs",
+  "*.egg-info",
+  "build",
+  "dist",
+  "htmlcov",
+  ".coverage",
+  "coverage.xml",
+  "codecov.sh",
+  ".cache",
+  "result",
+]
+
+[tool.git]
+# Default git remote for push/release commands
+default-remote = "origin"
+
+
+[tool.scripts.test]
+# Configuration for scripts/test.py test runner
+pytest-verbosity = "-vv"
+coverage-report-file = "coverage.xml"
+src-path = "src"
+[tool.importlinter]
+root_package = "lib_layered_config"
+
+[[tool.importlinter.contracts]]
+name = "Clean architecture layers"
+type = "layers"
+containers = ["lib_layered_config"]
+layers = [
+  "cli",
+  "examples",
+  "adapters",
+  "application",
+  "domain",
+]
+
+[[tool.importlinter.contracts]]
+name = "No adapters in domain"
+type = "forbidden"
+source_modules = ["lib_layered_config.domain"]
+forbidden_modules = ["lib_layered_config.adapters", "lib_layered_config.application", "lib_layered_config.core"]
+
+[tool.pip-audit]
+# Known vulnerabilities to ignore (unfixable or accepted risk)
+#   but the dev/CI toolchain pins click<8.3.0 via codecov-cli, so there is no upgrade path
+#   here; not a runtime dependency and the library never calls click.edit().
+ignore-vulns = ["CVE-2026-7246"]

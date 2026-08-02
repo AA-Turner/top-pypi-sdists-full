@@ -1,0 +1,721 @@
+"""AI fix generation service.
+
+Generates fix suggestions for issues that native tools cannot auto-fix.
+Reads file contents, asks the AI for a corrected version, and produces
+unified diffs. Runs concurrent API calls as asyncio tasks under a
+semaphore for improved performance.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import threading
+from collections import defaultdict
+from collections.abc import Callable, Sequence
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from loguru import logger
+
+from lintro.ai.cache import cache_suggestion
+from lintro.ai.cli_schemas import cli_schema_for_fix
+from lintro.ai.config import AIConfig
+from lintro.ai.enums import AITransport
+from lintro.ai.enums.sanitize_mode import SanitizeMode
+from lintro.ai.fix_context import (
+    CONTEXT_LINES,
+    FULL_FILE_THRESHOLD,
+    build_fix_context,
+    check_cache,
+    read_file_safely,
+    validate_and_read_file,
+)
+from lintro.ai.fix_params import FixGenParams
+from lintro.ai.fix_parsing import (
+    parse_batch_response,
+    parse_fix_response,
+)
+from lintro.ai.invoke import call_ai
+from lintro.ai.models import AIFixSuggestion
+from lintro.ai.paths import (
+    resolve_workspace_file,
+    resolve_workspace_root,
+    to_provider_path,
+)
+from lintro.ai.prompts import FIX_BATCH_PROMPT_TEMPLATE, FIX_SYSTEM
+from lintro.ai.sanitize import (
+    detect_injection_patterns,
+    make_boundary_marker,
+    sanitize_code_content,
+)
+from lintro.ai.secrets import redact_secrets
+from lintro.ai.token_budget import estimate_tokens
+
+if TYPE_CHECKING:
+    from lintro.ai.providers.base import AIResponse, BaseAIProvider
+    from lintro.parsers.base_issue import BaseIssue
+
+
+def _build_ai_config_for_fix(
+    *,
+    ai_config: AIConfig | None,
+    max_tokens: int,
+    timeout: float,
+    max_retries: int,
+    base_delay: float | None,
+    max_delay: float | None,
+    backoff_factor: float | None,
+    fallback_models: list[str] | None,
+) -> AIConfig:
+    """Resolve AI config for fix generation."""
+    if ai_config is not None:
+        return ai_config
+    return AIConfig(
+        enabled=True,
+        transport=AITransport.API,
+        max_tokens=max_tokens,
+        max_retries=max_retries,
+        api_timeout=timeout,
+        retry_base_delay=base_delay if base_delay is not None else 1.0,
+        retry_max_delay=max_delay if max_delay is not None else 30.0,
+        retry_backoff_factor=backoff_factor if backoff_factor is not None else 2.0,
+        fallback_models=fallback_models or [],
+    )
+
+
+async def _call_fix_ai(
+    *,
+    provider: BaseAIProvider,
+    ai_config: AIConfig,
+    prompt: str,
+    max_tokens: int,
+    workspace_root: Path,
+    batch: bool = False,
+) -> AIResponse:
+    """Invoke the unified AI transport for fix generation.
+
+    Args:
+        provider: AI provider instance.
+        ai_config: AI configuration for retry, transport, and fallback.
+        prompt: The fully built fix prompt.
+        max_tokens: Maximum tokens to request.
+        workspace_root: Root directory forwarded as the provider repo root.
+        batch: Whether this is a multi-issue batch prompt.
+
+    Returns:
+        The provider response.
+    """
+    return await call_ai(
+        provider=provider,
+        ai_config=ai_config,
+        user_prompt=prompt,
+        system_prompt=FIX_SYSTEM,
+        budget=None,
+        max_tokens=max_tokens,
+        repo_root=str(workspace_root),
+        cli_schema=cli_schema_for_fix(
+            transport=ai_config.transport,
+            batch=batch,
+        ),
+    )
+
+
+# Maximum concurrent API calls for fix generation
+DEFAULT_MAX_WORKERS = 5
+
+
+async def _call_and_cache_fix(
+    prompt: str,
+    issue_file: str,
+    issue: BaseIssue,
+    code: str,
+    tool_name: str,
+    provider: BaseAIProvider,
+    ai_config: AIConfig,
+    max_tokens: int,
+    workspace_root: Path,
+    file_content: str,
+    enable_cache: bool,
+) -> AIFixSuggestion | None:
+    """Call the provider, parse the response, and optionally cache the result."""
+    try:
+        response = await _call_fix_ai(
+            provider=provider,
+            ai_config=ai_config,
+            prompt=prompt,
+            max_tokens=max_tokens,
+            workspace_root=workspace_root,
+        )
+
+        suggestion = parse_fix_response(
+            response.content,
+            issue_file,
+            issue.line,
+            code,
+        )
+
+        if suggestion:
+            suggestion.tool_name = tool_name
+            suggestion.input_tokens = response.input_tokens
+            suggestion.output_tokens = response.output_tokens
+            suggestion.cost_estimate = response.cost_estimate
+
+            if enable_cache:
+                cache_suggestion(
+                    workspace_root,
+                    file_content,
+                    code,
+                    issue.line,
+                    issue.message,
+                    suggestion,
+                )
+
+            return suggestion
+
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception as exc:
+        logger.debug(
+            f"AI fix generation failed for {issue.file}:{issue.line} "
+            f"({type(exc).__name__}: {exc})",
+            exc_info=True,
+        )
+
+    return None
+
+
+async def _generate_single_fix(
+    issue: BaseIssue,
+    provider: BaseAIProvider,
+    tool_name: str,
+    file_cache: dict[str, str | None],
+    cache_lock: threading.Lock,
+    workspace_root: Path,
+    max_tokens: int,
+    ai_config: AIConfig,
+    timeout: float = 60.0,
+    context_lines: int = CONTEXT_LINES,
+    max_prompt_tokens: int = 12000,
+    enable_cache: bool = False,
+    cache_ttl: int = 3600,
+    full_file_threshold: int = FULL_FILE_THRESHOLD,
+    sanitize_mode: SanitizeMode = SanitizeMode.WARN,
+    cache_max_entries: int = 100,
+) -> AIFixSuggestion | None:
+    """Generate a fix suggestion for a single issue.
+
+    The shared file cache is guarded by a lock. Concurrent fixes now run
+    as tasks on one event loop, where the guarded sections contain no
+    ``await`` and so cannot interleave; the lock is kept because the cache
+    is also reachable from tool plugins that drive their own loop on a
+    worker thread.
+
+    Args:
+        issue: The issue to fix.
+        provider: AI provider instance.
+        tool_name: Name of the tool.
+        file_cache: Shared file content cache.
+        cache_lock: Lock guarding shared cache access.
+        workspace_root: Root directory AI is allowed to edit/read.
+        max_tokens: Maximum tokens to request from provider.
+        ai_config: AI configuration for retry, transport, and fallback.
+        timeout: Request timeout in seconds.
+        context_lines: Lines of context before/after the issue line.
+        max_prompt_tokens: Token budget for the prompt (4 chars ~ 1 token).
+        enable_cache: Whether to use the suggestion deduplication cache.
+        cache_ttl: Time-to-live in seconds for cached suggestions.
+        full_file_threshold: Max lines to attempt full-file context
+            (default 500).
+        sanitize_mode: How to handle detected prompt injection patterns.
+        cache_max_entries: Maximum file cache entries to limit memory.
+
+    Returns:
+        AIFixSuggestion, or None if generation fails.
+    """
+    validated = validate_and_read_file(
+        issue,
+        file_cache,
+        cache_lock,
+        workspace_root,
+        cache_max_entries=cache_max_entries,
+    )
+    if validated is None:
+        return None
+    issue_file, file_content = validated
+
+    code = getattr(issue, "code", "") or ""
+
+    if enable_cache:
+        cached = check_cache(
+            workspace_root,
+            file_content,
+            code,
+            issue,
+            tool_name,
+            cache_ttl,
+        )
+        if cached is not None:
+            return cached
+
+    prompt = build_fix_context(
+        issue,
+        issue_file,
+        file_content,
+        tool_name,
+        code,
+        workspace_root,
+        context_lines,
+        max_prompt_tokens,
+        full_file_threshold,
+        sanitize_mode=sanitize_mode,
+    )
+    if prompt is None:
+        return None
+
+    return await _call_and_cache_fix(
+        prompt,
+        issue_file,
+        issue,
+        code,
+        tool_name,
+        provider,
+        ai_config,
+        max_tokens,
+        workspace_root,
+        file_content,
+        enable_cache,
+    )
+
+
+async def _generate_batch_fixes(
+    file_path: str,
+    file_issues: list[BaseIssue],
+    provider: BaseAIProvider,
+    tool_name: str,
+    file_content: str,
+    workspace_root: Path,
+    max_tokens: int,
+    ai_config: AIConfig,
+    timeout: float,
+    max_prompt_tokens: int,
+    sanitize_mode: SanitizeMode = SanitizeMode.WARN,
+) -> list[AIFixSuggestion] | None:
+    """Generate fixes for multiple issues in one file via a batch prompt.
+
+    Returns a list of suggestions on success, or None if the batch prompt
+    does not fit within the token budget or the response cannot be parsed
+    (signalling the caller to fall back to single-issue mode).
+
+    Args:
+        file_path: Resolved absolute file path.
+        file_issues: Issues in this file (must have len >= 2).
+        provider: AI provider instance.
+        tool_name: Name of the tool.
+        file_content: Full file content string.
+        workspace_root: Root directory for workspace-relative paths.
+        max_tokens: Maximum tokens to request from provider.
+        ai_config: AI configuration for retry, transport, and fallback.
+        timeout: Request timeout in seconds.
+        max_prompt_tokens: Token budget for the prompt.
+        sanitize_mode: How to handle detected prompt injection patterns.
+
+    Returns:
+        List of AIFixSuggestions, or None on failure (fall back to single).
+
+    Raises:
+        KeyboardInterrupt: Re-raised immediately.
+        SystemExit: Re-raised immediately.
+    """
+    issues_list_parts: list[str] = []
+    raw_messages: list[str] = []
+    for idx, issue in enumerate(file_issues, 1):
+        code = getattr(issue, "code", "") or ""
+        raw_messages.append(issue.message)
+        msg = redact_secrets(sanitize_code_content(issue.message))
+        issues_list_parts.append(
+            f"{idx}. Line {issue.line} [{code}]: {msg}",
+        )
+    issues_list = "\n".join(issues_list_parts)
+
+    sanitized_content = redact_secrets(sanitize_code_content(file_content))
+    if sanitize_mode != SanitizeMode.OFF:
+        file_injections = detect_injection_patterns(file_content)
+        # Scan raw messages before sanitization to catch original injection markers
+        msg_injections = detect_injection_patterns("\n".join(raw_messages))
+        injections = file_injections + msg_injections
+        if injections:
+            if sanitize_mode == SanitizeMode.BLOCK:
+                logger.warning(
+                    f"Blocking batch fix for {file_path}: prompt injection "
+                    f"patterns detected in file/diagnostics: "
+                    f"{', '.join(injections)}",
+                )
+                return None
+            logger.warning(
+                f"Potential prompt injection patterns detected in "
+                f"{file_path} (file/diagnostics): {', '.join(injections)}",
+            )
+
+    boundary = make_boundary_marker()
+    prompt = FIX_BATCH_PROMPT_TEMPLATE.format(
+        tool_name=tool_name,
+        file=to_provider_path(file_path, workspace_root),
+        issues_list=issues_list,
+        file_content=sanitized_content,
+        boundary=boundary,
+    )
+
+    if estimate_tokens(prompt) > max_prompt_tokens:
+        logger.debug(
+            f"Batch prompt over budget for {file_path} "
+            f"({len(file_issues)} issues), falling back to single-issue mode",
+        )
+        return None
+
+    try:
+        response = await _call_fix_ai(
+            provider=provider,
+            ai_config=ai_config,
+            prompt=prompt,
+            max_tokens=max_tokens,
+            workspace_root=workspace_root,
+            batch=True,
+        )
+        suggestions = parse_batch_response(response.content, file_path)
+        if not suggestions:
+            logger.debug(
+                f"Batch response parse returned no suggestions for {file_path}, "
+                f"falling back to single-issue mode",
+            )
+            return None
+
+        if len(suggestions) != len(file_issues):
+            logger.debug(
+                f"Batch response count mismatch for {file_path}: "
+                f"got {len(suggestions)} suggestions for {len(file_issues)} issues, "
+                f"falling back to single-issue mode",
+            )
+            return None
+
+        count = len(suggestions)
+        per_input = response.input_tokens // count
+        per_output = response.output_tokens // count
+        per_cost = response.cost_estimate / count
+        for suggestion in suggestions:
+            suggestion.tool_name = tool_name
+            suggestion.input_tokens = per_input
+            suggestion.output_tokens = per_output
+            suggestion.cost_estimate = per_cost
+
+        logger.debug(
+            f"Batch fix generated {len(suggestions)} suggestions "
+            f"for {file_path} ({len(file_issues)} issues)",
+        )
+        return suggestions
+
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except Exception as exc:
+        logger.debug(
+            f"Batch AI fix generation failed for {file_path} "
+            f"({type(exc).__name__}: {exc}), falling back to single-issue mode",
+            exc_info=True,
+        )
+        return None
+
+
+async def generate_fixes(
+    issues: Sequence[BaseIssue],
+    provider: BaseAIProvider,
+    *,
+    tool_name: str,
+    ai_config: AIConfig | None = None,
+    max_issues: int = 20,
+    max_workers: int = DEFAULT_MAX_WORKERS,
+    workspace_root: Path | None = None,
+    max_tokens: int = 2048,
+    max_retries: int = 2,
+    timeout: float = 60.0,
+    context_lines: int = CONTEXT_LINES,
+    max_prompt_tokens: int = 12000,
+    base_delay: float | None = None,
+    max_delay: float | None = None,
+    backoff_factor: float | None = None,
+    enable_cache: bool = False,
+    cache_ttl: int = 3600,
+    progress_callback: Callable[[int, int], None] | None = None,
+    fallback_models: list[str] | None = None,
+    sanitize_mode: SanitizeMode = SanitizeMode.WARN,
+    cache_max_entries: int = 1000,
+) -> list[AIFixSuggestion]:
+    """Generate AI fix suggestions for unfixable issues.
+
+    Reads the source file for each issue, sends context to the AI,
+    and produces a unified diff. Runs API calls in parallel.
+
+    Args:
+        issues: Sequence of issues to fix.
+        provider: AI provider instance.
+        tool_name: Name of the tool that produced these issues.
+        ai_config: Optional AI configuration for ``call_ai`` transport
+            and retry settings.
+        max_issues: Maximum number of issues to process.
+        max_workers: Maximum concurrent API calls.
+        workspace_root: Optional root directory limiting AI file access.
+        max_tokens: Maximum tokens requested per fix generation call.
+        max_retries: Maximum retry attempts for transient API failures.
+        timeout: Request timeout in seconds per API call.
+        context_lines: Lines of context before/after the issue line.
+        max_prompt_tokens: Token budget for the prompt before context trimming.
+        base_delay: Initial retry delay in seconds (None = use default).
+        max_delay: Maximum retry delay in seconds (None = use default).
+        backoff_factor: Retry backoff multiplier (None = use default).
+        enable_cache: Whether to use the suggestion deduplication cache.
+        cache_ttl: Time-to-live in seconds for cached suggestions.
+        progress_callback: Optional callback invoked after each fix
+            completes with (completed_count, total_count).
+        fallback_models: Ordered list of fallback model identifiers
+            to try when the primary model fails with a retryable error.
+        sanitize_mode: How to handle prompt injection patterns.
+        cache_max_entries: Maximum file cache entries to limit memory.
+
+    Returns:
+        List of fix suggestions.
+
+    Raises:
+        KeyboardInterrupt: Re-raised on user interrupt.
+        SystemExit: Re-raised on system exit.
+    """
+    if not issues:
+        return []
+
+    # Limit the number of issues to process
+    target_issues = list(issues)[:max_issues]
+    logger.debug(
+        f"generate_fixes: {tool_name} received {len(issues)} issues, "
+        f"processing {len(target_issues)} (max={max_issues})",
+    )
+
+    root = workspace_root or resolve_workspace_root()
+
+    effective_config = _build_ai_config_for_fix(
+        ai_config=ai_config,
+        max_tokens=max_tokens,
+        timeout=timeout,
+        max_retries=max_retries,
+        base_delay=base_delay,
+        max_delay=max_delay,
+        backoff_factor=backoff_factor,
+        fallback_models=fallback_models,
+    )
+
+    # Shared file cache guarded by a lock (capped to limit memory usage).
+    file_cache: dict[str, str | None] = {}
+    cache_lock = threading.Lock()
+
+    suggestions: list[AIFixSuggestion] = []
+    completed_count = 0
+    total_count = len(target_issues)
+
+    # --- Multi-issue batching per file ---
+    # Group issues by resolved file path; files with 2+ issues are
+    # candidates for a single batch prompt.
+    file_groups: dict[str, list[BaseIssue]] = defaultdict(list)
+    for issue in target_issues:
+        if not issue.file or not issue.line:
+            continue
+        resolved = resolve_workspace_file(issue.file, root)
+        if resolved is None:
+            continue
+        file_groups[str(resolved)].append(issue)
+
+    single_issues: list[BaseIssue] = []
+
+    for resolved_path, group in file_groups.items():
+        if len(group) < 2:
+            single_issues.extend(group)
+            continue
+
+        # Read the file for the batch prompt
+        content = read_file_safely(resolved_path)
+        if content is None:
+            single_issues.extend(group)
+            continue
+
+        # Populate file_cache so single-fix fallback doesn't re-read.
+        # Respect cache_max_entries to avoid unbounded growth.
+        with cache_lock:
+            if resolved_path not in file_cache and len(file_cache) >= cache_max_entries:
+                oldest_key = next(iter(file_cache))
+                del file_cache[oldest_key]
+            file_cache[resolved_path] = content
+
+        batch_result = await _generate_batch_fixes(
+            resolved_path,
+            group,
+            provider,
+            tool_name,
+            content,
+            root,
+            max_tokens,
+            effective_config,
+            timeout,
+            max_prompt_tokens,
+            sanitize_mode=sanitize_mode,
+        )
+        if batch_result is not None:
+            suggestions.extend(batch_result)
+            completed_count += len(group)
+            if progress_callback is not None:
+                progress_callback(completed_count, total_count)
+        else:
+            # Fall back to single-issue mode for this file
+            single_issues.extend(group)
+
+    # Include issues that had no file/line (skipped by grouping) —
+    # _generate_single_fix will skip them gracefully.
+    for issue in target_issues:
+        if not issue.file or not issue.line:
+            single_issues.append(issue)
+
+    workers = min(len(single_issues), max_workers) if single_issues else 0
+
+    if workers <= 1:
+        for issue in single_issues:
+            result = await _generate_single_fix(
+                issue,
+                provider,
+                tool_name,
+                file_cache,
+                cache_lock,
+                root,
+                max_tokens,
+                effective_config,
+                timeout,
+                context_lines,
+                max_prompt_tokens=max_prompt_tokens,
+                enable_cache=enable_cache,
+                cache_ttl=cache_ttl,
+                sanitize_mode=sanitize_mode,
+                cache_max_entries=cache_max_entries,
+            )
+            if result:
+                suggestions.append(result)
+            completed_count += 1
+            if progress_callback is not None:
+                progress_callback(completed_count, total_count)
+    else:
+        # Bounded concurrency on one event loop replaces the former thread
+        # pool: provider calls are I/O-bound, so tasks + a semaphore give the
+        # same ``max_workers`` ceiling without the thread overhead.
+        semaphore = asyncio.Semaphore(workers)
+
+        async def _run_one(issue: BaseIssue) -> AIFixSuggestion | None:
+            """Generate one fix under the concurrency ceiling.
+
+            Args:
+                issue: The issue to fix.
+
+            Returns:
+                The suggestion, or None when generation fails.
+            """
+            async with semaphore:
+                return await _generate_single_fix(
+                    issue,
+                    provider,
+                    tool_name,
+                    file_cache,
+                    cache_lock,
+                    root,
+                    max_tokens,
+                    effective_config,
+                    timeout,
+                    context_lines,
+                    max_prompt_tokens=max_prompt_tokens,
+                    enable_cache=enable_cache,
+                    cache_ttl=cache_ttl,
+                    sanitize_mode=sanitize_mode,
+                    cache_max_entries=cache_max_entries,
+                )
+
+        tasks = [asyncio.ensure_future(_run_one(issue)) for issue in single_issues]
+        try:
+            for completed in asyncio.as_completed(tasks):
+                try:
+                    result = await completed
+                except (KeyboardInterrupt, SystemExit):
+                    raise
+                except Exception as exc:
+                    logger.debug(
+                        f"AI fix worker failed ({type(exc).__name__}: {exc})",
+                        exc_info=True,
+                    )
+                    completed_count += 1
+                    if progress_callback is not None:
+                        progress_callback(completed_count, total_count)
+                    continue
+                if result:
+                    suggestions.append(result)
+                completed_count += 1
+                if progress_callback is not None:
+                    progress_callback(completed_count, total_count)
+        finally:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            # Drain the cancellations so no provider call (and no CLI child
+            # process) outlives this function.
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Sort by (file, line) for deterministic ordering regardless of the
+    # completion order tasks arrive in from as_completed().
+    suggestions.sort(key=lambda s: (s.file, s.line))
+
+    logger.debug(
+        f"generate_fixes: {tool_name} produced "
+        f"{len(suggestions)}/{len(target_issues)} suggestions",
+    )
+    return suggestions
+
+
+async def generate_fixes_from_params(
+    issues: Sequence[BaseIssue],
+    provider: BaseAIProvider,
+    params: FixGenParams,
+) -> list[AIFixSuggestion]:
+    """Generate fixes using a ``FixGenParams`` parameter object.
+
+    Thin wrapper around ``generate_fixes`` that unpacks the params
+    object into keyword arguments.
+
+    Args:
+        issues: Sequence of issues to fix.
+        provider: AI provider instance.
+        params: Grouped generation parameters.
+
+    Returns:
+        List of fix suggestions.
+    """
+    return await generate_fixes(
+        issues,
+        provider,
+        tool_name=params.tool_name,
+        ai_config=params.ai_config,
+        max_issues=params.max_issues,
+        max_workers=params.max_workers,
+        workspace_root=params.workspace_root,
+        max_tokens=params.max_tokens,
+        max_retries=params.max_retries,
+        timeout=params.timeout,
+        context_lines=params.context_lines,
+        max_prompt_tokens=params.max_prompt_tokens,
+        base_delay=params.base_delay,
+        max_delay=params.max_delay,
+        backoff_factor=params.backoff_factor,
+        enable_cache=params.enable_cache,
+        cache_ttl=params.cache_ttl,
+        progress_callback=params.progress_callback,
+        fallback_models=params.fallback_models,
+        sanitize_mode=params.sanitize_mode,
+        cache_max_entries=params.cache_max_entries,
+    )

@@ -1,0 +1,64 @@
+# ppe — feedforward polynomial-phase estimator (frequency + chirp rate).
+#
+# Estimates the normalized frequency f (cycles/sample) and chirp rate r
+# (cycles/sample^2) of a complex sequence by a coherent 2-D matched-filter
+# search: for each chirp-rate hypothesis r_i in [-max_rate, +max_rate] it
+# dechirps the sequence (multiply by exp(-j*pi*r_i*m^2)) and FFTs it, building a
+# (chirp-rate x frequency) surface whose global peak gives (r, f) — sub-bin in
+# both axes by parabolic interpolation.  Fully coherent, so it holds at low SNR
+# (the matched-filter-optimal estimator), and it degenerates to a single FFT
+# (pure Doppler) when max_rate = 0 — the one knob spans near-static Doppler to
+# severe LEO chirp.  Stateless by-value analyzer (the tonemeas pattern).  The
+# caller strips modulation first (data-aided wipe, or square for NDA then halve).
+#
+# Composes fft_core + the spectral_core find_peaks / window free functions.
+
+[ppe]
+arg_type = "float _Complex"
+return_type = "float _Complex"
+mutable = "false"
+no_state = "true"
+no_step = "true"
+class_name = "PolynomialPhaseEstimator"
+depends_on = [{ name = "fft", link = true }, { name = "spectral", link = true }]
+
+[[ppe.init_params]]
+name = "max_len"
+type = "size_t"
+default = "4096"
+
+[[ppe.init_params]]
+name = "max_rate"
+type = "double"
+default = "0.0"
+
+[[ppe.methods]]
+name = "estimate"
+doc = "Estimate (freq, chirp-rate) of a complex sequence via the 2-lag HAF."
+arg_type = "float _Complex"
+return_type = "ppe_result_t"
+nogil = true
+single = true
+record_name = "PolynomialPhaseEstimate"
+record_module = "doppler.dsss"
+result_fields = [{ name = "freq_norm", type = "double" }, { name = "rate_norm", type = "double" }, { name = "snr_db", type = "double" }]
+
+[[ppe.properties]]
+name = "max_len"
+type = "size_t"
+field = true
+
+[[ppe.properties]]
+name = "nfft"
+type = "size_t"
+field = true
+
+[[ppe.properties]]
+name = "max_rate"
+type = "double"
+field = true
+
+[[ppe.properties]]
+name = "n_rate"
+type = "size_t"
+field = true

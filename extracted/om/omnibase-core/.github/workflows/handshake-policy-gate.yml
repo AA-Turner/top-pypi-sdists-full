@@ -1,0 +1,80 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+name: Handshake Policy Gate
+# Checks that every active OmniNode repo has the architecture-handshake
+# CI workflow installed and passing on its default branch.
+# Runs weekly, on manual dispatch, and on merge_group (OMN-13875) so the
+# check is a live, observable pre-merge signal instead of only surfacing
+# once a week. NOT wired into required-status-checks here — the
+# required-context flip is a separate, staged decision.
+#
+# Deliberately NOT triggered on `pull_request`: this job needs
+# POLICY_GATE_TOKEN (a cross-repo PAT), and this repo's OMNI_RUNNER_SELECTOR_V1
+# convention (see ci.yml) routes every `pull_request`-triggered job to the
+# public ubuntu-latest runner regardless of fork status, withholding trusted
+# secrets by design. Adding `pull_request` here would make this job
+# permanently red on every PR (confirmed live on PR #1381 — "ERROR: GitHub
+# CLI is not authenticated"), which is a worse, always-failing-but-ignorable
+# gate than the original silent one. `merge_group` is a distinct
+# `github.event_name` (not `pull_request`), so it correctly routes to the
+# trusted self-hosted runner where the token is available.
+
+on:
+  schedule:
+    # Weekly on Monday at 08:00 UTC
+    - cron: '0 8 * * 1'
+  merge_group:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  occ-preflight:
+    uses: ./.github/workflows/occ-preflight.yml
+    permissions:
+      contents: read
+      pull-requests: read
+    with:
+      contracts-dir: contracts
+      receipts-dir: drift/dod_receipts
+
+  policy-gate:
+    needs: occ-preflight
+    name: Check handshake compliance across repos
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    runs-on: >-
+      ${{
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+
+      - name: Validate POLICY_GATE_TOKEN
+        env:
+          GH_TOKEN: ${{ secrets.POLICY_GATE_TOKEN }}
+        run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::error::POLICY_GATE_TOKEN secret is not configured. Add a fine-grained PAT with Actions:Read scope to the repo secrets."
+            exit 1
+          fi
+
+      - name: Run policy gate check
+        env:
+          # POLICY_GATE_TOKEN: fine-grained PAT scoped to OmniNode-ai org
+          # with Actions:Read on private repos. GITHUB_TOKEN cannot read
+          # workflow runs from private repos in the same org.
+          GH_TOKEN: ${{ secrets.POLICY_GATE_TOKEN }}
+        run: |
+          if [ "${{ github.event_name }}" = "merge_group" ]; then
+            bash architecture-handshakes/check-policy-gate.sh
+          else
+            bash architecture-handshakes/check-policy-gate.sh --strict
+          fi

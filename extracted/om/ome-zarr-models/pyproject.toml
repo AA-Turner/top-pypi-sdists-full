@@ -1,0 +1,118 @@
+[project]
+name = "ome-zarr-models"
+dynamic = ["version"]
+description = "A minimal Python package for reading OME-Zarr (meta)data "
+readme = "README.md"
+requires-python = ">=3.11, <3.14"
+dependencies = ["zarr>= 3.1.1", "pydantic >= 2.11.5, < 2.13", "pydantic-zarr >= 0.8.2"]
+maintainers = [{ name = "David Stansby" }]
+license = { file = "LICENSE" }
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Programming Language :: Python",
+]
+
+[project.urls]
+Documentation = "https://ome-zarr-models-py.readthedocs.io"
+Repository = "https://github.com/ome-zarr-models/ome-zarr-models-py"
+"Bug Tracker" = "https://github.com/ome-zarr-models/ome-zarr-models-py/issues"
+# Changelog = ""
+
+[project.optional-dependencies]
+# This group has to be in optional-dependencies (not dependency-groups) for readthedocs
+docs = [
+    "mkdocs==1.6.1",
+    "mkdocstrings-python==1.18.2",
+    "mkdocs-material==9.6.21",
+    "mkdocs-jupyter==0.25.1",
+    "matplotlib==3.10.6",
+    "rich==14.1.0",
+    "griffe-fieldz==0.4.0",
+    "fsspec[http]==2025.9.0",
+]
+
+[project.scripts]
+ome-zarr-models = "ome_zarr_models._cli:main"
+
+[tool.hatch.version]
+source = "vcs"
+
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+docs = ["ome-zarr-models[docs]"]
+dev = ["mypy==1.18.2", "ruff==0.13.2", "pre-commit==4.3.0"]
+test = ["pytest==8.4.2", "pytest-cov==7.0.0", "pytest-recording==0.13.4"]
+
+[tool.uv]
+default-groups = ["docs", "dev", "test"]
+
+# Ruff configuration for linting and formatting
+# https://docs.astral.sh/ruff
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+pydocstyle = { convention = "numpy" }
+select = [
+    "E", # style errors
+    "W", # style warnings
+    "F", # flakes
+    "D", # pydocstyle
+    "I", # isort
+    "UP", # pyupgrade
+    "C4", # flake8-comprehensions
+    "B", # flake8-bugbear
+    "A001", # flake8-builtins
+    "RUF", # ruff-specific rules
+    "TC", # flake8-type-checking
+    "TID", # flake8-tidy-imports
+]
+ignore = [
+    "D401", # First line should be in imperative mood (remove to opt in)
+    "D200", # One line docstring should fit on one line.
+    "D205", # 1 blank line required between summary line and description
+    "D400", # First line should end with a period
+    "D100", # Missing docstring in public module
+    "D102", # Missing docstring in public method
+    "D104", # Missing docstring in public package
+    "TC001", # Move application import `...` into a type-checking block. This messes with nested pydantic models
+
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["D", "S"]
+
+# https://docs.astral.sh/ruff/formatter/
+[tool.ruff.format]
+docstring-code-format = true
+skip-magic-trailing-comma = false # default is false
+
+[tool.mypy]
+
+strict = true
+warn_unreachable = true
+plugins = ['pydantic.mypy']
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+
+[tool.pytest.ini_options]
+minversion = "8"
+testpaths = ["tests"]
+log_cli_level = "INFO"
+xfail_strict = true
+addopts = [
+    "-ra",
+    "--strict-config",
+    "--strict-markers",
+    "--cov",
+    "--cov-report=xml",
+    "-vv",
+]
+filterwarnings = ["error"]
+
+[tool.typos.default.extend-words]
+ome = "ome"

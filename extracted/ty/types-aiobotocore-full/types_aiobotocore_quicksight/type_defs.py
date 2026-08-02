@@ -3369,10 +3369,19 @@ class CapabilitiesTypeDef(TypedDict):
     Research: NotRequired[Literal["DENY"]]
     SelfUpgradeUserRole: NotRequired[Literal["DENY"]]
     Extension: NotRequired[Literal["DENY"]]
+    UseBrowserExtension: NotRequired[Literal["DENY"]]
+    UseWordAddInExtension: NotRequired[Literal["DENY"]]
+    UseOutlookAddInExtension: NotRequired[Literal["DENY"]]
+    UseExcelAddInExtension: NotRequired[Literal["DENY"]]
+    UsePowerpointAddInExtension: NotRequired[Literal["DENY"]]
     ManageSharedFolders: NotRequired[Literal["DENY"]]
     GenerateAnalyses: NotRequired[Literal["DENY"]]
     Story: NotRequired[Literal["DENY"]]
     Scenario: NotRequired[Literal["DENY"]]
+    Trigger: NotRequired[Literal["DENY"]]
+    ScheduleTrigger: NotRequired[Literal["DENY"]]
+    InboundEmailTrigger: NotRequired[Literal["DENY"]]
+    QuickEventTrigger: NotRequired[Literal["DENY"]]
 
 
 class CapacityBytesRangeFilterTypeDef(TypedDict):
@@ -5979,13 +5988,9 @@ class ReferenceLineStaticDataConfigurationTypeDef(TypedDict):
     Value: float
 
 
-ReferenceLineStyleConfigurationTypeDef = TypedDict(
-    "ReferenceLineStyleConfigurationTypeDef",
-    {
-        "Pattern": NotRequired[ReferenceLinePatternTypeType],
-        "Color": NotRequired[str],
-    },
-)
+class ReferenceLineStyleConfigurationTypeDef(TypedDict):
+    Pattern: NotRequired[ReferenceLinePatternTypeType]
+    Color: NotRequired[str]
 
 
 class RefreshFailureEmailAlertTypeDef(TypedDict):

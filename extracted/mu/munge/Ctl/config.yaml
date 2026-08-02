@@ -1,0 +1,20 @@
+ctl:
+  permissions:
+    - namespace: "ctl"
+      permission: "r"
+
+  plugins:
+    - name: changelog
+      type: changelog
+
+    - name: pypi
+      type: pypi
+      config:
+        config_file: ~/.pypirc
+        sign: true
+
+    - name: version
+      type: version
+      config:
+        branch_dev: main
+        branch_release: main

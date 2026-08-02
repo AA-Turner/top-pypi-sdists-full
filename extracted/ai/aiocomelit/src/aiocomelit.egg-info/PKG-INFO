@@ -1,0 +1,132 @@
+Metadata-Version: 2.4
+Name: aiocomelit
+Version: 2.0.7
+Summary: Python library to control Comelit Simplehome
+Author-email: Simone Chemelli <simone.chemelli@gmail.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/chemelli74/aiocomelit
+Project-URL: Bug Tracker, https://github.com/chemelli74/aiocomelit/issues
+Project-URL: Changelog, https://github.com/chemelli74/aiocomelit/blob/main/CHANGELOG.md
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp>=3.12.7
+Requires-Dist: orjson<4,>=3.10
+Requires-Dist: pint
+Dynamic: license-file
+
+# aiocomelit
+
+<p align="center">
+  <a href="https://github.com/chemelli74/aiocomelit/actions/workflows/ci.yml?query=branch%3Amain">
+    <img src="https://img.shields.io/github/actions/workflow/status/chemelli74/aiocomelit/ci.yml?branch=main&label=CI&logo=github&style=flat-square" alt="CI Status" >
+  </a>
+  <a href="https://codecov.io/gh/chemelli74/aiocomelit">
+    <img src="https://img.shields.io/codecov/c/github/chemelli74/aiocomelit.svg?logo=codecov&logoColor=fff&style=flat-square" alt="Test coverage percentage">
+  </a>
+</p>
+<p align="center">
+  <a href="https://docs.astral.sh/uv/">
+    <img src="https://img.shields.io/badge/packaging-uv-2A5BFF?style=flat-square" alt="uv">
+  </a>
+  <a href="https://github.com/ambv/black">
+    <img src="https://img.shields.io/badge/code%20style-black-000000.svg?style=flat-square" alt="black">
+  </a>
+  <a href="https://pypi.org/project/prek/">
+    <img src="https://img.shields.io/badge/prek-enabled-brightgreen?style=flat-square" alt="prek">
+  </a>
+</p>
+<p align="center">
+  <a href="https://pypi.org/project/aiocomelit/">
+    <img src="https://img.shields.io/pypi/v/aiocomelit.svg?logo=python&logoColor=fff&style=flat-square" alt="PyPI Version">
+  </a>
+  <a href="https://pypi.org/project/aiocomelit/">
+    <img src="https://img.shields.io/pypi/pyversions/aiocomelit?style=flat-square&amp;logo=python&amp;logoColor=fff" alt="Supported Python versions">
+  </a>
+  <img src="https://img.shields.io/pypi/l/aiocomelit.svg?style=flat-square" alt="License">
+</p>
+
+---
+
+**Source Code**: <a href="https://github.com/chemelli74/aiocomelit" target="_blank">https://github.com/chemelli74/aiocomelit </a>
+
+---
+
+Python library to control Comelit Simplehome
+
+## Installation
+
+Install this via pip (or your favourite package manager):
+
+`pip install aiocomelit`
+
+## Test
+
+Test the library with:
+
+`python library_test.py`
+
+The script accept command line arguments or a library_test.json config file:
+
+```json
+{
+  "bridge_skip": false,
+  "bridge": "192.168.1.252",
+  "bridge_port": 80,
+  "bridge_pin": 12345,
+  "bridge_vedo": false,
+  "vedo_skip": false,
+  "vedo": "192.168.1.230",
+  "vedo_port": 8080,
+  "vedo_pin": 67890,
+  "test": false
+}
+```
+
+## Contributors ✨
+
+Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
+
+<!-- prettier-ignore-start -->
+<!-- readme: contributors -start -->
+<table>
+	<tbody>
+		<tr>
+            <td align="center">
+                <a href="https://github.com/chemelli74">
+                    <img src="https://avatars.githubusercontent.com/u/57354320?v=4" width="100;" alt="chemelli74"/>
+                    <br />
+                    <sub><b>Simone Chemelli</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/joostlek">
+                    <img src="https://avatars.githubusercontent.com/u/7083755?v=4" width="100;" alt="joostlek"/>
+                    <br />
+                    <sub><b>Joost Lekkerkerker</b></sub>
+                </a>
+            </td>
+		</tr>
+	<tbody>
+</table>
+<!-- readme: contributors -end -->
+<!-- prettier-ignore-end -->
+
+This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!
+
+## Credits
+
+This package was created with
+[Copier](https://copier.readthedocs.io/) and the
+[browniebroke/pypackage-template](https://github.com/browniebroke/pypackage-template)
+project template.

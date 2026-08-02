@@ -1,0 +1,157 @@
+[build-system]
+# NumPy caps track its own Python floor (2.1 dropped 3.9, 2.3 dropped 3.10), so
+# the cp39 wheel builds against numpy 2.0.x — its stable 2.x ABI means the wheel
+# still runs against newer numpy at import time.
+requires = [
+    "just-buildit",
+    "numpy; python_version >= '3.11'",
+    "numpy<2.3; python_version == '3.10'",
+    "numpy<2.1; python_version == '3.9'",
+]
+build-backend = "just_buildit"
+
+[project]
+name = "doppler-dsp"
+version = "0.40.0"
+description = "Practical, portable, performant digital signal processing."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "doppler contributors" },
+]
+keywords = ["dsp", "sdr", "fft", "fir", "nco", "signal-processing", "nats", "iq"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: C",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: System :: Hardware :: Hardware Drivers",
+]
+dependencies = [
+    # Runtime NumPy floor follows its own Python support window (2.1 dropped
+    # 3.9, 2.3 dropped 3.10); 3.9 users get numpy 2.0.x.
+    "numpy; python_version >= '3.11'",
+    "numpy<2.3; python_version == '3.10'",
+    "numpy<2.1; python_version == '3.9'",
+]
+
+[project.urls]
+Homepage      = "https://doppler-dsp.github.io/doppler/"
+Repository    = "https://github.com/doppler-dsp/doppler"
+Documentation = "https://doppler-dsp.github.io/doppler/"
+"Bug Tracker" = "https://github.com/doppler-dsp/doppler/issues"
+
+[project.optional-dependencies]
+cli = [
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+    "rich>=13.0",
+]
+specan = [
+    "rich>=13.0",
+]
+specan-web = [
+    "fastapi>=0.100",
+    "uvicorn[standard]>=0.23",
+    "websockets>=12.0",
+]
+
+[project.scripts]
+doppler        = "doppler.cli.__main__:main"
+doppler-source = "doppler.cli.source:main"
+doppler-fir    = "doppler.cli.fir:main"
+doppler-specan = "doppler.specan.__main__:main"
+wfmgen         = "doppler.wfm.cli:main"
+
+[tool.just-buildit]
+command = "make just-build"
+editable_path = "src"
+
+[tool.pytest.ini_options]
+python_files = ["test_*.py", "bench_*.py"]
+testpaths = ["src"]
+markers = [
+    "docs_snippets: doc-example drift gate (runs the ```python fences in docs/); CI runs it once on 3.12, excluded from the version matrix via -m 'not docs_snippets'",
+    "examples: example-script smoke gate (runs every example as a subprocess, discovered not registered); excluded from the coverage run via -m 'not examples'",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3; python_version >= '3.10'",
+    "pytest<9; python_version == '3.9'",
+    "pytest-benchmark>=5.2.3",
+    "pytest-cov>=6.0",
+    # scipy / matplotlib follow their own Python floors (used only for tests,
+    # benchmarks and the gallery — not shipped to end users).
+    "scipy>=1.17.1; python_version >= '3.11'",
+    "scipy<1.16; python_version == '3.10'",
+    "scipy<1.14; python_version == '3.9'",
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+    "rich>=13.0",
+    "matplotlib>=3.10.9; python_version >= '3.10'",
+    "matplotlib<3.10; python_version == '3.9'",
+    "jsonschema>=4.18",
+    # jm drives the manifest/codegen and the benchmark suite. Pinned HERE
+    # rather than invoked through uvx: an unpinned `uvx just-makeit` silently
+    # reuses whatever version happens to be installed as a uv TOOL, which is
+    # not "latest" and drifts per machine. Keep in sync with jm_version in
+    # just-makeit.toml.
+    "just-makeit==0.33.15",
+    # The lint/format toolchain. It lives HERE, not in
+    # .pre-commit-config.yaml's `additional_dependencies`, because that is what
+    # makes local and CI resolve identically: the hooks dispatch to
+    # `make -s lint-<tool>`, the Makefile invokes `$(DEV_RUN) <tool>`, and
+    # uv.lock pins the version. An `additional_dependencies` list resolves at
+    # hook-env creation time instead, so a warm local cache and a fresh CI
+    # runner can hold different versions and disagree about the same file —
+    # which is exactly what landed a docs/api.md that passed `make lint`
+    # locally and failed CI.
+    #
+    # Exact pins, not floors: these rewrite source, so an upgrade reformats the
+    # tree and must be a deliberate commit rather than a side effect of
+    # `uv lock --upgrade`. The versions match the `rev:`/`additional_dependencies`
+    # they replace, so this change reformats nothing.
+    #
+    # mdformat 1.x requires Python >=3.10 while doppler still supports 3.9, so
+    # it carries a marker and `make lint-mdformat` self-skips where it is
+    # absent. The CI lint job runs a modern Python, so markdown is still
+    # enforced — it just is not enforced twice on an interpreter that cannot
+    # install the formatter.
+    "ruff==0.15.21",
+    "mdformat==1.0.0; python_version >= '3.10'",
+    "mdformat-gfm==1.0.0; python_version >= '3.10'",
+    "mdformat-gfm-alerts==2.1.0; python_version >= '3.10'",
+    "mdformat-mkdocs==5.2.1; python_version >= '3.10'",
+    "pre-commit>=4.0",
+]
+# Docs toolchain is intentionally separate from dev so wheel builds can
+# uv sync --no-group docs and avoid a docs-dep network blip failing a release.
+docs = [
+    "zensical>=0.0.29; python_version >= '3.10'",
+    "mkdocs-glightbox>=0.4; python_version >= '3.10'",
+    "mkdocstrings[python]>=0.29; python_version >= '3.10'",
+    "mkdoxy>=1.2.8",
+]
+
+[tool.ruff]
+line-length = 79
+# jm-generated type stubs are owned by just-makeit (manifest-drift gate);
+# never reformat them here. vendored third-party is left as upstream ships it.
+# jm generates the re-export `__init__.py` shims; like the .pyi stubs they are
+# owned by the manifest-drift gate.
+extend-exclude = ["*.pyi", "vendor", "src/doppler/*/__init__.py"]
+# pre-commit passes files explicitly; force-exclude ensures extend-exclude
+# still applies even when ruff receives a .pyi path on the command line.
+force-exclude = true

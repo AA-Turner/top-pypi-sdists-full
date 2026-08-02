@@ -1,0 +1,105 @@
+[project]
+name = "mistralai-vibe-sdk"
+version = "0.12.1"
+description = "Vibe SDK"
+requires-python = ">=3.12"
+readme = "README.md"
+dependencies = [
+    "certifi>=2024.0",
+    "pydantic>=2.12",
+    "httpx>=0.27",
+    "markdownify>=1.2.2",
+    "mistralai>=2.6.0",
+    "structlog>=24.0",
+    "starlette>=0.37",
+    "tenacity>=9.1.4",
+    "mcp>=1.28.1",
+]
+
+[[project.authors]]
+name = "Mistral AI"
+email = "support@mistral.ai"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "mypy>=1.0",
+    "python-dotenv>=1.1",
+    "rich>=13.0",
+    "ruff==0.14.5",
+]
+examples = [
+    "prompt_toolkit>=3.0",
+    "python-dotenv>=1.1",
+    "rich>=13.0",
+    "textual>=1.0",
+    "uvicorn>=0.29",
+    "pyyaml>=6.0",
+]
+workflow = ["mistralai-workflows>=3.1.0"]
+telemetry = [
+    "opentelemetry-api>=1.0",
+    "opentelemetry-sdk>=1.0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.0",
+    "opentelemetry-exporter-otlp-proto-http>=1.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.7,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.uv]
+exclude-newer = "2 days"
+index-strategy = "first-index"
+
+[tool.uv.build-backend]
+module-name = "mistralai.vibe.sdk"
+module-root = ""
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = ["documentation/old_vibe_protocol"]
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "N",
+    "W",
+    "UP",
+    "B",
+    "C4",
+    "SIM",
+]
+
+[tool.pyright]
+pythonVersion = "3.12"
+venvPath = "."
+venv = ".venv"
+reportIncompatibleVariableOverride = false
+exclude = [
+    "examples",
+    "documentation/old_vibe_protocol",
+]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["tests"]
+
+[dependency-groups]
+dev = [
+    "jsonpatch>=1.33",
+    "pre-commit>=4.2.0",
+    "python-dotenv>=1.1",
+    "pyright>=1.1.408",
+    "rich>=13.0",
+]

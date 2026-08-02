@@ -27,7 +27,6 @@ import aiohttp
 import websockets
 from loguru import logger
 from pydantic import BaseModel
-from websockets.asyncio.client import connect as websocket_connect
 from websockets.protocol import State
 
 from pipecat.frames.frames import (
@@ -808,7 +807,7 @@ class ElevenLabsTTSService(WebsocketTTSService):
                 )
 
             # Set max websocket message size to 16MB for large audio responses
-            self._websocket = await websocket_connect(
+            self._websocket = await self._websocket_connect(
                 url, max_size=16 * 1024 * 1024, additional_headers={"xi-api-key": self._api_key}
             )
 
@@ -839,6 +838,12 @@ class ElevenLabsTTSService(WebsocketTTSService):
                     )
                 await websocket.close()
                 logger.debug("Disconnected from ElevenLabs")
+        except websockets.ConnectionClosed as e:
+            # The server closed the connection first — normal during teardown, or a race
+            # on the closing handshake. The connection is gone either way; this is not a
+            # pipeline error, so don't push an ErrorFrame (which would e.g. trigger a
+            # spurious ServiceSwitcherStrategyFailover switch during shutdown).
+            logger.debug(f"{self} websocket already closed during disconnect: {e}")
         except Exception as e:
             await self.push_error(error_msg=f"Unknown error occurred: {e}", exception=e)
         finally:

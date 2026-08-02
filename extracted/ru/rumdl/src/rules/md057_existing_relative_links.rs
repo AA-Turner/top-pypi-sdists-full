@@ -6,10 +6,11 @@
 use crate::rule::{
     CrossFileScope, Fix, FixCapability, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity,
 };
+use crate::utils::frontmatter_values;
 use crate::utils::range_utils::byte_to_char_count;
 use crate::workspace_index::{FileIndex, extract_cross_file_links};
 use regex::Regex;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
@@ -44,9 +45,19 @@ fn file_exists_with_cache(path: &Path) -> bool {
 /// Check if a file exists, also trying markdown extensions for extensionless links.
 /// This supports wiki-style links like `[Link](page)` that resolve to `page.md`.
 fn file_exists_or_markdown_extension(path: &Path) -> bool {
+    resolve_existing_target(path).is_some()
+}
+
+/// The file a link path resolves to, or `None` when nothing is there.
+///
+/// An extensionless link is tried against the markdown extensions in turn, so
+/// `[Link](page)` resolves to `page.md`. Callers that only need existence go
+/// through `file_exists_or_markdown_extension`; the resolved path itself
+/// matters when the answer has to be compared against another file.
+fn resolve_existing_target(path: &Path) -> Option<PathBuf> {
     // First, check exact path
     if file_exists_with_cache(path) {
-        return true;
+        return Some(path.to_path_buf());
     }
 
     // If the path has no extension, try adding markdown extensions
@@ -55,12 +66,12 @@ fn file_exists_or_markdown_extension(path: &Path) -> bool {
             // MARKDOWN_EXTENSIONS includes the dot, e.g., ".md"
             let path_with_ext = path.with_extension(&ext[1..]);
             if file_exists_with_cache(&path_with_ext) {
-                return true;
+                return Some(path_with_ext);
             }
         }
     }
 
-    false
+    None
 }
 
 // Regex to match the start of a link - simplified for performance
@@ -117,6 +128,17 @@ const MARKDOWN_EXTENSIONS: &[&str] = &[
     ".qmd",
     ".rmd",
 ];
+
+/// A relative link that resolves to the file it is written in.
+#[derive(Debug, PartialEq, Eq)]
+enum SelfReferentialLink {
+    /// The link addresses the whole file, so there is no shorter way to write
+    /// the same destination.
+    WholeFile,
+    /// The link carries a fragment, which on its own reaches the same heading
+    /// without leaving the page.
+    Fragment(String),
+}
 
 /// Rule MD057: Existing relative links should point to valid files or directories.
 #[derive(Debug, Clone)]
@@ -387,6 +409,246 @@ impl MD057ExistingRelativeLinks {
         compute_compact_path(base_path, &decoded_path).map(|compact| format!("{compact}{suffix}"))
     }
 
+    /// Classify a relative link that points back at the file it is written in.
+    ///
+    /// Returns `None` when the option is off, when the file under check is
+    /// unknown, or when the link addresses anything else. Fragment-only links
+    /// never reach here: they are already the form this reports towards.
+    ///
+    /// The link is resolved against the file's own directory first and then
+    /// against each search path, matching how the existence check resolves it:
+    /// a link that MD057 accepts through a search path is recognized here as
+    /// well, and one that already resolves next to the document is judged
+    /// against that target alone.
+    fn self_referential_link(
+        &self,
+        url: &str,
+        base_path: &Path,
+        search_paths: &[PathBuf],
+        source_file: Option<&Path>,
+    ) -> Option<SelfReferentialLink> {
+        if !self.config.self_referential_links {
+            return None;
+        }
+        let source_file = source_file?;
+
+        let path_part = Self::strip_query_and_fragment(url);
+        if path_part.is_empty() {
+            return None;
+        }
+        let suffix = &url[path_part.len()..];
+
+        let decoded_path = Self::url_decode(path_part);
+        // First hit wins, as it does for the existence check: a target next to
+        // the document is the one the link addresses, and a search path only
+        // answers for a link that resolves nowhere else.
+        let resolved = std::iter::once(base_path)
+            .chain(search_paths.iter().map(PathBuf::as_path))
+            .find_map(|dir| resolve_existing_target(&Self::resolve_link_path_with_base(&decoded_path, dir)))?;
+        if !Self::is_same_file(&resolved, source_file) {
+            return None;
+        }
+
+        // A bare fragment reaches the same place. A query string does not
+        // survive being detached from its path, and neither does an empty
+        // fragment, so those are reported without a suggestion.
+        match suffix.strip_prefix('#') {
+            Some(fragment) if !fragment.is_empty() => Some(SelfReferentialLink::Fragment(suffix.to_string())),
+            _ => Some(SelfReferentialLink::WholeFile),
+        }
+    }
+
+    /// Byte range of a reference definition's destination in the document.
+    ///
+    /// Both the label and the title can repeat the destination text, so the
+    /// search is bounded to what sits between the label's closing bracket and
+    /// the title. Anchoring anywhere else risks a fix rewriting the label,
+    /// which would leave every usage of the reference dangling.
+    fn ref_def_url_range(content: &str, ref_def: &crate::lint_context::ReferenceDef) -> Option<std::ops::Range<usize>> {
+        let def = content.get(ref_def.byte_offset..ref_def.byte_end)?;
+        let label_end = Self::label_end(def)?;
+        let search_end = ref_def.title_byte_start.map_or(def.len(), |title| {
+            title.saturating_sub(ref_def.byte_offset).min(def.len())
+        });
+        let offset = def.get(label_end..search_end)?.find(ref_def.url.as_str())? + label_end;
+        let start = ref_def.byte_offset + offset;
+        Some(start..start + ref_def.url.len())
+    }
+
+    /// Offset just past the `]:` that closes a reference definition's label.
+    ///
+    /// A label may itself contain a bracket when the bracket is escaped, so
+    /// escapes are skipped rather than matched.
+    fn label_end(def: &str) -> Option<usize> {
+        let bytes = def.as_bytes();
+        let mut i = 0;
+        while i < bytes.len() {
+            match bytes[i] {
+                b'\\' => i += 2,
+                b']' if bytes.get(i + 1) == Some(&b':') => return Some(i + 2),
+                _ => i += 1,
+            }
+        }
+        None
+    }
+
+    /// Whether this document has frontmatter the rule is configured to check.
+    /// Gates the body-link early exits, which would otherwise skip a document
+    /// whose only destinations sit in its frontmatter.
+    fn checks_front_matter_of(&self, ctx: &crate::lint_context::LintContext) -> bool {
+        self.config.check_frontmatter && ctx.front_matter_end_line() > 0
+    }
+
+    /// The warning text for an absolute destination, or `None` when the
+    /// configured handling accepts it.
+    fn absolute_link_message(&self, url: &str, base_path: &Path, project_root: &Path) -> Option<String> {
+        match self.config.absolute_links {
+            AbsoluteLinksOption::Ignore => None,
+            AbsoluteLinksOption::Warn => Some(format!("Absolute link '{url}' cannot be validated locally")),
+            AbsoluteLinksOption::RelativeToDocs => Self::validate_absolute_link_via_docs_dir(url, base_path),
+            AbsoluteLinksOption::RelativeToRoots => {
+                Self::validate_absolute_link_via_roots(url, &self.config.roots, project_root)
+            }
+        }
+    }
+
+    /// Report frontmatter values that read as relative destinations but point
+    /// at nothing.
+    ///
+    /// Only existence is checked. The compact-path and self-referential
+    /// suggestions stay out of frontmatter: both rewrite a destination, and a
+    /// frontmatter value is only ever a guess at being one.
+    fn check_front_matter(
+        &self,
+        ctx: &crate::lint_context::LintContext,
+        base_path: &Path,
+        search_paths: &[PathBuf],
+        project_root: &Path,
+        warnings: &mut Vec<LintWarning>,
+    ) {
+        if !self.config.check_frontmatter {
+            return;
+        }
+
+        let ignored: HashSet<String> = self
+            .config
+            .ignore_frontmatter_fields
+            .iter()
+            .map(|field| field.to_lowercase())
+            .collect();
+
+        for link in frontmatter_values::link_destinations(ctx, &ignored) {
+            let line = ctx.lines[link.line - 1].content(ctx.content);
+            let url = &line[link.range.clone()];
+
+            // A fragment belongs to MD051, which validates it against the
+            // document's own headings.
+            if self.is_external_url(url) || self.is_fragment_only_link(url) {
+                continue;
+            }
+
+            let column = byte_to_char_count(line, link.range.start);
+            let end_column = column + url.chars().count();
+
+            if Self::is_absolute_path(url) {
+                if let Some(message) = self.absolute_link_message(url, base_path, project_root) {
+                    warnings.push(LintWarning {
+                        rule_name: Some(self.name().to_string()),
+                        line: link.line,
+                        column,
+                        end_line: link.line,
+                        end_column,
+                        message,
+                        severity: Severity::Warning,
+                        fix: None,
+                    });
+                }
+                continue;
+            }
+
+            if Self::relative_target_exists(url, base_path, search_paths) {
+                continue;
+            }
+
+            warnings.push(LintWarning {
+                rule_name: Some(self.name().to_string()),
+                line: link.line,
+                column,
+                end_line: link.line,
+                end_column,
+                message: format!("Relative link '{url}' does not exist"),
+                severity: Severity::Error,
+                fix: None,
+            });
+        }
+    }
+
+    /// Whether a relative destination resolves to something on disk.
+    ///
+    /// The destination is stripped of its query and fragment, percent-decoded,
+    /// then resolved against `base_path`, with two fallbacks: an `.html`/`.htm`
+    /// target passes when the markdown source it is generated from exists, and
+    /// any target passes when one of `search_paths` holds it.
+    fn relative_target_exists(url: &str, base_path: &Path, search_paths: &[PathBuf]) -> bool {
+        let decoded_path = Self::url_decode(Self::strip_query_and_fragment(url));
+        let resolved_path = Self::resolve_link_path_with_base(&decoded_path, base_path);
+
+        // An extensionless link is also tried with each markdown extension.
+        if file_exists_or_markdown_extension(&resolved_path) {
+            return true;
+        }
+
+        if let Some(ext) = resolved_path.extension().and_then(|e| e.to_str())
+            && (ext.eq_ignore_ascii_case("html") || ext.eq_ignore_ascii_case("htm"))
+            && let (Some(stem), Some(parent)) = (
+                resolved_path.file_stem().and_then(|s| s.to_str()),
+                resolved_path.parent(),
+            )
+            && MARKDOWN_EXTENSIONS
+                .iter()
+                .any(|md_ext| file_exists_with_cache(&parent.join(format!("{stem}{md_ext}"))))
+        {
+            return true;
+        }
+
+        Self::exists_in_search_paths(&decoded_path, search_paths)
+    }
+
+    /// Whether any enabled check can offer a fix. Broken links and absolute
+    /// links are reported without one, so the answer rests on the two options
+    /// that rewrite a destination.
+    fn produces_fixes(&self) -> bool {
+        self.config.compact_paths || self.config.self_referential_links
+    }
+
+    /// The warning text for a link that points at its own file.
+    fn self_referential_message(url: &str, self_link: &SelfReferentialLink) -> String {
+        match self_link {
+            SelfReferentialLink::Fragment(fragment) => {
+                format!("Relative link '{url}' points to the file it is in and can be simplified to '{fragment}'")
+            }
+            SelfReferentialLink::WholeFile => {
+                format!("Relative link '{url}' points to the file it is in")
+            }
+        }
+    }
+
+    /// Whether two existing paths are the same file.
+    ///
+    /// Both sides are canonicalized, which settles symlinks and the platform's
+    /// path representation; the lexical form is the fallback for a path the
+    /// filesystem cannot answer for.
+    fn is_same_file(resolved: &Path, source_file: &Path) -> bool {
+        // Cheap reject before the syscall: a different name is a different file.
+        if resolved.file_name() != source_file.file_name() {
+            return false;
+        }
+        match (resolved.canonicalize(), source_file.canonicalize()) {
+            (Ok(link), Ok(source)) => link == source,
+            _ => normalize_path(resolved) == normalize_path(source_file),
+        }
+    }
+
     /// Validate an absolute link by resolving it relative to MkDocs docs_dir.
     ///
     /// Returns `Some(warning_message)` if the link is broken, `None` if valid.
@@ -584,21 +846,28 @@ impl Rule for MD057ExistingRelativeLinks {
         RuleCategory::Link
     }
 
+    fn skippable_by_category(&self) -> bool {
+        // A frontmatter path is a link this rule resolves, and the document
+        // holding it needs no link syntax anywhere else.
+        !self.config.check_frontmatter
+    }
+
     fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
-        ctx.content.is_empty() || !ctx.likely_has_links_or_images()
+        ctx.content.is_empty() || (!ctx.likely_has_links_or_images() && !self.checks_front_matter_of(ctx))
     }
 
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
         let content = ctx.content;
 
-        // Early returns for performance
-        if content.is_empty() || !content.contains('[') {
+        if content.is_empty() {
             return Ok(Vec::new());
         }
 
-        // Quick check for any potential links before expensive operations
-        // Check for inline links "](", reference definitions "]:", or images "!["
-        if !content.contains("](") && !content.contains("]:") {
+        // Early returns for performance. A document whose only destinations
+        // sit in its frontmatter has no link syntax to find, so the body-link
+        // shortcuts only apply when frontmatter is not being checked.
+        let has_body_links = content.contains('[') && (content.contains("](") || content.contains("]:"));
+        if !has_body_links && !self.checks_front_matter_of(ctx) {
             return Ok(Vec::new());
         }
 
@@ -617,17 +886,23 @@ impl Rule for MD057ExistingRelativeLinks {
         // when set; otherwise the discovered project root is used.
         let project_root: PathBuf = explicit_base.clone().unwrap_or_else(|| PROJECT_ROOT.clone());
 
+        // The file under check, as the filesystem sees it. Links are compared
+        // against it to find the ones that point back at their own document.
+        let self_path: Option<PathBuf> = ctx
+            .source_file
+            .as_ref()
+            .map(|source_file| source_file.canonicalize().unwrap_or_else(|_| source_file.clone()));
+
         // Determine base path for resolving relative links.
         // ALWAYS compute from ctx.source_file for each file - do not reuse cached base_path
         // This ensures each file resolves links relative to its own directory.
         let base_path: Option<PathBuf> = {
             if explicit_base.is_some() {
                 explicit_base
-            } else if let Some(ref source_file) = ctx.source_file {
+            } else if let Some(ref resolved_file) = self_path {
                 // Resolve symlinks to get the actual file location
                 // This ensures relative links are resolved from the target's directory,
                 // not the symlink's directory
-                let resolved_file = source_file.canonicalize().unwrap_or_else(|_| source_file.clone());
                 resolved_file
                     .parent()
                     .map(std::path::Path::to_path_buf)
@@ -753,56 +1028,17 @@ impl Rule for MD057ExistingRelativeLinks {
 
                         // Handle absolute paths based on config
                         if Self::is_absolute_path(url) {
-                            match self.config.absolute_links {
-                                AbsoluteLinksOption::Warn => {
-                                    let url_start = url_group.start();
-                                    let url_end = url_group.end();
-                                    warnings.push(LintWarning {
-                                        rule_name: Some(self.name().to_string()),
-                                        line: link.line,
-                                        column: byte_to_char_count(line, url_start),
-                                        end_line: link.line,
-                                        end_column: byte_to_char_count(line, url_end),
-                                        message: format!("Absolute link '{url}' cannot be validated locally"),
-                                        severity: Severity::Warning,
-                                        fix: None,
-                                    });
-                                }
-                                AbsoluteLinksOption::RelativeToDocs => {
-                                    if let Some(msg) = Self::validate_absolute_link_via_docs_dir(url, &base_path) {
-                                        let url_start = url_group.start();
-                                        let url_end = url_group.end();
-                                        warnings.push(LintWarning {
-                                            rule_name: Some(self.name().to_string()),
-                                            line: link.line,
-                                            column: byte_to_char_count(line, url_start),
-                                            end_line: link.line,
-                                            end_column: byte_to_char_count(line, url_end),
-                                            message: msg,
-                                            severity: Severity::Warning,
-                                            fix: None,
-                                        });
-                                    }
-                                }
-                                AbsoluteLinksOption::RelativeToRoots => {
-                                    if let Some(msg) =
-                                        Self::validate_absolute_link_via_roots(url, &self.config.roots, &project_root)
-                                    {
-                                        let url_start = url_group.start();
-                                        let url_end = url_group.end();
-                                        warnings.push(LintWarning {
-                                            rule_name: Some(self.name().to_string()),
-                                            line: link.line,
-                                            column: byte_to_char_count(line, url_start),
-                                            end_line: link.line,
-                                            end_column: byte_to_char_count(line, url_end),
-                                            message: msg,
-                                            severity: Severity::Warning,
-                                            fix: None,
-                                        });
-                                    }
-                                }
-                                AbsoluteLinksOption::Ignore => {}
+                            if let Some(message) = self.absolute_link_message(url, &base_path, &project_root) {
+                                warnings.push(LintWarning {
+                                    rule_name: Some(self.name().to_string()),
+                                    line: link.line,
+                                    column: byte_to_char_count(line, url_group.start()),
+                                    end_line: link.line,
+                                    end_column: byte_to_char_count(line, url_group.end()),
+                                    message,
+                                    severity: Severity::Warning,
+                                    fix: None,
+                                });
                             }
                             continue;
                         }
@@ -815,6 +1051,38 @@ impl Rule for MD057ExistingRelativeLinks {
                         } else {
                             url.to_string()
                         };
+                        // A link back into the current file. Reported instead of
+                        // the compaction below, whose shorter path would still
+                        // be a link the reader should not follow, and instead
+                        // of the existence check, which this target passes.
+                        if let Some(self_link) = self.self_referential_link(
+                            &full_url_for_compact,
+                            &base_path,
+                            &extra_search_paths,
+                            self_path.as_deref(),
+                        ) {
+                            let url_start = url_group.start();
+                            let url_end = caps.get(2).map_or(url_group.end(), |frag| frag.end());
+                            let fix_byte_start = line_start_byte + url_start;
+                            let fix_byte_end = line_start_byte + url_end;
+                            warnings.push(LintWarning {
+                                rule_name: Some(self.name().to_string()),
+                                line: link.line,
+                                column: byte_to_char_count(line, url_start),
+                                end_line: link.line,
+                                end_column: byte_to_char_count(line, url_end),
+                                message: Self::self_referential_message(&full_url_for_compact, &self_link),
+                                severity: Severity::Warning,
+                                fix: match &self_link {
+                                    SelfReferentialLink::Fragment(fragment) => {
+                                        Some(Fix::new(fix_byte_start..fix_byte_end, fragment.clone()))
+                                    }
+                                    SelfReferentialLink::WholeFile => None,
+                                },
+                            });
+                            continue;
+                        }
+
                         if let Some(suggestion) = self.compact_path_suggestion(&full_url_for_compact, &base_path) {
                             let url_start = url_group.start();
                             let url_end = caps.get(2).map_or(url_group.end(), |frag| frag.end());
@@ -834,41 +1102,7 @@ impl Rule for MD057ExistingRelativeLinks {
                             });
                         }
 
-                        // Strip query parameters and fragments before checking file existence
-                        let file_path = Self::strip_query_and_fragment(url);
-
-                        // URL-decode the path to handle percent-encoded characters
-                        let decoded_path = Self::url_decode(file_path);
-
-                        // Resolve the relative link against the base path
-                        let resolved_path = Self::resolve_link_path_with_base(&decoded_path, &base_path);
-
-                        // Check if the file exists, also trying markdown extensions for extensionless links
-                        if file_exists_or_markdown_extension(&resolved_path) {
-                            continue; // File exists, no warning needed
-                        }
-
-                        // For .html/.htm links, check if a corresponding markdown source exists
-                        let has_md_source = if let Some(ext) = resolved_path.extension().and_then(|e| e.to_str())
-                            && (ext.eq_ignore_ascii_case("html") || ext.eq_ignore_ascii_case("htm"))
-                            && let (Some(stem), Some(parent)) = (
-                                resolved_path.file_stem().and_then(|s| s.to_str()),
-                                resolved_path.parent(),
-                            ) {
-                            MARKDOWN_EXTENSIONS.iter().any(|md_ext| {
-                                let source_path = parent.join(format!("{stem}{md_ext}"));
-                                file_exists_with_cache(&source_path)
-                            })
-                        } else {
-                            false
-                        };
-
-                        if has_md_source {
-                            continue; // Markdown source exists, link is valid
-                        }
-
-                        // Try additional search paths (Obsidian attachment folder, configured paths)
-                        if Self::exists_in_search_paths(&decoded_path, &extra_search_paths) {
+                        if Self::relative_target_exists(url, &base_path, &extra_search_paths) {
                             continue;
                         }
 
@@ -914,50 +1148,17 @@ impl Rule for MD057ExistingRelativeLinks {
 
             // Handle absolute paths based on config
             if Self::is_absolute_path(url) {
-                match self.config.absolute_links {
-                    AbsoluteLinksOption::Warn => {
-                        warnings.push(LintWarning {
-                            rule_name: Some(self.name().to_string()),
-                            line: image.line,
-                            column: image.start_col + 1,
-                            end_line: image.line,
-                            end_column: image.start_col + 1 + url.chars().count(),
-                            message: format!("Absolute link '{url}' cannot be validated locally"),
-                            severity: Severity::Warning,
-                            fix: None,
-                        });
-                    }
-                    AbsoluteLinksOption::RelativeToDocs => {
-                        if let Some(msg) = Self::validate_absolute_link_via_docs_dir(url, &base_path) {
-                            warnings.push(LintWarning {
-                                rule_name: Some(self.name().to_string()),
-                                line: image.line,
-                                column: image.start_col + 1,
-                                end_line: image.line,
-                                end_column: image.start_col + 1 + url.chars().count(),
-                                message: msg,
-                                severity: Severity::Warning,
-                                fix: None,
-                            });
-                        }
-                    }
-                    AbsoluteLinksOption::RelativeToRoots => {
-                        if let Some(msg) =
-                            Self::validate_absolute_link_via_roots(url, &self.config.roots, &project_root)
-                        {
-                            warnings.push(LintWarning {
-                                rule_name: Some(self.name().to_string()),
-                                line: image.line,
-                                column: image.start_col + 1,
-                                end_line: image.line,
-                                end_column: image.start_col + 1 + url.chars().count(),
-                                message: msg,
-                                severity: Severity::Warning,
-                                fix: None,
-                            });
-                        }
-                    }
-                    AbsoluteLinksOption::Ignore => {}
+                if let Some(message) = self.absolute_link_message(url, &base_path, &project_root) {
+                    warnings.push(LintWarning {
+                        rule_name: Some(self.name().to_string()),
+                        line: image.line,
+                        column: image.start_col + 1,
+                        end_line: image.line,
+                        end_column: image.start_col + 1 + url.chars().count(),
+                        message,
+                        severity: Severity::Warning,
+                        fix: None,
+                    });
                 }
                 continue;
             }
@@ -991,41 +1192,7 @@ impl Rule for MD057ExistingRelativeLinks {
                 });
             }
 
-            // Strip query parameters and fragments before checking file existence
-            let file_path = Self::strip_query_and_fragment(url);
-
-            // URL-decode the path to handle percent-encoded characters
-            let decoded_path = Self::url_decode(file_path);
-
-            // Resolve the relative link against the base path
-            let resolved_path = Self::resolve_link_path_with_base(&decoded_path, &base_path);
-
-            // Check if the file exists, also trying markdown extensions for extensionless links
-            if file_exists_or_markdown_extension(&resolved_path) {
-                continue; // File exists, no warning needed
-            }
-
-            // For .html/.htm links, check if a corresponding markdown source exists
-            let has_md_source = if let Some(ext) = resolved_path.extension().and_then(|e| e.to_str())
-                && (ext.eq_ignore_ascii_case("html") || ext.eq_ignore_ascii_case("htm"))
-                && let (Some(stem), Some(parent)) = (
-                    resolved_path.file_stem().and_then(|s| s.to_str()),
-                    resolved_path.parent(),
-                ) {
-                MARKDOWN_EXTENSIONS.iter().any(|md_ext| {
-                    let source_path = parent.join(format!("{stem}{md_ext}"));
-                    file_exists_with_cache(&source_path)
-                })
-            } else {
-                false
-            };
-
-            if has_md_source {
-                continue; // Markdown source exists, link is valid
-            }
-
-            // Try additional search paths (Obsidian attachment folder, configured paths)
-            if Self::exists_in_search_paths(&decoded_path, &extra_search_paths) {
+            if Self::relative_target_exists(url, &base_path, &extra_search_paths) {
                 continue;
             }
 
@@ -1057,162 +1224,92 @@ impl Rule for MD057ExistingRelativeLinks {
                 continue;
             }
 
+            // Where this definition's destination sits, shared by every report
+            // on it. Without a located destination a warning falls back to the
+            // start of the definition's line and offers no fix.
+            let url_range = Self::ref_def_url_range(ctx.content, ref_def);
+            let (line, col) = url_range
+                .as_ref()
+                .map_or((ref_def.line, 1), |range| ctx.offset_to_line_col(range.start));
+            let end_col = col + url.chars().count();
+
             // Handle absolute paths based on config
             if Self::is_absolute_path(url) {
-                match self.config.absolute_links {
-                    AbsoluteLinksOption::Warn => {
-                        let line_idx = ref_def.line - 1;
-                        let column = ctx.raw_lines().get(line_idx).copied().map_or(1, |line_content| {
-                            line_content
-                                .find(url.as_str())
-                                .map_or(1, |url_pos| byte_to_char_count(line_content, url_pos))
-                        });
-                        warnings.push(LintWarning {
-                            rule_name: Some(self.name().to_string()),
-                            line: ref_def.line,
-                            column,
-                            end_line: ref_def.line,
-                            end_column: column + url.chars().count(),
-                            message: format!("Absolute link '{url}' cannot be validated locally"),
-                            severity: Severity::Warning,
-                            fix: None,
-                        });
-                    }
-                    AbsoluteLinksOption::RelativeToDocs => {
-                        if let Some(msg) = Self::validate_absolute_link_via_docs_dir(url, &base_path) {
-                            let line_idx = ref_def.line - 1;
-                            let column = ctx.raw_lines().get(line_idx).copied().map_or(1, |line_content| {
-                                line_content
-                                    .find(url.as_str())
-                                    .map_or(1, |url_pos| byte_to_char_count(line_content, url_pos))
-                            });
-                            warnings.push(LintWarning {
-                                rule_name: Some(self.name().to_string()),
-                                line: ref_def.line,
-                                column,
-                                end_line: ref_def.line,
-                                end_column: column + url.chars().count(),
-                                message: msg,
-                                severity: Severity::Warning,
-                                fix: None,
-                            });
-                        }
-                    }
-                    AbsoluteLinksOption::RelativeToRoots => {
-                        if let Some(msg) =
-                            Self::validate_absolute_link_via_roots(url, &self.config.roots, &project_root)
-                        {
-                            let line_idx = ref_def.line - 1;
-                            let column = ctx.raw_lines().get(line_idx).copied().map_or(1, |line_content| {
-                                line_content
-                                    .find(url.as_str())
-                                    .map_or(1, |url_pos| byte_to_char_count(line_content, url_pos))
-                            });
-                            warnings.push(LintWarning {
-                                rule_name: Some(self.name().to_string()),
-                                line: ref_def.line,
-                                column,
-                                end_line: ref_def.line,
-                                end_column: column + url.chars().count(),
-                                message: msg,
-                                severity: Severity::Warning,
-                                fix: None,
-                            });
-                        }
-                    }
-                    AbsoluteLinksOption::Ignore => {}
+                if let Some(message) = self.absolute_link_message(url, &base_path, &project_root) {
+                    warnings.push(LintWarning {
+                        rule_name: Some(self.name().to_string()),
+                        line,
+                        column: col,
+                        end_line: line,
+                        end_column: end_col,
+                        message,
+                        severity: Severity::Warning,
+                        fix: None,
+                    });
                 }
+                continue;
+            }
+
+            // A definition whose destination is the file holding it.
+            if let Some(self_link) =
+                self.self_referential_link(url, &base_path, &extra_search_paths, self_path.as_deref())
+            {
+                warnings.push(LintWarning {
+                    rule_name: Some(self.name().to_string()),
+                    line,
+                    column: col,
+                    end_line: line,
+                    end_column: end_col,
+                    message: Self::self_referential_message(url, &self_link),
+                    severity: Severity::Warning,
+                    fix: match (&self_link, &url_range) {
+                        (SelfReferentialLink::Fragment(fragment), Some(range)) => {
+                            Some(Fix::new(range.clone(), fragment.clone()))
+                        }
+                        _ => None,
+                    },
+                });
                 continue;
             }
 
             // Check for unnecessary path traversal (compact-paths)
             if let Some(suggestion) = self.compact_path_suggestion(url, &base_path) {
-                let ref_line_idx = ref_def.line - 1;
-                let line_content = ctx.raw_lines().get(ref_line_idx).copied().unwrap_or("");
-                // Byte offset of the URL within the line drives the fix range;
-                // the displayed column is the corresponding character offset.
-                let url_byte = line_content.find(url.as_str());
-                let col = url_byte.map_or(1, |b| byte_to_char_count(line_content, b));
-                let ref_line_start_byte = ctx.line_index.get_line_start_byte(ref_def.line).unwrap_or(0);
-                let fix_byte_start = ref_line_start_byte + url_byte.unwrap_or(0);
-                let fix_byte_end = fix_byte_start + url.len();
                 warnings.push(LintWarning {
                     rule_name: Some(self.name().to_string()),
-                    line: ref_def.line,
+                    line,
                     column: col,
-                    end_line: ref_def.line,
-                    end_column: col + url.chars().count(),
+                    end_line: line,
+                    end_column: end_col,
                     message: format!("Relative link '{url}' can be simplified to '{suggestion}'"),
                     severity: Severity::Warning,
-                    fix: Some(Fix::new(fix_byte_start..fix_byte_end, suggestion)),
+                    fix: url_range.clone().map(|range| Fix::new(range, suggestion)),
                 });
             }
 
-            // Strip query parameters and fragments before checking file existence
-            let file_path = Self::strip_query_and_fragment(url);
-
-            // URL-decode the path to handle percent-encoded characters
-            let decoded_path = Self::url_decode(file_path);
-
-            // Resolve the relative link against the base path
-            let resolved_path = Self::resolve_link_path_with_base(&decoded_path, &base_path);
-
-            // Check if the file exists, also trying markdown extensions for extensionless links
-            if file_exists_or_markdown_extension(&resolved_path) {
-                continue; // File exists, no warning needed
-            }
-
-            // For .html/.htm links, check if a corresponding markdown source exists
-            let has_md_source = if let Some(ext) = resolved_path.extension().and_then(|e| e.to_str())
-                && (ext.eq_ignore_ascii_case("html") || ext.eq_ignore_ascii_case("htm"))
-                && let (Some(stem), Some(parent)) = (
-                    resolved_path.file_stem().and_then(|s| s.to_str()),
-                    resolved_path.parent(),
-                ) {
-                MARKDOWN_EXTENSIONS.iter().any(|md_ext| {
-                    let source_path = parent.join(format!("{stem}{md_ext}"));
-                    file_exists_with_cache(&source_path)
-                })
-            } else {
-                false
-            };
-
-            if has_md_source {
-                continue; // Markdown source exists, link is valid
-            }
-
-            // Try additional search paths (Obsidian attachment folder, configured paths)
-            if Self::exists_in_search_paths(&decoded_path, &extra_search_paths) {
+            if Self::relative_target_exists(url, &base_path, &extra_search_paths) {
                 continue;
             }
 
             // File doesn't exist and no source file found
-            // Calculate column position: find URL within the line
-            let line_idx = ref_def.line - 1;
-            let column = ctx.raw_lines().get(line_idx).copied().map_or(1, |line_content| {
-                // Find URL position in line (after ]: )
-                line_content
-                    .find(url.as_str())
-                    .map_or(1, |url_pos| byte_to_char_count(line_content, url_pos))
-            });
-
             warnings.push(LintWarning {
                 rule_name: Some(self.name().to_string()),
-                line: ref_def.line,
-                column,
-                end_line: ref_def.line,
-                end_column: column + url.chars().count(),
+                line,
+                column: col,
+                end_line: line,
+                end_column: end_col,
                 message: format!("Relative link '{url}' does not exist"),
                 severity: Severity::Error,
                 fix: None,
             });
         }
 
+        self.check_front_matter(ctx, &base_path, &extra_search_paths, &project_root, &mut warnings);
+
         Ok(warnings)
     }
 
     fn fix_capability(&self) -> FixCapability {
-        if self.config.compact_paths {
+        if self.produces_fixes() {
             FixCapability::ConditionallyFixable
         } else {
             FixCapability::Unfixable
@@ -1220,7 +1317,7 @@ impl Rule for MD057ExistingRelativeLinks {
     }
 
     fn fix(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
-        if !self.config.compact_paths {
+        if !self.produces_fixes() {
             return Ok(ctx.content.to_string());
         }
 
@@ -3925,6 +4022,424 @@ See the [docs][ref].
             result.len(),
             1,
             "Trailing-slash link with fragment and no index.md must be flagged. Got: {result:?}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod self_referential_links_tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    /// A document written to `dir/<name>`, checked as itself.
+    fn check_as_file(dir: &Path, name: &str, content: &str, config: MD057Config) -> Vec<LintWarning> {
+        let source_file = dir.join(name);
+        std::fs::write(&source_file, content).unwrap();
+        let rule = MD057ExistingRelativeLinks::from_config_struct(config);
+        let ctx =
+            crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, Some(source_file));
+        rule.check(&ctx).unwrap()
+    }
+
+    fn enabled() -> MD057Config {
+        MD057Config {
+            self_referential_links: true,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_a_link_with_a_fragment_is_reduced_to_the_fragment() {
+        let temp_dir = tempdir().unwrap();
+        let content = "# Title\n\nSee [the section](test.md#level-2-heading).\n\n## Level 2 heading\n";
+        let result = check_as_file(temp_dir.path(), "test.md", content, enabled());
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        assert_eq!(
+            result[0].message,
+            "Relative link 'test.md#level-2-heading' points to the file it is in and can be simplified to '#level-2-heading'"
+        );
+        let fix = result[0].fix.as_ref().expect("the fragment form is fixable");
+        assert_eq!(fix.replacement, "#level-2-heading");
+        assert_eq!(&content[fix.range.clone()], "test.md#level-2-heading");
+    }
+
+    #[test]
+    fn test_a_link_to_the_whole_file_is_reported_without_a_fix() {
+        let temp_dir = tempdir().unwrap();
+        let content = "# Title\n\nSee [this file](test.md).\n";
+        let result = check_as_file(temp_dir.path(), "test.md", content, enabled());
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        assert_eq!(result[0].message, "Relative link 'test.md' points to the file it is in");
+        assert!(
+            result[0].fix.is_none(),
+            "Dropping the link would change the document, so there is no fix"
+        );
+    }
+
+    #[test]
+    fn test_the_check_is_off_by_default() {
+        let temp_dir = tempdir().unwrap();
+        let content = "# Title\n\nSee [this file](test.md) and [the section](test.md#title).\n";
+        let result = check_as_file(temp_dir.path(), "test.md", content, MD057Config::default());
+
+        assert!(result.is_empty(), "Off by default. Got: {result:?}");
+    }
+
+    #[test]
+    fn test_a_link_to_another_file_is_left_alone() {
+        let temp_dir = tempdir().unwrap();
+        std::fs::write(temp_dir.path().join("other.md"), "# Other\n").unwrap();
+        let content = "# Title\n\nSee [the other file](other.md#other) and [a heading here](#title).\n";
+        let result = check_as_file(temp_dir.path(), "test.md", content, enabled());
+
+        assert!(result.is_empty(), "Neither link is self-referential. Got: {result:?}");
+    }
+
+    #[test]
+    fn test_a_self_link_written_with_traversal_reports_once() {
+        let temp_dir = tempdir().unwrap();
+        let sub_dir = temp_dir.path().join("sub");
+        std::fs::create_dir_all(&sub_dir).unwrap();
+
+        let content = "# Title\n\nSee [the long way round](../sub/test.md).\n";
+        let config = MD057Config {
+            self_referential_links: true,
+            compact_paths: true,
+            ..Default::default()
+        };
+        let result = check_as_file(&sub_dir, "test.md", content, config);
+
+        assert_eq!(
+            result.len(),
+            1,
+            "A compacted path would still be a link back to this file. Got: {result:?}"
+        );
+        assert_eq!(
+            result[0].message,
+            "Relative link '../sub/test.md' points to the file it is in"
+        );
+    }
+
+    #[test]
+    fn test_compact_paths_still_reports_a_link_to_another_file() {
+        let temp_dir = tempdir().unwrap();
+        let sub_dir = temp_dir.path().join("sub");
+        std::fs::create_dir_all(&sub_dir).unwrap();
+        std::fs::write(sub_dir.join("other.md"), "# Other\n").unwrap();
+
+        let content = "# Title\n\nSee [the long way round](../sub/other.md).\n";
+        let config = MD057Config {
+            self_referential_links: true,
+            compact_paths: true,
+            ..Default::default()
+        };
+        let result = check_as_file(&sub_dir, "test.md", content, config);
+
+        assert_eq!(result.len(), 1, "Expected the compaction warning. Got: {result:?}");
+        assert_eq!(
+            result[0].message,
+            "Relative link '../sub/other.md' can be simplified to 'other.md'"
+        );
+    }
+
+    #[test]
+    fn test_an_extensionless_self_link_resolves_the_same_way_the_existence_check_does() {
+        let temp_dir = tempdir().unwrap();
+        let content = "# Title\n\nSee [this file](test#title).\n";
+        let result = check_as_file(temp_dir.path(), "test.md", content, enabled());
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        assert_eq!(
+            result[0].fix.as_ref().map(|f| f.replacement.as_str()),
+            Some("#title"),
+            "Got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_a_reference_definition_pointing_at_its_own_file() {
+        let temp_dir = tempdir().unwrap();
+        let content = "# Title\n\nSee [the section][here].\n\n## Level 2 heading\n\n[here]: test.md#level-2-heading\n";
+        let result = check_as_file(temp_dir.path(), "test.md", content, enabled());
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        let fix = result[0].fix.as_ref().expect("the fragment form is fixable");
+        assert_eq!(fix.replacement, "#level-2-heading");
+        assert_eq!(&content[fix.range.clone()], "test.md#level-2-heading");
+    }
+
+    #[test]
+    fn test_a_reference_definition_whose_label_repeats_the_destination() {
+        let temp_dir = tempdir().unwrap();
+        let content = "# Title\n\nSee [the section][test.md#title].\n\n## Title\n\n[test.md#title]: test.md#title\n";
+        let result = check_as_file(temp_dir.path(), "test.md", content, enabled());
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        let fix = result[0].fix.as_ref().expect("the fragment form is fixable");
+        // The label reads the same as the destination, so an unanchored search
+        // would rewrite the label and orphan the usage above.
+        assert_eq!(fix.range.start, content.rfind("test.md#title").unwrap());
+        let fixed = MD057ExistingRelativeLinks::from_config_struct(enabled())
+            .fix(&crate::lint_context::LintContext::new(
+                content,
+                crate::config::MarkdownFlavor::Standard,
+                Some(temp_dir.path().join("test.md")),
+            ))
+            .unwrap();
+        assert!(fixed.contains("[test.md#title]: #title"), "Got: {fixed}");
+        assert!(fixed.contains("[the section][test.md#title]"), "Got: {fixed}");
+    }
+
+    #[test]
+    fn test_a_self_link_resolved_through_a_search_path() {
+        let temp_dir = tempdir().unwrap();
+        let guide_dir = temp_dir.path().join("docs/guide");
+        std::fs::create_dir_all(&guide_dir).unwrap();
+        let config = MD057Config {
+            search_paths: vec![temp_dir.path().join("docs").to_string_lossy().into_owned()],
+            ..enabled()
+        };
+        let content = "# Title\n\nSee [this file](guide/test.md#title).\n";
+        let result = check_as_file(&guide_dir, "test.md", content, config);
+
+        assert_eq!(
+            result.len(),
+            1,
+            "A link the existence check accepts through a search path resolves to this same file. Got: {result:?}"
+        );
+        assert_eq!(
+            result[0].fix.as_ref().map(|f| f.replacement.as_str()),
+            Some("#title"),
+            "Got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_a_target_next_to_the_document_outranks_a_search_path() {
+        let temp_dir = tempdir().unwrap();
+        let guide_dir = temp_dir.path().join("docs/guide");
+        std::fs::create_dir_all(guide_dir.join("guide")).unwrap();
+        std::fs::write(guide_dir.join("guide/test.md"), "# Other\n\n## Title\n").unwrap();
+        let config = MD057Config {
+            search_paths: vec![temp_dir.path().join("docs").to_string_lossy().into_owned()],
+            ..enabled()
+        };
+        let content = "# Title\n\nSee [another file](guide/test.md#title).\n";
+        let result = check_as_file(&guide_dir, "test.md", content, config);
+
+        assert!(
+            result.is_empty(),
+            "The link resolves to guide/guide/test.md, so the search path never answers for it. Got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_an_image_pointing_at_its_own_file_is_not_reported() {
+        let temp_dir = tempdir().unwrap();
+        let content = "# Title\n\n![not a navigation link](test.md)\n";
+        let result = check_as_file(temp_dir.path(), "test.md", content, enabled());
+
+        assert!(
+            result.is_empty(),
+            "An image is not a link the reader follows. Got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_a_query_string_is_reported_without_a_suggestion() {
+        let temp_dir = tempdir().unwrap();
+        let content = "# Title\n\nSee [this file](test.md?raw=true#title).\n";
+        let result = check_as_file(temp_dir.path(), "test.md", content, enabled());
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        assert!(
+            result[0].fix.is_none(),
+            "A query does not survive losing its path. Got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_fix_rewrites_the_document_and_settles() {
+        let temp_dir = tempdir().unwrap();
+        let content = "# Title\n\nSee [the section](test.md#level-2-heading).\n\n## Level 2 heading\n";
+        let source_file = temp_dir.path().join("test.md");
+        std::fs::write(&source_file, content).unwrap();
+
+        let rule = MD057ExistingRelativeLinks::from_config_struct(enabled());
+        let ctx = crate::lint_context::LintContext::new(
+            content,
+            crate::config::MarkdownFlavor::Standard,
+            Some(source_file.clone()),
+        );
+        let fixed = rule.fix(&ctx).unwrap();
+        assert_eq!(
+            fixed,
+            "# Title\n\nSee [the section](#level-2-heading).\n\n## Level 2 heading\n"
+        );
+
+        let refixed =
+            crate::lint_context::LintContext::new(&fixed, crate::config::MarkdownFlavor::Standard, Some(source_file));
+        assert_eq!(rule.fix(&refixed).unwrap(), fixed, "The fix converges in one pass");
+    }
+
+    #[test]
+    fn test_the_rule_reports_no_fixes_when_neither_rewriting_option_is_on() {
+        let unfixable = MD057ExistingRelativeLinks::default();
+        assert_eq!(unfixable.fix_capability(), FixCapability::Unfixable);
+
+        let fixable = MD057ExistingRelativeLinks::from_config_struct(enabled());
+        assert_eq!(fixable.fix_capability(), FixCapability::ConditionallyFixable);
+    }
+
+    #[test]
+    fn test_the_option_is_read_from_kebab_and_snake_case() {
+        let kebab: MD057Config = toml::from_str("self-referential-links = true").unwrap();
+        assert!(kebab.self_referential_links);
+
+        let snake: MD057Config = toml::from_str("self_referential_links = true").unwrap();
+        assert!(snake.self_referential_links);
+    }
+
+    fn front_matter_checked() -> MD057Config {
+        MD057Config {
+            check_frontmatter: true,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_a_broken_frontmatter_path_is_reported_when_enabled() {
+        let temp_dir = tempdir().unwrap();
+        let content = "---\ntemplate: ./missing.md\n---\n\n# Title\n";
+        let result = check_as_file(temp_dir.path(), "test.md", content, front_matter_checked());
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        assert_eq!(result[0].message, "Relative link './missing.md' does not exist");
+        assert_eq!(result[0].line, 2);
+        assert_eq!(result[0].column, 11, "The warning points at the value, not the key");
+        assert_eq!(result[0].end_column, 23);
+    }
+
+    #[test]
+    fn test_frontmatter_paths_are_not_checked_by_default() {
+        let temp_dir = tempdir().unwrap();
+        let content = "---\ntemplate: ./missing.md\n---\n\n# Title\n";
+        let result = check_as_file(temp_dir.path(), "test.md", content, MD057Config::default());
+
+        assert!(
+            result.is_empty(),
+            "Frontmatter is only checked on request. Got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_an_existing_frontmatter_path_is_not_reported() {
+        let temp_dir = tempdir().unwrap();
+        std::fs::write(temp_dir.path().join("guide.md"), "# Guide\n").unwrap();
+        let content = "---\ntemplate: ./guide.md\nfallback: ./gone.md\n---\n\n# Title\n";
+        let result = check_as_file(temp_dir.path(), "test.md", content, front_matter_checked());
+
+        assert_eq!(result.len(), 1, "Only the missing target is reported. Got: {result:?}");
+        assert_eq!(result[0].line, 3);
+    }
+
+    #[test]
+    fn test_an_ignored_frontmatter_field_is_not_checked() {
+        let temp_dir = tempdir().unwrap();
+        let content = "---\nimage: ./missing.png\ntemplate: ./missing.md\n---\n\n# Title\n";
+        let config = MD057Config {
+            check_frontmatter: true,
+            ignore_frontmatter_fields: vec!["Image".to_string()],
+            ..Default::default()
+        };
+        let result = check_as_file(temp_dir.path(), "test.md", content, config);
+
+        assert_eq!(
+            result.len(),
+            1,
+            "The ignored field is skipped and the other is not. Got: {result:?}"
+        );
+        assert_eq!(result[0].line, 3);
+    }
+
+    #[test]
+    fn test_an_external_frontmatter_url_is_not_reported() {
+        let temp_dir = tempdir().unwrap();
+        let content = "---\ncanonical: https://example.com/docs/guide.md\n---\n\n# Title\n";
+        let result = check_as_file(temp_dir.path(), "test.md", content, front_matter_checked());
+
+        assert!(
+            result.is_empty(),
+            "An external URL has no local target. Got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_a_frontmatter_fragment_is_left_to_md051() {
+        let temp_dir = tempdir().unwrap();
+        let content = "---\nanchor: '#missing'\n---\n\n# Title\n";
+        let result = check_as_file(temp_dir.path(), "test.md", content, front_matter_checked());
+
+        assert!(
+            result.is_empty(),
+            "A fragment names a heading, not a file. Got: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_an_absolute_frontmatter_path_follows_the_absolute_links_option() {
+        let temp_dir = tempdir().unwrap();
+        let content = "---\ntemplate: /docs/guide.md\n---\n\n# Title\n";
+
+        let ignored = check_as_file(temp_dir.path(), "ignored.md", content, front_matter_checked());
+        assert!(
+            ignored.is_empty(),
+            "Absolute paths are ignored by default. Got: {ignored:?}"
+        );
+
+        let warning_config = MD057Config {
+            check_frontmatter: true,
+            absolute_links: AbsoluteLinksOption::Warn,
+            ..Default::default()
+        };
+        let warned = check_as_file(temp_dir.path(), "warned.md", content, warning_config);
+        assert_eq!(warned.len(), 1, "Expected one warning. Got: {warned:?}");
+        assert_eq!(
+            warned[0].message,
+            "Absolute link '/docs/guide.md' cannot be validated locally"
+        );
+    }
+
+    #[test]
+    fn test_a_frontmatter_path_carrying_a_query_is_checked() {
+        let temp_dir = tempdir().unwrap();
+        std::fs::write(temp_dir.path().join("guide.md"), "# Guide\n").unwrap();
+        let content = "---\ntemplate: docs/missing.md?raw=true\nfallback: guide.md?raw=true\n---\n\n# Title\n";
+        let result = check_as_file(temp_dir.path(), "test.md", content, front_matter_checked());
+
+        assert_eq!(
+            result.len(),
+            1,
+            "A query names no file, so only the missing target is reported. Got: {result:?}"
+        );
+        assert_eq!(result[0].line, 2);
+        assert_eq!(
+            result[0].message,
+            "Relative link 'docs/missing.md?raw=true' does not exist"
+        );
+    }
+
+    #[test]
+    fn test_prose_in_frontmatter_is_not_read_as_a_path() {
+        let temp_dir = tempdir().unwrap();
+        let content = "---\ntitle: Node.js\nversion: 1.2.3\ntags: ci/cd\ndate: 2026-07-31\n---\n\n# Title\n";
+        let result = check_as_file(temp_dir.path(), "test.md", content, front_matter_checked());
+
+        assert!(
+            result.is_empty(),
+            "Only path-shaped values are destinations. Got: {result:?}"
         );
     }
 }

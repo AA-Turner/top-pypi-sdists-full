@@ -54,6 +54,8 @@ class CivitaiExtractor(Extractor):
             self._video_quality = self._image_quality
         else:
             self._video_quality = "original"
+        self._video_quality_fb = self.config(
+            "quality-fallback", "transcode=true,original=true,quality=100")
         self._video_ext = "webm"
 
         if metadata := self.config("metadata"):
@@ -130,6 +132,8 @@ class CivitaiExtractor(Extractor):
                     data["extension"] = (
                         self._video_ext if file.get("type") == "video" else
                         self._image_ext)
+                if "_fallback" in file:
+                    data["_fallback"] = file.pop("_fallback")
                 yield Message.Directory, "", data
                 yield Message.Url, url, data
             return
@@ -155,10 +159,6 @@ class CivitaiExtractor(Extractor):
             return "/".join(parts)
 
         image["uuid"] = url
-        if video:
-            return (f"https://image-b2.civitai.com/file/civitai-media-cache"
-                    f"/{url}/{quality}")
-
         name = image.get("name")
         if not name:
             if mime := image.get("mimeType"):
@@ -166,8 +166,13 @@ class CivitaiExtractor(Extractor):
             else:
                 ext = self._video_ext if video else self._image_ext
                 name = f"{image.get('id')}.{ext}"
-        return (f"https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA"
-                f"/{url}/{quality}/{name}")
+
+        base = f"https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/{url}/"
+        if not video:
+            return f"{base}{quality}/{name}"
+        image["_fallback"] = (f"{base}{self._video_quality_fb}/{name}",)
+        return (f"https://image-b2.civitai.com/file/civitai-media-cache"
+                f"/{url}/{quality}")
 
     def _image_results(self, images):
         for num, file in enumerate(images, 1):
@@ -180,6 +185,8 @@ class CivitaiExtractor(Extractor):
                 data["extension"] = (
                     self._video_ext if file.get("type") == "video" else
                     self._image_ext)
+            if "_fallback" in file:
+                data["_fallback"] = file.pop("_fallback")
             if "id" not in file and data["filename"].isdecimal():
                 file["id"] = text.parse_int(data["filename"])
             if "date" not in file and "createdAt" in file:
@@ -880,9 +887,12 @@ class CivitaiTrpcAPI():
                 for key, i in item.items():
                     if i > 0:
                         item[key] = value = meta[i]
-                        if isinstance(value, dict):
+                        if not value:
+                            pass
+                        elif isinstance(value, dict) and all(
+                                isinstance(v, int) for v in value.values()):
                             resolve.append(value)
-                        elif value and isinstance(value, list):
+                        elif isinstance(value, list):
                             first = value[0]
                             if first == "Date":
                                 item[key] = value[1]

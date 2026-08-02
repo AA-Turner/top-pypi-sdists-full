@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onnxslim
-Version: 0.1.94
+Version: 0.1.95
 Summary: OnnxSlim: A Toolkit to Help Optimize Onnx Model
 Project-URL: homepage, https://github.com/inisis/OnnxSlim
 Project-URL: issues, https://github.com/inisis/OnnxSlim/issues
@@ -48,6 +48,7 @@ Description-Content-Type: text/markdown
 
 OnnxSlim can help you slim your onnx model, with less operators, but same accuracy, better inference speed.
 
+- 🚀 2026/06/02: Achieved 10M downloads
 - 🚀 2026/01/04: Achieved 5M downloads
 - 🚀 2025/11/29: Top 1% on PyPI
 - 🚀 2025/11/27: OnnxSlim is merged into [NVIDIA TensorRT-Model-Optimizer](https://github.com/NVIDIA/TensorRT-Model-Optimizer) 🤗🤗🤗
@@ -126,6 +127,26 @@ For more usage, see onnxslim -h or refer to our [examples](./examples)
     <td style="vertical-align:middle;">
       <img src="https://avatars.githubusercontent.com/u/131524?s=48&v=4" width="22" height="22" style="vertical-align:middle; margin-right:8px;"/>
       <a href="https://github.com/mozilla/smart_autofill" target="_blank">Mozilla/smart_autofill</a>
+    </td>
+  </tr>
+  <tr>
+    <td style="vertical-align:middle;">
+      <img src="https://avatars.githubusercontent.com/u/6154722?s=48&v=4" width="22" height="22" style="vertical-align:middle; margin-right:8px;"/>
+      <a href="https://github.com/microsoft/olive-recipes" target="_blank">microsoft/olive-recipes</a>
+    </td>
+    <td style="vertical-align:middle;">
+      <img src="https://avatars.githubusercontent.com/u/55295854?s=48&v=4" width="22" height="22" style="vertical-align:middle; margin-right:8px;"/>
+      <a href="https://github.com/quic/cloud-ai-sdk" target="_blank">quic/cloud-ai-sdk</a>
+    </td>
+  </tr>
+  <tr>
+    <td style="vertical-align:middle;">
+      <img src="https://avatars.githubusercontent.com/u/198827667?s=48&v=4" width="22" height="22" style="vertical-align:middle; margin-right:8px;"/>
+      <a href="https://github.com/open-edge-platform/geti" target="_blank">open-edge-platform/geti</a>
+    </td>
+    <td style="vertical-align:middle;">
+      <img src="https://avatars.githubusercontent.com/u/274822186?s=48&v=4" width="22" height="22" style="vertical-align:middle; margin-right:8px;"/>
+      <a href="https://github.com/NVIDIA-TAO/tao-pytorch" target="_blank">NVIDIA-TAO/tao-pytorch</a>
     </td>
   </tr>
   <tr>

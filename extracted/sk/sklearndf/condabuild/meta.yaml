@@ -1,0 +1,77 @@
+#
+# This file is deprecated and replaced by recipe.yaml, for use with rattler.
+# Keeping it for reference.
+#
+
+package:
+  name: sklearndf
+  version: {{ environ.get('FACET_BUILD_SKLEARNDF_VERSION') }}
+
+source:
+  git_url: ../
+
+build:
+  noarch: python
+  script: "flit install --deps none"
+
+requirements:
+  host:
+    - pip>=20.*
+    - python        {{ environ.get('FACET_V_PYTHON', '=3.8.*') }}
+    - numpy         {{ environ.get('FACET_V_NUMPY', '>=1.11.*') }}
+    - flit>=3.0.*
+    - packaging>=20
+  run:
+    - gamma-pytools {{ environ.get('FACET_V_GAMMA_PYTOOLS') }}
+    - numpy         {{ environ.get('FACET_V_NUMPY') }}
+    - packaging     {{ environ.get('FACET_V_PACKAGING') }}
+    - pandas        {{ environ.get('FACET_V_PANDAS') }}
+    - python        {{ environ.get('FACET_V_PYTHON') }}
+    - scikit-learn  {{ environ.get('FACET_V_SCIKIT_LEARN') }}
+    - scipy         {{ environ.get('FACET_V_SCIPY') }}
+test:
+  imports:
+    - sklearndf
+    - sklearndf.classification
+    - sklearndf.classification.extra
+    - sklearndf.pipeline
+    - sklearndf.regression
+    - sklearndf.regression.extra
+    - sklearndf.transformation
+    - sklearndf.transformation.extra
+  requires:
+    - pytest ~= 8.1
+    # we need pip to install arfs
+    - pip # {{ '[False]' if not environ.get('FACET_V_ARFS') }}
+    # optional libraries of sklearndf, needed for testing
+    - boruta_py  {{ environ.get('FACET_V_BORUTA', '[False]') }}
+    - xgboost    {{ environ.get('FACET_V_XGBOOST', '[False]') }}
+    # we always need lightgbm for testing; version spec is optional
+    - lightgbm   {{ environ.get('FACET_V_LIGHTGBM', '') }}
+    # additional requirements of gamma-pytools
+    - joblib          {{ environ.get('FACET_V_JOBLIB', '[False]') }}
+    - matplotlib-base {{ environ.get('FACET_V_MATPLOTLIB', '[False]') }}
+    - typing_inspect  {{ environ.get('FACET_V_TYPING_INSPECT', '[False]') }}
+  commands:
+    - conda list
+    - python -c 'import sklearndf; import os; assert sklearndf.__version__ == os.environ["PKG_VERSION"]'
+    # optional PyPi package ARFS needed for testing
+    {% if environ.get('FACET_V_ARFS') -%}
+    - pip install 'arfs{{ environ.get("FACET_V_ARFS") }}'
+    {%- endif %}
+    # run the test suite
+    - cd "${FACET_PATH}/sklearndf"
+    - pytest -vs test
+
+about:
+  home: https://github.com/BCG-X-Official/sklearndf
+  license: Apache Software License v2.0
+  license_file: LICENSE
+  description: |
+    sklearndf is an open source library designed to address a common need with
+    scikit-learn: the outputs of transformers are numpy arrays, even when the input
+    is a data frame. However, to inspect a model it is essential to keep track of
+    the feature names.
+  dev_url: https://github.com/BCG-X-Official/sklearndf
+  doc_url: https://bcg-x-official.github.io/sklearndf/
+  doc_source_url: https://github.com/BCG-X-Official/sklearndf/blob/develop/README.rst

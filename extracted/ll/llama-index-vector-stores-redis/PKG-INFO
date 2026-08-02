@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: llama-index-vector-stores-redis
+Version: 0.8.0
+Summary: llama-index vector_stores redis integration
+Author-email: Tyler Hutcherson <tyler.hutcherson@redis.com>
+License-Expression: MIT
+License-File: LICENSE
+Requires-Python: <3.14,>=3.10
+Requires-Dist: llama-index-core<0.15,>=0.13.0
+Requires-Dist: redisvl<0.5,>=0.4.1
+Description-Content-Type: text/markdown
+
+# LlamaIndex Vector_Stores Integration: Redis

@@ -1,0 +1,51 @@
+name: E2E Tests - AV Image Curation
+on:
+  # Manual trigger - can be run on any branch
+  workflow_dispatch:
+    inputs:
+      csp:
+        description: 'Cloud provider'
+        required: false
+        type: choice
+        options:
+          - gcp
+          - aws
+          - azure
+        default: 'gcp'
+      num_images:
+        description: "Number of images to process"
+        required: false
+        default: "100"
+      batch_size:
+        description: "Batch size for backfill operations"
+        required: false
+        default: "10"
+      skip_gpu:
+        description: "Skip GPU tests"
+        required: false
+        type: boolean
+        default: false
+  # Weekly schedule: Monday 11pm Pacific = Tuesday 6am UTC (runs on main only)
+  schedule:
+    - cron: "0 6 * * 2"
+
+jobs:
+  e2e-test-av-image-curation:
+    name: e2e-test-av-image-curation-${{ (github.event_name == 'workflow_dispatch' && (inputs.csp || 'gcp')) || 'azure' }}
+    # Scheduled runs are always on main, manual runs can be on any branch
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.ref == 'refs/heads/main')
+    uses: ./.github/workflows/e2e-shared.yml
+    with:
+      # Scheduled runs target Azure for GPU availability (always-on GPU nodes).
+      # Manual dispatch defaults to GCP but can be overridden.
+      csp: ${{ github.event_name == 'schedule' && 'azure' || inputs.csp || 'gcp' }}
+      e2e_dir: e2e/av_image_curation
+      checkout_ref: ${{ github.event_name == 'schedule' && 'main' || github.ref }}
+      prepare_command: |
+        test -f e2e/av_image_curation/upload_manifests.py
+      run_command: |
+        make -f e2e/Makefile test-e2e-av-image-curation-${{ github.event_name == 'schedule' && 'azure' || inputs.csp || 'gcp' }} SLUG=$SLUG NUM_IMAGES=${{ github.event_name == 'schedule' && '50' || inputs.num_images || '100' }} BATCH_SIZE=${{ inputs.batch_size || '10' }} SKIP_GPU=${{ inputs.skip_gpu && '1' || '' }}
+      cleanup_command: |
+        echo "Deleting rayclusters matching slug $SLUG"
+        kubectl get raycluster -n lancedb --no-headers -o custom-columns=":metadata.name" | grep $SLUG | xargs -r -n1 kubectl delete raycluster -n lancedb --wait
+    secrets: inherit

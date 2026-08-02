@@ -1,0 +1,767 @@
+"""Base implementation for Lintro plugins.
+
+This module provides the BaseToolPlugin class, which implements common
+functionality for all Lintro tool plugins.
+
+Example:
+    >>> from lintro.plugins.base import BaseToolPlugin
+    >>> from lintro.plugins.protocol import ToolDefinition
+    >>> from lintro.plugins.registry import register_tool
+    >>>
+    >>> @register_tool
+    ... class MyPlugin(BaseToolPlugin):
+    ...     @property
+    ...     def definition(self) -> ToolDefinition:
+    ...         return ToolDefinition(name="my-tool", description="My tool")
+    ...
+    ...     def check(self, paths, options):
+    ...         # Implementation
+    ...         pass
+"""
+
+from __future__ import annotations
+
+import copy
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Self
+
+import click
+from loguru import logger
+
+from lintro.config.lintro_config import LintroConfig
+from lintro.models.core.tool_result import ToolResult
+from lintro.plugins.execution_preparation import (
+    DEFAULT_TIMEOUT,
+    build_config_args,
+    get_defaults_config_args,
+    get_effective_timeout,
+    get_enforce_cli_args,
+    get_enforced_settings,
+    get_executable_command,
+    get_lintro_config,
+    prepare_execution,
+    should_use_lintro_config,
+    verify_tool_version,
+)
+from lintro.plugins.file_discovery import (
+    DEFAULT_EXCLUDE_PATTERNS,
+    discover_files,
+    get_cwd,
+    setup_exclude_patterns,
+    validate_paths,
+)
+from lintro.plugins.protocol import ToolDefinition
+from lintro.plugins.subprocess_executor import (
+    SubprocessResult,
+    run_subprocess,
+    run_subprocess_streaming,
+    validate_subprocess_command,
+)
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from lintro.plugins.file_processor import AggregatedResult, FileProcessingResult
+
+
+@dataclass
+class ExecutionContext:
+    """Context for tool execution containing prepared files and metadata.
+
+    This dataclass encapsulates the common preparation steps needed before
+    running a tool, eliminating duplicate boilerplate across tool implementations.
+
+    Attributes:
+        files: List of absolute file paths to process.
+        rel_files: List of file paths relative to cwd.
+        cwd: Working directory for command execution.
+        early_result: If set, return this result immediately.
+        timeout: Timeout value for subprocess execution.
+    """
+
+    files: list[str] = field(default_factory=list)
+    rel_files: list[str] = field(default_factory=list)
+    cwd: str | None = None
+    early_result: ToolResult | None = None
+    timeout: int = DEFAULT_TIMEOUT
+
+    @property
+    def should_skip(self) -> bool:
+        """Check if execution should be skipped due to early result.
+
+        Returns:
+            True if early_result is set and execution should be skipped.
+        """
+        return self.early_result is not None
+
+
+@dataclass
+class BaseToolPlugin(ABC):
+    """Base class providing common functionality for tool plugins.
+
+    This class implements the boilerplate that most tools need:
+    - Subprocess execution with safety validation
+    - File discovery and filtering
+    - Version checking
+    - Config injection support
+    - Working directory computation
+
+    Subclasses must implement:
+    - definition property: Return a ToolDefinition with tool metadata
+    - check() method: Check files for issues
+
+    Optionally override:
+    - fix() method: Fix issues (only if definition.can_fix=True)
+    - set_options() method: Custom option validation
+
+    Thread-safety:
+        Plugin instances returned by :class:`~lintro.plugins.registry.ToolRegistry`
+        are process-wide singletons and their option state (``options``,
+        ``exclude_patterns``, ``include_venv``) is mutable. A single
+        ``set_options()`` + ``check()``/``fix()`` sequence on one instance is
+        the supported contract for direct, sequential use. Concurrent logical
+        invocations must NOT share one instance: each configure-then-run
+        sequence races on that shared state. Callers that execute tools
+        concurrently (e.g. the parallel executor) must operate on a private
+        per-invocation copy obtained via :meth:`copy_for_execution` rather
+        than mutating the shared singleton.
+
+    Attributes:
+        options: Current tool options (merged from defaults and runtime).
+        exclude_patterns: Patterns to exclude from file discovery.
+        include_venv: Whether to include virtual environment files.
+    """
+
+    options: dict[str, object] = field(default_factory=dict, init=False)
+    exclude_patterns: list[str] = field(default_factory=list, init=False)
+    include_venv: bool = field(default=False, init=False)
+
+    def __post_init__(self) -> None:
+        """Initialize plugin with defaults from definition."""
+        # Initialize options from definition defaults
+        self.options = dict(self.definition.default_options)
+
+        # Set up exclude patterns
+        self._setup_defaults()
+
+    @property
+    @abstractmethod
+    def definition(self) -> ToolDefinition:
+        """Return the tool definition.
+
+        Must be implemented by subclasses.
+
+        Returns:
+            ToolDefinition containing all tool metadata.
+        """
+        ...
+
+    @property
+    def name(self) -> str:
+        """Return the tool name from definition.
+
+        Returns:
+            str: Tool name.
+        """
+        return self.definition.name
+
+    # -------------------------------------------------------------------------
+    # Public API
+    # -------------------------------------------------------------------------
+
+    def reset_options(self) -> None:
+        """Reset options back to definition defaults.
+
+        Clears accumulated state from prior ``set_options()`` calls so
+        the same plugin instance can be reused across runs without
+        leaking mutated configuration. Subclasses that own additional
+        mutable option state reset it by overriding
+        :meth:`_reset_execution_state`.
+        """
+        self.options = dict(self.definition.default_options)
+        self.exclude_patterns = []
+        self.include_venv = False
+        self._setup_defaults()
+        self._reset_execution_state()
+
+    def _reset_execution_state(self) -> None:
+        """Reset subclass-owned mutable option state back to defaults.
+
+        Called at the end of :meth:`reset_options` after the base option
+        attributes (``options``, ``exclude_patterns``, ``include_venv``)
+        have been reset. The base implementation is a no-op because the
+        base class owns no further mutable option state.
+
+        Subclasses that hold mutable config objects which :meth:`set_options`
+        mutates (e.g. a dataclass of tool-specific options) must override this
+        to restore those objects to their default values and re-wire any
+        collaborators that reference them. Otherwise a stale value carried on
+        the template (or a prior run) survives the defensive reset performed
+        before each invocation is configured.
+        """
+        return None
+
+    def copy_for_execution(self) -> Self:
+        """Return an isolated copy of this plugin for a single invocation.
+
+        The returned instance shares no mutable option state with this
+        instance: its ``options`` and ``exclude_patterns`` are independent
+        copies. This lets concurrent logical invocations each configure and
+        run their own copy without clobbering one another's option state on
+        the shared registry singleton (see the class-level thread-safety
+        note).
+
+        Non-option attributes (e.g. resolution caches) are shallow-copied,
+        so read-mostly caches remain shared for efficiency without affecting
+        per-call option isolation.
+
+        Subclasses that own additional *mutable* option state (config objects
+        that :meth:`set_options` mutates) must isolate it too, otherwise it
+        stays shared between the registry singleton and every execution copy
+        and concurrent invocations race on it. Such subclasses override
+        :meth:`_isolate_execution_state` rather than this method.
+
+        Returns:
+            A new plugin instance with independent option state.
+        """
+        clone = copy.copy(self)
+        clone.options = dict(self.options)
+        clone.exclude_patterns = list(self.exclude_patterns)
+        clone.include_venv = self.include_venv
+        clone._isolate_execution_state()
+        return clone
+
+    def _isolate_execution_state(self) -> None:
+        """Deep-copy subclass-owned mutable option state on this copy.
+
+        Called on the freshly created execution copy by
+        :meth:`copy_for_execution` after the base option attributes
+        (``options``, ``exclude_patterns``, ``include_venv``) have already
+        been isolated. The base implementation is a no-op because the base
+        class owns no further mutable option state.
+
+        Subclasses that hold mutable config objects which :meth:`set_options`
+        mutates (e.g. a dataclass of tool-specific options) must override this
+        to replace those objects with independent copies on ``self`` and
+        re-wire any collaborators that reference them, so concurrent
+        invocations never share mutable option state. Read-mostly caches
+        should be left shared for efficiency.
+        """
+        return None
+
+    def set_options(self, **kwargs: Any) -> None:
+        """Set tool-specific options.
+
+        Args:
+            **kwargs: Tool-specific options.
+
+        Raises:
+            ValueError: If an option value is invalid.
+        """
+        from lintro.enums.tool_option_key import ToolOptionKey
+
+        for key, value in kwargs.items():
+            if key == ToolOptionKey.TIMEOUT.value:
+                if value is not None and not isinstance(value, (int, float)):
+                    raise ValueError("Timeout must be a number or None")
+                kwargs[key] = float(value) if value is not None else None
+            if key == ToolOptionKey.EXCLUDE_PATTERNS.value and not isinstance(
+                value,
+                list,
+            ):
+                raise ValueError("Exclude patterns must be a list")
+            if key == ToolOptionKey.INCLUDE_VENV.value and not isinstance(value, bool):
+                raise ValueError("Include venv must be a boolean")
+
+        self.options.update(kwargs)
+
+        # Update specific attributes — merge CLI patterns with existing
+        # defaults and .lintro-ignore patterns instead of replacing them
+        if ToolOptionKey.EXCLUDE_PATTERNS.value in kwargs:
+            patterns = kwargs[ToolOptionKey.EXCLUDE_PATTERNS.value]
+            if isinstance(patterns, list):
+                seen = set(self.exclude_patterns)
+                for p in patterns:
+                    if p not in seen:
+                        self.exclude_patterns.append(p)
+                        seen.add(p)
+        if ToolOptionKey.INCLUDE_VENV.value in kwargs:
+            self.include_venv = bool(kwargs[ToolOptionKey.INCLUDE_VENV.value])
+
+    def doc_url(self, _code: str) -> str | None:
+        """Return a documentation URL for the given rule code.
+
+        Override in subclasses to provide tool-specific documentation links.
+
+        Args:
+            _code: The rule/error code (e.g., "E501", "SC2086").
+
+        Returns:
+            Documentation URL string, or None if no docs are available.
+        """
+        return None
+
+    @abstractmethod
+    def check(self, paths: list[str], options: dict[str, object]) -> ToolResult:
+        """Check files for issues.
+
+        Args:
+            paths: List of file or directory paths to check.
+            options: Tool-specific options that override defaults.
+
+        Returns:
+            ToolResult containing check results and any issues found.
+        """
+        ...
+
+    def fix(self, paths: list[str], options: dict[str, object]) -> ToolResult:
+        """Fix issues in files.
+
+        Default implementation raises NotImplementedError if can_fix=False.
+        Override in subclasses that support fixing.
+
+        Args:
+            paths: List of file or directory paths to fix.
+            options: Tool-specific options that override defaults.
+
+        Returns:
+            ToolResult containing fix results and any remaining issues.
+
+        Raises:
+            NotImplementedError: If the tool doesn't support fixing.
+        """
+        if not self.definition.can_fix:
+            raise NotImplementedError(
+                f"{self.definition.name} does not support fixing issues",
+            )
+        raise NotImplementedError("Subclass must implement fix()")
+
+    # -------------------------------------------------------------------------
+    # Protected Methods - For use by subclasses
+    # -------------------------------------------------------------------------
+
+    def _setup_defaults(self) -> None:
+        """Set up default options and patterns."""
+        self.exclude_patterns = setup_exclude_patterns(self.exclude_patterns)
+
+        # Set default timeout if not specified
+        if "timeout" not in self.options:
+            self.options["timeout"] = self.definition.default_timeout
+
+    def _discover_files(
+        self,
+        paths: list[str],
+        show_progress: bool = True,
+    ) -> list[str]:
+        """Discover files matching the tool's patterns.
+
+        Args:
+            paths: Input paths to search.
+            show_progress: Whether to show a progress spinner during discovery.
+
+        Returns:
+            List of matching file paths.
+        """
+        return discover_files(
+            paths=paths,
+            definition=self.definition,
+            exclude_patterns=self.exclude_patterns,
+            include_venv=self.include_venv,
+            show_progress=show_progress,
+        )
+
+    def _run_subprocess_result(
+        self,
+        cmd: list[str],
+        timeout: int | float | None = None,
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+        stdin: int | None = None,
+    ) -> SubprocessResult:
+        """Run a subprocess command, returning separated output streams.
+
+        Prefer this over :meth:`_run_subprocess` when the tool needs to parse
+        stdout independently of stderr (e.g. JSON output that must not be
+        corrupted by stderr warnings). See issue #1043.
+
+        Args:
+            cmd: Command and arguments to run.
+            timeout: Timeout in seconds (defaults to tool's timeout).
+            cwd: Working directory for command execution.
+            env: Environment variables for the subprocess.
+            stdin: Optional stdin handle (e.g. ``subprocess.DEVNULL``) to keep
+                interactive tools from blocking when no TTY is attached.
+
+        Returns:
+            SubprocessResult with the return code and separated stdout/stderr.
+        """
+        effective_timeout = self._get_effective_timeout(timeout)
+        return run_subprocess(
+            cmd,
+            effective_timeout,
+            cwd,
+            env,
+            stdin,
+        )
+
+    def _run_subprocess(
+        self,
+        cmd: list[str],
+        timeout: int | float | None = None,
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+        stdin: int | None = None,
+    ) -> tuple[bool, str]:
+        """Run a subprocess command safely.
+
+        Backward-compatible wrapper around :meth:`_run_subprocess_result` that
+        returns the legacy ``(success, output)`` tuple with the combined
+        display output.
+
+        Args:
+            cmd: Command and arguments to run.
+            timeout: Timeout in seconds (defaults to tool's timeout).
+            cwd: Working directory for command execution.
+            env: Environment variables for the subprocess.
+            stdin: Optional stdin handle (e.g. ``subprocess.DEVNULL``) to keep
+                interactive tools from blocking when no TTY is attached.
+
+        Returns:
+            Tuple of (success, output) where success indicates return code 0.
+        """
+        return self._run_subprocess_result(
+            cmd,
+            timeout,
+            cwd,
+            env,
+            stdin,
+        ).as_tuple()
+
+    def _run_subprocess_streaming_result(
+        self,
+        cmd: list[str],
+        timeout: int | float | None = None,
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+        line_handler: Callable[[str], None] | None = None,
+    ) -> SubprocessResult:
+        """Run a streaming subprocess, returning the full result object.
+
+        Args:
+            cmd: Command and arguments to run.
+            timeout: Timeout in seconds (defaults to tool's timeout).
+            cwd: Working directory for command execution.
+            env: Environment variables for the subprocess.
+            line_handler: Optional callback called for each line of output.
+
+        Returns:
+            SubprocessResult with the return code and captured output.
+        """
+        effective_timeout = self._get_effective_timeout(timeout)
+        return run_subprocess_streaming(cmd, effective_timeout, cwd, env, line_handler)
+
+    def _run_subprocess_streaming(
+        self,
+        cmd: list[str],
+        timeout: int | float | None = None,
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+        line_handler: Callable[[str], None] | None = None,
+    ) -> tuple[bool, str]:
+        """Run a subprocess command with optional line-by-line streaming.
+
+        Backward-compatible wrapper around
+        :meth:`_run_subprocess_streaming_result` returning the legacy
+        ``(success, output)`` tuple.
+
+        Args:
+            cmd: Command and arguments to run.
+            timeout: Timeout in seconds (defaults to tool's timeout).
+            cwd: Working directory for command execution.
+            env: Environment variables for the subprocess.
+            line_handler: Optional callback called for each line of output.
+
+        Returns:
+            Tuple of (success, output) where success indicates return code 0.
+        """
+        return self._run_subprocess_streaming_result(
+            cmd,
+            timeout,
+            cwd,
+            env,
+            line_handler,
+        ).as_tuple()
+
+    def _get_effective_timeout(self, timeout: int | float | None = None) -> float:
+        """Get the effective timeout value.
+
+        Args:
+            timeout: Override timeout value, or None to use default.
+
+        Returns:
+            Timeout value in seconds.
+        """
+        return get_effective_timeout(
+            timeout,
+            self.options,
+            self.definition.default_timeout,
+        )
+
+    def _validate_subprocess_command(self, cmd: list[str]) -> None:
+        """Validate a subprocess command for safety.
+
+        Args:
+            cmd: Command and arguments to validate.
+        """
+        validate_subprocess_command(cmd)
+
+    def _validate_paths(self, paths: list[str]) -> None:
+        """Validate that paths exist and are accessible.
+
+        Args:
+            paths: Paths to validate.
+        """
+        validate_paths(paths)
+
+    def _get_cwd(self, paths: list[str]) -> str | None:
+        """Get common parent directory for paths.
+
+        Args:
+            paths: Paths to compute common parent for.
+
+        Returns:
+            Common parent directory path, or None if not applicable.
+        """
+        return get_cwd(paths)
+
+    def _prepare_execution(
+        self,
+        paths: list[str],
+        options: dict[str, object],
+        *,
+        no_files_message: str = "No files to check.",
+    ) -> ExecutionContext:
+        """Prepare execution context with common boilerplate steps.
+
+        This method consolidates repeated patterns:
+        1. Merge options with defaults
+        2. Validate input paths
+        3. Discover files matching patterns (returns early if none found)
+        4. Verify tool version requirements (skipped when no files match)
+        5. Compute working directory and relative paths
+        6. Calculate timeout based on provided options
+
+        Args:
+            paths: Input paths to process.
+            options: Runtime options to merge with defaults.
+            no_files_message: Message when no files are found.
+
+        Returns:
+            ExecutionContext with files, cwd, and optional early_result.
+
+        Example:
+            ctx = self._prepare_execution(paths, options)
+            if ctx.should_skip:
+                return ctx.early_result
+
+            cmd = self._build_command(ctx.rel_files)
+            success, output = self._run_subprocess(cmd, cwd=ctx.cwd)
+        """
+        logger.debug(f"[{self.name}] Preparing execution for {len(paths)} input paths")
+
+        result = prepare_execution(
+            paths=paths,
+            options=options,
+            definition=self.definition,
+            exclude_patterns=self.exclude_patterns,
+            include_venv=self.include_venv,
+            current_options=self.options,
+            no_files_message=no_files_message,
+        )
+
+        if "early_result" in result:
+            early_result = result["early_result"]
+            logger.debug(f"[{self.name}] Early exit: {early_result.output}")
+            return ExecutionContext(early_result=early_result)
+
+        files = result.get("files", [])
+        timeout = result.get("timeout", DEFAULT_TIMEOUT)
+        logger.debug(f"[{self.name}] Ready: {len(files)} files, timeout={timeout}s")
+
+        return ExecutionContext(
+            files=files,
+            rel_files=result.get("rel_files", []),
+            cwd=result.get("cwd"),
+            timeout=timeout,
+        )
+
+    def _process_files_with_progress(
+        self,
+        files: list[str],
+        processor: Callable[[str], FileProcessingResult],
+        timeout: int,
+        *,
+        label: str = "Processing files",
+        progress_threshold: int = 2,
+    ) -> AggregatedResult:
+        """Process files with optional progress bar.
+
+        This method handles the common pattern of iterating through files,
+        calling a processor function for each file, and aggregating results.
+        It shows a progress bar when processing multiple files.
+
+        Args:
+            files: List of file paths to process.
+            processor: Callable that processes a single file and returns
+                FileProcessingResult. The processor should handle its own
+                exceptions and return appropriate FileProcessingResult.
+            timeout: Timeout for each file operation (included in output).
+            label: Label for progress bar.
+            progress_threshold: Minimum files to show progress bar.
+
+        Returns:
+            AggregatedResult with all file processing results.
+
+        Example:
+            def process_file(path: str) -> FileProcessingResult:
+                try:
+                    success, output = self._run_subprocess(cmd + [path])
+                    issues = parse_output(output)
+                    return FileProcessingResult(
+                        success=success,
+                        output=output,
+                        issues=issues,
+                    )
+                except subprocess.TimeoutExpired:
+                    return FileProcessingResult(
+                        success=False,
+                        output="",
+                        issues=[],
+                        skipped=True,
+                        timed_out=True,
+                    )
+
+            result = self._process_files_with_progress(
+                files=ctx.files,
+                processor=process_file,
+                timeout=ctx.timeout,
+            )
+        """
+        from lintro.plugins.file_processor import AggregatedResult
+
+        aggregated = AggregatedResult()
+
+        if len(files) >= progress_threshold:
+            with click.progressbar(
+                files,
+                label=label,
+                bar_template="%(label)s  %(info)s",
+            ) as bar:
+                for file_path in bar:
+                    result = processor(file_path)
+                    aggregated.add_file_result(file_path, result)
+        else:
+            for file_path in files:
+                result = processor(file_path)
+                aggregated.add_file_result(file_path, result)
+
+        return aggregated
+
+    def _get_executable_command(
+        self,
+        tool_name: str,
+        cwd: str | Path | None = None,
+    ) -> list[str]:
+        """Get the command prefix to execute a tool.
+
+        Delegates to CommandBuilderRegistry for language-specific logic.
+        This satisfies ISP by keeping BaseToolPlugin language-agnostic.
+
+        Args:
+            tool_name: Name of the tool executable.
+            cwd: Directory the tool will execute in, when known. Project-local
+                ecosystems resolve their binary relative to it (#1727).
+
+        Returns:
+            Command prefix list.
+        """
+        return get_executable_command(tool_name, cwd=cwd)
+
+    def _verify_tool_version(self) -> ToolResult | None:
+        """Verify that the tool meets minimum version requirements.
+
+        Returns:
+            None if version check passes, or a skip result if it fails.
+        """
+        return verify_tool_version(self.definition)
+
+    # -------------------------------------------------------------------------
+    # Lintro Config Support
+    # -------------------------------------------------------------------------
+
+    def _get_lintro_config(self) -> LintroConfig:
+        """Get the current Lintro configuration.
+
+        Returns:
+            The current LintroConfig instance.
+        """
+        return get_lintro_config()
+
+    def _get_enforced_settings(self) -> dict[str, object]:
+        """Get enforced settings as a dictionary.
+
+        Returns:
+            Dictionary of enforced settings.
+        """
+        return get_enforced_settings(lintro_config=self._get_lintro_config())
+
+    def _get_enforce_cli_args(self) -> list[str]:
+        """Get CLI arguments for enforced settings.
+
+        Returns:
+            List of CLI arguments for enforced settings.
+        """
+        return get_enforce_cli_args(
+            tool_name=self.definition.name,
+            lintro_config=self._get_lintro_config(),
+        )
+
+    def _get_defaults_config_args(self) -> list[str]:
+        """Get CLI arguments for defaults config injection.
+
+        Returns:
+            List of CLI arguments for defaults config.
+        """
+        return get_defaults_config_args(
+            tool_name=self.definition.name,
+            lintro_config=self._get_lintro_config(),
+        )
+
+    def _should_use_lintro_config(self) -> bool:
+        """Check if Lintro config should be used for this tool.
+
+        Returns:
+            True if Lintro config should be used.
+        """
+        return should_use_lintro_config(tool_name=self.definition.name)
+
+    def _build_config_args(self) -> list[str]:
+        """Build combined CLI arguments for config injection.
+
+        Returns:
+            List of combined CLI arguments for config.
+        """
+        return build_config_args(
+            tool_name=self.definition.name,
+            lintro_config=self._get_lintro_config(),
+        )
+
+
+__all__ = [
+    "DEFAULT_EXCLUDE_PATTERNS",
+    "DEFAULT_TIMEOUT",
+    "BaseToolPlugin",
+    "ExecutionContext",
+]

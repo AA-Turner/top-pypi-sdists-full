@@ -1,0 +1,84 @@
+Metadata-Version: 2.4
+Name: matrice_streaming
+Version: 1.0.1
+Summary: Common server utilities for Matrice.ai services
+Author-email: "Matrice.ai" <dipendra@matrice.ai>
+License: MIT
+Keywords: matrice,streaming,utilities,mypyc,compiled
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: MacOS
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Typing :: Typed
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: LICENSE.txt
+Provides-Extra: dev
+Requires-Dist: pytest==9.0.3; extra == "dev"
+Requires-Dist: pytest-cov==6.0.0; extra == "dev"
+Requires-Dist: pytest-mock>=3.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21; extra == "dev"
+Requires-Dist: pytest-timeout>=2.3.1; extra == "dev"
+Requires-Dist: fakeredis>=2.20; extra == "dev"
+Requires-Dist: respx>=0.20; extra == "dev"
+Requires-Dist: numpy>=1.20.0; extra == "dev"
+Requires-Dist: opencv-python-headless>=4.13.0.92; extra == "dev"
+Requires-Dist: psutil>=7.2.2; extra == "dev"
+Requires-Dist: ruff==0.11.12; extra == "dev"
+Requires-Dist: bandit[toml]==1.9.4; extra == "dev"
+Requires-Dist: mypy==1.13.0; extra == "dev"
+Requires-Dist: pre-commit==4.2.0; extra == "dev"
+Requires-Dist: pip-audit==2.7.3; extra == "dev"
+Requires-Dist: matrice-common; extra == "dev"
+Dynamic: license-file
+Dynamic: requires-python
+
+
+# matrice\_streaming
+
+**matrice\_streaming** is a high-performance, Cython-compiled Python package providing streaming, client, and deployment utilities for Matrice.ai services.
+It offers ready-to-use streaming gateways, client management, camera handling, and deployment orchestration with complete type stubs for IDEs.
+
+## Features
+
+* **Cython Compiled** – Optimized performance via C extensions.
+* **Streaming Gateway** – Real-time streaming and inference processing.
+* **Client Management** – Deploy clients with streaming capabilities.
+* **Camera Management** – Handle multiple camera streams and configurations.
+* **Auto Streaming** – Automated streaming workflows with intelligent routing.
+* **Deployment Tools** – Complete deployment and pipeline management.
+* **Type Hints & Stubs** – `.pyi` stubs for full IDE autocomplete and docstring support.
+* **Modular Design** – Clear separation of client, deployment, and streaming components.
+
+## Installation
+
+```bash
+pip install --index-url https://test.pypi.org/simple/ matrice_streaming
+```
+
+## Example Usage
+
+```python
+from matrice_streaming import StreamingGateway, AutoStreaming
+from matrice_streaming import CameraManager, Deployment
+
+# Example: Create streaming gateway
+gateway = StreamingGateway(
+    model_input_type="video",
+    input_config=input_config,
+    output_config=output_config
+)
+
+# Example: Auto streaming setup
+auto_stream = AutoStreaming()
+auto_stream.start_streaming()
+```

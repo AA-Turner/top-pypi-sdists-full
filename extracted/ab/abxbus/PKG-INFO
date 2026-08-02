@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: abxbus
-Version: 2.5.43
+Version: 2.5.45
 Summary: Advanced Pydantic-powered event bus with async support
 Author: Nick Sweeting, ArchiveBox
 Classifier: Programming Language :: Python :: 3

@@ -97,20 +97,35 @@ class FunctionChecker:  # pylint: disable=too-few-public-methods
     def __init__(self, func: _Function, config: _Config) -> None:
         self._func = func
         self._config = config
-        disabled = _Messages(self._func.messages)
+        self._name = self._qualified_name(func)
+        self._collector = _Collector(
+            self._name,
+            func.lineno,
+            self._disabled_messages(func, config),
+        )
+
+    @staticmethod
+    def _qualified_name(func: _Function) -> str:
+        # prefix the enclosing class so the report reads Class.method
+        frame = func.frame
+        if (
+            frame is not None
+            and hasattr(frame, "name")
+            and frame.name
+            and not isinstance(frame, _ast.nodes.Module)
+        ):
+            return f"{frame.name}.{func.name}"
+
+        return func.name
+
+    @staticmethod
+    def _disabled_messages(func: _Function, config: _Config) -> _Messages:
+        # targeting a subset of checks disables everything else
+        disabled = _Messages(func.messages)
         if config.target:
             disabled.extend(i for i in _E.all if i not in config.target)
 
-        self._name = self._func.name
-        if (
-            self._func.frame is not None
-            and hasattr(self._func.frame, "name")
-            and self._func.frame.name
-            and not isinstance(self._func.frame, _ast.nodes.Module)
-        ):
-            self._name = f"{self._func.frame.name}.{self._name}"
-
-        self._collector = _Collector(self._name, self._func.lineno, disabled)
+        return disabled
 
     def run(self) -> _FunctionResult:
         """Run the function checks and return the result.
@@ -145,37 +160,32 @@ class FunctionChecker:  # pylint: disable=too-few-public-methods
         self._collector.add(value, include_hint=include_hint, **kwargs)
 
     @staticmethod
-    def _normalize_params(from_: _Params, to: _Params) -> None:
-        # inset the parameters that are missing in their corresponding
-        # index so that they are included in further analysis, that way
-        # there are no additional, and redundant, errors
-        # this will ensure that both signature and docstring are equal,
-        # with all parameters that are not documented accounted for
-        for count, arg in enumerate(from_):
+    def _normalize_params(source: _Params, target: _Params) -> None:
+        # insert a placeholder in the target at each index where the
+        # source param has no almost-equal counterpart, so both lists
+        # line up and later checks do not emit redundant errors
+        for count, arg in enumerate(source):
             try:
                 is_equal = _almost_equal(
                     str(arg.name),
-                    str(to[count].name),
+                    str(target[count].name),
                     _MIN_MATCH,
                     _MAX_MATCH,
                 )
             except IndexError:
                 is_equal = False
 
-            # need to make one more test to determine if equal in the
-            # case of very similar names, such as param1, param2 and
-            # param3 for the signature, and param2, param3 for the
-            # docstring, if we don't do this test, param1 is almost
-            # equal to param2, and so won't be inserted, but if we can
-            # determine param2 is already in signature's next index,
-            # then we know that they aren't almost equal, param1 is
-            # missing and does need to be inserted in the docstring
+            # for very similar names such as param1, param2, param3 in
+            # the signature and param2, param3 in the docstring, param1
+            # is almost equal to param2 and would not be inserted, so
+            # confirm the target name does not already match the next
+            # source param before accepting the almost-equal match
             if is_equal:
                 with _contextlib.suppress(IndexError):
-                    is_equal = to[count].name != from_[count + 1].name
+                    is_equal = target[count].name != source[count + 1].name
 
             if not is_equal:
-                to.insert(
+                target.insert(
                     count,
                     _Param(arg.kind, arg.name, _VALID_DESCRIPTION),
                 )
@@ -258,16 +268,13 @@ class FunctionChecker:  # pylint: disable=too-few-public-methods
         list.extend(self._func.docstring.args, deduped)
 
     def _sig3xx_description(self, doc: _Param) -> None:
-        # freeze result as it is a property and PyCharm complains
-        # `Member 'None' of 'str | None' does not have attribute
-        # 'startswith'` as property could theoretically have different
-        # result from doc.description is None to
-        # doc.description.startswith
-        doc_description = doc.description
-        if doc_description is None and doc.name is not None:
+        # freeze the property so every check sees the same value
+        description = doc.description
+        if description is None and doc.name is not None:
+            # description-missing
             self._add(_E[301])
-        elif doc_description is not None and self._description_syntax_error(
-            doc_description,
+        elif description is not None and self._description_syntax_error(
+            description,
         ):
             # syntax-error-in-description
             self._add(_E[302])
@@ -279,29 +286,41 @@ class FunctionChecker:  # pylint: disable=too-few-public-methods
         elif doc.closing_token != ":":
             # bad-closing-token
             self._add(_E[304], token=doc.closing_token, include_hint=True)
-        if doc_description is not None and not all(
+
+        if description is not None and not self._iscapitalized(description):
+            # description-not-capitalized
+            self._add(_E[305])
+
+        if description and self._misses_period(description):
+            # description-missing-period
+            self._add(_E[306])
+
+    @staticmethod
+    def _iscapitalized(description: str) -> bool:
+        # every sentence must start with an uppercase letter, unless it
+        # starts with something other than a letter or an abbreviation
+        # such as e.g.
+        return all(
             stripped[0].isupper()
-            for i in _sentence_tokenizer(doc_description)
+            for i in _sentence_tokenizer(description)
             if (
                 i
                 and (stripped := i.strip())[0].isalpha()
                 and stripped.lower().split()[0].rstrip(",;")
                 not in _SENTENCE_ABBREVIATIONS
             )
-        ):
-            # description is not capitalized
-            self._add(_E[305])
-        # description-missing-period
+        )
+
+    @staticmethod
+    def _misses_period(description: str) -> bool:
         # a description that ends inside an RST code block or directive,
         # or on a list item, does not need a sentence terminator
-        if doc_description:
-            last_char, exempt = _last_prose_char(doc_description)
-            if (
-                not exempt
-                and last_char is not None
-                and last_char not in _VALID_ENDINGS
-            ):
-                self._add(_E[306])
+        last_char, exempt = _last_prose_char(description)
+        return (
+            not exempt
+            and last_char is not None
+            and last_char not in _VALID_ENDINGS
+        )
 
     @staticmethod
     def _description_syntax_error(description: str) -> bool:
@@ -375,41 +394,53 @@ class FunctionChecker:  # pylint: disable=too-few-public-methods
         ) and len(self._func.docstring.args) > 1
 
     def _sig5xx_returns(self, check_property_returns: bool) -> None:
-        if not self._func.isinit and not (
+        excluded = self._func.isinit or (
             self._func.isproperty and not check_property_returns
-        ):
-            # no types, cannot know either way
-            if self._func.signature.returns.type == _RetType.UNTYPED:
-                # confirm-return-needed
-                self._add(_E[501], include_hint=True)
-            # return-type is none, so no return should be documented
-            elif self._func.docstring.returns.returns:
-                if self._func.signature.returns.type == _RetType.NONE:
-                    # return-documented-for-none
-                    self._add(_E[502])
-                if self._func.docstring.returns.description_missing:
-                    self._add(_E[506])
-            # return-type is some, so return should be documented
-            elif self._func.signature.returns.returns:
-                # return-missing
-                lines = str(self._func.docstring.string).splitlines()
-                self._add(
-                    _E[503],
-                    include_hint=(
-                        len(lines) > 1
-                        and "return" in lines[-1]
-                        and ":param" not in lines[-1]
-                    ),
-                )
+        )
+        if not excluded:
+            self._check_return_documentation()
         elif self._func.docstring.returns.returns:
-            # this method is init, so no return should be documented
             if self._func.isinit:
+                # this method is init, so no return should be documented
                 # class-return-documented
                 self._add(_E[504], include_hint=True)
-            # method is property and not set to document property
-            elif self._func.isproperty and not check_property_returns:
+            else:
+                # method is property and not set to document property
                 # return-documented-for-property
                 self._add(_E[505], include_hint=True)
+
+    def _check_return_documentation(self) -> None:
+        signature = self._func.signature.returns
+        docstring = self._func.docstring.returns
+        # no types, cannot know either way
+        if signature.type == _RetType.UNTYPED:
+            # confirm-return-needed
+            self._add(_E[501], include_hint=True)
+        # return-type is none, so no return should be documented
+        elif docstring.returns:
+            if signature.type == _RetType.NONE:
+                # return-documented-for-none
+                self._add(_E[502])
+            if docstring.description_missing:
+                # return-description-missing
+                self._add(_E[506])
+        # return-type is some, so return should be documented
+        elif signature.returns:
+            # return-missing
+            self._add(
+                _E[503],
+                include_hint=self._last_line_mentions_return(),
+            )
+
+    def _last_line_mentions_return(self) -> bool:
+        # a hint helps if the last line looks like a return field that
+        # did not parse
+        lines = str(self._func.docstring.string).splitlines()
+        return (
+            len(lines) > 1
+            and "return" in lines[-1]
+            and ":param" not in lines[-1]
+        )
 
     def _sig9xx_error(self) -> None:
         # invalid-syntax

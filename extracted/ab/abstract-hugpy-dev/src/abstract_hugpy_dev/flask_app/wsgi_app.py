@@ -1,0 +1,357 @@
+import os
+
+from flask import send_from_directory
+
+from .app import *
+from .app import routes as routes
+from .app.routes.worker_routes import worker_bp
+from .app.routes.phone_brick_routes import phone_brick_bp
+from .app.routes.discord_routes import discord_bp
+from .app.routes.video_routes import video_bp
+from .app.routes.agent_routes import agent_bp
+from .app.routes.messages_routes import messages_bp
+
+# Video Intelligence worker daemon is started ONCE per process at app init
+# (guarded below). Module-level so re-entrant app creation can't spawn a second.
+_VIDEO_DAEMON_STARTED = False
+
+
+class ApiPrefixMiddleware:
+    """Strip a leading /api from the request path, exactly like the public
+    nginx does. With it, the app standalone (no proxy in front) accepts both
+    the bare paths gunicorn has always served (/health, /v1/...) and the
+    /api-prefixed paths every client uses (/api/health, /api/v1/...). This is
+    what lets one process serve UI + API with no nginx at all."""
+
+    def __init__(self, wsgi_app):
+        self.wsgi_app = wsgi_app
+
+    def __call__(self, environ, start_response):
+        path = environ.get("PATH_INFO", "")
+        if path == "/api" or path.startswith("/api/"):
+            environ["PATH_INFO"] = path[len("/api"):] or "/"
+        return self.wsgi_app(environ, start_response)
+
+
+def _ui_dist_dir() -> str | None:
+    """Where the built UI lives, if anywhere.
+
+    HUGPY_UI_DIST (env or .env) wins; otherwise look for a sibling ui/dist
+    next to the api tree (the repo layout: <root>/api/api + <root>/ui/dist).
+    Returns None when there is no build — API-only mode, nothing changes."""
+    explicit = os.environ.get("HUGPY_UI_DIST")
+    if not explicit:
+        try:
+            from abstract_hugpy_dev.imports.src.standalone_utils import get_env_value
+            explicit = get_env_value("HUGPY_UI_DIST")
+        except Exception:
+            explicit = None
+    candidates = [explicit] if explicit else []
+    here = os.path.dirname(os.path.abspath(__file__))   # <pkg>/flask_app
+    # Packaged console: hugpy/console_dist ships inside the wheel, so a bare
+    # `pip install hugpy && hugpy serve` includes the UI.
+    candidates.append(os.path.join(os.path.dirname(here), "console_dist"))
+    # Dev checkout layout: <tree>/{api/<pkg>/flask_app, ui/dist}. From `here`
+    # (<pkg>/flask_app) the tree root is three parents up: flask_app -> <pkg> ->
+    # api -> <tree>.
+    tree_root = os.path.abspath(os.path.join(here, "..", "..", ".."))
+    candidates.append(os.path.join(tree_root, "ui", "dist"))
+    for cand in candidates:
+        if cand and os.path.isfile(os.path.join(cand, "index.html")):
+            return cand
+    return None
+
+
+def _mount_ui(app, dist_dir: str) -> None:
+    """Serve the built SPA: real files from dist, everything else (deep links
+    like /login) falls back to index.html. API rules are explicit routes, so
+    Werkzeug always prefers them over this converter catch-all."""
+
+    @app.route("/", defaults={"asset": ""})
+    @app.route("/<path:asset>")
+    def _hugpy_ui(asset):
+        target = os.path.join(dist_dir, asset)
+        if asset and os.path.isfile(target):
+            return send_from_directory(dist_dir, asset)
+        # Standalone arms (media-intelligence, video-intelligence) are separate
+        # SPAs shipped at <arm>/ inside the same dist (console_dist/<arm>/*).
+        # Their assets are real files (served above); their deep links (/media,
+        # /video/foo) must fall back to the arm's OWN index.html, not the console
+        # SPA's — mirrors the webpack devServer historyApiFallback rewrite that
+        # keeps the dev path working. Guarded by isfile, so an arm that isn't
+        # shipped in this dist changes nothing.
+        for arm in ("media", "video"):
+            if (asset == arm or asset.startswith(arm + "/")) and os.path.isfile(
+                os.path.join(dist_dir, arm, "index.html")
+            ):
+                return send_from_directory(os.path.join(dist_dir, arm), "index.html")
+        return send_from_directory(dist_dir, "index.html")
+
+
+def get_hugpy_flask(name=None,allowed_origins=None,debug=False):
+    name = name or "hugpy_flask"
+    # Tighten CORS for the public deployment: an explicit allowlist beats the
+    # reflect-any default on a credentialed API. Comma-separated origins in
+    # HUGPY_ALLOWED_ORIGINS; unset keeps prior behavior (same-origin UI calls
+    # don't use CORS, so this only constrains cross-origin browser callers).
+    if allowed_origins is None:
+        _ao = (os.environ.get("HUGPY_ALLOWED_ORIGINS") or "").strip()
+        if _ao:
+            allowed_origins = [o.strip() for o in _ao.split(",") if o.strip()]
+    app = get_Flask_app(
+        name=name,
+        routes=routes,
+        allowed_origins=allowed_origins,
+        debug=debug
+    )
+    # Bound request bodies so /uploads (and any POST) can't be an unbounded
+    # memory/disk DoS. Generous default (100 MB); override via HUGPY_MAX_UPLOAD_MB.
+    try:
+        _mb = float(os.environ.get("HUGPY_MAX_UPLOAD_MB", "100"))
+        app.config["MAX_CONTENT_LENGTH"] = int(_mb * 1024 * 1024)
+    except (TypeError, ValueError):
+        pass
+    # Dual-mount the worker/model routes under /api as well.
+    #
+    # gunicorn serves these at /llm/... and /models; the /api prefix the worker
+    # uses exists ONLY because the public nginx (hugpy.ai) strips it. A worker
+    # that reaches central directly — e.g. over WireGuard at http://<wg-ip>:7002,
+    # bypassing nginx — would 404 on its /api/llm/... calls. Registering the
+    # blueprint again under /api makes /api/llm/workers/* and /api/llm/models/*
+    # resolve on gunicorn itself, so the direct (proxy-less) route works
+    # identically to the nginx route. The original /llm/... mount is untouched.
+    try:
+        app.register_blueprint(worker_bp, url_prefix="/api", name="worker_bp_api")
+    except (ValueError, AssertionError):
+        # Idempotent: already mounted on this app instance.
+        pass
+
+    # Same /api dual-mount for the phone-brick pool: phones register, heartbeat,
+    # and fetch seeded images by reaching gunicorn directly over the VPN.
+    try:
+        app.register_blueprint(phone_brick_bp, url_prefix="/api", name="phone_brick_bp_api")
+    except (ValueError, AssertionError):
+        pass
+
+    # Same /api dual-mount for Discord bindings: the hugpy bot reaches central
+    # directly (resolve a model for a channel/user, drain the outbox) and may
+    # bypass nginx, so these must resolve on gunicorn itself too.
+    try:
+        app.register_blueprint(discord_bp, url_prefix="/api", name="discord_bp_api")
+    except (ValueError, AssertionError):
+        pass
+
+    # Same /api dual-mount for the Video Intelligence routes. The public path is
+    # dev.hugpy.ai/api/video/...; host nginx strips /api before the VM, so the
+    # bare /video/... mount (auto-discovered via routes/__init__) serves the
+    # proxied path, and this second mount makes direct-to-gunicorn /api/video/...
+    # resolve identically (mirrors worker_bp). The original /video/... mount is
+    # untouched.
+    try:
+        app.register_blueprint(video_bp, url_prefix="/api", name="video_bp_api")
+    except (ValueError, AssertionError):
+        pass
+
+    # Same /api dual-mount for the P3.1 agent-node fleet: remote agent nodes
+    # register, heartbeat and pull tasks by reaching gunicorn directly over the
+    # VPN, exactly like GPU workers and phone bricks. The bare /agent/... mount
+    # (auto-discovered via routes/__init__) serves the nginx-proxied path.
+    try:
+        app.register_blueprint(agent_bp, url_prefix="/api", name="agent_bp_api")
+    except (ValueError, AssertionError):
+        pass
+
+    # Same /api dual-mount for the Anthropic Messages shim, so Claude Code / the
+    # Claude Agent SDK reach /v1/messages whether they hit the nginx-proxied
+    # /api/v1/messages or gunicorn directly. The bare /v1/messages mount
+    # (auto-discovered via routes/__init__) serves the proxied path unchanged.
+    try:
+        app.register_blueprint(messages_bp, url_prefix="/api",
+                               name="messages_bp_api")
+    except (ValueError, AssertionError):
+        pass
+
+    # Same /api dual-mount for eviction telemetry. Workers POST their event
+    # batches to /api/llm/evictions/ingest through CentralClient, which may reach
+    # gunicorn directly over WireGuard (no nginx to strip the prefix); the console
+    # reads /api/llm/evictions and /api/llm/evictions/stream through the same
+    # prefix. The bare /llm/evictions... mount (auto-discovered via
+    # routes/__init__) serves the proxied path unchanged.
+    try:
+        from .app.routes.eviction_routes import eviction_bp
+        app.register_blueprint(eviction_bp, url_prefix="/api",
+                               name="eviction_bp_api")
+    except (ValueError, AssertionError):
+        pass
+    except Exception as _exc:  # noqa: BLE001 — telemetry must never break boot
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            "eviction telemetry routes not mounted under /api: %s", _exc)
+
+    # Same /api dual-mount for MODEL GROUPS, so the Models tab reads
+    # /api/llm/groups on the same prefix as every other panel read. Read-only —
+    # the tick WRITES go through /settings/model_groups/..., which the operator
+    # gate already covers; there is deliberately no group write route to mount.
+    try:
+        from .app.routes.group_routes import group_bp
+        app.register_blueprint(group_bp, url_prefix="/api",
+                               name="group_bp_api")
+    except (ValueError, AssertionError):
+        pass
+    except Exception as _exc:  # noqa: BLE001 — a read surface must not break boot
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            "model-group routes not mounted under /api: %s", _exc)
+
+    # Eviction telemetry: central's OWN emitted events (the video reservation
+    # flush→evict path is the one eviction central drives — it does no local LLM
+    # serving) go straight to the shared store, so they appear in the same
+    # console stream as the fleet's relayed events rather than living only in
+    # this process's ring.
+    try:
+        from ..comms import evictions as _evictions
+        _evictions.install_store_sink()
+    except Exception as _exc:  # noqa: BLE001 — never break boot over telemetry
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            "eviction telemetry store sink not installed: %s", _exc)
+
+    # Optional: mount the media_intelligence HTTP bridge at /media/analyze.
+    #
+    # The chat's media-intelligence path (ui mediaIntelligence.ts -> tryServerBridge)
+    # POSTs {file:<upload ref>, kind, source:<filename>} to /api/media/analyze. nginx
+    # (and ApiPrefixMiddleware) strips the /api, so the route registered IN Flask is
+    # /media/analyze. The bridge runs the media_intelligence MediaPipeline and returns
+    # ONE typed DocumentIntelligence record ({ok, result:{...}}) — instead of the UI
+    # orchestrating the per-task /ml/* endpoints itself.
+    #
+    # ADDITIVE + FAULT-TOLERANT: media_intelligence (and its [bridge] extra, Flask) is
+    # an OPTIONAL dependency that is NOT part of the hugpy wheel. If it isn't installed
+    # in the venv, log and skip — the app must always boot. This stays hugpy's own arm;
+    # the @hugpy/console PTY boundary is untouched.
+    #
+    # Contract: the bridge accepts {"file": <handle>} and maps it via resolve_file —
+    # the one host-specific seam. The UI's `file` is whatever POST /uploads returned,
+    # which today is the absolute path under UPLOADS_HOME (UploadUtils falls back to
+    # `path` when the server emits no opaque id), and may be a bare id later. _resolve_upload
+    # accepts EITHER form and jails it under the storage root (same jail as
+    # functions.media_extract), so this can never become an arbitrary-file-read.
+    try:
+        from media_intelligence.bridge import build_blueprint as _build_media_bridge
+
+        def _resolve_upload(handle):
+            if not handle:
+                return None
+            from abstract_hugpy_dev.imports.src.constants.constants import (
+                UPLOADS_HOME, DEFAULT_ROOT,
+            )
+            cand = handle if os.path.isabs(handle) else os.path.join(
+                UPLOADS_HOME, os.path.basename(handle)
+            )
+            rp = os.path.realpath(cand)
+            roots = [os.path.realpath(r) for r in (UPLOADS_HOME, DEFAULT_ROOT) if r]
+            if not any(rp == root or rp.startswith(root + os.sep) for root in roots):
+                return None  # outside the storage root -> refuse (no arbitrary read)
+            return rp if os.path.isfile(rp) else None
+
+        app.register_blueprint(_build_media_bridge(resolve_file=_resolve_upload))
+    except ImportError as _exc:
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            "media_intelligence bridge not mounted (optional dep missing): %s", _exc
+        )
+    except Exception as _exc:
+        import logging as _logging
+        _logging.getLogger(__name__).error(
+            "media_intelligence bridge install failed: %s", _exc
+        )
+
+    # Standalone (distribution) mode: accept /api/* without a proxy, and serve
+    # the built UI when one exists. Both are no-ops in the proxied dev/prod
+    # topology (nginx already strips /api; webpack serves the UI).
+    app.wsgi_app = ApiPrefixMiddleware(app.wsgi_app)
+    dist_dir = _ui_dist_dir()
+    if dist_dir:
+        _mount_ui(app, dist_dir)
+    # Abandon-on-disconnect (2026-07-27 outage): bind a probe for each request's
+    # client socket so a WSGI thread blocked on model work can discover that its
+    # caller left and give the request slot back — instead of holding one of the
+    # site's 24 slots for the rest of a 25-minute cold hold, serving nobody.
+    # Inert wherever no socket is published (waitress / dev server / no gunicorn)
+    # and switchable off via HUGPY_CLIENT_DISCONNECT_ABANDON=off. Never break boot.
+    try:
+        from abstract_hugpy_dev._platform import client_liveness
+        client_liveness.install(app)
+    except Exception as _exc:
+        import logging as _logging
+        _logging.getLogger(__name__).error(
+            "client-liveness probe install failed: %s", _exc)
+
+    # Server-side operator auth gate on console-side management routes. Inert
+    # until HUGPY_AUTH_MODE=external (or HUGPY_OPERATOR_TOKEN is set), so this
+    # is safe to deploy and verify before activation.
+    try:
+        from .app.operator_auth import install_operator_gate
+        install_operator_gate(app)
+    except Exception as _exc:
+        import logging as _logging
+        _logging.getLogger(__name__).error("operator gate install failed: %s", _exc)
+
+    # Video surface gate: the /video arm (SPA shell + /video/* and /movie/* API
+    # and media routes) sits behind the SAME auth boundary as the console — a
+    # valid console session (mode-aware; permissive in `open`, enforced in
+    # `external`) OR a video-scoped share credential (a stubbed seam today).
+    # DELIBERATELY separate from the operator gate so the share credential can
+    # NEVER authorize a console/operator route. Never break boot.
+    try:
+        from .app.video_auth import install_video_gate
+        install_video_gate(app)
+    except Exception as _exc:
+        import logging as _logging
+        _logging.getLogger(__name__).error("video gate install failed: %s", _exc)
+
+    # Human-friendly /endpoints: content-negotiate the abstract_flask endpoint
+    # inspector so a browser hitting dev.hugpy.ai/endpoints gets a rendered,
+    # searchable page while curl / programmatic clients still get the exact JSON
+    # abstract_flask produced. Overrides the view in place (no new rule). Never
+    # break boot.
+    try:
+        from .app.endpoints_view import install_endpoints_view
+        install_endpoints_view(app)
+    except Exception as _exc:
+        import logging as _logging
+        _logging.getLogger(__name__).error("endpoints view install failed: %s", _exc)
+
+    # F1/F5 wiring: control.cancel messages on the bus reach the shared job
+    # store (which fires the cancel handle each live stream attached), and job
+    # lifecycle transitions publish back onto the bus for any subscriber
+    # (console live view, keeper, future relays). Idempotent; must never block
+    # boot.
+    try:
+        from abstract_hugpy_dev.comms import wire_cancel, wire_job_events
+        from abstract_hugpy_dev.comms.settings import wire_settings_events
+        wire_cancel()
+        wire_job_events(source="central")
+        wire_settings_events(source="central")
+    except Exception as _exc:
+        import logging as _logging
+        _logging.getLogger(__name__).error("comms bus wiring failed: %s", _exc)
+
+    # Start the Video Intelligence job worker daemon ONCE per process. Each of
+    # the gunicorn worker processes starts one; the bus's atomic cross-process
+    # claim guarantees exactly one daemon runs any given job — that's intended.
+    # Guarded by a module-level boolean (no double-start on re-entrant app
+    # creation) AND wrapped in try/except so a failure here logs and can NEVER
+    # break app creation or the existing surfaces.
+    global _VIDEO_DAEMON_STARTED
+    if not _VIDEO_DAEMON_STARTED:
+        try:
+            from abstract_hugpy_dev.video_intel import media_bus as _media_bus
+            _media_bus.start_worker_daemon()
+            _VIDEO_DAEMON_STARTED = True
+        except Exception as _exc:
+            import logging as _logging
+            _logging.getLogger(__name__).error(
+                "video_intel worker daemon start failed: %s", _exc
+            )
+    return app

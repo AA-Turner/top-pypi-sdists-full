@@ -64,6 +64,8 @@ from .type_defs import (
     ListTagsForResourceResponseTypeDef,
     PutAccountSettingsRequestTypeDef,
     PutAccountSettingsResponseTypeDef,
+    PutComplianceInquiryFeedbackRequestTypeDef,
+    PutComplianceInquiryFeedbackResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
 )
@@ -259,6 +261,16 @@ class ArtifactClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/put_account_settings.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/client/#put_account_settings)
+        """
+
+    async def put_compliance_inquiry_feedback(
+        self, **kwargs: Unpack[PutComplianceInquiryFeedbackRequestTypeDef]
+    ) -> PutComplianceInquiryFeedbackResponseTypeDef:
+        """
+        Submits feedback on a compliance inquiry response.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/artifact/client/put_compliance_inquiry_feedback.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_artifact/client/#put_compliance_inquiry_feedback)
         """
 
     async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:

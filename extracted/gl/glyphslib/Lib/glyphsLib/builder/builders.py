@@ -337,8 +337,10 @@ class UFOBuilder(LoggerMixin):
             elif (
                 self.minimal
                 and layer.layerId not in master_layer_ids
-                and not layer._is_brace_layer()
+                and (not layer._is_brace_layer() or layer._is_color_palette_layer())
             ):
+                # Only plain intermediate layers are built here, color
+                # palette layers are handled by to_ufo_color_layers.
                 continue
             else:
                 ufo_layer = self.to_ufo_layer(glyph, layer)  # .layers
@@ -362,6 +364,8 @@ class UFOBuilder(LoggerMixin):
 
         if self.bracket_layers:
             self.to_designspace_bracket_layers()  # .bracket_layers
+
+        self.to_designspace_stat()  # .axisLabels
 
         # append base style shared by all masters to designspace file name
         base_family = self.family_name or "Unnamed"
@@ -417,6 +421,7 @@ class UFOBuilder(LoggerMixin):
     from .names import to_ufo_names
     from .paths import to_ufo_paths
     from .sources import to_designspace_sources
+    from .stat import to_designspace_stat
     from .glyph import (
         to_ufo_glyph,
         to_ufo_glyph_color,
@@ -609,6 +614,8 @@ class GlyphsBuilder(LoggerMixin):
         """Make sure that the user-provided designspace has loaded fonts and
         that names are the same as those from the UFOs.
         """
+        from .stat import is_stat_only_ital
+
         # TODO: (jany) really make a copy to avoid modifying the original object
         copy = designspace
         # Load only full UFO masters, sparse or "brace" layer sources are assumed
@@ -627,16 +634,14 @@ class GlyphsBuilder(LoggerMixin):
             for name in ("familyName", "styleName"):
                 if getattr(source, name) != getattr(source.font.info, name):
                     self.logger.warning(
-                        dedent(
-                            """\
+                        dedent("""\
                     The {name} is different between the UFO and the designspace source:
                         source filename: {filename}
                         source {name}: {source_name}
                         ufo {name}: {ufo_name}
 
                     The UFO name will be used.
-                    """
-                        ).format(
+                    """).format(
                             name=name,
                             filename=source.filename,
                             source_name=getattr(source, name),
@@ -648,7 +653,7 @@ class GlyphsBuilder(LoggerMixin):
         # values) lost when converted to a Glyps.app file. To combat this we
         # add an explicit identity mapping.
         for axis in copy.axes:
-            if axis.map:
+            if axis.map or is_stat_only_ital(axis):
                 continue
             if axis.minimum == axis.maximum:
                 axis.map = [(axis.minimum, axis.minimum)]

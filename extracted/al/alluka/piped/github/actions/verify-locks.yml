@@ -1,0 +1,36 @@
+# This is run to avoid an edge case where the latest version of a (probably sub)
+# dependency being yanked leads to pip failing to backtrack the dep.
+# This happened with `cachecontrol==0.12.12 ; python_version >= "3.7" and python_version < "4.0"`.
+name: Verify dependency locks
+
+concurrency:
+  {% raw %}group: ${{ github.workflow }}-${{ github.ref }}{% endraw %}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    branches:
+      - master
+    paths: [{{ (FILTERS + EXTEND_FILTERS) | map("quoted") | join(", ") }}]
+
+jobs:
+  verify-pr-dep-changes:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          submodules: "true"
+
+      - name: Set up Python {{ DEFAULT_PY_VER }}
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b
+        with:
+          python-version: "{{ DEFAULT_PY_VER }}"
+
+      - name: install prerequisites
+        run: |
+          python -m pip install --upgrade pip wheel
+          python -m pip install -r {{ NOX_DEP_PATH }}
+
+      - name: Verify dependency locks
+        run: python -m nox -s verify-deps

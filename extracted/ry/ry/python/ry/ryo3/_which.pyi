@@ -1,9 +1,0 @@
-"""ryo3-which ~ types"""
-
-from pathlib import Path
-
-from ry.ryo3._regex import Regex
-
-def which(cmd: str, path: str | None = None) -> Path | None: ...
-def which_all(cmd: str, path: str | None = None) -> list[Path]: ...
-def which_re(regex: str | Regex, path: str | None = None) -> list[Path]: ...

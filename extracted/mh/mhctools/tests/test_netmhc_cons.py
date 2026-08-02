@@ -1,0 +1,93 @@
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+import pytest 
+
+from mhctools import NetMHCcons
+from mhctools.allele_normalization import normalize_allele_name
+
+from .arch import apple_silicon
+
+DEFAULT_ALLELE = 'HLA-A*02:01'
+
+@pytest.mark.skipif(apple_silicon, reason="Can't run netMHCcons on arm64 architecture")
+def test_netmhc_cons():
+    alleles = [normalize_allele_name(DEFAULT_ALLELE)]
+    cons_predictor = NetMHCcons(
+        alleles=alleles,
+        default_peptide_lengths=[9])
+    sequence_dict = {
+        "SMAD4-001": "ASIINFKELA",
+        "TP53-001": "ASILLLVFYW"
+    }
+    binding_predictions = cons_predictor.predict_subsequences(
+        sequence_dict=sequence_dict)
+
+    assert len(binding_predictions) == 4, \
+        "Expected 4 epitopes from %s" % (binding_predictions,)
+
+@pytest.mark.skipif(apple_silicon, reason="Can't run netMHCcons on arm64 architecture")
+def test_netmhc_cons_multiple_lengths():
+    cons_predictor = NetMHCcons(alleles=["A6801"])
+    binding_predictions = cons_predictor.predict_peptides(
+        ["A" * 8, "A" * 9, "A" * 10, "A" * 11])
+    assert len(binding_predictions) == 4, \
+        "Expected 4 epitopes from %s" % (binding_predictions,)
+
+@pytest.mark.skipif(apple_silicon, reason="Can't run netMHCcons on arm64 architecture")
+def test_netmhc_cons_multiple_alleles():
+    alleles = 'A*02:01,B*35:02'
+    cons_predictor = NetMHCcons(
+        alleles=alleles,
+        default_peptide_lengths=[9])
+    sequence_dict = {
+        "SMAD4-001": "ASIINFKELA",
+        "TP53-001": "ASILLLVFYW"
+    }
+    binding_predictions = cons_predictor.predict_subsequences(
+        sequence_dict=sequence_dict)
+    assert len(binding_predictions) == 8, \
+        "Expected 4 binding predictions from %s" % (binding_predictions,)
+
+@pytest.mark.skipif(apple_silicon, reason="Can't run netMHCcons on arm64 architecture")
+def test_netmhc_cons_process_limits():
+    alleles = [normalize_allele_name(DEFAULT_ALLELE)]
+    sequence_dict = {
+        "SMAD4-001": "ASIINFKELA",
+        "TP53-001": "ASILLLVFYW",
+        "SMAD4-002": "ASIINFKELS",
+        "TP53-002": "ASILLLVFYS",
+        "TP53-003": "ASILLLVFYT",
+        "TP53-004": "ASILLLVFYG",
+        "TP53-005": "ASILLLVFYG"
+    }
+    for process_limit in [1, 2, 10]:
+        cons_predictor = NetMHCcons(
+            alleles=alleles,
+            default_peptide_lengths=[9],
+            process_limit=process_limit
+        )
+        binding_predictions = cons_predictor.predict_subsequences(
+            sequence_dict=sequence_dict)
+        assert len(binding_predictions) == 14, \
+            "Expected 14 binding predictions from but got %d: %s" % (
+                len(binding_predictions),
+                binding_predictions)
+
+        source_names = [bp.source_sequence_name for bp in binding_predictions]
+        for fasta_key in sequence_dict.keys():
+            fasta_count = source_names.count(fasta_key)
+            assert fasta_count == 2, \
+                ("Expected each fasta key to appear twice, once for "
+                 "each length, but saw %s %d time(s)" % (
+                     fasta_key, fasta_count))

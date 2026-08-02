@@ -1,0 +1,28 @@
+definitions:
+  Zs:
+    type: array
+    items:
+      type: integer
+      example: 1
+      enum: [1, 2, 3, 4, 5]
+  Y:
+    type: object
+    properties:
+      c:
+        $ref: '#/definitions/Zs'
+    required:
+    - c
+  X:
+    type: object
+    properties:
+      b:
+        $ref: '#/definitions/Y'
+    required:
+    - b
+  Top:
+    type: object
+    properties:
+      a:
+        $ref: '#/definitions/X'
+    required:
+    - a

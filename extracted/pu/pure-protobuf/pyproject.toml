@@ -1,0 +1,158 @@
+[tool.poetry]
+authors = [
+    "Pavel Perestoronin <eigenein@gmail.com>",
+    "Bo Bayles",
+    "Théo Mathieu",
+    "Aleksey Zubakov",
+    "Tobias Kölling",
+    "Shiba",
+]
+description = "Protocol Buffers using Python type annotations"
+keywords = ["protobuf", "protocol-buffers"]
+license = "MIT"
+name = "pure-protobuf"
+readme = "README.md"
+repository = "https://github.com/eigenein/protobuf"
+version = "3.1.5"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+    "Typing :: Typed",
+]
+
+[build-system]
+requires = ["poetry-core", "poetry-dynamic-versioning"]
+build-backend = "poetry_dynamic_versioning.backend"
+
+[tool.poetry.dependencies]
+get-annotations = { version = "^0.1.2", python = "<3.10" }
+python = "^3.9.0"
+typing-extensions = "^4.4.0"
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+black = "25.1.0"
+cairosvg = "2.7.1"
+mkdocs-autorefs = "1.2.0"
+mkdocs-git-revision-date-localized-plugin = "1.3.0"
+mkdocs-material = "9.5.47"
+mkdocstrings = { version = "0.27.0", extras = ["python"] }
+mypy = "1.13.0"
+pillow = "11.0.0"
+pydantic = "2.10.2"
+pytest = "8.3.4"
+pytest-benchmark = "5.1.0"
+pytest-cov = "6.0.0"
+ruff = "0.8.1"
+
+[tool.poetry.urls]
+"Changelog" = "https://github.com/eigenein/protobuf/blob/master/CHANGELOG.md"
+"Homepage" = "https://github.com/eigenein/protobuf"
+"Issues" = "https://github.com/eigenein/protobuf/issues"
+
+[tool.poetry-dynamic-versioning]
+enable = false
+vcs = "git"
+pattern = "default-unprefixed"
+style = "pep440"
+strict = true
+latest-tag = true
+
+[tool.mypy]
+allow_redefinition = true
+allow_untyped_globals = true
+check_untyped_defs = true
+ignore_missing_imports = true
+pretty = true
+
+[tool.pytest.ini_options]
+addopts = "--cov=./ --cov-report=xml"
+
+[tool.coverage.run]
+source = ["pure_protobuf"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "except ImportError",
+    "if TYPE_CHECKING:",
+    "pragma: no cover",
+    "raise AssertionError",
+    "raise NotImplementedError",
+]
+
+[tool.black]
+line-length = 120
+target-version = ["py39", "py310", "py311", "py312", "py313", "py314"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    "A",
+    "ANN",
+    "B",
+    "C4",
+    "COM",
+    "D",
+    "E",
+    "F",
+    "I",
+    "N",
+    "PIE",
+    "PT",
+    "PTH",
+    "RET",
+    "SIM",
+    "T20",
+    "TRY",
+    "UP",
+    "W",
+    "YTT",
+]
+unfixable = ["B"]
+ignore = [
+    "ANN101",
+    "ANN102",
+    "ANN401",
+    "D100",
+    "D101",  # TODO
+    "D102",  # TODO
+    "D103",
+    "D104",
+    "D107",
+    "D202",
+    "D203",
+    "D205",
+    "D212",  # alternative of D213
+    "D406",
+    "D407",
+    "D413",
+    "E501",  # prevents black from running
+    "PT001",
+    "PT011",
+    "PT013",
+    "RET505",
+    "TRY003",
+    "UP007",  # 3.10
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["D101", "D102", "D106", "D205"]
+
+[tool.ruff.lint.flake8-quotes]
+docstring-quotes = "double"

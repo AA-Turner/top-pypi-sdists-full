@@ -1,0 +1,242 @@
+Metadata-Version: 2.4
+Name: sealights_python_agent
+Version: 2.10.17
+Summary: Tricentis Sealights Python Agent - Quality Intelligence and Code Coverage
+Home-page: https://www.tricentis.com/products/sealights
+Author: Tricentis Sealights
+Author-email: support@sealights.io
+Maintainer: Tricentis Sealights
+Maintainer-email: support@sealights.io
+License: Other/Proprietary License
+Project-URL: Documentation, https://docs.sealights.io/knowledgebase
+Project-URL: Support, https://support.tricentis.com/
+Keywords: sealights tricentis python agent coverage testing quality intelligence
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Software Development :: Build Tools
+Classifier: License :: Other/Proprietary License
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10, <4
+Description-Content-Type: text/x-rst
+License-File: LICENSE.txt
+Requires-Dist: colorama==0.4.6
+Requires-Dist: pytz==2022.6
+Requires-Dist: six==1.16.0
+Requires-Dist: tzlocal==4.2
+Requires-Dist: pytz-deprecation-shim==0.1.0.post0
+Requires-Dist: tzdata==2022.1; platform_system == "Windows"
+Requires-Dist: cryptography>=48.0.1
+Requires-Dist: cffi>=2.0.0
+Requires-Dist: pycparser==2.21
+Requires-Dist: GitPython>=3.1.52
+Requires-Dist: gitdb==4.0.9
+Requires-Dist: smmap==5.0.0
+Requires-Dist: unittest_xml_reporting==3.1.0
+Requires-Dist: urllib3>=2.7.0
+Requires-Dist: requests>=2.33.0
+Requires-Dist: idna>=3.15
+Requires-Dist: certifi>=2025.8.3
+Provides-Extra: dev
+Requires-Dist: check-manifest; extra == "dev"
+Provides-Extra: test
+Requires-Dist: coverage; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+======================================
+Tricentis Sealights Python Agent
+======================================
+
+The **sealights-python-agent** integrates your Python applications with the
+`Tricentis Sealights <https://www.tricentis.com/products/sealights>`_ Quality
+Intelligence Platform. It provides real-time code coverage analysis, test
+optimization, and quality analytics for your CI/CD pipelines.
+
+With this agent you can:
+
+* **Scan builds** -- map your source code so Sealights can track changes
+  across builds and branches.
+* **Collect code coverage** -- capture per-test method-level coverage during
+  test execution.
+* **Optimize testing** -- leverage Sealights Test Impact Analysis to run only
+  the tests affected by recent code changes, reducing CI cycle time.
+
+
+**************
+Compatibility
+**************
+
+* Python 3.10, 3.11, 3.12, 3.13, 3.14
+* Test frameworks: **pytest**, **unittest**, **unittest2**, **Behave**, **Robot Framework**, **nose** (on Python 3.11 and earlier)
+
+
+************
+Installation
+************
+
+.. code-block:: bash
+
+    pip install sealights-python-agent
+
+
+***********
+Quick Start
+***********
+
+.. code-block:: bash
+
+    # 1. Scan your build
+    sl-python scan --tokenfile sltoken.txt --buildsessionidfile buildSessionId \
+        --workspacepath .
+
+    # 2. Start a test session
+    sl-python start --tokenfile sltoken.txt --buildsessionidfile buildSessionId \
+        --teststage "Unit Tests"
+
+    # 3. Run your tests with coverage
+    sl-python pytest --teststage "Unit Tests" <your test args...>
+
+    # 4. End the test session
+    sl-python end --tokenfile sltoken.txt --buildsessionidfile buildSessionId
+
+
+*************
+Documentation
+*************
+
+For complete setup guides, configuration options, and advanced usage, see the
+official Tricentis Sealights documentation:
+
+    https://docs.sealights.io/knowledgebase
+
+
+*******
+Support
+*******
+
+For questions, issues, or feature requests, please contact Tricentis Support:
+
+    https://support.tricentis.com/
+
+
+*******
+License
+*******
+
+This package is distributed under a proprietary license.
+See ``LICENSE.txt`` for details.
+
+
+Release Notes
+=============
+
+
+2.10.17 (2026-07-29)
+--------------------
+* Fixed a rare out-of-memory crash during build scanning when the agent is injected via a container-wide ``PYTHONPATH``; dependency collection now runs in-process instead of shelling out to ``pip``
+
+2.10.15 (2026-07-20)
+--------------------
+* Added support for chaining additional Lambda wrappers in the serverless layer
+* Improved agent-start event to report working directory and ``SL_*`` environment context (tokens redacted)
+* Dropped support for Python 3.9; supported versions are now 3.10 - 3.14
+* Upgraded ``urllib3`` and ``cryptography`` to address security vulnerabilities
+
+2.10.1 (2026-04-27)
+--------------------
+* Improved coverage reliability at end of test execution
+
+2.10.0 (2026-04-20)
+--------------------
+* Added support for Python 3.14
+
+2.9.0 (2026-04-16)
+--------------------
+* Upgraded ``requests`` library to address security vulnerability
+* Improved Behave test framework integration
+
+2.8.0 (2026-03-30)
+--------------------
+* Added CLI command aliases for improved usability
+* Standardized command-line parameter naming
+
+2.7.18 (2026-03-11)
+--------------------
+* Added ``testProjectId`` support for Robot Framework SLListener
+
+2.7.17 (2026-03-04)
+--------------------
+* Improved stability of background polling during test execution
+
+2.7.16 (2026-03-03)
+--------------------
+* Improved coverage collection for short-lived test runs
+
+2.7.15 (2026-03-03)
+--------------------
+* Added HTTP retry mechanism with configurable error handling (``SL_FAIL_ON_ERROR``)
+* Improved data flushing for unit testing workflows
+
+2.7.13 (2026-03-02)
+--------------------
+* Improved build session ID and lab ID handling
+
+2.7.12 (2026-02-13)
+--------------------
+* Improved ``SL_LAB_ID`` environment variable compatibility
+
+2.7.11 (2026-02-04)
+--------------------
+* Added include/exclude rules reporting in agent start event
+* Added ``.slignore`` file support for excluding files from scanning
+* Synchronized console messages with latest platform updates
+
+2.7.10 (2026-01-28)
+--------------------
+* Improved configuration initialization and settings management
+
+2.7.9 (2026-01-15)
+--------------------
+* Upgraded ``urllib3`` to version 2.6.3 for improved security and stability
+
+2.7.8 (2026-01-13)
+--------------------
+* Upgraded ``urllib3`` to version 2.6.2 with enhanced HTTP handling
+
+2.7.7 (2025-12-29)
+--------------------
+* Improved configuration management and feature initialization
+* Enhanced error handling and console messaging
+
+2.7.6 (2025-12-24)
+--------------------
+* Improved MD5 hashing compatibility
+* Improved test project ID handling
+
+2.7.5 (2025-10-28)
+--------------------
+* Improved lab ID handling from CLI parameters
+* Improved test project ID support
+
+2.7.1 (2025-10-09)
+--------------------
+* Added Robot Framework lab ID support
+* Revendored internal dependencies to latest versions

@@ -1,0 +1,237 @@
+from datetime import datetime
+from typing import Any, Literal, cast
+
+from pydantic import Field, TypeAdapter, field_validator, model_validator
+
+from polymarket.models.base import BaseModel
+from polymarket.models.clob._validators import (
+    EpochMsOrIsoTimestamp,
+    _DecimalFromNumberOrString,  # pyright: ignore[reportPrivateUsage]
+)
+from polymarket.models.gamma.comment import (
+    Comment,
+    CommentMedia,
+    CommentProfile,
+    Reaction,
+)
+from polymarket.models.gamma.common import parse_optional_datetime
+
+_WIRE_TO_API_TOPIC: dict[str, str] = {
+    "comments": "comments",
+    "crypto_prices": "prices.crypto.binance",
+    "crypto_prices_chainlink": "prices.crypto.chainlink",
+    "equity_prices": "prices.equity.pyth",
+}
+
+_API_TO_WIRE_TOPIC: dict[str, str] = {v: k for k, v in _WIRE_TO_API_TOPIC.items()}
+
+
+def wire_topic_to_api(wire: str) -> str | None:
+    return _WIRE_TO_API_TOPIC.get(wire)
+
+
+def api_topic_to_wire(api: str) -> str:
+    return _API_TO_WIRE_TOPIC[api]
+
+
+class CommentRemovedPayload(BaseModel):
+    id: str
+    body: str | None = None
+    parent_entity_type: Literal["Event", "Market"] | None = Field(
+        default=None, validation_alias="parentEntityType"
+    )
+    parent_entity_id: int | None = Field(default=None, validation_alias="parentEntityID")
+    parent_comment_id: str | None = Field(default=None, validation_alias="parentCommentID")
+    user_address: str | None = Field(default=None, validation_alias="userAddress")
+    reply_address: str | None = Field(default=None, validation_alias="replyAddress")
+    created_at: datetime | None = Field(default=None, validation_alias="createdAt")
+    updated_at: datetime | None = Field(default=None, validation_alias="updatedAt")
+    media: tuple[CommentMedia, ...] | None = None
+    profile: CommentProfile | None = None
+    reactions: tuple[Reaction, ...] | None = None
+    report_count: int | None = Field(default=None, validation_alias="reportCount")
+    reaction_count: int | None = Field(default=None, validation_alias="reactionCount")
+    trade_asset: str | None = Field(default=None, validation_alias="tradeAsset")
+
+    @field_validator("created_at", "updated_at", mode="before")
+    @classmethod
+    def _parse_datetime(cls, value: object) -> datetime | None:
+        return parse_optional_datetime(value)
+
+
+class CommentCreatedEvent(BaseModel):
+    topic: Literal["comments"] = "comments"
+    type: Literal["comment_created"]
+    timestamp: EpochMsOrIsoTimestamp
+    payload: Comment
+
+
+class CommentRemovedEvent(BaseModel):
+    topic: Literal["comments"] = "comments"
+    type: Literal["comment_removed"]
+    timestamp: EpochMsOrIsoTimestamp
+    payload: CommentRemovedPayload
+
+
+class ReactionCreatedEvent(BaseModel):
+    topic: Literal["comments"] = "comments"
+    type: Literal["reaction_created"]
+    timestamp: EpochMsOrIsoTimestamp
+    payload: Reaction
+
+
+class ReactionRemovedEvent(BaseModel):
+    topic: Literal["comments"] = "comments"
+    type: Literal["reaction_removed"]
+    timestamp: EpochMsOrIsoTimestamp
+    payload: Reaction
+
+
+CommentsEvent = (
+    CommentCreatedEvent | CommentRemovedEvent | ReactionCreatedEvent | ReactionRemovedEvent
+)
+
+
+class PriceUpdatePayload(BaseModel):
+    symbol: str
+    timestamp: int
+    value: _DecimalFromNumberOrString
+
+
+class CryptoPricesBinanceEvent(BaseModel):
+    topic: Literal["prices.crypto.binance"] = "prices.crypto.binance"
+    type: Literal["update"]
+    timestamp: EpochMsOrIsoTimestamp
+    payload: PriceUpdatePayload
+
+
+class CryptoPricesChainlinkEvent(BaseModel):
+    topic: Literal["prices.crypto.chainlink"] = "prices.crypto.chainlink"
+    type: Literal["update"]
+    timestamp: EpochMsOrIsoTimestamp
+    payload: PriceUpdatePayload
+
+
+CryptoPricesEvent = CryptoPricesBinanceEvent | CryptoPricesChainlinkEvent
+
+
+class EquityPriceUpdatePayload(BaseModel):
+    symbol: str
+    value: _DecimalFromNumberOrString
+    timestamp: int
+    received_at: int | None = None
+    is_carried_forward: bool | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _prefer_full_accuracy_value(cls, value: object) -> object:
+        if not isinstance(value, dict):
+            return value
+        data = dict(cast(dict[str, Any], value))
+        full = data.pop("full_accuracy_value", None)
+        if full is not None:
+            data["value"] = full
+        return data
+
+
+class EquityPriceSnapshotEntry(BaseModel):
+    timestamp: int
+    value: _DecimalFromNumberOrString
+
+
+class EquityPriceSubscribePayload(BaseModel):
+    symbol: str
+    data: tuple[EquityPriceSnapshotEntry, ...]
+
+
+class EquityPricesUpdateEvent(BaseModel):
+    topic: Literal["prices.equity.pyth"] = "prices.equity.pyth"
+    type: Literal["update"]
+    timestamp: EpochMsOrIsoTimestamp
+    payload: EquityPriceUpdatePayload
+
+
+class EquityPricesSubscribeEvent(BaseModel):
+    topic: Literal["prices.equity.pyth"] = "prices.equity.pyth"
+    type: Literal["subscribe"]
+    timestamp: EpochMsOrIsoTimestamp
+    payload: EquityPriceSubscribePayload
+
+
+EquityPricesEvent = EquityPricesUpdateEvent | EquityPricesSubscribeEvent
+
+
+RtdsEvent = (
+    CommentsEvent
+    | CryptoPricesBinanceEvent
+    | CryptoPricesChainlinkEvent
+    | EquityPricesUpdateEvent
+    | EquityPricesSubscribeEvent
+)
+
+
+_RTDS_VARIANTS: dict[tuple[str, str], type[BaseModel]] = {
+    ("comments", "comment_created"): CommentCreatedEvent,
+    ("comments", "comment_removed"): CommentRemovedEvent,
+    ("comments", "reaction_created"): ReactionCreatedEvent,
+    ("comments", "reaction_removed"): ReactionRemovedEvent,
+    ("prices.crypto.binance", "update"): CryptoPricesBinanceEvent,
+    ("prices.crypto.chainlink", "update"): CryptoPricesChainlinkEvent,
+    ("prices.equity.pyth", "update"): EquityPricesUpdateEvent,
+    ("prices.equity.pyth", "subscribe"): EquityPricesSubscribeEvent,
+}
+
+_TYPE_ADAPTERS: dict[tuple[str, str], TypeAdapter[Any]] = {
+    key: TypeAdapter(model) for key, model in _RTDS_VARIANTS.items()
+}
+
+
+def parse_rtds_event(raw: object) -> RtdsEvent:
+    if not isinstance(raw, dict):
+        msg = f"expected dict, got {type(raw).__name__}"
+        raise ValueError(msg)
+    wire = cast(dict[str, Any], raw)
+    topic_raw = wire.get("topic")
+    type_raw = wire.get("type")
+    if not isinstance(topic_raw, str) or not isinstance(type_raw, str):
+        msg = "RTDS event missing topic/type"
+        raise ValueError(msg)
+    api_topic = wire_topic_to_api(topic_raw)
+    if api_topic is None:
+        msg = f"unknown RTDS wire topic: {topic_raw!r}"
+        raise ValueError(msg)
+    key = (api_topic, type_raw)
+    adapter = _TYPE_ADAPTERS.get(key)
+    if adapter is None:
+        msg = f"unknown RTDS event: topic={api_topic!r}, type={type_raw!r}"
+        raise ValueError(msg)
+    normalized = {**wire, "topic": api_topic}
+    return cast(RtdsEvent, adapter.validate_python(normalized))
+
+
+__all__ = [
+    "Comment",
+    "CommentCreatedEvent",
+    "CommentMedia",
+    "CommentProfile",
+    "CommentRemovedEvent",
+    "CommentRemovedPayload",
+    "CommentsEvent",
+    "CryptoPricesBinanceEvent",
+    "CryptoPricesChainlinkEvent",
+    "CryptoPricesEvent",
+    "EquityPriceSnapshotEntry",
+    "EquityPriceSubscribePayload",
+    "EquityPriceUpdatePayload",
+    "EquityPricesEvent",
+    "EquityPricesSubscribeEvent",
+    "EquityPricesUpdateEvent",
+    "PriceUpdatePayload",
+    "Reaction",
+    "ReactionCreatedEvent",
+    "ReactionRemovedEvent",
+    "RtdsEvent",
+    "api_topic_to_wire",
+    "parse_rtds_event",
+    "wire_topic_to_api",
+]

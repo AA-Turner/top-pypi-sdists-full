@@ -50,11 +50,13 @@ def test_level_filter_logic():
         "Harvest Year": [2015, 2016, 2017],
         "ndvi": [0.4, 0.5, 0.6],
     })
-    # record non-numeric categorical levels seen at fit
+    # record non-numeric categorical levels seen at fit. is_string_dtype
+    # catches pandas<3 object AND pandas>=3 str (mirrors the guard fix —
+    # `dtype == object` misses string columns under pandas 3).
     levels = {}
     for c in X_train.columns:
         s = X_train[c].astype(str)
-        if X_train[c].dtype == object and not is_numeric(s):
+        if pd.api.types.is_string_dtype(X_train[c]) and not is_numeric(s):
             levels[c] = set(s.unique())
     assert "Region" in levels          # string categorical tracked
     assert "Harvest Year" not in levels  # numeric year NOT tracked

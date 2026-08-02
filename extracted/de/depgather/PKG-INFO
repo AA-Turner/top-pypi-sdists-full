@@ -1,0 +1,159 @@
+Metadata-Version: 2.4
+Name: depgather
+Version: 0.5.0
+Summary: Get a list of deps given a pyproject.toml, uv.lock, requirements.txt etc
+Project-URL: Homepage, https://github.com/FHPythonUtils/DepGather
+Project-URL: Repository, https://github.com/FHPythonUtils/DepGather
+Project-URL: Documentation, https://github.com/FHPythonUtils/DepGather/blob/master/README.md
+Author: FredHappyface
+License-Expression: MIT
+License-File: LICENSE.md
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Education
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Topic :: Security
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: Utilities
+Requires-Python: >=3.12
+Requires-Dist: loguru>=0.7.3
+Requires-Dist: pydantic>=2.13.4
+Requires-Dist: requirements-parser>=0.13.0
+Requires-Dist: tomli>=2.2.1
+Provides-Extra: pip
+Requires-Dist: pip>=26.0.1; extra == 'pip'
+Provides-Extra: uv
+Requires-Dist: uv>=0.6.8; extra == 'uv'
+Description-Content-Type: text/markdown
+
+[![GitHub top language](https://img.shields.io/github/languages/top/FHPythonUtils/DepGather.svg?style=for-the-badge&cacheSeconds=28800)](../../)
+[![Issues](https://img.shields.io/github/issues/FHPythonUtils/DepGather.svg?style=for-the-badge&cacheSeconds=28800)](../../issues)
+[![License](https://img.shields.io/github/license/FHPythonUtils/DepGather.svg?style=for-the-badge&cacheSeconds=28800)](/LICENSE.md)
+[![Commit activity](https://img.shields.io/github/commit-activity/m/FHPythonUtils/DepGather.svg?style=for-the-badge&cacheSeconds=28800)](../../commits/master)
+[![Last commit](https://img.shields.io/github/last-commit/FHPythonUtils/DepGather.svg?style=for-the-badge&cacheSeconds=28800)](../../commits/master)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/depgather.svg?style=for-the-badge&cacheSeconds=28800)](https://pypistats.org/packages/depgather)
+[![PyPI Total Downloads](https://img.shields.io/badge/dynamic/json?style=for-the-badge&label=total%20downloads&query=%24.total_downloads&url=https%3A%2F%2Fapi%2Epepy%2Etech%2Fapi%2Fv2%2Fprojects%2Fdepgather)](https://pepy.tech/project/depgather)
+[![PyPI Version](https://img.shields.io/pypi/v/depgather.svg?style=for-the-badge&cacheSeconds=28800)](https://pypi.org/project/depgather)
+
+<!-- omit in toc -->
+# DepGather
+
+<img src="readme-assets/icons/name.png" alt="Project Icon" width="750">
+
+Get a list of deps given a pyproject.toml, uv.lock, requirements.txt etc
+
+<!-- omit in toc -->
+## Table of Contents
+
+- [Documentation](#documentation)
+- [Install With PIP](#install-with-pip)
+- [Language information](#language-information)
+- [Working with the repo](#working-with-the-repo)
+- [Community Files](#community-files)
+	- [Licence](#licence)
+	- [Changelog](#changelog)
+	- [Code of Conduct](#code-of-conduct)
+	- [Contribut](#contribut)
+	- [Security](#security)
+	- [Support](#support)
+
+## Documentation
+
+<!--
+- [Tutorials](/documentation/tutorials) take you by the hand through a series of steps to get
+  started us the software. Start here if you’re new.
+-->
+- The [Technical Reference](/documentation/reference) documents APIs and other aspects of the
+  machinery. This documentation describes how to use the classes and functions at a lower level
+  and assume that you have a good high-level understand of the software.
+<!--
+- The [Help](/documentation/help) guide provides a start point and outlines common issues that you
+  may have.
+-->
+
+## Install With PIP
+
+```python
+pip install depgather
+```
+
+Head to <https://pypi.org/project/depgather/> for more info
+
+## Language information
+
+Using python 3.12, to 3.14
+
+## Working with the repo
+
+Clone, the repo with
+
+```bash
+git clone https://github.com/FHPythonUtils/DepGather
+```
+
+Format
+
+```sh
+uv run ruff format
+```
+
+Linting
+
+```sh
+uv run ruff check
+uv run python3 -m basedpyright -p .
+```
+
+Testing
+
+```sh
+uv run python3 -m pytest
+```
+
+Alternatively use `tox` to run tests over a range of python versions
+
+```sh
+tox
+```
+
+## Community Files
+
+### Licence
+
+MIT License
+Copyright (c) FredHappyface
+(See the [LICENSE](/LICENSE.md) for more information.)
+
+### Changelog
+
+See the [Changelog](/CHANGELOG.md) for more information.
+
+### Code of Conduct
+
+Online communities include people from many backgrounds. The *Project*
+contributors are committed to provid a friendly, safe and welcoming
+environment for all. Please see the
+[Code of Conduct](https://github.com/FHPythonUtils/.github/blob/master/CODE_OF_CONDUCT.md)
+ for more information.
+
+### Contribut
+
+Contributions are welcome, please see the
+[Contributing Guidelines](https://github.com/FHPythonUtils/.github/blob/master/CONTRIBUTING.md)
+for more information.
+
+### Security
+
+Thank you for improving the security of the project, please see the
+[Security Policy](https://github.com/FHPythonUtils/.github/blob/master/SECURITY.md)
+for more information.
+
+### Support
+
+Thank you for us this project, I hope it is of use to you. Please be aware that
+those involved with the project often do so for fun along with other commitments
+(such as work, family, etc). Please see the
+[Support Policy](https://github.com/FHPythonUtils/.github/blob/master/SUPPORT.md)
+for more information.

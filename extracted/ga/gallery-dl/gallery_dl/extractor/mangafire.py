@@ -66,10 +66,15 @@ class MangafireBase():
         }
 
     def request_api(self, endpoint, params=None):
+        if params is None:
+            endpoint = f"{endpoint}?vrf={self.utils('vrf').generate(endpoint)}"
+        else:
+            endpoint = f"{endpoint}?{text.build_query(params)}"
+            endpoint = f"{endpoint}&vrf={self.utils('vrf').generate(endpoint)}"
         return self.request_json(f"{self.root}/api{endpoint}", headers={
             "Accept": "application/json",
             "X-Requested-With": "XMLHttpRequest",
-        }, params=params)
+        })
 
 
 class MangafireChapterExtractor(MangafireBase, ChapterExtractor):
@@ -119,12 +124,14 @@ class MangafireMangaExtractor(MangafireBase, MangaExtractor):
         base = f"{self.root}{manga['url']}/chapter/"
 
         endpoint = f"/titles/{manga_id}/chapters"
+        # for VRF generation,
+        # query parameters MUST be in lexicographical order
         params = {
             "language": self.config("lang") or "en",
-            "sort" : "number",
+            "limit": "200",
             "order": "desc",
             "page" : 1,
-            "limit": "200",
+            "sort" : "number",
         }
 
         results = []

@@ -1,0 +1,380 @@
+"""Multi-segment waveform composition, file writers, and a NATS sink.
+
+This is the Python face of the C ``wfmgen`` composer subsystem — the same
+engine behind the ``wfmgen`` CLI, exposed here as classes. A
+:class:`Composer` strings :class:`Segment` specs (tone / noise / PN / BPSK /
+QPSK, each with its own on-time and trailing gap) into one stream, optionally
+looping (``repeat``) or running forever (``continuous``). :class:`Writer`
+serialises samples to the same file types as the CLI (raw interleaved I/Q,
+CSV, BLUE type-1000, SigMF), and :class:`StreamSink` publishes them over
+NATS. The composer's resolved spec round-trips through JSON
+(:meth:`Composer.to_json` / :meth:`Composer.from_json`), so a capture is
+fully reproducible.
+
+The samples come back as ``complex64`` arrays; pair :class:`Writer` with
+:class:`doppler.wfm.Reader` to round-trip a file.
+
+The ``Synth`` / ``Segment`` / ``Timeline`` / ``Composer`` ergonomic types
+are the **jm-generated** CPython types in ``doppler.wfm.wfm_compose`` (the
+composer lives entirely in the ``.so``; ``jm`` owns the binding). They are
+**re-exported verbatim** below — there is no Python wrapper layer: standalone
+sample generation
+(:meth:`Synth.steps`), the ``pattern`` / ``f_start`` input sugar, the flat
+single-source :class:`Segment` view, :meth:`Composer.stream`, and the resolved
+:meth:`Composer.to_dict` are all generated. The file type writers/readers
+(:class:`Writer` / :class:`Reader` / :class:`StreamSink`), the sample clock,
+and :func:`write_blue_header` are likewise generated extension types/functions
+re-exported here; the :class:`Plan` wrapper (with its save/restore factories)
+is the only hand-written glue left in this module.
+
+Examples
+--------
+>>> from doppler.wfm.compose import Composer, Segment
+>>> spec = [
+...     Segment("pn", num_samples=127, pn_length=7),
+...     Segment("tone", freq=1e5, num_samples=256, off_samples=64),
+... ]
+>>> x = Composer(spec).compose()
+>>> x.dtype, len(x)  # 127 (pn) + 256 (tone) + 64 (gap)
+(dtype('complex64'), 447)
+"""
+
+from __future__ import annotations
+
+import json as _json
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import os
+    from collections.abc import Iterator, Sequence
+
+    import numpy as np
+    from numpy.typing import NDArray
+
+# The transport surface is now the generated kind="handle" types — re-export
+# them through compose so `doppler.wfm.compose.Writer` (etc.) stays the import
+# path. (Realtime pacing now lives in C as Composer.stream(realtime=fs); the
+# hand-written paced() helper is retired.)
+from .sample_clock import SampleClock  # noqa: F401  (re-export)
+
+# The composer OO surface IS the generated .so type — re-export it verbatim, no
+# Python wrapper. Synth/Segment/Timeline/Composer carry standalone generation,
+# the pattern/f_start aliases, the flat Segment view, stream() and to_dict().
+from .wfm_compose import (  # noqa: F401  (re-export)
+    Composer,
+    Segment,
+    Synth,
+    Timeline,
+    bits,
+    bpsk,
+    chirp,
+    noise,
+    pn,
+    qpsk,
+    tone,
+)
+from .wfm_plan import (  # generated handle + restore factories; wrapped
+    Plan as _Plan,
+)
+from .wfm_plan import (
+    PlanFromBlob as _PlanFromBlob,
+)
+from .wfm_plan import (
+    PlanFromFile as _PlanFromFile,
+)
+from .wfm_reader import Reader  # noqa: F401  (re-export)
+from .wfm_sink import StreamSink  # noqa: F401  (re-export)
+from .wfm_writer import Writer  # noqa: F401  (re-export)
+
+# write_blue_header is now a generated wfm_writer module function (path + enum
+# args + check_return, jm gh-353/gh-363) — doppler.wfm.write_blue_header comes
+# from the wfm_writer extension now, not a hand binding here. sigmf_meta is the
+# generated Composer.to_sigmf() method.
+
+
+# rrc_taps / dsss_spread are now generated `variable_output` module functions
+# (doppler.wfm.rrc_taps / .dsss_spread, over
+# native/src/wfm/{rrc_taps,dsss_spread}.c).
+
+
+# ── Plan: "prepare once, materialize many" stimulus engine ──────────────────
+
+
+def _spec_json(scene: Composer | str | bytes) -> str:
+    """Coerce a scene to its spec-JSON string (the wfm_plan ctor argument).
+
+    Accepts a :class:`Composer` (or anything with a ``to_json()``, e.g. a
+    :class:`Timeline`) or an already-serialized JSON ``str``/``bytes`` — so
+    ``Plan(composer)`` and ``Plan(open(f).read())`` both work.
+    """
+    if isinstance(scene, (str, bytes)):
+        return scene.decode() if isinstance(scene, bytes) else scene
+    # A Composer (the common case) or any object exposing to_json (e.g. a
+    # Timeline) serializes itself; reject anything else with a clear message.
+    if not isinstance(scene, Composer) and not hasattr(scene, "to_json"):
+        raise TypeError(
+            f"cannot prepare a Plan from {type(scene).__name__}; "
+            "pass a Composer or a spec JSON string"
+        )
+    return scene.to_json()
+
+
+class Plan:
+    """A prepared scene that re-materializes parameter variations cheaply.
+
+    A composed scene is a sequence of segments, each a linear form
+    ``Σ gainₖ·signalₖ + noise``; the expensive DSP (spreading, pulse shaping,
+    the LO) lives entirely in the *signal* terms, which do not change when you
+    sweep a level, a phase, the SNR, or the noise seed — nor across a
+    segment's ``repeats`` instances (only the AWGN, and any ranged gap
+    length, vary per instance). :class:`Plan` renders each segment's signal
+    once (bit-identically to a full compose), caches it, and then serves
+    every variation as a cheap re-weighted sum plus a regenerated noise
+    synth per instance — so a BER/Pd curve or a Monte-Carlo campaign that
+    re-runs one scene hundreds of times pays the DSP cost *once*.
+
+    Construct it from anything :func:`_spec_json` accepts — most often a
+    :class:`Composer` (or call :func:`prepare`). The baseline ``render()`` (no
+    overrides) is **bit-for-bit identical** to ``Composer(scene).compose()``.
+
+    Parameters
+    ----------
+    scene : Composer or str or bytes
+        The scene to prepare — a :class:`Composer` (or any object with a
+        ``to_json()``) or a spec JSON string.
+
+    Notes
+    -----
+    Any number of finite segments (no ``continuous``/``repeat`` scene — that
+    has no fixed capacity); each segment may declare ``repeats`` and ranged
+    ``off_samples``/``delay_samples`` (redrawn per instance, deterministic
+    from the Plan's seed). A lone *bundled* noisy source (one source
+    carrying its own SNR) is supported: its AWGN is reconstructed via a
+    per-instance noise synth rather than an external multiply. Still out of
+    scope, and raising ``ValueError`` at construction: a ranged on-time
+    (``num_samples`` — it would invalidate the fixed-length signal cache) or
+    any ranged per-source field (``freq``/``snr``/``level``/``f_end`` —
+    redrawing one would invalidate its cached render). The overridable axes
+    are per-source ``gains`` (dBFS levels), ``phases`` (radians), ``enable``
+    (drop a source), the global ``snr`` (the noise floor), and the
+    Monte-Carlo ``seed`` (also redraws any ranged gap length) — applied
+    uniformly across every segment/instance that carries noise. Frequency
+    (Doppler) and multipath delay are planned follow-ups.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from doppler.wfm.compose import Composer, Segment, qpsk, tone, prepare
+    >>> scene = Composer(
+    ...     Segment.sum(
+    ...         qpsk(snr=12.0, seed=7, sps=8, pn_length=7),
+    ...         tone(freq=1e5, seed=3, sps=8),
+    ...         fs=1e6,
+    ...         num_samples=4096,
+    ...     )
+    ... )
+    >>> plan = prepare(scene)
+    >>> len(plan), plan.n_sources
+    (4096, 2)
+    >>> # baseline reproduces a full compose exactly
+    >>> np.array_equal(plan.render(), scene.compose())
+    True
+    >>> # sweep SNR with no re-synthesis; each point is a cheap re-weight
+    >>> curve = {s: plan.at(s) for s in (0.0, 3.0, 6.0, 9.0)}
+    >>> {s: v.shape for s, v in curve.items()}  # doctest: +ELLIPSIS
+    {0.0: (4096,), 3.0: (4096,), 6.0: (4096,), 9.0: (4096,)}
+    """
+
+    __slots__ = ("_h",)
+
+    def __init__(self, scene: Composer | str | bytes) -> None:
+        try:
+            self._h = _Plan(_spec_json(scene))
+        except RuntimeError as exc:
+            # The generated ctor returns NULL → RuntimeError for an
+            # unparseable or out-of-scope spec; ValueError is the honest sign.
+            raise ValueError(
+                "scene cannot be prepared as a Plan: expected finite "
+                "segments (no continuous/repeat scene) with a ranged "
+                "on-time or a ranged per-source field (freq/snr/level/"
+                "f_end) -- ranged off_samples/delay_samples and repeats "
+                "are supported, as is a lone bundled noisy source"
+            ) from exc
+
+    def render(
+        self,
+        *,
+        gains: Sequence[float] | None = None,
+        phases: Sequence[float] | None = None,
+        enable: Sequence[bool] | None = None,
+        snr: float | None = None,
+        seed: int | None = None,
+    ) -> NDArray[np.complex64]:
+        """Materialize the scene with per-axis overrides applied.
+
+        Every argument is optional; omit them all for the baseline (identical
+        to ``Composer(scene).compose()``). ``gains``/``phases``/``enable`` are
+        per signal source (length :attr:`n_sources`, in scene order).
+
+        Parameters
+        ----------
+        gains : sequence of float, optional
+            Absolute source levels in dBFS (``0`` = unit power). Replaces each
+            source's resolved level; does not move the noise floor.
+        phases : sequence of float, optional
+            Per-source phase rotations in radians (``0`` = identity).
+        enable : sequence of bool, optional
+            ``False`` drops a source (an exact ``gain=0`` term).
+        snr : float, optional
+            Global SNR in dB — moves only the noise floor (its convention is
+            the anchor source's ``snr_mode``).
+        seed : int, optional
+            Noise seed for this realization (defaults to the scene's, i.e. the
+            value that reproduces a full compose).
+
+        Returns
+        -------
+        numpy.ndarray
+            ``complex64`` samples, length :func:`len`.
+        """
+        ov: dict[str, object] = {}
+        if gains is not None:
+            ov["gains"] = [float(x) for x in gains]
+        if phases is not None:
+            ov["phases"] = [float(x) for x in phases]
+        if enable is not None:
+            ov["enable"] = [bool(x) for x in enable]
+        if snr is not None:
+            ov["snr"] = float(snr)
+        if seed is not None:
+            ov["seed"] = int(seed)
+        return self._h.render(_json.dumps(ov) if ov else "{}")
+
+    def at(self, snr: float, seed: int | None = None) -> NDArray[np.complex64]:
+        """Scalar fast path: render at one ``(snr, seed)`` (no JSON parse).
+
+        The hot loop of an SNR sweep or Monte-Carlo run. ``seed`` defaults to
+        :attr:`anchor_seed` (which reproduces a full compose at the scene's
+        base SNR).
+        """
+        return self._h.at(
+            float(snr), self.anchor_seed if seed is None else int(seed)
+        )
+
+    def sweep(
+        self, snrs: Sequence[float], *, seed: int | None = None
+    ) -> Iterator[tuple[float, NDArray[np.complex64]]]:
+        """Yield ``(snr, samples)`` across an SNR list at a fixed noise seed.
+
+        A held seed isolates the SNR axis (same noise realization, only the
+        floor moves) — the natural stimulus for a Pd/BER-vs-SNR curve.
+        """
+        for s in snrs:
+            yield s, self.at(s, seed)
+
+    def monte_carlo(
+        self, snr: float, n: int, *, seed0: int = 0
+    ) -> Iterator[NDArray[np.complex64]]:
+        """Yield ``n`` independent noise realizations at a fixed SNR.
+
+        Seeds run ``seed0 … seed0 + n − 1``; the signal is identical across
+        draws, only the noise differs.
+        """
+        for i in range(n):
+            yield self.at(snr, seed0 + i)
+
+    @property
+    def n_sources(self) -> int:
+        """Number of cached signal sources (excludes the noise floor)."""
+        return self._h.n_sources()
+
+    @property
+    def anchor_seed(self) -> int:
+        """The noise seed that reproduces a full compose at the base SNR."""
+        return self._h.anchor_seed()
+
+    def __len__(self) -> int:
+        return self._h.length()
+
+    def __enter__(self) -> Plan:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self._h.close()
+
+    def save(self) -> bytes:
+        """Serialize this prepared Plan to a bytes blob.
+
+        The blob embeds the scene spec, a build-time fingerprint of the DSP
+        source, and the cached per-source signal buffers, so
+        :func:`PlanFromBlob` reconstructs an equivalent Plan without re-running
+        ``prepare()``'s DSP. A fingerprint mismatch (the library was rebuilt
+        with different DSP) rebuilds transparently — never silently wrong. All
+        of it happens in C.
+        """
+        return self._h.save()
+
+    def dump(self, path: str | os.PathLike[str]) -> None:
+        """Save this prepared Plan to ``path`` (the file form of :meth:`save`).
+
+        Raises :class:`OSError` if the file cannot be written. The write is
+        done in C, not via Python I/O.
+        """
+        self._h.dump(path)
+
+    @classmethod
+    def _wrap(cls, handle: _Plan) -> Plan:
+        """Wrap an already-built generated handle (from a restore factory)."""
+        plan = cls.__new__(cls)
+        plan._h = handle
+        return plan
+
+
+def PlanFromBlob(blob: bytes) -> Plan:  # noqa: N802 (class-like factory name)
+    """Reconstruct a :class:`Plan` from a blob produced by :meth:`Plan.save`.
+
+    Skips ``prepare()``'s DSP by copying the cached signal buffers out of the
+    blob (rebuilding transparently on a DSP-fingerprint mismatch). The blob's
+    reconstruction is entirely in C.
+
+    Examples
+    --------
+    >>> from doppler.wfm import prepare, Composer, Segment, qpsk, PlanFromBlob
+    >>> scene = Composer(Segment.sum(qpsk(seed=1), fs=1e6, num_samples=1024))
+    >>> plan = prepare(scene)
+    >>> restored = PlanFromBlob(plan.save())
+    >>> import numpy as np
+    >>> np.array_equal(restored.render(), plan.render())
+    True
+    """
+    return Plan._wrap(_PlanFromBlob(blob))
+
+
+def PlanFromFile(path: str | os.PathLike[str]) -> Plan:  # noqa: N802
+    """Reconstruct a :class:`Plan` from a file produced by :meth:`Plan.dump`.
+
+    The file form of :func:`PlanFromBlob`; the read is done in C.
+    """
+    return Plan._wrap(_PlanFromFile(path))
+
+
+def prepare(scene: Composer | str | bytes) -> Plan:
+    """Prepare a scene into a reusable :class:`Plan` (``Plan(scene)``).
+
+    Examples
+    --------
+    >>> from doppler.wfm.compose import Composer, Segment, qpsk, tone, prepare
+    >>> plan = prepare(
+    ...     Composer(
+    ...         Segment.sum(
+    ...             qpsk(snr=10.0, seed=1),
+    ...             tone(freq=2e5, seed=2),
+    ...             fs=1e6,
+    ...             num_samples=1024,
+    ...         )
+    ...     )
+    ... )
+    >>> len(plan)
+    1024
+    """
+    return Plan(scene)

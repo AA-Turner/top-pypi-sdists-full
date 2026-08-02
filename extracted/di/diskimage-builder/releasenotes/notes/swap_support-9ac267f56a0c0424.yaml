@@ -1,4 +1,0 @@
----
-features:
-  - |
-    Adds swap as a valid "filesystem" for block devices

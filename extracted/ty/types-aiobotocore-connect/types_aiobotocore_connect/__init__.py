@@ -85,6 +85,7 @@ Usage::
         SearchQuickConnectsPaginator,
         SearchResourceTagsPaginator,
         SearchRoutingProfilesPaginator,
+        SearchRulesPaginator,
         SearchSecurityProfilesPaginator,
         SearchTestCasesPaginator,
         SearchUserHierarchyGroupsPaginator,
@@ -174,6 +175,7 @@ Usage::
     search_quick_connects_paginator: SearchQuickConnectsPaginator = client.get_paginator("search_quick_connects")
     search_resource_tags_paginator: SearchResourceTagsPaginator = client.get_paginator("search_resource_tags")
     search_routing_profiles_paginator: SearchRoutingProfilesPaginator = client.get_paginator("search_routing_profiles")
+    search_rules_paginator: SearchRulesPaginator = client.get_paginator("search_rules")
     search_security_profiles_paginator: SearchSecurityProfilesPaginator = client.get_paginator("search_security_profiles")
     search_test_cases_paginator: SearchTestCasesPaginator = client.get_paginator("search_test_cases")
     search_user_hierarchy_groups_paginator: SearchUserHierarchyGroupsPaginator = client.get_paginator("search_user_hierarchy_groups")
@@ -260,6 +262,7 @@ from .paginator import (
     SearchQuickConnectsPaginator,
     SearchResourceTagsPaginator,
     SearchRoutingProfilesPaginator,
+    SearchRulesPaginator,
     SearchSecurityProfilesPaginator,
     SearchTestCasesPaginator,
     SearchUserHierarchyGroupsPaginator,
@@ -349,6 +352,7 @@ __all__ = (
     "SearchQuickConnectsPaginator",
     "SearchResourceTagsPaginator",
     "SearchRoutingProfilesPaginator",
+    "SearchRulesPaginator",
     "SearchSecurityProfilesPaginator",
     "SearchTestCasesPaginator",
     "SearchUserHierarchyGroupsPaginator",

@@ -1,5 +1,0 @@
----
-fixes:
-  - |
-    Fixed the ubuntu-minimal target to also run autoremove at the end of an
-    image build.

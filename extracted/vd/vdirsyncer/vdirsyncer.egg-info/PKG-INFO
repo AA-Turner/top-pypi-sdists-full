@@ -1,0 +1,114 @@
+Metadata-Version: 2.4
+Name: vdirsyncer
+Version: 0.20.0
+Summary: Synchronize calendars and contacts
+Author-email: Markus Unterwaditzer <markus@unterwaditzer.net>
+License-Expression: BSD-3-Clause
+Keywords: todo,task,icalendar,cli
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Operating System :: POSIX
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Internet
+Classifier: Topic :: Office/Business :: Scheduling
+Classifier: Topic :: Utilities
+Requires-Python: >=3.8
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+Requires-Dist: click<9.0,>=5.0
+Requires-Dist: click-log<0.5.0,>=0.3.0
+Requires-Dist: requests>=2.20.0
+Requires-Dist: aiohttp<4.0.0,>=3.8.2
+Requires-Dist: aiostream<0.8.0,>=0.4.3
+Provides-Extra: google
+Requires-Dist: aiohttp-oauthlib; extra == "google"
+Provides-Extra: test
+Requires-Dist: hypothesis<7.0.0,>=6.72.0; extra == "test"
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: pytest-httpserver; extra == "test"
+Requires-Dist: trustme; extra == "test"
+Requires-Dist: pytest-asyncio; extra == "test"
+Requires-Dist: aioresponses; extra == "test"
+Dynamic: license-file
+
+==========
+vdirsyncer
+==========
+
+.. image:: https://builds.sr.ht/~whynothugo/vdirsyncer.svg
+  :target: https://builds.sr.ht/~whynothugo/vdirsyncer
+  :alt: CI status
+
+.. image:: https://codecov.io/github/pimutils/vdirsyncer/coverage.svg?branch=main
+  :target: https://codecov.io/github/pimutils/vdirsyncer?branch=main
+  :alt: Codecov coverage report
+
+.. image:: https://readthedocs.org/projects/vdirsyncer/badge/
+  :target: https://vdirsyncer.rtfd.org/
+  :alt: documentation
+
+.. image:: https://img.shields.io/pypi/v/vdirsyncer.svg
+  :target: https://pypi.python.org/pypi/vdirsyncer
+  :alt: version on pypi
+
+.. image:: https://img.shields.io/badge/deb-packagecloud.io-844fec.svg
+  :target: https://packagecloud.io/pimutils/vdirsyncer
+  :alt: Debian packages
+
+.. image:: https://img.shields.io/pypi/l/vdirsyncer.svg
+  :target: https://github.com/pimutils/vdirsyncer/blob/main/LICENCE
+  :alt: licence: BSD
+
+- `Documentation <https://vdirsyncer.pimutils.org/en/stable/>`_
+- `Source code <https://github.com/pimutils/vdirsyncer>`_
+
+Vdirsyncer is a command-line tool for synchronizing calendars and addressbooks
+between a variety of servers and the local filesystem. The most popular usecase
+is to synchronize a server with a local folder and use a set of other programs_
+to change the local events and contacts. Vdirsyncer can then synchronize those
+changes back to the server.
+
+However, vdirsyncer is not limited to synchronizing between clients and
+servers. It can also be used to synchronize calendars and/or addressbooks
+between two servers directly.
+
+It aims to be for calendars and contacts what `OfflineIMAP
+<https://www.offlineimap.org/>`_ is for emails.
+
+.. _programs: https://vdirsyncer.pimutils.org/en/latest/tutorials/
+
+Links of interest
+=================
+
+* Check out `the tutorial
+  <https://vdirsyncer.pimutils.org/en/stable/tutorial.html>`_ for basic
+  usage.
+
+* `Contact information
+  <https://vdirsyncer.pimutils.org/en/stable/contact.html>`_
+
+* `How to contribute to this project
+  <https://vdirsyncer.pimutils.org/en/stable/contributing.html>`_
+
+* `Donations <https://vdirsyncer.pimutils.org/en/stable/donations.html>`_
+
+Dockerized
+=================
+If you want to run `Vdirsyncer <https://vdirsyncer.pimutils.org/en/stable/>`_ in a
+Docker environment, you can check out the following GitHub Repository:
+
+* `Vdirsyncer DOCKERIZED <https://github.com/Bleala/Vdirsyncer-DOCKERIZED>`_
+
+Note: This is an unofficial Docker build, it is maintained by `Bleala <https://github.com/Bleala>`_.
+
+License
+=======
+
+Licensed under the 3-clause BSD license, see ``LICENSE``.

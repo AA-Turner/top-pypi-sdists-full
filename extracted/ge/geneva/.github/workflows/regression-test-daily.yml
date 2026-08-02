@@ -1,0 +1,65 @@
+name: E2E Tests - Daily Regression Test
+on:
+  workflow_dispatch:
+    inputs:
+      num_videos:
+        description: "Number of videos to process"
+        required: false
+        default: "1"
+      batch_size:
+        description: "Batch size for backfill operations"
+        required: false
+        default: "4"
+  # Daily at midnight Pacific (7am UTC)
+  schedule:
+    - cron: "0 7 * * *"
+
+jobs:
+  load-test:
+    name: regression-test-daily-${{ matrix.csp }}
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.ref == 'refs/heads/main')
+    strategy:
+      fail-fast: false
+      matrix:
+        csp: [gcp, aws, azure]
+    uses: ./.github/workflows/e2e-shared.yml
+    with:
+      csp: ${{ matrix.csp }}
+      e2e_dir: e2e/openvid
+      checkout_ref: ${{ github.event_name == 'schedule' && 'main' || github.ref }}
+      timeout_minutes: 180
+      # Pass user inputs into GITHUB_ENV to avoid expression injection in
+      # shell scripts.  run_command / post_command / cleanup_command are
+      # interpolated into shell by the reusable workflow, so we must not
+      # embed ${{ inputs.* }} directly in them.
+      prepare_command: |
+        test -f e2e/openvid/upload_manifests.py
+        TEST_FILES="test_drivers/test_video_embeddings_ray254.py test_drivers/test_mv_creation.py test_drivers/test_mv_refresh.py test_drivers/test_mv_blobs.py"
+        echo "TEST_FILES=$TEST_FILES" >> $GITHUB_ENV
+        echo "Selected tests: $TEST_FILES"
+        echo "OPENVID_NUM_VIDEOS=${{ inputs.num_videos || '1' }}" >> $GITHUB_ENV
+        echo "OPENVID_BATCH_SIZE=${{ inputs.batch_size || '4' }}" >> $GITHUB_ENV
+        echo "OPENVID_RUN_DATE=$(date -u +%Y%m%d)" >> $GITHUB_ENV
+      run_command: |
+        make -f e2e/Makefile test-e2e-openvid-${{ matrix.csp }} \
+          SLUG=$SLUG \
+          NUM_VIDEOS=$OPENVID_NUM_VIDEOS \
+          BATCH_SIZE=$OPENVID_BATCH_SIZE \
+          TEST_FILES="${TEST_FILES}" \
+          COV_OPTS="--cov=../../src/geneva --cov-append -v -s --cov-report=term-missing --durations=0 --junit-xml=/tmp/junit-results.xml" \
+          2>&1 | tee /tmp/test-output.log
+      post_command: |
+        python e2e/openvid/collect_metrics.py \
+          --junit-xml /tmp/junit-results.xml \
+          --test-log /tmp/test-output.log \
+          --csp ${{ matrix.csp }} \
+          --num-videos "$OPENVID_NUM_VIDEOS" \
+          --output-dir /tmp/test-results
+      # Artifact name includes date for easier lookup alongside run_number
+      # for uniqueness.  OPENVID_RUN_DATE is set in prepare_command.
+      artifact_name: regression-test-daily-${{ matrix.csp }}-${{ github.run_number }}
+      cleanup_command: |
+        [ -n "$SLUG" ] || { echo "SLUG is empty, skipping cleanup"; exit 0; }
+        echo "Deleting rayclusters matching slug $SLUG"
+        kubectl get raycluster -n lancedb --no-headers -o custom-columns=":metadata.name" | grep "$SLUG" | xargs -r -n1 kubectl delete raycluster -n lancedb --wait
+    secrets: inherit

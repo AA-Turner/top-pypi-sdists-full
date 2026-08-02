@@ -434,60 +434,224 @@ pub(super) fn detect_jsx_and_mdx_comments(
     (jsx_expression_ranges, mdx_comment_ranges)
 }
 
-/// Detect `<div markdown>`-style HTML blocks and populate `in_mkdocs_html_markdown`.
+/// Lines whose leading indentation is container structure rather than code.
 ///
-/// The `markdown` attribute on a block-level HTML element is Python-Markdown's
-/// `md_in_html` opt-in and is also used by MkDocs Material for constructs like
-/// grid cards. Because the attribute is an unambiguous author-supplied signal,
-/// we recognize these blocks regardless of the configured flavor — otherwise
-/// `rumdl fmt` can silently mangle a page (e.g. rewriting 4-space-indented
-/// continuation content as indented code blocks) when the flavor isn't set.
+/// MkDocs admonitions, content tabs and `<div markdown>` blocks hold their
+/// content at a 4-space indent, which pulldown-cmark reads as an indented code
+/// block. Every flag here is derived from the line text alone, so the answer is
+/// available before the parse it corrects, and there is one computation behind
+/// both the `LineInfo` flags and the byte ranges built from them.
+pub(super) struct ContainerLines {
+    /// Line is an admonition marker or admonition content.
+    in_admonition: Vec<bool>,
+    /// Line is a content-tab marker or tab content.
+    in_content_tab: Vec<bool>,
+    /// Line is inside a `<div markdown>`-style block.
+    in_html_markdown: Vec<bool>,
+    /// Line sits in a container where the indentation is structure, so a parse
+    /// that read it as an indented code block was wrong. False for a fenced
+    /// code block nested in the container, where the content really is code.
+    is_container_body: Vec<bool>,
+    /// Line opens a container, so it owns the body below it rather than
+    /// belonging to the body above it.
+    opens_container: Vec<bool>,
+    /// Indent of the container that owns this line, or `usize::MAX` for a line
+    /// no container owns. An opener owns itself.
+    owner_indent: Vec<usize>,
+}
+
+impl ContainerLines {
+    /// Whether the line's indentation is container structure rather than code.
+    pub(super) fn is_container_body(&self, line_index: usize) -> bool {
+        self.is_container_body.get(line_index).copied().unwrap_or(false)
+    }
+
+    /// Whether the line belongs to a container, nested fenced code included.
+    fn in_container(&self, line_index: usize) -> bool {
+        self.in_admonition[line_index] || self.in_content_tab[line_index] || self.in_html_markdown[line_index]
+    }
+
+    /// The parts of a parser-reported code block that really are code.
+    ///
+    /// A block laid over container content is the parser reading structure as
+    /// code. What is left are the lines the container does not hold as
+    /// structure, which is exactly the fenced code blocks written inside it.
+    pub(super) fn code_line_spans_in(&self, line_range: std::ops::Range<usize>) -> Vec<std::ops::Range<usize>> {
+        let start = line_range.start.min(self.is_container_body.len());
+        let end = line_range.end.min(self.is_container_body.len());
+        let mut spans = Vec::new();
+        let mut span_start = None;
+        for i in start..end {
+            if self.is_container_body[i] {
+                if let Some(from) = span_start.take() {
+                    spans.push(from..i);
+                }
+            } else if span_start.is_none() {
+                span_start = Some(i);
+            }
+        }
+        if let Some(from) = span_start {
+            spans.push(from..end);
+        }
+        spans
+    }
+
+    /// The last line of the container body that starts at `line_index`.
+    ///
+    /// The body ends where the container ends, or where a sibling container
+    /// takes over: an opener at the same or smaller indent belongs to the
+    /// container above this one, not to its body. A fenced code block inside
+    /// the container does not end it, matching what an unclosed comment hides
+    /// at the top level.
+    pub(super) fn body_end_line(&self, line_index: usize) -> Option<usize> {
+        if !self.is_container_body(line_index) {
+            return None;
+        }
+        let owner = self.owner_indent[line_index];
+        let mut end = line_index;
+        for i in line_index + 1..self.is_container_body.len() {
+            if !self.in_container(i) {
+                break;
+            }
+            if self.opens_container[i] && self.owner_indent[i] <= owner {
+                break;
+            }
+            end = i;
+        }
+        Some(end)
+    }
+}
+
+/// Compute the container structure that the line text alone determines.
 ///
-/// Also clears `in_code_block` for content inside such blocks (outside fenced
-/// code), mirroring the admonition/tab handling: pulldown-cmark otherwise
-/// treats the 4-space-indented continuation content as indented code.
-pub(super) fn detect_markdown_html_blocks(content_lines: &[&str], lines: &mut [LineInfo]) {
+/// Admonitions and content tabs are MkDocs syntax and are only recognized in
+/// that flavor. A `markdown` attribute on a block-level HTML element is an
+/// unambiguous author-supplied signal, so those blocks are recognized in every
+/// flavor - otherwise `rumdl fmt` silently mangles a page whose flavor is unset.
+pub(super) fn detect_container_lines(content_lines: &[&str], flavor: MarkdownFlavor) -> ContainerLines {
+    use crate::utils::mkdocs_admonitions;
+    use crate::utils::mkdocs_tabs;
+
+    let count = content_lines.len();
+    let mut containers = ContainerLines {
+        in_admonition: vec![false; count],
+        in_content_tab: vec![false; count],
+        in_html_markdown: vec![false; count],
+        is_container_body: vec![false; count],
+        opens_container: vec![false; count],
+        owner_indent: vec![usize::MAX; count],
+    };
+
     let mut markdown_html_tracker = MarkdownHtmlTracker::new();
     let mut html_markdown_fence = FencedCodeTracker::new();
 
+    // Admonition context
+    let mut in_admonition = false;
+    let mut admonition_indent = 0;
+    let mut admonition_fence = FencedCodeTracker::new();
+
+    // Content tab context
+    let mut in_tab = false;
+    let mut tab_indent = 0;
+    let mut tab_fence = FencedCodeTracker::new();
+
     for (i, line) in content_lines.iter().enumerate() {
-        if i >= lines.len() {
-            break;
-        }
-
-        lines[i].in_mkdocs_html_markdown = markdown_html_tracker.process_line(line);
-
-        if lines[i].in_mkdocs_html_markdown {
+        containers.in_html_markdown[i] = markdown_html_tracker.process_line(line);
+        if containers.in_html_markdown[i] {
             let in_fenced = html_markdown_fence.process_line(line.trim());
             if !in_fenced {
-                lines[i].in_code_block = false;
+                containers.is_container_body[i] = true;
             }
         } else {
             html_markdown_fence.reset();
+        }
+
+        if flavor != MarkdownFlavor::MkDocs {
+            continue;
+        }
+
+        // Admonition markers are recognized even on lines the parser called code:
+        // a nested admonition sits at a 4-space indent, which is exactly what the
+        // parser mistook for an indented code block.
+        if mkdocs_admonitions::is_admonition_start(line) {
+            in_admonition = true;
+            admonition_indent = mkdocs_admonitions::get_admonition_indent(line).unwrap_or(0);
+            containers.in_admonition[i] = true;
+            containers.is_container_body[i] = true;
+            containers.opens_container[i] = true;
+            containers.owner_indent[i] = admonition_indent;
+            admonition_fence.reset();
+        } else if in_admonition {
+            let in_fenced = admonition_fence.process_line(line.trim());
+
+            if line.trim().is_empty() || mkdocs_admonitions::is_admonition_content(line, admonition_indent) {
+                containers.in_admonition[i] = true;
+                containers.owner_indent[i] = admonition_indent;
+                if !in_fenced {
+                    containers.is_container_body[i] = true;
+                }
+            } else {
+                in_admonition = false;
+                admonition_fence.reset();
+            }
+        }
+
+        if mkdocs_tabs::is_tab_marker(line) {
+            in_tab = true;
+            tab_indent = mkdocs_tabs::get_tab_indent(line).unwrap_or(0);
+            containers.in_content_tab[i] = true;
+            containers.opens_container[i] = true;
+            containers.owner_indent[i] = containers.owner_indent[i].min(tab_indent);
+            tab_fence.reset();
+        } else if in_tab {
+            let in_fenced = tab_fence.process_line(line.trim());
+
+            if line.trim().is_empty() || mkdocs_tabs::is_tab_content(line, tab_indent) {
+                containers.in_content_tab[i] = true;
+                containers.owner_indent[i] = containers.owner_indent[i].min(tab_indent);
+                if !in_fenced {
+                    containers.is_container_body[i] = true;
+                }
+            } else {
+                in_tab = false;
+                tab_fence.reset();
+            }
+        }
+    }
+
+    containers
+}
+
+/// Apply `<div markdown>`-style HTML block structure to the line info.
+///
+/// The `markdown` attribute on a block-level HTML element is Python-Markdown's
+/// `md_in_html` opt-in and is also used by MkDocs Material for constructs like
+/// grid cards.
+///
+/// Also clears `in_code_block` for container content, which the parser read as
+/// an indented code block.
+pub(super) fn detect_markdown_html_blocks(lines: &mut [LineInfo], containers: &ContainerLines) {
+    for (i, line) in lines.iter_mut().enumerate() {
+        line.in_mkdocs_html_markdown = containers.in_html_markdown.get(i).copied().unwrap_or(false);
+        if containers.is_container_body(i) {
+            line.in_code_block = false;
         }
     }
 }
 
 /// Detect MkDocs-specific constructs (admonitions, tabs, definition lists)
 /// and populate the corresponding fields in LineInfo
-pub(super) fn detect_mkdocs_line_info(content_lines: &[&str], lines: &mut [LineInfo], flavor: MarkdownFlavor) {
+pub(super) fn detect_mkdocs_line_info(
+    content_lines: &[&str],
+    lines: &mut [LineInfo],
+    flavor: MarkdownFlavor,
+    containers: &ContainerLines,
+) {
     if flavor != MarkdownFlavor::MkDocs {
         return;
     }
 
-    use crate::utils::mkdocs_admonitions;
     use crate::utils::mkdocs_definition_lists;
-    use crate::utils::mkdocs_tabs;
-
-    // Track admonition context
-    let mut in_admonition = false;
-    let mut admonition_indent = 0;
-    let mut admonition_fence = FencedCodeTracker::new();
-
-    // Track tab context
-    let mut in_tab = false;
-    let mut tab_indent = 0;
-    let mut tab_fence = FencedCodeTracker::new();
 
     // Track definition list context
     let mut in_definition = false;
@@ -497,61 +661,10 @@ pub(super) fn detect_mkdocs_line_info(content_lines: &[&str], lines: &mut [LineI
             break;
         }
 
-        // Check for admonition markers first - even on lines marked as code blocks
-        // Pulldown-cmark marks 4-space indented content as indented code blocks,
-        // but in MkDocs this is admonition/tab content, not code.
-        if mkdocs_admonitions::is_admonition_start(line) {
-            in_admonition = true;
-            admonition_indent = mkdocs_admonitions::get_admonition_indent(line).unwrap_or(0);
-            lines[i].in_admonition = true;
-            // Nested admonition start lines (indented 4+ spaces) are misclassified as
-            // indented code blocks by pulldown-cmark. Clear that flag.
+        lines[i].in_admonition = containers.in_admonition[i];
+        lines[i].in_content_tab = containers.in_content_tab[i];
+        if containers.is_container_body(i) {
             lines[i].in_code_block = false;
-            admonition_fence.reset();
-        } else if in_admonition {
-            let in_fenced = admonition_fence.process_line(line.trim());
-
-            // Check if still in admonition content
-            if line.trim().is_empty() || mkdocs_admonitions::is_admonition_content(line, admonition_indent) {
-                lines[i].in_admonition = true;
-                if !in_fenced {
-                    lines[i].in_code_block = false;
-                }
-            } else {
-                in_admonition = false;
-                admonition_fence.reset();
-                if mkdocs_admonitions::is_admonition_start(line) {
-                    in_admonition = true;
-                    admonition_indent = mkdocs_admonitions::get_admonition_indent(line).unwrap_or(0);
-                    lines[i].in_admonition = true;
-                }
-            }
-        }
-
-        // Check for tab markers - also before the code block skip
-        // Tab content also uses 4-space indentation which pulldown-cmark treats as code
-        if mkdocs_tabs::is_tab_marker(line) {
-            in_tab = true;
-            tab_indent = mkdocs_tabs::get_tab_indent(line).unwrap_or(0);
-            lines[i].in_content_tab = true;
-            tab_fence.reset();
-        } else if in_tab {
-            let in_fenced = tab_fence.process_line(line.trim());
-
-            if line.trim().is_empty() || mkdocs_tabs::is_tab_content(line, tab_indent) {
-                lines[i].in_content_tab = true;
-                if !in_fenced {
-                    lines[i].in_code_block = false;
-                }
-            } else {
-                in_tab = false;
-                tab_fence.reset();
-                if mkdocs_tabs::is_tab_marker(line) {
-                    in_tab = true;
-                    tab_indent = mkdocs_tabs::get_tab_indent(line).unwrap_or(0);
-                    lines[i].in_content_tab = true;
-                }
-            }
         }
 
         // Skip remaining detection for lines in actual code blocks
@@ -605,17 +718,19 @@ pub(super) fn detect_obsidian_comments(
     lines: &mut [LineInfo],
     flavor: MarkdownFlavor,
     code_span_ranges: &[(usize, usize)],
-) -> Vec<(usize, usize)> {
+    html_comment_ranges: &[crate::utils::skip_context::ByteRange],
+    body_start: usize,
+) -> ObsidianCommentScan {
     // Only process Obsidian files
     if flavor != MarkdownFlavor::Obsidian {
-        return Vec::new();
+        return ObsidianCommentScan::default();
     }
 
     // Compute Obsidian comment ranges (byte ranges)
-    let comment_ranges = compute_obsidian_comment_ranges(content, lines, code_span_ranges);
+    let scan = compute_obsidian_comment_ranges(content, lines, code_span_ranges, html_comment_ranges, body_start);
 
     // Mark lines that fall within comment ranges
-    for range in &comment_ranges {
+    for range in &scan.ranges {
         for line in lines.iter_mut() {
             // Skip lines in code blocks or HTML comments - they take precedence
             if line.in_code_block || line.in_html_comment {
@@ -640,30 +755,51 @@ pub(super) fn detect_obsidian_comments(
         }
     }
 
-    comment_ranges
+    scan
+}
+
+/// What a scan of the content found for Obsidian `%%` comments.
+#[derive(Debug, Default)]
+pub(super) struct ObsidianCommentScan {
+    /// Byte ranges of the comments, in document order. An unclosed comment
+    /// still gets a range, running to the end of the document, because that is
+    /// how much of the document Obsidian hides.
+    pub ranges: Vec<(usize, usize)>,
+    /// Byte offset of a `%%` that no second `%%` closes. A closed comment can
+    /// also end at the end of the document, so the fact is carried out of the
+    /// scan rather than inferred from the last range.
+    pub unterminated: Option<usize>,
 }
 
 /// Compute byte ranges for all Obsidian comments in the content
 ///
 /// Returns a vector of (start, end) byte offset pairs for each comment.
 /// Comments do not nest - first `%%` after an opening `%%` closes it.
+///
+/// The scan starts at `body_start`, the byte offset of the first line after
+/// front matter. A `%%` in a YAML value is part of the value, and treating it
+/// as a delimiter would hide the rest of the note from every rule.
 pub(super) fn compute_obsidian_comment_ranges(
     content: &str,
     lines: &[LineInfo],
     code_span_ranges: &[(usize, usize)],
-) -> Vec<(usize, usize)> {
+    html_comment_ranges: &[crate::utils::skip_context::ByteRange],
+    body_start: usize,
+) -> ObsidianCommentScan {
     let mut ranges = Vec::new();
 
     // Quick check - if no %% at all, no comments
     if !content.contains("%%") {
-        return ranges;
+        return ObsidianCommentScan::default();
     }
 
-    // Build skip ranges for code blocks, HTML comments, and inline code spans
-    // to avoid detecting %% inside those regions.
+    // Build skip ranges for code blocks and inline code spans to avoid
+    // detecting %% inside those regions. HTML comments are handled during the
+    // walk instead, because whether one hides a `%%` depends on where the walk
+    // has got to.
     let mut skip_ranges: Vec<(usize, usize)> = Vec::new();
     for line in lines {
-        if line.in_code_block || line.in_html_comment {
+        if line.in_code_block {
             skip_ranges.push((line.byte_offset, line.byte_offset + line.byte_len));
         }
     }
@@ -687,13 +823,14 @@ pub(super) fn compute_obsidian_comment_ranges(
 
     let content_bytes = content.as_bytes();
     let len = content.len();
-    let mut i = 0;
+    let mut i = body_start.min(len);
     let mut in_comment = false;
     let mut comment_start = 0;
     let mut skip_idx = 0;
+    let mut html_idx = 0;
 
     while i < len.saturating_sub(1) {
-        // Fast-skip any ranges we should ignore (code blocks, HTML comments, code spans)
+        // Fast-skip any ranges we should ignore (code blocks, code spans)
         if skip_idx < skip_ranges.len() {
             let (skip_start, skip_end) = skip_ranges[skip_idx];
             if i >= skip_end {
@@ -702,6 +839,23 @@ pub(super) fn compute_obsidian_comment_ranges(
             }
             if i >= skip_start {
                 i = skip_end;
+                continue;
+            }
+        }
+
+        // The two comment syntaxes hide each other, so the one that opens first
+        // wins: a `%%` an HTML comment covers is comment text, and so is a
+        // `<!--` between a pair of `%%`. Honouring HTML comments only outside an
+        // Obsidian one settles that both ways round, which matters because the
+        // HTML scan runs first and cannot yet know what the `%%` delimiters hide.
+        if !in_comment && html_idx < html_comment_ranges.len() {
+            let html_range = html_comment_ranges[html_idx];
+            if i >= html_range.end {
+                html_idx += 1;
+                continue;
+            }
+            if i >= html_range.start {
+                i = html_range.end;
                 continue;
             }
         }
@@ -730,7 +884,10 @@ pub(super) fn compute_obsidian_comment_ranges(
         ranges.push((comment_start, len));
     }
 
-    ranges
+    ObsidianCommentScan {
+        ranges,
+        unterminated: in_comment.then_some(comment_start),
+    }
 }
 
 /// Detect kramdown-specific constructs (extension blocks, IALs, ALDs)

@@ -1,0 +1,220 @@
+from collections import defaultdict
+from functools import lru_cache
+from numbers import Number
+from typing import Any
+
+from sympy import Symbol
+
+from accelforge.frontend.workload import Workload
+from accelforge.frontend._workload_isl._symbolic import get_stride_and_halo
+from accelforge.util._frozenset import oset, fzs
+from accelforge.frontend.mapping import (
+    Loop,
+    Mapping,
+)
+
+
+class SymbolRelations:
+    def __init__(self):
+        self.what_tiles_symbol: list[tuple[Symbol | int, Symbol | int]] = []
+        self.tile_shape_and_initial: list[tuple[Symbol | int, Symbol | int]] = []
+        self.delta_choices: list[tuple[Symbol, frozenset[int]]] = []
+        self.bounds: tuple[tuple[Symbol, int, int], ...] = ()
+        self.tiling_order_outer_to_inner: tuple[Symbol, ...] = ()
+
+    def make_bounds(self, mapping: "Mapping"):
+        all_symbols = oset(
+            s for w in self.what_tiles_symbol for s in w if isinstance(s, Symbol)
+        )
+        self.bounds = tuple((s, 1, self.get_max_size(s)) for s in all_symbols)
+        self.tiling_order_outer_to_inner = tuple(
+            n.tile_shape for n in mapping.nodes if isinstance(n, Loop)
+        )
+
+    @lru_cache(maxsize=100)
+    def is_stride(self, symbol: Symbol) -> bool:
+        """Check if `symbol` is a stride."""
+        for tile_shape, initial in self.tile_shape_and_initial:
+            if tile_shape == symbol:
+                return True
+            if initial == symbol:
+                return False
+        return True
+
+    @lru_cache(maxsize=100)
+    def is_initial_tile_shape(self, symbol: Symbol) -> bool:
+        """Check if `symbol` is a initial tile shape."""
+        for tile_shape, initial in self.tile_shape_and_initial:
+            if tile_shape == symbol:
+                return False
+            if initial == symbol:
+                return True
+        return False
+
+    @lru_cache(maxsize=100)
+    def get_tile_shape(
+        self, symbol: Symbol, none_if_fail: bool = False
+    ) -> Symbol | int:
+        """Get the stride corresponding to the initial tile shape `symbol`."""
+        found = None
+        for tile_shape, initial in self.tile_shape_and_initial:
+            if initial == symbol:
+                if found is None:
+                    found = tile_shape
+                elif found != tile_shape:
+                    raise ValueError(
+                        f"Symbol {symbol} has both {found} and {tile_shape} as initial"
+                    )
+        if found is not None or none_if_fail:
+            return found
+        raise ValueError(f"Symbol {symbol} not found as initial in {self}")
+
+    @lru_cache(maxsize=100)
+    def get_initial(self, symbol: Symbol, none_if_fail: bool = False) -> Symbol | int:
+        found = None
+        for tile_shape, initial in self.tile_shape_and_initial:
+            if tile_shape == symbol:
+                if found is None:
+                    found = initial
+                elif found != initial:
+                    raise ValueError(
+                        f"Symbol {symbol} has both {found} and {initial} as tile_shape"
+                    )
+        if found is not None or none_if_fail:
+            return found
+        raise ValueError(f"Symbol {symbol} not found as tile_shape in {self}")
+
+    def get_delta_choices(self, symbol: Symbol) -> frozenset[int]:
+        """Get the possible initial deltas for the rank variable represented by `symbol`."""
+        for initial, choices in self.delta_choices:
+            if initial == symbol:
+                return choices
+        raise ValueError(f"Symbol {symbol} not found in {self}")
+
+    @lru_cache(maxsize=100)
+    def get_inner_tiles(
+        self,
+        symbol: Symbol,
+        none_if_fail: bool = False,
+        value_if_fail: Any | None = None,
+    ) -> Symbol | int | None:
+        """Get tiles within the tile represented by `symbol`."""
+        found = None
+        for tiled_by, what_tiles in self.what_tiles_symbol:
+            if tiled_by == symbol:
+                if found is None:
+                    found = what_tiles
+                elif found != what_tiles:
+                    raise ValueError(
+                        f"Symbol {symbol} is tiled by both {found} and {what_tiles}"
+                    )
+        if found is None:
+            if value_if_fail is not None:
+                return value_if_fail
+            if none_if_fail:
+                return None
+            raise ValueError(f"Symbol {symbol} not found in {self}")
+        return found
+
+    @lru_cache(maxsize=100)
+    def get_outer_tiles(
+        self, symbol: Symbol, none_if_fail: bool = False
+    ) -> Symbol | int | None:
+        """Get the tile that contain the tile represented by `symbol`."""
+        found = None
+        for tiled_by, what_tiles in self.what_tiles_symbol:
+            if what_tiles == symbol:
+                if found is None:
+                    found = tiled_by
+                elif found != tiled_by:
+                    raise ValueError(
+                        f"Symbol {symbol} tiles both {tiled_by} and {what_tiles}"
+                    )
+        if found is not None or none_if_fail:
+            return found
+        raise ValueError(f"Symbol {symbol} not found in {self}")
+
+    @lru_cache(maxsize=100)
+    def get_max_size(self, symbol: Symbol) -> Number:
+        while not isinstance(symbol, Number):
+            symbol = self.get_outer_tiles(symbol)
+        return symbol
+
+    @staticmethod
+    def from_pmapping_and_shape(
+        pmapping: Mapping,
+        shape: dict[str, int],
+        initial_delta_choices: dict[Symbol, frozenset[int]],
+    ) -> "SymbolRelations":
+        relation = SymbolRelations()
+        last_seen_loop_per_rank_var: dict[str, Symbol | int] = dict(shape)
+        for node in pmapping.nodes:
+            if not isinstance(node, Loop):
+                continue
+            prev = last_seen_loop_per_rank_var.get(node.rank_variable, None)
+            # If we're a symbol and we've seen an outer loop with the same rank variable,
+            # then we tile that one.
+            if prev is not None:
+                relation.what_tiles_symbol.append((prev, node.tile_shape))
+            last_seen_loop_per_rank_var[node.rank_variable] = node.tile_shape
+
+            if (
+                isinstance(node.initial_tile_shape, Symbol)
+                and node.initial_tile_shape != node.tile_shape
+            ):
+                relation.tile_shape_and_initial.append(
+                    (node.tile_shape, node.initial_tile_shape)
+                )
+                relation.delta_choices.append(
+                    (
+                        node.initial_tile_shape,
+                        fzs(initial_delta_choices.get(node.rank_variable, oset([0]))),
+                    )
+                )
+
+        for r, s in last_seen_loop_per_rank_var.items():
+            if isinstance(s, Symbol):
+                relation.what_tiles_symbol.append((s, 1))
+
+        relation.make_bounds(pmapping)
+        return relation
+
+
+def get_initial_delta_choices(einsum_name: str, workload: Workload):
+    stride_and_halo = get_stride_and_halo(workload)
+    einsum = workload.einsums[einsum_name]
+
+    choices = defaultdict(lambda: oset([0]))
+    consumer_chains = []
+    stack = [[(None, einsum)]]
+    while stack:
+        cur_chain = stack.pop()
+        last_tensor, last_einsum = cur_chain[-1]
+        for tensor in last_einsum.output_tensor_names:
+            einsums_with_tensor_as_input = workload.einsums_with_tensor_as_input(tensor)
+
+            if len(einsums_with_tensor_as_input) == 0:
+                consumer_chains.append(cur_chain)
+
+            for next_einsum in einsums_with_tensor_as_input:
+                stack.append(cur_chain + [(tensor, next_einsum)])
+
+    for chain in consumer_chains:
+        for (_, producer), (tensor, consumer) in zip(
+            list(reversed(chain))[1:], reversed(chain)
+        ):
+            rank_stride_and_halo = stride_and_halo[(consumer.name, tensor)]
+            if tensor is None:
+                break  # done
+
+            for cons_rank_var in consumer.rank_variables:
+                for prod_rank_var in producer.rank_variables:
+                    prod_rank = prod_rank_var.upper()
+                    for cons_choice in choices[cons_rank_var]:
+                        key = (prod_rank, cons_rank_var)
+                        if key not in rank_stride_and_halo:
+                            continue
+                        stride, halo = rank_stride_and_halo[key]
+                        choices[prod_rank_var].add(int(cons_choice * stride + halo))
+
+    return dict(choices)

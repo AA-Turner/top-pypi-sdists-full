@@ -1,0 +1,122 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from typing import List, Optional
+from datetime import datetime
+from typing_extensions import Literal
+
+from pydantic import Field as FieldInfo
+
+from .._models import BaseModel
+
+__all__ = ["SettlementDetail", "OtherFeesDetails"]
+
+
+class OtherFeesDetails(BaseModel):
+    """The total gross amount of other fees by type."""
+
+    isa: Optional[int] = FieldInfo(alias="ISA", default=None)
+
+
+class SettlementDetail(BaseModel):
+    token: str
+    """Globally unique identifier denoting the Settlement Detail."""
+
+    account_token: Optional[str] = None
+    """
+    Globally unique identifier denoting the account that the associated transaction
+    occurred on.
+    """
+
+    card_program_token: Optional[str] = None
+    """
+    Globally unique identifier denoting the card program that the associated
+    transaction occurred on.
+    """
+
+    card_token: Optional[str] = None
+    """
+    Globally unique identifier denoting the card that the associated transaction
+    occurred on.
+    """
+
+    created: datetime
+    """Date and time when the transaction first occurred. UTC time zone."""
+
+    currency: str
+    """Three-character alphabetic ISO 4217 code."""
+
+    disputes_gross_amount: int
+    """The total gross amount of disputes settlements."""
+
+    event_tokens: List[str]
+    """
+    Array of globally unique identifiers for the financial events that comprise this
+    settlement. Use these tokens to access detailed event-level information.
+    """
+
+    institution: str
+    """
+    The most granular ID the network settles with (e.g., ICA for Mastercard, FTSRE
+    for Visa).
+    """
+
+    interchange_fee_extended_precision: int
+    """The total amount of interchange in six-digit extended precision."""
+
+    interchange_gross_amount: int
+    """The total amount of interchange."""
+
+    network: Literal["AMEX", "INTERLINK", "MAESTRO", "MASTERCARD", "UNKNOWN", "VISA"]
+    """Card network where the transaction took place."""
+
+    other_fees_details: OtherFeesDetails
+    """The total gross amount of other fees by type."""
+
+    other_fees_gross_amount: int
+    """Total amount of gross other fees outside of interchange."""
+
+    report_date: str
+    """Date of when the report was first generated."""
+
+    settlement_date: str
+    """Date of when money movement is triggered for the transaction.
+
+    One exception applies - for Mastercard dual message settlement, this is the
+    settlement advisement date, which is distinct from the date of money movement.
+    """
+
+    transaction_token: Optional[str] = None
+    """Globally unique identifier denoting the associated transaction.
+
+    For settlement records with type `CLEARING`, `FINANCIAL`, or `NON_FINANCIAL`,
+    this references a card transaction token. For settlement records with type
+    `CHARGEBACK`, `REPRESENTMENT`, `PREARBITRATION`, `ARBITRATION`, or
+    `COLLABORATION`, this references the dispute transaction token. May be null for
+    certain settlement types.
+    """
+
+    transactions_gross_amount: int
+    """
+    The total amount of settlement impacting transactions (excluding interchange,
+    fees, and disputes).
+    """
+
+    type: Literal[
+        "ADJUSTMENT",
+        "ARBITRATION",
+        "CHARGEBACK",
+        "CLEARING",
+        "COLLABORATION",
+        "FEE",
+        "FINANCIAL",
+        "NON_FINANCIAL",
+        "PREARBITRATION",
+        "REPRESENTMENT",
+    ]
+    """The type of settlement record."""
+
+    updated: datetime
+    """Date and time when the transaction first occurred. UTC time zone."""
+
+    fee_description: Optional[str] = None
+    """Network's description of a fee, only present on records with type `FEE`."""

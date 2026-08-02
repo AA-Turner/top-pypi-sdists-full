@@ -80,6 +80,7 @@ class IwaraExtractor(Extractor):
                 info["count"] = info["num"] = 1
                 info["user"] = (self.extract_user_info(video)
                                 if user is None else user)
+                info["_fallback"] = self._fallback_video(download_url)
             except Exception as exc:
                 self.status |= 1
                 self.log.traceback(exc)
@@ -89,6 +90,13 @@ class IwaraExtractor(Extractor):
 
             yield Message.Directory, "", info
             yield Message.Url, "https:" + download_url, info
+
+    def _fallback_video(self, url):
+        sub, sep, url = url.partition(".")
+        sub = sub.lstrip("//")
+        for server in ("mikoto", "hime", "himeko", "yuko"):
+            if server != sub:
+                yield f"https://{server}.{url}"
 
     def items_user(self, users, key=None):
         base = self.root + "/profile/"

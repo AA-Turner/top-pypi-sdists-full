@@ -1,0 +1,252 @@
+export const __webpack_id__="5597";export const __webpack_ids__=["5597"];export const __webpack_modules__={55124:function(o,e,t){t.d(e,{d:()=>a});const a=o=>o.stopPropagation()},89473:function(o,e,t){t.a(o,async function(o,e){try{var a=t(62826),r=t(88496),l=t(96196),i=t(77845),n=o([r]);r=(n.then?(await n)():n)[0];class c extends r.A{static get styles(){return[r.A.styles,l.AH`
+        :host {
+          --wa-form-control-padding-inline: 16px;
+          --wa-font-weight-action: var(--ha-font-weight-medium);
+          --wa-form-control-border-radius: var(
+            --ha-button-border-radius,
+            var(--ha-border-radius-pill)
+          );
+
+          --wa-form-control-height: var(
+            --ha-button-height,
+            var(--button-height, 40px)
+          );
+        }
+        .button {
+          font-size: var(--ha-font-size-m);
+          line-height: 1;
+
+          transition: background-color 0.15s ease-in-out;
+          text-wrap: wrap;
+        }
+
+        :host([size="small"]) .button {
+          --wa-form-control-height: var(
+            --ha-button-height,
+            var(--button-height, 32px)
+          );
+          font-size: var(--wa-font-size-s, var(--ha-font-size-m));
+          --wa-form-control-padding-inline: 12px;
+        }
+
+        :host([variant="brand"]) {
+          --button-color-fill-normal-active: var(
+            --ha-color-fill-primary-normal-active
+          );
+          --button-color-fill-normal-hover: var(
+            --ha-color-fill-primary-normal-hover
+          );
+          --button-color-fill-loud-active: var(
+            --ha-color-fill-primary-loud-active
+          );
+          --button-color-fill-loud-hover: var(
+            --ha-color-fill-primary-loud-hover
+          );
+        }
+
+        :host([variant="neutral"]) {
+          --button-color-fill-normal-active: var(
+            --ha-color-fill-neutral-normal-active
+          );
+          --button-color-fill-normal-hover: var(
+            --ha-color-fill-neutral-normal-hover
+          );
+          --button-color-fill-loud-active: var(
+            --ha-color-fill-neutral-loud-active
+          );
+          --button-color-fill-loud-hover: var(
+            --ha-color-fill-neutral-loud-hover
+          );
+        }
+
+        :host([variant="success"]) {
+          --button-color-fill-normal-active: var(
+            --ha-color-fill-success-normal-active
+          );
+          --button-color-fill-normal-hover: var(
+            --ha-color-fill-success-normal-hover
+          );
+          --button-color-fill-loud-active: var(
+            --ha-color-fill-success-loud-active
+          );
+          --button-color-fill-loud-hover: var(
+            --ha-color-fill-success-loud-hover
+          );
+        }
+
+        :host([variant="warning"]) {
+          --button-color-fill-normal-active: var(
+            --ha-color-fill-warning-normal-active
+          );
+          --button-color-fill-normal-hover: var(
+            --ha-color-fill-warning-normal-hover
+          );
+          --button-color-fill-loud-active: var(
+            --ha-color-fill-warning-loud-active
+          );
+          --button-color-fill-loud-hover: var(
+            --ha-color-fill-warning-loud-hover
+          );
+        }
+
+        :host([variant="danger"]) {
+          --button-color-fill-normal-active: var(
+            --ha-color-fill-danger-normal-active
+          );
+          --button-color-fill-normal-hover: var(
+            --ha-color-fill-danger-normal-hover
+          );
+          --button-color-fill-loud-active: var(
+            --ha-color-fill-danger-loud-active
+          );
+          --button-color-fill-loud-hover: var(
+            --ha-color-fill-danger-loud-hover
+          );
+        }
+
+        :host([appearance~="plain"]) .button {
+          color: var(--wa-color-on-normal);
+          background-color: transparent;
+        }
+        :host([appearance~="plain"]) .button.disabled {
+          background-color: transparent;
+          color: var(--ha-color-on-disabled-quiet);
+        }
+
+        :host([appearance~="outlined"]) .button.disabled {
+          background-color: transparent;
+          color: var(--ha-color-on-disabled-quiet);
+        }
+
+        @media (hover: hover) {
+          :host([appearance~="filled"])
+            .button:not(.disabled):not(.loading):hover {
+            background-color: var(--button-color-fill-normal-hover);
+          }
+          :host([appearance~="accent"])
+            .button:not(.disabled):not(.loading):hover {
+            background-color: var(--button-color-fill-loud-hover);
+          }
+          :host([appearance~="plain"])
+            .button:not(.disabled):not(.loading):hover {
+            color: var(--wa-color-on-normal);
+          }
+        }
+        :host([appearance~="filled"]) .button {
+          color: var(--wa-color-on-normal);
+          background-color: var(--wa-color-fill-normal);
+          border-color: transparent;
+        }
+        :host([appearance~="filled"])
+          .button:not(.disabled):not(.loading):active {
+          background-color: var(--button-color-fill-normal-active);
+        }
+        :host([appearance~="filled"]) .button.disabled {
+          background-color: var(--ha-color-fill-disabled-normal-resting);
+          color: var(--ha-color-on-disabled-normal);
+        }
+
+        :host([appearance~="accent"]) .button {
+          background-color: var(
+            --wa-color-fill-loud,
+            var(--wa-color-neutral-fill-loud)
+          );
+        }
+        :host([appearance~="accent"])
+          .button:not(.disabled):not(.loading):active {
+          background-color: var(--button-color-fill-loud-active);
+        }
+        :host([appearance~="accent"]) .button.disabled {
+          background-color: var(--ha-color-fill-disabled-loud-resting);
+          color: var(--ha-color-on-disabled-loud);
+        }
+
+        :host([loading]) {
+          pointer-events: none;
+        }
+
+        .button.disabled {
+          opacity: 1;
+        }
+
+        slot[name="start"]::slotted(*) {
+          margin-inline-end: 4px;
+        }
+        slot[name="end"]::slotted(*) {
+          margin-inline-start: 4px;
+        }
+
+        .button.has-start {
+          padding-inline-start: 8px;
+        }
+        .button.has-end {
+          padding-inline-end: 8px;
+        }
+
+        .label {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          padding: var(--ha-space-1) 0;
+        }
+      `]}constructor(...o){super(...o),this.variant="brand"}}c=(0,a.__decorate)([(0,i.EM)("ha-button")],c),e()}catch(c){e(c)}})},88422:function(o,e,t){t.a(o,async function(o,e){try{var a=t(62826),r=t(52630),l=t(96196),i=t(77845),n=o([r]);r=(n.then?(await n)():n)[0];class c extends r.A{static get styles(){return[r.A.styles,l.AH`
+        :host {
+          --wa-tooltip-background-color: var(--secondary-background-color);
+          --wa-tooltip-content-color: var(--primary-text-color);
+          --wa-tooltip-font-family: var(
+            --ha-tooltip-font-family,
+            var(--ha-font-family-body)
+          );
+          --wa-tooltip-font-size: var(
+            --ha-tooltip-font-size,
+            var(--ha-font-size-s)
+          );
+          --wa-tooltip-font-weight: var(
+            --ha-tooltip-font-weight,
+            var(--ha-font-weight-normal)
+          );
+          --wa-tooltip-line-height: var(
+            --ha-tooltip-line-height,
+            var(--ha-line-height-condensed)
+          );
+          --wa-tooltip-padding: 8px;
+          --wa-tooltip-border-radius: var(
+            --ha-tooltip-border-radius,
+            var(--ha-border-radius-sm)
+          );
+          --wa-tooltip-arrow-size: var(--ha-tooltip-arrow-size, 8px);
+          --wa-z-index-tooltip: var(--ha-tooltip-z-index, 1000);
+        }
+      `]}constructor(...o){super(...o),this.showDelay=150,this.hideDelay=150}}(0,a.__decorate)([(0,i.MZ)({attribute:"show-delay",type:Number})],c.prototype,"showDelay",void 0),(0,a.__decorate)([(0,i.MZ)({attribute:"hide-delay",type:Number})],c.prototype,"hideDelay",void 0),c=(0,a.__decorate)([(0,i.EM)("ha-tooltip")],c),e()}catch(c){e(c)}})},4848:function(o,e,t){t.d(e,{P:()=>r});var a=t(92542);const r=(o,e)=>(0,a.r)(o,"hass-notification",e)},12596:function(o,e,t){t.d(e,{A:()=>s,BP:()=>c,GP:()=>r,Pf:()=>a,RD:()=>n,Rr:()=>p,Vh:()=>d,em:()=>h,q8:()=>l,qh:()=>i,yk:()=>u});const a=o=>o.callWS({type:"insteon/config/get"}),r=o=>o.callWS({type:"insteon/config/get_modem_schema"}),l=(o,e)=>o.callWS({type:"insteon/config/update_modem_config",config:e}),i=(o,e)=>o.callWS({type:"insteon/config/device_override/add",override:e}),n=(o,e)=>o.callWS({type:"insteon/config/device_override/remove",device_address:e}),c=o=>o.callWS({type:"insteon/config/get_broken_links"}),s=o=>o.callWS({type:"insteon/config/get_unknown_devices"}),d=o=>{let e;return e="light"===o?{type:"integer",valueMin:-1,valueMax:255,name:"dim_steps",required:!0,default:22}:{type:"constant",name:"dim_steps",required:!1,default:""},[{type:"select",options:[["a","a"],["b","b"],["c","c"],["d","d"],["e","e"],["f","f"],["g","g"],["h","h"],["i","i"],["j","j"],["k","k"],["l","l"],["m","m"],["n","n"],["o","o"],["p","p"]],name:"housecode",required:!0},{type:"select",options:[["1","1"],["2","2"],["3","3"],["4","4"],["5","5"],["6","6"],["7","7"],["8","8"],["9","9"],["10","10"],["11","11"],["12","12"],["13","13"],["14","14"],["15","15"],["16","16"]],name:"unitcode",required:!0},{type:"select",options:[["binary_sensor","binary_sensor"],["switch","switch"],["light","light"]],name:"platform",required:!0},e]};function h(o){return"device"in o}const p=(o,e)=>{const t=e.slice();return t.push({type:"boolean",required:!1,name:"manual_config"}),o&&t.push({type:"string",name:"plm_manual_config",required:!0}),t},u=[{name:"address",type:"string",required:!0},{name:"cat",type:"string",required:!0},{name:"subcat",type:"string",required:!0}]},95116:function(o,e,t){t.d(e,{B5:()=>w,Bn:()=>y,FZ:()=>u,GO:()=>n,Hg:()=>i,KY:()=>r,Mx:()=>d,S9:()=>g,UH:()=>b,VG:()=>v,V_:()=>p,Xn:()=>a,bw:()=>h,cl:()=>x,g4:()=>_,lG:()=>f,o_:()=>l,qh:()=>s,w0:()=>m,x1:()=>c});const a=(o,e)=>o.callWS({type:"insteon/device/get",device_id:e}),r=(o,e)=>o.callWS({type:"insteon/aldb/get",device_address:e}),l=(o,e,t)=>o.callWS({type:"insteon/properties/get",device_address:e,show_advanced:t}),i=(o,e,t)=>o.callWS({type:"insteon/aldb/change",device_address:e,record:t}),n=(o,e,t,a)=>o.callWS({type:"insteon/properties/change",device_address:e,name:t,value:a}),c=(o,e,t)=>o.callWS({type:"insteon/aldb/create",device_address:e,record:t}),s=(o,e)=>o.callWS({type:"insteon/aldb/load",device_address:e}),d=(o,e)=>o.callWS({type:"insteon/properties/load",device_address:e}),h=(o,e)=>o.callWS({type:"insteon/aldb/write",device_address:e}),p=(o,e)=>o.callWS({type:"insteon/properties/write",device_address:e}),u=(o,e)=>o.callWS({type:"insteon/aldb/reset",device_address:e}),v=(o,e)=>o.callWS({type:"insteon/properties/reset",device_address:e}),m=(o,e)=>o.callWS({type:"insteon/aldb/add_default_links",device_address:e}),_=o=>[{name:"mode",options:[["c",o.localize("aldb.mode.controller")],["r",o.localize("aldb.mode.responder")]],required:!0,type:"select"},{name:"group",required:!0,type:"integer",valueMin:-1,valueMax:255},{name:"target",required:!0,type:"string"},{name:"data1",required:!0,type:"integer",valueMin:-1,valueMax:255},{name:"data2",required:!0,type:"integer",valueMin:-1,valueMax:255},{name:"data3",required:!0,type:"integer",valueMin:-1,valueMax:255}],b=o=>[{name:"in_use",required:!0,type:"boolean"},..._(o)],f=(o,e)=>[{name:"multiple",required:!1,type:e?"constant":"boolean"},{name:"add_x10",required:!1,type:o?"constant":"boolean"},{name:"device_address",required:!1,type:o||e?"constant":"string"}],g=o=>o.callWS({type:"insteon/device/add/cancel"}),y=(o,e,t)=>o.callWS({type:"insteon/device/remove",device_address:e,remove_all_refs:t}),w=(o,e)=>o.callWS({type:"insteon/device/add_x10",x10_device:e}),x={name:"ramp_rate",options:[["31","0.1"],["30","0.2"],["29","0.3"],["28","0.5"],["27","2"],["26","4.5"],["25","6.5"],["24","8.5"],["23","19"],["22","21.5"],["21","23.5"],["20","26"],["19","28"],["18","30"],["17","32"],["16","34"],["15","38.5"],["14","43"],["13","47"],["12","60"],["11","90"],["10","120"],["9","150"],["8","180"],["7","210"],["6","240"],["5","270"],["4","300"],["3","360"],["2","420"],["1","480"]],required:!0,type:"select"}},51465:function(o,e,t){t.a(o,async function(o,a){try{t.r(e);var r=t(62826),l=t(96196),i=t(77845),n=t(32884),c=t(95637),s=t(89473),d=t(39396),h=t(12596),p=t(95116),u=(t(91120),t(17963),o([n,s]));[n,s]=u.then?(await u)():u;class v extends l.WF{async showDialog(o){this.hass=o.hass,this.insteon=o.insteon,this._callback=o.callback,this._title=o.title,this._opened=!0}render(){if(!this._opened)return l.qy``;const o=(0,h.Vh)(this._formData?.platform);return l.qy`
+      <ha-dialog
+        open
+        @closed="${this._close}"
+        .heading=${(0,c.l)(this.hass,this._title)}
+      >
+        ${this._error?l.qy`<ha-alert alertType="error">${this._error}</ha-alert>`:""}
+        <div class="form">
+          <ha-form
+            .data=${this._haFormData()}
+            .schema=${o}
+            @value-changed=${this._valueChanged}
+            .computeLabel=${this._computeLabel(this.insteon?.localize)}
+          ></ha-form>
+        </div>
+        <ha-button @click=${this._dismiss} slot="primaryAction" appearance="plain">
+          ${this.insteon.localize("common.cancel")}
+        </ha-button>
+        <ha-button @click=${this._submit} slot="primaryAction">
+          ${this.insteon.localize("common.ok")}
+        </ha-button>
+      </ha-dialog>
+    `}_haFormData(){return{...this._formData}}_dismiss(){this._close()}_computeLabel(o){return e=>o("device.add_x10.fields."+e.name)||e.name}async _submit(){const o={...this._formData};null===o.dim_steps&&(o.dim_steps=0);try{await(0,p.B5)(this.hass,o),this._close(),await this._callback()}catch{this._error=this.insteon.localize("device.add_x10.error.duplicate_device")}}_close(){this._opened=!1,this._error=void 0,this._formData=void 0}_valueChanged(o){this._formData=o.detail.value,"light"===this._formData?.platform?this._formData.dim_steps||(this._formData.dim_steps=22):this._formData.dim_steps=0,this._formData?.dim_steps&&[0,1].includes(this._formData.dim_steps)&&(this._formData.dim_steps=1)}static get styles(){return[d.nA,l.AH`
+        table {
+          width: 100%;
+        }
+        ha-combo-box {
+          width: 20px;
+        }
+        .title {
+          width: 200px;
+        }
+      `]}constructor(...o){super(...o),this._error=void 0,this._opened=!1}}(0,r.__decorate)([(0,i.MZ)({attribute:!1})],v.prototype,"hass",void 0),(0,r.__decorate)([(0,i.MZ)({attribute:!1})],v.prototype,"insteon",void 0),(0,r.__decorate)([(0,i.MZ)({type:Boolean})],v.prototype,"isWide",void 0),(0,r.__decorate)([(0,i.MZ)({type:Boolean})],v.prototype,"narrow",void 0),(0,r.__decorate)([(0,i.wk)()],v.prototype,"_title",void 0),(0,r.__decorate)([(0,i.wk)()],v.prototype,"_callback",void 0),(0,r.__decorate)([(0,i.wk)()],v.prototype,"_error",void 0),(0,r.__decorate)([(0,i.wk)()],v.prototype,"_formData",void 0),(0,r.__decorate)([(0,i.wk)()],v.prototype,"_opened",void 0),v=(0,r.__decorate)([(0,i.EM)("dialog-device-add-x10")],v),a()}catch(v){a(v)}})}};
+//# sourceMappingURL=dialog-device-add-x10.0a4042c925519df3.js.map

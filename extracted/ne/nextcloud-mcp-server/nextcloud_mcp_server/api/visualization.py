@@ -1,0 +1,924 @@
+"""Visualization API endpoints for search and chunk context.
+
+ADR-018: Provides REST API endpoints for the Nextcloud PHP app (Astrolabe) to:
+- Execute unified search with semantic/BM25/hybrid algorithms
+- Execute vector search with PCA visualization coordinates
+- Fetch chunk context with surrounding text
+
+None of these read file content: chunk bboxes and page numbers come from the
+Qdrant payload, and Astrolabe rasterizes PDF pages in the browser from the copy
+already in Nextcloud. See tests/unit/test_api_no_whole_file_reads.py.
+
+All endpoints require OAuth bearer token authentication via UnifiedTokenVerifier.
+"""
+
+import logging
+from collections.abc import Awaitable, Callable
+from typing import Any
+
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+
+from nextcloud_mcp_server.api.management import (
+    UnsupportedSearchType,
+    _parse_float_param,
+    _parse_int_param,
+    _sanitize_error_for_client,
+    _validate_query_string,
+    select_search_algorithm,
+    validate_token_and_get_user,
+)
+from nextcloud_mcp_server.config import Settings, get_settings
+from nextcloud_mcp_server.providers import get_provider
+from nextcloud_mcp_server.search import (
+    GRANULARITY_CHUNK,
+    GRANULARITY_DOCUMENT,
+    VALID_GRANULARITIES,
+    BM25HybridSearchAlgorithm,
+    SearchAlgorithm,
+    SemanticSearchAlgorithm,
+)
+from nextcloud_mcp_server.search.access_filter import (
+    AccessibleScope,
+    list_accessible_owners,
+    list_accessible_scope,
+    normalize_path_prefixes,
+)
+from nextcloud_mcp_server.search.context import (
+    get_chunk_bbox_and_page_from_qdrant,
+    get_chunk_with_context,
+)
+from nextcloud_mcp_server.search.verification import verify_search_results
+from nextcloud_mcp_server.utils.validation import (
+    is_valid_nextcloud_doc_id,
+    parse_modified_timestamp,
+)
+from nextcloud_mcp_server.vector.oauth_sync import (
+    NotProvisionedError,
+    get_user_client_basic_auth,
+)
+from nextcloud_mcp_server.vector.visualization import compute_pca_coordinates
+
+logger = logging.getLogger(__name__)
+
+_NEXTCLOUD_HOST_NOT_CONFIGURED = "Nextcloud host not configured"
+
+
+def _unsupported_search_type_response(e: UnsupportedSearchType) -> JSONResponse:
+    """Uniform 422 for an explicit unsupported search algorithm.
+
+    Shared by both search endpoints so the ``unsupported_search_type`` payload
+    shape (error / requested / supported_search_types) can't drift between them.
+    """
+    return JSONResponse(
+        {
+            "error": "unsupported_search_type",
+            "requested": e.requested,
+            "supported_search_types": e.supported,
+        },
+        status_code=422,
+    )
+
+
+def _build_search_algorithm(
+    requested_algorithm: str | None,
+    settings: Settings,
+    *,
+    score_threshold: float,
+    fusion: str,
+) -> tuple[SearchAlgorithm, str]:
+    """Resolve + instantiate the search algorithm for a request.
+
+    Shared by both search endpoints (`/api/v1/search`, `/api/v1/vector-viz/search`)
+    so their selection logic can't drift. Raises :class:`UnsupportedSearchType`
+    for an *explicit* unsupported algorithm (the caller maps it to a 422 via
+    :func:`_unsupported_search_type_response`); an absent algorithm defaults
+    gracefully. Invalid fusion is normalized to ``"rrf"``. Returns the
+    ``(algorithm instance, resolved algorithm name)``.
+    """
+    algorithm = select_search_algorithm(requested_algorithm, settings)
+    if algorithm == "semantic":
+        return SemanticSearchAlgorithm(score_threshold=score_threshold), algorithm
+    # Both "bm25" and "hybrid" run BM25HybridSearchAlgorithm — it fuses dense
+    # semantic + sparse BM25; keyword-only documents contribute via the sparse
+    # side of the same query.
+    fusion = fusion if fusion in ("rrf", "dbsf") else "rrf"
+    return (
+        BM25HybridSearchAlgorithm(score_threshold=score_threshold, fusion=fusion),
+        algorithm,
+    )
+
+
+async def _search_with_acl(
+    request: Request,
+    user_id: str,
+    execute: Callable[[AccessibleScope | None], Awaitable[list]],
+) -> list:
+    """Resolve the caller's Nextcloud client, run ``execute(scope)``, and
+    verify-on-read — shared by the /api/v1 search endpoints.
+
+    The OAuth bearer only authenticates Astrolabe → MCP Server; MCP Server →
+    Nextcloud uses the provisioned app password. When the caller never
+    provisioned background sync there is no client to expand shares or verify
+    with, so we fall back to self-only, unverified search (the pre-ACL
+    behaviour) rather than 401 — keeping search working for users who haven't
+    opted into background indexing.
+
+    Args:
+        request: The Starlette request (carries ``app.state.oauth_context``).
+        user_id: The authenticated caller.
+        execute: Coroutine that runs the search for a given access scope
+            (``None`` ⇒ self-only).
+
+    Returns:
+        The result list (verified for provisioned callers).
+
+    Raises:
+        ValueError: If the Nextcloud host is not configured.
+    """
+    oauth_ctx = request.app.state.oauth_context
+    nextcloud_host = oauth_ctx.get("config", {}).get("nextcloud_host", "")
+    if not nextcloud_host:
+        raise ValueError(_NEXTCLOUD_HOST_NOT_CONFIGURED)
+
+    try:
+        nc_client = await get_user_client_basic_auth(user_id, nextcloud_host)
+    except NotProvisionedError:
+        logger.debug("User %s not provisioned; self-only unverified search", user_id)
+        results = await execute(None)
+    else:
+        async with nc_client:
+            # Expand to owners who shared content with the caller (same as the
+            # MCP tool path) so shared documents are searchable.
+            scope = await list_accessible_scope(nc_client.sharing, user_id)
+            results = await execute(scope)
+            # Verify-on-read (ADR-019): drop documents the caller can no longer
+            # access (e.g. a revoked share). Eviction runs inline — this
+            # Starlette route has no FastMCP lifespan task group.
+            results, _dropped = await verify_search_results(nc_client, results)
+
+    # Safe to log titles now: provisioned callers passed verify-on-read;
+    # non-provisioned ran self-only (unverified titles are never logged — see
+    # the search algorithms).
+    if results:
+        logger.debug(
+            "Top verified results: %s",
+            ", ".join(
+                f"{r.doc_type}_{r.id} (score={r.score:.3f}, title='{r.title}')"
+                for r in results[:5]
+            ),
+        )
+    return results
+
+
+async def unified_search(request: Request) -> JSONResponse:
+    """POST /api/v1/search - Search endpoint for Nextcloud Unified Search.
+
+    Optimized search endpoint for the Nextcloud Unified Search provider
+    and other PHP app integrations. Returns results with metadata needed
+    for navigation to source documents.
+
+    Request body:
+    {
+        "query": "search query",
+        "algorithm": "semantic|bm25|hybrid",  // default: hybrid
+        "limit": 20,  // max: 100
+        "offset": 0,  // pagination offset
+        "include_pca": false,  // optional PCA coordinates
+        "include_chunks": true,  // include text snippets
+        "granularity": "chunk"  // "chunk" (default) or "document": one row
+                                // per document (its best chunk), so `limit`
+                                // counts documents. "document" requires the
+                                // bm25/hybrid algorithm.
+    }
+
+    Response:
+    {
+        "results": [{
+            "id": "doc123",
+            "doc_type": "note",
+            "title": "Document Title",
+            "excerpt": "Matching text snippet...",
+            "score": 0.85,
+            "path": "/path/to/file.txt",  // for files
+            "board_id": 1,  // for deck cards
+            "card_id": 42
+        }],
+        "total_found": 150,
+        "algorithm_used": "hybrid"
+    }
+
+    Requires OAuth bearer token for user filtering.
+    """
+    settings = get_settings()
+    if not settings.vector_sync_enabled:
+        return JSONResponse(
+            {"error": "Vector sync is disabled on this server"},
+            status_code=404,
+        )
+
+    # Validate OAuth token and extract user
+    try:
+        user_id, _validated = await validate_token_and_get_user(request)
+    except Exception as e:
+        logger.warning("Unauthorized access to /api/v1/search: %s", e)
+        return JSONResponse(
+            {
+                "error": "Unauthorized",
+                "message": _sanitize_error_for_client(e, "unified_search"),
+            },
+            status_code=401,
+        )
+
+    try:
+        # Parse request body
+        body = await request.json()
+
+        # Validate and parse parameters
+        try:
+            query = body.get("query", "")
+            _validate_query_string(query, max_length=10000)
+
+            limit = _parse_int_param(
+                str(body.get("limit")) if body.get("limit") is not None else None,
+                20,
+                1,
+                100,
+                "limit",
+            )
+
+            offset = _parse_int_param(
+                str(body.get("offset")) if body.get("offset") is not None else None,
+                0,
+                0,
+                1000000,
+                "offset",
+            )
+
+            # No upper bound: hybrid DBSF fusion can exceed 1.0, so a le=1.0 cap
+            # would 400 a legitimate threshold — mirrors the round-1
+            # Field(ge=0.0) fix on the nc_semantic_search tool.
+            score_threshold = _parse_float_param(
+                body.get("score_threshold"),
+                0.0,
+                0.0,
+                float("inf"),
+                "score_threshold",
+            )
+
+            # ADR-027 modified-date range filter. Accepts RFC 3339 / ISO 8601
+            # datetimes or Unix seconds; normalized to int Unix seconds for the
+            # numeric Range filter. Absent bound ⇒ open-ended.
+            modified_after = parse_modified_timestamp(
+                body.get("modified_after"), param_name="modified_after"
+            )
+            modified_before = parse_modified_timestamp(
+                body.get("modified_before"), param_name="modified_before"
+            )
+            if (
+                modified_after is not None
+                and modified_before is not None
+                and modified_after > modified_before
+            ):
+                raise ValueError("modified_after must be <= modified_before")
+        except ValueError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+        requested_algorithm = body.get("algorithm")  # None ⇒ graceful default
+        fusion = body.get("fusion", "rrf")
+        # Unlike ``fusion`` (normalized to "rrf" when unrecognized), an
+        # unrecognized granularity is rejected rather than silently downgraded:
+        # a caller asking for one row per document and receiving several chunks
+        # of the same document would look like a ranking bug, not a bad request.
+        granularity = body.get("granularity", GRANULARITY_CHUNK)
+        if granularity not in VALID_GRANULARITIES:
+            return JSONResponse(
+                {
+                    "error": (
+                        f"Invalid granularity {granularity!r}. "
+                        f"Must be one of {list(VALID_GRANULARITIES)}"
+                    )
+                },
+                status_code=400,
+            )
+        include_pca = body.get("include_pca", False)
+        include_chunks = body.get("include_chunks", True)
+        doc_types = body.get("doc_types")  # Optional filter
+        # ADR-027 Phase 2 path filter (files only); blank ⇒ no filter. Accept a
+        # path_prefixes list (multi-folder) alongside the legacy single
+        # path_prefix; normalize drops blanks and de-dupes.
+        # path_prefixes arrives as a JSON array (the Astrolabe PHP client sends
+        # a list); any other shape is ignored rather than guessed at. The legacy
+        # single path_prefix is folded in by normalize_path_prefixes.
+        _path_prefixes_raw = body.get("path_prefixes")
+        path_prefixes = normalize_path_prefixes(
+            body.get("path_prefix"),
+            _path_prefixes_raw if isinstance(_path_prefixes_raw, list) else None,
+        )
+
+        if not query:
+            return JSONResponse({"results": [], "total_found": 0})
+
+        # Resolve + build the search algorithm: an *explicit* unsupported request
+        # (e.g. any algorithm while vector sync is disabled) is rejected with 422
+        # carrying the advertised supported_search_types, so the client can
+        # correct it rather than silently receive fallback results. An absent
+        # algorithm still defaults gracefully.
+        try:
+            search_algo, algorithm = _build_search_algorithm(
+                requested_algorithm,
+                settings,
+                score_threshold=score_threshold,
+                fusion=fusion,
+            )
+        except UnsupportedSearchType as e:
+            return _unsupported_search_type_response(e)
+
+        # Only the hybrid algorithm implements grouping. The dense-only path
+        # would accept the kwarg and silently ignore it, returning several
+        # chunks of one document to a caller that asked for one row per
+        # document — indistinguishable from a ranking bug. Reject instead.
+        # Astrolabe requests "hybrid" (its default), so this combination is
+        # reachable only by an explicit opt-in to the dense algorithm.
+        if granularity == GRANULARITY_DOCUMENT and algorithm == "semantic":
+            return JSONResponse(
+                {
+                    "error": "granularity_unsupported_for_algorithm",
+                    "granularity": granularity,
+                    "algorithm": algorithm,
+                    "supported_algorithms": ["bm25", "hybrid"],
+                },
+                status_code=422,
+            )
+
+        # Request extra results to handle offset
+        search_limit = limit + offset
+
+        async def _execute(scope: AccessibleScope | None) -> list:
+            """Run the search across requested doc_types with the given access
+            scope (None ⇒ self-only)."""
+            owners = scope.owners if scope else None
+            # Narrow the owner branch to the subtrees actually shared with the
+            # caller; see access_filter.build_ownership_filter.
+            roots = scope.share_root_ids if scope else None
+            results: list = []
+            if doc_types and isinstance(doc_types, list):
+                for doc_type in doc_types:
+                    if doc_type:
+                        results.extend(
+                            await search_algo.search(
+                                query=query,
+                                user_id=user_id,
+                                limit=search_limit,
+                                doc_type=doc_type,
+                                accessible_owners=owners,
+                                shared_root_ids=roots,
+                                granularity=granularity,
+                                modified_after=modified_after,
+                                modified_before=modified_before,
+                                path_prefixes=path_prefixes,
+                            )
+                        )
+                # Sort, then cap to a fixed over-fetch budget before the result
+                # reaches verify-on-read. Without this, N doc_types each fetched
+                # at search_limit would send N*search_limit candidates into
+                # verification — one Nextcloud round-trip each — scaling the cost
+                # with len(doc_types). 2x leaves headroom for verify-on-read
+                # drops before pagination, matching the nc_semantic_search
+                # pattern.
+                results.sort(key=lambda r: r.score, reverse=True)
+                results = results[: search_limit * 2]
+            else:
+                results = await search_algo.search(
+                    query=query,
+                    user_id=user_id,
+                    limit=search_limit,
+                    accessible_owners=owners,
+                    shared_root_ids=roots,
+                    granularity=granularity,
+                    modified_after=modified_after,
+                    modified_before=modified_before,
+                    path_prefixes=path_prefixes,
+                )
+            return results
+
+        all_results = await _search_with_acl(request, user_id, _execute)
+
+        # Sort results by score (no deduplication - show all chunks)
+        sorted_results = sorted(all_results, key=lambda r: r.score, reverse=True)
+
+        # Calculate total and apply pagination
+        total_found = len(sorted_results)
+        paginated_results = sorted_results[offset : offset + limit]
+
+        # Format results for Unified Search
+        formatted_results = []
+        for result in paginated_results:
+            # Get document ID (prefer note_id for notes)
+            doc_id = result.id
+            if result.metadata and "note_id" in result.metadata:
+                doc_id = result.metadata["note_id"]
+
+            result_data: dict[str, Any] = {
+                "id": doc_id,
+                "doc_type": result.doc_type,
+                "title": result.title,
+                "score": result.score,
+            }
+
+            # Include excerpt/chunk if requested (full content, no truncation)
+            if include_chunks and result.excerpt:
+                result_data["excerpt"] = result.excerpt
+
+            # Include navigation metadata from result.metadata
+            if result.metadata:
+                # File path and mimetype for files
+                if "path" in result.metadata:
+                    result_data["path"] = result.metadata["path"]
+                if "mime_type" in result.metadata:
+                    result_data["mime_type"] = result.metadata["mime_type"]
+
+                # Deck card navigation
+                if "board_id" in result.metadata:
+                    result_data["board_id"] = result.metadata["board_id"]
+                if "card_id" in result.metadata:
+                    result_data["card_id"] = result.metadata["card_id"]
+
+                # Calendar event metadata
+                if "calendar_id" in result.metadata:
+                    result_data["calendar_id"] = result.metadata["calendar_id"]
+                if "event_uid" in result.metadata:
+                    result_data["event_uid"] = result.metadata["event_uid"]
+
+            # Add PDF page metadata
+            if result.page_number is not None:
+                result_data["page_number"] = result.page_number
+            if result.page_count is not None:
+                result_data["page_count"] = result.page_count
+
+            # Add chunk metadata (always present, defaults to 0 and 1)
+            result_data["chunk_index"] = result.chunk_index
+            result_data["total_chunks"] = result.total_chunks
+
+            # Add chunk offsets for modal navigation
+            if result.chunk_start_offset is not None:
+                result_data["chunk_start_offset"] = result.chunk_start_offset
+            if result.chunk_end_offset is not None:
+                result_data["chunk_end_offset"] = result.chunk_end_offset
+
+            formatted_results.append(result_data)
+
+        response_data: dict[str, Any] = {
+            "results": formatted_results,
+            "total_found": total_found,
+            "algorithm_used": algorithm,
+        }
+
+        # Optional PCA coordinates. PCA plots the result chunks around the query's
+        # dense embedding. Keyword-only result chunks (``keyword-index`` tag) carry
+        # no dense vector, so compute_pca_coordinates places them at the origin
+        # (they can't be positioned) — the hybrid chunks still plot normally.
+        if include_pca and len(paginated_results) >= 2:
+            try:
+                if search_algo.query_embedding is not None:
+                    query_embedding = search_algo.query_embedding
+                else:
+                    provider = get_provider()
+                    query_embedding = await provider.embed(query)
+
+                pca_data = await compute_pca_coordinates(
+                    paginated_results, query_embedding
+                )
+                response_data["pca_data"] = pca_data
+            except Exception as e:
+                logger.warning("Failed to compute PCA for unified search: %s", e)
+
+        return JSONResponse(response_data)
+
+    except Exception as e:
+        # exception() over error(): keeps the traceback and satisfies Sonar
+        # python:S8572 (logging.error with the exception object in an except).
+        logger.exception("Error in unified search")
+        return JSONResponse(
+            {
+                "error": "Internal error",
+                "message": _sanitize_error_for_client(e, "unified_search"),
+            },
+            status_code=500,
+        )
+
+
+async def vector_search(request: Request) -> JSONResponse:
+    """POST /api/v1/vector-viz/search - Vector search for visualization.
+
+    Executes semantic search and returns results with optional PCA coordinates
+    for 2D visualization.
+
+    Request body:
+    {
+        "query": "search query",
+        "algorithm": "semantic|bm25|hybrid",  // default: hybrid
+        "limit": 10,  // max: 50
+        "include_pca": true,  // whether to include 2D coordinates
+        "doc_types": ["note", "file"]  // optional filter by document types
+    }
+
+    Requires OAuth bearer token for user filtering.
+    """
+    settings = get_settings()
+    if not settings.vector_sync_enabled:
+        return JSONResponse(
+            {"error": "Vector sync is disabled on this server"},
+            status_code=404,
+        )
+
+    # Validate OAuth token and extract user
+    try:
+        user_id, _validated = await validate_token_and_get_user(request)
+    except Exception as e:
+        logger.warning("Unauthorized access to /api/v1/vector-viz/search: %s", e)
+        return JSONResponse(
+            {
+                "error": "Unauthorized",
+                "message": _sanitize_error_for_client(e, "vector_search"),
+            },
+            status_code=401,
+        )
+
+    try:
+        # Parse request body
+        body = await request.json()
+        query = body.get("query", "")
+        requested_algorithm = body.get("algorithm")  # None ⇒ graceful default
+        fusion = body.get("fusion", "rrf")
+        score_threshold = body.get("score_threshold", 0.0)
+        limit = min(body.get("limit", 10), 50)  # Enforce max limit
+        include_pca = body.get("include_pca", True)
+        doc_types = body.get("doc_types")  # Optional list of document types
+        # ADR-027 Phase 2 path filter (files only); blank ⇒ no filter. Accept a
+        # path_prefixes list (multi-folder) alongside the legacy single
+        # path_prefix; normalize drops blanks and de-dupes.
+        # path_prefixes arrives as a JSON array (the Astrolabe PHP client sends
+        # a list); any other shape is ignored rather than guessed at. The legacy
+        # single path_prefix is folded in by normalize_path_prefixes.
+        _path_prefixes_raw = body.get("path_prefixes")
+        path_prefixes = normalize_path_prefixes(
+            body.get("path_prefix"),
+            _path_prefixes_raw if isinstance(_path_prefixes_raw, list) else None,
+        )
+        # ADR-027 modified-date range filter. Accepts RFC 3339 / ISO 8601
+        # datetimes or Unix seconds; normalized to int Unix seconds. None ⇒ open.
+        try:
+            modified_after = parse_modified_timestamp(
+                body.get("modified_after"), param_name="modified_after"
+            )
+            modified_before = parse_modified_timestamp(
+                body.get("modified_before"), param_name="modified_before"
+            )
+        except ValueError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+        if not query:
+            return JSONResponse(
+                {"error": "Missing required parameter: query"},
+                status_code=400,
+            )
+
+        if (
+            modified_after is not None
+            and modified_before is not None
+            and modified_after > modified_before
+        ):
+            return JSONResponse(
+                {"error": "modified_after must be <= modified_before"},
+                status_code=400,
+            )
+
+        # Resolve + build the search algorithm: an *explicit* unsupported request
+        # (e.g. any algorithm while vector sync is disabled) is rejected with 422
+        # carrying the advertised supported_search_types, so the client can
+        # correct it rather than silently receive fallback results. An absent
+        # algorithm still defaults gracefully.
+        try:
+            search_algo, algorithm = _build_search_algorithm(
+                requested_algorithm,
+                settings,
+                score_threshold=score_threshold,
+                fusion=fusion,
+            )
+        except UnsupportedSearchType as e:
+            return _unsupported_search_type_response(e)
+
+        async def _execute(scope: AccessibleScope | None) -> list:
+            """Run the search across requested doc_types with the given access
+            scope (None ⇒ self-only)."""
+            owners = scope.owners if scope else None
+            # Narrow the owner branch to the subtrees actually shared with the
+            # caller; see access_filter.build_ownership_filter.
+            roots = scope.share_root_ids if scope else None
+            results: list = []
+            if doc_types and isinstance(doc_types, list):
+                # Search each doc_type separately and merge results
+                for doc_type in doc_types:
+                    if doc_type:  # Skip empty strings
+                        results.extend(
+                            await search_algo.search(
+                                query=query,
+                                user_id=user_id,
+                                limit=limit,
+                                doc_type=doc_type,
+                                accessible_owners=owners,
+                                shared_root_ids=roots,
+                                modified_after=modified_after,
+                                modified_before=modified_before,
+                                path_prefixes=path_prefixes,
+                            )
+                        )
+                # Sort merged results by score and limit
+                results.sort(key=lambda r: r.score, reverse=True)
+                results = results[:limit]
+            else:
+                # Search all document types
+                results = await search_algo.search(
+                    query=query,
+                    user_id=user_id,
+                    limit=limit,
+                    accessible_owners=owners,
+                    shared_root_ids=roots,
+                    modified_after=modified_after,
+                    modified_before=modified_before,
+                    path_prefixes=path_prefixes,
+                )
+            return results
+
+        all_results = await _search_with_acl(request, user_id, _execute)
+
+        # Format results for PHP client
+        formatted_results = []
+        for result in all_results:
+            formatted_result = {
+                "id": result.id,
+                "doc_type": result.doc_type,
+                "title": result.title,
+                "excerpt": result.excerpt[:200] if result.excerpt else "",
+                "score": result.score,
+                "metadata": result.metadata,
+                # Chunk information for context display
+                "chunk_index": result.chunk_index,
+                "total_chunks": result.total_chunks,
+            }
+            # Include optional fields if present
+            if result.chunk_start_offset is not None:
+                formatted_result["chunk_start_offset"] = result.chunk_start_offset
+            if result.chunk_end_offset is not None:
+                formatted_result["chunk_end_offset"] = result.chunk_end_offset
+            if result.page_number is not None:
+                formatted_result["page_number"] = result.page_number
+            if result.page_count is not None:
+                formatted_result["page_count"] = result.page_count
+            formatted_results.append(formatted_result)
+
+        response_data: dict[str, Any] = {
+            "results": formatted_results,
+            "algorithm_used": algorithm,
+            "total_documents": len(formatted_results),
+        }
+
+        # Compute PCA coordinates for visualization using shared function. PCA
+        # plots chunks around the query's dense embedding; keyword-only chunks
+        # (``keyword-index`` tag) have no dense vector and are placed at the origin
+        # by compute_pca_coordinates while hybrid chunks plot normally.
+        if include_pca and len(all_results) >= 2:
+            try:
+                # Get query embedding from search algorithm or generate it
+                if search_algo.query_embedding is not None:
+                    query_embedding = search_algo.query_embedding
+                else:
+                    provider = get_provider()
+                    query_embedding = await provider.embed(query)
+
+                pca_data = await compute_pca_coordinates(all_results, query_embedding)
+                response_data["coordinates_3d"] = pca_data["coordinates_3d"]
+                response_data["query_coords"] = pca_data["query_coords"]
+                if "pca_variance" in pca_data:
+                    response_data["pca_variance"] = pca_data["pca_variance"]
+            except Exception as e:
+                logger.warning("Failed to compute PCA coordinates: %s", e)
+                response_data["coordinates_3d"] = []
+                response_data["query_coords"] = []
+        elif include_pca:
+            # Not enough results for PCA
+            response_data["coordinates_3d"] = []
+            response_data["query_coords"] = []
+
+        return JSONResponse(response_data)
+
+    except Exception as e:
+        # The client only ever sees a sanitized message, so without this the
+        # traceback is lost entirely and a 500 leaves no trace anywhere.
+        logger.exception("Error in vector search")
+        error_msg = _sanitize_error_for_client(e, "vector_search")
+        return JSONResponse(
+            {"error": error_msg},
+            status_code=500,
+        )
+
+
+async def get_chunk_context(request: Request) -> JSONResponse:
+    """GET /api/v1/chunk-context - Fetch chunk text with context.
+
+    Retrieves the matched chunk along with surrounding text and metadata.
+    Used by clients to display chunk context and highlighted PDFs.
+
+    Query parameters:
+        doc_type: Document type (e.g., "note")
+        doc_id: Document ID
+        start: Chunk start offset (character position)
+        end: Chunk end offset (character position)
+        context: Characters of context before/after (default: 500)
+
+    Requires OAuth bearer token for authentication.
+    """
+    try:
+        # Validate OAuth token and extract user
+        user_id, validated = await validate_token_and_get_user(request)
+    except Exception as e:
+        logger.warning("Unauthorized access to /api/v1/chunk-context: %s", e)
+        return JSONResponse(
+            {
+                "error": "Unauthorized",
+                "message": _sanitize_error_for_client(e, "get_chunk_context"),
+            },
+            status_code=401,
+        )
+
+    try:
+        # Get query parameters
+        doc_type = request.query_params.get("doc_type")
+        doc_id = request.query_params.get("doc_id")
+        start_str = request.query_params.get("start")
+        end_str = request.query_params.get("end")
+        chunk_index_str = request.query_params.get("chunk_index")
+        total_chunks_str = request.query_params.get("total_chunks")
+
+        # Validate required parameters. Written as a chained `and` rather than
+        # `all([...])` + four `assert`s: `all()` does not narrow the types for
+        # the checker, and the asserts that stood in for it sat inside this
+        # try/except Exception, which would have turned a narrowing slip into a
+        # 500 with an AssertionError body (python:S5779).
+        if not (doc_type and doc_id and start_str and end_str):
+            return JSONResponse(
+                {
+                    "success": False,
+                    "error": "Missing required parameters: doc_type, doc_id, start, end",
+                },
+                status_code=400,
+            )
+
+        # Validate doc_id at the handler boundary: a malformed doc_id would
+        # otherwise pass through to get_chunk_with_context and bottom out as a
+        # 404 from deep inside, not a clear 400. Nextcloud IDs are unsigned
+        # ints from MySQL auto_increment; doc_id stays a str downstream
+        # (Qdrant payload index is keyword-typed). is_valid_nextcloud_doc_id
+        # rejects "0", leading zeros, and Unicode digits that pass isdigit().
+        #
+        # Canonical TODO (referenced by
+        # ``vector/scanner.py:get_last_indexed_timestamp``): when chunk-
+        # context support extends to non-numeric doc_types (calendar VEVENT
+        # UIDs, CardDAV hrefs, …), relax this gate or make it doc_type-
+        # aware. Today every indexed doc_type is numeric. The follow-up
+        # tracker also covers the O(N) → O(1) migration of
+        # ``get_last_indexed_timestamp`` (currently re-scans every
+        # ``indexed_at`` on each tick).
+        if not is_valid_nextcloud_doc_id(doc_id):
+            return JSONResponse(
+                {
+                    "success": False,
+                    "error": f"doc_id must be numeric, got {doc_id!r}",
+                },
+                status_code=400,
+            )
+
+        # Parse and validate integer parameters with bounds checking
+        try:
+            context_chars = _parse_int_param(
+                request.query_params.get("context"),
+                500,
+                0,
+                10000,
+                "context_chars",
+            )
+            start = _parse_int_param(start_str, 0, 0, 10000000, "start")
+            end = _parse_int_param(end_str, 0, 0, 10000000, "end")
+            if end <= start:
+                raise ValueError("end must be greater than start")
+            chunk_index: int | None = None
+            if chunk_index_str is not None:
+                chunk_index = _parse_int_param(
+                    chunk_index_str, 0, 0, 1000000, "chunk_index"
+                )
+            total_chunks = _parse_int_param(
+                total_chunks_str, 1, 1, 1000000, "total_chunks"
+            )
+        except ValueError as e:
+            return JSONResponse({"success": False, "error": str(e)}, status_code=400)
+        # doc_id is keyword-indexed in Qdrant as str — pass through verbatim
+        # (no int coercion; producers always stringify on write).
+
+        # Get Nextcloud host from OAuth context
+        oauth_ctx = request.app.state.oauth_context
+        nextcloud_host = oauth_ctx.get("config", {}).get("nextcloud_host", "")
+
+        if not nextcloud_host:
+            raise ValueError(_NEXTCLOUD_HOST_NOT_CONFIGURED)
+
+        # Use the user's stored app password for Nextcloud calls.
+        # The OAuth bearer is only used to authenticate Astrolabe → MCP Server;
+        # MCP Server → Nextcloud always uses the app password provisioned
+        # during the authorization step.
+        try:
+            nc_client = await get_user_client_basic_auth(user_id, nextcloud_host)
+        except NotProvisionedError as e:
+            return JSONResponse(
+                {"success": False, "error": str(e)},
+                status_code=401,
+            )
+
+        async with nc_client:
+            # Expand to owners who shared content with the caller so the cached
+            # chunk lookup can resolve cross-user SHARED FILES (gated per-file
+            # inside get_chunk_with_context). Same expansion as the search path.
+            accessible_owners = await list_accessible_owners(nc_client.sharing, user_id)
+            chunk_context = await get_chunk_with_context(
+                nc_client=nc_client,
+                user_id=user_id,
+                doc_id=doc_id,
+                doc_type=doc_type,
+                chunk_start=start,
+                chunk_end=end,
+                chunk_index=chunk_index,
+                total_chunks=total_chunks,
+                context_chars=context_chars,
+                accessible_owners=accessible_owners,
+            )
+
+        if chunk_context is None:
+            return JSONResponse(
+                {
+                    "success": False,
+                    "error": f"Failed to fetch chunk context for {doc_type} {doc_id}",
+                },
+                status_code=404,
+            )
+
+        # For PDF files, also fetch the chunk's bounding box from Qdrant if
+        # available so the client can overlay a highlight on top of a
+        # render-on-demand page image (Deck #76). Qdrant's page_number is
+        # trusted over the context-expansion fallback when present.
+        chunk_bbox = None
+        page_number = chunk_context.page_number
+
+        if doc_type == "file":
+            # Reaching here means the file chunk context resolved, so access was
+            # already confirmed (get_chunk_with_context gates files by id);
+            # the bbox/page lookup uses the same owner scope for cross-user files.
+            qdrant_bbox, qdrant_page = await get_chunk_bbox_and_page_from_qdrant(
+                user_id=user_id,
+                doc_id=doc_id,
+                chunk_index=chunk_index,
+                chunk_start=start,
+                chunk_end=end,
+                accessible_owners=accessible_owners,
+            )
+            if qdrant_bbox is not None:
+                chunk_bbox = qdrant_bbox
+            if qdrant_page is not None:
+                page_number = qdrant_page
+
+        # Build response
+        response_data = {
+            "success": True,
+            "chunk_text": chunk_context.chunk_text,
+            "before_context": chunk_context.before_context,
+            "after_context": chunk_context.after_context,
+            "has_more_before": chunk_context.has_before_truncation,
+            "has_more_after": chunk_context.has_after_truncation,
+            "page_number": page_number,
+            "chunk_index": chunk_context.chunk_index,
+            "total_chunks": chunk_context.total_chunks,
+        }
+
+        if chunk_bbox:
+            response_data["chunk_bbox"] = chunk_bbox
+
+        return JSONResponse(response_data)
+
+    except Exception as e:
+        # Chunk-context 500s were previously invisible: the handler logged
+        # nothing, so a failing chunk view left no server-side evidence at all.
+        logger.exception("Error fetching chunk context")
+        error_msg = _sanitize_error_for_client(e, "get_chunk_context")
+        return JSONResponse(
+            {"error": error_msg},
+            status_code=500,
+        )

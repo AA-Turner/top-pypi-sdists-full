@@ -102,6 +102,7 @@ StreamSessionStatusReasonType = Literal[
     "apiTerminated",
     "applicationExit",
     "applicationLogS3DestinationError",
+    "assumeRoleFailed",
     "connectionTimeout",
     "idleTimeout",
     "internalError",

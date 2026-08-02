@@ -1,0 +1,99 @@
+# Copyright (c) 2025 Moritz E. Beber
+#
+# Licensed under the Apache License, Version 2.0 (the "License"); you may not
+# use this file except in compliance with the License. You may obtain a copy of
+# the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+# WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and limitations under
+# the License.
+
+
+"""Provide an asynchronous rate-limited transport."""
+
+from __future__ import annotations
+
+import sys
+from typing import TYPE_CHECKING, TypedDict
+
+
+if sys.version_info < (3, 11):
+    from typing_extensions import Unpack
+else:
+    from typing import Unpack
+
+from pyrate_limiter import (
+    BucketAsyncWrapper,
+    InMemoryBucket,
+    Limiter,
+    validate_rate_list,
+)
+from pyrate_limiter import Rate as PyRate
+
+from httpx_limiter import AbstractAsyncLimiter
+
+
+if TYPE_CHECKING:  # pragma: no cover
+    from httpx_limiter.rate import Rate
+
+
+class PyRateLimiterKeywordArguments(TypedDict, total=False):
+    """Keyword arguments for the pyrate limiter."""
+
+    buffer_ms: int
+
+
+class PyrateAsyncLimiter(AbstractAsyncLimiter):
+    """
+    Define an asynchronous limiter that composes the pyrate limiter.
+
+    This class encapsulates the creation and configuration of a pyrate-limiter
+    Limiter with appropriate async bucket wrapper and settings.
+
+    Args:
+        limiter: An instance of an asynchronous pyrate limiter.
+        **kwargs: Additional keyword arguments for the parent classes.
+
+    """
+
+    def __init__(self, *, limiter: Limiter, **kwargs: dict[str, object]) -> None:
+        super().__init__(**kwargs)
+        self._limiter = limiter
+
+    @classmethod
+    def create(
+        cls,
+        *rates: Rate,
+        **kwargs: Unpack[PyRateLimiterKeywordArguments],
+    ) -> PyrateAsyncLimiter:
+        """Create an instance of PyrateAsyncLimiter."""
+        if not rates:
+            msg = "At least one rate must be provided."
+            raise ValueError(msg)
+
+        rate_limits = [
+            PyRate(limit=rate.magnitude, interval=rate.in_milliseconds())
+            for rate in rates
+        ]
+        if not validate_rate_list(rates=rate_limits):
+            url = "https://pyratelimiter.readthedocs.io/en/latest/#defining-rate-limits-and-buckets"
+            msg = (
+                f"Invalid ordering of rates provided {rate_limits}. Please read "
+                f"{url} for more information."
+            )
+            raise ValueError(msg)
+
+        limiter = Limiter(
+            BucketAsyncWrapper(InMemoryBucket(rate_limits)),
+            buffer_ms=kwargs.get("buffer_ms", 50),
+        )
+        return cls(limiter=limiter)
+
+    async def __aenter__(self) -> PyrateAsyncLimiter:  # noqa: PYI034
+        """Acquire a token upon entering the asynchronous context."""
+        await self._limiter.try_acquire_async(__name__)
+        return self

@@ -1,0 +1,62 @@
+Metadata-Version: 2.4
+Name: opuslib-next
+Version: 1.3.0
+Summary: Python bindings to the libopus, IETF low-delay audio codec
+Project-URL: Homepage, https://github.com/kalicyh/opuslib-next
+Project-URL: Documentation, https://github.com/kalicyh/opuslib-next
+Project-URL: Repository, https://github.com/kalicyh/opuslib-next
+Project-URL: Issues, https://github.com/kalicyh/opuslib-next/issues
+Author-email: kalicyh <kalicyh@qq.com>
+License-Expression: BSD-3-Clause
+License-File: LICENSE
+Keywords: audio,codec,libopus,opus
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Multimedia :: Sound/Audio :: Conversion
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+
+# python-opus
+
+Python bindings to the libopus, IETF low-delay audio codec.
+
+## Installation
+
+```bash
+pip install opuslib-next
+```
+
+## Usage
+
+The API remains compatible with the original `opuslib`, but the package name is now `opuslib_next`.
+
+```python
+import opuslib_next
+```
+
+## Development
+
+This project now uses a standard `pyproject.toml` and can be managed with `uv`.
+
+```bash
+uv sync --dev
+uv run pytest
+uv run python benchmarks/compare_versions.py --baseline-version 1.1.5
+uv build
+uv publish
+```
+
+If you publish to PyPI, configure credentials first, for example with `UV_PUBLISH_TOKEN` or `uv auth`.
+
+## About the Fork
+
+The original [opuslib](https://github.com/orion-labs/opuslib) is no longer actively maintained. This fork keeps the package working on newer Python versions and accepts fixes.

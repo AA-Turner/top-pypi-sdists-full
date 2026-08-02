@@ -1,0 +1,38 @@
+Metadata-Version: 2.4
+Name: stackit-core
+Version: 0.3.0
+Summary: Core functionality for the STACKIT SDK for Python
+Project-URL: Homepage, https://github.com/stackitcloud/stackit-sdk-python
+Project-URL: Issues, https://github.com/stackitcloud/stackit-sdk-python/issues
+Author-email: STACKIT Developer Tools <developer-tools@stackit.cloud>
+License-File: LICENSE.md
+License-File: NOTICE.txt
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: <4.0,>=3.10
+Requires-Dist: cryptography>=46.0.5
+Requires-Dist: pydantic>=2.9.2
+Requires-Dist: pyjwt>=2.13.0
+Requires-Dist: requests>=2.33.0
+Requires-Dist: urllib3>=2.7.0
+Description-Content-Type: text/markdown
+
+> ⓘ INFO: The STACKIT Python SDK is in beta and in active development.
+
+
+# STACKIT Python SDK Core
+
+## Introduction
+
+The STACKIT Python core package consists of core functionality which is needed
+to use the [STACKIT Python SDK](https://github.com/stackitcloud/stackit-sdk-python).
+
+## Usage
+
+The core package does nothing on its own and must be used in conjunction with the services of the [STACKIT Python SDK](https://github.com/stackitcloud/stackit-sdk-python).

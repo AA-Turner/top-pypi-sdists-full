@@ -1,4 +1,0 @@
-properties:
-  - gogs:
-      branch-filter: 'master'
-      secret: 'yoursecret'

@@ -31,7 +31,7 @@ import stat  # noqa: E402
 import sys  # noqa: E402
 import threading  # noqa: E402
 from collections.abc import Coroutine  # noqa: E402
-from typing import TYPE_CHECKING, Any  # noqa: E402
+from typing import TYPE_CHECKING, Any, NoReturn  # noqa: E402
 
 from fastmcp.exceptions import ToolError  # noqa: E402
 from pydantic import ValidationError as PydanticValidationError  # noqa: E402
@@ -131,6 +131,16 @@ SHUTDOWN_TIMEOUT_SECONDS = 2.0
 _shutdown_event: asyncio.Event | None = None
 _shutdown_in_progress = False
 
+# Set by the stdio entry point (main) so signal-initiated shutdown arms a
+# hard-deadline watchdog. HTTP entry points leave this False.
+_force_exit_on_shutdown = False
+
+# Hard deadline for a signal-initiated stdio shutdown. Must exceed the sum
+# of the graceful phases (server-stop wait + resource cleanup + task
+# cancellation, SHUTDOWN_TIMEOUT_SECONDS each) so it only fires when the
+# graceful path is truly stuck (issue #2027).
+_SHUTDOWN_WATCHDOG_SECONDS = 10.0
+
 # Stdin error message for Docker without -i flag
 _STDIN_ERROR_MESSAGE = """
 ==============================================================================
@@ -145,12 +155,16 @@ This typically happens when running Docker without the -i flag:
 To fix this, use one of the following options:
 
   1. Add the -i flag to enable interactive stdin:
-     docker run -i -e HOMEASSISTANT_URL=... -e HOMEASSISTANT_TOKEN=... \\
+     docker run -i -v ha-mcp-data:/home/mcpuser/.ha-mcp \\
+       -e HOMEASSISTANT_URL=... -e HOMEASSISTANT_TOKEN=... \\
        ghcr.io/homeassistant-ai/ha-mcp:latest
 
   2. Use HTTP mode instead (recommended for servers/automation):
-     docker run -d -p 8086:8086 -e HOMEASSISTANT_URL=... -e HOMEASSISTANT_TOKEN=... \\
+     docker run -d -p 8086:8086 -v ha-mcp-data:/home/mcpuser/.ha-mcp \\
+       -e HOMEASSISTANT_URL=... -e HOMEASSISTANT_TOKEN=... \\
        ghcr.io/homeassistant-ai/ha-mcp:latest ha-mcp-web
+
+The -v flag keeps your settings when the container is re-created.
 
 For more information, see:
   https://github.com/homeassistant-ai/ha-mcp#-docker
@@ -296,28 +310,21 @@ def _setup_standard_mode() -> None:
     _log_startup_version()
 
 
-def _http_run_kwargs(transport: str, host: str, port: int, path: str) -> dict[str, Any]:
-    """Build common run_async kwargs for HTTP-based transports.
+def _http_run_kwargs(host: str, port: int, path: str) -> dict[str, Any]:
+    """Build common run_async kwargs for the Streamable HTTP transport.
 
-    ``stateless_http`` is a Streamable-HTTP concept and is only valid for the
-    ``http``/``streamable-http`` transports. Passing it alongside
-    ``transport="sse"`` makes fastmcp's ``run_async`` raise
-    ``ValueError("SSE transport does not support stateless mode")``. Gating it to
-    non-SSE transports keeps SSE startup working. (Before this fix that raise was
-    also swallowed into a silent exit 0; ``_run_with_shutdown`` now surfaces a
-    self-terminating server task's exception instead.) See #1544.
+    Every HTTP entry point (``ha-mcp-web``, OAuth, OIDC) runs Streamable HTTP,
+    so ``stateless_http`` — a Streamable-HTTP-only concept — always applies.
     """
-    kwargs: dict[str, Any] = {
-        "transport": transport,
+    return {
+        "transport": "http",
         "host": host,
         "port": port,
         "path": path,
+        "stateless_http": True,
         "show_banner": _get_show_banner(),
         "uvicorn_config": {"log_config": _get_timestamped_uvicorn_log_config()},
     }
-    if transport != "sse":
-        kwargs["stateless_http"] = True
-    return kwargs
 
 
 def _create_server() -> "HomeAssistantSmartMCPServer":
@@ -448,14 +455,12 @@ class ProbeAccessLogFilter(logging.Filter):
       health check, reverse proxy, or a connector's SSE-style pre-flight) hit a
       POST-only Streamable HTTP endpoint. The raw access line is dropped and the
       landing handler logs one annotated "(NORMAL for most non-SSE connections)"
-      line in its place. Dropped only when ``drop_mcp_405`` is set — SSE callers
-      pass False, since there a GET answers 200 and a GET-405 is a genuine fault.
+      line in its place.
     """
 
-    def __init__(self, mcp_path: str, *, drop_mcp_405: bool = True) -> None:
+    def __init__(self, mcp_path: str) -> None:
         super().__init__()
         self._mcp_path = mcp_path.rstrip("/") or "/"
-        self._drop_mcp_405 = drop_mcp_405
 
     def filter(self, record: logging.LogRecord) -> bool:
         # uvicorn.access records carry structured args: (client, method, path,
@@ -473,22 +478,40 @@ class ProbeAccessLogFilter(logging.Filter):
             return False  # opt-in liveness probe (register_healthz) — pure noise
         # By-design probe 405 on the MCP path; the handler logs an annotated line
         # instead. This trusts that the landing route is the only GET/HEAD responder
-        # on the MCP path (true today). Kept in SSE mode (drop_mcp_405=False), where
-        # a GET answers 200 and a 405 is a real fault.
-        is_dropped_probe = (
-            status == 405 and path == self._mcp_path and self._drop_mcp_405
+        # on the MCP path (true today).
+        return not (status == 405 and path == self._mcp_path)
+
+
+def _setup_logging(log_level_str: str, force: bool = True) -> None:
+    """Configure root logger with consistent timestamp format.
+
+    ``force`` defaults to True so the reconfiguration is deterministic: with
+    ANY root handler present, ``basicConfig`` is a silent no-op — neither the
+    console handler nor the level is applied. Since
+    ``preserve_startup_collector`` detaches the collector before
+    ``basicConfig`` runs, the default guards against FOREIGN root handlers —
+    a test runner's or a dependency's. At the two call sites that use the
+    default (``main`` and ``_setup_standard_mode``) the only root handler
+    attached anywhere in ``src/`` is the collector, which the wrapper detaches
+    first — so today the default is defensive rather than load-bearing. The
+    OAuth/OIDC entry points pass ``force=True`` explicitly and never exercise
+    the default.
+
+    The historical standard-mode bug was ``usage_logger``'s
+    ``StartupLogCollector`` (attached to root at import time) triggering that
+    same no-op; the wrapper now detaches it for the duration — keeping it out
+    of the sweep ``force`` performs (which removes *and closes* every root
+    handler) so ``ha_report_issue`` keeps its startup diagnostics.
+    """
+    from ha_mcp.utils.usage_logger import preserve_startup_collector
+
+    with preserve_startup_collector():
+        logging.basicConfig(
+            level=getattr(logging, log_level_str),
+            format="%(asctime)s %(name)s %(levelname)s: %(message)s",
+            datefmt=_LOG_DATE_FORMAT,
+            force=force,
         )
-        return not is_dropped_probe
-
-
-def _setup_logging(log_level_str: str, force: bool = False) -> None:
-    """Configure root logger with consistent timestamp format."""
-    logging.basicConfig(
-        level=getattr(logging, log_level_str),
-        format="%(asctime)s %(name)s %(levelname)s: %(message)s",
-        datefmt=_LOG_DATE_FORMAT,
-        force=force,
-    )
     logging.getLogger("mcp.server.streamable_http").addFilter(
         StatelessSessionLogFilter()
     )
@@ -551,8 +574,6 @@ def _get_timestamped_uvicorn_log_config() -> dict:
 
 async def _cleanup_resources() -> None:
     """Clean up all server resources gracefully."""
-    global _server
-
     logger.info("Cleaning up server resources...")
 
     # Close WebSocket listener service if running
@@ -589,16 +610,29 @@ async def _cleanup_resources() -> None:
 
 
 async def _cancel_tasks(*tasks: asyncio.Task) -> None:
-    """Cancel tasks and wait for completion, swallowing CancelledError."""
-    for task in tasks:
-        if not task.done():
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                # Expected: we just cancelled this task, swallow its
-                # CancelledError so remaining tasks still get awaited.
-                pass
+    """Cancel tasks and wait for completion, bounding the wait.
+
+    A task can ignore cancellation indefinitely — the stdio transport does
+    when a blocking stdin read is in flight (issue #2027) — so the wait is
+    bounded instead of awaiting each task unboundedly. Stragglers are
+    logged and abandoned; the stdio entry point force-exits anyway.
+    """
+    pending = [task for task in tasks if not task.done()]
+    if not pending:
+        return
+    for task in pending:
+        task.cancel()
+    done, still_pending = await asyncio.wait(pending, timeout=SHUTDOWN_TIMEOUT_SECONDS)
+    if still_pending:
+        logger.warning(
+            "%d task(s) ignored cancellation during shutdown", len(still_pending)
+        )
+    for task in done:
+        if task.cancelled():
+            continue
+        exc = task.exception()
+        if exc is not None:
+            logger.warning(f"Task raised during shutdown: {exc!r}")
 
 
 async def _run_with_shutdown(server_coro: Coroutine[Any, Any, Any]) -> None:
@@ -622,14 +656,22 @@ async def _run_with_shutdown(server_coro: Coroutine[Any, Any, Any]) -> None:
         if shutdown_task in done:
             logger.info("Shutdown signal received, stopping server...")
             server_task.cancel()
-            try:
-                await asyncio.wait_for(server_task, timeout=SHUTDOWN_TIMEOUT_SECONDS)
-            except TimeoutError:
+            # asyncio.wait, not wait_for: wait_for's timeout path awaits the
+            # cancellation completing, which hangs when the stdio transport
+            # ignores cancellation mid-stdin-read (issue #2027). wait simply
+            # returns after the timeout, leaving the straggler abandoned.
+            stopped, _ = await asyncio.wait(
+                {server_task}, timeout=SHUTDOWN_TIMEOUT_SECONDS
+            )
+            if server_task in stopped:
+                try:
+                    server_task.result()
+                except asyncio.CancelledError:
+                    # Expected: we just cancelled server_task above; swallow
+                    # its CancelledError so shutdown can proceed to cleanup.
+                    pass
+            else:
                 logger.warning("Server did not stop within timeout")
-            except asyncio.CancelledError:
-                # Expected: we just cancelled server_task above; swallow its
-                # CancelledError so shutdown can proceed to cleanup.
-                pass
         elif server_task in done:
             # Server task finished on its own (no shutdown signal). Re-raise any
             # exception it captured so a hard startup failure surfaces as a
@@ -686,7 +728,7 @@ def _signal_handler(signum: int, frame: Any) -> None:
     This handler initiates graceful shutdown on first signal.
     On second signal, forces immediate exit.
     """
-    global _shutdown_in_progress, _shutdown_event
+    global _shutdown_in_progress
 
     sig_name = signal.Signals(signum).name
 
@@ -696,6 +738,20 @@ def _signal_handler(signum: int, frame: Any) -> None:
         sys.exit(1)
 
     _shutdown_in_progress = True
+
+    if _force_exit_on_shutdown:
+        # The SDK's stdio teardown hangs if a stdin read is in flight when
+        # the server task is cancelled: the CancelledError gets stuck being
+        # thrown into stdio_server's task group while the reader thread is
+        # parked in a blocking stdin read, so asyncio.run never returns
+        # (issue #2027 — leftover stdio instances that never exit).
+        # Guarantee the process dies even if the graceful path is stuck.
+        # Armed BEFORE the log line below: logging writes to stderr, and a
+        # full stderr pipe would block this handler before it armed anything.
+        watchdog = threading.Timer(_SHUTDOWN_WATCHDOG_SECONDS, _shutdown_watchdog_fire)
+        watchdog.daemon = True
+        watchdog.start()
+
     logger.info(f"Received {sig_name}, initiating graceful shutdown...")
 
     # Signal the shutdown event if we have an event loop
@@ -718,6 +774,61 @@ def _setup_signal_handlers() -> None:
 async def _run_with_graceful_shutdown() -> None:
     """Run the MCP server with graceful shutdown support."""
     await _run_with_shutdown(_get_mcp().run_async(show_banner=_get_show_banner()))
+
+
+def _force_exit(code: int) -> NoReturn:
+    """Exit the stdio process without interpreter finalization (issue #2027).
+
+    The MCP SDK's stdio transport reads stdin through anyio's worker-thread
+    pool, so a daemon thread is parked in a blocking stdin read holding the
+    ``BufferedReader`` lock whenever no message is in flight. If the process
+    exits while that read is pending — SIGTERM, or the client vanishing
+    mid-read — interpreter finalization tries to close stdin, cannot acquire
+    the lock, and CPython aborts: ``Fatal Python error: _enter_buffered_busy``
+    → SIGABRT (a crash dialog on macOS). The reader lives in the SDK, so the
+    entry point neutralizes it instead: flush what matters, then skip
+    finalization entirely. By this point ``_run_with_shutdown`` has already
+    run resource cleanup, and a stdio server persists nothing at exit.
+
+    The flush is best-effort and time-bounded in a daemon thread: if the
+    client stopped draining stdout/stderr, the SDK's writer thread can be
+    blocked on the full pipe holding the buffered-writer lock, and flushing
+    inline would wait on that same lock forever — turning the hard-exit
+    path (including the shutdown watchdog) back into a hang. ``os._exit``
+    runs unconditionally once the bounded wait elapses.
+    """
+
+    def _best_effort_flush() -> None:
+        logging.shutdown()
+        for stream in (sys.stdout, sys.stderr):
+            try:
+                stream.flush()
+            except Exception:  # nothing actionable at exit
+                pass
+
+    try:
+        flusher = threading.Thread(target=_best_effort_flush, daemon=True)
+        flusher.start()
+        flusher.join(timeout=1.0)
+    finally:
+        os._exit(code)
+
+
+def _shutdown_watchdog_fire() -> None:
+    """Hard-deadline fallback for a stuck graceful shutdown (issue #2027).
+
+    The warning is fire-and-forget in a daemon thread: logging writes to
+    stderr, and a full stderr pipe blocking the warning would block the
+    watchdog itself — the very condition it exists to escape.
+    """
+    threading.Thread(
+        target=lambda: logger.warning(
+            "Graceful shutdown did not complete within %.0fs; forcing exit",
+            _SHUTDOWN_WATCHDOG_SECONDS,
+        ),
+        daemon=True,
+    ).start()
+    _force_exit(0)
 
 
 # CLI entry point (for pyproject.toml) - use FastMCP's built-in runner
@@ -758,7 +869,28 @@ def main() -> None:
     # Best-effort: failure logs a warning but doesn't block MCP startup.
     _maybe_spawn_settings_sidecar()
 
-    _run_entrypoint(_run_with_graceful_shutdown(), "Server")
+    # Route every exit through _force_exit: letting interpreter finalization
+    # run aborts when the SDK's stdin reader thread still holds the stdin
+    # lock. _run_entrypoint always leaves via sys.exit; the BaseException
+    # arm covers hard-stop paths (e.g. the re-raised CancelledError from the
+    # #1544 handling) that would otherwise bypass the force-exit. It also
+    # lets the signal handler arm the shutdown watchdog (stdio only).
+    global _force_exit_on_shutdown
+    _force_exit_on_shutdown = True
+    code = 1  # abnormal termination unless an exit says otherwise
+    try:
+        _run_entrypoint(_run_with_graceful_shutdown(), "Server")
+        code = 0
+    except SystemExit as exc:
+        if isinstance(exc.code, int):
+            code = exc.code
+        elif exc.code is None:
+            code = 0
+        # any other code (an error-message string) keeps the default 1
+    except BaseException:
+        logger.error("Server terminated abnormally", exc_info=True)
+    finally:
+        _force_exit(code)
 
 
 def _maybe_spawn_settings_sidecar() -> None:
@@ -846,7 +978,7 @@ def main_dev() -> None:
 
 # HTTP entry point for web clients
 def _get_http_runtime(default_port: int = 8086) -> tuple[str, int, str]:
-    """Return runtime configuration shared by HTTP transports.
+    """Return runtime configuration shared by the HTTP entry points.
 
     Args:
         default_port: Default port to use if MCP_PORT env var is not set.
@@ -927,12 +1059,12 @@ def _is_running_in_container() -> bool:
 def _warn_if_default_path_exposed(host: str, port: int, path: str) -> None:
     """Warn on a direct run that leaves the default path on a LAN bind.
 
-    Standard-mode HTTP/SSE authenticates by URL-path secrecy (see
+    Standard-mode HTTP authenticates by URL-path secrecy (see
     SECURITY.md → Threat Model). The default ``/mcp`` is not the
     high-entropy secret that model assumes once the bind leaves loopback.
 
-    Fires only for a direct ``ha-mcp-web`` / ``ha-mcp-sse`` start (uvx, pip,
-    source) that uses the default path on a non-loopback host. Operators
+    Fires only for a direct ``ha-mcp-web`` start (uvx, pip, source) that uses
+    the default path on a non-loopback host. Operators
     silence it the same way they harden — bind ``MCP_HOST=127.0.0.1`` or set
     a high-entropy ``MCP_SECRET_PATH``. Containers are skipped: an
     in-container ``0.0.0.0`` bind says nothing about real exposure, which is
@@ -947,7 +1079,7 @@ def _warn_if_default_path_exposed(host: str, port: int, path: str) -> None:
         return
     logger.warning(
         "ha-mcp listening on %s:%s%s with default MCP_SECRET_PATH. "
-        "Standard-mode HTTP/SSE authenticates by URL-path secrecy and assumes "
+        "Standard-mode HTTP authenticates by URL-path secrecy and assumes "
         "a high-entropy MCP_SECRET_PATH for non-loopback binds "
         "(see SECURITY.md → Threat Model). "
         "Either bind loopback (MCP_HOST=127.0.0.1) or set MCP_SECRET_PATH "
@@ -959,15 +1091,12 @@ def _warn_if_default_path_exposed(host: str, port: int, path: str) -> None:
 
 
 async def _run_http_with_graceful_shutdown(
-    transport: str,
     host: str,
     port: int,
     path: str,
 ) -> None:
     """Run HTTP server with graceful shutdown support."""
-    await _run_with_shutdown(
-        _get_mcp().run_async(**_http_run_kwargs(transport, host, port, path))
-    )
+    await _run_with_shutdown(_get_mcp().run_async(**_http_run_kwargs(host, port, path)))
 
 
 def _healthz_enabled() -> bool:
@@ -1016,8 +1145,6 @@ def _oidc_allowed_client_redirect_uris() -> list[str] | None:
 def register_browser_landing(
     mcp_instance: "FastMCP | _DeferredMCP",
     path: str,
-    *,
-    quiet_probe_log: bool = True,
 ) -> None:
     """Register the friendly browser landing page and tidy the uvicorn access log.
 
@@ -1031,24 +1158,16 @@ def register_browser_landing(
     Args:
         mcp_instance: The FastMCP server to register the route on.
         path: The MCP endpoint path (e.g. "/mcp" or a secret path).
-        quiet_probe_log: When True (default, for Streamable HTTP), drop the
-            by-design GET/HEAD-405 probe line on the MCP path from the uvicorn
-            access log (the handler logs an annotated replacement). Pass False
-            for SSE, where a GET answers 200 and a 405 is a genuine fault.
     """
     if not _register_landing_route(mcp_instance, path):
         # Already registered for this path — don't double-attach the log filter.
         return
 
-    # Tidy uvicorn's access log: always drop browser favicon 404s, and drop the
-    # raw by-design GET/HEAD-405 probe line on the MCP path (the landing handler
-    # logs an annotated replacement). The 405 drop is skipped for SSE
-    # (quiet_probe_log=False), where a GET answers 200 and a 405 is a real fault.
-    # Attach to uvicorn.access directly — it has propagate=False, so a root-logger
-    # filter would miss it.
-    logging.getLogger("uvicorn.access").addFilter(
-        ProbeAccessLogFilter(path, drop_mcp_405=quiet_probe_log)
-    )
+    # Tidy uvicorn's access log: drop browser favicon 404s and the raw by-design
+    # GET/HEAD-405 probe line on the MCP path (the landing handler logs an
+    # annotated replacement). Attach to uvicorn.access directly — it has
+    # propagate=False, so a root-logger filter would miss it.
+    logging.getLogger("uvicorn.access").addFilter(ProbeAccessLogFilter(path))
 
 
 def _log_settings_url(
@@ -1108,7 +1227,7 @@ def _log_settings_url(
 
 # Truthy / falsy env-var spellings for HA_MCP_DISABLE_SETTINGS_UI, matching the
 # parsing in stdio_settings_sidecar.py so the toggle behaves the same across
-# transports. A value in neither set is unrecognized: fail closed (disable) with
+# entry points. A value in neither set is unrecognized: fail closed (disable) with
 # a warning, since this is a security kill switch and failing open on a typo
 # would leave an unauthenticated surface up.
 _SETTINGS_TRUTHY = {"1", "true", "yes", "on"}
@@ -1118,9 +1237,9 @@ _SETTINGS_FALSY = {"0", "false", "no", "off", ""}
 def _settings_ui_disabled() -> bool:
     """Return True when ``HA_MCP_DISABLE_SETTINGS_UI`` turns the settings UI off.
 
-    Honored by every long-lived HTTP transport (standard ``ha-mcp-web`` /
-    ``ha-mcp-sse`` as well as OAuth/OIDC) and, with matching semantics, by the
-    stdio sidecar. As a security kill switch it fails **closed**: any value that
+    Honored by every long-lived HTTP transport (standard ``ha-mcp-web`` as well
+    as OAuth/OIDC) and, with matching semantics, by the stdio sidecar. As a
+    security kill switch it fails **closed**: any value that
     is neither a recognized truthy nor falsy spelling disables the UI and warns
     (so the operator learns why it vanished), rather than leaving an
     unauthenticated surface up on a typo. Unset — or an explicit falsy value —
@@ -1252,11 +1371,10 @@ def _register_settings_ui_secret_path(
     )
 
 
-def _run_http_server(transport: str, default_port: int = 8086) -> None:
-    """Common runner for HTTP-based transports.
+def _run_http_server(default_port: int = 8086) -> None:
+    """Common runner for the standard-mode Streamable HTTP server.
 
     Args:
-        transport: Transport type (http or sse).
         default_port: Default port to use if MCP_PORT env var is not set.
     """
     from ha_mcp.settings_ui import register_settings_routes
@@ -1265,9 +1383,7 @@ def _run_http_server(transport: str, default_port: int = 8086) -> None:
     # _get_mcp below, before the app is built) -- see transport_security.
     host, port, path = _get_http_runtime(default_port)
     _warn_if_default_path_exposed(host, port, path)
-    # SSE transport answers GET with 200 (the event stream), so a GET->405 there
-    # would be a real fault, not a benign probe — keep its access log intact.
-    register_browser_landing(_get_mcp(), path, quiet_probe_log=transport != "sse")
+    register_browser_landing(_get_mcp(), path)
     if _healthz_enabled():
         _register_healthz_route(_get_mcp())
     if _settings_ui_disabled():
@@ -1279,7 +1395,7 @@ def _run_http_server(transport: str, default_port: int = 8086) -> None:
         _log_settings_url(host, port, path)
 
     _run_entrypoint(
-        _run_http_with_graceful_shutdown(transport, host, port, path),
+        _run_http_with_graceful_shutdown(host, port, path),
         "HTTP server",
     )
 
@@ -1297,23 +1413,7 @@ def main_web() -> None:
       settings UI at all
     """
     _setup_standard_mode()
-    _run_http_server("http", default_port=8086)
-
-
-def main_sse() -> None:
-    """Run server using Server-Sent Events transport for MCP clients.
-
-    Environment:
-    - HOMEASSISTANT_URL (required)
-    - HOMEASSISTANT_TOKEN (required)
-    - MCP_HOST (optional, default: "0.0.0.0"; set 127.0.0.1 to restrict to loopback)
-    - MCP_PORT (optional, default: 8087)
-    - MCP_SECRET_PATH (optional, default: "/mcp")
-    - HA_MCP_DISABLE_SETTINGS_UI (optional): set truthy to not serve the web
-      settings UI at all
-    """
-    _setup_standard_mode()
-    _run_http_server("sse", default_port=8087)
+    _run_http_server(default_port=8086)
 
 
 def main_oauth() -> None:
@@ -1447,9 +1547,7 @@ async def _run_oauth_server(
         f"Starting OAuth-enabled MCP server with {len(tools)} tools on {base_url}{path}"
     )
 
-    await _run_with_shutdown(
-        mcp.run_async(**_http_run_kwargs("http", host, port, path))
-    )
+    await _run_with_shutdown(mcp.run_async(**_http_run_kwargs(host, port, path)))
 
 
 def main_oidc() -> None:
@@ -1642,7 +1740,7 @@ async def _run_oidc_server(
     logger.info(f"Starting OIDC-enabled MCP server at {base_url}{path}")
 
     await _run_with_shutdown(
-        mcp_instance.run_async(**_http_run_kwargs("http", host, port, path))
+        mcp_instance.run_async(**_http_run_kwargs(host, port, path))
     )
 
 

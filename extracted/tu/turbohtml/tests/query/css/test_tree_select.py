@@ -1,0 +1,1047 @@
+"""CSS selectors: select() / select_one() over the common selector subset."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Final
+
+import pytest
+
+from turbohtml import Document, Element, SelectorSyntaxError, parse
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+_DOC = (
+    '<section id="s" class="box wide">'
+    '<h2 class="title">T</h2>'
+    '<p class="lead first">one <a href="/x" rel="next">link</a></p>'
+    "<p>two</p>"
+    '<ul><li class="item">a</li><li class="item sel">b</li></ul>'
+    '<my-widget data-k="v" lang="en-US">w</my-widget>'
+    "</section>"
+)
+_NON_OVERLAPPING_NEEDLE: Final = "".join(chr(0x100 + index) for index in range(70))
+
+
+def _sel(html: str, selector: str) -> list[str]:
+    return [element.tag for element in parse(html).select(selector)]
+
+
+@pytest.mark.parametrize(
+    ("selector", "tags"),
+    [
+        # simple selectors
+        pytest.param("li", ["li", "li"], id="type"),
+        pytest.param(".item", ["li", "li"], id="class"),
+        pytest.param("#s", ["section"], id="id"),
+        pytest.param("my-widget", ["my-widget"], id="unknown-tag-by-name"),
+        # a type selector is ASCII case-insensitive even for a custom/unknown tag (issue #62)
+        pytest.param("MY-WIDGET", ["my-widget"], id="unknown-tag-folds-case"),
+        pytest.param("li.sel", ["li"], id="compound-type-class"),
+        pytest.param("p.lead.first", ["p"], id="compound-two-classes"),
+        # attribute operators
+        pytest.param("[rel]", ["a"], id="exists"),
+        pytest.param('[href="/x"]', ["a"], id="equals"),
+        pytest.param('[class~="wide"]', ["section"], id="includes"),
+        pytest.param('[lang|="en"]', ["my-widget"], id="dash"),
+        pytest.param('[href^="/"]', ["a"], id="prefix"),
+        pytest.param('[href$="x"]', ["a"], id="suffix"),
+        pytest.param('[href*="/x"]', ["a"], id="substring"),
+        pytest.param('[lang="EN-us" i]', ["my-widget"], id="case-insensitive"),
+        pytest.param('[lang="EN-us" s]', [], id="case-sensitive"),
+        pytest.param("[data-missing]", [], id="name-absent-in-tree"),
+        pytest.param("[rel=nope]", [], id="value-mismatch"),
+        pytest.param("[rel='next']", ["a"], id="single-quoted"),
+        pytest.param("[CLASS]", ["section", "h2", "p", "li", "li"], id="uppercase-name"),
+        # attribute operator near misses
+        pytest.param('[href^="z"]', [], id="prefix-miss"),
+        pytest.param('[href^="/xyz"]', [], id="prefix-too-long"),
+        pytest.param('[href$="z"]', [], id="suffix-miss"),
+        pytest.param('[href$="//xx"]', [], id="suffix-too-long"),
+        pytest.param('[href*="zz"]', [], id="substring-miss"),
+        pytest.param('[lang|="en-US"]', ["my-widget"], id="dash-exact"),
+        pytest.param('[lang|="en-U"]', [], id="dash-no-boundary"),
+        pytest.param('[lang|="en-US-x"]', [], id="dash-prefix-too-long"),
+        pytest.param('[lang|="xx"]', [], id="dash-prefix-mismatch-at-boundary"),
+        pytest.param('[class~="zzz"]', [], id="includes-miss"),
+        # empty operand never matches the prefix/suffix/substring/includes ops
+        pytest.param('[href^=""]', [], id="prefix-empty"),
+        pytest.param('[href$=""]', [], id="suffix-empty"),
+        pytest.param('[href*=""]', [], id="substring-empty"),
+        pytest.param('[class~=""]', [], id="includes-empty"),
+        # non-ASCII attribute names are not present, so they match nothing
+        pytest.param("[café]", [], id="latin1-name"),
+        pytest.param("[中]", [], id="bmp-name"),
+        pytest.param("[😀]", [], id="astral-name"),
+        # combinators
+        pytest.param("section a", ["a"], id="descendant"),
+        pytest.param("ul > li", ["li", "li"], id="child"),
+        pytest.param("section > a", [], id="child-not-direct"),
+        pytest.param("h2 + p", ["p"], id="adjacent-sibling"),
+        pytest.param("p + h2", [], id="adjacent-no-preceding-element"),
+        pytest.param("h2 ~ p", ["p", "p"], id="general-sibling"),
+        pytest.param("table ~ p", [], id="general-sibling-no-preceding"),
+        pytest.param("h2 ~ ul", ["ul"], id="general-sibling-scans-past-non-matches"),
+        pytest.param("div > ul > li", [], id="child-chain-breaks-above-match"),
+        pytest.param("h2 + ul", [], id="adjacent-compound-miss"),
+        # :link/:any-link reduce to :is(a, area)[href] on a parsed tree (issue #349)
+        pytest.param(":any-link", ["a"], id="any-link"),
+        pytest.param(":link", ["a"], id="link"),
+        pytest.param("a:any-link", ["a"], id="any-link-compound"),
+        pytest.param(
+            ":not(a:any-link)",
+            ["html", "head", "body", "section", "h2", "p", "p", "ul", "li", "li", "my-widget"],
+            id="not-any-link",
+        ),
+        # grouping
+        pytest.param("h2, a", ["h2", "a"], id="comma-group-in-document-order"),
+        pytest.param("#nope", [], id="id-present-but-mismatched"),
+        # the encode buffers cap tag names at 60 bytes and attribute names at 124;
+        # a longer name overruns the cap and cannot match any real element
+        pytest.param("z" * 130, [], id="overlong-tag-name"),
+        pytest.param("[" + "z" * 130 + "]", [], id="overlong-attr-name"),
+    ],
+)
+def test_select_over_doc(selector: str, tags: list[str]) -> None:
+    assert _sel(_DOC, selector) == tags
+
+
+@pytest.mark.parametrize(
+    ("value", "needle", "flag", "tags"),
+    [
+        pytest.param("a" * 400, "a" * 65 + "b", "", [], id="prefilter-miss"),
+        pytest.param("a" * 200 + "a" * 65 + "ba", "a" * 65 + "ba", "", ["div"], id="kmp-late-match"),
+        pytest.param("a" * 200 + "c" + "a" * 199, "a" * 65 + "ba", "", [], id="kmp-miss"),
+        pytest.param("a" * 200 + "a" * 65 + "ba", "A" * 65 + "BA", " i", ["div"], id="kmp-folded-match"),
+        pytest.param("a" * 65 + "ba", "a" * 65 + "ba", "", ["div"], id="short-value-match"),
+        pytest.param("a" * 66 + "c", "a" * 65 + "ba", "", [], id="short-value-miss"),
+        pytest.param("a" * 65, "a" * 65 + "ba", "", [], id="needle-longer-than-value"),
+        pytest.param("a" * 65 + "ba" + "z" * 300, "a" * 65 + "ba", "", ["div"], id="large-exact-match"),
+        pytest.param(
+            "x" * 100 + _NON_OVERLAPPING_NEEDLE,
+            _NON_OVERLAPPING_NEEDLE,
+            "",
+            ["div"],
+            id="no-overlap",
+        ),
+    ],
+)
+def test_long_substring(value: str, needle: str, flag: str, tags: list[str]) -> None:
+    assert _sel(f'<div data-value="{value}"></div>', f'[data-value*="{needle}"{flag}]') == tags
+
+
+def test_long_substring_missing_attribute() -> None:
+    needle: Final = "a" * 65 + "ba"
+    assert _sel(f'<div data-value="{needle}"></div><p></p>', f'[data-value*="{needle}"]') == ["div"]
+    assert _sel("<div data-value></div>", f'[data-value*="{needle}"]') == []
+    assert _sel("<div></div>", f'[missing*="{needle}"]') == []
+
+
+def test_long_substring_default_case_folding() -> None:
+    value: Final = "a" * 65 + "ba"
+    needle: Final = "A" * 65 + "BA"
+    assert _sel(f'<input type="{value}">', f'[type*="{needle}"]') == ["input"]
+    assert _sel(f'<svg><g type="{value}"></g></svg>', f'[type*="{needle}"]') == []
+
+
+@pytest.mark.parametrize(
+    ("selector", "tags"),
+    [
+        # CSS Syntax §4.3.2: a comment is valid anywhere whitespace is (issue #352)
+        pytest.param("section /* the link */ a", ["a"], id="comment-as-descendant-ws"),
+        pytest.param("p.lead /* c */ a", ["a"], id="comment-around-child-context"),
+        pytest.param("section /* a*b keeps scanning */ a", ["a"], id="comment-with-inner-asterisk"),
+        pytest.param("section a /* trailing", ["a"], id="unterminated-comment-runs-to-end"),
+        pytest.param('[href /* c */ = "/x"]', ["a"], id="comment-inside-attribute"),
+        # CSS Syntax §4.3.5 string escapes in an attribute value (issue #352)
+        pytest.param('[href="/\\\nx"]', ["a"], id="attr-value-line-continuation"),
+        pytest.param(r'[href="\2f x"]', ["a"], id="attr-value-hex-escape"),
+    ],
+)
+def test_comments_and_string_escapes(selector: str, tags: list[str]) -> None:
+    assert _sel(_DOC, selector) == tags
+
+
+@pytest.mark.parametrize(
+    ("html", "selector", "tags"),
+    [
+        pytest.param("<div></div>text<p>x</p>", "div + p", ["p"], id="adjacent-skips-text-node"),
+        # the nearest <div> ancestor has no matching <i>, but a higher one does
+        pytest.param(
+            "<div class=x><i><div class=y><b>hit</b></div></i></div>", ".x i b", ["b"], id="descendant-backtracks-hit"
+        ),
+        pytest.param(
+            "<div class=x><i><div class=y><b>hit</b></div></i></div>", ".y i b", [], id="descendant-backtracks-miss"
+        ),
+        # span's preceding p siblings: pick one whose own preceding sibling is an h1
+        pytest.param(
+            "<h1>a</h1><p class=x>b</p><h1>c</h1><p>d</p><span>e</span>",
+            "p ~ span",
+            ["span"],
+            id="general-sibling-backtracks",
+        ),
+        # the near <p> fails its left context (an <a> sits before it); the scan
+        # continues to the far <p>, whose preceding element is the <i>
+        pytest.param(
+            "<i></i><p>1</p><a></a><p>2</p><span>x</span>",
+            "i + p ~ span",
+            ["span"],
+            id="general-sibling-backtracks-left-context",
+        ),
+        # span's previous element p matches, but p's previous element is x, not i
+        pytest.param("<x></x><p>p</p><span>s</span>", "i + p + span", [], id="adjacent-chain-misses"),
+        pytest.param("<p class=x>p</p><a>a</a>", ".x + a", ["a"], id="adjacent-non-type-target"),
+        pytest.param("<a>a</a>", ".x + a", [], id="adjacent-non-type-target-no-prev"),
+        pytest.param("<p class=y>p</p><a>a</a>", ".x + a", [], id="adjacent-non-type-target-miss"),
+        pytest.param(
+            "<b>b</b><p class=x>p</p><a>a</a>",
+            "i + p.x + a",
+            [],
+            id="adjacent-non-type-target-recursive-miss",
+        ),
+        pytest.param("<p class=x>p</p><i>i</i><a>a</a>", ".x ~ a", ["a"], id="general-sibling-non-type-target"),
+        pytest.param("<p class=y>p</p><i>i</i><a>a</a>", ".x ~ a", [], id="general-sibling-non-type-target-miss"),
+        pytest.param("<b>b</b><p class=x>p</p><a>a</a>", "i + .x ~ a", [], id="general-sibling-recursive-miss"),
+        pytest.param(
+            "<section><p class=x><a>a</a></p></section>",
+            "div > p.x > a",
+            [],
+            id="child-non-type-target-recursive-miss",
+        ),
+        pytest.param("<section><div class=x><b>b</b></div></section>", "i .x b", [], id="descendant-recursive-miss"),
+        pytest.param("<input disabled>", "[disabled]", ["input"], id="valueless-exists"),
+        pytest.param("<input disabled>", '[disabled=""]', ["input"], id="valueless-empty-equals"),
+        pytest.param("<input disabled>", "[disabled=x]", [], id="valueless-value-mismatch"),
+        pytest.param("<div id>", "#x", [], id="valueless-id-matches-nothing"),
+        pytest.param("<div class>", ".x", [], id="valueless-class-matches-nothing"),
+        pytest.param("<DIV></DIV>", "DIV", ["div"], id="type-folds-case"),
+        pytest.param('<div class="a_b">', ".a_b", ["div"], id="class-underscore"),
+        pytest.param('<div class="café">', ".café", ["div"], id="class-non-ascii"),
+        pytest.param("<café>x", "café", ["café"], id="type-non-ascii"),
+        # a token followed by whitespace running to the end of the value still matches
+        pytest.param('<div class="a ">', ".a", ["div"], id="trailing-whitespace-class-hit"),
+        pytest.param('<div data-x="a ">', '[data-x~="a"]', ["div"], id="trailing-whitespace-attr-hit"),
+        # a trailing whitespace run is consumed without yielding an empty token, so
+        # the scan reaches the end with no match, exercising the loop-exit branches
+        pytest.param('<div class="a ">', ".zzz", [], id="trailing-whitespace-class-miss"),
+        pytest.param('<div data-x="a ">', '[data-x~="zzz"]', [], id="trailing-whitespace-attr-miss"),
+        # CSS identifier escapes (Syntax 4.3.7): a backslash escapes the literal
+        # next character, and \HHHHHH (with one optional trailing space) a code point
+        pytest.param('<div class="foo:bar">', r".foo\:bar", ["div"], id="class-escaped-colon"),
+        pytest.param('<div class="foo.bar">', r".foo\.bar", ["div"], id="class-escaped-dot"),
+        pytest.param('<div id="a:b">', r"#a\:b", ["div"], id="id-escaped-colon"),
+        pytest.param('<div id="a b">', r"#a\ b", ["div"], id="id-escaped-space"),
+        pytest.param('<div class="©">', r".\A9 ", ["div"], id="class-hex-escape-trailing-space"),
+        pytest.param('<div class="©">', r".\0000A9", ["div"], id="class-hex-escape-six-digits"),
+        pytest.param("<div></div>", r"\64 iv", ["div"], id="type-hex-escape"),
+        pytest.param('<div data-x="a:b">', r"[data\-x=a\:b]", ["div"], id="attr-name-and-value-escapes"),
+        # a null, surrogate, or out-of-range hex escape folds to U+FFFD
+        pytest.param('<div class="�">', r".\0", ["div"], id="class-null-hex-escape-is-replacement"),
+        pytest.param('<div class="�">', r".\D800", ["div"], id="class-surrogate-hex-is-replacement"),
+        pytest.param("<div class='\ue000'>", r".\E000", ["div"], id="class-just-above-surrogate-is-kept"),
+        pytest.param('<div class="\U0010ffff">', r".\10FFFF", ["div"], id="class-max-code-point-hex-escape"),
+        pytest.param('<div class="�">', r".\110000", ["div"], id="class-out-of-range-hex-is-replacement"),
+        # a hex escape ends at end of input, at a non-hex char, or at one trailing space
+        pytest.param('<div class="©">', r".\A9", ["div"], id="class-hex-escape-at-eof"),
+        pytest.param('<div class="Az">', r".\41z", ["div"], id="class-hex-escape-stops-at-non-hex"),
+        # a trailing backslash escapes U+FFFD
+        pytest.param('<div class="x�">', ".x\\", ["div"], id="class-trailing-backslash-is-replacement"),
+        # a quoted attribute-value string decodes the same escapes as an identifier
+        # (Syntax 4.3.5): \HH hex escapes, a null/out-of-range escape folding to U+FFFD,
+        # and a backslash escaping a literal (here the closing quote, which does not end it)
+        pytest.param('<a id="a:b"></a>', r'[id="a\:b"]', ["a"], id="string-escaped-literal"),
+        pytest.param('<a id="©"></a>', r'[id="\A9 "]', ["a"], id="string-hex-escape"),
+        pytest.param('<a id="�pre"></a>', r'[id="\0 pre"]', ["a"], id="string-null-hex-is-replacement"),
+        pytest.param('<a id="�pre"></a>', '[id="\x00pre"]', ["a"], id="string-raw-null-is-replacement"),
+        pytest.param("""<a id='say "hi"'></a>""", r'[id="say \"hi\""]', ["a"], id="string-escaped-quote-kept"),
+        # a backslash before a newline is a string line continuation and is dropped
+        # (a newline is LF, CR, FF, or a CR LF pair; each collapses to nothing here)
+        pytest.param('<a id="pre"></a>', '[id="pr\\\ne"]', ["a"], id="string-line-continuation-lf"),
+        pytest.param('<a id="pre"></a>', "[id='pr\\\re']", ["a"], id="string-line-continuation-cr"),
+        pytest.param('<a id="pre"></a>', "[id='pr\\\r\ne']", ["a"], id="string-line-continuation-crlf"),
+        pytest.param('<a id="pre"></a>', "[id='pr\\\x0ce']", ["a"], id="string-line-continuation-ff"),
+        # the WHATWG "case-sensitivity of selectors" set: type/rel/... compare their
+        # value ASCII case-insensitively by default on HTML elements (no flag needed)
+        pytest.param('<input type="TEXT">', "input[type=text]", ["input"], id="ci-attr-set-default"),
+        # an uppercase attribute name in the selector still resolves to the set
+        pytest.param('<input type="x">', "[TYPE=X]", ["input"], id="ci-attr-set-uppercase-name"),
+        pytest.param('<input type="TEXT">', "[type~=text]", ["input"], id="ci-attr-set-include-op"),
+        pytest.param('<input type="TEXT">', "input[type=text s]", [], id="ci-attr-set-s-flag-forces-cs"),
+        # the default applies only to HTML-namespace elements, not foreign ones
+        pytest.param('<svg><rect type="FOO"></rect></svg>', "[type=foo]", [], id="ci-attr-set-not-foreign"),
+        # an attribute outside the set keeps the default case-sensitive comparison
+        pytest.param('<div data-x="ABC"></div>', "[data-x=abc]", [], id="non-ci-attr-stays-cs"),
+        # sel_attr_default_ci rejects a non-ASCII name, an over-long name, and names
+        # that fall before/after the set without matching it
+        pytest.param("<div></div>", "[café=x]", [], id="ci-attr-set-non-ascii-name"),
+        pytest.param("<div></div>", "[abcdefghijklmnopq=x]", [], id="ci-attr-set-overlong-name"),
+        pytest.param("<div></div>", "[aaa=x]", [], id="ci-attr-set-before-set"),
+        pytest.param("<div></div>", "[zzz=x]", [], id="ci-attr-set-after-set"),
+    ],
+)
+def test_select_over_custom_html(html: str, selector: str, tags: list[str]) -> None:
+    assert _sel(html, selector) == tags
+
+
+# Selectors-4 §6.1/§6.2: class and ID selectors match ASCII case-insensitively in a
+# quirks-mode document (no doctype) and case-sensitively otherwise. The body is the
+# same markup under both modes; only the leading doctype flips the document mode.
+@pytest.mark.parametrize(
+    ("selector", "quirks_tags", "standards_tags"),
+    [
+        pytest.param(".foo", ["div"], [], id="class-lowercase-selector"),
+        pytest.param(".FOO", ["div"], ["div"], id="class-exact-case-selector"),
+        pytest.param(".FoO", ["div"], [], id="class-mixed-case-selector"),
+        pytest.param("#bar", ["div"], [], id="id-lowercase-selector"),
+        pytest.param("#BAR", ["div"], ["div"], id="id-exact-case-selector"),
+        pytest.param("#BaR", ["div"], [], id="id-mixed-case-selector"),
+        # the quirks fold reaches selectors nested in :is()/:where()/:has()
+        pytest.param(":is(.foo)", ["div"], [], id="class-in-is"),
+        pytest.param("div:has(> .qux)", ["div"], [], id="class-in-has"),
+    ],
+)
+def test_class_id_case_folds_only_in_quirks(selector: str, quirks_tags: list[str], standards_tags: list[str]) -> None:
+    body = '<div class="FOO BAZ" id="BAR"><span class="QUX">x</span></div>'
+    assert _sel(body, selector) == quirks_tags
+    assert _sel(f"<!doctype html>{body}", selector) == standards_tags
+
+
+# a five-item list, a mixed-type container, and custom-element siblings so the
+# of-type pseudo-classes exercise both the builtin-atom and custom-name paths
+_PSEUDO = (
+    "<main>"
+    "<ul><li>1</li><li>2</li><li>3</li><li>4</li><li>5</li></ul>"
+    "<section><h2>t</h2><p>a</p><span>b</span><p></p><!--c--></section>"
+    "<nav><x-a>1</x-a><x-b>2</x-b><x-a>3</x-a></nav>"
+    "<header><b>x</b><svg></svg></header>"
+    "<aside><!--z--></aside>"  # only a comment, so still :empty
+    "</main>"
+)
+
+
+# cases whose subjects share a tag are keyed on text, which encodes the position;
+# cases that identify elements by kind are keyed on tag in the by-tag test below
+@pytest.mark.parametrize(
+    ("selector", "texts"),
+    [
+        pytest.param("li:first-child", ["1"], id="first-child"),
+        pytest.param("li:last-child", ["5"], id="last-child"),
+        pytest.param("li:nth-child(1)", ["1"], id="nth-child-literal"),
+        pytest.param("li:nth-child(2n)", ["2", "4"], id="nth-child-even-coeff"),
+        pytest.param("li:nth-child(2n+1)", ["1", "3", "5"], id="nth-child-odd-coeff"),
+        pytest.param("li:nth-child(even)", ["2", "4"], id="nth-child-even-keyword"),
+        # pseudo-class names and An+B keywords are ASCII case-insensitive
+        pytest.param("li:NTH-CHILD(EVEN)", ["2", "4"], id="nth-child-uppercase"),
+        pytest.param("li:nth-child(odd)", ["1", "3", "5"], id="nth-child-odd-keyword"),
+        pytest.param("li:nth-child(-n+2)", ["1", "2"], id="nth-child-negative-a"),
+        pytest.param("li:nth-child(n)", ["1", "2", "3", "4", "5"], id="nth-child-bare-n"),
+        pytest.param("li:nth-child( 2n + 1 )", ["1", "3", "5"], id="nth-child-whitespace"),
+        pytest.param("li:nth-child(0)", [], id="nth-child-zero-matches-none"),
+        pytest.param("li:nth-child(2n-1)", ["1", "3", "5"], id="nth-child-minus-b"),
+        pytest.param("li:nth-last-child(1)", ["5"], id="nth-last-child"),
+        pytest.param("li:nth-last-child(2)", ["4"], id="nth-last-child-second-from-end"),
+        # of-type with a builtin atom: two <p> siblings around a <span>
+        pytest.param("p:first-of-type", ["a"], id="first-of-type"),
+        pytest.param("p:last-of-type", [""], id="last-of-type"),
+        pytest.param("p:nth-of-type(2)", [""], id="nth-of-type"),
+        pytest.param("p:nth-last-of-type(1)", [""], id="nth-last-of-type"),
+        # of-type with custom elements: distinct names must not be conflated
+        pytest.param("x-a:first-of-type", ["1"], id="custom-first-of-type"),
+        pytest.param("x-a:nth-of-type(2)", ["3"], id="custom-nth-of-type"),
+        pytest.param("x-b:only-of-type", ["2"], id="custom-only-of-type"),
+    ],
+)
+def test_structural_pseudo_by_text(selector: str, texts: list[str]) -> None:
+    assert [element.text for element in parse(_PSEUDO).select(selector)] == texts
+
+
+# a list whose items alternate a class, so An+B applies to the .x-matching subset
+_NTH_OF = "<ul><li class=x>1</li><li>2</li><li class=x>3</li><li>4</li><li class=x>5</li></ul>"
+
+
+@pytest.mark.parametrize(
+    ("selector", "texts"),
+    [
+        # An+B counts only the inclusive siblings matching S (here .x items 1, 3, 5)
+        pytest.param("li:nth-child(1 of .x)", ["1"], id="nth-of-first"),
+        pytest.param("li:nth-child(2n of .x)", ["3"], id="nth-of-even"),
+        pytest.param("li:nth-child(odd of .x)", ["1", "5"], id="nth-of-odd"),
+        pytest.param("li:nth-child(2 of .x)", ["3"], id="nth-of-second"),
+        pytest.param("li:nth-child(-n+2 of .x)", ["1", "3"], id="nth-of-negative-a"),
+        # the of-list filters from the end for :nth-last-child()
+        pytest.param("li:nth-last-child(1 of .x)", ["5"], id="nth-last-of-first"),
+        pytest.param("li:nth-last-child(2 of .x)", ["3"], id="nth-last-of-second"),
+        # S may be a type selector or a compound, and folds 'of' case
+        pytest.param("li:nth-child(2 of li)", ["2"], id="nth-of-type-selector"),
+        pytest.param("li:nth-child(1 of li.x)", ["1"], id="nth-of-compound"),
+        pytest.param("li:NTH-CHILD(1 OF .x)", ["1"], id="nth-of-uppercase"),
+        # an element that does not match S is never selected
+        pytest.param("li:nth-child(1 of .missing)", [], id="nth-of-no-match"),
+    ],
+)
+def test_nth_child_of_selector(selector: str, texts: list[str]) -> None:
+    assert [element.text for element in parse(_NTH_OF).select(selector)] == texts
+
+
+def test_nth_child_of_skips_non_element_siblings() -> None:
+    # a comment between two .x items must not count toward the of-list index
+    doc = "<ul><li class=x>1</li><!--c--><li class=x>2</li></ul>"
+    assert [element.text for element in parse(doc).select("li:nth-child(2 of .x)")] == ["2"]
+
+
+@pytest.mark.parametrize(
+    ("selector", "tags"),
+    [
+        pytest.param(":root", ["html"], id="root-is-html"),
+        # a non-functional pseudo-class followed by a combinator (not '(')
+        pytest.param(":root > head", ["head"], id="root-then-combinator"),
+        pytest.param(":empty", ["head", "p", "svg", "aside"], id="empty-element-or-comment-only"),
+        pytest.param("span:only-of-type", ["span"], id="only-of-type-hit"),
+        pytest.param("p:only-of-type", [], id="only-of-type-miss"),
+        pytest.param("x-a:only-of-type", [], id="custom-only-of-type-miss"),
+        # an html <b> beside an <svg> sibling stays distinct by namespace, so the
+        # <b> is still its parent's only element of that type
+        pytest.param("b:only-of-type", ["b"], id="only-of-type-distinct-namespace"),
+        pytest.param("main:only-child", ["main"], id="only-child-hit"),
+        pytest.param("h2:only-child", [], id="only-child-miss"),
+        pytest.param("aside:only-child", [], id="only-child-multiple-siblings"),
+    ],
+)
+def test_structural_pseudo_by_tag(selector: str, tags: list[str]) -> None:
+    assert [element.tag for element in parse(_PSEUDO).select(selector)] == tags
+
+
+# Selectors-4 §13.2 changed :empty from Level 3: an element holding only document
+# white space still matches, while any non-whitespace text or element child does not.
+@pytest.mark.parametrize(
+    ("html", "tags"),
+    [
+        pytest.param("<p></p>", ["p"], id="no-children"),
+        pytest.param("<p> </p>", ["p"], id="single-space"),
+        pytest.param("<p>\t\n\f </p>", ["p"], id="mixed-ascii-whitespace"),
+        pytest.param("<p><!--c--></p>", ["p"], id="comment-only"),
+        pytest.param("<p> <!--c--> </p>", ["p"], id="whitespace-around-comment"),
+        pytest.param("<p>x</p>", [], id="text"),
+        pytest.param("<p> x </p>", [], id="whitespace-around-text"),
+        pytest.param("<p>\xa0</p>", [], id="non-breaking-space-is-not-whitespace"),
+        pytest.param("<p><span></span></p>", [], id="element-child"),
+        pytest.param("<p> <span></span> </p>", [], id="element-child-among-whitespace"),
+    ],
+)
+def test_empty_ignores_document_whitespace(html: str, tags: list[str]) -> None:
+    assert _sel(html, "p:empty") == tags
+
+
+def test_universal_under_a_root() -> None:
+    assert (section := parse(_DOC).select_one("section")) is not None
+    assert len(section.select("*")) == 8  # h2, p, a, p, ul, li, li, my-widget
+
+
+def test_select_is_scoped_to_descendants() -> None:
+    assert (section := parse(_DOC).select_one("section")) is not None
+    assert section.select("section") == []  # the receiver itself is not a descendant
+
+
+def test_select_one() -> None:
+    assert (match := parse(_DOC).select_one("p.lead")) is not None
+    assert match.text.startswith("one")
+    assert parse(_DOC).select_one("table") is None
+
+
+@pytest.mark.parametrize(
+    ("selector", "tags"),
+    [
+        # a namespace prefix is ignored in a namespaceless HTML document
+        pytest.param("*|a", ["a"], id="any-ns-type"),
+        pytest.param("|a", ["a"], id="no-ns-type"),
+        pytest.param("ns|a", ["a"], id="named-ns-type"),
+        pytest.param("*|*", ["html", "head", "body", "root", "a", "b"], id="any-ns-universal"),
+        pytest.param("|*", ["html", "head", "body", "root", "a", "b"], id="no-ns-universal"),
+        pytest.param("ns|*", ["html", "head", "body", "root", "a", "b"], id="named-ns-universal"),
+    ],
+)
+def test_namespace_prefixed_type_selectors(selector: str, tags: list[str]) -> None:
+    assert _sel("<root><a>1</a><b>2</b></root>", selector) == tags
+
+
+def test_universal_followed_by_simple_is_not_a_namespace_prefix() -> None:
+    # a '*' not followed by '|' is the plain universal selector, then the next simple
+    assert _sel("<root><a class=x>1</a><b>2</b></root>", "*.x") == ["a"]
+
+
+def test_namespace_prefixed_local_part_decodes_escapes() -> None:
+    # the local part after a namespace prefix is a full identifier, so it decodes escapes
+    assert _sel("<root><a>1</a></root>", "*|\\61") == ["a"]
+
+
+@pytest.mark.parametrize(
+    ("selector", "tags"),
+    [
+        # a namespace prefix on an attribute selector is accepted and matches on the
+        # local attribute name, like a prefixed type selector (issue #378)
+        pytest.param("[ns|k]", ["a"], id="named-ns-attr"),
+        pytest.param("[*|k]", ["a"], id="any-ns-attr"),
+        pytest.param("[|k]", ["a"], id="no-ns-attr"),
+        pytest.param('[ns|k="v"]', ["a"], id="named-ns-attr-equals"),
+        pytest.param("[ns|missing]", [], id="named-ns-attr-absent"),
+        # a bare '|' before an operator is still the dash-match, not a namespace prefix
+        pytest.param('[k|="v"]', ["a"], id="dash-match-not-namespace"),
+    ],
+)
+def test_namespace_prefixed_attribute_selectors(selector: str, tags: list[str]) -> None:
+    assert _sel('<root><a k="v">1</a></root>', selector) == tags
+
+
+@pytest.mark.parametrize(
+    "selector",
+    [
+        # Selectors-4 §4.1: the type/universal selector must be first in a compound
+        pytest.param("[href]p", id="type-after-attribute"),
+        pytest.param("p.x*", id="universal-after-subclass"),
+        pytest.param("*div", id="type-after-universal"),
+        # a lone '-' is not an <ident-token>, so not a valid type selector (issue #375)
+        pytest.param("-", id="bare-hyphen"),
+        pytest.param("-1", id="hyphen-then-digit"),
+    ],
+)
+def test_malformed_compound_is_rejected(selector: str) -> None:
+    with pytest.raises(ValueError, match="selector"):
+        parse("<p href=x>hi</p>").select(selector)
+
+
+def test_type_first_in_compound_still_parses() -> None:
+    # the type selector leading its compound is the valid form
+    assert _sel("<p href=x>hi</p>", "p[href]") == ["p"]
+    # a leading '--custom' type selector is a valid identifier
+    assert _sel("<p>x</p>", "--custom, p") == ["p"]
+
+
+@pytest.mark.parametrize(
+    "selector",
+    [
+        # a '-' begins an identifier when a name-start code point, another '-', or an
+        # escape follows it, so these are valid type selectors (that match nothing) (#375)
+        pytest.param("-x", id="hyphen-letter"),
+        pytest.param("--x", id="double-hyphen"),
+        pytest.param(r"-\41", id="hyphen-escape"),
+        pytest.param("-_x", id="hyphen-underscore"),
+        pytest.param("-Àx", id="hyphen-non-ascii"),
+    ],
+)
+def test_leading_hyphen_identifier_is_valid(selector: str) -> None:
+    assert parse("<p>x</p>").select(selector) == []
+
+
+@pytest.mark.parametrize(
+    "selector",
+    [
+        # the compound/complex/list buffers grow, so a selector is bounded only by its
+        # own length, not a fixed cap at the 33rd simple/compound or 65th arm (issue #432)
+        pytest.param("p" + ".x" * 40, id="forty-simples-in-a-compound"),
+        pytest.param(" > ".join(["div"] * 39 + ["p"]), id="forty-child-compounds"),
+        pytest.param(",".join(["p"] * 70), id="seventy-list-arms"),
+    ],
+)
+def test_large_selectors_grow_past_the_old_caps(selector: str) -> None:
+    html = "<div class=x>" * 39 + "<p class=x>hi</p>" + "</div>" * 39
+    assert len(parse(html).select(selector)) == 1
+
+
+@pytest.mark.parametrize(
+    ("prefix", "suffix"),
+    [
+        # both nesting recursions -- the functional-pseudo list and the nth-child 'of S'
+        # clause -- must raise past the depth cap, not overflow the C stack (issue #421)
+        pytest.param(":not(", ")", id="functional-list"),
+        pytest.param(":nth-child(1 of ", ")", id="nth-child-of-clause"),
+    ],
+)
+def test_deeply_nested_functional_pseudo_raises_instead_of_crashing(prefix: str, suffix: str) -> None:
+    depth = 20000
+    with pytest.raises(ValueError, match="nested too deeply"):
+        parse("<a></a>").select(prefix * depth + "a" + suffix * depth)
+
+
+def test_invalid_selector_error_names_the_position_and_reason() -> None:
+    # the message carries the offending selector, the reason, and the position (issue #434)
+    with pytest.raises(ValueError, match=r'invalid CSS selector ":nth-child\(foo\)": expected An\+B at position 11'):
+        parse("<p>x</p>").select(":nth-child(foo)")
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        pytest.param(lambda node: node.select("a["), id="select"),
+        pytest.param(lambda node: node.select_one("a["), id="select_one"),
+        pytest.param(lambda node: node.matches("a["), id="matches"),
+        pytest.param(lambda node: node.closest("a["), id="closest"),
+    ],
+)
+def test_native_selector_parse_raises_the_unified_error(call: Callable[[Element], object]) -> None:
+    node = parse("<div><p>x</p></div>").select_one("p")
+    assert node is not None
+    with pytest.raises(SelectorSyntaxError):
+        call(node)
+
+
+_PSEUDO_DOC = (
+    "<main>"
+    '<section id="s">'
+    "<h2>T</h2>"
+    '<p class="lead">one <a href="/x">link</a></p>'
+    "<p>two</p>"
+    '<ul><li>a</li><li class="sel">b</li></ul>'
+    "</section>"
+    '<aside id="a"><span>side</span></aside>'
+    "</main>"
+)
+
+
+@pytest.mark.parametrize(
+    ("selector", "tags"),
+    [
+        # :is() and :where() match any nested alternative; :where() differs only in specificity
+        pytest.param(":is(h2, ul)", ["h2", "ul"], id="is-list"),
+        pytest.param(":IS(h2, ul)", ["h2", "ul"], id="is-uppercase-name"),  # pseudo-class names fold case
+        pytest.param(":where(li)", ["li", "li"], id="where"),
+        pytest.param("section :is(p, a)", ["p", "a", "p"], id="is-after-descendant"),
+        pytest.param(":is(.lead) a", ["a"], id="is-class-then-descendant"),
+        pytest.param("section:is(#s, .none)", ["section"], id="is-compound-subject"),
+        pytest.param(":is(:where(li.sel))", ["li"], id="nested-is-where"),
+        pytest.param(":is(em, strong)", [], id="is-no-match"),
+        # :has() leading combinators: descendant, child, next-sibling, subsequent-sibling
+        pytest.param("section:has(a)", ["section"], id="has-descendant"),
+        pytest.param("section:has(> h2)", ["section"], id="has-child"),
+        pytest.param("section:has(> a)", [], id="has-child-no-match"),
+        pytest.param("h2:has(+ p)", ["h2"], id="has-next-sibling"),
+        pytest.param("h2:has(~ ul)", ["h2"], id="has-subsequent-sibling"),
+        pytest.param("li:has(~ li)", ["li"], id="has-subsequent-sibling-li"),
+        # :has() multi-compound relative selectors exercise the interior combinators
+        pytest.param("section:has(p a)", ["section"], id="has-descendant-chain"),
+        # a leftmost compound that is a non-:scope pseudo-class (not the anchor itself)
+        pytest.param("section:has(:is(p) a)", ["section"], id="has-pseudo-interior-compound"),
+        pytest.param("section:has(p > a)", ["section"], id="has-child-chain"),
+        pytest.param("section:has(h2 + p)", ["section"], id="has-next-sibling-chain"),
+        pytest.param("section:has(h2 ~ ul)", ["section"], id="has-subsequent-chain"),
+        # a leading sibling combinator reaches the anchor's following siblings and subtrees
+        pytest.param("section:has(+ aside)", ["section"], id="has-next-sibling-element"),
+        pytest.param("section:has(~ aside span)", ["section"], id="has-sibling-subtree"),
+        # a following sibling matches the subject tag but is not adjacent, so the '+'
+        # chain back to the anchor fails while the sibling walk keeps scanning
+        pytest.param("h2:has(+ ul)", [], id="has-next-sibling-not-adjacent"),
+        pytest.param("aside:has(p)", [], id="has-no-match"),
+        pytest.param("aside:has(+ x)", [], id="has-no-following-sibling"),
+        # no-match cases where the subject is found but its combinator chain does not
+        # reach the anchor, exercising every relative-combinator dead end
+        pytest.param("section:has(~ li)", [], id="has-tilde-subject-is-descendant"),
+        pytest.param("section:has(span)", [], id="has-descendant-in-sibling-subtree"),
+        pytest.param("section:has(li ~ h2)", [], id="has-tilde-chain-no-match"),
+        pytest.param("section:has(ul a)", [], id="has-descendant-chain-no-match"),
+        # an interior compound that matches only an ancestor of the anchor (main is
+        # above section) is not within the anchor's subtree, so :has() does not match
+        pytest.param("section:has(main p)", [], id="has-interior-compound-above-anchor"),
+        # :not() keeps an element when it matches none of its (non-forgiving) arms
+        pytest.param("p:not(.lead)", ["p"], id="not-simple"),
+        pytest.param("li:not(.sel)", ["li"], id="not-class-miss"),
+        pytest.param("p:not(.lead, .none)", ["p"], id="not-list"),
+        pytest.param("p:not(.missing)", ["p", "p"], id="not-no-arm-matches"),
+        pytest.param("p:not(:has(a))", ["p"], id="not-with-has"),
+        pytest.param("section > :not(h2)", ["p", "p", "ul"], id="not-child-subject"),
+        pytest.param(":not(html, head, body, section, ul, aside, main *)", ["main"], id="not-complex-arm"),
+        pytest.param("li:not(.sel):not(.none)", ["li"], id="not-chained"),
+        pytest.param(":is(li):not(.sel)", ["li"], id="not-after-is"),
+        pytest.param("section:not(*)", [], id="not-universal-excludes-all"),
+        # :is()/:where() are forgiving: an arm that fails to parse is dropped and the
+        # rest stay usable, so a bad arm never invalidates the whole selector
+        pytest.param(":is(:bogus, h2)", ["h2"], id="is-drops-bad-arm"),
+        pytest.param(":where(::bogus, li)", ["li", "li"], id="where-drops-pseudo-element-arm"),
+        pytest.param(":is(:bogus)", [], id="is-all-arms-bad-matches-nothing"),
+        pytest.param(":where(:bogus)", [], id="where-bad-matches-nothing"),
+        pytest.param(":is()", [], id="is-empty-matches-nothing"),
+        pytest.param(":is(h2, )", ["h2"], id="is-trailing-comma-drops-empty-arm"),
+        pytest.param(":is(.)", [], id="is-invalid-inner-dropped"),
+        pytest.param(":is(:bogus, ul) li", ["li", "li"], id="is-forgiving-then-descendant"),
+        # a bad arm carrying a string or balanced brackets recovers to the real comma
+        pytest.param(':is([x="a, b"]:bogus, h2)', ["h2"], id="is-recover-past-string"),
+        pytest.param(":is(:x(a, b), h2)", ["h2"], id="is-recover-past-parens"),
+        # recovery skips delimiters inside strings and balanced brackets/parens
+        pytest.param(':is(@"a, b", h2)', ["h2"], id="is-recover-comma-in-string"),
+        pytest.param(":is(@'a, b', h2)", ["h2"], id="is-recover-comma-in-single-quoted"),
+        pytest.param(":is(@[a, b], h2)", ["h2"], id="is-recover-comma-in-brackets"),
+        pytest.param(":is(@(a, b), h2)", ["h2"], id="is-recover-comma-in-parens"),
+        pytest.param(":is(@], h2)", ["h2"], id="is-recover-unbalanced-bracket"),
+        pytest.param(r':is(@"a\"b", h2)', ["h2"], id="is-recover-escaped-quote"),
+    ],
+)
+def test_functional_pseudo_classes(selector: str, tags: list[str]) -> None:
+    assert _sel(_PSEUDO_DOC, selector) == tags
+
+
+def test_has_skips_non_element_following_sibling() -> None:
+    # a comment between the anchor and a following sibling must not break :has()
+    doc = parse("<main><section></section><!--c--><aside><b>x</b></aside></main>")
+    assert [element.tag for element in doc.select("section:has(~ aside b)")] == ["section"]
+
+
+def _nested_divs(depth: int, leaf: str = "<a>x</a>") -> str:
+    # a straight chain of `depth` <div>s wrapping leaf: the shape whose per-anchor :has()
+    # subtree re-walk is O(depth^2) without the memo. At depth >= 24 (the memo's engage
+    # threshold) select() builds the subtree memo, so this drives every memo branch.
+    return f"<body>{'<div>' * depth}{leaf}{'</div>' * depth}</body>"
+
+
+# depth 30 crosses the engage threshold; depth 200 fills enough deep slots to grow and
+# rehash the memo hash twice and to make node-pointer hash collisions statistically
+# certain, so the linear-probe branch is exercised regardless of allocation layout. Both
+# depths must return exactly what the direct walk would.
+@pytest.mark.parametrize(
+    "depth", [pytest.param(30, id="depth-30-engages-memo"), pytest.param(200, id="depth-200-regrows")]
+)
+@pytest.mark.parametrize(
+    ("selector", "expected"),
+    [
+        # every div's subtree holds the leaf <a>: a match at each of the `depth` anchors,
+        # nested anchors reusing the memoized deeper results
+        pytest.param("div:has(a)", "all", id="descendant-all-match"),
+        # a functional-pseudo argument with no :scope stays on the memo path
+        pytest.param("div:has(:is(a))", "all", id="is-argument-uses-memo"),
+        # a subject the tree never holds: every anchor's subtree walk memoizes a miss
+        pytest.param("div:has(b)", "none", id="descendant-no-match"),
+        # a child-combinator argument keeps the direct walk (count stays linear already);
+        # every div but the innermost has a child div
+        pytest.param("div:has(> div)", "all-but-last", id="child-keeps-direct-walk"),
+        # a :scope in the argument binds to the anchor, so the memo (anchor-independent)
+        # is skipped and the direct walk runs even on a deep tree
+        pytest.param("div:has(:scope)", "none", id="scope-argument-skips-memo"),
+        pytest.param("div:has(:is(:scope))", "none", id="nested-scope-skips-memo"),
+        pytest.param("div:has(a:scope)", "none", id="typed-scope-skips-memo"),
+    ],
+)
+def test_has_memo_deep_chain(depth: int, selector: str, expected: str) -> None:
+    counts = {"all": depth, "none": 0, "all-but-last": depth - 1}
+    assert len(parse(_nested_divs(depth)).select(selector)) == counts[expected]
+
+
+def test_has_memo_deep_sibling_chains() -> None:
+    # two sibling deep chains: the first populates the memo, so the second's anchors
+    # probe a non-empty table for keys it does not hold (the get-miss + linear-probe
+    # path) before filling in their own subtree results. Every div still matches.
+    chain = f"{'<div>' * 40}<a>x</a>{'</div>' * 40}"
+    doc = parse(f"<body>{chain}{chain}</body>")
+    assert len(doc.select("div:has(a)")) == 80
+
+
+# a deep tree so the memo is live, carrying elements every relative-selector shape needs:
+# a <p><a> at the chain's foot and a <p> sibling of the outermost div. On this tree the
+# memo-path gate still routes each :has() form to the right evaluator.
+_DEEP_RICH = f"<body>{'<div>' * 40}<p><a>x</a></p>{'</div>' * 40}<p>s</p></body>"
+
+
+@pytest.mark.parametrize(
+    ("selector", "count"),
+    [
+        # a multi-compound argument is not the single-compound memo shape, so the direct
+        # walk runs even on a deep tree
+        pytest.param("div:has(p a)", 40, id="multi-compound-argument"),
+        # leading sibling combinators reach the outermost div's following <p> sibling only
+        pytest.param("div:has(+ p)", 1, id="next-sibling-lead"),
+        pytest.param("div:has(~ p)", 1, id="subsequent-sibling-lead"),
+        # a structural pseudo argument (no nested list) still takes the memo path
+        pytest.param("div:has(:first-child)", 40, id="structural-pseudo-argument"),
+        # two :has() arguments share one memo keyed by the relative selector, so their
+        # entries coexist and cross-key probes resolve to the right result
+        pytest.param("div:has(a):has(:is(a))", 40, id="two-arguments-share-memo"),
+    ],
+)
+def test_has_memo_deep_relative_shapes(selector: str, count: int) -> None:
+    assert len(parse(_DEEP_RICH).select(selector)) == count
+
+
+def test_has_memo_deep_select_one_returns_outermost() -> None:
+    # select_one walks in document order, so the outermost div (the first anchor) wins
+    doc = parse(_nested_divs(40))
+    found = doc.select_one("div:has(a)")
+    parent = found.parent if found is not None else None
+    assert isinstance(parent, Element)
+    assert parent.tag == "body"
+
+
+def test_has_memo_deep_remove_and_prune() -> None:
+    # remove() and prune() drive the memo through their own snapshot walks
+    removed = parse(_nested_divs(40))
+    removed.remove("div:has(a)")
+    assert removed.select("div") == []
+    kept = parse(_nested_divs(40))
+    kept.prune("div:has(a)")
+    assert len(kept.select("div")) == 40
+
+
+@pytest.mark.parametrize(
+    "selector",
+    [
+        pytest.param("", id="empty"),
+        pytest.param("  ", id="whitespace"),
+        # functional pseudo-classes (the structural pseudo cases are grouped below)
+        pytest.param(":unknown(p)", id="unsupported-pseudo"),
+        pytest.param(":is", id="is-without-args"),
+        pytest.param(":is(", id="is-unterminated"),
+        pytest.param(":is(p", id="is-unterminated-after-arg"),
+        # a forgiving list still needs its ')': an arm that runs to the end (here with
+        # an unterminated string, or a trailing backslash) leaves the '(' unclosed
+        pytest.param(':is(@"x', id="is-forgiving-unterminated-string"),
+        pytest.param(':is(@"x\\', id="is-forgiving-trailing-backslash"),
+        pytest.param(":is.x", id="pseudo-name-then-non-paren"),
+        pytest.param(":ix(p)", id="pseudo-name-char-mismatch"),
+        pytest.param(":1s(p)", id="pseudo-name-with-digit"),  # a below-'A' byte in the case fold
+        pytest.param(":is(p):has(", id="pseudo-then-failing-pseudo"),
+        pytest.param(":has(>)", id="has-dangling-combinator"),
+        # :not() takes a non-forgiving selector list, so any bad arm invalidates it
+        pytest.param(":not", id="not-without-args"),
+        pytest.param(":not(", id="not-unterminated"),
+        pytest.param(":not()", id="not-empty-args"),
+        pytest.param(":not(.)", id="not-invalid-inner"),
+        pytest.param(":not(:bogus)", id="not-unknown-nested-pseudo"),
+        pytest.param(":not(p,)", id="not-trailing-comma"),
+        # a namespace prefix must be followed by a type or the universal selector
+        pytest.param("*|", id="star-prefix-at-eof"),
+        pytest.param("|", id="bare-pipe"),
+        pytest.param("*|[a]", id="prefix-then-attribute"),
+        pytest.param(".", id="bare-dot"),
+        pytest.param("#", id="bare-hash"),
+        pytest.param("p..", id="double-dot"),
+        pytest.param("p >", id="dangling-combinator"),
+        pytest.param("p,", id="trailing-comma"),
+        pytest.param("[", id="open-bracket"),
+        pytest.param("[a", id="unterminated-attr"),
+        # a namespace prefix on an attribute must still be followed by a local name
+        pytest.param("[*x]", id="attr-star-not-pipe"),
+        pytest.param("[*", id="attr-star-at-eof"),
+        pytest.param("[ns|", id="attr-namespace-pipe-at-eof"),
+        pytest.param("[|", id="attr-bare-pipe-at-eof"),
+        pytest.param("[*|", id="attr-star-pipe-at-eof"),
+        pytest.param("[a=]", id="missing-value"),
+        pytest.param('[a="x]', id="unterminated-string"),
+        pytest.param("[a!=b]", id="bad-operator"),
+        pytest.param("[a~b]", id="tilde-without-equals"),
+        pytest.param("[a~", id="operator-at-eof"),
+        pytest.param("[a=", id="value-then-eof"),
+        pytest.param("[a=b", id="value-at-eof"),
+        pytest.param("[a=b c]", id="junk-after-value"),
+        pytest.param("p!", id="trailing-junk"),
+        pytest.param("p !", id="whitespace-then-junk"),
+        # a backslash before any CSS newline (LF, CR, FF) does not start an escape,
+        # so the dangling backslash leaves an empty identifier
+        pytest.param(".a\\\nb", id="escape-before-lf"),
+        pytest.param(".a\\\rb", id="escape-before-cr"),
+        pytest.param(".a\\\x0cb", id="escape-before-ff"),
+        # pseudo-classes: a bare or unknown one, a pseudo-element, a functional
+        # pseudo missing its argument list, and malformed An+B
+        pytest.param(":", id="bare-colon"),
+        pytest.param("::before", id="pseudo-element"),
+        pytest.param(":unknown", id="unknown-pseudo"),
+        pytest.param(":root(x)", id="non-functional-with-args"),
+        pytest.param(":nth-child", id="functional-without-args"),
+        pytest.param(":nth-child()", id="empty-anb"),
+        pytest.param(":nth-child(2n+)", id="anb-sign-without-digits"),
+        pytest.param(":nth-child(+)", id="anb-bare-sign"),
+        pytest.param(":nth-child(2n+1", id="anb-unclosed"),
+        pytest.param(":nth-child(", id="anb-eof-after-paren"),
+        pytest.param(":nth-child(2n", id="anb-eof-after-n"),
+        pytest.param(":nth-child.x", id="functional-without-paren"),
+        pytest.param(":nth-child(2n x)", id="anb-trailing-junk"),
+        pytest.param(":nth-child(2n*)", id="anb-non-ident-junk"),
+        # the Level-4 'of S' clause: a non-'of' keyword, an empty or unterminated S,
+        # a missing An+B, or 'of' on a pseudo-class that does not take it
+        pytest.param(":nth-child(2n ofx)", id="nth-of-not-of-keyword"),
+        pytest.param(":nth-child(2n of )", id="nth-of-empty-selector"),
+        pytest.param(":nth-child(2n of .x", id="nth-of-unterminated"),
+        pytest.param(":nth-child(of .x)", id="nth-of-without-anb"),
+        pytest.param(":nth-of-type(2n of .x)", id="nth-of-type-rejects-of"),
+        pytest.param(":nth-last-of-type(1 of p)", id="nth-last-of-type-rejects-of"),
+        # a comment separates tokens but is not itself a combinator, so an adjacent
+        # comment with no surrounding whitespace leaves the compounds unjoined (#352)
+        pytest.param("h2/* c */p", id="comment-without-combinator-whitespace"),
+        # a lone '/' is not a comment: at end of input, or before a non-'*' character
+        pytest.param("h2 /", id="slash-at-end-of-input"),
+        pytest.param("h2 /x", id="slash-not-opening-a-comment"),
+    ],
+)
+def test_invalid_selectors_raise(selector: str) -> None:
+    with pytest.raises(ValueError, match="selector"):
+        parse(_DOC).select(selector)
+
+
+def test_select_one_rejects_invalid_selector() -> None:
+    with pytest.raises(ValueError, match="selector"):
+        parse(_DOC).select_one("[")
+
+
+@pytest.mark.parametrize("method", [pytest.param("select", id="select"), pytest.param("select_one", id="select_one")])
+def test_rejects_non_str(method: str) -> None:
+    with pytest.raises(TypeError):
+        getattr(parse(_DOC), method)(123)
+
+
+# Element.css_path(): the unique CSS selector locating a node from the root. It
+# anchors at the nearest document-unique, safely serializable id and otherwise
+# descends with child combinators, adding :nth-of-type() only among same-type siblings.
+def _css_path(html: str, selector: str, index: int = 0) -> str:
+    return parse(html).select(selector)[index].css_path()
+
+
+@pytest.mark.parametrize(
+    ("html", "selector", "index", "expected"),
+    [
+        pytest.param("<html><body><p>x</p></body></html>", "html", 0, "html", id="root-is-its-tag"),
+        pytest.param("<html><body><p>x</p></body></html>", "p", 0, "html > body > p", id="child-combinators"),
+        pytest.param(
+            "<body><div>a</div><div>b</div><div>c</div></body>",
+            "div",
+            2,
+            "html > body > div:nth-of-type(3)",
+            id="nth-of-type-among-same-type",
+        ),
+        # distinct-type siblings need no index on either one
+        pytest.param("<body><h1>t</h1><p>x</p></body>", "h1", 0, "html > body > h1", id="distinct-type-heading"),
+        pytest.param("<body><h1>t</h1><p>x</p></body>", "p", 0, "html > body > p", id="distinct-type-paragraph"),
+        pytest.param('<body><div id="main"><p>x</p></div></body>', "#main", 0, "#main", id="unique-id-anchors"),
+        pytest.param(
+            '<body><section id="main"><div><p>x</p></div></section></body>',
+            "p",
+            0,
+            "#main > div > p",
+            id="ancestor-id-shortens",
+        ),
+        pytest.param(
+            '<body><div id="outer"><span id="inner"><b>x</b></span></div></body>',
+            "b",
+            0,
+            "#inner > b",
+            id="nearest-unique-id-wins",
+        ),
+        pytest.param(
+            '<body><div id="dup">a</div><div id="dup"><p>x</p></div></body>',
+            "p",
+            0,
+            "html > body > div:nth-of-type(2) > p",
+            id="duplicate-id-is-not-an-anchor",
+        ),
+        # an id carrying whitespace or a CSS delimiter cannot serialize, so it is skipped
+        pytest.param(
+            '<body><div id="a b"><p>x</p></div></body>', "p", 0, "html > body > div > p", id="unsafe-id-space"
+        ),
+        pytest.param('<body><div id="a.b"><p>x</p></div></body>', "p", 0, "html > body > div > p", id="unsafe-id-dot"),
+        pytest.param(
+            '<body><div id="a:b"><p>x</p></div></body>', "p", 0, "html > body > div > p", id="unsafe-id-colon"
+        ),
+        pytest.param('<body><div id=""><p>x</p></div></body>', "p", 0, "html > body > div > p", id="unsafe-id-empty"),
+        pytest.param("<body><div id><p>x</p></div></body>", "p", 0, "html > body > div > p", id="valueless-id"),
+        pytest.param(
+            '<body><span id></span><div id="main"><p>x</p></div></body>',
+            "p",
+            0,
+            "#main > p",
+            id="valueless-id-on-other-element-is-skipped",
+        ),
+        pytest.param(
+            '<!doctype html><body><div id="main"><p>x</p></div></body>',
+            "p",
+            0,
+            "#main > p",
+            id="anchor-id-under-no-quirks-doctype",
+        ),
+        pytest.param(
+            '<body><div id="Main">a</div><div id="main"><p>x</p></div></body>',
+            "p",
+            0,
+            "html > body > div:nth-of-type(2) > p",
+            id="quirks-mode-case-insensitive-id-collision",
+        ),
+        # "a0" and "a8" hash to the same id-map bucket, so anchoring on the inner
+        # one probes past the outer's slot before matching its own
+        pytest.param(
+            '<!doctype html><div id="a0"><div id="a8"><p>x</p></div></div>',
+            "p",
+            0,
+            "#a8 > p",
+            id="hash-colliding-ids-probe-past-collision",
+        ),
+        # more ids than the id map's initial capacity, so it grows before anchoring
+        pytest.param(
+            "<body>"
+            + "".join(f'<div id="d{number}"></div>' for number in range(6))
+            + '<section id="t"><p>x</p></section></body>',
+            "p",
+            0,
+            "#t > p",
+            id="many-ids-grow-map",
+        ),
+        pytest.param(
+            "<body><my-widget>a</my-widget><my-widget>b</my-widget></body>",
+            "my-widget",
+            1,
+            "html > body > my-widget:nth-of-type(2)",
+            id="unknown-tag-uses-its-name",
+        ),
+        pytest.param(
+            "<ul>" + "".join(f"<li>{number}</li>" for number in range(12)) + "</ul>",
+            "li",
+            11,
+            "html > body > ul > li:nth-of-type(12)",
+            id="multi-digit-index",
+        ),
+        pytest.param(
+            "<body>" + "<div>" * 40 + "x" + "</div>" * 40 + "</body>",
+            "div",
+            39,
+            "html > body > " + " > ".join(["div"] * 40),
+            id="deeply-nested-path-grows-buffer",
+        ),
+    ],
+)
+def test_css_path(html: str, selector: str, index: int, expected: str) -> None:
+    assert _css_path(html, selector, index) == expected
+
+
+def test_css_path_of_detached_element_is_its_tag() -> None:
+    assert Element("div").css_path() == "div"
+
+
+def test_css_path_constructed_empty_string_id_is_not_an_anchor() -> None:
+    container = Element("div", {"id": ""})
+    paragraph = Element("p")
+    container.append(paragraph)
+    assert paragraph.css_path() == "div > p"
+
+
+def test_css_path_detached_subtree_id_is_not_an_anchor() -> None:
+    container = Element("div", {"id": "main"})
+    paragraph = Element("p")
+    container.append(paragraph)
+    assert paragraph.css_path() == "div > p"
+
+
+# css_path() round-trips: re-selecting the path returns exactly the node it came from.
+_CSS_PATH_DOC = (
+    "<!doctype html><html><head><title>t</title></head><body>"
+    "<header><h1>Title</h1></header>"
+    '<main id="content">'
+    "<article><p>one</p><p>two</p><p>three</p></article>"
+    '<article class="aside"><p>alpha</p><ul><li>a</li><li>b</li><li>c</li></ul></article>'
+    "</main>"
+    '<footer><a href="/x">x</a><a href="/y">y</a></footer>'
+    "</body></html>"
+)
+
+_CSS_PATH_DOCUMENT = parse(_CSS_PATH_DOC)
+
+
+def _every_element(document: Document) -> list[Element]:
+    root = document.root
+    assert root is not None
+    return [root, *(node for node in root.descendants if isinstance(node, Element))]
+
+
+@pytest.mark.parametrize("element", _every_element(_CSS_PATH_DOCUMENT), ids=lambda element: element.css_path())
+def test_css_path_reselects_only_this_element(element: Element) -> None:
+    assert _CSS_PATH_DOCUMENT.select(element.css_path()) == [element]

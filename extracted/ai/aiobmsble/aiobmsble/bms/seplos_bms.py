@@ -1,0 +1,252 @@
+"""Module to support Seplos V3 smart BMS.
+
+Project: aiobmsble, https://pypi.org/p/aiobmsble/
+License: Apache-2.0, http://www.apache.org/licenses/
+"""
+
+from functools import lru_cache
+from typing import Final
+
+from bleak.backends.characteristic import BleakGATTCharacteristic
+from bleak.backends.device import BLEDevice
+from bleak.uuids import normalize_uuid_str
+
+from aiobmsble import (
+    BMSConfig,
+    BMSDp,
+    BMSInfo,
+    BMSPDp,
+    BMSSample,
+    MatcherPattern,
+    PackSample,
+    TempSensor,
+)
+from aiobmsble.basebms import BaseBMS, crc_modbus, swap32
+
+
+class BMS(BaseBMS):
+    """Seplos V3 smart BMS class implementation."""
+
+    INFO: BMSInfo = {"default_manufacturer": "Seplos", "default_model": "smart BMS V3"}
+    _CMD_READ: Final[list[int]] = [0x01, 0x04]
+    _HEAD_LEN: Final[int] = 3
+    _CRC_LEN: Final[int] = 2
+    _PIA_LEN: Final[int] = 0x11
+    _PIB_LEN: Final[int] = 0x1A
+    _EIA_LEN: Final[int] = _PIB_LEN
+    _EIB_LEN: Final[int] = 0x16
+    _EIC_LEN: Final[int] = 0x5
+    _TEMP_START: Final[int] = _HEAD_LEN + 32
+    _PRB_MASK: Final[int] = 0xFFFF00FF00FF0000FF
+    _QUERY: Final[dict[str, tuple[int, int, int]]] = {
+        # name: fct, address, count
+        "EIA": (0x4, 0x2000, _EIA_LEN),
+        "EIB": (0x4, 0x2100, _EIB_LEN),
+        "EIC": (0x1, 0x2200, _EIC_LEN),
+    }
+    _PQUERY: Final[dict[str, tuple[int, int, int]]] = {
+        "PIA": (0x4, 0x1000, _PIA_LEN),
+        "PIB": (0x4, 0x1100, _PIB_LEN),
+    }
+    _FIELDS: Final[tuple[BMSDp, ...]] = (  # Protocol Seplos V3
+        BMSDp("voltage", 0, 4, False, lambda x: swap32(x) / 100, _EIA_LEN),
+        BMSDp("current", 4, 4, True, lambda x: swap32(x, True) / 10, _EIA_LEN),
+        BMSDp("cycle_charge", 8, 4, False, lambda x: swap32(x) / 100, _EIA_LEN),
+        BMSDp("design_capacity", 20, 4, False, lambda x: swap32(x) // 100, _EIA_LEN),
+        BMSDp("pack_count", 44, 2, False, idx=_EIA_LEN),
+        BMSDp("cycles", 46, 2, False, idx=_EIA_LEN),
+        BMSDp("battery_level", 48, 2, False, lambda x: x / 10, _EIA_LEN),
+        BMSDp("battery_health", 50, 2, False, lambda x: x / 10, _EIA_LEN),
+        BMSDp("temperature", 20, 2, True, lambda x: x / 10, _EIB_LEN),  # avg. ctemp
+        BMSDp("problem_code", 1, 9, False, lambda x: x & BMS._PRB_MASK, _EIC_LEN),
+        BMSDp("dischrg_mosfet", 7, 1, False, lambda x: bool(x & 1), _EIC_LEN),
+        BMSDp("chrg_mosfet", 7, 1, False, lambda x: bool(x & 2), _EIC_LEN),
+        BMSDp("heater", 7, 1, False, lambda x: bool(x & 8), _EIC_LEN),
+        BMSDp("balancer", 7, 1, False, lambda x: bool(x & 4), _EIC_LEN),  # limit FET
+    )
+    _PFIELDS: Final[tuple[BMSPDp, ...]] = (
+        BMSPDp("voltage", 0, 2, False, lambda x: x / 100),
+        BMSPDp("current", 2, 2, True, lambda x: x / 100),
+        BMSPDp("cycle_charge", 4, 2, False, lambda x: x / 100),
+        BMSPDp("design_capacity", 6, 2, False, lambda x: x // 100),
+        BMSPDp("battery_level", 10, 2, False, lambda x: x / 10),
+        BMSPDp("battery_health", 12, 2, False, lambda x: x / 10),
+        BMSPDp("cycles", 14, 2, False, lambda x: x),
+    )
+    _CMDS: Final = frozenset({field[2] for field in _QUERY.values()})
+    _PCMDS: Final = frozenset({field[2] for field in _PQUERY.values()})
+    _VALID_CMDS: Final = frozenset(_CMDS | _PCMDS)
+
+    def __init__(
+        self,
+        ble_device: BLEDevice,
+        config: BMSConfig | None = None,
+        logger_name: str = "",
+    ) -> None:
+        """Initialize private BMS members."""
+        super().__init__(ble_device, config, logger_name)
+        self._msg: dict[int, bytes] = {}
+        self._pack_count: int = 0  # number of battery packs
+        self._pkglen: int = 0  # expected packet length
+
+    @staticmethod
+    def matcher_dict_list() -> list[MatcherPattern]:
+        """Provide BluetoothMatcher definition."""
+        return [
+            {
+                "local_name": pattern,
+                "service_uuid": BMS.uuid_services()[0],
+                "connectable": True,
+            }
+            for pattern in ("SP??B*", "XZHX*", "CSY*", "SP1??B*", "ST*")
+        ]
+
+    # setup UUIDs
+    #    serv fff0
+    # 	 char fff1 (#16): ['read', 'notify']
+    # 	 char fff2 (#20): ['read', 'write-without-response', 'write']
+    @staticmethod
+    def uuid_services() -> tuple[str, ...]:
+        """Return list of 128-bit UUIDs of services required by BMS."""
+        return (normalize_uuid_str("fff0"),)
+
+    @staticmethod
+    def uuid_rx() -> str:
+        """Return 16-bit UUID of characteristic that provides notification/read property."""
+        return "fff1"
+
+    @staticmethod
+    def uuid_tx() -> str:
+        """Return 16-bit UUID of characteristic that provides write property."""
+        return "fff2"
+
+    def _notification_handler(
+        self, _sender: BleakGATTCharacteristic, data: bytearray
+    ) -> None:
+        """Retrieve BMS data update."""
+
+        if (
+            len(data) > BMS._HEAD_LEN + BMS._CRC_LEN
+            and data[0] <= self._pack_count
+            and data[1] & 0x7F in BMS._CMD_READ  # include read errors
+            and data[2] >= BMS._HEAD_LEN + BMS._CRC_LEN
+        ):
+            self._frame.clear()
+            self._pkglen = data[2] + BMS._HEAD_LEN + BMS._CRC_LEN
+        elif (  # error message
+            len(data) == BMS._HEAD_LEN + BMS._CRC_LEN
+            and data[0] <= self._pack_count
+            and data[1] & 0x80
+        ):
+            self._log.debug("RX error: %X", data[2])
+            self._frame.clear()
+            self._pkglen = BMS._HEAD_LEN + BMS._CRC_LEN
+
+        self._frame.extend(data)
+        self._log.debug(
+            "RX BLE data (%s): %s", "start" if data == self._frame else "cnt.", data
+        )
+
+        # verify that data is long enough
+        if len(self._frame) < self._pkglen:
+            return
+
+        if not self._check_integrity(
+            self._frame,
+            crc_modbus,
+            slice(None, self._pkglen - 2),
+            slice(self._pkglen - 2, self._pkglen),
+            "little",
+        ):
+            self._frame.clear()
+            return
+
+        if self._frame[2] >> 1 not in BMS._VALID_CMDS or self._frame[1] & 0x80:
+            self._log.debug(
+                "unknown message: %s, length: %s", self._frame[0:2], self._frame[2]
+            )
+            self._frame.clear()
+            return
+
+        if len(self._frame) != self._pkglen:
+            self._log.debug(
+                "wrong data length (%i!=%s): %s",
+                len(self._frame),
+                self._pkglen,
+                self._frame,
+            )
+
+        self._msg[self._frame[0] << 8 | self._frame[2] >> 1] = bytes(self._frame)
+        self._frame.clear()
+        self._msg_event.set()
+
+    async def _init_connection(
+        self, char_notify: BleakGATTCharacteristic | int | str | None = None
+    ) -> None:
+        """Initialize RX/TX characteristics."""
+        await super()._init_connection()
+        self._pack_count = 0
+        self._pkglen = 0
+
+    @staticmethod
+    @lru_cache(maxsize=32)
+    def _cmd(device: int, cmd: int, start: int, count: int) -> bytes:
+        """Assemble a Seplos BMS command."""
+        assert device >= 0x00 and (device <= 0x10 or device in (0xC0, 0xE0))
+        assert cmd in (0x01, 0x04)  # allow only read commands
+        assert start >= 0 and count > 0 and start + count <= 0xFFFF
+        frame: bytearray = bytearray([device, cmd])
+        frame.extend(int.to_bytes(start, 2, byteorder="big"))
+        frame.extend(
+            int.to_bytes(count * (0x10 if cmd == 0x1 else 0x1), 2, byteorder="big")
+        )
+        frame.extend(int.to_bytes(crc_modbus(frame), 2, byteorder="little"))
+        return bytes(frame)
+
+    async def _async_update(self) -> BMSSample:
+        """Update battery status information."""
+        self._msg.clear()
+        for block in BMS._QUERY.values():
+            await self._await_msg(BMS._cmd(0x0, *block))
+        if not BMS._CMDS.issubset(self._msg.keys()):
+            raise ValueError("BMS data incomplete.")
+
+        data: BMSSample = BMS._decode_data(BMS._FIELDS, self._msg, start=BMS._HEAD_LEN)
+
+        self._pack_count = min(data.get("pack_count", 0), 0x10)
+
+        for pack in range(1, 1 + self._pack_count):
+            for block in BMS._PQUERY.values():
+                await self._await_msg(self._cmd(pack, *block))
+            if not {pack << 8 | cmd for cmd in BMS._PCMDS}.issubset(self._msg.keys()):
+                raise ValueError("BMS data incomplete.")
+
+            pack_sample: PackSample = BMS._decode_pack(
+                BMS._PFIELDS, self._msg[pack << 8 | BMS._PIA_LEN], start=BMS._HEAD_LEN
+            )
+            pack_sample["cell_voltages"] = BMS._cell_voltages(
+                self._msg[pack << 8 | BMS._PIB_LEN], cells=16, start=BMS._HEAD_LEN
+            )
+
+            # add temperature sensors (4x cell temperature + 4 reserved)
+            pack_sample["temp_values"] = BMS._temp_values(
+                self._msg[pack << 8 | BMS._PIB_LEN],
+                values=4,
+                start=BMS._TEMP_START,
+                signed=False,
+                offset=2731,
+                divider=10,
+                types=(TempSensor.T.CELL,) * 4,
+            ) + BMS._temp_values(
+                self._msg[pack << 8 | BMS._PIB_LEN],
+                values=2,
+                start=BMS._TEMP_START + 16,
+                signed=False,
+                offset=2731,
+                divider=10,
+                types=(TempSensor.T.AMBIENT, TempSensor.T.MOSFET),
+            )
+
+            data.setdefault("packs", []).append(pack_sample)
+
+        return data

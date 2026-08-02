@@ -1,0 +1,27 @@
+mapping:
+  nodes:
+  - !Storage
+    tensors: [I, W, O]
+    component: MainMemory
+  - !Temporal
+    rank_variable: c
+    tile_shape: 1
+  - !Spatial
+    rank_variable: r
+    tile_shape: 1
+    name: 0
+    component: LocalBuffer
+  - !Spatial
+    rank_variable: m
+    tile_shape: 1
+    name: 0
+    component: LocalBuffer
+  - !Storage
+    tensors: [I]
+    component: LocalBuffer
+  - !Temporal
+    rank_variable: p
+    tile_shape: 1
+  - !Compute
+    einsum: conv
+    compute: MAC

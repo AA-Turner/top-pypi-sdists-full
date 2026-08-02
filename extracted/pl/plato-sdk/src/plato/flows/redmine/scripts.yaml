@@ -1,0 +1,82 @@
+flows:
+- name: login
+  description: Basic login flow for Redmine
+  steps:
+  - description: Wait for page to fully load
+    duration: 5000
+    type: wait
+  - description: Try to click login link
+    selector: a.login, a[href="/login"], a[href*="/login"]
+    type: click
+  - description: Wait for login form to appear
+    duration: 3000
+    type: wait
+  - description: Wait for username field
+    selector: 'input[name="username"], #username'
+    timeout: 10000
+    type: wait_for_selector
+  - description: Fill username field
+    selector: 'input[name="username"], #username'
+    type: fill
+    value: admin
+  - description: Wait for password field
+    selector: 'input[name="password"], input[type="password"], #password'
+    timeout: 5000
+    type: wait_for_selector
+  - description: Fill password field
+    selector: 'input[name="password"], input[type="password"], #password'
+    type: fill
+    value: password
+  - description: Click login submit button
+    selector: 'input[type="submit"], button[type="submit"], #login-submit'
+    type: click
+  - description: Wait for login to process
+    duration: 3000
+    type: wait
+  - description: Wait for login to process
+    duration: 5000
+    type: wait
+  - description: Verify successful login by checking for user account elements
+    selector: '#loggedas, .user, #account, .my-account, #top-menu, .main-menu, [class*="logged"],
+      [class*="user-name"]'
+    type: verify
+    verify_type: element_exists
+- name: incorrect_login
+  description: Verify login fails with incorrect password
+  steps:
+  - description: Wait for page to fully load
+    duration: 3000
+    type: wait
+  - description: Try to click login link
+    selector: a.login, a[href="/login"], a[href*="/login"]
+    type: click
+  - description: Wait for login form to appear
+    duration: 3000
+    type: wait
+  - description: Wait for username/email field
+    selector: 'input[name="username"], #username'
+    timeout: 15000
+    type: wait_for_selector
+  - description: Fill username/email field with valid username
+    selector: 'input[name="username"], #username'
+    type: fill
+    value: admin
+  - description: Wait for password field
+    selector: 'input[name="password"], input[type="password"], #password'
+    timeout: 5000
+    type: wait_for_selector
+  - description: Fill password field with incorrect password
+    selector: 'input[name="password"], input[type="password"], #password'
+    type: fill
+    value: wrongpassword
+  - description: Click login submit button
+    selector: 'input[type="submit"], button[type="submit"], #login-submit'
+    type: click
+  - description: Wait for login attempt to process
+    duration: 3000
+    type: wait
+  - description: Verify error message is displayed
+    selector: '#flash_error, .flash.error, div.flash.error, .flash, [class*="error"],
+      [role="alert"]'
+    type: verify
+    verify_type: element_exists

@@ -1,0 +1,788 @@
+from __future__ import annotations
+
+import os
+import random
+import string
+import sys
+from contextlib import AsyncExitStack, ExitStack
+from itertools import chain
+from pathlib import Path
+from typing import TYPE_CHECKING, Literal
+from unittest.mock import patch
+
+# Third Party
+import aiohttp
+import anyio
+import pytest
+
+import aiobotocore.session
+from aiobotocore._httpx import httpx
+from aiobotocore.config import AioConfig
+from aiobotocore.httpsession import AIOHTTPSession
+from aiobotocore.httpxsession import HttpxSession, is_httpx_session_cls
+
+# Match the library default for tests that do not select a backend explicitly.
+DEFAULT_HTTP_SESSION_CLS = AIOHTTPSession
+
+
+@pytest.fixture
+def ca():
+    import trustme
+
+    return trustme.CA()
+
+
+@pytest.fixture
+def ca_bundle(ca, tmp_path):
+    path = tmp_path / "ca.pem"
+    path.write_bytes(ca.cert_pem.bytes())
+    return str(path)
+
+
+if TYPE_CHECKING:
+    from _pytest.nodes import Node
+
+# Appended, not inserted: ``from tests.x import`` needs the rootdir, the wheel must still win.
+_repo_root = str(Path(__file__).resolve().parent.parent)
+if _repo_root not in sys.path:
+    sys.path.append(_repo_root)
+
+host = '127.0.0.1'
+
+
+# botocore reads ~/.aws/config, so a developer's max_attempts/retry_mode/region silently change what the suite asserts.
+# Not the monkeypatch fixture: requesting it here would tear it down after the client fixtures that depend on its undo.
+@pytest.fixture(autouse=True)
+def isolate_aws_environment(request, tmp_path_factory):
+    if request.node.get_closest_marker('localonly'):
+        yield
+        return
+
+    saved = {k: v for k, v in os.environ.items() if k.startswith('AWS_')}
+    empty = tmp_path_factory.mktemp('no-aws-config')
+    for name in saved:
+        del os.environ[name]
+    os.environ['AWS_CONFIG_FILE'] = str(empty / 'config')
+    os.environ['AWS_SHARED_CREDENTIALS_FILE'] = str(empty / 'credentials')
+    try:
+        yield
+    finally:
+        for name in [k for k in os.environ if k.startswith('AWS_')]:
+            del os.environ[name]
+        os.environ.update(saved)
+
+
+@pytest.fixture(params=['asyncio', 'trio'])
+def anyio_backend(request):
+    return request.param
+
+
+def random_bucketname():
+    # 63 is the max bucket length.
+    return random_name()
+
+
+def random_tablename():
+    return random_name()
+
+
+def random_name():
+    """Return a string with presumably unique contents
+
+    The string contains only symbols allowed for s3 buckets
+    (alphanumeric, dot and hyphen).
+    """
+    return ''.join(random.sample(string.ascii_lowercase, k=26))
+
+
+def assert_status_code(response, status_code):
+    assert response['ResponseMetadata']['HTTPStatusCode'] == status_code
+
+
+async def assert_num_uploads_found(
+    s3_client,
+    bucket_name,
+    operation,
+    num_uploads,
+    *,
+    max_items=None,
+    num_attempts=5,
+):
+    paginator = s3_client.get_paginator(operation)
+    for _ in range(num_attempts):
+        pages = paginator.paginate(
+            Bucket=bucket_name, PaginationConfig={'MaxItems': max_items}
+        )
+        responses = []
+        async for page in pages:
+            responses.append(page)
+
+        # It sometimes takes a while for all the uploads to show up,
+        # especially if the upload was just created.  If we don't
+        # see the expected amount, we retry up to num_attempts time
+        # before failing.
+        amount_seen = len(responses[0]['Uploads'])
+        if amount_seen == num_uploads:
+            # Test passed.
+            return
+
+        # Sleep and try again.
+        await anyio.sleep(2)  # pragma: no cover
+
+    pytest.fail(  # pragma: no cover
+        f"Expected to see {num_uploads} uploads, instead saw: {amount_seen}"
+    )
+
+
+@pytest.fixture
+def aa_fail_proxy_config(monkeypatch):
+    # NOTE: name of this fixture must be alphabetically first to run first
+    monkeypatch.setenv('HTTP_PROXY', f'http://{host}:54321')
+    monkeypatch.setenv('HTTPS_PROXY', f'http://{host}:54321')
+
+
+@pytest.fixture
+# only used in `localonly` tests
+def aa_succeed_proxy_config(monkeypatch):  # pragma: no cover
+    # NOTE: name of this fixture must be alphabetically first to run first
+    monkeypatch.setenv('HTTP_PROXY', f'http://{host}:54321')
+    monkeypatch.setenv('HTTPS_PROXY', f'http://{host}:54321')
+
+    # this will cause us to skip proxying
+    monkeypatch.setenv('NO_PROXY', 'amazonaws.com')
+
+
+@pytest.fixture
+def session(http_session_cls) -> aiobotocore.session.AioSession:
+    session = aiobotocore.session.AioSession()
+    session.set_default_client_config(
+        AioConfig(http_session_cls=http_session_cls)
+    )
+    return session
+
+
+@pytest.fixture
+def region():
+    return 'us-east-1'
+
+
+@pytest.fixture
+def alternative_region():
+    return 'us-west-2'
+
+
+@pytest.fixture
+def signature_version():
+    return 'v4'
+
+
+@pytest.fixture
+def server_scheme():
+    return 'http'
+
+
+@pytest.fixture
+def s3_verify():
+    return None
+
+
+@pytest.fixture
+def current_http_backend(http_session_cls) -> Literal['httpx', 'aiohttp']:
+    # Depend on http_session_cls (rather than reading the marker directly) so
+    # tests that only need the backend name still get parametrized over both
+    # backends by pytest_generate_tests.
+    return 'httpx' if is_httpx_session_cls(http_session_cls) else 'aiohttp'
+
+
+def read_kwargs(node: Node) -> dict[str, object]:
+    config_kwargs: dict[str, object] = {}
+    for mark in node.iter_markers("config_kwargs"):
+        assert not mark.kwargs, config_kwargs
+        assert len(mark.args) == 1
+        assert isinstance(mark.args[0], dict)
+        config_kwargs.update(mark.args[0])
+    return config_kwargs
+
+
+@pytest.fixture
+def http_session_cls(request) -> type:
+    """The http session class this test is parametrized with.
+
+    Tests that build their own client (rather than using the ``config``
+    fixture) need this to honor the ``--http-backend`` parametrization.
+    Unparametrized tests use the library's default aiohttp session class.
+    """
+    return read_kwargs(request.node).get(
+        'http_session_cls', DEFAULT_HTTP_SESSION_CLS
+    )
+
+
+@pytest.fixture
+def config(request, region, signature_version):
+    # Generous because retries are off below: local moto only trips this if wedged.
+    connect_timeout = read_timout = 60
+
+    # Merged, not passed alongside, so config_kwargs can override these.
+    return AioConfig(
+        **{
+            'region_name': region,
+            'signature_version': signature_version,
+            'read_timeout': read_timout,
+            'connect_timeout': connect_timeout,
+            # Creates aren't idempotent: retrying one that timed out against local moto reports "already exists".
+            'retries': {'max_attempts': 0},
+            **read_kwargs(request.node),
+        }
+    )
+
+
+@pytest.fixture
+def aws_auth():
+    return {'aws_secret_access_key': 'xxx', 'aws_access_key_id': 'xxx'}
+
+
+@pytest.fixture
+def mocking_test(request) -> bool:
+    # change this flag for test with real aws
+    return request.node.get_closest_marker("localonly") is None
+
+
+@pytest.fixture
+def patch_attributes(request):
+    """Call unittest.mock.patch on arguments passed through a pytest mark.
+
+    This fixture looks at the @pytest.mark.patch_attributes mark. This mark is a list
+    of arguments to be passed to unittest.mock.patch (see example below). This fixture
+    returns the list of mock objects, one per element in the input list.
+
+    Why do we need this? In some cases, we want to perform the patching before other
+    fixtures are run. For instance, the `s3_client` fixture creates an aiobotocore
+    client. During the client creation process, some event listeners are registered.
+    When we want to patch the target of these event listeners, we must do so before
+    the `s3_client` fixture is executed.  Otherwise, the aiobotocore client will store
+    references to the unpatched targets.
+
+    In such situations, make sure that subsequent fixtures explicitly depends on
+    `patch_attribute` to enforce the ordering between fixtures.
+
+    Example:
+
+    @pytest.mark.patch_attributes([
+        dict(
+            target="aiobotocore.retries.adaptive.AsyncClientRateLimiter.on_sending_request",
+            side_effect=aiobotocore.retries.adaptive.AsyncClientRateLimiter.on_sending_request,
+            autospec=True
+        )
+    ])
+    async def test_client_rate_limiter_called(s3_client, patch_attributes):
+        await s3_client.get_object(Bucket="bucket", Key="key")
+        # Just for illustration (this test doesn't pass).
+        # mock_attributes is a list of 1 element, since we passed a list of 1 element
+        # to the patch_attributes marker.
+        mock_attributes[0].assert_called_once()
+    """
+    marker = request.node.get_closest_marker("patch_attributes")
+    if marker is None:
+        yield
+    else:
+        with ExitStack() as stack:
+            yield [
+                stack.enter_context(patch(**kwargs))
+                for kwargs in marker.args[0]
+            ]
+
+
+@pytest.fixture
+async def s3_client(
+    session,
+    region,
+    config,
+    moto_server,
+    mocking_test,
+    s3_verify,
+    patch_attributes,
+    aws_auth,
+):
+    # This depends on mock_attributes because we may want to test event listeners.
+    # See the documentation of `mock_attributes` for details.
+    kw = {'endpoint_url': moto_server, **aws_auth} if mocking_test else {}
+
+    async with session.create_client(
+        's3', region_name=region, config=config, verify=s3_verify, **kw
+    ) as client:
+        yield client
+
+
+@pytest.fixture
+async def alternative_s3_client(
+    session,
+    alternative_region,
+    moto_server,
+    mocking_test,
+    aws_auth,
+    config,
+):
+    kw = {'endpoint_url': moto_server, **aws_auth} if mocking_test else {}
+    # Derived, not rebuilt: the two s3 fixtures must not drift on timeouts.
+    config = config.merge(AioConfig(region_name=alternative_region))
+
+    async with session.create_client(
+        's3', region_name=alternative_region, config=config, **kw
+    ) as client:
+        yield client
+
+
+@pytest.fixture
+async def dynamodb_client(
+    session, region, config, moto_server, mocking_test, aws_auth
+):
+    kw = {'endpoint_url': moto_server, **aws_auth} if mocking_test else {}
+    async with session.create_client(
+        'dynamodb', region_name=region, config=config, **kw
+    ) as client:
+        yield client
+
+
+@pytest.fixture
+async def cloudformation_client(
+    session, region, config, moto_server, mocking_test, aws_auth
+):
+    kw = {'endpoint_url': moto_server, **aws_auth} if mocking_test else {}
+    async with session.create_client(
+        'cloudformation', region_name=region, config=config, **kw
+    ) as client:
+        yield client
+
+
+@pytest.fixture
+async def sns_client(
+    session, region, config, moto_server, mocking_test, aws_auth
+):
+    kw = {'endpoint_url': moto_server, **aws_auth} if mocking_test else {}
+    async with session.create_client(
+        'sns', region_name=region, config=config, **kw
+    ) as client:
+        yield client
+
+
+@pytest.fixture
+async def sqs_client(
+    session, region, config, moto_server, mocking_test, aws_auth
+):
+    kw = {'endpoint_url': moto_server, **aws_auth} if mocking_test else {}
+    async with session.create_client(
+        'sqs', region_name=region, config=config, **kw
+    ) as client:
+        yield client
+
+
+@pytest.fixture
+async def batch_client(
+    session, region, config, moto_server, mocking_test, aws_auth
+):
+    kw = {'endpoint_url': moto_server, **aws_auth} if mocking_test else {}
+    async with session.create_client(
+        'batch', region_name=region, config=config, **kw
+    ) as client:
+        yield client
+
+
+@pytest.fixture
+async def lambda_client(
+    session, region, config, moto_server, mocking_test, aws_auth
+):
+    kw = {'endpoint_url': moto_server, **aws_auth} if mocking_test else {}
+    async with session.create_client(
+        'lambda', region_name=region, config=config, **kw
+    ) as client:
+        yield client
+
+
+@pytest.fixture
+async def iam_client(
+    session, region, config, moto_server, mocking_test, aws_auth
+):
+    kw = {'endpoint_url': moto_server, **aws_auth} if mocking_test else {}
+    async with session.create_client(
+        'iam', region_name=region, config=config, **kw
+    ) as client:
+        yield client
+
+
+@pytest.fixture
+async def rds_client(
+    session, region, config, moto_server, mocking_test, aws_auth
+):
+    kw = {'endpoint_url': moto_server, **aws_auth} if mocking_test else {}
+    async with session.create_client(
+        'rds', region_name=region, config=config, **kw
+    ) as client:
+        yield client
+
+
+@pytest.fixture
+async def ec2_client(
+    session, region, config, moto_server, mocking_test, aws_auth
+):
+    kw = {'endpoint_url': moto_server, **aws_auth} if mocking_test else {}
+    async with session.create_client(
+        'ec2', region_name=region, config=config, **kw
+    ) as client:
+        yield client
+
+
+@pytest.fixture
+# only used in `localonly` tests
+async def kinesis_client(  # pragma: no cover
+    session, region, config, moto_server, mocking_test, aws_auth
+):
+    kw = {'endpoint_url': moto_server, **aws_auth} if mocking_test else {}
+    async with session.create_client(
+        'kinesis', region_name=region, config=config, **kw
+    ) as client:
+        yield client
+
+
+async def recursive_delete(s3_client, bucket_name):
+    # Recursively deletes a bucket and all of its contents.
+    paginator = s3_client.get_paginator('list_object_versions')
+    async for n in paginator.paginate(Bucket=bucket_name, Prefix=''):
+        for obj in chain(
+            n.get('Versions', []),
+            n.get('DeleteMarkers', []),
+            n.get('Contents', []),
+            n.get('CommonPrefixes', []),
+        ):
+            kwargs = dict(Bucket=bucket_name, Key=obj['Key'])
+            if 'VersionId' in obj:
+                kwargs['VersionId'] = obj['VersionId']
+            resp = await s3_client.delete_object(**kwargs)
+            assert_status_code(resp, 204)
+
+    resp = await s3_client.delete_bucket(Bucket=bucket_name)
+    assert_status_code(resp, 204)
+
+
+@pytest.fixture
+async def bucket_name(region, create_bucket):
+    name = await create_bucket(region)
+    yield name
+
+
+@pytest.fixture
+async def table_name(create_table):
+    name = await create_table()
+    yield name
+
+
+@pytest.fixture
+async def create_bucket(s3_client):
+    _bucket_name = None
+
+    async def _f(region_name, bucket_name=None):
+        nonlocal _bucket_name
+        if bucket_name is None:
+            bucket_name = random_bucketname()
+        _bucket_name = bucket_name
+        bucket_kwargs = {'Bucket': bucket_name}
+        if region_name != 'us-east-1':
+            bucket_kwargs['CreateBucketConfiguration'] = {
+                'LocationConstraint': region_name,
+            }
+        response = await s3_client.create_bucket(**bucket_kwargs)
+        assert_status_code(response, 200)
+        await s3_client.put_bucket_versioning(
+            Bucket=bucket_name, VersioningConfiguration={'Status': 'Enabled'}
+        )
+        return bucket_name
+
+    try:
+        yield _f
+    finally:
+        await recursive_delete(s3_client, _bucket_name)
+
+
+@pytest.fixture
+# only used in `localonly` tests
+async def create_stream(kinesis_client):  # pragma: no cover
+    _stream_name = None
+
+    async def _f(stream_name=None, **kwargs):
+        nonlocal _stream_name
+        if stream_name is None:
+            stream_name = random_name()
+        _stream_name = stream_name
+        stream_kwargs = {
+            'StreamName': _stream_name,
+            **kwargs,
+        }
+
+        response = await kinesis_client.create_stream(**stream_kwargs)
+        assert_status_code(response, 200)
+
+        while (
+            describe_response := (
+                await kinesis_client.describe_stream(  # noqa: E231, E999, E251, E501
+                    StreamName=stream_name
+                )
+            )
+        ) and describe_response['StreamDescription'][
+            'StreamStatus'
+        ] != 'ACTIVE':
+            print("Waiting for stream creation")
+            await anyio.sleep(1)
+
+        return stream_name
+
+    try:
+        yield _f
+    finally:
+        await delete_stream(kinesis_client, _stream_name)
+
+
+# only used in `localonly` tests
+async def delete_stream(kinesis_client, stream_name):  # pragma: no cover
+    response = await kinesis_client.delete_stream(StreamName=stream_name)
+    assert_status_code(response, 200)
+
+
+@pytest.fixture
+async def create_table(dynamodb_client):
+    _table_name = None
+
+    async def _is_table_ready(table_name):
+        response = await dynamodb_client.describe_table(TableName=table_name)
+        return response['Table']['TableStatus'] == 'ACTIVE'
+
+    async def _f(table_name=None):
+        nonlocal _table_name
+        if table_name is None:
+            table_name = random_tablename()
+        _table_name = table_name
+        table_kwargs = {
+            'TableName': table_name,
+            'AttributeDefinitions': [
+                {'AttributeName': 'testKey', 'AttributeType': 'S'},
+            ],
+            'KeySchema': [
+                {'AttributeName': 'testKey', 'KeyType': 'HASH'},
+            ],
+            'ProvisionedThroughput': {
+                'ReadCapacityUnits': 1,
+                'WriteCapacityUnits': 1,
+            },
+        }
+
+        response = await dynamodb_client.create_table(**table_kwargs)
+        while not (await _is_table_ready(table_name)):
+            # will rarely hit this
+            pass  # pragma: no cover
+
+        assert_status_code(response, 200)
+        return table_name
+
+    try:
+        yield _f
+    finally:
+        await delete_table(dynamodb_client, _table_name)
+
+
+async def delete_table(dynamodb_client, table_name):
+    response = await dynamodb_client.delete_table(TableName=table_name)
+    assert_status_code(response, 200)
+
+
+@pytest.fixture
+def create_object(s3_client, bucket_name: str):
+    async def _f(key_name: str, body='foo', **kwargs):
+        r = await s3_client.put_object(
+            Bucket=bucket_name, Key=key_name, Body=body
+        )
+        assert_status_code(r, 200)
+        return r
+
+    return _f
+
+
+@pytest.fixture
+async def create_multipart_upload(request, s3_client, bucket_name):
+    _key_name = None
+    upload_id = None
+
+    async def _f(key_name):
+        nonlocal _key_name
+        nonlocal upload_id
+        _key_name = key_name
+
+        parsed = await s3_client.create_multipart_upload(
+            Bucket=bucket_name, Key=key_name
+        )
+        upload_id = parsed['UploadId']
+        return upload_id
+
+    yield _f
+    await s3_client.abort_multipart_upload(
+        UploadId=upload_id, Bucket=bucket_name, Key=_key_name
+    )
+
+
+@pytest.fixture
+async def aio_session(current_http_backend: Literal['httpx', 'aiohttp']):
+    if current_http_backend == 'httpx':
+        assert httpx is not None
+        async with httpx.AsyncClient() as client:
+            yield client
+    elif current_http_backend == 'aiohttp':
+        async with aiohttp.ClientSession() as session:
+            yield session
+    else:  # pragma: no cover
+        raise AssertionError("unknown http backend")
+
+
+def pytest_configure():
+    class AIOUtils:
+        def __init__(self):
+            self.assert_status_code = assert_status_code
+            self.assert_num_uploads_found = assert_num_uploads_found
+
+    pytest.aio = AIOUtils()
+
+
+@pytest.fixture
+def dynamodb_put_item(dynamodb_client, table_name):
+    async def _f(key_string_value):
+        response = await dynamodb_client.put_item(
+            TableName=table_name,
+            Item={'testKey': {'S': key_string_value}},
+        )
+        assert_status_code(response, 200)
+
+    return _f
+
+
+@pytest.fixture
+async def topic_arn(region, create_topic, sns_client):
+    return await create_topic()
+
+
+async def delete_topic(sns_client, topic_arn):
+    response = await sns_client.delete_topic(TopicArn=topic_arn)
+    assert_status_code(response, 200)
+
+
+@pytest.fixture
+async def create_topic(request, sns_client):
+    _topic_arn = None
+
+    async def _f():
+        nonlocal _topic_arn
+        response = await sns_client.create_topic(Name=random_name())
+        _topic_arn = response['TopicArn']
+        assert_status_code(response, 200)
+        return _topic_arn
+
+    yield _f
+    await delete_topic(sns_client, _topic_arn)
+
+
+@pytest.fixture
+async def sqs_queue_url(sqs_client):
+    response = await sqs_client.create_queue(QueueName=random_name())
+    queue_url = response['QueueUrl']
+    assert_status_code(response, 200)
+
+    try:
+        yield queue_url
+    finally:
+        response = await sqs_client.delete_queue(QueueUrl=queue_url)
+        assert_status_code(response, 200)
+
+
+@pytest.fixture
+# only used in `localonly` tests
+async def exit_stack():  # pragma: no cover
+    async with AsyncExitStack() as es:
+        yield es
+
+
+def pytest_addoption(parser: pytest.Parser):
+    parser.addoption(
+        "--http-backend",
+        default='aiohttp',
+        choices=['aiohttp', 'httpx', 'all'],
+        required=False,
+        help='Specify http backend to run tests against.',
+    )
+
+
+def pytest_generate_tests(metafunc):
+    """Parametrize backend-dependent tests to run with both aiohttp and httpx.
+
+    Only tests that actually select an http backend need both variants — either
+    directly via the ``http_session_cls`` fixture or transitively through a
+    fixture that requests it (e.g. ``session``, and thus ``s3_client``). Tests
+    that don't touch the backend would otherwise just run twice identically."""
+    if 'http_session_cls' not in metafunc.fixturenames:
+        return
+    metafunc.parametrize(
+        '',
+        [
+            pytest.param(
+                id='aiohttp',
+                marks=pytest.mark.config_kwargs(
+                    {'http_session_cls': AIOHTTPSession}
+                ),
+            ),
+            pytest.param(
+                id='httpx',
+                marks=pytest.mark.config_kwargs(
+                    {'http_session_cls': HttpxSession}
+                ),
+            ),
+        ],
+    )
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items):
+    """Mark parametrized tests for skipping in case the corresponding backend is not enabled."""
+
+    def item_params(item):
+        return getattr(item, 'callspec', None) and item.callspec.params or {}
+
+    def session_cls_of(item):
+        return read_kwargs(item).get(
+            'http_session_cls', DEFAULT_HTTP_SESSION_CLS
+        )
+
+    http_backend = config.getoption("--http-backend")
+    if http_backend != 'aiohttp':
+        assert httpx is not None, (
+            "Cannot run httpx as backend if it's not installed."
+        )
+    backend_skip = pytest.mark.skip(
+        reason='Selected not to run with --http-backend'
+    )
+
+    # aiohttp is asyncio-only, so trio must never run on the aiohttp backend.
+    # Read both selectors once per item: botocore-ported tests may use the
+    # shipped aiohttp default without the backend appearing in their name.
+    deselected = []
+    selected = []
+    for item in items:
+        is_httpx = issubclass(session_cls_of(item), HttpxSession)
+        if item_params(item).get('anyio_backend') == 'trio' and not is_httpx:
+            deselected.append(item)
+            continue
+        if http_backend != 'all' and (
+            (http_backend == 'aiohttp' and is_httpx)
+            or (http_backend == 'httpx' and not is_httpx)
+        ):
+            item.add_marker(backend_skip)
+        selected.append(item)
+
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+    items[:] = selected
+
+
+pytest_plugins = ['tests.mock_server']

@@ -1,0 +1,24 @@
+Metadata-Version: 2.1
+Name: torchdyn
+Version: 1.0.6
+Summary: A PyTorch library entirely dedicated to neural differential equations, implicit models and related numerical methods.
+License: Apache License, Version 2.0
+Author: Michael Poli
+Requires-Python: >=3.8,<4.0
+Classifier: License :: Other/Proprietary License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Requires-Dist: ipykernel
+Requires-Dist: ipywidgets
+Requires-Dist: matplotlib
+Requires-Dist: poethepoet (>=0.10.0,<0.11.0)
+Requires-Dist: pytorch-lightning
+Requires-Dist: scikit-learn
+Requires-Dist: scipy
+Requires-Dist: torch (>=1.8.1)
+Requires-Dist: torchcde (>=0.2.3,<0.3.0)
+Requires-Dist: torchsde
+Requires-Dist: torchvision

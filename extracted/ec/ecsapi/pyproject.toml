@@ -1,0 +1,48 @@
+[project]
+name = "ecsapi"
+version = "0.4.0"
+description = "A simple SDK for manage Seeweb ecs api"
+readme = "README.md"
+license = {file = "LICENSE"}
+classifiers = [
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: The Unlicense (Unlicense)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+authors = [
+    {name = "Alex Massaroni", email = "alex.m@seeweb.it"},
+]
+maintainers = [
+    {name = "Alex Massaroni", email = "alex.m@seeweb.it"},
+]
+requires-python = ">=3.9,<4.0"
+
+dependencies = [
+    "requests (>=2.32.5,<3.0.0)",
+    "pydantic (>=2.11.7,<3.0.0)",
+    "python-dotenv (>=1.1.1,<2.0.0)",
+]
+
+[project.urls]
+Homepage = "https://github.com/rh363/ecsapi_client"
+Issues = "https://github.com/rh363/ecsapi_client/issues"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.1"
+pytest-cov = "^6.2.1"
+black = "^25.1.0"
+pre-commit = "^4.3.0"
+flake8 = "^7.3.0"
+httmock = "^1.4.0"

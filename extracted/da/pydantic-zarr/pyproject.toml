@@ -1,0 +1,270 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pydantic-zarr"
+dynamic = ["version"]
+description = 'Pydantic models for the Zarr file format'
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.12"
+license = "MIT"
+keywords = ["zarr", "pydantic"]
+authors = [{ name = "Davis Bennett", email = "davis.v.bennett@gmail.com" }]
+maintainers = [{ name = "David Stansby" }]
+
+
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+dependencies = ["pydantic>2.0.0", "numpy>=2.0.0", "packaging>=21.0"]
+
+[project.urls]
+Documentation = "https://pydantic-zarr.readthedocs.io/"
+Issues = "https://github.com/zarr-developers/pydantic-zarr/issues"
+Source = "https://github.com/zarr-developers/pydantic-zarr"
+
+[project.optional-dependencies]
+zarr = ["zarr>=3.0.0"]
+# pytest pin is due to https://github.com/pytest-dev/pytest-cov/issues/693
+test-base = [
+    "coverage",
+    "pytest<8.4",
+    "pytest-cov",
+    "pytest-examples",
+    "xarray==2025.10.0",
+    "dask==2025.11.0"
+    ]
+test = ["pydantic-zarr[test-base,zarr]"]
+docs = [
+    "mkdocs-material",
+    "mkdocstrings[python]",
+    "pytest-examples",
+    "pydantic==2.12.*",
+    "zarr>=3.1.0",
+    "towncrier",
+]
+
+[dependency-groups]
+zarr = ["zarr>=3.0.0"]
+# pytest pin is due to https://github.com/pytest-dev/pytest-cov/issues/693
+test-base = [
+    "coverage",
+    "pytest<8.4",
+    "pytest-cov",
+    "pytest-examples",
+    "xarray==2025.10.0",
+    "dask==2025.11.0",
+]
+test = [
+    {include-group = "test-base"},
+    {include-group = "zarr"},
+]
+docs = [
+    "pydantic_zarr[docs]"
+]
+dev = [
+    "pydantic-zarr[test]",
+]
+
+[tool.hatch]
+version.source = "vcs"
+build.hooks.vcs.version-file = "src/pydantic_zarr/_version.py"
+
+[tool.hatch.envs.test]
+features = ["test"]
+dependencies = [
+    "zarr~={matrix:zarr}",
+]
+
+[tool.hatch.envs.test.scripts]
+test = "pytest tests/test_pydantic_zarr/"
+test-cov = "pytest --cov-config=pyproject.toml --cov=pkg --cov-report html --cov=src tests/test_pydantic_zarr"
+list-env = "pip list"
+
+[[tool.hatch.envs.test.matrix]]
+python = ["3.12", "3.13", "3.14"]
+zarr = ["3.0.10", "3.1.0"]
+
+[tool.hatch.envs.test-base]
+features = ["test-base"]
+
+[tool.hatch.envs.test-base.scripts]
+test = "pytest tests/test_pydantic_zarr/"
+test-cov = "pytest --cov-config=pyproject.toml --cov=pkg --cov-report html --cov=src tests/test_pydantic_zarr"
+list-env = "pip list"
+
+[[tool.hatch.envs.test-base.matrix]]
+python = ["3.12", "3.13", "3.14"]
+
+[tool.hatch.envs.docs]
+features = ['docs']
+
+[tool.hatch.envs.docs.scripts]
+build = "mkdocs build --clean --strict"
+serve = "mkdocs serve --watch src"
+deploy = "mkdocs gh-deploy"
+test = "pytest tests/test_docs"
+
+[tool.hatch.envs.types]
+extra-dependencies = ["mypy>=1.0.0", "pydantic"]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/pydantic_zarr tests}"
+
+[tool.coverage.run]
+source_pkgs = ["pydantic_zarr", "tests"]
+branch = true
+parallel = true
+omit = ["src/pydantic_zarr/__about__.py"]
+
+[tool.coverage.paths]
+pydantic_zarr = ["src/pydantic_zarr", "*/pydantic-zarr/src/pydantic_zarr"]
+tests = ["tests", "*/pydantic-zarr/tests"]
+
+[tool.coverage.report]
+exclude_lines = ["no cov", "if __name__ == .__main__.:", "if TYPE_CHECKING:"]
+
+[tool.ruff]
+line-length = 100
+force-exclude = true
+extend-exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".ruff_cache",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "venv",
+    "docs",
+]
+
+[tool.ruff.lint]
+extend-select = [
+    "ANN",  # flake8-annotations
+    "B",    # flake8-bugbear
+    "EXE",  # flake8-executable
+    "C4",   # flake8-comprehensions
+    "FA",   # flake8-future-annotations
+    "FLY",  # flynt
+    "FURB", # refurb
+    "G",    # flake8-logging-format
+    "I",    # isort
+    "ISC",  # flake8-implicit-str-concat
+    "LOG",  # flake8-logging
+    "PERF", # Perflint
+    "PIE",  # flake8-pie
+    "PGH",  # pygrep-hooks
+    "PT",   # flake8-pytest-style
+    "PYI",  # flake8-pyi
+    "RET",  # flake8-return
+    "RSE",  # flake8-raise
+    "RUF",
+    "SIM",  # flake8-simplify
+    "SLOT", # flake8-slots
+    "TCH",  # flake8-type-checking
+    "TRY",  # tryceratops
+    "UP",   # pyupgrade
+    "W",    # pycodestyle warnings
+]
+ignore = [
+    "ANN401",
+    "PT011",  # TODO: apply this rule
+    "PT012",  # TODO: apply this rule
+    "RET505",
+    "RET506",
+    "RUF005",
+    "SIM108",
+    "TRY003",
+    "UP038",  # https://github.com/astral-sh/ruff/issues/7871
+    # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+    "W191",
+    "E111",
+    "E114",
+    "E117",
+    "D206",
+    "D300",
+    "Q000",
+    "Q001",
+    "Q002",
+    "Q003",
+    "COM812",
+    "COM819",
+    "UP007"
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/**" = ["ANN001", "ANN201", "RUF029", "SIM117", "SIM300"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+namespace_packages = false
+warn_unreachable = true
+plugins = "pydantic.mypy"
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+strict = true
+# TODO: remove each of these and fix any errors:
+disallow_any_generics = false
+warn_return_any = false
+
+[tool.pytest.ini_options]
+minversion = "7"
+xfail_strict = true
+testpaths = ["tests"]
+log_cli_level = "INFO"
+addopts = ["--durations=10", "-ra", "--strict-config", "--strict-markers"]
+filterwarnings = [
+    "error",
+    # https://github.com/zarr-developers/zarr-python/issues/2948
+    "ignore:The `order` keyword argument has no effect for Zarr format 3 arrays:RuntimeWarning",
+    # Because AsyncArray.config is only present in zarr >= 3.1.0, ignore the warning until our
+    # zarr min version is 3.1.0
+    "ignore:Use AsyncArray.config instead"
+]
+
+[tool.repo-review]
+ignore = [
+    "PC111",  # black formatting for docs, not sure if want,
+    "PC180",  # markdown formatter, no thanks
+    "RTD100", # read the docs, no thanks,
+    "RTD101", # read the docs, no thanks
+    "RTD102", # read the docs, no thanks,
+    "RTD103", # read the docs, no thanks
+]
+
+[tool.numpydoc_validation]
+# See https://numpydoc.readthedocs.io/en/latest/validation.html#built-in-validation-checks for list of checks
+checks = [
+    "GL06",
+    "GL07",
+    # Currently broken; see https://github.com/numpy/numpydoc/issues/573
+    # "GL09",
+    "GL10",
+    "SS02",
+    "SS04",
+    "PR02",
+    "PR03",
+    "PR05",
+    "PR06",
+]
+
+[tool.towncrier]
+directory = 'changes'
+package = 'pydantic_zarr'
+package_dir = 'src'
+filename = "docs/release-notes.md"
+title_format = "## {name} {version} ({project_date})"
+issue_format = "[#{issue}](https://github.com/zarr-developers/pydantic-zarr/issues/{issue})"
+start_string = "<!-- towncrier release notes start -->\n"

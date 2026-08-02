@@ -23,10 +23,12 @@ else:
 
 __all__ = (
     "DescribeTablePaginatorName",
+    "ExecutionModeType",
     "GetStatementResultPaginatorName",
     "GetStatementResultV2PaginatorName",
     "ListDatabasesPaginatorName",
     "ListSchemasPaginatorName",
+    "ListSessionsPaginatorName",
     "ListStatementsPaginatorName",
     "ListTablesPaginatorName",
     "PaginatorName",
@@ -34,18 +36,22 @@ __all__ = (
     "ResourceServiceName",
     "ResultFormatStringType",
     "ServiceName",
+    "SessionStatusStringType",
     "StatementStatusStringType",
     "StatusStringType",
 )
 
 DescribeTablePaginatorName = Literal["describe_table"]
+ExecutionModeType = Literal["AUTO_COMMIT", "TRANSACTION"]
 GetStatementResultPaginatorName = Literal["get_statement_result"]
 GetStatementResultV2PaginatorName = Literal["get_statement_result_v2"]
 ListDatabasesPaginatorName = Literal["list_databases"]
 ListSchemasPaginatorName = Literal["list_schemas"]
+ListSessionsPaginatorName = Literal["list_sessions"]
 ListStatementsPaginatorName = Literal["list_statements"]
 ListTablesPaginatorName = Literal["list_tables"]
 ResultFormatStringType = Literal["CSV", "JSON"]
+SessionStatusStringType = Literal["AVAILABLE", "BUSY", "CLOSED"]
 StatementStatusStringType = Literal[
     "ABORTED", "FAILED", "FINISHED", "PICKED", "STARTED", "SUBMITTED"
 ]
@@ -487,6 +493,7 @@ PaginatorName = Literal[
     "get_statement_result_v2",
     "list_databases",
     "list_schemas",
+    "list_sessions",
     "list_statements",
     "list_tables",
 ]

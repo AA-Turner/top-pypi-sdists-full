@@ -1,0 +1,82 @@
+[project]
+name = "kenbun"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+version = "0.8.0"
+description = "Static application discovery for Python and modern JavaScript/TypeScript repositories."
+keywords = [
+    "static-analysis",
+    "application-detection",
+    "fastapi",
+    "javascript",
+    "typescript",
+    "monorepo",
+]
+authors = [
+    {name = "Patrick Arminio", email = "patrick.arminio@gmail.com"},
+]
+dependencies = []
+readme = "README.md"
+license = "MIT"
+
+[project.urls]
+Repository = "https://github.com/patrick91/kenbun"
+Issues = "https://github.com/patrick91/kenbun/issues"
+
+[build-system]
+requires = ["maturin>=1.9.6,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "src"
+module-name = "kenbun._kenbun"
+include = [
+    {path = "kenbun/THIRD-PARTY-LICENSES.md", format = ["sdist", "wheel"]},
+]
+
+[tool.autopub]
+git-username = "github-actions[bot]"
+git-email = "41898282+github-actions[bot]@users.noreply.github.com"
+plugins = [
+    "autopub.plugins.github",
+    "scripts.autopub_kenbun",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2.2",
+    "maturin>=1.9.6",
+    "pytest-cov",
+    "coverage",
+    "ruff>=0.12",
+]
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "RUF"]
+
+[tool.coverage.run]
+branch = true
+source = ["kenbun"]
+parallel = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"

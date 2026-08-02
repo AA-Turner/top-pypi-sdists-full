@@ -1,0 +1,93 @@
+[project]
+name = "pylitterbot"
+description = "Python package for controlling Whisker automatic robots."
+authors = [{ name = "Nathan Spencer", email = "natekspencer@gmail.com" }]
+requires-python = ">=3.10"
+readme = "README.md"
+license = "MIT"
+keywords = [
+    "Whisker",
+    "Litter-Robot",
+    "Feeder-Robot",
+    "litter box",
+    "pet feeder",
+    "asynchronous",
+]
+dependencies = [
+    "aiohttp>=3.8.1",
+    "deepdiff>=6.2.1",
+    "pyjwt>=2.7.0",
+    "pycognito>=2024.2.0",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+camera = ["aiortc>=1.9.0"]
+mcp = ["mcp[cli]>=1.0.0"]
+
+[project.scripts]
+pylitterbot-mcp = "pylitterbot.mcp:main"
+
+[project.urls]
+Homepage = "https://github.com/natekspencer/pylitterbot"
+Repository = "https://github.com/natekspencer/pylitterbot"
+
+[dependency-groups]
+dev = [
+    "aiointercept>=0.1.7",
+    "mypy==2.2.0",
+    "pre-commit==4.6.0",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "pytest-cov==7.1.0",
+    "pytest-freezer==0.4.9",
+    "pytest-timeout==2.4.0",
+    "tox==4.56.4",
+    "tox-uv>=1.25.0",
+    "ruff==0.15.21",
+]
+
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.hooks.version]
+path = "pylitterbot/_version.py"
+pattern = true
+
+[tool.hatch.build.targets.sdist]
+include = ["pylitterbot"]
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.pytest.ini_options]
+addopts = "--timeout=10 --cov=pylitterbot --cov-report=term-missing -vv"
+asyncio_mode = "auto"
+
+[tool.ruff.lint]
+select = [
+    "D", # pydocstyle
+    "E", # pycodestyle Error
+    "F", # Pyflakes
+    "I", # isort
+    "W", # pycodestyle Warning
+]
+ignore = [
+    "D203", # 1 blank line required before class docstring
+    "D213", # Multi-line docstring summary should start at the second line
+    "E501", # Line too long
+]
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+split-on-trailing-comma = false
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**.py" = ["F401"]
+
+[tool.uv]
+cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true, tags = true }}]
+
+[tool.uv-dynamic-versioning]
+pattern = "default-unprefixed"

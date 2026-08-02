@@ -1,0 +1,99 @@
+from unittest.mock import AsyncMock
+
+import httpx
+import pytest
+
+from homematicip.connection.connection_context import (
+    ConnectionContextBuilder,
+)
+
+
+@pytest.mark.asyncio
+async def test_build_context_with_client_session(mocker):
+    response = mocker.Mock(spec=httpx.Response)
+    response.status_code = 200
+    response.json.return_value = {"urlREST": "https://example.com/rest", "urlWebSocket": "wss://example.com/ws"}
+
+    lookup_url = "https://example.com/lookup"
+    mock_client = AsyncMock(spec=httpx.AsyncClient)
+    mock_client.post.return_value = response
+
+    context = await ConnectionContextBuilder.build_context_async(
+        "access_point_id",
+        lookup_url,
+        httpx_client_session=mock_client
+    )
+
+    mock_client.post.assert_called_once()
+    assert context.rest_url == "https://example.com/rest"
+    assert context.websocket_url == "wss://example.com/ws"
+    assert context.accesspoint_id == "access_point_id"
+
+@pytest.mark.asyncio
+async def test_build_context_without_client_session(mocker):
+    response = mocker.Mock(spec=httpx.Response)
+    response.status_code = 200
+    response.json.return_value = {"urlREST": "https://example.com/rest", "urlWebSocket": "wss://example.com/ws"}
+
+    patched = mocker.patch("homematicip.connection.connection_context.httpx.AsyncClient.post")
+    patched.return_value = response
+
+    context = await ConnectionContextBuilder.build_context_async("access_point_id", "https://example.com/lookup")
+
+    patched.assert_called_once()
+    assert context.rest_url == "https://example.com/rest"
+    assert context.websocket_url == "wss://example.com/ws"
+    assert context.accesspoint_id == "access_point_id"
+
+
+@pytest.mark.asyncio
+async def test_build_context_websocket_settings_defaults(mocker):
+    response = mocker.Mock(spec=httpx.Response)
+    response.status_code = 200
+    response.json.return_value = {
+        "urlREST": "https://example.com/rest",
+        "urlWebSocket": "wss://example.com/ws",
+    }
+
+    patched = mocker.patch("homematicip.connection.connection_context.httpx.AsyncClient.post")
+    patched.return_value = response
+
+    context = await ConnectionContextBuilder.build_context_async(
+        "access_point_id",
+        "https://example.com/lookup",
+    )
+
+    assert context.websocket_heartbeat_interval == 30
+    assert context.websocket_connect_timeout == 30
+    assert context.websocket_message_stale_timeout == 1800
+    assert context.websocket_initial_backoff == 8
+    assert context.websocket_max_backoff == 900
+
+
+@pytest.mark.asyncio
+async def test_build_context_carries_websocket_settings(mocker):
+    response = mocker.Mock(spec=httpx.Response)
+    response.status_code = 200
+    response.json.return_value = {
+        "urlREST": "https://example.com/rest",
+        "urlWebSocket": "wss://example.com/ws",
+    }
+
+    patched = mocker.patch("homematicip.connection.connection_context.httpx.AsyncClient.post")
+    patched.return_value = response
+
+    context = await ConnectionContextBuilder.build_context_async(
+        "access_point_id",
+        "https://example.com/lookup",
+        websocket_heartbeat_interval=15,
+        websocket_connect_timeout=12,
+        websocket_message_stale_timeout=90,
+        websocket_initial_backoff=3,
+        websocket_max_backoff=111,
+    )
+
+    assert context.websocket_heartbeat_interval == 15
+    assert context.websocket_connect_timeout == 12
+    assert context.websocket_message_stale_timeout == 90
+    assert context.websocket_initial_backoff == 3
+    assert context.websocket_max_backoff == 111

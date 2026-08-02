@@ -1,0 +1,294 @@
+name: client-artifacts
+
+# Builds the user-facing CIRIS client artifacts and uploads them for download:
+#   * Android debug APK (the vendored KMP client — identity page, contacts,
+#     delegations, on-device YubiKey NFC fed-ID, embedded Python agent runtime).
+#   * Windows desktop installer (added in a follow-up job).
+#
+# These are CI artifacts for humans to grab, NOT a pass/fail gate on the Rust
+# build (that is ci.yml). They run on main, on PRs that touch the client/build,
+# and on demand.
+#
+# The Android build embeds the canonical Python runtime via Chaquopy, staged by
+# `tools.dev.stage_runtime`, which lives in CIRISAgent — this client was vendored
+# out of that repo. So the APK job checks out CIRISAgent alongside and points the
+# gradle staging step at it via -PcirisAgentRoot.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "client/**"
+      - ".github/workflows/client-artifacts.yml"
+  pull_request:
+    paths:
+      - "client/**"
+      - ".github/workflows/client-artifacts.yml"
+  workflow_dispatch:
+
+# Supersede stale runs on the same ref (PR re-push); tag refs are distinct.
+concurrency:
+  group: client-artifacts-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  android-apk:
+    name: Android debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout CIRISServer
+        uses: actions/checkout@v4
+
+      - name: Checkout CIRISAgent (canonical Python runtime for Chaquopy)
+        uses: actions/checkout@v4
+        with:
+          repository: CIRISAI/CIRISAgent
+          path: .ciris-agent
+          # Public repo: the default GITHUB_TOKEN reads it. If CIRISAgent is
+          # ever made private, set a CIRISAGENT_TOKEN PAT here.
+          token: ${{ secrets.CIRISAGENT_TOKEN || github.token }}
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Gradle (distribution + dependency cache)
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Set up Python 3.10 (required by Chaquopy)
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+
+      - name: Symlink python3.10 for Chaquopy
+        run: |
+          PYTHON_PATH=$(which python3.10)
+          if [ ! -f /usr/bin/python3.10 ] && [ -n "$PYTHON_PATH" ]; then
+            sudo ln -s "$PYTHON_PATH" /usr/bin/python3.10
+          fi
+
+      - name: Get version from Cargo.toml
+        id: version
+        run: |
+          VERSION=$(cargo metadata --no-deps --format-version 1 \
+            | python3 -c "import sys,json; print(next(p['version'] for p in json.load(sys.stdin)['packages'] if p['name']=='ciris-server'))")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "ciris-server version: $VERSION"
+
+      - name: Build debug APK
+        run: |
+          cd client
+          ./gradlew :androidApp:assembleDebug \
+            -PcirisAgentRoot="$GITHUB_WORKSPACE/.ciris-agent" --no-daemon
+          VERSION="${{ steps.version.outputs.version }}"
+          cp androidApp/build/outputs/apk/debug/androidApp-debug.apk \
+             "androidApp/build/outputs/apk/debug/CIRIS-Server-$VERSION-debug.apk"
+          ls -lh androidApp/build/outputs/apk/debug/
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ciris-server-android-apk
+          path: client/androidApp/build/outputs/apk/debug/CIRIS-Server-*.apk
+          retention-days: 14
+
+  windows-installer:
+    name: Windows desktop installer
+    runs-on: windows-latest
+    timeout-minutes: 40
+    # NON-GATING (same rationale as publish-pypi.yml's windows wheel job): the
+    # installer must first build the ciris-server abi3 wheel on Windows, which
+    # fails today because the substrate (persist/edge) pulls openssl-src + has
+    # Unix-only paths that don't build on windows-msvc (CIRISPersist#200 /
+    # CIRISEdge#90). The installer machinery (PyInstaller spec, Inno Setup, jlink
+    # JRE) is complete and correct; this job will start producing an artifact the
+    # moment the upstream Windows wheel goes green. Remove continue-on-error then.
+    continue-on-error: true
+    permissions:
+      contents: read
+      packages: write   # CIRISCache save (GHCR) on main — CIRISServer#99
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Set up Rust (maturin builds the abi3 wheel)
+        uses: dtolnay/rust-toolchain@1.97.0
+
+      # NOTE (CIRISServer#274): the maturin compile below is warmed by
+      # maturin-action's OWN sccache (`sccache: true`), the SAME mechanism +
+      # GHA-cache namespace publish-pypi's windows wheel uses — so this now shares
+      # its warm entries (warm-release-cache warms it on main). The old raw-maturin
+      # + mozilla-actions/sccache-action wiring wrote to a DIFFERENT sccache pool
+      # and got 0.00% hits here while the publish wheel got 88% on the same commit.
+
+      # CIRISCache 4-layer centipede (CIRISServer#99) — restores the substrate
+      # SOURCE (registry/git).
+      # PLAT=windows-x64 (matches the wheel leg).
+      - name: Compute CIRISCache keys (4-layer centipede, CIRISServer#99)
+        id: cachekey
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUSTC=$(rustc -V | awk '{print $2}')
+          S=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/^version = "([^"]+)".*/\1/')
+          P=$(grep -m1 'CIRISPersist.*tag = "v' Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          V=$(grep -m1 'CIRISVerify.*tag = "v'  Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/')
+          EDGE=$(grep -m1 'CIRISEdge.*tag = "v' Cargo.toml | sed -E 's/.*tag = "v([0-9.]+)".*/\1/' || echo "")
+          PLAT="windows-x64"
+          BASE="ciris-substrate-v1-${PLAT}-release-rustc${RUSTC}"
+          {
+            echo "key-verify=${BASE}-pnone-enone-v${V:-none}"
+            echo "key-persist=${BASE}-p${P:-none}-enone-v${V:-none}"
+            echo "key-edge=${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}"
+            echo "key=${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}-s${S:-none}"
+            echo "key-server-prefix=${BASE}-p${P:-none}-e${EDGE:-none}-v${V:-none}-s"
+          } >> "$GITHUB_OUTPUT"
+          echo "::notice::CIRISCache (${PLAT}): S=${S:-NONE} P=${P:-NONE} V=${V:-NONE} EDGE=${EDGE:-NONE} RUSTC=${RUSTC}"
+      # Deepest-first, first-hit-wins (CIRISCache restore@v2): one extraction.
+      - uses: CIRISAI/CIRISCache/restore@v2
+        continue-on-error: true
+        with:
+          keys: |
+            ${{ steps.cachekey.outputs.key }}
+            ${{ steps.cachekey.outputs.key-server-prefix }}*
+            ${{ steps.cachekey.outputs.key-edge }}
+            ${{ steps.cachekey.outputs.key-persist }}
+            ${{ steps.cachekey.outputs.key-verify }}
+
+      - name: Set up Java 17 (Liberica)
+        # Liberica 17 provides the trimmed jlink runtime bundled into the
+        # installer. Modern Windows floor (Win10+/Server 2016+) since 0.5.65 —
+        # the Win7 support that drove this distro choice is no longer a
+        # requirement, but Liberica stays (stable jlink source).
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'liberica'
+          java-version: '17'
+
+      - name: Set up Gradle (distribution + dependency cache)
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+
+      - name: Get version from Cargo.toml
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(cargo metadata --no-deps --format-version 1 \
+            | python -c "import sys,json; print(next(p['version'] for p in json.load(sys.stdin)['packages'] if p['name']=='ciris-server'))")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "ciris-server version: $VERSION"
+
+      - name: Build CIRIS Desktop UberJar
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 25
+          max_attempts: 3
+          retry_wait_seconds: 60
+          shell: bash
+          command: |
+            cd client
+            ./gradlew :desktopApp:packageUberJarForCurrentOS --no-daemon
+            ls -lh desktopApp/build/compose/jars/
+
+      - name: Stage the desktop JAR into the wheel tree
+        shell: bash
+        run: |
+          mkdir -p python/ciris_server/desktop_app
+          cp client/desktopApp/build/compose/jars/CIRIS-windows-*.jar \
+             python/ciris_server/desktop_app/
+          ls -lh python/ciris_server/desktop_app/
+
+      # Build the wheel via maturin-action — IDENTICAL to build-wheels.yml's
+      # windows leg (target x64, rust 1.97.0, sccache: true), so it shares that
+      # job's warmed sccache pool (CIRISServer#274). The wheel carries the staged
+      # JAR (pyproject [tool.maturin] include). `--strip` matches the publish
+      # wheel's compile flags for pool-identity; `--out dist-wheel` only sets the
+      # output dir (does not affect the sccache compile keys).
+      - name: Build the ciris-server wheel (maturin-action, shared sccache)
+        uses: PyO3/maturin-action@v1
+        with:
+          target: x64
+          rust-toolchain: "1.97.0"
+          args: --release --strip --out dist-wheel
+          sccache: true
+      - name: Install the wheel for PyInstaller
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip pyinstaller
+          WHL=$(ls dist-wheel/*.whl | head -1)
+          echo "installing $WHL"
+          pip install "$WHL"
+          python -c "import ciris_server; from ciris_server.cli import main; print('ciris_server import OK')"
+
+      - name: CIRISCache save (windows-x64 server layer)
+        if: github.ref == 'refs/heads/main'
+        uses: CIRISAI/CIRISCache/save@v1
+        continue-on-error: true
+        with:
+          key: ${{ steps.cachekey.outputs.key }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build PyInstaller bundle
+        shell: bash
+        run: |
+          cd installers/windows
+          pyinstaller ciris-server.spec --noconfirm
+          ls dist/ciris-server/ | head -20
+
+      - name: Stage bundle for Inno Setup
+        shell: bash
+        run: |
+          mkdir -p dist
+          mv installers/windows/dist/ciris-server dist/
+          # confirm the desktop JAR rode into the bundle
+          ls dist/ciris-server/_internal/ciris_server/desktop_app/ || \
+            echo "WARN: desktop JAR not found in bundle (launcher will fall back to system layout)"
+
+      - name: Trim JRE via jlink (Liberica)
+        shell: pwsh
+        run: |
+          $jar = Get-ChildItem -Path 'client\desktopApp\build\compose\jars' -Filter 'CIRIS-windows-*.jar' | Select-Object -First 1
+          if (-not $jar) { Write-Error "No CIRIS-windows-*.jar found"; exit 1 }
+          .\installers\windows\bundle-jre.ps1 -JarPath $jar.FullName -OutputDir dist\runtime
+
+      # (Removed in 0.5.65: the Universal CRT redist fetch was a Win7 SP1
+      # prerequisite — Win10+/Server 2016+ ship the UCRT in-box.)
+
+      - name: Install Inno Setup
+        uses: nick-fields/retry@v4
+        with:
+          timeout_minutes: 10
+          max_attempts: 3
+          retry_wait_seconds: 30
+          shell: pwsh
+          command: choco install innosetup -y --no-progress
+
+      - name: Build installer with Inno Setup
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          Write-Host "Building installer for ciris-server $version"
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" `
+              "/DCirisVersion=$version" `
+              installers\windows\ciris-server-installer.iss
+          Get-ChildItem dist\*.exe
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ciris-server-windows-installer
+          path: dist/CIRIS-Server-Setup-*.exe
+          retention-days: 14

@@ -1,0 +1,104 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# ONEX evidence pipeline topic definitions (OMN-11832)
+#
+# Source of truth for all Kafka topic names used by the evidence pipeline.
+# Python constants live in:
+#   omnibase_compat.contracts.evidence_pipeline.wire.topics
+# Canonical migration target:
+#   omnibase_core.contracts.evidence_pipeline.wire.topics
+#
+# Topic naming convention: onex.{kind}.{service}.{event-name}.v{N}
+# See: OMN-1537
+
+schema_version: "1.0.0"
+ticket_id: "OMN-11832"
+title: "Evidence pipeline Kafka topic definitions"
+summary: >
+  Defines all Kafka topic names for the evidence pipeline directed flow: command → collector → extractor
+  → matcher → OCC writer → gap analyzer → readiness scorer, with a parallel dashboard lane.
+service: omnimarket
+
+topics:
+  # ------------------------------------------------------------------
+  # Command topics — pipeline entry points
+  # ------------------------------------------------------------------
+  - name: evidence-pipeline-start
+    kind: cmd
+    version: 1
+    full_name: "onex.cmd.omnimarket.evidence-pipeline-start.v1"
+    constant: "EVIDENCE_PIPELINE_START_CMD_V1"
+    wire_dto: "omnibase_compat.contracts.evidence_pipeline.wire.model_evidence_pipeline_command.ModelEvidencePipelineCommand"
+    description: >
+      Trigger payload that starts the per-PR evidence validation pipeline. Emitted by the pipeline entry
+      point; consumed by the collector node.
+  # ------------------------------------------------------------------
+  # Event topics — stage boundary crossings
+  # ------------------------------------------------------------------
+  - name: evidence-collected
+    kind: evt
+    version: 1
+    full_name: "onex.evt.omnimarket.evidence-collected.v1"
+    constant: "EVIDENCE_COLLECTED_EVT_V1"
+    wire_dto: "omnibase_compat.contracts.evidence_pipeline.wire.model_evidence_bundle.ModelEvidenceBundle"
+    description: >
+      Raw evidence collected from source artifacts. Crosses the collector → extractor boundary.
+  - name: evidence-extracted
+    kind: evt
+    version: 1
+    full_name: "onex.evt.omnimarket.evidence-extracted.v1"
+    constant: "EVIDENCE_EXTRACTED_EVT_V1"
+    wire_dto: "omnibase_compat.contracts.evidence_pipeline.wire.model_raw_evidence_payload.ModelRawEvidencePayload"
+    description: >
+      Evidence extracted and structured for contract matching. Crosses the extractor → matcher boundary.
+
+  - name: evidence-validated
+    kind: evt
+    version: 1
+    full_name: "onex.evt.omnimarket.evidence-validated.v1"
+    constant: "EVIDENCE_VALIDATED_EVT_V1"
+    wire_dto: "omnibase_compat.contracts.evidence_pipeline.wire.model_evidence_validation_result.ModelEvidenceValidationResult"
+    description: >
+      Per-ticket deterministic validation result from the matcher compute node. Crosses the matcher →
+      OCC writer boundary. Also referenced in dashboard projection events for VALIDATED stage tracking.
+
+  - name: evidence-occ-pr-created
+    kind: evt
+    version: 1
+    full_name: "onex.evt.omnimarket.evidence-occ-pr-created.v1"
+    constant: "EVIDENCE_OCC_PR_CREATED_EVT_V1"
+    wire_dto: "omnibase_compat.contracts.evidence_pipeline.wire.model_occ_pr_reference.ModelOccPrReference"
+    description: >
+      Idempotent reference to a provisional or finalized OCC evidence PR. Crosses the OCC writer → gap
+      analyzer boundary.
+  - name: evidence-gap-analyzed
+    kind: evt
+    version: 1
+    full_name: "onex.evt.omnimarket.evidence-gap-analyzed.v1"
+    constant: "EVIDENCE_GAP_ANALYZED_EVT_V1"
+    wire_dto: "omnibase_compat.contracts.evidence_pipeline.wire.model_gap_report.ModelGapReport"
+    description: >
+      Deployment-level evidence gap analysis report. Crosses the gap analyzer → readiness scorer boundary.
+
+  - name: evidence-readiness-scored
+    kind: evt
+    version: 1
+    full_name: "onex.evt.omnimarket.evidence-readiness-scored.v1"
+    constant: "EVIDENCE_READINESS_SCORED_EVT_V1"
+    wire_dto: "omnibase_compat.contracts.evidence_pipeline.wire.model_deployment_readiness_result.ModelDeploymentReadinessResult"
+    description: >
+      Machine-readable readiness gate result for a deployment set. Final output topic of the evidence
+      pipeline.
+  # ------------------------------------------------------------------
+  # Dashboard lane topics — parallel projection events
+  # ------------------------------------------------------------------
+  - name: evidence-dashboard-projected
+    kind: evt
+    version: 1
+    full_name: "onex.evt.omnimarket.evidence-dashboard-projected.v1"
+    constant: "EVIDENCE_DASHBOARD_PROJECTED_EVT_V1"
+    wire_dto: "omnibase_compat.contracts.evidence_pipeline.wire.model_dashboard_projection_event.ModelDashboardProjectionEvent"
+    description: >
+      Normalized event emitted by the dashboard effect node for projection writes. Consumed by the dashboard
+      reducer; runs in a parallel lane to the main pipeline.

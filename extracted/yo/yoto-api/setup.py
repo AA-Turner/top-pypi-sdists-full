@@ -1,0 +1,46 @@
+#!/usr/bin/env python
+
+"""The setup script."""
+
+from setuptools import setup, find_packages
+
+with open("README.md") as readme_file:
+    long_description = readme_file.read()
+
+with open("requirements.txt") as f:
+    requirements = f.read().splitlines()
+
+test_requirements = [
+    "pytest>=3",
+]
+
+setup(
+    author="cdnninja",
+    author_email="",
+    python_requires=">=3.10",
+    classifiers=[
+        "Development Status :: 2 - Pre-Alpha",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: MIT License",
+        "Natural Language :: English",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+    ],
+    description="A python package that makes it a bit easier to work with the yoto play API. Not associated with Yoto in any way.",
+    install_requires=requirements,
+    license="MIT license",
+    long_description=long_description,
+    long_description_content_type="text/markdown",
+    include_package_data=True,
+    keywords="yoto_api",
+    name="yoto_api",
+    packages=find_packages(include=["yoto_api", "yoto_api.*"]),
+    package_data={"yoto_api": ["py.typed"]},
+    test_suite="tests",
+    tests_require=test_requirements,
+    url="https://github.com/cdnninja/yoto_api",
+    version="4.3.2",
+    zip_safe=False,
+)

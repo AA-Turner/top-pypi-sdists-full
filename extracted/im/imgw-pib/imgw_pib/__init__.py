@@ -1,0 +1,671 @@
+"""Python wrapper for IMGW-PIB API."""
+
+import logging
+import re
+from datetime import UTC, datetime
+from http import HTTPStatus
+from typing import TYPE_CHECKING, Any, Self
+
+import aiofiles
+import orjson
+from aiohttp import ClientSession
+from yarl import URL
+
+from .const import (
+    ALERT_LEVEL_MAP,
+    API_HYDROLOGICAL_DETAILS_ENDPOINT,
+    API_HYDROLOGICAL_ENDPOINT,
+    API_HYDROLOGICAL_WARNINGS_ENDPOINT,
+    API_WEATHER_ENDPOINT,
+    API_WEATHER_PROXY_ENDPOINT,
+    API_WEATHER_WARNINGS_ENDPOINT,
+    DATE_FORMAT,
+    HEADERS,
+    HYDROLOGICAL_ALERTS_MAP,
+    ICE_PHENOMENA_DATA_VALIDITY_PERIOD,
+    NO_ALERT,
+    PROXY_WEATHER_STATIONS_FILE,
+    RIVERS_INFO_FILE,
+    TIMEOUT,
+    VEGETATION_PHENOMENA_DATA_VALIDITY_PERIOD,
+    WEATHER_ALERTS_MAP,
+    WEATHER_STATIONS_INFO_FILE,
+)
+from .exceptions import ApiError
+from .model import Alert, ApiNames, HydrologicalData, SensorData, Units, WeatherData
+from .utils import (
+    create_sensor_data,
+    decode_vegetation_phenomena,
+    gen_station_name,
+    get_datetime,
+    measurement_date_if_current,
+    parse_weather_icon,
+)
+
+__all__ = ["ImgwPib", "SensorData"]
+
+_LOGGER = logging.getLogger(__name__)
+
+
+class ImgwPib:
+    """Main class of IMGW-PIB API wrapper."""
+
+    _rivers_info_cache: dict[str, dict[str, str]] | None = None
+    _weather_stations_info_cache: dict[str, dict[str, Any]] | None = None
+    _proxy_weather_stations_cache: dict[str, dict[str, Any]] | None = None
+
+    def __init__(
+        self: Self,
+        session: ClientSession,
+        weather_station_id: str | None = None,
+        hydrological_station_id: str | None = None,
+        hydrological_details: bool = True,
+    ) -> None:
+        """Initialize IMGW-PIB API wrapper."""
+        self._session = session
+        self._weather_station_list: dict[str, str] = {}
+        self._hydrological_station_list: dict[str, str] = {}
+        self._alarm_water_level: float | None = None
+        self._warning_water_level: float | None = None
+
+        self.weather_station_id = weather_station_id
+        self.hydrological_station_id = hydrological_station_id
+
+        self._hydrological_details = hydrological_details
+
+        self._weather_stations_info: dict[str, dict[str, Any]] = {}
+        self._rivers_info: dict[str, dict[str, str]] = {}
+        self._last_icon: str | None = None
+
+    @classmethod
+    async def create(
+        cls: type[Self],
+        session: ClientSession,
+        weather_station_id: str | None = None,
+        hydrological_station_id: str | None = None,
+        hydrological_details: bool = True,
+    ) -> Self:
+        """Create a new instance."""
+        instance = cls(
+            session, weather_station_id, hydrological_station_id, hydrological_details
+        )
+        await instance.initialize()
+
+        return instance
+
+    @property
+    def weather_stations(self: Self) -> dict[str, str]:
+        """Return list of weather stations."""
+        return self._weather_station_list
+
+    @property
+    def hydrological_stations(self: Self) -> dict[str, str]:
+        """Return list of hydrological stations."""
+        return self._hydrological_station_list
+
+    async def initialize(self: Self) -> None:
+        """Initialize."""
+        _LOGGER.debug("Initializing IMGW-PIB")
+
+        if self.weather_station_id is not None:
+            _LOGGER.debug("Using weather station ID: %s", self.weather_station_id)
+            await self.update_weather_stations()
+
+            if self.weather_station_id not in self.weather_stations:
+                msg = f"Invalid weather station ID: {self.weather_station_id}"
+                raise ApiError(msg)
+
+            if ImgwPib._weather_stations_info_cache is None:
+                async with aiofiles.open(WEATHER_STATIONS_INFO_FILE, mode="rb") as file:
+                    content = await file.read()
+                ImgwPib._weather_stations_info_cache = orjson.loads(content)
+
+            if TYPE_CHECKING:
+                assert ImgwPib._proxy_weather_stations_cache is not None
+
+            self._weather_stations_info = (
+                ImgwPib._weather_stations_info_cache
+                | ImgwPib._proxy_weather_stations_cache
+            )
+
+        if self.hydrological_station_id is not None:
+            _LOGGER.debug(
+                "Using hydrological station ID: %s", self.hydrological_station_id
+            )
+
+            await self.update_hydrological_stations()
+
+            if self.hydrological_station_id not in self.hydrological_stations:
+                msg = f"Invalid hydrological station ID: {self.hydrological_station_id}"
+                raise ApiError(msg)
+
+            if ImgwPib._rivers_info_cache is None:
+                async with aiofiles.open(RIVERS_INFO_FILE, mode="rb") as file:
+                    content = await file.read()
+                ImgwPib._rivers_info_cache = orjson.loads(content)
+
+            self._rivers_info = ImgwPib._rivers_info_cache
+
+            if self._hydrological_details is True:
+                await self._update_hydrological_details()
+
+    async def update_weather_stations(self: Self) -> None:
+        """Update list of weather stations."""
+        url = API_WEATHER_ENDPOINT
+
+        stations_data = await self._http_request(url)
+
+        self._weather_station_list = {
+            station[ApiNames.STATION_ID]: station[ApiNames.STATION]
+            for station in stations_data
+        }
+
+        if ImgwPib._proxy_weather_stations_cache is None:
+            async with aiofiles.open(PROXY_WEATHER_STATIONS_FILE, mode="rb") as file:
+                content = await file.read()
+            ImgwPib._proxy_weather_stations_cache = orjson.loads(content)
+
+        self._weather_station_list.update(
+            {
+                key: val["name"]
+                for key, val in ImgwPib._proxy_weather_stations_cache.items()
+            }
+        )
+
+    async def get_weather_data(self: Self) -> WeatherData:
+        """Get weather data."""
+        if self.weather_station_id is None:
+            msg = "Weather station ID is not set"
+            raise ApiError(msg)
+
+        station_info = self._weather_stations_info.get(self.weather_station_id, {})
+        teryt = station_info.get("teryt")
+        lat = station_info.get(ApiNames.LATITUDE)
+        lon = station_info.get(ApiNames.LONGITUDE)
+
+        weather_alerts = []
+        if teryt and (
+            result := await self._http_request(API_WEATHER_WARNINGS_ENDPOINT, False)
+        ):
+            weather_alerts = result
+
+        weather_alert = self._extract_weather_alert(weather_alerts, teryt)
+
+        _LOGGER.debug("Weather alert: %s", weather_alert)
+
+        if lat is not None and lon is not None:
+            proxy_url = API_WEATHER_PROXY_ENDPOINT.with_query(lat=lat, lon=lon)
+            proxy_data = None
+            try:
+                proxy_data = await self._http_request(proxy_url, required=False)
+            except Exception:  # noqa: BLE001
+                _LOGGER.debug(
+                    "Proxy weather endpoint unavailable for station %s",
+                    self.weather_station_id,
+                )
+
+            if isinstance(proxy_data, dict) and "current" in proxy_data:
+                _LOGGER.debug("Using proxy weather data: %s", proxy_data)
+                return self._parse_proxy_weather_data(proxy_data, weather_alert)
+
+        url = API_WEATHER_ENDPOINT / "id" / self.weather_station_id
+        weather_data = await self._http_request(url)
+
+        _LOGGER.debug("Weather data: %s", weather_data)
+
+        return self._parse_weather_data(weather_data, weather_alert)
+
+    def _extract_weather_alert(
+        self, weather_alerts: list[dict[str, Any]], teryt: str | None
+    ) -> Alert:
+        """Extract weather alert for a given TERYT."""
+        if teryt is None:
+            return Alert(value=NO_ALERT)
+
+        now = datetime.now(tz=UTC)
+
+        for alert in reversed(weather_alerts):
+            territories = alert[ApiNames.TERRITORY]
+
+            if teryt not in territories:
+                continue
+
+            from_date = get_datetime(alert[ApiNames.VALID_FROM], DATE_FORMAT)
+            to_date = get_datetime(alert[ApiNames.VALID_TO], DATE_FORMAT)
+
+            if from_date is None or to_date is None:
+                continue
+
+            if from_date <= now <= to_date:
+                event = alert[ApiNames.EVENT_NAME].lower()
+                return Alert(
+                    value=WEATHER_ALERTS_MAP.get(event, event),
+                    valid_from=from_date,
+                    valid_to=to_date,
+                    probability=alert[ApiNames.PROBABILITY],
+                    level=ALERT_LEVEL_MAP[alert[ApiNames.ALERT_LEVEL]],
+                )
+
+        return Alert(value=NO_ALERT)
+
+    async def update_hydrological_stations(self: Self) -> None:
+        """Update list of hydrological stations."""
+        stations_data = await self._http_request(API_HYDROLOGICAL_ENDPOINT)
+
+        self._hydrological_station_list = {
+            station[ApiNames.STATION_ID]: gen_station_name(
+                station[ApiNames.STATION], station[ApiNames.RIVER]
+            )
+            for station in stations_data
+        }
+
+    async def _update_hydrological_details(self: Self) -> None:
+        """Update hydrological details."""
+        if TYPE_CHECKING:
+            assert self.hydrological_station_id
+
+        url = API_HYDROLOGICAL_DETAILS_ENDPOINT.with_query(
+            id=self.hydrological_station_id
+        )
+
+        try:
+            hydrological_details = await self._http_request(url)
+        except ApiError as exc:
+            _LOGGER.info("Hydrological details not available: %s", repr(exc))
+            return
+
+        if hydrological_details is None:
+            _LOGGER.info("Invalid hydrological details format")
+            return
+
+        self._warning_water_level = hydrological_details["status"]["warningValue"]
+        self._alarm_water_level = hydrological_details["status"]["alarmValue"]
+
+    async def get_hydrological_data(self: Self) -> HydrologicalData:
+        """Get hydrological data."""
+        if self.hydrological_station_id is None:
+            msg = "Hydrological station ID is not set"
+            raise ApiError(msg)
+
+        all_stations_data = await self._http_request(API_HYDROLOGICAL_ENDPOINT)
+
+        hydrological_data = next(
+            (
+                item
+                for item in all_stations_data
+                if item.get(ApiNames.STATION_ID) == self.hydrological_station_id
+            ),
+            None,
+        )
+
+        if hydrological_data is None:
+            msg = f"No hydrological data for station ID: {self.hydrological_station_id}"
+            raise ApiError(msg)
+
+        _LOGGER.debug("Hydrological data: %s", hydrological_data)
+
+        hydrological_alerts = []
+
+        if result := await self._http_request(
+            API_HYDROLOGICAL_WARNINGS_ENDPOINT, False
+        ):
+            hydrological_alerts = result
+
+        return self._parse_hydrological_data(hydrological_data, hydrological_alerts)
+
+    async def _http_request(
+        self: Self,
+        url: URL,
+        required: bool = True,
+    ) -> Any:  # noqa: ANN401
+        """Make an HTTP request."""
+        _LOGGER.debug("Requesting %s", url)
+
+        response = await self._session.request(
+            "get", url, headers=HEADERS, timeout=TIMEOUT
+        )
+
+        _LOGGER.debug("Response status: %s", response.status)
+
+        if response.status != HTTPStatus.OK.value:
+            msg = f"Invalid response: {response.status}"
+            if required:
+                raise ApiError(msg)
+
+            return None
+
+        if "application/json" not in response.content_type:
+            msg = f"Invalid content type: {response.content_type}"
+            raise ApiError(msg)
+
+        return await response.json()
+
+    def _parse_weather_data(self, data: dict[str, Any], alert: Alert) -> WeatherData:
+        """Parse weather data."""
+        temperature_sensor = create_sensor_data(
+            "Temperature", data[ApiNames.TEMPERATURE], Units.CELSIUS.value
+        )
+        humidity_sensor = create_sensor_data(
+            "Humidity", data[ApiNames.HUMIDITY], Units.PERCENT.value
+        )
+        wind_speed_sensor = create_sensor_data(
+            "Wind Speed", data[ApiNames.WIND_SPEED], Units.METERS_PER_SECOND.value
+        )
+        wind_direction_sensor = create_sensor_data(
+            "Wind Direction", data[ApiNames.WIND_DIRECTION], Units.DEGREE.value
+        )
+        precipitation_sensor = create_sensor_data(
+            "Precipitation",
+            data[ApiNames.PRECIPITATION],
+            Units.MILLIMETERS_PER_HOUR.value,
+        )
+        pressure_sensor = create_sensor_data(
+            "Pressure", data[ApiNames.PRESSURE], Units.HPA.value
+        )
+        apparent_temperature_sensor = create_sensor_data(
+            "Apparent Temperature", None, Units.CELSIUS.value
+        )
+        wind_gust_sensor = create_sensor_data(
+            "Wind Gust", None, Units.METERS_PER_SECOND.value
+        )
+        cloud_coverage_sensor = create_sensor_data(
+            "Cloud Coverage", None, Units.PERCENT.value
+        )
+        rain_sensor = create_sensor_data("Rain", None, Units.MILLIMETERS_PER_HOUR.value)
+        snow_sensor = create_sensor_data("Snow", None, Units.CENTIMETERS_PER_HOUR.value)
+        measurement_date = get_datetime(
+            f"{data[ApiNames.MEASUREMENT_DATE]} {data[ApiNames.MEASUREMENT_TIME]}",
+            "%Y-%m-%d %H",
+        )
+
+        if TYPE_CHECKING:
+            assert self.weather_station_id
+
+        station = self._weather_stations_info.get(self.weather_station_id, {})
+
+        return WeatherData(
+            temperature=temperature_sensor,
+            humidity=humidity_sensor,
+            pressure=pressure_sensor,
+            wind_speed=wind_speed_sensor,
+            wind_direction=wind_direction_sensor,
+            precipitation=precipitation_sensor,
+            apparent_temperature=apparent_temperature_sensor,
+            wind_gust=wind_gust_sensor,
+            cloud_coverage=cloud_coverage_sensor,
+            rain=rain_sensor,
+            snow=snow_sensor,
+            station=data[ApiNames.STATION],
+            latitude=station.get(ApiNames.LATITUDE),
+            longitude=station.get(ApiNames.LONGITUDE),
+            station_id=self.weather_station_id,
+            measurement_date=measurement_date,
+            weather_alert=alert,
+        )
+
+    def _parse_proxy_weather_data(
+        self, data: dict[str, Any], alert: Alert
+    ) -> WeatherData:
+        """Parse weather data from the proxy endpoint."""
+        current = data["current"]
+
+        temperature_sensor = create_sensor_data(
+            "Temperature", current.get("temp"), Units.CELSIUS.value
+        )
+        humidity_sensor = create_sensor_data(
+            "Humidity", current.get("humidity"), Units.PERCENT.value
+        )
+        wind_speed_sensor = create_sensor_data(
+            "Wind Speed", current.get("wind_speed"), Units.METERS_PER_SECOND.value
+        )
+        wind_direction_sensor = create_sensor_data(
+            "Wind Direction", current.get("wind_dir"), Units.DEGREE.value
+        )
+        precipitation_sensor = create_sensor_data(
+            "Precipitation", current.get("precip"), Units.MILLIMETERS_PER_HOUR.value
+        )
+        pressure_sensor = create_sensor_data(
+            "Pressure", current.get("pressure"), Units.HPA.value
+        )
+        apparent_temperature_sensor = create_sensor_data(
+            "Apparent Temperature", current.get("feels_like"), Units.CELSIUS.value
+        )
+        wind_gust_sensor = create_sensor_data(
+            "Wind Gust", current.get("wind_gust"), Units.METERS_PER_SECOND.value
+        )
+        cloud_coverage_sensor = create_sensor_data(
+            "Cloud Coverage", current.get("cloud"), Units.PERCENT.value
+        )
+        rain_sensor = create_sensor_data(
+            "Rain", current.get("rain"), Units.MILLIMETERS_PER_HOUR.value
+        )
+        snow_sensor = create_sensor_data(
+            "Snow", current.get("snow"), Units.CENTIMETERS_PER_HOUR.value
+        )
+
+        measurement_date: datetime | None = None
+        date_str = current.get("date")
+        if date_str:
+            try:
+                measurement_date = datetime.fromisoformat(date_str)
+            except (ValueError, TypeError):
+                _LOGGER.debug("Invalid proxy date string '%s'", date_str)
+
+        icon = current.get("icon")
+        if icon is not None:
+            self._last_icon = icon
+        else:
+            icon = self._last_icon
+        condition = parse_weather_icon(icon) if icon is not None else None
+
+        if TYPE_CHECKING:
+            assert self.weather_station_id
+
+        station_info = self._weather_stations_info.get(self.weather_station_id, {})
+
+        return WeatherData(
+            temperature=temperature_sensor,
+            humidity=humidity_sensor,
+            pressure=pressure_sensor,
+            wind_speed=wind_speed_sensor,
+            wind_direction=wind_direction_sensor,
+            precipitation=precipitation_sensor,
+            apparent_temperature=apparent_temperature_sensor,
+            wind_gust=wind_gust_sensor,
+            cloud_coverage=cloud_coverage_sensor,
+            rain=rain_sensor,
+            snow=snow_sensor,
+            station=self._weather_station_list.get(self.weather_station_id, ""),
+            latitude=station_info.get(ApiNames.LATITUDE),
+            longitude=station_info.get(ApiNames.LONGITUDE),
+            station_id=self.weather_station_id,
+            proxy_used=True,
+            condition=condition,
+            measurement_date=measurement_date,
+            weather_alert=alert,
+            forecast_hourly=data["hourly"],
+            forecast_twice_daily=data["daily"],
+        )
+
+    def _parse_hydrological_data(
+        self: Self, data: dict[str, Any], alerts: list[dict[str, Any]]
+    ) -> HydrologicalData:
+        """Parse hydrological data."""
+        now = datetime.now(tz=UTC)
+
+        water_level_measurement_date = measurement_date_if_current(
+            data[ApiNames.WATER_LEVEL_MEASUREMENT_DATE], now
+        )
+        water_level = (
+            data[ApiNames.WATER_LEVEL] if water_level_measurement_date else None
+        )
+
+        if water_level is None:
+            msg = "Invalid water level value"
+            raise ApiError(msg)
+
+        water_level_sensor = create_sensor_data(
+            "Water Level", water_level, Units.CENTIMETERS.value
+        )
+        flood_warning_level_sensor = create_sensor_data(
+            "Flood Warning Level",
+            self._warning_water_level,
+            Units.CENTIMETERS.value,
+        )
+        flood_alarm_level_sensor = create_sensor_data(
+            "Flood Alarm Level", self._alarm_water_level, Units.CENTIMETERS.value
+        )
+
+        water_temperature_measurement_date = measurement_date_if_current(
+            data[ApiNames.WATER_TEMPERATURE_MEASUREMENT_DATE], now
+        )
+        water_temperature = (
+            data[ApiNames.WATER_TEMPERATURE]
+            if water_temperature_measurement_date
+            else None
+        )
+        water_temperature_sensor = create_sensor_data(
+            "Water Temperature", water_temperature, Units.CELSIUS.value
+        )
+
+        water_flow_measurement_date = measurement_date_if_current(
+            data[ApiNames.WATER_FLOW_MEASUREMENT_DATE], now
+        )
+        water_flow = data[ApiNames.WATER_FLOW] if water_flow_measurement_date else None
+        water_flow_sensor = create_sensor_data(
+            "Water Flow", water_flow, Units.CUBIC_METERS_PER_SECOND.value
+        )
+
+        ice_phenomena_measurement_date = measurement_date_if_current(
+            data[ApiNames.ICE_PHENOMENA_MEASUREMENT_DATE],
+            now,
+            ICE_PHENOMENA_DATA_VALIDITY_PERIOD,
+        )
+        ice_phenomena = (
+            int(data[ApiNames.ICE_PHENOMENA]) * 10
+            if ice_phenomena_measurement_date
+            else None
+        )
+        ice_phenomena_sensor = create_sensor_data(
+            "Ice Phenomena", ice_phenomena, Units.PERCENT.value
+        )
+
+        vegetation_phenomena_measurement_date = measurement_date_if_current(
+            data[ApiNames.VEGETATION_PHENOMENA_MEASUREMENT_DATE],
+            now,
+            VEGETATION_PHENOMENA_DATA_VALIDITY_PERIOD,
+        )
+        vegetation_phenomena_raw = (
+            data[ApiNames.VEGETATION_PHENOMENA]
+            if vegetation_phenomena_measurement_date
+            else None
+        )
+        submerged, floating, emergent = decode_vegetation_phenomena(
+            vegetation_phenomena_raw
+        )
+
+        submerged_vegetation_cover_sensor = create_sensor_data(
+            "Submerged Vegetation Cover", submerged, Units.PERCENT.value
+        )
+        floating_vegetation_cover_sensor = create_sensor_data(
+            "Floating Vegetation Cover", floating, Units.PERCENT.value
+        )
+        emergent_vegetation_cover_sensor = create_sensor_data(
+            "Emergent Vegetation Cover", emergent, Units.PERCENT.value
+        )
+
+        river = data[ApiNames.RIVER]
+
+        if TYPE_CHECKING:
+            assert self.hydrological_station_id
+
+        province = data[ApiNames.PROVINCE]
+        if province is None:
+            river_info = self._rivers_info.get(self.hydrological_station_id, {})
+            province = river_info.get("province")
+
+        hydrological_alert = self._extract_hydrological_alert(alerts, river, province)
+
+        _LOGGER.debug("Hydrological alert: %s", hydrological_alert)
+
+        lat = data[ApiNames.LATITUDE]
+        lon = data[ApiNames.LONGITUDE]
+
+        return HydrologicalData(
+            flood_alarm_level=flood_alarm_level_sensor,
+            flood_warning_level=flood_warning_level_sensor,
+            latitude=float(lat) if lat is not None else None,
+            longitude=float(lon) if lon is not None else None,
+            river=river,
+            station_id=self.hydrological_station_id,
+            station=data[ApiNames.STATION].strip(),
+            water_flow=water_flow_sensor,
+            water_flow_measurement_date=water_flow_measurement_date,
+            water_level_measurement_date=water_level_measurement_date,
+            water_level=water_level_sensor,
+            water_temperature_measurement_date=water_temperature_measurement_date,
+            water_temperature=water_temperature_sensor,
+            hydrological_alert=hydrological_alert,
+            ice_phenomena=ice_phenomena_sensor,
+            ice_phenomena_measurement_date=ice_phenomena_measurement_date,
+            submerged_vegetation_cover=submerged_vegetation_cover_sensor,
+            floating_vegetation_cover=floating_vegetation_cover_sensor,
+            emergent_vegetation_cover=emergent_vegetation_cover_sensor,
+            vegetation_phenomena_measurement_date=vegetation_phenomena_measurement_date,
+        )
+
+    def _extract_hydrological_alert(
+        self,
+        hydrological_alerts: list[dict[str, Any]],
+        river: str,
+        province: str | None,
+    ) -> Alert:
+        """Extract hydrological alert for a given river."""
+        if province is None:
+            return Alert(value=NO_ALERT)
+
+        now = datetime.now(tz=UTC)
+        last_word = river.rsplit(" ", maxsplit=1)[-1]
+        river_key = (last_word[:-1] if len(last_word) > 4 else last_word).lower()  # noqa: PLR2004
+        river_pattern = re.compile(r"\b" + re.escape(river_key) + r"\w*")
+        province_key = province.lower()
+
+        for alert in reversed(hydrological_alerts):
+            areas = alert[ApiNames.AREAS]
+            province_match = False
+            river_match = False
+
+            for area in areas:
+                if (
+                    not province_match
+                    and area[ApiNames.PROVINCE].lower() == province_key
+                ):
+                    province_match = True
+                if not river_match and river_pattern.search(
+                    area[ApiNames.DESCRIPTION].lower()
+                ):
+                    river_match = True
+                # Early exit if both conditions are met
+                if province_match and river_match:
+                    break
+
+            if not (province_match and river_match):
+                continue
+
+            from_date = get_datetime(alert[ApiNames.DATE_FROM], DATE_FORMAT)
+            to_date = get_datetime(alert[ApiNames.DATE_TO], DATE_FORMAT)
+
+            if from_date is None or to_date is None:
+                continue
+
+            if from_date <= now <= to_date:
+                event = alert[ApiNames.EVENT].lower()
+                return Alert(
+                    value=HYDROLOGICAL_ALERTS_MAP.get(event, event),
+                    valid_from=from_date,
+                    valid_to=to_date,
+                    probability=alert[ApiNames.PROBABILITY],
+                    level=ALERT_LEVEL_MAP[alert[ApiNames.ALERT_LEVEL_HYDROLOGICAL]],
+                )
+
+        return Alert(value=NO_ALERT)

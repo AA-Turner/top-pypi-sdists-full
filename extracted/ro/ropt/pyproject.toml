@@ -1,0 +1,101 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm>=8.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ropt"
+description = "The ropt ensemble optimizer module"
+readme = "README.md"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Natural Language :: English",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering",
+]
+requires-python = ">=3.11"
+dynamic = ["version"]
+dependencies = ["numpy", "pydantic", "scipy>=1.15"]
+
+[project.urls]
+"Homepage" = "https://github.com/TNO-ropt/ropt"
+"Repository" = "https://github.com/TNO-ropt/ropt"
+"Bug Tracker" = "https://github.com/TNO-ropt/ropt/issues"
+"Documentation" = "https://tno-ropt.github.io/ropt"
+
+[project.optional-dependencies]
+pandas = ["pandas"]
+hpc = ["pysqa", "cloudpickle"]
+external = ["cloudpickle"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ropt = ["py.typed"]
+
+[tool.setuptools_scm]
+version_file = "src/ropt/version.py"
+fallback_version = "0.0.0.dev0"
+
+[tool.pytest.ini_options]
+markers = ["slow: slow test marker", "external: external optimizer marker"]
+filterwarnings = [
+    'ignore:numpy.ndarray size changed, may indicate binary incompatibility.*:RuntimeWarning',
+]
+
+[tool.ruff.format]
+exclude = ["src/ropt/version.py", "build"]
+
+[tool.ruff.lint]
+preview = true
+select = ["ALL"]
+ignore = [
+    "COM812", # missing-trailing-comma
+    "CPY",    # flake8-copyright
+    "E501",   # line-too-long
+    "S101",   # assert
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "D",       # pydocstyle
+    "ANN401",  # anytype
+    "PLC2701", # import-private-name
+    "PLR2004", # magic-value-comparison
+    "PLR0913", # too-many-arguments
+]
+"examples/*" = [
+    "INP001", # implicit-namespace-package
+    "T201",   # print
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.mypy]
+strict = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["cloudpickle.*", "pysqa.*"]
+ignore_missing_imports = true
+
+[dependency-groups]
+dev = [
+    "mike",
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+    "mypy",
+    "pandas-stubs",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-timeout",
+    "ruff",
+    "scipy-stubs",
+]

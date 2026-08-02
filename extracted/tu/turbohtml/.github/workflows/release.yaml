@@ -1,0 +1,96 @@
+name: 🚀 Release
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: ["main"]
+    tags: ["*"]
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+permissions:
+  contents: read
+jobs:
+  sdist:
+    name: 📦 sdist
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: 🔄 Install uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          enable-cache: false
+      - name: 📦 Build sdist
+        run: uv build --sdist --out-dir dist
+      - name: 📤 Upload sdist
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist-sdist
+          path: dist/*.tar.gz
+          retention-days: 7
+  wheels:
+    name: 🎡 wheels - ${{ matrix.label }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-24.04", "ubuntu-24.04-arm", "macos-15", "windows-2025"]
+        include:
+          - {os: "ubuntu-24.04", label: Linux}
+          - {os: "ubuntu-24.04-arm", label: Linux ARM}
+          - {os: "macos-15", label: macOS}
+          - {os: "windows-2025", label: Windows}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          submodules: true # the Linux wheels train the profile-guided build on the vendored html5lib and War-and-Peace corpora
+          persist-credentials: false
+      - name: 🔄 Install uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          enable-cache: false
+      - name: 🎡 Build wheels
+        uses: pypa/cibuildwheel@294735312765b09d24a2fbec22660ce817587d55 # v4.1.0
+      - name: 📤 Upload wheels
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dist-${{ matrix.os }}
+          path: wheelhouse/*.whl
+          retention-days: 7
+  publish:
+    name: 🚀 Publish ${{ matrix.artifact }}
+    needs: [sdist, wheels]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-24.04
+    # one job per build artifact: signing every wheel in a single job exceeds the
+    # Sigstore identity lifetime (sigstore.oidc.ExpiredIdentity), so split the upload
+    # so each fresh OIDC token only has to attest its platform's wheels
+    strategy:
+      fail-fast: false
+      matrix:
+        artifact:
+          - dist-sdist
+          - dist-ubuntu-24.04
+          - dist-ubuntu-24.04-arm
+          - dist-macos-15
+          - dist-windows-2025
+    environment:
+      name: release
+      url: https://pypi.org/project/turbohtml
+    permissions:
+      id-token: write # trusted publishing, no API token stored
+    steps:
+      - name: ⬇️ Download ${{ matrix.artifact }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist
+      - name: 🚀 Publish
+        uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247 # v1.14.1
+        with:
+          skip-existing: true
+          attestations: true

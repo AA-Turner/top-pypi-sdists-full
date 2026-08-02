@@ -1,0 +1,133 @@
+"""Enums for gateway types and related helpers."""
+
+from enum import IntEnum, StrEnum, unique
+
+from pyoverkiz.enums.base import UnknownEnumMixin
+
+
+@unique
+class GatewayType(UnknownEnumMixin, IntEnum):
+    """Enumeration of known gateway types returned by Overkiz."""
+
+    UNKNOWN = -1
+    VIRTUAL_KIZBOX = 0
+    KIZBOX_V1 = 2
+    TAHOMA = 15
+    ENERGEASY_CONNECT = 19
+    VERISURE_ALARM_SYSTEM = 20
+    KIZBOX_MINI = 21
+    HI_KUMO_ADAPTER = 22  # Hi Kumo Adapter SPX-WFG01 (constant added manually)
+    KIZBOX_V2 = 24
+    MYFOX_ALARM_SYSTEM = 25
+    KIZBOX_MINI_VMBUS = 27
+    KIZBOX_MINI_IO = 28
+    TAHOMA_V2 = 29
+    KIZBOX_V2_3H = 30
+    KIZBOX_V2_2H = 31
+    COZYTOUCH = 32
+    CONNEXOON = 34
+    JSW_CAMERA = 35
+    TAHOMA_V2_RTS = 41
+    KIZBOX_MINI_MODBUS = 42
+    KIZBOX_MINI_OVP = 43
+    HI_BOX = 44  # Hi Kumo AHP-SMB01 Hi Box (constant added manually)
+    HATTARA_RAIL_DIN = 47
+    ENERGEASY_CONNECT_RAIL_DIN = 48
+    WIZZ_BOX = 52
+    CONNEXOON_RTS = 53
+    OPENDOORS_LOCK_SYSTEM = 54
+    CONNEXOON_RTS_JAPAN = 56
+    ENERGEASY_CONNECT_V2 = 57
+    HOME_PROTECT_SYSTEM = 58
+    CONNEXOON_RTS_AUSTRALIA = 62
+    THERMOSTAT_SOMFY_SYSTEM = 63
+    SMARTLY_MINI_DAUGHTERBOARD_ZWAVE = 65
+    SMARTLY_MINIBOX_RAILDIN = 66
+    TAHOMA_BEE = 67
+    TAHOMA_RAIL_DIN = 72
+    NEXITY_RAIL_DIN = 74
+    TAHOMA_BEECON = 75
+    ELIOT = 77
+    COZYTOUCH_SAUTER = 83
+    WISER = 88
+    NETATMO = 92
+    TAHOMA_SWITCH = 98
+    SOMFY_CONNECTIVITY_KIT = 99
+    COZYTOUCH_V2 = 105
+    TAHOMA_RAIL_DIN_S = 108
+    NEXITY_RAIL_DIN_S = 109
+    HEXACONNECT = 117
+    DAIKIN_ONECTA = 118
+    ENERGEASY_CONNECT_V3 = 120
+    TAHOMA_SWITCH_US = 121
+    TAHOMA_SWITCH_OC = 122
+    TAHOMA_SWITCH_AU = 123
+    ENERGEASY_CONNECT_V3_RAIL_DIN = 125
+    TAHOMA_SWITCH_CH = 126
+    TAHOMA_SWITCH_SC = 128
+
+    @property
+    def beautify_name(self) -> str:
+        """Return a human friendly name for the gateway type."""
+        return (
+            self.name.replace("_", " ")
+            .title()
+            .replace("Tahoma", "TaHoma")
+            .replace("Rts", "RTS")
+        )
+
+
+@unique
+class GatewaySubType(UnknownEnumMixin, IntEnum):
+    """Sub-type enumeration for gateways to identify specific models/variants."""
+
+    UNKNOWN = -1
+    TAHOMA_BASIC = 1
+    TAHOMA_BASIC_PLUS = 2
+    TAHOMA_PREMIUM = 3
+    SOMFY_BOX = 4
+    HITACHI_BOX = 5
+    MONDIAL_BOX = 6
+    MAROC_TELECOM_BOX = 7
+    TAHOMA_SERENITY = 8
+    TAHOMA_VERISURE = 9
+    TAHOMA_SERENITY_PREMIUM = 10
+    TAHOMA_MONSIEUR_STORE = 11
+    TAHOMA_MAISON_AVENIR_ET_TRADITION = 12
+    TAHOMA_SHORT_CHANNEL = 13
+    TAHOMA_PRO = 14
+    TAHOMA_SECURITY_SHORT_CHANNEL = 15
+    TAHOMA_SECURITY_PRO = 16
+    TAHOMA_BOX_C_IO = 17
+
+    @property
+    def beautify_name(self) -> str:
+        """Return a human friendly name for the gateway sub-type."""
+        return (
+            self.name.replace("_", " ")
+            .title()
+            .replace("Tahoma", "TaHoma")
+            .replace("Rts", "RTS")
+        )
+
+
+@unique
+class UpdateCriticityLevel(UnknownEnumMixin, StrEnum):
+    """Criticity level of an available gateway update."""
+
+    BUG_FIX = "BUG_FIX"
+    DEVICES_CONTROL_ONLY = "DEVICES_CONTROL_ONLY"
+    UNKNOWN = "UNKNOWN"
+
+
+@unique
+class UpdateBoxStatus(StrEnum):
+    """Status of the gateway update box indicating its updateability."""
+
+    NOT_UPDATABLE = "NOT_UPDATABLE"
+    READY_TO_UPDATE = "READY_TO_UPDATE"
+    READY_TO_BE_UPDATED_BY_SERVER = "READY_TO_BE_UPDATED_BY_SERVER"
+    READY_TO_UPDATE_LOCALLY = "READY_TO_UPDATE_LOCALLY"
+    UP_TO_DATE = "UP_TO_DATE"
+    UNKNOWN = "UNKNOWN"
+    UPDATING = "UPDATING"

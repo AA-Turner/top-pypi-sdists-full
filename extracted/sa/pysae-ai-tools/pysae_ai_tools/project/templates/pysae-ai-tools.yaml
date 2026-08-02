@@ -1,0 +1,111 @@
+# .pysae-ai-tools.yaml — per-repo ai-tools configuration.
+#
+# Read first by `pysae-ai-tools internal detect-context`; every key below shows its
+# DEFAULT (= current behaviour), so an absent/commented key changes nothing. Uncomment
+# and edit to override. Inspect the effective config with `pysae-ai-tools project show`.
+# This file configures the ai-tools *skills* — it does NOT drive CI pipelines.
+version: 1
+
+# project:
+#   labels: []          # GitLab labels; the FIRST is the primary domain, rest secondary (e.g. [Infra, Security])
+#   name: null          # commercial name. string = LLM-translatable | {fr: …, en: …, it: …} | null
+#   description: null   # short description (same i18n rule as name)
+#   stack: null         # python | node | mobile-capacitor
+
+# slack:
+#   enabled: true       # master switch — false disables every Slack interaction
+#   tech_channel: ""     # repo tech channel, e.g. "#tech-api"
+#   tech_channel_id: ""  # its Slack ID, e.g. "C05SWB6MXE3"
+#   mep_channel: "#mep"            # deploy/MEP broadcast channel — set on every repo (no default)
+#   mep_channel_id: "C018YPQ906P"  # its Slack ID
+#   notifications:
+#     mr_review: true          # review-request on MR (slack-ask-review)
+#     mep: true                # deploy/release broadcast to #mep
+#     prerelease_review: true  # pre-release review recap (code-review-pre-release)
+
+# changelog:
+#   enabled: true       # keep a CHANGELOG (code-changelog / code-get-next-version)
+
+# ai_notes:
+#   enabled: true       # generate docs/ai-notes/ (code-implement)
+
+# release:
+#   notes:
+#     enabled: true     # user-facing release notes (code-release-notes)
+#     languages: [fr, en, it]
+#     prompt: null      # free-form guidance for note generation
+#   gitlab_release: true      # create the GitLab Release object on tag
+#   tag_prefix: "v"
+#   allow_prerelease: false   # allow version prereleases (e.g. v6.0.0-beta)
+#   review:
+#     enabled: true     # run the pre-release review (code-review-pre-release)
+#     prompt: null
+#   tracks: [web]       # web | service | apple | android | android-enterprise
+#   stores:             # mobile only — target store → notes variant + publish offer
+#     google_play_store: false
+#     apple_app_store: false
+
+# design:               # React+Tailwind fronts eligible to design-generate
+#   enabled: false
+#   web_root: ""         # web dir (node_modules/tailwind + index.css @theme + components/ui)
+#   pages_proto: false   # design-pages.yml wired → proto via GitLab Pages
+
+# k8s:                   # declarative; argo-apps stays the source of truth
+#   environments:        # no default — declare yours; a slug env expands <env> → name-<slug>
+#     - {name: dev, namespace: dev, kube_context: dev}
+#     - {name: prod, namespace: prod, kube_context: prod}
+#     - {name: review, namespace: mr, kube_context: dev, slug: true}
+#   secrets: [api-mongo-uri]   # secret KEY names the services consume (never values)
+#   services:            # one entry per deployed service (shift = app + api, api = flavors)
+#     - name: api-ndp
+#       description: NDP — ingestion/export en masse
+#       deployment: "<env>-api-ndp"   # ArgoCD app == k8s deployment; <env> → dev|prod|review-<slug>
+#       namespace: ingress  # only for fixed-namespace infra apps (not env-templated)
+#       ecr_image: apps/api  # the image it runs — an aws.ecr entry
+#       datadog_service: api-nav-data-processor
+
+# openapi:               # API repos only (e.g. pysae/api) — exposed OpenAPI specs
+#   base_url: {dev: https://api.dev.pysae.com, prod: https://api.pysae.com}
+#   versions: [v3, v4, v5]
+#   visibilities: [public, internal]
+#   spec_path: /api/docs/{version}/{visibility}/openapi.json
+#   swagger_path: /api/docs/{version}/{visibility}/swagger-ui
+
+# aws:                   # infra repos — AWS resources this repo owns/declares
+#   s3:                  # S3 storage
+#     buckets:
+#       - {name: pysae-db-dump, description: DB dumps}
+#   ecr:                 # ECR container images
+#     - {name: apps/api, description: API image}
+#   elasticache:         # ElastiCache (Redis) clusters
+#     - {name: prod-kong-rate-limit, description: Kong rate-limit Redis (prod)}
+#   secrets:             # SecretsManager secret stores (bundles), NOT key values
+#     - {name: pysae/prod/secrets, description: prod app secrets}
+
+# prefect:               # pysae/prefect — Prefect topology
+#   workers:             # work pools
+#     - {name: prod-k8s, type: kubernetes, environment: prod}
+#   flows:               # declared flows
+#     - {name: Publish GTFS, description: Publication des flux GTFS statiques}
+
+# issues:
+#   enabled: true         # let skills create GitLab issues for this repo
+#   default_type: null    # default type:: label for new issues (e.g. "type::technical" for infra/tooling repos)
+
+# merge_requests:
+#   enabled: true        # let skills create MRs for this repo
+
+# board:
+#   enabled: true        # repo managed on the board (column placement, audit)
+#   sync: true           # auto-advance tickets (workflow:: transitions)
+#   deploy_branches:            # source branch → deploy branch (a ticket merged into the
+#     main: deploy/prod         # source is "shipped" once its merge commit reaches the deploy
+#     support/*: deploy/support/*  # branch; the * on both sides corresponds. No deploy branch
+#                               # for a line → merged tickets on it close directly.
+#                               # (omit the key to use this same default mapping)
+#   to_deploy: true       # repo manages the `workflow::To deploy` column. false = the repo
+#                         # ships at merge (CI applies from the MR pipeline: Terraform,
+#                         # ArgoCD…), so a merged ticket is closed at once instead of parked.
+
+# autopilot:
+#   enabled: false       # participate in code-autopilot-batch

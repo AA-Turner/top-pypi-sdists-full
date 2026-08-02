@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinxcontrib-confluencebuilder
-Version: 3.1.0
+Version: 3.2.0
 Summary: Sphinx extension to build Atlassian Confluence Storage Markup
 Author-email: Anthony Shaw <anthonyshaw@apache.org>, James Knight <git@jdknight.me>
 Maintainer-email: James Knight <git@jdknight.me>
@@ -40,12 +40,13 @@ Project-URL: Source, https://github.com/sphinx-contrib/confluencebuilder
 [![Documentation Status](https://img.shields.io/readthedocs/sphinxcontrib-confluencebuilder?label=Documentation)](https://sphinxcontrib-confluencebuilder.readthedocs.io/) 
 [![PyPI download month](https://img.shields.io/pypi/dm/sphinxcontrib-confluencebuilder.svg?label=Downloads)](https://pypi.python.org/pypi/sphinxcontrib-confluencebuilder/) 
 
-[Sphinx][sphinx] extension to build Confluence® compatible markup format
-files and optionally publish them to a Confluence instance.
+[Sphinx][sphinx] ([GitHub][sphinx-github]) extension to build Confluence®
+compatible markup format files and optionally publish them to a Confluence
+instance.
 
 ## Requirements
 
-* [Confluence][confluence] Cloud or Data Center 9.0+
+* [Confluence][confluence] Cloud or Data Center 9.1+
 * [Python][python] 3.10+
 * [Requests][requests] 2.30.0+
 * [Sphinx][sphinx] 8.0+
@@ -142,5 +143,6 @@ Confluence is a registered trademark of Atlassian Pty Ltd.
 [pip]: https://pip.pypa.io/
 [python]: https://www.python.org/
 [requests]: https://pypi.python.org/pypi/requests
+[sphinx-github]: https://github.com/sphinx-doc/sphinx
 [sphinx]: https://www.sphinx-doc.org/
 

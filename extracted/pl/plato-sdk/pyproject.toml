@@ -1,0 +1,87 @@
+[project]
+name = "plato-sdk"
+version = "1.11.0"
+description = "Plato SDK"
+readme = "README.md"
+authors = [
+    { name = "Pranav Putta", email = "pranav@plato.so" },
+    { name = "Rob Farlow", email = "rob@plato.so" },
+]
+requires-python = ">=3.10"
+dependencies = [
+    "aiohttp>=3.11.13",
+    "openai>=1.70.0",
+    "pydantic>=2.10.6",
+    "pydantic-settings>=2.8.1",
+    "click>=8.0.0",
+    "python-dotenv>=0.19.0",
+    "aioboto3>=15.0.0",
+    "pyyaml>=6.0.2",
+    "requests>=2.32.4",
+    "boto3>=1.38.27",
+    "typer>=0.17.4",
+    "playwright>=1.50.0",
+    "streamlit>=1.32.0",
+    "psycopg2-binary>=2.9.9",
+    "pymysql>=1.1.1",
+]
+
+[project.scripts]
+plato = "plato.cli:cli"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+plato = [
+    "*.so",
+    "*.dylib",
+    "*.dll",
+    # "bin/*",
+    "*.yml",
+    "*.yaml",
+    "extensions/envgen-recorder/**/*",
+]
+
+# Mark wheel as platform-specific (not universal)
+[tool.wheel]
+platlib = true
+
+[tool.uv.workspace]
+members = ["example"]
+
+[dependency-groups]
+dev = ["ipdb>=0.13.13", "datamodel-code-generator>=0.35.0", "ruff>=0.8.0"]
+test = ["pytest>=8.0.0", "pytest-asyncio>=0.23.0", "pytest-cov>=4.1.0"]
+
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501", # line too long (handled by formatter)
+    "B008", # do not perform function calls in argument defaults
+    "C901", # too complex
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"] # Allow unused imports in __init__.py files

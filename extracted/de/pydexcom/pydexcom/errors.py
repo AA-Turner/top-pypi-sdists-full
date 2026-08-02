@@ -1,0 +1,89 @@
+"""Errors used in `pydexcom`."""
+
+from __future__ import annotations
+
+from enum import Enum
+
+
+class DexcomErrorEnum(Enum):
+    """Base class for all `pydexcom` error strings."""
+
+
+class AccountErrorEnum(DexcomErrorEnum):
+    """`AccountError` strings."""
+
+    FAILED_AUTHENTICATION = "Failed to authenticate"
+    MAX_ATTEMPTS = "Maximum authentication attempts exceeded"
+
+
+class SessionErrorEnum(DexcomErrorEnum):
+    """`SessionError` strings."""
+
+    NOT_FOUND = "Session ID not found"
+    INVALID = "Session not active or timed out"
+
+
+class ArgumentErrorEnum(DexcomErrorEnum):
+    """`ArgumentError` strings."""
+
+    MINUTES_INVALID = "Minutes must be and integer between 1 and 1440"
+    MAX_COUNT_INVALID = "Max count must be and integer between 1 and 288"
+    USERNAME_INVALID = "Username must be non-empty string"
+    USER_ID_MULTIPLE = "Only one of account_id, username should be provided"
+    USER_ID_REQUIRED = "At least one of account_id, username should be provided"
+    PASSWORD_INVALID = "Password must be non-empty string"  # noqa: S105
+    REGION_INVALID = "Region must be 'us', 'ous, or 'jp'"
+    ACCOUNT_ID_INVALID = "Account ID must be UUID"
+    ACCOUNT_ID_DEFAULT = "Account ID default"
+    SESSION_ID_INVALID = "Session ID must be UUID"
+    SESSION_ID_DEFAULT = "Session ID default"
+    GLUCOSE_READING_INVALID = "JSON glucose reading incorrectly formatted"
+
+
+class ServerErrorEnum(DexcomErrorEnum):
+    """`ServerErrorEnum` strings."""
+
+    INVALID_JSON = "Invalid or malformed JSON in server response"
+    UNKNOWN_CODE = "Unknown error code in server response"
+    UNEXPECTED = "Unexpected server response"
+
+
+class DexcomError(Exception):
+    """Base class for all `pydexcom` errors."""
+
+    def __init__(self, enum: DexcomErrorEnum | None = None) -> None:
+        """
+        Create `DexcomError` from `DexcomErrorEnum`.
+
+        :param enum: associated `DexcomErrorEnum`
+        """
+        if enum is not None:
+            super().__init__(enum.value)
+        else:
+            super().__init__()
+        self._enum = enum
+
+    @property
+    def enum(self) -> DexcomErrorEnum | None:
+        """
+        Get `DexcomErrorEnum` associated with error.
+
+        :return: `DexcomErrorEnum`
+        """
+        return self._enum
+
+
+class AccountError(DexcomError):
+    """Errors involving Dexcom Share API credentials."""
+
+
+class SessionError(DexcomError):
+    """Errors involving Dexcom Share API session."""
+
+
+class ArgumentError(DexcomError):
+    """Errors involving `pydexcom` arguments."""
+
+
+class ServerError(DexcomError):
+    """Errors involving unexpected or malformed server responses."""

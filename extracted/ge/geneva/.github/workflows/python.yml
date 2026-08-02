@@ -1,0 +1,95 @@
+name: Python Unit tests
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - src/**
+      - .github/workflows/python.yml
+      - uv.lock
+      - pyproject.toml
+
+jobs:
+  # Minimal test job that runs without any extras and ensures tests pass
+  # (tests that rely on extras should be skipped)
+  lint_tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+      - name: Install dependencies
+        run: |
+          cat uv.lock
+          uv sync --locked --all-extras
+      - name: Run lint
+        run: |
+          make lint-ci
+  tests:
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: warp-ubuntu-latest-x64-32x
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.12"
+          - "3.13"
+        suite:
+          - "stable"
+          - "experimental"
+    env:
+      UV_CACHE_DIR: /tmp/.uv-cache
+      RAY_BACKEND_LOG_LEVEL: debug
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+      - name: Restore uv cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.uv-cache
+          key: uv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            uv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('uv.lock') }}
+      - name: Install dependencies
+        run: |
+          cat uv.lock
+          make pydeps
+      - name: Run tests
+        if: matrix.suite == 'stable'
+        run: |
+          make test-no-flaky
+          make bench-ci
+      - name: Run experimental tests
+        if: matrix.suite == 'experimental'
+        run: |
+          make test-flaky
+      - name: Generate coverage report
+        run: |
+          make coverage-report
+      - name: Minimize uv cache
+        run: uv cache prune --ci
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@main
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
+          flags: unit-${{ matrix.python-version }}-${{ matrix.suite }}

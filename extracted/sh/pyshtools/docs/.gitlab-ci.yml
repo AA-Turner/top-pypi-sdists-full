@@ -1,0 +1,29 @@
+image: ruby:latest
+
+variables:
+  JEKYLL_ENV: production
+  LC_ALL: "en_US.UTF-8"
+  LANG: "en_US.UTF-8"
+  LANGUAGE: "en_US.UTF-8"
+
+test:
+  stage: test
+  script:
+  - sh ./var/build.sh
+  - bundle exec jekyll build -d test
+  artifacts:
+    paths:
+    - test
+  except:
+  - master
+
+pages:
+  stage: deploy
+  script:
+  - sh ./var/build.sh
+  - bundle exec jekyll build -d public
+  artifacts:
+    paths:
+    - public
+  only:
+  - master

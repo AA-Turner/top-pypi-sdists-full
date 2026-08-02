@@ -1,0 +1,59 @@
+[project]
+name = "pydantic-settings-azure-app-configuration"
+version = "1.1.0"
+requires-python = ">=3.11"
+readme = "README.md"
+description = "Azure App Configuration setting source for pydantic-settings"
+dependencies = [
+    "pydantic>=2.8.2",
+    "pydantic-settings>=2.3.4",
+    "azure-appconfiguration>=1.6.0",
+    "azure-keyvault-secrets>=4.8.0",
+    "azure-identity>=1.17.1",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit==4.3.0",
+    "pyright==1.1.405",
+    "ruff==0.12.12",
+    "jupyter==1.1.1",
+    "pytest==8.4.2",
+    "pytest-mock==3.15.0",
+    "pytest-cov==6.3.0",
+]
+
+[tool.uv]
+required-version = ">=0.8.15,<0.9.0"
+
+[project.urls]
+Repository = "https://github.com/AndreuCodina/pydantic-settings-azure-app-configuration"
+Documentation = "https://github.com/AndreuCodina/pydantic-settings-azure-app-configuration"
+
+[build-system]
+requires = ["uv_build>=0.8.11,<0.9.0"]
+build-backend = "uv_build"
+
+[tool.pyright]
+typeCheckingMode = "strict"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "E501",   # line-too-long
+    "D100",   # undocumented-public-module
+    "D101",   # undocumented-public-class
+    "D102",   # undocumented-public-method
+    "D103",   # undocumented-public-function
+    "D104",   # undocumented-public-package
+    "D105",   # undocumented-magic-method
+    "D106",   # undocumented-public-nested-class
+    "D107",   # undocumented-public-init
+    "COM812", # missing-trailing-comma
+    "TRY003", # raise-vanilla-args
+    "S101",   # assert
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "tests"]
+asyncio_default_fixture_loop_scope = "function"

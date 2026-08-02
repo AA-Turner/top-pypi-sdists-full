@@ -37,6 +37,9 @@ __all__ = (
     "ProfileTaskStatusType",
     "ProfileValidationErrorReasonType",
     "ProfileVisibilityType",
+    "QualificationsAssociationStatusType",
+    "QualificationsAssociationTaskStatusType",
+    "QualificationsDisassociationTaskStatusType",
     "ResourceServiceName",
     "ServiceName",
     "VerificationStatusType",
@@ -111,6 +114,9 @@ ProfileValidationErrorReasonType = Literal[
     "INVALID_WEBSITE_URL",
 ]
 ProfileVisibilityType = Literal["PRIVATE", "PUBLIC"]
+QualificationsAssociationStatusType = Literal["ASSOCIATED", "NOT_ASSOCIATED"]
+QualificationsAssociationTaskStatusType = Literal["IN_PROGRESS", "SUCCEEDED"]
+QualificationsDisassociationTaskStatusType = Literal["IN_PROGRESS", "SUCCEEDED"]
 VerificationStatusType = Literal[
     "FAILED", "IN_PROGRESS", "PENDING_CUSTOMER_ACTION", "REJECTED", "SUCCEEDED"
 ]

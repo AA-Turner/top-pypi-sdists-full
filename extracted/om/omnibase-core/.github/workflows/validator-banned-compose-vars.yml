@@ -1,0 +1,104 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+---
+# Compose Drift — ValidatorBannedComposeVars gate [OMN-9113]
+#
+# Canonical CI gate for `omnibase_core.validation.validator_banned_compose_vars`.
+# Required status check context: "Compose Drift / validate" — matches
+# architecture-handshakes/validator-requirements.yaml::banned-compose-env-vars.
+#
+# This workflow runs on omnibase_core itself:
+#   1. unit + integration pytest for the validator (regression guard)
+#   2. self-scan of omnibase_core's own compose/k8s YAMLs against a synthetic
+#      kernel tuple sourced from the omnibase_infra kernel constant, proving
+#      the CLI is resolvable and the check is green on this repo's own tree.
+#
+# Consumer repos (omnibase_infra, omninode_infra per validator-requirements.yaml)
+# wire this by adding the hook entry to their own .pre-commit-config.yaml and
+# mirroring the `validate` job in their own CI, pointing --kernel-source at
+# their local copy of service_kernel.py.
+
+# MIGRATED INTO ci.yml (OMN-14877, OMN-14430 fast-follow): this workflow used to
+# trigger on push/pull_request, giving it its OWN github.run_id — structurally
+# invisible to ci.yml's ci-summary default-deny poller and gating nothing
+# (pre-commit, if installed and not --no-verify'd, was the only enforcement).
+# Its validate steps now run UNCONDITIONALLY inside ci.yml under the required
+# "CI Summary" rollup, and its embedded occ-preflight caller no longer fires on
+# PRs. This file is retained workflow_dispatch-only for manual/ad-hoc invocation.
+#
+name: Compose Drift
+
+on:
+  workflow_dispatch: {}
+
+env:
+  PYTHON_VERSION: "3.12"
+  UV_VERSION: "0.8.3"
+
+concurrency:
+  group: compose-drift-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  occ-preflight:
+    uses: ./.github/workflows/occ-preflight.yml
+    permissions:
+      contents: read
+      pull-requests: read
+    with:
+      contracts-dir: contracts
+      receipts-dir: drift/dod_receipts
+
+  validate:
+    needs: occ-preflight
+    name: validate
+    # OMNI_RUNNER_SELECTOR_V1 - trusted events default to self-hosted omnibase-ci; pull_request defaults to ubuntu-latest
+    runs-on: >-
+      ${{
+        github.event_name != 'pull_request'
+        && fromJSON(vars.OMNI_TRUSTED_CI_RUNS_ON_JSON || '["self-hosted","omnibase-ci"]')
+        || fromJSON(vars.OMNI_PUBLIC_PR_RUNS_ON_JSON || '["ubuntu-latest"]')
+      }}
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout omnibase_core
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: ${{ env.UV_VERSION }}
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Run ValidatorBannedComposeVars unit + integration tests
+        run: |
+          uv run pytest \
+            tests/unit/validation/test_validator_banned_compose_vars.py \
+            tests/integration/test_validator_banned_compose_vars_integration.py \
+            -v
+
+      - name: Self-scan omnibase_core repo for banned compose env vars
+        run: |
+          # Synthetic kernel mirrors the current `_DEPRECATED_TOPIC_ENV_VARS`
+          # tuple in omnibase_infra/src/omnibase_infra/runtime/service_kernel.py
+          # (OMN-8784). omnibase_core has no legitimate consumer of those vars,
+          # so the scan must exit 0. If omnibase_core ever adds a real compose
+          # manifest that uses them, this gate catches it before merge.
+          cat > /tmp/synthetic_kernel.py <<'EOF'
+          # Mirror of omnibase_infra service_kernel._DEPRECATED_TOPIC_ENV_VARS.
+          _DEPRECATED_TOPIC_ENV_VARS: tuple[str, ...] = (
+              "ONEX_INPUT_TOPIC",
+              "ONEX_OUTPUT_TOPIC",
+          )
+          EOF
+          uv run python -m omnibase_core.validation.validator_banned_compose_vars \
+            --kernel-source /tmp/synthetic_kernel.py \
+            .

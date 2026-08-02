@@ -1,0 +1,136 @@
+Metadata-Version: 2.4
+Name: datafusion-query-builder
+Version: 0.2.0
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Topic :: Database
+Classifier: Typing :: Typed
+License-File: LICENSE
+Summary: Programmatic, injection-safe builder for DataFusion SQL.
+Keywords: datafusion,sql,query-builder,sqlparser
+Author-email: Pydantic <engineering@pydantic.dev>
+License-Expression: MIT
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Homepage, https://github.com/pydantic/datafusion-query-builder
+Project-URL: Source, https://github.com/pydantic/datafusion-query-builder
+
+# datafusion-query-builder
+
+A programmatic, **injection-safe** builder for **DataFusion SQL** — a typed Rust core with a
+pyo3-exposed Python API. It replaces hand-rolled f-string / template-literal SQL with a typed,
+composable surface, while still emitting **SQL text** (so the SQL stays visible in logs/traces,
+greppable, and cache-keyable).
+
+Values are escaped by construction, so untrusted input (column values, user filters) is safe to
+embed. Strings, arrays, and numbers are quoted/encoded for you; an explicit `raw(...)` escape hatch
+is the only unescaped path.
+
+## Install
+
+```bash
+pip install datafusion-query-builder
+```
+
+Prebuilt `abi3` wheels are published for CPython 3.9+ on macOS (Apple Silicon + Intel) and Linux
+(x86_64 + aarch64).
+
+## Quick start (Python)
+
+```python
+from datafusion_query_builder import col, lit, param, raw, when, and_, table
+from datafusion_query_builder import functions as f
+
+q = (
+    table("records")
+    .filter((col("kind") == "span") & col("deployment_environment").is_in(["prod", "staging"]))
+    .select(
+        f.coalesce(col("service_name"), "(unknown)").alias("service"),
+        f.approx_distinct(col("trace_id")).alias("request_count"),
+        f.approx_percentile_cont(col("duration"), 0.95).alias("p95"),
+    )
+    .group_by(col("service_name"))
+    .order_by(col("request_count").desc())
+    .limit(200)
+)
+print(q.to_sql())
+```
+
+Bare Python scalars auto-promote to literals (so `col("x") == "prod"` works), and string/array
+literals are escaped — values are injection-safe by construction. Reach for `raw(...)` (a SQL
+fragment), `f.call("name", ...)` (any function), or `param("name")` (a `${name}` placeholder) when
+you step outside the v1 grammar.
+
+The JSONB key-exists operators are first-class: `col("attributes").has_key("gen_ai.input.messages")`
+renders `attributes ? 'gen_ai.input.messages'` — a cheap presence check that never extracts the
+value (contrast `raw("attributes ->> 'k'").is_not_null()`, which reads the whole value out just to
+test it). `has_any_key` and `has_all_keys` render `?|` / `?&`.
+
+## Architecture
+
+```
+façade types  ──lower.rs──▶  sqlparser::ast  ──Display──▶  SQL text
+expr.rs / query.rs / functions.rs        (the only file that names sqlparser::ast)
+```
+
+- `expr.rs`, `query.rs`, `functions.rs` — span-free, `Default`-friendly façade enums. Immutable /
+  generative: every method returns a new value.
+- `lower.rs` — the single boundary to `sqlparser::ast`. A `sqlparser` version bump surfaces here
+  and nowhere else.
+- `render.rs` — `to_sql()` plus `validate()` (renders then re-parses to prove well-formedness).
+- `python.rs` — `Expr` / `Query` wrappers, the `f.*` functions namespace, operator overloading
+  with scalar→literal coercion. Gated behind the `python` feature.
+
+`sqlparser` is pinned to the pydantic `dollar-brace-0.62.0` fork via `[patch.crates-io]` — the same
+parser the DataFusion ecosystem uses, including the `${var}` placeholder extension. The crate does
+**not** depend on DataFusion itself (only the test oracle does, optionally).
+
+## Develop & test
+
+```bash
+# Rust core (no Python toolchain needed):
+cargo test --test core                       # rendering snapshots + regressions
+cargo test --features datafusion-oracle --test properties   # property tests, see below
+cargo clippy --all-targets --features datafusion-oracle -- -D warnings
+
+# Coercion tests against a real embedded interpreter (needs PYO3_PYTHON -> a 3.9+ interpreter):
+PYO3_PYTHON=$PWD/.venv/bin/python cargo test --lib --features test-embed
+
+# Python extension:
+uv venv && uvx maturin develop
+python tests/test_python.py
+```
+
+### How the tests are layered
+
+The crate is correctness-critical (it generates SQL from user-controlled input), so the test
+surface is layered:
+
+- **`tests/properties.rs`** (proptest, behind `datafusion-oracle`) uses **DataFusion itself as the
+  oracle** — it renders a query to SQL, then plans + executes it through real DataFusion and reads
+  the value back. This upgrades "the SQL re-parses" to "the value survives a real engine
+  round-trip", catching *silent* mis-encoding (escaping, float formatting, operator precedence).
+  DataFusion is an optional, test-only dependency — never compiled into the lib or the wheel.
+  `tests/properties.proptest-regressions` pins seeds that previously found bugs.
+- **`src/python.rs` `coercion_tests`** (behind `test-embed`) unit-test the Python-type →
+  façade-literal boundary that can only be exercised with real Python objects (`bool`-before-`int`,
+  big ints, non-finite floats, `list`/`tuple`). They compose with the property tests: coercion
+  proves "Python value → correct value", the property tests prove "value → correct SQL → correct
+  result".
+
+When a property/coercion test finds a bug, fix it in the crate — that is the whole point of the
+library: one fix covers every caller.
+
+## Release
+
+Wheels are built and published to PyPI by CI (`.github/workflows/ci.yml`) on a `v*` tag, using
+**PyPI Trusted Publishing (OIDC)** — no API tokens. To cut a release: bump `version` in
+`Cargo.toml` and `pyproject.toml`, tag `vX.Y.Z`, and push the tag.
+
+## License
+
+MIT
+

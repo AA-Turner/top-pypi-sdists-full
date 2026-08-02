@@ -1,0 +1,49 @@
+[project]
+name = "gardena-bluetooth"
+dynamic = ["version"]
+description = ""
+readme = "README.rst"
+requires-python = ">=3.12"
+authors = [
+    {name = "Joakim Plate", email = "elupus@ecce.se"},
+]
+license = { text = "MIT" }
+
+dependencies = [
+    "bleak >=0.20.2",
+    "bleak-retry-connector >=3.0.2",
+    "tzlocal >=5.0.1",
+]
+
+[project.optional-dependencies]
+cli = ["asyncclick >=8.1.3.4"]
+
+
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.hatch.build.targets.wheel]
+packages = ["gardena_bluetooth"]
+
+[tool.uv-dynamic-versioning]
+vcs = "git"
+style = "pep440"
+bump = true
+pattern = "default-unprefixed"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.0.272",
+    "asyncclick>=8.1.3.4",
+    "pytest-asyncio >=0.21.0",
+]
+
+[tool.ruff]
+lint.extend-select = ["I"]

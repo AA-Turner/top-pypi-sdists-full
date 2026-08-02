@@ -1,0 +1,113 @@
+Metadata-Version: 2.4
+Name: uuid-extension
+Version: 0.2.0
+Summary: UUID7 Extension for Python
+Author-email: Markus Feiks <pypi.packages@feyx.de>
+License-File: LICENSE
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+
+# UUID Extension for Python
+
+A Python library implementing UUID version 7 as specified in the RFC, providing time-ordered UUIDs for modern applications.
+
+## Features
+
+- Full implementation of UUID version 7
+- Time-ordered UUIDs for better database performance
+- Compatible with standard Python UUID objects
+- Timestamp extraction capabilities
+- Optional counter for monotonicity within milliseconds
+
+## Installation
+
+```bash
+pip install uuid-extension
+```
+
+## Usage
+
+### Basic Usage
+
+```python
+from uuid_extension import uuid7
+
+# Generate a new UUID7
+uuid = uuid7()
+print(uuid)  # e.g., 018c1585-5e7c-7601-b322-5bf9f7478708
+
+# Access the underlying UUID object
+uuid_obj = uuid.uuid7
+```
+
+### With Timestamp
+
+```python
+from datetime import datetime
+from uuid_extension import uuid7
+
+# Generate UUID7 with a specific timestamp
+custom_time = datetime.now()
+uuid = uuid7(timestamp=custom_time)
+
+# Or with Unix timestamp
+uuid = uuid7(timestamp=1690000000.123)
+```
+
+### With Counter
+
+```python
+from uuid_extension import uuid7
+
+# Use a counter for guaranteeing monotonicity within the same millisecond
+counter = 1
+id1 = uuid7(counter=counter)
+counter += 1
+id2 = uuid7(counter=counter)
+```
+
+### Time Extraction
+
+```python
+from uuid_extension import uuid7
+
+uuid = uuid7()
+
+# Extract timestamp as float (Unix timestamp in seconds)
+ts = uuid.to_timestamp()
+
+# Extract as datetime object (UTC timezone by default)
+dt = uuid.to_datetime()
+
+# Extract as datetime with a specific timezone
+import pytz
+dt_est = uuid.to_datetime(tz=pytz.timezone('US/Eastern'))
+```
+
+### Comparison Operations
+
+UUID7 objects support standard comparison operations:
+
+```python
+id1 = uuid7()
+id2 = uuid7()
+
+print(id1 == id2)  # False
+print(id1 < id2)   # True (usually, as they're time-ordered)
+print(id1 <= id2)  # True
+```
+
+## Technical Details
+
+UUID version 7 structure:
+- 48 bits of Unix timestamp in milliseconds
+- 4 bits for version (set to 7)
+- 2 bits for variant (set to 0b10)
+- 74 bits of random data for uniqueness
+
+## License
+MIT License
+
+<!-- ## Contributing
+
+[Contribution guidelines here] -->

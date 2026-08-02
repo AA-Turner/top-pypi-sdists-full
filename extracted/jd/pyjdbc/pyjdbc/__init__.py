@@ -1,3 +1,0 @@
-"""
-pyjdbc package
-"""

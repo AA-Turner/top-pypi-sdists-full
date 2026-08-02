@@ -1,0 +1,33 @@
+name: Upload Python Package
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          activate-environment: true
+          python-version: 3.13
+
+      - name: Set package version
+        run: |
+          version="${{ github.event.release.tag_name }}"
+          sed -i "s/^version = \".*\"/version = \"${version}\"/" pyproject.toml
+
+      - name: Build package
+        run: uv build
+
+      - name: Publish release to PyPI
+        uses: pypa/gh-action-pypi-publish@v1.14.1

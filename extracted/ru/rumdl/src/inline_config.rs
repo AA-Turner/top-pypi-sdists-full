@@ -30,7 +30,7 @@ use std::collections::{HashMap, HashSet};
 
 /// Normalize a rule name to its canonical form (e.g., "line-length" -> "MD013").
 /// If the rule name is not recognized, returns it uppercase (for forward compatibility).
-fn normalize_rule_name(rule: &str) -> String {
+pub(crate) fn normalize_rule_name(rule: &str) -> String {
     markdownlint_to_rumdl_rule_key(rule).map_or_else(|| rule.to_uppercase(), std::string::ToString::to_string)
 }
 
@@ -60,6 +60,20 @@ struct StateTransition {
     disabled: HashSet<String>,
     /// The set of explicitly enabled rules (only meaningful when disabled contains "*")
     enabled: HashSet<String>,
+}
+
+/// The kind of directive a rule's disabled state at a line comes from.
+///
+/// The three layers are resolved independently of each other, so removing a
+/// comment from one of them leaves the other two answering exactly as before.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DisableLayer {
+    /// `disable-file`, or a `configure-file` entry set to `false`
+    File,
+    /// `disable`, up to the `enable` that closes it
+    Block,
+    /// `disable-line`, `disable-next-line` or `prettier-ignore`
+    Line,
 }
 
 #[derive(Debug, Clone)]
@@ -208,13 +222,7 @@ impl InlineConfig {
             }
 
             // Skip processing if this line is inside a code block
-            let line_start = line_positions[idx];
-            let line_end = line_start + line.len();
-            let in_code_block = code_blocks
-                .iter()
-                .any(|&(block_start, block_end)| line_start >= block_start && line_end <= block_end);
-
-            if in_code_block {
+            if line_in_code_block(line_positions[idx], line, code_blocks) {
                 continue;
             }
 
@@ -350,31 +358,43 @@ impl InlineConfig {
 
     /// Check if a rule is disabled at a specific line
     pub fn is_rule_disabled(&self, rule_name: &str, line_number: usize) -> bool {
-        // Check file-wide disables first (highest priority)
+        self.disabling_layer(rule_name, line_number).is_some()
+    }
+
+    /// Which kind of directive keeps `rule_name` off at `line_number`, if any.
+    ///
+    /// A file-wide disable answers first: it decides on its own, so a rule enabled
+    /// for the file stays enabled however the line below is written. The remaining
+    /// two layers both merely disable, so the wider one answers, naming the
+    /// directive a caller would have to remove to see the rule report again.
+    pub fn disabling_layer(&self, rule_name: &str, line_number: usize) -> Option<DisableLayer> {
         if self.file_disabled_rules.contains("*") {
             // All rules are disabled for the file, check if this rule is explicitly enabled
-            return !self.file_enabled_rules.contains(rule_name);
+            return (!self.file_enabled_rules.contains(rule_name)).then_some(DisableLayer::File);
         } else if self.file_disabled_rules.contains(rule_name) {
-            return true;
+            return Some(DisableLayer::File);
         }
 
-        // Check line-specific disables (disable-line, disable-next-line)
-        if let Some(line_rules) = self.line_disabled_rules.get(&line_number)
-            && (line_rules.contains("*") || line_rules.contains(rule_name))
-        {
-            return true;
-        }
-
-        // Check persistent disables via state transitions (binary search)
+        // Persistent disables via state transitions (binary search)
         if let Some(transition) = self.find_transition(line_number) {
-            if transition.disabled.contains("*") {
-                return !transition.enabled.contains(rule_name);
+            let disabled = if transition.disabled.contains("*") {
+                !transition.enabled.contains(rule_name)
             } else {
-                return transition.disabled.contains(rule_name);
+                transition.disabled.contains(rule_name)
+            };
+            if disabled {
+                return Some(DisableLayer::Block);
             }
         }
 
-        false
+        // Line-specific disables (disable-line, disable-next-line, prettier-ignore)
+        if let Some(line_rules) = self.line_disabled_rules.get(&line_number)
+            && (line_rules.contains("*") || line_rules.contains(rule_name))
+        {
+            return Some(DisableLayer::Line);
+        }
+
+        None
     }
 
     /// Get all disabled rules at a specific line
@@ -457,6 +477,8 @@ pub enum DirectiveKind {
 pub struct InlineDirective<'a> {
     pub kind: DirectiveKind,
     pub rules: Vec<&'a str>,
+    /// Byte range of the whole comment, `<!--` through `-->`, within its line
+    pub span: std::ops::Range<usize>,
 }
 
 /// Tool prefixes recognized in inline config comments.
@@ -478,9 +500,9 @@ const DIRECTIVE_KEYWORDS: &[(DirectiveKind, &str)] = &[
 ];
 
 /// Try to parse a single directive from text immediately after `<!-- `.
-/// Returns the directive and the number of bytes consumed (from `s` onward)
-/// so the caller can advance past `-->`.
-fn try_parse_directive(s: &str) -> Option<(InlineDirective<'_>, usize)> {
+/// Returns the kind, its rule list, and the number of bytes consumed (from `s`
+/// onward) so the caller can advance past `-->` and place the comment's span.
+fn try_parse_directive(s: &str) -> Option<(DirectiveKind, Vec<&str>, usize)> {
     for tool in TOOL_PREFIXES {
         if !s.starts_with(tool) {
             continue;
@@ -510,7 +532,7 @@ fn try_parse_directive(s: &str) -> Option<(InlineDirective<'_>, usize)> {
             };
 
             let consumed = tool.len() + keyword.len() + close_offset + 3; // 3 for "-->"
-            return Some((InlineDirective { kind, rules }, consumed));
+            return Some((kind, rules, consumed));
         }
 
         // Tool prefix matched but no keyword — not a directive we recognize.
@@ -536,9 +558,14 @@ pub fn parse_inline_directives(line: &str) -> Vec<InlineDirective<'_>> {
         let comment_start = pos + open_offset;
         let after_open = &line[comment_start + 5..]; // skip "<!-- "
 
-        if let Some((directive, consumed)) = try_parse_directive(after_open) {
-            results.push(directive);
-            pos = comment_start + 5 + consumed;
+        if let Some((kind, rules, consumed)) = try_parse_directive(after_open) {
+            let comment_end = comment_start + 5 + consumed;
+            results.push(InlineDirective {
+                kind,
+                rules,
+                span: comment_start..comment_end,
+            });
+            pos = comment_end;
         } else {
             pos = comment_start + 5;
         }
@@ -610,9 +637,58 @@ fn offset_in_code_block(offset: usize, code_blocks: &[(usize, usize)]) -> bool {
     code_blocks.iter().any(|&(start, end)| offset >= start && offset < end)
 }
 
+/// Whether a directive written on this line sits inside a code block.
+///
+/// The line is probed at its first non-whitespace byte, because an indented code
+/// block's range starts at the indented content rather than at the start of the
+/// line. Asking whether the whole line span is contained would answer "no" for
+/// every indented block and let a directive written in a code sample configure
+/// the document.
+fn line_in_code_block(line_start: usize, line: &str, code_blocks: &[(usize, usize)]) -> bool {
+    let probe = line
+        .find(|c: char| !c.is_whitespace())
+        .map_or(line_start, |indent| line_start + indent);
+    offset_in_code_block(probe, code_blocks)
+}
+
 /// The 1-indexed line a byte offset falls on.
 fn line_of_offset(text: &str, offset: usize) -> usize {
     text[..offset].bytes().filter(|&b| b == b'\n').count() + 1
+}
+
+/// Drop warnings raised by a directive a code block covers.
+///
+/// `InlineConfig` skips directives inside code blocks, so a fenced example
+/// documenting a directive configures nothing and there is nothing to report
+/// about it. The ranges cost a parse of the document, so they are computed only
+/// once there is a warning to filter.
+fn drop_warnings_inside_code_blocks(content: &str, warnings: &mut Vec<InlineConfigWarning>) {
+    if warnings.is_empty() {
+        return;
+    }
+    let code_blocks = CodeBlockUtils::detect_code_blocks(content);
+    if code_blocks.is_empty() {
+        return;
+    }
+
+    // Lines measured over `split('\n')`, whose pieces keep any `\r`, so a CRLF
+    // document's offsets match the ranges above.
+    let line_spans: Vec<(usize, &str)> = {
+        let mut spans = Vec::new();
+        let mut start = 0;
+        for line in content.split('\n') {
+            spans.push((start, line));
+            start += line.len() + 1;
+        }
+        spans
+    };
+
+    warnings.retain(|warning| {
+        let Some(&(line_start, line)) = line_spans.get(warning.line_number.saturating_sub(1)) else {
+            return true;
+        };
+        !line_in_code_block(line_start, line, &code_blocks)
+    });
 }
 
 /// Find every configure-file comment in `text`, returning each JSON payload
@@ -673,6 +749,148 @@ pub fn parse_configure_file_comment(line: &str) -> Option<JsonValue> {
     scan_configure_file_comments(line).into_iter().next().map(|(_, v)| v)
 }
 
+// ── Disable-comment inventory ────────────────────────────────────────────────
+
+/// The lines an inline disable comment can suppress a finding on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DisableScope {
+    /// Exactly this 1-indexed line
+    Line(usize),
+    /// The lines below this 1-indexed one, up to the end of the document
+    Block(usize),
+    /// Every line of the document
+    File,
+}
+
+impl DisableScope {
+    /// Whether this comment is one of those keeping a rule off at `line`, given the
+    /// layer that answered for it there.
+    ///
+    /// Answering for a line credits every comment of that layer reaching it, so no
+    /// comment loses its credit to another. A comment left uncredited is one whose
+    /// every line is spoken for by a layer it is not in, and removing it therefore
+    /// changes nothing the run reports.
+    ///
+    /// A block `disable` is treated as reaching the end of the document even when a
+    /// later `enable` closes it. Crediting a comment for more than it holds can only
+    /// leave a stale comment unreported.
+    pub fn carries(self, layer: DisableLayer, line: usize) -> bool {
+        match (self, layer) {
+            (Self::Line(target), DisableLayer::Line) => target == line,
+            // A block disable takes effect on the line after the comment.
+            (Self::Block(start), DisableLayer::Block) => start < line,
+            (Self::File, DisableLayer::File) => true,
+            _ => false,
+        }
+    }
+}
+
+/// An inline comment that disables rules, and the lines it can act on.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DisableSite {
+    /// 1-indexed line the comment opens on
+    pub line: usize,
+    /// Byte range of the comment within that line, clipped to the line's end
+    pub span: std::ops::Range<usize>,
+    /// The directive as written, e.g. `disable-line`
+    pub kind: &'static str,
+    /// The rule names the comment carries, as written; empty means every rule
+    pub rules: Vec<String>,
+    /// The lines the comment can suppress a finding on
+    pub scope: DisableScope,
+}
+
+/// Every inline comment that disables rules, in document order.
+///
+/// Comments inside code blocks configure nothing, so they are left out, matching
+/// what `InlineConfig` applies. `prettier-ignore` belongs to another formatter
+/// and is left out as well.
+pub fn collect_disable_sites(content: &str) -> Vec<DisableSite> {
+    if !has_inline_config_markers(content) {
+        return Vec::new();
+    }
+
+    let code_blocks = CodeBlockUtils::detect_code_blocks(content);
+
+    // Lines measured over `split('\n')`, whose pieces keep any `\r`, so a CRLF
+    // document's offsets match the code block ranges.
+    let line_spans: Vec<(usize, &str)> = {
+        let mut spans = Vec::new();
+        let mut start = 0;
+        for line in content.split('\n') {
+            spans.push((start, line));
+            start += line.len() + 1;
+        }
+        spans
+    };
+
+    let mut sites = Vec::new();
+
+    for (idx, &(line_start, line)) in line_spans.iter().enumerate() {
+        if line_in_code_block(line_start, line, &code_blocks) {
+            continue;
+        }
+        let line_num = idx + 1;
+        for directive in parse_inline_directives(line) {
+            let (kind, scope) = match directive.kind {
+                DirectiveKind::Disable => ("disable", DisableScope::Block(line_num)),
+                DirectiveKind::DisableLine => ("disable-line", DisableScope::Line(line_num)),
+                DirectiveKind::DisableNextLine => ("disable-next-line", DisableScope::Line(line_num + 1)),
+                DirectiveKind::DisableFile => ("disable-file", DisableScope::File),
+                DirectiveKind::Enable
+                | DirectiveKind::EnableFile
+                | DirectiveKind::Capture
+                | DirectiveKind::Restore
+                | DirectiveKind::ConfigureFile => continue,
+            };
+            sites.push(DisableSite {
+                line: line_num,
+                span: directive.span,
+                kind,
+                rules: directive.rules.iter().map(|rule| (*rule).to_string()).collect(),
+                scope,
+            });
+        }
+    }
+
+    // A configure-file entry given `false` turns its rule off for the whole file,
+    // exactly as disable-file does. The comment may span lines, so it is scanned
+    // over the document and its span is clipped to the line it opens on.
+    for (offset, json_config) in scan_configure_file_comments(content) {
+        if offset_in_code_block(offset, &code_blocks) {
+            continue;
+        }
+        let Some(obj) = json_config.as_object() else {
+            continue;
+        };
+        let rules: Vec<String> = obj
+            .iter()
+            .filter(|(_, value)| value.as_bool() == Some(false))
+            .map(|(name, _)| name.clone())
+            .collect();
+        if rules.is_empty() {
+            continue;
+        }
+        let line_num = line_of_offset(content, offset);
+        let Some(&(line_start, line)) = line_spans.get(line_num - 1) else {
+            continue;
+        };
+        let comment_end = content[offset..]
+            .find("-->")
+            .map_or(content.len(), |close| offset + close + 3);
+        sites.push(DisableSite {
+            line: line_num,
+            span: (offset - line_start)..(comment_end - line_start).min(line.len()),
+            kind: "configure-file",
+            rules,
+            scope: DisableScope::File,
+        });
+    }
+
+    sites.sort_by_key(|site| (site.line, site.span.start));
+    sites
+}
+
 /// What is wrong with an inline config comment.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InlineConfigProblem {
@@ -681,10 +899,23 @@ pub enum InlineConfigProblem {
     /// A recognized rule carrying an unrecognized option key inside a
     /// configure-file config object.
     UnknownOption { key: String },
-    /// An inline directive tries to enable a rule that configuration left
-    /// disabled. rumdl treats config-level rule selection as final, so the
+    /// An inline directive tries to enable a rule that will not run over this
+    /// document. rumdl treats config-level rule selection as final, so the
     /// enable has no effect; this makes that silent no-op visible.
-    EnableHasNoEffect,
+    EnableHasNoEffect { reason: EnableNoEffectReason },
+}
+
+/// Why an inline enable cannot take effect.
+///
+/// The two are separate settings, so the message names the one actually in play
+/// rather than sending the reader to a knob their config does not have set.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EnableNoEffectReason {
+    /// Configuration did not enable the rule for this run at all.
+    NotEnabled,
+    /// Configuration enabled the rule, but `per-file-ignores` suppresses it for
+    /// this particular file.
+    IgnoredForFile,
 }
 
 /// Warning about an inline config comment.
@@ -725,8 +956,16 @@ impl InlineConfigWarning {
                     self.comment_type, self.rule_name
                 ),
             },
-            InlineConfigProblem::EnableHasNoEffect => format!(
+            InlineConfigProblem::EnableHasNoEffect {
+                reason: EnableNoEffectReason::NotEnabled,
+            } => format!(
                 "Rule {} is not enabled in configuration, so the inline {} comment enabling it has no effect",
+                self.rule_name, self.comment_type
+            ),
+            InlineConfigProblem::EnableHasNoEffect {
+                reason: EnableNoEffectReason::IgnoredForFile,
+            } => format!(
+                "Rule {} is ignored for this file by per-file-ignores, so the inline {} comment enabling it has no effect",
                 self.rule_name, self.comment_type
             ),
         }
@@ -741,13 +980,45 @@ impl InlineConfigWarning {
             self.format_message()
         );
     }
+
+    /// The warning as a lint diagnostic anchored to the comment that raised it.
+    ///
+    /// A directive naming a rule that does not exist silently does nothing, and on
+    /// the CLI that is a line of stderr next to the findings. Editors show
+    /// diagnostics, so the language server reports it as one and the mistake is
+    /// visible where it was written. The span covers the whole line: the validator
+    /// locates the comment, not the rule name inside it.
+    pub fn to_lint_warning(&self, content: &str) -> crate::rule::LintWarning {
+        let line_width = content
+            .lines()
+            .nth(self.line_number.saturating_sub(1))
+            .map_or(0, |line| line.chars().count());
+        crate::rule::LintWarning {
+            message: self.format_message(),
+            line: self.line_number,
+            column: 1,
+            end_line: self.line_number,
+            end_column: line_width + 1,
+            severity: crate::rule::Severity::Warning,
+            fix: None,
+            rule_name: Some(INLINE_CONFIG_DIAGNOSTIC_NAME.to_string()),
+        }
+    }
 }
+
+/// The diagnostic code inline config warnings carry.
+///
+/// Not a rule name: it names the class of problem so an editor can tell these
+/// apart from rule violations, and so nothing looks it up in the rule registry.
+pub const INLINE_CONFIG_DIAGNOSTIC_NAME: &str = "inline-config";
 
 /// Validate all inline config comments in content and return warnings for unknown rules.
 ///
 /// This function extracts rule names from all types of inline config comments
 /// (disable, enable, disable-line, disable-next-line, disable-file, enable-file)
-/// and validates them against the known rule alias map.
+/// and validates them against the known rule alias map. Comments inside code
+/// blocks are documentation rather than configuration, so they are left alone,
+/// matching what `InlineConfig` applies.
 pub fn validate_inline_config_rules(content: &str) -> Vec<InlineConfigWarning> {
     use crate::config::{RULE_ALIAS_MAP, is_valid_rule_name, suggest_similar_key};
 
@@ -843,44 +1114,57 @@ pub fn validate_inline_config_rules(content: &str) -> Vec<InlineConfigWarning> {
     // configure-file warnings are collected ahead of the per-line pass, so
     // restore document order before returning.
     warnings.sort_by_key(|w| w.line_number);
+    drop_warnings_inside_code_blocks(content, &mut warnings);
     warnings
 }
 
-/// Warn when an inline directive tries to ENABLE a rule that configuration left
-/// disabled, so the enable has no effect.
+/// Warn when an inline directive tries to ENABLE a rule that will not run over
+/// this document, so the enable has no effect.
 ///
 /// rumdl removes disabled rules from the rule set before any file is read
 /// (`filter_rules`), so a disabled rule is never instantiated and inline config
-/// cannot bring it back. `active_rules` is the set of canonical rule ids that
-/// configuration left enabled; a valid rule outside it is not running.
+/// cannot bring it back. `per-file-ignores` removes further rules for the file
+/// at hand, with the same finality. `active_rules` is the set of canonical rule
+/// ids configuration left enabled and `ignored_for_file` the ids
+/// `per-file-ignores` then takes away; a valid rule outside the first, or inside
+/// the second, is not running.
 ///
-/// Only recognized rule names outside the active set warn. Unknown names are
-/// left to `validate_inline_config_rules`, a bare `enable`/`enable-file` (no
-/// rules, meaning "all") targets no specific rule, and a `configure-file`
-/// boolean warns only for `true` (an enable), never `false` (a disable).
+/// Only recognized rule names warn. Unknown names are left to
+/// `validate_inline_config_rules`, a bare `enable`/`enable-file` (no rules,
+/// meaning "all") targets no specific rule, a `configure-file` boolean warns
+/// only for `true` (an enable), never `false` (a disable), and a directive
+/// inside a code block enables nothing to begin with.
 pub fn validate_inline_enables_against_active_rules(
     content: &str,
     active_rules: &HashSet<String>,
+    ignored_for_file: &HashSet<String>,
 ) -> Vec<InlineConfigWarning> {
     use crate::config::is_valid_rule_name;
 
     let mut warnings = Vec::new();
 
     let flag = |warnings: &mut Vec<InlineConfigWarning>, name: &str, comment_type: &str, line: usize| {
-        // Skip unrecognized names (handled elsewhere) and rules that are active.
+        // Skip unrecognized names, which are handled elsewhere.
         if !is_valid_rule_name(name) {
             return;
         }
         let canonical = normalize_rule_name(name);
-        if active_rules.contains(&canonical) {
+        // A rule configuration never enabled reports that, even when
+        // per-file-ignores also names it: the redundant ignore entry is not the
+        // thing standing in the way.
+        let reason = if !active_rules.contains(&canonical) {
+            EnableNoEffectReason::NotEnabled
+        } else if ignored_for_file.contains(&canonical) {
+            EnableNoEffectReason::IgnoredForFile
+        } else {
             return;
-        }
+        };
         warnings.push(InlineConfigWarning {
             line_number: line,
             rule_name: canonical,
             comment_type: comment_type.to_string(),
             suggestion: None,
-            problem: InlineConfigProblem::EnableHasNoEffect,
+            problem: InlineConfigProblem::EnableHasNoEffect { reason },
         });
     };
 
@@ -914,6 +1198,7 @@ pub fn validate_inline_enables_against_active_rules(
     }
 
     warnings.sort_by_key(|w| w.line_number);
+    drop_warnings_inside_code_blocks(content, &mut warnings);
     warnings
 }
 
@@ -1291,6 +1576,41 @@ Some content after restore
         assert_eq!(warnings[5].rule_name, "nonexistent");
     }
 
+    /// A directive inside a code block configures nothing, so documenting one in
+    /// a fenced example must not be reported. The control outside the fence
+    /// proves the same directive is still validated where it takes effect.
+    #[test]
+    fn test_validate_inline_config_rules_ignores_code_blocks() {
+        let fenced = "# Doc\n\n```markdown\n<!-- rumdl-disable made_up_rule -->\n```\n";
+        assert!(
+            validate_inline_config_rules(fenced).is_empty(),
+            "a directive inside a fence is documentation, not configuration"
+        );
+
+        let tilde = "# Doc\n\n~~~markdown\n<!-- rumdl-disable made_up_rule -->\n~~~\n";
+        assert!(validate_inline_config_rules(tilde).is_empty());
+
+        let indented = "# Doc\n\n    <!-- rumdl-disable made_up_rule -->\n";
+        assert!(validate_inline_config_rules(indented).is_empty());
+
+        let outside = "# Doc\n\n<!-- rumdl-disable made_up_rule -->\n";
+        assert_eq!(validate_inline_config_rules(outside).len(), 1);
+    }
+
+    /// configure-file is scanned over the whole document, so its code-block
+    /// exemption is checked separately from the per-line directives.
+    #[test]
+    fn test_validate_inline_config_rules_ignores_configure_file_in_code_block() {
+        let fenced = "# Doc\n\n```markdown\n<!-- rumdl-configure-file { \"MD013\": { \"bogus\": 1 } } -->\n```\n";
+        assert!(validate_inline_config_rules(fenced).is_empty());
+
+        let multiline = "# Doc\n\n```markdown\n<!-- rumdl-configure-file\n{ \"MD013\": { \"bogus\": 1 } }\n-->\n```\n";
+        assert!(validate_inline_config_rules(multiline).is_empty());
+
+        let outside = "# Doc\n\n<!-- rumdl-configure-file { \"MD013\": { \"bogus\": 1 } } -->\n";
+        assert_eq!(validate_inline_config_rules(outside).len(), 1);
+    }
+
     #[test]
     fn test_validate_inline_config_rules_markdownlint_configure_file() {
         let content = r#"<!-- markdownlint-configure-file { "fake_rule": {} } -->"#;
@@ -1338,14 +1658,19 @@ This is a test line."#;
     // per line, so the comment may span lines. Every other directive stays
     // line-scoped in both tools.
 
-    // ── inline enable of a config-disabled rule ──────────────────────────
+    // ── inline enable of a rule that will not run ────────────────────────
     //
-    // rumdl treats config-level rule selection as final: a rule configuration
-    // disabled is never instantiated, so an inline enable of it does nothing.
-    // These warnings make that silent no-op visible.
+    // rumdl treats rule selection as final: a rule configuration disabled is
+    // never instantiated, and one per-file-ignores excludes is dropped before
+    // the file is linted, so an inline enable of either does nothing. These
+    // warnings make that silent no-op visible.
 
     fn active_set(names: &[&str]) -> HashSet<String> {
         names.iter().map(|s| (*s).to_string()).collect()
+    }
+
+    fn no_ignores() -> HashSet<String> {
+        HashSet::new()
     }
 
     #[test]
@@ -1353,12 +1678,17 @@ This is a test line."#;
         let active = active_set(&["MD013", "MD022"]);
         let content = "<!-- rumdl-enable MD012 -->\n";
 
-        let warnings = validate_inline_enables_against_active_rules(content, &active);
+        let warnings = validate_inline_enables_against_active_rules(content, &active, &no_ignores());
 
         assert_eq!(warnings.len(), 1, "expected one no-effect warning: {warnings:?}");
         assert_eq!(warnings[0].rule_name, "MD012");
         assert_eq!(warnings[0].comment_type, "enable");
-        assert_eq!(warnings[0].problem, InlineConfigProblem::EnableHasNoEffect);
+        assert_eq!(
+            warnings[0].problem,
+            InlineConfigProblem::EnableHasNoEffect {
+                reason: EnableNoEffectReason::NotEnabled
+            }
+        );
         assert_eq!(warnings[0].line_number, 1);
     }
 
@@ -1369,9 +1699,91 @@ This is a test line."#;
         let active = active_set(&["MD012", "MD013"]);
         let content = "<!-- rumdl-enable MD012 -->\n";
 
-        let warnings = validate_inline_enables_against_active_rules(content, &active);
+        let warnings = validate_inline_enables_against_active_rules(content, &active, &no_ignores());
 
         assert!(warnings.is_empty(), "active rule warned: {warnings:?}");
+    }
+
+    #[test]
+    fn test_inline_enable_of_per_file_ignored_rule_warns() {
+        // The rule is enabled in configuration, so nothing about the config
+        // explains the silence; per-file-ignores is what drops it here.
+        let active = active_set(&["MD012", "MD013"]);
+        let ignored = active_set(&["MD012"]);
+        let content = "<!-- rumdl-enable MD012 -->\n";
+
+        let warnings = validate_inline_enables_against_active_rules(content, &active, &ignored);
+
+        assert_eq!(warnings.len(), 1, "expected one no-effect warning: {warnings:?}");
+        assert_eq!(warnings[0].rule_name, "MD012");
+        assert_eq!(
+            warnings[0].problem,
+            InlineConfigProblem::EnableHasNoEffect {
+                reason: EnableNoEffectReason::IgnoredForFile
+            }
+        );
+        assert!(
+            warnings[0].format_message().contains("per-file-ignores"),
+            "the message must name the setting in play: {}",
+            warnings[0].format_message()
+        );
+    }
+
+    #[test]
+    fn test_enable_of_rule_both_disabled_and_ignored_blames_configuration() {
+        // A per-file-ignores entry for a rule configuration never enabled is
+        // redundant; the setting standing in the way is the config one.
+        let active = active_set(&["MD013"]);
+        let ignored = active_set(&["MD012"]);
+        let content = "<!-- rumdl-enable MD012 -->\n";
+
+        let warnings = validate_inline_enables_against_active_rules(content, &active, &ignored);
+
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert_eq!(
+            warnings[0].problem,
+            InlineConfigProblem::EnableHasNoEffect {
+                reason: EnableNoEffectReason::NotEnabled
+            }
+        );
+    }
+
+    #[test]
+    fn test_per_file_ignores_of_an_unrelated_rule_does_not_warn() {
+        // The negative control for the per-file-ignores arm: an ignore entry
+        // naming a different rule must leave this enable alone.
+        let active = active_set(&["MD012", "MD013"]);
+        let ignored = active_set(&["MD013"]);
+        let content = "<!-- rumdl-enable MD012 -->\n";
+
+        let warnings = validate_inline_enables_against_active_rules(content, &active, &ignored);
+
+        assert!(warnings.is_empty(), "unrelated ignore warned: {warnings:?}");
+    }
+
+    #[test]
+    fn test_enable_inside_code_block_does_not_warn() {
+        // A fenced example enables nothing, so neither reason applies to it.
+        // The same document with the fence removed is the positive control.
+        let active = active_set(&["MD012", "MD013"]);
+        let ignored = active_set(&["MD012"]);
+
+        for content in [
+            "# Doc\n\n```markdown\n<!-- rumdl-enable MD012 -->\n```\n",
+            "# Doc\n\n```markdown\n<!-- rumdl-configure-file { \"MD012\": true } -->\n```\n",
+            "# Doc\n\n    <!-- rumdl-enable MD012 -->\n",
+        ] {
+            let warnings = validate_inline_enables_against_active_rules(content, &active, &ignored);
+            assert!(warnings.is_empty(), "code block warned: {content} -> {warnings:?}");
+        }
+
+        for content in [
+            "# Doc\n\n<!-- rumdl-enable MD012 -->\n",
+            "# Doc\n\n<!-- rumdl-configure-file { \"MD012\": true } -->\n",
+        ] {
+            let warnings = validate_inline_enables_against_active_rules(content, &active, &ignored);
+            assert_eq!(warnings.len(), 1, "control did not warn: {content} -> {warnings:?}");
+        }
     }
 
     #[test]
@@ -1379,7 +1791,7 @@ This is a test line."#;
         // `enable` with no rule list means "all"; it targets no specific rule.
         let active = active_set(&["MD013"]);
         for content in ["<!-- rumdl-enable -->\n", "<!-- rumdl-enable-file -->\n"] {
-            let warnings = validate_inline_enables_against_active_rules(content, &active);
+            let warnings = validate_inline_enables_against_active_rules(content, &active, &active_set(&["MD013"]));
             assert!(warnings.is_empty(), "bare enable warned: {content} -> {warnings:?}");
         }
     }
@@ -1390,7 +1802,7 @@ This is a test line."#;
         // enable-file, plus an alias for an inactive rule, both flagged.
         let content = "<!-- rumdl-enable-file no-multiple-blanks -->\n";
 
-        let warnings = validate_inline_enables_against_active_rules(content, &active);
+        let warnings = validate_inline_enables_against_active_rules(content, &active, &no_ignores());
 
         assert_eq!(warnings.len(), 1, "{warnings:?}");
         assert_eq!(warnings[0].rule_name, "MD012", "alias must normalize to the id");
@@ -1403,8 +1815,8 @@ This is a test line."#;
         let enable = r#"<!-- markdownlint-configure-file {"MD012": true} -->"#;
         let disable = r#"<!-- markdownlint-configure-file {"MD012": false} -->"#;
 
-        let warn_true = validate_inline_enables_against_active_rules(enable, &active);
-        let warn_false = validate_inline_enables_against_active_rules(disable, &active);
+        let warn_true = validate_inline_enables_against_active_rules(enable, &active, &no_ignores());
+        let warn_false = validate_inline_enables_against_active_rules(disable, &active, &no_ignores());
 
         assert_eq!(warn_true.len(), 1, "configure-file true should warn: {warn_true:?}");
         assert_eq!(warn_true[0].rule_name, "MD012");
@@ -1421,19 +1833,20 @@ This is a test line."#;
         let active = active_set(&["MD013"]);
         let content = "<!-- rumdl-enable NotARule -->\n";
 
-        let warnings = validate_inline_enables_against_active_rules(content, &active);
+        let warnings = validate_inline_enables_against_active_rules(content, &active, &no_ignores());
 
         assert!(warnings.is_empty(), "unknown rule double-warned: {warnings:?}");
     }
 
     #[test]
     fn test_disable_directive_never_warns_as_no_effect() {
-        // Only enables are no-ops against a disabled rule; a disable of an
-        // inactive rule is meaningless but harmless and must stay silent.
-        let active = active_set(&["MD013"]);
+        // Only enables are no-ops against a rule that will not run; a disable of
+        // one is meaningless but harmless and must stay silent.
+        let active = active_set(&["MD012", "MD013"]);
+        let ignored = active_set(&["MD012"]);
         let content = "<!-- rumdl-disable MD012 -->\n<!-- rumdl-disable-file MD012 -->\n";
 
-        let warnings = validate_inline_enables_against_active_rules(content, &active);
+        let warnings = validate_inline_enables_against_active_rules(content, &active, &ignored);
 
         assert!(warnings.is_empty(), "disable warned: {warnings:?}");
     }
@@ -1761,6 +2174,34 @@ This is a test line."#;
         let content = "<!-- rumdl-disable MD001 -->\n```\n<!-- rumdl-enable MD001 -->\n```\nShould still be disabled\n";
         let config = InlineConfig::from_content(content);
         assert!(config.is_rule_disabled("MD001", 5));
+    }
+
+    #[test]
+    fn test_disable_inside_indented_code_block_ignored() {
+        // An indented code block's range starts at the indented content rather
+        // than at the start of the line, so containment of the whole line span
+        // would miss it and let a code sample disable a rule.
+        let content = "# Document\n\n    <!-- rumdl-disable MD001 -->\n\nAfter code block\n";
+        let config = InlineConfig::from_content(content);
+        assert!(!config.is_rule_disabled("MD001", 5));
+
+        // Control: the same comment at column 1 is a directive and applies.
+        let unindented = "# Document\n\n<!-- rumdl-disable MD001 -->\n\nAfter comment\n";
+        let config = InlineConfig::from_content(unindented);
+        assert!(config.is_rule_disabled("MD001", 5));
+    }
+
+    #[test]
+    fn test_configure_file_inside_indented_code_block_ignored() {
+        // configure-file is scanned over the whole document, so it reaches the
+        // same conclusion by its own path; both must agree.
+        let content = "# Document\n\n    <!-- rumdl-configure-file { \"MD013\": { \"line_length\": 20 } } -->\n";
+        let config = InlineConfig::from_content(content);
+        assert!(config.get_rule_config("MD013").is_none());
+
+        let unindented = "# Document\n\n<!-- rumdl-configure-file { \"MD013\": { \"line_length\": 20 } } -->\n";
+        let config = InlineConfig::from_content(unindented);
+        assert!(config.get_rule_config("MD013").is_some());
     }
 
     // ── InlineConfig: mixed comment styles ───────────────────────────────

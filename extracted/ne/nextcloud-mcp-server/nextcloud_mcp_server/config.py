@@ -1,0 +1,2145 @@
+import atexit
+import copy
+import difflib
+import functools
+import logging
+import logging.config
+import os
+import re
+import socket
+import ssl
+import tempfile
+from dataclasses import dataclass, fields
+from pathlib import Path
+from typing import Any
+
+from dynaconf import Dynaconf, Validator
+
+logger = logging.getLogger(__name__)
+
+# Sentinel for "key not in dynaconf at all" vs "explicitly set to None".
+_UNSET = object()
+
+# Built-in defaults — declared in Python so env vars work without any settings
+# file being present (e.g., `uvx` / `pip install` deployments). Mirrors the
+# [default] section that used to live in settings.toml. Keys set here are
+# "known" to dynaconf, which is required because we run with
+# ignore_unknown_envvars=True. See ADR-024/025.
+_DEFAULTS: dict[str, Any] = {
+    # Deployment mode (ADR-021)
+    "mcp_deployment_mode": None,
+    # Nextcloud core
+    "nextcloud_host": None,
+    "nextcloud_username": None,
+    "nextcloud_password": None,
+    "nextcloud_verify_ssl": True,
+    "nextcloud_ca_bundle": None,
+    "nextcloud_http_keepalive": True,
+    "nextcloud_mcp_server_url": None,
+    "nextcloud_resource_uri": None,
+    "nextcloud_public_issuer_url": None,
+    "nextcloud_public_url": None,
+    "cookie_secure": None,
+    # OAuth/OIDC
+    "oidc_discovery_url": None,
+    # Startup OIDC-discovery retry/backoff. Declared here (lowercase) so
+    # dynaconf reads the UPPERCASE env vars under ignore_unknown_envvars=True;
+    # defaults mirror the Settings dataclass fields.
+    "oidc_discovery_max_attempts": 10,
+    "oidc_discovery_backoff_base": 1.0,
+    "oidc_discovery_backoff_max": 15.0,
+    # Startup Qdrant-collection-init retry/backoff (same rationale as OIDC).
+    "qdrant_init_max_attempts": 30,
+    "qdrant_init_backoff_base": 1.0,
+    "qdrant_init_backoff_max": 10.0,
+    # Keys must uppercase to the env var dynaconf reads (ignore_unknown_envvars):
+    # NEXTCLOUD_OIDC_TOKEN_TYPE / NEXTCLOUD_OIDC_SCOPES, matching _ENV_OVERRIDE.
+    "nextcloud_oidc_token_type": "Bearer",
+    "nextcloud_oidc_scopes": "",
+    "port": 8000,
+    "nextcloud_oidc_client_id": None,
+    "nextcloud_oidc_client_secret": None,
+    "oidc_issuer": None,
+    "jwks_uri": None,
+    "introspection_uri": None,
+    "userinfo_uri": None,
+    "oidc_resource_server_id": None,
+    # M2M / DCR / management — these MUST be declared here (lowercase) so dynaconf
+    # reads the matching UPPERCASE env var; with ignore_unknown_envvars=True an
+    # undeclared key is silently dropped (env value ignored), so they are read
+    # via cfg("ENV_NAME"). Defaults mirror the prior os.getenv(..., default).
+    "mcp_server_client_id": None,
+    "mcp_server_client_secret": None,
+    "allowed_mcp_clients": "",
+    "allowed_mgmt_client": "",
+    "enable_dcr": False,
+    # Container-runtime / webhook self-URL overrides (local-dev docker-compose).
+    "docker_container": False,
+    "nextcloud_mcp_service_name": "mcp",
+    "nextcloud_mcp_port": 8000,
+    # Mode flags
+    # NOTE: `enable_multi_user_basic_auth` and `enable_login_flow` are
+    # intentionally absent — they are derived from MCP_DEPLOYMENT_MODE in
+    # Settings.__post_init__ (ADR-022) and not read from the dynaconf store.
+    "enable_semantic_search": False,
+    "enable_background_operations": False,
+    "vector_sync_enabled": False,
+    "enable_offline_access": False,
+    # Token storage
+    "token_encryption_key": None,
+    # None = ephemeral per-process tempfile (see get_token_db_path()).
+    # Set TOKEN_STORAGE_DB to persist tokens across restarts.
+    "token_storage_db": None,
+    # Centralized backend (any SQLAlchemy URL). Wins over TOKEN_STORAGE_DB
+    # when set. Use postgresql+psycopg://user:pw@host/db for HA k8s
+    # deployments so pods can be stateless. The URL is passed through
+    # verbatim — TLS (e.g. ?sslmode=require) and every other parameter are
+    # read from it by libpq/psycopg; the server never rewrites it. See ADR-026.
+    "database_url": None,
+    # Postgres connection pool sizing (ADR-026 → "Concurrency model and
+    # pool sizing"). Per-pod defaults to 2 + 5 overflow = 7 max
+    # connections. psycopg connections are single-flight, so the pool
+    # only needs to cover typical multi-user MCP burst — not every
+    # potential in-flight tool call. Tune up with DATABASE_POOL_SIZE /
+    # DATABASE_MAX_OVERFLOW for high-traffic prod fleets.
+    "database_pool_size": 2,
+    "database_max_overflow": 5,
+    # Webhook delivery authentication (ADR-010): when set, registrations
+    # tell NC to add `Authorization: Bearer <secret>` to webhook deliveries
+    # and the receiver rejects unauthenticated requests.
+    "webhook_secret": None,
+    # Internal URL override for webhook registration; wins over
+    # NEXTCLOUD_MCP_SERVER_URL when set (e.g. split internal/external URLs).
+    "webhook_internal_url": None,
+    # Vector sync
+    "vector_sync_scan_interval": 300,
+    "vector_sync_processor_workers": 3,
+    # Optional per-tier concurrency overrides (None = fall back to
+    # vector_sync_processor_workers). Consumed by the `worker` CLI per --tier.
+    "vector_sync_fast_concurrency": None,
+    "vector_sync_structured_concurrency": None,
+    "vector_sync_queue_max_size": 10000,
+    "vector_sync_metrics_refresh_interval": 20,
+    "vector_density_snapshot_enabled": True,
+    "vector_density_snapshot_interval": 300,
+    "vector_density_snapshot_max_documents": 50000,
+    "vector_ram_hnsw_overhead_factor": 1.5,
+    "vector_sync_user_poll_interval": 60,
+    "health_ready_refresh_interval": 15,
+    # Orphan-sweep at Pod startup (card #101). When True, delete any
+    # placeholders carrying a different / absent ``instance_id`` before
+    # the scanner's first cycle, so a Pod restart mid-batch doesn't
+    # leave work stuck behind the 5x-scan-interval staleness gate.
+    # Escape hatch only — leave on by default.
+    "vector_sync_orphan_sweep_enabled": True,
+    # System tag that marks files for hybrid (dense + BM25 sparse) indexing.
+    # The scanner indexes files carrying this tag; verify-on-read gates results
+    # on current membership of this tag (ADR-019).
+    "vector_sync_tag": "vector-index",
+    # System tag that marks files for keyword-only (BM25 sparse) indexing.
+    # Defaults to ``keyword-index`` (symmetric with ``vector_sync_tag``), so
+    # a user who creates + applies that tag gets keyword-only indexing out of the
+    # box. Files carrying it are indexed sparse-only (no dense embedding, no
+    # embedding cost) into the SAME collection as hybrid files; ``vector-index``
+    # wins if a file carries both. Set empty to disable the second tag entirely.
+    "vector_sync_keyword_tag": "keyword-index",
+    # Mail tag (an IMAP keyword) restricting which messages are indexed. Empty
+    # (the default) indexes every message in every mailbox, which is the
+    # behaviour before this setting existed. Set it to a tag display name and
+    # only messages carrying that tag are indexed — the mail analogue of
+    # ``vector_sync_tag`` for files.
+    "mail_index_tag": "",
+    # Fail-safe against a flaky/empty tag-discovery read: number of *consecutive*
+    # scan cycles for which a given index mode's tag discovery must return zero
+    # files (while Qdrant still holds indexed points for that mode) before the
+    # scanner believes it and starts deleting. A transient empty read (e.g. a
+    # customer-hosted Nextcloud that intermittently answers the systemtag REPORT
+    # with an empty 207) is thereby treated as a failed read, not "all files
+    # gone" — preventing a delete/re-index churn loop. A sustained empty (a real
+    # mass-untag) still eventually deletes once the streak reaches this value.
+    "vector_sync_empty_discovery_delete_threshold": 3,
+    # Verify-on-read concurrency cap (ADR-019)
+    "verification_concurrency": 20,
+    # Qdrant
+    "qdrant_url": None,
+    "qdrant_location": None,
+    "qdrant_api_key": None,
+    "qdrant_collection": "nextcloud_content",
+    # Ollama
+    "ollama_base_url": None,
+    "ollama_embedding_model": "nomic-embed-text",
+    "ollama_verify_ssl": True,
+    # OpenAI
+    "openai_api_key": None,
+    "openai_base_url": None,
+    "openai_embedding_model": "text-embedding-3-small",
+    # Bedrock (AWS)
+    "aws_region": None,
+    "aws_access_key_id": None,
+    "aws_secret_access_key": None,
+    "bedrock_embedding_model": None,
+    # Mistral
+    "mistral_api_key": None,
+    "mistral_embedding_model": "mistral-embed",
+    "mistral_base_url": None,
+    # Simple (fallback) embedding dimension
+    "simple_embedding_dimension": 384,
+    # Document chunking
+    "document_chunk_size": 2048,
+    "document_chunk_overlap": 200,
+    # Page-aware chunking for paginated docs (PDFs): split on page boundaries
+    # first so no chunk spans a page (exact page_number, clean snippets, and
+    # predictable ~1 chunk/page when chunk_size >= the largest page).
+    "document_chunk_page_aware": True,
+    # Greedy page-packing (density fix, Deck #636): merge consecutive sub-budget
+    # pages into one chunk instead of one-per-page. Off by default until the
+    # post-change density re-measure + pricing re-calibration land.
+    "document_chunk_page_pack": False,
+    # Hybrid-search RRF ranking constant. Qdrant's native RRF hardcodes k=2,
+    # where adjacent ranks differ by 33% and a single-list outlier outranks a
+    # document both retrievers agree on. 60 is the standard value (~2% per rank),
+    # which restores consensus as the dominant signal.
+    "vector_search_rrf_k": 60,
+    # Chunking config generation. Bump whenever chunker behaviour changes (size,
+    # overlap, page-aware, page-pack, split strategy) so the pricing model's
+    # density reference can't silently go stale. Pinned in stripe-catalog.tf.
+    "chunking_config_version": 1,
+    # PDF parse isolation (OOM guard)
+    "document_pdf_graphics_limit": 1000,
+    "document_parse_timeout_seconds": 120.0,
+    # Optional wall-clock cap (seconds) on the SYNCHRONOUS parse inside the
+    # nc_webdav_read_file MCP tool. None (default) = disabled: an interactive read
+    # is bounded only by the underlying processor timeout (DOCLING_TIMEOUT /
+    # DOCUMENT_OCR_TIMEOUT_SECONDS). Set a client-friendly bound (e.g. 45-60s) so a
+    # slow VLM/OCR convert returns base64 quickly instead of blocking past an MCP
+    # client's own timeout. Never applies to the async ingest/worker path (ADR-032).
+    "document_read_timeout_seconds": None,
+    "document_parse_mem_limit_mb": 1536,
+    # Pre-parse size cap (MB): PDFs larger than this fail fast with reason
+    # "oversize" instead of burning the OCR timeout to 0 chars on a pathological
+    # file. 0 disables the guard.
+    "document_max_pdf_size_mb": 50.0,
+    # Pre-flight cap (MB) on nc_webdav_write_file's content: a huge PUT built
+    # from a single in-memory MCP tool argument (no chunked/streaming upload
+    # exists for writes, unlike the read-side stream_to_file path) risks
+    # timing out or exhausting memory rather than failing predictably. 0
+    # disables the guard.
+    "webdav_write_max_mb": 50.0,
+    # Transport security (MCP SDK TransportSecuritySettings). Default False
+    # preserves the behaviour hardcoded before these knobs existed: MCP 1.23+
+    # auto-enables localhost-only host checking, which breaks k8s/Docker service
+    # DNS names (docs/MCP-1.23-DNS-REBINDING-FIX.md). Enable it plus
+    # MCP_ALLOWED_HOSTS when the server is reachable from a browser.
+    "mcp_dns_rebinding_protection": False,
+    # Comma-separated Host / Origin allowlists, honoured only when the above is
+    # enabled. Empty means "the SDK's own defaults".
+    "mcp_allowed_hosts": "",
+    "mcp_allowed_origins": "",
+    # Comma-separated CORS origin allowlist. "*" preserves today's behaviour.
+    "cors_allow_origins": "*",
+    # Page ceiling for markdown reconstruction (see document_markdown_max_pages).
+    "document_markdown_max_pages": 150,
+    # Pages per pypdfium2 extraction window (see document_parse_page_window).
+    "document_parse_page_window": 100,
+    # Concurrent isolated parse subprocesses (see document_parse_process_slots).
+    "document_parse_process_slots": 2,
+    # Stream ingest downloads to disk instead of buffering them in memory.
+    "document_stream_download_enabled": True,
+    # Directory for ingest spool files (default: the system temp dir).
+    "document_spool_dir": None,
+    # Tier-0 classifier (records classification metrics on the tiered path)
+    "document_classify_enabled": True,
+    # Tiered PDF pipeline: pypdfium2 is the default/only hot-path extractor;
+    # "pymupdf" is a deprecated rollback escape hatch. OCR (tier-3) is the only
+    # escalation target and is off by default (no provider wired yet).
+    "document_tier1_engine": "pypdfium2",
+    "document_ocr_enabled": False,
+    # OCR backend: "auto" picks gateway (if EMBEDDING_GATEWAY_URL) else mistral
+    # (if MISTRAL_API_KEY); "gateway"/"mistral" force one; "docling" routes scanned
+    # PDFs to a docling-serve instance (DOCLING_API_URL); "none" disables. "auto"
+    # never selects docling (it needs a self-hosted URL, so it must be explicit).
+    # The gateway routes on the model's "<provider>/" prefix, so it serves Mistral,
+    # surya (in-cluster GPU over the tailnet), etc. — one configurable OCR tier.
+    "document_ocr_provider": "auto",
+    # Provider-namespaced OCR model id (gateway routes on the prefix; the direct
+    # mistral backend strips it). e.g. "mistral/mistral-ocr-latest" (Mistral) or
+    # "surya/surya-ocr-2" (surya via the gateway) — never hard-coded, only this
+    # default.
+    "document_ocr_model": "mistral/mistral-ocr-latest",
+    # OCR escalation triggers (tier-0). A page is OCR-worthy when its text is
+    # near-empty (< min_page_chars) OR low-quality (< min_text_quality) OR (when
+    # detect_scanned) mostly a raster image; a doc escalates when the OCR-worthy
+    # page fraction reaches page_fraction. Calibrate min_text_quality from the
+    # astrolabe_document_text_quality histogram per tenant.
+    "document_ocr_min_text_quality": 0.5,
+    "document_ocr_page_fraction": 0.5,
+    "document_ocr_min_page_chars": 16,
+    "document_ocr_detect_scanned": True,
+    # Tier-0 glyph-corruption trigger. When the fast (pypdfium2) extraction's
+    # doc-level C0-control-char ratio exceeds this, the text layer is treated as
+    # glyph-corrupt (a broken /ToUnicode mapping leaking raw glyph codes) and the
+    # doc escalates fast->structured (pymupdf re-extracts it correctly -- no OCR).
+    # 0 disables. Clean docs sit ~0; affected PDFs measured ~1-11% in testing.
+    "document_glyph_corruption_ratio": 0.02,
+    # OCR backend request timeout (seconds). Slow scanned newspapers can take
+    # 20-60s; raise/lower per tenant. Configurable so a tenant isn't stuck with
+    # the 180s default when its gateway has its own shorter ceiling.
+    "document_ocr_timeout_seconds": 180.0,
+    # OCR execution mode (Deck #332). "sync" (default) transcribes inline via the
+    # backend's synchronous path. "batch" routes to the gateway's async Batch OCR
+    # job (~50% cheaper, minutes-hours latency) for large-corpus backfill — opt-in
+    # and gateway-routed. It requires EMBEDDING_GATEWAY_URL (rejected at startup
+    # otherwise, see __post_init__) and the per-tier procrastinate path; the
+    # inline/memory pool can't defer a poll, so batch raises there rather than
+    # silently downgrading to sync.
+    "document_ocr_mode": "sync",
+    # Seconds between batch-job polls (the procrastinate re-enqueue delay). Each
+    # poll re-runs the tier; keep it well above a few seconds.
+    "document_ocr_batch_poll_seconds": 120,
+    # Observability
+    "metrics_enabled": True,
+    "metrics_port": 9090,
+    "otel_exporter_otlp_endpoint": None,
+    "otel_exporter_verify_ssl": None,
+    "otel_service_name": "nextcloud-mcp-server",
+    "pyroscope_enabled": False,
+    "pyroscope_server_address": None,
+    # Pod identity from the Kubernetes downward API (chart-injected). Facts
+    # about the pod, not user config — absent off-Kubernetes.
+    "pod_namespace": None,
+    "pod_name": None,
+    "log_format": "text",
+    "log_level": "INFO",
+    "log_include_trace_context": True,
+    # Document processing (no master switch: each optional processor has its own
+    # ENABLE_* flag, and parsing on read is the caller's per-call decision)
+    "document_processor": "unstructured",
+    "enable_unstructured": False,
+    "unstructured_api_url": "http://unstructured:8000",
+    "unstructured_timeout": 120,
+    "unstructured_strategy": "auto",
+    "unstructured_languages": "eng,deu",
+    "progress_interval": 10,
+    "enable_tesseract": False,
+    "tesseract_cmd": None,
+    "tesseract_lang": "eng",
+    # pymupdf is the built-in "structured" tier and is always available -- there
+    # is no enable flag for it, only these two knobs.
+    "pymupdf_extract_images": True,
+    "pymupdf_image_dir": None,
+    "enable_custom_processor": False,
+    "custom_processor_url": None,
+    "custom_processor_types": "application/pdf",
+    "custom_processor_name": "custom",
+    "custom_processor_api_key": None,
+    "custom_processor_timeout": 60,
+    # Docling document-parsing backend (docling-serve HTTP API). One docling-serve
+    # instance feeds two touchpoints: the images-only DoclingProcessor
+    # (find_processor path, priority 20) and — when DOCUMENT_OCR_PROVIDER=docling —
+    # the PDF OCR backend for scanned/no-text-layer PDFs. The same processor can be
+    # force-selected per call to parse a text-layer PDF (tables/partial text). URL
+    # unset -> the image processor is not registered and the OCR backend resolves to
+    # None. See ADR-031.
+    "enable_docling": False,
+    "docling_api_url": None,
+    "docling_timeout": 120,
+    # docling-serve OCR language codes. The default engine (EasyOCR) uses 2-letter
+    # codes ("en","de"); a Tesseract-backed instance wants "eng","deu". Engine-
+    # dependent, so keep it operator-tunable (see ADR-031).
+    "docling_ocr_lang": "en,de",
+    # Run OCR on IMAGES routed to the DoclingProcessor (find_processor path). The
+    # docling OCR *backend* (scanned PDFs) always OCRs regardless of this flag.
+    "docling_do_ocr": True,
+    # Which docling-serve pipeline to request: "standard" (classic layout+OCR,
+    # default, unchanged) or "vlm" (Vision-LLM OCR). "vlm" needs a docling-serve
+    # instance configured with VLM presets (see ADR-032).
+    "docling_pipeline": "standard",
+    # VLM preset name sent when docling_pipeline == "vlm". None -> docling-serve
+    # picks its own DOCLING_SERVE_DEFAULT_VLM_PRESET. Preset names are server-defined.
+    "docling_vlm_preset": None,
+    # Tag-based file exclusion (issue #710): comma-separated list of
+    # Nextcloud system tag names. Files/folders carrying any of these tags
+    # are hidden from WebDAV MCP tools. Empty = feature off.
+    "excluded_tags": "",
+    # MCP decomposition hook points (design §10). Every default reproduces
+    # the current monolithic behavior; self-hosters who set none are
+    # unaffected. See docs/architecture/mcp-decomposition.md (sibling repo).
+    "embedding_provider": "autodetect",  # autodetect | gateway
+    # Ingest queue backend (Deck #183). None → ``memory`` (the in-process anyio
+    # queue): procrastinate is strictly opt-in, even on a Postgres DATABASE_URL.
+    # Set ``postgres`` explicitly to split ingest into a procrastinate worker;
+    # that requires a PostgreSQL DATABASE_URL.
+    "ingest_queue": None,  # memory | postgres
+    # Process role for the per-tenant two-pod model (Deck #183). ``api`` runs the
+    # MCP/query server + scanner (defers jobs); the ``worker`` role is the
+    # `nextcloud-mcp-server worker` process that drains the queue. ``all`` keeps
+    # the monolithic behaviour (API + in-process SQLite pool).
+    "mcp_role": "all",  # api | worker | all
+    # Reclaim an ingest job orphaned in ``doing`` by a crashed worker once its
+    # worker heartbeat is this many seconds stale (Deck #183). Default is well
+    # above the longest expected document; raise it for slow embedding backends.
+    "ingest_stalled_job_seconds": 300,
+    # Backstop reclaim: also re-queue a job stuck in ``doing`` for this many seconds
+    # regardless of worker liveness. The heartbeat threshold above only catches DEAD
+    # workers; a job whose OWN completion crashed (e.g. an unhandled queueing_lock
+    # UniqueViolation on the doing->todo retry) is stranded in ``doing`` under a LIVE,
+    # heart-beating worker and is invisible to the heartbeat sweep.
+    # This fires purely on time-in-``doing``, NOT on liveness, so it can't tell "stuck"
+    # from "legitimately slow": if a single HEALTHY process_document attempt ever ran
+    # past this, it'd be re-queued mid-flight and two workers could process the doc
+    # concurrently. That's safe ONLY because ingest re-runs are idempotent (uuid5
+    # Qdrant point IDs — see the queue module's "Design notes"), NOT because the
+    # reclaim distinguishes the two — so keep the default comfortably above the longest
+    # real single attempt. OCR batch polling releases the worker between polls
+    # (BatchPending -> retry_in), so a job never legitimately holds ``doing`` this
+    # long; 1800s is deep headroom. (Deck: ingest doing-strand reclaim.)
+    "ingest_doing_max_seconds": 1800,
+    # Delete succeeded ingest jobs (keeps the queue table lean + the KEDA
+    # queue-depth metric clean). Set false to retain succeeded rows for audit
+    # (note: indexing success is also recorded in logs/metrics regardless).
+    "ingest_delete_succeeded_jobs": True,
+    # Whether the procrastinate worker uses LISTEN/NOTIFY for job pickup (Deck
+    # #424). True (default) = near-instant wakeup via a long-lived LISTEN
+    # connection. Set false to run POLL-ONLY when DATABASE_URL routes through a
+    # transaction-mode connection pooler (PgBouncer transaction mode), which is
+    # incompatible with LISTEN/NOTIFY — the LISTEN registration is dropped when
+    # the backend returns to the pool. Poll-only trades a few seconds of pickup
+    # latency (fetch_job_polling_interval) for pooler safety; job queries still
+    # multiplex through the pooler. Snapshotted at worker startup; needs a
+    # restart to change.
+    "ingest_listen_notify": True,
+    # Per-tier escalation on the procrastinate (postgres) ingest path (Deck
+    # #323). When true, a document that a tier cannot parse well is requeued onto
+    # the next tier's queue (fast -> structured -> ocr) via a native procrastinate
+    # queue-hop. When false the ``fast`` tier is terminal -- reproduces the
+    # pre-#323 behaviour where the cheap tier's output is indexed as-is. No effect
+    # on the in-process ``memory`` backend, which keeps the inline escalation.
+    # HOT: re-read per job (process_document_task), so it takes effect on the next
+    # job -- unlike INGEST_TRANSIENT_MAX_ATTEMPTS, which is snapshotted at worker
+    # startup and needs a restart.
+    "ingest_escalation_enabled": True,
+    # Global cap on SAME-tier retries for transient infra errors (doc fetch /
+    # embed / Qdrant blips) on the procrastinate path. Parse-quality failures
+    # escalate (one parse attempt per tier) and do NOT consume this budget; only
+    # whitelisted transient exceptions retry in place. Shared across tiers because
+    # a queue-hop cannot reset a per-tier counter (see TieredEscalationStrategy).
+    # Snapshotted at worker startup (blueprint build); restart to change it.
+    "ingest_transient_max_attempts": 5,
+    # Delay (seconds) before a reclaimed stalled job is re-run. A stall is often
+    # systemic (Qdrant/embedding outage), so reclaiming every crashed job at
+    # now() would thundering-herd a recovering dependency every reclaim tick
+    # (*/5min), bypassing TieredEscalationStrategy's per-job backoff. A small
+    # fixed delay staggers the retry. 0 = immediate (legacy behaviour).
+    "ingest_reclaim_retry_delay_seconds": 30,
+    "collection_metadata_source": "qdrant",  # qdrant | api
+    # CP base URL for COLLECTION_METADATA_SOURCE=api (e.g. http://control-plane).
+    # Required only when the source is api.
+    "collection_metadata_api_url": None,
+    "embedding_gateway_url": None,  # required when embedding_provider=gateway
+    # Provider-namespaced model the gateway serves, "<provider>/<model>"
+    # (the gateway routes on the "/"-prefix; mistral/mistral-embed → Mistral
+    # for the MVP). Only consulted when embedding_provider=gateway.
+    "embedding_gateway_model": "mistral/mistral-embed",
+    # Gateway auth: the MCP server is an OIDC *client* in the gateway's own
+    # M2M realm (parallel to, and distinct from, the tenant realm it already
+    # serves). It obtains a client-credentials token and the gateway maps the
+    # client-id → the tenant's underlying provider API key. All four unset =
+    # call the gateway unauthenticated (matches today's not-yet-authed gateway).
+    "embedding_gateway_token_url": None,  # M2M token endpoint
+    "embedding_gateway_client_id": None,
+    "embedding_gateway_client_secret": None,
+    "embedding_gateway_scope": None,  # e.g. astrolabe-embedding-gateway/embed
+    # Query-side ACL pre-filter (design §11). OFF by default: a Qdrant
+    # `match any` on `acl_hash` excludes points missing the key, so enabling
+    # this before a real ACL backfill would silently drop legacy results.
+    # verify-on-read remains the correctness backstop regardless.
+    "acl_prefilter_enabled": False,
+    # Usage metering (Deck #67, control-plane usage-metering.md). OFF by
+    # default so OSS self-hosters don't accrue a metering table or write
+    # overhead; Astrolabe Cloud provisioning sets it true. When on, billable
+    # ops record rows into the app-DB usage_events table (best-effort).
+    "usage_metering_enabled": False,
+}
+
+
+def _resolve_settings_files() -> list[str]:
+    """Find optional external settings files.
+
+    Priority:
+      1. NEXTCLOUD_MCP_SETTINGS_FILE env var (absolute or relative path).
+         If set but the file does not exist, raise FileNotFoundError —
+         silently falling back to defaults on a typo would be a footgun.
+         .secrets.toml is looked for alongside the explicit file.
+      2. Otherwise ./settings.toml in cwd (for docker / dev workflows),
+         with .secrets.toml also looked for in cwd.
+
+    Returns an empty list if nothing is configured — that's fine, defaults
+    and env vars still apply.
+    """
+    files: list[str] = []
+    # A legitimate os.environ read: this runs BEFORE the dynaconf instance is
+    # built (it computes the settings_files list passed to Dynaconf), so it
+    # cannot go through dynaconf — you can't read the location of the settings
+    # file from the settings file. This + the MCP_DEPLOYMENT_MODE env_switcher
+    # are dynaconf's own bootstrap. All config *values* are dynaconf-driven; the
+    # only other reads are the legacy-env deprecation check and
+    # _warn_unknown_env_vars, which inspect env var NAMES, not values.
+    explicit = os.environ.get("NEXTCLOUD_MCP_SETTINGS_FILE")
+    if explicit:
+        p = Path(explicit)
+        if not p.exists():
+            raise FileNotFoundError(
+                f"NEXTCLOUD_MCP_SETTINGS_FILE points to a file that does "
+                f"not exist: {explicit}"
+            )
+        files.append(str(p))
+        secrets = p.parent / ".secrets.toml"
+    else:
+        cwd_settings = Path.cwd() / "settings.toml"
+        if cwd_settings.exists():
+            files.append(str(cwd_settings))
+        secrets = Path.cwd() / ".secrets.toml"
+    if secrets.exists():
+        files.append(str(secrets))
+    return files
+
+
+# Dynaconf instance — env vars always win (12-factor). Settings files are
+# optional; when absent the defaults above provide the full key schema so
+# env vars still override correctly. See ADR-024/025 for architecture.
+_dynaconf = Dynaconf(
+    settings_files=_resolve_settings_files(),
+    environments=True,
+    envvar_prefix=False,
+    env_switcher="MCP_DEPLOYMENT_MODE",
+    ignore_unknown_envvars=True,
+    load_dotenv=False,
+    **_DEFAULTS,
+    validators=[
+        # Port ranges
+        Validator("METRICS_PORT", gte=1, lte=65535),
+        # Positive integers
+        Validator("INGEST_STALLED_JOB_SECONDS", gte=1),
+        Validator("INGEST_TRANSIENT_MAX_ATTEMPTS", gte=1),
+        Validator("INGEST_RECLAIM_RETRY_DELAY_SECONDS", gte=0),
+        Validator("OIDC_DISCOVERY_MAX_ATTEMPTS", gte=1),
+        Validator("OIDC_DISCOVERY_BACKOFF_BASE", gte=0),
+        Validator("OIDC_DISCOVERY_BACKOFF_MAX", gte=0),
+        Validator("QDRANT_INIT_MAX_ATTEMPTS", gte=1),
+        Validator("QDRANT_INIT_BACKOFF_BASE", gte=0),
+        Validator("QDRANT_INIT_BACKOFF_MAX", gte=0),
+        Validator("VECTOR_SYNC_SCAN_INTERVAL", gte=1),
+        Validator("VECTOR_SYNC_PROCESSOR_WORKERS", gte=1),
+        # Optional per-tier concurrency overrides (None = fall back to
+        # VECTOR_SYNC_PROCESSOR_WORKERS). Like the sibling above they must be
+        # >=1 when set — a 0/negative value would otherwise reach
+        # app.run_worker_async(concurrency=...) and fail with an opaque runtime
+        # error instead of a clear config error at startup.
+        Validator(
+            "VECTOR_SYNC_FAST_CONCURRENCY",
+            condition=lambda v: v is None or v >= 1,
+            messages={
+                "condition": "VECTOR_SYNC_FAST_CONCURRENCY must be >= 1 when set"
+            },
+        ),
+        Validator(
+            "VECTOR_SYNC_STRUCTURED_CONCURRENCY",
+            condition=lambda v: v is None or v >= 1,
+            messages={
+                "condition": "VECTOR_SYNC_STRUCTURED_CONCURRENCY must be >= 1 when set"
+            },
+        ),
+        Validator("VECTOR_SYNC_QUEUE_MAX_SIZE", gte=1),
+        Validator("VECTOR_SYNC_METRICS_REFRESH_INTERVAL", gte=1),
+        Validator("VECTOR_DENSITY_SNAPSHOT_INTERVAL", gte=1),
+        Validator("VECTOR_DENSITY_SNAPSHOT_MAX_DOCUMENTS", gte=1),
+        Validator("VECTOR_RAM_HNSW_OVERHEAD_FACTOR", gte=1),
+        Validator("VECTOR_SYNC_USER_POLL_INTERVAL", gte=1),
+        Validator("HEALTH_READY_REFRESH_INTERVAL", gte=1),
+        Validator("PORT", gte=1, lte=65535),
+        Validator("VERIFICATION_CONCURRENCY", gte=1),
+        Validator("DOCUMENT_CHUNK_SIZE", gte=1),
+        Validator("CHUNKING_CONFIG_VERSION", gte=1),
+        Validator("DOCUMENT_PARSE_TIMEOUT_SECONDS", gte=1),
+        Validator("DOCUMENT_OCR_TIMEOUT_SECONDS", gte=1),
+        # DOCUMENT_OCR_MODE is normalised + membership-checked in
+        # Settings.__post_init__ via _enum_fields (case-insensitive, like
+        # DOCUMENT_OCR_PROVIDER) — no strict dynaconf Validator here, so
+        # "Batch"/"SYNC" normalise instead of erroring.
+        # Poll cadence well above a few seconds (each poll re-runs the tier).
+        Validator("DOCUMENT_OCR_BATCH_POLL_SECONDS", gte=5),
+        Validator("DOCUMENT_PARSE_MEM_LIMIT_MB", gte=128),
+        # 0 disables the pre-parse PDF size cap; otherwise it must be positive.
+        Validator("DOCUMENT_MAX_PDF_SIZE_MB", gte=0),
+        # 0 disables page-windowed extraction; otherwise it must be positive.
+        Validator("DOCUMENT_PARSE_PAGE_WINDOW", gte=0),
+        # 0 disables markdown reconstruction; otherwise it must be positive. A
+        # negative value must fail fast rather than silently disable markdown
+        # fleet-wide -- the same silent-disarm class this setting exists to fix.
+        Validator("DOCUMENT_MARKDOWN_MAX_PAGES", gte=0),
+        # At least one parse must be able to run.
+        Validator("DOCUMENT_PARSE_PROCESS_SLOTS", gte=1),
+        # >=1: pymupdf4llm treats graphics_limit=0 as "no cap", which would
+        # re-expose the OOM this guards against.
+        Validator("DOCUMENT_PDF_GRAPHICS_LIMIT", gte=1),
+        # OCR escalation thresholds: quality + page-fraction are [0, 1].
+        Validator("DOCUMENT_OCR_MIN_TEXT_QUALITY", gte=0, lte=1),
+        Validator("DOCUMENT_OCR_PAGE_FRACTION", gte=0, lte=1),
+        Validator("DOCUMENT_OCR_MIN_PAGE_CHARS", gte=0),
+        Validator("DOCUMENT_GLYPH_CORRUPTION_RATIO", gte=0, lte=1),
+        # Non-negative
+        Validator("DOCUMENT_CHUNK_OVERLAP", gte=0),
+        # RRF ranking constant. Must be >= 1: the fused score is
+        # 1/(rank + k) with rank 0-indexed, so k=0 divides by zero on the
+        # top-ranked point.
+        Validator("VECTOR_SEARCH_RRF_K", gte=1),
+        # Non-empty strings
+        Validator("VECTOR_SYNC_TAG", len_min=1),
+        # VECTOR_SYNC_KEYWORD_TAG is optional (empty disables keyword-only
+        # discovery), so no len_min — but when set it must be a usable tag name.
+        # MAIL_INDEX_TAG is likewise optional (empty indexes all mail), but the
+        # Mail app rejects display names over 128 characters — catch that at
+        # startup instead of failing every mail scan with an HTTP 400.
+        Validator("MAIL_INDEX_TAG", len_max=128),
+        # WEBHOOK_SECRET is optional (None disables webhooks — GHSA-8vh3-g2qg-2h2c),
+        # but when set it must be long enough to resist guessing. Surfaces a
+        # weak/placeholder secret at startup rather than in a later audit.
+        Validator(
+            "WEBHOOK_SECRET",
+            condition=lambda v: v is None or len(v) >= 16,
+            messages={
+                "condition": "WEBHOOK_SECRET must be at least 16 characters when set"
+            },
+        ),
+        # Enum constraints (document_* enums are validated + normalized in
+        # __post_init__ via _enum_fields instead, for case-insensitive input).
+        Validator("LOG_FORMAT", is_in=["text", "json"]),
+        Validator(
+            "LOG_LEVEL",
+            is_in=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        ),
+    ],
+)
+
+
+def _reload_config():
+    """Reload dynaconf settings from files and environment.
+
+    Call this in tests after modifying os.environ to refresh the cache.
+    Re-validates all validators since reload() only checks unchecked ones.
+    """
+    _dynaconf.reload()
+    _dynaconf.validators.validate_all()
+    _clear_settings_caches()
+
+
+_ephemeral_db_path: str | None = None
+
+
+def get_token_db_path() -> str:
+    """Resolve the token SQLite database path.
+
+    Priority:
+    1. TOKEN_STORAGE_DB if explicitly set — docker-compose pins
+       /app/data/tokens.db this way. Read via dynaconf, which picks up
+       the env var because TOKEN_STORAGE_DB is declared in _DEFAULTS.
+    2. Otherwise a per-process tempfile under tempfile.gettempdir(),
+       allocated lazily and deleted at interpreter exit via atexit.
+       Ephemeral: tokens are wiped on restart, matching the Qdrant
+       ":memory:" default pattern used elsewhere in this project.
+    """
+    explicit = _dynaconf.get("TOKEN_STORAGE_DB")
+    if explicit:
+        return str(explicit)
+    global _ephemeral_db_path
+    if _ephemeral_db_path is None:
+        fd, path = tempfile.mkstemp(
+            prefix=f"nextcloud-mcp-tokens-{os.getpid()}-", suffix=".db"
+        )
+        os.close(fd)
+        _ephemeral_db_path = path
+
+        def _cleanup(p: str = path) -> None:
+            try:
+                if os.path.exists(p):
+                    os.unlink(p)
+            except OSError:
+                pass
+
+        atexit.register(_cleanup)
+    return _ephemeral_db_path
+
+
+def is_ephemeral_token_db(path: str) -> bool:
+    """Return True if the given path is the process-local ephemeral tempfile.
+
+    Precondition: `get_token_db_path()` must have been called at least once
+    in this process to allocate the tempfile. If called before allocation,
+    this returns False for any input (including the eventual tempfile path),
+    because there is nothing to compare against yet. In practice every call
+    site in this repo resolves the path via `get_token_db_path()` first.
+    """
+    return path == _ephemeral_db_path
+
+
+def get_database_url() -> str:
+    """Resolve the SQLAlchemy database URL for token storage.
+
+    Priority:
+    1. ``DATABASE_URL`` if set — any SQLAlchemy URL is accepted; the primary
+       supported backends are ``postgresql+psycopg://...`` for HA k8s
+       deployments and ``sqlite+aiosqlite:///...`` for development.
+    2. Otherwise build ``sqlite+aiosqlite:///{get_token_db_path()}`` so the
+       legacy ``TOKEN_STORAGE_DB`` env var and the ephemeral-tempfile
+       fallback both keep working unchanged.
+    """
+    explicit = _dynaconf.get("DATABASE_URL")
+    if explicit:
+        return str(explicit)
+    return f"sqlite+aiosqlite:///{get_token_db_path()}"
+
+
+def is_sqlite_url(url: str) -> bool:
+    """Return True for SQLite SQLAlchemy URLs (used to gate sqlite-only logic
+    like file-permission hardening and ``sqlite_master`` legacy lookups).
+
+    Recognizes both file-backed (``sqlite+aiosqlite:///path/to/db``) and
+    in-memory (``sqlite+aiosqlite:///:memory:``) URLs. The caller is
+    responsible for handling ``:memory:`` as a magic value where a real
+    filesystem path is expected.
+    """
+    return url.lower().startswith("sqlite")
+
+
+def mask_db_password(url: str) -> str:
+    """Return a logger-safe rendering of a SQLAlchemy URL.
+
+    DATABASE_URL routinely carries a password (e.g.
+    ``postgresql+psycopg://mcp:secret@db/mcp``); logging it raw leaks the
+    secret to stdout/stderr and any aggregator. SQLAlchemy's
+    :func:`make_url` + ``render_as_string(hide_password=True)`` substitutes
+    a fixed ``***`` placeholder while keeping the rest of the URL intact
+    so operators can still see which host / driver they're hitting.
+    """
+    try:
+        from sqlalchemy.engine.url import make_url  # noqa: PLC0415
+
+        return make_url(url).render_as_string(hide_password=True)
+    except Exception:
+        # If parsing fails (e.g. an explicit ssl-disable test URL with an
+        # exotic shape), fall back to a regex that scrubs any
+        # ``://user:password@`` pattern. Never raise from a logging path.
+        return re.sub(r"(://[^:/]+):[^@]*@", r"\1:***@", url)
+
+
+LOGGING_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "default": {
+            "class": "logging.StreamHandler",
+            "formatter": "http",
+        },
+    },
+    "formatters": {
+        "http": {
+            "format": "%(levelname)s [%(asctime)s] %(name)s - %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
+    "loggers": {
+        "": {
+            "handlers": ["default"],
+            "level": "INFO",
+        },
+        "httpx": {
+            "handlers": ["default"],
+            "level": "INFO",
+            "propagate": False,  # Prevent propagation to root logger
+        },
+        "httpcore": {
+            "handlers": ["default"],
+            "level": "INFO",
+            "propagate": False,  # Prevent propagation to root logger
+        },
+        "uvicorn": {
+            "handlers": ["default"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "uvicorn.access": {
+            "handlers": ["default"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "uvicorn.error": {
+            "handlers": ["default"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
+
+
+def setup_logging():
+    logging.config.dictConfig(LOGGING_CONFIG)
+
+
+# Document Processing Configuration
+
+
+def get_document_processor_config() -> dict[str, Any]:
+    """Get document processor configuration from dynaconf.
+
+    Each optional processor is gated by its own ``ENABLE_*`` flag. There is no
+    master switch: parsing a document on read is a per-call decision made by the
+    caller (``nc_webdav_read_file``'s ``parse_document`` argument), not an
+    instance-wide setting. The built-in PDF tiers (pypdfium2 / pymupdf / OCR)
+    self-register when ``document_processors`` is first imported and never appear
+    here.
+
+    Returns:
+        Dict with processor configs:
+        {
+            "default_processor": str,
+            "processors": {
+                "unstructured": {...},
+                "tesseract": {...},
+                "custom": {...},
+            }
+        }
+    """
+    config: dict[str, Any] = {
+        "default_processor": _dynaconf.get("DOCUMENT_PROCESSOR"),
+        "processors": {},
+    }
+
+    # Unstructured configuration
+    if _dynaconf.get("ENABLE_UNSTRUCTURED"):
+        languages_str = _dynaconf.get("UNSTRUCTURED_LANGUAGES")
+        config["processors"]["unstructured"] = {
+            "api_url": _dynaconf.get("UNSTRUCTURED_API_URL"),
+            "timeout": _dynaconf.get("UNSTRUCTURED_TIMEOUT"),
+            "strategy": _dynaconf.get("UNSTRUCTURED_STRATEGY"),
+            "languages": [
+                lang.strip() for lang in languages_str.split(",") if lang.strip()
+            ],
+            "progress_interval": _dynaconf.get("PROGRESS_INTERVAL"),
+        }
+
+    # Tesseract configuration
+    if _dynaconf.get("ENABLE_TESSERACT"):
+        config["processors"]["tesseract"] = {
+            "tesseract_cmd": _dynaconf.get("TESSERACT_CMD"),  # None = auto-detect
+            "lang": _dynaconf.get("TESSERACT_LANG"),
+        }
+
+    # NB: pymupdf is deliberately absent. It is the built-in ``structured`` tier,
+    # registered when ``document_processors`` is first imported (lazily, on the
+    # first parse) and tuned from ``Settings.pymupdf_*``. Listing it here would
+    # make ``processors`` non-empty on every deployment, which is what tells app
+    # startup whether it has anything to register -- and so whether it must
+    # import the parse stack at all (#877).
+
+    # Custom processor (via HTTP API)
+    if _dynaconf.get("ENABLE_CUSTOM_PROCESSOR"):
+        custom_url = _dynaconf.get("CUSTOM_PROCESSOR_URL")
+        if custom_url:
+            supported_types_str = _dynaconf.get("CUSTOM_PROCESSOR_TYPES")
+            supported_types = {
+                t.strip() for t in supported_types_str.split(",") if t.strip()
+            }
+
+            config["processors"]["custom"] = {
+                "name": _dynaconf.get("CUSTOM_PROCESSOR_NAME"),
+                "api_url": custom_url,
+                "api_key": _dynaconf.get("CUSTOM_PROCESSOR_API_KEY"),
+                "timeout": _dynaconf.get("CUSTOM_PROCESSOR_TIMEOUT"),
+                "supported_types": supported_types,
+            }
+
+    # Docling configuration (docling-serve HTTP API). Registered only when a URL is
+    # set, so a bare ENABLE_DOCLING doesn't shadow other image processors with a
+    # dead endpoint (mirrors the custom_url guard above). The standalone processor
+    # auto-serves images; PDFs go through the OCR backend
+    # (DOCUMENT_OCR_PROVIDER=docling) -- docling is an OCR provider, not a tier of
+    # its own.
+    if _dynaconf.get("ENABLE_DOCLING"):
+        docling_url = _dynaconf.get("DOCLING_API_URL")
+        if docling_url:
+            lang_str = _dynaconf.get("DOCLING_OCR_LANG") or ""
+            config["processors"]["docling"] = {
+                "api_url": docling_url,
+                "timeout": _dynaconf.get("DOCLING_TIMEOUT"),
+                "ocr_lang": [s.strip() for s in lang_str.split(",") if s.strip()],
+                "do_ocr": _dynaconf.get("DOCLING_DO_OCR"),
+                # Normalize like Settings.__post_init__ does (.strip().lower()) so the
+                # image path matches convert_file()'s ``pipeline == "vlm"`` check --
+                # otherwise DOCLING_PIPELINE=VLM would silently fall back to standard
+                # here while the OCR-backend path (Settings-validated) uses vlm.
+                # vlm_preset is server-defined and case-sensitive, so it stays raw.
+                "pipeline": (_dynaconf.get("DOCLING_PIPELINE") or "standard")
+                .strip()
+                .lower(),
+                "vlm_preset": _dynaconf.get("DOCLING_VLM_PRESET"),
+                "progress_interval": _dynaconf.get("PROGRESS_INTERVAL"),
+            }
+
+    return config
+
+
+@dataclass
+class Settings:
+    """Application settings from environment variables."""
+
+    # Deployment mode (ADR-021: explicit mode selection; updated by ADR-022)
+    # Optional: If not set, mode is auto-detected from other settings
+    # Valid values: single_user_basic, multi_user_basic, login_flow
+    # (ADR-022: `oauth_single_audience` was renamed to `login_flow`.)
+    deployment_mode: str | None = None
+
+    # OAuth/OIDC settings
+    oidc_discovery_url: str | None = None
+    oidc_client_id: str | None = None
+    oidc_client_secret: str | None = None
+    oidc_issuer: str | None = None
+    oidc_resource_server_id: str | None = None
+    oidc_token_type: str = "Bearer"  # NEXTCLOUD_OIDC_TOKEN_TYPE
+    oidc_scopes: str = ""  # NEXTCLOUD_OIDC_SCOPES (space-separated)
+
+    # OIDC discovery startup resilience. Discovery runs synchronously at boot
+    # and is fatal on failure; on a freshly-scheduled pod the egress path (e.g.
+    # Cilium toFQDN allow + egress-gateway SNAT programming) can take a few
+    # seconds to converge, during which the request is dropped and times out.
+    # Retry with capped exponential backoff + jitter so a cold-start race
+    # doesn't crashloop the backend. Set OIDC_DISCOVERY_MAX_ATTEMPTS=1 to
+    # restore the original fail-fast behavior.
+    oidc_discovery_max_attempts: int = 10  # OIDC_DISCOVERY_MAX_ATTEMPTS
+    oidc_discovery_backoff_base: float = 1.0  # OIDC_DISCOVERY_BACKOFF_BASE (s)
+    oidc_discovery_backoff_max: float = 15.0  # OIDC_DISCOVERY_BACKOFF_MAX (s)
+    # Startup Qdrant-collection-init retry/backoff. Qdrant may be briefly
+    # unreachable during a rolling deploy (pod ordering, network-policy
+    # convergence); retry transient connection failures with capped exponential
+    # backoff + jitter instead of crashlooping with a full traceback. Genuine
+    # errors (auth/config, e.g. a 4xx) still fail fast. Set
+    # QDRANT_INIT_MAX_ATTEMPTS=1 to restore fail-fast.
+    qdrant_init_max_attempts: int = 30  # QDRANT_INIT_MAX_ATTEMPTS
+    qdrant_init_backoff_base: float = 1.0  # QDRANT_INIT_BACKOFF_BASE (s)
+    qdrant_init_backoff_max: float = 10.0  # QDRANT_INIT_BACKOFF_MAX (s)
+    port: int = 8000  # Server port (PORT); used to build fallback URLs
+
+    # Nextcloud settings
+    nextcloud_host: str | None = None
+    nextcloud_username: str | None = None
+    nextcloud_password: str | None = None
+
+    # Browser-reachable public URL for OAuth/Login-Flow-v2 redirects when
+    # NEXTCLOUD_HOST is an internal Docker hostname. Falls back to
+    # nextcloud_host when unset.
+    #
+    # NOTE: this doubles as the OAuth *issuer* URL used for JWT ``iss``
+    # validation. In external-IdP mode (e.g. Keycloak) the issuer is the IdP,
+    # NOT Nextcloud — so this value points at the IdP, not the browser-reachable
+    # Nextcloud host. Use ``nextcloud_public_url`` / ``nextcloud_browser_url``
+    # for anything that must resolve to Nextcloud itself (Login Flow v2 login
+    # URLs, elicitation links).
+    nextcloud_public_issuer_url: str | None = None
+
+    # Browser-reachable public URL of the *Nextcloud* instance, used to rewrite
+    # Login Flow v2 login URLs and elicitation links when NEXTCLOUD_HOST is an
+    # internal Docker hostname. Distinct from ``nextcloud_public_issuer_url``
+    # because, in external-IdP (Keycloak/OIDC) deployments, the OAuth issuer is
+    # the IdP while Login Flow v2 must still point the browser at Nextcloud.
+    # Falls back to ``nextcloud_public_issuer_url`` then ``nextcloud_host`` (see
+    # ``nextcloud_browser_url``) so single-IdP (login-flow) deployments that set
+    # only NEXTCLOUD_PUBLIC_ISSUER_URL keep working unchanged.
+    nextcloud_public_url: str | None = None
+
+    # Browser cookie Secure flag. None = auto-detect from nextcloud_host
+    # scheme (https → True, else False). Set COOKIE_SECURE=true/false to
+    # override.
+    cookie_secure: bool | None = None
+
+    # Nextcloud SSL/TLS settings
+    nextcloud_verify_ssl: bool = True
+    nextcloud_ca_bundle: str | None = None
+
+    # Reuse pooled keep-alive connections for the Nextcloud httpx client.
+    # Default True preserves low-latency interactive traffic. Set
+    # NEXTCLOUD_HTTP_KEEPALIVE=false to force a fresh connection per request
+    # (max_keepalive_connections=0) — mirrors the DATABASE_POOL_SIZE→NullPool
+    # precedent and prevents a truncated/desynced response from poisoning a
+    # pooled connection on flaky CDN/WAN paths (see #965).
+    nextcloud_http_keepalive: bool = True
+
+    # Postgres connection pool sizing — DEPRECATED, retained for
+    # backward compatibility. The psycopg engine switched to NullPool
+    # in #799 (cross-event-loop crashes under anyio TaskGroups made
+    # the original QueuePool + pool_pre_ping setup unsafe). These
+    # fields no longer affect the Postgres engine; the validators
+    # below still reject invalid values so misconfigured deploys
+    # fail loudly rather than silently. See ADR-026 § Connection
+    # pool and docs/configuration.md.
+    database_pool_size: int = 2
+    database_max_overflow: int = 5
+
+    # ADR-005: Token Audience Validation (required for OAuth mode)
+    nextcloud_mcp_server_url: str | None = None  # MCP server URL (used as audience)
+    nextcloud_resource_uri: str | None = None  # Nextcloud resource identifier
+
+    # Token verification endpoints
+    jwks_uri: str | None = None
+    introspection_uri: str | None = None
+    userinfo_uri: str | None = None
+
+    # Progressive Consent settings (always enabled - no flag needed)
+    enable_offline_access: bool = False
+
+    # Multi-user BasicAuth pass-through mode (ADR-019 interim solution).
+    # Internal — not user-settable; the ENABLE_MULTI_USER_BASIC_AUTH env-var
+    # alias was removed in the ADR-022 follow-up. Auto-set by
+    # Settings.__post_init__ when MCP_DEPLOYMENT_MODE=multi_user_basic. When True,
+    # the MCP server extracts BasicAuth credentials from request headers and
+    # passes them through to Nextcloud APIs (no storage, stateless). Kept
+    # as a field for backward compat with the runtime call sites that read it.
+    enable_multi_user_basic_auth: bool = False
+
+    # Login Flow v2 derived flag (ADR-022). Internal — not user-settable.
+    # Auto-set by Settings.__post_init__ when the resolved deployment mode is
+    # LOGIN_FLOW. Kept as a field for backward compat with the runtime call
+    # sites that read it (app.py, context.py, scope_authorization.py).
+    enable_login_flow: bool = False
+
+    # Token and webhook storage settings
+    # TOKEN_ENCRYPTION_KEY: Optional - Only required for OAuth token storage operations.
+    #                       Webhook tracking works without encryption key.
+    #                       If set, must be a valid base64-encoded Fernet key (32 bytes).
+    # TOKEN_STORAGE_DB: Path to SQLite database for persistent storage.
+    #                   Used for webhook tracking (all modes) and OAuth token storage.
+    #                   Defaults to /tmp/tokens.db
+    token_encryption_key: str | None = None
+    token_storage_db: str | None = None
+
+    # Webhook delivery authentication (ADR-010). REQUIRED for webhooks
+    # (GHSA-8vh3-g2qg-2h2c). When set, the registrar passes
+    # Authorization: Bearer <secret> as the webhook authData and the receiver
+    # validates the same header on each delivery. When unset, the
+    # /webhooks/nextcloud route is not mounted, the receiver refuses any request
+    # that reaches it (503), and registration refuses to create webhooks — the
+    # receiver trusts user.uid from the payload, so unauthenticated access would
+    # let any caller delete/re-index other users' embeddings. Vector sync still
+    # works via the polling scanner when this is unset.
+    webhook_secret: str | None = None
+    # Internal URL override for webhook registration. Highest-priority
+    # source for the URL we register with NC (above
+    # nextcloud_mcp_server_url and the docker-detection fallback).
+    webhook_internal_url: str | None = None
+
+    # Vector sync settings (ADR-007)
+    vector_sync_enabled: bool = False
+    vector_sync_scan_interval: int = 300  # seconds (5 minutes)
+    vector_sync_processor_workers: int = 3
+    # Optional per-tier concurrency overrides for the ingest worker (None = use
+    # vector_sync_processor_workers). Only fast/structured are exposed; the
+    # CPU-heavy PDF paths are serialized (see document_processors/_native_locks).
+    vector_sync_fast_concurrency: int | None = None
+    vector_sync_structured_concurrency: int | None = None
+    vector_sync_queue_max_size: int = 10000
+    # Cadence for the periodic gauge publisher (vector/metrics_publisher.py):
+    # outstanding-work + indexed documents/chunks. Decoupled from the consumer
+    # so the gauges are correct on every deployment mode and queue backend.
+    vector_sync_metrics_refresh_interval: int = 20  # seconds
+    # Current-corpus chunk-density snapshot (vector/metrics_publisher.py:
+    # vector_density_snapshot_task). Scrolls the collection to recompute the
+    # distribution of documents CURRENTLY in Qdrant, so it runs on its own slower
+    # cadence than the count()-based gauges above. ``max_documents`` caps the
+    # scroll; hitting it sets the ``..._snapshot_truncated`` gauge (no silent cap).
+    vector_density_snapshot_enabled: bool = True
+    vector_density_snapshot_interval: int = 300  # seconds
+    vector_density_snapshot_max_documents: int = 50000
+    # HNSW-graph/segment overhead multiplier applied when estimating dense-vector
+    # RAM (``chunks * dim * 4 bytes * factor``). ~1.5 matches the cost-to-serve
+    # note's ~6 KB / 1024-dim observation; a deployment knob because the real
+    # overhead varies with HNSW ``m``/segment layout. Observability only — no
+    # billing impact.
+    vector_ram_hnsw_overhead_factor: float = 1.5
+    vector_sync_user_poll_interval: int = 60  # seconds - OAuth mode user discovery
+    vector_sync_orphan_sweep_enabled: bool = True  # card #101
+    # Cadence for the background readiness dependency-health refresh loop
+    # (app.py): keeps the Nextcloud/Qdrant snapshot warm off the probe path so
+    # /health/ready never does external I/O (Deck #302).
+    health_ready_refresh_interval: int = 15  # seconds
+    # System tag marking files for hybrid (dense + BM25 sparse) indexing. The
+    # scanner indexes files carrying this tag and verify-on-read gates results
+    # on current membership (ADR-019), so an untagged file drops out of search
+    # immediately.
+    vector_sync_tag: str = "vector-index"
+
+    # System tag marking files for keyword-only (BM25 sparse) indexing. Defaults
+    # to ``keyword-index`` (symmetric with ``vector_sync_tag``): tagged files
+    # are indexed sparse-only into the same collection as hybrid files (no dense
+    # embedding). ``vector-index`` takes precedence when a file carries both tags.
+    # Set empty to disable the second tag entirely.
+    vector_sync_keyword_tag: str = "keyword-index"
+
+    # Mail tag (an IMAP keyword) restricting which messages are indexed — the
+    # mail analogue of ``vector_sync_tag``. Empty (default) indexes every
+    # message in every mailbox. Set to a tag display name and the scanner
+    # resolves it to that user's tag id and lists only messages carrying it;
+    # verify-on-read applies the same filter, so untagging a message drops it
+    # out of search on the next query. Max 128 characters (the Mail app rejects
+    # longer display names).
+    mail_index_tag: str = ""
+
+    # Fail-safe against a flaky/empty tag-discovery read. Number of *consecutive*
+    # scan cycles for which an index mode's tag discovery must return zero files
+    # (while Qdrant still holds indexed points for that mode) before the scanner
+    # believes it and deletes. Guards against a customer-hosted Nextcloud that
+    # intermittently answers the systemtag REPORT with an empty 207 — which would
+    # otherwise be read as "all files gone" and drive a delete/re-index churn
+    # loop. A sustained empty (a genuine mass-untag) still deletes once the streak
+    # reaches this value. See _plan_file_deletions in vector/scanner.py.
+    vector_sync_empty_discovery_delete_threshold: int = 3
+
+    # Verify-on-read concurrency (ADR-019). Cap on parallel Nextcloud
+    # round-trips during search-result verification fan-out. Lower this if the
+    # Nextcloud backend struggles with the parallel load; raise it on a
+    # healthy connection to speed up large result pages.
+    verification_concurrency: int = 20
+
+    # Qdrant settings (mutually exclusive modes)
+    qdrant_url: str | None = None  # Network mode: http://qdrant:6333
+    qdrant_location: str | None = None  # Local mode: :memory: or /path/to/data
+    qdrant_api_key: str | None = None
+    qdrant_collection: str = "nextcloud_content"
+
+    # Ollama settings
+    ollama_base_url: str | None = None
+    ollama_embedding_model: str = "nomic-embed-text"
+    ollama_verify_ssl: bool = True
+
+    # OpenAI settings
+    openai_api_key: str | None = None
+    openai_base_url: str | None = None
+    openai_embedding_model: str = "text-embedding-3-small"
+
+    # Bedrock (AWS) settings — boto3 also reads these from its credential chain
+    aws_region: str | None = None
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+    bedrock_embedding_model: str | None = None
+
+    # Mistral settings (embeddings only)
+    mistral_api_key: str | None = None
+    mistral_embedding_model: str = "mistral-embed"
+    mistral_base_url: str | None = None
+
+    # Simple (fallback) provider — dimension when no real provider configured
+    simple_embedding_dimension: int = 384
+
+    # Document chunking settings (for vector embeddings)
+    document_chunk_size: int = 2048  # Characters per chunk
+    document_chunk_overlap: int = 200  # Overlapping characters between chunks
+    # Page-aware chunking for paginated docs (PDFs). When True (default), PDF
+    # text is split on page boundaries first (one chunk per page; oversized
+    # pages are character-split within the page), giving exact page numbers,
+    # snippets that never lead with a neighbouring page, and a predictable
+    # ~1 chunk/page when document_chunk_size >= the largest page. When False,
+    # the legacy char-based path runs with post-hoc assign_page_numbers.
+    document_chunk_page_aware: bool = True
+    # Ranking constant for Reciprocal Rank Fusion in hybrid search. Qdrant's
+    # native ``FusionQuery(fusion=RRF)`` hardcodes k=2 (score = 1/(rank+2)), so
+    # adjacent ranks differ by 33% and a document ranked well by BOTH retrievers
+    # loses to one ranked top by a single retriever — the opposite of what
+    # fusion is for. k=60 is the value from the original RRF paper and the de
+    # facto standard; adjacent ranks then differ by ~2%, so agreement across the
+    # dense and sparse lists decides the ordering. Applies to ``fusion="rrf"``
+    # only; DBSF has no such constant.
+    vector_search_rrf_k: int = 60
+    # Greedy page-packing (Deck #636). When True, the page-aware chunker merges
+    # consecutive sub-budget pages into one chunk (page-range citation via
+    # page_number/page_end) instead of one-chunk-per-page — the density fix for
+    # lean-page/born-digital PDFs. Off by default: enabling it re-scales density
+    # fleet-wide and requires the storage-rate re-calibration first (#626).
+    document_chunk_page_pack: bool = False
+    # Chunking config generation. Bump on ANY chunker behaviour change (size,
+    # overlap, page-aware, page-pack, split strategy) so a change can't silently
+    # invalidate the €/GiB density reference. Stamped on the collection sentinel
+    # and pinned next to the density reference in stripe-catalog.tf + note 389935.
+    chunking_config_version: int = 1
+
+    # PDF parse isolation (OOM guard). The parse runs in a subprocess so one
+    # pathological file fails that doc, not the pod.
+    # to_markdown graphics cap: pages with more vector drawings than this skip
+    # the O(n^2) find_tables analysis. Must be >=1 -- pymupdf4llm treats 0 as
+    # "no cap", which re-exposes the OOM. Default 1000: form/table PDFs have
+    # ~1.5k grid-line drawings per page, which at the old 5000 cap slipped
+    # through uncapped and timed out after ~17s/page (for zero recovered
+    # tables); at 1000 they parse in ~3s with identical text. Pages with genuine
+    # simple tables (<1000 drawings) still get table detection.
+    document_pdf_graphics_limit: int = 1000
+    # wall-clock cap per parse; the worker subprocess is killed on timeout.
+    # float so a fractional DOCUMENT_PARSE_TIMEOUT_SECONDS is honoured, matching
+    # anyio.move_on_after's float seconds.
+    document_parse_timeout_seconds: float = 120.0
+    # Optional cap (seconds) on the synchronous parse in the nc_webdav_read_file
+    # tool. None = disabled (bounded only by the processor timeout). When set,
+    # anyio.fail_after aborts a slow interactive convert and the tool returns
+    # base64 instead of blocking; it never affects the async ingest path (ADR-032).
+    # Distinct from document_parse_timeout_seconds, which caps the fast/structured
+    # PDF-parse subprocess, not the docling/OCR HTTP call.
+    document_read_timeout_seconds: float | None = None
+    # Pre-parse PDF size cap (MB). A PDF larger than this fails fast with
+    # parse_failed_reason="oversize" (placeholder marked "failed") rather than
+    # being handed to the fast/OCR tiers, where a pathological large file burns
+    # the OCR timeout for 0 chars. 0 disables the guard.
+    document_max_pdf_size_mb: float = 50.0
+    # Pre-flight cap (MB) on nc_webdav_write_file's content (see _DEFAULTS
+    # for rationale). 0 disables the guard.
+    webdav_write_max_mb: float = 50.0
+    # Transport security. See _DEFAULTS for why the protection defaults off.
+    mcp_dns_rebinding_protection: bool = False
+    mcp_allowed_hosts: str = ""
+    mcp_allowed_origins: str = ""
+    # CORS origin allowlist; "*" is today's behaviour.
+    cors_allow_origins: str = "*"
+    # Page ceiling above which the structured tier skips pymupdf4llm.to_markdown
+    # and returns the raw text layer instead. 0 disables markdown entirely
+    # (every document takes the raw-text path), matching how
+    # document_max_pdf_size_mb treats 0 as "guard off"; a NEGATIVE value is
+    # rejected at startup by the DOCUMENT_MARKDOWN_MAX_PAGES validator, so a
+    # typo cannot silently turn markdown off everywhere.
+    #
+    # to_markdown is SUPERLINEAR in page count -- the per-page rate itself grows
+    # with document size. Measured across a 866-file scanned corpus: 0.48-1.48
+    # s/page at 22-31 pages, ~1.0 s/page at 400, 3.11 s/page at 1898, and 5.92
+    # s/page at 4003 (6.6 hours for one document). Raw ``get_text`` is ~4.5
+    # ms/page flat, and on that corpus recovered 116,375 of the 145,199 chars
+    # markdown produced -- markdown's value is structure, not completeness.
+    #
+    # Without a ceiling a large document burns the whole parse timeout and then
+    # dead-letters with reason="timeout", discarding a text layer that was
+    # already extractable in under a second (Deck #399). The gate is expressed in
+    # PAGES rather than predicted seconds deliberately: seconds depend on node
+    # CPU, so a seconds-based threshold silently drifts between node types and
+    # needs recalibration, while a page count is deterministic and reviewable.
+    #
+    # Default 150: roughly the point where markdown costs >~120s on a throttled
+    # 2-core pod, and it keeps markdown for the small/prose documents that
+    # actually benefit from table reconstruction.
+    document_markdown_max_pages: int = 150
+    # Structured-tier (pymupdf) image extraction. Read where that tier registers
+    # itself rather than at app startup: it is a built-in tier, not an optional
+    # processor, so nothing about it may pull the parse stack onto the API
+    # startup path (#877).
+    pymupdf_extract_images: bool = True
+    pymupdf_image_dir: str | None = None
+    # RLIMIT_AS in the parse subprocess (below the pod limit). Applied once per
+    # worker for its lifetime, so changing it needs a pod restart.
+    document_parse_mem_limit_mb: int = 1536
+    # Pages per pypdfium2 extraction window. PDFium retains parsed page objects
+    # for the document's lifetime (~0.5 MB/page measured) and page.close() does
+    # not give them back, so extracting a large document in one open scales peak
+    # RSS with page count: a real 4003-page file cost 1914 MB. Re-opening the
+    # document every N pages caps that at one window's worth (100 pages -> 63 MB,
+    # a 30x reduction) with no measurable time cost and byte-identical output.
+    # 0 disables windowing (single open, pre-0.141 behaviour).
+    document_parse_page_window: int = 100
+    # Concurrent isolated parse subprocesses. anyio's default process limiter is
+    # os.cpu_count(), which is decoupled from both --concurrency and the pod
+    # memory limit: on an 8-core node that permits 8 x document_parse_mem_limit_mb
+    # (~12 GiB of address space) inside a 3 GiB pod. RLIMIT_AS bounds virtual
+    # address space rather than RSS, so that is a ceiling and not a reservation,
+    # but it is still far above anything the pod can survive. Bound it explicitly
+    # instead. 2 covers the per-tier worker concurrency actually deployed (1-3)
+    # while capping the pathological case; raise it only with headroom to spare.
+    document_parse_process_slots: int = 2
+    # Stream ingest downloads to a spool file rather than buffering the whole
+    # response in memory. read_file holds the entire document (a real 1040 MB
+    # file cost ~1.1 GB resident before a page was read); streaming keeps that
+    # at one chunk. Set false to fall back to the buffered path without a revert.
+    document_stream_download_enabled: bool = True
+    # Where spool files are written. None = tempfile.gettempdir(). In the
+    # container that is the /tmp emptyDir, which must have room for roughly
+    # (worker concurrency x the largest document).
+    document_spool_dir: str | None = None
+    # Tier-0 classifier. Records classification metrics (recommended_tier,
+    # text-quality) on the tiered path, derived from the tier-1 extraction.
+    document_classify_enabled: bool = True
+    # PDF extraction engine for the ``fast`` tier. "pypdfium2" (default,
+    # permissive license, no find_tables) is the hot path; "pymupdf" is a
+    # deprecated rollback to pymupdf4llm (AGPL, graphics-limited) for one corpus.
+    document_tier1_engine: str = "pypdfium2"
+    # Route scanned/no-text-layer PDFs to the OCR tier. Off by default; when off,
+    # the fast tier is terminal.
+    document_ocr_enabled: bool = False
+    # OCR backend selection: "auto" | "gateway" | "mistral" | "none". The gateway
+    # routes on the model's "<provider>/" prefix, so it serves Mistral, surya, etc.
+    document_ocr_provider: str = "auto"
+    # Provider-namespaced OCR model id (e.g. "mistral/mistral-ocr-latest" or
+    # "surya/surya-ocr-2"). The gateway routes on the "<provider>/" prefix; the
+    # direct mistral backend strips it.
+    document_ocr_model: str = "mistral/mistral-ocr-latest"
+    # OCR backend HTTP request timeout (seconds). float for parity with the
+    # parse timeout / httpx.Timeout; per-tenant tunable so a gateway with a
+    # shorter ceiling isn't masked by the 180s default.
+    document_ocr_timeout_seconds: float = 180.0
+    # OCR execution mode: "sync" | "batch" (Deck #332). batch is opt-in and routes
+    # through the embedding gateway's async Batch OCR job (large-corpus backfill).
+    # It requires a gateway: with no EMBEDDING_GATEWAY_URL, __post_init__ rejects
+    # mode=batch at startup rather than silently downgrading to sync.
+    document_ocr_mode: str = "sync"
+    # Batch-job poll cadence (procrastinate re-enqueue delay). A pending job is
+    # polled indefinitely — the gateway owns the OCR lifecycle (Deck #523), so
+    # there is no worker-side give-up deadline.
+    document_ocr_batch_poll_seconds: int = 120
+    # OCR escalation triggers (tier-0), per-tenant tunable. A page is OCR-worthy
+    # if near-empty (< min_page_chars) OR low text-quality (< min_text_quality)
+    # OR (when detect_scanned, image-analysis only runs when OCR is enabled)
+    # mostly a raster image; the doc escalates at >= page_fraction such pages.
+    document_ocr_min_text_quality: float = 0.5
+    document_ocr_page_fraction: float = 0.5
+    document_ocr_min_page_chars: int = 16
+    document_ocr_detect_scanned: bool = True
+    # Tier-0 glyph-corruption trigger: doc-level C0-control-char ratio above which
+    # the fast (pypdfium2) text layer is treated as glyph-corrupt and escalated
+    # fast->structured (pymupdf). 0 disables. See classifier._control_char_ratio.
+    document_glyph_corruption_ratio: float = 0.02
+
+    # Docling backend (docling-serve HTTP API). Shared by the images-only
+    # DoclingProcessor (find_processor path) and the PDF OCR backend
+    # (document_ocr_provider="docling"). docling_api_url unset -> the OCR backend
+    # resolves to None (docling OCR off) and the image processor is not registered.
+    docling_api_url: str | None = None
+    docling_ocr_lang: str = "en,de"
+    docling_pipeline: str = "standard"
+    docling_vlm_preset: str | None = None
+
+    # Observability settings
+    metrics_enabled: bool = True
+    metrics_port: int = 9090
+    otel_exporter_otlp_endpoint: str | None = None
+    # Tri-state. None (default) lets the OTLP exporter apply the OTel spec:
+    # the endpoint scheme decides, https:// secure and http:// insecure.
+    # Set explicitly only to force one or the other (e.g. a scheme-less
+    # endpoint, or plaintext behind a TLS-terminating sidecar).
+    otel_exporter_verify_ssl: bool | None = None
+    otel_service_name: str = "nextcloud-mcp-server"
+    # Continuous profiling (Pyroscope). Push-mode via the Pyroscope SDK to an
+    # Alloy pyroscope.receive_http endpoint (e.g. the cloudfleet Alloy at
+    # http://alloy.alloy.svc.cluster.local:4041), which forwards to the homelab
+    # Pyroscope. Disabled by default; enabled per-deployment via env.
+    pyroscope_enabled: bool = False
+    pyroscope_server_address: str | None = None
+    # Kubernetes downward-API pod identity; tags profiles so a tenant's
+    # profiles are separable (Deck #48). None off-Kubernetes.
+    pod_namespace: str | None = None
+    pod_name: str | None = None
+    log_format: str = "text"  # "json" or "text"
+    log_level: str = "INFO"
+    log_include_trace_context: bool = True
+
+    # Tag-based file exclusion (issue #710): comma-separated list of
+    # Nextcloud system tag names. Files/folders carrying any of these tags
+    # are hidden from WebDAV MCP tools.
+    excluded_tags: str = ""
+
+    # MCP decomposition hook points (design §10, opt-in). All defaults
+    # reproduce the current monolith; validated in __post_init__.
+    embedding_provider: str = "autodetect"  # autodetect | gateway
+    # Ingest queue backend (Deck #183). None → resolved in __post_init__ to
+    # ``postgres`` when DATABASE_URL is Postgres, else ``memory``.
+    ingest_queue: str | None = None  # memory | postgres
+    mcp_role: str = "all"  # api | worker | all (Deck #183 two-pod model)
+    ingest_stalled_job_seconds: int = 300  # crashed-worker reclaim threshold
+    ingest_doing_max_seconds: int = 1800  # backstop: reclaim live-worker doing strands
+    ingest_delete_succeeded_jobs: bool = True  # drop succeeded ingest jobs
+    ingest_listen_notify: bool = True  # False = poll-only (txn-mode pooler, Deck #424)
+    ingest_escalation_enabled: bool = True  # per-tier queue-hop (Deck #323)
+    ingest_transient_max_attempts: int = 5  # same-tier transient-retry cap
+    ingest_reclaim_retry_delay_seconds: int = 30  # stagger reclaimed-job retries
+    collection_metadata_source: str = "qdrant"  # qdrant | api
+    collection_metadata_api_url: str | None = None  # CP URL when source=api
+    embedding_gateway_url: str | None = None  # required when provider=gateway
+    embedding_gateway_model: str = (
+        "mistral/mistral-embed"  # provider-namespaced id the gateway routes on
+    )
+    # Gateway M2M OIDC client creds (separate realm; see _DEFAULTS comment).
+    embedding_gateway_token_url: str | None = None
+    embedding_gateway_client_id: str | None = None
+    embedding_gateway_client_secret: str | None = None
+    embedding_gateway_scope: str | None = None
+    acl_prefilter_enabled: bool = False  # query-side ACL pre-filter (§11); OFF
+    # Usage metering (Deck #67); OFF by default. When true, billable ops
+    # record best-effort rows into the app-DB usage_events table for the
+    # control plane to pull. See nextcloud_mcp_server/usage/store.py.
+    usage_metering_enabled: bool = False
+
+    @property
+    def nextcloud_browser_url(self) -> str | None:
+        """Browser-reachable base URL of the Nextcloud instance.
+
+        Resolves the URL the *user's browser* must use to reach Nextcloud for
+        Login Flow v2 login pages and elicitation links. Prefers the dedicated
+        ``nextcloud_public_url``; falls back to ``nextcloud_public_issuer_url``
+        (correct in single-IdP / login-flow deployments where the OAuth issuer
+        IS Nextcloud) and finally the internal ``nextcloud_host``.
+
+        In external-IdP mode (e.g. Keycloak) set ``NEXTCLOUD_PUBLIC_URL`` so this
+        does not fall back to the IdP issuer URL, which would send the browser to
+        the IdP instead of Nextcloud.
+        """
+        return (
+            self.nextcloud_public_url
+            or self.nextcloud_public_issuer_url
+            or self.nextcloud_host
+        )
+
+    def __post_init__(self):
+        """Validate configuration and set defaults."""
+
+        # Validate SSL/TLS configuration
+        if not self.nextcloud_verify_ssl:
+            logger.warning(
+                "NEXTCLOUD_VERIFY_SSL is disabled. "
+                "TLS certificate verification is turned off for all Nextcloud connections. "
+                "This is insecure and should only be used for development/testing."
+            )
+        if self.nextcloud_ca_bundle:
+            if not os.path.isfile(self.nextcloud_ca_bundle):
+                raise ValueError(
+                    f"NEXTCLOUD_CA_BUNDLE path does not exist: {self.nextcloud_ca_bundle}"
+                )
+            logger.info("Using custom CA bundle: %s", self.nextcloud_ca_bundle)
+
+        # Page-packing is a sub-mode of page-aware chunking (the packing logic
+        # only runs inside the page-aware branch). Enabling it without page-aware
+        # is a silent no-op, so surface the misconfiguration at startup.
+        if self.document_chunk_page_pack and not self.document_chunk_page_aware:
+            logger.warning(
+                "DOCUMENT_CHUNK_PAGE_PACK is enabled but DOCUMENT_CHUNK_PAGE_AWARE "
+                "is disabled; page-packing only runs inside page-aware chunking, so "
+                "this setting has no effect. Enable DOCUMENT_CHUNK_PAGE_AWARE to "
+                "activate packing."
+            )
+
+        # Surface the keep-alive opt-out at startup so an operator who set it to
+        # work around #965 gets confirmation it took effect.
+        if not self.nextcloud_http_keepalive:
+            logger.info(
+                "NEXTCLOUD_HTTP_KEEPALIVE is disabled. The Nextcloud HTTP client "
+                "will open a fresh connection per request (no pooled keep-alive "
+                "reuse) — a TLS handshake per call in exchange for immunity to "
+                "poisoned/desynced pooled connections (#965)."
+            )
+
+        # Postgres backend TLS is configured entirely in DATABASE_URL (e.g.
+        # ?sslmode=require&sslrootcert=/path) and read by libpq/psycopg — the
+        # server neither parses nor validates it (ADR-026, Model A).
+
+        # Pool sizing must be sensible — guard against operators accidentally
+        # setting 0 / negative via env (would deadlock at first request).
+        if self.database_pool_size < 1:
+            raise ValueError(
+                f"DATABASE_POOL_SIZE must be >= 1; got {self.database_pool_size}"
+            )
+        if self.database_max_overflow < 0:
+            raise ValueError(
+                f"DATABASE_MAX_OVERFLOW must be >= 0; got {self.database_max_overflow}"
+            )
+
+        # Ensure mutual exclusivity
+        if self.qdrant_url and self.qdrant_location:
+            raise ValueError(
+                "Cannot set both QDRANT_URL and QDRANT_LOCATION. "
+                "Use QDRANT_URL for network mode or QDRANT_LOCATION for local mode."
+            )
+
+        # Default to :memory: if neither set
+        if not self.qdrant_url and not self.qdrant_location:
+            self.qdrant_location = ":memory:"
+            logger.debug("Using default Qdrant mode: in-memory (:memory:)")
+
+        # Warn if API key set in local mode
+        if self.qdrant_location and self.qdrant_api_key:
+            logger.warning(
+                "QDRANT_API_KEY is set but QDRANT_LOCATION is used (local mode). "
+                "API key is only relevant for network mode and will be ignored."
+            )
+
+        # Validate chunking configuration
+        if self.document_chunk_overlap >= self.document_chunk_size:
+            raise ValueError(
+                f"DOCUMENT_CHUNK_OVERLAP ({self.document_chunk_overlap}) must be less than "
+                f"DOCUMENT_CHUNK_SIZE ({self.document_chunk_size}). "
+                f"Overlap should be 10-20% of chunk size for optimal results."
+            )
+
+        if self.document_chunk_size < 512:
+            logger.warning(
+                "DOCUMENT_CHUNK_SIZE is set to %s characters, which is quite small. Smaller chunks may lose context. Consider using at least 1024 characters.",
+                self.document_chunk_size,
+            )
+
+        # --- MCP decomposition hook points (design §10) ---
+        # Normalize + validate the opt-in enum settings. Defaults reproduce
+        # the monolith, so deployments that set none of these pass through.
+        _enum_fields = {
+            "embedding_provider": {"autodetect", "gateway"},
+            "mcp_role": {"api", "worker", "all"},
+            "collection_metadata_source": {"qdrant", "api"},
+            "document_tier1_engine": {"pypdfium2", "pymupdf"},
+            "document_ocr_provider": {"auto", "gateway", "mistral", "docling", "none"},
+            "document_ocr_mode": {"sync", "batch"},
+            "docling_pipeline": {"standard", "vlm"},
+        }
+        for _field, _allowed in _enum_fields.items():
+            _val = (getattr(self, _field) or "").strip().lower()
+            setattr(self, _field, _val)
+            if _val not in _allowed:
+                raise ValueError(
+                    f"{_field.upper()} must be one of {sorted(_allowed)}; got {_val!r}"
+                )
+
+        # Ingest queue backend (Deck #183). Procrastinate is opt-in: unset →
+        # ``memory`` (the in-process anyio queue) regardless of DB backend, so a
+        # Postgres DATABASE_URL alone never silently spins up a procrastinate
+        # worker. ``postgres`` must be set explicitly, and an explicit
+        # ``postgres`` against a SQLite DATABASE_URL is a misconfiguration —
+        # fail loudly below.
+        _queue = (self.ingest_queue or "").strip().lower()
+        if not _queue:
+            _queue = "memory"
+        if _queue not in {"memory", "postgres"}:
+            raise ValueError(
+                f"INGEST_QUEUE must be one of ['memory', 'postgres']; got {_queue!r}"
+            )
+        self.ingest_queue = _queue
+        if self.ingest_queue == "postgres" and is_sqlite_url(get_database_url()):
+            raise ValueError(
+                "INGEST_QUEUE=postgres requires a PostgreSQL DATABASE_URL "
+                "(procrastinate is Postgres-only); use INGEST_QUEUE=memory for "
+                "SQLite/dev"
+            )
+
+        if self.embedding_provider == "gateway" and not self.embedding_gateway_url:
+            raise ValueError(
+                "EMBEDDING_GATEWAY_URL is required when EMBEDDING_PROVIDER=gateway"
+            )
+        # Batch OCR routes through the embedding gateway's async Batch API (the only
+        # batch path from the pod), so it requires a gateway. Fail fast rather than
+        # silently downgrading to synchronous OCR at ingest time. provider=none means
+        # OCR is off entirely, so the mode is moot there.
+        if (
+            self.document_ocr_mode == "batch"
+            and self.document_ocr_provider != "none"
+            and not self.embedding_gateway_url
+        ):
+            raise ValueError(
+                "DOCUMENT_OCR_MODE=batch requires EMBEDDING_GATEWAY_URL (batch OCR "
+                "routes through the embedding gateway); use DOCUMENT_OCR_MODE=sync "
+                "for the direct backend without a gateway"
+            )
+        # Optional interactive read-parse cap (nc_webdav_read_file). Unset / empty =
+        # disabled; when set it must be a positive number of seconds. An empty string
+        # (a bare `DOCUMENT_READ_TIMEOUT_SECONDS=` from a compose passthrough) is
+        # treated as unset. Coerce so a dynaconf env string ("60") becomes a float for
+        # anyio.fail_after.
+        _read_cap = self.document_read_timeout_seconds
+        if isinstance(_read_cap, str):
+            _read_cap = _read_cap.strip() or None
+        if _read_cap is not None:
+            try:
+                _read_cap = float(_read_cap)
+            except (TypeError, ValueError):
+                raise ValueError(
+                    "DOCUMENT_READ_TIMEOUT_SECONDS must be a positive number of "
+                    "seconds (or unset to disable); got "
+                    f"{self.document_read_timeout_seconds!r}"
+                ) from None
+            if _read_cap < 1:
+                raise ValueError(
+                    "DOCUMENT_READ_TIMEOUT_SECONDS must be >= 1 second (or unset to "
+                    f"disable); got {_read_cap}"
+                )
+        self.document_read_timeout_seconds = _read_cap
+        if (
+            self.collection_metadata_source == "api"
+            and not self.collection_metadata_api_url
+        ):
+            raise ValueError(
+                "COLLECTION_METADATA_API_URL is required when "
+                "COLLECTION_METADATA_SOURCE=api"
+            )
+
+        # Gateway M2M OIDC creds are all-or-nothing: a partial set (e.g. a
+        # client_id with no token endpoint) is a misconfiguration that would
+        # silently fall back to unauthenticated calls. scope is optional.
+        _gw_creds = (
+            self.embedding_gateway_token_url,
+            self.embedding_gateway_client_id,
+            self.embedding_gateway_client_secret,
+        )
+        if any(_gw_creds) and not all(_gw_creds):
+            raise ValueError(
+                "EMBEDDING_GATEWAY_TOKEN_URL, EMBEDDING_GATEWAY_CLIENT_ID, and "
+                "EMBEDDING_GATEWAY_CLIENT_SECRET must be set together (M2M OIDC "
+                "client-credentials) or all left unset (unauthenticated gateway)"
+            )
+
+        # --- ADR-022 follow-up: deployment mode is the single source of truth ---
+        # The ENABLE_MULTI_USER_BASIC_AUTH and ENABLE_LOGIN_FLOW env vars were
+        # removed in favour of MCP_DEPLOYMENT_MODE. We do TWO things here:
+        #
+        # 1. Loud-fail if a user still has either legacy env var set to a
+        #    truthy value (silent removal would have flipped them into the
+        #    wrong runtime mode). Only fires for truthy strings, so an
+        #    explicit `ENABLE_LOGIN_FLOW=false` in a leftover .env passes
+        #    through harmlessly.
+        # 2. Derive `enable_login_flow` and `enable_multi_user_basic_auth`
+        #    from the resolved deployment mode here, in __post_init__, so
+        #    every Settings instance carries correct flags. (`get_settings()`
+        #    builds a fresh Settings on each call — without this, the
+        #    mutation that used to live in detect_auth_mode would only stick
+        #    on the startup Settings instance, leaving per-request handlers
+        #    with default False values.)
+        _truthy = {"1", "true", "yes", "on"}
+        for _legacy, _replacement in (
+            ("ENABLE_MULTI_USER_BASIC_AUTH", "multi_user_basic"),
+            ("ENABLE_LOGIN_FLOW", "login_flow"),
+        ):
+            # Read raw os.environ here, NOT cfg(): these legacy keys are
+            # intentionally NOT in the dynaconf schema (they're derived from
+            # MCP_DEPLOYMENT_MODE, ADR-022), so cfg() would always ignore them.
+            # This is a deprecation *detector* for raw env usage, not config
+            # reading — a deliberate exception to the dynaconf-drives-all rule.
+            if os.environ.get(_legacy, "").strip().lower() in _truthy:
+                raise ValueError(
+                    f"{_legacy} is no longer read from the environment. "
+                    f"Set MCP_DEPLOYMENT_MODE={_replacement} instead "
+                    "(ADR-022). The deployment mode is the single source "
+                    "of truth for selecting an auth flow."
+                )
+
+        # NOTE: this block mirrors the resolution logic in
+        # `config_validators.detect_auth_mode` (which works on strings via a
+        # `mode_map`). Both call sites resolve the deployment mode
+        # independently — the canonical AuthMode enum in detect_auth_mode,
+        # and the boolean derived flags here. **Keep them in sync when
+        # adding a new mode**: a new entry must be added in both places, in
+        # addition to `mode_map` (`config_validators.py`) and any
+        # MODE_REQUIREMENTS entry.
+        resolved_mode = (self.deployment_mode or "").strip().lower()
+        if not resolved_mode:
+            if self.nextcloud_username and self.nextcloud_password:
+                resolved_mode = "single_user_basic"
+            else:
+                # Default multi-user mode is Login Flow v2 (browser-based
+                # app-password acquisition); the un-augmented OAuth bearer
+                # pass-through it replaced needed unmerged Nextcloud
+                # user_oidc patches and is no longer supported.
+                resolved_mode = "login_flow"
+
+        self.enable_multi_user_basic_auth = resolved_mode == "multi_user_basic"
+        self.enable_login_flow = resolved_mode == "login_flow"
+
+    def _detect_base_provider(self) -> tuple[str, str]:
+        """
+        Resolve the ``(family, model)`` for the underlying embedding provider.
+
+        Single source of truth for the provider-detection priority chain shared
+        by ``get_embedding_model_name`` and ``get_embedding_provider_family``:
+        1. Bedrock - if AWS_REGION or BEDROCK_EMBEDDING_MODEL is set
+        2. OpenAI - if OPENAI_API_KEY is set
+        3. Mistral - if MISTRAL_API_KEY is set
+        4. Ollama - if OLLAMA_BASE_URL is set
+        5. Simple - fallback
+
+        Does NOT handle the gateway short-circuit — callers layer that on top
+        as needed (see the asymmetry note on ``get_embedding_model_name``).
+        """
+        if self.aws_region or self.bedrock_embedding_model:
+            return "bedrock", self.bedrock_embedding_model or "bedrock-default"
+
+        if self.openai_api_key:
+            return "openai", self.openai_embedding_model
+
+        if self.mistral_api_key:
+            return "mistral", self.mistral_embedding_model
+
+        if self.ollama_base_url:
+            return "ollama", self.ollama_embedding_model
+
+        return "simple", f"simple-{self.simple_embedding_dimension}"
+
+    def get_embedding_model_name(self) -> str:
+        """
+        Get the active embedding model name based on provider priority.
+
+        Priority order (same as providers.create_provider): bedrock → openai →
+        mistral → ollama → simple (returns "simple-{dimension}").
+
+        Returns:
+            Active embedding model name
+        """
+        # NOTE: there is intentionally no "gateway" branch here. When
+        # EMBEDDING_PROVIDER=gateway this falls through to the underlying
+        # provider's model (used for the Qdrant collection name), whereas
+        # get_embedding_provider_family() short-circuits to the gateway-routed
+        # family. Keep that asymmetry in mind before joining metrics/labels
+        # derived from these two methods.
+        return self._detect_base_provider()[1]
+
+    def get_embedding_provider_family(self) -> str:
+        """
+        Get the active dense-embedding provider family (a low-cardinality label).
+
+        This is the single source of truth for the ``provider`` metric label and
+        the ``embedding.provider`` span attribute. It returns the provider
+        *family* (e.g. "bedrock"), never the model name, to keep metric
+        cardinality bounded.
+
+        Gateway short-circuits to the gateway-routed family (from the model
+        prefix, e.g. "mistral/mistral-embed" -> "mistral"); otherwise the family
+        comes from the shared ``_detect_base_provider`` priority chain.
+
+        Returns:
+            Provider family: gateway-routed family | bedrock | openai | mistral
+            | ollama | simple
+        """
+        if self.embedding_provider == "gateway":
+            model = self.embedding_gateway_model or ""
+            return model.split("/", 1)[0] if "/" in model else "gateway"
+
+        return self._detect_base_provider()[0]
+
+    def get_collection_name(self) -> str:
+        """
+        Get Qdrant collection name.
+
+        Auto-generates from deployment ID + model name unless explicitly set.
+        Deployment ID uses OTEL_SERVICE_NAME if configured, otherwise hostname.
+
+        This enables:
+        - Safe embedding model switching (new model → new collection)
+        - Multi-server deployments (unique deployment IDs)
+        - Clear collection naming (shows deployment and model)
+
+        Format: {deployment-id}-{model-name}
+
+        Examples:
+            - "my-deployment-nomic-embed-text" (Ollama)
+            - "my-deployment-text-embedding-3-small" (OpenAI)
+            - "mcp-container-openai-text-embedding-3-small" (hostname fallback)
+
+        Returns:
+            Collection name string
+        """
+
+        # Use explicit override if user configured non-default value
+        if self.qdrant_collection != "nextcloud_content":
+            return self.qdrant_collection
+
+        # Determine deployment ID (OTEL service name or hostname fallback)
+        if self.otel_service_name != "nextcloud-mcp-server":  # Non-default
+            deployment_id = self.otel_service_name
+        else:
+            # Fallback to hostname for simple Docker deployments without OTEL config
+            deployment_id = socket.gethostname()
+
+        # Sanitize deployment ID
+        deployment_id = deployment_id.lower().replace(" ", "-").replace("_", "-")
+
+        # The collection always carries a real dense slot sized from the
+        # embedding model. Keyword-only documents (``keyword-index`` tag) simply
+        # omit the dense vector per-point — they share this collection with
+        # hybrid documents (per-document index mode), so the name is always
+        # keyed on the embedding model.
+        model_name = self.get_embedding_model_name().replace("/", "-").replace(":", "-")
+
+        return f"{deployment_id}-{model_name}"
+
+    # ADR-021: Property aliases for new naming convention
+    # These provide the new names while maintaining backward compatibility with old field names
+
+    @property
+    def enable_semantic_search(self) -> bool:
+        """Semantic search enabled (ADR-021 alias for vector_sync_enabled)."""
+        return self.vector_sync_enabled
+
+    @property
+    def enable_background_operations(self) -> bool:
+        """Background operations enabled (ADR-021 alias for enable_offline_access)."""
+        return self.enable_offline_access
+
+
+# ---------------------------------------------------------------------------
+# Field → env-var mapping, derived from ``Settings`` rather than restated.
+#
+# Every setting used to be written three times: once in ``_DEFAULTS`` (the
+# dynaconf key schema), once as a ``Settings`` field, and once in a literal
+# field→env map. The map was 145 entries of which 140 were exactly
+# ``field.upper()``, so it is now computed and only the genuine exceptions are
+# spelled out below.
+# ---------------------------------------------------------------------------
+
+# Fields whose env var is NOT simply the upper-cased field name.
+_ENV_OVERRIDE = {
+    "deployment_mode": "MCP_DEPLOYMENT_MODE",
+    "oidc_client_id": "NEXTCLOUD_OIDC_CLIENT_ID",
+    "oidc_client_secret": "NEXTCLOUD_OIDC_CLIENT_SECRET",
+    "oidc_token_type": "NEXTCLOUD_OIDC_TOKEN_TYPE",
+    "oidc_scopes": "NEXTCLOUD_OIDC_SCOPES",
+}
+
+# Derived fields with no env var of their own, so there is nothing to map:
+# ``vector_sync_enabled``/``enable_offline_access`` come from the
+# ENABLE_SEMANTIC_SEARCH / ENABLE_BACKGROUND_OPERATIONS resolution, and
+# ``enable_login_flow``/``enable_multi_user_basic_auth`` from the deployment
+# mode (the latter two aren't even dynaconf keys — see ``_DEFAULTS``).
+#
+# Excluding them is currently belt-and-braces rather than load-bearing: both
+# assignment sites are unconditional (``_build_settings`` overwrites the two
+# resolution-derived fields right after the comprehension, and
+# ``__post_init__`` recomputes the two mode-derived ones), so an entry here
+# would be inert rather than unsafe. It becomes load-bearing the moment
+# either site is made conditional — keep the derivation the only writer.
+_COMPUTED_FIELDS = frozenset(
+    {
+        "vector_sync_enabled",
+        "enable_offline_access",
+        "enable_login_flow",
+        "enable_multi_user_basic_auth",
+    }
+)
+
+
+def _env_key(field_name: str) -> str:
+    """Return the dynaconf/env key a ``Settings`` field is read from."""
+    return _ENV_OVERRIDE.get(field_name, field_name.upper())
+
+
+# Settings field name -> dynaconf key. Computed fields are excluded.
+_FIELD_MAP = {
+    f.name: _env_key(f.name) for f in fields(Settings) if f.name not in _COMPUTED_FIELDS
+}
+
+
+def _get_semantic_search_enabled() -> bool:
+    """Get semantic search enabled status, supporting both old and new variable names.
+
+    Supports:
+    - ENABLE_SEMANTIC_SEARCH (new, preferred)
+    - VECTOR_SYNC_ENABLED (old, deprecated)
+
+    Returns:
+        True if semantic search should be enabled
+    """
+    new_value = _dynaconf.get("ENABLE_SEMANTIC_SEARCH", False)
+    old_value = _dynaconf.get("VECTOR_SYNC_ENABLED", False)
+
+    if new_value and old_value:
+        logger.warning(
+            "Both ENABLE_SEMANTIC_SEARCH and VECTOR_SYNC_ENABLED are set. "
+            "Using ENABLE_SEMANTIC_SEARCH. "
+            "VECTOR_SYNC_ENABLED is deprecated and will be removed in v1.0.0."
+        )
+    elif old_value and not new_value:
+        logger.warning(
+            "VECTOR_SYNC_ENABLED is deprecated. "
+            "Please use ENABLE_SEMANTIC_SEARCH instead. "
+            "Support for VECTOR_SYNC_ENABLED will be removed in v1.0.0."
+        )
+
+    return new_value or old_value
+
+
+def _is_multi_user_mode() -> bool:
+    """Detect if this is a multi-user deployment mode.
+
+    Runs early in config setup (before Settings is fully built) for
+    mode-conditional defaults. Must match the canonical detection in
+    `config_validators.detect_auth_mode`, but works directly against the
+    raw dynaconf store since Settings doesn't exist yet.
+
+    Multi-user modes are:
+    - Multi-user BasicAuth (MCP_DEPLOYMENT_MODE=multi_user_basic)
+    - Login Flow v2 / default OAuth (MCP_DEPLOYMENT_MODE=login_flow, or no
+      username/password and no explicit mode)
+
+    Single-user mode is:
+    - Single-user BasicAuth (username and password both set)
+
+    Returns:
+        True if multi-user mode detected
+    """
+    # Explicit deployment mode wins. The ENABLE_MULTI_USER_BASIC_AUTH env-var
+    # alias was removed in the ADR-022 follow-up; selection is now via
+    # MCP_DEPLOYMENT_MODE.
+    explicit_mode = str(_dynaconf.get("MCP_DEPLOYMENT_MODE", "") or "").lower().strip()
+    if explicit_mode in {"multi_user_basic", "login_flow"}:
+        return True
+    if explicit_mode == "single_user_basic":
+        return False
+
+    # If both username and password are set, it's single-user BasicAuth
+    has_username = bool(_dynaconf.get("NEXTCLOUD_USERNAME"))
+    has_password = bool(_dynaconf.get("NEXTCLOUD_PASSWORD"))
+    if has_username and has_password:
+        return False
+
+    # Otherwise, assume multi-user (default when no credentials provided)
+    return True
+
+
+# Per-process guard for the three advisory log messages emitted by
+# `_get_background_operations_enabled()`. The function runs on every
+# `get_settings()` call (per ADR-024 / dynaconf design `get_settings()` is
+# intentionally non-cached), so unguarded `logger.info`/`logger.warning`
+# calls spam every MCP tool invocation. Mirrors the precedent at
+# `nextcloud_mcp_server/vector/webhook_receiver.py:_warn_missing_secret_once`.
+_bg_ops_advisories_logged: bool = False
+
+
+def _log_bg_ops_advisories_once(
+    explicit: bool, legacy: bool, auto_enabled: bool
+) -> None:
+    """Emit ENABLE_BACKGROUND_OPERATIONS advisory logs at most once per process."""
+    global _bg_ops_advisories_logged
+    if _bg_ops_advisories_logged:
+        return
+    _bg_ops_advisories_logged = True
+
+    if explicit and legacy:
+        logger.warning(
+            "Both ENABLE_BACKGROUND_OPERATIONS and ENABLE_OFFLINE_ACCESS are set. "
+            "Using ENABLE_BACKGROUND_OPERATIONS. "
+            "ENABLE_OFFLINE_ACCESS is deprecated and will be removed in v1.0.0."
+        )
+    elif legacy and not explicit:
+        logger.warning(
+            "ENABLE_OFFLINE_ACCESS is deprecated. "
+            "Please use ENABLE_BACKGROUND_OPERATIONS instead. "
+            "Support for ENABLE_OFFLINE_ACCESS will be removed in v1.0.0."
+        )
+    if auto_enabled and not (explicit or legacy):
+        logger.info(
+            "Automatically enabled background operations for semantic search in multi-user mode. "
+            "Set ENABLE_BACKGROUND_OPERATIONS=false to disable (this will also disable semantic search)."
+        )
+
+
+def _get_background_operations_enabled() -> bool:
+    """Get background operations enabled status with auto-enablement for semantic search.
+
+    Supports:
+    - ENABLE_BACKGROUND_OPERATIONS (new, preferred)
+    - ENABLE_OFFLINE_ACCESS (old, deprecated)
+    - Auto-enabled if ENABLE_SEMANTIC_SEARCH=true in multi-user modes
+
+    Returns:
+        True if background operations should be enabled
+    """
+    explicit = _dynaconf.get("ENABLE_BACKGROUND_OPERATIONS", False)
+    legacy = _dynaconf.get("ENABLE_OFFLINE_ACCESS", False)
+    semantic_search_enabled = _get_semantic_search_enabled()
+    is_multi_user = _is_multi_user_mode()
+    auto_enabled = semantic_search_enabled and is_multi_user
+
+    _log_bg_ops_advisories_once(explicit, legacy, auto_enabled)
+
+    return explicit or legacy or auto_enabled
+
+
+def _dget(key):
+    """Get a value from dynaconf if configured, otherwise return _UNSET.
+
+    Distinguishes "explicitly set to None" (via @none in TOML or env var)
+    from "not configured at all". When _UNSET is returned, callers should
+    let the Settings dataclass default apply.
+    """
+    return _dynaconf[key] if key in _dynaconf else _UNSET
+
+
+def cfg(key: str, default=None):
+    """Dynaconf-driven config accessor for keys NOT modelled on ``Settings``.
+
+    The single supported way for application code to read configuration that
+    isn't a first-class ``Settings`` field — reads from settings.toml, env vars
+    and runtime overrides via dynaconf. Application code MUST use this (or
+    ``get_settings().<field>``) instead of ``os.getenv`` / ``os.environ`` so all
+    config is dynaconf-driven (settings.toml [default]/[<mode>] + env + overrides).
+
+    Mirrors ``os.getenv(key, default)``: returns ``default`` when the value is
+    unset OR ``None``, so a key modelled in ``_DEFAULTS`` with a ``None`` default
+    does NOT shadow a meaningful call-site fallback (e.g.
+    ``cfg("MCP_SERVER_CLIENT_SECRET", oauth_config.get("client_secret"))``).
+    """
+    value = _dynaconf.get(key)
+    return value if value is not None else default
+
+
+def set_override(key: str, value) -> None:
+    """Set a runtime config override in dynaconf (the documented ``.set`` path).
+
+    Used by the CLI to feed ``--flags`` into dynaconf instead of mutating
+    ``os.environ``. Subsequent ``cfg()`` / ``get_settings()`` reads see it.
+    ``tomlfy=True`` parses the value so typed scalars ("9090" -> int, "true" ->
+    bool) land with the right type, matching settings.toml semantics.
+    """
+    _dynaconf.set(key, value, tomlfy=True)
+    _clear_settings_caches()
+
+
+@functools.cache
+def _warn_unknown_env_vars() -> None:
+    """Warn about env vars that look like a misspelled setting.
+
+    We run dynaconf with ``ignore_unknown_envvars=True`` (see ``_DEFAULTS``), so
+    an env var we don't declare is dropped without a word — ``VECTOR_SYNC_ENABLE``
+    silently does nothing. Only warn when the name closely resembles a declared
+    key, so the environment's own vars (PATH, the ``*_SERVICE_HOST`` pairs
+    Kubernetes injects into every pod, ...) stay quiet. Warn, never fail:
+    ``os.environ`` isn't ours, and a false positive must not stop a deployment.
+    """
+    known = {k.upper() for k in _DEFAULTS}
+    for name in sorted(os.environ):
+        if name in known:
+            continue
+        # cutoff measured: 0.85 catches every planted typo with no false
+        # positive on a realistic container env; 0.80 trips on k8s injections.
+        if match := difflib.get_close_matches(name, known, n=1, cutoff=0.85):
+            logger.warning(
+                "%s is not a recognized setting and was ignored; did you mean %s?",
+                name,
+                match[0],
+            )
+
+
+@functools.cache
+def _build_settings() -> Settings:
+    """Get application settings from dynaconf configuration.
+
+    Settings are loaded from (last wins):
+    1. settings.toml [default] section
+    2. settings.toml [<mode>] section (via MCP_DEPLOYMENT_MODE)
+    3. .secrets.toml (if present)
+    4. settings.local.toml (if present)
+    5. Environment variables (highest priority)
+
+    Values not found in any source are omitted, letting Settings dataclass
+    defaults apply. This ensures the server starts correctly even without
+    settings.toml (e.g., env-var-only deployments).
+
+    Returns:
+        Settings object with configuration values
+    """
+    _warn_unknown_env_vars()
+
+    # Get consolidated values with smart dependency resolution
+    enable_semantic_search = _get_semantic_search_enabled()
+    enable_background_operations = _get_background_operations_enabled()
+
+    # Only pass values that dynaconf actually has; omit unset keys so
+    # the Settings dataclass defaults apply.
+    kwargs = {
+        field: val
+        for field, key in _FIELD_MAP.items()
+        if (val := _dget(key)) is not _UNSET
+    }
+
+    # Smart dependency overrides (always set, regardless of dynaconf)
+    kwargs["vector_sync_enabled"] = enable_semantic_search
+    kwargs["enable_offline_access"] = enable_background_operations
+
+    return Settings(**kwargs)
+
+
+def get_settings() -> Settings:
+    """Return application settings, memoizing the dynaconf resolution.
+
+    The ~150-key dynaconf resolution in ``_build_settings`` is the ingest
+    worker's second CPU hotspot (it runs 5-7x per job). Memoize it and return a
+    shallow copy per call, so callers that mutate the returned object (e.g. the
+    OAuth registration flow in ``app.py``) keep the per-call-instance semantics
+    they had before caching. Caches are dropped by ``_reload_config`` (tests) and
+    ``set_override`` (CLI overrides).
+    """
+    return copy.copy(_build_settings())
+
+
+@functools.cache
+def get_nextcloud_ssl_verify() -> bool | ssl.SSLContext:
+    """Return the SSL verification setting for Nextcloud connections.
+
+    Returns:
+        - False if NEXTCLOUD_VERIFY_SSL=false (disable verification)
+        - ssl.SSLContext if NEXTCLOUD_CA_BUNDLE is set (custom CA)
+        - True otherwise (default system CA verification)
+    """
+    settings = get_settings()
+    if not settings.nextcloud_verify_ssl:
+        return False
+    if settings.nextcloud_ca_bundle:
+        ctx = ssl.create_default_context(cafile=settings.nextcloud_ca_bundle)
+        return ctx
+    return True
+
+
+@functools.cache
+def get_nextcloud_http_keepalive() -> bool:
+    """Return whether the Nextcloud httpx client may reuse pooled connections.
+
+    Returns:
+        - False if NEXTCLOUD_HTTP_KEEPALIVE=false (fresh connection per
+          request, mitigates the poisoned-keep-alive truncation in #965).
+        - True otherwise (default pooled keep-alive behavior).
+    """
+    return get_settings().nextcloud_http_keepalive
+
+
+def _clear_settings_caches() -> None:
+    """Drop memoized settings/SSL/keepalive so the next read re-resolves dynaconf.
+
+    Called by ``_reload_config`` (tests refresh after mutating os.environ) and
+    ``set_override`` (CLI runtime overrides) so those paths still take effect.
+    """
+    _build_settings.cache_clear()
+    get_nextcloud_ssl_verify.cache_clear()
+    get_nextcloud_http_keepalive.cache_clear()
+    # _warn_unknown_env_vars is deliberately NOT cleared: it is a once-per-process
+    # advisory, and re-arming it here would re-log the same warning on every CLI
+    # override and every test reload.
+
+
+def get_procrastinate_conninfo(database_url: str | None = None) -> str:
+    """Return the libpq conninfo for procrastinate's psycopg3 connector.
+
+    ``DATABASE_URL`` is passed through **verbatim** — never decomposed or
+    rewritten (ADR-026, Model A). procrastinate speaks raw libpq (psycopg3),
+    which wants the URL *without* SQLAlchemy's ``+psycopg`` driver tag, so the
+    only transform is a lossless strip of that tag. libpq then reads
+    ``sslmode``, ``connect_timeout``, the password, and every other parameter
+    straight from the URL. TLS therefore lives entirely in the DSN; there is no
+    separate env-var TLS mechanism.
+
+    Raises ``ValueError`` for a non-Postgres URL — procrastinate is
+    Postgres-only — rather than silently coercing it.
+    """
+    url = database_url or get_database_url()
+    if not url.lower().startswith("postgresql"):
+        # Show only the scheme (no credentials) — the URL is not parsed.
+        scheme = url.split("://", 1)[0]
+        raise ValueError(
+            "get_procrastinate_conninfo requires a PostgreSQL DATABASE_URL; "
+            f"got driver {scheme!r}"
+        )
+
+    # Strip only the SQLAlchemy driver tag (``postgresql+psycopg`` →
+    # ``postgresql``); libpq consumes the rest of the URL unchanged. Match
+    # case-insensitively so the strip stays consistent with the scheme guard
+    # above (``url.lower().startswith``) — a ``Postgresql+psycopg://`` that
+    # passed the guard must not slip through unstripped into an invalid conninfo.
+    return re.sub(
+        r"^postgresql\+\w+://", "postgresql://", url, count=1, flags=re.IGNORECASE
+    )

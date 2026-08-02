@@ -1,12 +1,15 @@
 Metadata-Version: 2.4
 Name: aiobotocore
-Version: 3.8.0
+Version: 3.9.0
 Summary: Async client for aws services using botocore and aiohttp
-Author-email: Nikolay Novik <nickolainovik@gmail.com>
-License-Expression: Apache-2.0
 Project-URL: Repository, https://github.com/aio-libs/aiobotocore
 Project-URL: Documentation, https://aiobotocore.aio-libs.org
+Author-email: Nikolay Novik <nickolainovik@gmail.com>
+License-Expression: Apache-2.0
+License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Web Environment
+Classifier: Framework :: AsyncIO
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Natural Language :: English
@@ -16,22 +19,22 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: Environment :: Web Environment
-Classifier: Framework :: AsyncIO
 Requires-Python: >=3.10
-Description-Content-Type: text/x-rst
-License-File: LICENSE
-Requires-Dist: aiohttp<4.0.0,>=3.12.0
+Requires-Dist: aiohttp<4.0.0,>=3.14.0
 Requires-Dist: aioitertools<1.0.0,>=0.5.1
-Requires-Dist: botocore<1.43.47,>=1.43.3
-Requires-Dist: python-dateutil<3.0.0,>=2.1
+Requires-Dist: botocore<1.43.57,>=1.43.3
 Requires-Dist: jmespath<2.0.0,>=0.7.1
 Requires-Dist: multidict<7.0.0,>=6.0.0
-Requires-Dist: typing-extensions<5.0.0,>=4.14.0; python_version < "3.11"
+Requires-Dist: python-dateutil<3.0.0,>=2.1
+Requires-Dist: typing-extensions<5.0.0,>=4.14.0; python_version < '3.11'
 Requires-Dist: wrapt<3.0.0,>=1.10.10
 Provides-Extra: httpx
-Requires-Dist: httpx<0.29,>=0.25.1; extra == "httpx"
-Dynamic: license-file
+Requires-Dist: anyio<5,>=4.11.0; extra == 'httpx'
+Requires-Dist: httpx<0.29,>=0.25.1; extra == 'httpx'
+Provides-Extra: httpx2
+Requires-Dist: anyio<5,>=4.11.0; extra == 'httpx2'
+Requires-Dist: httpx2<3.0.0,>=2.0; extra == 'httpx2'
+Description-Content-Type: text/x-rst
 
 aiobotocore
 ===========
@@ -252,8 +255,26 @@ Requirements
 .. _pyright: https://github.com/microsoft/pyright
 .. _mypy: http://mypy-lang.org/
 
+
 Changes
 -------
+
+3.9.0 (2026-08-01)
+^^^^^^^^^^^^^^^^^^
+* bump botocore dependency specification to support
+  ``"botocore >= 1.43.3, < 1.43.57"`` (#1665, #1668, #1675)
+* bump aiohttp dependency specification to support
+  ``"aiohttp >= 3.14.0, < 4.0.0"`` (#1667)
+* run the optional ``httpx`` backend on ``trio`` in addition to ``asyncio``,
+  via ``anyio`` primitives, so aiobotocore is usable from trio-based projects
+  (closes #749) (#1667)
+* prefer ``httpx2`` — Pydantic's maintained, API-compatible fork of ``httpx``
+  — for the optional httpx backend, adding a new ``aiobotocore[httpx2]``
+  extra; the existing ``aiobotocore[httpx]`` extra keeps working but now
+  installs the deprecated legacy ``httpx`` package and emits a
+  ``DeprecationWarning`` when used (#1669)
+* fix the release-drafting workflow silently reporting success when the
+  agent never ran (#1664)
 
 3.8.0 (2026-07-17)
 ^^^^^^^^^^^^^^^^^^

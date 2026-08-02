@@ -1,0 +1,159 @@
+#!/usr/bin/python
+from __future__ import annotations
+
+"""Neo4j Backend Implementation."""
+
+# CONCEPT:AU-KG.query.object-graph-mapper
+
+
+import logging
+from typing import Any
+
+from ..base import GraphBackend, coerce_cypher_property
+
+logger = logging.getLogger(__name__)
+
+try:
+    from neo4j import GraphDatabase as _GraphDatabase
+
+    GraphDatabase: Any = _GraphDatabase
+except ImportError:
+    GraphDatabase = None
+
+
+class Neo4jBackend(GraphBackend):
+    """Neo4j backend for the unified graph."""
+
+    def __init__(
+        self,
+        uri: str = "bolt://localhost:7687",
+        user: str = "neo4j",
+        password: str = "password",  # nosec B107
+    ):
+        if GraphDatabase is None:
+            raise ImportError(
+                "Neo4j driver is not installed. Please install with `pip install agent-utilities[neo4j]`"
+            )
+        self.driver = GraphDatabase.driver(uri, auth=(user, password))
+        logger.info(f"Initialized Neo4j backend at {uri}")
+
+    @staticmethod
+    def _normalize_value(value: Any) -> Any:
+        """Unwrap neo4j driver Node/Relationship objects into plain property dicts.
+
+        ``dict(record)`` leaves graph entities as opaque ``Node``/``Relationship``
+        objects, so a ``RETURN n`` row carries no readable properties for callers
+        that expect dicts. Unwrap to ``dict(entity)`` (its properties) so reads are
+        on par with the other backends.
+        """
+        # neo4j Node/Relationship are Mapping-like; ``.labels``/``.type`` distinguish them.
+        if hasattr(value, "items") and (
+            hasattr(value, "labels") or hasattr(value, "type")
+        ):
+            return dict(value)
+        if isinstance(value, list):
+            return [Neo4jBackend._normalize_value(v) for v in value]
+        return value
+
+    def execute(
+        self,
+        query: str,
+        params: dict[str, Any] | None = None,
+        *,
+        include_epistemic: bool = False,
+    ) -> list[dict[str, Any]]:
+        if include_epistemic:
+            # CONCEPT:AU-KB-CURRENCY (Seam 1) — no id-seeded epistemic-envelope
+            # primitive on this backend; degrade to ``[]`` per the ABC contract.
+            logger.debug(
+                "Neo4jBackend.execute(include_epistemic=True): no epistemic "
+                "envelope primitive; returning []"
+            )
+            return []
+        params = {k: coerce_cypher_property(v) for k, v in (params or {}).items()}
+        with self.driver.session() as session:
+            result = session.run(query, params)
+            return [
+                {k: self._normalize_value(v) for k, v in record.items()}
+                for record in result
+            ]
+
+    def execute_batch(
+        self, query: str, batch: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Execute a batch query using Cypher UNWIND."""
+        if not self.driver:
+            raise RuntimeError("Neo4j backend not connected.")
+
+        # Ensure query contains UNWIND if the user hasn't explicitly structured it
+        if "UNWIND" not in query.upper():
+            logger.warning(
+                "Batch query does not contain UNWIND. Execution might be slow or fail."
+            )
+
+        # Sanitize each row's property values (Map/nested → JSON string) so a single
+        # Map-valued prop can't fail the whole UNWIND batch (and stall a mirror).
+        batch = [
+            {k: coerce_cypher_property(v) for k, v in row.items()}
+            if isinstance(row, dict)
+            else row
+            for row in batch
+        ]
+        with self.driver.session() as session:
+            try:
+                result = session.run(query, {"batch": batch})
+                return [dict(record) for record in result]
+            except Exception as e:
+                logger.error(f"Neo4j batch execution error: {e}")
+                return []
+
+    def create_schema(self) -> None:
+        # Index a SHARED ``:Embeddable`` label that every embedded node is tagged
+        # with (see add_embedding). The old index targeted a ``:Chunk`` label that
+        # no node ever carries, so vector search silently returned nothing.
+        logger.info("Creating Neo4j vector index for embeddings (:Embeddable).")
+        # Embedding dimensionality is driven by the unified XDG config
+        # (config.kg_embedding_dim) — never hardcoded — so every backend agrees with
+        # the configured embedding model; 768 is only a last-resort fallback.
+        from agent_utilities.core.config import config
+
+        dim = int(config.kg_embedding_dim or "768")
+        query = f"""
+        CREATE VECTOR INDEX idx_embedding IF NOT EXISTS
+        FOR (n:Embeddable) ON (n.embedding)
+        OPTIONS {{indexConfig: {{
+          `vector.dimensions`: {dim},
+          `vector.similarity_function`: 'cosine'
+        }}}}
+        """
+        try:
+            self.execute(query)
+        except Exception as e:
+            logger.warning(f"Could not create vector index in Neo4j: {e}")
+
+    def add_embedding(self, node_id: str, embedding: list[float]) -> None:
+        # Tag the node ``:Embeddable`` so it enters the vector index regardless of
+        # its primary label (Code/Concept/Document/…).
+        query = "MATCH (n {id: $id}) SET n:Embeddable, n.embedding = $embedding"
+        self.execute(query, {"id": node_id, "embedding": embedding})
+
+    def semantic_search(
+        self, query_embedding: list[float], n_results: int = 5
+    ) -> list[dict[str, Any]]:
+        """Perform a semantic vector search returning top matching nodes using Neo4j 5.11+."""
+        query = """
+        CALL db.index.vector.queryNodes('idx_embedding', $n_results, $query_embedding)
+        YIELD node, score
+        RETURN node
+        """
+        return self.execute(
+            query, {"query_embedding": query_embedding, "n_results": n_results}
+        )
+
+    def prune(self, criteria: dict[str, Any]) -> None:
+        query = "MATCH (n) WHERE n.last_accessed < $timestamp DETACH DELETE n"
+        if "last_accessed" in criteria:
+            self.execute(query, {"timestamp": criteria["last_accessed"]})
+
+    def close(self) -> None:
+        self.driver.close()

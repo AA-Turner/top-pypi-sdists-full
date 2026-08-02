@@ -1,0 +1,43 @@
+mapping:
+  nodes:
+  - !Storage
+    tensors: [I, W, O]
+    component: MainMemory
+  - !Temporal
+    rank_variable: c
+    tile_shape: symbol
+  - !Spatial
+    rank_variable: r
+    tile_shape: symbol
+    name: X
+    component: LocalBuffer
+  - !Spatial
+    rank_variable: m
+    tile_shape: symbol
+    name: X
+    component: LocalBuffer
+  - !Storage
+    tensors: [I]
+    component: LocalBuffer
+  - !Temporal
+    rank_variable: m
+    tile_shape: symbol
+  - !Temporal
+    rank_variable: p
+    tile_shape: symbol
+  - !Temporal
+    rank_variable: p
+    tile_shape: symbol
+  - !Temporal
+    rank_variable: p
+    tile_shape: 4
+    assume_perfect_factor: false
+  - !Temporal
+    rank_variable: p
+    tile_shape: symbol
+  - !Temporal
+    rank_variable: p
+    tile_shape: symbol
+  - !Compute
+    einsum: conv
+    compute: MAC

@@ -1,0 +1,808 @@
+trigger:
+  - 2.4.x
+  - release/*
+
+pr:
+  - 2.4.x
+  - release/*
+
+pool:
+  vmImage: 'Ubuntu-latest'
+
+# set the build name
+name: $[ variables['branchName'] ]
+
+# run tests and full conda/tox build matrix every night at 3am
+schedules:
+  - cron: "0 3 * * 1-5"
+    displayName: Nightly full build
+    branches:
+      include:
+        - 2.4.x
+
+resources:
+  repositories:
+    - repository: pytools
+      type: github
+      endpoint: BCG-X-Official
+      name: BCG-X-Official/pytools
+      ref: 3.0.x
+
+variables:
+  # Short branch name for convenience (works for PRs & non-PRs)
+  branchName: $[ coalesce(
+      replace(variables['System.PullRequest.SourceBranch'], 'refs/heads/', ''),
+      replace(variables['Build.SourceBranch'], 'refs/heads/', '')
+    ) ]
+
+  # Detect release from either full ref (non-PR) or PR source (short or full)
+  source_is_release_branch: $[ or(
+      startsWith(variables['Build.SourceBranch'], 'refs/heads/release/'),
+      and(
+        startsWith(variables['Build.SourceBranch'], 'refs/pull/'),
+        or(
+          startsWith(variables['System.PullRequest.SourceBranch'], 'refs/heads/release/'),
+          startsWith(variables['System.PullRequest.SourceBranch'], 'release/')
+        )
+      )
+    ) ]
+
+  # Detect dev from either full ref (non-PR) or PR source (short or full)
+  source_is_develop_branch: $[ or(
+      startsWith(variables['Build.SourceBranch'], 'refs/heads/dev/'),
+      and(
+        startsWith(variables['Build.SourceBranch'], 'refs/pull/'),
+        or(
+          startsWith(variables['System.PullRequest.SourceBranch'], 'refs/heads/dev/'),
+          startsWith(variables['System.PullRequest.SourceBranch'], 'dev/')
+        )
+      )
+    ) ]
+
+  # Scheduled?
+  is_scheduled: $[ eq(variables['Build.Reason'], 'Schedule') ]
+
+  # Static variables
+  project_name: sklearndf
+  project_root: $(project_name)
+  package_name: sklearndf
+  sshPublicKey: $(sshPublicKey_sklearndf)
+
+stages:
+  # check code quality first to fail fast (isort, flake8, black)
+  - stage: code_quality_checks
+    displayName: 'Code quality'
+    jobs:
+      - job:
+        displayName: 'isort'
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.9'
+            displayName: 'use Python 3.9'
+          - script: |
+              python -m pip install isort~=6.0
+              python -m isort --check --diff .
+            displayName: 'Run isort'
+      - job:
+        displayName: 'black'
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.9'
+            displayName: 'use Python 3.9'
+          - script: |
+              python -m pip install black~=25.1.0
+              python -m black --check .
+            displayName: 'Run black'
+      - job:
+        displayName: 'flake8'
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.9'
+            displayName: 'use Python 3.9'
+          - script: |
+              python -m pip install flake8~=7.3 flake8-comprehensions~=3.16
+              python -m flake8 --config tox.ini -v .
+            displayName: 'Run flake8'
+      - job:
+        displayName: 'mypy'
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.10'
+            displayName: 'use Python 3.10'
+          - script: |
+              # package dependencies for mypy
+              dependencies=(
+                numpy~=2.2
+                gamma-pytools~=3.0
+              )
+              python -m pip install mypy "${dependencies[@]}"
+              python -m mypy src --config-file pyproject.toml
+            displayName: 'Run mypy'
+
+  # detect whether the build config (pyproject.toml) was changed -> then we must run a build test
+  - stage: detect_build_config_changes
+    displayName: 'Pyproject.toml build config'
+
+    jobs:
+
+      - job: checkout_and_diff
+        displayName: 'detect config changes'
+        steps:
+          - checkout: self
+            fetchDepth: 2
+
+          - task: Bash@3
+            name: diff
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -eux
+
+                echo Repo: $(Build.DefinitionName)
+                cd $(System.DefaultWorkingDirectory)
+                files_changed=$(git diff $(Build.SourceVersion)^ --name-only)
+                echo "Files changed since last commit: ${files_changed}"
+                n_files_changed=$(git diff $(Build.SourceVersion)^ --name-only | grep -i -E 'meta\.yaml|pyproject\.toml|azure-pipelines\.yml|tox\.ini|make\.py'  | wc -l | xargs)
+                if [ ${n_files_changed} -gt 0 ]
+                then
+                build_changed=1
+                echo "build config has been changed"
+                else
+                build_changed=0
+                echo "build config is unchanged";
+                fi
+                # set +x to prevent Azure from randomly appending a \' of the ## statement
+                set +x
+                echo "##vso[task.setvariable variable=conda_build_config_changed;isOutput=true]$build_changed"
+
+  - stage:
+    displayName: 'Unit tests'
+    dependsOn: 'detect_build_config_changes'
+    variables:
+      conda_build_config_changed: $[ stageDependencies.detect_build_config_changes.checkout_and_diff.outputs['diff.conda_build_config_changed'] ]
+
+    jobs:
+      - job:
+        displayName: 'pytest @ develop environment'
+        condition: ne(variables.source_is_release_branch, 'True')
+
+        pool:
+          vmImage: 'ubuntu-latest'
+
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.9'
+            displayName: 'use Python 3.9'
+
+          - checkout: self
+
+          - script: dir $(Build.SourcesDirectory)
+
+          - task: Bash@3
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -eux
+
+                # install micromamba
+                curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
+                export MAMBA_ROOT_PREFIX=~/micromamba
+                eval "$(./bin/micromamba shell hook -s posix)"
+
+                # install the develop environment
+                micromamba env create --yes --file environment.yml
+                micromamba activate $(project_name)-develop
+
+                export PYTHONPATH=$(System.DefaultWorkingDirectory)/src/
+                export RUN_PACKAGE_VERSION_TEST=$(project_name)
+
+                pytest \
+                   --cov $(project_name) \
+                   --cov-config "tox.ini" \
+                   --cov-report=xml:coverage.xml --cov-report=html:htmlcov \
+                   --junitxml pytest.xml \
+                   . -s
+            displayName: 'pytest'
+
+          - task: PublishTestResults@2
+            condition: succeededOrFailed()
+            inputs:
+              testResultsFiles: '$(System.DefaultWorkingDirectory)/*.xml'
+              searchFolder: '$(System.DefaultWorkingDirectory)/'
+              testRunTitle: 'Publish test results'
+
+          - task: PublishCodeCoverageResults@2
+            inputs:
+              summaryFileLocation: '$(System.DefaultWorkingDirectory)/coverage.xml'
+
+  # conda env & tox build test
+  # testing matrix of python & sklearn versions
+  # - for release branch: 9 build tests
+  # - otherwise: 3 build tests
+  - stage: conda_tox_build
+    displayName: 'Conda/tox build & test'
+    dependsOn: 'detect_build_config_changes'
+    variables:
+      conda_build_config_changed: $[ stageDependencies.detect_build_config_changes.checkout_and_diff.outputs['diff.conda_build_config_changed'] ]
+
+    jobs:
+      - job:
+        displayName: 'essential'
+        condition: >
+          and(
+          ne(variables.source_is_release_branch, 'True'),
+          ne(variables.source_is_develop_branch, 'True'),
+          ne(variables.is_scheduled, 'True'),
+          ne(stageDependencies.detect_build_config_changes.checkout_and_diff.outputs['diff.conda_build_config_changed'], '0')
+          )
+
+        pool:
+          vmImage: 'ubuntu-latest'
+        strategy:
+          matrix:
+            # We run three tests to cover conda/tox and maximum/minimum.
+            # This comprises only one minimum dependencies test for tox,
+            # which is usually faster than conda.
+            maximum_dependencies_conda:
+              FACET_V_PYTHON_BUILD: '=3.12'
+              BUILD_SYSTEM: 'conda'
+              PKG_DEPENDENCIES: 'max'
+            minimum_dependencies_tox:
+              FACET_V_PYTHON_BUILD: '=3.9'
+              BUILD_SYSTEM: 'tox'
+              PKG_DEPENDENCIES: 'min'
+            maximum_dependencies_tox:
+              FACET_V_PYTHON_BUILD: '=3.12'
+              BUILD_SYSTEM: 'tox'
+              PKG_DEPENDENCIES: 'max'
+
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '$(FACET_V_PYTHON_BUILD)'
+            displayName: 'Use Python $(FACET_V_PYTHON_BUILD)'
+
+          - checkout: pytools
+          - checkout: self
+
+          - script: dir $(Build.SourcesDirectory)
+
+          - script: |
+              # install micromamba
+              curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
+              export MAMBA_ROOT_PREFIX=~/micromamba
+              eval "$(./bin/micromamba shell hook -s posix)"
+              
+              # create and activate a build environment, then install the tools we need
+              micromamba create -n build
+              micromamba activate build
+              micromamba install -y -c conda-forge rattler-build~=0.44 toml~=0.10 flit~=3.6 'packaging>=25'
+            displayName: 'Install conda-build, flit, toml'
+            condition: eq(variables['BUILD_SYSTEM'], 'conda')
+
+          - script: |
+              python -m pip install "toml~=0.10"
+              python -m pip install "flit~=3.7"
+              flit --version
+              python -m pip install "tox~=3.25"
+              tox --version
+            displayName: 'Install tox, flit & toml'
+            condition: eq(variables['BUILD_SYSTEM'], 'tox')
+
+          - task: Bash@3
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -eux
+                if [ "$BUILD_SYSTEM" = "conda" ] ; then
+                  export MAMBA_ROOT_PREFIX=~/micromamba
+                  eval "$(./bin/micromamba shell hook -s posix)"
+                  micromamba activate build
+                fi
+                export RUN_PACKAGE_VERSION_TEST=$(project_name)
+
+                cd $(Build.SourcesDirectory)/$(project_root)
+                ./make.py $(project_name) $(BUILD_SYSTEM) $(PKG_DEPENDENCIES)
+            displayName: "build & test"
+
+          - task: CopyFiles@2
+            inputs:
+              sourceFolder: $(System.DefaultWorkingDirectory)/$(project_root)/dist
+              targetFolder: $(Build.ArtifactStagingDirectory)
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathtoPublish: $(Build.ArtifactStagingDirectory)
+              artifactName: $(BUILD_SYSTEM)_$(PKG_DEPENDENCIES)
+              publishLocation: Container
+
+      - job:
+        displayName: 'matrix'
+        condition: >
+          or(
+          eq(variables.source_is_develop_branch, 'True'),
+          eq(variables.source_is_release_branch, 'True'),
+          eq(variables.is_scheduled, 'True')
+          )
+
+        pool:
+          vmImage: 'ubuntu-latest'
+        strategy:
+          matrix:
+            default_dependencies_conda:
+              FACET_V_PYTHON_BUILD: '=3.11'
+              BUILD_SYSTEM: 'conda'
+              PKG_DEPENDENCIES: 'default'
+            minimum_dependencies_conda:
+              FACET_V_PYTHON_BUILD: '=3.9'
+              BUILD_SYSTEM: 'conda'
+              PKG_DEPENDENCIES: 'min'
+            maximum_dependencies_conda:
+              FACET_V_PYTHON_BUILD: '=3.12'
+              BUILD_SYSTEM: 'conda'
+              PKG_DEPENDENCIES: 'max'
+            default_dependencies_tox:
+              FACET_V_PYTHON_BUILD: '=3.11'
+              BUILD_SYSTEM: 'tox'
+              PKG_DEPENDENCIES: 'default'
+            minimum_dependencies_tox:
+              FACET_V_PYTHON_BUILD: '=3.9'
+              BUILD_SYSTEM: 'tox'
+              PKG_DEPENDENCIES: 'min'
+            maximum_dependencies_tox:
+              FACET_V_PYTHON_BUILD: '=3.12'
+              BUILD_SYSTEM: 'tox'
+              PKG_DEPENDENCIES: 'max'
+
+
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '$(FACET_V_PYTHON_BUILD)'
+            displayName: 'Use Python $(FACET_V_PYTHON_BUILD)'
+
+          - checkout: pytools
+          - checkout: self
+
+          - script: dir $(Build.SourcesDirectory)
+
+          - script: |
+              # install micromamba
+              curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
+              export MAMBA_ROOT_PREFIX=~/micromamba
+              eval "$(./bin/micromamba shell hook -s posix)"
+              
+              # create and activate a build environment, then install the tools we need
+              micromamba create -n build
+              micromamba activate build
+              micromamba install -y -c conda-forge rattler-build~=0.44 toml~=0.10 flit~=3.6 'packaging>=25'
+            displayName: 'Install conda-build, flit, toml'
+            condition: eq(variables['BUILD_SYSTEM'], 'conda')
+
+          - script: |
+              python -m pip install "toml==0.10.*"
+              python -m pip install "flit==3.0.*"
+              flit --version
+              python -m pip install "tox==3.20.*"
+              tox --version
+            displayName: 'Install tox, flit & toml'
+            condition: eq(variables['BUILD_SYSTEM'], 'tox')
+
+          - task: Bash@3
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -eux
+                if [ "$BUILD_SYSTEM" = "conda" ] ; then
+                  export MAMBA_ROOT_PREFIX=~/micromamba
+                  eval "$(./bin/micromamba shell hook -s posix)"
+                  micromamba activate build
+                fi
+                export RUN_PACKAGE_VERSION_TEST=$(project_name)
+
+                cd $(Build.SourcesDirectory)/$(project_root)
+                ./make.py $(project_name) $(BUILD_SYSTEM) $(PKG_DEPENDENCIES)
+            displayName: "build & test"
+
+          - task: CopyFiles@2
+            inputs:
+              sourceFolder: $(System.DefaultWorkingDirectory)/$(project_root)/dist
+              targetFolder: $(Build.ArtifactStagingDirectory)
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathtoPublish: $(Build.ArtifactStagingDirectory)
+              artifactName: $(BUILD_SYSTEM)_$(PKG_DEPENDENCIES)
+              publishLocation: Container
+
+  # apply veracode static code analysis during nightly build
+  - stage: veracode_check
+    displayName: 'Veracode check'
+
+    jobs:
+      - job:
+        displayName: 'Veracode check'
+        condition: eq(variables['Build.Reason'], 'Schedule')
+
+        steps:
+          - task: Bash@3
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -eux
+                eval "$(conda shell.bash hook)"
+                cd $(System.DefaultWorkingDirectory)
+                mkdir static_scan
+                git archive --format=zip --output static_scan/archive.zip HEAD
+
+          - task: Veracode@3
+            inputs:
+              ConnectionDetailsSelection: 'Endpoint'
+              AnalysisService: 'veracode'
+              veracodeAppProfile: 'FACET'
+              version: '$(Build.BuildID)'
+              filepath: '$(System.DefaultWorkingDirectory)/static_scan'
+              sandboxName: '$(project_name)'
+              createSandBox: false
+              createProfile: false
+              failTheBuildIfVeracodeScanDidNotInitiate: false
+              scanStatusCheckInterval: '60'
+              importResults: false
+              failBuildOnPolicyFail: false
+
+  - stage: check_release
+    displayName: 'Check Release Version'
+    dependsOn: conda_tox_build
+
+    jobs:
+      - job:
+        displayName: 'Check Release'
+        condition: >
+          or(
+          eq(variables.source_is_release_branch, 'True'),
+          eq(variables.source_is_develop_branch, 'True')
+          )
+
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.9'
+            displayName: 'use Python 3.9'
+
+          - checkout: pytools
+          - checkout: self
+
+          - task: Bash@3
+            env:
+              BRANCH_NAME: $(branchName)
+            inputs:
+              targetType: inline
+              condition: ne(variables.branchName, 'develop')
+              script: |
+                set -eux
+                python -m pip install toml~=0.10.2 'packaging>=25'
+                cd $(System.DefaultWorkingDirectory)/pytools
+                python <<EOF
+                from os import environ
+                from make import ToxBuilder
+
+                branch_env = "BRANCH_NAME"
+                assert branch_env in environ, f"ENV variable '{branch_env}' with git branch name missing."
+                branch = environ[branch_env]
+                print(f"Checking package version consistency with branch: {branch}")
+                if branch == "develop":
+                  exit(0)
+                assert (branch.startswith("release/") or branch.startswith("dev/")
+                ), "This check should only run on versioned branches – check pipeline."
+
+                branch_version = branch.split("/", maxsplit=1)[1]
+                package_version = ToxBuilder("$(project_name)", "default").package_version
+
+                assert (
+                    package_version == branch_version
+                ), f"Package version '{package_version}' does not match '{branch_version}' from branch."
+
+                print("Check passed.")
+
+                EOF
+
+            displayName: "Check version consistency"
+
+
+  # release on merges into release/*:
+  # - add release tag
+  # - create GitHub release with changelog
+  # - upload conda and pip packages as artifacts to GitHub
+  - stage:
+    displayName: 'Release'
+    dependsOn: check_release
+    variables:
+      - group: artifact_publication
+
+    jobs:
+      - job:
+        displayName: 'Release'
+        condition: >
+          or(
+          eq(variables.source_is_release_branch, 'True'),
+          eq(variables.source_is_develop_branch, 'True')
+          )
+
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.9'
+            displayName: 'use Python 3.9'
+
+          - checkout: pytools
+          - checkout: self
+
+          - task: Bash@3
+            inputs:
+              targetType: inline
+              script: |
+                set -eux
+                echo "Getting version"
+                pip install 'packaging>=25'
+                package_path=$(System.DefaultWorkingDirectory)/$(project_root)/src/$(project_name)
+                export PYTHONPATH=$(System.DefaultWorkingDirectory)/pytools/sphinx/base
+                version=$(python -c "import make_util; print(make_util.get_package_version(package_path='$package_path'))")
+                echo "Current version: $version"
+                echo "Detecting pre-release ('dev' or 'rc' in version)"
+                prerelease=False
+                [[ $version == *dev* ]] && prerelease=True && echo "Development release identified"
+                [[ $version == *rc* ]] && prerelease=True && echo "Pre-release identified"
+                # set +x to prevent Azure from randomly appending a \' of the ## statement
+                set +x
+                echo "##vso[task.setvariable variable=current_version]$version"
+                echo "##vso[task.setvariable variable=is_prerelease]$prerelease"
+            displayName: "Get package version"
+
+          - task: DownloadBuildArtifacts@0
+            inputs:
+              artifactName: tox_default
+
+          - task: DownloadBuildArtifacts@0
+            inputs:
+              artifactName: conda_default
+
+          - script: |
+              set -eux
+              cd $(System.DefaultWorkingDirectory)
+              eval "$(conda shell.bash hook)"
+              conda install -y -c conda-forge --override-channels anaconda-client
+
+              anaconda login --at anaconda.org --username "${CONDA_USERNAME}" --password "${CONDA_PASSWORD}" --hostname "$(hostname)-${BUILD_BUILDID:-$$}"
+              
+              # Check for .conda files first (rattler-build), then .tar.bz2 (conda-build)
+              if ls $(System.ArtifactsDirectory)/conda_default/conda/noarch/$(package_name)-*.conda 1> /dev/null 2>&1; then
+                anaconda upload --user bcgx --force $(System.ArtifactsDirectory)/conda_default/conda/noarch/$(package_name)-*.conda
+                anaconda upload --user BCG_Gamma --force $(System.ArtifactsDirectory)/conda_default/conda/noarch/$(package_name)-*.conda
+              elif ls $(System.ArtifactsDirectory)/conda_default/conda/noarch/$(package_name)-*.tar.bz2 1> /dev/null 2>&1; then
+                anaconda upload --user bcgx --force $(System.ArtifactsDirectory)/conda_default/conda/noarch/$(package_name)-*.tar.bz2
+                anaconda upload --user BCG_Gamma --force $(System.ArtifactsDirectory)/conda_default/conda/noarch/$(package_name)-*.tar.bz2
+              else
+                echo "No conda packages found!"
+                exit 1
+              fi
+              
+              anaconda logout --at anaconda.org
+              # set +x to prevent Azure from randomly appending a \' of the ## statement
+              set +x
+              echo "##vso[task.setvariable variable=conda_published]True"
+            displayName: 'Publish to Anaconda'
+
+            condition: eq(variables['source_is_release_branch'], 'True')
+            env:
+              CONDA_PASSWORD: $(anaconda_pw)
+              CONDA_USERNAME: $(anaconda_user)
+
+          - script: |
+              set -eux
+              cd $(System.DefaultWorkingDirectory)/$(project_root)
+              pip install flit
+              flit install -s
+              flit publish
+              # set +x to prevent Azure from randomly appending a \' of the ## statement
+              set +x
+              echo "##vso[task.setvariable variable=pypi_published]True"
+            displayName: 'Publish to PyPi'
+            condition: and(eq(variables['source_is_release_branch'], 'True'), eq(variables['conda_published'], 'True'))
+            env:
+              FLIT_PASSWORD: $(pypi_sklearndf_uploads)
+              FLIT_USERNAME: __token__
+
+          - task: GitHubRelease@1
+            condition: >
+              and(
+                eq(variables['source_is_release_branch'], 'True'),
+                succeededOrFailed(),
+                or(
+                  eq(variables['conda_published'], 'True'),
+                  eq(variables['pypi_published'], 'True')
+                )
+              )
+            inputs:
+              gitHubConnection: github-release
+              repositoryName: $(Build.Repository.Name)
+              action: create
+              target: $(Build.SourceVersion)
+              tagSource: userSpecifiedTag
+              tag: $(current_version)
+              title: $(project_name) $(current_version)
+              releaseNotesSource: inline
+              releaseNotesInline: |
+                This is the $(current_version) release of $(package_name).
+
+                You can upgrade your current pip installation via
+
+                    pip install --upgrade $(package_name)
+
+                Your conda package can be upgraded by running
+
+                    conda install -c conda-forge -c bcg_gamma $(package_name)
+
+              isDraft: false
+              isPrerelease: $(is_prerelease)
+              assets: |
+                $(System.ArtifactsDirectory)/tox_default/tox/$(package_name)-*.tar.gz
+                $(System.ArtifactsDirectory)/conda_default/conda/noarch/$(package_name)-*.conda
+  # render docs and publish to GitHub Pages
+  - stage:
+    displayName: 'Docs'
+
+    variables:
+      - group: github_ssh
+
+    jobs:
+      - job:
+        displayName: 'Build and publish docs'
+        condition: >
+          or(
+            eq(variables.source_is_release_branch, 'True'),
+            eq(variables.source_is_develop_branch, 'True'),
+            eq(variables['Build.Reason'], 'Manual')
+          )
+
+        pool:
+          vmImage: 'ubuntu-latest'
+
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.9'
+            displayName: 'use Python 3.9'
+
+          - task: InstallSSHKey@0
+            inputs:
+              knownHostsEntry: $(knownHostsEntry)
+              sshPublicKey: $(sshPublicKey)
+              sshKeySecureFile: 'deploy_docs_$(project_name)'
+            displayName: 'Install the deploy SSH key'
+
+          - checkout: self
+
+          - script: dir $(Build.SourcesDirectory)
+
+          - task: Bash@3
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -eux
+
+                cd $(System.DefaultWorkingDirectory)
+                echo "Checking out github-pages"
+                git fetch origin github-pages --depth=1
+                git checkout --track origin/github-pages
+
+                # make sure we have a docs directory
+                mkdir -p docs/docs-version
+
+                echo "Current documentation contents:"
+                ls docs/docs-version
+
+                # copy the current documentation versions to the staging area
+                cp -r docs/docs-version $(Build.ArtifactStagingDirectory)/docs-version.bak
+
+            displayName: 'Retrieve current documentation versions from github-pages'
+
+          - task: Bash@3
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -eux
+
+                cd $(System.DefaultWorkingDirectory)
+                echo "Checking out $(branchName)"
+                git fetch origin $(branchName) --depth=1
+                git checkout $(branchName)
+
+                # install micromamba
+                curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest | tar -xvj bin/micromamba
+                export MAMBA_ROOT_PREFIX=~/micromamba
+                eval "$(./bin/micromamba shell hook -s posix)"
+                # install the develop environment
+                micromamba env create --yes --file environment.yml
+                micromamba activate $(project_name)-develop
+
+                export PYTHONPATH=$(System.DefaultWorkingDirectory)/src/
+
+                python sphinx/make.py html
+
+            displayName: 'Build latest documentation'
+
+          - task: Bash@3
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -eux
+                export MAMBA_ROOT_PREFIX=~/micromamba
+                eval "$(./bin/micromamba shell hook -s posix)"
+
+                # install the tree utility
+                sudo apt-get install tree
+
+                cd $(System.DefaultWorkingDirectory)
+
+                echo "Restoring previous documentation to the docs directory"
+                mkdir -p docs
+                mv $(Build.ArtifactStagingDirectory)/docs-version.bak docs/docs-version
+                ls docs/docs-version
+
+                mkdir -p $(System.DefaultWorkingDirectory)/sphinx/build/
+
+                micromamba activate $(project_name)-develop
+                python sphinx/make.py prepare_docs_deployment
+
+                echo "Current docs contents:"
+                tree docs
+                mv docs $(Build.ArtifactStagingDirectory)/docs
+            displayName: 'Merge previous and latest docs'
+
+          - task: ArchiveFiles@2
+            inputs:
+              rootFolderOrFile: $(Build.ArtifactStagingDirectory)/docs
+              includeRootFolder: false
+              archiveType: 'zip' # Options: zip, 7z, tar, wim
+              archiveFile: $(Build.ArtifactStagingDirectory)/docs.zip
+              replaceExistingArchive: true
+              verbose: false
+              quiet: false
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathtoPublish: $(Build.ArtifactStagingDirectory)/docs.zip
+              artifactName: $(project_name)_docs
+              publishLocation: Container
+
+            displayName: 'Publish docs artifact'
+
+          - task: Bash@3
+            condition: eq(variables['source_is_release_branch'], 'True')
+            inputs:
+              targetType: 'inline'
+              script: |
+                set -eux
+                cd $(System.DefaultWorkingDirectory)
+
+                echo "Adjusting git credentials"
+                git config --global user.name "Azure Pipelines"
+                git config --global user.email "azuredevops@microsoft.com"
+                git config --global url.ssh://git@github.com/.insteadOf https://github.com/
+                git checkout github-pages
+
+                rm -rf docs
+                mv $(Build.ArtifactStagingDirectory)/docs .
+                git add docs
+
+                git status
+                git commit -m "Publish GitHub Pages [skip ci]"
+
+                git push --set-upstream origin github-pages
+
+            displayName: 'Publish docs to branch github-pages'

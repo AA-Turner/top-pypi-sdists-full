@@ -1,0 +1,104 @@
+# Enterprise integration test stack: kafka + phalanx + lance_agent
+# This can run on Mac using "make up" if Rosetta x64 emulation is enabled in Docker Desktop
+services:
+  kafka:
+    image: docker.io/bitnamilegacy/kafka:3.9
+    network_mode: host
+    environment:
+      KAFKA_ENABLE_KRAFT: "yes"
+      KAFKA_CFG_PROCESS_ROLES: controller,broker
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9094
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_BROKER_ID: 1
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@127.0.0.1:9094
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+      KAFKA_CFG_NODE_ID: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  phalanx:
+    image: ${PHALANX_IMAGE:-948856271544.dkr.ecr.us-east-1.amazonaws.com/lancedb:phalanx_release-2026-07-02.a8a6480a12.x64}
+    platform: linux/amd64
+    network_mode: host
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ${PHALANX_CONFIG_PATH:-./phalanx-integ.toml}:/etc/phalanx/integ.toml:ro
+      - ./geneva-defaults:/etc/geneva/defaults:ro
+    environment:
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}
+      PHALANX_ROOT_URI: s3://geneva-integ-test-devland-us-east-1
+      PHALANX_MAGIC_TOKENS: sk_localtest
+      PHALANX_EVENT_BUS_TYPE: kafka
+      PHALANX_EVENTS_PARTITION_KEY: table
+      PHALANX_KAFKA_BOOTSTRAP_BROKERS: localhost:9092
+      PHALANX_EVENTS_TOPIC: phalanx-events
+      PHALANX_JSON_LOGS: "true"
+      PHALANX_MASK_INTERNAL_ERRORS: "false"
+    command: ["--config-path", "/etc/phalanx/integ.toml"]
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/10024"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
+
+  lance_agent:
+    image: ${LANCE_AGENT_IMAGE:-948856271544.dkr.ecr.us-east-1.amazonaws.com/lancedb:lance_agent_release-2026-04-20.3f670cd22b.x64}
+    platform: linux/amd64
+    network_mode: host
+    depends_on:
+      phalanx:
+        condition: service_healthy
+    volumes:
+      - ${HOME}/.kube:/root/.kube:ro
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    environment:
+      LOG_LEVEL: debug
+      RUST_LOG: info
+      RUST_BACKTRACE: full
+      POD_UID: dummy-pod-uid
+      PHALANX_EVENTS_TOPIC: phalanx-events
+      PHALANX_EVENTS_PARTITION_KEY: table
+      PHALANX_KAFKA_BOOTSTRAP_BROKERS: localhost:9092
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN}
+    command: >-
+      --kafka-topic phalanx-events
+      --healthcheck-port 25239
+      --scalar-index-row-threshold 1
+      --vector-index-row-threshold 1000
+      --vector-index-append-max-deltas 4
+      --compact-target-rows-per-fragment 1048576
+      --compact-critical-threshold-fragments 100
+      --compact-defer-index-remap
+      --backfill
+      --backfill-manifest test-manifest
+      --backfill-row-threshold 1
+      --indexer-node-selector "eks.amazonaws.com/nodegroup: lancedb-install-node-group-indexer"
+      --geneva-driver-image "${GENEVA_DRIVER_IMAGE:-948856271544.dkr.ecr.us-east-1.amazonaws.com/lancedb:geneva_driver_release-2026-06-19.340acc6932.arm64}"
+      --use-pods
+      --k8s-config-method LOCAL
+      --k8s-namespace lancedb
+      --aws-region us-east-1
+      --check-aws-credentials
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/25239"]
+      interval: 5s
+      timeout: 5s
+      retries: 15

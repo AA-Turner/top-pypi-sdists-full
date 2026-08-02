@@ -1,0 +1,243 @@
+Metadata-Version: 2.4
+Name: python-bsblan
+Version: 6.1.7
+Summary: Asynchronous Python client for BSBLAN API
+Project-URL: Homepage, https://github.com/liudger/python-bsblan
+Project-URL: Repository, https://github.com/liudger/python-bsblan
+Project-URL: Documentation, https://liudger.github.io/python-bsblan
+Project-URL: Bug Tracker, https://github.com/liudger/python-bsblan/issues
+Project-URL: Changelog, https://github.com/liudger/python-bsblan/releases
+Author-email: Willem-Jan van Rootselaar <liudgervr@gmail.com>
+Maintainer-email: Willem-Jan van Rootselaar <liudgervr@gmail.com>
+License: MIT
+License-File: LICENSE.md
+Keywords: api,async,bsblan,client,thermostat
+Classifier: Development Status :: 3 - Alpha
+Classifier: Framework :: AsyncIO
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Natural Language :: English
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: >=3.12
+Requires-Dist: aiohttp>=3.8.1
+Requires-Dist: packaging>=21.3
+Requires-Dist: pydantic>=2.0
+Requires-Dist: python-backoff>=2.3.1
+Requires-Dist: yarl>=1.7.2
+Description-Content-Type: text/markdown
+
+# Python: BSBLan API Client
+
+[![GitHub Release][releases-shield]][releases]
+[![Python Versions][python-versions-shield]][pypi]
+![Project Stage][project-stage-shield]
+![Project Maintenance][maintenance-shield]
+[![License][license-shield]](.github/LICENSE.md)
+
+[![Build Status][build-shield]][build]
+[![Code Coverage][codecov-shield]][codecov]
+[![Quality Gate Status][sonarcloud-shield]][sonarcloud]
+[![OpenSSF Scorecard][scorecard-shield]][scorecard]
+[![OpenSSF Best Practices][bestpractices-shield]][bestpractices]
+[![Documentation][docs-shield]][docs]
+
+Asynchronous Python client for BSBLan.
+
+## About
+
+This package allows you to control and monitor a BSBLan device
+programmatically. It is mainly created to allow third-party programs to automate
+the behavior of [BSBLan][bsblanmodule].
+
+**[Full documentation](https://liudger.github.io/python-bsblan)**
+
+## Installation
+
+```bash
+pip install python-bsblan
+```
+
+## Quick start
+
+```python
+import asyncio
+from bsblan import BSBLAN, BSBLANConfig
+
+async def main() -> None:
+    config = BSBLANConfig(host="192.168.1.100")
+    async with BSBLAN(config) as client:
+        # Read current state
+        state = await client.state()
+        print(f"Current temperature: {state.current_temperature.value}")
+
+        # Set thermostat temperature
+        await client.thermostat(target_temperature="21.5")
+
+asyncio.run(main())
+```
+
+For more examples, including hot water control, multi-circuit support, and
+authentication setup, see the [Getting Started][docs-getting-started] guide.
+
+## Compatibility
+
+The client automatically detects the device's capabilities during
+`initialize()` and selects a matching configuration based on the BSB-LAN
+JSON-API version reported by the `/JV` endpoint:
+
+- **Full configuration** — JSON-API version 2.0 or newer. All features are
+  available: multiple heating circuits, hot water control, schedules, sensors,
+  and cooling setpoints and operating mode.
+- **Basic configuration** — JSON-API version 1.x. A reduced, single-circuit
+  configuration covering essential heating, hot water, and sensor parameters.
+
+The JSON-API version is the documented, firmware-independent compatibility
+signal. The adapter firmware version (from `/JI`) is still retrieved and
+exposed via `device_info`, but it is not used to determine support. A device
+that does not expose `/JV`, or reports a JSON-API version below 1.0, is not
+supported and raises `BSBLANVersionError` during `initialize()`.
+
+> Note: basic (JSON-API 1.x) support is best-effort and may not cover every
+> parameter your heating system exposes.
+
+## Changelog & Releases
+
+This repository keeps a change log using [GitHub's releases][releases]
+functionality. The format of the log is based on
+[Keep a Changelog][keepchangelog].
+
+Releases are based on [Semantic Versioning][semver], and use the format
+of `MAJOR.MINOR.PATCH`. In a nutshell, the version will be incremented
+based on the following:
+
+- `MAJOR`: Incompatible or major changes.
+- `MINOR`: Backwards-compatible new features and enhancements.
+- `PATCH`: Backwards-compatible bugfixes and package updates.
+
+## Contributing
+
+This is an active open-source project. We are always open to people who want to
+use the code or contribute to it.
+
+We've set up a separate document for our
+[contribution guidelines](CONTRIBUTING.md).
+
+Thank you for being involved! :heart_eyes:
+
+## Setting up development environment
+
+This Python project is fully managed using the [uv][uv] dependency manager.
+But also relies on the use of NodeJS for certain checks during development.
+
+You need at least:
+
+- Python 3.12+
+- [uv][uv-install]
+- NodeJS 22.14.0+ (including NPM)
+
+To install all packages, including all development requirements:
+
+```bash
+npm install
+make setup
+```
+
+### Makefile Targets
+
+A `Makefile` is provided for common development tasks. Run `make help` to
+see all available targets:
+
+| Command            | Description                          |
+|--------------------|--------------------------------------|
+| `make setup`       | Install dev dependencies & git hooks |
+| `make lint`        | Run all pre-commit hooks             |
+| `make test`        | Run tests                            |
+| `make coverage`    | Run tests with coverage report       |
+| `make docs`        | Build documentation                  |
+| `make docs-serve`  | Serve documentation locally          |
+
+As this repository uses [prek][prek] (a faster, Rust-based drop-in replacement
+for pre-commit), all changes are linted and tested with each commit. You can
+run all checks and tests manually, using the following command:
+
+```bash
+uv run prek run --all-files
+```
+
+To run just the Python tests:
+
+```bash
+uv run pytest
+```
+
+## Authors & contributors
+
+The template is from the repository 'elgato' by [Franck Nijhof][frenck].
+The setup of this repository is by [Willem-Jan van Rootselaar][liudger].
+
+For a full list of all authors and contributors,
+check [the contributor's page][contributors].
+
+## License
+
+MIT License
+
+Copyright (c) 2023-2026 WJ van Rootselaar
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+[![Buy me a coffee][buymeacoffee-shield]][buymeacoffee]
+
+[bsblanmodule]: https://github.com/fredlcore/bsb_lan
+[build-shield]: https://github.com/liudger/python-bsblan/actions/workflows/tests.yaml/badge.svg
+[build]: https://github.com/liudger/python-bsblan/actions
+[docs]: https://liudger.github.io/python-bsblan
+[docs-getting-started]: https://liudger.github.io/python-bsblan/getting-started/
+[docs-shield]: https://img.shields.io/badge/docs-GitHub%20Pages-blue
+[buymeacoffee-shield]: https://www.buymeacoffee.com/assets/img/guidelines/download-assets-sm-2.svg
+[buymeacoffee]: https://www.buymeacoffee.com/liudger
+[codecov-shield]: https://codecov.io/gh/liudger/python-bsblan/branch/main/graph/badge.svg?token=ypos87GGxv
+[codecov]: https://codecov.io/gh/liudger/python-bsblan
+[contributors]: https://github.com/liudger/python-bsblan/graphs/contributors
+[frenck]: https://github.com/frenck
+[keepchangelog]: http://keepachangelog.com/en/1.0.0/
+[license-shield]: https://img.shields.io/badge/license-MIT-blue.svg
+[liudger]: https://github.com/liudger
+[maintenance-shield]: https://img.shields.io/maintenance/yes/2026.svg
+[uv]: https://docs.astral.sh/uv/
+[uv-install]: https://docs.astral.sh/uv/getting-started/installation/
+[prek]: https://github.com/j178/prek
+[project-stage-shield]: https://img.shields.io/badge/project%20stage-stable-green.svg
+[pypi]: https://pypi.org/project/python-bsblan/
+[python-versions-shield]: https://img.shields.io/pypi/pyversions/python-bsblan
+[releases-shield]: https://img.shields.io/github/v/release/liudger/python-bsblan.svg
+[releases]: https://github.com/liudger/python-bsblan/releases
+[semver]: http://semver.org/spec/v2.0.0.html
+[scorecard-shield]: https://api.scorecard.dev/projects/github.com/liudger/python-bsblan/badge
+[scorecard]: https://scorecard.dev/viewer/?uri=github.com/liudger/python-bsblan
+[bestpractices-shield]: https://www.bestpractices.dev/projects/12561/badge
+[bestpractices]: https://www.bestpractices.dev/projects/12561
+[sonarcloud-shield]: https://sonarcloud.io/api/project_badges/measure?project=liudger_python-bsblan&metric=alert_status
+[sonarcloud]: https://sonarcloud.io/summary/new_code?id=liudger_python-bsblan

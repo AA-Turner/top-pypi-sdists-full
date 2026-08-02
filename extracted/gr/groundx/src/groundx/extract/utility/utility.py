@@ -1,0 +1,221 @@
+import typing
+
+
+def _complete_json_document_end(txt: str) -> typing.Optional[int]:
+    stack: typing.List[str] = []
+    in_string = False
+    escaped = False
+    started = False
+
+    for idx, char in enumerate(txt):
+        if not started:
+            if char.isspace():
+                continue
+            if char == "{":
+                stack.append("}")
+                started = True
+                continue
+            if char == "[":
+                stack.append("]")
+                started = True
+                continue
+            return None
+
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+
+        if char == '"':
+            in_string = True
+        elif char == "{":
+            stack.append("}")
+        elif char == "[":
+            stack.append("]")
+        elif char in "}]":
+            if not stack:
+                return idx
+            if char != stack[-1]:
+                return None
+            stack.pop()
+            if not stack:
+                return idx + 1
+
+    return None
+
+
+def clean_json(txt: str) -> str:
+    for p in ("json```\n", "```json\n", "json\n"):
+        if txt.startswith(p):
+            txt = txt[len(p) :]
+    if txt.endswith("```"):
+        txt = txt[:-3]
+    txt = txt.strip()
+    document_end = _complete_json_document_end(txt)
+    if document_end is not None and document_end < len(txt):
+        trailing = txt[document_end:].strip()
+        if trailing and all(char in "}]" for char in trailing):
+            txt = txt[:document_end]
+    return txt.strip()
+
+
+def coerce_numeric_string(
+    value: typing.Any,
+    et: typing.Optional[typing.Union[str, typing.List[str]]] = None,
+) -> typing.Optional[typing.Union[int, float, typing.Any]]:
+    if not et:
+        return value
+
+    expected_types = str_to_type_sequence(et)
+
+    if isinstance(value, dict):
+        if (
+            "value" not in value
+            or not isinstance(value["value"], str)
+            or not isinstance(value["value"], float)
+            or not isinstance(value["value"], int)
+        ):
+            return ""
+        value = value["value"]
+
+    if any(t in (int, float) for t in expected_types):
+        if isinstance(value, str):
+            if value == "":
+                return 0.0
+
+            value = value.replace(",", "")
+            try:
+                value = float(value)
+            except ValueError:
+                return value
+        if float in expected_types:
+            return value
+        return int(value)
+
+    if str in expected_types and isinstance(value, str) and value == "0":
+        return None
+
+    return str(value)
+
+
+def str_to_type_sequence(
+    ty: typing.Union[str, typing.List[str]],
+) -> typing.Sequence[typing.Type[typing.Any]]:
+    if isinstance(ty, list):
+        tys: typing.List[typing.Any] = []
+        for t in ty:
+            tys.append(str_to_type(t))
+
+        return tys
+
+    return [str_to_type(ty)]
+
+
+def str_to_type(
+    ty: str,
+) -> typing.Type[typing.Any]:
+    if ty == "int":
+        return int
+    elif ty == "float":
+        return float
+    elif ty == "list":
+        return list
+    elif ty == "dict":
+        return dict
+
+    return str
+
+
+def type_to_str(
+    ty: typing.Union[typing.Type[typing.Any], typing.Sequence[typing.Type[typing.Any]]],
+) -> typing.Union[str, typing.List[str]]:
+    if isinstance(ty, list):
+        tys: typing.List[str] = []
+        for t in ty:
+            nt = type_to_str(t)
+            if isinstance(nt, str):
+                tys.append(nt)
+            else:
+                tys.append("list")
+        return tys
+
+    if ty == int:
+        return "int"
+    if ty == float:
+        return "float"
+    if ty == list:
+        return "list"
+    if ty == dict:
+        return "dict"
+
+    return "str"
+
+
+def validate_confidence(
+    key: str,
+    key_data: typing.Any,
+    fields: typing.Set[str],
+    value: typing.Any,
+    errors: typing.Dict[str, str],
+) -> typing.Tuple[
+    typing.Union[typing.Any, typing.List[typing.Any]],
+    typing.Optional[str],
+    typing.Optional[str],
+]:
+    if key_data.attr_name not in fields:
+        return None, None, f"unexpected attribute [{key_data.attr_name}]"
+
+    if value is None:
+        return None, None, None
+
+    if not isinstance(value, dict):
+        return (
+            None,
+            None,
+            f"unexpected value type [{key_data.attr_name}] [{type(value)}] [{key_data.type}]\n[{value}]",
+        )
+
+    if "value" not in value:
+        return (
+            None,
+            None,
+            f'value is missing "value" key [{key_data.attr_name}]\n[{value}]',
+        )
+
+    if value["value"] is None:
+        return None, None, None
+
+    final_value = coerce_numeric_string(value["value"], key_data.type)
+    if not key_data.valid_value(final_value):
+        return (
+            final_value,
+            None,
+            f"unexpected type for statement [{key}] value [{type(final_value)}]\n\n{final_value}",
+        )
+
+    if "confidence" not in value:
+        return (
+            final_value,
+            None,
+            f'value is missing "confidence" key [{key_data.attr_name}]\n[{value}]',
+        )
+
+    if not isinstance(value["confidence"], str):
+        return (
+            final_value,
+            None,
+            f"confidence is not type str [{key_data.attr_name}]\n[{value}]",
+        )
+
+    if value["confidence"] not in ["low", "medium", "high"]:
+        return (
+            final_value,
+            None,
+            f'confidence value is unsupported value [{key_data.attr_name}]\n[{value["confidence"]}]',
+        )
+
+    return final_value, value["confidence"], None

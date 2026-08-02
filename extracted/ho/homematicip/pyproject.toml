@@ -1,0 +1,89 @@
+[build-system]
+requires = [
+    "setuptools>=61",
+    "setuptools-scm>=8.0"]
+
+[project]
+name = "homematicip"
+description = "An API for the homematicip cloud"
+readme = "README.md"
+dependencies = [
+    "requests>=2.32.0",
+    "websockets>=13.1",
+    "aiohttp>=3.10.11",
+    "httpx>=0.27.2"
+]
+requires-python = ">=3.12"
+authors = [
+  {name = "Thomas Hahn", email = "homematicip-rest-api@outlook.com"},
+]
+classifiers=[
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12"
+]
+keywords = ["homematicip cloud","homematicip"]
+dynamic = [
+    "version"
+]
+license = {text = "GPL-3.0-or-later"}
+
+[project.urls]
+Homepage = "https://github.com/hahn-th/homematicip-rest-api"
+Repository = "https://github.com/hahn-th/homematicip-rest-api.git"
+Issues = "https://github.com/hahn-th/homematicip-rest-api/issues"
+Changelog = "https://github.com/hahn-th/homematicip-rest-api/blob/master/CHANGELOG.md"
+
+[tool.setuptools_scm]
+version_file = "src/homematicip/_version.py"
+version_scheme = "no-guess-dev"
+local_scheme = "no-local-version"
+
+[tool.ruff]
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # bugbear
+    "SIM",  # simplify
+    "RET",  # return statements
+    "PIE",  # misc lints
+    "G",    # logging-format (no f-strings in log messages, use .exception not .error+exc_info)
+    "LOG",  # logging best practices
+    "A",    # builtin shadowing
+    "ASYNC", # async correctness
+    "C4",   # comprehensions
+    "ISC",  # implicit string concatenation
+    "PERF", # performance anti-patterns
+    "PT",   # pytest style
+    "RSE",  # raise style
+    "TCH",  # type-checking imports
+    "TID",  # tidy imports
+    "RUF010",  # use !s/!r conversion flags
+    "RUF012",  # mutable class attributes need ClassVar
+    "RUF013",  # explicit Optional (no `x: int = None`)
+]
+ignore = [
+    "F403",     # star imports (to be addressed separately)
+    "F405",     # names from star imports (consequence of F403)
+    "F811",     # redefinition of unused name (false positives from star imports)
+    "UP042",    # str(Enum) → StrEnum — behavioral differences, not a safe migration
+    "RET502",   # implicit return None — style preference, can hurt readability
+    "RET503",   # missing explicit return — same
+    "RET504",   # unnecessary assignment before return — same
+    "SIM102",   # collapsible if — nested ifs are sometimes clearer
+    "SIM112",   # capitalized env vars — os.environ uses lowercase intentionally here
+    "ASYNC109", # async function with timeout parameter — would break public API (wait_for_websocket_connection_async)
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+
+[project.scripts]
+hmip_cli = "homematicip.cli.hmip_cli:main"
+hmip_generate_auth_token = "homematicip.cli.hmip_generate_auth_token:main"
+hmip_batch = "homematicip.cli.hmip_batch:main"

@@ -5,12 +5,9 @@ import zipfile
 
 # Third Party
 import botocore.client
-
-try:
-    import httpx
-except ImportError:
-    httpx = None
 import pytest
+
+from .conftest import random_name
 
 
 async def _get_role_arn(iam_client, role_name: str):
@@ -46,10 +43,9 @@ def lambda_handler(event, context):
     return _process_lambda(lambda_src)
 
 
-async def test_run_lambda(
-    iam_client, lambda_client, aws_lambda_zip, current_http_backend
-):
-    function_name = f'test-function-{current_http_backend}'
+async def test_run_lambda(iam_client, lambda_client, aws_lambda_zip):
+    # Random, not axis-derived: moto is global and axes get added (trio just did).
+    function_name = random_name()
     role_arn = await _get_role_arn(iam_client, 'test-iam-role')
     lambda_response = await lambda_client.create_function(
         FunctionName=function_name,

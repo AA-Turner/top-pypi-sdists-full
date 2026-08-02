@@ -169,6 +169,8 @@ class BunkrAlbumExtractor(LolisafeAlbumExtractor):
                     item, "size:  ", " ,\n"))
                 file["date"] = self.parse_datetime(text.extr(
                     item, 'timestamp: "', '"'), "%H:%M:%S %d/%m/%Y")
+                tn = text.extr(item, "thumbnail: ", ",\n").replace("\\'", "'")
+                file["thumbnail"] = util.json_loads(tn) if tn else None
 
                 yield file
             except self.exc.ControlException:
@@ -234,6 +236,8 @@ class BunkrMediaExtractor(BunkrAlbumExtractor):
                 page, "<h1", "<").rpartition(">")[2]))
             file["slug"] = album_id.rpartition("/")[2]
             file["uuid"] = text.extr(page, "/thumbs/", ".")
+            tn = text.extr(page, 'property="og:image" content="', '"')
+            file["thumbnail"] = text.unescape(tn) if tn else None
         except Exception as exc:
             self.log.error("%s: %s", exc.__class__.__name__, exc)
             return (), {}

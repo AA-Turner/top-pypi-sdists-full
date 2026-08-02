@@ -21,6 +21,7 @@ from reportlab.graphics.shapes import (
     _LINETO,
     _MOVETO,
     Group,
+    Image,
     Line,
     Path,
     Polygon,
@@ -29,10 +30,16 @@ from reportlab.graphics.shapes import (
 )
 from reportlab.lib import colors
 from reportlab.lib.units import cm, inch
-from reportlab.pdfgen.canvas import FILL_EVEN_ODD
+from reportlab.pdfgen.canvas import FILL_EVEN_ODD, FILL_NON_ZERO
 
 from svglib import svglib, utils
-from tests.utils import drawing_from_svg, minimal_svg_node
+from svglib.svglib import ClippingPath, LinearGradientShape
+from tests.test_samples import has_renderpm_backend
+from tests.utils import (
+    drawing_from_svg,
+    minimal_svg_node,
+    svg_raster_difference,
+)
 
 
 def _testit(
@@ -328,6 +335,167 @@ class TestPaths:
         # Fill and stroke properties are force-deleted.
         assert rect_clip.getProperties()["fillColor"] is None
         assert rect_clip.getProperties()["strokeColor"] is None
+
+    def find_clipping(self, item):
+        if isinstance(item, ClippingPath):
+            return item
+
+        if hasattr(item, "contents"):
+            for child in item.contents:
+                result = self.find_clipping(child)
+                if result:
+                    return result
+
+        return None
+
+    def test_clipping_path_with_transform(self):
+        clipping_paths = [
+            '<rect transform="scale(0.5, 0.5)" height="100" width="100" x="0" y="0"/>',
+            '<rect transform="scale(0.5, 0.5)" height="100" width="100" x="0" y="0" '
+            + 'rx="20" ry="20"/>',
+            '<path transform="scale(0.5, 0.5)" d="M 0 0 H 100 V 100 H 0 Z"/>',
+            '<circle transform="scale(0.5, 0.5)" cx="50" cy="50" r="50"/>',
+            '<ellipse transform="scale(0.5, 0.5)" cx="50" cy="50" rx="50" ry="50"/>',
+            '<polygon transform="scale(0.5, 0.5)" points="0,100 50,25 50,75 100,0" />',
+        ]
+
+        for clipping_path in clipping_paths:
+            drawing = drawing_from_svg(f"""
+                <svg namespace="http://www.w3.org/XML/1998/namespace"
+                     xmlns="http://www.w3.org/2000/svg"
+                     xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1"
+                     viewBox="0 0 100 50" width="100" height="50">
+
+                    <defs>
+                        <clipPath id="clip-1">
+                            {clipping_path}
+                        </clipPath>
+                    </defs>
+                    <g>
+                        <g clip-path="url(#clip-1)">
+                            <path fill="green" d="M 0 0 H 50 V 50 H 0 Z"/>
+                            <path fill="red" d="M 50 0 H 100 V 50 H 50 Z"/>
+                        </g>
+                    </g>
+                </svg>
+            """)
+
+            clipping = self.find_clipping(drawing)
+
+            assert clipping is not None
+            assert max(clipping.points) == 50
+            assert clipping.fillMode == FILL_NON_ZERO
+
+    def test_clipping_path_with_transform_url(self):
+        clipping_paths = [
+            '<rect id="clip-shape" transform="scale(0.5, 0.5)" '
+            + 'height="100" width="100" x="0" y="0"/>',
+            '<rect id="clip-shape" transform="scale(0.5, 0.5)" '
+            + 'height="100" width="100" x="0" y="0" rx="20" ry="20"/>',
+            '<path id="clip-shape" transform="scale(0.5, 0.5)" '
+            + 'd="M 0 0 H 100 V 100 H 0 Z"/>',
+            '<circle id="clip-shape" transform="scale(0.5, 0.5)" '
+            + 'cx="50" cy="50" r="50"/>',
+            '<ellipse id="clip-shape" transform="scale(0.5, 0.5)" '
+            + 'cx="50" cy="50" rx="50" ry="50"/>',
+            '<polygon id="clip-shape" transform="scale(0.5, 0.5)" '
+            + 'points="0,100 50,25 50,75 100,0" />',
+        ]
+
+        for clipping_path in clipping_paths:
+            drawing = drawing_from_svg(f"""
+                <svg namespace="http://www.w3.org/XML/1998/namespace"
+                     xmlns="http://www.w3.org/2000/svg"
+                     xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1"
+                     viewBox="0 0 100 50" width="100" height="50">
+
+                    <defs>
+                        {clipping_path}
+                        <clipPath id="clip-1">
+                            <use xlink:href="#clip-shape"/>
+                        </clipPath>
+                    </defs>
+                    <g>
+                        <g clip-path="url(#clip-1)">
+                            <path fill="green" d="M 0 0 H 50 V 50 H 0 Z"/>
+                            <path fill="red" d="M 50 0 H 100 V 50 H 50 Z"/>
+                        </g>
+                    </g>
+                </svg>
+            """)
+
+            clipping = self.find_clipping(drawing)
+
+            assert clipping is not None
+            assert max(clipping.points) == 50
+            assert clipping.fillMode == FILL_NON_ZERO
+
+    def test_clipping_path_fill_rule(self):
+        clipping_paths = [
+            '<rect clip-rule="evenodd" height="100" width="100" x="0" y="0"/>',
+            '<rect clip-rule="evenodd" height="100" width="100" x="0" y="0" rx="20" '
+            + 'ry="20"/>',
+            '<path clip-rule="evenodd" d="M 0 0 H 100 V 100 H 0 Z"/>',
+            '<circle clip-rule="evenodd" cx="50" cy="50" r="50"/>',
+            '<ellipse clip-rule="evenodd" cx="50" cy="50" rx="50" ry="50"/>',
+            '<polygon clip-rule="evenodd" points="0,100 50,25 50,75 100,0" />',
+        ]
+
+        for clipping_path in clipping_paths:
+            drawing = drawing_from_svg(f"""
+                <svg namespace="http://www.w3.org/XML/1998/namespace"
+                     xmlns="http://www.w3.org/2000/svg"
+                     xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1"
+                     viewBox="0 0 100 50" width="100" height="50">
+
+                    <defs>
+                        <clipPath id="clip-1">
+                            {clipping_path}
+                        </clipPath>
+                    </defs>
+                    <g clip-path="url(#clip-1)">
+                        <path fill="green" d="M 0 0 H 50 V 50 H 0 Z"/>
+                    </g>
+                </svg>
+            """)
+
+            clipping = self.find_clipping(drawing)
+            assert clipping.fillMode == FILL_EVEN_ODD
+
+    @pytest.mark.skipif(not has_renderpm_backend(), reason="needs a renderPM backend")
+    def test_clipping_path_with_transform_visual(self):
+        test_files = [
+            "path",
+            "rect",
+            "rounded-rect",
+            "path-no-transform",
+            "ellipse",
+            "circle",
+            "polygon",
+            "double-path",
+            "overlapping-double-path",
+            "overlapping-double-path-inset",
+            "multi-path-fill-rule",
+        ]
+
+        for test_file in test_files:
+            svg = f"clipping/{test_file}.svg"
+            raster = f"clipping/{test_file}.png"
+
+            assert svg_raster_difference(svg, raster, 4 / 3) == 0
+
+    @pytest.mark.skipif(not has_renderpm_backend(), reason="needs a renderPM backend")
+    @pytest.mark.xfail(reason="Mixed clip-rule clipping paths are not supported")
+    def test_mixed_fill_rules(self):
+        test_files = [
+            "mixed-fill-rule",
+        ]
+
+        for test_file in test_files:
+            svg = f"clipping/{test_file}.svg"
+            raster = f"clipping/{test_file}.png"
+
+            assert svg_raster_difference(svg, raster, 4 / 3) == 0
 
 
 def force_cmyk(rgb: Any) -> Any:
@@ -771,6 +939,58 @@ class TestGroupNode:
         assert r2_gr.svgid == "rect852"
         assert pth_gr.svgid == "path819"
         assert isinstance(pth_gr, Group)
+
+    def test_display_none_in_style_attribute(self):
+        """display:none set through the style attribute hides the node."""
+        drawing = drawing_from_svg(
+            """
+            <?xml version="1.0"?>
+            <svg width="100" height="100">
+                <rect x="5" y="5" width="10" height="10"/>
+                <rect x="5" y="25" width="10" height="10" style="display:none"/>
+                <g style="display:none">
+                    <rect x="5" y="45" width="10" height="10"/>
+                </g>
+            </svg>
+        """
+        )
+        rects = []
+
+        def collect(node):
+            for child in getattr(node, "contents", []):
+                if isinstance(child, Rect):
+                    rects.append(child)
+                collect(child)
+
+        collect(drawing)
+        assert [rect.y for rect in rects] == [5]
+
+    def test_visibility_hidden(self):
+        """visibility hidden/collapse hides the node, and is inheritable."""
+        drawing = drawing_from_svg(
+            """
+            <?xml version="1.0"?>
+            <svg width="100" height="100">
+                <rect x="5" y="5" width="10" height="10"/>
+                <rect x="5" y="25" width="10" height="10" visibility="hidden"/>
+                <rect x="5" y="45" width="10" height="10" style="visibility:collapse"/>
+                <g visibility="hidden">
+                    <rect x="5" y="65" width="10" height="10"/>
+                    <rect x="5" y="85" width="10" height="10" visibility="visible"/>
+                </g>
+            </svg>
+        """
+        )
+        rects = []
+
+        def collect(node):
+            for child in getattr(node, "contents", []):
+                if isinstance(child, Rect):
+                    rects.append(child)
+                collect(child)
+
+        collect(drawing)
+        assert [rect.y for rect in rects] == [5, 85]
 
     def test_svg_layers_have_label(self):
         drawing = drawing_from_svg(
@@ -1233,6 +1453,47 @@ class TestSwitchNode:
         assert len(rects) == 1
         assert rects[0].fillColor.hexval() == "0x0000ff"
 
+    def test_switch_matches_system_language(self, monkeypatch):
+        """<switch> renders the first child whose systemLanguage matches the locale."""
+        for var in ("LC_ALL", "LC_CTYPE", "LANGUAGE"):
+            monkeypatch.delenv(var, raising=False)
+        monkeypatch.setenv("LANG", "de_DE.UTF-8")
+        drawing = drawing_from_svg(
+            """
+            <?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                <switch>
+                    <rect systemLanguage="fr" width="100" height="100" fill="red"/>
+                    <rect systemLanguage="de" width="80" height="80" fill="green"/>
+                    <rect width="50" height="50" fill="blue"/>
+                </switch>
+            </svg>
+        """
+        )
+        rects = self._find_rects(drawing)
+        assert len(rects) == 1
+        assert rects[0].fillColor.hexval() == "0x008000"  # "de" matches "de_DE"
+
+    def test_switch_skips_nonmatching_system_language(self, monkeypatch):
+        """<switch> skips a non-matching systemLanguage and renders the fallback."""
+        for var in ("LC_ALL", "LC_CTYPE", "LANGUAGE"):
+            monkeypatch.delenv(var, raising=False)
+        monkeypatch.setenv("LANG", "en_US.UTF-8")
+        drawing = drawing_from_svg(
+            """
+            <?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                <switch>
+                    <rect systemLanguage="fr" width="100" height="100" fill="red"/>
+                    <rect width="50" height="50" fill="blue"/>
+                </switch>
+            </svg>
+        """
+        )
+        rects = self._find_rects(drawing)
+        assert len(rects) == 1
+        assert rects[0].fillColor.hexval() == "0x0000ff"  # "fr" skipped, fallback used
+
 
 class TestSymbolNode:
     def test_symbol_unused(self):
@@ -1522,6 +1783,152 @@ class TestEmbedded:
         # No image as relative path in file-like input cannot be determined.
         assert drawing.contents[0].contents == []
 
+    def find_image_in_drawing(self, item):
+        if isinstance(item, Image):
+            return item
+
+        if isinstance(item, Group):
+            for child in item.contents:
+                result = self.find_image_in_drawing(child)
+                if result:
+                    return result
+
+        return None
+
+    def test_image_size_fallback_no_size(self):
+        # The embedded image is a 5px x 5px red square.
+        drawing = drawing_from_svg(
+            """
+            <?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg"
+                 xmlns:xlink="http://www.w3.org/1999/xlink"
+                 viewBox="0,0,5,5" width="5" height="5" version="1.1">
+
+                <image id="image-1" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANS
+                UhEUgAAAAUAAAAFCAYAAACNbyblAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAGXRFWHRTb2Z0
+                d2FyZQB3d3cuaW5rc2NhcGUub3Jnm+48GgAAABVJREFUCJlj/M/A8J8BDTChC1BBEADOqQI
+                IH8PejQAAAABJRU5ErkJggg=="/>
+            </svg>
+        """
+        )
+
+        image = self.find_image_in_drawing(drawing)
+
+        assert image is not None
+        assert image.width == 5
+        assert image.height == 5
+
+    def test_image_size_fallback_only_width(self):
+        """
+        The image size aspect ratio should be preserved. The image is 5px x 10px
+        and a width of 3px should scale the height to 6px.
+        """
+        drawing = drawing_from_svg(
+            """
+            <?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg"
+                 xmlns:xlink="http://www.w3.org/1999/xlink"
+                 viewBox="0,0,5,5" width="5" height="5" version="1.1">
+
+                <image xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAA
+                AKCAYAAAB8OZQwAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAGXRFWHRTb2Z0d2FyZQB3d3cua
+                W5rc2NhcGUub3Jnm+48GgAAABVJREFUCJlj/M/A8J8BDTChCwwlQQCmdgISIETfOwAAAABJ
+                RU5ErkJggg==" width="3"/>
+            </svg>
+        """
+        )
+
+        image = self.find_image_in_drawing(drawing)
+
+        assert image is not None
+        assert image.width == 3
+        assert image.height == 6
+
+    def test_image_size_fallback_only_height(self):
+        """
+        The image size aspect ratio should be preserved. The image is 5px x 10px
+        and a height of 8px should scale the width to 4px.
+        """
+        drawing = drawing_from_svg(
+            """
+            <?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg"
+                 xmlns:xlink="http://www.w3.org/1999/xlink"
+                 viewBox="0,0,5,5" width="5" height="5" version="1.1">
+
+                <image xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAA
+                AKCAYAAAB8OZQwAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAGXRFWHRTb2Z0d2FyZQB3d3cua
+                W5rc2NhcGUub3Jnm+48GgAAABVJREFUCJlj/M/A8J8BDTChCwwlQQCmdgISIETfOwAAAABJ
+                RU5ErkJggg==" height="8"/>
+            </svg>
+        """
+        )
+
+        image = self.find_image_in_drawing(drawing)
+
+        assert image is not None
+        assert image.width == 4
+        assert image.height == 8
+
+    def test_image_with_transform(self):
+        """
+        This test will ensure that the image transform is correctly applied
+        to the image in a single group.
+        """
+        drawing = drawing_from_svg("""
+        <svg version="1.1" viewBox="0 0 50 50" width="50" height="50"
+            xmlns:xlink="http://www.w3.org/1999/xlink"
+            xmlns="http://www.w3.org/2000/svg"
+            xmlns:svg="http://www.w3.org/2000/svg">
+            <image x="0" y="0" width="100" height="100" transform="scale(0.5, 0.5)"
+            xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAYAAA
+            Bw4pVUAAAACXBIWXMAAAfPAAAHzwGGUVlPAAAAGXRFWHRTb2Z0d2FyZQB3d3cuaW5rc2NhcG
+            Uub3Jnm+48GgAAAQxJREFUeJzt3LENwEAIwEA+++/8qTNBLHQ3Acii5dyZOwucFVvMPH8PwJ
+            cgMYLECBIjSIwgMYLECBIjSIwgMYLECBIjSIwgMYLECBIjSIwgMYLECBIjSIwgMYLECBIjSI
+            wgMYLECBIjSIwgMYLECBIjSIwgMYLECBIjSIwgMYLECBIjSIwgMYLECBIjSIwgMYLECBIjSM
+            yZu+Oj3BYuJEaQGEFiBIkRJEaQGEFiBIkRJEaQGEFiBIkRJEaQGEFiBIkRJEaQGEFiBIkRJE
+            aQGEFiBIkRJEaQGEFiBIkRJEaQGEFiBIkRJEaQGEFiBIkRJEaQGEFiBIkRJEaQGEFiBIkRJE
+            aQGEFiBIkRJOYFi6UFwwW3DeAAAAAASUVORK5CYII="/>
+        </svg>
+        """)
+
+        image_group = drawing.contents[0].contents[0]
+        assert image_group.transform == (0.5, 0.0, 0.0, -0.5, 0.0, 100.0)
+
+    def test_image_fractional_geometry_not_truncated(self):
+        """Fractional <image> geometry must be preserved, not truncated to ints.
+
+        A raster placed at fractional coordinates should land at the same
+        position as a vector element with identical coordinates. Truncating
+        x/y/width/height to whole points offset the raster by up to ~1pt and,
+        because width/height were truncated too, the error grew across the
+        image rather than being a constant shift (see issue #490).
+        """
+        drawing = drawing_from_svg(
+            """
+            <?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg"
+                 xmlns:xlink="http://www.w3.org/1999/xlink"
+                 width="100" height="100" version="1.1">
+
+                <image x="10.7" y="20.7" width="50.7" height="50.7"
+                    xlink:href="data:image/png;base64,iVBORw0KGgoAAAANS
+                UhEUgAAAAUAAAAFCAYAAACNbyblAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAGXRFWHRTb2Z0
+                d2FyZQB3d3cuaW5rc2NhcGUub3Jnm+48GgAAABVJREFUCJlj/M/A8J8BDTChC1BBEADOqQI
+                IH8PejQAAAABJRU5ErkJggg=="/>
+            </svg>
+        """
+        )
+
+        image = self.find_image_in_drawing(drawing)
+
+        assert image is not None
+        assert image.x == 10.7
+        assert image.width == 50.7
+        assert image.height == 50.7
+        # y is stored flipped as y + height; the enclosing group re-flips it.
+        assert image.y == pytest.approx(20.7 + 50.7)
+
 
 class TestGradients:
     """Tests for SVG linearGradient and radialGradient support."""
@@ -1559,6 +1966,10 @@ class TestGradients:
         groups = self._find_groups(drawing)
         # The rect's fill must have been replaced by a gradient group
         assert len(groups) > 1
+        # The gradient shape must implement getBounds() so the drawing can be
+        # measured (e.g. when used as a flowable by rst2pdf); see issue #466.
+        x0, y0, x1, y1 = drawing.getBounds()
+        assert x1 > x0 and y1 > y0
 
     def test_radial_gradient_circle(self):
         """A circle with a radialGradient fill must produce a Group."""
@@ -1579,6 +1990,9 @@ class TestGradients:
         )
         groups = self._find_groups(drawing)
         assert len(groups) > 1
+        # See issue #466: the gradient shape must implement getBounds().
+        x0, y0, x1, y1 = drawing.getBounds()
+        assert x1 > x0 and y1 > y0
 
     def test_gradient_stops_parsed(self):
         """Stop colors and offsets must be correctly stored in gradient_defs."""
@@ -1678,3 +2092,95 @@ class TestGradients:
         assert grad is not None
         stop0_color = grad["stops"][0][1]
         assert stop0_color.alpha == pytest.approx(0.5)
+
+    def _get_svg(self, fill, name):
+        return f"""
+            <?xml version="1.0"?>
+            <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
+                <defs>
+                    <linearGradient id="{name}" x1="0" y1="0" x2="1" y2="0"
+                            gradientUnits="objectBoundingBox">
+                        <stop offset="0" stop-color="red" stop-opacity="1"/>
+                        <stop offset="1" stop-color="blue" stop-opacity="1"/>
+                    </linearGradient>
+                </defs>
+                <rect x="10" y="10" width="80" height="80" fill={fill}/>
+            </svg>"""
+
+    def _process_test_fill_url(self, fill, name="grad1"):
+        """Process test fill url."""
+        drawing = drawing_from_svg(self._get_svg(fill, name))
+
+        assert len(drawing.contents) == 1
+        group = drawing.contents[0]
+        assert isinstance(group, Group)
+
+        assert len(group.contents) == 1
+        group2 = group.contents[0]
+        assert isinstance(group2, Group)
+
+        gradient, rect = group2.contents
+        assert isinstance(gradient, LinearGradientShape)
+        assert isinstance(rect, Rect)
+
+        assert gradient._positions == [0.0, 1.0]
+        assert gradient._rl_colors == [
+            colors.Color(1, 0, 0, 1),
+            colors.Color(0, 0, 1, 1),
+        ]
+
+    def test_fill_url_witout_quotes(self):
+        """Fill url witout quotes."""
+        self._process_test_fill_url('"url(#grad1)"')
+
+    def test_fill_url_witout_quotes_space(self):
+        """Fill url witout quotes."""
+        self._process_test_fill_url('"url(#grad 1)"', "grad 1")
+
+    def test_fill_url_witout_quotes_parenthesis(self):
+        """Fill url witout quotes."""
+        self._process_test_fill_url('"url(#grad)1)"', "grad)1")
+
+    def test_fill_url_witout_quotes_strip(self):
+        """Fill url witout quotes."""
+        self._process_test_fill_url('"url( #grad1 )"')
+
+    def test_fill_url_witout_quotes_strip_space(self):
+        """Fill url witout quotes."""
+        self._process_test_fill_url('"url( #grad 1 )"', "grad 1")
+
+    def test_fill_url_enclosed_single_quotes(self):
+        """Fill url enclosed single quotes."""
+        self._process_test_fill_url('''"url('#grad1')"''')
+
+    def test_fill_url_enclosed_single_quotes_space(self):
+        """Fill url enclosed single quotes."""
+        self._process_test_fill_url('''"url('#grad 1')"''', "grad 1")
+
+    def test_fill_url_enclosed_single_quotes_strip(self):
+        """Fill url enclosed single quotes."""
+        self._process_test_fill_url('''"url( '#grad1' )"''')
+
+    def test_fill_url_enclosed_single_quotes_strip_space(self):
+        """Fill url enclosed single quotes."""
+        self._process_test_fill_url('''"url( '#grad 1' )"''', "grad 1")
+
+    def test_fill_url_enclosed_double_quotes(self):
+        """Fill url enclosed double quotes."""
+        self._process_test_fill_url("""'url("#grad1")'""")
+
+    def test_fill_url_enclosed_double_quotes_parenthesis(self):
+        """Fill url enclosed double quotes."""
+        self._process_test_fill_url("""'url("#grad())1")'""", "grad())1")
+
+    def test_fill_url_enclosed_double_quotes_strip(self):
+        """Fill url enclosed double quotes."""
+        self._process_test_fill_url("""'url( "#grad1" )'""")
+
+    def test_fill_url_enclosed_double_quotes_strip_space(self):
+        """Fill url enclosed double quotes."""
+        self._process_test_fill_url("""'url( "#grad 1" )'""", "grad 1")
+
+    def test_fill_url_enclosed_double_quotes_strip_parenthesis(self):
+        """Fill url enclosed double quotes."""
+        self._process_test_fill_url("""'url( "#grad)1" )'""", "grad)1")

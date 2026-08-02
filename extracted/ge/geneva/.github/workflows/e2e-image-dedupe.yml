@@ -1,0 +1,39 @@
+name: E2E Tests - Image Dedupe
+
+on:
+  # Manual trigger - can be run on any branch
+  workflow_dispatch:
+    inputs:
+      csp:
+        description: 'Cloud provider'
+        required: false
+        type: choice
+        options:
+          - aws
+          - gcp
+          - azure
+        default: 'aws'
+      num_images:
+        description: "Number of CIFAR-10 images to process (dataset has 50k, expect ~3-5% dupes @ 50k)"
+        required: false
+        default: "10000"
+  # Weekly: Tue 6:30 AM UTC (Mon 11:30 PM Pacific)
+  schedule:
+    - cron: "30 6 * * 2"
+
+jobs:
+  e2e-test-image-dedupe:
+    name: e2e-test-image-dedupe-${{ (github.event_name == 'workflow_dispatch' && (inputs.csp || 'aws')) || 'aws' }}
+    # Scheduled runs are always on main, manual runs can be on any branch
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.ref == 'refs/heads/main')
+    uses: ./.github/workflows/e2e-shared.yml
+    with:
+      csp: ${{ inputs.csp || 'aws' }}
+      e2e_dir: e2e/image_dedupe
+      checkout_ref: ${{ github.event_name == 'schedule' && 'main' || github.ref }}
+      run_command: |
+        make -f e2e/Makefile test-e2e-image-dedupe-${{ inputs.csp || 'aws' }} SLUG=$SLUG NUM_IMAGES=${{ github.event_name == 'schedule' && '10000' || inputs.num_images || '10000' }}
+      cleanup_command: |
+        echo "Deleting rayclusters matching slug $SLUG"
+        kubectl get raycluster -n lancedb --no-headers -o custom-columns=":metadata.name" | grep $SLUG | xargs -r -n1 kubectl delete raycluster -n lancedb --wait
+    secrets: inherit

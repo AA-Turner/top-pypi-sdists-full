@@ -1,1 +1,0 @@
-from .scihub import SciHub

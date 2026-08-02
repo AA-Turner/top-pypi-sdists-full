@@ -1,0 +1,89 @@
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use async_tiff::decoder::{Decoder, DecoderRegistry};
+use async_tiff::error::{AsyncTiffError, AsyncTiffResult};
+use async_tiff::tags::PhotometricInterpretation;
+use bytes::Bytes;
+use pyo3::exceptions::PyTypeError;
+use pyo3::intern;
+use pyo3::prelude::*;
+use pyo3::sync::PyOnceLock;
+use pyo3::types::{PyDict, PyTuple};
+use pyo3_bytes::PyBytes;
+
+use crate::enums::PyCompression;
+
+static DEFAULT_DECODER_REGISTRY: PyOnceLock<Arc<DecoderRegistry>> = PyOnceLock::new();
+
+pub fn get_default_decoder_registry(py: Python<'_>) -> Arc<DecoderRegistry> {
+    let registry =
+        DEFAULT_DECODER_REGISTRY.get_or_init(py, || Arc::new(DecoderRegistry::default()));
+    registry.clone()
+}
+
+#[pyclass(name = "DecoderRegistry", frozen)]
+#[derive(Debug, Default)]
+pub(crate) struct PyDecoderRegistry(Arc<DecoderRegistry>);
+
+#[pymethods]
+impl PyDecoderRegistry {
+    #[new]
+    #[pyo3(signature = (custom_decoders = None))]
+    pub(crate) fn new(custom_decoders: Option<HashMap<PyCompression, PyDecoder>>) -> Self {
+        let mut decoder_registry = DecoderRegistry::default();
+        if let Some(custom_decoders) = custom_decoders {
+            for (compression, decoder) in custom_decoders.into_iter() {
+                decoder_registry
+                    .as_mut()
+                    .insert(compression.into(), Box::new(decoder));
+            }
+        }
+        Self(Arc::new(decoder_registry))
+    }
+}
+impl PyDecoderRegistry {
+    pub(crate) fn inner(&self) -> &Arc<DecoderRegistry> {
+        &self.0
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct PyDecoder(Py<PyAny>);
+
+impl PyDecoder {
+    fn call(&self, py: Python, buffer: Bytes) -> PyResult<Vec<u8>> {
+        let kwargs = PyDict::new(py);
+        kwargs.set_item(intern!(py, "buffer"), PyBytes::new(buffer))?;
+        let result = self.0.call(py, PyTuple::empty(py), Some(&kwargs))?;
+        result.extract(py)
+    }
+}
+
+impl<'py> FromPyObject<'_, 'py> for PyDecoder {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'_, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if !obj.hasattr(intern!(obj.py(), "__call__"))? {
+            return Err(PyTypeError::new_err(
+                "Expected callable object for custom decoder.",
+            ));
+        }
+        Ok(Self(obj.as_unbound().clone_ref(obj.py())))
+    }
+}
+
+impl Decoder for PyDecoder {
+    fn decode_tile(
+        &self,
+        buffer: Bytes,
+        _photometric_interpretation: PhotometricInterpretation,
+        _jpeg_tables: Option<&[u8]>,
+        _samples_per_pixel: u16,
+        _bits_per_sample: u16,
+        _lerc_parameters: Option<&[u32]>,
+    ) -> AsyncTiffResult<Vec<u8>> {
+        Python::attach(|py| self.call(py, buffer))
+            .map_err(|err| AsyncTiffError::General(err.to_string()))
+    }
+}

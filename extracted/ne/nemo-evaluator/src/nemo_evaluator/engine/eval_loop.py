@@ -1,0 +1,890 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Core evaluation loop: seed -> solve -> verify, with async parallelism."""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import random
+import time
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+from uuid import uuid4
+
+from nemo_evaluator.engine.artifacts import build_artifact_bundle
+from nemo_evaluator.engine.model_call_context import AttemptContext, attempt_context
+from nemo_evaluator.engine.model_traffic_log import append_model_traffic_records, drain_model_traffic_session
+from nemo_evaluator.engine.step_log import (
+    INFERENCE_LOG,
+    MODEL_TRAFFIC_LOG,
+    VERIFIED_LOG,
+    StepLog,
+    config_hash,
+)
+from nemo_evaluator.environments.base import EvalEnvironment, VerifyResult
+from nemo_evaluator.errors import GracefulError, InfraError
+from nemo_evaluator.metrics.aggregation import category_breakdown, scoring_details_breakdown, summary_stats
+from nemo_evaluator.metrics.confidence import bootstrap_ci
+from nemo_evaluator.metrics.headline import headline_score_metrics
+from nemo_evaluator.observability.collector import ArtifactCollector
+from nemo_evaluator.observability.model_traffic import (
+    ModelTrafficStore,
+    aggregate_model_traffic_stats,
+)
+from nemo_evaluator.observability.progress import NoOpProgress, ProgressTracker
+from nemo_evaluator.observability.types import ModelResponse, StepRecord
+from nemo_evaluator.sandbox.strategies import pick_lifecycle
+from nemo_evaluator.solvers import Solver
+from nemo_evaluator.solvers.base import ErrorKind
+
+if TYPE_CHECKING:
+    from nemo_evaluator.sandbox.base import OutsideEndpoint
+    from nemo_evaluator.sandbox.manager import SandboxManager
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_MAX_CONCURRENT = 32
+
+
+def _get_error_category(entry: dict) -> str | None:
+    """Safe accessor for scoring_details.error_category."""
+    sd = entry.get("scoring_details")
+    if not isinstance(sd, dict):
+        return None
+    return sd.get("error_category")
+
+
+async def run_evaluation(
+    env: EvalEnvironment,
+    solver: Solver,
+    n_repeats: int = 1,
+    max_problems: int | None = None,
+    config: dict[str, Any] | None = None,
+    progress: ProgressTracker | None = None,
+    problem_range: tuple[int, int] | None = None,
+    max_concurrent: int = DEFAULT_MAX_CONCURRENT,
+    judge_client: Any = None,
+    sandbox_manager: SandboxManager | None = None,
+    model_url: str | None = None,
+    step_log_dir: Path | None = None,
+    resume: bool = False,
+    skip_failed: bool = False,
+    max_system_retries: int = 3,
+    shard_info: tuple[int, int] | None = None,
+    instruction_template: Path | None = None,
+    shuffle_seed: int | None = None,
+    model_traffic_store: ModelTrafficStore | None = None,
+) -> dict[str, Any]:
+    config = config or {}
+    max_system_retries = max(1, max_system_retries)
+
+    name = env.name
+    ds_full_size = await env.dataset_size()
+    if ds_full_size < 0:
+        raise ValueError(
+            f"Environment {name!r} returned invalid dataset_size={ds_full_size}. "
+            "Ensure the environment is reachable and has a valid dataset."
+        )
+
+    # Seeded global permutation applied before sharding; explicit
+    # ``problem_range`` takes precedence.  ``problem_idx`` stays the
+    # original dataset index so scoring/merge/resume are unaffected.
+    perm: list[int] | None = None
+    if shuffle_seed is not None and problem_range is None:
+        perm = list(range(ds_full_size))
+        random.Random(shuffle_seed).shuffle(perm)
+        if max_problems is not None and max_problems < len(perm):
+            perm = perm[:max_problems]
+        ds_size = len(perm)
+    else:
+        ds_size = ds_full_size
+        if max_problems is not None:
+            ds_size = min(ds_size, max_problems)
+
+    # Set BEFORE config_hash() so resume auto-invalidates on seed change.
+    config["shuffle_seed"] = shuffle_seed
+    config["shuffle"] = {
+        "seed": shuffle_seed,
+        "applied": perm is not None,
+        "ds_full_size": ds_full_size,
+        "ds_effective_size": ds_size,
+    }
+
+    if shard_info and not problem_range:
+        from nemo_evaluator.engine.sharding import get_shard_range
+
+        shard_idx, total_shards = shard_info
+        problem_range = get_shard_range(ds_size, shard_idx, total_shards)
+        config["shard"] = {
+            "idx": shard_idx,
+            "total": total_shards,
+            "range": list(problem_range),
+        }
+
+    if problem_range:
+        start, end = problem_range
+        end = min(end, ds_size)
+        config["shard_range"] = [start, end]
+    else:
+        start, end = 0, ds_size
+
+    await env.prepare()
+
+    if sandbox_manager:
+        build_reqs = await env.image_build_requests()
+        if build_reqs:
+            await sandbox_manager.provision(build_reqs)
+        specs = await env.sandbox_specs()
+        if specs:
+            await sandbox_manager.pre_pull(specs)
+
+    inference_log: StepLog | None = None
+    verified_log: StepLog | None = None
+    model_traffic_log: StepLog | None = None
+    inferred_cache: dict[tuple[int, int], dict[str, Any]] = {}
+    verified_cache: dict[tuple[int, int], dict[str, Any]] = {}
+
+    if step_log_dir is not None:
+        inference_log = StepLog(step_log_dir / INFERENCE_LOG)
+        verified_log = StepLog(step_log_dir / VERIFIED_LOG)
+        model_traffic_log = StepLog(step_log_dir / MODEL_TRAFFIC_LOG)
+
+        cfg_hash = config_hash(config)
+
+        if resume:
+            old_meta = inference_log.load_meta()
+            if old_meta and old_meta.get("config_hash") != cfg_hash:
+                logger.warning(
+                    "Config changed since last run (old=%s new=%s). "
+                    "Inference cache invalidated; verified cache retained.",
+                    old_meta.get("config_hash", "?"),
+                    cfg_hash,
+                )
+                verified_cache_raw = verified_log.load()
+                infra_keys = {k for k, v in verified_cache_raw.items() if _get_error_category(v) == "infra_error"}
+                verified_cache = {k: v for k, v in verified_cache_raw.items() if k not in infra_keys}
+                if infra_keys:
+                    logger.info("resume: %d infra-error entries will be retried", len(infra_keys))
+                if verified_cache:
+                    verified_log.compact(verified_cache)
+                verified_log.open()
+                inference_log.open(truncate=True)
+                model_traffic_log.open(truncate=True)
+                inference_log.write_meta({"config_hash": cfg_hash})
+            else:
+                inferred_cache_raw = inference_log.load()
+                verified_cache_raw = verified_log.load()
+                infra_keys = {k for k, v in verified_cache_raw.items() if _get_error_category(v) == "infra_error"}
+                verified_cache = {k: v for k, v in verified_cache_raw.items() if k not in infra_keys}
+                inferred_cache = {k: v for k, v in inferred_cache_raw.items() if k not in infra_keys}
+                if infra_keys:
+                    logger.info("resume: %d infra-error entries will be retried", len(infra_keys))
+                if inferred_cache:
+                    meta = old_meta or {"config_hash": cfg_hash}
+                    inference_log.compact(inferred_cache, meta=meta)
+                if verified_cache:
+                    verified_log.compact(verified_cache)
+                inference_log.open()
+                verified_log.open()
+                model_traffic_log.open()
+
+            n_from_cache = len(verified_cache)
+            n_verify_only = len(inferred_cache) - len(set(inferred_cache) & set(verified_cache))
+            if n_from_cache or n_verify_only:
+                logger.info("resume: %d fully cached, %d verify-only, rest from scratch", n_from_cache, n_verify_only)
+        else:
+            inference_log.open(truncate=True)
+            inference_log.write_meta({"config_hash": cfg_hash})
+            verified_log.open(truncate=True)
+            model_traffic_log.open(truncate=True)
+
+    pg = progress or NoOpProgress()
+    collector = ArtifactCollector()
+
+    n_problems = end - start
+    pg.on_start(name, n_problems, n_repeats)
+    logger.info(
+        "eval start: %s problems=%d [%d:%d] repeats=%d concurrency=%d",
+        name,
+        n_problems,
+        start,
+        end,
+        n_repeats,
+        max_concurrent,
+    )
+
+    if n_problems == 0:
+        logger.warning("0 problems to evaluate — dataset may be missing or empty")
+        pg.on_done(0, 0, 0.0, 0)
+        return build_artifact_bundle(
+            benchmark_name=name,
+            results=[],
+            metrics={
+                "summary": summary_stats([]),
+                "runtime": ArtifactCollector().build(0.0).runtime.to_dict(),
+                "failures": ArtifactCollector().build(0.0).failures.to_dict(),
+            },
+            config=config,
+            categories=None,
+        )
+
+    results: list[dict[str, Any]] = []
+    problem_correct: dict[int, list[float]] = {}
+    lock = asyncio.Lock()
+    cum_correct = 0
+    cum_total = 0
+    t0 = time.monotonic()
+
+    sem = asyncio.Semaphore(max_concurrent)
+
+    async def _run_step(idx: int, slot: int, rep: int, seed_result, seed_ms: float):
+        nonlocal cum_correct, cum_total
+        async with sem:
+            key = (idx, rep)
+            cached_verified = verified_cache.get(key)
+            if cached_verified is not None:
+                reward = cached_verified.get("reward", 0.0)
+                tokens = cached_verified.get("tokens", 0)
+                result_dict = {
+                    "problem_idx": idx,
+                    "repeat": rep,
+                    "reward": reward,
+                    "prompt": seed_result.prompt,
+                    "model_response": cached_verified.get("response", ""),
+                    "extracted_answer": cached_verified.get("extracted_answer"),
+                    "expected_answer": seed_result.expected_answer,
+                    "scoring_details": cached_verified.get("scoring_details", {}),
+                    "metadata": {**seed_result.metadata, **cached_verified.get("scoring_metadata", {})},
+                    "tokens": tokens,
+                    "latency_ms": cached_verified.get("latency_ms", 0),
+                }
+                cached_step = StepRecord(
+                    problem_idx=idx,
+                    repeat=rep,
+                    prompt=seed_result.prompt,
+                    expected_answer=seed_result.expected_answer,
+                    seed_metadata=seed_result.metadata,
+                    reward=reward,
+                    extracted_answer=cached_verified.get("extracted_answer"),
+                    scoring_details=cached_verified.get("scoring_details", {}),
+                )
+                cached_inf = inferred_cache.get(key)
+                if cached_inf:
+                    if cached_inf.get("trajectory"):
+                        cached_step.trajectory = cached_inf["trajectory"]
+                    cached_step.model_response = ModelResponse(
+                        content=cached_inf.get("response", ""),
+                        model=cached_inf.get("model", ""),
+                        finish_reason=cached_inf.get("finish_reason", ""),
+                        prompt_tokens=cached_inf.get("prompt_tokens", 0),
+                        completion_tokens=cached_inf.get("completion_tokens", 0),
+                        total_tokens=cached_inf.get("tokens", 0),
+                        latency_ms=cached_inf.get("latency_ms", 0.0),
+                        reasoning_tokens=cached_inf.get("reasoning_tokens", 0),
+                    )
+                    cached_step.model_ms = cached_inf.get("latency_ms", 0.0)
+                async with lock:
+                    collector.record(cached_step)
+                    results.append(result_dict)
+                    if reward > 0:
+                        cum_correct += 1
+                    cum_total += 1
+                    problem_correct.setdefault(idx, []).append(reward)
+                pg.on_step(slot, rep, n_problems, n_repeats, reward, tokens, 0)
+                return
+
+            step = StepRecord(
+                problem_idx=idx,
+                repeat=rep,
+                prompt=seed_result.prompt,
+                expected_answer=seed_result.expected_answer,
+                seed_metadata=seed_result.metadata,
+                seed_ms=seed_ms if rep == 0 else 0,
+            )
+
+            step_t0 = time.monotonic()
+
+            sandbox_cfg = config.get("_sandbox_config")
+            vr: VerifyResult | None = None
+            tv = step_t0
+
+            for _attempt in range(1, max_system_retries + 1):
+                solve_result = None
+                sandbox = None
+                response_text = ""
+                tokens = 0
+                latency_ms = 0.0
+                model_stats: dict[str, Any] | None = None
+                step.model_error = None
+                vr = None
+
+                outside_eps: list[OutsideEndpoint] = []
+                step_session_id = uuid4().hex[:16] if model_url else None
+                if model_url:
+                    from nemo_evaluator.sandbox.base import OutsideEndpoint as OE
+
+                    step_url = f"{model_url.rstrip('/')}/s/{step_session_id}"
+                    outside_eps.append(OE(url=step_url, env_var="MODEL_BASE_URL"))
+
+                lifecycle = pick_lifecycle(
+                    seed_result,
+                    sandbox_manager,
+                    outside_endpoints=outside_eps,
+                    config_capture_cmd=sandbox_cfg.capture_cmd if sandbox_cfg else None,
+                    verify_timeout=sandbox_cfg.verify_timeout if sandbox_cfg else 600.0,
+                    force_stateful=sandbox_cfg.stateful if sandbox_cfg else False,
+                )
+
+                try:
+                    await lifecycle.setup()
+
+                    # ── Solve ────────────────────────────────────────
+                    cached_inferred = inferred_cache.get(key)
+                    if cached_inferred is not None:
+                        response_text = cached_inferred.get("response", "")
+                        tokens = cached_inferred.get("tokens", 0)
+                        latency_ms = cached_inferred.get("latency_ms", 0)
+                        if cached_inferred.get("trajectory"):
+                            step.trajectory = cached_inferred["trajectory"]
+                        logger.debug("resume p%d r%d: using cached inference", idx, rep)
+                    else:
+                        pg.on_phase(slot, rep, n_problems, n_repeats, "solving")
+                        _is_infra = False
+                        try:
+                            if _solver_accepts_sandbox(solver):
+                                sandbox = await lifecycle.get_agent_sandbox()
+                                logger.info("p%d r%d: sandbox-ready at +%.1fs", idx, rep, time.monotonic() - step_t0)
+                            adapter_ctx = (
+                                AttemptContext(adapter_session_id=step_session_id)
+                                if step_session_id and model_traffic_store is not None
+                                else None
+                            )
+                            with attempt_context(adapter_ctx):
+                                logger.info("p%d r%d: solver-entry at +%.1fs", idx, rep, time.monotonic() - step_t0)
+                                if sandbox is not None:
+                                    solve_result = await solver.solve(seed_result, sandbox=sandbox)
+                                else:
+                                    solve_result = await solver.solve(seed_result)
+                            if solve_result.model_response:
+                                step.model_response = solve_result.model_response
+                                step.model_ms = solve_result.model_response.latency_ms
+                            if solve_result.error_kind == ErrorKind.INFRA:
+                                _is_infra = True
+                            if solve_result.error:
+                                logger.warning("solve error p%d r%d: %s", idx, rep, solve_result.error)
+                                step.model_error = solve_result.error
+                        except GracefulError as e:
+                            step.model_error = str(e)
+                            logger.warning("solve error p%d r%d (graceful): %s", idx, rep, e)
+                        except InfraError:
+                            raise  # bubble to outer loop for retry
+                        except Exception:
+                            raise  # system error — outer loop will retry
+
+                        response_text = solve_result.response if solve_result else ""
+                        model_traffic = drain_model_traffic_session(model_traffic_store, step_session_id)
+                        if model_traffic:
+                            await append_model_traffic_records(
+                                model_traffic_log,
+                                model_traffic,
+                                benchmark=name,
+                                problem_idx=idx,
+                                repeat=rep,
+                            )
+                            model_stats = aggregate_model_traffic_stats(model_traffic)
+                        tokens = (
+                            solve_result.model_response.total_tokens
+                            if solve_result and solve_result.model_response
+                            else 0
+                        )
+                        latency_ms = (
+                            solve_result.model_response.latency_ms
+                            if solve_result and solve_result.model_response
+                            else 0
+                        )
+
+                        if inference_log is not None:
+                            mr = solve_result.model_response if solve_result else None
+                            inf_record = {
+                                "problem_idx": idx,
+                                "repeat": rep,
+                                "response": response_text,
+                                "tokens": tokens,
+                                "latency_ms": latency_ms,
+                                "model": mr.model if mr else "",
+                                "finish_reason": mr.finish_reason if mr else "",
+                                "prompt_tokens": mr.prompt_tokens if mr else 0,
+                                "completion_tokens": mr.completion_tokens if mr else 0,
+                                "reasoning_tokens": mr.reasoning_tokens if mr else 0,
+                                "prompt": seed_result.prompt,
+                                "expected_answer": seed_result.expected_answer,
+                                "seed_metadata": seed_result.metadata,
+                                "trajectory": solve_result.trajectory if solve_result else None,
+                            }
+                            if model_stats is not None:
+                                inf_record["model_stats"] = model_stats
+                            await inference_log.append(inf_record)
+
+                    # ── Verify ───────────────────────────────────────
+                    _solve_failed = step.model_error is not None
+                    if _solve_failed:
+                        error_cat = "infra_error" if _is_infra else "graceful"
+                        vr = VerifyResult(
+                            reward=0.0,
+                            scoring_details={
+                                "error": step.model_error,
+                                "error_category": error_cat,
+                                "method": "solve_failed",
+                            },
+                        )
+                        logger.info(
+                            "p%d r%d: solver failed — grading 0.0 (skipping verify)",
+                            idx,
+                            rep,
+                        )
+                    else:
+                        await lifecycle.transition_to_verify(
+                            response_text,
+                            solver_modified=(sandbox is not None),
+                        )
+                        pg.on_phase(slot, rep, n_problems, n_repeats, "verifying")
+                    tv = time.monotonic()
+                    if not _solve_failed and solve_result and solve_result.reward is not None:
+                        vr = VerifyResult(
+                            reward=solve_result.reward,
+                            scoring_details=solve_result.scoring_details,
+                        )
+                        logger.debug("p%d r%d: using pre-computed reward=%.4f", idx, rep, vr.reward)
+                    elif not _solve_failed:
+                        verify_sandbox = await lifecycle.get_verify_sandbox()
+                        vr = await env.verify(
+                            response_text,
+                            seed_result.expected_answer,
+                            sandbox=verify_sandbox,
+                            **seed_result.metadata,
+                        )
+                    break  # success — exit retry loop
+
+                except InfraError as e:
+                    await lifecycle.teardown()
+                    failed_model_traffic = drain_model_traffic_session(model_traffic_store, step_session_id)
+                    if _attempt < max_system_retries:
+                        delay = min(30, 5 * (2 ** (_attempt - 1)))
+                        logger.warning(
+                            "p%d r%d: infra error (attempt %d/%d), retrying in %ds: %s",
+                            idx,
+                            rep,
+                            _attempt,
+                            max_system_retries,
+                            delay,
+                            e,
+                        )
+                        await asyncio.sleep(delay)
+                        continue
+                    if failed_model_traffic:
+                        await append_model_traffic_records(
+                            model_traffic_log,
+                            failed_model_traffic,
+                            benchmark=name,
+                            problem_idx=idx,
+                            repeat=rep,
+                        )
+                    logger.warning(
+                        "p%d r%d: infra error exhausted %d retries, scoring 0.0: %s",
+                        idx,
+                        rep,
+                        max_system_retries,
+                        e,
+                    )
+                    vr = VerifyResult(
+                        reward=0.0,
+                        scoring_details={
+                            "error": str(e),
+                            "error_category": "infra_error",
+                            "method": "infra_error",
+                            "retries_exhausted": max_system_retries,
+                        },
+                    )
+                    break
+
+                except GracefulError as e:
+                    await lifecycle.teardown()
+                    drain_model_traffic_session(model_traffic_store, step_session_id)
+                    logger.warning(
+                        "p%d r%d: graceful error, grading 0.0: %s",
+                        idx,
+                        rep,
+                        e,
+                    )
+                    vr = VerifyResult(
+                        reward=0.0,
+                        scoring_details={
+                            "error": str(e),
+                            "error_category": "graceful",
+                            "method": "graceful_error",
+                        },
+                    )
+                    break
+
+                except Exception as e:
+                    await lifecycle.teardown()
+                    drain_model_traffic_session(model_traffic_store, step_session_id)
+                    if _attempt < max_system_retries:
+                        delay = min(30, 5 * (2 ** (_attempt - 1)))
+                        logger.warning(
+                            "p%d r%d: system error (attempt %d/%d), retrying in %ds: %s",
+                            idx,
+                            rep,
+                            _attempt,
+                            max_system_retries,
+                            delay,
+                            e,
+                        )
+                        await asyncio.sleep(delay)
+                        continue
+                    logger.error(
+                        "p%d r%d: system error exhausted %d retries: %s",
+                        idx,
+                        rep,
+                        max_system_retries,
+                        e,
+                    )
+                    if not skip_failed:
+                        raise
+                    vr = VerifyResult(
+                        reward=0.0,
+                        scoring_details={
+                            "error": str(e),
+                            "error_category": "system",
+                            "retries_exhausted": max_system_retries,
+                            "method": "system_error",
+                        },
+                    )
+                    break
+            try:
+                step.verify_ms = (time.monotonic() - tv) * 1000
+                step.total_ms = (time.monotonic() - step_t0) * 1000
+
+                step.reward = vr.reward
+                step.extracted_answer = vr.extracted_answer
+                step.scoring_details = vr.scoring_details
+                step.scoring_method = vr.scoring_details.get("method", "")
+
+                extra_scorers = (config or {}).get("scorers", [])
+                if extra_scorers:
+                    from nemo_evaluator.scoring import ScorerInput, get_scorer
+
+                    for scorer_name in extra_scorers:
+                        try:
+                            sfn = get_scorer(scorer_name)
+                            sinput = ScorerInput(
+                                response=response_text,
+                                target=seed_result.expected_answer,
+                                metadata=seed_result.metadata,
+                            )
+                            sresult = sfn(sinput)
+                            sresult["reward"] = 1.0 if sresult.get("correct") else 0.0
+                            vr.scoring_details[f"scorer:{scorer_name}"] = sresult
+                        except Exception as e:
+                            logger.warning("scorer %s error p%d r%d: %s", scorer_name, idx, rep, e)
+                            vr.scoring_details[f"scorer:{scorer_name}"] = {"error": str(e), "reward": 0.0}
+
+                judge_fn = vr.scoring_details.pop("_judge_fn", None)
+                if vr.scoring_details.get("needs_judge"):
+                    if judge_client is None:
+                        logger.warning(
+                            "p%d r%d needs_judge=True but no judge_client is configured",
+                            idx,
+                            rep,
+                        )
+                        vr.scoring_details["judge"] = {
+                            "error": "no judge_client configured",
+                            "total": None,
+                        }
+                    else:
+                        pg.on_phase(slot, rep, n_problems, n_repeats, "judging")
+                        try:
+                            if judge_fn is not None:
+                                final = await judge_fn(judge_client)
+                                step.scoring_details["judge"] = final.get("judge", {})
+                                extras = final.get("details")
+                                if extras:
+                                    step.scoring_details.update(extras)
+                                reward = final.get("reward")
+                                if reward is not None:
+                                    step.reward = float(reward)
+                                    vr.reward = float(reward)
+                            else:
+                                from nemo_evaluator.scoring.judge import judge_score
+
+                                judge_result = await judge_score(
+                                    instruction=seed_result.prompt,
+                                    response=response_text,
+                                    expected=seed_result.expected_answer,
+                                    client=judge_client,
+                                )
+                                step.scoring_details["judge"] = judge_result
+                                if "normalized" in judge_result:
+                                    step.reward = judge_result["normalized"]
+                                    vr.reward = judge_result["normalized"]
+                        except (KeyboardInterrupt, asyncio.CancelledError):
+                            raise
+                        except Exception as e:
+                            logger.warning("judge error p%d r%d: %s", idx, rep, e)
+                            step.scoring_details["judge"] = {
+                                "error": f"{type(e).__name__}: {e}",
+                                "total": None,
+                            }
+                    vr.scoring_details["needs_judge"] = False
+
+                if verified_log is not None:
+                    ver_record = {
+                        "problem_idx": idx,
+                        "repeat": rep,
+                        "reward": vr.reward,
+                        "extracted_answer": vr.extracted_answer,
+                        "scoring_details": vr.scoring_details,
+                        "scoring_metadata": vr.metadata,
+                        "response": response_text,
+                        "tokens": tokens,
+                        "latency_ms": latency_ms,
+                    }
+                    await verified_log.append(ver_record)
+
+                scorer_rewards = {}
+                for sk, sv in vr.scoring_details.items():
+                    if sk.startswith("scorer:") and isinstance(sv, dict):
+                        scorer_rewards[sk] = sv.get("reward", 0.0)
+
+                result_dict = {
+                    "problem_idx": idx,
+                    "repeat": rep,
+                    "reward": vr.reward,
+                    "scorer_rewards": scorer_rewards,
+                    "prompt": seed_result.prompt,
+                    "model_response": response_text,
+                    "extracted_answer": vr.extracted_answer,
+                    "expected_answer": seed_result.expected_answer,
+                    "scoring_details": vr.scoring_details,
+                    "metadata": {**seed_result.metadata, **vr.metadata},
+                    "tokens": tokens,
+                    "latency_ms": latency_ms,
+                }
+                if solve_result and solve_result.trajectory:
+                    result_dict["trajectory"] = solve_result.trajectory
+                    step.trajectory = solve_result.trajectory
+
+                async with lock:
+                    collector.record(step)
+                    results.append(result_dict)
+                    if vr.reward > 0:
+                        cum_correct += 1
+                    cum_total += 1
+                    problem_correct.setdefault(idx, []).append(vr.reward)
+
+                pg.on_step(slot, rep, n_problems, n_repeats, vr.reward, tokens, step.total_ms)
+
+            finally:
+                await lifecycle.teardown()
+
+    max_buffered = max_concurrent * 2
+    pending: set[asyncio.Task] = set()
+
+    first_error: BaseException | None = None
+
+    def _check_done(done_tasks: set[asyncio.Task]) -> None:
+        nonlocal first_error
+        for t in done_tasks:
+            if t.cancelled():
+                continue
+            exc = t.exception()
+            if exc is None:
+                continue
+            logger.error(
+                "Step failed (retries exhausted, will abort run): %s",
+                exc,
+            )
+            if first_error is None:
+                first_error = exc
+
+    interrupted = False
+
+    try:
+        for i in range(start, end):
+            if first_error is not None:
+                break
+
+            idx = perm[i] if perm is not None else i  # global dataset index
+            slot = i - start  # shard-local progress position
+
+            while len(pending) >= max_buffered:
+                done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+                _check_done(done)
+                if first_error is not None:
+                    break
+
+            if first_error is not None:
+                break
+
+            ts = time.monotonic()
+            seed_result = await env.seed(idx)
+            seed_ms = (time.monotonic() - ts) * 1000
+
+            if instruction_template is not None:
+                from nemo_evaluator.templates import render_template
+
+                wd = seed_result.sandbox_spec.workdir if seed_result.sandbox_spec else "/testbed"
+                seed_result.prompt = render_template(
+                    instruction_template,
+                    original_prompt=seed_result.prompt,
+                    workspace_path=wd,
+                    metadata=seed_result.metadata,
+                )
+
+            for rep in range(n_repeats):
+                task = asyncio.create_task(_run_step(idx, slot, rep, seed_result, seed_ms))
+                pending.add(task)
+
+        if first_error is not None:
+            for t in pending:
+                t.cancel()
+            if pending:
+                await asyncio.wait(pending)
+        elif pending:
+            done, _ = await asyncio.wait(pending)
+            _check_done(done)
+
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        interrupted = True
+        logger.warning("Interrupted — cancelling %d pending tasks", len(pending))
+        for t in pending:
+            t.cancel()
+        if pending:
+            await asyncio.wait(pending, timeout=30)
+
+    finally:
+        if inference_log is not None:
+            inference_log.close()
+        if verified_log is not None:
+            verified_log.close()
+        if model_traffic_log is not None:
+            model_traffic_log.close()
+        if sandbox_manager:
+            await sandbox_manager.shutdown()
+        if hasattr(solver, "close"):
+            await solver.close()
+        if hasattr(env, "close"):
+            await env.close()
+        if interrupted:
+            raise KeyboardInterrupt()
+
+    elapsed = time.monotonic() - t0
+
+    if first_error is not None:
+        raise RuntimeError(f"Evaluation aborted (skip_failed=False): {first_error}") from first_error
+
+    all_rewards = [r["reward"] for r in results]
+
+    # Fractional-vs-binary metric selection lives in
+    # :mod:`nemo_evaluator.metrics.headline` so the single-shard path and
+    # :func:`nemo_evaluator.engine.sharding.merge_results` stay aligned.
+    metrics: dict[str, Any] = dict(headline_score_metrics(problem_correct, n_repeats))
+
+    overall_mean = metrics["mean_reward"]["value"] if "mean_reward" in metrics else None
+    pg.on_done(
+        cum_correct,
+        cum_total,
+        elapsed,
+        sum((s.model_response.total_tokens or 0) for s in collector.steps if s.model_response),
+        mean_reward=overall_mean,
+    )
+
+    metrics["summary"] = summary_stats(all_rewards)
+
+    cats = None
+    if results and "category" in results[0].get("metadata", {}):
+        cat_results = category_breakdown(results, "category")
+        cats = [
+            {"category": c.category, "n_samples": c.n_samples, "mean_reward": round(c.mean_reward, 4)}
+            for c in cat_results
+        ]
+
+    sd_breakdowns = scoring_details_breakdown(results)
+    if sd_breakdowns:
+        metrics["breakdowns"] = {
+            field: [
+                {
+                    "group": c.category,
+                    "n": c.n_samples,
+                    "mean_reward": round(c.mean_reward, 4),
+                    "ci_lower": round(c.ci.ci_lower, 4),
+                    "ci_upper": round(c.ci.ci_upper, 4),
+                }
+                for c in groups
+            ]
+            for field, groups in sd_breakdowns.items()
+        }
+
+    scorer_agg: dict[str, dict[str, Any]] = {}
+    for r in results:
+        sd = r.get("scoring_details", {})
+        for key, val in sd.items():
+            if not key.startswith("scorer:"):
+                continue
+            if not isinstance(val, dict):
+                continue
+            bucket = scorer_agg.setdefault(key, {"correct": 0, "total": 0})
+            bucket["total"] += 1
+            if val.get("correct"):
+                bucket["correct"] += 1
+    for key, agg in scorer_agg.items():
+        n = agg["total"]
+        c = agg["correct"]
+        acc = c / n if n else 0.0
+        ci = bootstrap_ci([1.0] * c + [0.0] * (n - c)) if n else bootstrap_ci([])
+        metrics[key] = {
+            "value": round(acc, 4),
+            "ci_lower": round(ci.ci_lower, 4),
+            "ci_upper": round(ci.ci_upper, 4),
+            "correct": c,
+            "total": n,
+        }
+
+    artifacts = collector.build(elapsed)
+    metrics["runtime"] = artifacts.runtime.to_dict()
+    metrics["failures"] = artifacts.failures.to_dict()
+
+    bundle = build_artifact_bundle(
+        benchmark_name=name,
+        results=results,
+        metrics=metrics,
+        config=config,
+        categories=cats,
+    )
+    bundle["_results"] = results
+    bundle["_artifacts"] = artifacts
+    return bundle
+
+
+def _solver_accepts_sandbox(solver: Any) -> bool:
+    """Check if a solver's solve() method accepts a 'sandbox' keyword argument."""
+    import inspect
+
+    try:
+        sig = inspect.signature(solver.solve)
+        return "sandbox" in sig.parameters
+    except (ValueError, TypeError):
+        return False

@@ -1,0 +1,314 @@
+"""ddc_fn_demo.py — Ddcr: real passband to complex baseband.
+
+``doppler.ddc.Ddcr`` is a generated class over an opaque
+``ddcr_state_t *``. It owns the C state like an object, yet
+``execute()`` writes
+into a **caller-provided** output buffer — so the caller keeps control of
+lifetime and allocation, handy for pipelines that already manage their own
+arrays and want zero per-call allocation.
+
+A Ddcr takes a **real** float32 passband signal, mixes it down with a fine
+NCO, low-pass filters, and **decimates** — emitting **complex64** baseband.
+To park a real tone at carrier ``f_carrier`` (normalised to ``fs_in``) at DC,
+set ``norm_freq = -(2 * f_carrier + 0.5)`` (the NCO runs at ``fs_in / 2``).
+
+Shows:
+  1. Lifecycle     — create → get/set → execute → reset → close (+ the
+                     post-close RuntimeError guard)
+  2. Tuning        — a real tone at f_carrier lands at DC after mixing
+  3. Streaming     — block-by-block execute into one caller-owned buffer
+  4. Spectral plot — input passband → baseband output → retuned output
+
+Run:
+  python examples/python/ddc_fn_demo.py
+"""
+
+from __future__ import annotations
+
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import numpy as np
+
+from doppler.ddc import Ddcr
+from doppler.spectral import blackman_harris_window
+
+FS_IN = 1.0  # everything normalised to the input sample rate
+RATE = 0.25  # decimate 4× → fs_out = 0.25 · fs_in
+
+
+# ---------------------------------------------------------------------------
+# helpers
+# ---------------------------------------------------------------------------
+
+
+def _lo_for_carrier(f_carrier: float) -> float:
+    """NCO setting that tunes a real tone at *f_carrier* (rel. fs_in) to DC."""
+    return -(2.0 * f_carrier + 0.5)
+
+
+def _real_passband(f_carrier: float, n: int, rng) -> np.ndarray:
+    """Real float32 signal: a tone at *f_carrier* plus broadband noise."""
+    t = np.arange(n)
+    tone = np.cos(2.0 * np.pi * f_carrier * t)
+    noise = 0.25 * rng.standard_normal(n)
+    return (tone + noise).astype(np.float32)
+
+
+def _spectrum_db(x: np.ndarray, pad: int = 8) -> tuple[np.ndarray, np.ndarray]:
+    """Windowed FFT over [−0.5, +0.5]; 0 dBFS = unit-amplitude tone.
+
+    Uses a Blackman-Harris window.  ``x`` may be real or complex; the axis is
+    always the full [−0.5, +0.5) so a real input shows its mirror image.
+    """
+    n = len(x)
+    w = np.zeros(n, dtype=np.float32)
+    blackman_harris_window(w)
+    cg = w.mean()
+    spec = np.fft.fftshift(np.fft.fft(x * w, n * pad))
+    amp_db = 20.0 * np.log10(np.abs(spec) / (n * cg) + 1e-300)
+    freq = np.linspace(-0.5, 0.5, n * pad, endpoint=False)
+    return freq, amp_db
+
+
+def _peak_fn(x: np.ndarray) -> float:
+    """Normalised frequency (cycles/sample) of the strongest spectral line."""
+    freq, amp = _spectrum_db(x)
+    return float(freq[int(np.argmax(amp))])
+
+
+# ---------------------------------------------------------------------------
+# 1. Lifecycle
+# ---------------------------------------------------------------------------
+
+
+def demo_lifecycle() -> None:
+    print("--- 1. Lifecycle (Ddcr) ---")
+    ddcr = Ddcr(_lo_for_carrier(0.18), RATE)
+    print(
+        f"  created      norm_freq={ddcr.norm_freq:+.4f}  rate={ddcr.rate:.4f}"
+    )
+
+    ddcr.norm_freq = _lo_for_carrier(0.14)
+    print(
+        f"  retuned      norm_freq={ddcr.norm_freq:+.4f}  "
+        f"(phase-continuous, no history reset)"
+    )
+
+    ddcr.reset()
+    print("  reset        halfband / LO phase / resampler history zeroed")
+
+    ddcr.close()
+    print("  closed       C resources released")
+    try:
+        ddcr.execute(np.zeros(8, np.float32), np.empty(8, np.complex64))
+    except RuntimeError:
+        print("  use-after-close correctly raises RuntimeError\n")
+    else:
+        # A closed handle must never reach the C kernel.
+        raise AssertionError("execute() after close() did not raise")
+
+
+# ---------------------------------------------------------------------------
+# 2. Tuning check
+# ---------------------------------------------------------------------------
+
+
+def demo_tuning() -> None:
+    print("--- 2. Tuning: real tone → DC ---")
+    rng = np.random.default_rng(1)
+    n = 16384
+    print(f"  {'f_carrier':>10}  {'norm_freq':>10}  {'out peak fn':>12}")
+    print(f"  {'-' * 10}  {'-' * 10}  {'-' * 12}")
+    for f_carrier in (0.10, 0.18, 0.30):
+        x = _real_passband(f_carrier, n, rng)
+        ddcr = Ddcr(_lo_for_carrier(f_carrier), RATE)
+        out = np.empty(n, dtype=np.complex64)
+        y = np.array(ddcr.execute(x, out), copy=True)
+        ddcr.close()
+        y_settled = y[len(y) // 10 :]  # drop filter transient
+        peak = _peak_fn(y_settled)
+        print(
+            f"  {f_carrier:>10.3f}  {_lo_for_carrier(f_carrier):>+10.3f}  "
+            f"{peak:>12.4f}"
+        )
+        # Correct tuning parks the carrier at DC: any residual LO offset
+        # would push the strongest line off zero.
+        assert abs(peak) < 0.005, (
+            f"f_carrier={f_carrier}: output peak at fn={peak:+.4f}, "
+            f"expected DC"
+        )
+    print("  (output peak ≈ 0 → the carrier is parked at DC)\n")
+
+
+# ---------------------------------------------------------------------------
+# 3. Block streaming into one caller-owned buffer
+# ---------------------------------------------------------------------------
+
+
+def demo_streaming() -> None:
+    print("--- 3. Streaming: block-by-block into one buffer ---")
+    rng = np.random.default_rng(2)
+    n_block = 4096
+    ddcr = Ddcr(_lo_for_carrier(0.18), RATE)
+    out = np.empty(n_block, dtype=np.complex64)  # reused every block
+    total_in = total_out = 0
+    for _ in range(4):
+        x = _real_passband(0.18, n_block, rng)
+        y = ddcr.execute(x, out)  # zero-copy view of out[:n_out]
+        total_in += len(x)
+        total_out += len(y)
+    ddcr.close()
+    print(
+        f"  fed {total_in} real samples in 4 blocks → "
+        f"{total_out} complex samples  (≈{total_in / total_out:.1f}× "
+        f"decimation)\n"
+    )
+    # Streaming must conserve the sample budget: rate=0.25 means one
+    # complex output for every four real inputs across the whole run.
+    assert abs(total_out - total_in * RATE) <= 4, (
+        f"{total_out} outputs from {total_in} inputs — expected "
+        f"≈{total_in * RATE:.0f} at rate {RATE}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# 4. Spectral plot
+# ---------------------------------------------------------------------------
+
+
+def demo_spectral_plot(out_path="ddc_fn_demo.png") -> None:
+    """Save a 3-panel spectral plot: input passband, baseband, retuned.
+
+    Input: real noise + tone at f_carrier=0.18 (rel. fs_in).  Panel 2 mixes
+    with the LO that parks 0.18 at DC; panel 3 retunes the *same* stream's LO
+    to 0.14, shifting the tone off DC by (0.18 − 0.14)/rate in fs_out units.
+    """
+    rng = np.random.default_rng(42)
+    n = 16384
+    f_carrier = 0.18
+    x = _real_passband(f_carrier, n, rng)
+
+    # baseband output (LO parks the carrier at DC)
+    d_dc = Ddcr(_lo_for_carrier(f_carrier), RATE)
+    y_dc = np.array(d_dc.execute(x, np.empty(n, np.complex64)), copy=True)
+    d_dc.close()
+
+    # retuned output (LO 0.04 below the carrier → tone lands above DC)
+    d_off = Ddcr(_lo_for_carrier(0.14), RATE)
+    y_off = np.array(d_off.execute(x, np.empty(n, np.complex64)), copy=True)
+    d_off.close()
+
+    drop = lambda y: y[len(y) // 10 :]  # noqa: E731 — drop transient
+
+    # LO on the carrier parks the tone at DC; retuning the LO 0.04 below
+    # moves it to +0.04 of fs_in = +0.04/rate = +0.16 of fs_out.
+    peak_dc = _peak_fn(drop(y_dc))
+    peak_off = _peak_fn(drop(y_off))
+    assert abs(peak_dc) < 0.005, f"tuned output peak at fn={peak_dc:+.4f}"
+    expected_off = (f_carrier - 0.14) / RATE
+    assert abs(peak_off - expected_off) < 0.005, (
+        f"retuned output peak at fn={peak_off:+.4f}, "
+        f"expected {expected_off:+.4f}"
+    )
+    print(
+        f"    tuned peak fn={peak_dc:+.4f} (DC), retuned "
+        f"fn={peak_off:+.4f} (expect {expected_off:+.4f}) — OK"
+    )
+
+    panels = [
+        (
+            x,
+            "#60a5fa",
+            f"Input — real passband, tone at fn=±{f_carrier}",
+            "fs_in",
+            None,
+        ),
+        (
+            drop(y_dc),
+            "#4ade80",
+            "Ddcr output — LO tuned to carrier (tone at DC)",
+            "fs_out",
+            0.0,
+        ),
+        (
+            drop(y_off),
+            "#fbbf24",
+            "Ddcr output — LO retuned 0.04 below carrier",
+            "fs_out",
+            None,
+        ),
+    ]
+
+    fig, axes = plt.subplots(3, 1, figsize=(10, 7.2), constrained_layout=True)
+    fig.suptitle(
+        "doppler — Ddcr handle (real → complex baseband)\n"
+        f"real {n}-sample input → complex baseband, {int(1 / RATE)}× "
+        "decimation",
+        fontsize=12,
+        color="#f1f5f9",
+    )
+
+    def _style(ax) -> None:
+        ax.set_facecolor("#111827")
+        ax.grid(True, color="#374151", lw=0.4)
+        ax.tick_params(colors="#d1d5db")
+        for sp in ax.spines.values():
+            sp.set_color("#374151")
+        ax.xaxis.label.set_color("#d1d5db")
+        ax.yaxis.label.set_color("#d1d5db")
+        ax.title.set_color("#f1f5f9")
+
+    for ax, (sig, color, title, unit, _mark) in zip(axes, panels):
+        freq, amp = _spectrum_db(sig)
+        ax.plot(freq, amp, color=color, lw=0.8)
+        peak = _peak_fn(sig)
+        ax.axvline(peak, color="#f87171", lw=1.1, linestyle="--", alpha=0.9)
+        ax.annotate(
+            f"peak fn={peak:+.3f}",
+            xy=(peak, 0),
+            xytext=(peak + 0.06, -18),
+            color="#f87171",
+            fontsize=9,
+            arrowprops={"arrowstyle": "->", "color": "#f87171", "lw": 1.0},
+        )
+        ax.set_xlim(-0.5, 0.5)
+        ax.set_ylim(-90, 10)
+        ax.set_ylabel("dBFS")
+        ax.set_title(
+            f"{title}  ({len(sig)} samples)", loc="right", color="#f1f5f9"
+        )
+        ax.text(
+            -0.48,
+            5,
+            f"x-axis: cycles/sample of {unit}",
+            color="#9ca3af",
+            fontsize=8,
+            va="top",
+            bbox={
+                "boxstyle": "round,pad=0.2",
+                "facecolor": "#1f2937",
+                "edgecolor": "#4b5563",
+            },
+        )
+        _style(ax)
+
+    axes[-1].set_xlabel("Normalised frequency (cycles/sample)")
+    fig.patch.set_facecolor("#0f172a")
+    fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"--- 4. Spectral plot saved → {out_path}")
+
+
+# ---------------------------------------------------------------------------
+# main
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    print("=== doppler Ddcr handle demo ===\n")
+    demo_lifecycle()
+    demo_tuning()
+    demo_streaming()
+    demo_spectral_plot()
+    print("Done.")

@@ -1,0 +1,17 @@
+schema_version: "1.0.0"
+convention_id: "tester.acceptance-violation"
+name: "Acceptance Substrate Conformance"
+description: |
+  Substrate enforcement convention (spec v12 §7.3). Surfaces day-1 Class 1
+  failures: missing measurability, missing identity.phase, declared
+  disposition, broken validator binding, missing metric implementation.
+
+  These rules are toolkit-authored conventions, so each carries a
+  prescriptive ``recipe:`` pointer telling the team exactly what to add or
+  remove to make the rule pass.
+
+# Legacy rules-list registry consumed by bind_rule. The decomposed node forms
+# live at conventions/nodes/tester.acceptance-violation.*.convention.yaml
+# (mirrors the planner.relationship.no-orphan-nodes / planner.plan.* dual
+# declaration). All nine acceptance-violation rules were atomized into
+# single-node files under nodes/ per #1225; the registry now reads them there.

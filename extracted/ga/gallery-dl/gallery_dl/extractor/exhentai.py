@@ -349,10 +349,13 @@ class ExhentaiGalleryExtractor(ExhentaiExtractor):
 
     def image_from_page(self, page):
         """Get image url and data from webpage"""
-        pos = page.index('<div id="i3"><a onclick="return load_image(') + 26
-        extr = text.extract_from(page, pos)
+        extr = text.extract_from(page)
 
+        self.key_start = extr('var startkey="', '";')
+        self.key_show = extr('var showkey="', '";')
+        extr('<div id="i3"><a onclick="return load_image(', "")
         self.key_next = extr("'", "'")
+
         iurl = extr('<img id="img" src="', '"')
         nl = extr(" nl(", ")").strip("\"'")
         orig = extr('hentai.org/fullimg', '"')
@@ -372,10 +375,9 @@ class ExhentaiGalleryExtractor(ExhentaiExtractor):
                 f"Unable to parse image info for '{url}'")
 
         data["num"] = self.image_num
-        data["image_token"] = self.key_start = extr('var startkey="', '";')
+        data["image_token"] = self.key_start
         data["_url_1280"] = iurl
         data["_nl"] = nl
-        self.key_show = extr('var showkey="', '";')
 
         self._check_509(iurl)
         return url, text.nameext_from_url(url, data)

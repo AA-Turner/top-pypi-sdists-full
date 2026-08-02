@@ -1,0 +1,3606 @@
+from __future__ import annotations
+
+import itertools
+import operator
+import os
+import warnings
+from collections.abc import Iterable
+from typing import Union, Sequence, Optional, Callable
+
+import numpy as np
+from .boolfunc import BoolFunc
+from .oop_cython import RLECy
+
+_UNSET = object()
+
+
+class RLEMask:
+    """Run-length encoded mask.
+
+    The RLEMask class represents a binary mask using run-length encoding. The mask can be
+    created from a dense array, a bounding box, a polygon, or a circle, or from run-length
+    counts. The mask can be manipulated using set operations like union, intersection, and
+    difference, and can be converted to a dense array. Morphological operations, warping,
+    transpose, flipping, cropping, padding, connected components, and other operations are
+    also supported.
+
+    The main constructor can take a dense array, a dictionary, or a list of run-length counts.
+
+    It is recommended to use the static factory methods :meth:`from_array`, :meth:`from_dict`,
+    :meth:`from_counts`, :meth:`from_bbox`, :meth:`from_polygon`, :meth:`zeros`, and :meth:`ones`
+    to create new RLEMask objects, as they are more explicit.
+
+    Args:
+        obj: the input object to create the mask from. It can be a dense 2D array, a dictionary, or
+            a list/1D-array of run-length counts.
+        shape: [height, width] of the mask, in case the input is a list of run-length counts.
+
+    Raises:
+        ValueError: if the input is not a dense 2D array, a dictionary, or a sequence of run-length
+            counts.
+        ValueError: if the sum of the counts is not equal to height * width when counts are given.
+        ValueError: if the shape is not provided when counts are given.
+    """
+
+    __slots__ = ["cy"]
+
+    def __init__(self, obj, *, shape: Optional[Sequence[int]] = None):
+        self.cy = RLECy()
+        if isinstance(obj, dict):
+            self.cy._i_from_dict(obj)
+            return
+        if isinstance(obj, Sequence):
+            obj = np.asarray(obj)
+        if isinstance(obj, np.ndarray) and obj.ndim == 2:
+            self.cy._i_from_array(obj)
+        elif isinstance(obj, np.ndarray) and obj.ndim == 1:
+            counts = np.ascontiguousarray(obj, dtype=np.uint32)
+            if shape is None:
+                raise ValueError("shape must be provided when counts are given")
+            # Note: uint32 sum can overflow for images >65535x65535.
+            # Consider raising for such gigantic masks in the future.
+            if np.sum(counts, dtype=np.uint64) != shape[0] * shape[1]:
+                raise ValueError(
+                    "The sum of the counts must be equal to height * width."
+                )
+            self.cy._i_from_counts(shape, counts, "F")
+        else:
+            raise ValueError("Unknown input type")
+
+    @staticmethod
+    def _init(cy: Optional[RLECy] = None):
+        result = RLEMask.__new__(RLEMask)
+        result.cy = cy if cy is not None else RLECy()
+        return result
+
+    @staticmethod
+    def from_counts(
+        counts: Union[Sequence[int], np.ndarray],
+        shape: Sequence[int],
+        order="F",
+        validate_sum: bool = True,
+    ) -> "RLEMask":
+        """Create an RLEMask object from run-length counts.
+
+        Args:
+            counts: the run-length counts of the mask, as a list of integers or a numpy array,
+                where even-indexed elements are runs of 0s and odd-indexed elements are runs of 1s.
+                The sum of the counts must be equal to height * width.
+            shape: [height, width] of the mask
+            order: the order of the counts in the list, either 'F' or 'C' for Fortran
+                (column major) or C (row major) order
+            validate_sum: if True (default), validates that the sum of counts equals height * width
+
+        Raises:
+            ValueError: if validate_sum is True and the sum of the counts is not equal to
+                height * width.
+            ValueError: if the order is not 'F' or 'C'.
+        """
+        try:
+            counts = np.ascontiguousarray(counts)
+        except OverflowError:
+            raise ValueError(
+                "Run-length counts must be non-negative integers that fit in uint32"
+            ) from None
+        if counts.dtype != np.uint32:
+            if counts.dtype.kind not in "iufb" or np.any(
+                (counts < 0) | (counts > 0xFFFFFFFF)
+            ):
+                raise ValueError(
+                    "Run-length counts must be non-negative integers that fit in uint32")
+            counts = np.ascontiguousarray(counts, dtype=np.uint32)
+        # Note: uint32 sum can overflow for images >65535x65535.
+        # Consider raising for such gigantic masks in the future.
+        if validate_sum and np.sum(counts, dtype=np.uint64) != shape[0] * shape[1]:
+            raise ValueError("The sum of the counts must be equal to height * width.")
+
+        if order not in ("F", "C"):
+            raise ValueError("Unknown order, must be 'F' or 'C'")
+
+        result = RLEMask._init()
+        result.cy._i_from_counts(shape, counts, order)
+        return result
+
+    @staticmethod
+    def from_array(
+        mask_array: np.ndarray, threshold: float = 1, is_sparse: bool = True,
+        thresh128: bool = False
+    ) -> "RLEMask":
+        """Create an RLEMask object from a dense mask.
+
+        Pixels with values >= ``threshold`` become foreground (1), others background (0),
+        comparing in the array's own dtype. The default threshold is 1, so for integer input
+        any nonzero value is foreground; note this means a float probability map is thresholded
+        at 1 by default (e.g. 0.5 becomes background) -- pass ``threshold=0.5`` for such inputs.
+
+        If `mask_array` is C contiguous, a transpose has to take place since the internal RLE
+        format encodes the mask in Fortran order. If `is_sparse` is set to True, the transpose,
+        if necessary, will be performed in RLE format, otherwise it will be performed in dense
+        array format.
+
+        Args:
+            mask_array: a numpy array of numerical type. Values >= ``threshold`` (compared in
+                the array's own dtype) are foreground, others background.
+            threshold: pixel value threshold for binarization. Values >= threshold become
+                foreground. Default is 1 (any nonzero value for unsigned input). For uint8 and
+                bool input the threshold must be in [1, 255]; an out-of-range threshold would
+                only produce a constant mask, so it is rejected as a likely caller bug.
+            is_sparse: hint that it is more efficient to transpose the mask in RLE form, only
+                affects efficiency when the mask is C contiguous.
+            thresh128: deprecated, equivalent to threshold=128.
+        """
+        if thresh128:
+            warnings.warn(
+                "The 'thresh128' parameter is deprecated, use 'threshold=128' instead.",
+                DeprecationWarning, stacklevel=2)
+            threshold = 128
+        result = RLEMask._init()
+        result.cy._i_from_array(mask_array, threshold, is_sparse)
+        return result
+
+    @staticmethod
+    def from_dict(d: dict) -> "RLEMask":
+        """Create an RLEMask object from an RLE dictionary.
+
+        Args:
+            d: RLE dictionary with
+
+                - ``"size"`` -- [height, width] of the mask
+                - ``"counts"`` -- LEB128-like compressed run-length counts as in pycocotools, or
+                - ``"zcounts"`` -- zlib compressed ``"counts"``, or
+                - ``"ucounts"`` -- uncompressed ``"counts"``
+
+        Returns:
+            An RLEMask object representing the input mask.
+        """
+        result = RLEMask._init()
+        result.cy._i_from_dict(d)
+        return result
+
+    @staticmethod
+    def from_bbox(bbox, imshape=None, imsize=None) -> "RLEMask":
+        """Create an RLEMask object from a bounding box.
+
+        Args:
+            bbox: a bounding box, in the format [x_start, y_start, width, height]
+            imshape: [height, width] of the desired mask (either this or imsize must be provided)
+            imsize: [width, height] of the desired mask (either this or imshape must be provided)
+
+        Returns:
+            An RLEMask object where the area of the provided bounding box has the value 1, and
+            the rest is 0.
+
+        Examples:
+            Create a 3x4 rectangle at position (2, 1) in an 6x8 image:
+
+            .. mask-demo::
+
+               RLEMask.from_bbox([2, 1, 4, 3], imshape=(6, 8)) == [A]
+
+               [A]:
+               ........
+               ..####..
+               ..####..
+               ..####..
+               ........
+               ........
+        """
+        result = RLEMask._init()
+        result.cy._i_from_bbox(bbox, imshape=_get_imshape(imshape, imsize))
+        return result
+
+    @staticmethod
+    def from_circle(center, radius, imshape=None, imsize=None) -> "RLEMask":
+        """Create an RLEMask object representing a filled circle.
+
+        Args:
+            center: the center of the circle, in the format [x, y]
+            radius: the radius of the circle
+            imshape: [height, width] of the desired mask (either this or imsize must be provided)
+            imsize: [width, height] of the desired mask (either this or imshape must be provided)
+
+        Returns:
+            An RLEMask object where the area of the provided circle has the value 1, and the
+            rest is 0.
+
+        Examples:
+            Create a circle with center (4, 3) and radius 2.5 in an 8x8 image:
+
+            .. mask-demo::
+
+               RLEMask.from_circle([4, 3], 2.5, imshape=(8, 8)) == [A]
+
+               [A]:
+               ........
+               ...###..
+               ..#####.
+               ..#####.
+               ..#####.
+               ...###..
+               ........
+               ........
+        """
+        result = RLEMask._init()
+        result.cy._i_from_circle(center, radius, imshape=_get_imshape(imshape, imsize))
+        return result
+
+    @staticmethod
+    def from_png(
+            path: Union[str, os.PathLike, None] = None,
+            data: Union[bytes, bytearray, memoryview, None] = None,
+            threshold: int = 1,
+            channel: int = -1
+    ) -> "RLEMask":
+        """Create an RLEMask from an 8-bit PNG.
+
+        This is a fast path that avoids materializing the full pixel array,
+        converting directly from PNG to RLE representation.
+
+        Args:
+            path: Path to PNG file (str or Path).
+            data: PNG data as bytes, bytearray, or memoryview.
+            threshold: Pixels with values >= threshold become foreground (1).
+                Default is 1, so any nonzero pixel is foreground.
+            channel: Which channel to extract from multi-channel PNGs.
+                -1 (default): grayscale PNGs only (rejects multi-channel).
+                0, 1, 2, ...: extract that channel index. E.g., for an RGBA PNG,
+                channel=3 extracts the alpha channel.
+
+        Returns:
+            An RLEMask object representing the mask.
+
+        Raises:
+            ValueError: If neither path nor data is provided, or both are provided,
+                or if the PNG format is unsupported, or if channel is out of range.
+        """
+        if (path is None) == (data is None):
+            raise ValueError("Exactly one of 'path' or 'data' must be provided")
+        result = RLEMask._init()
+        if path is not None:
+            if not os.path.exists(path):
+                raise FileNotFoundError(f"No such file: {path}")
+            result.cy._i_from_png_file(str(path), threshold, channel)
+        else:
+            result.cy._i_from_png_bytes(data, threshold, channel)
+        return result
+
+    @staticmethod
+    def from_polygon(poly, imshape=None, imsize=None) -> "RLEMask":
+        """Create an RLEMask object from a polygon.
+
+        Args:
+            poly: a polygon (numpy array of xy coordinates)
+            imshape: [height, width] of the desired mask (either this or imsize must be provided)
+            imsize: [width, height] of the desired mask (either this or imshape must be provided)
+
+        Returns:
+            An RLEMask object representing the input polygon (1 inside the polygon, 0 outside).
+
+        Raises:
+            ValueError: if given a list of polygons / a 3D array. Only a single polygon is
+                supported (multiple rings / holes are not).
+
+        Examples:
+            Create a triangle from polygon vertices:
+
+            .. mask-demo::
+
+               RLEMask.from_polygon([[4.5, 1], [1, 5], [8, 5]], imshape=(7, 9)) == [A]
+
+               [A]:
+               .........
+               ....#....
+               ...###...
+               ..#####..
+               .#######.
+               .........
+               .........
+        """
+
+        result = RLEMask._init()
+        imshape = _get_imshape(imshape, imsize)
+        poly = np.asarray(poly, dtype=np.float64)
+        if poly.ndim >= 3:
+            raise ValueError(
+                "from_polygon expects a single polygon as an (N, 2) array or a flat "
+                "[x0, y0, x1, y1, ...] sequence; a list of polygons or holes is not supported")
+        result.cy._i_from_polygon(poly.reshape(-1), imshape)
+        return result
+
+    @staticmethod
+    def zeros(shape: Sequence[int]) -> "RLEMask":
+        """Create a new RLE mask of zeros.
+
+        Args:
+            shape: the shape of the mask
+
+        Returns:
+            A new RLEMask object representing a mask of zeros.
+        """
+        result = RLEMask._init()
+        result.cy._i_zeros(shape)
+        return result
+
+    @staticmethod
+    def ones(shape: Sequence[int]) -> "RLEMask":
+        """Create a new RLE mask of ones.
+
+        Args:
+            shape: the shape of the mask
+
+        Returns:
+            A new RLEMask object representing a mask of ones.
+        """
+        result = RLEMask._init()
+        result.cy._i_ones(shape)
+        return result
+
+    @staticmethod
+    def ones_like(mask) -> "RLEMask":
+        """Create a new RLE mask of ones with the same shape as another mask.
+
+        Args:
+            mask: any other object with a mask.shape[0] and mask.shape[1]
+                (e.g., RLEMask, NumPy array)
+
+        Returns:
+            A new RLEMask object representing a mask of ones with the same shape as the input
+            mask.
+        """
+        return RLEMask.ones(mask.shape)
+
+    @staticmethod
+    def zeros_like(mask) -> "RLEMask":
+        """Create a new RLE mask of zeros with the same shape as another mask.
+
+        Args:
+            mask: any other object with a mask.shape[0] and mask.shape[1]
+                (e.g., RLEMask, NumPy array)
+
+        Returns:
+            A new RLEMask object representing a mask of zeros with the same shape as the input
+            mask.
+        """
+        return RLEMask.zeros(mask.shape)
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        """The shape of the mask (height, width).
+
+        Returns:
+            A tuple of the shape of the mask (height, width).
+        """
+        return self.cy.shape
+
+    @property
+    def counts(self) -> np.ndarray:
+        """The run-length counts of the mask, as a copy of the underlying data.
+
+        Returns:
+            A numpy array of the run-length counts as integers.
+        """
+        return np.array(self.cy._counts_view(), copy=True)
+
+    @property
+    def counts_view(self) -> np.ndarray:
+        """The run-length counts of the mask, as a direct view of the underlying memory.
+
+        Modifications to the returned array will affect the mask.
+
+        Warning:
+            The view aliases the mask's internal buffer, so it is only valid as long as the
+            mask is not mutated. In-place operations (e.g. :meth:`pad`, :meth:`complement`,
+            item assignment) may reallocate or shift that buffer, after which the view is
+            stale or dangling. Re-request the view after any mutation, or use :attr:`counts`
+            for a safe copy.
+
+        Returns:
+            An array view of the run-length counts.
+        """
+        return self.cy._counts_view()
+
+    @property
+    def density(self) -> float:
+        """The ratio of the number of runlengths vs number of pixels of the entire mask
+        (not just the foreground)."""
+        h, w = self.shape
+        if h == 0 or w == 0:
+            return 0.0
+        m = self.counts_view.size
+        return m / (h * w)
+
+    @property
+    def T(self) -> "RLEMask":
+        """The transpose of the mask (i.e., columns become rows and vice versa)
+
+        Returns:
+            A new RLEMask object representing the transpose of the mask.
+
+        See Also:
+            :meth:`transpose`
+        """
+        return self.transpose()
+
+    def area(self) -> int:
+        """The area of the mask (number of foreground pixels)."""
+        return self.cy.area()
+
+    def perimeter(self) -> int:
+        """The number of pixels along the contour of the mask.
+
+        See Also:
+            :meth:`contours`
+        """
+        return self.cy._r_contours().area()
+
+    def is_valid_rle(self) -> bool:
+        """Check if the RLE mask is valid (no nonfirst zero runs and runs summing to H*W).
+
+        The RLE mask is valid if it has no zero sized runs except perhaps in the first place,
+        and the sum of the runs is equal to the number of pixels in the mask, as determined
+        by the shape (height, width) of the mask.
+        """
+        return (
+            not np.any(self.counts_view[1:] == 0)
+            # Note: uint32 sum can overflow for images >65535x65535
+            and np.sum(self.counts_view, dtype=np.uint64) == self.shape[0] * self.shape[1]
+        )
+
+    def count_nonzero(self) -> int:
+        """The number of nonzero pixels in the mask, equivalent to :meth:`area`."""
+        return self.cy.area()
+
+    def nonzero(self) -> tuple[np.ndarray, np.ndarray]:
+        """The indices of the foreground pixels, as in :func:`np.nonzero <numpy.nonzero>`.
+
+        Returns:
+            A tuple of two 1D integer arrays ``(rows, cols)`` with the coordinates of the
+            foreground pixels in row-major (C) order, equivalent to
+            ``np.nonzero(np.array(mask))``.
+
+        Examples:
+            >>> mask = RLEMask.from_array(np.eye(3))
+            >>> rows, cols = mask.nonzero()
+            >>> rows
+            array([0, 1, 2])
+            >>> cols
+            array([0, 1, 2])
+
+            To get an Ax2 array of (x, y) points instead (e.g. for OpenCV), stack the
+            arrays in reversed order:
+
+            >>> np.stack(mask.nonzero()[::-1], axis=1)
+            array([[0, 0],
+                   [1, 1],
+                   [2, 2]])
+        """
+        # The Cython routine emits (x, y) pairs in this mask's column-major storage order;
+        # running it on the transpose yields (row, col) pairs in row-major order, matching
+        # np.nonzero without a sort.
+        pairs = self.transpose().cy.nonzero_indices()
+        return pairs[:, 0].astype(np.intp), pairs[:, 1].astype(np.intp)
+
+    def __getitem__(
+        self, key: Union[slice, tuple[slice, slice], tuple[int, int]]
+    ) -> Union[int, "RLEMask"]:
+        """Crop the RLE mask to get a submask, by slicing, or retrieve a single pixel value.
+
+        Args:
+            key: a slice, a tuple of two slices or two ints (one for height and one for width)
+
+        Returns:
+            A new RLEMask object representing the submask.
+
+        Raises:
+            ValueError: if the key is not a tuple of two slices or two integers.
+
+        Examples:
+            With slices:
+
+            >>> rle = RLEMask(np.eye(4))
+            >>> rle[1:3, 2:4].shape
+            (2, 2)
+
+            With integers:
+
+            >>> rle = RLEMask(np.eye(4))
+            >>> rle[1, 1]
+            1
+
+        """
+        if (isinstance(key, tuple) and len(key) == 2) or isinstance(key, slice):
+            # Cropping via indexing like rle[1:2, 3:4:2]
+            h, w = self.shape
+
+            if isinstance(key, slice):
+                key = (key, slice(None))
+
+            if isinstance(key[0], slice) and isinstance(key[1], slice):
+                # substitute negative indices and None:
+                start_h, span_h, step_h, flip_h = _forward_slice(key[0], h)
+                start_w, span_w, step_w, flip_w = _forward_slice(key[1], w)
+                cropped_cy = self.cy._r_crop(
+                    start_h, start_w, span_h, span_w, step_h, step_w
+                )
+
+                if flip_h and flip_w:
+                    cropped_cy._i_rotate_180()
+                elif flip_h:
+                    cropped_cy = cropped_cy._r_vertical_flip()
+                elif flip_w:
+                    cropped_cy = cropped_cy._r_vertical_flip()
+                    cropped_cy._i_rotate_180()
+
+                return RLEMask._init(cropped_cy)
+            # Indexing like rle[1, 2]
+            elif isinstance(key[0], (int, np.integer)) and isinstance(key[1], (int, np.integer)):
+                i = operator.index(key[0])
+                j = operator.index(key[1])
+                if i < 0:
+                    i += h
+                if j < 0:
+                    j += w
+                if not (0 <= i < h and 0 <= j < w):
+                    raise IndexError(
+                        f"Index ({key[0]}, {key[1]}) is out of bounds "
+                        f"for mask of shape ({h}, {w})")
+                return self.cy._get_int_index(i, j)
+            else:
+                raise ValueError(
+                    "Either slices or integers are supported, not a combination."
+                )
+        else:
+            raise ValueError("Only 2D slicing is supported with integer indices")
+
+    def __setitem__(
+        self,
+        key: Union[tuple[slice, slice], tuple[int, int], slice],
+        value: Union[int, "RLEMask", np.ndarray],
+    ):
+        """Set the value of a submask to either a constant or another RLE or dense mask.
+
+        Args:
+            key: a tuple of two slices, one for height and one for width
+            value: either a constant (0 or 1) or another RLEMask or a numpy mask with the same size
+                as the submask
+
+        Examples:
+            >>> rle = RLEMask.ones((4, 4))
+            >>> rle[1:3, 2:4] = 0
+            >>> np.array(rle)
+            array([[1, 1, 1, 1],
+                   [1, 1, 0, 0],
+                   [1, 1, 0, 0],
+                   [1, 1, 1, 1]], dtype=uint8)
+
+        """
+
+        if isinstance(key, tuple) and len(key) == 2 or isinstance(key, slice):
+            if isinstance(value, np.ndarray):
+                value = RLEMask.from_array(value)
+
+            h, w = self.shape
+
+            if isinstance(key, slice):
+                key = (key, slice(None))
+
+            if isinstance(key[0], slice) and isinstance(key[1], slice):
+                # substitute negative indices and None:
+                start_h, span_h, step_h, flip_h = _forward_slice(key[0], h)
+                start_w, span_w, step_w, flip_w = _forward_slice(key[1], w)
+                # step must be 1
+                if step_h != 1 or step_w != 1:
+                    raise ValueError(
+                        "Only step=1 or -1 is supported for setting values"
+                    )
+
+                boxmask_cy = RLECy()
+                boxmask_cy._i_from_bbox([start_w, start_h, span_w, span_h], (h, w))
+                if isinstance(value, RLEMask):
+                    if value.shape != (span_h, span_w):
+                        raise ValueError(
+                            f"Value mask shape {value.shape} does not match the target "
+                            f"region shape ({span_h}, {span_w})")
+                    value_cy = value.cy
+                    if flip_h and flip_w:
+                        value_cy = value_cy._r_rotate_180()
+                    elif flip_h:
+                        value_cy = value_cy._r_vertical_flip()
+                    elif flip_w:
+                        value_cy = value_cy._r_vertical_flip()
+                        value_cy._i_rotate_180()
+
+                    padded_cy = value_cy._r_zeropad(
+                        start_w,
+                        w - (start_w + span_w),
+                        start_h,
+                        h - (start_h + span_h),
+                        0,
+                    )
+                    self.cy = self.cy._r_diffor(boxmask_cy, padded_cy)
+                elif value == 0:
+                    self.cy = self.cy._r_boolfunc(boxmask_cy, BoolFunc.DIFFERENCE.value)
+                elif value == 1:
+                    self.cy = self.cy._r_boolfunc(boxmask_cy, BoolFunc.OR.value)
+                else:
+                    raise ValueError("Value must be an RLE or 0 or 1")
+            elif isinstance(key[0], (int, np.integer)) and isinstance(key[1], (int, np.integer)):
+                i = operator.index(key[0])
+                j = operator.index(key[1])
+                if i < 0:
+                    i += h
+                if j < 0:
+                    j += w
+                if not (0 <= i < h and 0 <= j < w):
+                    raise IndexError(
+                        f"Index ({key[0]}, {key[1]}) is out of bounds "
+                        f"for mask of shape ({h}, {w})")
+                try:
+                    value = operator.index(value)
+                except TypeError:
+                    raise ValueError(
+                        "Value must be an integer when indexing with integers") from None
+                if value not in (0, 1):
+                    raise ValueError(f"Value must be 0 or 1, got {value}")
+                self.cy._i_set_int_index(i, j, value)
+            else:
+                raise ValueError(
+                    "Mixed integer and slice indexing is not supported. "
+                    "Use two slices (rle[1:3, 2:4] = ...) or two integers (rle[1, 2] = ...)"
+                )
+        else:
+            raise ValueError("Only 2D indexing is supported")
+
+    def __invert__(self) -> "RLEMask":
+        """Compute the complement of an RLE mask.
+
+        Returns:
+            A new RLEMask object representing the complement of the mask.
+
+        Examples:
+            Complement of a ring shape fills inside and outside:
+
+            .. mask-demo::
+
+               ~[A] == [B]
+
+               [A]:       [B]:
+               ........   ########
+               .######.   #......#
+               .#....#.   #.####.#
+               .#....#.   #.####.#
+               .######.   #......#
+               ........   ########
+
+        See Also:
+            :meth:`complement`
+        """
+        return self.complement(inplace=False)
+
+    def __or__(self, other: "RLEMask") -> "RLEMask":
+        """Compute the union of two RLE masks.
+
+        Args:
+            other: another RLE mask
+
+        Returns:
+            A new RLEMask object representing the union of the two masks.
+
+        Examples:
+            .. mask-demo::
+
+               [A] | [B] == [C]
+
+               [A]:        [B]:        [C]:
+               ####....    ..####..    ######..
+               ####....    ..####..    ######..
+               ####....    ..####..    ######..
+               ........    ..####..    ..####..
+
+        See Also:
+            :meth:`union`
+        """
+        self._raise_if_different_shape(other)
+        return RLEMask._init(self.cy._r_boolfunc(other.cy, BoolFunc.OR.value))
+
+    def __ior__(self, other: "RLEMask") -> "RLEMask":
+        """Compute the union with another RLEMask in place.
+
+        Args:
+            other: the other RLEMask
+
+        Returns:
+            Self
+
+        Examples:
+            >>> rle1 = RLEMask(np.eye(3))
+            >>> rle2 = RLEMask(np.eye(3, k=-1))
+            >>> rle1 |= rle2
+            >>> np.array(rle1)
+            array([[1, 0, 0],
+                   [1, 1, 0],
+                   [0, 1, 1]], dtype=uint8)
+        """
+        self._raise_if_different_shape(other)
+        self.cy = self.cy._r_boolfunc(other.cy, BoolFunc.OR.value)
+        return self
+
+    def __and__(self, other: "RLEMask") -> "RLEMask":
+        """Compute the intersection of two RLEMasks.
+
+        Args:
+            other: another RLEMask
+
+        Returns:
+            A new RLEMask object representing the intersection of the two masks.
+
+        Examples:
+            .. mask-demo::
+
+               [A] & [B] == [C]
+
+               [A]:        [B]:        [C]:
+               ####....    ..####..    ..##....
+               ####....    ..####..    ..##....
+               ####....    ..####..    ..##....
+               ........    ..####..    ........
+
+        See Also:
+            :meth:`intersection`
+        """
+        self._raise_if_different_shape(other)
+        return RLEMask._init(self.cy._r_boolfunc(other.cy, BoolFunc.AND.value))
+
+    def __iand__(self, other: "RLEMask") -> "RLEMask":
+        """Compute the intersection with another RLEMask in place.
+
+        Args:
+            other: the other RLEMask
+
+        Returns:
+            Self
+
+        Examples:
+            >>> rle1 = RLEMask(np.eye(3))
+            >>> rle2 = RLEMask(np.eye(3)[::-1])
+            >>> rle1 &= rle2
+            >>> np.array(rle1)
+            array([[0, 0, 0],
+                   [0, 1, 0],
+                   [0, 0, 0]], dtype=uint8)
+        """
+        self._raise_if_different_shape(other)
+        self.cy = self.cy._r_boolfunc(other.cy, BoolFunc.AND.value)
+        return self
+
+    def __xor__(self, other: "RLEMask") -> "RLEMask":
+        """Compute the symmetric difference of two RLEMasks.
+
+        Args:
+            other: another RLEMask
+
+        Returns:
+            A new RLEMask object representing the symmetric difference of the two masks.
+
+        Examples:
+            .. mask-demo::
+
+               [A] ^ [B] == [C]
+
+               [A]:        [B]:        [C]:
+               ####....    ..####..    ##..##..
+               ####....    ..####..    ##..##..
+               ####....    ..####..    ##..##..
+               ........    ..####..    ..####..
+        """
+        self._raise_if_different_shape(other)
+        return RLEMask._init(self.cy._r_boolfunc(other.cy, BoolFunc.XOR.value))
+
+    def __ixor__(self, other: "RLEMask") -> "RLEMask":
+        """Compute the symmetric difference with another RLEMasks in place.
+
+        Args:
+            other: the other RLEMask
+
+        Returns:
+            Self
+
+        Examples:
+            >>> rle1 = RLEMask(np.eye(3))
+            >>> rle2 = RLEMask(np.eye(3)[::-1])
+            >>> rle1 ^= rle2
+            >>> np.array(rle1)
+            array([[1, 0, 1],
+                   [0, 1, 0],
+                   [1, 0, 1]], dtype=uint8)
+        """
+        self._raise_if_different_shape(other)
+        self.cy = self.cy._r_boolfunc(other.cy, BoolFunc.XOR.value)
+        return self
+
+    def __sub__(self, other: "RLEMask") -> "RLEMask":
+        """Compute the difference of two RLEMasks.
+
+        Args:
+            other: another RLE mask
+
+        Returns:
+            A new RLEMask object representing the difference of the two masks.
+
+        Examples:
+            .. mask-demo::
+
+               [A] - [B] == [C]
+
+               [A]:        [B]:        [C]:
+               ####....    ..####..    ##......
+               ####....    ..####..    ##......
+               ####....    ..####..    ##......
+               ........    ..####..    ........
+        """
+        self._raise_if_different_shape(other)
+        return RLEMask._init(self.cy._r_boolfunc(other.cy, BoolFunc.DIFFERENCE.value))
+
+    def __isub__(self, other: "RLEMask") -> "RLEMask":
+        """Compute the difference with another RLEMask in place.
+
+        Args:
+            other: the other RLEMask
+
+        Returns:
+            Self
+
+        Examples:
+            >>> rle1 = RLEMask(np.eye(3))
+            >>> rle2 = RLEMask(np.eye(3)[::-1])
+            >>> rle1 -= rle2
+            >>> np.array(rle1)
+            array([[1, 0, 0],
+                   [0, 0, 0],
+                   [0, 0, 1]], dtype=uint8)
+        """
+        self._raise_if_different_shape(other)
+        self.cy = self.cy._r_boolfunc(other.cy, BoolFunc.DIFFERENCE.value)
+        return self
+
+    def __eq__(self, other):
+        """Check if two RLEMasks are equal (same runlengths and shape).
+
+        Note:
+            RLEMask is mutable and therefore deliberately not hashable (defining ``__eq__``
+            sets ``__hash__`` to None), so masks cannot be used as dict keys or set members.
+
+        Returns:
+            True if the masks are equal, False otherwise.
+        """
+
+        if isinstance(other, RLEMask):
+            return self.cy == other.cy
+        return NotImplemented
+
+    def __iter__(self):
+        """Raise TypeError: RLEMask does not support iteration.
+
+        Without this method, Python would fall back to the legacy iteration protocol via
+        :meth:`__getitem__` and fail with a confusing indexing error.
+        """
+        raise TypeError(
+            "RLEMask is not iterable. Convert to a dense array first, e.g. np.array(mask), "
+            "to iterate over rows or pixels.")
+
+    def __repr__(self):
+        """A string representation of the RLEMask, containing the shape and the runlengths."""
+        return f"RLEMask(shape={self.shape}, counts={repr(self.cy._counts_view().tolist())})"
+
+    def __array__(self, dtype=None, copy=None):
+        """Convert the RLEMask to a dense numpy array, used by numpy functions.
+
+        Returns:
+            A numpy array of type uint8 representing the mask with 0 and 1 values.
+
+        See Also:
+            :meth:`to_array`
+
+        """
+        if copy is False:
+            raise ValueError(
+                "RLEMask cannot be viewed as a numpy array without copying"
+            )
+
+        arr = self.to_array()
+        if dtype is not None:
+            arr = arr.astype(dtype, copy=False)
+        return arr
+
+    def any(self) -> bool:
+        """Check if any pixel in the mask is foreground."""
+        return len(self.counts_view) > 1
+
+    def all(self) -> bool:
+        """Check if all pixels in the mask are foreground."""
+        cv = self.counts_view
+        n = len(cv)
+        if n <= 1:
+            return n == 0 or cv[0] == 0
+        return n == 2 and cv[0] == 0
+
+    def dilate_vertical(
+        self, up: int = 0, down: int = 0, inplace: bool = False
+    ) -> "RLEMask":
+        """Dilate the mask vertically.
+
+        Every foreground pixel causes a given number of its upper and lower neighbors to be set as
+        foreground.
+
+        Args:
+            up: the number of pixels to dilate upwards
+            down: the number of pixels to dilate downwards
+            inplace: whether to perform the operation in place or to return a new object
+
+        Returns:
+            The RLEMask object representing the dilated mask (self if inplace=True)
+
+        Examples:
+            Dilate 1 pixel up and 2 pixels down:
+
+            .. mask-demo::
+
+               [A].dilate_vertical(up=1, down=2) == [B]
+
+               [A]:       [B]:
+               ......     ......
+               ......     .####.
+               .####.     .####.
+               ......     .####.
+               ......     .####.
+        """
+        result = self if inplace else self.copy()
+        result.cy._i_dilate_vertical(up, down)
+        return result
+
+    @staticmethod
+    def merge_count(masks: Sequence["RLEMask"], threshold: int) -> "RLEMask":
+        """Return a mask where each pixel is set if and only if at least `threshold` of the
+        input masks have that pixel set.
+
+        For example, if ``threshold`` is set as half the number of masks, then the result will
+        be the majority vote of the masks.
+
+        Args:
+            masks: a list of RLEMask objects
+            threshold: the minimum number of masks that must have a pixel set for it to be set
+                in the result
+
+        Returns:
+            A new RLEMask object representing the merged mask.
+
+        Examples:
+            Majority vote (at least 2 of 3 masks must agree):
+
+            .. mask-demo::
+
+               RLEMask.merge_count([[A], [B], [C]], threshold=2) == [R]
+
+               [A]:    [B]:    [C]:    [R]:
+               ####    ##..    ....    ##..
+               ####    ##..    ####    ####
+               ....    ##..    ####    ##..
+               ....    ##..    ....    ....
+        """
+        if len(masks) == 0:
+            raise ValueError("At least one mask must be provided")
+        shape0 = masks[0].shape
+        for i, m in enumerate(masks[1:], 1):
+            if m.shape != shape0:
+                raise ValueError(
+                    f"All masks must have the same shape. Mask 0 has shape {shape0}, "
+                    f"mask {i} has shape {m.shape}")
+        return RLEMask._init(RLECy.merge_many_atleast([m.cy for m in masks], threshold))
+
+    def max_pool2x2(self, inplace=False) -> "RLEMask":
+        """Max-pool the mask by a factor of 2.
+
+        Each 2x2 block in the input produces a single pixel in the output, which is 1
+        if any pixel in the block is 1.
+
+        Args:
+            inplace: whether to perform the operation in place or to return a new object
+
+        Returns:
+            An RLEMask object representing the max-pooled mask.
+
+        Examples:
+            .. mask-demo::
+
+               [A].max_pool2x2() == [B]
+
+               [A]:    [B]:
+               #...    #.
+               ....    .#
+               ..#.
+               ....
+        """
+        h, w = self.shape
+        hr = h - h % 2
+        wr = w - w % 2
+        dilated = self.dilate_vertical(up=1, inplace=inplace)
+        result = dilated[:hr:2, :wr:2] | dilated[:hr:2, 1:wr:2]
+        if inplace:
+            self.cy = result.cy
+            return self
+        return result
+
+    def min_pool2x2(self, inplace=False) -> "RLEMask":
+        """Min-pool the mask by a factor of 2.
+
+        Each 2x2 block in the input produces a single pixel in the output, which is 1
+        only if all pixels in the block are 1.
+
+        Args:
+            inplace: whether to perform the operation in place or to return a new object
+
+        Returns:
+            An RLEMask object representing the min-pooled mask.
+
+        Examples:
+            .. mask-demo::
+
+               [A].min_pool2x2() == [B]
+
+               [A]:    [B]:
+               ##..    #.
+               ##..    ..
+               ..##
+               ..#.
+        """
+        result = self.complement(inplace=inplace)
+        result.max_pool2x2(inplace=True)
+        return result.complement(inplace=True)
+
+    def avg_pool2x2(self) -> "RLEMask":
+        """Average-pool the mask by a factor of 2.
+
+        Each 2x2 block in the input produces a single pixel in the output, which is 1
+        if at least half the pixels (>=2 of 4) in the block are 1.
+
+        Returns:
+            A new RLEMask object representing the average-pooled mask.
+
+        Examples:
+            .. mask-demo::
+
+               [A].avg_pool2x2() == [B]
+
+               [A]:    [B]:
+               ##..    #.
+               #...    .#
+               ..##
+               ..##
+
+        See Also:
+            :meth:`avg_pool2d_valid`
+        """
+        return RLEMask._init(RLECy._r_avg_pool2x2(self.cy))
+
+    def avg_pool2d_valid(
+        self,
+        kernel_size: Sequence[int],
+        stride: Sequence[int] = (1, 1),
+        threshold: int = -1,
+        _impl: str = "auto",
+    ) -> "RLEMask":
+        """Perform a 2D average pooling with the given kernel size and threshold the result.
+
+        This function does not perform any padding and only returns the "valid" part of the
+        pooling, similar to "valid" padding mode in deep learning frameworks as opposed to
+        "same" or "full" padding.
+
+        Args:
+            kernel_size: the size of the pooling kernel as two integers
+            stride: the stride of the pooling as two integers
+            threshold: the result is set to 1 if at least this many pixels in the window are 1
+                (>= comparison)
+
+        Returns:
+            A new RLEMask object representing the pooled and thresholded mask.
+
+        Examples:
+            3x3 kernel with stride 2 pools down to smaller size:
+
+            .. mask-demo::
+
+               [A].avg_pool2d_valid((3, 3), stride=(2, 2)) == [B]
+
+               [A]:        [B]:
+               ........    .##
+               .######.    ###
+               .######.    .##
+               .######.
+               .######.
+               .######.
+               ........
+               ........
+
+        See Also:
+            :meth:`avg_pool2x2`
+        """
+
+        return RLEMask._init(
+            self.cy._r_avg_pool_valid(
+                kernel_size[0], kernel_size[1], threshold, stride[0], stride[1], _impl
+            )
+        )
+
+    def conv2d_valid(
+        self, kernel: np.ndarray, stride: Sequence[int] = (1, 1), threshold: float = 0.5
+    ) -> "RLEMask":
+        """Perform a 2D convolution with the given weighted kernel and threshold the result.
+
+        This function does not perform any padding and only returns the "valid" part of the
+        convolution, similar to "valid" padding mode in deep learning frameworks as opposed to
+        "same" or "full" padding.
+
+        Args:
+            kernel: the convolution kernel as a 2D numpy array
+            stride: the stride of the convolution as two integers
+            threshold: the result is set to 1 if the convolution result is at least this value
+                (>= comparison)
+
+        Returns:
+            A new RLEMask object representing the convolved and thresholded mask.
+        """
+        return RLEMask._init(
+            self.cy._r_conv2d_valid(kernel, threshold, stride[0], stride[1])
+        )
+
+    def resize(
+        self,
+        output_imshape: Optional[Sequence[int]] = None,
+        fx: Optional[float] = None,
+        fy: Optional[float] = None,
+    ) -> "RLEMask":
+        """Resize the mask to a new shape.
+
+        It is enough to provide either the `output_imshape` or the scaling factors `fx` and `fy`.
+
+        Internally this is implemented as an affine transformation.
+
+        Args:
+            output_imshape: the shape of the output image as (height, width)
+            fx: the scaling factor along the horizontal axis
+            fy: the scaling factor along the vertical axis
+
+        Returns:
+            A new RLEMask object representing the resized mask.
+
+        Examples:
+            Upscale a checkerboard pattern by 2x:
+
+            .. mask-demo::
+
+               [A].resize(output_imshape=(4, 8)) == [B]
+
+               [A]:    [B]:
+               #.#.    ##..##..
+               .#.#    ##..##..
+                       ..##..##
+                       ..##..##
+
+            Downscale a shape:
+
+            .. mask-demo::
+
+               [A].resize(output_imshape=(4, 4)) == [B]
+
+               [A]:        [B]:
+               ########    ####
+               ########    ####
+               ########    ....
+               ########    ....
+               ........
+               ........
+               ........
+               ........
+        """
+        if output_imshape is None:
+            if fx is None or fy is None:
+                raise ValueError("Either output_imshape or fx and fy must be provided")
+            output_imshape = (
+                int(round(self.shape[0] * fy)),
+                int(round(self.shape[1] * fx)),
+            )
+
+        if self.shape[0] == 0 or self.shape[1] == 0:
+            return RLEMask.zeros(output_imshape)
+
+        if fx is None:
+            fx = output_imshape[1] / self.shape[1]
+        if fy is None:
+            fy = output_imshape[0] / self.shape[0]
+
+        affine_mat = np.array([[fx, 0, 0], [0, fy, 0]], np.float64)
+        return self.warp_affine(affine_mat, output_imshape)
+
+    def warp_affine(self, M: np.ndarray, output_imshape: Sequence[int]) -> "RLEMask":
+        """Apply an affine warping transformation to the mask.
+
+        The transformation matrix M should be the forward transformation, i.e. the output
+        location of an input pixel is calculated as `x_out = M @ x_in_homogeneous`.
+
+        Args:
+            M: the affine transformation matrix as a 2x3 or 3x3 numpy array
+            output_imshape: the shape of the output image as (height, width)
+
+        Returns:
+            A new RLEMask object representing the warped mask.
+
+        Examples:
+            Translation by (2, 1) moves the mask right and down:
+
+            .. mask-demo::
+
+               [A].warp_affine([[1, 0, 2], [0, 1, 1]], output_imshape=(4, 6)) == [B]
+
+               [A]:      [B]:
+               ##....    ......
+               ##....    ..##..
+               ......    ..##..
+               ......    ......
+
+        See Also:
+            :meth:`warp_perspective`, :meth:`warp_distorted`
+        """
+        M = np.asarray(M, dtype=np.float64)
+        if M.shape not in ((2, 3), (3, 3)):
+            raise ValueError(f"The affine matrix must have shape 2x3 or 3x3, got {M.shape}")
+        _validate_transform_matrix(M)
+        return RLEMask._init(
+            self.cy._r_warp_affine(M, output_imshape[0], output_imshape[1])
+        )
+
+    def warp_perspective(
+        self, H: np.ndarray, output_imshape: Sequence[int]
+    ) -> "RLEMask":
+        """Apply a perspective warping (homography) transformation to the mask.
+
+        The transformation matrix H should be the forward transformation, i.e. the output
+        location of an input pixel is calculated as `x_out_homogeneous = H @ x_in_homogeneous`.
+
+        Args:
+            H: the perspective transformation matrix as a 3x3 numpy array
+            output_imshape: the shape of the output image as (height, width)
+
+        Returns:
+            A new RLEMask object representing the warped mask.
+
+        Examples:
+            Scale by 0.5x and translate (shift output right by 3, down by 2):
+
+            .. mask-demo::
+
+               [A].warp_perspective([[0.5, 0, 3], [0, 0.5, 2], [0, 0, 1]], output_imshape=(6, 8)) == [B]
+
+               [A]:        [B]:
+               ####....    ........
+               ####....    ........
+               ####....    ...##...
+               ####....    ...##...
+               ........    ........
+               ........    ........
+
+        See Also:
+            :meth:`warp_affine`, :meth:`warp_distorted`
+        """
+        H = np.asarray(H, dtype=np.float64)
+        if H.shape != (3, 3):
+            raise ValueError(f"The homography matrix must have shape 3x3, got {H.shape}")
+        _validate_transform_matrix(H)
+        return RLEMask._init(
+            self.cy._r_warp_perspective(H, output_imshape[0], output_imshape[1])
+        )
+
+    def warp_distorted(  # noqa: vulture
+        self,
+        R1: np.ndarray,
+        R2: np.ndarray,
+        K1: np.ndarray,
+        K2: np.ndarray,
+        d1: np.ndarray,
+        d2: np.ndarray,
+        polar_ud1,
+        polar_ud2,
+        output_imshape: Sequence[int],
+    ) -> "RLEMask":
+        """[Experimental] Warp the mask according to changing lens-distorted camera parameters
+
+        This function supports OpenCV-like lens distortion parameters: 12 coefficients
+        (k1, k2, p1, p2, k3, k4, k5, k6, s1, s2, s3, s4) or 14 (additionally tau_x, tau_y of
+        the tilted-sensor model). API design and documentation is subject to change.
+        """
+        for name, K, R, d in (("first", K1, R1, d1), ("second", K2, R2, d2)):
+            K = np.asarray(K)
+            if not (np.all(np.isfinite(K)) and np.all(np.isfinite(np.asarray(R)))
+                    and np.all(np.isfinite(np.asarray(d)))):
+                raise ValueError(f"The {name} camera's parameters must all be finite")
+            if K[0, 0] == 0 or K[1, 1] == 0:
+                raise ValueError(f"The {name} camera's focal lengths must be nonzero")
+        return RLEMask._init(
+            self.cy._r_warp_distorted(
+                R1,
+                R2,
+                K1,
+                K2,
+                d1,
+                d2,
+                polar_ud1,
+                polar_ud2,
+                output_imshape[0],
+                output_imshape[1],
+            )
+        )
+
+    def pad(
+        self,
+        top,
+        bottom,
+        left,
+        right,
+        border_type="constant",
+        value: int = 0,
+        inplace=False,
+    ) -> "RLEMask":
+        """Pad the mask with constant values.
+
+        Args:
+            top: the number of pixels to pad on the top
+            bottom: the number of pixels to pad on the bottom
+            left: the number of pixels to pad on the left
+            right: the number of pixels to pad on the right
+            border_type: either 'constant', 'replicate', or 'edge'
+            value: the value to pad with (0 or 1), only used when border_type='constant'
+            inplace: whether to perform the operation in place or to return a new object
+
+        Returns:
+            An RLEMask object representing the padded mask.
+
+        Examples:
+            Pad with 1 pixel of background on all sides:
+
+            .. mask-demo::
+
+               [A].pad(1, 1, 1, 1) == [B]
+
+               [A]:     [B]:
+               ##       ....
+               ##       .##.
+                        .##.
+                        ....
+
+        See Also:
+            :meth:`crop`, :meth:`shift`
+        """
+        if min(top, bottom, left, right) < 0:
+            raise ValueError(
+                f"Padding amounts must be non-negative, got "
+                f"({top}, {bottom}, {left}, {right})")
+        h, w = self.shape
+        h_out = h + top + bottom
+        w_out = w + left + right
+        if h_out > 0xFFFFFFFF or w_out > 0xFFFFFFFF or h_out * w_out > 0xFFFFFFFF:
+            raise ValueError(
+                f"Padded mask size ({h_out} x {w_out}) exceeds the supported maximum of "
+                f"2**32 - 1 pixels")
+
+        if border_type == "constant":
+            if value not in (0, 1):
+                raise ValueError(f"value must be 0 or 1, got {value}")
+            if inplace:
+                self.cy._i_zeropad(left, right, top, bottom, value)
+                return self
+            else:
+                return RLEMask._init(
+                    self.cy._r_zeropad(left, right, top, bottom, value)
+                )
+        elif border_type in ("replicate", "edge"):
+            res_cy = self.cy._r_pad_replicate(left, right, top, bottom)
+            if inplace:
+                self.cy = res_cy
+                return self
+            return RLEMask._init(res_cy)
+        else:
+            raise ValueError(f"Unknown border type {border_type}")
+
+    def complement(self, inplace: bool = False) -> "RLEMask":
+        """Compute the complement of an RLE mask.
+
+        Args:
+            inplace: whether to perform the operation in place or to return a new object
+
+        Returns:
+            The RLEMask object representing the complement of the mask (self if inplace=True)
+
+        Examples:
+            .. mask-demo::
+
+               ~[A] == [B]
+
+               [A]:     [B]:
+               .##.     #..#
+               #..#     .##.
+               #..#     .##.
+               .##.     #..#
+
+        See Also:
+            :meth:`__invert__`, which provides the complement as the `~` operator.
+        """
+        if inplace:
+            self.cy._i_complement()
+            return self
+        else:
+            return RLEMask._init(self.cy._r_complement())
+
+    def shift(
+        self, offset: Sequence[int], border_value: int = 0, inplace: bool = False
+    ) -> "RLEMask":
+        """Shift (translate) the mask by an offset vector.
+
+        Args:
+            offset: the offset vector [dy, dx]
+            border_value: the value to pad with (0 or 1)
+            inplace: whether to perform the operation in place or to return a new object
+
+        Returns:
+            The RLEMask object representing the shifted mask (self if inplace=True)
+
+        Examples:
+            Shift right and down by 2 pixels:
+
+            .. mask-demo::
+
+               [A].shift((2, 2)) == [B]
+
+               [A]:       [B]:
+               ##....     ......
+               ##....     ......
+               ......     ..##..
+               ......     ..##..
+        """
+
+        if np.array_equal(offset, (0, 0)):
+            return self if inplace else self.copy()
+
+        h, w = self.shape
+        cropbox = np.maximum(0, np.array([-offset[1], -offset[0], w, h]))
+        return self.pad(
+            max(0, offset[0]),
+            max(0, -offset[0]),
+            max(0, offset[1]),
+            max(0, -offset[1]),
+            value=border_value,
+            inplace=inplace,
+        ).crop(cropbox, inplace=True)
+
+    def dilate(self, kernel_shape="circle", kernel_size=7, inplace=False) -> "RLEMask":
+        """Dilate a mask with a kernel of a given shape and size.
+
+        Args:
+            kernel_shape: the shape of the kernel, one of 'circle', 'square', 'diamond' or
+                'cross'
+            kernel_size: the size of the kernel
+            inplace: whether to perform the operation in place or to return a new object
+
+        Returns:
+            The RLEMask object representing the dilated mask (self if inplace=True)
+
+        Examples:
+            Dilate with a 5x5 square kernel:
+
+            .. mask-demo::
+
+               [A].dilate(kernel_shape='square', kernel_size=5) == [B]
+
+               [A]:        [B]:
+               .......     .......
+               .......     .#####.
+               .......     .#####.
+               ...#...     .#####.
+               .......     .#####.
+               .......     .#####.
+               .......     .......
+
+        See Also:
+            :meth:`dilate3x3` for a 3x3 kernel.
+            :meth:`dilate5x5` for a 5x5 kernel.
+            :meth:`erode`
+        """
+        _validate_kernel_shape(kernel_shape)
+        if kernel_size % 2 == 0:
+            raise ValueError("Kernel size must be odd")
+
+        radius = kernel_size // 2
+
+        # Fast path: the square and cross kernels are separable, so for larger kernels a
+        # transpose + O(runs) vertical-dilation pass beats the O(kernel_size * runs) shift-and-OR
+        # loop below. The crossover is around kernel_size 7 (measured); smaller kernels stay on
+        # the shift path, whose per-shift cost is negligible.
+        if kernel_size >= 7 and kernel_shape == "square":
+            return self._dilate_box_separable(radius, inplace)
+        if kernel_size >= 7 and kernel_shape == "cross":
+            return self._dilate_cross_separable(radius, inplace)
+
+        x = np.arange(-radius, 1)
+        if kernel_shape == "circle":
+            heights = np.sqrt((kernel_size / 2) ** 2 - x**2).astype(np.uint32)
+        elif kernel_shape == "square":
+            heights = np.ones_like(x, dtype=np.uint32) * radius
+        elif kernel_shape == "diamond":
+            heights = (radius - np.abs(x)).astype(np.uint32)
+        elif kernel_shape == "cross":
+            heights = np.zeros_like(x, dtype=np.uint32)
+            heights[-1] = radius
+        else:
+            raise ValueError(
+                f"Unknown kernel_shape {kernel_shape!r}; expected one of "
+                f"'circle', 'square', 'diamond', 'cross'")
+
+        to_merge = []
+        vertical = self if inplace else self.copy()
+        height_diffs = np.diff(heights, prepend=0)
+        for j, d in enumerate(height_diffs, start=-radius):
+            if d > 0:
+                vertical.cy._i_dilate_vertical(d, d)
+            if j == 0:
+                to_merge.append(vertical.shift((0, 0)))
+            else:
+                to_merge += [vertical.shift((0, j)), vertical.shift((0, -j))]
+        merged = RLEMask.merge_many(to_merge, BoolFunc.OR)
+        if inplace:
+            self.cy = merged.cy
+            return self
+        return merged
+
+    def _dilate_box_separable(self, radius: int, inplace: bool) -> "RLEMask":
+        """Square (box) dilation as separable vertical then horizontal passes.
+
+        A box dilation is the Minkowski sum of a vertical and a horizontal segment. The vertical
+        pass is the O(runs) vertical-dilation primitive; the horizontal pass is the same primitive
+        applied to the transpose. Total cost is O(runs + height + width), independent of the kernel
+        size, versus O(kernel_size * runs) for the shift-and-OR path.
+        """
+        vertical = self.dilate_vertical(radius, radius)
+        transposed = vertical.transpose()
+        transposed.dilate_vertical(radius, radius, inplace=True)
+        result = transposed.transpose()
+        if inplace:
+            self.cy = result.cy
+            return self
+        return result
+
+    def _dilate_cross_separable(self, radius: int, inplace: bool) -> "RLEMask":
+        """Cross (plus-shaped) dilation as the union of a vertical and a horizontal arm.
+
+        Each arm is the O(runs) vertical-dilation primitive (the horizontal arm via the transpose),
+        combined with a single OR. Cost is O(runs + height + width), independent of the kernel size.
+        """
+        vertical_arm = self.dilate_vertical(radius, radius)
+        transposed = self.transpose()
+        transposed.dilate_vertical(radius, radius, inplace=True)
+        horizontal_arm = transposed.transpose()
+        result = vertical_arm | horizontal_arm
+        if inplace:
+            self.cy = result.cy
+            return self
+        return result
+
+    def erode(self, kernel_shape="circle", kernel_size=7, inplace=False) -> "RLEMask":
+        """Erode a mask with a kernel of a given shape and size.
+
+        Args:
+            kernel_shape: the shape of the kernel, one of 'circle', 'square', 'diamond' or
+                'cross'
+            kernel_size: the size of the kernel
+            inplace: whether to perform the operation in place or to return a new object
+
+        Returns:
+            The RLEMask object representing the eroded mask (self if inplace=True)
+
+        Examples:
+            Erode with a circular kernel of size 5:
+
+            .. mask-demo::
+
+               [A].erode(kernel_shape='circle', kernel_size=5) == [B]
+
+               [A]:            [B]:
+               ...........     ...........
+               ..#######..     ...........
+               .#########.     ...........
+               .#########.     ...#####...
+               .#########.     ...#####...
+               .#########.     ...#####...
+               .#########.     ...........
+               ..#######..     ...........
+               ...........     ...........
+
+        See Also:
+            :meth:`erode3x3` for a 3x3 kernel.
+            :meth:`erode5x5` for a 5x5 kernel.
+            :meth:`dilate`
+        """
+        _validate_kernel_shape(kernel_shape)
+        result = self.complement(inplace=inplace)
+        result.dilate(kernel_shape, kernel_size, inplace=True)
+        return result.complement(inplace=True)
+
+    def opening(self, kernel_shape="circle", kernel_size=7, inplace=False) -> "RLEMask":
+        """Morphologically open the mask (erosion followed by dilation).
+
+        Opening removes small foreground specks and thin protrusions while leaving larger
+        regions roughly intact.
+
+        Args:
+            kernel_shape: the shape of the kernel, one of 'circle', 'square', 'diamond' or
+                'cross'
+            kernel_size: the size of the kernel
+            inplace: whether to perform the operation in place or to return a new object
+
+        Returns:
+            The RLEMask object representing the opened mask (self if inplace=True)
+
+        See Also:
+            :meth:`closing`, :meth:`erode`, :meth:`dilate`
+        """
+        result = self.erode(kernel_shape, kernel_size, inplace=inplace)
+        return result.dilate(kernel_shape, kernel_size, inplace=True)
+
+    def closing(self, kernel_shape="circle", kernel_size=7, inplace=False) -> "RLEMask":
+        """Morphologically close the mask (dilation followed by erosion).
+
+        Closing fills small background holes and thin gaps while leaving larger regions
+        roughly intact.
+
+        Args:
+            kernel_shape: the shape of the kernel, one of 'circle', 'square', 'diamond' or
+                'cross'
+            kernel_size: the size of the kernel
+            inplace: whether to perform the operation in place or to return a new object
+
+        Returns:
+            The RLEMask object representing the closed mask (self if inplace=True)
+
+        See Also:
+            :meth:`opening`, :meth:`erode`, :meth:`dilate`
+        """
+        result = self.dilate(kernel_shape, kernel_size, inplace=inplace)
+        return result.erode(kernel_shape, kernel_size, inplace=True)
+
+    def dilate3x3(self, connectivity: int = 4, inplace: bool = False) -> "RLEMask":
+        """Dilate a mask with a 3x3 kernel.
+
+        After dilation, all pixels that were foreground before remain foreground and additionally any
+        pixel with at least one foreground neighbor (according to the specified connectivity, 4-way or
+        8-way) becomes also foreground.
+
+        The kernel shape depends on connectivity:
+
+        .. mask-demo::
+
+           connectivity=4: [K4]   connectivity=8: [K8]
+
+           [K4]:   [K8]:
+           .#.     ###
+           ###     ###
+           .#.     ###
+
+        At the image border, pixels are treated as if the mask was extended by replicating
+        the edge values. This means dilation does not extend beyond the image boundary.
+
+        Args:
+            connectivity: either 4 or 8, the connectivity of the dilation. 4 means a cross-shaped
+                kernel, 8 means a square kernel.
+            inplace: whether to perform the operation in place or to return a new object
+
+        Returns:
+            The RLEMask object representing the dilated mask (self if inplace=True)
+
+        Examples:
+            A single pixel dilates into the kernel shape:
+
+            .. mask-demo::
+
+               [A].dilate3x3(connectivity=4) == [B]
+
+               [A]:      [B]:
+               .....     .....
+               .....     ..#..
+               ..#..     .###.
+               .....     ..#..
+               .....     .....
+
+            .. mask-demo::
+
+               [A].dilate3x3(connectivity=8) == [B]
+
+               [A]:      [B]:
+               .....     .....
+               .....     .###.
+               ..#..     .###.
+               .....     .###.
+               .....     .....
+
+        See Also:
+            :meth:`dilate` for arbitrary kernel shapes.
+            :meth:`dilate5x5` for a 5x5 kernel.
+        """
+        left_shifted = self.shift((0, -1))
+        right_shifted = self.shift((0, 1))
+
+        if connectivity == 4:
+            vertical_dilated = self if inplace else self.copy()
+            vertical_dilated.cy._i_dilate_vertical()
+            merged = RLEMask.merge_many(
+                [vertical_dilated, left_shifted, right_shifted], BoolFunc.OR
+            )
+        else:
+            merged = RLEMask.merge_many(
+                [self, left_shifted, right_shifted], BoolFunc.OR
+            )
+            merged.cy._i_dilate_vertical()
+
+        if inplace:
+            self.cy = merged.cy
+            return self
+        return merged
+
+    def erode3x3(self, connectivity: int = 4, inplace: bool = False) -> "RLEMask":
+        """Erode a mask with a 3x3 kernel.
+
+        After erosion, only those pixels remain foreground that were foreground before and all its
+        neighbors (according to the specified connectivity, 4-way or 8-way) are also foreground.
+
+        The kernel shape depends on connectivity:
+
+        .. mask-demo::
+
+           connectivity=4: [K4]   connectivity=8: [K8]
+
+           [K4]:   [K8]:
+           .#.     ###
+           ###     ###
+           .#.     ###
+
+        At the image border, pixels are treated as if the mask was extended by replicating
+        the edge values. This means foreground pixels touching the border can survive erosion.
+
+        Args:
+            connectivity: either 4 or 8, the connectivity of the erosion. 4 means a cross-shaped
+                kernel, 8 means a square kernel.
+            inplace: whether to perform the operation in place or to return a new object
+
+        Returns:
+            The RLEMask object representing the eroded mask (self if inplace=True)
+
+        Examples:
+            With connectivity=4 (cross-shaped kernel), a pixel survives if all 4-connected
+            neighbors are foreground:
+
+            .. mask-demo::
+
+               [A].erode3x3(connectivity=4) == [B]
+
+               [A]:          [B]:
+               .........     .........
+               ...###...     .........
+               ...###...     ....#....
+               .#####...     ...##....
+               .#####...     ...##....
+               ...###...     ....#....
+               ...###...     .........
+               .........     .........
+
+            With connectivity=8 (square kernel), a pixel survives only if all 8 neighbors
+            are foreground. The protrusion causes more erosion:
+
+            .. mask-demo::
+
+               [A].erode3x3(connectivity=8) == [B]
+
+               [A]:          [B]:
+               .........     .........
+               ...###...     .........
+               ...###...     ....#....
+               .#####...     ....#....
+               .#####...     ....#....
+               ...###...     ....#....
+               ...###...     .........
+               .........     .........
+
+            Border pixels are preserved when their neighbors (including replicated border)
+            are all foreground:
+
+            .. mask-demo::
+
+               [A].erode3x3(connectivity=4) == [B]
+
+               [A]:      [B]:
+               ###...    ##....
+               ###...    ##....
+               ###...    ##....
+
+        See Also:
+            :meth:`erode` for arbitrary kernel shapes.
+            :meth:`erode5x5` for a 5x5 kernel.
+        """
+        result = self.complement(inplace=inplace)
+        result.dilate3x3(connectivity, inplace=True)
+        return result.complement(inplace=True)
+
+    def dilate5x5(self, inplace: bool = False) -> "RLEMask":
+        """Dilate a mask with a round 5x5 kernel.
+
+        The kernel is 0 in the four corners, otherwise 1:
+
+        .. mask-demo::
+
+           Kernel: [K]
+
+           [K]:
+           .###.
+           #####
+           #####
+           #####
+           .###.
+
+        At the image border, pixels are treated as if the mask was extended by replicating
+        the edge values. This means dilation does not extend beyond the image boundary.
+
+        Args:
+            inplace: whether to perform the operation in place or to return a new object
+
+        Returns:
+            The RLEMask object representing the dilated mask (self if inplace=True)
+
+        Examples:
+            A single pixel dilates into the kernel shape:
+
+            .. mask-demo::
+
+               [A].dilate5x5() == [B]
+
+               [A]:        [B]:
+               .......     .......
+               .......     ..###..
+               .......     .#####.
+               ...#...     .#####.
+               .......     .#####.
+               .......     ..###..
+               .......     .......
+
+        See Also:
+            :meth:`dilate` for arbitrary kernel shapes.
+            :meth:`dilate3x3` for a 3x3 kernel.
+        """
+
+        vertical = self if inplace else self.copy()
+        vertical.cy._i_dilate_vertical()
+        vertical3_left = vertical.shift((0, -2))
+        vertical3_right = vertical.shift((0, 2))
+        vertical.cy._i_dilate_vertical()
+        vertical5_left = vertical.shift((0, -1))
+        vertical5_right = vertical.shift((0, 1))
+
+        merged = RLEMask.merge_many(
+            [
+                vertical5_left,
+                vertical3_left,
+                vertical,
+                vertical5_right,
+                vertical3_right,
+            ],
+            BoolFunc.OR,
+        )
+        if inplace:
+            self.cy = merged.cy
+            return self
+        return merged
+
+    def erode5x5(self, inplace: bool = False) -> "RLEMask":
+        """Erode a mask with a round 5x5 kernel.
+
+        The kernel is 0 in the four corners, otherwise 1:
+
+        .. mask-demo::
+
+           Kernel: [K]
+
+           [K]:
+           .###.
+           #####
+           #####
+           #####
+           .###.
+
+        At the image border, pixels are treated as if the mask was extended by replicating
+        the edge values. This means foreground pixels touching the border can survive erosion.
+
+        Args:
+            inplace: whether to perform the operation in place or to return a new object
+
+        Returns:
+            The RLEMask object representing the eroded mask (self if inplace=True)
+
+        Examples:
+            A rounded 9x9 shape erodes to a 5x5 rectangle:
+
+            .. mask-demo::
+
+               [A].erode5x5() == [B]
+
+               [A]:            [B]:
+               ...........     ...........
+               ..#######..     ...........
+               .#########.     ...........
+               .#########.     ...#####...
+               .#########.     ...#####...
+               .#########.     ...#####...
+               .#########.     ...#####...
+               .#########.     ...#####...
+               .#########.     ...........
+               ..#######..     ...........
+               ...........     ...........
+
+        See Also:
+            :meth:`erode` for arbitrary kernel shapes.
+            :meth:`erode3x3` for a 3x3 kernel.
+        """
+        result = self.complement(inplace=inplace)
+        result.dilate5x5(inplace=True)
+        return result.complement(inplace=True)
+
+    def contours(self):
+        """An RLE consisting of those foreground pixels that have at least one background neighbor.
+
+        4-neighbourhood is used.
+
+        Examples:
+            .. mask-demo::
+
+               [A].contours() == [B]
+
+               [A]:        [B]:
+               .......     .......
+               .#####.     .#####.
+               .#####.     .#...#.
+               .#####.     .#...#.
+               .#####.     .#...#.
+               .#####.     .#####.
+               .......     .......
+
+        See Also:
+            :meth:`perimeter` for the contour length.
+        """
+        return RLEMask._init(self.cy._r_contours())
+
+    def largest_interior_rectangle(self, aspect_ratio: Optional[float] = None):
+        """The largest axis-aligned rectangle that fits entirely inside the foreground.
+
+        Args:
+            aspect_ratio: the desired aspect ratio of the rectangle (width/height)
+
+        Returns:
+            A float32 array (x, y, width, height) of the top-left corner and dimensions of
+            the rectangle. The values are whole numbers when `aspect_ratio` is not given,
+            and generally fractional otherwise; convert with e.g. ``.astype(int)`` before
+            using them as array indices.
+
+        Examples:
+            Find the largest rectangle inside an L-shape (red outline shows result):
+
+            .. mask-demo::
+
+               [A].largest_interior_rectangle() == [A(1,1,2,6)]
+
+               [A]:
+               ..........
+               .#####....
+               .#####....
+               .##.......
+               .##.......
+               .##.......
+               .##.......
+               ..........
+
+        See Also:
+            :meth:`largest_interior_rectangle_around` for a rectangle around a given center point.
+        """
+        if aspect_ratio is None:
+            return self.cy.largest_interior_rectangle().astype(np.float32)
+        return self.cy.largest_interior_rectangle_aspect(aspect_ratio).astype(
+            np.float32
+        )
+
+    def largest_interior_rectangle_around(
+        self, center_point: Sequence[float], aspect_ratio: Optional[float] = None
+    ):
+        """The largest axis-aligned foreground rectangle with a given center point.
+
+        Without `aspect_ratio`, the rectangle will have odd height and odd width and have
+        the pixel at position `center_point` as its central pixel.
+        When aspect_ratio is given, the rectangle may have non-integer dimensions.
+
+        If the output is `r`, the following will hold:
+
+        - ``center_point[0] == r[0] + (r[2]-1) / 2``
+        - ``center_point[1] == r[1] + (r[3]-1) / 2``
+        - ``r[2] / r[3] == aspect_ratio``
+        - the region defined by ``r`` is entirely inside the foreground
+
+        Args:
+            center_point: the (x,y) center pixel coordinates of the rectangle
+            aspect_ratio: the desired aspect ratio of the rectangle (width/height)
+
+        Returns:
+            A float32 array (x, y, width, height) of the top-left corner and dimensions of
+            the rectangle. The values are whole numbers when `aspect_ratio` is not given,
+            and generally fractional otherwise.
+
+        Examples:
+            Find the largest rectangle centered on a specific point (red outline shows result):
+
+            .. mask-demo::
+
+               [A].largest_interior_rectangle_around([4, 3]) == [A(1,1,7,5)]
+
+               [A]:
+               ..........
+               .#######..
+               .#######..
+               .#######..
+               .#######..
+               .#######..
+               ..........
+               ..........
+
+        See Also:
+            :meth:`largest_interior_rectangle` for the largest rectangle without specifying the center point.
+        """
+        if aspect_ratio is None:
+            aspect_ratio = 0.0
+        return self.cy.largest_interior_rectangle_around_center(
+            center_point[1], center_point[0], aspect_ratio
+        ).astype(np.float32)
+
+    def merge(self, other: "RLEMask", func: BoolFunc) -> "RLEMask":
+        """Merge this mask with another using a Boolean function.
+
+        Args:
+            other: the other RLE mask
+            func: the Boolean function to apply
+
+        Returns:
+            A new RLEMask object representing the result of the merge.
+
+        Examples:
+            XOR keeps pixels where exactly one mask has a foreground pixel:
+
+            .. mask-demo::
+
+               [A].merge([B], BoolFunc.XOR) == [C]
+
+               [A]:    [B]:    [C]:
+               ##..    .##.    #.#.
+               ##..    .##.    #.#.
+
+        See Also:
+            :meth:`merge_many_custom`, which allows merging with custom n-ary Boolean functions.
+            :meth:`merge_many`, which allows merging with different binary Boolean functions.
+        """
+        self._raise_if_different_shape(other)
+        return RLEMask._init(self.cy._r_boolfunc(other.cy, int(func) & 0xF))
+
+    @staticmethod
+    def intersection(masks: Sequence["RLEMask"]) -> "RLEMask":
+        """Return a mask where each pixel is set if and only if all input masks have the pixel set.
+
+        Args:
+            masks: a list of RLEMask objects
+
+        Returns:
+            A new RLEMask object representing the intersection of the masks.
+
+        Examples:
+            Only the region where all three masks overlap survives:
+
+            .. mask-demo::
+
+               RLEMask.intersection([[A], [B], [C]]) == [D]
+
+               [A]:        [B]:        [C]:        [D]:
+               ######..    ..######    ..####..    ..####..
+               ######..    ..######    ..####..    ..####..
+               ######..    ..######    ..####..    ..####..
+               ........    ..######    ..####..    ........
+
+        See Also:
+            :meth:`__and__`, which provides the intersection as the ``&`` operator.
+            :meth:`merge_many`, which allows merging with different binary Boolean functions.
+            :meth:`merge_many_custom`, which allows merging with custom n-ary Boolean functions.
+        """
+        return RLEMask.merge_many(masks, BoolFunc.AND)
+
+    @staticmethod
+    def union(masks: Sequence["RLEMask"]) -> "RLEMask":
+        """Return a mask where each pixel is set if at least one of the input masks has the pixel set.
+
+        Args:
+            masks: a list of RLEMask objects
+
+        Returns:
+            A new RLEMask object representing the union of the masks.
+
+        Examples:
+            Union combines all covered areas from multiple masks:
+
+            .. mask-demo::
+
+               RLEMask.union([[A], [B], [C]]) == [D]
+
+               [A]:        [B]:        [C]:        [D]:
+               ######..    ..######    ..####..    ########
+               ######..    ..######    ..####..    ########
+               ######..    ..######    ..####..    ########
+               ........    ..######    ..####..    ..######
+
+        See Also:
+            :meth:`__or__`, which provides the union as the ``|`` operator.
+        """
+        return RLEMask.merge_many(masks, BoolFunc.OR)
+
+    @staticmethod
+    def merge_many(
+        masks: Sequence["RLEMask"], func: Union[BoolFunc, Sequence[BoolFunc]]
+    ) -> "RLEMask":
+        """Merge many masks using either the same or different Boolean functions.
+
+        This is a reduce operation from the left, as:
+
+        merge(merge(masks[0], masks[1], func[0]), masks[2], func[1]), ...
+
+        If only one function is provided, it is applied in all steps.
+
+        Args:
+            masks: a sequence of RLE masks
+            func: a single Boolean function or a sequence of Boolean functions
+
+        Returns:
+            A new RLEMask with the merged result.
+
+        Examples:
+            Merge with OR to get union of all masks:
+
+            .. mask-demo::
+
+               RLEMask.merge_many([[A], [B]], BoolFunc.OR) == [C]
+
+               [A]:      [B]:      [C]:
+               ####..    ..####    ######
+               ####..    ..####    ######
+               ####..    ......    ####..
+               ......    ......    ......
+
+            Merge with AND to get intersection:
+
+            .. mask-demo::
+
+               RLEMask.merge_many([[A], [B]], BoolFunc.AND) == [C]
+
+               [A]:      [B]:      [C]:
+               ####..    ..####    ..##..
+               ####..    ..####    ..##..
+               ####..    ......    ......
+               ......    ......    ......
+
+        See Also:
+            :meth:`merge_many_custom`, which allows merging with custom n-ary Boolean functions.
+        """
+
+        if len(masks) == 0:
+            raise ValueError("At least one mask must be provided")
+
+        if not all(m.shape == masks[0].shape for m in masks[1:]):
+            raise ValueError(
+                f"All masks must have the same shape, got shapes "
+                f"{sorted({m.shape for m in masks})}")
+
+        # plain ints are accepted too, since Boolean functions can be composed with
+        # ~, & and | from BoolFunc members, which yields ints
+        if isinstance(func, int):
+            return RLEMask._init(
+                RLECy.merge_many_singlefunc([m.cy for m in masks], int(func) & 0xF)
+            )
+
+        if len(func) != len(masks) - 1:
+            raise ValueError(
+                f"Expected {len(masks) - 1} functions for {len(masks)} masks, "
+                f"got {len(func)}")
+
+        return RLEMask._init(
+            RLECy.merge_many_multifunc(
+                [m.cy for m in masks], [int(f) & 0xF for f in func])
+        )
+
+    @staticmethod
+    def merge_many_custom(
+        masks: Sequence["RLEMask"], func: Callable[..., bool]
+    ) -> "RLEMask":
+        """Merge many masks using a custom n-ary boolean function.
+
+        This first calls func with all combinations of n boolean arguments and stores the resulting
+        truth table.
+        It then returns a new mask where the ith pixel is the result of func applied to the ith
+        pixel of all input masks.
+
+        Args:
+            masks: a sequence of RLE masks
+            func: a callable that takes n bools and returns a bool
+
+        Returns:
+            A new RLEMask with the merged result.
+
+        Examples:
+            Compute (A or B) and not C:
+
+            .. mask-demo::
+
+               RLEMask.merge_many_custom([[A], [B], [C]], lambda a, b, c: (a or b) and not c) == [R]
+
+               [A]:    [B]:    [C]:    [R]:
+               ##..    .##.    ..##    ##..
+               ##..    .##.    ..##    ##..
+
+        See Also:
+            :meth:`merge_many`, which allows merging with binary Boolean functions.
+            :meth:`make_merge_function`, which creates a merge function from a custom n-ary function.
+        """
+        if len(masks) == 0:
+            raise ValueError("At least one mask must be provided")
+
+        mergefun = RLEMask.make_merge_function(func, arity=len(masks))
+        return mergefun(*masks)
+
+    @staticmethod
+    def make_merge_function(func: Callable[..., bool], arity: Optional[int] = None):
+        """Create a merge function from a custom n-ary boolean function.
+
+        This first calls func with all combinations of n boolean arguments and stores the resulting
+        truth table.
+        It then returns a function that takes n masks and merges them using the truth table.
+
+        Args:
+            func: a callable that takes n bools and returns a bool
+            arity: the number of arguments to the function (default: None, which is determined
+                automatically)
+
+        Returns:
+            A callable that takes masks and returns the merged mask.
+
+        Examples:
+            >>> mergefun = RLEMask.make_merge_function(lambda a, b, c: (a | b) & ~c)
+            >>> rle1 = RLEMask(np.eye(3))
+            >>> rle2 = RLEMask(np.eye(3)[::-1])
+            >>> rle3 = RLEMask(np.eye(3, k=-2))
+            >>> rle = mergefun(rle1, rle2, rle3)
+            >>> np.array(rle)
+            array([[1, 0, 1],
+                   [0, 1, 0],
+                   [0, 0, 1]], dtype=uint8)
+
+        See Also:
+            :meth:`merge_many_custom`
+        """
+
+        if arity is None:
+            arity = func.__code__.co_argcount
+
+        if arity == 0:
+            raise ValueError("The function must take at least one argument")
+        if arity > 32:
+            raise ValueError(f"The function may take at most 32 arguments, got {arity}")
+
+        multiboolfunc = 0
+        for i, args in enumerate(itertools.product([False, True], repeat=arity)):
+            result = int(bool(func(*reversed(args))))
+            multiboolfunc |= result << i
+
+        # the table needs 2**arity bits; np.zeros so that high words beyond the value's
+        # bit length are defined (zero means false)
+        mask = (1 << 64) - 1
+        mbf = np.zeros([((1 << arity) + 63) // 64], dtype=np.uint64)
+        i = 0
+        while multiboolfunc > 0:
+            mbf[i] = mask & multiboolfunc
+            multiboolfunc >>= 64
+            i += 1
+
+        def merge(*masks: "RLEMask") -> "RLEMask":
+            if len(masks) != arity:
+                raise ValueError(f"Expected {arity} masks, got {len(masks)}")
+
+            if not all(m.shape == masks[0].shape for m in masks[1:]):
+                raise ValueError(
+                    f"All masks must have the same shape, got shapes "
+                    f"{sorted({m.shape for m in masks})}")
+
+            return RLEMask._init(RLECy.merge_many_custom([m.cy for m in masks], mbf))
+
+        return merge
+
+    @staticmethod
+    def merge_to_label_map(rles: Sequence["RLEMask"]) -> np.ndarray:
+        """Merge a list of RLE masks to a label map indicating which masks contains each pixel.
+
+        That is, the output is an integer-valued numpy array containing for each pixel the (index+1)
+        of the mask that has the pixel set, or 0 if no mask has the pixel set.
+
+        If multiple masks have the pixel set, the index of the last among the input masks will
+        be used in the output.
+        """
+        return RLECy.merge_to_label_map([r.cy for r in rles])
+
+    @staticmethod
+    def from_label_map(label_map: np.ndarray) -> dict[int, "RLEMask"]:
+        """Convert a label map to a dict of RLEMasks.
+
+        This is the inverse of :meth:`merge_to_label_map`.
+
+        Label 0 is treated as background and not included in the output.
+        Labels 1-255 become individual RLEMasks.
+
+        Args:
+            label_map: A 2D numpy array with integer labels 0-255.
+
+        Returns:
+            A dict mapping label values (1-255) to RLEMask objects.
+            Only labels that appear in the input are included.
+        """
+        return {label: RLEMask._init(rle) for label, rle in RLECy.from_label_map(label_map)}
+
+    @staticmethod
+    def from_label_map_png(
+            path: Union[str, os.PathLike, None] = None,
+            data: Union[bytes, bytearray, memoryview, None] = None
+    ) -> dict[int, "RLEMask"]:
+        """Convert a PNG label map directly to a dict of RLEMasks.
+
+        Decodes PNG and builds RLEs in a single pass, avoiding
+        intermediate numpy array allocation.
+
+        Label 0 is treated as background and not included in the output.
+        Labels 1-255 become individual RLEMasks.
+
+        Args:
+            path: Path to PNG file (str or Path).
+            data: PNG data as bytes, bytearray, or memoryview.
+
+        Returns:
+            A dict mapping label values (1-255) to RLEMask objects.
+            Only labels that appear in the input are included.
+
+        Raises:
+            ValueError: If neither path nor data is provided, or both are provided.
+        """
+        if (path is None) == (data is None):
+            raise ValueError("Exactly one of 'path' or 'data' must be provided")
+        if path is not None:
+            return {label: RLEMask._init(rle)
+                    for label, rle in RLECy.from_label_map_png_file(str(path))}
+        else:
+            return {label: RLEMask._init(rle)
+                    for label, rle in RLECy.from_label_map_png_bytes(data)}
+
+    def repeat(self, num_h: int, num_w: int, inplace: bool = False) -> "RLEMask":
+        """Repeat the mask pixels multiple times along the axes.
+
+        This method is analogous to :func:`np.repeat <numpy.repeat>` (not :func:`np.tile <numpy.tile>`).
+
+        This repeats each pixel in the mask `num_h` times along the vertical axis and `num_w` times
+        along the horizontal axis.
+
+        Args:
+            num_h: the number of times to repeat the mask along the vertical axis
+            num_w: the number of times to repeat the mask along the horizontal axis
+            inplace: whether to perform the operation in place or to return a new object
+
+        Returns:
+            An RLEMask object representing the repeated mask (self if inplace=True)
+
+        Examples:
+            Repeat each pixel 2x vertically and 3x horizontally (upscales the mask):
+
+            .. mask-demo::
+
+               [A].repeat(2, 3) == [B]
+
+               [A]:     [B]:
+               #.       ###...
+               .#       ###...
+                        ...###
+                        ...###
+
+        See Also:
+            Not to be confused with :meth:`tile`
+        """
+        if num_h < 0 or num_w < 0:
+            raise ValueError(f"Repeat counts must be non-negative, got ({num_h}, {num_w})")
+        h, w = self.shape
+        if h * num_h * w * num_w > 0xFFFFFFFF:
+            raise ValueError(
+                f"Repeated mask size ({h * num_h} x {w * num_w}) exceeds the supported "
+                f"maximum of 2**32 - 1 pixels")
+        if inplace:
+            self.cy._i_repeat(num_h, num_w)
+            return self
+        else:
+            return RLEMask._init(self.cy._r_repeat(num_h, num_w))
+
+    def centroid(self) -> np.ndarray:
+        """The centroid of the mask, as a numpy float32 array [x, y]."""
+        return self.cy.centroid().astype(np.float32)
+
+    # Moment array indices (matching C enum order)
+    _MOMENT_KEYS = [
+        "m00",
+        "m10",
+        "m01",
+        "m20",
+        "m11",
+        "m02",
+        "m30",
+        "m21",
+        "m12",
+        "m03",
+        "mu20",
+        "mu11",
+        "mu02",
+        "mu30",
+        "mu21",
+        "mu12",
+        "mu03",
+        "nu20",
+        "nu11",
+        "nu02",
+        "nu30",
+        "nu21",
+        "nu12",
+        "nu03",
+    ]
+
+    def moments(self) -> dict:
+        """Compute image moments, same as cv2.moments.
+
+        Returns a dictionary with raw moments (m00, m10, m01, m20, m11, m02, m30,
+        m21, m12, m03), central moments (mu20, mu11, mu02, mu30, mu21, mu12, mu03),
+        and normalized central moments (nu20, nu11, nu02, nu30, nu21, nu12, nu03).
+
+        Returns:
+            dict: Dictionary of moments with same keys as cv2.moments().
+        """
+        arr = self.cy.moments()
+        return dict(zip(self._MOMENT_KEYS, arr))
+
+    def hu_moments(self) -> np.ndarray:
+        """Compute the 7 Hu moment invariants :footcite:`hu1962visual`.
+
+        Hu moments are shape descriptors derived from normalized central moments,
+        invariant under translation, scale, and rotation. The first 6 are also
+        invariant under reflection; the 7th changes sign under reflection.
+
+        Equivalent to ``cv2.HuMoments(cv2.moments(mask))``.
+
+        Returns:
+            np.ndarray: Array of shape (7,) containing the Hu moment invariants.
+        """
+        return self.cy.hu_moments()
+
+    def connected_components(
+        self,
+        connectivity: int = 4,
+        min_size: int = 1,
+        filter_fn: Optional[
+            Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray]
+        ] = None,
+    ):
+        """Extract connected components from the mask.
+
+        Args:
+            connectivity: 4 or 8, the connectivity of the components. If 4, then only horizontal
+                and vertical connections are considered, if 8, then also diagonal connections are
+                considered.
+            min_size: the minimum size of a component to return. Small components are ignored.
+            filter_fn: an optional filter function that receives three numpy arrays
+                (areas, bboxes, centroids) and returns a boolean array indicating which
+                components to extract. areas is shape (n,), bboxes is shape (n, 4) with
+                columns (x, y, w, h), centroids is shape (n, 2) with columns (x, y).
+
+        Returns:
+            A list of RLEMask objects, each representing a connected component of this mask.
+
+        Examples:
+            With 4-connectivity, diagonal pixels are separate components (8 components):
+
+            .. mask-demo::
+
+               [A].connected_components(connectivity=4) yields 8 components
+
+               [A]:
+               #.#.#
+               .#.#.
+               #.#.#
+
+            With 8-connectivity, diagonally adjacent pixels are connected (1 component):
+
+            .. mask-demo::
+
+               [A].connected_components(connectivity=8) yields 1 component
+
+               [A]:
+               #.#.#
+               .#.#.
+               #.#.#
+
+            Filter to only get components with area > 100::
+
+                mask.connected_components(filter_fn=lambda a, b, c: a > 100)
+
+            Filter to only get components in the left half of the image::
+
+                mask.connected_components(
+                    filter_fn=lambda areas, bboxes, centroids: centroids[:, 0] < mask.shape[1] / 2
+                )
+
+        See Also:
+            :meth:`largest_connected_component`, :meth:`remove_small_components`,
+            :meth:`fill_small_holes`, :meth:`connected_component_stats`,
+            :meth:`count_connected_components`, :meth:`connected_components_with_stats`
+        """
+        if filter_fn is not None:
+            components_cy = self.cy.connected_components_filtered(
+                filter_fn, connectivity, min_size
+            )
+        else:
+            components_cy = self.cy.connected_components(connectivity, min_size)
+        return [RLEMask._init(c) for c in components_cy]
+
+    def connected_component_stats(
+        self, connectivity: int = 4, min_size: int = 1
+    ) -> Optional[tuple[np.ndarray, np.ndarray, np.ndarray]]:
+        """Get statistics for all connected components without extracting them.
+
+        This is faster than extracting all components when you only need the stats.
+
+        Args:
+            connectivity: 4 or 8, the connectivity of the components.
+            min_size: the minimum size of a component to return.
+
+        Returns:
+            A tuple of (areas, bboxes, centroids) numpy arrays, or None if there are no
+            components. areas is shape (n,), bboxes is shape (n, 4) with columns (x, y, w, h),
+            centroids is shape (n, 2) with columns (x, y).
+
+        See Also:
+            :meth:`connected_components`, :meth:`count_connected_components`,
+            :meth:`connected_components_with_stats`
+        """
+        result = self.cy.connected_component_stats(connectivity, min_size)
+        if result[0] is None:
+            return None
+        return result
+
+    def count_connected_components(
+        self, connectivity: int = 4, min_size: int = 1
+    ) -> int:
+        """Count connected components without extracting them.
+
+        This is the fastest way to count components when you don't need the actual masks
+        or statistics.
+
+        Args:
+            connectivity: 4 or 8, the connectivity of the components.
+            min_size: the minimum size of a component to count.
+
+        Returns:
+            The number of connected components.
+
+        See Also:
+            :meth:`connected_components`, :meth:`connected_component_stats`,
+            :meth:`connected_components_with_stats`
+        """
+        return self.cy.count_connected_components(connectivity, min_size)
+
+    def connected_components_with_stats(
+        self,
+        connectivity: int = 4,
+        min_size: int = 1,
+        filter_fn: Optional[
+            Callable[[np.ndarray, np.ndarray, np.ndarray], np.ndarray]
+        ] = None,
+    ) -> tuple[list["RLEMask"], Optional[tuple[np.ndarray, np.ndarray, np.ndarray]]]:
+        """Extract connected components and their stats in a single pass.
+
+        More efficient than calling connected_components() and connected_component_stats()
+        separately when you need both.
+
+        Args:
+            connectivity: 4 or 8, the connectivity of the components.
+            min_size: the minimum size of a component to return.
+            filter_fn: an optional filter function that receives three numpy arrays
+                (areas, bboxes, centroids) and returns a boolean array indicating which
+                components to extract.
+
+        Returns:
+            A tuple of (components, stats) where:
+            - components is a list of RLEMask objects
+            - stats is a tuple of (areas, bboxes, centroids) numpy arrays, or None if empty.
+              areas is shape (n,), bboxes is shape (n, 4) with columns (x, y, w, h),
+              centroids is shape (n, 2) with columns (x, y).
+
+        See Also:
+            :meth:`connected_components`, :meth:`connected_component_stats`,
+            :meth:`count_connected_components`
+        """
+        components_cy, stats = self.cy.connected_components_with_stats(
+            filter_fn, connectivity, min_size
+        )
+        components = [RLEMask._init(c) for c in components_cy]
+        return components, stats
+
+    def largest_connected_component(
+        self, connectivity: int = 4, inplace: bool = False
+    ) -> "RLEMask":
+        """Extract the largest connected component of the mask.
+
+        Args:
+            connectivity: 4 or 8, the connectivity of the components. If 4, then only horizontal
+                and vertical connections are considered, if 8, then also diagonal connections are
+                considered.
+            inplace: whether to perform the operation in place or to return a new object
+
+        Returns:
+            An RLEMask object representing the largest connected component of this mask.
+
+        Examples:
+            .. mask-demo::
+
+               [A].largest_connected_component() == [B]
+
+               [A]:          [B]:
+               ##......      ........
+               ##......      ........
+               ........      ........
+               ..####..      ..####..
+               ..####..      ..####..
+               ..####..      ..####..
+               ........      ........
+
+        See Also:
+            :meth:`connected_components`, :meth:`remove_small_components`
+        """
+        result = self if inplace else self.copy()
+        result.cy._i_largest_connected_component(connectivity)
+        return result
+
+    def remove_small_components(
+        self, min_size: int = 1, connectivity: int = 4, inplace: bool = False
+    ) -> "RLEMask":
+        """Remove small connected components from the mask.
+
+        Args:
+            min_size: the minimum size of a component to keep. Small components are removed.
+            connectivity: 4 or 8, the neighborhood connectivity of the components
+            inplace: whether to perform the operation in place or to return a new object
+
+        Returns:
+            An RLEMask object with small components removed.
+
+        Examples:
+            Remove components smaller than 4 pixels:
+
+            .. mask-demo::
+
+               [A].remove_small_components(min_size=4) == [B]
+
+               [A]:          [B]:
+               #.......      ........
+               ........      ........
+               ..####..      ..####..
+               ..####..      ..####..
+               ......#.      ........
+
+        See Also:
+            :meth:`fill_small_holes`
+        """
+        result = self if inplace else self.copy()
+        result.cy._i_remove_small_components(min_size, connectivity)
+        return result
+
+    def fill_small_holes(
+        self, min_size: int = 1, connectivity: int = 4, inplace: bool = False
+    ) -> "RLEMask":
+        """Fill small holes (i.e., connected components of the background) in the mask.
+
+        Args:
+            min_size: the minimum size of a hole to keep. Smaller holes are filled.
+            connectivity: 4 or 8, the neighborhood connectivity of the components
+            inplace: whether to perform the operation in place or to return a new object
+
+        Returns:
+            A new RLEMask object with small holes filled.
+
+        Examples:
+            Fill holes smaller than 2 pixels (1-pixel holes get filled, 3-pixel hole stays):
+
+            .. mask-demo::
+
+               [A].fill_small_holes(min_size=2) == [B]
+
+               [A]:          [B]:
+               #########     #########
+               #.#...#.#     ###...###
+               #########     #########
+
+        See Also:
+            :meth:`remove_small_components`
+        """
+        result = self.complement(inplace=inplace)
+        result.remove_small_components(min_size, connectivity, inplace=True)
+        result.complement(inplace=True)
+        return result
+
+    def bbox(self) -> np.ndarray:
+        """The bounding box of the foreground, i.e. the smallest rectangle that contains the mask.
+
+        Returns:
+            A float32 numpy array [x, y, width, height] of the bounding box of the mask.
+
+        Examples:
+            .. mask-demo::
+
+               [A].bbox() == np.array([3, 1, 4, 3])
+
+               [A]:
+               ..........
+               ...####...
+               ...####...
+               ...####...
+               ..........
+
+        See Also:
+            :meth:`largest_interior_rectangle` for the largest rectangle inside the mask.
+        """
+        return self.cy.bbox().astype(np.float32)
+
+    def crop(self, bbox: np.ndarray, inplace=False) -> "RLEMask":
+        """Crop the mask to the bounding box.
+
+        Args:
+            bbox: a bounding box, in the format [x_start, y_start, width, height]
+            inplace: whether to perform the operation in place or to return a new object
+
+        Returns:
+            An RLEMask object representing the cropped mask.
+
+        Examples:
+            Crop to a 4x3 region starting at (x=2, y=1):
+
+            .. mask-demo::
+
+               [A].crop([2, 1, 4, 3]) == [B]
+
+               [A]:          [B]:
+               ........      ####
+               ..####..      ####
+               ..####..      ####
+               ..####..
+               ........
+
+        See Also:
+            :meth:`tight_crop`
+        """
+        bbox_arr = np.asanyarray(bbox, dtype=np.int64)
+        x0, y0, bw, bh = bbox_arr.tolist()
+        if x0 < 0:
+            bw += x0
+            x0 = 0
+        if y0 < 0:
+            bh += y0
+            y0 = 0
+        bw = min(bw, self.shape[1] - x0)
+        bh = min(bh, self.shape[0] - y0)
+        x0, y0, bw, bh = np.uint32(x0), np.uint32(y0), np.uint32(max(0, bw)), np.uint32(max(0, bh))
+        if inplace:
+            self.cy._i_crop(y0, x0, bh, bw, 1, 1)
+            return self
+        else:
+            return RLEMask._init(self.cy._r_crop(y0, x0, bh, bw, 1, 1))
+
+    def tight_crop(self, inplace: bool = False) -> tuple["RLEMask", np.ndarray]:
+        """Crop the mask to the bounding box of the foreground.
+
+        Args:
+            inplace: whether to perform the operation in place or to return a new object
+
+        Returns:
+            A tuple consisting of the cropped mask and the box, the latter as an integer
+            numpy array [x, y, width, height]. (Note that :meth:`bbox` returns the box as
+            float32 instead.)
+
+        Examples:
+            .. mask-demo::
+
+               [A].tight_crop()[0] == [B]
+               [A].tight_crop()[1] == [A(3,1,3,3)]
+
+               [A]:          [B]:
+               ..........    ###
+               ...###....    #.#
+               ...#.#....    ###
+               ...###....
+               ..........
+
+        See Also:
+            :meth:`crop`
+        """
+        if inplace:
+            box = self.cy._i_tight_crop()
+            return self, box
+        else:
+            result, box = self.cy._r_tight_crop()
+            return RLEMask._init(result), box
+
+    def transpose(self) -> "RLEMask":
+        """Transpose the mask, i.e. swap the axes such that columns become rows and vice versa.
+
+        Returns:
+            A new RLEMask object
+
+        Examples:
+            .. mask-demo::
+
+               [A].T == [B]
+
+               [A]:     [B]:
+               ###.     ###
+               #...     #..
+               #...     #..
+                        ...
+
+        See Also:
+            :meth:`T` for the transpose of the mask as a property.
+        """
+        return RLEMask._init(self.cy._r_transpose())
+
+    def rot90(self, k=1, inplace=False) -> "RLEMask":
+        """Rotate the mask by a multiple of 90 degrees.
+
+        Args:
+            k: the number of counter-clockwise 90-degree rotations to apply
+            inplace: whether to perform the operation in place or to return a new object
+
+        Returns:
+            The RLEMask object representing the rotated mask (self if inplace=True)
+
+        Examples:
+            90 degrees counter-clockwise:
+
+            .. mask-demo::
+
+               [A].rot90(1) == [B]
+
+               [A]:     [B]:
+               ###.     ...
+               #...     #..
+               #...     #..
+                        ###
+
+            180 degrees:
+
+            .. mask-demo::
+
+               [A].rot90(2) == [B]
+
+               [A]:     [B]:
+               ###.     ...#
+               #...     ...#
+               #...     .###
+
+        See Also:
+            :meth:`warp_affine` for arbitrary affine transformations including arbitrary rotations.
+        """
+        k %= 4
+        if k == 0:
+            return self if inplace else self.copy()
+        elif k == 1:
+            result_cy = self.cy._r_transpose()._r_vertical_flip()
+            if inplace:
+                self.cy = result_cy
+                return self
+            else:
+                return RLEMask._init(result_cy)
+        elif k == 2:
+            if inplace:
+                self.cy._i_rotate_180()
+                return self
+            else:
+                return RLEMask._init(self.cy._r_rotate_180())
+        elif k == 3:
+            result_cy = self.cy._r_vertical_flip()._r_transpose()
+            if inplace:
+                self.cy = result_cy
+                return self
+            else:
+                return RLEMask._init(result_cy)
+
+    def flip(self, axis: int) -> "RLEMask":
+        """Flip the mask along an axis.
+
+        Args:
+            axis: 0 for vertical flip, 1 for horizontal flip
+
+        Returns:
+            An RLEMask object of the flipped mask.
+
+        Examples:
+            Vertical flip (axis=0) mirrors top to bottom:
+
+            .. mask-demo::
+
+               [A].flip(axis=0) == [B]
+
+               [A]:     [B]:
+               ####.    #....
+               ##...    ##...
+               #....    ####.
+
+            Horizontal flip (axis=1) mirrors left to right:
+
+            .. mask-demo::
+
+               [A].flip(axis=1) == [B]
+
+               [A]:     [B]:
+               ####.    .####
+               ##...    ...##
+               #....    ....#
+
+        See Also:
+            :meth:`flipud`, :meth:`fliplr`
+        """
+        if axis == 0:
+            return self.flipud()
+        elif axis == 1:
+            return self.fliplr()
+        else:
+            raise ValueError("Invalid axis")
+
+    def flipud(self) -> "RLEMask":
+        """Flip the mask vertically (upside down).
+
+        Returns:
+            A new RLEMask object
+
+        Examples:
+            .. mask-demo::
+
+               [A].flipud() == [B]
+
+               [A]:     [B]:
+               ###.     #...
+               #...     #...
+               #...     ###.
+
+        See Also:
+            :meth:`fliplr`, :meth:`flip`
+        """
+        return RLEMask._init(self.cy._r_vertical_flip())
+
+    def fliplr(self) -> "RLEMask":
+        """Flip the mask horizontally (left-right).
+
+        Returns:
+            An RLEMask object of the horizontally flipped mask.
+
+        Examples:
+            .. mask-demo::
+
+               [A].fliplr() == [B]
+
+               [A]:     [B]:
+               ###.     .###
+               #...     ...#
+               #...     ...#
+
+        See Also:
+            :meth:`flipud`, :meth:`flip`
+        """
+
+        result_cy = self.cy._r_vertical_flip()
+        result_cy._i_rotate_180()
+        return RLEMask._init(result_cy)
+
+    @staticmethod
+    def concatenate(masks: Iterable["RLEMask"], axis: int = 0) -> "RLEMask":
+        """Concatenate masks along an axis.
+
+        Args:
+            masks: a sequence of RLE masks
+            axis: the axis along which to concatenate (0 or 1)
+
+        Returns:
+            A new RLEMask object representing the concatenated masks.
+
+        Raises:
+            ValueError: if the masks have different shapes along the axis
+            ValueError: if the iterable is empty
+            ValueError: if the axis is not 0 or 1
+
+        See Also:
+            :meth:`hconcat`, :meth:`vconcat`
+        """
+        if axis == 0:
+            return RLEMask.vconcat(masks)
+        elif axis == 1:
+            return RLEMask.hconcat(masks)
+        else:
+            raise ValueError("Invalid axis")
+
+    @staticmethod
+    def hconcat(masks: Iterable["RLEMask"]) -> "RLEMask":
+        """Horizontally concatenate masks.
+
+        Args:
+            masks: a sequence of RLE masks
+
+        Returns:
+            A new RLEMask object representing the horizontally concatenated masks.
+
+        Raises:
+            ValueError: if the masks have different heights
+            ValueError: if the iterable is empty
+
+        Examples:
+            .. mask-demo::
+
+               RLEMask.hconcat([[A], [B]]) == [C]
+
+               [A]:    [B]:    [C]:
+               ##      .#      ##.#
+               ##      #.      ###.
+
+        See Also:
+            :meth:`vconcat`, :meth:`concatenate`
+        """
+        cys = [m.cy for m in masks]
+        if len(cys) == 0:
+            raise ValueError("Cannot concatenate empty iterable of masks")
+        if not all(cy.shape[0] == cys[0].shape[0] for cy in cys):
+            raise ValueError(
+                "Masks must have the same height to be concatenated horizontally"
+            )
+        h_out = cys[0].shape[0]
+        w_out = sum(cy.shape[1] for cy in cys)
+        if h_out * w_out > 0xFFFFFFFF:
+            raise ValueError(
+                f"Concatenated mask size ({h_out} x {w_out}) exceeds the supported maximum "
+                f"of 2**32 - 1 pixels")
+
+        return RLEMask._init(RLECy.concat_horizontal(cys))
+
+    @staticmethod
+    def vconcat(masks: Iterable["RLEMask"]) -> "RLEMask":
+        """Vertically concatenate masks.
+
+        Args:
+            masks: a sequence of RLE masks
+
+        Returns:
+            A new RLEMask object representing the vertically concatenated masks.
+
+        Raises:
+            ValueError: if the masks have different widths
+            ValueError: if the iterable is empty
+
+        Examples:
+            .. mask-demo::
+
+               RLEMask.vconcat([[A], [B]]) == [C]
+
+               [A]:    [B]:    [C]:
+               ##      .#      ##
+               ##      #.      ##
+                               .#
+                               #.
+
+        See Also:
+            :meth:`hconcat`, :meth:`concatenate`
+        """
+        cys = [m.cy for m in masks]
+        if len(cys) == 0:
+            raise ValueError("Cannot concatenate empty iterable of masks")
+        if not all(cy.shape[1] == cys[0].shape[1] for cy in cys):
+            raise ValueError(
+                "Masks must have the same width to be concatenated vertically"
+            )
+        h_out = sum(cy.shape[0] for cy in cys)
+        w_out = cys[0].shape[1]
+        if h_out * w_out > 0xFFFFFFFF:
+            raise ValueError(
+                f"Concatenated mask size ({h_out} x {w_out}) exceeds the supported maximum "
+                f"of 2**32 - 1 pixels")
+
+        return RLEMask._init(RLECy.concat_vertical(cys))
+
+    def tile(self, num_h: int, num_w: int) -> "RLEMask":
+        """Tile the mask multiple times along the axes, analogous to :func:`np.tile <numpy.tile>`.
+
+        This repeats the mask `num_h` times along the vertical axis and `num_w` times along the
+        horizontal axis.
+
+        Args:
+            num_h: the number of times to repeat the mask along the vertical axis
+            num_w: the number of times to repeat the mask along the horizontal axis
+
+        Returns:
+            A new RLEMask object representing the tiled mask.
+
+        Examples:
+            Tile the mask 2x vertically and 3x horizontally:
+
+            .. mask-demo::
+
+               [A].tile(2, 3) == [B]
+
+               [A]:     [B]:
+               #.       #.#.#.
+               .#       .#.#.#
+                        #.#.#.
+                        .#.#.#
+
+        See Also:
+            Not to be confused with :meth:`repeat`
+        """
+
+        if num_h == 0 or num_w == 0:
+            return RLEMask.zeros((self.shape[0] * num_h, self.shape[1] * num_w))
+
+        return RLEMask.hconcat([RLEMask.vconcat([self] * num_h)] * num_w)
+
+    def copy(self) -> "RLEMask":
+        """Clone the mask.
+
+        Returns:
+            A new RLEMask object representing the same mask.
+        """
+        return RLEMask._init(self.cy.clone())
+
+    def fill_rectangle(
+        self, rect: np.ndarray, value: int = 1, inplace: bool = False
+    ) -> "RLEMask":
+        """Fill a rectangle in the mask.
+
+        Args:
+            rect: a rectangle, in the format [x_start, y_start, width, height]
+            value: the value to fill with (0 or 1)
+            inplace: whether to perform the operation in place or to return a new object
+
+        Returns:
+            An RLEMask object with the rectangle filled (self if inplace=True)
+
+        Examples:
+            Fill a rectangle with ones:
+
+            .. mask-demo::
+
+               [A].fill_rectangle([2, 1, 4, 2], value=1) == [B]
+
+               [A]:        [B]:
+               ........    ........
+               ........    ..####..
+               ........    ..####..
+               ........    ........
+
+            Clear a rectangle by filling with zeros:
+
+            .. mask-demo::
+
+               [A].fill_rectangle([2, 1, 4, 2], value=0) == [B]
+
+               [A]:        [B]:
+               ########    ########
+               ########    ##....##
+               ########    ##....##
+               ########    ########
+
+        See Also:
+            :meth:`fill_circle`
+        """
+        boxmask = RLEMask.from_bbox(rect, imshape=self.shape)
+        return self._fill_mask(boxmask, value, inplace=inplace)
+
+    def fill_circle(
+        self, center: np.ndarray, radius: float, value: int = 1, inplace: bool = False
+    ) -> "RLEMask":
+        """Fill a circle in the mask.
+
+        Args:
+            center: the center of the circle, in the format [x, y]
+            radius: the radius of the circle
+            value: the value to fill with (0 or 1)
+            inplace: whether to perform the operation in place or to return a new object
+
+        Returns:
+            An RLEMask object with the circle filled (self if inplace=True)
+
+        Examples:
+            Fill a circle onto an existing pattern:
+
+            .. mask-demo::
+
+               [A].fill_circle([5, 2], radius=2.5, value=1) == [B]
+
+               [A]:          [B]:
+               #.#.#.#.#.    #.#.###.#.
+               .#.#.#.#..    .#.#####..
+               #.#.#.#.#.    #.#######.
+               .#.#.#.#..    .#.#####..
+               #.#.#.#.#.    #.#.###.#.
+
+            Clear a circle (value=0) from a filled mask:
+
+            .. mask-demo::
+
+               [A].fill_circle([4, 2], radius=2.5, value=0) == [B]
+
+               [A]:          [B]:
+               ##########    ###...####
+               ##########    ##.....###
+               ##########    ##.....###
+               ##########    ##.....###
+               ##########    ###...####
+
+        See Also:
+            :meth:`fill_rectangle`
+        """
+        circle_mask = RLEMask.from_circle(center, radius, imshape=self.shape)
+        return self._fill_mask(circle_mask, value, inplace=inplace)
+
+    def _fill_mask(
+        self, mask: "RLEMask", value: int, inplace: bool = False
+    ) -> "RLEMask":
+        if value not in (0, 1):
+            raise ValueError(f"value must be 0 or 1, got {value}")
+        if inplace:
+            if value == 1:
+                return self.__ior__(mask)
+            else:
+                return self.__isub__(mask)
+        else:
+            if value == 1:
+                return self | mask
+            else:
+                return self - mask
+
+    def to_dict(self, zlevel: Optional[int] = None) -> dict:
+        """Convert the RLE mask to a dictionary.
+
+        Returns:
+            A dictionary with the keys ``"size"`` and ``"counts"`` or ``"zcounts"``.
+
+            - ``"size"`` -- [height, width] of the mask
+            - ``"counts"`` -- LEB128-like compressed run-length counts as in pycocotools, or
+            - ``"zcounts"``-- if zlevel is provided, ``"counts"`` is further compressed using zlib
+
+        See Also:
+            :meth:`from_dict`
+        """
+        return self.cy.to_dict(zlevel)
+
+    def to_array(
+            self, fg_value=1, bg_value=0, dtype=np.uint8, order="F", *, value=_UNSET
+    ) -> np.ndarray:
+        """Convert the RLE mask to a dense numpy array.
+
+        Background pixels get ``bg_value`` and foreground pixels get ``fg_value``.
+
+        If either ``fg_value`` or ``bg_value`` is a tuple, list, or 1D array, the result is a
+        3D HWC array with one channel per element. A scalar value for the other parameter is
+        broadcast to all channels.
+
+        The RLE is internally stored for the Fortran order, so order='F' is faster, because
+        'C' requires a transpose. To improve efficiency, the transpose is done either in RLE or
+        in dense form, depending on the sparseness of the mask.
+
+        Args:
+            fg_value: the foreground value (scalar for 2D, tuple/list/array for HWC)
+            bg_value: the background value (scalar for 2D, tuple/list/array for HWC)
+            dtype: the numpy dtype of the resulting array (default: np.uint8)
+            order: the order of the array ('C' for row-major, 'F' for column-major)
+            value: deprecated alias for ``fg_value``
+
+        Returns:
+            A 2D or 3D numpy array representing the mask.
+
+        See Also:
+            :meth:`__array__`, :meth:`from_array`
+        """
+        if value is not _UNSET:
+            warnings.warn(
+                "The 'value' parameter is deprecated, use 'fg_value' instead.",
+                DeprecationWarning, stacklevel=2)
+            fg_value = value
+
+        fg_multi = isinstance(fg_value, (tuple, list)) or (isinstance(fg_value, np.ndarray) and fg_value.ndim == 1)
+        bg_multi = isinstance(bg_value, (tuple, list)) or (isinstance(bg_value, np.ndarray) and bg_value.ndim == 1)
+
+        if not fg_multi and not bg_multi:
+            return self.cy._r_to_dense_array(fg_value, bg_value, order, np.dtype(dtype))
+
+        # Multi-valued: produce HWC array
+        if fg_multi:
+            fg_value = np.asarray(fg_value, dtype=dtype)
+            n_channels = len(fg_value)
+        if bg_multi:
+            bg_value = np.asarray(bg_value, dtype=dtype)
+            n_channels = len(bg_value)
+        if n_channels == 0:
+            raise ValueError("fg_value/bg_value must have at least one channel")
+        if fg_multi and bg_multi and len(fg_value) != len(bg_value):
+            raise ValueError(
+                f"fg_value length ({len(fg_value)}) != bg_value length ({len(bg_value)})")
+
+        # Broadcast scalar to all channels
+        dtype = np.dtype(dtype)
+        if not fg_multi:
+            fg_value = np.full(n_channels, fg_value, dtype=dtype)
+        if not bg_multi:
+            bg_value = np.full(n_channels, bg_value, dtype=dtype)
+
+        h, w = self.shape
+        arr = np.empty((h, w, n_channels), dtype=dtype, order='C')
+        arr[:] = bg_value  # broadcasts along last axis
+        if dtype == np.uint8:
+            self.cy._decode_into(arr, fg_value)
+        elif dtype == np.float32 or dtype == np.float64:
+            self.cy._decode_typed_multi_into(arr, np.asarray(fg_value, dtype=dtype))
+        else:
+            mask01 = self.cy._r_to_dense_array(1, 0, 'C')
+            arr[mask01 != 0] = fg_value
+
+        if order == 'F' and not arr.flags.f_contiguous:
+            arr = np.asfortranarray(arr)
+        return arr
+
+    def decode_into(  # noqa: vulture
+            self, arr: np.ndarray, fg_value=None, bg_value=None,
+            *, value=_UNSET) -> None:
+        """Decode the RLE mask into an existing array.
+
+        Writes ``fg_value`` to foreground pixels and/or ``bg_value`` to background pixels.
+        Pixels whose corresponding parameter is ``None`` are left unchanged.
+
+        Supports integer and floating-point dtype arrays (2D or 3D HWC).
+
+        Args:
+            arr: A numpy array with shape matching the mask.
+                 Must be either C-contiguous or Fortran-contiguous (or strided for 2D uint8).
+            fg_value: The value to assign to foreground pixels (default: None, meaning unchanged).
+            bg_value: The value to assign to background pixels (default: None, meaning unchanged).
+            value: deprecated alias for ``fg_value``
+
+        Raises:
+            ValueError: If array shape doesn't match mask shape or array is not contiguous.
+
+        Example:
+            >>> canvas = np.zeros((100, 100), dtype=np.uint8)
+            >>> mask1.decode_into(canvas, fg_value=1)
+            >>> mask2.decode_into(canvas, fg_value=2)
+            >>> mask3.decode_into(canvas, fg_value=3)
+            # canvas now contains 1, 2, 3 for respective mask regions
+
+        See Also:
+            :meth:`to_array`
+        """
+        if value is not _UNSET:
+            warnings.warn(
+                "The 'value' parameter is deprecated, use 'fg_value' instead.",
+                DeprecationWarning, stacklevel=2)
+            fg_value = value
+
+        if bg_value is not None and fg_value is not None:
+            arr[:] = bg_value
+            self._decode_into_typed(arr, fg_value)
+        elif fg_value is not None:
+            self._decode_into_typed(arr, fg_value)
+        elif bg_value is not None:
+            self.complement()._decode_into_typed(arr, bg_value)
+        # else: both None, no-op
+
+    def _decode_into_typed(self, arr, fg_value):
+        """Dispatch decode_into to the right Cython method based on array dtype."""
+        if arr.dtype == np.uint8:
+            self.cy._decode_into(arr, fg_value)
+        elif arr.dtype == np.float32 or arr.dtype == np.float64:
+            if arr.ndim == 2:
+                if isinstance(fg_value, (tuple, list, np.ndarray)):
+                    raise ValueError(
+                        "fg_value must be scalar for 2D arrays; use a 3D HWC array for multi-channel values")
+                self.cy._decode_typed_into(arr, fg_value)
+            else:
+                fg_arr = np.asarray(fg_value, dtype=arr.dtype)
+                if fg_arr.ndim == 0:
+                    fg_arr = np.full(arr.shape[2], fg_value, dtype=arr.dtype)
+                self.cy._decode_typed_multi_into(arr, fg_arr)
+        else:
+            order = 'F' if arr.flags.f_contiguous else 'C'
+            mask01 = self.cy._r_to_dense_array(1, 0, order)
+            arr[mask01 != 0] = fg_value
+
+    def __reduce__(self):
+        """Support for pickle serialization."""
+        return (RLEMask.from_dict, (self.to_dict(),))
+
+    def iou(self, other: "RLEMask") -> float:
+        """Compute the intersection-over-union (IoU) between two masks.
+
+        Args:
+            other: another RLE mask
+
+        Returns:
+            The IoU value between the two masks.
+
+        See Also:
+            :meth:`iou_matrix` for computing the IoU between pairs of multiple masks.
+        """
+        self._raise_if_different_shape(other)
+        return self.cy.iou(other.cy)
+
+    @staticmethod
+    def iou_matrix(
+        masks1: Sequence["RLEMask"], masks2: Sequence["RLEMask"]
+    ) -> np.ndarray:
+        """Compute the intersection-over-union (IoU) between two sets of masks.
+
+        Args:
+            masks1: a sequence of RLE masks
+            masks2: a sequence of RLE masks
+
+        Returns:
+            A 2D numpy array of shape (len(masks1), len(masks2)) with the IoU values.
+
+        See Also:
+            :meth:`iou` for computing the IoU between two masks.
+        """
+        shapes = {m.shape for m in masks1} | {m.shape for m in masks2}
+        if len(shapes) > 1:
+            raise ValueError(
+                f"All masks must have the same shape, got shapes {sorted(shapes)}")
+        return RLECy.iou_matrix([m.cy for m in masks1], [m.cy for m in masks2])
+
+    def _raise_if_different_shape(self, other: "RLEMask"):
+        if self.shape != other.shape:
+            raise ValueError(
+                f"The masks must have the same shape, got {self.shape} and {other.shape}.")
+
+
+def _validate_kernel_shape(kernel_shape):
+    if not isinstance(kernel_shape, str):
+        raise TypeError(
+            f"kernel_shape must be one of the strings 'circle', 'square', 'diamond', "
+            f"'cross', got {type(kernel_shape).__name__}. Arbitrary array kernels are not "
+            f"supported in morphology; see conv2d_valid for thresholded convolution with "
+            f"a custom kernel.")
+
+
+def _get_imshape(imshape=None, imsize=None):
+    if imshape is None and imsize is None:
+        raise ValueError("Either imshape or imsize must be provided")
+    if imshape is None:
+        imshape = [imsize[1], imsize[0]]
+    h, w = imshape[0], imshape[1]
+    if h * w > 0xFFFFFFFF:
+        raise ValueError(
+            f"Image dimensions {h}x{w} exceed maximum supported size "
+            f"(h*w must fit in uint32, got {h * w})")
+    return [h, w]
+
+
+def _validate_transform_matrix(M):
+    if not np.all(np.isfinite(M)):
+        raise ValueError("The transformation matrix must contain only finite values")
+    H = np.eye(3)
+    H[: M.shape[0]] = M
+    try:
+        inv = np.linalg.inv(H)
+    except np.linalg.LinAlgError:
+        raise ValueError("The transformation matrix must be invertible") from None
+    if not np.all(np.isfinite(inv)):
+        raise ValueError("The transformation matrix must be invertible")
+
+
+def _forward_slice(slice_obj, length):
+    """Convert a slice object to a forward slice.
+
+    Args:
+        slice_obj: a slice object
+        length: the length of the array
+
+    Returns:
+        A tuple of (start, span, step, flip) where start is the starting index,
+            span is the length of the range, step is the stride, and flip is True
+            if the original slice was reversed.
+    """
+    r = range(length)[slice_obj]
+    r_out = r[::-1] if r.step < 0 else r
+    span = r_out[-1] + 1 - r_out.start if len(r_out) > 0 else 0
+    step = max(1, min(span, r_out.step))
+    flip = r.step < 0 and len(r_out) > 1
+
+    if (
+        range(length)[0:length:step]
+        == range(length)[r_out.start : r_out.start + span : step]
+    ):
+        return 0, length, step, flip
+
+    return r_out.start, span, step, flip
+
+
+# def resize_mask_dense(mask_dict: dict, out_shape):
+#     x = RLEMask.from_dict(mask_dict)
+#     fx = out_shape[1] / x.shape[1]
+#     fy = out_shape[0] / x.shape[0]
+#     box_old = x.bbox()
+#     box_end = box_old[:2] + box_old[2:]
+#     box_start = np.maximum(0, box_old[:2] - 1)
+#     box_end = np.minimum([x.shape[1], x.shape[0]], box_end + 1)
+#     box_old = np.concatenate([box_start, box_end - box_start])
+#     box_new = box_old * [fx, fy, fx, fy]
+#     start = np.floor(box_new[:2]).astype(np.int32)
+#     end = np.ceil(box_new[:2] + box_new[2:]).astype(np.int32)
+#     box_new = np.concatenate([start, end - start])
+#     box_old = box_new / [fx, fy, fx, fy]
+#     start = np.floor(box_old[:2]).astype(np.int32)
+#     end = np.ceil(box_old[:2] + box_old[2:]).astype(np.int32)
+#     box_old = np.concatenate([start, end - start])
+#     cropped = x.crop(box_old, inplace=False)
+#     interp = cv2.INTER_LINEAR if fx > 1 and fy > 1 else cv2.INTER_AREA
+#     resized = cv2.resize(
+#         cropped.to_array(order='C', fg_value=255),
+#         (box_new[2], box_new[3]),
+#         fx=fx, fy=fy, interpolation=interp)
+#     resized = RLEMask.from_array(resized, thresh128=True, is_sparse=x.density < 0.04)
+#     resized.pad(
+#         top=box_new[1],
+#         bottom=out_shape[0] - box_new[1] - resized.shape[0],
+#         left=box_new[0],
+#         right=out_shape[1] - box_new[0] - resized.shape[1],
+#         inplace=True)
+#     return resized.to_dict()

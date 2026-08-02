@@ -1,4 +1,0 @@
----
-update:
-  - |
-    Add ``apt-transport-https`` package as a base dependency for Debuntu images.

@@ -1,0 +1,17 @@
+import click
+
+from .migrate_css import migrate_css
+from .projects import auth, projects
+from .startapp import startapp
+
+
+@click.group()
+@click.version_option(package_name="pegasus-cli")
+def cli():
+    """Usage"""
+
+
+cli.add_command(startapp)
+cli.add_command(auth)
+cli.add_command(projects)
+cli.add_command(migrate_css)

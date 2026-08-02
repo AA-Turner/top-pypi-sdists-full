@@ -1,0 +1,3942 @@
+!  ██████   ██████ ██████████  █████████  █████   █████ █████    ███████
+! ░░██████ ██████ ░░███░░░░░█ ███░░░░░███░░███   ░░███ ░░███   ███░░░░░███      ███         ███
+!  ░███░█████░███  ░███  █ ░ ░███    ░░░  ░███    ░███  ░███  ███     ░░███    ░███        ░███
+!  ░███░░███ ░███  ░██████   ░░█████████  ░███████████  ░███ ░███      ░███ ███████████ ███████████
+!  ░███ ░░░  ░███  ░███░░█    ░░░░░░░░███ ░███░░░░░███  ░███ ░███      ░███░░░░░███░░░ ░░░░░███░░░
+!  ░███      ░███  ░███ ░   █ ███    ░███ ░███    ░███  ░███ ░░███     ███     ░███        ░███
+!  █████     █████ ██████████░░█████████  █████   █████ █████ ░░░███████░      ░░░         ░░░
+! ░░░░░     ░░░░░ ░░░░░░░░░░  ░░░░░░░░░  ░░░░░   ░░░░░ ░░░░░    ░░░░░░░
+!
+!
+!  License:         MIT License
+!                   meshio++ default license: LICENSE
+!
+!  Main authors:    Vicente Mataix Ferrandiz
+!
+!
+! The meshio++ Fortran interface: a modern OO Fortran 2008 module layered on
+! the C API (bindings/c/include/meshioplusplus/meshioplusplus.h) via
+! ISO_C_BINDING, in the HDF5/PETSc style:
+!
+!     use meshioplusplus
+!     type(mio_mesh) :: m
+!     call m%read("bracket.msh")
+!     print *, m%num_points()
+!     call m%write("bracket.vtu")
+!     call m%free()
+!
+! Conventions (differences from the C API):
+!  - Arrays are Fortran-shaped: points are `points(dim, num_points)` and
+!    connectivity `conn(nodes_per_cell, num_cells)`. Because Fortran is
+!    column-major and the C core row-major, this is the SAME memory -- no
+!    transpose happens anywhere in this module.
+!  - Connectivity is 1-based here; the +-1 shift happens inside the copying
+!    setters/getters (where a copy is made anyway). Zero-copy borrows
+!    (points_ptr) carry no indices, so nothing zero-copy ever needs shifting.
+!  - All indices (cell blocks, data names) are 1-based.
+!  - Every fallible procedure takes `optional` `stat` (integer, 0 = success)
+!    and `errmsg` (deferred-length character) arguments. If `stat` is absent
+!    and the call fails, the message is printed and the program error stops
+!    -- pass `stat` to handle errors yourself (the stdlib pattern).
+!  - Handles are freed explicitly with `call m%free()` (no finalizer).
+!
+! Compiled .mod files are compiler-(major-version-)specific; this source file
+! is installed next to the .mod so consumers on a different compiler can
+! simply recompile the module (the HDF5 approach).
+module meshioplusplus
+    use, intrinsic :: iso_c_binding
+    use, intrinsic :: iso_fortran_env, only: real32, real64, int32, int64, error_unit
+    implicit none
+    private
+
+    public :: mio_mesh
+    public :: mio_xdmf_series
+    public :: mio_stats_report
+    public :: mio_data_array_info
+    public :: mio_convert, mio_version, mio_mesh_backend, mio_error_message
+    public :: mio_format_readable, mio_format_writable
+    public :: mio_sniff_format
+    public :: mio_read_metadata, mio_metadata, mio_cell_block_info
+    public :: mio_merge
+    public :: mio_interpolate
+    ! Length of the fixed-width string buffers the `keys` out-arguments of
+    ! `split` and `data_info` use; consumers need it to declare those arrays.
+    public :: STRBUF_LEN
+    ! Data-operation enumerations (must match the C enums in meshioplusplus.h).
+    public :: MIO_DATA_POINT, MIO_DATA_CELL, MIO_DATA_FIELD
+    public :: MIO_WEIGHT_UNIFORM, MIO_WEIGHT_MEASURE
+    public :: MIO_COND_CLAMP, MIO_COND_NORMALIZE, MIO_COND_STANDARDIZE
+    public :: MIO_SCOPE_COMPONENT, MIO_SCOPE_MAGNITUDE
+    public :: MIO_NAN_IGNORE, MIO_NAN_REPLACE, MIO_NAN_FAIL
+    ! Named regions (see doc/regions.md).
+    public :: MIO_REGION_POINT, MIO_REGION_CELL, MIO_REGION_SIDE
+    public :: mio_region_info
+
+    ! Geometric statistics (bind(c); layout must match mio_stats_report in
+    ! meshioplusplus.h). Per-cell-type counts are not carried across the C ABI.
+    type, bind(c) :: mio_stats_report
+        integer(c_int64_t) :: num_points
+        integer(c_int64_t) :: num_cells
+        real(c_double) :: bbox_min(3)
+        real(c_double) :: bbox_max(3)
+        real(c_double) :: extent(3)
+        real(c_double) :: centroid(3)
+        real(c_double) :: total_area
+        real(c_double) :: signed_volume
+        real(c_double) :: unsigned_volume
+        integer(c_int64_t) :: num_inverted
+    end type
+
+    ! Summary of one data array (bind(c); layout must match
+    ! mio_data_array_info in meshioplusplus.h). Per-component statistics are
+    ! retrieved separately via the `data_info` procedure's optional arguments.
+    type, bind(c) :: mio_data_array_info
+        integer(c_int) :: location            !< a MIO_DATA_* value
+        integer(c_int) :: dtype               !< a MIO_* dtype, as stored
+        integer(c_int64_t) :: num_blocks      !< cell_data: cell blocks; else 1
+        integer(c_int64_t) :: num_entries     !< rows (points / cells / length)
+        integer(c_int64_t) :: num_components  !< product of trailing dimensions
+        integer(c_int64_t) :: num_values      !< num_entries * num_components
+        real(c_double) :: min                 !< over finite values, else NaN
+        real(c_double) :: max                 !< over finite values, else NaN
+        real(c_double) :: mean                !< over finite values, else NaN
+        integer(c_int64_t) :: num_nan
+        integer(c_int64_t) :: num_inf
+        integer(c_int64_t) :: num_finite
+        integer(c_int) :: inconsistent_blocks !< nonzero if blocks disagree
+    end type
+
+    ! mio_dtype values (must match the C enum in meshioplusplus.h).
+    integer(c_int), parameter :: MIO_FLOAT32 = 0, MIO_FLOAT64 = 1
+    integer(c_int), parameter :: MIO_INT32 = 4, MIO_INT64 = 5
+
+    ! Data-operation enumerations (must match the C enums in meshioplusplus.h).
+    integer(c_int), parameter :: MIO_DATA_POINT = 0, MIO_DATA_CELL = 1, MIO_DATA_FIELD = 2
+    integer(c_int), parameter :: MIO_WEIGHT_UNIFORM = 0, MIO_WEIGHT_MEASURE = 1
+    integer(c_int), parameter :: MIO_COND_CLAMP = 0, MIO_COND_NORMALIZE = 1
+    integer(c_int), parameter :: MIO_COND_STANDARDIZE = 2
+    integer(c_int), parameter :: MIO_SCOPE_COMPONENT = 0, MIO_SCOPE_MAGNITUDE = 1
+    integer(c_int), parameter :: MIO_NAN_IGNORE = 0, MIO_NAN_REPLACE = 1, MIO_NAN_FAIL = 2
+
+    ! Region kinds (must match the C enum mio_region_kind).
+    integer(c_int), parameter :: MIO_REGION_POINT = 0, MIO_REGION_CELL = 1
+    integer(c_int), parameter :: MIO_REGION_SIDE = 2
+
+    ! Description of one named region (bind(c); layout must match
+    ! mio_region_info in meshioplusplus.h). The entries themselves come back
+    ! from the `regions` procedure as a separate allocatable array.
+    type, bind(c) :: mio_region_info
+        integer(c_int) :: kind               !< a MIO_REGION_* value
+        integer(c_int) :: dim                !< topological dimension, or -1
+        integer(c_int64_t) :: tag            !< format-native id, or -1
+        integer(c_int64_t) :: num_entries    !< grouped entities (rows)
+        integer(c_int64_t) :: stride         !< 2 for SIDE, else 1
+    end type
+
+    integer, parameter :: MIO_MAX_NDIM = 8
+    integer, parameter :: STRBUF_LEN = 4096
+
+    !> Interop mirror of C `mio_read_opts`. Field order and types are ABI and
+    !> must match bindings/c/include/meshioplusplus/meshioplusplus.h exactly;
+    !> `reserved` is padding for additive growth and must stay zero.
+    type, bind(c) :: mio_read_opts_t
+        integer(c_int) :: points_only = 0
+        integer(c_int) :: metadata_only = 0
+        type(c_ptr) :: arrays = c_null_ptr
+        integer(c_int64_t) :: num_arrays = 0
+        integer(c_int) :: mmap_mode = 0
+        !> Which step of a multi-step file to materialize: 0 (default) is the
+        !> first, negative counts from the end. Takes one of the former
+        !> `reserved` slots, so the struct size and every preceding field's
+        !> offset are unchanged.
+        integer(c_int64_t) :: time_step = 0
+        !> Nonzero downgrades "this reader cannot represent construct X" errors
+        !> to a warning plus a skip (currently mdpa's Table/Geometries/Mesh/
+        !> Constraints blocks). Not "ignore all errors": a malformed file still
+        !> fails. Takes a second former `reserved` slot; size unchanged.
+        integer(c_int64_t) :: lenient = 0
+        integer(c_int64_t) :: reserved(4) = 0
+    end type
+
+    !> Interop mirror of C `mio_refine_opts`. Field order and types are ABI and
+    !> must match bindings/c/include/meshioplusplus/meshioplusplus.h exactly;
+    !> `reserved` is padding for additive growth and must stay zero.
+    !>
+    !> All zero (plus `levels = 1`) means "refine every cell once". At most ONE
+    !> of `cells`, `region` and `predicate_array` may be given.
+    type, bind(c) :: mio_refine_opts_t
+        type(c_ptr) :: cells = c_null_ptr
+        integer(c_int64_t) :: num_cells = 0
+        type(c_ptr) :: region = c_null_ptr
+        type(c_ptr) :: predicate_array = c_null_ptr
+        real(c_double) :: predicate_value = 0.0_c_double
+        integer(c_int32_t) :: levels = 1
+        integer(c_int32_t) :: record_parent_ids = 0
+        integer(c_int32_t) :: record_levels = 0
+        integer(c_int32_t) :: closure = 0
+        integer(c_int32_t) :: predicate_op = 0
+        integer(c_int32_t) :: reserved_pad = 0
+        integer(c_int64_t) :: reserved(6) = 0
+    end type
+
+    !> Interop mirror of C `mio_xdmf_series_opts`. Field order and types are ABI
+    !> and must match bindings/c/include/meshioplusplus/meshioplusplus.h exactly;
+    !> `reserved` is padding for additive growth and must stay zero.
+    type, bind(c) :: mio_xdmf_series_opts_t
+        type(c_ptr) :: data_format = c_null_ptr
+        integer(c_int32_t) :: gzip_level = -1
+        integer(c_int32_t) :: mode = 0
+        integer(c_int32_t) :: auto_flush = 0
+        integer(c_int32_t) :: reserved_pad = 0
+        integer(c_int64_t) :: reserved(6) = 0
+    end type
+
+    !> One named region's shape, without its entries (see `mio_metadata%regions`).
+    type :: mio_region_summary
+        character(len=STRBUF_LEN) :: name = ''
+        integer(c_int) :: kind = MIO_REGION_POINT
+        integer(c_int) :: dim = -1
+        integer(c_int64_t) :: tag = -1
+        integer(c_int64_t) :: num_entries = 0
+    end type
+
+    !> One cell block's shape, without its connectivity.
+    type :: mio_cell_block_info
+        character(len=STRBUF_LEN) :: cell_type = ''
+        integer(c_int64_t) :: num_cells = 0
+        integer(c_int64_t) :: nodes_per_cell = 0
+        logical :: ragged = .false.
+    end type
+
+    !> A file summary produced without loading the heavy arrays.
+    !> `has_bbox` is false for a native summary, which never decodes the point
+    !> coordinates; `fell_back_to_full_read` says whether the answer was cheap.
+    type :: mio_metadata
+        integer(c_int64_t) :: num_points = 0
+        integer(c_int64_t) :: point_dim = 0
+        integer(c_int64_t) :: num_cells = 0
+        type(mio_cell_block_info), allocatable :: cell_blocks(:)
+        character(len=STRBUF_LEN), allocatable :: point_data_names(:)
+        character(len=STRBUF_LEN), allocatable :: cell_data_names(:)
+        character(len=STRBUF_LEN), allocatable :: field_data_names(:)
+        logical :: has_bbox = .false.
+        logical :: fell_back_to_full_read = .false.
+        !> The file's recorded time-series values; size 0 for a format with no
+        !> time concept. This is the count `time_step` may name.
+        real(c_double), allocatable :: time_values(:)
+        !> The file's named regions, without their entries. Populated whenever
+        !> the summary came from an already-read mesh; size 0 on a native
+        !> metadata path, since none of those formats currently map regions.
+        type(mio_region_summary), allocatable :: regions(:)
+    end type
+
+    type :: mio_mesh
+        private
+        type(c_ptr) :: handle = c_null_ptr
+    contains
+        procedure :: create => mesh_create
+        procedure :: free => mesh_free
+        procedure :: is_valid => mesh_is_valid
+        procedure :: read => mesh_read
+        procedure :: write => mesh_write
+        ! -- operations --
+        procedure :: extract_surface => mesh_extract_surface
+        procedure :: extract_skin => mesh_extract_skin
+        procedure :: attach_quality => mesh_attach_quality
+        procedure :: quality_counts => mesh_quality_counts
+        procedure :: reorder => mesh_reorder
+        procedure :: transform => mesh_transform
+        procedure :: clean => mesh_clean
+        procedure :: smooth => mesh_smooth
+        procedure :: crop_bbox => mesh_crop_bbox
+        procedure :: crop_plane => mesh_crop_plane
+        procedure :: slice => mesh_slice
+        procedure :: isosurface => mesh_isosurface
+        procedure :: gradient => mesh_gradient
+        procedure :: split => mesh_split
+        procedure :: convert_cells => mesh_convert_cells
+        procedure :: refine => mesh_refine
+        procedure :: decimate => mesh_decimate
+        procedure :: partition => mesh_partition
+        procedure :: partition_labels => mesh_partition_labels
+        procedure :: stats => mesh_stats
+        !> Named regions (doc/regions.md): the groups a set-capable format
+        !> carries. `regions` returns one mio_region_info per group, with the
+        !> names in `keys` and the flat int64 entries in `entries`.
+        procedure :: regions => mesh_regions
+        procedure :: add_region => mesh_add_region
+        procedure :: compute_bandwidth => mesh_compute_bandwidth
+        procedure :: equals => mesh_equals
+        procedure :: diff => mesh_diff
+        ! -- data operations (act on data arrays; geometry is never modified) --
+        procedure :: data_drop => mesh_data_drop
+        procedure :: data_keep => mesh_data_keep
+        procedure :: data_rename => mesh_data_rename
+        procedure :: data_point_to_cell => mesh_data_point_to_cell
+        procedure :: data_cell_to_point => mesh_data_cell_to_point
+        procedure :: data_calc => mesh_data_calc
+        procedure :: data_condition => mesh_data_condition
+        procedure :: data_info => mesh_data_info
+        ! -- building --
+        procedure :: set_points => mesh_set_points
+        procedure, private :: mesh_add_cell_block_i32
+        procedure, private :: mesh_add_cell_block_i64
+        generic :: add_cell_block => mesh_add_cell_block_i32, mesh_add_cell_block_i64
+        procedure, private :: mesh_add_point_data_r1
+        procedure, private :: mesh_add_point_data_r2
+        generic :: add_point_data => mesh_add_point_data_r1, mesh_add_point_data_r2
+        procedure :: add_cell_data => mesh_add_cell_data_r1
+        procedure :: add_field_data => mesh_add_field_data_r1
+        ! -- inspecting --
+        procedure :: num_points => mesh_num_points
+        procedure :: point_dim => mesh_point_dim
+        procedure :: num_cell_blocks => mesh_num_cell_blocks
+        procedure :: get_points => mesh_get_points
+        procedure :: points_ptr => mesh_points_ptr
+        procedure :: cell_block_type => mesh_cell_block_type
+        procedure :: cell_block_num_cells => mesh_cell_block_num_cells
+        procedure :: cell_block_nodes_per_cell => mesh_cell_block_nodes_per_cell
+        procedure :: cell_block_is_ragged => mesh_cell_block_is_ragged
+        procedure :: get_cell_block => mesh_get_cell_block
+        procedure :: num_point_data => mesh_num_point_data
+        procedure :: point_data_name => mesh_point_data_name
+        procedure, private :: mesh_get_point_data_r1
+        procedure, private :: mesh_get_point_data_r2
+        generic :: get_point_data => mesh_get_point_data_r1, mesh_get_point_data_r2
+        procedure :: num_cell_data => mesh_num_cell_data
+        procedure :: cell_data_name => mesh_cell_data_name
+        procedure :: cell_data_num_blocks => mesh_cell_data_num_blocks
+        procedure :: get_cell_data => mesh_get_cell_data_r1
+        procedure :: num_field_data => mesh_num_field_data
+        procedure :: field_data_name => mesh_field_data_name
+        procedure :: get_field_data => mesh_get_field_data_r1
+    end type mio_mesh
+
+    !> A transient (time-series) XDMF writer: the write half of what the
+    !> `time_step` read option and `mio_metadata%time_values` expose on the read
+    !> side. A solver writes the mesh ONCE and then one cheap step per solve, so
+    !> this is a stateful handle rather than a `write` call -- the one writer
+    !> here that `m%write()` cannot express.
+    !>
+    !>     type(mio_xdmf_series) :: series
+    !>     call series%create('simulation.xdmf')        ! "HDF" by default
+    !>     call series%write_points_cells(m)            ! the static grid, once
+    !>     do k = 1, nsteps
+    !>         call solve(m)
+    !>         call series%write_data(k*dt, m)          ! point_data/cell_data only
+    !>     end do
+    !>     call series%finalize()                       ! free() would do it too
+    !>     call series%free()
+    !>
+    !> The `.xdmf` light data is buffered and written at finalize, so by default
+    !> a series is only readable after `finalize()` (or `free()`, which finalizes
+    !> first). Call `flush()` to make it readable *now* -- what keeps a run that
+    !> is killed or still going from leaving nothing openable -- or pass
+    !> `auto_flush=.true.` to `create()` to do that after every `write_data`.
+    !> `mode='append'` continues a series already at the path instead of
+    !> overwriting it; a path with no file yet is simply a fresh series, so a
+    !> restartable solver can pass it unconditionally.
+    !> Heavy data for `"HDF"` goes to a `<path minus extension>.h5`
+    !> SIBLING of the `.xdmf`. Handles are freed explicitly, exactly like
+    !> `mio_mesh` -- there is no finalizer.
+    type :: mio_xdmf_series
+        private
+        type(c_ptr) :: handle = c_null_ptr
+    contains
+        procedure :: create => xdmf_series_create
+        procedure :: free => xdmf_series_free
+        procedure :: is_valid => xdmf_series_is_valid
+        procedure :: write_points_cells => xdmf_series_write_points_cells
+        procedure :: write_data => xdmf_series_write_data
+        procedure :: flush => xdmf_series_flush
+        procedure :: finalize => xdmf_series_finalize
+        procedure :: finalized => xdmf_series_finalized
+        procedure :: num_steps => xdmf_series_num_steps
+    end type mio_xdmf_series
+
+    ! ------------------------------------------------------------------
+    ! Raw bind(c) interfaces to libmeshioplusplus (private; the OO layer
+    ! above is the public surface). Data pointers cross as type(c_ptr) via
+    ! c_loc() so one C symbol serves every Fortran type/kind.
+    ! ------------------------------------------------------------------
+    interface
+        function c_mio_version() bind(c, name="mio_version") result(p)
+            import :: c_ptr
+            type(c_ptr) :: p
+        end function
+
+        function c_mio_mesh_backend() bind(c, name="mio_mesh_backend") result(p)
+            import :: c_ptr
+            type(c_ptr) :: p
+        end function
+
+        function c_mio_last_error() bind(c, name="mio_last_error") result(p)
+            import :: c_ptr
+            type(c_ptr) :: p
+        end function
+
+        function c_mio_format_readable(format) bind(c, name="mio_format_readable") result(r)
+            import :: c_char, c_int
+            character(kind=c_char), dimension(*), intent(in) :: format
+            integer(c_int) :: r
+        end function
+
+        function c_mio_format_writable(format) bind(c, name="mio_format_writable") result(r)
+            import :: c_char, c_int
+            character(kind=c_char), dimension(*), intent(in) :: format
+            integer(c_int) :: r
+        end function
+
+        function c_mio_mesh_create() bind(c, name="mio_mesh_create") result(h)
+            import :: c_ptr
+            type(c_ptr) :: h
+        end function
+
+        subroutine c_mio_mesh_free(h) bind(c, name="mio_mesh_free")
+            import :: c_ptr
+            type(c_ptr), value :: h
+        end subroutine
+
+        function c_mio_read(path, format) bind(c, name="mio_read") result(h)
+            import :: c_ptr, c_char
+            character(kind=c_char), dimension(*), intent(in) :: path, format
+            type(c_ptr) :: h
+        end function
+
+        function c_mio_read_ex(path, format, opts) bind(c, name="mio_read_ex") result(h)
+            import :: c_ptr, c_char, mio_read_opts_t
+            character(kind=c_char), dimension(*), intent(in) :: path, format
+            type(mio_read_opts_t), intent(in) :: opts
+            type(c_ptr) :: h
+        end function
+
+        subroutine c_mio_read_opts_init(opts) bind(c, name="mio_read_opts_init")
+            import :: mio_read_opts_t
+            type(mio_read_opts_t), intent(out) :: opts
+        end subroutine
+
+        function c_mio_read_metadata_create(path, format) &
+                bind(c, name="mio_read_metadata_create") result(h)
+            import :: c_ptr, c_char
+            character(kind=c_char), dimension(*), intent(in) :: path, format
+            type(c_ptr) :: h
+        end function
+
+        function c_mio_read_metadata_num_points(h) &
+                bind(c, name="mio_read_metadata_num_points") result(n)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: h
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_read_metadata_point_dim(h) &
+                bind(c, name="mio_read_metadata_point_dim") result(n)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: h
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_read_metadata_num_cells(h) &
+                bind(c, name="mio_read_metadata_num_cells") result(n)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: h
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_read_metadata_num_cell_blocks(h) &
+                bind(c, name="mio_read_metadata_num_cell_blocks") result(n)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: h
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_read_metadata_cell_block(h, index, num_cells, npc, ragged) &
+                bind(c, name="mio_read_metadata_cell_block") result(s)
+            import :: c_ptr, c_int64_t, c_int
+            type(c_ptr), value :: h
+            integer(c_int64_t), value :: index
+            integer(c_int64_t), intent(out) :: num_cells, npc
+            integer(c_int), intent(out) :: ragged
+            integer(c_int) :: s
+        end function
+
+        function c_mio_read_metadata_cell_block_type(h, index, buf, buflen) &
+                bind(c, name="mio_read_metadata_cell_block_type") result(n)
+            import :: c_ptr, c_int64_t, c_char
+            type(c_ptr), value :: h
+            integer(c_int64_t), value :: index, buflen
+            character(kind=c_char), dimension(*), intent(out) :: buf
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_read_metadata_num_names(h, location) &
+                bind(c, name="mio_read_metadata_num_names") result(n)
+            import :: c_ptr, c_int64_t, c_int
+            type(c_ptr), value :: h
+            integer(c_int), value :: location
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_read_metadata_num_time_values(h) &
+                bind(c, name="mio_read_metadata_num_time_values") result(n)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: h
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_read_metadata_time_values(h, out, count) &
+                bind(c, name="mio_read_metadata_time_values") result(n)
+            import :: c_ptr, c_int64_t, c_double
+            type(c_ptr), value :: h
+            real(c_double), intent(out) :: out(*)
+            integer(c_int64_t), value :: count
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_read_metadata_num_regions(h) &
+                bind(c, name="mio_read_metadata_num_regions") result(n)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: h
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_read_metadata_region_name(h, index, buf, buflen) &
+                bind(c, name="mio_read_metadata_region_name") result(n)
+            import :: c_ptr, c_int64_t, c_char
+            type(c_ptr), value :: h
+            integer(c_int64_t), value :: index
+            character(kind=c_char), intent(out) :: buf(*)
+            integer(c_int64_t), value :: buflen
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_read_metadata_region_info(h, index, out) &
+                bind(c, name="mio_read_metadata_region_info") result(s)
+            import :: c_ptr, c_int64_t, c_int, mio_region_info
+            type(c_ptr), value :: h
+            integer(c_int64_t), value :: index
+            type(mio_region_info), intent(out) :: out
+            integer(c_int) :: s
+        end function
+
+        function c_mio_read_metadata_name(h, location, index, buf, buflen) &
+                bind(c, name="mio_read_metadata_name") result(n)
+            import :: c_ptr, c_int64_t, c_int, c_char
+            type(c_ptr), value :: h
+            integer(c_int), value :: location
+            integer(c_int64_t), value :: index, buflen
+            character(kind=c_char), dimension(*), intent(out) :: buf
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_read_metadata_fell_back(h) &
+                bind(c, name="mio_read_metadata_fell_back") result(n)
+            import :: c_ptr, c_int
+            type(c_ptr), value :: h
+            integer(c_int) :: n
+        end function
+
+        subroutine c_mio_read_metadata_free(h) bind(c, name="mio_read_metadata_free")
+            import :: c_ptr
+            type(c_ptr), value :: h
+        end subroutine
+
+        function c_mio_write(path, h, format) bind(c, name="mio_write") result(s)
+            import :: c_ptr, c_char, c_int
+            character(kind=c_char), dimension(*), intent(in) :: path, format
+            type(c_ptr), value :: h
+            integer(c_int) :: s
+        end function
+
+        function c_mio_convert(in_path, in_format, out_path, out_format) &
+                bind(c, name="mio_convert") result(s)
+            import :: c_char, c_int
+            character(kind=c_char), dimension(*), intent(in) :: in_path, in_format
+            character(kind=c_char), dimension(*), intent(in) :: out_path, out_format
+            integer(c_int) :: s
+        end function
+
+        function c_mio_extract_surface(h, record_parent_ids) &
+                bind(c, name="mio_extract_surface") result(r)
+            import :: c_ptr, c_int
+            type(c_ptr), value :: h
+            integer(c_int), value :: record_parent_ids
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_extract_skin(h, linearize) bind(c, name="mio_extract_skin") result(r)
+            import :: c_ptr, c_int
+            type(c_ptr), value :: h
+            integer(c_int), value :: linearize
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_attach_quality(h) bind(c, name="mio_attach_quality") result(r)
+            import :: c_ptr
+            type(c_ptr), value :: h
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_quality_counts(h, nc, ninv, ndeg) &
+                bind(c, name="mio_quality_counts") result(s)
+            import :: c_ptr, c_int, c_int64_t
+            type(c_ptr), value :: h
+            integer(c_int64_t), intent(out) :: nc, ninv, ndeg
+            integer(c_int) :: s
+        end function
+
+        function c_mio_merge(meshes, count, weld, atol, source_tag, data_policy, drop_dup) &
+                bind(c, name="mio_merge") result(r)
+            import :: c_ptr, c_int, c_int64_t, c_double
+            type(c_ptr), intent(in) :: meshes(*)
+            integer(c_int64_t), value :: count
+            integer(c_int), value :: weld, source_tag, data_policy, drop_dup
+            real(c_double), value :: atol
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_interpolate(source, target, method, arrays, count, extrapolate, &
+                                   default_value, on_conflict) &
+                bind(c, name="mio_interpolate") result(r)
+            import :: c_ptr, c_char, c_int, c_int64_t, c_double
+            type(c_ptr), value :: source, target
+            character(kind=c_char), dimension(*), intent(in) :: method
+            type(c_ptr), value :: arrays
+            integer(c_int64_t), value :: count
+            integer(c_int), value :: extrapolate
+            real(c_double), value :: default_value
+            character(kind=c_char), dimension(*), intent(in) :: on_conflict
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_reorder(h, method) bind(c, name="mio_reorder") result(r)
+            import :: c_ptr, c_char
+            type(c_ptr), value :: h
+            character(kind=c_char), dimension(*), intent(in) :: method
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_transform(h, matrix, rotate_data) bind(c, name="mio_transform") result(r)
+            import :: c_ptr, c_int, c_double
+            type(c_ptr), value :: h
+            real(c_double), intent(in) :: matrix(*)
+            integer(c_int), value :: rotate_data
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_clean(h, weld, atol, rmorph, ddeg, ddup, nweld, norph, ndeg, ndup) &
+                bind(c, name="mio_clean") result(r)
+            import :: c_ptr, c_int, c_int64_t, c_double
+            type(c_ptr), value :: h
+            integer(c_int), value :: weld, rmorph, ddeg, ddup
+            real(c_double), value :: atol
+            integer(c_int64_t), intent(out) :: nweld, norph, ndeg, ndup
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_smooth(h, method, iters, lambda, mu, fixb, feat, fangle, guard, &
+                              nmoved, maxdisp, nskip) bind(c, name="mio_smooth") result(r)
+            import :: c_ptr, c_char, c_int, c_int64_t, c_double
+            type(c_ptr), value :: h
+            character(kind=c_char), dimension(*), intent(in) :: method
+            integer(c_int), value :: iters, fixb, feat, guard
+            real(c_double), value :: lambda, mu, fangle
+            integer(c_int64_t), intent(out) :: nmoved, nskip
+            real(c_double), intent(out) :: maxdisp
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_crop_bbox(h, lo, hi, mode, record_ids) &
+                bind(c, name="mio_crop_bbox") result(r)
+            import :: c_ptr, c_int, c_double
+            type(c_ptr), value :: h
+            real(c_double), intent(in) :: lo(*), hi(*)
+            integer(c_int), value :: mode, record_ids
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_crop_plane(h, point, normal, mode, record_ids) &
+                bind(c, name="mio_crop_plane") result(r)
+            import :: c_ptr, c_int, c_double
+            type(c_ptr), value :: h
+            real(c_double), intent(in) :: point(*), normal(*)
+            integer(c_int), value :: mode, record_ids
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_slice(h, origin, normal, record_parent_ids) &
+                bind(c, name="mio_slice") result(r)
+            import :: c_ptr, c_int, c_double
+            type(c_ptr), value :: h
+            real(c_double), intent(in) :: origin(*), normal(*)
+            integer(c_int), value :: record_parent_ids
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_isosurface(h, array_name, isovalues, n_isovalues, component, &
+                                  record_parent_ids) &
+                bind(c, name="mio_isosurface") result(r)
+            import :: c_ptr, c_int, c_double, c_char
+            type(c_ptr), value :: h
+            character(kind=c_char), dimension(*), intent(in) :: array_name
+            real(c_double), intent(in) :: isovalues(*)
+            integer(c_int), value :: n_isovalues, component, record_parent_ids
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_gradient(h, array_name, op, method, location, output_name, &
+                               component, overwrite, n_skipped, n_fallback) &
+                bind(c, name="mio_gradient") result(r)
+            import :: c_ptr, c_int, c_int64_t, c_char
+            type(c_ptr), value :: h
+            character(kind=c_char), dimension(*), intent(in) :: array_name, op, method
+            character(kind=c_char), dimension(*), intent(in) :: location, output_name
+            integer(c_int), value :: component, overwrite
+            integer(c_int64_t), intent(out) :: n_skipped, n_fallback
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_split(h, by, tag_name) bind(c, name="mio_split") result(r)
+            import :: c_ptr, c_char
+            type(c_ptr), value :: h
+            character(kind=c_char), dimension(*), intent(in) :: by, tag_name
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_split_result_count(r) bind(c, name="mio_split_result_count") result(n)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: r
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_split_result_key(r, index, buf, buflen) &
+                bind(c, name="mio_split_result_key") result(n)
+            import :: c_ptr, c_char, c_int64_t
+            type(c_ptr), value :: r
+            integer(c_int64_t), value :: index, buflen
+            character(kind=c_char), dimension(*), intent(out) :: buf
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_split_result_take_mesh(r, index) &
+                bind(c, name="mio_split_result_take_mesh") result(m)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: r
+            integer(c_int64_t), value :: index
+            type(c_ptr) :: m
+        end function
+
+        subroutine c_mio_split_result_free(r) bind(c, name="mio_split_result_free")
+            import :: c_ptr
+            type(c_ptr), value :: r
+        end subroutine
+
+        function c_mio_convert_cells(h, mode, record_parent_ids) &
+                bind(c, name="mio_convert_cells") result(r)
+            import :: c_ptr, c_char, c_int
+            type(c_ptr), value :: h
+            character(kind=c_char), dimension(*), intent(in) :: mode
+            integer(c_int), value :: record_parent_ids
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_convert_cells_result_take_mesh(r) &
+                bind(c, name="mio_convert_cells_result_take_mesh") result(m)
+            import :: c_ptr
+            type(c_ptr), value :: r
+            type(c_ptr) :: m
+        end function
+
+        function c_mio_convert_cells_result_point_map(r, data, dtype, n) &
+                bind(c, name="mio_convert_cells_result_point_map") result(s)
+            import :: c_ptr, c_int, c_int64_t
+            type(c_ptr), value :: r
+            type(c_ptr), intent(out) :: data
+            integer(c_int), intent(out) :: dtype
+            integer(c_int64_t), intent(out) :: n
+            integer(c_int) :: s
+        end function
+
+        subroutine c_mio_convert_cells_result_free(r) &
+                bind(c, name="mio_convert_cells_result_free")
+            import :: c_ptr
+            type(c_ptr), value :: r
+        end subroutine
+
+        function c_mio_refine(h, levels, record_parent_ids) &
+                bind(c, name="mio_refine") result(r)
+            import :: c_ptr, c_int
+            type(c_ptr), value :: h
+            integer(c_int), value :: levels
+            integer(c_int), value :: record_parent_ids
+            type(c_ptr) :: r
+        end function
+
+        subroutine c_mio_refine_opts_init(opts) bind(c, name="mio_refine_opts_init")
+            import :: mio_refine_opts_t
+            type(mio_refine_opts_t), intent(out) :: opts
+        end subroutine
+
+        function c_mio_refine_ex(h, opts) bind(c, name="mio_refine_ex") result(r)
+            import :: c_ptr, mio_refine_opts_t
+            type(c_ptr), value :: h
+            type(mio_refine_opts_t), intent(in) :: opts
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_refine_result_take_mesh(r) &
+                bind(c, name="mio_refine_result_take_mesh") result(m)
+            import :: c_ptr
+            type(c_ptr), value :: r
+            type(c_ptr) :: m
+        end function
+
+        function c_mio_refine_result_point_map(r, data, dtype, n) &
+                bind(c, name="mio_refine_result_point_map") result(s)
+            import :: c_ptr, c_int, c_int64_t
+            type(c_ptr), value :: r
+            type(c_ptr), intent(out) :: data
+            integer(c_int), intent(out) :: dtype
+            integer(c_int64_t), intent(out) :: n
+            integer(c_int) :: s
+        end function
+
+        subroutine c_mio_refine_result_free(r) &
+                bind(c, name="mio_refine_result_free")
+            import :: c_ptr
+            type(c_ptr), value :: r
+        end subroutine
+
+        function c_mio_decimate(h, ratio, faces, max_error, placement, preserve_boundary, &
+                                preserve_features, feature_angle) &
+                bind(c, name="mio_decimate") result(r)
+            import :: c_ptr, c_char, c_int, c_int64_t, c_double
+            type(c_ptr), value :: h
+            real(c_double), value :: ratio, max_error, feature_angle
+            integer(c_int64_t), value :: faces
+            character(kind=c_char), dimension(*), intent(in) :: placement
+            integer(c_int), value :: preserve_boundary, preserve_features
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_decimate_result_take_mesh(r) &
+                bind(c, name="mio_decimate_result_take_mesh") result(m)
+            import :: c_ptr
+            type(c_ptr), value :: r
+            type(c_ptr) :: m
+        end function
+
+        function c_mio_decimate_result_point_map(r, data, dtype, n) &
+                bind(c, name="mio_decimate_result_point_map") result(s)
+            import :: c_ptr, c_int, c_int64_t
+            type(c_ptr), value :: r
+            type(c_ptr), intent(out) :: data
+            integer(c_int), intent(out) :: dtype
+            integer(c_int64_t), intent(out) :: n
+            integer(c_int) :: s
+        end function
+
+        function c_mio_decimate_result_faces_removed(r) &
+                bind(c, name="mio_decimate_result_faces_removed") result(v)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: r
+            integer(c_int64_t) :: v
+        end function
+
+        function c_mio_decimate_result_points_removed(r) &
+                bind(c, name="mio_decimate_result_points_removed") result(v)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: r
+            integer(c_int64_t) :: v
+        end function
+
+        function c_mio_decimate_result_collapses_rejected(r) &
+                bind(c, name="mio_decimate_result_collapses_rejected") result(v)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: r
+            integer(c_int64_t) :: v
+        end function
+
+        function c_mio_decimate_result_max_error_applied(r) &
+                bind(c, name="mio_decimate_result_max_error_applied") result(v)
+            import :: c_ptr, c_double
+            type(c_ptr), value :: r
+            real(c_double) :: v
+        end function
+
+        subroutine c_mio_decimate_result_free(r) &
+                bind(c, name="mio_decimate_result_free")
+            import :: c_ptr
+            type(c_ptr), value :: r
+        end subroutine
+
+        function c_mio_partition(h, nparts, method, imbalance, mode, seed, record_ids, &
+                                 ghost_layers, weights_key) &
+                bind(c, name="mio_partition") result(r)
+            import :: c_ptr, c_char, c_int, c_double
+            type(c_ptr), value :: h
+            integer(c_int), value :: nparts
+            character(kind=c_char), dimension(*), intent(in) :: method
+            real(c_double), value :: imbalance
+            character(kind=c_char), dimension(*), intent(in) :: mode
+            integer(c_int), value :: seed, record_ids, ghost_layers
+            character(kind=c_char), dimension(*), intent(in) :: weights_key
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_partition_result_num_pieces(r) &
+                bind(c, name="mio_partition_result_num_pieces") result(n)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: r
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_partition_result_take_mesh(r, index) &
+                bind(c, name="mio_partition_result_take_mesh") result(m)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: r
+            integer(c_int64_t), value :: index
+            type(c_ptr) :: m
+        end function
+
+        subroutine c_mio_partition_result_free(r) &
+                bind(c, name="mio_partition_result_free")
+            import :: c_ptr
+            type(c_ptr), value :: r
+        end subroutine
+
+        function c_mio_partition_labels(h, nparts, method, imbalance, mode, seed, &
+                                        weights_key, labels, labels_size) &
+                bind(c, name="mio_partition_labels") result(s)
+            import :: c_ptr, c_char, c_int, c_int64_t, c_double
+            type(c_ptr), value :: h
+            integer(c_int), value :: nparts
+            character(kind=c_char), dimension(*), intent(in) :: method
+            real(c_double), value :: imbalance
+            character(kind=c_char), dimension(*), intent(in) :: mode
+            integer(c_int), value :: seed
+            character(kind=c_char), dimension(*), intent(in) :: weights_key
+            integer(c_int64_t), dimension(*), intent(out) :: labels
+            integer(c_int64_t), value :: labels_size
+            integer(c_int) :: s
+        end function
+
+        function c_mio_stats(h, out) bind(c, name="mio_stats") result(s)
+            import :: c_ptr, c_int, mio_stats_report
+            type(c_ptr), value :: h
+            type(mio_stats_report), intent(out) :: out
+            integer(c_int) :: s
+        end function
+
+        ! -- data operations --
+        ! Name lists cross as a C array of char* plus an explicit count; the
+        ! `names` argument is a c_ptr to that array (built by c_str_array).
+
+        function c_mio_data_drop(h, location, names, count, ignore_missing) &
+                bind(c, name="mio_data_drop") result(m)
+            import :: c_ptr, c_int, c_int64_t
+            type(c_ptr), value :: h, names
+            integer(c_int), value :: location, ignore_missing
+            integer(c_int64_t), value :: count
+            type(c_ptr) :: m
+        end function
+
+        function c_mio_data_keep(h, location, names, count, ignore_missing) &
+                bind(c, name="mio_data_keep") result(m)
+            import :: c_ptr, c_int, c_int64_t
+            type(c_ptr), value :: h, names
+            integer(c_int), value :: location, ignore_missing
+            integer(c_int64_t), value :: count
+            type(c_ptr) :: m
+        end function
+
+        function c_mio_data_rename(h, location, from_name, to_name) &
+                bind(c, name="mio_data_rename") result(m)
+            import :: c_ptr, c_int, c_char
+            type(c_ptr), value :: h
+            integer(c_int), value :: location
+            character(kind=c_char), dimension(*), intent(in) :: from_name, to_name
+            type(c_ptr) :: m
+        end function
+
+        function c_mio_data_point_to_cell(h, names, count, suffix) &
+                bind(c, name="mio_data_point_to_cell") result(m)
+            import :: c_ptr, c_int64_t, c_char
+            type(c_ptr), value :: h, names
+            integer(c_int64_t), value :: count
+            character(kind=c_char), dimension(*), intent(in) :: suffix
+            type(c_ptr) :: m
+        end function
+
+        function c_mio_data_cell_to_point(h, names, count, weight, suffix) &
+                bind(c, name="mio_data_cell_to_point") result(m)
+            import :: c_ptr, c_int, c_int64_t, c_char
+            type(c_ptr), value :: h, names
+            integer(c_int64_t), value :: count
+            integer(c_int), value :: weight
+            character(kind=c_char), dimension(*), intent(in) :: suffix
+            type(c_ptr) :: m
+        end function
+
+        function c_mio_data_calc(h, expression, location, output_name, overwrite) &
+                bind(c, name="mio_data_calc") result(m)
+            import :: c_ptr, c_int, c_char
+            type(c_ptr), value :: h
+            character(kind=c_char), dimension(*), intent(in) :: expression, output_name
+            integer(c_int), value :: location, overwrite
+            type(c_ptr) :: m
+        end function
+
+        function c_mio_data_condition(h, location, names, count, mode, lo, hi, scope, &
+                                      nan_policy, nan_replacement, suffix) &
+                bind(c, name="mio_data_condition") result(m)
+            import :: c_ptr, c_int, c_int64_t, c_double, c_char
+            type(c_ptr), value :: h, names
+            integer(c_int), value :: location, mode, scope, nan_policy
+            integer(c_int64_t), value :: count
+            real(c_double), value :: lo, hi, nan_replacement
+            character(kind=c_char), dimension(*), intent(in) :: suffix
+            type(c_ptr) :: m
+        end function
+
+        function c_mio_data_info_create(h) bind(c, name="mio_data_info_create") result(r)
+            import :: c_ptr
+            type(c_ptr), value :: h
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_data_info_count(r) bind(c, name="mio_data_info_count") result(n)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: r
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_data_info_name(r, index, buf, buflen) &
+                bind(c, name="mio_data_info_name") result(n)
+            import :: c_ptr, c_char, c_int64_t
+            type(c_ptr), value :: r
+            integer(c_int64_t), value :: index, buflen
+            character(kind=c_char), dimension(*), intent(out) :: buf
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_data_info_entry(r, index, out) &
+                bind(c, name="mio_data_info_entry") result(s)
+            import :: c_ptr, c_int, c_int64_t, mio_data_array_info
+            type(c_ptr), value :: r
+            integer(c_int64_t), value :: index
+            type(mio_data_array_info), intent(out) :: out
+            integer(c_int) :: s
+        end function
+
+        function c_mio_regions_create(h) bind(c, name="mio_regions_create") result(r)
+            import :: c_ptr
+            type(c_ptr), value :: h
+            type(c_ptr) :: r
+        end function
+
+        function c_mio_regions_count(r) bind(c, name="mio_regions_count") result(n)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: r
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_regions_name(r, index, buf, buflen) &
+                bind(c, name="mio_regions_name") result(n)
+            import :: c_ptr, c_int64_t, c_char
+            type(c_ptr), value :: r
+            integer(c_int64_t), value :: index, buflen
+            character(kind=c_char), intent(inout) :: buf(*)
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_regions_info(r, index, out) &
+                bind(c, name="mio_regions_info") result(s)
+            import :: c_ptr, c_int64_t, c_int, mio_region_info
+            type(c_ptr), value :: r
+            integer(c_int64_t), value :: index
+            type(mio_region_info), intent(out) :: out
+            integer(c_int) :: s
+        end function
+
+        function c_mio_regions_entries(r, index, count) &
+                bind(c, name="mio_regions_entries") result(p)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: r
+            integer(c_int64_t), value :: index
+            integer(c_int64_t), intent(out) :: count
+            type(c_ptr) :: p
+        end function
+
+        subroutine c_mio_regions_free(r) bind(c, name="mio_regions_free")
+            import :: c_ptr
+            type(c_ptr), value :: r
+        end subroutine
+
+        function c_mio_mesh_add_region(h, name, kind, dim, tag, entries, count) &
+                bind(c, name="mio_mesh_add_region") result(s)
+            import :: c_ptr, c_char, c_int, c_int64_t
+            type(c_ptr), value :: h
+            character(kind=c_char), intent(in) :: name(*)
+            integer(c_int), value :: kind, dim
+            integer(c_int64_t), value :: tag, count
+            integer(c_int64_t), intent(in) :: entries(*)
+            integer(c_int) :: s
+        end function
+
+        subroutine c_mio_data_info_free(r) bind(c, name="mio_data_info_free")
+            import :: c_ptr
+            type(c_ptr), value :: r
+        end subroutine
+
+        function c_mio_reorder_result_take_mesh(r) &
+                bind(c, name="mio_reorder_result_take_mesh") result(m)
+            import :: c_ptr
+            type(c_ptr), value :: r
+            type(c_ptr) :: m
+        end function
+
+        function c_mio_reorder_result_node_perm(r, data, dtype, n) &
+                bind(c, name="mio_reorder_result_node_perm") result(s)
+            import :: c_ptr, c_int, c_int64_t
+            type(c_ptr), value :: r
+            type(c_ptr), intent(out) :: data
+            integer(c_int), intent(out) :: dtype
+            integer(c_int64_t), intent(out) :: n
+            integer(c_int) :: s
+        end function
+
+        subroutine c_mio_reorder_result_free(r) bind(c, name="mio_reorder_result_free")
+            import :: c_ptr
+            type(c_ptr), value :: r
+        end subroutine
+
+        function c_mio_compute_bandwidth(h) bind(c, name="mio_compute_bandwidth") result(bw)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: h
+            integer(c_int64_t) :: bw
+        end function
+
+        function c_mio_meshes_equal(a, b, atol, rtol, unordered, out_equal) &
+                bind(c, name="mio_meshes_equal") result(s)
+            import :: c_ptr, c_int, c_double
+            type(c_ptr), value :: a, b
+            real(c_double), value :: atol, rtol
+            integer(c_int), value :: unordered
+            integer(c_int), intent(out) :: out_equal
+            integer(c_int) :: s
+        end function
+
+        function c_mio_diff(a, b, atol, rtol, unordered, out) &
+                bind(c, name="mio_diff") result(s)
+            import :: c_ptr, c_int, c_double
+            type(c_ptr), value :: a, b
+            real(c_double), value :: atol, rtol
+            integer(c_int), value :: unordered
+            type(c_ptr), intent(out) :: out
+            integer(c_int) :: s
+        end function
+
+        function c_mio_diff_result_verdict(r) &
+                bind(c, name="mio_diff_result_verdict") result(v)
+            import :: c_ptr, c_int
+            type(c_ptr), value :: r
+            integer(c_int) :: v
+        end function
+
+        subroutine c_mio_diff_result_free(r) bind(c, name="mio_diff_result_free")
+            import :: c_ptr
+            type(c_ptr), value :: r
+        end subroutine
+
+        function c_mio_sniff_format(path, buf, buflen) &
+                bind(c, name="mio_sniff_format") result(n)
+            import :: c_char, c_int64_t
+            character(kind=c_char), dimension(*), intent(in) :: path
+            character(kind=c_char), dimension(*), intent(inout) :: buf
+            integer(c_int64_t), value :: buflen
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_mesh_set_points(h, dtype, num_points, dim, xyz) &
+                bind(c, name="mio_mesh_set_points") result(s)
+            import :: c_ptr, c_int, c_int64_t
+            type(c_ptr), value :: h, xyz
+            integer(c_int), value :: dtype
+            integer(c_int64_t), value :: num_points, dim
+            integer(c_int) :: s
+        end function
+
+        function c_mio_mesh_add_cell_block(h, cell_type, num_cells, nodes_per_cell, dtype, conn) &
+                bind(c, name="mio_mesh_add_cell_block") result(s)
+            import :: c_ptr, c_char, c_int, c_int64_t
+            type(c_ptr), value :: h, conn
+            character(kind=c_char), dimension(*), intent(in) :: cell_type
+            integer(c_int64_t), value :: num_cells, nodes_per_cell
+            integer(c_int), value :: dtype
+            integer(c_int) :: s
+        end function
+
+        function c_mio_mesh_add_point_data(h, name, dtype, ndim, shape, data) &
+                bind(c, name="mio_mesh_add_point_data") result(s)
+            import :: c_ptr, c_char, c_int, c_int32_t, c_int64_t
+            type(c_ptr), value :: h, data
+            character(kind=c_char), dimension(*), intent(in) :: name
+            integer(c_int), value :: dtype
+            integer(c_int32_t), value :: ndim
+            integer(c_int64_t), dimension(*), intent(in) :: shape
+            integer(c_int) :: s
+        end function
+
+        function c_mio_mesh_append_cell_data(h, name, dtype, ndim, shape, data) &
+                bind(c, name="mio_mesh_append_cell_data") result(s)
+            import :: c_ptr, c_char, c_int, c_int32_t, c_int64_t
+            type(c_ptr), value :: h, data
+            character(kind=c_char), dimension(*), intent(in) :: name
+            integer(c_int), value :: dtype
+            integer(c_int32_t), value :: ndim
+            integer(c_int64_t), dimension(*), intent(in) :: shape
+            integer(c_int) :: s
+        end function
+
+        function c_mio_mesh_add_field_data(h, name, dtype, ndim, shape, data) &
+                bind(c, name="mio_mesh_add_field_data") result(s)
+            import :: c_ptr, c_char, c_int, c_int32_t, c_int64_t
+            type(c_ptr), value :: h, data
+            character(kind=c_char), dimension(*), intent(in) :: name
+            integer(c_int), value :: dtype
+            integer(c_int32_t), value :: ndim
+            integer(c_int64_t), dimension(*), intent(in) :: shape
+            integer(c_int) :: s
+        end function
+
+        function c_mio_mesh_num_points(h) bind(c, name="mio_mesh_num_points") result(n)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: h
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_mesh_point_dim(h) bind(c, name="mio_mesh_point_dim") result(n)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: h
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_mesh_get_points(h, data, dtype) &
+                bind(c, name="mio_mesh_get_points") result(s)
+            import :: c_ptr, c_int
+            type(c_ptr), value :: h
+            type(c_ptr), intent(out) :: data
+            integer(c_int), intent(out) :: dtype
+            integer(c_int) :: s
+        end function
+
+        function c_mio_mesh_num_cell_blocks(h) bind(c, name="mio_mesh_num_cell_blocks") result(n)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: h
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_mesh_cell_block_info(h, block, num_cells, nodes_per_cell, is_ragged) &
+                bind(c, name="mio_mesh_cell_block_info") result(s)
+            import :: c_ptr, c_int, c_int32_t, c_int64_t
+            type(c_ptr), value :: h
+            integer(c_int64_t), value :: block
+            integer(c_int64_t), intent(out) :: num_cells, nodes_per_cell
+            integer(c_int32_t), intent(out) :: is_ragged
+            integer(c_int) :: s
+        end function
+
+        function c_mio_mesh_cell_block_type(h, block, buf, buflen) &
+                bind(c, name="mio_mesh_cell_block_type") result(n)
+            import :: c_ptr, c_char, c_int64_t
+            type(c_ptr), value :: h
+            integer(c_int64_t), value :: block, buflen
+            character(kind=c_char), dimension(*), intent(inout) :: buf
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_mesh_cell_block_conn(h, block, conn, dtype) &
+                bind(c, name="mio_mesh_cell_block_conn") result(s)
+            import :: c_ptr, c_int, c_int64_t
+            type(c_ptr), value :: h
+            integer(c_int64_t), value :: block
+            type(c_ptr), intent(out) :: conn
+            integer(c_int), intent(out) :: dtype
+            integer(c_int) :: s
+        end function
+
+        function c_mio_mesh_num_point_data(h) bind(c, name="mio_mesh_num_point_data") result(n)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: h
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_mesh_point_data_name(h, index, buf, buflen) &
+                bind(c, name="mio_mesh_point_data_name") result(n)
+            import :: c_ptr, c_char, c_int64_t
+            type(c_ptr), value :: h
+            integer(c_int64_t), value :: index, buflen
+            character(kind=c_char), dimension(*), intent(inout) :: buf
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_mesh_get_point_data(h, name, data, dtype, ndim, shape) &
+                bind(c, name="mio_mesh_get_point_data") result(s)
+            import :: c_ptr, c_char, c_int, c_int32_t, c_int64_t
+            type(c_ptr), value :: h
+            character(kind=c_char), dimension(*), intent(in) :: name
+            type(c_ptr), intent(out) :: data
+            integer(c_int), intent(out) :: dtype
+            integer(c_int32_t), intent(out) :: ndim
+            integer(c_int64_t), dimension(*), intent(out) :: shape
+            integer(c_int) :: s
+        end function
+
+        function c_mio_mesh_num_cell_data(h) bind(c, name="mio_mesh_num_cell_data") result(n)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: h
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_mesh_cell_data_name(h, index, buf, buflen) &
+                bind(c, name="mio_mesh_cell_data_name") result(n)
+            import :: c_ptr, c_char, c_int64_t
+            type(c_ptr), value :: h
+            integer(c_int64_t), value :: index, buflen
+            character(kind=c_char), dimension(*), intent(inout) :: buf
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_mesh_cell_data_num_blocks(h, name) &
+                bind(c, name="mio_mesh_cell_data_num_blocks") result(n)
+            import :: c_ptr, c_char, c_int64_t
+            type(c_ptr), value :: h
+            character(kind=c_char), dimension(*), intent(in) :: name
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_mesh_get_cell_data(h, name, block, data, dtype, ndim, shape) &
+                bind(c, name="mio_mesh_get_cell_data") result(s)
+            import :: c_ptr, c_char, c_int, c_int32_t, c_int64_t
+            type(c_ptr), value :: h
+            character(kind=c_char), dimension(*), intent(in) :: name
+            integer(c_int64_t), value :: block
+            type(c_ptr), intent(out) :: data
+            integer(c_int), intent(out) :: dtype
+            integer(c_int32_t), intent(out) :: ndim
+            integer(c_int64_t), dimension(*), intent(out) :: shape
+            integer(c_int) :: s
+        end function
+
+        function c_mio_mesh_num_field_data(h) bind(c, name="mio_mesh_num_field_data") result(n)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: h
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_mesh_field_data_name(h, index, buf, buflen) &
+                bind(c, name="mio_mesh_field_data_name") result(n)
+            import :: c_ptr, c_char, c_int64_t
+            type(c_ptr), value :: h
+            integer(c_int64_t), value :: index, buflen
+            character(kind=c_char), dimension(*), intent(inout) :: buf
+            integer(c_int64_t) :: n
+        end function
+
+        function c_mio_mesh_get_field_data(h, name, data, dtype, ndim, shape) &
+                bind(c, name="mio_mesh_get_field_data") result(s)
+            import :: c_ptr, c_char, c_int, c_int32_t, c_int64_t
+            type(c_ptr), value :: h
+            character(kind=c_char), dimension(*), intent(in) :: name
+            type(c_ptr), intent(out) :: data
+            integer(c_int), intent(out) :: dtype
+            integer(c_int32_t), intent(out) :: ndim
+            integer(c_int64_t), dimension(*), intent(out) :: shape
+            integer(c_int) :: s
+        end function
+
+        ! -- transient XDMF series --
+
+        function c_mio_xdmf_series_create(path, data_format, gzip_level) &
+                bind(c, name="mio_xdmf_series_create") result(h)
+            import :: c_ptr, c_char, c_int32_t
+            character(kind=c_char), dimension(*), intent(in) :: path, data_format
+            integer(c_int32_t), value :: gzip_level
+            type(c_ptr) :: h
+        end function
+
+        function c_mio_xdmf_series_write_points_cells(s, mesh) &
+                bind(c, name="mio_xdmf_series_write_points_cells") result(st)
+            import :: c_ptr, c_int
+            type(c_ptr), value :: s, mesh
+            integer(c_int) :: st
+        end function
+
+        function c_mio_xdmf_series_write_data(s, time, mesh) &
+                bind(c, name="mio_xdmf_series_write_data") result(st)
+            import :: c_ptr, c_int, c_double
+            type(c_ptr), value :: s, mesh
+            real(c_double), value :: time
+            integer(c_int) :: st
+        end function
+
+        function c_mio_xdmf_series_finalize(s) &
+                bind(c, name="mio_xdmf_series_finalize") result(st)
+            import :: c_ptr, c_int
+            type(c_ptr), value :: s
+            integer(c_int) :: st
+        end function
+
+        function c_mio_xdmf_series_flush(s) &
+                bind(c, name="mio_xdmf_series_flush") result(st)
+            import :: c_ptr, c_int
+            type(c_ptr), value :: s
+            integer(c_int) :: st
+        end function
+
+        function c_mio_xdmf_series_finalized(s) &
+                bind(c, name="mio_xdmf_series_finalized") result(f)
+            import :: c_ptr, c_int32_t
+            type(c_ptr), value :: s
+            integer(c_int32_t) :: f
+        end function
+
+        function c_mio_xdmf_series_create_ex(path, opts) &
+                bind(c, name="mio_xdmf_series_create_ex") result(h)
+            import :: c_ptr, c_char, mio_xdmf_series_opts_t
+            character(kind=c_char), dimension(*), intent(in) :: path
+            type(mio_xdmf_series_opts_t), intent(in) :: opts
+            type(c_ptr) :: h
+        end function
+
+        function c_mio_xdmf_series_num_steps(s) &
+                bind(c, name="mio_xdmf_series_num_steps") result(n)
+            import :: c_ptr, c_int64_t
+            type(c_ptr), value :: s
+            integer(c_int64_t) :: n
+        end function
+
+        subroutine c_mio_xdmf_series_free(s) bind(c, name="mio_xdmf_series_free")
+            import :: c_ptr
+            type(c_ptr), value :: s
+        end subroutine
+
+        function c_strlen(s) bind(c, name="strlen") result(n)
+            import :: c_ptr, c_size_t
+            type(c_ptr), value :: s
+            integer(c_size_t) :: n
+        end function
+    end interface
+
+contains
+
+    ! ------------------------------------------------------------------
+    ! String / error helpers
+    ! ------------------------------------------------------------------
+
+    !> NUL-terminated copy for passing to C ("" stays "" + NUL, meaning
+    !> "infer format" on the C side).
+    pure function c_str(f) result(c)
+        character(*), intent(in) :: f
+        character(kind=c_char, len=:), allocatable :: c
+        c = trim(f)//c_null_char
+    end function
+
+    !> Fortran string from a NUL-terminated C pointer (static storage).
+    function c_ptr_to_string(p) result(s)
+        type(c_ptr), intent(in) :: p
+        character(:), allocatable :: s
+        character(kind=c_char), pointer :: chars(:)
+        integer :: n, i
+        s = ''
+        if (.not. c_associated(p)) return
+        n = int(c_strlen(p))
+        if (n <= 0) return
+        call c_f_pointer(p, chars, [n])
+        s = repeat(' ', n)  ! reallocation on assignment (s starts as '')
+        do i = 1, n
+            s(i:i) = chars(i)
+        end do
+    end function
+
+    !> Build the `char**` a C name-list parameter expects.
+    !>
+    !> `storage` holds NUL-terminated copies of every name (one column each) and
+    !> `cptrs` holds a c_ptr to each column. BOTH must stay in scope for the
+    !> duration of the C call -- they are the actual backing memory, so the
+    !> caller keeps them as local variables until the call returns.
+    !> `names` may be zero-sized, in which case the returned pointer is NULL and
+    !> the count is 0 ("every array at that location").
+    subroutine c_str_array(names, storage, cptrs, arr, count)
+        character(*), intent(in) :: names(:)
+        character(kind=c_char), allocatable, target, intent(out) :: storage(:, :)
+        type(c_ptr), allocatable, target, intent(out) :: cptrs(:)
+        type(c_ptr), intent(out) :: arr
+        integer(c_int64_t), intent(out) :: count
+        integer :: i, j, n, width
+        n = size(names)
+        count = int(n, c_int64_t)
+        if (n == 0) then
+            allocate (storage(1, 1))
+            allocate (cptrs(1))
+            arr = c_null_ptr
+            return
+        end if
+        width = len(names) + 1
+        allocate (storage(width, n))
+        allocate (cptrs(n))
+        do i = 1, n
+            do j = 1, len_trim(names(i))
+                storage(j, i) = names(i) (j:j)
+            end do
+            storage(len_trim(names(i)) + 1, i) = c_null_char
+            cptrs(i) = c_loc(storage(1, i))
+        end do
+        arr = c_loc(cptrs(1))
+    end subroutine
+
+    !> Fortran string from the first `n` chars of a C char buffer.
+    function from_c_buf(buf, n) result(s)
+        character(kind=c_char), intent(in) :: buf(*)
+        integer, intent(in) :: n
+        character(:), allocatable :: s
+        integer :: i
+        allocate (character(max(n, 0)) :: s)
+        do i = 1, n
+            s(i:i) = buf(i)
+        end do
+    end function
+
+    !> The failure message of the most recent failed meshio++ call on this
+    !> thread ('' if none).
+    function mio_error_message() result(msg)
+        character(:), allocatable :: msg
+        msg = c_ptr_to_string(c_mio_last_error())
+    end function
+
+    !> Map a C status to the optional stat/errmsg pair; no stat + failure =
+    !> print and error stop.
+    subroutine handle_status(status, what, stat, errmsg)
+        integer(c_int), intent(in) :: status
+        character(*), intent(in) :: what
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        if (present(stat)) stat = int(status)
+        if (present(errmsg)) errmsg = ''
+        if (status /= 0_c_int) then
+            if (present(errmsg)) errmsg = mio_error_message()
+            if (.not. present(stat)) then
+                write (error_unit, '(a)') 'meshio++ ('//what//'): '//mio_error_message()
+                error stop 1
+            end if
+        end if
+    end subroutine
+
+    !> Report a Fortran-side failure (bad handle, shape mismatch, ...)
+    !> through the same stat/errmsg protocol.
+    subroutine handle_failure(what, msg, stat, errmsg)
+        character(*), intent(in) :: what, msg
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        if (present(stat)) stat = 1
+        if (present(errmsg)) errmsg = msg
+        if (.not. present(stat)) then
+            write (error_unit, '(a)') 'meshio++ ('//what//'): '//msg
+            error stop 1
+        end if
+    end subroutine
+
+    subroutine clear_status(stat, errmsg)
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        if (present(stat)) stat = 0
+        if (present(errmsg)) errmsg = ''
+    end subroutine
+
+    ! ------------------------------------------------------------------
+    ! Module-level procedures
+    ! ------------------------------------------------------------------
+
+    !> The meshio++ version string, e.g. "6.1.0".
+    function mio_version() result(v)
+        character(:), allocatable :: v
+        v = c_ptr_to_string(c_mio_version())
+    end function
+
+    !> The compile-time mesh backend: "meshio", "native", or "kratos".
+    function mio_mesh_backend() result(b)
+        character(:), allocatable :: b
+        b = c_ptr_to_string(c_mio_mesh_backend())
+    end function
+
+    !> .true. if `format` (e.g. "gmsh", "vtu", "med") is readable in this build.
+    function mio_format_readable(format) result(r)
+        character(*), intent(in) :: format
+        logical :: r
+        r = c_mio_format_readable(c_str(format)) /= 0_c_int
+    end function
+
+    !> .true. if `format` is writable in this build.
+    function mio_format_writable(format) result(r)
+        character(*), intent(in) :: format
+        logical :: r
+        r = c_mio_format_writable(c_str(format)) /= 0_c_int
+    end function
+
+    !> Read `in_path` and immediately write it to `out_path` (the CLI's
+    !> `convert`). Formats are inferred from the extensions unless given.
+    subroutine mio_convert(in_path, out_path, in_format, out_format, stat, errmsg)
+        character(*), intent(in) :: in_path, out_path
+        character(*), intent(in), optional :: in_format, out_format
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        character(:), allocatable :: ifmt, ofmt
+        ifmt = ''; if (present(in_format)) ifmt = in_format
+        ofmt = ''; if (present(out_format)) ofmt = out_format
+        call handle_status(c_mio_convert(c_str(in_path), c_str(ifmt), c_str(out_path), &
+                                         c_str(ofmt)), 'convert', stat, errmsg)
+    end subroutine
+
+    !> Guess a mesh file's format from its contents ('' if undetermined).
+    function mio_sniff_format(path) result(fmt)
+        character(*), intent(in) :: path
+        character(:), allocatable :: fmt
+        character(kind=c_char) :: buf(STRBUF_LEN)
+        integer(c_int64_t) :: n
+        fmt = ''
+        n = c_mio_sniff_format(c_str(path), buf, int(STRBUF_LEN, c_int64_t))
+        if (n > 0) fmt = from_c_buf(buf, min(int(n), STRBUF_LEN - 1))
+    end function
+
+    ! ------------------------------------------------------------------
+    ! mio_mesh: lifecycle & file I/O
+    ! ------------------------------------------------------------------
+
+    !> Allocate an empty mesh (read() does this implicitly).
+    subroutine mesh_create(self, stat, errmsg)
+        class(mio_mesh), intent(inout) :: self
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        call mesh_free(self)
+        self%handle = c_mio_mesh_create()
+        if (.not. c_associated(self%handle)) then
+            call handle_failure('create', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end subroutine
+
+    !> Release the mesh and every pointer borrowed from it. Idempotent.
+    subroutine mesh_free(self)
+        class(mio_mesh), intent(inout) :: self
+        if (c_associated(self%handle)) call c_mio_mesh_free(self%handle)
+        self%handle = c_null_ptr
+    end subroutine
+
+    !> .true. between a successful create()/read() and free().
+    logical function mesh_is_valid(self)
+        class(mio_mesh), intent(in) :: self
+        mesh_is_valid = c_associated(self%handle)
+    end function
+
+    !> Read a mesh file, replacing any previous content of this handle.
+    !>
+    !> `points_only` skips every data array; `arrays` keeps only the named ones
+    !> (a zero-sized `arrays` keeps none, which is distinct from omitting the
+    !> argument entirely -- that reads everything). Formats without a native
+    !> selective path are read whole and filtered, so the result is the same
+    !> either way; only the cost differs.
+    subroutine mesh_read(self, path, format, points_only, arrays, time_step, lenient, &
+                         stat, errmsg)
+        class(mio_mesh), intent(inout) :: self
+        character(*), intent(in) :: path
+        character(*), intent(in), optional :: format
+        logical, intent(in), optional :: points_only
+        character(*), intent(in), optional :: arrays(:)
+        !> Which step of a multi-step file to read: 0 (default) is the first,
+        !> negative counts from the end. Out of range fails, never clamps.
+        integer, intent(in), optional :: time_step
+        !> Downgrade "this reader cannot represent construct X" to a warning and
+        !> a skip. Not "ignore all errors": a malformed file still fails.
+        logical, intent(in), optional :: lenient
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        character(:), allocatable :: fmt
+        type(c_ptr) :: h
+        type(mio_read_opts_t) :: opts
+        ! NUL-terminated copies must outlive the call, so they are held here
+        ! rather than built inline; c_loc needs them contiguous and TARGET.
+        character(kind=c_char, len=STRBUF_LEN), allocatable, target :: bufs(:)
+        type(c_ptr), allocatable, target :: ptrs(:)
+        integer :: i, n
+
+        fmt = ''; if (present(format)) fmt = format
+
+        if (.not. present(points_only) .and. .not. present(arrays) &
+            .and. .not. present(time_step) .and. .not. present(lenient)) then
+            h = c_mio_read(c_str(path), c_str(fmt))
+        else
+            call c_mio_read_opts_init(opts)
+            if (present(points_only)) then
+                if (points_only) opts%points_only = 1
+            end if
+            if (present(time_step)) opts%time_step = int(time_step, c_int64_t)
+            if (present(lenient)) then
+                if (lenient) opts%lenient = 1
+            end if
+            if (present(arrays)) then
+                n = size(arrays)
+                allocate (bufs(max(n, 1)))
+                allocate (ptrs(max(n, 1)))
+                do i = 1, n
+                    bufs(i) = trim(arrays(i))//c_null_char
+                    ptrs(i) = c_loc(bufs(i)(1:1))
+                end do
+                ! Non-null pointer with count 0 means "no arrays" -- the C side
+                ! distinguishes that from a null pointer ("every array").
+                opts%arrays = c_loc(ptrs(1))
+                opts%num_arrays = int(n, c_int64_t)
+            end if
+            h = c_mio_read_ex(c_str(path), c_str(fmt), opts)
+        end if
+
+        if (.not. c_associated(h)) then
+            call handle_failure('read', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call mesh_free(self)
+        self%handle = h
+        call clear_status(stat, errmsg)
+    end subroutine
+
+    !> Summarize a mesh file without loading its heavy arrays.
+    function mio_read_metadata(path, format, stat, errmsg) result(meta)
+        character(*), intent(in) :: path
+        character(*), intent(in), optional :: format
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_metadata) :: meta
+        character(:), allocatable :: fmt
+        type(c_ptr) :: h
+        character(kind=c_char) :: buf(STRBUF_LEN)
+        integer(c_int64_t) :: nblocks, i, n, ncells, npc, nsteps, nregions
+        integer(c_int) :: ragged, s
+        type(mio_region_info) :: rinfo
+
+        fmt = ''; if (present(format)) fmt = format
+        h = c_mio_read_metadata_create(c_str(path), c_str(fmt))
+        if (.not. c_associated(h)) then
+            call handle_failure('read_metadata', mio_error_message(), stat, errmsg)
+            return
+        end if
+
+        meta%num_points = c_mio_read_metadata_num_points(h)
+        meta%point_dim = c_mio_read_metadata_point_dim(h)
+        meta%num_cells = c_mio_read_metadata_num_cells(h)
+        meta%fell_back_to_full_read = (c_mio_read_metadata_fell_back(h) == 1)
+
+        nblocks = c_mio_read_metadata_num_cell_blocks(h)
+        allocate (meta%cell_blocks(max(nblocks, 0_c_int64_t)))
+        do i = 1, nblocks
+            s = c_mio_read_metadata_cell_block(h, i - 1_c_int64_t, ncells, npc, ragged)
+            if (s /= 0) cycle
+            meta%cell_blocks(i)%num_cells = ncells
+            meta%cell_blocks(i)%nodes_per_cell = npc
+            meta%cell_blocks(i)%ragged = (ragged /= 0)
+            n = c_mio_read_metadata_cell_block_type(h, i - 1_c_int64_t, buf, &
+                                                    int(STRBUF_LEN, c_int64_t))
+            if (n > 0) meta%cell_blocks(i)%cell_type = from_c_buf(buf, min(int(n), STRBUF_LEN - 1))
+        end do
+
+        call metadata_read_names(h, MIO_DATA_POINT, meta%point_data_names)
+        call metadata_read_names(h, MIO_DATA_CELL, meta%cell_data_names)
+        call metadata_read_names(h, MIO_DATA_FIELD, meta%field_data_names)
+
+        nsteps = c_mio_read_metadata_num_time_values(h)
+        if (nsteps < 0) nsteps = 0
+        allocate (meta%time_values(nsteps))
+        if (nsteps > 0) n = c_mio_read_metadata_time_values(h, meta%time_values, nsteps)
+
+        nregions = c_mio_read_metadata_num_regions(h)
+        if (nregions < 0) nregions = 0
+        allocate (meta%regions(nregions))
+        do i = 1, nregions
+            s = c_mio_read_metadata_region_info(h, i - 1_c_int64_t, rinfo)
+            if (s /= 0) cycle
+            meta%regions(i)%kind = rinfo%kind
+            meta%regions(i)%dim = rinfo%dim
+            meta%regions(i)%tag = rinfo%tag
+            meta%regions(i)%num_entries = rinfo%num_entries
+            n = c_mio_read_metadata_region_name(h, i - 1_c_int64_t, buf, &
+                                                int(STRBUF_LEN, c_int64_t))
+            if (n > 0) meta%regions(i)%name = from_c_buf(buf, min(int(n), STRBUF_LEN - 1))
+        end do
+
+        call c_mio_read_metadata_free(h)
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Fill `names` with the data-array names at `location`.
+    subroutine metadata_read_names(h, location, names)
+        type(c_ptr), intent(in) :: h
+        integer(c_int), intent(in) :: location
+        character(len=STRBUF_LEN), allocatable, intent(out) :: names(:)
+        character(kind=c_char) :: buf(STRBUF_LEN)
+        integer(c_int64_t) :: count, i, n
+        count = c_mio_read_metadata_num_names(h, location)
+        if (count < 0) count = 0
+        allocate (names(count))
+        do i = 1, count
+            names(i) = ''
+            n = c_mio_read_metadata_name(h, location, i - 1_c_int64_t, buf, &
+                                          int(STRBUF_LEN, c_int64_t))
+            if (n > 0) names(i) = from_c_buf(buf, min(int(n), STRBUF_LEN - 1))
+        end do
+    end subroutine
+
+    !> Write the mesh to a file.
+    subroutine mesh_write(self, path, format, stat, errmsg)
+        class(mio_mesh), intent(in) :: self
+        character(*), intent(in) :: path
+        character(*), intent(in), optional :: format
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        character(:), allocatable :: fmt
+        fmt = ''; if (present(format)) fmt = format
+        call handle_status(c_mio_write(c_str(path), self%handle, c_str(fmt)), 'write', &
+                           stat, errmsg)
+    end subroutine
+
+    !> Extract the boundary of the mesh's highest-dimension cells as a new mesh
+    !> (volume -> faces, surface -> edges).
+    function mesh_extract_surface(self, record_parent_ids, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        logical, intent(in), optional :: record_parent_ids
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        integer(c_int) :: rec
+        rec = 0
+        if (present(record_parent_ids)) then
+            if (record_parent_ids) rec = 1
+        end if
+        out%handle = c_mio_extract_surface(self%handle, rec)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('extract_surface', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Extract the boundary skin of a volume mesh as a new surface mesh.
+    function mesh_extract_skin(self, linearize, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        logical, intent(in), optional :: linearize
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        integer(c_int) :: lin
+        lin = 0
+        if (present(linearize)) then
+            if (linearize) lin = 1
+        end if
+        out%handle = c_mio_extract_skin(self%handle, lin)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('extract_skin', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
+    !> A copy of the mesh with per-cell quality metrics attached as cell_data.
+    function mesh_attach_quality(self, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        out%handle = c_mio_attach_quality(self%handle)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('attach_quality', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Aggregate quality counts (total / inverted / degenerate cells).
+    subroutine mesh_quality_counts(self, num_cells, num_inverted, num_degenerate, stat, errmsg)
+        class(mio_mesh), intent(in) :: self
+        integer(int64), intent(out), optional :: num_cells, num_inverted, num_degenerate
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        integer(c_int64_t) :: nc, ninv, ndeg
+        if (c_mio_quality_counts(self%handle, nc, ninv, ndeg) /= 0_c_int) then
+            call handle_failure('quality_counts', mio_error_message(), stat, errmsg)
+            return
+        end if
+        if (present(num_cells)) num_cells = nc
+        if (present(num_inverted)) num_inverted = ninv
+        if (present(num_degenerate)) num_degenerate = ndeg
+        call clear_status(stat, errmsg)
+    end subroutine
+
+    !> Merge two or more meshes into one (concatenate, with optional welding of
+    !> coincident nodes within `atol`). `data_policy` is "intersection" (default)
+    !> or "fill". point_sets/cell_sets are not carried across the C ABI.
+    function mio_merge(meshes, weld, atol, source_tag, data_policy, &
+                       drop_duplicate_cells, stat, errmsg) result(out)
+        type(mio_mesh), intent(in) :: meshes(:)
+        logical, intent(in), optional :: weld, source_tag, drop_duplicate_cells
+        real(real64), intent(in), optional :: atol
+        character(*), intent(in), optional :: data_policy
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        type(c_ptr), allocatable :: handles(:)
+        integer(c_int) :: cweld, csrc, cpolicy, cdrop
+        real(c_double) :: catol
+        integer :: i, n
+        n = size(meshes)
+        allocate (handles(max(n, 1)))
+        do i = 1, n
+            handles(i) = meshes(i)%handle
+        end do
+        cweld = 0
+        if (present(weld)) then
+            if (weld) cweld = 1
+        end if
+        csrc = 1
+        if (present(source_tag)) then
+            if (.not. source_tag) csrc = 0
+        end if
+        cdrop = 0
+        if (present(drop_duplicate_cells)) then
+            if (drop_duplicate_cells) cdrop = 1
+        end if
+        cpolicy = 0
+        if (present(data_policy)) then
+            if (data_policy == 'fill') cpolicy = 1
+        end if
+        catol = 1.0e-8_c_double
+        if (present(atol)) catol = real(atol, c_double)
+        out%handle = c_mio_merge(handles, int(n, c_int64_t), cweld, catol, csrc, cpolicy, cdrop)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('merge', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Sample data arrays from `source` onto `target` (cross-mesh field
+    !> transfer): source point_data at the target's points, source cell_data by
+    !> nearest source-cell centroid regardless of the method. `method` is
+    !> 'nearest' (default) or 'barycentric' (linear in a simplexified source;
+    !> a target point outside the source domain receives `default_value`
+    !> unless `extrapolate`). `arrays` omitted or zero-sized means every source
+    !> point_data array; cell_data transfers only when named. `on_conflict` is
+    !> 'error' (default), 'overwrite' or 'suffix' (name + '_interp').
+    function mio_interpolate(source, target, method, arrays, extrapolate, &
+                             default_value, on_conflict, stat, errmsg) result(out)
+        type(mio_mesh), intent(in) :: source, target
+        character(*), intent(in), optional :: method, on_conflict
+        character(*), intent(in), optional :: arrays(:)
+        logical, intent(in), optional :: extrapolate
+        real(real64), intent(in), optional :: default_value
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        character(kind=c_char), allocatable, target :: storage(:, :)
+        type(c_ptr), allocatable, target :: cptrs(:)
+        type(c_ptr) :: arr
+        integer(c_int64_t) :: count
+        integer(c_int) :: cextrap
+        real(c_double) :: cdefault
+        character(:), allocatable :: cmethod, cconflict
+        cmethod = 'nearest'
+        if (present(method)) cmethod = trim(method)
+        cconflict = 'error'
+        if (present(on_conflict)) cconflict = trim(on_conflict)
+        cextrap = 0
+        if (present(extrapolate)) then
+            if (extrapolate) cextrap = 1
+        end if
+        cdefault = 0.0_c_double
+        if (present(default_value)) cdefault = real(default_value, c_double)
+        if (present(arrays)) then
+            call c_str_array(arrays, storage, cptrs, arr, count)
+        else
+            arr = c_null_ptr
+            count = 0_c_int64_t
+        end if
+        out%handle = c_mio_interpolate(source%handle, target%handle, c_str(cmethod), arr, &
+                                       count, cextrap, cdefault, c_str(cconflict))
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('interpolate', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Renumber the mesh (method: "rcm", "morton", or "hilbert") as a pure
+    !> permutation. Returns the renumbered mesh; the optional `node_perm`
+    !> receives the node permutation (1-based old index -> 1-based new index).
+    function mesh_reorder(self, method, node_perm, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        character(*), intent(in) :: method
+        integer(int64), allocatable, intent(out), optional :: node_perm(:)
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        type(c_ptr) :: res, cdata
+        integer(c_int) :: s, dt
+        integer(c_int64_t) :: nlen
+        integer(c_int64_t), pointer :: fp(:)
+        res = c_mio_reorder(self%handle, c_str(method))
+        if (.not. c_associated(res)) then
+            call handle_failure('reorder', mio_error_message(), stat, errmsg)
+            return
+        end if
+        if (present(node_perm)) then
+            s = c_mio_reorder_result_node_perm(res, cdata, dt, nlen)
+            if (s /= 0_c_int) then
+                call c_mio_reorder_result_free(res)
+                call handle_failure('reorder', mio_error_message(), stat, errmsg)
+                return
+            end if
+            allocate (node_perm(nlen))
+            if (nlen > 0) then
+                call c_f_pointer(cdata, fp, [nlen])
+                node_perm = int(fp, int64) + 1_int64  ! 0-based new id -> 1-based
+            end if
+        end if
+        out%handle = c_mio_reorder_result_take_mesh(res)
+        call c_mio_reorder_result_free(res)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('reorder', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Apply an affine transform to the mesh's point coordinates. `matrix` is a
+    !> row-major 4x4 affine matrix flattened to 16 doubles (point p maps to
+    !> M * [p, 1]). `rotate_vector_data` (default .false.) rotates vector/tensor
+    !> point_data by the transform's linear part. Returns the transformed mesh.
+    function mesh_transform(self, matrix, rotate_vector_data, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        real(real64), intent(in) :: matrix(16)
+        logical, intent(in), optional :: rotate_vector_data
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        real(c_double) :: cmat(16)
+        integer(c_int) :: crot
+        cmat = real(matrix, c_double)
+        crot = 0
+        if (present(rotate_vector_data)) then
+            if (rotate_vector_data) crot = 1
+        end if
+        out%handle = c_mio_transform(self%handle, cmat, crot)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('transform', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Clean the mesh in one pass (weld / prune / de-dup). Each step is optional;
+    !> defaults: no weld, remove orphans, drop degenerate, drop duplicate cells.
+    !> The optional integer out-args receive the removal counts.
+    function mesh_clean(self, weld, atol, remove_orphans, drop_degenerate, &
+                        drop_duplicate_cells, points_welded, points_removed_orphan, &
+                        cells_dropped_degenerate, cells_dropped_duplicate, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        logical, intent(in), optional :: weld, remove_orphans, drop_degenerate, &
+                                         drop_duplicate_cells
+        real(real64), intent(in), optional :: atol
+        integer(int64), intent(out), optional :: points_welded, points_removed_orphan, &
+                                                 cells_dropped_degenerate, cells_dropped_duplicate
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        integer(c_int) :: cweld, crm, cdeg, cdup
+        real(c_double) :: catol
+        integer(c_int64_t) :: nweld, norph, ndeg, ndup
+        cweld = 0
+        if (present(weld)) then
+            if (weld) cweld = 1
+        end if
+        crm = 1
+        if (present(remove_orphans)) then
+            if (.not. remove_orphans) crm = 0
+        end if
+        cdeg = 1
+        if (present(drop_degenerate)) then
+            if (.not. drop_degenerate) cdeg = 0
+        end if
+        cdup = 1
+        if (present(drop_duplicate_cells)) then
+            if (.not. drop_duplicate_cells) cdup = 0
+        end if
+        catol = 1.0e-8_c_double
+        if (present(atol)) catol = real(atol, c_double)
+        out%handle = c_mio_clean(self%handle, cweld, catol, crm, cdeg, cdup, &
+                                 nweld, norph, ndeg, ndup)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('clean', mio_error_message(), stat, errmsg)
+            return
+        end if
+        if (present(points_welded)) points_welded = int(nweld, int64)
+        if (present(points_removed_orphan)) points_removed_orphan = int(norph, int64)
+        if (present(cells_dropped_degenerate)) cells_dropped_degenerate = int(ndeg, int64)
+        if (present(cells_dropped_duplicate)) cells_dropped_duplicate = int(ndup, int64)
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Smooth the mesh's point coordinates, leaving topology and data intact.
+    !> `method` is "laplacian" or "taubin"; `iterations` is the pass count (for
+    !> taubin one iteration is two passes). A negative `lambda` — the default —
+    !> means "this method's own default" (0.5 laplacian, 0.33 taubin). The
+    !> optional out-args receive the run summary. The caller pin mask (mFrozen)
+    !> is not exposed across the C ABI.
+    function mesh_smooth(self, method, iterations, lambda, mu, fix_boundary, preserve_features, &
+                         feature_angle, guard_inversion, nodes_moved, max_displacement, &
+                         skipped_inversion, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        character(*), intent(in) :: method
+        integer, intent(in) :: iterations
+        real(real64), intent(in), optional :: lambda, mu, feature_angle
+        logical, intent(in), optional :: fix_boundary, preserve_features, guard_inversion
+        integer(int64), intent(out), optional :: nodes_moved, skipped_inversion
+        real(real64), intent(out), optional :: max_displacement
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        integer(c_int) :: cfixb, cfeat, cguard
+        real(c_double) :: clambda, cmu, cangle
+        integer(c_int64_t) :: nmoved, nskip
+        real(c_double) :: maxdisp
+        clambda = -1.0_c_double  ! negative = this method's own default
+        if (present(lambda)) clambda = real(lambda, c_double)
+        cmu = -0.34_c_double
+        if (present(mu)) cmu = real(mu, c_double)
+        cangle = 30.0_c_double
+        if (present(feature_angle)) cangle = real(feature_angle, c_double)
+        cfixb = 1
+        if (present(fix_boundary)) then
+            if (.not. fix_boundary) cfixb = 0
+        end if
+        cfeat = 1
+        if (present(preserve_features)) then
+            if (.not. preserve_features) cfeat = 0
+        end if
+        cguard = 1
+        if (present(guard_inversion)) then
+            if (.not. guard_inversion) cguard = 0
+        end if
+        out%handle = c_mio_smooth(self%handle, c_str(method), int(iterations, c_int), &
+                                  clambda, cmu, cfixb, cfeat, cangle, cguard, &
+                                  nmoved, maxdisp, nskip)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('smooth', mio_error_message(), stat, errmsg)
+            return
+        end if
+        if (present(nodes_moved)) nodes_moved = int(nmoved, int64)
+        if (present(max_displacement)) max_displacement = real(maxdisp, real64)
+        if (present(skipped_inversion)) skipped_inversion = int(nskip, int64)
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Crop the mesh to an axis-aligned bounding box. `lo`/`hi` are the box
+    !> corners (3 each). `mode` is "all" (default) or "any". Returns the crop.
+    function mesh_crop_bbox(self, lo, hi, mode, record_ids, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        real(real64), intent(in) :: lo(3), hi(3)
+        character(*), intent(in), optional :: mode
+        logical, intent(in), optional :: record_ids
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        integer(c_int) :: cmode, crec
+        cmode = 0
+        if (present(mode)) then
+            if (mode == 'any') cmode = 1
+        end if
+        crec = 0
+        if (present(record_ids)) then
+            if (record_ids) crec = 1
+        end if
+        out%handle = c_mio_crop_bbox(self%handle, real(lo, c_double), real(hi, c_double), &
+                                     cmode, crec)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('crop_bbox', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Crop the mesh to the half-space (p - point) . normal >= 0. `mode` is
+    !> "all" (default) or "any". Returns the crop.
+    function mesh_crop_plane(self, point, normal, mode, record_ids, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        real(real64), intent(in) :: point(3), normal(3)
+        character(*), intent(in), optional :: mode
+        logical, intent(in), optional :: record_ids
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        integer(c_int) :: cmode, crec
+        cmode = 0
+        if (present(mode)) then
+            if (mode == 'any') cmode = 1
+        end if
+        crec = 0
+        if (present(record_ids)) then
+            if (record_ids) crec = 1
+        end if
+        out%handle = c_mio_crop_plane(self%handle, real(point, c_double), &
+                                      real(normal, c_double), cmode, crec)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('crop_plane', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Planar cross-section of the mesh: the intersection with the plane through
+    !> `origin` with `normal`, one topological dimension below the cut cells (a
+    !> volume mesh -> a triangle/quad surface, a 2D surface -> a line mesh). The
+    !> input is simplexified first (marching tetrahedra); shared cut points are
+    !> deduped so the section is watertight. `record_parent_ids` (default
+    !> .false.) attaches a slice:parent_cell cell_data array.
+    function mesh_slice(self, origin, normal, record_parent_ids, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        real(real64), intent(in) :: origin(3), normal(3)
+        logical, intent(in), optional :: record_parent_ids
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        integer(c_int) :: crec
+        crec = 0
+        if (present(record_parent_ids)) then
+            if (record_parent_ids) crec = 1
+        end if
+        out%handle = c_mio_slice(self%handle, real(origin, c_double), &
+                                 real(normal, c_double), crec)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('slice', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Isosurfaces / contours: the level set of the scalar point_data array
+    !> `array` at each of `isovalues`, one topological dimension below the cut
+    !> cells (a volume mesh -> a triangle/quad surface, a 2D surface -> a line
+    !> mesh). The data-driven sibling of `slice`, sharing its marching-tetrahedra
+    !> cutter, so contours are watertight; faces are wound toward increasing
+    !> field. `array` must be point_data -- cell_data is piecewise constant and
+    !> has no level set (convert it with data_cell_to_point first). All contours
+    !> land in the one result, tagged per cell with a Float64 iso:value and an
+    !> Int64 iso:index (the ordinal, which is the integer tag `split` needs).
+    !> `component` (default -1) picks a component of a multi-component array,
+    !> negative meaning the row magnitude. `record_parent_ids` (default .false.)
+    !> attaches an iso:parent_cell cell_data array.
+    function mesh_isosurface(self, array, isovalues, component, record_parent_ids, &
+                             stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        character(*), intent(in) :: array
+        real(real64), intent(in) :: isovalues(:)
+        integer, intent(in), optional :: component
+        logical, intent(in), optional :: record_parent_ids
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        integer(c_int) :: ccomp, crec
+        ccomp = -1_c_int
+        if (present(component)) ccomp = int(component, c_int)
+        crec = 0
+        if (present(record_parent_ids)) then
+            if (record_parent_ids) crec = 1
+        end if
+        out%handle = c_mio_isosurface(self%handle, c_str(array), &
+                                      real(isovalues, c_double), &
+                                      int(size(isovalues), c_int), ccomp, crec)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('isosurface', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Differentiate a point_data field: its gradient, divergence or curl.
+    !>
+    !> `op` is "gradient" (default), "divergence" or "curl"; `method` is
+    !> "green-gauss" (default) or "least-squares"; `location` is "cell"
+    !> (default) or "point". The result is named `<array>:<op>` unless `output`
+    !> overrides it. A gradient of an nc-component field has 3*nc components
+    !> laid out [component][derivative]; divergence gives 1 and curl 3, both
+    !> needing a 2- or 3-component field. `component` (default -1 = every
+    !> component -- note this is the OPPOSITE of `isosurface`, where negative
+    !> means the row magnitude) selects one component of the gradient.
+    !>
+    !> Cells that cannot be differentiated yield NaN and are reported in
+    !> `num_skipped`; least-squares cells with a degenerate neighbourhood fall
+    !> back to Green-Gauss and are reported in `num_fallback`.
+    function mesh_gradient(self, array, op, method, location, output, component, &
+                           overwrite, num_skipped, num_fallback, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        character(*), intent(in) :: array
+        character(*), intent(in), optional :: op, method, location, output
+        integer, intent(in), optional :: component
+        logical, intent(in), optional :: overwrite
+        integer(int64), intent(out), optional :: num_skipped, num_fallback
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        integer(c_int) :: ccomp, cover
+        integer(c_int64_t) :: nskip, nfall
+        character(:), allocatable :: cop, cmethod, cloc, cout
+        cop = ''
+        if (present(op)) cop = op
+        cmethod = ''
+        if (present(method)) cmethod = method
+        cloc = 'cell'
+        if (present(location)) cloc = location
+        cout = ''
+        if (present(output)) cout = output
+        ccomp = -1_c_int
+        if (present(component)) ccomp = int(component, c_int)
+        cover = 0
+        if (present(overwrite)) then
+            if (overwrite) cover = 1
+        end if
+        nskip = 0
+        nfall = 0
+        out%handle = c_mio_gradient(self%handle, c_str(array), c_str(cop), c_str(cmethod), &
+                                    c_str(cloc), c_str(cout), ccomp, cover, nskip, nfall)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('gradient', mio_error_message(), stat, errmsg)
+            return
+        end if
+        if (present(num_skipped)) num_skipped = int(nskip, int64)
+        if (present(num_fallback)) num_fallback = int(nfall, int64)
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Convert the element representation of the mesh. `mode` is "linearize"
+    !> (higher-order cells -> their linear base, pruning the orphaned nodes),
+    !> "simplexify" (decompose into same-dimension simplices), or "elevate"
+    !> (linear -> serendipity quadratic, adding one node per unique edge).
+    !> `record_parent_ids` (default .false.) attaches a convert:parent_cell
+    !> cell_data array. The optional `point_map` receives the input-point ->
+    !> output-point mapping, 1-based, or 0 where the point was pruned.
+    function mesh_convert_cells(self, mode, record_parent_ids, point_map, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        character(*), intent(in) :: mode
+        logical, intent(in), optional :: record_parent_ids
+        integer(int64), allocatable, intent(out), optional :: point_map(:)
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        type(c_ptr) :: res, cdata
+        integer(c_int) :: crec, s, dt
+        integer(c_int64_t) :: nlen
+        integer(c_int64_t), pointer :: fp(:)
+        crec = 0
+        if (present(record_parent_ids)) then
+            if (record_parent_ids) crec = 1
+        end if
+        res = c_mio_convert_cells(self%handle, c_str(mode), crec)
+        if (.not. c_associated(res)) then
+            call handle_failure('convert_cells', mio_error_message(), stat, errmsg)
+            return
+        end if
+        if (present(point_map)) then
+            s = c_mio_convert_cells_result_point_map(res, cdata, dt, nlen)
+            if (s /= 0_c_int) then
+                call c_mio_convert_cells_result_free(res)
+                call handle_failure('convert_cells', mio_error_message(), stat, errmsg)
+                return
+            end if
+            allocate (point_map(nlen))
+            if (nlen > 0) then
+                call c_f_pointer(cdata, fp, [nlen])
+                point_map = int(fp, int64) + 1_int64  ! 0-based (-1 = pruned) -> 1-based (0 = pruned)
+            end if
+        end if
+        out%handle = c_mio_convert_cells_result_take_mesh(res)
+        call c_mio_convert_cells_result_free(res)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('convert_cells', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Uniformly refine the mesh, subdividing every cell into same-type children
+    !> (line -> 2, triangle -> 4, quad -> 4, tetra -> 8, wedge -> 8,
+    !> hexahedron -> 8). New nodes sit at edge / quad-face / body midpoints and
+    !> are shared between neighbouring cells, so the result has no hanging
+    !> nodes. `levels` (default 1) applies the templates repeatedly; 0 or less
+    !> returns an unchanged copy. `record_parent_ids` (default .false.) attaches
+    !> a refine:parent_cell cell_data array naming each output cell's ORIGINAL
+    !> ancestor. The optional `point_map` receives the input-point ->
+    !> output-point mapping, 1-based (the identity: refinement never prunes).
+    !> Higher-order cells, pyramids and ragged blocks have no same-type
+    !> subdivision and fail.
+    !> The `mio_refine_compare` code for an operator spelling, or -1 if unknown.
+    function refine_compare_code(op) result(code)
+        character(*), intent(in) :: op
+        integer(c_int32_t) :: code
+        select case (trim(op))
+        case ('<', 'lt'); code = 0
+        case ('<=', 'le'); code = 1
+        case ('>', 'gt'); code = 2
+        case ('>=', 'ge'); code = 3
+        case ('==', '=', 'eq'); code = 4
+        case ('/=', '!=', 'ne'); code = 5
+        case default; code = -1
+        end select
+    end function
+
+    !> The `mio_refine_closure` code for a closure name, or -1 if unknown.
+    function refine_closure_code(name) result(code)
+        character(*), intent(in) :: name
+        integer(c_int32_t) :: code
+        select case (trim(name))
+        case ('', 'redgreen', 'red-green', 'green'); code = 0
+        case ('propagate', 'red'); code = 1
+        case ('balanced', '2:1'); code = 2
+        case default; code = -1
+        end select
+    end function
+
+    function mesh_refine(self, levels, record_parent_ids, point_map, stat, errmsg, &
+                         cells, region, where_array, where_op, where_value, closure, &
+                         record_levels) result(out)
+        class(mio_mesh), intent(in) :: self
+        integer, intent(in), optional :: levels
+        logical, intent(in), optional :: record_parent_ids
+        integer(int64), allocatable, intent(out), optional :: point_map(:)
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        !> Global (block-major) 1-BASED indices of the cells to refine. Shifted
+        !> to the C API's 0-based numbering inside.
+        integer(int64), intent(in), optional :: cells(:)
+        !> Name of a region to refine. A cell region selects its own cells; a
+        !> point region selects every cell with ANY node in it; a side region is
+        !> an error. At most one of cells/region/where_array may be given.
+        character(*), intent(in), optional :: region
+        !> Name of a scalar cell_data array to threshold, with `where_op` one of
+        !> '<', '<=', '>', '>=', '==', '!='. A non-finite value never matches.
+        character(*), intent(in), optional :: where_array
+        character(*), intent(in), optional :: where_op
+        real(real64), intent(in), optional :: where_value
+        !> 'redgreen' (default, local, conforming), 'propagate' (conforming but
+        !> spreads to the whole edge-connected component) or 'balanced' (keeps
+        !> the hanging nodes and only enforces 2:1 balance -- NOT conforming).
+        character(*), intent(in), optional :: closure
+        !> Attach the refine:level cell_data array.
+        logical, intent(in), optional :: record_levels
+        type(mio_mesh) :: out
+        type(c_ptr) :: res, cdata
+        integer(c_int) :: s, dt
+        integer(c_int64_t) :: nlen
+        integer(c_int64_t), pointer :: fp(:)
+        type(mio_refine_opts_t) :: opts
+        ! NUL-terminated copies must outlive the call, so they are held here
+        ! rather than built inline; c_loc needs them contiguous and TARGET.
+        character(kind=c_char, len=STRBUF_LEN), target :: region_buf, array_buf
+        integer(c_int64_t), allocatable, target :: cell_ids(:)
+
+        call c_mio_refine_opts_init(opts)
+        if (present(levels)) opts%levels = int(levels, c_int32_t)
+        if (present(record_parent_ids)) then
+            if (record_parent_ids) opts%record_parent_ids = 1
+        end if
+        if (present(record_levels)) then
+            if (record_levels) opts%record_levels = 1
+        end if
+        if (present(cells)) then
+            allocate (cell_ids(max(size(cells), 1)))
+            cell_ids = 0_c_int64_t
+            if (size(cells) > 0) cell_ids(1:size(cells)) = int(cells, c_int64_t) - 1_c_int64_t
+            opts%cells = c_loc(cell_ids(1))
+            opts%num_cells = int(size(cells), c_int64_t)
+        end if
+        if (present(region)) then
+            region_buf = trim(region)//c_null_char
+            opts%region = c_loc(region_buf(1:1))
+        end if
+        if (present(where_array)) then
+            array_buf = trim(where_array)//c_null_char
+            opts%predicate_array = c_loc(array_buf(1:1))
+        end if
+        if (present(where_value)) opts%predicate_value = real(where_value, c_double)
+        if (present(where_op)) then
+            opts%predicate_op = refine_compare_code(where_op)
+            if (opts%predicate_op < 0) then
+                call handle_failure('refine', "unknown comparison '"//trim(where_op)//"'", &
+                                    stat, errmsg)
+                return
+            end if
+        end if
+        if (present(closure)) then
+            opts%closure = refine_closure_code(closure)
+            if (opts%closure < 0) then
+                call handle_failure('refine', "unknown closure '"//trim(closure)//"'", &
+                                    stat, errmsg)
+                return
+            end if
+        end if
+
+        res = c_mio_refine_ex(self%handle, opts)
+        if (.not. c_associated(res)) then
+            call handle_failure('refine', mio_error_message(), stat, errmsg)
+            return
+        end if
+        if (present(point_map)) then
+            s = c_mio_refine_result_point_map(res, cdata, dt, nlen)
+            if (s /= 0_c_int) then
+                call c_mio_refine_result_free(res)
+                call handle_failure('refine', mio_error_message(), stat, errmsg)
+                return
+            end if
+            allocate (point_map(nlen))
+            if (nlen > 0) then
+                call c_f_pointer(cdata, fp, [nlen])
+                point_map = int(fp, int64) + 1_int64  ! 0-based -> 1-based
+            end if
+        end if
+        out%handle = c_mio_refine_result_take_mesh(res)
+        call c_mio_refine_result_free(res)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('refine', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Decimate a SURFACE mesh by quadric-error-metric edge collapse — the
+    !> resolution-reducing inverse of refine. Exactly one of `ratio`,
+    !> `target_faces`, `max_error` must be given. The output is all-triangle;
+    !> boundary and feature vertices are pinned by default. The optional
+    !> `point_map` receives, 1-based, each input point's surviving output index
+    !> (0 when the survivor itself was pruned).
+    function mesh_decimate(self, ratio, target_faces, max_error, placement, &
+                           preserve_boundary, preserve_features, feature_angle, &
+                           faces_removed, points_removed, collapses_rejected, &
+                           max_error_applied, point_map, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        real(real64), intent(in), optional :: ratio
+        integer(int64), intent(in), optional :: target_faces
+        real(real64), intent(in), optional :: max_error
+        character(*), intent(in), optional :: placement
+        logical, intent(in), optional :: preserve_boundary
+        logical, intent(in), optional :: preserve_features
+        real(real64), intent(in), optional :: feature_angle
+        integer(int64), intent(out), optional :: faces_removed
+        integer(int64), intent(out), optional :: points_removed
+        integer(int64), intent(out), optional :: collapses_rejected
+        real(real64), intent(out), optional :: max_error_applied
+        integer(int64), allocatable, intent(out), optional :: point_map(:)
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        type(c_ptr) :: res, cdata
+        real(c_double) :: cratio, cerror, cangle
+        integer(c_int64_t) :: cfaces, nlen
+        integer(c_int) :: cpb, cpf, s, dt
+        integer(c_int64_t), pointer :: fp(:)
+        character(:), allocatable :: cplacement
+        cratio = -1.0_c_double
+        if (present(ratio)) cratio = real(ratio, c_double)
+        cfaces = -1_c_int64_t
+        if (present(target_faces)) cfaces = int(target_faces, c_int64_t)
+        cerror = -1.0_c_double
+        if (present(max_error)) cerror = real(max_error, c_double)
+        cplacement = 'optimal'
+        if (present(placement)) cplacement = placement
+        cpb = 1
+        if (present(preserve_boundary)) then
+            if (.not. preserve_boundary) cpb = 0
+        end if
+        cpf = 1
+        if (present(preserve_features)) then
+            if (.not. preserve_features) cpf = 0
+        end if
+        cangle = 30.0_c_double
+        if (present(feature_angle)) cangle = real(feature_angle, c_double)
+        res = c_mio_decimate(self%handle, cratio, cfaces, cerror, c_str(cplacement), &
+                             cpb, cpf, cangle)
+        if (.not. c_associated(res)) then
+            call handle_failure('decimate', mio_error_message(), stat, errmsg)
+            return
+        end if
+        if (present(faces_removed)) faces_removed = int(c_mio_decimate_result_faces_removed(res), int64)
+        if (present(points_removed)) points_removed = int(c_mio_decimate_result_points_removed(res), int64)
+        if (present(collapses_rejected)) then
+            collapses_rejected = int(c_mio_decimate_result_collapses_rejected(res), int64)
+        end if
+        if (present(max_error_applied)) then
+            max_error_applied = real(c_mio_decimate_result_max_error_applied(res), real64)
+        end if
+        if (present(point_map)) then
+            s = c_mio_decimate_result_point_map(res, cdata, dt, nlen)
+            if (s /= 0_c_int) then
+                call c_mio_decimate_result_free(res)
+                call handle_failure('decimate', mio_error_message(), stat, errmsg)
+                return
+            end if
+            allocate (point_map(nlen))
+            if (nlen > 0) then
+                call c_f_pointer(cdata, fp, [nlen])
+                point_map = int(fp, int64) + 1_int64  ! 0-based -> 1-based
+            end if
+        end if
+        out%handle = c_mio_decimate_result_take_mesh(res)
+        call c_mio_decimate_result_free(res)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('decimate', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Split the mesh into pieces by "type", "component", or "region"/"tag".
+    !> Returns an array of meshes (one per piece); the optional `keys` array
+    !> receives each piece's key. For "region"/"tag", `tag_name` selects the
+    !> integer cell_data to split on (default: first integer cell_data).
+    function mesh_split(self, by, tag_name, keys, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        character(*), intent(in) :: by
+        character(*), intent(in), optional :: tag_name
+        character(len=STRBUF_LEN), allocatable, intent(out), optional :: keys(:)
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh), allocatable :: out(:)
+        type(c_ptr) :: res
+        integer(c_int64_t) :: count, i, n
+        character(kind=c_char) :: buf(STRBUF_LEN)
+        character(len=:), allocatable :: tag
+        tag = ''
+        if (present(tag_name)) tag = tag_name
+        res = c_mio_split(self%handle, c_str(by), c_str(tag))
+        if (.not. c_associated(res)) then
+            call handle_failure('split', mio_error_message(), stat, errmsg)
+            allocate (out(0))
+            return
+        end if
+        count = c_mio_split_result_count(res)
+        allocate (out(count))
+        if (present(keys)) allocate (keys(count))
+        do i = 1, count
+            out(i)%handle = c_mio_split_result_take_mesh(res, i - 1_c_int64_t)
+            if (present(keys)) then
+                n = c_mio_split_result_key(res, i - 1_c_int64_t, buf, int(STRBUF_LEN, c_int64_t))
+                keys(i) = ''
+                if (n > 0) keys(i) = from_c_buf(buf, min(int(n), STRBUF_LEN - 1))
+            end if
+        end do
+        call c_mio_split_result_free(res)
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Decompose the mesh into exactly `nparts` balanced pieces (the
+    !> count-driven complement to `split`). method: "sfc" (Hilbert curve cut,
+    !> always available), "kahip" (needs a KaHIP-enabled build; fails by name
+    !> otherwise), or "auto" (default: kahip when built, else sfc). Every piece
+    !> keeps the input's cell-block structure 1:1, so the pieces recombine into
+    !> the input. `weights_key` names a scalar cell_data array of per-cell
+    !> weights. `ghost_layers` > 0 grows each piece by that many shared-node
+    !> BFS layers of other parts' cells (a halo), tagged `partition:ghost`.
+    function mesh_partition(self, nparts, method, imbalance, mode, seed, record_ids, &
+                            ghost_layers, weights_key, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        integer, intent(in) :: nparts
+        character(*), intent(in), optional :: method
+        real(real64), intent(in), optional :: imbalance
+        character(*), intent(in), optional :: mode
+        integer, intent(in), optional :: seed
+        logical, intent(in), optional :: record_ids
+        integer, intent(in), optional :: ghost_layers
+        character(*), intent(in), optional :: weights_key
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh), allocatable :: out(:)
+        type(c_ptr) :: res
+        integer(c_int64_t) :: count, i
+        character(len=:), allocatable :: cmethod, cmode, cweights
+        real(c_double) :: cimb
+        integer(c_int) :: cseed, crec, cghost
+        cmethod = 'auto'
+        if (present(method)) cmethod = method
+        cimb = 0.03_c_double
+        if (present(imbalance)) cimb = real(imbalance, c_double)
+        cmode = 'eco'
+        if (present(mode)) cmode = mode
+        cseed = 0_c_int
+        if (present(seed)) cseed = int(seed, c_int)
+        crec = 0_c_int
+        if (present(record_ids)) then
+            if (record_ids) crec = 1_c_int
+        end if
+        cghost = 0_c_int
+        if (present(ghost_layers)) cghost = int(ghost_layers, c_int)
+        cweights = ''
+        if (present(weights_key)) cweights = weights_key
+        res = c_mio_partition(self%handle, int(nparts, c_int), c_str(cmethod), cimb, &
+                              c_str(cmode), cseed, crec, cghost, c_str(cweights))
+        if (.not. c_associated(res)) then
+            call handle_failure('partition', mio_error_message(), stat, errmsg)
+            allocate (out(0))
+            return
+        end if
+        count = c_mio_partition_result_num_pieces(res)
+        allocate (out(count))
+        do i = 1, count
+            out(i)%handle = c_mio_partition_result_take_mesh(res, i - 1_c_int64_t)
+        end do
+        call c_mio_partition_result_free(res)
+        call clear_status(stat, errmsg)
+    end function
+
+    !> The per-cell part assignment only: a flat block-major Int64 array (the
+    !> mesh's cell blocks concatenated in order), values in [0, nparts). The
+    !> values are part ids, not indices -- no 1-based shift applies.
+    function mesh_partition_labels(self, nparts, method, imbalance, mode, seed, &
+                                   weights_key, stat, errmsg) result(labels)
+        class(mio_mesh), intent(in) :: self
+        integer, intent(in) :: nparts
+        character(*), intent(in), optional :: method
+        real(real64), intent(in), optional :: imbalance
+        character(*), intent(in), optional :: mode
+        integer, intent(in), optional :: seed
+        character(*), intent(in), optional :: weights_key
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        integer(int64), allocatable :: labels(:)
+        character(len=:), allocatable :: cmethod, cmode, cweights
+        real(c_double) :: cimb
+        integer(c_int) :: cseed, s
+        integer(c_int64_t) :: total, b
+        integer(c_int64_t), allocatable :: buf(:)
+        cmethod = 'auto'
+        if (present(method)) cmethod = method
+        cimb = 0.03_c_double
+        if (present(imbalance)) cimb = real(imbalance, c_double)
+        cmode = 'eco'
+        if (present(mode)) cmode = mode
+        cseed = 0_c_int
+        if (present(seed)) cseed = int(seed, c_int)
+        cweights = ''
+        if (present(weights_key)) cweights = weights_key
+        total = 0_c_int64_t
+        do b = 1, self%num_cell_blocks()
+            total = total + self%cell_block_num_cells(int(b))
+        end do
+        allocate (buf(max(total, 1_c_int64_t)))
+        s = c_mio_partition_labels(self%handle, int(nparts, c_int), c_str(cmethod), cimb, &
+                                   c_str(cmode), cseed, c_str(cweights), buf, total)
+        if (s /= 0_c_int) then
+            call handle_failure('partition_labels', mio_error_message(), stat, errmsg)
+            allocate (labels(0))
+            return
+        end if
+        allocate (labels(total))
+        if (total > 0) labels = int(buf(1:total), int64)
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Geometric statistics of the mesh (bbox / centroid / area / volume /
+    !> inverted count). Per-cell-type counts are not carried across the C ABI.
+    function mesh_stats(self, stat, errmsg) result(rep)
+        class(mio_mesh), intent(in) :: self
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_stats_report) :: rep
+        integer(c_int) :: s
+        s = c_mio_stats(self%handle, rep)
+        if (s /= 0_c_int) then
+            call handle_failure('stats', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
+    ! ------------------------------------------------------------------
+    ! Data operations
+    !
+    ! These act on the mesh's point/cell/field data arrays; the geometry is
+    ! never modified. Each returns a NEW mesh which the caller must free.
+    ! `location` is one of MIO_DATA_POINT / _CELL / _FIELD.
+    ! ------------------------------------------------------------------
+
+    !> Drop the named data arrays at `location`.
+    function mesh_data_drop(self, location, names, ignore_missing, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        integer(c_int), intent(in) :: location
+        character(*), intent(in) :: names(:)
+        logical, intent(in), optional :: ignore_missing
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        character(kind=c_char), allocatable, target :: storage(:, :)
+        type(c_ptr), allocatable, target :: cptrs(:)
+        type(c_ptr) :: arr
+        integer(c_int64_t) :: count
+        integer(c_int) :: cignore
+        cignore = 0
+        if (present(ignore_missing)) then
+            if (ignore_missing) cignore = 1
+        end if
+        call c_str_array(names, storage, cptrs, arr, count)
+        out%handle = c_mio_data_drop(self%handle, location, arr, count, cignore)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('data_drop', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Keep only the named data arrays at `location`, dropping the rest there.
+    !> The other two locations are untouched; a zero-sized `names` drops all.
+    function mesh_data_keep(self, location, names, ignore_missing, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        integer(c_int), intent(in) :: location
+        character(*), intent(in) :: names(:)
+        logical, intent(in), optional :: ignore_missing
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        character(kind=c_char), allocatable, target :: storage(:, :)
+        type(c_ptr), allocatable, target :: cptrs(:)
+        type(c_ptr) :: arr
+        integer(c_int64_t) :: count
+        integer(c_int) :: cignore
+        cignore = 0
+        if (present(ignore_missing)) then
+            if (ignore_missing) cignore = 1
+        end if
+        call c_str_array(names, storage, cptrs, arr, count)
+        out%handle = c_mio_data_keep(self%handle, location, arr, count, cignore)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('data_keep', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Rename one data array, preserving its values, dtype and shape.
+    function mesh_data_rename(self, location, from_name, to_name, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        integer(c_int), intent(in) :: location
+        character(*), intent(in) :: from_name, to_name
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        out%handle = c_mio_data_rename(self%handle, location, c_str(from_name), c_str(to_name))
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('data_rename', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Average point_data onto the cells (mean over each cell's own nodes).
+    !> The output is always double precision. Omit `names` to convert all.
+    function mesh_data_point_to_cell(self, names, suffix, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        character(*), intent(in), optional :: names(:)
+        character(*), intent(in), optional :: suffix
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        character(kind=c_char), allocatable, target :: storage(:, :)
+        type(c_ptr), allocatable, target :: cptrs(:)
+        type(c_ptr) :: arr
+        integer(c_int64_t) :: count
+        character(:), allocatable :: sfx
+        character(len=1) :: empty(0)
+        sfx = ''
+        if (present(suffix)) sfx = suffix
+        if (present(names)) then
+            call c_str_array(names, storage, cptrs, arr, count)
+        else
+            call c_str_array(empty, storage, cptrs, arr, count)
+        end if
+        out%handle = c_mio_data_point_to_cell(self%handle, arr, count, c_str(sfx))
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('data_point_to_cell', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Average cell_data onto the points. `weight` is MIO_WEIGHT_UNIFORM
+    !> (default) or MIO_WEIGHT_MEASURE. Points touched by no cell get NaN.
+    function mesh_data_cell_to_point(self, names, weight, suffix, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        character(*), intent(in), optional :: names(:)
+        integer(c_int), intent(in), optional :: weight
+        character(*), intent(in), optional :: suffix
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        character(kind=c_char), allocatable, target :: storage(:, :)
+        type(c_ptr), allocatable, target :: cptrs(:)
+        type(c_ptr) :: arr
+        integer(c_int64_t) :: count
+        integer(c_int) :: cweight
+        character(:), allocatable :: sfx
+        character(len=1) :: empty(0)
+        cweight = MIO_WEIGHT_UNIFORM
+        if (present(weight)) cweight = weight
+        sfx = ''
+        if (present(suffix)) sfx = suffix
+        if (present(names)) then
+            call c_str_array(names, storage, cptrs, arr, count)
+        else
+            call c_str_array(empty, storage, cptrs, arr, count)
+        end if
+        out%handle = c_mio_data_cell_to_point(self%handle, arr, count, cweight, c_str(sfx))
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('data_cell_to_point', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Evaluate an elementwise expression over the arrays at `location` and
+    !> store the result there as `output_name`. The grammar accepts + - * /,
+    !> unary minus, parentheses, numbers, array names, and the functions abs,
+    !> sqrt, min, max and norm -- nothing else is evaluated.
+    function mesh_data_calc(self, expression, output_name, location, overwrite, &
+                            stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        character(*), intent(in) :: expression, output_name
+        integer(c_int), intent(in), optional :: location
+        logical, intent(in), optional :: overwrite
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        integer(c_int) :: cloc, cover
+        cloc = MIO_DATA_POINT
+        if (present(location)) cloc = location
+        cover = 0
+        if (present(overwrite)) then
+            if (overwrite) cover = 1
+        end if
+        out%handle = c_mio_data_calc(self%handle, c_str(expression), cloc, &
+                                     c_str(output_name), cover)
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('data_calc', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Condition the values of the selected arrays. `mode` is MIO_COND_CLAMP
+    !> (default), _NORMALIZE or _STANDARDIZE; `scope` is MIO_SCOPE_COMPONENT
+    !> (default) or _MAGNITUDE. For cell_data the statistics are computed
+    !> jointly across all cell blocks.
+    function mesh_data_condition(self, location, names, mode, lo, hi, scope, &
+                                 nan_policy, nan_replacement, suffix, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        integer(c_int), intent(in) :: location
+        character(*), intent(in), optional :: names(:)
+        integer(c_int), intent(in), optional :: mode, scope, nan_policy
+        real(real64), intent(in), optional :: lo, hi, nan_replacement
+        character(*), intent(in), optional :: suffix
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_mesh) :: out
+        character(kind=c_char), allocatable, target :: storage(:, :)
+        type(c_ptr), allocatable, target :: cptrs(:)
+        type(c_ptr) :: arr
+        integer(c_int64_t) :: count
+        integer(c_int) :: cmode, cscope, cnan
+        real(c_double) :: clo, chi, crep
+        character(:), allocatable :: sfx
+        character(len=1) :: empty(0)
+        cmode = MIO_COND_CLAMP
+        if (present(mode)) cmode = mode
+        cscope = MIO_SCOPE_COMPONENT
+        if (present(scope)) cscope = scope
+        cnan = MIO_NAN_IGNORE
+        if (present(nan_policy)) cnan = nan_policy
+        clo = 0.0_c_double
+        if (present(lo)) clo = real(lo, c_double)
+        chi = 1.0_c_double
+        if (present(hi)) chi = real(hi, c_double)
+        crep = 0.0_c_double
+        if (present(nan_replacement)) crep = real(nan_replacement, c_double)
+        sfx = ''
+        if (present(suffix)) sfx = suffix
+        if (present(names)) then
+            call c_str_array(names, storage, cptrs, arr, count)
+        else
+            call c_str_array(empty, storage, cptrs, arr, count)
+        end if
+        out%handle = c_mio_data_condition(self%handle, location, arr, count, cmode, clo, chi, &
+                                          cscope, cnan, crep, c_str(sfx))
+        if (.not. c_associated(out%handle)) then
+            call handle_failure('data_condition', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Summarize every data array the mesh carries (read-only). Returns one
+    !> mio_data_array_info per array; pass `keys` to also receive their names.
+    function mesh_data_info(self, keys, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        character(len=STRBUF_LEN), allocatable, intent(out), optional :: keys(:)
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_data_array_info), allocatable :: out(:)
+        type(c_ptr) :: res
+        integer(c_int64_t) :: count, i, n
+        integer(c_int) :: s
+        character(kind=c_char) :: buf(STRBUF_LEN)
+        res = c_mio_data_info_create(self%handle)
+        if (.not. c_associated(res)) then
+            call handle_failure('data_info', mio_error_message(), stat, errmsg)
+            allocate (out(0))
+            return
+        end if
+        count = c_mio_data_info_count(res)
+        if (count < 0) count = 0
+        allocate (out(count))
+        if (present(keys)) allocate (keys(count))
+        do i = 1, count
+            s = c_mio_data_info_entry(res, i - 1_c_int64_t, out(i))
+            if (s /= 0_c_int) then
+                call c_mio_data_info_free(res)
+                call handle_failure('data_info', mio_error_message(), stat, errmsg)
+                return
+            end if
+            if (present(keys)) then
+                n = c_mio_data_info_name(res, i - 1_c_int64_t, buf, int(STRBUF_LEN, c_int64_t))
+                keys(i) = ''
+                if (n > 0) keys(i) = from_c_buf(buf, min(int(n), STRBUF_LEN - 1))
+            end if
+        end do
+        call c_mio_data_info_free(res)
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Named regions: a group of points, cells or cell facets carried by a
+    !> set-capable format (gmsh physical groups, Abaqus NSET / ELSET / SURFACE,
+    !> ...). See doc/regions.md.
+    !>
+    !> `entries` is the flat int64 buffer, `sum(out%num_entries * out%stride)`
+    !> long, with the groups laid out back to back in `out` order. Point and
+    !> cell indices are shifted to Fortran's 1-based convention on the way out;
+    !> the facet column of a side region is **not** shifted, matching the
+    !> `partition_labels` rule that a value which is not an index stays as it is.
+    function mesh_regions(self, keys, entries, stat, errmsg) result(out)
+        class(mio_mesh), intent(in) :: self
+        character(len=STRBUF_LEN), allocatable, intent(out), optional :: keys(:)
+        integer(int64), allocatable, intent(out), optional :: entries(:)
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(mio_region_info), allocatable :: out(:)
+        type(c_ptr) :: res, p
+        integer(c_int64_t) :: count, i, n, nvals, total, off, k
+        integer(c_int) :: s
+        character(kind=c_char) :: buf(STRBUF_LEN)
+        integer(c_int64_t), pointer :: vals(:)
+
+        res = c_mio_regions_create(self%handle)
+        if (.not. c_associated(res)) then
+            call handle_failure('regions', mio_error_message(), stat, errmsg)
+            allocate (out(0))
+            if (present(keys)) allocate (keys(0))
+            if (present(entries)) allocate (entries(0))
+            return
+        end if
+        count = c_mio_regions_count(res)
+        if (count < 0) count = 0
+        allocate (out(count))
+        if (present(keys)) allocate (keys(count))
+
+        total = 0
+        do i = 1, count
+            s = c_mio_regions_info(res, i - 1_c_int64_t, out(i))
+            if (s /= 0_c_int) then
+                call c_mio_regions_free(res)
+                call handle_failure('regions', mio_error_message(), stat, errmsg)
+                return
+            end if
+            total = total + out(i)%num_entries * out(i)%stride
+            if (present(keys)) then
+                n = c_mio_regions_name(res, i - 1_c_int64_t, buf, int(STRBUF_LEN, c_int64_t))
+                keys(i) = ''
+                if (n > 0) keys(i) = from_c_buf(buf, min(int(n), STRBUF_LEN - 1))
+            end if
+        end do
+
+        if (present(entries)) then
+            allocate (entries(total))
+            off = 0
+            do i = 1, count
+                p = c_mio_regions_entries(res, i - 1_c_int64_t, nvals)
+                if (.not. c_associated(p) .or. nvals <= 0) cycle
+                call c_f_pointer(p, vals, [nvals])
+                if (out(i)%stride == 2) then
+                    ! (cell, facet) pairs: shift only the cell column.
+                    do k = 1, nvals, 2
+                        entries(off + k) = vals(k) + 1_c_int64_t
+                        entries(off + k + 1) = vals(k + 1)
+                    end do
+                else
+                    do k = 1, nvals
+                        entries(off + k) = vals(k) + 1_c_int64_t
+                    end do
+                end if
+                off = off + nvals
+            end do
+        end if
+
+        call c_mio_regions_free(res)
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Add a named region, replacing any with the same (kind, name, dim, tag).
+    !> `entries` is 1-based for point/cell indices; a side region takes flat
+    !> (cell, facet) pairs whose facet column is passed through unshifted.
+    subroutine mesh_add_region(self, name, kind, entries, dim, tag, stat, errmsg)
+        class(mio_mesh), intent(inout) :: self
+        character(len=*), intent(in) :: name
+        integer(c_int), intent(in) :: kind
+        integer(int64), intent(in) :: entries(:)
+        integer, intent(in), optional :: dim
+        integer(int64), intent(in), optional :: tag
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        integer(c_int64_t), allocatable :: buf(:)
+        integer(c_int) :: s, c_dim
+        integer(c_int64_t) :: c_tag, k
+
+        c_dim = -1_c_int
+        if (present(dim)) c_dim = int(dim, c_int)
+        c_tag = -1_c_int64_t
+        if (present(tag)) c_tag = int(tag, c_int64_t)
+
+        allocate (buf(size(entries)))
+        if (kind == MIO_REGION_SIDE) then
+            do k = 1, int(size(entries), c_int64_t), 2
+                buf(k) = entries(k) - 1_c_int64_t
+                if (k + 1 <= size(entries)) buf(k + 1) = entries(k + 1)
+            end do
+        else
+            do k = 1, int(size(entries), c_int64_t)
+                buf(k) = entries(k) - 1_c_int64_t
+            end do
+        end if
+
+        s = c_mio_mesh_add_region(self%handle, c_str(name), kind, c_dim, c_tag, buf, &
+                                  int(size(entries), c_int64_t))
+        if (s /= 0_c_int) then
+            call handle_failure('add_region', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end subroutine
+
+    !> Connectivity bandwidth: max over cells of (max - min) node index.
+    function mesh_compute_bandwidth(self, stat, errmsg) result(bw)
+        class(mio_mesh), intent(in) :: self
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        integer(int64) :: bw
+        integer(c_int64_t) :: cbw
+        cbw = c_mio_compute_bandwidth(self%handle)
+        if (cbw < 0_c_int64_t) then
+            call handle_failure('compute_bandwidth', mio_error_message(), stat, errmsg)
+            bw = -1_int64
+            return
+        end if
+        bw = int(cbw, int64)
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Are two meshes equal within tolerance (abs_err <= atol + rtol*|expected|)?
+    !> `unordered` (default .false.) matches points by spatial proximity. Named
+    !> point_sets/cell_sets are not compared.
+    function mesh_equals(self, other, atol, rtol, unordered, stat, errmsg) result(eq)
+        class(mio_mesh), intent(in) :: self
+        type(mio_mesh), intent(in) :: other
+        real(real64), intent(in), optional :: atol, rtol
+        logical, intent(in), optional :: unordered
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        logical :: eq
+        real(c_double) :: catol, crtol
+        integer(c_int) :: cuno, ceq, s
+        eq = .false.
+        catol = 1.0e-12_c_double
+        crtol = 1.0e-9_c_double
+        cuno = 0_c_int
+        if (present(atol)) catol = real(atol, c_double)
+        if (present(rtol)) crtol = real(rtol, c_double)
+        if (present(unordered)) then
+            if (unordered) cuno = 1_c_int
+        end if
+        s = c_mio_meshes_equal(self%handle, other%handle, catol, crtol, cuno, ceq)
+        if (s /= 0_c_int) then
+            call handle_failure('equals', mio_error_message(), stat, errmsg)
+            return
+        end if
+        eq = ceq /= 0_c_int
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Compare two meshes; returns the verdict (0 = identical, 1 = equal within
+    !> tolerance, 2 = different). `unordered` matches points by proximity.
+    function mesh_diff(self, other, atol, rtol, unordered, stat, errmsg) result(verdict)
+        class(mio_mesh), intent(in) :: self
+        type(mio_mesh), intent(in) :: other
+        real(real64), intent(in), optional :: atol, rtol
+        logical, intent(in), optional :: unordered
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        integer :: verdict
+        real(c_double) :: catol, crtol
+        integer(c_int) :: cuno, s
+        type(c_ptr) :: res
+        verdict = 2
+        catol = 1.0e-12_c_double
+        crtol = 1.0e-9_c_double
+        cuno = 0_c_int
+        if (present(atol)) catol = real(atol, c_double)
+        if (present(rtol)) crtol = real(rtol, c_double)
+        if (present(unordered)) then
+            if (unordered) cuno = 1_c_int
+        end if
+        s = c_mio_diff(self%handle, other%handle, catol, crtol, cuno, res)
+        if (s /= 0_c_int) then
+            call handle_failure('diff', mio_error_message(), stat, errmsg)
+            return
+        end if
+        verdict = int(c_mio_diff_result_verdict(res))
+        call c_mio_diff_result_free(res)
+        call clear_status(stat, errmsg)
+    end function
+
+    ! ------------------------------------------------------------------
+    ! mio_mesh: building (setters copy; see module header for layout rules)
+    ! ------------------------------------------------------------------
+
+    !> Assign the point coordinates from a `points(dim, num_points)` array.
+    subroutine mesh_set_points(self, points, stat, errmsg)
+        class(mio_mesh), intent(inout) :: self
+        real(real64), intent(in), contiguous, target :: points(:, :)
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        call ensure_handle(self, stat, errmsg)
+        if (.not. c_associated(self%handle)) return
+        call handle_status(c_mio_mesh_set_points(self%handle, MIO_FLOAT64, &
+                                                 int(size(points, 2), c_int64_t), &
+                                                 int(size(points, 1), c_int64_t), &
+                                                 c_loc(points)), 'set_points', stat, errmsg)
+    end subroutine
+
+    !> Append one cell block from a 1-based `conn(nodes_per_cell, num_cells)`
+    !> array (default-integer version).
+    subroutine mesh_add_cell_block_i32(self, cell_type, conn, stat, errmsg)
+        class(mio_mesh), intent(inout) :: self
+        character(*), intent(in) :: cell_type
+        integer(int32), intent(in) :: conn(:, :)
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        integer(c_int64_t), allocatable, target :: shifted(:, :)
+        call ensure_handle(self, stat, errmsg)
+        if (.not. c_associated(self%handle)) return
+        shifted = int(conn, c_int64_t) - 1_c_int64_t
+        call handle_status(c_mio_mesh_add_cell_block(self%handle, c_str(cell_type), &
+                                                     int(size(conn, 2), c_int64_t), &
+                                                     int(size(conn, 1), c_int64_t), MIO_INT64, &
+                                                     c_loc(shifted)), 'add_cell_block', &
+                           stat, errmsg)
+    end subroutine
+
+    !> As above, for `integer(int64)` connectivity.
+    subroutine mesh_add_cell_block_i64(self, cell_type, conn, stat, errmsg)
+        class(mio_mesh), intent(inout) :: self
+        character(*), intent(in) :: cell_type
+        integer(int64), intent(in) :: conn(:, :)
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        integer(c_int64_t), allocatable, target :: shifted(:, :)
+        call ensure_handle(self, stat, errmsg)
+        if (.not. c_associated(self%handle)) return
+        shifted = int(conn, c_int64_t) - 1_c_int64_t
+        call handle_status(c_mio_mesh_add_cell_block(self%handle, c_str(cell_type), &
+                                                     int(size(conn, 2), c_int64_t), &
+                                                     int(size(conn, 1), c_int64_t), MIO_INT64, &
+                                                     c_loc(shifted)), 'add_cell_block', &
+                           stat, errmsg)
+    end subroutine
+
+    !> Attach a scalar per-point field: `data(num_points)`.
+    subroutine mesh_add_point_data_r1(self, name, data, stat, errmsg)
+        class(mio_mesh), intent(inout) :: self
+        character(*), intent(in) :: name
+        real(real64), intent(in), contiguous, target :: data(:)
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        integer(c_int64_t) :: shape(1)
+        call ensure_handle(self, stat, errmsg)
+        if (.not. c_associated(self%handle)) return
+        shape(1) = int(size(data), c_int64_t)
+        call handle_status(c_mio_mesh_add_point_data(self%handle, c_str(name), MIO_FLOAT64, &
+                                                     1_c_int32_t, shape, c_loc(data)), &
+                           'add_point_data', stat, errmsg)
+    end subroutine
+
+    !> Attach a vector per-point field: `data(num_components, num_points)`
+    !> (same memory as the C API's row-major `(num_points, num_components)`).
+    subroutine mesh_add_point_data_r2(self, name, data, stat, errmsg)
+        class(mio_mesh), intent(inout) :: self
+        character(*), intent(in) :: name
+        real(real64), intent(in), contiguous, target :: data(:, :)
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        integer(c_int64_t) :: shape(2)
+        call ensure_handle(self, stat, errmsg)
+        if (.not. c_associated(self%handle)) return
+        shape(1) = int(size(data, 2), c_int64_t)  ! C shape is the reverse of the Fortran one
+        shape(2) = int(size(data, 1), c_int64_t)
+        call handle_status(c_mio_mesh_add_point_data(self%handle, c_str(name), MIO_FLOAT64, &
+                                                     2_c_int32_t, shape, c_loc(data)), &
+                           'add_point_data', stat, errmsg)
+    end subroutine
+
+    !> Append the named cell-data field's array for the next cell block (call
+    !> once per block, in block order): `data(num_cells_in_block)`.
+    subroutine mesh_add_cell_data_r1(self, name, data, stat, errmsg)
+        class(mio_mesh), intent(inout) :: self
+        character(*), intent(in) :: name
+        real(real64), intent(in), contiguous, target :: data(:)
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        integer(c_int64_t) :: shape(1)
+        call ensure_handle(self, stat, errmsg)
+        if (.not. c_associated(self%handle)) return
+        shape(1) = int(size(data), c_int64_t)
+        call handle_status(c_mio_mesh_append_cell_data(self%handle, c_str(name), MIO_FLOAT64, &
+                                                       1_c_int32_t, shape, c_loc(data)), &
+                           'add_cell_data', stat, errmsg)
+    end subroutine
+
+    !> Attach a named mesh-level (field) data array.
+    subroutine mesh_add_field_data_r1(self, name, data, stat, errmsg)
+        class(mio_mesh), intent(inout) :: self
+        character(*), intent(in) :: name
+        real(real64), intent(in), contiguous, target :: data(:)
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        integer(c_int64_t) :: shape(1)
+        call ensure_handle(self, stat, errmsg)
+        if (.not. c_associated(self%handle)) return
+        shape(1) = int(size(data), c_int64_t)
+        call handle_status(c_mio_mesh_add_field_data(self%handle, c_str(name), MIO_FLOAT64, &
+                                                     1_c_int32_t, shape, c_loc(data)), &
+                           'add_field_data', stat, errmsg)
+    end subroutine
+
+    ! ------------------------------------------------------------------
+    ! mio_mesh: inspection
+    ! ------------------------------------------------------------------
+
+    integer(int64) function mesh_num_points(self)
+        class(mio_mesh), intent(in) :: self
+        mesh_num_points = c_mio_mesh_num_points(self%handle)
+    end function
+
+    integer(int64) function mesh_point_dim(self)
+        class(mio_mesh), intent(in) :: self
+        mesh_point_dim = c_mio_mesh_point_dim(self%handle)
+    end function
+
+    integer(int64) function mesh_num_cell_blocks(self)
+        class(mio_mesh), intent(in) :: self
+        mesh_num_cell_blocks = c_mio_mesh_num_cell_blocks(self%handle)
+    end function
+
+    !> Copy the coordinates into `points(point_dim, num_points)` (allocated
+    !> here), converting to real64 if the mesh stores single precision.
+    subroutine mesh_get_points(self, points, stat, errmsg)
+        class(mio_mesh), intent(in) :: self
+        real(real64), allocatable, intent(out) :: points(:, :)
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(c_ptr) :: p
+        integer(c_int) :: dtype, status
+        integer(int64) :: n, dim
+        real(c_double), pointer :: d64(:)
+        real(c_float), pointer :: d32(:)
+        status = c_mio_mesh_get_points(self%handle, p, dtype)
+        if (status /= 0_c_int) then
+            call handle_status(status, 'get_points', stat, errmsg)
+            return
+        end if
+        n = c_mio_mesh_num_points(self%handle)
+        dim = c_mio_mesh_point_dim(self%handle)
+        allocate (points(dim, n))
+        if (n*dim == 0) then
+            call clear_status(stat, errmsg)
+            return
+        end if
+        select case (dtype)
+        case (MIO_FLOAT64)
+            call c_f_pointer(p, d64, [n*dim])
+            points = reshape(d64, [dim, n])
+        case (MIO_FLOAT32)
+            call c_f_pointer(p, d32, [n*dim])
+            points = reshape(real(d32, real64), [dim, n])
+        case default
+            call handle_failure('get_points', 'unexpected points dtype', stat, errmsg)
+            return
+        end select
+        call clear_status(stat, errmsg)
+    end subroutine
+
+    !> Zero-copy borrow of the coordinates as `ptr(point_dim, num_points)`.
+    !> Valid until the next mutating call on this mesh or free(); fails if
+    !> the mesh stores anything but real64 (then use get_points).
+    subroutine mesh_points_ptr(self, ptr, stat, errmsg)
+        class(mio_mesh), intent(in) :: self
+        real(real64), pointer, intent(out) :: ptr(:, :)
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(c_ptr) :: p
+        integer(c_int) :: dtype, status
+        ptr => null()
+        status = c_mio_mesh_get_points(self%handle, p, dtype)
+        if (status /= 0_c_int) then
+            call handle_status(status, 'points_ptr', stat, errmsg)
+            return
+        end if
+        if (dtype /= MIO_FLOAT64) then
+            call handle_failure('points_ptr', 'points are not real64; use get_points', &
+                                stat, errmsg)
+            return
+        end if
+        call c_f_pointer(p, ptr, [c_mio_mesh_point_dim(self%handle), &
+                                  c_mio_mesh_num_points(self%handle)])
+        call clear_status(stat, errmsg)
+    end subroutine
+
+    !> The meshio type name of 1-based cell block `block` (e.g. "tetra10").
+    function mesh_cell_block_type(self, block, stat, errmsg) result(type_name)
+        class(mio_mesh), intent(in) :: self
+        integer, intent(in) :: block
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        character(:), allocatable :: type_name
+        character(kind=c_char) :: buf(STRBUF_LEN)
+        integer(c_int64_t) :: n
+        type_name = ''
+        n = c_mio_mesh_cell_block_type(self%handle, int(block - 1, c_int64_t), buf, &
+                                       int(STRBUF_LEN, c_int64_t))
+        if (n < 0) then
+            call handle_failure('cell_block_type', mio_error_message(), stat, errmsg)
+            return
+        end if
+        type_name = from_c_buf(buf, min(int(n), STRBUF_LEN - 1))
+        call clear_status(stat, errmsg)
+    end function
+
+    integer(int64) function mesh_cell_block_num_cells(self, block)
+        class(mio_mesh), intent(in) :: self
+        integer, intent(in) :: block
+        integer(c_int64_t) :: nc, npc
+        integer(c_int32_t) :: ragged
+        mesh_cell_block_num_cells = -1
+        if (c_mio_mesh_cell_block_info(self%handle, int(block - 1, c_int64_t), nc, npc, &
+                                       ragged) == 0_c_int) mesh_cell_block_num_cells = nc
+    end function
+
+    integer(int64) function mesh_cell_block_nodes_per_cell(self, block)
+        class(mio_mesh), intent(in) :: self
+        integer, intent(in) :: block
+        integer(c_int64_t) :: nc, npc
+        integer(c_int32_t) :: ragged
+        mesh_cell_block_nodes_per_cell = -1
+        if (c_mio_mesh_cell_block_info(self%handle, int(block - 1, c_int64_t), nc, npc, &
+                                       ragged) == 0_c_int) mesh_cell_block_nodes_per_cell = npc
+    end function
+
+    logical function mesh_cell_block_is_ragged(self, block)
+        class(mio_mesh), intent(in) :: self
+        integer, intent(in) :: block
+        integer(c_int64_t) :: nc, npc
+        integer(c_int32_t) :: ragged
+        mesh_cell_block_is_ragged = .false.
+        if (c_mio_mesh_cell_block_info(self%handle, int(block - 1, c_int64_t), nc, npc, &
+                                       ragged) == 0_c_int) mesh_cell_block_is_ragged = ragged /= 0
+    end function
+
+    !> Copy 1-based cell block `block` into `conn(nodes_per_cell, num_cells)`
+    !> (allocated here), shifting the 0-based core indices to 1-based.
+    subroutine mesh_get_cell_block(self, block, conn, stat, errmsg)
+        class(mio_mesh), intent(in) :: self
+        integer, intent(in) :: block
+        integer(int64), allocatable, intent(out) :: conn(:, :)
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(c_ptr) :: p
+        integer(c_int) :: dtype, status
+        integer(c_int64_t) :: nc, npc
+        integer(c_int32_t) :: ragged
+        integer(c_int64_t), pointer :: i64(:)
+        integer(c_int32_t), pointer :: i32(:)
+        status = c_mio_mesh_cell_block_info(self%handle, int(block - 1, c_int64_t), nc, npc, &
+                                            ragged)
+        if (status == 0_c_int) status = c_mio_mesh_cell_block_conn(self%handle, &
+                                                                   int(block - 1, c_int64_t), &
+                                                                   p, dtype)
+        if (status /= 0_c_int) then
+            call handle_status(status, 'get_cell_block', stat, errmsg)
+            return
+        end if
+        allocate (conn(npc, nc))
+        if (nc*npc == 0) then
+            call clear_status(stat, errmsg)
+            return
+        end if
+        select case (dtype)
+        case (MIO_INT64)
+            call c_f_pointer(p, i64, [nc*npc])
+            conn = reshape(i64, [npc, nc]) + 1_int64
+        case (MIO_INT32)
+            call c_f_pointer(p, i32, [nc*npc])
+            conn = reshape(int(i32, int64), [npc, nc]) + 1_int64
+        case default
+            call handle_failure('get_cell_block', 'unexpected connectivity dtype', stat, errmsg)
+            return
+        end select
+        call clear_status(stat, errmsg)
+    end subroutine
+
+    integer(int64) function mesh_num_point_data(self)
+        class(mio_mesh), intent(in) :: self
+        mesh_num_point_data = c_mio_mesh_num_point_data(self%handle)
+    end function
+
+    !> The 1-based `index`-th point-data name (ascending lexicographic order).
+    function mesh_point_data_name(self, index, stat, errmsg) result(name)
+        class(mio_mesh), intent(in) :: self
+        integer, intent(in) :: index
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        character(:), allocatable :: name
+        character(kind=c_char) :: buf(STRBUF_LEN)
+        integer(c_int64_t) :: n
+        name = ''
+        n = c_mio_mesh_point_data_name(self%handle, int(index - 1, c_int64_t), buf, &
+                                       int(STRBUF_LEN, c_int64_t))
+        if (n < 0) then
+            call handle_failure('point_data_name', mio_error_message(), stat, errmsg)
+            return
+        end if
+        name = from_c_buf(buf, min(int(n), STRBUF_LEN - 1))
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Copy the named scalar point-data array into `data(:)` (allocated here).
+    subroutine mesh_get_point_data_r1(self, name, data, stat, errmsg)
+        class(mio_mesh), intent(in) :: self
+        character(*), intent(in) :: name
+        real(real64), allocatable, intent(out) :: data(:)
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        call get_named_r1(self, 'point_data', name, -1_int64, data, stat, errmsg)
+    end subroutine
+
+    !> Copy the named vector point-data array into
+    !> `data(num_components, num_points)` (allocated here).
+    subroutine mesh_get_point_data_r2(self, name, data, stat, errmsg)
+        class(mio_mesh), intent(in) :: self
+        character(*), intent(in) :: name
+        real(real64), allocatable, intent(out) :: data(:, :)
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(c_ptr) :: p
+        integer(c_int) :: dtype, status
+        integer(c_int32_t) :: ndim
+        integer(c_int64_t) :: shape(MIO_MAX_NDIM)
+        status = c_mio_mesh_get_point_data(self%handle, c_str(name), p, dtype, ndim, shape)
+        if (status /= 0_c_int) then
+            call handle_status(status, 'get_point_data', stat, errmsg)
+            return
+        end if
+        if (ndim /= 2_c_int32_t) then
+            call handle_failure('get_point_data', 'point_data "'//trim(name)// &
+                                '" is not rank-2', stat, errmsg)
+            return
+        end if
+        call copy_out_r2(p, dtype, shape(1), shape(2), data, 'get_point_data', stat, errmsg)
+    end subroutine
+
+    integer(int64) function mesh_num_cell_data(self)
+        class(mio_mesh), intent(in) :: self
+        mesh_num_cell_data = c_mio_mesh_num_cell_data(self%handle)
+    end function
+
+    !> The 1-based `index`-th cell-data name (sorted, as above).
+    function mesh_cell_data_name(self, index, stat, errmsg) result(name)
+        class(mio_mesh), intent(in) :: self
+        integer, intent(in) :: index
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        character(:), allocatable :: name
+        character(kind=c_char) :: buf(STRBUF_LEN)
+        integer(c_int64_t) :: n
+        name = ''
+        n = c_mio_mesh_cell_data_name(self%handle, int(index - 1, c_int64_t), buf, &
+                                      int(STRBUF_LEN, c_int64_t))
+        if (n < 0) then
+            call handle_failure('cell_data_name', mio_error_message(), stat, errmsg)
+            return
+        end if
+        name = from_c_buf(buf, min(int(n), STRBUF_LEN - 1))
+        call clear_status(stat, errmsg)
+    end function
+
+    integer(int64) function mesh_cell_data_num_blocks(self, name)
+        class(mio_mesh), intent(in) :: self
+        character(*), intent(in) :: name
+        mesh_cell_data_num_blocks = c_mio_mesh_cell_data_num_blocks(self%handle, c_str(name))
+    end function
+
+    !> Copy the named cell-data field's array for 1-based cell block `block`
+    !> into `data(:)` (allocated here).
+    subroutine mesh_get_cell_data_r1(self, name, block, data, stat, errmsg)
+        class(mio_mesh), intent(in) :: self
+        character(*), intent(in) :: name
+        integer, intent(in) :: block
+        real(real64), allocatable, intent(out) :: data(:)
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        call get_named_r1(self, 'cell_data', name, int(block - 1, int64), data, stat, errmsg)
+    end subroutine
+
+    integer(int64) function mesh_num_field_data(self)
+        class(mio_mesh), intent(in) :: self
+        mesh_num_field_data = c_mio_mesh_num_field_data(self%handle)
+    end function
+
+    !> The 1-based `index`-th field-data name (sorted, as above).
+    function mesh_field_data_name(self, index, stat, errmsg) result(name)
+        class(mio_mesh), intent(in) :: self
+        integer, intent(in) :: index
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        character(:), allocatable :: name
+        character(kind=c_char) :: buf(STRBUF_LEN)
+        integer(c_int64_t) :: n
+        name = ''
+        n = c_mio_mesh_field_data_name(self%handle, int(index - 1, c_int64_t), buf, &
+                                       int(STRBUF_LEN, c_int64_t))
+        if (n < 0) then
+            call handle_failure('field_data_name', mio_error_message(), stat, errmsg)
+            return
+        end if
+        name = from_c_buf(buf, min(int(n), STRBUF_LEN - 1))
+        call clear_status(stat, errmsg)
+    end function
+
+    !> Copy the named field-data array into `data(:)` (allocated here).
+    subroutine mesh_get_field_data_r1(self, name, data, stat, errmsg)
+        class(mio_mesh), intent(in) :: self
+        character(*), intent(in) :: name
+        real(real64), allocatable, intent(out) :: data(:)
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        call get_named_r1(self, 'field_data', name, -2_int64, data, stat, errmsg)
+    end subroutine
+
+    ! ------------------------------------------------------------------
+    ! Private implementation helpers
+    ! ------------------------------------------------------------------
+
+    !> Setters on a never-created handle allocate one on the fly, so
+    !> `type(mio_mesh) :: m; call m%set_points(...)` just works.
+    subroutine ensure_handle(self, stat, errmsg)
+        class(mio_mesh), intent(inout) :: self
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        if (.not. c_associated(self%handle)) call mesh_create(self, stat, errmsg)
+    end subroutine
+
+    !> Shared rank-1 copy-getter over the three named-data families
+    !> (block >= 0: cell_data block; -1: point_data; -2: field_data).
+    subroutine get_named_r1(self, family, name, block, data, stat, errmsg)
+        class(mio_mesh), intent(in) :: self
+        character(*), intent(in) :: family, name
+        integer(int64), intent(in) :: block
+        real(real64), allocatable, intent(out) :: data(:)
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        type(c_ptr) :: p
+        integer(c_int) :: dtype, status
+        integer(c_int32_t) :: ndim
+        integer(c_int64_t) :: shape(MIO_MAX_NDIM)
+        select case (family)
+        case ('point_data')
+            status = c_mio_mesh_get_point_data(self%handle, c_str(name), p, dtype, ndim, shape)
+        case ('cell_data')
+            status = c_mio_mesh_get_cell_data(self%handle, c_str(name), block, p, dtype, ndim, &
+                                              shape)
+        case default
+            status = c_mio_mesh_get_field_data(self%handle, c_str(name), p, dtype, ndim, shape)
+        end select
+        if (status /= 0_c_int) then
+            call handle_status(status, 'get_'//family, stat, errmsg)
+            return
+        end if
+        if (ndim /= 1_c_int32_t) then
+            call handle_failure('get_'//family, family//' "'//trim(name)// &
+                                '" is not rank-1 (use the rank-2 getter)', stat, errmsg)
+            return
+        end if
+        call copy_out_r1(p, dtype, shape(1), data, 'get_'//family, stat, errmsg)
+    end subroutine
+
+    !> Copy a C array of `n` elements of any supported dtype into a real64
+    !> rank-1 allocatable.
+    subroutine copy_out_r1(p, dtype, n, data, what, stat, errmsg)
+        type(c_ptr), intent(in) :: p
+        integer(c_int), intent(in) :: dtype
+        integer(c_int64_t), intent(in) :: n
+        real(real64), allocatable, intent(out) :: data(:)
+        character(*), intent(in) :: what
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        real(c_double), pointer :: d64(:)
+        real(c_float), pointer :: d32(:)
+        integer(c_int64_t), pointer :: i64(:)
+        integer(c_int32_t), pointer :: i32(:)
+        allocate (data(n))
+        if (n == 0) then
+            call clear_status(stat, errmsg)
+            return
+        end if
+        select case (dtype)
+        case (MIO_FLOAT64)
+            call c_f_pointer(p, d64, [n]); data = d64
+        case (MIO_FLOAT32)
+            call c_f_pointer(p, d32, [n]); data = real(d32, real64)
+        case (MIO_INT64)
+            call c_f_pointer(p, i64, [n]); data = real(i64, real64)
+        case (MIO_INT32)
+            call c_f_pointer(p, i32, [n]); data = real(i32, real64)
+        case default
+            call handle_failure(what, 'unsupported dtype for real64 copy', stat, errmsg)
+            return
+        end select
+        call clear_status(stat, errmsg)
+    end subroutine
+
+    !> As copy_out_r1 for a C row-major `(n0, n1)` array, delivered as the
+    !> Fortran `(n1, n0)` view of the same memory order.
+    subroutine copy_out_r2(p, dtype, n0, n1, data, what, stat, errmsg)
+        type(c_ptr), intent(in) :: p
+        integer(c_int), intent(in) :: dtype
+        integer(c_int64_t), intent(in) :: n0, n1
+        real(real64), allocatable, intent(out) :: data(:, :)
+        character(*), intent(in) :: what
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        real(c_double), pointer :: d64(:)
+        real(c_float), pointer :: d32(:)
+        integer(c_int64_t), pointer :: i64(:)
+        integer(c_int32_t), pointer :: i32(:)
+        allocate (data(n1, n0))
+        if (n0*n1 == 0) then
+            call clear_status(stat, errmsg)
+            return
+        end if
+        select case (dtype)
+        case (MIO_FLOAT64)
+            call c_f_pointer(p, d64, [n0*n1]); data = reshape(d64, [n1, n0])
+        case (MIO_FLOAT32)
+            call c_f_pointer(p, d32, [n0*n1]); data = reshape(real(d32, real64), [n1, n0])
+        case (MIO_INT64)
+            call c_f_pointer(p, i64, [n0*n1]); data = reshape(real(i64, real64), [n1, n0])
+        case (MIO_INT32)
+            call c_f_pointer(p, i32, [n0*n1]); data = reshape(real(i32, real64), [n1, n0])
+        case default
+            call handle_failure(what, 'unsupported dtype for real64 copy', stat, errmsg)
+            return
+        end select
+        call clear_status(stat, errmsg)
+    end subroutine
+
+    ! ------------------------------------------------------------------
+    ! mio_xdmf_series: transient (time-series) XDMF writing
+    !
+    ! Same lifecycle rules as mio_mesh: create() replaces whatever the handle
+    ! held, free() is idempotent, and nothing is freed implicitly.
+    ! ------------------------------------------------------------------
+
+    !> Open a transient XDMF series for writing. Nothing is written yet.
+    !>
+    !> `data_format` is `"HDF"` (the default; needs an HDF5-enabled build),
+    !> `"XML"` (inline) or `"Binary"`. `gzip_level` applies to `"HDF"` datasets
+    !> only; negative (the default) means no compression. An unknown format, or
+    !> `"HDF"` without HDF5 support, fails through `stat`/`errmsg`.
+    subroutine xdmf_series_create(self, path, data_format, gzip_level, mode, auto_flush, &
+                                  stat, errmsg)
+        class(mio_xdmf_series), intent(inout) :: self
+        character(*), intent(in) :: path
+        character(*), intent(in), optional :: data_format
+        integer, intent(in), optional :: gzip_level
+        !> 'truncate' (default) or 'append'.
+        character(*), intent(in), optional :: mode
+        !> Flush the light data after every write_data (default .false.).
+        logical, intent(in), optional :: auto_flush
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        character(:), allocatable :: fmt, md
+        character(len=:, kind=c_char), allocatable, target :: fmt_buf
+        type(mio_xdmf_series_opts_t) :: opts
+        integer(c_int32_t) :: level
+        call xdmf_series_free(self)
+        fmt = 'HDF'; if (present(data_format)) fmt = data_format
+        md = 'truncate'; if (present(mode)) md = mode
+        level = -1_c_int32_t
+        if (present(gzip_level)) level = int(gzip_level, c_int32_t)
+
+        if (md /= 'truncate' .and. md /= 'append') then
+            call handle_failure('xdmf_series create', &
+                                "mode must be 'truncate' or 'append', got '"//md//"'", stat, errmsg)
+            return
+        end if
+
+        if (.not. present(mode) .and. .not. present(auto_flush)) then
+            self%handle = c_mio_xdmf_series_create(c_str(path), c_str(fmt), level)
+        else
+            ! The NUL-terminated format string must outlive the call, so it is
+            ! held in a TARGET local rather than built inline.
+            fmt_buf = fmt//c_null_char
+            opts%data_format = c_loc(fmt_buf(1:1))
+            opts%gzip_level = level
+            if (md == 'append') opts%mode = 1_c_int32_t
+            if (present(auto_flush)) then
+                if (auto_flush) opts%auto_flush = 1_c_int32_t
+            end if
+            self%handle = c_mio_xdmf_series_create_ex(c_str(path), opts)
+        end if
+        if (.not. c_associated(self%handle)) then
+            call handle_failure('xdmf_series create', mio_error_message(), stat, errmsg)
+            return
+        end if
+        call clear_status(stat, errmsg)
+    end subroutine
+
+    !> Write the `.xdmf` as it currently stands, without finalizing, so a run
+    !> that is killed or still going leaves a readable file covering every
+    !> flushed step. Safe to call repeatedly; a no-op once finalized.
+    subroutine xdmf_series_flush(self, stat, errmsg)
+        class(mio_xdmf_series), intent(in) :: self
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        if (.not. c_associated(self%handle)) then
+            call handle_failure('xdmf_series flush', 'series handle is not open', stat, errmsg)
+            return
+        end if
+        call handle_status(c_mio_xdmf_series_flush(self%handle), 'xdmf_series flush', stat, errmsg)
+    end subroutine
+
+    !> .true. once finalize() has run for this series (also on a closed handle).
+    function xdmf_series_finalized(self) result(f)
+        class(mio_xdmf_series), intent(in) :: self
+        logical :: f
+        f = .true.
+        if (.not. c_associated(self%handle)) return
+        f = c_mio_xdmf_series_finalized(self%handle) == 1_c_int32_t
+    end function
+
+    !> Finalize (if it has not happened yet) and release the series. Idempotent.
+    !> A write failure during the implicit finalize is swallowed here -- call
+    !> `finalize()` explicitly to see it.
+    subroutine xdmf_series_free(self)
+        class(mio_xdmf_series), intent(inout) :: self
+        if (c_associated(self%handle)) call c_mio_xdmf_series_free(self%handle)
+        self%handle = c_null_ptr
+    end subroutine
+
+    !> .true. between a successful create() and free().
+    logical function xdmf_series_is_valid(self)
+        class(mio_xdmf_series), intent(in) :: self
+        xdmf_series_is_valid = c_associated(self%handle)
+    end function
+
+    !> Write the static grid every step shares. Call once, before the first
+    !> `write_data`. Only the mesh's points and cells are used.
+    subroutine xdmf_series_write_points_cells(self, mesh, stat, errmsg)
+        class(mio_xdmf_series), intent(in) :: self
+        class(mio_mesh), intent(in) :: mesh
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        if (.not. c_associated(self%handle)) then
+            call handle_failure('xdmf_series write_points_cells', &
+                                'series handle is not open', stat, errmsg)
+            return
+        end if
+        call handle_status(c_mio_xdmf_series_write_points_cells(self%handle, mesh%handle), &
+                           'xdmf_series write_points_cells', stat, errmsg)
+    end subroutine
+
+    !> Write one time step's point_data and cell_data at time `time`. The mesh's
+    !> geometry is ignored, so a solver can pass the same object it updates in
+    !> place; its cell blocks must match those of the static grid.
+    subroutine xdmf_series_write_data(self, time, mesh, stat, errmsg)
+        class(mio_xdmf_series), intent(in) :: self
+        real(real64), intent(in) :: time
+        class(mio_mesh), intent(in) :: mesh
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        if (.not. c_associated(self%handle)) then
+            call handle_failure('xdmf_series write_data', 'series handle is not open', &
+                                stat, errmsg)
+            return
+        end if
+        call handle_status(c_mio_xdmf_series_write_data(self%handle, &
+                                                        real(time, c_double), mesh%handle), &
+                           'xdmf_series write_data', stat, errmsg)
+    end subroutine
+
+    !> Write the `.xdmf` and close the heavy-data container. Idempotent, and
+    !> `free()` does it too -- call this explicitly so a write failure surfaces
+    !> through `stat` instead of being swallowed.
+    subroutine xdmf_series_finalize(self, stat, errmsg)
+        class(mio_xdmf_series), intent(in) :: self
+        integer, intent(out), optional :: stat
+        character(:), allocatable, intent(out), optional :: errmsg
+        if (.not. c_associated(self%handle)) then
+            call handle_failure('xdmf_series finalize', 'series handle is not open', &
+                                stat, errmsg)
+            return
+        end if
+        call handle_status(c_mio_xdmf_series_finalize(self%handle), &
+                           'xdmf_series finalize', stat, errmsg)
+    end subroutine
+
+    !> Number of steps written so far (0 on a closed handle).
+    function xdmf_series_num_steps(self) result(n)
+        class(mio_xdmf_series), intent(in) :: self
+        integer(int64) :: n
+        n = 0_int64
+        if (.not. c_associated(self%handle)) return
+        n = int(c_mio_xdmf_series_num_steps(self%handle), int64)
+        if (n < 0_int64) n = 0_int64
+    end function
+
+end module meshioplusplus

@@ -391,15 +391,39 @@ impl RumdlLanguageServer {
     ///    cannot have it overridden by editor settings.
     /// 2. `self.config.config_path` -- supplied by the client via initialization
     ///    options or `workspace/didChangeConfiguration`.
-    /// 3. None -- fall through to auto-discovery in `load_config_for_lsp`.
+    /// 3. None -- fall through to auto-discovery in `load_config_for_lsp`, which
+    ///    walks up from the workspace root rather than the process working
+    ///    directory: the editor chooses where to launch the server, so that
+    ///    directory can sit in a project the user is not editing.
     pub(super) async fn load_configuration(&self, notify_client: bool) {
+        self.load_configuration_impl(notify_client, None, None).await
+    }
+
+    /// Internal implementation that accepts the user-config directory and the home
+    /// directory for testing, mirroring `resolve_config_for_file_impl`.
+    pub(crate) async fn load_configuration_impl(
+        &self,
+        notify_client: bool,
+        user_config_dir: Option<&Path>,
+        home_dir: Option<&Path>,
+    ) {
         let explicit_config_path = match self.cli_config_path.as_deref() {
             Some(path) => Some(path.to_string()),
             None => self.config.read().await.config_path.clone(),
         };
 
+        // A multi-root workspace has no single answer here, and per-file resolution
+        // already covers files in every root; the first root is the one the rest of
+        // the server treats as primary.
+        let workspace_root = self.workspace_roots.read().await.first().cloned();
+
         // Use the same discovery logic as CLI but with LSP-specific error handling
-        match Self::load_config_for_lsp(explicit_config_path.as_deref()) {
+        match Self::load_config_for_lsp(
+            explicit_config_path.as_deref(),
+            workspace_root.as_deref(),
+            user_config_dir,
+            home_dir,
+        ) {
             Ok(sourced_config) => {
                 let loaded_files = sourced_config.loaded_files.clone();
                 let discovery_warnings = sourced_config.discovery_warnings.clone();
@@ -462,12 +486,33 @@ impl RumdlLanguageServer {
             .any(|entry| entry.sourced.is_some())
     }
 
-    /// Load configuration for LSP - similar to CLI loading but returns Result
+    /// Load the workspace-level configuration, the way the CLI would inside `start_dir`.
+    ///
+    /// `start_dir` is the workspace root. Without one the walk falls back to the
+    /// process working directory, which is right only when nothing better exists:
+    /// a client that sends neither `workspaceFolders` nor `rootUri`, or a server
+    /// started by hand in a terminal, where that directory is the user's own
+    /// choice exactly as it is for `rumdl check`.
+    ///
+    /// `user_config_dir` and `home_dir` override the platform user-config directory
+    /// and the home-directory walk boundary, which tests set to keep discovery
+    /// inside a temporary tree.
     pub(crate) fn load_config_for_lsp(
         config_path: Option<&str>,
+        start_dir: Option<&Path>,
+        user_config_dir: Option<&Path>,
+        home_dir: Option<&Path>,
     ) -> Result<crate::config::SourcedConfig, crate::config::ConfigError> {
-        // Use the same configuration loading as the CLI
-        crate::config::SourcedConfig::load_with_discovery(config_path, None, false)
+        match start_dir {
+            Some(dir) => crate::config::SourcedConfig::load_for_workspace(dir, config_path, user_config_dir, home_dir),
+            None => crate::config::SourcedConfig::load_with_discovery_impl(
+                config_path,
+                None,
+                false,
+                user_config_dir,
+                home_dir,
+            ),
+        }
     }
 
     /// Resolve configuration for a specific file
@@ -558,13 +603,19 @@ impl RumdlLanguageServer {
             search_dir.display()
         );
 
-        // Try to find workspace root for this file
-        let workspace_root = {
+        // Try to find workspace root for this file, and note whether it is the root
+        // the server loaded its own configuration from.
+        let (workspace_root, in_primary_root) = {
             let workspace_roots = self.workspace_roots.read().await;
-            workspace_roots
+            let root = workspace_roots
                 .iter()
                 .find(|root| search_dir.starts_with(root))
-                .cloned()
+                .cloned();
+            let is_primary = match (&root, workspace_roots.first()) {
+                (Some(root), Some(primary)) => root == primary,
+                _ => false,
+            };
+            (root, is_primary)
         };
 
         // Resolve the home-directory boundary so a user-level `~/.rumdl.toml` is not
@@ -627,9 +678,20 @@ impl RumdlLanguageServer {
                 (config, sourced, Some(path))
             }
             _ => {
-                log::debug!("No project config found; using global/user fallback config");
-                let fallback = self.rumdl_config.read().await.clone();
-                let sourced = self.rumdl_sourced.read().await.clone();
+                let fallback = self
+                    .fallback_config_for(
+                        workspace_root.as_deref(),
+                        in_primary_root,
+                        user_config_dir,
+                        home_dir.as_deref(),
+                    )
+                    .await;
+                // The config this root cannot resolve lies outside it, so nothing this
+                // server watches changes when it is repaired. Answering with defaults
+                // and skipping the cache keeps the file resolving on the next request.
+                let Some((fallback, sourced)) = fallback else {
+                    return Config::default();
+                };
                 (fallback, sourced, None)
             }
         };
@@ -646,6 +708,56 @@ impl RumdlLanguageServer {
         self.config_cache.write().await.insert(search_dir, entry);
 
         with_editorconfig(config, sourced.as_deref(), file_path)
+    }
+
+    /// The configuration for a file whose own scope holds no config file.
+    ///
+    /// The per-file walk stops at the workspace root, so a config living above the
+    /// root is still the one `rumdl check` would resolve there. That is what the
+    /// server loaded at startup, but only for the root it treats as primary: every
+    /// other root is a separate project, and answering with the primary root's
+    /// config would lint one project under another's settings. Those roots resolve
+    /// their own scope instead. A file in no root at all keeps the startup config,
+    /// which is the only scope the server has for it.
+    ///
+    /// `None` means that root's scope could not be resolved. Answering with the
+    /// startup config would put the project straight back under another project's
+    /// settings, so the caller answers with defaults, the same way it does for a
+    /// user config it cannot read.
+    async fn fallback_config_for(
+        &self,
+        workspace_root: Option<&Path>,
+        in_primary_root: bool,
+        user_config_dir: Option<&Path>,
+        home_dir: Option<&Path>,
+    ) -> Option<(Config, Option<Arc<SourcedConfig<ConfigValidated>>>)> {
+        if let Some(root) = workspace_root.filter(|_| !in_primary_root) {
+            match crate::config::SourcedConfig::load_for_workspace(root, None, user_config_dir, home_dir) {
+                Ok(sourced) => {
+                    log::debug!(
+                        "No project config found; using the scope of workspace root {}",
+                        root.display()
+                    );
+                    let validated = sourced.into_validated_unchecked();
+                    let config: Config = validated.clone().into();
+                    let sourced = sourced_for_editorconfig(&config, validated);
+                    return Some((config, sourced));
+                }
+                Err(e) => {
+                    log::warn!(
+                        "Cannot resolve the configuration of workspace root {}: {e}. Using default rules until it is fixed.",
+                        root.display()
+                    );
+                    return None;
+                }
+            }
+        }
+
+        log::debug!("No project config found; using global/user fallback config");
+        Some((
+            self.rumdl_config.read().await.clone(),
+            self.rumdl_sourced.read().await.clone(),
+        ))
     }
 }
 

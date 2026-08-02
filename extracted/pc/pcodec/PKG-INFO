@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pcodec
-Version: 1.0.2
+Version: 1.0.3
 Requires-Dist: numpy
 Summary: Good compression for numerical sequences
 Keywords: compression,numerical

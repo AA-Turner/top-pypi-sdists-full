@@ -1,0 +1,456 @@
+"""Connector class for sending requests and receiving responses."""
+
+import asyncio
+import contextlib
+import logging
+import sys
+from uuid import uuid4
+
+import slixmpp
+from async_timeout import timeout
+from slixmpp.exceptions import IqTimeout
+from slixmpp.xmlstream import ET
+from slixmpp.xmlstream.handler.callback import Callback
+from slixmpp.xmlstream.matcher import MatchXPath
+
+import aioharmony.exceptions as aioexc
+from aioharmony.const import DEFAULT_XMPP_HUB_PORT as DEFAULT_HUB_PORT
+from aioharmony.const import ConnectorCallbackType
+from aioharmony.helpers import call_callback
+from aioharmony.json import JSONDecodeError, json_loads
+
+DEFAULT_DOMAIN = "svcs.myharmony.com"
+DEFAULT_TIMEOUT = 5
+DEFAULT_USER = "user@connect.logitech.com/gatorade."
+DEFAULT_PASSWORD = "password"  # noqa: S105
+DEFAULT_NS = "connect.logitech.com"
+
+_LOGGER = logging.getLogger(__name__)
+
+
+# TODO: Add docstyle comments
+# TODO: Clean up code styling
+
+
+# pylint: disable=too-many-instance-attributes
+class HubConnector(slixmpp.ClientXMPP):
+    """An XMPP client for connecting to the Logitech Harmony devices."""
+
+    def __init__(
+        self,
+        ip_address: str,
+        response_queue: asyncio.Queue,
+        callbacks: ConnectorCallbackType = None,
+        auto_reconnect=True,
+    ) -> None:
+        self._ip_address = ip_address
+        self._response_queue = response_queue
+        self._callbacks = (
+            callbacks if callbacks is not None else ConnectorCallbackType(None, None)
+        )
+        self._auto_reconnect = auto_reconnect
+
+        self._domain = DEFAULT_DOMAIN
+
+        self._connect_disconnect_lock = asyncio.Lock()
+
+        self._listener_task = None
+        self._listener_message_received = None
+
+        self._connected = False
+        # Set by hub_disconnect() so an in-flight reconnect loop stops even
+        # while _connected is already False for the duration of the reconnect.
+        self._disconnect_requested = False
+
+        self._plugin_config = {
+            # Enables PLAIN authentication which is off by default.
+            "feature_mechanisms": {"unencrypted_plain": True},
+        }
+        self._init_super()
+
+    def _init_super(self):
+        super().__init__(
+            DEFAULT_USER, DEFAULT_PASSWORD, plugin_config=self._plugin_config
+        )
+
+        # Set keep-alive to 30 seconds.
+        self.whitespace_keepalive_interval = 30
+
+        # Register all the event handlers and callbacks within XMPP
+        self._register_handlers()
+
+    @property
+    def callbacks(self) -> ConnectorCallbackType:
+        """Return callbacks."""
+        return self._callbacks
+
+    @callbacks.setter
+    def callbacks(self, value: ConnectorCallbackType) -> None:
+        """Set callbacks."""
+        self._callbacks = value
+
+    def _register_handlers(self):
+        """Register XMPP handlers for incoming messages and events."""
+        _LOGGER.debug("%s: Registering internal handlers.", self._ip_address)
+        # Register the callback for messages being received
+        self._listener()
+
+        # Register callback for connection.
+        self.add_event_handler(
+            "connected",
+            self._connected_handler,
+            disposable=False,
+        )
+
+        # Register callback for disconnections.
+        self.add_event_handler(
+            "disconnected",
+            self._disconnected_handler,
+            disposable=False,
+        )
+
+    def _deregister_handlers(self):
+        # Remove handlers.
+        _LOGGER.debug("%s: Removing internal handlers.", self._ip_address)
+        self.del_event_handler("connected", self._connected_handler)
+        self.del_event_handler("disconnected", self._disconnected_handler)
+        self.remove_handler("listener")
+
+    async def close(self):
+        """Close all connections and tasks
+
+        This should be called to ensure everything is stopped and
+        cancelled out.
+        """
+        # Close connections.
+        await self.hub_disconnect()
+
+    async def hub_connect(self, is_reconnect: bool = False) -> bool:
+        """Connect to Hub"""
+        # Acquire the lock.
+        if self._connect_disconnect_lock.locked():
+            _LOGGER.debug("%s: Waiting for other connect", self._ip_address)
+
+        async with self._connect_disconnect_lock:
+            # Return connected if we are already connected.
+            if self._connected:
+                return True
+
+            _LOGGER.debug("%s: Connecting to hub", self._ip_address)
+
+            log_level = 10 if is_reconnect else 40
+            loop = asyncio.get_running_loop()
+            connected = loop.create_future()
+
+            def connection_success(_):
+                self.del_event_handler("connection_failed", connection_failed)
+                connected.set_result(True)
+
+            def connection_failed(event):
+                connected.set_exception(event)
+                self.cancel_connection_attempt()
+                self.del_event_handler("connected", connection_success)
+
+            def remove_handlers():
+                # Remove the handlers.
+                self.del_event_handler("connection_failed", connection_failed)
+                self.del_event_handler("connected", connection_success)
+
+            self.add_event_handler(
+                "connected",
+                connection_success,
+                disposable=True,
+            )
+
+            self.add_event_handler(
+                "connection_failed",
+                connection_failed,
+                disposable=True,
+            )
+
+            # Harmony Hubs speak unencrypted XMPP on the local LAN; turn off
+            # the TLS negotiation slixmpp would otherwise attempt.
+            self.enable_starttls = False
+            self.enable_direct_tls = False
+
+            try:
+                super().connect(
+                    host=self._ip_address,
+                    port=int(DEFAULT_HUB_PORT),
+                )
+
+            except IqTimeout:
+                _LOGGER.log(
+                    log_level, "%s: Connection timed out for hub", self._ip_address
+                )
+
+                # Remove the handlers.
+                remove_handlers()
+                return False
+
+            # Wait till we're connected.
+            try:
+                await connected
+            except (asyncio.TimeoutError, TimeoutError):
+                _LOGGER.log(
+                    log_level,
+                    "%s: Timeout waiting for connecting to hub",
+                    self._ip_address,
+                )
+                # Remove the handlers.
+                remove_handlers()
+                raise aioexc.TimeOut
+            except asyncio.CancelledError:
+                _LOGGER.debug(
+                    "%s: Connecting to hub has been cancelled", self._ip_address
+                )
+                # Remove the handlers.
+                remove_handlers()
+                if (
+                    sys.version_info >= (3, 11)
+                    and (task := asyncio.current_task())
+                    and task.cancelling()
+                ):
+                    raise
+                return False
+            except OSError as exc:
+                _LOGGER.log(
+                    log_level,
+                    "%s: Connecting to HUB failed with error: %s",
+                    self._ip_address,
+                    exc,
+                )
+                # Remove the handlers.
+                remove_handlers()
+                return False
+
+            # Remove the handlers.
+            self._connected = True
+            self._disconnect_requested = False
+            remove_handlers()
+            _LOGGER.debug("%s: Connected to hub", self._ip_address)
+            return True
+
+    async def hub_disconnect(self) -> None:
+        """Disconnect from Hub"""
+        _LOGGER.debug("%s: Disconnecting", self._ip_address)
+        # Record intent before the _connected guard so a disconnect that
+        # arrives mid-reconnect (when _connected is already False) still
+        # tells the retry loop to give up.
+        self._disconnect_requested = True
+        # Acquire the lock.
+        async with self._connect_disconnect_lock:
+            if not self._connected:
+                return
+
+            # Set connected to false preventing reconnect from trying to
+            # reconnect.
+            self._connected = False
+
+            loop = asyncio.get_running_loop()
+            disconnected = loop.create_future()
+
+            def disconnect_result(_):
+                disconnected.set_result(True)
+
+            self._deregister_handlers()
+
+            self.add_event_handler(
+                "disconnected",
+                disconnect_result,
+                disposable=True,
+            )
+            super().disconnect()
+
+            # Wait till we're disconnected.
+            try:
+                async with timeout(DEFAULT_TIMEOUT):
+                    await disconnected
+            except asyncio.TimeoutError:
+                _LOGGER.debug("%s: Timeout trying to disconnect.", self._ip_address)
+                self.del_event_handler("disconnected", disconnect_result)
+                raise aioexc.TimeOut
+
+    def _connected_handler(self, _) -> None:
+        """Call handler for connection."""
+        self._connected = True
+        call_callback(
+            callback_handler=self._callbacks.connect,
+            result=self._ip_address,
+            callback_uuid=self._ip_address,
+            callback_name="connected",
+        )
+
+    async def _disconnected_handler(self, _) -> None:
+        """Perform reconnect to HUB if connection failed"""
+        call_callback(
+            callback_handler=self._callbacks.disconnect,
+            result=self._ip_address,
+            callback_uuid=self._ip_address,
+            callback_name="disconnected",
+        )
+        if not self._connected:
+            _LOGGER.debug(
+                "%s: Connection was closed through disconnect, not reconnecting",
+                self._ip_address,
+            )
+            return
+
+        if not self._auto_reconnect:
+            _LOGGER.debug(
+                "%s: Connection closed, auto-reconnect disabled", self._ip_address
+            )
+            return
+
+        _LOGGER.debug("%s: Connection closed, reconnecting", self._ip_address)
+        self._connected = False
+        is_reconnect = False
+
+        self._deregister_handlers()
+        self._init_super()
+
+        def _stop_reason() -> str | None:
+            # Re-read the flags so a concurrent hub_disconnect() (or
+            # auto_reconnect being turned off) actually stops the retry loop.
+            # Unlike the websocket connector, _connected is already False here
+            # for the whole reconnect, so the explicit _disconnect_requested
+            # flag carries the caller's intent.
+            if self._disconnect_requested:
+                return "Disconnect requested during reconnect, stopping"
+            if not self._auto_reconnect:
+                return "Auto-reconnect disabled during reconnect, stopping"
+            return None
+
+        sleep_time = 1
+        await asyncio.sleep(sleep_time)
+        while True:
+            if reason := _stop_reason():
+                _LOGGER.debug("%s: %s", self._ip_address, reason)
+                return
+            try:
+                if await self.hub_connect(is_reconnect=is_reconnect):
+                    # Exit loop if connected.
+                    return
+            except IqTimeout:
+                pass
+            is_reconnect = True
+            # Re-check intent after the attempt too: intent that changed during
+            # hub_connect() must not wait out the (up to 30s) backoff sleep.
+            if reason := _stop_reason():
+                _LOGGER.debug("%s: %s", self._ip_address, reason)
+                return
+            # Wait and try again, doubling the backoff up to 30s.
+            await asyncio.sleep(sleep_time)
+            sleep_time = min(sleep_time * 2, 30)
+
+    async def hub_send(
+        self, command, iq_type="get", params=None, msgid=None, post=False
+    ) -> str | None:
+        """Send a payload request to Harmony Hub and return json response."""
+        # Make sure we're connected.
+        if not await self.hub_connect():
+            return None
+
+        def result_callback(future_result):
+            # This is done to ensure that any time out exceptions are
+            # captured
+            with contextlib.suppress(IqTimeout):
+                future_result.result()
+
+        if not msgid:
+            msgid = str(uuid4())
+
+        if iq_type == "query":
+            iq_stanza = self.make_iq_query()
+        elif iq_type == "set":
+            iq_stanza = self.make_iq_set()
+        elif iq_type == "result":
+            iq_stanza = self.make_iq_result()
+        elif iq_type == "error":
+            iq_stanza = self.make_iq_error(id=msgid)
+        else:
+            iq_stanza = self.make_iq_get()
+        iq_stanza["id"] = msgid
+
+        payload = ET.Element("oa")
+        payload.attrib["xmlns"] = DEFAULT_NS
+        payload.attrib["mime"] = command
+
+        payload_text = None
+        for key in params:
+            if payload_text is None:
+                payload_text = key + "=" + str(params[key])
+            else:
+                payload_text = payload_text + ":" + key + "=" + str(params[key])
+
+        payload.text = payload_text
+        iq_stanza.set_payload(payload)
+
+        _LOGGER.debug(
+            "%s: Sending payload: %s %s", self._ip_address, payload.attrib, payload.text
+        )
+
+        result = iq_stanza.send(timeout=1)
+
+        # Add done callback to capture any timeout exceptions.
+        result.add_done_callback(result_callback)
+
+        return msgid
+
+    def _listener(self) -> None:
+        """Enable callback"""
+
+        def message_received(event):
+            payload = event.get_payload()
+            if len(payload) == 0:
+                _LOGGER.error(
+                    "%s: Invalid payload length of 0 received.",
+                    self._ip_address,
+                )
+                return
+
+            for message in payload:
+                data = {}
+                # Try to convert JSON object if JSON object was received
+                if message.text is not None and message.text != "":
+                    try:
+                        data = json_loads(message.text)
+                    except JSONDecodeError:
+                        # Should mean only a single value was received.
+                        for item in message.text.split(":"):
+                            item_split = item.split("=")
+                            if len(item_split) == 2:
+                                data.update({item_split[0]: item_split[1]})
+
+                # Create response dictionary
+                response = {
+                    "id": event.get("id"),
+                    "xmlns": message.attrib.get("xmlns"),
+                    "cmd": message.attrib.get("mime"),
+                    "type": message.attrib.get("type"),
+                    "code": int(message.attrib.get("errorcode", "0")),
+                    "codestring": message.attrib.get("errorstring"),
+                    "data": data,
+                }
+                _LOGGER.debug("%s: Response payload: %s", self._ip_address, response)
+                # Put response on queue.
+                self._response_queue.put_nowait(response)
+
+        self._listener_message_received = message_received
+
+        # Register our callback.
+        self.register_handler(
+            Callback(
+                "Listener",
+                MatchXPath(f"{{{self.default_ns}}}iq/{{{DEFAULT_NS}}}oa"),
+                message_received,
+            )
+        )
+
+        self.register_handler(
+            Callback(
+                "Listener",
+                MatchXPath(f"{{{self.default_ns}}}message/{{{DEFAULT_NS}}}event"),
+                message_received,
+            )
+        )

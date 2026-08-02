@@ -845,6 +845,38 @@ def save_config(data: dict) -> None:
     os.replace(tmp_path, CONFIG_FILE)
 
 
+def ensure_local_config() -> bool:
+    """Write a local-only config if none exists so run_daemon() can boot.
+
+    Every daemon spawn path (dashboard trial/license activation, the CLI's
+    local onboard) requires CONFIG_FILE to exist — load_config() raises
+    otherwise and the daemon crash-loops without ever creating the DuckDB
+    store (live-hit 2026-08-01: trial activated from the gate on a fresh
+    machine left `clawmetry status` at "Daemon: Not running" and the
+    dashboard with no family runtimes). Shape mirrors cli._finish_local:
+    empty api_key is safe because is_cloud_disabled() gates all egress.
+
+    Returns True if a config was written, False if one already existed or
+    the write failed (best-effort; never raises).
+    """
+    try:
+        if CONFIG_FILE.exists():
+            return False
+        import platform as _plat
+        import socket as _sock
+
+        save_config({
+            "api_key": "",
+            "node_id": _sock.gethostname() or "local",
+            "platform": _plat.system(),
+            "connected_at": datetime.now().isoformat(),
+            "local_only": True,
+        })
+        return True
+    except Exception:
+        return False
+
+
 def load_state() -> dict:
     if STATE_FILE.exists():
         try:
@@ -5505,6 +5537,78 @@ def sync_intercepted_events(config: dict, state: dict, paths: dict) -> int:
             state[offset_key] = f.tell()
     except Exception as e:
         log.warning("sync_intercepted_events error: %s", e)
+    return ingested
+
+
+def sync_numbat_events(config: dict, state: dict, paths: dict) -> int:
+    """Tail Perplexity numbat's NDJSON sinks (~/.numbat/*.ndjson) and ingest
+    findings → security_events, enforcement decisions → guardrail_events,
+    plus a shadow ``events`` row per finding (event_type "numbat_finding")
+    so alert rules fire. Mapper shared with POST /api/numbat/ingest lives in
+    clawmetry/numbat_ingest.py. Byte-offset cursor per file in state; the
+    file sink is numbat's durable path (its HTTP sink drops on failure), so
+    this tail is the primary integration. Returns rows ingested."""
+    numbat_dir = Path(
+        os.environ.get("NUMBAT_HOME", "") or (Path.home() / ".numbat")
+    )
+    if not numbat_dir.is_dir():
+        return 0
+    # findings.ndjson is the default hook sink (--emit findings); records.ndjson
+    # and live.ndjson appear with --emit all. Tail whichever exist.
+    candidates = ("findings.ndjson", "records.ndjson", "live.ndjson")
+    node_id = config.get("node_id", "")
+    ingested = 0
+    try:
+        from clawmetry import local_store as _ls
+        from clawmetry import numbat_ingest as _ni
+        store = _ls.get_store()
+        for fname in candidates:
+            fpath = numbat_dir / fname
+            if not fpath.exists():
+                continue
+            offset_key = f"numbat_offset_{fname}"
+            offset = state.get(offset_key, 0)
+            try:
+                with open(fpath, "r", errors="replace") as f:
+                    f.seek(0, 2)
+                    size = f.tell()
+                    if offset > size:
+                        offset = 0  # rotated/truncated — restart from top
+                    f.seek(offset)
+                    text = f.read()
+                    state[offset_key] = f.tell()
+            except Exception as _re:
+                log.debug("numbat tail read failed (%s): %s", fname, _re)
+                continue
+            if not text:
+                continue
+            records, _bad = _ni.parse_records(text)
+            mapped = _ni.map_records(records, node_id=node_id)
+            for sec in mapped["security_events"]:
+                try:
+                    store.ingest_security_event(sec)
+                    ingested += 1
+                except Exception as _ie:
+                    log.debug("numbat ingest_security_event failed: %s", _ie)
+            for gr in mapped["guardrail_events"]:
+                try:
+                    store.ingest_guardrail_event(gr)
+                    ingested += 1
+                except Exception as _ie:
+                    log.debug("numbat ingest_guardrail_event failed: %s", _ie)
+            for ev in mapped["shadow_events"]:
+                try:
+                    store.ingest(ev)
+                except Exception as _ie:
+                    log.debug("numbat shadow event ingest failed: %s", _ie)
+            if mapped["skipped_schema"]:
+                log.warning(
+                    "numbat: skipped %d record(s) with unsupported schema_version "
+                    "(ClawMetry understands %sx) — update ClawMetry or pin numbat",
+                    mapped["skipped_schema"], _ni.SCHEMA_PREFIX,
+                )
+    except Exception as e:
+        log.warning("sync_numbat_events error: %s", e)
     return ingested
 
 
@@ -16536,6 +16640,42 @@ def _build_device_summary(spending, daily_usage, efficiency=None):
     return summary
 
 
+def _build_evals_judge_status() -> dict | None:
+    """Node judge status for the hosted Evals card's snapshot slice.
+
+    Founder report 2026-08-01: the cloud Evals card showed the CONTAINER's
+    "API key: not set" plus a live-looking key form while the node's real
+    state was key-present-but-auth-rejected — the screen read as fake, and a
+    key pasted into that form landed on the container's ephemeral disk
+    instead of the node. This bakes the node's truth into the snapshot so
+    the hosted card can render it. Same recipe as routes/evals.py
+    judge_meta. Booleans and labels ONLY — key material never enters the
+    snapshot (it is E2E-encrypted, but the key still must not leave
+    ~/.clawmetry/eval_keys.json by contract). Returns None on any failure
+    so a broken eval stack can't break the snapshot.
+    """
+    try:
+        from clawmetry import eval_runner as _ev_run
+        keys = _ev_run.judge_keys_present()
+        rubric = _ev_run.load_rubric("default") or {}
+        provider = _ev_run.judge_provider_for(rubric)
+        last = _ev_run.last_judge_status()
+        return {
+            "enabled": _ev_run.is_enabled(),
+            "key_present": bool(keys.get(provider)),
+            "provider": str(provider),
+            "model": str(
+                rubric.get("judge_model")
+                or _ev_run.DEFAULT_RUBRIC["judge_model"]
+            ),
+            "last_error": last.get("error"),
+            "last_ok_at": last.get("at") if last.get("ok") else None,
+        }
+    except Exception as e:
+        log.debug("snapshot: evals judge status failed: %s", e)
+        return None
+
+
 def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
     """Push system info + subagent data as encrypted snapshot.
 
@@ -17083,6 +17223,9 @@ def sync_system_snapshot(config: dict, state: dict, paths: dict) -> int:
         evals_slice["recent"] = _ev_store.query_recent_evals(limit=10) or []
     except Exception as _e_ev:
         log.debug("snapshot: evals slice failed: %s", _e_ev)
+    _evj = _build_evals_judge_status()
+    if _evj:
+        evals_slice["judge"] = _evj
 
     # Per-runtime breakdowns so the Overview cards (outcome tile + activity
     # strip) re-scope with the runtime switcher on the hosted dashboard. Keyed
@@ -18589,6 +18732,15 @@ def run_daemon() -> None:
                 sync_intercepted_events(config, state, paths)
             except Exception as _ie:
                 log.debug("sync_intercepted_events tick error (non-fatal): %s", _ie)
+
+            # ── numbat (Perplexity agent-EDR) findings tail ──────────────
+            # Findings/denies from ~/.numbat/*.ndjson land in
+            # security_events / guardrail_events + shadow events rows so
+            # alert rules fire. Cheap byte-tail, idempotent ids, best-effort.
+            try:
+                sync_numbat_events(config, state, paths)
+            except Exception as _ne:
+                log.debug("sync_numbat_events tick error (non-fatal): %s", _ne)
 
             # ── Telegram outbound from gateway.log (#1192 follow-up) ──
             # OpenClaw stores Telegram chats in memory only — no JSONL is

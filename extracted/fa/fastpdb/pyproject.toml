@@ -1,0 +1,54 @@
+[project]
+name = "fastpdb"
+version = "1.3.3"
+description = "A high performance drop-in replacement for Biotite's PDBFile."
+readme = "README.rst"
+requires-python = ">=3.7"
+license = {file = "LICENSE"}
+keywords = ["pdb-files"]
+authors = [
+  {name = "Patrick Kunzmann"},
+  {name = "Nick Coish"}
+]
+maintainers = [
+  {name = "Patrick Kunzmann"}
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+  "biotite >= 0.39",
+]
+
+[project.optional-dependencies]
+# development dependency groups
+test = [
+    "pytest",
+    "pytest-codspeed",
+]
+plot = [
+    "matplotlib",
+]
+
+[project.urls]
+homepage = "https://github.com/biotite-dev/fastpdb"
+repository = "https://github.com/biotite-dev/fastpdb"
+
+[tool.maturin]
+exclude = ["*.svg", "tests/"]
+python-source = "python-src"
+
+[build-system]
+requires = [
+    "maturin >=1.0,<2.0",
+    "numpy >=1.26,<1.27"
+]
+build-backend = "maturin"

@@ -52,6 +52,7 @@ class ARLocalFlavorTests(SimpleTestCase):
             '106AAB': error_format,
             '500': error_atleast + error_format,
             '5PPP': error_format,
+            'A1234': error_format,
         }
         self.assertFieldOutput(ARPostalCodeField, valid, invalid)
 

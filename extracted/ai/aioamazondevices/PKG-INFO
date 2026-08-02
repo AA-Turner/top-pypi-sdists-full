@@ -1,0 +1,221 @@
+Metadata-Version: 2.4
+Name: aioamazondevices
+Version: 14.2.2
+Summary: Python library to control Amazon devices
+Author-email: Simone Chemelli <simone.chemelli@gmail.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/chemelli74/aioamazondevices
+Project-URL: Bug Tracker, https://github.com/chemelli74/aioamazondevices/issues
+Project-URL: Changelog, https://github.com/chemelli74/aioamazondevices/blob/main/CHANGELOG.md
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiohttp>=3.12.7
+Requires-Dist: beautifulsoup4
+Requires-Dist: httpx[http2]
+Requires-Dist: langcodes
+Requires-Dist: orjson<4,>=3.10
+Requires-Dist: python-dateutil
+Dynamic: license-file
+
+# aioamazondevices
+
+<p align="center">
+  <a href="https://github.com/chemelli74/aioamazondevices/actions/workflows/ci.yml?query=branch%3Amain">
+    <img src="https://img.shields.io/github/actions/workflow/status/chemelli74/aioamazondevices/ci.yml?branch=main&label=CI&logo=github&style=flat-square" alt="CI Status" >
+  </a>
+  <a href="https://codecov.io/gh/chemelli74/aioamazondevices">
+    <img src="https://img.shields.io/codecov/c/github/chemelli74/aioamazondevices.svg?logo=codecov&logoColor=fff&style=flat-square" alt="Test coverage percentage">
+  </a>
+</p>
+<p align="center">
+  <a href="https://docs.astral.sh/uv/">
+    <img src="https://img.shields.io/badge/packaging-uv-2A5BFF?style=flat-square" alt="uv">
+  </a>
+  <a href="https://github.com/ambv/black">
+    <img src="https://img.shields.io/badge/code%20style-black-000000.svg?style=flat-square" alt="black">
+  </a>
+  <a href="https://pypi.org/project/prek/">
+    <img src="https://img.shields.io/badge/prek-enabled-brightgreen?style=flat-square" alt="prek">
+  </a>
+</p>
+<p align="center">
+  <a href="https://pypi.org/project/aioamazondevices/">
+    <img src="https://img.shields.io/pypi/v/aioamazondevices.svg?logo=python&logoColor=fff&style=flat-square" alt="PyPI Version">
+  </a>
+  <a href="https://pypi.org/project/aioamazondevices/">
+    <img src="https://img.shields.io/pypi/pyversions/aioamazondevices.svg?style=flat-square&amp;logo=python&amp;logoColor=fff" alt="Supported Python versions">
+  </a>
+  <img src="https://img.shields.io/pypi/l/aioamazondevices.svg?style=flat-square" alt="License">
+</p>
+
+---
+
+**Source Code**: <a href="https://github.com/chemelli74/aioamazondevices" target="_blank">https://github.com/chemelli74/aioamazondevices </a>
+
+---
+
+Python library to control Amazon devices
+
+## Installation
+
+Install this via pip (or your favourite package manager):
+
+`pip install aioamazondevices`
+
+## Test
+
+Test the library with:
+
+`python library_test.py`
+
+The script accept command line arguments or a library_test.json config file:
+
+```json
+{
+  "email": "<my_address@gmail.com>",
+  "password": "<my_password>",
+  "single_device_name": "<my_device_name>",
+  "cluster_device_name": "<my_everywhere_group>",
+  "routine_name": "<my_routine_name>",
+  "login_data_file": "out/login_data.json",
+  "test": true,
+  "tests": {
+    "01_test_volume": false,
+    "02_test_speak": true,
+    "03_test_announcement": false,
+    "04_test_sound": true,
+    "05_test_info_skill": false,
+    "06_test_music": false,
+    "07_test_text_command": false,
+    "08_test_skill": false,
+    "09_test_media_controls": false,
+    "10_test_routines": false
+  }
+}
+```
+
+## Known Issues & Limitations
+
+See [wiki](https://github.com/chemelli74/aioamazondevices/wiki/Known-Issues-and-Limitations)
+
+## Unknown device type
+
+See [wiki](https://github.com/chemelli74/aioamazondevices/wiki/Unknown-Device-Types)
+
+## Roadmap
+
+See [wiki](https://github.com/chemelli74/aioamazondevices/wiki/Roadmap)
+
+## Contributors ✨
+
+Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
+
+<!-- prettier-ignore-start -->
+<!-- readme: contributors -start -->
+<table>
+	<tbody>
+		<tr>
+            <td align="center">
+                <a href="https://github.com/chemelli74">
+                    <img src="https://avatars.githubusercontent.com/u/57354320?v=4" width="100;" alt="chemelli74"/>
+                    <br />
+                    <sub><b>Simone Chemelli</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/jamesonuk">
+                    <img src="https://avatars.githubusercontent.com/u/1040621?v=4" width="100;" alt="jamesonuk"/>
+                    <br />
+                    <sub><b>jameson_uk</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/jeeftor">
+                    <img src="https://avatars.githubusercontent.com/u/6491743?v=4" width="100;" alt="jeeftor"/>
+                    <br />
+                    <sub><b>Jeef</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/francescolf">
+                    <img src="https://avatars.githubusercontent.com/u/14892143?v=4" width="100;" alt="francescolf"/>
+                    <br />
+                    <sub><b>Francesco Lo Faro</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/ivanfmartinez">
+                    <img src="https://avatars.githubusercontent.com/u/677001?v=4" width="100;" alt="ivanfmartinez"/>
+                    <br />
+                    <sub><b>Ivan F. Martinez</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/eyadkobatte">
+                    <img src="https://avatars.githubusercontent.com/u/16541074?v=4" width="100;" alt="eyadkobatte"/>
+                    <br />
+                    <sub><b>Eyad Kobatte</b></sub>
+                </a>
+            </td>
+		</tr>
+		<tr>
+            <td align="center">
+                <a href="https://github.com/AzonInc">
+                    <img src="https://avatars.githubusercontent.com/u/11911587?v=4" width="100;" alt="AzonInc"/>
+                    <br />
+                    <sub><b>Flo</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/lchavezcuu">
+                    <img src="https://avatars.githubusercontent.com/u/22165856?v=4" width="100;" alt="lchavezcuu"/>
+                    <br />
+                    <sub><b>Luis Chavez</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/lonlazer">
+                    <img src="https://avatars.githubusercontent.com/u/19411776?v=4" width="100;" alt="lonlazer"/>
+                    <br />
+                    <sub><b>Léon</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/maxmati">
+                    <img src="https://avatars.githubusercontent.com/u/509560?v=4" width="100;" alt="maxmati"/>
+                    <br />
+                    <sub><b>Mateusz Nowotyński</b></sub>
+                </a>
+            </td>
+            <td align="center">
+                <a href="https://github.com/tronikos">
+                    <img src="https://avatars.githubusercontent.com/u/9987465?v=4" width="100;" alt="tronikos"/>
+                    <br />
+                    <sub><b>tronikos</b></sub>
+                </a>
+            </td>
+		</tr>
+	<tbody>
+</table>
+<!-- readme: contributors -end -->
+<!-- prettier-ignore-end -->
+
+This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!
+
+## Credits
+
+This package was created with
+[Copier](https://copier.readthedocs.io/) and the
+[browniebroke/pypackage-template](https://github.com/browniebroke/pypackage-template)
+project template.

@@ -1,0 +1,602 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""
+Root conftest.py for test suite.
+
+Provides memory optimization, resource cleanup, and shared fixtures
+to prevent OOM issues in large test suites.
+
+Warning Suppression:
+-------------------
+Asyncio warnings are configured in pyproject.toml [tool.pytest.ini_options]:
+- "Task was destroyed but it is pending!" warnings are suppressed (expected during cleanup)
+- "coroutine was never awaited" warnings are NOT suppressed (indicate real bugs)
+
+See pyproject.toml filterwarnings configuration for details.
+
+Global Patching Side Effects:
+-----------------------------
+WARNING: This conftest applies GLOBAL patches to asyncio exception handling.
+
+The `event_loop_cleanup` and `cleanup_service_tasks` fixtures temporarily set
+`loop.set_exception_handler(lambda loop, context: None)` during teardown. This
+affects ALL tests in the suite when these fixtures are active.
+
+What is patched:
+- The asyncio event loop's exception handler is set to a no-op lambda
+- This occurs during the teardown phase of each test
+- The original handler is restored after cleanup completes
+
+Side Effects:
+- All asyncio exceptions during test teardown are silently swallowed
+- "Task was destroyed but it is pending!" warnings are suppressed (intentional)
+- Any CancelledError or other exceptions raised during task cancellation are hidden
+- Tests cannot rely on the exception handler being called during teardown
+- If cleanup fails, no error messages will be logged
+
+Why This Exists:
+- Health monitor tasks and service loops may have long sleep intervals
+- Cancelling these tasks during teardown generates noisy but harmless warnings
+- These warnings obscure real test failures in CI output
+- The patching is scoped to teardown only, not during test execution
+
+Mitigation:
+- Tests that need to verify exception handler behavior should mock it explicitly
+- Use explicit task cancellation and await BEFORE test teardown if verification needed
+- Consider using `pytest.mark.filterwarnings` for test-specific exception handling
+- The `mock_event_loop` fixture provides isolated event loop testing without global effects
+"""
+
+import asyncio
+import gc
+import logging
+import os
+from collections.abc import Generator
+from unittest.mock import MagicMock
+
+import pytest
+
+from omnibase_core.validators.no_unguarded_git_subprocess import (
+    GIT_DISCOVERY_ENV_VARS,
+    GIT_LOCATION_ENV_VARS,
+    strip_git_location_env,
+)
+
+# Configure logging to reduce memory overhead
+logging.basicConfig(level=logging.WARNING)
+
+
+# ===========================================================================
+# OMN-14891: git environment isolation (session-wide, autouse)
+# ===========================================================================
+#
+# Git exports GIT_DIR / GIT_WORK_TREE / GIT_INDEX_FILE / GIT_COMMON_DIR into the
+# environment of every hook it runs. Those variables OVERRIDE both `cwd=` and
+# `git -C`. So when pytest runs as a subprocess of this repo's own pre-push hook,
+# a fixture doing `subprocess.run(["git", "init"], cwd=tmp_path)` does not touch
+# tmp_path at all — it re-initialises the REAL invoking worktree.
+#
+# That is not hypothetical. It happened twice:
+#   * 2026-07-20 (OMN-14891): the shared canonical clone's .git/config gained
+#     `core.bare = true` plus a bogus `[user] t / t@t.t` block, 6707 lines of
+#     phantom staged deletions landed in the real index, and an amend committed
+#     that index as a 6668-file / 1.4M-line deletion.
+#   * 2026-07-21 (OMN-14863): recurred — fixture commits wrote f.txt / file.txt
+#     into the real index.
+#
+# `$OMNI_HOME/<repo>/.git/config` is shared by every worktree of that repo, so
+# one session's test run corrupts every concurrent session in a sibling worktree.
+#
+# OMN-14744 fixed one file in omnibase_infra; the class recurred in a different
+# repo across five different files. Per-file patching does not hold, so the scrub
+# is applied ONCE here for the whole session.
+#
+# WHY BOTH pytest_configure AND an autouse fixture:
+#   * `_scrub_git_environment()` is called from `pytest_configure` below, which
+#     runs BEFORE collection — so module-import-time and module-scoped-fixture
+#     git calls are covered too. A session fixture alone starts too late for
+#     those.
+#   * The autouse session fixture re-asserts the scrub so the guarantee is
+#     visible as a fixture (and holds under `-p no:cacheprovider`, plugin
+#     reordering, and any code that re-populates os.environ during startup).
+# Under xdist (`-n4`) both run in every worker process, so every worker is
+# covered independently.
+#
+# DECISION — GIT_CONFIG_GLOBAL / GIT_CONFIG_SYSTEM are scrubbed, NOT pinned:
+#   Inherited `GIT_CONFIG*` overrides are DELETED (a hook or wrapper could point
+#   them anywhere), but they are deliberately NOT pinned to /dev/null. Pinning
+#   would strip commit identity session-wide and break every fixture that commits
+#   without explicit `-c user.email` overrides — a blast radius that cannot be
+#   validated here, because this repo's full suite is itself pathological
+#   (OMN-14892 / OMN-14753). The residual risk pinning would have covered — a
+#   fixture writing the real user's ~/.gitconfig — is instead closed statically
+#   and with zero runtime blast radius by the companion gate, which rejects
+#   `git config --global` / `--system` anywhere under tests/. Once location is
+#   correct, a plain `git config user.email` cannot escape the tmp repo.
+_GIT_ENV_VARS_SCRUBBED: tuple[str, ...] = (
+    *GIT_LOCATION_ENV_VARS,
+    *GIT_DISCOVERY_ENV_VARS,
+)
+
+
+def _scrub_git_environment() -> tuple[str, ...]:
+    """Remove inherited git location/config overrides from os.environ."""
+    return strip_git_location_env(os.environ)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def git_environment_isolation() -> Generator[None, None, None]:
+    """Guarantee no inherited git override survives into any test (OMN-14891).
+
+    Intentionally does NOT restore the variables on teardown: restoring them
+    would re-arm the corruption for anything running after the last test in the
+    worker, and no test may legitimately depend on inheriting a git hook's
+    GIT_DIR.
+    """
+    _scrub_git_environment()
+    for name in _GIT_ENV_VARS_SCRUBBED:
+        assert name not in os.environ, (
+            f"{name} survived the OMN-14891 git-environment scrub; git subprocesses "
+            "in fixtures would target the real invoking worktree instead of tmp_path"
+        )
+    return
+
+
+@pytest.fixture(scope="session", autouse=True)
+def session_cleanup() -> Generator[None, None, None]:
+    """
+    Session-level cleanup to manage memory across entire test run.
+
+    This fixture runs once at the start and end of the test session,
+    providing global cleanup and garbage collection.
+    """
+    # Session setup
+    gc.collect()  # Clean up before starting tests
+    yield
+
+    # Session teardown
+    gc.collect()  # Clean up after all tests complete
+
+
+@pytest.fixture(autouse=True)
+def aggressive_gc_cleanup() -> Generator[None, None, None]:
+    """
+    Aggressive garbage collection after each test.
+
+    This fixture runs after every test to immediately free memory,
+    preventing accumulation across thousands of tests.
+
+    Note: Exception handling includes FileNotFoundError to handle race conditions
+    during parallel test execution where cleanup may access already-deleted files.
+    """
+    yield  # Let test run
+
+    # Collect garbage after each test to prevent memory accumulation
+    try:
+        gc.collect()
+    except (FileNotFoundError, OSError):
+        # GC cleanup may fail if files are already removed by parallel workers
+        pass
+
+
+@pytest.fixture(autouse=True)
+def event_loop_cleanup() -> Generator[None, None, None]:
+    """
+    Clean up event loops and async tasks after each test.
+
+    Ensures no dangling event loops or tasks that could accumulate memory.
+    Specifically handles health monitor tasks that may have long sleep intervals.
+    Suppresses asyncio exception logging during cleanup to prevent noise.
+
+    Note: Exception handling includes FileNotFoundError and OSError to handle
+    race conditions during parallel test execution where cleanup may access
+    already-deleted files or resources.
+    """
+    yield  # Let test run
+
+    # Clean up any remaining event loops
+    try:
+        # Try to get the current running event loop only
+        # Note: asyncio.get_event_loop() is deprecated in Python 3.12+
+        # We only use get_running_loop() to avoid deprecation warnings
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            # No running loop - that's fine, nothing to clean up
+            return
+
+        if loop and not loop.is_closed():
+            # Suppress asyncio exception logging during cleanup
+            # Prevents "Task was destroyed but it is pending!" warnings
+            old_exception_handler = loop.get_exception_handler()
+            loop.set_exception_handler(lambda loop, context: None)
+
+            try:
+                # Get all pending tasks in this loop
+                try:
+                    pending = asyncio.all_tasks(loop)
+                except RuntimeError:
+                    # asyncio.all_tasks() can fail if loop is from another thread
+                    return
+
+                if pending:
+                    # Cancel all pending tasks
+                    for task in pending:
+                        if not task.done():
+                            task.cancel()
+
+                    # Give tasks up to 2 seconds to complete cancellation
+                    # This is important for health monitor tasks with sleep intervals
+                    try:
+                        # Use wait_for with timeout to prevent hanging
+                        async def cancel_all():
+                            await asyncio.gather(*pending, return_exceptions=True)
+
+                        loop.run_until_complete(
+                            asyncio.wait_for(cancel_all(), timeout=2.0)
+                        )
+                    except TimeoutError:
+                        # Some tasks didn't cancel in time - force cleanup
+                        for task in pending:
+                            if not task.done():
+                                # Force task to be done by suppressing exception
+                                try:
+                                    task.exception()
+                                except (
+                                    asyncio.CancelledError,
+                                    asyncio.InvalidStateError,
+                                ):
+                                    pass
+                    except (FileNotFoundError, OSError):
+                        # Race condition - files already cleaned up by parallel workers
+                        pass
+                    except Exception:  # noqa: BLE001
+                        # Best effort cleanup - don't fail tests due to cleanup issues
+                        pass
+            finally:
+                # Restore original exception handler
+                try:
+                    loop.set_exception_handler(old_exception_handler)
+                except (RuntimeError, FileNotFoundError, OSError):
+                    # Loop may be closed or resources unavailable
+                    pass
+
+    except (RuntimeError, FileNotFoundError, OSError):
+        # Event loop issues or file cleanup race - just skip cleanup
+        pass
+
+
+@pytest.fixture(scope="session")
+def memory_profiler_enabled() -> bool:
+    """
+    Check if memory profiling is enabled.
+
+    Set PYTEST_MEMORY_PROFILE=1 environment variable to enable.
+    """
+    import os
+
+    return os.environ.get("PYTEST_MEMORY_PROFILE", "0") == "1"
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """
+    Configure pytest with memory optimization settings.
+
+    Args:
+        config: pytest configuration object
+    """
+    # OMN-14891: scrub inherited git overrides BEFORE collection, so that
+    # import-time and module-scoped-fixture git calls are covered too. The
+    # autouse `git_environment_isolation` session fixture re-asserts this.
+    _scrub_git_environment()
+
+    # Register custom markers
+    config.addinivalue_line(
+        "markers",
+        "memory_intensive: mark test as memory intensive (may need sequential execution)",
+    )
+
+    # Register isolation markers for test state management
+    config.addinivalue_line(
+        "markers",
+        "isolated: mark test as requiring fresh module state (isolated from other tests)",
+    )
+    config.addinivalue_line(
+        "markers",
+        "no_shared_state: mark test as sensitive to global state pollution",
+    )
+    config.addinivalue_line(
+        "markers",
+        "singleton_sensitive: mark test as touching specific singletons that need isolation",
+    )
+    config.addinivalue_line(
+        "markers",
+        "fresh_event_loop: mark test as requiring isolated asyncio event loop",
+    )
+    config.addinivalue_line(
+        "markers",
+        "serial: mark test to run serially after parallel tests complete (single worker)",
+    )
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    """
+    Modify test collection to optimize memory usage and execution order.
+
+    This hook performs two key optimizations:
+    1. Groups related tests together (better cache locality)
+    2. Moves serial-marked tests to run last (after parallel tests complete)
+
+    Serial Test Ordering:
+    ---------------------
+    Tests marked with @pytest.mark.serial will be collected last, ensuring they
+    run after all parallelizable tests complete. This is critical for tests that:
+    - Require fresh singleton state
+    - Are sensitive to global state pollution from parallel execution
+    - Need exclusive access to shared resources
+
+    Args:
+        config: pytest configuration object
+        items: list of collected test items
+    """
+    # Separate serial tests from normal tests
+    serial_tests: list[pytest.Item] = []
+    normal_tests: list[pytest.Item] = []
+
+    for item in items:
+        if item.get_closest_marker("serial"):
+            serial_tests.append(item)
+        else:
+            normal_tests.append(item)
+
+    # Sort normal tests to group related tests together (better cache locality)
+    normal_tests.sort(key=lambda item: (item.module.__name__, item.name))
+
+    # Sort serial tests for consistent ordering
+    serial_tests.sort(key=lambda item: (item.module.__name__, item.name))
+
+    # Reorder: normal tests first (parallelized), then serial at end
+    items[:] = normal_tests + serial_tests
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_setup(item: pytest.Item) -> None:
+    """
+    Run before each test to prepare environment.
+
+    Args:
+        item: pytest test item
+    """
+    # Force garbage collection before memory-intensive tests
+    if item.get_closest_marker("memory_intensive"):
+        gc.collect()
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_runtest_teardown(item: pytest.Item, nextitem: pytest.Item | None) -> None:
+    """
+    Run after each test to clean up resources.
+
+    Args:
+        item: pytest test item
+        nextitem: next test item (None if last test)
+    """
+    # Force garbage collection after memory-intensive tests
+    if item.get_closest_marker("memory_intensive"):
+        gc.collect()
+
+    # If next test is in different module, force GC to free module memory
+    if nextitem and nextitem.module != item.module:
+        gc.collect()
+
+
+@pytest.fixture(autouse=True)
+def cleanup_service_tasks(
+    request: pytest.FixtureRequest,
+) -> Generator[None, None, None]:
+    """
+    Specifically clean up service-related async tasks after each test.
+
+    This fixture targets health monitor tasks and service loops that may
+    be created during service testing and not properly cleaned up.
+
+    Also suppresses asyncio exception logging during cleanup to prevent
+    "Task was destroyed but it is pending!" warnings when tasks are cancelled
+    during test teardown.
+
+    Note: This is a sync fixture to avoid PytestRemovedIn9Warning when applied
+    to sync tests. It performs async cleanup only when an event loop is available.
+
+    Note: Exception handling includes FileNotFoundError and OSError to handle
+    race conditions during parallel test execution where cleanup may access
+    already-deleted files or resources.
+    """
+    yield  # Let test run
+
+    # Only do async cleanup if there's a running event loop
+    # This avoids warnings when applied to sync tests
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # No running loop - nothing to clean up
+        return
+
+    # Force cleanup of any remaining tasks
+    try:
+        if loop and not loop.is_closed():
+            # Suppress asyncio exception logging during cleanup
+            # This prevents "Task was destroyed but it is pending!" errors
+            # when we cancel tasks during test teardown
+            old_exception_handler = loop.get_exception_handler()
+            loop.set_exception_handler(lambda loop, context: None)
+
+            try:
+                # Get all tasks
+                all_tasks = asyncio.all_tasks(loop)
+
+                # Filter for health monitor and service tasks
+                health_tasks = [
+                    task
+                    for task in all_tasks
+                    if not task.done()
+                    and (
+                        "_health_monitor_loop" in str(task.get_coro())
+                        or "_service_loop" in str(task.get_coro())
+                        or "_service_event_loop" in str(task.get_coro())
+                    )
+                ]
+
+                if health_tasks:
+                    # Cancel health monitor tasks specifically
+                    for task in health_tasks:
+                        task.cancel()
+            finally:
+                # Restore original exception handler
+                try:
+                    loop.set_exception_handler(old_exception_handler)
+                except (RuntimeError, FileNotFoundError, OSError):
+                    # Loop may be closed or resources unavailable
+                    pass
+
+    except (FileNotFoundError, OSError):
+        # Race condition - files already cleaned up by parallel workers
+        pass
+    except Exception:  # noqa: BLE001
+        # Best effort cleanup - don't fail tests
+        pass
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """
+    Run after entire test session completes.
+
+    Args:
+        session: pytest session object
+        exitstatus: exit status code
+    """
+    # Final cleanup
+    gc.collect()
+
+    # Log memory statistics if profiling enabled
+    try:
+        import os
+
+        if os.environ.get("PYTEST_MEMORY_PROFILE", "0") == "1":
+            import psutil
+
+            process = psutil.Process()
+            memory_info = process.memory_info()
+            print("\n=== Test Suite Memory Statistics ===")
+            print(f"RSS (Resident Set Size): {memory_info.rss / 1024 / 1024:.2f} MB")
+            print(f"VMS (Virtual Memory Size): {memory_info.vms / 1024 / 1024:.2f} MB")
+    except ImportError:
+        pass  # psutil not available - skip memory profiling
+
+
+# =============================================================================
+# Preventive Fixtures for Event Loop Testing
+# =============================================================================
+
+
+@pytest.fixture
+def mock_event_loop() -> Generator[MagicMock, None, None]:
+    """
+    Provide a mock event loop to prevent real event loop creation in tests.
+
+    This fixture prevents test hangs caused by real event loop creation in CI
+    environments, particularly when testing workflow or async execution patterns.
+
+    Usage:
+        def test_workflow_execution(mock_event_loop):
+            '''Test workflow with mocked event loop.'''
+            mock_event_loop.run_until_complete.return_value = expected_result
+
+            with patch("asyncio.new_event_loop", return_value=mock_event_loop):
+                result = tool.execute_workflow(input_state)
+
+            # Verify event loop was properly closed
+            mock_event_loop.close.assert_called_once()
+
+    Pattern:
+        - Mock event loop before calling code that creates event loops
+        - Set return values on run_until_complete for expected results
+        - Always verify close() was called to ensure cleanup
+
+    Why This Matters:
+        - Real event loop creation can hang in CI environments
+        - Event loops must be properly closed to prevent resource leaks
+        - Mocked event loops provide deterministic test behavior
+
+    When NOT to use this fixture:
+        - When tests need specific return values from run_until_complete()
+        - When multiple different workflows are tested in one test
+    """
+    mock_loop = MagicMock()
+    mock_loop.run_until_complete.return_value = None
+    yield mock_loop
+
+    # Verify the loop was closed (good practice check)
+    if not mock_loop.close.called:
+        import warnings
+
+        warnings.warn(
+            "mock_event_loop was not closed in test. "
+            "Always call mock_loop.close.assert_called_once() to verify cleanup.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+
+
+@pytest.fixture(autouse=True)
+def detect_event_loop_mocking_issues(request: pytest.FixtureRequest) -> None:
+    """
+    Auto-detect and warn about missing event loop mocks in workflow tests.
+
+    This fixture monitors test execution and issues warnings when tests
+    use async workflows but fail to mock asyncio.new_event_loop, which can
+    cause hangs.
+
+    The fixture is autouse=True but only activates warnings for tests that:
+    1. Use async workflow patterns
+    2. Don't use the mock_event_loop fixture
+    3. Actually call code that creates event loops
+
+    Note: This is a best-effort detection mechanism. False positives/negatives
+    are possible. Use mock_event_loop fixture explicitly for guaranteed safety.
+    """
+    # Check if test uses mock_event_loop fixture
+    if "mock_event_loop" in request.fixturenames:
+        return  # Test is already using the fixture, no warning needed
+
+    # Only check tests in specific modules known to have this pattern
+    test_module = request.module.__name__
+    if not ("test_workflow" in test_module or "test_orchestrat" in test_module):
+        return  # Skip detection for unrelated tests
+
+    # Note: Detection of actual async workflow mocking would require AST parsing
+    # or runtime inspection, which is expensive. Instead, we rely on:
+    # 1. Explicit use of mock_event_loop fixture (recommended)
+    # 2. Code review to ensure pattern compliance
+    # 3. CI timeouts to catch actual hangs
+
+    # This fixture serves primarily as documentation and a reminder
+    # to use mock_event_loop when testing workflow/async patterns
+
+
+# =============================================================================
+# Test Isolation Fixtures (for parallel test execution)
+# =============================================================================
+
+# Import isolation fixtures to make them available globally
+# These fixtures enable proper state isolation for parallel test execution
+from tests.fixtures.isolation import (  # noqa: F401
+    clear_caches_fixture,
+    fresh_asyncio_loop,
+    isolated_correlation_context,
+    reset_all_singletons,
+    reset_container_singleton,
+    reset_registries,
+)

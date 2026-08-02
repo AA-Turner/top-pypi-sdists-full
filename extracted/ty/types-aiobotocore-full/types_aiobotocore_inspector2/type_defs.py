@@ -880,7 +880,6 @@ CodeSecurityIntegrationSummaryTypeDef = TypedDict(
         "statusReason": str,
         "createdOn": datetime,
         "lastUpdateOn": datetime,
-        "tags": NotRequired[dict[str, str]],
     },
 )
 
@@ -1894,8 +1893,8 @@ GetCodeSecurityIntegrationResponseTypeDef = TypedDict(
         "statusReason": str,
         "createdOn": datetime,
         "lastUpdateOn": datetime,
-        "tags": dict[str, str],
         "authorizationUrl": str,
+        "tags": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -2190,7 +2189,6 @@ class CodeSecurityScanConfigurationSummaryTypeDef(TypedDict):
     frequencyExpression: NotRequired[str]
     continuousIntegrationScanSupportedEvents: NotRequired[list[ContinuousIntegrationScanEventType]]
     scopeSettings: NotRequired[ScopeSettingsTypeDef]
-    tags: NotRequired[dict[str, str]]
 
 
 class CodeSecurityScanConfigurationTypeDef(TypedDict):

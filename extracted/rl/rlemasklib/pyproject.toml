@@ -1,0 +1,116 @@
+[build-system]
+requires = [
+    "setuptools>=64",
+    "wheel",
+    "numpy",
+    "cython>=3.0.0",
+    "setuptools_scm>=8"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "RLEMaskLib"
+dynamic = ["version"]
+description = "Manipulate run-length-encoded image masks"
+authors = [
+    { name = "István Sárándi", email = "istvan.sarandi@uni-tuebingen.de" }
+]
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+
+keywords = [
+    "computer-vision",
+    "cython",
+    "image-processing",
+    "segmentation",
+    "run-length-encoding",
+    "rle",
+    "image-segmentation",
+    "mask",
+    "compression-algorithm",
+    "image-mask",
+    "runlengthencoding",
+    "run-length",
+    "image-masking"
+]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Topic :: Software Development :: Libraries",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: C",
+    "Programming Language :: Cython",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows"
+]
+
+dependencies = [
+    "numpy"
+]
+
+[project.optional-dependencies]
+docs = [
+    "sphinx",
+    "sphinxcontrib-bibtex",
+    "sphinx-autoapi",
+    "sphinx-autobuild",
+    "sphinx-autodoc-typehints",
+    "sphinxcontrib-prettyspecialmethods",
+    "sphinx-autodoc-napoleon-typehints",
+    "sphinx-codeautolink",
+    "sphinx-rtd-theme",
+    "pydata-sphinx-theme",
+    "sphinxcontrib-napoleon",
+    "Cython>=3.0.0",
+    "numpy",
+    "setuptools-scm",
+    "toml"
+]
+test = [
+    "pytest",
+    "numpy",
+    "hypothesis",
+    "opencv-python",
+    "docutils"
+]
+test-headless = [
+    "pytest",
+    "numpy",
+    "hypothesis",
+    "opencv-python-headless",
+    "scikit-image",
+    "docutils"
+]
+
+[project.urls]
+Homepage = "https://github.com/isarandi/rlemasklib"
+Repository = "https://github.com/isarandi/rlemasklib"
+Documentation = "https://rlemasklib.readthedocs.io/"
+Issues = "https://github.com/isarandi/rlemasklib/issues"
+Changelog = "https://github.com/isarandi/rlemasklib/releases"
+Author = "https://istvansarandi.com"
+
+[tool.setuptools_scm]
+version_scheme = "guess-next-dev"
+local_scheme = "no-local-version"
+version_file = "src/rlemasklib/_version.py"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.cibuildwheel]
+test-requires = ["pytest", "numpy"]
+test-command = "pytest {project}/tests/test_smoke.py -v"
+
+[tool.black]
+line-length = 99
+skip-string-normalization = true

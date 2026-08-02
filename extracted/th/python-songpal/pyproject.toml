@@ -1,0 +1,54 @@
+[tool.poetry]
+name = "python-songpal"
+version = "0.16.2"
+description = "Python library for interfacing with Sony's Songpal devices"
+authors = ["Teemu R <tpr@iki.fi>"]
+license = "GPL-3.0"
+readme = "README.rst"
+repository = "https://github.com/rytilahti/python-songpal"
+packages = [
+  { include = "songpal" }
+]
+
+[tool.poetry.scripts]
+songpal = "songpal.main:cli"
+
+[tool.poetry.dependencies]
+python = "^3.8"
+click = ">=8"
+aiohttp = "*"
+attrs = "*"
+async_upnp_client = ">=0.32"
+
+[tool.poetry.dev-dependencies]
+pre-commit = "*"
+ruff = "*"
+mypy = "*"
+
+[tool.ruff]
+exclude = [
+    ".git",
+    ".tox",
+    "__pycache__",
+]
+ignore = [
+    "D105",  # Missing docstring in magic method
+    "D107",  # Missing docstring in `__init__`
+    "D204",
+]
+line-length = 88
+select = [
+    "E",  # pycodestyle
+    "F",  # pyflakes
+    "D",  # pydocstyle
+    "I",  # isort
+    "UP",  # pyupgrade
+    "W",  # warnings
+]
+
+[tool.ruff.pydocstyle]
+convention = "pep257"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -1,0 +1,7 @@
+# Clippy configuration
+# CI enforces: -D warnings -D clippy::correctness -D clippy::perf -D clippy::suspicious
+# Those are passed as flags in rust-ci.yml; this file configures lint-level settings.
+
+# Allow expect/unwrap in tests (they produce better panic messages than assert)
+allow-expect-in-tests = true
+allow-unwrap-in-tests = true

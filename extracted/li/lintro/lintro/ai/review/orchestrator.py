@@ -1,0 +1,1837 @@
+"""Review orchestrator for AI diff-based code review."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+import shlex
+import time
+from contextlib import suppress
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
+
+from loguru import logger
+
+from lintro.ai.budget import CostBudget
+from lintro.ai.cli_schemas import cli_schema_for_review
+from lintro.ai.enums import AITransport
+from lintro.ai.exceptions import AICostBudgetExceededError, AIError
+from lintro.ai.invoke import call_ai
+from lintro.ai.json_response import parse_review_response_payload, strip_json_fences
+from lintro.ai.model_pricing import (
+    calculate_available_diff_tokens,
+    get_context_window,
+)
+from lintro.ai.prompts.review import (
+    REVIEW_ADVERSARIAL_SWEEP_TEMPLATE,
+    REVIEW_GENERATE_QUESTIONS_TEMPLATE,
+    REVIEW_GIT_NATIVE_DIFF_GIT_COMMAND,
+    REVIEW_GIT_NATIVE_DIFF_INLINE,
+    REVIEW_GIT_NATIVE_DIFF_WORKTREE_COMMAND,
+    REVIEW_GIT_NATIVE_USER_PROMPT_TEMPLATE,
+    REVIEW_OUTPUT_SCHEMA,
+    REVIEW_SCHEMA_REMINDER_TEMPLATE,
+    REVIEW_SYSTEM,
+    REVIEW_USER_PROMPT_TEMPLATE,
+    format_changed_files_for_prompt,
+    format_lint_results_section,
+)
+from lintro.ai.raw_response import persist_raw_response
+from lintro.ai.review.chunker import chunk_review_context
+from lintro.ai.review.custom_agent_runner import (
+    CustomAgentPassResult,
+    run_custom_agent_passes,
+)
+from lintro.ai.review.custom_agents import (
+    CustomAgentSpec,
+    select_custom_agents,
+)
+from lintro.ai.review.enums.review_strictness import ReviewStrictness
+from lintro.ai.review.errors_taxonomy import (
+    classify_provider_error,
+    resolve_cause_text,
+)
+from lintro.ai.review.exceptions import ReviewExecutionError
+from lintro.ai.review.finding_parser import parse_findings
+from lintro.ai.review.group_labels import REL_DIRECTORY_PREFIX, REL_SINGLE_FILE
+from lintro.ai.review.models.checklist_answer import ChecklistAnswer
+from lintro.ai.review.models.review_chunk import ReviewChunk
+from lintro.ai.review.models.review_finding import ReviewFinding
+from lintro.ai.review.models.review_metadata import ReviewMetadata
+from lintro.ai.review.models.review_result import ReviewResult
+from lintro.ai.review.paths_registry import generate_interaction_paths
+from lintro.ai.review.progress import (
+    NullReviewProgress,
+    ReviewProgressCallback,
+    StepTrackingProgress,
+)
+from lintro.ai.review.prompt_redaction import redact_prompt_text
+from lintro.ai.review.response_recovery import (
+    build_schema_reminder_prompt,
+    resolve_schema_retry_timeout,
+    unstructured_review_payload,
+)
+from lintro.ai.review.sensitivity import (
+    ReviewSensitivityPolicy,
+    filter_findings_by_policy,
+    format_strictness_prompt_section,
+)
+from lintro.ai.token_budget import estimate_tokens
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from lintro.ai.config import AIConfig
+    from lintro.ai.providers.base import AIResponse, BaseAIProvider
+    from lintro.ai.review.models.checklist_item import ChecklistItem
+    from lintro.ai.review.models.file_classification import FileClassification
+    from lintro.ai.review.models.review_context import ReviewContext
+
+__all__ = [
+    "build_git_native_review_prompt",
+    "build_review_prompt",
+    "merge_checklist_answers",
+    "merge_findings",
+    "merge_review_results",
+    "parse_review_response",
+    "resolve_review_chunks",
+    "run_review",
+    "run_review_async",
+    "strip_json_fences",
+]
+_PROMPT_OVERHEAD_TOKENS = 12_000
+
+
+def _aborted_before_completion(
+    *,
+    cause: Exception,
+    provider: BaseAIProvider,
+    chunk_index: int,
+    total_chunks: int,
+    step: str,
+    completed_chunks: int,
+) -> ReviewExecutionError:
+    """Wrap a mid-run chunk failure, preserving and surfacing the real cause.
+
+    Classifies the underlying provider exception into a canonical
+    :class:`~lintro.ai.review.errors_taxonomy.ReviewErrorKind` and logs the real
+    cause text so the true failure (e.g. depleted credits) is never lost behind
+    the generic "aborted" wrapper.
+
+    Args:
+        cause: The underlying provider or parser exception.
+        provider: Configured provider, used to resolve provider-aware kinds.
+        chunk_index: Zero-based index of the failing chunk.
+        total_chunks: Total chunks planned for the review.
+        step: Sub-step within the chunk where the failure occurred.
+        completed_chunks: Number of chunks completed before the failure.
+
+    Returns:
+        A ``ReviewExecutionError`` carrying the resolved kind and cause message.
+    """
+    kind = classify_provider_error(provider=str(provider.name), error=cause)
+    cause_message = resolve_cause_text(error=cause)
+    logger.error(
+        "Review aborted before all chunks completed on chunk {chunk} during "
+        "{step} — kind={kind}, cause: {cause}",
+        chunk=chunk_index,
+        step=step,
+        kind=kind.value,
+        cause=cause_message,
+    )
+    return ReviewExecutionError(
+        message="Review aborted before all chunks completed.",
+        chunk_index=chunk_index,
+        total_chunks=total_chunks,
+        step=step,
+        completed_chunks=completed_chunks,
+        cause_message=cause_message,
+        error_kind=kind,
+    )
+
+
+def _is_cost_cap_stop(*, exc: BaseException) -> bool:
+    """Return whether an exception represents a graceful cost-cap stop.
+
+    The cost cap can surface either as a raw
+    :class:`~lintro.ai.exceptions.AICostBudgetExceededError` (when the
+    top-of-loop ``budget.check()`` raises) or wrapped inside a
+    :class:`~lintro.ai.review.exceptions.ReviewExecutionError` (when an
+    intra-chunk check raises and the chunk failure is wrapped). Both cases are
+    detected by walking the ``__cause__`` chain so a cost-cap stop is never
+    misclassified as a genuine provider error, and vice versa.
+
+    Args:
+        exc: The exception raised while reviewing chunks.
+
+    Returns:
+        True when the underlying cause is a cost-cap exhaustion.
+    """
+    current: BaseException | None = exc
+    while current is not None:
+        if isinstance(current, AICostBudgetExceededError):
+            return True
+        current = current.__cause__
+    return False
+
+
+def _cost_cap_reason(*, cap: float | None) -> str:
+    """Build the human-readable ``stopped_reason`` for a cost-cap stop.
+
+    Args:
+        cap: The configured ``ai.max_cost_usd`` ceiling, if any.
+
+    Returns:
+        A message such as ``"cost cap ($0.50) reached"``.
+    """
+    if cap is None:
+        return "cost cap reached"
+    return f"cost cap (${cap:.2f}) reached"
+
+
+@dataclass(frozen=True, slots=True)
+class _ChunkReviewPartial:
+    """Intermediate review result for one chunk."""
+
+    summary: str
+    checklist: tuple[ChecklistAnswer, ...]
+    findings: tuple[ReviewFinding, ...]
+    input_tokens: int
+    output_tokens: int
+    cost_estimate: float
+
+
+def resolve_review_chunks(
+    *,
+    context: ReviewContext,
+    diff_budget: int,
+    classifications: list[FileClassification],
+    force_semantic_chunking: bool = False,
+) -> list[ReviewChunk]:
+    """Resolve review chunks using a budget-gated fast path.
+
+    When the full diff fits within the token budget, return a single chunk
+    without semantic splitting. Otherwise delegate to the semantic chunker.
+
+    Args:
+        context: Collected review diff context.
+        diff_budget: Maximum estimated tokens available for diff content.
+        classifications: Domain classifications for changed files.
+        force_semantic_chunking: When True, skip the single-chunk fast path.
+
+    Returns:
+        Ordered list of review chunks to process.
+    """
+    if not force_semantic_chunking and estimate_tokens(context.unified_diff) <= max(
+        diff_budget,
+        1,
+    ):
+        return [_single_chunk_from_context(context=context)]
+
+    chunking = chunk_review_context(
+        context=context,
+        max_tokens=max(diff_budget, 1),
+        classifications=classifications,
+    )
+    return chunking.chunks or [_single_chunk_from_context(context=context)]
+
+
+async def _review_all_chunks(
+    *,
+    chunks: list[ReviewChunk],
+    context: ReviewContext,
+    provider: BaseAIProvider,
+    ai_config: AIConfig,
+    depth: int,
+    checklist_items: list[ChecklistItem],
+    checklist_text: str,
+    classifications: list[FileClassification],
+    lint_results: str | None,
+    budget: CostBudget,
+    progress: ReviewProgressCallback,
+    repo_root: str,
+    use_one_shot: bool,
+    max_parallel_calls: int,
+    strictness_section: str,
+    next_generated_checklist_id: int = 1,
+    diff_budget: int,
+    completed_sink: list[_ChunkReviewPartial] | None = None,
+) -> list[_ChunkReviewPartial]:
+    """Review all chunks sequentially or in parallel.
+
+    When ``completed_sink`` is provided, each successfully reviewed chunk's
+    partial is appended to it as soon as it completes. This lets the caller
+    recover the chunks reviewed so far if the run aborts mid-way (e.g. the cost
+    cap is reached), enabling a graceful partial review instead of discarding
+    all completed work.
+
+    Chunks are reviewed concurrently under a semaphore capped by
+    ``max_parallel_calls``; a ``ReviewExecutionError`` or a cost-cap stop
+    cancels the remaining work and propagates to ``run_review_async``.
+    """
+    if len(chunks) <= 1:
+        single = await _review_chunk_with_progress(
+            chunk_index=0,
+            chunk=chunks[0],
+            context=context,
+            provider=provider,
+            ai_config=ai_config,
+            depth=depth,
+            checklist_text=checklist_text,
+            checklist_count=len(checklist_items),
+            classifications=classifications,
+            lint_results=lint_results,
+            budget=budget,
+            progress=progress,
+            total_chunks=1,
+            repo_root=repo_root,
+            use_one_shot=use_one_shot,
+            strictness_section=strictness_section,
+            next_generated_checklist_id=next_generated_checklist_id,
+            diff_budget=diff_budget,
+        )
+        if completed_sink is not None:
+            completed_sink.append(single)
+        return [single]
+
+    if depth >= 2:
+        sequential_partials: list[_ChunkReviewPartial] = []
+        next_id = next_generated_checklist_id
+        for chunk_index, chunk in enumerate(chunks):
+            budget.check()
+            progress.on_chunk_start(
+                chunk_index=chunk_index,
+                files=list(chunk.files),
+            )
+            try:
+                partial, next_id = await _review_chunk(
+                    chunk=chunk,
+                    context=context,
+                    provider=provider,
+                    ai_config=ai_config,
+                    depth=depth,
+                    checklist_text=checklist_text,
+                    checklist_count=len(checklist_items),
+                    next_generated_checklist_id=next_id,
+                    classifications=classifications,
+                    lint_results=lint_results,
+                    budget=budget,
+                    progress=progress,
+                    chunk_index=chunk_index,
+                    repo_root=repo_root,
+                    use_one_shot=use_one_shot,
+                    strictness_section=strictness_section,
+                    diff_budget=diff_budget,
+                )
+            except Exception as exc:
+                # A cost-cap stop is an expected graceful halt, not a chunk
+                # failure: re-raise it raw (no error-level "aborted" log, no
+                # on_error) so run_review can finalize a partial cleanly.
+                if _is_cost_cap_stop(exc=exc):
+                    raise
+                progress.on_error(
+                    chunk_index=chunk_index,
+                    total_chunks=len(chunks),
+                    step="reviewing",
+                    completed_chunks=chunk_index,
+                    error=exc,
+                )
+                raise _aborted_before_completion(
+                    cause=exc,
+                    provider=provider,
+                    chunk_index=chunk_index,
+                    total_chunks=len(chunks),
+                    step="reviewing",
+                    completed_chunks=chunk_index,
+                ) from exc
+            sequential_partials.append(partial)
+            if completed_sink is not None:
+                completed_sink.append(partial)
+            progress.on_chunk_done(chunk_index=chunk_index)
+        return sequential_partials
+
+    partials: list[_ChunkReviewPartial | None] = [None] * len(chunks)
+    effective_parallel = 1 if budget.max_cost_usd is not None else max_parallel_calls
+    max_workers = min(len(chunks), effective_parallel)
+    first_error: ReviewExecutionError | None = None
+
+    # Bounded concurrency on the caller's event loop replaces the former thread
+    # pool: chunk reviews are provider I/O, so tasks under a semaphore keep the
+    # same ``max_parallel_calls`` ceiling without threads.
+    semaphore = asyncio.Semaphore(max_workers)
+
+    async def _run_chunk(
+        chunk_index: int,
+        chunk: ReviewChunk,
+    ) -> tuple[int, _ChunkReviewPartial | Exception]:
+        """Review one chunk, returning its index alongside the outcome.
+
+        Failures are returned rather than raised so the caller keeps the
+        chunk-to-outcome mapping that ``as_completed`` would otherwise lose.
+
+        Args:
+            chunk_index: Position of the chunk in the run.
+            chunk: The chunk to review.
+
+        Returns:
+            The chunk index paired with its partial or the exception raised.
+        """
+        async with semaphore:
+            try:
+                return chunk_index, await _review_chunk_with_progress(
+                    chunk_index=chunk_index,
+                    chunk=chunk,
+                    context=context,
+                    provider=provider,
+                    ai_config=ai_config,
+                    depth=depth,
+                    checklist_text=checklist_text,
+                    checklist_count=len(checklist_items),
+                    classifications=classifications,
+                    lint_results=lint_results,
+                    budget=budget,
+                    progress=StepTrackingProgress(progress),
+                    total_chunks=len(chunks),
+                    repo_root=repo_root,
+                    use_one_shot=use_one_shot,
+                    strictness_section=strictness_section,
+                    diff_budget=diff_budget,
+                )
+            except Exception as exc:
+                return chunk_index, exc
+
+    tasks = [
+        asyncio.ensure_future(_run_chunk(chunk_index, chunk))
+        for chunk_index, chunk in enumerate(chunks)
+    ]
+
+    completed = 0
+    try:
+        for finished in asyncio.as_completed(tasks):
+            chunk_index, outcome = await finished
+            if isinstance(outcome, (ReviewExecutionError, AICostBudgetExceededError)):
+                # A cost-cap stop is an expected graceful halt; a
+                # ReviewExecutionError is already wrapped for the caller.
+                # Both propagate raw so run_review can finalize a partial.
+                raise outcome
+            if isinstance(outcome, Exception):
+                if first_error is None:
+                    first_error = _aborted_before_completion(
+                        cause=outcome,
+                        provider=provider,
+                        chunk_index=chunk_index,
+                        total_chunks=len(chunks),
+                        step="reviewing",
+                        completed_chunks=completed,
+                    )
+                break
+            partials[chunk_index] = outcome
+            if completed_sink is not None:
+                completed_sink.append(outcome)
+            completed += 1
+    finally:
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        # Drain the cancellations so no chunk review (and no CLI child
+        # process) outlives this function.
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+    if first_error is not None:
+        raise first_error
+
+    return [partial for partial in partials if partial is not None]
+
+
+async def _review_chunk_with_progress(
+    *,
+    chunk_index: int,
+    chunk: ReviewChunk,
+    context: ReviewContext,
+    provider: BaseAIProvider,
+    ai_config: AIConfig,
+    depth: int,
+    checklist_text: str,
+    checklist_count: int,
+    classifications: list[FileClassification],
+    lint_results: str | None,
+    budget: CostBudget,
+    progress: ReviewProgressCallback,
+    total_chunks: int,
+    repo_root: str,
+    use_one_shot: bool,
+    strictness_section: str = "",
+    next_generated_checklist_id: int = 1,
+    diff_budget: int = 0,
+) -> _ChunkReviewPartial:
+    """Review one chunk with progress tracking and error wrapping.
+
+    A cost-cap stop is re-raised raw; any other failure is wrapped as a
+    ``ReviewExecutionError`` after the progress tracker is notified.
+    """
+    budget.check()
+    progress.on_chunk_start(chunk_index=chunk_index, files=list(chunk.files))
+    try:
+        partial, _next_id = await _review_chunk(
+            chunk=chunk,
+            context=context,
+            provider=provider,
+            ai_config=ai_config,
+            depth=depth,
+            checklist_text=checklist_text,
+            checklist_count=checklist_count,
+            next_generated_checklist_id=next_generated_checklist_id,
+            classifications=classifications,
+            lint_results=lint_results,
+            budget=budget,
+            progress=progress,
+            chunk_index=chunk_index,
+            repo_root=repo_root,
+            use_one_shot=use_one_shot,
+            strictness_section=strictness_section,
+            diff_budget=diff_budget,
+        )
+    except Exception as exc:
+        # A cost-cap stop is an expected graceful halt, not a chunk failure:
+        # re-raise it raw so run_review can finalize a partial cleanly.
+        if _is_cost_cap_stop(exc=exc):
+            raise
+        step_tracker = progress if isinstance(progress, StepTrackingProgress) else None
+        last_step = step_tracker.last_step if step_tracker else "reviewing"
+        progress.on_error(
+            chunk_index=chunk_index,
+            total_chunks=total_chunks,
+            step=last_step,
+            completed_chunks=chunk_index,
+            error=exc,
+        )
+        raise _aborted_before_completion(
+            cause=exc,
+            provider=provider,
+            chunk_index=chunk_index,
+            total_chunks=total_chunks,
+            step=last_step,
+            completed_chunks=chunk_index,
+        ) from exc
+    progress.on_chunk_done(chunk_index=chunk_index)
+    return partial
+
+
+def run_review(
+    context: ReviewContext,
+    *,
+    provider: BaseAIProvider,
+    ai_config: AIConfig,
+    depth: int = 1,
+    checklist_items: list[ChecklistItem],
+    checklist_text: str,
+    classifications: list[FileClassification],
+    context_window_override: int | None = None,
+    lint_results: str | None = None,
+    progress: ReviewProgressCallback | None = None,
+    sensitivity: ReviewSensitivityPolicy | None = None,
+    force_semantic_chunking: bool = False,
+    timeout: float | None = None,
+    custom_agents: tuple[CustomAgentSpec, ...] = (),
+    run_builtin_checklist: bool = True,
+    workspace_root: Path | None = None,
+) -> ReviewResult:
+    """Execute an AI diff review from synchronous code.
+
+    This is the sync/async boundary for ``lintro review``: the review
+    pipeline below it is async, and ``asyncio.run`` is entered exactly
+    once here so one event loop (and one provider client) serves the
+    whole review.
+
+    Args:
+        context: Collected review diff context.
+        provider: Configured AI provider instance.
+        ai_config: AI configuration for retries, budget, and fallbacks.
+        depth: Review depth level (1-3).
+        checklist_items: Selected checklist items for the review.
+        checklist_text: Pre-formatted checklist prompt text.
+        classifications: Domain classifications for changed files.
+        context_window_override: Optional explicit context window override.
+        lint_results: Optional lint digest for ``--with-lint`` integration.
+        progress: Optional progress callback for live status updates.
+        sensitivity: Sensitivity preset controlling prompts and filters.
+        force_semantic_chunking: When True, skip the single-chunk fast path.
+        timeout: Optional per-call timeout override in seconds.
+        custom_agents: Discovered user-defined review agents (issue #1245).
+        run_builtin_checklist: When False, skip the built-in checklist passes
+            and run only the custom agents (``review.custom_agents: only``).
+        workspace_root: Optional workspace root used to build providers for
+            agents that declare a ``model`` override.
+
+    Returns:
+        Complete review result with metadata, checklist, and findings.
+    """
+    return asyncio.run(
+        run_review_async(
+            context,
+            provider=provider,
+            ai_config=ai_config,
+            depth=depth,
+            checklist_items=checklist_items,
+            checklist_text=checklist_text,
+            classifications=classifications,
+            context_window_override=context_window_override,
+            lint_results=lint_results,
+            progress=progress,
+            sensitivity=sensitivity,
+            force_semantic_chunking=force_semantic_chunking,
+            timeout=timeout,
+            custom_agents=custom_agents,
+            run_builtin_checklist=run_builtin_checklist,
+            workspace_root=workspace_root,
+        ),
+    )
+
+
+async def run_review_async(
+    context: ReviewContext,
+    *,
+    provider: BaseAIProvider,
+    ai_config: AIConfig,
+    depth: int = 1,
+    checklist_items: list[ChecklistItem],
+    checklist_text: str,
+    classifications: list[FileClassification],
+    context_window_override: int | None = None,
+    lint_results: str | None = None,
+    progress: ReviewProgressCallback | None = None,
+    sensitivity: ReviewSensitivityPolicy | None = None,
+    force_semantic_chunking: bool = False,
+    timeout: float | None = None,
+    custom_agents: tuple[CustomAgentSpec, ...] = (),
+    run_builtin_checklist: bool = True,
+    workspace_root: Path | None = None,
+) -> ReviewResult:
+    """Execute an AI diff review with depth-controlled passes.
+
+    Args:
+        context: Collected review diff context.
+        provider: Configured AI provider instance.
+        ai_config: AI configuration for retries, budget, and fallbacks.
+        depth: Review depth level (1-3).
+        checklist_items: Selected checklist items for the review.
+        checklist_text: Pre-formatted checklist prompt text.
+        classifications: Domain classifications for changed files.
+        context_window_override: Optional explicit context window override.
+        lint_results: Optional lint digest for ``--with-lint`` integration.
+        progress: Optional progress callback for live status updates.
+        sensitivity: Sensitivity preset controlling prompts and finding filters.
+        force_semantic_chunking: When True, skip the single-chunk fast path.
+        timeout: Optional per-call timeout override in seconds.
+        custom_agents: Discovered user-defined review agents (issue #1245).
+            Agents are scoped to the changed files their globs match; each
+            scoped agent adds one provider call against the same run budget.
+        run_builtin_checklist: When False, skip the built-in checklist passes
+            and run only the custom agents (``review.custom_agents: only``).
+        workspace_root: Optional workspace root used to build providers for
+            agents that declare a ``model`` override.
+
+    Returns:
+        Complete review result with metadata, checklist, and findings.
+
+    Raises:
+        ValueError: If ``depth`` is outside the allowed range 1-3.
+        AIError: When the review fails for a non-recoverable reason (e.g.
+            provider authentication or a genuine provider error). A cost-cap
+            stop is handled internally and returned as a partial result instead.
+        ReviewExecutionError: When a chunk fails mid-run for a reason other than
+            the cost cap.
+    """
+    if depth < 1 or depth > 3:
+        raise ValueError(f"depth must be between 1 and 3, got {depth}")
+
+    review_sensitivity = sensitivity or ReviewSensitivityPolicy(
+        strictness=ReviewStrictness.BALANCED,
+        report_migration_notes=True,
+        report_doc_drift=True,
+        report_test_gaps=True,
+    )
+    strictness_section = format_strictness_prompt_section(policy=review_sensitivity)
+
+    if not context.changed_files and not context.unified_diff.strip():
+        return _empty_review_result(
+            context=context,
+            provider=provider,
+            depth=depth,
+            checklist_items=checklist_items,
+            context_window_override=context_window_override,
+        )
+
+    context_window = get_context_window(
+        model=provider.model_name,
+        override=context_window_override,
+    )
+    prompt_overhead = _estimate_prompt_overhead(
+        context=context,
+        checklist_text=checklist_text,
+        classifications=classifications,
+        lint_results=lint_results,
+    )
+    diff_budget = calculate_available_diff_tokens(
+        context_window=context_window,
+        prompt_overhead=prompt_overhead,
+    )
+    chunks = (
+        resolve_review_chunks(
+            context=context,
+            diff_budget=diff_budget,
+            classifications=classifications,
+            force_semantic_chunking=force_semantic_chunking,
+        )
+        if run_builtin_checklist
+        else []
+    )
+    agent_selection = select_custom_agents(
+        agents=custom_agents,
+        changed_paths=tuple(file.path for file in context.changed_files),
+    )
+    for skipped_agent in agent_selection.skipped:
+        logger.info(
+            "Skipping custom review agent {agent}: {reason}",
+            agent=skipped_agent.agent.name,
+            reason=skipped_agent.reason.value,
+        )
+
+    effective_ai_config = (
+        ai_config.model_copy(update={"api_timeout": timeout})
+        if timeout is not None
+        else ai_config
+    )
+    tracker = progress or NullReviewProgress()
+    budget = CostBudget(max_cost_usd=ai_config.max_cost_usd)
+    # Branch on the provider's declared capability, not its identity (#1241):
+    # a durable session only helps when the transport can resume one.
+    # begin/end_durable_session are concrete no-ops on BaseAIProvider, so no
+    # hasattr guard is needed -- every provider answers them.
+    use_durable_session = provider.capabilities.supports_sessions and len(chunks) == 1
+    repo_root = context.repo_root or os.getcwd()
+    use_one_shot = len(chunks) > 1
+
+    total_findings = 0
+    completed = False
+    partial = False
+    durable_session_started = False
+    stopped_reason = ""
+    collected: list[_ChunkReviewPartial] = []
+    partials: list[_ChunkReviewPartial] = []
+    custom_results: list[CustomAgentPassResult] = []
+    custom_agents_failed: list[str] = []
+    merged = merge_review_results(partials=partials)
+    filtered_findings: tuple[ReviewFinding, ...] = ()
+    custom_findings: tuple[ReviewFinding, ...] = ()
+    started_at = time.monotonic()
+    try:
+        # Open the session inside the try so a failure before or during
+        # on_start() still reaches the finally that tears it down.
+        if use_durable_session:
+            provider.begin_durable_session(repo_root=repo_root)
+            durable_session_started = True
+        tracker.on_start(total_chunks=len(chunks), depth=depth)
+        if chunks:
+            partials = await _review_all_chunks(
+                chunks=chunks,
+                context=context,
+                provider=provider,
+                ai_config=effective_ai_config,
+                depth=depth,
+                checklist_items=checklist_items,
+                checklist_text=checklist_text,
+                classifications=classifications,
+                lint_results=lint_results,
+                budget=budget,
+                progress=tracker,
+                repo_root=repo_root,
+                use_one_shot=use_one_shot,
+                max_parallel_calls=ai_config.max_parallel_calls,
+                strictness_section=strictness_section,
+                next_generated_checklist_id=(
+                    _max_checklist_id(checklist_items=checklist_items) + 1
+                ),
+                diff_budget=diff_budget,
+                completed_sink=collected,
+            )
+        await run_custom_agent_passes(
+            selected=agent_selection.selected,
+            context=context,
+            provider=provider,
+            ai_config=effective_ai_config,
+            budget=budget,
+            repo_root=repo_root,
+            workspace_root=workspace_root,
+            # Never reuse the built-in review's durable session: each agent is
+            # an independent, narrowly scoped pass with its own instructions.
+            use_one_shot=True,
+            on_pass_complete=custom_results.append,
+            on_agent_failed=custom_agents_failed.append,
+        )
+        merged, filtered_findings, total_findings = _finalize_partials(
+            partials=partials,
+            policy=review_sensitivity,
+        )
+        # Custom agent findings bypass the run-level sensitivity filter: each
+        # agent declares its own strictness and severity policy, so a
+        # run-level preset must not silently drop what a maintainer
+        # explicitly asked to be checked. Merged here, before the finally
+        # block, so tracker.on_complete's count includes them.
+        custom_findings = tuple(
+            finding for result in custom_results for finding in result.findings
+        )
+        filtered_findings = filtered_findings + custom_findings
+        total_findings = len(filtered_findings)
+        completed = True
+    except (AIError, ReviewExecutionError) as exc:
+        # A graceful partial review: the cost cap was reached mid-run. Keep the
+        # chunks reviewed so far instead of discarding all completed work (see
+        # issue #1094). This is an EXPECTED stop, not a failure — it is detected
+        # from the actual raised exception (a cost-cap exception, possibly
+        # wrapped in a ReviewExecutionError), never inferred from residual budget
+        # state. Any other failure (auth, provider, parser) must propagate so
+        # callers surface a real error via the #1101 taxonomy. When the cap trips
+        # before ANY chunk completes, ``collected`` is empty and the partial is
+        # empty-but-actionable rather than a generic abort.
+        if not _is_cost_cap_stop(exc=exc):
+            raise
+        cap = budget.max_cost_usd
+        partials = list(collected)
+        partial = True
+        stopped_reason = _cost_cap_reason(cap=cap)
+        merged, filtered_findings, total_findings = _finalize_partials(
+            partials=partials,
+            policy=review_sensitivity,
+        )
+        custom_findings = tuple(
+            finding for result in custom_results for finding in result.findings
+        )
+        filtered_findings = filtered_findings + custom_findings
+        total_findings = len(filtered_findings)
+        completed = True
+        logger.warning(
+            "Review stopped early — {reason} after reviewing {n} of {m} "
+            "chunks. Raise ai.max_cost_usd or narrow --path to review the rest.",
+            reason=stopped_reason,
+            n=len(partials),
+            m=len(chunks),
+            cause=str(exc),
+        )
+    finally:
+        if durable_session_started:
+            provider.end_durable_session()
+        with suppress(Exception):
+            if completed:
+                tracker.on_complete(total_findings=total_findings)
+            else:
+                tracker.on_abort()
+
+    duration_seconds = time.monotonic() - started_at
+
+    total_input = sum(item.input_tokens for item in partials) + sum(
+        result.input_tokens for result in custom_results
+    )
+    total_output = sum(item.output_tokens for item in partials) + sum(
+        result.output_tokens for result in custom_results
+    )
+    total_cost = sum(item.cost_estimate for item in partials) + sum(
+        result.cost_estimate for result in custom_results
+    )
+    chunks_reviewed = len(partials)
+    summary = (
+        _custom_agents_only_summary(
+            run_builtin_checklist=run_builtin_checklist,
+            agents_run=len(custom_results),
+            findings=len(custom_findings),
+        )
+        or merged.summary
+    )
+
+    metadata = ReviewMetadata(
+        model=provider.model_name,
+        provider=provider.name,
+        context_window=context_window,
+        depth=depth,
+        strictness=review_sensitivity.strictness.value,
+        chunks_total=len(chunks),
+        chunks_current=chunks_reviewed,
+        files_reviewed=len(context.changed_files),
+        files_total=len(context.changed_files),
+        checklist_items=len(checklist_items),
+        token_usage={
+            "prompt": total_input,
+            "completion": total_output,
+            "total": total_input + total_output,
+        },
+        cost_estimate_usd=total_cost,
+        base_ref=context.base_ref,
+        head_ref=context.head_ref,
+        timestamp=datetime.now(tz=UTC).isoformat(),
+        token_usage_estimated=ai_config.transport == AITransport.CLI,
+        partial=partial,
+        chunks_reviewed=chunks_reviewed,
+        stopped_reason=stopped_reason,
+        duration_seconds=duration_seconds,
+        custom_agents_run=len(custom_results),
+        custom_agents_skipped=(
+            len(agent_selection.skipped) + len(custom_agents_failed)
+        ),
+    )
+
+    return ReviewResult(
+        metadata=metadata,
+        summary=summary,
+        checklist=merged.checklist,
+        findings=filtered_findings,
+    )
+
+
+def _custom_agents_only_summary(
+    *,
+    run_builtin_checklist: bool,
+    agents_run: int,
+    findings: int,
+) -> str:
+    """Build a summary for a run that produced no built-in review summary.
+
+    Args:
+        run_builtin_checklist: Whether the built-in checklist pass ran.
+        agents_run: Number of custom agent passes that completed.
+        findings: Number of findings the custom agents reported.
+
+    Returns:
+        A summary sentence, or an empty string when the built-in checklist ran
+        and simply produced no summary of its own.
+    """
+    if run_builtin_checklist:
+        return ""
+    if agents_run == 0:
+        return "No custom review agents matched the changed files."
+    return (
+        f"Custom review agents only: {agents_run} agent(s) ran and reported "
+        f"{findings} finding(s)."
+    )
+
+
+def _finalize_partials(
+    *,
+    partials: list[_ChunkReviewPartial],
+    policy: ReviewSensitivityPolicy,
+) -> tuple[ReviewResult, tuple[ReviewFinding, ...], int]:
+    """Merge partials and apply the sensitivity policy.
+
+    Args:
+        partials: Completed chunk partials to merge.
+        policy: Sensitivity policy used to filter findings.
+
+    Returns:
+        Tuple of ``(merged_result, filtered_findings, finding_count)``.
+    """
+    merged = merge_review_results(partials=partials)
+    filtered = filter_findings_by_policy(findings=merged.findings, policy=policy)
+    return merged, filtered, len(filtered)
+
+
+def build_review_prompt(
+    *,
+    chunk: ReviewChunk,
+    context: ReviewContext,
+    checklist_text: str,
+    checklist_count: int,
+    interaction_paths: str,
+    lint_results: str | None = None,
+    extra_checklist: str = "",
+    strictness_section: str = "",
+) -> tuple[str, str]:
+    """Build system and user prompts for a review chunk.
+
+    Args:
+        chunk: Semantic diff chunk to review.
+        context: Full review context for PR metadata and file list.
+        checklist_text: Formatted checklist for the prompt.
+        checklist_count: Number of checklist items in the prompt.
+        interaction_paths: Domain-triggered interaction path text.
+        lint_results: Optional lint digest for prompt injection.
+        extra_checklist: Additional generated checklist rows for depth 2.
+        strictness_section: Sensitivity instructions for the review pass.
+
+    Returns:
+        Tuple of (system_prompt, user_prompt).
+    """
+    pr_title = context.pr_metadata.title if context.pr_metadata else "Local changes"
+    pr_title = redact_prompt_text(text=pr_title, source="PR title")
+    pr_summary = context.pr_metadata.body if context.pr_metadata else "(no PR summary)"
+    pr_summary = redact_prompt_text(text=pr_summary, source="PR metadata")
+    redacted_diff = redact_prompt_text(text=chunk.diff, source="diff")
+    changed_files = [file for file in context.changed_files if file.path in chunk.files]
+    combined_checklist = checklist_text
+    if extra_checklist.strip():
+        combined_checklist = f"{checklist_text}\n\n{extra_checklist.strip()}"
+        checklist_count += extra_checklist.strip().count("\n") + (
+            1 if extra_checklist.strip() else 0
+        )
+
+    user_prompt = REVIEW_USER_PROMPT_TEMPLATE.format(
+        pr_title=pr_title,
+        base_ref=context.base_ref,
+        head_ref=context.head_ref,
+        pr_summary=pr_summary,
+        deferred_scope_section="",
+        external_review_section="",
+        changed_file_count=len(changed_files),
+        changed_files=format_changed_files_for_prompt(files=changed_files),
+        interaction_paths=interaction_paths,
+        checklist_count=checklist_count,
+        checklist=combined_checklist,
+        diff=redacted_diff,
+        lint_results_section=format_lint_results_section(digest=lint_results),
+        strictness_section=strictness_section,
+        output_schema=REVIEW_OUTPUT_SCHEMA,
+    )
+    return REVIEW_SYSTEM, user_prompt
+
+
+def build_git_native_review_prompt(
+    *,
+    chunk: ReviewChunk,
+    context: ReviewContext,
+    checklist_text: str,
+    checklist_count: int,
+    interaction_paths: str,
+    lint_results: str | None = None,
+    extra_checklist: str = "",
+    strictness_section: str = "",
+    embed_diff: bool = False,
+    allow_unredacted_git_native: bool = False,
+) -> tuple[str, str]:
+    """Build git-native prompts for CLI-backed review (all providers).
+
+    Redaction is a security invariant and wins by default. When ``embed_diff``
+    is False the builder would normally emit a delegated ``git diff`` command,
+    which lets the provider produce the diff itself and thus bypasses lintro's
+    secret-redaction choke point. Unless ``allow_unredacted_git_native`` is
+    explicitly True, the builder instead falls back to embedding the redacted
+    diff so no unredacted diff can reach the provider.
+
+    Args:
+        chunk: Semantic diff chunk to review.
+        context: Full review context for PR metadata and file list.
+        checklist_text: Formatted checklist for the prompt.
+        checklist_count: Number of checklist items in the prompt.
+        interaction_paths: Domain-triggered interaction path text.
+        lint_results: Optional lint digest for prompt injection.
+        extra_checklist: Additional generated checklist rows for depth 2.
+        strictness_section: Sensitivity instructions for the review pass.
+        embed_diff: When True, inline the diff instead of agentic git commands.
+        allow_unredacted_git_native: Explicit opt-out permitting the delegated
+            ``git diff`` command path (which bypasses secret redaction) when
+            ``embed_diff`` is False. Defaults to False so redaction always
+            wins and the diff is embedded and redacted instead.
+
+    Returns:
+        Tuple of (system_prompt, user_prompt).
+    """
+    # Redaction wins by default: never delegate diff retrieval to the provider
+    # unless the caller has explicitly opted out of the redaction guarantee.
+    if not embed_diff and not allow_unredacted_git_native:
+        embed_diff = True
+    pr_title = context.pr_metadata.title if context.pr_metadata else "Local changes"
+    pr_title = redact_prompt_text(text=pr_title, source="PR title")
+    pr_summary = context.pr_metadata.body if context.pr_metadata else "(no PR summary)"
+    pr_summary = redact_prompt_text(text=pr_summary, source="PR metadata")
+    changed_files = [file for file in context.changed_files if file.path in chunk.files]
+    combined_checklist = checklist_text
+    if extra_checklist.strip():
+        combined_checklist = f"{checklist_text}\n\n{extra_checklist.strip()}"
+        checklist_count += extra_checklist.strip().count("\n") + (
+            1 if extra_checklist.strip() else 0
+        )
+
+    git_diff_paths = " ".join(shlex.quote(path) for path in chunk.files)
+    if embed_diff:
+        diff_section = REVIEW_GIT_NATIVE_DIFF_INLINE.format(
+            diff=redact_prompt_text(text=chunk.diff, source="diff"),
+        )
+    elif context.head_ref == "WORKTREE":
+        diff_section = REVIEW_GIT_NATIVE_DIFF_WORKTREE_COMMAND.format(
+            base_ref=context.base_ref,
+            git_diff_paths=git_diff_paths,
+        )
+    else:
+        diff_section = REVIEW_GIT_NATIVE_DIFF_GIT_COMMAND.format(
+            base_ref=context.base_ref,
+            head_ref=context.head_ref,
+            git_diff_paths=git_diff_paths,
+        )
+    user_prompt = REVIEW_GIT_NATIVE_USER_PROMPT_TEMPLATE.format(
+        pr_title=pr_title,
+        base_ref=context.base_ref,
+        head_ref=context.head_ref,
+        pr_summary=pr_summary,
+        deferred_scope_section="",
+        external_review_section="",
+        changed_file_count=len(changed_files),
+        changed_files=format_changed_files_for_prompt(files=changed_files),
+        interaction_paths=interaction_paths,
+        checklist_count=checklist_count,
+        checklist=combined_checklist,
+        diff_section=diff_section,
+        lint_results_section=format_lint_results_section(digest=lint_results),
+        strictness_section=strictness_section,
+        output_schema=REVIEW_OUTPUT_SCHEMA,
+    )
+    return REVIEW_SYSTEM, user_prompt
+
+
+def parse_review_response(*, content: str) -> dict[str, Any]:
+    """Parse and validate AI review JSON response.
+
+    Args:
+        content: Raw or fenced JSON model response.
+
+    Returns:
+        Parsed review response dictionary.
+
+    Raises:
+        ValueError: When JSON is invalid or missing required keys.
+    """
+    try:
+        return parse_review_response_payload(content=content)
+    except ValueError:
+        raise
+
+
+def merge_findings(
+    *,
+    findings_groups: list[tuple[ReviewFinding, ...]],
+) -> tuple[ReviewFinding, ...]:
+    """Merge findings from multiple chunks, deduplicating by location.
+
+    Args:
+        findings_groups: Finding tuples from each chunk/pass.
+
+    Returns:
+        Deduplicated findings preserving first-seen order.
+    """
+    merged: list[ReviewFinding] = []
+    seen: set[tuple[str, int, str]] = set()
+    for group in findings_groups:
+        for finding in group:
+            key = (finding.file, finding.line, finding.title)
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(finding)
+    return tuple(merged)
+
+
+def merge_checklist_answers(
+    *,
+    checklist_groups: list[tuple[ChecklistAnswer, ...]],
+) -> tuple[ChecklistAnswer, ...]:
+    """Merge checklist answers with yes winning over no.
+
+    Args:
+        checklist_groups: Checklist answer tuples from each chunk/pass.
+
+    Returns:
+        Merged checklist answers keyed by checklist id.
+    """
+    by_id: dict[int, ChecklistAnswer] = {}
+    for group in checklist_groups:
+        for answer in group:
+            existing = by_id.get(answer.id)
+            if existing is None:
+                by_id[answer.id] = answer
+                continue
+            by_id[answer.id] = _pick_preferred_checklist_answer(
+                candidate=answer,
+                existing=existing,
+            )
+    return tuple(sorted(by_id.values(), key=lambda item: item.id))
+
+
+def merge_review_results(
+    *,
+    partials: list[_ChunkReviewPartial],
+) -> ReviewResult:
+    """Merge partial chunk results into a single review result shell.
+
+    Args:
+        partials: Partial results from each chunk.
+
+    Returns:
+        Review result without metadata (caller attaches metadata).
+    """
+    if not partials:
+        return ReviewResult(
+            metadata=_placeholder_metadata(),
+            summary="No review output.",
+            checklist=(),
+            findings=(),
+        )
+
+    summaries = [partial.summary for partial in partials if partial.summary.strip()]
+    summary = summaries[0] if len(summaries) == 1 else "\n\n".join(summaries)
+
+    return ReviewResult(
+        metadata=_placeholder_metadata(),
+        summary=summary,
+        checklist=merge_checklist_answers(
+            checklist_groups=[partial.checklist for partial in partials],
+        ),
+        findings=merge_findings(
+            findings_groups=[partial.findings for partial in partials],
+        ),
+    )
+
+
+async def _review_chunk(
+    *,
+    chunk: ReviewChunk,
+    context: ReviewContext,
+    provider: BaseAIProvider,
+    ai_config: AIConfig,
+    depth: int,
+    checklist_text: str,
+    checklist_count: int,
+    next_generated_checklist_id: int,
+    classifications: list[FileClassification],
+    lint_results: str | None,
+    budget: CostBudget,
+    progress: ReviewProgressCallback | None = None,
+    chunk_index: int = 0,
+    repo_root: str = "",
+    use_one_shot: bool = False,
+    strictness_section: str = "",
+    diff_budget: int = 0,
+) -> tuple[_ChunkReviewPartial, int]:
+    """Run depth-controlled review for a single chunk.
+
+    Args:
+        chunk: The chunk to review.
+        context: Collected review diff context.
+        provider: Configured AI provider instance.
+        ai_config: AI configuration for retries, budget, and fallbacks.
+        depth: Review depth level (1-3).
+        checklist_text: Pre-formatted checklist prompt text.
+        checklist_count: Number of checklist items in the prompt.
+        next_generated_checklist_id: First id available to generated items.
+        classifications: Domain classifications for changed files.
+        lint_results: Optional lint digest for ``--with-lint`` integration.
+        budget: Session cost budget tracker.
+        progress: Optional progress callback for live status updates.
+        chunk_index: Position of the chunk in the run.
+        repo_root: Absolute path to the repository under review.
+        use_one_shot: When True, avoid durable provider sessions.
+        strictness_section: Pre-formatted strictness prompt section.
+        diff_budget: Token budget available for embedded diffs.
+
+    Returns:
+        The chunk partial and the next available generated checklist id.
+    """
+    tracker = progress or NullReviewProgress()
+    interaction_paths = generate_interaction_paths(
+        classifications=classifications,
+        changed_files=chunk.files,
+    )
+    extra_checklist = ""
+    extra_checklist_usage: _ChunkReviewPartial | None = None
+    if depth >= 2:
+        tracker.on_step(chunk_index=chunk_index, step="generating questions")
+        (
+            extra_checklist,
+            next_generated_checklist_id,
+            extra_checklist_usage,
+        ) = await _generate_extra_checklist(
+            chunk=chunk,
+            context=context,
+            provider=provider,
+            ai_config=ai_config,
+            budget=budget,
+            next_generated_checklist_id=next_generated_checklist_id,
+            repo_root=repo_root,
+            use_one_shot=use_one_shot,
+        )
+
+    tracker.on_step(chunk_index=chunk_index, step="reviewing")
+    # Gate before the main provider call so intra-chunk (depth-2/3) work
+    # cannot overshoot the budget between the per-chunk checks.
+    budget.check()
+    use_git_native = ai_config.transport == AITransport.CLI
+    if use_git_native:
+        embed_diff = estimate_tokens(chunk.diff) <= max(diff_budget, 1)
+        system_prompt, user_prompt = build_git_native_review_prompt(
+            chunk=chunk,
+            context=context,
+            checklist_text=checklist_text,
+            checklist_count=checklist_count,
+            interaction_paths=interaction_paths,
+            lint_results=lint_results,
+            extra_checklist=extra_checklist,
+            strictness_section=strictness_section,
+            embed_diff=embed_diff,
+            allow_unredacted_git_native=ai_config.review_allow_unredacted_git_native,
+        )
+    else:
+        system_prompt, user_prompt = build_review_prompt(
+            chunk=chunk,
+            context=context,
+            checklist_text=checklist_text,
+            checklist_count=checklist_count,
+            interaction_paths=interaction_paths,
+            lint_results=lint_results,
+            extra_checklist=extra_checklist,
+            strictness_section=strictness_section,
+        )
+    started = time.monotonic()
+    response = await call_ai(
+        provider=provider,
+        ai_config=ai_config,
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        budget=budget,
+        repo_root=repo_root or None,
+        use_one_shot=use_one_shot,
+        cli_schema=cli_schema_for_review(transport=ai_config.transport),
+    )
+    response, payload = await _parse_review_payload_with_recovery(
+        response=response,
+        chunk=chunk,
+        provider=provider,
+        ai_config=ai_config,
+        budget=budget,
+        repo_root=repo_root,
+        use_one_shot=use_one_shot,
+        elapsed=time.monotonic() - started,
+    )
+    partial = _payload_to_partial(response=response, payload=payload)
+
+    if extra_checklist_usage is not None:
+        partial = replace(
+            partial,
+            input_tokens=partial.input_tokens + extra_checklist_usage.input_tokens,
+            output_tokens=partial.output_tokens + extra_checklist_usage.output_tokens,
+            cost_estimate=partial.cost_estimate + extra_checklist_usage.cost_estimate,
+        )
+
+    if depth >= 3:
+        tracker.on_step(chunk_index=chunk_index, step="adversarial sweep")
+        adversarial = await _run_adversarial_pass(
+            chunk=chunk,
+            provider=provider,
+            ai_config=ai_config,
+            prior_findings=partial.findings,
+            budget=budget,
+            repo_root=repo_root,
+            use_one_shot=use_one_shot,
+        )
+        partial = replace(
+            partial,
+            findings=merge_findings(
+                findings_groups=[partial.findings, adversarial.findings],
+            ),
+            input_tokens=partial.input_tokens + adversarial.input_tokens,
+            output_tokens=partial.output_tokens + adversarial.output_tokens,
+            cost_estimate=partial.cost_estimate + adversarial.cost_estimate,
+        )
+
+    return partial, next_generated_checklist_id
+
+
+async def _parse_review_payload_with_recovery(
+    *,
+    response: AIResponse,
+    chunk: ReviewChunk,
+    provider: BaseAIProvider,
+    ai_config: AIConfig,
+    budget: CostBudget,
+    repo_root: str,
+    use_one_shot: bool,
+    elapsed: float,
+) -> tuple[AIResponse, dict[str, Any]]:
+    """Parse a chunk response, recovering non-JSON answers instead of failing.
+
+    The ladder is: parse (which already extracts JSON embedded in prose) →
+    exactly one schema-reminder retry, when the per-call timeout budget still
+    allows one → present the prose as unstructured findings with the full text
+    preserved. A prose answer normally carries real findings, so discarding it
+    as ``invalid_response`` lost work that had already been paid for (#1853).
+
+    Args:
+        response: The response from the main chunk call.
+        chunk: The chunk under review, used to locate the fallback finding.
+        provider: Configured AI provider instance.
+        ai_config: AI configuration for retries, budget, and timeouts.
+        budget: Session cost budget tracker.
+        repo_root: Absolute path to the repository under review.
+        use_one_shot: When True, avoid durable provider sessions.
+        elapsed: Wall-clock seconds the main chunk call consumed.
+
+    Returns:
+        The response whose usage should be attributed to the chunk (the retry's
+        usage folded in when a retry ran) and the parsed review payload.
+
+    Raises:
+        AICostBudgetExceededError: When the schema-reminder retry hits the cost
+            ceiling. That is a graceful stop the caller finalizes a partial
+            review on, so it is never recovered as prose.
+    """
+    try:
+        return response, parse_review_response(content=response.content)
+    except ValueError as exc:
+        first_error = exc
+
+    # Persisted immediately: a successful retry replaces this answer in the
+    # payload, and a failed one echoes back only the retry's text, so this is
+    # the sole capture of what the model originally produced.
+    first_capture = persist_raw_response(
+        provider="review",
+        stage="parse-failure",
+        raw=response.content,
+    )
+    if first_capture is not None:
+        logger.debug(f"Unparseable review response saved to {first_capture}")
+
+    retry_timeout = resolve_schema_retry_timeout(
+        api_timeout=ai_config.api_timeout,
+        elapsed=elapsed,
+    )
+    if retry_timeout is None:
+        logger.warning(
+            "Review response was not valid JSON and the timeout budget left no "
+            "room for a schema-reminder retry; recovering it as unstructured "
+            f"output ({first_error}).",
+        )
+        return response, unstructured_review_payload(
+            content=response.content,
+            files=tuple(chunk.files),
+        )
+
+    logger.warning(
+        f"Review response was not valid JSON ({first_error}); retrying once "
+        f"with a schema reminder (timeout {retry_timeout:.0f}s).",
+    )
+    reminder = build_schema_reminder_prompt(
+        template=REVIEW_SCHEMA_REMINDER_TEMPLATE,
+        output_schema=REVIEW_OUTPUT_SCHEMA,
+        previous_response=response.content,
+    )
+    try:
+        retry_response = await call_ai(
+            provider=provider,
+            ai_config=ai_config,
+            system_prompt=REVIEW_SYSTEM,
+            user_prompt=reminder,
+            budget=budget,
+            repo_root=repo_root or None,
+            use_one_shot=use_one_shot,
+            cli_schema=cli_schema_for_review(transport=ai_config.transport),
+            timeout=retry_timeout,
+        )
+    except AICostBudgetExceededError:
+        # The cost cap is a graceful stop the caller finalizes a partial review
+        # on, not a provider failure: swallowing it here would let the run keep
+        # spending past the ceiling.
+        raise
+    except AIError as retry_exc:
+        # The reminder is best-effort: a failed retry must never be worse than
+        # not retrying, so the original answer is still recovered.
+        logger.warning(f"Schema-reminder retry failed: {retry_exc}")
+        return response, unstructured_review_payload(
+            content=response.content,
+            files=tuple(chunk.files),
+        )
+
+    merged = _merge_response_usage(first=response, second=retry_response)
+    try:
+        return merged, parse_review_response(content=retry_response.content)
+    except ValueError as retry_error:
+        logger.warning(
+            f"Schema-reminder retry was still not valid JSON ({retry_error}); "
+            "recovering the review as unstructured output.",
+        )
+
+    # The retry's answer is the model's latest word; prefer it when it carries
+    # text, and fall back to the original answer when the retry came back empty.
+    recovered = retry_response.content.strip() or response.content
+    return merged, unstructured_review_payload(
+        content=recovered,
+        files=tuple(chunk.files),
+    )
+
+
+def _merge_response_usage(*, first: AIResponse, second: AIResponse) -> AIResponse:
+    """Return *second* with *first*'s token and cost usage folded in.
+
+    Args:
+        first: The earlier response.
+        second: The later response whose content is authoritative.
+
+    Returns:
+        A response carrying the combined usage of both calls.
+    """
+    return replace(
+        second,
+        input_tokens=first.input_tokens + second.input_tokens,
+        output_tokens=first.output_tokens + second.output_tokens,
+        cost_estimate=first.cost_estimate + second.cost_estimate,
+    )
+
+
+async def _generate_extra_checklist(
+    *,
+    chunk: ReviewChunk,
+    context: ReviewContext,
+    provider: BaseAIProvider,
+    ai_config: AIConfig,
+    budget: CostBudget,
+    next_generated_checklist_id: int,
+    repo_root: str = "",
+    use_one_shot: bool = False,
+) -> tuple[str, int, _ChunkReviewPartial]:
+    """Generate depth-2 domain-specific checklist questions.
+
+    Args:
+        chunk: The chunk being reviewed.
+        context: Collected review diff context.
+        provider: Configured AI provider instance.
+        ai_config: AI configuration for retries, budget, and fallbacks.
+        budget: Session cost budget tracker.
+        next_generated_checklist_id: First id available to generated items.
+        repo_root: Absolute path to the repository under review.
+        use_one_shot: When True, avoid durable provider sessions.
+
+    Returns:
+        The generated checklist text, the next available id, and usage.
+    """
+    changed_files = format_changed_files_for_prompt(
+        files=[file for file in context.changed_files if file.path in chunk.files],
+    )
+    prompt = REVIEW_GENERATE_QUESTIONS_TEMPLATE.format(
+        diff=redact_prompt_text(text=chunk.diff, source="diff"),
+        changed_files=changed_files,
+    )
+    budget.check()
+    response = await call_ai(
+        provider=provider,
+        ai_config=ai_config,
+        system_prompt="You generate review checklist questions.",
+        user_prompt=prompt,
+        budget=budget,
+        max_tokens=1024,
+        repo_root=repo_root or None,
+        use_one_shot=use_one_shot,
+    )
+    usage = _ChunkReviewPartial(
+        summary="",
+        checklist=(),
+        findings=(),
+        input_tokens=response.input_tokens,
+        output_tokens=response.output_tokens,
+        cost_estimate=response.cost_estimate,
+    )
+    try:
+        payload = json.loads(strip_json_fences(content=response.content))
+    except (json.JSONDecodeError, ValueError):
+        logger.warning("Failed to parse generated questions; skipping depth-2 extras")
+        return "", next_generated_checklist_id, usage
+
+    if not isinstance(payload, dict):
+        logger.warning("Generated questions payload was not an object; skipping extras")
+        return "", next_generated_checklist_id, usage
+
+    questions = payload.get("generated_questions", [])
+    if not isinstance(questions, list):
+        return "", next_generated_checklist_id, usage
+
+    lines: list[str] = []
+    next_id = next_generated_checklist_id
+    for item in questions:
+        if not isinstance(item, dict):
+            continue
+        question = item.get("question")
+        if isinstance(question, str) and question.strip():
+            lines.append(f"{next_id}. [generated] {question.strip()}")
+            next_id += 1
+    return "\n".join(lines), next_id, usage
+
+
+async def _run_adversarial_pass(
+    *,
+    chunk: ReviewChunk,
+    provider: BaseAIProvider,
+    ai_config: AIConfig,
+    prior_findings: tuple[ReviewFinding, ...],
+    budget: CostBudget,
+    repo_root: str = "",
+    use_one_shot: bool = False,
+) -> _ChunkReviewPartial:
+    """Run depth-3 adversarial sweep for missed findings.
+
+    Args:
+        chunk: The chunk being reviewed.
+        provider: Configured AI provider instance.
+        ai_config: AI configuration for retries, budget, and fallbacks.
+        prior_findings: Findings already reported for this chunk.
+        budget: Session cost budget tracker.
+        repo_root: Absolute path to the repository under review.
+        use_one_shot: When True, avoid durable provider sessions.
+
+    Returns:
+        A partial carrying any additional findings and usage.
+    """
+    prior_json = json.dumps(
+        [
+            {
+                "severity": finding.severity,
+                "file": finding.file,
+                "line": finding.line,
+                "title": finding.title,
+            }
+            for finding in prior_findings
+        ],
+    )
+    prompt = REVIEW_ADVERSARIAL_SWEEP_TEMPLATE.format(
+        prior_findings_json=prior_json,
+        diff=redact_prompt_text(text=chunk.diff, source="diff"),
+    )
+    budget.check()
+    response = await call_ai(
+        provider=provider,
+        ai_config=ai_config,
+        system_prompt=REVIEW_SYSTEM,
+        user_prompt=prompt,
+        budget=budget,
+        repo_root=repo_root or None,
+        use_one_shot=use_one_shot,
+    )
+    try:
+        payload = json.loads(strip_json_fences(content=response.content))
+    except (json.JSONDecodeError, ValueError):
+        logger.warning("Failed to parse adversarial sweep response")
+        return _ChunkReviewPartial(
+            summary="",
+            checklist=(),
+            findings=(),
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+            cost_estimate=response.cost_estimate,
+        )
+
+    if not isinstance(payload, dict):
+        logger.warning("Adversarial sweep payload was not an object")
+        return _ChunkReviewPartial(
+            summary="",
+            checklist=(),
+            findings=(),
+            input_tokens=response.input_tokens,
+            output_tokens=response.output_tokens,
+            cost_estimate=response.cost_estimate,
+        )
+
+    findings_raw = payload.get("findings", [])
+    findings = parse_findings(raw_findings=findings_raw)
+    return _ChunkReviewPartial(
+        summary="",
+        checklist=(),
+        findings=findings,
+        input_tokens=response.input_tokens,
+        output_tokens=response.output_tokens,
+        cost_estimate=response.cost_estimate,
+    )
+
+
+def _payload_to_partial(
+    *,
+    response: AIResponse,
+    payload: dict[str, Any],
+) -> _ChunkReviewPartial:
+    """Convert parsed JSON payload to a chunk partial result."""
+    summary = payload.get("summary", "")
+    if not isinstance(summary, str):
+        summary = str(summary)
+
+    checklist = _parse_checklist(raw_checklist=payload.get("checklist", []))
+    findings = parse_findings(raw_findings=payload.get("findings", []))
+
+    return _ChunkReviewPartial(
+        summary=summary,
+        checklist=checklist,
+        findings=findings,
+        input_tokens=response.input_tokens,
+        output_tokens=response.output_tokens,
+        cost_estimate=response.cost_estimate,
+    )
+
+
+def _parse_checklist(*, raw_checklist: object) -> tuple[ChecklistAnswer, ...]:
+    """Parse checklist answers from AI JSON."""
+    if not isinstance(raw_checklist, list):
+        return ()
+    answers: list[ChecklistAnswer] = []
+    for item in raw_checklist:
+        if not isinstance(item, dict):
+            continue
+        answer_id = item.get("id")
+        answer = item.get("answer", "no")
+        evidence_raw = item.get("evidence", "")
+        if not isinstance(answer_id, int):
+            continue
+        if not isinstance(answer, str):
+            answer = str(answer)
+        if evidence_raw is None:
+            evidence = ""
+        elif isinstance(evidence_raw, str):
+            evidence = evidence_raw
+        else:
+            evidence = str(evidence_raw)
+        answers.append(
+            ChecklistAnswer(
+                id=answer_id,
+                answer=_normalize_checklist_answer_value(answer=answer),
+                evidence=evidence.strip(),
+            ),
+        )
+    return tuple(answers)
+
+
+def _estimate_prompt_overhead(
+    *,
+    context: ReviewContext,
+    checklist_text: str,
+    classifications: list[FileClassification],
+    lint_results: str | None,
+) -> int:
+    """Estimate non-diff prompt token overhead."""
+    paths = generate_interaction_paths(
+        classifications=classifications,
+        changed_files=[file.path for file in context.changed_files],
+    )
+    overhead_text = "\n".join(
+        [
+            REVIEW_SYSTEM,
+            checklist_text,
+            paths,
+            context.pr_metadata.body if context.pr_metadata else "",
+            lint_results or "",
+        ],
+    )
+    estimated = estimate_tokens(overhead_text)
+    return int(max(estimated, _PROMPT_OVERHEAD_TOKENS))
+
+
+def _max_checklist_id(*, checklist_items: list[ChecklistItem]) -> int:
+    """Return the highest checklist item id in the selected set."""
+    if not checklist_items:
+        return 0
+    return int(max(item.id for item in checklist_items))
+
+
+def _normalize_checklist_answer_value(*, answer: str) -> str:
+    """Normalize checklist answers to the yes/no contract."""
+    normalized = answer.strip().lower()
+    if normalized not in {"yes", "no"}:
+        return "no"
+    return normalized
+
+
+def _checklist_answer_strength(*, answer: ChecklistAnswer) -> int:
+    """Score checklist answers for merge precedence.
+
+    Per epic #991's v3.1 contract, every ``yes`` must map to a finding, so a
+    ``yes`` from any chunk strictly wins over a ``no`` regardless of evidence.
+    Evidence only breaks ties between two answers of the same polarity. This
+    prevents an evidence-backed ``no`` from one chunk silently overturning a
+    bare ``yes`` from another and dropping the finding non-deterministically.
+
+    Args:
+        answer: Checklist answer to score.
+
+    Returns:
+        Strength score: yes-with-evidence 4, yes 3, no-with-evidence 2, no 1.
+    """
+    has_evidence = bool(answer.evidence.strip())
+    if answer.answer == "yes":
+        return 4 if has_evidence else 3
+    return 2 if has_evidence else 1
+
+
+def _pick_preferred_checklist_answer(
+    *,
+    candidate: ChecklistAnswer,
+    existing: ChecklistAnswer,
+) -> ChecklistAnswer:
+    """Pick the stronger checklist answer when merging chunk results."""
+    candidate_strength = _checklist_answer_strength(answer=candidate)
+    existing_strength = _checklist_answer_strength(answer=existing)
+    if candidate_strength >= existing_strength:
+        return candidate
+    return existing
+
+
+def _single_chunk_from_context(*, context: ReviewContext) -> ReviewChunk:
+    """Build a single chunk when chunker returns no groups."""
+    files = [file.path for file in context.changed_files]
+    relationship = REL_SINGLE_FILE if len(files) == 1 else REL_DIRECTORY_PREFIX
+    return ReviewChunk(
+        id=1,
+        files=files,
+        diff=context.unified_diff,
+        relationship=relationship,
+    )
+
+
+def _empty_review_result(
+    *,
+    context: ReviewContext,
+    provider: BaseAIProvider,
+    depth: int,
+    checklist_items: list[ChecklistItem],
+    context_window_override: int | None,
+) -> ReviewResult:
+    """Return an empty result when no changes are present."""
+    context_window = get_context_window(
+        model=provider.model_name,
+        override=context_window_override,
+    )
+    metadata = ReviewMetadata(
+        model=provider.model_name,
+        provider=provider.name,
+        context_window=context_window,
+        depth=depth,
+        chunks_total=0,
+        chunks_current=0,
+        files_reviewed=0,
+        files_total=0,
+        checklist_items=len(checklist_items),
+        token_usage={"prompt": 0, "completion": 0, "total": 0},
+        cost_estimate_usd=0.0,
+        base_ref=context.base_ref,
+        head_ref=context.head_ref,
+        timestamp=datetime.now(tz=UTC).isoformat(),
+    )
+    return ReviewResult(
+        metadata=metadata,
+        summary="No changes found to review.",
+        checklist=(),
+        findings=(),
+    )
+
+
+def _placeholder_metadata() -> ReviewMetadata:
+    """Return placeholder metadata for merge-only results."""
+    return ReviewMetadata(
+        model="",
+        provider="",
+        context_window=0,
+        depth=0,
+        chunks_total=0,
+        chunks_current=0,
+        files_reviewed=0,
+        files_total=0,
+        checklist_items=0,
+    )

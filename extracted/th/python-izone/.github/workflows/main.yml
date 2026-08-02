@@ -1,0 +1,59 @@
+name: CI
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    strategy:
+      matrix:
+        python-version: ["3.14"]
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Install uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache-suffix: build
+      - name: Install dependencies
+        run: uv sync --frozen --all-extras --group dev
+      - name: Lint with Ruff
+        run: |
+          uv run ruff check pizone tests
+          uv run ruff format --check pizone tests
+      - name: Type check with mypy
+        run: uv run mypy pizone
+      - name: Test with pytest
+        run: uv run pytest tests/ -q
+      - name: Build package
+        run: uv build
+      - name: Publish package
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags') && matrix.python-version == '3.14'
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  coverage:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install uv
+        uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
+        with:
+          python-version: "3.14"
+          cache-suffix: coverage
+      - name: Install dependencies
+        run: uv sync --frozen --all-extras --group dev
+      - name: Test coverage (advisory)
+        run: uv run pytest tests/ -q --cov=pizone --cov-report=term-missing:skip-covered --cov-report=html
+      - name: Upload HTML coverage report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: coverage-html
+          path: htmlcov/

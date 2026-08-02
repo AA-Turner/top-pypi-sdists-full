@@ -1,3 +1,0 @@
-python3-PyYAML:
-  phase: pre-install.d
-

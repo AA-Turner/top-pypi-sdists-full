@@ -1,0 +1,93 @@
+from __future__ import annotations
+import pprint
+import re  # noqa: F401
+import json
+
+from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr, StrictBool
+from typing import Any, ClassVar, Dict, List, Optional, Union
+from typing import Optional, Set, Any, Dict, List
+from typing_extensions import Self
+
+
+
+
+class MerchantAmazonAsinLiveAdvancedRequestInfo(BaseModel):
+    """
+    MerchantAmazonAsinLiveAdvancedRequestInfo
+    """ # noqa: E501
+    asin: Optional[StrictStr] = Field(default=None, description=r"*product ID*. **required field**. [unique product identifier (ASIN)](https://dataforseo.com/help-center/asin-in-amazon-api) in Amazon. you can receive the `asin` parameter by making a separate request to the [Amazon Products endpoint](/v3/merchant/amazon/products/live/advanced/)")
+    location_name: Optional[StrictStr] = Field(default=None, description=r"*full name of search engine location*. **required field if you don't specify** `location_code` or `location_coordinate`. **if you use this field, you don't need to specify `location_code` or `location_coordinate`**. you can receive the list of available locations with their `location_name` parameters by making a separate request to the `https://api.dataforseo.com/v3/merchant/amazon/locations`. example:. `HA1,England,United Kingdom`")
+    location_code: Optional[StrictInt] = Field(default=None, description=r"*search engine location code*. **required field if you don't specify** `location_name` or `location_coordinate`. **if you use this field, you don't need to specify `location_name` or `location_coordinate`**. you can receive the list of available locations with their `location_code` parameters by making a separate request to the. `https://api.dataforseo.com/v3/merchant/amazon/locations`. example:. `9045969`")
+    location_coordinate: Optional[StrictStr] = Field(default=None, description=r"*GPS coordinates of a location*. **required field if you don't specify** `location_name` or `location_code`. **if you use this field, you don't need to specify `location_name` or `location_code`**. `location_coordinate` parameter should be specified in the *'latitude,longitude,radius'* format. the maximum number of decimal digits for *'latitude'* and *'longitude'*: 7. the minimum value for *'radius'*: 199.9. example:. `53.476225,-2.243572,200`")
+    language_name: Optional[StrictStr] = Field(default=None, description=r"*full name of search engine language*. **required field if you don't specify** `language_code`. **if you use this field, you don't need to specify `language_code`**. you can receive the list of available languages with their `language_name` parameters by making a separate request to the. `https://api.dataforseo.com/v3/merchant/amazon/languages`. example:. `English (United Kingdom)`")
+    language_code: Optional[StrictStr] = Field(default=None, description=r"*search engine language code*. **required field if you don't specify** `language_name`. **if you use this field, you don't need to specify `language_name`**. you can receive the list of available languages with their `language_code` parameters by making a separate request to the `https://api.dataforseo.com/v3/merchant/amazon/languages`**example:**`en_GB`")
+    se_domain: Optional[StrictStr] = Field(default=None, description=r"*search engine domain*. optional field. we choose the relevant search engine domain automatically according to the location and language you specify. however, you can set a custom search engine domain in this field. example:. *`amazon.com`*, *`amazon.co.uk`*, *`amazon.fr`*, etc.")
+    tag: Optional[StrictStr] = Field(default=None, description=r"*user-defined task identifier*. optional field. *the character limit is 255*. you can use this parameter to identify the task and match it with the result. you will find the specified `tag` value in the `data` object of the response")
+    __properties: ClassVar[List[str]] = [
+        "asin", 
+        "location_name", 
+        "location_code", 
+        "location_coordinate", 
+        "language_name", 
+        "language_code", 
+        "se_domain", 
+        "tag", 
+        ]
+
+    additional_properties: Dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(
+        populate_by_name=True,
+        validate_assignment=True,
+        protected_namespaces=(),
+    )
+
+    def to_str(self) -> str:
+        return pprint.pformat(self.model_dump(by_alias=True))
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict())
+
+    @classmethod
+    def from_json(cls, json_str: str) -> Optional[Self]:
+        return cls.from_dict(json.loads(json_str))
+
+    def to_dict(self) -> Dict[str, Any]:
+        excluded_fields: Set[str] = set([
+        ])
+
+        _dict = {}
+
+        _dict['asin'] = self.asin
+        _dict['location_name'] = self.location_name
+        _dict['location_code'] = self.location_code
+        _dict['location_coordinate'] = self.location_coordinate
+        _dict['language_name'] = self.language_name
+        _dict['language_code'] = self.language_code
+        _dict['se_domain'] = self.se_domain
+        _dict['tag'] = self.tag
+        return _dict
+
+
+    @classmethod
+    def from_dict(cls, obj: Optional[Dict[str, Any]]) -> Optional[Self]:
+        if obj is None:
+            return None
+
+        if not isinstance(obj, dict):
+            return cls.model_validate(obj)
+
+        _obj = cls.model_validate({
+            "asin": obj.get("asin"),
+            "location_name": obj.get("location_name"),
+            "location_code": obj.get("location_code"),
+            "location_coordinate": obj.get("location_coordinate"),
+            "language_name": obj.get("language_name"),
+            "language_code": obj.get("language_code"),
+            "se_domain": obj.get("se_domain"),
+            "tag": obj.get("tag"),
+        })
+
+        additional_properties = {k: v for k, v in obj.items() if k not in cls.__properties}
+        _obj.additional_properties = additional_properties
+        return _obj

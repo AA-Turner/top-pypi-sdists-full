@@ -1,3 +1,0 @@
-triggers:
-  - gerrit:
-      name-and-email-parameter-mode: BASE64

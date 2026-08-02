@@ -1,0 +1,519 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  # No base-branch filter: a stacked PR (base = another feature branch) must
+  # get the same CI as one targeting main — an unfiltered pull_request event
+  # runs on every PR, while the push trigger above keeps post-merge runs
+  # scoped to the long-lived branches (no double-run for feature pushes).
+  pull_request:
+
+# A force-push to a PR (routine while a stacked branch rebases) supersedes
+# the in-flight run — cancel it. Pushes to main/develop never cancel.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  # ------------------------------------------------------------------
+  # Native C build + CTest on Ubuntu and macOS
+  # ------------------------------------------------------------------
+  build-and-test:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows is intentionally unsupported: signal-processing users on
+        # Windows run under WSL2, a VM, or a container. Dropping it removes the
+        # flaky MSYS2 toolchain setup and the MinGW build/test matrix.
+        os: [ubuntu-22.04, ubuntu-24.04, macos-latest]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install jbx
+      run: |
+        curl -sSL https://just-buildit.github.io/get-jb.sh | bash
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+    - name: Install dependencies (Ubuntu)
+      if: startsWith(matrix.os, 'ubuntu')
+      run: |
+        sudo apt-get update
+        jbx just-bashit:install-deps -g runtime,dev -s apt
+
+    - name: Install dependencies (macOS)
+      if: startsWith(matrix.os, 'macos')
+      run: jbx just-bashit:install-deps -g runtime,dev -s brew
+
+    - name: Build
+      run: make build
+
+    - name: Test
+      run: make test
+
+    - name: Example smoke tests
+      run: make test-examples
+
+    - name: Rust FFI tests
+      run: make test-rust
+
+    # Early portability signal: the release pipeline already objdumps every
+    # wheel .so for leaked AVX (release.yml), but only on tags — too late to
+    # catch a flag regression in review. The default `make build` here uses the
+    # portable baseline (x86-64-v2, no AVX), identical to the manylinux wheel,
+    # so any %ymm/%zmm outside a runtime-dispatched *avx512* function means
+    # -march=native (or a stray wide-SIMD flag) leaked into the default build.
+    # x86_64 Linux only: macOS is arm64 (NEON, no AVX) and Windows isn't shipped.
+    - name: Verify portable SIMD + C++-free build
+      # Wide SIMD outside a runtime-dispatched *avx512* function means a flag
+      # leaked into the default build -- a wheel that SIGILLs on a user's CPU.
+      # The C++ check keeps the library pure C: no libstdc++, no CXXABI, -lm
+      # only. Both read ELF, hence Linux only; the link smoke below is not.
+      if: startsWith(matrix.os, 'ubuntu')
+      run: make abi-check
+
+    - name: Smoke-test static link (libdoppler.a -lm)
+      # The question a downstream actually asks, answered on every platform.
+      run: make link-check
+
+    - name: Smoke-test the three consumer faces (cc / CMake / pkg-config)
+      # Installs the fresh build to a scratch prefix and builds the
+      # core+stream consumer via all three documented faces, asserting
+      # identical output. The docs' "Compile it — three ways" snippets
+      # are --8<-- included from build-three-ways.sh itself, so this
+      # step proves exactly what readers copy. release-smoke.sh repeats
+      # it against the published tarball on every release (x86_64,
+      # aarch64, macOS).
+      run: |
+        cmake --install build --prefix "${RUNNER_TEMP}/pfx"
+        bash tests/install/stream-consumer/build-three-ways.sh "${RUNNER_TEMP}/pfx"
+
+  # ------------------------------------------------------------------
+  # Python package build + pytest
+  # ------------------------------------------------------------------
+  python:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install jbx
+      run: |
+        curl -sSL https://just-buildit.github.io/get-jb.sh | bash
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+    - name: Install system deps
+      run: |
+        sudo apt-get update
+        jbx just-bashit:install-deps -g runtime,dev -s apt
+
+    - name: Install uv + Python + package deps
+      uses: astral-sh/setup-uv@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Python dev deps
+      run: uv sync --group dev
+
+    - name: Start NATS JetStream broker (for nats:// stream tests)
+      # The stream suite's nats:// tests self-skip when 127.0.0.1:4222 is
+      # unreachable; start a JetStream broker so they actually run in CI.
+      # A service container can't pass the `-js` flag, so run it explicitly.
+      # Started here, before any build/test step, because the "Doctest
+      # generated stubs" step below now needs a live broker too (stream.pyi's
+      # examples create real nats:// Publisher/Push/etc. handles).
+      run: |
+        docker run -d --name nats -p 4222:4222 nats:2.10 -js
+        for _ in $(seq 1 50); do
+          (exec 3<>/dev/tcp/127.0.0.1/4222) 2>/dev/null && break || sleep 0.2
+        done
+        echo "NATS JetStream broker ready on 127.0.0.1:4222"
+
+    - name: Build C library
+      run: make build
+
+    - name: Build Python C extensions
+      run: make pyext
+
+    - name: Doctest generated stubs
+      # The .pyi docstrings are derived from each _core.h's Doxygen by jm.
+      # Run their synthesized examples against the freshly built extensions so
+      # a doc that no longer matches the API fails CI ("passing examples
+      # everywhere"). Only the .pyi files are collected as doctest sources.
+      run: make test-stubs
+
+    - name: Doctest API reference pages
+      # jm synthesizes .pyi docstrings for *objects* but not module-level free
+      # functions (detection, spectral helpers, ...), so those modules' runnable
+      # examples live in their curated docs/api/*.md page instead. Gate them the
+      # same way: any `>>>` example on an API page must pass against the build.
+      run: make test-api-docs
+
+    - name: Doc fence gates (python + C + shell)
+      # Fail-closed, and discovered rather than registered, so a NEW page is
+      # gated on arrival: every ```python fence under docs/ is executed or
+      # output-checked; every ```c fence is compiled and run against the freshly
+      # built build/libdoppler.a; every documented CLI line is parsed against the
+      # real argparse parser and the safe ones execute end-to-end under bash -e.
+      # Backlogs: docs/.doc-snippet-ignore, docs/.c-doc-snippet-ignore. See
+      # docs/dev/doc-examples.md.
+      #
+      # All three are version-independent, so they run once rather than on all
+      # six interpreters. One target rather than three steps because they fail
+      # as a group -- a broken page usually breaks more than one fence class,
+      # and `make test-snippets` reports all three instead of stopping at the
+      # first, which is a whole CI round trip per class.
+      if: matrix.python-version == '3.12'
+      run: make test-snippets
+
+    - name: Test with coverage
+      # The fence gates are version-independent and have their own step above
+      # (3.12 only); `make test-python` excludes those markers by definition, so
+      # local and CI select exactly the same tests. PYTEST_ARGS adds only the
+      # coverage REPORTING, which is CI's business, not a different test run.
+      run: |
+        make test-python PYTEST_ARGS="--cov \
+          --cov-report=term-missing \
+          --cov-report=xml:coverage.xml"
+
+    - name: Stop NATS broker
+      if: always()
+      run: docker rm -f nats || true
+
+    - name: Python example smoke tests
+      run: make test-examples-python
+
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v4
+      if: matrix.python-version == '3.12'
+      with:
+        name: coverage-report
+        path: coverage.xml
+
+  # ------------------------------------------------------------------
+  # glibc 2.28 compatibility (Debian 10 / Buster)
+  # Catches any accidental use of glibc symbols > 2.28 at build time.
+  # ------------------------------------------------------------------
+  glibc-228:
+    name: glibc 2.28 (Debian 10)
+    runs-on: ubuntu-latest
+    container: debian:buster-slim
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install build deps + cmake ≥ 3.16
+      run: |
+        # Debian Buster reached EOL; packages are on the archive mirror.
+        printf 'deb http://archive.debian.org/debian buster main\ndeb http://archive.debian.org/debian-security buster/updates main\n' \
+          > /etc/apt/sources.list
+        apt-get -o Acquire::Check-Valid-Until=false update
+        apt-get install -y --no-install-recommends \
+          build-essential \
+          pkg-config \
+          ca-certificates \
+          wget
+        # Kitware's Buster apt repo is also EOL; use the statically-linked
+        # cmake binary from the GitHub release instead.
+        CMAKE_VER=3.28.6
+        wget -q "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VER}/cmake-${CMAKE_VER}-linux-x86_64.sh" \
+          -O /tmp/cmake-install.sh
+        sh /tmp/cmake-install.sh --skip-license --prefix=/usr/local
+        rm /tmp/cmake-install.sh
+
+    - name: Build
+      run: make build
+
+    - name: Test examples
+      run: make test-examples
+
+    - name: Verify no glibc symbols > 2.28
+      # Built in the Debian 10 container above, so this asserts the floor a
+      # released .so must hold. On a modern distro it fails on the local
+      # build's newer symbols -- that is the check working, not a bug.
+      run: make glibc-check
+
+  # ------------------------------------------------------------------
+  # Doxygen C API docs — zero warnings required
+  # ------------------------------------------------------------------
+  doxygen:
+    name: Doxygen
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install jbx
+      run: |
+        curl -sSL https://just-buildit.github.io/get-jb.sh | bash
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+    - name: Install doxygen + LaTeX
+      run: |
+        sudo apt-get update
+        jbx just-bashit:install-deps -g docs -s apt
+
+    - name: Run doxygen (zero warnings)
+      # `make doxygen-check`, never an inline doxygen invocation: the Makefile
+      # is the single driver, so `make doxygen-check` locally is this job. When
+      # this was inline, the only local target (`make doxygen`) merely printed
+      # warnings and exited 0 — 88 accumulated over a long branch before the
+      # job was ever looked at. The target pins DOXYGEN_VERSION to this
+      # runner's doxygen and dockerises when a developer's differs, because
+      # versions disagree about what counts as a warning. Bump
+      # DOXYGEN_VERSION in the Makefile when this runner image changes.
+      run: make doxygen-check
+
+  # ------------------------------------------------------------------
+  # Specan demo frames staleness check
+  # ------------------------------------------------------------------
+  specan-demo:
+    name: Specan demo frames
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Check frames kept in sync with specan source
+      run: |
+        make specan-check \
+          SPECAN_BASE="${{ github.event.pull_request.base.sha || 'HEAD^' }}"
+
+  # ------------------------------------------------------------------
+  # Documentation build (zensical)
+  # ------------------------------------------------------------------
+  docs:
+    name: Docs
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        python-version: '3.12'
+
+    - name: Install dev deps
+      run: uv sync --group dev --group docs
+
+    - name: Docs gate
+      # Every gate the local `make docs-check` runs, in one step. The target
+      # reports ALL failures in one pass -- which is exactly what the nine
+      # `if: !cancelled()` steps this replaces were emulating, and it does it
+      # in one place rather than in two that had already diverged: the Makefile
+      # removes a stale `zensical.toml` (which shadows mkdocs.yml and silently
+      # truncates the nav) and passes `--group docs`; neither inline copy did.
+      run: make docs-check
+
+  # ------------------------------------------------------------------
+  # Docker image build + container tests
+  # ------------------------------------------------------------------
+  docker:
+    name: Docker
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Build image
+      run: docker build -t doppler:test .
+
+    - name: Run C unit tests
+      run: |
+        docker run --rm doppler:test sh -c '
+          rc=0
+          for t in /app/test_*; do
+            echo "--- $t ---"
+            "$t"
+            tc=$?
+            if [ "$tc" -ne 0 ] && [ "$tc" -ne 77 ]; then rc=$tc; fi
+          done
+          exit $rc'
+
+  # ------------------------------------------------------------------
+  # just-makeit manifest drift gate
+  #
+  # Asserts the generated glue (bindings, stubs, CMake, _core.h decls) on disk
+  # still matches what `jm apply` would produce from just-makeit.toml +
+  # objects/*.toml. This is what makes doppler a clean jm poster child: any
+  # hand-edit to a glue file, or a manifest change left un-applied, fails CI.
+  #
+  # Uses jm's native gate (jm status --check, just-makeit#140). jm is pinned to
+  # the version the tree was generated with; bump it in lock step with a
+  # `jm apply` reconcile commit. No allowlist: ddc/ddcr's 5-arg
+  # `*_execute(..., out, max_out)` is now declared `pass_capacity = true`
+  # (just-makeit#138) so apply generates it exactly and there is zero drift.
+  # ------------------------------------------------------------------
+  # Lint + format gate for hand-written code and docs (ruff, clang-format v19,
+  # mdformat, hygiene hooks). jm-generated glue (.pyi, *_ext.c aggregators,
+  # native/inc headers, generated CMakeLists, re-export __init__.py, wavegen.py)
+  # is excluded in .pre-commit-config.yaml and guarded instead by manifest-drift.
+  pre-commit:
+    name: pre-commit (lint + format)
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # uv, not bare setup-python: the hooks now DISPATCH into the Makefile
+    # (`make -s lint-ruff`), which invokes `$(DEV_RUN) <tool>` so the version
+    # comes from uv.lock. That is what makes this job and a developer's `make
+    # lint` resolve the same tool -- the failure mode it replaces was a warm
+    # local cache and a fresh runner holding different mdformat plugins and
+    # disagreeing about the same file.
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        python-version: '3.12'
+
+    - name: Install dev deps
+      run: uv sync --group dev --no-install-project
+
+    # `make lint` and nothing else: it runs the standard's three consistency
+    # gates (standard drift, help completeness, no ghost targets) and then the
+    # hooks, so CI enforces exactly what a developer runs.
+    - name: Run make lint
+      run: make lint
+
+  manifest-drift:
+    name: jm manifest drift gate
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+
+    - name: Check manifest drift
+      # --refresh: ignore setup-uv's cached PyPI index so a just-published jm
+      # pin resolves on the first run after a release (no stale-cache race).
+      run: make drift-check
+
+  # ------------------------------------------------------------------
+  # Code coverage (C tests ∪ Python ∪ Rust). clang source-based instrumentation
+  # (-fprofile-instr-generate -fcoverage-mapping) on every first-party C object;
+  # the CTest suite, pytest (against the instrumented .so), and the Rust FFI
+  # tests (linking the instrumented libdoppler.so) each emit .profraw, merged
+  # into one llvm-cov report attributed to the hand-written _core.c. Publishes
+  # the HTML + lcov as an artifact, and GATES PRs via diff-cover: a PR's
+  # added/changed C lines must be >= 90% covered (it's in ci-passed needs). Pure
+  # .py/.rs diffs carry no C coverage data and aren't counted.
+  # ------------------------------------------------------------------
+  coverage:
+    name: coverage (C + Python + Rust)
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        # Full history so the patch gate can diff against origin/main.
+        fetch-depth: 0
+
+    - name: Install jbx
+      run: |
+        curl -sSL https://just-buildit.github.io/get-jb.sh | bash
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+    - name: Install system deps
+      run: |
+        sudo apt-get update
+        jbx just-bashit:install-deps -g runtime,dev -s apt
+        # clang + the matching llvm tools (llvm-profdata / llvm-cov).
+        sudo apt-get install -y clang llvm
+
+    - name: Install uv + Python + package deps
+      uses: astral-sh/setup-uv@v4
+      with:
+        python-version: '3.13'
+
+    - name: Install Python dev deps
+      run: uv sync --group dev
+
+    - name: Start NATS JetStream broker (covers the nats:// stream path)
+      # The stream suite's nats:// tests self-skip when 127.0.0.1:4222 is
+      # unreachable; start a JetStream broker so stream_nats.c is exercised.
+      run: |
+        docker run -d --name nats -p 4222:4222 nats:2.10 -js
+        for _ in $(seq 1 50); do
+          (exec 3<>/dev/tcp/127.0.0.1/4222) 2>/dev/null && break || sleep 0.2
+        done
+        echo "NATS JetStream broker ready on 127.0.0.1:4222"
+
+    - name: Coverage (clang source-based; C ∪ Python ∪ Rust)
+      run: make coverage | tee coverage.txt
+
+    - name: Stop NATS broker
+      if: always()
+      run: docker rm -f nats 2>/dev/null || true
+
+    - name: Patch-coverage gate (changed C lines must be >= 90%)
+      # diff-cover fails the job (→ blocks ci-passed) when a PR's added/changed
+      # C lines aren't covered by the merged report. Pure .py/.rs diffs carry no
+      # C coverage data and aren't counted. Pushes to main diff empty → pass.
+      run: |
+        git fetch --no-tags origin main
+        make coverage-gate COV_BASE=origin/main
+
+    - name: Coverage summary
+      if: always()
+      run: |
+        echo '### Merged coverage (C ∪ Python ∪ Rust)' >> "$GITHUB_STEP_SUMMARY"
+        echo '```' >> "$GITHUB_STEP_SUMMARY"
+        grep -E '^TOTAL' coverage.txt >> "$GITHUB_STEP_SUMMARY" || true
+        echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Upload coverage report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: |
+          build-cov/html
+          build-cov/coverage.lcov
+
+  # ------------------------------------------------------------------
+  # Aggregator: a single "CI passed" check that is green only when every
+  # required job above succeeded. The release workflow polls this check on the
+  # tagged commit (verify-ci) instead of re-running the suite — the merge to
+  # main already gated it, so the release only confirms + builds + publishes.
+  # ------------------------------------------------------------------
+  ci-passed:
+    name: CI passed
+    needs:
+      - build-and-test
+      - python
+      - glibc-228
+      - doxygen
+      - specan-demo
+      - docs
+      - docker
+      - pre-commit
+      - manifest-drift
+      - coverage
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Require all jobs to have succeeded
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" || \
+                "${{ contains(needs.*.result, 'cancelled') }}" == "true" || \
+                "${{ contains(needs.*.result, 'skipped') }}" == "true" ]]; then
+            echo "::error::a required CI job did not succeed — CI not green"
+            exit 1
+          fi
+          echo "All required CI jobs succeeded."

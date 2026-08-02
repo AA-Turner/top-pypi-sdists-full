@@ -1,0 +1,69 @@
+[project]
+name = "pystiebeleltron"
+dynamic = ["version"]
+description = "Python API for interacting with the Stiebel Eltron ISG web gateway via Modbus for controlling integral ventilation units and heat pumps."
+readme = "README.md"
+urls = { Homepage = "https://github.com/ThyMYthOS/python-stiebel-eltron", Issues = "https://github.com/ThyMYthOS/python-stiebel-eltron/issues" }
+authors = [
+    { name = "Manuel Stahl" },
+    { name = "Martin Fuchs" },
+]
+license = "MIT"
+keywords = ["stiebel-eltron", "tecalor", "modbus"]
+classifiers = [
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+requires-python = ">=3.12,<4"
+dependencies = [
+    "modbus-connection[pymodbus] (>=3.7.0)",
+    "pymodbus (>=3.10.0,<4)",
+]
+
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+
+[dependency-groups]
+dev = [
+    "jinja2>=3.1.6",
+    "pytest>=8.3.5",
+    "pytest-asyncio>=0.26.0",
+    "pytest-mock>=3.14.0",
+    "ruff>=0.12.0",
+    "mypy>=1.9.0",
+]
+
+[tool.hatch.build.targets.sdist]
+packages = ["pystiebeleltron"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["pystiebeleltron"]
+
+[tool.hatch.version]
+path = "pystiebeleltron/__init__.py"
+
+[tool.ruff]
+line-length = 200
+lint.select = ["E", "F", "B", "I"]
+lint.ignore = []
+target-version = "py312"
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.pytest.ini_options]
+
+pythonpath = [
+  ".", "src"
+]
+testpaths = [
+    "test"
+]
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true

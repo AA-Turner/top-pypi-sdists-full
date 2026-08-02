@@ -1,0 +1,117 @@
+---
+name: "CI & CD"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "main"
+  pull_request:
+  release:
+    types:
+      - published
+
+env:
+  MATURIN_VERSION: "1.8"
+
+jobs:
+  wheels:
+    name: "Build & test wheel"
+    strategy:
+      matrix:
+        # Support both Mac x86_64 and arm64
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        py-version: ["3.10", "3.11", "3.12", "3.13"]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.py-version }}
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+      - name: Install dependencies
+        run: pip install "maturin==$MATURIN_VERSION" "oldest-supported-numpy" pytest
+      - name: Build wheel
+        run: maturin build --release -i python -o dist
+      - name: Install wheel
+        run: pip install .//dist//*.whl
+      - name: Test wheel
+        run: pytest --assert=plain tests
+      - uses: actions/upload-artifact@v4
+        with:
+          name: artifact-wheel-${{ matrix.os }}-${{ matrix.py-version }}
+          path: .//dist//*.whl
+
+  sdist:
+    name: Build & test source distribution
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+        with:
+          python-version: "3.13"
+      - name: Install dependencies
+        run: pip install "maturin==$MATURIN_VERSION" pytest
+      - name: Build source distribution
+        run: maturin sdist -o dist
+      - name: Install source distribution
+        run: pip install .//dist//*.tar.gz
+      - name: Test source distribution
+        run: pytest --assert=plain tests
+      - uses: actions/upload-artifact@v4
+        with:
+          name: artifact-tar-${{ matrix.os }}-${{ matrix.py-version }}
+          path: dist//*.tar.gz
+
+  benchmarks:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'release'
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+        with:
+          python-version: "3.13"
+      - name: Install dependencies
+        run: pip install .[test]
+      - name: Run benchmarks
+        uses: CodSpeedHQ/action@v3
+        with:
+          run: pytest --codspeed benchmarks
+
+  upload:
+    name: Upload to GitHub Releases & PyPI
+    permissions:
+      contents: write
+    needs:
+      - wheels
+      - sdist
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: artifact-*
+          merge-multiple: true
+          path: dist
+      - name: List distributions to be uploaded
+        run: ls dist
+      - name: Upload to GitHub Releases
+        uses: softprops/action-gh-release@v2.0.5
+        if: github.event_name == 'release' && github.event.action == 'published'
+        with:
+          files: dist//*
+      - name: Upload to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        if: github.event_name == 'release' && github.event.action == 'published'
+        with:
+          password: ${{ secrets.PYPI_TOKEN }}

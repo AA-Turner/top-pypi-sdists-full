@@ -1,0 +1,101 @@
+[build-system]
+build-backend = "uv_build"
+requires = [ "uv-build>=0.9,<0.11" ]
+
+[project]
+name = "pysma"
+version = "1.1.6"
+description = "Library to interface an SMA Solar devices"
+readme = "README.md"
+license = "MIT"
+license-files = [ "LICENSE" ]
+authors = [ { name = "Johann Kellerman", email = "kellerza@gmail.com" }, { name = "René Klomp" } ]
+requires-python = ">=3.12"
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+  "aiohttp>=3,<4",
+  "jmespath",
+]
+urls.Source = "https://github.com/kellerza/pysma"
+
+[dependency-groups]
+dev = [
+  "aioresponses",
+  "codespell",
+  "pyproject-fmt",
+  "pytest",
+  "pytest-aiohttp",
+  "pytest-cov",
+  "pytest-github-actions-annotate-failures",
+  "types-jmespath",
+  "zuban",
+]
+
+[tool.ruff]
+format.indent-style = "space"
+format.quote-style = "double"
+format.line-ending = "lf"
+format.skip-magic-trailing-comma = false
+format.docstring-code-line-length = "dynamic"
+format.docstring-code-format = true
+lint.select = [
+  "A",     # flake8-builtins
+  "ASYNC", # flake8-async
+  "B",     # bugbear
+  "D",     # pydocstyle
+  "E",     # pycodestyle
+  "F",     # pyflakes
+  "I",     # isort
+  "PGH",   # pygrep-hooks
+  "PIE",   # flake8-pie
+  "PL",    # pylint
+  "PTH",   # flake8-pathlib
+  "PYI",   # flake8-pyi
+  "RUF",   # ruff
+  "UP",    # pyupgrade
+  "W",     # pycodestyle
+]
+lint.ignore = [ "D203", "D213", "E501", "PLR2004" ]
+lint.pylint.max-args = 7
+
+[tool.codespell]
+ignore-words-list = "hass"
+skip = "**/l10n/*.json"
+
+[tool.pytest]
+ini_options.pythonpath = [ ".", "src" ]
+ini_options.testpaths = "src/tests"
+ini_options.filterwarnings = "ignore:.+@coroutine.+deprecated.+"
+ini_options.norecursedirs = [ ".git", "modules" ]
+ini_options.log_cli = true
+ini_options.log_cli_level = "DEBUG"
+ini_options.asyncio_mode = "auto"
+ini_options.addopts = "--cov=src --cov-report xml:cov.xml"
+ini_options.asyncio_default_fixture_loop_scope = "function"
+
+[tool.zuban]
+# disallow_untyped_defs = true
+# ignore_missing_imports = true
+# warn_unused_configs = true
+warn_unreachable = false
+
+# exclude = [ "build" ]
+# enable_error_code = [ "ignore-without-code" ]
+[tool.semantic_release]
+commit = true
+tag = true
+vcs_release = true
+commit_parser = "emoji"
+# https://python-semantic-release.readthedocs.io/en/latest/configuration.html#version-toml
+version_toml = [ "pyproject.toml:project.version" ]
+build_command = "pip install uv && uv build"
+commit_version_number = true
+branches.main.match = "main"
+commit_parser_options.major_tags = [ ":boom:" ]
+commit_parser_options.minor_tags = [ ":rocket:" ]
+commit_parser_options.patch_tags = [ "" ]

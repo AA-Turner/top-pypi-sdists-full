@@ -1,0 +1,319 @@
+Metadata-Version: 2.3
+Name: macwinnie-enhanced-logging
+Version: 0.1.3
+Summary: Batteries-included logging for Python applications.
+Author: macwinnie
+Author-email: macwinnie <dev@macwinnie.me>
+Requires-Dist: structlog>=25.5.0
+Requires-Python: >=3.12
+Project-URL: Homepage, https://github.com/macwinnie/py-enhanced-logging
+Project-URL: Issues, https://github.com/macwinnie/py-enhanced-logging/issues
+Description-Content-Type: text/markdown
+
+# macwinnie-enhanced-logging
+
+Last built version: `v0.1.3`
+
+Batteries-included logging for Python applications.
+
+`macwinnie-enhanced-logging` provides a clean, consistent logging setup built on top of:
+
+- Python’s built-in `logging` module (so third-party libraries keep working normally)
+- [`structlog`](https://www.structlog.org/) (so *your* logs are structured, predictable, and easy to analyze)
+
+It supports both **developer-friendly console logs** and **structured JSON logs** suitable for production environments like Kubernetes.
+
+Further info: see [GitHub Repo](https://github.com/macwinnie/py-enhanced-logging) and [Online-Documentation](https://macwinnie.github.io/py-enhanced-logging).
+
+---
+
+## Features
+
+- Works with **standard Python logging**
+- Structured logging with **structlog**
+- **Human-friendly console output** for development
+- **JSON output** for log pipelines and observability stacks
+- Optional **callsite information** (file/function/line)
+- Built-in **context variables** (request_id, job_id, etc.)
+- Optional **speaking logs** for critical events
+- Zero boilerplate for most applications
+
+---
+
+## Installation
+
+```bash
+pip install macwinnie-enhanced-logging
+```
+
+Requires Python **3.12+**.
+
+---
+
+## Quick Start
+
+### 1. Configure logging once in your application entry point
+
+```python
+from enhanced_logging import configure_logging, get_logger
+
+configure_logging()
+
+log = get_logger(__name__)
+log.info("startup", _fmt="Starting {app}…", app="demo")
+```
+
+### 2. Use the logger anywhere in your code
+
+```python
+from enhanced_logging import get_logger
+
+log = get_logger(__name__)
+
+log.info("something_happened", user_id=123)
+```
+
+---
+
+## Output Formats
+
+Two output formats are supported.
+
+### Human format (default)
+
+Developer-friendly console output:
+
+```
+2025-01-01T10:00:00Z [info] Starting api on 127.0.0.1:8080 component=api host=127.0.0.1 port=8080
+```
+
+### JSON format
+
+Machine-friendly structured output:
+
+```json
+{
+  "timestamp": "2025-01-01T10:00:00Z",
+  "level": "info",
+  "event": "startup",
+  "msg": "Starting api on 127.0.0.1:8080",
+  "component": "api",
+  "host": "127.0.0.1",
+  "port": 8080
+}
+```
+
+Switch formats using an environment variable:
+
+```bash
+LOG_FORMAT=json
+```
+
+---
+
+## `_fmt`: Human-Readable Messages with Structured Logs
+
+You can provide `_fmt` to generate a human-readable message while still keeping structured fields.
+
+Example:
+
+```python
+log.info(
+    "startup",
+    _fmt="Starting {component} on {host}:{port}",
+    component="api",
+    host="127.0.0.1",
+    port=8080,
+)
+```
+
+Behavior:
+
+- **human format** → replaces the event message
+- **json format** → keeps `event` and adds `msg`
+
+This allows you to combine **structured logging** with **readable messages**.
+
+---
+
+## Context Variables
+
+You can attach fields to **all logs within a scope** using `log_context`.
+
+Example:
+
+```python
+from enhanced_logging import get_logger, log_context
+
+log = get_logger(__name__)
+
+with log_context(request_id="req-123", user_id=42):
+    log.info("handling_request")
+    do_work()
+    log.info("done")
+```
+
+All logs inside the block will automatically include:
+
+```
+request_id=req-123 user_id=42
+```
+
+This is ideal for:
+
+- request IDs
+- job IDs
+- tenant identifiers
+- correlation IDs
+
+---
+
+## Environment Variables
+
+Configuration is primarily done through environment variables.
+
+| Variable | Description | Default |
+|--------|--------|--------|
+| `LOG_FORMAT` | `human` or `json` | `human` |
+| `LOG_LEVEL` | Logging level | `INFO` |
+| `LOG_UTC` | Use UTC timestamps | `1` |
+| `LOG_KEEP_HANDLERS` | Keep existing root handlers | `0` |
+| `LOG_CALLSITE` | `auto`, `1`, or `0` | `auto` |
+| `LOG_APP_NAME` | Optional application name | unset |
+| `LOG_SPEAK` | Enable spoken logs | `0` |
+| `LOG_SPEAK_LEVEL` | Minimum level to speak | `ERROR` |
+| `LOG_SPEAK_CMD` | Custom speech command | auto |
+
+---
+
+## Callsite Information
+
+Callsite fields include:
+
+- filename
+- function name
+- line number
+
+Behavior:
+
+- Automatically enabled when `LOG_LEVEL=DEBUG`
+- Can be forced via:
+
+```bash
+LOG_CALLSITE=1
+```
+
+Disable explicitly:
+
+```bash
+LOG_CALLSITE=0
+```
+
+---
+
+## Speaking Logs (Optional)
+
+`macwinnie-enhanced-logging` can optionally **speak important log messages aloud**.
+
+This can be useful for:
+
+- CI pipelines
+- long-running batch jobs
+- alerting during development
+
+Enable speaking:
+
+```bash
+LOG_SPEAK=1
+```
+
+Only errors and above are spoken by default.
+
+Change threshold:
+
+```bash
+LOG_SPEAK_LEVEL=WARNING
+```
+
+Platform support:
+
+| Platform | Engine |
+|--------|--------|
+| macOS | `say` |
+| Linux | `espeak` |
+| Windows | PowerShell SAPI |
+
+If no speech engine is available, speaking is silently disabled.
+
+You can also call the helper directly:
+
+```python
+from enhanced_logging import speak
+
+speak("Deployment finished successfully")
+```
+
+---
+
+## Configuration Example
+
+```python
+from enhanced_logging import configure_logging, LogConfig
+
+configure_logging(
+    LogConfig(
+        format="json",
+        level="INFO",
+        app_name="my-service"
+    )
+)
+```
+
+---
+
+## Integration with Third-Party Libraries
+
+Because `macwinnie-enhanced-logging` configures the **root logger**, libraries that use:
+
+```python
+logging.getLogger(...)
+```
+
+will automatically emit logs through the same handler.
+
+This means:
+
+- one logging configuration for your entire application
+- consistent formatting across libraries
+
+---
+
+## Best Practices
+
+- Call `configure_logging()` **once at application startup**
+- Use `get_logger(__name__)` in each module
+- Prefer structured fields over string concatenation
+- Use `_fmt` when you want readable console output
+
+Example:
+
+```python
+log.info(
+    "user_login",
+    _fmt="User {user_id} logged in",
+    user_id=123
+)
+```
+
+---
+
+## Acknowledgements
+
+Author of this package is [@macwinnie](https://chaos.social/@macwinnie).
+
+This project builds on:
+
+- Python `logging` module
+- [`structlog`](https://www.structlog.org/)
+
+which provide the foundation for structured logging in Python.

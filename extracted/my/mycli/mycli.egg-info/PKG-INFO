@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mycli
-Version: 2.8.0
+Version: 2.9.0
 Summary: CLI for MySQL Database. With auto-completion and syntax highlighting.
 Author: Mycli Core Team
 License-Expression: BSD-3-Clause
@@ -72,6 +72,7 @@ Dynamic: license-file
 # mycli
 
 [![Build Status](https://github.com/dbcli/mycli/workflows/mycli/badge.svg)](https://github.com/dbcli/mycli/actions?query=workflow%3Amycli)
+[![License](https://img.shields.io/github/license/dbcli/mycli.svg)](https://github.com/dbcli/mycli/blob/main/LICENSE.txt)
 
 A command line client for MySQL with auto-completion and syntax highlighting.
 
@@ -79,8 +80,10 @@ Homepage: [https://mycli.net](https://mycli.net)
 
 Documentation: [https://mycli.net/docs](https://mycli.net/docs)
 
-![Completion](https://raw.githubusercontent.com/dbcli/mycli/main/doc/screenshots/tables.png)
-![CompletionGif](https://raw.githubusercontent.com/dbcli/mycli/main/doc/screenshots/main.gif)
+<div align="center">
+  <img alt="Completion" src="https://raw.githubusercontent.com/dbcli/mycli/main/doc/screenshots/tables.png">
+  <img alt="CompletionGif" src="https://raw.githubusercontent.com/dbcli/mycli/main/doc/screenshots/main.gif">
+</div>
 
 Mycli is compatible with MySQL, MariaDB, Percona, TiDB, and Apache Doris.
 

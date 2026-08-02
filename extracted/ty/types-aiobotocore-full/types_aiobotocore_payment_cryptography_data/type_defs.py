@@ -123,6 +123,7 @@ __all__ = (
     "SessionKeyEmv2000TypeDef",
     "SessionKeyEmvCommonTypeDef",
     "SessionKeyMastercardTypeDef",
+    "SessionKeyUnionPayTypeDef",
     "SessionKeyVisaTypeDef",
     "SymmetricEncryptionAttributesTypeDef",
     "TranslateKeyMaterialInputTypeDef",
@@ -404,6 +405,12 @@ class SessionKeyMastercardTypeDef(TypedDict):
     UnpredictableNumber: str
 
 
+class SessionKeyUnionPayTypeDef(TypedDict):
+    PrimaryAccountNumber: str
+    PanSequenceNumber: str
+    ApplicationTransactionCounter: str
+
+
 class SessionKeyVisaTypeDef(TypedDict):
     PrimaryAccountNumber: str
     PanSequenceNumber: str
@@ -639,6 +646,7 @@ class SessionKeyDerivationTypeDef(TypedDict):
     Emv2000: NotRequired[SessionKeyEmv2000TypeDef]
     Amex: NotRequired[SessionKeyAmexTypeDef]
     Visa: NotRequired[SessionKeyVisaTypeDef]
+    UnionPay: NotRequired[SessionKeyUnionPayTypeDef]
 
 
 class TranslateKeyMaterialOutputTypeDef(TypedDict):

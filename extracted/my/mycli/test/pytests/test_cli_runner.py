@@ -32,6 +32,7 @@ class DummyMyCli:
         self.config_without_package_defaults = config_without_package_defaults or {}
         self.default_keepalive_ticks = 5
         self.ssl_mode: str | None = None
+        self.prompt_format = 'configured> '
         self.logger = DummyLogger()
         self.dsn_alias: str | None = None
         self.ssh_tunnel: Any = None
@@ -103,6 +104,20 @@ def test_split_dsn_netloc_handles_bracketed_ipv6_host() -> None:
     assert cli_runner.split_dsn_netloc('user:pass@[::1]:3306') == ('user', 'pass', '::1', '3306')
 
 
+@pytest.mark.parametrize(
+    ('netloc', 'expected'),
+    (
+        ('host', (None, None, 'host', None)),
+        ('[::1', (None, None, '[', ':1')),
+    ),
+)
+def test_split_dsn_netloc_handles_host_without_user_info(
+    netloc: str,
+    expected: tuple[str | None, str | None, str | None, str | None],
+) -> None:
+    assert cli_runner.split_dsn_netloc(netloc) == expected
+
+
 def test_expand_dsn_alias_env_vars_rejects_non_integer_port(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv('MYCLI_TEST_DSN_PORT', 'not-an-int')
 
@@ -110,6 +125,17 @@ def test_expand_dsn_alias_env_vars_rejects_non_integer_port(monkeypatch: pytest.
         cli_runner.expand_dsn_alias_env_vars('mysql://user:pass@host:${MYCLI_TEST_DSN_PORT}/db', 'prod')
 
     assert str(excinfo.value) == 'Port in DSN alias prod must be an integer.'
+
+
+def test_run_from_cli_args_emits_requested_completions(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli_args = make_cli_args()
+    cli_args.completions = 'fish'
+    completion_calls: list[str] = []
+    monkeypatch.setattr(cli_runner, 'main_completions', completion_calls.append)
+
+    cli_runner.run_from_cli_args(cli_args, lambda **_kwargs: pytest.fail('client factory called'))
+
+    assert completion_calls == ['fish']
 
 
 def test_run_from_cli_args_checkup_exits_zero(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -158,7 +184,7 @@ def test_run_from_cli_args_rejects_conflicting_format_flags(
 
 def test_run_from_cli_args_treats_database_as_dsn_alias(monkeypatch: pytest.MonkeyPatch) -> None:
     cli_args = make_cli_args()
-    cli_args.database = 'prod'
+    cli_args.positional_database = 'prod'
     client = DummyMyCli(
         config={
             **default_config(),
@@ -176,54 +202,306 @@ def test_run_from_cli_args_treats_database_as_dsn_alias(monkeypatch: pytest.Monk
     assert connect_call['database'] == 'db'
 
 
-def test_run_from_cli_args_password_file_prevents_positional_dsn_alias(
+@pytest.mark.parametrize('argument', ['dsn', 'database', 'positional_database'])
+def test_run_from_cli_args_rejects_dash_prefixed_dsn_alias(
+    monkeypatch: pytest.MonkeyPatch,
+    argument: str,
+) -> None:
+    cli_args = make_cli_args()
+    setattr(cli_args, argument, '-prod')
+    client = DummyMyCli(
+        config={
+            **default_config(),
+            'alias_dsn': {'-prod': 'mysql://u:p@h/db'},
+        }
+    )
+    secho_calls: list[tuple[str, dict[str, Any]]] = []
+    monkeypatch.setattr(cli_runner.click, 'secho', lambda text, **kwargs: secho_calls.append((text, kwargs)))
+
+    with pytest.raises(SystemExit) as excinfo:
+        run_with_client(monkeypatch, cli_args, client)
+
+    assert excinfo.value.code == 1
+    assert secho_calls == [
+        ('Error: DSN aliases cannot start with a dash.', {'err': True, 'fg': 'red'}),
+    ]
+    assert client.connect_calls == []
+
+
+def test_run_from_cli_args_reports_ambiguous_database_alias_with_connection_options(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     cli_args = make_cli_args()
-    cli_args.database = 'prod'
-    cli_args.password_file = 'secret.txt'
+    cli_args.positional_database = 'prod'
+    cli_args.user = 'alice'
     client = DummyMyCli(
         config={
             **default_config(),
             'alias_dsn': {'prod': 'mysql://u:p@h/db'},
         }
     )
-    password_file_calls: list[str | None] = []
+    secho_calls: list[tuple[str, dict[str, Any]]] = []
+    monkeypatch.setattr(cli_runner.click, 'secho', lambda text, **kwargs: secho_calls.append((text, kwargs)))
 
-    def read_password_file(password_file: str | None) -> str:
-        password_file_calls.append(password_file)
-        return 'file-secret'
+    run_with_client(monkeypatch, cli_args, client)
 
-    monkeypatch.setattr(main, 'get_password_from_file', read_password_file)
+    assert secho_calls == [
+        (
+            'Interpreting ambiguous positional database/DSN-alias argument "prod" as a database name.',
+            {'err': True, 'fg': 'yellow'},
+        )
+    ]
+    assert client.dsn_alias is None
+    assert client.connect_calls[-1]['database'] == 'prod'
+
+
+def test_run_from_cli_args_silently_treats_ambiguous_positional_alias_as_database(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli_args = make_cli_args()
+    cli_args.positional_database = 'prod'
+    cli_args.user = 'alice'
+    client = DummyMyCli(
+        config={
+            **default_config(),
+            'alias_dsn': {'prod': 'mysql://u:p@h/db'},
+        }
+    )
+    secho_calls: list[str] = []
+    monkeypatch.setattr(main, 'preprocess_cli_args', lambda args, scheme_validator: 0)
+    monkeypatch.setattr(cli_runner.click, 'secho', lambda text, **_kwargs: secho_calls.append(text))
+    monkeypatch.setattr(cli_runner.sys, 'stdin', SimpleNamespace(isatty=lambda: True))
+
+    cli_runner.run_from_cli_args(cli_args, lambda **_kwargs: client)
+
+    assert secho_calls == []
+    assert client.connect_calls[-1]['database'] == 'prod'
+
+
+@pytest.mark.parametrize(
+    ('positional_database', 'database_option', 'dsn', 'expected_database'),
+    (
+        ('mysql://ignored@ignored/ignored-db', None, 'mysql://user@host/dsn-db', 'dsn-db'),
+        ('positional-db', 'option-db', None, 'option-db'),
+        ('positional-db', None, None, 'positional-db'),
+    ),
+)
+def test_run_from_cli_args_resolves_positional_database_variants(
+    monkeypatch: pytest.MonkeyPatch,
+    positional_database: str,
+    database_option: str | None,
+    dsn: str | None,
+    expected_database: str,
+) -> None:
+    cli_args = make_cli_args()
+    cli_args.positional_database = positional_database
+    cli_args.database = database_option
+    if dsn is not None:
+        cli_args.dsn = dsn
+    client = DummyMyCli()
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.connect_calls[-1]['database'] == expected_database
+
+
+def test_run_from_cli_args_treats_database_option_as_dsn_alias(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli_args = make_cli_args()
+    cli_args.database = 'prod'
+    client = DummyMyCli(
+        config={
+            **default_config(),
+            'alias_dsn': {'prod': 'mysql://user@host/dsn-db'},
+        }
+    )
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.dsn_alias == 'prod'
+    assert client.connect_calls[-1]['database'] == 'dsn-db'
+
+
+def test_run_from_cli_args_treats_database_option_as_dsn_alias_with_positional_database(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli_args = make_cli_args()
+    cli_args.positional_database = 'positional-db'
+    cli_args.database = 'prod'
+    client = DummyMyCli(
+        config={
+            **default_config(),
+            'alias_dsn': {'prod': 'mysql://user@host/dsn-db'},
+        }
+    )
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.dsn_alias == 'prod'
+    connect_call = client.connect_calls[-1]
+    assert connect_call['host'] == 'host'
+    assert connect_call['database'] == 'dsn-db'
+
+
+def test_run_from_cli_args_prefers_database_option_dsn_over_positional_alias(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli_args = make_cli_args()
+    cli_args.positional_database = 'prod'
+    cli_args.database = 'mysql://option-user@option-host/option-db'
+    client = DummyMyCli(
+        config={
+            **default_config(),
+            'alias_dsn': {'prod': 'mysql://alias-user@alias-host/alias-db'},
+        }
+    )
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.dsn_alias is None
+    connect_call = client.connect_calls[-1]
+    assert connect_call['user'] == 'option-user'
+    assert connect_call['host'] == 'option-host'
+    assert connect_call['database'] == 'option-db'
+
+
+def test_run_from_cli_args_treats_ambiguous_database_option_as_database(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli_args = make_cli_args()
+    cli_args.database = 'prod'
+    cli_args.user = 'alice'
+    cli_args.verbose = 2
+    client = DummyMyCli(
+        config={
+            **default_config(),
+            'alias_dsn': {'prod': 'mysql://user@host/dsn-db'},
+        }
+    )
+    secho_calls: list[str] = []
+    monkeypatch.setattr(cli_runner.click, 'secho', lambda text, **_kwargs: secho_calls.append(text))
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert secho_calls == [
+        'Interpreting ambiguous --database argument "prod" as a database name, not a DSN alias, '
+        ' since other connection coordinates were given.'
+    ]
+    assert client.connect_calls[-1]['database'] == 'prod'
+
+
+def test_run_from_cli_args_silently_treats_ambiguous_database_option_as_database(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli_args = make_cli_args()
+    cli_args.database = 'prod'
+    cli_args.user = 'alice'
+    cli_args.verbose = 1
+    client = DummyMyCli(
+        config={
+            **default_config(),
+            'alias_dsn': {'prod': 'mysql://user@host/dsn-db'},
+        }
+    )
+    secho_calls: list[str] = []
+    monkeypatch.setattr(cli_runner.click, 'secho', lambda text, **_kwargs: secho_calls.append(text))
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert secho_calls == []
+    assert client.connect_calls[-1]['database'] == 'prod'
+
+
+@pytest.mark.parametrize(
+    ('database_option', 'dsn', 'expected_database'),
+    (
+        ('mysql://ignored@ignored/ignored-db', 'mysql://user@host/dsn-db', 'dsn-db'),
+        ('mysql://user@host/uri-db', None, 'uri-db'),
+    ),
+)
+def test_run_from_cli_args_resolves_database_option_dsn_variants(
+    monkeypatch: pytest.MonkeyPatch,
+    database_option: str,
+    dsn: str | None,
+    expected_database: str,
+) -> None:
+    cli_args = make_cli_args()
+    cli_args.database = database_option
+    if dsn is not None:
+        cli_args.dsn = dsn
+    client = DummyMyCli()
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.connect_calls[-1]['database'] == expected_database
+
+
+def test_run_from_cli_args_preserves_connection_options_over_dsn(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli_args = make_cli_args()
+    cli_args.database = 'cli-db'
+    cli_args.dsn = 'mysql://dsn-user@dsn-host:3307/dsn-db?keepalive_ticks=9'
+    cli_args.user = 'cli-user'
+    cli_args.host = 'cli-host'
+    cli_args.port = 3308
+    cli_args.keepalive_ticks = 10
+    cli_args.format = 'json'
+    client = DummyMyCli()
 
     run_with_client(monkeypatch, cli_args, client)
 
     connect_call = client.connect_calls[-1]
-    assert client.dsn_alias is None
-    assert connect_call['database'] == 'prod'
-    assert resolve_connect_password(connect_call) == ('file', 'file-secret')
-    assert password_file_calls == ['secret.txt']
+    assert cli_args.format == 'json'
+    assert connect_call['database'] == 'cli-db'
+    assert connect_call['user'] == 'cli-user'
+    assert connect_call['host'] == 'cli-host'
+    assert connect_call['port'] == 3308
+    assert connect_call['keepalive_ticks'] == 10
 
 
-def test_run_from_cli_args_mysql_pwd_prevents_positional_dsn_alias(
+def test_run_from_cli_args_allows_dash_prefixed_database_with_connection_options(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     cli_args = make_cli_args()
-    cli_args.database = 'prod'
+    cli_args.positional_database = '-prod'
+    cli_args.user = 'alice'
     client = DummyMyCli(
         config={
             **default_config(),
-            'alias_dsn': {'prod': 'mysql://u:p@h/db'},
+            'alias_dsn': {'-prod': 'mysql://u:p@h/alias-db'},
         }
     )
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.dsn_alias is None
+    assert client.connect_calls[-1]['database'] == '-prod'
+
+
+def test_run_from_cli_args_loads_password_from_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli_args = make_cli_args()
+    cli_args.password_file = 'password.txt'
+    client = DummyMyCli()
+    password_file_calls: list[str] = []
+
+    def get_password_from_file(path: str) -> str:
+        password_file_calls.append(path)
+        return 'file-secret'
+
+    monkeypatch.setattr(main, 'get_password_from_file', get_password_from_file)
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert resolve_connect_password(client.connect_calls[-1]) == ('file', 'file-secret')
+    assert password_file_calls == ['password.txt']
+
+
+def test_run_from_cli_args_uses_mysql_pwd_password(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli_args = make_cli_args()
+    client = DummyMyCli()
     monkeypatch.setenv('MYSQL_PWD', 'environment-secret')
 
     run_with_client(monkeypatch, cli_args, client)
 
-    connect_call = client.connect_calls[-1]
-    assert client.dsn_alias is None
-    assert connect_call['database'] == 'prod'
-    assert resolve_connect_password(connect_call) == ('environment', 'environment-secret')
+    assert resolve_connect_password(client.connect_calls[-1]) == ('environment', 'environment-secret')
 
 
 def test_run_from_cli_args_keeps_empty_cli_password_over_dsn(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -280,6 +558,7 @@ def test_run_from_cli_args_expands_whole_dsn_alias_env_vars_when_enabled(
     monkeypatch.setenv('MYCLI_TEST_DSN_DATABASE', 'env_db')
     monkeypatch.setenv('MYCLI_TEST_DSN_CHARSET', 'utf8mb4')
     monkeypatch.setenv('MYCLI_TEST_DSN_KEEPALIVE', '9')
+    monkeypatch.setenv('MYCLI_TEST_DSN_PROMPT', r'\u@\h:\d> ')
     config = default_config()
     config['main'] = {**config['main'], 'expand_dsn_alias_env_vars': 'true'}
     config['alias_dsn'] = {
@@ -287,6 +566,7 @@ def test_run_from_cli_args_expands_whole_dsn_alias_env_vars_when_enabled(
             'mysql://${MYCLI_TEST_DSN_USER}:${MYCLI_TEST_DSN_PASSWORD}'
             '@${MYCLI_TEST_DSN_HOST}:${MYCLI_TEST_DSN_PORT}/${MYCLI_TEST_DSN_DATABASE}'
             '?character_set=${MYCLI_TEST_DSN_CHARSET}&keepalive_ticks=${MYCLI_TEST_DSN_KEEPALIVE}'
+            '&prompt=${MYCLI_TEST_DSN_PROMPT}'
         )
     }
     client = DummyMyCli(config=config)
@@ -300,6 +580,7 @@ def test_run_from_cli_args_expands_whole_dsn_alias_env_vars_when_enabled(
     assert client.connect_calls[-1]['database'] == 'env_db'
     assert client.connect_calls[-1]['character_set'] == 'utf8mb4'
     assert client.connect_calls[-1]['keepalive_ticks'] == 9
+    assert client.prompt_format == r'\u@\h:\d> '
 
 
 def test_run_from_cli_args_expands_dsn_alias_ssh_jump_env_var_when_enabled(
@@ -465,7 +746,7 @@ def test_run_from_cli_args_reports_missing_dsn(monkeypatch: pytest.MonkeyPatch) 
 
 def test_run_from_cli_args_rejects_unknown_positional_dsn_scheme(monkeypatch: pytest.MonkeyPatch) -> None:
     cli_args = make_cli_args()
-    cli_args.database = 'ssh://user@example.com/db'
+    cli_args.positional_database = 'ssh://user@example.com/db'
     secho_calls: list[tuple[str, dict[str, Any]]] = []
     monkeypatch.setattr(cli_runner.click, 'secho', lambda text, **kwargs: secho_calls.append((text, kwargs)))
 
@@ -527,6 +808,55 @@ def test_run_from_cli_args_maps_dsn_ssh_jump_parameter(monkeypatch: pytest.Monke
     run_with_client(monkeypatch, cli_args, client)
 
     assert client.connect_calls[-1]['ssh_jump'] == 'bastion'
+
+
+def test_run_from_cli_args_maps_percent_encoded_dsn_prompt(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli_args = make_cli_args()
+    cli_args.dsn = 'mysql://user@host/db?prompt=%5Cu%40%5Ch%3A%5Cd%3E+'
+    client = DummyMyCli()
+    secho_calls: list[tuple[str, dict[str, Any]]] = []
+    monkeypatch.setattr(cli_runner.click, 'secho', lambda text, **kwargs: secho_calls.append((text, kwargs)))
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.prompt_format == r'\u@\h:\d> '
+    assert secho_calls == []
+
+
+def test_run_from_cli_args_maps_dsn_alias_prompt(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli_args = make_cli_args()
+    cli_args.dsn = 'prod'
+    client = DummyMyCli(
+        config={
+            **default_config(),
+            'alias_dsn': {'prod': 'mysql://user@host/db?prompt=prod%3E+'},
+        }
+    )
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.prompt_format == 'prod> '
+
+
+def test_run_from_cli_args_prefers_cli_prompt_over_dsn_parameter(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli_args = make_cli_args()
+    cli_args.dsn = 'mysql://user@host/db?prompt=dsn%3E+'
+    cli_args.prompt = 'cli> '
+    client = DummyMyCli()
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.prompt_format == 'cli> '
+
+
+def test_run_from_cli_args_ignores_empty_dsn_prompt(monkeypatch: pytest.MonkeyPatch) -> None:
+    cli_args = make_cli_args()
+    cli_args.dsn = 'mysql://user@host/db?prompt='
+    client = DummyMyCli()
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.prompt_format == 'configured> '
 
 
 def test_run_from_cli_args_does_not_warn_about_known_dsn_query_parameter(
@@ -1020,6 +1350,25 @@ def test_run_from_cli_args_merges_scalar_global_and_alias_list_init_commands(
     run_with_client(monkeypatch, cli_args, client)
 
     assert client.connect_calls[-1]['init_command'] == 'set global=1; set alias=1; set alias=2'
+
+
+def test_run_from_cli_args_ignores_empty_global_and_alias_init_commands(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cli_args = make_cli_args()
+    cli_args.dsn = 'prod'
+    client = DummyMyCli(
+        config={
+            **default_config(),
+            'alias_dsn': {'prod': 'mysql://u:p@h/db'},
+            'init-commands': {'empty': ''},
+            'alias_dsn.init-commands': {'prod': ''},
+        }
+    )
+
+    run_with_client(monkeypatch, cli_args, client)
+
+    assert client.connect_calls[-1]['init_command'] == ''
 
 
 def test_run_from_cli_args_execute_mode_exits_with_mode_result(monkeypatch: pytest.MonkeyPatch) -> None:

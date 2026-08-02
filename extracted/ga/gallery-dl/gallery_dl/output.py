@@ -354,7 +354,7 @@ else:
 def configure_standard_streams():
     for name in ("stdout", "stderr", "stdin"):
         stream = getattr(sys, name, None)
-        if not stream:
+        if not stream or not hasattr(stream, "reconfigure"):
             continue
 
         options = config.get(("output",), name)

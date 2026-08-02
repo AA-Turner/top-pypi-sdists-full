@@ -1,0 +1,757 @@
+//! Configuration options for creating filters
+//!
+//! This module provides the `FilterOptions` builder for configuring filter behavior.
+
+use crate::parsing::filter::FilterImpl;
+use crate::parsing::types::FilterMode;
+use crate::templating::PromptRenderIds;
+use crate::templating::types::{Document, Message};
+use std::collections::HashMap;
+
+/// Configuration builder for creating filters.
+///
+/// This struct uses the builder pattern to configure filter behavior before creating
+/// a `FilterImpl` instance. It supports preset configurations for different Cohere
+/// model output formats (Command 3, Command 4, etc.) as well as fine-grained control.
+///
+/// # Examples
+///
+/// ## Using presets
+///
+/// ```rust
+/// use cohere_melody::parsing::FilterOptions;
+/// use cohere_melody::parsing::new_filter;
+///
+/// // Use Command 3 preset configuration
+/// let options = FilterOptions::new().cmd3();
+/// let filter = new_filter(options);
+/// ```
+#[derive(Clone)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct FilterOptions {
+    pub(crate) left_trimmed: bool,
+    pub(crate) right_trimmed: bool,
+    pub(crate) inclusive_stops: Vec<String>,
+    pub(crate) exclusive_stops: Vec<String>,
+    pub(crate) chunk_size: usize,
+    pub(crate) special_token_map: HashMap<String, FilterMode>,
+    pub(crate) default_mode: FilterMode,
+    pub(crate) stream_non_grounded_answer: bool,
+    pub(crate) stream_tool_actions: bool,
+    pub(crate) stream_processed_params: bool,
+    pub(crate) has_tool_call_id: bool,
+    pub(crate) cmd3_citations: bool,
+    /// When set, [`FilterMode::ToolAction`] is parsed with the cofl-tagged
+    /// parser (cmd5 format) rather than the JSON action parser.
+    pub(crate) cofl_tool_action: bool,
+    /// When `false`, cofl parameter bodies are not XML-entity decoded before
+    /// being emitted as tool-call arguments. Attribute values (`id`, `name`)
+    /// are always decoded. Controlled via [`FilterOptions::cofl_decode_xml_text`].
+    pub(crate) cofl_decode_xml_text: bool,
+    /// When set, cofl tool parameters are parsed as nested `<cofl:value>` nodes
+    /// (default cmd5 format) rather than flat `<cofl:tool_param>` tags.
+    /// Enabled by [`FilterOptions::cmd5`]; disable with
+    /// [`FilterOptions::cofl_nested_xml`]`(false)` for flat formats.
+    pub(crate) cofl_nested_xml: bool,
+    /// Optional lookup table for resolving citation indices back to their
+    /// original document identifiers. Indexed as
+    /// `document_ids[tool_call_index][tool_result_index]`. Empty when
+    /// [`FilterOptions::with_message_history`] hasn't been called.
+    pub(crate) document_ids: Vec<Vec<String>>,
+}
+
+impl Default for FilterOptions {
+    fn default() -> Self {
+        Self {
+            left_trimmed: false,
+            right_trimmed: false,
+            inclusive_stops: Vec::new(),
+            exclusive_stops: Vec::new(),
+            chunk_size: 1,
+            special_token_map: HashMap::new(),
+            default_mode: FilterMode::PlainText,
+            stream_non_grounded_answer: false,
+            stream_tool_actions: false,
+            stream_processed_params: false,
+            has_tool_call_id: false,
+            cmd3_citations: false,
+            cofl_tool_action: false,
+            cofl_decode_xml_text: true,
+            cofl_nested_xml: false,
+            document_ids: Vec::new(),
+        }
+    }
+}
+
+impl FilterOptions {
+    /// Creates a new `FilterOptions` with default settings.
+    ///
+    /// Default configuration:
+    /// - No trimming
+    /// - No stop sequences
+    /// - Chunk size of 1
+    /// - Plain text mode
+    /// - No streaming of tool actions or parameters
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cohere_melody::parsing::FilterOptions;
+    ///
+    /// let options = FilterOptions::new();
+    /// ```
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    // CONFIGURATION FOR BINDINGS
+
+    /// Clear cmd5 cofl tool-action configuration so a prior `cmd5()` call does
+    /// not leak into cmd3/cmd4 JSON action parsing.
+    fn clear_cofl_tool_action_config(&mut self) {
+        self.cofl_tool_action = false;
+        self.cofl_decode_xml_text = true;
+        self.cofl_nested_xml = false;
+        self.special_token_map.remove("<cofl:tool_calls>");
+        self.special_token_map.remove("</cofl:tool_calls>");
+    }
+
+    /// Clear cmd3/cmd4 JSON action tokens so a prior `cmd3()` / `cmd4()` call
+    /// does not leak into cmd5 cofl tool-action parsing.
+    fn clear_json_action_tokens(&mut self) {
+        self.special_token_map.remove("<|START_ACTION|>");
+        self.special_token_map.remove("<|END_ACTION|>");
+    }
+
+    /// Configure for Cohere Command 3 model format.
+    ///
+    /// Command 3 is a structured output format that uses special tokens to delimit
+    /// different sections of the response:
+    /// - `<|START_RESPONSE|>`: Begin grounded answer
+    /// - `<|END_RESPONSE|>`: End response
+    /// - `<|START_THINKING|>`: Begin reasoning block
+    /// - `<|END_THINKING|>`: End reasoning block
+    /// - `<|START_ACTION|>`: Begin tool call
+    /// - `<|END_ACTION|>`: End tool call
+    ///
+    /// This preset enables:
+    /// - Grounded answer parsing with citations (Command 3 citation format)
+    /// - Tool action streaming
+    /// - Right trimming
+    /// - Tool call ID support
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cohere_melody::parsing::{FilterOptions, new_filter};
+    ///
+    /// let options = FilterOptions::new().cmd3();
+    /// let mut filter = new_filter(options);
+    /// ```
+    #[must_use]
+    pub fn cmd3(mut self) -> Self {
+        self.default_mode = FilterMode::GroundedAnswer;
+        self.right_trimmed = true;
+        self.has_tool_call_id = true;
+        self.cmd3_citations = true;
+        self.stream_tool_actions = true;
+        self.clear_cofl_tool_action_config();
+        self.special_token_map
+            .insert("<|START_RESPONSE|>".to_string(), FilterMode::GroundedAnswer);
+        self.special_token_map
+            .insert("<|END_RESPONSE|>".to_string(), FilterMode::Ignore);
+        self.special_token_map
+            .insert("<|START_THINKING|>".to_string(), FilterMode::ToolReason);
+        self.special_token_map
+            .insert("<|END_THINKING|>".to_string(), FilterMode::GroundedAnswer);
+        self.special_token_map
+            .insert("<|START_ACTION|>".to_string(), FilterMode::ToolAction);
+        self.special_token_map
+            .insert("<|END_ACTION|>".to_string(), FilterMode::Ignore);
+        self
+    }
+
+    /// Configure for Cohere Command 4 model format.
+    ///
+    /// Command 4 is similar to Command 3 but uses slightly different special tokens:
+    /// - `<|START_TEXT|>`: Begin grounded answer (instead of `START_RESPONSE`)
+    /// - `<|END_TEXT|>`: End text (instead of `END_RESPONSE`)
+    ///
+    /// All other special tokens and behavior are the same as Command 3.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cohere_melody::parsing::{FilterOptions, new_filter};
+    ///
+    /// let options = FilterOptions::new().cmd4();
+    /// let mut filter = new_filter(options);
+    /// ```
+    #[must_use]
+    pub fn cmd4(mut self) -> Self {
+        // Cmd4 generation prompts include the thinking start token,
+        // so parsing must start in thinking mode (ToolReason)
+        self.default_mode = FilterMode::ToolReason;
+        self.right_trimmed = true;
+        self.has_tool_call_id = true;
+        self.cmd3_citations = true;
+        self.stream_tool_actions = true;
+        self.clear_cofl_tool_action_config();
+        self.special_token_map
+            .insert("<|START_TEXT|>".to_string(), FilterMode::GroundedAnswer);
+        self.special_token_map
+            .insert("<|END_TEXT|>".to_string(), FilterMode::Ignore);
+        self.special_token_map
+            .insert("<|START_THINKING|>".to_string(), FilterMode::ToolReason);
+        self.special_token_map
+            .insert("<|END_THINKING|>".to_string(), FilterMode::GroundedAnswer);
+        self.special_token_map
+            .insert("<|START_ACTION|>".to_string(), FilterMode::ToolAction);
+        self.special_token_map
+            .insert("<|END_ACTION|>".to_string(), FilterMode::Ignore);
+        self.special_token_map
+            .insert("<|START_RESPONSE|>".to_string(), FilterMode::GroundedAnswer);
+        self.special_token_map
+            .insert("<|END_RESPONSE|>".to_string(), FilterMode::Ignore);
+        self
+    }
+
+    /// Configure for Cohere Command 5 model format.
+    ///
+    /// Command 5 keeps the same text / thinking delimiters as Command 4
+    /// (`<|START_TEXT|>`, `<|END_TEXT|>`, `<|START_THINKING|>`,
+    /// `<|END_THINKING|>`) but replaces the JSON `<|START_ACTION|>` block
+    /// with an XML-like, cofl-tagged tool-call section. The default `cmd5`
+    /// template encodes parameters as nested `<cofl:value>` nodes:
+    ///
+    /// ```text
+    /// <cofl:tool_calls>
+    ///   <cofl:tool_call id="0" name="search">
+    ///     <cofl:value name="query" type="raw">hello</cofl:value>
+    ///   </cofl:tool_call>
+    /// </cofl:tool_calls>
+    /// ```
+    ///
+    /// Use [`FilterOptions::cofl_nested_xml`]`(false)` for flat
+    /// `<cofl:tool_param>` parsing (`cmd5-no-escape`). Chain
+    /// [`FilterOptions::cofl_decode_xml_text`]`(true)` for `cmd5-strict`.
+    ///
+    /// This preset enables:
+    /// - Cofl-tagged nested-xml tool action parsing (see [`super::cofl_nested_filter`])
+    /// - Grounded answer parsing with cmd3-style citations
+    /// - Tool action streaming
+    /// - Right trimming
+    /// - Tool call ID support
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cohere_melody::parsing::{FilterOptions, new_filter};
+    ///
+    /// let options = FilterOptions::new().cmd5();
+    /// let mut filter = new_filter(options);
+    /// ```
+    #[must_use]
+    pub fn cmd5(mut self) -> Self {
+        // Cmd5 generation prompts include the thinking start token, so
+        // parsing starts in thinking mode (matches cmd4 behaviour).
+        self.default_mode = FilterMode::ToolReason;
+        self.right_trimmed = true;
+        self.has_tool_call_id = true;
+        self.cmd3_citations = true;
+        self.stream_tool_actions = true;
+        self.clear_json_action_tokens();
+        self.cofl_tool_action = true;
+        // Default cmd5 template encodes params as nested `<cofl:value>` nodes
+        // without body entity escaping (attributes are still escaped).
+        self.cofl_nested_xml = true;
+        self.cofl_decode_xml_text = false;
+        self.special_token_map
+            .insert("<|START_TEXT|>".to_string(), FilterMode::GroundedAnswer);
+        self.special_token_map
+            .insert("<|END_TEXT|>".to_string(), FilterMode::Ignore);
+        self.special_token_map
+            .insert("<|START_THINKING|>".to_string(), FilterMode::ToolReason);
+        self.special_token_map
+            .insert("<|END_THINKING|>".to_string(), FilterMode::GroundedAnswer);
+        self.special_token_map
+            .insert("<cofl:tool_calls>".to_string(), FilterMode::ToolAction);
+        self.special_token_map
+            .insert("</cofl:tool_calls>".to_string(), FilterMode::Ignore);
+        self.special_token_map
+            .insert("<|START_RESPONSE|>".to_string(), FilterMode::GroundedAnswer);
+        self.special_token_map
+            .insert("<|END_RESPONSE|>".to_string(), FilterMode::Ignore);
+        self
+    }
+
+    /// Start parsing in grounded-answer (content) mode instead of the preset's
+    /// default.
+    ///
+    /// `cmd4` / `cmd5` default to `ToolReason` (thinking) mode because their
+    /// generation prompts already contain `<|START_THINKING|>`, so the model's
+    /// output opens directly with reasoning text. That default is wrong for a
+    /// filter that only sees the post-reasoning output, such as the tool
+    /// parser in vLLM's reasoning->tool pipeline.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cohere_melody::parsing::FilterOptions;
+    ///
+    /// let options = FilterOptions::new().cmd4().start_in_answer();
+    /// ```
+    #[must_use]
+    pub fn start_in_answer(mut self) -> Self {
+        self.default_mode = FilterMode::GroundedAnswer;
+        self
+    }
+
+    /// Add inclusive stop sequences.
+    ///
+    /// Inclusive stops will halt parsing when encountered, but the stop sequence
+    /// itself will be included in the output.
+    ///
+    /// # Arguments
+    ///
+    /// * `stops` - Vector of stop sequences to recognize
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cohere_melody::parsing::FilterOptions;
+    ///
+    /// let options = FilterOptions::new()
+    ///     .with_inclusive_stops(vec!["DONE".to_string()]);
+    /// ```
+    #[must_use]
+    pub fn with_inclusive_stops(mut self, stops: Vec<String>) -> Self {
+        self.inclusive_stops = stops;
+        self
+    }
+
+    /// Add exclusive stop sequences.
+    ///
+    /// Exclusive stops will halt parsing when encountered, and the stop sequence
+    /// will NOT be included in the output.
+    ///
+    /// # Arguments
+    ///
+    /// * `stops` - Vector of stop sequences to recognize
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cohere_melody::parsing::FilterOptions;
+    ///
+    /// let options = FilterOptions::new()
+    ///     .with_exclusive_stops(vec!["</output>".to_string()]);
+    /// ```
+    #[must_use]
+    pub fn with_exclusive_stops(mut self, stops: Vec<String>) -> Self {
+        self.exclusive_stops = stops;
+        self
+    }
+
+    // INTERNAL USE OPTIONS
+
+    /// Enable left trimming of whitespace from outputs.
+    ///
+    /// When enabled, leading whitespace will be removed from text outputs.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cohere_melody::parsing::FilterOptions;
+    ///
+    /// let options = FilterOptions::new().with_left_trimmed();
+    /// ```
+    #[must_use]
+    pub fn with_left_trimmed(mut self) -> Self {
+        self.left_trimmed = true;
+        self
+    }
+
+    /// Enable right trimming of whitespace from outputs.
+    ///
+    /// When enabled, trailing whitespace will be removed from text outputs.
+    /// This is commonly used in CMD3/CMD4 configurations.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cohere_melody::parsing::FilterOptions;
+    ///
+    /// let options = FilterOptions::new().with_right_trimmed();
+    /// ```
+    #[must_use]
+    pub fn with_right_trimmed(mut self) -> Self {
+        self.right_trimmed = true;
+        self
+    }
+
+    /// Set the chunk size for output batching.
+    ///
+    /// Determines how many characters to accumulate before emitting an output.
+    /// A chunk size of 1 means immediate streaming of every character.
+    ///
+    /// # Arguments
+    ///
+    /// * `size` - Number of characters to buffer before emitting
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cohere_melody::parsing::FilterOptions;
+    ///
+    /// let options = FilterOptions::new().with_chunk_size(10);
+    /// ```
+    #[must_use]
+    pub fn with_chunk_size(mut self, size: usize) -> Self {
+        self.chunk_size = size;
+        self
+    }
+
+    /// Configure for RAG (Retrieval Augmented Generation) format.
+    ///
+    /// This preset is for older RAG-style outputs that use text markers like
+    /// "Grounded answer:" and "Answer:" to delimit different sections.
+    ///
+    /// Enables:
+    /// - Right trimming
+    /// - Recognition of "Grounded answer:" marker
+    /// - Recognition of "Answer:" marker
+    /// - Default mode: Ignore (content only appears after markers)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cohere_melody::parsing::{FilterOptions, new_filter};
+    ///
+    /// let options = FilterOptions::new().handle_rag();
+    /// let mut filter = new_filter(options);
+    /// ```
+    #[must_use]
+    pub fn handle_rag(mut self) -> Self {
+        self.default_mode = FilterMode::Ignore;
+        self.right_trimmed = true;
+        self.special_token_map
+            .insert("Grounded answer:".to_string(), FilterMode::GroundedAnswer);
+        self.special_token_map
+            .insert("Answer:".to_string(), FilterMode::Answer);
+        self
+    }
+
+    /// Configure for search query parsing format.
+    ///
+    /// This preset extracts search queries from model outputs. Search queries
+    /// appear after "Search:" markers and can be separated by "|||" or newlines
+    /// for multiple queries.
+    ///
+    /// Enables:
+    /// - Right trimming
+    /// - Recognition of "Search:" marker
+    /// - Multi-query support (separated by "|||" or newline)
+    /// - Default mode: Ignore (only emit search queries)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cohere_melody::parsing::{FilterOptions, new_filter};
+    ///
+    /// let options = FilterOptions::new().handle_search_query();
+    /// let mut filter = new_filter(options);
+    /// ```
+    #[must_use]
+    pub fn handle_search_query(mut self) -> Self {
+        self.default_mode = FilterMode::Ignore;
+        self.right_trimmed = true;
+        self.special_token_map
+            .insert("Search:".to_string(), FilterMode::SearchQuery);
+        self.special_token_map
+            .insert("|||".to_string(), FilterMode::NextSearchQuery);
+        self.special_token_map
+            .insert("\n".to_string(), FilterMode::NextSearchQuery);
+        self
+    }
+
+    /// Configure for multi-hop reasoning format.
+    ///
+    /// Multi-hop is an older format that uses text markers to delimit different
+    /// reasoning steps and actions. It includes planning, reflection, and tool
+    /// execution phases.
+    ///
+    /// Enables:
+    /// - Right trimming
+    /// - Recognition of "Plan:" and "Reflection:" (reasoning blocks)
+    /// - Recognition of "Action:" (tool calls)
+    /// - Recognition of "Grounded answer:" and "Answer:" (final output)
+    /// - Filtering of document listing sections
+    /// - Default mode: Ignore
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cohere_melody::parsing::{FilterOptions, new_filter};
+    ///
+    /// let options = FilterOptions::new().handle_multi_hop();
+    /// let mut filter = new_filter(options);
+    /// ```
+    #[must_use]
+    pub fn handle_multi_hop(mut self) -> Self {
+        self.default_mode = FilterMode::Ignore;
+        self.right_trimmed = true;
+        self.special_token_map
+            .insert("Grounded answer:".to_string(), FilterMode::GroundedAnswer);
+        self.special_token_map
+            .insert("Answer:".to_string(), FilterMode::Answer);
+        self.special_token_map
+            .insert("Plan:".to_string(), FilterMode::ToolReason);
+        self.special_token_map
+            .insert("Reflection:".to_string(), FilterMode::ToolReason);
+        self.special_token_map
+            .insert("Action:".to_string(), FilterMode::ToolAction);
+        self.special_token_map
+            .insert("Relevant Documents:".to_string(), FilterMode::Ignore);
+        self.special_token_map
+            .insert("Cited Documents:".to_string(), FilterMode::Ignore);
+        self
+    }
+
+    /// Enable streaming of non-grounded answer content.
+    ///
+    /// When enabled, content in "Answer:" sections (non-grounded answers without
+    /// citations) will be streamed in addition to grounded answers.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cohere_melody::parsing::FilterOptions;
+    ///
+    /// let options = FilterOptions::new()
+    ///     .handle_rag()
+    ///     .stream_non_grounded_answer();
+    /// ```
+    #[must_use]
+    pub fn stream_non_grounded_answer(mut self) -> Self {
+        self.stream_non_grounded_answer = true;
+        self
+    }
+
+    /// Enable streaming of tool action content.
+    ///
+    /// When enabled, tool calls will be parsed and streamed as they're generated.
+    /// Tool calls appear as `FilterOutput.tool_call_delta` incremental updates.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cohere_melody::parsing::FilterOptions;
+    ///
+    /// let options = FilterOptions::new()
+    ///     .cmd3()
+    ///     .stream_tool_actions();
+    /// ```
+    #[must_use]
+    pub fn stream_tool_actions(mut self) -> Self {
+        self.stream_tool_actions = true;
+        self
+    }
+
+    /// Enable streaming of processed (parsed) tool parameters.
+    ///
+    /// When enabled, tool parameters will be parsed into name-value pairs and
+    /// streamed as `FilterToolParameter` objects. When disabled, raw JSON
+    /// parameter text is returned instead.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cohere_melody::parsing::FilterOptions;
+    ///
+    /// let options = FilterOptions::new()
+    ///     .cmd3()
+    ///     .stream_processed_params();
+    /// ```
+    #[must_use]
+    pub fn stream_processed_params(mut self) -> Self {
+        self.stream_processed_params = true;
+        self
+    }
+
+    /// Disable tool call parsing by removing the action tokens.
+    ///
+    /// Removes `<|START_ACTION|>` / `<|END_ACTION|>` (cmd3/cmd4) and
+    /// `<cofl:tool_calls>` / `</cofl:tool_calls>` (cmd5) from the special
+    /// token map so the filter treats tool call markup as plain text.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cohere_melody::parsing::FilterOptions;
+    ///
+    /// let options = FilterOptions::new()
+    ///     .cmd3()
+    ///     .no_tools();
+    /// ```
+    #[must_use]
+    pub fn no_tools(mut self) -> Self {
+        self.special_token_map.remove("<|START_ACTION|>");
+        self.special_token_map.remove("<|END_ACTION|>");
+        self.special_token_map.remove("<cofl:tool_calls>");
+        self.special_token_map.remove("</cofl:tool_calls>");
+        self
+    }
+
+    /// Enable or disable XML entity decoding for cofl parameter bodies.
+    ///
+    /// Attribute values on cofl tags (`id`, `name`) are always decoded. Does not
+    /// change nested vs flat parsing. [`FilterOptions::cmd5`] defaults this to
+    /// `false` (nested / no-escape). Pass `true` with
+    /// [`FilterOptions::cofl_nested_xml`]`(false)` for `cmd5-strict`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cohere_melody::parsing::FilterOptions;
+    ///
+    /// // cmd5-strict
+    /// let strict = FilterOptions::new()
+    ///     .cmd5()
+    ///     .cofl_nested_xml(false)
+    ///     .cofl_decode_xml_text(true);
+    /// ```
+    #[must_use]
+    pub fn cofl_decode_xml_text(mut self, enabled: bool) -> Self {
+        self.cofl_decode_xml_text = enabled;
+        self
+    }
+
+    /// Enable or disable nested `<cofl:value>` cofl parameter parsing.
+    ///
+    /// Nested mode is the default for [`FilterOptions::cmd5`]. Pass `false` for
+    /// flat `<cofl:tool_param>` parsing. With cmd5's default decode=false that
+    /// is `cmd5-no-escape`; chain [`FilterOptions::cofl_decode_xml_text`]`(true)`
+    /// for `cmd5-strict`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cohere_melody::parsing::FilterOptions;
+    ///
+    /// // cmd5-no-escape
+    /// let no_escape = FilterOptions::new().cmd5().cofl_nested_xml(false);
+    ///
+    /// // cmd5-strict
+    /// let strict = FilterOptions::new()
+    ///     .cmd5()
+    ///     .cofl_nested_xml(false)
+    ///     .cofl_decode_xml_text(true);
+    /// ```
+    #[must_use]
+    pub fn cofl_nested_xml(mut self, enabled: bool) -> Self {
+        self.cofl_nested_xml = enabled;
+        self
+    }
+
+    /// Remove a special token from the token map.
+    ///
+    /// Removes a previously configured special token, preventing it from
+    /// triggering mode transitions.
+    ///
+    /// # Arguments
+    ///
+    /// * `token` - The special token to remove
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use cohere_melody::parsing::FilterOptions;
+    ///
+    /// let options = FilterOptions::new()
+    ///     .cmd3()
+    ///     .remove_token("<|START_THINKING|>");
+    /// ```
+    #[must_use]
+    pub fn remove_token(mut self, token: &str) -> Self {
+        self.special_token_map.remove(token);
+        self
+    }
+
+    /// Configure the parser with the same `messages` and `documents` that
+    /// will be rendered into the prompt, so it can resolve citation
+    /// indices back to their original document identifiers.
+    ///
+    /// The parser walks the message history exactly the way the renderer
+    /// does (via [`PromptRenderIds::from_messages`]), builds a lookup
+    /// table indexed by `[tool_call_index][tool_result_index]`, and uses
+    /// it to populate [`Source::document_ids`] on every citation it
+    /// emits.
+    ///
+    /// This is the recommended entry point when the parser must be
+    /// created before the prompt is rendered — for example, when vLLM's
+    /// streaming filter is set up alongside the request but the prompt
+    /// itself is materialised later inside the engine. Rendering will
+    /// produce identical numbering, since both paths route through
+    /// [`PromptRenderIds::from_messages`].
+    ///
+    /// This method is infallible: template-shape errors (missing
+    /// `tool_call_id`, empty/duplicate ids, `tool_calls` on a non-Chatbot
+    /// role) are the renderer's concern, not the parser's. On malformed
+    /// input the lookup falls back to best-effort behaviour (empty
+    /// strings, deduplicated buckets) — see
+    /// [`PromptRenderIds::from_messages`].
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use cohere_melody::parsing::{FilterOptions, new_filter};
+    /// use cohere_melody::templating::types::{Document, Message};
+    ///
+    /// let messages: Vec<Message> = vec![];
+    /// let documents: Vec<Document> = vec![];
+    /// let options = FilterOptions::new()
+    ///     .cmd3()
+    ///     .with_message_history(&messages, &documents);
+    /// let mut filter = new_filter(options);
+    /// # let _ = filter;
+    /// ```
+    ///
+    /// [`Source::document_ids`]: crate::parsing::types::Source::document_ids
+    #[must_use]
+    pub fn with_message_history(mut self, messages: &[Message], documents: &[Document]) -> Self {
+        let prompt_ids = PromptRenderIds::from_messages(messages, documents);
+        self.document_ids = prompt_ids.document_ids;
+        self
+    }
+}
+
+/// Creates a new filter with the specified options.
+///
+/// This is a convenience function that creates a `FilterImpl` and applies
+/// the given configuration.
+///
+/// # Arguments
+///
+/// * `options` - Configuration options for the filter
+///
+/// # Returns
+///
+/// A configured `FilterImpl` ready to process tokens
+///
+/// # Examples
+///
+/// ```rust
+/// use cohere_melody::parsing::{FilterOptions, new_filter, Filter};
+///
+/// let options = FilterOptions::new().cmd3();
+/// let mut filter = new_filter(options);
+///
+/// let outputs = filter.write_decoded("Hello");
+/// ```
+#[must_use]
+pub fn new_filter(options: FilterOptions) -> FilterImpl {
+    let filter = FilterImpl::new();
+    filter.apply_options(options)
+}

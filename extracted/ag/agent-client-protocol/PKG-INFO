@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: agent-client-protocol
-Version: 0.11.1
+Version: 0.12.0
 Summary: A Python implement of Agent Client Protocol (ACP, by Zed Industries)
 Keywords: python
 Author-Email: Chojan Shang <psiace@apache.org>, Frost Ming <me@frostming.com>
@@ -21,6 +21,9 @@ Requires-Dist: pydantic>=2.7
 Provides-Extra: logfire
 Requires-Dist: logfire>=0.14; extra == "logfire"
 Requires-Dist: opentelemetry-sdk>=1.28.0; extra == "logfire"
+Provides-Extra: http
+Requires-Dist: httpx[http2]>=0.27; extra == "http"
+Requires-Dist: websockets>=12.0; extra == "http"
 Description-Content-Type: text/markdown
 
 <a href="https://agentclientprotocol.com/">

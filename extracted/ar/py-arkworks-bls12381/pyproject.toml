@@ -1,0 +1,30 @@
+[build-system]
+requires = ["maturin>=1.12,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "py_arkworks_bls12381"
+description = "Python bindings for BLS12-381 curve operations using arkworks"
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+authors = [{ name = "Kevaundray Wedderburn" }]
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-benchmark", "mypy", "py_ecc"]
+
+[project.urls]
+Repository = "https://github.com/ethereum/py-arkworks-bls12381"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+include = ["py.typed", "py_arkworks_bls12381.pyi"]

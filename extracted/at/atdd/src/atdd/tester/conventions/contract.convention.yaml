@@ -1,0 +1,692 @@
+version: "2.0"
+name: "Contract Convention"
+description: "Rules for contract schema structure and metadata. For artifact naming rules, see artifact-naming.convention.yaml"
+
+# =============================================================================
+# Atomized to conventions/nodes/ (core tester convention decomposition, #1215)
+# =============================================================================
+# The protocol-level rules in this file were atomized into single-node core
+# conventions under conventions/nodes/ (the single source of truth):
+#   - tester.contract.planner-defines-what-tester-implements-how (was § agent_responsibilities)
+#   - tester.contract.schema-is-source-of-truth                  (was § schema_structure)
+#   - tester.contract.core-fields-only-no-ui                     (was § composite_contracts)
+#   - tester.contract.semver-governs-compatibility               (was § contract_versioning)
+#   - tester.contract.bidirectional-wagon-linkage                (was § artifact_metadata
+#                                                                  + validation.bidirectional_linkage)
+# Those normative sections have been removed here to avoid a competing copy.
+# The remaining content is workspace mechanics (persistence_traceability,
+# directory_structure, generation_workflow, api_structure, schema/metadata
+# validation patterns) and legacy_redirect naming authority (owned by the
+# planner artifact-naming convention), retained pending relocation to workspace
+# packages.
+
+# Naming Authority
+naming_authority:
+  convention: "atdd/planner/conventions/artifact-naming.convention.yaml"
+  note: |
+    For artifact naming rules ($id format, URN pattern, theme taxonomy, separator semantics,
+    physical file mapping), refer to artifact-naming.convention.yaml. This convention focuses
+    exclusively on contract schema structure and metadata requirements.
+
+# Persistence Traceability
+persistence_traceability:
+  description: "Bidirectional traceability between contracts and database tables"
+
+  purpose: |
+    Link contracts to their persistence layer for:
+    - Schema evolution tracking (contract changes vs migrations)
+    - Impact analysis (what breaks if table changes?)
+    - Documentation generation (ER diagrams from contracts)
+    - Validation (ensure table exists for persistent contracts)
+
+  metadata_structure:
+    location: "x-artifact-metadata.persistence"
+    required_for: "Contracts identified by migration criteria (has 'id' field, persistent entities)"
+    optional_for: "Events, DTOs, value objects (transient data)"
+
+    fields:
+      strategy:
+        type: "enum: none | jsonb | relational"
+        required: true
+        values:
+          none: "No persistence (events, DTOs, computed values)"
+          jsonb: "Document storage in JSONB column (recommended)"
+          relational: "Normalized tables with FK relationships (legacy/complex)"
+
+      table:
+        type: "string"
+        required: "If strategy != none"
+        pattern: "^[a-z][a-z0-9_]*$"
+        convention: "{theme}_{domain}_{aspect}"
+        examples:
+          - "commons_ux_skin"
+          - "match_dilemma_current"
+          - "match_dilemma_paired"
+
+      migration:
+        type: "string"
+        required: "If strategy != none"
+        pattern: "supabase/migrations/{timestamp}_{description}.sql"
+        purpose: "Link to migration that created this table"
+        example: "supabase/migrations/20251030151434_create_entity_tables.sql"
+
+      indexes:
+        type: "array"
+        optional: true
+        purpose: "Document existing indexes for query optimization"
+        structure:
+          name: "Index name (e.g., idx_dilemma_current_timestamp)"
+          type: "Index type: btree | gin | gist | hash"
+          fields: "Indexed fields (JSONB: use -> notation)"
+
+  examples:
+    persistent_entity:
+      contract: "match:dilemma:current"
+      persistence:
+        strategy: "jsonb"
+        table: "match_dilemma_current"
+        migration: "supabase/migrations/20251030151434_create_entity_tables.sql"
+        indexes:
+          - name: "idx_match_dilemma_current_data"
+            type: "gin"
+            fields: ["data"]
+          - name: "idx_match_dilemma_current_timestamp"
+            type: "btree"
+            fields: ["data->'selection_metadata'->>'timestamp'"]
+
+    ephemeral_event:
+      contract: "mechanic:timebank:exhausted"
+      persistence:
+        strategy: "none"
+      note: "Events don't need tables - logged to event streams"
+
+    value_object:
+      contract: "commons:identifiers:uuid"
+      persistence:
+        strategy: "none"
+      note: "Generated on-demand, not stored"
+
+  naming_convention:
+    description: "Table name derived from contract $id"
+    pattern: "{theme}_{domain}_{aspect}"
+    transformation: "Replace ':' with '_', use snake_case"
+
+    examples:
+      - contract_id: "commons:ux:themes:skin"
+        table_name: "commons_ux_skin"
+
+      - contract_id: "match:dilemma:current"
+        table_name: "match_dilemma_current"
+
+      - contract_id: "player:session:active"
+        table_name: "player_session_active"
+
+  bidirectional_lookup:
+    contract_to_table:
+      query: "Read contract x-artifact-metadata.persistence.table"
+      example: |
+        # Python
+        with open("contracts/match/dilemma/current.schema.json") as f:
+            contract = json.load(f)
+        table = contract["x-artifact-metadata"]["persistence"]["table"]
+        # → "match_dilemma_current"
+
+    table_to_contract:
+      query: "Read PostgreSQL table COMMENT"
+      example: |
+        SELECT obj_description('match_dilemma_current'::regclass, 'pg_class');
+        -- → "Selected dilemma for player presentation. Contract: match:dilemma:current"
+
+    registry_approach:
+      description: "Generate persistence registry for fast lookup"
+      location: ".claude/registry/persistence.yaml"
+      structure: |
+        tables:
+          commons_ux_skin:
+            contract: "commons:ux:themes:skin"
+            migration: "supabase/migrations/20251030151434_create_entity_tables.sql"
+            strategy: "jsonb"
+
+          match_dilemma_current:
+            contract: "match:dilemma:current"
+            migration: "supabase/migrations/20251030151434_create_entity_tables.sql"
+            strategy: "jsonb"
+
+  validation:
+    rules:
+      - rule: "Persistent entities MUST have persistence.strategy != 'none'"
+        test: "Check contracts with 'id' field have persistence metadata"
+
+      - rule: "persistence.table MUST match naming convention"
+        test: "Verify table name = contract_id.replace(':', '_')"
+
+      - rule: "persistence.migration file MUST exist"
+        test: "Check migration file exists at specified path"
+
+      - rule: "Table in database MUST match persistence.table"
+        test: "Query Supabase: SELECT table_name FROM information_schema.tables"
+
+      - rule: "Table COMMENT MUST reference contract $id"
+        test: "Query table comment, verify contains contract ID"
+
+    test_location: "tests/platform_validation/test_persistence_traceability.py"
+
+  workflow:
+    1_identify_persistent_contracts:
+      command: "python -m atdd.coach.commands.migration"
+      output: "List of contracts needing persistence"
+
+    2_create_migration:
+      command: "supabase migration new <name>"
+      action: "Write SQL with table name matching contract"
+      include: "COMMENT ON TABLE referencing contract $id"
+
+    3_update_contract:
+      action: "Add persistence metadata to contract"
+      fields:
+        - "strategy: jsonb"
+        - "table: {derived_name}"
+        - "migration: supabase/migrations/{timestamp}_{name}.sql"
+        - "indexes: [...] (document existing indexes)"
+
+    4_apply_migration:
+      command: "supabase db push"
+      verify: "Table exists in database"
+
+    5_validate_traceability:
+      command: "pytest tests/platform_validation/test_persistence_traceability.py"
+      checks:
+        - "Contract persistence.table matches database table"
+        - "Migration file exists"
+        - "Table comment references contract"
+
+# Directory Structure
+directory_structure:
+  authority: "artifact-naming.convention.yaml (contract_file_mapping section)"
+  note: "For physical file path mapping rules, see artifact-naming.convention.yaml"
+
+  validation:
+    meta_validation:
+      structure_location: "atdd/tester/validators/test_contracts_structure.py"
+      content_location: "atdd/tester/validators/test_contract_schema_compliance.py"
+      scope: "Platform-level structural and content validation"
+      type: "infrastructure"
+      urn_required: false
+      checks:
+        - "Directory structure (domain/resource hierarchy)"
+        - "File naming patterns (*.schema.json)"
+        - "JSON Schema Draft-07 compliance"
+        - "Required metadata ($schema, $id, version)"
+        - "Semantic versioning (MAJOR.MINOR.PATCH)"
+        - "Reference integrity (dependencies and $ref)"
+        - "Acceptance traceability (acceptance_refs exist)"
+        - "Duplicate detection (unique $id)"
+
+  examples:
+    flat:
+      - "contracts/commons/ux/foundations/color.schema.json"
+
+    nested:
+      - "contracts/commons/ux/primitives/icons/icon.schema.json"
+
+# Contract Generation Workflow
+generation_workflow:
+  description: "How tester generates contracts from planner interfaces"
+
+  inputs:
+    - source: "plan/{wagon}/_<wagon>.yaml"
+      extract: "produce[] array - artifacts this wagon creates"
+
+    - source: "All wagon manifests in plan/"
+      extract: "consume[] arrays - find consumers of each artifact"
+
+    - source: "Wagon features[] array"
+      extract: "Feature references for traceability"
+
+    - source: "interface.convention.yaml"
+      extract: "Naming patterns and API mapping rules"
+
+  steps:
+    1_scan_wagons: "Scan all wagon manifests for produce[] artifacts"
+    2_classify: "Parse artifact name → domain, resource, category"
+    3_find_consumers: "Scan all consume[] for references to this artifact"
+    4_extract_deps: "Extract dependencies from producing wagon's consume[]"
+    5_infer_api: "Infer HTTP method from resource name per interface.convention"
+    6_populate_metadata: "Build x-artifact-metadata from collected data"
+    7_generate_schema: "Create contract schema from template"
+
+  metadata_population:
+    theme: "First part of artifact name (before first colon)"
+    domain: "Second part of artifact name (between colons)"
+    aspect: "Third part of artifact name (after second colon, before dot)"
+    producer: "wagon:{name} from wagon declaring in produce[]"
+    consumers: "wagon:{name} for each wagon consuming this artifact"
+    dependencies: "contract:{name} for each item in producing wagon's consume[]"
+
+  traceability:
+    wagon_ref: "plan/{wagon}/_<wagon>.yaml"
+    feature_refs: "Extracted from wagon.features[] array"
+    acceptance_refs: "Extracted from feature YAML files (optional)"
+
+# API Structure (REST Best Practices)
+api_structure:
+  description: "Contract API definitions follow REST best practices with flexible operations"
+
+  principle: |
+    REST APIs organize around resources with multiple operations.
+    HTTP methods describe operations (GET, POST, PUT, DELETE), not resource names.
+    Each contract can define multiple operations for the same resource.
+
+  operations_array:
+    description: "x-artifact-metadata.api.operations array contains all operations for this contract"
+    structure:
+      method: "HTTP method (GET, POST, PUT, PATCH, DELETE)"
+      path: "REST endpoint path (flexible per operation)"
+      description: "Operation description"
+      requestBody: "Request schema reference (for POST/PUT/PATCH)"
+      responses: "Response schemas mapped to HTTP status codes"
+      headers: "Required and optional headers"
+      security: "Authentication schemes (OAuth2, JWT, API key)"
+      parameters: "Query/path parameters (for collections, filtering)"
+      idempotent: "Boolean indicating retry-safety"
+
+    example:
+      operations:
+        - method: "GET"
+          path: "/players/{id}"
+          description: "Retrieve player identity"
+          responses:
+            "200":
+              description: "Player found"
+              schema: "$ref: #/definitions/PlayerIdentity"
+            "404":
+              description: "Player not found"
+              schema: "$ref: #/definitions/ErrorResponse"
+          headers:
+            - name: "Content-Type"
+              value: "application/json"
+              required: true
+            - name: "Authorization"
+              description: "Bearer token"
+              required: true
+          security:
+            - type: "jwt"
+              scheme: "bearer"
+          idempotent: true
+
+        - method: "PUT"
+          path: "/players/{id}"
+          description: "Update player identity"
+          requestBody:
+            schema: "$ref: #/definitions/PlayerIdentity"
+            required: true
+          responses:
+            "200":
+              description: "Player updated"
+              schema: "$ref: #/definitions/PlayerIdentity"
+            "400":
+              description: "Invalid request"
+              schema: "$ref: #/definitions/ErrorResponse"
+            "404":
+              description: "Player not found"
+              schema: "$ref: #/definitions/ErrorResponse"
+          idempotent: true
+
+  response_schemas:
+    description: "Each operation defines response schemas per HTTP status code"
+
+    status_codes:
+      success:
+        "200": "OK - Resource retrieved/updated"
+        "201": "Created - Resource created"
+        "204": "No Content - Resource deleted"
+
+      client_error:
+        "400": "Bad Request - Invalid input"
+        "401": "Unauthorized - Authentication required"
+        "403": "Forbidden - Insufficient permissions"
+        "404": "Not Found - Resource doesn't exist"
+        "409": "Conflict - Resource state conflict"
+
+      server_error:
+        "500": "Internal Server Error"
+        "503": "Service Unavailable"
+
+    structure:
+      description: "Human-readable description"
+      schema: "JSON Schema reference or inline schema"
+      headers: "Response headers"
+
+    error_response_pattern:
+      type: "object"
+      required: ["error", "message", "timestamp"]
+      properties:
+        error:
+          type: "string"
+          description: "Error code"
+        message:
+          type: "string"
+          description: "Human-readable error message"
+        details:
+          type: "object"
+          description: "Additional error context"
+        timestamp:
+          type: "string"
+          format: "date-time"
+
+  request_schemas:
+    description: "POST/PUT/PATCH operations include requestBody schema"
+    structure:
+      schema: "JSON Schema reference"
+      required: "Boolean indicating if body is required"
+      contentType: "application/json (default)"
+
+    example:
+      requestBody:
+        schema: "$ref: #/definitions/PlayerIdentity"
+        required: true
+        contentType: "application/json"
+
+  headers:
+    description: "Operations document required and optional headers"
+
+    standard_headers:
+      - name: "Content-Type"
+        values: ["application/json", "application/xml"]
+        description: "Request/response format"
+
+      - name: "Accept"
+        values: ["application/json", "application/xml"]
+        description: "Acceptable response formats"
+
+      - name: "Authorization"
+        format: "Bearer {token}"
+        description: "Authentication token"
+        required_for: "Protected operations"
+
+    custom_headers:
+      example:
+        - name: "X-Request-ID"
+          type: "string"
+          description: "Unique request identifier for tracing"
+
+        - name: "X-API-Version"
+          type: "string"
+          description: "API version override"
+
+  versioning:
+    description: "API versioning enables evolution without breaking changes"
+
+    strategy: "path-based"
+    pattern: "/v{version}/{resource}"
+
+    examples:
+      - version: "v1"
+        path: "/v1/players/{id}"
+        contract_version: "1.0.0"
+
+      - version: "v2"
+        path: "/v2/players/{id}"
+        contract_version: "2.0.0"
+        breaking_changes: ["Renamed field 'username' to 'handle'"]
+
+    version_mapping:
+      description: "API version maps to contract schema version"
+      rule: "Major API version increment for breaking schema changes"
+
+  authentication:
+    description: "Enhanced auth model supporting OAuth2, JWT, API keys"
+
+    schemes:
+      oauth2:
+        type: "oauth2"
+        flows:
+          authorizationCode:
+            authorizationUrl: "/oauth/authorize"
+            tokenUrl: "/oauth/token"
+            scopes:
+              "read:player": "Read player data"
+              "write:player": "Modify player data"
+
+        example:
+          security:
+            - type: "oauth2"
+              scopes: ["read:player", "write:player"]
+
+      jwt:
+        type: "http"
+        scheme: "bearer"
+        bearerFormat: "JWT"
+
+        example:
+          security:
+            - type: "jwt"
+              scheme: "bearer"
+
+      apiKey:
+        type: "apiKey"
+        in: ["header", "query", "cookie"]
+        name: "X-API-Key"
+
+        example:
+          security:
+            - type: "apiKey"
+              name: "X-API-Key"
+              in: "header"
+
+      none:
+        description: "Explicitly mark public endpoints"
+        example:
+          security: []
+
+  collection_operations:
+    description: "Collections support pagination, filtering, sorting"
+
+    pagination:
+      parameters:
+        - name: "page"
+          type: "integer"
+          description: "Page number (1-indexed)"
+          default: 1
+
+        - name: "limit"
+          type: "integer"
+          description: "Items per page"
+          default: 20
+          maximum: 100
+
+        - name: "offset"
+          type: "integer"
+          description: "Items to skip (alternative to page)"
+
+      response_metadata:
+        total:
+          type: "integer"
+          description: "Total items across all pages"
+
+        page:
+          type: "integer"
+          description: "Current page number"
+
+        hasNext:
+          type: "boolean"
+          description: "More pages available"
+
+        links:
+          type: "object"
+          properties:
+            next: "URL to next page"
+            prev: "URL to previous page"
+            first: "URL to first page"
+            last: "URL to last page"
+
+    sorting:
+      parameters:
+        - name: "sort"
+          type: "string"
+          description: "Field to sort by"
+          example: "createdAt"
+
+        - name: "order"
+          type: "string"
+          enum: ["asc", "desc"]
+          default: "asc"
+
+    filtering:
+      description: "Field-specific filters via query parameters"
+      examples:
+        - parameter: "status"
+          type: "string"
+          description: "Filter by status"
+          example: "/players?status=active"
+
+        - parameter: "createdAfter"
+          type: "string"
+          format: "date-time"
+          description: "Filter by creation date"
+          example: "/players?createdAfter=2024-01-01T00:00:00Z"
+
+  flexible_paths:
+    description: "Path patterns are flexible per operation, not rigidly inferred"
+
+    patterns:
+      singular:
+        description: "Single resource access"
+        examples:
+          - "/players/{id}"
+          - "/profile"
+          - "/session"
+
+      collection:
+        description: "Multiple resource access"
+        examples:
+          - "/players"
+          - "/matches"
+          - "/dilemmas"
+
+      nested:
+        description: "Sub-resource access"
+        examples:
+          - "/matches/{matchId}/dilemmas"
+          - "/players/{playerId}/sessions"
+          - "/sponsors/{sponsorId}/partnerships"
+
+      action:
+        description: "Action endpoints (not pure CRUD)"
+        examples:
+          - "/auth/login"
+          - "/auth/logout"
+          - "/matches/{id}/start"
+          - "/matches/{id}/pause"
+
+    no_rigid_pattern: "Paths defined per operation, NOT inferred from domain name"
+
+  idempotency:
+    description: "Operations document retry-safety behavior"
+
+    idempotent_methods:
+      GET:
+        idempotent: true
+        description: "Safe to retry, no side effects"
+
+      PUT:
+        idempotent: true
+        description: "Multiple identical requests have same effect as single request"
+
+      DELETE:
+        idempotent: true
+        description: "Deleting non-existent resource returns same result"
+
+    non_idempotent_methods:
+      POST:
+        idempotent: false
+        description: "Each request may create new resource"
+
+      PATCH:
+        idempotent: false
+        description: "Partial updates may not be idempotent"
+
+  rest_examples:
+    player_identity:
+      artifact: "player:identity"
+      operations:
+        - method: "GET"
+          path: "/players/{id}"
+          description: "Retrieve player identity"
+
+        - method: "PUT"
+          path: "/players/{id}"
+          description: "Update player identity"
+
+        - method: "DELETE"
+          path: "/players/{id}"
+          description: "Delete player account"
+
+    match_dilemma:
+      artifact: "match:dilemma"
+      operations:
+        - method: "GET"
+          path: "/matches/{matchId}/dilemmas/{dilemmaId}"
+          description: "Get current dilemma in match"
+
+        - method: "POST"
+          path: "/matches/{matchId}/dilemmas"
+          description: "Create new dilemma for match"
+
+    auth_login:
+      artifact: "auth:session"
+      operations:
+        - method: "POST"
+          path: "/auth/login"
+          description: "Authenticate and create session"
+
+        - method: "POST"
+          path: "/auth/logout"
+          description: "End current session"
+
+# Validation Rules
+validation:
+  schema_requirements:
+    id_pattern: "^contract:[a-z_]+:[a-z_]+(\\.[a-z_]+)?$"
+    version_pattern: "^\\d+\\.\\d+\\.\\d+$"
+    additional_properties: false
+    required_fields_enforced: true
+
+  metadata_requirements:
+    producer_format: "^wagon:[a-z\\-]+$"
+    consumer_format: "^(wagon|external):[a-z\\-]+$"
+    dependency_format: "^contract:[a-z_]+:[a-z_]+(\\.[a-z_]+)?$"
+
+  meta_validation:
+    rule: "Contract schema validation is centralized in atdd/tester/audits"
+    note: "No co-located tests/ directories are required"
+
+# Removed Concepts (Version 2.0)
+removed_concepts:
+  - concept: "wagon_contracts vs design_contracts distinction"
+    reason: "All contracts come from wagons. UX wagon produces contracts just like any other wagon."
+    removed_in: "v2.0"
+
+  - concept: "I/O type classification (dto/command/event/query)"
+    reason: "Implementation detail, not contract interface concern. Contracts are agnostic."
+    removed_in: "v2.0"
+
+  - concept: "Port mapping (Http/Repo/Bus/Knowledge)"
+    reason: "Internal routing concern, not exposed in contract schema."
+    removed_in: "v2.0"
+
+  - concept: "SDK generation metadata in contracts"
+    reason: "Tooling concern. SDK generation derives from contracts independently."
+    removed_in: "v2.0"
+
+  - concept: "Pack manifest integration"
+    reason: "Packaging concern, separate from contract definition."
+    removed_in: "v2.0"
+
+# Cross-References
+references:
+  naming_authority: "atdd/planner/conventions/interface.convention.yaml"
+  schema_template: "atdd/tester/schemas/contract.tmpl.json"
+  schema_validator: "atdd/tester/schemas/contract.schema.json"
+  telemetry_example: "atdd/tester/schemas/telemetry.schema.json"
+  platform_validation: "atdd/tester/validators/test_contracts_structure.py"

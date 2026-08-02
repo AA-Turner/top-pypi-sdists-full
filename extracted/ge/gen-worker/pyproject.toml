@@ -1,0 +1,175 @@
+[project]
+name = "gen-worker"
+version = "0.90.5"
+description = "A library used to build custom functions in Cozy Creator's serverless function platform."
+readme = "README.md"
+license = "MIT"
+authors = [
+    { name = "Paul Fidika", email = "paul@fidika.com" }
+]
+keywords = ["serverless", "ai", "ml", "inference", "cozy"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+# Fleet floor is py3.12 (gw#439 base-image standard); numpy 2.4 stubs need
+# a 3.12+ mypy target anyway.
+requires-python = ">=3.12"
+dependencies = [
+    "grpcio>=1.82.1",
+    "msgspec>=0.18.6",
+    "protobuf>=7.35.0",
+    "requests>=2.32.0",
+    "boto3>=1.41.0",
+    "psutil>=7.0.0",
+    "pyyaml>=6.0.0",
+    "blake3>=1.0.0",
+    "huggingface-hub>=0.26.0",
+    # gen_worker.convert (GGUF quantization tooling; small, pure-python)
+    "gguf>=0.10.0",
+    # endpoint.lock is TOML; msgspec.toml.encode needs tomli-w at bake time.
+    "tomli-w>=1.0.0",
+    # C2PA Content Credentials (th#714, EU AI Act Art. 50) — core, not an
+    # extra: the compliance default-ON posture must not depend on every
+    # endpoint image remembering `[signing]`. Small manylinux wheel.
+    "c2pa-python>=0.36",
+]
+# Pillow (image I/O) and numpy/soundfile (audio I/O) are lazy-imported by
+# gen_worker.io and live in the [images] / [audio] extras — the base wheel
+# stays lean for plain-Python (API-proxy) endpoints.
+
+[project.urls]
+Homepage = "https://github.com/cozy-creator/python-gen-worker"
+Repository = "https://github.com/cozy-creator/python-gen-worker"
+Issues = "https://github.com/cozy-creator/python-gen-worker/issues"
+
+[project.scripts]
+gen-worker = "gen_worker.cli:main"
+
+[project.optional-dependencies]
+torch = [
+    "torch>=2.13.0",
+    "safetensors>=0.8.0",
+    # Emergency nf4 fit rung (gw#420) — automatic on CUDA hosts, needs bnb.
+    "bitsandbytes>=0.45.0; sys_platform == 'linux' or sys_platform == 'win32'",
+]
+vision = [
+    "torchvision>=0.28.0",
+]
+images = [
+    "Pillow>=10.0",
+]
+audio = [
+    "soundfile>=0.12",
+    "numpy>=1.24",
+]
+video = [
+    "av>=12",
+    "numpy>=1.24",
+]
+signing = [
+    # C2PA Content Credentials (th#714) — official CAI binding over c2pa-rs.
+    "c2pa-python>=0.36",
+]
+dev = [
+    "av>=12",
+    "c2pa-python>=0.36",
+    "Pillow>=10.0",
+    # Real tiny-pipeline residency tests (gw#417) build local diffusers pipes;
+    # transformers+accelerate activate the bnb nf4 convert integration test.
+    "accelerate>=1.9",
+    "diffusers>=0.39.0",
+    "grpcio-tools>=1.82.1",
+    # 5.13 floor: the fp8+te writer keys on transformers-5 conversion_mapping /
+    # core_model_loading internals; <5.5.2 has the fast-safetensors Gemma
+    # key-rename bug. Producer/consumer symmetry with the serve fleet (te#45).
+    "transformers>=5.13",
+    "mypy>=1.10.0",
+    # Real-parquet dataset-materialization tests (gw#425).
+    "pyarrow>=17.0.0",
+    "ruff>=0.6.0",
+    "pytest>=9.0.0",
+    # pgw#796: the suite is ~190 files of independent processes/sockets/temp
+    # dirs; `--dist loadfile` keeps each file (and its module/session fixtures)
+    # on one worker, so nothing shares state that did not already share it.
+    "pytest-xdist>=3.8.0",
+    "types-PyYAML>=6.0.12.20250915",
+    "types-requests>=2.32.4.20250913",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/gen_worker"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/gen_worker", "README.md", "pyproject.toml"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
+no_implicit_optional = true
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["gen_worker.pb.*"]
+ignore_errors = true
+
+# Modules moved verbatim from the old gen_worker.conversion carry that
+# package's untyped-defs exemption (was cozy_convert's [tool.mypy] config).
+[[tool.mypy.overrides]]
+module = ["gen_worker.convert.*"]
+disallow_untyped_defs = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# Generated modules are lint-exempt (mirrors the mypy overrides above).
+extend-exclude = [
+    "src/gen_worker/pb",
+]
+
+[tool.ruff.lint]
+# E402: gen_worker defers heavy imports (torch, request_context, cli
+# subcommands) below module-level guards on purpose so `import gen_worker` and
+# `gen-worker --help` stay cheap. Not a defect.
+ignore = ["E402"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = ["F401", "F403"]  # intentional public re-exports
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: network tests against real tiny HF models"]
+# Prefer the working-tree source so a bare `pytest` never tests a stale wheel.
+# The supported command is still `uv run --extra dev pytest` (pytest is a dev
+# extra); tests/conftest.py hard-fails if gen_worker resolves outside src/.
+pythonpath = ["src"]
+
+# NOTE: the CUDA 13.0 torch pin below is uv-only — it is read by `uv sync` /
+# `uv build` in this repo, NOT by `pip`. `pip install gen-worker[torch]`
+# resolves torch from PyPI (a CPU or default-CUDA build) and may differ. Tenant
+# images built by Tensorhub pin their own torch/CUDA build; this pin only fixes
+# the local dev + CI environment and matches the managed CUDA 13.0 fleet.
+[[tool.uv.index]]
+name = "pytorch-cu130"
+url = "https://download.pytorch.org/whl/cu130"
+explicit = true
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cu130", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]
+torchvision = [
+  { index = "pytorch-cu130", marker = "sys_platform == 'linux' or sys_platform == 'win32'" },
+]

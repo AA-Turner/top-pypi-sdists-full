@@ -1,0 +1,287 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "boost-skill-cli"
+dynamic = ["version"]
+description = "boost — Homebrew for AI coding skills"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {file = "LICENSE"}
+authors = [{name = "Jonathan Reyes"}]
+keywords = ["ai", "skills", "package-manager", "claude-code", "cursor", "windsurf", "cli"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Build Tools",
+]
+
+[project.urls]
+Homepage = "https://github.com/jonnyeclectic/boost"
+Repository = "https://github.com/jonnyeclectic/boost"
+Changelog = "https://github.com/jonnyeclectic/boost/releases"
+
+[project.optional-dependencies]
+# Opt-in dense semantic retrieval (RAG Phase 2). The default install stays
+# zero-dependency; `pip install boost-skill-cli[rag]` adds a single-file
+# on-disk vector store. Embeddings come from an API over urllib (Voyage or
+# OpenAI, keyed by env var) — no client library required. Without this extra,
+# or without an embeddings key, search degrades to the always-on BM25 engine.
+rag = [
+    "sqlite-vec>=0.1.6",
+    # The keyless embedding path (core/localembed.py): ONNX Runtime plus a
+    # tokenizer, and nothing else. fastembed is the obvious alternative and was
+    # rejected on two measured grounds — it pulls 11 direct dependencies
+    # including Pillow (image embeddings boost will never do), requests (this
+    # codebase uses urllib by design) and loguru (core/logs.py exists); and its
+    # PyPI classifier declares "Other/Proprietary License" despite the project
+    # being Apache-2.0, which check_licenses.py denies with no override for a
+    # wrongly-declared licence. This pair resolves to 20 packages with zero
+    # licence findings. The model weights are fetched and sha256-verified at
+    # runtime, not vendored.
+    "onnxruntime>=1.17",
+    "tokenizers>=0.15",
+]
+# Opt-in eval extras. The Tier 1 gate (scripts/eval_retrieval.py) is pure-stdlib
+# and required in CI; nothing here is imported by the CLI or the required gate.
+# `pip install boost-skill-cli[eval]`. Powers:
+#   - Tier 1b `--stats`: ranx statistical-significance testing between engines.
+#   - Tier 2c (scripts/eval_explain.py): ragas `faithfulness` for `boost explain`.
+# ragas 0.2.x hard-imports a ChatVertexAI path that langchain>=1.0 /
+# langchain-community>=0.4 removed, so the langchain 0.3 stack is pinned — an
+# unavoidable constraint of ragas's packaging, isolated to this opt-in extra.
+eval = [
+    "ranx>=0.3.20",
+    "ragas>=0.2,<0.3",
+    "langchain-core<0.4",
+    "langchain-community<0.4",
+    "langchain-openai<1",
+]
+# Opt-in Gherkin/BDD functional suite (tests/bdd) — reusable Given/When/Then
+# scenarios over the same in-process CLI entrypoint tests/functional drives.
+# Additive to, not a replacement for, the pytest functional suite; not part of
+# `make check`. `pip install -e '.[bdd]'`.
+bdd = ["behave>=1.2.6"]
+# Opt-in micro-benchmarks (tests/perf, `make bench`) for perf-sensitive core
+# paths (BM25 indexing/search, catalog scan). Not part of `make check` — a
+# timing regression shouldn't block a merge the way a correctness gate does.
+# `pip install -e '.[perf]'`.
+perf = ["pytest-benchmark>=4.0"]
+
+[project.scripts]
+boost = "boost_cli.cli:main"
+
+[tool.setuptools_scm]
+# Version is derived from the latest git tag (vX.Y.Z) at build time, so tags
+# are the single source of truth — no constant to bump, no drift. Writes the
+# resolved version to boost_cli/_version.py (git-ignored).
+version_file = "boost_cli/_version.py"
+
+[tool.setuptools.packages.find]
+include = ["boost_cli*"]
+
+[tool.setuptools.package-data]
+boost_cli = ["data/*.json"]
+
+[tool.ruff]
+target-version = "py39"
+
+[tool.ruff.lint]
+# Beyond the default E/F set, turn on families that catch real bug, readability
+# and performance smells at zero new-tool cost (ruff already runs in the lint
+# gate): flake8-bandit (S, Python SAST — shell=True, tempfile.mktemp, unsafe
+# yaml.load, weak hashing), flake8-bugbear (B), flake8-simplify (SIM),
+# flake8-comprehensions (C4), perflint (PERF), pyupgrade (UP) and Ruff-native
+# (RUF). UP is pyupgrade, ported into ruff — it holds the line on dated idioms
+# as they are written, rather than letting them accrete (see the ignore block
+# for the four rules the >=3.9 runtime floor does not allow).
+#
+# `select`, NOT `extend-select`: extend-select ADDS to whatever ruff's defaults
+# happen to be, so a ruff release that widens them silently switches on families
+# this project never chose. ruff 0.16 did exactly that — the 0.15->0.16 bump
+# arrived as 100 errors in families nobody opted into. Stating the set outright
+# means a version bump can only change how the SELECTED rules behave, never
+# which rules run. E4/E7/E9/F is ruff's historical default, spelled out here.
+select = ["E4", "E7", "E9", "F", "S", "B", "SIM", "C4", "PERF", "RUF", "UP",
+          # Adopted with the 0.16 bump: isort (I) keeps import blocks ordered
+          # and was entirely mechanical — 34 sites, all auto-fixed, no judgement
+          # calls. NOT adopted: ISC (implicit string concat). It sounds like the
+          # right check for a codebase this full of wrapped literals, but all 8
+          # hits were deliberate line wrapping — an RFC 8032 hex vector split
+          # across lines, wrapped HTML fixtures, wrapped assertion strings — so
+          # it found zero real bugs and would have cost 8 hand edits that only
+          # add parentheses. Revisit if a missing comma ever actually lands.
+          "I"]
+# refurb runs as its own lint step and its suppressions are written the same
+# way (`# noqa: FURB143`). Declaring the prefix as external stops RUF102 from
+# reading another linter's codes as typos and deleting the suppression.
+external = ["FURB"]
+ignore = [
+    # boost is a CLI that shells out to git by design: every subprocess call
+    # passes an argument LIST (never a shell string) and resolves `git` via
+    # PATH on purpose, so these two fire only on safe, intentional code.
+    "S603",  # subprocess-without-shell-equals-true (list form is not injectable)
+    "S607",  # start-process-with-partial-path (`git` on PATH is deliberate)
+    # Best-effort cleanup/logging swallows are a pervasive, commented pattern
+    # (logger teardown, corrupt-lock preservation, the crash handler) where a
+    # raised exception would be worse than the one being swallowed.
+    "S110",  # try-except-pass
+    # Ambiguous-unicode: boost's output is deliberately typographic — em dashes,
+    # arrows (→), middots (·) and the ❯ prompt ornament are the Aurora UI
+    # language (see the BOOST-D design items), not typos to be "corrected".
+    "RUF001",  # ambiguous-unicode-character-string
+    "RUF002",  # ambiguous-unicode-character-docstring
+    "RUF003",  # ambiguous-unicode-character-comment
+    # boost's scan/index/update loops wrap each item in try/except on purpose so
+    # one corrupt file or unreachable tap is skipped, not fatal to the whole
+    # batch. Hoisting the handler out of the loop would trade that resilience
+    # for a negligible per-iteration saving.
+    "PERF203",  # try-except-in-loop
+    # pyupgrade (UP), minus the rules the >=3.9 floor does not actually allow.
+    # 60 of boost's 63 modules carry `from __future__ import annotations`, so
+    # these read as safe — but the future import only defers evaluation, it does
+    # not make the syntax legal. The moment anything evaluates an annotation
+    # (`typing.get_type_hints`, a dataclass/CLI introspection helper, a plain
+    # `eval`), a PEP 604 union is a TypeError on 3.9. ruff agrees: at
+    # `target-version = "py39"` it classifies all three fixes as *unsafe*.
+    # Revisit as one deliberate sweep if and when the floor moves to 3.10.
+    "UP006",  # non-pep585-annotation   (List[x]  -> list[x])
+    "UP035",  # deprecated-import       (typing.List and friends)
+    "UP045",  # non-pep604-annotation-optional  (Optional[x] -> x | None)
+    # printf-formatting is this codebase's house style across ~860 call sites.
+    # The rewrite is an unsafe fix (`%` and `format` differ on tuples and on
+    # types with a custom `__format__`), it would rewrite nearly every file —
+    # obliterating blame and conflicting with every branch in flight — and it
+    # is the exact churn requirements/lint-tools.txt was pinned to keep out of
+    # the gate. Declined on purpose, not overlooked.
+    "UP031",  # printf-string-formatting
+]
+
+[tool.ruff.lint.per-file-ignores]
+# short throwaway names and lambda helpers are fine in tests; asserts are the
+# whole point of a test suite, and tests legitimately open fixture URLs.
+"tests/*" = ["E741", "E731", "S101", "S310"]
+
+[tool.codespell]
+# Spell-check user-facing text (see `make lint`: boost_cli, docs, README).
+# Generated boards and the setuptools-scm version stub aren't ours to check.
+# demo-index.json is generated and holds snippets truncated mid-word, so every
+# cut word ("existin", "architec") reads as a typo. It is data, not prose.
+skip = "docs/roadmap.html,docs/design-roadmap.html,docs/commands.html,docs/demo-index.json,boost_cli/_version.py,*.tar.gz"
+# Valid English that codespell's dictionary flags as misspellings.
+ignore-words-list = "unparseable,accreting"
+
+[tool.mypy]
+python_version = "3.9"
+files = ["boost_cli"]
+
+# boost_cli/_version.py is generated by setuptools-scm at build time and is
+# absent from a plain checkout — don't fail type-checking when it's missing.
+[[tool.mypy.overrides]]
+module = "boost_cli._version"
+ignore_missing_imports = true
+
+# The [rag] extra's third-party modules. Imported inside functions and absent
+# from a default install by design, so a missing stub is the expected state
+# rather than a finding — the same carve-out pyright already has via
+# reportMissingImports.
+[[tool.mypy.overrides]]
+module = ["onnxruntime", "tokenizers", "numpy"]
+ignore_missing_imports = true
+
+# Every cmd_* function takes a bare `argv`, and mypy's default mode skips the
+# BODY of any function with an untyped parameter — so the required "zero mypy
+# errors" gate was checking almost none of the CLI's dispatch logic. This turns
+# body checking on for the command layer without demanding annotated signatures
+# (76 of them), which would be churn for no extra checking.
+[[tool.mypy.overrides]]
+module = "boost_cli.commands.*"
+check_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q -p no:cacheprovider"
+filterwarnings = ["error::DeprecationWarning:boost_cli.*"]
+# Registered so an unknown-mark warning cannot become an error here. The mark
+# only selects; the actual guard is the BOOST_ONNX_E2E env gate on the module,
+# so a plain `pytest` never downloads 133 MB of weights by surprise.
+markers = [
+    "onnx: needs onnxruntime + the real pinned BGE weights (opt-in, see tests/unit/test_localembed_e2e.py)",
+]
+
+[tool.coverage.run]
+source = ["boost_cli"]
+parallel = false
+
+[tool.coverage.report]
+fail_under = 80
+precision = 1
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
+
+# pyright: a SECOND type checker alongside mypy. Its independent inference
+# catches None-flow and narrowing bugs mypy's config lets slide — it found the
+# `"taps": null` crash in registry.list_taps() that mypy passed clean.
+# Scoped to boost_cli/core (the mutation-tested engine) so the gate is green and
+# meaningful today; widening to commands/ is tracked on the roadmap.
+# Dev/CI-only — never imported at runtime.
+[tool.pyright]
+include = ["boost_cli/core"]
+pythonVersion = "3.9"
+typeCheckingMode = "standard"
+# _version.py is generated by setuptools-scm at build time and absent from a
+# plain checkout (same carve-out as [tool.mypy]).
+ignore = ["boost_cli/_version.py"]
+reportMissingImports = false   # optional extras ([rag] sqlite_vec) resolve at runtime
+
+# import-linter: turn boost's assumed layering into an enforced contract, so a
+# cross-layer import can't silently erode the engine. Run by `make lint`
+# (lint-imports) and the CI lint job. Dev/CI-only — never imported at runtime.
+[tool.importlinter]
+root_package = "boost_cli"
+
+[[tool.importlinter.contracts]]
+name = "boost_cli is layered: cli -> commands -> core"
+type = "layers"
+# Higher layers may import lower ones, never the reverse: core/ (the engine)
+# must import neither commands/ nor the CLI, and commands/ must not reach up
+# into cli. This is the structural rule CLAUDE.md documents — core is the
+# mutation-tested engine, commands/ is thin glue on top of it.
+layers = ["cli", "commands", "core"]
+containers = ["boost_cli"]
+# No exceptions. The one upward edge that used to be allowlisted — `boost
+# completions` importing COMMANDS out of cli.py — is gone: the command registry
+# is now passed into core.complete as data, so nothing reaches up.
+
+# interrogate: docstring-coverage floor for the engine. core/ is the
+# mutation-tested, contract-heavy layer — a public function without a word of
+# explanation is a review smell, and this keeps the floor from eroding as the
+# engine grows (measured 98.5% when the gate landed; the floor leaves headroom
+# for genuinely-self-evident helpers). Same private/dunder carve-outs as the
+# rest of the gate. Dev/CI-only.
+[tool.interrogate]
+paths = ["boost_cli/core"]
+fail-under = 90
+ignore-init-method = true
+ignore-init-module = true
+ignore-magic = true
+ignore-private = true
+ignore-semiprivate = true
+ignore-nested-functions = true

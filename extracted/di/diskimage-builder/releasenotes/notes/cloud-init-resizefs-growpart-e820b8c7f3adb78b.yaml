@@ -1,5 +1,0 @@
----
-upgrade:
-  - |
-    ``cloud-init-disable-resizefs`` will no longer leave ``growpart`` on /
-    partition to enabled in cloud.cfg.

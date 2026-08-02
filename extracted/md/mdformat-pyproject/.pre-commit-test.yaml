@@ -1,9 +1,0 @@
-repos:
-  - repo: local
-    hooks:
-    - id: mdformat
-      name: mdformat
-      entry: mdformat
-      files: ".*/pre-commit-test.md"
-      types: [markdown]
-      language: system

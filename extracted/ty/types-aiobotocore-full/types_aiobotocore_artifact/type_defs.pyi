@@ -27,6 +27,8 @@ from .literals import (
     AcceptanceTypeType,
     AgreementTypeType,
     CustomerAgreementStateType,
+    FeedbackRatingType,
+    FeedbackReasonCodeType,
     InputSourceType,
     InquiryStatusMessageType,
     InquiryStatusType,
@@ -86,6 +88,8 @@ __all__ = (
     "PaginatorConfigTypeDef",
     "PutAccountSettingsRequestTypeDef",
     "PutAccountSettingsResponseTypeDef",
+    "PutComplianceInquiryFeedbackRequestTypeDef",
+    "PutComplianceInquiryFeedbackResponseTypeDef",
     "QuerySummaryTypeDef",
     "ReportDetailTypeDef",
     "ReportSummaryTypeDef",
@@ -260,6 +264,15 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
 class PutAccountSettingsRequestTypeDef(TypedDict):
     notificationSubscriptionStatus: NotRequired[NotificationSubscriptionStatusType]
 
+class PutComplianceInquiryFeedbackRequestTypeDef(TypedDict):
+    complianceInquiryId: str
+    rating: FeedbackRatingType
+    queryIdentifier: NotRequired[int]
+    responseRevisionId: NotRequired[int]
+    reasonCodes: NotRequired[Sequence[FeedbackReasonCodeType]]
+    comment: NotRequired[str]
+    clientToken: NotRequired[str]
+
 class ResponseVersionTypeDef(TypedDict):
     responseText: str
     timestamp: datetime
@@ -310,6 +323,10 @@ class ListTagsForResourceResponseTypeDef(TypedDict):
 
 class PutAccountSettingsResponseTypeDef(TypedDict):
     accountSettings: AccountSettingsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PutComplianceInquiryFeedbackResponseTypeDef(TypedDict):
+    submittedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListCustomerAgreementsResponseTypeDef(TypedDict):

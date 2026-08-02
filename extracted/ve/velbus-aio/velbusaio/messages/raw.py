@@ -1,0 +1,84 @@
+"""Raw Messages.
+
+:author: Maikel Punie <maikel.punie@gmail.com>
+"""
+
+from __future__ import annotations
+
+from velbusaio.command_registry import register
+from velbusaio.message import Message
+from velbusaio.message_fields import DeclarativeMessage
+
+COMMAND_CODE = 0xA9
+
+
+@register(COMMAND_CODE)
+class MeteoRawMessage(DeclarativeMessage):
+    """Meteo Raw Message."""
+
+    _command_code = COMMAND_CODE
+    _priority = None
+    _data_length = 6
+    _generates_data_to_binary = False
+
+    def __init__(self, address=None):
+        """Initialize Meteo Raw Message Object."""
+        Message.__init__(self)
+        self.rain: float = 0
+        self.light: float = 0
+        self.wind: float = 0
+
+    def populate(self, priority, address, rtr, data):
+        """Populate the Meteo Raw Message Object.
+
+        Data bytes (high + low)
+            1 + 2   = current temp
+            3 + 4   = min temp
+            5 + 6   = max temp
+        :return: None
+        """
+        self.needs_no_rtr(rtr)
+        self.needs_data(data, 6)
+        self.set_attributes(priority, address, rtr)
+        self.rain = (((data[0] << 8) | data[1]) / 32) * 0.1
+        self.light = ((data[2] << 8) | data[3]) / 32
+        self.wind = (((data[4] << 8) | data[5]) / 32) * 0.1
+
+
+@register(COMMAND_CODE)
+class SensorRawMessage(DeclarativeMessage):
+    """Sensor Raw Message."""
+
+    _command_code = COMMAND_CODE
+    _priority = None
+    _data_length = 5
+    _generates_data_to_binary = False
+
+    def __init__(self, address=None):
+        """Initialize Sensor Raw Message Object."""
+        Message.__init__(self)
+        self.sensor = 0
+        self.mode = 0
+        self.value: float = 0
+        self.unit: str | None = None
+
+    def populate(self, priority, address, rtr, data):
+        """Populate the Sensor Raw Message Object."""
+        self.needs_no_rtr(rtr)
+        self.needs_data(data, 5)
+        self.set_attributes(priority, address, rtr)
+        self.sensor = data[0]
+        self.mode = data[1]
+        self.value = (data[2] << 16) | (data[3] << 8) | data[4]
+        if self.mode == 0:
+            self.value = self.value * 0.25
+            self.unit = "mV"
+        elif self.mode == 1:
+            self.value = self.value * 5
+            self.unit = "µA"
+        elif self.mode == 2:
+            self.value = self.value * 0.25
+            self.unit = "ohm"
+        elif self.mode == 3:
+            self.value = self.value * 0.5
+            self.unit = "µS"

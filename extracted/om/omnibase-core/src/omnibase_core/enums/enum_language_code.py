@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""
+Language Code Enum.
+
+Supported language codes for detection patterns.
+"""
+
+from enum import Enum, unique
+
+from omnibase_core.enums.enum_str_enum_base import UtilStrValueHelper
+
+
+@unique
+class EnumLanguageCode(UtilStrValueHelper, str, Enum):
+    """Supported language codes for detection."""
+
+    ENGLISH = "en"
+    SPANISH = "es"
+    FRENCH = "fr"
+    GERMAN = "de"
+    ITALIAN = "it"
+    PORTUGUESE = "pt"
+    DUTCH = "nl"
+    SWEDISH = "sv"
+    NORWEGIAN = "no"
+    DANISH = "da"
+    FINNISH = "fi"
+    RUSSIAN = "ru"
+    CHINESE = "zh"
+    JAPANESE = "ja"
+    KOREAN = "ko"
+    ARABIC = "ar"
+
+
+__all__ = ["EnumLanguageCode"]

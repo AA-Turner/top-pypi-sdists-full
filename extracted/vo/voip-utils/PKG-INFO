@@ -1,0 +1,38 @@
+Metadata-Version: 2.1
+Name: voip-utils
+Version: 0.4.2
+Summary: Voice over IP Utilities
+Author-email: The Home Assistant Authors <hello@home-assistant.io>
+License: Apache-2.0
+Project-URL: Source Code, https://github.com/home-assistant-libs/voip-utils
+Keywords: home,assistant,voip,phone
+Platform: any
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Communications :: Internet Phone
+Classifier: Topic :: Communications :: Telephony
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.9.0
+Description-Content-Type: text/markdown
+License-File: LICENSE.md
+Requires-Dist: opuslib-next==1.1.6
+Provides-Extra: dev
+Requires-Dist: build==1.2.2; extra == "dev"
+Requires-Dist: black==26.5.1; extra == "dev"
+Requires-Dist: flake8==7.1.0; extra == "dev"
+Requires-Dist: isort==5.12.0; extra == "dev"
+Requires-Dist: mypy==1.17.1; extra == "dev"
+Requires-Dist: opuslib-next==1.1.6; extra == "dev"
+Requires-Dist: pylint==3.2.5; extra == "dev"
+Requires-Dist: pytest==8.3.4; extra == "dev"
+Requires-Dist: python-dotenv==1.0.1; extra == "dev"
+
+# VoIP Utils
+
+Voice over IP utilities for the [voip integration](https://www.home-assistant.io/integrations/voip/).

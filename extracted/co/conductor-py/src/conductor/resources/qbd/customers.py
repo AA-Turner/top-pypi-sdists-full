@@ -1,0 +1,1826 @@
+# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
+
+from __future__ import annotations
+
+from typing import Union, Iterable
+from datetime import date
+from typing_extensions import Literal
+
+import httpx
+
+from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
+from ..._compat import cached_property
+from ..._resource import SyncAPIResource, AsyncAPIResource
+from ..._response import (
+    to_raw_response_wrapper,
+    to_streamed_response_wrapper,
+    async_to_raw_response_wrapper,
+    async_to_streamed_response_wrapper,
+)
+from ...types.qbd import customer_list_params, customer_create_params, customer_update_params
+from ...pagination import SyncCursorPage, AsyncCursorPage
+from ..._base_client import AsyncPaginator, make_request_options
+from ...types.qbd.customer import Customer
+
+__all__ = ["CustomersResource", "AsyncCustomersResource"]
+
+
+class CustomersResource(SyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> CustomersResourceWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/conductor-is/quickbooks-desktop-python#accessing-raw-response-data-eg-headers
+        """
+        return CustomersResourceWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> CustomersResourceWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/conductor-is/quickbooks-desktop-python#with_streaming_response
+        """
+        return CustomersResourceWithStreamingResponse(self)
+
+    def create(
+        self,
+        *,
+        name: str,
+        conductor_end_user_id: str,
+        account_number: str | Omit = omit,
+        additional_contacts: Iterable[customer_create_params.AdditionalContact] | Omit = omit,
+        additional_notes: Iterable[customer_create_params.AdditionalNote] | Omit = omit,
+        alternate_contact: str | Omit = omit,
+        alternate_phone: str | Omit = omit,
+        alternate_shipping_addresses: Iterable[customer_create_params.AlternateShippingAddress] | Omit = omit,
+        billing_address: customer_create_params.BillingAddress | Omit = omit,
+        cc_email: str | Omit = omit,
+        class_id: str | Omit = omit,
+        company_name: str | Omit = omit,
+        contact: str | Omit = omit,
+        credit_card: customer_create_params.CreditCard | Omit = omit,
+        credit_limit: str | Omit = omit,
+        currency_id: str | Omit = omit,
+        custom_contact_fields: Iterable[customer_create_params.CustomContactField] | Omit = omit,
+        customer_type_id: str | Omit = omit,
+        email: str | Omit = omit,
+        external_id: str | Omit = omit,
+        fax: str | Omit = omit,
+        first_name: str | Omit = omit,
+        is_active: bool | Omit = omit,
+        job_description: str | Omit = omit,
+        job_end_date: Union[str, date] | Omit = omit,
+        job_projected_end_date: Union[str, date] | Omit = omit,
+        job_start_date: Union[str, date] | Omit = omit,
+        job_status: Literal["awarded", "closed", "in_progress", "none", "not_awarded", "pending"] | Omit = omit,
+        job_title: str | Omit = omit,
+        job_type_id: str | Omit = omit,
+        last_name: str | Omit = omit,
+        middle_name: str | Omit = omit,
+        note: str | Omit = omit,
+        opening_balance: str | Omit = omit,
+        opening_balance_date: Union[str, date] | Omit = omit,
+        parent_id: str | Omit = omit,
+        phone: str | Omit = omit,
+        preferred_delivery_method: Literal["email", "mail", "none"] | Omit = omit,
+        preferred_payment_method_id: str | Omit = omit,
+        price_level_id: str | Omit = omit,
+        resale_number: str | Omit = omit,
+        sales_representative_id: str | Omit = omit,
+        sales_tax_code_id: str | Omit = omit,
+        sales_tax_country: Literal["australia", "canada", "uk", "us"] | Omit = omit,
+        sales_tax_item_id: str | Omit = omit,
+        salutation: str | Omit = omit,
+        shipping_address: customer_create_params.ShippingAddress | Omit = omit,
+        tax_registration_number: str | Omit = omit,
+        terms_id: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Customer:
+        """
+        Creates a new customer.
+
+        Args:
+          name: The case-insensitive name of this customer. Not guaranteed to be unique because
+              it does not include the names of its hierarchical parent objects like `fullName`
+              does. For example, two customers could both have the `name` "Website Redesign
+              Project", but they could have unique `fullName` values, such as "ABC
+              Corporation:Website Redesign Project" and "Baker:Website Redesign Project".
+
+              Maximum length: 41 characters.
+
+          conductor_end_user_id: The ID of the End-User to receive this request.
+
+          account_number: The customer's account number, which appears in the QuickBooks chart of
+              accounts, reports, and graphs.
+
+              Note that if the "Use Account Numbers" preference is turned off in QuickBooks,
+              the account number may not be visible in the user interface, but it can still be
+              set and retrieved through the API.
+
+          additional_contacts: Additional alternate contacts for this customer.
+
+          additional_notes: Additional notes about this customer.
+
+          alternate_contact: The name of a alternate contact person for this customer.
+
+          alternate_phone: The customer's alternate telephone number.
+
+              Maximum length: 21 characters.
+
+          alternate_shipping_addresses: A list of additional shipping addresses for this customer. Useful when the
+              customer has multiple shipping locations.
+
+          billing_address: The customer's billing address.
+
+          cc_email: An email address to carbon copy (CC) on communications with this customer.
+
+          class_id: The customer's class. Classes can be used to categorize objects into meaningful
+              segments, such as department, location, or type of work. In QuickBooks, class
+              tracking is off by default.
+
+          company_name: The name of the company associated with this customer. This name is used on
+              invoices, checks, and other forms.
+
+              Maximum length: 41 characters.
+
+          contact: The name of the primary contact person for this customer.
+
+          credit_card: The customer's credit card information, including card type, number, and
+              expiration date, used for processing credit card payments.
+
+          credit_limit: The customer's credit limit, represented as a decimal string. This is the
+              maximum amount of money this customer can spend before being billed. If `null`,
+              there is no credit limit.
+
+          currency_id: The customer's currency. For built-in currencies, the name and code are standard
+              ISO 4217 international values. For user-defined currencies, all values are
+              editable.
+
+          custom_contact_fields: Additional custom contact fields for this customer, such as phone numbers or
+              email addresses.
+
+          customer_type_id: The customer's type, used for categorizing customers into meaningful segments,
+              such as industry or region.
+
+          email: The customer's email address.
+
+          external_id: A globally unique identifier (GUID) you, the developer, can provide for tracking
+              this object in your external system. This field is immutable and can only be set
+              during object creation.
+
+              **IMPORTANT**: This field must be formatted as a valid GUID; otherwise,
+              QuickBooks will return an error.
+
+          fax: The customer's fax number.
+
+              Maximum length: 21 characters.
+
+          first_name: The first name of the contact person for this customer.
+
+              Maximum length: 25 characters.
+
+          is_active: Indicates whether this customer is active. Inactive objects are typically hidden
+              from views and reports in QuickBooks. Defaults to `true`.
+
+          job_description: A brief description of this customer's job, if this object is a job (i.e.,
+              sub-customer).
+
+          job_end_date: The actual completion date of this customer's job, if applicable, in ISO 8601
+              format (YYYY-MM-DD).
+
+          job_projected_end_date: The projected completion date for this customer's job, if applicable, in ISO
+              8601 format (YYYY-MM-DD).
+
+          job_start_date: The date when work on this customer's job began, if applicable, in ISO 8601
+              format (YYYY-MM-DD).
+
+          job_status: The status of this customer's job, if this object is a job (i.e., sub-customer).
+
+          job_title: The job title of the contact person for this customer.
+
+          job_type_id: The type or category of this customer's job, if this object is a job (i.e.,
+              sub-customer). Useful for classifying into meaningful segments (e.g., repair,
+              installation, consulting).
+
+          last_name: The last name of the contact person for this customer.
+
+              Maximum length: 25 characters.
+
+          middle_name: The middle name of the contact person for this customer.
+
+              Maximum length: 5 characters.
+
+          note: A note or comment about this customer.
+
+          opening_balance: The opening balance of this customer's account, indicating the amount owed by
+              this customer, represented as a decimal string.
+
+          opening_balance_date: The date of the opening balance of this customer, in ISO 8601 format
+              (YYYY-MM-DD).
+
+          parent_id: The parent customer one level above this one in the hierarchy. For example, if
+              this customer has a `fullName` of "ABC Corporation:Website Redesign Project",
+              its parent has a `fullName` of "ABC Corporation". If this customer is at the top
+              level, this field will be `null`.
+
+          phone: The customer's primary telephone number.
+
+              Maximum length: 21 characters.
+
+          preferred_delivery_method: The preferred method for delivering invoices and other documents to this
+              customer.
+
+          preferred_payment_method_id: The customer's preferred payment method (e.g., cash, check, credit card).
+
+          price_level_id: The customer's custom price level that QuickBooks automatically applies to
+              calculate item rates in new transactions (e.g., invoices, sales receipts, sales
+              orders, and credit memos) for this customer. While applied automatically, this
+              can be overridden when creating individual transactions. Note that transactions
+              will not show the price level itself, only the final `rate` calculated from it.
+
+          resale_number: The customer's resale number, used if the customer is purchasing items for
+              resale. This number does not affect sales tax calculations or reports in
+              QuickBooks.
+
+          sales_representative_id: The customer's sales representative. Sales representatives can be employees,
+              vendors, or other names in QuickBooks.
+
+          sales_tax_code_id: The default sales-tax code for transactions with this customer, determining
+              whether the transactions are taxable or non-taxable. This can be overridden at
+              the transaction or transaction-line level.
+
+              Default codes include "Non" (non-taxable) and "Tax" (taxable), but custom codes
+              can also be created in QuickBooks Desktop. If QuickBooks Desktop is not set up
+              to charge sales tax (via the "Do You Charge Sales Tax?" preference), it assigns
+              the default non-taxable sales-tax code configured in the company file to all
+              sales.
+
+          sales_tax_country: The country for which sales tax is collected for this customer.
+
+          sales_tax_item_id: The sales-tax item used to calculate the actual tax amount for this customer's
+              transactions by applying a specific tax rate collected for a single tax agency.
+              Unlike `salesTaxCode`, which only indicates general taxability, this field
+              drives the actual tax calculation and reporting.
+
+          salutation: The formal salutation title that precedes the name of the contact person for
+              this customer, such as "Mr.", "Ms.", or "Dr.".
+
+          shipping_address: The customer's shipping address.
+
+          tax_registration_number: The customer's tax registration number, for use in Canada or the UK.
+
+          terms_id: The customer's payment terms, defining when payment is due and any applicable
+              discounts.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        extra_headers = {"Conductor-End-User-Id": conductor_end_user_id, **(extra_headers or {})}
+        return self._post(
+            "/quickbooks-desktop/customers",
+            body=maybe_transform(
+                {
+                    "name": name,
+                    "account_number": account_number,
+                    "additional_contacts": additional_contacts,
+                    "additional_notes": additional_notes,
+                    "alternate_contact": alternate_contact,
+                    "alternate_phone": alternate_phone,
+                    "alternate_shipping_addresses": alternate_shipping_addresses,
+                    "billing_address": billing_address,
+                    "cc_email": cc_email,
+                    "class_id": class_id,
+                    "company_name": company_name,
+                    "contact": contact,
+                    "credit_card": credit_card,
+                    "credit_limit": credit_limit,
+                    "currency_id": currency_id,
+                    "custom_contact_fields": custom_contact_fields,
+                    "customer_type_id": customer_type_id,
+                    "email": email,
+                    "external_id": external_id,
+                    "fax": fax,
+                    "first_name": first_name,
+                    "is_active": is_active,
+                    "job_description": job_description,
+                    "job_end_date": job_end_date,
+                    "job_projected_end_date": job_projected_end_date,
+                    "job_start_date": job_start_date,
+                    "job_status": job_status,
+                    "job_title": job_title,
+                    "job_type_id": job_type_id,
+                    "last_name": last_name,
+                    "middle_name": middle_name,
+                    "note": note,
+                    "opening_balance": opening_balance,
+                    "opening_balance_date": opening_balance_date,
+                    "parent_id": parent_id,
+                    "phone": phone,
+                    "preferred_delivery_method": preferred_delivery_method,
+                    "preferred_payment_method_id": preferred_payment_method_id,
+                    "price_level_id": price_level_id,
+                    "resale_number": resale_number,
+                    "sales_representative_id": sales_representative_id,
+                    "sales_tax_code_id": sales_tax_code_id,
+                    "sales_tax_country": sales_tax_country,
+                    "sales_tax_item_id": sales_tax_item_id,
+                    "salutation": salutation,
+                    "shipping_address": shipping_address,
+                    "tax_registration_number": tax_registration_number,
+                    "terms_id": terms_id,
+                },
+                customer_create_params.CustomerCreateParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=Customer,
+        )
+
+    def retrieve(
+        self,
+        id: str,
+        *,
+        conductor_end_user_id: str,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Customer:
+        """
+        Retrieves a customer by ID.
+
+        **IMPORTANT:** If you need to fetch multiple specific customers by ID, use the
+        list endpoint instead with the `ids` parameter. It accepts an array of IDs so
+        you can batch the request into a single call, which is significantly faster.
+
+        Args:
+          id: The QuickBooks-assigned unique identifier of the customer to retrieve.
+
+          conductor_end_user_id: The ID of the End-User to receive this request.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        extra_headers = {"Conductor-End-User-Id": conductor_end_user_id, **(extra_headers or {})}
+        return self._get(
+            path_template("/quickbooks-desktop/customers/{id}", id=id),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=Customer,
+        )
+
+    def update(
+        self,
+        id: str,
+        *,
+        revision_number: str,
+        conductor_end_user_id: str,
+        account_number: str | Omit = omit,
+        additional_contacts: Iterable[customer_update_params.AdditionalContact] | Omit = omit,
+        additional_notes: Iterable[customer_update_params.AdditionalNote] | Omit = omit,
+        alternate_contact: str | Omit = omit,
+        alternate_phone: str | Omit = omit,
+        alternate_shipping_addresses: Iterable[customer_update_params.AlternateShippingAddress] | Omit = omit,
+        billing_address: customer_update_params.BillingAddress | Omit = omit,
+        cc_email: str | Omit = omit,
+        class_id: str | Omit = omit,
+        company_name: str | Omit = omit,
+        contact: str | Omit = omit,
+        credit_card: customer_update_params.CreditCard | Omit = omit,
+        credit_limit: str | Omit = omit,
+        currency_id: str | Omit = omit,
+        custom_contact_fields: Iterable[customer_update_params.CustomContactField] | Omit = omit,
+        customer_type_id: str | Omit = omit,
+        email: str | Omit = omit,
+        fax: str | Omit = omit,
+        first_name: str | Omit = omit,
+        is_active: bool | Omit = omit,
+        job_description: str | Omit = omit,
+        job_end_date: Union[str, date] | Omit = omit,
+        job_projected_end_date: Union[str, date] | Omit = omit,
+        job_start_date: Union[str, date] | Omit = omit,
+        job_status: Literal["awarded", "closed", "in_progress", "none", "not_awarded", "pending"] | Omit = omit,
+        job_title: str | Omit = omit,
+        job_type_id: str | Omit = omit,
+        last_name: str | Omit = omit,
+        middle_name: str | Omit = omit,
+        name: str | Omit = omit,
+        note: str | Omit = omit,
+        parent_id: str | Omit = omit,
+        phone: str | Omit = omit,
+        preferred_delivery_method: Literal["email", "mail", "none"] | Omit = omit,
+        preferred_payment_method_id: str | Omit = omit,
+        price_level_id: str | Omit = omit,
+        resale_number: str | Omit = omit,
+        sales_representative_id: str | Omit = omit,
+        sales_tax_code_id: str | Omit = omit,
+        sales_tax_country: Literal["australia", "canada", "uk", "us"] | Omit = omit,
+        sales_tax_item_id: str | Omit = omit,
+        salutation: str | Omit = omit,
+        shipping_address: customer_update_params.ShippingAddress | Omit = omit,
+        tax_registration_number: str | Omit = omit,
+        terms_id: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Customer:
+        """
+        Updates an existing customer.
+
+        Args:
+          id: The QuickBooks-assigned unique identifier of the customer to update.
+
+          revision_number: The current QuickBooks-assigned revision number of the customer object you are
+              updating, which you can get by fetching the object first. Provide the most
+              recent `revisionNumber` to ensure you're working with the latest data;
+              otherwise, the update will return an error.
+
+          conductor_end_user_id: The ID of the End-User to receive this request.
+
+          account_number: The customer's account number, which appears in the QuickBooks chart of
+              accounts, reports, and graphs.
+
+              Note that if the "Use Account Numbers" preference is turned off in QuickBooks,
+              the account number may not be visible in the user interface, but it can still be
+              set and retrieved through the API.
+
+          additional_contacts: Additional alternate contacts for this customer.
+
+          additional_notes: Additional notes about this customer.
+
+          alternate_contact: The name of a alternate contact person for this customer.
+
+          alternate_phone: The customer's alternate telephone number.
+
+              Maximum length: 21 characters.
+
+          alternate_shipping_addresses: A list of additional shipping addresses for this customer. Useful when the
+              customer has multiple shipping locations.
+
+          billing_address: The customer's billing address.
+
+          cc_email: An email address to carbon copy (CC) on communications with this customer.
+
+          class_id: The customer's class. Classes can be used to categorize objects into meaningful
+              segments, such as department, location, or type of work. In QuickBooks, class
+              tracking is off by default.
+
+          company_name: The name of the company associated with this customer. This name is used on
+              invoices, checks, and other forms.
+
+              Maximum length: 41 characters.
+
+          contact: The name of the primary contact person for this customer.
+
+          credit_card: The customer's credit card information, including card type, number, and
+              expiration date, used for processing credit card payments.
+
+          credit_limit: The customer's credit limit, represented as a decimal string. This is the
+              maximum amount of money this customer can spend before being billed. If `null`,
+              there is no credit limit.
+
+          currency_id: The customer's currency. For built-in currencies, the name and code are standard
+              ISO 4217 international values. For user-defined currencies, all values are
+              editable.
+
+          custom_contact_fields: Additional custom contact fields for this customer, such as phone numbers or
+              email addresses.
+
+          customer_type_id: The customer's type, used for categorizing customers into meaningful segments,
+              such as industry or region.
+
+          email: The customer's email address.
+
+          fax: The customer's fax number.
+
+              Maximum length: 21 characters.
+
+          first_name: The first name of the contact person for this customer.
+
+              Maximum length: 25 characters.
+
+          is_active: Indicates whether this customer is active. Inactive objects are typically hidden
+              from views and reports in QuickBooks. Defaults to `true`.
+
+          job_description: A brief description of this customer's job, if this object is a job (i.e.,
+              sub-customer).
+
+          job_end_date: The actual completion date of this customer's job, if applicable, in ISO 8601
+              format (YYYY-MM-DD).
+
+          job_projected_end_date: The projected completion date for this customer's job, if applicable, in ISO
+              8601 format (YYYY-MM-DD).
+
+          job_start_date: The date when work on this customer's job began, if applicable, in ISO 8601
+              format (YYYY-MM-DD).
+
+          job_status: The status of this customer's job, if this object is a job (i.e., sub-customer).
+
+          job_title: The job title of the contact person for this customer.
+
+          job_type_id: The type or category of this customer's job, if this object is a job (i.e.,
+              sub-customer). Useful for classifying into meaningful segments (e.g., repair,
+              installation, consulting).
+
+          last_name: The last name of the contact person for this customer.
+
+              Maximum length: 25 characters.
+
+          middle_name: The middle name of the contact person for this customer.
+
+              Maximum length: 5 characters.
+
+          name: The case-insensitive name of this customer. Not guaranteed to be unique because
+              it does not include the names of its hierarchical parent objects like `fullName`
+              does. For example, two customers could both have the `name` "Website Redesign
+              Project", but they could have unique `fullName` values, such as "ABC
+              Corporation:Website Redesign Project" and "Baker:Website Redesign Project".
+
+              Maximum length: 41 characters.
+
+          note: A note or comment about this customer.
+
+          parent_id: The parent customer one level above this one in the hierarchy. For example, if
+              this customer has a `fullName` of "ABC Corporation:Website Redesign Project",
+              its parent has a `fullName` of "ABC Corporation". If this customer is at the top
+              level, this field will be `null`.
+
+          phone: The customer's primary telephone number.
+
+              Maximum length: 21 characters.
+
+          preferred_delivery_method: The preferred method for delivering invoices and other documents to this
+              customer.
+
+          preferred_payment_method_id: The customer's preferred payment method (e.g., cash, check, credit card).
+
+          price_level_id: The customer's custom price level that QuickBooks automatically applies to
+              calculate item rates in new transactions (e.g., invoices, sales receipts, sales
+              orders, and credit memos) for this customer. While applied automatically, this
+              can be overridden when creating individual transactions. Note that transactions
+              will not show the price level itself, only the final `rate` calculated from it.
+
+          resale_number: The customer's resale number, used if the customer is purchasing items for
+              resale. This number does not affect sales tax calculations or reports in
+              QuickBooks.
+
+          sales_representative_id: The customer's sales representative. Sales representatives can be employees,
+              vendors, or other names in QuickBooks.
+
+          sales_tax_code_id: The default sales-tax code for transactions with this customer, determining
+              whether the transactions are taxable or non-taxable. This can be overridden at
+              the transaction or transaction-line level.
+
+              Default codes include "Non" (non-taxable) and "Tax" (taxable), but custom codes
+              can also be created in QuickBooks Desktop. If QuickBooks Desktop is not set up
+              to charge sales tax (via the "Do You Charge Sales Tax?" preference), it assigns
+              the default non-taxable sales-tax code configured in the company file to all
+              sales.
+
+          sales_tax_country: The country for which sales tax is collected for this customer.
+
+          sales_tax_item_id: The sales-tax item used to calculate the actual tax amount for this customer's
+              transactions by applying a specific tax rate collected for a single tax agency.
+              Unlike `salesTaxCode`, which only indicates general taxability, this field
+              drives the actual tax calculation and reporting.
+
+          salutation: The formal salutation title that precedes the name of the contact person for
+              this customer, such as "Mr.", "Ms.", or "Dr.".
+
+          shipping_address: The customer's shipping address.
+
+          tax_registration_number: The customer's tax registration number, for use in Canada or the UK.
+
+          terms_id: The customer's payment terms, defining when payment is due and any applicable
+              discounts.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        extra_headers = {"Conductor-End-User-Id": conductor_end_user_id, **(extra_headers or {})}
+        return self._post(
+            path_template("/quickbooks-desktop/customers/{id}", id=id),
+            body=maybe_transform(
+                {
+                    "revision_number": revision_number,
+                    "account_number": account_number,
+                    "additional_contacts": additional_contacts,
+                    "additional_notes": additional_notes,
+                    "alternate_contact": alternate_contact,
+                    "alternate_phone": alternate_phone,
+                    "alternate_shipping_addresses": alternate_shipping_addresses,
+                    "billing_address": billing_address,
+                    "cc_email": cc_email,
+                    "class_id": class_id,
+                    "company_name": company_name,
+                    "contact": contact,
+                    "credit_card": credit_card,
+                    "credit_limit": credit_limit,
+                    "currency_id": currency_id,
+                    "custom_contact_fields": custom_contact_fields,
+                    "customer_type_id": customer_type_id,
+                    "email": email,
+                    "fax": fax,
+                    "first_name": first_name,
+                    "is_active": is_active,
+                    "job_description": job_description,
+                    "job_end_date": job_end_date,
+                    "job_projected_end_date": job_projected_end_date,
+                    "job_start_date": job_start_date,
+                    "job_status": job_status,
+                    "job_title": job_title,
+                    "job_type_id": job_type_id,
+                    "last_name": last_name,
+                    "middle_name": middle_name,
+                    "name": name,
+                    "note": note,
+                    "parent_id": parent_id,
+                    "phone": phone,
+                    "preferred_delivery_method": preferred_delivery_method,
+                    "preferred_payment_method_id": preferred_payment_method_id,
+                    "price_level_id": price_level_id,
+                    "resale_number": resale_number,
+                    "sales_representative_id": sales_representative_id,
+                    "sales_tax_code_id": sales_tax_code_id,
+                    "sales_tax_country": sales_tax_country,
+                    "sales_tax_item_id": sales_tax_item_id,
+                    "salutation": salutation,
+                    "shipping_address": shipping_address,
+                    "tax_registration_number": tax_registration_number,
+                    "terms_id": terms_id,
+                },
+                customer_update_params.CustomerUpdateParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=Customer,
+        )
+
+    def list(
+        self,
+        *,
+        conductor_end_user_id: str,
+        class_ids: SequenceNotStr[str] | Omit = omit,
+        currency_ids: SequenceNotStr[str] | Omit = omit,
+        cursor: str | Omit = omit,
+        exclude_alternate_shipping_addresses: bool | Omit = omit,
+        full_names: SequenceNotStr[str] | Omit = omit,
+        ids: SequenceNotStr[str] | Omit = omit,
+        limit: int | Omit = omit,
+        name_contains: str | Omit = omit,
+        name_ends_with: str | Omit = omit,
+        name_from: str | Omit = omit,
+        name_starts_with: str | Omit = omit,
+        name_to: str | Omit = omit,
+        status: Literal["active", "all", "inactive"] | Omit = omit,
+        total_balance: str | Omit = omit,
+        total_balance_greater_than: str | Omit = omit,
+        total_balance_greater_than_or_equal_to: str | Omit = omit,
+        total_balance_less_than: str | Omit = omit,
+        total_balance_less_than_or_equal_to: str | Omit = omit,
+        updated_after: str | Omit = omit,
+        updated_before: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> SyncCursorPage[Customer]:
+        """Returns a list of customers.
+
+        Use the `cursor` parameter to paginate through the
+        results.
+
+        **IMPORTANT**: If this request times out or is slow, set
+        `excludeAlternateShippingAddresses=true` to significantly improve performance.
+        Use the `cursor` parameter to paginate through the results.
+
+        Args:
+          conductor_end_user_id: The ID of the End-User to receive this request.
+
+          class_ids: Filter for customers of these classes. A class is a way end-users can categorize
+              customers in QuickBooks.
+
+          currency_ids: Filter for customers in these currencies.
+
+          cursor: The pagination token to fetch the next set of results when paginating with the
+              `limit` parameter. Do not include this parameter on the first call. Use the
+              `nextCursor` value returned in the previous response to request subsequent
+              results.
+
+          exclude_alternate_shipping_addresses: Excludes alternate shipping addresses from each customer returned by the list
+              request. When true, the response returns `alternateShippingAddresses` as `null`
+              instead of fetching the address array. Use this when your integration does not
+              need alternate shipping addresses. This significantly improves performance for
+              company files where some customers have many saved shipping addresses (sometimes
+              dozens or hundreds).
+
+          full_names: Filter for specific customers by their full-name(s), case-insensitive. Like
+              `id`, `fullName` is a unique identifier for a customer, formed by by combining
+              the names of its parent objects with its own `name`, separated by colons. For
+              example, if a customer is under "ABC Corporation" and has the `name` "Website
+              Redesign Project", its `fullName` would be "ABC Corporation:Website Redesign
+              Project".
+
+              **IMPORTANT**: If you include this parameter, QuickBooks will ignore all other
+              query parameters for this request.
+
+              **NOTE**: If any of the values you specify in this parameter are not found, the
+              request will return an error.
+
+          ids: Filter for specific customers by their QuickBooks-assigned unique identifier(s).
+
+              **IMPORTANT**: If you include this parameter, QuickBooks will ignore all other
+              query parameters for this request.
+
+              **NOTE**: If any of the values you specify in this parameter are not found, the
+              request will return an error.
+
+          limit: The maximum number of objects to return. Accepts values ranging from 1 to 150,
+              defaults to 150. When used with cursor-based pagination, this parameter controls
+              how many results are returned per page. To paginate through results, combine
+              this with the `cursor` parameter. Each response will include a `nextCursor`
+              value that can be passed to subsequent requests to retrieve the next page of
+              results.
+
+          name_contains: Filter for customers whose `name` contains this substring, case-insensitive.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameStartsWith` or
+              `nameEndsWith`.
+
+          name_ends_with: Filter for customers whose `name` ends with this substring, case-insensitive.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameContains` or
+              `nameStartsWith`.
+
+          name_from: Filter for customers whose `name` is alphabetically greater than or equal to
+              this value.
+
+          name_starts_with: Filter for customers whose `name` starts with this substring, case-insensitive.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameContains` or
+              `nameEndsWith`.
+
+          name_to: Filter for customers whose `name` is alphabetically less than or equal to this
+              value.
+
+          status: Filter for customers that are active, inactive, or both.
+
+          total_balance: Filter for customers whose `totalBalance` equals this amount, represented as a
+              decimal string. You can only use one total-balance filter at a time.
+
+          total_balance_greater_than: Filter for customers whose `totalBalance` is greater than this amount,
+              represented as a decimal string. You can only use one total-balance filter at a
+              time.
+
+          total_balance_greater_than_or_equal_to: Filter for customers whose `totalBalance` is greater than or equal to this
+              amount, represented as a decimal string. You can only use one total-balance
+              filter at a time.
+
+          total_balance_less_than: Filter for customers whose `totalBalance` is less than this amount, represented
+              as a decimal string. You can only use one total-balance filter at a time.
+
+          total_balance_less_than_or_equal_to: Filter for customers whose `totalBalance` is less than or equal to this amount,
+              represented as a decimal string. You can only use one total-balance filter at a
+              time.
+
+          updated_after: Filter for customers updated on or after this date/time. Accepts the following
+              ISO 8601 formats:
+
+              - **date-only** (YYYY-MM-DD) - QuickBooks Desktop interprets the date as the
+                **start of the specified day** in the local timezone of the end-user's
+                computer (e.g., `2025-01-01` → `2025-01-01T00:00:00`).
+              - **datetime without timezone** (YYYY-MM-DDTHH:mm:ss) - QuickBooks Desktop
+                interprets the timestamp in the local timezone of the end-user's computer.
+              - **datetime with timezone** (YYYY-MM-DDTHH:mm:ss±HH:mm) - QuickBooks Desktop
+                interprets the timestamp using the specified timezone.
+
+          updated_before: Filter for customers updated on or before this date/time. Accepts the following
+              ISO 8601 formats:
+
+              - **date-only** (YYYY-MM-DD) - QuickBooks Desktop interprets the date as the
+                **end of the specified day** in the local timezone of the end-user's computer
+                (e.g., `2025-01-01` → `2025-01-01T23:59:59`).
+              - **datetime without timezone** (YYYY-MM-DDTHH:mm:ss) - QuickBooks Desktop
+                interprets the timestamp in the local timezone of the end-user's computer.
+              - **datetime with timezone** (YYYY-MM-DDTHH:mm:ss±HH:mm) - QuickBooks Desktop
+                interprets the timestamp using the specified timezone.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        extra_headers = {"Conductor-End-User-Id": conductor_end_user_id, **(extra_headers or {})}
+        return self._get_api_list(
+            "/quickbooks-desktop/customers",
+            page=SyncCursorPage[Customer],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "class_ids": class_ids,
+                        "currency_ids": currency_ids,
+                        "cursor": cursor,
+                        "exclude_alternate_shipping_addresses": exclude_alternate_shipping_addresses,
+                        "full_names": full_names,
+                        "ids": ids,
+                        "limit": limit,
+                        "name_contains": name_contains,
+                        "name_ends_with": name_ends_with,
+                        "name_from": name_from,
+                        "name_starts_with": name_starts_with,
+                        "name_to": name_to,
+                        "status": status,
+                        "total_balance": total_balance,
+                        "total_balance_greater_than": total_balance_greater_than,
+                        "total_balance_greater_than_or_equal_to": total_balance_greater_than_or_equal_to,
+                        "total_balance_less_than": total_balance_less_than,
+                        "total_balance_less_than_or_equal_to": total_balance_less_than_or_equal_to,
+                        "updated_after": updated_after,
+                        "updated_before": updated_before,
+                    },
+                    customer_list_params.CustomerListParams,
+                ),
+            ),
+            model=Customer,
+        )
+
+
+class AsyncCustomersResource(AsyncAPIResource):
+    @cached_property
+    def with_raw_response(self) -> AsyncCustomersResourceWithRawResponse:
+        """
+        This property can be used as a prefix for any HTTP method call to return
+        the raw response object instead of the parsed content.
+
+        For more information, see https://www.github.com/conductor-is/quickbooks-desktop-python#accessing-raw-response-data-eg-headers
+        """
+        return AsyncCustomersResourceWithRawResponse(self)
+
+    @cached_property
+    def with_streaming_response(self) -> AsyncCustomersResourceWithStreamingResponse:
+        """
+        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
+
+        For more information, see https://www.github.com/conductor-is/quickbooks-desktop-python#with_streaming_response
+        """
+        return AsyncCustomersResourceWithStreamingResponse(self)
+
+    async def create(
+        self,
+        *,
+        name: str,
+        conductor_end_user_id: str,
+        account_number: str | Omit = omit,
+        additional_contacts: Iterable[customer_create_params.AdditionalContact] | Omit = omit,
+        additional_notes: Iterable[customer_create_params.AdditionalNote] | Omit = omit,
+        alternate_contact: str | Omit = omit,
+        alternate_phone: str | Omit = omit,
+        alternate_shipping_addresses: Iterable[customer_create_params.AlternateShippingAddress] | Omit = omit,
+        billing_address: customer_create_params.BillingAddress | Omit = omit,
+        cc_email: str | Omit = omit,
+        class_id: str | Omit = omit,
+        company_name: str | Omit = omit,
+        contact: str | Omit = omit,
+        credit_card: customer_create_params.CreditCard | Omit = omit,
+        credit_limit: str | Omit = omit,
+        currency_id: str | Omit = omit,
+        custom_contact_fields: Iterable[customer_create_params.CustomContactField] | Omit = omit,
+        customer_type_id: str | Omit = omit,
+        email: str | Omit = omit,
+        external_id: str | Omit = omit,
+        fax: str | Omit = omit,
+        first_name: str | Omit = omit,
+        is_active: bool | Omit = omit,
+        job_description: str | Omit = omit,
+        job_end_date: Union[str, date] | Omit = omit,
+        job_projected_end_date: Union[str, date] | Omit = omit,
+        job_start_date: Union[str, date] | Omit = omit,
+        job_status: Literal["awarded", "closed", "in_progress", "none", "not_awarded", "pending"] | Omit = omit,
+        job_title: str | Omit = omit,
+        job_type_id: str | Omit = omit,
+        last_name: str | Omit = omit,
+        middle_name: str | Omit = omit,
+        note: str | Omit = omit,
+        opening_balance: str | Omit = omit,
+        opening_balance_date: Union[str, date] | Omit = omit,
+        parent_id: str | Omit = omit,
+        phone: str | Omit = omit,
+        preferred_delivery_method: Literal["email", "mail", "none"] | Omit = omit,
+        preferred_payment_method_id: str | Omit = omit,
+        price_level_id: str | Omit = omit,
+        resale_number: str | Omit = omit,
+        sales_representative_id: str | Omit = omit,
+        sales_tax_code_id: str | Omit = omit,
+        sales_tax_country: Literal["australia", "canada", "uk", "us"] | Omit = omit,
+        sales_tax_item_id: str | Omit = omit,
+        salutation: str | Omit = omit,
+        shipping_address: customer_create_params.ShippingAddress | Omit = omit,
+        tax_registration_number: str | Omit = omit,
+        terms_id: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Customer:
+        """
+        Creates a new customer.
+
+        Args:
+          name: The case-insensitive name of this customer. Not guaranteed to be unique because
+              it does not include the names of its hierarchical parent objects like `fullName`
+              does. For example, two customers could both have the `name` "Website Redesign
+              Project", but they could have unique `fullName` values, such as "ABC
+              Corporation:Website Redesign Project" and "Baker:Website Redesign Project".
+
+              Maximum length: 41 characters.
+
+          conductor_end_user_id: The ID of the End-User to receive this request.
+
+          account_number: The customer's account number, which appears in the QuickBooks chart of
+              accounts, reports, and graphs.
+
+              Note that if the "Use Account Numbers" preference is turned off in QuickBooks,
+              the account number may not be visible in the user interface, but it can still be
+              set and retrieved through the API.
+
+          additional_contacts: Additional alternate contacts for this customer.
+
+          additional_notes: Additional notes about this customer.
+
+          alternate_contact: The name of a alternate contact person for this customer.
+
+          alternate_phone: The customer's alternate telephone number.
+
+              Maximum length: 21 characters.
+
+          alternate_shipping_addresses: A list of additional shipping addresses for this customer. Useful when the
+              customer has multiple shipping locations.
+
+          billing_address: The customer's billing address.
+
+          cc_email: An email address to carbon copy (CC) on communications with this customer.
+
+          class_id: The customer's class. Classes can be used to categorize objects into meaningful
+              segments, such as department, location, or type of work. In QuickBooks, class
+              tracking is off by default.
+
+          company_name: The name of the company associated with this customer. This name is used on
+              invoices, checks, and other forms.
+
+              Maximum length: 41 characters.
+
+          contact: The name of the primary contact person for this customer.
+
+          credit_card: The customer's credit card information, including card type, number, and
+              expiration date, used for processing credit card payments.
+
+          credit_limit: The customer's credit limit, represented as a decimal string. This is the
+              maximum amount of money this customer can spend before being billed. If `null`,
+              there is no credit limit.
+
+          currency_id: The customer's currency. For built-in currencies, the name and code are standard
+              ISO 4217 international values. For user-defined currencies, all values are
+              editable.
+
+          custom_contact_fields: Additional custom contact fields for this customer, such as phone numbers or
+              email addresses.
+
+          customer_type_id: The customer's type, used for categorizing customers into meaningful segments,
+              such as industry or region.
+
+          email: The customer's email address.
+
+          external_id: A globally unique identifier (GUID) you, the developer, can provide for tracking
+              this object in your external system. This field is immutable and can only be set
+              during object creation.
+
+              **IMPORTANT**: This field must be formatted as a valid GUID; otherwise,
+              QuickBooks will return an error.
+
+          fax: The customer's fax number.
+
+              Maximum length: 21 characters.
+
+          first_name: The first name of the contact person for this customer.
+
+              Maximum length: 25 characters.
+
+          is_active: Indicates whether this customer is active. Inactive objects are typically hidden
+              from views and reports in QuickBooks. Defaults to `true`.
+
+          job_description: A brief description of this customer's job, if this object is a job (i.e.,
+              sub-customer).
+
+          job_end_date: The actual completion date of this customer's job, if applicable, in ISO 8601
+              format (YYYY-MM-DD).
+
+          job_projected_end_date: The projected completion date for this customer's job, if applicable, in ISO
+              8601 format (YYYY-MM-DD).
+
+          job_start_date: The date when work on this customer's job began, if applicable, in ISO 8601
+              format (YYYY-MM-DD).
+
+          job_status: The status of this customer's job, if this object is a job (i.e., sub-customer).
+
+          job_title: The job title of the contact person for this customer.
+
+          job_type_id: The type or category of this customer's job, if this object is a job (i.e.,
+              sub-customer). Useful for classifying into meaningful segments (e.g., repair,
+              installation, consulting).
+
+          last_name: The last name of the contact person for this customer.
+
+              Maximum length: 25 characters.
+
+          middle_name: The middle name of the contact person for this customer.
+
+              Maximum length: 5 characters.
+
+          note: A note or comment about this customer.
+
+          opening_balance: The opening balance of this customer's account, indicating the amount owed by
+              this customer, represented as a decimal string.
+
+          opening_balance_date: The date of the opening balance of this customer, in ISO 8601 format
+              (YYYY-MM-DD).
+
+          parent_id: The parent customer one level above this one in the hierarchy. For example, if
+              this customer has a `fullName` of "ABC Corporation:Website Redesign Project",
+              its parent has a `fullName` of "ABC Corporation". If this customer is at the top
+              level, this field will be `null`.
+
+          phone: The customer's primary telephone number.
+
+              Maximum length: 21 characters.
+
+          preferred_delivery_method: The preferred method for delivering invoices and other documents to this
+              customer.
+
+          preferred_payment_method_id: The customer's preferred payment method (e.g., cash, check, credit card).
+
+          price_level_id: The customer's custom price level that QuickBooks automatically applies to
+              calculate item rates in new transactions (e.g., invoices, sales receipts, sales
+              orders, and credit memos) for this customer. While applied automatically, this
+              can be overridden when creating individual transactions. Note that transactions
+              will not show the price level itself, only the final `rate` calculated from it.
+
+          resale_number: The customer's resale number, used if the customer is purchasing items for
+              resale. This number does not affect sales tax calculations or reports in
+              QuickBooks.
+
+          sales_representative_id: The customer's sales representative. Sales representatives can be employees,
+              vendors, or other names in QuickBooks.
+
+          sales_tax_code_id: The default sales-tax code for transactions with this customer, determining
+              whether the transactions are taxable or non-taxable. This can be overridden at
+              the transaction or transaction-line level.
+
+              Default codes include "Non" (non-taxable) and "Tax" (taxable), but custom codes
+              can also be created in QuickBooks Desktop. If QuickBooks Desktop is not set up
+              to charge sales tax (via the "Do You Charge Sales Tax?" preference), it assigns
+              the default non-taxable sales-tax code configured in the company file to all
+              sales.
+
+          sales_tax_country: The country for which sales tax is collected for this customer.
+
+          sales_tax_item_id: The sales-tax item used to calculate the actual tax amount for this customer's
+              transactions by applying a specific tax rate collected for a single tax agency.
+              Unlike `salesTaxCode`, which only indicates general taxability, this field
+              drives the actual tax calculation and reporting.
+
+          salutation: The formal salutation title that precedes the name of the contact person for
+              this customer, such as "Mr.", "Ms.", or "Dr.".
+
+          shipping_address: The customer's shipping address.
+
+          tax_registration_number: The customer's tax registration number, for use in Canada or the UK.
+
+          terms_id: The customer's payment terms, defining when payment is due and any applicable
+              discounts.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        extra_headers = {"Conductor-End-User-Id": conductor_end_user_id, **(extra_headers or {})}
+        return await self._post(
+            "/quickbooks-desktop/customers",
+            body=await async_maybe_transform(
+                {
+                    "name": name,
+                    "account_number": account_number,
+                    "additional_contacts": additional_contacts,
+                    "additional_notes": additional_notes,
+                    "alternate_contact": alternate_contact,
+                    "alternate_phone": alternate_phone,
+                    "alternate_shipping_addresses": alternate_shipping_addresses,
+                    "billing_address": billing_address,
+                    "cc_email": cc_email,
+                    "class_id": class_id,
+                    "company_name": company_name,
+                    "contact": contact,
+                    "credit_card": credit_card,
+                    "credit_limit": credit_limit,
+                    "currency_id": currency_id,
+                    "custom_contact_fields": custom_contact_fields,
+                    "customer_type_id": customer_type_id,
+                    "email": email,
+                    "external_id": external_id,
+                    "fax": fax,
+                    "first_name": first_name,
+                    "is_active": is_active,
+                    "job_description": job_description,
+                    "job_end_date": job_end_date,
+                    "job_projected_end_date": job_projected_end_date,
+                    "job_start_date": job_start_date,
+                    "job_status": job_status,
+                    "job_title": job_title,
+                    "job_type_id": job_type_id,
+                    "last_name": last_name,
+                    "middle_name": middle_name,
+                    "note": note,
+                    "opening_balance": opening_balance,
+                    "opening_balance_date": opening_balance_date,
+                    "parent_id": parent_id,
+                    "phone": phone,
+                    "preferred_delivery_method": preferred_delivery_method,
+                    "preferred_payment_method_id": preferred_payment_method_id,
+                    "price_level_id": price_level_id,
+                    "resale_number": resale_number,
+                    "sales_representative_id": sales_representative_id,
+                    "sales_tax_code_id": sales_tax_code_id,
+                    "sales_tax_country": sales_tax_country,
+                    "sales_tax_item_id": sales_tax_item_id,
+                    "salutation": salutation,
+                    "shipping_address": shipping_address,
+                    "tax_registration_number": tax_registration_number,
+                    "terms_id": terms_id,
+                },
+                customer_create_params.CustomerCreateParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=Customer,
+        )
+
+    async def retrieve(
+        self,
+        id: str,
+        *,
+        conductor_end_user_id: str,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Customer:
+        """
+        Retrieves a customer by ID.
+
+        **IMPORTANT:** If you need to fetch multiple specific customers by ID, use the
+        list endpoint instead with the `ids` parameter. It accepts an array of IDs so
+        you can batch the request into a single call, which is significantly faster.
+
+        Args:
+          id: The QuickBooks-assigned unique identifier of the customer to retrieve.
+
+          conductor_end_user_id: The ID of the End-User to receive this request.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        extra_headers = {"Conductor-End-User-Id": conductor_end_user_id, **(extra_headers or {})}
+        return await self._get(
+            path_template("/quickbooks-desktop/customers/{id}", id=id),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=Customer,
+        )
+
+    async def update(
+        self,
+        id: str,
+        *,
+        revision_number: str,
+        conductor_end_user_id: str,
+        account_number: str | Omit = omit,
+        additional_contacts: Iterable[customer_update_params.AdditionalContact] | Omit = omit,
+        additional_notes: Iterable[customer_update_params.AdditionalNote] | Omit = omit,
+        alternate_contact: str | Omit = omit,
+        alternate_phone: str | Omit = omit,
+        alternate_shipping_addresses: Iterable[customer_update_params.AlternateShippingAddress] | Omit = omit,
+        billing_address: customer_update_params.BillingAddress | Omit = omit,
+        cc_email: str | Omit = omit,
+        class_id: str | Omit = omit,
+        company_name: str | Omit = omit,
+        contact: str | Omit = omit,
+        credit_card: customer_update_params.CreditCard | Omit = omit,
+        credit_limit: str | Omit = omit,
+        currency_id: str | Omit = omit,
+        custom_contact_fields: Iterable[customer_update_params.CustomContactField] | Omit = omit,
+        customer_type_id: str | Omit = omit,
+        email: str | Omit = omit,
+        fax: str | Omit = omit,
+        first_name: str | Omit = omit,
+        is_active: bool | Omit = omit,
+        job_description: str | Omit = omit,
+        job_end_date: Union[str, date] | Omit = omit,
+        job_projected_end_date: Union[str, date] | Omit = omit,
+        job_start_date: Union[str, date] | Omit = omit,
+        job_status: Literal["awarded", "closed", "in_progress", "none", "not_awarded", "pending"] | Omit = omit,
+        job_title: str | Omit = omit,
+        job_type_id: str | Omit = omit,
+        last_name: str | Omit = omit,
+        middle_name: str | Omit = omit,
+        name: str | Omit = omit,
+        note: str | Omit = omit,
+        parent_id: str | Omit = omit,
+        phone: str | Omit = omit,
+        preferred_delivery_method: Literal["email", "mail", "none"] | Omit = omit,
+        preferred_payment_method_id: str | Omit = omit,
+        price_level_id: str | Omit = omit,
+        resale_number: str | Omit = omit,
+        sales_representative_id: str | Omit = omit,
+        sales_tax_code_id: str | Omit = omit,
+        sales_tax_country: Literal["australia", "canada", "uk", "us"] | Omit = omit,
+        sales_tax_item_id: str | Omit = omit,
+        salutation: str | Omit = omit,
+        shipping_address: customer_update_params.ShippingAddress | Omit = omit,
+        tax_registration_number: str | Omit = omit,
+        terms_id: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Customer:
+        """
+        Updates an existing customer.
+
+        Args:
+          id: The QuickBooks-assigned unique identifier of the customer to update.
+
+          revision_number: The current QuickBooks-assigned revision number of the customer object you are
+              updating, which you can get by fetching the object first. Provide the most
+              recent `revisionNumber` to ensure you're working with the latest data;
+              otherwise, the update will return an error.
+
+          conductor_end_user_id: The ID of the End-User to receive this request.
+
+          account_number: The customer's account number, which appears in the QuickBooks chart of
+              accounts, reports, and graphs.
+
+              Note that if the "Use Account Numbers" preference is turned off in QuickBooks,
+              the account number may not be visible in the user interface, but it can still be
+              set and retrieved through the API.
+
+          additional_contacts: Additional alternate contacts for this customer.
+
+          additional_notes: Additional notes about this customer.
+
+          alternate_contact: The name of a alternate contact person for this customer.
+
+          alternate_phone: The customer's alternate telephone number.
+
+              Maximum length: 21 characters.
+
+          alternate_shipping_addresses: A list of additional shipping addresses for this customer. Useful when the
+              customer has multiple shipping locations.
+
+          billing_address: The customer's billing address.
+
+          cc_email: An email address to carbon copy (CC) on communications with this customer.
+
+          class_id: The customer's class. Classes can be used to categorize objects into meaningful
+              segments, such as department, location, or type of work. In QuickBooks, class
+              tracking is off by default.
+
+          company_name: The name of the company associated with this customer. This name is used on
+              invoices, checks, and other forms.
+
+              Maximum length: 41 characters.
+
+          contact: The name of the primary contact person for this customer.
+
+          credit_card: The customer's credit card information, including card type, number, and
+              expiration date, used for processing credit card payments.
+
+          credit_limit: The customer's credit limit, represented as a decimal string. This is the
+              maximum amount of money this customer can spend before being billed. If `null`,
+              there is no credit limit.
+
+          currency_id: The customer's currency. For built-in currencies, the name and code are standard
+              ISO 4217 international values. For user-defined currencies, all values are
+              editable.
+
+          custom_contact_fields: Additional custom contact fields for this customer, such as phone numbers or
+              email addresses.
+
+          customer_type_id: The customer's type, used for categorizing customers into meaningful segments,
+              such as industry or region.
+
+          email: The customer's email address.
+
+          fax: The customer's fax number.
+
+              Maximum length: 21 characters.
+
+          first_name: The first name of the contact person for this customer.
+
+              Maximum length: 25 characters.
+
+          is_active: Indicates whether this customer is active. Inactive objects are typically hidden
+              from views and reports in QuickBooks. Defaults to `true`.
+
+          job_description: A brief description of this customer's job, if this object is a job (i.e.,
+              sub-customer).
+
+          job_end_date: The actual completion date of this customer's job, if applicable, in ISO 8601
+              format (YYYY-MM-DD).
+
+          job_projected_end_date: The projected completion date for this customer's job, if applicable, in ISO
+              8601 format (YYYY-MM-DD).
+
+          job_start_date: The date when work on this customer's job began, if applicable, in ISO 8601
+              format (YYYY-MM-DD).
+
+          job_status: The status of this customer's job, if this object is a job (i.e., sub-customer).
+
+          job_title: The job title of the contact person for this customer.
+
+          job_type_id: The type or category of this customer's job, if this object is a job (i.e.,
+              sub-customer). Useful for classifying into meaningful segments (e.g., repair,
+              installation, consulting).
+
+          last_name: The last name of the contact person for this customer.
+
+              Maximum length: 25 characters.
+
+          middle_name: The middle name of the contact person for this customer.
+
+              Maximum length: 5 characters.
+
+          name: The case-insensitive name of this customer. Not guaranteed to be unique because
+              it does not include the names of its hierarchical parent objects like `fullName`
+              does. For example, two customers could both have the `name` "Website Redesign
+              Project", but they could have unique `fullName` values, such as "ABC
+              Corporation:Website Redesign Project" and "Baker:Website Redesign Project".
+
+              Maximum length: 41 characters.
+
+          note: A note or comment about this customer.
+
+          parent_id: The parent customer one level above this one in the hierarchy. For example, if
+              this customer has a `fullName` of "ABC Corporation:Website Redesign Project",
+              its parent has a `fullName` of "ABC Corporation". If this customer is at the top
+              level, this field will be `null`.
+
+          phone: The customer's primary telephone number.
+
+              Maximum length: 21 characters.
+
+          preferred_delivery_method: The preferred method for delivering invoices and other documents to this
+              customer.
+
+          preferred_payment_method_id: The customer's preferred payment method (e.g., cash, check, credit card).
+
+          price_level_id: The customer's custom price level that QuickBooks automatically applies to
+              calculate item rates in new transactions (e.g., invoices, sales receipts, sales
+              orders, and credit memos) for this customer. While applied automatically, this
+              can be overridden when creating individual transactions. Note that transactions
+              will not show the price level itself, only the final `rate` calculated from it.
+
+          resale_number: The customer's resale number, used if the customer is purchasing items for
+              resale. This number does not affect sales tax calculations or reports in
+              QuickBooks.
+
+          sales_representative_id: The customer's sales representative. Sales representatives can be employees,
+              vendors, or other names in QuickBooks.
+
+          sales_tax_code_id: The default sales-tax code for transactions with this customer, determining
+              whether the transactions are taxable or non-taxable. This can be overridden at
+              the transaction or transaction-line level.
+
+              Default codes include "Non" (non-taxable) and "Tax" (taxable), but custom codes
+              can also be created in QuickBooks Desktop. If QuickBooks Desktop is not set up
+              to charge sales tax (via the "Do You Charge Sales Tax?" preference), it assigns
+              the default non-taxable sales-tax code configured in the company file to all
+              sales.
+
+          sales_tax_country: The country for which sales tax is collected for this customer.
+
+          sales_tax_item_id: The sales-tax item used to calculate the actual tax amount for this customer's
+              transactions by applying a specific tax rate collected for a single tax agency.
+              Unlike `salesTaxCode`, which only indicates general taxability, this field
+              drives the actual tax calculation and reporting.
+
+          salutation: The formal salutation title that precedes the name of the contact person for
+              this customer, such as "Mr.", "Ms.", or "Dr.".
+
+          shipping_address: The customer's shipping address.
+
+          tax_registration_number: The customer's tax registration number, for use in Canada or the UK.
+
+          terms_id: The customer's payment terms, defining when payment is due and any applicable
+              discounts.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not id:
+            raise ValueError(f"Expected a non-empty value for `id` but received {id!r}")
+        extra_headers = {"Conductor-End-User-Id": conductor_end_user_id, **(extra_headers or {})}
+        return await self._post(
+            path_template("/quickbooks-desktop/customers/{id}", id=id),
+            body=await async_maybe_transform(
+                {
+                    "revision_number": revision_number,
+                    "account_number": account_number,
+                    "additional_contacts": additional_contacts,
+                    "additional_notes": additional_notes,
+                    "alternate_contact": alternate_contact,
+                    "alternate_phone": alternate_phone,
+                    "alternate_shipping_addresses": alternate_shipping_addresses,
+                    "billing_address": billing_address,
+                    "cc_email": cc_email,
+                    "class_id": class_id,
+                    "company_name": company_name,
+                    "contact": contact,
+                    "credit_card": credit_card,
+                    "credit_limit": credit_limit,
+                    "currency_id": currency_id,
+                    "custom_contact_fields": custom_contact_fields,
+                    "customer_type_id": customer_type_id,
+                    "email": email,
+                    "fax": fax,
+                    "first_name": first_name,
+                    "is_active": is_active,
+                    "job_description": job_description,
+                    "job_end_date": job_end_date,
+                    "job_projected_end_date": job_projected_end_date,
+                    "job_start_date": job_start_date,
+                    "job_status": job_status,
+                    "job_title": job_title,
+                    "job_type_id": job_type_id,
+                    "last_name": last_name,
+                    "middle_name": middle_name,
+                    "name": name,
+                    "note": note,
+                    "parent_id": parent_id,
+                    "phone": phone,
+                    "preferred_delivery_method": preferred_delivery_method,
+                    "preferred_payment_method_id": preferred_payment_method_id,
+                    "price_level_id": price_level_id,
+                    "resale_number": resale_number,
+                    "sales_representative_id": sales_representative_id,
+                    "sales_tax_code_id": sales_tax_code_id,
+                    "sales_tax_country": sales_tax_country,
+                    "sales_tax_item_id": sales_tax_item_id,
+                    "salutation": salutation,
+                    "shipping_address": shipping_address,
+                    "tax_registration_number": tax_registration_number,
+                    "terms_id": terms_id,
+                },
+                customer_update_params.CustomerUpdateParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=Customer,
+        )
+
+    def list(
+        self,
+        *,
+        conductor_end_user_id: str,
+        class_ids: SequenceNotStr[str] | Omit = omit,
+        currency_ids: SequenceNotStr[str] | Omit = omit,
+        cursor: str | Omit = omit,
+        exclude_alternate_shipping_addresses: bool | Omit = omit,
+        full_names: SequenceNotStr[str] | Omit = omit,
+        ids: SequenceNotStr[str] | Omit = omit,
+        limit: int | Omit = omit,
+        name_contains: str | Omit = omit,
+        name_ends_with: str | Omit = omit,
+        name_from: str | Omit = omit,
+        name_starts_with: str | Omit = omit,
+        name_to: str | Omit = omit,
+        status: Literal["active", "all", "inactive"] | Omit = omit,
+        total_balance: str | Omit = omit,
+        total_balance_greater_than: str | Omit = omit,
+        total_balance_greater_than_or_equal_to: str | Omit = omit,
+        total_balance_less_than: str | Omit = omit,
+        total_balance_less_than_or_equal_to: str | Omit = omit,
+        updated_after: str | Omit = omit,
+        updated_before: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> AsyncPaginator[Customer, AsyncCursorPage[Customer]]:
+        """Returns a list of customers.
+
+        Use the `cursor` parameter to paginate through the
+        results.
+
+        **IMPORTANT**: If this request times out or is slow, set
+        `excludeAlternateShippingAddresses=true` to significantly improve performance.
+        Use the `cursor` parameter to paginate through the results.
+
+        Args:
+          conductor_end_user_id: The ID of the End-User to receive this request.
+
+          class_ids: Filter for customers of these classes. A class is a way end-users can categorize
+              customers in QuickBooks.
+
+          currency_ids: Filter for customers in these currencies.
+
+          cursor: The pagination token to fetch the next set of results when paginating with the
+              `limit` parameter. Do not include this parameter on the first call. Use the
+              `nextCursor` value returned in the previous response to request subsequent
+              results.
+
+          exclude_alternate_shipping_addresses: Excludes alternate shipping addresses from each customer returned by the list
+              request. When true, the response returns `alternateShippingAddresses` as `null`
+              instead of fetching the address array. Use this when your integration does not
+              need alternate shipping addresses. This significantly improves performance for
+              company files where some customers have many saved shipping addresses (sometimes
+              dozens or hundreds).
+
+          full_names: Filter for specific customers by their full-name(s), case-insensitive. Like
+              `id`, `fullName` is a unique identifier for a customer, formed by by combining
+              the names of its parent objects with its own `name`, separated by colons. For
+              example, if a customer is under "ABC Corporation" and has the `name` "Website
+              Redesign Project", its `fullName` would be "ABC Corporation:Website Redesign
+              Project".
+
+              **IMPORTANT**: If you include this parameter, QuickBooks will ignore all other
+              query parameters for this request.
+
+              **NOTE**: If any of the values you specify in this parameter are not found, the
+              request will return an error.
+
+          ids: Filter for specific customers by their QuickBooks-assigned unique identifier(s).
+
+              **IMPORTANT**: If you include this parameter, QuickBooks will ignore all other
+              query parameters for this request.
+
+              **NOTE**: If any of the values you specify in this parameter are not found, the
+              request will return an error.
+
+          limit: The maximum number of objects to return. Accepts values ranging from 1 to 150,
+              defaults to 150. When used with cursor-based pagination, this parameter controls
+              how many results are returned per page. To paginate through results, combine
+              this with the `cursor` parameter. Each response will include a `nextCursor`
+              value that can be passed to subsequent requests to retrieve the next page of
+              results.
+
+          name_contains: Filter for customers whose `name` contains this substring, case-insensitive.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameStartsWith` or
+              `nameEndsWith`.
+
+          name_ends_with: Filter for customers whose `name` ends with this substring, case-insensitive.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameContains` or
+              `nameStartsWith`.
+
+          name_from: Filter for customers whose `name` is alphabetically greater than or equal to
+              this value.
+
+          name_starts_with: Filter for customers whose `name` starts with this substring, case-insensitive.
+
+              **NOTE**: If you use this parameter, you cannot also use `nameContains` or
+              `nameEndsWith`.
+
+          name_to: Filter for customers whose `name` is alphabetically less than or equal to this
+              value.
+
+          status: Filter for customers that are active, inactive, or both.
+
+          total_balance: Filter for customers whose `totalBalance` equals this amount, represented as a
+              decimal string. You can only use one total-balance filter at a time.
+
+          total_balance_greater_than: Filter for customers whose `totalBalance` is greater than this amount,
+              represented as a decimal string. You can only use one total-balance filter at a
+              time.
+
+          total_balance_greater_than_or_equal_to: Filter for customers whose `totalBalance` is greater than or equal to this
+              amount, represented as a decimal string. You can only use one total-balance
+              filter at a time.
+
+          total_balance_less_than: Filter for customers whose `totalBalance` is less than this amount, represented
+              as a decimal string. You can only use one total-balance filter at a time.
+
+          total_balance_less_than_or_equal_to: Filter for customers whose `totalBalance` is less than or equal to this amount,
+              represented as a decimal string. You can only use one total-balance filter at a
+              time.
+
+          updated_after: Filter for customers updated on or after this date/time. Accepts the following
+              ISO 8601 formats:
+
+              - **date-only** (YYYY-MM-DD) - QuickBooks Desktop interprets the date as the
+                **start of the specified day** in the local timezone of the end-user's
+                computer (e.g., `2025-01-01` → `2025-01-01T00:00:00`).
+              - **datetime without timezone** (YYYY-MM-DDTHH:mm:ss) - QuickBooks Desktop
+                interprets the timestamp in the local timezone of the end-user's computer.
+              - **datetime with timezone** (YYYY-MM-DDTHH:mm:ss±HH:mm) - QuickBooks Desktop
+                interprets the timestamp using the specified timezone.
+
+          updated_before: Filter for customers updated on or before this date/time. Accepts the following
+              ISO 8601 formats:
+
+              - **date-only** (YYYY-MM-DD) - QuickBooks Desktop interprets the date as the
+                **end of the specified day** in the local timezone of the end-user's computer
+                (e.g., `2025-01-01` → `2025-01-01T23:59:59`).
+              - **datetime without timezone** (YYYY-MM-DDTHH:mm:ss) - QuickBooks Desktop
+                interprets the timestamp in the local timezone of the end-user's computer.
+              - **datetime with timezone** (YYYY-MM-DDTHH:mm:ss±HH:mm) - QuickBooks Desktop
+                interprets the timestamp using the specified timezone.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        extra_headers = {"Conductor-End-User-Id": conductor_end_user_id, **(extra_headers or {})}
+        return self._get_api_list(
+            "/quickbooks-desktop/customers",
+            page=AsyncCursorPage[Customer],
+            options=make_request_options(
+                extra_headers=extra_headers,
+                extra_query=extra_query,
+                extra_body=extra_body,
+                timeout=timeout,
+                query=maybe_transform(
+                    {
+                        "class_ids": class_ids,
+                        "currency_ids": currency_ids,
+                        "cursor": cursor,
+                        "exclude_alternate_shipping_addresses": exclude_alternate_shipping_addresses,
+                        "full_names": full_names,
+                        "ids": ids,
+                        "limit": limit,
+                        "name_contains": name_contains,
+                        "name_ends_with": name_ends_with,
+                        "name_from": name_from,
+                        "name_starts_with": name_starts_with,
+                        "name_to": name_to,
+                        "status": status,
+                        "total_balance": total_balance,
+                        "total_balance_greater_than": total_balance_greater_than,
+                        "total_balance_greater_than_or_equal_to": total_balance_greater_than_or_equal_to,
+                        "total_balance_less_than": total_balance_less_than,
+                        "total_balance_less_than_or_equal_to": total_balance_less_than_or_equal_to,
+                        "updated_after": updated_after,
+                        "updated_before": updated_before,
+                    },
+                    customer_list_params.CustomerListParams,
+                ),
+            ),
+            model=Customer,
+        )
+
+
+class CustomersResourceWithRawResponse:
+    def __init__(self, customers: CustomersResource) -> None:
+        self._customers = customers
+
+        self.create = to_raw_response_wrapper(
+            customers.create,
+        )
+        self.retrieve = to_raw_response_wrapper(
+            customers.retrieve,
+        )
+        self.update = to_raw_response_wrapper(
+            customers.update,
+        )
+        self.list = to_raw_response_wrapper(
+            customers.list,
+        )
+
+
+class AsyncCustomersResourceWithRawResponse:
+    def __init__(self, customers: AsyncCustomersResource) -> None:
+        self._customers = customers
+
+        self.create = async_to_raw_response_wrapper(
+            customers.create,
+        )
+        self.retrieve = async_to_raw_response_wrapper(
+            customers.retrieve,
+        )
+        self.update = async_to_raw_response_wrapper(
+            customers.update,
+        )
+        self.list = async_to_raw_response_wrapper(
+            customers.list,
+        )
+
+
+class CustomersResourceWithStreamingResponse:
+    def __init__(self, customers: CustomersResource) -> None:
+        self._customers = customers
+
+        self.create = to_streamed_response_wrapper(
+            customers.create,
+        )
+        self.retrieve = to_streamed_response_wrapper(
+            customers.retrieve,
+        )
+        self.update = to_streamed_response_wrapper(
+            customers.update,
+        )
+        self.list = to_streamed_response_wrapper(
+            customers.list,
+        )
+
+
+class AsyncCustomersResourceWithStreamingResponse:
+    def __init__(self, customers: AsyncCustomersResource) -> None:
+        self._customers = customers
+
+        self.create = async_to_streamed_response_wrapper(
+            customers.create,
+        )
+        self.retrieve = async_to_streamed_response_wrapper(
+            customers.retrieve,
+        )
+        self.update = async_to_streamed_response_wrapper(
+            customers.update,
+        )
+        self.list = async_to_streamed_response_wrapper(
+            customers.list,
+        )

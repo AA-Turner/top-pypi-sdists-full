@@ -1,0 +1,109 @@
+[build-system]
+requires = [
+    "hatchling>=1.3.1",
+    "hatch-vcs",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "iaqualink"
+description = "Asynchronous library for Jandy iAqualink"
+readme = "README.md"
+license = "BSD-3-Clause"
+requires-python = ">=3.14"
+authors = [
+    { name = "Florent Thoumie", email = "florent@thoumie.net" },
+]
+keywords = [
+    "iaqualink",
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "httpx[http2]>=0.27.0",
+    "httpx-retries>=0.4.6",
+]
+dynamic = [
+    "version",
+]
+
+[project.optional-dependencies]
+cli = [
+    "PyYAML>=6.0.2",
+    "typer>=0.12.5",
+]
+
+[project.scripts]
+iaqualink = "iaqualink.cli:main"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.2.0",
+    "mypy>=1.15.0",
+    "ruff>=0.11.2",
+    "types-PyYAML>=6.0.12.20250915",
+]
+test = [
+    "coverage[toml]>=7.7.1",
+    "PyYAML>=6.0.2",
+    "pytest>=8.3.5",
+    "pytest-cov>=6.0.0",
+    "pytest-icdiff>=0.9",
+    "pytest-sugar>=1.0.0",
+    "respx>=0.22.0",
+    "typer>=0.12.5",
+]
+docs = [
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.26.0",
+    "pymdown-extensions>=10.17",
+]
+
+[project.urls]
+Homepage = "https://github.com/flz/iaqualink-py"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/iaqualink/version.py"
+
+[tool.hatch.build.targets.sdist]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/iaqualink"]
+
+[tool.ruff]
+line-length = 80
+
+[tool.ruff.lint]
+ignore = [
+    "SLF001",  # Some tests currently use private members
+    "G004",    # Will fix all f-string logging calls later
+]
+
+[tool.coverage.run]
+omit = [
+    ".venv/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+]
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning",
+]

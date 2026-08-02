@@ -1,0 +1,2191 @@
+"""
+Tests for agentskills.io rules and detection
+"""
+
+import json
+import shutil
+from pathlib import Path
+
+from skillsaw.context import RepositoryContext, RepositoryType
+from skillsaw.rule import AutofixConfidence, Severity
+from skillsaw.utils import invalidate_read_caches
+from skillsaw.rules.builtin.agentskills import (
+    RENAMES_MANIFEST,
+    AgentSkillValidRule,
+    AgentSkillNameRule,
+    AgentSkillRenameRefsRule,
+    AgentSkillDescriptionRule,
+    AgentSkillStructureRule,
+    AgentSkillEvalsRequiredRule,
+    AgentSkillEvalsRule,
+    AgentSkillUnreferencedFilesRule,
+)
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def copy_fixture(name, tmp_path):
+    src = FIXTURES / name
+    dst = tmp_path / name.replace("/", "_")
+    shutil.copytree(src, dst)
+    return dst
+
+
+# --- Detection tests ---
+
+
+def test_detect_single_skill(temp_dir):
+    """Single SKILL.md at root -> AGENTSKILLS"""
+    skill_dir = temp_dir / "my-skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("---\nname: my-skill\ndescription: A skill\n---\n")
+
+    context = RepositoryContext(skill_dir)
+    assert context.repo_type == RepositoryType.AGENTSKILLS
+    assert len(context.skills) == 1
+    assert context.skills[0] == skill_dir.resolve()
+
+
+def test_detect_skill_collection(temp_dir):
+    """Subdirectories with SKILL.md -> AGENTSKILLS"""
+    repo = temp_dir / "skills-repo"
+    repo.mkdir()
+
+    for name in ["skill-one", "skill-two"]:
+        d = repo / name
+        d.mkdir()
+        (d / "SKILL.md").write_text(f"---\nname: {name}\ndescription: A skill\n---\n")
+
+    context = RepositoryContext(repo)
+    assert context.repo_type == RepositoryType.AGENTSKILLS
+    assert len(context.skills) == 2
+
+
+def test_detect_standard_discovery_path(temp_dir):
+    """Skills in .claude/skills/ -> DOT_CLAUDE (not AGENTSKILLS)"""
+    repo = temp_dir / "project"
+    repo.mkdir()
+    skills_path = repo / ".claude" / "skills" / "my-skill"
+    skills_path.mkdir(parents=True)
+    (skills_path / "SKILL.md").write_text("---\nname: my-skill\ndescription: A skill\n---\n")
+
+    context = RepositoryContext(repo)
+    assert context.repo_type == RepositoryType.DOT_CLAUDE
+    assert len(context.skills) == 1
+
+
+def test_detect_github_skills_path(temp_dir):
+    """Skills in .github/skills/ -> AGENTSKILLS"""
+    repo = temp_dir / "project"
+    repo.mkdir()
+    skills_path = repo / ".github" / "skills" / "review"
+    skills_path.mkdir(parents=True)
+    (skills_path / "SKILL.md").write_text("---\nname: review\ndescription: Code review\n---\n")
+
+    context = RepositoryContext(repo)
+    assert context.repo_type == RepositoryType.AGENTSKILLS
+    assert len(context.skills) == 1
+
+
+def test_detect_nested_skill_collection(temp_dir):
+    """Skills nested in category subdirectories -> AGENTSKILLS"""
+    repo = temp_dir / "skills-repo"
+    repo.mkdir()
+
+    nested = repo / "category" / "my-skill"
+    nested.mkdir(parents=True)
+    (nested / "SKILL.md").write_text("---\nname: my-skill\ndescription: Nested skill\n---\n")
+
+    context = RepositoryContext(repo)
+    assert context.repo_type == RepositoryType.AGENTSKILLS
+    assert len(context.skills) == 1
+    assert context.skills[0].name == "my-skill"
+
+
+def test_detect_not_agentskills(temp_dir):
+    """Empty directory -> UNKNOWN"""
+    repo = temp_dir / "empty"
+    repo.mkdir()
+
+    context = RepositoryContext(repo)
+    assert context.repo_type == RepositoryType.UNKNOWN
+    assert len(context.skills) == 0
+
+
+def test_plugin_repo_discovers_embedded_skills(temp_dir):
+    """Plugin repos also discover embedded skills"""
+    plugin = temp_dir / "my-plugin"
+    plugin.mkdir()
+    claude_dir = plugin / ".claude-plugin"
+    claude_dir.mkdir()
+    (claude_dir / "plugin.json").write_text(json.dumps({"name": "my-plugin"}))
+
+    skill_dir = plugin / "skills" / "helper"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("---\nname: helper\ndescription: Helper\n---\n")
+
+    context = RepositoryContext(plugin)
+    assert context.repo_type == RepositoryType.SINGLE_PLUGIN
+    assert len(context.skills) == 1
+    assert context.skills[0].name == "helper"
+
+
+def test_plugin_takes_priority_over_agentskills(temp_dir):
+    """Plugin detection wins over agentskills when .claude-plugin exists"""
+    repo = temp_dir / "hybrid"
+    repo.mkdir()
+    claude_dir = repo / ".claude-plugin"
+    claude_dir.mkdir()
+    (claude_dir / "plugin.json").write_text(json.dumps({"name": "hybrid"}))
+    (repo / "SKILL.md").write_text("---\nname: hybrid\ndescription: Both\n---\n")
+
+    context = RepositoryContext(repo)
+    assert context.repo_type == RepositoryType.SINGLE_PLUGIN
+
+
+# --- agentskill-valid ---
+
+
+def test_valid_skill_passes(temp_dir):
+    skill = temp_dir / "good-skill"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: good-skill\ndescription: Does good things.\n---\n")
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillValidRule().check(context)
+    assert len(violations) == 0
+
+
+def test_missing_skill_md_fails(temp_dir):
+    repo = temp_dir / "repo"
+    repo.mkdir()
+    skill = repo / "no-skill-md"
+    skill.mkdir()
+    # Create another valid skill so the repo is detected as AGENTSKILLS
+    other = repo / "valid-skill"
+    other.mkdir()
+    (other / "SKILL.md").write_text("---\nname: valid-skill\ndescription: Valid\n---\n")
+    # Manually add the broken skill to context
+    context = RepositoryContext(repo)
+    context.skills.append(skill)
+
+    violations = AgentSkillValidRule().check(context)
+    missing = [v for v in violations if "not found" in v.message]
+    assert len(missing) == 1
+
+
+def test_missing_frontmatter_fails(temp_dir):
+    skill = temp_dir / "no-front"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("# Just markdown\nNo frontmatter here.\n")
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillValidRule().check(context)
+    assert len(violations) == 1
+    assert "frontmatter" in violations[0].message.lower()
+
+
+def test_missing_name_fails(temp_dir):
+    skill = temp_dir / "no-name"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\ndescription: Has description only\n---\n")
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillValidRule().check(context)
+    assert any("name" in v.message for v in violations)
+    v = [v for v in violations if "name" in v.message][0]
+    assert v.line is None
+
+
+def test_fix_missing_name_prepends_field(temp_dir):
+    """A truly absent name key is added by the fix."""
+    skill = temp_dir / "no-name-skill"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\ndescription: Has description only\n---\n\n# Body\n")
+
+    context = RepositoryContext(skill)
+    rule = AgentSkillValidRule()
+    fixes = rule.fix(context, rule.check(context))
+    assert len(fixes) == 1
+    fixed = fixes[0].fixed_content
+    assert "name: no-name-skill" in fixed
+    assert fixed.count("name:") == 1
+
+
+def test_fix_empty_name_replaces_in_place(temp_dir):
+    """Regression for #321: `name: ""` must be replaced, not prepended as a duplicate key."""
+    skill = temp_dir / "empty-name-skill"
+    skill.mkdir()
+    original = '---\nname: ""\ndescription: Does things.\n---\n\n# Body\n'
+    (skill / "SKILL.md").write_text(original)
+
+    context = RepositoryContext(skill)
+    rule = AgentSkillValidRule()
+    fixes = rule.fix(context, rule.check(context))
+    assert len(fixes) == 1
+    fixed = fixes[0].fixed_content
+    assert "name: empty-name-skill" in fixed
+    assert 'name: ""' not in fixed
+    assert fixed.count("name:") == 1
+    assert len(fixed.splitlines()) == len(original.splitlines())
+
+    # Converges: re-check of the fixed content finds no name violation
+    (skill / "SKILL.md").write_text(fixed)
+    invalidate_read_caches(skill / "SKILL.md")
+    violations = AgentSkillValidRule().check(RepositoryContext(skill))
+    assert not any("name" in v.message for v in violations)
+
+
+def test_fix_null_name_replaces_in_place(temp_dir):
+    """Regression for #321: a null `name:` value must be replaced in place."""
+    skill = temp_dir / "null-name-skill"
+    skill.mkdir()
+    original = "---\nname:\ndescription: Does things.\n---\n\n# Body\n"
+    (skill / "SKILL.md").write_text(original)
+
+    context = RepositoryContext(skill)
+    rule = AgentSkillValidRule()
+    fixes = rule.fix(context, rule.check(context))
+    assert len(fixes) == 1
+    fixed = fixes[0].fixed_content
+    assert "name: null-name-skill" in fixed
+    assert fixed.count("name:") == 1
+    assert len(fixed.splitlines()) == len(original.splitlines())
+
+
+def test_missing_description_fails(temp_dir):
+    skill = temp_dir / "no-desc"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: no-desc\n---\n")
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillValidRule().check(context)
+    assert any("description" in v.message for v in violations)
+
+
+def test_name_too_long_fails(temp_dir):
+    skill = temp_dir / "long"
+    skill.mkdir()
+    long_name = "a" * 65
+    (skill / "SKILL.md").write_text(f"---\nname: {long_name}\ndescription: Too long name\n---\n")
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillValidRule().check(context)
+    assert any("exceeds" in v.message and "64" in v.message for v in violations)
+    v = [v for v in violations if "exceeds" in v.message][0]
+    assert v.line == 2
+
+
+def test_description_too_long_checked_by_description_rule(temp_dir):
+    """Length check is in AgentSkillDescriptionRule, not AgentSkillValidRule"""
+    skill = temp_dir / "longdesc"
+    skill.mkdir()
+    long_desc = "a" * 1025
+    (skill / "SKILL.md").write_text(f"---\nname: longdesc\ndescription: {long_desc}\n---\n")
+
+    context = RepositoryContext(skill)
+    # AgentSkillValidRule should NOT flag length
+    violations = AgentSkillValidRule().check(context)
+    assert not any("exceeds" in v.message for v in violations)
+    # AgentSkillDescriptionRule should flag it
+    violations = AgentSkillDescriptionRule().check(context)
+    assert any("exceeds" in v.message and "1024" in v.message for v in violations)
+
+
+# --- agentskill-name ---
+
+
+def test_name_valid_passes(temp_dir):
+    skill = temp_dir / "pdf-processing"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: pdf-processing\ndescription: PDFs\n---\n")
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillNameRule().check(context)
+    assert len(violations) == 0
+
+
+def test_name_with_numbers_passes(temp_dir):
+    skill = temp_dir / "tool2use"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: tool2use\ndescription: Tools\n---\n")
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillNameRule().check(context)
+    assert len(violations) == 0
+
+
+def test_name_single_char_passes(temp_dir):
+    skill = temp_dir / "x"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: x\ndescription: Single char\n---\n")
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillNameRule().check(context)
+    assert len(violations) == 0
+
+
+def test_name_digit_leading_passes(temp_dir):
+    """Spec allows names starting with a digit, e.g. 3d-printing."""
+    skill = temp_dir / "3d-printing"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: 3d-printing\ndescription: 3D printing\n---\n")
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillNameRule().check(context)
+    assert len(violations) == 0
+
+
+def test_name_leading_hyphen_fails(temp_dir):
+    skill = temp_dir / "-bad"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: -bad\ndescription: Leading hyphen\n---\n")
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillNameRule().check(context)
+    assert len(violations) >= 1
+
+
+def test_name_uppercase_fails(temp_dir):
+    skill = temp_dir / "Bad-Name"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: Bad-Name\ndescription: Uppercase\n---\n")
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillNameRule().check(context)
+    assert len(violations) >= 1
+    assert any("lowercase" in v.message for v in violations)
+    assert violations[0].line == 2
+
+
+def test_name_consecutive_hyphens_fails(temp_dir):
+    skill = temp_dir / "bad--name"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: bad--name\ndescription: Double hyphen\n---\n")
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillNameRule().check(context)
+    assert any("consecutive" in v.message for v in violations)
+    assert violations[0].line == 2
+
+
+def test_name_trailing_hyphen_fails(temp_dir):
+    skill = temp_dir / "bad-"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: bad-\ndescription: Trailing hyphen\n---\n")
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillNameRule().check(context)
+    assert len(violations) >= 1
+
+
+def test_name_dir_mismatch_fails(temp_dir):
+    repo = temp_dir / "repo"
+    repo.mkdir()
+    skill = repo / "dir-name"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: other-name\ndescription: Mismatch\n---\n")
+
+    context = RepositoryContext(repo)
+    violations = AgentSkillNameRule().check(context)
+    assert any("does not match directory" in v.message for v in violations)
+    v = [v for v in violations if "does not match directory" in v.message][0]
+    assert v.line == 2
+
+
+def test_name_at_root_skips_dir_check(temp_dir):
+    """Single skill at repo root should not check name vs directory name"""
+    skill = temp_dir / "my-project"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: my-skill\ndescription: Root skill\n---\n")
+
+    context = RepositoryContext(skill)
+    # root_path is skill dir, so name vs dir check is skipped
+    violations = AgentSkillNameRule().check(context)
+    assert not any("does not match directory" in v.message for v in violations)
+
+
+def test_name_fixable_matches_fix_coverage(tmp_path):
+    """Regression (0.17.0): check() defaulted every violation to fixable=True
+    (the ``[*] fixable with skillsaw fix`` marker), but fix() bails on names
+    it cannot rewrite safely — so the advertised lint-to-fix loop dead-ended
+    with 'No auto-fixable violations found'. check() must report
+    fixable=False exactly where fix() bails."""
+    repo = copy_fixture("autofix/fixable-accuracy-name", tmp_path)
+    rule = AgentSkillNameRule()
+    context = RepositoryContext(repo)
+
+    violations = rule.check(context)
+    assert len(violations) == 5
+    by_dir = {v.file_path.parent.name: v for v in violations}
+
+    # Un-kebab-able name: a fully non-Latin value kebab-cases to "".
+    v = by_dir["keigo-formatter"]
+    assert "lowercase letters" in v.message
+    assert v.fixable is False
+    assert v.fix_confidence is None
+
+    # Block-scalar name (``name: >-``): the value is not on the key line,
+    # so the single-line rewrite is unsafe.
+    v = by_dir["deploy-service"]
+    assert v.fixable is False
+    assert v.fix_confidence is None
+
+    # Duplicate ``name:`` keys: the rewrite would never converge.
+    v = by_dir["release-notes"]
+    assert v.fixable is False
+    assert v.fix_confidence is None
+
+    # Directory-mismatch where the directory name itself is invalid.
+    v = by_dir["My_Skill"]
+    assert "does not match directory" in v.message
+    assert v.fixable is False
+    assert v.fix_confidence is None
+
+    # Positive control: a kebab-caseable name still advertises a SAFE fix.
+    v = by_dir["format-checker"]
+    assert v.fixable is True
+    assert v.fix_confidence == AutofixConfidence.SAFE
+
+    # fix() repairs exactly the violations that advertised fixability and
+    # leaves the unfixable files untouched.
+    before = {
+        d: (repo / d / "SKILL.md").read_text()
+        for d in ["keigo-formatter", "deploy-service", "release-notes", "My_Skill"]
+    }
+    fixes = rule.fix(context, violations)
+    assert [f.file_path.parent.name for f in fixes] == ["format-checker"]
+    for d, content in before.items():
+        assert (repo / d / "SKILL.md").read_text() == content
+
+
+# --- agentskill-description ---
+
+
+def test_description_valid_passes(temp_dir):
+    skill = temp_dir / "good"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: good\ndescription: Extracts data from PDFs. Use when working with PDF files.\n---\n"
+    )
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillDescriptionRule().check(context)
+    assert len(violations) == 0
+
+
+def test_description_whitespace_only_fails(temp_dir):
+    skill = temp_dir / "empty-desc"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: empty-desc\ndescription: '   '\n---\n")
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillDescriptionRule().check(context)
+    assert any("empty" in v.message for v in violations)
+    assert violations[0].line == 3
+
+
+def test_description_over_limit_warns(temp_dir):
+    skill = temp_dir / "verbose"
+    skill.mkdir()
+    long_desc = "x" * 1025
+    (skill / "SKILL.md").write_text(f"---\nname: verbose\ndescription: {long_desc}\n---\n")
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillDescriptionRule().check(context)
+    assert any("exceeds" in v.message for v in violations)
+    assert violations[0].line == 3
+
+
+def test_description_default_max_length_unchanged(temp_dir):
+    """Backward compatibility: at default config a 400-char description
+    passes and only the spec's 1024 limit fires, with the same message."""
+    skill = temp_dir / "longish"
+    skill.mkdir()
+    desc_400 = "x" * 400
+    (skill / "SKILL.md").write_text(f"---\nname: longish\ndescription: {desc_400}\n---\n")
+    assert AgentSkillDescriptionRule().check(RepositoryContext(skill)) == []
+
+    over = temp_dir / "over-spec"
+    over.mkdir()
+    desc_1100 = "x" * 1100
+    (over / "SKILL.md").write_text(f"---\nname: over-spec\ndescription: {desc_1100}\n---\n")
+    violations = AgentSkillDescriptionRule().check(RepositoryContext(over))
+    assert len(violations) == 1
+    assert violations[0].message == "Description exceeds 1024 characters (1100)"
+
+
+def test_description_configured_max_length_warns(temp_dir):
+    """max_length: 256 makes a 400-char description warn with both numbers."""
+    skill = temp_dir / "budgeted"
+    skill.mkdir()
+    desc_400 = "x" * 400
+    (skill / "SKILL.md").write_text(f"---\nname: budgeted\ndescription: {desc_400}\n---\n")
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillDescriptionRule(config={"max_length": 256}).check(context)
+    assert len(violations) == 1
+    assert "400" in violations[0].message
+    assert "256" in violations[0].message
+    assert violations[0].line == 3
+    assert violations[0].severity == Severity.WARNING
+
+
+def test_description_exactly_at_max_length_passes(temp_dir):
+    """Boundary: a description of exactly max_length characters is fine."""
+    skill = temp_dir / "boundary"
+    skill.mkdir()
+    exact_desc = "x" * 256
+    (skill / "SKILL.md").write_text(f"---\nname: boundary\ndescription: {exact_desc}\n---\n")
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillDescriptionRule(config={"max_length": 256}).check(context)
+    assert violations == []
+
+
+def test_description_folded_multiline_max_length(temp_dir):
+    """Folded YAML descriptions are measured on the parsed string value,
+    and the line number points at the description key."""
+    skill = temp_dir / "folded"
+    skill.mkdir()
+    words = ("word " * 70).strip()  # 349 chars parsed
+    (skill / "SKILL.md").write_text(f"---\nname: folded\ndescription: >\n  {words}\n---\n")
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillDescriptionRule(config={"max_length": 256}).check(context)
+    assert len(violations) == 1
+    assert "349" in violations[0].message
+    assert violations[0].line == 3
+
+
+def test_description_max_length_invalid_values_fall_back(temp_dir):
+    """A blank key (None), non-integer, bool, or non-positive max_length
+    falls back to the spec's 1024 default instead of crashing."""
+    skill = temp_dir / "resilient"
+    skill.mkdir()
+    desc_1100 = "x" * 1100
+    (skill / "SKILL.md").write_text(f"---\nname: resilient\ndescription: {desc_1100}\n---\n")
+
+    context = RepositoryContext(skill)
+    for bad_value in [None, "not-a-number", True, 2.5, 0, -1]:
+        violations = AgentSkillDescriptionRule(config={"max_length": bad_value}).check(context)
+        assert len(violations) == 1, f"max_length={bad_value!r} should fall back to 1024"
+        assert "1024" in violations[0].message
+
+
+def test_description_max_length_above_spec_limit_honored(temp_dir):
+    """A configured max_length above 1024 wins: a 1500-char description
+    does not warn at max_length 2000. The spec's own limit is validated
+    by the ecosystem at publish time."""
+    skill = temp_dir / "relaxed"
+    skill.mkdir()
+    desc_1500 = "x" * 1500
+    (skill / "SKILL.md").write_text(f"---\nname: relaxed\ndescription: {desc_1500}\n---\n")
+
+    context = RepositoryContext(skill)
+    assert AgentSkillDescriptionRule(config={"max_length": 2000}).check(context) == []
+    # sanity: the same description warns at defaults
+    assert len(AgentSkillDescriptionRule().check(context)) == 1
+
+
+# --- agentskill-structure ---
+
+
+def test_structure_known_dirs_pass(temp_dir):
+    skill = temp_dir / "structured"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: structured\ndescription: Well structured\n---\n")
+    for d in ["scripts", "references", "assets", "evals"]:
+        (skill / d).mkdir()
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillStructureRule().check(context)
+    assert len(violations) == 0
+
+
+def test_structure_unknown_dir_warns(temp_dir):
+    skill = temp_dir / "messy"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: messy\ndescription: Messy skill\n---\n")
+    (skill / "random-stuff").mkdir()
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillStructureRule().check(context)
+    assert len(violations) == 1
+    assert "random-stuff" in violations[0].message
+
+
+def test_structure_custom_allowed_dirs(temp_dir):
+    skill = temp_dir / "custom"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: custom\ndescription: Custom skill\n---\n")
+    (skill / "tests").mkdir()
+    (skill / "vendor").mkdir()
+
+    context = RepositoryContext(skill)
+    rule = AgentSkillStructureRule(
+        config={"allowed_dirs": ["scripts", "references", "assets", "evals", "tests", "vendor"]}
+    )
+    violations = rule.check(context)
+    assert len(violations) == 0
+
+
+def test_structure_ignores_dotdirs(temp_dir):
+    skill = temp_dir / "hidden"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: hidden\ndescription: Has hidden dir\n---\n")
+    (skill / ".git").mkdir()
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillStructureRule().check(context)
+    assert len(violations) == 0
+
+
+def test_structure_ignores_files(temp_dir):
+    skill = temp_dir / "with-files"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: with-files\ndescription: Has extra files\n---\n")
+    (skill / "README.md").write_text("# Hello")
+    (skill / "LICENSE").write_text("MIT")
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillStructureRule().check(context)
+    assert len(violations) == 0
+
+
+# --- agentskill-evals-required ---
+
+
+def test_evals_required_disabled_by_default(temp_dir):
+    """Rule should be disabled by default (tested via config, not rule directly)"""
+    from skillsaw.config import LinterConfig
+
+    config = LinterConfig.default()
+    assert config.get_rule_config("agentskill-evals-required").get("enabled") is False
+
+
+def test_evals_required_default_severity_is_warning():
+    # Matches the effective default severity (generated config used to
+    # override the class-level ERROR with warning; the class is now the
+    # single source of truth).
+    rule = AgentSkillEvalsRequiredRule()
+    assert rule.default_severity() == Severity.WARNING
+    assert rule.severity == Severity.WARNING
+
+
+def test_evals_required_fails_when_missing(temp_dir):
+    skill = temp_dir / "no-evals"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: no-evals\ndescription: No evals\n---\n")
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillEvalsRequiredRule().check(context)
+    assert len(violations) == 1
+    assert "Missing evals/evals.json" in violations[0].message
+
+
+def test_evals_required_passes_when_present(temp_dir):
+    skill = temp_dir / "has-evals"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: has-evals\ndescription: Has evals\n---\n")
+    evals_dir = skill / "evals"
+    evals_dir.mkdir()
+    (evals_dir / "evals.json").write_text(json.dumps({"evals": []}))
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillEvalsRequiredRule().check(context)
+    assert len(violations) == 0
+
+
+# --- agentskill-evals ---
+
+
+def test_evals_default_severity_is_warning():
+    rule = AgentSkillEvalsRule()
+    assert rule.default_severity() == Severity.WARNING
+    assert rule.severity == Severity.WARNING
+
+
+def test_evals_valid_passes(temp_dir):
+    skill = temp_dir / "good-evals"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: good-evals\ndescription: Good evals\n---\n")
+    evals_dir = skill / "evals"
+    evals_dir.mkdir()
+    (evals_dir / "evals.json").write_text(
+        json.dumps(
+            {
+                "skill_name": "good-evals",
+                "evals": [
+                    {
+                        "id": 1,
+                        "prompt": "Test this thing",
+                        "expected_output": "Should produce output",
+                        "assertions": ["Output is valid", "Output contains X"],
+                        "files": ["evals/files/input.csv"],
+                    }
+                ],
+            }
+        )
+    )
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillEvalsRule().check(context)
+    assert len(violations) == 0
+
+
+def test_evals_no_evals_dir_skips(temp_dir):
+    skill = temp_dir / "no-evals-dir"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: no-evals-dir\ndescription: No evals dir\n---\n")
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillEvalsRule().check(context)
+    assert len(violations) == 0
+
+
+def test_evals_dir_without_json_warns(temp_dir):
+    skill = temp_dir / "empty-evals"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: empty-evals\ndescription: Empty evals\n---\n")
+    (skill / "evals").mkdir()
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillEvalsRule().check(context)
+    assert len(violations) == 1
+    assert "missing" in violations[0].message.lower()
+
+
+def test_evals_invalid_json_fails(temp_dir):
+    skill = temp_dir / "bad-json"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: bad-json\ndescription: Bad json\n---\n")
+    evals_dir = skill / "evals"
+    evals_dir.mkdir()
+    (evals_dir / "evals.json").write_text("{not valid json")
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillEvalsRule().check(context)
+    assert len(violations) == 1
+    assert "Invalid JSON" in violations[0].message
+
+
+def test_evals_missing_evals_array_fails(temp_dir):
+    skill = temp_dir / "no-array"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: no-array\ndescription: No array\n---\n")
+    evals_dir = skill / "evals"
+    evals_dir.mkdir()
+    (evals_dir / "evals.json").write_text(json.dumps({"skill_name": "test"}))
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillEvalsRule().check(context)
+    assert any("evals" in v.message and "array" in v.message.lower() for v in violations)
+
+
+def test_evals_entry_missing_id_warns(temp_dir):
+    skill = temp_dir / "no-id"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: no-id\ndescription: No id\n---\n")
+    evals_dir = skill / "evals"
+    evals_dir.mkdir()
+    (evals_dir / "evals.json").write_text(json.dumps({"evals": [{"prompt": "Test"}]}))
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillEvalsRule().check(context)
+    assert any("id" in v.message for v in violations)
+
+
+def test_evals_entry_missing_prompt_warns(temp_dir):
+    skill = temp_dir / "no-prompt"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: no-prompt\ndescription: No prompt\n---\n")
+    evals_dir = skill / "evals"
+    evals_dir.mkdir()
+    (evals_dir / "evals.json").write_text(json.dumps({"evals": [{"id": 1}]}))
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillEvalsRule().check(context)
+    assert any("prompt" in v.message for v in violations)
+
+
+def test_evals_bad_assertions_type_warns(temp_dir):
+    skill = temp_dir / "bad-assertions"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: bad-assertions\ndescription: Bad assertions\n---\n")
+    evals_dir = skill / "evals"
+    evals_dir.mkdir()
+    (evals_dir / "evals.json").write_text(
+        json.dumps({"evals": [{"id": 1, "prompt": "Test", "assertions": "not an array"}]})
+    )
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillEvalsRule().check(context)
+    assert any("assertions" in v.message and "array" in v.message for v in violations)
+
+
+def test_evals_assertions_not_strings_warns(temp_dir):
+    skill = temp_dir / "int-assertions"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: int-assertions\ndescription: Int assertions\n---\n")
+    evals_dir = skill / "evals"
+    evals_dir.mkdir()
+    (evals_dir / "evals.json").write_text(
+        json.dumps({"evals": [{"id": 1, "prompt": "Test", "assertions": [1, 2, 3]}]})
+    )
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillEvalsRule().check(context)
+    assert any("strings" in v.message for v in violations)
+
+
+def test_evals_duplicate_ids_warns(temp_dir):
+    skill = temp_dir / "dup-ids"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: dup-ids\ndescription: Duplicate ids\n---\n")
+    evals_dir = skill / "evals"
+    evals_dir.mkdir()
+    (evals_dir / "evals.json").write_text(
+        json.dumps(
+            {
+                "evals": [
+                    {"id": 1, "prompt": "A"},
+                    {"id": 1, "prompt": "B"},
+                    {"id": 2, "prompt": "C"},
+                ]
+            }
+        )
+    )
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillEvalsRule().check(context)
+    assert any("duplicate" in v.message.lower() for v in violations)
+
+
+def test_evals_skill_name_mismatch_warns(temp_dir):
+    skill = temp_dir / "name-check"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: name-check\ndescription: Name check\n---\n")
+    evals_dir = skill / "evals"
+    evals_dir.mkdir()
+    (evals_dir / "evals.json").write_text(
+        json.dumps({"skill_name": "wrong-name", "evals": [{"id": 1, "prompt": "Test"}]})
+    )
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillEvalsRule().check(context)
+    assert any("does not match" in v.message for v in violations)
+
+
+def test_evals_skill_name_match_passes(temp_dir):
+    skill = temp_dir / "matching"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: matching\ndescription: Matching name\n---\n")
+    evals_dir = skill / "evals"
+    evals_dir.mkdir()
+    (evals_dir / "evals.json").write_text(
+        json.dumps({"skill_name": "matching", "evals": [{"id": 1, "prompt": "Test"}]})
+    )
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillEvalsRule().check(context)
+    assert len(violations) == 0
+
+
+def test_evals_bad_files_type_warns(temp_dir):
+    skill = temp_dir / "bad-files"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: bad-files\ndescription: Bad files\n---\n")
+    evals_dir = skill / "evals"
+    evals_dir.mkdir()
+    (evals_dir / "evals.json").write_text(
+        json.dumps({"evals": [{"id": 1, "prompt": "Test", "files": "not-array"}]})
+    )
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillEvalsRule().check(context)
+    assert any("files" in v.message and "array" in v.message for v in violations)
+
+
+# --- optional frontmatter fields ---
+
+
+def test_valid_optional_fields_pass(temp_dir):
+    skill = temp_dir / "full-skill"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: full-skill\ndescription: A skill\nlicense: MIT\n"
+        'compatibility: Requires Python 3.8+\nallowed-tools: "Bash(git:*) Read"\n'
+        "metadata:\n  version: '1.0'\n  author: test\n---\n"
+    )
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillValidRule().check(context)
+    assert len(violations) == 0
+
+
+def test_license_wrong_type_fails(temp_dir):
+    skill = temp_dir / "bad-license"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: bad-license\ndescription: A skill\nlicense: 123\n---\n"
+    )
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillValidRule().check(context)
+    assert any("license" in v.message and "string" in v.message for v in violations)
+
+
+def test_compatibility_wrong_type_fails(temp_dir):
+    skill = temp_dir / "bad-compat"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: bad-compat\ndescription: A skill\ncompatibility: 123\n---\n"
+    )
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillValidRule().check(context)
+    assert any("compatibility" in v.message and "string" in v.message for v in violations)
+
+
+def test_compatibility_empty_fails(temp_dir):
+    skill = temp_dir / "empty-compat"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: empty-compat\ndescription: A skill\ncompatibility: '  '\n---\n"
+    )
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillValidRule().check(context)
+    assert any("compatibility" in v.message and "empty" in v.message for v in violations)
+
+
+def test_compatibility_over_limit_fails(temp_dir):
+    skill = temp_dir / "long-compat"
+    skill.mkdir()
+    long_compat = "x" * 501
+    (skill / "SKILL.md").write_text(
+        f"---\nname: long-compat\ndescription: A skill\ncompatibility: {long_compat}\n---\n"
+    )
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillValidRule().check(context)
+    assert any("compatibility" in v.message and "exceeds" in v.message for v in violations)
+
+
+def test_metadata_wrong_type_fails(temp_dir):
+    skill = temp_dir / "bad-meta"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: bad-meta\ndescription: A skill\nmetadata: not-a-map\n---\n"
+    )
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillValidRule().check(context)
+    assert any("metadata" in v.message and "mapping" in v.message for v in violations)
+
+
+def test_metadata_non_string_value_accepted(temp_dir):
+    skill = temp_dir / "meta-int"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: meta-int\ndescription: A skill\nmetadata:\n  count: 42\n---\n"
+    )
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillValidRule().check(context)
+    assert not any("metadata" in v.message for v in violations)
+
+
+def test_metadata_nested_object_accepted(temp_dir):
+    skill = temp_dir / "meta-nested"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: meta-nested\ndescription: A skill\nmetadata:\n"
+        "  openclaw:\n    category: productivity\n    requires:\n      bins:\n        - gws\n---\n"
+    )
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillValidRule().check(context)
+    assert not any("metadata" in v.message for v in violations)
+
+
+def test_allowed_tools_block_list_accepted(temp_dir):
+    skill = temp_dir / "tools-block-list"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: tools-block-list\ndescription: A skill\nallowed-tools:\n  - Bash\n  - Read\n---\n"
+    )
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillValidRule().check(context)
+    assert not any("allowed-tools" in v.message for v in violations)
+
+
+def test_allowed_tools_flow_list_accepted(temp_dir):
+    skill = temp_dir / "tools-flow-list"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: tools-flow-list\ndescription: A skill\nallowed-tools: [Read, Write, Edit]\n---\n"
+    )
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillValidRule().check(context)
+    assert not any("allowed-tools" in v.message for v in violations)
+
+
+def test_allowed_tools_string_accepted(temp_dir):
+    skill = temp_dir / "tools-string"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: tools-string\ndescription: A skill\nallowed-tools: Read Write Edit Bash Agent\n---\n"
+    )
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillValidRule().check(context)
+    assert not any("allowed-tools" in v.message for v in violations)
+
+
+def test_allowed_tools_list_with_non_string_items_fails(temp_dir):
+    skill = temp_dir / "tools-bad-items"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: tools-bad-items\ndescription: A skill\nallowed-tools:\n  - Bash\n  - 123\n---\n"
+    )
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillValidRule().check(context)
+    assert any("allowed-tools" in v.message and "list items" in v.message for v in violations)
+
+
+def test_allowed_tools_invalid_type_fails(temp_dir):
+    skill = temp_dir / "tools-invalid"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: tools-invalid\ndescription: A skill\nallowed-tools: 42\n---\n"
+    )
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillValidRule().check(context)
+    assert any("allowed-tools" in v.message for v in violations)
+
+
+# --- required-fields config ---
+
+
+def test_required_fields_missing_triggers_error(temp_dir):
+    skill = temp_dir / "no-license"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: no-license\ndescription: A skill\n---\n")
+
+    context = RepositoryContext(skill)
+    rule = AgentSkillValidRule(config={"required-fields": ["license"]})
+    violations = rule.check(context)
+    assert any("Missing required field 'license'" in v.message for v in violations)
+
+
+def test_required_fields_present_passes(temp_dir):
+    skill = temp_dir / "has-license"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: has-license\ndescription: A skill\nlicense: MIT\n---\n"
+    )
+
+    context = RepositoryContext(skill)
+    rule = AgentSkillValidRule(config={"required-fields": ["license"]})
+    violations = rule.check(context)
+    assert not any("Missing required field" in v.message for v in violations)
+
+
+def test_required_fields_builtin_not_duplicated(temp_dir):
+    """Listing 'name' in required-fields should not produce duplicate violations."""
+    skill = temp_dir / "builtin-dup"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: builtin-dup\ndescription: A skill\n---\n")
+
+    context = RepositoryContext(skill)
+    rule = AgentSkillValidRule(config={"required-fields": ["name", "description"]})
+    violations = rule.check(context)
+    assert len(violations) == 0
+
+
+def test_required_fields_multiple_missing(temp_dir):
+    skill = temp_dir / "bare"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: bare\ndescription: A skill\n---\n")
+
+    context = RepositoryContext(skill)
+    rule = AgentSkillValidRule(config={"required-fields": ["license", "compatibility"]})
+    violations = rule.check(context)
+    missing = [v for v in violations if "Missing required field" in v.message]
+    assert len(missing) == 2
+    messages = {v.message for v in missing}
+    assert "Missing required field 'license'" in messages
+    assert "Missing required field 'compatibility'" in messages
+
+
+def test_required_fields_empty_config_no_extra_checks(temp_dir):
+    skill = temp_dir / "default"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: default\ndescription: A skill\n---\n")
+
+    context = RepositoryContext(skill)
+    rule = AgentSkillValidRule(config={"required-fields": []})
+    violations = rule.check(context)
+    assert len(violations) == 0
+
+
+# --- required-metadata config ---
+
+
+def test_required_metadata_missing_metadata_triggers_error(temp_dir):
+    skill = temp_dir / "no-meta"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: no-meta\ndescription: A skill\n---\n")
+
+    context = RepositoryContext(skill)
+    rule = AgentSkillValidRule(config={"required-metadata": ["author"]})
+    violations = rule.check(context)
+    assert any("Missing required 'metadata'" in v.message for v in violations)
+
+
+def test_required_metadata_missing_key_triggers_error(temp_dir):
+    skill = temp_dir / "meta-no-author"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: meta-no-author\ndescription: A skill\nmetadata:\n  version: '1.0'\n---\n"
+    )
+
+    context = RepositoryContext(skill)
+    rule = AgentSkillValidRule(config={"required-metadata": ["author"]})
+    violations = rule.check(context)
+    assert any("Missing required metadata key 'author'" in v.message for v in violations)
+    v = [v for v in violations if "metadata key" in v.message][0]
+    assert v.line is not None
+
+
+def test_required_metadata_present_passes(temp_dir):
+    skill = temp_dir / "meta-ok"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: meta-ok\ndescription: A skill\nmetadata:\n  author: test\n  org: acme\n---\n"
+    )
+
+    context = RepositoryContext(skill)
+    rule = AgentSkillValidRule(config={"required-metadata": ["author", "org"]})
+    violations = rule.check(context)
+    assert not any(
+        "metadata" in v.message.lower() and "missing" in v.message.lower() for v in violations
+    )
+
+
+def test_required_metadata_multiple_missing(temp_dir):
+    skill = temp_dir / "meta-sparse"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: meta-sparse\ndescription: A skill\nmetadata:\n  version: '1.0'\n---\n"
+    )
+
+    context = RepositoryContext(skill)
+    rule = AgentSkillValidRule(config={"required-metadata": ["author", "org"]})
+    violations = rule.check(context)
+    meta_violations = [v for v in violations if "metadata key" in v.message]
+    assert len(meta_violations) == 2
+
+
+def test_required_metadata_empty_config_no_extra_checks(temp_dir):
+    skill = temp_dir / "meta-default"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: meta-default\ndescription: A skill\n---\n")
+
+    context = RepositoryContext(skill)
+    rule = AgentSkillValidRule(config={"required-metadata": []})
+    violations = rule.check(context)
+    assert len(violations) == 0
+
+
+def test_required_fields_and_metadata_combined(temp_dir):
+    """Both options work together."""
+    skill = temp_dir / "combined"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: combined\ndescription: A skill\nlicense: MIT\n"
+        "metadata:\n  author: test\n  org: acme\n---\n"
+    )
+
+    context = RepositoryContext(skill)
+    rule = AgentSkillValidRule(
+        config={
+            "required-fields": ["license", "metadata"],
+            "required-metadata": ["author", "org"],
+        }
+    )
+    violations = rule.check(context)
+    assert len(violations) == 0
+
+
+def test_required_metadata_skipped_when_metadata_not_dict(temp_dir):
+    """required-metadata check is skipped when metadata is not a mapping (already caught by type check)."""
+    skill = temp_dir / "meta-bad-type"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: meta-bad-type\ndescription: A skill\nmetadata: not-a-map\n---\n"
+    )
+
+    context = RepositoryContext(skill)
+    rule = AgentSkillValidRule(config={"required-metadata": ["author"]})
+    violations = rule.check(context)
+    assert any("mapping" in v.message for v in violations)
+    assert not any("metadata key" in v.message for v in violations)
+
+
+def test_required_fields_null_value_triggers_error(temp_dir):
+    skill = temp_dir / "null-license"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: null-license\ndescription: A skill\nlicense:\n---\n"
+    )
+
+    context = RepositoryContext(skill)
+    rule = AgentSkillValidRule(config={"required-fields": ["license"]})
+    violations = rule.check(context)
+    assert any("Missing required field 'license'" in v.message for v in violations)
+    v = next(v for v in violations if "Missing required field 'license'" in v.message)
+    assert v.line is not None
+
+
+def test_required_metadata_null_value_triggers_error(temp_dir):
+    skill = temp_dir / "null-author"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: null-author\ndescription: A skill\nmetadata:\n  author:\n---\n"
+    )
+
+    context = RepositoryContext(skill)
+    rule = AgentSkillValidRule(config={"required-metadata": ["author"]})
+    violations = rule.check(context)
+    assert any("Missing required metadata key 'author'" in v.message for v in violations)
+
+
+def test_required_metadata_empty_string_triggers_error(temp_dir):
+    skill = temp_dir / "empty-author"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: empty-author\ndescription: A skill\nmetadata:\n  author: '  '\n---\n"
+    )
+
+    context = RepositoryContext(skill)
+    rule = AgentSkillValidRule(config={"required-metadata": ["author"]})
+    violations = rule.check(context)
+    assert any("Missing required metadata key 'author'" in v.message for v in violations)
+
+
+def test_required_metadata_no_duplicate_when_metadata_in_required_fields(temp_dir):
+    """When metadata is in required-fields and also missing, don't emit a second violation from required-metadata."""
+    skill = temp_dir / "no-dup"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: no-dup\ndescription: A skill\n---\n")
+
+    context = RepositoryContext(skill)
+    rule = AgentSkillValidRule(
+        config={"required-fields": ["metadata"], "required-metadata": ["author"]}
+    )
+    violations = rule.check(context)
+    meta_violations = [v for v in violations if "metadata" in v.message.lower()]
+    assert len(meta_violations) == 1
+    assert "Missing required field 'metadata'" in meta_violations[0].message
+
+
+# --- agentskill-rename-refs ---
+
+
+def test_rename_refs_no_manifest(temp_dir):
+    """No .skillsaw-renames.json means no violations"""
+    skill = temp_dir / "my-skill"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: my-skill\ndescription: A skill\n---\n")
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillRenameRefsRule().check(context)
+    assert len(violations) == 0
+
+
+def test_rename_refs_finds_stale_refs(temp_dir):
+    """Manifest + stale reference in a markdown file -> violation with line number"""
+    repo = temp_dir / "repo"
+    repo.mkdir()
+    skill = repo / "eat-potato"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: eat-potato\ndescription: A skill\n---\n" "Use Eat-Potato to do things.\n"
+    )
+    refs = skill / "references"
+    refs.mkdir()
+    (refs / "guide.md").write_text("See the Eat-Potato skill for help.\n")
+
+    manifest = {"renames": [{"old": "Eat-Potato", "new": "eat-potato"}]}
+    (repo / RENAMES_MANIFEST).write_text(json.dumps(manifest))
+
+    context = RepositoryContext(repo)
+    violations = AgentSkillRenameRefsRule().check(context)
+    assert len(violations) >= 1
+    ref_v = [v for v in violations if v.file_path and v.file_path.name == "guide.md"]
+    assert len(ref_v) == 1
+    assert ref_v[0].line is not None
+
+
+def test_rename_refs_skips_fixed_frontmatter(temp_dir):
+    """SKILL.md with already-fixed name: field should not trigger for frontmatter"""
+    repo = temp_dir / "repo"
+    repo.mkdir()
+    skill = repo / "eat-potato"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: eat-potato\ndescription: A skill\n---\n")
+
+    manifest = {"renames": [{"old": "Eat-Potato", "new": "eat-potato"}]}
+    (repo / RENAMES_MANIFEST).write_text(json.dumps(manifest))
+
+    context = RepositoryContext(repo)
+    violations = AgentSkillRenameRefsRule().check(context)
+    skill_violations = [v for v in violations if v.file_path and v.file_path.name == "SKILL.md"]
+    assert len(skill_violations) == 0
+
+
+def test_rename_refs_catches_stale_body_in_fixed_skill(temp_dir):
+    """SKILL.md with fixed name: but stale reference in body text"""
+    skill = temp_dir / "eat-potato"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(
+        "---\nname: eat-potato\ndescription: A skill\n---\n"
+        "This skill was formerly known as Eat-Potato.\n"
+    )
+
+    manifest = {"renames": [{"old": "Eat-Potato", "new": "eat-potato"}]}
+    (temp_dir / RENAMES_MANIFEST).write_text(json.dumps(manifest))
+
+    context = RepositoryContext(temp_dir)
+    violations = AgentSkillRenameRefsRule().check(context)
+    assert len(violations) == 1
+
+
+def test_rename_refs_evals_json(temp_dir):
+    """Manifest + stale skill_name in evals.json -> violation"""
+    repo = temp_dir / "repo"
+    repo.mkdir()
+    skill = repo / "eat-potato"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: eat-potato\ndescription: A skill\n---\n")
+    evals = skill / "evals"
+    evals.mkdir()
+    (evals / "evals.json").write_text(json.dumps({"skill_name": "Eat-Potato", "evals": []}))
+
+    manifest = {"renames": [{"old": "Eat-Potato", "new": "eat-potato"}]}
+    (repo / RENAMES_MANIFEST).write_text(json.dumps(manifest))
+
+    context = RepositoryContext(repo)
+    violations = AgentSkillRenameRefsRule().check(context)
+    evals_v = [v for v in violations if v.file_path and v.file_path.name == "evals.json"]
+    assert len(evals_v) == 1
+    assert "skill_name" in evals_v[0].message
+
+
+def test_rename_refs_autofix_markdown(temp_dir):
+    """Fix produces SUGGEST result replacing old name in markdown"""
+    repo = temp_dir / "repo"
+    repo.mkdir()
+    skill = repo / "eat-potato"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: eat-potato\ndescription: A skill\n---\n")
+    refs = skill / "references"
+    refs.mkdir()
+    (refs / "guide.md").write_text("See the Eat-Potato skill for help.\n")
+
+    manifest = {"renames": [{"old": "Eat-Potato", "new": "eat-potato"}]}
+    (repo / RENAMES_MANIFEST).write_text(json.dumps(manifest))
+
+    context = RepositoryContext(repo)
+    rule = AgentSkillRenameRefsRule()
+    violations = rule.check(context)
+    fixes = rule.fix(context, violations)
+
+    ref_fixes = [f for f in fixes if f.file_path.name == "guide.md"]
+    assert len(ref_fixes) == 1
+    from skillsaw.rule import AutofixConfidence
+
+    assert ref_fixes[0].confidence == AutofixConfidence.SUGGEST
+    assert "eat-potato" in ref_fixes[0].fixed_content
+    assert "Eat-Potato" not in ref_fixes[0].fixed_content
+
+
+def test_rename_refs_autofix_evals(temp_dir):
+    """Fix produces SUGGEST result replacing old skill_name in evals.json"""
+    repo = temp_dir / "repo"
+    repo.mkdir()
+    skill = repo / "eat-potato"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: eat-potato\ndescription: A skill\n---\n")
+    evals = skill / "evals"
+    evals.mkdir()
+    (evals / "evals.json").write_text(json.dumps({"skill_name": "Eat-Potato", "evals": []}))
+
+    manifest = {"renames": [{"old": "Eat-Potato", "new": "eat-potato"}]}
+    (repo / RENAMES_MANIFEST).write_text(json.dumps(manifest))
+
+    context = RepositoryContext(repo)
+    rule = AgentSkillRenameRefsRule()
+    violations = rule.check(context)
+    fixes = rule.fix(context, violations)
+
+    evals_fixes = [f for f in fixes if f.file_path.name == "evals.json"]
+    assert len(evals_fixes) == 1
+    assert "eat-potato" in evals_fixes[0].fixed_content
+    assert "Eat-Potato" not in evals_fixes[0].fixed_content
+
+
+def test_rename_refs_cleanup_on_no_stale_refs(temp_dir):
+    """Manifest entries with no stale references are removed during check()"""
+    repo = temp_dir / "repo"
+    repo.mkdir()
+    skill = repo / "eat-potato"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: eat-potato\ndescription: A skill\n---\n")
+
+    manifest = {"renames": [{"old": "Eat-Potato", "new": "eat-potato"}]}
+    (repo / RENAMES_MANIFEST).write_text(json.dumps(manifest))
+
+    context = RepositoryContext(repo)
+    rule = AgentSkillRenameRefsRule()
+    violations = rule.check(context)
+
+    assert len(violations) == 0
+    assert not (repo / RENAMES_MANIFEST).exists()
+
+
+def test_rename_refs_cleanup_keeps_active_entries(temp_dir):
+    """Manifest entries with remaining stale refs are preserved"""
+    repo = temp_dir / "repo"
+    repo.mkdir()
+    skill = repo / "eat-potato"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: eat-potato\ndescription: A skill\n---\n")
+    refs = skill / "references"
+    refs.mkdir()
+    (refs / "guide.md").write_text("See the Eat-Potato skill for help.\n")
+
+    manifest = {
+        "renames": [
+            {"old": "Eat-Potato", "new": "eat-potato"},
+            {"old": "Old-Gone", "new": "old-gone"},
+        ]
+    }
+    (repo / RENAMES_MANIFEST).write_text(json.dumps(manifest))
+
+    context = RepositoryContext(repo)
+    rule = AgentSkillRenameRefsRule()
+    violations = rule.check(context)
+
+    assert len(violations) >= 1
+    manifest_path = repo / RENAMES_MANIFEST
+    assert manifest_path.exists()
+    data = json.loads(manifest_path.read_text())
+    assert len(data["renames"]) == 1
+    assert data["renames"][0]["old"] == "Eat-Potato"
+
+
+def test_rename_refs_no_substring_matches(temp_dir):
+    """GH-283: 'api' must not match inside 'rapid', 'Therapists', or 'api-v2'."""
+    repo = temp_dir / "repo"
+    repo.mkdir()
+    skill = repo / "api-v2"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: api-v2\ndescription: A skill\n---\n")
+    (repo / "CLAUDE.md").write_text(
+        "Prefer rapid iteration with the api-v2 skill.\n" "Therapists maintain their own docs.\n"
+    )
+
+    manifest = {"renames": [{"old": "api", "new": "api-v2"}]}
+    (repo / RENAMES_MANIFEST).write_text(json.dumps(manifest))
+
+    context = RepositoryContext(repo)
+    violations = AgentSkillRenameRefsRule().check(context)
+    assert violations == []
+    # No stale references left -> manifest entry pruned
+    assert not (repo / RENAMES_MANIFEST).exists()
+
+
+def test_rename_refs_one_violation_per_line_single_fix_per_file(temp_dir):
+    """GH-283: every stale line is reported, but the fix is a single result
+    per file that rewrites each whole-name occurrence exactly once."""
+    repo = temp_dir / "repo"
+    repo.mkdir()
+    skill = repo / "api-client-v2"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: api-client-v2\ndescription: A skill\n---\n")
+    (repo / "CLAUDE.md").write_text(
+        "Use the api-client skill for rapid calls; api-client is preferred.\n"
+        "\n"
+        "The api-client skill needs auth.\n"
+    )
+
+    manifest = {"renames": [{"old": "api-client", "new": "api-client-v2"}]}
+    (repo / RENAMES_MANIFEST).write_text(json.dumps(manifest))
+
+    context = RepositoryContext(repo)
+    rule = AgentSkillRenameRefsRule()
+    violations = rule.check(context)
+    claude_violations = [v for v in violations if v.file_path.name == "CLAUDE.md"]
+    assert sorted(v.line for v in claude_violations) == [1, 3]
+
+    fixes = rule.fix(context, violations)
+    claude_fixes = [f for f in fixes if f.file_path.name == "CLAUDE.md"]
+    assert len(claude_fixes) == 1
+    fixed = claude_fixes[0].fixed_content
+    assert fixed == (
+        "Use the api-client-v2 skill for rapid calls; api-client-v2 is preferred.\n"
+        "\n"
+        "The api-client-v2 skill needs auth.\n"
+    )
+
+
+def test_rename_refs_fix_is_idempotent(temp_dir):
+    """GH-283: after applying the fix, check() finds nothing and a second
+    fix() produces no results (running fix twice is byte-identical)."""
+    repo = temp_dir / "repo"
+    repo.mkdir()
+    skill = repo / "api-client-v2"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: api-client-v2\ndescription: A skill\n---\n")
+    claude = repo / "CLAUDE.md"
+    claude.write_text("Prefer rapid iteration when using the api-client skill.\n")
+
+    manifest = {"renames": [{"old": "api-client", "new": "api-client-v2"}]}
+    (repo / RENAMES_MANIFEST).write_text(json.dumps(manifest))
+
+    context = RepositoryContext(repo)
+    rule = AgentSkillRenameRefsRule()
+    fixes = rule.fix(context, rule.check(context))
+    assert len(fixes) == 1
+    claude.write_text(fixes[0].fixed_content)
+    assert claude.read_text() == "Prefer rapid iteration when using the api-client-v2 skill.\n"
+
+    # Manifest survives the first check (reference was still stale then);
+    # a fresh check now finds nothing and a second fix changes nothing.
+    (repo / RENAMES_MANIFEST).write_text(json.dumps(manifest))
+    context2 = RepositoryContext(repo)
+    violations2 = rule.check(context2)
+    assert violations2 == []
+    assert rule.fix(context2, violations2) == []
+
+
+def test_rename_refs_fix_skips_single_word_names(temp_dir):
+    """Single-word old names are too ambiguous for autofix; check() reports
+    them but fix() produces no results (default autofix-min-segments=2)."""
+    repo = temp_dir / "repo"
+    repo.mkdir()
+    skill = repo / "api-v2"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: api-v2\ndescription: A skill\n---\n")
+    (repo / "CLAUDE.md").write_text("Use the api skill for calls.\n")
+
+    manifest = {"renames": [{"old": "api", "new": "api-v2"}]}
+    (repo / RENAMES_MANIFEST).write_text(json.dumps(manifest))
+
+    context = RepositoryContext(repo)
+    rule = AgentSkillRenameRefsRule()
+    violations = rule.check(context)
+    assert len(violations) == 1
+
+    fixes = rule.fix(context, violations)
+    assert fixes == []
+
+
+def test_name_fix_defers_manifest_to_apply(temp_dir):
+    """AgentSkillNameRule.fix() must not write .skillsaw-renames.json itself —
+    the manifest is recorded via on_apply, so dry-run stays side-effect free."""
+    repo = temp_dir / "repo"
+    repo.mkdir()
+    skill = repo / "eat-potato"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: Eat-Potato\ndescription: A skill\n---\n")
+
+    context = RepositoryContext(repo)
+    rule = AgentSkillNameRule()
+    violations = rule.check(context)
+    assert len(violations) >= 1
+
+    fixes = rule.fix(context, violations)
+    assert len(fixes) >= 1
+
+    manifest_path = repo / RENAMES_MANIFEST
+    assert not manifest_path.exists()
+
+    assert fixes[0].on_apply is not None
+    fixes[0].on_apply()
+
+    assert manifest_path.exists()
+    data = json.loads(manifest_path.read_text())
+    assert len(data["renames"]) == 1
+    assert data["renames"][0]["old"] == "Eat-Potato"
+    assert data["renames"][0]["new"] == "eat-potato"
+
+
+# --- Unreferenced files rule ---
+
+
+def _make_skill(root: Path, name: str = "demo-skill", body: str = "") -> Path:
+    skill = root / name
+    skill.mkdir(parents=True, exist_ok=True)
+    (skill / "SKILL.md").write_text(
+        f"---\nname: {name}\ndescription: A demo skill\n---\n\n# Demo\n\n{body}\n"
+    )
+    return skill
+
+
+def test_unreferenced_file_flagged(temp_dir):
+    skill = _make_skill(temp_dir, body="Run the tool as described below.")
+    (skill / "scripts").mkdir()
+    (skill / "scripts" / "orphan.py").write_text("print('never mentioned')\n")
+
+    violations = AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill))
+    assert len(violations) == 1
+    assert violations[0].file_path == skill / "scripts" / "orphan.py"
+    assert "scripts/orphan.py" in violations[0].message
+    assert violations[0].line is None  # whole-file violation, no fabricated line
+    assert violations[0].severity == Severity.WARNING
+
+
+def test_fenced_code_block_reference(temp_dir):
+    skill = _make_skill(temp_dir, body="Run:\n\n```bash\npython scripts/run.py --all\n```")
+    (skill / "scripts").mkdir()
+    (skill / "scripts" / "run.py").write_text("print('hi')\n")
+
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_code_span_reference(temp_dir):
+    skill = _make_skill(temp_dir, body="Use `scripts/helper.sh` to prepare the workspace.")
+    (skill / "scripts").mkdir()
+    (skill / "scripts" / "helper.sh").write_text("#!/bin/sh\n")
+
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_markdown_link_reference(temp_dir):
+    skill = _make_skill(temp_dir, body="See [the guide](references/guide.md) for details.")
+    (skill / "references").mkdir()
+    (skill / "references" / "guide.md").write_text("# Guide\n")
+
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_bare_filename_mention_counts(temp_dir):
+    skill = _make_skill(temp_dir, body="Run helper.py from the scripts directory.")
+    (skill / "scripts").mkdir()
+    (skill / "scripts" / "helper.py").write_text("print('hi')\n")
+
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_embedded_token_is_not_a_mention(temp_dir):
+    """`deploy.sh` must not be considered mentioned by `redeploy.shell`."""
+    skill = _make_skill(temp_dir, body="Use the redeploy.shell workflow for rollouts.")
+    (skill / "scripts").mkdir()
+    (skill / "scripts" / "deploy.sh").write_text("#!/bin/sh\n")
+
+    violations = AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill))
+    assert [v.file_path for v in violations] == [skill / "scripts" / "deploy.sh"]
+
+
+def test_transitive_reference(temp_dir):
+    skill = _make_skill(temp_dir, body="Start with [the guide](references/guide.md).")
+    refs = skill / "references"
+    refs.mkdir()
+    (refs / "guide.md").write_text("# Guide\n\nFor edge cases read detail.md too.\n")
+    (refs / "detail.md").write_text("# Detail\n")
+
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_transitive_relative_path_from_reference(temp_dir):
+    """references/guide.md can mention img/chart.png relative to itself."""
+    skill = _make_skill(temp_dir, body="Start with [the guide](references/guide.md).")
+    refs = skill / "references"
+    (refs / "img").mkdir(parents=True)
+    (refs / "guide.md").write_text("# Guide\n\nEmbed img/chart.png in the report.\n")
+    (refs / "img" / "chart.png").write_text("png")
+
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_data_file_referenced_by_referenced_script(temp_dir):
+    """SKILL.md -> script -> data file: the data file is not dead."""
+    skill = _make_skill(temp_dir, body="Run `scripts/check_repos.py` before merging.")
+    (skill / "scripts").mkdir()
+    (skill / "scripts" / "check_repos.py").write_text(
+        "import os\n\n"
+        "SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))\n"
+        'ALLOWED_REPOS_FILE = os.path.join(SCRIPT_DIR, "allowed-repos.txt")\n'
+    )
+    (skill / "scripts" / "allowed-repos.txt").write_text("org/repo\n")
+
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_data_file_mentioned_only_by_unreferenced_script_is_flagged(temp_dir):
+    """Mentions inside a script that is itself unreferenced do not count."""
+    skill = _make_skill(temp_dir, body="No bundled files are mentioned here.")
+    (skill / "scripts").mkdir()
+    (skill / "scripts" / "orphan.py").write_text('DATA = "config/settings.json"\n')
+    (skill / "config").mkdir()
+    (skill / "config" / "settings.json").write_text("{}\n")
+
+    violations = AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill))
+    flagged = {v.file_path for v in violations}
+    assert flagged == {skill / "scripts" / "orphan.py", skill / "config" / "settings.json"}
+
+
+def test_binary_referenced_file_is_not_a_traversal_source(temp_dir):
+    """Bytes inside a referenced binary must not propagate references."""
+    skill = _make_skill(temp_dir, body="The logo lives at assets/logo.bin.")
+    (skill / "assets").mkdir()
+    (skill / "assets" / "logo.bin").write_bytes(b"\x00\x01 hidden.txt \x02")
+    (skill / "hidden.txt").write_text("secret\n")
+
+    violations = AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill))
+    assert [v.file_path for v in violations] == [skill / "hidden.txt"]
+
+
+def test_oversized_referenced_file_is_not_a_traversal_source(temp_dir):
+    """Referenced files over the 1 MiB source cap must not propagate references."""
+    skill = _make_skill(temp_dir, body="Ship the payload in `assets/blob.txt`.")
+    (skill / "assets").mkdir()
+    (skill / "assets" / "blob.txt").write_text(("padding\n" * 150_000) + "big-secret.txt\n")
+    (skill / "big-secret.txt").write_text("x\n")
+
+    violations = AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill))
+    assert [v.file_path for v in violations] == [skill / "big-secret.txt"]
+
+
+def test_unreachable_markdown_is_not_a_traversal_source(temp_dir):
+    """Mentions inside an unreferenced markdown file do not count."""
+    skill = _make_skill(temp_dir, body="No bundled files are mentioned here.")
+    refs = skill / "references"
+    refs.mkdir()
+    (refs / "orphan.md").write_text("# Orphan\n\nMentions data.csv here.\n")
+    (refs / "data.csv").write_text("a,b\n")
+
+    violations = AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill))
+    flagged = {v.file_path for v in violations}
+    assert flagged == {refs / "orphan.md", refs / "data.csv"}
+
+
+def test_directory_mention_covers_contents(temp_dir):
+    skill = _make_skill(temp_dir, body="Read the files in `references/` before starting.")
+    refs = skill / "references"
+    refs.mkdir()
+    (refs / "a.md").write_text("# A\n")
+    (refs / "b.md").write_text("# B\n")
+
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_directory_mention_covers_disabled(temp_dir):
+    skill = _make_skill(temp_dir, body="Read the files in `references/` before starting.")
+    refs = skill / "references"
+    refs.mkdir()
+    (refs / "a.md").write_text("# A\n")
+
+    rule = AgentSkillUnreferencedFilesRule({"directory_mention_covers": False})
+    violations = rule.check(RepositoryContext(skill))
+    assert [v.file_path for v in violations] == [refs / "a.md"]
+
+
+def test_prose_word_is_not_a_directory_mention(temp_dir):
+    """The English word 'references' (no trailing slash) covers nothing."""
+    skill = _make_skill(temp_dir, body="Add references for every claim in the report.")
+    refs = skill / "references"
+    refs.mkdir()
+    (refs / "a.md").write_text("# A\n")
+
+    violations = AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill))
+    assert [v.file_path for v in violations] == [refs / "a.md"]
+
+
+def test_file_path_is_not_a_directory_mention(temp_dir):
+    """Mentioning references/a.md does not cover references/b.md."""
+    skill = _make_skill(temp_dir, body="See `references/a.md` for the details.")
+    refs = skill / "references"
+    refs.mkdir()
+    (refs / "a.md").write_text("# A\n")
+    (refs / "b.md").write_text("# B\n")
+
+    violations = AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill))
+    assert [v.file_path for v in violations] == [refs / "b.md"]
+
+
+def test_default_exclusions(temp_dir):
+    skill = _make_skill(temp_dir, body="Nothing else is mentioned.")
+    (skill / "README.md").write_text("# demo-skill\n\nA demo skill.\n")
+    (skill / "LICENSE").write_text("MIT\n")
+    (skill / "LICENSE.APACHE").write_text("Apache-2.0\n")
+    (skill / "evals").mkdir()
+    (skill / "evals" / "evals.json").write_text(
+        json.dumps({"skill_name": "demo-skill", "evals": [{"id": 1, "prompt": "p"}]})
+    )
+    (skill / ".hidden-notes.txt").write_text("hidden\n")
+    (skill / ".ci").mkdir()
+    (skill / ".ci" / "pipeline.yaml").write_text("steps: []\n")
+    (skill / "tests").mkdir()
+    (skill / "tests" / "evals.json").write_text(json.dumps({"evals": [{"prompt": "p"}]}))
+    (skill / "tests" / "graders.ts").write_text("export const graders = [];\n")
+    (skill / "scripts").mkdir()
+    (skill / "scripts" / "test_validate.py").write_text("def test_ok():\n    assert True\n")
+    (skill / "scripts" / "testdata").mkdir()
+    (skill / "scripts" / "testdata" / "valid.json").write_text('{"rows": []}\n')
+
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_exclude_glob_config(temp_dir):
+    skill = _make_skill(temp_dir, body="Nothing else is mentioned.")
+    (skill / "assets").mkdir()
+    (skill / "assets" / "logo.png").write_text("png")
+    (skill / "notes.txt").write_text("scratch\n")
+
+    rule = AgentSkillUnreferencedFilesRule({"exclude": ["assets/*", "*.txt"]})
+    assert rule.check(RepositoryContext(skill)) == []
+
+
+def test_exclude_glob_extends_defaults(temp_dir):
+    """User globs add to the built-in exclusions instead of replacing them."""
+    skill = _make_skill(temp_dir, body="Nothing else is mentioned.")
+    (skill / "README.md").write_text("# demo-skill\n\nA demo skill.\n")
+    (skill / "notes.txt").write_text("scratch\n")
+
+    rule = AgentSkillUnreferencedFilesRule({"exclude": ["*.txt"]})
+    assert rule.check(RepositoryContext(skill)) == []
+
+
+def test_exclude_glob_leading_star_star_matches_skill_root(temp_dir):
+    """A leading **/ exclude must also match a top-level directory of the
+    skill, mirroring the global exclude semantics (issue #322)."""
+    skill = _make_skill(temp_dir, body="Nothing else is mentioned.")
+    (skill / "generated").mkdir()
+    (skill / "generated" / "out.md").write_text("machine output\n")
+    (skill / "nested" / "generated").mkdir(parents=True)
+    (skill / "nested" / "generated" / "deep.md").write_text("machine output\n")
+
+    # Without the exclude both files are dead weight.
+    assert len(AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill))) == 2
+
+    rule = AgentSkillUnreferencedFilesRule({"exclude": ["**/generated/**"]})
+    assert rule.check(RepositoryContext(skill)) == []
+
+
+def test_skill_without_extra_files_passes(temp_dir):
+    skill = _make_skill(temp_dir, body="This skill bundles no extra files.")
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_rule_registered_in_default_config(temp_dir):
+    from skillsaw.config import LinterConfig
+
+    rules = LinterConfig.default().rules
+    assert "agentskill-unreferenced-files" in rules
+    assert rules["agentskill-unreferenced-files"]["enabled"] == "auto"
+    assert rules["agentskill-unreferenced-files"]["severity"] == "warning"
+
+
+def test_readme_is_a_reference_root(temp_dir):
+    """Files documented only in the skill's README.md are not flagged."""
+    skill = _make_skill(temp_dir, body="No bundled files are mentioned here.")
+    (skill / "README.md").write_text(
+        "# demo-skill\n\nDeveloper notes: regenerate fixtures with scripts/gen.py.\n"
+    )
+    (skill / "scripts").mkdir()
+    (skill / "scripts" / "gen.py").write_text("print('gen')\n")
+
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_changelog_and_notice_excluded(temp_dir):
+    skill = _make_skill(temp_dir, body="Nothing else is mentioned.")
+    (skill / "CHANGELOG.md").write_text("# Changelog\n\n## 1.0\n\n- Initial release.\n")
+    (skill / "NOTICE").write_text("Copyright notice.\n")
+    (skill / "NOTICE.txt").write_text("Copyright notice.\n")
+
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_license_and_notice_prefix_variants_excluded(temp_dir):
+    """LICENSE-MIT / NOTICE-THIRD-PARTY style names match the documented
+    LICENSE* / NOTICE* exclusions (regression: only exact or dot-suffixed
+    names were excluded)."""
+    skill = _make_skill(temp_dir, body="Nothing else is mentioned.")
+    (skill / "LICENSE-MIT").write_text("MIT License\n")
+    (skill / "NOTICE-THIRD-PARTY").write_text("Third-party notices.\n")
+    (skill / "LICENSES").write_text("SPDX list.\n")
+
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_symlink_escaping_skill_dir_is_ignored(temp_dir):
+    """Symlinks are neither flagged, followed, nor used as traversal sources
+    (regression: a link escaping the skill root crashed relative_to(), and a
+    referenced symlinked markdown file could be read from outside the repo)."""
+    outside = temp_dir / "outside"
+    outside.mkdir()
+    (outside / "secret.txt").write_text("out-of-tree\n")
+    (outside / "notes.md").write_text("# Notes\n\nMentions scripts/orphan.py here.\n")
+
+    skill = _make_skill(temp_dir / "repo", body="See linked-notes.md for background.")
+    (skill / "scripts").mkdir()
+    (skill / "scripts" / "orphan.py").write_text("print('never mentioned')\n")
+    (skill / "escape.txt").symlink_to(outside / "secret.txt")
+    (skill / "linked-notes.md").symlink_to(outside / "notes.md")
+    (skill / "outside-dir").symlink_to(outside, target_is_directory=True)
+
+    violations = AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill))
+
+    flagged = {v.file_path for v in violations}
+    # No crash, symlinks are never flagged, and the symlinked markdown —
+    # although mentioned by SKILL.md — is not read: the out-of-tree mention
+    # of scripts/orphan.py must not mark it referenced.
+    assert flagged == {skill / "scripts" / "orphan.py"}
+
+
+# --- Unreferenced files: directory mentions without a trailing slash ---
+
+
+def test_dot_slash_directory_mention_covers_contents(temp_dir):
+    """`./canvas-fonts`-style mentions (no trailing slash) cover the directory."""
+    skill = _make_skill(temp_dir, body="Search the `./fonts` directory for a matching typeface.")
+    fonts = skill / "fonts"
+    fonts.mkdir()
+    (fonts / "regular.ttf").write_text("font\n")
+    (fonts / "bold.ttf").write_text("font\n")
+
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_interior_slash_directory_mention_covers_contents(temp_dir):
+    """A nested path-ish mention (`assets/fonts`, no trailing slash) covers the directory."""
+    skill = _make_skill(temp_dir, body="Pick any typeface from assets/fonts and embed it.")
+    fonts = skill / "assets" / "fonts"
+    fonts.mkdir(parents=True)
+    (fonts / "regular.ttf").write_text("font\n")
+
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_slashless_dir_mention_does_not_cover_file_paths_inside(temp_dir):
+    """`./fonts/regular.ttf` is a file mention, not a mention of fonts/."""
+    skill = _make_skill(temp_dir, body="Embed `./fonts/regular.ttf` in the report.")
+    fonts = skill / "fonts"
+    fonts.mkdir()
+    (fonts / "regular.ttf").write_text("font\n")
+    (fonts / "bold.ttf").write_text("font\n")
+
+    violations = AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill))
+    assert [v.file_path for v in violations] == [fonts / "bold.ttf"]
+
+
+def test_slashless_dir_mention_respects_directory_covers_disabled(temp_dir):
+    skill = _make_skill(temp_dir, body="Search the `./fonts` directory for a typeface.")
+    fonts = skill / "fonts"
+    fonts.mkdir()
+    (fonts / "regular.ttf").write_text("font\n")
+
+    rule = AgentSkillUnreferencedFilesRule({"directory_mention_covers": False})
+    violations = rule.check(RepositoryContext(skill))
+    assert [v.file_path for v in violations] == [fonts / "regular.ttf"]
+
+
+# --- Unreferenced files: Python imports are followed ---
+
+
+def test_python_import_marks_module_relative_to_script_dir(temp_dir):
+    """SKILL.md -> scripts/recalc.py -> `from office.soffice import x` covers
+    scripts/office/soffice.py (module resolved relative to the importing file)."""
+    skill = _make_skill(temp_dir, body="Recalculate with `python scripts/recalc.py out.xlsx`.")
+    office = skill / "scripts" / "office"
+    office.mkdir(parents=True)
+    (skill / "scripts" / "recalc.py").write_text(
+        "from office.soffice import get_soffice_env\n\nprint(get_soffice_env())\n"
+    )
+    (office / "__init__.py").write_text("")
+    (office / "soffice.py").write_text("def get_soffice_env():\n    return {}\n")
+
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_python_relative_import_reference(temp_dir):
+    """`from . import util` and `from ..pkg import mod` resolve within the skill."""
+    skill = _make_skill(temp_dir, body="Run `python scripts/main.py` to build the report.")
+    scripts = skill / "scripts"
+    scripts.mkdir()
+    pkg = skill / "pkg"
+    pkg.mkdir()
+    (scripts / "main.py").write_text(
+        "from . import util\nfrom ..pkg import renderer\n\nutil.go()\n"
+    )
+    (scripts / "util.py").write_text("def go():\n    pass\n")
+    (pkg / "__init__.py").write_text("")
+    (pkg / "renderer.py").write_text("def render():\n    pass\n")
+
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_python_from_import_symbol_marks_module(temp_dir):
+    """`from pkg.helper import a_symbol` marks pkg/helper.py even though
+    a_symbol is not itself a module."""
+    skill = _make_skill(temp_dir, body="Run `python scripts/main.py` before replying.")
+    (skill / "scripts").mkdir()
+    (skill / "pkg").mkdir()
+    (skill / "scripts" / "main.py").write_text("from pkg.helper import recalc\n\nrecalc()\n")
+    (skill / "pkg" / "__init__.py").write_text("")
+    (skill / "pkg" / "helper.py").write_text("def recalc():\n    return 0\n")
+
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_python_import_in_unreferenced_script_does_not_count(temp_dir):
+    """Imports only propagate from scripts that are themselves reachable."""
+    skill = _make_skill(temp_dir, body="No bundled files are mentioned here.")
+    (skill / "scripts").mkdir()
+    (skill / "scripts" / "orphan.py").write_text("import helper\n\nhelper.go()\n")
+    (skill / "scripts" / "helper.py").write_text("def go():\n    pass\n")
+
+    violations = AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill))
+    flagged = {v.file_path for v in violations}
+    assert flagged == {skill / "scripts" / "orphan.py", skill / "scripts" / "helper.py"}
+
+
+def test_python_import_fallback_on_syntax_error(temp_dir):
+    """Sources ast.parse rejects still contribute imports via the line scan."""
+    skill = _make_skill(temp_dir, body="Run `python2 scripts/legacy.py` if asked.")
+    (skill / "scripts").mkdir()
+    (skill / "scripts" / "legacy.py").write_text(
+        "import helper\n\nprint 'python 2 syntax breaks ast.parse'\n"
+    )
+    (skill / "scripts" / "helper.py").write_text("def go():\n    pass\n")
+
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_unreferenced_reachability_fixture(temp_dir):
+    """End-to-end fixture: slash-less `./fonts` dir mention, a Python import
+    chain (SKILL.md -> scripts/main.py -> pkg/helper.py -> data/schema.xsd),
+    and one genuinely dead file that stays flagged."""
+    skill = copy_fixture("unreferenced-reachability", temp_dir)
+
+    violations = AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill))
+    assert [v.file_path for v in violations] == [skill / "legacy" / "cleanup.py"]
+
+
+# --- Unreferenced files: case-insensitive mentions ---
+
+
+def test_case_insensitive_file_mention(temp_dir):
+    """SKILL.md saying FORMS.md covers forms.md on disk (case-insensitive
+    filesystems make such references work), and the covered file still
+    becomes a traversal source."""
+    skill = _make_skill(temp_dir, body="To fill a PDF form, read FORMS.md and follow it.")
+    (skill / "forms.md").write_text("# Forms\n\nRun `python scripts/fill.py form.pdf` first.\n")
+    (skill / "scripts").mkdir()
+    (skill / "scripts" / "fill.py").write_text("print('fill')\n")
+
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_case_insensitive_directory_mention(temp_dir):
+    """`Templates/` in prose covers a templates/ directory on disk."""
+    skill = _make_skill(temp_dir, body="Copy a starting point from `Templates/` first.")
+    templates = skill / "templates"
+    templates.mkdir()
+    (templates / "report.md").write_text("# Report skeleton\n")
+
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_mention_boundaries_still_apply_case_insensitively(temp_dir):
+    """Case folding must not loosen token boundaries: Redeploy.SHELL still
+    does not reference deploy.sh."""
+    skill = _make_skill(temp_dir, body="Use the Redeploy.SHELL workflow for rollouts.")
+    (skill / "scripts").mkdir()
+    (skill / "scripts" / "deploy.sh").write_text("#!/bin/sh\n")
+
+    violations = AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill))
+    assert [v.file_path for v in violations] == [skill / "scripts" / "deploy.sh"]
+
+
+# --- Unreferenced files: imports in markdown fences ---
+
+
+def test_fenced_python_import_reference(temp_dir):
+    """A ```python fence teaching `from core.gif_builder import GIFBuilder`
+    covers core/gif_builder.py."""
+    skill = _make_skill(
+        temp_dir,
+        body=(
+            "Build the GIF like this:\n\n"
+            "```python\n"
+            "from core.gif_builder import GIFBuilder\n"
+            "builder = GIFBuilder()\n"
+            "```"
+        ),
+    )
+    core = skill / "core"
+    core.mkdir()
+    (core / "gif_builder.py").write_text("class GIFBuilder:\n    pass\n")
+
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_fenced_import_chain_is_transitive(temp_dir):
+    """The module reached through a fence import becomes a traversal source."""
+    skill = _make_skill(
+        temp_dir,
+        body="Compose frames:\n\n```python\nfrom core.frames import compose\n```",
+    )
+    core = skill / "core"
+    core.mkdir()
+    (core / "frames.py").write_text(
+        '"""Frame helpers; palettes load from data/palette.json."""\n\n'
+        "def compose():\n    pass\n"
+    )
+    (skill / "data").mkdir()
+    (skill / "data" / "palette.json").write_text("{}\n")
+
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_non_python_fence_imports_are_ignored(temp_dir):
+    """Import-looking lines in a fence labeled with another language do not
+    mark modules referenced."""
+    skill = _make_skill(
+        temp_dir,
+        body=("Example configuration:\n\n" "```text\n" "from core.hidden import backdoor\n" "```"),
+    )
+    core = skill / "core"
+    core.mkdir()
+    (core / "hidden.py").write_text("def backdoor():\n    pass\n")
+
+    violations = AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill))
+    assert [v.file_path for v in violations] == [core / "hidden.py"]
+
+
+def test_whitespace_only_fence_info_does_not_crash(temp_dir):
+    """A fence opener with only trailing whitespace after the backticks is
+    treated as an unlabeled fence whose imports are followed. markdown-it
+    strips the info string per CommonMark, and the language check guards
+    against a whitespace-only info regardless."""
+    skill = _make_skill(
+        temp_dir,
+        body=("Build it:\n\n" "```   \n" "from core.frames import compose\n" "```"),
+    )
+    core = skill / "core"
+    core.mkdir()
+    (core / "frames.py").write_text("def compose():\n    pass\n")
+
+    assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []

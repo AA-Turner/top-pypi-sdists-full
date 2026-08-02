@@ -1,0 +1,13 @@
+image: alpine/edge
+packages:
+  - py3-pip
+  - py3-numpy
+  - py3-pytest
+  - py3-hypothesis
+sources:
+  - https://git.sr.ht/~javiljoen/lttb-numpy
+tasks:
+  - test: |
+      cd lttb-numpy
+      pip install --break-system-packages --no-deps .
+      pytest

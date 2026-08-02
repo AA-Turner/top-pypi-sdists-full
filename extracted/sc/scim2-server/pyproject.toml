@@ -1,0 +1,144 @@
+[build-system]
+requires = ["uv_build>=0.8.9,<0.9.0"]
+build-backend = "uv_build"
+
+[project]
+name = "scim2-server"
+version = "0.1.9"
+description = "Lightweight SCIM2 server prototype"
+authors = [
+    {name="Yaal Coop", email="contact@yaal.coop"},
+    {name="Christian Friedrich Coors", email="me@ccoors.de"},
+]
+license = {file = "LICENSE"}
+readme = "README.md"
+keywords = ["scim", "scim2", "provisioning", "rfc7643", "rfc7644"]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "License :: OSI Approved :: Apache Software License",
+    "Environment :: Web Environment",
+    "Programming Language :: Python",
+    "Operating System :: OS Independent",
+]
+
+requires-python = ">= 3.10"
+dependencies = [
+    "scim2-filter-parser>=0.7.0",
+    "scim2-models>=0.6.1",
+    "werkzeug>=3.0.3",
+]
+
+[project.urls]
+repository = "https://github.com/python-scim/scim2-server"
+funding = "https://github.com/sponsors/python-scim"
+
+[project.scripts]
+scim2-server = "scim2_server.cli:main"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.27.0",
+    "pytest>=8.2.2",
+    "pytest-coverage>=0.0",
+    "prek>=0.1.0",
+    "time-machine>=2.14.2",
+    "tox-uv>=1.16.0",
+]
+
+[tool.uv.build-backend]
+module-root = ""
+
+[tool.coverage.run]
+source = [
+    "scim2_server",
+    "tests",
+]
+omit = [".tox/*", "examples/*", "scim2_server/cli.py"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "@pytest.mark.skip",
+    "@pytest.mark.xfail",
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "\\.\\.\\.\\s*$", # ignore ellipsis
+]
+
+[tool.ruff.lint]
+select = [
+    "B", # flake8-bugbear
+    "D", # pydocstyle
+    "E", # pycodestyle
+    "F", # pyflakes
+    "I", # isort
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501", # line-too-long
+    "E722", # bare-except
+    "D100", # public module
+    "D101", # public class
+    "D102", # public method
+    "D103", # public function
+    "D104", # public package
+    "D105", # magic method
+    "D106", # nested class
+    "D107", # public init
+    "D203", # no-blank-line-before-class
+    "D213", # multi-line-summary-second-line
+]
+
+[tool.ruff.lint.isort]
+force-single-line = true
+
+[tool.ruff.format]
+docstring-code-format = true
+
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules --doctest-glob='*.rst'"
+doctest_optionflags= "ALLOW_UNICODE IGNORE_EXCEPTION_DETAIL ELLIPSIS"
+
+[tool.tox]
+requires = ["tox>=4.19"]
+env_list = [
+    "style",
+    "py310",
+    "py311",
+    "py312",
+    "py313",
+    "py314",
+    "minversions",
+    "coverage",
+]
+
+[tool.tox.env_run_base]
+runner = "uv-venv-lock-runner"
+dependency_groups = ["dev"]
+commands = [
+    ["pytest", "--showlocals", "--full-trace", "{posargs}"],
+]
+
+[tool.tox.env.style]
+runner = "uv-venv-runner"
+commands = [
+    ["prek", "run", "--all-files", "--show-diff-on-failure"],
+]
+
+[tool.tox.env.minversions]
+runner = "uv-venv-runner"
+uv_resolution = "lowest-direct"
+
+[tool.tox.env.coverage]
+commands = [
+    ["pytest", "--cov", "--cov-fail-under=100", "--cov-report", "term:skip-covered", "{posargs}"],
+    ["coverage", "html"],
+]

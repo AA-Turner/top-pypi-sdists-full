@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, ClassVar, cast
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
 import yaml  # type: ignore[import-untyped]
 from fastmcp import FastMCP
@@ -20,9 +20,7 @@ from pydantic import Field
 
 from .config import _PACKAGE_VERSION, get_global_settings
 from .errors import ErrorCode, create_error_response
-from .tools.enhanced import EnhancedToolsMixin
 from .tools.helpers import raise_tool_error
-from .tools.util_helpers import strip_internal_fields
 from .transforms import DEFAULT_PINNED_TOOLS
 
 if TYPE_CHECKING:
@@ -77,7 +75,7 @@ SERVER_ICONS = [
 ]
 
 
-class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
+class HomeAssistantSmartMCPServer:
     """Home Assistant MCP Server with smart tools and fuzzy search.
 
     Uses lazy initialization to improve startup time:
@@ -196,9 +194,6 @@ class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
         # Register tools
         self.tools_registry.register_all_tools()
 
-        # Register enhanced tools for first/second interaction success
-        self.register_enhanced_tools()
-
         # Register bundled skills as MCP resources
         self._register_skills()
 
@@ -249,7 +244,23 @@ class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
         # what it offers to Home Assistant conversation agents on it.
         from .llm_exposure import LlmExposureMiddleware
 
-        self.mcp.add_middleware(LlmExposureMiddleware())
+        # policy_live: whether the gating middleware/queue actually wired at
+        # startup — stamped so a client can distinguish "configured" from
+        # "enforcing" on the very connection it is using (#1990).
+        self.mcp.add_middleware(
+            LlmExposureMiddleware(
+                policy_live=lambda: getattr(self, "approval_queue", None) is not None
+            )
+        )
+
+        # Entity visibility enforce mode, INBOUND half (#2015) — always
+        # installed, consults the live config per request (no-op unless
+        # enforce is on with an active hide dimension). Must precede the
+        # read-only guard and PolicyMiddleware: a call naming a hidden
+        # entity is concealed as not-found BEFORE it can be stored verbatim
+        # in the approval queue (rendered in the settings UI) or answered
+        # with a read-only/approval response that would confirm existence.
+        self._apply_visibility_inbound_middleware()
 
         # Read Only Mode write blocker (discussion #1569) — always
         # installed, consults the live flag per call. Before
@@ -268,6 +279,11 @@ class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
         # ENABLE_TOOL_SECURITY_POLICIES. Must come last so the middleware
         # wraps the final tool surface (including the search proxies).
         self._apply_tool_security_policies()
+
+        # Entity visibility enforce mode, OUTBOUND half (#2015) — added LAST
+        # so it is innermost: its result scan sees the raw tool output before
+        # any other middleware transforms it.
+        self._apply_visibility_outbound_middleware()
 
     def _get_skills_dir(self) -> Path | None:
         """Return the bundled skills directory if it exists.
@@ -401,10 +417,10 @@ class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
                 "again \u2014 call it directly.\n\n"
                 f"A few default tools are listed directly "
                 f"({', '.join(DEFAULT_PINNED_TOOLS)}) — these are the "
-                f"starting pins, but users can unpin any of them via the "
-                f"Tools tab in the settings UI, so the actual visible set "
-                f"may be a subset of this list. Everything else must be "
-                f"discovered via search.\n\n"
+                f"starting pins, and users can unpin the non-mandatory "
+                f"ones via the Tools tab in the settings UI, so the "
+                f"actual visible set may be a subset of this list. "
+                f"Everything else must be discovered via search.\n\n"
                 "DO NOT assume a capability is unavailable because you "
                 "don't see a direct tool for it. ALWAYS search first."
             )
@@ -1008,6 +1024,25 @@ class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
         UI take effect immediately without restart and without a stale
         in-memory cache.
         """
+        # One-time ANY-match schema migration (PR #1993) runs even when
+        # policies are disabled, so the file already matches the editor's
+        # ANY semantics whenever the user turns the feature on. Never
+        # blocks startup.
+        try:
+            from .policy.persistence import migrate_policy_any_semantics
+            from .utils.data_paths import get_data_dir as _get_data_dir
+
+            migrate_policy_any_semantics(_get_data_dir())
+        except Exception:
+            logger.error(
+                "tool_policy.json ANY-match migration failed; continuing. The "
+                "file may still carry pre-ANY semantics: multi-condition rules "
+                "will gate only when ALL conditions match, while the policy "
+                "editor presents them as ANY-match. Fix the file (or re-save "
+                "the policy in the settings UI) and restart.",
+                exc_info=True,
+            )
+
         if not self.settings.enable_tool_security_policies:
             return
 
@@ -1124,6 +1159,35 @@ class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
             return await self.mcp.local_provider._list_tools()
 
         self.mcp.add_middleware(StrictBpsMiddleware(list_tools=_list_all_tools))
+
+    def _apply_visibility_inbound_middleware(self) -> None:
+        """Install the enforce-mode INBOUND (conceal/refuse) middleware (#2015).
+
+        Always installed — self-no-ops at call time (loads the visibility
+        config per request and passes through unless enforce is on with an
+        active hide dimension), so a settings-UI toggle applies live in
+        standalone-HTTP/embedded mode like ``read_only_mode``. It needs the HA
+        client to fetch the registry/states for the hidden-set computation;
+        inject the lazy client accessor so no eager connection is made at
+        startup. Ordering (before read-only/policy) is owned by the caller.
+        """
+        from .visibility.enforcement import VisibilityInboundEnforcement
+
+        self.mcp.add_middleware(
+            VisibilityInboundEnforcement(get_client=lambda: self.client)
+        )
+
+    def _apply_visibility_outbound_middleware(self) -> None:
+        """Install the enforce-mode OUTBOUND (result-scan) middleware (#2015).
+
+        Same always-installed/self-no-op contract as the inbound half; the
+        caller registers it last so it is innermost and scans raw tool output.
+        """
+        from .visibility.enforcement import VisibilityOutboundEnforcement
+
+        self.mcp.add_middleware(
+            VisibilityOutboundEnforcement(get_client=lambda: self.client)
+        )
 
     # Shared action-phrased keyword block for retrieval. Some MCP clients
     # (Claude Code, others) rank candidate tools by token-overlap between
@@ -1720,51 +1784,6 @@ class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
         )
         return response
 
-    # Helper methods required by EnhancedToolsMixin
-
-    async def smart_entity_search(
-        self, query: str, domain_filter: str | None = None, limit: int = 10
-    ) -> dict[str, Any]:
-        """Bridge method to existing smart search implementation."""
-        return cast(
-            dict[str, Any],
-            await self.smart_tools.smart_entity_search(
-                query=query, limit=limit, include_attributes=False
-            ),
-        )
-
-    async def get_entity_state(self, entity_id: str) -> dict[str, Any]:
-        """Bridge method to existing entity state implementation."""
-        return await self.client.get_entity_state(entity_id)
-
-    async def call_service(
-        self,
-        domain: str,
-        service: str,
-        entity_id: str | None = None,
-        data: dict | None = None,
-    ) -> list[dict[str, Any]] | dict[str, Any]:
-        """Bridge method to existing service call implementation."""
-        service_data = data or {}
-        if entity_id:
-            service_data["entity_id"] = entity_id
-        return await self.client.call_service(domain, service, service_data)
-
-    async def get_entities_by_area(self, area_name: str) -> dict[str, Any]:
-        """Bridge method to existing area functionality.
-
-        ``smart_tools.get_entities_by_area`` enriches per-entity dicts
-        with leading-underscore internals (``_hidden_by`` etc.) so
-        downstream search branches can apply the score penalty without
-        a second registry lookup. Strip them here so this public bridge
-        doesn't leak internals to MCP clients.
-        """
-        result = await self.smart_tools.get_entities_by_area(
-            area_query=area_name, group_by_domain=True
-        )
-        strip_internal_fields(result)
-        return cast(dict[str, Any], result)
-
     async def start(self) -> None:
         """Start the Smart MCP server with async compatibility."""
         logger.info(
@@ -1784,8 +1803,8 @@ class HomeAssistantSmartMCPServer(EnhancedToolsMixin):
         except Exception as e:
             logger.error(f"❌ Error testing connection: {e}")
 
-        # Log available tools count
-        logger.info("🔧 Smart server with enhanced tools loaded")
+        # Log successful server initialization
+        logger.info("🔧 Home Assistant MCP tools loaded")
 
         # Run the MCP server with async compatibility
         await self.mcp.run_async()

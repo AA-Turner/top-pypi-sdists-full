@@ -1,0 +1,471 @@
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+"""Evaluation report renderers: markdown, html, latex, csv, json.
+
+Every renderer follows the signature ``fn(table_dict, **opts) -> str``.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+from pathlib import Path
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+
+def load_bundles(paths: list[Path]) -> list[dict[str, Any]]:
+    bundles = []
+    for p in paths:
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+            data["_source"] = str(p)
+            bundles.append(data)
+        except Exception as e:
+            logger.warning("Skipping %s: %s", p, e)
+    return bundles
+
+
+def load_bundles_for_export(paths: list[Path]) -> list[dict[str, Any]]:
+    """Like :func:`load_bundles` but also reattaches ``results.jsonl`` rows
+    as ``bundle["_results"]`` and records ``_output_path`` for exporters.
+
+    ``_output_path`` points at the **bench dir** (``<run_dir>/<bench>``),
+    matching what the orchestrator sets for in-memory bundles. The *run dir*
+    itself (what exporters expect as ``config["output_dir"]``) is its parent.
+
+    For backward compatibility with runs produced before result rows carried
+    the user prompt, each ``_results`` entry missing a non-empty ``prompt``
+    is enriched by cross-referencing ``inference_log.jsonl`` on
+    ``(problem_idx, repeat)``.
+    """
+    bundles = load_bundles(paths)
+    for bundle in bundles:
+        source = Path(bundle.get("_source", ""))
+        if not source.is_file():
+            continue
+        bundle["_output_path"] = str(source.parent)
+        results_path = source.parent / "results.jsonl"
+        if results_path.is_file():
+            results: list[dict[str, Any]] = []
+            for line in results_path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    results.append(json.loads(line))
+                except Exception as exc:
+                    logger.warning("Skipping malformed line in %s: %s", results_path, exc)
+            if results:
+                _enrich_results_with_prompts(results, source.parent / "inference_log.jsonl")
+                bundle["_results"] = results
+    return bundles
+
+
+def _enrich_results_with_prompts(results: list[dict[str, Any]], inference_log_path: Path) -> None:
+    """Populate missing ``prompt`` fields on result rows from ``inference_log.jsonl``.
+
+    No-op when the log file is absent. Matches on ``(problem_idx, repeat)``.
+    Safe on malformed lines and records without the expected keys.
+    """
+    if not any(not row.get("prompt") for row in results):
+        return
+    if not inference_log_path.is_file():
+        return
+    index: dict[tuple[Any, Any], str] = {}
+    try:
+        for line in inference_log_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except Exception:
+                continue
+            prompt = rec.get("prompt")
+            if not prompt:
+                continue
+            key = (rec.get("problem_idx"), rec.get("repeat", 0) or 0)
+            index.setdefault(key, prompt)
+    except OSError as exc:
+        logger.warning("Could not read %s for prompt enrichment: %s", inference_log_path, exc)
+        return
+    if not index:
+        return
+    enriched = 0
+    for row in results:
+        if row.get("prompt"):
+            continue
+        key = (row.get("problem_idx"), row.get("repeat", 0) or 0)
+        prompt = index.get(key)
+        if prompt:
+            row["prompt"] = prompt
+            enriched += 1
+    if enriched:
+        logger.debug("Enriched %d result rows with prompts from %s", enriched, inference_log_path)
+
+
+def discover_bundle_paths(paths: list[Path]) -> list[Path]:
+    """Expand files/directories into ``eval-*.json`` paths (recurses one level)."""
+    expanded: list[Path] = []
+    for p in paths:
+        if p.is_dir():
+            top = sorted(p.glob("eval-*.json"))
+            if top:
+                expanded.extend(top)
+            else:
+                expanded.extend(sorted(p.glob("*/eval-*.json")))
+        else:
+            expanded.append(p)
+    return expanded
+
+
+def materialize_legacy_bundles(results: Path) -> list[Path]:
+    """Convert legacy ``results/results.yml`` outputs under *results* into NEL bundles.
+
+    Legacy ``container://`` SLURM dispatch runs the eval-factory harness
+    directly, so the first durable artifact is ``<bench>/results/results.yml``
+    or ``results.json``. Report/export commands consume ``eval-*.json``
+    bundles, so this conversion is the shared bridge between those worlds.
+    """
+    import json as _json
+
+    from nemo_evaluator.engine.artifacts import write_all
+    from nemo_evaluator.environments.container import build_legacy_bundle
+
+    created: list[Path] = []
+    result_files = list(results.rglob("results/results.yml")) + list(results.rglob("results/results.json"))
+    for result_file in result_files:
+        bench_dir = result_file.parent.parent
+
+        rc_path = bench_dir / "run_config.yaml"
+        image, task = bench_dir.name, ""
+        if rc_path.exists():
+            try:
+                import yaml as _yaml
+
+                rc = _yaml.safe_load(rc_path.read_text(encoding="utf-8")) or {}
+                task = (rc.get("config") or {}).get("type") or ""
+            except Exception as exc:
+                logger.warning("Could not read legacy run config %s: %s", rc_path, exc)
+
+        try:
+            bundle = build_legacy_bundle(image, task, result_file.parent)
+        except Exception as exc:
+            logger.warning("Skipping legacy results in %s: %s", bench_dir, exc)
+            continue
+
+        existing_bundles = list(bench_dir.glob("eval-*.json"))
+        if existing_bundles:
+            rows = bundle.get("_results") or []
+            results_jsonl = bench_dir / "results.jsonl"
+            if rows and (not results_jsonl.exists() or not results_jsonl.read_text(encoding="utf-8").strip()):
+                with results_jsonl.open("w", encoding="utf-8") as f:
+                    for row in rows:
+                        f.write(_json.dumps(row, default=str) + "\n")
+            continue
+
+        paths = write_all(bundle, bench_dir)
+        created.append(paths["bundle"])
+    return created
+
+
+def build_table(bundles: list[dict[str, Any]]) -> dict[str, Any]:
+    benchmarks: dict[str, dict[str, Any]] = {}
+    model_name = ""
+
+    for b in bundles:
+        bm = b.get("benchmark", {})
+        name = bm.get("name", "unknown")
+        model_name = model_name or b.get("config", {}).get("model", "")
+
+        scores = bm.get("scores", {})
+        row: dict[str, Any] = {"samples": bm.get("samples", 0), "repeats": bm.get("repeats", 1)}
+
+        for metric, val in scores.items():
+            if isinstance(val, dict) and "value" in val:
+                row[metric] = val
+
+        cats = bm.get("categories", {})
+        if cats:
+            row["categories"] = cats
+
+        rt = scores.get("runtime", {})
+        if isinstance(rt, dict):
+            row["total_tokens"] = rt.get("total_tokens", 0)
+            row["latency_p50_ms"] = rt.get("latency_percentiles_ms", {}).get("p50", 0)
+
+        benchmarks[name] = row
+
+    return {"model": model_name, "benchmarks": benchmarks, "n_benchmarks": len(benchmarks)}
+
+
+_NON_METRIC_ROW_KEYS = {"samples", "repeats", "categories", "total_tokens", "latency_p50_ms"}
+
+# Substrings that mark a metric leaf as auxiliary timing/cost data, not the
+# benchmark's headline score.  Real-world example: nemo-skills math harnesses
+# emit BOTH ``pass@1/symbolic_correct`` (the score) AND ``pass@1/gen_seconds``
+# (latency) under the same group — without this filter the fallback below
+# surfaces "score=140" when the model actually got 100%.
+_TIMING_LEAF_PATTERNS = ("gen_seconds", "latency", "duration", "tokens", "time_ms", "_time", "_ms")
+
+
+def _is_timing_leaf(key: str) -> bool:
+    leaf = key.rsplit("/", 1)[-1].lower()
+    return any(p in leaf for p in _TIMING_LEAF_PATTERNS)
+
+
+def _primary_metric(row: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    """Pick the best headline metric: mean_reward if available, else pass@1.
+
+    Falls back to the first quality-flavored row entry with a numeric
+    ``value`` so legacy container bundles (whose harness-specific scores
+    don't conform to ``mean_reward``/``pass@1``) surface a real number
+    in the report table instead of rendering ``-``.  Timing/cost leaves
+    (``gen_seconds``, ``latency_ms``, ``duration``, etc.) are never used
+    as headlines.
+    """
+    mr = row.get("mean_reward", {})
+    if isinstance(mr, dict) and "value" in mr:
+        return "mean_reward", mr
+    p1 = row.get("pass@1", {})
+    if isinstance(p1, dict) and "value" in p1:
+        return "pass@1", p1
+    for k, v in row.items():
+        if k in _NON_METRIC_ROW_KEYS or k.startswith("scorer:"):
+            continue
+        if isinstance(v, dict) and "value" in v and not _is_timing_leaf(k):
+            return k, v
+    return "", {}
+
+
+def render_markdown(table: dict[str, Any], **_) -> str:
+    lines = [f"# Evaluation Report: {table['model']}\n"]
+
+    header = "| Benchmark | Scorer | Samples | Score | CI (95%) |"
+    sep = "|-----------|--------|---------|-------|----------|"
+    lines.extend([header, sep])
+
+    for name, row in sorted(table["benchmarks"].items()):
+        samples = row.get("samples", "-")
+        scorer_metrics = {
+            k: v for k, v in row.items() if k.startswith("scorer:") and isinstance(v, dict) and "value" in v
+        }
+
+        metric_name, metric = _primary_metric(row)
+        if metric:
+            val = f"{metric['value']:.4f}"
+            lo = metric.get("ci_lower", "")
+            hi = metric.get("ci_upper", "")
+            ci = f"[{lo:.4f}, {hi:.4f}]" if lo and hi else ""
+            label = f"{metric_name} (native)" if scorer_metrics else metric_name
+            lines.append(f"| {name} | {label} | {samples} | {val} | {ci} |")
+        elif not scorer_metrics:
+            lines.append(f"| {name} | - | {samples} | - | |")
+
+        for sname, sval in sorted(scorer_metrics.items()):
+            slabel = sname.removeprefix("scorer:")
+            val = f"{sval['value']:.4f}"
+            lo = sval.get("ci_lower", "")
+            hi = sval.get("ci_upper", "")
+            ci = f"[{lo:.4f}, {hi:.4f}]" if lo != "" and hi != "" else ""
+            correct = sval.get("correct", "")
+            total = sval.get("total", "")
+            detail = f" ({correct}/{total})" if correct != "" and total != "" else ""
+            lines.append(f"| {name} | {slabel} | {samples} | {val}{detail} | {ci} |")
+
+    lines.append("")
+
+    for name, row in sorted(table["benchmarks"].items()):
+        cats = row.get("categories", {})
+        if cats:
+            lines.append(f"\n## {name} -- Category Breakdown\n")
+            lines.append("| Category | Score | N |")
+            lines.append("|----------|-------|---|")
+            for cat, info in sorted(cats.items()):
+                score = info.get("mean_reward", info.get("pass@1", "-"))
+                n = info.get("n", info.get("n_samples", "-"))
+                lines.append(f"| {cat} | {score} | {n} |")
+
+    return "\n".join(lines)
+
+
+def render_latex(table: dict[str, Any], **_) -> str:
+    lines = [
+        "\\begin{table}[h]",
+        "\\centering",
+        f"\\caption{{Evaluation results: {table['model']}}}",
+        "\\begin{tabular}{lrccc}",
+        "\\toprule",
+        "Benchmark & Samples & Score & Metric & 95\\% CI \\\\",
+        "\\midrule",
+    ]
+
+    for name, row in sorted(table["benchmarks"].items()):
+        metric_name, metric = _primary_metric(row)
+        if metric:
+            val = f"{metric['value']:.4f}"
+            lo = metric.get("ci_lower", "")
+            hi = metric.get("ci_upper", "")
+            ci = f"[{lo:.4f}, {hi:.4f}]" if lo and hi else ""
+        else:
+            val = "--"
+            ci = ""
+        lines.append(f"{name} & {row.get('samples', '--')} & {val} & {metric_name} & {ci} \\\\")
+
+    lines.extend(["\\bottomrule", "\\end{tabular}", "\\end{table}"])
+    return "\n".join(lines)
+
+
+def render_csv(table: dict[str, Any], **_) -> str:
+    lines = ["benchmark,samples,repeats,metric,score,ci_lower,ci_upper"]
+    for name, row in sorted(table["benchmarks"].items()):
+        metric_name, metric = _primary_metric(row)
+        val = metric.get("value", "") if metric else ""
+        lo = metric.get("ci_lower", "") if metric else ""
+        hi = metric.get("ci_upper", "") if metric else ""
+        lines.append(f"{name},{row.get('samples', '')},{row.get('repeats', '')},{metric_name},{val},{lo},{hi}")
+    return "\n".join(lines)
+
+
+def render_html(table: dict[str, Any], **_) -> str:
+    from datetime import datetime, timezone
+
+    model = table.get("model", "Unknown")
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    n = table.get("n_benchmarks", 0)
+
+    rows_html = []
+    for name, row in sorted(table["benchmarks"].items()):
+        scorer_metrics = {
+            k: v for k, v in row.items() if k.startswith("scorer:") and isinstance(v, dict) and "value" in v
+        }
+
+        metric_name, metric = _primary_metric(row)
+        tokens = row.get("total_tokens", "")
+        latency = row.get("latency_p50_ms", "")
+        if latency:
+            latency = f"{latency:.0f}"
+
+        if metric:
+            val = f"{metric['value']:.4f}"
+            lo = metric.get("ci_lower", "")
+            hi = metric.get("ci_upper", "")
+            ci = f"[{lo:.4f}, {hi:.4f}]" if lo and hi else "&mdash;"
+            label = f"{metric_name} (native)" if scorer_metrics else metric_name
+        else:
+            val = "&mdash;"
+            ci = "&mdash;"
+            label = "&mdash;"
+
+        if metric or not scorer_metrics:
+            rows_html.append(
+                f"<tr><td>{name}</td><td>{label}</td><td>{row.get('samples', '')}</td>"
+                f"<td><strong>{val}</strong></td>"
+                f"<td>{ci}</td><td>{tokens}</td><td>{latency}</td></tr>"
+            )
+
+        for sname, sval in sorted(scorer_metrics.items()):
+            slabel = sname.removeprefix("scorer:")
+            sval_str = f"{sval['value']:.4f}"
+            c = sval.get("correct", "")
+            t = sval.get("total", "")
+            detail = f" ({c}/{t})" if c != "" and t != "" else ""
+            lo = sval.get("ci_lower", "")
+            hi = sval.get("ci_upper", "")
+            sci = f"[{lo:.4f}, {hi:.4f}]" if lo != "" and hi != "" else "&mdash;"
+            rows_html.append(
+                f"<tr><td>{name}</td><td>{slabel}</td><td>{row.get('samples', '')}</td>"
+                f"<td><strong>{sval_str}{detail}</strong></td>"
+                f"<td>{sci}</td><td></td><td></td></tr>"
+            )
+
+    extra_sections = []
+    for name, row in sorted(table["benchmarks"].items()):
+        cats = row.get("categories", {})
+        if cats:
+            cat_rows = []
+            for cat, info in sorted(cats.items()):
+                score = info.get("mean_reward", info.get("pass@1", "&mdash;"))
+                n_samples = info.get("n", info.get("n_samples", "&mdash;"))
+                cat_rows.append(f"<tr><td>{cat}</td><td>{score}</td><td>{n_samples}</td></tr>")
+            extra_sections.append(
+                f"<h2>{name} &mdash; Category Breakdown</h2>"
+                f"<table><thead><tr><th>Category</th><th>Score</th><th>N</th></tr></thead>"
+                f"<tbody>{''.join(cat_rows)}</tbody></table>"
+            )
+
+    return f"""\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Evaluation Report: {model}</title>
+<style>
+  :root {{ --bg: #ffffff; --fg: #1a1a2e; --accent: #0f3460; --border: #e0e0e0;
+           --row-alt: #f8f9fa; --header-bg: #0f3460; --header-fg: #ffffff; }}
+  @media (prefers-color-scheme: dark) {{
+    :root {{ --bg: #1a1a2e; --fg: #e0e0e0; --accent: #4e9af1; --border: #2d2d44;
+             --row-alt: #16213e; --header-bg: #16213e; --header-fg: #e0e0e0; }}
+  }}
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          background: var(--bg); color: var(--fg); max-width: 960px; margin: 0 auto;
+          padding: 2rem 1rem; line-height: 1.6; }}
+  h1 {{ font-size: 1.5rem; margin-bottom: 0.25rem; }}
+  .meta {{ color: #888; font-size: 0.875rem; margin-bottom: 1.5rem; }}
+  h2 {{ font-size: 1.15rem; margin: 2rem 0 0.75rem; }}
+  table {{ width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; font-size: 0.9rem; }}
+  th {{ background: var(--header-bg); color: var(--header-fg); text-align: left;
+        padding: 0.6rem 0.75rem; font-weight: 600; }}
+  td {{ padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); }}
+  tr:nth-child(even) {{ background: var(--row-alt); }}
+  strong {{ color: var(--accent); }}
+  footer {{ margin-top: 3rem; font-size: 0.8rem; color: #888; border-top: 1px solid var(--border);
+            padding-top: 1rem; }}
+</style>
+</head>
+<body>
+<h1>Evaluation Report: {model}</h1>
+<p class="meta">{n} benchmark(s) &middot; {ts}</p>
+<table>
+<thead>
+<tr><th>Benchmark</th><th>Scorer</th><th>Samples</th><th>Score</th><th>95% CI</th><th>Tokens</th><th>P50 ms</th></tr>
+</thead>
+<tbody>
+{"".join(rows_html)}
+</tbody>
+</table>
+{"".join(extra_sections)}
+<footer>Generated by NeMo Evaluator</footer>
+</body>
+</html>"""
+
+
+def render_json(table: dict[str, Any], **_) -> str:
+    return json.dumps(table, indent=2, default=str)
+
+
+# ── Registry ──────────────────────────────────────────────────────────
+
+RENDERERS = {
+    "markdown": render_markdown,
+    "html": render_html,
+    "latex": render_latex,
+    "csv": render_csv,
+    "json": render_json,
+}

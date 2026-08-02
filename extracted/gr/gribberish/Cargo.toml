@@ -1,9 +1,0 @@
-[workspace]
-resolver = "2"
-
-members = ["macros", "types", "gribberish", "python"]
-
-[profile.release]
-debug = true
-lto = true
-strip = "symbols"

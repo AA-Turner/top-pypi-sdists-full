@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=80.9.0", "wheel", "setuptools-scm>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "accelforge"
+dynamic = ["version"]
+description = "AccelForge"
+authors = [
+    {name = "Tanner Andrulis", email = "tannerandrulis@gmail.com"},
+    {name = "Michael Gilbert", email = "gilbertm@mit.edu"},
+]
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "numpy>=2.2.0",
+    "pandas>=2.2.0",
+    "tqdm>=4.67.0",
+    "pydantic>=2.0.0",
+    "pydantic_core>=2.33.0",
+    "ruamel.yaml>=0.18.0",
+    "jinja2>=3.1.0",
+    "islpy-barvinok >= 2025.2.5",
+    "sympy>=1.14.0",
+    "symengine>=0.14.0",
+    "paretoset>=1.2.5",
+    "matplotlib>=3.10.0",
+    "plotly>=6.1.0",
+    "pydot>=4.0.0",
+    "platformdirs>=4.3.0",
+    "joblib>=1.5.1",
+    "requests>=2.33.1",
+    "hwcomponents",
+    "hwcomponents-adc",
+    "hwcomponents-cacti",
+    "hwcomponents-library",
+    "hwcomponents-neurosim",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "black",
+    "flake8",
+    "mypy",
+    "pydocstyle",
+    "nbconvert",
+    "nbformat",
+    "ipykernel",
+]
+
+# Warn when modules, classes, methods, or functions lack docstrings (run: pydocstyle .)
+[tool.pydocstyle]
+convention = "google"
+select = ["D100", "D101", "D102", "D103"]  # missing docstrings: module, class, method, function
+match = "(?!test_).*\\.py"
+match-dir = "(?!(\\.git|_build|docs))"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+"*" = ["*.txt", "*.md", "*.yaml", "*.yml"]
+
+[project.scripts]
+# Add any console scripts here if needed
+
+[tool.setuptools_scm]
+write_to = "accelforge/_version.py"
+fallback_version = "1.0"
+# version_scheme and local_scheme defined in setup.py

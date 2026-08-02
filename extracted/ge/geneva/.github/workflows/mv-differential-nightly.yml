@@ -1,0 +1,33 @@
+name: MV differential nightly (deep shim sweep)
+on:
+  schedule:
+    - cron: "0 7 * * *" # 07:00 UTC daily
+  workflow_dispatch:
+
+jobs:
+  deep-sweep:
+    permissions:
+      contents: read
+    runs-on: warp-ubuntu-latest-x64-32x
+    timeout-minutes: 60
+    env:
+      UV_CACHE_DIR: /tmp/.uv-cache
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+      - name: Install dependencies
+        run: make pydeps
+      # Cluster-free in-process multi-flavor shim sweep at depth 5, parallel. Exits
+      # non-zero (fails the job) if any new-signature divergence appears beyond the
+      # known bugs (GEN-619 / GEN-611). 12 workers ~= 6 GB peak (each re-imports
+      # geneva); per-case tempdir cleanup keeps memory flat with depth.
+      - name: Deep differential sweep (L=5, parallel)
+        run: |
+          GENEVA_MVDIFF_MAXLEN=5 SWEEP_WORKERS=12 RAY_ENABLE_UV_RUN_RUNTIME_ENV=0 \
+            uv run python src/tests/mv_differential_sweep.py

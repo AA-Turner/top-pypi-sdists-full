@@ -1,0 +1,234 @@
+import asyncio
+from typing import Union
+from pandas import DataFrame
+import numpy as np
+import pandas as pd
+from datamodel.exceptions import ValidationError
+from navigator.actions.google.models import TravelerSearch, Location
+from navigator.actions.google.maps import Route
+from .....exceptions import DriverError
+from ..abstract import AbstractTransform
+
+class GoogleMaps(AbstractTransform):
+    """Enrich a DataFrame with Google Maps route and travel-time data.
+
+    Calls the Google Maps Routes API for each row in the DataFrame, adding
+    route geometry, distance, and estimated travel time as new columns.
+
+    Usage: Use in a MultiQuery ``Transform`` step to augment location-based
+    data with real-world route information.
+
+    Attributes:
+        zoom: Map zoom level for any embedded map output. Default: ``10``.
+        map_scale: Scale factor for map output (1 or 2). Default: ``2``.
+        timestamp_key: Column name containing departure timestamps.
+            Default: ``'timestamp'``.
+        departure_time: Fixed departure time string (ISO format) to use when
+            the timestamp column is not present. Default: ``None``.
+        type: Route type to request — e.g. ``'get_route'``. Default: ``'get_route'``.
+
+    Example:
+        {
+            "GoogleMaps": {
+                "zoom": 12,
+                "timestamp_key": "departure_time",
+                "type": "get_route"
+            }
+        }
+    """
+
+    #: Route methods (on navigator ``Route``) selectable via ``type``.
+    SUPPORTED_ROUTE_TYPES = ('get_route', 'waypoint_route')
+
+    @classmethod
+    def supported_route_types(cls) -> list[str]:
+        """Return the route types accepted by ``type``.
+
+        Single source of truth shared by the runtime dispatch (which calls
+        ``getattr(Route(), type)``) and the ``GoogleMaps.catalog.yaml`` ``type``
+        enum (resolved via the ``enum_from_class`` directive).
+        """
+        return list(cls.SUPPORTED_ROUTE_TYPES)
+
+    def __init__(self, data: Union[dict, DataFrame], **kwargs) -> None:
+        self.zoom: int = kwargs.get('zoom', 10)
+        self.map_scale: int = kwargs.get('map_scale', 2)
+        self.timestamp_key: str = kwargs.get('timestamp_key', 'timestamp')
+        self.departure_time: str = kwargs.get('departure_time', None)
+        super(GoogleMaps, self).__init__(data, **kwargs)
+        # Resolve and validate the Route method to dispatch via ``type``.
+        self._route_type: str = getattr(self, 'type', None) or 'get_route'
+        if self._route_type not in self.SUPPORTED_ROUTE_TYPES:
+            raise DriverError(
+                f"GoogleMaps: unsupported type '{self._route_type}'. "
+                f"Supported: {', '.join(self.SUPPORTED_ROUTE_TYPES)}."
+            )
+
+    async def process_row(self, row, idx, df):
+        """Processes a single row of the DataFrame,
+        calls the Google Maps API, and adds results.
+        Args:
+            row (pd.Series): A single row from the DataFrame.
+
+        Returns:
+            pd.Series: The modified row with additional columns from the API response.
+        """
+        # Create TravelerSearch instance
+        origin = tuple(row['origin'])
+        origin = Location(
+            latitude=origin[0],
+            longitude=origin[1]
+        )
+        destination = origin
+        args = {}
+
+        # Get departure_time from row or self
+        departure_time = row.get('departure_time', self.departure_time)
+        if departure_time is not None:
+            args = {
+                "departure_time": departure_time
+            }
+            print(f"Debug - departure_time in args: {args['departure_time']}")
+            print(f"Debug - departure_time type: {type(args['departure_time'])}")
+
+        try:
+            # Convert locations to Location objects
+            formatted_locations = []
+            for loc in row['locations']:
+                # Create Location object with all required attributes
+                location = Location(
+                    latitude=loc['latitude'],
+                    longitude=loc['longitude'],
+                    location_name=loc['location_name']  # Add location_name in constructor
+                )
+                # Add store_id as an attribute
+                location.store_id = loc['store_id']
+                formatted_locations.append(location)
+
+            print(f"Debug - formatted_locations: {formatted_locations}")
+            print(f"Debug - args being passed to TravelerSearch: {args}")
+
+            traveler = TravelerSearch(
+                origin=origin,
+                destination=destination,
+                locations=formatted_locations,  # Pass Location objects directly
+                optimal=False,
+                scale=self.map_scale,
+                zoom=self.zoom,
+                map_size=(800, 800),
+                **args
+            )
+        except ValidationError as exc:
+            self.logger.error(f'Error on validation : {exc}')
+            return
+        try:
+            route = Route()
+            # Dispatch the Route method selected by ``type`` (validated in __init__).
+            route_method = getattr(route, self._route_type)
+            result = await route_method(
+                traveler,
+                add_overview=False,
+                complete=False
+            )
+        except Exception as exc:
+            self.logger.error(f"Error on route: {exc}")
+            return
+        if result:
+            for key, value in result.items():
+                if key not in df.columns and isinstance(value, (list, np.ndarray)):
+                    df[key] = [[] for _ in range(len(df))]
+                try:
+                    df.at[idx, key] = value
+                except ValueError as e:
+                    self.logger.error(f"Map Error for key '{key}': {e}")
+                    # Optionally continue to the next key if there's an error
+                    continue
+            # Then, Calculate the "Optimal" Route:
+            try:
+                traveler.optimal = True
+                result = await route_method(
+                    traveler,
+                    add_overview=False,
+                    complete=False
+                )
+                for key, val in result.items():
+                    col = f"opt_{key}"
+                    if col not in df.columns and isinstance(value, (list, np.ndarray)):
+                        df[col] = [[] for _ in range(len(df))]
+                    try:
+                        df.at[idx, col] = val
+                    except ValueError as e:
+                        self.logger.error(f"Map Error for key '{col}': {e}")
+                        # Optionally continue to the next key if there's an error
+                        continue
+            except Exception as exc:
+                self.logger.error(f"Error on optimal route: {exc}")
+                return
+
+    async def run(self):
+        await self.start()
+        # Calculate the route and optimal route for every row in query:
+        if self.data.empty:
+            return self.data
+        df = self.data.copy()
+        col_list = [
+            "associate_oid",
+            "visitor_name",
+            "departure_time",
+            "start_timestamp",
+            "end_timestamp",
+            "visit_date",
+            "origin",
+            "form_info",
+            "locations",
+            "route_legs",
+            "route",
+            "total_duration",
+            "total_distance",
+            "duration",
+            "distance",
+            "map_url",
+            "map",
+            "opt_route_legs",
+            "opt_route",
+            "opt_total_duration",
+            "opt_total_distance",
+            "opt_duration",
+            "opt_distance",
+            "opt_map_url",
+            "opt_map",
+            "first_leg_distance",
+            "last_leg_distance",
+            "opt_first_leg_distance",
+            "opt_last_leg_distance"
+        ]
+        for col in col_list:
+            if col not in df.columns:
+                df[col] = pd.NA
+
+        # First: sort locations by timestamp:
+        def sort_by_timestamp(locations):
+            if isinstance(locations, list):  # Ensure the value is a list
+                return sorted(locations, key=lambda x: x[self.timestamp_key])
+            return locations
+        try:
+            self.data['locations'] = self.data['locations'].apply(
+                sort_by_timestamp
+            )
+        except KeyError as exc:
+            self.logger.error(
+                f"Error on sorting locations: {exc}"
+            )
+        for idx, row in self.data.iterrows():
+            try:
+                await self.process_row(row, idx, df)
+                await asyncio.sleep(1)
+                print(':: Processed row:', idx)
+            except Exception as exc:
+                self.logger.error(
+                    f"Error Processing row {idx}: {exc}"
+                )
+                continue
+        df.is_copy = False  # This line might not be necessary
+        self.data = df
+        return df

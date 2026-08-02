@@ -1,0 +1,74 @@
+name: E2E Tests - Regression Test Daily Report
+on:
+  workflow_dispatch: {}
+  # Run 1 hour after daily load tests (1am Pacific / 8am UTC)
+  schedule:
+    - cron: "0 8 * * *"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  generate-report:
+    name: generate-regression-test-report
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download daily load test artifacts (last 90 days)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/artifacts
+
+          # List all artifacts matching our naming pattern from the last 90 days
+          echo "Fetching artifact list..."
+          gh api repos/${{ github.repository }}/actions/artifacts \
+            --paginate \
+            --jq '.artifacts[] | select(.name | startswith("regression-test-daily-")) | select(.expired == false) | "\(.id) \(.name) \(.created_at)"' \
+            > /tmp/artifact-list.txt
+
+          TOTAL=$(wc -l < /tmp/artifact-list.txt | tr -d ' ')
+          echo "Found $TOTAL artifacts"
+
+          if [ "$TOTAL" -eq 0 ]; then
+            echo "No artifacts found. Report will be empty."
+            exit 0
+          fi
+
+          # Download each artifact
+          while IFS=' ' read -r id name created_at; do
+            # Sanitize name to prevent directory traversal
+            safe_name="$(basename "$name")"
+            echo "Downloading $safe_name (id=$id, created=$created_at)..."
+            mkdir -p "/tmp/artifacts/$safe_name"
+            gh api "repos/${{ github.repository }}/actions/artifacts/$id/zip" \
+              > "/tmp/artifacts/$safe_name/artifact.zip" 2>/dev/null || {
+              echo "  WARNING: Failed to download $safe_name"
+              continue
+            }
+            (cd "/tmp/artifacts/$safe_name" && unzip -o artifact.zip 2>/dev/null && rm -f artifact.zip) || {
+              echo "  WARNING: Failed to unzip $safe_name"
+            }
+          done < /tmp/artifact-list.txt
+
+          echo "Downloaded artifacts:"
+          ls -la /tmp/artifacts/
+
+      # generate_report.py uses only Python stdlib (json, csv, xml.etree).
+      # No setup-python step needed; ubuntu-latest ships Python 3.
+      - name: Generate trend report
+        run: |
+          python3 e2e/openvid/generate_report.py \
+            --artifacts-dir /tmp/artifacts \
+            --output-dir /tmp/report
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-test-report-${{ github.run_number }}
+          path: /tmp/report/
+          retention-days: 90

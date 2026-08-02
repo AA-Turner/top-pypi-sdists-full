@@ -23,7 +23,6 @@ and handles custom caches. It is not part of the public
 lazr.restfulclient API. (But maybe it should be?)
 """
 
-__metaclass__ = type
 __all__ = [
     "Browser",
     "RestfulHttp",
@@ -54,34 +53,21 @@ except ImportError:
 
     proxy_info_from_environment = ProxyInfo.from_environment
 
-try:
-    # Python 3.
-    from urllib.parse import urlencode
-except ImportError:
-    from urllib import urlencode
+from urllib.parse import urlencode
 
+from lazr.uri import URI
 from wadllib.application import Application
 
 from lazr.restfulclient._json import DatetimeJSONEncoder
 from lazr.restfulclient.errors import HTTPError, error_for
-from lazr.uri import URI
-
-if bytes is str:
-    # Python 2
-    unicode_type = unicode  # noqa: F821
-    str_types = basestring  # noqa: F821
-else:
-    unicode_type = str
-    str_types = str
-
 
 # A drop-in replacement for httplib2's safename.  Substantially borrowed
 # from httplib2, but its cache name format changed in 0.12.0 and we want to
 # stick with the previous version.
 
-re_url_scheme = re.compile(br"^\w+://")
+re_url_scheme = re.compile(rb"^\w+://")
 re_url_scheme_s = re.compile(r"^\w+://")
-re_slash = re.compile(br"[?/:|]+")
+re_slash = re.compile(rb"[?/:|]+")
 
 
 def safename(filename):
@@ -104,9 +90,13 @@ def safename(filename):
                 filename = filename.encode("idna")
     except UnicodeError:
         pass
-    if isinstance(filename, unicode_type):
+    if isinstance(filename, str):
         filename = filename.encode("utf-8")
-    filemd5 = md5(filename).hexdigest()
+    try:
+        filemd5 = md5(filename, usedforsecurity=False).hexdigest()
+    except TypeError:
+        # usedforsecurity requires Python 3.9+
+        filemd5 = md5(filename).hexdigest()  # nosec B324
     filename = re_url_scheme.sub(b"", filename)
     filename = re_slash.sub(b",", filename)
 
@@ -165,7 +155,7 @@ class RestfulHttp(Http):
         proxy_info=proxy_info_from_environment,
     ):
         cert_disabled = ssl_certificate_validation_disabled()
-        super(RestfulHttp, self).__init__(
+        super().__init__(
             cache,
             timeout,
             proxy_info,
@@ -192,16 +182,15 @@ class RestfulHttp(Http):
         if "authorization" in headers:
             # There's an authorization header left over from a
             # previous request that resulted in a redirect. Resources
-            # protected by OAuth or HTTP Digest must send a distinct
-            # Authorization header with each request, to prevent
-            # playback attacks. Remove the Authorization header and
-            # start again.
+            # protected by HTTP Digest must send a distinct Authorization
+            # header with each request, to prevent playback attacks.
+            # Remove the Authorization header and start again.
             del headers["authorization"]
         if self.authorizer is not None:
             self.authorizer.authorizeRequest(
                 absolute_uri, method, body, headers
             )
-        return super(RestfulHttp, self)._request(
+        return super()._request(
             conn,
             host,
             absolute_uri,
@@ -220,7 +209,7 @@ class RestfulHttp(Http):
         return None
 
 
-class AtomicFileCache(object):
+class AtomicFileCache:
     """A FileCache that can be shared by multiple processes.
 
     Based on a patch found at
@@ -276,7 +265,7 @@ class AtomicFileCache(object):
                 return f.read()
             finally:
                 f.close()
-        except (IOError, OSError) as e:
+        except OSError as e:
             if e.errno != errno.ENOENT:
                 raise
 
@@ -290,9 +279,15 @@ class AtomicFileCache(object):
         handle, path_name = tempfile.mkstemp(
             prefix=self.TEMPFILE_PREFIX, dir=self._cache_dir
         )
-        f = os.fdopen(handle, "wb")
-        f.write(value)
-        f.close()
+        try:
+            with os.fdopen(handle, "wb") as f:
+                f.write(value)
+        except Exception:
+            try:
+                os.unlink(path_name)
+            except OSError:
+                pass
+            raise
         cache_full_path = self._get_key_path(key)
         # And rename atomically (on POSIX at least)
         if sys.platform == "win32" and os.path.exists(cache_full_path):
@@ -332,9 +327,7 @@ class MultipleRepresentationCache(AtomicFileCache):
 
     def __init__(self, cache):
         """Tell FileCache to call append_media_type when generating keys."""
-        super(MultipleRepresentationCache, self).__init__(
-            cache, self.append_media_type
-        )
+        super().__init__(cache, self.append_media_type)
         self.request_media_type = None
 
     def append_media_type(self, key):
@@ -350,7 +343,7 @@ class MultipleRepresentationCache(AtomicFileCache):
 
     def _getCachedHeader(self, uri, header):
         """Retrieve a cached value for an HTTP header."""
-        (scheme, authority, request_uri, cachekey) = urlnorm(uri)
+        scheme, authority, request_uri, cachekey = urlnorm(uri)
         cached_value = self.get(cachekey)
         header_start = header + ":"
         if not isinstance(header_start, bytes):
@@ -387,7 +380,7 @@ class Browser:
         if cache is None:
             cache = tempfile.mkdtemp()
             atexit.register(shutil.rmtree, cache)
-        if isinstance(cache, str_types):
+        if isinstance(cache, str):
             cache = MultipleRepresentationCache(cache)
         self._connection = service_root.httpFactory(
             credentials, cache, timeout, proxy_info
@@ -486,7 +479,7 @@ class Browser:
 
     def get(self, resource_or_uri, headers=None, return_response=False):
         """GET a representation of the given resource or URI."""
-        if isinstance(resource_or_uri, (str_types, URI)):
+        if isinstance(resource_or_uri, (str, URI)):
             url = resource_or_uri
         else:
             method = resource_or_uri.get_method("get")

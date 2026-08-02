@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: locust
-Version: 2.46.2
+Version: 2.46.3
 Summary: Developer-friendly load testing framework
 Project-URL: Homepage, https://locust.cloud/
 Project-URL: Repository, https://github.com/locustio/locust

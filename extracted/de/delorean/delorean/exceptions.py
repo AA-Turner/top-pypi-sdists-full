@@ -1,6 +1,10 @@
-class DeloreanError(Exception):
+class DeloreanError(ValueError):
     """
     Base Delorean Exception class
+
+    Subclasses `ValueError` so that a caller handling bad input can catch
+    both these and the `ValueError` the underlying parser raises for
+    unreadable strings.
     """
 
     def __init__(self, msg):
@@ -15,6 +19,7 @@ class DeloreanInvalidTimezone(DeloreanError):
     """
     Exception that is raised when an invalid timezone is passed in.
     """
+
     pass
 
 
@@ -23,4 +28,5 @@ class DeloreanInvalidDatetime(DeloreanError):
     Exception that is raised when an improper datetime object is passed
     in.
     """
+
     pass

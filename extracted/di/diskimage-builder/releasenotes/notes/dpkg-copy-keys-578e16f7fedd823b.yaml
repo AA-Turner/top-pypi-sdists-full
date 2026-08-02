@@ -1,6 +1,0 @@
----
-upgrade:
-  - |
-    The ``DIB_ADD_APT_KEYS`` argument now copies keys into
-    ``/etc/apt/trusted.gpg.d``, rather than using ``apt-key`` to add
-    them.

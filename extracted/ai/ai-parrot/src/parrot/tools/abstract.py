@@ -1,0 +1,1140 @@
+"""
+Abstract Tool base class for all function-calling tools.in ai-parrot framework.
+"""
+from typing import TYPE_CHECKING, ClassVar, Dict, Any, Union, Optional, Type
+from abc import ABC, abstractmethod
+from contextvars import ContextVar
+from pathlib import Path
+from datetime import datetime
+import asyncio
+import time
+import traceback
+from urllib.parse import urlparse, urlunparse
+from pydantic import BaseModel, Field
+from datamodel.parsers.json import json_decoder, json_encoder, JSONContent  # noqa  pylint: disable=E0611
+from navconfig.logging import logging
+from ..conf import BASE_STATIC_URL, STATIC_DIR, OUTPUT_DIR
+# FEAT-176: Lifecycle Events System
+# FEAT-317: EventEmitterMixin/TraceContext moved to navigator_eventbus.lifecycle;
+# imported here via the parrot.core.events.lifecycle re-export facade. (Not in
+# spec's Module 5 census — same mechanical pattern as bots/clients; fixed here
+# because it blocks import of every AbstractTool subclass. See Completion Note.)
+from ..core.events.lifecycle import EventEmitterMixin, TraceContext
+from ..core.events.lifecycle.events import (
+    BeforeToolCallEvent, AfterToolCallEvent, ToolCallFailedEvent,
+)
+
+if TYPE_CHECKING:
+    from .executors.abstract import AbstractToolExecutor
+    from ..auth.broker import CredentialBroker
+
+# FEAT-264: per-call credential ContextVar.
+# Set by AbstractTool.execute() when the tool declares credential_provider;
+# read by tool implementations via current_credential().
+# NEVER log or include in LLM-visible kwargs.
+_CREDENTIAL_VAR: ContextVar[Optional[Any]] = ContextVar(
+    "_parrot_credential", default=None
+)
+
+
+def current_credential() -> Optional[Any]:
+    """Return the per-call credential injected by the broker, or ``None``.
+
+    Tools that declare ``credential_provider`` can call this inside
+    ``_execute()`` to obtain the resolved per-user credential material.
+    The value is set by the tool-loop seam (FEAT-264) just before
+    ``_execute()`` is called and reset in the ``finally`` block.
+
+    Returns:
+        The resolved credential (token, API-key dict, …) or ``None`` if
+        not in a credentialed execution context.
+    """
+    return _CREDENTIAL_VAR.get()
+
+# FEAT-252 (TASK-1612) — lazy import to avoid circular deps at module level
+def _get_output_scrubber():
+    """Lazy import of OutputScrubber (avoids circular import at import-time)."""
+    from ..security.redaction import OutputScrubber, ScrubPolicy  # noqa: PLC0415
+    return OutputScrubber, ScrubPolicy
+
+logger = logging.getLogger(__name__)
+
+_DEFAULT_SCRUBBER = None  # initialised on first use (module-level singleton)
+
+
+def _default_scrubber():
+    """Return the module-level singleton OutputScrubber with default policy."""
+    global _DEFAULT_SCRUBBER  # noqa: PLW0603
+    if _DEFAULT_SCRUBBER is None:
+        OutputScrubber, ScrubPolicy = _get_output_scrubber()
+        _DEFAULT_SCRUBBER = OutputScrubber(ScrubPolicy())
+    return _DEFAULT_SCRUBBER
+
+
+# FEAT-396 (TASK-2029) — lazy import, same reasoning as _get_output_scrubber()
+# above. Fallback-only default guardrail: used when a tool has no
+# `_tool_output_pipeline` stamped on it (e.g. constructed/executed outside
+# a guardrails-aware bot). The normal, per-bot-config-respecting path is
+# `_run_tool_output_guardrails()` below, which resolves the tool's
+# `_tool_output_pipeline` — the OWNING BOT's real TOOL_OUTPUT
+# `GuardrailPipeline` (`AbstractBot._guardrail_pipelines[GuardrailStage.
+# TOOL_OUTPUT]`, stamped onto the tool by `ToolManager` — see
+# `tools/manager.py`) — so a bot's `guardrails=[...]` registrations
+# (custom Guardrail subclasses, a non-default SecretsGuardrail policy) are
+# actually honored here, not silently ignored.
+_DEFAULT_SECRETS_GUARDRAIL = None  # initialised on first use (module-level singleton)
+
+
+def _default_secrets_guardrail():
+    """Return the module-level singleton SecretsGuardrail (FEAT-396 TASK-2029)."""
+    global _DEFAULT_SECRETS_GUARDRAIL  # noqa: PLW0603
+    if _DEFAULT_SECRETS_GUARDRAIL is None:
+        from ..bots.guardrails.builtin.secrets import SecretsGuardrail  # noqa: PLC0415
+        _DEFAULT_SECRETS_GUARDRAIL = SecretsGuardrail()
+    return _DEFAULT_SECRETS_GUARDRAIL
+
+
+async def _run_tool_output_guardrails(
+    pipeline: Optional[Any], value: Any, tool_name: str
+) -> tuple[Any, dict[str, dict[str, Any]]]:
+    """Apply TOOL_OUTPUT guardrails to a single `ToolResult` field.
+
+    Resolves ``pipeline`` (the calling tool's ``_tool_output_pipeline`` —
+    the owning bot's real `GuardrailPipeline`, or ``None``) rather than a
+    hardcoded default, so a bot's own `guardrails=[...]` config is
+    actually honored.
+
+    ``value`` may be ``str`` (routed through the real pipeline — full
+    BLOCK/TRANSFORM/FLAG semantics via `Guardrail.check()`) or non-``str``
+    (``ToolResult.result``/``.metadata`` are frequently dict/list —
+    `Guardrail.check(content: str)`/`GuardrailResult.content` are
+    Pydantic-typed ``str``-only, TASK-2024, so non-string values are
+    instead routed to each registered guardrail's ``scrub(value,
+    tool_name)`` escape hatch when it exposes one — e.g. `SecretsGuardrail`
+    — and left untouched by guardrails that don't).
+
+    ``on_error`` is honored for BOTH content shapes (code review fix,
+    post-TASK-2029): a ``fail_closed`` guardrail whose ``scrub()`` raises
+    on non-string content now blocks that field (type-preserving
+    placeholder — dict/list stay dict/list) instead of silently passing
+    the unscrubbed value through, matching the acceptance criterion "a
+    raising `fail_closed` [guardrail] blocks it" for the string path.
+
+    Args:
+        pipeline: The tool's `_tool_output_pipeline`, or ``None`` (falls
+            back to the process-wide default `SecretsGuardrail`).
+        value: The field value to scrub.
+        tool_name: Audit-log tool-name hint.
+
+    Returns:
+        A ``(value, flag_reports)`` tuple. ``value`` is the (possibly
+        transformed) field content — on BLOCK, a canned placeholder, never
+        the offending content. ``flag_reports`` carries FLAG-stage reports
+        keyed by guardrail name (string path only — the ``scrub()`` escape
+        hatch has no report concept), for the caller to attach to
+        ``ToolResult.metadata["guardrails"]``.
+    """
+    if pipeline is None or not pipeline.has_guardrails:
+        return _default_secrets_guardrail().scrub(value, tool_name=tool_name), {}
+
+    if isinstance(value, str):
+        from ..bots.guardrails.base import GuardrailContext, GuardrailStage  # noqa: PLC0415
+        ctx = GuardrailContext(
+            stage=GuardrailStage.TOOL_OUTPUT, agent_name=tool_name, tool_name=tool_name,
+        )
+        outcome = await pipeline.run(value, ctx)
+        if outcome.blocked:
+            return f"[content removed by guardrail: {outcome.reason}]", {}
+        return (outcome.content if outcome.content is not None else value), outcome.flag_reports
+
+    for guardrail in pipeline.guardrails:
+        scrub = getattr(guardrail, "scrub", None)
+        if not callable(scrub):
+            continue
+        try:
+            value = scrub(value, tool_name=tool_name)
+        except Exception as exc:  # noqa: BLE001 - guardrail error contract, see on_error
+            if getattr(guardrail, "on_error", "fail_open") == "fail_closed":
+                logger.error(
+                    "Guardrail '%s' raised %s while scrubbing non-string TOOL_OUTPUT "
+                    "content for tool %s; on_error=fail_closed -> blocking",
+                    guardrail.name, type(exc).__name__, tool_name,
+                )
+                placeholder = f"[content removed by guardrail: {guardrail.name}]"
+                if isinstance(value, dict):
+                    return {"_blocked_by_guardrail": guardrail.name}, {}
+                if isinstance(value, list):
+                    return [placeholder], {}
+                return placeholder, {}
+            logger.warning(
+                "Guardrail '%s' raised %s while scrubbing non-string TOOL_OUTPUT "
+                "content for tool %s; on_error=fail_open -> leaving unchanged",
+                guardrail.name, type(exc).__name__, tool_name,
+            )
+            continue
+    return value, {}
+
+
+logging.getLogger(name='matplotlib').setLevel(logging.INFO)
+logging.getLogger(name='h5py').setLevel(logging.INFO)
+logging.getLogger(name='datasets').setLevel(logging.WARNING)
+logging.getLogger(name='numexpr').setLevel(logging.WARNING)
+logging.getLogger(name='pymongo').setLevel(logging.WARNING)
+
+
+class AbstractToolArgsSchema(BaseModel):
+    """Base schema for tool arguments.
+
+    Subclasses can list field names in ``_context_fields`` that represent
+    runtime context injected by the framework (e.g. ``user_id``,
+    ``session_id``).  These fields are **excluded** from the JSON schema
+    sent to the LLM so the model is never asked to provide them.  The
+    framework injects them before validation at execution time.
+    """
+
+    _context_fields: ClassVar[frozenset[str]] = frozenset()
+
+
+class ToolResult(BaseModel):
+    """Standardized tool result format."""
+    success: bool = Field(default=True, description="Indicates if the tool executed successfully")
+    status: str = Field(default="success", description="Status of the operation")
+    result: Any = Field(description="The actual result of the tool operation")
+    error: Optional[str] = Field(default=None, description="Error message if any")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
+    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
+
+    # File output fields for tools that generate files/images
+    files: Optional[list] = Field(
+        default_factory=list, description="List of file paths generated by the tool"
+    )
+    images: Optional[list] = Field(
+        default_factory=list, description="List of image paths generated by the tool"
+    )
+
+    # Voice-aware fields
+    voice_text: Optional[str] = Field(default=None, description="Text optimized for speech")
+    display_data: Optional[Dict[str, Any]] = Field(default=None, description="Visual content to display")
+
+
+    @property
+    def spoken_content(self) -> str:
+        """Returns content for voice synthesis."""
+        if self.voice_text:
+            return self.voice_text
+        return str(self.result) if self.result else ""
+
+    @property
+    def has_display_content(self) -> bool:
+        """Check if there's visual content to display."""
+        return self.display_data is not None
+
+
+class AbstractTool(EventEmitterMixin, ABC):
+    """
+    Abstract base class for all tools in the ai-parrot framework.
+
+    This class provides a unified interface for tools that can be used by both
+    conversational bots and agents. It includes common functionality like:
+    - Name and description management
+    - JSON schema generation
+    - File path management
+    - Logging and error handling
+    - Async/sync execution support
+    - Lifecycle event emission (FEAT-176)
+    """
+
+    # Class attributes that should be set by subclasses
+    name: str = None
+    description: str = None
+    args_schema: Type[BaseModel] = AbstractToolArgsSchema
+    return_direct: bool = False
+    routing_meta: Dict = None  # Set per-instance in __init__ to avoid mutable default
+    # FEAT-264: optional credential provider ID.  When set, the tool-loop
+    # seam resolves a per-user credential via CredentialBroker before calling
+    # _execute() and makes it available via current_credential().
+    # Tools without this attribute (default None) are unaffected.
+    credential_provider: Optional[str] = None
+    # FEAT-252 follow-up: secret/PII redaction is OPT-IN per agent. The owning
+    # agent (via ToolManager) stamps this flag on its tools when the agent is
+    # created with ``enable_redaction=True``; unflagged agents skip scrubbing.
+    enable_redaction: bool = False
+    # FEAT-396 (TASK-2029, corrected post-review): the owning bot's
+    # TOOL_OUTPUT GuardrailPipeline, stamped by ToolManager alongside
+    # enable_redaction above (tools have no bot back-reference by design —
+    # see `parrot.bots.guardrails`). ``None`` for tools not owned by a
+    # guardrails-aware bot (e.g. constructed standalone); the FEAT-252 hook
+    # falls back to `_default_secrets_guardrail()` in that case.
+    _tool_output_pipeline: Optional[Any] = None
+    # FEAT-391: opt-in lazy resource lifecycle. When True, execute() calls
+    # _ensure_open() (which calls _open() at most once) before the first
+    # _execute(). Tools that don't manage external resources leave this
+    # False (default) — fully backward compatible, no automatic I/O.
+    auto_open: bool = False
+
+    def __init__(
+        self,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        output_dir: Optional[Union[str, Path]] = None,
+        base_url: Optional[str] = None,
+        static_dir: Optional[Union[str, Path]] = None,
+        routing_meta: Optional[Dict] = None,
+        executor: Optional["AbstractToolExecutor"] = None,
+        webhook_callback_url: Optional[str] = None,
+        remote_timeout_seconds: int = 300,
+        **kwargs
+    ):
+        """
+        Initialize the tool.
+
+        Args:
+            name: Tool name (defaults to class name)
+            description: Tool description
+            output_dir: Directory for output files (if tool generates files)
+            base_url: Base URL for serving static files
+            static_dir: Static directory path
+            routing_meta: Optional routing hints dict for CapabilityRegistry.
+                Supported keys: ``"description"``, ``"not_for"``.
+            executor: Optional :class:`AbstractToolExecutor` that runs the
+                tool off-process (Kubernetes pod, Qworker, etc.). When
+                ``None`` (the default), the tool executes in-process —
+                identical to the legacy behaviour.
+            webhook_callback_url: When set, the executor returns a
+                ``ToolResult(status="pending")`` immediately and the
+                final result arrives at this URL out-of-band. Only
+                honoured by executors that support async delivery.
+            remote_timeout_seconds: Max wall-clock seconds the executor
+                waits for the remote runtime to return. Ignored when
+                ``executor`` is ``None``.
+            **kwargs: Additional configuration
+        """
+        # routing_meta — per-instance to avoid shared mutable default
+        self.routing_meta: Dict = routing_meta if routing_meta is not None else {}
+
+        # Remote execution wiring (None = legacy in-process behaviour)
+        self.executor: Optional["AbstractToolExecutor"] = executor
+        self.webhook_callback_url: Optional[str] = webhook_callback_url
+        self.remote_timeout_seconds: int = int(remote_timeout_seconds)
+
+        # Store initialization parameters for cloning. The live executor
+        # instance is captured so clone() reuses the same transport;
+        # ToolExecutionEnvelope serialization strips it before sending.
+        self._init_kwargs = {
+            'name': name,
+            'description': description,
+            'output_dir': output_dir,
+            'base_url': base_url,
+            'static_dir': static_dir,
+            'executor': executor,
+            'webhook_callback_url': webhook_callback_url,
+            'remote_timeout_seconds': remote_timeout_seconds,
+            **kwargs
+        }
+
+        # Set name and description
+        self.name = name or self.name or self.__class__.__name__
+        self.description = description or self.__class__.__doc__ or f"Tool: {self.name}"
+
+        # Initialize permission context (per-call, set in execute())
+        self._current_pctx: Optional[Any] = None
+
+        # FEAT-391: per-instance lazy-resource-lifecycle flag. Must be set
+        # here (not as a class attribute) so it is never shared across
+        # instances of the same tool class.
+        self._opened: bool = False
+        # Guards _ensure_open() against a first-open race: two coroutines
+        # calling execute() concurrently on the same instance before either
+        # has set _opened=True must not both invoke _open(). asyncio.Lock()
+        # is safe to construct here without a running loop (3.10+).
+        self._open_lock: asyncio.Lock = asyncio.Lock()
+
+        # Set up logging
+        self.logger = logging.getLogger(
+            f'{self.name}.Tool'
+        )
+
+        # JSON encoders/decoders
+        self._json_encoder = json_encoder
+        self._json_decoder = json_decoder
+        self._json = JSONContent()
+
+        # File and URL configuration
+        self.base_url = base_url or BASE_STATIC_URL
+        self.static_url = base_url or BASE_STATIC_URL
+        parsed = urlparse(self.static_url)
+        self._base_scheme_netloc = (parsed.scheme, parsed.netloc)
+
+        # Set up directories
+        self.static_dir = Path(static_dir or STATIC_DIR).resolve()
+
+        self.output_dir = Path(output_dir).resolve() if output_dir else self._default_output_dir()
+
+        # Ensure output directory exists if specified
+        if self.output_dir and not self.output_dir.exists():
+            self.output_dir.mkdir(parents=True, exist_ok=True)
+
+        # FEAT-176: initialise per-instance event registry
+        self._init_events()
+
+    def _default_output_dir(self) -> Optional[Path]:
+        """Get the default output directory for this tool type.
+
+        Returns OUTPUT_DIR from parrot.conf as base directory.
+        Subclasses can override to append tool-specific subdirectories.
+        """
+        return OUTPUT_DIR
+
+    def _get_clone_kwargs(self) -> Dict[str, Any]:
+        """
+        Get the keyword arguments to use when cloning this tool.
+
+        Subclasses can override this method to customize which parameters
+        are cloned and which are not. By default, all initialization
+        parameters stored in _init_kwargs are returned.
+
+        Returns:
+            Dictionary of keyword arguments for tool initialization
+        """
+        return self._init_kwargs.copy()
+
+    def clone(self):
+        """
+        Create a new instance of this tool with the same configuration.
+
+        This method creates a new instance of the tool class with all the
+        initialization parameters that were passed to the current instance.
+        Subclasses can override _get_clone_kwargs() to customize which
+        parameters are cloned and which are not.
+
+        Returns:
+            New instance of the same tool class with cloned configuration
+
+        Example:
+            >>> dbtool = DatabaseTool(connection_string="postgresql://...")
+            >>> new_tool = dbtool.clone()
+            >>> # new_tool is a fresh instance with the same configuration
+        """
+        clone_kwargs = self._get_clone_kwargs()
+        return self.__class__(**clone_kwargs)
+
+    # ── FEAT-391: per-tool connection lifecycle ─────────────────────────────
+
+    async def _open(self) -> None:
+        """
+        Acquire external resources (connections, sessions, pools).
+
+        No-op by default. Subclasses that need a resource lifecycle
+        (database connections, HTTP sessions, broker channels, etc.)
+        should override this. Called at most once per instance lifetime
+        via :meth:`_ensure_open`, and only when ``auto_open`` is True.
+
+        If this raises after partially acquiring a resource, ``_opened``
+        stays ``False`` (see :meth:`_ensure_open`), so ``_close()`` will
+        NOT be invoked automatically for the partial state. Overrides that
+        can partially succeed before raising are responsible for releasing
+        whatever they already acquired before re-raising.
+        """
+
+    async def _close(self) -> None:
+        """
+        Release external resources acquired by :meth:`_open`.
+
+        No-op by default. Subclasses that override :meth:`_open` should
+        override this to release the corresponding resources. Always
+        resets ``_opened`` to ``False`` so the tool can be re-opened
+        (via :meth:`_ensure_open`) afterwards. Overrides MUST call
+        ``await super()._close()`` (or reset ``self._opened = False``
+        themselves) — otherwise the tool can never be re-opened.
+        """
+        self._opened = False
+
+    async def _ensure_open(self) -> None:
+        """
+        Idempotent gate that calls :meth:`_open` at most once.
+
+        Guarded by :attr:`_open_lock` so two coroutines racing into this
+        method concurrently (e.g. two tool calls fired in the same agent
+        turn) cannot both observe ``_opened is False`` and both invoke
+        :meth:`_open` (double-acquiring the underlying resource).
+
+        If ``_open()`` raises, ``_opened`` is left ``False`` so the next
+        call retries resource acquisition (recovers from transient
+        errors automatically).
+        """
+        async with self._open_lock:
+            if not self._opened:
+                await self._open()
+                self._opened = True
+
+    @abstractmethod
+    async def _execute(self, **kwargs) -> Any:
+        """
+        Execute the tool with the given arguments.
+        This is the main method that subclasses must implement.
+
+        Args:
+            **kwargs: Tool arguments
+
+        Returns:
+            Tool execution result
+        """
+
+    def get_schema(self) -> Dict[str, Any]:
+        """
+        Get the JSON schema for this tool.
+
+        Returns:
+            JSON schema dictionary compatible with LLM tool registration
+        """
+
+        def _enforce_no_extra_fields(definition: Any) -> None:
+            """Recursively set ``additionalProperties`` to ``False`` for objects.
+
+            OpenAI tools require every object schema (including nested ones) to
+            explicitly disallow extra properties. Pydantic's generated schema only
+            sets this flag at the top level, so we walk the entire schema tree and
+            ensure every object definition is strict.
+            """
+
+            if not isinstance(definition, dict):
+                return
+
+            if definition.get("type") == "object":
+                definition.setdefault("properties", {})
+                definition.setdefault("additionalProperties", False)
+
+            # Recurse into common schema containers
+            for key in ("properties", "patternProperties"):
+                if isinstance(definition.get(key), dict):
+                    for sub in definition[key].values():
+                        _enforce_no_extra_fields(sub)
+
+            for key in ("items", "additionalItems"):
+                _enforce_no_extra_fields(definition.get(key))
+
+            for key in ("anyOf", "oneOf", "allOf"):
+                if isinstance(definition.get(key), list):
+                    for sub in definition[key]:
+                        _enforce_no_extra_fields(sub)
+
+            # Handle $defs/definitions used by Pydantic
+            for key in ("$defs", "definitions"):
+                if isinstance(definition.get(key), dict):
+                    for sub in definition[key].values():
+                        _enforce_no_extra_fields(sub)
+
+        schema = {
+            "name": self.name,
+            "description": self.description,
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+                "additionalProperties": False
+            }
+        }
+
+        # If args_schema is defined, use it to build the parameters
+        if self.args_schema and self.args_schema != AbstractToolArgsSchema:
+            pydantic_schema = self.args_schema.model_json_schema()
+            properties = pydantic_schema.get("properties", {})
+            required = pydantic_schema.get("required", [])
+
+            # Strip context fields (injected at runtime, not by the LLM)
+            ctx = getattr(self.args_schema, '_context_fields', frozenset())
+            if ctx:
+                properties = {
+                    k: v for k, v in properties.items() if k not in ctx
+                }
+                required = [r for r in required if r not in ctx]
+
+            schema["parameters"] = {
+                "type": "object",
+                "properties": properties,
+                "required": required,
+                "additionalProperties": False,
+                "$defs": pydantic_schema.get("$defs", {}),
+            }
+
+        _enforce_no_extra_fields(schema["parameters"])
+        return schema
+
+    def get_tool_schema(self) -> Dict[str, Any]:
+        """
+        Get the JSON schema for the tool's arguments.
+        Alias for get_schema() for backward compatibility.
+
+        Returns:
+            Dictionary containing the JSON schema
+        """
+        return self.get_schema()
+
+    def _coerce_json_strings(self, kwargs: dict) -> dict:
+        """Pre-parse string values that should be dict/list according to the schema.
+
+        LLMs sometimes serialize JSON objects as strings (e.g. ``'{"k": "v"}'``
+        instead of ``{"k": "v"}``).  This method detects those cases by
+        inspecting the ``args_schema`` field annotations and parses them before
+        Pydantic validation.
+        """
+        if not self.args_schema or self.args_schema == AbstractToolArgsSchema:
+            return kwargs
+
+        annotations = getattr(self.args_schema, '__annotations__', {})
+        if not annotations:
+            return kwargs
+
+        coerced = dict(kwargs)
+        for key, value in coerced.items():
+            if not isinstance(value, str):
+                continue
+            ann = annotations.get(key)
+            if ann is None:
+                continue
+            # Unwrap Optional[X] → X
+            origin = getattr(ann, '__origin__', None)
+            if origin is Union:
+                args = [a for a in ann.__args__ if a is not type(None)]
+                ann = args[0] if len(args) == 1 else ann
+                origin = getattr(ann, '__origin__', None)
+            # Check if the expected type is dict or list
+            if ann is dict or origin is dict or ann is Dict:
+                try:
+                    parsed = json_decoder(value)
+                    if isinstance(parsed, dict):
+                        coerced[key] = parsed
+                except Exception:
+                    pass
+            elif ann is list or origin is list:
+                try:
+                    parsed = json_decoder(value)
+                    if isinstance(parsed, list):
+                        coerced[key] = parsed
+                except Exception:
+                    pass
+        return coerced
+
+    def validate_args(self, **kwargs) -> BaseModel:
+        """
+        Validate arguments using the tool's schema.
+
+        Args:
+            **kwargs: Arguments to validate
+
+        Returns:
+            Validated arguments as Pydantic model instance
+        """
+        if not self.args_schema or self.args_schema == AbstractToolArgsSchema:
+            # If no schema is defined, return a basic model with the kwargs
+            return AbstractToolArgsSchema()
+        try:
+            kwargs = self._coerce_json_strings(kwargs)
+            result = self.args_schema(**kwargs)
+            if not result:
+                self.logger.warning(
+                    "Validation failed for %s with args: %s", self.name, kwargs
+                )
+            return result
+        except Exception as e:
+            self.logger.error("Validation error in %s: %s", self.name, e)
+            raise ValueError(
+                f"Invalid arguments for {self.name}: {e}"
+            ) from e
+
+    # ── FEAT-176 lifecycle helpers ────────────────────────────────────────────
+
+    def _args_summary(self, kwargs: dict) -> dict:
+        """Build a JSON-safe, bounded summary of tool kwargs for lifecycle events.
+
+        Strings longer than 200 characters are truncated.  Binary/opaque values
+        are replaced with a type placeholder.  Private kwargs (``_``-prefixed)
+        are skipped.
+
+        This method is designed to be overridden by subclasses that need to
+        customise what appears in ``BeforeToolCallEvent.args_summary`` — for
+        example, to redact sensitive fields, include additional context, or
+        apply domain-specific truncation rules.  When overriding, return a
+        JSON-serialisable dict.
+
+        Args:
+            kwargs: The tool keyword arguments (already stripped of
+                ``_permission_context`` and ``_resolver`` by ``execute()``).
+
+        Returns:
+            A JSON-serialisable dict suitable for
+            ``BeforeToolCallEvent.args_summary``.  Override this method in
+            subclasses to customise the summary for specific tools.
+        """
+        out: dict = {}
+        for k, v in kwargs.items():
+            if k.startswith("_"):
+                continue
+            if isinstance(v, str):
+                out[k] = (v[:200] + "…") if len(v) > 200 else v
+            elif isinstance(v, (int, float, bool)) or v is None:
+                out[k] = v
+            elif isinstance(v, (list, dict, tuple)):
+                out[k] = f"<{type(v).__name__} len={len(v)}>"
+            else:
+                out[k] = f"<{type(v).__name__}>"
+        return out
+
+    def _result_size(self, result: Any) -> int:
+        """Return an approximate byte size of a ToolResult for lifecycle events.
+
+        Args:
+            result: A ToolResult (or any object).
+
+        Returns:
+            Byte length of the serialised result, or ``0`` on any error.
+        """
+        try:
+            if hasattr(result, "value"):
+                return len(str(result.value).encode("utf-8"))
+            if hasattr(result, "content"):
+                return len(str(result.content).encode("utf-8"))
+            if hasattr(result, "result"):
+                return len(str(result.result).encode("utf-8"))
+            return len(str(result).encode("utf-8"))
+        except Exception:
+            return 0
+
+    def _has_tool_output_guardrails(self) -> bool:
+        """Whether the owning bot registered real TOOL_OUTPUT guardrails.
+
+        FEAT-396 (TASK-2029, corrected post-review): a bot may register a
+        custom TOOL_OUTPUT `Guardrail` via `guardrails=[...]` without also
+        setting the legacy `enable_redaction` flag — the FEAT-252 hook must
+        still run in that case, not only when `enable_redaction` is True.
+
+        Returns:
+            True if `self._tool_output_pipeline` is set and non-empty.
+        """
+        pipeline = self._tool_output_pipeline
+        return pipeline is not None and pipeline.has_guardrails
+
+    # ── Core execution ────────────────────────────────────────────────────────
+
+    async def execute(self, *args, **kwargs) -> ToolResult:
+        """
+        Execute the tool with error handling and result standardization.
+
+        Args:
+            *args: Positional arguments for the tool.
+            **kwargs: Tool arguments. Special kwargs are:
+                - _permission_context: PermissionContext for Layer 2 enforcement
+                - _resolver: AbstractPermissionResolver for permission checks
+
+        Returns:
+            Standardized ToolResult. Returns status='forbidden' if permission denied.
+
+        TODO: Use the Global Registry to share data between tools.
+        """
+        # ── Permission check (Layer 2 safety net) ────────────────────────────
+        pctx = kwargs.pop('_permission_context', None)
+        resolver = kwargs.pop('_resolver', None)
+
+        # FEAT-264: credential broker kwargs (never enter LLM-visible args_schema)
+        _broker: Optional["CredentialBroker"] = kwargs.pop('_broker', None)
+        _cred_channel: str = kwargs.pop('_cred_channel', 'unknown')
+        _cred_user_id: Optional[str] = kwargs.pop('_cred_user_id', None)
+
+        if pctx is not None and resolver is not None:
+            required = getattr(self, '_required_permissions', set())
+            allowed = await resolver.can_execute(pctx, self.name, required)
+            if not allowed:
+                self.logger.warning(
+                    "Permission denied: user=%s tool=%s required=%s",
+                    pctx.user_id, self.name, required
+                )
+                return ToolResult(
+                    success=False,
+                    status='forbidden',
+                    result=None,
+                    error=f"Permission denied: '{self.name}' requires {required}",
+                    metadata={
+                        "tool_name": self.name,
+                        "user_id": pctx.user_id,
+                        "required_permissions": list(required),
+                    }
+                )
+
+        # Store for lifecycle hooks.  ToolkitTool._execute reads ``_current_pctx``
+        # and injects it back into the ``_pre_execute`` / ``_post_execute`` calls
+        # so toolkits can access the request context (FEAT-107 oauth2_3lo mode).
+        # NOTE: _current_pctx is intentionally NOT guarded by a lock.
+        # This design assumes single-agent sessions where a given ToolkitTool
+        # instance is never awaited concurrently from multiple coroutines.
+        # If that assumption changes, replace this with a contextvars.ContextVar.
+        self._current_pctx = pctx
+
+        # ── FEAT-176: lifecycle — derive / mint trace context ─────────────────
+        _tool_name = self.name or type(self).__name__
+        parent_tc = pctx.trace_context if pctx is not None else None
+        tool_tc: TraceContext = parent_tc.child() if parent_tc is not None else TraceContext.new_root()
+        # Propagate updated trace to sub-agents: write back BEFORE _execute so
+        # any AgentB invoked inside the tool sees tool_tc as its parent span.
+        if pctx is not None:
+            pctx.trace_context = tool_tc
+
+        # Emit BeforeToolCallEvent (sync — low-overhead hot path)
+        self.events.emit_nowait(BeforeToolCallEvent(
+            trace_context=tool_tc,
+            tool_name=_tool_name,
+            tool_class=type(self).__name__,
+            args_summary=self._args_summary(kwargs),
+            source_type="tool",
+            source_name=_tool_name,
+        ))
+        _lc_t0 = time.perf_counter()
+
+        # ── Normal execution ─────────────────────────────────────────────────
+        try:
+            # FEAT-391: lazy resource acquisition (opt-in via auto_open).
+            # Skipped when a remote executor is configured — _execute()
+            # runs inside the worker process in that case (see the
+            # `self.executor is not None` branch below), so opening
+            # resources here (the caller/local process) would be both
+            # pointless and wrong. The worker opens its own resources via
+            # run_envelope_inprocess() (executors/runner.py) instead.
+            if self.auto_open and self.executor is None:
+                await self._ensure_open()
+
+            self.logger.info("Executing tool: %s", self.name)
+
+            # Validate arguments
+            validated_args = self.validate_args(**kwargs)
+
+            # Resolve the kwargs dict that the tool actually receives.
+            if hasattr(validated_args, 'model_dump'):
+                resolved_kwargs = validated_args.model_dump()
+            else:
+                resolved_kwargs = dict(kwargs)
+
+            # ── FEAT-264: credential seam ─────────────────────────────────────
+            # Gate is active only when the tool declares credential_provider
+            # AND a broker is available.  Tools without credential_provider
+            # (the vast majority) are unaffected — this branch is never entered.
+            _cred_token = _CREDENTIAL_VAR.set(None)  # establish reset point
+            try:
+                if self.credential_provider and _broker is not None:
+                    from ..auth.credentials import NeedsAuth, CredentialRequired
+                    from ..auth.broker import CredentialBroker  # noqa: F401
+
+                    if not _cred_user_id:
+                        raise ValueError(
+                            f"Tool {self.name!r} requires credential_provider="
+                            f"{self.credential_provider!r} but no user identity was "
+                            "provided by the caller (fail closed — no service identity)."
+                        )
+
+                    resolution = await _broker.resolve(
+                        self.credential_provider,
+                        _cred_channel,
+                        _cred_user_id,
+                        tool_name=self.name,
+                    )
+
+                    if isinstance(resolution, NeedsAuth):
+                        raise CredentialRequired(
+                            resolution.provider,
+                            resolution.auth_url,
+                            resolution.auth_kind,
+                        )
+
+                    # Hit — inject credential onto per-call ContextVar
+                    _CREDENTIAL_VAR.set(resolution.secret)
+
+                # ── Remote execution dispatch (executor=) ─────────────────────
+                # When an executor is configured we package the call as an
+                # envelope and hand it off; permission checks, lifecycle
+                # events and result normalisation continue to run here so
+                # remote and local tools look identical to the agent loop.
+                if self.executor is not None and not args:
+                    from .executors.abstract import build_envelope_from_tool
+
+                    envelope = build_envelope_from_tool(
+                        self,
+                        arguments=resolved_kwargs,
+                        permission_context=pctx,
+                        trace_context=tool_tc,
+                        timeout_seconds=self.remote_timeout_seconds,
+                        webhook_callback_url=self.webhook_callback_url,
+                    )
+                    raw_result = await self.executor.execute(envelope)
+                elif hasattr(validated_args, 'model_dump'):
+                    raw_result = await self._execute(*args, **resolved_kwargs)
+                else:
+                    raw_result = await self._execute(*args, **kwargs)
+            finally:
+                # Always reset the ContextVar so the credential never leaks
+                # to other concurrent tasks sharing the same context.
+                _CREDENTIAL_VAR.reset(_cred_token)
+
+            # Normalise to ToolResult
+            if isinstance(raw_result, ToolResult):
+                tool_result = raw_result
+            elif isinstance(raw_result, dict) and 'status' in raw_result and 'result' in raw_result:
+                try:
+                    tool_result = ToolResult(**raw_result)
+                except Exception as e:
+                    self.logger.error("Error creating ToolResult from dict: %s", e)
+                    tool_result = ToolResult(
+                        status="done_with_errors",
+                        result=raw_result.get('result', []),
+                        error=f"Error creating ToolResult: {e}",
+                        metadata=raw_result.get('metadata', {})
+                    )
+            elif raw_result is None:
+                raise ValueError(
+                    "Tool execution returned None, expected a result."
+                )
+            else:
+                self.logger.info("Tool %s executed successfully", self.name)
+                tool_result = ToolResult(
+                    status="success",
+                    result=raw_result,
+                    metadata={
+                        "tool_name": self.name,
+                        "execution_time": datetime.now().isoformat()
+                    }
+                )
+
+            # ── FEAT-252 (TASK-1612): single-seam OutputScrubber hook ─────────
+            # Scrub tool_result.result (and error/metadata) ONCE before return
+            # so every tool — including python_repl — inherits secret redaction.
+            # This is the ONLY place scrubbing happens on the way out; all
+            # downstream callers receive a pre-scrubbed ToolResult.
+            # Redaction is opt-in per agent: only tools stamped with
+            # enable_redaction=True (flagged agents) are scrubbed — OR
+            # whose owning bot registered real TOOL_OUTPUT guardrails via
+            # `guardrails=[...]` (FEAT-396, corrected post-review: a bot
+            # can register a custom TOOL_OUTPUT guardrail WITHOUT also
+            # setting the legacy enable_redaction flag; gating on that flag
+            # alone would silently skip it).
+            # `_run_tool_output_guardrails()` resolves this tool's OWNING
+            # BOT's real TOOL_OUTPUT `GuardrailPipeline`
+            # (`self._tool_output_pipeline`, stamped by `ToolManager`) —
+            # honoring per-bot `guardrails=[...]` config — falling back to
+            # the process-wide default `SecretsGuardrail` only when no
+            # pipeline was stamped (tool used outside a bot context).
+            if self.enable_redaction or self._has_tool_output_guardrails():
+                try:
+                    _pipeline = self._tool_output_pipeline
+                    # FEAT-396 code review fix: FLAG reports were computed
+                    # by the TOOL_OUTPUT pipeline and then discarded — no
+                    # caller ever surfaced them, unlike the OUTPUT stage's
+                    # `AIMessage.metadata["guardrails"]` handling. Accumulate
+                    # them here and attach below, same shape/key convention.
+                    _tool_flag_reports: dict[str, dict[str, Any]] = {}
+                    if tool_result.result is not None:
+                        _scrubbed_result, _reports = await _run_tool_output_guardrails(
+                            _pipeline, tool_result.result, _tool_name
+                        )
+                        tool_result = tool_result.model_copy(update={"result": _scrubbed_result})
+                        _tool_flag_reports.update(_reports)
+                    if tool_result.error is not None:
+                        _scrubbed_error, _reports = await _run_tool_output_guardrails(
+                            _pipeline, tool_result.error, _tool_name
+                        )
+                        tool_result = tool_result.model_copy(update={"error": _scrubbed_error})
+                        _tool_flag_reports.update(_reports)
+                    if tool_result.metadata:
+                        _scrubbed_metadata, _reports = await _run_tool_output_guardrails(
+                            _pipeline, tool_result.metadata, _tool_name
+                        )
+                        tool_result = tool_result.model_copy(update={"metadata": _scrubbed_metadata})
+                        _tool_flag_reports.update(_reports)
+                    if _tool_flag_reports:
+                        _merged_metadata = dict(tool_result.metadata)
+                        _merged_metadata.setdefault('guardrails', {}).update(_tool_flag_reports)
+                        tool_result = tool_result.model_copy(update={"metadata": _merged_metadata})
+                except Exception as _scrub_exc:  # never let scrub errors break tool execution
+                    self.logger.warning(
+                        "OutputScrubber error in tool %s (non-fatal): %s",
+                        _tool_name, _scrub_exc,
+                    )
+
+            # ── FEAT-176: emit AfterToolCallEvent on success ──────────────────
+            _lc_dur = (time.perf_counter() - _lc_t0) * 1000
+            await self.events.emit(AfterToolCallEvent(
+                trace_context=tool_tc,
+                tool_name=_tool_name,
+                duration_ms=_lc_dur,
+                result_status=tool_result.status,
+                result_size_bytes=self._result_size(tool_result),
+                source_type="tool",
+                source_name=_tool_name,
+            ))
+            return tool_result
+
+        except Exception as e:
+            # Let ``AuthorizationRequired`` bubble up to ``ToolManager`` so it
+            # can be converted into a structured ``authorization_required``
+            # ToolResult (FEAT-107, TASK-748).  Imported lazily to avoid a
+            # circular import with ``parrot.auth``.
+            from ..auth.exceptions import AuthorizationRequired
+            if isinstance(e, AuthorizationRequired):
+                raise
+
+            # FEAT-264: Let CredentialRequired bubble up to the surface so it
+            # can render the appropriate UX (A2A suspend+link, Adaptive Card,
+            # CLI URL).  Imported lazily to match the pattern above.
+            from ..auth.credentials import CredentialRequired as _CR
+            if isinstance(e, _CR):
+                raise
+
+            # ── FEAT-176: emit ToolCallFailedEvent before returning error ─────
+            _lc_dur = (time.perf_counter() - _lc_t0) * 1000
+            await self.events.emit(ToolCallFailedEvent(
+                trace_context=tool_tc,
+                tool_name=_tool_name,
+                duration_ms=_lc_dur,
+                error_type=type(e).__name__,
+                error_message=str(e),
+                source_type="tool",
+                source_name=_tool_name,
+            ))
+
+            error_msg = f"Error in {self.name}: {str(e)}"
+            self.logger.error("%s", error_msg)
+            self.logger.debug("%s", traceback.format_exc())
+
+            if self.enable_redaction or self._has_tool_output_guardrails():
+                try:
+                    error_msg, _ = await _run_tool_output_guardrails(
+                        self._tool_output_pipeline, error_msg, _tool_name
+                    )
+                except Exception:
+                    pass
+
+            return ToolResult(
+                status="error",
+                result=None,
+                error=error_msg,
+                metadata={
+                    "tool_name": self.name,
+                    "error_type": type(e).__name__
+                }
+            )
+        finally:
+            # Always clear the per-call context so stale references don't linger.
+            self._current_pctx = None
+
+    async def run(self, *args, **kwargs) -> Any:
+        """
+        Public alias for executing the tool directly without the ToolResult wrapper.
+        Provides a direct way to get raw results instead of calling _execute().
+        """
+        return await self._execute(*args, **kwargs)
+
+    # Utility methods for file handling (inherited from BaseAbstractTool)
+    def to_static_url(self, file_path: Union[str, Path]) -> str:
+        """
+        Convert an absolute file path to a static URL.
+
+        Args:
+            file_path: Absolute path to the file
+
+        Returns:
+            URL-based path for serving the static file
+        """
+        if not self.static_dir:
+            return str(file_path)
+
+        file_path = Path(file_path)
+
+        try:
+            relative_path = file_path.relative_to(self.static_dir)
+            return f"{self.static_url.rstrip('/')}/{relative_path}"
+        except ValueError:
+            self.logger.warning(
+                "File %s is not within static directory %s", file_path, self.static_dir
+            )
+            return str(file_path)
+
+    def relative_url(self, url: str) -> str:
+        """
+        Convert an absolute URL to a relative URL based on the base URL.
+
+        Args:
+            url: Absolute URL to convert
+
+        Returns:
+            Relative URL based on the base URL
+        """
+        parts = urlparse(url)
+        if not parts.scheme or not parts.netloc:
+            return url
+
+        if (parts.scheme, parts.netloc) == self._base_scheme_netloc:
+            return urlunparse((
+                "", "", parts.path, parts.params, parts.query, parts.fragment
+            ))
+        return url
+
+    def generate_filename(
+        self,
+        prefix: str = "output",
+        extension: str = "",
+        include_timestamp: bool = True
+    ) -> str:
+        """
+        Generate a unique filename with optional timestamp.
+
+        Args:
+            prefix: File prefix
+            extension: File extension (with or without dot)
+            include_timestamp: Whether to include timestamp
+
+        Returns:
+            Generated filename
+        """
+        if include_timestamp:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"{prefix}_{timestamp}"
+        else:
+            filename = prefix
+
+        if extension:
+            if not extension.startswith('.'):
+                extension = f".{extension}"
+            filename += extension
+
+        return filename
+
+    def validate_output_path(self, file_path: Union[str, Path]) -> Path:
+        """
+        Validate and ensure the output path is within allowed directories.
+
+        Args:
+            file_path: Path to validate
+
+        Returns:
+            Validated Path object
+
+        Raises:
+            ValueError: If path is outside allowed directories
+        """
+        if not self.static_dir:
+            return Path(file_path).resolve()
+
+        file_path = Path(file_path).resolve()
+
+        try:
+            file_path.relative_to(self.static_dir.resolve())
+        except ValueError as e:
+            raise ValueError(
+                f"Output path {file_path} must be within static directory {self.static_dir}"
+            ) from e
+
+        return file_path
+
+    def __str__(self) -> str:
+        return f"{self.name}: {self.description}"
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__}(name='{self.name}')>"
+
+

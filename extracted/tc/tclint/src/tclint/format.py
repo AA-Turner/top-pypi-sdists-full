@@ -1,0 +1,648 @@
+import dataclasses
+import itertools
+import sys
+
+from tclint.parser import Parser
+from tclint.syntax_tree import (
+    ArgExpansion,
+    BareWord,
+    BinaryOp,
+    BracedExpression,
+    BracedWord,
+    Command,
+    CommandSub,
+    Comment,
+    CompoundBareWord,
+    Expression,
+    Function,
+    List,
+    Node,
+    ParenExpression,
+    QuotedWord,
+    Script,
+    TernaryOp,
+    UnaryOp,
+    VarSub,
+)
+
+
+@dataclasses.dataclass
+class LiteralBlock:
+    block: list[str]
+    pos: tuple[int, int]
+    end_pos: tuple[int, int]
+
+
+@dataclasses.dataclass
+class FormatterOpts:
+    indent: str
+    spaces_in_braces: bool
+    balanced_spaces_in_braces: bool
+    max_blank_lines: int
+    indent_namespace_eval: bool
+    indent_mixed_tab_size: int
+    emacs: bool
+    debug_whitespace: bool
+
+
+class Formatter:
+    def __init__(self, opts: FormatterOpts):
+        self.opts = opts
+        self.indent_mixed_tab_size = opts.indent_mixed_tab_size
+
+    def _indent(self, lines: list[str], indent: str) -> list[str]:
+        indented = []
+        for line in lines:
+            if line == "":
+                indented.append("")
+            else:
+                indented.append(indent + line)
+
+        return indented
+
+    def space(self, debug_char, space=None):
+        """Returns a string required for indentation or separation.
+
+        By default, just returns a string of space. If enabled using
+        `--debug-whitespace`, returns a string of debug_char.
+        """
+        assert len(debug_char) == 1
+        if space is None:
+            space = self.opts.indent
+        elif isinstance(space, int):
+            space = space * " "
+        if self.opts.debug_whitespace:
+            # Enable this to return a string of debug_char.
+            return len(space) * debug_char
+        return space
+
+    def get_spaces_in_braces(self, space: tuple[int, int]):
+        spaces_in_braces = self.space("A", 1) if self.opts.spaces_in_braces else ""
+        if not self.opts.balanced_spaces_in_braces:
+            # No balancing.
+            return spaces_in_braces
+
+        if space[0] == -1 and space[1] == -1:
+            # No info to do balancing.
+            return spaces_in_braces
+
+        assert not (space[0] == -1 and space[1] != -1)
+        if space[0] != -1 and space[1] == -1:
+            # we've got empty braces.  Keep "{}" and "{ }" as is, but normalize
+            # more than one space to a single space.
+            return min(space[0], 1) * self.space("B", 1)
+
+        # Normalize more than one space to a single space.
+        before = min(space[0], 1)
+        after = min(space[1], 1)
+        if before + after == 1:
+            # If we have an unbalanced expression like "{1 }" or "{ 1}",
+            # transform it to either "{1}" or "{ 1 }", using spaces_in_braces.
+            return spaces_in_braces
+
+        # Check that we have a balanced expression.
+        assert before == after
+        # Keep either "{1}" or "{ 1 }".
+        return before * self.space("C", 1)
+
+    def _brace(self, lines: list[str], space: tuple[int, int]) -> list[str]:
+        """Format content between braces.
+
+        The space argument indicates the amount of space in the input, for
+        instance:
+        - (1, 0) to represent 1 space before and no space after, for "{ 1}", and
+        - (0, -1) to represent no space, for "{}".
+        """
+
+        spaces_in_braces = self.get_spaces_in_braces(space)
+        if lines == [""]:
+            # Empty braces.
+            return ["{" + spaces_in_braces + "}"]
+
+        # Not empty braces.
+        braced_lines = lines[:]
+        braced_lines[0] = "{" + spaces_in_braces + lines[0]
+        braced_lines[-1] += spaces_in_braces + "}"
+        return braced_lines
+
+    def format(self, *nodes: Node | LiteralBlock) -> list[str]:
+        formatted = []
+        for node in nodes:
+            if isinstance(node, Script):
+                formatted += self.format_script(node)
+            elif isinstance(node, Command):
+                formatted += self.format_command(node)
+            elif isinstance(node, Comment):
+                formatted += self.format_comment(node)
+            elif isinstance(node, CommandSub):
+                formatted += self.format_command_sub(node)
+            elif isinstance(node, BareWord):
+                formatted += self.format_bare_word(node)
+            elif isinstance(node, QuotedWord):
+                formatted += self.format_quoted_word(node)
+            elif isinstance(node, BracedWord):
+                formatted += self.format_braced_word(node)
+            elif isinstance(node, CompoundBareWord):
+                formatted += self.format_compound_bare_word(node)
+            elif isinstance(node, VarSub):
+                formatted += self.format_var_sub(node)
+            elif isinstance(node, ArgExpansion):
+                formatted += self.format_arg_expansion(node)
+            elif isinstance(node, List):
+                formatted += self.format_list(node)
+            elif isinstance(node, Expression):
+                formatted += self.format_expression(node)
+            elif isinstance(node, BracedExpression):
+                formatted += self.format_braced_expression(node)
+            elif isinstance(node, ParenExpression):
+                formatted += self.format_paren_expression(node)
+            elif isinstance(node, UnaryOp):
+                formatted += self.format_unary_op(node)
+            elif isinstance(node, BinaryOp):
+                formatted += self.format_binary_op(node)
+            elif isinstance(node, TernaryOp):
+                formatted += self.format_ternary_op(node)
+            elif isinstance(node, Function):
+                formatted += self.format_function(node)
+            elif isinstance(node, LiteralBlock):
+                formatted += node.block
+            else:
+                assert False, f"unrecognized node: {type(node)}"
+
+        return formatted
+
+    def reindent(self, lines: list[str]) -> list[str]:
+        """Apply mixed space/tab indentation scheme.
+
+        Apply the mixed space/tab indentation scheme as requested by
+        --indent=mixed,<s>,<t>.
+
+        The input is lines with indentation in the form of spaces and/or tabs.
+        This function transforms the indentation into a number of tabs,
+        followed by a number of spaces.
+
+        A more structural way of doing this would be to model input lines as a
+        tuple of an indentation level and a string, and use this function to
+        expand the indentation level, but that requires broader changes.
+        """
+        tab_size = self.indent_mixed_tab_size
+        if tab_size == 0:
+            return lines
+
+        fixed_lines = []
+        for line in lines:
+            # Split line into leading whitespace, and the rest.
+            after = line.lstrip()
+            split_pos = len(line) - len(after)
+            leading = line[0:split_pos]
+
+            # Expand tabs.
+            leading = leading.expandtabs(tab_size)
+
+            # Tabify.
+            leading = leading.replace(" " * tab_size, "\t")
+
+            fixed_lines.append(leading + after)
+
+        return fixed_lines
+
+    def format_top(self, script: str, parser: Parser) -> str:
+        tree = parser.parse(script)
+        self.script = script.split("\n")
+        lines = self.format_script_contents(tree)
+        lines = self.reindent(lines)
+        return "\n".join(lines) + "\n"
+
+    def format_partial(self, script: str, parser: Parser) -> str:
+        """Formats a partial Tcl script.
+
+        This function formats a partial script according to the gofmt partial formatting
+        rules, "[preserving] leading indentation as well as leading and trailing spaces"
+        (ref: https://pkg.go.dev/cmd/gofmt#pkg-overview). Unlike Go, we have no way of
+        detecting if a given script is a program fragment, hence the distinct method
+        from `format_top` .
+        """
+        leading = "".join(itertools.takewhile(str.isspace, script))
+        try:
+            leading, indent = leading.rsplit("\n", 1)
+            leading += "\n"
+        except ValueError:
+            leading, indent = "", leading
+        trailing = "".join(itertools.takewhile(str.isspace, reversed(script)))[::-1]
+
+        script = script.strip()
+        tree = parser.parse(script)
+        self.script = script.split("\n")
+
+        lines = self._indent(self.format_script_contents(tree), indent)
+        lines = self.reindent(lines)
+        formatted = "\n".join(lines)
+
+        return leading + formatted + trailing
+
+    def format_script_contents(self, script: Script | CommandSub) -> list[str]:
+        to_format = []
+        skip_formatting_start = None
+        for child in script.children:
+            if skip_formatting_start is None:
+                to_format.append(child)
+
+            if isinstance(child, Comment):
+                if child.value.strip() == "tclfmt-disable":
+                    if skip_formatting_start is not None:
+                        print(
+                            "Warning: encountered 'tclint-disable' while formatting is"
+                            " already disabled, ignoring...",
+                            file=sys.stderr,
+                        )
+                    else:
+                        skip_formatting_start = child.pos[0]
+                elif child.value.strip() == "tclfmt-enable":
+                    if skip_formatting_start is None:
+                        print(
+                            "Warning: encountered 'tclint-enable' while formatting is"
+                            " already disabled, ignoring...",
+                            file=sys.stderr,
+                        )
+                    else:
+                        skip_formatting_end = child.pos[0]
+                        block = self.script[skip_formatting_start:skip_formatting_end]
+                        to_format.append(
+                            LiteralBlock(
+                                block,
+                                pos=(skip_formatting_start + 1, 1),
+                                end_pos=(skip_formatting_end, 1),
+                            )
+                        )
+                        skip_formatting_start = None
+
+        if skip_formatting_start is not None:
+            print("Warning: missing 'tclint-enable'", file=sys.stderr)
+            to_format.append(
+                LiteralBlock(
+                    self.script[skip_formatting_start:],
+                    pos=(skip_formatting_start + 1, 1),
+                    end_pos=script.end_pos,
+                )
+            )
+
+        formatted = [""]
+        last_line = None
+        for child in to_format:
+            if last_line is not None:
+                if last_line == child.pos[0]:
+                    if isinstance(child, Comment):
+                        formatted[-1] += " ;"
+                    else:
+                        formatted[-1] += "; "
+                else:
+                    newlines = child.pos[0] - last_line
+                    newlines = min(newlines, self.opts.max_blank_lines + 1)
+                    formatted.extend([""] * newlines)
+            last_line = child.end_pos[0]
+
+            lines = self.format(child)
+            formatted[-1] += lines[0]
+            formatted.extend(lines[1:])
+
+        return formatted
+
+    def format_script(self, script: Script, should_indent=True) -> list[str]:
+        lines = self.format_script_contents(script)
+        if not script.braced:
+            # Script came from a non-braced word argument (e.g. plugin called
+            # parse_script on a BareWord). Don't wrap in braces.
+            return lines
+        if script.pos[0] == script.end_pos[0]:
+            space_before = -1
+            space_after = -1
+            if len(script.children) != 0:
+                space_before = script.children[0].pos[1] - script.pos[1] - 1
+                space_after = script.end_pos[1] - script.children[-1].end_pos[1] - 1
+            else:
+                space_before = script.end_pos[1] - script.pos[1] - 2
+            return self._brace(lines, (space_before, space_after))
+
+        # Usually, we enforce that multi-line scripts start on a new line after the open
+        # brace. However, if a comment was originally on the same line as the open brace
+        # we preserve it, since it's probably meant to be associated with this line
+        # (e.g. a tclint-disable-line).
+        open_brace = "{"
+        if (
+            len(script.children) > 0
+            and isinstance(script.children[0], Comment)
+            and script.pos[0] == script.children[0].pos[0]
+        ):
+            open_brace += self.space("D", 1) + lines[0]
+            lines = lines[1:]
+
+        if should_indent:
+            return [open_brace] + self._indent(lines, self.space("E")) + ["}"]
+        else:
+            return [open_brace] + lines + ["}"]
+
+    def format_command(self, command: Command) -> list[str]:
+        is_namespace_eval = (
+            command.routine.contents == "namespace"
+            and len(command.args) > 0
+            and command.args[0].contents == "eval"
+        )
+        should_indent = not is_namespace_eval or self.opts.indent_namespace_eval
+
+        hanging_indent = False
+        formatted = self.format(command.routine)
+        last_line = command.routine.end_pos[0]
+        for child in command.args:
+            if isinstance(child, Script):
+                child_lines = self.format_script(child, should_indent=should_indent)
+            else:
+                child_lines = self.format(child)
+
+            if last_line == child.pos[0]:
+                formatted[-1] += self.space("F", 1)
+                base_indent = ""
+                if self.opts.emacs:
+                    if child_lines[0][-1] == "\\":
+                        base_indent = (len(formatted[-1])) * self.space("G", 1)
+                    elif (isinstance(child, BracedExpression)) and child_lines[
+                        -1
+                    ] == "}":
+                        child_lines[1:-1] = self._indent(
+                            child_lines[1:-1], self.space("V", len(formatted[-1]))
+                        )
+                    elif (isinstance(child, BracedExpression)) and child_lines[-1][
+                        -1
+                    ] == "}":
+                        child_lines[1:] = self._indent(
+                            child_lines[1:], self.space("W", len(formatted[-1]))
+                        )
+                formatted[-1] += child_lines[0]
+            else:
+                formatted[-1] += self.space("H", 1) + "\\"
+                formatted.append(self.space("I") + child_lines[0])
+                hanging_indent = True
+
+            if hanging_indent:
+                formatted.extend(self._indent(child_lines[1:], self.space("J")))
+            else:
+                formatted.extend(self._indent(child_lines[1:], base_indent))
+
+            last_line = child.end_pos[0]
+
+        return formatted
+
+    def format_comment(self, comment: Comment) -> list[str]:
+        return [f"#{comment.value}"]
+
+    def format_command_sub(self, command_sub):
+        if len(command_sub.children) == 0:
+            return ["[]"]
+
+        formatted = []
+        contents = self.format_script_contents(command_sub)
+        if len(command_sub.children) > 1 and len(contents) > 1:
+            if self.opts.emacs and command_sub.pos[0] == command_sub.children[0].pos[0]:
+                formatted = contents
+                formatted[0] = "[" + formatted[0]
+                formatted[-1] = formatted[-1] + "]"
+                formatted[1:] = self._indent(formatted[1:], self.space("U", 1))
+            else:
+                formatted.append("[")
+                formatted.extend(self._indent(contents, self.space("K")))
+                formatted.append("]")
+        else:
+            formatted.append("[" + contents[0])
+            if self.opts.emacs:
+                indent = self.space("L", 1)
+            else:
+                indent = ""
+            formatted.extend(self._indent(contents[1:], indent))
+            formatted[-1] += "]"
+
+        return formatted
+
+    def format_bare_word(self, word) -> list[str]:
+        # Property enforced by parser
+        assert word.contents is not None
+        return [word.contents]
+
+    def format_quoted_word(self, word) -> list[str]:
+        if word.contents is not None:
+            return [f'"{word.contents}"']
+
+        formatted = ""
+        for child in word.children:
+            formatted += "\n".join(self.format(child))
+
+        return [f'"{formatted}"']
+
+    def format_braced_word(self, word) -> list[str]:
+        assert word.contents is not None
+        return [f"{{{word.contents}}}"]
+
+    def format_compound_bare_word(self, word) -> list[str]:
+        formatted = [""]
+        for child in word.children:
+            child_lines = self.format(child)
+            formatted[-1] += child_lines[0]
+            formatted.extend(child_lines[1:])
+
+        return formatted
+
+    def format_var_sub(self, varsub) -> list[str]:
+        # We might be able to make the formatter infer whether braces are required, and
+        # remove them from the syntax tree. For now it's easier to just mimic the
+        # original format.
+        if varsub.braced:
+            formatted = [f"${{{varsub.value}}}"]
+        else:
+            formatted = [f"${varsub.value}"]
+
+        if varsub.children:
+            # We just concatenate everything as is, since changes in whitespace are
+            # semantically meaningful in this context. Any newlines are captured by
+            # BareWords.
+            formatted[-1] += "("
+            for child in varsub.children:
+                child_lines = self.format(child)
+                formatted[-1] += child_lines[0]
+                formatted.extend(child_lines[1:])
+            formatted[-1] += ")"
+
+        return formatted
+
+    def format_arg_expansion(self, arg_expansion) -> list[str]:
+        lines = self.format(arg_expansion.list)
+        lines[0] = "{*}" + lines[0]
+
+        return lines
+
+    def format_list(self, list_node) -> list[str]:
+        # Similar to Script, but the contents are a bit more straightforward.
+        contents = [""]
+        last_line = None
+        for child in list_node.children:
+            if last_line is not None:
+                if last_line == child.pos[0]:
+                    contents[-1] += self.space("M", 1)
+                else:
+                    newlines = child.pos[0] - last_line
+                    newlines = min(newlines, 3)
+                    contents.extend([""] * newlines)
+
+            lines = self.format(child)
+            contents[-1] += lines[0]
+            contents.extend(lines[1:])
+
+            last_line = child.end_pos[0]
+
+        if list_node.pos[0] == list_node.end_pos[0]:
+            space_before = -1
+            space_after = -1
+            if len(list_node.children) != 0:
+                space_before = list_node.children[0].pos[1] - list_node.pos[1] - 1
+                space_after = (
+                    list_node.end_pos[1] - list_node.children[-1].end_pos[1] - 1
+                )
+            else:
+                space_before = list_node.end_pos[1] - list_node.pos[1] - 2
+            return self._brace(contents, (space_before, space_after))
+
+        return ["{"] + self._indent(contents, self.space("N")) + ["}"]
+
+    def format_expression(self, expr) -> list[str]:
+        formatted = [""]
+        for child in expr.children:
+            lines = self.format(child)
+            formatted[-1] += lines[0]
+            for line in lines[1:]:
+                formatted[-1] += " \\"
+                formatted += self._indent([line], self.space("O"))
+
+        # Trick: we know there are quotes around the expression if the start of the
+        # expression is a different column than its first child.
+        quoted = expr.pos[1] != expr.children[0].pos[1]
+        if quoted:
+            formatted[0] = '"' + formatted[0]
+            formatted[-1] += '"'
+
+        return formatted
+
+    def format_braced_expression(self, expr) -> list[str]:
+        formatted = [""]
+        for child in expr.children:
+            lines = self.format(child)
+            formatted[-1] += lines[0]
+            formatted.extend(lines[1:])
+
+        if expr.pos[0] == expr.end_pos[0]:
+            space_before = expr.children[0].pos[1] - expr.pos[1] - 1
+            space_after = expr.end_pos[1] - expr.children[-1].end_pos[1] - 1
+            return self._brace(formatted, (space_before, space_after))
+
+        if self.opts.emacs:
+            pre = []
+            post = []
+            indent_first = 0
+            indent_last = len(formatted)
+            if expr.pos[0] == expr.children[0].pos[0]:
+                formatted[0] = "{" + formatted[0]
+                indent_first = 1
+            else:
+                pre = ["{"]
+            if expr.end_pos[0] == expr.children[-1].end_pos[0]:
+                formatted[-1] = formatted[-1] + "}"
+            else:
+                post = ["}"]
+            formatted = (
+                pre
+                + formatted[0:indent_first]
+                + self._indent(formatted[indent_first:indent_last], self.space("X", 1))
+                + formatted[indent_last:]
+                + post
+            )
+            return formatted
+
+        return ["{"] + self._indent(formatted, self.space("P")) + ["}"]
+
+    def format_paren_expression(self, expr) -> list[str]:
+        body = expr.body
+
+        formatted = ["("]
+        lines = self.format(body)
+        if expr.pos[0] != body.pos[0]:
+            formatted.extend(lines)
+        else:
+            formatted[-1] += lines[0]
+            formatted.extend(lines[1:])
+
+        formatted = formatted[0:1] + self._indent(formatted[1:], self.space("Q"))
+
+        if expr.end_pos[0] != body.end_pos[0]:
+            formatted.append(")")
+        else:
+            formatted[-1] += ")"
+
+        return formatted
+
+    def format_unary_op(self, expr):
+        op = self.format(expr.operator)
+        assert len(op) == 1
+
+        lines = self.format(expr.operand)
+        lines[0] = op[0] + lines[0]
+        return lines
+
+    def _format_op(self, expr) -> list[str]:
+        nodes = expr.children
+        formatted = self.format(nodes[0])
+
+        last = nodes[0]
+        for next in nodes[1:]:
+            lines = self.format(next)
+            if last.end_pos[0] != next.pos[0]:
+                formatted.extend(lines)
+            else:
+                formatted[-1] += self.space("R", 1)
+                formatted[-1] += lines[0]
+                formatted.extend(lines[1:])
+            last = next
+
+        return formatted
+
+    def format_binary_op(self, expr) -> list[str]:
+        return self._format_op(expr)
+
+    def format_ternary_op(self, expr) -> list[str]:
+        return self._format_op(expr)
+
+    def format_function(self, function):
+        name_parts = self.format(function.name)
+        assert len(name_parts) == 1
+        name = name_parts[0]
+
+        formatted = [f"{name}("]
+
+        last = function.name
+        for i, child in enumerate(function.args):
+            if i > 0:
+                formatted[-1] += ","
+            lines = self.format(child)
+            if last.end_pos[0] != child.pos[0]:
+                formatted.extend(lines)
+            else:
+                if i > 0:
+                    formatted[-1] += self.space("S", 1)
+                formatted[-1] += lines[0]
+                formatted.extend(lines[1:])
+            last = child
+
+        # indent any continuation lines, but we leave the closing paren dedented
+        formatted = formatted[0:1] + self._indent(formatted[1:], self.space("T"))
+
+        if last.end_pos[0] != function.end_pos[0]:
+            formatted.append(")")
+        else:
+            formatted[-1] += ")"
+
+        return formatted

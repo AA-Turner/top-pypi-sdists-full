@@ -1,0 +1,44 @@
+[project]
+name = "macwinnie-enhanced-logging"
+version = "0.1.3"
+description = "Batteries-included logging for Python applications."
+readme = "README.md"
+authors = [
+    { name = "macwinnie", email = "dev@macwinnie.me" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "structlog>=25.5.0",
+]
+
+[build-system]
+requires = [
+    "uv_build>=0.10.4,<0.11.0",
+]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "gitpython>=3.1.46",
+    "lxml>=6.0.2",
+    "lxml-stubs>=0.5.1",
+    "markdown>=3.10.2",
+    "monkeypatch>=0.1rc3",
+    "mypy>=1.19.1",
+    "pdoc>=16.0.0",
+    "pre-commit>=4.5.1",
+    "pygments>=2.19.2",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+    "pytest-mock>=3.15.1",
+    "tomlkit>=0.14.0",
+    "types-markdown>=3.10.2.20260211",
+]
+
+[project.urls]
+Homepage = "https://github.com/macwinnie/py-enhanced-logging"
+Issues = "https://github.com/macwinnie/py-enhanced-logging/issues"
+
+[tool.uv.build-backend]
+module-name = "enhanced_logging"
+module-root = "src"

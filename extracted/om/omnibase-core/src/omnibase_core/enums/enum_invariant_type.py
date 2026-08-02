@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""
+Invariant type enumeration for user-defined validation rules.
+
+Invariants are validation rules that ensure AI model changes are safe
+before production deployment.
+"""
+
+from __future__ import annotations
+
+from enum import Enum, unique
+
+from omnibase_core.enums.enum_str_enum_base import UtilStrValueHelper
+
+
+@unique
+class EnumInvariantType(UtilStrValueHelper, str, Enum):
+    """Types of invariant validation rules for AI model safety checks."""
+
+    SCHEMA = "schema"
+    """JSON schema validation."""
+
+    FIELD_PRESENCE = "field_presence"
+    """Required field paths validation."""
+
+    FIELD_VALUE = "field_value"
+    """Field path + expected value/pattern validation."""
+
+    THRESHOLD = "threshold"
+    """Metric name + min/max bounds validation."""
+
+    LATENCY = "latency"
+    """Maximum latency in milliseconds validation."""
+
+    COST = "cost"
+    """Maximum cost per request/token validation."""
+
+    CUSTOM = "custom"
+    """Python callable path for custom validation."""
+
+
+__all__ = ["EnumInvariantType"]

@@ -1,0 +1,195 @@
+name: Python Stress / Load Tests
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    paths:
+      - src/**
+      - .github/workflows/stress.yaml
+      - Makefile
+      - uv.lock
+      - pyproject.toml
+
+jobs:
+  stress-test-gcp:
+    permissions:
+      contents: read
+    runs-on: warp-ubuntu-latest-x64-8x
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      # prevent GHA from cancelling jobs to avoid orphaned k8s resources
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.10"
+        suite:
+          - regression
+          - explore
+        include:
+          - suite: regression
+            make_target: test-stress-gcp
+            timeout: 120
+            max_fragments: "10000"
+          - suite: explore
+            make_target: test-stress-gcp-explore
+            timeout: 240
+            max_fragments: "150000"
+    env:
+      UV_PYTHON: ${{ matrix.python-version }}
+      UV_CACHE_DIR: /tmp/.uv-cache
+      STRESS_MAX_FRAGMENTS: ${{ matrix.max_fragments }}
+      GCS_BUCKET: lancedb-lancedb-dev-us-central1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+      - name: Set up Cloud SDK
+        uses: 'google-github-actions/setup-gcloud@v2'
+      - uses: 'google-github-actions/auth@v2'
+        with:
+          # use credentials for gcloud storage access (bucket cleanup)
+          # geneva-client-sa@lancedb-dev-enterprise-1.iam.gserviceaccount.com
+          credentials_json: ${{ secrets.GCP_GENEVA_CLIENT_SA_KEY }}
+      # Configure kubectl with a non-expiring static token for the
+      # geneva-service-account in the lancedb GKE cluster. This avoids
+      # credential expiry issues during long-running stress tests.
+      - name: Configure kubectl with static token
+        run: |
+          CLUSTER_ENDPOINT=$(gcloud container clusters describe lancedb \
+            --region=us-central1 \
+            --project=lancedb-dev-enterprise-1 \
+            --format='value(endpoint)')
+          echo "${{ secrets.GKE_CA_CERT }}" | base64 --decode > /tmp/gke-ca.crt
+          kubectl config set-cluster lancedb \
+            --server=https://${CLUSTER_ENDPOINT} \
+            --certificate-authority=/tmp/gke-ca.crt \
+            --embed-certs=true
+          kubectl config set-credentials gha-sa \
+            --token=${{ secrets.GKE_STATIC_TOKEN }}
+          kubectl config set-context default \
+            --cluster=lancedb \
+            --user=gha-sa \
+            --namespace=lancedb
+          kubectl config use-context default
+          rm /tmp/gke-ca.crt
+      # don't install large deps like torch for this test
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y kubectl
+          uv sync --extra k8s --extra gcp --locked
+      - name: Generate test slug
+        run: |
+          SLUG=$(printf "%05d" $((RANDOM % 10001)))
+          echo "SLUG=$SLUG" >> $GITHUB_ENV
+      - name: Set bucket path and prebaked dataset locations
+        run: |
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            # Main branch uses global path
+            echo "BUCKET_PATH=gs://$GCS_BUCKET/data" >> $GITHUB_ENV
+          else
+            # PR/branch uses slug-isolated path
+            echo "BUCKET_PATH=gs://$GCS_BUCKET/$SLUG/data" >> $GITHUB_ENV
+          fi
+          # Stable prebaked dataset paths — persists across CI runs.
+          # Created incrementally on first use, never cleaned up by slug cleanup.
+          echo "STRESS_PREBAKED_FRAGMENT_URI=gs://$GCS_BUCKET/prebaked/high_fragment_count" >> $GITHUB_ENV
+      - name: Run stress tests
+        run: |
+          make ${{ matrix.make_target }} SLUG=$SLUG BUCKET_PATH="$BUCKET_PATH"
+      - name: Cleanup Ray Clusters
+        if: always()
+        run: |
+          echo "Deleting rayclusters matching slug $SLUG"
+          kubectl get raycluster -n lancedb --no-headers -o custom-columns=":metadata.name" | grep $SLUG | xargs -r -n1 kubectl delete raycluster -n lancedb --wait
+      - name: Cleanup bucket data
+        if: success() && !(github.event_name == 'push' && github.ref == 'refs/heads/main')
+        run: |
+          echo "Tests passed. Cleaning up bucket data for slug $SLUG"
+          gcloud storage rm -r gs://$GCS_BUCKET/$SLUG || echo "Bucket cleanup failed or path doesn't exist"
+      - name: Generate coverage report
+        run: |
+          make coverage-report
+      - name: Minimize uv cache
+        run: uv cache prune --ci
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@main
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: true
+          flags: integ-gcp-${{ matrix.python-version }}
+
+  # Standalone job: runs the FragmentWriter OOM stress test inside a
+  # Docker container with an enforced memory cap. This is the only way
+  # to faithfully simulate a writer pod's memory limit on bare local
+  # Ray (where Ray's logical `memory` resource is not enforced). The
+  # job needs no GCS/K8s setup -- pure Docker.
+  stress-test-writer-oom-cgroup:
+    permissions:
+      contents: read
+    runs-on: warp-ubuntu-latest-x64-8x
+    timeout-minutes: 45
+    env:
+      # Cache geneva's uv-installed deps across runs so we don't pay
+      # the ``uv sync`` cost every time. Keyed on uv.lock so cache
+      # invalidates only when deps change.
+      WRITER_OOM_UV_CACHE_DIR: /home/runner/.cache/uv-stress-writer-oom
+      # 14 GiB cap: large enough for Ray baseline + actor startup plus
+      # headroom for the inline path's MultiProcessBatchApplier subprocess
+      # pool (so a transient spike does not get a pool subprocess
+      # OOM-killed by the kernel), yet still far below the ~28 GiB
+      # ahead-of-position buffer that OOMed the writer pre-fix -- so a
+      # writer regression is still caught. Post-fix the workload should
+      # complete without crossing the cap.
+      WRITER_OOM_MEM_CAP: 14G
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Cache uv install directory
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.WRITER_OOM_UV_CACHE_DIR }}
+          key: uv-stress-writer-oom-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            uv-stress-writer-oom-${{ runner.os }}-
+      - name: Run writer-OOM stress test under Docker memory cap
+        run: make test-stress-writer-oom-cgroup
+
+  # Standalone job: runs the ApplierActor OOM stress test inside a
+  # Docker container with an enforced memory cap. Complement to the
+  # writer-OOM job above -- exercises the bisect-and-skip path in
+  # ``pipeline.py:_handle_fatal_task_failure`` by planting rows whose
+  # per-row allocation exceeds the cap.
+  stress-test-applier-oom-cgroup:
+    permissions:
+      contents: read
+    runs-on: warp-ubuntu-latest-x64-8x
+    timeout-minutes: 45
+    env:
+      APPLIER_OOM_UV_CACHE_DIR: /home/runner/.cache/uv-stress-applier-oom
+      # 4 GiB cap: roomy enough for Ray baseline + actor startup, far
+      # below the workload's BAD_PAYLOAD (6 GiB per planted row) so the
+      # OOM kill is deterministic.
+      APPLIER_OOM_MEM_CAP: 4G
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Cache uv install directory
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.APPLIER_OOM_UV_CACHE_DIR }}
+          key: uv-stress-applier-oom-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            uv-stress-applier-oom-${{ runner.os }}-
+      - name: Run applier-OOM stress test under Docker memory cap
+        run: make test-stress-applier-oom-cgroup

@@ -29,17 +29,36 @@ from botocore.client import ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
+from .paginator import (
+    ListDataTransformationJobsPaginator,
+    ListDataTransformationProfilesPaginator,
+    ListDataTransformationProfileVersionsPaginator,
+)
 from .type_defs import (
+    CreateDataTransformationProfileRequestTypeDef,
+    CreateDataTransformationProfileResponseTypeDef,
     CreateFHIRDatastoreRequestTypeDef,
     CreateFHIRDatastoreResponseTypeDef,
+    DeleteDataTransformationProfileRequestTypeDef,
+    DeleteDataTransformationProfileResponseTypeDef,
     DeleteFHIRDatastoreRequestTypeDef,
     DeleteFHIRDatastoreResponseTypeDef,
+    DescribeDataTransformationJobRequestTypeDef,
+    DescribeDataTransformationJobResponseTypeDef,
     DescribeFHIRDatastoreRequestTypeDef,
     DescribeFHIRDatastoreResponseTypeDef,
     DescribeFHIRExportJobRequestTypeDef,
     DescribeFHIRExportJobResponseTypeDef,
     DescribeFHIRImportJobRequestTypeDef,
     DescribeFHIRImportJobResponseTypeDef,
+    GetDataTransformationProfileRequestTypeDef,
+    GetDataTransformationProfileResponseTypeDef,
+    ListDataTransformationJobsRequestTypeDef,
+    ListDataTransformationJobsResponseTypeDef,
+    ListDataTransformationProfilesRequestTypeDef,
+    ListDataTransformationProfilesResponseTypeDef,
+    ListDataTransformationProfileVersionsRequestTypeDef,
+    ListDataTransformationProfileVersionsResponseTypeDef,
     ListFHIRDatastoresRequestTypeDef,
     ListFHIRDatastoresResponseTypeDef,
     ListFHIRExportJobsRequestTypeDef,
@@ -48,16 +67,25 @@ from .type_defs import (
     ListFHIRImportJobsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    PublishDataTransformationProfileRequestTypeDef,
+    PublishDataTransformationProfileResponseTypeDef,
+    StartDataTransformationJobRequestTypeDef,
+    StartDataTransformationJobResponseTypeDef,
     StartFHIRExportJobRequestTypeDef,
     StartFHIRExportJobResponseTypeDef,
     StartFHIRImportJobRequestTypeDef,
     StartFHIRImportJobResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateDataTransformationProfileRequestTypeDef,
+    UpdateDataTransformationProfileResponseTypeDef,
     UpdateFHIRDatastoreRequestTypeDef,
     UpdateFHIRDatastoreResponseTypeDef,
+    UpdateProfileWithAgentRequestTypeDef,
+    UpdateProfileWithAgentResponseTypeDef,
 )
 from .waiter import (
+    DataTransformationJobCompletedWaiter,
     FHIRDatastoreActiveWaiter,
     FHIRDatastoreDeletedWaiter,
     FHIRExportJobCompletedWaiter,
@@ -75,11 +103,18 @@ __all__ = ("HealthLakeClient",)
 
 class Exceptions(BaseClientExceptions):
     AccessDeniedException: type[BotocoreClientError]
+    AgentMessageOutOfContextException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
     ConflictException: type[BotocoreClientError]
+    ConversationNotFoundException: type[BotocoreClientError]
+    FailedDependencyException: type[BotocoreClientError]
     InternalServerException: type[BotocoreClientError]
+    NotImplementedOperationException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
     ThrottlingException: type[BotocoreClientError]
+    UnauthorizedException: type[BotocoreClientError]
+    UnsupportedMIMETypeException: type[BotocoreClientError]
     ValidationException: type[BotocoreClientError]
 
 
@@ -118,6 +153,16 @@ class HealthLakeClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#generate_presigned_url)
         """
 
+    async def create_data_transformation_profile(
+        self, **kwargs: Unpack[CreateDataTransformationProfileRequestTypeDef]
+    ) -> CreateDataTransformationProfileResponseTypeDef:
+        """
+        Creates a data transformation profile in DRAFT state.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/create_data_transformation_profile.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#create_data_transformation_profile)
+        """
+
     async def create_fhir_datastore(
         self, **kwargs: Unpack[CreateFHIRDatastoreRequestTypeDef]
     ) -> CreateFHIRDatastoreResponseTypeDef:
@@ -128,6 +173,17 @@ class HealthLakeClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#create_fhir_datastore)
         """
 
+    async def delete_data_transformation_profile(
+        self, **kwargs: Unpack[DeleteDataTransformationProfileRequestTypeDef]
+    ) -> DeleteDataTransformationProfileResponseTypeDef:
+        """
+        Deletes a data transformation profile and all its versions, including the DRAFT
+        and all published versions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/delete_data_transformation_profile.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#delete_data_transformation_profile)
+        """
+
     async def delete_fhir_datastore(
         self, **kwargs: Unpack[DeleteFHIRDatastoreRequestTypeDef]
     ) -> DeleteFHIRDatastoreResponseTypeDef:
@@ -136,6 +192,17 @@ class HealthLakeClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/delete_fhir_datastore.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#delete_fhir_datastore)
+        """
+
+    async def describe_data_transformation_job(
+        self, **kwargs: Unpack[DescribeDataTransformationJobRequestTypeDef]
+    ) -> DescribeDataTransformationJobResponseTypeDef:
+        """
+        Describes a data transformation job, including its current status,
+        configuration, and progress information.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/describe_data_transformation_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#describe_data_transformation_job)
         """
 
     async def describe_fhir_datastore(
@@ -166,6 +233,49 @@ class HealthLakeClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/describe_fhir_import_job.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#describe_fhir_import_job)
+        """
+
+    async def get_data_transformation_profile(
+        self, **kwargs: Unpack[GetDataTransformationProfileRequestTypeDef]
+    ) -> GetDataTransformationProfileResponseTypeDef:
+        """
+        Retrieves a data transformation profile's metadata and profile content at a
+        specific version.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/get_data_transformation_profile.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#get_data_transformation_profile)
+        """
+
+    async def list_data_transformation_jobs(
+        self, **kwargs: Unpack[ListDataTransformationJobsRequestTypeDef]
+    ) -> ListDataTransformationJobsResponseTypeDef:
+        """
+        Lists data transformation jobs for your AWS account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/list_data_transformation_jobs.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#list_data_transformation_jobs)
+        """
+
+    async def list_data_transformation_profile_versions(
+        self, **kwargs: Unpack[ListDataTransformationProfileVersionsRequestTypeDef]
+    ) -> ListDataTransformationProfileVersionsResponseTypeDef:
+        """
+        Lists all versions of a specific data transformation profile (DRAFT and
+        published), in reverse chronological order (newest first).
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/list_data_transformation_profile_versions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#list_data_transformation_profile_versions)
+        """
+
+    async def list_data_transformation_profiles(
+        self, **kwargs: Unpack[ListDataTransformationProfilesRequestTypeDef]
+    ) -> ListDataTransformationProfilesResponseTypeDef:
+        """
+        Lists all data transformation profiles in your account, returning the latest
+        version summary for each.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/list_data_transformation_profiles.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#list_data_transformation_profiles)
         """
 
     async def list_fhir_datastores(
@@ -209,6 +319,29 @@ class HealthLakeClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#list_tags_for_resource)
         """
 
+    async def publish_data_transformation_profile(
+        self, **kwargs: Unpack[PublishDataTransformationProfileRequestTypeDef]
+    ) -> PublishDataTransformationProfileResponseTypeDef:
+        """
+        Promotes the current DRAFT version of a data transformation profile to a new
+        immutable published version.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/publish_data_transformation_profile.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#publish_data_transformation_profile)
+        """
+
+    async def start_data_transformation_job(
+        self, **kwargs: Unpack[StartDataTransformationJobRequestTypeDef]
+    ) -> StartDataTransformationJobResponseTypeDef:
+        """
+        Starts an asynchronous data transformation job that converts source files from
+        Amazon Simple Storage Service (Amazon S3) and writes the output to Amazon S3 or
+        AWS HealthLake.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/start_data_transformation_job.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#start_data_transformation_job)
+        """
+
     async def start_fhir_export_job(
         self, **kwargs: Unpack[StartFHIRExportJobRequestTypeDef]
     ) -> StartFHIRExportJobResponseTypeDef:
@@ -245,6 +378,17 @@ class HealthLakeClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#untag_resource)
         """
 
+    async def update_data_transformation_profile(
+        self, **kwargs: Unpack[UpdateDataTransformationProfileRequestTypeDef]
+    ) -> UpdateDataTransformationProfileResponseTypeDef:
+        """
+        Updates the DRAFT version (version 0) of a data transformation profile with new
+        profile content.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/update_data_transformation_profile.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#update_data_transformation_profile)
+        """
+
     async def update_fhir_datastore(
         self, **kwargs: Unpack[UpdateFHIRDatastoreRequestTypeDef]
     ) -> UpdateFHIRDatastoreResponseTypeDef:
@@ -253,6 +397,61 @@ class HealthLakeClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/update_fhir_datastore.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#update_fhir_datastore)
+        """
+
+    async def update_profile_with_agent(
+        self, **kwargs: Unpack[UpdateProfileWithAgentRequestTypeDef]
+    ) -> UpdateProfileWithAgentResponseTypeDef:
+        """
+        Updates a data transformation profile using chat-based interaction with an
+        agent.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/update_profile_with_agent.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#update_profile_with_agent)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_data_transformation_jobs"]
+    ) -> ListDataTransformationJobsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_data_transformation_profile_versions"]
+    ) -> ListDataTransformationProfileVersionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_data_transformation_profiles"]
+    ) -> ListDataTransformationProfilesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["data_transformation_job_completed"]
+    ) -> DataTransformationJobCompletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/healthlake/client/get_waiter.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_healthlake/client/#get_waiter)
         """
 
     @overload  # type: ignore[override]

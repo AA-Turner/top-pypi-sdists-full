@@ -1,0 +1,25 @@
+---
+name: Upload Python Package
+
+on: # yamllint: ignore
+  release:
+    types: [published]
+
+jobs:
+  test:
+    uses: ./.github/workflows/python-test.yaml
+
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Build the package
+        run: uv build
+
+      - name: Publish the package
+        run: uv publish --token ${{ secrets.PYPI_API_KEY }}

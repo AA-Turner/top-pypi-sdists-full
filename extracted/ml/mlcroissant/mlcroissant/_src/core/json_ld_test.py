@@ -1,0 +1,88 @@
+"""migrate_test module."""
+
+import json
+
+import pytest
+
+from mlcroissant._src.core import constants
+from mlcroissant._src.core.context import Context
+from mlcroissant._src.core.context import CroissantVersion
+from mlcroissant._src.core.rdf import make_context
+from mlcroissant._src.datasets import Dataset
+
+
+# If this test fails, you probably manually updated a dataset in datasets/.
+# Please, use scripts/migrations/migrate.py to migrate datasets.
+@pytest.mark.parametrize("version", ["0.8", "1.0", "1.1"])
+def test_expand_and_reduce_json_ld(version):
+    dataset_folder = constants.DATASETS_FOLDER / version
+    paths = [path for path in dataset_folder.glob("*/*.json")]
+    assert paths, f"Warning: Checking an empty list of paths: {dataset_folder}"
+    for path in paths:
+        print(f"Test for {path}")
+        with path.open() as f:
+            expected = json.load(f)
+        dataset = Dataset(path)
+        metadata = dataset.metadata
+        actual = metadata.to_json()
+        assert actual == expected, f"Error in {path}"
+
+
+def test_make_context():
+    assert make_context(foo="bar") == {
+        "@language": "en",
+        "@vocab": "https://schema.org/",
+        "citeAs": "cr:citeAs",
+        "column": "cr:column",
+        "conformsTo": "dct:conformsTo",
+        "cr": "http://mlcommons.org/croissant/",
+        "rai": "http://mlcommons.org/croissant/RAI/",
+        "data": {"@id": "cr:data", "@type": "@json"},
+        "dataType": {"@id": "cr:dataType", "@type": "@vocab"},
+        "dct": "http://purl.org/dc/terms/",
+        "equivalentProperty": "cr:equivalentProperty",
+        "examples": {"@id": "cr:examples", "@type": "@json"},
+        "extract": "cr:extract",
+        "field": "cr:field",
+        "fileProperty": "cr:fileProperty",
+        "fileObject": "cr:fileObject",
+        "fileSet": "cr:fileSet",
+        "format": "cr:format",
+        "includes": "cr:includes",
+        "isLiveDataset": "cr:isLiveDataset",
+        "jsonPath": "cr:jsonPath",
+        "key": "cr:key",
+        "md5": "cr:md5",
+        "parentField": "cr:parentField",
+        "path": "cr:path",
+        "recordSet": "cr:recordSet",
+        "references": "cr:references",
+        "regex": "cr:regex",
+        "repeated": "cr:repeated",
+        "replace": "cr:replace",
+        "samplingRate": "cr:samplingRate",
+        "sc": "https://schema.org/",
+        "separator": "cr:separator",
+        "source": "cr:source",
+        "subField": "cr:subField",
+        "transform": "cr:transform",
+        "foo": "bar",
+    }
+
+
+def test_expand_and_reduce_language_tagged():
+    ctx = Context(conforms_to=CroissantVersion.V_1_1)
+    dataset = Dataset({
+        "@context": make_context(ctx),
+        "@type": "sc:Dataset",
+        "conformsTo": CroissantVersion.V_1_1.value,
+        "name": {"en": "a", "fr": "b"},
+        "description": [
+            {"@language": "en", "@value": "A"},
+            {"@language": "de", "@value": "B"},
+        ],
+    })
+    metadata = dataset.metadata
+    actual = metadata.to_json()
+    assert actual["name"] == {"en": "a", "fr": "b"}
+    assert actual["description"] == {"en": "A", "de": "B"}

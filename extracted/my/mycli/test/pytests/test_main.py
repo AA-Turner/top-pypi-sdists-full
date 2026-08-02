@@ -895,6 +895,40 @@ def test_list_dsn(monkeypatch):
         print(f"An error occurred while attempting to delete the file: {e}")
 
 
+@pytest.mark.parametrize(
+    ('shell', 'relative_path'),
+    (
+        ('bash', ('bash', 'mycli')),
+        ('zsh', ('zsh', '_mycli')),
+        ('fish', ('fish', 'mycli.fish')),
+    ),
+)
+def test_completions_prints_packaged_script_without_initializing_client(
+    monkeypatch: pytest.MonkeyPatch,
+    shell: str,
+    relative_path: tuple[str, str],
+) -> None:
+    def fail(*args: Any, **kwargs: Any) -> None:
+        pytest.fail('Completion output must not initialize the client or preprocess connection arguments.')
+
+    monkeypatch.setattr(main, 'MyCli', fail)
+    monkeypatch.setattr(main, 'preprocess_cli_args', fail)
+    completion_path = Path(project_root_dir, 'mycli', 'resources', 'completions', *relative_path)
+
+    result = CliRunner().invoke(click_entrypoint, args=['--completions', shell])
+
+    assert result.exit_code == 0
+    assert result.output == completion_path.read_text(encoding='utf-8')
+
+
+@pytest.mark.parametrize('args', (['--completions'], ['--completions', 'powershell']))
+def test_completions_rejects_missing_or_unknown_shell(args: list[str]) -> None:
+    result = CliRunner().invoke(click_entrypoint, args=args)
+
+    assert result.exit_code == 2
+    assert 'Error:' in result.output
+
+
 def test_dsn(monkeypatch):
     # Setup classes to mock mycli.main.MyCli
     class Formatter:
@@ -2072,14 +2106,17 @@ def test_null_string_config(monkeypatch):
         print(f'An error occurred while attempting to delete the file: {e}')
 
 
-def test_change_prompt_format_requires_argument() -> None:
+def test_change_prompt_format_without_argument_shows_current_format() -> None:
     cli = make_bare_mycli()
-    assert main.MyCli.change_prompt_format(cli, '')[0].status == 'Missing required argument, format.'
+    cli.prompt_format = '\\u> '
+
+    assert main.MyCli.change_prompt_format(cli, '')[0].status == 'Prompt format: "\\u> "'
+    assert cli.prompt_format == '\\u> '
 
 
 def test_change_prompt_format_updates_prompt() -> None:
     cli = make_bare_mycli()
-    assert main.MyCli.change_prompt_format(cli, '\\u@\\h> ')[0].status == 'Changed prompt format to \\u@\\h> '
+    assert main.MyCli.change_prompt_format(cli, '\\u@\\h> ')[0].status == 'Changed prompt format to: "\\u@\\h> "'
 
 
 def test_output_timing_logs_and_prints_with_warning_style(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -2350,7 +2387,7 @@ def test_preprocess_cli_args_moves_dsn_from_password_to_database() -> None:
     verbosity = preprocess_cli_args(cli_args, valid_connection_scheme)
 
     assert verbosity == 0
-    assert cli_args.database == 'mysql://user:pass@host/db'
+    assert cli_args.positional_database == 'mysql://user:pass@host/db'
     assert cli_args.password == EMPTY_PASSWORD_FLAG_SENTINEL  # type: ignore[comparison-overlap]
 
 

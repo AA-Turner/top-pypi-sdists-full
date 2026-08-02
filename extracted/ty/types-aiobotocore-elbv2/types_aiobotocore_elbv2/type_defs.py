@@ -39,6 +39,7 @@ from .literals import (
     MitigationInEffectEnumType,
     ProtocolEnumType,
     RedirectActionStatusCodeEnumType,
+    SourceIpAddressTypeEnumType,
     TargetAdministrativeOverrideReasonEnumType,
     TargetAdministrativeOverrideStateEnumType,
     TargetGroupIpAddressTypeEnumType,
@@ -694,6 +695,7 @@ class RemoveTrustStoreRevocationsInputTypeDef(TypedDict):
 
 class SourceIpConditionConfigOutputTypeDef(TypedDict):
     Values: NotRequired[list[str]]
+    IpAddressType: NotRequired[SourceIpAddressTypeEnumType]
 
 
 class RulePriorityPairTypeDef(TypedDict):
@@ -716,6 +718,7 @@ class SetSecurityGroupsInputTypeDef(TypedDict):
 
 class SourceIpConditionConfigTypeDef(TypedDict):
     Values: NotRequired[Sequence[str]]
+    IpAddressType: NotRequired[SourceIpAddressTypeEnumType]
 
 
 class TargetHealthTypeDef(TypedDict):

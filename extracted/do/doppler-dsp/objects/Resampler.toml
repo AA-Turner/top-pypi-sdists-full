@@ -1,0 +1,56 @@
+[Resampler]
+arg_type = "float _Complex"
+return_type = "float _Complex"
+mutable = "false"
+no_state = "true"
+no_step = "true"
+serializable = "true"
+depends_on = ["resamp"]
+
+[[Resampler.init_params]]
+name = "rate"
+type = "double"
+default = "0.0"
+
+[[Resampler.methods]]
+name = "execute"
+arg_type = "void"
+return_type = "float _Complex"
+variable_output = true
+params = [{name = "x", type = "float _Complex[]"}]
+# Kernel is told its write limit (jm gh-138): an under-reporting
+# max_out truncates the emission instead of overrunning `out`.
+pass_capacity = true
+
+[[Resampler.methods]]
+name = "execute_ctrl"
+arg_type = "void"
+return_type = "float _Complex"
+variable_output = true
+params = [{name = "x", type = "float _Complex[]"}, {name = "ctrl", type = "float _Complex[]"}]
+# Kernel is told its write limit (jm gh-138): an under-reporting
+# max_out truncates the emission instead of overrunning `out`.
+pass_capacity = true
+
+[[Resampler.methods]]
+name = "reset"
+arg_type = "void"
+return_type = "void"
+
+[[Resampler.properties]]
+name = "rate"
+type = "double"
+writable = true
+
+[[Resampler.properties]]
+name = "num_phases"
+type = "size_t"
+
+[[Resampler.properties]]
+name = "num_taps"
+type = "size_t"
+
+# gh-428 manual_stub: hand-written .pyi symbol (see status_allow rationale).
+[[Resampler.methods]]
+name = "execute_ctrl_max_out"
+manual_stub = true

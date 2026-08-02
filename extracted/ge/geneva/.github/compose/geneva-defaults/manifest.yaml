@@ -1,0 +1,10 @@
+# Geneva deployment-default manifest, mounted into the phalanx container
+# at /etc/geneva/defaults/manifest.yaml via docker-compose-integ.yml.
+#
+# Phalanx's add_columns / create_materialized_view fall back to this
+# manifest when the client's UDF/UDTF/chunker carries no
+# `manifest=...` param. Mirrors phalanx's local-dev defaults at
+# `sophon/src/rust/phalanx/configs/geneva-local-defaults/manifest.yaml`.
+name: ci-integ-default
+pip:
+  - geneva

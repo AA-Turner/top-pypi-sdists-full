@@ -386,6 +386,7 @@ class CreateBrokerRequestTypeDef(TypedDict):
     Logs: NotRequired[LogsTypeDef]
     MaintenanceWindowStartTime: NotRequired[WeeklyStartTimeTypeDef]
     SecurityGroups: NotRequired[Sequence[str]]
+    StorageSize: NotRequired[int]
     StorageType: NotRequired[BrokerStorageTypeType]
     SubnetIds: NotRequired[Sequence[str]]
     Tags: NotRequired[Mapping[str, str]]
@@ -405,6 +406,7 @@ class UpdateBrokerRequestTypeDef(TypedDict):
     MaintenanceWindowStartTime: NotRequired[WeeklyStartTimeTypeDef]
     ResourceShareArns: NotRequired[Sequence[str]]
     SecurityGroups: NotRequired[Sequence[str]]
+    StorageSize: NotRequired[int]
     DataReplicationMode: NotRequired[DataReplicationModeType]
 
 class CreateBrokerResponseTypeDef(TypedDict):
@@ -561,6 +563,7 @@ class UpdateBrokerResponseTypeDef(TypedDict):
     DataReplicationMode: DataReplicationModeType
     PendingDataReplicationMetadata: DataReplicationMetadataOutputTypeDef
     PendingDataReplicationMode: DataReplicationModeType
+    StorageSize: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeBrokerResponseTypeDef(TypedDict):
@@ -587,8 +590,10 @@ class DescribeBrokerResponseTypeDef(TypedDict):
     PendingHostInstanceType: str
     PendingLdapServerMetadata: LdapServerMetadataOutputTypeDef
     PendingSecurityGroups: list[str]
+    PendingStorageSize: int
     PubliclyAccessible: bool
     SecurityGroups: list[str]
+    StorageSize: int
     StorageType: BrokerStorageTypeType
     SubnetIds: list[str]
     Tags: dict[str, str]

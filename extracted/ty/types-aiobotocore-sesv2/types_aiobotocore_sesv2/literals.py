@@ -61,6 +61,7 @@ __all__ = (
     "MetricNamespaceType",
     "MetricType",
     "PaginatorName",
+    "PricingPlanType",
     "QueryErrorCodeType",
     "RecommendationImpactType",
     "RecommendationStatusType",
@@ -144,6 +145,8 @@ DkimSigningAttributesOriginType = Literal[
     "AWS_SES_SA_EAST_1",
     "AWS_SES_US_EAST_1",
     "AWS_SES_US_EAST_2",
+    "AWS_SES_US_GOV_EAST_1",
+    "AWS_SES_US_GOV_WEST_1",
     "AWS_SES_US_WEST_1",
     "AWS_SES_US_WEST_2",
     "EXTERNAL",
@@ -194,6 +197,7 @@ MetricType = Literal[
     "SEND",
     "TRANSIENT_BOUNCE",
 ]
+PricingPlanType = Literal["ENTERPRISE", "ESSENTIALS", "NONE", "PRO"]
 QueryErrorCodeType = Literal["ACCESS_DENIED", "INTERNAL_FAILURE"]
 RecommendationImpactType = Literal["HIGH", "LOW"]
 RecommendationStatusType = Literal["FIXED", "OPEN"]

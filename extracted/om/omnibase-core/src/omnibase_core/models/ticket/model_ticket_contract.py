@@ -1,0 +1,710 @@
+# SPDX-FileCopyrightText: 2025 OmniNode.ai Inc.
+# SPDX-License-Identifier: MIT
+
+"""TicketContract model for contract-driven ticket execution.
+
+Provides the main contract model for the /ticket-work skill automation system.
+
+OMN-10064 / OMN-9582: Extended to absorb all OCC-local fields from
+onex_change_control.models.model_ticket_contract (the "dual model" problem).
+After this merge, OCC converts its local ModelTicketContract to a re-export.
+
+Mutability audit 2026-04-27: OCC callers confirmed — no caller uses hash()
+or frozen semantics on ModelTicketContract. Callers reviewed:
+  onex_change_control/src/onex_change_control/scripts/validate_yaml.py
+  onex_change_control/src/onex_change_control/validation/ (pattern-only, no model mutation)
+  omniclaude/plugins/onex/skills/_lib/contract_generator/generate_contract.py
+Safe to keep mutable (not frozen). Merged model uses extra="forbid" matching
+OCC strict mode.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import re
+from datetime import UTC, datetime
+from typing import Any, ClassVar
+
+import yaml
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
+
+from omnibase_core.enums.enum_contract_completeness import EnumContractCompleteness
+from omnibase_core.enums.enum_core_error_code import EnumCoreErrorCode
+from omnibase_core.enums.ticket import (
+    PHASE_ALLOWED_ACTIONS,
+    EnumTicketAction,
+    EnumTicketPhase,
+    EnumTicketStepStatus,
+)
+from omnibase_core.enums.ticket.enum_contract_interface_surface import (
+    EnumContractInterfaceSurface,
+)
+from omnibase_core.models.errors.model_onex_error import ModelOnexError
+from omnibase_core.models.ticket.model_clarifying_question import (
+    ModelClarifyingQuestion,
+)
+from omnibase_core.models.ticket.model_contract_dod_item import ModelContractDodItem
+from omnibase_core.models.ticket.model_emergency_bypass import ModelEmergencyBypass
+from omnibase_core.models.ticket.model_evidence_requirement import (
+    ModelEvidenceRequirement,
+)
+from omnibase_core.models.ticket.model_gate import ModelGate
+from omnibase_core.models.ticket.model_golden_path import ModelGoldenPath
+from omnibase_core.models.ticket.model_interface_consumed import (
+    ModelInterfaceConsumed,
+)
+from omnibase_core.models.ticket.model_interface_provided import (
+    ModelInterfaceProvided,
+)
+from omnibase_core.models.ticket.model_requirement import ModelRequirement
+from omnibase_core.models.ticket.model_verification_step import ModelVerificationStep
+from omnibase_core.utils.util_decorators import allow_dict_str_any, allow_string_id
+
+# SemVer pattern (basic only: major.minor.patch, no pre-release or build metadata).
+# Ported from onex_change_control.validation.patterns.SEMVER_PATTERN.
+# Rejects leading zeros per SemVer spec.
+_SEMVER_PATTERN: re.Pattern[str] = re.compile(
+    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$"
+)
+
+# Security constraints (matching OCC values to prevent DoS)
+_MAX_STRING_LENGTH = 10000
+_MAX_LIST_ITEMS = 1000
+
+
+@allow_string_id(reason="External Linear ticket identifier (e.g., OMN-1807)")
+@allow_dict_str_any(
+    reason="Context accumulates arbitrary research data during workflow"
+)
+class ModelTicketContract(BaseModel):
+    """Contract model for ticket-driven development workflow.
+
+    This model tracks the complete state of a ticket through its lifecycle,
+    from intake through implementation and review. It enforces phase-based
+    action restrictions and tracks verification and approval gates.
+
+    OMN-10064 / OMN-9582 merged fields (absorbed from OCC-local model):
+        schema_version, summary, is_seam_ticket, interface_change,
+        interfaces_touched, evidence_requirements, emergency_bypass,
+        golden_path, dod_evidence, contract_completeness.
+
+    Mutability:
+        This model is mutable (NOT frozen) to allow state updates during
+        workflow execution. Use update_fingerprint() after modifications.
+        OCC callers audited 2026-04-27 — none use hash() or frozen semantics.
+
+    Schema Strictness:
+        extra="forbid" matches OCC strict mode. The context field retains
+        dict[str, Any] intentionally — extra="forbid" applies to top-level
+        model fields only, not to values inside typed fields.
+
+    YAML Persistence:
+        The contract is designed to be serialized to/from YAML for persistence.
+        Use to_yaml() and from_yaml() methods for serialization.
+    """
+
+    # =========================================================================
+    # OCC-origin merged fields (OMN-10064 / OMN-9582)
+    # =========================================================================
+
+    # Schema version for YAML wire format compatibility
+    # string-version-ok: YAML/JSON wire; format validated by field_validator
+    schema_version: str = Field(
+        default="1.0.0",
+        description="Schema version (SemVer format, e.g., '1.0.0')",
+        max_length=20,
+    )
+
+    # Human-readable summary (OCC required → core optional with empty default
+    # so existing on-disk YAMLs that omit summary continue to load)
+    summary: str = Field(
+        default="",
+        description="Human-readable summary of the ticket",
+        max_length=_MAX_STRING_LENGTH,
+    )
+
+    # Seam ticket flag — marks cross-repo interface-touching tickets
+    is_seam_ticket: bool = Field(
+        default=False,
+        description="Whether this ticket touches cross-repo interfaces",
+    )
+
+    # Interface change flag — cross-field validated with interfaces_touched
+    interface_change: bool = Field(
+        default=False,
+        description="Whether this ticket changes interface surfaces",
+    )
+
+    # Interface surfaces touched; must be empty when interface_change=False
+    interfaces_touched: list[EnumContractInterfaceSurface] = Field(
+        default_factory=list,
+        description="Interface surfaces touched by this ticket",
+        max_length=_MAX_LIST_ITEMS,
+    )
+
+    # Evidence requirements (what proof is required before Done)
+    evidence_requirements: list[ModelEvidenceRequirement] = Field(
+        default_factory=list,
+        description="Evidence requirements for ticket completion",
+        max_length=_MAX_LIST_ITEMS,
+    )
+
+    # Emergency bypass (optional — existing YAMLs without it still load)
+    emergency_bypass: ModelEmergencyBypass | None = Field(
+        default=None,
+        description="Emergency bypass configuration (None = not configured)",
+    )
+
+    # Golden path event chain test (optional)
+    golden_path: ModelGoldenPath | None = Field(
+        default=None,
+        description=(
+            "Optional golden path event chain test declaration. "
+            "When present, declares an input-to-output contract test for the "
+            "node pipeline associated with this ticket."
+        ),
+    )
+
+    # DoD evidence items (executable checks for receipt gate)
+    dod_evidence: list[ModelContractDodItem] = Field(
+        default_factory=list,
+        description=(
+            "Definition of Done evidence items. Maps Linear DoD bullets "
+            "to executable checks for automated verification."
+        ),
+        max_length=_MAX_LIST_ITEMS,
+    )
+
+    # Contract completeness level (drives tooling decisions)
+    contract_completeness: EnumContractCompleteness = Field(
+        default=EnumContractCompleteness.STUB,
+        description="Completeness level of this contract",
+    )
+
+    # =========================================================================
+    # Original core fields (unchanged by OMN-10064)
+    # =========================================================================
+
+    # Ticket identification
+    # string-id-ok: External Linear ticket identifier (e.g., OMN-1807)
+    ticket_id: str = Field(..., description="External ticket ID (e.g., OMN-1807)")
+    title: str = Field(..., description="Ticket title")
+    description: str = Field(default="", description="Ticket description")
+
+    # Workflow state
+    phase: EnumTicketPhase = Field(
+        default=EnumTicketPhase.INTAKE, description="Current workflow phase"
+    )
+
+    # Context and research
+    # dict-str-any-ok: Context accumulates arbitrary research data during workflow
+    context: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Gathered context including code snippets, docs, etc.",
+    )
+
+    # Clarifying questions
+    questions: list[ModelClarifyingQuestion] = Field(
+        default_factory=list, description="Clarifying questions for requirements"
+    )
+
+    # Requirements specification
+    requirements: list[ModelRequirement] = Field(
+        default_factory=list, description="Requirements derived from ticket"
+    )
+
+    # Verification and gates
+    verification_steps: list[ModelVerificationStep] = Field(
+        default_factory=list, description="Verification steps to run"
+    )
+    gates: list[ModelGate] = Field(
+        default_factory=list, description="Approval gates required"
+    )
+
+    # Interface contracts for parallel development
+    interfaces_provided: list[ModelInterfaceProvided] = Field(
+        default_factory=list,
+        description="Interfaces this ticket provides to other tickets",
+    )
+    interfaces_consumed: list[ModelInterfaceConsumed] = Field(
+        default_factory=list,
+        description="Interfaces this ticket consumes (may be mocked)",
+    )
+
+    # Fingerprinting and timestamps
+    contract_fingerprint: str | None = Field(
+        default=None, description="SHA256 fingerprint of contract state"
+    )
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(tz=UTC),
+        description="When the contract was created (UTC)",
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(tz=UTC),
+        description="When the contract was last updated (UTC)",
+    )
+
+    # ConfigDict rationale (OMN-10064 update):
+    # - extra="forbid": matches OCC strict mode. Callers audited — none pass
+    #   unknown keys to ModelTicketContract directly. The context field retains
+    #   dict[str, Any] for arbitrary workflow-execution keys (extra="forbid"
+    #   applies to top-level model fields only).
+    # - NOT frozen: The contract is mutated in-place during workflow execution
+    #   (phase transitions, fingerprint updates, adding questions/requirements).
+    #   OCC callers audited 2026-04-27 — no caller uses hash() or frozen semantics.
+    #   Callers must call update_fingerprint() after mutations.
+    # - from_attributes=True: Required for pytest-xdist where workers import classes
+    #   independently (see Pydantic Model Standards in CLAUDE.md).
+    model_config = ConfigDict(
+        extra="forbid",
+        from_attributes=True,
+    )
+
+    # =========================================================================
+    # Validators
+    # =========================================================================
+
+    @field_validator("schema_version")
+    @classmethod
+    def _validate_schema_version(cls, v: str) -> str:
+        """Validate schema_version is basic SemVer format (major.minor.patch).
+
+        Rejects:
+          - Non-SemVer strings (e.g., "abc", "1.0")
+          - Leading zeros (e.g., "01.0.0" per SemVer spec)
+          - Pre-release suffixes (e.g., "1.0.0-alpha")
+          - Build metadata (e.g., "1.0.0+build")
+        """
+        if not _SEMVER_PATTERN.match(v):
+            msg = (
+                f"schema_version: invalid SemVer format {v!r}. "
+                "Expected major.minor.patch (e.g., '1.0.0'). "
+                "Pre-release suffixes and build metadata are not supported."
+            )
+            raise ValueError(msg)
+        return v
+
+    @model_validator(mode="after")
+    def _validate_interface_constraints(self) -> ModelTicketContract:
+        """Validate that interfaces_touched is empty when interface_change=False.
+
+        Cross-field validator ported from OCC ModelTicketContract:
+        if interface_change is False and interfaces_touched is non-empty,
+        raise ValidationError. This prevents a logical contradiction where
+        surfaces are listed but no interface change is declared.
+
+        interface_change=True with empty interfaces_touched is allowed
+        (categorization may be pending at contract creation time).
+        """
+        if not self.interface_change and self.interfaces_touched:
+            msg = (
+                "interfaces_touched must be empty when interface_change is false. "
+                "If no interfaces are touched, set interfaces_touched to []."
+            )
+            raise ValueError(msg)
+        return self
+
+    @field_validator("created_at", "updated_at", mode="before")
+    @classmethod
+    def _enforce_utc_timezone(cls, v: Any) -> Any:
+        """Enforce UTC timezone on datetime fields during deserialization.
+
+        Naive datetimes (no timezone info) are assumed UTC and have the UTC
+        timezone attached. Datetimes with a non-UTC timezone are converted
+        to UTC. Already-UTC datetimes pass through unchanged.
+        """
+        if not isinstance(v, datetime):
+            return v
+
+        if v.tzinfo is None:
+            return v.replace(tzinfo=UTC)
+
+        return v.astimezone(UTC)
+
+    @classmethod
+    def classify_runtime_change(
+        cls,
+        touched_paths: list[str] | tuple[str, ...] | set[str] | frozenset[str],
+        *,
+        deployed_nodes: set[str] | frozenset[str] | None = None,
+    ) -> bool:
+        """Return True when changed paths require runtime_sha_match evidence.
+
+        The default policy intentionally only looks at paths, so PR and ticket
+        tooling can call it before contracts are enriched. ``deployed_nodes`` lets
+        callers narrow omnimarket node matches when they have a deployment
+        registry; absent that registry, node source paths are treated as deployed
+        runtime code.
+        """
+        for raw_path in touched_paths:
+            path = cls._normalize_touched_path(raw_path)
+            if not path or cls._is_docs_or_tests_path(path):
+                continue
+            if path.startswith(("omnibase_infra/src/", "src/omnibase_infra/")):
+                return True
+
+            node_name = cls._omnimarket_node_name_from_path(path)
+            if node_name and (deployed_nodes is None or node_name in deployed_nodes):
+                return True
+
+        return False
+
+    @staticmethod
+    def _normalize_touched_path(path: str) -> str:
+        return path.strip().replace("\\", "/").lstrip("./")
+
+    @staticmethod
+    def _is_docs_or_tests_path(path: str) -> bool:
+        if path.endswith((".md", ".rst", ".txt")):
+            return True
+        if "/docs/" in f"/{path}" or path.startswith("docs/"):
+            return True
+        test_markers = ("/tests/", "/test/", "/__tests__/", "/fixtures/")
+        if any(marker in f"/{path}/" for marker in test_markers):
+            return True
+        filename = path.rsplit("/", 1)[-1]
+        return filename.startswith("test_") or filename.endswith("_test.py")
+
+    @staticmethod
+    def _omnimarket_node_name_from_path(path: str) -> str | None:
+        markers = (
+            "omnimarket/src/omnimarket/nodes/",
+            "src/omnimarket/nodes/",
+            "src/nodes/",
+        )
+        for marker in markers:
+            if marker not in path:
+                continue
+            after_marker = path.split(marker, 1)[1]
+            node_name = after_marker.split("/", 1)[0]
+            if node_name.startswith("node_"):
+                return node_name
+        return None
+
+    # =========================================================================
+    # research_notes as @property (derived from context)
+    # =========================================================================
+
+    @property
+    def research_notes(self) -> str:
+        """Derive research notes from context.
+
+        This is a computed property that extracts research-related information
+        from the context dict. It is NOT included in model_dump() output.
+
+        Handles strings, lists, tuples, sets, generators, and any other
+        iterable by joining elements with newlines. Non-iterable values
+        are coerced via ``str()``.
+
+        Returns:
+            Research notes as a string, or empty string if not present.
+        """
+        notes = self.context.get("research_notes", "")
+        if isinstance(notes, str):
+            return notes
+        if not notes:
+            return ""
+        # Handle any iterable (list, tuple, set, generator, etc.)
+        try:
+            return "\n".join(str(n) for n in notes)
+        except TypeError:
+            # Not iterable -- fall back to str coercion
+            return str(notes)
+
+    # =========================================================================
+    # Phase Enforcement Methods
+    # =========================================================================
+
+    def allowed_actions(self) -> frozenset[EnumTicketAction]:
+        """Get the frozenset of actions allowed in the current phase.
+
+        Returns:
+            Frozenset of EnumTicketAction enum values (not strings).
+        """
+        return PHASE_ALLOWED_ACTIONS.get(self.phase, frozenset())
+
+    def assert_action_allowed(self, action: EnumTicketAction | str) -> None:
+        """Assert that an action is allowed in the current phase.
+
+        Accepts both enum values and strings for CLI ergonomics.
+
+        Args:
+            action: The action to check (enum or string).
+
+        Raises:
+            ModelOnexError: If the action is not allowed in the current phase,
+                or if the action value is not a valid EnumTicketAction.
+        """
+        # Reject non-str, non-enum types early to avoid AttributeError downstream
+        if not isinstance(action, (str, EnumTicketAction)):
+            raise ModelOnexError(
+                message=f"Invalid action type: expected str or EnumTicketAction, got {type(action).__name__}",
+                error_code=EnumCoreErrorCode.VALIDATION_ERROR,
+                action=repr(action),
+                valid_actions=[a.value for a in EnumTicketAction],
+            )
+
+        # Normalize string input to enum
+        if isinstance(action, str):
+            try:
+                action = EnumTicketAction(action)
+            except ValueError as e:
+                raise ModelOnexError(
+                    message=f"Invalid action: {action!r}",
+                    error_code=EnumCoreErrorCode.VALIDATION_ERROR,
+                    action=action,
+                    valid_actions=[a.value for a in EnumTicketAction],
+                ) from e
+
+        allowed = self.allowed_actions()
+        if action not in allowed:
+            raise ModelOnexError(
+                message=(
+                    f"Action {action.value!r} is not allowed in phase {self.phase.value!r}. "
+                    f"Allowed actions: {[a.value for a in allowed]}"
+                ),
+                error_code=EnumCoreErrorCode.VALIDATION_ERROR,
+                action=action.value,
+                phase=self.phase.value,
+                allowed_actions=[a.value for a in allowed],
+            )
+
+    # =========================================================================
+    # Completion Check Methods
+    # =========================================================================
+
+    def is_questions_complete(self) -> bool:
+        """Check if all required questions have non-empty answers."""
+        for q in self.questions:
+            if q.required and (not q.answer or not q.answer.strip()):
+                return False
+        return True
+
+    def is_spec_complete(self) -> bool:
+        """Check if specification is complete.
+
+        Requires at least one requirement, and all requirements must have
+        at least one acceptance criterion.
+        """
+        if not self.requirements:
+            return False
+
+        for req in self.requirements:
+            if not req.acceptance:
+                return False
+
+        return True
+
+    def is_proof_linked_complete(self) -> bool:
+        """True if all requirements have criterion-level proof linkage.
+
+        Stronger than ``is_spec_complete()``: requires every acceptance
+        criterion in every requirement to have at least one proof reference.
+
+        ``is_spec_complete()`` is semantically unchanged by this addition —
+        it still only checks that acceptance criteria exist, not that they
+        have proofs.
+
+        Returns False if there are no requirements (same semantics as
+        ``is_spec_complete()``).
+        """
+        if not self.requirements:
+            return False
+        return all(req.is_proof_complete() for req in self.requirements)
+
+    def is_verification_complete(self) -> bool:
+        """Check if all blocking verification steps have passed or been skipped."""
+        for step in self.verification_steps:
+            if step.blocking:
+                if step.status not in (
+                    EnumTicketStepStatus.PASSED,
+                    EnumTicketStepStatus.SKIPPED,
+                ):
+                    return False
+        return True
+
+    def is_gates_complete(self) -> bool:
+        """Check if all required gates have been approved."""
+        for gate in self.gates:
+            if gate.required and gate.status != EnumTicketStepStatus.APPROVED:
+                return False
+        return True
+
+    def is_done(self) -> bool:
+        """Check if ticket is fully complete.
+
+        Requires phase is DONE and all completion checks pass.
+        """
+        return (
+            self.phase == EnumTicketPhase.DONE
+            and self.is_questions_complete()
+            and self.is_spec_complete()
+            and self.is_verification_complete()
+            and self.is_gates_complete()
+        )
+
+    def pending_questions(self) -> list[ModelClarifyingQuestion]:
+        """Get questions that still need answers."""
+        return [
+            q
+            for q in self.questions
+            if q.required and (not q.answer or not q.answer.strip())
+        ]
+
+    def blocking_verification(self) -> list[ModelVerificationStep]:
+        """Get blocking verification steps that haven't passed."""
+        return [
+            step
+            for step in self.verification_steps
+            if step.blocking
+            and step.status
+            not in (EnumTicketStepStatus.PASSED, EnumTicketStepStatus.SKIPPED)
+        ]
+
+    def pending_gates(self) -> list[ModelGate]:
+        """Get gates that still need approval."""
+        return [
+            gate
+            for gate in self.gates
+            if gate.required and gate.status != EnumTicketStepStatus.APPROVED
+        ]
+
+    # =========================================================================
+    # Fingerprinting Methods
+    # =========================================================================
+
+    def compute_fingerprint(self) -> str:
+        """Compute a 16-character hex SHA256 fingerprint of the contract.
+
+        The fingerprint excludes the contract_fingerprint field itself.
+
+        Collision resistance: 16 hex characters = 64 bits of entropy. By the
+        birthday paradox, collisions become probable around 2^32 (~4 billion)
+        contracts. This is acceptable for per-ticket change detection where
+        the practical corpus is orders of magnitude smaller.
+        """
+        data = self.model_dump(exclude={"contract_fingerprint"})
+        canonical = json.dumps(data, sort_keys=True, default=str)
+        return hashlib.sha256(canonical.encode()).hexdigest()[:16]
+
+    def update_fingerprint(self) -> None:
+        """Update the contract fingerprint and updated_at timestamp."""
+        self.contract_fingerprint = self.compute_fingerprint()
+        self.updated_at = datetime.now(tz=UTC)
+
+    def __repr__(self) -> str:
+        """Return concise representation for debugging."""
+        return (
+            f"ModelTicketContract("
+            f"id={self.ticket_id!r}, "
+            f"phase={self.phase.value!r}, "
+            f"questions={len(self.questions)}, "
+            f"requirements={len(self.requirements)}, "
+            f"verification={len(self.verification_steps)}, "
+            f"gates={len(self.gates)}, "
+            f"interfaces_provided={len(self.interfaces_provided)}, "
+            f"interfaces_consumed={len(self.interfaces_consumed)})"
+        )
+
+    # =========================================================================
+    # Contract Grace Period (Bootstrap Paradox)
+    # =========================================================================
+
+    # Tickets created before this date are exempt from contract requirements.
+    # This handles the bootstrap paradox where tickets exist before the
+    # ModelTicketContract format was introduced (OMN-5461).
+    #
+    # Default: 2026-03-19 (the date contract enforcement was first deployed).
+    # Override via CONTRACT_REQUIRED_AFTER env var (ISO date, e.g. "2026-04-01").
+    CONTRACT_REQUIRED_AFTER: ClassVar[datetime] = datetime.fromisoformat(
+        os.environ.get("CONTRACT_REQUIRED_AFTER", "2026-03-19T00:00:00+00:00")
+    )
+
+    @classmethod
+    def is_contract_required(cls, ticket_created_at: datetime | str) -> bool:
+        """Check whether a ticket is required to have a contract.
+
+        Tickets created before CONTRACT_REQUIRED_AFTER get a grace period
+        and are NOT required to have a contract. This prevents false failures
+        when scanning pre-existing tickets that were created before the
+        contract format was introduced.
+
+        Args:
+            ticket_created_at: When the ticket was created (datetime or ISO string).
+
+        Returns:
+            True if the ticket must have a contract, False if it's in the grace period.
+        """
+        if isinstance(ticket_created_at, str):
+            ticket_created_at = datetime.fromisoformat(ticket_created_at)
+
+        # Ensure timezone-aware comparison
+        if ticket_created_at.tzinfo is None:
+            ticket_created_at = ticket_created_at.replace(tzinfo=UTC)
+
+        return ticket_created_at >= cls.CONTRACT_REQUIRED_AFTER
+
+    # =========================================================================
+    # YAML Serialization
+    # =========================================================================
+
+    def to_yaml(self) -> str:
+        """Serialize the contract to YAML.
+
+        Uses mode='json' to ensure datetime and enum serialization.
+        """
+        data = self.model_dump(mode="json")
+        return yaml.dump(data, default_flow_style=False, sort_keys=False)
+
+    @classmethod
+    def from_yaml(cls, yaml_str: str) -> ModelTicketContract:
+        """Deserialize a contract from YAML.
+
+        Args:
+            yaml_str: YAML string to parse.
+
+        Returns:
+            ModelTicketContract instance.
+
+        Raises:
+            ModelOnexError: If YAML parsing or validation fails.
+        """
+        try:
+            data = yaml.safe_load(yaml_str)
+        except yaml.YAMLError as e:
+            raise ModelOnexError(
+                message=f"Failed to parse YAML: {e}",
+                error_code=EnumCoreErrorCode.CONFIGURATION_PARSE_ERROR,
+            ) from e
+
+        if not isinstance(data, dict):
+            raise ModelOnexError(
+                message=f"Expected dict from YAML, got {type(data).__name__}",
+                error_code=EnumCoreErrorCode.VALIDATION_ERROR,
+            )
+
+        try:
+            return cls.model_validate(data)
+        except ValidationError as e:
+            raise ModelOnexError(
+                message=f"Contract validation failed: {e}",
+                error_code=EnumCoreErrorCode.VALIDATION_ERROR,
+            ) from e
+
+
+# Alias for cleaner imports
+TicketContract = ModelTicketContract
+
+__all__ = [
+    "ModelTicketContract",
+    "TicketContract",
+]

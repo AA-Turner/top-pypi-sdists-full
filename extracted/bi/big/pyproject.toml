@@ -1,0 +1,60 @@
+[build-system]
+requires = ["flit"]
+build-backend = "flit.buildapi"
+
+[project]
+name = "big"
+authors = [
+    {name="Larry Hastings", email="larry@hastings.org"},
+    ]
+readme = "README.md"
+requires-python = ">=3.6"
+
+classifiers = [
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    ]
+dynamic = [
+    "description",
+    "version",
+    ]
+
+[project.urls]
+Source = "https://github.com/larryhastings/big/"
+
+[project.optional-dependencies]
+packaging = [
+    "packaging",
+    ]
+time = [
+    "python-dateutil",
+    ]
+test = [
+    "python-dateutil",
+    "packaging",
+    "regex",
+    "inflect",
+    ]
+
+# test_bigtest.py builds a throwaway "olfactory" package in a temp
+# directory and imports it to exercise big.test.preload().  The temp
+# directory is deleted before coverage reports, so coverage can't find
+# the source afterward ("No source for code: .../olfactory/__init__.py").
+# It was never ours to measure anyway--omit it, at collection and
+# report time both.
+[tool.coverage.run]
+omit = ["*/olfactory/*"]
+
+[tool.coverage.report]
+omit = ["*/olfactory/*"]

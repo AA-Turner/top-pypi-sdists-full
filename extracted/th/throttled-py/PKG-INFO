@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: throttled-py
-Version: 3.4.0
+Version: 3.4.1
 Summary: 🔧 High-performance Python rate limiting library with multiple algorithms (Fixed Window, Sliding Window, Token Bucket, Leaky Bucket & GCRA) and storage backends (Redis, In-Memory).
 Project-URL: Homepage, https://github.com/ZhuoZhuoCrayon/throttled-py
 Project-URL: Repository, https://github.com/ZhuoZhuoCrayon/throttled-py

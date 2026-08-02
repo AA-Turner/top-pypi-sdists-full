@@ -1,0 +1,98 @@
+Metadata-Version: 2.1
+Name: cdk-iam-floyd
+Version: 0.507.0
+Summary: AWS IAM policy statement generator with fluent interface for AWS CDK
+Home-page: https://github.com/udondan/iam-floyd
+Author: Daniel Schroeder
+License: Apache-2.0
+Project-URL: Source, https://github.com/udondan/iam-floyd.git
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: JavaScript
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Typing :: Typed
+Classifier: Development Status :: 4 - Beta
+Classifier: License :: OSI Approved
+Requires-Python: ~=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+
+# IAM Floyd
+
+[![Source](https://img.shields.io/github/stars/udondan/iam-floyd?logo=github&label=GitHub%20Stars)](https://github.com/udondan/iam-floyd)
+[![iam-floyd](https://img.shields.io/github/v/release/udondan/iam-floyd)](https://github.com/udondan/iam-floyd)
+[![Mastodon](https://badgen.net/badge/Mastodon/iamfloyd@awscommunity.social/blue)](https://awscommunity.social/@iamfloyd)
+[![libraries.io](https://img.shields.io/badge/packages-libraries.io-yellow)](https://libraries.io/search?q=iam-floyd)
+[![Documentation](https://img.shields.io/badge/Documentation-Read%20the%20Docs-orange)](https://iam-floyd.readthedocs.io/en/latest/)
+[![GitHub](https://img.shields.io/github/license/udondan/iam-floyd)](https://github.com/udondan/iam-floyd/blob/main/LICENSE)
+
+<!-- put back - when we actually have tests
+[![Test Coverage](https://api.codeclimate.com/v1/badges/cdb84b5646c6805b1a23/test_coverage)](https://codeclimate.com/github/udondan/iam-floyd/test_coverage)
+-->
+
+**AWS [IAM policy statement](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_statement.html) generator with fluent interface.**
+
+<!-- stats -->
+
+Support for:
+
+* 353 Services
+* 14236 Actions
+* 1504 Resource Types
+* 1493 Condition keys
+
+<!-- /stats -->
+
+![EXPERIMENTAL](https://img.shields.io/badge/stability-experimantal-orange?style=for-the-badge)**<br>This is an early version of the package. The API will change while I implement new features. Therefore make sure you use an exact version in your `package.json` before it reaches 1.0.0.**
+
+## Documentation
+
+Find the documentation at [Read the Docs](https://iam-floyd.readthedocs.io/en/latest/).
+
+[![Auto completion demo](https://raw.githubusercontent.com/udondan/iam-floyd/main/docs/movie-preview.png)](https://www.youtube.com/watch?v=4dHY8qPHbKA)
+
+## Packages
+
+There are two different package variants available:
+
+* **iam-floyd**: Can be used in AWS SDK, Boto 3 or for whatever you need an IAM policy statement for <br>[![npm](https://img.shields.io/npm/dt/iam-floyd?label=npm&color=blueviolet)](https://www.npmjs.com/package/iam-floyd)
+  [![PyPI](https://img.shields.io/pypi/dm/iam-floyd?label=pypi&color=blueviolet)](https://pypi.org/project/iam-floyd/)
+* **cdk-iam-floyd**: Integrates into [AWS CDK](https://aws.amazon.com/cdk/) and extends [`iam.PolicyStatement`](https://docs.aws.amazon.com/cdk/api/latest/docs/@aws-cdk_aws-iam.PolicyStatement.html)<br>[![npm](https://img.shields.io/npm/dt/cdk-iam-floyd?label=npm&color=orange)](https://www.npmjs.com/package/cdk-iam-floyd)
+  [![PyPI](https://img.shields.io/pypi/dm/cdk-iam-floyd?label=pypi&color=orange)](https://pypi.org/project/cdk-iam-floyd/)
+
+  **Starting with version 0.300.0, the packages are compatible with CDK v2.** For CDK v1 you can use any version up to:<br>
+  [![npm CDK v1](https://img.shields.io/badge/npm-0.286.0-yellow)](https://www.npmjs.com/package/cdk-iam-floyd/v/0.286.0)
+  [![PyPI CDK v1](https://img.shields.io/badge/pypi-0.286.0-yellow)](https://pypi.org/project/cdk-iam-floyd/0.286.0/)
+
+  Find them all on [libraries.io](https://libraries.io/search?q=iam-floyd).
+
+## CDK Compatibility Matrix
+
+| CDK        | cdk-iam-floyd              |
+| ---------- | -------------              |
+| <= 1.151.0 | <= 0.285.0                 |
+| >= 1.152.0 | 0.286.0                    |
+| >= 1.158.0 | **No compatible version!** |
+| >= 2.0.0   | >= 0.300.0                 |
+| >= 2.20.0  | >= 0.351.0                 |
+| >= 2.26.0  | >= 0.377.0                 |
+| 2.29.x     | **No compatible version!** |
+| >= 2.30.0  | >= 0.391.0                 |
+
+---
+
+
+## Legal
+
+The code contained in the [lib/generated](https://github.com/udondan/iam-floyd/tree/main/lib/generated) folder is generated from the [AWS documentation](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_actions-resources-contextkeys.html). The class- and function-names and their description therefore are property of AWS.
+
+AWS and their services are trademarks, registered trademarks or trade dress of AWS in the U.S. and/or other countries.
+
+This project is not affiliated, funded, or in any way associated with AWS.
+
+IAM Floyd is licensed under [Apache License 2.0](https://github.com/udondan/iam-floyd/blob/main/LICENSE). Dependencies might be released under different licenses. Especially the bundled packages [regex-parser](https://www.npmjs.com/package/regex-parser) and [common-substrings](https://www.npmjs.com/package/common-substrings) are released under the MIT License.

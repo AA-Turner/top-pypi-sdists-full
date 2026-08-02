@@ -1,0 +1,45 @@
+[package]
+name = "pysylph"
+version = "0.1.2"
+edition = "2021"
+authors = ["Martin Larralde <martin.larralde@embl.de>"]
+license = "MIT"
+description = "PyO3 bindings and Python interface to sylph, an ultrafast method for containment ANI querying and taxonomic profiling."
+repository = "https://github.com/althonos/pysylph"
+homepage = "https://github.com/althonos/pysylph/"
+readme = "README.md"
+categories = ["science"]
+keywords = ["bioinformatics", "genomics", "ani", "taxonomy", "profiling"]
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+path = "src/pysylph/lib.rs"
+doctest = false
+
+[dependencies]
+pyo3 = "0.22.5"
+bincode = "1"
+fxhash = "0"
+statrs = "0.16"
+fastrand = "2"
+rayon = "1"
+scalable_cuckoo_filter = "0.2"
+
+[dependencies.serde]
+features = ["rc"]
+version = "1.0"
+
+[dependencies.sylph]
+version = "0.6.1"
+git = "https://github.com/bluenote-1577/sylph"
+tag = "v0.6.1"
+# path = "vendor/sylph"
+
+[features]
+default = []
+extension-module = ["pyo3/extension-module"]
+
+[[test]]
+name = "unittest"
+path = "src/pysylph/tests/unittest.rs"
+harness = false

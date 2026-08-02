@@ -1,0 +1,519 @@
+"""Core client class for python-openevse-http."""
+
+from __future__ import annotations
+
+import asyncio
+import inspect
+import json
+import logging
+import threading
+from collections.abc import Callable, Mapping, MutableMapping
+from typing import Any
+
+import aiohttp
+from aiohttp.client_exceptions import ContentTypeError, ServerTimeoutError
+from awesomeversion import AwesomeVersion
+from awesomeversion.exceptions import AwesomeVersionCompareException
+
+from .commands import CommandsMixin
+from .const import (
+    ERROR_SESSION_LOOP_MISMATCH,
+    ERROR_SESSION_REQUIRED,
+    ERROR_TIMEOUT,
+    UPDATE_TRIGGERS,
+)
+from .exceptions import (
+    AlreadyListening,
+    AuthenticationError,
+    MissingMethod,
+    MissingSerial,
+    ParseJSONError,
+)
+from .managers import ManagersMixin
+from .properties import PropertiesMixin
+from .sensors import SensorsMixin
+from .utils import get_awesome_version
+from .websocket import (
+    SIGNAL_CONNECTION_STATE,
+    STATE_CONNECTED,
+    STATE_DISCONNECTED,
+    STATE_STOPPED,
+    OpenEVSEWebsocket,
+)
+
+_LOGGER = logging.getLogger(__name__)
+
+
+class OpenEVSE(CommandsMixin, ManagersMixin, SensorsMixin, PropertiesMixin):
+    """Represent an OpenEVSE charger."""
+
+    def __init__(
+        self,
+        host: str,
+        user: str | None = None,
+        pwd: str | None = None,
+        session: aiohttp.ClientSession | None = None,
+        ssl: bool = False,
+        ssl_verify: bool = True,
+    ) -> None:
+        """Connect to an OpenEVSE charger equipped with wifi or ethernet."""
+        self._user = user or ""
+        self._pwd = pwd or ""
+        self.ssl = ssl
+        self.ssl_verify = ssl_verify
+        scheme = "https" if ssl else "http"
+        self.url = f"{scheme}://{host}/"
+        self._status: dict[str, Any] = {}
+        self._config: dict[str, Any] = {}
+        self._override: Any = None
+        self._ws_listening = False
+        self.websocket: OpenEVSEWebsocket | None = None
+        self.callback: Callable[[], Any] | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._ws_listen_task: asyncio.Task[Any] | None = None
+        self._ws_keepalive_task: asyncio.Task[Any] | None = None
+        self._owns_loop = False
+        self._loop_thread: threading.Thread | None = None
+        self._session = session
+
+    def _get_session(self) -> aiohttp.ClientSession:
+        """Return the configured HTTP session or fail fast."""
+        if self._session is None:
+            raise RuntimeError(ERROR_SESSION_REQUIRED)
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return self._session
+        self._validate_session_loop(loop)
+        return self._session
+
+    async def process_request(
+        self,
+        url: str,
+        method: str = "",
+        data: Any = None,
+        rapi: Any = None,
+    ) -> Mapping[str, Any] | list[Any] | str | bool:
+        """Return result of processed HTTP request."""
+        auth = None
+        allowed_methods = ["get", "post", "put", "delete", "patch", "head", "options"]
+        if method not in allowed_methods:
+            raise MissingMethod
+
+        if self._user and self._pwd:
+            auth = aiohttp.BasicAuth(self._user, self._pwd)
+
+        session = self._get_session()
+        return await self._process_request_with_session(
+            session, url, method, data, rapi, auth
+        )
+
+    def _normalize_response(self, response: Any) -> dict[str, Any] | list[Any]:
+        """Normalize response to a dict or list."""
+        if isinstance(response, dict | list):
+            return response
+        _LOGGER.debug("Normalizing non-json response: %s", response)
+        return {"msg": response}
+
+    async def _process_request_with_session(
+        self,
+        session: aiohttp.ClientSession,
+        url: str,
+        method: str,
+        data: Any,
+        rapi: Any,
+        auth: Any,
+    ) -> Mapping[str, Any] | list[Any] | str | bool:
+        """Process a request with a given session."""
+        if not hasattr(session, method):
+            raise MissingMethod
+        http_method = getattr(session, method)
+        _LOGGER.debug(
+            "Connecting to %s with data: %s rapi: %s using method %s",
+            url,
+            data,
+            rapi,
+            method,
+        )
+        try:
+            kwargs = {"data": rapi, "auth": auth}
+            if data is not None:
+                kwargs["json"] = data
+            if url.startswith("https://") and not self.ssl_verify:
+                kwargs["ssl"] = False
+            async with http_method(url, **kwargs) as resp:
+                try:
+                    raw = await resp.text()
+                except UnicodeDecodeError:
+                    _LOGGER.debug("Decoding error")
+                    raw = (await resp.read()).decode(errors="replace")
+
+                # JSON responses can sometimes be primitive values (like bools).
+                # If json.loads fails with ValueError (e.g. non-JSON text/html),
+                # we fall back to treating the raw response as a string.
+                response_content: Mapping[str, Any] | list[Any] | str | bool = raw
+                try:
+                    response_content = json.loads(raw)
+                except ValueError:
+                    _LOGGER.debug("Non JSON response: %s", raw)
+                if not isinstance(response_content, dict | list | str | bool):
+                    _LOGGER.error(
+                        "Unexpected JSON primitive response from %s: %r",
+                        url,
+                        response_content,
+                    )
+                    raise ParseJSONError
+
+                if resp.status == 400:
+                    if isinstance(response_content, dict) and "msg" in response_content:
+                        _LOGGER.error("Error 400: %s", response_content["msg"])
+                    elif (
+                        isinstance(response_content, dict)
+                        and "error" in response_content
+                    ):
+                        _LOGGER.error("Error 400: %s", response_content["error"])
+                    else:
+                        _LOGGER.error("Error 400: %s", response_content)
+                    raise ParseJSONError
+                if resp.status == 401:
+                    _LOGGER.error("Authentication error: %s", response_content)
+                    raise AuthenticationError
+                if resp.status in [404, 405, 500]:
+                    _LOGGER.warning("%s", response_content)
+
+                if (
+                    method.lower() != "get"
+                    and isinstance(response_content, dict)
+                    and any(key in response_content for key in UPDATE_TRIGGERS)
+                ):
+                    await self.update()
+                return response_content
+
+        except (TimeoutError, ServerTimeoutError):
+            _LOGGER.error("%s: %s", ERROR_TIMEOUT, url)
+            raise
+        except ContentTypeError as err:
+            _LOGGER.error("Content error: %s", err.message)
+            raise
+
+    async def send_command(self, command: str) -> tuple[Any, Any]:
+        """Send a RAPI command to the charger and parses the response."""
+        url = f"{self.url}r"
+        data = {"json": 1, "rapi": command}
+
+        _LOGGER.debug("Posting data: %s to %s", command, url)
+        value = await self.process_request(url=url, method="post", rapi=data)
+        if not isinstance(value, Mapping) or "ret" not in value or "cmd" not in value:
+            if isinstance(value, Mapping) and "msg" in value:
+                return (False, value["msg"])
+            return (False, "")
+        return (value["cmd"], value["ret"])
+
+    async def update(self, force_status: bool = False) -> None:
+        """Update the values."""
+        # TODO: add addiontal endpoints to update
+        urls = [f"{self.url}config"]
+
+        if not self._ws_listening or force_status or self.ota_update:
+            urls = [f"{self.url}status", f"{self.url}config"]
+
+        for url in urls:
+            _LOGGER.debug("Updating data from %s", url)
+            response = await self.process_request(url, method="get")
+            if "/status" in url:
+                if isinstance(response, Mapping) and "error" not in response:
+                    self._status.update(dict(response))
+                    _LOGGER.debug("Status update: %s", self._status)
+                elif isinstance(response, Mapping):
+                    _LOGGER.warning(
+                        "Error in /status response: %s", response.get("error")
+                    )
+                else:
+                    _LOGGER.warning(
+                        "Received non-JSON response from /status: %s", response
+                    )
+
+            else:
+                if isinstance(response, Mapping) and "error" not in response:
+                    self._config = dict(response)
+                    _LOGGER.debug("Config update: %s", self._config)
+                elif isinstance(response, Mapping):
+                    _LOGGER.warning(
+                        "Error in /config response: %s", response.get("error")
+                    )
+                else:
+                    _LOGGER.warning(
+                        "Received non-JSON response from /config: %s", response
+                    )
+
+    async def test_and_get(self) -> dict[str, Any]:
+        """Test connection.
+
+        Return model serial number as dict
+        """
+        url = f"{self.url}config"
+        data: dict[str, Any] = {}
+
+        response = await self.process_request(url, method="get")
+        if not isinstance(response, Mapping):
+            _LOGGER.debug("Invalid response from config: %s", response)
+            raise MissingSerial
+
+        if "wifi_serial" in response:
+            serial = response["wifi_serial"]
+        else:
+            _LOGGER.debug("Older firmware detected, missing serial.")
+            raise MissingSerial
+        if "buildenv" in response:
+            model = response["buildenv"]
+        else:
+            model = "unknown"
+
+        data = {"serial": serial, "model": model}
+        return data
+
+    async def ws_start(self) -> None:
+        """Start the websocket listener."""
+        if self.websocket and self.websocket.state != STATE_STOPPED:
+            raise AlreadyListening
+
+        self._get_session()
+
+        if not self.websocket or self.websocket.state == STATE_STOPPED:
+            self._create_websocket()
+
+        self._start_listening()
+
+    def _create_websocket(self) -> None:
+        """Create a websocket using the configured session."""
+        self.websocket = OpenEVSEWebsocket(
+            self.url,
+            self._update_status,
+            self._user,
+            self._pwd,
+            self._session,
+            ssl_verify=self.ssl_verify,
+        )
+
+    def _validate_session_loop(self, loop: asyncio.AbstractEventLoop) -> None:
+        """Ensure the configured session belongs to the active event loop."""
+        session_loop = getattr(self._session, "_loop", None)
+        if (
+            isinstance(session_loop, asyncio.AbstractEventLoop)
+            and session_loop is not loop
+        ):
+            raise RuntimeError(ERROR_SESSION_LOOP_MISMATCH)
+
+    def _start_listening(self) -> None:
+        """Start the websocket listener."""
+        if not self._loop:
+            try:
+                _LOGGER.debug("Attempting to find running loop...")
+                self._loop = asyncio.get_running_loop()
+            except RuntimeError:
+                self._loop = asyncio.new_event_loop()
+                self._owns_loop = True
+                _LOGGER.debug("Using new event loop...")
+
+        if not self._ws_listening and self.websocket is not None:
+            _LOGGER.debug("Setting up websocket tasks...")
+            self._ws_listen_task = self._loop.create_task(self.websocket.listen())
+            self._ws_keepalive_task = self._loop.create_task(
+                self.repeat(300, self.websocket.keepalive)
+            )
+
+            if self._owns_loop:
+                self._loop_thread = threading.Thread(
+                    target=self._loop.run_forever, daemon=True
+                )
+                self._loop_thread.start()
+
+    async def _update_status(self, msgtype: str, data: Any, error: Any) -> None:
+        """Update data from websocket listener."""
+        if msgtype == SIGNAL_CONNECTION_STATE:
+            uri = self.websocket.uri if self.websocket else "Unknown"
+            if data == STATE_CONNECTED:
+                _LOGGER.debug("Websocket to %s successful", uri)
+                self._ws_listening = True
+            elif data == STATE_DISCONNECTED:
+                _LOGGER.debug(
+                    "Websocket to %s disconnected, retrying",
+                    uri,
+                )
+                _LOGGER.debug("Disconnect message: %s", error)
+                self._ws_listening = False
+
+            # Stopped websockets without errors are expected during shutdown
+            elif data == STATE_STOPPED:
+                if error:
+                    _LOGGER.debug(
+                        "Websocket to %s failed, aborting [Error: %s]",
+                        uri,
+                        error,
+                    )
+                self._ws_listening = False
+
+        elif msgtype == "data":
+            _LOGGER.debug("Websocket data: %s", data)
+            if not isinstance(data, MutableMapping):
+                _LOGGER.warning("Received non-Mapping websocket data: %s", data)
+                return
+
+            keys = data.keys()
+            if "wh" in keys:
+                data["watthour"] = data.pop("wh")
+            # TODO: update specific endpoints based on _version prefix
+            if any(key in keys for key in UPDATE_TRIGGERS):
+                await self.update()
+
+            if "ota" in keys:
+                ota_val = data["ota"]
+                if ota_val == "started":
+                    self._status["ota_update"] = 1
+                elif ota_val in ("completed", "failed"):
+                    self._status["ota_update"] = 0
+                    data.pop("ota_progress", None)
+                    self._status.pop("ota_progress", None)
+
+            self._status.update(data)
+
+            if self.callback is not None:
+                result = self.callback()  # pylint: disable=not-callable
+                if inspect.isawaitable(result):
+                    await result
+
+    async def _shutdown(self) -> None:
+        """Shutdown the websocket and tasks on the listener loop."""
+        tasks = []
+        if self._ws_keepalive_task:
+            self._ws_keepalive_task.cancel()
+            tasks.append(self._ws_keepalive_task)
+        if self._ws_listen_task:
+            self._ws_listen_task.cancel()
+            tasks.append(self._ws_listen_task)
+
+        if self.websocket:
+            # Close the websocket (this cancels running() internal tasks)
+            await self.websocket.close()
+
+            # Cancel any remaining callback tasks
+            for task in list(self.websocket._tasks):
+                if not task.done():
+                    task.cancel()
+                    tasks.append(task)
+            self.websocket._tasks.clear()
+
+        if tasks:
+            await asyncio.gather(
+                *(t for t in tasks if isinstance(t, asyncio.Future | asyncio.Task)),
+                return_exceptions=True,
+            )
+
+        if self.websocket:
+            self.websocket = None
+
+        self._ws_listen_task = None
+        self._ws_keepalive_task = None
+        if self._owns_loop and self._loop:
+            self._loop.stop()
+
+    async def ws_disconnect(self) -> None:
+        """Disconnect the websocket listener."""
+        self._ws_listening = False
+
+        if self._owns_loop and self._loop:
+            # Schedule shutdown coroutine on the loop thread
+            future = asyncio.run_coroutine_threadsafe(self._shutdown(), self._loop)
+            shutdown_succeeded = False
+            try:
+                # Wait for the shutdown to complete on the other loop
+                await asyncio.wait_for(asyncio.wrap_future(future), timeout=2.0)
+                shutdown_succeeded = True
+            except (TimeoutError, asyncio.CancelledError) as err:
+                _LOGGER.debug("Error during shutdown coroutine: %s", err)
+
+            if self._loop_thread:
+                await asyncio.to_thread(self._loop_thread.join, 2.0)
+                if not self._loop_thread.is_alive():
+                    self._loop_thread = None
+
+            if shutdown_succeeded and self._loop_thread is None:
+                self._loop.close()
+                self._loop = None
+                self._owns_loop = False
+        else:
+            # Standard async disconnect for caller loop
+            await self._shutdown()
+
+    def is_coroutine_function(self, callback: Any) -> bool:
+        """Check if a callback is a coroutine function."""
+        return inspect.iscoroutinefunction(callback)
+
+    @property
+    def ws_state(self) -> Any | None:
+        """Return the status of the websocket listener."""
+        if self.websocket is None:
+            return STATE_STOPPED
+        return self.websocket.state
+
+    async def repeat(
+        self,
+        interval: float,
+        func: Callable[..., Any],
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        """Run func every interval seconds.
+
+        If func has not finished before *interval*, will run again
+        immediately when the previous iteration finished.
+
+        *args and **kwargs are passed as the arguments to func.
+        """
+        while self.ws_state != STATE_STOPPED:
+            await asyncio.sleep(interval)
+            if self.ws_state == STATE_STOPPED:
+                break
+            if not self._ws_listening:
+                continue
+            result = func(*args, **kwargs)
+            if inspect.isawaitable(result):
+                await result
+
+    def _version_check(self, min_version: str, max_version: str = "") -> bool:
+        """Return bool if minimum version is met."""
+        if "version" not in self._config:
+            # Throw warning if we can't find the version
+            _LOGGER.debug("Unable to find firmware version.")
+            return False
+        cutoff = AwesomeVersion(min_version)
+        limit = ""
+        if max_version != "":
+            limit = AwesomeVersion(max_version)
+
+        current = get_awesome_version(self._config["version"])
+        if current.strategy == "unknown":
+            _LOGGER.debug(
+                "Non-semver firmware version detected: %s",
+                self._config["version"],
+            )
+            return False
+
+        if limit:
+            try:
+                if cutoff <= current < limit:
+                    return True
+            except AwesomeVersionCompareException:
+                _LOGGER.debug("Non-semver firmware version detected.")
+            return False
+
+        try:
+            if current >= cutoff:
+                return True
+        except AwesomeVersionCompareException:
+            _LOGGER.debug("Non-semver firmware version detected.")
+        return False
+
+    def version_check(self, min_version: str, max_version: str = "") -> bool:
+        """Unprotected function call for version checking."""
+        return self._version_check(min_version=min_version, max_version=max_version)

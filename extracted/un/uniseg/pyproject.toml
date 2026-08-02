@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=74.1", "setuptools-scm>=8.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+dynamic = ["version"]
+name = "uniseg"
+dependencies = []
+requires-python = ">=3.9"
+authors = [
+    {name = "Masaaki Shibata", email = "mshibata@emptypage.jp"},
+]
+description = "Determine Unicode text segmentations"
+readme = "README.rst"
+keywords = ["text", "unicode"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Text Processing",
+]
+
+[project.urls]
+Homepage = "https://bitbucket.org/emptypage/uniseg-py"
+Documentation = "https://uniseg-py.readthedocs.io/"
+Repository = "https://bitbucket.org/emptypage/uniseg-py.git"
+
+[tool.setuptools_scm]
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules"
+doctest_optionflags = ["IGNORE_EXCEPTION_DETAIL"]
+norecursedirs = ["docs", "samples"]
+testpaths = ["src", "tests", "tools"]
+
+[tool.isort]
+line_length = 88

@@ -1,0 +1,4 @@
+# Rustfmt configuration — codifies the project's formatting defaults.
+# Uses stable rustfmt options only.
+edition = "2021"
+max_width = 100

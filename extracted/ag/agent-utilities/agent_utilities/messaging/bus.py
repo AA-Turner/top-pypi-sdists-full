@@ -1,0 +1,1061 @@
+"""AgentBus — a federated agent-to-agent communication bus over the KG (CONCEPT:AU-ECO.bus.agentbus-federated-agent-agent).
+
+The platform already had a *human*-reach core (``MessagingService``, ECO-4.48) and a host-local
+*invoker↔spawned-agent* channel (``agent_channel.py``, ORCH-1.40). What it lacked was a way for
+**independent sessions** — many Claude Code sessions, other LLMs, sessions from different
+first-party providers, on **any host** — to address and message *each other* through one shared
+graph-os hub, for the cost of the LLM calls each side already makes.
+
+``AgentBus`` is that bus. It is durable-store-first by design: presence and messages are
+**KG nodes** (``:Agent`` / ``:Topic`` / ``:BusMessage``, CONCEPT:AU-KG.compute.user-override-prompt-library), so any process
+pointed at the same engine — including a remote session reaching a networked graph-os over
+streamable-http — sees the same roster and mailbox, and the conversation survives an engine
+restart. Delivery is at-least-once with a per-reader **cursor** (``receive(since)`` returns the
+slice after ``since`` and the new cursor), the same model as ``agent_channel.receive``; ordering
+is by ``created_at`` (sorted in Python, never an engine ``ORDER BY``).
+
+Three surfaces feed this one core (the universal-capability rule): the ``graph_bus`` MCP tool
+(ECO-4.85), its REST twin ``/graph/bus``, and the federation relay (ECO-4.86) which forwards
+across hubs. Every ``send`` passes the fail-closed ActionPolicy gate (``kind="bus.send"``); a
+``dispatch`` (``kind="bus.dispatch"``, ORCH-1.80) turns a message into fleet work by submitting a
+Loop, so one agent can hand work to the fleet, not just chat.
+
+**Delivery/wakeup plane (AU-P1-2, CONCEPT:AU-ECO.bus.partitioned-log-delivery).** The registry above —
+presence, topic membership, subscriptions — stays exactly as described: small, low-churn KG
+nodes. What does NOT stay on the graph is the high-volume message BODIES: ``send``/``receive``
+resolve a durable **partitioned log** (:mod:`messaging.bus_log`) — the engine's native
+AMQP-style broker, or Kafka, in that preference order — as the hot delivery path, with real
+offsets/consumer cursors instead of a graph ``MATCH``, a DLQ for poison messages, and
+backpressure via queue depth. When neither is configured (:func:`bus_log.resolve_bus_log_backend`
+returns ``None``) ``send``/``receive`` fall back to the ORIGINAL :BusMessage graph-node model
+below — a zero-infra dev path, never the default once a broker is configured.
+
+CONCEPT:AU-ECO.bus.agentbus-federated-agent-agent — AgentBus federated agent-to-agent communication bus over the KG
+CONCEPT:AU-KG.compute.user-override-prompt-library — :Agent / :Topic / :BusMessage presence + mailbox node model
+CONCEPT:AU-ECO.bus.store-and-forward-log — store-and-forward topic log + per-(agent,topic) replay cursor (leave a message)
+CONCEPT:AU-ECO.bus.auto-register-online-presence — auto-register + online presence on any bus touch (no explicit register)
+CONCEPT:AU-ECO.bus.bus-register-under-served — bus register under the served auth profile: run as the request's authenticated identity + surface a denied write (never a silent ok:false)
+CONCEPT:AU-ECO.bus.partitioned-log-delivery — durable partitioned log (engine broker / Kafka) as the delivery/wakeup plane; the KG keeps only the semantic registry
+
+See Also:
+    - ``messaging/service.py`` (ECO-4.48) — the sibling *human*-reach core this mirrors.
+    - ``messaging/federation.py`` (ECO-4.86) — cross-hub relay built on top of this.
+    - ``messaging/bus_log.py`` (AU-P1-2) — the partitioned-log delivery/wakeup plane.
+    - ``docs/architecture/agent_bus.md`` — end-to-end flow + diagram.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import time
+import uuid
+from typing import TYPE_CHECKING, Any
+
+from agent_utilities.observability import gateway_metrics as _metrics
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+logger = logging.getLogger(__name__)
+
+#: Cap on messages one ``receive()`` call drains from the log backend
+#: (CONCEPT:AU-ECO.bus.partitioned-log-delivery) — the backpressure bound on the hot delivery path.
+BUS_LOG_MAX_MESSAGES_PER_RECEIVE = 500
+
+#: Sentinel distinguishing "never resolved yet" from "resolved to the graph fallback (None)".
+_UNRESOLVED = object()
+
+# Node id prefixes for the durable bus model (CONCEPT:AU-KG.compute.user-override-prompt-library).
+# NOTE: a dedicated ``:BusAgent`` label (not the platform's typed ``:Agent`` table) — the live
+# Postgres backend gives ``:Agent`` a typed schema (capabilities ARRAY, no agent_id) that bus
+# props don't fit. ``:BusAgent`` lands in the generic JSONB node table. (Found in live E2E.)
+_AGENT_PREFIX = "busagent:"
+_AGENT_LABEL = "BusAgent"
+_TOPIC_PREFIX = "topic:"
+_SUB_PREFIX = "bussub:"
+_MSG_PREFIX = "busmsg:"
+# Store-and-forward topic log + per-(agent,topic) replay cursor (CONCEPT:AU-ECO.bus.store-and-forward-log).
+_TOPICMSG_PREFIX = "topicmsg:"
+_TCURSOR_PREFIX = "bustcur:"
+
+# A registered agent is "online" if it heartbeat within this many seconds; the roster
+# computes presence lazily from ``last_seen`` so no reaper process is needed for liveness.
+DEFAULT_STALE_AFTER_S = 90.0
+
+# Store-and-forward retention for the durable topic log (CONCEPT:AU-ECO.bus.store-and-forward-log). A stored topic
+# message stays replayable to late subscribers until it expires; the reaper prunes it after.
+TOPIC_MSG_TTL_S = (
+    86_400.0  # 24h — long enough for a peer to come back, still bounded growth.
+)
+# A brand-new subscriber replays only messages newer than its subscription by default (no
+# history dump). An optional bounded "recent" lookback lets a fresh joiner catch up.
+TOPIC_REPLAY_RECENT_S = 3_600.0  # 1h, used only when replay_recent=True on subscribe.
+
+
+class AgentBus:
+    """Presence registry + durable mailbox + pub/sub + work dispatch for agents.
+
+    CONCEPT:AU-ECO.bus.agentbus-federated-agent-agent
+
+    Singleton: use :meth:`instance`. The same object backs the ``graph_bus`` MCP tool, the
+    ``/graph/bus`` REST twin, and the federation relay, so all three read/write one durable
+    state in the KG.
+    """
+
+    _instance: AgentBus | None = None
+
+    def __init__(self, engine: Any = None) -> None:
+        self._engine = engine
+        # The reason the most recent :meth:`_add_node` write failed (CONCEPT:AU-ECO.bus.bus-register-under-served).
+        # ``_add_node`` is best-effort and returns a bool, but a write that does NOT
+        # land must never be swallowed as a benign ``ok:false`` — the caller (e.g.
+        # :meth:`register`) reads this to tell a real engine/ACL denial apart from a
+        # missing-engine no-op and surface WHY, instead of a silent false.
+        self._last_write_error: str = ""
+        # Delivery/wakeup backend (CONCEPT:AU-ECO.bus.partitioned-log-delivery), resolved lazily + cached: engine
+        # broker / Kafka log, or ``None`` for the original graph-node fallback.
+        # Resolved once per process (an explicit misconfiguration — e.g.
+        # ``AGENT_BUS_LOG_BACKEND=kafka`` unreachable — raises here, a hard
+        # contract like the rest of this codebase's selectable backends).
+        self._log_backend_cache: Any = _UNRESOLVED
+
+    def _log_backend(self) -> Any:
+        """Resolve (once) and return the bus-log backend, or ``None`` for the graph fallback."""
+        if self._log_backend_cache is _UNRESOLVED:
+            from agent_utilities.messaging.bus_log import resolve_bus_log_backend
+
+            self._log_backend_cache = resolve_bus_log_backend(
+                engine=self._resolve_engine()
+            )
+            if self._log_backend_cache is not None:
+                logger.info(
+                    "[AU-P1-2] AgentBus delivery/wakeup plane: %s (partitioned log)",
+                    self._log_backend_cache.name,
+                )
+        return self._log_backend_cache
+
+    @classmethod
+    def reset_log_backend_cache_for_tests(cls) -> None:
+        """Force re-resolution of the log backend on the next call (test isolation seam)."""
+        if cls._instance is not None:
+            cls._instance._log_backend_cache = _UNRESOLVED
+
+    @classmethod
+    def instance(cls, engine: Any = None) -> AgentBus:
+        """Get or create the shared bus (binding the engine on first use)."""
+        if cls._instance is None:
+            cls._instance = cls(engine=engine)
+        elif engine is not None and cls._instance._engine is None:
+            cls._instance._engine = engine
+        return cls._instance
+
+    # ── Engine resolution (matches MessagingService) ─────────────────
+    def _resolve_engine(self) -> Any:
+        if self._engine is not None:
+            return self._engine
+        try:
+            from agent_utilities.knowledge_graph.core.engine import (
+                IntelligenceGraphEngine,
+            )
+
+            self._engine = IntelligenceGraphEngine.get_active()
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("[ECO-4.84] no active engine: %s", exc)
+        return self._engine
+
+    def _add_node(self, node_id: str, node_type: str, props: dict[str, Any]) -> bool:
+        engine = self._resolve_engine()
+        add_node = getattr(engine, "add_node", None)
+        if not callable(add_node):
+            self._last_write_error = "no active engine (bus has no durable store)"
+            return False
+        try:
+            add_node(node_id, node_type, properties={"id": node_id, **props})
+            self._last_write_error = ""
+            return True
+        except Exception as exc:  # noqa: BLE001 — durability is best-effort
+            # Record WHY so the caller can surface it (CONCEPT:AU-ECO.bus.bus-register-under-served). A write that
+            # does not land — e.g. an engine/ACL denial under the served profile
+            # (KG_BRAIN_ENFORCE) — must not be silently swallowed as a benign false.
+            self._last_write_error = f"{type(exc).__name__}: {exc}"
+            logger.warning("[ECO-4.84] add_node(%s) failed: %s", node_id, exc)
+            return False
+
+    def _add_edge(self, src: str, dst: str, rel: str) -> None:
+        engine = self._resolve_engine()
+        add_edge = getattr(engine, "add_edge", None)
+        if not callable(add_edge):
+            return
+        try:
+            add_edge(src, dst, rel)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("[ECO-4.84] add_edge(%s->%s) failed: %s", src, dst, exc)
+
+    def _query(self, cypher: str, params: dict[str, Any]) -> list[dict[str, Any]]:
+        engine = self._resolve_engine()
+        query = getattr(engine, "query_cypher", None)
+        if not callable(query):
+            return []
+        try:
+            return list(query(cypher, params) or [])
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("[ECO-4.84] query failed: %s", exc)
+            return []
+
+    @staticmethod
+    def _props(row: dict[str, Any], key: str) -> dict[str, Any]:
+        """Pull a node's property bag out of a Cypher row (backend-shape tolerant)."""
+        node = row.get(key, row) if isinstance(row, dict) else row
+        if isinstance(node, dict):
+            inner = node.get("properties")
+            return inner if isinstance(inner, dict) else node
+        return {}
+
+    # ── Identity & presence (:Agent, CONCEPT:AU-KG.compute.user-override-prompt-library) ───────────────
+    def register(
+        self,
+        agent_id: str,
+        *,
+        provider: str = "",
+        host: str = "",
+        kind: str = "agent",
+        capabilities: Iterable[str] | None = None,
+        session_id: str = "",
+        actor_id: str = "",
+    ) -> dict[str, Any]:
+        """Announce a participant on the bus (idempotent upsert of its :Agent node).
+
+        ``agent_id`` should be globally unique across hosts — derive it from the
+        authenticated ``ActorContext.actor_id`` (an IdP subject) where available so two hubs
+        never collide on the same id.
+        """
+        if not agent_id:
+            return {"ok": False, "error": "agent_id required"}
+        caps = sorted({c for c in (capabilities or []) if c})
+        now = time.time()
+        node_id = f"{_AGENT_PREFIX}{agent_id}"
+        ok = self._add_node(
+            node_id,
+            _AGENT_LABEL,
+            {
+                "agent_id": agent_id,
+                "provider": provider,
+                "host": host,
+                "kind": kind,
+                "capabilities": ",".join(caps),
+                "session_id": session_id,
+                "actor_id": actor_id or agent_id,
+                "status": "online",
+                "registered_at": now,
+                "last_seen": now,
+            },
+        )
+        result: dict[str, Any] = {
+            "ok": ok,
+            "agent_id": agent_id,
+            "capabilities": caps,
+        }
+        # A failed register must say WHY (CONCEPT:AU-ECO.bus.bus-register-under-served) — never a silent ok:false.
+        # The most common served-profile cause is an unattributed write under
+        # KG_BRAIN_ENFORCE: the bus is fleet-coordination infrastructure, so a
+        # legitimate *authenticated* session must be able to register (its identity
+        # is propagated from the MCP/REST surface), while an unauthenticated caller is
+        # cleanly rejected with this error rather than a benign-looking false.
+        if not ok:
+            result["error"] = self._last_write_error or (
+                f"register write for {node_id!r} did not land (the :BusAgent node "
+                "was not persisted)"
+            )
+        return result
+
+    def heartbeat(self, agent_id: str) -> bool:
+        """Refresh a participant's ``last_seen`` so the roster keeps it ``online``.
+
+        Re-reads the existing node first because the durable backend replaces a node's whole
+        property blob on upsert — a bare ``{last_seen}`` write would wipe its capabilities.
+        """
+        if not agent_id:
+            return False
+        rows = self._query(
+            f"MATCH (a:{_AGENT_LABEL} {{agent_id: $aid}}) RETURN a", {"aid": agent_id}
+        )
+        if not rows:
+            return False
+        props = dict(self._props(rows[0], "a"))
+        props.update(status="online", last_seen=time.time())
+        props.pop("id", None)
+        return self._add_node(f"{_AGENT_PREFIX}{agent_id}", _AGENT_LABEL, props)
+
+    def touch(self, agent_id: str) -> bool:
+        """Keep a participant online by merely *using* the bus (CONCEPT:AU-ECO.bus.auto-register-online-presence).
+
+        Auto-registers ``agent_id`` on first reference (so a session that has the ``graph_bus``
+        tool appears in the roster without an explicit ``register`` call) and refreshes
+        ``last_seen`` on every subsequent action, so any bus touch counts as presence. Returns
+        whether a node now exists. Idempotent and best-effort; never raises into the action.
+        """
+        if not agent_id:
+            return False
+        rows = self._query(
+            f"MATCH (a:{_AGENT_LABEL} {{agent_id: $aid}}) RETURN a", {"aid": agent_id}
+        )
+        if rows:
+            # Existing node: preserve its blob (capabilities/provider) and only bump presence —
+            # a bare {last_seen} write would clobber the rest of the blob on upsert.
+            props = dict(self._props(rows[0], "a"))
+            props.update(status="online", last_seen=time.time())
+            props.pop("id", None)
+            return self._add_node(f"{_AGENT_PREFIX}{agent_id}", _AGENT_LABEL, props)
+        # No node yet → auto-register a minimal :BusAgent so the agent is immediately rosterable.
+        return self.register(agent_id, kind="agent").get("ok", False)
+
+    def deregister(self, agent_id: str) -> bool:
+        """Mark a participant ``offline`` (graceful leave)."""
+        rows = self._query(
+            f"MATCH (a:{_AGENT_LABEL} {{agent_id: $aid}}) RETURN a", {"aid": agent_id}
+        )
+        if not rows:
+            return False
+        props = dict(self._props(rows[0], "a"))
+        props.update(status="offline", last_seen=time.time())
+        props.pop("id", None)
+        return self._add_node(f"{_AGENT_PREFIX}{agent_id}", _AGENT_LABEL, props)
+
+    def roster(
+        self,
+        *,
+        provider: str = "",
+        capability: str = "",
+        online_only: bool = False,
+        stale_after_s: float = DEFAULT_STALE_AFTER_S,
+    ) -> list[dict[str, Any]]:
+        """List known participants with live-computed presence.
+
+        Presence is derived from ``last_seen`` vs ``stale_after_s`` at read time, so a crashed
+        session shows ``offline`` without any reaper writing to it.
+        """
+        rows = self._query(f"MATCH (a:{_AGENT_LABEL}) RETURN a", {})
+        now = time.time()
+        out: list[dict[str, Any]] = []
+        for row in rows:
+            p = self._props(row, "a")
+            aid = p.get("agent_id")
+            if not aid:
+                continue
+            caps = [c for c in str(p.get("capabilities", "")).split(",") if c]
+            fresh = (now - float(p.get("last_seen", 0) or 0)) <= stale_after_s
+            present = (
+                "online" if (fresh and p.get("status") != "offline") else "offline"
+            )
+            if provider and p.get("provider") != provider:
+                continue
+            if capability and capability not in caps:
+                continue
+            if online_only and present != "online":
+                continue
+            out.append(
+                {
+                    "agent_id": aid,
+                    "provider": p.get("provider", ""),
+                    "host": p.get("host", ""),
+                    "kind": p.get("kind", "agent"),
+                    "capabilities": caps,
+                    "presence": present,
+                    "last_seen": float(p.get("last_seen", 0) or 0),
+                }
+            )
+        out.sort(key=lambda a: a["agent_id"])
+        return out
+
+    # ── Topics & subscriptions (:Topic + :BusSubscription nodes) ─────
+    # Subscriptions are first-class nodes (not edges): the live AGE backend doesn't reliably
+    # resolve 2-hop edge traversals with a node-property filter, so a 1-hop ``:BusSubscription``
+    # read is the robust model. (Found in live E2E.)
+    def subscribe(
+        self, agent_id: str, topic: str, *, replay_recent: bool = False
+    ) -> bool:
+        """Subscribe a participant to a topic (idempotent; creates the topic if new).
+
+        The semantic registry write (:Topic + :BusSubscription) always lands in the graph —
+        subscriptions are low-churn metadata, not the high-volume delivery path
+        (CONCEPT:AU-ECO.bus.partitioned-log-delivery). When a log backend is configured this ALSO binds the
+        subscriber's queue/consumer there (:meth:`_bind_log_subscriber`) so ``receive`` has
+        somewhere durable to read from the moment the subscription exists, not just lazily on
+        first ``receive`` call.
+
+        Late-subscriber replay (CONCEPT:AU-ECO.bus.store-and-forward-log): a per-(agent,topic) cursor is seeded so the
+        next ``receive`` replays the durable topic log from this subscription forward — a fresh
+        subscriber does NOT get the whole history dumped on it. Pass ``replay_recent=True`` to
+        backfill a bounded recent window (:data:`TOPIC_REPLAY_RECENT_S`) so a joiner can catch
+        up on what it just missed. The cursor baseline is only seeded once (re-subscribing keeps
+        the existing cursor so it doesn't re-replay already-read messages).
+        """
+        if not (agent_id and topic):
+            return False
+        self._add_node(f"{_TOPIC_PREFIX}{topic}", "Topic", {"name": topic})
+        ok = self._add_node(
+            f"{_SUB_PREFIX}{agent_id}:{topic}",
+            "BusSubscription",
+            {"agent_id": agent_id, "topic": topic, "status": "active"},
+        )
+        first_subscribe = self._topic_cursor(agent_id, topic) is None
+        if first_subscribe:
+            baseline = time.time()
+            if replay_recent:
+                baseline -= TOPIC_REPLAY_RECENT_S
+            self._set_topic_cursor(agent_id, topic, baseline)
+            self._bind_log_subscriber(
+                agent_id, topic, from_ts=baseline if replay_recent else None
+            )
+        return ok
+
+    def _bind_log_subscriber(
+        self, agent_id: str, topic: str, *, from_ts: float | None
+    ) -> None:
+        """Bind this subscriber's queue/consumer on the log backend, if one is configured.
+
+        Best-effort: a bind failure never blocks ``subscribe`` (``receive`` re-attempts the bind
+        lazily too — see ``EngineBrokerBusLog.receive`` / ``KafkaBusLog.receive``).
+        """
+        backend = self._log_backend()
+        if backend is None:
+            return
+        from agent_utilities.messaging.bus_log import current_bus_tenant
+
+        try:
+            backend.bind_subscriber(
+                tenant=current_bus_tenant(),
+                agent_id=agent_id,
+                topic=topic,
+                from_ts=from_ts,
+            )
+        except Exception as exc:  # noqa: BLE001 — bind is best-effort, never blocks subscribe
+            logger.warning(
+                "[AU-P1-2] log backend bind_subscriber(%s, %s) failed: %s",
+                agent_id,
+                topic,
+                exc,
+            )
+
+    def unsubscribe(self, agent_id: str, topic: str) -> bool:
+        """Mark a subscription inactive (upsert on the same node id — survives no edge-delete)."""
+        if not (agent_id and topic):
+            return False
+        return self._add_node(
+            f"{_SUB_PREFIX}{agent_id}:{topic}",
+            "BusSubscription",
+            {"agent_id": agent_id, "topic": topic, "status": "inactive"},
+        )
+
+    def _subscribers(self, topic: str) -> list[str]:
+        rows = self._query(
+            "MATCH (s:BusSubscription {topic: $t}) RETURN s", {"t": topic}
+        )
+        subs: set[str] = {
+            str(p.get("agent_id"))
+            for p in (self._props(r, "s") for r in rows)
+            if p.get("status", "active") == "active" and p.get("agent_id")
+        }
+        return sorted(subs)
+
+    def _active_topics(self, agent_id: str) -> list[str]:
+        """The topics ``agent_id`` is actively subscribed to (for backlog replay)."""
+        rows = self._query(
+            "MATCH (s:BusSubscription {agent_id: $aid}) RETURN s", {"aid": agent_id}
+        )
+        topics: set[str] = {
+            str(p.get("topic"))
+            for p in (self._props(r, "s") for r in rows)
+            if p.get("status", "active") == "active" and p.get("topic")
+        }
+        return sorted(topics)
+
+    # ── Per-(agent,topic) replay cursor (CONCEPT:AU-ECO.bus.store-and-forward-log) ────────────
+    # A dedicated cursor NODE per (agent, topic) — NOT a property on the shared :Topic node:
+    # the durable backend replaces a node's whole property blob on upsert, so storing each
+    # agent's cursor on the topic would clobber every other agent's. Per-agent nodes are safe.
+    def _topic_cursor(self, agent_id: str, topic: str) -> float | None:
+        rows = self._query(
+            "MATCH (c:BusTopicCursor {agent_id: $aid, topic: $t}) RETURN c",
+            {"aid": agent_id, "t": topic},
+        )
+        if not rows:
+            return None
+        return float(self._props(rows[0], "c").get("last_ts", 0) or 0)
+
+    def _set_topic_cursor(self, agent_id: str, topic: str, last_ts: float) -> None:
+        self._add_node(
+            f"{_TCURSOR_PREFIX}{agent_id}:{topic}",
+            "BusTopicCursor",
+            {"agent_id": agent_id, "topic": topic, "last_ts": float(last_ts)},
+        )
+
+    # ── Messaging (governed; :BusMessage durable mailbox) ────────────
+    def send(
+        self,
+        *,
+        sender: str,
+        payload: str,
+        to: str = "",
+        topic: str = "",
+        reason: str = "",
+        meta: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Deliver ``payload`` to one agent (``to``) or every subscriber of ``topic``.
+
+        Governed by the ActionPolicy ``bus.send`` gate (CONCEPT:AU-ECO.bus.agentbus-federated-agent-agent). The
+        message BODY rides the partitioned-log delivery/wakeup plane
+        (CONCEPT:AU-ECO.bus.partitioned-log-delivery, :meth:`_send_via_log`) when one is configured — a
+        single ``publish`` call, never a per-recipient graph write — falling back to the
+        original durable-per-recipient ``:BusMessage`` node model (:meth:`_send_via_graph`) for
+        zero-infra dev deployments.
+        """
+        if not sender or not payload:
+            return {"ok": False, "error": "sender and payload required"}
+        if not to and not topic:
+            return {"ok": False, "error": "send requires 'to' or 'topic'"}
+
+        kind = "topic" if topic else "direct"
+        start = time.time()
+        decision = self._gate("bus.send", to or f"topic:{topic}", sender, reason)
+        if decision is not None and not decision.allowed:
+            _metrics.BUS_MESSAGES.labels(kind=kind, outcome="denied").inc()
+            return {
+                "ok": False,
+                "error": f"policy {decision.decision}: {decision.reason}",
+            }
+
+        group = uuid.uuid4().hex[:12]
+        now = time.time()
+        meta_json = json.dumps(meta or {}, default=str)
+
+        backend = self._log_backend()
+        if backend is not None:
+            out = self._send_via_log(
+                backend,
+                kind=kind,
+                group=group,
+                sender=sender,
+                to=to,
+                topic=topic,
+                payload=payload,
+                meta_json=meta_json,
+                now=now,
+            )
+        else:
+            out = self._send_via_graph(
+                kind=kind,
+                group=group,
+                sender=sender,
+                to=to,
+                topic=topic,
+                payload=payload,
+                meta_json=meta_json,
+                now=now,
+            )
+        _metrics.BUS_SEND_DURATION.observe(time.time() - start)
+        return out
+
+    def _send_via_log(
+        self,
+        backend: Any,
+        *,
+        kind: str,
+        group: str,
+        sender: str,
+        to: str,
+        topic: str,
+        payload: str,
+        meta_json: str,
+        now: float,
+    ) -> dict[str, Any]:
+        """Hot delivery path (CONCEPT:AU-ECO.bus.partitioned-log-delivery): ONE ``publish`` call, no per-recipient write.
+
+        The log backend's exchange/queue (engine broker) or keyed-topic (Kafka) fan-out
+        delivers to every current AND future subscriber on its own; ``_subscribers(topic)`` is
+        called here ONLY to report who is currently online for the return value/metrics — a
+        semantic-registry READ, never a delivery-path write.
+        """
+        from agent_utilities.messaging.bus_log import current_bus_tenant
+
+        tenant = current_bus_tenant()
+        if to:
+            ok = backend.publish_direct(
+                tenant=tenant,
+                group=group,
+                sender=sender,
+                to=to,
+                payload=payload,
+                meta_json=meta_json,
+                created=now,
+            )
+            delivered = [to] if ok else []
+            _metrics.BUS_MESSAGES.labels(
+                kind=kind, outcome="delivered" if ok else "failed"
+            ).inc(max(len(delivered), 1))
+            return {"ok": ok, "msg_group": group, "delivered": delivered}
+
+        ok = backend.publish_topic(
+            tenant=tenant,
+            group=group,
+            sender=sender,
+            topic=topic,
+            payload=payload,
+            meta_json=meta_json,
+            created=now,
+        )
+        delivered = (
+            [a for a in self._subscribers(topic) if a and a != sender] if ok else []
+        )
+        _metrics.BUS_MESSAGES.labels(
+            kind=kind, outcome="delivered" if ok else "failed"
+        ).inc(max(len(delivered), 1))
+        return {"ok": ok, "msg_group": group, "delivered": delivered, "stored": ok}
+
+    def _send_via_graph(
+        self,
+        *,
+        kind: str,
+        group: str,
+        sender: str,
+        to: str,
+        topic: str,
+        payload: str,
+        meta_json: str,
+        now: float,
+    ) -> dict[str, Any]:
+        """Dev fallback (no log backend configured): the ORIGINAL durable ``:BusMessage`` model.
+
+        Writes one durable ``:BusMessage`` per recipient (sharing ``msg_group`` so a fan-out is
+        dedupable across hubs by the federation relay) and links it to the recipient's :Agent
+        node.
+        """
+        recipients = [to] if to else self._subscribers(topic)
+        recipients = [r for r in recipients if r and r != sender]
+
+        # Store-and-forward (CONCEPT:AU-ECO.bus.store-and-forward-log): a TOPIC message is also written to a durable
+        # topic log so a peer who subscribes LATER (or was offline) still gets it on replay —
+        # whether or not there are current subscribers. This is the "leave a message" path.
+        stored = False
+        if topic:
+            stored = self._store_topic_message(
+                group=group,
+                sender=sender,
+                topic=topic,
+                payload=payload,
+                meta_json=meta_json,
+                created=now,
+            )
+
+        if not recipients:
+            _metrics.BUS_MESSAGES.labels(kind=kind, outcome="no_recipient").inc()
+            return {"ok": True, "delivered": [], "stored": stored}
+
+        delivered: list[str] = []
+        for rcpt in recipients:
+            mid = f"{_MSG_PREFIX}{group}:{rcpt}"
+            if self._add_node(
+                mid,
+                "BusMessage",
+                {
+                    "msg_group": group,
+                    "sender": sender,
+                    "recipient": rcpt,
+                    "topic": topic,
+                    "payload": payload,
+                    "meta": meta_json,
+                    "status": "sent",
+                    "created": now,
+                },
+            ):
+                self._add_edge(f"{_AGENT_PREFIX}{rcpt}", mid, "HAS_BUS_MESSAGE")
+                delivered.append(rcpt)
+                if topic:
+                    # This current subscriber already got the message per-recipient, so advance
+                    # its topic-replay cursor past this entry — the backlog replay in ``receive``
+                    # must NOT hand it the same message again (no double-delivery, CONCEPT:AU-ECO.bus.store-and-forward-log).
+                    self._set_topic_cursor(rcpt, topic, now)
+        _metrics.BUS_MESSAGES.labels(kind=kind, outcome="delivered").inc(len(delivered))
+        out = {"ok": True, "msg_group": group, "delivered": delivered}
+        if topic:
+            out["stored"] = stored
+        return out
+
+    def _store_topic_message(
+        self,
+        *,
+        group: str,
+        sender: str,
+        topic: str,
+        payload: str,
+        meta_json: str,
+        created: float,
+    ) -> bool:
+        """Persist a durable, replayable topic-log entry (CONCEPT:AU-ECO.bus.store-and-forward-log).
+
+        Reuses the ``:BusMessage`` shape (so federation/group dedup keep working) with a
+        ``recipient=""`` sentinel + ``kind="topic"`` marker and an ``expires_at`` for the reaper.
+        Keyed by ``msg_group`` so a re-send/forward is an idempotent upsert. ``receive`` replays
+        these to subscribers via the per-(agent,topic) cursor — they're never matched by the
+        per-recipient ``recipient=$aid`` query, so they don't double-deliver.
+        """
+        mid = f"{_TOPICMSG_PREFIX}{group}"
+        return self._add_node(
+            mid,
+            "BusMessage",
+            {
+                "msg_group": group,
+                "sender": sender,
+                "recipient": "",
+                "topic": topic,
+                "payload": payload,
+                "meta": meta_json,
+                "kind": "topic",
+                "status": "stored",
+                "created": created,
+                "expires_at": created + TOPIC_MSG_TTL_S,
+            },
+        )
+
+    def receive(self, agent_id: str, *, since: int = 0) -> dict[str, Any]:
+        """Return the messages for ``agent_id`` after the ``since`` cursor, plus a new cursor.
+
+        Reads through the partitioned-log delivery/wakeup plane (CONCEPT:AU-ECO.bus.partitioned-log-delivery,
+        :meth:`_receive_via_log`) when one is configured — real offsets/consumer cursors, never a
+        graph ``MATCH`` over history — falling back to the original ``:BusMessage`` graph scan
+        (:meth:`_receive_via_graph`) for zero-infra dev deployments.
+        """
+        if not agent_id:
+            return {"messages": [], "cursor": since}
+        backend = self._log_backend()
+        if backend is not None:
+            return self._receive_via_log(backend, agent_id, since=since)
+        return self._receive_via_graph(agent_id, since=since)
+
+    def _receive_via_log(
+        self, backend: Any, agent_id: str, *, since: int
+    ) -> dict[str, Any]:
+        """Hot receive path: drain the recipient's log inbox + every subscribed topic queue.
+
+        The log backend commits/acks its own read position per subscriber (a broker-native
+        queue ack, or a Kafka consumer-group commit) — there is no graph cursor node to
+        advance. ``cursor`` is kept in the return shape for API back-compat with pre-AU-P1-2
+        callers (``since=<count already consumed>``): it is now an informational, monotonically
+        non-decreasing running total rather than the sole source of delivery truth, since the
+        log backend itself guarantees at-least-once, not-yet-read semantics per subscriber.
+        """
+        from agent_utilities.messaging.bus_log import current_bus_tenant
+
+        tenant = current_bus_tenant()
+        topics = self._active_topics(agent_id)
+        shaped = backend.receive(
+            tenant=tenant,
+            agent_id=agent_id,
+            topics=topics,
+            max_messages=BUS_LOG_MAX_MESSAGES_PER_RECEIVE,
+        )
+        shaped.sort(key=lambda m: float(m.get("created", 0) or 0))
+        return {"messages": shaped, "cursor": since + len(shaped)}
+
+    def _receive_via_graph(self, agent_id: str, *, since: int) -> dict[str, Any]:
+        """Dev fallback (no log backend configured): the ORIGINAL ``:BusMessage`` graph scan.
+
+        ``since`` is the count this reader has already consumed; the returned ``cursor`` is the
+        new total to pass next time — the same at-least-once cursor model as
+        ``agent_channel.receive``. Durable, so it works cross-host and across engine restarts.
+
+        Also replays the durable TOPIC backlog (CONCEPT:AU-ECO.bus.store-and-forward-log) for every topic this agent is
+        subscribed to: messages stored after the agent's per-(agent,topic) cursor are returned
+        once, and the cursor is advanced so each topic message is read at most once. Topic
+        backlog is delivered alongside the per-recipient inbox; ``since`` governs only the latter
+        (the topic cursors are independent timestamps), so a reader keeps passing back the same
+        ``cursor`` from the per-recipient slice as before.
+        """
+        # 1-hop property match (not a 2-hop edge traversal) — robust on the AGE backend.
+        rows = self._query(
+            "MATCH (m:BusMessage {recipient: $aid}) RETURN m", {"aid": agent_id}
+        )
+        msgs = [self._props(r, "m") for r in rows]
+        msgs.sort(key=lambda m: (float(m.get("created", 0) or 0), str(m.get("id", ""))))
+        new = msgs[since:] if since < len(msgs) else []
+        shaped = [self._shape_message(m) for m in new]
+        # Late-subscriber topic backlog replay (CONCEPT:AU-ECO.bus.store-and-forward-log).
+        shaped.extend(self._replay_topic_backlog(agent_id))
+        shaped.sort(key=lambda m: m["created"])
+        return {"messages": shaped, "cursor": len(msgs)}
+
+    @staticmethod
+    def _shape_message(m: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "id": m.get("id"),
+            "msg_group": m.get("msg_group"),
+            "sender": m.get("sender"),
+            "topic": m.get("topic", ""),
+            "payload": m.get("payload", ""),
+            "meta": _safe_json(m.get("meta")),
+            "status": m.get("status", "sent"),
+            "created": float(m.get("created", 0) or 0),
+        }
+
+    def _replay_topic_backlog(self, agent_id: str) -> list[dict[str, Any]]:
+        """Pull each subscribed topic's durable log entries newer than this agent's cursor.
+
+        Per-(agent,topic) cursors make each topic message read at most once per agent; current
+        subscribers already had their cursor advanced at send time, so they don't get a duplicate
+        (CONCEPT:AU-ECO.bus.store-and-forward-log). The cursor is advanced to the newest replayed message's timestamp.
+        """
+        out: list[dict[str, Any]] = []
+        now = time.time()
+        for topic in self._active_topics(agent_id):
+            cursor = self._topic_cursor(agent_id, topic)
+            if cursor is None:
+                cursor = (
+                    now  # no baseline (never seeded) → only future messages, none now.
+                )
+            rows = self._query(
+                "MATCH (m:BusMessage {topic: $t, kind: 'topic'}) RETURN m", {"t": topic}
+            )
+            pending = [
+                p
+                for p in (self._props(r, "m") for r in rows)
+                if p.get("recipient", "") == ""
+                and float(p.get("created", 0) or 0) > cursor
+                and float(p.get("expires_at", 0) or 0) > now
+                and p.get("sender") != agent_id
+            ]
+            if not pending:
+                continue
+            pending.sort(key=lambda m: float(m.get("created", 0) or 0))
+            out.extend(self._shape_message(m) for m in pending)
+            newest = float(pending[-1].get("created", 0) or 0)
+            self._set_topic_cursor(agent_id, topic, max(cursor, newest))
+        return out
+
+    def prune_topic_log(self, *, now: float | None = None) -> int:
+        """Reaper: delete durable topic-log messages whose TTL has expired (CONCEPT:AU-ECO.bus.store-and-forward-log).
+
+        Bounds KG growth — mirrors ``inbox.retry_unanswered`` as the bus's housekeeping pass.
+        Returns the number pruned. Best-effort; a backend without ``delete_node`` is a no-op.
+        """
+        now = time.time() if now is None else now
+        engine = self._resolve_engine()
+        delete_node = getattr(engine, "delete_node", None)
+        rows = self._query("MATCH (m:BusMessage {kind: 'topic'}) RETURN m", {})
+        expired = [
+            p
+            for p in (self._props(r, "m") for r in rows)
+            if float(p.get("expires_at", 0) or 0) <= now and p.get("id")
+        ]
+        if not callable(delete_node):
+            return 0
+        pruned = 0
+        for p in expired:
+            try:
+                delete_node(p["id"])
+                pruned += 1
+            except Exception as exc:  # noqa: BLE001 — housekeeping is best-effort
+                logger.debug(
+                    "[ECO-4.91] prune topic msg %s failed: %s", p.get("id"), exc
+                )
+        if pruned:
+            logger.info(
+                "[CONCEPT:AU-ECO.bus.store-and-forward-log] bus reaper pruned %d expired topic message(s).",
+                pruned,
+            )
+        return pruned
+
+    def ack(self, agent_id: str, message_id: str) -> bool:
+        """Mark a delivered message processed (e.g. once its dispatched work was claimed).
+
+        Log-backed delivery (CONCEPT:AU-ECO.bus.partitioned-log-delivery) already committed the message at
+        receive time (broker ``ack=True`` / Kafka consumer-group commit) — there is no
+        per-message graph node left to mark, so this is a best-effort success. Only the graph
+        fallback still maintains a per-message ``:BusMessage`` status to update.
+        """
+        if self._log_backend() is not None:
+            return True
+        rows = self._query(
+            "MATCH (m:BusMessage {id: $mid, recipient: $aid}) RETURN m",
+            {"mid": message_id, "aid": agent_id},
+        )
+        if not rows:
+            return False
+        props = dict(self._props(rows[0], "m"))
+        props.update(status="acked", acked=time.time())
+        props.pop("id", None)
+        return self._add_node(message_id, "BusMessage", props)
+
+    # ── Federation support (CONCEPT:AU-ECO.bus.federation-relay) ────────────────────────
+    def group_messages(self, group: str) -> list[dict[str, Any]]:
+        """All :BusMessage rows of one ``msg_group`` (the unit a relay forwards)."""
+        rows = self._query(
+            "MATCH (m:BusMessage {msg_group: $g}) RETURN m", {"g": group}
+        )
+        return [self._props(r, "m") for r in rows]
+
+    def group_exists(self, group: str) -> bool:
+        """Has this hub already seen ``group`` (cross-hub delivery dedup)?"""
+        return bool(self.group_messages(group))
+
+    def deliver_federated(
+        self,
+        *,
+        group: str,
+        sender: str,
+        recipients: list[str],
+        payload: str,
+        topic: str,
+        origin: str,
+    ) -> list[str]:
+        """Apply a message forwarded from a peer hub (CONCEPT:AU-ECO.bus.federation-relay), idempotently.
+
+        Reuses the origin ``msg_group`` for deterministic node ids, so a re-forward is a no-op
+        upsert (dedup), and stamps ``federated_from`` so the local relay never re-forwards it
+        (loop break). Skips the gate — the message was already governed at its origin hub.
+        """
+        now = time.time()
+        meta_json = json.dumps({"federated_from": origin}, default=str)
+        delivered: list[str] = []
+        for rcpt in recipients:
+            if not rcpt:
+                continue
+            mid = f"{_MSG_PREFIX}{group}:{rcpt}"
+            if self._add_node(
+                mid,
+                "BusMessage",
+                {
+                    "msg_group": group,
+                    "sender": sender,
+                    "recipient": rcpt,
+                    "topic": topic,
+                    "payload": payload,
+                    "meta": meta_json,
+                    "federated_from": origin,
+                    "status": "sent",
+                    "created": now,
+                },
+            ):
+                self._add_edge(f"{_AGENT_PREFIX}{rcpt}", mid, "HAS_BUS_MESSAGE")
+                delivered.append(rcpt)
+        return delivered
+
+    # ── Dispatch: message → fleet work (CONCEPT:AU-ORCH.routing.resolve-body-single-canonical) ───────────
+    def dispatch(
+        self,
+        *,
+        sender: str,
+        objective: str,
+        kind: str = "develop",
+        priority: str = "normal",
+        reason: str = "",
+    ) -> dict[str, Any]:
+        """Turn a request into fleet work by submitting a Loop, gated by ``bus.dispatch``.
+
+        This closes the message↔task gap: an agent on the bus hands an objective to the fleet
+        (the LoopController executes it through the fair-claim task lanes), rather than only
+        exchanging text. Returns the submitted loop record.
+        """
+        if not (sender and objective):
+            return {"ok": False, "error": "sender and objective required"}
+        decision = self._gate("bus.dispatch", objective[:80], sender, reason)
+        if decision is not None and not decision.allowed:
+            _metrics.BUS_DISPATCH.labels(outcome="denied").inc()
+            return {
+                "ok": False,
+                "error": f"policy {decision.decision}: {decision.reason}",
+            }
+        engine = self._resolve_engine()
+        try:
+            from agent_utilities.knowledge_graph.core.engine_tasks import (
+                _coerce_prio_bucket,
+            )
+            from agent_utilities.knowledge_graph.research.loops import submit_loop
+
+            loop = submit_loop(
+                engine,
+                objective,
+                kind=kind,  # type: ignore[arg-type]
+                prio_bucket=_coerce_prio_bucket(priority),
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("[ORCH-1.80] dispatch submit_loop failed: %s", exc)
+            _metrics.BUS_DISPATCH.labels(outcome="failed").inc()
+            return {"ok": False, "error": f"dispatch failed: {exc}"}
+        _metrics.BUS_DISPATCH.labels(outcome="submitted").inc()
+        return {"ok": True, "loop": loop, "dispatched_by": sender}
+
+    # ── Governance gate (mirrors MessagingService._gate) ─────────────
+    def _gate(self, kind: str, target: str, source: str, reason: str) -> Any:
+        try:
+            from agent_utilities.orchestration.action_policy import (
+                ActionRequest,
+                get_action_policy,
+            )
+
+            request = ActionRequest(
+                kind=kind,
+                target=target or "*",
+                source=source or "bus",
+                reason=reason or kind,
+            )
+            return get_action_policy(self._resolve_engine()).decide(request)
+        except Exception as exc:  # noqa: BLE001 — a gate failure must not silently act
+            logger.warning("[ECO-4.84] action policy unavailable: %s", exc)
+            return None
+
+    # ── Introspection ────────────────────────────────────────────────
+    def status(self) -> dict[str, Any]:
+        roster = self.roster()
+        online = sum(1 for a in roster if a["presence"] == "online")
+        topics = self._query("MATCH (t:Topic) RETURN t.name as name", {})
+        # Sample the presence gauges on the health/status read (CONCEPT:AU-ECO.bus.operator-view-agentbus).
+        _metrics.BUS_PARTICIPANTS.labels(status="online").set(online)
+        _metrics.BUS_PARTICIPANTS.labels(status="offline").set(len(roster) - online)
+        backend = self._log_backend()
+        return {
+            "agents": len(roster),
+            "online": online,
+            "topics": sorted({t.get("name") for t in topics if t.get("name")}),
+            # Delivery/wakeup plane in use (CONCEPT:AU-ECO.bus.partitioned-log-delivery) — "graph" is the
+            # zero-infra dev fallback; any other value is a durable partitioned log.
+            "log_backend": backend.name if backend is not None else "graph",
+        }
+
+
+def _safe_json(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value or {}
+    try:
+        return json.loads(value)
+    except (ValueError, TypeError):
+        return {}
+
+
+def swarm_topic(session_id: str | None) -> str:
+    """The shared bus topic a swarm uses to coordinate (CONCEPT:AU-ECO.bus.native-capability)."""
+    return f"swarm:{session_id}" if session_id else "swarm:default"
+
+
+def bus_capability_prompt() -> str:
+    """Canonical, single-source capability blurb woven into every agent's system prompt.
+
+    CONCEPT:AU-ECO.bus.native-capability — the AgentBus is a NATIVE capability, not an opt-in persona: the core
+    orchestrator (the "graph shaper") and every spawned swarm/sub-agent inherit this so they
+    know they can coordinate with peers instead of working in isolation. Kept in sync with the
+    ``prompts/bus_coordinator.json`` blueprint, which is the deeper standalone profile.
+    """
+    return (
+        "## Agent Bus — coordinate with other agents (native capability, CONCEPT:AU-ECO.bus.agentbus-federated-agent-agent)\n"
+        "You are not alone. Other AI sessions and agents — any provider, any host — share a "
+        "durable **AgentBus**, and you can talk to them. Use the native bus tools (or the "
+        "`graph_bus` tool with the same actions):\n"
+        "- `bus_join` — announce yourself (id + capabilities) so peers can find you.\n"
+        "- `bus_peers` — see who is online and what they can do; address peers by those ids.\n"
+        "- `bus_send` — message one peer (`to=`) or a whole topic (`topic=`).\n"
+        "- `bus_check` — read your inbox (pass back the returned cursor for only-new messages).\n"
+        "- `graph_bus(action='dispatch', objective=...)` — hand heavy work to the fleet as a Loop.\n"
+        "When you orchestrate or join a **swarm**, broadcast progress and ask peers for help on the "
+        "swarm's shared topic rather than working alone — set up agent-to-agent communication by "
+        "default whenever more than one agent is involved."
+    )

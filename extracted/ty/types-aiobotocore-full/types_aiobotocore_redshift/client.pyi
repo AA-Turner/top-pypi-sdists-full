@@ -54,6 +54,7 @@ from .paginator import (
     DescribeIntegrationsPaginator,
     DescribeNodeConfigurationOptionsPaginator,
     DescribeOrderableClusterOptionsPaginator,
+    DescribeQev2IdcApplicationsPaginator,
     DescribeRedshiftIdcApplicationsPaginator,
     DescribeReservedNodeExchangeStatusPaginator,
     DescribeReservedNodeOfferingsPaginator,
@@ -118,6 +119,8 @@ from .type_defs import (
     CreateHsmConfigurationMessageTypeDef,
     CreateHsmConfigurationResultTypeDef,
     CreateIntegrationMessageTypeDef,
+    CreateQev2IdcApplicationMessageTypeDef,
+    CreateQev2IdcApplicationResultTypeDef,
     CreateRedshiftIdcApplicationMessageTypeDef,
     CreateRedshiftIdcApplicationResultTypeDef,
     CreateScheduledActionMessageTypeDef,
@@ -145,6 +148,7 @@ from .type_defs import (
     DeleteHsmClientCertificateMessageTypeDef,
     DeleteHsmConfigurationMessageTypeDef,
     DeleteIntegrationMessageTypeDef,
+    DeleteQev2IdcApplicationMessageTypeDef,
     DeleteRedshiftIdcApplicationMessageTypeDef,
     DeleteResourcePolicyMessageTypeDef,
     DeleteScheduledActionMessageTypeDef,
@@ -189,6 +193,8 @@ from .type_defs import (
     DescribeOrderableClusterOptionsMessageTypeDef,
     DescribePartnersInputMessageTypeDef,
     DescribePartnersOutputMessageTypeDef,
+    DescribeQev2IdcApplicationsMessageTypeDef,
+    DescribeQev2IdcApplicationsResultTypeDef,
     DescribeRedshiftIdcApplicationsMessageTypeDef,
     DescribeRedshiftIdcApplicationsResultTypeDef,
     DescribeReservedNodeExchangeStatusInputMessageTypeDef,
@@ -264,6 +270,8 @@ from .type_defs import (
     ModifyEventSubscriptionResultTypeDef,
     ModifyIntegrationMessageTypeDef,
     ModifyLakehouseConfigurationMessageTypeDef,
+    ModifyQev2IdcApplicationMessageTypeDef,
+    ModifyQev2IdcApplicationResultTypeDef,
     ModifyRedshiftIdcApplicationMessageTypeDef,
     ModifyRedshiftIdcApplicationResultTypeDef,
     ModifyScheduledActionMessageTypeDef,
@@ -430,6 +438,8 @@ class Exceptions(BaseClientExceptions):
     NumberOfNodesPerClusterLimitExceededFault: type[BotocoreClientError]
     NumberOfNodesQuotaExceededFault: type[BotocoreClientError]
     PartnerNotFoundFault: type[BotocoreClientError]
+    Qev2IdcApplicationAlreadyExistsFault: type[BotocoreClientError]
+    Qev2IdcApplicationNotExistsFault: type[BotocoreClientError]
     RedshiftIdcApplicationAlreadyExistsFault: type[BotocoreClientError]
     RedshiftIdcApplicationNotExistsFault: type[BotocoreClientError]
     RedshiftIdcApplicationQuotaExceededFault: type[BotocoreClientError]
@@ -752,6 +762,16 @@ class RedshiftClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_redshift/client/#create_integration)
         """
 
+    async def create_qev2_idc_application(
+        self, **kwargs: Unpack[CreateQev2IdcApplicationMessageTypeDef]
+    ) -> CreateQev2IdcApplicationResultTypeDef:
+        """
+        Creates an Amazon Redshift Query Editor (QEV2) IAM Identity Center application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/redshift/client/create_qev2_idc_application.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_redshift/client/#create_qev2_idc_application)
+        """
+
     async def create_redshift_idc_application(
         self, **kwargs: Unpack[CreateRedshiftIdcApplicationMessageTypeDef]
     ) -> CreateRedshiftIdcApplicationResultTypeDef:
@@ -955,6 +975,16 @@ class RedshiftClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/redshift/client/delete_partner.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_redshift/client/#delete_partner)
+        """
+
+    async def delete_qev2_idc_application(
+        self, **kwargs: Unpack[DeleteQev2IdcApplicationMessageTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes an Amazon Redshift Query Editor (QEV2) IAM Identity Center application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/redshift/client/delete_qev2_idc_application.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_redshift/client/#delete_qev2_idc_application)
         """
 
     async def delete_redshift_idc_application(
@@ -1340,6 +1370,16 @@ class RedshiftClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/redshift/client/describe_partners.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_redshift/client/#describe_partners)
+        """
+
+    async def describe_qev2_idc_applications(
+        self, **kwargs: Unpack[DescribeQev2IdcApplicationsMessageTypeDef]
+    ) -> DescribeQev2IdcApplicationsResultTypeDef:
+        """
+        Lists the Amazon Redshift Query Editor (QEV2) IAM Identity Center applications.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/redshift/client/describe_qev2_idc_applications.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_redshift/client/#describe_qev2_idc_applications)
         """
 
     async def describe_redshift_idc_applications(
@@ -1755,6 +1795,16 @@ class RedshiftClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/redshift/client/modify_lakehouse_configuration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_redshift/client/#modify_lakehouse_configuration)
+        """
+
+    async def modify_qev2_idc_application(
+        self, **kwargs: Unpack[ModifyQev2IdcApplicationMessageTypeDef]
+    ) -> ModifyQev2IdcApplicationResultTypeDef:
+        """
+        Modifies an Amazon Redshift Query Editor (QEV2) IAM Identity Center application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/redshift/client/modify_qev2_idc_application.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_redshift/client/#modify_qev2_idc_application)
         """
 
     async def modify_redshift_idc_application(
@@ -2230,6 +2280,17 @@ class RedshiftClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_orderable_cluster_options"]
     ) -> DescribeOrderableClusterOptionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/redshift/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_redshift/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_qev2_idc_applications"]
+    ) -> DescribeQev2IdcApplicationsPaginator:
         """
         Create a paginator for an operation.
 

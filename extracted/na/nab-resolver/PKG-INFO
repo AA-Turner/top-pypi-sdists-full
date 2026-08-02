@@ -1,0 +1,40 @@
+Metadata-Version: 2.4
+Name: nab-resolver
+Version: 0.0.12
+Summary: Generic PubGrub dependency-resolver core
+Project-URL: Homepage, https://github.com/notatallshaw/nab
+Project-URL: Documentation, https://nab.readthedocs.io/
+Project-URL: Issues, https://github.com/notatallshaw/nab/issues
+Project-URL: Source, https://github.com/notatallshaw/nab
+Project-URL: Changelog, https://github.com/notatallshaw/nab/releases
+Author-email: Damian Shaw <damian.peter.shaw@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
+Classifier: Development Status :: 4 - Beta
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Typing :: Typed
+Requires-Python: >=3.10
+Requires-Dist: typing-extensions>=4.6
+Description-Content-Type: text/markdown
+
+# nab-resolver
+
+Generic PubGrub dependency resolver, parameterised over a
+`ResolverProvider` protocol.  No Python-specific knowledge: this
+package is a SAT-style solver core.  The Python provider lives in
+[`nab-python`](https://pypi.org/project/nab-python/) and the
+user-facing CLI in [`nab`](https://pypi.org/project/nab/).
+
+## When to use it
+
+Use `nab-resolver` when you are building some kind of package
+resolver, Python or otherwise.
+
+The public API is the `Resolver` class plus the
+`ResolverProvider` protocol, the `Range` and `Term` types, and the
+`ResolutionError` exception.  Everything else is internal.

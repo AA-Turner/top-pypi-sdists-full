@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tenant-schemas-celery
-Version: 4.0.3
+Version: 5.0.0
 Summary: Celery integration for django-tenant-schemas and django-tenants
 Home-page: https://github.com/maciej-gol/tenant-schemas-celery
 Author: Maciej Gol
@@ -9,7 +9,7 @@ License: MIT
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Framework :: Django
 Classifier: Programming Language :: Python
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: celery>=5
@@ -225,3 +225,5 @@ The `2.x` series support Python>=3.7.
 The `1.x` series support Python>=3.6. Python 3.6 reached EOL 2021-12.
 
 The `0.x` series are the last one to support Python<3.6.
+
+The `>=5.0` series drop support for Python 3.9 and 3.10.

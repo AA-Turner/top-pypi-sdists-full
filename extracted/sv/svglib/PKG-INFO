@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: svglib
-Version: 2.0.2
+Version: 2.1.0
 Summary: A pure-Python library for reading and converting SVG
 Project-URL: Homepage, https://github.com/deeplook/svglib
 Author: Dinu Gherman
@@ -23,6 +23,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Documentation
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
 Classifier: Topic :: Printing
@@ -98,7 +99,9 @@ and some selected [symbols from Wikipedia](https://en.wikipedia.org/wiki/List_of
 
 - `@import` rules in stylesheets are ignored. CSS is supported, but the range
   of supported attributes is still limited
-- clipping is limited to single paths, no mask support
+- clip paths support `path`, `rect`, `circle`, `ellipse` and `polygon` shapes,
+  but only one `clip-rule` per `clipPath`.
+- SVG `mask` elements are not supported
 - SVG `ForeignObject` elements are not supported.
 
 

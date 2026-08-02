@@ -4,7 +4,6 @@ use crate::cache::LintCache;
 use crate::formatter;
 use colored::*;
 use rumdl_lib::config as rumdl_config;
-use rumdl_lib::lint_context::LintContext;
 use rumdl_lib::rule::{FixCapability, LintWarning, Rule};
 use rumdl_lib::utils::code_block_utils::CodeBlockUtils;
 use std::borrow::Cow;
@@ -67,6 +66,19 @@ pub fn is_rule_actually_fixable(config: &rumdl_config::Config, rule_name: &str) 
 /// This replaces hardcoded rule name checks (e.g., `&& name != "MD033"`) with
 /// capability-based checks that are future-proof for any rule.
 pub fn is_rule_cli_fixable(rules: &[Box<dyn Rule>], config: &rumdl_config::Config, rule_name: &str) -> bool {
+    is_rule_cli_fixable_in(rules, &[], config, rule_name)
+}
+
+/// `is_rule_cli_fixable` for a document that configures some of its rules itself.
+///
+/// `document_rules` holds those rules as the document asked for them, and answers
+/// for the names it covers; every other name is answered from `rules`.
+pub fn is_rule_cli_fixable_in(
+    rules: &[Box<dyn Rule>],
+    document_rules: &[Box<dyn Rule>],
+    config: &rumdl_config::Config,
+    rule_name: &str,
+) -> bool {
     // First check config-based fixability
     if !is_rule_actually_fixable(config, rule_name) {
         return false;
@@ -75,10 +87,36 @@ pub fn is_rule_cli_fixable(rules: &[Box<dyn Rule>], config: &rumdl_config::Confi
     // Then check if the rule declares itself as Unfixable
     // Rules like MD033 have LSP-only fixes (for VS Code quick actions) but
     // their fix() method returns content unchanged, so CLI shouldn't count them
-    rules
+    document_rules
         .iter()
+        .chain(rules)
         .find(|r| r.name().eq_ignore_ascii_case(rule_name))
         .is_none_or(|r| r.fix_capability() != FixCapability::Unfixable)
+}
+
+/// The rules a document reconfigures, built with the settings it asks for.
+///
+/// A rule's fix capability can depend on its settings, and an inline
+/// `rumdl-configure-file` comment changes those settings for one file. The fixer
+/// already runs the reconfigured rule, so whatever reports what a run fixed has to
+/// read the capability from the same instance. Empty for the documents that carry
+/// no inline configuration, which is nearly all of them.
+pub fn rules_reconfigured_by_document(
+    rules: &[Box<dyn Rule>],
+    config: &rumdl_config::Config,
+    content: &str,
+) -> Vec<Box<dyn Rule>> {
+    let inline_config = rumdl_lib::inline_config::InlineConfig::from_content(content);
+    if inline_config.get_all_rule_configs().is_empty() {
+        return Vec::new();
+    }
+
+    let merged = config.merge_with_inline_config(&inline_config);
+    rules
+        .iter()
+        .filter(|rule| inline_config.get_rule_config(rule.name()).is_some())
+        .filter_map(|rule| rumdl_lib::rules::create_rule_by_name(rule.name(), &merged))
+        .collect()
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -147,6 +185,10 @@ pub fn process_file_with_formatter(
             config_warning: false,
         };
     }
+
+    // The rules this document configures itself, which is what decides whether its
+    // warnings carry a fix the CLI will apply.
+    let document_rules = rules_reconfigured_by_document(rules, config, &content);
 
     // Compute filtered rules based on per-file-ignores. The fix coordinator, embedded
     // markdown formatting, and Rust doc-comment formatting all run against this set so
@@ -229,7 +271,7 @@ pub fn process_file_with_formatter(
                 .iter()
                 .map(|w| {
                     let rule_name = w.rule_name.as_deref().unwrap_or("");
-                    if !is_rule_cli_fixable(rules, config, rule_name) {
+                    if !is_rule_cli_fixable_in(rules, &document_rules, config, rule_name) {
                         LintWarning { fix: None, ..w.clone() }
                     } else {
                         w.clone()
@@ -311,8 +353,8 @@ pub fn process_file_with_formatter(
         }
 
         let summary_issues_fixed = if total_warnings > 0 {
-            let remaining_warnings = relint_fixed_file_content(&content, file_path, rules, config);
-            count_actually_fixed_warnings(rules, config, &all_warnings, &remaining_warnings)
+            let remaining_warnings = relint_fixed_file_content(&content, file_path, &filtered_rules, config);
+            count_actually_fixed_warnings(rules, &document_rules, config, &all_warnings, &remaining_warnings)
         } else {
             warnings_fixed
         };
@@ -425,7 +467,7 @@ pub fn process_file_with_formatter(
         }
 
         // Re-lint the fixed content to see which warnings remain.
-        let remaining_warnings = relint_fixed_file_content(&content, file_path, rules, config);
+        let remaining_warnings = relint_fixed_file_content(&content, file_path, &filtered_rules, config);
 
         // Compute per-warning fixed status by comparing pre-fix warnings
         // against post-fix remaining warnings
@@ -433,7 +475,7 @@ pub fn process_file_with_formatter(
             .iter()
             .map(|warning| {
                 let rule_name = warning.rule_name.as_deref().unwrap_or("unknown");
-                let is_fixable = is_rule_cli_fixable(rules, config, rule_name);
+                let is_fixable = is_rule_cli_fixable_in(rules, &document_rules, config, rule_name);
                 warning.fix.is_some()
                     && is_fixable
                     && !remaining_warnings.iter().any(|w| {
@@ -530,46 +572,33 @@ pub fn process_file_with_formatter(
     }
 }
 
+/// Lint the fixed content to see which warnings remain.
+///
+/// `rules` are the ones the fix pass ran, already filtered by per-file ignores.
+/// Going through the same entry point the pre-fix pass uses keeps the two sets of
+/// warnings comparable: inline config, kramdown blocks, severity overrides and the
+/// rules that report on a whole document are all handled identically.
 fn relint_fixed_file_content(
     content: &str,
     file_path: &str,
     rules: &[Box<dyn Rule>],
     config: &rumdl_config::Config,
 ) -> Vec<rumdl_lib::rule::LintWarning> {
-    let ignored_rules_for_file = config.get_ignored_rules_for_file(Path::new(file_path));
-    let filtered_rules: Vec<_> = if !ignored_rules_for_file.is_empty() {
-        rules
-            .iter()
-            .filter(|rule| !ignored_rules_for_file.contains(rule.name()))
-            .collect()
-    } else {
-        rules.iter().collect()
-    };
-
     let flavor = config.get_flavor_for_file(Path::new(file_path));
-    let fixed_ctx = LintContext::new(content, flavor, Some(PathBuf::from(file_path)));
-    let mut remaining_warnings = Vec::new();
-
-    for rule in &filtered_rules {
-        if let Ok(rule_warnings) = rule.check(&fixed_ctx) {
-            let filtered_warnings = rule_warnings.into_iter().filter(|warning| {
-                let rule_name = warning.rule_name.as_deref().unwrap_or(rule.name());
-                let base_rule_name = if let Some(dash_pos) = rule_name.find('-') {
-                    &rule_name[..dash_pos]
-                } else {
-                    rule_name
-                };
-                !fixed_ctx.inline_config().is_rule_disabled(base_rule_name, warning.line)
-            });
-            remaining_warnings.extend(filtered_warnings);
-        }
-    }
-
-    remaining_warnings
+    rumdl_lib::lint(
+        content,
+        rules,
+        false,
+        flavor,
+        Some(PathBuf::from(file_path)),
+        Some(config),
+    )
+    .unwrap_or_default()
 }
 
 pub(crate) fn count_actually_fixed_warnings(
     rules: &[Box<dyn Rule>],
+    document_rules: &[Box<dyn Rule>],
     config: &rumdl_config::Config,
     all_warnings: &[LintWarning],
     remaining_warnings: &[LintWarning],
@@ -578,7 +607,7 @@ pub(crate) fn count_actually_fixed_warnings(
         .iter()
         .filter(|warning| {
             let rule_name = warning.rule_name.as_deref().unwrap_or("unknown");
-            let is_fixable = is_rule_cli_fixable(rules, config, rule_name);
+            let is_fixable = is_rule_cli_fixable_in(rules, document_rules, config, rule_name);
             warning.fix.is_some()
                 && is_fixable
                 && !remaining_warnings.iter().any(|w| {
@@ -743,23 +772,33 @@ pub fn process_file_with_index(
         return process_rust_file_doc_comments(file_path, &content, rules, config, original_line_ending);
     }
 
+    // The rules per-file-ignores takes away for this file. Resolved here rather
+    // than at the filtering site below because the inline-config validation
+    // needs it too, and that runs ahead of the cache lookup.
+    let ignored_rules_for_file = config.get_ignored_rules_for_file(Path::new(file_path));
+
     // Detect unknown rule names in inline disable comments. The result feeds the
     // exit code under --deny-config-warnings, so it is computed even when
     // --silent suppresses the printed notices.
     let inline_config_warning = rumdl_lib::time_section!("file: validate inline config", {
         let mut inline_warnings = rumdl_lib::inline_config::validate_inline_config_rules(&content);
-        // Also flag inline enables that cannot take effect because config
-        // disabled the rule. The active set is the rules that survived config
-        // filtering, which is exactly `rules` here.
+        // Also flag inline enables that cannot take effect, either because
+        // config disabled the rule or because per-file-ignores excludes it for
+        // this file. The active set is the rules that survived config filtering,
+        // which is exactly `rules` here; the per-file set is applied below.
         let active_rules: std::collections::HashSet<String> = rules.iter().map(|r| r.name().to_string()).collect();
         inline_warnings.extend(rumdl_lib::inline_config::validate_inline_enables_against_active_rules(
             &content,
             &active_rules,
+            &ignored_rules_for_file,
         ));
         let had_any = !inline_warnings.is_empty();
         if !silent {
+            // The same relative form the findings for this file carry, so both
+            // name the file the way the user typed it.
+            let display_path = to_display_path(file_path, None);
             for warn in inline_warnings {
-                warn.print_warning(file_path);
+                warn.print_warning(&display_path);
             }
         }
         had_any
@@ -772,6 +811,10 @@ pub fn process_file_with_index(
             ..empty_result
         };
     }
+
+    // The rules this document configures itself, which is what decides whether its
+    // warnings carry a fix the CLI will apply.
+    let document_rules = rules_reconfigured_by_document(rules, config, &content);
 
     // Compute hashes for cache (Ruff-style: file content + config + enabled rules)
     let (config_hash, rules_hash) = if let Some(hashes) = cache_hashes {
@@ -804,7 +847,7 @@ pub fn process_file_with_index(
                             w.fix.is_some()
                                 && w.rule_name
                                     .as_ref()
-                                    .is_some_and(|name| is_rule_cli_fixable(rules, config, name))
+                                    .is_some_and(|name| is_rule_cli_fixable_in(rules, &document_rules, config, name))
                         })
                         .count()
                 );
@@ -862,7 +905,6 @@ pub fn process_file_with_index(
     let lint_start = Instant::now();
 
     // Filter rules based on per-file-ignores configuration
-    let ignored_rules_for_file = config.get_ignored_rules_for_file(Path::new(file_path));
     let filtered_rules: Vec<_> = rumdl_lib::time_function!(
         "file: filter rules",
         if !ignored_rules_for_file.is_empty() {
@@ -948,7 +990,7 @@ pub fn process_file_with_index(
             w.fix.is_some()
                 && w.rule_name
                     .as_ref()
-                    .is_some_and(|name| is_rule_cli_fixable(rules, config, name))
+                    .is_some_and(|name| is_rule_cli_fixable_in(rules, &document_rules, config, name))
         })
         .count();
 

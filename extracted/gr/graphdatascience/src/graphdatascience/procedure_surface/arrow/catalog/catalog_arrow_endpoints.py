@@ -1,0 +1,614 @@
+from __future__ import annotations
+
+import time
+import typing
+import uuid
+from types import TracebackType
+from typing import Any, NamedTuple, Type
+
+from pandas import DataFrame
+
+from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
+from graphdatascience.arrow_client.v2.gds_arrow_client import GdsArrowClient
+from graphdatascience.arrow_client.v2.job_client import JobClient
+from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.procedure_surface.api.base_result import BaseResult
+from graphdatascience.procedure_surface.api.catalog import (
+    NodeLabelEndpoints,
+    NodePropertiesEndpoints,
+    RelationshipsEndpoints,
+)
+from graphdatascience.procedure_surface.api.catalog.catalog_endpoints import (
+    CatalogEndpoints,
+    GraphFilterResult,
+    GraphGenerationStats,
+    GraphWithFilterResult,
+    GraphWithGenerationStats,
+    RelationshipPropertySpec,
+)
+from graphdatascience.procedure_surface.api.catalog.graph_info import GraphInfo, GraphInfoWithDegrees
+from graphdatascience.procedure_surface.api.catalog.graph_sampling_endpoints import GraphSamplingEndpoints
+from graphdatascience.procedure_surface.api.projection_job_handle import ProjectionJobHandle
+from graphdatascience.procedure_surface.arrow.catalog.graph_backend_arrow import get_graph
+from graphdatascience.procedure_surface.arrow.catalog.graph_ops_arrow import GraphOpsArrow
+from graphdatascience.procedure_surface.arrow.catalog.graph_sampling_arrow_endpoints import GraphSamplingArrowEndpoints
+from graphdatascience.procedure_surface.arrow.catalog.node_label_arrow_endpoints import NodeLabelArrowEndpoints
+from graphdatascience.procedure_surface.arrow.catalog.node_properties_arrow_endpoints import (
+    NodePropertiesArrowEndpoints,
+)
+from graphdatascience.procedure_surface.arrow.catalog.relationship_arrow_endpoints import RelationshipArrowEndpoints
+from graphdatascience.procedure_surface.utils.config_converter import ConfigConverter
+from graphdatascience.query_runner.progress.progress_bar import NoOpProgressBar, ProgressBar, TqdmProgressBar
+from graphdatascience.query_runner.protocol.project_protocols import ProjectProtocol
+from graphdatascience.query_runner.protocol.projection_runner import ProjectionRunner
+from graphdatascience.query_runner.protocol.write_protocols import WriteProtocol
+from graphdatascience.query_runner.query_runner import QueryRunner
+from graphdatascience.query_runner.termination_flag import TerminationFlag
+from graphdatascience.session.dbms.protocol_resolver import ProtocolVersionResolver
+
+
+class CatalogArrowEndpoints(CatalogEndpoints):
+    GDS_REMOTE_PROJECTION_PROC_NAME = "gds.arrow.project"
+
+    def __init__(
+        self,
+        arrow_client: AuthenticatedArrowClient,
+        query_runner: QueryRunner | None = None,
+        show_progress: bool = False,
+    ):
+        self._arrow_client = arrow_client
+        self._query_runner = query_runner
+        self._graph_backend = GraphOpsArrow(arrow_client)
+        self._show_progress = show_progress
+        self._write_protocol: WriteProtocol | None = None
+        if query_runner is not None:
+            protocol_version = ProtocolVersionResolver(query_runner).resolve()
+            self._project_protocol = ProjectProtocol.select(
+                protocol_version, arrow_client, query_runner, TerminationFlag.create()
+            )
+            self._write_protocol = WriteProtocol.select(arrow_client, query_runner)
+
+    def get(self, graph_name: str) -> GraphV2:
+        if not self.list(graph_name):
+            raise ValueError(f"A graph with name '{graph_name}' does not exist in the catalog.")
+        return get_graph(graph_name, self._arrow_client)
+
+    def project(
+        self,
+        graph_name: str,
+        query: str,
+        *,
+        query_parameters: dict[str, Any] | None = None,
+        job_id: str | None = None,
+        concurrency: int | None = None,
+        undirected_relationship_types: typing.List[str] | None = None,
+        inverse_indexed_relationship_types: typing.List[str] | None = None,
+        batch_size: int | None = None,
+        logging: bool = True,
+    ) -> GraphWithProjectResult:
+        """
+        Projects a graph from the Neo4j database into the GDS graph catalog.
+
+        Parameters
+        ----------
+        graph_name
+            Name of the graph to be created in the catalog.
+        query
+            Cypher query to select nodes and relationships for the graph projection.
+            Must contain `gds.graph.project.remote`. Example: `MATCH (n)-->(m) RETURN gds.graph.project.remote(n, m)`
+        query_parameters
+            Parameters that will be passed to the Cypher query.
+        job_id
+            Identifier for the computation.
+        concurrency
+            Number of concurrent threads to use.
+        undirected_relationship_types : list[str]
+            List of relationship types to treat as undirected.
+        inverse_indexed_relationship_types : list[str]
+            List of relationship types to index in both directions.
+        batch_size : int | None, default=None
+            Number of rows to process in each batch when projecting the graph.
+        logging : bool, default=True
+            Whether to log progress during graph projection.
+        Returns
+        -------
+        ProjectionResult:
+            A result object containing information about the projected graph.
+        """
+        if self._query_runner is None:
+            raise ValueError("Remote projection is only supported for attached Sessions.")
+
+        job_id = job_id or str(uuid.uuid4())
+
+        ProjectionRunner(self._project_protocol, self._arrow_client, TerminationFlag.create()).run_cypher_projection(
+            graph_name,
+            query,
+            job_id,
+            query_parameters,
+            concurrency,
+            undirected_relationship_types,
+            inverse_indexed_relationship_types,
+            batch_size,
+            logging,
+        )
+
+        job_result = ProjectionResult(**JobClient.get_summary(self._arrow_client, job_id))
+
+        return GraphWithProjectResult(get_graph(graph_name, self._arrow_client), job_result)
+
+    def project_async(
+        self,
+        graph_name: str,
+        query: str,
+        *,
+        query_parameters: dict[str, Any] | None = None,
+        job_id: str | None = None,
+        concurrency: int | None = None,
+        undirected_relationship_types: typing.List[str] | None = None,
+        inverse_indexed_relationship_types: typing.List[str] | None = None,
+        batch_size: int | None = None,
+    ) -> ProjectionJobHandle:
+        """Kick off a cypher graph projection and return a :class:`ProjectionJobHandle`.
+
+        Unlike :meth:`project`, this method does not block on completion. Use the
+        returned handle to query status or retrieve the projected graph and result.
+        """
+        if self._query_runner is None:
+            raise ValueError("Remote projection is only supported for attached Sessions.")
+
+        job_id = job_id or str(uuid.uuid4())
+
+        actual_job_id, projection_query_runner = self._project_protocol.start_cypher_projection(
+            graph_name,
+            query,
+            job_id,
+            query_parameters,
+            concurrency,
+            undirected_relationship_types,
+            inverse_indexed_relationship_types,
+            batch_size,
+        )
+
+        # get the status at least once to make sure the job is actually running
+        self._project_protocol.get_status(actual_job_id, projection_query_runner)
+        projection_query_runner.close()
+
+        return ProjectionJobHandle(self._arrow_client, graph_name, actual_job_id, TerminationFlag.create())
+
+    def project_native(
+        self,
+        graph_name: str,
+        node_label_filter: typing.List[str],
+        relationship_type_filter: typing.List[str],
+        *,
+        node_properties: typing.List[str] | None = None,
+        relationship_properties: typing.List[str] | None = None,
+        job_id: str | None = None,
+        concurrency: int | None = None,
+        undirected_relationship_types: typing.List[str] | None = None,
+        inverse_indexed_relationship_types: typing.List[str] | None = None,
+        batch_size: int | None = None,
+        logging: bool = True,
+    ) -> GraphWithProjectResult:
+        """
+        Projects a graph from the Neo4j database into the GDS graph catalog.
+
+        Parameters
+        ----------
+        graph_name : str
+            Name of the graph to be created in the catalog.
+        node_label_filter : list[str]
+            List of node labels to include in the graph projection.
+        relationship_type_filter : list[str]
+            List of relationship types to include in the graph projection.
+        node_properties : list[str]
+            List of node properties to include in the graph projection.
+        relationship_properties : list[str]
+            List of relationship properties to include in the graph projection.
+        job_id
+            Identifier for the computation.
+        concurrency
+            Number of concurrent threads to use.
+        undirected_relationship_types : list[str]
+            List of relationship types to treat as undirected.
+        inverse_indexed_relationship_types : list[str]
+            List of relationship types to index in both directions.
+        batch_size : int | None, default=None
+            Number of rows to process in each batch when projecting the graph.
+        logging : bool, default=True
+            Whether to log progress during graph projection.
+        Returns
+        -------
+        ProjectionResult:
+            A result object containing information about the projected graph.
+        """
+
+        start = time.time()
+
+        if self._query_runner is None:
+            raise ValueError("Remote projection is only supported for attached Sessions.")
+
+        job_id = job_id or str(uuid.uuid4())
+
+        ProjectionRunner(self._project_protocol, self._arrow_client, TerminationFlag.create()).run_store_projection(
+            graph_name,
+            node_label_filter,
+            relationship_type_filter,
+            node_properties,
+            relationship_properties,
+            job_id,
+            concurrency,
+            undirected_relationship_types,
+            inverse_indexed_relationship_types,
+            batch_size,
+            logging,
+        )
+
+        project_millis = int((time.time() - start) * 1000)
+
+        summary = JobClient.get_summary(self._arrow_client, job_id)
+        job_result = StoreProjectionResult(projectMillis=project_millis, **summary)
+
+        return GraphWithProjectResult(get_graph(graph_name, self._arrow_client), job_result)
+
+    def project_native_async(
+        self,
+        graph_name: str,
+        node_label_filter: typing.List[str],
+        relationship_type_filter: typing.List[str],
+        *,
+        node_properties: typing.List[str] | None = None,
+        relationship_properties: typing.List[str] | None = None,
+        job_id: str | None = None,
+        concurrency: int | None = None,
+        undirected_relationship_types: typing.List[str] | None = None,
+        inverse_indexed_relationship_types: typing.List[str] | None = None,
+        batch_size: int | None = None,
+    ) -> ProjectionJobHandle:
+        """Kick off a native graph projection and return a :class:`ProjectionJobHandle`.
+
+        Unlike :meth:`project_native`, this method does not block on completion.
+        The returned handle can be used to await completion and retrieve the
+        projected graph and result.
+        """
+        if self._query_runner is None:
+            raise ValueError("Remote projection is only supported for attached Sessions.")
+
+        job_id = job_id or str(uuid.uuid4())
+
+        actual_job_id, projection_query_runner = self._project_protocol.start_store_projection(
+            graph_name,
+            node_label_filter,
+            relationship_type_filter,
+            node_properties,
+            relationship_properties,
+            job_id,
+            concurrency,
+            undirected_relationship_types,
+            inverse_indexed_relationship_types,
+            batch_size,
+        )
+
+        self._project_protocol.get_status(actual_job_id, projection_query_runner)
+        projection_query_runner.close()
+
+        return ProjectionJobHandle(self._arrow_client, graph_name, actual_job_id, TerminationFlag.create())
+
+    def construct(
+        self,
+        graph_name: str,
+        nodes: DataFrame | list[DataFrame],
+        relationships: DataFrame | list[DataFrame] | None = None,
+        concurrency: int | None = None,
+        undirected_relationship_types: list[str] | None = None,
+    ) -> GraphV2:
+        gds_arrow_client = GdsArrowClient(self._arrow_client)
+        job_client = JobClient()
+        termination_flag = TerminationFlag.create()
+
+        if self._show_progress:
+            progress_bar: ProgressBar = TqdmProgressBar(task_name="Constructing graph", relative_progress=0.0)
+        else:
+            progress_bar = NoOpProgressBar()
+
+        with progress_bar:
+            create_job_id: str = gds_arrow_client.create_graph(
+                graph_name=graph_name,
+                undirected_relationship_types=undirected_relationship_types or [],
+                concurrency=concurrency,
+            )
+            node_count = nodes.shape[0] if isinstance(nodes, DataFrame) else sum(df.shape[0] for df in nodes)
+            if isinstance(relationships, DataFrame):
+                rel_count = relationships.shape[0]
+            elif relationships is None:
+                rel_count = 0
+                relationships = []
+            else:
+                rel_count = sum(df.shape[0] for df in relationships)
+            total_count = node_count + rel_count
+
+            gds_arrow_client.upload_nodes(
+                create_job_id,
+                nodes,
+                progress_callback=lambda rows_imported: progress_bar.update(
+                    sub_tasks_description="Uploading nodes", progress=rows_imported / total_count, status="Running"
+                ),
+                termination_flag=termination_flag,
+            )
+
+            gds_arrow_client.node_load_done(create_job_id)
+
+            # skipping progress bar here as we have our own for the overall process
+            job_client.wait_for_job(
+                self._arrow_client,
+                create_job_id,
+                expected_status="RELATIONSHIP_LOADING",
+                termination_flag=termination_flag,
+                show_progress=False,
+            )
+
+            if rel_count > 0:
+                gds_arrow_client.upload_relationships(
+                    create_job_id,
+                    relationships,
+                    progress_callback=lambda rows_imported: progress_bar.update(
+                        sub_tasks_description="Uploading relationships",
+                        progress=rows_imported / total_count,
+                        status="Running",
+                    ),
+                    termination_flag=termination_flag,
+                )
+
+            gds_arrow_client.relationship_load_done(create_job_id)
+
+        # will produce a second progress bar to show graph construction on the server side
+        job_client.wait_for_job(
+            self._arrow_client, create_job_id, termination_flag=termination_flag, show_progress=True
+        )
+        return get_graph(graph_name, self._arrow_client)
+
+    def drop(self, G: GraphV2 | str, fail_if_missing: bool = True) -> GraphInfo | None:
+        graph_name = G.name() if isinstance(G, GraphV2) else G
+
+        return self._graph_backend.drop(graph_name, fail_if_missing)
+
+    def filter(
+        self,
+        G: GraphV2,
+        graph_name: str,
+        node_filter: str,
+        relationship_filter: str,
+        parameters: dict[str, Any] | None = None,
+        concurrency: int | None = None,
+        job_id: str | None = None,
+        sudo: bool = False,
+        log_progress: bool = True,
+        username: str | None = None,
+    ) -> GraphWithFilterResult:
+        config = ConfigConverter.convert_to_gds_config(
+            from_graph_name=G.name(),
+            graph_name=graph_name,
+            node_filter=node_filter,
+            relationship_filter=relationship_filter,
+            parameters=parameters,
+            concurrency=concurrency,
+            job_id=job_id,
+            sudo=sudo,
+            log_progress=log_progress,
+            username=username,
+        )
+
+        job_id = JobClient.run_job_and_wait(
+            self._arrow_client, "v2/graph.project.filter", config, show_progress=self._show_progress
+        )
+
+        return GraphWithFilterResult(
+            get_graph(graph_name, self._arrow_client),
+            GraphFilterResult(**JobClient.get_summary(self._arrow_client, job_id)),
+        )
+
+    def filter_async(
+        self,
+        G: GraphV2,
+        graph_name: str,
+        node_filter: str,
+        relationship_filter: str,
+        parameters: dict[str, Any] | None = None,
+        concurrency: int | None = None,
+        job_id: str | None = None,
+        sudo: bool = False,
+        log_progress: bool = True,
+        username: str | None = None,
+    ) -> ProjectionJobHandle:
+        """Kick off a graph filter operation and return a :class:`ProjectionJobHandle`.
+
+        Unlike :meth:`filter`, this method does not block on completion.
+        """
+        config = ConfigConverter.convert_to_gds_config(
+            from_graph_name=G.name(),
+            graph_name=graph_name,
+            node_filter=node_filter,
+            relationship_filter=relationship_filter,
+            parameters=parameters,
+            concurrency=concurrency,
+            job_id=job_id,
+            sudo=sudo,
+            log_progress=log_progress,
+            username=username,
+        )
+
+        started_job_id = JobClient.run_job(self._arrow_client, "v2/graph.project.filter", config)
+
+        return ProjectionJobHandle(self._arrow_client, graph_name, started_job_id, TerminationFlag.create())
+
+    def generate(
+        self,
+        graph_name: str,
+        node_count: int,
+        average_degree: float,
+        *,
+        relationship_distribution: str | None = "UNIFORM",
+        relationship_seed: int | None = None,
+        relationship_property: RelationshipPropertySpec | None = None,
+        orientation: str | None = "NATURAL",
+        aggregation: str | None = "NONE",
+        allow_self_loops: bool | None = False,
+        read_concurrency: int | None = None,
+        job_id: str | None = None,
+        sudo: bool = False,
+        log_progress: bool = True,
+        username: str | None = None,
+    ) -> GraphWithGenerationStats:
+        config = ConfigConverter.convert_to_gds_config(
+            graph_name=graph_name,
+            node_count=node_count,
+            average_degree=average_degree,
+            relationship_distribution=relationship_distribution,
+            relationship_seed=relationship_seed,
+            relationship_property=relationship_property.model_dump(by_alias=True) if relationship_property else None,
+            orientation=orientation,
+            aggregation=aggregation,
+            allow_self_loops=allow_self_loops,
+            read_concurrency=read_concurrency,
+            job_id=job_id,
+            sudo=sudo,
+            log_progress=log_progress,
+            username=username,
+        )
+
+        show_progress = self._show_progress and log_progress
+        job_id = JobClient.run_job_and_wait(
+            self._arrow_client, "v2/graph.generate", config, show_progress=show_progress
+        )
+
+        return GraphWithGenerationStats(
+            get_graph(graph_name, self._arrow_client),
+            GraphGenerationStats(**JobClient.get_summary(self._arrow_client, job_id)),
+        )
+
+    def generate_async(
+        self,
+        graph_name: str,
+        node_count: int,
+        average_degree: float,
+        *,
+        relationship_distribution: str | None = "UNIFORM",
+        relationship_seed: int | None = None,
+        relationship_property: RelationshipPropertySpec | None = None,
+        orientation: str | None = "NATURAL",
+        aggregation: str | None = "NONE",
+        allow_self_loops: bool | None = False,
+        read_concurrency: int | None = None,
+        job_id: str | None = None,
+        sudo: bool = False,
+        log_progress: bool = True,
+        username: str | None = None,
+    ) -> ProjectionJobHandle:
+        """Kick off a graph generation and return a :class:`ProjectionJobHandle`.
+
+        Unlike :meth:`generate`, this method does not block on completion.
+        """
+        config = ConfigConverter.convert_to_gds_config(
+            graph_name=graph_name,
+            node_count=node_count,
+            average_degree=average_degree,
+            relationship_distribution=relationship_distribution,
+            relationship_seed=relationship_seed,
+            relationship_property=relationship_property.model_dump(by_alias=True) if relationship_property else None,
+            orientation=orientation,
+            aggregation=aggregation,
+            allow_self_loops=allow_self_loops,
+            read_concurrency=read_concurrency,
+            job_id=job_id,
+            sudo=sudo,
+            log_progress=log_progress,
+            username=username,
+        )
+
+        started_job_id = JobClient.run_job(self._arrow_client, "v2/graph.generate", config)
+
+        return ProjectionJobHandle(self._arrow_client, graph_name, started_job_id, TerminationFlag.create())
+
+    def list(self, G: GraphV2 | str | None = None) -> list[GraphInfoWithDegrees]:
+        graph_name: str | None = None
+        if isinstance(G, GraphV2):
+            graph_name = G.name()
+        elif isinstance(G, str):
+            graph_name = G
+
+        return self._graph_backend.list(graph_name)
+
+    @property
+    def sample(self) -> GraphSamplingEndpoints:
+        return GraphSamplingArrowEndpoints(self._arrow_client, show_progress=self._show_progress)
+
+    @property
+    def node_labels(self) -> NodeLabelEndpoints:
+        write_client = self._write_protocol
+
+        return NodeLabelArrowEndpoints(self._arrow_client, write_client, show_progress=self._show_progress)
+
+    @property
+    def node_properties(self) -> NodePropertiesEndpoints:
+        return NodePropertiesArrowEndpoints(self._arrow_client, self._query_runner)
+
+    @property
+    def relationships(self) -> RelationshipsEndpoints:
+        return RelationshipArrowEndpoints(
+            self._arrow_client,
+            self._write_protocol,
+            show_progress=self._show_progress,
+        )
+
+    def _arrow_config(self) -> dict[str, Any]:
+        connection_info = self._arrow_client.advertised_connection_info()
+
+        token = self._arrow_client.request_token()
+        if token is None:
+            token = "IGNORED"
+
+        return {
+            "host": connection_info.host,
+            "port": connection_info.port,
+            "token": token,
+            "encrypted": connection_info.encrypted,
+        }
+
+
+class ProjectionResult(BaseResult):
+    """Result object for graph projection jobs."""
+
+    graph_name: str
+    node_count: int
+    relationship_count: int
+    project_millis: int
+    configuration: dict[str, Any]
+    query: str
+
+
+class StoreProjectionResult(BaseResult):
+    """Result object for native graph projection jobs."""
+
+    graph_name: str
+    node_count: int
+    relationship_count: int
+    project_millis: int
+
+
+class GraphWithProjectResult(NamedTuple):
+    """Result object for graph projection jobs, containing the projected graph and the projection result.
+    Can be used as a context manager to ensure the projected graph is dropped after use."""
+
+    graph: GraphV2
+    result: ProjectionResult | StoreProjectionResult
+
+    def __enter__(self) -> GraphV2:
+        return self.graph
+
+    def __exit__(
+        self,
+        exception_type: Type[BaseException] | None,
+        exception_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        self.graph.drop()
