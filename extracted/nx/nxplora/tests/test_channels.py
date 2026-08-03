@@ -142,7 +142,7 @@ class ChannelsBaseTests(unittest.TestCase):
 class BosTokenResolutionTests(unittest.TestCase):
     """Regression: _bos_token() must find a signed-in session regardless of
     HOW the operator signed in. Caught live 2026-06-28 — a real signed-in
-    operator got "not_signed_in" on /channels connect google because the
+    operator got "not_signed_in" on /publish connect google because the
     function only checked nx_token, never the plain `token` field a pasted
     API key (or an unrefreshed OAuth session) uses.
 
@@ -315,7 +315,7 @@ class BosBridgedChannelTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(result["mode"], "shared_oauth")
         self.assertEqual(result["provider"], "x")
-        self.assertEqual(result["hint"], "/channels connect x")
+        self.assertEqual(result["hint"], "/publish connect x")
         self.assertEqual(prompts, [])
         security.assert_not_called()
 
@@ -350,7 +350,7 @@ class CommandDispatchTests(unittest.TestCase):
     def test_setup_on_bos_bridged_channel_explains_nothing_to_register(self):
         out = nx_channels.handle_command(["setup", "meta"])
         self.assertIn("nothing to register", out)
-        self.assertIn("/channels connect meta", out)
+        self.assertIn("/publish connect meta", out)
 
     def test_disconnect_only_claims_removal_after_shared_vault_confirms_it(self):
         with mock.patch.object(nx_channels.XChannel, "disconnect", return_value=False):

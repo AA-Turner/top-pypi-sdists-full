@@ -18,6 +18,7 @@ import typer
 
 from ...common.glab.runner import glab_api, run_glab
 from ...common.group import resolve_group
+from ...common.project_config import resolve_project_path
 from ...common.references.gitlab_labels import BoardLabel
 from ..workflow_transition import _get_project_id
 from .core import IssueRef, parse_issue_refs
@@ -62,9 +63,16 @@ def _close_and_strip(project: str, iid: int) -> bool:
     ).ok
 
 
-def _target_project(ref: IssueRef, own_project: str) -> str:
-    """Project an issue ref lives in: its cross-project path, or the release's own."""
-    return ref.project_path if ref.project_path is not None else own_project
+def _target_project(ref: IssueRef, own_project: str, group: str) -> str:
+    """Project an issue ref lives in: its cross-project path, or the release's own.
+
+    ``parse_issue_refs`` stays I/O-free, so it can only prefix the group: a ref to a
+    project nested in a subgroup (``infra-cluster#129``) comes out as ``<group>/infra-cluster``,
+    which does not exist. Resolving here is what makes those refs closable.
+    """
+    if ref.project_path is None:
+        return own_project
+    return resolve_project_path(ref.project_path, group)
 
 
 def main(
@@ -98,8 +106,9 @@ def main(
     # De-duplicate by (resolved project, iid) — a ticket referenced twice closes once.
     seen: set[tuple[str, int]] = set()
     tickets: list[dict[str, object]] = []
-    for ref in parse_issue_refs(message, resolve_group()):
-        target = _target_project(ref, own_project)
+    group = resolve_group()
+    for ref in parse_issue_refs(message, group):
+        target = _target_project(ref, own_project, group)
         key = (target, ref.iid)
         if key in seen:
             continue

@@ -10,6 +10,7 @@ import pytest
 import typer
 
 from ouroboros.cli.commands.run import (
+    _execution_model_status,
     _load_skip_completed_markers,
     _resolve_cli_project_dir,
     _resolve_fat_harness_mode,
@@ -22,6 +23,7 @@ from ouroboros.core.seed import Seed
 from ouroboros.core.types import Result
 from ouroboros.evaluation.verification_artifacts import VerificationArtifacts
 from ouroboros.mcp.types import ContentType, MCPContentItem, MCPToolResult
+from ouroboros.orchestrator.decomposition_limits import MAX_DECOMPOSITION_DEPTH
 from ouroboros.orchestrator.session import SessionTracker
 
 VALID_SEED_DATA = {
@@ -377,6 +379,85 @@ def test_resolve_max_decomposition_depth_prefers_cli_then_env_then_seed(
     assert _resolve_max_decomposition_depth(seed_data, 1) == 1
 
 
+@pytest.mark.parametrize("source", ["cli", "env", "seed"])
+def test_resolve_max_decomposition_depth_admits_shared_maximum_for_every_source(
+    monkeypatch: pytest.MonkeyPatch,
+    source: str,
+) -> None:
+    """CLI, env, and Seed use one inclusive 0-4 admission contract."""
+
+    monkeypatch.delenv("OUROBOROS_MAX_DECOMPOSITION_DEPTH", raising=False)
+    cli_value: int | None = None
+    seed_data = dict(VALID_SEED_DATA)
+    if source == "cli":
+        cli_value = MAX_DECOMPOSITION_DEPTH
+    elif source == "env":
+        monkeypatch.setenv(
+            "OUROBOROS_MAX_DECOMPOSITION_DEPTH",
+            str(MAX_DECOMPOSITION_DEPTH),
+        )
+    else:
+        seed_data["orchestrator"] = {"max_decomposition_depth": MAX_DECOMPOSITION_DEPTH}
+
+    assert _resolve_max_decomposition_depth(seed_data, cli_value) == MAX_DECOMPOSITION_DEPTH == 4
+
+
+@pytest.mark.parametrize("source", ["cli", "env", "seed"])
+def test_resolve_max_decomposition_depth_preserves_larger_legacy_values_for_every_source(
+    monkeypatch: pytest.MonkeyPatch,
+    source: str,
+) -> None:
+    """The historical non-negative contract remains valid above durable depth four."""
+
+    monkeypatch.delenv("OUROBOROS_MAX_DECOMPOSITION_DEPTH", raising=False)
+    cli_value: int | None = None
+    seed_data = dict(VALID_SEED_DATA)
+    if source == "cli":
+        cli_value = MAX_DECOMPOSITION_DEPTH + 1
+    elif source == "env":
+        monkeypatch.setenv(
+            "OUROBOROS_MAX_DECOMPOSITION_DEPTH",
+            str(MAX_DECOMPOSITION_DEPTH + 1),
+        )
+    else:
+        seed_data["orchestrator"] = {"max_decomposition_depth": MAX_DECOMPOSITION_DEPTH + 1}
+
+    assert _resolve_max_decomposition_depth(seed_data, cli_value) == MAX_DECOMPOSITION_DEPTH + 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("source", ["env", "seed"])
+async def test_run_orchestrator_rejects_negative_depth_before_runtime_setup(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    source: str,
+) -> None:
+    """Invalid raw env/Seed values still fail before stores and providers."""
+
+    seed_file = tmp_path / "seed.yaml"
+    seed_file.write_text("goal: ignored\n", encoding="utf-8")
+    seed_data = dict(VALID_SEED_DATA)
+    monkeypatch.delenv("OUROBOROS_MAX_DECOMPOSITION_DEPTH", raising=False)
+    if source == "env":
+        monkeypatch.setenv(
+            "OUROBOROS_MAX_DECOMPOSITION_DEPTH",
+            "-1",
+        )
+    else:
+        seed_data["orchestrator"] = {"max_decomposition_depth": -1}
+
+    with (
+        patch("ouroboros.cli.commands.run._load_seed_from_yaml", return_value=seed_data),
+        patch("ouroboros.persistence.event_store.EventStore") as event_store_cls,
+        patch("ouroboros.orchestrator.create_agent_runtime") as create_agent_runtime,
+        pytest.raises(typer.Exit),
+    ):
+        await _run_orchestrator(seed_file)
+
+    event_store_cls.assert_not_called()
+    create_agent_runtime.assert_not_called()
+
+
 def test_load_skip_completed_markers_parses_yaml_metadata(tmp_path: Path) -> None:
     """The skip-completed marker file should resolve 1-based AC numbers."""
     marker_file = tmp_path / "completed.yaml"
@@ -512,7 +593,7 @@ async def test_run_orchestrator_passes_resolved_execution_caps_to_runner(tmp_pat
     mock_runner.resume_session = AsyncMock()
     seed_data = {
         **VALID_SEED_DATA,
-        "orchestrator": {"max_decomposition_depth": 3},
+        "orchestrator": {"max_decomposition_depth": MAX_DECOMPOSITION_DEPTH},
     }
 
     with (
@@ -537,7 +618,9 @@ async def test_run_orchestrator_passes_resolved_execution_caps_to_runner(tmp_pat
         mock_event_store_cls.return_value.initialize = AsyncMock()
         await _run_orchestrator(seed_file)
 
-    assert mock_runner_cls.call_args.kwargs["max_decomposition_depth"] == 3
+    assert (
+        mock_runner_cls.call_args.kwargs["max_decomposition_depth"] == MAX_DECOMPOSITION_DEPTH == 4
+    )
     assert mock_runner_cls.call_args.kwargs["max_parallel_workers"] == 7
     assert mock_runner_cls.call_args.kwargs["fat_harness_mode"] is True
 
@@ -782,6 +865,25 @@ async def test_run_orchestrator_passes_execution_model_to_runtime(
 
     assert mock_runtime.call_args.kwargs["backend"] == "pi"
     assert mock_runtime.call_args.kwargs["model"] == "openai-codex/gpt-5.4-mini"
+
+
+def test_execution_model_status_marks_fixed_model() -> None:
+    assert _execution_model_status("codex", "terra") == "Execution model: terra (fixed)"
+
+
+def test_execution_model_status_does_not_invent_codex_automatic_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "ouroboros.backends.model_catalog.configured_default_model",
+        lambda _backend: "gpt-configured",
+    )
+
+    status = _execution_model_status("codex", None)
+
+    assert "follows Codex's currently selected model" in status
+    assert "config.toml: gpt-configured" in status
+    assert "not confirmed at runtime" in status
 
 
 @pytest.mark.asyncio

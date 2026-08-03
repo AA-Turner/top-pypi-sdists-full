@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-2-Clause
 
-# Copyright (c) 2025 Phil Thompson <phil@riverbankcomputing.com>
+# Copyright (c) 2026 Phil Thompson <phil@riverbankcomputing.com>
 
 
 import os
@@ -10,6 +10,7 @@ from .buildable import BuildableBindings
 from .configurable import Configurable, Option
 from .exceptions import UserException
 from .generator import parse, resolve
+from .generator.specification import GILUse
 from .generator.outputs import (output_api, output_code, output_extract,
         output_pyi)
 from .installable import Installable
@@ -160,12 +161,13 @@ class Bindings(Configurable):
         module = spec.module
 
         uses_limited_api = module.use_limited_api or spec.is_composite
+        gil_disabled = module.gil_use is GILUse.NOT_USED or spec.is_composite
 
         # The details of things that will have been generated.  Note that we
         # don't include anything for .api files or generic extracts as the
         # arguments include a file name.
         buildable = BuildableBindings(self, module.fq_py_name.name,
-                uses_limited_api=uses_limited_api)
+                uses_limited_api=uses_limited_api, gil_disabled=gil_disabled)
 
         buildable.builder_settings.extend(self.builder_settings)
         buildable.debug = self.debug
@@ -174,6 +176,14 @@ class Bindings(Configurable):
         buildable.extra_link_args = self.extra_link_args
         buildable.extra_objects = self.extra_objects
         buildable.static = self.static
+        buildable.sip_module_configuration = spec.sip_module_configuration
+
+        # Each ABI version has a different minimum C++ standard.
+        if not spec.c_bindings:
+            if project.target_abi[0] >= 14:
+                buildable.cpp_standard = 'c++20'
+            elif project.target_abi[0] == 13:
+                buildable.cpp_standard = 'c++11'
 
         # Generate any API file.
         if project.api_dir and not self.internal:
@@ -237,7 +247,9 @@ class Bindings(Configurable):
         else:
             buildable.sources.extend(
                     copy_nonshared_sources(project.build_abi,
-                            module.fq_py_name.name, buildable.build_dir))
+                            module.fq_py_name.name,
+                            spec.sip_module_configuration,
+                            buildable.build_dir))
 
         buildable.include_dirs.extend(self.include_dirs)
         buildable.sources.extend(self.sources)

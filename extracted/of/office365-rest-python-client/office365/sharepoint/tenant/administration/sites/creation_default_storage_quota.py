@@ -1,12 +1,15 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class SiteCreationDefaultStorageQuota(ClientValue):
-    def __init__(self, IsReadOnly=None, Value=None):
-        # type: (bool, int) -> None
-        self.IsReadOnly = IsReadOnly
-        self.Value = Value
+    IsReadOnly: bool | None = None
+    Value: int | None = None
 
     @property
-    def entity_type_name(self):
+    def entity_type_name(self):  # type: ignore[override]
         return "Microsoft.Online.SharePoint.TenantAdministration.SiteCreationDefaultStorageQuota"

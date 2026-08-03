@@ -1,19 +1,17 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 from office365.runtime.client_value import ClientValue
 from office365.runtime.types.collections import StringCollection
 
 
+@dataclass
 class SecondaryAdministratorsFieldsData(ClientValue):
-    def __init__(self, site_id=None, emails=None, names=None):
-        """
-        :type emails: List[str] or None
-        :type names: List[str] or None
-        :type site_id: str or None
-        """
-        super(SecondaryAdministratorsFieldsData, self).__init__()
-        self.secondaryAdministratorEmails = StringCollection(emails)
-        self.secondaryAdministratorLoginNames = StringCollection(names)
-        self.siteId = site_id
+    siteId: str | None = None
+    secondaryAdministratorEmails: StringCollection | None = None
+    secondaryAdministratorLoginNames: StringCollection | None = None
 
     @property
-    def entity_type_name(self):
+    def entity_type_name(self):  # type: ignore[override]
         return "Microsoft.Online.SharePoint.TenantAdministration.SecondaryAdministratorsFieldsData"

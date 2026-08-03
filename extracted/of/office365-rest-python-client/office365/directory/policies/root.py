@@ -8,25 +8,26 @@ from office365.directory.policies.authentication_strength import (
     AuthenticationStrengthPolicy,
 )
 from office365.directory.policies.authorization import AuthorizationPolicy
-from office365.directory.policies.conditional_access import ConditionalAccessPolicy
-from office365.directory.policies.cross_tenant_access import CrossTenantAccessPolicy
+from office365.directory.policies.conditionalaccess.conditional_access import ConditionalAccessPolicy
+from office365.directory.policies.crosstenant.access import CrossTenantAccessPolicy
 from office365.directory.policies.device_registration import DeviceRegistrationPolicy
 from office365.directory.policies.feature_rollout import FeatureRolloutPolicy
 from office365.directory.policies.permission_grant import PermissionGrantPolicy
 from office365.directory.policies.tenant_app_management import TenantAppManagementPolicy
-from office365.directory.policies.unified_role_management import (
+from office365.directory.policies.unifiedrolemanagement.policy import (
     UnifiedRoleManagementPolicy,
 )
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
 from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.types.odata_property import odata
 
 
 class PolicyRoot(Entity):
     """Resource type exposing navigation properties for the policies singleton."""
 
     @property
-    def admin_consent_request_policy(self):
+    def admin_consent_request_policy(self) -> AdminConsentRequestPolicy:
         """
         The policy by which consent requests are created and managed for the entire tenant.
         """
@@ -39,7 +40,7 @@ class PolicyRoot(Entity):
         )
 
     @property
-    def authentication_methods_policy(self):
+    def authentication_methods_policy(self) -> AuthenticationMethodsPolicy:
         """
         The authentication methods and the users that are allowed to use them to sign in and perform multi-factor
         authentication (MFA) in Azure Active Directory (Azure AD).
@@ -53,8 +54,9 @@ class PolicyRoot(Entity):
         )
 
     @property
-    def authentication_strength_policies(self):
-        # type: () -> EntityCollection[AuthenticationStrengthPolicy]
+    def authentication_strength_policies(
+        self,
+    ) -> EntityCollection[AuthenticationStrengthPolicy]:
         """
         The authentication method combinations that are to be used in scenarios defined by Azure AD Conditional Access.
         """
@@ -68,7 +70,7 @@ class PolicyRoot(Entity):
         )
 
     @property
-    def authentication_flows_policy(self):
+    def authentication_flows_policy(self) -> AuthenticationFlowsPolicy:
         """The policy configuration of the self-service sign-up experience of external users."""
         return self.properties.get(
             "authenticationFlowsPolicy",
@@ -79,18 +81,15 @@ class PolicyRoot(Entity):
         )
 
     @property
-    def authorization_policy(self):
+    def authorization_policy(self) -> AuthorizationPolicy:
         """The policy that controls Azure AD authorization settings."""
         return self.properties.get(
             "authorizationPolicy",
-            AuthorizationPolicy(
-                self.context, ResourcePath("authorizationPolicy", self.resource_path)
-            ),
+            AuthorizationPolicy(self.context, ResourcePath("authorizationPolicy", self.resource_path)),
         )
 
     @property
-    def app_management_policies(self):
-        # type: () -> EntityCollection[AppManagementPolicy]
+    def app_management_policies(self) -> EntityCollection[AppManagementPolicy]:
         """The policies that enforce app management restrictions for specific applications and service principals,
         overriding the defaultAppManagementPolicy."""
         return self.properties.get(
@@ -103,8 +102,7 @@ class PolicyRoot(Entity):
         )
 
     @property
-    def conditional_access_policies(self):
-        # type: () -> EntityCollection[ConditionalAccessPolicy]
+    def conditional_access_policies(self) -> EntityCollection[ConditionalAccessPolicy]:
         """The custom rules that define an access scenario"""
         return self.properties.get(
             "conditionalAccessPolicies",
@@ -116,7 +114,7 @@ class PolicyRoot(Entity):
         )
 
     @property
-    def cross_tenant_access_policy(self):
+    def cross_tenant_access_policy(self) -> CrossTenantAccessPolicy:
         """
         The custom rules that define an access scenario when interacting with external Azure AD tenants.
         """
@@ -129,7 +127,7 @@ class PolicyRoot(Entity):
         )
 
     @property
-    def device_registration_policy(self):
+    def device_registration_policy(self) -> DeviceRegistrationPolicy:
         """ """
         return self.properties.get(
             "deviceRegistrationPolicy",
@@ -140,7 +138,7 @@ class PolicyRoot(Entity):
         )
 
     @property
-    def default_app_management_policy(self):
+    def default_app_management_policy(self) -> TenantAppManagementPolicy:
         """
         The tenant-wide policy that enforces app management restrictions for all applications and service principals.
         """
@@ -152,9 +150,9 @@ class PolicyRoot(Entity):
             ),
         )
 
+    @odata(name="featureRolloutPolicies")
     @property
-    def feature_rollout_policies(self):
-        # type: () -> EntityCollection[FeatureRolloutPolicy]
+    def feature_rollout_policies(self) -> EntityCollection[FeatureRolloutPolicy]:
         """The feature rollout policy associated with a directory object."""
         return self.properties.get(
             "featureRolloutPolicies",
@@ -165,9 +163,9 @@ class PolicyRoot(Entity):
             ),
         )
 
+    @odata(name="permissionGrantPolicies")
     @property
-    def permission_grant_policies(self):
-        # type: () -> EntityCollection[PermissionGrantPolicy]
+    def permission_grant_policies(self) -> EntityCollection[PermissionGrantPolicy]:
         """
         The policy that specifies the conditions under which consent can be granted.
         """
@@ -180,9 +178,9 @@ class PolicyRoot(Entity):
             ),
         )
 
+    @odata(name="roleManagementPolicies")
     @property
-    def role_management_policies(self):
-        # type: () -> EntityCollection[UnifiedRoleManagementPolicy]
+    def role_management_policies(self) -> EntityCollection[UnifiedRoleManagementPolicy]:
         """Specifies the various policies associated with scopes and roles."""
         return self.properties.get(
             "roleManagementPolicies",
@@ -206,9 +204,6 @@ class PolicyRoot(Entity):
                 "crossTenantAccessPolicy": self.cross_tenant_access_policy,
                 "defaultAppManagementPolicy": self.default_app_management_policy,
                 "deviceRegistrationPolicy": self.device_registration_policy,
-                "featureRolloutPolicies": self.feature_rollout_policies,
-                "permissionGrantPolicies": self.permission_grant_policies,
-                "roleManagementPolicies": self.role_management_policies,
             }
             default_value = property_mapping.get(name, None)
-        return super(PolicyRoot, self).get_property(name, default_value)
+        return super().get_property(name, default_value)

@@ -12,7 +12,12 @@ class GetVersion(ast.NodeVisitor):
     def visit_Assign(self, node):
         if any(target.id == 'VERSION' for target in node.targets):
             assert not hasattr(self, 'VERSION')
-            self.VERSION = node.value.s
+            if isinstance(node.value, ast.Constant):
+                self.VERSION = node.value.value
+            elif isinstance(node.value, ast.Str):
+                self.VERSION = node.value.s
+            else:
+                self.VERSION = node.value.value
 
 this_directory = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(this_directory, 'README.rst')) as f:
@@ -31,7 +36,6 @@ setup(
     zip_safe=False,
     install_requires=[
         'Django>=1.11.29',
-        'six',
     ],
     extras_require={
         'tests': [
@@ -50,11 +54,12 @@ setup(
         'Topic :: Software Development',
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.4",
-        "Programming Language :: Python :: 3.5",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
     ],
 )

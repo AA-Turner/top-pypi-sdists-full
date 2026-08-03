@@ -63,10 +63,7 @@ class Config:
     screeners_config = "/screeners/config"
     screeners_query = "/screeners/query"
     screeners_candlestick = "/screeners/candlestick"
-    screeners_technical = "/screeners/technical"    
-    
-    
-
+    screeners_technical = "/screeners/technical"
 
 
 class FyersServiceSync:
@@ -950,7 +947,7 @@ class FyersModel:
 
         Args:
         data (dict): A dictionary containing the order details.
-            - 'productType' (str): Type of the product. Possible values: 'CNC', 'INTRADAY', 'MARGIN', 'CO', 'BO'.
+            - 'productType' (str): Type of the product. Possible values: 'CNC', 'INTRADAY', 'MARGIN', 'MTF'.
             - 'side' (int): Side of the order. 1 for Buy, -1 for Sell.
             - 'symbol' (str): Symbol of the product. Eg: 'NSE:SBIN-EQ'.
             - 'qty' (int): Quantity of the product. Should be in multiples of lot size for derivatives.
@@ -963,6 +960,9 @@ class FyersModel:
             - 'stopPrice' (float): Valid price for Stop and Stoplimit orders. Default: 0.
             - 'offlineOrder' (bool): Specifies if the order is placed when the market is open (False) or as an AMO order (True).
             - 'isSliceOrder' (bool): Specifies if the order is a slice order. Default: False.
+            - 'takeProfit' (float, optional): Profit target offset relative to entry. Omit if not used.
+            - 'stopLoss' (float, optional): Stop loss offset relative to entry. Omit if not used.
+            - 'legType' (int, optional): Offset type when TP/SL is used. 1 = Points (default), 2 = Percentage of entry price. Omit if not using TP/SL.
 
         Returns:
             The response JSON as a dictionary.
@@ -1012,6 +1012,9 @@ class FyersModel:
             stopPrice (float, optional): New stop price for the order. Mandatory for Stop/Stoplimit orders.
             qty (int, optional): New quantity for the order.
             type (int, optional): New order type for the order.
+            takeProfit (float | None, optional): Omit to keep existing. Value > 0 updates/creates TP; 0 or null removes TP.
+            stopLoss (float | None, optional): Omit to keep existing. Value > 0 updates/creates SL; 0 or null removes SL.
+            legType (int, optional): Only relevant when setting TP/SL. Read-only once legs exist.
 
         Returns:
             The response JSON as a dictionary.
@@ -1066,6 +1069,27 @@ class FyersModel:
             
         else:
             response = self.service.delete_call(Config.positions, self.header, data)
+        return response
+
+    def attach_position_legs(self, data) -> dict:
+        """
+        Attach or update TP/SL legs on an existing open position (PATCH /positions).
+
+        Args:
+        data (dict): A dictionary containing the attachment details.
+            - 'positionId' (str): Position identifier. Eg: 'NSE:SBIN-EQ-INTRADAY'. Required.
+            - 'takeProfit' (float | None, optional): Target offset, or null/0 to delete. Omit if unchanged.
+            - 'stopLoss' (float | None, optional): Stop loss offset, or null/0 to delete. Omit if unchanged.
+            - 'legType' (int, optional): 1 = Points (default), 2 = Percentage. Only needed when setting TP/SL.
+            - 'qty' (int, optional): Quantity to protect. Defaults to the position's net quantity.
+
+        Returns:
+            The response JSON as a dictionary.
+        """
+        if self.is_async:
+            response = self.service.patch_async_call(Config.positions, self.header, data)
+        else:
+            response = self.service.patch_call(Config.positions, self.header, data)
         return response
     
     
@@ -1135,14 +1159,15 @@ class FyersModel:
             - 'qty' (int): Quantity of the product.
             - 'type' (int): Type of the order. 1 for Limit Order, 2 for Market Order, and so on.
             - 'side' (int): Side of the order. 1 for Buy, -1 for Sell.
-            - 'productType' (str): Type of the product. Eg: 'INTRADAY', 'CNC', etc.
+            - 'productType' (str): Type of the product. Eg: 'INTRADAY', 'CNC', 'MARGIN', 'MTF'.
             - 'limitPrice' (float): Valid price for Limit and Stoplimit orders.
             - 'stopPrice' (float): Valid price for Stop and Stoplimit orders.
             - 'disclosedQty' (int): Disclosed quantity. Allowed only for equity.
             - 'validity' (str): Validity of the order. Eg: 'DAY', 'IOC', etc.
             - 'offlineOrder' (bool): Specifies if the order is placed when the market is open (False) or as an AMO order (True).
-            - 'stopLoss' (float): Valid price for CO and BO orders.
-            - 'takeProfit' (float): Valid price for BO orders.
+            - 'takeProfit' (float, optional): Profit target offset. Omit if not using TP/SL.
+            - 'stopLoss' (float, optional): Stop loss offset. Omit if not using TP/SL.
+            - 'legType' (int, optional): Offset type when TP/SL is used. 1 = Points (default), 2 = Percentage.
 
 
         Returns:
@@ -1169,6 +1194,9 @@ class FyersModel:
             - 'stopPrice' (float): New stop price for the order. Mandatory for Stop/Stoplimit orders.
             - 'qty' (int): New quantity for the order.
             - 'type' (int): New order type for the order.
+            - 'takeProfit' (float | None, optional): Omit to keep. Value > 0 updates/creates; 0 or null removes.
+            - 'stopLoss' (float | None, optional): Omit to keep. Value > 0 updates/creates; 0 or null removes.
+            - 'legType' (int, optional): Only relevant when setting TP/SL. Read-only once legs exist.
 
         Returns:
             The response JSON as a dictionary.

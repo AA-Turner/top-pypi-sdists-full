@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyrepl
-Version: 0.11.4
+Version: 0.11.5
 Summary: A library for building flexible command line interfaces
 Author-email: Michael Hudson-Doyle <micahel@gmail.com>
 Maintainer-email: bretello <bretello@distruzione.org>

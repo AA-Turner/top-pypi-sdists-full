@@ -66,6 +66,7 @@ class TestBatchModel(unittest.TestCase):
                         timestamp = '', )
                     ],
                 failed_object_count = 0.0,
+                unaccounted_object_count = 0.0,
                 type = 'BUCKET',
                 manifest_key = '',
                 task_id = '',

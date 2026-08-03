@@ -1088,8 +1088,13 @@ def mape_box_by_year(
                        color=region_colors[r], label=r)
                 for r in all_regions
             ]
-            ax.legend(handles=handles, fontsize=6, ncol=2, loc="upper left",
-                      framealpha=0.6, title="Region", title_fontsize=7)
+            # Legend outside the axes (upper-right) so it never overlaps the
+            # boxes/jittered points. bbox_inches="tight" at save expands the
+            # figure to include it.
+            ax.legend(handles=handles, fontsize=6, ncol=2,
+                      loc="upper left", bbox_to_anchor=(1.01, 1.0),
+                      framealpha=0.6, title="Region", title_fontsize=7,
+                      borderaxespad=0.0)
 
         if do_cap:
             for i, y in enumerate(years_sorted):

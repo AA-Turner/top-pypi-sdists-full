@@ -1,26 +1,25 @@
+from __future__ import annotations
+
 import math
 import time
+from dataclasses import dataclass, field
+from typing import Optional
 
 from office365.runtime.client_value import ClientValue
+from office365.runtime.types.collections import StringCollection
 
 
+@dataclass
 class ContextWebInformation(ClientValue):
     """Specifies metadata about a site."""
 
-    def __init__(self, form_digest_value=None, form_digest_timeout_secs=None):
-        """
-        :param str form_digest_value: An object that is inserted into a page and is used by a protocol server
-             to validate client requests. The validation is specific to a user, site, and time period.
-        :param int form_digest_timeout_secs: Specifies the amount of time in seconds before security validation expires.
-        """
-        super(ContextWebInformation, self).__init__()
-        self.FormDigestValue = form_digest_value
-        self.FormDigestTimeoutSeconds = form_digest_timeout_secs
-        self.LibraryVersion = None
-        self.SiteFullUrl = None
-        self.SupportedSchemaVersions = None
-        self.WebFullUrl = None
-        self._valid_from = time.time()
+    FormDigestValue: Optional[str] = None
+    FormDigestTimeoutSeconds: Optional[int] = None
+    LibraryVersion: Optional[str] = None
+    SiteFullUrl: Optional[str] = None
+    SupportedSchemaVersions: StringCollection = field(default_factory=StringCollection)
+    WebFullUrl: Optional[str] = None
+    _valid_from: float = 0.0
 
     @property
     def is_valid(self):
@@ -29,6 +28,5 @@ class ContextWebInformation(ClientValue):
         """
         if self.FormDigestTimeoutSeconds is None:
             return False
-
         expires_in_sec = math.ceil(time.time() - self._valid_from)
         return expires_in_sec < self.FormDigestTimeoutSeconds

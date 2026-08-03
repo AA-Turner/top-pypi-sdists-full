@@ -7,13 +7,11 @@ from office365.sharepoint.entity_collection import EntityCollection
 
 class SPMachineLearningModelCollection(EntityCollection[SPMachineLearningModel]):
     def __init__(self, context, resource_path=None):
-        super(SPMachineLearningModelCollection, self).__init__(
-            context, SPMachineLearningModel, resource_path
-        )
+        super().__init__(context, SPMachineLearningModel, resource_path)
 
     def get_by_title(self, title):
-        """
-        :param str title: The title of the model to return.
+        """Args:
+        title (str): The title of the model to return.
         """
         return SPMachineLearningModel(
             self.context,

@@ -1,5 +1,8 @@
 from typing import AnyStr, Optional
 
+from typing_extensions import Self
+
+from office365.directory.permissions.require_permission import require_permission
 from office365.onedrive.versions.base_item import BaseItemVersion
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 
@@ -7,7 +10,19 @@ from office365.runtime.queries.service_operation import ServiceOperationQuery
 class DriveItemVersion(BaseItemVersion):
     """The DriveItemVersion resource represents a specific version of a DriveItem."""
 
-    def restore_version(self):
+    @require_permission(
+        delegated=[
+            "Files.Read",
+            "Files.Read.All",
+            "Files.ReadWrite",
+            "Files.ReadWrite.All",
+            "Sites.Read.All",
+            "Sites.ReadWrite.All",
+        ],
+        application=["Files.Read.All", "Files.ReadWrite.All", "Sites.Read.All", "Sites.ReadWrite.All"],
+        notes="Restore a previous version of a DriveItem to be the current version",
+    )
+    def restore_version(self) -> Self:
         """Restore a previous version of a DriveItem to be the current version.
         This will create a new version with the contents of the previous version, but preserves all existing
         versions of the file."""
@@ -16,13 +31,11 @@ class DriveItemVersion(BaseItemVersion):
         return self
 
     @property
-    def content(self):
-        # type: () -> Optional[AnyStr]
+    def content(self) -> Optional[AnyStr]:
         """The content stream for this version of the item."""
         return self.properties.get("content", None)
 
     @property
-    def size(self):
-        # type: () -> Optional[int]
+    def size(self) -> Optional[int]:
         """Indicates the size of the content stream for this version of the item."""
         return self.properties.get("size", None)

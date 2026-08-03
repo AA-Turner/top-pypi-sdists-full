@@ -22,6 +22,8 @@ are accepted as aliases and map to the same internal value.
 """
 
 import warnings
+from collections.abc import Iterator
+from functools import cached_property
 from pathlib import Path
 from typing import Literal, Union
 
@@ -29,6 +31,7 @@ import click
 
 from apm_cli.core.target_catalog import (
     TARGET_CAPABILITIES,
+    TargetCapability,
     accepted_target_values,
     expand_all,
     get_target_capability,
@@ -793,6 +796,181 @@ class ResolvedTargets:
     targets: list[str]  # sorted canonical target names
     source: str  # '--target flag' | 'apm.yml' | 'auto-detect from <csv>'
     auto_create: bool  # always True after resolution (three-guard collapse)
+
+
+def _target_capabilities(
+    value: str | list[str] | None,
+) -> Iterator[tuple[str, TargetCapability]]:
+    """Yield expanded target spellings with their catalog capabilities."""
+    raw_targets = [value] if isinstance(value, str) else list(value or [])
+    for raw_target in raw_targets:
+        expanded = expand_all("install") if raw_target == "all" else (raw_target,)
+        for target in expanded:
+            yield target, get_target_capability(target)
+
+
+@dataclass(frozen=True)
+class EffectiveTargetDecision:
+    """One install-time target decision shared by package, MCP, and LSP phases."""
+
+    value: str | list[str] | None
+    source: str
+
+    @cached_property
+    def canonical_targets(self) -> tuple[str, ...] | None:
+        """Return the selected native target profiles, or None when unrestricted."""
+        if self.value is None:
+            return None
+
+        canonical: list[str] = []
+        seen: set[str] = set()
+        for target, capability in _target_capabilities(self.value):
+            name = (
+                capability.primitive_profile
+                if capability.mcp_only and capability.primitive_profile is not None
+                else normalize_target_name(target)
+            )
+            if name not in seen:
+                seen.add(name)
+                canonical.append(name)
+        return tuple(canonical)
+
+    @cached_property
+    def runtime_targets(self) -> tuple[str, ...] | None:
+        """Return MCP runtime identifiers represented by this target decision."""
+        if self.value is None:
+            return None
+
+        runtimes: list[str] = []
+        seen: set[str] = set()
+        for target, capability in _target_capabilities(self.value):
+            runtime = (
+                capability.compile_family
+                if capability.compile_family in capability.runtimes
+                else target
+                if target in capability.runtimes
+                else capability.runtimes[0]
+                if capability.runtimes
+                else capability.name
+            )
+            if runtime not in seen:
+                seen.add(runtime)
+                runtimes.append(runtime)
+        return tuple(runtimes)
+
+    def runtime_targets_for_scope(self, *, user_scope: bool) -> tuple[str, ...] | None:
+        """Return MCP runtime identifiers adjusted for project or user scope."""
+        runtimes = self.runtime_targets
+        if (
+            not user_scope
+            or runtimes is None
+            or self.canonical_targets is None
+            or "copilot" not in self.canonical_targets
+        ):
+            return runtimes
+        return tuple("copilot" if target == "vscode" else target for target in runtimes)
+
+    @cached_property
+    def runtime_equivalents(self) -> tuple[str, ...] | None:
+        """Return canonical and adapter runtime spellings for exclusions."""
+        if self.value is None:
+            return None
+        equivalents: set[str] = set()
+        for _target, capability in _target_capabilities(self.value):
+            equivalents.add(capability.name)
+            equivalents.update(capability.runtimes)
+        return tuple(sorted(equivalents))
+
+    @cached_property
+    def lsp_targets(self) -> tuple[str, ...] | None:
+        """Return native target profiles eligible for LSP configuration."""
+        if self.value is None:
+            return None
+
+        targets: list[str] = []
+        seen: set[str] = set()
+        for target, capability in _target_capabilities(self.value):
+            if capability.mcp_only:
+                continue
+            canonical = normalize_target_name(target)
+            if canonical not in seen:
+                seen.add(canonical)
+                targets.append(canonical)
+        return tuple(targets)
+
+
+def resolve_effective_target_decision(
+    project_root: Path,
+    *,
+    explicit_target: str | list[str] | None,
+    manifest_target: str | list[str] | None,
+    user_scope: bool = False,
+    auto_detect: bool = True,
+) -> EffectiveTargetDecision:
+    """Choose the effective install target once using the public precedence.
+
+    Explicit CLI selection wins, followed by a validated manifest selection,
+    then the saved ``apm config target`` default. Project auto-detection runs
+    only when none of those restrictions exists. User-scope runtime discovery
+    remains unrestricted in that final case because it probes user-capable
+    runtimes rather than project harness markers.
+    """
+    if explicit_target is not None:
+        return EffectiveTargetDecision(explicit_target, "--target flag")
+
+    if manifest_target:
+        return EffectiveTargetDecision(manifest_target, "apm.yml")
+
+    from apm_cli.config import get_install_target
+
+    configured_target = get_install_target()
+    if configured_target is not None:
+        return EffectiveTargetDecision(configured_target, "apm config target")
+
+    if user_scope or not auto_detect:
+        return EffectiveTargetDecision(None, "auto-detect")
+
+    resolved = resolve_targets(project_root)
+    return EffectiveTargetDecision(list(resolved.targets), resolved.source)
+
+
+def resolve_package_target_decision(
+    project_root: Path,
+    *,
+    package: object | None,
+    explicit_target: str | list[str] | None,
+    user_scope: bool = False,
+    auto_detect: bool = True,
+) -> EffectiveTargetDecision:
+    """Resolve one effective target decision from a parsed package manifest."""
+    from apm_cli.models.apm_package import package_target_selection
+
+    return resolve_effective_target_decision(
+        project_root,
+        explicit_target=explicit_target,
+        manifest_target=package_target_selection(package) if package is not None else None,
+        user_scope=user_scope,
+        auto_detect=auto_detect,
+    )
+
+
+def resolve_manifest_target_decision(
+    project_root: Path,
+    *,
+    manifest_path: Path,
+    explicit_target: str | list[str] | None,
+) -> EffectiveTargetDecision:
+    """Resolve one effective target decision from an optional manifest path."""
+    package = None
+    if manifest_path.is_file():
+        from apm_cli.models.apm_package import APMPackage
+
+        package = APMPackage.from_apm_yml(manifest_path)
+    return resolve_package_target_decision(
+        project_root,
+        package=package,
+        explicit_target=explicit_target,
+    )
 
 
 # Detection signal whitelist.

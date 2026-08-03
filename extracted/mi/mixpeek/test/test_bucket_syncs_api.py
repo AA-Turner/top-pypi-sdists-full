@@ -104,6 +104,13 @@ class TestBucketSyncsApi(unittest.TestCase):
         """
         pass
 
+    def test_requeue_dlq_entries_buckets_id_syncs_config(self) -> None:
+        """Test case for requeue_dlq_entries_buckets_id_syncs_config
+
+        Requeue Dlq Entries
+        """
+        pass
+
     def test_resume_sync_configuration_buckets_id_config(self) -> None:
         """Test case for resume_sync_configuration_buckets_id_config
 

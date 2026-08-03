@@ -1,1 +1,0 @@
-import{i as e}from"./api-DON1TSkc.js";export{e as api};

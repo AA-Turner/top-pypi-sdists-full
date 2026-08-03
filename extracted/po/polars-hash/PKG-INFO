@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: polars-hash
-Version: 0.6.0
+Version: 0.8.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Dist: polars>=1.32.0
+Requires-Dist: polars>=1.34.0
 Summary: Stable non-cryptographic and cryptographic hashing functions for Polars
 Author-email: Ion Koutsours <15728914+ion-elgreco@users.noreply.github.com>
 Requires-Python: >=3.10
@@ -14,11 +14,14 @@ Project-URL: Homepage, https://github.com/ion-elgreco/polars-hash
 
 This plugin provides stable hashing functionality across different polars versions.
 
+📖 **[Documentation](https://ion-elgreco.github.io/polars-hash/)** — every expression,
+its input and output types, and its arguments.
+
 ## Examples
 ### Cryptographic Hashers
 
 ```python
-import polars
+import polars as pl
 import polars_hash as plh
 
 df = pl.DataFrame({
@@ -54,7 +57,56 @@ print(result)
 │ 16737367591072095403 │
 └──────────────────────┘
 
+result = df.select(plh.col('foo').nchash.farmhash64())
+print(result)
+┌──────────────────────┐
+│ foo                  │
+│ ---                  │
+│ u64                  │
+╞══════════════════════╡
+│ 15605398435621216523 │
+└──────────────────────┘
+
+result = df.select(plh.col('foo').nchash.farmhash32())
+print(result)
+┌────────────┐
+│ foo        │
+│ ---        │
+│ u32        │
+╞════════════╡
+│ 1719156559 │
+└────────────┘
+
+result = df.select(plh.col('foo').nchash.cityhash128())
+print(result)
+┌─────────────────────────────────────────┐
+│ foo                                     │
+│ ---                                     │
+│ u128                                    │
+╞═════════════════════════════════════════╡
+│ 133423608296839006301901834072762183026 │
+└─────────────────────────────────────────┘
+
+result = df.select(plh.col('foo').nchash.gxhash64())
+print(result)
+┌─────────────────────┐
+│ foo                 │
+│ ---                 │
+│ u64                 │
+╞═════════════════════╡
+│ 2180020304351407825 │
+└─────────────────────┘
 ```
+
+`cityhash32()` and `cityhash64()` return the values printed above for `farmhash32()`
+and `farmhash64()`. That is expected: FarmHash reuses CityHash for short input, and
+`hello_world` is 11 bytes. See
+[the CityHash reference](https://ion-elgreco.github.io/polars-hash/latest/api-reference/non-cryptographic/#cityhash32).
+
+The GxHash expressions need a CPU with AES instructions and have no software fallback.
+Every x86, x86-64 and aarch64 wheel is built for them; there are no `linux-armv7` or
+`linux-ppc64le` wheels from 0.8.0 on, because GxHash cannot be built for either. See
+[the GxHash reference](https://ion-elgreco.github.io/polars-hash/latest/api-reference/non-cryptographic/#gxhash32).
 
 ### Geo Hashers
 ```python
@@ -71,13 +123,13 @@ df.with_columns(
     plh.col('coord').geohash.from_coords().alias('geohash')
 )
 shape: (1, 2)
-┌─────────────────────┬────────────┐
-│ coord               ┆ geohash    │
-│ ---                 ┆ ---        │
-│ struct[2]           ┆ str        │
-╞═════════════════════╪════════════╡
-│ {-120.6623,35.3003} ┆ 9q60y60rhs │
-└─────────────────────┴────────────┘
+┌─────────────────────┬──────────────┐
+│ coord               ┆ geohash      │
+│ ---                 ┆ ---          │
+│ struct[2]           ┆ str          │
+╞═════════════════════╪══════════════╡
+│ {-120.6623,35.3003} ┆ 9q60y60rhsgg │
+└─────────────────────┴──────────────┘
 
 
 pl.select(pl.lit('9q60y60rhs').geohash.to_coords().alias('coordinates'))
@@ -91,14 +143,86 @@ shape: (1, 1)
 └───────────────────────┘
 ```
 
+### H3 Spatial Index
+```python
+df = pl.DataFrame(
+    {"coord": [{"longitude": -120.6623, "latitude": 35.3003}]},
+    schema={
+        "coord": pl.Struct(
+            [pl.Field("longitude", pl.Float64), pl.Field("latitude", pl.Float64)]
+        ),
+    },
+)
+
+df.with_columns(
+    plh.col('coord').h3.from_coords().alias('h3')
+)
+shape: (1, 2)
+┌─────────────────────┬─────────────────┐
+│ coord               ┆ h3              │
+│ ---                 ┆ ---             │
+│ struct[2]           ┆ str             │
+╞═════════════════════╪═════════════════╡
+│ {-120.6623,35.3003} ┆ 8c29adc423821ff │
+└─────────────────────┴─────────────────┘
+```
+
+
+### Time Hasher
+
+Bins timestamps into variable-precision sliding windows of time, so rows that
+fall in the same window share a hash. Timestamps must lie between 1970-01-01 and
+2098-01-01. A higher precision means a shorter window: 10 covers about 4 seconds,
+8 about 4 minutes.
+
+Precision may be 1 to 32, but past about 18 the hash stops changing for present-day
+timestamps and the extra characters are padding. The exact point depends on the date:
+timestamps close to 1970 keep splitting to about 21, far-future ones run out sooner.
+
+```python
+from datetime import datetime
+
+df = pl.DataFrame({"datetime": [datetime(2017, 2, 21, 20, 15, 13)]})
+
+df.with_columns(
+    plh.col('datetime').timehash.from_datetime().alias('timehash')
+)
+shape: (1, 2)
+┌─────────────────────┬────────────┐
+│ datetime            ┆ timehash   │
+│ ---                 ┆ ---        │
+│ datetime[μs]        ┆ str        │
+╞═════════════════════╪════════════╡
+│ 2017-02-21 20:15:13 ┆ afcccc0e1b │
+└─────────────────────┴────────────┘
+
+
+pl.select(pl.lit('afcccc0e1b').timehash.to_datetime().alias('datetime'))
+shape: (1, 1)
+┌────────────────────────────────┐
+│ datetime                       │
+│ ---                            │
+│ datetime[μs, UTC]              │
+╞════════════════════════════════╡
+│ 2017-02-21 20:15:11.292315 UTC │
+└────────────────────────────────┘
+
+
+pl.select(pl.lit('afcccc0e1b').timehash.neighbors().alias('neighbors'))
+shape: (1, 1)
+┌─────────────────────────────┐
+│ neighbors                   │
+│ ---                         │
+│ struct[2]                   │
+╞═════════════════════════════╡
+│ {"afcccc0e1a","afcccc0e1c"} │
+└─────────────────────────────┘
+```
 
 ## Create hash from multiple columns
 ```python
-df = pl.DataFrame({
-    "foo":["hello_world"],
-    "bar": ["today"]
-})
+df = pl.DataFrame({"foo": ["hello_world"], "bar": ["today"]})
 
-result = df.select(plh.concat_str('foo','bar').chash.sha256())
+result = df.select(plh.concat_str("foo", "bar").chash.sha256())
 ```
 

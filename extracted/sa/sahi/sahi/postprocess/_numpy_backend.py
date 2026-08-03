@@ -10,10 +10,13 @@ from __future__ import annotations
 import numpy as np
 
 from sahi.postprocess._sparse_backend import (
+    _safe_ratio,
     build_sparse_matches,
-    greedy_nmm_sparse,
+    greedy_nmm_streaming,
     nmm_sparse,
-    nms_sparse,
+    nmm_streaming,
+    nms_streaming,
+    should_stream_nmm,
     should_use_sparse,
 )
 
@@ -55,10 +58,10 @@ def compute_metric_matrix(boxes: np.ndarray, areas: np.ndarray, match_metric: st
 
         if match_metric == "IOU":
             union = areas[i:ie, None] + areas[None, :] - inter
-            matrix[i:ie] = np.where(union > 0, inter / union, 0)
+            matrix[i:ie] = _safe_ratio(inter, union)
         else:  # IOS
             smaller = np.minimum(areas[i:ie, None], areas[None, :])
-            matrix[i:ie] = np.where(smaller > 0, inter / smaller, 0)
+            matrix[i:ie] = _safe_ratio(inter, smaller)
     return matrix
 
 
@@ -82,10 +85,10 @@ def _compute_metric_matrix_full(boxes: np.ndarray, areas: np.ndarray, match_metr
 
     if match_metric == "IOU":
         union = areas[:, None] + areas[None, :] - inter
-        return np.where(union > 0, inter / union, 0).astype(np.float32)
+        return _safe_ratio(inter, union).astype(np.float32)
     else:  # IOS
         smaller = np.minimum(areas[:, None], areas[None, :])
-        return np.where(smaller > 0, inter / smaller, 0).astype(np.float32)
+        return _safe_ratio(inter, smaller).astype(np.float32)
 
 
 def _score_tiebreak_order(
@@ -113,6 +116,81 @@ def _score_tiebreak_order(
     """
     order = np.lexsort((y2, x2, y1, x1, -scores))
     return order
+
+
+def matches_all_pairs(match_threshold: float) -> bool:
+    """Return whether every pair counts as a match at this threshold.
+
+    Both metrics divide a non-negative intersection by a positive denominator,
+    or yield zero, so a metric value is never negative. Once the threshold
+    reaches zero the ``metric >= match_threshold`` test holds for every pair
+    including disjoint ones, and the adjacency is the complete graph.
+
+    Args:
+        match_threshold: Overlap threshold used for matching.
+
+    Returns:
+        True when the threshold admits every pair.
+    """
+    return match_threshold <= 0
+
+
+def _match_all_order(predictions: np.ndarray) -> np.ndarray:
+    """Score order for the complete-graph case, where no metric is needed."""
+    boxes = predictions[:, :4]
+    return _score_tiebreak_order(boxes[:, 0], boxes[:, 1], boxes[:, 2], boxes[:, 3], predictions[:, 4])
+
+
+def nms_match_all(predictions: np.ndarray) -> list[int]:
+    """NMS when every pair matches: the top-scoring box suppresses the rest."""
+    if len(predictions) == 0:
+        return []
+    return [int(_match_all_order(predictions)[0])]
+
+
+def greedy_nmm_match_all(predictions: np.ndarray) -> dict[int, list[int]]:
+    """Greedy NMM when every pair matches: one keeper absorbs the rest.
+
+    The dense loop emits candidates in score order, so this does too.
+    """
+    if len(predictions) == 0:
+        return {}
+    order = _match_all_order(predictions)
+    return {int(order[0]): [int(i) for i in order[1:]]}
+
+
+def nmm_match_all(predictions: np.ndarray) -> dict[int, list[int]]:
+    """NMM when every pair matches: the top-scoring box absorbs what it dominates.
+
+    A box only claims another that scores lower, or that scores equal without
+    sorting before it by coordinates. The top-scoring box sorts first among its
+    own score, so it claims every lower-scored box plus any exact coordinate
+    duplicate of itself, and nothing else. Boxes sharing the top score are left
+    as keepers with nothing merged into them, which is what the dense loop
+    produces once every pair is a match.
+
+    The merged indices come out in ascending index order, matching the
+    ``np.where`` the dense loop collects them with.
+    """
+    n = len(predictions)
+    if n == 0:
+        return {}
+
+    boxes, scores = predictions[:, :4], predictions[:, 4]
+    order = _match_all_order(predictions)
+    top = int(order[0])
+
+    tied = scores == scores[top]
+    duplicate = tied & np.all(boxes == boxes[top], axis=1)
+
+    claimed = ~tied | duplicate
+    claimed[top] = False
+
+    result: dict[int, list[int]] = {top: np.flatnonzero(claimed).tolist()}
+    for idx in order:
+        if tied[idx] and not duplicate[idx]:
+            result[int(idx)] = []
+    return result
 
 
 def _prepare_matrix(predictions: np.ndarray, match_metric: str) -> tuple[np.ndarray, np.ndarray]:
@@ -264,7 +342,9 @@ def nmm_from_matrix(
         matched = np.where(candidates_of[current_idx])[0]
 
         if merge_to_keep[current_idx] < 0:
-            # current_idx is a keeper
+            # current_idx is a keeper. Point it at itself so that a later box
+            # cannot claim it: keepers are never merged into anything.
+            merge_to_keep[current_idx] = current_idx
             keep_to_merge_list[current_idx] = []
             for m in matched:
                 m_int = int(m)
@@ -291,6 +371,14 @@ def nmm_from_matrix(
 # ---------------------------------------------------------------------------
 
 
+def _prepare_streaming(predictions: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Extract boxes, areas and the score order, computing no overlaps at all."""
+    boxes = predictions[:, :4]
+    areas = (boxes[:, 2] - boxes[:, 0]) * (boxes[:, 3] - boxes[:, 1])
+    sorted_idxs = _score_tiebreak_order(boxes[:, 0], boxes[:, 1], boxes[:, 2], boxes[:, 3], predictions[:, 4])
+    return boxes, areas, sorted_idxs
+
+
 def _prepare_sparse(
     predictions: np.ndarray, match_metric: str, match_threshold: float
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -311,9 +399,11 @@ def nms_numpy(
     """Non-maximum suppression using vectorized numpy metric matrix."""
     if len(predictions) == 0:
         return []
+    if matches_all_pairs(match_threshold):
+        return nms_match_all(predictions)
     if should_use_sparse(len(predictions), match_threshold):
-        indptr, indices, sorted_idxs = _prepare_sparse(predictions, match_metric, match_threshold)
-        return nms_sparse(indptr, indices, sorted_idxs)
+        boxes, areas, sorted_idxs = _prepare_streaming(predictions)
+        return nms_streaming(boxes, areas, match_metric, match_threshold, sorted_idxs)
     matrix, sorted_idxs = _prepare_matrix(predictions, match_metric)
     return nms_from_matrix(matrix, sorted_idxs, match_threshold)
 
@@ -324,9 +414,11 @@ def greedy_nmm_numpy(
     match_threshold: float = 0.5,
 ) -> dict[int, list[int]]:
     """Greedy non-maximum merging using vectorized numpy metric matrix."""
+    if matches_all_pairs(match_threshold):
+        return greedy_nmm_match_all(predictions)
     if should_use_sparse(len(predictions), match_threshold):
-        indptr, indices, sorted_idxs = _prepare_sparse(predictions, match_metric, match_threshold)
-        return greedy_nmm_sparse(indptr, indices, sorted_idxs)
+        boxes, areas, sorted_idxs = _prepare_streaming(predictions)
+        return greedy_nmm_streaming(boxes, areas, match_metric, match_threshold, sorted_idxs)
     matrix, sorted_idxs = _prepare_matrix(predictions, match_metric)
     return greedy_nmm_from_matrix(matrix, sorted_idxs, match_threshold)
 
@@ -337,7 +429,12 @@ def nmm_numpy(
     match_threshold: float = 0.5,
 ) -> dict[int, list[int]]:
     """Non-maximum merging using vectorized numpy metric matrix."""
+    if matches_all_pairs(match_threshold):
+        return nmm_match_all(predictions)
     if should_use_sparse(len(predictions), match_threshold):
+        if should_stream_nmm(predictions[:, :4]):
+            boxes, areas, sorted_idxs = _prepare_streaming(predictions)
+            return nmm_streaming(boxes, areas, match_metric, match_threshold, sorted_idxs, predictions[:, 4])
         indptr, indices, sorted_idxs = _prepare_sparse(predictions, match_metric, match_threshold)
         return nmm_sparse(indptr, indices, sorted_idxs, predictions[:, 4], predictions[:, :4])
     matrix, sorted_idxs = _prepare_matrix(predictions, match_metric)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jcodemunch-mcp
-Version: 1.108.210
+Version: 1.108.224
 Summary: Token-efficient MCP server for source code exploration via tree-sitter AST parsing
 Project-URL: Homepage, https://github.com/jgravelle/jcodemunch-mcp
 Project-URL: Repository, https://github.com/jgravelle/jcodemunch-mcp
@@ -186,8 +186,9 @@ Description-Content-Type: text/markdown
 **The leading, most token-efficient MCP server for precise GitHub source code retrieval via tree-sitter AST parsing.** Cut AI token costs **95%+** on code exploration — stop burning your context window reading entire files.
 
 > **Real results, live from production**
-> **583B+ tokens saved** · **73,000+ developers** · **$2.9M+ in AI spend avoided** · **70,000+ kg CO₂ prevented**
-> Live telemetry at **[jcodemunch.com](https://jcodemunch.com/)** — benchmark: **99.6% average token reduction** (15 tasks / 3 repos, 99.9% peak; run 2026-07-23).
+> **621B+ tokens saved** · **83,000+ reporting installs** · **$3.1M+ in AI spend avoided** · **74,000+ kg CO₂ prevented**
+> Counter figures as of 2026-08-02, valued at the $5/MTok Claude Opus **input** rate. All four only grow, so read them as floors. Live at **[jcodemunch.com](https://jcodemunch.com/)**.
+> Benchmark: **99.6% average token reduction** (15 tasks / 3 repos, 99.9% peak; run 2026-08-02, v1.108.222, corpus pinned to upstream commits).
 
 Works with **Autohand Code**, **Claude Code**, **Cursor**, **VS Code**, **Codex CLI**, **Continue**, **Windsurf**, and any MCP-compatible client.
 
@@ -391,14 +392,16 @@ Recent releases have made that retrieval workflow sharper and more useful in rea
 
 Measured with `tiktoken cl100k_base` across three public repos. Workflow: `search_symbols` (top 5) + `get_symbol_source` × 3 per query. Baseline: all source files concatenated (minimum cost for an agent that reads everything). [Full methodology and harness →](benchmarks/METHODOLOGY.md)
 
-| Repository | Files | Symbols | Baseline tokens | jCodeMunch tokens | Reduction |
-|------------|------:|--------:|----------------:|------------------:|----------:|
-| expressjs/express | 185 | 200 | 155,960 | 985 avg | **99.4%** |
-| fastapi/fastapi | 1,000 | 6,722 | 823,784 | 2,494 avg | **99.7%** |
-| gin-gonic/gin | 98 | 1,179 | 151,842 | 1,540 avg | **99.0%** |
-| **Grand total (15 task-runs)** | | | **5,657,930** | **25,090** | **99.6%** |
+| Repository | Commit | Files | Symbols | Baseline tokens | jCodeMunch tokens | Reduction |
+|------------|--------|------:|--------:|----------------:|------------------:|----------:|
+| expressjs/express | `1faf228935aa` | 182 | 200 | 154,272 | 1,007 avg | **99.3%** |
+| fastapi/fastapi | `a64dfbbd21a4` | 1,182 | 6,841 | 823,784 | 2,209 avg | **99.7%** |
+| gin-gonic/gin | `75ccf94d605a` | 98 | 1,179 | 151,842 | 1,545 avg | **99.0%** |
+| **Grand total (15 task-runs)** | | | | **5,649,490** | **23,805** | **99.6%** |
 
-Per-query results range from 99.0% to 99.9%. The 99.6% figure is the aggregate (run 2026-07-29, v1.108.199, full un-capped indexes). Run `python benchmarks/harness/run_benchmark.py` to reproduce, or `--reference` to also refresh `benchmarks/jcm_reference.json` — the artifact the RAG and Odysseus comparison harnesses read instead of carrying their own copy of these numbers.
+Per-query results range from 99.0% to 99.9%. The 99.6% figure is the aggregate (run 2026-08-02, v1.108.222), and it is dominated by one repo — fastapi contributes 73% of the baseline tokens. [How to reproduce it, commit by commit →](benchmarks/REPRODUCING.md)
+
+⚠ **This table changed on 2026-08-02, against an earlier version of itself.** Through v1.108.221 it said "full un-capped indexes" and reported fastapi at 1,000 files. The index actually held 1,000 of 1,182 eligible files, truncated by a file cap, and its coverage record was empty — so nothing in the published artifact could have caught it. Re-measuring the whole tree showed the 182 missing files were all empty `__init__.py` files worth zero tokens, so the reduction figures did not move. The corpus is now pinned to upstream commits and the harness refuses to publish a number measured against a truncated or unpinned tree.
 
 ### A/B test on production codebase
 
@@ -573,6 +576,7 @@ Everything jCodeMunch does beyond answering a tool call is listed here. All of i
 - **Login service — explicit opt-in only.** `jcodemunch-mcp watch-install` registers `watch-all` as a login service (Windows Task Scheduler / macOS launchd / Linux systemd) so indexes stay fresh across reboots. This happens **only** when you run `watch-install` yourself; `init`, `install`, and normal server use never register a service. Inspect it with `watch-status`; remove it with `watch-uninstall`.
 - **Anonymous savings telemetry.** The server periodically sends a random anonymous ID plus aggregate token-savings counters to the project's public community meter. No code, no file paths, no repo names, no PII — counters only. The sender is a single background daemon thread that starts lazily on the first share (never at import, and never if you have opted out), so a plain import has no background side effect. Opt out with `share_savings: false` in `config.jsonc` or `JCODEMUNCH_SHARE_SAVINGS=0`; redirect the endpoint with `JCODEMUNCH_TELEMETRY_URL`.
 - **Startup import of the local embedding backend.** When a native embedding provider is configured (the bundled ONNX encoder, or a sentence-transformers model), the server imports that library at startup, on the main thread, before it begins serving. That adds a few seconds to launch and is not optional polish: importing it later, on the worker thread a tool call runs in, deadlocks on the Windows loader lock and hangs the call forever. Nothing is downloaded and no model is loaded — the import alone is what matters, and no network is touched. Opt out with `JCODEMUNCH_EAGER_EMBED_IMPORT=0`.
+- **In-process embedding cache.** After a semantic search reads a repository's stored vectors out of `~/.code-index/`, the decoded matrix stays in that server process's memory so the next query doesn't re-read and re-decode the whole thing (roughly 46 MB for a 30,000-symbol index). At most 2 repositories are held at a time, it is dropped when the index is written, and it dies with the process — nothing is written anywhere and no network is touched. Turn retention off with `JCODEMUNCH_EMBED_MATRIX_CACHE=0`.
 - **Agent hooks.** `init` / `install` can write hook entries (auto-reindex on edit, read-interception nudges) into your MCP client's settings. They're offered during the interactive flow, shown before writing, and fully removed by `uninstall`.
 - **Local index storage.** Indexes live at `~/.code-index/` (override with `CODE_INDEX_PATH`). Delete the directory and every trace of indexing is gone.
 - **Live session journal.** While the server runs, it periodically writes a small `_session_live.json` in `~/.code-index/` recording the files and searches the agent touched this session (paths and query strings only, no file contents). It exists so the out-of-process PreCompact hook can restore session orientation after context compaction. Throttled, atomically written, overwritten in place; disable with `JCODEMUNCH_LIVE_JOURNAL=0`.

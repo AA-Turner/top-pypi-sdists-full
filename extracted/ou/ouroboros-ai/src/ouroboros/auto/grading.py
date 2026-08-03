@@ -15,7 +15,13 @@ from ouroboros.auto.ledger import (
     LedgerStatus,
     SeedDraftLedger,
 )
-from ouroboros.core.seed import AcceptanceCriterionSpec, Seed, ac_text
+from ouroboros.core.seed import (
+    AcceptanceCriterionSpec,
+    Seed,
+    ac_text,
+    expected_artifact_path_error,
+    validate_ac_success_contract_values,
+)
 
 
 class SeedGrade(StrEnum):
@@ -249,6 +255,60 @@ class GradeGate:
             )
         for index, criterion_spec in enumerate(seed.acceptance_criteria):
             criterion = ac_text(criterion_spec)
+            if isinstance(criterion_spec, AcceptanceCriterionSpec):
+                try:
+                    validate_ac_success_contract_values(
+                        verify_command=criterion_spec.verify_command,
+                        expected_artifacts=criterion_spec.expected_artifacts,
+                        output_assertion=criterion_spec.output_assertion,
+                    )
+                except ValueError as exc:
+                    findings.append(
+                        GradeFinding(
+                            "invalid_success_contract_budget",
+                            "high",
+                            f"Acceptance success contract cannot be executed: {exc}",
+                            f"acceptance_criteria[{index}]",
+                            (
+                                "Reduce the artifact count, individual artifact path length, "
+                                "or total verify/artifact/assertion text to the execution "
+                                "capsule limits."
+                            ),
+                        )
+                    )
+                invalid_artifacts = _invalid_expected_artifacts(criterion_spec.expected_artifacts)
+                if invalid_artifacts:
+                    rendered = ", ".join(repr(artifact) for artifact in invalid_artifacts)
+                    findings.append(
+                        GradeFinding(
+                            "invalid_expected_artifact",
+                            "high",
+                            (
+                                "expected_artifacts contains values that are not exact "
+                                f"portable workspace-relative paths: {rendered}"
+                            ),
+                            f"acceptance_criteria[{index}].expected_artifacts",
+                            (
+                                "Replace descriptive labels with exact file or directory "
+                                "paths relative to the run workspace. If no exact path is "
+                                "known, remove expected_artifacts and add a concrete "
+                                "verify_command."
+                            ),
+                        )
+                    )
+                if criterion_spec.output_assertion and not criterion_spec.verify_command:
+                    findings.append(
+                        GradeFinding(
+                            "invalid_output_assertion",
+                            "high",
+                            "output_assertion cannot be evaluated without verify_command",
+                            f"acceptance_criteria[{index}].output_assertion",
+                            (
+                                "Add a concrete verify_command whose output is checked by "
+                                "output_assertion, or remove output_assertion."
+                            ),
+                        )
+                    )
             if _is_vague(criterion):
                 findings.append(
                     GradeFinding(
@@ -281,30 +341,15 @@ class GradeGate:
                     )
                 )
 
-        # Over-fragmentation is the mirror error of under-specification: a model
-        # that splits one outcome into many implementation sub-steps wastes a
-        # full agent session per fragment. This is an *advisory* signal only — it
-        # is collected separately from ``findings`` so it never flips the grade
-        # (the seed still runs) nor distorts the scores; it surfaces in the grade
-        # report for visibility. Frugality is goal-subordinate: we surface waste,
-        # we do not block a runnable seed on it. The trigger is >9 (not the
-        # prompt-level 3-7 target) to leave generous room for genuinely
-        # multi-outcome goals and only flag clear over-decomposition.
-        advisory_findings: list[GradeFinding] = []
-        if len(seed.acceptance_criteria) > 9:
-            advisory_findings.append(
-                GradeFinding(
-                    "over_fragmented_criteria",
-                    "low",
-                    (
-                        f"Seed has {len(seed.acceptance_criteria)} acceptance criteria; "
-                        "this often means outcome-level goals were pre-decomposed into "
-                        "implementation steps."
-                    ),
-                    "acceptance_criteria",
-                    "Merge criteria that share one user-visible outcome; aim for 3-7 outcomes.",
-                )
-            )
+        # Over-fragmentation — a criterion that is really a sub-step of a
+        # sibling — is the mirror error of under-specification, and it is a
+        # judgment about the *relationship* between criteria, not about how many
+        # there are. This gate is deterministic, so it cannot make that judgment;
+        # a criterion-count threshold only ever stood in for it, and a proxy
+        # threshold pushes a model with genuinely many orthogonal outcomes toward
+        # merging real ones. The judgment lives where judgment exists: the
+        # seed-generation prompt, the seed-architect contract, and the QA quality
+        # bar all state the property directly. Nothing count-based is checked here.
 
         non_goals = []
         if ledger is not None:
@@ -413,7 +458,6 @@ class GradeGate:
             scores=scores,
             findings=findings,
             blockers=blockers,
-            advisory_findings=advisory_findings,
         )
 
     def _result(
@@ -422,12 +466,7 @@ class GradeGate:
         scores: dict[str, float],
         findings: list[GradeFinding],
         blockers: list[GradeFinding],
-        advisory_findings: list[GradeFinding] | None = None,
     ) -> GradeResult:
-        # ``advisory_findings`` are observational only: they are reported for
-        # visibility but excluded from the grade decision and the scores, so a
-        # runnable seed is never blocked on them.
-        advisory = advisory_findings or []
         grade = SeedGrade.A
         if blockers:
             grade = SeedGrade.C
@@ -443,7 +482,7 @@ class GradeGate:
         return GradeResult(
             grade=grade,
             scores={name: round(value, 2) for name, value in scores.items()},
-            findings=[*findings, *advisory],
+            findings=findings,
             blockers=blockers,
             can_repair=not blockers,
             may_run=grade == SeedGrade.A and not blockers,
@@ -532,6 +571,14 @@ def _is_observable(value: str | AcceptanceCriterionSpec) -> bool:
         r"\b(http\s+)?status\s+2\d\d\b",
     )
     return any(re.search(pattern, lowered) for pattern in observable_patterns)
+
+
+def _invalid_expected_artifacts(artifacts: tuple[str, ...]) -> tuple[str, ...]:
+    """Return entries outside the shared literal artifact-path grammar."""
+
+    return tuple(
+        artifact for artifact in artifacts if expected_artifact_path_error(artifact) is not None
+    )
 
 
 def _is_concrete_final_report_observation(value: str) -> bool:

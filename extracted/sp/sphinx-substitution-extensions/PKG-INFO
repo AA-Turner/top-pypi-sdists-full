@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinx-substitution-extensions
-Version: 2026.6.17
+Version: 2026.8.2
 Summary: Extensions for Sphinx which allow for substitutions.
 Author-email: Adam Dangoor <adamdangoor@gmail.com>
 License-Expression: MIT
@@ -28,33 +28,34 @@ Requires-Dist: actionlint-py==1.7.12.24; extra == "dev"
 Requires-Dist: check-manifest==0.51; extra == "dev"
 Requires-Dist: deptry==0.25.1; extra == "dev"
 Requires-Dist: doc8==2.0.0; extra == "dev"
-Requires-Dist: doccmd==2026.5.25; extra == "dev"
+Requires-Dist: doc8-custom-ignores==2026.7.29.1; extra == "dev"
+Requires-Dist: doccmd==2026.7.19; extra == "dev"
 Requires-Dist: interrogate==1.7.0; extra == "dev"
-Requires-Dist: mypy[faster-cache]==2.1.0; extra == "dev"
-Requires-Dist: mypy-strict-kwargs==2026.5.20.1; extra == "dev"
-Requires-Dist: prek==0.4.5; extra == "dev"
-Requires-Dist: pydocstringformatter==0.7.5; extra == "dev"
+Requires-Dist: mypy[faster-cache]==2.3.0; extra == "dev"
+Requires-Dist: mypy-strict-kwargs==2026.7.19.1; extra == "dev"
+Requires-Dist: prek==0.4.11; extra == "dev"
+Requires-Dist: pydocstringformatter==1.0.0; extra == "dev"
 Requires-Dist: pylint[spelling]==4.0.6; extra == "dev"
-Requires-Dist: pyproject-fmt==2.24.1; extra == "dev"
-Requires-Dist: pyrefly==1.0.0; extra == "dev"
-Requires-Dist: pyright==1.1.410; extra == "dev"
+Requires-Dist: pyproject-fmt==2.26.0; extra == "dev"
+Requires-Dist: pyrefly==1.1.1; extra == "dev"
+Requires-Dist: pyright==1.1.411; extra == "dev"
 Requires-Dist: pyroma==5.0.1; extra == "dev"
-Requires-Dist: pytest==9.1.0; extra == "dev"
+Requires-Dist: pytest==9.1.1; extra == "dev"
 Requires-Dist: pytest-beartype-tests==2026.4.26; extra == "dev"
 Requires-Dist: pytest-cov==7.1.0; extra == "dev"
-Requires-Dist: ruff==0.15.17; extra == "dev"
+Requires-Dist: ruff==0.16.0; extra == "dev"
 Requires-Dist: shellcheck-py==0.11.0.1; extra == "dev"
 Requires-Dist: shfmt-py==4.0.0; extra == "dev"
 Requires-Dist: sphinx<10,>=9; extra == "dev"
 Requires-Dist: sphinx-lint==1.0.2; extra == "dev"
-Requires-Dist: sphinx-toolbox==4.2.0; extra == "dev"
-Requires-Dist: strict-kwargs==2026.6.8.post1; extra == "dev"
+Requires-Dist: sphinx-toolbox==4.3.0; extra == "dev"
+Requires-Dist: strict-kwargs==2026.7.24; extra == "dev"
 Requires-Dist: towncrier==25.8.0; extra == "dev"
-Requires-Dist: ty==0.0.49; extra == "dev"
-Requires-Dist: types-docutils==0.22.3.20260518; extra == "dev"
+Requires-Dist: ty==0.0.65; extra == "dev"
+Requires-Dist: types-docutils==0.22.3.20260724; extra == "dev"
 Requires-Dist: vulture==2.16; extra == "dev"
 Requires-Dist: yamlfix==1.19.1; extra == "dev"
-Requires-Dist: zizmor==1.25.2; extra == "dev"
+Requires-Dist: zizmor==1.28.0; extra == "dev"
 Provides-Extra: release
 Requires-Dist: check-wheel-contents==0.6.3; extra == "release"
 Requires-Dist: towncrier==25.8.0; extra == "release"
@@ -133,6 +134,42 @@ Inline ``:substitution-code:``
 
    :substitution-download:`|author|'s manuscript <|author|_manuscript.txt>`
 
+External hyperlinks
+~~~~~~~~~~~~~~~~~~~
+
+Enable substitutions in external hyperlink targets in ``conf.py``:
+
+.. code-block:: python
+
+   """Configuration for Sphinx."""
+
+   substitutions_hyperlink_targets_enabled = True
+
+Then substitutions are applied to hyperlink targets:
+
+.. code-block:: rst
+
+   Download version |release| from the tarball_.
+
+   .. _tarball: https://example.com/releases/v|release|.tar.gz
+
+The setting enables hyperlink-target substitutions throughout the project,
+but only targets containing a defined substitution are changed. To limit a
+substitution to one page, define it in that page instead of in
+``rst_prolog``:
+
+.. code-block:: rst
+
+   .. |tarball-release| replace:: 0.8.5
+
+   Download the tarball_.
+
+   .. _tarball: https://example.com/releases/v|tarball-release|.tar.gz
+
+To limit the substitution to one link on that page, use a unique substitution
+name, such as ``tarball-release`` above, only in that link's target. Other
+hyperlink targets are left unchanged.
+
 ``literalinclude``
 ~~~~~~~~~~~~~~~~~~
 
@@ -150,6 +187,26 @@ Replace substitutions in the file path:
 .. code-block:: rst
 
    .. literalinclude:: path/to/|author|_file.txt
+      :path-substitutions:
+
+``include``
+~~~~~~~~~~~
+
+This adds ``:content-substitutions:`` and ``:path-substitutions:`` options to
+docutils' built-in `include`_ directive.
+
+Replace substitutions in the included source content before it is parsed:
+
+.. code-block:: rst
+
+   .. include:: path/to/file.rst
+      :content-substitutions:
+
+Replace substitutions in the file path:
+
+.. code-block:: rst
+
+   .. include:: path/to/|author|_file.txt
       :path-substitutions:
 
 ``image``
@@ -196,7 +253,10 @@ This will replace ``|release|`` in the new directives with ``0.1``, and ``|autho
 Enabling substitutions by default
 ----------------------------------
 
-By default, you need to explicitly add the ``:substitutions:`` flag to ``code-block`` directives, and ``:content-substitutions:`` or ``:path-substitutions:`` flags to ``literalinclude`` directives.
+By default, you need to explicitly add the ``:substitutions:`` flag to
+``code-block`` directives, ``:content-substitutions:`` or
+``:path-substitutions:`` flags to ``literalinclude`` and ``include``
+directives, and ``:path-substitutions:`` to ``image`` directives.
 
 If you want substitutions to be applied by default without needing these flags, you can set the following in ``conf.py``:
 
@@ -210,6 +270,8 @@ When this is enabled:
 
 - All ``code-block`` directives will have substitutions applied automatically
 - All ``literalinclude`` directives will have both content and path substitutions applied automatically
+- All ``include`` directives will have both content and path substitutions applied automatically
+- All ``image`` directives will have path substitutions applied automatically
 
 You can disable substitutions for specific directives when the default is enabled:
 
@@ -224,6 +286,13 @@ You can disable substitutions for specific directives when the default is enable
       :nocontent-substitutions:
 
    .. literalinclude:: path/to/|literal|_file.txt
+      :nopath-substitutions:
+
+   .. include:: path/to/|literal|_file.txt
+      :nocontent-substitutions:
+      :nopath-substitutions:
+
+   .. image:: path/to/|literal|_diagram.png
       :nopath-substitutions:
 
 Using substitutions in MyST Markdown
@@ -277,6 +346,19 @@ Replace substitutions in the file path:
 .. code-block:: markdown
 
    ```{literalinclude} path/to/|author|_file.txt
+      :path-substitutions:
+   ```
+
+``include``
+~~~~~~~~~~~
+
+This adds a ``:path-substitutions:`` option to docutils' built-in `include`_ directive.
+
+Replace substitutions in the file path:
+
+.. code-block:: markdown
+
+   ```{include} path/to/|author|_file.txt
       :path-substitutions:
    ```
 
@@ -416,6 +498,7 @@ See `CONTRIBUTING.rst <./CONTRIBUTING.rst>`_.
    :target: https://github.com/adamtheturtle/sphinx-substitution-extensions/actions
 .. _code-block: http://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html#directive-code-block
 .. _literalinclude: http://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html#directive-literalinclude
+.. _include: https://docutils.sourceforge.io/docs/ref/rst/directives.html#including-an-external-document-fragment
 .. _image: http://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html#directive-image
 .. |PyPI| image:: https://badge.fury.io/py/Sphinx-Substitution-Extensions.svg
    :target: https://badge.fury.io/py/Sphinx-Substitution-Extensions

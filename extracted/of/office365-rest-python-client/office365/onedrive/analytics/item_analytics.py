@@ -2,6 +2,7 @@ from office365.entity import Entity
 from office365.entity_collection import EntityCollection
 from office365.onedrive.analytics.item_activity_stat import ItemActivityStat
 from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.types.odata_property import odata
 
 
 class ItemAnalytics(Entity):
@@ -9,17 +10,18 @@ class ItemAnalytics(Entity):
     This resource is currently only available on SharePoint and OneDrive for Business.
     """
 
+    @odata(name="allTime")
     @property
-    def all_time(self):
+    def all_time(self) -> ItemActivityStat:
         """Analytics over the item's lifespan."""
         return self.properties.get(
             "allTime",
             ItemActivityStat(self.context, ResourcePath("allTime", self.resource_path)),
         )
 
+    @odata(name="itemActivityStats")
     @property
-    def item_activity_stats(self):
-        # type: () -> EntityCollection[ItemActivityStat]
+    def item_activity_stats(self) -> EntityCollection[ItemActivityStat]:
         return self.properties.get(
             "itemActivityStats",
             EntityCollection(
@@ -29,22 +31,11 @@ class ItemAnalytics(Entity):
             ),
         )
 
+    @odata(name="lastSevenDays")
     @property
-    def last_seven_days(self):
+    def last_seven_days(self) -> ItemActivityStat:
         """Analytics for the last seven days."""
         return self.properties.get(
             "lastSevenDays",
-            ItemActivityStat(
-                self.context, ResourcePath("lastSevenDays", self.resource_path)
-            ),
+            ItemActivityStat(self.context, ResourcePath("lastSevenDays", self.resource_path)),
         )
-
-    def get_property(self, name, default_value=None):
-        if default_value is None:
-            property_mapping = {
-                "allTime": self.all_time,
-                "itemActivityStats": self.item_activity_stats,
-                "lastSevenDays": self.last_seven_days,
-            }
-            default_value = property_mapping.get(name, None)
-        return super(ItemAnalytics, self).get_property(name, default_value)

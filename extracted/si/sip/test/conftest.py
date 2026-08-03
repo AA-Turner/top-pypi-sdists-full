@@ -15,7 +15,7 @@ import pytest
 
 
 # The different ABI versions.
-ABI_VERSIONS = (12, 13)
+ABI_VERSIONS = (12, 13, 14)
 
 
 def pytest_addoption(parser):
@@ -74,6 +74,8 @@ def module(request):
     abi_version, exceptions, package, sip_module_configuration, tags, test_dir = _get_configuration_details(request)
 
     # Build the test module.
+    _clean_test_dir(test_dir)
+
     module_name = _build_test_module(_get_only_sip_file(test_dir), test_dir,
             abi_version, package, exceptions, tags)
 
@@ -111,10 +113,9 @@ def package(request):
 
     module_names = [package]
 
-    # Remove any previous package directory.
-    shutil.rmtree(os.path.join(test_dir, package), ignore_errors=True)
-
     # Build each module in the package.
+    _clean_test_dir(test_dir)
+
     for sip_file in _get_sip_files(test_dir):
         module_name = _build_test_module(sip_file, test_dir, abi_version,
                 package, exceptions, tags)
@@ -124,8 +125,9 @@ def package(request):
     sip_module_name = _build_sip_module(test_dir, abi_version, package,
             sip_module_configuration)
 
-    # Import the modules.
-    for module_name in module_names:
+    # Import the modules in a consistent order.  The order can matter for
+    # extender tests.
+    for module_name in sorted(module_names):
         importlib.import_module(module_name)
 
     # The fixture is the package object.
@@ -234,8 +236,7 @@ def _build_module(module_name, package, build_args, src_dir, test_dir,
         pkg_dir = os.path.join(pkg_dir, os.path.join(*pkg_subdirs))
         os.makedirs(pkg_dir, exist_ok=True)
 
-    impl_pattern.append(
-            module_name + '*.pyd' if sys.platform == 'win32' else '*.so')
+    impl_pattern.append('*.pyd' if sys.platform == 'win32' else '*.so')
 
     impl_paths = glob.glob(os.path.join(*impl_pattern))
     if len(impl_paths) == 0:
@@ -300,11 +301,6 @@ def _build_test_module(sip_file, test_dir, abi_version, package, exceptions,
                 tags_s = ', '.join([f'"{t}"' for t in tags])
                 f.write(f'tags = [{tags_s}]\n')
 
-    # Configure the C++11 support.
-    cxxflags = os.environ.get('CXXFLAGS', '')
-    if '-std=c++11' not in cxxflags:
-        os.environ['CXXFLAGS'] = f'{cxxflags} -std=c++11'
-
     # Build and move the test module.
     _build_module(module_name, package,
             ['-m', 'sipbuild.tools.build', '--verbose'], build_dir, test_dir,
@@ -359,6 +355,23 @@ def _build_sip_module(test_dir, abi_version, package,
             test_dir)
 
     return sip_module_name
+
+
+def _clean_test_dir(test_dir):
+    """ Clean the test directory. """
+
+    for name in os.listdir(test_dir):
+        name = os.path.join(test_dir, name)
+
+        if os.path.isdir(name):
+            shutil.rmtree(name, ignore_errors=True)
+        else:
+            _, ext = os.path.splitext(name)
+
+            if ext in ('.h', '.py', '.sip'):
+                continue
+
+            os.remove(name)
 
 
 def _get_configuration_details(request):

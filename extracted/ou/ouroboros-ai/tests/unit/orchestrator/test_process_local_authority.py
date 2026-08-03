@@ -3,11 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
+from copy import deepcopy
+from dataclasses import replace
 import os
 from pathlib import Path
 import pickle
 from threading import Event
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -15,6 +19,7 @@ import yaml
 
 from ouroboros.cli.commands.cancel import _cancel_session
 from ouroboros.core.errors import PersistenceError
+from ouroboros.core.project_identity import ProjectIdentity
 from ouroboros.core.seed import (
     AcceptanceCriterionSpec,
     InvestmentSpec,
@@ -47,13 +52,19 @@ from ouroboros.orchestrator.runner import (
     OrchestratorError,
     OrchestratorResult,
     OrchestratorRunner,
+    _PendingLifecycleIntent,
     clear_cancellation,
     get_cancellation_request,
     get_pending_cancellations,
     is_cancellation_requested,
     request_cancellation,
 )
-from ouroboros.orchestrator.session import SessionRepository, SessionStatus, SessionTracker
+from ouroboros.orchestrator.session import (
+    SESSION_START_IDENTITY_PROGRESS_KEY,
+    SessionRepository,
+    SessionStatus,
+    SessionTracker,
+)
 from ouroboros.persistence.checkpoint import CheckpointStore
 from ouroboros.persistence.event_store import EventStore, acceptance_generation_id_for_session
 from ouroboros.persistence.uow import UnitOfWork
@@ -141,15 +152,37 @@ def _runner(runtime: _CountingRuntime | None = None) -> OrchestratorRunner:
     return OrchestratorRunner(runtime or _CountingRuntime(), event_store, MagicMock())
 
 
+def _bind_task_workspace(runner: OrchestratorRunner, workspace: TaskWorkspace) -> None:
+    runner._task_workspace = workspace
+    runner._adapter.working_directory = workspace.effective_cwd
+
+
+def _existing_task_workspace(tmp_path: Path, durable_id: str) -> TaskWorkspace:
+    repo = tmp_path / "repo"
+    repo.mkdir(exist_ok=True)
+    return TaskWorkspace(
+        durable_id=durable_id,
+        repo_root=str(repo),
+        repo_name="repo",
+        original_cwd=str(repo),
+        effective_cwd=str(repo),
+        worktree_path=str(repo),
+        branch=f"test/{durable_id}",
+        lock_path=f"/tmp/{durable_id}.lock",
+    )
+
+
 async def _prepare(
     runner: OrchestratorRunner,
     *,
     session_id: str,
     execution_id: str,
+    seed: Seed | None = None,
 ) -> SessionTracker:
+    prepared_seed = seed or _seed()
     tracker = SessionTracker.create(
         execution_id,
-        _seed().metadata.seed_id,
+        prepared_seed.metadata.seed_id,
         session_id=session_id,
     )
     with (
@@ -165,12 +198,443 @@ async def _prepare(
         ),
     ):
         prepared = await runner.prepare_session(
-            _seed(),
+            prepared_seed,
             execution_id=execution_id,
             session_id=session_id,
         )
     assert prepared.is_ok
+    runner._session_repo.reconstruct_session = AsyncMock(return_value=Result.ok(prepared.value))
     return prepared.value
+
+
+@pytest.mark.asyncio
+async def test_precreated_session_rejects_modified_seed_before_provider_call(
+    tmp_path: Path,
+) -> None:
+    event_store = EventStore(f"sqlite+aiosqlite:///{tmp_path / 'prepared-seed-drift.db'}")
+    await event_store.initialize()
+    runtime = _SuccessfulRuntime()
+    runner = OrchestratorRunner(runtime, event_store, MagicMock(), fat_harness_mode=False)
+    prepared = await runner.prepare_session(
+        _seed(),
+        execution_id="exec-prepared-seed-drift",
+        session_id="session-prepared-seed-drift",
+    )
+    assert prepared.is_ok
+
+    try:
+        changed_seed = _seed().model_copy(update={"goal": "Changed after durable preparation"})
+        result = await runner.execute_precreated_session(
+            changed_seed,
+            prepared.value,
+            parallel=False,
+        )
+
+        assert result.is_err
+        assert "modified Seed" in result.error.message
+        assert runtime.execute_calls == 0
+    finally:
+        runner._retire_process_local_authority(
+            session_id=prepared.value.session_id,
+            execution_id=prepared.value.execution_id,
+        )
+        await event_store.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("nested_mutation", ["strategy", "context_pack_fragment"])
+async def test_precreated_session_rejects_caller_nested_input_mutation_before_provider_call(
+    tmp_path: Path,
+    nested_mutation: str,
+) -> None:
+    event_store = EventStore(
+        f"sqlite+aiosqlite:///{tmp_path / f'prepared-caller-{nested_mutation}.db'}"
+    )
+    await event_store.initialize()
+    runtime = _SuccessfulRuntime()
+    runner = OrchestratorRunner(runtime, event_store, MagicMock(), fat_harness_mode=False)
+    prepared = await runner.prepare_session(
+        _seed(),
+        execution_id=f"exec-prepared-caller-{nested_mutation}",
+        session_id=f"session-prepared-caller-{nested_mutation}",
+    )
+    assert prepared.is_ok
+    tampered_contract = deepcopy(prepared.value.progress[EXECUTION_CONTRACT_PROGRESS_KEY])
+    if nested_mutation == "strategy":
+        tampered_contract["execution_inputs"]["strategy"]["system_prompt_fragment"] += "\nchanged"
+    else:
+        tampered_contract["execution_inputs"]["context_pack_fragment"] += "\nchanged"
+    tampered_tracker = prepared.value.with_progress(
+        {EXECUTION_CONTRACT_PROGRESS_KEY: tampered_contract}
+    )
+
+    try:
+        result = await runner.execute_precreated_session(
+            _seed(),
+            tampered_tracker,
+            parallel=False,
+        )
+
+        assert result.is_err
+        assert result.error.details["resume_blocked"] == "prepared_execution_contract_mismatch"
+        assert runtime.execute_calls == 0
+    finally:
+        runner._retire_process_local_authority(
+            session_id=prepared.value.session_id,
+            execution_id=prepared.value.execution_id,
+        )
+        await event_store.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("nested_mutation", ["strategy", "context_pack_fragment"])
+async def test_precreated_session_rejects_durable_nested_input_with_stale_fingerprint(
+    tmp_path: Path,
+    nested_mutation: str,
+) -> None:
+    event_store = EventStore(
+        f"sqlite+aiosqlite:///{tmp_path / f'prepared-durable-{nested_mutation}.db'}"
+    )
+    await event_store.initialize()
+    runtime = _SuccessfulRuntime()
+    runner = OrchestratorRunner(runtime, event_store, MagicMock(), fat_harness_mode=False)
+    prepared = await runner.prepare_session(
+        _seed(),
+        execution_id=f"exec-prepared-durable-{nested_mutation}",
+        session_id=f"session-prepared-durable-{nested_mutation}",
+    )
+    assert prepared.is_ok
+    tampered_contract = deepcopy(prepared.value.progress[EXECUTION_CONTRACT_PROGRESS_KEY])
+    if nested_mutation == "strategy":
+        tampered_contract["execution_inputs"]["strategy"]["system_prompt_fragment"] += "\nchanged"
+    else:
+        tampered_contract["execution_inputs"]["context_pack_fragment"] += "\nchanged"
+    tampered_progress = {EXECUTION_CONTRACT_PROGRESS_KEY: tampered_contract}
+    persisted = await runner._session_repo.track_progress(
+        prepared.value.session_id,
+        tampered_progress,
+    )
+    assert persisted.is_ok
+    tampered_tracker = prepared.value.with_progress(tampered_progress)
+
+    try:
+        result = await runner.execute_precreated_session(
+            _seed(),
+            tampered_tracker,
+            parallel=False,
+        )
+
+        assert result.is_err
+        assert result.error.details["resume_blocked"] == "prepared_execution_contract_mismatch"
+        assert runtime.execute_calls == 0
+    finally:
+        runner._retire_process_local_authority(
+            session_id=prepared.value.session_id,
+            execution_id=prepared.value.execution_id,
+        )
+        await event_store.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("anchor_mutation", ["partial", "malformed", "conflicting"])
+async def test_precreated_session_rejects_reconstructed_durable_project_anchor_before_effects(
+    tmp_path: Path,
+    anchor_mutation: str,
+) -> None:
+    event_store = EventStore(
+        f"sqlite+aiosqlite:///{tmp_path / f'prepared-anchor-{anchor_mutation}.db'}"
+    )
+    await event_store.initialize()
+    runtime = _SuccessfulRuntime()
+    runner = OrchestratorRunner(runtime, event_store, MagicMock(), fat_harness_mode=False)
+    prepared = await runner.prepare_session(
+        _seed(),
+        execution_id=f"exec-prepared-anchor-{anchor_mutation}",
+        session_id=f"session-prepared-anchor-{anchor_mutation}",
+    )
+    assert prepared.is_ok
+    tracker = prepared.value
+    contract = tracker.progress[EXECUTION_CONTRACT_PROGRESS_KEY]
+    reconstruct = runner._reconstruct_precreated_durable_tracker
+    conflicting_root = tmp_path / "conflicting-project"
+    conflicting_root.mkdir()
+
+    async def reconstruct_with_corrupt_anchor(receipt: SessionTracker):
+        durable = await reconstruct(receipt)
+        assert durable.is_ok
+        progress = deepcopy(dict(durable.value.progress))
+        raw_anchor = progress[SESSION_START_IDENTITY_PROGRESS_KEY]
+        assert isinstance(raw_anchor, dict)
+        anchor = dict(raw_anchor)
+        if anchor_mutation == "partial":
+            anchor.pop("project_id")
+        elif anchor_mutation == "malformed":
+            anchor["project_root"] = 42
+        else:
+            anchor.update(ProjectIdentity.from_root(conflicting_root).to_event_data())
+        progress[SESSION_START_IDENTITY_PROGRESS_KEY] = anchor
+        return Result.ok(durable.value.with_progress(progress))
+
+    try:
+        with patch.object(
+            runner,
+            "_reconstruct_precreated_durable_tracker",
+            side_effect=reconstruct_with_corrupt_anchor,
+        ):
+            result = await runner.execute_precreated_session(_seed(), tracker, parallel=False)
+
+        assert result.is_err
+        assert "project identity" in result.error.message
+        assert runtime.execute_calls == 0
+        durable = await SessionRepository(event_store).reconstruct_session(tracker.session_id)
+        assert durable.is_ok and durable.value.status is SessionStatus.FAILED
+        assert not runner._has_live_process_local_authority(
+            tracker.session_id,
+            tracker.execution_id,
+            contract,
+        )
+        assert not heartbeat.is_holder_alive(tracker.session_id)
+    finally:
+        runner._retire_process_local_authority(
+            session_id=tracker.session_id,
+            execution_id=tracker.execution_id,
+        )
+        await event_store.close()
+
+
+@pytest.mark.asyncio
+async def test_precreated_session_rejects_reconstructed_durable_contract_mismatch(
+    tmp_path: Path,
+) -> None:
+    event_store = EventStore(f"sqlite+aiosqlite:///{tmp_path / 'prepared-durable-contract.db'}")
+    await event_store.initialize()
+    runtime = _SuccessfulRuntime()
+    runner = OrchestratorRunner(runtime, event_store, MagicMock(), fat_harness_mode=False)
+    prepared = await runner.prepare_session(
+        _seed(),
+        execution_id="exec-prepared-durable-contract",
+        session_id="session-prepared-durable-contract",
+    )
+    assert prepared.is_ok
+    tracker = prepared.value
+    contract = tracker.progress[EXECUTION_CONTRACT_PROGRESS_KEY]
+    reconstruct = runner._reconstruct_precreated_durable_tracker
+
+    async def reconstruct_with_corrupt_contract(receipt: SessionTracker):
+        durable = await reconstruct(receipt)
+        assert durable.is_ok
+        progress = deepcopy(dict(durable.value.progress))
+        durable_contract = deepcopy(progress[EXECUTION_CONTRACT_PROGRESS_KEY])
+        durable_contract["execution_inputs"]["context_pack_fragment"] += "\nchanged"
+        progress[EXECUTION_CONTRACT_PROGRESS_KEY] = durable_contract
+        return Result.ok(durable.value.with_progress(progress))
+
+    try:
+        with patch.object(
+            runner,
+            "_reconstruct_precreated_durable_tracker",
+            side_effect=reconstruct_with_corrupt_contract,
+        ):
+            result = await runner.execute_precreated_session(_seed(), tracker, parallel=False)
+
+        assert result.is_err
+        assert result.error.details["resume_blocked"] == "prepared_execution_contract_mismatch"
+        assert runtime.execute_calls == 0
+        durable = await SessionRepository(event_store).reconstruct_session(tracker.session_id)
+        assert durable.is_ok and durable.value.status is SessionStatus.FAILED
+        assert not runner._has_live_process_local_authority(
+            tracker.session_id,
+            tracker.execution_id,
+            contract,
+        )
+        assert not heartbeat.is_holder_alive(tracker.session_id)
+    finally:
+        runner._retire_process_local_authority(
+            session_id=tracker.session_id,
+            execution_id=tracker.execution_id,
+        )
+        await event_store.close()
+
+
+@pytest.mark.asyncio
+async def test_precreated_session_rejects_stale_running_tracker_after_durable_pause(
+    tmp_path: Path,
+) -> None:
+    """A prepared caller snapshot cannot replay effects after durable PAUSED."""
+    event_store = EventStore(f"sqlite+aiosqlite:///{tmp_path / 'prepared-stale-pause.db'}")
+    await event_store.initialize()
+    runtime = _RecoverablePauseRuntime()
+    runner = OrchestratorRunner(runtime, event_store, MagicMock(), fat_harness_mode=False)
+    prepared = await runner.prepare_session(
+        _seed(),
+        execution_id="exec-prepared-stale-pause",
+        session_id="session-prepared-stale-pause",
+    )
+    assert prepared.is_ok
+    tracker = prepared.value
+    contract = tracker.progress[EXECUTION_CONTRACT_PROGRESS_KEY]
+
+    try:
+        first = await runner.execute_precreated_session(_seed(), tracker, parallel=False)
+        assert first.is_ok
+        assert first.value.success is False
+        assert runtime.execute_calls == 1
+        durable = await SessionRepository(event_store).reconstruct_session(tracker.session_id)
+        assert durable.is_ok and durable.value.status is SessionStatus.PAUSED
+
+        replay = await runner.execute_precreated_session(_seed(), tracker, parallel=False)
+
+        assert replay.is_err
+        assert replay.error.details["resume_blocked"] == "session_paused_use_resume"
+        assert runtime.execute_calls == 1
+        durable = await SessionRepository(event_store).reconstruct_session(tracker.session_id)
+        assert durable.is_ok and durable.value.status is SessionStatus.PAUSED
+        generation, already_claimed = runner._claim_process_local_authority_generation(
+            tracker.session_id,
+            tracker.execution_id,
+            contract,
+        )
+        assert generation is not None
+        assert already_claimed is False
+        runner._release_process_local_authority(
+            session_id=tracker.session_id,
+            execution_id=tracker.execution_id,
+        )
+    finally:
+        runner._retire_process_local_authority(
+            session_id=tracker.session_id,
+            execution_id=tracker.execution_id,
+        )
+        runner._unregister_session(tracker.execution_id, tracker.session_id)
+        await event_store.close()
+
+
+@pytest.mark.asyncio
+async def test_precreated_session_rechecks_pause_after_authority_claim(
+    tmp_path: Path,
+) -> None:
+    """A RUNNING observation cannot authorize effects across a PAUSED race."""
+    event_store = EventStore(f"sqlite+aiosqlite:///{tmp_path / 'prepared-pause-race.db'}")
+    await event_store.initialize()
+    runtime = _SuccessfulRuntime()
+    runner = OrchestratorRunner(runtime, event_store, MagicMock(), fat_harness_mode=False)
+    prepared = await runner.prepare_session(
+        _seed(),
+        execution_id="exec-prepared-pause-race",
+        session_id="session-prepared-pause-race",
+    )
+    assert prepared.is_ok
+    tracker = prepared.value
+    contract = tracker.progress[EXECUTION_CONTRACT_PROGRESS_KEY]
+    original_reconstruct = runner._session_repo.reconstruct_session
+    reconstruction_count = 0
+
+    async def pause_after_running_snapshot(session_id: str):
+        nonlocal reconstruction_count
+        reconstructed = await original_reconstruct(session_id)
+        reconstruction_count += 1
+        if reconstruction_count == 1:
+            paused = await runner._session_repo.mark_paused(
+                session_id,
+                reason="pause between prepared-state observation and authority claim",
+            )
+            assert paused.is_ok and paused.value is True
+        return reconstructed
+
+    try:
+        with patch.object(
+            runner._session_repo,
+            "reconstruct_session",
+            side_effect=pause_after_running_snapshot,
+        ):
+            result = await runner.execute_precreated_session(_seed(), tracker, parallel=False)
+
+        assert result.is_err
+        assert result.error.details["resume_blocked"] == "session_paused_use_resume"
+        assert reconstruction_count == 2
+        assert runtime.execute_calls == 0
+        durable = await SessionRepository(event_store).reconstruct_session(tracker.session_id)
+        assert durable.is_ok and durable.value.status is SessionStatus.PAUSED
+        generation, already_claimed = runner._claim_process_local_authority_generation(
+            tracker.session_id,
+            tracker.execution_id,
+            contract,
+        )
+        assert generation is not None
+        assert already_claimed is False
+        runner._release_process_local_authority(
+            session_id=tracker.session_id,
+            execution_id=tracker.execution_id,
+        )
+    finally:
+        runner._retire_process_local_authority(
+            session_id=tracker.session_id,
+            execution_id=tracker.execution_id,
+        )
+        runner._unregister_session(tracker.execution_id, tracker.session_id)
+        await event_store.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure_phase", ["before_claim", "after_claim"])
+async def test_precreated_session_reconstruction_failure_never_leaks_claim_or_effect(
+    tmp_path: Path,
+    failure_phase: str,
+) -> None:
+    """Unreadable durable state stays retryable on both sides of the claim."""
+    event_store = EventStore(
+        f"sqlite+aiosqlite:///{tmp_path / f'prepared-read-{failure_phase}.db'}"
+    )
+    await event_store.initialize()
+    runtime = _SuccessfulRuntime()
+    runner = OrchestratorRunner(runtime, event_store, MagicMock(), fat_harness_mode=False)
+    prepared = await runner.prepare_session(
+        _seed(),
+        execution_id=f"exec-prepared-read-{failure_phase}",
+        session_id=f"session-prepared-read-{failure_phase}",
+    )
+    assert prepared.is_ok
+    tracker = prepared.value
+    contract = tracker.progress[EXECUTION_CONTRACT_PROGRESS_KEY]
+    durable = await runner._session_repo.reconstruct_session(tracker.session_id)
+    assert durable.is_ok
+    reconstruction_side_effect: list[object]
+    if failure_phase == "before_claim":
+        reconstruction_side_effect = [OSError("durable read unavailable")]
+    else:
+        reconstruction_side_effect = [durable, OSError("durable read unavailable")]
+
+    try:
+        with patch.object(
+            runner._session_repo,
+            "reconstruct_session",
+            AsyncMock(side_effect=reconstruction_side_effect),
+        ):
+            result = await runner.execute_precreated_session(_seed(), tracker, parallel=False)
+
+        assert result.is_err
+        assert result.error.details["resume_blocked"] == "precreated_state_reconstruction_pending"
+        assert result.error.details["retryable"] is True
+        assert runtime.execute_calls == 0
+        generation, already_claimed = runner._claim_process_local_authority_generation(
+            tracker.session_id,
+            tracker.execution_id,
+            contract,
+        )
+        assert generation is not None
+        assert already_claimed is False
+        runner._release_process_local_authority(
+            session_id=tracker.session_id,
+            execution_id=tracker.execution_id,
+        )
+        assert heartbeat.is_holder_alive(tracker.session_id)
+    finally:
+        runner._retire_process_local_authority(
+            session_id=tracker.session_id,
+            execution_id=tracker.execution_id,
+        )
+        runner._unregister_session(tracker.execution_id, tracker.session_id)
+        await event_store.close()
 
 
 def _paused(tracker: SessionTracker) -> SessionTracker:
@@ -343,6 +807,214 @@ async def test_pause_persistence_failure_keeps_durable_running_owner(tmp_path) -
 
 
 @pytest.mark.asyncio
+async def test_precreated_retry_replays_pending_pause_before_provider_effect(
+    tmp_path: Path,
+) -> None:
+    """Reusing a prepared tracker persists the retained pause before dispatch."""
+    event_store = EventStore(f"sqlite+aiosqlite:///{tmp_path / 'precreated-pause-retry.db'}")
+    await event_store.initialize()
+    runtime = _RecoverablePauseRuntime()
+    runner = OrchestratorRunner(runtime, event_store, MagicMock())
+    prepared = await runner.prepare_session(
+        _seed(),
+        execution_id="exec-precreated-pause-retry",
+        session_id="session-precreated-pause-retry",
+    )
+    assert prepared.is_ok
+    tracker = prepared.value
+    contract = tracker.progress[EXECUTION_CONTRACT_PROGRESS_KEY]
+
+    try:
+        with patch.object(
+            runner._session_repo,
+            "mark_paused",
+            AsyncMock(return_value=Result.err(PersistenceError("pause write unavailable"))),
+        ):
+            first = await runner.execute_precreated_session(_seed(), tracker, parallel=False)
+
+        assert first.is_err
+        assert first.error.details["resume_blocked"] == "pause_persistence_pending"
+        assert runtime.execute_calls == 1
+        durable = await SessionRepository(event_store).reconstruct_session(tracker.session_id)
+        assert durable.is_ok and durable.value.status == SessionStatus.RUNNING
+
+        retried = await runner.execute_precreated_session(_seed(), tracker, parallel=False)
+
+        assert retried.is_ok
+        assert retried.value.success is False
+        assert retried.value.summary["replayed_pending_lifecycle"] == "paused"
+        assert runtime.execute_calls == 1
+        durable = await SessionRepository(event_store).reconstruct_session(tracker.session_id)
+        assert durable.is_ok and durable.value.status == SessionStatus.PAUSED
+        assert tracker.session_id not in runner._pending_lifecycle_intents
+        assert runner._has_live_process_local_authority(
+            tracker.session_id,
+            tracker.execution_id,
+            contract,
+        )
+        assert heartbeat.is_holder_alive(tracker.session_id)
+    finally:
+        runner._retire_process_local_authority(
+            session_id=tracker.session_id,
+            execution_id=tracker.execution_id,
+        )
+        runner._unregister_session(tracker.execution_id, tracker.session_id)
+        await event_store.close()
+
+
+@pytest.mark.asyncio
+async def test_precreated_retry_repeated_pause_failure_stays_pending_without_provider_effect(
+    tmp_path: Path,
+) -> None:
+    """Repeated PAUSED write failure cannot re-enter provider execution."""
+    event_store = EventStore(
+        f"sqlite+aiosqlite:///{tmp_path / 'precreated-pause-retry-still-pending.db'}"
+    )
+    await event_store.initialize()
+    runtime = _RecoverablePauseRuntime()
+    runner = OrchestratorRunner(runtime, event_store, MagicMock())
+    prepared = await runner.prepare_session(
+        _seed(),
+        execution_id="exec-precreated-pause-still-pending",
+        session_id="session-precreated-pause-still-pending",
+    )
+    assert prepared.is_ok
+    tracker = prepared.value
+    contract = tracker.progress[EXECUTION_CONTRACT_PROGRESS_KEY]
+    mark_paused = AsyncMock(return_value=Result.err(PersistenceError("pause write unavailable")))
+
+    try:
+        with patch.object(runner._session_repo, "mark_paused", mark_paused):
+            first = await runner.execute_precreated_session(_seed(), tracker, parallel=False)
+            second = await runner.execute_precreated_session(_seed(), tracker, parallel=False)
+
+        assert first.is_err
+        assert first.error.details["resume_blocked"] == "pause_persistence_pending"
+        assert second.is_err
+        assert second.error.details["resume_blocked"] == "pause_persistence_pending"
+        assert mark_paused.await_count == 2
+        assert runtime.execute_calls == 1
+        durable = await SessionRepository(event_store).reconstruct_session(tracker.session_id)
+        assert durable.is_ok and durable.value.status == SessionStatus.RUNNING
+        assert tracker.session_id in runner._pending_lifecycle_intents
+        assert runner._has_live_process_local_authority(
+            tracker.session_id,
+            tracker.execution_id,
+            contract,
+        )
+        assert heartbeat.is_holder_alive(tracker.session_id)
+    finally:
+        runner._retire_process_local_authority(
+            session_id=tracker.session_id,
+            execution_id=tracker.execution_id,
+        )
+        runner._unregister_session(tracker.execution_id, tracker.session_id)
+        await event_store.close()
+
+
+@pytest.mark.asyncio
+async def test_precreated_retry_missing_pending_pause_payload_is_not_retryable(
+    tmp_path: Path,
+) -> None:
+    """A corrupted PAUSED replay intent surfaces its exact invariant failure."""
+    event_store = EventStore(
+        f"sqlite+aiosqlite:///{tmp_path / 'precreated-pause-missing-payload.db'}"
+    )
+    await event_store.initialize()
+    runtime = _RecoverablePauseRuntime()
+    runner = OrchestratorRunner(runtime, event_store, MagicMock())
+    prepared = await runner.prepare_session(
+        _seed(),
+        execution_id="exec-precreated-pause-missing-payload",
+        session_id="session-precreated-pause-missing-payload",
+    )
+    assert prepared.is_ok
+    tracker = prepared.value
+    contract = tracker.progress[EXECUTION_CONTRACT_PROGRESS_KEY]
+    runner._pending_lifecycle_intents[tracker.session_id] = _PendingLifecycleIntent(
+        execution_id=tracker.execution_id,
+        status=SessionStatus.PAUSED,
+        error_message="missing pause payload",
+    )
+    mark_paused = AsyncMock(side_effect=AssertionError("mark_paused must not run"))
+
+    try:
+        with patch.object(runner._session_repo, "mark_paused", mark_paused):
+            result = await runner.execute_precreated_session(_seed(), tracker, parallel=False)
+
+        assert result.is_err
+        assert result.error.details["resume_blocked"] == "pending_lifecycle_payload_missing"
+        assert result.error.details["session_id"] == tracker.session_id
+        assert result.error.details["execution_id"] == tracker.execution_id
+        assert runtime.execute_calls == 0
+        mark_paused.assert_not_awaited()
+        durable = await SessionRepository(event_store).reconstruct_session(tracker.session_id)
+        assert durable.is_ok and durable.value.status == SessionStatus.RUNNING
+        assert tracker.session_id in runner._pending_lifecycle_intents
+        assert runner._has_live_process_local_authority(
+            tracker.session_id,
+            tracker.execution_id,
+            contract,
+        )
+        assert heartbeat.is_holder_alive(tracker.session_id)
+    finally:
+        runner._retire_process_local_authority(
+            session_id=tracker.session_id,
+            execution_id=tracker.execution_id,
+        )
+        runner._unregister_session(tracker.execution_id, tracker.session_id)
+        await event_store.close()
+
+
+@pytest.mark.asyncio
+async def test_precreated_retry_replays_pending_completion_before_provider_effect(
+    tmp_path: Path,
+) -> None:
+    """Every retained lifecycle kind outranks normal prepared execution."""
+    event_store = EventStore(f"sqlite+aiosqlite:///{tmp_path / 'precreated-completion-retry.db'}")
+    await event_store.initialize()
+    runtime = _SuccessfulRuntime()
+    runner = OrchestratorRunner(runtime, event_store, MagicMock(), fat_harness_mode=False)
+    prepared = await runner.prepare_session(
+        _seed(),
+        execution_id="exec-precreated-completion-retry",
+        session_id="session-precreated-completion-retry",
+    )
+    assert prepared.is_ok
+    tracker = prepared.value
+    original_mark_completed = runner._session_repo.mark_completed
+
+    try:
+        runner._session_repo.mark_completed = AsyncMock(
+            return_value=Result.err(PersistenceError("completion write unavailable"))
+        )
+        first = await runner.execute_precreated_session(_seed(), tracker, parallel=False)
+
+        assert first.is_err
+        assert first.error.details["resume_blocked"] == "terminal_persistence_pending"
+        assert first.error.details["requested_status"] == SessionStatus.COMPLETED.value
+        assert runtime.execute_calls == 1
+        durable = await SessionRepository(event_store).reconstruct_session(tracker.session_id)
+        assert durable.is_ok and durable.value.status == SessionStatus.RUNNING
+
+        runner._session_repo.mark_completed = original_mark_completed
+        retried = await runner.execute_precreated_session(_seed(), tracker, parallel=False)
+
+        assert retried.is_ok
+        assert retried.value.summary["replayed_pending_lifecycle"] == "completed"
+        assert runtime.execute_calls == 1
+        durable = await SessionRepository(event_store).reconstruct_session(tracker.session_id)
+        assert durable.is_ok and durable.value.status == SessionStatus.COMPLETED
+        assert tracker.session_id not in runner._pending_lifecycle_intents
+    finally:
+        runner._retire_process_local_authority(
+            session_id=tracker.session_id,
+            execution_id=tracker.execution_id,
+        )
+        await event_store.close()
+
+
+@pytest.mark.asyncio
 async def test_paused_projection_failure_keeps_durable_paused_owner(tmp_path) -> None:
     """Auxiliary projection failure cannot convert durable PAUSED into FAILED."""
     event_store = EventStore(f"sqlite+aiosqlite:///{tmp_path / 'paused-projection.db'}")
@@ -392,6 +1064,67 @@ async def test_paused_projection_failure_keeps_durable_paused_owner(tmp_path) ->
             execution_id=tracker.execution_id,
         )
         runner._unregister_session(tracker.execution_id, tracker.session_id)
+        await event_store.close()
+
+
+@pytest.mark.asyncio
+async def test_stale_precreated_tracker_observes_durable_pause_before_effects(
+    tmp_path: Path,
+) -> None:
+    """Reusing the original prepared tracker must not restart a paused session."""
+    event_store = EventStore(f"sqlite+aiosqlite:///{tmp_path / 'stale-precreated-paused.db'}")
+    await event_store.initialize()
+    runtime = _RecoverablePauseRuntime()
+    runner = OrchestratorRunner(runtime, event_store, MagicMock())
+    prepared = await runner.prepare_session(
+        _seed(),
+        execution_id="exec-stale-precreated-paused",
+        session_id="session-stale-precreated-paused",
+    )
+    assert prepared.is_ok
+    stale_tracker = prepared.value
+
+    try:
+        first = await runner.execute_precreated_session(
+            seed=_seed(),
+            tracker=stale_tracker,
+            parallel=False,
+        )
+
+        assert first.is_ok
+        assert runtime.execute_calls == 1
+        durable = await SessionRepository(event_store).reconstruct_session(stale_tracker.session_id)
+        assert durable.is_ok
+        assert durable.value.status == SessionStatus.PAUSED
+        assert stale_tracker.status == SessionStatus.RUNNING
+
+        get_tools = AsyncMock(side_effect=AssertionError("tool setup must not run"))
+        runner._get_merged_tools = get_tools
+        with patch.object(
+            runner,
+            "_claim_process_local_authority_generation",
+            side_effect=AssertionError("authority claim must not run"),
+        ):
+            second = await runner.execute_precreated_session(
+                seed=_seed(),
+                tracker=stale_tracker,
+                parallel=False,
+            )
+
+        assert second.is_err
+        assert second.error.details["resume_blocked"] == "session_paused_use_resume"
+        assert second.error.details["status"] == SessionStatus.PAUSED.value
+        assert runtime.execute_calls == 1
+        get_tools.assert_not_called()
+        durable = await SessionRepository(event_store).reconstruct_session(stale_tracker.session_id)
+        assert durable.is_ok
+        assert durable.value.status == SessionStatus.PAUSED
+    finally:
+        runner._retire_process_local_authority(
+            session_id=stale_tracker.session_id,
+            execution_id=stale_tracker.execution_id,
+        )
+        runner._unregister_session(stale_tracker.execution_id, stale_tracker.session_id)
         await event_store.close()
 
 
@@ -864,11 +1597,40 @@ async def test_legacy_precreated_tracker_fails_before_tool_setup() -> None:
     result = await runner.execute_precreated_session(_seed(), tracker, parallel=False)
 
     assert result.is_err
-    assert result.error.details["resume_blocked"] == "process_local_resume_unavailable"
+    assert result.error.details["resume_blocked"] == "precreated_state_reconstruction_pending"
     assert runtime.identity_provider_calls == 0
     assert runtime.resume_selector_calls == 0
     assert runtime.execute_calls == 0
     get_tools.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_missing_precreated_contract_cannot_revoke_live_owner() -> None:
+    runner = _runner()
+    tracker = await _prepare(
+        runner,
+        session_id="session-missing-precreated-contract",
+        execution_id="exec-missing-precreated-contract",
+    )
+    contract = tracker.progress[EXECUTION_CONTRACT_PROGRESS_KEY]
+    tampered = replace(tracker, progress={})
+
+    try:
+        result = await runner.execute_precreated_session(_seed(), tampered, parallel=False)
+
+        assert result.is_err
+        assert result.error.details["resume_blocked"] == "process_local_authority_held_elsewhere"
+        assert runner._has_live_process_local_authority(
+            tracker.session_id,
+            tracker.execution_id,
+            contract,
+        )
+        assert heartbeat.is_holder_alive(tracker.session_id)
+    finally:
+        runner._retire_process_local_authority(
+            session_id=tracker.session_id,
+            execution_id=tracker.execution_id,
+        )
 
 
 @pytest.mark.asyncio
@@ -1041,6 +1803,54 @@ async def test_terminal_precreated_tracker_retires_a_stale_live_authority() -> N
 
 
 @pytest.mark.asyncio
+async def test_terminal_precreated_tracker_uses_verified_durable_running_state() -> None:
+    runner = _runner(_SuccessfulRuntime())
+    seed = _seed().model_copy(
+        update={
+            "acceptance_criteria": (
+                "Use verified durable state",
+                "Ignore stale terminal progress",
+            )
+        }
+    )
+    prepared = await _prepare(
+        runner,
+        session_id="session-terminal-copy-durable-running",
+        execution_id="exec-terminal-copy-durable-running",
+        seed=seed,
+    )
+    stale_terminal = prepared.with_status(SessionStatus.COMPLETED).with_progress(
+        {EXECUTION_CONTRACT_PROGRESS_KEY: {"stale": "terminal progress must not execute"}}
+    )
+    expected: Result[OrchestratorResult, OrchestratorError] = Result.ok(
+        OrchestratorResult(
+            success=True,
+            session_id=prepared.session_id,
+            execution_id=prepared.execution_id,
+        )
+    )
+
+    try:
+        with (
+            patch.object(runner, "_check_startup_cancellation", AsyncMock(return_value=False)),
+            patch.object(runner, "_execute_parallel", AsyncMock(return_value=expected)) as execute,
+        ):
+            result = await runner.execute_precreated_session(
+                seed,
+                stale_terminal,
+                parallel=True,
+            )
+
+        assert result is expected
+        assert execute.await_args.kwargs["tracker"] == prepared
+    finally:
+        runner._retire_process_local_authority(
+            session_id=prepared.session_id,
+            execution_id=prepared.execution_id,
+        )
+
+
+@pytest.mark.asyncio
 async def test_precreated_execution_claim_allows_only_one_effectful_caller() -> None:
     runner = _runner()
     tracker = await _prepare(
@@ -1180,6 +1990,224 @@ async def test_resume_setup_cancellation_releases_its_authority_claim() -> None:
         session_id=tracker.session_id,
         execution_id=tracker.execution_id,
     )
+
+
+@pytest.mark.asyncio
+async def test_resume_invalid_workspace_returns_domain_error_and_releases_claim(
+    tmp_path: Path,
+) -> None:
+    event_store = EventStore(f"sqlite+aiosqlite:///{tmp_path / 'invalid-workspace.db'}")
+    await event_store.initialize()
+    workspace = tmp_path / "workspace"
+    invalid_workspace = tmp_path / "workspace-file"
+    workspace.mkdir()
+    invalid_workspace.write_text("not a directory", encoding="utf-8")
+    runtime = _CountingRuntime()
+    runtime.working_directory = str(workspace)
+    runner = OrchestratorRunner(runtime, event_store, MagicMock(), fat_harness_mode=False)
+    prepared = await runner.prepare_session(
+        _seed(),
+        execution_id="exec-invalid-resume-workspace",
+        session_id="session-invalid-resume-workspace",
+    )
+    assert prepared.is_ok
+    tracker = prepared.value
+    contract = tracker.progress[EXECUTION_CONTRACT_PROGRESS_KEY]
+    paused = await runner._session_repo.mark_paused(tracker.session_id, reason="test pause")
+    assert paused.is_ok and paused.value is True
+    runtime.working_directory = str(invalid_workspace)
+
+    try:
+        result = await runner.resume_session(tracker.session_id, _seed())
+
+        assert result.is_err
+        assert result.error.message == "Cannot resolve project identity"
+        assert runtime.execute_calls == 0
+        durable = await SessionRepository(event_store).reconstruct_session(tracker.session_id)
+        assert durable.is_ok and durable.value.status is SessionStatus.FAILED
+        assert not runner._has_live_process_local_authority(
+            tracker.session_id,
+            tracker.execution_id,
+            contract,
+        )
+        generation, already_claimed = runner._claim_process_local_authority_generation(
+            tracker.session_id,
+            tracker.execution_id,
+            contract,
+        )
+        assert generation is None
+        assert already_claimed is False
+    finally:
+        runner._retire_process_local_authority(
+            session_id=tracker.session_id,
+            execution_id=tracker.execution_id,
+        )
+        await event_store.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("replacement_kind", ("file", "missing"))
+async def test_pre_anchor_resume_invalid_workspace_cleans_claim_before_retry(
+    tmp_path: Path,
+    replacement_kind: str,
+) -> None:
+    """Historical identity failures stay inside the public resume lifecycle."""
+    event_store = EventStore(
+        f"sqlite+aiosqlite:///{tmp_path / f'pre-anchor-{replacement_kind}.db'}"
+    )
+    await event_store.initialize()
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    runtime = _CountingRuntime()
+    runtime.working_directory = str(workspace)
+    runner = OrchestratorRunner(runtime, event_store, MagicMock(), fat_harness_mode=False)
+    prepared = await runner.prepare_session(
+        _seed(),
+        execution_id=f"exec-pre-anchor-{replacement_kind}",
+        session_id=f"session-pre-anchor-{replacement_kind}",
+    )
+    assert prepared.is_ok
+    tracker = prepared.value
+    contract = tracker.progress[EXECUTION_CONTRACT_PROGRESS_KEY]
+    paused = await runner._session_repo.mark_paused(tracker.session_id, reason="test pause")
+    assert paused.is_ok and paused.value is True
+    historical = await runner._session_repo.reconstruct_session(tracker.session_id)
+    assert historical.is_ok
+    historical_progress = deepcopy(historical.value.progress)
+    start_identity = dict(historical_progress[SESSION_START_IDENTITY_PROGRESS_KEY])
+    for key in ("project_id", "project_root", "workspace_path"):
+        start_identity.pop(key)
+    historical_progress[SESSION_START_IDENTITY_PROGRESS_KEY] = start_identity
+    historical_tracker = replace(historical.value, progress=historical_progress)
+    reconstruct_session = runner._session_repo.reconstruct_session
+    first_reconstruction = True
+
+    async def reconstruct_historical_then_durable(session_id: str):
+        nonlocal first_reconstruction
+        if first_reconstruction:
+            first_reconstruction = False
+            return Result.ok(historical_tracker)
+        return await reconstruct_session(session_id)
+
+    workspace.rmdir()
+    if replacement_kind == "file":
+        workspace.write_text("not a directory", encoding="utf-8")
+
+    try:
+        with patch.object(
+            runner._session_repo,
+            "reconstruct_session",
+            side_effect=reconstruct_historical_then_durable,
+        ):
+            first = await runner.resume_session(tracker.session_id, _seed())
+            second = await runner.resume_session(tracker.session_id, _seed())
+
+        assert first.is_err
+        assert first.error.message == "Cannot resolve project identity"
+        assert second.is_err
+        assert second.error.details.get("resume_blocked") != "process_local_execution_in_progress"
+        assert runtime.execute_calls == 0
+        durable = await reconstruct_session(tracker.session_id)
+        assert durable.is_ok and durable.value.status is SessionStatus.FAILED
+        assert not runner._has_live_process_local_authority(
+            tracker.session_id,
+            tracker.execution_id,
+            contract,
+        )
+        assert not heartbeat.is_holder_alive(tracker.session_id)
+    finally:
+        runner._retire_process_local_authority(
+            session_id=tracker.session_id,
+            execution_id=tracker.execution_id,
+        )
+        await event_store.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("case", "patch_target", "failure"),
+    [
+        (
+            "git-unavailable",
+            "ouroboros.core.project_identity.subprocess.run",
+            FileNotFoundError("git"),
+        ),
+        (
+            "filesystem-unavailable",
+            "ouroboros.core.project_identity.Path.stat",
+            OSError("mount"),
+        ),
+    ],
+)
+async def test_resume_identity_unavailable_stays_paused_and_releases_claim_for_retry(
+    tmp_path: Path,
+    case: str,
+    patch_target: str,
+    failure: OSError,
+) -> None:
+    event_store = EventStore(f"sqlite+aiosqlite:///{tmp_path / f'{case}.db'}")
+    await event_store.initialize()
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    runtime = _CountingRuntime()
+    runtime.working_directory = str(workspace)
+    runner = OrchestratorRunner(runtime, event_store, MagicMock(), fat_harness_mode=False)
+    prepared = await runner.prepare_session(
+        _seed(),
+        execution_id=f"exec-{case}",
+        session_id=f"session-{case}",
+    )
+    assert prepared.is_ok
+    tracker = prepared.value
+    contract = tracker.progress[EXECUTION_CONTRACT_PROGRESS_KEY]
+    paused = await runner._session_repo.mark_paused(tracker.session_id, reason="test pause")
+    assert paused.is_ok and paused.value is True
+
+    try:
+        if case == "filesystem-unavailable":
+            original_stat = Path.stat
+
+            def selective_stat(
+                path: Path,
+                *,
+                follow_symlinks: bool = True,
+            ) -> os.stat_result:
+                if path == workspace:
+                    raise failure
+                return original_stat(path, follow_symlinks=follow_symlinks)
+
+            unavailable = patch(patch_target, new=selective_stat)
+        else:
+            unavailable = patch(patch_target, side_effect=failure)
+        with unavailable:
+            result = await runner.resume_session(tracker.session_id, _seed())
+
+        assert result.is_err
+        assert result.error.details.get("resume_blocked") == "project_identity_unavailable", (
+            result.error
+        )
+        assert result.error.details["retryable"] is True
+        assert runtime.execute_calls == 0
+        durable = await SessionRepository(event_store).reconstruct_session(tracker.session_id)
+        assert durable.is_ok and durable.value.status is SessionStatus.PAUSED
+        assert runner._has_live_process_local_authority(
+            tracker.session_id,
+            tracker.execution_id,
+            contract,
+        )
+        generation, already_claimed = runner._claim_process_local_authority_generation(
+            tracker.session_id,
+            tracker.execution_id,
+            contract,
+        )
+        assert generation is not None
+        assert already_claimed is False
+    finally:
+        runner._retire_process_local_authority(
+            session_id=tracker.session_id,
+            execution_id=tracker.execution_id,
+        )
+        await event_store.close()
 
 
 @pytest.mark.asyncio
@@ -1753,6 +2781,7 @@ async def test_repeated_post_cas_cancellation_drains_terminal_cleanup(tmp_path) 
     original_reconstruct = runner._session_repo.reconstruct_session
     reconciliation_started = asyncio.Event()
     allow_reconciliation = asyncio.Event()
+    reconstruction_count = 0
 
     async def _cancel_terminal_projection(event: object):
         if getattr(event, "type", None) == "execution.terminal":
@@ -1760,6 +2789,10 @@ async def test_repeated_post_cas_cancellation_drains_terminal_cleanup(tmp_path) 
         return await original_append(event)  # type: ignore[arg-type]
 
     async def _delayed_reconstruct(session_id: str):
+        nonlocal reconstruction_count
+        reconstruction_count += 1
+        if reconstruction_count <= 2:
+            return await original_reconstruct(session_id)
         reconciliation_started.set()
         await allow_reconciliation.wait()
         return await original_reconstruct(session_id)
@@ -1909,18 +2942,9 @@ async def test_prepare_collision_preserves_existing_owner_workspace_lock(tmp_pat
     await event_store.initialize()
     original_runner = OrchestratorRunner(_CountingRuntime(), event_store, MagicMock())
     colliding_runner = OrchestratorRunner(_CountingRuntime(), event_store, MagicMock())
-    workspace = TaskWorkspace(
-        durable_id="live-owner-collision",
-        repo_root="/tmp/repo",
-        repo_name="repo",
-        original_cwd="/tmp/repo",
-        effective_cwd="/tmp/repo",
-        worktree_path="/tmp/repo",
-        branch="test/live-owner-collision",
-        lock_path="/tmp/live-owner-collision.lock",
-    )
-    original_runner._task_workspace = workspace
-    colliding_runner._task_workspace = workspace
+    workspace = _existing_task_workspace(tmp_path, "live-owner-collision")
+    _bind_task_workspace(original_runner, workspace)
+    _bind_task_workspace(colliding_runner, workspace)
     session_id = "session-live-owner-collision"
     original_execution_id = "exec-live-owner-original"
     collision_execution_id = "exec-live-owner-collision"
@@ -1964,16 +2988,8 @@ async def test_exact_identity_prepare_collision_preserves_original_generation(tm
     event_store = EventStore(f"sqlite+aiosqlite:///{tmp_path / 'exact-owner-collision.db'}")
     await event_store.initialize()
     runner = OrchestratorRunner(_CountingRuntime(), event_store, MagicMock())
-    runner._task_workspace = TaskWorkspace(
-        durable_id="exact-owner-collision",
-        repo_root="/tmp/repo",
-        repo_name="repo",
-        original_cwd="/tmp/repo",
-        effective_cwd="/tmp/repo",
-        worktree_path="/tmp/repo",
-        branch="test/exact-owner-collision",
-        lock_path="/tmp/exact-owner-collision.lock",
-    )
+    workspace = _existing_task_workspace(tmp_path, "exact-owner-collision")
+    _bind_task_workspace(runner, workspace)
     session_id = "session-exact-owner-collision"
     execution_id = "exec-exact-owner-collision"
     original = await runner.prepare_session(
@@ -2012,16 +3028,8 @@ async def test_workspace_lock_releases_after_last_runner_session_owner(tmp_path)
     event_store = EventStore(f"sqlite+aiosqlite:///{tmp_path / 'workspace-users.db'}")
     await event_store.initialize()
     runner = OrchestratorRunner(_CountingRuntime(), event_store, MagicMock())
-    runner._task_workspace = TaskWorkspace(
-        durable_id="workspace-users",
-        repo_root="/tmp/repo",
-        repo_name="repo",
-        original_cwd="/tmp/repo",
-        effective_cwd="/tmp/repo",
-        worktree_path="/tmp/repo",
-        branch="test/workspace-users",
-        lock_path="/tmp/workspace-users.lock",
-    )
+    workspace = _existing_task_workspace(tmp_path, "workspace-users")
+    _bind_task_workspace(runner, workspace)
     first = await runner.prepare_session(
         _seed(),
         execution_id="exec-workspace-first",
@@ -2079,16 +3087,8 @@ async def test_inflight_preparation_reserves_workspace_before_registration(tmp_p
     event_store = EventStore(f"sqlite+aiosqlite:///{tmp_path / 'workspace-prepare-race.db'}")
     await event_store.initialize()
     runner = OrchestratorRunner(_CountingRuntime(), event_store, MagicMock())
-    runner._task_workspace = TaskWorkspace(
-        durable_id="workspace-prepare-race",
-        repo_root="/tmp/repo",
-        repo_name="repo",
-        original_cwd="/tmp/repo",
-        effective_cwd="/tmp/repo",
-        worktree_path="/tmp/repo",
-        branch="test/workspace-prepare-race",
-        lock_path="/tmp/workspace-prepare-race.lock",
-    )
+    workspace = _existing_task_workspace(tmp_path, "workspace-prepare-race")
+    _bind_task_workspace(runner, workspace)
     first = await runner.prepare_session(
         _seed(),
         execution_id="exec-workspace-prepare-first",
@@ -2156,17 +3156,8 @@ async def test_resume_handoff_reserves_workspace_before_reclaim(tmp_path) -> Non
     event_store = EventStore(f"sqlite+aiosqlite:///{tmp_path / 'workspace-resume-race.db'}")
     await event_store.initialize()
     runner = OrchestratorRunner(_CountingRuntime(), event_store, MagicMock())
-    workspace = TaskWorkspace(
-        durable_id="workspace-resume-race",
-        repo_root="/tmp/repo",
-        repo_name="repo",
-        original_cwd="/tmp/repo",
-        effective_cwd="/tmp/repo",
-        worktree_path="/tmp/repo",
-        branch="test/workspace-resume-race",
-        lock_path="/tmp/workspace-resume-race.lock",
-    )
-    runner._task_workspace = workspace
+    workspace = _existing_task_workspace(tmp_path, "workspace-resume-race")
+    _bind_task_workspace(runner, workspace)
     first = await runner.prepare_session(
         _seed(),
         execution_id="exec-workspace-resume-first",
@@ -2195,7 +3186,7 @@ async def test_resume_handoff_reserves_workspace_before_reclaim(tmp_path) -> Non
             )
             release_lock_mock.assert_not_called()
 
-            runner._task_workspace = workspace
+            _bind_task_workspace(runner, workspace)
             contract = first.value.progress[EXECUTION_CONTRACT_PROGRESS_KEY]
             generation, already_claimed = runner._claim_process_local_authority_generation(
                 first.value.session_id,
@@ -2232,16 +3223,8 @@ async def test_direct_cancel_of_already_terminal_owner_releases_workspace(tmp_pa
     event_store = EventStore(f"sqlite+aiosqlite:///{tmp_path / 'terminal-cancel-workspace.db'}")
     await event_store.initialize()
     runner = OrchestratorRunner(_CountingRuntime(), event_store, MagicMock())
-    runner._task_workspace = TaskWorkspace(
-        durable_id="terminal-cancel-workspace",
-        repo_root="/tmp/repo",
-        repo_name="repo",
-        original_cwd="/tmp/repo",
-        effective_cwd="/tmp/repo",
-        worktree_path="/tmp/repo",
-        branch="test/terminal-cancel-workspace",
-        lock_path="/tmp/terminal-cancel-workspace.lock",
-    )
+    workspace = _existing_task_workspace(tmp_path, "terminal-cancel-workspace")
+    _bind_task_workspace(runner, workspace)
     execution_id = "exec-terminal-cancel-workspace"
     session_id = "session-terminal-cancel-workspace"
     prepared = await runner.prepare_session(
@@ -3087,7 +4070,9 @@ async def test_cancelled_before_first_background_turn_runs_process_local_cleanup
             *args: object,
             **kwargs: object,
         ) -> asyncio.Task[object]:
-            task = original_create_task(coroutine, *args, **kwargs)  # type: ignore[arg-type]
+            task: asyncio.Task[object] = original_create_task(  # type: ignore[arg-type]
+                coroutine, *args, **kwargs
+            )
             scheduled_tasks.append(task)
             if len(scheduled_tasks) == 1:
                 task.cancel()
@@ -4761,7 +5746,13 @@ async def test_prepare_publishes_liveness_before_a_running_tracker_is_observable
             str(kwargs["execution_id"]),
             str(kwargs["seed_id"]),
             session_id=str(kwargs["session_id"]),
-        ).with_progress({EXECUTION_CONTRACT_PROGRESS_KEY: dict(kwargs["execution_contract"])})
+        ).with_progress(
+            {
+                EXECUTION_CONTRACT_PROGRESS_KEY: dict(
+                    cast(Mapping[str, object], kwargs["execution_contract"])
+                )
+            }
+        )
         observer._session_repo.reconstruct_session = AsyncMock(return_value=Result.ok(tracker))
         observer._session_repo.mark_failed = AsyncMock(return_value=Result.ok(None))
         observed_result = await observer.resume_session(tracker.session_id, _seed())
@@ -4816,6 +5807,46 @@ async def test_prepare_rolls_back_when_heartbeat_acquire_fails() -> None:
     assert result.error.message == "Cannot establish process-local execution liveness lease"
     assert (session_id, execution_id) not in runner._process_local_authorities
     assert not heartbeat.is_holder_alive(session_id)
+
+
+@pytest.mark.asyncio
+async def test_prepare_cwd_drift_before_registration_releases_every_owner(tmp_path: Path) -> None:
+    """Final publication validation precedes every process-local ownership claim."""
+    runner = _runner()
+    workspace = _existing_task_workspace(tmp_path, "prepare-cwd-drift")
+    _bind_task_workspace(runner, workspace)
+    replacement = tmp_path / "replacement"
+    replacement.mkdir()
+    session_id = "session-prepare-cwd-drift"
+    execution_id = "exec-prepare-cwd-drift"
+    issued_before = len(_PROCESS_LOCAL_AUTHORITY_REGISTRY._issued)
+    build_contract = runner._build_new_session_contract
+
+    def build_then_drift(**kwargs: object):
+        contract = build_contract(**kwargs)
+        runner._adapter.working_directory = str(replacement)
+        return contract
+
+    with (
+        patch.object(runner, "_build_new_session_contract", side_effect=build_then_drift),
+        patch.object(runner._session_repo, "create_session", AsyncMock()) as create_session,
+        patch("ouroboros.orchestrator.runner.release_lock") as release_lock_mock,
+    ):
+        result = await runner.prepare_session(
+            _seed(),
+            execution_id=execution_id,
+            session_id=session_id,
+        )
+
+    assert result.is_err
+    assert result.error.details["resume_blocked"] == "runtime_cwd_mismatch"
+    create_session.assert_not_awaited()
+    assert len(_PROCESS_LOCAL_AUTHORITY_REGISTRY._issued) == issued_before
+    assert (session_id, execution_id) not in runner._process_local_authorities
+    assert not heartbeat.is_holder_alive(session_id)
+    assert not runner._task_workspace_reservations
+    assert not runner._task_workspace_users
+    release_lock_mock.assert_called_once_with(workspace.lock_path)
 
 
 @pytest.mark.asyncio
@@ -5143,6 +6174,7 @@ async def test_foreign_precreated_running_tracker_rejects_without_revoking_owner
         execution_id="exec-foreign-precreated",
     )
     observer = _runner(_CountingRuntime())
+    observer._session_repo.reconstruct_session = AsyncMock(return_value=Result.ok(tracker))
     observer._get_merged_tools = AsyncMock(side_effect=AssertionError("tool setup must not run"))
 
     try:
@@ -5340,7 +6372,7 @@ async def test_retained_resume_restores_persisted_workspace_lock_when_worktree_f
         lock_path=str(tmp_path / "retained-resume.lock"),
     )
     runner = _runner()
-    runner._task_workspace = workspace
+    _bind_task_workspace(runner, workspace)
     tracker = await _prepare(
         runner,
         session_id="session-retained-resume-lock",
@@ -5970,3 +7002,73 @@ def test_diagnostic_contract_builds_do_not_leak_registry_issuances() -> None:
         assert contract["foundation_a_authority"]["scope"] == "process_local"
 
     assert len(_PROCESS_LOCAL_AUTHORITY_REGISTRY._issued) == issued_before
+
+
+async def _prepare_session_counting_publication_resolves(
+    tmp_path: Path, workspace: Path, run_tag: str
+) -> int:
+    """Run prepare_session and count publication-boundary re-resolutions."""
+    from unittest.mock import patch as _patch
+
+    from ouroboros.core.project_identity import resolve_project_identity as _resolve
+    from ouroboros.orchestrator import session as session_module
+
+    event_store = EventStore(f"sqlite+aiosqlite:///{tmp_path / 'evidence.db'}")
+    await event_store.initialize()
+    runtime = _CountingRuntime()
+    runtime.working_directory = str(workspace)
+    runner = OrchestratorRunner(runtime, event_store, MagicMock(), fat_harness_mode=False)
+
+    resolves = {"n": 0}
+
+    def counting(effective_cwd):  # noqa: ANN001, ANN202
+        resolves["n"] += 1
+        return _resolve(effective_cwd)
+
+    try:
+        with _patch.object(session_module, "resolve_project_identity", counting):
+            prepared = await runner.prepare_session(
+                _seed(),
+                execution_id=f"exec-{run_tag}",
+                session_id=f"session-{run_tag}",
+            )
+        assert prepared.is_ok
+    finally:
+        await event_store.close()
+    return resolves["n"]
+
+
+@pytest.mark.asyncio
+async def test_prepare_session_publication_reuses_resolution_evidence(
+    tmp_path: Path,
+) -> None:
+    """#1796: with a stable input closure, publication never re-runs the resolver."""
+    import subprocess
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    subprocess.run(["git", "init", "-q", str(workspace)], check=True)
+
+    resolves = await _prepare_session_counting_publication_resolves(
+        tmp_path, workspace, "evidence-reuse"
+    )
+
+    assert resolves == 0, (
+        f"expected the publication boundary to accept captured evidence, got "
+        f"{resolves} re-resolution(s)"
+    )
+
+
+@pytest.mark.asyncio
+async def test_prepare_session_publication_re_resolves_outside_the_closure(
+    tmp_path: Path,
+) -> None:
+    """Shapes outside the enumerable closure keep the full revalidation path."""
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+
+    resolves = await _prepare_session_counting_publication_resolves(
+        tmp_path, workspace, "evidence-escalate"
+    )
+
+    assert resolves == 1, f"expected exactly one full publication re-resolution, got {resolves}"

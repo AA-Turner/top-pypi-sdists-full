@@ -12,6 +12,7 @@ from whenever import (
     Date,
     Instant,
     InvalidOffsetError,
+    ItemizedDateDelta,
     ItemizedDelta,
     OffsetDateTime,
     PlainDateTime,
@@ -639,8 +640,12 @@ class TestFromTimestamp:
         with pytest.warns(WheneverDeprecationWarning, match="ignore_dst"):
             method(0, offset=3, ignore_dst=True)
 
-        with pytest.warns(StaleOffsetWarning):
+        with pytest.warns(StaleOffsetWarning) as caught:
             method(0, offset=3)
+        message = str(caught[0].message)
+        assert "offset may be stale at this timestamp" in message
+        assert "correct for that offset" in message
+        assert "guide/warnings.html" in message
 
     @suppress(StaleOffsetWarning)
     def test_float(self):
@@ -989,8 +994,12 @@ class TestNow:
         with pytest.warns(WheneverDeprecationWarning, match="ignore_dst"):
             OffsetDateTime.now(3, ignore_dst=True)
 
-        with pytest.warns(StaleOffsetWarning):
+        with pytest.warns(StaleOffsetWarning) as caught:
             OffsetDateTime.now(hours(5))
+        message = str(caught[0].message)
+        assert "may be stale for the region you intend" in message
+        assert "ZonedDateTime.now" in message
+        assert "guide/warnings.html" in message
 
     @suppress(StaleOffsetWarning)
     def test_int(self):
@@ -1099,6 +1108,18 @@ class TestAddSubtractOperators:
 
 
 class TestShiftMethods:
+    @pytest.mark.parametrize(
+        "delta, kwargs",
+        [
+            (ItemizedDateDelta(days=1), {"days": 1}),
+            (ItemizedDelta(days=1, hours=2), {"days": 1, "hours": 2}),
+        ],
+    )
+    @suppress(StaleOffsetWarning)
+    def test_itemized_delta_arguments(self, delta, kwargs):
+        d = OffsetDateTime(2020, 8, 15, 23, 12, 9, offset=2)
+        assert d.add(delta).exact_eq(d.add(**kwargs))
+
     def test_warnings(self):
         d = OffsetDateTime(
             2020, 8, 15, 23, 12, 9, nanosecond=987_654, offset=5
@@ -2204,18 +2225,16 @@ class TestSince:
         ).exact_eq(b.until(a, in_units=["years", "months", "days", "hours"]))
 
     def test_single_unit_returns_float(self):
-        import warnings as _warnings
-
         a = OffsetDateTime(2025, 3, 15, offset=1)
         b = OffsetDateTime(2023, 3, 15, offset=1)
         # OffsetDateTime.since() never warns — calendar and exact units alike
-        with _warnings.catch_warnings():
-            _warnings.simplefilter("error")
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
             result = a.since(b, total="years")
         assert isinstance(result, float)
         assert result == 2.0
-        with _warnings.catch_warnings():
-            _warnings.simplefilter("error")
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
             a.since(b, total="hours")
 
     def test_very_large_increment(self):

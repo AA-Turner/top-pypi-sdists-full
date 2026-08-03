@@ -23,7 +23,7 @@ class ResolverLadderTests(unittest.TestCase):
                 p = D.resolve(q)
                 self.assertEqual(p["status"], "ready")
                 self.assertEqual(p["connector"], "meta")
-                self.assertIn("/channels connect meta", p["steps"][0])
+                self.assertIn("/publish connect meta", p["steps"][0])
 
     def test_directory_oauth_requires_approval(self):
         p = D.resolve("Salesforce")

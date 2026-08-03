@@ -417,8 +417,8 @@ def resolve(name, world=None, mcp_lookup=None, web_search_available=True):
         plan["status"] = "ready"
         plan["auth"] = "oauth"
         plan["connector"] = conn
-        plan["steps"] = [f"/channels connect {conn}"]
-        plan["message"] = f"{name} has a built connector — connect with /channels connect {conn}."
+        plan["steps"] = [f"/publish connect {conn}"]
+        plan["message"] = f"{name} has a built connector — connect with /publish connect {conn}."
         return plan
 
     hit = find_in_directory(name)
@@ -430,8 +430,8 @@ def resolve(name, world=None, mcp_lookup=None, web_search_available=True):
             # A built OAuth connector exists — ready to connect right now.
             plan["status"] = "ready"
             plan["requires_approval"] = False
-            plan["steps"] = [f"/channels connect {it.connector}"]
-            plan["message"] = f"{it.name} has a built connector — connect with /channels connect {it.connector}."
+            plan["steps"] = [f"/publish connect {it.connector}"]
+            plan["message"] = f"{it.name} has a built connector — connect with /publish connect {it.connector}."
         else:
             plan["status"] = "directory"
             if it.auth == "oauth":

@@ -1,28 +1,43 @@
-from typing import TYPE_CHECKING, AnyStr, Dict, Generic, Optional, TypeVar, Union
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Callable, Generic, TypeVar
+
+from typing_extensions import Self
+
+from office365.runtime.client_request_exception import ClientRequestException
+from office365.runtime.http.request_options import RequestOptions
+from office365.runtime.paths.resource_path import ResourcePath
 
 if TYPE_CHECKING:
     from office365.runtime.client_object import ClientObject
     from office365.runtime.client_result import ClientResult
     from office365.runtime.client_runtime_context import ClientRuntimeContext
     from office365.runtime.client_value import ClientValue
+    from office365.runtime.odata.query_options import QueryOptions
 
-T = TypeVar("T", bound=Union["ClientObject", "ClientResult"])
+ReturnT = TypeVar("ReturnT", bound="ClientObject | ClientResult")
 
 
-class ClientQuery(Generic[T]):
+class ClientQuery(Generic[ReturnT]):
     """Client query"""
 
     def __init__(
         self,
-        context,
-        binding_type=None,
-        parameters_type=None,
-        parameters_name=None,
-        return_type=None,
-    ):
-        # type: (ClientRuntimeContext, Optional[ClientObject], Optional[ClientObject|ClientValue|Dict|AnyStr], Optional[str], Optional[T]) -> None
+        context: ClientRuntimeContext,
+        binding_type: ClientObject | None = None,
+        parameters_type: ClientObject | ClientValue | dict | str | bytes | None = None,
+        parameters_name: str | None = None,
+        return_type: ReturnT | None = None,
+    ) -> None:
         """
-        Generic query
+        Initialize a client query
+
+        Args:
+            context: The client runtime context
+            binding_type: The object this query is bound to (optional)
+            parameters_type: Type of parameters (ClientObject, ClientValue, dict, or string)
+            parameters_name: Name of the parameters collection (optional)
+            return_type: Expected return type of the query (optional)
         """
         self._context = context
         self._binding_type = binding_type
@@ -30,53 +45,93 @@ class ClientQuery(Generic[T]):
         self._parameters_name = parameters_name
         self._return_type = return_type
 
-    def build_request(self):
+    def build_request(self) -> RequestOptions:
         """Builds a request"""
-        return self.context.build_request(self)
+        request = self.context.pending_request().build_request(self)
+        self.context.pending_request().beforeExecute(request)
+        return request
 
-    def execute_query(self):
-        """Submit request(s) to the server"""
+    def execute_query(self) -> ReturnT | None:
+        """Executes the query and returns the result.
+
+        Returns:
+            The query result of type T
+
+        Raises:
+            ClientRequestException: If query execution fails
+        """
         self.context.execute_query()
         return self.return_type
 
+    def before_execute(self, action: Callable[[RequestOptions], None], once: bool = True) -> Self:
+        """
+        Attach an event handler which is triggered before query is submitted to server
+        """
+
+        self.context.pending_request().before_execute(
+            action,
+            once=once,
+            condition=lambda: self.context.current_query is not None and self.context.current_query.id == self.id,
+        )
+        return self
+
+    def on_error(self, action: Callable[[ClientRequestException], None], once: bool = True) -> Self:
+        self.context.pending_request().on_error(
+            action,
+            once=once,
+            condition=lambda: self.context.current_query is not None and self.context.current_query.id == self.id,
+        )
+        return self
+
     @property
-    def url(self):
+    def url(self) -> str:
+        """Builds the full request URL from the query's service root and resource path."""
         if self.binding_type is not None:
-            return self.binding_type.resource_url
-        else:
-            return self.context.service_root_url()
+            return "".join([self.context.service_root_url, str(self.path)])
+        return self.context.service_root_url
 
     @property
-    def query_options(self):
-        return self.binding_type.query_options
+    def query_options(self) -> QueryOptions | None:
+        return self.binding_type.query_options if self.binding_type is not None else None
 
     @property
-    def path(self):
+    def path(self) -> ResourcePath | None:
+        """The resource path for this query.
+
+        Returns:
+            ResourcePath of the bound object or None
+        """
         if self.binding_type is not None:
             return self.binding_type.resource_path
         else:
             return None
 
     @property
-    def context(self):
+    def context(self) -> ClientRuntimeContext:
+        """The client runtime context."""
         return self._context
 
     @property
-    def id(self):
+    def id(self) -> int:
+        """The unique identifier of the query."""
         return id(self)
 
     @property
-    def binding_type(self):
+    def binding_type(self) -> ClientObject | None:
+        """The object this query is bound to."""
         return self._binding_type
 
     @property
-    def parameters_name(self):
+    def parameters_name(self) -> str | None:
+        """Name of the parameters collection."""
         return self._parameters_name
 
     @property
-    def parameters_type(self):
+    def parameters_type(self) -> ClientObject | ClientValue | dict | str | bytes | None:
+        """Type of parameters for this query."""
         return self._parameters_type
 
     @property
-    def return_type(self):
+    def return_type(self) -> ReturnT | None:
+        """Expected return type of this query."""
         return self._return_type

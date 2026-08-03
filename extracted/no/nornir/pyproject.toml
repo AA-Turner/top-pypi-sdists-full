@@ -1,69 +1,66 @@
-[build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
-
-[tool.poetry.plugins."nornir.plugins.runners"]
-"serial" = "nornir.plugins.runners:SerialRunner"
-"threaded" = "nornir.plugins.runners:ThreadedRunner"
-
-[tool.poetry.plugins."nornir.plugins.inventory"]
-"SimpleInventory" = "nornir.plugins.inventory.simple:SimpleInventory"
-
-[tool.poetry]
+[project]
 name = "nornir"
-version = "3.5.0"
+version = "3.6.0"
 description = "Pluggable multi-threaded framework with inventory management to help operate collections of devices"
-authors = ["David Barroso <dbarrosop@dravetech.com>"]
+authors = [{ name = "David Barroso", email = "dbarrosop@dravetech.com" }]
 license = "Apache-2.0"
+license-files = ["LICENSE"]
 readme = "README.md"
-repository = "https://github.com/nornir-automation/nornir"
+requires-python = ">=3.10"
 classifiers = [
-        "License :: OSI Approved :: Apache Software License",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
-] 
+        "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "ruamel.yaml>=0.17",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.9,<4.0"
-"ruamel.yaml" = ">=0.17"
-# importlib.metadata has an API change in 3.10 and is no longer provisional
-importlib-metadata = { version = "^4", python = "<3.10" }
-setuptools = ">=43.0.0"
+[project.urls]
+Repository = "https://github.com/nornir-automation/nornir"
 
-[tool.poetry.group.dev.dependencies]
-decorator = "*"
-nbval = "^0.10.0"
-pytest = "*"
-pytest-cov = "*"
-requests-mock = "*"
-mypy = "^1.5.1"
-types-Jinja2 = "^2.11.9"
-types-setuptools= ">=75.5.0.20241116"
-nornir-jinja2 = "0.2.0"
-nornir-utils = "0.2.0"
-# needed until underlying issue with PyEZ and PY3.13 (telnetlib) is fixed. Dev/testing fix only
-junos-eznc = { git = "https://github.com/ktbyers/py-junos-eznc.git", rev = "468b0019ebad8361958604efafa83f009ef75683" }
-napalm = { git = "https://github.com/napalm-automation/napalm", rev = "e2f8e7e24f9cff5fc4ce5d67ab0a4d5e9fce097b" }
-nornir-napalm = "0.5.0"
-# ncclient 0.6.16 broke Windows support; should be fixed in next release of ncclient.
-ncclient = "0.6.15"
-ruff = "^0.4.9"
+[project.entry-points."nornir.plugins.runners"]
+serial = "nornir.plugins.runners:SerialRunner"
+threaded = "nornir.plugins.runners:ThreadedRunner"
 
-[tool.poetry.group.docs.dependencies]
-sphinx = "6.2.1"
-sphinx_rtd_theme = "1.2.2"
-sphinxcontrib-napoleon = "^0.7"
-jupyter = "1.0.0"
-nbsphinx = "0.9.2"
-pygments = "2.16.1"
-sphinx-issues = "3.0.1"
+[project.entry-points."nornir.plugins.inventory"]
+SimpleInventory = "nornir.plugins.inventory.simple:SimpleInventory"
+
+[dependency-groups]
+dev = [
+    "decorator",
+    "nbval>=0.10.0,<0.11",
+    "pytest",
+    "pytest-cov",
+    "requests-mock",
+    "mypy>=1.5.1,<2",
+    "nornir-jinja2==0.2.0",
+    "nornir-utils==0.2.0",
+    "napalm>=5.2.0",
+    "nornir-napalm==0.5.0",
+    "ruff>=0.15.20,<0.16",
+]
+docs = [
+    "sphinx==6.2.1",
+    "sphinx-rtd-theme==1.2.2",
+    "sphinxcontrib-napoleon>=0.7,<0.8",
+    "jupyter==1.0.0",
+    "nbsphinx==0.9.2",
+    "pygments==2.20.0",
+    "sphinx-issues==3.0.1",
+]
+
+[tool.uv]
+default-groups = ["dev", "docs"]
+
+[tool.uv.build-backend]
+module-root = ""
 
 [tool.mypy]
 # The mypy configurations: http://bit.ly/2zEl9WI
-python_version = "3.8"
+python_version = "3.10"
 check_untyped_defs = true
 disallow_any_generics = true
 disallow_untyped_calls = true
@@ -116,6 +113,9 @@ disable_error_code = [
 
 [tool.ruff]
 line-length = 100
+# Notebooks are rendered documentation examples (prints, incremental imports, etc.) and were
+# not linted before ruff 0.6 started picking up .ipynb files by default
+extend-exclude = ["*.ipynb"]
 
 [tool.ruff.lint]
 preview = true
@@ -166,9 +166,8 @@ select = [
     "SIM",   # flake8-simplify
     "SLF",   # flake8-self
     "SLOT",  # flake8-slots
-    "TCH",   # flake8-type-checking
+    "TC",    # flake8-type-checking
     "TD",    # flake8-todos
-    "TRIO",  # flake8-trio
     "T10",   # flake8-debugger
     "T20",   # flake8-print
     "TID",   # flake8-tidy-imports
@@ -195,6 +194,7 @@ ignore = [
     "FBT001",  # Boolean-typed positional argument in function definition
     "FBT002",  # Boolean default positional argument in function definition
     "FURB101", # `open` and `read` should be replaced by `Path(filename).read_text()`
+    "FURB189", # Subclassing `dict`/`list` should be replaced by `collections.UserDict`/`UserList` (would change behaviour)
     "INP001",  # File is part of an implicit namespace package. Add an `__init__.py`.
     "PERF203", # `try`-`except` within a loop incurs performance overhead
     "PIE800",  # Unnecessary spread `**`
@@ -206,13 +206,16 @@ ignore = [
     "PTH100",  # `os.path.abspath()` should be replaced by `Path.resolve()`
     "PTH120",  # `os.path.dirname()` should be replaced by `Path.parent`
     "PTH123",  # `open()` should be replaced by `Path.open()`
+    "PYI034",  # `__enter__` should return `Self`; requires Python 3.11+ (or typing_extensions)
     "RSE102",  # Unnecessary parentheses on raised exception
     "RUF001",  # String contains ambiguous `–` (EN DASH). Did you mean `-` (HYPHEN-MINUS)?
     "RUF012",  # Mutable class attributes should be annotated with `typing.ClassVar`
+    "RUF067",  # `__init__` module should only contain docstrings and re-exports
     "S701",    # By default, jinja2 sets `autoescape` to `False`. Consider using `autoescape=True` or the `select_autoescape` function to mitigate XSS vulnerabilities.
     "SLF001",  # Private member accessed
     "SIM108",  # Use ternary operator `config = Config.from_file(config_file, **kwargs) if config_file else Config.from_dict(**kwargs)` instead of `if`-`else`-block
     "SIM110",  # Use `return any(g.name == group or g.has_parent_group(group) for g in self.groups)` instead of `for` loop
+    "TC001",   # Move application import into a type-checking block (first-party re-export restructuring is out of scope for the PEP 585/604 cleanup)
     "TRY002",  # Create your own exception
     "TRY003",  # Avoid specifying long messages outside the exception class
     "TRY004",  # Prefer `TypeError` exception for invalid type
@@ -281,7 +284,6 @@ max-returns = 11
     "PTH118",  # `os.path.join()` should be replaced by `Path` with `/` operator
     "PTH120",  # `os.path.dirname()` should be replaced by `Path.parent`
     "PT003",   # `scope='function'` is implied in `@pytest.fixture()`
-    "PT004",   # Fixture does not return anything, add leading underscore
     "PT006",   # Wrong type passed to first argument of `@pytest.mark.parametrize`; expected `tuple`
     "PT012",   # `pytest.raises()` block should contain a single simple statement
     "PT018",   # Assertion should be broken down into multiple parts
@@ -289,3 +291,12 @@ max-returns = 11
     "SIM118",  # Use `key in dict` instead of `key in dict.keys()`
 ]
 
+[tool.pytest]
+# addopts = ["--cov=nornir", "--cov-report=term-missing", "-vs"]
+filterwarnings = [
+    "ignore::nornir.core.exceptions.ConflictingConfigurationWarning",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.0,<0.12.0"]
+build-backend = "uv_build"

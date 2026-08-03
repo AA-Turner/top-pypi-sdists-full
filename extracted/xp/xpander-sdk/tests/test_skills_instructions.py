@@ -33,3 +33,13 @@ def test_note_routes_authoring_to_local_skills():
     out = _build_skills_instructions([{"name": "any-skill", "description": "x"}])
     assert "read-only" in out
     assert "local_skills" in out
+
+
+def test_note_makes_xpload_skill_the_primary_read_path() -> None:
+    """One xpload_skill call replaces the SKILL.md-plus-explore workspace round trips, with workspace reads kept as the fallback."""
+    out = _build_skills_instructions([{"name": "any-skill", "description": "x"}])
+    assert "xpload_skill" in out
+    assert "&lt;skill_playbook&gt;" in out
+    assert "never load it twice" in out
+    assert "xpworkspace-file-read" in out
+    assert "xpworkspace-bash" in out

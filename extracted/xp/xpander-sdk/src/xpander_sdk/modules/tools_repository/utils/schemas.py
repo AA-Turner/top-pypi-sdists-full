@@ -34,10 +34,40 @@ class _CoercingPayloadBase(BaseModel):
             if isinstance(parsed, dict):
                 data = parsed
         if isinstance(data, dict):
+            data = cls._unwrap_redundant_payload(data)
             data = cls._nest_flat_body_params(data)
             data = cls._hoist_misplaced_reasoning_headers(data)
             data = cls._fill_missing_reasoning_fields(data)
         return data
+
+    @classmethod
+    def _unwrap_redundant_payload(cls, data: dict) -> dict:
+        """LLMs sometimes double-wrap the payload: because the tool's single arg is
+        literally named ``payload`` AND its docs say "wrap in a payload object", a weak
+        model emits ``{"payload": {"payload": {...}}}``. Agno binds the outer wrapper,
+        so this validator receives ``{"payload": {body_params: …}}`` - a lone ``payload``
+        key holding a payload-shaped dict. Left alone, _nest_flat_body_params buries that
+        stray key inside body_params and every field reads as "Field required". Unwrap one
+        redundant level so the inner payload validates. No-op when the model legitimately
+        has its own ``payload`` field, or when ``payload`` isn't the lone meaningful key."""
+        if "payload" not in data or "payload" in cls.model_fields:
+            return data
+        inner = data["payload"]
+        if not isinstance(inner, dict):
+            return data
+        siblings = {k: v for k, v in data.items() if k != "payload"}
+        if any(not str(k).lower().startswith("toolcall") for k in siblings):
+            return data
+        payload_shape = {"body_params", "query_params", "path_params", "headers", "workspace_path"}
+        if not (payload_shape & set(inner) or set(cls.model_fields) & set(inner)):
+            return data
+        # Carry the outer toolcall* reasoning headers into the unwrapped inner payload
+        # (without clobbering any the inner already has) so the activity-log label survives.
+        if siblings:
+            inner = {**inner}
+            for k, v in siblings.items():
+                inner.setdefault(k, v)
+        return inner
 
     @classmethod
     def _nest_flat_body_params(cls, data: dict) -> dict:

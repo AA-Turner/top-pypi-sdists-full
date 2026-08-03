@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-bitfield
-Version: 2.2.0
+Version: 2.4.0
 Summary: BitField in Django
 Home-page: https://github.com/disqus/django-bitfield
 Author: Disqus
@@ -12,15 +12,31 @@ Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Description-Content-Type: text/x-rst
-Provides-Extra: tests
 License-File: LICENSE
+Requires-Dist: Django>=1.11.29
+Provides-Extra: tests
+Requires-Dist: flake8; extra == "tests"
+Requires-Dist: mysqlclient; extra == "tests"
+Requires-Dist: psycopg2>=2.3; extra == "tests"
+Requires-Dist: pytest-django; extra == "tests"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 django-bitfield
 ---------------
@@ -135,6 +151,10 @@ BitFieldListFilter is in ``bitfield.admin`` module::
 
 Changelog
 =========
+
+2.4.0 - 2026-08-02:
+
+- Add support for Python 3.14.
 
 2.2.0 - 2022-07-11:
 

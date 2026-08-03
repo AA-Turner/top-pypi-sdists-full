@@ -40,10 +40,15 @@ from ouroboros.copilot_permissions import (
 from ouroboros.orchestrator.adapter import (
     AgentMessage,
     ParamSupport,
+    ResolvedWorkerCwd,
     RuntimeCapabilities,
     RuntimeHandle,
 )
-from ouroboros.orchestrator.codex_cli_runtime import CodexCliRuntime, SkillDispatchHandler
+from ouroboros.orchestrator.codex_cli_runtime import (
+    CodexCliRuntime,
+    SkillDispatchHandler,
+    _CodexItemCorrelationScope,
+)
 from ouroboros.providers.base import CompletionConfig
 from ouroboros.providers.profiles import resolve_completion_profile
 
@@ -121,7 +126,7 @@ class CopilotCliRuntime(CodexCliRuntime):
         cli_path: str | Path | None = None,
         permission_mode: str | None = None,
         model: str | None = None,
-        cwd: str | Path | None = None,
+        cwd: str | Path | ResolvedWorkerCwd | None = None,
         skills_dir: str | Path | None = None,
         skill_dispatcher: SkillDispatchHandler | None = None,
         llm_backend: str | None = None,
@@ -211,6 +216,7 @@ class CopilotCliRuntime(CodexCliRuntime):
         event stream by ``_convert_event``).
         """
         del output_last_message_path, resume_session_id
+        self._assert_cli_executable_identity_unchanged()
 
         command = [
             self._cli_path,
@@ -285,6 +291,8 @@ class CopilotCliRuntime(CodexCliRuntime):
         self,
         event: dict[str, Any],
         current_handle: RuntimeHandle | None,
+        *,
+        item_scope: _CodexItemCorrelationScope | None = None,
     ) -> list[AgentMessage]:
         """Convert Copilot JSONL events into normalized runtime messages.
 

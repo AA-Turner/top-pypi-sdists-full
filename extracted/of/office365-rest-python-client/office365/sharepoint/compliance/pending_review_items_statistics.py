@@ -1,10 +1,14 @@
+from dataclasses import dataclass
+from typing import Optional
+
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class PendingReviewItemsStatistics(ClientValue):
-    def __init__(self, label_id=None, label_name=None):
-        self.LabelId = label_id
-        self.LabelName = label_name
+    LabelId: Optional[str] = None
+    LabelName: Optional[str] = None
+    PendingReviewItemsCount: Optional[int] = None
 
     @property
     def entity_type_name(self):

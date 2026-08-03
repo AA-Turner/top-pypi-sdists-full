@@ -17,12 +17,14 @@ import typer
 from ouroboros.cli.commands import init as init_command
 from ouroboros.cli.commands import qa as qa_command_module
 from ouroboros.cli.commands import run as run_command
+from ouroboros.cli.streams import UnicodeSafeTyperGroup
 from ouroboros.mcp.tools.qa import DEFAULT_PASS_THRESHOLD
+from ouroboros.orchestrator.decomposition_limits import MAX_DURABLE_DECOMPOSITION_DEPTH
 
 _DEFAULT_ZCODE_CLI_PATH = Path("/Applications/ZCode.app/Contents/Resources/glm/zcode.cjs")
 
 
-class _DefaultStartGroup(typer.core.TyperGroup):
+class _DefaultStartGroup(UnicodeSafeTyperGroup):
     """Use ``start`` when the user runs ``ouroboros zcode "..."``."""
 
     default_cmd_name: str = "start"
@@ -174,7 +176,14 @@ def run(
     ] = False,
     max_decomposition_depth: Annotated[
         int | None,
-        typer.Option("--max-decomposition-depth", min=0, help="Maximum recursive split depth."),
+        typer.Option(
+            "--max-decomposition-depth",
+            min=0,
+            help=(
+                "Maximum recursive split depth. "
+                f"Depths above {MAX_DURABLE_DECOMPOSITION_DEPTH} use legacy execution."
+            ),
+        ),
     ] = None,
 ) -> None:
     """Run a Seed with Zcode as the execution runtime."""

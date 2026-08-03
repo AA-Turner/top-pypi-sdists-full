@@ -54,7 +54,7 @@ use serde::{Deserialize, Serialize};
 use ciris_persist::federation::envelope::paths;
 use ciris_persist::federation::types::{attestation_type, cohort_scope};
 use ciris_persist::federation::EmitAttestationInput;
-use ciris_persist::prelude::Engine;
+use ciris_persist::prelude::{CallerScope, Engine};
 
 /// The open-vocab config dimension every config row rides on. **Versioned**
 /// (`:v1`) to satisfy persist's `DimensionAdmissionPolicy { require_version_segment:
@@ -281,20 +281,94 @@ pub async fn self_key_id(engine: &Arc<Engine>) -> Result<String> {
         .map_err(|e| anyhow::anyhow!("resolve config-plane identity: {e}"))
 }
 
+/// Page size for the filtered config read. `config:*` is a small,
+/// node-local plane (a dozen keys on a real node); this is a bound, not a
+/// working set.
+const CONFIG_READ_LIMIT: i64 = 512;
+
+/// Every live `config:*` row this node authored.
+///
+/// # Why the filter is in the QUERY (CIRISServer#343)
+///
+/// This used to be `list_attestations_by(self)` — every attestation the node
+/// had ever authored — followed by two `continue`s in Rust. Measured on the
+/// production status node 2026-08-02: **9,824** self-authored rows, of which
+/// **12** were config; the other 9,811 were `health:liveness:v1`. Each row was
+/// loaded and its envelope JSON-parsed to be discarded.
+///
+/// Worse than a bad constant factor: `Config::resolve` calls a `get_*` fifteen
+/// times, each one a full scan — 147,360 row loads to read twelve values — and
+/// `refresh_config` runs it every poll cycle, not once at boot. The node spent
+/// roughly half its wall clock re-reading its own liveness history. Boot phase
+/// `config_resolution` took **152 seconds**.
+///
+/// It was never a regression; it was linear in a corpus that grows 288 rows a
+/// day forever, so it degraded daily and worst on the longest-lived nodes.
+///
+/// `AttestationFilter` already carried every predicate this needs. The fix is
+/// to stop doing the substrate's job in application code.
 async fn live_config_rows(engine: &Arc<Engine>) -> Result<Vec<StoredRow>> {
+    use ciris_persist::ceg::list::federation::AttestationFilter;
+
     let node_key_id = self_key_id(engine).await?;
     let node_key_id = node_key_id.as_str();
-    let directory = engine.federation_directory();
-    let rows = directory
-        .list_attestations_by(node_key_id)
+
+    // `AttestationFilter` is #[non_exhaustive] — persist owns its shape and may
+    // add predicates. Build-then-set so a new field arrives as a default we did
+    // not have to notice, rather than as a compile break on every consumer.
+    let mut filter = AttestationFilter::default();
+    filter.attesting_key_id = Some(node_key_id.to_owned());
+    filter.attestation_type = Some(attestation_type::SCORES.to_owned());
+    // Derived from CONFIG_DIMENSION, never written twice. A prefix literal
+    // beside the dimension is the hand-mirrored-vocabulary shape
+    // tests/envelope_vocabulary_single_source.rs exists to stop.
+    filter.dimension_prefixes = vec![CONFIG_DIMENSION
+        .split_once(':')
+        .map(|(fam, _)| format!("{fam}:"))
+        .unwrap_or_else(|| CONFIG_DIMENSION.to_owned())];
+
+    // ── The scope gate is REAL and this read must pass it honestly ──────────
+    //
+    // `list_attestations` is scope-gated on the row's `cohort_scope`;
+    // `list_attestations_by` (what this used to call) is not. `config:*` rows
+    // are stamped `cohort_scope=SELF` (SRV-4/#324) — a node's configuration is
+    // not federation-visible — and `CallerScope::Unauthenticated` admits only
+    // `{affiliations, species, biosphere, federation}`.
+    //
+    // The first version of this change passed `Unauthenticated` and therefore
+    // returned ZERO config rows against a corpus full of them. Nine tests caught
+    // it. Same defect class as everything else in this arc — a narrowing that
+    // reads as a healthy empty result — and far worse than the 152s it fixed.
+    //
+    // The honest scope is the node authenticated AS ITSELF: `self` is admitted
+    // when `target == admission.identity_key_id`, and a config row's
+    // `attested_key_id` IS this node. `build_caller_admission` is the only
+    // public path to an admission (AV-44 forge resistance: no public
+    // constructor), so this cannot fabricate authority it does not hold.
+    let admission = ciris_persist::scope::build_caller_admission(engine, &node_key_id.to_owned())
         .await
-        .map_err(|e| anyhow::anyhow!("list attestations by {node_key_id}: {e}"))?;
+        .map_err(|e| anyhow::anyhow!("resolve config-plane caller admission: {e}"))?;
+    let page = engine
+        .list_attestations(
+            filter,
+            None,
+            CONFIG_READ_LIMIT,
+            CallerScope::Authenticated { admission },
+        )
+        .await
+        .map_err(|e| anyhow::anyhow!("list config attestations for {node_key_id}: {e}"))?;
+
+    // ONE read for every retraction this node authored, hoisted out of the loop.
+    // This was called PER SURVIVING ROW — twelve config rows meant twelve more
+    // full scans, so pushing the config filter down only took the pass from
+    // fifteen scans to thirteen. The nested N+1 was the larger half.
+    let revoked = revoked_config_rows(engine, node_key_id).await;
 
     let mut out = Vec::new();
-    for a in rows {
-        if a.attestation_type != attestation_type::SCORES {
-            continue;
-        }
+    for a in page.items {
+        // `dimension_prefixes` matches a PREFIX; this plane wants the exact
+        // dimension, so the equality check stays. It now runs over the dozen
+        // rows the query returned rather than every row the node ever wrote.
         if a.attestation_envelope
             .get(paths::DIMENSION)
             .and_then(|d| d.as_str())
@@ -303,7 +377,10 @@ async fn live_config_rows(engine: &Arc<Engine>) -> Result<Vec<StoredRow>> {
             continue;
         }
         // Revocation: a recanted/withdrawn config row reads as absent.
-        if config_key_revoked(engine, node_key_id, &a.attestation_id).await {
+        // Membership test against the HOISTED set — see `revoked_config_rows`.
+        if revoked.contains(a.attestation_id.as_str())
+            || config_row_revoked_externally(engine, &a.attestation_id).await
+        {
             continue;
         }
         if let Some(entry) = entry_from_envelope(&a.attestation_envelope) {
@@ -317,37 +394,70 @@ async fn live_config_rows(engine: &Arc<Engine>) -> Result<Vec<StoredRow>> {
     Ok(out)
 }
 
-/// True iff a config row (`attestation_id`) authored by `node_key_id` has been
-/// revoked — by a `withdraws`/`recants` the node authored against it, or by a
-/// `revocations_for` row. Same shape as
-/// `crate::auth::ownership`'s `delegation_revoked`, scoped to the config row id.
+/// Every config row id this node has retracted, in ONE pass.
 ///
-/// NOTE (flagged): the substrate has no `supersede`-aware federation-tier reader
-/// yet, so partial-narrowing supersede (RC29 §5.6.8.15) is NOT honored — only
-/// explicit withdraws/recants/revocation. For the common last-write-wins path the
-/// version-fold already supersedes prior values.
-async fn config_key_revoked(engine: &Arc<Engine>, node_key_id: &str, attestation_id: &str) -> bool {
-    let directory = engine.federation_directory();
-    if let Ok(by_node) = directory.list_attestations_by(node_key_id).await {
-        for a in by_node {
-            let is_retraction = a.attestation_type == attestation_type::WITHDRAWS
-                || a.attestation_type == attestation_type::RECANTS;
-            // A retraction can target the row either via attested_key_id or via
-            // its subject_key_ids carrying the row id.
-            if is_retraction
-                && (a.attested_key_id == attestation_id
-                    || a.subject_key_ids.iter().any(|s| s == attestation_id))
-            {
-                return true;
+/// # Why hoisted (CIRISServer#343, the second half)
+///
+/// This logic used to live in a per-row `config_key_revoked`, each call doing
+/// its own `list_attestations_by(self)`. With twelve config rows that was twelve
+/// full scans of every attestation the node ever authored — on the production
+/// status node, 9,824 rows each time. Pushing the config filter into the query
+/// fixed the outer scan and left this one, so the pass went from fifteen scans
+/// to thirteen: a real fix that measured as almost nothing.
+///
+/// Two filtered reads (withdraws, recants) replace all of them. Both return only
+/// retraction rows, which are rare, so the cost is bounded by retractions rather
+/// than by corpus size.
+async fn revoked_config_rows(
+    engine: &Arc<Engine>,
+    node_key_id: &str,
+) -> std::collections::HashSet<String> {
+    use ciris_persist::ceg::list::federation::AttestationFilter;
+
+    let mut out = std::collections::HashSet::new();
+    let Ok(admission) =
+        ciris_persist::scope::build_caller_admission(engine, &node_key_id.to_owned()).await
+    else {
+        return out;
+    };
+    for kind in [attestation_type::WITHDRAWS, attestation_type::RECANTS] {
+        let mut filter = AttestationFilter::default();
+        filter.attesting_key_id = Some(node_key_id.to_owned());
+        filter.attestation_type = Some(kind.to_owned());
+        let Ok(page) = engine
+            .list_attestations(
+                filter,
+                None,
+                CONFIG_READ_LIMIT,
+                CallerScope::Authenticated {
+                    admission: admission.clone(),
+                },
+            )
+            .await
+        else {
+            continue;
+        };
+        for a in page.items {
+            // A retraction targets the row either via attested_key_id or via its
+            // subject_key_ids carrying the row id.
+            out.insert(a.attested_key_id.clone());
+            for s in a.subject_key_ids {
+                out.insert(s);
             }
         }
     }
-    if let Ok(revs) = directory.revocations_for(attestation_id).await {
-        if !revs.is_empty() {
-            return true;
-        }
-    }
-    false
+    out
+}
+
+/// A revocation authored by SOMEONE ELSE against this config row.
+///
+/// Kept per-row because `revocations_for` is a targeted lookup by the row id,
+/// not a scan — the thing the hoist above was curing.
+async fn config_row_revoked_externally(engine: &Arc<Engine>, attestation_id: &str) -> bool {
+    matches!(
+        engine.federation_directory().revocations_for(attestation_id).await,
+        Ok(revs) if !revs.is_empty()
+    )
 }
 
 /// Fold a key's rows to the latest-wins [`ConfigEntry`] + its row id: highest
@@ -540,4 +650,65 @@ pub async fn get_str_list(engine: &Arc<Engine>, key: &str) -> Result<Option<Vec<
     Ok(get_config(engine, key)
         .await?
         .and_then(|e| e.value.as_str_list()))
+}
+
+#[cfg(test)]
+mod scope_gate_tests {
+    /// **A filtered read must not silently narrow itself out of existence.**
+    ///
+    /// `list_attestations` is scope-gated on the row's `cohort_scope`;
+    /// `list_attestations_by` is not. Swapping one for the other to push a
+    /// filter into the query — the right move for #343 — silently changed the
+    /// authority model too, and `CallerScope::Unauthenticated` admits only
+    /// `{affiliations, species, biosphere, federation}`.
+    ///
+    /// `config:*` is `cohort_scope=SELF`. So the first version of that change
+    /// returned ZERO rows against a corpus full of them, and every config value
+    /// read as absent. Nine tests failed — the system working — but the failure
+    /// mode is a healthy-looking empty result, and this pins the CAUSE rather
+    /// than leaving the next person to rediscover it from nine unrelated
+    /// assertions.
+    #[test]
+    fn the_config_read_is_scoped_as_the_node_itself_not_unauthenticated() {
+        let src = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/graph_config.rs"),
+        )
+        .expect("readable");
+        let code = src.split("#[cfg(test)]").next().expect("code");
+        let body = code
+            .split_once("fn live_config_rows")
+            .expect("live_config_rows must exist")
+            .1;
+        let body = &body[..body.find("\n}\n").unwrap_or(body.len())];
+        // Strip comments: the function's own comment DOCUMENTS the
+        // Unauthenticated bug by name, and a gate that matches its own
+        // explanation is measuring prose, not code — the exact instrument
+        // failure the RCA catalogues. Only executable text counts.
+        let body: String = body
+            .lines()
+            .filter(|l| !l.trim_start().starts_with("//"))
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(
+            body.contains("build_caller_admission"),
+            "the config read must resolve a REAL admission. `self`-scoped rows are admitted only \
+             when target == admission.identity_key_id, and build_caller_admission is the only \
+             public path to one (AV-44: no public constructor) — which is also what stops this \
+             read fabricating authority it does not hold."
+        );
+        assert!(
+            !body.contains("CallerScope::Unauthenticated"),
+            "Unauthenticated admits only {{affiliations, species, biosphere, federation}}. \
+             config:* is cohort_scope=SELF, so this read would return nothing, every config \
+             value would resolve as absent, and the node would silently run on defaults over a \
+             corpus of signed writes."
+        );
+        assert!(
+            body.contains("list_attestations(") && !body.contains("list_attestations_by"),
+            "the filter must stay IN THE QUERY (#343): list_attestations_by(self) loads every \
+             attestation the node ever authored — 9,824 rows scanned fifteen times per resolve \
+             to read twelve values, a 152s boot phase, repeated every poll cycle."
+        );
+    }
 }

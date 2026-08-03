@@ -6,10 +6,8 @@ class AppPrincipalIdentityProvider(Entity):
     """Represents an identity provider for app principals."""
 
     @staticmethod
-    def external(context):
+    def external(context) -> "AppPrincipalIdentityProvider":
         return_type = AppPrincipalIdentityProvider(context)
-        qry = ServiceOperationQuery(
-            return_type, "External", None, None, None, return_type, True
-        )
+        qry = ServiceOperationQuery(return_type, "External", None, None, None, return_type, True)
         context.add_query(qry)
         return return_type

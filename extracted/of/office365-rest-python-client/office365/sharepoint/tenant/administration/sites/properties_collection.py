@@ -15,65 +15,53 @@ class SitePropertiesCollection(EntityCollection[SiteProperties]):
     """SiteProperties resource collection"""
 
     def __init__(self, context, resource_path=None):
-        super(SitePropertiesCollection, self).__init__(
-            context, SiteProperties, resource_path
-        )
+        super().__init__(context, SiteProperties, resource_path)
 
-    def get_by_id(self, site_id):
-        """
-        :param str site_id: Site identifier
+    def get_by_id(self, site_id: str) -> SiteProperties:
+        """Args:
+        site_id (str): Site identifier
         """
         return_type = SiteProperties(self.context)
         qry = ServiceOperationQuery(self, "GetById", [site_id], None, None, return_type)
         self.context.add_query(qry)
         return return_type
 
-    def get_lock_state_by_id(self, site_id):
-        """
-        :param str site_id: Site identifier
+    def get_lock_state_by_id(self, site_id: str) -> ClientResult[int]:
+        """Args:
+        site_id (str): Site identifier
         """
         return_type = ClientResult(self.context, int())
-        qry = ServiceOperationQuery(
-            self, "GetLockStateById", [site_id], None, None, return_type
-        )
+        qry = ServiceOperationQuery(self, "GetLockStateById", [site_id], None, None, return_type)
         self.context.add_query(qry)
         return return_type
 
-    def get_site_state_properties(self, site_id):
-        """
-        Gets site state properties.
+    def get_site_state_properties(self, site_id: str) -> ClientResult[SiteStateProperties]:
+        """Gets site state properties.
 
-        :param str site_id: Site identifier
+        Args:
+            site_id (str): Site identifier
         """
         return_type = ClientResult(self.context, SiteStateProperties())
-        qry = ServiceOperationQuery(
-            self, "GetSiteStateProperties", [site_id], None, None, return_type
-        )
+        qry = ServiceOperationQuery(self, "GetSiteStateProperties", [site_id], None, None, return_type)
         self.context.add_query(qry)
         return return_type
 
-    def get_site_user_groups(self, site_id):
-        """
-        Gets site user groups.
+    def get_site_user_groups(self, site_id: str) -> ClientResult[ClientValueCollection[SiteUserGroupInfo]]:
+        """Gets site user groups.
 
-        :param str site_id: Site identifier
+        Args:
+            site_id (str): Site identifier
         """
-        return_type = ClientResult(
-            self.context, ClientValueCollection(SiteUserGroupInfo)
-        )
-        qry = ServiceOperationQuery(
-            self, "GetSiteUserGroups", [site_id], None, None, return_type
-        )
+        return_type = ClientResult(self.context, ClientValueCollection(SiteUserGroupInfo))
+        qry = ServiceOperationQuery(self, "GetSiteUserGroups", [site_id], None, None, return_type)
         self.context.add_query(qry)
         return return_type
 
-    def check_site_is_archived_by_id(self, site_id):
-        """
-        :param str site_id: Site identifier
+    def check_site_is_archived_by_id(self, site_id: str) -> ClientResult[bool]:
+        """Args:
+        site_id (str): Site identifier
         """
         return_type = ClientResult(self.context, bool())
-        qry = ServiceOperationQuery(
-            self, "CheckSiteIsArchivedById", [site_id], None, None, return_type
-        )
+        qry = ServiceOperationQuery(self, "CheckSiteIsArchivedById", [site_id], None, None, return_type)
         self.context.add_query(qry)
         return return_type

@@ -9,7 +9,7 @@ from setuptools import setup
 
 setup(
     name="nxplora",
-    version="0.15.260",
+    version="0.15.261",
     description="NX — the operator. Terminal CLI for the Nexplora model layer.",
     long_description=(
         "NX is an AI Operating System for business operators, built by Nexplora. "

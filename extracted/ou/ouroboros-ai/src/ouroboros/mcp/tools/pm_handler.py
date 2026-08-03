@@ -28,6 +28,7 @@ from typing import Any
 import structlog
 
 from ouroboros.backends import backend_supports_tool_envelope
+from ouroboros.bigbang.answer_provenance import extraction_rounds
 from ouroboros.bigbang.interview import (
     InterviewRound,
     InterviewState,
@@ -40,6 +41,7 @@ from ouroboros.bigbang.pm_document import save_pm_document
 from ouroboros.bigbang.pm_interview import PM_UNCERTAINTY_GUIDANCE, PMInterviewEngine
 from ouroboros.config import get_llm_backend_for_role, get_llm_model_for_role
 from ouroboros.core.initial_context import resolve_initial_context_input
+from ouroboros.core.owner_only import secure_directory, write_owner_only
 from ouroboros.core.pm_snapshot import refresh_pm_snapshot_worktrees
 from ouroboros.core.types import Result
 from ouroboros.mcp.errors import MCPServerError, MCPToolError
@@ -185,8 +187,21 @@ def _save_pm_meta(
         meta.update(extra)
 
     path = _meta_path(session_id, data_dir)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+    if data_dir is None:
+        secure_directory(path.parent)
+    else:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    durability_confirmed = write_owner_only(
+        path,
+        json.dumps(meta, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    if not durability_confirmed:
+        log.warning(
+            "pm_handler.meta_save_durability_unconfirmed",
+            session_id=session_id,
+            path=str(path),
+        )
     log.debug("pm_handler.meta_saved", session_id=session_id, path=str(path))
 
 
@@ -221,18 +236,29 @@ def _last_classification(engine: PMInterviewEngine) -> str | None:
     return engine.get_last_classification()
 
 
-def _format_pm_transcript(state: InterviewState) -> str:
-    """Format persisted PM interview rounds as readable transcript for subagent context."""
+def _format_pm_transcript(state: InterviewState, *, withhold_observations: bool = False) -> str:
+    """Format PM rounds for question generation or requirement extraction.
+
+    Resume/start subagents need raw observations to sharpen their next
+    question.  The plugin ``generate`` action is a requirement-producing
+    consumer, so it opts into the shared provenance projection instead.
+    """
     if not state.rounds:
         return ""
+    if withhold_observations:
+        rendered = [
+            (item.round_number, item.question, item.answer) for item in extraction_rounds(state)
+        ]
+    else:
+        rendered = [(r.round_number, r.question, r.user_response) for r in state.rounds]
     lines: list[str] = []
     if state.initial_context:
         lines.append(f"**Product Idea:** {state.initial_context}")
         lines.append("")
-    for r in state.rounds:
-        lines.append(f"**Q{r.round_number}:** {r.question}")
-        if r.user_response:
-            lines.append(f"**A{r.round_number}:** {r.user_response}")
+    for round_number, question, answer in rendered:
+        lines.append(f"**Q{round_number}:** {question}")
+        if answer:
+            lines.append(f"**A{round_number}:** {answer}")
         lines.append("")
     return "\n".join(lines).rstrip()
 
@@ -409,6 +435,11 @@ class PMInterviewHandler:
         if self.pm_engine is not None:
             return self.pm_engine
         backend = get_llm_backend_for_role("pm_interview", explicit_backend=self.llm_backend)
+        # ``strict_mcp_config=True`` mirrors InterviewHandler's #765 opt-in:
+        # the PM question-generation subprocess runs as a child of Claude
+        # Code's MCP host, and without strict isolation it re-discovers every
+        # plugin/project MCP server — under a heavy harness the front-loaded
+        # catalog alone overflows the context from round two (#1768).
         adapter = self.llm_adapter or create_llm_adapter(
             backend=backend,
             max_turns=1,
@@ -416,6 +447,7 @@ class PMInterviewHandler:
             allowed_tools=[]
             if backend_supports_tool_envelope(resolve_llm_backend(backend))
             else None,
+            strict_mcp_config=True,
         )
         model = get_llm_model_for_role("pm_interview", backend=backend)
         return PMInterviewEngine.create(
@@ -644,31 +676,19 @@ class PMInterviewHandler:
                 # question) and passes it back here so we can persist the real
                 # question text instead of a placeholder.
                 if answer:
-                    if state.rounds and state.rounds[-1].user_response is None:
-                        # Round exists with question but no answer yet — fill it.
-                        # If last_question was provided, update the question text
-                        # in case the existing one is a stale placeholder from a
-                        # previous partial persistence.
-                        if last_question:
-                            state.rounds[-1].question = last_question
-                        state.rounds[-1].user_response = answer
+                    # ``record_answer`` fills a round persisted question-only or
+                    # appends a new one, and settles provenance where the answer
+                    # arrives rather than at construction. Fall back to a
+                    # descriptive placeholder for backward compatibility
+                    # (callers that don't supply last_question yet).
+                    has_pending = bool(state.rounds) and state.rounds[-1].user_response is None
+                    if has_pending:
+                        question_text = last_question or state.rounds[-1].question
                     else:
-                        # No rounds yet or all answered — append new round.
-                        # Use last_question when available; fall back to a
-                        # descriptive placeholder for backward compatibility
-                        # (callers that don't supply last_question yet).
-                        from ouroboros.bigbang.interview import InterviewRound
-
                         question_text = (
                             last_question if last_question else "(continued from subagent)"
                         )
-                        state.rounds.append(
-                            InterviewRound(
-                                round_number=len(state.rounds) + 1,
-                                question=question_text,
-                                user_response=answer,
-                            )
-                        )
+                    state.record_answer(question_text, answer)
                     state.mark_updated()
                     save_result = await _plugin_save_state(state_dir, state)
                     if save_result.is_err:
@@ -676,7 +696,10 @@ class PMInterviewHandler:
                             MCPToolError(str(save_result.error), tool_name="ouroboros_pm_interview")
                         )
                 # Build transcript from persisted rounds
-                transcript = _format_pm_transcript(state)
+                transcript = _format_pm_transcript(
+                    state,
+                    withhold_observations=action == "generate",
+                )
 
             payload = build_pm_interview_subagent(
                 session_id=real_session_id or "new",

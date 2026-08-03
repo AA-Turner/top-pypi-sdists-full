@@ -1,19 +1,26 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
 from office365.outlook.calendar.dateTimeTimeZone import DateTimeTimeZone
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class TimeSlot(ClientValue):
-    """Represents a time slot for a meeting."""
+    """Represents a time slot for a meeting.
 
-    def __init__(self, start=DateTimeTimeZone(), end=DateTimeTimeZone()):
-        """
+    Fields:
+        start (DateTimeTimeZone): The date, time, and time zone that a period begins.
+        end (DateTimeTimeZone): The date, time, and time zone that a period ends.
+    """
 
-        :param dateTimeTimeZone start: The date, time, and time zone that a period begins.
-        :param dateTimeTimeZone end: The date, time, and time zone that a period ends.
-        """
-        super(TimeSlot, self).__init__()
-        self.start = start
-        self.end = end
+    end: DateTimeTimeZone = field(default_factory=DateTimeTimeZone)
+    start: DateTimeTimeZone = field(default_factory=DateTimeTimeZone)
 
     def __repr__(self):
-        return "({0} - {1})".format(self.start, self.end)
+        return f"({self.start} - {self.end})"
+
+    @property
+    def entity_type_name(self):
+        return "microsoft.graph.TimeSlot"

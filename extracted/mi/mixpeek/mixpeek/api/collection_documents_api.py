@@ -3424,6 +3424,8 @@ class CollectionDocumentsApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_documents_request: Optional[ListDocumentsRequest] = None,
         _request_timeout: Union[
@@ -3465,6 +3467,10 @@ class CollectionDocumentsApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_documents_request:
@@ -3503,6 +3509,8 @@ class CollectionDocumentsApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_documents_request=list_documents_request,
             _request_auth=_request_auth,
@@ -3545,6 +3553,8 @@ class CollectionDocumentsApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_documents_request: Optional[ListDocumentsRequest] = None,
         _request_timeout: Union[
@@ -3586,6 +3596,10 @@ class CollectionDocumentsApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_documents_request:
@@ -3624,6 +3638,8 @@ class CollectionDocumentsApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_documents_request=list_documents_request,
             _request_auth=_request_auth,
@@ -3666,6 +3682,8 @@ class CollectionDocumentsApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_documents_request: Optional[ListDocumentsRequest] = None,
         _request_timeout: Union[
@@ -3707,6 +3725,10 @@ class CollectionDocumentsApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_documents_request:
@@ -3745,6 +3767,8 @@ class CollectionDocumentsApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_documents_request=list_documents_request,
             _request_auth=_request_auth,
@@ -3782,6 +3806,8 @@ class CollectionDocumentsApi:
         offset,
         page,
         cursor,
+        next_cursor,
+        after,
         include_total,
         list_documents_request,
         _request_auth,
@@ -3847,6 +3873,14 @@ class CollectionDocumentsApi:
         if cursor is not None:
             
             _query_params.append(('cursor', cursor))
+            
+        if next_cursor is not None:
+            
+            _query_params.append(('next_cursor', next_cursor))
+            
+        if after is not None:
+            
+            _query_params.append(('after', after))
             
         if include_total is not None:
             
@@ -3917,6 +3951,8 @@ class CollectionDocumentsApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_documents_request: Optional[ListDocumentsRequest] = None,
         _request_timeout: Union[
@@ -3958,6 +3994,10 @@ class CollectionDocumentsApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_documents_request:
@@ -3996,6 +4036,8 @@ class CollectionDocumentsApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_documents_request=list_documents_request,
             _request_auth=_request_auth,
@@ -4038,6 +4080,8 @@ class CollectionDocumentsApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_documents_request: Optional[ListDocumentsRequest] = None,
         _request_timeout: Union[
@@ -4079,6 +4123,10 @@ class CollectionDocumentsApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_documents_request:
@@ -4117,6 +4165,8 @@ class CollectionDocumentsApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_documents_request=list_documents_request,
             _request_auth=_request_auth,
@@ -4159,6 +4209,8 @@ class CollectionDocumentsApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_documents_request: Optional[ListDocumentsRequest] = None,
         _request_timeout: Union[
@@ -4200,6 +4252,10 @@ class CollectionDocumentsApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_documents_request:
@@ -4238,6 +4294,8 @@ class CollectionDocumentsApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_documents_request=list_documents_request,
             _request_auth=_request_auth,
@@ -4275,6 +4333,8 @@ class CollectionDocumentsApi:
         offset,
         page,
         cursor,
+        next_cursor,
+        after,
         include_total,
         list_documents_request,
         _request_auth,
@@ -4340,6 +4400,14 @@ class CollectionDocumentsApi:
         if cursor is not None:
             
             _query_params.append(('cursor', cursor))
+            
+        if next_cursor is not None:
+            
+            _query_params.append(('next_cursor', next_cursor))
+            
+        if after is not None:
+            
+            _query_params.append(('after', after))
             
         if include_total is not None:
             

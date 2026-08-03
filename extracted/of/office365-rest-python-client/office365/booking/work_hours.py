@@ -1,16 +1,27 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
 from office365.booking.work_time_slot import BookingWorkTimeSlot
+from office365.outlook.calendar.dayofweek import DayOfWeek
 from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
 
 
+@dataclass
 class BookingWorkHours(ClientValue):
-    """Represents the set of working hours in a single day of the week, for a bookingBusiness or bookingStaffMember."""
+    """Represents the set of working hours in a single day of the week, for a bookingBusiness or bookingStaffMember.
 
-    def __init__(self, day=None, time_slots=None):
-        """
-        :param str day: The day of the week represented by this instance.
-            Possible values are: sunday, monday, tuesday, wednesday, thursday, friday, saturday.
-        :param list[BookingWorkTimeSlot] time_slots: A list of start/end times during a day.
-        """
-        self.day = day
-        self.timeSlots = ClientValueCollection(BookingWorkTimeSlot, time_slots)
+    Fields:
+        day: The day of the week. Possible values: sunday, monday, tuesday, wednesday, thursday, friday, saturday.
+        timeSlots: A list of start/end times during a day.
+    """
+
+    day: DayOfWeek | None = None
+    timeSlots: ClientValueCollection[BookingWorkTimeSlot] = field(
+        default_factory=lambda: ClientValueCollection(BookingWorkTimeSlot)
+    )
+
+    @property
+    def entity_type_name(self) -> str:
+        return "microsoft.graph.BookingWorkHours"

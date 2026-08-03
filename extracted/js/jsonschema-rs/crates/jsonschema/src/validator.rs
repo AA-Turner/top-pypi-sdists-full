@@ -1,6 +1,8 @@
 //! Building a JSON Schema validator.
 //! The main idea is to create a tree from the input JSON Schema. This tree will contain
 //! everything needed to perform such validation in runtime.
+use std::collections::hash_map::Entry;
+
 use crate::{
     error::{error, no_error, ErrorIterator},
     evaluation::{Annotations, ErrorDescription, Evaluation, EvaluationNode},
@@ -14,6 +16,47 @@ use serde_json::Value;
 // Re-export LazyEvaluationPath from paths module
 pub(crate) use crate::paths::LazyEvaluationPath;
 
+#[derive(Default)]
+struct EvaluationPathCache {
+    prefix_identifiers: AHashMap<(usize, usize), usize>,
+    paths: AHashMap<(usize, usize), Location>,
+}
+
+impl EvaluationPathCache {
+    fn evaluation_path(&mut self, tracker: &RefTracker<'_>, location: &Location) -> Location {
+        let prefix_identifier = self.prefix_identifier(tracker);
+        let key = (prefix_identifier, location.as_ptr());
+        match self.paths.entry(key) {
+            Entry::Occupied(entry) => entry.get().clone(),
+            Entry::Vacant(entry) => {
+                let path = tracker.evaluation_path_with_prefix(tracker.prefix(), location);
+                entry.insert(path.clone());
+                path
+            }
+        }
+    }
+
+    fn prefix_identifier(&mut self, tracker: &RefTracker<'_>) -> usize {
+        if let Some(identifier) = tracker.cached_prefix_identifier() {
+            return identifier;
+        }
+        let parent_identifier = tracker
+            .parent()
+            .map_or(0, |parent| self.prefix_identifier(parent));
+        let key = (parent_identifier, tracker.suffix().as_ptr());
+        let next_identifier = self.prefix_identifiers.len() + 1;
+        let identifier = match self.prefix_identifiers.entry(key) {
+            Entry::Occupied(entry) => *entry.get(),
+            Entry::Vacant(entry) => {
+                entry.insert(next_identifier);
+                next_identifier
+            }
+        };
+        tracker.cache_prefix_identifier(identifier);
+        identifier
+    }
+}
+
 /// Validation state for cycle detection and memoization.
 #[derive(Default)]
 pub struct ValidationContext {
@@ -26,7 +69,14 @@ pub struct ValidationContext {
     is_valid_cache: Option<AHashMap<(usize, NodeIdentity), bool>>,
     /// Lazy-initialized cache for ECMA regex transformation results during format "regex" validation.
     ecma_regex_cache: Option<AHashMap<String, bool>>,
+    evaluation_path_cache: Option<Box<EvaluationPathCache>>,
+    evaluation_path_calls: u32,
 }
+
+/// Evaluation paths are only cached once this many have been built.
+///
+/// Small evaluations show little path reuse, so below this threshold the map costs more than it saves.
+const EVALUATION_PATH_CACHE_THRESHOLD: u32 = 4096;
 
 impl ValidationContext {
     pub(crate) fn new() -> Self {
@@ -115,6 +165,25 @@ impl ValidationContext {
             .get_or_insert_with(AHashMap::new)
             .insert((node_id, identity), result);
     }
+    /// Evaluation path for `location` under `tracker`, cached across instance nodes.
+    ///
+    /// Keying on addresses is sound because none of them can be freed and reused mid-run:
+    /// keyword locations and `$ref` suffixes live in the compiled schema, and cached prefixes
+    /// are owned by `eval_prefix_cache`.
+    pub(crate) fn evaluation_path(
+        &mut self,
+        tracker: &RefTracker<'_>,
+        location: &Location,
+    ) -> Location {
+        self.evaluation_path_calls = self.evaluation_path_calls.saturating_add(1);
+        if self.evaluation_path_calls < EVALUATION_PATH_CACHE_THRESHOLD {
+            return tracker.evaluation_path_with_prefix(tracker.prefix(), location);
+        }
+        self.evaluation_path_cache
+            .get_or_insert_with(Box::default)
+            .evaluation_path(tracker, location)
+    }
+
     /// Check if an ECMA regex pattern is valid.
     pub(crate) fn is_valid_ecma_regex(&mut self, pattern: &str) -> bool {
         if let Some(cache) = &self.ecma_regex_cache {
@@ -532,6 +601,45 @@ mod tests {
         let data: Value = serde_json::from_str(&content).unwrap();
         let case = &data.as_array().unwrap()[idx];
         case.get("schema").unwrap().clone()
+    }
+
+    /// Large enough that early paths are built directly and later ones come from the cache.
+    #[test]
+    fn evaluation_paths_match_across_cache_threshold() {
+        const ELEMENTS: usize = 5000;
+
+        let schema = json!({
+            "type": "array",
+            "items": {"$ref": "#/$defs/entry"},
+            "$defs": {
+                "entry": {
+                    "type": "object",
+                    "properties": {"value": {"$ref": "#/$defs/leaf"}}
+                },
+                "leaf": {"type": "integer"}
+            }
+        });
+        let validator = crate::validator_for(&schema).expect("Valid schema");
+        let instance = Value::Array((0..ELEMENTS).map(|_| json!({"value": "no"})).collect());
+
+        let evaluation = validator.evaluate(&instance);
+        let list = serde_json::to_value(evaluation.list()).expect("Serializable");
+        let failures: Vec<_> = list["details"]
+            .as_array()
+            .expect("`details` is an array")
+            .iter()
+            .filter(|unit| unit.get("errors").is_some())
+            .collect();
+
+        assert_eq!(failures.len(), ELEMENTS);
+        for (idx, unit) in failures.iter().enumerate() {
+            assert_eq!(
+                unit["evaluationPath"],
+                "/items/$ref/properties/value/$ref/type"
+            );
+            assert_eq!(unit["instanceLocation"], format!("/{idx}/value"));
+            assert_eq!(unit["schemaLocation"], "/$defs/leaf/type");
+        }
     }
 
     #[test]

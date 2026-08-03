@@ -1,12 +1,16 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class Report(ClientValue):
-    def __init__(self, content=None):
-        """
-        Returns the content appropriate for the context
+    """Returns the content appropriate for the context
 
-        :param str content: Report content; details vary by report type.
-        """
-        super(Report, self).__init__()
-        self.content = content
+    Args:
+        content (str): Report content; details vary by report type.
+    """
+
+    content: bytes | None = None

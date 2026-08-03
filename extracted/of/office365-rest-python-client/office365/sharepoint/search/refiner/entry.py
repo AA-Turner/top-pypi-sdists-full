@@ -1,14 +1,16 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class RefinerEntry(ClientValue):
-    def __init__(self, refinement_count=None, refinement_name=None):
-        """
-        :param int refinement_count:
-        :param str refinement_name:
-        """
-        self.RefinementCount = refinement_count
-        self.RefinementName = refinement_name
+    RefinementCount: int | None = None
+    RefinementName: str | None = None
+    RefinementToken: str | None = None
+    RefinementValue: str | None = None
 
     @property
     def entity_type_name(self):

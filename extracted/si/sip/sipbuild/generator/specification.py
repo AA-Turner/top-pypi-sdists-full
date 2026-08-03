@@ -1006,6 +1006,9 @@ class Module:
     # The module's docstring.
     docstring: Docstring|None = None
 
+    # The cross-module extenders.
+    extenders: list['WrappedClass'] = field(default_factory=list)
+
     # The fully qualified name of the module.  It is only None until %Module is
     # specified.
     fq_py_name: CachedName|None = None
@@ -1060,9 +1063,6 @@ class Module:
 
     # The code specified by any %PostInitialisationCode directives.
     postinitialisation_code: list[CodeBlock] = field(default_factory=list)
-
-    # The proxy classes.
-    proxies: list['WrappedClass'] = field(default_factory=list)
 
     # The code specified by any %PreInitialisationCode directives.
     preinitialisation_code: list[CodeBlock] = field(default_factory=list)
@@ -1175,7 +1175,7 @@ class Overload:
     # The code specified by any %MethodCode directive.
     method_code: CodeBlock|None = None
 
-    # Set if /NewThread/ was specified.
+    # Set if /NewThread/ was specified.  (ABI v12 and v13 only.)
     new_thread: bool = False
 
     # Set if the type hint should be suppressed.
@@ -1456,9 +1456,6 @@ class VirtualHandler:
     # The code specified by any %VirtualCatcherCode directive.
     virtual_catcher_code: CodeBlock|None
 
-    # The virtual error handler.
-    virtual_error_handler: VirtualErrorHandler
-
     # Set if execution should abort if there is an exception.
     abort_on_exception: bool = False
 
@@ -1479,6 +1476,9 @@ class VirtualOverload:
     # The handler for the overload.  It is only set for the module for which
     # code is being generated.
     handler: VirtualHandler|None
+
+    # The virtual error handler.
+    error_handler: VirtualErrorHandler
 
 
 @dataclass
@@ -1625,7 +1625,7 @@ class WrappedClass:
     # The value of /Metatype/ if specified.
     metatype: CachedName|None = None
 
-    # Set if /Mixin/ was specified.
+    # Set if /Mixin/ was specified.  (ABI v12 and v13 only.)
     mixin: bool = False
 
     # The list of all classes in the class hierarchy starting with itself.

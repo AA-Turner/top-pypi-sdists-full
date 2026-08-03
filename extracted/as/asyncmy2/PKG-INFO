@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asyncmy2
-Version: 0.2.20
+Version: 0.2.21
 Summary: A fast asyncio MySQL driver
 Keywords: driver,asyncio,mysql
 Author-Email: vpmedia <andras@vpmedia.hu>, long2ice <long2ice@gmail.com>

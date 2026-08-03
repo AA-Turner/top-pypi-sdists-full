@@ -779,6 +779,10 @@ class DeviceBuilder:
         app = web.Application(middlewares=middlewares)
         app["device_builder"] = self
         app["trusted_site"] = trusted
+        # Supervisor channel = trusted AND peer-guarded (the ingress
+        # site). Supervisor-only endpoints (POST /encryption-key) gate
+        # on this single flag so the site taxonomy lives here.
+        app["supervisor_channel"] = trusted and peer_guard
         # Seed the active-WS registry + the on_shutdown closer in
         # one place. ``close_active_websockets`` fires at app
         # shutdown so an idle paired client doesn't pin the run

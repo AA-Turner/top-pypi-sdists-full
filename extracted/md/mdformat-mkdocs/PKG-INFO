@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mdformat_mkdocs
-Version: 5.2.1
+Version: 5.3.0
 Summary: An mdformat plugin for mkdocs and Material for MkDocs
 Keywords: markdown,markdown-it,mdformat,mdformat_plugin_template
 Author: kyleking
@@ -11,32 +11,33 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Dist: mdformat>=0.7.19
-Requires-Dist: mdformat-gfm>=0.3.6
-Requires-Dist: mdit-py-plugins>=0.4.1
-Requires-Dist: more-itertools>=10.5.0
-Requires-Dist: mdformat-beautysh>=0.1.1 ; extra == 'recommended'
+Requires-Dist: mdformat>=1.0.0
+Requires-Dist: mdformat-gfm>=1.0.0
+Requires-Dist: mdit-py-plugins>=0.6.1
+Requires-Dist: more-itertools>=11.1.0
+Requires-Dist: mdformat-beautysh>=1.0.0 ; extra == 'recommended'
 Requires-Dist: mdformat-config>=0.2.1 ; extra == 'recommended'
-Requires-Dist: mdformat-footnote>=0.1.1 ; extra == 'recommended'
-Requires-Dist: mdformat-front-matters>=0.1.0 ; extra == 'recommended'
+Requires-Dist: mdformat-footnote>=0.1.3 ; extra == 'recommended'
+Requires-Dist: mdformat-front-matters>=2.0.0 ; extra == 'recommended'
 Requires-Dist: mdformat-gfm>=1.0.0 ; extra == 'recommended'
 Requires-Dist: mdformat-ruff>=0.1.3 ; extra == 'recommended'
-Requires-Dist: mdformat-simple-breaks>=0.0.1 ; extra == 'recommended'
+Requires-Dist: mdformat-simple-breaks>=0.1.0 ; extra == 'recommended'
 Requires-Dist: mdformat-web>=0.2.0 ; extra == 'recommended'
-Requires-Dist: mdformat-wikilink>=0.2.0 ; extra == 'recommended'
+Requires-Dist: mdformat-wikilink>=0.3.0 ; extra == 'recommended'
 Requires-Dist: setuptools ; extra == 'recommended'
-Requires-Dist: mdformat-footnote>=0.1.0 ; extra == 'recommended-mdsf'
-Requires-Dist: mdformat-front-matters>=1.0.1 ; extra == 'recommended-mdsf'
+Requires-Dist: mdformat-footnote>=0.1.3 ; extra == 'recommended-mdsf'
+Requires-Dist: mdformat-front-matters>=2.0.0 ; extra == 'recommended-mdsf'
 Requires-Dist: mdformat-gfm>=1.0.0 ; extra == 'recommended-mdsf'
 Requires-Dist: mdformat-hooks>=0.1.0 ; extra == 'recommended-mdsf'
-Requires-Dist: mdformat-simple-breaks>=0.0.1 ; extra == 'recommended-mdsf'
-Requires-Dist: mdformat-wikilink>=0.2.0 ; extra == 'recommended-mdsf'
-Requires-Dist: beartype>=0.21.0 ; extra == 'test'
+Requires-Dist: mdformat-simple-breaks>=0.1.0 ; extra == 'recommended-mdsf'
+Requires-Dist: mdformat-wikilink>=0.3.0 ; extra == 'recommended-mdsf'
+Requires-Dist: beartype>=0.22.9 ; extra == 'test'
 Requires-Dist: hypothesis>=6.100.0 ; extra == 'test'
-Requires-Dist: pytest>=9.0.1 ; extra == 'test'
+Requires-Dist: pytest>=9.1.1 ; extra == 'test'
 Requires-Dist: pytest-beartype>=0.2.0 ; extra == 'test'
-Requires-Dist: pytest-cov>=7.0.0 ; extra == 'test'
-Requires-Dist: syrupy>=4.9.1 ; extra == 'test'
+Requires-Dist: pytest-cov>=7.1.0 ; extra == 'test'
+Requires-Dist: pytest-timeout>=2.4.0 ; extra == 'test'
+Requires-Dist: syrupy>=5.5.3 ; extra == 'test'
 Requires-Python: >=3.10.0
 Project-URL: Bug Tracker, https://github.com/kyleking/mdformat-mkdocs/issues
 Project-URL: Changelog, https://github.com/kyleking/mdformat-mkdocs/releases
@@ -133,9 +134,9 @@ repos:
         additional_dependencies:
           - mdformat-mkdocs
           # Or
-          # - "mdformat-mkdocs[recommended-mdsf]>=5.1.0"
+          # - "mdformat-mkdocs[recommended-mdsf]>=5.2.2"
           # Or
-          # - "mdformat-mkdocs[recommended]"
+          # - "mdformat-mkdocs[recommended]>=5.2.2"
 ```
 
 ### uvx
@@ -189,16 +190,22 @@ md.render(text)
 
 `mdformat-mkdocs` adds the CLI arguments:
 
-- `--align-semantic-breaks-in-lists` to optionally align line breaks in numbered lists to 3-spaces. If not specified, the default of 4-indents is followed universally.
+- `--align-semantic-breaks-in-lists` to optionally align semantic line breaks (continuation lines that aren't a nested list, code block, or admonition) to the width of the list marker: 3-spaces for numbered lists, 2-spaces for bulleted lists. If not specified, the default of 4-indents is followed universally.
 
     ```txt
     # with: mdformat
     1. Semantic line feed where the following line is
         three spaces deep
 
+    - Semantic line feed where the following line is
+        two spaces deep
+
     # vs. "mdformat --align-semantic-breaks-in-lists"
     1. Semantic line feed where the following line is
        three spaces deep
+
+    - Semantic line feed where the following line is
+      two spaces deep
     ```
 
 - `--ignore-missing-references` if set, do not escape link references when no definition is found. This is required when references are dynamic, such as with python mkdocstrings

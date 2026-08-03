@@ -88,6 +88,29 @@ describe("OpenVikingClient", () => {
     });
   });
 
+  it("sends processing_mode for addResource requests", async () => {
+    const fetcher = vi.fn<typeof fetch>().mockResolvedValue(ok({}));
+    const client = new OpenVikingClient({
+      baseUrl: "https://example.com",
+      fetch: fetcher,
+    });
+
+    await client.addResource("https://example.com/guide.md", {
+      to: "viking://resources/guide",
+      processingMode: "vectors_only",
+      wait: true,
+    });
+
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(String(url)).toBe("https://example.com/api/v1/resources");
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      path: "https://example.com/guide.md",
+      to: "viking://resources/guide",
+      processing_mode: "vectors_only",
+      wait: true,
+    });
+  });
+
   it("maps response envelopes to typed errors", async () => {
     const fetcher = vi.fn<typeof fetch>().mockResolvedValue(
       new Response(
@@ -141,6 +164,27 @@ describe("OpenVikingClient", () => {
     expect(url.searchParams.get("node_limit")).toBe("200");
     expect(url.searchParams.get("sort_by")).toBe("mtime");
     expect(url.searchParams.get("sort_order")).toBe("desc");
+  });
+
+  it("sends addResource tags and tagMode to the server", async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(ok({ root_uri: "viking://resources/demo" }));
+    const client = new OpenVikingClient({
+      baseUrl: "https://example.com",
+      fetch: fetcher,
+    });
+
+    await client.addResource("https://example.com/demo.md", {
+      tags: ["team=search"],
+      tagMode: "append",
+    });
+
+    expect(JSON.parse(String(fetcher.mock.calls[0]![1]?.body))).toMatchObject({
+      path: "https://example.com/demo.md",
+      tags: ["team=search"],
+      tag_mode: "append",
+    });
   });
 
   it("converts an existing Node.js image path to a data URI", async () => {
@@ -597,7 +641,7 @@ describe("OpenVikingClient", () => {
     });
   });
 
-  it("supports snapshot restore, binary show, log and ignore operations", async () => {
+  it("supports snapshot restore, binary show, log, diff and ignore operations", async () => {
     const fetcher = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(ok({ oid: "restored" }))
@@ -612,6 +656,15 @@ describe("OpenVikingClient", () => {
       )
       .mockResolvedValueOnce(ok([{ oid: "commit-1" }]))
       .mockResolvedValueOnce(ok([{ oid: "commit-1" }]))
+      .mockResolvedValueOnce(
+        ok({
+          path: "viking://resources/a",
+          from_commit: "old",
+          to_commit: "new",
+          change_type: "modified",
+          diff_text: "@@ -1 +1 @@\n-old\n+new\n",
+        }),
+      )
       .mockResolvedValueOnce(ok("*.tmp\n"))
       .mockResolvedValueOnce(ok(null))
       .mockResolvedValueOnce(ok(null));
@@ -637,6 +690,9 @@ describe("OpenVikingClient", () => {
     await expect(client.gitLog("main", 20, [])).resolves.toEqual([
       { oid: "commit-1" },
     ]);
+    await expect(
+      client.gitDiff("viking://resources/a", "new", "old"),
+    ).resolves.toMatchObject({ change_type: "modified" });
     await expect(client.gitGetIgnore()).resolves.toBe("*.tmp\n");
     await client.gitSetIgnore("*.log\n");
     await client.gitDeleteIgnore();
@@ -658,7 +714,12 @@ describe("OpenVikingClient", () => {
     const unfilteredLogUrl = new URL(String(fetcher.mock.calls[3]![0]));
     expect(unfilteredLogUrl.searchParams.get("limit")).toBe("20");
     expect(unfilteredLogUrl.searchParams.getAll("paths")).toEqual([]);
-    expect(JSON.parse(String(fetcher.mock.calls[5]![1]?.body))).toEqual({
+    const diffUrl = new URL(String(fetcher.mock.calls[4]![0]));
+    expect(diffUrl.pathname).toBe("/api/v1/snapshot/diff");
+    expect(diffUrl.searchParams.get("path")).toBe("viking://resources/a");
+    expect(diffUrl.searchParams.get("from")).toBe("old");
+    expect(diffUrl.searchParams.get("to")).toBe("new");
+    expect(JSON.parse(String(fetcher.mock.calls[6]![1]?.body))).toEqual({
       content: "*.log\n",
     });
   });

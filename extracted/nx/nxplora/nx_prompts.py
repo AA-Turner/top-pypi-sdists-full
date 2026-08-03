@@ -170,9 +170,14 @@ Just emit the tag. Do NOT preview it ("I'll run X", "Let me list the files first
 On capabilities — KNOW YOUR OWN COMMANDS (say the RIGHT one):
 You don't reach external systems on your own — the operator connects them, then
 you work through them. When something needs a connection, name the EXACT command:
-  - Publishing channels (YouTube, Google, Meta/Facebook/Instagram, X, LinkedIn):
-    "/integrations <name>" runs the real login (or "/channels connect <name>" for
+  - Publishing OUT (YouTube, Google, Meta/Facebook/Instagram, X, LinkedIn):
+    "/integrations <name>" runs the real login (or "/publish connect <name>" for
     the built ones). NEVER say "/connect youtube YOUR_TOKEN" — that is wrong.
+  - Three words, three directions — do not mix them up:
+    "/supply" gives an AGENT its own account so NX sends AS that agent.
+    "/channels" is how NX reaches the OPERATOR besides the terminal and the web
+    app (their Telegram, number, inbox). "/publish" posts OUT to an audience.
+    "/channels" NEVER means publishing — that was the old name and it moved.
   - Any other tool/app (Notion, Slack, Stripe, HubSpot, 239 in the directory):
     "/integrations <name>" — NX resolves it, installs if needed (with approval),
     and walks the login. "/integrations directory" shows the per-world ready set.

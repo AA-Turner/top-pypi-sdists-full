@@ -92,7 +92,7 @@ class AES_CBC_Decrypt:
             self.decrypt = ciph.decryptor().update
 
 
-__version__ = "4.4"
+__version__ = "4.5"
 
 # export only interesting items
 __all__ = ["get_rar_version", "is_rarfile", "is_rarfile_sfx", "RarInfo", "RarFile", "RarExtFile"]
@@ -220,6 +220,7 @@ RAR_M5 = 0x35   #: Compression level `-m5` - Maximum compression.
 
 RAR_MAX_PASSWORD = 127  #: Max number of utf-16 chars in passwords.
 RAR_MAX_KDF_SHIFT = 24  #: Max power-of-2 for KDF count
+RAR_MAX_COMMENT = 256 * 1024  #: Max supported comment size
 
 #
 # RAR5 constants
@@ -1613,6 +1614,9 @@ class RAR3Parser(CommonParser):
             h.orig_filename = name
             h.filename = name.decode("utf8", "replace")
         else:
+            nul = name.find(b"\0")
+            if nul >= 0:
+                name = name[:nul]
             # stored in random encoding
             h.orig_filename = name
             h.filename = self._decode(name)
@@ -1658,6 +1662,9 @@ class RAR3Parser(CommonParser):
             # followed by block-specific header
             if stype == RAR_BLOCK_OLD_COMMENT and pos + S_COMMENT_HDR.size <= pos_next:
                 declen, ver, meth, crc = S_COMMENT_HDR.unpack_from(hdata, pos)
+                if declen > RAR_MAX_COMMENT:
+                    pos = pos_next
+                    continue
                 pos += S_COMMENT_HDR.size
                 data = hdata[pos: pos_next]
                 cmt = rar3_decompress(ver, meth, data, declen, sflags,
@@ -1669,6 +1676,11 @@ class RAR3Parser(CommonParser):
         return pos
 
     def _read_comment_v3(self, inf, pwd=None):
+
+        if inf.compress_size > RAR_MAX_COMMENT:
+            return None
+        if inf.file_size > RAR_MAX_COMMENT:
+            return None
 
         # read data
         with XFile(inf.volume_file) as rf:
@@ -2010,7 +2022,12 @@ class RAR5Parser(CommonParser):
 
         h.file_compress_flags, pos = load_vint(hdata, pos)
         h.file_host_os, pos = load_vint(hdata, pos)
-        h.orig_filename, pos = load_vstr(hdata, pos)
+
+        name, pos = load_vstr(hdata, pos)
+        nul = name.find(b"\0")
+        if nul >= 0:
+            name = name[:nul]
+        h.orig_filename = name
         h.filename = h.orig_filename.decode("utf8", "replace").rstrip("/")
 
         # use compatible values
@@ -2206,6 +2223,10 @@ class RAR5Parser(CommonParser):
         if item.block_flags & (RAR5_BLOCK_FLAG_SPLIT_BEFORE | RAR5_BLOCK_FLAG_SPLIT_AFTER):
             return None
         if item.compress_type != RAR_M0:
+            return None
+        if item.compress_size > RAR_MAX_COMMENT:
+            return None
+        if item.file_size > RAR_MAX_COMMENT:
             return None
 
         if item.flags & RAR_FILE_PASSWORD:

@@ -4222,13 +4222,24 @@ class LocalStore:
         since: float | None = None,
         until: float | None = None,
         limit: int = 500,
+        runtime: str | None = None,
     ) -> dict:
         """Cross-session agent spawn graph for the Agents tab (#1012).
 
         Aggregates per-(agent_type, agent_id) node stats from all spans,
         then derives spawn edges from ``agent.spawn`` spans joined to their
         parent span.  Returns ``{nodes, edges, count, _shape}``.
+
+        ``runtime`` (WS-A) scopes both nodes and edges to one runtime's
+        spans via ``COALESCE(agent_type,'openclaw') = ?`` — so
+        ``runtime='openclaw'`` also matches legacy rows whose
+        ``agent_type`` is NULL, and family runtimes (``'claude_code'``,
+        …) match the spans ``span_reconstruct`` stamps with their real id.
+        ``None`` / ``''`` / ``'all'`` return the unfiltered graph.
         """
+        rt = (str(runtime).strip().lower() or None) if runtime else None
+        if rt == "all":
+            rt = None
         ts_clauses: list[str] = []
         ts_params: list[Any] = []
         if since is not None:
@@ -4237,6 +4248,9 @@ class LocalStore:
         if until is not None:
             ts_clauses.append("start_ts <= ?")
             ts_params.append(float(until))
+        if rt is not None:
+            ts_clauses.append("COALESCE(agent_type,'openclaw') = ?")
+            ts_params.append(rt)
         ts_where = ("WHERE " + " AND ".join(ts_clauses)) if ts_clauses else ""
 
         nodes: list[dict] = []
@@ -4268,10 +4282,22 @@ class LocalStore:
         edges: list[dict] = []
         try:
             spawn_parts = ["cs.name = 'agent.spawn'"]
+            spawn_params: list[Any] = []
             if since is not None:
                 spawn_parts.append("cs.start_ts >= ?")
+                spawn_params.append(float(since))
             if until is not None:
                 spawn_parts.append("cs.start_ts <= ?")
+                spawn_params.append(float(until))
+            if rt is not None:
+                # Both endpoints must belong to the selected runtime —
+                # reconstructed spawn spans and their parent session span
+                # always share one agent_type, so this never drops a real
+                # in-runtime edge; it only hides cross-runtime noise.
+                spawn_parts.append("COALESCE(cs.agent_type,'openclaw') = ?")
+                spawn_params.append(rt)
+                spawn_parts.append("COALESCE(ps.agent_type,'openclaw') = ?")
+                spawn_params.append(rt)
             spawn_sql = f"""
                 SELECT DISTINCT
                     COALESCE(ps.agent_type,'openclaw'), COALESCE(ps.agent_id,'main'),
@@ -4281,7 +4307,7 @@ class LocalStore:
                 WHERE {" AND ".join(spawn_parts)}
                 LIMIT 200
             """
-            for r in self._fetch(spawn_sql, ts_params):
+            for r in self._fetch(spawn_sql, spawn_params):
                 src, dst = f"{r[0]}:{r[1]}", f"{r[2]}:{r[3]}"
                 if src != dst:
                     edges.append({"from": src, "to": dst})
@@ -4464,7 +4490,8 @@ class LocalStore:
         Returns::
 
             {
-              "by_runtime": {rt: {sessions, tokens, cost_usd, events}},
+              "by_runtime": {rt: {sessions, tokens, cost_usd, events,
+                                  last_activity_ms}},
               "by_runtime_model": [
                   {runtime, model, turns, tokens, cost_usd, sessions}, ...
               ],  # model-bearing rows only
@@ -4511,7 +4538,8 @@ class LocalStore:
                 ev AS (
                     SELECT session_id,
                            SUM(COALESCE(token_count, 0)) AS tok,
-                           SUM(COALESCE(cost_usd, 0.0))  AS cost
+                           SUM(COALESCE(cost_usd, 0.0))  AS cost,
+                           MAX(epoch_ms(TRY_CAST(ts AS TIMESTAMPTZ))) AS last_ms
                     FROM deduped GROUP BY session_id
                 ),
                 combined AS (
@@ -4519,14 +4547,19 @@ class LocalStore:
                            GREATEST(COALESCE(s.total_tokens, 0),
                                     COALESCE(ev.tok, 0))         AS tokens,
                            GREATEST(COALESCE(s.cost_usd, 0.0),
-                                    COALESCE(ev.cost, 0.0))      AS cost_usd
+                                    COALESCE(ev.cost, 0.0))      AS cost_usd,
+                           GREATEST(
+                               COALESCE(ev.last_ms, 0),
+                               COALESCE(epoch_ms(TRY_CAST(s.last_active_at AS TIMESTAMPTZ)), 0)
+                           ) AS last_ms
                     FROM sessions s
                     FULL OUTER JOIN ev ON s.session_id = ev.session_id
                 )
                 SELECT {rt_case} AS runtime,
                        COUNT(*)      AS sessions,
                        SUM(tokens)   AS tokens,
-                       SUM(cost_usd) AS cost_usd
+                       SUM(cost_usd) AS cost_usd,
+                       MAX(last_ms)  AS last_activity_ms
                 FROM combined
                 GROUP BY 1
             """
@@ -4538,6 +4571,11 @@ class LocalStore:
                     "cost_usd": float(r[3] or 0.0),
                     "cost_24h_usd": 0.0,
                     "tokens_24h": 0,
+                    # Newest event ts / session last_active_at for this runtime
+                    # (epoch ms). Main terminal sessions never appear in
+                    # /api/subagents, so the Overview alive-state needs a
+                    # recency signal that covers ALL of a runtime's sessions.
+                    "last_activity_ms": int(r[4] or 0),
                 }
             # Rolling LAST-24h cost/tokens per runtime, from events in the trailing
             # 24 hours. (A rolling window, not a calendar "today" — a calendar day
@@ -8329,6 +8367,7 @@ class LocalStore:
         self,
         *,
         window_minutes: int = 60,
+        runtime: str | None = None,
     ) -> dict[str, Any]:
         """Quality snapshot over a recent window for the eval->monitor alert
         loop (``eval_score_below`` + ``outcome_failure_rate`` rule types).
@@ -8361,6 +8400,11 @@ class LocalStore:
             window_minutes = 60
         now_ms = int(time.time() * 1000)
         cutoff_ms = now_ms - window_minutes * 60 * 1000
+        # Optional per-runtime scope (runtime-scoped alert rules): reuse the
+        # shared session-id prefix clause so scoped quality reconciles with
+        # the other per-runtime slices by construction.
+        _rt_clause, _rt_params = _runtime_session_id_clause(runtime)
+        _rt_sql = f" AND {_rt_clause}" if _rt_clause else ""
 
         # ── Eval-score window ────────────────────────────────────────────────
         eval_scores: list[float] = []
@@ -8371,9 +8415,9 @@ class LocalStore:
                   FROM sessions
                  WHERE eval_score IS NOT NULL
                    AND eval_scored_at IS NOT NULL
-                   AND eval_scored_at >= ?
+                   AND eval_scored_at >= ?""" + _rt_sql + """
                 """,
-                [cutoff_ms],
+                [cutoff_ms, *_rt_params],
             )
             for r in rows:
                 if r and r[0] is not None:
@@ -8402,10 +8446,10 @@ class LocalStore:
                  WHERE outcome IS NOT NULL
                    AND outcome <> 'ongoing'
                    AND outcome_classified_at IS NOT NULL
-                   AND outcome_classified_at >= ?
+                   AND outcome_classified_at >= ?""" + _rt_sql + """
                  GROUP BY outcome
                 """,
-                [cutoff_ms],
+                [cutoff_ms, *_rt_params],
             )
             for r in rows:
                 label = (r[0] or "").strip()
@@ -11421,7 +11465,7 @@ _TOOL_CALL_TOPLEVEL_EVENT_TYPES = (
 _NON_OPENCLAW_RUNTIME_PREFIXES = (
     "picoclaw", "nanoclaw", "hermes",
     "claude_code", "codex", "cursor", "aider", "goose", "opencode", "qwen_code",
-    "pi", "deepagents", "n8n", "antigravity",
+    "pi", "deepagents", "n8n", "antigravity", "copilot",
 )
 
 def _runtime_session_id_clause(runtime: str | None) -> tuple[str | None, list[str]]:

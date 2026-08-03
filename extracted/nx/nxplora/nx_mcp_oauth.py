@@ -77,10 +77,10 @@ REMOTE_MCP = {
     "cloudinary": {"url": "https://asset-management.mcp.cloudinary.com/sse", "name": "Cloudinary"},
     "docusign": {"url": "https://mcp.docusign.com/mcp", "name": "DocuSign"},
     "drata": {"url": "https://mcp.drata.com/mcp/", "name": "Drata"},
-    # Re-enabled 2026-07-21 after live read-only re-probe: gitlab.com/api/v4/mcp → HTTP 401 (live, auth-required)
-    # with a full OAuth AS incl. registration_endpoint (DCR) + 'mcp' scope; workable's mcp endpoint → 405 on GET
-    # (live POST endpoint). Both self-register via DCR → one-click sign-in, no Nexplora app. (workable: confirm one
-    # live round-trip; its authorize host is a cross-host AS.)
+    # GitLab's MCP URL is kept for explicit re-probe / future enablement, but normal NX connect must NOT route
+    # here by default: real accounts can finish OAuth and still get POST /api/v4/mcp → 404 when GitLab MCP
+    # access/prereqs are disabled. See MCP_BROKEN below; the working path is the Nexplora GitLab REST connector.
+    # Workable remains live MCP one-click DCR.
     "gitlab": {"url": "https://gitlab.com/api/v4/mcp", "name": "GitLab"},
     "workable": {"url": "https://mcp.workable.com/mcp", "name": "Workable"},
     "dropbox": {"url": "https://mcp.dropbox.com/mcp", "name": "Dropbox"},
@@ -225,7 +225,11 @@ _MCP_TOKEN = {"hubspot", "gong", "github", "docusign", "xero", "freshdesk", "rip
 # slug here the moment its remote MCP is proven broken by a LIVE `initialize` (not just OAuth discovery).
 # is_remote_mcp() returns False for these so the /integrations dispatch skips the MCP branch.
 MCP_BROKEN = frozenset({
-    # gitlab + workable REMOVED 2026-07-21 → their MCP is live again (see REMOTE_MCP); DCR one-click sign-in.
+    # gitlab: OAuth can succeed, then POST /api/v4/mcp returns 404 when GitLab MCP access/prereqs are disabled.
+    # Keep URL in REMOTE_MCP for explicit re-probe, but default /integrations gitlab routes to the GitLab REST
+    # connector (backend OAuth when provisioned; PAT fallback otherwise), never the dead MCP initialize path.
+    "gitlab",
+    # workable REMOVED 2026-07-21 → its MCP is live again (see REMOTE_MCP); DCR one-click sign-in.
     "datadog", "coda", "bitbucket", "opsgenie",
     "hootsuite", "okta", "zoom",
     # heroku: mcp.heroku.com 500s on authenticated `initialize` (empty body — Victor-confirmed 2026-07-22:
@@ -1040,6 +1044,9 @@ _FORCE_TOKEN = {
     # and are back to one-click sign-in; these stay token because their DCR is genuinely absent/broken.
     # box/pagerduty/slack removed 2026-07-17 → backend OAuth (they have Nexplora OAuth apps; see _MCP_TOKEN note).
     "docusign", "gong", "hubspot", "rippling", "xero", "freshdesk", "heroku", "bitbucket",
+    # GitLab's hosted MCP can OAuth successfully and then 404 initialize unless MCP is enabled account/group-side.
+    # The default NX path is the REST connector; keep the menu badge honest if this entry is shown from REMOTE_MCP.
+    "gitlab",
     # DCR is advertised but their authorize endpoint needs a provider-specific param the generic flow can't
     # supply — Buildkite wants organization_uuid, Productboard wants a workspace. Both MCP endpoints DO accept a
     # Bearer PAT (verified: 401 invalid_token on a bad token), so paste-a-token is the working path.

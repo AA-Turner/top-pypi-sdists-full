@@ -16192,9 +16192,15 @@ _BYOK_KEY_SOURCE = {
     # PAT/token-native connectors (no global OAuth app — user provides own token at connect time)
     "opsgenie":    "app.opsgenie.com → Settings → API key management",
     "bitbucket":   "bitbucket.org → Personal settings → App passwords → Create app password",
+    "gitlab":      "gitlab.com → Preferences → Access tokens → create a token with api, read_repository, and write_repository scopes",
     "databricks":  "Databricks workspace → User Settings → Developer → Access tokens → Generate",
     "servicenow":  "ServiceNow instance → Profile → Manage API keys (or PAT from your admin)",
 }
+
+# OAuth/catalog connectors whose provider-hosted MCP is not a safe default, but whose Nexplora REST connector
+# accepts an operator token through /api/integrations/connect while the server-side OAuth app is absent. If the
+# backend OAuth app exists, the browser sign-in path wins first; this fallback only fires on "not configured".
+_REST_TOKEN_FALLBACK = frozenset({"gitlab"})
 
 
 def _connect_byok_key(slug, display=None):
@@ -16205,12 +16211,14 @@ def _connect_byok_key(slug, display=None):
     providers never reach here — they route through backend OAuth (_NX_OAUTH) / the coming-soon gate."""
     display = display or slug
     import getpass as _gp
-    _src = _BYOK_KEY_SOURCE.get(str(slug).lower(), "")
-    print(f"\n  {GOLDD}{display} connects with your own API key — paste it here and it's live on NX + the web.{RESET}")
+    _slug_l = str(slug).lower()
+    _src = _BYOK_KEY_SOURCE.get(_slug_l, "")
+    _noun = "access token" if _slug_l in _REST_TOKEN_FALLBACK else "API key"
+    print(f"\n  {GOLDD}{display} connects with your own {_noun} — paste it here and it's live on NX + the web.{RESET}")
     if _src:
         print(f"  {DIM}Get it at {_src}.{RESET}")
     try:
-        key = _gp.getpass(f"  {GOLDD}{display} API key ❯{RESET} ").strip()
+        key = _gp.getpass(f"  {GOLDD}{display} {_noun} ❯{RESET} ").strip()
     except (KeyboardInterrupt, EOFError):
         print(f"\n  {DIM}Skipped.{RESET}\n"); return None
     if not key:
@@ -19097,13 +19105,18 @@ HELP_GROUPS = (
         ("/go",       "Continue this session on the go — web · iMessage · Telegram"),
     )),
     ("CONNECT", (
-        ("/supply",       "Give an agent its own channel — NX sends as that agent"),
+        # Three directions, three words, each meaning the same thing it means on the web:
+        #   /supply   — the AGENT gets its own account, and sends AS itself
+        #   /channels — how NX reaches YOU, besides this terminal and the web app
+        #   /publish  — posting OUT to an audience
+        ("/supply",       "Give an agent its own account — NX sends as that agent"),
+        ("/channels",     "Reach NX besides here — Telegram · WhatsApp · Text · Email"),
+        ("/publish",      "Publish out — Meta · Google · TikTok · LinkedIn · X · …"),
         ("/integrations", "Browse & connect integrations"),
         ("/connected",    "Show what's connected"),
-        ("/channels",     "Publish channels — Meta · Google · TikTok · LinkedIn · X · …"),
-        ("/assign",       "Put an agent on a channel"),
+        ("/assign",       "Put an agent on a publish channel"),
         ("/report",       "Agent activity across all channels — who did what · day/week"),
-        ("/message",      "Report-back channels — Telegram · WhatsApp · Email · iMessage"),
+        ("/message",      "Where NX reports back — Telegram · WhatsApp · Email · iMessage"),
         ("/search-integrations", "Search the MCP marketplace"),
         ("/install",      "Install a cleared MCP integration"),
         ("/auth",         "Store an MCP credential"),
@@ -19958,6 +19971,34 @@ def _supply_assign_email(cfg):
         print(dim(f"  ✗ Couldn't send: {str(_e)[:140]}\n     Saved — {_hint}.\n"))
 
 
+# ── Which Keychain secret each supplied channel owns ────────────────────────
+# ONE list, read by both the assign path (which writes the secret) and /revoke (which deletes it). It used
+# to exist only inside _supply_revoke, as a literal dict written when there were four channels — so when
+# discord and x were added, revoke silently stopped clearing their tokens and left a live bot token in the
+# operator's Keychain for a channel they had just taken away. A second hand-maintained list is a list that
+# will not be maintained; this is the only one.
+#
+# None means the channel has NO per-agent secret. That is the honest state for every publishing
+# destination: the operator connects the platform ONCE via /publish and /supply binds a destination to an
+# agent, so there is no per-agent token to delete — and revoking must not imply it removed a credential it
+# never held.
+_AGENT_CHANNEL_SECRET = {
+    "email":     "email-pass",
+    "telegram":  "telegram-token",
+    "sms":       "twilio-token",
+    "whatsapp":  "twilio-token",       # overridden to whatsapp-meta-token when provider == "meta"
+    "imessage":  None,                 # sends from the operator's own signed-in Mac
+    "discord":   "discord-token",
+    "x":         "x-token",
+    "facebook":  None,
+    "instagram": None,
+    "linkedin":  None,
+    "tiktok":    None,
+    "youtube":   None,
+    "pinterest": None,
+}
+
+
 def _supply_active(cfg):
     """List every agent that has a channel + its handles (verified vs untested)."""
     binds = [b for b in _load_user_items("agent-channels") if (b.get("channels") or {})]
@@ -19988,7 +20029,7 @@ def _supply_revoke(cfg):
     ch = chans[cidx]
     try:
         from nx_channels import kc_delete as _kcdel
-        _sec = {"email": "email-pass", "telegram": "telegram-token", "sms": "twilio-token", "whatsapp": "twilio-token"}.get(ch)
+        _sec = _AGENT_CHANNEL_SECRET.get(ch)
         # WhatsApp secret depends on which provider was set up (Meta uses its own token).
         if ch == "whatsapp" and ((b.get("channels") or {}).get("whatsapp") or {}).get("provider") == "meta":
             _sec = "whatsapp-meta-token"
@@ -20547,6 +20588,290 @@ def _sync_agent_channels():
         pass
 
 
+def _send_as_agent_discord(token, channel_id, text):
+    """Post to a Discord channel AS the agent's own bot (Bot authorization)."""
+    r = requests.post(
+        f"https://discord.com/api/v10/channels/{channel_id}/messages",
+        headers={"Authorization": "Bot " + token, "Content-Type": "application/json"},
+        json={"content": text[:1900]},
+        timeout=20,
+    )
+    if r.status_code >= 300:
+        raise RuntimeError(f"discord {r.status_code}: {(r.text or '')[:200]}")
+
+
+def _supply_assign_discord(cfg):
+    """Give an agent its OWN Discord bot — a separate application from the Nexplora bot you
+    link under /go. Same shape as Telegram: verify the token live, then prove it posts."""
+    import getpass as _gp
+    print(gold("\n  \u2726 Give an agent its own Discord bot") + dim("  — a free app it posts from.\n"))
+    print(dim("  This is the AGENT's bot, not the Nexplora bot you connect under /go —"))
+    print(dim("  one app for both would make the agent and the assistant the same identity."))
+    print(dim("     1. discord.com/developers/applications → New Application"))
+    print(dim("     2. Bot → Reset Token → copy it"))
+    print(dim("     3. OAuth2 → URL Generator → scopes: bot → invite it to your server"))
+    try:
+        print(gold("\n  Bot token") + dim("  (hidden)"))
+        token = _gp.getpass("  \u203a ").strip()
+    except (KeyboardInterrupt, EOFError):
+        print(); return
+    if not token:
+        print(dim("  \u00b7 need the bot token — cancelled\n")); return
+
+    # Verify the token before anything is saved — the Telegram getMe discipline.
+    try:
+        _me = requests.get("https://discord.com/api/v10/users/@me",
+                           headers={"Authorization": "Bot " + token}, timeout=15)
+        if _me.status_code >= 300:
+            print(dim(f"\n  \u2717 Discord rejected that token ({_me.status_code}). Copy it again from Bot \u2192 Reset Token — cancelled.\n")); return
+        _bot_user = (_me.json() or {}).get("username") or ""
+    except Exception as _e:
+        print(dim(f"\n  \u2717 Couldn't reach Discord: {str(_e)[:80]} — cancelled.\n")); return
+    print(gold(f"\n  \u2713 Token works — @{_bot_user} is live."))
+
+    print(dim("\n  Which channel should it post in? Right-click the channel \u2192 Copy Channel ID"))
+    print(dim("  (Discord \u2192 Settings \u2192 Advanced \u2192 Developer Mode must be on)."))
+    try:
+        channel_id = input(gold("  Channel ID \u203a ")).strip()
+    except (KeyboardInterrupt, EOFError):
+        print(); return
+    if not channel_id.isdigit():
+        print(dim("  \u00b7 a channel ID is all digits — cancelled\n")); return
+
+    picked = _pick_or_create_agent(cfg)
+    if not picked:
+        return
+    key, display = picked
+    stored = _store_agent_secret(key, "discord-token", token)
+    binding = _load_agent_channels(key) or {"name": key, "display": display, "channels": {}}
+    binding["display"] = display; binding.setdefault("channels", {})
+    binding["channels"]["discord"] = {"handle": ("@" + _bot_user) if _bot_user else channel_id,
+                                      "channel_id": channel_id, "verified": None}
+    _save_user_item("agent-channels", binding)
+    if not stored:
+        print(dim("  \u26a0 Couldn't save the bot token to your Keychain — later sends won't work until you re-run.\n"))
+    print(gold(f"  Testing — {display}'s bot is posting\u2026"))
+    try:
+        _send_as_agent_discord(token, channel_id, f"This is {display}. My Discord bot is live in NX \u2014 I can post as {display}.")
+        if stored:
+            binding["channels"]["discord"]["verified"] = datetime.date.today().isoformat()
+            _save_user_item("agent-channels", binding)
+        print(gold(f"  \u2713 Posted as {display}'s bot.") + dim("  Verified.\n" if stored else "  Re-run so Keychain saves the token.\n"))
+    except Exception as _e:
+        _es = str(_e)
+        _hint = ("the bot isn't in that server, or can't see that channel — invite it, then re-run"
+                 if "50001" in _es or "403" in _es else "check the token / channel id, then re-run to verify")
+        print(dim(f"  \u2717 Test failed: {_es[:140]}\n     Saved — {_hint}.\n"))
+
+
+def _supply_assign_x(cfg):
+    """Give an agent its OWN X account to POST from.
+
+    X is one-way here and says so: the agent publishes, and replies do NOT come back
+    through this channel — inbound X DMs need X's enterprise API tier. Posting also
+    needs a PAID X API plan; the free tier's write limit is far too low for real use.
+    Both constraints are stated before a single credential is asked for, because both
+    bite after the setup otherwise."""
+    import getpass as _gp
+    print(gold("\n  \u2726 Give an agent its own X account") + dim("  — it POSTS as that account.\n"))
+    print(dim("  Two things worth knowing before you start:"))
+    print(dim("     \u00b7 one-way — the agent posts; replies do NOT come back through this channel"))
+    print(dim("     \u00b7 posting needs a PAID X API plan (the free tier's write limit is too low)"))
+    print(dim("  Get a token at developer.x.com \u2192 your app \u2192 Keys and tokens \u2192 Access token"))
+    print(dim("  (the token must carry tweet.write for this account)."))
+    try:
+        print(gold("\n  Access token") + dim("  (hidden)"))
+        token = _gp.getpass("  \u203a ").strip()
+    except (KeyboardInterrupt, EOFError):
+        print(); return
+    if not token:
+        print(dim("  \u00b7 need the access token — cancelled\n")); return
+
+    # Verify before saving: /2/users/me is X's getMe.
+    try:
+        _me = requests.get("https://api.twitter.com/2/users/me",
+                           headers={"Authorization": "Bearer " + token}, timeout=15)
+        if _me.status_code >= 300:
+            print(dim(f"\n  \u2717 X rejected that token ({_me.status_code}). Check it carries tweet.write — cancelled.\n")); return
+        _handle = ((_me.json() or {}).get("data") or {}).get("username") or ""
+    except Exception as _e:
+        print(dim(f"\n  \u2717 Couldn't reach X: {str(_e)[:80]} — cancelled.\n")); return
+    print(gold(f"\n  \u2713 Token works — @{_handle} is live."))
+
+    picked = _pick_or_create_agent(cfg)
+    if not picked:
+        return
+    key, display = picked
+    stored = _store_agent_secret(key, "x-token", token)
+    binding = _load_agent_channels(key) or {"name": key, "display": display, "channels": {}}
+    binding["display"] = display; binding.setdefault("channels", {})
+    # NOT stamped verified: verifying would mean actually posting a tweet from the
+    # operator's real account, which is a public, irreversible act nobody asked for.
+    # The token IS proven (users/me above) — the binding is honestly "saved, untested".
+    binding["channels"]["x"] = {"handle": ("@" + _handle) if _handle else "", "verified": None}
+    _save_user_item("agent-channels", binding)
+    if not stored:
+        print(dim("  \u26a0 Couldn't save the token to your Keychain — later posts won't work until you re-run.\n"))
+    else:
+        print(gold(f"  \u2713 Saved — {display} posts as @{_handle}.")
+              + dim("  Not test-posted: a test would put a real tweet on your timeline.\n"))
+
+
+# ── Publishing destinations — one function, six channels ────────────────────
+# name → (label, the /publish connector that holds the grant, what the operator is naming, an example,
+#         and the constraint that bites AFTER setup if it isn't said before).
+# Mirrors lib/desk/supply-channels.ts on the web; the two picker orders must match.
+_SUPPLY_PUBLISH = {
+    "facebook":  ("Facebook",  "meta",      "Page the agent posts to",
+                  "@yourcompany",
+                  "A Page, not a personal profile — Meta's API cannot post to a personal timeline at all. "
+                  "Publishing also needs App Review to approve pages_manage_posts."),
+    "instagram": ("Instagram", "meta",      "Account the agent posts to",
+                  "@yourcompany",
+                  "Needs a Business or Creator account linked to a Facebook Page — a personal account "
+                  "cannot be posted to through the API, whatever the grant says."),
+    "linkedin":  ("LinkedIn",  "linkedin",  "Company page the agent posts as",
+                  "yourcompany  (the slug from linkedin.com/company/yourcompany)",
+                  "Posting as a company page needs w_organization_social AND an admin role on that page."),
+    "tiktok":    ("TikTok",    "tiktok",    "Account the agent posts to",
+                  "@yourcompany",
+                  "For unaudited apps TikTok delivers to the account's drafts or inbox — a post may still "
+                  "need a human to publish it from the phone."),
+    "youtube":   ("YouTube",   "google",    "Channel the agent posts to",
+                  "@yourcompany",
+                  "YouTube only. Google Ads is not a /supply channel: ad spend is a budget with an "
+                  "approval gate, not an identity an agent sends as."),
+    "pinterest": ("Pinterest", "pinterest", "Account the agent pins from",
+                  "@yourcompany",
+                  "The board is chosen per pin, not fixed here — this binds the account it pins from."),
+}
+
+
+# ── The publish-handle shape rules — a DELIBERATE PORT, kept in step by test ──
+# These mirror lib/desk/supply-channels.ts (normalizeAddress + HANDLE_RULES) rule for rule.
+#
+# The two surfaces write to ONE store through ONE endpoint, and the web POST validates with addressError
+# while the CLI's snapshot ingest deliberately does not. So a CLI that normalized differently, or skipped
+# validation entirely, could persist an address the web's own form would reject with a 400 — the exact
+# accept-here-reject-there split the shared pure module on the web exists to prevent. Python cannot import
+# the TypeScript, so the port is the mechanism and
+# nx/cli/tests/test_channels_publish_split.py drives both through the same case table.
+_PUBLISH_HANDLE_RULES = {
+    "x":         (r"^@[A-Za-z0-9_]{1,15}$",      "up to 15 characters: letters, numbers, underscores"),
+    "facebook":  (r"^@[A-Za-z0-9.]{5,50}$",      "at least 5 characters: letters, numbers, periods"),
+    "instagram": (r"^@[A-Za-z0-9._]{1,30}$",     "up to 30 characters: letters, numbers, periods, underscores"),
+    "tiktok":    (r"^@[A-Za-z0-9._]{2,24}$",     "2–24 characters: letters, numbers, periods, underscores"),
+    "youtube":   (r"^@[A-Za-z0-9._-]{3,30}$",    "3–30 characters: letters, numbers, periods, underscores, hyphens"),
+    "pinterest": (r"^@[A-Za-z0-9_]{3,30}$",      "3–30 characters: letters, numbers, underscores"),
+}
+
+
+def _normalize_publish_handle(channel, raw):
+    """The address shape each platform actually uses. Mirrors the web's normalizeAddress."""
+    v = (raw or "").strip()
+    if not v:
+        return ""
+    if channel == "linkedin":
+        # NEVER GUESS AT A LAST PATH SEGMENT. Doing so turned wrong input into confident, plausible,
+        # WRONG slugs that then passed validation: a URL cut short at "linkedin.com/company/" became the
+        # slug "company". If it looks like a URL, the slug comes from the URL's own shape or the input is
+        # handed back unchanged so the error can name the real problem.
+        no_query = re.split(r"[?#]", v)[0].rstrip("/")
+        if "linkedin.com" in no_query.lower() or "/" in no_query:
+            m = re.search(r"linkedin\.com/(?:company|school|in)/([^/]+)", no_query, re.I)
+            if not m:
+                return v
+            return m.group(1).lstrip("@").lower()
+        return no_query.lstrip("@").lower()
+    # Strip EVERY leading @ then add exactly one, so a pasted "@@acme" doesn't survive.
+    return "@" + v.lstrip("@")
+
+
+def _publish_handle_error(channel, address):
+    """Why an address is unusable, in words the operator can act on — or None when it's fine."""
+    v = (address or "").strip()
+    if not v:
+        return "Enter the destination this agent posts to."
+    if len(v) > 200:
+        return "That's too long to be an address."
+    if channel == "linkedin":
+        if "/" in v:
+            return "Use just the page slug — linkedin.com/company/yourcompany → yourcompany."
+        if not re.match(r"^[a-z0-9-]{3,100}$", v):
+            return "Use the page slug from its URL — 3–100 characters: letters, numbers, hyphens."
+        return None
+    rule = _PUBLISH_HANDLE_RULES.get(channel)
+    if not rule:
+        return f"No address rule for {channel} — that's a gap on our side."
+    pattern, say = rule
+    if not re.match(pattern, v):
+        return f"Use the account's handle — {say} (e.g. @yourcompany)."
+    return None
+
+
+def _supply_assign_publish(cfg, channel):
+    """Give an agent a PUBLISHING destination — it posts there AS itself.
+
+    Different in one load-bearing way from the conversation channels above, and the difference is stated
+    rather than hidden: these ask for NO credential. The operator connects the platform ONCE through
+    /publish, and this binds a destination — a Page, a channel, a company profile — to one agent. So the
+    grant is shared and the identity is not, which is what "the agent's own account" honestly means here.
+    Asking for a per-agent token would be inventing a login the platform does not offer.
+
+    Nothing is ever stamped verified. The only way to verify a publishing binding is to publish, and that
+    is a real, public, permanent post on the operator's real account that nobody asked for — the same
+    reason _supply_assign_x proves its token via users/me and then declines to tweet."""
+    meta = _SUPPLY_PUBLISH.get(channel)
+    if not meta:
+        print(dim(f"\n  Unknown publishing channel '{channel}'.\n")); return
+    label, connector, what, example, caveat = meta
+
+    print(gold(f"\n  ✦ Give an agent a {label} destination") + dim("  — it POSTS there as itself.\n"))
+    print(dim("  " + caveat))
+
+    # Say the connection state HONESTLY before asking for anything. Binding a destination on a platform
+    # that was never connected is allowed — the operator may be setting up ahead of the grant — but it must
+    # not look like it will post.
+    _connected = None
+    try:
+        import nx_channels as _ch
+        _c = _ch.get_channel(connector)
+        if _c:
+            _connected = bool((_c.status() or {}).get("connected"))
+    except Exception:
+        _connected = None
+    if _connected is True:
+        print(gold(f"  ✓ {connector} is connected") + dim("  — this agent can post once bound."))
+    elif _connected is False:
+        print(dim(f"  ○ {connector} is NOT connected yet — bind it now if you like, but nothing posts"))
+        print(dim(f"    until you run ") + gold(f"/publish connect {connector}") + dim("."))
+    else:
+        print(dim(f"  · Couldn't read {connector}'s connection state — the binding still saves."))
+
+    print(gold(f"\n  {what}") + dim(f"   e.g. {example}"))
+    try:
+        handle = input("  › ").strip()
+    except (KeyboardInterrupt, EOFError):
+        print(); return
+    if not handle:
+        print(dim("  · nothing entered — cancelled\n")); return
+    _h = _normalize_publish_handle(channel, handle)
+    _bad = _publish_handle_error(channel, _h)
+    if _bad:
+        print(dim("  ✗ " + _bad + "\n")); return
+
+    picked = _pick_or_create_agent(cfg)
+    if not picked:
+        return
+    key, display = picked
+    binding = _load_agent_channels(key) or {"name": key, "display": display, "channels": {}}
+    binding["display"] = display; binding.setdefault("channels", {})
+    binding["channels"][channel] = {"handle": _h, "verified": None}
+    _save_user_item("agent-channels", binding)
+    print(gold(f"  ✓ Saved — {display} posts to {_h} on {label}.")
+          + dim("  Not test-posted: a test would be a real, public post.\n"))
+
+
 def _handle_supply(pick, cfg):
     """Route a /supply menu pick — assign a channel to an agent, or /active, /revoke.
 
@@ -20566,9 +20891,19 @@ def _handle_supply(pick, cfg):
         _supply_assign_whatsapp(cfg); _sync_agent_channels(); return
     if pick == "imessage":
         _supply_assign_imessage(cfg); _sync_agent_channels(); return
+    if pick == "discord":
+        _supply_assign_discord(cfg); _sync_agent_channels(); return
+    if pick == "x":
+        _supply_assign_x(cfg); _sync_agent_channels(); return
+    if pick in _SUPPLY_PUBLISH:
+        _supply_assign_publish(cfg, pick); _sync_agent_channels(); return
+    # A menu entry with no arm above used to fall off the end of this function: the picker closed and
+    # NOTHING happened, with no error anywhere. Silence is the worst failure mode for a picker, because it
+    # is indistinguishable from cancelling. Say it instead.
+    print(dim(f"\n  '{pick}' isn't wired up yet — that's a gap on our side, not something you did.\n"))
 
 
-# ── /channels — clean picker + per-channel view + /assign (agents ↔ channels) ─
+# ── /publish — clean picker + per-channel view + /assign (agents ↔ channels) ──
 def _load_channel_agents(name):
     """Agents assigned to a publish channel (~/.nx/channel-agents/<name>.json), or None."""
     for it in _load_user_items("channel-agents"):
@@ -20622,9 +20957,9 @@ def _channel_view(name, cfg):
     if s.get("connected"):
         stat = "connected"
     elif s.get("configured"):
-        stat = f"configured — /channels connect {name}"
+        stat = f"configured — /publish connect {name}"
     else:
-        stat = f"not set up — /channels setup {name}"
+        stat = f"not set up — /publish setup {name}"
     print(gold(f"\n  {glyph}  {ch.display_name}") + dim(f"   {stat}"))
     print(dim("  " + "─" * 44))
     # AGENTS + ACTIVITY now live in /report ONLY (per operator preference) — the channel view stays lean.
@@ -20739,13 +21074,13 @@ def _channels_assign(cfg):
     if not any(a.get("key") == key for a in binding["agents"]):
         binding["agents"].append({"key": key, "display": display})
     _save_user_item("channel-agents", binding)
-    print(gold(f"\n  ✓ {display} is now on {ch.display_name}.") + dim("  See it in /channels → that channel.\n"))
+    print(gold(f"\n  ✓ {display} is now on {ch.display_name}.") + dim("  See it in /publish → that channel.\n"))
 
 
 def _run_supply(cfg):
     """`/supply` — provision NX like hiring an employee: give it your identity + the channels/accounts it works
     through, in ONE guided pass. Identity (name/email/phone) is saved to local config; the rest REUSES the real
-    setup flows (report-back via /message, publish via /channels, tools via /integrations). Re-runnable to update."""
+    setup flows (report-back via /message, publish via /publish, tools via /integrations). Re-runnable to update."""
     import getpass as _gp
     _psec = lambda label: _gp.getpass("  " + label + " ❯ ").strip()
     _pin = lambda label: input("  " + label + " ❯ ").strip()
@@ -20792,7 +21127,7 @@ def _run_supply(cfg):
     # publish + tools — the OAuth flows live in their own commands; point there
     print()
     print(dim("  Then connect the accounts NX acts through:"))
-    print("    " + gold("/channels") + dim("      publish — Meta · Google · TikTok · LinkedIn · X"))
+    print("    " + gold("/publish") + dim("       publish out — Meta · Google · TikTok · LinkedIn · X"))
     print("    " + gold("/integrations") + dim("  tools & apps — Slack · HubSpot · GitHub · …"))
     # summary of what's supplied
     print()
@@ -20883,6 +21218,96 @@ def _run_go(cfg):
     except Exception:
         print(dim(f"\n  Couldn't open it — link: {_url}"))
     print()
+
+def _run_channels(cfg):
+    """`/channels` — the ways to reach NX besides this terminal and the web app.
+
+    THE NAME NOW MEANS THE SAME THING ON BOTH SURFACES. The web has always called
+    this Channels: your Telegram, your number, your inbox, linked so the work
+    follows you and you can answer from wherever you already read. The CLI used
+    to spend the word on PUBLISHING (Meta · Google · TikTok · LinkedIn · X) — so
+    one word meant reach-me here and publish-out there, and whichever surface an
+    operator learned second actively misled them. Publishing moved to /publish.
+
+    This is a HUB over two things that already exist and already work, not a new
+    store: the report-back bindings /message owns (nx_message.channels_state —
+    real config + real Keychain presence, never a guess), and the session handoff
+    /go performs. It shows the honest state of the first and routes to either."""
+    try:
+        import nx_message as _msg
+        _st = _msg.channels_state(cfg)
+    except Exception as _e:
+        print(dim(f"\n  Can't read your channels: {type(_e).__name__}\n"))
+        return
+
+    # Display name per channel. WHERE the address lives is NOT restated here — nx_message.channel_handle
+    # is the one rule, because this row list previously restated it wrong for telegram (asked for "to",
+    # which telegram never stores) and rendered a permanently blank address for the flagship channel.
+    #
+    # "Text" is deliberately NOT used as a label. /message calls iMessage "Text", so labelling SMS "Text"
+    # here meant the word named two different channels one click apart — an operator picking "Text" in the
+    # hub landed on iMessage. Both are spelled out instead.
+    _ROWS = [
+        ("telegram", "Telegram"),
+        ("whatsapp", "WhatsApp"),
+        ("sms",      "SMS"),
+        ("email",    "Email"),
+        ("imessage", "iMessage"),
+    ]
+    _linked = [k for k, _n in _ROWS if (_st.get(k) or {}).get("configured")]
+    print()
+    print("  " + gold("Channels") + dim("  — how NX reaches you, besides here and the web app"))
+    print("  " + dim("─" * 54))
+    for _key, _name in _ROWS:
+        _c = _st.get(_key) or {}
+        _on = bool(_c.get("configured"))
+        _glyph = (GREEN_FG + "●" + RESET) if _on else dim("○")
+        _who = _msg.channel_handle(_key, _c)
+        # An ACTIVE channel is one NX will actually use; configured-but-off is a real,
+        # distinct state and saying "linked" for both would overstate the quiet one.
+        #
+        # And a channel with NO ADDRESS cannot deliver, whatever `configured` says. Telegram is the case
+        # that matters: it counts as configured on the bot token ALONE, so the default first run — paste
+        # token, don't DM the bot yet — produced a green ● "linked" row with an empty address for a channel
+        # that could not reach anyone. That is the flattering guess this surface exists not to make.
+        if _on and not _who:
+            _state = "linked · no address yet"
+            _glyph = gold("◐")
+        elif _on:
+            _state = "linked" if _c.get("active") else "linked · muted"
+        else:
+            _state = "not linked"
+        print("    " + _glyph + " " + gold("%-10s" % _name) + dim("%-26s" % _who[:25]) + dim(_state))
+    print("  " + dim("─" * 54))
+    if not _linked:
+        print("  " + dim("Nothing linked yet — link one and this session can follow you into it."))
+    print()
+
+    _pick = _choose("Channels", [
+        ("Link or change one", "your Telegram · number · inbox — where NX reaches you"),
+        ("Continue on the go", "hand THIS session to another surface right now"),
+    ], current=0)
+    if _pick is None:
+        print()
+        return
+    if _pick == 0:
+        # Straight into the surface that OWNS these bindings. Duplicating its
+        # prompts here would be a second place to keep in sync — and the first
+        # one to drift.
+        try:
+            import nx_message as _m, getpass as _gp
+            from nx_slash_menu import run_message_menu
+            _chosen = run_message_menu(states=_m.channels_state(cfg))
+            if _chosen:
+                print(_m.handle_message_command(
+                    [_chosen], cfg=cfg,
+                    prompt_secret=lambda label: _gp.getpass("  " + label + " ❯ ").strip(),
+                    prompt=lambda label: input("  " + label + " ❯ ").strip()))
+        except Exception as _e:
+            print(dim(f"  Couldn't open that: {type(_e).__name__}\n"))
+        return
+    _run_go(cfg)
+
 
 def _write_history_file():
     if not HAVE_READLINE:
@@ -21623,7 +22048,7 @@ def run_nx_repl(cfg):
             # OAuth/credentials), they aren't authored locally — route to the real flow.
             if user == "__create_channel__":
                 print(gold("\n  ✦ Channels connect through your account.")
-                      + dim("  Publish → /channels   ·   report-back → /message\n"))
+                      + dim("  Publish → /publish   ·   report-back → /message\n"))
                 continue
             if user == "__create_integration__":
                 print(gold("\n  ✦ Integrations connect through your account.")
@@ -22046,7 +22471,7 @@ def run_nx_repl(cfg):
                     save_config(cfg)
                     print(f"\n  {GOLDD}· council mode off{RESET}\n")
                     continue
-                if cmd=="/channels":
+                if cmd=="/publish":
                     _argv = user.split()[1:]
                     if _argv:
                         # A typed verb (connect/setup/disconnect/profile/status) → the real
@@ -22058,9 +22483,9 @@ def run_nx_repl(cfg):
                                 return _gp.getpass(f"  {fg(*GOLD_DIM)}{label} ❯{RESET} ").strip()
                             print(_ch.handle_command(_argv, prompt_secret=_prompt_secret))
                         except Exception as _e:
-                            print(f"\n  {GOLDD}Channels unavailable: {type(_e).__name__}{RESET}\n")
+                            print(f"\n  {GOLDD}Publish unavailable: {type(_e).__name__}{RESET}\n")
                         continue
-                    # Bare /channels → the clean numbered picker → a channel view, or Assign.
+                    # Bare /publish → the clean numbered picker → a channel view, or Assign.
                     try:
                         import nx_channels as _ch
                         _hb = print_nx_thinking()  # live star while we check each channel's connected state (no black screen)
@@ -22074,10 +22499,10 @@ def run_nx_repl(cfg):
                         finally:
                             try: _hb.set()
                             except Exception: pass
-                        from nx_slash_menu import run_channels_menu
-                        _pick = run_channels_menu(_st)
+                        from nx_slash_menu import run_publish_menu
+                        _pick = run_publish_menu(_st)
                     except Exception as _e:
-                        print(f"\n  {GOLDD}Channels unavailable: {type(_e).__name__}{RESET}\n")
+                        print(f"\n  {GOLDD}Publish unavailable: {type(_e).__name__}{RESET}\n")
                         _pick = None
                     if _pick == "__assign__":
                         _channels_assign(cfg)
@@ -22522,6 +22947,13 @@ def run_nx_repl(cfg):
                                     # impossible to downgrade an OAuth-native connector to a pasted key even if its manifest
                                     # still says byok — those fall through to the "coming shortly" branch and self-heal the
                                     # moment their Nexplora OAuth app is provisioned.
+                                    _connect_byok_key(chosen)
+                                elif _pending and chosen in _REST_TOKEN_FALLBACK:
+                                    # GitLab-specific safety valve: the catalog connector is OAuth-native, but GitLab's
+                                    # hosted MCP can complete OAuth and then 404 initialize unless account/group MCP access
+                                    # is enabled. When Nexplora backend OAuth is not configured, connect the working REST
+                                    # connector with the operator's GitLab token through the shared web vault instead of
+                                    # punting to "coming shortly" or retrying the dead MCP path.
                                     _connect_byok_key(chosen)
                                 elif _pending and chosen in _nxoauth_by_slug and _has_token_path(chosen):
                                     # OAuth-native connector whose Nexplora app isn't provisioned yet, but it ALSO has a
@@ -23103,6 +23535,23 @@ def run_nx_repl(cfg):
                     continue
                 if cmd=="/go":
                     _run_go(cfg)
+                    continue
+                if cmd=="/channels":
+                    # The ways to reach NX besides here and the web app — the SAME
+                    # meaning the web gives the word. Publishing is /publish now.
+                    #
+                    # `/channels connect meta` used to be the publish command, and muscle memory outlives a
+                    # rename. Swallowing the argument and silently opening the reach hub would look like the
+                    # old command "worked" while doing something else entirely — the worst outcome of a
+                    # rename. Say where it went, and don't guess at running it for them.
+                    _rest = user.split()[1:]
+                    if _rest:
+                        print()
+                        print("  " + dim("/channels is where NX reaches YOU now. Publishing moved:"))
+                        print("    " + gold("/publish " + " ".join(_rest)))
+                        print("  " + dim("Run /channels on its own for the reach surface.") + "\n")
+                        continue
+                    _run_channels(cfg)
                     continue
                 if cmd in ("/worlds","/world"):
                     # Internal command: /worlds <name> still switches context
@@ -25014,8 +25463,8 @@ def _save_user_skill(skill_data: dict) -> str:
 
 # ── /create hub — user-authored primitives stored under the operator's "/" ──────
 # Skills already store to ~/.nx/skills. The hub adds the same author→store→surface
-# loop for modes and agents (integrations + channels connect through the account via
-# /integrations and /channels). Uniform store: ~/.nx/<kind>/<slug>.json.
+# loop for modes and agents (integrations + publish connectors connect through the
+# account via /integrations and /publish). Uniform store: ~/.nx/<kind>/<slug>.json.
 def _save_user_item(kind: str, item: dict) -> str:
     """Persist a user-authored item (e.g. kind='modes'/'agents') to
     ~/.nx/<kind>/<slug>.json. Returns the path."""
@@ -26279,7 +26728,8 @@ def print_customize_panel(world, cfg):
         ("/crew",         "your agent crew + build your own"),
         ("/skills",       "your imported skills"),
         ("/integrations", "connect tools & accounts"),
-        ("/channels",     "publish channels — social + search"),
+        ("/publish",      "publish out — social + search"),
+        ("/channels",     "how NX reaches you — Telegram · WhatsApp · Text · Email"),
         ("/message",      "where NX reports back"),
     )
     print()
@@ -26408,7 +26858,7 @@ def main():
     if args and args[0]=="host-agent":
         # nx host-agent [--once] [--poll <s>] — the local executor for actions you approve from ANOTHER
         # surface (Telegram/web). It claims each approved action and runs it HERE via the same proven
-        # connectors /channels uses, then reports the result back. Long-running; Ctrl-C to stop.
+        # connectors /publish uses, then reports the result back. Long-running; Ctrl-C to stop.
         import nx_message as _msg
         _ha = list(args[1:])
         _once = "--once" in _ha

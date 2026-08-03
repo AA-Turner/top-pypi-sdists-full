@@ -18,7 +18,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
@@ -30,7 +30,8 @@ class ListAdhocExecutionsRequest(BaseModel):
     status: Optional[StrictStr] = Field(default=None, description="Filter by execution status. Common values: 'completed', 'failed'. OPTIONAL - omit to see all statuses.")
     start_time: Optional[Any] = None
     end_time: Optional[Any] = None
-    __properties: ClassVar[List[str]] = ["status", "start_time", "end_time"]
+    count_only: Optional[StrictBool] = Field(default=False, description="BACKE-3071: when true, return ONLY the total count and skip fetching the execution rows. Use for a badge/total (the Executions-tab count) — it avoids the ORDER BY full-row scan that made a limit:1 count take 15s+.")
+    __properties: ClassVar[List[str]] = ["status", "start_time", "end_time", "count_only"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -95,7 +96,8 @@ class ListAdhocExecutionsRequest(BaseModel):
         _obj = cls.model_validate({
             "status": obj.get("status"),
             "start_time": obj.get("start_time"),
-            "end_time": obj.get("end_time")
+            "end_time": obj.get("end_time"),
+            "count_only": obj.get("count_only") if obj.get("count_only") is not None else False
         })
         return _obj
 

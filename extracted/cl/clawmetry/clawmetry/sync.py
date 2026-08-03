@@ -1765,6 +1765,42 @@ def _detect_nemoclaw() -> dict:
         if not result.get("sandbox_name"):
             result["sandbox_name"] = default_route.get("sandbox") or ""
 
+    # 6. Per-sandbox health report via `nemoclaw sandbox status --json`.
+    # Distinct from step 3's `nemoclaw status --json` (global report) — this
+    # command calls getSandboxStatusReport and exposes OOM-kill counter,
+    # RPC/image drift type, docker-pause flag, GPU-proof, route drift,
+    # gateway state, and lifecycle phase. Issue #4434.
+    _sbox_name = result.get("sandbox_name", "")
+    if nemo_bin and _sbox_name:
+        try:
+            import json as _j
+            _sbox_raw = subprocess.check_output(
+                [nemo_bin, "sandbox", "status", "--json", _sbox_name],
+                stderr=subprocess.DEVNULL,
+                timeout=10,
+            ).decode()
+            _sbox_data = _j.loads(_sbox_raw)
+            _health: dict = {}
+            _trh = _sbox_data.get("terminalRuntimeHealth")
+            if isinstance(_trh, dict):
+                _health["terminalRuntimeHealth"] = {
+                    "kind": _trh.get("kind", ""),
+                    "oomKillCount": _trh.get("oomKillCount", 0),
+                    "source": _trh.get("source", ""),
+                }
+            for _field in (
+                "rpcIssue", "failureLayer", "routeDrift",
+                "dockerPaused", "sandboxGpuProof",
+                "baselineExclusionStates", "gatewayState", "phase",
+            ):
+                _val = _sbox_data.get(_field)
+                if _val is not None:
+                    _health[_field] = _val
+            if _health:
+                result["sandbox_health"] = _health
+        except Exception:
+            pass
+
     return result
 
 
@@ -3507,10 +3543,15 @@ def _local_ingest_session_batch(
     if rows:
         store.ingest_many(rows)
     # Reconstruct OTel-compatible spans from this batch (issue #1010 / Trace 4).
+    # ``agent_type`` rides through so a non-OpenClaw batch on this transcript
+    # shape (NemoClaw sandbox sessions, agent_type='nemoclaw') stamps its REAL
+    # runtime on the spans instead of mislabeling the Agent Graph 'openclaw'.
     # Non-fatal: span failures never block event ingest.
     try:
         from clawmetry.adapters.openclaw import OpenClawAdapter
-        for sp in OpenClawAdapter._build_spans_from_events(batch, session_id):
+        for sp in OpenClawAdapter._build_spans_from_events(
+            batch, session_id, agent_type=agent_type
+        ):
             store.ingest_span(sp)
     except Exception as _e:
         log.debug("span reconstruction skipped (non-fatal): %s", _e)
@@ -6243,7 +6284,7 @@ _LITE_RT_LABELS = {
     "aider": "Aider", "goose": "Goose", "opencode": "opencode",
     "qwen_code": "Qwen Code", "hermes": "Hermes", "picoclaw": "PicoClaw",
     "nanoclaw": "NanoClaw", "pi": "Pi", "deepagents": "Deep Agents",
-    "n8n": "n8n", "antigravity": "Antigravity",
+    "n8n": "n8n", "antigravity": "Antigravity", "copilot": "GitHub Copilot",
 }
 
 # Activity thresholds (seconds) for classifying a detected runtime. Detecting a
@@ -6283,6 +6324,7 @@ def _runtime_data_paths(rid: str) -> list:
         "n8n": [os.path.join(home, ".n8n", "database.sqlite")],
         "antigravity": [os.path.join(home, ".gemini", f) for f in
                         ("antigravity", "antigravity-cli", "antigravity-ide", "jetski")],
+        "copilot": [os.path.join(home, ".copilot", "session-state")],
     }
     return _M.get(rid, [])
 
@@ -6411,6 +6453,7 @@ def _detect_runtimes_lite() -> list:
         "n8n": [os.path.join(home, ".n8n", "database.sqlite")],
         "antigravity": [os.path.join(home, ".gemini", f) for f in
                         ("antigravity", "antigravity-cli", "antigravity-ide", "jetski")],
+        "copilot": [os.path.join(home, ".copilot", "session-state")],
     }
     for rid, paths in _present.items():
         try:
@@ -11576,6 +11619,7 @@ _FAMILY_ADAPTER_SPECS = (
     ("clawmetry_pro.adapters.deepagents", "DeepAgentsAdapter"),
     ("clawmetry_pro.adapters.n8n", "N8nAdapter"),
     ("clawmetry_pro.adapters.antigravity", "AntigravityAdapter"),
+    ("clawmetry_pro.adapters.copilot", "CopilotAdapter"),
 )
 
 
@@ -12336,6 +12380,30 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                         # child is permanently skipped and its lane never appears
                         # in the Command River even after the store recovers.
                         log.debug("family subagent ingest failed (%s): %s", ns_id, _sae)
+                    # Agent Graph spans (WS-A): stamp the child node + the
+                    # main→child spawn edge into the spans table. The spawn
+                    # span parents onto the PARENT session's deterministic
+                    # root-span id (emitted when the parent session syncs)
+                    # and is keyed on extra.toolUseId when the adapter
+                    # carried it, so it upserts into the same row a parent-
+                    # side Task tool_call would produce. Best-effort: never
+                    # blocks the subagent row / watermark logic.
+                    try:
+                        from clawmetry import span_reconstruct as _sr
+                        for _sp in _sr.build_family_spans(
+                            runtime, s, [], node_id=node_id
+                        ):
+                            store.ingest_span(_sp)
+                        _spawn = _sr.build_subagent_spawn_span(
+                            runtime, s, node_id=node_id
+                        )
+                        if _spawn:
+                            store.ingest_span(_spawn)
+                    except Exception as _spe:
+                        log.debug(
+                            "family spawn-span ingest failed (%s): %s",
+                            ns_id, _spe,
+                        )
                 # Sub-agent children stop here: they ride the snapshot
                 # ``subagents[]`` slice (river lanes), not the top-level
                 # Sessions list (local: excluded in ``query_sessions_table``;
@@ -12451,6 +12519,25 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                     # No event rows (e.g. an empty/metadata-only session): still
                     # mark it seen so we don't re-scan it every cycle forever.
                     _evt_hw[ns_id] = _activity + "@@" + _ingest_rev
+                # Agent Graph spans (WS-A): reconstruct runtime-stamped spans
+                # from the SAME normalized events already in hand so the
+                # Agent Graph shows real runtimes + main→child edges instead
+                # of one 'openclaw:main' blob. Deterministic span ids make
+                # the re-ingest of an advanced session an upsert no-op for
+                # unchanged spans; the session-level high-water skip above
+                # keeps this path entirely off idle sessions. Best-effort:
+                # span failures never block event ingest or the watermark.
+                try:
+                    from clawmetry import span_reconstruct as _sr
+                    for _sp in _sr.build_family_spans(
+                        runtime, s, _events, node_id=node_id
+                    ):
+                        store.ingest_span(_sp)
+                except Exception as _spe:
+                    log.debug(
+                        "family span reconstruction failed (%s): %s",
+                        ns_id, _spe,
+                    )
         except Exception as exc:
             log.warning(
                 "family runtime ingest failed for %s: %s",
@@ -12693,7 +12780,7 @@ def _build_model_attribution():
 _RUNTIME_PREFIXES = frozenset({
     "picoclaw", "nanoclaw", "hermes", "claude_code", "codex", "cursor",
     "aider", "goose", "opencode", "qwen_code", "pi", "deepagents", "n8n",
-    "antigravity",
+    "antigravity", "copilot",
 })
 
 
@@ -12823,6 +12910,11 @@ def _build_runtime_summary(limit: int = 20000):
                 "total_turns": total,
                 "models": models_out,
                 "switch_count": rt_switches.get(rt, 0),
+                # Newest event / session-activity timestamp (epoch ms) so the
+                # Overview hero can say "working" for MAIN sessions too —
+                # /api/subagents only covers spawned children, so a node whose
+                # terminals were busy read as idle (founder report 2026-08-02).
+                "last_activity_ms": int(totals.get("last_activity_ms") or 0),
             }
         # Fold in foreign OTLP / OpenLLMetry apps (#2822/#2853 follow-up). These
         # derive ``agent_type`` from the resource ``service.name`` and have NO
@@ -20374,6 +20466,7 @@ def _evaluate_alerts_local(config: dict, state: dict) -> int:
         state["alerts_eval_memo"] = last_eval_state
 
     quality = None
+    quality_by_runtime = None
     try:
         quality_window = _alerts_quality_window_minutes(rules)
     except Exception:
@@ -20388,10 +20481,29 @@ def _evaluate_alerts_local(config: dict, state: dict) -> int:
                 "alerts(local): query_session_quality_window failed: %s", e
             )
             quality = None
+        # Runtime-scoped rules read a per-runtime quality slice (the node
+        # slice is an aggregate a scoped rule must never fire on).
+        try:
+            scoped_rts = sorted({
+                alert_evaluator._rule_runtime(r) for r in rules
+            } - {"all"})
+            if scoped_rts:
+                quality_by_runtime = {}
+                for _rt in scoped_rts:
+                    try:
+                        quality_by_runtime[_rt] = (
+                            store.query_session_quality_window(
+                                window_minutes=quality_window, runtime=_rt,
+                            ))
+                    except Exception:
+                        continue
+        except Exception:
+            quality_by_runtime = None
 
     try:
         matches = alert_evaluator.evaluate(
-            rules, events, last_eval_state, quality
+            rules, events, last_eval_state, quality,
+            quality_by_runtime=quality_by_runtime,
         )
     except Exception as e:
         log.warning("alerts(local): evaluator errored: %s", e)

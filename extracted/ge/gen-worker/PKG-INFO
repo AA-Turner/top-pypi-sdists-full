@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gen-worker
-Version: 0.90.5
+Version: 0.90.6
 Summary: A library used to build custom functions in Cozy Creator's serverless function platform.
 Project-URL: Homepage, https://github.com/cozy-creator/python-gen-worker
 Project-URL: Repository, https://github.com/cozy-creator/python-gen-worker
@@ -38,6 +38,7 @@ Requires-Dist: av>=12; extra == 'dev'
 Requires-Dist: c2pa-python>=0.36; extra == 'dev'
 Requires-Dist: diffusers>=0.39.0; extra == 'dev'
 Requires-Dist: grpcio-tools>=1.82.1; extra == 'dev'
+Requires-Dist: hypothesis>=6.100; extra == 'dev'
 Requires-Dist: mypy>=1.10.0; extra == 'dev'
 Requires-Dist: pillow>=10.0; extra == 'dev'
 Requires-Dist: pyarrow>=17.0.0; extra == 'dev'

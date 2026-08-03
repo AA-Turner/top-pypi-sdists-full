@@ -1,14 +1,22 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class TeamMemberSettings(ClientValue):
     """Settings to configure whether members can perform certain actions, for example, create channels and add bots,
     in the team."""
 
-    def __init__(self, allow_create_update_channels=None):
-        super(TeamMemberSettings, self).__init__()
-        self.allowCreateUpdateChannels = allow_create_update_channels
-        self.allowDeleteChannels = True
-        self.allowAddRemoveApps = True
-        self.allowCreateUpdateRemoveTabs = True
-        self.allowCreateUpdateRemoveConnectors = True
+    allowCreateUpdateChannels: bool | None = None
+    allowDeleteChannels: bool = True
+    allowAddRemoveApps: bool = True
+    allowCreateUpdateRemoveTabs: bool = True
+    allowCreateUpdateRemoveConnectors: bool = True
+    allowCreatePrivateChannels: bool | None = None
+
+    @property
+    def entity_type_name(self) -> str:
+        return "microsoft.graph.TeamMemberSettings"

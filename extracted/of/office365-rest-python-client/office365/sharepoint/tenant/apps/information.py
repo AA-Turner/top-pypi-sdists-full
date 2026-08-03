@@ -1,17 +1,30 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime
+
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class TenantAppInformation(ClientValue):
-    """Specifies the information for the tenant-scoped app."""
+    """Specifies the information for the tenant-scoped app.
 
-    def __init__(
-        self, app_principal_id=None, app_web_full_url=None, creation_time=None
-    ):
-        """
-        :param str app_principal_id: Specifies the OAuth Id for the tenant-scoped app.
-        :param str app_web_full_url: Specifies the web full URL for the tenant-scoped app.
-        :param datetime.datetime creation_time: Specifies the creation time for the tenant-scoped app.
-        """
-        self.AppPrincipalId = app_principal_id
-        self.AppWebFullUrl = app_web_full_url
-        self.CreationTime = creation_time
+    Args:
+        app_principal_id (str): Specifies the OAuth Id for the tenant-scoped app.
+        app_web_full_url (str): Specifies the web full URL for the tenant-scoped app.
+        creation_time (datetime.datetime): Specifies the creation time for the tenant-scoped app.
+    """
+
+    IconAbsoluteUrl: str | None = None
+    IconFallbackAbsoluteUrl: str | None = None
+    Id: str | None = None
+    LaunchUrl: str | None = None
+    PackageFingerprint: bytes | None = None
+    ProductId: str | None = None
+    RemoteAppUrl: str | None = None
+    Status: int | None = None
+    Title: str | None = None
+    AppPrincipalId: str | None = None
+    AppWebFullUrl: str | None = None
+    CreationTime: datetime | None = field(default_factory=lambda: datetime.min)

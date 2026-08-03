@@ -154,13 +154,37 @@ class ProgramDpButton(_HubEntitySurface, _ProgramProtocolSurface, Program):
         """Return the daemon-owned canonical HA unique id for this program (J1)."""
         return self.summary.unique_id
 
+    @property
+    def available(self) -> bool:
+        """
+        Return ``False`` while the CCU would refuse to run this program.
+
+        This is the one hub entity whose availability is not constant: a
+        deactivated program ignores its triggers and rejects a manual
+        run, so pressing the button could only fail. The daemon reports
+        that as ``execute_available`` (api 3.12.0) rather than leaving it
+        to be re-derived here — and it fails open, so an older daemon or
+        an unobserved flag leaves the button pressable.
+
+        The sibling switch stays available on purpose (see
+        :class:`ProgramDpSwitch`).
+        """
+        return self.execute_available
+
     async def press(self) -> None:
         """Trigger the program (HA button press)."""
         await self.execute()
 
 
 class ProgramDpSwitch(_HubEntitySurface, _ProgramProtocolSurface, Program):
-    """Program exposed as an HA switch (toggle 'active')."""
+    """
+    Program exposed as an HA switch (toggle 'active').
+
+    Deliberately *not* gated on :attr:`Program.execute_available`, unlike
+    the sibling button: this switch is what turns a deactivated program
+    back on, so making it unavailable exactly when the program is off
+    would strip out the only control that can recover it.
+    """
 
     _category: ClassVar[DataPointCategory] = DataPointCategory.HubSwitch
 
@@ -168,6 +192,25 @@ class ProgramDpSwitch(_HubEntitySurface, _ProgramProtocolSurface, Program):
     def unique_id(self) -> str:
         """Return the daemon-owned canonical HA unique id for this program (J1)."""
         return self.summary.unique_id
+
+    @property
+    def value(self) -> bool | None:
+        """
+        Return the program's activity flag — the switch's on/off state.
+
+        ``None`` while the CCU has not reported the flag; Home Assistant
+        renders that as unknown rather than off, which is the honest answer
+        for a program whose state nobody has read yet.
+        """
+        return self.summary.active
+
+    async def turn_on(self) -> None:
+        """Activate the program on the CCU."""
+        await self._store.set_program_enabled(program_id=self.id, active=True)
+
+    async def turn_off(self) -> None:
+        """Deactivate the program on the CCU."""
+        await self._store.set_program_enabled(program_id=self.id, active=False)
 
 
 # ---- updates ----

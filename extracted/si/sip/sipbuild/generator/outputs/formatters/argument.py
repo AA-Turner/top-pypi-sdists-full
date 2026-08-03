@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-2-Clause
 
-# Copyright (c) 2024 Phil Thompson <phil@riverbankcomputing.com>
+# Copyright (c) 2026 Phil Thompson <phil@riverbankcomputing.com>
 
 
 from ...scoped_name import STRIP_NONE
@@ -84,9 +84,7 @@ def fmt_argument_as_cpp_type(spec, arg, name=None, scope=None,
             s += 'short'
 
         elif arg.type is ArgumentType.UINT:
-            # Qt4 moc uses "uint" in signal signatures.  We do all the time and
-            # hope it is always defined.
-            s += 'uint'
+            s += 'unsigned'
 
         elif arg.type in (ArgumentType.INT, ArgumentType.CINT):
             s += 'int'
@@ -119,8 +117,7 @@ def fmt_argument_as_cpp_type(spec, arg, name=None, scope=None,
             s += 'union ' + arg.definition.as_cpp
 
         elif arg.type is ArgumentType.CAPSULE:
-            nr_derefs = 1
-            s += 'void'
+            s += 'void *'
 
         elif arg.type in (ArgumentType.FAKE_VOID, ArgumentType.VOID):
             s += 'void'
@@ -229,12 +226,15 @@ def fmt_argument_as_py_default_value(spec, arg, type_name, embedded=False,
 
 
 def fmt_argument_as_py_type(spec, arg, pep484=False, default_value=False,
-        as_xml=False):
+        as_xml=False, is_optional=False):
     """ Return an argument as a Python type. """
 
     scope, name = _py_arg(spec, arg, pep484, as_xml)
 
     s = fmt_scoped_py_name(scope, name)
+
+    if is_optional:
+        s += '|None'
 
     if default_value and arg.default_value is not None:
         if arg.name is not None:
@@ -278,7 +278,7 @@ def fmt_argument_as_rest_ref(spec, arg, out, as_xml=False):
     return s
 
 
-def fmt_argument_as_type_hint(spec, arg, defined, arg_nr=-1):
+def fmt_argument_as_type_hint(spec, arg, defined, arg_nr=-1, is_result=False):
     """ Return an argument as a type hint. """
 
     if arg.array is ArrayArgument.ARRAY_SIZE:
@@ -312,10 +312,11 @@ def fmt_argument_as_type_hint(spec, arg, defined, arg_nr=-1):
     if hint is None and allow_none:
         is_optional = True
     else:
-        is_optional = (not arg.disallow_none and len(arg.derefs) != 0)
+        nr_derefs = len(arg.derefs)
+        if out and not is_result:
+            nr_derefs -= 1
 
-    if arg.array is ArrayArgument.ARRAY:
-        s += _sip_module_name(spec) + 'array['
+        is_optional = (not arg.disallow_none and nr_derefs > 0)
 
     if hint is None:
         if arg.type is ArgumentType.CLASS:
@@ -335,7 +336,8 @@ def fmt_argument_as_type_hint(spec, arg, defined, arg_nr=-1):
             # There would normally be a type hint.
             type_name = 'typing.Any' if pep484 else 'Any'
         else:
-            type_name = fmt_argument_as_py_type(spec, arg, pep484=pep484)
+            type_name = fmt_argument_as_py_type(spec, arg, pep484=pep484,
+                    is_optional=is_optional)
     else:
         type_hint_manager = TypeHintManager(spec)
 
@@ -348,9 +350,6 @@ def fmt_argument_as_type_hint(spec, arg, defined, arg_nr=-1):
             type_name = type_hint_manager.as_docstring(hint, out, context)
 
     s += type_name
-
-    if arg.array is ArrayArgument.ARRAY:
-        s += ']'
 
     # See if the argument is optional.
     if arg_nr is not None and arg_nr >= 0 and arg.default_value is not None:
@@ -426,7 +425,7 @@ def _py_arg(spec, arg, pep484, as_xml):
         name = definition.as_py
 
     elif type is ArgumentType.CAPSULE:
-        name = definition.base_name
+        name = definition
 
     elif type in (ArgumentType.STRUCT, ArgumentType.UNION, ArgumentType.VOID):
         name = format_voidptr(spec, as_xml)

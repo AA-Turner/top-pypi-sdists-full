@@ -6,4 +6,6 @@ class Authentication(Entity):
     Exposes relationships that represent the authentication methods.
     """
 
-    pass
+    @property
+    def entity_type_name(self) -> str:
+        return "SP.OAuth.Authentication"

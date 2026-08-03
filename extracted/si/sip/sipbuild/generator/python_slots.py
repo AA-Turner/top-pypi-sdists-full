@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-2-Clause
 
-# Copyright (c) 2024 Phil Thompson <phil@riverbankcomputing.com>
+# Copyright (c) 2026 Phil Thompson <phil@riverbankcomputing.com>
 
 
 from .specification import PySlot
@@ -95,6 +95,12 @@ def invalid_global_slot(slot):
     return True
 
 
+def is_extendable_slot(slot):
+    """ Return True is a slot is extendable. """
+
+    return is_rich_compare_slot(slot) or is_number_slot(slot) or is_inplace_number_slot(slot)
+
+
 def is_hash_return_slot(slot):
     """ Return True if a slot returns a Py_hash_t. """
 
@@ -122,7 +128,7 @@ def is_inplace_sequence_slot(slot):
 _INT_ARG_SLOTS = (PySlot.REPEAT, PySlot.IREPEAT)
 
 def is_int_arg_slot(slot):
-    """ Return True if a slot taks an int argument. """
+    """ Return True if a slot takes an int argument. """
 
     return slot in _INT_ARG_SLOTS
 

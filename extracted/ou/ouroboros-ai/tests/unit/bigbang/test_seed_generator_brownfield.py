@@ -6,8 +6,16 @@ from pathlib import Path
 import tempfile
 from unittest.mock import AsyncMock
 
+import pytest
+
 from ouroboros.bigbang.interview import InterviewRound, InterviewState
 from ouroboros.bigbang.seed_generator import SeedGenerator
+
+_VALID_ACCEPTANCE_CRITERIA = (
+    'ACCEPTANCE_CRITERIA: [{"description":"Service extension is verified",'
+    '"verify":"printf ok",'
+    '"artifacts":"NONE","expect":"ok"}]\n'
+)
 
 
 def _generator() -> SeedGenerator:
@@ -71,13 +79,12 @@ class TestBrownfieldParsingRoundTrip:
     def test_brownfield_requirements_populate_context(self) -> None:
         gen = _generator()
         requirements = gen._parse_extraction_response(
-            "GOAL: Extend service\n"
-            "ONTOLOGY_NAME: Svc\n"
+            "GOAL: Extend service\n" + _VALID_ACCEPTANCE_CRITERIA + "ONTOLOGY_NAME: Svc\n"
             "ONTOLOGY_DESCRIPTION: A service\n"
             "PROJECT_TYPE: brownfield\n"
-            "CONTEXT_REFERENCES: /repo/api:primary:API layer\n"
-            "EXISTING_PATTERNS: repository pattern | dependency injection\n"
-            "EXISTING_DEPENDENCIES: fastapi | sqlalchemy"
+            'CONTEXT_REFERENCES: [{"path": "/repo/api", "role": "primary", "summary": "API layer"}]\n'
+            'EXISTING_PATTERNS: ["repository pattern", "dependency injection"]\n'
+            'EXISTING_DEPENDENCIES: ["fastapi", "sqlalchemy"]'
         )
         seed = gen._build_seed(requirements, metadata=_metadata())
         bf = seed.brownfield_context
@@ -86,6 +93,97 @@ class TestBrownfieldParsingRoundTrip:
         assert bf.context_references[0].role == "primary"
         assert "repository pattern" in bf.existing_patterns
         assert "fastapi" in bf.existing_dependencies
+
+
+class TestBrownfieldListExtractionContract:
+    """EXISTING_PATTERNS/EXISTING_DEPENDENCIES follow the #1714 JSON-array contract (#1729)."""
+
+    _BASE = (
+        "GOAL: Extend service\n" + _VALID_ACCEPTANCE_CRITERIA + "ONTOLOGY_NAME: Svc\n"
+        "ONTOLOGY_DESCRIPTION: A service\n"
+        "PROJECT_TYPE: brownfield\n"
+        'CONTEXT_REFERENCES: [{"path": "/repo/api", "role": "primary", "summary": "API layer"}]\n'
+    )
+
+    def test_strict_rejects_pipe_list_context_references(self) -> None:
+        gen = _generator()
+        with pytest.raises(ValueError, match="CONTEXT_REFERENCES"):
+            gen._parse_extraction_response(
+                "GOAL: Extend service\n" + _VALID_ACCEPTANCE_CRITERIA + "ONTOLOGY_NAME: Svc\n"
+                "ONTOLOGY_DESCRIPTION: A service\n"
+                "PROJECT_TYPE: brownfield\n"
+                "CONTEXT_REFERENCES: /repo/api:primary:API layer\n"
+                'EXISTING_PATTERNS: ["repository pattern"]\n'
+                'EXISTING_DEPENDENCIES: ["fastapi"]'
+            )
+
+    def test_strict_rejects_pipe_list_existing_patterns(self) -> None:
+        gen = _generator()
+        with pytest.raises(ValueError, match="EXISTING_PATTERNS"):
+            gen._parse_extraction_response(
+                self._BASE
+                + "EXISTING_PATTERNS: repository pattern | dependency injection\n"
+                + 'EXISTING_DEPENDENCIES: ["fastapi"]'
+            )
+
+    def test_strict_rejects_pipe_list_existing_dependencies(self) -> None:
+        gen = _generator()
+        with pytest.raises(ValueError, match="EXISTING_DEPENDENCIES"):
+            gen._parse_extraction_response(
+                self._BASE
+                + 'EXISTING_PATTERNS: ["repository pattern"]\n'
+                + "EXISTING_DEPENDENCIES: fastapi | sqlalchemy"
+            )
+
+    def test_json_arrays_preserve_literal_pipes_end_to_end(self) -> None:
+        gen = _generator()
+        requirements = gen._parse_extraction_response(
+            self._BASE
+            + 'EXISTING_PATTERNS: ["Use Result.ok() | Result.err() unions", "Repository pattern"]\n'
+            + 'EXISTING_DEPENDENCIES: ["typer (CLI | completion extras)", "structlog"]'
+        )
+        seed = gen._build_seed(requirements, metadata=_metadata())
+        bf = seed.brownfield_context
+        assert "Use Result.ok() | Result.err() unions" in bf.existing_patterns
+        assert "Repository pattern" in bf.existing_patterns
+        assert "typer (CLI | completion extras)" in bf.existing_dependencies
+        assert "structlog" in bf.existing_dependencies
+
+    def test_json_context_references_preserve_colons_and_pipes_end_to_end(self) -> None:
+        gen = _generator()
+        requirements = gen._parse_extraction_response(
+            "GOAL: Extend service\n" + _VALID_ACCEPTANCE_CRITERIA + "ONTOLOGY_NAME: Svc\n"
+            "ONTOLOGY_DESCRIPTION: A service\n"
+            "PROJECT_TYPE: brownfield\n"
+            'CONTEXT_REFERENCES: [{"path": "C:/repo/api", "role": "primary", '
+            '"summary": "API layer | owns http://localhost:8000"}]\n'
+            'EXISTING_PATTERNS: ["Repository pattern"]\n'
+            'EXISTING_DEPENDENCIES: ["fastapi"]'
+        )
+        seed = gen._build_seed(requirements, metadata=_metadata())
+        ref = seed.brownfield_context.context_references[0]
+        assert ref.path == "C:/repo/api"
+        assert ref.role == "primary"
+        assert ref.summary == "API layer | owns http://localhost:8000"
+
+    def test_build_seed_keeps_legacy_pipe_lists_for_stored_data(self) -> None:
+        gen = _generator()
+        requirements = {
+            "goal": "Extend service",
+            "ontology_name": "Svc",
+            "ontology_description": "A service",
+            "project_type": "brownfield",
+            "context_references": "/repo/api:primary:API layer",
+            "existing_patterns": "repository pattern | dependency injection",
+            "existing_dependencies": "fastapi | sqlalchemy",
+        }
+        seed = gen._build_seed(requirements, metadata=_metadata())
+        bf = seed.brownfield_context
+        assert bf.context_references[0].path == "/repo/api"
+        assert bf.context_references[0].role == "primary"
+        assert bf.context_references[0].summary == "API layer"
+        assert bf.existing_patterns == ("repository pattern", "dependency injection")
+        assert bf.existing_dependencies == ("fastapi", "sqlalchemy")
 
 
 def _metadata():

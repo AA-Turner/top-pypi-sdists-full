@@ -7,16 +7,15 @@ class AppConsentRequestCollection(EntityCollection[AppConsentRequest]):
     """AppConsentRequest's collection"""
 
     def __init__(self, context, resource_path=None):
-        super(AppConsentRequestCollection, self).__init__(
-            context, AppConsentRequest, resource_path
-        )
+        super().__init__(context, AppConsentRequest, resource_path)
 
-    def filter_by_current_user(self, on):
-        """
-        Retrieve a collection of appConsentRequest objects for which the current user is the reviewer and the status
+    def filter_by_current_user(self, on: str) -> "AppConsentRequestCollection":
+        """Retrieve a collection of appConsentRequest objects for which the current user is the reviewer and the status
         of the userConsentRequest for accessing the specified app is InProgress.
-        :param str on:Filter to query appConsentRequest objects for which the current user is a reviewer.
-           Allowed value is reviewer. Required.
+
+        Args:
+            on (str): Filter to query appConsentRequest objects for which the current user is a reviewer.
+              Allowed value is reviewer. Required.
         """
         return_type = AppConsentRequestCollection(self.context)
         params = {"on": on}

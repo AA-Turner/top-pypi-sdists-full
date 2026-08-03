@@ -37,10 +37,15 @@ from ouroboros.core.security import MAX_LLM_RESPONSE_LENGTH, InputValidator
 from ouroboros.orchestrator.adapter import (
     AgentMessage,
     ParamSupport,
+    ResolvedWorkerCwd,
     RuntimeCapabilities,
     RuntimeHandle,
 )
-from ouroboros.orchestrator.codex_cli_runtime import CodexCliRuntime, SkillDispatchHandler
+from ouroboros.orchestrator.codex_cli_runtime import (
+    CodexCliRuntime,
+    SkillDispatchHandler,
+    _CodexItemCorrelationScope,
+)
 from ouroboros.runtime.child_env import build_child_env
 from ouroboros.zcode_cli_launcher import (
     build_zcode_command_prefix,
@@ -134,7 +139,7 @@ class ZcodeCLIRuntime(CodexCliRuntime):
         cli_path: str | Path | None = None,
         permission_mode: str | None = None,
         model: str | None = None,
-        cwd: str | Path | None = None,
+        cwd: str | Path | ResolvedWorkerCwd | None = None,
         skills_dir: str | Path | None = None,
         skill_dispatcher: SkillDispatchHandler | None = None,
         llm_backend: str | None = None,
@@ -477,6 +482,8 @@ class ZcodeCLIRuntime(CodexCliRuntime):
         self,
         event: dict[str, Any],
         current_handle: RuntimeHandle | None,
+        *,
+        item_scope: _CodexItemCorrelationScope | None = None,
     ) -> list[AgentMessage]:
         """Convert a zcode ``--prompt --json`` summary into AgentMessage values.
 

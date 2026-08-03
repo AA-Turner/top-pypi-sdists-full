@@ -2359,6 +2359,28 @@ def from_snappy(expr: Underscore):
     return UnderscoreFunction("from_snappy", expr)
 
 
+def to_snappy(expr: Underscore):
+    """
+    Snappy-compress a bytes feature. The inverse of `from_snappy`.
+
+    Parameters
+    ----------
+    expr
+        The bytes feature to compress.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class User:
+    ...    id: str
+    ...    raw_data: bytes
+    ...    compressed_data: bytes = F.to_snappy(_.raw_data)
+    """
+    return UnderscoreFunction("to_snappy", expr)
+
+
 def cosine_similarity(a: Underscore, b: Underscore):
     """
     Compute the cosine similarity between two vectors.
@@ -8201,6 +8223,7 @@ __all__ = (
     "greatest",
     "gunzip",
     "from_snappy",
+    "to_snappy",
     "haversine",
     "head",
     "hour_of_day",

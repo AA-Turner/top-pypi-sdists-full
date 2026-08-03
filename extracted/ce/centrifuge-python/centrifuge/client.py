@@ -1,7 +1,9 @@
 import asyncio
 import base64
 import contextlib
+import importlib.util
 import logging
+import ssl
 from asyncio import TimerHandle
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -11,7 +13,9 @@ from typing import (
     Any,
     Awaitable,
     Dict,
+    Literal,
     Optional,
+    Set,
     Union,
     List,
     Callable,
@@ -94,6 +98,73 @@ if TYPE_CHECKING:
 logger = logging.getLogger("centrifuge")
 
 
+def _python_socks_installed() -> bool:
+    return importlib.util.find_spec("python_socks") is not None
+
+
+def _redact_proxy(proxy: str) -> str:
+    """Strip credentials from a proxy URL, so that it's safe to put in an error message."""
+    scheme, separator, rest = proxy.partition("://")
+    if not separator:
+        # Malformed URL without a scheme - it may still carry credentials.
+        scheme, rest = "", proxy
+    _, at, hostinfo = rest.rpartition("@")
+    if not at:
+        return proxy
+    return f"{scheme}{separator}***@{hostinfo}"
+
+
+def _load_parse_proxy() -> Optional[Callable[[str], Any]]:
+    """Return the proxy URL parser of websockets, or None if it can not be found.
+
+    The helper appeared in websockets 15.0 as websockets.uri.parse_proxy and moved
+    to websockets.proxy in websockets 16.0 - both layouts are supported here.
+    """
+    for module_name in ("websockets.proxy", "websockets.uri"):
+        try:
+            module = importlib.import_module(module_name)
+        except ImportError:  # pragma: no cover - all these modules exist.
+            continue
+        parse_proxy = getattr(module, "parse_proxy", None)
+        if parse_proxy is not None:
+            return parse_proxy
+    return None
+
+
+def _validate_proxy(proxy: Union[str, Literal[True], None]) -> None:
+    """Validate the proxy option in the constructor, raising ValueError if it can't work.
+
+    Proxy misconfiguration is checked upfront because errors raised in the middle
+    of connecting are easy to miss: from the automatic reconnect task they end up
+    as an unretrieved task exception, and those which are neither OSError nor
+    WebSocketException (like the ImportError raised for a SOCKS proxy without
+    python-socks installed) are not even reported to the on_error handler.
+    """
+    if proxy is True or proxy is None:
+        # True (take the proxy from the environment, the websockets default) and
+        # None (always connect directly) need no further validation.
+        return
+
+    if not isinstance(proxy, str):
+        raise ValueError(f"proxy must be a proxy URL, None or True, got {proxy!r}")
+
+    parse_proxy = _load_parse_proxy()
+    if parse_proxy is None:  # pragma: no cover - in case websockets moves it again.
+        return
+
+    try:
+        parsed = parse_proxy(proxy)
+    except exceptions.InvalidProxy as e:
+        # Not str(e) - it embeds the proxy URL as is, together with the
+        # credentials it may contain, into a message which likely gets logged.
+        raise ValueError(f"{_redact_proxy(proxy)} isn't a valid proxy: {e.msg}") from e
+
+    if parsed.scheme.startswith("socks") and not _python_socks_installed():
+        raise ValueError(
+            f"{parsed.scheme} proxy requires the python-socks package to be installed"
+        )
+
+
 class ClientState(Enum):
     """ClientState represents possible states of Client connection."""
 
@@ -153,6 +224,8 @@ class Client:
         max_reconnect_delay: float = 20.0,
         headers: Optional[Dict[str, str]] = None,
         loop: Optional["AbstractEventLoop"] = None,
+        ssl_context: Optional[ssl.SSLContext] = None,
+        proxy: Union[str, Literal[True], None] = True,
     ):
         """Initializes new Client instance.
 
@@ -162,7 +235,24 @@ class Client:
             - connecting (when connect called, or when automatic reconnection is in progress)
             - connected (after successful connect)
         See more details about SDK behaviour in https://centrifugal.dev/docs/transports/client_api.
+
+        ssl_context customizes TLS for wss:// addresses - for example to trust a
+        custom CA or (not recommended in production) to skip certificate
+        verification. When not set, a default TLS context is used. Passing it
+        together with a ws:// address is an error.
+
+        proxy sets the proxy to connect through, in the form
+        "http://user:pass@host:port" ("socks5://..." also works, but requires the
+        python-socks package to be installed). By default (proxy=True) proxy
+        configuration is taken from the environment (WS_PROXY/WSS_PROXY,
+        HTTP_PROXY/HTTPS_PROXY, honoring NO_PROXY). Pass None to always connect
+        directly, ignoring the environment configuration.
         """
+        if ssl_context is not None and not address.lower().startswith("wss://"):
+            raise ValueError("ssl_context option is only applicable to wss:// addresses")
+
+        _validate_proxy(proxy)
+
         self.state: ClientState = ClientState.DISCONNECTED
         self.events: ClientEventHandler = events or ClientEventHandler()
         self._address: str = address
@@ -188,14 +278,16 @@ class Client:
         self._max_server_ping_delay: float = max_server_ping_delay
         self._ping_timer = None
         self._refresh_timer = None
-        self._connected_future = asyncio.Future()
+        self.__connected_future: Optional[asyncio.Future] = None
         self._token = token
         self._get_token = get_token
-        self._loop = loop or asyncio.get_event_loop()
+        self._bound_loop = loop
         self._inflight_commands: Dict[int, _Callback] = {}
         self._reconnect_attempts = 0
         self._reconnect_timer = None
         self._headers = headers or {}
+        self._ssl_context = ssl_context
+        self._proxy = proxy
         self._server_subs: Dict[str, _ServerSubscription] = {}
         # Channel compaction: numeric channel ID -> subscription, used to route
         # pushes that carry an ID instead of the string channel name. IDs are
@@ -206,7 +298,54 @@ class Client:
         self._connection_lock = asyncio.Lock()
         self._listen_task: Optional[asyncio.Task] = None
         self._process_messages_task: Optional[asyncio.Task] = None
+        self._background_tasks: Set[asyncio.Task] = set()
         self._disconnecting = False
+
+    def _spawn(self, coro: Awaitable[Any]) -> asyncio.Task:
+        """Start a background task nothing is going to await.
+
+        The task is kept in a set until it finishes: the event loop only holds
+        weak references to tasks, so a fire-and-forget one may be garbage
+        collected before it completes. Its outcome is inspected when it is done,
+        because an exception in a task nobody awaits is otherwise reported at
+        best late (when the task is collected) and at worst not at all.
+        """
+        task = asyncio.ensure_future(coro)
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_task_done)
+        return task
+
+    def _background_task_done(self, task: asyncio.Task) -> None:
+        self._background_tasks.discard(task)
+        if task.cancelled():
+            return
+        exception = task.exception()
+        if exception is not None:
+            logger.error("unhandled exception in background task", exc_info=exception)
+
+    @property
+    def _connected_future(self) -> asyncio.Future:
+        # Created on first use for the same reason as the loop below:
+        # asyncio.Future() binds to the current loop, which does not exist yet
+        # when the Client is constructed outside of asyncio.run().
+        if self.__connected_future is None:
+            self.__connected_future = asyncio.Future()
+        return self.__connected_future
+
+    @_connected_future.setter
+    def _connected_future(self, future: asyncio.Future) -> None:
+        self.__connected_future = future
+
+    @property
+    def _loop(self) -> "AbstractEventLoop":
+        # The loop is resolved on first use instead of in the constructor: since
+        # Python 3.14 asyncio.get_event_loop() raises RuntimeError when there is
+        # no running loop, and a Client is usually created before asyncio.run()
+        # starts one. Every use happens inside a running loop, so by then it is
+        # available - and it is remembered to keep the client bound to one loop.
+        if self._bound_loop is None:
+            self._bound_loop = asyncio.get_running_loop()
+        return self._bound_loop
 
     def subscriptions(self) -> Dict[str, "Subscription"]:
         """Returns a copy of subscriptions dict."""
@@ -345,7 +484,7 @@ class Client:
         logger.debug("start reconnecting in %f", delay)
         self._reconnect_timer = self._loop.call_later(
             delay,
-            lambda: asyncio.ensure_future(self._reconnect()),
+            lambda: self._spawn(self._reconnect()),
         )
 
     async def _reconnect(self) -> None:
@@ -369,18 +508,32 @@ class Client:
             subprotocols = []
             if self._use_protobuf:
                 subprotocols = ["centrifuge-protobuf"]
+
+            connect_kwargs: Dict[str, Any] = {}
+            if self._ssl_context is not None:
+                # Only pass ssl when explicitly configured: websockets treats
+                # ssl=None as "no TLS" and raises ValueError for it on a wss://
+                # address, instead of falling back to the default TLS context.
+                connect_kwargs["ssl"] = self._ssl_context
+
             try:
                 self._conn = await websockets.connect(
                     self._address,
+                    proxy=self._proxy,
                     subprotocols=subprotocols,
                     additional_headers=self._headers,
+                    **connect_kwargs,
                 )
-            except (OSError, exceptions.WebSocketException) as e:
+            except (OSError, exceptions.WebSocketException, ImportError) as e:
+                # ImportError is what websockets raises for a SOCKS proxy without
+                # python-socks installed. An explicitly configured proxy is checked
+                # in the constructor, but a proxy coming from the environment can
+                # only fail here - and it must not escape into the reconnect task.
                 handler = self.events.on_error
                 await handler(
                     ErrorContext(code=_code_number(_ErrorCode.TRANSPORT_CLOSED), error=e)
                 )
-                asyncio.ensure_future(self._schedule_reconnect())
+                self._spawn(self._schedule_reconnect())
                 return False
 
             # Re-check state after async websockets.connect()
@@ -402,7 +555,7 @@ class Client:
                     await handler(
                         ErrorContext(code=_code_number(_ErrorCode.CLIENT_CONNECT_TOKEN), error=e),
                     )
-                    asyncio.ensure_future(self._schedule_reconnect())
+                    self._spawn(self._schedule_reconnect())
                     return False
 
                 self._token = token
@@ -424,8 +577,8 @@ class Client:
                     await self._process_messages_task
 
             # Track background tasks for proper cleanup
-            self._listen_task = asyncio.ensure_future(self._listen())
-            self._process_messages_task = asyncio.ensure_future(self._process_messages())
+            self._listen_task = self._spawn(self._listen())
+            self._process_messages_task = self._spawn(self._process_messages())
 
             self._delay = self._min_reconnect_delay
 
@@ -496,7 +649,7 @@ class Client:
                             self._refresh_timer.cancel()
                         self._refresh_timer = self._loop.call_later(
                             ttl,
-                            lambda: asyncio.ensure_future(self._refresh(), loop=self._loop),
+                            lambda: self._spawn(self._refresh()),
                         )
 
                     self._connected_future.set_result(True)
@@ -517,7 +670,7 @@ class Client:
                         sub = self._subs[channel]
                         if not sub or sub.state != SubscriptionState.SUBSCRIBING:
                             continue
-                        asyncio.ensure_future(self._subscribe(channel))
+                        self._spawn(self._subscribe(channel))
 
                     await self._process_server_subs(connect.get("subs", {}))
 
@@ -710,7 +863,7 @@ class Client:
                 self._refresh_timer.cancel()
             self._refresh_timer = self._loop.call_later(
                 ttl,
-                lambda: asyncio.ensure_future(self._refresh(), loop=self._loop),
+                lambda: self._spawn(self._refresh()),
             )
 
     async def _sub_refresh(self, channel: str):
@@ -736,7 +889,7 @@ class Client:
                     error=e,
                 ),
             )
-            asyncio.ensure_future(sub._schedule_resubscribe())
+            self._spawn(sub._schedule_resubscribe())
             return
 
         cmd_id = self._next_command_id()
@@ -784,7 +937,7 @@ class Client:
                 sub._refresh_timer.cancel()
             sub._refresh_timer = self._loop.call_later(
                 ttl,
-                lambda: asyncio.ensure_future(sub._refresh(), loop=self._loop),
+                lambda: self._spawn(sub._refresh()),
             )
 
     @staticmethod
@@ -828,7 +981,7 @@ class Client:
                         error=e,
                     ),
                 )
-                asyncio.ensure_future(sub._schedule_resubscribe())
+                self._spawn(sub._schedule_resubscribe())
                 return False
 
             sub._token = token
@@ -923,7 +1076,7 @@ class Client:
                     error=e,
                 ),
             )
-            asyncio.ensure_future(sub._schedule_resubscribe())
+            self._spawn(sub._schedule_resubscribe())
             return False
 
         # Re-check subscription state after async get_state()
@@ -994,7 +1147,7 @@ class Client:
 
     async def _resubscribe(self, sub: "Subscription"):
         self._subs[sub.channel] = sub
-        asyncio.ensure_future(self._subscribe(sub.channel))
+        self._spawn(self._subscribe(sub.channel))
 
     async def _unsubscribe(self, channel: str):
         sub = self._subs.get(channel)
@@ -1367,7 +1520,7 @@ class Client:
         await handler(DisconnectedContext(code=code, reason=reason))
 
         if reconnect:
-            asyncio.ensure_future(self._schedule_reconnect())
+            self._spawn(self._schedule_reconnect())
 
     async def _consume_connected_future(self) -> None:
         with contextlib.suppress(CentrifugeError):
@@ -1382,7 +1535,7 @@ class Client:
             self._ping_timer.cancel()
         self._ping_timer = self._loop.call_later(
             self._ping_interval + self._max_server_ping_delay,
-            lambda: asyncio.ensure_future(self._no_ping(), loop=self._loop),
+            lambda: self._spawn(self._no_ping()),
         )
 
     async def _handle_ping(self) -> None:
@@ -1398,7 +1551,7 @@ class Client:
     ) -> None:
         if self._conn is None:
             raise CentrifugeError("connection is not initialized")
-        logger.debug("send commands: %s", str(commands))
+        logger.debug("send commands: %s", commands)
         commands = self._codec.encode_commands(commands)
         try:
             await self._conn.send(commands)
@@ -1418,13 +1571,13 @@ class Client:
         code = unsubscribe["code"]
         if sub:
             if code < 2500:
-                asyncio.ensure_future(sub._move_unsubscribed(code, unsubscribe["reason"]))
+                self._spawn(sub._move_unsubscribed(code, unsubscribe["reason"]))
             else:
                 if code == _UNSUBSCRIBED_STATE_INVALIDATED:
                     # State invalidated: drop the subscription token and cached
                     # state so the resubscribe obtains a fresh token and re-syncs.
                     sub._invalidate_state()
-                asyncio.ensure_future(sub._move_subscribing(code, unsubscribe["reason"]))
+                self._spawn(sub._move_subscribing(code, unsubscribe["reason"]))
         else:
             server_sub = self._server_subs.get(channel)
             if server_sub:
@@ -1442,7 +1595,7 @@ class Client:
         if reply.get("id", 0) > 0:
             await self._future_success(reply["id"], reply)
         elif reply.get("push"):
-            logger.debug("received push reply %s", str(reply))
+            logger.debug("received push reply %s", reply)
             push = reply["push"]
             # Channel compaction: pub/join/leave pushes may carry a numeric channel
             # ID instead of the channel name. Other push types always carry the
@@ -1459,7 +1612,7 @@ class Client:
             elif "disconnect" in push:
                 await self._process_disconnect(push["disconnect"])
             else:
-                logger.debug("skip unknown push reply %s", str(reply))
+                logger.debug("skip unknown push reply %s", reply)
         else:
             await self._handle_ping()
 
@@ -1471,9 +1624,7 @@ class Client:
             return self._subs_by_id.get(push_id)
         return self._subs.get(channel)
 
-    def _update_subscription_push_id(
-        self, sub: "Subscription", old_id: int, new_id: int
-    ) -> None:
+    def _update_subscription_push_id(self, sub: "Subscription", old_id: int, new_id: int) -> None:
         # Remove the old numeric ID mapping (only if it still points to this
         # subscription) and register the new one. Either ID may be 0 (no mapping).
         if old_id > 0 and self._subs_by_id.get(old_id) is sub:
@@ -1526,11 +1677,11 @@ class Client:
         )
 
     async def _process_incoming_data(self, message: bytes) -> None:
-        logger.debug("start parsing message: %s", str(message))
+        logger.debug("start parsing message: %s", message)
         replies = self._codec.decode_replies(message)
         logger.debug("got %d replies", len(replies))
         for reply in replies:
-            logger.debug("got reply %s", str(reply))
+            logger.debug("got reply %s", reply)
             await self._process_reply(reply)
 
     async def _process_messages(self) -> None:
@@ -1540,7 +1691,7 @@ class Client:
                 message = await self._messages.get()
                 if message is None:
                     break
-                logger.debug("start processing message: %s", str(message))
+                logger.debug("start processing message: %s", message)
                 await self._process_incoming_data(message)
         logger.debug("stop message processing routine")
 
@@ -1843,7 +1994,7 @@ class Subscription:
         )
 
         if not skip_schedule_resubscribe:
-            asyncio.ensure_future(self._client._resubscribe(self))
+            self._client._spawn(self._client._resubscribe(self))
 
     async def _move_subscribed(self, subscribe: Dict[str, Any]) -> None:
         # Only transition to SUBSCRIBED from SUBSCRIBING state
@@ -1880,7 +2031,7 @@ class Subscription:
                 self._refresh_timer.cancel()
             self._refresh_timer = self._client._loop.call_later(
                 ttl,
-                lambda: asyncio.ensure_future(self._refresh(), loop=self._client._loop),
+                lambda: self._client._spawn(self._refresh()),
             )
 
         self._delta_negotiated = subscribe.get("delta", False)
@@ -1933,7 +2084,7 @@ class Subscription:
         logger.debug("start resubscribing in %f", delay)
         self._resubscribe_timer = self._client._loop.call_later(
             delay,
-            lambda: asyncio.ensure_future(self._resubscribe()),
+            lambda: self._client._spawn(self._resubscribe()),
         )
 
     async def _resubscribe(self) -> None:

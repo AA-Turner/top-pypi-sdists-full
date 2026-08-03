@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 
 from office365.communications.calls.invitation_participant_info import (
     InvitationParticipantInfo,
@@ -18,60 +18,56 @@ from office365.runtime.queries.service_operation import ServiceOperationQuery
 class Participant(Entity):
     """Represents a participant in a call."""
 
-    def invite(self, participants, client_context):
+    def invite(self, participants: List[InvitationParticipantInfo], client_context: str) -> InviteParticipantsOperation:
         """Invite participants to the active call.
 
-        :param list[InvitationParticipantInfo] participants: Unique Client Context string. Max limit is 256 chars.
-        :param str client_context: Unique Client Context string. Max limit is 256 chars.
+        Args:
+            participants (list[InvitationParticipantInfo]): Unique Client Context string. Max limit is 256 chars.
+            client_context (str): Unique Client Context string. Max limit is 256 chars.
         """
         return_type = InviteParticipantsOperation(self.context)
         payload = {
-            "participants": ClientValueCollection(
-                InvitationParticipantInfo, participants
-            ),
+            "participants": ClientValueCollection(InvitationParticipantInfo, participants),
             "clientContext": client_context,
         }
         qry = ServiceOperationQuery(self, "invite", None, payload, None, return_type)
         self.context.add_query(qry)
         return return_type
 
-    def start_hold_music(self, custom_prompt=None, client_context=None):
-        """
-        Put a participant on hold and play music in the background.
+    def start_hold_music(
+        self, custom_prompt: Optional[str] = None, client_context: Optional[str] = None
+    ) -> StartHoldMusicOperation:
+        """Put a participant on hold and play music in the background.
 
-        :param str or None custom_prompt: Audio prompt the participant will hear when placed on hold.
-        :param str or None client_context: Unique client context string. Can have a maximum of 256 characters.
+        Args:
+            custom_prompt (str or None): Audio prompt the participant will hear when placed on hold.
+            client_context (str or None): Unique client context string. Can have a maximum of 256 characters.
         """
         return_type = StartHoldMusicOperation(self.context)
         payload = {"customPrompt": custom_prompt, "clientContext": client_context}
-        qry = ServiceOperationQuery(
-            self, "startHoldMusic", None, payload, None, return_type
-        )
+        qry = ServiceOperationQuery(self, "startHoldMusic", None, payload, None, return_type)
         self.context.add_query(qry)
         return return_type
 
-    def stop_hold_music(self, client_context=None):
-        """
-        Reincorporate a participant previously put on hold to the call.
+    def stop_hold_music(self, client_context: Optional[str] = None) -> StopHoldMusicOperation:
+        """Reincorporate a participant previously put on hold to the call.
 
-        :param str or None client_context: Unique client context string. Can have a maximum of 256 characters.
+        Args:
+            client_context (str or None): Unique client context string. Can have a maximum of 256 characters.
         """
         return_type = StopHoldMusicOperation(self.context)
         payload = {"clientContext": client_context}
-        qry = ServiceOperationQuery(
-            self, "stopHoldMusic", None, payload, None, return_type
-        )
+        qry = ServiceOperationQuery(self, "stopHoldMusic", None, payload, None, return_type)
         self.context.add_query(qry)
         return return_type
 
     @property
-    def info(self):
+    def info(self) -> ParticipantInfo:
         """Information about the participant."""
         return self.properties.get("info", ParticipantInfo())
 
     @property
-    def metadata(self):
-        # type: () -> Optional[str]
+    def metadata(self) -> Optional[str]:
         """A blob of data provided by the participant in the roster."""
         return self.properties.get("metadata", None)
 

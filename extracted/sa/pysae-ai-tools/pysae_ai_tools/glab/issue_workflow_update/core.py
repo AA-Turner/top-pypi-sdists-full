@@ -171,6 +171,11 @@ def board_rank(label: str) -> int:
     return _BOARD_RANK.get(label, -1)
 
 
+def issue_in_board_columns(labels: list[str], columns: frozenset[str]) -> bool:
+    """Whether the issue sits in one of ``columns``. Empty ``columns`` = no restriction."""
+    return not columns or bool(set(labels) & columns)
+
+
 def latest_semver(tags: list[str]) -> str | None:
     """Return the highest semver tag from ``tags`` (already filtered or not).
 

@@ -12,22 +12,21 @@ from office365.sharepoint.sharing.site_sharing_report_status import (
 
 class SiteSharingReportHelper(Entity):
     @staticmethod
-    def cancel_sharing_report_job(context):
-        # type: (ClientContext) -> ClientResult[SiteSharingReportStatus]
+    def cancel_sharing_report_job(
+        context: ClientContext,
+    ) -> ClientResult[SiteSharingReportStatus]:
         return_type = ClientResult(context, SiteSharingReportStatus())
         binding_type = SiteSharingReportHelper(context)
-        qry = ServiceOperationQuery(
-            binding_type, "CancelSharingReportJob", None, None, None, return_type, True
-        )
+        qry = ServiceOperationQuery(binding_type, "CancelSharingReportJob", None, None, None, return_type, True)
         context.add_query(qry)
         return return_type
 
     @staticmethod
     def create_sharing_report_job(context, web_url, folder_url):
-        """
-        :type context: office365.sharepoint.client_context.ClientContext
-        :param str web_url:
-        :param str folder_url:
+        """Args:
+        context (office365.sharepoint.client_context.ClientContext):
+        web_url (str):
+        folder_url (str):
         """
         return_type = ClientResult(context, SiteSharingReportStatus())
         payload = {"webUrl": web_url, "folderUrl": folder_url}
@@ -46,8 +45,8 @@ class SiteSharingReportHelper(Entity):
 
     @staticmethod
     def get_site_sharing_report_capabilities(context):
-        """
-        :type context: office365.sharepoint.client_context.ClientContext
+        """Args:
+        context (office365.sharepoint.client_context.ClientContext):
         """
         return_type = ClientResult(context, SiteSharingReportCapabilities())
         binding_type = SiteSharingReportHelper(context)

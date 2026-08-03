@@ -1,5 +1,5 @@
 """Functional tests: package-management commands — install, uninstall, sync,
-update, reinstall, pin/unpin, bundle, import, migrate, snapshot, export."""
+update, reinstall, pin/unpin, bundle, import, snapshot, export."""
 from __future__ import annotations
 
 import io
@@ -590,39 +590,6 @@ class TestImport:
         assert "no such directory" in r.err
 
 
-# ── migrate ──────────────────────────────────────────────────────────────
-
-class TestMigrate:
-    def test_agent_to_agent_relinks(self, boost, tapped):
-        boost("install", "brainstorming", "--agent", "claude-code")
-        r = boost("migrate", "--from", "claude-code", "--to", "cursor")
-        assert "linked brainstorming → cursor" in r.out
-        assert "Migrated 1 skill to Cursor" in r.out
-        link = paths.home() / ".cursor" / "skills" / "brainstorming"
-        assert link.is_symlink() and link.exists()
-        assert _lock()["brainstorming"]["agents"] == ["claude-code", "cursor"]
-
-    def test_unknown_agent_rc1(self, boost, sandbox):
-        r = boost("migrate", "--from", "claude-code", "--to", "emacs", expect=1)
-        assert "unknown agent: emacs" in r.err
-
-    def test_same_agent_rc1(self, boost, sandbox):
-        r = boost("migrate", "--from", "cursor", "--to", "cursor", expect=1)
-        assert "--from and --to are the same agent" in r.err
-
-    def test_from_skills_cli_crafted_dir(self, boost, sandbox, tmp_path):
-        root = tmp_path / "skills-cli"
-        _skill_dir(root, "legacy-skill")
-        r = boost("migrate", "--from-skills-cli", "--path", root)
-        assert "imported legacy-skill v0.1.0" in r.out
-        assert "Migrated 1 skill from" in r.out
-        assert _lock()["legacy-skill"]["tap"] == "local"
-
-    def test_from_skills_cli_missing_dir(self, boost, sandbox):
-        r = boost("migrate", "--from-skills-cli")
-        assert "nothing to migrate — ~/.skills does not exist" in r.out
-
-
 # ── snapshot ─────────────────────────────────────────────────────────────
 
 class TestSnapshot:
@@ -756,10 +723,45 @@ class TestSyncJson:
         plan = json.loads(boost("sync", "--diff", "--json").out)
         assert plan == {"missing_store": [], "missing_links": [],
                         "stale_links": [], "orphaned_store": [],
-                        "missing_materializations": [],
+                        "missing_materializations": [], "out_of_scope_links": [],
                         "project": {"missing": [], "orphaned": []}}
         data = json.loads(boost("sync", "--json").out)
-        assert data == {"actions": [], "pruned": [], "orphaned_store": []}
+        assert data == {"actions": [], "pruned": [], "orphaned_store": [],
+                        "out_of_scope_links": []}
+
+    def test_a_narrowing_reinstall_is_reported_and_pruned_only_on_request(
+            self, boost, installed):
+        """The CLI end of the divergence: `boost sync` used to say nothing.
+
+        JSON round-trips the (skill, agent) tuples as lists.
+        """
+        boost("install", "brainstorming", "--force", "--agent", "cursor")
+        stray = [["brainstorming", "claude-code"], ["brainstorming", "windsurf"]]
+
+        plan = json.loads(boost("sync", "--diff", "--json").out)
+        assert sorted(plan["out_of_scope_links"]) == stray
+
+        # A plain sync reports them and changes nothing.
+        data = json.loads(boost("sync", "--json").out)
+        assert sorted(data["out_of_scope_links"]) == stray
+        assert (paths.home() / ".claude" / "skills" / "brainstorming").is_symlink()
+
+        # --prune is the opt-in that acts.
+        data = json.loads(boost("sync", "--json", "--prune").out)
+        assert data["out_of_scope_links"] == []
+        assert not (paths.home() / ".claude" / "skills" / "brainstorming").exists()
+        assert (paths.home() / ".cursor" / "skills" / "brainstorming").is_symlink()
+        assert json.loads(boost("sync", "--diff", "--json").out)[
+            "out_of_scope_links"] == []
+
+    def test_the_plain_text_sync_names_the_way_out(self, boost, installed):
+        # A warning the user cannot act on is only marginally better than
+        # silence, so it carries both directions of the fix.
+        boost("install", "brainstorming", "--force", "--agent", "cursor")
+        r = boost("sync")
+        assert "outside the declared scope" in r.out
+        assert "boost sync --prune" in r.out
+        assert "everything in sync" not in r.out
 
     def test_json_prune_orphan(self, boost, installed):
         orphan = paths.store_dir() / "orphan-y"
@@ -903,7 +905,7 @@ class TestBundleEdges:
         assert "check the path exists and is writable" in r.err
 
 
-# ── edge coverage: import / migrate ──────────────────────────────────────
+# ── edge coverage: import ───────────────────────────────────────────────
 
 class TestImportEdges:
     def test_git_url_clone(self, boost, sandbox, tmp_path, monkeypatch):
@@ -926,35 +928,6 @@ class TestImportEdges:
         assert "no skill named 'ghost'" in r.err
         assert "available: alpha, beta" in r.err
 
-
-class TestMigrateEdges:
-    def test_no_args_rc1(self, boost, sandbox):
-        r = boost("migrate", expect=1)
-        assert "nothing to do" in r.err
-        assert "--from AGENT --to AGENT" in r.err
-
-    def test_skills_cli_dir_without_skills(self, boost, sandbox, tmp_path):
-        root = tmp_path / "sk"
-        root.mkdir()
-        (root / "readme.txt").write_text("not a skill\n", encoding="utf-8")
-        r = boost("migrate", "--from-skills-cli", "--path", root)
-        assert "no skills found under" in r.out
-
-    def test_nothing_installed(self, boost, sandbox):
-        r = boost("migrate", "--from", "claude-code", "--to", "cursor")
-        assert "no skills installed — nothing to migrate" in r.out
-
-    def test_disabled_target_rc1(self, boost, tapped):
-        cfg = json.loads(paths.config_path().read_text(encoding="utf-8"))
-        cfg["agents"] = {"cursor": {"enabled": False}}
-        paths.config_path().write_text(json.dumps(cfg), encoding="utf-8")
-        r = boost("migrate", "--from", "claude-code", "--to", "cursor",
-                  expect=1)
-        assert "agent cursor is disabled in config" in r.err
-        assert "boost config set agents.cursor.enabled true" in r.err
-
-
-# ── edge coverage: snapshot ──────────────────────────────────────────────
 
 class TestSnapshotEdges:
     def test_restore_without_id_rc1(self, boost, sandbox):
@@ -1277,33 +1250,3 @@ class TestLocalInstallGates:
         skills = json.loads(boost("list", "--json").out)["skills"]
         assert skills["pinned-local"]["pinned"] is True
 
-    def test_migrate_from_skills_cli_keeps_going_past_a_refusal(
-            self, boost, sandbox, tmp_path, monkeypatch):
-        """One blocked skill must not abandon the rest of the migration.
-
-        `cmd_migrate` grew the same per-item guard as `import --all`, but its
-        refusal arm was the only one with no test — a `continue` that silently
-        stopped continuing would have looked identical to a clean run.
-        """
-        skills_root = tmp_path / "dot-skills"
-        for n in ("mig-aaa", "mig-bbb", "mig-ccc"):
-            self._skill(skills_root, n)
-        boost("policy", "set", "blocked_skills", "mig-bbb")
-
-        r = boost("migrate", "--from-skills-cli", "--path", skills_root, expect=1)
-        assert "mig-bbb" in (r.out + r.err)          # the refusal is named
-        assert "Migrated" in r.out                   # and the summary still prints
-
-        out = boost("list").out
-        assert "mig-aaa" in out and "mig-ccc" in out  # the others landed
-        assert "mig-bbb" not in out
-
-    def test_migrate_from_skills_cli_counts_only_what_landed(
-            self, boost, sandbox, tmp_path):
-        # The summary counts migrated, not attempted: 2 of 3 here.
-        skills_root = tmp_path / "counted"
-        for n in ("cnt-aaa", "cnt-bbb", "cnt-ccc"):
-            self._skill(skills_root, n)
-        boost("policy", "set", "blocked_skills", "cnt-bbb")
-        r = boost("migrate", "--from-skills-cli", "--path", skills_root, expect=1)
-        assert "2 skills" in r.out

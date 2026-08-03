@@ -1,3 +1,9 @@
+from __future__ import annotations
+
+from typing import Optional
+
+from typing_extensions import Self
+
 from office365.entity import Entity
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 
@@ -5,11 +11,12 @@ from office365.runtime.queries.service_operation import ServiceOperationQuery
 class WorkbookApplication(Entity):
     """Represents the Excel application that manages the workbook."""
 
-    def calculate(self, calculation_type=None):
+    def calculate(self, calculation_type: str | None = None) -> Self:
         """Recalculate all currently opened workbooks in Excel.
 
-        :param str calculation_type: Specifies the calculation type to use. Possible values are: Recalculate, Full,
-            FullRebuild.
+        Args:
+            calculation_type (str): Specifies the calculation type to use. Possible values are: Recalculate, Full,
+              FullRebuild.
         """
         payload = {"calculationType": calculation_type}
         qry = ServiceOperationQuery(self, "calculate", None, payload)
@@ -17,7 +24,7 @@ class WorkbookApplication(Entity):
         return self
 
     @property
-    def calculation_mode(self):
+    def calculation_mode(self) -> Optional[str]:
         """Returns the calculation mode used in the workbook. Possible values are:
         Automatic, AutomaticExceptTables, Manual."""
         return self.properties.get("calculationMode", None)

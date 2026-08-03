@@ -4,6 +4,7 @@ from typing import Optional
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
 from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.types.odata_property import odata
 
 
 class UserActivity(Entity):
@@ -15,16 +16,14 @@ class UserActivity(Entity):
     """
 
     @property
-    def activation_url(self):
-        # type: () -> Optional[str]
+    def activation_url(self) -> Optional[str]:
         """URL used to launch the activity in the best native experience represented by the appId.
         Might launch a web-based app if no native app exists
         """
         return self.properties.get("activationUrl", None)
 
     @property
-    def activity_source_host(self):
-        # type: () -> Optional[str]
+    def activity_source_host(self) -> Optional[str]:
         """Required. URL for the domain representing the cross-platform identity mapping for the app.
         Mapping is stored either as a JSON file hosted on the domain or configurable via Windows Dev Center.
         The JSON file is named cross-platform-app-identifiers and is hosted at root of your HTTPS domain,
@@ -36,32 +35,33 @@ class UserActivity(Entity):
         return self.properties.get("activitySourceHost", None)
 
     @property
-    def app_activity_id(self):
-        # type: () -> Optional[str]
+    def app_activity_id(self) -> Optional[str]:
         """
         The unique activity ID in the context of the app - supplied by caller and immutable thereafter.
         """
         return self.properties.get("appActivityId", None)
 
     @property
-    def app_display_name(self):
-        # type: () -> Optional[str]
+    def app_display_name(self) -> Optional[str]:
         """
         Short text description of the app used to generate the activity for use in cases when the app is
         not installed on the user’s local device.
         """
         return self.properties.get("appDisplayName", None)
 
+    @odata(name="createdDateTime")
     @property
-    def created_datetime(self):
+    def created_datetime(self) -> datetime:
         """Set by the server. DateTime in UTC when the object was created on the server."""
         return self.properties.get("createdDateTime", datetime.min)
 
+    @odata(name="expirationDateTime")
     @property
-    def expiration_datetime(self):
+    def expiration_datetime(self) -> datetime:
         """Set by the server. DateTime in UTC when the object was created on the server."""
         return self.properties.get("expirationDateTime", datetime.min)
 
+    @odata(name="historyItems")
     @property
     def history_items(self):
         """NavigationProperty/Containment; navigation property to the associated activity."""
@@ -77,13 +77,3 @@ class UserActivity(Entity):
                 ResourcePath("historyItems", self.resource_path),
             ),
         )
-
-    def get_property(self, name, default_value=None):
-        if default_value is None:
-            property_mapping = {
-                "createdDateTime": self.created_datetime,
-                "expirationDateTime": self.expiration_datetime,
-                "historyItems": self.history_items,
-            }
-            default_value = property_mapping.get(name, None)
-        return super(UserActivity, self).get_property(name, default_value)

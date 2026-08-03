@@ -126,6 +126,62 @@ def _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM) -> None:
     print()
 
 
+def _maybe_offer_secure(_input, BOLD, CYAN, DIM) -> None:
+    """Offer monitor-only agent security monitoring (numbat) after onboarding.
+
+    Default-yes, but always ASKED: the hook install edits each harness's own
+    config (Claude settings.json, Codex hooks.json, ...), which crosses
+    ClawMetry's read-only default, so onboard never enables it silently
+    (founder 2026-08-02 — visible [Y/n] over auto-on). The wizard answer IS
+    the consent, so cmd_enable runs with yes=True and doesn't re-prompt."""
+    try:
+        from clawmetry.secure import cmd_enable, find_numbat
+    except Exception:
+        return
+    try:
+        if find_numbat():
+            return  # already set up (or user's own install) — don't re-nag
+    except Exception:
+        return
+
+    print(f"  {BOLD('Agent security monitoring')} {DIM('(recommended)')}")
+    print(f"  {DIM('numbat (Perplexity, Apache-2.0) watches your agents for secret')}")
+    print(f"  {DIM('exfiltration, permission bypasses and persistence; findings land in')}")
+    print(f"  {DIM('the Security tab. Monitor-only: nothing is ever blocked. Installs')}")
+    print(f"  {DIM('hooks into your agent configs; undo anytime: clawmetry secure disable')}")
+
+    try:
+        choice = _input("  → [Y/n]: ").strip().lower() or "y"
+    except (EOFError, KeyboardInterrupt):
+        # No interactive answer: never touch agent configs.
+        choice = "n"
+        print()
+    if choice not in ("y", "yes"):
+        print(f"  {DIM('Enable later:')} {CYAN('clawmetry secure enable')}")
+        print()
+        return
+
+    print()
+    import argparse as _ap
+
+    try:
+        rc = cmd_enable(_ap.Namespace(
+            yes=True, port=None, emit_all=False, reinstall=False,
+        ))
+    except Exception as e:
+        print(f"  ⚠️  Security setup did not complete: {e}")
+        rc = 1
+    if rc != 0:
+        print(f"  {DIM('Try again later:')} {CYAN('clawmetry secure enable')}")
+    print()
+
+
+def _post_onboard_offers(_input, BOLD, CYAN, DIM) -> None:
+    """Every terminal path of onboard runs the same optional extras."""
+    _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
+    _maybe_offer_secure(_input, BOLD, CYAN, DIM)
+
+
 _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _root not in sys.path:
     sys.path.insert(0, _root)
@@ -3462,7 +3518,7 @@ def _cmd_onboard(args) -> None:
         print(f"  {GREEN(BOLD('Local only.'))} {DIM('No account, no cloud.')}")
         print()
         _write_nocloud_marker()
-        _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
+        _post_onboard_offers(_input, BOLD, CYAN, DIM)
         _finish_local()
         return
 
@@ -3494,12 +3550,12 @@ def _cmd_onboard(args) -> None:
         print()
         if _config_api_key():
             # Trial mint + local activation already happened inside connect.
-            _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
+            _post_onboard_offers(_input, BOLD, CYAN, DIM)
             return
         print(f"  {DIM('No account connected. Running local-only; try again anytime:')} {CYAN('clawmetry onboard')}")
         print()
         _write_nocloud_marker()
-        _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
+        _post_onboard_offers(_input, BOLD, CYAN, DIM)
         _finish_local()
         return
 
@@ -3536,7 +3592,7 @@ def _cmd_onboard(args) -> None:
             _pricing_url = "https://clawmetry.com/pricing?deploy=self"
             print(f"  {DIM('Get one at')} {CYAN(_pricing_url)} {DIM('then run')} {CYAN('clawmetry activate <key>')}")
         print()
-        _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
+        _post_onboard_offers(_input, BOLD, CYAN, DIM)
         _finish_local()
         return
 
@@ -3554,7 +3610,7 @@ def _cmd_onboard(args) -> None:
         print(f"  {DIM('Free plan: OpenClaw + NeMo at http://localhost:8900.')}")
         print(f"  {DIM('Trial or license anytime:')} {CYAN('clawmetry onboard')} {DIM('·')} {CYAN('https://clawmetry.com/pricing?deploy=self')}")
         print()
-        _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
+        _post_onboard_offers(_input, BOLD, CYAN, DIM)
         _finish_local()
         return
 
@@ -3567,13 +3623,13 @@ def _cmd_onboard(args) -> None:
     if _config_api_key():
         # Connect (keep-local mode) minted + activated the trial, kept the
         # marker, and ensured the local dashboard.
-        _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
+        _post_onboard_offers(_input, BOLD, CYAN, DIM)
         return
 
     # Sign-in didn't complete: free local tier, no account.
     print(f"  {DIM('No account connected. Running the free plan; try again anytime:')} {CYAN('clawmetry onboard')}")
     print()
-    _maybe_apply_nemoclaw_preset(_input, BOLD, CYAN, DIM)
+    _post_onboard_offers(_input, BOLD, CYAN, DIM)
     _finish_local()
     return
 
@@ -6071,6 +6127,16 @@ def main() -> None:
     if len(sys.argv) > 1 and sys.argv[1] == "hooks":
         from clawmetry.hooks_claude_code import cli_main as _hooks_cli
         raise SystemExit(_hooks_cli(sys.argv[2:]))
+    # FAST PATH — `clawmetry hook claude-code --base <url>`: the LOCAL-first
+    # PreToolUse gate client (auto-installed by the policy watcher — see
+    # clawmetry/claude_code_gate.py). Runs on every gated Claude Code tool
+    # call; POSTs the stdin event to the local dashboard's
+    # /api/hooks/claude-code/pretooluse receiver and prints the decision
+    # JSON. ALWAYS exits 0 — any failure means "no opinion" (fail-open),
+    # never a blocked agent. Stdlib-only imports.
+    if len(sys.argv) > 1 and sys.argv[1] == "hook":
+        from clawmetry.claude_code_gate import hook_main as _hook_cli
+        raise SystemExit(_hook_cli(sys.argv[2:]))
     # FAST PATH — agent-facing read CLI (`clawmetry sessions|activity|waste|
     # progress|usage|selfevolve`, see docs/CLI.md + clawmetry/cli_cmds/).
     # Dispatches BEFORE the dashboard import (~300ms) and before this process
@@ -7008,6 +7074,16 @@ def main() -> None:
         help="Claude Code approval hooks: install | uninstall | status | "
              "run {pretooluse|notification} (pre-execution gate + phone push)")
     p_hooks.add_argument("hooks_cmd", nargs="*")
+
+    # `hook` (singular) is likewise intercepted by its fast path in main();
+    # this parser entry exists only for --help discovery. It is the
+    # LOCAL-first PreToolUse gate client the policy watcher auto-installs
+    # into Claude Code's settings.json (clawmetry/claude_code_gate.py).
+    p_hook = sub.add_parser(
+        "hook",
+        help="Runtime pre-tool hook client (auto-installed): "
+             "hook claude-code --base <dashboard url>")
+    p_hook.add_argument("hook_cmd", nargs="*")
 
     _subcmds = (
         "onboard",

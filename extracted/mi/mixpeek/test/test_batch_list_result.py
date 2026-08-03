@@ -60,6 +60,9 @@ class TestBatchListResult(unittest.TestCase):
                         next_page = '', 
                         previous_page = '', 
                         next_cursor = '', ), 
+                    warnings = [
+                        ''
+                        ], 
                     total_documents = 56, 
                     stats = mixpeek.models.document_list_stats.DocumentListStats(
                         total_documents = 56, 

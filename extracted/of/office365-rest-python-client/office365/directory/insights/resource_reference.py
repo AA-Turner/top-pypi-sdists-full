@@ -1,21 +1,26 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class ResourceReference(ClientValue):
-    """Complex type containing properties of officeGraphInsights."""
+    """Complex type containing properties of officeGraphInsights.
 
-    def __init__(self, _id=None, _type=None, web_url=None):
-        """
-        :param str _id: The item's unique identifier.
-        :param str _type:A string value that can be used to classify the item, such as "microsoft.graph.driveItem"
-        :param str web_url: A URL leading to the referenced item.
-        """
-        self.id = _id
-        self.type = _type
-        self.webUrl = web_url
+    Args:
+        _id (str): The item's unique identifier.
+        _type (str): A string value that can be used to classify the item, such as "microsoft.graph.driveItem"
+        web_url (str): A URL leading to the referenced item.
+    """
+
+    id: str | None = None
+    type: str | None = None
+    webUrl: str | None = None
 
     def __str__(self):
         return self.type or ""
 
     def __repr__(self):
-        return "{0}:{1}".format(self.type, self.webUrl)
+        return f"{self.type}:{self.webUrl}"

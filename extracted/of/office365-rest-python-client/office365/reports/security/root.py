@@ -1,3 +1,4 @@
+from office365.directory.permissions.require_permission import require_permission
 from office365.directory.security.attacksimulations.repeat_offender import (
     AttackSimulationRepeatOffender,
 )
@@ -16,28 +17,26 @@ class SecurityReportsRoot(Entity):
     provides the ability to launch a realistic simulated phishing attack that organizations can learn from.
     """
 
-    def get_attack_simulation_repeat_offenders(self):
+    @require_permission(delegated=["AttackSimulation.Read.All"], application=["AttackSimulation.Read.All"])
+    def get_attack_simulation_repeat_offenders(
+        self,
+    ) -> ClientResult[ClientValueCollection[AttackSimulationRepeatOffender]]:
         """
         List the tenant users who have yielded to attacks more than once in attack simulation and training campaigns.
         """
-        return_type = ClientResult(
-            self.context, ClientValueCollection(AttackSimulationRepeatOffender)
-        )
-        qry = FunctionQuery(
-            self, "getAttackSimulationRepeatOffenders", None, return_type
-        )
+        return_type = ClientResult(self.context, ClientValueCollection(AttackSimulationRepeatOffender))
+        qry = FunctionQuery(self, "getAttackSimulationRepeatOffenders", None, return_type)
         self.context.add_query(qry)
         return return_type
 
-    def get_attack_simulation_simulation_user_coverage(self):
+    @require_permission(delegated=["AttackSimulation.Read.All"], application=["AttackSimulation.Read.All"])
+    def get_attack_simulation_simulation_user_coverage(
+        self,
+    ) -> ClientResult[ClientValueCollection[AttackSimulationSimulationUserCoverage]]:
         """
         List training coverage for each tenant user in attack simulation and training campaigns.
         """
-        return_type = ClientResult(
-            self.context, ClientValueCollection(AttackSimulationSimulationUserCoverage)
-        )
-        qry = FunctionQuery(
-            self, "getAttackSimulationSimulationUserCoverage", None, return_type
-        )
+        return_type = ClientResult(self.context, ClientValueCollection(AttackSimulationSimulationUserCoverage))
+        qry = FunctionQuery(self, "getAttackSimulationSimulationUserCoverage", None, return_type)
         self.context.add_query(qry)
         return return_type

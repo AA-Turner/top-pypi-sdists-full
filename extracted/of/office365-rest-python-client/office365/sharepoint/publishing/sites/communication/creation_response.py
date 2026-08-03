@@ -1,7 +1,17 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Optional
+
 from office365.runtime.client_value import ClientValue
+from office365.sharepoint.portal.sites.status import SiteStatus
 
 
+@dataclass
 class CommunicationSiteCreationResponse(ClientValue):
-    def __init__(self, site_status=None, site_url=None):
-        self.SiteStatus = site_status
-        self.SiteUrl = site_url
+    SiteStatus: SiteStatus = SiteStatus.Unknown
+    SiteUrl: Optional[str] = None
+
+    @property
+    def entity_type_name(self):
+        return "SP.Publishing.CommunicationSiteCreationResponse"

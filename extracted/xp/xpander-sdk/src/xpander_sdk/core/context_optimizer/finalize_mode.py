@@ -48,6 +48,7 @@ FinalizeReason = Literal[
     "tool_overuse",
     "plan_churn",
     "no_progress",
+    "plan_complete",
 ]
 
 # System-prompt override appended to the agent's instructions while
@@ -60,9 +61,9 @@ The system determined this task must finalize NOW (context budget exhausted, a
 compaction loop detected, or durable evidence the work is already done).
 - The ONLY mutation tool you may call is `xpfinalize_task`. Every other mutation
   tool (writes, exec, HTTP POST, etc.) is rejected with a synthetic error — do not retry it.
-- Read-only escape hatch: you MAY call `xpget_agent_plan`,
-  `xpworkspace-context-retrieve`, or `xpworkspace-file-read` to look up a value
-  before answering (e.g. an offloaded payload). Use sparingly — not to keep working.
+- Read-only escape hatch: you MAY make read-only lookups (file/context reads,
+  plan/schedule/surface reads) to look up a value before answering (e.g. an offloaded
+  payload). Use sparingly — not to keep working. No mutations run.
 - Read the `<authoritative_ledger>` block in the resume message; it lists every
   WRITE you executed and every VERIFY that confirmed it.
 - Compose a concise final answer citing the verified targets (table names, row
@@ -102,7 +103,9 @@ TOOL_GATE_TEXT_EXIT_MESSAGE = (
     "<authoritative_ledger> and then STOP CALLING TOOLS — reply with your final "
     "answer as a normal assistant message, citing the verified targets (table "
     "names, row counts, file paths). That message ends the task; the system marks "
-    "the covered plan items itself."
+    "the covered plan items itself. If a REQUIRED step (a mandated write/save) did "
+    "not run, say plainly it was NOT done and why - never claim, imply, or invent "
+    "an artifact that was not actually produced."
 )
 
 # Escalation after repeated gated calls: the agent is looping instead of answering.
@@ -267,11 +270,6 @@ def is_tool_allowed(optimizer: Any, tool_name: str) -> bool:
     if not state or not state.active:
         return True
     return tool_name in state.allowed_tools
-
-
-# ---------------------------------------------------------------------- #
-#  xpfinalize_task tool spec — registered with agno when finalize active
-# ---------------------------------------------------------------------- #
 
 
 def build_finalize_tool(task: Any) -> Any:

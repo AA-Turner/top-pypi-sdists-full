@@ -1,13 +1,17 @@
 from office365.directory.administrative_unit import AdministrativeUnit
+from office365.directory.certificates.public_key_infrastructure_root import (
+    PublicKeyInfrastructureRoot,
+)
 from office365.directory.custom_security_attribute_definition import (
     CustomSecurityAttributeDefinition,
 )
 from office365.directory.device_local_credential_info import DeviceLocalCredentialInfo
-from office365.directory.object_collection import DirectoryObjectCollection
+from office365.directory.objects.collection import DirectoryObjectCollection
 from office365.directory.subscriptions.company import CompanySubscription
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
 from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.types.odata_property import odata
 
 
 class Directory(Entity):
@@ -15,8 +19,9 @@ class Directory(Entity):
     "container". Deleted items will remain available to restore for up to 30 days. After 30 days, the items are
     permanently deleted."""
 
+    @odata(name="deviceLocalCredentials")
     @property
-    def device_local_credentials(self):
+    def device_local_credentials(self) -> EntityCollection[DeviceLocalCredentialInfo]:
         """Conceptual container for user and group directory objects."""
         return self.properties.get(
             "deviceLocalCredentials",
@@ -27,6 +32,7 @@ class Directory(Entity):
             ),
         )
 
+    @odata(name="administrativeUnits")
     @property
     def administrative_units(self):
         """Conceptual container for user and group directory objects."""
@@ -39,6 +45,7 @@ class Directory(Entity):
             ),
         )
 
+    @odata(name="customSecurityAttributeDefinitions")
     @property
     def custom_security_attribute_definitions(self):
         """Conceptual container for customSecurityAttributeDefinition objects and their properties."""
@@ -51,8 +58,20 @@ class Directory(Entity):
             ),
         )
 
+    @odata(name="publicKeyInfrastructure")
     @property
-    def subscriptions(self):
+    def public_key_infrastructure(self):
+        """"""
+        return self.properties.get(
+            "publicKeyInfrastructure",
+            PublicKeyInfrastructureRoot(
+                self.context,
+                ResourcePath("publicKeyInfrastructure", self.resource_path),
+            ),
+        )
+
+    @property
+    def subscriptions(self) -> EntityCollection[CompanySubscription]:
         """List of commercial subscriptions that an organization acquired."""
         return self.properties.get(
             "subscriptions",
@@ -63,27 +82,31 @@ class Directory(Entity):
             ),
         )
 
-    def deleted_items(self, entity_type=None):
+    def deleted_items(self, entity_type=None) -> DirectoryObjectCollection:
         """Recently deleted items. Read-only. Nullable."""
         if entity_type:
-            return DirectoryObjectCollection(
-                self.context,
-                ResourcePath(
-                    entity_type, ResourcePath("deletedItems", self.resource_path)
+            return self.properties.get(
+                "deletedItems",
+                DirectoryObjectCollection(
+                    self.context,
+                    ResourcePath(entity_type, ResourcePath("deletedItems", self.resource_path)),
                 ),
             )
         else:
             return self.properties.get(
                 "deletedItems",
-                DirectoryObjectCollection(
-                    self.context, ResourcePath("deletedItems", self.resource_path)
-                ),
+                DirectoryObjectCollection(self.context, ResourcePath("deletedItems", self.resource_path)),
             )
 
     @property
     def deleted_groups(self):
         """Recently deleted groups"""
         return self.deleted_items("microsoft.graph.group")
+
+    @property
+    def deleted_teams(self):
+        """Recently deleted groups"""
+        return self.deleted_items("microsoft.graph.group").filter("resourceProvisioningOptions/Any(x:x eq 'Team')")
 
     @property
     def deleted_users(self):

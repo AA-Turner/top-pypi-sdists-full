@@ -1,16 +1,25 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class UserRegistrationMethodCount(ClientValue):
-    """Represents the number of users registered for an authentication method."""
+    """Represents the number of users registered for an authentication method.
 
-    def __init__(self, authentication_method=None, user_count=None):
-        """
-        :param str authentication_method: Name of the authentication method.
-        :param str user_count: Number of users registered.
-        """
-        self.authenticationMethod = authentication_method
-        self.userCount = user_count
+    Args:
+        authentication_method (str): Name of the authentication method.
+        user_count (str): Number of users registered.
+    """
+
+    authenticationMethod: str | None = None
+    userCount: int | None = None
 
     def __repr__(self):
-        return "{0}: {1}".format(self.authenticationMethod, self.userCount)
+        return f"{self.authenticationMethod}: {self.userCount}"
+
+    @property
+    def entity_type_name(self):
+        return "microsoft.graph.UserRegistrationMethodCount"

@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import logging
 import pathlib
-from typing import Any, Dict, Type
+from typing import Any
 
 import ruamel.yaml
 
@@ -19,7 +21,7 @@ from nornir.core.inventory import (
 logger = logging.getLogger(__name__)
 
 
-def _get_connection_options(data: Dict[str, Any]) -> Dict[str, ConnectionOptions]:
+def _get_connection_options(data: dict[str, Any]) -> dict[str, ConnectionOptions]:
     cp = {}
     for cn, c in data.items():
         cp[cn] = ConnectionOptions(
@@ -33,7 +35,7 @@ def _get_connection_options(data: Dict[str, Any]) -> Dict[str, ConnectionOptions
     return cp
 
 
-def _get_defaults(data: Dict[str, Any]) -> Defaults:
+def _get_defaults(data: dict[str, Any]) -> Defaults:
     return Defaults(
         hostname=data.get("hostname"),
         port=data.get("port"),
@@ -46,7 +48,7 @@ def _get_defaults(data: Dict[str, Any]) -> Defaults:
 
 
 def _get_inventory_element(
-    typ: Type[HostOrGroup], data: Dict[str, Any], name: str, defaults: Defaults
+    typ: type[HostOrGroup], data: dict[str, Any], name: str, defaults: Defaults
 ) -> HostOrGroup:
     return typ(
         name=name,
@@ -95,13 +97,23 @@ class SimpleInventory:
         if self.defaults_file.exists():
             with open(self.defaults_file, "r", encoding=self.encoding) as f:
                 defaults_dict = yml.load(f) or {}
+            if defaults_dict == {}:
+                logger.warning(
+                    "'%s' is empty or contains only comments, defaulting to empty defaults.",
+                    self.defaults_file,
+                )
             defaults = _get_defaults(defaults_dict)
         else:
             defaults = Defaults()
 
         hosts = Hosts()
         with open(self.host_file, "r", encoding=self.encoding) as f:
-            hosts_dict = yml.load(f)
+            hosts_dict = yml.load(f) or {}
+        if hosts_dict == {}:
+            logger.warning(
+                "'%s' is empty or contains only comments, defaulting to empty hosts inventory.",
+                self.host_file,
+            )
 
         for n, h in hosts_dict.items():
             hosts[n] = _get_inventory_element(Host, h, n, defaults)
@@ -110,6 +122,12 @@ class SimpleInventory:
         if self.group_file.exists():
             with open(self.group_file, "r", encoding=self.encoding) as f:
                 groups_dict = yml.load(f) or {}
+            if groups_dict == {}:
+                logger.warning(
+                    "'%s' is empty or contains only comments, "
+                    "defaulting to empty groups inventory.",
+                    self.group_file,
+                )
 
             for n, g in groups_dict.items():
                 groups[n] = _get_inventory_element(Group, g, n, defaults)

@@ -1,63 +1,76 @@
+from __future__ import annotations
+
+import json
+from os import PathLike
 from typing import Optional
 
+from typing_extensions import Self
+
 from office365.entity import Entity
-from office365.entity_collection import EntityCollection
 from office365.onedrive.termstore.groups.collection import GroupCollection
 from office365.onedrive.termstore.sets.collection import SetCollection
-from office365.onedrive.termstore.sets.set import Set
+from office365.onedrive.termstore.store_exporter import StoreExporter
+from office365.onedrive.termstore.store_importer import StoreImporter
+from office365.onedrive.termstore.terms.collection import TermCollection
+from office365.runtime.client_result import ClientResult
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.types.collections import StringCollection
+from office365.runtime.types.odata_property import odata
 
 
 class Store(Entity):
     """Represents a taxonomy term store."""
 
-    def get_all_term_sets(self):
-        """Returns a collection containing a flat list of all TermSet objects."""
-        return_type = EntityCollection(self.context, Set)
+    def search_term(self, search_label: str) -> TermCollection:
+        return_type = TermCollection(self.context)
 
-        def _sets_loaded(sets):
-            # type: (SetCollection) -> None
-            [return_type.add_child(s) for s in sets]
+        def _on_terms_loaded(terms: TermCollection):
+            for t in terms:
+                if t.display_name == search_label:
+                    return_type.add_child(t)
 
-        def _groups_loaded(groups):
-            # type: (GroupCollection) -> None
-            [grp.sets.get().after_execute(_sets_loaded) for grp in groups]
+        def _on_sets_loaded(sets: SetCollection):
+            for s in sets:
+                s.terms.get().after_execute(lambda terms: _on_terms_loaded(terms))
 
-        self.groups.get().after_execute(_groups_loaded)
+        def _on_groups_loaded(groups: GroupCollection):
+            for g in groups:
+                g.sets.get().after_execute(lambda sets: _on_sets_loaded(sets))
 
+        self.groups.get().after_execute(lambda groups: _on_groups_loaded(groups))
         return return_type
 
+    def export_to_json(self) -> ClientResult[list]:
+        return StoreExporter(self).export()
+
+    def import_from_json(self, path: str | PathLike) -> Self:
+        """Import term store hierarchy from a JSON file."""
+        with open(path) as f:
+            data = json.load(f)
+        StoreImporter(self).import_from_data(data)
+        return self
+
     @property
-    def default_language_tag(self):
-        # type: () -> Optional[str]
+    def default_language_tag(self) -> Optional[str]:
         """Default language of the term store."""
         return self.properties.get("defaultLanguageTag", None)
 
+    @odata(name="languageTags")
     @property
-    def language_tags(self):
+    def language_tags(self) -> StringCollection:
         """List of languages for the term store."""
         return self.properties.get("languageTags", StringCollection())
 
     @property
-    def groups(self):
-        # type: () -> GroupCollection
+    def groups(self) -> GroupCollection:
         """Collection of all groups available in the term store."""
-        return self.properties.get(
-            "groups",
-            GroupCollection(self.context, ResourcePath("groups", self.resource_path)),
-        )
+        return self.properties.get("groups", GroupCollection(self.context, ResourcePath("groups", self.resource_path)))
 
     @property
-    def sets(self):
+    def sets(self) -> SetCollection:
         """Collection of all sets available in the term store."""
-        return self.properties.get(
-            "sets",
-            SetCollection(self.context, ResourcePath("sets", self.resource_path)),
-        )
+        return self.properties.get("sets", SetCollection(self.context, ResourcePath("sets", self.resource_path)))
 
-    def get_property(self, name, default_value=None):
-        if default_value is None:
-            property_mapping = {"languageTags": self.language_tags}
-            default_value = property_mapping.get(name, None)
-        return super(Store, self).get_property(name, default_value)
+    @property
+    def entity_type_name(self) -> str:
+        return "microsoft.graph.termStore.Store"

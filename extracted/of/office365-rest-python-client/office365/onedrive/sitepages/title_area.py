@@ -1,23 +1,28 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+from office365.onedrive.server_processed_content import ServerProcessedContent
+from office365.onedrive.sitepages.titlearealayouttype import TitleAreaLayoutType
+from office365.onedrive.sitepages.titleareatextalignmenttype import TitleAreaTextAlignmentType
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class TitleArea(ClientValue):
     """Represents the title area of a given SharePoint page."""
 
-    def __init__(
-        self,
-        alternative_text=None,
-        enable_gradient_effect=None,
-        image_web_url=None,
-        show_author=None,
-    ):
-        """
-        :param str alternative_text: Alternative text on the title area.
-        :param bool enable_gradient_effect: Indicates whether the title area has a gradient effect enabled.
-        :param str image_web_url:
-        :param bool show_author:
-        """
-        self.alternativeText = alternative_text
-        self.enableGradientEffect = enable_gradient_effect
-        self.imageWebUrl = image_web_url
-        self.showAuthor = show_author
+    alternativeText: str | None = None
+    enableGradientEffect: bool | None = None
+    imageWebUrl: str | None = None
+    showAuthor: bool | None = None
+    layout: TitleAreaLayoutType = TitleAreaLayoutType.imageAndTitle
+    serverProcessedContent: ServerProcessedContent = field(default_factory=ServerProcessedContent)
+    showPublishedDate: bool | None = None
+    showTextBlockAboveTitle: bool | None = None
+    textAboveTitle: str | None = None
+    textAlignment: TitleAreaTextAlignmentType = TitleAreaTextAlignmentType.left
+
+    @property
+    def entity_type_name(self) -> str:
+        return "microsoft.graph.TitleArea"

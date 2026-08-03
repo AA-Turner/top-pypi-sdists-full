@@ -55,6 +55,7 @@ from .core import (
     apply_mine_by_default,
     decide,
     decide_closed,
+    issue_in_board_columns,
     issue_passes_filter,
     latest_semver,
     select_fixing_mrs,
@@ -462,6 +463,7 @@ def _process_project(
     reopen: bool,
     closed_since: str,
     cancelled_labels: frozenset[str],
+    board_labels: frozenset[str],
 ) -> ProjectReport:
     """Audit one project; return its report (and apply changes when asked)."""
     mapping = deploy_branches_for(label, deploy_branch_override)
@@ -474,6 +476,8 @@ def _process_project(
     open_issues = _fetch_open_issues(project_id, limit)
     if issue_filter.active():
         open_issues = [i for i in open_issues if _keep_issue(i, issue_filter)]
+    # Narrowing before the MR fan-out is what keeps a column-scoped run cheap.
+    open_issues = [i for i in open_issues if issue_in_board_columns(i.labels, board_labels)]
 
     closed_issues: list[GitLabIssue] = []
     if reopen:
@@ -647,6 +651,14 @@ def main(
             help="Label marking a cancelled ticket: closed if still open, never reopened (repeatable, default ANNULE).",
         ),
     ] = None,
+    board: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--board",
+            help="Only audit open tickets currently sitting in these board columns (repeatable, e.g. "
+            "'workflow::To deploy'). Default: every column. Does not restrict the --reopen pass.",
+        ),
+    ] = None,
 ) -> None:
     """Audit and (with --apply) fix ticket board statuses across the group.
 
@@ -654,8 +666,11 @@ def main(
     narrows that set to one or more projects (it is a filter, not a mode). Within
     the scanned projects, **only my tickets are audited by default** — pass
     ``--anyone`` to audit everyone's, or ``--assignee`` / ``--author`` to target a
-    specific person. ``--reopen`` additionally reopens recently-closed tickets
-    that were closed by mistake (off by default).
+    specific person. ``--board`` narrows further to the tickets currently sitting in
+    given columns, which is how an unattended run keeps a small blast radius (e.g.
+    ``--board 'workflow::To deploy'`` only settles tickets already waiting for prod).
+    ``--reopen`` additionally reopens recently-closed tickets that were closed by
+    mistake (off by default).
 
     Plan/apply via a file: ``--plan-out plan.json`` saves the computed plan;
     ``--apply-plan plan.json`` then applies it **verbatim** (close, reopen, set_*)
@@ -673,6 +688,7 @@ def main(
     issue_filter = _resolve_filter(anyone=anyone, assignee=assignee, author=author)
     deploy_override = _parse_deploy_override(deploy_branch)
     cancelled_labels = frozenset(cancelled_label) if cancelled_label else frozenset({"ANNULE"})
+    board_labels = frozenset(board) if board else frozenset()
     closed_since = (datetime.now(UTC) - timedelta(days=max(0, closed_since_days))).strftime("%Y-%m-%dT%H:%M:%SZ")
     projects = _list_group_projects(group)
     if not projects:
@@ -698,6 +714,7 @@ def main(
             reopen=reopen,
             closed_since=closed_since,
             cancelled_labels=cancelled_labels,
+            board_labels=board_labels,
         )
         for pid, label, _default_branch in projects
     ]
@@ -715,6 +732,7 @@ def main(
             else None
         ),
         "applied": apply,
+        "board_filter": sorted(board_labels) or None,
         "reopen": reopen,
         "projects_scanned": len(reports),
         "actionable": sum(r.actionable for r in reports),

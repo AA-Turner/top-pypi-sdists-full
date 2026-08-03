@@ -38,12 +38,21 @@ extern "C" {
 
 /* The version of the ABI. */
 #define SIP_ABI_MAJOR_VERSION       13
-#define SIP_ABI_MINOR_VERSION       11
-#define SIP_MODULE_PATCH_VERSION    1
+#define SIP_ABI_MINOR_VERSION       12
+#define SIP_MODULE_PATCH_VERSION    0
 
 
 /*
  * The change history of the ABI.
+ *
+ * v13.12
+ *  - Added support for Python v3.15.
+ *  - The format use to pickle wrapped types has changed so that it is more
+ *    robust and faster.  The legacy format can still be read and will be
+ *    converted to the new format when written.  Older versions of the sip
+ *    module can already read the new format.
+ *  - Added definitions of sipTypeID and sipType_Invalid to aid porting to ABI
+ *    v14.
  *
  * v13.11
  *  - Added support for Python v3.14.
@@ -92,8 +101,8 @@ extern "C" {
 
 
 /* The version of the code generator. */
-#define SIP_VERSION                 0x60f02
-#define SIP_VERSION_STR             "6.15.2"
+#define SIP_VERSION                 0x61000
+#define SIP_VERSION_STR             "6.16.0"
 
 /* These are all dependent on the user-specified name of the sip module. */
 #define _SIP_MODULE_FQ_NAME         "PyQt6.sip"
@@ -197,6 +206,13 @@ typedef struct _sipWrapperType sipWrapperType;
 
 struct _sipWrapper;
 typedef struct _sipWrapper sipWrapper;
+
+
+/*
+ * The following make it easier to write code that supports ABI v14.
+ */
+#define sipType_Invalid NULL
+typedef const sipTypeDef *sipTypeID;
 
 
 /*

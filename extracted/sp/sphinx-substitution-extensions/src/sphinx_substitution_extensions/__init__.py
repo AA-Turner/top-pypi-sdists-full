@@ -2,17 +2,22 @@
 
 from importlib.metadata import version
 from typing import Any, ClassVar, TypeAlias
+from unittest.mock import patch
 
 from beartype import beartype
 from docutils.nodes import (
     Element,
     Node,
     Text,
+    document,
+    reference,
     substitution_definition,
     system_message,
 )
+from docutils.nodes import target as target_node
 from docutils.parsers.rst import directives
 from docutils.parsers.rst.directives.images import Image
+from docutils.parsers.rst.directives.misc import Include
 from docutils.parsers.rst.roles import code_role
 from docutils.parsers.rst.states import Inliner
 from docutils.statemachine import StringList
@@ -234,6 +239,38 @@ def _process_node(
 
 
 @beartype
+def _substitute_hyperlink_targets(
+    app: Sphinx,
+    doctree: document,
+) -> None:
+    """Replace placeholders in hyperlink targets."""
+    if not app.config.substitutions_hyperlink_targets_enabled:
+        return
+
+    substitution_defs = _get_substitution_defs(
+        env=app.env,
+        config=app.config,
+        substitution_defs=doctree.substitution_defs,
+    )
+    delimiter_pairs = _get_delimiter_pairs(
+        env=app.env,
+        config=app.config,
+    )
+
+    for node in doctree.findall():
+        if not isinstance(node, (reference, target_node)):
+            continue
+
+        refuri = node.attributes.get("refuri")
+        if isinstance(refuri, str):
+            node["refuri"] = _apply_substitutions(
+                text=refuri,
+                substitution_defs=substitution_defs,
+                delimiter_pairs=delimiter_pairs,
+            )
+
+
+@beartype
 class SubstitutionCodeBlock(CodeBlock):
     """Similar to CodeBlock but replaces placeholders with variables."""
 
@@ -296,6 +333,7 @@ class SubstitutionCodeRole:
         text: str,
         lineno: int,
         inliner: Inliner | MockInliner,
+        *,
         # We allow mutable defaults as the Sphinx implementation requires it.
         options: dict[Any, Any] = {},  # noqa: B006
         content: list[str] = [],  # noqa: B006
@@ -426,6 +464,108 @@ class SubstitutionLiteralInclude(LiteralInclude):
 
 
 @beartype
+class SubstitutionInclude(Include):
+    """
+    Similar to Include but replaces placeholders with variables in the
+    path.
+    """
+
+    option_spec: ClassVar[OptionSpec | None] = {
+        **(Include.option_spec or {}),
+        CONTENT_SUBSTITUTION_OPTION_NAME: directives.flag,
+        PATH_SUBSTITUTION_OPTION_NAME: directives.flag,
+        NO_CONTENT_SUBSTITUTION_OPTION_NAME: directives.flag,
+        NO_PATH_SUBSTITUTION_OPTION_NAME: directives.flag,
+    }
+
+    def run(self) -> list[Node]:
+        """Replace placeholders in the path and/or included content."""
+        env = self.state.document.settings.env
+
+        if env is None:
+            return list(super().run())
+
+        config = env.config
+        should_apply_path_substitutions = _should_apply_substitutions(
+            options=self.options,
+            config=config,
+            yes_flag=PATH_SUBSTITUTION_OPTION_NAME,
+            no_flag=NO_PATH_SUBSTITUTION_OPTION_NAME,
+        )
+        should_apply_content_substitutions = _should_apply_substitutions(
+            options=self.options,
+            config=config,
+            yes_flag=CONTENT_SUBSTITUTION_OPTION_NAME,
+            no_flag=NO_CONTENT_SUBSTITUTION_OPTION_NAME,
+        )
+
+        if not (
+            should_apply_path_substitutions
+            or should_apply_content_substitutions
+        ):
+            return list(super().run())
+
+        substitution_defs = _get_substitution_defs(
+            env=env,
+            config=config,
+            substitution_defs=self.state.document.substitution_defs,
+        )
+        delimiter_pairs = _get_delimiter_pairs(
+            env=env,
+            config=config,
+        )
+
+        if should_apply_path_substitutions:
+            for argument_index, argument in enumerate(iterable=self.arguments):
+                self.arguments[argument_index] = _apply_substitutions(
+                    text=argument,
+                    substitution_defs=substitution_defs,
+                    delimiter_pairs=delimiter_pairs,
+                )
+
+        if not should_apply_content_substitutions:
+            return list(super().run())
+
+        original_insert_input = self.state_machine.insert_input
+
+        def insert_substituted_input(
+            input_lines: list[str],
+            source: str,
+        ) -> None:
+            """Insert included lines after applying substitutions."""
+            substituted_lines = [
+                _apply_substitutions(
+                    text=line,
+                    substitution_defs=substitution_defs,
+                    delimiter_pairs=delimiter_pairs,
+                )
+                for line in input_lines
+            ]
+            original_insert_input(
+                input_lines=substituted_lines,
+                source=source,
+            )
+
+        # ``Include.run`` only queues these lines.  Nested includes are parsed
+        # after it returns, when this patch has already been removed.
+        with patch.object(
+            target=self.state_machine,
+            attribute="insert_input",
+            new=insert_substituted_input,
+        ):
+            nodes_list = list(super().run())
+
+        for node in nodes_list:
+            _process_node(
+                node=node,
+                substitution_defs=substitution_defs,
+                delimiter_pairs=delimiter_pairs,
+            )
+
+        return nodes_list
+
+
+@beartype
 class SubstitutionImage(Image):
     """
     Similar to Image but replaces placeholders with variables in the
@@ -541,6 +681,11 @@ def setup(app: Sphinx) -> ExtensionMetadata:
     """Add the custom directives to Sphinx."""
     app.add_config_value(name="substitutions", default=[], rebuild="html")
     app.add_config_value(
+        name="substitutions_hyperlink_targets_enabled",
+        default=False,
+        rebuild="html",
+    )
+    app.add_config_value(
         name="substitutions_default_enabled",
         default=False,
         rebuild="html",
@@ -554,6 +699,10 @@ def setup(app: Sphinx) -> ExtensionMetadata:
         directive=SubstitutionLiteralInclude,
     )
     directives.register_directive(
+        name="include",
+        directive=SubstitutionInclude,
+    )
+    directives.register_directive(
         name="image",
         directive=SubstitutionImage,
     )
@@ -562,6 +711,10 @@ def setup(app: Sphinx) -> ExtensionMetadata:
         nodeclass=addnodes.download_reference,
     )
     app.add_role(name="substitution-download", role=substitution_download_role)
+    app.connect(
+        event="doctree-read",
+        callback=_substitute_hyperlink_targets,
+    )
     return {
         "parallel_read_safe": True,
         "version": version(distribution_name="sphinx-substitution-extensions"),

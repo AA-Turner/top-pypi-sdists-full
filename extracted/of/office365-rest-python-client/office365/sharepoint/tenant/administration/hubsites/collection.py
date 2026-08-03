@@ -9,36 +9,32 @@ class HubSiteCollection(EntityCollection[HubSite]):
     """Represents a collection of HubSite resources."""
 
     def __init__(self, context, resource_path=None):
-        super(HubSiteCollection, self).__init__(context, HubSite, resource_path)
+        super().__init__(context, HubSite, resource_path)
 
     def get_by_id(self, _id):
         """Retrieve Hub site by id
-        :type _id: str
+
+        Args:
+            _id (str):
         """
-        return HubSite(
-            self.context, ServiceOperationPath("GetById", [_id], self.resource_path)
-        )
+        return HubSite(self.context, ServiceOperationPath("GetById", [_id], self.resource_path))
 
     def get_connected_hubs(self, hub_site_id, option):
-        """
-        :param str hub_site_id:
-        :param int option:
+        """Args:
+        hub_site_id (str):
+        option (int):
         """
         payload = {"hubSiteId": hub_site_id, "option": option}
         return_type = HubSiteCollection(self.context)
-        qry = ServiceOperationQuery(
-            self, "GetConnectedHubs", None, payload, None, return_type
-        )
+        qry = ServiceOperationQuery(self, "GetConnectedHubs", None, payload, None, return_type)
         self.context.add_query(qry)
         return return_type
 
     def get_site_url_by_hub_site_id(self, hub_site_id):
-        """
-        :param str hub_site_id:
+        """Args:
+        hub_site_id (str):
         """
         return_type = ClientResult(self.context)
-        qry = ServiceOperationQuery(
-            self, "GetSiteUrlByHubSiteId", [hub_site_id], None, None, return_type
-        )
+        qry = ServiceOperationQuery(self, "GetSiteUrlByHubSiteId", [hub_site_id], None, None, return_type)
         self.context.add_query(qry)
         return return_type

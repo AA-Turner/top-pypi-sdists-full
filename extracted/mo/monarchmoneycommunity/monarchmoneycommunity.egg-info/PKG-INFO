@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: monarchmoneycommunity
-Version: 1.5.1
+Version: 1.5.2
 Summary: Monarch Money API for Python
 Home-page: https://github.com/bradleyseanf/monarchmoneycommunity
 Author: bradleyseanf
@@ -14,7 +14,7 @@ Classifier: Intended Audience :: Financial and Insurance Industry
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Topic :: Office/Business :: Financial
 Description-Content-Type: text/markdown
-Requires-Dist: aiohttp>=3.14.1
+Requires-Dist: aiohttp>=3.14.3
 Requires-Dist: gql==4.0
 Requires-Dist: oathtool>=2.4.0
 Dynamic: author

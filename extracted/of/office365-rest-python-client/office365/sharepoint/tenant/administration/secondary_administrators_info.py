@@ -1,20 +1,24 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class SecondaryAdministratorsInfo(ClientValue):
-    def __init__(self, email=None, loginName=None, userPrincipalName=None):
-        """
+    """Args:
+    email (str):
+    login_name (str):
+    name (str):
+    user_principal_name (str):
+    """
 
-        :param str email:
-        :param str loginName:
-        :param str userPrincipalName:
-        """
-        super(SecondaryAdministratorsInfo, self).__init__()
-        self.email = email
-        self.loginName = loginName
-        self.userPrincipalName = userPrincipalName
+    email: str | None = None
+    loginName: str | None = None
+    name: str | None = None
+    userPrincipalName: str | None = None
 
     @property
-    def entity_type_name(self):
-        # type: () -> str
+    def entity_type_name(self) -> str:
         return "Microsoft.Online.SharePoint.TenantAdministration.SecondaryAdministratorsInfo"

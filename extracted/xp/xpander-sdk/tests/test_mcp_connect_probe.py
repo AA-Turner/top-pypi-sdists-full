@@ -127,11 +127,28 @@ def test_auth_error_heals_token_and_reprobes(monkeypatch):
     assert mcp.api_key == "fresh-token"
 
 
-def test_auth_error_heal_failure_raises_real_error(monkeypatch):
-    with pytest.raises(ValueError) as exc:
-        _run_ensure(_mcp(), [_http_error(401)], auth_result=None, monkeypatch=monkeypatch)
-    assert "Fathom MCP" in str(exc.value)
-    assert "401" in str(exc.value)
+def test_auth_error_heal_failure_skips_with_note(monkeypatch) -> None:
+    """An unhealable auth error must skip with a reconnect note, never raise -
+    a raise would sink every unrelated task on the agent."""
+    mcp = _mcp()
+    probe_calls = []
+
+    async def _probe(url, headers=None, transport="streamable-http"):
+        probe_calls.append(dict(headers or {}))
+        return _http_error(401)
+
+    async def _auth(*a, **k):
+        return None
+
+    monkeypatch.setattr(agno_module, "probe_mcp_server", _probe)
+    monkeypatch.setattr(agno_module, "authenticate_mcp_server", _auth)
+
+    ready, note = asyncio.run(
+        agno_module._ensure_remote_mcp_ready(mcp=mcp, transport="streamable-http", task=_FakeTask())
+    )
+    assert ready is False
+    assert "sign-in required" in note
+    assert "Fathom MCP" in note
 
 
 def test_non_auth_error_skips_without_auth_attempt(monkeypatch):
@@ -152,10 +169,11 @@ def test_non_auth_error_skips_without_auth_attempt(monkeypatch):
     monkeypatch.setattr(agno_module, "probe_mcp_server", _probe)
     monkeypatch.setattr(agno_module, "authenticate_mcp_server", _auth)
 
-    ready = asyncio.run(
+    ready, note = asyncio.run(
         agno_module._ensure_remote_mcp_ready(mcp=mcp, transport="streamable-http", task=_FakeTask())
     )
     assert ready is False       # skipped, not raised
+    assert note is None          # generic unavailable-note, no specific remedy
     assert auth_calls == []      # no auth attempt for a non-auth error
     assert len(probe_calls) == 1
 

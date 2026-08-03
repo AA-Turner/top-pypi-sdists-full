@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.3.231"
+__version__ = "1.3.245"
 
 # Define package exports
 __all__ = [
@@ -292,6 +292,8 @@ __all__ = [
     "BulkInteractionsResponse",
     "BulkMarkDLQRequest",
     "BulkMarkDLQResponse",
+    "BulkRequeueDLQRequest",
+    "BulkRequeueDLQResponse",
     "BulkSoftDeleteRequest",
     "BulkSoftDeleteResponse",
     "BulkSubmitBatchesRequest",
@@ -1610,6 +1612,8 @@ from mixpeek.models.bulk_interactions_request import BulkInteractionsRequest as 
 from mixpeek.models.bulk_interactions_response import BulkInteractionsResponse as BulkInteractionsResponse
 from mixpeek.models.bulk_mark_dlq_request import BulkMarkDLQRequest as BulkMarkDLQRequest
 from mixpeek.models.bulk_mark_dlq_response import BulkMarkDLQResponse as BulkMarkDLQResponse
+from mixpeek.models.bulk_requeue_dlq_request import BulkRequeueDLQRequest as BulkRequeueDLQRequest
+from mixpeek.models.bulk_requeue_dlq_response import BulkRequeueDLQResponse as BulkRequeueDLQResponse
 from mixpeek.models.bulk_soft_delete_request import BulkSoftDeleteRequest as BulkSoftDeleteRequest
 from mixpeek.models.bulk_soft_delete_response import BulkSoftDeleteResponse as BulkSoftDeleteResponse
 from mixpeek.models.bulk_submit_batches_request import BulkSubmitBatchesRequest as BulkSubmitBatchesRequest

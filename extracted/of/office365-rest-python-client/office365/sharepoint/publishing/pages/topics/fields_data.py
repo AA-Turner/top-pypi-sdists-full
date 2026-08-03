@@ -1,11 +1,13 @@
+from __future__ import annotations
+
 from office365.sharepoint.publishing.pages.fields_data import SitePageFieldsData
 
 
 class TopicPageFieldsData(SitePageFieldsData):
-    def __init__(self, entity_id=None, entity_relations=None):
-        super(TopicPageFieldsData, self).__init__()
-        self.EntityId = entity_id
-        self.EntityRelations = entity_relations
+    EntityId: str | None = None
+    EntityRelations: str | None = None
+    EntityType: str | None = None
+    VerifiedTopicAllowedEditors: str | None = None
 
     @property
     def entity_type_name(self):

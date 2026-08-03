@@ -1,16 +1,21 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class HubSitePermission(ClientValue):
-    def __init__(self, display_name=None, principal_name=None, rights=None):
-        """
-        :param str display_name:
-        :param str principal_name:
-        :param int rights:
-        """
-        self.DisplayName = display_name
-        self.PrincipalName = principal_name
-        self.Rights = rights
+    """Args:
+    display_name (str):
+    principal_name (str):
+    rights (int):
+    """
+
+    DisplayName: str | None = None
+    PrincipalName: str | None = None
+    Rights: int | None = None
 
     @property
     def entity_type_name(self):

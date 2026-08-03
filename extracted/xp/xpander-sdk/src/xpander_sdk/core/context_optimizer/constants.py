@@ -322,8 +322,8 @@ LLM_MAX_OUTPUT_TOKENS = _env_int("XPANDER_LLM_MAX_OUTPUT_TOKENS", 32_000)
 # on every call and alternating-tool loops reset the consecutive counters, so
 # neither the identical-args detector nor the error-streak breaker ever fires
 # on them. This counts TOTAL calls of one tool across the task (xp* exempt).
-TOTAL_TOOL_CALLS_WARN_AT = _env_int("XPANDER_TOTAL_TOOL_CALLS_WARN_AT", 15)
-MAX_TOTAL_TOOL_CALLS_PER_TOOL = _env_int("XPANDER_MAX_TOTAL_TOOL_CALLS_PER_TOOL", 25)
+TOTAL_TOOL_CALLS_WARN_AT = _env_int("XPANDER_TOTAL_TOOL_CALLS_WARN_AT", 50)
+MAX_TOTAL_TOOL_CALLS_PER_TOOL = _env_int("XPANDER_MAX_TOTAL_TOOL_CALLS_PER_TOOL", 100)
 
 # Plan-churn breaker. Planning/reasoning tools are exempt from stuck detection
 # (they legitimately repeat), so a pure plan/think loop - re-emitting the same

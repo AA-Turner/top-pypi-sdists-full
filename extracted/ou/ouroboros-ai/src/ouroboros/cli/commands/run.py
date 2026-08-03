@@ -21,8 +21,12 @@ if TYPE_CHECKING:
 
 from ouroboros.cli.formatters import console
 from ouroboros.cli.formatters.panels import print_error, print_info, print_success, print_warning
-from ouroboros.config._model_defaults import DEFAULT_SONNET_MODEL
-from ouroboros.config.loader import get_config_dir, get_max_parallel_workers, load_config
+from ouroboros.config.loader import (
+    get_config_dir,
+    get_max_parallel_workers,
+    load_config,
+    resolve_execution_model,
+)
 from ouroboros.core.errors import ConfigError
 from ouroboros.core.project_paths import resolve_path_against_base, resolve_seed_project_path
 from ouroboros.core.security import InputValidator
@@ -34,17 +38,36 @@ from ouroboros.core.worktree import (
     maybe_restore_task_workspace,
 )
 from ouroboros.evaluation.verification_artifacts import build_verification_artifacts
-from ouroboros.orchestrator.parallel_executor import DEFAULT_MAX_DECOMPOSITION_DEPTH
+from ouroboros.orchestrator.decomposition_limits import (
+    DEFAULT_MAX_DECOMPOSITION_DEPTH,
+    MAX_DURABLE_DECOMPOSITION_DEPTH,
+    validate_max_decomposition_depth,
+)
 
 
-def _resolve_execution_model(runtime_backend: str | None) -> str | None:
-    execution_model = os.environ.get("OUROBOROS_EXECUTION_MODEL")
-    if execution_model is not None:
-        stripped = execution_model.strip()
-        return stripped or None
-    if runtime_backend == "claude":
-        return DEFAULT_SONNET_MODEL
-    return None
+def _execution_model_status(runtime_backend: str | None, model: str | None) -> str:
+    """Return a truthful pre-run model summary for the CLI.
+
+    An absent Codex model means no ``--model`` flag is sent, so Codex owns the
+    choice. A config.toml value is diagnostic context, not proof of the model
+    selected by the current App/CLI session.
+    """
+    if model is not None:
+        return f"Execution model: {model} (fixed)"
+    if runtime_backend == "codex":
+        from ouroboros.backends.model_catalog import configured_default_model
+
+        hint = configured_default_model("codex")
+        if hint:
+            return (
+                "Execution model: follows Codex's currently selected model "
+                f"(config.toml: {hint}; not confirmed at runtime)"
+            )
+        return (
+            "Execution model: follows Codex's currently selected model "
+            "(concrete model not reported by Codex)"
+        )
+    return "Execution model: runtime default"
 
 
 def _resolve_run_execute_runtime_backend(
@@ -342,23 +365,40 @@ def _coerce_positive_int(value: object, *, source: str) -> int:
 def _resolve_max_decomposition_depth(seed_data: dict[str, Any], cli_value: int | None) -> int:
     """Resolve decomposition depth from CLI, env, seed config, then default."""
     if cli_value is not None:
-        return _coerce_non_negative_int(cli_value, source="--max-decomposition-depth")
+        return _coerce_max_decomposition_depth(
+            cli_value,
+            source="--max-decomposition-depth",
+        )
 
     env_value = os.environ.get("OUROBOROS_MAX_DECOMPOSITION_DEPTH", "").strip()
     if env_value:
-        return _coerce_non_negative_int(
+        return _coerce_max_decomposition_depth(
             env_value,
             source="OUROBOROS_MAX_DECOMPOSITION_DEPTH",
         )
 
     orchestrator_config = seed_data.get("orchestrator")
     if isinstance(orchestrator_config, dict) and "max_decomposition_depth" in orchestrator_config:
-        return _coerce_non_negative_int(
+        return _coerce_max_decomposition_depth(
             orchestrator_config.get("max_decomposition_depth"),
             source="seed.orchestrator.max_decomposition_depth",
         )
 
-    return DEFAULT_MAX_DECOMPOSITION_DEPTH
+    return validate_max_decomposition_depth(
+        DEFAULT_MAX_DECOMPOSITION_DEPTH,
+        source="default max_decomposition_depth",
+    )
+
+
+def _coerce_max_decomposition_depth(value: object, *, source: str) -> int:
+    """Parse every public depth source through the shared live/replay gate."""
+
+    parsed = _coerce_non_negative_int(value, source=source)
+    try:
+        return validate_max_decomposition_depth(parsed, source=source)
+    except ValueError as exc:
+        print_error(str(exc))
+        raise typer.Exit(1) from exc
 
 
 def _load_skip_completed_markers(
@@ -625,9 +665,7 @@ async def _run_orchestrator(
         mcp_manager = await _initialize_mcp_manager(mcp_config, mcp_tool_prefix)
 
     # Initialize components
-    db_path = os.path.expanduser("~/.ouroboros/ouroboros.db")
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    event_store = EventStore(f"sqlite+aiosqlite:///{db_path}")
+    event_store = EventStore()
     await event_store.initialize()
 
     project_dir = _resolve_cli_project_dir(
@@ -680,9 +718,11 @@ async def _run_orchestrator(
     if debug:
         print_info(f"Execution runtime: {resolved_runtime_backend}")
 
+    execution_model = resolve_execution_model(resolved_runtime_backend)
+    print_info(_execution_model_status(resolved_runtime_backend, execution_model))
     adapter = create_agent_runtime(
         backend=resolved_runtime_backend,
-        model=_resolve_execution_model(resolved_runtime_backend),
+        model=execution_model,
         cwd=Path(workspace.effective_cwd) if workspace else project_dir,
     )
     runner = OrchestratorRunner(
@@ -877,7 +917,9 @@ def workflow(
             min=0,
             help=(
                 "Maximum recursive AC decomposition depth. "
-                "0 disables decomposition; 1 allows one split; default 2."
+                "0 disables decomposition; default 2. "
+                f"Depths above {MAX_DURABLE_DECOMPOSITION_DEPTH} use the historical "
+                "legacy non-resumable path."
             ),
         ),
     ] = None,

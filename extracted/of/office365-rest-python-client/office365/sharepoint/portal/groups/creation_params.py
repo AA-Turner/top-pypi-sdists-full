@@ -1,14 +1,21 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Optional
+
 from office365.runtime.client_value import ClientValue
-from office365.runtime.client_value_collection import ClientValueCollection
+from office365.runtime.types.collections import StringCollection
 
 
+@dataclass
 class GroupCreationParams(ClientValue):
-    def __init__(self, classification="", description=""):
-        super(GroupCreationParams, self).__init__()
-        self.Classification = classification
-        self.Description = description
-        self.CreationOptions = ClientValueCollection(str)
-        self.CreationOptions.add("SPSiteLanguage:1033")
+    """Group creation params"""
+
+    Classification: str = ""
+    Description: str = ""
+    CreationOptions: StringCollection = field(default_factory=lambda: StringCollection(["SPSiteLanguage:1033"]))
+    Owners: StringCollection = field(default_factory=StringCollection)
+    PreferredDataLocation: Optional[str] = None
 
     @property
     def entity_type_name(self):

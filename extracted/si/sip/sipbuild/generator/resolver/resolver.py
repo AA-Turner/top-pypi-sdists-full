@@ -6,17 +6,20 @@
 
 from copy import copy
 
+from ...sip_module_configuration import (apply_module_defaults,
+        SipModuleConfiguration)
+
 from ..error_log import ErrorLog
 from ..instantiations import instantiate_type_hints
 from ..python_slots import (is_hash_return_slot, is_int_return_slot,
         is_inplace_number_slot, is_rich_compare_slot, is_ssize_return_slot,
-        is_void_return_slot, is_zero_arg_slot)
+        is_void_return_slot, is_zero_arg_slot, reflected_slot)
 from ..scoped_name import ScopedName
 from ..specification import (AccessSpecifier, Argument, ArgumentType,
-        ArrayArgument, ClassKey, Constructor, EnumBaseType, IfaceFileType,
-        IndexedClassList, MappedType, Member, PyQtMethodSpecifier, PySlot,
-        Signature, Transfer, ValueType, VirtualHandler, VirtualOverload,
-        VisibleMember, WrappedClass)
+        ArrayArgument, CachedName, ClassKey, Constructor, EnumBaseType,
+        IfaceFileType, IndexedClassList, MappedType, Member,
+        PyQtMethodSpecifier, PySlot, Signature, Transfer, ValueType,
+        VirtualHandler, VirtualOverload, VisibleMember, WrappedClass)
 from ..templates import (encoded_template_name, same_template_signature,
         template_code, template_code_blocks, template_expansions)
 from ..utils import (append_iface_file, argument_as_str, cached_name,
@@ -102,14 +105,14 @@ def resolve(spec, modules):
                 _add_auto_overload(spec, klass, overload)
 
     # Move casts and slots around to their correct classes (if in the same
-    # module) or create proxies for them (if cross-module).
+    # module) or create extenders for them (if cross-module).
     _move_main_module_casts_slots(spec, error_log)
 
     # Automatically generate missing complementary slots.
     for klass in spec.classes:
         _add_complementary_slots(spec, klass)
 
-    for klass in spec.module.proxies:
+    for klass in spec.module.extenders:
         _add_complementary_slots(spec, klass)
 
     # Generate the different class views.
@@ -137,8 +140,8 @@ def resolve(spec, modules):
         for overload in mod.overloads:
             _iface_files_are_used_by_overload(spec, mod.used, overload)
 
-        # Update proxies with some information from the real classes.
-        for klass in mod.proxies:
+        # Update class extenders with some information from the real classes.
+        for klass in mod.extenders:
             klass.iface_file.type_nr = klass.real_class.iface_file.type_nr
 
     # Additional class specific checks.
@@ -169,6 +172,10 @@ def resolve(spec, modules):
         for enum in spec.enums:
             if enum.module is spec.module:
                 _enum_iface_file_is_used(enum, spec.module)
+
+    # Finalise the sip module configuration.
+    spec.sip_module_configuration = apply_module_defaults(
+            spec.sip_module_configuration)
 
     # Perform any final checks.
     for check in final_checks:
@@ -372,7 +379,7 @@ def _move_main_module_casts_slots(spec, error_log):
         if klass.iface_file.module is spec.module:
             _move_class_casts(spec, klass, error_log)
 
-    for member in spec.module.global_functions:
+    for member in tuple(spec.module.global_functions):
         if member.py_slot is not None and member.module is spec.module:
             _move_global_slot(spec, member, error_log)
 
@@ -397,7 +404,7 @@ def _move_class_casts(spec, klass, error_log):
         # If the destination class is in a different module then use a proxy.
         if dst_klass.iface_file.module is not spec.module:
             _iface_file_is_used(spec.module.used, arg)
-            dst_klass = _get_proxy(spec.module, dst_klass)
+            dst_klass = _get_extender(spec.module, dst_klass)
             ctor.no_typehint = True
 
         _iface_file_is_used(dst_klass.iface_file.used, arg)
@@ -416,7 +423,9 @@ def _move_class_casts(spec, klass, error_log):
 def _move_global_slot(spec, global_slot, error_log):
     """ If possible, move a global slot to its correct class. """
 
-    for overload in list(spec.module.overloads):
+    remove_member = True
+
+    for overload in tuple(spec.module.overloads):
         if overload.common is not global_slot:
             continue
 
@@ -480,128 +489,217 @@ def _move_global_slot(spec, global_slot, error_log):
                         overload)
             continue
 
-        # For rich comparisons the first argument must be a class or an enum.
-        # For cross-module slots then it may only be a class.  (This latter
-        # limitation is artificial, but is unlikely to be a problem in
-        # practice.)
-        if is_rich_compare_slot(global_slot.py_slot):
-            if is_second:
-                _log_overload_error(error_log,
-                        "argument 1 must be a class or enum", overload)
-                continue
-
-            if arg_module is not global_slot.module and arg0.type is ArgumentType.ENUM:
-                _log_overload_error(error_log, "argument 1 must be a class",
-                        overload)
-                continue
-
-        if arg_module is not global_slot.module:
-            if is_rich_compare_slot(global_slot.py_slot):
-                proxy = _get_proxy(arg_module, arg0.definition)
-
-                # Create a new proxy member if needed.
-                for proxy_member in proxy.members:
-                    if proxy_member.py_slot is global_slot.py_slot:
-                        break
-                else:
-                    proxy_member = Member(arg_module, global_slot.py_name,
-                            py_slot=global_slot.py_slot,
-                            namespace_iface_file=global_slot.namespace_iface_file)
-
-                    proxy.members.insert(0, proxy_member)
-
-                # Remove the overload from the list.
-                spec.module.overloads.remove(overload)
-
-                # Add the overload to the proxy.
-                overload.common = proxy_member
-                overload.no_typehint = True
-
-                proxy.overloads.insert(0, overload)
-
-                # Remove the overload's first argument.
-                del overload.py_signature.args[0]
-
-            continue
-
-        # Remove from the list.
-        spec.module.overloads.remove(overload)
-
-        if arg_enum is not None:
-            _enum_iface_file_is_used(arg_enum, arg_module)
-            arg_enum.py_name.used = True
-
-        # See if there is already a member or create a new one.
-        inject_equality_slot = False
-
-        for arg_member in arg_members:
-            if arg_member.py_slot is global_slot.py_slot:
-                break
+        if spec.target_abi >= (14, 0):
+            _move_slot_v14(spec, error_log, global_slot, overload, arg_module,
+                    arg_members, arg_overloads, arg_enum, is_second)
         else:
-            arg_member = copy(global_slot)
+            slot_extender = _move_slot_v12v13(spec, error_log, global_slot,
+                    overload, arg_module, arg_members, arg_overloads, arg_enum,
+                    is_second)
 
-            arg_member.module = arg_module
-            arg_members.insert(0, arg_member)
+            if slot_extender:
+                remove_member = False
 
-            # Legacy enum members, when accessed as scoped values, are created
-            # on the fly.  By default these members compare for equality
-            # correctly (ie. 'E.M == E.M' works as expected).  However if there
-            # is another equality operator defined then it will fail so we have
-            # to explicitly inject the comparison.
-            if spec.target_abi < (13, 0) and arg0.type is ArgumentType.ENUM and arg_member.py_slot is PySlot.EQ and not is_second:
-                inject_equality_slot = True
-
-        # Move the overload to the end of the destination list.
-        if is_second:
-            overload.is_reflected = True
-
-        overload.access_specifier = AccessSpecifier.PUBLIC
-        overload.common = arg_member
-        overload.is_global = True
-
-        arg_overloads.append(overload)
-
-        # Inject an additional equality slot if necessary.
-        if inject_equality_slot:
-            eq_overload = copy(overload)
-            eq_overload.py_signature = copy(eq_overload.py_signature)
-            eq_overload.py_signature.args = copy(eq_overload.py_signature.args)
-            eq_overload.cpp_signature = eq_overload.py_signature
-
-            eq_overload.py_signature.args[0].derefs = [False]
-            del eq_overload.py_signature.args[1]
-
-            arg_overloads.append(eq_overload)
-
-        # Remove the first argument of inplace numeric operators and comparison
-        # operators.
-        if is_inplace_number_slot(arg_member.py_slot) or is_rich_compare_slot(arg_member.py_slot):
-            # Remember if the argument was a pointer.
-            if len(arg0.derefs) > 0:
-                overload.dont_deref_self = True
-
-            del overload.py_signature.args[0]
-
-        # Remove the only argument of unary operators.
-        if is_zero_arg_slot(arg_member.py_slot):
-            del overload.py_signature.args[0]
+    if remove_member:
+        # Remove the slot itself as it has no remaining overloads.
+        spec.module.global_functions.remove(global_slot)
 
 
-def _get_proxy(mod, klass):
-    """ Create a proxy for a class if it doesn't already exist.  Proxies are
-    used as containers for cross-module extenders.
+def _move_slot_v14(spec, error_log, global_slot, overload, arg_module,
+        arg_members, arg_overloads, arg_enum, is_second):
+    """ Move a slot and adjust it's signature appropriately. """
+
+    if arg_module is not global_slot.module:
+        # We don't support cross-module enum extenders, ie. you can't specify
+        # a global operator in a module that takes an enum defined in another
+        # module.  This limitation could be overcome (potentially the most
+        # difficult issue is having to override the __getattr__ of the Python
+        # Enum type).  It is also a little different to the limitations imposed
+        # by ABIs v12 and v13 so it's possible that some things are possible in
+        # those that aren't supported by v14.  If so we'll consider them as v14
+        # bugs and deal with them as they arise.
+        extending = overload.py_signature.args[1 if is_second else 0]
+
+        if extending.type is not ArgumentType.CLASS:
+            _log_overload_error(error_log, "argument 1 must be a class",
+                    overload)
+            return
+
+        extender = _get_extender(global_slot.module, extending.definition)
+        arg_members = extender.members
+        arg_overloads = extender.overloads
+
+    if arg_enum is not None:
+        overload.dont_deref_self = True
+        _enum_iface_file_is_used(arg_enum, arg_module)
+
+    # Fix the member name if it is a reflected slot.
+    member_name = reflected_slot(global_slot.py_slot)
+    if member_name is not None and is_second:
+        member_name = CachedName(member_name)
+        overload.is_reflected = True
+    else:
+        member_name = global_slot.py_name
+
+    # See if there is already a member or create a new one.
+    for arg_member in arg_members:
+        if arg_member.py_name is member_name:
+            break
+    else:
+        arg_member = copy(global_slot)
+
+        arg_member.module = arg_module
+        arg_member.py_name = member_name
+        arg_members.append(arg_member)
+
+    # Move the overload to the end of the destination list.
+    overload.access_specifier = AccessSpecifier.PUBLIC
+    overload.common = arg_member
+    overload.is_global = True
+
+    arg_overloads.append(overload)
+
+    # Remove the self argument.
+    del overload.py_signature.args[1 if is_second else 0]
+
+    # Remove from the list.
+    spec.module.overloads.remove(overload)
+
+
+def _move_slot_v12v13(spec, error_log, global_slot, overload, arg_module,
+        arg_members, arg_overloads, arg_enum, is_second):
+    """ Move a slot and adjust it's signature appropriately.  Return True if
+    the slot wasn't moved so it can be handled at a later stage.
     """
 
-    for proxy in mod.proxies:
-        if proxy.iface_file is klass.iface_file:
-            return proxy
+    arg0 = overload.py_signature.args[0]
 
-    proxy = WrappedClass(klass.iface_file, klass.py_name, scope=klass.scope,
+    # For rich comparisons the first argument must be a class or an enum.  For
+    # cross-module slots then it may only be a class.  (This latter limitation
+    # is artificial, but is unlikely to be a problem in practice.)
+    if is_rich_compare_slot(global_slot.py_slot):
+        if is_second:
+            _log_overload_error(error_log,
+                    "argument 1 must be a class or enum", overload)
+            return False
+
+        if arg_module is not global_slot.module and arg0.type is ArgumentType.ENUM:
+            _log_overload_error(error_log, "argument 1 must be a class",
+                    overload)
+            return False
+
+    if arg_module is not global_slot.module:
+        if is_rich_compare_slot(global_slot.py_slot):
+            proxy = _get_extender(arg_module, arg0.definition)
+
+            # Create a new proxy member if needed.
+            for proxy_member in proxy.members:
+                if proxy_member.py_slot is global_slot.py_slot:
+                    break
+            else:
+                proxy_member = Member(arg_module, global_slot.py_name,
+                        py_slot=global_slot.py_slot,
+                        namespace_iface_file=global_slot.namespace_iface_file)
+
+                proxy.members.insert(0, proxy_member)
+
+            # Remove the overload from the list.
+            spec.module.overloads.remove(overload)
+
+            # Add the overload to the proxy.
+            overload.common = proxy_member
+            overload.no_typehint = True
+
+            proxy.overloads.insert(0, overload)
+
+            # Remove the overload's first argument.
+            del overload.py_signature.args[0]
+
+            slot_extender = False
+        else:
+            slot_extender = True
+
+        return slot_extender
+
+    # Remove from the list.
+    spec.module.overloads.remove(overload)
+
+    if arg_enum is not None:
+        _enum_iface_file_is_used(arg_enum, arg_module)
+        arg_enum.py_name.used = True
+
+    # See if there is already a member or create a new one.
+    inject_equality_slot = False
+
+    for arg_member in arg_members:
+        if arg_member.py_slot is global_slot.py_slot:
+            break
+    else:
+        arg_member = copy(global_slot)
+
+        arg_member.module = arg_module
+        arg_members.insert(0, arg_member)
+
+        # Legacy enum members, when accessed as scoped values, are created on
+        # the fly.  By default these members compare for equality correctly
+        # (ie. 'E.M == E.M' works as expected).  However if there is another
+        # equality operator defined then it will fail so we have to explicitly
+        # inject the comparison.
+        if SipModuleConfiguration.CustomEnums in spec.sip_module_configuration and arg0.type is ArgumentType.ENUM and arg_member.py_slot is PySlot.EQ and not is_second:
+            inject_equality_slot = True
+
+    # Move the overload to the end of the destination list.
+    if is_second:
+        overload.is_reflected = True
+
+    overload.access_specifier = AccessSpecifier.PUBLIC
+    overload.common = arg_member
+    overload.is_global = True
+
+    arg_overloads.append(overload)
+
+    # Inject an additional equality slot if necessary.
+    if inject_equality_slot:
+        eq_overload = copy(overload)
+        eq_overload.py_signature = copy(eq_overload.py_signature)
+        eq_overload.py_signature.args = copy(eq_overload.py_signature.args)
+        eq_overload.cpp_signature = eq_overload.py_signature
+
+        eq_overload.py_signature.args[0].derefs = [False]
+        del eq_overload.py_signature.args[1]
+
+        arg_overloads.append(eq_overload)
+
+    # Remove the first argument of inplace numeric operators and comparison
+    # operators.
+    if is_inplace_number_slot(arg_member.py_slot) or is_rich_compare_slot(arg_member.py_slot):
+        # Remember if the argument was a pointer.
+        if len(arg0.derefs) > 0:
+            overload.dont_deref_self = True
+
+        del overload.py_signature.args[0]
+
+    # Remove the only argument of unary operators.
+    if is_zero_arg_slot(arg_member.py_slot):
+        del overload.py_signature.args[0]
+
+    return False
+
+
+def _get_extender(mod, klass):
+    """ Create an extender for a class if it doesn't already exist. """
+
+    for extender in mod.extenders:
+        if extender.iface_file is klass.iface_file:
+            return extender
+
+    extender = WrappedClass(klass.iface_file, klass.py_name, scope=klass.scope,
             mro=klass.mro, real_class=klass, superclasses=klass.superclasses)
 
-    mod.proxies.insert(0, proxy)
+    # We insert to be consistent with old code.
+    mod.extenders.insert(0, extender)
 
-    return proxy
+    return extender
 
 
 def _add_auto_overload(spec, auto_klass, auto_overload):
@@ -1095,6 +1193,8 @@ def _add_virtual_overload(spec, overload, klass, error_log):
     if klass.iface_file.module is spec.module:
         virtual_handler = _get_virtual_handler(spec, overload, klass,
                 error_log)
+        virtual_error_handler = _get_virtual_error_handler(spec, overload,
+                klass, error_log);
 
         # Make sure we get the name.
         overload.common.py_name.used = True
@@ -1105,9 +1205,11 @@ def _add_virtual_overload(spec, overload, klass, error_log):
                 need_types=True)
     else:
         virtual_handler = None
+        virtual_error_handler = None
 
     # Add it to the class.
-    virtual_overload = VirtualOverload(overload, virtual_handler)
+    virtual_overload = VirtualOverload(overload, virtual_handler,
+            virtual_error_handler)
     klass.virtual_overloads.insert(0, virtual_overload)
 
 
@@ -1171,8 +1273,7 @@ def _get_virtual_handler(spec, overload, klass, error_log):
 
     # Create a new one.
     handler = VirtualHandler(overload.cpp_signature, overload.py_signature,
-            overload.virtual_catcher_code,
-            _get_virtual_error_handler(spec, overload, klass, error_log))
+            overload.virtual_catcher_code)
 
     handler.handler_nr = spec.nr_virtual_handlers
     spec.nr_virtual_handlers += 1
@@ -1193,12 +1294,6 @@ def _check_virtual_handler(spec, overload, virtual_handler):
 
     if overload.virtual_catcher_code is not virtual_handler.virtual_catcher_code:
         return False
-
-    # If the overload has an explicit error handler then it must be the same as
-    # the candidate.
-    if overload.virtual_error_handler is not None:
-        if virtual_handler.virtual_error_handler is None or overload.virtual_error_handler != virtual_handler.virtual_error_handler.name:
-            return False
 
     if (overload.factory or overload.transfer is Transfer.TRANSFER_BACK) and  not virtual_handler.transfer_result:
         return False
@@ -1274,9 +1369,9 @@ def _resolve_ctor_types(spec, scope, ctor, error_log):
             # The error has already been logged.
             continue
 
-        if not _supported_type(scope, None, arg, error_log):
+        if not _supported_type(spec, scope, None, arg, error_log):
             error_log.log(
-                    "argument {0} of ctor '{1}' has an unsupported type for a Python signature - provide a valid type, %MethodCode and a C++ signature".format(
+                    "argument {0} of ctor '{1}' has an unsupported type and/or annotation for a Python signature - provide a valid type, %MethodCode and a C++ signature".format(
                             arg_nr + 1, scope.iface_file.fq_cpp_name))
             continue
 
@@ -1296,7 +1391,7 @@ def _resolve_func_types(spec, mod, scope, overload, error_log, final_checks):
 
         _resolve_type(spec, mod, scope, result, error_log, allow_defined=True)
 
-        if (result.type is not ArgumentType.VOID or len(result.derefs) != 0) and overload.is_virtual and not _supported_type(scope, overload, result, error_log) and overload.virtual_catcher_code is None:
+        if (result.type is not ArgumentType.VOID or len(result.derefs) != 0) and overload.is_virtual and not _supported_type(spec, scope, overload, result, error_log) and overload.virtual_catcher_code is None:
             _log_overload_error(error_log,
                     "has an unsupported virtual function return type - provide %VirtualCatcherCode",
                     overload, scope=scope)
@@ -1353,8 +1448,9 @@ def _resolve_py_signature_types(spec, mod, scope, overload, error_log,
     """ Resolve the types of a Python signature. """
 
     result = overload.py_signature.result
+    nr_derefs = len(result.derefs)
 
-    if result.type is not ArgumentType.VOID or len(result.derefs) != 0:
+    if result.type is not ArgumentType.VOID or nr_derefs != 0:
         if overload.pyqt_method_specifier is PyQtMethodSpecifier.SIGNAL:
             _log_overload_error(error_log, "is a signal and must return void",
                     overload, scope=scope)
@@ -1365,12 +1461,23 @@ def _resolve_py_signature_types(spec, mod, scope, overload, error_log,
         if result.type is ArgumentType.NONE:
             # The error has already been logged.
             pass
-        elif not _supported_type(scope, overload, result, error_log):
+        elif not _supported_type(spec, scope, overload, result, error_log):
             if overload.cpp_signature is overload.py_signature or overload.method_code is None:
                 _log_overload_error(error_log,
                         "has an unsupported return type - provide %MethodCode and a {0} signature".format(
                                 'C' if spec.c_bindings else 'C++'),
                         overload, scope=scope)
+
+        # Additional checks for results that are copied.
+        if nr_derefs == 0 and not result.is_reference:
+            # Make sure a mapped type can be copied or moved.
+            if result.type is ArgumentType.MAPPED:
+                mapped_type = result.definition
+
+                if mapped_type.no_assignment_operator and not mapped_type.movable:
+                    _log_overload_error(error_log,
+                            "the mapped type result needs an assignment operator or be movable",
+                            overload, scope=scope)
 
     for arg_nr, arg in enumerate(overload.py_signature.args):
         _resolve_type(spec, mod, scope, arg, error_log)
@@ -1381,21 +1488,21 @@ def _resolve_py_signature_types(spec, mod, scope, overload, error_log,
         # Note signal arguments are restricted in their types because we don't
         # (yet) support handwritten code for them.
         if overload.pyqt_method_specifier is PyQtMethodSpecifier.SIGNAL:
-            if not _supported_type(scope, overload, arg, error_log):
+            if not _supported_type(spec, scope, overload, arg, error_log):
                 _log_overload_error(error_log,
-                        "argument {0} has an unsupported type for a Python signature".format(
+                        "argument {0} has an unsupported type and/or annotation for a Python signature".format(
                                 arg_nr + 1),
                         overload, scope=scope)
 
-        elif not _supported_type(scope, overload, arg, error_log, outputs=True):
+        elif not _supported_type(spec, scope, overload, arg, error_log, outputs=True):
             if overload.is_virtual:
                 _log_overload_error(error_log,
-                        "argument {0} has an unsupported type for a Python signature - provide a valid type, %MethodCode, %VirtualCatcherCode and a C++ signature".format(
+                        "argument {0} has an unsupported type and/or annotation for a Python signature - provide a valid type, %MethodCode, %VirtualCatcherCode and a C++ signature".format(
                                 arg_nr + 1),
                         overload, scope=scope)
 
             _log_overload_error(error_log,
-                    "argument {0} has an unsupported type for a Python signature - provide a valid type, %MethodCode and a C++ signature".format(
+                    "argument {0} has an unsupported type and/or annotation for a Python signature - provide a valid type, %MethodCode and a C++ signature".format(
                             arg_nr + 1),
                     overload, scope=scope)
 
@@ -1463,7 +1570,7 @@ _STRING_TYPES = (ArgumentType.ASCII_STRING, ArgumentType.LATIN1_STRING,
 def _resolve_variable_type(spec, variable, error_log):
     """ Resolve the type of a variable. """
 
-    if variable.scope is None:
+    if spec.target_abi < (14, 0) and variable.scope is None:
         if variable.get_code is not None or variable.set_code is not None:
             error_log.log("%GetCode or %SetCode cannot be specified for global variables")
 
@@ -1503,10 +1610,12 @@ def _resolve_variable_type(spec, variable, error_log):
         else:
             set_s = " and %SetCode"
 
-        error_log.log(f"'{variable.fq_cpp_name}' has an unsupported type - provide %GetCode{set_s}")
+        error_log.log(f"'{variable.fq_cpp_name}' has an unsupported type and/or annotation - provide %GetCode{set_s}")
  
     if variable.access_code is not None:
-        if variable_type.type is not ArgumentType.CLASS:
+        if spec.target_abi >= (14, 0):
+            error_log.log(f"'{variable.fq_cpp_name}' has %AccessCode which is not supported by ABI v14 and later, use %GetCode instead")
+        elif variable_type.type is not ArgumentType.CLASS:
             error_log.log(f"'{variable.fq_cpp_name}' has %AccessCode but isn't a class instance")
 
     if variable.scope is not None:
@@ -1515,14 +1624,14 @@ def _resolve_variable_type(spec, variable, error_log):
         _iface_file_is_used(variable.module.used, variable_type)
 
     # Scoped variables need a handler unless they have %AccessCode.
-    if variable.access_code is None:
+    if spec.target_abi < (14, 0) and variable.access_code is None:
         if variable.scope is not None and not variable.scope.is_hidden_namespace:
             variable.needs_handler = True
             variable.scope.has_variable_handlers = True
 
 
-def _supported_type(klass, overload, arg, error_log, outputs=False):
-    """ See if a type is supported by the generated code. """
+def _supported_type(spec, klass, overload, arg, error_log, outputs=False):
+    """ See if a type and annotations are supported by the generated code. """
 
     if arg.type in _CLASS_TYPES:
         if arg.is_reference:
@@ -1561,6 +1670,9 @@ def _supported_type(klass, overload, arg, error_log, outputs=False):
             return True
 
         elif len(arg.derefs) == 1:
+            if spec.target_abi < (14, 0) and arg.disallow_none:
+                return False
+
             if outputs:
                 _default_input(arg)
             else:

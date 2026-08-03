@@ -1,25 +1,31 @@
 from os import environ, path
 import hashlib
 from time import sleep, perf_counter
-from requests import get
+from requests import get, Response
 from json import loads, load, dump, JSONDecodeError
 from pandas import DataFrame
 from urllib.parse import urlparse, urljoin
 import re
 import logging
-from typing import Optional
+from collections.abc import Callable
+from typing import Any, Optional, ParamSpec, TypeVar
 
 logger = logging.getLogger(__name__)
 
 # New IMF API base URL
 IMF_API_BASE_URL = "https://api.imf.org/external/sdmx/3.0/"
 
+P = ParamSpec("P")
+R = TypeVar("R")
 
-def _min_wait_time_limited(default_wait_time=1.5):
-    def decorator(func):
+
+def _min_wait_time_limited(
+    default_wait_time: float = 1.5,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
         last_called = [0.0]
 
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             min_wait_time = float(environ.get("IMF_WAIT_TIME", default_wait_time))
             elapsed = perf_counter() - last_called[0]
             left_to_wait = min_wait_time - elapsed
@@ -35,7 +41,9 @@ def _min_wait_time_limited(default_wait_time=1.5):
 
 
 @_min_wait_time_limited()
-def _imf_get(url, headers, timeout=None):
+def _imf_get(
+    url: str, headers: dict[str, str], timeout: Optional[float] = None
+) -> Response:
     """
     A rate-limited wrapper around the requests.get method.
 
@@ -64,13 +72,13 @@ _imf_save_response = False
 
 
 def _download_parse(
-    resource_or_url,
-    times=3,
-    base_url=None,
-    query_params=None,
-    timeout_seconds=30.0,
-    low_speed_seconds=15.0,
-):
+    resource_or_url: str,
+    times: int = 3,
+    base_url: Optional[str] = None,
+    query_params: Optional[dict[str, Any]] = None,
+    timeout_seconds: float = 30.0,
+    low_speed_seconds: float = 15.0,
+) -> dict[str, Any]:
     """
     (Internal) Download and parse JSON content from the IMF API with rate limiting
     and retries.
@@ -163,7 +171,7 @@ def _download_parse(
             cached_status, cached_content = _load_cached_response(url)
             if cached_content is not None:
                 content = cached_content
-                status = cached_status
+                status = 0 if cached_status is None else cached_status
             else:
                 response = _imf_get(url, headers=headers, timeout=timeout_seconds)
                 content = response.text
@@ -294,8 +302,12 @@ def _download_parse(
                             f"Content preview: {preview}"
                         )
 
+    raise ValueError(
+        f"Content from API could not be parsed as JSON. Resource={resource}."
+    )
 
-def _load_cached_response(URL):
+
+def _load_cached_response(URL: str) -> tuple[Optional[int], Optional[str]]:
     file_name = hashlib.sha256(URL.encode()).hexdigest()
     file_path = f"tests/responses/{file_name}.json"
 
@@ -306,7 +318,7 @@ def _load_cached_response(URL):
     return None, None
 
 
-def _extract_first(value):
+def _extract_first(value: Any) -> Any:
     """Extract first element from list, or return value if not a list.
 
     This matches R's [[1]] behavior for extracting scalar values from lists.
@@ -400,12 +412,40 @@ def _parse_codelist_urn(urn: str) -> dict[str, Optional[str]]:
     }
 
 
-def _get_datastructure_components(dataflow_id: str, times: int = 3) -> dict:
+def _find_dataflow(dataflow_id: str, times: int = 3) -> dict[str, Any]:
+    """
+    (Internal) Look up a dataflow object by ID from the IMF dataflow catalog.
+
+    Args:
+        dataflow_id (str): The ID of the dataflow (database_id).
+        times (int, optional): The number of times to retry the request.
+            Defaults to 3.
+
+    Returns:
+        dict: The matching dataflow object from the API response.
+    """
+    raw_dl = _download_parse("structure/dataflow/all/*/+", times=times)
+    raw_dataflows = raw_dl.get("data", {}).get("dataflows")
+    if raw_dataflows is None:
+        raise ValueError("No dataflows found in API response.")
+
+    for flow in raw_dataflows:
+        if _extract_first(flow.get("id")) == dataflow_id:
+            return flow
+
+    raise ValueError(f"Dataflow not found or not unique: {dataflow_id}.")
+
+
+def _get_datastructure_components(
+    dataflow_id: str,
+    times: int = 3,
+    flow_row: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
     """
     (Internal) Retrieve raw datastructure components for a dataflow.
 
     This function:
-    1. Gets the dataflow to find its structure URN
+    1. Gets the dataflow to find its structure URN (or uses a provided flow)
     2. Parses the structure URN to get agency and ID
     3. Fetches the DSD (datastructure definition)
     4. Returns the dataStructureComponents
@@ -414,41 +454,29 @@ def _get_datastructure_components(dataflow_id: str, times: int = 3) -> dict:
         dataflow_id (str): The ID of the dataflow (database_id).
         times (int, optional): The number of times to retry the request.
             Defaults to 3.
+        flow_row (dict, optional): Pre-fetched dataflow object. When provided,
+            skips the dataflow catalog request.
 
     Returns:
         dict: The dataStructureComponents dictionary containing dimensionList,
             measureList, etc.
     """
-    # Step 1: Get dataflow to find its structure URN
-    raw_dl = _download_parse("structure/dataflow/all/*/+", times=times)
-    raw_dataflows = raw_dl.get("data", {}).get("dataflows")
-    if raw_dataflows is None:
-        raise ValueError("No dataflows found in API response.")
-
-    # Find the matching dataflow
-    flow_row = None
-    for flow in raw_dataflows:
-        flow_id = _extract_first(flow.get("id"))
-        if flow_id == dataflow_id:
-            flow_row = flow
-            break
-
     if flow_row is None:
-        raise ValueError(f"Dataflow not found or not unique: {dataflow_id}.")
+        flow_row = _find_dataflow(dataflow_id, times=times)
 
     # Extract structure URN
     structure_urn = _extract_first(flow_row.get("structure"))
     if not structure_urn:
         raise ValueError(f"Invalid structure URN for dataflow {dataflow_id}.")
 
-    # Step 2: Parse structure URN
+    # Parse structure URN
     dsd_ref = _parse_datastructure_urn(structure_urn)
     if not dsd_ref.get("agency") or not dsd_ref.get("id"):
         raise ValueError(
             f"Invalid structure URN for dataflow {dataflow_id}: {structure_urn}"
         )
 
-    # Step 3: Fetch DSD
+    # Fetch DSD
     dsd_path = f"structure/datastructure/{dsd_ref['agency']}/{dsd_ref['id']}/+"
     dsd_body = _download_parse(dsd_path, times=times)
 
@@ -456,7 +484,6 @@ def _get_datastructure_components(dataflow_id: str, times: int = 3) -> dict:
     if not dsds or len(dsds) < 1:
         raise ValueError(f"No dataStructures found in DSD response for {dataflow_id}.")
 
-    # Step 4: Extract components
     components = dsds[0].get("dataStructureComponents")
     if components is None:
         raise ValueError(f"No dataStructureComponents found in DSD for {dataflow_id}.")
@@ -464,7 +491,9 @@ def _get_datastructure_components(dataflow_id: str, times: int = 3) -> dict:
     return components
 
 
-def _imf_dimensions(database_id, times=3, inputs_only=True):
+def _imf_dimensions(
+    database_id: str, times: int = 3, inputs_only: bool = True
+) -> DataFrame:
     """
     (Internal) Retrieve the list of codes for dimensions of an individual IMF
     database.
@@ -695,7 +724,7 @@ def _imf_dimensions(database_id, times=3, inputs_only=True):
     return result_df
 
 
-def _imf_metadata(database_id, times=3):
+def _imf_metadata(database_id: str, times: int = 3) -> dict[str, Any]:
     """
     (Internal) Access metadata for a dataset.
 
@@ -718,22 +747,12 @@ def _imf_metadata(database_id, times=3):
     if not database_id:
         raise ValueError("Must supply database_id.")
 
-    # Get all dataflows to find the matching one
-    raw_dl = _download_parse("structure/dataflow/all/*/+", times=times)
-    raw_dataflows = raw_dl.get("data", {}).get("dataflows")
-    if raw_dataflows is None:
-        raise ValueError("No dataflows found in API response.")
-
-    # Find the matching dataflow
-    flow_row = None
-    for flow in raw_dataflows:
-        flow_id = _extract_first(flow.get("id"))
-        if flow_id == database_id:
-            flow_row = flow
-            break
-
-    if flow_row is None:
-        raise ValueError(f"Dataflow not found: {database_id}.")
+    try:
+        flow_row = _find_dataflow(database_id, times=times)
+    except ValueError as e:
+        if "Dataflow not found" in str(e):
+            raise ValueError(f"Dataflow not found: {database_id}.") from e
+        raise
 
     # Extract agency ID and version for detailed metadata query
     agency_id = _extract_first(flow_row.get("agencyID"))

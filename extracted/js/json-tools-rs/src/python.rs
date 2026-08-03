@@ -23,21 +23,30 @@ use std::sync::Mutex;
 use indexmap::{IndexMap, IndexSet};
 
 #[cfg(feature = "python")]
-use arrow_array::builder::{
-    ArrayBuilder, BooleanBuilder, Date32Builder, Float64Builder, Int64Builder, ListBuilder,
-    StringBuilder, TimestampMicrosecondBuilder,
+use arrow_array::{
+    Array, ArrayRef, LargeStringArray, ListArray, RecordBatch, StringArray, StringViewArray,
 };
 #[cfg(feature = "python")]
-use arrow_array::{Array, ArrayRef, LargeStringArray, RecordBatch, StringArray, StringViewArray};
+use arrow_buffer::OffsetBuffer;
 #[cfg(feature = "python")]
 use arrow_schema::{DataType, Field, Schema};
+#[cfg(feature = "python")]
+use compact_str::CompactString;
 #[cfg(feature = "python")]
 use pyo3_arrow::{PyChunkedArray, PyTable};
 #[cfg(feature = "python")]
 use std::sync::Arc;
 
 #[cfg(feature = "python")]
-use crate::flatten::write_json_escaped_key;
+use crate::arrow_columnar::{raw_scalar_kind, ColumnBuilder, ColumnPlan, KindFlags, ListCell};
+#[cfg(feature = "python")]
+use crate::config::{ProcessingConfig, TypeConversionMode};
+#[cfg(feature = "python")]
+use crate::convert::convert_string_for_mode;
+#[cfg(feature = "python")]
+use crate::flatten::{escape_json_string, unescape_json_string, write_json_escaped_key};
+#[cfg(feature = "python")]
+use crate::transform::{apply_replacement_patterns, matches_any_pattern};
 use crate::{JSONTools, JsonOutput};
 
 #[cfg(feature = "python")]
@@ -994,8 +1003,18 @@ fn dataframe_drop_columns<'py>(
 /// text (a dict/struct-typed column is already handled directly by the
 /// flatten engine; a numeric/bool/nested-list column can't hold JSON text at
 /// all).
+/// `CompactString` rather than `String` per cell: short JSON-string-column
+/// values (short embedded objects, short scalars) stay on the stack instead
+/// of heap-allocating, same tradeoff as this crate's other short-string
+/// hot paths (`CompactKeyBuilder`/`ValueRef::Owned`). Values long enough to
+/// exceed the 24-byte inline cap (larger embedded JSON blobs, the case this
+/// whole zero-copy path exists for) still heap-allocate exactly as before --
+/// this only removes the allocation for the shorter cells in a column, not
+/// all of them.
 #[cfg(feature = "python")]
-fn extract_arrow_string_values(col: &Bound<'_, PyAny>) -> PyResult<Option<Vec<Option<String>>>> {
+fn extract_arrow_string_values(
+    col: &Bound<'_, PyAny>,
+) -> PyResult<Option<Vec<Option<CompactString>>>> {
     let Ok(chunked) = col.extract::<PyChunkedArray>() else {
         return Ok(None);
     };
@@ -1003,15 +1022,15 @@ fn extract_arrow_string_values(col: &Bound<'_, PyAny>) -> PyResult<Option<Vec<Op
     for chunk in chunked.chunks() {
         if let Some(arr) = chunk.as_any().downcast_ref::<StringArray>() {
             for i in 0..arr.len() {
-                out.push(arr.is_valid(i).then(|| arr.value(i).to_string()));
+                out.push(arr.is_valid(i).then(|| CompactString::from(arr.value(i))));
             }
         } else if let Some(arr) = chunk.as_any().downcast_ref::<LargeStringArray>() {
             for i in 0..arr.len() {
-                out.push(arr.is_valid(i).then(|| arr.value(i).to_string()));
+                out.push(arr.is_valid(i).then(|| CompactString::from(arr.value(i))));
             }
         } else if let Some(arr) = chunk.as_any().downcast_ref::<StringViewArray>() {
             for i in 0..arr.len() {
-                out.push(arr.is_valid(i).then(|| arr.value(i).to_string()));
+                out.push(arr.is_valid(i).then(|| CompactString::from(arr.value(i))));
             }
         } else {
             return Ok(None); // not a string array (int/float/bool/struct/...)
@@ -1061,7 +1080,7 @@ fn detect_and_extract_json_columns_zerocopy(
 ) -> PyResult<
     Option<(
         Vec<String>,
-        IndexMap<String, Vec<Option<String>>>,
+        IndexMap<String, Vec<Option<CompactString>>>,
         Vec<String>,
     )>,
 > {
@@ -1071,7 +1090,7 @@ fn detect_and_extract_json_columns_zerocopy(
 
     let column_order = dataframe_column_names(df, df_type)?;
     let mut target_cols = Vec::new();
-    let mut target_values: IndexMap<String, Vec<Option<String>>> = IndexMap::new();
+    let mut target_values: IndexMap<String, Vec<Option<CompactString>>> = IndexMap::new();
 
     for name in &column_order {
         let col = dataframe_get_column(df, df_type, name)?;
@@ -1119,7 +1138,7 @@ fn splice_zerocopy_columns(
     base_rows: Vec<String>,
     column_order: &[String],
     target_cols: &[String],
-    target_values: &IndexMap<String, Vec<Option<String>>>,
+    target_values: &IndexMap<String, Vec<Option<CompactString>>>,
 ) -> PyResult<Vec<String>> {
     let target_set: IndexSet<&str> = target_cols.iter().map(String::as_str).collect();
     let mut failure_counts: IndexMap<String, usize> = IndexMap::new();
@@ -2782,520 +2801,6 @@ fn require_active_spark_session(py: Python<'_>) -> PyResult<Bound<'_, PyAny>> {
 // (`NotImplementedError`/`ArrowNotImplementedError`) -- a confirmed dead end
 // for this ecosystem, not a laziness shortcut.
 
-/// Scalar Arrow type a column (or a list column's element type) resolves to.
-/// `Date32`/`TimestampUtcMicros` are scalar-column-only (never a list
-/// element's type -- see `ColumnPlan`'s doc comment) and only ever chosen
-/// when the caller's `.convert_dates()`/`.auto_convert_types()` config is
-/// enabled (see `raw_scalar_kind`'s `dates_enabled` parameter) -- this
-/// engine never independently pattern-matches a plain string into a date
-/// against the user's own wishes, only promotes what the core engine's own
-/// existing, opt-in date recognition already normalized.
-#[cfg(feature = "python")]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ScalarKind {
-    Bool,
-    Int64,
-    Float64,
-    Date32,
-    TimestampUtcMicros,
-    Utf8,
-}
-
-/// A column's overall shape: either every row's value is a scalar, or at
-/// least one row's value is a JSON array (in which case every other non-null
-/// cell is treated as a single-element list of that same element kind --
-/// same "once any row is list-valued, wrap every other cell too" rule
-/// `union_and_columnarize` used, ported unchanged). List columns never
-/// resolve to `Date32`/`TimestampUtcMicros` -- date detection only runs at
-/// the top level (see `raw_scalar_kind`); a date-shaped string inside a
-/// `handle_key_collision(True)` array is deliberately left as plain text,
-/// a narrow, explicit scope boundary rather than doubling the number of
-/// `ColumnBuilder::List*` variants for a very rare combination.
-#[cfg(feature = "python")]
-#[derive(Debug, Clone, Copy)]
-enum ColumnPlan {
-    Scalar(ScalarKind),
-    List(ScalarKind),
-}
-
-/// Per-column (or per-list-column-element) kind flags accumulated during
-/// Pass 1 -- mirrors the old `classify_scalar_kind`'s (bool, numeric, str)
-/// triple, split into (bool, int, float, date, datetime) since this engine
-/// -- unlike the `PyAny`-based original, which gets int/float distinction
-/// for free from Python's own object types -- must decide the exact Arrow
-/// type itself to pick the right builder.
-#[cfg(feature = "python")]
-#[derive(Default, Clone, Copy)]
-struct KindFlags {
-    bool_: bool,
-    int_: bool,
-    float_: bool,
-    str_: bool,
-    date_: bool,
-    datetime_: bool,
-}
-
-#[cfg(feature = "python")]
-impl KindFlags {
-    fn merge(&mut self, other: KindFlags) {
-        self.bool_ |= other.bool_;
-        self.int_ |= other.int_;
-        self.float_ |= other.float_;
-        self.str_ |= other.str_;
-        self.date_ |= other.date_;
-        self.datetime_ |= other.datetime_;
-    }
-
-    /// Resolve to a single Arrow scalar type, matching `classify_scalar_kind`'s
-    /// established priority: any 2+ of {bool, numeric, str, temporal} present ->
-    /// stringify fallback (Utf8); numeric alone -> Float64 if any float seen
-    /// (including an integer too large for i64, downgraded here rather than
-    /// erroring -- an accepted precision tradeoff for a value this large) else
-    /// Int64; temporal alone -> TimestampUtcMicros if any genuine datetime seen
-    /// (a bare date promotes to midnight UTC, the same "promote the narrower
-    /// kind" pattern int->float already uses) else Date32 if only bare dates;
-    /// str alone, or nothing seen at all (all-null column) -> Utf8, matching the
-    /// old all-None default.
-    fn resolve(&self) -> ScalarKind {
-        let numeric = self.int_ || self.float_;
-        let temporal = self.date_ || self.datetime_;
-        let kinds_present = [self.bool_, numeric, self.str_, temporal]
-            .into_iter()
-            .filter(|p| *p)
-            .count();
-        if kinds_present > 1 {
-            ScalarKind::Utf8
-        } else if self.bool_ {
-            ScalarKind::Bool
-        } else if self.float_ {
-            ScalarKind::Float64
-        } else if self.int_ {
-            ScalarKind::Int64
-        } else if self.datetime_ {
-            ScalarKind::TimestampUtcMicros
-        } else if self.date_ {
-            ScalarKind::Date32
-        } else {
-            ScalarKind::Utf8
-        }
-    }
-}
-
-/// Classify a single JSON scalar leaf's raw text. Returns `None` for `null`
-/// (nulls never contribute to kind flags -- consistent with treating null as
-/// compatible with any column, same as the old Python-`None` handling).
-/// Callers only ever hand this a genuine scalar or a literal `{}` -- flatten
-/// mode's own recursive expansion means a non-empty object/array can never
-/// survive as a leaf (verified directly against `flatten.rs`'s walkers), and
-/// a non-empty `[...]` is filtered out before this is reached (routed to the
-/// list-column path instead). A literal **empty object** `{}` is the one
-/// object-shaped leaf that *can* still reach here (when
-/// `remove_empty_objects(False)` is set) -- classified as `str_` and
-/// stringified to its own literal text `"{}"`, the same "unusual value ->
-/// stringify" treatment already applied to any other kind this engine can't
-/// give a cleaner Arrow type. Confirmed via direct reproduction that without
-/// this case, `{}`'s `{` first byte fell through to the number-parsing
-/// branch below and panicked on the inevitable parse failure.
-/// `dates_enabled` gates date/datetime detection on the caller's own
-/// `.convert_dates()`/`.auto_convert_types()` setting (checked once by
-/// `build_normalise_table`, not re-derived per cell) -- this engine never
-/// independently pattern-matches an ordinary string into a date; it only
-/// promotes what the core flatten engine's own opt-in date recognition
-/// already normalized into this crate's fixed ISO8601 shape (`convert.rs`'s
-/// `try_parse_and_normalize_iso8601`: a bare `YYYY-MM-DD` date, or a
-/// `Z`/offset-suffixed RFC3339 datetime -- always normalized to UTC when
-/// recognized). When disabled, a date-shaped string is just an ordinary
-/// string, same as before this feature existed.
-#[cfg(feature = "python")]
-fn raw_scalar_kind(text: &str, dates_enabled: bool) -> Option<KindFlags> {
-    match *text.as_bytes().first()? {
-        b'n' => None, // null
-        b't' | b'f' => Some(KindFlags {
-            bool_: true,
-            ..Default::default()
-        }),
-        b'"' => {
-            // Cheap quote-stripping, not full JSON unescaping: this crate's own
-            // normalized date/datetime text never contains characters that need
-            // escaping (only digits/`-`/`:`/`T`/`.`/`Z`/offset signs), so a plain
-            // slice is safe and avoids an allocation for the common case where
-            // dates_enabled is true but this particular string isn't a date --
-            // an escaped string that coincidentally looked date-shaped after
-            // naive slicing would just fail the strict chrono parse below and
-            // fall through to the ordinary str_ classification, harmlessly.
-            if dates_enabled && text.len() >= 2 {
-                let inner = &text[1..text.len() - 1];
-                match parse_normalized_date_or_datetime(inner) {
-                    Some(DateOrDateTime::Date(_)) => {
-                        return Some(KindFlags {
-                            date_: true,
-                            ..Default::default()
-                        })
-                    }
-                    Some(DateOrDateTime::DateTime(_)) => {
-                        return Some(KindFlags {
-                            datetime_: true,
-                            ..Default::default()
-                        })
-                    }
-                    None => {}
-                }
-            }
-            Some(KindFlags {
-                str_: true,
-                ..Default::default()
-            })
-        }
-        b'{' => Some(KindFlags {
-            str_: true,
-            ..Default::default()
-        }),
-        _ => {
-            // Number: `.`/`e`/`E` or an integer too large for i64 both need
-            // Float64; everything else fits Int64.
-            let is_float_syntax = text.bytes().any(|b| matches!(b, b'.' | b'e' | b'E'));
-            if !is_float_syntax && text.parse::<i64>().is_ok() {
-                Some(KindFlags {
-                    int_: true,
-                    ..Default::default()
-                })
-            } else {
-                Some(KindFlags {
-                    float_: true,
-                    ..Default::default()
-                })
-            }
-        }
-    }
-}
-
-/// A successfully-recognized date or datetime, from `parse_normalized_date_or_datetime`.
-#[cfg(feature = "python")]
-enum DateOrDateTime {
-    Date(chrono::NaiveDate),
-    DateTime(chrono::DateTime<chrono::Utc>),
-}
-
-/// Attempt to parse `inner` (already quote-stripped) as this engine's own
-/// normalized date/datetime shape -- a real `chrono` parse (RFC3339 for
-/// datetimes, `%Y-%m-%d` for bare dates), not a regex/length heuristic, so a
-/// malformed or merely date-*looking* string never false-positives.
-#[cfg(feature = "python")]
-fn parse_normalized_date_or_datetime(inner: &str) -> Option<DateOrDateTime> {
-    if let Ok(date) = chrono::NaiveDate::parse_from_str(inner, "%Y-%m-%d") {
-        return Some(DateOrDateTime::Date(date));
-    }
-    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(inner) {
-        return Some(DateOrDateTime::DateTime(dt.with_timezone(&chrono::Utc)));
-    }
-    None
-}
-
-/// Days since the Unix epoch, for building a `Date32Builder` value.
-#[cfg(feature = "python")]
-fn date32_days(date: chrono::NaiveDate) -> i32 {
-    date.signed_duration_since(chrono::NaiveDate::from_ymd_opt(1970, 1, 1).expect("valid date"))
-        .num_days() as i32
-}
-
-/// Python `str()`-equivalent text for a raw JSON scalar leaf -- used only for
-/// the mixed-kind stringify fallback, so behavior matches what
-/// `union_and_columnarize`'s old `cell.str()?` already produced: a JSON
-/// string's own (unescaped) content, `True`/`False` (capitalized, matching
-/// Python bool's `__str__`) for booleans, and a number's own JSON text
-/// as-is (Python's `str(int)`/`str(float)` and JSON's own number formatting
-/// agree for the vast majority of real values; an exact byte-for-byte match
-/// of Python's float-repr algorithm is not chased here -- this is already a
-/// best-effort fallback for a column too heterogeneous to type cleanly, not
-/// a precision-critical path).
-#[cfg(feature = "python")]
-fn stringify_raw(text: &str) -> std::borrow::Cow<'_, str> {
-    match text.as_bytes().first() {
-        Some(b'"') => match serde_json::from_str::<String>(text) {
-            Ok(s) => std::borrow::Cow::Owned(s),
-            Err(_) => std::borrow::Cow::Borrowed(text),
-        },
-        Some(b't') => std::borrow::Cow::Borrowed("True"),
-        Some(b'f') => std::borrow::Cow::Borrowed("False"),
-        _ => std::borrow::Cow::Borrowed(text),
-    }
-}
-
-/// One column's Arrow array under construction. A `List*` variant's inner
-/// builder holds every list cell's elements back-to-back; `append` calls on
-/// the outer `ListBuilder` mark each cell's boundary (`append(true)` for a
-/// present -- possibly empty -- list, `append(false)` for a null cell).
-#[cfg(feature = "python")]
-enum ColumnBuilder {
-    Bool(BooleanBuilder),
-    Int64(Int64Builder),
-    Float64(Float64Builder),
-    Date32(Date32Builder),
-    TimestampUtcMicros(TimestampMicrosecondBuilder),
-    Utf8(StringBuilder),
-    ListBool(ListBuilder<BooleanBuilder>),
-    ListInt64(ListBuilder<Int64Builder>),
-    ListFloat64(ListBuilder<Float64Builder>),
-    ListUtf8(ListBuilder<StringBuilder>),
-}
-
-#[cfg(feature = "python")]
-impl ColumnBuilder {
-    fn new(plan: ColumnPlan, capacity: usize) -> Self {
-        match plan {
-            ColumnPlan::Scalar(ScalarKind::Bool) => {
-                ColumnBuilder::Bool(BooleanBuilder::with_capacity(capacity))
-            }
-            ColumnPlan::Scalar(ScalarKind::Int64) => {
-                ColumnBuilder::Int64(Int64Builder::with_capacity(capacity))
-            }
-            ColumnPlan::Scalar(ScalarKind::Float64) => {
-                ColumnBuilder::Float64(Float64Builder::with_capacity(capacity))
-            }
-            ColumnPlan::Scalar(ScalarKind::Date32) => {
-                ColumnBuilder::Date32(Date32Builder::with_capacity(capacity))
-            }
-            ColumnPlan::Scalar(ScalarKind::TimestampUtcMicros) => {
-                ColumnBuilder::TimestampUtcMicros(
-                    TimestampMicrosecondBuilder::with_capacity(capacity).with_timezone("UTC"),
-                )
-            }
-            ColumnPlan::Scalar(ScalarKind::Utf8) => {
-                ColumnBuilder::Utf8(StringBuilder::with_capacity(capacity, capacity * 8))
-            }
-            ColumnPlan::List(ScalarKind::Bool) => {
-                ColumnBuilder::ListBool(ListBuilder::with_capacity(BooleanBuilder::new(), capacity))
-            }
-            ColumnPlan::List(ScalarKind::Int64) => {
-                ColumnBuilder::ListInt64(ListBuilder::with_capacity(Int64Builder::new(), capacity))
-            }
-            ColumnPlan::List(ScalarKind::Float64) => ColumnBuilder::ListFloat64(
-                ListBuilder::with_capacity(Float64Builder::new(), capacity),
-            ),
-            ColumnPlan::List(ScalarKind::Utf8) => {
-                ColumnBuilder::ListUtf8(ListBuilder::with_capacity(StringBuilder::new(), capacity))
-            }
-            // Date32/TimestampUtcMicros are never chosen for a List plan --
-            // see ColumnPlan's doc comment (date detection is scalar-only).
-            ColumnPlan::List(ScalarKind::Date32 | ScalarKind::TimestampUtcMicros) => {
-                unreachable!("date/datetime kinds are never resolved for a list column")
-            }
-        }
-    }
-
-    fn arrow_field(&self, name: &str) -> Field {
-        fn item_field(kind_dt: DataType) -> Arc<Field> {
-            Arc::new(Field::new("item", kind_dt, true))
-        }
-        let dt = match self {
-            ColumnBuilder::Bool(_) => DataType::Boolean,
-            ColumnBuilder::Int64(_) => DataType::Int64,
-            ColumnBuilder::Float64(_) => DataType::Float64,
-            ColumnBuilder::Date32(_) => DataType::Date32,
-            ColumnBuilder::TimestampUtcMicros(_) => {
-                DataType::Timestamp(arrow_schema::TimeUnit::Microsecond, Some("UTC".into()))
-            }
-            ColumnBuilder::Utf8(_) => DataType::Utf8,
-            ColumnBuilder::ListBool(_) => DataType::List(item_field(DataType::Boolean)),
-            ColumnBuilder::ListInt64(_) => DataType::List(item_field(DataType::Int64)),
-            ColumnBuilder::ListFloat64(_) => DataType::List(item_field(DataType::Float64)),
-            ColumnBuilder::ListUtf8(_) => DataType::List(item_field(DataType::Utf8)),
-        };
-        Field::new(name, dt, true)
-    }
-
-    /// Append one row's raw JSON value. `raw = None` means the key was
-    /// entirely absent from this row (union null-fill); `Some(text)` where
-    /// `text` is JSON `null` means the key was present but explicitly null --
-    /// both append a null cell. Every `.parse()`/text-shape assumption below
-    /// is guaranteed to hold by Pass 1's own classification (this column's
-    /// `ColumnPlan` was derived from scanning these exact same values) --
-    /// `.expect()` on failure indicates a bug in that classification, not a
-    /// possible-in-practice user-facing error, and PyO3 converts an
-    /// `#[pymethod]`-body panic into a Python exception rather than crashing.
-    fn append_row(&mut self, raw: Option<&serde_json::value::RawValue>) {
-        let text = raw.map(serde_json::value::RawValue::get);
-        let is_null = text.is_none() || text.map(|t| t.as_bytes()[0]) == Some(b'n');
-        match self {
-            ColumnBuilder::Bool(b) => {
-                if is_null {
-                    b.append_null();
-                } else {
-                    b.append_value(text.expect("checked non-null above") == "true");
-                }
-            }
-            ColumnBuilder::Int64(b) => {
-                if is_null {
-                    b.append_null();
-                } else {
-                    let t = text.expect("checked non-null above");
-                    b.append_value(
-                        t.parse::<i64>()
-                            .expect("Pass 1 classified this column Int64"),
-                    );
-                }
-            }
-            ColumnBuilder::Float64(b) => {
-                if is_null {
-                    b.append_null();
-                } else {
-                    let t = text.expect("checked non-null above");
-                    b.append_value(
-                        t.parse::<f64>()
-                            .expect("Pass 1 classified this column Float64"),
-                    );
-                }
-            }
-            ColumnBuilder::Date32(b) => {
-                if is_null {
-                    b.append_null();
-                } else {
-                    let t = text.expect("checked non-null above");
-                    let inner = &t[1..t.len() - 1];
-                    let parsed = parse_normalized_date_or_datetime(inner)
-                        .expect("Pass 1 classified this column Date32");
-                    let DateOrDateTime::Date(date) = parsed else {
-                        unreachable!("Date32 column never sees a genuine datetime value")
-                    };
-                    b.append_value(date32_days(date));
-                }
-            }
-            ColumnBuilder::TimestampUtcMicros(b) => {
-                if is_null {
-                    b.append_null();
-                } else {
-                    let t = text.expect("checked non-null above");
-                    let inner = &t[1..t.len() - 1];
-                    let parsed = parse_normalized_date_or_datetime(inner)
-                        .expect("Pass 1 classified this column TimestampUtcMicros");
-                    let micros = match parsed {
-                        DateOrDateTime::Date(d) => d
-                            .and_hms_opt(0, 0, 0)
-                            .expect("valid time")
-                            .and_utc()
-                            .timestamp_micros(),
-                        DateOrDateTime::DateTime(dt) => dt.timestamp_micros(),
-                    };
-                    b.append_value(micros);
-                }
-            }
-            ColumnBuilder::Utf8(b) => {
-                if is_null {
-                    b.append_null();
-                } else {
-                    b.append_value(stringify_raw(text.expect("checked non-null above")));
-                }
-            }
-            ColumnBuilder::ListBool(_)
-            | ColumnBuilder::ListInt64(_)
-            | ColumnBuilder::ListFloat64(_)
-            | ColumnBuilder::ListUtf8(_) => {
-                unreachable!("list columns are appended via append_list_cell, not append_row")
-            }
-        }
-    }
-
-    /// Append one row's pre-parsed list cell (see `ListCell`'s doc comment
-    /// for why this takes an already-parsed cell rather than raw text).
-    fn append_list_cell(&mut self, cell: &ListCell<'_>) {
-        match self {
-            ColumnBuilder::ListBool(b) => append_list_row(b, cell, |inner, t| match t {
-                Some(t) => inner.append_value(t == "true"),
-                None => inner.append_null(),
-            }),
-            ColumnBuilder::ListInt64(b) => append_list_row(b, cell, |inner, t| match t {
-                Some(t) => inner.append_value(
-                    t.parse::<i64>()
-                        .expect("Pass 1 classified this column's list elements Int64"),
-                ),
-                None => inner.append_null(),
-            }),
-            ColumnBuilder::ListFloat64(b) => append_list_row(b, cell, |inner, t| match t {
-                Some(t) => inner.append_value(
-                    t.parse::<f64>()
-                        .expect("Pass 1 classified this column's list elements Float64"),
-                ),
-                None => inner.append_null(),
-            }),
-            ColumnBuilder::ListUtf8(b) => append_list_row(b, cell, |inner, t| match t {
-                Some(t) => inner.append_value(stringify_raw(t)),
-                None => inner.append_null(),
-            }),
-            _ => unreachable!("append_list_cell only called for List* ColumnBuilder variants"),
-        }
-    }
-
-    fn finish(self) -> ArrayRef {
-        match self {
-            ColumnBuilder::Bool(mut b) => Arc::new(b.finish()),
-            ColumnBuilder::Int64(mut b) => Arc::new(b.finish()),
-            ColumnBuilder::Float64(mut b) => Arc::new(b.finish()),
-            ColumnBuilder::Date32(mut b) => Arc::new(b.finish()),
-            ColumnBuilder::TimestampUtcMicros(mut b) => Arc::new(b.finish()),
-            ColumnBuilder::Utf8(mut b) => Arc::new(b.finish()),
-            ColumnBuilder::ListBool(mut b) => Arc::new(b.finish()),
-            ColumnBuilder::ListInt64(mut b) => Arc::new(b.finish()),
-            ColumnBuilder::ListFloat64(mut b) => Arc::new(b.finish()),
-            ColumnBuilder::ListUtf8(mut b) => Arc::new(b.finish()),
-        }
-    }
-}
-
-/// A list column's cell, pre-parsed exactly once during the classification
-/// scan in `build_normalise_table` and reused here during the build scan --
-/// the array text used to be parsed twice (once to classify element kinds,
-/// once again to build), a real, measured cost for `handle_key_collision(True)`'s
-/// own headline scenario (many rows, each a JSON array). Caching the parse
-/// result for one column at a time (freed once that column's `ArrayRef` is
-/// built) avoids the second `serde_json::from_str` + `Vec` allocation per
-/// cell without changing memory scaling (bounded by that single column's row
-/// count either way).
-#[cfg(feature = "python")]
-enum ListCell<'a> {
-    /// Key entirely absent from this row (union null-fill).
-    Absent,
-    /// Key present but explicitly JSON `null`.
-    Null,
-    /// A genuine JSON array, already split into its top-level elements.
-    Elems(Vec<&'a serde_json::value::RawValue>),
-    /// A scalar cell in a list-typed column: wraps into a single-element
-    /// list, same as `union_and_columnarize`'s existing rule.
-    Scalar(&'a str),
-}
-
-/// Shared per-row append logic for every `List*` `ColumnBuilder` variant --
-/// `append_elem` does the one type-specific thing (parse this element's text
-/// into the inner builder's own value type, or append a null when given
-/// `None`); everything else (null cell vs. present list vs. wrapped scalar)
-/// is identical across all four element types. Takes an already-parsed
-/// `ListCell` (see its doc comment) rather than raw text, so this never
-/// re-parses a JSON array that the classification pass already parsed.
-#[cfg(feature = "python")]
-fn append_list_row<T: ArrayBuilder>(
-    list_builder: &mut ListBuilder<T>,
-    cell: &ListCell<'_>,
-    mut append_elem: impl FnMut(&mut T, Option<&str>),
-) {
-    match cell {
-        ListCell::Absent | ListCell::Null => list_builder.append(false),
-        ListCell::Elems(elems) => {
-            for elem in elems {
-                let elem_text = elem.get();
-                if elem_text.as_bytes().first() == Some(&b'n') {
-                    append_elem(list_builder.values(), None);
-                } else {
-                    append_elem(list_builder.values(), Some(elem_text));
-                }
-            }
-            list_builder.append(true);
-        }
-        ListCell::Scalar(text) => {
-            append_elem(list_builder.values(), Some(text));
-            list_builder.append(true);
-        }
-    }
-}
-
 /// Parse each processed (flattened) JSON string into `RawValue`-backed rows,
 /// union every row's keys in first-seen order, decide each column's real
 /// Arrow type, and build the corresponding `RecordBatch` -- all without ever
@@ -3476,7 +2981,7 @@ fn build_normalise_table<'py>(
             let mut builder = ColumnBuilder::new(ColumnPlan::Scalar(flags.resolve()), n_rows);
             fields.push(builder.arrow_field(key));
             for cell in &column_slots[col_idx] {
-                builder.append_row(*cell);
+                builder.append_row(cell.map(serde_json::value::RawValue::get));
             }
             arrays.push(builder.finish());
         }
@@ -3629,6 +3134,869 @@ fn reconstruct_pyspark_normalise(
 }
 
 // =============================================================================
+// Flat-DataFrame fast path for plain `.flatten().execute(df)`
+// =============================================================================
+//
+// `execute_dataframe` below always round-trips the whole DataFrame through
+// JSON text: serialize every row (`dataframe_to_json_strings`), parse+flatten
+// each row in Rust, deserialize the output JSON back into Python dicts
+// (`py_loads`), reconstruct a DataFrame from those dicts. Measured directly
+// (interleaved A/B): for a DataFrame with no nested/struct columns, that
+// round trip costs ~90-99ms for 20K rows x 20 cols, of which pandas' own
+// `to_json()` is ~36ms, this crate's own flatten logic (isolated) is only
+// ~6.5ms, and deserialize+reconstruct is ~18-60ms -- the JSON-text round trip
+// itself is the cost, paid even when there's nothing nested to flatten (a
+// common case: generic pipelines that call `.flatten()` defensively, or use
+// it purely for its key-transform/type-conversion features on already-
+// tabular data).
+//
+// This fast path reads column values directly, applies the exact same
+// per-cell value-transform logic (`convert_string_for_mode`/
+// `apply_replacement_patterns`, unchanged) directly in Rust, and writes
+// results back into columns/renames columns natively -- never touching
+// `to_json`/`py_loads`/`DataFrame(list_of_dicts)`. Scope: plain
+// `.flatten().execute(df)` only (not `normalise=True`, which already has its
+// own, separately-optimized Arrow-native path via `build_normalise_table`).
+// Eligibility is a whole-DataFrame decision: any disqualifying column, mode,
+// or config interaction falls through to the existing pipeline unchanged --
+// this is strictly an optimization, never a second code path with its own
+// behavior to keep in sync by hand for the cases it doesn't handle.
+
+/// One output column's fast-path plan, in final (post-rename) output order.
+#[cfg(feature = "python")]
+enum FastPathColumn {
+    /// Reuse the source column's existing Arrow array unchanged (a
+    /// non-string dtype -- nothing for `auto_convert_types` to do, native
+    /// nulls stay native).
+    PassThrough { source_col: usize },
+    /// Same as `PassThrough`, but the column's name is in `always_array_keys`
+    /// -- wrap every cell (including null ones) as a 1-element list, per
+    /// `flatten.rs`'s own confirmed semantics (a null cell becomes `[null]`,
+    /// not a null list).
+    PassThroughWrapped { source_col: usize },
+    /// A string column: run the full value-transform pipeline per cell, then
+    /// resolve the column's final type from the accumulated per-cell kinds
+    /// (bool > numeric > string priority; mixed -> stringify).
+    StringTransform { source_col: usize, wrap: bool },
+}
+
+/// A fully-resolved plan for the fast path: eligibility already confirmed,
+/// nothing left to do but execute it. `output_columns` pairs each final
+/// output name with its `FastPathColumn` plan (indexing back into the
+/// caller's own `chunked_arrays`/`string_values`, keyed by *source* column
+/// position), already in final output order (first-seen order of each
+/// unique post-rename name, matching `flatten.rs`'s own collision-resolution
+/// ordering).
+#[cfg(feature = "python")]
+struct FastPathPlan {
+    output_columns: Vec<(String, FastPathColumn)>,
+}
+
+/// Classify a Polars/PyArrow column's Arrow `DataType` for fast-path
+/// eligibility. `None` means disqualifying (nested/nullable-complex type) --
+/// the whole DataFrame falls back, not just this column (see module doc
+/// comment).
+#[cfg(feature = "python")]
+enum ArrowColKind {
+    NonString,
+    String,
+}
+
+#[cfg(feature = "python")]
+fn classify_arrow_dtype(dt: &DataType) -> Option<ArrowColKind> {
+    match dt {
+        DataType::Struct(_)
+        | DataType::List(_)
+        | DataType::LargeList(_)
+        | DataType::ListView(_)
+        | DataType::LargeListView(_)
+        | DataType::FixedSizeList(_, _)
+        | DataType::Map(_, _)
+        | DataType::Union(_, _)
+        | DataType::Dictionary(_, _)
+        | DataType::RunEndEncoded(_, _) => None,
+        DataType::Utf8 | DataType::LargeUtf8 | DataType::Utf8View => Some(ArrowColKind::String),
+        _ => Some(ArrowColKind::NonString),
+    }
+}
+
+/// Check whether `df` (Polars/PyArrow only -- schema-level dtype access is
+/// what makes this cheap, see module doc comment) qualifies for the fast
+/// path under `config`, and if so, build its execution plan. Returns
+/// `Ok(None)` for any disqualifying reason (never an error) -- the caller
+/// falls through to the existing pipeline unchanged.
+#[cfg(feature = "python")]
+#[allow(clippy::type_complexity)]
+fn check_arrow_fastpath_eligibility(
+    df: &Bound<'_, PyAny>,
+    df_type: DataFrameType,
+    config: &ProcessingConfig,
+) -> PyResult<
+    Option<(
+        FastPathPlan,
+        Vec<PyChunkedArray>,
+        Vec<Option<Vec<Option<CompactString>>>>,
+    )>,
+> {
+    if !matches!(df_type, DataFrameType::Polars | DataFrameType::PyArrow) {
+        return Ok(None);
+    }
+
+    // `remove_nulls`/`value_exclusions` also apply to a genuine (non-string)
+    // scalar leaf, not just a string token -- confirmed directly against
+    // `flatten.rs`'s `emit_scalar_value` (`remove_nulls && trimmed == b"null"`
+    // and a `value_exclusions` check, both operating on the raw scalar text,
+    // independent of `emit_string_value_shared`'s own string-specific
+    // handling). A "pass through the source array unchanged" non-string
+    // column can't honor either without per-cell text formatting + the same
+    // "drop the whole column if every cell ends up filtered" handling the
+    // string path needs -- real, buildable, but not done for v1. Disqualify
+    // the whole DataFrame whenever either is configured, regardless of which
+    // columns are actually affected -- correctness over coverage.
+    if config.filtering.remove_nulls || config.replacements.has_value_exclusions() {
+        return Ok(None);
+    }
+
+    let column_names = dataframe_column_names(df, df_type)?;
+    if column_names.is_empty() {
+        return Ok(None);
+    }
+
+    // A genuinely empty (0-row) DataFrame reconstructs, via the old
+    // list-of-dicts path, to a table with *zero columns* (nothing to infer a
+    // schema from an empty list) -- not "every source column, 0 rows".
+    // Simplest correct behavior: treat 0 rows as disqualifying too, same as
+    // 0 columns above, rather than replicate that degenerate case here.
+    let first_col = dataframe_get_column(df, df_type, &column_names[0])?;
+    if let Ok(chunked) = first_col.extract::<PyChunkedArray>() {
+        if chunked.chunks().iter().map(|c| c.len()).sum::<usize>() == 0 {
+            return Ok(None);
+        }
+    }
+
+    let mut chunked_arrays: Vec<PyChunkedArray> = Vec::with_capacity(column_names.len());
+    let mut kinds: Vec<ArrowColKind> = Vec::with_capacity(column_names.len());
+    for name in &column_names {
+        let col = dataframe_get_column(df, df_type, name)?;
+        let Ok(chunked) = col.extract::<PyChunkedArray>() else {
+            return Ok(None);
+        };
+        let Some(kind) = classify_arrow_dtype(chunked.data_type()) else {
+            return Ok(None);
+        };
+        kinds.push(kind);
+        chunked_arrays.push(chunked);
+    }
+
+    // String columns: confirm none secretly hold embedded JSON object/array
+    // text (the same disqualifying condition `detect_and_extract_json_
+    // columns_zerocopy` already treats as "needs real parsing, not a plain
+    // string"), sampling at most `JSON_COLUMN_DETECTION_SAMPLE_SIZE` non-null
+    // values per column via the same zero-copy extraction the value pipeline
+    // will need anyway if this column turns out eligible.
+    let mut string_values: Vec<Option<Vec<Option<CompactString>>>> = vec![None; column_names.len()];
+    for (i, kind) in kinds.iter().enumerate() {
+        if !matches!(kind, ArrowColKind::String) {
+            continue;
+        }
+        let col = dataframe_get_column(df, df_type, &column_names[i])?;
+        let Some(values) = extract_arrow_string_values(&col)? else {
+            return Ok(None); // schema said string, extraction disagreed -- bail safely
+        };
+        let sampled_json = values
+            .iter()
+            .flatten()
+            .take(JSON_COLUMN_DETECTION_SAMPLE_SIZE)
+            .any(|v| is_json_object_or_array_text(v));
+        if sampled_json {
+            return Ok(None);
+        }
+        string_values[i] = Some(values);
+    }
+
+    // Column-name planning: exclusions, then rename, preserving first-seen
+    // order of each final unique name (matches `flatten.rs`'s own
+    // collision-resolution ordering).
+    let has_key_exclusions = config.replacements.has_key_exclusions();
+    let mut final_name_first_seen: IndexMap<String, usize> = IndexMap::new(); // final name -> output slot
+    let mut groups: Vec<Vec<usize>> = Vec::new(); // output slot -> source column indices, in order added
+    for (i, name) in column_names.iter().enumerate() {
+        if has_key_exclusions && matches_any_pattern(name, &config.replacements.key_exclusions) {
+            continue;
+        }
+        let mut final_name = name.clone();
+        if let Some(replaced) =
+            apply_replacement_patterns(name, &config.replacements.key_replacements)
+        {
+            final_name = replaced;
+        }
+        if config.lowercase_keys {
+            final_name = final_name.to_lowercase();
+        }
+        match final_name_first_seen.get(&final_name) {
+            Some(&slot) => groups[slot].push(i),
+            None => {
+                let slot = groups.len();
+                final_name_first_seen.insert(final_name, slot);
+                groups.push(vec![i]);
+            }
+        }
+    }
+
+    if groups.is_empty() {
+        return Ok(None); // every column excluded -- degenerate, let the existing path handle it
+    }
+
+    let has_collision_handling = config.collision.has_collision_handling();
+    let has_always_array_keys = config.collision.has_always_array_keys();
+    let mut output_columns = Vec::with_capacity(groups.len());
+    for (final_name, _) in &final_name_first_seen {
+        let slot = final_name_first_seen[final_name];
+        let sources = &groups[slot];
+        let force_array = has_always_array_keys
+            && config
+                .collision
+                .always_array_keys
+                .iter()
+                .any(|k| k == final_name);
+
+        if sources.len() > 1 {
+            // A genuine rename-induced collision (input columns are unique by
+            // construction). Real handling needs an array-typed column
+            // zipping every source -- fall back to the full pipeline for v1
+            // (see plan: rare trigger, only fires when a rename config
+            // specifically collapses two distinct source names).
+            if has_collision_handling || force_array {
+                return Ok(None);
+            }
+            // No collision handling, not an always-array key: last-column-
+            // wins, matching `flatten.rs`'s own resolved semantics exactly.
+            let source_col = *sources.last().expect("sources non-empty");
+            output_columns.push((
+                final_name.clone(),
+                plan_for_column(source_col, force_array, &kinds[source_col]),
+            ));
+        } else {
+            let source_col = sources[0];
+            output_columns.push((
+                final_name.clone(),
+                plan_for_column(source_col, force_array, &kinds[source_col]),
+            ));
+        }
+    }
+
+    Ok(Some((
+        FastPathPlan { output_columns },
+        chunked_arrays,
+        string_values,
+    )))
+}
+
+#[cfg(feature = "python")]
+fn plan_for_column(source_col: usize, force_array: bool, kind: &ArrowColKind) -> FastPathColumn {
+    match (kind, force_array) {
+        (ArrowColKind::String, wrap) => FastPathColumn::StringTransform { source_col, wrap },
+        (ArrowColKind::NonString, false) => FastPathColumn::PassThrough { source_col },
+        (ArrowColKind::NonString, true) => FastPathColumn::PassThroughWrapped { source_col },
+    }
+}
+
+/// Apply `value_replacements -> auto_convert_types -> remove_nulls ->
+/// value_exclusions -> remove_empty_strings` to one string cell, in the
+/// exact order `transform.rs`'s `emit_string_value_shared` uses (verified
+/// directly against that function, not re-derived from memory). Returns
+/// `None` for a filtered (should become null) cell, `Some(text)` where
+/// `text` is JSON-fragment text (quoted+escaped for a plain string, a bare
+/// token for a converted number/bool/date) ready for
+/// `raw_scalar_kind`/`ColumnBuilder::append_row`.
+#[cfg(feature = "python")]
+fn transform_string_cell(raw: &str, config: &ProcessingConfig) -> Option<CompactString> {
+    let has_replacements = config.replacements.has_value_replacements();
+    let type_conversion_mode = config.type_conversion_mode;
+    let auto_convert = type_conversion_mode != TypeConversionMode::Disabled;
+    let has_value_exclusions = config.replacements.has_value_exclusions();
+
+    if has_replacements {
+        if let Some(replaced) =
+            apply_replacement_patterns(raw, &config.replacements.value_replacements)
+        {
+            if config.filtering.remove_empty_strings && replaced.is_empty() {
+                return None;
+            }
+            if auto_convert {
+                if let Some(converted) = convert_string_for_mode(
+                    &replaced,
+                    type_conversion_mode,
+                    &config.type_conversion,
+                ) {
+                    if config.filtering.remove_nulls && converted == "null" {
+                        return None;
+                    }
+                    if has_value_exclusions
+                        && matches_any_pattern(&converted, &config.replacements.value_exclusions)
+                    {
+                        return None;
+                    }
+                    return Some(CompactString::from(converted));
+                }
+            }
+            if has_value_exclusions
+                && matches_any_pattern(&replaced, &config.replacements.value_exclusions)
+            {
+                return None;
+            }
+            return Some(quote_json_fragment(&replaced));
+        }
+    }
+
+    if auto_convert {
+        if let Some(converted) =
+            convert_string_for_mode(raw, type_conversion_mode, &config.type_conversion)
+        {
+            if config.filtering.remove_nulls && converted == "null" {
+                return None;
+            }
+            if has_value_exclusions
+                && matches_any_pattern(&converted, &config.replacements.value_exclusions)
+            {
+                return None;
+            }
+            return Some(CompactString::from(converted));
+        }
+    }
+
+    if has_value_exclusions && matches_any_pattern(raw, &config.replacements.value_exclusions) {
+        return None;
+    }
+    Some(quote_json_fragment(raw))
+}
+
+/// Build the JSON-fragment text (quoted, escaped) for a plain string value --
+/// the shape `raw_scalar_kind`/`ColumnBuilder::append_row` expect for a
+/// `Utf8`-kind cell.
+#[cfg(feature = "python")]
+fn quote_json_fragment(s: &str) -> CompactString {
+    let escaped = escape_json_string(s);
+    let mut buf = CompactString::with_capacity(escaped.len() + 2);
+    buf.push('"');
+    buf.push_str(&escaped);
+    buf.push('"');
+    buf
+}
+
+/// Wrap `array` as a 1-element-per-row `ListArray` -- every row gets a
+/// present (never null) single-element list, whose one element carries
+/// `array`'s own value/null for that row unchanged. Matches `flatten.rs`'s
+/// confirmed `always_array_keys` semantics: a null cell wraps to `[null]`,
+/// not to a null list (verified directly against `resolve_and_write`'s
+/// `force_array` branch, which wraps whatever `write_value_ref` would have
+/// written unwrapped -- including a literal `null` -- rather than omitting
+/// the value).
+#[cfg(feature = "python")]
+fn wrap_as_single_element_list(array: ArrayRef, item_name: &str) -> ArrayRef {
+    let len = array.len();
+    let offsets = OffsetBuffer::new((0..=len as i32).collect::<Vec<i32>>().into());
+    let field = Arc::new(Field::new(item_name, array.data_type().clone(), true));
+    Arc::new(ListArray::new(field, offsets, array, None))
+}
+
+/// Concatenate a `PyChunkedArray`'s chunks into one contiguous `ArrayRef`
+/// (a `RecordBatch` needs one array per column; a source `ChunkedArray` may
+/// have several chunks, common after `pa.concat_tables`/certain polars
+/// operations).
+#[cfg(feature = "python")]
+fn concat_chunks(chunked: &PyChunkedArray) -> PyResult<ArrayRef> {
+    let chunks = chunked.chunks();
+    match chunks.len() {
+        0 => Ok(arrow_array::new_empty_array(chunked.data_type())),
+        1 => Ok(chunks[0].clone()),
+        _ => {
+            let refs: Vec<&dyn Array> = chunks.iter().map(|c| c.as_ref()).collect();
+            arrow_select::concat::concat(&refs).map_err(|e| {
+                JsonToolsError::new_err(format!("Failed to concatenate column chunks: {e}"))
+            })
+        }
+    }
+}
+
+/// Execute an already-eligible fast-path plan against Polars/PyArrow input,
+/// building the output natively via the same Arrow builders `normalise()`'s
+/// engine uses (`arrow_columnar`), then deriving the output DataFrame type
+/// the same way `execute_normalise` derives its `target=` (output type
+/// always matches `df_type` here -- this path has no `target=` of its own).
+/// `string_values` is indexed by *source* column (matching `chunked_arrays`),
+/// already extracted by `check_arrow_fastpath_eligibility` -- never
+/// re-extracted here.
+#[cfg(feature = "python")]
+fn execute_arrow_fastpath(
+    py: Python<'_>,
+    df_type: DataFrameType,
+    plan: FastPathPlan,
+    chunked_arrays: Vec<PyChunkedArray>,
+    string_values: Vec<Option<Vec<Option<CompactString>>>>,
+    config: &ProcessingConfig,
+) -> PyResult<Py<PyAny>> {
+    let dates_enabled = config.type_conversion.dates.enabled;
+    let mut fields: Vec<Field> = Vec::with_capacity(plan.output_columns.len());
+    let mut arrays: Vec<ArrayRef> = Vec::with_capacity(plan.output_columns.len());
+
+    for (name, col_plan) in &plan.output_columns {
+        match col_plan {
+            FastPathColumn::PassThrough { source_col } => {
+                let arr = concat_chunks(&chunked_arrays[*source_col])?;
+                fields.push(Field::new(name, arr.data_type().clone(), true));
+                arrays.push(arr);
+            }
+            FastPathColumn::PassThroughWrapped { source_col } => {
+                let arr = concat_chunks(&chunked_arrays[*source_col])?;
+                let wrapped = wrap_as_single_element_list(arr, "item");
+                fields.push(Field::new(name, wrapped.data_type().clone(), true));
+                arrays.push(wrapped);
+            }
+            FastPathColumn::StringTransform { source_col, wrap } => {
+                let values = string_values[*source_col]
+                    .as_ref()
+                    .expect("string column always has extracted values by this point");
+
+                // Pass 1: transform every cell, accumulate this column's
+                // resolved kind (same bool > numeric > string priority as
+                // `build_normalise_table`), and track whether this key would
+                // ever actually appear in the old (JSON-text) path's output.
+                // A genuine source null keeps the key present (value null) --
+                // `remove_nulls`/`value_exclusions` are excluded from fast-
+                // path eligibility entirely (see eligibility check), so the
+                // only way a cell's key is *omitted* here is
+                // `remove_empty_strings` filtering a replaced value to "" (the
+                // one remaining early-return in `transform_string_cell`).
+                // If EVERY row omits the key this way, the old path never
+                // creates this column at all -- drop it here too, rather
+                // than emit an always-null column the old path never would.
+                let mut transformed: Vec<Option<CompactString>> = Vec::with_capacity(values.len());
+                let mut flags = KindFlags::default();
+                let mut any_key_present = false;
+                for cell in values {
+                    match cell {
+                        None => {
+                            any_key_present = true; // genuine null: key stays present
+                            transformed.push(None);
+                        }
+                        Some(raw) => {
+                            let out = transform_string_cell(raw, config);
+                            if let Some(text) = &out {
+                                any_key_present = true;
+                                if let Some(k) = raw_scalar_kind(text, dates_enabled) {
+                                    flags.merge(k);
+                                }
+                            }
+                            transformed.push(out);
+                        }
+                    }
+                }
+
+                if !any_key_present {
+                    continue; // this key never appears in any row -- no column at all
+                }
+
+                let scalar_kind = flags.resolve();
+
+                // Pass 2: build the typed array from the transformed text.
+                let mut builder =
+                    ColumnBuilder::new(ColumnPlan::Scalar(scalar_kind), transformed.len());
+                for cell in &transformed {
+                    builder.append_row(cell.as_deref());
+                }
+                let arr = builder.finish();
+
+                if *wrap {
+                    let wrapped = wrap_as_single_element_list(arr, "item");
+                    fields.push(Field::new(name, wrapped.data_type().clone(), true));
+                    arrays.push(wrapped);
+                } else {
+                    fields.push(Field::new(name, arr.data_type().clone(), true));
+                    arrays.push(arr);
+                }
+            }
+        }
+    }
+
+    let schema = Arc::new(Schema::new(fields));
+    let batch = RecordBatch::try_new(schema.clone(), arrays).map_err(|e| {
+        JsonToolsError::new_err(format!("Failed to build fast-path record batch: {e}"))
+    })?;
+    let table = PyTable::try_new(vec![batch], schema).map_err(|e| {
+        JsonToolsError::new_err(format!("Failed to build fast-path Arrow table: {e}"))
+    })?;
+
+    // Polars accepts the raw pyo3-arrow capsule object directly via
+    // `pl.from_arrow` (verified in `build_normalise_table`'s own doc
+    // comment) -- no need to materialize a genuine `pyarrow.Table` first.
+    // PyArrow needs the genuine table itself, since that *is* the output.
+    match df_type {
+        DataFrameType::PyArrow => table.into_pyarrow(py).map(|b| b.unbind()),
+        DataFrameType::Polars => {
+            let raw = table.into_pyobject(py)?.into_any();
+            reconstruct_polars_normalise(py, &raw)
+        }
+        _ => unreachable!("only called for Polars/PyArrow -- see caller"),
+    }
+}
+
+// =============================================================================
+// Flat-DataFrame fast path: pandas
+// =============================================================================
+//
+// Pandas has no schema-level dtype-check-without-sampling equivalent to
+// Arrow's (an `object`-dtype column can hold literally any Python type per
+// cell), and no zero-copy column access -- `series_to_list`'s existing
+// `.to_list()`/`.tolist()` pattern is the only extraction mechanism (boxes
+// every value into a `PyObject`, same as it always has). More importantly,
+// pandas' own `pd.DataFrame(list_of_dicts)` reconstruction (the *old* path)
+// does NOT unify a mixed-type column to one type the way Arrow forces --
+// confirmed directly: `pd.DataFrame([{"v":42},{"v":"abc"}])` keeps `42` as a
+// real Python `int` and `"abc"` as a real `str` in the same `object`-dtype
+// column, no stringification. So unlike the polars/pyarrow path above
+// (which reuses `arrow_columnar`'s column-wide type-unification), pandas
+// cells are converted *independently* -- each transformed value becomes its
+// own native Python object (int/float/bool/str/None), matching exactly what
+// `py_loads` on that same JSON fragment would produce.
+
+/// Classify a pandas column's `dtype` string (`str(series.dtype)`) for
+/// fast-path eligibility. `None` means disqualifying (datetime64/
+/// Categorical/Timedelta/other extension dtypes -- see the module-level
+/// "pandas re-encoding caveat": today's output for those comes from
+/// pandas' own JSON encoder, e.g. epoch-millisecond ints for datetimes by
+/// default, not the raw Python object, so a naive pass-through would
+/// silently change output for them).
+#[cfg(feature = "python")]
+enum PandasColKind {
+    NonString,
+    String,
+}
+
+#[cfg(feature = "python")]
+fn classify_pandas_dtype(dtype_str: &str) -> Option<PandasColKind> {
+    match dtype_str {
+        "int8" | "int16" | "int32" | "int64" | "uint8" | "uint16" | "uint32" | "uint64"
+        | "Int8" | "Int16" | "Int32" | "Int64" | "UInt8" | "UInt16" | "UInt32" | "UInt64"
+        | "float32" | "float64" | "Float32" | "Float64" | "bool" | "boolean" => {
+            Some(PandasColKind::NonString)
+        }
+        "object" => Some(PandasColKind::String),
+        _ => None,
+    }
+}
+
+/// Extract an `object`-dtype pandas column's values as `Option<String>` per
+/// cell -- `Ok(None)` (not an error) if any cell is neither `None`/`NaN` nor
+/// a `str`, since that means this column genuinely holds mixed Python
+/// objects (dicts, lists, numbers already mixed into an object column,
+/// ...), not the plain-string-with-nulls shape this fast path handles.
+#[cfg(feature = "python")]
+fn extract_pandas_object_column(col: &Bound<'_, PyAny>) -> PyResult<Option<Vec<Option<String>>>> {
+    let list = col.call_method0("tolist")?;
+    let list = list.cast::<PyList>()?;
+    let mut out = Vec::with_capacity(list.len());
+    for item in list.iter() {
+        if item.is_none() {
+            out.push(None);
+            continue;
+        }
+        if let Ok(s) = item.extract::<String>() {
+            out.push(Some(s));
+            continue;
+        }
+        // pandas represents a missing value in an object column as float
+        // NaN as often as it does None -- both mean "null" here.
+        if let Ok(f) = item.extract::<f64>() {
+            if f.is_nan() {
+                out.push(None);
+                continue;
+            }
+        }
+        return Ok(None); // some other Python type -- not eligible
+    }
+    Ok(Some(out))
+}
+
+/// Convert one JSON-fragment-text value (`transform_string_cell`'s output
+/// shape: `null`/`true`/`false`/a bare number/a quoted-escaped string) into
+/// its native Python equivalent -- exactly what `py_loads` on that same
+/// fragment would produce, since that's the object pandas' own
+/// `pd.DataFrame(list_of_dicts)` reconstruction would have ended up holding
+/// for this cell in the old path.
+#[cfg(feature = "python")]
+fn json_fragment_to_pyobject(py: Python<'_>, text: &str) -> PyResult<Py<PyAny>> {
+    match text.as_bytes().first() {
+        Some(b'"') => {
+            let inner = &text[1..text.len() - 1];
+            let unescaped = unescape_json_string(inner);
+            Ok(unescaped.into_pyobject(py)?.into_any().unbind())
+        }
+        Some(b't') => Ok(true.into_pyobject(py)?.to_owned().into_any().unbind()),
+        Some(b'f') => Ok(false.into_pyobject(py)?.to_owned().into_any().unbind()),
+        _ => {
+            let is_float_syntax = text.bytes().any(|b| matches!(b, b'.' | b'e' | b'E'));
+            if !is_float_syntax {
+                if let Ok(i) = text.parse::<i64>() {
+                    return Ok(i.into_pyobject(py)?.into_any().unbind());
+                }
+            }
+            let f: f64 = text.parse().map_err(|_| {
+                JsonToolsError::new_err(format!("Fast path produced invalid number text: {text}"))
+            })?;
+            Ok(f.into_pyobject(py)?.into_any().unbind())
+        }
+    }
+}
+
+/// One output column's pandas fast-path plan -- simpler than the Arrow
+/// version's `FastPathColumn` since there's no column-wide type to resolve
+/// (see module doc comment): a `PassThrough` column is reused as the exact
+/// same `Series` object (renamed), and a `StringTransform` column becomes a
+/// plain Python list of independently-typed values.
+#[cfg(feature = "python")]
+enum PandasFastPathColumn {
+    PassThrough { source_col: usize },
+    PassThroughWrapped { source_col: usize },
+    StringTransform { source_col: usize, wrap: bool },
+}
+
+#[cfg(feature = "python")]
+struct PandasFastPathPlan {
+    output_columns: Vec<(String, PandasFastPathColumn)>,
+}
+
+/// Check whether `df` (pandas only) qualifies for the fast path under
+/// `config`, mirroring `check_arrow_fastpath_eligibility`'s structure and
+/// disqualification rules (see its doc comment for the shared reasoning:
+/// whole-DataFrame decision, `remove_nulls`/`value_exclusions` excluded
+/// entirely, rename-collision handling, `always_array_keys`). Returns
+/// `Ok(None)` for any disqualifying reason -- the caller falls through to
+/// the existing pipeline unchanged.
+#[cfg(feature = "python")]
+#[allow(clippy::type_complexity)]
+fn check_pandas_fastpath_eligibility<'py>(
+    df: &Bound<'py, PyAny>,
+    config: &ProcessingConfig,
+) -> PyResult<
+    Option<(
+        PandasFastPathPlan,
+        Vec<Bound<'py, PyAny>>,
+        Vec<Option<Vec<Option<String>>>>,
+    )>,
+> {
+    if config.filtering.remove_nulls || config.replacements.has_value_exclusions() {
+        return Ok(None);
+    }
+
+    let column_names: Vec<String> = df.getattr("columns")?.call_method0("tolist")?.extract()?;
+    if column_names.is_empty() {
+        return Ok(None);
+    }
+    let n_rows: usize = df.call_method0("__len__")?.extract()?;
+    if n_rows == 0 {
+        return Ok(None); // matches the Arrow path's same degenerate-case reasoning
+    }
+
+    let mut columns: Vec<Bound<'_, PyAny>> = Vec::with_capacity(column_names.len());
+    let mut kinds: Vec<PandasColKind> = Vec::with_capacity(column_names.len());
+    for name in &column_names {
+        let col = df.get_item(name)?;
+        let dtype_str: String = col.getattr("dtype")?.str()?.extract()?;
+        let Some(kind) = classify_pandas_dtype(&dtype_str) else {
+            return Ok(None);
+        };
+        kinds.push(kind);
+        columns.push(col);
+    }
+
+    let mut string_values: Vec<Option<Vec<Option<String>>>> = vec![None; column_names.len()];
+    for (i, kind) in kinds.iter().enumerate() {
+        if !matches!(kind, PandasColKind::String) {
+            continue;
+        }
+        let Some(values) = extract_pandas_object_column(&columns[i])? else {
+            return Ok(None);
+        };
+        let sampled_json = values
+            .iter()
+            .flatten()
+            .take(JSON_COLUMN_DETECTION_SAMPLE_SIZE)
+            .any(|v| is_json_object_or_array_text(v));
+        if sampled_json {
+            return Ok(None);
+        }
+        string_values[i] = Some(values);
+    }
+
+    let has_key_exclusions = config.replacements.has_key_exclusions();
+    let mut final_name_first_seen: IndexMap<String, usize> = IndexMap::new();
+    let mut groups: Vec<Vec<usize>> = Vec::new();
+    for (i, name) in column_names.iter().enumerate() {
+        if has_key_exclusions && matches_any_pattern(name, &config.replacements.key_exclusions) {
+            continue;
+        }
+        let mut final_name = name.clone();
+        if let Some(replaced) =
+            apply_replacement_patterns(name, &config.replacements.key_replacements)
+        {
+            final_name = replaced;
+        }
+        if config.lowercase_keys {
+            final_name = final_name.to_lowercase();
+        }
+        match final_name_first_seen.get(&final_name) {
+            Some(&slot) => groups[slot].push(i),
+            None => {
+                let slot = groups.len();
+                final_name_first_seen.insert(final_name, slot);
+                groups.push(vec![i]);
+            }
+        }
+    }
+
+    if groups.is_empty() {
+        return Ok(None);
+    }
+
+    let has_collision_handling = config.collision.has_collision_handling();
+    let has_always_array_keys = config.collision.has_always_array_keys();
+    let mut output_columns = Vec::with_capacity(groups.len());
+    for (final_name, &slot) in &final_name_first_seen {
+        let sources = &groups[slot];
+        let force_array = has_always_array_keys
+            && config
+                .collision
+                .always_array_keys
+                .iter()
+                .any(|k| k == final_name);
+
+        if sources.len() > 1 {
+            if has_collision_handling || force_array {
+                return Ok(None);
+            }
+            let source_col = *sources.last().expect("sources non-empty");
+            output_columns.push((
+                final_name.clone(),
+                pandas_plan_for_column(source_col, force_array, &kinds[source_col]),
+            ));
+        } else {
+            let source_col = sources[0];
+            output_columns.push((
+                final_name.clone(),
+                pandas_plan_for_column(source_col, force_array, &kinds[source_col]),
+            ));
+        }
+    }
+
+    Ok(Some((
+        PandasFastPathPlan { output_columns },
+        columns,
+        string_values,
+    )))
+}
+
+#[cfg(feature = "python")]
+fn pandas_plan_for_column(
+    source_col: usize,
+    force_array: bool,
+    kind: &PandasColKind,
+) -> PandasFastPathColumn {
+    match (kind, force_array) {
+        (PandasColKind::String, wrap) => PandasFastPathColumn::StringTransform { source_col, wrap },
+        (PandasColKind::NonString, false) => PandasFastPathColumn::PassThrough { source_col },
+        (PandasColKind::NonString, true) => PandasFastPathColumn::PassThroughWrapped { source_col },
+    }
+}
+
+/// Execute an already-eligible pandas fast-path plan. `columns`/
+/// `string_values` are indexed by *source* column position, already
+/// extracted by `check_pandas_fastpath_eligibility` -- never re-extracted
+/// here.
+#[cfg(feature = "python")]
+fn execute_pandas_fastpath(
+    py: Python<'_>,
+    plan: PandasFastPathPlan,
+    columns: Vec<Bound<'_, PyAny>>,
+    string_values: Vec<Option<Vec<Option<String>>>>,
+    config: &ProcessingConfig,
+) -> PyResult<Py<PyAny>> {
+    let out_dict = PyDict::new(py);
+
+    for (name, col_plan) in &plan.output_columns {
+        match col_plan {
+            PandasFastPathColumn::PassThrough { source_col } => {
+                // Reuse the exact same Series object -- no extraction, no
+                // reconstruction, nulls/dtype preserved perfectly by
+                // construction (nothing round-trips through JSON at all).
+                out_dict.set_item(name, &columns[*source_col])?;
+            }
+            PandasFastPathColumn::PassThroughWrapped { source_col } => {
+                let values = columns[*source_col].call_method0("tolist")?;
+                let values = values.cast::<PyList>()?;
+                let wrapped = PyList::empty(py);
+                for v in values.iter() {
+                    let one = PyList::new(py, [v])?;
+                    wrapped.append(one)?;
+                }
+                out_dict.set_item(name, wrapped)?;
+            }
+            PandasFastPathColumn::StringTransform { source_col, wrap } => {
+                let values = string_values[*source_col]
+                    .as_ref()
+                    .expect("string column always has extracted values by this point");
+
+                // Same "does this key ever actually appear" tracking as the
+                // Arrow path (see its own doc comment for the full
+                // reasoning): a genuine source null keeps the key present
+                // (value None); `remove_empty_strings` filtering a replaced
+                // value to "" is the only way a cell's key is omitted here
+                // (`remove_nulls`/`value_exclusions` are excluded from
+                // eligibility entirely). If no row ever has the key, the old
+                // path never creates this column -- drop it here too.
+                let mut out_values: Vec<Py<PyAny>> = Vec::with_capacity(values.len());
+                let mut any_key_present = false;
+                for cell in values {
+                    let converted = match cell {
+                        None => {
+                            any_key_present = true;
+                            py.None()
+                        }
+                        Some(raw) => match transform_string_cell(raw, config) {
+                            None => py.None(),
+                            Some(text) => {
+                                any_key_present = true;
+                                json_fragment_to_pyobject(py, &text)?
+                            }
+                        },
+                    };
+                    out_values.push(converted);
+                }
+
+                if !any_key_present {
+                    continue;
+                }
+
+                let out_list = PyList::empty(py);
+                for converted in out_values {
+                    if *wrap {
+                        let one = PyList::new(py, [converted])?;
+                        out_list.append(one)?;
+                    } else {
+                        out_list.append(converted)?;
+                    }
+                }
+                out_dict.set_item(name, out_list)?;
+            }
+        }
+    }
+
+    let pandas = cached_import(py, &PANDAS_MODULE, "pandas")?;
+    let df = pandas.call_method1("DataFrame", (out_dict,))?;
+    Ok(df.unbind())
+}
+
+// =============================================================================
 // PyJSONTools Helper Methods (DataFrame and Series Processing)
 // =============================================================================
 
@@ -3642,6 +4010,40 @@ impl PyJSONTools {
     ) -> PyResult<Py<PyAny>> {
         let py = df.py();
         let is_flatten_mode = lock_config(&self.inner)?.is_flatten_mode();
+
+        // Flat-DataFrame fast path (see its own module doc comment above):
+        // pandas/Polars/PyArrow, `.flatten()` only. Eligibility is a
+        // whole-DataFrame decision that never errors -- `Ok(None)` for any
+        // disqualifying reason falls straight through to the existing,
+        // unmodified pipeline below exactly as if this check didn't exist.
+        if is_flatten_mode {
+            match df_type {
+                DataFrameType::Polars | DataFrameType::PyArrow => {
+                    let config = ProcessingConfig::from_json_tools(&*lock_config(&self.inner)?);
+                    if let Some((plan, chunked_arrays, string_values)) =
+                        check_arrow_fastpath_eligibility(df, df_type, &config)?
+                    {
+                        return execute_arrow_fastpath(
+                            py,
+                            df_type,
+                            plan,
+                            chunked_arrays,
+                            string_values,
+                            &config,
+                        );
+                    }
+                }
+                DataFrameType::Pandas => {
+                    let config = ProcessingConfig::from_json_tools(&*lock_config(&self.inner)?);
+                    if let Some((plan, columns, string_values)) =
+                        check_pandas_fastpath_eligibility(df, &config)?
+                    {
+                        return execute_pandas_fastpath(py, plan, columns, string_values, &config);
+                    }
+                }
+                _ => {}
+            }
+        }
 
         // Step 1: Convert DataFrame directly to per-row JSON strings (native
         // to_json/write_ndjson where available -- see `dataframe_to_json_strings`'s
@@ -4022,7 +4424,7 @@ mod marshal_tests {
 
 #[cfg(all(test, feature = "python"))]
 mod arrow_normalise_tests {
-    use super::{raw_scalar_kind, stringify_raw, KindFlags, ScalarKind};
+    use crate::arrow_columnar::{raw_scalar_kind, stringify_raw, KindFlags, ScalarKind};
     use arrow_array::builder::{Float64Builder, Int64Builder, ListBuilder, StringBuilder};
     use arrow_array::{Array, BooleanArray, Float64Array, Int64Array, StringArray};
 

@@ -1,7 +1,7 @@
 //! Parsing schema documents into structural IR; anything not modeled stays `Raw`.
-use std::{collections::BTreeMap, sync::Arc};
+use std::{borrow::Cow, collections::BTreeMap, sync::Arc};
 
-use ahash::AHashSet;
+use ahash::{AHashMap, AHashSet};
 
 use referencing::{Draft, Resolver};
 use serde_json::Value;
@@ -10,12 +10,14 @@ use crate::{
     canonical::{
         algebra,
         context::CanonicalizationContext,
+        emptiness,
         ir::{
             canonicalize_value_set, type_set_schema, typed_group, ArrayLeaf, BoundCardinality,
             BoundNumber, BoundRational, CanonicalJson, ContainsFacet, Divisors, IntegerLeaf,
             LengthBounds, NumberLeaf, ObjectLeaf, Schema, SchemaKind, Side, StringLeaf,
         },
         negate, CanonicalizationError, DefinitionMap, CANONICAL_REFERENCE_PREFIX,
+        ROOT_DEFINITION_KEY,
     },
     JsonType, JsonTypeSet,
 };
@@ -24,75 +26,415 @@ use crate::{
 pub(crate) struct ParseOutput {
     pub(crate) root: Schema,
     pub(crate) definitions: DefinitionMap,
+    /// Whether any `$ref` resolved during this parse. `resolve_reference` is the only producer of
+    /// `SchemaKind::Reference`, so `false` means the emptiness pass has no graph to build.
+    pub(crate) has_references: bool,
 }
 
 /// Parse a document into structural IR when every construct is modeled; `Ok(None)` keeps it `Raw`.
 /// Keywords the draft does not define are annotations the validator ignores, so they never block
 /// modeling - except an unknown `$schema`, whose dialect semantics are unknowable.
-pub(crate) fn parse(
-    value: &Value,
+pub(crate) fn parse<'a>(
+    value: &'a Value,
     ctx: &CanonicalizationContext,
-    resolver: &Resolver<'_>,
+    resolver: &Resolver<'a>,
 ) -> Result<Option<ParseOutput>, CanonicalizationError> {
-    let mut state = ParseState::new(value, resolver.base_uri().as_str());
+    parse_inner(value, ctx, resolver, None, Pruning::Prune)
+}
+
+/// [`parse`], resolving every target in `assumed_empty` to `false` instead of to a `Reference`.
+///
+/// One parse applies a whole round's hypothesis, so every body comes back canonicalized under it.
+pub(crate) fn parse_with_empty<'a>(
+    value: &'a Value,
+    ctx: &CanonicalizationContext,
+    resolver: &Resolver<'a>,
+    assumed_empty: &'a AHashSet<Arc<str>>,
+) -> Result<Option<ParseOutput>, CanonicalizationError> {
+    parse_inner(value, ctx, resolver, Some(assumed_empty), Pruning::Prune)
+}
+
+/// [`parse_with_empty`] keeping every body, including those the hypothesis made unreachable.
+///
+/// Folding every reference to a key is what makes it unreachable, and the fixpoint reads that body
+/// to decide whether the assumption held - so pruning here would delete the evidence.
+pub(crate) fn parse_hypothesis<'a>(
+    value: &'a Value,
+    ctx: &CanonicalizationContext,
+    resolver: &Resolver<'a>,
+    assumed_empty: &'a AHashSet<Arc<str>>,
+) -> Result<Option<ParseOutput>, CanonicalizationError> {
+    parse_inner(value, ctx, resolver, Some(assumed_empty), Pruning::Keep)
+}
+
+/// Whether to drop the definitions the emitted IR no longer references.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Pruning {
+    Prune,
+    Keep,
+}
+
+fn parse_inner<'a>(
+    value: &'a Value,
+    ctx: &CanonicalizationContext,
+    resolver: &Resolver<'a>,
+    assumed_empty: Option<&AHashSet<Arc<str>>>,
+    pruning: Pruning,
+) -> Result<Option<ParseOutput>, CanonicalizationError> {
+    // A body that came out `false` denotes the empty set, so every reference to it folds as well -
+    // but `resolve_reference` can only fold a target whose body already finished parsing, which
+    // makes that dependent on the order definitions were registered in. Re-parsing with the folded
+    // keys added, until none are new, settles it: the result no longer depends on the order.
+    let mut folded: AHashSet<Arc<str>> = assumed_empty.cloned().unwrap_or_default();
+    let mut tracks = spells_dynamic_reference(value, ctx.draft());
+    loop {
+        let attempt = parse_once(value, ctx, resolver, &folded, pruning, tracks)?;
+        if attempt.needs_dynamic_scope {
+            debug_assert!(!tracks, "a tracked parse never requests tracking");
+            // A referenced resource spells a dynamic reference the root document does not, so the
+            // definitions minted so far were keyed without the environment; reparse with it
+            // tracked. Untracked keys carry an empty digest, the same string a tracked parse
+            // mints for them, so the folded set stays valid.
+            tracks = true;
+            continue;
+        }
+        let Some(parsed) = attempt.output else {
+            return Ok(None);
+        };
+        let mut grew = false;
+        for (key, body) in &parsed.definitions {
+            if matches!(body.kind(), SchemaKind::False) {
+                grew |= folded.insert(Arc::clone(key));
+            }
+        }
+        if !grew {
+            return Ok(Some(parsed));
+        }
+    }
+}
+
+/// One parse attempt plus whether a lazily-resolved target turned out to need the dynamic scope.
+struct DocumentParse {
+    output: Option<ParseOutput>,
+    needs_dynamic_scope: bool,
+}
+
+fn parse_once<'a>(
+    value: &'a Value,
+    ctx: &CanonicalizationContext,
+    resolver: &Resolver<'a>,
+    assumed_empty: &AHashSet<Arc<str>>,
+    pruning: Pruning,
+    tracks_dynamic_scope: bool,
+) -> Result<DocumentParse, CanonicalizationError> {
+    let mut state = ParseState::new(value, resolver.base_uri().as_str(), assumed_empty);
+    state.facts.merges_object_leaves =
+        matches!(ctx.draft(), Draft::Draft4) && merges_object_leaves(value);
+    if !tracks_dynamic_scope {
+        // The root document was already scanned; its verdict seeds the per-resource memo.
+        let mut spelling_scans = AHashMap::default();
+        spelling_scans.insert(Arc::clone(&state.root_base_uri), false);
+        state.dynamic_scope = DynamicScope::Untracked {
+            spelling_scans,
+            needs_tracking: false,
+        };
+    }
     let parsed = parse_schema_in_scope(value, ctx, true, resolver, &mut state)?;
     // An in-between `additionalProperties` meeting `patternProperties` anywhere in the document
     // has no exact intersection without pattern-overlap reasoning; nodes built before this check
     // may already be wrong, so the whole document is discarded, not just the pairing site.
-    if state.additional_schema && state.pattern_properties {
-        return Ok(None);
+    if state.facts.additional_schema && state.facts.pattern_properties {
+        return Ok(DocumentParse {
+            output: None,
+            needs_dynamic_scope: state.dynamic_scope.needs_tracking(),
+        });
     }
     let Some(root) = parsed else {
-        return Ok(None);
+        return Ok(DocumentParse {
+            output: None,
+            needs_dynamic_scope: state.dynamic_scope.needs_tracking(),
+        });
     };
-    prune_unreachable_definitions(&root, &mut state.definitions);
-    Ok(Some(ParseOutput {
-        root,
-        definitions: state.definitions,
-    }))
+    let needs_dynamic_scope = state.dynamic_scope.needs_tracking();
+    if pruning == Pruning::Prune {
+        prune_unreachable_definitions(&root, &mut state.definitions);
+    }
+    Ok(DocumentParse {
+        output: Some(ParseOutput {
+            root,
+            definitions: state.definitions,
+            has_references: state.facts.has_references,
+        }),
+        needs_dynamic_scope,
+    })
 }
 
 /// Canonical reference graph plus facts whose interaction is decided only after parsing the root.
 struct ParseState<'a> {
     root: &'a Value,
     root_base_uri: Arc<str>,
-    additional_schema: bool,
-    pattern_properties: bool,
+    /// Whole-document facts whose interaction is only decided once the root is complete.
+    facts: DocumentFacts,
     definitions: DefinitionMap,
     in_progress: AHashSet<Arc<str>>,
+    /// The target each definition key was minted for, so a key cannot be reused for another one.
+    sources: AHashMap<Arc<str>, &'a Value>,
+    /// Targets to resolve as `False`. Empty on every parse outside the emptiness fixpoint.
+    assumed_empty: &'a AHashSet<Arc<str>>,
+    dynamic_scope: DynamicScope,
 }
 
-impl<'a> ParseState<'a> {
-    fn new(root: &'a Value, root_base_uri: &str) -> Self {
-        Self {
-            root,
-            root_base_uri: Arc::from(root_base_uri),
-            additional_schema: false,
-            pattern_properties: false,
-            definitions: DefinitionMap::new(),
-            in_progress: AHashSet::new(),
-        }
+/// Flags set anywhere in the document and read after the whole parse.
+///
+/// Independent observations rather than a state machine, so the usual "replace bools with an enum"
+/// advice does not apply - any combination of them is reachable.
+#[derive(Default)]
+#[allow(clippy::struct_excessive_bools)]
+struct DocumentFacts {
+    additional_schema: bool,
+    pattern_properties: bool,
+    /// Set only under Draft 4, where it decides whether a pattern coverage can survive the algebra.
+    merges_object_leaves: bool,
+    /// `resolve_reference` is the only producer of `Reference`, so this gates the emptiness pass.
+    has_references: bool,
+}
+
+/// How a parse attempt treats the dynamic scope.
+enum DynamicScope {
+    /// A dynamic reference is spelled: digests are computed and definition keys specialized.
+    Tracked,
+    /// No dynamic reference is spelled, so keys stay unspecialized. Keeps per-resource scan
+    /// verdicts - scanning every resolved target's subtree instead is quadratic on nested
+    /// definitions - and records when a lazily resolved target voids the assumption.
+    Untracked {
+        spelling_scans: AHashMap<Arc<str>, bool>,
+        needs_tracking: bool,
+    },
+}
+
+impl DynamicScope {
+    fn tracked(&self) -> bool {
+        matches!(self, DynamicScope::Tracked)
+    }
+
+    fn needs_tracking(&self) -> bool {
+        matches!(
+            self,
+            DynamicScope::Untracked {
+                needs_tracking: true,
+                ..
+            }
+        )
     }
 }
 
-fn parse_schema(
+impl<'a> ParseState<'a> {
+    fn new(root: &'a Value, root_base_uri: &str, assumed_empty: &'a AHashSet<Arc<str>>) -> Self {
+        Self {
+            root,
+            root_base_uri: Arc::from(root_base_uri),
+            facts: DocumentFacts::default(),
+            definitions: DefinitionMap::new(),
+            in_progress: AHashSet::new(),
+            sources: AHashMap::default(),
+            assumed_empty,
+            dynamic_scope: DynamicScope::Tracked,
+        }
+    }
+
+    /// Whether `key` is being resolved as `false` for this parse.
+    fn assumes_empty(&self, key: &str) -> bool {
+        self.assumed_empty.contains(key)
+    }
+}
+
+fn parse_schema<'a>(
     value: &Value,
     ctx: &CanonicalizationContext,
     is_root: bool,
-    resolver: &Resolver<'_>,
-    state: &mut ParseState<'_>,
+    resolver: &Resolver<'a>,
+    state: &mut ParseState<'a>,
 ) -> Result<Option<Schema>, CanonicalizationError> {
     let resolver = resolver.in_subresource(ctx.draft().create_resource_ref(value))?;
     parse_schema_in_scope(value, ctx, is_root, &resolver, state)
 }
 
+/// The dynamic-scope facts a target's parse can observe, derived from its resolver: for each
+/// dynamic-anchor name, the outermost scope resource overriding its lexical resolution, and under
+/// 2019-09 the resource the contiguous `$recursiveAnchor` chain lands on. Equal digests resolve
+/// every dynamic reference in the target identically, so the digest disambiguates definition keys.
+/// Sorted by name; the value set per name is finite, so recursion revisits a key and
+/// [`ParseState::in_progress`] closes the cycle.
+type DynamicEnv = Arc<[(Arc<str>, Arc<str>)]>;
+
+/// The 2019-09 spelling binds here. `anchorString` cannot start with `$`, so no collision.
+const RECURSIVE_ANCHOR_NAME: &str = "$recursiveAnchor";
+
+fn empty_environment() -> DynamicEnv {
+    Arc::from(Vec::new())
+}
+
+fn dynamic_scope_digest(
+    resolver: &Resolver<'_>,
+    draft: Draft,
+) -> Result<DynamicEnv, CanonicalizationError> {
+    if matches!(draft, Draft::Draft201909) {
+        return recursive_chain_digest(resolver);
+    }
+    dynamic_anchor_digest(resolver)
+}
+
+/// For each dynamic-anchor name, the outermost scope resource declaring it - the resource the
+/// resolver's overwrite walk would land on when overriding a lexical resolution.
+fn dynamic_anchor_digest(resolver: &Resolver<'_>) -> Result<DynamicEnv, CanonicalizationError> {
+    let mut bindings: Vec<(Arc<str>, Arc<str>)> = Vec::new();
+    // Innermost to outermost, overwriting on every match, exactly like the resolver's walk.
+    for uri in &resolver.dynamic_scope() {
+        let (contents, _, resource_draft) = resolver.lookup(uri.as_str())?.into_inner();
+        let mut names = Vec::new();
+        resource_dynamic_anchor_names(contents, resource_draft, &mut names);
+        for name in names {
+            let resource: Arc<str> = Arc::from(uri.as_str());
+            match bindings.iter_mut().find(|(bound, _)| *bound == name) {
+                Some(binding) => binding.1 = resource,
+                None => bindings.push((name, resource)),
+            }
+        }
+    }
+    if bindings.is_empty() {
+        return Ok(empty_environment());
+    }
+    bindings.sort_by(|left, right| left.0.cmp(&right.0));
+    Ok(Arc::from(bindings))
+}
+
+/// Every `$dynamicAnchor` name the registry attributes to this resource: its own and those of
+/// subresources, stopping where an identifier starts an embedded resource of its own.
+fn resource_dynamic_anchor_names(contents: &Value, draft: Draft, names: &mut Vec<Arc<str>>) {
+    if let Some(name) = contents
+        .as_object()
+        .and_then(|map| map.get("$dynamicAnchor"))
+        .and_then(Value::as_str)
+    {
+        names.push(Arc::from(name));
+    }
+    for subresource in draft.subresources_of(contents) {
+        if draft.create_resource_ref(subresource).id().is_none() {
+            resource_dynamic_anchor_names(subresource, draft, names);
+        }
+    }
+}
+
+/// The resource a `$recursiveRef` walk lands on: the outermost entry of the contiguous
+/// `$recursiveAnchor: true` chain at the inner end of the scope, mirroring
+/// [`Resolver::lookup_recursive_ref`].
+fn recursive_chain_digest(resolver: &Resolver<'_>) -> Result<DynamicEnv, CanonicalizationError> {
+    let mut landing: Option<Arc<str>> = None;
+    for uri in &resolver.dynamic_scope() {
+        let (contents, _, _) = resolver.lookup(uri.as_str())?.into_inner();
+        if resource_root_has_recursive_anchor(contents) {
+            landing = Some(Arc::from(uri.as_str()));
+        } else {
+            break;
+        }
+    }
+    match landing {
+        Some(resource) => Ok(Arc::from(vec![(
+            Arc::from(RECURSIVE_ANCHOR_NAME),
+            resource,
+        )])),
+        None => Ok(empty_environment()),
+    }
+}
+
+fn resource_root_has_recursive_anchor(contents: &Value) -> bool {
+    contents
+        .as_object()
+        .and_then(|map| map.get("$recursiveAnchor"))
+        .and_then(Value::as_bool)
+        == Some(true)
+}
+
+/// Whether `value` spells a reference keyword the draft resolves through the dynamic scope,
+/// mirroring the reference gates in [`parse_schema_in_scope`]. Over-approximates on purpose - a
+/// spelling inside a `const` value counts - because missing one would skip the environment
+/// specialization a real dynamic reference needs.
+fn spells_dynamic_reference(value: &Value, draft: Draft) -> bool {
+    if matches!(draft, Draft::Draft201909) {
+        return spells_key(value, "$recursiveRef");
+    }
+    if draft.is_known_keyword("$dynamicRef") {
+        return spells_key(value, "$dynamicRef");
+    }
+    false
+}
+
+fn spells_key(value: &Value, keyword: &str) -> bool {
+    match value {
+        Value::Object(map) => {
+            map.get(keyword).is_some_and(Value::is_string)
+                || map.values().any(|entry| spells_key(entry, keyword))
+        }
+        Value::Array(items) => items.iter().any(|item| spells_key(item, keyword)),
+        Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => false,
+    }
+}
+
+/// The definition key `key` takes under `env`.
+///
+/// Any target reached under a binding is specialized, whether or not it spells a dynamic reference
+/// itself: it may only *reach* one through a `$ref`, and its canonical form still differs per
+/// binding. Filtering on the target's own text instead would let a plain-keyed intermediary be
+/// cached from the first path and wrongly reused for the second.
+fn specialized_key(key: &Arc<str>, env: &DynamicEnv) -> Arc<str> {
+    if env.is_empty() {
+        return Arc::clone(key);
+    }
+    let decoded = match key.strip_prefix(CANONICAL_REFERENCE_PREFIX) {
+        Some(encoded) => percent_encoding::percent_decode_str(encoded)
+            .decode_utf8_lossy()
+            .into_owned(),
+        None => key.to_string(),
+    };
+    // Anchor names from externally registered resources bypass `anchorString` validation, so a
+    // component may spell the join delimiters; escaping keeps `(key, env) -> string` injective.
+    let mut spelled = match Cow::from(percent_encoding::utf8_percent_encode(
+        &decoded,
+        SPECIALIZATION_COMPONENT,
+    )) {
+        Cow::Borrowed(_) => decoded,
+        Cow::Owned(escaped) => escaped,
+    };
+    for (name, resource) in env.iter() {
+        spelled.push_str("|dyn=");
+        spelled.extend(percent_encoding::utf8_percent_encode(
+            name,
+            SPECIALIZATION_COMPONENT,
+        ));
+        spelled.push('@');
+        spelled.extend(percent_encoding::utf8_percent_encode(
+            resource,
+            SPECIALIZATION_COMPONENT,
+        ));
+    }
+    let spelled =
+        percent_encoding::utf8_percent_encode(&spelled, percent_encoding::NON_ALPHANUMERIC);
+    let uri = format!("{CANONICAL_REFERENCE_PREFIX}{spelled}");
+    let uri = referencing::uri::from_str(&uri).expect("a percent-encoded canonical URI is valid");
+    Arc::from(uri.as_str())
+}
+
+/// The join delimiters, and `%` so the escaping is itself injective.
+const SPECIALIZATION_COMPONENT: &percent_encoding::AsciiSet =
+    &percent_encoding::CONTROLS.add(b'%').add(b'|').add(b'@');
+
 /// Parse a root or resolved target whose resolver already carries that resource's base URI.
-fn parse_schema_in_scope(
+fn parse_schema_in_scope<'a>(
     value: &Value,
     ctx: &CanonicalizationContext,
     is_root: bool,
-    resolver: &Resolver<'_>,
-    state: &mut ParseState<'_>,
+    resolver: &Resolver<'a>,
+    state: &mut ParseState<'a>,
 ) -> Result<Option<Schema>, CanonicalizationError> {
     let map = match value {
         Value::Bool(true) => return Ok(Some(Schema::new(SchemaKind::True))),
@@ -102,21 +444,74 @@ fn parse_schema_in_scope(
         Value::Null | Value::Number(_) | Value::String(_) | Value::Array(_) => return Ok(None),
     };
 
-    if let Some(reference) = map.get("$ref").and_then(Value::as_str) {
-        let Some(reference) = resolve_reference(reference, ctx, resolver, state)? else {
+    // Runs before the `$ref` split below, which would hide a `$ref` from the applicator check.
+    if has_unevaluated(map, ctx.draft()) {
+        let Some(degraded) = degrade_unevaluated(map, ctx.draft()) else {
             return Ok(None);
         };
+        return parse_schema_in_scope(&degraded, ctx, is_root, resolver, state);
+    }
+
+    // The reference keywords are independent and may be spelled together, so each contributes a
+    // conjunct.
+    let mut references: Vec<Schema> = Vec::new();
+    if let Some(reference) = map.get("$ref").and_then(Value::as_str) {
+        let Some(schema) = resolve_reference(reference, ctx, resolver, state)? else {
+            return Ok(None);
+        };
+        references.push(schema);
+    }
+    if ctx.draft().is_known_keyword("$dynamicRef") {
+        if let Some(reference) = map.get("$dynamicRef").and_then(Value::as_str) {
+            debug_assert!(
+                state.dynamic_scope.tracked(),
+                "a dynamic reference is only resolved with the dynamic scope tracked"
+            );
+            // [`Resolver::lookup`] implements the dynamic rule already: a fragment naming a
+            // `$dynamicAnchor` resolves against the outermost resource in scope declaring it, one
+            // that does not resolves as `$ref`.
+            let Some(schema) = resolve_reference(reference, ctx, resolver, state)? else {
+                return Ok(None);
+            };
+            references.push(schema);
+        }
+    }
+    // 2020-12 still spells `$recursiveRef` in its metaschema as a deprecated compatibility entry,
+    // so `is_known_keyword` is true there - but the validator only compiles it under 2019-09.
+    if matches!(ctx.draft(), Draft::Draft201909) {
+        if let Some(reference) = map.get("$recursiveRef").and_then(Value::as_str) {
+            debug_assert!(
+                state.dynamic_scope.tracked(),
+                "a recursive reference is only resolved with the dynamic scope tracked"
+            );
+            // 2019-09 constrains the value to `#`; anything else is not a recursive reference.
+            if reference != "#" {
+                return Ok(None);
+            }
+            let Some(schema) = resolve_recursive_reference(ctx, resolver, state)? else {
+                return Ok(None);
+            };
+            references.push(schema);
+        }
+    }
+    if let Some(combined) = combine_references(references, ctx) {
         if matches!(ctx.draft(), Draft::Draft4 | Draft::Draft6 | Draft::Draft7) {
-            return Ok(Some(reference));
+            return Ok(Some(combined));
         }
         if !ref_has_assertion_siblings(map, ctx.draft()) {
-            return Ok(Some(reference));
+            return Ok(Some(combined));
         }
         let mut siblings = map.clone();
         siblings.remove("$ref");
+        siblings.remove("$dynamicRef");
+        siblings.remove("$recursiveRef");
+        // The resolver already entered this resource; a surviving relative identifier would shift
+        // the base a second time when the clone re-enters below.
+        siblings.remove("$id");
+        siblings.remove("id");
         return Ok(
             parse_schema(&Value::Object(siblings), ctx, is_root, resolver, state)?
-                .map(|siblings| algebra::intersect(reference, siblings, ctx)),
+                .map(|siblings| algebra::intersect(combined, siblings, ctx)),
         );
     }
 
@@ -161,15 +556,22 @@ fn parse_schema_in_scope(
     let mut conjuncts: Vec<Schema> = Vec::new();
     for (key, entry) in map {
         match (key.as_str(), entry) {
-            // TODO(canonical): not modeled yet - a nested `$schema` starts an embedded resource
-            // with its own dialect.
-            ("$schema", _) if !is_root => return Ok(None),
             ("$schema", Value::String(uri)) => {
-                if matches!(Draft::from_schema_uri(uri), Draft::Unknown) {
+                let declared = Draft::from_schema_uri(uri);
+                // An unknown dialect has unknowable semantics. A nested one naming the dialect
+                // already in force is inert - every bundled `meta/*.json` spells it that way.
+                //
+                // TODO(canonical): not modeled yet - a nested `$schema` that switches dialect.
+                if matches!(declared, Draft::Unknown) || (!is_root && declared != ctx.draft()) {
                     return Ok(None);
                 }
             }
-            ("$id" | "id" | "$anchor", Value::String(_))
+            // A dynamic anchor names a resource for a later `$dynamicRef`; it admits every value.
+            // Matched against its declared value shape, so a mistyped one still keeps the doc raw.
+            // A string `$recursiveRef` only reaches this loop under a draft whose validator never
+            // compiles it (2019-09 consumes it as a reference above), so it asserts nothing.
+            ("$id" | "id" | "$anchor" | "$dynamicAnchor" | "$recursiveRef", Value::String(_))
+            | ("$recursiveAnchor", Value::Bool(_))
             | ("$defs" | "definitions", Value::Object(_)) => {}
             ("allOf", Value::Array(branches)) => {
                 for branch in branches {
@@ -189,10 +591,6 @@ fn parse_schema_in_scope(
                 }
                 conjuncts.push(algebra::union(branches, ctx));
             }
-            // When no two branches share a value, "exactly one matches" is "at least one
-            // matches", so a pairwise-disjoint `oneOf` is its `anyOf`. Overlapping branches
-            // take the exact encoding - each branch beside the complements of the others -
-            // when every complement is expressible.
             ("oneOf", Value::Array(items)) => {
                 let mut branches = Vec::new();
                 for branch in items {
@@ -201,27 +599,18 @@ fn parse_schema_in_scope(
                         None => return Ok(None),
                     }
                 }
-                if let Some(index) = branches.iter().position(algebra::contains_reference) {
-                    let symbolic_branch = branches.swap_remove(index);
-                    conjuncts.push(algebra::one_of(symbolic_branch, branches));
-                } else {
-                    let overlaps = pairwise_overlaps(&branches, ctx);
-                    if overlaps.is_empty() {
-                        conjuncts.push(algebra::union(branches, ctx));
-                    } else {
-                        match exactly_one_of(branches, overlaps, ctx) {
-                            Some(schema) => conjuncts.push(schema),
-                            None => return Ok(None),
-                        }
-                    }
+                match algebra::one_of(branches, ctx) {
+                    Some(schema) => conjuncts.push(schema),
+                    None => return Ok(None),
                 }
             }
             ("type", value) => match parse_type_set(value) {
                 Some(set) => type_set = Some(set),
                 None => return Ok(None),
             },
-            // TODO(canonical): not modeled yet - `const`/`enum` numbers without a plain spelling
-            // have no exact runtime comparison; such documents stay raw.
+            // A `const`/`enum` number too large to expand into a plain decimal spelling has no
+            // exact runtime comparison, so such a document stays raw. Only `arbitrary-precision`
+            // reaches this: the cap is a million digits, past every other build's numeric range.
             ("enum", Value::Array(values)) if ctx.draft().is_known_keyword("enum") => {
                 if !values.iter().all(finite_value_spelling_is_exact) {
                     return Ok(None);
@@ -348,7 +737,6 @@ fn parse_schema_in_scope(
             ("patternProperties", Value::Object(entries))
                 if ctx.draft().is_known_keyword("patternProperties") =>
             {
-                state.pattern_properties = true;
                 for (pattern, value) in entries {
                     let pattern: Arc<str> = Arc::from(pattern.as_str());
                     if ctx.compile_regex(&pattern).is_none() {
@@ -382,7 +770,7 @@ fn parse_schema_in_scope(
                         forbid_unmatched_keys = true;
                     }
                     Some(schema) => {
-                        state.additional_schema = true;
+                        state.facts.additional_schema = true;
                         additional_schema = Some(schema);
                     }
                     None => return Ok(None),
@@ -592,17 +980,6 @@ fn parse_schema_in_scope(
         real_maximum = real_maximum.map(BoundNumber::excluded);
     }
 
-    // TODO(canonical): not modeled yet - Draft 4 `integer` mixed with other types in a type list
-    // alongside `const`/`enum`.
-    if matches!(ctx.draft(), Draft::Draft4)
-        && (enum_values.is_some() || const_value.is_some())
-        && type_set.is_some_and(|set| {
-            set.contains(JsonType::Integer) && set != JsonTypeSet::from(JsonType::Integer)
-        })
-    {
-        return Ok(None);
-    }
-
     // `minLength: 0` is the type-default, so drop it: the leaf then compares equal to one without it.
     if min_length.as_ref().is_some_and(BoundCardinality::is_zero) {
         min_length = None;
@@ -699,13 +1076,18 @@ fn parse_schema_in_scope(
     {
         min_properties = None;
     }
-    // Draft 4 has no `propertyNames` to emit a pattern-shaped key constraint, so only a
-    // finite-key fold - which emit re-spells as `additionalProperties: false` - is expressible
-    // there; a pattern in the coverage keeps the document raw.
-    if forbid_unmatched_keys
-        && matches!(ctx.draft(), Draft::Draft4)
-        && !pattern_properties.is_empty()
-    {
+    // A pattern matching finitely many keys names them outright, so its schema moves onto them and
+    // the pattern goes. What is left decides whether this document meets the `additionalProperties`
+    // pairing at all - `additionalProperties` already knows to skip a named key.
+    fold_finite_key_patterns(&mut pattern_properties, &mut properties, ctx);
+    if !pattern_properties.is_empty() {
+        state.facts.pattern_properties = true;
+    }
+
+    // Draft 4 holds a key constraint only as the closed map it was parsed from, which the algebra
+    // can destroy by meeting two pattern maps. Bailing here, before the rest of the document is
+    // parsed, keeps that cheap - and only a merging keyword can bring two leaves together.
+    if forbid_unmatched_keys && !pattern_properties.is_empty() && state.facts.merges_object_leaves {
         return Ok(None);
     }
     // `additionalProperties: false` forbids every key the property map does not name and no
@@ -827,15 +1209,290 @@ fn parse_schema_in_scope(
     ))
 }
 
+/// Move every pattern matching finitely many keys onto those keys, met into whatever the property
+/// map already demands of each, and drop the pattern.
+fn fold_finite_key_patterns(
+    pattern_properties: &mut BTreeMap<Arc<str>, Schema>,
+    properties: &mut BTreeMap<Arc<str>, Schema>,
+    ctx: &CanonicalizationContext,
+) {
+    pattern_properties.retain(|pattern, schema| {
+        let Some(keys) = finite_pattern_keys(pattern) else {
+            return true;
+        };
+        for key in keys {
+            let merged = match properties.remove(&key) {
+                Some(existing) => algebra::intersect(existing, schema.clone(), ctx),
+                None => schema.clone(),
+            };
+            properties.insert(key, merged);
+        }
+        false
+    });
+}
+
+/// The keys a pattern matches when it matches finitely many; `^` and `$` anchor the whole string,
+/// so an exact or alternation spelling names its keys outright.
+fn finite_pattern_keys(pattern: &str) -> Option<Vec<Arc<str>>> {
+    match jsonschema_regex::analyze_pattern(pattern)? {
+        jsonschema_regex::PatternAnalysis::Exact(key) => Some(vec![Arc::from(key.as_ref())]),
+        jsonschema_regex::PatternAnalysis::Alternation(keys) => {
+            Some(keys.iter().map(|key| Arc::from(key.as_str())).collect())
+        }
+        jsonschema_regex::PatternAnalysis::Prefix(_)
+        | jsonschema_regex::PatternAnalysis::NoWhitespace => None,
+    }
+}
+
+/// In-place applicators whose annotations depend on which branch the instance matched. `allOf` is
+/// absent: every branch must pass, so [`property_cover`] can read its contribution off the document.
+/// `not` is absent too: it succeeds only when its subschema fails, and a failure annotates nothing.
+fn has_instance_dependent_applicator(map: &serde_json::Map<String, Value>) -> bool {
+    map.keys().any(|key| {
+        matches!(
+            key.as_str(),
+            "$dynamicRef"
+                | "$recursiveRef"
+                | "$ref"
+                | "anyOf"
+                | "dependencies"
+                | "dependentSchemas"
+                | "else"
+                | "if"
+                | "oneOf"
+                | "then"
+        )
+    })
+}
+
+/// The keys an `allOf` tree evaluates beside an `unevaluatedProperties`.
+#[derive(Default)]
+struct PropertyCover {
+    /// A branch reaches every key, leaving the `unevaluatedProperties` inert.
+    everything: bool,
+    keys: Vec<String>,
+    patterns: Vec<String>,
+}
+
+/// Name each covered key and pattern here as a vacuous entry, so the `additional*` twin skips it.
+fn hoist_cover(degraded: &mut serde_json::Map<String, Value>, cover: &PropertyCover) {
+    for (keyword, names) in [
+        ("properties", &cover.keys),
+        ("patternProperties", &cover.patterns),
+    ] {
+        if names.is_empty() {
+            continue;
+        }
+        let Value::Object(entries) = degraded
+            .entry(keyword)
+            .or_insert_with(|| Value::Object(serde_json::Map::new()))
+        else {
+            continue;
+        };
+        for name in names {
+            entries.entry(name.as_str()).or_insert(Value::Bool(true));
+        }
+    }
+}
+
+/// Accumulate what `branch` evaluates; `None` when the instance decides it.
+fn property_cover(branch: &Value, cover: &mut PropertyCover) -> Option<()> {
+    let map = match branch {
+        // No keywords, so nothing is annotated.
+        Value::Bool(_) => return Some(()),
+        Value::Object(map) => map,
+        Value::Null | Value::Number(_) | Value::String(_) | Value::Array(_) => return None,
+    };
+    if has_instance_dependent_applicator(map) {
+        return None;
+    }
+    // Either one reaches every key the branch does not name, leaving nothing unevaluated.
+    if map.contains_key("additionalProperties") || map.contains_key("unevaluatedProperties") {
+        cover.everything = true;
+        return Some(());
+    }
+    if let Some(Value::Object(properties)) = map.get("properties") {
+        cover.keys.extend(properties.keys().cloned());
+    }
+    if let Some(Value::Object(patterns)) = map.get("patternProperties") {
+        cover.patterns.extend(patterns.keys().cloned());
+    }
+    if let Some(Value::Array(nested)) = map.get("allOf") {
+        for branch in nested {
+            property_cover(branch, cover)?;
+        }
+    }
+    Some(())
+}
+
+/// The indexes an `allOf` tree evaluates beside an `unevaluatedItems`.
+#[derive(Default)]
+struct ItemCover {
+    /// A branch reaches every index, leaving the `unevaluatedItems` inert.
+    everything: bool,
+    /// The longest tuple prefix any branch evaluates.
+    prefix: usize,
+}
+
+/// Extend the local tuple so the tail keyword starts past every index the branches evaluate; the
+/// branch that evaluated an index still carries its constraint.
+fn pad_tuple(degraded: &mut serde_json::Map<String, Value>, prefix_items: bool, prefix: usize) {
+    if prefix == 0 {
+        return;
+    }
+    let keyword = if prefix_items { "prefixItems" } else { "items" };
+    let Value::Array(tuple) = degraded
+        .entry(keyword)
+        .or_insert_with(|| Value::Array(Vec::new()))
+    else {
+        return;
+    };
+    tuple.resize(tuple.len().max(prefix), Value::Bool(true));
+}
+
+/// Accumulate the indexes `branch` evaluates; `None` when the instance decides them.
+fn item_cover(branch: &Value, draft: Draft, cover: &mut ItemCover) -> Option<()> {
+    let map = match branch {
+        // No keywords, so nothing is annotated.
+        Value::Bool(_) => return Some(()),
+        Value::Object(map) => map,
+        Value::Null | Value::Number(_) | Value::String(_) | Value::Array(_) => return None,
+    };
+    if has_instance_dependent_applicator(map) {
+        return None;
+    }
+    // `contains` marks the indexes it matches, which no prefix length spells.
+    if map.contains_key("contains") {
+        return None;
+    }
+    // Reaches every index the branch's own tuple leaves over.
+    if map.contains_key("unevaluatedItems") {
+        cover.everything = true;
+        return Some(());
+    }
+    let tuple_is_prefix_items = matches!(draft, Draft::Draft202012 | Draft::Unknown);
+    match map.get("items") {
+        // Schema-form `items` reaches every index past the tuple.
+        Some(Value::Object(_) | Value::Bool(_)) => {
+            cover.everything = true;
+            return Some(());
+        }
+        Some(Value::Array(items)) if !tuple_is_prefix_items => {
+            cover.prefix = cover.prefix.max(items.len());
+            if map.contains_key("additionalItems") {
+                cover.everything = true;
+                return Some(());
+            }
+        }
+        // An array `items` is not a tuple in 2020-12, where the parse loop keeps it raw.
+        Some(Value::Array(_) | Value::Null | Value::Number(_) | Value::String(_)) | None => {}
+    }
+    if tuple_is_prefix_items {
+        if let Some(Value::Array(prefix)) = map.get("prefixItems") {
+            cover.prefix = cover.prefix.max(prefix.len());
+        }
+    }
+    if let Some(Value::Array(nested)) = map.get("allOf") {
+        for branch in nested {
+            item_cover(branch, draft, cover)?;
+        }
+    }
+    Some(())
+}
+
+/// Whether this object asserts an `unevaluated*` keyword. Both enter the vocabulary in the same
+/// draft, so one `is_known_keyword` answer covers the pair.
+fn has_unevaluated(map: &serde_json::Map<String, Value>, draft: Draft) -> bool {
+    draft.is_known_keyword("unevaluatedProperties")
+        && (map.contains_key("unevaluatedProperties") || map.contains_key("unevaluatedItems"))
+}
+
+/// Rewrite every asserted `unevaluated*` into its `additional*` twin. With no in-place applicator
+/// beside it, `unevaluated*` sees exactly the keys or indices its twin sees; a live twin already
+/// evaluates all of them, leaving it inert and dropped. `None` keeps the document raw.
+fn degrade_unevaluated(map: &serde_json::Map<String, Value>, draft: Draft) -> Option<Value> {
+    if has_instance_dependent_applicator(map) {
+        return None;
+    }
+    let mut degraded = map.clone();
+    // A local `additionalProperties` leaves nothing unevaluated, so the sibling is inert - and
+    // hoisting would change which keys that `additionalProperties` reaches, so it must not run.
+    if let Some(value) = degraded
+        .remove("unevaluatedProperties")
+        .filter(|_| !degraded.contains_key("additionalProperties"))
+    {
+        // Naming a covered key here is all `additionalProperties` needs to skip it; the branch
+        // that named it still carries the constraint.
+        if let Some(Value::Array(branches)) = map.get("allOf") {
+            let mut cover = PropertyCover::default();
+            for branch in branches {
+                property_cover(branch, &mut cover)?;
+            }
+            if !cover.everything {
+                hoist_cover(&mut degraded, &cover);
+                degraded.insert("additionalProperties".to_string(), value);
+            }
+        } else {
+            degraded.insert("additionalProperties".to_string(), value);
+        }
+    }
+    if let Some(value) = degraded.remove("unevaluatedItems") {
+        // `contains` marks the elements it matches evaluated, which no `additional*` twin spells.
+        if map.contains_key("contains") {
+            return None;
+        }
+        let mut cover = ItemCover::default();
+        if let Some(Value::Array(branches)) = map.get("allOf") {
+            for branch in branches {
+                item_cover(branch, draft, &mut cover)?;
+            }
+        }
+        if !cover.everything {
+            // A tuple's tail is `additionalItems` before 2020-12 and schema-form `items` in it,
+            // where the tuple itself is `prefixItems`. A schema-form `items` already reaches every
+            // index past the tuple, leaving nothing for the twin.
+            let tuple_is_prefix_items = matches!(draft, Draft::Draft202012 | Draft::Unknown);
+            let tail = match (map.get("items"), tuple_is_prefix_items) {
+                // A branch prefix needs a local tuple to sit behind, spelled `items` before 2020-12.
+                (None, false) if cover.prefix > 0 => Some("additionalItems"),
+                (None, _) => Some("items"),
+                (Some(Value::Array(_)), false) => Some("additionalItems"),
+                (
+                    Some(
+                        Value::Object(_)
+                        | Value::Bool(_)
+                        | Value::Array(_)
+                        | Value::Null
+                        | Value::Number(_)
+                        | Value::String(_),
+                    ),
+                    _,
+                ) => None,
+            };
+            if let Some(tail) = tail.filter(|tail| !degraded.contains_key(*tail)) {
+                pad_tuple(&mut degraded, tuple_is_prefix_items, cover.prefix);
+                degraded.insert(tail.to_string(), value);
+            }
+        }
+    }
+    // No asserted `unevaluated*` survives, so re-parsing this map terminates.
+    Some(Value::Object(degraded))
+}
+
 fn ref_has_assertion_siblings(map: &serde_json::Map<String, Value>, draft: Draft) -> bool {
     map.keys().any(|key| {
         !matches!(
             key.as_str(),
             "$ref"
+                // Consumed beside `$ref`, so never left for the sibling parse.
+                | "$dynamicRef"
+                | "$recursiveRef"
                 | "$schema"
                 | "$id"
                 | "id"
                 | "$anchor"
+                | "$dynamicAnchor"
+                | "$recursiveAnchor"
                 | "$defs"
                 | "definitions"
                 | "title"
@@ -846,30 +1503,103 @@ fn ref_has_assertion_siblings(map: &serde_json::Map<String, Value>, draft: Draft
     })
 }
 
-fn resolve_reference(
+/// The conjunction of the reference keywords an object spells, if any.
+fn combine_references(references: Vec<Schema>, ctx: &CanonicalizationContext) -> Option<Schema> {
+    let mut references = references.into_iter();
+    let first = references.next()?;
+    Some(references.fold(first, |left, right| algebra::intersect(left, right, ctx)))
+}
+
+/// A `$recursiveRef`, the 2019-09 spelling.
+///
+/// [`Resolver::lookup_recursive_ref`] follows the scope while each resource carries
+/// `$recursiveAnchor: true`. Absent or `false`, it behaves as `$ref: "#"`.
+fn resolve_recursive_reference<'a>(
+    ctx: &CanonicalizationContext,
+    resolver: &Resolver<'a>,
+    state: &mut ParseState<'a>,
+) -> Result<Option<Schema>, CanonicalizationError> {
+    let base_uri = resolver.base_uri();
+    let location = resolver.resolve_uri(&base_uri.borrow(), "#")?;
+    let resolved = resolver.lookup_recursive_ref()?;
+    reference_to_definition("#", location.as_str(), resolved, ctx, state)
+}
+
+fn resolve_reference<'a>(
     reference: &str,
     ctx: &CanonicalizationContext,
-    resolver: &Resolver<'_>,
-    state: &mut ParseState<'_>,
+    resolver: &Resolver<'a>,
+    state: &mut ParseState<'a>,
 ) -> Result<Option<Schema>, CanonicalizationError> {
+    state.facts.has_references = true;
     let base_uri = resolver.base_uri();
     let location = resolver.resolve_uri(&base_uri.borrow(), reference)?;
     let resolved = resolver.lookup(reference)?;
+    reference_to_definition(reference, location.as_str(), resolved, ctx, state)
+}
+
+/// Turn a resolved target into a symbolic reference plus the definition it names.
+///
+/// A dynamic reference's `location` is its lexical bookend, not where the scope walk landed, so
+/// `reached_dynamically` is what separates the paths.
+fn reference_to_definition<'a>(
+    reference: &str,
+    location: &str,
+    resolved: referencing::Resolved<'a>,
+    ctx: &CanonicalizationContext,
+    state: &mut ParseState<'a>,
+) -> Result<Option<Schema>, CanonicalizationError> {
     let (target, target_resolver, target_draft) = resolved.into_inner();
-    if std::ptr::eq(target, state.root) {
-        return Ok(Some(Schema::new(SchemaKind::Reference(Arc::from("#")))));
+    let env = if state.dynamic_scope.tracked() {
+        dynamic_scope_digest(&target_resolver, ctx.draft())?
+    } else {
+        empty_environment()
+    };
+    // Sites inside the root parse see the root resource as their outermost scope entry, so a
+    // back-reference whose digest binds everything to the root resource observes exactly what
+    // those sites did; any other binding differs and mints its own definition below.
+    if std::ptr::eq(target, state.root)
+        && env
+            .iter()
+            .all(|(_, resource)| *resource == state.root_base_uri)
+    {
+        // The root is never keyed, so the fixpoint names it by the spelling emitted here.
+        if state.assumes_empty(ROOT_DEFINITION_KEY) {
+            return Ok(Some(Schema::new(SchemaKind::False)));
+        }
+        return Ok(Some(Schema::new(SchemaKind::Reference(Arc::from(
+            ROOT_DEFINITION_KEY,
+        )))));
     }
     if target_draft != ctx.draft() {
         return Ok(None);
     }
-    let key = canonical_reference_uri(reference, location.as_str(), &state.root_base_uri);
-    if !ensure_definition(Arc::clone(&key), target, ctx, &target_resolver, state)? {
+    let raw_key = canonical_reference_uri(reference, location, &state.root_base_uri);
+    if !ensure_definition(&raw_key, target, ctx, &target_resolver, &env, state)? {
         return Ok(None);
     }
+    // `ensure_definition` inserted under the specialized key; the reference must name that one.
+    let key = specialized_key(&raw_key, &env);
     debug_assert!(
         state.definitions.contains_key(&key) || state.in_progress.contains(&key),
         "a resolved reference target is complete or actively being canonicalized"
     );
+    // Unlike the fold below, canonical URIs are not exempt: a cycle closed through an `$id`-bearing
+    // subresource is keyed by a minted URI, and exempting it would leave it live once proven empty.
+    if state.assumes_empty(&key) {
+        return Ok(Some(Schema::new(SchemaKind::False)));
+    }
+    // Folding an empty target lets the surrounding leaf normalization see the contradiction:
+    // `required: ["a"]` beside `properties: {"a": false}` collapses, a symbolic `Reference` does
+    // not. A canonical URI is exempt because it must keep its local definition to stay idempotent.
+    if !key.starts_with(CANONICAL_REFERENCE_PREFIX)
+        && state
+            .definitions
+            .get(&key)
+            .is_some_and(|body| matches!(body.kind(), SchemaKind::False))
+    {
+        return Ok(Some(Schema::new(SchemaKind::False)));
+    }
     Ok(Some(Schema::new(SchemaKind::Reference(key))))
 }
 
@@ -924,28 +1654,68 @@ fn is_direct_definition_reference(reference: &str) -> bool {
     false
 }
 
-fn ensure_definition(
-    key: Arc<str>,
-    target: &Value,
+fn ensure_definition<'a>(
+    key: &Arc<str>,
+    target: &'a Value,
     ctx: &CanonicalizationContext,
-    resolver: &Resolver<'_>,
-    state: &mut ParseState<'_>,
+    resolver: &Resolver<'a>,
+    env: &DynamicEnv,
+    state: &mut ParseState<'a>,
 ) -> Result<bool, CanonicalizationError> {
+    // An untracked parse assumed no dynamic reference exists; a target that spells one - reachable
+    // only through an externally registered resource, since the root was scanned - voids that
+    // assumption for every key minted so far, so the whole document reparses with tracking on.
+    // Scanned per resource root rather than per target subtree, and memoized.
+    if let DynamicScope::Untracked {
+        spelling_scans,
+        needs_tracking,
+    } = &mut state.dynamic_scope
+    {
+        let base = resolver.base_uri();
+        let spells = if let Some(&spells) = spelling_scans.get(base.as_str()) {
+            spells
+        } else {
+            let (contents, _, resource_draft) = resolver.lookup("#")?.into_inner();
+            let spells = spells_dynamic_reference(contents, resource_draft);
+            spelling_scans.insert(Arc::from(base.as_str()), spells);
+            spells
+        };
+        if spells {
+            *needs_tracking = true;
+            return Ok(false);
+        }
+    }
+    debug_assert!(
+        state.dynamic_scope.tracked() || env.is_empty(),
+        "an untracked parse keeps the digest empty"
+    );
+    // One target reached along two dynamic paths canonicalizes two ways, so a URI alone cannot key
+    // the cache. The digest of the target's own scope is what its parse can observe.
+    let key = specialized_key(key, env);
+    // A `$defs` name spelling a canonical URI keys the same string that a reference to the resource
+    // it encodes mints, so without this the early return below would alias the two targets.
+    if let Some(existing) = state.sources.get(&key) {
+        if !std::ptr::eq(*existing, target) {
+            return Ok(false);
+        }
+    }
     if state.definitions.contains_key(&key) || state.in_progress.contains(&key) {
         return Ok(true);
     }
+    state.sources.insert(Arc::clone(&key), target);
     let inserted = state.in_progress.insert(Arc::clone(&key));
     debug_assert!(
         inserted,
         "a new definition target is not already in progress"
     );
-    let parsed = parse_schema_in_scope(target, ctx, false, resolver, state)?;
+    let parsed = parse_schema_in_scope(target, ctx, false, resolver, state);
+    // Removed before the `?`, keeping the restore-on-error contract.
     let was_in_progress = state.in_progress.remove(&key);
     debug_assert!(
         was_in_progress,
         "definition parsing balances its in-progress marker"
     );
-    let Some(parsed) = parsed else {
+    let Some(parsed) = parsed? else {
         return Ok(false);
     };
     let previous = state.definitions.insert(key, parsed);
@@ -978,59 +1748,39 @@ fn prune_unreachable_definitions(root: &Schema, definitions: &mut DefinitionMap)
     );
 }
 
-fn collect_live_definition_references<'a>(schema: &'a Schema, references: &mut Vec<&'a str>) {
-    match schema.kind() {
-        SchemaKind::Reference(uri) => references.push(uri),
-        SchemaKind::Not(schema) | SchemaKind::TypedGroup { body: schema, .. } => {
-            collect_live_definition_references(schema, references);
+/// Whether the document holds a keyword that can bring two object leaves together.
+fn merges_object_leaves(value: &Value) -> bool {
+    match value {
+        Value::Object(map) => {
+            map.keys().any(|key| {
+                matches!(
+                    key.as_str(),
+                    "$dynamicRef"
+                        | "$recursiveRef"
+                        | "$ref"
+                        | "allOf"
+                        | "anyOf"
+                        | "dependencies"
+                        | "dependentSchemas"
+                        | "else"
+                        | "if"
+                        | "not"
+                        | "oneOf"
+                        | "then"
+                )
+            }) || map.values().any(merges_object_leaves)
         }
-        SchemaKind::AllOf(branches) | SchemaKind::AnyOf(branches) => {
-            for branch in branches.as_slice() {
-                collect_live_definition_references(branch, references);
-            }
-        }
-        SchemaKind::OneOf(branches) => {
-            for branch in branches {
-                collect_live_definition_references(branch, references);
-            }
-        }
-        SchemaKind::Array(leaf) => {
-            let leaf = leaf.get();
-            for schema in &leaf.prefix {
-                collect_live_definition_references(schema, references);
-            }
-            if let Some(schema) = &leaf.items {
-                collect_live_definition_references(schema, references);
-            }
-            for facet in &leaf.contains {
-                collect_live_definition_references(&facet.schema, references);
-            }
-        }
-        SchemaKind::Object(leaf) => {
-            let leaf = leaf.get();
-            if let Some(schema) = &leaf.property_names {
-                collect_live_definition_references(schema, references);
-            }
-            for schema in leaf.properties.values() {
-                collect_live_definition_references(schema, references);
-            }
-            for schema in leaf.pattern_properties.values() {
-                collect_live_definition_references(schema, references);
-            }
-            if let Some(schema) = &leaf.additional {
-                collect_live_definition_references(schema, references);
-            }
-        }
-        SchemaKind::MultiType(_)
-        | SchemaKind::String(_)
-        | SchemaKind::Integer(_)
-        | SchemaKind::Number(_)
-        | SchemaKind::Const(_)
-        | SchemaKind::Enum(_)
-        | SchemaKind::True
-        | SchemaKind::False
-        | SchemaKind::Raw(_) => {}
+        Value::Array(items) => items.iter().any(merges_object_leaves),
+        Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => false,
     }
+}
+
+fn collect_live_definition_references<'a>(schema: &'a Schema, references: &mut Vec<&'a str>) {
+    // Derived from the emptiness walker rather than repeated: the two must agree on which fields
+    // hold a schema, and a field missed here leaks a `$ref` to a pruned definition.
+    let mut found = Vec::new();
+    emptiness::collect_classified_references(schema, emptiness::Position::InPlace, &mut found);
+    references.extend(found.into_iter().map(|(uri, _)| uri.as_ref()));
 }
 
 /// The array-form dependency on `key`: holding it demands the listed keys too.
@@ -1084,81 +1834,6 @@ fn object_with_required(required: Vec<Arc<str>>, ctx: &CanonicalizationContext) 
     )
 }
 
-/// "Exactly one branch matches": some branch matches and no two-branch overlap does, so only the
-/// overlaps need complements — a branch overlapping nothing is never negated. `None` when an
-/// overlap's complement is inexpressible.
-fn exactly_one_of(
-    branches: Vec<Schema>,
-    overlaps: Vec<Schema>,
-    ctx: &CanonicalizationContext,
-) -> Option<Schema> {
-    let mut result = algebra::union(branches, ctx);
-    for overlap in overlaps {
-        result = algebra::intersect(result, negate::negate(&overlap, ctx)?, ctx);
-    }
-    Some(result)
-}
-
-/// Every region two branches share: the values repeating across finite-value branches packed as
-/// one value set, and the non-`False` pairwise intersections involving structural branches. Empty
-/// exactly when the branches are pairwise disjoint, so `oneOf` degrades to `anyOf`.
-///
-/// Finite-value branches share a value exactly when a member repeats across them, so one hash set
-/// replaces their share of the quadratic sweep; only the remaining branches pay a pairwise
-/// `intersect`, plus one `intersect` against each finite-value branch.
-fn pairwise_overlaps(branches: &[Schema], ctx: &CanonicalizationContext) -> Vec<Schema> {
-    let mut seen: AHashSet<&CanonicalJson> = AHashSet::new();
-    let mut shared: Vec<CanonicalJson> = Vec::new();
-    let mut finite: Vec<&Schema> = Vec::new();
-    let mut structural: Vec<&Schema> = Vec::new();
-    for branch in branches {
-        match branch.kind() {
-            SchemaKind::Const(value) => {
-                if !seen.insert(value) {
-                    shared.push(value.clone());
-                }
-                finite.push(branch);
-            }
-            SchemaKind::Enum(values) => {
-                for value in values.as_slice() {
-                    if !seen.insert(value) {
-                        shared.push(value.clone());
-                    }
-                }
-                finite.push(branch);
-            }
-            SchemaKind::MultiType(_)
-            | SchemaKind::TypedGroup { .. }
-            | SchemaKind::String(_)
-            | SchemaKind::Integer(_)
-            | SchemaKind::Number(_)
-            | SchemaKind::Array(_)
-            | SchemaKind::Object(_)
-            | SchemaKind::Not(_)
-            | SchemaKind::AllOf(_)
-            | SchemaKind::AnyOf(_)
-            | SchemaKind::OneOf(_)
-            | SchemaKind::Reference(_)
-            | SchemaKind::True
-            | SchemaKind::False
-            | SchemaKind::Raw(_) => structural.push(branch),
-        }
-    }
-    let mut overlaps = Vec::new();
-    if !shared.is_empty() {
-        overlaps.push(canonicalize_value_set(shared));
-    }
-    for (index, left) in structural.iter().enumerate() {
-        for right in structural[index + 1..].iter().chain(&finite) {
-            let intersection = algebra::intersect((*left).clone(), (*right).clone(), ctx);
-            if !matches!(intersection.kind(), SchemaKind::False) {
-                overlaps.push(intersection);
-            }
-        }
-    }
-    overlaps
-}
-
 /// The finite value set admitted by `const` and `enum` together: their conjunction.
 fn admitted_values(
     enum_values: Option<&Vec<Value>>,
@@ -1210,7 +1885,8 @@ pub(crate) fn restrict_values_to_types(
     algebra::union(branches, ctx)
 }
 
-/// Whether every number nested in an instance-data value keeps a plain canonical spelling.
+/// Whether every number nested in an instance-data value keeps a plain canonical spelling, which
+/// holds until a magnitude needs more digits to write out than `MAX_EXPANDED_INTEGER_DIGITS`.
 #[cfg(feature = "arbitrary-precision")]
 fn finite_value_spelling_is_exact(value: &Value) -> bool {
     match value {
@@ -1278,11 +1954,11 @@ fn string_facet_schema(leaf: StringLeaf, ctx: &CanonicalizationContext) -> Schem
 }
 
 /// Parse a tuple's per-index schemas; `Ok(None)` when any element is unmodeled, keeping the document raw.
-fn parse_prefix(
+fn parse_prefix<'a>(
     schemas: &[Value],
     ctx: &CanonicalizationContext,
-    resolver: &Resolver<'_>,
-    state: &mut ParseState<'_>,
+    resolver: &Resolver<'a>,
+    state: &mut ParseState<'a>,
 ) -> Result<Option<Vec<Schema>>, CanonicalizationError> {
     let mut prefix = Vec::with_capacity(schemas.len());
     for schema in schemas {
@@ -1317,4 +1993,37 @@ fn keeps_draft4_integer_guard(set: JsonTypeSet, draft: Draft) -> bool {
     matches!(draft, Draft::Draft4)
         && set.contains(JsonType::Integer)
         && !set.contains(JsonType::Number)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Anchor names from externally registered resources bypass `anchorString` validation, so a
+    // name or resource URI may spell the join delimiters themselves.
+    #[test]
+    fn specialized_key_is_injective_for_delimiter_spelling_components() {
+        let key: Arc<str> = Arc::from("https://example.com/target");
+        let name_with_at: DynamicEnv =
+            Arc::from(vec![(Arc::<str>::from("a@r"), Arc::<str>::from("x"))]);
+        let resource_with_at: DynamicEnv =
+            Arc::from(vec![(Arc::<str>::from("a"), Arc::<str>::from("r@x"))]);
+        assert_ne!(
+            specialized_key(&key, &name_with_at),
+            specialized_key(&key, &resource_with_at)
+        );
+
+        let key_with_delimiter: Arc<str> = Arc::from("k|dyn=a@r");
+        let one_binding: DynamicEnv =
+            Arc::from(vec![(Arc::<str>::from("b"), Arc::<str>::from("s"))]);
+        let plain_key: Arc<str> = Arc::from("k");
+        let two_bindings: DynamicEnv = Arc::from(vec![
+            (Arc::<str>::from("a"), Arc::<str>::from("r")),
+            (Arc::<str>::from("b"), Arc::<str>::from("s")),
+        ]);
+        assert_ne!(
+            specialized_key(&key_with_delimiter, &one_binding),
+            specialized_key(&plain_key, &two_bindings)
+        );
+    }
 }

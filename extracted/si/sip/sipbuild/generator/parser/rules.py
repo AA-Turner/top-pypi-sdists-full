@@ -1890,6 +1890,10 @@ def p_class_head(p):
 
     pm.check_annotations(p, 3, "class", _CLASS_ANNOTATIONS)
 
+    if pm.target_major_abi >= 14 and 'DelayDtor' in p[3]:
+        pm.parser_error(p, 3,
+                "DelayDtor is not supported by ABI v14 and later")
+
     if p[2] is not None:
         pm.cpp_only(p, 2, "super-classes")
 
@@ -3154,7 +3158,10 @@ def p_namespace_docstring(p):
     if pm.skipping:
         return
 
-    if pm.scope.docstring is None:
+    if pm.scope is None:
+        pm.parser_error(p, 1,
+                "module docstrings must be defined by the %Module directive")
+    elif pm.scope.docstring is None:
         pm.scope.docstring = p[1]
     else:
         pm.parser_error(p, 1,
@@ -3219,6 +3226,7 @@ def p_typedef_decl(p):
         # Make sure the type is 'void *'.
         if type.type is ArgumentType.VOID and len(type.derefs) == 1 and not type.is_const and not type.is_reference:
             type.type = ArgumentType.CAPSULE
+            type.definition = cpp_name
             type.derefs = []
         else:
             pm.parser_error(p, annos_symbol,

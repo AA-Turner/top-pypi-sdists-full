@@ -4,13 +4,15 @@ from office365.intune.servicecommunications.health.health import ServiceHealth
 from office365.intune.servicecommunications.issues.issue import ServiceHealthIssue
 from office365.intune.servicecommunications.messages.update import ServiceUpdateMessage
 from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.types.odata_property import odata
 
 
 class ServiceAnnouncement(Entity):
     """A top-level container for service communications resources."""
 
+    @odata(name="healthOverviews")
     @property
-    def health_overviews(self):
+    def health_overviews(self) -> EntityCollection[ServiceHealth]:
         """Get the serviceHealth resources from the healthOverviews navigation property."""
         return self.properties.get(
             "healthOverviews",
@@ -22,7 +24,7 @@ class ServiceAnnouncement(Entity):
         )
 
     @property
-    def issues(self):
+    def issues(self) -> EntityCollection[ServiceHealthIssue]:
         """Get the serviceHealthIssue resources from the issues navigation property."""
         return self.properties.get(
             "issues",
@@ -34,7 +36,7 @@ class ServiceAnnouncement(Entity):
         )
 
     @property
-    def messages(self):
+    def messages(self) -> EntityCollection[ServiceUpdateMessage]:
         """Get the serviceUpdateMessage resources from the messages navigation property."""
         return self.properties.get(
             "messages",
@@ -44,9 +46,3 @@ class ServiceAnnouncement(Entity):
                 ResourcePath("messages", self.resource_path),
             ),
         )
-
-    def get_property(self, name, default_value=None):
-        if default_value is None:
-            property_mapping = {"healthOverviews": self.health_overviews}
-            default_value = property_mapping.get(name, None)
-        return super(ServiceAnnouncement, self).get_property(name, default_value)

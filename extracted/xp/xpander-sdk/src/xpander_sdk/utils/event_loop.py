@@ -7,24 +7,42 @@ support asynchronous operations.
 """
 
 import asyncio
-from typing import Any, Awaitable
+import concurrent.futures
+import contextvars
+from typing import Any, Coroutine
+
+# Long-lived so a per-action sync wrapper doesn't pay thread creation every call.
+# Threads are reused; each call still gets its own loop.
+_RUNNER_POOL = concurrent.futures.ThreadPoolExecutor(thread_name_prefix="xpander-run-sync")
 
 
-def run_sync(coro: Awaitable[Any]) -> Any:
+def run_sync(coro: Coroutine[Any, Any, Any]) -> Any:
     """
-    Synchronously run an asynchronous coroutine, ensuring compatibility
-    with nested event loops in environments like Jupyter Notebooks or
-    web frameworks such as FastAPI.
+    Synchronously run a coroutine, including from inside a thread that already
+    drives a running event loop (Jupyter, FastAPI / uvicorn request handlers,
+    agno tool callables).
 
-    This function detects and manages running event loops to prevent
-    runtime errors. For uvloop compatibility, it uses asyncio.create_task
-    and waits for completion instead of nest_asyncio when uvloop is detected.
+    A running loop is never re-entered. Re-entrancy used to be provided by
+    ``nest_asyncio``, which patches ``run_forever`` / ``run_until_complete`` /
+    ``_run_once`` on the loop class and swaps ``asyncio.Task`` and ``Future``
+    process-wide; on a live server that unwinds the host's ``asyncio.run`` and
+    kills the process mid-request. The coroutine is handed to a private loop on
+    a pooled worker thread instead - the caller blocks, the host loop is
+    untouched, and the caller's ``contextvars`` travel with it.
+
+    Prefer awaiting the ``a``-prefixed coroutine directly when the caller is
+    already async; this helper exists for the SDK's synchronous API surface.
 
     Args:
-        coro (Awaitable[Any]): The coroutine to be executed.
+        coro (Coroutine[Any, Any, Any]): The coroutine to be executed. Tasks and
+            futures are bound to the loop that created them and cannot be moved.
 
     Returns:
         Any: The result of the coroutine execution.
+
+    Raises:
+        TypeError: If a loop-bound ``Task`` / ``Future`` is passed instead of a
+            coroutine object.
 
     Example:
         >>> async def fetch_data():
@@ -37,32 +55,28 @@ def run_sync(coro: Awaitable[Any]) -> Any:
     """
     try:
         loop = asyncio.get_running_loop()
-        if loop.is_running():
-            # Check if we're running with uvloop
-            loop_module = type(loop).__module__
-            if "uvloop" in loop_module.lower():
-                # uvloop doesn't support nest_asyncio, so we need a different approach
-                # Create a task and run it in the current loop context
-                import concurrent.futures
-
-                # Use a separate thread with a new event loop
-                def _run_in_thread():
-                    new_loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(new_loop)
-                    try:
-                        return new_loop.run_until_complete(coro)
-                    finally:
-                        new_loop.close()
-
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(_run_in_thread)
-                    return future.result()
-            else:
-                # Use `nest_asyncio` for standard asyncio loops
-                import nest_asyncio
-
-                nest_asyncio.apply()
-                return loop.run_until_complete(coro)
     except RuntimeError:
-        # No event loop in this context, safe to run
+        loop = None
+
+    if loop is None or not loop.is_running():
         return asyncio.run(coro)
+
+    if asyncio.isfuture(coro):
+        raise TypeError(
+            "run_sync() needs a coroutine object (e.g. some_async_fn()); a Task or "
+            "Future belongs to the loop that created it and cannot be run on another."
+        )
+
+    def _run_in_thread() -> Any:
+        new_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(new_loop)
+        try:
+            return new_loop.run_until_complete(coro)
+        finally:
+            asyncio.set_event_loop(None)
+            new_loop.close()
+
+    # Without the copied context the worker thread starts blank, dropping ContextVars
+    # such as the current tool call id that downstream requests read for their headers.
+    context = contextvars.copy_context()
+    return _RUNNER_POOL.submit(context.run, _run_in_thread).result()

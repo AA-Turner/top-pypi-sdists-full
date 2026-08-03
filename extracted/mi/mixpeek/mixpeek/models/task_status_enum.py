@@ -42,6 +42,7 @@ class TaskStatusEnum(str, Enum):
     ACTIVE = 'ACTIVE'
     ARCHIVED = 'ARCHIVED'
     SUSPENDED = 'SUSPENDED'
+    DEACTIVATED = 'DEACTIVATED'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

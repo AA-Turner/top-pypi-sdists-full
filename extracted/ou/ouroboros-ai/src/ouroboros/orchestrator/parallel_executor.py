@@ -30,6 +30,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Awaitable, Callable, Mapping
 import contextlib
+from copy import deepcopy
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from functools import wraps
@@ -39,6 +40,7 @@ import math
 import os
 from pathlib import Path
 import re
+import shlex
 import time
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple
 from uuid import uuid4
@@ -52,6 +54,7 @@ from ouroboros.core.seed import (
     InvestmentSpec,
     ac_text,
     derive_semantic_ac_key,
+    expected_artifact_workspace_path_error,
 )
 from ouroboros.core.session_signal import (
     SessionSignalMode,
@@ -81,6 +84,7 @@ from ouroboros.harness.journal import EvidenceEntry, EvidenceManifest
 from ouroboros.harness.traceguard_validator import validate_evidence_claims
 from ouroboros.observability.logging import get_logger
 from ouroboros.orchestrator.ac_execution_capsule import (
+    UnmaterializableSuccessContractError,
     bind_capsule_to_runtime_handle,
     build_ac_dispatch_authority_scope,
     compile_ac_execution_capsule,
@@ -90,19 +94,41 @@ from ouroboros.orchestrator.adapter import (
     AgentMessage,
     ParamSupport,
     RuntimeHandle,
+    resolve_worker_cwd,
 )
 from ouroboros.orchestrator.atomic_prompt_builder import (
     AtomicPromptBuilder,
     _build_success_contract_block,  # noqa: F401  (re-exported for tests/back-compat)
 )
-from ouroboros.orchestrator.backend_limits import resolve_backend_limits
+from ouroboros.orchestrator.backend_limits import (
+    BackendConcurrencyLimits,
+    resolve_backend_limits,
+)
 from ouroboros.orchestrator.context_governor import SiblingStatus, compose_context
-from ouroboros.orchestrator.coordinator import CoordinatorReview, LevelCoordinator
+from ouroboros.orchestrator.coordinator import (
+    CoordinatorReview,
+    FileConflict,
+    LevelCoordinator,
+    validate_coordinator_started_payload,
+)
+from ouroboros.orchestrator.decomposition_limits import (
+    DEFAULT_MAX_DECOMPOSITION_DEPTH,
+    MAX_DECOMPOSITION_CHILDREN,
+    MAX_DECOMPOSITION_DEPTH,  # noqa: F401  (re-exported for tests/back-compat)
+    MAX_DECOMPOSITION_REPLAY_NODES,
+    MIN_DECOMPOSITION_CHILDREN,
+    has_durable_decomposition_replay,
+    validate_max_decomposition_depth,
+)
 from ouroboros.orchestrator.decomposition_params import (
     build_decomposition_system_prompt,
     params_from_profile,
 )
 from ouroboros.orchestrator.decomposition_policy import (
+    MAX_EVIDENCE_REF_CHARS,
+    MAX_EVIDENCE_REF_COUNT,
+    MAX_REASON_CHARS,
+    MAX_TRACE_SUMMARY_CHARS,
     BounceCause,
     DecompositionDecisionRecord,
     DecompositionDisposition,
@@ -210,6 +236,7 @@ from ouroboros.orchestrator.evidence.shell_parsing import (  # noqa: F401
     _segments_after_safe_shell_preamble,
     _segments_after_safe_shell_preamble_with_pipefail,
     _shell_command_body,
+    _shell_command_body_from_argv,
     _single_command_after_safe_shell_preamble,
     _single_exact_command_after_safe_shell_preamble,
     _strip_command_output_plumbing,
@@ -240,6 +267,7 @@ from ouroboros.orchestrator.evidence.test_detection import (  # noqa: F401
     _test_command_targets_claim,
     _text_contains_test_success,
     _text_contains_unittest_success,
+    _text_proves_test_execution_success,
 )
 from ouroboros.orchestrator.evidence.typed_evidence import (  # noqa: F401
     _add_runtime_command_evidence,
@@ -268,18 +296,25 @@ from ouroboros.orchestrator.execution_authority import (
     ExecutionAuthorityContract,
     ExecutionAuthorityLiveBinding,
     canonical_workspace_authority,
+    runtime_effect_capabilities_contract,
+    valid_runtime_effect_capabilities_contract,
 )
 from ouroboros.orchestrator.execution_event_emitter import ExecutionEventEmitter
+from ouroboros.orchestrator.execution_event_replay import (
+    replay_execution_events_chronologically,
+)
 from ouroboros.orchestrator.execution_runtime_scope import (
     ACRuntimeIdentity,
     ExecutionNodeIdentity,
     build_ac_runtime_identity,
+    build_level_coordinator_runtime_scope,
 )
 from ouroboros.orchestrator.leaf_dispatcher import (
     LeafDispatcher,
     LeafDispatchState,
 )
 from ouroboros.orchestrator.level_context import (
+    ACContextSummary,
     LevelContext,
     build_context_prompt,
     deserialize_level_contexts,
@@ -288,6 +323,9 @@ from ouroboros.orchestrator.level_context import (
 )
 from ouroboros.orchestrator.mcp_tools import serialize_tool_catalog
 from ouroboros.orchestrator.model_routing import (
+    MODEL_MODE_ENFORCED,
+    MODEL_TIER_LADDER,
+    ModelDecision,
     decide_model,
     resolve_execute_model,
     serialize_model_router,
@@ -308,6 +346,32 @@ from ouroboros.orchestrator.rate_limit import (
     build_rate_limit_gate,
     estimate_runtime_request_tokens,
 )
+from ouroboros.orchestrator.recoverable_failure import is_usage_limit_pause_message
+from ouroboros.orchestrator.route_compat import (
+    RouteCompatProjection,
+    admit_compat_escalation_route,
+    admit_compat_route,
+    admitted_execute_model_kwargs,
+    build_compat_escalation_registry,
+    build_compat_escalation_requirements,
+    build_route_compat_projection,
+    serialize_route_compat_contract,
+    validate_compat_admission,
+    validate_compat_escalation_admission,
+)
+from ouroboros.orchestrator.route_escalation import (
+    MAX_EPISODE_ID_CHARS,
+    MAX_ROUTE_ATTEMPTS,
+    EscalationAction,
+    EscalationReason,
+    RouteEscalationDecision,
+    RouteObservation,
+    advance_route,
+)
+from ouroboros.orchestrator.route_escalation import (
+    VerifierOutcome as RouteVerifierOutcome,
+)
+from ouroboros.orchestrator.route_policy import MAX_ROUTE_ID_CHARS, RouteCandidate
 from ouroboros.orchestrator.runtime_param_negotiation import (
     announce_execution_param_degradations,
 )
@@ -318,11 +382,300 @@ from ouroboros.orchestrator.synapse import (
     render_inform_signal_prompt,
 )
 from ouroboros.orchestrator.verifier import (
+    RetryAdmission,
     Verifier,
     VerifierContractError,
     VerifierVerdict,
     verifier_operational_failure_verdict,
 )
+
+_PARALLEL_PAUSE_REPLAY_PAGE_SIZE = 64
+_PARALLEL_ROUTE_OBSERVATION_KEYS = frozenset(
+    {
+        "schema_version",
+        "execution_id",
+        "session_id",
+        "root_ac_index",
+        "semantic_ac_key",
+        "call_site",
+        "observation",
+        "decision",
+        "provisional_result",
+        "human_handoff_required",
+        "final_acceptance_declared",
+    }
+)
+
+
+def _composite_completion_event_sentinel(root_ac_count: int) -> int:
+    """Return the max-plus-one population admitted by the root Seed."""
+
+    if type(root_ac_count) is not int or root_ac_count < 0:
+        raise ValueError("composite completion root population is invalid")
+    # A completed composite is terminal and can be produced at most once for
+    # each admitted root AC.  Replay and pre-dispatch detection must derive
+    # their query sentinel from that producer population instead of imposing a
+    # smaller execution-wide constant on otherwise valid Seeds.
+    return root_ac_count + 1
+
+
+def _decomposition_decision_event_sentinel(root_ac_count: int) -> int:
+    """Return the max-plus-one durable decision population for one Seed.
+
+    A historical PREFLIGHT atomic decision may transition once to the live
+    BOUNCE decision after migration. No other finalized decision can change.
+    """
+
+    if type(root_ac_count) is not int or root_ac_count < 0:
+        raise ValueError("decomposition decision root population is invalid")
+    node_population = root_ac_count * (MAX_DECOMPOSITION_REPLAY_NODES + 1)
+    return node_population * 2 + 1
+
+
+_DECOMPOSITION_DECISION_RECORD_KEYS = frozenset(
+    {
+        "schema_version",
+        "node_id",
+        "source",
+        "disposition",
+        "cause",
+        "reasons",
+        "evidence_refs",
+        "children",
+        "structural_status",
+        "semantic_status",
+        "repair_count",
+        "trustworthy",
+        "compromise_reason",
+    }
+)
+_DECOMPOSITION_DECISION_EVENT_KEYS = frozenset(
+    {
+        "identity_model",
+        "schema_version",
+        "node_id",
+        "parent_node_id",
+        "legacy_node_id",
+        "legacy_parent_node_id",
+        "legacy_node_aliases",
+        "legacy_parent_node_aliases",
+        "root_ac_index",
+        "root_ac_number",
+        "path",
+        "display_path",
+        "depth",
+        "ordinal",
+        "node_kind",
+        "execution_id",
+        "session_id",
+        "mode",
+        "child_count",
+        "source",
+        "disposition",
+        "cause",
+        "reasons",
+        "evidence_refs",
+        "children",
+        "structural_status",
+        "semantic_status",
+        "repair_count",
+        "trustworthy",
+        "compromise_reason",
+    }
+)
+_BOUNCE_CLASSIFIED_EVENT_KEYS = frozenset(
+    {
+        "identity_model",
+        "schema_version",
+        "node_id",
+        "parent_node_id",
+        "legacy_node_id",
+        "legacy_parent_node_id",
+        "legacy_node_aliases",
+        "legacy_parent_node_aliases",
+        "root_ac_index",
+        "root_ac_number",
+        "path",
+        "display_path",
+        "depth",
+        "ordinal",
+        "node_kind",
+        "execution_id",
+        "session_id",
+        "cause",
+        "rationale",
+        "failure_class",
+        "retry_admission",
+        "evidence_refs",
+        "trace_summary",
+    }
+)
+
+
+_PARALLEL_ROUTE_PAUSE_KEYS = frozenset(
+    {
+        "schema_version",
+        "execution_id",
+        "session_id",
+        "root_ac_index",
+        "semantic_ac_key",
+        "call_site",
+        "episode_id",
+        "attempt_index",
+        "prior_route_ids",
+        "route",
+        "resume_state",
+        "recoverable_pause",
+        "final_acceptance_declared",
+    }
+)
+_PARALLEL_ROUTE_PAUSE_RESUME_KEYS = frozenset(
+    {
+        "retry_attempt",
+        "retry_prompt_extra",
+        "sibling_acs",
+        "route_id_override",
+        "expected_route_candidate",
+        "runtime_scope_id",
+        "dispatch_id",
+        "capsule_fingerprint",
+    }
+)
+_PARALLEL_UNCERTAIN_HANDOFF_KEYS = frozenset(
+    {
+        "schema_version",
+        "execution_id",
+        "session_id",
+        "root_ac_index",
+        "semantic_ac_key",
+        "call_site",
+        "reason",
+        "human_handoff_required",
+        "final_acceptance_declared",
+    }
+)
+_PARALLEL_COMPOSITE_COMPLETION_KEYS = frozenset(
+    {
+        "schema_version",
+        "execution_id",
+        "session_id",
+        "root_ac_index",
+        "semantic_ac_key",
+        "call_site",
+        "result",
+        "decomposition_decision",
+        "decomposition_fingerprint",
+        "final_acceptance_declared",
+    }
+)
+_PARALLEL_COMPOSITE_PAUSE_KEYS = frozenset(
+    {
+        "schema_version",
+        "execution_id",
+        "session_id",
+        "root_ac_index",
+        "semantic_ac_key",
+        "call_site",
+        "frames",
+        "paused_leaf",
+        "recoverable_pause",
+        "final_acceptance_declared",
+    }
+)
+_PARALLEL_COMPOSITE_PAUSE_FRAME_KEYS = frozenset(
+    {
+        "completed_children",
+        "paused_child_index",
+        "paused_child_node_id",
+        "paused_child_ac_index",
+        "paused_child_content",
+        "paused_child_retry_attempt",
+        "decomposition_decision",
+        "decomposition_fingerprint",
+    }
+)
+_PARALLEL_COMPOSITE_PAUSE_LEAF_KEYS = frozenset(
+    {
+        "node_id",
+        "ac_index",
+        "ac_content",
+        "retry_attempt",
+        "runtime_scope_id",
+        "dispatch_id",
+        "capsule_fingerprint",
+    }
+)
+_DECOMPOSITION_ATTESTATION_KEYS = frozenset(
+    {
+        "coverage_established",
+        "non_overlap_established",
+        "simpler_units_established",
+    }
+)
+_BOUNCE_CLASSIFICATION_KEYS = frozenset({"cause", "has_remaining_scope"})
+_PARALLEL_ROUTE_JUDGMENT_KEYS = frozenset(
+    {
+        "execution_id",
+        "session_id",
+        "root_ac_index",
+        "ac_index",
+        "retry_attempt",
+        "attempt_number",
+        "success",
+        "outcome",
+        "is_decomposed",
+        "is_decomposed_child",
+        "route_contract_version",
+        "route_episode_id",
+        "route_attempt_index",
+        "route_id",
+        "call_site",
+    }
+)
+
+
+@dataclass(frozen=True, slots=True)
+class _PartialCompositeResumeState:
+    """Exact durable prefix and provider boundary for one paused split root."""
+
+    decision: DecompositionDecisionRecord
+    completed_children: tuple[ACExecutionResult, ...]
+    paused_child_index: int
+    paused_child_ac_index: int
+    paused_child_content: str
+    paused_child_retry_attempt: int
+    paused_runtime_scope_id: str | None
+    paused_dispatch_id: str | None
+    paused_capsule_fingerprint: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class _DurableBounceReplayState:
+    """Validated TOO_BIG phase persisted before decomposition provider effects."""
+
+    cause: BounceCause
+    rationale: str
+    failure_class: str | None
+    retry_admission: str | None
+    evidence_refs: tuple[str, ...]
+    trace_summary: str
+    event_key: tuple[datetime, str] | None
+
+
+@dataclass(frozen=True, slots=True)
+class _ParallelRouteResumeState:
+    """Exact capsule-bearing inputs for one paused top-level route attempt."""
+
+    candidate: RouteCandidate
+    retry_attempt: int
+    retry_prompt_extra: str
+    sibling_acs: tuple[_SiblingACRef, ...]
+    route_id_override: str | None
+    expected_route_candidate: RouteCandidate | None
+    runtime_scope_id: str
+    dispatch_id: str
+    capsule_fingerprint: str
+
 
 if TYPE_CHECKING:
     from ouroboros.core.seed import Seed
@@ -337,6 +690,15 @@ if TYPE_CHECKING:
     from ouroboros.persistence.event_store import EventStore
 
 log = get_logger(__name__)
+
+
+class ParallelExecutionCancelled(RuntimeError):
+    """Signal a cooperative cancellation before another parallel effect."""
+
+    def __init__(self, session_id: str, messages_processed: int) -> None:
+        self.session_id = session_id
+        self.messages_processed = messages_processed
+        super().__init__(f"Parallel execution cancelled for session {session_id}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -1193,7 +1555,12 @@ def _standard_deliver_facts(
                 if eligible
                 else ()
             )
-            handle = matches[0].handle if len(matches) == 1 else f"missing:{field}:{index}"
+            if len(matches) == 1:
+                handle = matches[0].handle
+            elif len(matches) > 1:
+                handle = f"ambiguous:{field}:{index}"
+            else:
+                handle = f"missing:{field}:{index}"
             statement_value = _structured_literal(match_value)
             if statement_value is None:
                 handle = f"missing:{field}:{index}"
@@ -1250,12 +1617,218 @@ def _matching_journal_entries(
         else:
             if tool_name != "Bash":
                 continue
-            observed = payload.get("command")
-            if not isinstance(observed, str):
-                observed = payload.get("args_preview")
+            if field == "tests_passed":
+                if not _looks_like_test_command(value):
+                    continue
+                result_text = _journal_result_text(payload)
+                if not _text_proves_test_execution_success(result_text):
+                    continue
+            observed_commands = _journal_command_values(payload)
+            if any(_commands_are_strictly_equivalent(value, item) for item in observed_commands):
+                matches.append(entry)
+            continue
         if isinstance(observed, str) and observed.strip() == value:
             matches.append(entry)
     return tuple(matches)
+
+
+_JOURNAL_COMMAND_KEYS: tuple[str, ...] = ("command", "cmd", "command_line")
+
+
+def _journal_result_text(payload: Mapping[str, object]) -> str:
+    """Return runtime-produced result text attached to one journal entry."""
+    parts: list[str] = []
+    for key in ("result_preview", "output", "stdout", "stderr", "tool_result_text"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            parts.append(value.strip())
+    tool_result = payload.get("tool_result")
+    if isinstance(tool_result, Mapping):
+        for key in ("text_content", "content", "output", "stdout", "stderr"):
+            value = tool_result.get(key)
+            if isinstance(value, str) and value.strip():
+                parts.append(value.strip())
+    return "\n".join(dict.fromkeys(parts))
+
+
+def _journal_command_values(payload: Mapping[str, object]) -> tuple[object, ...]:
+    """Extract structured command values from one journal manifest payload.
+
+    Accepted-tool projection keeps the original ``tool_input`` only as bounded
+    JSON in ``args_preview`` for adapters that use ``cmd`` / ``command_line`` or
+    argv-list values. Preserve those structures until signature generation so
+    argument boundaries cannot be flattened into an unsafe string comparison.
+    """
+    values: list[object] = []
+
+    def append_from(container: Mapping[str, object]) -> None:
+        for key in _JOURNAL_COMMAND_KEYS:
+            candidate = container.get(key)
+            if isinstance(candidate, str) and candidate.strip():
+                values.append(candidate.strip())
+            elif isinstance(candidate, (list, tuple)) and candidate:
+                values.append(tuple(str(part) for part in candidate))
+
+    append_from(payload)
+    preview = payload.get("args_preview")
+    if isinstance(preview, str) and preview.strip():
+        try:
+            decoded = json.loads(preview)
+        except (json.JSONDecodeError, TypeError, ValueError):
+            # Legacy normalizer rows store the raw command directly.
+            values.append(preview.strip())
+        else:
+            if isinstance(decoded, Mapping):
+                append_from(decoded)
+            elif isinstance(decoded, str) and decoded.strip():
+                values.append(decoded.strip())
+            else:
+                # JSON scalars and unsupported containers may be legacy raw
+                # command spellings (for example ``true``). Preserve the
+                # preview rather than silently dropping exact evidence.
+                values.append(preview.strip())
+    if len(values) > 1:
+        anchor = values[0]
+        if any(
+            not _commands_are_strictly_equivalent(anchor, candidate) for candidate in values[1:]
+        ):
+            return ()
+    return tuple(values)
+
+
+def _commands_are_strictly_equivalent(claim: str, observed: object) -> bool:
+    """Compare command evidence using case-sensitive argv signatures.
+
+    Quoting differences that preserve one argv token are equivalent, while case
+    changes and flattened token boundaries are not. Safe shell wrappers and
+    setup-only preambles may expose their single inner command. Output-only
+    plumbing follows the verifier's existing masking guard.
+    """
+    claim_signatures = set(_strict_command_signatures(claim))
+    observed_signatures = set(_strict_command_signatures(observed))
+    return bool(claim_signatures.intersection(observed_signatures))
+
+
+def _strict_command_signatures(command: object) -> tuple[tuple[str, ...], ...]:
+    if isinstance(command, (list, tuple)):
+        signature = tuple(str(part) for part in command)
+        if not signature:
+            return ()
+        argv_signatures = [("argv", *signature)]
+        body = _shell_command_body_from_argv(signature)
+        if body is not None:
+            argv_signatures.extend(_strict_command_signatures(body))
+        return tuple(dict.fromkeys(argv_signatures))
+    if not isinstance(command, str) or not command.strip():
+        return ()
+
+    raw = command.strip()
+    candidates: list[tuple[str, bool]] = [(raw, False)]
+    body = _shell_command_body(raw)
+    if body is not None:
+        candidates.append((body, _output_filter_pipeline_is_pipefail_protected(body)))
+        inner = tuple(_segments_after_safe_shell_preamble(body))
+        if len(inner) == 1:
+            candidates.append((inner[0], _output_filter_pipeline_is_pipefail_protected(body)))
+
+    signatures: list[tuple[str, ...]] = []
+    for candidate, pipefail_protected in candidates:
+        variants = [candidate.strip()]
+        stripped = _strip_command_output_plumbing(candidate)
+        if stripped and stripped != candidate.strip():
+            unsafe_test_filter = (
+                _has_trailing_output_filter_pipeline(candidate)
+                and _looks_like_test_command(stripped)
+                and not pipefail_protected
+            )
+            try:
+                stripped_parts = shlex.split(stripped)
+            except ValueError:
+                stripped_parts = []
+            if not unsafe_test_filter and stripped_parts:
+                variants.append(stripped)
+        for variant in variants:
+            raw_signature = ("raw", variant)
+            if raw_signature not in signatures:
+                signatures.append(raw_signature)
+            if not _shell_text_is_argv_safe(variant):
+                continue
+            try:
+                signature = ("argv", *shlex.split(variant))
+            except ValueError:
+                continue
+            if len(signature) > 1 and signature not in signatures:
+                signatures.append(signature)
+    return tuple(signatures)
+
+
+_SHELL_ACTIVE_UNQUOTED = frozenset("$*?[]><;|&`(){}~#!^\n\r")
+_SHELL_ACTIVE_DOUBLE_QUOTED = frozenset("$`")
+_SHELL_RESERVED_WORDS = frozenset(
+    {
+        "case",
+        "coproc",
+        "do",
+        "done",
+        "elif",
+        "else",
+        "esac",
+        "fi",
+        "for",
+        "function",
+        "if",
+        "in",
+        "select",
+        "then",
+        "time",
+        "until",
+        "while",
+    }
+)
+
+
+def _shell_text_is_argv_safe(command: str) -> bool:
+    """Return whether quote removal cannot change this command's shell effects.
+
+    ``shlex.split`` is an argv oracle only when every shell-active token is
+    inert. Single quotes make those tokens literal; double quotes still permit
+    parameter and command substitution. Unsafe strings retain only their exact
+    raw signature, so ``echo $HOME`` cannot equal ``echo '$HOME'`` and quoted
+    redirections/globs cannot equal active ones.
+    """
+    quote: str | None = None
+    escaped = False
+    for char in command:
+        if escaped:
+            escaped = False
+            continue
+        if quote == "'":
+            if char == "'":
+                quote = None
+            continue
+        if char == "\\":
+            escaped = True
+            continue
+        if quote == '"':
+            if char == '"':
+                quote = None
+            elif char in _SHELL_ACTIVE_DOUBLE_QUOTED:
+                return False
+            continue
+        if char in {"'", '"'}:
+            quote = char
+            continue
+        if char in _SHELL_ACTIVE_UNQUOTED:
+            return False
+    if quote is not None or escaped:
+        return False
+    try:
+        parts = shlex.split(command)
+    except ValueError:
+        return False
+    if not parts:
+        return False
+    return parts[0] not in _SHELL_RESERVED_WORDS and not _is_env_assignment(parts[0])
 
 
 def _structured_literal(value: str) -> str | None:
@@ -1269,14 +1842,56 @@ def _structured_literal(value: str) -> str | None:
 
 
 # Decomposition constants
-# Depth >= max_decomposition_depth forces atomic execution as a soft safety net.
-DEFAULT_MAX_DECOMPOSITION_DEPTH = 2
-MAX_DECOMPOSITION_DEPTH = DEFAULT_MAX_DECOMPOSITION_DEPTH
-MIN_SUB_ACS = 2
-MAX_SUB_ACS = 5
+# A bounce at max_decomposition_depth escalates and records the unsplit compromise.
+MIN_SUB_ACS = MIN_DECOMPOSITION_CHILDREN
+MAX_SUB_ACS = MAX_DECOMPOSITION_CHILDREN
 DECOMPOSITION_TIMEOUT_SECONDS = 60.0
 _IMPLEMENTATION_SESSION_KIND = "implementation_session"
 _VERIFY_OUTPUT_TAIL_CHARS = 2000  # How much verify-command output to attach
+_WORKSPACE_FINGERPRINT_IGNORED_DIRECTORIES = frozenset(
+    {
+        ".git",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".ruff_cache",
+        ".venv",
+        "__pycache__",
+        "node_modules",
+    }
+)
+_WORKSPACE_FINGERPRINT_IGNORED_REGULAR_FILE_SUFFIXES = frozenset({".pyc", ".pyo"})
+_ROUTE_SUCCESS_CONTEXT_CHARS = 200
+_ROUTE_SUCCESS_PUBLIC_API_CHARS = 500
+_DURABLE_CONFLICT_PATH_CHARS = 32_768
+_COMPOSITE_RESULT_TEXT_CHARS = 4_000
+# This replay envelope is derived from the same public live-depth contract used
+# by CLI, Seed, runner, and executor admission.  Do not hand-tune it separately.
+_COMPOSITE_RESULT_MAX_NODES = MAX_DECOMPOSITION_REPLAY_NODES
+_COMPOSITE_RESULT_MAX_DEPTH = 8
+_WORKSPACE_DIGEST_CHARS = 64
+
+
+def _mapping_has_exact_keys(value: object, expected: frozenset[str]) -> bool:
+    """Inspect at most one key beyond a finite durable-contract schema."""
+
+    if not isinstance(value, Mapping):
+        return False
+    try:
+        iterator = iter(value)
+    except Exception:
+        return False
+    seen: set[str] = set()
+    for index in range(len(expected) + 1):
+        try:
+            key = next(iterator)
+        except StopIteration:
+            return len(seen) == len(expected)
+        except Exception:
+            return False
+        if index >= len(expected) or type(key) is not str or key not in expected or key in seen:
+            return False
+        seen.add(key)
+    return False
 
 
 @dataclass(frozen=True)
@@ -1295,6 +1910,23 @@ def _serialize_verify_gate_outcome(outcome: object) -> dict[str, object] | None:
     """Encode verify evidence into the JSON-safe checkpoint state."""
     if not isinstance(outcome, _VerifyGateOutcome):
         return None
+    if (
+        (outcome.reason is not None and not isinstance(outcome.reason, str))
+        or not isinstance(outcome.output_tail, str)
+        or len(outcome.output_tail) > _VERIFY_OUTPUT_TAIL_CHARS
+        or not isinstance(outcome.missing_artifacts, tuple)
+        or any(not isinstance(item, str) for item in outcome.missing_artifacts)
+        or not isinstance(outcome.workspace_mutated, bool)
+        or (
+            outcome.workspace_digest is not None
+            and (
+                not isinstance(outcome.workspace_digest, str)
+                or len(outcome.workspace_digest) != _WORKSPACE_DIGEST_CHARS
+                or any(char not in "0123456789abcdef" for char in outcome.workspace_digest)
+            )
+        )
+    ):
+        raise RuntimeError("verify gate outcome exceeds its durable evidence bounds")
     return {
         "passed": outcome.passed,
         "reason": outcome.reason,
@@ -1307,26 +1939,42 @@ def _serialize_verify_gate_outcome(outcome: object) -> dict[str, object] | None:
 
 def _deserialize_verify_gate_outcome(value: object) -> _VerifyGateOutcome | None:
     """Decode checkpointed verify evidence, rejecting malformed payloads."""
-    if not isinstance(value, Mapping):
+    expected_keys = frozenset(
+        {
+            "passed",
+            "reason",
+            "output_tail",
+            "missing_artifacts",
+            "workspace_mutated",
+            "workspace_digest",
+        }
+    )
+    if not _mapping_has_exact_keys(value, expected_keys):
         return None
+    assert isinstance(value, Mapping)
     passed = value.get("passed")
     reason = value.get("reason")
     output_tail = value.get("output_tail")
-    raw_missing = value.get("missing_artifacts", ())
-    workspace_mutated = value.get("workspace_mutated", False)
+    raw_missing = value.get("missing_artifacts")
+    workspace_mutated = value.get("workspace_mutated")
     workspace_digest = value.get("workspace_digest")
     if not isinstance(passed, bool) or not isinstance(output_tail, str):
         return None
     if reason is not None and not isinstance(reason, str):
         return None
-    if not isinstance(raw_missing, (list, tuple)) or not all(
-        isinstance(item, str) for item in raw_missing
-    ):
+    if len(output_tail) > _VERIFY_OUTPUT_TAIL_CHARS:
+        return None
+    if not isinstance(raw_missing, list) or not all(isinstance(item, str) for item in raw_missing):
         return None
     if not isinstance(workspace_mutated, bool):
         return None
-    if workspace_digest is not None and not isinstance(workspace_digest, str):
-        return None
+    if workspace_digest is not None:
+        if (
+            not isinstance(workspace_digest, str)
+            or len(workspace_digest) != _WORKSPACE_DIGEST_CHARS
+            or any(char not in "0123456789abcdef" for char in workspace_digest)
+        ):
+            return None
     return _VerifyGateOutcome(
         passed=passed,
         reason=reason,
@@ -1362,6 +2010,692 @@ def _checkpoint_verify_gate_outcomes(
     return serialized
 
 
+def _has_usage_limit_pause(result: ACExecutionResult) -> bool:
+    """Return whether any leaf in an AC result tree carries a quota pause.
+
+    Decomposed aggregate results intentionally keep their own ``messages``
+    empty.  Pause ownership therefore has to follow the result tree down to
+    the atomic leaf instead of treating the aggregate envelope as the effect.
+    """
+    if any(is_usage_limit_pause_message(message) for message in reversed(result.messages)):
+        return True
+    return any(_has_usage_limit_pause(child) for child in result.sub_results)
+
+
+class _BatchInterruptedForRecoverablePause(RuntimeError):
+    """Internal marker for an AC stopped before a shared-quota provider effect."""
+
+
+class _BatchEnteredAtRecoverablePause(RuntimeError):
+    """Internal marker for an AC cancelled after entering execution authority."""
+
+
+def _canonical_result_context(
+    result: ACExecutionResult,
+    *,
+    workspace_root: str,
+) -> ACContextSummary:
+    """Build the exact bounded projection consumed by downstream levels."""
+
+    if result.context_summary is not None:
+        summary = result.context_summary
+    else:
+        projected = extract_level_context(
+            [
+                (
+                    result.ac_index,
+                    result.ac_content,
+                    result.success,
+                    result.messages,
+                    result.final_message,
+                )
+            ],
+            0,
+            workspace_root=workspace_root,
+        )
+        summary = projected.completed_acs[0]
+    if (
+        summary.ac_index != result.ac_index
+        or summary.ac_content != result.ac_content
+        or summary.success is not result.success
+    ):
+        raise RuntimeError("durable context projection contradicts its AC result")
+    return summary
+
+
+def _serialize_context_summary(summary: ACContextSummary) -> dict[str, object]:
+    """Serialize one canonical level-context projection with finite bounds."""
+
+    tools = summary.tools_used
+    files = summary.files_modified
+    if (
+        type(summary.ac_index) is not int
+        or summary.ac_index < 0
+        or not isinstance(summary.ac_content, str)
+        or type(summary.success) is not bool
+        or not isinstance(tools, tuple)
+        or tuple(sorted(set(tools))) != tools
+        or any(not isinstance(tool, str) or not tool for tool in tools)
+        or not isinstance(files, tuple)
+        or tuple(sorted(set(files))) != files
+        or any(
+            not isinstance(path, str) or not path or len(path) > _DURABLE_CONFLICT_PATH_CHARS
+            for path in files
+        )
+        or not isinstance(summary.key_output, str)
+        or len(summary.key_output) > _ROUTE_SUCCESS_CONTEXT_CHARS
+        or not isinstance(summary.public_api, str)
+        or len(summary.public_api) > _ROUTE_SUCCESS_PUBLIC_API_CHARS
+    ):
+        raise RuntimeError("canonical route context exceeds its durable bounds")
+    return {
+        "ac_index": summary.ac_index,
+        "ac_content": summary.ac_content,
+        "success": summary.success,
+        "tools_used": list(tools),
+        "files_modified": list(files),
+        "key_output": summary.key_output,
+        "public_api": summary.public_api,
+    }
+
+
+def _deserialize_context_summary(
+    value: object,
+    *,
+    ac_index: int,
+    ac_content: str,
+    success: bool,
+) -> ACContextSummary:
+    """Strictly restore a canonical context projection."""
+
+    expected = frozenset(
+        {
+            "ac_index",
+            "ac_content",
+            "success",
+            "tools_used",
+            "files_modified",
+            "key_output",
+            "public_api",
+        }
+    )
+    if not _mapping_has_exact_keys(value, expected):
+        raise RuntimeError("durable route context has an invalid schema")
+    assert isinstance(value, Mapping)
+    raw_tools = value.get("tools_used")
+    raw_files = value.get("files_modified")
+    key_output = value.get("key_output")
+    public_api = value.get("public_api")
+    if (
+        value.get("ac_index") != ac_index
+        or type(value.get("ac_index")) is not int
+        or value.get("ac_content") != ac_content
+        or value.get("success") is not success
+        or not isinstance(raw_tools, list)
+        or not all(isinstance(tool, str) and bool(tool) for tool in raw_tools)
+        or raw_tools != sorted(set(raw_tools))
+        or not isinstance(raw_files, list)
+        or not all(
+            isinstance(path, str) and 0 < len(path) <= _DURABLE_CONFLICT_PATH_CHARS
+            for path in raw_files
+        )
+        or raw_files != sorted(set(raw_files))
+        or not isinstance(key_output, str)
+        or len(key_output) > _ROUTE_SUCCESS_CONTEXT_CHARS
+        or not isinstance(public_api, str)
+        or len(public_api) > _ROUTE_SUCCESS_PUBLIC_API_CHARS
+    ):
+        raise RuntimeError("durable route context is malformed or crossed AC identity")
+    return ACContextSummary(
+        ac_index=ac_index,
+        ac_content=ac_content,
+        success=success,
+        tools_used=tuple(raw_tools),
+        files_modified=tuple(raw_files),
+        key_output=key_output,
+        public_api=public_api,
+    )
+
+
+def _collect_result_conflict_files(result: ACExecutionResult) -> tuple[str, ...]:
+    """Project one result node's exact local file set for recursive replay."""
+
+    if result.conflict_files is not None:
+        files = result.conflict_files
+    else:
+        collected: set[str] = set()
+        for message in result.messages:
+            if message.tool_name not in {"Write", "Edit"}:
+                continue
+            tool_input = message.data.get("tool_input")
+            if not isinstance(tool_input, Mapping):
+                continue
+            file_path = tool_input.get("file_path")
+            if isinstance(file_path, str) and file_path:
+                collected.add(file_path)
+        files = tuple(sorted(collected))
+    if (
+        not isinstance(files, tuple)
+        or tuple(sorted(set(files))) != files
+        or any(
+            not isinstance(path, str) or not path or len(path) > _DURABLE_CONFLICT_PATH_CHARS
+            for path in files
+        )
+    ):
+        raise RuntimeError("durable conflict projection exceeds its bounds")
+    return files
+
+
+def _deserialize_conflict_files(value: object) -> tuple[str, ...]:
+    if (
+        not isinstance(value, list)
+        or not all(
+            isinstance(path, str) and 0 < len(path) <= _DURABLE_CONFLICT_PATH_CHARS
+            for path in value
+        )
+        or value != sorted(set(value))
+    ):
+        raise RuntimeError("durable conflict projection is malformed")
+    return tuple(value)
+
+
+def _serialize_provisional_route_success(
+    result: ACExecutionResult,
+    *,
+    workspace_root: str,
+) -> dict[str, object]:
+    """Persist the canonical context required to settle a resumed success."""
+
+    if (
+        not math.isfinite(result.duration_seconds)
+        or result.duration_seconds < 0
+        or type(result.retry_attempt) is not int
+        or result.retry_attempt < 0
+        or (result.session_id is not None and not isinstance(result.session_id, str))
+    ):
+        raise RuntimeError("provisional route success cannot seal malformed result context")
+    summary = _canonical_result_context(result, workspace_root=workspace_root)
+    return {
+        "schema_version": 2,
+        "context_summary": _serialize_context_summary(summary),
+        "conflict_files": list(_collect_result_conflict_files(result)),
+        "duration_seconds": result.duration_seconds,
+        "session_id": result.session_id,
+        "retry_attempt": result.retry_attempt,
+        "verify_gate_outcome": _serialize_verify_gate_outcome(result.verify_gate_outcome),
+    }
+
+
+def _deserialize_provisional_route_success(
+    value: object,
+    *,
+    ac_index: int,
+    ac_content: str,
+    route_candidate: RouteCandidate,
+) -> ACExecutionResult:
+    """Restore a sealed provisional success or fail closed on malformed state."""
+    expected_keys = frozenset(
+        {
+            "schema_version",
+            "context_summary",
+            "conflict_files",
+            "duration_seconds",
+            "session_id",
+            "retry_attempt",
+            "verify_gate_outcome",
+        }
+    )
+    if (
+        not _mapping_has_exact_keys(value, expected_keys)
+        or not isinstance(value, Mapping)
+        or type(value.get("schema_version")) is not int
+        or value.get("schema_version") != 2
+    ):
+        raise RuntimeError("provisional route success has invalid durable context")
+    duration_seconds = value.get("duration_seconds")
+    session_id = value.get("session_id")
+    retry_attempt = value.get("retry_attempt")
+    if (
+        not isinstance(duration_seconds, int | float)
+        or isinstance(duration_seconds, bool)
+        or not math.isfinite(duration_seconds)
+        or duration_seconds < 0
+        or (session_id is not None and not isinstance(session_id, str))
+        or type(retry_attempt) is not int
+        or retry_attempt < 0
+    ):
+        raise RuntimeError("provisional route success has malformed bounded context")
+    summary = _deserialize_context_summary(
+        value.get("context_summary"),
+        ac_index=ac_index,
+        ac_content=ac_content,
+        success=True,
+    )
+    conflict_files = _deserialize_conflict_files(value.get("conflict_files"))
+    raw_verify = value.get("verify_gate_outcome")
+    verify_outcome = _deserialize_verify_gate_outcome(raw_verify)
+    if raw_verify is not None and verify_outcome is None:
+        raise RuntimeError("provisional route success has malformed verify evidence")
+    return ACExecutionResult(
+        ac_index=ac_index,
+        ac_content=ac_content,
+        success=True,
+        final_message=summary.key_output,
+        duration_seconds=float(duration_seconds),
+        session_id=session_id,
+        retry_attempt=retry_attempt,
+        outcome=ACExecutionOutcome.SUCCEEDED,
+        verify_gate_outcome=verify_outcome,
+        context_summary=summary,
+        conflict_files=conflict_files,
+        route_candidate=route_candidate,
+    )
+
+
+def _canonical_decomposition_decision(
+    value: object,
+) -> tuple[DecompositionDecisionRecord, dict[str, object], str]:
+    """Strictly parse and fingerprint a bounded decomposition decision."""
+
+    parsed = DecompositionDecisionRecord.from_dict(value)
+    if parsed is None:
+        raise RuntimeError("composite completion has an invalid decomposition decision")
+    canonical = parsed.to_dict()
+    if value != canonical:
+        raise RuntimeError("composite completion has a non-canonical decomposition decision")
+    encoded = json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode()
+    if len(encoded) > 20_000:
+        raise RuntimeError("composite completion decomposition decision exceeds its bound")
+    return parsed, canonical, hashlib.sha256(encoded).hexdigest()
+
+
+def _serialize_composite_result_tree(
+    result: ACExecutionResult,
+    *,
+    node_budget: list[int],
+    workspace_root: str,
+) -> dict[str, object]:
+    """Seal the bounded child-result tree used by reports and depth warnings."""
+
+    node_budget[0] -= 1
+    if node_budget[0] < 0:
+        raise RuntimeError("composite completion result tree exceeds its node bound")
+    if (
+        type(result.ac_index) is not int
+        or result.ac_index < 0
+        or not isinstance(result.ac_content, str)
+        or type(result.success) is not bool
+        or not math.isfinite(result.duration_seconds)
+        or result.duration_seconds < 0
+        or type(result.retry_attempt) is not int
+        or result.retry_attempt < 0
+        or type(result.depth) is not int
+        or not 0 <= result.depth <= _COMPOSITE_RESULT_MAX_DEPTH
+        or type(result.decomposition_depth_warning) is not bool
+        or (result.session_id is not None and not isinstance(result.session_id, str))
+        or (result.error is not None and not isinstance(result.error, str))
+        or not isinstance(result.final_message, str)
+    ):
+        raise RuntimeError("composite completion result tree is malformed")
+    outcome = result.outcome
+    if outcome not in {
+        ACExecutionOutcome.SUCCEEDED,
+        ACExecutionOutcome.FAILED,
+        ACExecutionOutcome.BLOCKED,
+    } or result.success is not (outcome is ACExecutionOutcome.SUCCEEDED):
+        raise RuntimeError("composite completion result tree has contradictory semantics")
+    if result.is_decomposed is not bool(result.sub_results):
+        raise RuntimeError("composite completion result tree lost its child structure")
+    decision_data: dict[str, object] | None = None
+    if result.decomposition_decision is not None:
+        decision, decision_data, _fingerprint = _canonical_decomposition_decision(
+            result.decomposition_decision.to_dict()
+        )
+        if result.is_decomposed and decision.disposition is not DecompositionDisposition.SPLIT:
+            raise RuntimeError("composite child result has a non-split decomposition decision")
+        if result.is_decomposed and (
+            len(decision.children) != len(result.sub_results)
+            or tuple(child.description for child in decision.children)
+            != tuple(child.ac_content for child in result.sub_results)
+        ):
+            raise RuntimeError("composite child result drifted from its decomposition decision")
+    elif result.is_decomposed:
+        raise RuntimeError("composite child result lost its decomposition decision")
+    summary = _canonical_result_context(result, workspace_root=workspace_root)
+    return {
+        "schema_version": 2,
+        "ac_index": result.ac_index,
+        "ac_content": result.ac_content,
+        "success": result.success,
+        "final_message_tail": result.final_message[-_COMPOSITE_RESULT_TEXT_CHARS:],
+        "error": result.error,
+        "duration_seconds": result.duration_seconds,
+        "session_id": result.session_id,
+        "retry_attempt": result.retry_attempt,
+        "is_decomposed": result.is_decomposed,
+        "depth": result.depth,
+        "decomposition_depth_warning": result.decomposition_depth_warning,
+        "outcome": outcome.value,
+        "decomposition_decision": decision_data,
+        "verify_gate_outcome": _serialize_verify_gate_outcome(result.verify_gate_outcome),
+        "context_summary": _serialize_context_summary(summary),
+        "conflict_files": list(_collect_result_conflict_files(result)),
+        "sub_results": [
+            _serialize_composite_result_tree(
+                child,
+                node_budget=node_budget,
+                workspace_root=workspace_root,
+            )
+            for child in result.sub_results
+        ],
+    }
+
+
+def _deserialize_composite_result_tree(
+    value: object,
+    *,
+    node_budget: list[int],
+) -> ACExecutionResult:
+    """Strictly restore a bounded child-result tree."""
+
+    node_budget[0] -= 1
+    if node_budget[0] < 0:
+        raise RuntimeError("composite completion result tree exceeds its node bound")
+    expected = frozenset(
+        {
+            "schema_version",
+            "ac_index",
+            "ac_content",
+            "success",
+            "final_message_tail",
+            "error",
+            "duration_seconds",
+            "session_id",
+            "retry_attempt",
+            "is_decomposed",
+            "depth",
+            "decomposition_depth_warning",
+            "outcome",
+            "decomposition_decision",
+            "verify_gate_outcome",
+            "context_summary",
+            "conflict_files",
+            "sub_results",
+        }
+    )
+    if (
+        not _mapping_has_exact_keys(value, expected)
+        or not isinstance(value, Mapping)
+        or type(value.get("schema_version")) is not int
+        or value.get("schema_version") != 2
+    ):
+        raise RuntimeError("composite completion result tree has an invalid schema")
+    ac_index = value.get("ac_index")
+    ac_content = value.get("ac_content")
+    success = value.get("success")
+    final_message = value.get("final_message_tail")
+    error = value.get("error")
+    duration_seconds = value.get("duration_seconds")
+    session_id = value.get("session_id")
+    retry_attempt = value.get("retry_attempt")
+    is_decomposed = value.get("is_decomposed")
+    depth = value.get("depth")
+    depth_warning = value.get("decomposition_depth_warning")
+    raw_children = value.get("sub_results")
+    try:
+        outcome = ACExecutionOutcome(value.get("outcome"))
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("composite completion result tree has an invalid outcome") from exc
+    if (
+        type(ac_index) is not int
+        or ac_index < 0
+        or not isinstance(ac_content, str)
+        or type(success) is not bool
+        or not isinstance(final_message, str)
+        or len(final_message) > _COMPOSITE_RESULT_TEXT_CHARS
+        or (error is not None and not isinstance(error, str))
+        or not isinstance(duration_seconds, int | float)
+        or isinstance(duration_seconds, bool)
+        or not math.isfinite(duration_seconds)
+        or duration_seconds < 0
+        or (session_id is not None and not isinstance(session_id, str))
+        or type(retry_attempt) is not int
+        or retry_attempt < 0
+        or type(is_decomposed) is not bool
+        or type(depth) is not int
+        or not 0 <= depth <= _COMPOSITE_RESULT_MAX_DEPTH
+        or type(depth_warning) is not bool
+        or not isinstance(raw_children, list)
+        or len(raw_children) > _COMPOSITE_RESULT_MAX_NODES
+        or outcome
+        not in {
+            ACExecutionOutcome.SUCCEEDED,
+            ACExecutionOutcome.FAILED,
+            ACExecutionOutcome.BLOCKED,
+        }
+        or success is not (outcome is ACExecutionOutcome.SUCCEEDED)
+        or is_decomposed is not bool(raw_children)
+    ):
+        raise RuntimeError("composite completion result tree is malformed")
+    raw_decision = value.get("decomposition_decision")
+    decision: DecompositionDecisionRecord | None = None
+    if raw_decision is not None:
+        decision, _decision_data, _fingerprint = _canonical_decomposition_decision(raw_decision)
+        if is_decomposed and decision.disposition is not DecompositionDisposition.SPLIT:
+            raise RuntimeError("composite child result has a non-split decomposition decision")
+    elif is_decomposed:
+        raise RuntimeError("composite child result lost its decomposition decision")
+    children = tuple(
+        _deserialize_composite_result_tree(child, node_budget=node_budget) for child in raw_children
+    )
+    if (
+        is_decomposed
+        and decision is not None
+        and (
+            len(decision.children) != len(children)
+            or tuple(child.description for child in decision.children)
+            != tuple(child.ac_content for child in children)
+        )
+    ):
+        raise RuntimeError("composite child result drifted from its decomposition decision")
+    summary = _deserialize_context_summary(
+        value.get("context_summary"),
+        ac_index=ac_index,
+        ac_content=ac_content,
+        success=success,
+    )
+    conflict_files = _deserialize_conflict_files(value.get("conflict_files"))
+    raw_verify = value.get("verify_gate_outcome")
+    verify_outcome = _deserialize_verify_gate_outcome(raw_verify)
+    if raw_verify is not None and verify_outcome is None:
+        raise RuntimeError("composite completion result tree has malformed verify evidence")
+    return ACExecutionResult(
+        ac_index=ac_index,
+        ac_content=ac_content,
+        success=success,
+        final_message=final_message,
+        error=error,
+        duration_seconds=float(duration_seconds),
+        session_id=session_id,
+        retry_attempt=retry_attempt,
+        is_decomposed=is_decomposed,
+        sub_results=children,
+        depth=depth,
+        decomposition_depth_warning=depth_warning,
+        outcome=outcome,
+        decomposition_decision=decision,
+        verify_gate_outcome=verify_outcome,
+        context_summary=summary,
+        conflict_files=conflict_files,
+    )
+
+
+def _serialize_composite_completion_result(
+    result: ACExecutionResult,
+    *,
+    workspace_root: str,
+) -> tuple[dict[str, object], dict[str, object], str]:
+    """Seal a completed legacy composite without retaining child transcripts."""
+
+    decision = result.decomposition_decision
+    if not result.is_decomposed or decision is None:
+        raise RuntimeError("composite completion requires its decomposition decision")
+    parsed, decision_data, fingerprint = _canonical_decomposition_decision(decision.to_dict())
+    if parsed.disposition is not DecompositionDisposition.SPLIT:
+        raise RuntimeError("composite completion requires a split decomposition decision")
+    if len(parsed.children) != len(result.sub_results) or tuple(
+        child.description for child in parsed.children
+    ) != tuple(child.ac_content for child in result.sub_results):
+        raise RuntimeError("composite completion drifted from its decomposition decision")
+    outcome = result.outcome
+    if outcome not in {
+        ACExecutionOutcome.SUCCEEDED,
+        ACExecutionOutcome.FAILED,
+        ACExecutionOutcome.BLOCKED,
+    }:
+        raise RuntimeError("composite completion has an invalid terminal outcome")
+    if result.success is not (outcome is ACExecutionOutcome.SUCCEEDED):
+        raise RuntimeError("composite completion has contradictory success semantics")
+    if (
+        not math.isfinite(result.duration_seconds)
+        or result.duration_seconds < 0
+        or type(result.retry_attempt) is not int
+        or result.retry_attempt < 0
+        or (result.session_id is not None and not isinstance(result.session_id, str))
+        or (result.error is not None and not isinstance(result.error, str))
+    ):
+        raise RuntimeError("composite completion cannot seal malformed result context")
+    summary = _canonical_result_context(result, workspace_root=workspace_root)
+    node_budget = [_COMPOSITE_RESULT_MAX_NODES]
+    sub_results = [
+        _serialize_composite_result_tree(
+            child,
+            node_budget=node_budget,
+            workspace_root=workspace_root,
+        )
+        for child in result.sub_results
+    ]
+    return (
+        {
+            "schema_version": 1,
+            "success": result.success,
+            "outcome": outcome.value,
+            "error": result.error,
+            "duration_seconds": result.duration_seconds,
+            "session_id": result.session_id,
+            "retry_attempt": result.retry_attempt,
+            "verify_gate_outcome": _serialize_verify_gate_outcome(result.verify_gate_outcome),
+            "context_summary": _serialize_context_summary(summary),
+            "conflict_files": list(_collect_result_conflict_files(result)),
+            "sub_results": sub_results,
+        },
+        decision_data,
+        fingerprint,
+    )
+
+
+def _deserialize_composite_completion_result(
+    value: object,
+    *,
+    ac_index: int,
+    ac_content: str,
+    decomposition_decision: DecompositionDecisionRecord,
+) -> ACExecutionResult:
+    """Restore a terminal composite projection without replaying child effects."""
+
+    expected = frozenset(
+        {
+            "schema_version",
+            "success",
+            "outcome",
+            "error",
+            "duration_seconds",
+            "session_id",
+            "retry_attempt",
+            "verify_gate_outcome",
+            "context_summary",
+            "conflict_files",
+            "sub_results",
+        }
+    )
+    if (
+        not _mapping_has_exact_keys(value, expected)
+        or not isinstance(value, Mapping)
+        or type(value.get("schema_version")) is not int
+        or value.get("schema_version") != 1
+    ):
+        raise RuntimeError("composite completion has an invalid result schema")
+    success = value.get("success")
+    raw_outcome = value.get("outcome")
+    error = value.get("error")
+    duration_seconds = value.get("duration_seconds")
+    session_id = value.get("session_id")
+    retry_attempt = value.get("retry_attempt")
+    try:
+        outcome = ACExecutionOutcome(raw_outcome)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError("composite completion has an invalid outcome") from exc
+    if (
+        type(success) is not bool
+        or outcome
+        not in {
+            ACExecutionOutcome.SUCCEEDED,
+            ACExecutionOutcome.FAILED,
+            ACExecutionOutcome.BLOCKED,
+        }
+        or success is not (outcome is ACExecutionOutcome.SUCCEEDED)
+        or (error is not None and not isinstance(error, str))
+        or not isinstance(duration_seconds, int | float)
+        or isinstance(duration_seconds, bool)
+        or not math.isfinite(duration_seconds)
+        or duration_seconds < 0
+        or (session_id is not None and not isinstance(session_id, str))
+        or type(retry_attempt) is not int
+        or retry_attempt < 0
+    ):
+        raise RuntimeError("composite completion has malformed result semantics")
+    summary = _deserialize_context_summary(
+        value.get("context_summary"),
+        ac_index=ac_index,
+        ac_content=ac_content,
+        success=success,
+    )
+    conflict_files = _deserialize_conflict_files(value.get("conflict_files"))
+    raw_sub_results = value.get("sub_results")
+    if not isinstance(raw_sub_results, list) or not raw_sub_results:
+        raise RuntimeError("composite completion lost its child result projection")
+    node_budget = [_COMPOSITE_RESULT_MAX_NODES]
+    sub_results = tuple(
+        _deserialize_composite_result_tree(child, node_budget=node_budget)
+        for child in raw_sub_results
+    )
+    if len(decomposition_decision.children) != len(sub_results) or tuple(
+        child.description for child in decomposition_decision.children
+    ) != tuple(child.ac_content for child in sub_results):
+        raise RuntimeError("composite completion drifted from its decomposition decision")
+    raw_verify = value.get("verify_gate_outcome")
+    verify_outcome = _deserialize_verify_gate_outcome(raw_verify)
+    if raw_verify is not None and verify_outcome is None:
+        raise RuntimeError("composite completion has malformed verify evidence")
+    return ACExecutionResult(
+        ac_index=ac_index,
+        ac_content=ac_content,
+        success=success,
+        final_message=summary.key_output,
+        error=error,
+        duration_seconds=float(duration_seconds),
+        session_id=session_id,
+        retry_attempt=retry_attempt,
+        is_decomposed=True,
+        sub_results=sub_results,
+        outcome=outcome,
+        verify_gate_outcome=verify_outcome,
+        decomposition_decision=decomposition_decision,
+        context_summary=summary,
+        conflict_files=conflict_files,
+    )
+
+
 def _missing_expected_artifacts(artifacts: tuple[str, ...], cwd: str) -> tuple[str, ...]:
     """Return the expected artifacts absent relative to ``cwd``.
 
@@ -1373,7 +2707,15 @@ def _missing_expected_artifacts(artifacts: tuple[str, ...], cwd: str) -> tuple[s
     root = Path(cwd).resolve()
     missing: list[str] = []
     for artifact in artifacts:
-        candidate = (root / artifact).resolve()
+        path_error = expected_artifact_workspace_path_error(artifact, str(root))
+        if path_error is not None:
+            missing.append(f"{artifact!r} ({path_error})")
+            continue
+        try:
+            candidate = (root / artifact).resolve()
+        except (OSError, RuntimeError, ValueError) as exc:
+            missing.append(f"{artifact!r} (invalid path: {exc})")
+            continue
         if not candidate.is_relative_to(root):
             missing.append(f"{artifact} (escapes workspace)")
             continue
@@ -1556,7 +2898,7 @@ class ParallelACExecutor:
         event_store: EventStore,
         console: Console | None = None,
         enable_decomposition: bool = True,
-        decomposition_mode: Literal["preflight", "bounce_only", "off"] = "preflight",
+        decomposition_mode: Literal["bounce_only", "off"] = "bounce_only",
         max_concurrent: int = 3,
         max_decomposition_depth: int = DEFAULT_MAX_DECOMPOSITION_DEPTH,
         checkpoint_store: Any | None = None,
@@ -1567,12 +2909,17 @@ class ParallelACExecutor:
         atomic_verifier: Verifier | None = None,
         reasoning_effort: str | None = None,
         model_router: ModelRouter | None = None,
+        route_economics: Any | None = None,
         run_verify_commands: bool = True,
         verify_command_timeout_seconds: int = 600,
         ac_retry_attempts: int = 0,
         cross_harness_redispatch: bool | None = None,
         shadow_replay_enabled: bool = False,
         session_signal_hub: SessionSignalHub | None = None,
+        process_local_resume_nonce: str | None = None,
+        resolved_backend_limits: BackendConcurrencyLimits | None = None,
+        resolved_self_governs_rate_limit: bool | None = None,
+        expected_runtime_effect_capabilities: Mapping[str, object] | None = None,
         _foundation_a_roots: _FoundationAClosedRoots = _FOUNDATION_A_CLOSED_ROOTS,
         _foundation_a_internal_entry_roots: _FoundationAInternalEntryRoots | None = None,
         _foundation_a_internal_entry_roots_are_closed: bool = False,
@@ -1584,8 +2931,10 @@ class ParallelACExecutor:
             event_store: Event store for progress tracking.
             console: Rich console for output.
             enable_decomposition: Enable Claude to decompose complex ACs.
-            decomposition_mode: Whether decomposition runs before execution,
-                only after a classified bounce, or not at all.
+            decomposition_mode: Whether decomposition runs only after a
+                classified bounce or not at all. Historical ``preflight``
+                records remain readable, but no live constructor can authorize
+                a new pre-execution decomposition effect.
             max_concurrent: Maximum number of concurrent AC executions.
             max_decomposition_depth: Maximum recursive decomposition depth.
             checkpoint_store: Optional CheckpointStore for state recovery (RC3).
@@ -1610,22 +2959,47 @@ class ParallelACExecutor:
                 low-level constructor default is 0 so direct/test callers keep
                 today's single-dispatch behavior; real run paths (CLI `ooo run`
                 via the runner) pass the config value (default 2).
+            route_economics: Optional economics snapshot used to project live
+                model/effort decisions into the Routing B Admission Kernel. The
+                bridge stays dormant for low-level callers that omit it.
+            resolved_backend_limits: Optional immutable fan-out/rate snapshot.
+                Runner-owned execution passes its durable contract value so a
+                resume never rereads changed backend-limit configuration.
+            resolved_self_governs_rate_limit: Optional immutable adapter pacing
+                mode paired with ``resolved_backend_limits``.
+            expected_runtime_effect_capabilities: Complete durable runtime
+                declaration that must still match at every provider entry.
         """
         if _foundation_a_internal_entry_roots is None:
             raise ValueError("execution authority internal entry roots are unavailable")
         internal_entry_roots = _foundation_a_internal_entry_roots
 
         self._adapter = adapter
+        if expected_runtime_effect_capabilities is not None:
+            if not valid_runtime_effect_capabilities_contract(expected_runtime_effect_capabilities):
+                raise ValueError("invalid expected runtime effect capabilities")
+            if runtime_effect_capabilities_contract(adapter) != dict(
+                expected_runtime_effect_capabilities
+            ):
+                raise ValueError("runtime effect capabilities drifted before executor creation")
+        self._expected_runtime_effect_capabilities = (
+            deepcopy(dict(expected_runtime_effect_capabilities))
+            if expected_runtime_effect_capabilities is not None
+            else None
+        )
         self._event_store = event_store
         self._console = console or Console()
-        if decomposition_mode not in {"preflight", "bounce_only", "off"}:
+        if decomposition_mode not in {"bounce_only", "off"}:
             msg = f"Unsupported decomposition_mode: {decomposition_mode!r}"
             raise ValueError(msg)
-        self._decomposition_mode: Literal["preflight", "bounce_only", "off"] = (
+        self._decomposition_mode: Literal["bounce_only", "off"] = (
             "off" if not enable_decomposition else decomposition_mode
         )
         self._enable_decomposition = self._decomposition_mode != "off"
-        self._max_decomposition_depth = max(0, max_decomposition_depth)
+        self._max_decomposition_depth = validate_max_decomposition_depth(max_decomposition_depth)
+        self._durable_decomposition_replay_enabled = has_durable_decomposition_replay(
+            self._max_decomposition_depth
+        )
         self._max_concurrent = max_concurrent
         approval_mode = getattr(adapter, "permission_mode", None)
         self._inherited_runtime_handle = (
@@ -1635,7 +3009,7 @@ class ParallelACExecutor:
             and approval_mode.strip()
             else inherited_runtime_handle
         )
-        self._task_cwd = task_cwd
+        self._task_cwd = resolve_worker_cwd(task_cwd) if task_cwd else None
         self._execution_profile = execution_profile
         self._fat_harness_mode = fat_harness_mode
         self._run_verify_commands = run_verify_commands
@@ -1651,6 +3025,21 @@ class ParallelACExecutor:
         # override → byte-identical to today's behavior), so laying the executor on
         # the model capability contract is safe by default.
         self._model_router = model_router
+        # Routing B compatibility is explicit at this constructor seam. The live
+        # runner supplies the resolved economics; direct/test callers retain the
+        # historical dispatch path until they opt into the bridge.
+        self._route_economics = route_economics
+        self._bounded_route_escalation_enabled = (
+            self._durable_decomposition_replay_enabled
+            and route_economics is not None
+            and model_router is not None
+            and getattr(
+                getattr(adapter, "capabilities", None),
+                "model_override_support",
+                ParamSupport.IGNORED,
+            )
+            is ParamSupport.NATIVE
+        )
         # Opt-in shadow-replay baseline harness (frugality-proof AC5). Default OFF:
         # replaying a decomposed child at the parent tier doubles token cost, so
         # this is an experiment lever, never a production default. When on, a
@@ -1675,16 +3064,22 @@ class ParallelACExecutor:
         self._coordinator = _foundation_a_roots.level_coordinator_type(
             adapter,
             inherited_runtime_handle=self._inherited_runtime_handle,
-            task_cwd=task_cwd,
+            task_cwd=self._task_cwd,
+            reasoning_effort=self._reasoning_effort,
         )
         self._authority_coordinator = self._coordinator
         self._authority_coordinator_review = self._coordinator.run_review
         self._semaphore = anyio.Semaphore(max_concurrent)
-        self._process_local_resume_nonce = uuid4().hex
+        if process_local_resume_nonce is not None and (
+            len(process_local_resume_nonce) != 32
+            or any(char not in "0123456789abcdef" for char in process_local_resume_nonce)
+        ):
+            raise ValueError("process-local resume nonce must be 32 lowercase hex characters")
+        self._process_local_resume_nonce = process_local_resume_nonce or uuid4().hex
         self._ac_runtime_handle_manager = ACRuntimeHandleManager(
             adapter,
             event_store,
-            task_cwd=task_cwd,
+            task_cwd=self._task_cwd,
             process_local_resume_nonce=self._process_local_resume_nonce,
         )
         self._ac_runtime_handles = self._ac_runtime_handle_manager.runtime_handles
@@ -1694,9 +3089,23 @@ class ParallelACExecutor:
         )
         self._checkpoint_store = checkpoint_store
         self._decomposition_decisions: dict[str, DecompositionDecisionRecord] = {}
+        self._event_owned_decomposition_decisions: dict[str, DecompositionDecisionRecord] = {}
+        self._pending_bounce_decompositions: dict[str, _DurableBounceReplayState] = {}
+        self._partial_composite_resumes: dict[str, _PartialCompositeResumeState] = {}
+        self._parallel_route_resumes: dict[int, _ParallelRouteResumeState] = {}
         self._execution_counters_lock = asyncio.Lock()
+        self._resolved_backend_limits = resolved_backend_limits or resolve_backend_limits(
+            getattr(adapter, "runtime_backend", None)
+        )
+        self._resolved_self_governs_rate_limit = (
+            bool(getattr(adapter, "self_governs_rate_limit", False))
+            if resolved_self_governs_rate_limit is None
+            else resolved_self_governs_rate_limit
+        )
         self._dispatch_rate_gate = self._build_dispatch_rate_gate(
             adapter,
+            limits=self._resolved_backend_limits,
+            self_governs_rate_limit=self._resolved_self_governs_rate_limit,
             rate_gate_factory=_foundation_a_roots.rate_gate_factory,
         )
         self._authority_rate_gate_acquire_root = _foundation_a_roots.rate_gate_acquire_root
@@ -1717,6 +3126,7 @@ class ParallelACExecutor:
         self._alt_harness_redispatched_acs: set[str] = set()
         self._alt_harness_status_by_root: dict[int, str] = {}
         self._recovery_exhausted_emitted: set[tuple[str, int]] = set()
+
         workspace_builder = object.__getattribute__(
             self,
             "_execution_authority_workspace",
@@ -1781,6 +3191,7 @@ class ParallelACExecutor:
                 not _foundation_a_internal_entry_roots_are_closed
                 or self._session_signal_hub is not None
             ),
+            runtime_instance_nonce=self._process_local_resume_nonce,
         )
         self._execution_authority_live_binding = binding
         self._execution_authority = binding.contract
@@ -1799,6 +3210,41 @@ class ParallelACExecutor:
             ),
             internal_entry_invokers,
         )
+
+    def _profile_suggested_tier(self) -> str | None:
+        """Return the profile's explicit model-tier floor, if it has one."""
+
+        if (
+            self._execution_profile is None
+            or self._execution_profile.suggested_model_tier is SuggestedModelTier.MEDIUM
+        ):
+            return None
+        return tier_from_profile_hint(self._execution_profile.suggested_model_tier.value)
+
+    def _build_route_compat_projection(
+        self,
+        *,
+        model_router: ModelRouter | None,
+        effort: str | None,
+    ) -> RouteCompatProjection | None:
+        """Build one projection with every public starting-tier floor applied."""
+
+        projection = build_route_compat_projection(
+            self._route_economics,
+            model_router=model_router,
+            runtime_backend=getattr(self._adapter, "runtime_backend", None),
+            effort=effort,
+        )
+        suggested_tier = self._profile_suggested_tier()
+        if projection is None or suggested_tier is None:
+            return projection
+        effective_floor = MODEL_TIER_LADDER[
+            max(
+                MODEL_TIER_LADDER.index(projection.base_tier),
+                MODEL_TIER_LADDER.index(suggested_tier),
+            )
+        ]
+        return replace(projection, base_tier=effective_floor)
 
     @property
     def execution_authority(self) -> ExecutionAuthorityContract:
@@ -1819,7 +3265,7 @@ class ParallelACExecutor:
         adapter = get_attribute(self, "_adapter")
         coordinator = get_attribute(self, "_coordinator")
         backend = getattr(adapter, "runtime_backend", None)
-        limits = resolve_backend_limits(backend if isinstance(backend, str) else None)
+        limits = get_attribute(self, "_resolved_backend_limits")
         coordinator_effort = getattr(coordinator, "_reasoning_effort", None)
         return {
             "version": 1,
@@ -1850,10 +3296,9 @@ class ParallelACExecutor:
             "dispatch_rate": {
                 "algorithm": "rate-limit-gate/v1",
                 "backend": backend if isinstance(backend, str) else None,
-                "self_governs_rate_limit": getattr(
-                    adapter,
-                    "self_governs_rate_limit",
-                    False,
+                "self_governs_rate_limit": get_attribute(
+                    self,
+                    "_resolved_self_governs_rate_limit",
                 ),
                 "requests_per_minute": limits.requests_per_minute,
                 "tokens_per_minute": limits.tokens_per_minute,
@@ -1868,6 +3313,8 @@ class ParallelACExecutor:
     def _build_dispatch_rate_gate(
         adapter: AgentRuntime,
         *,
+        limits: BackendConcurrencyLimits | None = None,
+        self_governs_rate_limit: bool | None = None,
         rate_gate_factory: Callable[
             ..., RateLimitGate
         ] = _FOUNDATION_A_CLOSED_ROOTS.rate_gate_factory,
@@ -1885,14 +3332,16 @@ class ParallelACExecutor:
         backend_attr = getattr(adapter, "runtime_backend", "")
         backend = backend_attr if isinstance(backend_attr, str) and backend_attr else "unknown"
 
-        if getattr(adapter, "self_governs_rate_limit", False):
+        if self_governs_rate_limit is None:
+            self_governs_rate_limit = bool(getattr(adapter, "self_governs_rate_limit", False))
+        if self_governs_rate_limit:
             return rate_gate_factory(
                 backend,
                 request_limit=None,
                 token_limit=None,
             )
 
-        limits = resolve_backend_limits(backend)
+        limits = limits or resolve_backend_limits(backend)
         return rate_gate_factory(
             backend,
             request_limit=limits.requests_per_minute,
@@ -2413,7 +3862,10 @@ class ParallelACExecutor:
         ac_retry_attempts: dict[int, int],
         execution_counters: dict[str, int] | None = None,
         retry_prompts: dict[int, str] | None = None,
+        route_overrides: dict[int, RouteCandidate] | None = None,
+        route_resume_states: Mapping[int, _ParallelRouteResumeState] | None = None,
         same_runtime_budget_exhausted: bool = True,
+        force_legacy_routing: bool = False,
     ) -> list[ACExecutionResult | BaseException]:
         """Execute one batch of stage-ready ACs using the shared worker pool.
 
@@ -2422,7 +3874,12 @@ class ParallelACExecutor:
         same-runtime retry budget, gating cross-harness redispatch (PR-X X1) so
         it never pre-empts those retries.
         """
-        batch_results: list[ACExecutionResult | BaseException] = [None] * len(batch_indices)
+        batch_results: list[ACExecutionResult | BaseException | None] = [None] * len(batch_indices)
+        cancel_on_recoverable_pause = bool(
+            self._bounded_route_escalation_enabled and not force_legacy_routing
+        )
+        recoverable_pause_detected = anyio.Event()
+        sibling_cancel_scopes: dict[int, anyio.CancelScope] = {}
         sibling_acs: list[_SiblingACRef] = (
             [(i, ac_text(seed.acceptance_criteria[i])) for i in batch_indices]
             if len(batch_indices) > 1
@@ -2430,45 +3887,123 @@ class ParallelACExecutor:
         )
 
         async def _run_ac(idx: int, ac_idx: int) -> None:
-            async with self._semaphore:
+            with anyio.CancelScope() as sibling_scope:
+                sibling_cancel_scopes[idx] = sibling_scope
+                execution_authority_entered = False
                 try:
-                    ac_criterion = seed.acceptance_criteria[ac_idx]
-                    batch_results[idx] = await _invoke_execution_authority_entry(
-                        self,
-                        _FOUNDATION_A_ENTRY_EXECUTE_SINGLE_AC,
-                        ac_index=ac_idx,
-                        ac_content=ac_text(ac_criterion),
-                        session_id=session_id,
-                        tools=tools,
-                        tool_catalog=tool_catalog,
-                        system_prompt=system_prompt,
-                        seed_goal=seed.goal,
-                        depth=0,
-                        execution_id=execution_id,
-                        level_contexts=level_contexts,
-                        sibling_acs=sibling_acs,
-                        retry_attempt=ac_retry_attempts[ac_idx],
-                        execution_counters=execution_counters,
-                        retry_prompt_extra=(retry_prompts or {}).get(ac_idx, ""),
-                        same_runtime_budget_exhausted=same_runtime_budget_exhausted,
-                        ac_spec=(
-                            ac_criterion
-                            if isinstance(ac_criterion, AcceptanceCriterionSpec)
+                    if cancel_on_recoverable_pause and recoverable_pause_detected.is_set():
+                        batch_results[idx] = _BatchInterruptedForRecoverablePause(
+                            "batch stopped at a recoverable provider quota boundary"
+                        )
+                        return
+                    async with self._semaphore:
+                        # Tasks are created together but may wait behind the
+                        # provider semaphore. Re-check under the permit so a
+                        # sibling that already found a shared quota window can
+                        # close this provider entrance before its first effect.
+                        if cancel_on_recoverable_pause and recoverable_pause_detected.is_set():
+                            batch_results[idx] = _BatchInterruptedForRecoverablePause(
+                                "batch stopped at a recoverable provider quota boundary"
+                            )
+                            return
+                        ac_criterion = seed.acceptance_criteria[ac_idx]
+                        resume_state = (route_resume_states or {}).get(ac_idx)
+                        expected_route = (
+                            resume_state.expected_route_candidate
+                            if resume_state is not None
+                            else (route_overrides or {}).get(ac_idx)
+                        )
+                        route_id_override = (
+                            resume_state.route_id_override
+                            if resume_state is not None
+                            else expected_route.route_id
+                            if expected_route is not None
                             else None
-                        ),
-                        investment_spec=(
-                            ac_criterion.investment
-                            if isinstance(ac_criterion, AcceptanceCriterionSpec)
-                            else None
-                        ),
-                    )
+                        )
+                        attempt_siblings = (
+                            list(resume_state.sibling_acs)
+                            if resume_state is not None
+                            else sibling_acs
+                        )
+                        execution_authority_entered = True
+                        result = await _invoke_execution_authority_entry(
+                            self,
+                            _FOUNDATION_A_ENTRY_EXECUTE_SINGLE_AC,
+                            ac_index=ac_idx,
+                            ac_content=ac_text(ac_criterion),
+                            session_id=session_id,
+                            tools=tools,
+                            tool_catalog=tool_catalog,
+                            system_prompt=system_prompt,
+                            seed_goal=seed.goal,
+                            depth=0,
+                            execution_id=execution_id,
+                            level_contexts=level_contexts,
+                            sibling_acs=attempt_siblings,
+                            retry_attempt=ac_retry_attempts[ac_idx],
+                            execution_counters=execution_counters,
+                            retry_prompt_extra=(
+                                resume_state.retry_prompt_extra
+                                if resume_state is not None
+                                else (retry_prompts or {}).get(ac_idx, "")
+                            ),
+                            route_id_override=route_id_override,
+                            expected_route_candidate=expected_route,
+                            force_legacy_routing=force_legacy_routing,
+                            same_runtime_budget_exhausted=same_runtime_budget_exhausted,
+                            expected_resume_dispatch_id=(
+                                resume_state.dispatch_id if resume_state is not None else None
+                            ),
+                            expected_resume_capsule_fingerprint=(
+                                resume_state.capsule_fingerprint
+                                if resume_state is not None
+                                else None
+                            ),
+                            expected_resume_runtime_scope_id=(
+                                resume_state.runtime_scope_id if resume_state is not None else None
+                            ),
+                            ac_spec=(
+                                ac_criterion
+                                if isinstance(ac_criterion, AcceptanceCriterionSpec)
+                                else None
+                            ),
+                            investment_spec=(
+                                ac_criterion.investment
+                                if isinstance(ac_criterion, AcceptanceCriterionSpec)
+                                else None
+                            ),
+                        )
+                        batch_results[idx] = result
+                        if cancel_on_recoverable_pause and _has_usage_limit_pause(result):
+                            # A provider quota belongs to the batch, not merely
+                            # the AC that observed it. Signal first, then cancel
+                            # every already-running or semaphore-waiting sibling.
+                            recoverable_pause_detected.set()
+                            for sibling_idx, scope in tuple(sibling_cancel_scopes.items()):
+                                if sibling_idx != idx:
+                                    scope.cancel()
                 except BaseException as e:
-                    # Never suppress anyio Cancelled — doing so breaks
-                    # the task group's cancel-scope propagation and can
-                    # cause the entire group to hang indefinitely.
                     if isinstance(e, anyio.get_cancelled_exc_class()):
+                        if (
+                            cancel_on_recoverable_pause
+                            and sibling_scope.cancel_called
+                            and recoverable_pause_detected.is_set()
+                        ):
+                            marker_type = (
+                                _BatchEnteredAtRecoverablePause
+                                if execution_authority_entered
+                                else _BatchInterruptedForRecoverablePause
+                            )
+                            batch_results[idx] = marker_type(
+                                "batch stopped at a recoverable provider quota boundary"
+                            )
+                            return
+                        # External cancellation still owns the task group and
+                        # must never be converted into a recoverable pause.
                         raise
                     batch_results[idx] = e
+                finally:
+                    sibling_cancel_scopes.pop(idx, None)
 
         # Cross-AC concurrency is governed by the LevelCoordinator's
         # file-conflict guard, not by session-level tool catalog presence.
@@ -2480,7 +4015,9 @@ class ParallelACExecutor:
             for idx, ac_idx in enumerate(batch_indices):
                 tg.start_soon(_run_ac, idx, ac_idx)
 
-        return batch_results
+        if any(result is None for result in batch_results):
+            raise RuntimeError("parallel AC batch exited without materializing every result")
+        return [result for result in batch_results if result is not None]
 
     async def execute_parallel(
         self,
@@ -2549,6 +4086,21 @@ class ParallelACExecutor:
         ac_retry_attempts: dict[int, int] = dict.fromkeys(range(total_acs), 0)
         completed_count = 0
         resume_from_level = 0
+        recoverable_route_pause = False
+
+        # Restore the durable bounce phase before its consuming finalized event.
+        # Both precede checkpoints, route projections, and every provider entry.
+        if self._decomposition_mode == "bounce_only":
+            await self._restore_bounce_classifications(
+                seed=seed,
+                execution_id=execution_id,
+                session_id=session_id,
+            )
+        await self._restore_finalized_decomposition_decisions(
+            seed=seed,
+            execution_id=execution_id,
+            session_id=session_id,
+        )
 
         # RC3: Attempt to recover from checkpoint
         if self._checkpoint_store:
@@ -2628,14 +4180,10 @@ class ParallelACExecutor:
                         saved_contexts = cp.state.get("level_contexts", [])
                         if saved_contexts:
                             level_contexts = deserialize_level_contexts(saved_contexts)
-                        raw_decisions = cp.state.get("decomposition_decisions", {})
-                        if isinstance(raw_decisions, Mapping):
-                            for raw_node_id, raw_record in raw_decisions.items():
-                                if not isinstance(raw_node_id, str):
-                                    continue
-                                restored = DecompositionDecisionRecord.from_dict(raw_record)
-                                if restored is not None and restored.node_id == raw_node_id:
-                                    self._decomposition_decisions[raw_node_id] = restored
+                        self._restore_checkpoint_decomposition_decisions(
+                            checkpoint_state.get("decomposition_decisions", {}),
+                            root_ac_count=total_acs,
+                        )
                         log.info(
                             "parallel_executor.recovery.resuming",
                             from_level=resume_from_level,
@@ -2729,6 +4277,11 @@ class ParallelACExecutor:
                             session_id=session_id,
                             execution_id=execution_id,
                         )
+            except RuntimeError:
+                # A matching checkpoint is durable execution authority.  Once
+                # recognized, malformed state must stop before provider entry;
+                # treating it as a cache miss would redispatch completed work.
+                raise
             except Exception as e:
                 log.warning(
                     "parallel_executor.recovery.failed",
@@ -2875,8 +4428,7 @@ class ParallelACExecutor:
                     commit = metadata.get("commit")
 
                     # PR-V V4: --skip-completed trusts working-tree state. When the
-                    # AC carries a success contract (verify_command OR expected
-                    # artifacts), prove it with the gate before skipping; on gate
+                    # AC carries a success contract, prove it with the gate before skipping; on gate
                     # failure, execute the AC normally instead.
                     spec = seed.acceptance_criteria[ac_idx]
                     verification_status = "assumed"
@@ -2884,7 +4436,7 @@ class ParallelACExecutor:
                     if (
                         self._run_verify_commands
                         and isinstance(spec, AcceptanceCriterionSpec)
-                        and (spec.verify_command or spec.expected_artifacts)
+                        and spec.has_success_contract
                     ):
                         cwd = self._task_cwd or self._adapter.working_directory or os.getcwd()
                         gate = await _invoke_execution_authority_entry(
@@ -3052,7 +4604,23 @@ class ParallelACExecutor:
                         execution_counters=execution_counters,
                     )
 
+                    batch_route_pause = self._bounded_route_escalation_enabled and any(
+                        isinstance(result, ACExecutionResult) and _has_usage_limit_pause(result)
+                        for result in batch_results
+                    )
+
                     for ac_idx, result in zip(batch_executable, batch_results, strict=False):
+                        if isinstance(result, _BatchInterruptedForRecoverablePause):
+                            if not batch_route_pause:
+                                raise RuntimeError(
+                                    "parallel AC batch interrupted without a recoverable pause"
+                                )
+                            # This sibling crossed no completed provider boundary
+                            # after the shared quota signal. Keep it pending for
+                            # the exact-route resume owner; interruption is not a
+                            # judgment, failure, or completed stage result.
+                            ac_statuses[ac_idx] = "pending"
+                            continue
                         if isinstance(result, BaseException):
                             # Exception during execution
                             error_msg = str(result)
@@ -3135,6 +4703,19 @@ class ParallelACExecutor:
 
                         all_results.append(ac_result)
                         stage_ac_results.append(ac_result)
+
+                    if batch_route_pause:
+                        # A quota window belongs to the complete execution plan,
+                        # not merely this route loop.  Do not start another batch
+                        # or stage, and do not run sibling/coordinator effects.
+                        recoverable_route_pause = True
+                        break
+
+                if recoverable_route_pause:
+                    # In particular, do not emit level_completed or checkpoint
+                    # this incomplete stage as completed.  Durable route events
+                    # below are the replay authority for the interrupted round.
+                    break
 
                 flip_gated_out = await self._compute_sibling_flip_gated_out(
                     seed=seed,
@@ -3219,58 +4800,92 @@ class ParallelACExecutor:
                         level_num,
                         workspace_root=workspace_root,
                     )
+                    sealed_contexts = {
+                        result.ac_index: result.context_summary
+                        for result in stage_ac_results
+                        if result.ac_index in executable and result.context_summary is not None
+                    }
+                    if sealed_contexts:
+                        level_ctx = replace(
+                            level_ctx,
+                            completed_acs=tuple(
+                                sealed_contexts.get(summary.ac_index, summary)
+                                for summary in level_ctx.completed_acs
+                            ),
+                        )
 
                     # Coordinator: detect and resolve file conflicts (Approach A)
                     level_ac_results = [r for r in stage_ac_results if r.ac_index in executable]
                     conflicts = self._coordinator.detect_file_conflicts(level_ac_results)
-
-                    if conflicts:
-                        self._console.print(
-                            f"  [yellow]Coordinator: {len(conflicts)} file conflict(s) detected, "
-                            f"starting review...[/yellow]"
-                        )
-                        await self._emit_coordinator_started(
+                    restored_review = (
+                        await self._restore_completed_coordinator_review(
                             execution_id=execution_id,
                             session_id=session_id,
                             level=level_num,
                             conflicts=conflicts,
                         )
-                        _invoke_execution_authority_guard(self)
-                        workspace_root = (
-                            self._task_cwd or self._adapter.working_directory or os.getcwd()
-                        )
-                        workspace_before = self._workspace_content_digest(workspace_root)
-                        review = await self._authority_coordinator_review(
-                            execution_id=execution_id,
-                            conflicts=conflicts,
-                            level_context=level_ctx,
-                            level_number=level_num,
-                        )
-                        workspace_after = self._workspace_content_digest(workspace_root)
-                        workspace_changed = (
-                            workspace_before is None
-                            or workspace_after is None
-                            or workspace_before != workspace_after
-                        )
-                        coordinator_mutated_workspace = (
-                            coordinator_mutated_workspace
-                            or workspace_changed
-                            or self._coordinator_review_may_mutate_workspace(review)
-                        )
+                        if conflicts
+                        else None
+                    )
+
+                    if conflicts:
+                        if restored_review is None:
+                            self._console.print(
+                                f"  [yellow]Coordinator: {len(conflicts)} file conflict(s) "
+                                f"detected, starting review...[/yellow]"
+                            )
+                            await self._emit_coordinator_started(
+                                execution_id=execution_id,
+                                session_id=session_id,
+                                level=level_num,
+                                conflicts=conflicts,
+                            )
+                            _invoke_execution_authority_guard(self)
+                            workspace_root = (
+                                self._task_cwd or self._adapter.working_directory or os.getcwd()
+                            )
+                            workspace_before = self._workspace_content_digest(workspace_root)
+                            review = await self._authority_coordinator_review(
+                                execution_id=execution_id,
+                                conflicts=conflicts,
+                                level_context=level_ctx,
+                                level_number=level_num,
+                            )
+                            workspace_after = self._workspace_content_digest(workspace_root)
+                            workspace_changed = (
+                                workspace_before is None
+                                or workspace_after is None
+                                or workspace_before != workspace_after
+                            )
+                            coordinator_mutated_workspace = (
+                                coordinator_mutated_workspace
+                                or workspace_changed
+                                or self._coordinator_review_may_mutate_workspace(review)
+                            )
+                            await self._emit_coordinator_runtime_events(
+                                execution_id=execution_id,
+                                session_id=session_id,
+                                review=review,
+                            )
+                            await self._emit_coordinator_completed(
+                                execution_id=execution_id,
+                                session_id=session_id,
+                                review=review,
+                            )
+                        else:
+                            review = restored_review
+                            # The completed provider had Edit/Bash authority and
+                            # its pre-effect workspace digest is not replayable.
+                            # Conservatively revalidate the settled workspace.
+                            coordinator_mutated_workspace = True
+                            self._console.print(
+                                f"  [cyan]Coordinator review restored for level "
+                                f"{level_num}; provider effect not repeated.[/cyan]"
+                            )
                         if coordinator_mutated_workspace:
                             post_coordinator_revalidation_required = True
                             post_coordinator_revalidated = False
                             post_coordinator_revalidation_workspace_digest = None
-                        await self._emit_coordinator_runtime_events(
-                            execution_id=execution_id,
-                            session_id=session_id,
-                            review=review,
-                        )
-                        await self._emit_coordinator_completed(
-                            execution_id=execution_id,
-                            session_id=session_id,
-                            review=review,
-                        )
                         # Attach review to the level context
                         level_ctx = LevelContext(
                             level_number=level_ctx.level_number,
@@ -3562,6 +5177,7 @@ class ParallelACExecutor:
             reconciled_level_contexts=tuple(level_contexts),
             total_messages=total_messages,
             total_duration_seconds=total_duration,
+            recoverable_route_pause=recoverable_route_pause,
         )
 
     @staticmethod
@@ -3582,33 +5198,56 @@ class ParallelACExecutor:
         return False
 
     @staticmethod
-    def _workspace_content_digest(cwd: str) -> str | None:
-        """Hash the observable workspace tree for coordinator mutation checks.
+    def _workspace_content_digest(
+        cwd: str,
+        *,
+        expected_artifacts: tuple[str, ...] = (),
+    ) -> str | None:
+        """Hash acceptance-relevant workspace state for mutation checks.
 
-        The digest intentionally excludes runtime/cache directories that are
-        not part of the task workspace contract.  Read failures return
-        ``None`` so the caller fails closed instead of trusting pre-coordinator
-        evidence it could not compare.
+        Runtime/cache paths are excluded unless they overlap an explicitly
+        declared expected artifact. Bytecode suffix exclusions apply only to
+        regular files: same-named directories and symlinks remain observable.
+        Read failures return ``None`` so the caller fails closed instead of
+        trusting evidence it could not compare.
         """
-        ignored_directories = {
-            ".git",
-            ".mypy_cache",
-            ".pytest_cache",
-            ".ruff_cache",
-            ".venv",
-            "node_modules",
-        }
         try:
             root = Path(cwd).expanduser().resolve(strict=False)
             if not root.is_dir():
                 return hashlib.sha256(
                     f"missing-workspace\0{root}".encode("utf-8", "surrogateescape")
                 ).hexdigest()
+
+            declared_paths: set[Path] = set()
+            for artifact in expected_artifacts:
+                # Keep both the lexical path and its resolved in-workspace target.
+                # The former binds symlink artifacts themselves; the latter keeps
+                # an artifact reached through an in-workspace symlink observable.
+                candidate = Path(os.path.abspath(root / artifact))
+                for declared in (candidate, candidate.resolve(strict=False)):
+                    if declared.is_relative_to(root):
+                        declared_paths.add(declared.relative_to(root))
+
+            def is_declared_contract_path(relative: Path) -> bool:
+                return any(
+                    relative == declared
+                    or relative in declared.parents
+                    or declared in relative.parents
+                    for declared in declared_paths
+                )
+
             digest = hashlib.sha256()
             paths = sorted(root.rglob("*"), key=lambda path: path.as_posix())
             for path in paths:
                 relative = path.relative_to(root)
-                if any(part in ignored_directories for part in relative.parts):
+                declared_contract_path = is_declared_contract_path(relative)
+                if (
+                    any(
+                        part in _WORKSPACE_FINGERPRINT_IGNORED_DIRECTORIES
+                        for part in relative.parts
+                    )
+                    and not declared_contract_path
+                ):
                     continue
                 try:
                     stat = path.lstat()
@@ -3627,6 +5266,11 @@ class ParallelACExecutor:
                         digest.update(b"\0")
                         digest.update(str(stat.st_mode).encode("ascii"))
                     elif path.is_file():
+                        if (
+                            path.suffix in _WORKSPACE_FINGERPRINT_IGNORED_REGULAR_FILE_SUFFIXES
+                            and not declared_contract_path
+                        ):
+                            continue
                         digest.update(b"F\0")
                         digest.update(relative.as_posix().encode("utf-8", "surrogateescape"))
                         digest.update(b"\0")
@@ -3676,9 +5320,7 @@ class ParallelACExecutor:
                 if 0 <= result.ac_index < len(seed.acceptance_criteria)
                 else None
             )
-            has_contract = isinstance(spec, AcceptanceCriterionSpec) and bool(
-                spec.verify_command or spec.expected_artifacts
-            )
+            has_contract = isinstance(spec, AcceptanceCriterionSpec) and spec.has_success_contract
             if not self._run_verify_commands or not has_contract:
                 reason = (
                     "Final workspace changed during coordinator reconciliation; "
@@ -3769,7 +5411,10 @@ class ParallelACExecutor:
                         passed=True,
                         reason=None,
                         output_tail="",
-                        workspace_digest=self._workspace_content_digest(cwd),
+                        workspace_digest=self._workspace_content_digest(
+                            cwd,
+                            expected_artifacts=spec.expected_artifacts,
+                        ),
                     ),
                 )
             )
@@ -3811,16 +5456,13 @@ class ParallelACExecutor:
             if not result.success or not (0 <= result.ac_index < len(seed.acceptance_criteria)):
                 continue
             spec = seed.acceptance_criteria[result.ac_index]
-            if isinstance(spec, AcceptanceCriterionSpec) and (
-                spec.verify_command or spec.expected_artifacts
-            ):
+            if isinstance(spec, AcceptanceCriterionSpec) and spec.has_success_contract:
                 successful_contracts[result.ac_index] = spec
 
         if not successful_contracts and not verify_mutated_workspace:
             return results
 
         cwd = self._task_cwd or self._adapter.working_directory or os.getcwd()
-        final_digest = self._workspace_content_digest(cwd)
         settled: list[ACExecutionResult] = []
         individual_failures: dict[int, tuple[str, _VerifyGateOutcome | None]] = {}
 
@@ -3862,6 +5504,10 @@ class ParallelACExecutor:
                 continue
 
             missing_artifacts = _missing_expected_artifacts(spec.expected_artifacts, cwd)
+            final_digest = self._workspace_content_digest(
+                cwd,
+                expected_artifacts=spec.expected_artifacts,
+            )
             if final_digest is None:
                 individual_failures[result.ac_index] = (
                     "Final workspace digest unavailable for acceptance evidence.",
@@ -4046,7 +5692,7 @@ class ParallelACExecutor:
         execution_id: str,
         session_id: str,
     ) -> DecompositionDecisionRecord:
-        """Cache and emit a finalized node decision once per distinct value."""
+        """Persist event-owned authority, then publish its runtime projection."""
         if decision.node_id != node_identity.node_id:
             decision = DecompositionDecisionRecord(
                 node_id=node_identity.node_id,
@@ -4055,17 +5701,346 @@ class ParallelACExecutor:
                 cause=decision.cause,
                 reasons=("decomposition_decision_identity_mismatch",),
             )
-        previous = self._decomposition_decisions.get(node_identity.node_id)
-        self._decomposition_decisions[node_identity.node_id] = decision
-        if previous != decision:
-            await self._event_emitter.emit_decomposition_decision_finalized(
-                execution_id=execution_id,
-                session_id=session_id,
-                mode=self._decomposition_mode,
-                node_identity=node_identity,
-                decision=decision,
+        previous = self._event_owned_decomposition_decisions.get(node_identity.node_id)
+        cached = self._decomposition_decisions.get(node_identity.node_id)
+        if cached is not None and cached != previous:
+            raise RuntimeError("decomposition cache lacks matching finalized-event authority")
+        if (
+            previous is not None
+            and previous != decision
+            and not self._is_valid_decision_transition(
+                previous,
+                decision,
             )
+        ):
+            raise RuntimeError("a finalized decomposition decision cannot change")
+        if previous == decision:
+            self._decomposition_decisions[node_identity.node_id] = decision
+            return decision
+        self._require_pending_bounce_for_finalized_decision(decision)
+        await self._event_emitter.emit_decomposition_decision_finalized(
+            execution_id=execution_id,
+            session_id=session_id,
+            mode=self._decomposition_mode,
+            node_identity=node_identity,
+            decision=decision,
+        )
+        if decision.source is DecompositionSource.BOUNCE:
+            self._pending_bounce_decompositions.pop(decision.node_id)
+        self._event_owned_decomposition_decisions[node_identity.node_id] = decision
+        self._decomposition_decisions[node_identity.node_id] = decision
         return decision
+
+    @staticmethod
+    def _is_valid_decision_transition(
+        previous: DecompositionDecisionRecord,
+        current: DecompositionDecisionRecord,
+    ) -> bool:
+        """Admit only the one historical-to-live migration transition."""
+
+        return bool(
+            previous.node_id == current.node_id
+            and previous.source is DecompositionSource.PREFLIGHT
+            and previous.disposition is not DecompositionDisposition.SPLIT
+            and current.source is DecompositionSource.BOUNCE
+        )
+
+    def _require_pending_bounce_for_finalized_decision(
+        self,
+        decision: DecompositionDecisionRecord,
+        *,
+        finalized_event_key: tuple[datetime, str] | None = None,
+    ) -> None:
+        """Bind every BOUNCE decision to its earlier durable TOO_BIG trigger."""
+
+        if decision.source is not DecompositionSource.BOUNCE:
+            return
+        pending = self._pending_bounce_decompositions.get(decision.node_id)
+        if (
+            decision.cause is not BounceCause.TOO_BIG
+            or pending is None
+            or pending.cause is not BounceCause.TOO_BIG
+            or decision.evidence_refs != pending.evidence_refs
+            or (
+                finalized_event_key is not None
+                and pending.event_key is not None
+                and pending.event_key >= finalized_event_key
+            )
+        ):
+            raise RuntimeError("BOUNCE decision lacks matching prior TOO_BIG authority")
+
+    def _publish_event_owned_decomposition_decision(
+        self,
+        decision: DecompositionDecisionRecord,
+    ) -> None:
+        """Publish authority restored from a canonical finalized event."""
+
+        previous = self._event_owned_decomposition_decisions.get(decision.node_id)
+        cached = self._decomposition_decisions.get(decision.node_id)
+        if previous is not None and previous != decision:
+            raise RuntimeError("durable decomposition decisions conflict")
+        if cached is not None and cached != decision:
+            raise RuntimeError("decomposition cache conflicts with finalized-event authority")
+        self._event_owned_decomposition_decisions[decision.node_id] = decision
+        self._decomposition_decisions[decision.node_id] = decision
+
+    def _confirm_replayed_decomposition_decision(
+        self,
+        decision: DecompositionDecisionRecord,
+    ) -> None:
+        """Confirm a cache projection without allowing it to mint authority."""
+
+        authority = self._event_owned_decomposition_decisions.get(decision.node_id)
+        if authority is None:
+            raise RuntimeError("decomposition cache lacks finalized-event authority")
+        if authority != decision:
+            raise RuntimeError("decomposition cache conflicts with finalized-event authority")
+        self._decomposition_decisions[decision.node_id] = authority
+
+    async def _restore_bounce_classifications(
+        self,
+        *,
+        seed: Seed,
+        execution_id: str,
+        session_id: str,
+    ) -> None:
+        """Restore canonical durable TOO_BIG phases before any resumed effect."""
+
+        async for event in replay_execution_events_chronologically(
+            self._event_store,
+            execution_id=execution_id,
+            event_type="execution.decomposition.bounce_classified",
+            page_size=_PARALLEL_PAUSE_REPLAY_PAGE_SIZE,
+        ):
+            if event.type != "execution.decomposition.bounce_classified":
+                continue
+            data = event.data
+            if not _mapping_has_exact_keys(data, _BOUNCE_CLASSIFIED_EVENT_KEYS):
+                raise RuntimeError("bounce classification replay has an invalid event envelope")
+            if data.get("session_id") != session_id:
+                continue
+            raw_path = data.get("path")
+            root_ac_index = data.get("root_ac_index")
+            if (
+                data.get("execution_id") != execution_id
+                or data.get("identity_model") != "execution_node_v1"
+                or type(root_ac_index) is not int
+                or not 0 <= root_ac_index < len(seed.acceptance_criteria)
+                or type(raw_path) is not list
+                or not raw_path
+                or len(raw_path) > self._max_decomposition_depth + 1
+                or any(type(ordinal) is not int or ordinal < 0 for ordinal in raw_path)
+                or raw_path[0] != root_ac_index
+                or any(ordinal >= MAX_DECOMPOSITION_CHILDREN for ordinal in raw_path[1:])
+            ):
+                raise RuntimeError("bounce classification replay has invalid execution identity")
+            node_identity = ExecutionNodeIdentity.root(
+                execution_context_id=execution_id or session_id,
+                ac_index=root_ac_index,
+            )
+            for ordinal in raw_path[1:]:
+                node_identity = node_identity.child(ordinal)
+            try:
+                cause = BounceCause(data.get("cause"))
+                raw_evidence_refs = data.get("evidence_refs")
+                if type(raw_evidence_refs) is not list:
+                    raise ValueError
+                trace = DecompositionTraceSummary(
+                    summary=data.get("trace_summary"),
+                    evidence_refs=tuple(raw_evidence_refs),
+                )
+            except (TypeError, ValueError):
+                raise RuntimeError(
+                    "bounce classification replay has malformed bounded evidence"
+                ) from None
+            rationale = data.get("rationale")
+            failure_class = data.get("failure_class")
+            retry_admission = data.get("retry_admission")
+            if (
+                type(rationale) is not str
+                or not rationale
+                or rationale != redact_and_truncate_text(rationale, max_chars=MAX_REASON_CHARS)
+                or trace.summary != data.get("trace_summary")
+                or list(trace.evidence_refs) != raw_evidence_refs
+                or len(trace.evidence_refs) > MAX_EVIDENCE_REF_COUNT
+                or any(len(ref) > MAX_EVIDENCE_REF_CHARS for ref in trace.evidence_refs)
+                or len(trace.summary) > MAX_TRACE_SUMMARY_CHARS
+                or (
+                    failure_class is not None
+                    and (type(failure_class) is not str or len(failure_class) > MAX_REASON_CHARS)
+                )
+                or (
+                    retry_admission is not None
+                    and (
+                        type(retry_admission) is not str or len(retry_admission) > MAX_REASON_CHARS
+                    )
+                )
+            ):
+                raise RuntimeError(
+                    "bounce classification replay has non-canonical bounded evidence"
+                )
+            expected_payload = {
+                **node_identity.to_event_metadata(),
+                "execution_id": execution_id,
+                "session_id": session_id,
+                "cause": cause.value,
+                "rationale": rationale,
+                "failure_class": failure_class,
+                "retry_admission": retry_admission,
+                "evidence_refs": list(trace.evidence_refs),
+                "trace_summary": trace.summary,
+            }
+            if data != expected_payload:
+                raise RuntimeError("bounce classification replay is not canonical")
+            if cause is not BounceCause.TOO_BIG:
+                continue
+            if node_identity.node_id in self._pending_bounce_decompositions:
+                raise RuntimeError(
+                    "bounce classification replay duplicated a pending TOO_BIG phase"
+                )
+            self._pending_bounce_decompositions[node_identity.node_id] = _DurableBounceReplayState(
+                cause=cause,
+                rationale=rationale,
+                failure_class=failure_class,
+                retry_admission=retry_admission,
+                evidence_refs=trace.evidence_refs,
+                trace_summary=trace.summary,
+                event_key=(event.timestamp, event.id),
+            )
+
+    async def _restore_finalized_decomposition_decisions(
+        self,
+        *,
+        seed: Seed,
+        execution_id: str,
+        session_id: str,
+    ) -> None:
+        """Replay the mandatory decision event before any resumed effect.
+
+        Checkpoints and composite projections are caches of this authority, not
+        substitutes for it.  Historical PREFLIGHT decisions remain consumable,
+        while the live constructor still exposes no preflight producer path.
+        """
+
+        event_limit = _decomposition_decision_event_sentinel(len(seed.acceptance_criteria))
+        raw_events = await self._event_store.query_execution_related_events(
+            execution_id,
+            event_type="execution.decomposition.decision_finalized",
+            limit=event_limit,
+        )
+        try:
+            events = list(raw_events)
+        except TypeError as exc:
+            raise RuntimeError(
+                "decomposition decision replay returned a non-iterable page"
+            ) from exc
+        if len(events) >= event_limit:
+            raise RuntimeError("decomposition decision replay exceeds the admitted node population")
+        seen: dict[str, DecompositionDecisionRecord] = {}
+        for event in sorted(events, key=lambda item: (item.timestamp, item.id)):
+            if event.type != "execution.decomposition.decision_finalized":
+                continue
+            data = event.data
+            if not _mapping_has_exact_keys(data, _DECOMPOSITION_DECISION_EVENT_KEYS):
+                raise RuntimeError("decomposition decision replay has an invalid event envelope")
+            if data.get("session_id") != session_id:
+                continue
+            raw_path = data.get("path")
+            root_ac_index = data.get("root_ac_index")
+            if (
+                data.get("execution_id") != execution_id
+                or data.get("identity_model") != "execution_node_v1"
+                or type(root_ac_index) is not int
+                or not 0 <= root_ac_index < len(seed.acceptance_criteria)
+                or type(raw_path) is not list
+                or not raw_path
+                or len(raw_path) > self._max_decomposition_depth + 1
+                or any(type(ordinal) is not int or ordinal < 0 for ordinal in raw_path)
+                or raw_path[0] != root_ac_index
+                or any(ordinal >= MAX_DECOMPOSITION_CHILDREN for ordinal in raw_path[1:])
+            ):
+                raise RuntimeError("decomposition decision replay has invalid execution identity")
+            node_identity = ExecutionNodeIdentity.root(
+                execution_context_id=execution_id or session_id,
+                ac_index=root_ac_index,
+            )
+            for ordinal in raw_path[1:]:
+                node_identity = node_identity.child(ordinal)
+            raw_decision = {key: data[key] for key in _DECOMPOSITION_DECISION_RECORD_KEYS}
+            decision = DecompositionDecisionRecord.from_dict(raw_decision)
+            mode = data.get("mode")
+            expected_source = (
+                DecompositionSource.PREFLIGHT
+                if mode == "preflight"
+                else DecompositionSource.BOUNCE
+                if mode == "bounce_only"
+                else None
+            )
+            if (
+                decision is None
+                or decision.node_id != node_identity.node_id
+                or decision.source is not expected_source
+                or data.get("child_count") != len(decision.children)
+                or (
+                    decision.disposition is DecompositionDisposition.SPLIT
+                    and node_identity.depth >= self._max_decomposition_depth
+                )
+            ):
+                raise RuntimeError("decomposition decision replay has invalid decision authority")
+            expected_payload = {
+                **node_identity.to_event_metadata(),
+                **decision.to_dict(),
+                "execution_id": execution_id,
+                "session_id": session_id,
+                "mode": mode,
+                "child_count": len(decision.children),
+            }
+            if data != expected_payload:
+                raise RuntimeError("decomposition decision replay is not canonical")
+            previous = seen.get(decision.node_id)
+            if previous is not None:
+                if not self._is_valid_decision_transition(previous, decision):
+                    raise RuntimeError("decomposition decision replay has an invalid transition")
+            self._require_pending_bounce_for_finalized_decision(
+                decision,
+                finalized_event_key=(event.timestamp, event.id),
+            )
+            if decision.source is DecompositionSource.BOUNCE:
+                self._pending_bounce_decompositions.pop(decision.node_id)
+            if previous is not None:
+                self._event_owned_decomposition_decisions[decision.node_id] = decision
+                self._decomposition_decisions[decision.node_id] = decision
+            else:
+                self._publish_event_owned_decomposition_decision(decision)
+            seen[decision.node_id] = decision
+
+    def _restore_checkpoint_decomposition_decisions(
+        self,
+        raw_decisions: object,
+        *,
+        root_ac_count: int,
+    ) -> None:
+        """Strictly merge the checkpoint cache into event-owned replay state."""
+
+        if type(raw_decisions) is not dict:
+            raise RuntimeError("checkpoint decomposition decisions are malformed")
+        max_population = root_ac_count * (MAX_DECOMPOSITION_REPLAY_NODES + 1)
+        if len(raw_decisions) > max_population:
+            raise RuntimeError("checkpoint decomposition decisions exceed their bound")
+        for raw_node_id, raw_record in raw_decisions.items():
+            if type(raw_node_id) is not str:
+                raise RuntimeError("checkpoint decomposition decision id is malformed")
+            restored = DecompositionDecisionRecord.from_dict(raw_record)
+            if (
+                restored is None
+                or restored.node_id != raw_node_id
+                or restored.to_dict() != raw_record
+            ):
+                raise RuntimeError("checkpoint decomposition decision is non-canonical")
+            try:
+                self._confirm_replayed_decomposition_decision(restored)
+            except RuntimeError as exc:
+                raise RuntimeError(f"checkpoint {exc}") from exc
 
     async def _execute_decomposition_children(
         self,
@@ -4090,6 +6065,19 @@ class ParallelACExecutor:
     ) -> ACExecutionResult:
         """Dispatch one finalized split through the shared recursive child path."""
         sub_acs = [child.description for child in decision.children]
+        resume_state = self._partial_composite_resumes.pop(node_identity.node_id, None)
+        if resume_state is not None and (
+            resume_state.decision != decision
+            or resume_state.paused_child_index >= len(sub_acs)
+            or len(resume_state.completed_children) != resume_state.paused_child_index
+            or tuple(child.ac_content for child in resume_state.completed_children)
+            != tuple(sub_acs[: resume_state.paused_child_index])
+            or resume_state.paused_child_content != sub_acs[resume_state.paused_child_index]
+            or resume_state.paused_child_ac_index
+            != ac_index * 100 + resume_state.paused_child_index
+            or resume_state.paused_child_retry_attempt != retry_attempt
+        ):
+            raise RuntimeError("partial composite resume state drifted from its split plan")
         display_label = (
             f"AC {node_identity.display_path}"
             if node_identity.depth == 0
@@ -4099,7 +6087,8 @@ class ParallelACExecutor:
             f"  [cyan]{display_label} → Decomposed into {len(sub_acs)} Sub-ACs (parallel)[/cyan]"
         )
         self._flush_console()
-        for idx, sub_ac in enumerate(sub_acs):
+        first_pending_child = resume_state.paused_child_index if resume_state is not None else 0
+        for idx, sub_ac in enumerate(sub_acs[first_pending_child:], start=first_pending_child):
             await self._emit_subtask_event(
                 execution_id=execution_id,
                 ac_index=ac_index,
@@ -4111,8 +6100,11 @@ class ParallelACExecutor:
 
         self._console.print(f"    [green]Starting {len(sub_acs)} Sub-ACs sequentially...[/green]")
         sub_results: list[ACExecutionResult | BaseException | None] = [None] * len(sub_acs)
+        if resume_state is not None:
+            sub_results[:first_pending_child] = list(resume_state.completed_children)
         sub_depth = depth + 1
-        for idx, sub_ac in enumerate(sub_acs):
+        paused_at: int | None = None
+        for idx, sub_ac in enumerate(sub_acs[first_pending_child:], start=first_pending_child):
             try:
                 child_node_identity = node_identity.child(idx)
                 child_is_sub_ac = child_node_identity.depth > 0
@@ -4150,14 +6142,35 @@ class ParallelACExecutor:
                     investment_spec=investment_spec,
                     decomposition_trustworthy=decision.trustworthy,
                     semantic_ac_key=semantic_ac_key,
+                    expected_resume_dispatch_id=(
+                        resume_state.paused_dispatch_id
+                        if resume_state is not None and idx == first_pending_child
+                        else None
+                    ),
+                    expected_resume_capsule_fingerprint=(
+                        resume_state.paused_capsule_fingerprint
+                        if resume_state is not None and idx == first_pending_child
+                        else None
+                    ),
+                    expected_resume_runtime_scope_id=(
+                        resume_state.paused_runtime_scope_id
+                        if resume_state is not None and idx == first_pending_child
+                        else None
+                    ),
                 )
+                if isinstance(sub_results[idx], ACExecutionResult) and _has_usage_limit_pause(
+                    sub_results[idx]
+                ):
+                    paused_at = idx
+                    break
             except BaseException as exc:
                 if isinstance(exc, anyio.get_cancelled_exc_class()):
                     raise
                 sub_results[idx] = exc
 
+        materialized_results = sub_results if paused_at is None else sub_results[: paused_at + 1]
         final_sub_results: list[ACExecutionResult] = []
-        for idx, result in enumerate(sub_results):
+        for idx, result in enumerate(materialized_results):
             if isinstance(result, BaseException) or result is None:
                 final_sub_results.append(
                     ACExecutionResult(
@@ -4187,7 +6200,13 @@ class ParallelACExecutor:
                 ac_index=ac_index,
                 sub_task_index=idx + 1,
                 sub_task_content=sub_acs[idx],
-                status="completed" if result.success else "failed",
+                status=(
+                    "paused"
+                    if _has_usage_limit_pause(result)
+                    else "completed"
+                    if result.success
+                    else "failed"
+                ),
                 node_identity=node_identity.child(idx),
             )
 
@@ -4229,55 +6248,62 @@ class ParallelACExecutor:
         result: ACExecutionResult,
         ac_spec: AcceptanceCriterionSpec | None,
     ) -> DecompositionTraceSummary:
-        """Project one failed attempt into bounded, secret-safe recovery evidence."""
+        """Project one failed attempt into typed counts and enums only."""
+        from ouroboros.orchestrator.failure_taxonomy import FailureClass
+
         verdict = result.atomic_verifier_verdict
-        tool_names = tuple(
-            dict.fromkeys(
-                message.tool_name
-                for message in result.messages
-                if isinstance(message.tool_name, str) and message.tool_name.strip()
-            )
-        )[:8]
-        evidence_fields = (
-            tuple(sorted(str(key) for key in result.typed_evidence.data))[:8]
-            if result.typed_evidence is not None
-            else ()
+        attempted_tool_count = sum(
+            1
+            for message in result.messages
+            if isinstance(message.tool_name, str) and bool(message.tool_name.strip())
         )
-        evidence_refs = tuple(verdict.evidence_used) if verdict is not None else ()
-        verified_artifacts: list[str] = []
-        remaining_artifacts: list[str] = []
+        evidence_field_count = (
+            len(result.typed_evidence.data)
+            if result.typed_evidence is not None and type(result.typed_evidence.data) is dict
+            else 0
+        )
+        verified_artifact_count = 0
+        remaining_artifact_count = 0
         if ac_spec is not None and ac_spec.expected_artifacts:
             cwd = Path(self._task_cwd or self._adapter.working_directory or os.getcwd())
             for artifact in ac_spec.expected_artifacts[:8]:
                 target = Path(artifact)
                 if not target.is_absolute():
                     target = cwd / target
-                (verified_artifacts if target.exists() else remaining_artifacts).append(artifact)
+                if target.exists():
+                    verified_artifact_count += 1
+                else:
+                    remaining_artifact_count += 1
 
-        failure_class = verdict.failure_class if verdict is not None else None
+        try:
+            failure_class = (
+                FailureClass(verdict.failure_class).value
+                if verdict is not None and verdict.failure_class is not None
+                else "UNKNOWN"
+            )
+        except ValueError:
+            failure_class = "UNKNOWN"
         retry_admission = (
             verdict.retry_admission.value
-            if verdict is not None and hasattr(verdict.retry_admission, "value")
-            else (str(verdict.retry_admission) if verdict is not None else None)
+            if verdict is not None and isinstance(verdict.retry_admission, RetryAdmission)
+            else "UNKNOWN"
         )
-        reasons = tuple(verdict.reasons) if verdict is not None else ()
         lines = [
-            "attempted_tools=" + (", ".join(tool_names) if tool_names else "none-recorded"),
-            "evidence_fields="
-            + (", ".join(evidence_fields) if evidence_fields else "none-recorded"),
-            "verified_artifacts="
-            + (", ".join(verified_artifacts) if verified_artifacts else "none-recorded"),
-            "remaining_artifacts="
-            + (", ".join(remaining_artifacts) if remaining_artifacts else "none-recorded"),
-            f"failure_class={failure_class or 'UNKNOWN'}",
-            f"retry_admission={retry_admission or 'UNKNOWN'}",
-            "verifier_reasons=" + ("; ".join(reasons) if reasons else "none-recorded"),
+            f"attempt_message_count={len(result.messages)}",
+            f"attempted_tool_count={attempted_tool_count}",
+            f"typed_evidence_present={result.typed_evidence is not None}",
+            f"evidence_field_count={evidence_field_count}",
+            f"verified_artifact_count={verified_artifact_count}",
+            f"remaining_artifact_count={remaining_artifact_count}",
+            f"failure_class={failure_class}",
+            f"retry_admission={retry_admission}",
+            f"verifier_reason_count={len(verdict.reasons) if verdict is not None else 0}",
             f"failure_detail_present={bool(result.error or result.final_message)}",
         ]
         if ac_spec is not None:
             lines.append(f"verify_command_present={bool(ac_spec.verify_command)}")
             lines.append(f"output_assertion_present={bool(ac_spec.output_assertion)}")
-        return summarize_decomposition_trace("\n".join(lines), evidence_refs=evidence_refs)
+        return summarize_decomposition_trace("\n".join(lines))
 
     async def _dispatch_decomposition_prompt(
         self,
@@ -4329,12 +6355,12 @@ class ParallelACExecutor:
         self,
         *,
         trace: DecompositionTraceSummary,
-    ) -> tuple[BounceCause, str, tuple[str, ...], bool]:
-        """Ask a bounded tool-free classifier only for ambiguous failure causes."""
+    ) -> tuple[BounceCause, bool]:
+        """Ask for typed cause metadata without admitting classifier prose."""
         prompt = (
             "Classify this failed execution attempt for recovery. Use only the bounded "
             "attempt evidence below. Do not infer complexity from task length or wording. "
-            "Return ONLY JSON with cause, reason, evidence_refs, and has_remaining_scope. "
+            "Return ONLY JSON with cause and has_remaining_scope. "
             "cause must be TOO_BIG, BAD_SPEC, ENVIRONMENT, MODEL, or UNKNOWN. TOO_BIG is "
             "allowed only when the trace shows attempted work and distinct parent scope "
             "still remaining.\n\n"
@@ -4346,41 +6372,28 @@ class ParallelACExecutor:
                 _FOUNDATION_A_ENTRY_DISPATCH_DECOMPOSITION_PROMPT,
                 prompt=prompt,
                 system_prompt="You are a conservative execution-recovery classifier.",
+                independent_session=True,
             )
             if len(response) > 10_000:
                 raise ValueError
             match = re.search(r"\{.*\}", response, re.DOTALL)
             payload = json.loads(match.group() if match is not None else response)
-            if not isinstance(payload, dict):
+            if not _mapping_has_exact_keys(payload, _BOUNCE_CLASSIFICATION_KEYS):
                 raise ValueError
-            cause = BounceCause(payload.get("cause", BounceCause.UNKNOWN.value))
-            reason = payload.get("reason", "")
-            refs = payload.get("evidence_refs", ())
-            remaining = payload.get("has_remaining_scope", False)
-            if not isinstance(reason, str):
-                reason = ""
-            if not isinstance(refs, list) or not all(isinstance(item, str) for item in refs):
-                refs = []
+            assert isinstance(payload, Mapping)
+            cause = BounceCause(payload["cause"])
+            remaining = payload["has_remaining_scope"]
             if type(remaining) is not bool:
-                remaining = False
-            bounded_refs = DecompositionTraceSummary(
-                summary="",
-                evidence_refs=tuple(refs[:8]),
-            ).evidence_refs
-            return (
-                cause,
-                redact_and_truncate_text(reason, max_chars=240),
-                bounded_refs,
-                remaining,
-            )
+                raise ValueError
+            return cause, remaining
         except (TimeoutError, ValueError, json.JSONDecodeError, TypeError):
-            return BounceCause.UNKNOWN, "Bounce classifier returned no admissible cause.", (), False
+            return BounceCause.UNKNOWN, False
         except Exception as exc:
             log.warning(
                 "parallel_executor.bounce_classifier.error",
-                error=redact_and_truncate_text(str(exc), max_chars=240),
+                error_type=type(exc).__name__,
             )
-            return BounceCause.UNKNOWN, "Bounce classifier failed operationally.", (), False
+            return BounceCause.UNKNOWN, False
 
     async def _classify_bounce_result(
         self,
@@ -4412,19 +6425,13 @@ class ParallelACExecutor:
         if failure not in {None, FailureClass.SCOPE_CREEP, FailureClass.STALL}:
             return deterministic
 
-        (
-            proposed_cause,
-            reason,
-            proposed_refs,
-            has_remaining_scope,
-        ) = await self._request_bounce_classification(trace=trace)
-        refs = tuple(dict.fromkeys((*trace.evidence_refs, *proposed_refs)))
+        proposed_cause, has_remaining_scope = await self._request_bounce_classification(trace=trace)
         return classify_bounce(
             failure,
             admission,
             proposed_cause=proposed_cause,
-            proposed_reasons=(reason,),
-            evidence_refs=refs,
+            proposed_reasons=(),
+            evidence_refs=trace.evidence_refs,
             has_attempt_evidence=bool(
                 result.messages or result.typed_evidence or trace.evidence_refs
             ),
@@ -4454,9 +6461,15 @@ class ParallelACExecutor:
         investment_spec: InvestmentSpec | None = None,
     ) -> tuple[ACExecutionResult | None, DecompositionDecisionRecord | None]:
         """Run cause-matched bounce recovery before alternate-harness fallback."""
-        if self._decomposition_mode != "bounce_only" or result.success:
+        if (
+            self._decomposition_mode != "bounce_only"
+            or result.success
+            or _has_usage_limit_pause(result)
+        ):
             return None, None
-        previous = self._decomposition_decisions.get(node_identity.node_id)
+        previous = self._event_owned_decomposition_decisions.get(node_identity.node_id)
+        if self._decomposition_decisions.get(node_identity.node_id) != previous:
+            raise RuntimeError("decomposition cache lacks matching finalized-event authority")
         if previous is not None and previous.source is DecompositionSource.BOUNCE:
             return None, previous
 
@@ -4482,6 +6495,69 @@ class ParallelACExecutor:
         if not classification.allows_decomposition:
             return None, None
 
+        if node_identity.node_id in self._pending_bounce_decompositions:
+            raise RuntimeError("a node cannot own two pending TOO_BIG bounce phases")
+        pending = _DurableBounceReplayState(
+            cause=classification.cause,
+            rationale=classification.rationale,
+            failure_class=verdict.failure_class if verdict is not None else None,
+            retry_admission=retry_admission,
+            evidence_refs=classification.evidence_refs,
+            trace_summary=trace.summary,
+            event_key=None,
+        )
+        self._pending_bounce_decompositions[node_identity.node_id] = pending
+        return await self._continue_bounce_decomposition(
+            pending=pending,
+            ac_index=ac_index,
+            ac_content=ac_content,
+            session_id=session_id,
+            tools=tools,
+            tool_catalog=tool_catalog,
+            system_prompt=system_prompt,
+            seed_goal=seed_goal,
+            depth=depth,
+            execution_id=execution_id,
+            level_contexts=level_contexts,
+            retry_attempt=retry_attempt,
+            execution_counters=execution_counters,
+            node_identity=node_identity,
+            ac_spec=ac_spec,
+            start_time=start_time,
+            semantic_ac_key=semantic_ac_key,
+            investment_spec=investment_spec,
+        )
+
+    async def _continue_bounce_decomposition(
+        self,
+        *,
+        pending: _DurableBounceReplayState,
+        ac_index: int,
+        ac_content: str,
+        session_id: str,
+        tools: list[str],
+        tool_catalog: tuple[MCPToolDefinition, ...] | None,
+        system_prompt: str,
+        seed_goal: str,
+        depth: int,
+        execution_id: str,
+        level_contexts: list[LevelContext] | None,
+        retry_attempt: int,
+        execution_counters: dict[str, int] | None,
+        node_identity: ExecutionNodeIdentity,
+        ac_spec: AcceptanceCriterionSpec | None,
+        start_time: datetime,
+        semantic_ac_key: str,
+        investment_spec: InvestmentSpec | None = None,
+    ) -> tuple[ACExecutionResult | None, DecompositionDecisionRecord]:
+        """Resume the post-classification phase without repeating the parent attempt."""
+
+        if (
+            pending.cause is not BounceCause.TOO_BIG
+            or self._pending_bounce_decompositions.get(node_identity.node_id) != pending
+        ):
+            raise RuntimeError("decomposition requires the node's durable TOO_BIG phase")
+
         if depth >= self._max_decomposition_depth:
             decision = await self._finalize_decomposition_decision(
                 decision=DecompositionDecisionRecord(
@@ -4489,8 +6565,8 @@ class ParallelACExecutor:
                     source=DecompositionSource.BOUNCE,
                     disposition=DecompositionDisposition.ESCALATED,
                     cause=BounceCause.TOO_BIG,
-                    reasons=("decomposition_depth_cap", classification.rationale),
-                    evidence_refs=classification.evidence_refs,
+                    reasons=("decomposition_depth_cap", pending.rationale),
+                    evidence_refs=pending.evidence_refs,
                     compromise_reason="depth_cap_forced_atomic",
                 ),
                 node_identity=node_identity,
@@ -4513,8 +6589,8 @@ class ParallelACExecutor:
             ac_spec=ac_spec,
             source=DecompositionSource.BOUNCE,
             cause=BounceCause.TOO_BIG,
-            trace_summary=trace.summary,
-            evidence_refs=classification.evidence_refs,
+            trace_summary=pending.trace_summary,
+            evidence_refs=pending.evidence_refs,
         )
         decision = self._coerce_decomposition_decision(
             decision,
@@ -4580,13 +6656,19 @@ class ParallelACExecutor:
         investment_spec: InvestmentSpec | None = None,
         decomposition_trustworthy: bool = False,
         semantic_ac_key: str | None = None,
+        route_id_override: str | None = None,
+        expected_route_candidate: RouteCandidate | None = None,
+        force_legacy_routing: bool = False,
+        expected_resume_dispatch_id: str | None = None,
+        expected_resume_capsule_fingerprint: str | None = None,
+        expected_resume_runtime_scope_id: str | None = None,
     ) -> ACExecutionResult:
         """Execute a single AC via the sole recursive AC execution entry point.
 
         Flow:
-        1. Ask Claude to analyze if AC needs decomposition
-        2. If decomposable → get Sub-ACs → execute in parallel
-        3. If atomic → execute directly
+        1. Execute the AC atomically.
+        2. Classify an evidence-backed failure.
+        3. Only a ``TOO_BIG`` bounce may enter verified decomposition.
 
         Args:
             ac_index: 0-based AC index.
@@ -4615,8 +6697,8 @@ class ParallelACExecutor:
                 This is separate from ``ac_spec`` so the parent's success contract
                 is not copied into child prompts.
             decomposition_trustworthy: Explicit deterministic trust for this unit's
-                decomposition. Defaults fail closed; current live decomposition has
-                no trusted producer.
+                decomposition. Defaults fail closed; only the verified-MECE producer
+                may authorize trusted-child routing.
 
         Returns:
             ACExecutionResult for this AC.
@@ -4643,51 +6725,67 @@ class ParallelACExecutor:
             depth=depth,
         )
 
-        node_decision = self._decomposition_decisions.get(node_identity.node_id)
-
-        # Compatibility mode keeps preflight ordering, but every result is now a
-        # persisted explicit decision and only a trusted SPLIT may lower children.
-        if self._decomposition_mode == "preflight" and depth < self._max_decomposition_depth:
-            display_label = (
-                f"AC {node_identity.display_path}"
-                if node_identity.depth == 0
-                else f"Sub-AC {node_identity.display_path}"
+        cached_decision = self._decomposition_decisions.get(node_identity.node_id)
+        node_decision = self._event_owned_decomposition_decisions.get(node_identity.node_id)
+        if cached_decision != node_decision:
+            raise RuntimeError("decomposition cache lacks matching finalized-event authority")
+        pending_bounce = self._pending_bounce_decompositions.get(node_identity.node_id)
+        if pending_bounce is not None:
+            recovered, node_decision = await self._continue_bounce_decomposition(
+                pending=pending_bounce,
+                ac_index=ac_index,
+                ac_content=ac_content,
+                session_id=session_id,
+                tools=tools,
+                tool_catalog=tool_catalog,
+                system_prompt=system_prompt,
+                seed_goal=seed_goal,
+                depth=depth,
+                execution_id=execution_id,
+                level_contexts=level_contexts,
+                retry_attempt=retry_attempt,
+                execution_counters=execution_counters,
+                node_identity=node_identity,
+                ac_spec=ac_spec,
+                start_time=start_time,
+                semantic_ac_key=semantic_ac_key,
+                investment_spec=investment_spec,
             )
-            self._console.print(f"  [dim]{display_label}: Analyzing complexity...[/dim]")
-            self._flush_console()
-            if node_decision is None:
-                raw_decision = await self._try_decompose_ac(
-                    ac_content=ac_content,
-                    ac_index=ac_index,
-                    seed_goal=seed_goal,
-                    tools=tools,
-                    system_prompt=system_prompt,
-                    node_identity=node_identity,
-                    session_id=session_id,
-                    execution_id=execution_context_id,
-                    retry_attempt=retry_attempt,
-                    depth=depth,
-                    ac_spec=ac_spec,
-                    source=DecompositionSource.PREFLIGHT,
-                )
-                node_decision = self._coerce_decomposition_decision(
-                    raw_decision,
-                    node_identity=node_identity,
-                    source=DecompositionSource.PREFLIGHT,
-                )
-                node_decision = await self._finalize_decomposition_decision(
-                    decision=node_decision,
-                    node_identity=node_identity,
-                    execution_id=execution_context_id,
-                    session_id=session_id,
+            if recovered is not None:
+                return recovered
+            return ACExecutionResult(
+                ac_index=ac_index,
+                ac_content=ac_content,
+                success=False,
+                error="Durable TOO_BIG recovery completed without an admissible split.",
+                final_message="Durable TOO_BIG recovery completed without an admissible split.",
+                retry_attempt=retry_attempt,
+                outcome=ACExecutionOutcome.FAILED,
+                decomposition_decision=node_decision,
+                decomposition_depth_warning=(
+                    node_decision.compromise_reason == "depth_cap_forced_atomic"
+                ),
+            )
+        durable_route_proves_atomic = (
+            expected_route_candidate is not None or expected_resume_dispatch_id is not None
+        ) and not is_sub_ac
+        if durable_route_proves_atomic:
+            if (
+                node_decision is not None
+                and node_decision.disposition is DecompositionDisposition.SPLIT
+            ):
+                raise RuntimeError(
+                    "durable atomic route state contradicts the decomposition decision"
                 )
 
         if (
             node_decision is not None
             and node_decision.disposition is DecompositionDisposition.SPLIT
             and len(node_decision.children) >= MIN_SUB_ACS
-            and (self._decomposition_mode == "preflight" or node_decision.trustworthy is True)
+            and node_decision.trustworthy is True
         ):
+            if depth >= self._max_decomposition_depth:
+                raise RuntimeError("durable decomposition exceeds the replayable depth boundary")
             return await self._execute_decomposition_children(
                 decision=node_decision,
                 ac_index=ac_index,
@@ -4708,41 +6806,30 @@ class ParallelACExecutor:
                 investment_spec=investment_spec,
             )
 
-        if (
-            self._decomposition_mode == "preflight"
-            and depth >= self._max_decomposition_depth
-            and node_decision is None
-        ):
-            node_decision = await self._finalize_decomposition_decision(
-                decision=DecompositionDecisionRecord(
-                    node_id=node_identity.node_id,
-                    source=DecompositionSource.PREFLIGHT,
-                    disposition=DecompositionDisposition.ESCALATED,
-                    reasons=("decomposition_depth_cap",),
-                    compromise_reason="depth_cap_forced_atomic",
-                ),
-                node_identity=node_identity,
-                execution_id=execution_context_id,
-                session_id=session_id,
-            )
-
-        # Depth-limit canary: execution is forced atomic once the soft recursion
-        # safety net is reached, so downstream stages can detect decomposition pressure.
-        decomposition_depth_warning = (
-            self._decomposition_mode == "preflight" and depth >= self._max_decomposition_depth
-        )
+        decomposition_depth_warning = False
 
         def _finalize_node_result(result: ACExecutionResult) -> ACExecutionResult:
-            updates: dict[str, Any] = {"decomposition_decision": node_decision}
-            if decomposition_depth_warning:
-                updates["decomposition_depth_warning"] = True
-            return replace(result, **updates)
+            return replace(
+                result,
+                decomposition_decision=node_decision,
+                decomposition_depth_warning=(
+                    result.decomposition_depth_warning or decomposition_depth_warning
+                ),
+            )
 
         # Stall recovery belongs to atomic leaves only. Once this method decides
         # to execute atomically, it can retry the leaf without re-running the
         # decomposition/dispatch branch above.
+        # Routing D currently owns only top-level atomic ACs.  A decomposed
+        # child has no durable child-level observation/replay owner yet, so it
+        # must retain the established legacy retry/model-routing path even
+        # when its decomposition attestation is trustworthy.
+        bounded_route_recovery_enabled = (
+            self._bounded_route_escalation_enabled and not is_sub_ac and not force_legacy_routing
+        )
         atomic_retry_attempt = retry_attempt
-        max_attempts = retry_attempt + MAX_STALL_RETRIES + 1
+        stall_retry_budget = 0 if bounded_route_recovery_enabled else MAX_STALL_RETRIES
+        max_attempts = retry_attempt + stall_retry_budget + 1
         # Stable re-run bundle for a possible cross-harness redispatch (PR-X X1):
         # every param except retry_attempt is fixed across the atomic loop, so it
         # can be replayed verbatim on an alternative runtime.
@@ -4767,6 +6854,9 @@ class ParallelACExecutor:
             "investment_spec": investment_spec,
             "decomposition_trustworthy": decomposition_trustworthy,
             "semantic_ac_key": semantic_ac_key,
+            "route_id_override": route_id_override,
+            "expected_route_candidate": expected_route_candidate,
+            "force_legacy_routing": force_legacy_routing,
         }
         while True:
             atomic_result = await _invoke_execution_authority_entry(
@@ -4795,9 +6885,23 @@ class ParallelACExecutor:
                 investment_spec=investment_spec,
                 decomposition_trustworthy=decomposition_trustworthy,
                 semantic_ac_key=semantic_ac_key,
+                route_id_override=route_id_override,
+                expected_route_candidate=expected_route_candidate,
+                force_legacy_routing=force_legacy_routing,
+                expected_resume_dispatch_id=expected_resume_dispatch_id,
+                expected_resume_capsule_fingerprint=expected_resume_capsule_fingerprint,
+                expected_resume_runtime_scope_id=expected_resume_runtime_scope_id,
             )
             if atomic_result.error != _STALL_SENTINEL:
-                if not atomic_result.success:
+                if atomic_result.outcome in {
+                    ACExecutionOutcome.BLOCKED,
+                    ACExecutionOutcome.INVALID,
+                }:
+                    # Admission/authority failures are terminal before recovery.
+                    # Bounce classification and alternate-harness redispatch are
+                    # provider effects too; neither may bypass a fail-closed route.
+                    return _finalize_node_result(atomic_result)
+                if not atomic_result.success and not bounded_route_recovery_enabled:
                     (
                         bounce_result,
                         bounce_decision,
@@ -4827,7 +6931,11 @@ class ParallelACExecutor:
                             decomposition_depth_warning = True
                     if bounce_result is not None:
                         return _finalize_node_result(bounce_result)
-                if not atomic_result.success and same_runtime_budget_exhausted:
+                if (
+                    not atomic_result.success
+                    and same_runtime_budget_exhausted
+                    and not bounded_route_recovery_enabled
+                ):
                     # Non-stall terminal failure (e.g. fabrication, exhausted
                     # transient 429/529) on the FINAL same-runtime attempt: try
                     # one cross-harness redispatch. Earlier attempts fall through
@@ -4852,7 +6960,7 @@ class ParallelACExecutor:
                 node_identity=node_identity,
                 retry_attempt=atomic_retry_attempt,
             )
-            should_retry = atomic_retry_attempt - retry_attempt < MAX_STALL_RETRIES
+            should_retry = atomic_retry_attempt - retry_attempt < stall_retry_budget
             stall_event = create_ac_stall_detected_event(
                 session_id=session_id,
                 ac_index=ac_index,
@@ -4878,29 +6986,43 @@ class ParallelACExecutor:
                     atomic_result,
                     error=f"Stalled (no activity for {STALL_TIMEOUT_SECONDS:.0f}s)",
                 )
-                (
-                    bounce_result,
-                    bounce_decision,
-                ) = await self._maybe_recover_with_bounce_decomposition(
-                    result=failed_result,
-                    ac_index=ac_index,
-                    ac_content=ac_content,
-                    session_id=session_id,
-                    tools=tools,
-                    tool_catalog=tool_catalog,
-                    system_prompt=system_prompt,
-                    seed_goal=seed_goal,
-                    depth=depth,
-                    execution_id=execution_id,
-                    level_contexts=level_contexts,
-                    retry_attempt=atomic_retry_attempt,
-                    execution_counters=execution_counters,
-                    node_identity=node_identity,
-                    ac_spec=ac_spec,
-                    start_time=start_time,
-                    semantic_ac_key=semantic_ac_key,
-                    investment_spec=investment_spec,
-                )
+                if bounded_route_recovery_enabled:
+                    from ouroboros.orchestrator.failure_taxonomy import FailureClass
+
+                    failed_result = replace(
+                        failed_result,
+                        atomic_verifier_verdict=VerifierVerdict(
+                            passed=False,
+                            reasons=("atomic route stalled",),
+                            failure_class=FailureClass.STALL.value,
+                        ),
+                    )
+                bounce_result = None
+                bounce_decision = None
+                if not bounded_route_recovery_enabled:
+                    (
+                        bounce_result,
+                        bounce_decision,
+                    ) = await self._maybe_recover_with_bounce_decomposition(
+                        result=failed_result,
+                        ac_index=ac_index,
+                        ac_content=ac_content,
+                        session_id=session_id,
+                        tools=tools,
+                        tool_catalog=tool_catalog,
+                        system_prompt=system_prompt,
+                        seed_goal=seed_goal,
+                        depth=depth,
+                        execution_id=execution_id,
+                        level_contexts=level_contexts,
+                        retry_attempt=atomic_retry_attempt,
+                        execution_counters=execution_counters,
+                        node_identity=node_identity,
+                        ac_spec=ac_spec,
+                        start_time=start_time,
+                        semantic_ac_key=semantic_ac_key,
+                        investment_spec=investment_spec,
+                    )
                 if bounce_decision is not None:
                     node_decision = bounce_decision
                     if bounce_decision.compromise_reason == "depth_cap_forced_atomic":
@@ -4912,7 +7034,7 @@ class ParallelACExecutor:
                 # sentinel), so only try a cross-harness redispatch once that
                 # budget is also spent — i.e. this is the final same-runtime
                 # attempt — before the AC is finally marked FAILED.
-                if same_runtime_budget_exhausted:
+                if same_runtime_budget_exhausted and not bounded_route_recovery_enabled:
                     alt_result = await self._maybe_redispatch_alt_harness(
                         result=failed_result,
                         execution_context_id=execution_context_id,
@@ -5145,29 +7267,6 @@ class ParallelACExecutor:
         )
 
     @staticmethod
-    def _parse_legacy_decomposition(
-        response_text: str,
-        *,
-        min_sub_acs: int,
-        max_sub_acs: int,
-    ) -> list[str] | None:
-        """Parse a legacy string-array response without granting it trust."""
-        match = re.search(r"\[.*\]", response_text, re.DOTALL)
-        if match is None:
-            return None
-        try:
-            parsed = json.loads(match.group())
-        except json.JSONDecodeError:
-            return None
-        if (
-            isinstance(parsed, list)
-            and all(isinstance(item, str) and item.strip() for item in parsed)
-            and min_sub_acs <= len(parsed) <= max_sub_acs
-        ):
-            return [item.strip() for item in parsed]
-        return None
-
-    @staticmethod
     def _parse_structured_decomposition(
         response_text: str,
         *,
@@ -5208,7 +7307,7 @@ class ParallelACExecutor:
         trace_summary: str,
         system_prompt: str,
     ) -> tuple[bool, tuple[str, ...]]:
-        """Run one independent bounded semantic attestation for a proposed split."""
+        """Run one independent typed semantic attestation for a proposed split."""
         profile_clause = ""
         if self._execution_profile is not None:
             profile_clause = (
@@ -5220,8 +7319,8 @@ class ParallelACExecutor:
             "Independently attest this proposed decomposition. Do not modify files and do "
             "not accept the proposal merely because it declares coverage. Return ONLY JSON "
             "with boolean coverage_established, non_overlap_established, "
-            "simpler_units_established, and a reasons string array. All three booleans must "
-            "be true to establish the split.\n\n"
+            "and simpler_units_established. All three booleans must be true to establish "
+            "the split. Do not add explanatory fields.\n\n"
             f"{profile_clause}"
             f"Parent criterion:\n{parent_text}\n\n"
             f"Bounded attempt trace:\n{trace_summary or 'none'}\n\n"
@@ -5240,32 +7339,38 @@ class ParallelACExecutor:
                 raise ValueError
             match = re.search(r"\{.*\}", response, re.DOTALL)
             payload = json.loads(match.group() if match is not None else response)
-            if not isinstance(payload, dict):
+            if not _mapping_has_exact_keys(payload, _DECOMPOSITION_ATTESTATION_KEYS):
                 raise ValueError
+            assert isinstance(payload, Mapping)
             checks = (
                 payload.get("coverage_established"),
                 payload.get("non_overlap_established"),
                 payload.get("simpler_units_established"),
             )
-            reasons_raw = payload.get("reasons", ())
-            reasons = (
-                tuple(
-                    redact_and_truncate_text(item, max_chars=240)
-                    for item in reasons_raw[:7]
-                    if isinstance(item, str) and item.strip()
-                )
-                if isinstance(reasons_raw, list)
-                else ()
-            )
+            if any(type(value) is not bool for value in checks):
+                raise ValueError
             if all(value is True for value in checks):
-                return True, ("semantic_attestation_established", *reasons)
-            return False, ("semantic_attestation_not_established", *reasons)
+                return True, ("semantic_attestation_established",)
+            failed_checks = tuple(
+                reason
+                for value, reason in zip(
+                    checks,
+                    (
+                        "coverage_not_established",
+                        "non_overlap_not_established",
+                        "simpler_units_not_established",
+                    ),
+                    strict=True,
+                )
+                if value is False
+            )
+            return False, ("semantic_attestation_not_established", *failed_checks)
         except (TimeoutError, ValueError, json.JSONDecodeError, TypeError):
             return False, ("semantic_attestation_unparseable",)
         except Exception as exc:
             log.warning(
                 "parallel_executor.decomposition.attestation_error",
-                error=redact_and_truncate_text(str(exc), max_chars=240),
+                error_type=type(exc).__name__,
             )
             return False, ("semantic_attestation_runtime_error",)
 
@@ -5332,12 +7437,14 @@ class ParallelACExecutor:
         retry_attempt: int = 0,
         depth: int = 0,
         ac_spec: AcceptanceCriterionSpec | None = None,
-        source: DecompositionSource = DecompositionSource.PREFLIGHT,
+        source: DecompositionSource = DecompositionSource.BOUNCE,
         cause: BounceCause | None = None,
         trace_summary: str = "",
         evidence_refs: tuple[str, ...] = (),
     ) -> DecompositionDecisionRecord:
         """Decompose an AC and return a versioned, fail-closed decision."""
+        if source is not DecompositionSource.BOUNCE or cause is not BounceCause.TOO_BIG:
+            raise RuntimeError("live decomposition requires an evidence-backed TOO_BIG bounce")
         del tools, system_prompt, retry_attempt, ac_spec
         ac_label = (
             f"AC #{node_identity.display_path}"
@@ -5425,139 +7532,94 @@ Respond with either ATOMIC or the structured JSON object only.
                 return DecompositionDecisionRecord(
                     node_id=decision_identity.node_id,
                     source=source,
-                    disposition=(
-                        DecompositionDisposition.ATOMIC
-                        if source is DecompositionSource.PREFLIGHT
-                        else DecompositionDisposition.ESCALATED
-                    ),
+                    disposition=DecompositionDisposition.ESCALATED,
                     cause=cause,
                     reasons=("explicit_atomic",),
                     evidence_refs=evidence_refs,
-                    compromise_reason=(
-                        None
-                        if source is DecompositionSource.PREFLIGHT
-                        else "too_big_classifier_disagreed_with_decomposer"
-                    ),
+                    compromise_reason="too_big_classifier_disagreed_with_decomposer",
                 )
 
-            if "{" in response_text:
-                proposal, proposal_reasons = await self._verify_generic_decomposition(
-                    response_text=response_text,
-                    parent_text=ac_content,
-                    trace_summary=bounded_trace,
-                    system_prompt=decomposition_system_prompt,
-                    min_sub_acs=min_sub_acs,
-                    max_sub_acs=max_sub_acs,
-                )
-                if proposal is not None:
-                    return DecompositionDecisionRecord(
-                        node_id=decision_identity.node_id,
-                        source=source,
-                        disposition=DecompositionDisposition.SPLIT,
-                        cause=cause,
-                        reasons=proposal_reasons,
-                        evidence_refs=evidence_refs,
-                        children=proposal.children,
-                        structural_status=StructuralCheckStatus.PASSED,
-                        semantic_status=SemanticAttestationStatus.ESTABLISHED,
-                        trustworthy=True,
-                    )
-
-                repair_prompt = self._build_generic_decomposition_repair_prompt(
-                    parent_text=ac_content,
-                    trace_summary=bounded_trace,
-                    reasons=proposal_reasons,
-                    min_sub_acs=min_sub_acs,
-                    max_sub_acs=max_sub_acs,
-                )
-                repaired_text = await _invoke_execution_authority_entry(
-                    self,
-                    _FOUNDATION_A_ENTRY_DISPATCH_DECOMPOSITION_PROMPT,
-                    prompt=repair_prompt,
-                    system_prompt=decomposition_system_prompt,
-                )
-                repaired_proposal, repaired_reasons = await self._verify_generic_decomposition(
-                    response_text=repaired_text,
-                    parent_text=ac_content,
-                    trace_summary=bounded_trace,
-                    system_prompt=decomposition_system_prompt,
-                    min_sub_acs=min_sub_acs,
-                    max_sub_acs=max_sub_acs,
-                )
-                if repaired_proposal is not None:
-                    return DecompositionDecisionRecord(
-                        node_id=decision_identity.node_id,
-                        source=source,
-                        disposition=DecompositionDisposition.SPLIT,
-                        cause=cause,
-                        reasons=repaired_reasons,
-                        evidence_refs=evidence_refs,
-                        children=repaired_proposal.children,
-                        structural_status=StructuralCheckStatus.PASSED,
-                        semantic_status=SemanticAttestationStatus.ESTABLISHED,
-                        repair_count=1,
-                        trustworthy=True,
-                    )
-
-                final_reasons = repaired_reasons or proposal_reasons
-                semantic_failure = any(
-                    reason.startswith("semantic_attestation") for reason in final_reasons
-                )
-                return DecompositionDecisionRecord(
-                    node_id=decision_identity.node_id,
-                    source=source,
-                    disposition=DecompositionDisposition.ESCALATED,
-                    cause=cause,
-                    reasons=final_reasons,
-                    evidence_refs=evidence_refs,
-                    structural_status=(
-                        StructuralCheckStatus.PASSED
-                        if semantic_failure
-                        else StructuralCheckStatus.FAILED
-                    ),
-                    semantic_status=(
-                        SemanticAttestationStatus.NOT_ESTABLISHED
-                        if semantic_failure
-                        else SemanticAttestationStatus.NOT_RUN
-                    ),
-                    repair_count=1,
-                    compromise_reason="generic_decomposition_repair_failed",
-                )
-
-            sub_acs = self._parse_legacy_decomposition(
-                response_text,
+            proposal, proposal_reasons = await self._verify_generic_decomposition(
+                response_text=response_text,
+                parent_text=ac_content,
+                trace_summary=bounded_trace,
+                system_prompt=decomposition_system_prompt,
                 min_sub_acs=min_sub_acs,
                 max_sub_acs=max_sub_acs,
             )
-            if sub_acs is not None:
-                log.warning(
-                    "parallel_executor.decomposition.legacy_array_untrusted",
-                    ac_index=ac_index,
-                    sub_ac_count=len(sub_acs),
-                    **profile_metadata,
-                )
-                return legacy_unverified_split_decision(
+            if proposal is not None:
+                return DecompositionDecisionRecord(
                     node_id=decision_identity.node_id,
                     source=source,
-                    child_descriptions=sub_acs,
+                    disposition=DecompositionDisposition.SPLIT,
                     cause=cause,
-                    reasons=("legacy_array_without_attestation",),
+                    reasons=proposal_reasons,
                     evidence_refs=evidence_refs,
+                    children=proposal.children,
+                    structural_status=StructuralCheckStatus.PASSED,
+                    semantic_status=SemanticAttestationStatus.ESTABLISHED,
+                    trustworthy=True,
                 )
 
-            log.warning(
-                "parallel_executor.decomposition.unparseable_unknown",
-                ac_index=ac_index,
-                response_preview=redact_and_truncate_text(response_text, max_chars=100),
-                **profile_metadata,
+            repair_prompt = self._build_generic_decomposition_repair_prompt(
+                parent_text=ac_content,
+                trace_summary=bounded_trace,
+                reasons=proposal_reasons,
+                min_sub_acs=min_sub_acs,
+                max_sub_acs=max_sub_acs,
+            )
+            repaired_text = await _invoke_execution_authority_entry(
+                self,
+                _FOUNDATION_A_ENTRY_DISPATCH_DECOMPOSITION_PROMPT,
+                prompt=repair_prompt,
+                system_prompt=decomposition_system_prompt,
+            )
+            repaired_proposal, repaired_reasons = await self._verify_generic_decomposition(
+                response_text=repaired_text,
+                parent_text=ac_content,
+                trace_summary=bounded_trace,
+                system_prompt=decomposition_system_prompt,
+                min_sub_acs=min_sub_acs,
+                max_sub_acs=max_sub_acs,
+            )
+            if repaired_proposal is not None:
+                return DecompositionDecisionRecord(
+                    node_id=decision_identity.node_id,
+                    source=source,
+                    disposition=DecompositionDisposition.SPLIT,
+                    cause=cause,
+                    reasons=repaired_reasons,
+                    evidence_refs=evidence_refs,
+                    children=repaired_proposal.children,
+                    structural_status=StructuralCheckStatus.PASSED,
+                    semantic_status=SemanticAttestationStatus.ESTABLISHED,
+                    repair_count=1,
+                    trustworthy=True,
+                )
+
+            final_reasons = repaired_reasons or proposal_reasons
+            semantic_failure = any(
+                reason.startswith("semantic_attestation") for reason in final_reasons
             )
             return DecompositionDecisionRecord(
                 node_id=decision_identity.node_id,
                 source=source,
-                disposition=DecompositionDisposition.UNKNOWN,
+                disposition=DecompositionDisposition.ESCALATED,
                 cause=cause,
-                reasons=("unparseable_decomposition_response",),
+                reasons=final_reasons,
                 evidence_refs=evidence_refs,
+                structural_status=(
+                    StructuralCheckStatus.PASSED
+                    if semantic_failure
+                    else StructuralCheckStatus.FAILED
+                ),
+                semantic_status=(
+                    SemanticAttestationStatus.NOT_ESTABLISHED
+                    if semantic_failure
+                    else SemanticAttestationStatus.NOT_RUN
+                ),
+                repair_count=1,
+                compromise_reason="generic_decomposition_repair_failed",
             )
         except TimeoutError:
             log.warning(
@@ -5578,7 +7640,7 @@ Respond with either ATOMIC or the structured JSON object only.
             log.warning(
                 "parallel_executor.decomposition.error",
                 ac_index=ac_index,
-                error=redact_and_truncate_text(str(exc), max_chars=240),
+                error_type=type(exc).__name__,
                 **profile_metadata,
             )
             return DecompositionDecisionRecord(
@@ -5801,6 +7863,99 @@ Respond with either ATOMIC or the structured JSON object only.
         """Build a deterministic level-scoped aggregate ID for coordinator work."""
         return ExecutionEventEmitter.coordinator_aggregate_id(execution_id, level)
 
+    async def _restore_completed_coordinator_review(
+        self,
+        *,
+        execution_id: str,
+        session_id: str,
+        level: int,
+        conflicts: list[FileConflict],
+    ) -> CoordinatorReview | None:
+        """Restore one completed coordinator effect or fail closed.
+
+        The started/completed pair is the durable authority boundary when no
+        optional checkpoint store exists.  An unmatched, duplicated, drifted,
+        or malformed pair cannot authorize another coordinator provider call:
+        the prior call may already have used Edit or Bash.
+        """
+
+        query_events = getattr(self._event_store, "query_events", None)
+        if not callable(query_events):
+            raise RuntimeError("coordinator replay requires durable event queries")
+        aggregate_id = self._coordinator_aggregate_id(execution_id, level)
+        try:
+            started_events = await query_events(
+                aggregate_id=aggregate_id,
+                event_type="execution.coordinator.started",
+                limit=2,
+            )
+            completed_events = await query_events(
+                aggregate_id=aggregate_id,
+                event_type="execution.coordinator.completed",
+                limit=2,
+            )
+        except Exception as exc:
+            raise RuntimeError("coordinator replay state is unreadable") from exc
+        if not isinstance(started_events, list | tuple) or not isinstance(
+            completed_events, list | tuple
+        ):
+            raise RuntimeError("coordinator replay query returned an invalid population")
+        if not started_events and not completed_events:
+            return None
+        if not conflicts:
+            raise RuntimeError("coordinator replay exists without current conflicts")
+        if len(started_events) != 1 or len(completed_events) != 1:
+            raise RuntimeError("coordinator replay state is incomplete or ambiguous")
+
+        started = started_events[0]
+        completed = completed_events[0]
+        for event, expected_type in (
+            (started, "execution.coordinator.started"),
+            (completed, "execution.coordinator.completed"),
+        ):
+            if (
+                getattr(event, "type", None) != expected_type
+                or getattr(event, "aggregate_type", None) != "execution"
+                or getattr(event, "aggregate_id", None) != aggregate_id
+                or not isinstance(getattr(event, "data", None), Mapping)
+            ):
+                raise RuntimeError("coordinator replay event identity is invalid")
+
+        runtime_scope = build_level_coordinator_runtime_scope(execution_id, level)
+        expected_conflicts = tuple(conflicts)
+        started_data = started.data
+        try:
+            validate_coordinator_started_payload(
+                started_data,
+                execution_id=execution_id,
+                session_id=session_id,
+                level_number=level,
+                session_scope_id=runtime_scope.aggregate_id,
+                session_state_path=runtime_scope.state_path,
+                expected_conflicts=expected_conflicts,
+            )
+        except ValueError as exc:
+            raise RuntimeError("coordinator started event drifted from the current stage") from exc
+
+        completed_data = completed.data
+        if (
+            completed_data.get("execution_id") != execution_id
+            or completed_data.get("session_id") != session_id
+        ):
+            raise RuntimeError("coordinator completed event drifted from its execution")
+        try:
+            return CoordinatorReview.from_artifact_payload(
+                completed_data,
+                level_number=level,
+                expected_conflicts=expected_conflicts,
+                execution_id=execution_id,
+                session_id=session_id,
+                session_scope_id=runtime_scope.aggregate_id,
+                session_state_path=runtime_scope.state_path,
+            )
+        except ValueError as exc:
+            raise RuntimeError("coordinator completed artifact is invalid") from exc
+
     async def _emit_coordinator_started(
         self,
         execution_id: str,
@@ -5868,6 +8023,12 @@ Respond with either ATOMIC or the structured JSON object only.
         investment_spec: InvestmentSpec | None = None,
         decomposition_trustworthy: bool = False,
         semantic_ac_key: str | None = None,
+        route_id_override: str | None = None,
+        expected_route_candidate: RouteCandidate | None = None,
+        force_legacy_routing: bool = False,
+        expected_resume_dispatch_id: str | None = None,
+        expected_resume_capsule_fingerprint: str | None = None,
+        expected_resume_runtime_scope_id: str | None = None,
     ) -> ACExecutionResult:
         """Execute an atomic AC directly via Claude Agent.
 
@@ -5886,74 +8047,136 @@ Respond with either ATOMIC or the structured JSON object only.
             node_identity=node_identity,
             retry_attempt=retry_attempt,
         )
-        capsule = compile_ac_execution_capsule(
-            runtime_identity=runtime_identity,
-            execution_id=execution_context_id,
-            semantic_ac_key=semantic_ac_key,
-            workspace=(
-                self._task_cwd or getattr(self._adapter, "working_directory", None) or os.getcwd()
-            ),
-            authority_scope=(
-                build_ac_dispatch_authority_scope(
-                    base_scope=self.execution_authority.fingerprint,
-                    dispatch_contract={
-                        "backend": getattr(self._adapter, "runtime_backend", None),
-                        "tools": list(tools),
-                        # The allow-list is only a projection of the provider
-                        # contract.  Fingerprint the complete canonical catalog
-                        # too, so schema/source changes cannot reuse a dispatch
-                        # authority that merely has the same tool names.
-                        # Preserve presence separately from entries: ``None``
-                        # means the provider received no catalog authority,
-                        # while an explicit empty tuple means an intentionally
-                        # empty capability/control-plane contract.
-                        "tool_catalog": {
-                            "present": tool_catalog is not None,
-                            "entries": serialize_tool_catalog(tool_catalog or ()),
-                        },
-                        "system_prompt": system_prompt,
-                        "ac_content": ac_content,
-                        "seed_goal": seed_goal,
-                        "retry_prompt_extra": retry_prompt_extra,
-                        # These values are projected into the provider prompt
-                        # and therefore are part of the dispatch authority even
-                        # though they are not provider/session continuity.
-                        "sibling_acs": [
-                            {"ac_index": sibling_index, "content": sibling_content}
-                            for sibling_index, sibling_content in (sibling_acs or [])
-                        ],
-                        "level_context_prompt": build_context_prompt(level_contexts or []),
-                    },
-                    execution_policy={
-                        "retry_attempt": retry_attempt,
-                        "is_sub_ac": is_sub_ac,
-                        "decomposition_trustworthy": decomposition_trustworthy,
-                        "base_reasoning_effort": self._reasoning_effort,
-                        "model_routing": serialize_model_router(self._model_router),
-                        "execution_profile": (
-                            self._execution_profile.model_dump(mode="json")
-                            if self._execution_profile is not None
-                            else None
-                        ),
-                        "fat_harness_mode": self._fat_harness_mode,
-                        # Investment metadata is authority-bearing: the effort
-                        # router can lower or raise the dispatched tier from it.
-                        # Keep the canonical Seed representation in the capsule
-                        # scope so materially different investment decisions can
-                        # never reuse one durable dispatch identity.
-                        "investment_spec": (
-                            investment_spec.model_dump(mode="json")
-                            if investment_spec is not None
-                            else None
-                        ),
-                    },
-                )
-            ),
-            seed_goal=seed_goal,
-            ac_content=ac_content,
-            ac_spec=ac_spec,
-            level_contexts=tuple(level_contexts or ()),
+        initial_model_router = self._model_router
+        model_router_snapshot = (
+            None
+            if initial_model_router is None
+            else replace(
+                initial_model_router,
+                tier_models=dict(initial_model_router.tier_models),
+            )
         )
+        route_compat_was_enabled = (
+            self._route_economics is not None and model_router_snapshot is not None
+        )
+        # Child escalation is a deferred slice.  Until it has its own durable
+        # identity and replay authority, bounded routing is top-level atomic
+        # only; children continue through the legacy router.
+        bounded_route_attempt_enabled = (
+            self._bounded_route_escalation_enabled and not is_sub_ac and not force_legacy_routing
+        )
+        durable_route_projection = self._build_route_compat_projection(
+            model_router=model_router_snapshot,
+            effort=None,
+        )
+        try:
+            capsule = compile_ac_execution_capsule(
+                runtime_identity=runtime_identity,
+                execution_id=execution_context_id,
+                semantic_ac_key=semantic_ac_key,
+                workspace=(
+                    self._task_cwd
+                    or getattr(self._adapter, "working_directory", None)
+                    or os.getcwd()
+                ),
+                authority_scope=(
+                    build_ac_dispatch_authority_scope(
+                        base_scope=self.execution_authority.fingerprint,
+                        dispatch_contract={
+                            "backend": getattr(self._adapter, "runtime_backend", None),
+                            "tools": list(tools),
+                            # The allow-list is only a projection of the provider
+                            # contract.  Fingerprint the complete canonical catalog
+                            # too, so schema/source changes cannot reuse a dispatch
+                            # authority that merely has the same tool names.
+                            # Preserve presence separately from entries: ``None``
+                            # means the provider received no catalog authority,
+                            # while an explicit empty tuple means an intentionally
+                            # empty capability/control-plane contract.
+                            "tool_catalog": {
+                                "present": tool_catalog is not None,
+                                "entries": serialize_tool_catalog(tool_catalog or ()),
+                            },
+                            "system_prompt": system_prompt,
+                            "ac_content": ac_content,
+                            "seed_goal": seed_goal,
+                            "retry_prompt_extra": retry_prompt_extra,
+                            # These values are projected into the provider prompt
+                            # and therefore are part of the dispatch authority even
+                            # though they are not provider/session continuity.
+                            "sibling_acs": [
+                                {"ac_index": sibling_index, "content": sibling_content}
+                                for sibling_index, sibling_content in (sibling_acs or [])
+                            ],
+                            "level_context_prompt": build_context_prompt(level_contexts or []),
+                        },
+                        execution_policy={
+                            "retry_attempt": retry_attempt,
+                            "is_sub_ac": is_sub_ac,
+                            "decomposition_trustworthy": decomposition_trustworthy,
+                            "base_reasoning_effort": self._reasoning_effort,
+                            "model_routing": serialize_model_router(model_router_snapshot),
+                            "route_compat": serialize_route_compat_contract(
+                                durable_route_projection
+                            ),
+                            "route_id_override": route_id_override,
+                            "expected_route_candidate": (
+                                expected_route_candidate.to_contract_data()
+                                if expected_route_candidate is not None
+                                else None
+                            ),
+                            "execution_profile": (
+                                self._execution_profile.model_dump(mode="json")
+                                if self._execution_profile is not None
+                                else None
+                            ),
+                            "fat_harness_mode": self._fat_harness_mode,
+                            # Investment metadata is authority-bearing: the effort
+                            # router can lower or raise the dispatched tier from it.
+                            # Keep the canonical Seed representation in the capsule
+                            # scope so materially different investment decisions can
+                            # never reuse one durable dispatch identity.
+                            "investment_spec": (
+                                investment_spec.model_dump(mode="json")
+                                if investment_spec is not None
+                                else None
+                            ),
+                        },
+                    )
+                ),
+                seed_goal=seed_goal,
+                ac_content=ac_content,
+                ac_spec=ac_spec,
+                level_contexts=tuple(level_contexts or ()),
+            )
+        except UnmaterializableSuccessContractError as exc:
+            duration = (datetime.now(UTC) - start_time).total_seconds()
+            log.warning(
+                "parallel_executor.ac.admission_rejected",
+                ac_index=ac_index,
+                session_id=session_id,
+                execution_id=execution_context_id,
+                error_code=exc.code,
+                artifact=exc.artifact,
+                reason=exc.reason,
+            )
+            return ACExecutionResult(
+                ac_index=ac_index,
+                ac_content=ac_content,
+                success=False,
+                error=str(exc),
+                final_message=str(exc),
+                duration_seconds=duration,
+                session_id=session_id,
+                retry_attempt=retry_attempt,
+                depth=depth,
+                outcome=ACExecutionOutcome.INVALID,
+            )
+        if (
+            expected_resume_capsule_fingerprint is not None
+            and capsule.fingerprint != expected_resume_capsule_fingerprint
+        ):
+            raise RuntimeError("paused AC capsule fingerprint drifted")
 
         # Build prompt (label/indent, governed task section, success contract,
         # retry/parallel-awareness sections, cwd scan, completion contract).
@@ -5992,6 +8215,17 @@ Respond with either ATOMIC or the structured JSON object only.
             expected_capsule_fingerprint=capsule.fingerprint,
             expected_process_local_resume_nonce=self._process_local_resume_nonce,
         )
+        if expected_resume_dispatch_id is not None:
+            persisted_metadata = (
+                persisted_runtime_handle.metadata if persisted_runtime_handle is not None else {}
+            )
+            if (
+                persisted_metadata.get("ac_dispatch_id") != expected_resume_dispatch_id
+                or persisted_metadata.get("session_scope_id") != expected_resume_runtime_scope_id
+                or persisted_metadata.get("ac_capsule_fingerprint")
+                != expected_resume_capsule_fingerprint
+            ):
+                raise RuntimeError("paused AC provider boundary drifted")
         if persisted_runtime_handle is not None:
             self._remember_ac_runtime_handle(
                 ac_index,
@@ -6070,11 +8304,15 @@ Respond with either ATOMIC or the structured JSON object only.
         # chosen runtime will honor it from its declared capability — enforced via a
         # native knob, or advised. The level is passed to execute_task; an advised
         # runtime ignores it. Dormant by default (base effort None → level None).
+        # Routing D's attempt index orders a finite route set; it is not the
+        # legacy same-route retry counter.  Feeding it into effort escalation
+        # would mutate the successor after that successor was durably selected.
+        effort_retry_attempt = 0 if bounded_route_attempt_enabled else retry_attempt
         effort_decision, execute_effort_kwargs = resolve_execute_effort(
             self._adapter,
             base_effort=self._reasoning_effort,
             is_decomposed_child=is_sub_ac,
-            retry_attempt=retry_attempt,
+            retry_attempt=effort_retry_attempt,
             investment_assessment=investment_assessment,
         )
         if effort_decision.level is not None:
@@ -6121,36 +8359,149 @@ Respond with either ATOMIC or the structured JSON object only.
         # something other than the shipped default MEDIUM ("no opinion"); MEDIUM
         # leaves precedence with the router's own base/child logic and any explicit
         # model_tier arg. Dormant by default (router None → no model override).
-        suggested_tier: str | None = None
-        if (
-            self._execution_profile is not None
-            and self._execution_profile.suggested_model_tier is not SuggestedModelTier.MEDIUM
-        ):
-            suggested_tier = tier_from_profile_hint(
-                self._execution_profile.suggested_model_tier.value
-            )
-        model_decision, execute_model_kwargs = resolve_execute_model(
+        suggested_tier = self._profile_suggested_tier()
+        legacy_model_decision, execute_model_kwargs = resolve_execute_model(
             self._adapter,
-            router=self._model_router,
+            router=model_router_snapshot,
             is_decomposed_child=is_sub_ac,
             decomposition_trustworthy=decomposition_trustworthy,
             retry_attempt=retry_attempt,
             suggested_tier=suggested_tier,
         )
-        initial_model_decision, _initial_model_kwargs = resolve_execute_model(
-            self._adapter,
-            router=self._model_router,
-            is_decomposed_child=is_sub_ac,
-            decomposition_trustworthy=decomposition_trustworthy,
-            retry_attempt=0,
-            suggested_tier=suggested_tier,
+        model_decision = legacy_model_decision
+        projection = (
+            None
+            if durable_route_projection is None
+            else replace(
+                durable_route_projection,
+                registry=replace(
+                    durable_route_projection.registry,
+                    candidates=tuple(
+                        replace(candidate, effort=effort_decision.level)
+                        for candidate in durable_route_projection.registry.candidates
+                    ),
+                ),
+                effort=effort_decision.level,
+            )
         )
-        model_escalated = bool(
-            retry_attempt > 0
-            and model_decision.model is not None
-            and initial_model_decision.model is not None
-            and model_decision.model != initial_model_decision.model
+        route_admission = None
+        if bounded_route_attempt_enabled:
+            # Routing D deliberately bypasses the legacy base-tier/retry-count
+            # choice.  The Kernel selects the cheapest eligible candidate on
+            # the first attempt; later attempts pin the exact next route chosen
+            # by the bounded escalation state machine.
+            route_admission = admit_compat_escalation_route(
+                projection,
+                effort=effort_decision.level,
+                route_id=route_id_override,
+            )
+            selected_route = route_admission.selected
+            if expected_route_candidate is not None and selected_route != expected_route_candidate:
+                duration = (datetime.now(UTC) - start_time).total_seconds()
+                return ACExecutionResult(
+                    ac_index=ac_index,
+                    ac_content=ac_content,
+                    success=False,
+                    error="route admission blocked: durable successor snapshot drifted",
+                    duration_seconds=duration,
+                    session_id=session_id,
+                    retry_attempt=retry_attempt,
+                    depth=depth,
+                    outcome=ACExecutionOutcome.BLOCKED,
+                )
+            model_support = getattr(
+                getattr(self._adapter, "capabilities", None),
+                "model_override_support",
+                ParamSupport.IGNORED,
+            )
+            if selected_route is not None and projection is not None:
+                selected_tier = next(
+                    (
+                        tier
+                        for tier, route_id in projection.tier_route_ids
+                        if route_id == selected_route.route_id
+                    ),
+                    None,
+                )
+                model_decision = ModelDecision(
+                    tier=selected_tier,
+                    model=selected_route.model,
+                    mode=(
+                        MODEL_MODE_ENFORCED if model_support is ParamSupport.NATIVE else "advised"
+                    ),
+                )
+                execute_model_kwargs = (
+                    {"model": selected_route.model} if model_support is ParamSupport.NATIVE else {}
+                )
+            if not route_admission.admitted or not model_decision.is_enforced:
+                duration = (datetime.now(UTC) - start_time).total_seconds()
+                reason = (
+                    route_admission.reason
+                    if not route_admission.admitted
+                    else "runtime cannot enforce the admitted model"
+                )
+                log.warning(
+                    "parallel_executor.ac.route_admission_blocked",
+                    ac_index=ac_index,
+                    runtime_backend=getattr(self._adapter, "runtime_backend", None),
+                    reason=reason,
+                )
+                return ACExecutionResult(
+                    ac_index=ac_index,
+                    ac_content=ac_content,
+                    success=False,
+                    error=f"route admission blocked: {reason}",
+                    duration_seconds=duration,
+                    session_id=session_id,
+                    retry_attempt=retry_attempt,
+                    depth=depth,
+                    outcome=ACExecutionOutcome.BLOCKED,
+                )
+        elif route_compat_was_enabled:
+            route_admission = admit_compat_route(
+                projection,
+                model_decision=model_decision,
+                effort=effort_decision.level,
+            )
+            if not route_admission.admitted:
+                duration = (datetime.now(UTC) - start_time).total_seconds()
+                return ACExecutionResult(
+                    ac_index=ac_index,
+                    ac_content=ac_content,
+                    success=False,
+                    error=f"route admission blocked: {route_admission.reason}",
+                    duration_seconds=duration,
+                    session_id=session_id,
+                    retry_attempt=retry_attempt,
+                    depth=depth,
+                    outcome=ACExecutionOutcome.BLOCKED,
+                )
+        else:
+            # Dormant compatibility preserves the legacy model kwarg exactly.
+            execute_effort_kwargs = {**execute_effort_kwargs, **execute_model_kwargs}
+        observed_route_candidate = (
+            route_admission.selected
+            if bounded_route_attempt_enabled and route_admission is not None
+            else None
         )
+
+        if bounded_route_attempt_enabled:
+            model_escalated = route_id_override is not None
+        else:
+            initial_model_decision, _initial_model_kwargs = resolve_execute_model(
+                self._adapter,
+                router=model_router_snapshot,
+                is_decomposed_child=is_sub_ac,
+                decomposition_trustworthy=decomposition_trustworthy,
+                retry_attempt=0,
+                suggested_tier=suggested_tier,
+            )
+            model_escalated = bool(
+                retry_attempt > 0
+                and model_decision.model is not None
+                and initial_model_decision.model is not None
+                and model_decision.model != initial_model_decision.model
+            )
         if model_decision.model is not None:
             log.debug(
                 "orchestrator.executor.model_routed",
@@ -6175,20 +8526,110 @@ Respond with either ATOMIC or the structured JSON object only.
                 decomposition_trustworthy=decomposition_trustworthy,
                 semantic_ac_key=semantic_ac_key,
                 base_model_tier=(
-                    self._model_router.base_tier if self._model_router is not None else None
+                    model_router_snapshot.base_tier if model_router_snapshot is not None else None
                 ),
                 escalation_retry_threshold=(
-                    self._model_router.escalation_retry_threshold
-                    if self._model_router is not None
+                    model_router_snapshot.escalation_retry_threshold
+                    if model_router_snapshot is not None
                     else None
                 ),
                 model_escalated=model_escalated,
             )
-        # Merge the model override into the effort kwargs. The merged dict flows
-        # through LeafDispatcher.stream → execute_task unchanged (LeafDispatcher
-        # itself is untouched); ``model`` is present ONLY for runtimes that enforce
-        # a per-call override, so an advised runtime is never handed one.
-        execute_effort_kwargs = {**execute_effort_kwargs, **execute_model_kwargs}
+
+        def _live_provider_kwargs() -> dict[str, Any] | None:
+            """Revalidate carried admission against live state at provider entry."""
+
+            if (
+                self._expected_runtime_effect_capabilities is not None
+                and runtime_effect_capabilities_contract(self._adapter)
+                != self._expected_runtime_effect_capabilities
+            ):
+                return None
+            if route_admission is None:
+                return dict(execute_effort_kwargs)
+            if self._model_router != model_router_snapshot:
+                return None
+            live_effort_decision, live_effort_kwargs = resolve_execute_effort(
+                self._adapter,
+                base_effort=self._reasoning_effort,
+                is_decomposed_child=is_sub_ac,
+                retry_attempt=effort_retry_attempt,
+                investment_assessment=investment_assessment,
+            )
+            if live_effort_decision != effort_decision:
+                return None
+            live_projection = self._build_route_compat_projection(
+                model_router=self._model_router,
+                effort=live_effort_decision.level,
+            )
+            if bounded_route_attempt_enabled:
+                if not validate_compat_escalation_admission(
+                    live_projection,
+                    route_admission,
+                    effort=live_effort_decision.level,
+                    route_id=route_id_override,
+                ):
+                    return None
+                selected = route_admission.selected
+                model_support = getattr(
+                    getattr(self._adapter, "capabilities", None),
+                    "model_override_support",
+                    ParamSupport.IGNORED,
+                )
+                if (
+                    selected is None
+                    or (
+                        expected_route_candidate is not None
+                        and selected != expected_route_candidate
+                    )
+                    or model_support is not ParamSupport.NATIVE
+                    or selected.model != model_decision.model
+                ):
+                    return None
+                return {**live_effort_kwargs, "model": selected.model}
+            live_model_decision, _live_model_kwargs = resolve_execute_model(
+                self._adapter,
+                router=self._model_router,
+                is_decomposed_child=is_sub_ac,
+                decomposition_trustworthy=decomposition_trustworthy,
+                retry_attempt=retry_attempt,
+                suggested_tier=suggested_tier,
+            )
+            if live_model_decision != model_decision or not validate_compat_admission(
+                live_projection,
+                route_admission,
+                model_decision=model_decision,
+                effort=live_effort_decision.level,
+            ):
+                return None
+            live_model_kwargs = admitted_execute_model_kwargs(
+                route_admission,
+                model_decision=model_decision,
+                projection=live_projection,
+                effort=live_effort_decision.level,
+            )
+            return {**live_effort_kwargs, **live_model_kwargs}
+
+        def _route_drift_blocked_result() -> ACExecutionResult:
+            duration = (datetime.now(UTC) - start_time).total_seconds()
+            log.warning(
+                "parallel_executor.ac.route_admission_stale",
+                ac_index=ac_index,
+                runtime_backend=getattr(self._adapter, "runtime_backend", None),
+            )
+            return ACExecutionResult(
+                ac_index=ac_index,
+                ac_content=ac_content,
+                success=False,
+                messages=tuple(messages),
+                error="route admission blocked: live route state changed before provider entry",
+                duration_seconds=duration,
+                session_id=session_id,
+                retry_attempt=retry_attempt,
+                depth=depth,
+                outcome=ACExecutionOutcome.BLOCKED,
+                route_candidate=observed_route_candidate,
+            )
 
         # Runtime dispatch + streaming/heartbeat consumption. The dispatcher owns
         # the stall-scoped CancelScope and the per-message loop; it mutates
@@ -6283,6 +8724,28 @@ Respond with either ATOMIC or the structured JSON object only.
             )
             sealed_dispatch_ids.add(dispatch_id_to_seal)
 
+        async def _terminalize_route_drift(dispatch_id_to_terminalize: str) -> ACExecutionResult:
+            """Close durable recovery state when live admission becomes stale."""
+
+            nonlocal clear_cached_runtime_handle
+            clear_cached_runtime_handle = True
+            await _seal_dispatch(
+                dispatch_id_to_terminalize,
+                reason="live route authority changed before provider entry",
+            )
+            await self._emit_ac_runtime_event(
+                event_type="execution.session.failed",
+                runtime_identity=runtime_identity,
+                ac_content=ac_content,
+                runtime_handle=dispatch_state.runtime_handle,
+                execution_id=execution_context_id,
+                session_id=dispatch_state.ac_session_id,
+                orchestrator_session_id=session_id,
+                success=False,
+                error="route admission blocked: live route state changed before provider entry",
+            )
+            return _route_drift_blocked_result()
+
         signal_target: SessionSignalTarget | None = None
         signal_target_registered = False
         try:
@@ -6307,6 +8770,9 @@ Respond with either ATOMIC or the structured JSON object only.
                 await self._session_signal_hub.register_replaying(signal_target)
                 signal_target_registered = True
 
+            provider_kwargs = _live_provider_kwargs()
+            if provider_kwargs is None:
+                return await _terminalize_route_drift(active_dispatch_id)
             _invoke_execution_authority_guard(self)
             await self._authority_leaf_dispatcher_stream(
                 self._authority_leaf_dispatcher,
@@ -6314,7 +8780,7 @@ Respond with either ATOMIC or the structured JSON object only.
                 prompt=prompt,
                 tools=tools,
                 system_prompt=system_prompt,
-                execute_effort_kwargs=execute_effort_kwargs,
+                execute_effort_kwargs=provider_kwargs,
                 runtime_identity=runtime_identity,
                 execution_context_id=execution_context_id,
                 session_id=session_id,
@@ -6360,6 +8826,37 @@ Respond with either ATOMIC or the structured JSON object only.
                     session_id=ac_session_id,
                     retry_attempt=retry_attempt,
                     depth=depth,
+                    route_candidate=observed_route_candidate,
+                )
+
+            # Quota is a hard pause boundary, so it must be recognized before
+            # queued SessionSignals are allowed to open another provider turn.
+            # Preserve the exact primary handle and let the outer ``finally``
+            # reject any still-pending signals as target-ended; PAUSED must
+            # imply that no effect happened after the quota-ending message.
+            if any(is_usage_limit_pause_message(message) for message in reversed(messages)):
+                self._remember_ac_runtime_handle(
+                    ac_index,
+                    runtime_handle,
+                    execution_context_id=execution_context_id,
+                    is_sub_ac=is_sub_ac,
+                    parent_ac_index=parent_ac_index,
+                    sub_ac_index=sub_ac_index,
+                    node_identity=node_identity,
+                    retry_attempt=retry_attempt,
+                )
+                return ACExecutionResult(
+                    ac_index=ac_index,
+                    ac_content=ac_content,
+                    success=False,
+                    messages=tuple(messages),
+                    final_message=final_message,
+                    duration_seconds=(datetime.now(UTC) - start_time).total_seconds(),
+                    session_id=ac_session_id,
+                    retry_attempt=retry_attempt,
+                    depth=depth,
+                    runtime_handle=runtime_handle,
+                    route_candidate=observed_route_candidate,
                 )
 
             if signal_target is not None and self._session_signal_hub is not None:
@@ -6503,6 +9000,22 @@ Respond with either ATOMIC or the structured JSON object only.
                     )
                     inform_mode = queued_signal.effective_mode is SessionSignalMode.INFORM
                     try:
+                        provider_kwargs = _live_provider_kwargs()
+                        if provider_kwargs is None:
+                            await self._event_store.append(
+                                create_session_signal_rejected_event(
+                                    queued_signal.signal,
+                                    rejection_code="route_admission_stale",
+                                    detail=(
+                                        "The live route authority changed before the runtime "
+                                        "follow-up provider boundary."
+                                    ),
+                                    effective_mode=queued_signal.effective_mode,
+                                    runtime_backend=signal_target.runtime_backend,
+                                    orchestrator_session_id=session_id,
+                                )
+                            )
+                            return await _terminalize_route_drift(follow_up_dispatch_id)
                         _invoke_execution_authority_guard(self)
                         await self._authority_leaf_dispatcher_stream(
                             self._authority_leaf_dispatcher,
@@ -6510,7 +9023,7 @@ Respond with either ATOMIC or the structured JSON object only.
                             prompt=(follow_up_prompt),
                             tools=[] if inform_mode else tools,
                             system_prompt=system_prompt,
-                            execute_effort_kwargs=execute_effort_kwargs,
+                            execute_effort_kwargs=provider_kwargs,
                             runtime_identity=runtime_identity,
                             execution_context_id=execution_context_id,
                             session_id=session_id,
@@ -6647,14 +9160,32 @@ Respond with either ATOMIC or the structured JSON object only.
 
             duration = (datetime.now(UTC) - start_time).total_seconds()
 
-            # A contract-carrying AC (declares verify_command or expected
-            # artifacts) delegates commands_run and tests_passed to the
+            # A quota result is a resumable, nonterminal provider boundary.
+            # Preserve its exact scoped handle and leave the capsule dispatch
+            # unsealed; marking the child failed here would make safe resume
+            # impossible and tempt the composite owner to repeat its effects.
+            if any(is_usage_limit_pause_message(message) for message in reversed(messages)):
+                return ACExecutionResult(
+                    ac_index=ac_index,
+                    ac_content=ac_content,
+                    success=False,
+                    messages=tuple(messages),
+                    final_message=final_message,
+                    duration_seconds=duration,
+                    session_id=ac_session_id,
+                    retry_attempt=retry_attempt,
+                    depth=depth,
+                    runtime_handle=runtime_handle,
+                    route_candidate=observed_route_candidate,
+                )
+
+            # A contract-carrying AC delegates commands_run and tests_passed to the
             # orchestrator's authoritative _run_ac_verify_gate. When it declares
             # expected_artifacts, files_touched is delegated to the same
             # filesystem oracle so artifact work does not require fabricated
             # transcript-shaped evidence.
-            has_success_contract = isinstance(ac_spec, AcceptanceCriterionSpec) and bool(
-                ac_spec.verify_command or ac_spec.expected_artifacts
+            has_success_contract = (
+                isinstance(ac_spec, AcceptanceCriterionSpec) and ac_spec.has_success_contract
             )
             has_expected_artifacts = isinstance(ac_spec, AcceptanceCriterionSpec) and bool(
                 ac_spec.expected_artifacts
@@ -6865,6 +9396,7 @@ Respond with either ATOMIC or the structured JSON object only.
                 atomic_verifier_verdict=verifier_verdict,
                 verify_gate_outcome=verify_gate_outcome,
                 error=fat_harness_error,
+                route_candidate=observed_route_candidate,
             )
 
         except anyio.get_cancelled_exc_class():
@@ -6945,6 +9477,7 @@ Respond with either ATOMIC or the structured JSON object only.
                 retry_attempt=retry_attempt,
                 depth=depth,
                 runtime_handle=dispatch_state.runtime_handle,
+                route_candidate=observed_route_candidate,
             )
         finally:
             try:
@@ -7209,6 +9742,20 @@ Respond with either ATOMIC or the structured JSON object only.
         """
         import contextlib
 
+        def workspace_digest() -> str | None:
+            return self._workspace_content_digest(
+                cwd,
+                expected_artifacts=spec.expected_artifacts,
+            )
+
+        if spec.output_assertion and not spec.verify_command:
+            return _VerifyGateOutcome(
+                passed=False,
+                reason="output_assertion requires verify_command",
+                output_tail="",
+                workspace_digest=workspace_digest(),
+            )
+
         missing_artifacts = _missing_expected_artifacts(spec.expected_artifacts, cwd)
         if missing_artifacts:
             return _VerifyGateOutcome(
@@ -7216,7 +9763,7 @@ Respond with either ATOMIC or the structured JSON object only.
                 reason="expected_artifacts missing: " + ", ".join(missing_artifacts),
                 output_tail="",
                 missing_artifacts=missing_artifacts,
-                workspace_digest=self._workspace_content_digest(cwd),
+                workspace_digest=workspace_digest(),
             )
 
         command = spec.verify_command
@@ -7225,12 +9772,12 @@ Respond with either ATOMIC or the structured JSON object only.
                 passed=True,
                 reason=None,
                 output_tail="",
-                workspace_digest=self._workspace_content_digest(cwd),
+                workspace_digest=workspace_digest(),
             )
-        workspace_before = self._workspace_content_digest(cwd)
+        workspace_before = workspace_digest()
 
         def workspace_mutation_outcome(output_tail: str) -> _VerifyGateOutcome | None:
-            workspace_after = self._workspace_content_digest(cwd)
+            workspace_after = workspace_digest()
             if (
                 workspace_before is None
                 or workspace_after is None
@@ -7288,7 +9835,7 @@ Respond with either ATOMIC or the structured JSON object only.
                 passed=False,
                 reason=(f"verify_command timed out after {self._verify_command_timeout_seconds}s"),
                 output_tail="",
-                workspace_digest=self._workspace_content_digest(cwd),
+                workspace_digest=workspace_digest(),
             )
 
         combined = (stdout_bytes or b"").decode("utf-8", errors="replace")
@@ -7302,7 +9849,7 @@ Respond with either ATOMIC or the structured JSON object only.
                 passed=False,
                 reason=f"verify_command exited with status {returncode}",
                 output_tail=tail,
-                workspace_digest=self._workspace_content_digest(cwd),
+                workspace_digest=workspace_digest(),
             )
         if spec.output_assertion and spec.output_assertion not in combined:
             return _VerifyGateOutcome(
@@ -7311,13 +9858,13 @@ Respond with either ATOMIC or the structured JSON object only.
                     f"output_assertion {spec.output_assertion!r} not found in verify_command output"
                 ),
                 output_tail=tail,
-                workspace_digest=self._workspace_content_digest(cwd),
+                workspace_digest=workspace_digest(),
             )
         return _VerifyGateOutcome(
             passed=True,
             reason=None,
             output_tail=tail,
-            workspace_digest=self._workspace_content_digest(cwd),
+            workspace_digest=workspace_digest(),
         )
 
     async def _apply_verify_gate(
@@ -7331,8 +9878,9 @@ Respond with either ATOMIC or the structured JSON object only.
     ) -> ACExecutionResult:
         """Gate a successful AC on its success contract (PR-V V1).
 
-        The contract gate applies when the spec carries a ``verify_command`` OR
-        non-empty ``expected_artifacts``. Contract-less ACs and ACs that already
+        The contract gate applies when the spec carries a ``verify_command``,
+        non-empty ``expected_artifacts``, or an assertion that must be rejected
+        when no command produces its output. Contract-less ACs and ACs that already
         failed are recovered only when the same contract passes independently,
         so contract-less behavior — and the single fat-harness failure event
         for an already-failed AC without a passing contract — is preserved
@@ -7343,9 +9891,7 @@ Respond with either ATOMIC or the structured JSON object only.
         if ac_index < 0 or ac_index >= len(seed.acceptance_criteria):
             return result
         spec = seed.acceptance_criteria[ac_index]
-        if not isinstance(spec, AcceptanceCriterionSpec) or not (
-            spec.verify_command or spec.expected_artifacts
-        ):
+        if not isinstance(spec, AcceptanceCriterionSpec) or not spec.has_success_contract:
             return result
 
         cwd = self._task_cwd or self._adapter.working_directory or os.getcwd()
@@ -7462,6 +10008,9 @@ Respond with either ATOMIC or the structured JSON object only.
         root_ac_index: int,
         session_id: str,
         execution_id: str,
+        required: bool = False,
+        route_episode_id: str | None = None,
+        route_attempt_index: int | None = None,
     ) -> None:
         """Persist one provisional outer verify/retry attempt judgment.
 
@@ -7473,22 +10022,508 @@ Respond with either ATOMIC or the structured JSON object only.
         """
         from ouroboros.events.base import BaseEvent
 
-        await self._safe_emit_event(
+        route_candidate = result.route_candidate
+        if required and (
+            route_candidate is None
+            or route_episode_id is None
+            or type(route_attempt_index) is not int
+            or not 0 <= route_attempt_index < MAX_ROUTE_ATTEMPTS
+        ):
+            raise ValueError("route-aware attempt judgment requires bounded correlation metadata")
+        normalized_outcome = (
+            result.outcome.value
+            if result.outcome is not None
+            else (
+                ACExecutionOutcome.SUCCEEDED.value
+                if result.success
+                else ACExecutionOutcome.FAILED.value
+            )
+        )
+        if required and (
+            (result.success and normalized_outcome != ACExecutionOutcome.SUCCEEDED.value)
+            or (
+                not result.success
+                and normalized_outcome
+                not in {
+                    ACExecutionOutcome.FAILED.value,
+                    ACExecutionOutcome.BLOCKED.value,
+                }
+            )
+        ):
+            raise ValueError("route-aware attempt judgment has contradictory result semantics")
+        event_data: dict[str, object] = {
+            "execution_id": execution_id,
+            "session_id": session_id,
+            "root_ac_index": root_ac_index,
+            "ac_index": root_ac_index,
+            "retry_attempt": result.retry_attempt,
+            "attempt_number": result.attempt_number,
+            "success": result.success,
+            "outcome": normalized_outcome,
+            "is_decomposed": result.is_decomposed,
+            "is_decomposed_child": result.is_decomposed,
+        }
+        if (
+            result.is_invalid
+            and result.error is not None
+            and result.error.startswith(f"{UnmaterializableSuccessContractError.code}:")
+        ):
+            event_data.update(
+                {
+                    "error_code": UnmaterializableSuccessContractError.code,
+                    "error": result.error,
+                }
+            )
+        if required:
+            assert route_candidate is not None
+            assert route_episode_id is not None
+            assert route_attempt_index is not None
+            event_data.update(
+                {
+                    "route_contract_version": 1,
+                    "route_episode_id": route_episode_id,
+                    "route_attempt_index": route_attempt_index,
+                    "route_id": route_candidate.route_id,
+                    "call_site": "parallel",
+                }
+            )
+        event = BaseEvent(
+            type="execution.ac.attempt_judged",
+            aggregate_type="execution",
+            aggregate_id=execution_id or session_id,
+            data=event_data,
+        )
+        if required:
+            # Bounded escalation cannot authorize another provider effect until
+            # the outcome it reacts to is durable.
+            await self._event_store.append(event)
+        else:
+            await self._safe_emit_event(event)
+
+    @staticmethod
+    def _bounded_route_episode_id(
+        seed: Seed,
+        *,
+        execution_id: str,
+        session_id: str,
+        root_ac_index: int,
+    ) -> str:
+        criterion = seed.acceptance_criteria[root_ac_index]
+        semantic_ac_key = criterion.semantic_ac_key or derive_semantic_ac_key(criterion)
+        digest = hashlib.sha256(
+            f"{execution_id or session_id}\0{root_ac_index}\0{semantic_ac_key}".encode()
+        ).hexdigest()
+        return f"route:{digest}"
+
+    async def _persist_route_observation(
+        self,
+        *,
+        seed: Seed,
+        result: ACExecutionResult,
+        root_ac_index: int,
+        session_id: str,
+        execution_id: str,
+        attempted_route_ids: tuple[str, ...],
+        failure_class: object | None,
+        decision: RouteEscalationDecision | None,
+    ) -> RouteObservation:
+        """Commit one provisional route outcome before any next-route effect."""
+        from ouroboros.events.base import BaseEvent
+        from ouroboros.orchestrator.failure_taxonomy import FailureClass
+        from ouroboros.orchestrator.route_policy import RouteRequirements
+
+        candidate = result.route_candidate
+        if candidate is None:
+            raise ValueError("route observation requires the attempted candidate")
+        if result.success:
+            outcome = RouteVerifierOutcome.ATTEMPT_SUCCEEDED
+            classified = None
+            reason = None
+        else:
+            classified = (
+                failure_class
+                if isinstance(failure_class, FailureClass)
+                else FailureClass.EVIDENCE_MISSING
+            )
+            outcome = (
+                RouteVerifierOutcome.BLOCKED
+                if classified is FailureClass.BLOCKED
+                else RouteVerifierOutcome.FAILED
+            )
+            reason = decision.reason if decision is not None else EscalationReason.NO_ELIGIBLE_ROUTE
+        criterion = seed.acceptance_criteria[root_ac_index]
+        semantic_ac_key = criterion.semantic_ac_key or derive_semantic_ac_key(criterion)
+        observation = RouteObservation.from_candidate(
+            candidate,
+            RouteRequirements(),
+            episode_id=self._bounded_route_episode_id(
+                seed,
+                execution_id=execution_id,
+                session_id=session_id,
+                root_ac_index=root_ac_index,
+            ),
+            attempt_index=len(attempted_route_ids) - 1,
+            verifier_outcome=outcome,
+            failure_class=classified,
+            escalation_reason=reason,
+        )
+        await self._event_store.append(
             BaseEvent(
-                type="execution.ac.attempt_judged",
+                type="execution.ac.route_observed",
                 aggregate_type="execution",
                 aggregate_id=execution_id or session_id,
                 data={
+                    "schema_version": 1,
                     "execution_id": execution_id,
                     "session_id": session_id,
                     "root_ac_index": root_ac_index,
-                    "ac_index": root_ac_index,
-                    "retry_attempt": result.retry_attempt,
-                    "attempt_number": result.attempt_number,
-                    "success": result.success,
-                    "outcome": result.outcome.value if result.outcome is not None else "failed",
-                    "is_decomposed": result.is_decomposed,
-                    "is_decomposed_child": result.is_decomposed,
+                    "semantic_ac_key": semantic_ac_key,
+                    "call_site": "parallel",
+                    "observation": observation.to_contract_data(),
+                    "decision": decision.to_contract_data() if decision is not None else None,
+                    "provisional_result": (
+                        _serialize_provisional_route_success(
+                            result,
+                            workspace_root=(
+                                self._task_cwd or self._adapter.working_directory or os.getcwd()
+                            ),
+                        )
+                        if result.success
+                        else None
+                    ),
+                    "human_handoff_required": bool(decision is not None and decision.blocked),
+                    "final_acceptance_declared": False,
+                },
+            )
+        )
+        return observation
+
+    async def _persist_composite_completion(
+        self,
+        *,
+        seed: Seed,
+        result: ACExecutionResult,
+        root_ac_index: int,
+        session_id: str,
+        execution_id: str,
+    ) -> None:
+        """Commit a terminal composite projection before an interrupted return."""
+
+        from ouroboros.events.base import BaseEvent
+
+        criterion = seed.acceptance_criteria[root_ac_index]
+        semantic_ac_key = criterion.semantic_ac_key or derive_semantic_ac_key(criterion)
+        result_data, decision_data, fingerprint = _serialize_composite_completion_result(
+            result,
+            workspace_root=(self._task_cwd or self._adapter.working_directory or os.getcwd()),
+        )
+        decision = result.decomposition_decision
+        assert decision is not None
+        expected_node_id = ExecutionNodeIdentity.root(
+            execution_context_id=execution_id or session_id,
+            ac_index=root_ac_index,
+        ).node_id
+        if decision.node_id != expected_node_id:
+            raise RuntimeError("composite completion crossed decomposition node identity")
+        await self._event_store.append(
+            BaseEvent(
+                type="execution.ac.composite_completed",
+                aggregate_type="execution",
+                aggregate_id=execution_id or session_id,
+                data={
+                    "schema_version": 1,
+                    "execution_id": execution_id,
+                    "session_id": session_id,
+                    "root_ac_index": root_ac_index,
+                    "semantic_ac_key": semantic_ac_key,
+                    "call_site": "parallel",
+                    "result": result_data,
+                    "decomposition_decision": decision_data,
+                    "decomposition_fingerprint": fingerprint,
+                    "final_acceptance_declared": False,
+                },
+            )
+        )
+
+    async def _persist_parallel_route_pause(
+        self,
+        *,
+        seed: Seed,
+        result: ACExecutionResult,
+        root_ac_index: int,
+        session_id: str,
+        execution_id: str,
+        prior_route_ids: tuple[str, ...],
+        retry_prompt_extra: str = "",
+        sibling_acs: tuple[_SiblingACRef, ...] = (),
+        route_id_override: str | None = None,
+        expected_route_candidate: RouteCandidate | None = None,
+    ) -> None:
+        """Bind a quota pause to the exact capsule and resumable provider boundary."""
+
+        from ouroboros.events.base import BaseEvent
+
+        candidate = result.route_candidate
+        if candidate is None:
+            raise RuntimeError("bounded route pause lost its active route candidate")
+        runtime_handle = result.runtime_handle
+        runtime_metadata = runtime_handle.metadata if runtime_handle is not None else {}
+        runtime_scope_id = runtime_metadata.get("session_scope_id")
+        dispatch_id = runtime_metadata.get("ac_dispatch_id")
+        capsule_fingerprint = runtime_metadata.get("ac_capsule_fingerprint")
+        if (
+            runtime_handle is None
+            or not self._is_resumable_runtime_handle(runtime_handle)
+            or not isinstance(runtime_scope_id, str)
+            or not runtime_scope_id
+            or not isinstance(dispatch_id, str)
+            or len(dispatch_id) != 32
+            or any(char not in "0123456789abcdef" for char in dispatch_id)
+            or not isinstance(capsule_fingerprint, str)
+            or len(capsule_fingerprint) != 71
+            or not capsule_fingerprint.startswith("sha256:")
+            or any(char not in "0123456789abcdef" for char in capsule_fingerprint[7:])
+        ):
+            raise RuntimeError("parallel route pause has no exact resumable provider boundary")
+        if result.retry_attempt != len(prior_route_ids):
+            raise RuntimeError("parallel route pause retry attempt crossed route history")
+        if len(retry_prompt_extra) > 16_384:
+            raise RuntimeError("parallel route pause retry prompt exceeds its durable bound")
+        if len(sibling_acs) > len(seed.acceptance_criteria) or any(
+            type(index) is not int
+            or index < 0
+            or index >= len(seed.acceptance_criteria)
+            or content != ac_text(seed.acceptance_criteria[index])
+            for index, content in sibling_acs
+        ):
+            raise RuntimeError("parallel route pause has an invalid sibling population")
+        if prior_route_ids:
+            if route_id_override != candidate.route_id or expected_route_candidate != candidate:
+                raise RuntimeError("parallel successor pause lost its exact route override")
+        elif route_id_override is not None or expected_route_candidate is not None:
+            raise RuntimeError("parallel initial pause invented a route override")
+        criterion = seed.acceptance_criteria[root_ac_index]
+        semantic_ac_key = criterion.semantic_ac_key or derive_semantic_ac_key(criterion)
+        await self._event_store.append(
+            BaseEvent(
+                type="execution.ac.route_paused",
+                aggregate_type="execution",
+                aggregate_id=execution_id or session_id,
+                data={
+                    "schema_version": 2,
+                    "execution_id": execution_id,
+                    "session_id": session_id,
+                    "root_ac_index": root_ac_index,
+                    "semantic_ac_key": semantic_ac_key,
+                    "call_site": "parallel",
+                    "episode_id": self._bounded_route_episode_id(
+                        seed,
+                        execution_id=execution_id,
+                        session_id=session_id,
+                        root_ac_index=root_ac_index,
+                    ),
+                    "attempt_index": len(prior_route_ids),
+                    "prior_route_ids": list(prior_route_ids),
+                    "route": candidate.to_contract_data(),
+                    "resume_state": {
+                        "retry_attempt": result.retry_attempt,
+                        "retry_prompt_extra": retry_prompt_extra,
+                        "sibling_acs": [
+                            {"ac_index": index, "content": content}
+                            for index, content in sibling_acs
+                        ],
+                        "route_id_override": route_id_override,
+                        "expected_route_candidate": (
+                            expected_route_candidate.to_contract_data()
+                            if expected_route_candidate is not None
+                            else None
+                        ),
+                        "runtime_scope_id": runtime_scope_id,
+                        "dispatch_id": dispatch_id,
+                        "capsule_fingerprint": capsule_fingerprint,
+                    },
+                    "recoverable_pause": True,
+                    "final_acceptance_declared": False,
+                },
+            )
+        )
+
+    async def _persist_parallel_uncertain_handoff(
+        self,
+        *,
+        seed: Seed,
+        root_ac_index: int,
+        session_id: str,
+        execution_id: str,
+    ) -> None:
+        """Declare human ownership for a sibling cancelled after execution entry."""
+
+        from ouroboros.events.base import BaseEvent
+
+        criterion = seed.acceptance_criteria[root_ac_index]
+        semantic_ac_key = criterion.semantic_ac_key or derive_semantic_ac_key(criterion)
+        await self._event_store.append(
+            BaseEvent(
+                type="execution.ac.uncertain_handoff_required",
+                aggregate_type="execution",
+                aggregate_id=execution_id or session_id,
+                data={
+                    "schema_version": 1,
+                    "execution_id": execution_id,
+                    "session_id": session_id,
+                    "root_ac_index": root_ac_index,
+                    "semantic_ac_key": semantic_ac_key,
+                    "call_site": "parallel",
+                    "reason": "sibling_cancelled_after_execution_authority_entry",
+                    "human_handoff_required": True,
+                    "final_acceptance_declared": False,
+                },
+            )
+        )
+
+    def _partial_composite_pause_projection(
+        self,
+        *,
+        result: ACExecutionResult,
+        node_identity: ExecutionNodeIdentity,
+        workspace_root: str,
+        node_budget: list[int],
+    ) -> tuple[list[dict[str, object]], dict[str, object]]:
+        """Project every composite frame down to one exact paused leaf."""
+
+        decision = result.decomposition_decision
+        if not result.is_decomposed or decision is None or not result.sub_results:
+            raise RuntimeError("partial composite pause lost its split result tree")
+        parsed, decision_data, fingerprint = _canonical_decomposition_decision(decision.to_dict())
+        if (
+            parsed.disposition is not DecompositionDisposition.SPLIT
+            or parsed.node_id != node_identity.node_id
+            or result.depth != node_identity.depth
+        ):
+            raise RuntimeError("partial composite pause crossed decomposition node identity")
+
+        paused_child_index = len(result.sub_results) - 1
+        paused_child = result.sub_results[paused_child_index]
+        completed_prefix = result.sub_results[:paused_child_index]
+        if (
+            paused_child_index >= len(parsed.children)
+            or tuple(child.description for child in parsed.children[:paused_child_index])
+            != tuple(child.ac_content for child in completed_prefix)
+            or any(
+                child.ac_index != result.ac_index * 100 + child_index
+                or child.depth != result.depth + 1
+                for child_index, child in enumerate(completed_prefix)
+            )
+            or parsed.children[paused_child_index].description != paused_child.ac_content
+            or paused_child.ac_index != result.ac_index * 100 + paused_child_index
+            or paused_child.depth != result.depth + 1
+            or not _has_usage_limit_pause(paused_child)
+            or any(_has_usage_limit_pause(child) for child in completed_prefix)
+        ):
+            raise RuntimeError("partial composite pause has an invalid child prefix")
+
+        expected_child = node_identity.child(paused_child_index)
+        frame: dict[str, object] = {
+            "completed_children": [
+                _serialize_composite_result_tree(
+                    child,
+                    node_budget=node_budget,
+                    workspace_root=workspace_root,
+                )
+                for child in completed_prefix
+            ],
+            "paused_child_index": paused_child_index,
+            "paused_child_node_id": expected_child.node_id,
+            "paused_child_ac_index": paused_child.ac_index,
+            "paused_child_content": paused_child.ac_content,
+            "paused_child_retry_attempt": paused_child.retry_attempt,
+            "decomposition_decision": decision_data,
+            "decomposition_fingerprint": fingerprint,
+        }
+        if paused_child.is_decomposed:
+            nested_frames, paused_leaf = self._partial_composite_pause_projection(
+                result=paused_child,
+                node_identity=expected_child,
+                workspace_root=workspace_root,
+                node_budget=node_budget,
+            )
+            return [frame, *nested_frames], paused_leaf
+
+        runtime_handle = paused_child.runtime_handle
+        runtime_metadata = runtime_handle.metadata if runtime_handle is not None else {}
+        runtime_scope_id = runtime_metadata.get("session_scope_id")
+        dispatch_id = runtime_metadata.get("ac_dispatch_id")
+        capsule_fingerprint = runtime_metadata.get("ac_capsule_fingerprint")
+        if (
+            runtime_handle is None
+            or not self._is_resumable_runtime_handle(runtime_handle)
+            or runtime_metadata.get("node_id") != expected_child.node_id
+            or not isinstance(runtime_scope_id, str)
+            or not runtime_scope_id
+            or not isinstance(dispatch_id, str)
+            or len(dispatch_id) != 32
+            or any(char not in "0123456789abcdef" for char in dispatch_id)
+            or not isinstance(capsule_fingerprint, str)
+            or len(capsule_fingerprint) != 71
+            or not capsule_fingerprint.startswith("sha256:")
+            or any(char not in "0123456789abcdef" for char in capsule_fingerprint[7:])
+        ):
+            raise RuntimeError(
+                "partial composite pause has no exact resumable leaf provider boundary"
+            )
+        return [frame], {
+            "node_id": expected_child.node_id,
+            "ac_index": paused_child.ac_index,
+            "ac_content": paused_child.ac_content,
+            "retry_attempt": paused_child.retry_attempt,
+            "runtime_scope_id": runtime_scope_id,
+            "dispatch_id": dispatch_id,
+            "capsule_fingerprint": capsule_fingerprint,
+        }
+
+    async def _persist_partial_composite_pause(
+        self,
+        *,
+        seed: Seed,
+        result: ACExecutionResult,
+        root_ac_index: int,
+        session_id: str,
+        execution_id: str,
+    ) -> None:
+        """Seal recursive completed prefixes and the exact paused leaf boundary."""
+
+        from ouroboros.events.base import BaseEvent
+
+        expected_node = ExecutionNodeIdentity.root(
+            execution_context_id=execution_id or session_id,
+            ac_index=root_ac_index,
+        )
+        workspace_root = self._task_cwd or self._adapter.working_directory or os.getcwd()
+        node_budget = [_COMPOSITE_RESULT_MAX_NODES]
+        frames, paused_leaf = self._partial_composite_pause_projection(
+            result=result,
+            node_identity=expected_node,
+            workspace_root=workspace_root,
+            node_budget=node_budget,
+        )
+        criterion = seed.acceptance_criteria[root_ac_index]
+        semantic_ac_key = criterion.semantic_ac_key or derive_semantic_ac_key(criterion)
+        await self._event_store.append(
+            BaseEvent(
+                type="execution.ac.composite_paused",
+                aggregate_type="execution",
+                aggregate_id=execution_id or session_id,
+                data={
+                    "schema_version": 2,
+                    "execution_id": execution_id,
+                    "session_id": session_id,
+                    "root_ac_index": root_ac_index,
+                    "semantic_ac_key": semantic_ac_key,
+                    "call_site": "parallel",
+                    "frames": frames,
+                    "paused_leaf": paused_leaf,
+                    "recoverable_pause": True,
+                    "final_acceptance_declared": False,
                 },
             )
         )
@@ -7506,7 +10541,10 @@ Respond with either ATOMIC or the structured JSON object only.
         """Emit the authoritative root-AC recovery-closure fact exactly once."""
         from ouroboros.events.base import BaseEvent
 
-        if result.success or result.outcome is not ACExecutionOutcome.FAILED:
+        if result.success or result.outcome not in {
+            ACExecutionOutcome.FAILED,
+            ACExecutionOutcome.BLOCKED,
+        }:
             return
         emission_key = (execution_id or session_id, root_ac_index)
         if emission_key in self._recovery_exhausted_emitted:
@@ -7538,6 +10576,7 @@ Respond with either ATOMIC or the structured JSON object only.
                     "alternate_redispatch_status": alternate_status,
                     "last_failure_class": self._failure_class_for_result(result) or "unknown",
                     "success": False,
+                    "human_handoff_required": result.outcome is ACExecutionOutcome.BLOCKED,
                 },
             )
         )
@@ -7552,8 +10591,7 @@ Respond with either ATOMIC or the structured JSON object only.
     ) -> frozenset[int]:
         """Gate sibling-evidence flips for FAILED contract ACs (PR-V V4).
 
-        A FAILED AC whose spec carries a success contract (``verify_command``
-        OR non-empty ``expected_artifacts``) may only be flipped to satisfied by
+        A FAILED AC whose spec carries a success contract may only be flipped to satisfied by
         sibling evidence if its own contract passes the orchestrator gate now.
         ACs without a contract are never gated out.
         """
@@ -7567,9 +10605,7 @@ Respond with either ATOMIC or the structured JSON object only.
             if ac_idx < 0 or ac_idx >= len(seed.acceptance_criteria):
                 continue
             spec = seed.acceptance_criteria[ac_idx]
-            if not isinstance(spec, AcceptanceCriterionSpec) or not (
-                spec.verify_command or spec.expected_artifacts
-            ):
+            if not isinstance(spec, AcceptanceCriterionSpec) or not spec.has_success_contract:
                 continue
             cwd = self._task_cwd or self._adapter.working_directory or os.getcwd()
             cached_outcome = result.verify_gate_outcome
@@ -7592,20 +10628,36 @@ Respond with either ATOMIC or the structured JSON object only.
 
     def _failure_class_for_result(self, result: ACExecutionResult) -> str | None:
         """Best-effort failure taxonomy label for a failed AC result."""
+        from ouroboros.orchestrator.failure_taxonomy import (
+            FailureClass,
+            classify_hard_precondition,
+        )
+
+        if result.outcome is ACExecutionOutcome.BLOCKED:
+            return FailureClass.BLOCKED.value
+        for message in reversed(result.messages):
+            if not (message.is_final and message.is_error):
+                continue
+            hard_precondition = classify_hard_precondition(message.content, message.data)
+            if hard_precondition is not None:
+                return hard_precondition.value
+        hard_precondition = classify_hard_precondition(
+            " ".join(part for part in (result.error, result.final_message) if part)
+        )
+        if hard_precondition is not None:
+            return hard_precondition.value
         verdict = result.atomic_verifier_verdict
         if verdict is not None and verdict.failure_class:
             return verdict.failure_class
         if result.error == _STALL_SENTINEL:
-            from ouroboros.orchestrator.failure_taxonomy import FailureClass
-
             return FailureClass.STALL.value
         return None
 
     def _is_retryable_failure(self, result: ACExecutionResult | BaseException) -> bool:
-        """Whether a batch result is a non-stall, non-blocked AC failure (PR-V V3)."""
+        """Whether a batch result is a runnable non-stall AC failure (PR-V V3)."""
         if not isinstance(result, ACExecutionResult):
             return False
-        if result.success or result.is_blocked:
+        if result.success or result.is_blocked or result.is_invalid:
             return False
         # Stall retries are handled separately by the atomic leaf loop.
         return result.error != _STALL_SENTINEL
@@ -7666,6 +10718,30 @@ Respond with either ATOMIC or the structured JSON object only.
         retries reduce to a single ``_execute_ac_batch`` call plus the identity
         gate, so today's behavior is preserved.
         """
+        persisted_route_state = await self._has_persisted_bounded_route_state(
+            execution_id=execution_id,
+            session_id=session_id,
+            root_ac_indices=tuple(batch_executable),
+            root_ac_count=len(seed.acceptance_criteria),
+        )
+        if persisted_route_state and not self._bounded_route_escalation_enabled:
+            # Once an episode has durable Routing D evidence it may never fall
+            # back to retry-count/legacy dispatch merely because current config
+            # or provider capability no longer enables Routing D.
+            raise RuntimeError("durable bounded-route state exists but live routing is unavailable")
+        if self._bounded_route_escalation_enabled:
+            return await self._run_batch_with_bounded_route_escalation(
+                seed=seed,
+                batch_executable=batch_executable,
+                session_id=session_id,
+                execution_id=execution_id,
+                tools=tools,
+                tool_catalog=tool_catalog,
+                system_prompt=system_prompt,
+                level_contexts=level_contexts,
+                ac_retry_attempts=ac_retry_attempts,
+                execution_counters=execution_counters,
+            )
         results = await self._execute_ac_batch(
             seed=seed,
             batch_indices=batch_executable,
@@ -7940,6 +11016,1666 @@ Respond with either ATOMIC or the structured JSON object only.
                     ),
                 )
         return results
+
+    async def _has_persisted_bounded_route_state(
+        self,
+        *,
+        execution_id: str,
+        session_id: str,
+        root_ac_indices: tuple[int, ...],
+        root_ac_count: int,
+    ) -> bool:
+        """Detect any same-session Routing D evidence before choosing a dispatch path."""
+
+        relevant = set(root_ac_indices)
+        bounded_streams = {
+            "execution.ac.route_observed": root_ac_count * MAX_ROUTE_ATTEMPTS + 1,
+            "execution.ac.uncertain_handoff_required": root_ac_count + 1,
+            "execution.ac.composite_completed": _composite_completion_event_sentinel(root_ac_count),
+        }
+        for event_type, event_limit in bounded_streams.items():
+            events = await self._event_store.query_execution_related_events(
+                execution_id,
+                event_type=event_type,
+                limit=event_limit,
+            )
+            if not isinstance(events, list | tuple):
+                continue
+            if len(events) >= event_limit:
+                raise RuntimeError(
+                    f"{event_type} pre-dispatch scan exceeds its execution-wide bound"
+                )
+            for event in events:
+                if getattr(event, "type", None) != event_type:
+                    continue
+                data = event.data
+                if data.get("session_id") != session_id:
+                    continue
+                root_ac_index = data.get("root_ac_index")
+                if event_type in {
+                    "execution.ac.route_observed",
+                    "execution.ac.route_paused",
+                    "execution.ac.uncertain_handoff_required",
+                    "execution.ac.composite_completed",
+                    "execution.ac.composite_paused",
+                }:
+                    if root_ac_index in relevant or type(root_ac_index) is not int:
+                        return True
+        # Pause streams can grow on every recoverable provider window. Detect
+        # their presence with a one-row exact-scope query; the replay owner folds
+        # the complete stable population in bounded-memory pages.
+        for pause_event_type in (
+            "execution.ac.route_paused",
+            "execution.ac.composite_paused",
+        ):
+            pause_events = await self._event_store.query_execution_related_events(
+                execution_id,
+                event_type=pause_event_type,
+                limit=1,
+                payload_equals={"session_id": session_id, "call_site": "parallel"},
+            )
+            if isinstance(pause_events, list | tuple) and pause_events:
+                return True
+        judgment_limit = root_ac_count * MAX_ROUTE_ATTEMPTS + 1
+        judgment_events = await self._event_store.query_execution_related_events(
+            execution_id,
+            event_type="execution.ac.attempt_judged",
+            limit=judgment_limit,
+            payload_equals={
+                "route_contract_version": 1,
+                "session_id": session_id,
+            },
+        )
+        if not isinstance(judgment_events, list | tuple):
+            return False
+        if len(judgment_events) >= judgment_limit:
+            raise RuntimeError(
+                "execution.ac.attempt_judged pre-dispatch scan exceeds its route-aware bound"
+            )
+        for event in judgment_events:
+            if getattr(event, "type", None) != "execution.ac.attempt_judged":
+                continue
+            root_ac_index = event.data.get("root_ac_index")
+            if root_ac_index in relevant or type(root_ac_index) is not int:
+                return True
+        return False
+
+    async def _raise_if_parallel_cancellation_requested(
+        self,
+        *,
+        session_id: str,
+        execution_counters: Mapping[str, int] | None,
+    ) -> None:
+        """Stop at the shared route-transition gate when cancellation exists."""
+
+        from ouroboros.orchestrator.runner import is_cancellation_requested
+
+        requested = await is_cancellation_requested(session_id)
+        if not requested:
+            try:
+                events = await self._event_store.query_events(
+                    aggregate_id=session_id,
+                    event_type="orchestrator.session.cancelled",
+                    limit=1,
+                )
+                requested = isinstance(events, list | tuple) and bool(events)
+            except Exception:
+                log.warning(
+                    "parallel_executor.cancellation_check_failed",
+                    session_id=session_id,
+                )
+        if requested:
+            raw_messages_processed = (
+                execution_counters.get("messages_count", 0) if execution_counters is not None else 0
+            )
+            messages_processed = (
+                raw_messages_processed
+                if isinstance(raw_messages_processed, int)
+                and not isinstance(raw_messages_processed, bool)
+                and raw_messages_processed >= 0
+                else 0
+            )
+            raise ParallelExecutionCancelled(session_id, messages_processed)
+
+    async def _run_batch_with_bounded_route_escalation(
+        self,
+        *,
+        seed: Seed,
+        batch_executable: list[int],
+        session_id: str,
+        execution_id: str,
+        tools: list[str],
+        tool_catalog: tuple[MCPToolDefinition, ...] | None,
+        system_prompt: str,
+        level_contexts: list[LevelContext],
+        ac_retry_attempts: dict[int, int],
+        execution_counters: dict[str, int] | None,
+    ) -> list[ACExecutionResult | BaseException]:
+        """Run cheapest-first classified escalation with a finite route set.
+
+        Every next provider effect is preceded by two hard persistence
+        boundaries: the provisional attempt judgment and its RouteObservation.
+        A successful attempt remains provisional; only the existing seed-level
+        Final Gate may later declare acceptance.
+        """
+        from ouroboros.orchestrator.failure_taxonomy import FailureClass
+
+        positions = {ac_idx: pos for pos, ac_idx in enumerate(batch_executable)}
+        results: list[ACExecutionResult | BaseException] = [
+            RuntimeError("route attempt not started") for _ in batch_executable
+        ]
+        (
+            histories,
+            route_overrides,
+            terminal_resume_reasons,
+            provisional_successes,
+        ) = await self._load_bounded_route_resume_state(
+            seed=seed,
+            execution_id=execution_id,
+            session_id=session_id,
+            root_ac_indices=tuple(batch_executable),
+        )
+        partial_composite_resume_roots = {
+            ac_idx
+            for ac_idx in batch_executable
+            if ExecutionNodeIdentity.root(
+                execution_context_id=execution_id,
+                ac_index=ac_idx,
+            ).node_id
+            in self._partial_composite_resumes
+        }
+        pending = set(batch_executable) - set(terminal_resume_reasons) - set(provisional_successes)
+        for ac_idx, reason in terminal_resume_reasons.items():
+            results[positions[ac_idx]] = ACExecutionResult(
+                ac_index=ac_idx,
+                ac_content=ac_text(seed.acceptance_criteria[ac_idx]),
+                success=False,
+                error=reason,
+                retry_attempt=max(0, len(histories[ac_idx]) - 1),
+                outcome=ACExecutionOutcome.BLOCKED,
+            )
+        for ac_idx, cached_result in provisional_successes.items():
+            results[positions[ac_idx]] = cached_result
+        for ac_idx, history in histories.items():
+            ac_retry_attempts[ac_idx] = len(history)
+        retry_prompts: dict[int, str] = {
+            ac_idx: state.retry_prompt_extra
+            for ac_idx, state in self._parallel_route_resumes.items()
+            if ac_idx in pending
+        }
+
+        while pending:
+            await self._raise_if_parallel_cancellation_requested(
+                session_id=session_id,
+                execution_counters=execution_counters,
+            )
+            round_indices = [ac_idx for ac_idx in batch_executable if ac_idx in pending]
+            round_results = await self._execute_ac_batch(
+                seed=seed,
+                batch_indices=round_indices,
+                session_id=session_id,
+                execution_id=execution_id,
+                tools=tools,
+                tool_catalog=tool_catalog,
+                system_prompt=system_prompt,
+                level_contexts=level_contexts,
+                ac_retry_attempts=ac_retry_attempts,
+                execution_counters=execution_counters,
+                retry_prompts=retry_prompts,
+                route_overrides=route_overrides,
+                route_resume_states=self._parallel_route_resumes,
+                # Route D owns recovery while active.  Legacy cross-harness and
+                # retry-count paths cannot run ahead of the finite route set.
+                same_runtime_budget_exhausted=False,
+            )
+            await self._raise_if_parallel_cancellation_requested(
+                session_id=session_id,
+                execution_counters=execution_counters,
+            )
+            next_pending: set[int] = set()
+            next_overrides: dict[int, RouteCandidate] = {}
+            next_prompts: dict[int, str] = {}
+            recoverable_pause_seen = any(
+                isinstance(value, ACExecutionResult) and _has_usage_limit_pause(value)
+                for value in round_results
+            )
+            if not recoverable_pause_seen and any(
+                isinstance(
+                    value,
+                    _BatchInterruptedForRecoverablePause | _BatchEnteredAtRecoverablePause,
+                )
+                for value in round_results
+            ):
+                raise RuntimeError(
+                    "parallel route batch interruption has no recoverable pause owner"
+                )
+            for round_position, ac_idx in enumerate(round_indices):
+                await self._raise_if_parallel_cancellation_requested(
+                    session_id=session_id,
+                    execution_counters=execution_counters,
+                )
+                value = round_results[round_position]
+                results[positions[ac_idx]] = value
+                if isinstance(value, _BatchInterruptedForRecoverablePause):
+                    continue
+                if isinstance(value, _BatchEnteredAtRecoverablePause):
+                    if not recoverable_pause_seen:
+                        raise RuntimeError(
+                            "entered parallel interruption has no recoverable pause owner"
+                        )
+                    self._parallel_route_resumes.pop(ac_idx, None)
+                    await self._persist_parallel_uncertain_handoff(
+                        seed=seed,
+                        root_ac_index=ac_idx,
+                        session_id=session_id,
+                        execution_id=execution_id,
+                    )
+                    results[positions[ac_idx]] = ACExecutionResult(
+                        ac_index=ac_idx,
+                        ac_content=ac_text(seed.acceptance_criteria[ac_idx]),
+                        success=False,
+                        error=(
+                            "A sibling quota cancelled this AC after execution authority entry; "
+                            "the provider-effect boundary is uncertain and human handoff is required."
+                        ),
+                        retry_attempt=ac_retry_attempts[ac_idx],
+                        outcome=ACExecutionOutcome.BLOCKED,
+                    )
+                    continue
+                if not isinstance(value, ACExecutionResult):
+                    self._parallel_route_resumes.pop(ac_idx, None)
+                    continue
+                if (
+                    not value.is_decomposed
+                    and not value.success
+                    and not _has_usage_limit_pause(value)
+                    and value.outcome
+                    not in {ACExecutionOutcome.BLOCKED, ACExecutionOutcome.INVALID}
+                ):
+                    # A classified TOO_BIG result changes the root from an
+                    # atomic route episode into a verified composite.  Own that
+                    # transition here, before route escalation can skip the sole
+                    # live decomposition path.  Once finalized, the composite
+                    # branch below owns child replay and no top-level successor
+                    # route is admitted for this result.
+                    criterion = seed.acceptance_criteria[ac_idx]
+                    semantic_ac_key = (
+                        criterion.semantic_ac_key
+                        if isinstance(criterion, AcceptanceCriterionSpec)
+                        and criterion.semantic_ac_key is not None
+                        else derive_semantic_ac_key(criterion)
+                    )
+                    node_identity = ExecutionNodeIdentity.root(
+                        execution_context_id=execution_id or session_id,
+                        ac_index=ac_idx,
+                    )
+                    (
+                        bounce_result,
+                        bounce_decision,
+                    ) = await self._maybe_recover_with_bounce_decomposition(
+                        result=value,
+                        ac_index=ac_idx,
+                        ac_content=ac_text(criterion),
+                        session_id=session_id,
+                        tools=tools,
+                        tool_catalog=tool_catalog,
+                        system_prompt=system_prompt,
+                        seed_goal=seed.goal,
+                        depth=0,
+                        execution_id=execution_id,
+                        level_contexts=level_contexts,
+                        retry_attempt=ac_retry_attempts[ac_idx],
+                        execution_counters=execution_counters,
+                        node_identity=node_identity,
+                        ac_spec=(
+                            criterion if isinstance(criterion, AcceptanceCriterionSpec) else None
+                        ),
+                        start_time=datetime.now(UTC),
+                        semantic_ac_key=semantic_ac_key,
+                        investment_spec=(
+                            criterion.investment
+                            if isinstance(criterion, AcceptanceCriterionSpec)
+                            else None
+                        ),
+                    )
+                    if bounce_decision is not None:
+                        value = replace(
+                            value,
+                            decomposition_decision=bounce_decision,
+                            decomposition_depth_warning=(
+                                value.decomposition_depth_warning
+                                or bounce_decision.compromise_reason == "depth_cap_forced_atomic"
+                            ),
+                        )
+                    if bounce_result is not None:
+                        value = bounce_result
+                    results[positions[ac_idx]] = value
+                if value.is_decomposed:
+                    if (
+                        recoverable_pause_seen
+                        and not _has_usage_limit_pause(value)
+                        and not value.success
+                    ):
+                        # Decomposed legacy recovery can dispatch more provider
+                        # attempts. A quota observed anywhere in this round owns
+                        # the boundary first, so defer a retryable sibling to the
+                        # parallel resume owner. Completed composites and the
+                        # composite that owns the pause still take their
+                        # no-provider persistence paths below.
+                        results[positions[ac_idx]] = _BatchInterruptedForRecoverablePause(
+                            "composite recovery deferred at a sibling quota boundary"
+                        )
+                        continue
+                    # Routing D has no child/aggregate replay owner in this
+                    # slice. Once a verified bounce decision proves this root
+                    # is composite, finish its established legacy
+                    # verify/retry policy rather than interpreting a missing
+                    # top-level RouteCandidate as a bounded outcome.
+                    legacy_result = await self._continue_decomposed_legacy_recovery(
+                        seed=seed,
+                        ac_idx=ac_idx,
+                        initial_result=value,
+                        session_id=session_id,
+                        execution_id=execution_id,
+                        tools=tools,
+                        tool_catalog=tool_catalog,
+                        system_prompt=system_prompt,
+                        level_contexts=level_contexts,
+                        ac_retry_attempts=ac_retry_attempts,
+                        execution_counters=execution_counters,
+                        allow_root_redispatch=ac_idx not in partial_composite_resume_roots,
+                    )
+                    results[positions[ac_idx]] = legacy_result
+                    if isinstance(legacy_result, ACExecutionResult):
+                        if _has_usage_limit_pause(legacy_result):
+                            await self._persist_partial_composite_pause(
+                                seed=seed,
+                                result=legacy_result,
+                                root_ac_index=ac_idx,
+                                session_id=session_id,
+                                execution_id=execution_id,
+                            )
+                        else:
+                            await self._persist_composite_completion(
+                                seed=seed,
+                                result=legacy_result,
+                                root_ac_index=ac_idx,
+                                session_id=session_id,
+                                execution_id=execution_id,
+                            )
+                    continue
+                if _has_usage_limit_pause(value):
+                    # Quota windows are nonterminal session pauses, not evidence
+                    # that this route lacks capability.  Preserve the untouched
+                    # provider result for the runner's pause owner and emit no
+                    # judgment/observation that could authorize a successor.
+                    resume_state = self._parallel_route_resumes.get(ac_idx)
+                    round_siblings: tuple[_SiblingACRef, ...] = (
+                        resume_state.sibling_acs
+                        if resume_state is not None
+                        else tuple(
+                            (index, ac_text(seed.acceptance_criteria[index]))
+                            for index in round_indices
+                        )
+                        if len(round_indices) > 1
+                        else ()
+                    )
+                    expected_route = (
+                        resume_state.expected_route_candidate
+                        if resume_state is not None
+                        else route_overrides.get(ac_idx)
+                    )
+                    await self._persist_parallel_route_pause(
+                        seed=seed,
+                        result=value,
+                        root_ac_index=ac_idx,
+                        session_id=session_id,
+                        execution_id=execution_id,
+                        prior_route_ids=histories[ac_idx],
+                        retry_prompt_extra=(
+                            resume_state.retry_prompt_extra
+                            if resume_state is not None
+                            else retry_prompts.get(ac_idx, "")
+                        ),
+                        sibling_acs=round_siblings,
+                        route_id_override=(
+                            resume_state.route_id_override
+                            if resume_state is not None
+                            else expected_route.route_id
+                            if expected_route is not None
+                            else None
+                        ),
+                        expected_route_candidate=expected_route,
+                    )
+                    continue
+                self._parallel_route_resumes.pop(ac_idx, None)
+                gated = await self._apply_verify_gate(
+                    seed=seed,
+                    ac_index=ac_idx,
+                    result=value,
+                    session_id=session_id,
+                    execution_id=execution_id,
+                )
+                await self._raise_if_parallel_cancellation_requested(
+                    session_id=session_id,
+                    execution_counters=execution_counters,
+                )
+                results[positions[ac_idx]] = gated
+                candidate = gated.route_candidate
+                route_attempt_index = len(histories[ac_idx])
+                await self._emit_ac_attempt_judged(
+                    result=gated,
+                    root_ac_index=ac_idx,
+                    session_id=session_id,
+                    execution_id=execution_id,
+                    required=candidate is not None,
+                    route_episode_id=(
+                        self._bounded_route_episode_id(
+                            seed,
+                            execution_id=execution_id,
+                            session_id=session_id,
+                            root_ac_index=ac_idx,
+                        )
+                        if candidate is not None
+                        else None
+                    ),
+                    route_attempt_index=(route_attempt_index if candidate is not None else None),
+                )
+                await self._raise_if_parallel_cancellation_requested(
+                    session_id=session_id,
+                    execution_counters=execution_counters,
+                )
+                if candidate is None:
+                    continue
+                history = (*histories[ac_idx], candidate.route_id)
+                if len(set(history)) != len(history):
+                    raise RuntimeError("bounded route episode attempted a route more than once")
+                histories[ac_idx] = history
+
+                if gated.success:
+                    await self._persist_route_observation(
+                        seed=seed,
+                        result=gated,
+                        root_ac_index=ac_idx,
+                        session_id=session_id,
+                        execution_id=execution_id,
+                        attempted_route_ids=history,
+                        failure_class=None,
+                        decision=None,
+                    )
+                    await self._raise_if_parallel_cancellation_requested(
+                        session_id=session_id,
+                        execution_counters=execution_counters,
+                    )
+                    continue
+
+                raw_failure = self._failure_class_for_result(gated)
+                try:
+                    failure = (
+                        FailureClass(raw_failure) if raw_failure else FailureClass.EVIDENCE_MISSING
+                    )
+                except ValueError:
+                    failure = FailureClass.EVIDENCE_MISSING
+                if gated.outcome is ACExecutionOutcome.BLOCKED:
+                    failure = FailureClass.BLOCKED
+
+                live_projection = self._build_route_compat_projection(
+                    model_router=self._model_router,
+                    effort=candidate.effort,
+                )
+                escalation_registry = build_compat_escalation_registry(live_projection)
+                requirements = (
+                    build_compat_escalation_requirements(
+                        live_projection,
+                        effort=candidate.effort,
+                    )
+                    if live_projection is not None
+                    else None
+                )
+                live_candidate = (
+                    next(
+                        (
+                            configured
+                            for configured in live_projection.registry.candidates
+                            if configured.route_id == candidate.route_id
+                        ),
+                        None,
+                    )
+                    if live_projection is not None
+                    else None
+                )
+                if (
+                    requirements is None
+                    or escalation_registry is None
+                    or live_projection is None
+                    or live_candidate != candidate
+                ):
+                    decision = RouteEscalationDecision(
+                        action=EscalationAction.BLOCKED,
+                        failure_class=failure,
+                        selected=None,
+                        attempted_route_ids=history,
+                        remaining_route_ids=(),
+                        reason=EscalationReason.NO_ELIGIBLE_ROUTE,
+                    )
+                else:
+                    decision = advance_route(
+                        escalation_registry,
+                        requirements,
+                        current_route_id=candidate.route_id,
+                        attempted_route_ids=history,
+                        failure_class=failure,
+                    )
+                await self._persist_route_observation(
+                    seed=seed,
+                    result=gated,
+                    root_ac_index=ac_idx,
+                    session_id=session_id,
+                    execution_id=execution_id,
+                    attempted_route_ids=history,
+                    failure_class=failure,
+                    decision=decision,
+                )
+                await self._raise_if_parallel_cancellation_requested(
+                    session_id=session_id,
+                    execution_counters=execution_counters,
+                )
+                if decision.action is EscalationAction.ESCALATE_ROUTE:
+                    assert decision.selected is not None
+                    ac_retry_attempts[ac_idx] += 1
+                    next_pending.add(ac_idx)
+                    next_overrides[ac_idx] = decision.selected
+                    next_prompts[ac_idx] = self._build_ac_retry_prompt(
+                        result=gated,
+                        ac_content=ac_text(seed.acceptance_criteria[ac_idx]),
+                        is_final_attempt=not decision.remaining_route_ids,
+                    )
+                    continue
+
+                blocked = replace(
+                    gated,
+                    success=False,
+                    outcome=ACExecutionOutcome.BLOCKED,
+                    error=(
+                        f"{gated.error or gated.final_message or 'Route attempt failed'}\n"
+                        f"Route escalation stopped: {decision.reason.value}; "
+                        "human handoff required."
+                    ),
+                )
+                results[positions[ac_idx]] = blocked
+                await self._emit_recovery_exhausted(
+                    seed=seed,
+                    result=blocked,
+                    root_ac_index=ac_idx,
+                    session_id=session_id,
+                    execution_id=execution_id,
+                    retry_termination_reason=decision.reason.value,
+                )
+
+            # A provider quota is normally shared by every route on this
+            # backend.  Do not dispatch successors accumulated for sibling ACs
+            # in the same round; return raw failures so the runner can durably
+            # mark the session PAUSED.
+            pending = set() if recoverable_pause_seen else next_pending
+            route_overrides = next_overrides
+            retry_prompts = next_prompts
+
+        return results
+
+    async def _continue_decomposed_legacy_recovery(
+        self,
+        *,
+        seed: Seed,
+        ac_idx: int,
+        initial_result: ACExecutionResult,
+        session_id: str,
+        execution_id: str,
+        tools: list[str],
+        tool_catalog: tuple[MCPToolDefinition, ...] | None,
+        system_prompt: str,
+        level_contexts: list[LevelContext],
+        ac_retry_attempts: dict[int, int],
+        execution_counters: dict[str, int] | None,
+        allow_root_redispatch: bool,
+    ) -> ACExecutionResult | BaseException:
+        """Continue the pre-Routing-D recovery contract for a composite root."""
+
+        current = initial_result
+        if _has_usage_limit_pause(current):
+            return current
+        current = await self._apply_verify_gate(
+            seed=seed,
+            ac_index=ac_idx,
+            result=current,
+            session_id=session_id,
+            execution_id=execution_id,
+        )
+        await self._emit_ac_attempt_judged(
+            result=current,
+            root_ac_index=ac_idx,
+            session_id=session_id,
+            execution_id=execution_id,
+        )
+        last_failure_class = self._failure_class_for_result(current)
+        termination_reason = "not_retryable"
+
+        while (
+            allow_root_redispatch
+            and self._is_retryable_failure(current)
+            and ac_retry_attempts[ac_idx] < self._ac_retry_attempts
+        ):
+            ac_retry_attempts[ac_idx] += 1
+            is_final = ac_retry_attempts[ac_idx] >= self._ac_retry_attempts
+            retried = await self._execute_ac_batch(
+                seed=seed,
+                batch_indices=[ac_idx],
+                session_id=session_id,
+                execution_id=execution_id,
+                tools=tools,
+                tool_catalog=tool_catalog,
+                system_prompt=system_prompt,
+                level_contexts=level_contexts,
+                ac_retry_attempts=ac_retry_attempts,
+                execution_counters=execution_counters,
+                retry_prompts={
+                    ac_idx: self._build_ac_retry_prompt(
+                        result=current,
+                        ac_content=ac_text(seed.acceptance_criteria[ac_idx]),
+                        is_final_attempt=is_final,
+                    )
+                },
+                same_runtime_budget_exhausted=is_final,
+                force_legacy_routing=True,
+            )
+            next_value = retried[0]
+            if not isinstance(next_value, ACExecutionResult):
+                return next_value
+            if _has_usage_limit_pause(next_value):
+                return next_value
+            current = await self._apply_verify_gate(
+                seed=seed,
+                ac_index=ac_idx,
+                result=next_value,
+                session_id=session_id,
+                execution_id=execution_id,
+            )
+            await self._emit_ac_attempt_judged(
+                result=current,
+                root_ac_index=ac_idx,
+                session_id=session_id,
+                execution_id=execution_id,
+            )
+            if not self._is_retryable_failure(current):
+                termination_reason = "not_retryable"
+                break
+
+            new_failure_class = self._failure_class_for_result(current)
+            if (
+                new_failure_class is not None
+                and last_failure_class is not None
+                and new_failure_class == last_failure_class
+            ):
+                model_support = getattr(
+                    getattr(self._adapter, "capabilities", None),
+                    "model_override_support",
+                    ParamSupport.IGNORED,
+                )
+                pending_model_escalation = False
+                if (
+                    self._model_router is not None
+                    and self._model_router.runtime_backend
+                    == getattr(self._adapter, "runtime_backend", None)
+                    and model_support is ParamSupport.NATIVE
+                    and not is_final
+                ):
+                    just_dispatched = decide_model(
+                        model_support,
+                        router=self._model_router,
+                        is_decomposed_child=True,
+                        decomposition_trustworthy=current.decomposition_trustworthy,
+                        retry_attempt=ac_retry_attempts[ac_idx],
+                    )
+                    next_scheduled = decide_model(
+                        model_support,
+                        router=self._model_router,
+                        is_decomposed_child=True,
+                        decomposition_trustworthy=current.decomposition_trustworthy,
+                        retry_attempt=ac_retry_attempts[ac_idx] + 1,
+                    )
+                    pending_model_escalation = bool(
+                        just_dispatched.is_enforced
+                        and next_scheduled.model is not None
+                        and next_scheduled.model != just_dispatched.model
+                    )
+                if not pending_model_escalation:
+                    termination_reason = "repeated_failure_early_stop"
+                    if not is_final:
+                        alt = await self._maybe_redispatch_alt_harness_for_batch_ac(
+                            seed=seed,
+                            ac_idx=ac_idx,
+                            result=current,
+                            session_id=session_id,
+                            execution_id=execution_id,
+                            tools=tools,
+                            tool_catalog=tool_catalog,
+                            system_prompt=system_prompt,
+                            level_contexts=level_contexts,
+                            execution_counters=execution_counters,
+                            retry_attempt=ac_retry_attempts[ac_idx],
+                        )
+                        if isinstance(alt, ACExecutionResult):
+                            current = await self._apply_verify_gate(
+                                seed=seed,
+                                ac_index=ac_idx,
+                                result=alt,
+                                session_id=session_id,
+                                execution_id=execution_id,
+                            )
+                            await self._emit_ac_attempt_judged(
+                                result=current,
+                                root_ac_index=ac_idx,
+                                session_id=session_id,
+                                execution_id=execution_id,
+                            )
+                    break
+            last_failure_class = new_failure_class
+            termination_reason = "budget_exhausted"
+
+        await self._emit_recovery_exhausted(
+            seed=seed,
+            result=current,
+            root_ac_index=ac_idx,
+            session_id=session_id,
+            execution_id=execution_id,
+            retry_termination_reason=termination_reason,
+        )
+        return current
+
+    async def _load_bounded_route_resume_state(
+        self,
+        *,
+        seed: Seed,
+        execution_id: str,
+        session_id: str,
+        root_ac_indices: tuple[int, ...],
+    ) -> tuple[
+        dict[int, tuple[str, ...]],
+        dict[int, RouteCandidate],
+        dict[int, str],
+        dict[int, ACExecutionResult],
+    ]:
+        """Replay route observations without repeating a provider effect.
+
+        A failed observation with a durable escalation decision resumes at its
+        exact selected successor.  A provisional success seals the provider
+        effect but remains subject to the existing Final Gate.  A paused route
+        resumes only its exact durable candidate.
+        """
+        from ouroboros.orchestrator.route_policy import RouteRequirements
+
+        relevant = set(root_ac_indices)
+        for root_ac_index in relevant:
+            self._parallel_route_resumes.pop(root_ac_index, None)
+        composite_results: dict[int, ACExecutionResult] = {}
+        composite_event_limit = _composite_completion_event_sentinel(len(seed.acceptance_criteria))
+        composite_events = await self._event_store.query_execution_related_events(
+            execution_id,
+            event_type="execution.ac.composite_completed",
+            limit=composite_event_limit,
+        )
+        if len(composite_events) >= composite_event_limit:
+            raise RuntimeError("composite completion replay exceeds the admitted root population")
+        for event in composite_events:
+            if event.type != "execution.ac.composite_completed":
+                continue
+            data = event.data
+            if not _mapping_has_exact_keys(data, _PARALLEL_COMPOSITE_COMPLETION_KEYS):
+                raise RuntimeError("composite completion replay has an invalid event envelope")
+            if data.get("session_id") != session_id:
+                continue
+            root_ac_index = data.get("root_ac_index")
+            if (
+                type(data.get("schema_version")) is not int
+                or data.get("schema_version") != 1
+                or data.get("execution_id") != execution_id
+                or data.get("call_site") != "parallel"
+                or type(root_ac_index) is not int
+                or data.get("final_acceptance_declared") is not False
+            ):
+                raise RuntimeError("composite completion replay has invalid correlation metadata")
+            assert isinstance(root_ac_index, int)
+            if root_ac_index not in relevant:
+                continue
+            if root_ac_index in composite_results:
+                raise RuntimeError("composite completion replay is duplicated")
+            criterion = seed.acceptance_criteria[root_ac_index]
+            semantic_ac_key = criterion.semantic_ac_key or derive_semantic_ac_key(criterion)
+            if data.get("semantic_ac_key") != semantic_ac_key:
+                raise RuntimeError("composite completion replay crossed AC identity")
+            decision, _decision_data, fingerprint = _canonical_decomposition_decision(
+                data.get("decomposition_decision")
+            )
+            if (
+                decision.disposition is not DecompositionDisposition.SPLIT
+                or data.get("decomposition_fingerprint") != fingerprint
+                or decision.node_id
+                != ExecutionNodeIdentity.root(
+                    execution_context_id=execution_id or session_id,
+                    ac_index=root_ac_index,
+                ).node_id
+            ):
+                raise RuntimeError("composite completion replay crossed decomposition identity")
+            restored = _deserialize_composite_completion_result(
+                data.get("result"),
+                ac_index=root_ac_index,
+                ac_content=ac_text(criterion),
+                decomposition_decision=decision,
+            )
+            composite_results[root_ac_index] = restored
+            try:
+                self._confirm_replayed_decomposition_decision(decision)
+            except RuntimeError as exc:
+                raise RuntimeError(f"composite completion {exc}") from exc
+        partial_states: dict[int, tuple[_PartialCompositeResumeState, ...]] = {}
+        prior_frame_states: dict[tuple[int, str], _PartialCompositeResumeState] = {}
+        prior_paths: dict[int, tuple[_PartialCompositeResumeState, ...]] = {}
+        # Fold a stable high-water snapshot oldest-to-newest. The page size is a
+        # memory bound, never a valid-history limit, so every producer-created
+        # pause remains replayable while advancing prefixes and provider handles
+        # retain their chronological semantics.
+        async for event in replay_execution_events_chronologically(
+            self._event_store,
+            execution_id=execution_id,
+            event_type="execution.ac.composite_paused",
+            page_size=_PARALLEL_PAUSE_REPLAY_PAGE_SIZE,
+        ):
+            if event.type != "execution.ac.composite_paused":
+                continue
+            data = event.data
+            if not _mapping_has_exact_keys(data, _PARALLEL_COMPOSITE_PAUSE_KEYS):
+                raise RuntimeError("partial composite replay has an invalid event envelope")
+            if data.get("session_id") != session_id:
+                continue
+            root_ac_index = data.get("root_ac_index")
+            if (
+                type(data.get("schema_version")) is not int
+                or data.get("schema_version") != 2
+                or data.get("execution_id") != execution_id
+                or data.get("call_site") != "parallel"
+                or type(root_ac_index) is not int
+                or data.get("recoverable_pause") is not True
+                or data.get("final_acceptance_declared") is not False
+            ):
+                raise RuntimeError("partial composite replay has invalid authority metadata")
+            assert isinstance(root_ac_index, int)
+            if root_ac_index not in relevant:
+                continue
+            criterion = seed.acceptance_criteria[root_ac_index]
+            semantic_ac_key = criterion.semantic_ac_key or derive_semantic_ac_key(criterion)
+            if data.get("semantic_ac_key") != semantic_ac_key:
+                raise RuntimeError("partial composite replay crossed AC identity")
+            expected_root = ExecutionNodeIdentity.root(
+                execution_context_id=execution_id or session_id,
+                ac_index=root_ac_index,
+            )
+            raw_frames = data.get("frames")
+            raw_leaf = data.get("paused_leaf")
+            if (
+                not isinstance(raw_frames, list)
+                or not 1 <= len(raw_frames) <= _COMPOSITE_RESULT_MAX_DEPTH
+                or not _mapping_has_exact_keys(raw_leaf, _PARALLEL_COMPOSITE_PAUSE_LEAF_KEYS)
+            ):
+                raise RuntimeError("partial composite replay has malformed recursive state")
+            assert isinstance(raw_leaf, Mapping)
+            leaf_scope_id = raw_leaf.get("runtime_scope_id")
+            leaf_dispatch_id = raw_leaf.get("dispatch_id")
+            leaf_capsule_fingerprint = raw_leaf.get("capsule_fingerprint")
+            if (
+                not isinstance(leaf_scope_id, str)
+                or not leaf_scope_id
+                or not isinstance(leaf_dispatch_id, str)
+                or len(leaf_dispatch_id) != 32
+                or any(char not in "0123456789abcdef" for char in leaf_dispatch_id)
+                or not isinstance(leaf_capsule_fingerprint, str)
+                or len(leaf_capsule_fingerprint) != 71
+                or not leaf_capsule_fingerprint.startswith("sha256:")
+                or any(char not in "0123456789abcdef" for char in leaf_capsule_fingerprint[7:])
+            ):
+                raise RuntimeError("partial composite replay has malformed leaf boundary")
+
+            node_budget = [_COMPOSITE_RESULT_MAX_NODES]
+            frame_states: list[_PartialCompositeResumeState] = []
+            expected_node = expected_root
+            parent_ac_index = root_ac_index
+            for frame_index, raw_frame in enumerate(raw_frames):
+                if not _mapping_has_exact_keys(raw_frame, _PARALLEL_COMPOSITE_PAUSE_FRAME_KEYS):
+                    raise RuntimeError("partial composite replay has malformed frame")
+                assert isinstance(raw_frame, Mapping)
+                decision, _decision_data, fingerprint = _canonical_decomposition_decision(
+                    raw_frame.get("decomposition_decision")
+                )
+                paused_child_index = raw_frame.get("paused_child_index")
+                paused_child_ac_index = raw_frame.get("paused_child_ac_index")
+                paused_child_content = raw_frame.get("paused_child_content")
+                paused_retry_attempt = raw_frame.get("paused_child_retry_attempt")
+                raw_completed = raw_frame.get("completed_children")
+                if (
+                    decision.disposition is not DecompositionDisposition.SPLIT
+                    or raw_frame.get("decomposition_fingerprint") != fingerprint
+                    or decision.node_id != expected_node.node_id
+                    or type(paused_child_index) is not int
+                    or not 0 <= paused_child_index < len(decision.children)
+                    or type(paused_child_ac_index) is not int
+                    or paused_child_ac_index != parent_ac_index * 100 + paused_child_index
+                    or not isinstance(paused_child_content, str)
+                    or paused_child_content != decision.children[paused_child_index].description
+                    or type(paused_retry_attempt) is not int
+                    or paused_retry_attempt < 0
+                    or not isinstance(raw_completed, list)
+                    or len(raw_completed) != paused_child_index
+                ):
+                    raise RuntimeError("partial composite replay has malformed frame state")
+                expected_child = expected_node.child(paused_child_index)
+                if raw_frame.get("paused_child_node_id") != expected_child.node_id:
+                    raise RuntimeError("partial composite replay crossed child node identity")
+                completed_children = tuple(
+                    _deserialize_composite_result_tree(child, node_budget=node_budget)
+                    for child in raw_completed
+                )
+                if tuple(child.ac_content for child in completed_children) != tuple(
+                    child.description for child in decision.children[:paused_child_index]
+                ) or any(
+                    child.ac_index != parent_ac_index * 100 + child_index
+                    or child.depth != expected_node.depth + 1
+                    for child_index, child in enumerate(completed_children)
+                ):
+                    raise RuntimeError("partial composite replay drifted from its child prefix")
+                is_leaf_frame = frame_index == len(raw_frames) - 1
+                if is_leaf_frame and (
+                    raw_leaf.get("node_id") != expected_child.node_id
+                    or raw_leaf.get("ac_index") != paused_child_ac_index
+                    or raw_leaf.get("ac_content") != paused_child_content
+                    or raw_leaf.get("retry_attempt") != paused_retry_attempt
+                ):
+                    raise RuntimeError("partial composite replay crossed paused leaf identity")
+                state = _PartialCompositeResumeState(
+                    decision=decision,
+                    completed_children=completed_children,
+                    paused_child_index=paused_child_index,
+                    paused_child_ac_index=paused_child_ac_index,
+                    paused_child_content=paused_child_content,
+                    paused_child_retry_attempt=paused_retry_attempt,
+                    paused_runtime_scope_id=(leaf_scope_id if is_leaf_frame else None),
+                    paused_dispatch_id=(leaf_dispatch_id if is_leaf_frame else None),
+                    paused_capsule_fingerprint=(
+                        leaf_capsule_fingerprint if is_leaf_frame else None
+                    ),
+                )
+                previous = prior_frame_states.get((root_ac_index, decision.node_id))
+                if previous is not None and (
+                    state.paused_child_index < previous.paused_child_index
+                    or state.completed_children[: len(previous.completed_children)]
+                    != previous.completed_children
+                    or state.decision != previous.decision
+                ):
+                    raise RuntimeError("partial composite replay has a conflicting state sequence")
+                prior_frame_states[(root_ac_index, decision.node_id)] = state
+                frame_states.append(state)
+                expected_node = expected_child
+                parent_ac_index = paused_child_ac_index
+            current_path = tuple(frame_states)
+            previous_path = prior_paths.get(root_ac_index)
+            if previous_path is not None and len(current_path) < len(previous_path):
+                first_progress_index: int | None = None
+                for path_index, (previous_state, current_state) in enumerate(
+                    zip(previous_path, current_path, strict=False)
+                ):
+                    if (
+                        current_state.decision != previous_state.decision
+                        or current_state.completed_children != previous_state.completed_children
+                        or current_state.paused_child_index != previous_state.paused_child_index
+                        or current_state.paused_child_ac_index
+                        != previous_state.paused_child_ac_index
+                        or current_state.paused_child_content != previous_state.paused_child_content
+                        or current_state.paused_child_retry_attempt
+                        != previous_state.paused_child_retry_attempt
+                    ):
+                        first_progress_index = path_index
+                        break
+                if first_progress_index is None:
+                    raise RuntimeError(
+                        "partial composite replay dropped an established descendant frame"
+                    )
+                previous_state = previous_path[first_progress_index]
+                current_state = current_path[first_progress_index]
+                if (
+                    current_state.decision != previous_state.decision
+                    or current_state.paused_child_index <= previous_state.paused_child_index
+                ):
+                    raise RuntimeError(
+                        "partial composite replay shortened without consuming its subtree"
+                    )
+            prior_paths[root_ac_index] = current_path
+            partial_states[root_ac_index] = current_path
+        active_partial_roots = set(partial_states) - set(composite_results)
+        for root_ac_index, states in partial_states.items():
+            if root_ac_index in composite_results:
+                # A later terminal composite safely consumes every earlier
+                # pause projection for the same immutable split.
+                if composite_results[root_ac_index].decomposition_decision != states[0].decision:
+                    raise RuntimeError("partial composite replay conflicts with completion")
+                continue
+            for state in states:
+                try:
+                    self._confirm_replayed_decomposition_decision(state.decision)
+                except RuntimeError as exc:
+                    raise RuntimeError(f"partial composite {exc}") from exc
+                self._partial_composite_resumes[state.decision.node_id] = state
+        grouped: dict[int, list[tuple[RouteObservation, object, bool, object]]] = {
+            ac_idx: [] for ac_idx in root_ac_indices
+        }
+        observation_event_limit = len(seed.acceptance_criteria) * MAX_ROUTE_ATTEMPTS + 1
+        events = await self._event_store.query_execution_related_events(
+            execution_id,
+            event_type="execution.ac.route_observed",
+            limit=observation_event_limit,
+        )
+        if len(events) >= observation_event_limit:
+            raise RuntimeError("route observation replay exceeds the execution-wide bound")
+        for event in events:
+            if event.type != "execution.ac.route_observed":
+                continue
+            data = event.data
+            if not _mapping_has_exact_keys(data, _PARALLEL_ROUTE_OBSERVATION_KEYS):
+                raise RuntimeError("route observation replay has an invalid event envelope")
+            if data.get("session_id") != session_id:
+                continue
+            if data.get("call_site") != "parallel":
+                # A session cannot change routing call sites during replay.
+                # Missing legacy scope is ambiguous and therefore cannot be
+                # treated as parallel evidence.
+                raise RuntimeError("route observation replay crossed routing call sites")
+            if data.get("execution_id") != execution_id:
+                raise RuntimeError("route observation replay crossed execution identity")
+            root_ac_index = data.get("root_ac_index")
+            if type(root_ac_index) is not int:
+                raise RuntimeError("route observation replay has an invalid root AC index")
+            if root_ac_index not in relevant:
+                continue
+            if type(data.get("schema_version")) is not int or data.get("schema_version") != 1:
+                raise RuntimeError("route observation replay has an invalid event schema")
+            if data.get("final_acceptance_declared") is not False:
+                raise RuntimeError("route observation cannot declare Final Gate acceptance")
+            human_handoff_required = data.get("human_handoff_required")
+            if type(human_handoff_required) is not bool:
+                raise RuntimeError("route observation replay has an invalid handoff claim")
+            criterion = seed.acceptance_criteria[root_ac_index]
+            semantic_ac_key = criterion.semantic_ac_key or derive_semantic_ac_key(criterion)
+            if data.get("semantic_ac_key") != semantic_ac_key:
+                raise RuntimeError("route observation replay crossed AC identity")
+            try:
+                observation = RouteObservation.from_contract_data(data.get("observation"))
+            except (TypeError, ValueError) as exc:
+                raise RuntimeError(
+                    "route observation replay contains an invalid observation"
+                ) from exc
+            episode_digest = hashlib.sha256(
+                f"{execution_id or session_id}\0{root_ac_index}\0{semantic_ac_key}".encode()
+            ).hexdigest()
+            if observation.episode_id != f"route:{episode_digest}":
+                raise RuntimeError("route observation replay crossed route episode identity")
+            if len(grouped[root_ac_index]) >= MAX_ROUTE_ATTEMPTS:
+                raise RuntimeError("route observation replay exceeds the finite route bound")
+            grouped[root_ac_index].append(
+                (
+                    observation,
+                    data.get("decision"),
+                    human_handoff_required,
+                    data.get("provisional_result"),
+                )
+            )
+
+        observed_attempts: dict[tuple[int, str, int, str], RouteVerifierOutcome] = {}
+        for root_ac_index, rows in grouped.items():
+            for observation, _decision, _handoff, _provisional_result in rows:
+                key = (
+                    root_ac_index,
+                    observation.episode_id,
+                    observation.attempt_index,
+                    observation.route_id,
+                )
+                if key in observed_attempts:
+                    raise RuntimeError("durable route observation is duplicated")
+                observed_attempts[key] = observation.verifier_outcome
+        judged_attempts: dict[tuple[int, str, int, str], tuple[bool, str]] = {}
+        judgment_event_limit = len(seed.acceptance_criteria) * MAX_ROUTE_ATTEMPTS + 1
+        judgment_events = await self._event_store.query_execution_related_events(
+            execution_id,
+            event_type="execution.ac.attempt_judged",
+            limit=judgment_event_limit,
+            payload_equals={
+                "route_contract_version": 1,
+                "session_id": session_id,
+            },
+        )
+        if len(judgment_events) >= judgment_event_limit:
+            raise RuntimeError("route-aware attempt judgment replay exceeds its population bound")
+        for event in judgment_events:
+            if event.type != "execution.ac.attempt_judged":
+                continue
+            data = event.data
+            if data.get("session_id") != session_id:
+                continue
+            # Legacy and non-routing judgments have no Routing D marker and do
+            # not participate in this replay episode.
+            if data.get("route_contract_version") is None:
+                continue
+            if not _mapping_has_exact_keys(data, _PARALLEL_ROUTE_JUDGMENT_KEYS):
+                raise RuntimeError("route-aware attempt judgment has an invalid event envelope")
+            root_ac_index = data.get("root_ac_index")
+            route_episode_id = data.get("route_episode_id")
+            route_attempt_index = data.get("route_attempt_index")
+            route_id = data.get("route_id")
+            retry_attempt = data.get("retry_attempt")
+            attempt_number = data.get("attempt_number")
+            if (
+                data.get("route_contract_version") != 1
+                or data.get("execution_id") != execution_id
+                or data.get("call_site") != "parallel"
+                or type(root_ac_index) is not int
+                or data.get("ac_index") != root_ac_index
+                or not isinstance(route_episode_id, str)
+                or not route_episode_id
+                or len(route_episode_id) > MAX_EPISODE_ID_CHARS
+                or type(route_attempt_index) is not int
+                or not 0 <= route_attempt_index < MAX_ROUTE_ATTEMPTS
+                or not isinstance(route_id, str)
+                or not route_id
+                or len(route_id) > MAX_ROUTE_ID_CHARS
+                or type(retry_attempt) is not int
+                or not 0 <= retry_attempt < MAX_ROUTE_ATTEMPTS
+                or type(attempt_number) is not int
+                or attempt_number != retry_attempt + 1
+                or type(data.get("success")) is not bool
+                or type(data.get("outcome")) is not str
+                or data.get("is_decomposed") is not False
+                or data.get("is_decomposed_child") is not False
+            ):
+                raise RuntimeError("route-aware attempt judgment has invalid correlation metadata")
+            assert isinstance(root_ac_index, int)
+            if root_ac_index not in relevant:
+                continue
+            key = (
+                root_ac_index,
+                data["route_episode_id"],
+                data["route_attempt_index"],
+                data["route_id"],
+            )
+            if key in judged_attempts:
+                raise RuntimeError("route-aware attempt judgment is duplicated")
+            outcome = data["outcome"]
+            if outcome not in {
+                ACExecutionOutcome.SUCCEEDED.value,
+                ACExecutionOutcome.FAILED.value,
+                ACExecutionOutcome.BLOCKED.value,
+            }:
+                raise RuntimeError("route-aware attempt judgment has an invalid outcome")
+            judged_attempts[key] = (data["success"], outcome)
+        if set(judged_attempts) - set(observed_attempts):
+            raise RuntimeError(
+                "route-aware attempt judgment has no matching durable route observation"
+            )
+        if set(observed_attempts) - set(judged_attempts):
+            raise RuntimeError(
+                "durable route observation has no matching route-aware attempt judgment"
+            )
+        expected_judgments = {
+            RouteVerifierOutcome.ATTEMPT_SUCCEEDED: (
+                True,
+                ACExecutionOutcome.SUCCEEDED.value,
+            ),
+            RouteVerifierOutcome.FAILED: (False, ACExecutionOutcome.FAILED.value),
+            RouteVerifierOutcome.BLOCKED: (False, ACExecutionOutcome.BLOCKED.value),
+        }
+        for key, verifier_outcome in observed_attempts.items():
+            if judged_attempts[key] != expected_judgments[verifier_outcome]:
+                raise RuntimeError(
+                    "route-aware attempt judgment contradicts its durable observation"
+                )
+
+        histories: dict[int, tuple[str, ...]] = {}
+        overrides: dict[int, RouteCandidate] = {}
+        terminals: dict[int, str] = {}
+        provisional_successes: dict[int, ACExecutionResult] = dict(composite_results)
+        for ac_idx, rows in grouped.items():
+            if rows and (ac_idx in composite_results or ac_idx in active_partial_roots):
+                raise RuntimeError("composite replay conflicts with atomic route replay evidence")
+            rows.sort(key=lambda row: row[0].attempt_index)
+            if [row[0].attempt_index for row in rows] != list(range(len(rows))):
+                raise RuntimeError("route observation replay has a gap or duplicate")
+            episode_ids = {row[0].episode_id for row in rows}
+            route_ids = tuple(row[0].route_id for row in rows)
+            if len(episode_ids) > 1 or len(route_ids) != len(set(route_ids)):
+                raise RuntimeError("route observation replay is inconsistent")
+            histories[ac_idx] = route_ids
+            if not rows:
+                continue
+            parsed_decisions: list[RouteEscalationDecision | None] = []
+            for row_index, (
+                observation,
+                raw_decision,
+                handoff_claim,
+                raw_provisional_result,
+            ) in enumerate(rows):
+                live_projection = self._build_route_compat_projection(
+                    model_router=self._model_router,
+                    effort=observation.effort,
+                )
+                escalation_registry = build_compat_escalation_registry(live_projection)
+                requirements = (
+                    build_compat_escalation_requirements(
+                        live_projection,
+                        effort=observation.effort,
+                    )
+                    if live_projection is not None
+                    else None
+                )
+                if live_projection is None or requirements is None or escalation_registry is None:
+                    raise RuntimeError("route observation replay has no compatible live registry")
+                candidate = next(
+                    (
+                        configured
+                        for configured in live_projection.registry.candidates
+                        if configured.route_id == observation.route_id
+                    ),
+                    None,
+                )
+                if candidate is None:
+                    raise RuntimeError("route observation replay references a removed route")
+                eligible_candidate = next(
+                    (
+                        configured
+                        for configured in escalation_registry.candidates
+                        if configured.route_id == observation.route_id
+                    ),
+                    None,
+                )
+                if eligible_candidate != candidate:
+                    raise RuntimeError(
+                        "route observation replay detected starting-tier floor drift"
+                    )
+                expected_observation = RouteObservation.from_candidate(
+                    candidate,
+                    RouteRequirements(
+                        required_capabilities=requirements.required_capabilities,
+                    ),
+                    episode_id=observation.episode_id,
+                    attempt_index=observation.attempt_index,
+                    verifier_outcome=observation.verifier_outcome,
+                    failure_class=observation.failure_class,
+                    escalation_reason=observation.escalation_reason,
+                )
+                if expected_observation != observation:
+                    raise RuntimeError(
+                        "route observation replay detected route configuration drift"
+                    )
+
+                attempted = route_ids[: row_index + 1]
+                if observation.verifier_outcome is RouteVerifierOutcome.ATTEMPT_SUCCEEDED:
+                    if (
+                        raw_decision is not None
+                        or handoff_claim
+                        or row_index != len(rows) - 1
+                        or raw_provisional_result is None
+                    ):
+                        raise RuntimeError(
+                            "successful route observation has invalid recovery state"
+                        )
+                    parsed_decisions.append(None)
+                    continue
+                if raw_provisional_result is not None:
+                    raise RuntimeError("failed route observation carries success-only context")
+                if observation.failure_class is None:
+                    raise RuntimeError("failed route observation lost its failure classification")
+                try:
+                    decision = RouteEscalationDecision.from_contract_data(
+                        raw_decision,
+                        registry=escalation_registry,
+                    )
+                    recomputed = advance_route(
+                        escalation_registry,
+                        requirements,
+                        current_route_id=observation.route_id,
+                        attempted_route_ids=attempted,
+                        failure_class=observation.failure_class,
+                    )
+                except (TypeError, ValueError) as exc:
+                    raise RuntimeError(
+                        "route escalation replay contains an invalid decision"
+                    ) from exc
+                if decision != recomputed or observation.escalation_reason is not decision.reason:
+                    raise RuntimeError("route escalation replay decision drifted from live policy")
+                if handoff_claim is not decision.blocked:
+                    raise RuntimeError("route observation replay has a false handoff claim")
+                if row_index < len(rows) - 1:
+                    next_observation = rows[row_index + 1][0]
+                    selected_snapshot = decision.selected
+                    if (
+                        decision.action is not EscalationAction.ESCALATE_ROUTE
+                        or selected_snapshot is None
+                        or (
+                            selected_snapshot.route_id,
+                            selected_snapshot.model,
+                            selected_snapshot.harness,
+                            selected_snapshot.effort,
+                            selected_snapshot.cost_units,
+                            selected_snapshot.capabilities,
+                        )
+                        != (
+                            next_observation.route_id,
+                            next_observation.model,
+                            next_observation.harness,
+                            next_observation.effort,
+                            next_observation.cost_units,
+                            next_observation.capabilities,
+                        )
+                    ):
+                        raise RuntimeError(
+                            "route observation replay broke its durable successor chain"
+                        )
+                parsed_decisions.append(decision)
+
+            last_observation = rows[-1][0]
+            last_decision = parsed_decisions[-1]
+            if last_observation.verifier_outcome is RouteVerifierOutcome.ATTEMPT_SUCCEEDED:
+                provisional_successes[ac_idx] = _deserialize_provisional_route_success(
+                    rows[-1][3],
+                    ac_index=ac_idx,
+                    ac_content=ac_text(seed.acceptance_criteria[ac_idx]),
+                    route_candidate=candidate,
+                )
+                continue
+            if last_decision is None:
+                raise RuntimeError("failed route observation lost its durable decision")
+            if last_decision.action is EscalationAction.ESCALATE_ROUTE:
+                assert last_decision.selected is not None
+                overrides[ac_idx] = last_decision.selected
+            elif last_decision.action is EscalationAction.BLOCKED:
+                terminals[ac_idx] = (
+                    "The durable route set is exhausted or hard-blocked; human handoff is required."
+                )
+            else:
+                raise RuntimeError("route escalation replay contains an unknown action")
+
+        handoff_event_limit = len(seed.acceptance_criteria) + 1
+        handoff_events = await self._event_store.query_execution_related_events(
+            execution_id,
+            event_type="execution.ac.uncertain_handoff_required",
+            limit=handoff_event_limit,
+        )
+        if len(handoff_events) >= handoff_event_limit:
+            raise RuntimeError("parallel uncertain handoff replay exceeds its execution-wide bound")
+        uncertain_handoffs: set[int] = set()
+        for event in handoff_events:
+            if event.type != "execution.ac.uncertain_handoff_required":
+                continue
+            data = event.data
+            if not _mapping_has_exact_keys(data, _PARALLEL_UNCERTAIN_HANDOFF_KEYS):
+                raise RuntimeError("parallel uncertain handoff has an invalid event envelope")
+            if data.get("session_id") != session_id:
+                continue
+            root_ac_index = data.get("root_ac_index")
+            if type(root_ac_index) is not int:
+                raise RuntimeError("parallel uncertain handoff has an invalid root AC index")
+            if root_ac_index not in relevant:
+                continue
+            criterion = seed.acceptance_criteria[root_ac_index]
+            semantic_ac_key = criterion.semantic_ac_key or derive_semantic_ac_key(criterion)
+            if (
+                data.get("schema_version") != 1
+                or data.get("execution_id") != execution_id
+                or data.get("semantic_ac_key") != semantic_ac_key
+                or data.get("call_site") != "parallel"
+                or data.get("reason") != "sibling_cancelled_after_execution_authority_entry"
+                or data.get("human_handoff_required") is not True
+                or data.get("final_acceptance_declared") is not False
+            ):
+                raise RuntimeError("parallel uncertain handoff has invalid authority metadata")
+            if root_ac_index in uncertain_handoffs:
+                raise RuntimeError("parallel uncertain handoff is duplicated")
+            uncertain_handoffs.add(root_ac_index)
+            terminals[root_ac_index] = (
+                "A sibling quota cancelled this AC after execution authority entry; "
+                "the provider-effect boundary is uncertain and human handoff is required."
+            )
+
+        unresolved_pauses: dict[int, RouteCandidate] = {}
+        unresolved_pause_states: dict[int, _ParallelRouteResumeState] = {}
+        # Fold the complete stable population oldest-to-newest in bounded-memory
+        # pages. A repeated quota on one route replaces the prior provider handle
+        # with the latest unconsumed dispatch boundary without imposing a total
+        # event-count ceiling on otherwise valid durable history.
+        async for event in replay_execution_events_chronologically(
+            self._event_store,
+            execution_id=execution_id,
+            event_type="execution.ac.route_paused",
+            page_size=_PARALLEL_PAUSE_REPLAY_PAGE_SIZE,
+        ):
+            if event.type != "execution.ac.route_paused":
+                continue
+            data = event.data
+            if not _mapping_has_exact_keys(data, _PARALLEL_ROUTE_PAUSE_KEYS):
+                raise RuntimeError("parallel route pause has an invalid event envelope")
+            if data.get("session_id") != session_id:
+                continue
+            root_ac_index = data.get("root_ac_index")
+            if type(root_ac_index) is not int:
+                raise RuntimeError("parallel route pause has an invalid root AC index")
+            if root_ac_index not in relevant:
+                continue
+            if (
+                type(data.get("schema_version")) is not int
+                or data.get("schema_version") != 2
+                or data.get("execution_id") != execution_id
+                or data.get("call_site") != "parallel"
+                or data.get("recoverable_pause") is not True
+                or data.get("final_acceptance_declared") is not False
+            ):
+                raise RuntimeError("parallel route pause has invalid authority metadata")
+            criterion = seed.acceptance_criteria[root_ac_index]
+            semantic_ac_key = criterion.semantic_ac_key or derive_semantic_ac_key(criterion)
+            expected_episode = self._bounded_route_episode_id(
+                seed,
+                execution_id=execution_id,
+                session_id=session_id,
+                root_ac_index=root_ac_index,
+            )
+            raw_prior = data.get("prior_route_ids")
+            if (
+                data.get("semantic_ac_key") != semantic_ac_key
+                or data.get("episode_id") != expected_episode
+                or type(data.get("attempt_index")) is not int
+                or not isinstance(raw_prior, list)
+                or not all(type(route_id) is str for route_id in raw_prior)
+            ):
+                raise RuntimeError("parallel route pause crossed route identity")
+            attempt_index = data["attempt_index"]
+            prior_route_ids = tuple(raw_prior)
+            if attempt_index != len(prior_route_ids) or attempt_index >= MAX_ROUTE_ATTEMPTS:
+                raise RuntimeError("parallel route pause has an invalid attempt index")
+            try:
+                paused_candidate = RouteCandidate.from_contract_data(data.get("route"))
+            except (TypeError, ValueError) as exc:
+                raise RuntimeError("parallel route pause has an invalid route snapshot") from exc
+            raw_resume_state = data.get("resume_state")
+            if not _mapping_has_exact_keys(
+                raw_resume_state,
+                _PARALLEL_ROUTE_PAUSE_RESUME_KEYS,
+            ):
+                raise RuntimeError("parallel route pause has an invalid resume state")
+            assert isinstance(raw_resume_state, Mapping)
+            retry_attempt = raw_resume_state.get("retry_attempt")
+            retry_prompt_extra = raw_resume_state.get("retry_prompt_extra")
+            raw_siblings = raw_resume_state.get("sibling_acs")
+            route_id_override = raw_resume_state.get("route_id_override")
+            raw_expected_candidate = raw_resume_state.get("expected_route_candidate")
+            runtime_scope_id = raw_resume_state.get("runtime_scope_id")
+            dispatch_id = raw_resume_state.get("dispatch_id")
+            capsule_fingerprint = raw_resume_state.get("capsule_fingerprint")
+            if (
+                type(retry_attempt) is not int
+                or retry_attempt != attempt_index
+                or not isinstance(retry_prompt_extra, str)
+                or len(retry_prompt_extra) > 16_384
+                or not isinstance(raw_siblings, list)
+                or len(raw_siblings) > len(seed.acceptance_criteria)
+                or route_id_override is not None
+                and (not isinstance(route_id_override, str) or not route_id_override)
+                or not isinstance(runtime_scope_id, str)
+                or not runtime_scope_id
+                or not isinstance(dispatch_id, str)
+                or len(dispatch_id) != 32
+                or any(char not in "0123456789abcdef" for char in dispatch_id)
+                or not isinstance(capsule_fingerprint, str)
+                or len(capsule_fingerprint) != 71
+                or not capsule_fingerprint.startswith("sha256:")
+                or any(char not in "0123456789abcdef" for char in capsule_fingerprint[7:])
+            ):
+                raise RuntimeError("parallel route pause has malformed capsule-bearing state")
+            parsed_siblings: list[_SiblingACRef] = []
+            seen_sibling_indices: set[int] = set()
+            for raw_sibling in raw_siblings:
+                if not _mapping_has_exact_keys(
+                    raw_sibling,
+                    frozenset({"ac_index", "content"}),
+                ):
+                    raise RuntimeError("parallel route pause has malformed sibling state")
+                assert isinstance(raw_sibling, Mapping)
+                sibling_index = raw_sibling.get("ac_index")
+                sibling_content = raw_sibling.get("content")
+                if (
+                    type(sibling_index) is not int
+                    or sibling_index < 0
+                    or sibling_index >= len(seed.acceptance_criteria)
+                    or sibling_index in seen_sibling_indices
+                    or sibling_content != ac_text(seed.acceptance_criteria[sibling_index])
+                ):
+                    raise RuntimeError("parallel route pause crossed its sibling population")
+                seen_sibling_indices.add(sibling_index)
+                parsed_siblings.append((sibling_index, sibling_content))
+            try:
+                expected_route_candidate = (
+                    RouteCandidate.from_contract_data(raw_expected_candidate)
+                    if raw_expected_candidate is not None
+                    else None
+                )
+            except (TypeError, ValueError) as exc:
+                raise RuntimeError(
+                    "parallel route pause has an invalid expected route snapshot"
+                ) from exc
+            if prior_route_ids:
+                if (
+                    route_id_override != paused_candidate.route_id
+                    or expected_route_candidate != paused_candidate
+                    or not retry_prompt_extra
+                ):
+                    raise RuntimeError(
+                        "parallel route pause lost its durable successor capsule inputs"
+                    )
+            elif (
+                route_id_override is not None
+                or expected_route_candidate is not None
+                or retry_prompt_extra
+            ):
+                raise RuntimeError("parallel initial route pause invented successor capsule inputs")
+            parsed_resume_state = _ParallelRouteResumeState(
+                candidate=paused_candidate,
+                retry_attempt=retry_attempt,
+                retry_prompt_extra=retry_prompt_extra,
+                sibling_acs=tuple(parsed_siblings),
+                route_id_override=route_id_override,
+                expected_route_candidate=expected_route_candidate,
+                runtime_scope_id=runtime_scope_id,
+                dispatch_id=dispatch_id,
+                capsule_fingerprint=capsule_fingerprint,
+            )
+
+            history = histories[root_ac_index]
+            if attempt_index < len(history):
+                # A later judgment/observation consumed this pause.  It must be
+                # the exact same attempt, otherwise replay crossed identities.
+                if (
+                    prior_route_ids != history[:attempt_index]
+                    or history[attempt_index] != paused_candidate.route_id
+                ):
+                    raise RuntimeError("parallel route pause was consumed by a different route")
+                continue
+            if attempt_index != len(history) or prior_route_ids != history:
+                raise RuntimeError("parallel route pause does not follow durable route history")
+            if root_ac_index in uncertain_handoffs:
+                # The later uncertain handoff deliberately consumes replay
+                # authority for this previously paused AC.
+                continue
+            if (
+                root_ac_index in terminals
+                or root_ac_index in provisional_successes
+                or root_ac_index in active_partial_roots
+            ):
+                raise RuntimeError("parallel route pause contradicts a terminal route state")
+            expected_paused_candidate = overrides.get(root_ac_index)
+            if history and expected_paused_candidate != paused_candidate:
+                raise RuntimeError(
+                    "parallel route pause drifted from its durable successor snapshot"
+                )
+
+            investment_spec = (
+                criterion.investment if isinstance(criterion, AcceptanceCriterionSpec) else None
+            )
+            expected_effort, _expected_effort_kwargs = resolve_execute_effort(
+                self._adapter,
+                base_effort=self._reasoning_effort,
+                is_decomposed_child=False,
+                retry_attempt=0,
+                investment_assessment=assess_investment(investment_spec),
+            )
+            live_projection = self._build_route_compat_projection(
+                model_router=self._model_router,
+                effort=expected_effort.level,
+            )
+            live_registry = build_compat_escalation_registry(live_projection)
+            live_candidate = (
+                next(
+                    (
+                        candidate
+                        for candidate in live_registry.candidates
+                        if candidate.route_id == paused_candidate.route_id
+                    ),
+                    None,
+                )
+                if live_registry is not None
+                else None
+            )
+            if live_candidate != paused_candidate:
+                raise RuntimeError("parallel route pause detected route configuration drift")
+            if not history:
+                initial = admit_compat_escalation_route(
+                    live_projection,
+                    effort=expected_effort.level,
+                )
+                if initial.selected != paused_candidate:
+                    raise RuntimeError("parallel route pause drifted from exact initial admission")
+            prior_unresolved = unresolved_pauses.get(root_ac_index)
+            if prior_unresolved is not None and prior_unresolved != paused_candidate:
+                raise RuntimeError("parallel route pause has conflicting unconsumed snapshots")
+            unresolved_pauses[root_ac_index] = paused_candidate
+            unresolved_pause_states[root_ac_index] = parsed_resume_state
+
+        for root_ac_index, paused_candidate in unresolved_pauses.items():
+            resume_state = unresolved_pause_states[root_ac_index]
+            if resume_state.expected_route_candidate is not None:
+                overrides[root_ac_index] = paused_candidate
+            self._parallel_route_resumes[root_ac_index] = resume_state
+        return histories, overrides, terminals, provisional_successes
 
     async def _maybe_redispatch_alt_harness_for_batch_ac(
         self,
@@ -8418,4 +13154,5 @@ __all__ = [
     "StageExecutionOutcome",
     "ParallelExecutionResult",
     "ParallelACExecutor",
+    "ParallelExecutionCancelled",
 ]

@@ -34,7 +34,6 @@ Functions:
     get_zcode_cli_path: Get zcode CLI path from env var or config
 """
 
-import ast
 from collections.abc import Callable
 import math
 import os
@@ -43,6 +42,7 @@ import shutil
 import stat
 from typing import Any
 
+from dotenv import dotenv_values
 from pydantic import ValidationError as PydanticValidationError
 import yaml
 
@@ -132,6 +132,7 @@ _DEFAULT_CONSENSUS_DEVIL_MODEL = "openrouter/openai/gpt-4o"
 _DEFAULT_CONSENSUS_JUDGE_MODEL = "openrouter/google/gemini-2.5-pro"
 _DEFAULT_USAGE_LIMIT_PAUSE_HOURS = 5.0
 _SECONDS_PER_HOUR = 3600
+MAX_USAGE_LIMIT_PAUSE_SECONDS = 365 * 24 * _SECONDS_PER_HOUR
 _USAGE_LIMIT_PAUSE_CONFIG_KEY = "orchestrator.usage_limit_pause_hours"
 _RUNTIME_CONTROL_ENV_KEYS = {
     "OUROBOROS_MCP_TOOL_TIMEOUT_SECONDS": "mcp_tool_timeout_seconds",
@@ -142,22 +143,21 @@ _RUNTIME_CONTROL_ENV_KEYS = {
 }
 
 
-def _parse_env_value(raw_value: str) -> str:
-    candidate = raw_value.strip()
-    if not candidate:
-        return ""
+def _is_assignable_env_key(key: str) -> bool:
+    """Return whether `key` can be written to ``os.environ`` at all.
 
-    if candidate[0] in {'"', "'"} and candidate[-1:] == candidate[0]:
-        try:
-            parsed = ast.literal_eval(candidate)
-        except (SyntaxError, ValueError):
-            return candidate[1:-1]
-        return str(parsed)
+    python-dotenv's grammar is wider than the environment's. A quoted
+    left-hand side such as ``'BROKEN=KEY'=value`` parses to the key
+    ``BROKEN=KEY``, and CPython rejects any name containing ``=`` or NUL with
+    ``ValueError: illegal environment variable name``.
 
-    comment_index = candidate.find(" #")
-    if comment_index != -1:
-        candidate = candidate[:comment_index]
-    return candidate.rstrip()
+    This module runs ``_load_env_file`` at import, so an unhandled rejection
+    there would stop every Ouroboros command from starting -- a denial of
+    service reachable from a cloned repository's ``.env``. Skipping the entry
+    keeps startup alive and matches the previous parser, which also refused
+    keys containing whitespace.
+    """
+    return bool(key) and not any(ch == "=" or ch == "\0" or ch.isspace() for ch in key)
 
 
 def _is_placeholder_api_key(value: str) -> bool:
@@ -198,6 +198,11 @@ _UNTRUSTED_ENV_DENYLIST = frozenset(
         # Node/Electron preload hook. A project .env could otherwise inject a
         # --require/--import payload before a spawned JavaScript CLI starts.
         "NODE_OPTIONS",
+        # Non-LD_/DYLD_ dynamic-loader controls used by supported or adjacent
+        # Unix platforms. Prefix families are rejected below.
+        "LDR_PRELOAD",
+        "LIBPATH",
+        "SHLIB_PATH",
         # Explicit executable-path overrides.
         "OUROBOROS_CLI_PATH",
         "OUROBOROS_CODEX_CLI_PATH",
@@ -252,6 +257,12 @@ _UNTRUSTED_ENV_DENYLIST = frozenset(
         "OPENCODE_CONFIG",
         "OPENCODE_CONFIG_DIR",
         "XDG_CONFIG_HOME",
+        # Platform home selectors also choose Ouroboros' trusted config root.
+        # A project .env must not turn a repository directory into ~/.ouroboros.
+        "HOME",
+        "USERPROFILE",
+        "HOMEDRIVE",
+        "HOMEPATH",
         # Ouroboros' own MCP-bridge / plugin execution roster roots. Each
         # selects a file whose contents name an external command that the
         # bridge or plugin dispatcher then spawns verbatim — direct RCE, the
@@ -307,6 +318,7 @@ _UNTRUSTED_ENV_DENYLIST = frozenset(
         "OUROBOROS_SHADOW_REPLAY",
     }
 )
+_UNTRUSTED_ENV_DENIED_PREFIXES = ("DYLD_", "LD_")
 
 # The reasoning-effort vocabulary every native runtime accepts (mirrors
 # OrchestratorConfig.reasoning_effort). A value outside this set — Codex-only
@@ -317,25 +329,59 @@ _VALID_REASONING_EFFORT_LEVELS = frozenset({"low", "medium", "high", "xhigh"})
 
 def _is_untrusted_env_denied_key(key: str) -> bool:
     """Return whether an untrusted .env key may alter execution routing."""
-    return key.upper() in _UNTRUSTED_ENV_DENYLIST
+    normalized = key.upper()
+    return normalized in _UNTRUSTED_ENV_DENYLIST or normalized.startswith(
+        _UNTRUSTED_ENV_DENIED_PREFIXES
+    )
 
 
 def _load_env_file(path: Path, *, trusted: bool = False) -> None:
+    """Apply a ``.env`` file to ``os.environ`` under this module's trust policy.
+
+    Grammar is delegated to ``python-dotenv``, which owns it. The previous
+    hand-rolled parser routed quoted values through :func:`ast.literal_eval`,
+    applying *Python* string syntax to a POSIX-shaped file: `X='C:\\new\\table'`
+    came back ten characters long with a newline and a tab in it, because single
+    quotes are literal everywhere except in Python. Escapes, comments, quoting,
+    and `export ` are now the library's problem.
+
+    Every policy decision stays here:
+
+    * the untrusted-source key denylist (RCE guard) is applied per key;
+    * template placeholder keys are skipped;
+    * an already-set real environment value is never overridden.
+
+    ``interpolate=False`` is deliberate. python-dotenv expands ``${VAR}`` from
+    the environment by default; leaving that on would both change today's
+    behaviour (``$HOME`` is currently literal) and hand an untrusted
+    project-directory ``.env`` a way to read the real process environment into
+    a value it controls.
+    """
     if not path.is_file():
         return
 
-    for raw_line in path.read_text().splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if line.startswith("export "):
-            line = line[7:].lstrip()
-        if "=" not in line:
+    try:
+        entries = dotenv_values(path, interpolate=False, encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        # An unreadable or non-UTF-8 .env is not fatal; the process
+        # environment still wins. `UnicodeDecodeError` is a `ValueError`, not
+        # an `OSError`, so it needs naming: a single invalid byte
+        # (`BROKEN=\xFF`) in a cloned repository would otherwise abort import.
+        return
+    except Exception:  # noqa: BLE001 - startup must survive any parser failure
+        # This module runs `_load_env_file` at import, so a malformed `.env`
+        # must degrade to "no variables loaded", never to an unstartable
+        # process. Enumerating the parser's failure modes has already missed
+        # two -- an illegal key name and a decoding error -- so the invariant
+        # is enforced here rather than predicted.
+        return
+
+    for key, parsed_value in entries.items():
+        # A bare `KEY` line with no `=` yields None, matching the old skip.
+        if not key or parsed_value is None:
             continue
 
-        key, raw_value = line.split("=", 1)
-        key = key.strip()
-        if not key or any(ch.isspace() for ch in key):
+        if not _is_assignable_env_key(key):
             continue
 
         if not trusted and _is_untrusted_env_denied_key(key):
@@ -343,13 +389,19 @@ def _load_env_file(path: Path, *, trusted: bool = False) -> None:
             # binary Ouroboros executes (remote code execution guard).
             continue
 
-        parsed_value = _parse_env_value(raw_value)
         if not parsed_value or _is_placeholder_api_key(parsed_value):
             continue
 
         current_value = os.environ.get(key)
         if current_value is None or _is_placeholder_api_key(current_value):
-            os.environ[key] = parsed_value
+            try:
+                os.environ[key] = parsed_value
+            except ValueError:
+                # Defence in depth. `_is_assignable_env_key` already rejects
+                # everything CPython refuses, but this module is imported at
+                # startup: a future parser change must degrade to skipping one
+                # entry, never to an unstartable process.
+                continue
 
 
 # The project-directory .env travels with whatever repository the user
@@ -448,7 +500,7 @@ def create_default_config(
     # Create config.yaml
     default_config = get_default_config()
     config_dict = _model_to_yaml_dict(default_config)
-    with config_path.open("w") as f:
+    with config_path.open("w", encoding="utf-8") as f:
         yaml.dump(
             config_dict,
             f,
@@ -460,7 +512,7 @@ def create_default_config(
     # Create credentials.yaml with secure permissions
     default_credentials = get_default_credentials()
     credentials_dict = _model_to_yaml_dict(default_credentials)
-    with credentials_path.open("w") as f:
+    with credentials_path.open("w", encoding="utf-8") as f:
         yaml.dump(
             credentials_dict,
             f,
@@ -501,9 +553,9 @@ def load_config(config_path: Path | None = None) -> OuroborosConfig:
         )
 
     try:
-        with config_path.open() as f:
+        with config_path.open(encoding="utf-8") as f:
             config_dict = yaml.safe_load(f)
-    except yaml.YAMLError as e:
+    except (UnicodeDecodeError, yaml.YAMLError) as e:
         raise ConfigError(
             f"Failed to parse configuration file: {e}",
             config_file=str(config_path),
@@ -574,9 +626,9 @@ def load_credentials(credentials_path: Path | None = None) -> CredentialsConfig:
         pass
 
     try:
-        with credentials_path.open() as f:
+        with credentials_path.open(encoding="utf-8") as f:
             credentials_dict = yaml.safe_load(f)
-    except yaml.YAMLError as e:
+    except (UnicodeDecodeError, yaml.YAMLError) as e:
         raise ConfigError(
             f"Failed to parse credentials file: {e}",
             config_file=str(credentials_path),
@@ -925,6 +977,38 @@ def get_agent_reasoning_effort() -> str | None:
         return None
 
 
+def get_execution_model() -> str | None:
+    """Return an explicit Execute-stage model pin, if one was configured.
+
+    Environment remains the one-off highest-priority override.  The web/TUI
+    setting writes ``execution.default_model``; an empty value or the UI's
+    ``default``/``current`` sentinel deliberately means "let this runtime pick"
+    rather than a model named ``default``.
+    """
+    env_model = os.environ.get("OUROBOROS_EXECUTION_MODEL")
+    if env_model is not None:
+        stripped = env_model.strip()
+        return None if not stripped or stripped.lower() in {"default", "current"} else stripped
+    try:
+        model = load_config().execution.default_model
+    except ConfigError:
+        return None
+    if model is None:
+        return None
+    stripped = model.strip()
+    return None if not stripped or stripped.lower() in {"default", "current"} else stripped
+
+
+def resolve_execution_model(runtime_backend: str | None) -> str | None:
+    """Resolve the exact Execute-stage model pin shared by CLI, MCP, and config views."""
+    execution_model = get_execution_model()
+    if execution_model is not None:
+        return execution_model
+    if (runtime_backend or "").strip().lower() in {"claude", "claude_code"}:
+        return DEFAULT_SONNET_MODEL
+    return None
+
+
 def _parse_max_parallel_workers(value: Any, *, config_key: str) -> int:
     """Parse a worker-cap setting without validating unrelated config keys."""
     if isinstance(value, bool):
@@ -978,7 +1062,7 @@ def _parse_positive_float(value: Any, *, config_key: str) -> float:
 
     try:
         parsed = float(value)
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, OverflowError) as exc:
         raise ConfigError(
             f"{config_key} must be a positive number",
             config_key=config_key,
@@ -1002,6 +1086,21 @@ def _parse_positive_float(value: Any, *, config_key: str) -> float:
     return parsed
 
 
+def _bounded_usage_limit_pause_seconds(hours: float, *, config_key: str) -> int:
+    """Convert a validated hour value into one finite durable policy value."""
+    seconds = hours * _SECONDS_PER_HOUR
+    if not math.isfinite(seconds) or seconds > MAX_USAGE_LIMIT_PAUSE_SECONDS:
+        raise ConfigError(
+            f"{config_key} must not exceed 365 days",
+            config_key=config_key,
+            details={
+                "value": hours,
+                "max_seconds": MAX_USAGE_LIMIT_PAUSE_SECONDS,
+            },
+        )
+    return max(1, int(seconds))
+
+
 def get_usage_limit_pause_seconds() -> int:
     """Get the default pause window for provider usage/quota limits.
 
@@ -1016,7 +1115,10 @@ def get_usage_limit_pause_seconds() -> int:
             env_value,
             config_key="OUROBOROS_USAGE_LIMIT_PAUSE_HOURS",
         )
-        return max(1, int(hours * _SECONDS_PER_HOUR))
+        return _bounded_usage_limit_pause_seconds(
+            hours,
+            config_key="OUROBOROS_USAGE_LIMIT_PAUSE_HOURS",
+        )
 
     config_path = get_config_dir() / "config.yaml"
     if not config_path.exists():
@@ -1024,9 +1126,9 @@ def get_usage_limit_pause_seconds() -> int:
         return int(_DEFAULT_USAGE_LIMIT_PAUSE_HOURS * _SECONDS_PER_HOUR)
 
     try:
-        with config_path.open() as f:
+        with config_path.open(encoding="utf-8") as f:
             config_dict = yaml.safe_load(f)
-    except yaml.YAMLError as e:
+    except (UnicodeDecodeError, yaml.YAMLError) as e:
         raise ConfigError(
             f"Failed to parse configuration file: {e}",
             config_file=str(config_path),
@@ -1068,7 +1170,10 @@ def get_usage_limit_pause_seconds() -> int:
         orchestrator_config["usage_limit_pause_hours"],
         config_key=_USAGE_LIMIT_PAUSE_CONFIG_KEY,
     )
-    return max(1, int(hours * _SECONDS_PER_HOUR))
+    return _bounded_usage_limit_pause_seconds(
+        hours,
+        config_key=_USAGE_LIMIT_PAUSE_CONFIG_KEY,
+    )
 
 
 def get_max_parallel_workers() -> int:
@@ -1092,9 +1197,9 @@ def get_max_parallel_workers() -> int:
         return _DEFAULT_MAX_PARALLEL_WORKERS
 
     try:
-        with config_path.open() as f:
+        with config_path.open(encoding="utf-8") as f:
             config_dict = yaml.safe_load(f)
-    except yaml.YAMLError as e:
+    except (UnicodeDecodeError, yaml.YAMLError) as e:
         raise ConfigError(
             f"Failed to parse configuration file: {e}",
             config_file=str(config_path),

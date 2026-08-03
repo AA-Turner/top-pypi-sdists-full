@@ -52,6 +52,7 @@ class TestDLQListResponse(unittest.TestCase):
                         max_retries_reached = True, 
                         requeued_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         resolved_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        disposal_reason = '', 
                         internal_id = '', 
                         namespace_id = '', 
                         bucket_id = '', )
@@ -76,6 +77,7 @@ class TestDLQListResponse(unittest.TestCase):
                         max_retries_reached = True, 
                         requeued_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         resolved_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        disposal_reason = '', 
                         internal_id = '', 
                         namespace_id = '', 
                         bucket_id = '', )

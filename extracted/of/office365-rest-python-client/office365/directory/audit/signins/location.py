@@ -1,28 +1,30 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
 from office365.onedrive.driveitems.geo_coordinates import GeoCoordinates
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class SignInLocation(ClientValue):
-    """Provides the city, state and country/region from where the sign-in happened."""
+    """Provides the city, state and country/region from where the sign-in happened.
 
-    def __init__(
-        self,
-        city=None,
-        country_or_region=None,
-        geo_coordinates=GeoCoordinates(),
-        state=None,
-    ):
-        """
-        :param str city: Provides the city where the sign-in originated. This is calculated using latitude/longitude
-            information from the sign-in activity.
-        :param str country_or_region: Provides the country code info (2 letter code) where the sign-in originated.
-            This is calculated using latitude/longitude information from the sign-in activity.
-        :param GeoCoordinates geo_coordinates: Provides the latitude, longitude and altitude where the sign-in
-            originated.
-        :param str state: Provides the State where the sign-in originated. This is calculated using latitude/longitude
-            information from the sign-in activity.
-        """
-        self.city = city
-        self.countryOrRegion = country_or_region
-        self.geoCoordinates = geo_coordinates
-        self.state = state
+    Args:
+        city (str): Provides the city where the sign-in originated. This is calculated using latitude/longitude
+          information from the sign-in activity.
+        countryOrRegion (str): Provides the country code info (2 letter code) where the sign-in originated.
+          This is calculated using latitude/longitude information from the sign-in activity.
+        geoCoordinates (GeoCoordinates): Provides the latitude, longitude and altitude where the sign-in originated.
+        state (str): Provides the State where the sign-in originated. This is calculated using latitude/longitude
+          information from the sign-in activity.
+    """
+
+    city: str | None = None
+    countryOrRegion: str | None = None
+    geoCoordinates: GeoCoordinates = field(default_factory=GeoCoordinates)
+    state: str | None = None
+
+    @property
+    def entity_type_name(self):
+        return "microsoft.graph.SignInLocation"

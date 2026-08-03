@@ -534,7 +534,7 @@ class V2ClusterUpdateParams(object):
     def https_proxy(self):
         """Gets the https_proxy of this V2ClusterUpdateParams.  # noqa: E501
 
-        A proxy URL to use for creating HTTPS connections outside the cluster. http://\\<username\\>:\\<pswd\\>@\\<ip\\>:\\<port\\>   # noqa: E501
+        A proxy URL to use for creating HTTPS connections outside the cluster. http://\\<username\\>:\\<pswd\\>@\\<ip\\>:\\<port\\> or https://\\<username\\>:\\<pswd\\>@\\<ip\\>:\\<port\\>   # noqa: E501
 
         :return: The https_proxy of this V2ClusterUpdateParams.  # noqa: E501
         :rtype: str
@@ -545,7 +545,7 @@ class V2ClusterUpdateParams(object):
     def https_proxy(self, https_proxy):
         """Sets the https_proxy of this V2ClusterUpdateParams.
 
-        A proxy URL to use for creating HTTPS connections outside the cluster. http://\\<username\\>:\\<pswd\\>@\\<ip\\>:\\<port\\>   # noqa: E501
+        A proxy URL to use for creating HTTPS connections outside the cluster. http://\\<username\\>:\\<pswd\\>@\\<ip\\>:\\<port\\> or https://\\<username\\>:\\<pswd\\>@\\<ip\\>:\\<port\\>   # noqa: E501
 
         :param https_proxy: The https_proxy of this V2ClusterUpdateParams.  # noqa: E501
         :type: str

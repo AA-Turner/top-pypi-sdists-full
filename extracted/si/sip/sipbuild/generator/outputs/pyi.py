@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-2-Clause
 
-# Copyright (c) 2025 Phil Thompson <phil@riverbankcomputing.com>
+# Copyright (c) 2026 Phil Thompson <phil@riverbankcomputing.com>
 
 
 from ...version import SIP_VERSION_STR
@@ -50,7 +50,7 @@ def _module(pf, spec):
 
     # Generate the imports. Note that we assume the super-types are the
     # standard SIP ones.
-    stdlib_imports = ['collections', 're', 'typing']
+    stdlib_imports = ['collections.abc', 're', 'typing']
 
     if spec.target_abi >= (13, 0):
         for enum in spec.enums:
@@ -294,6 +294,16 @@ def _class(pf, spec, klass, defined, indent=0):
                 if setter is not None:
                     _property(pf, spec, prop, True, setter, klass.overloads,
                             defined, indent)
+
+    if klass.bi_get_buffer_code is not None:
+        s = _indent(indent)
+        s += 'def __buffer__(self, flags: int, /) -> memoryview: ...\n'
+        pf.write(s)
+
+    if klass.bi_release_buffer_code is not None:
+        s = _indent(indent)
+        s += 'def __release_buffer__(self, buffer: memoryview, /) -> None: ...\n'
+        pf.write(s)
 
     if not klass.is_hidden_namespace:
         # Keep track of what has been defined so that forward references are no

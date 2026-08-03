@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: centrifuge-python
-Version: 0.5.1
+Version: 0.6.0
 Summary: WebSocket SDK for Centrifugo (and any Centrifuge-based server) on top of Python asyncio library
 Author: Alexander Emelin (Centrifugal Labs LTD), Katant Savelev
 License-Expression: MIT
@@ -15,23 +15,23 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Networking
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
-Requires-Dist: protobuf<7.0.0,>=4.23.4
-Requires-Dist: websockets<16.0.0,>=14.0.0
+Requires-Python: >=3.10
+Requires-Dist: protobuf<8.0.0,>=5.29.6
+Requires-Dist: websockets<18.0.0,>=15.0
 Provides-Extra: dev
-Requires-Dist: pre-commit~=3.5.0; extra == 'dev'
-Requires-Dist: ruff~=0.1.4; extra == 'dev'
+Requires-Dist: pre-commit~=4.6; extra == 'dev'
+Requires-Dist: ruff~=0.16.1; extra == 'dev'
 Provides-Extra: proto
-Requires-Dist: grpcio-tools~=1.62.3; extra == 'proto'
+Requires-Dist: grpcio-tools~=1.71.0; extra == 'proto'
 Description-Content-Type: text/markdown
 
 # centrifuge-python
@@ -77,39 +77,78 @@ When using Protobuf protocol:
 * all payloads received from the library will be `bytes` or `None` if not present.
 * don't forget that when using Protobuf protocol you can still have JSON payloads - just encode them to `bytes` before passing to the library.
 
+## Custom TLS configuration
+
+When connecting to a `wss://` endpoint the SDK uses the default TLS context of the `ssl` module – i.e. server certificates are verified against the system CA store. To customize TLS – for example to trust a custom CA – pass your own `ssl.SSLContext` as `ssl_context` option:
+
+```python
+import ssl
+
+ssl_ctx = ssl.create_default_context(cafile="/path/to/ca.pem")
+
+client = Client(
+    "wss://localhost:8000/connection/websocket",
+    ssl_context=ssl_ctx,
+)
+```
+
+The same option allows disabling certificate verification entirely – only do this for local development, never in production:
+
+```python
+import ssl
+
+ssl_ctx = ssl.create_default_context()
+ssl_ctx.check_hostname = False
+ssl_ctx.verify_mode = ssl.CERT_NONE
+
+client = Client(
+    "wss://localhost:8000/connection/websocket",
+    ssl_context=ssl_ctx,
+)
+```
+
+## Connecting through a proxy
+
+By default the proxy configuration is taken from the environment (`WS_PROXY`/`WSS_PROXY`, `HTTP_PROXY`/`HTTPS_PROXY`, honoring `NO_PROXY`). To set the proxy explicitly – use `proxy` option of `Client` constructor:
+
+```python
+client = Client(
+    "ws://localhost:8000/connection/websocket",
+    proxy="http://user:pass@proxy-host:3128",
+)
+```
+
+Pass `proxy=None` to always connect directly, ignoring the environment configuration.
+
+SOCKS proxies (`socks5://...`) are supported too, but require the [python-socks](https://pypi.org/project/python-socks/) package to be installed:
+
+```bash
+pip install python-socks
+```
+
+Invalid proxy URLs and a missing `python-socks` package are reported as `ValueError` from the `Client` constructor, rather than in the middle of connecting.
+
+A couple of things to keep in mind when going through a proxy:
+
+* with a `wss://` address the proxy only sees the `CONNECT host:port` request – the WebSocket traffic inside the tunnel stays encrypted end to end, and the server certificate is still verified as usual. With a `ws://` address the proxy sees everything, including the connection token.
+* credentials in an `http://` proxy URL are sent to the proxy as a base64-encoded `Proxy-Authorization` header over an unencrypted connection. They are never forwarded to the Centrifugo server, but use an `https://` proxy if the proxy connection itself may be observed.
+
 ## Callbacks should not block
 
 Event callbacks are called by SDK using `await` internally, the websocket connection read loop is blocked for the time SDK waits for the callback to be executed. This means that if you need to perform long operations in callbacks consider moving the work to a separate coroutine/task to return fast and continue reading data from the websocket.
 
 The fact WebSocket read is blocked for the time we execute callbacks means that you can not call awaitable SDK APIs from callback – because SDK does not have a chance to read the reply. You will get `OperationTimeoutError` exception. The rule is the same - do the work asynchronously, for example use `asyncio.ensure_future`.
 
+## Callbacks should not raise
+
+Callbacks are awaited as part of the SDK's own flow, and exceptions escaping them are not caught. Handle errors inside the callback – especially in `on_error`, which is often the place where something is reported to an external service: an exception raised there escapes while the SDK is handling a failed connection, and the client can be left in `connecting` state with no reconnect scheduled. The SDK logs such an exception through its `centrifuge` logger, and that log is the only sign of it – so keep an eye on error logs.
+
 ## Run example
 
-To run [example](https://github.com/centrifugal/centrifuge-python/blob/master/example.py), first start Centrifugo with config like this:
+To run [example](https://github.com/centrifugal/centrifuge-python/blob/master/example.py), first start Centrifugo – the [docker-compose.yml](https://github.com/centrifugal/centrifuge-python/blob/master/docker-compose.yml) of this repo configures everything the example needs (it's the same server the tests use):
 
-```json
-{
-  "client": {
-    "token": {
-      "hmac_secret_key": "secret"
-    }
-  },
-  "channel": {
-    "namespaces": [
-      {
-        "name": "example",
-        "presence": true,
-        "history_size": 300,
-        "history_ttl": "300s",
-        "join_leave": true,
-        "force_push_join_leave": true,
-        "allow_publish_for_subscriber": true,
-        "allow_presence_for_subscriber": true,
-        "allow_history_for_subscriber": true
-      }
-    ]
-  }
-}
+```bash
+docker compose up
 ```
 
 And then:

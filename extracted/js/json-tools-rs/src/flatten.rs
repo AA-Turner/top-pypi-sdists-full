@@ -240,8 +240,11 @@ pub(crate) fn tape_scalar_bytes(input: &[u8], entry: TapeEntry) -> &[u8] {
 pub(crate) enum ValueRef<'a> {
     /// Raw byte slice from original input (includes quotes for strings)
     Raw(&'a [u8]),
-    /// Converted/transformed value (owns the bytes) — valid JSON fragment
-    Owned(String),
+    /// Converted/transformed value (owns the bytes) — valid JSON fragment.
+    /// `CompactString` inlines short converted values (bools, small numbers)
+    /// on the stack instead of heap-allocating, same rationale as this file's
+    /// existing `CompactKeyBuilder`/`IntBuf` usage.
+    Owned(CompactString),
 }
 
 impl<'a> ValueRef<'a> {
@@ -1244,7 +1247,7 @@ impl<'a, KB: KeyBuilder> CollectingWalker<'a, KB> {
                             {
                                 return;
                             }
-                            self.collect_value(ValueRef::Owned(converted.into_owned()));
+                            self.collect_value(ValueRef::Owned(CompactString::from(converted)));
                             return;
                         }
                     }
@@ -1257,7 +1260,7 @@ impl<'a, KB: KeyBuilder> CollectingWalker<'a, KB> {
                         return;
                     }
                     let escaped = escape_json_string(&replaced);
-                    let mut buf = String::with_capacity(escaped.len() + 2);
+                    let mut buf = CompactString::with_capacity(escaped.len() + 2);
                     buf.push('"');
                     buf.push_str(&escaped);
                     buf.push('"');
@@ -1283,7 +1286,7 @@ impl<'a, KB: KeyBuilder> CollectingWalker<'a, KB> {
                     {
                         return;
                     }
-                    self.collect_value(ValueRef::Owned(converted.into_owned()));
+                    self.collect_value(ValueRef::Owned(CompactString::from(converted)));
                     return;
                 }
             }

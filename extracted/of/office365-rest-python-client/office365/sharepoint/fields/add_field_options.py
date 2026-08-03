@@ -1,8 +1,8 @@
-class AddFieldOptions:
-    """Specifies the control settings while adding a field."""
+from enum import IntFlag
 
-    def __init__(self):
-        pass
+
+class AddFieldOptions(IntFlag):
+    """Specifies the control settings while adding a field."""
 
     DefaultValue = 0
     """Same as AddToDefaultContentType."""

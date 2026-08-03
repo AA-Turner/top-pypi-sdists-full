@@ -355,7 +355,9 @@ def coerce_json_like(value: Any) -> Any:
         return value
 
     if isinstance(value, str):
-        stripped = value.strip()
+        from xpander_sdk.utils.json_parsing import strip_trailing_tag_fragment
+
+        stripped = strip_trailing_tag_fragment(value.strip())
         # Only attempt parsing for strings that plausibly represent a
         # structured value. Skip obvious plain text to avoid false
         # positives (json.loads accepts lone numbers/booleans too).

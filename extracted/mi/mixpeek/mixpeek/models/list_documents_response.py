@@ -35,10 +35,11 @@ class ListDocumentsResponse(BaseModel):
     groups: Optional[List[DocumentGroup]] = Field(default=None, description="List of document groups when group_by IS specified. Each group contains documents sharing the same field value. Pagination applies to groups, not individual documents. Mutually exclusive with 'results' field.")
     unknown_collection_ids: Optional[List[StrictStr]] = Field(default=None, description="Requested collection_ids that do NOT exist in this namespace. Present only on the namespace-scoped list when SOME requested ids resolved and others did not — so a typo'd or deleted collection id is distinguishable from a real-but-empty collection instead of silently contributing zero results forever. When NONE of the requested ids resolve, the endpoint returns 404 instead.")
     pagination: PaginationResponse = Field(description="Pagination information. Includes next_cursor for cursor-based pagination. When group_by is used, pagination applies to groups (not individual documents). total_count reflects total number of groups, not total documents.")
+    warnings: Optional[List[StrictStr]] = Field(default=None, description="Result-shape warnings the caller must not ignore (BACKE-3035). Present when the listing is silently incomplete — e.g. a sorted listing scanned only the first 10,000 matching points, so the sort ranks a truncated subset and pagination ends at the cap rather than the end of the collection. Absent when the result is complete.")
     total_documents: Optional[StrictInt] = Field(default=None, description="Total number of documents matching the query (across all pages). Alias for stats.total_documents — included at the top level for convenience.")
     stats: Optional[DocumentListStats] = Field(default=None, description="Aggregate statistics across all documents in the result")
     group_by_field: Optional[StrictStr] = Field(default=None, description="The field that was used for grouping when group_by was specified. None for non-grouped results. Useful for clients to understand the grouping structure.")
-    __properties: ClassVar[List[str]] = ["results", "groups", "unknown_collection_ids", "pagination", "total_documents", "stats", "group_by_field"]
+    __properties: ClassVar[List[str]] = ["results", "groups", "unknown_collection_ids", "pagination", "warnings", "total_documents", "stats", "group_by_field"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -115,6 +116,7 @@ class ListDocumentsResponse(BaseModel):
             "groups": [DocumentGroup.from_dict(_item) for _item in obj["groups"]] if obj.get("groups") is not None else None,
             "unknown_collection_ids": obj.get("unknown_collection_ids"),
             "pagination": PaginationResponse.from_dict(obj["pagination"]) if obj.get("pagination") is not None else None,
+            "warnings": obj.get("warnings"),
             "total_documents": obj.get("total_documents"),
             "stats": DocumentListStats.from_dict(obj["stats"]) if obj.get("stats") is not None else None,
             "group_by_field": obj.get("group_by_field")

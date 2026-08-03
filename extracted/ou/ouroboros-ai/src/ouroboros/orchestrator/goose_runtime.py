@@ -26,10 +26,11 @@ from ouroboros.observability.logging import get_logger
 from ouroboros.orchestrator.adapter import (
     AgentMessage,
     ParamSupport,
+    ResolvedWorkerCwd,
     RuntimeCapabilities,
     RuntimeHandle,
 )
-from ouroboros.orchestrator.codex_cli_runtime import CodexCliRuntime
+from ouroboros.orchestrator.codex_cli_runtime import CodexCliRuntime, _CodexItemCorrelationScope
 
 log = get_logger(__name__)
 
@@ -73,7 +74,7 @@ class GooseCliRuntime(CodexCliRuntime):
         cli_path: str | Path | None = None,
         permission_mode: str | None = None,
         model: str | None = None,
-        cwd: str | Path | None = None,
+        cwd: str | Path | ResolvedWorkerCwd | None = None,
         skills_dir: str | Path | None = None,
         skill_dispatcher: Any | None = None,
         llm_backend: str | None = None,
@@ -185,6 +186,7 @@ class GooseCliRuntime(CodexCliRuntime):
         Goose does not have an equivalent flag; the base completion path falls
         back to the last streamed assistant/result content.
         """
+        self._assert_cli_executable_identity_unchanged()
         del output_last_message_path, prompt
 
         session_name = (
@@ -387,6 +389,8 @@ class GooseCliRuntime(CodexCliRuntime):
         self,
         event: dict[str, Any],
         current_handle: RuntimeHandle | None,
+        *,
+        item_scope: _CodexItemCorrelationScope | None = None,
     ) -> list[AgentMessage]:
         """Convert Goose stream-json events into normalized messages."""
         event_type = self._extract_event_type(event)

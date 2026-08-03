@@ -1,7 +1,11 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class SPResourceEntry(ClientValue):
-    def __init__(self, lcid=None, value=None):
-        self.LCID = lcid
-        self.Value = value
+    LCID: int | None = None
+    Value: str | None = None

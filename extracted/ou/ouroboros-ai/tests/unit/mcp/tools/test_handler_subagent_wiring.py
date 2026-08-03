@@ -351,7 +351,10 @@ class TestExecuteSeedHandlerSubagentDispatch:
         assert ctx["max_iterations"] == 5
         assert ctx["skip_qa"] is True
         assert ctx["auto_evaluate"] is False
-        assert ctx["model_tier"] == "medium"
+        # An omitted tier preserves the runtime's selected model. The public
+        # response calls the automatic choice "medium", but a delegated child
+        # must receive None rather than a materialized standard-tier pin.
+        assert ctx["model_tier"] is None
 
     async def test_context_preserves_explicit_model_tier(self, handler) -> None:
         result = await handler.handle(
@@ -449,13 +452,13 @@ class TestStartExecuteSeedHandlerSubagentDispatch:
         assert result.value.meta["job_id"] is None
         assert result.value.meta["status"] == "delegated_to_plugin"
 
-    async def test_plugin_context_applies_fresh_default_and_preserves_explicit_tier(
+    async def test_plugin_context_preserves_automatic_omission_and_explicit_tier(
         self, handler
     ) -> None:
         omitted = await handler.handle({"seed_content": "goal: test"})
         explicit = await handler.handle({"seed_content": "goal: test", "model_tier": "medium"})
 
-        assert omitted.value.meta["_subagent"]["context"]["model_tier"] == "medium"
+        assert omitted.value.meta["_subagent"]["context"]["model_tier"] is None
         assert explicit.value.meta["_subagent"]["context"]["model_tier"] == "medium"
 
     async def test_plugin_mode_delegates_formal_evaluation_to_child(self, handler) -> None:
@@ -587,6 +590,43 @@ class TestPMInterviewHandlerSubagentDispatch:
         assert result.is_ok
         payload = result.value.meta["_subagent"]
         assert payload["tool_name"] == "ouroboros_pm_interview"
+
+    async def test_generate_withholds_observations_but_resume_keeps_them(
+        self, handler, monkeypatch
+    ) -> None:
+        observed = "competitor-secret-retry-policy"
+
+        async def _load_observation(
+            state_dir: Path, session_id: str
+        ) -> Result[InterviewState, str]:
+            del state_dir
+            state = InterviewState(
+                interview_id=session_id,
+                initial_context="test context",
+                status=InterviewStatus.COMPLETED,
+            )
+            state.record_answer("What exists today?", f"[from-research] {observed}")
+            return Result.ok(state)
+
+        import ouroboros.mcp.tools.authoring_handlers as ah
+
+        monkeypatch.setattr(ah, "_plugin_load_state", _load_observation)
+
+        resumed = await handler.handle(
+            {
+                "session_id": "sess-observation",
+                "answer": "Keep investigating",
+                "last_question": "What should we decide next?",
+            }
+        )
+        assert resumed.is_ok
+        assert observed in resumed.value.meta["_subagent"]["prompt"]
+
+        generated = await handler.handle({"session_id": "sess-observation", "action": "generate"})
+        assert generated.is_ok
+        prompt = generated.value.meta["_subagent"]["prompt"]
+        assert observed not in prompt
+        assert "observation withheld" in prompt
 
     async def test_context_preserves_selected_repos(self, handler) -> None:
         result = await handler.handle(

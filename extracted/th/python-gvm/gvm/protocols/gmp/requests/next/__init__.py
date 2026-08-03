@@ -8,6 +8,7 @@ from gvm.protocols.gmp.requests.next._agent_installer_instructions import (
     AgentInstallerInstructions,
 )
 from gvm.protocols.gmp.requests.next._agents import Agents
+from gvm.protocols.gmp.requests.next._audit_report import AuditReport
 from gvm.protocols.gmp.requests.next._credential_stores import CredentialStores
 from gvm.protocols.gmp.requests.next._credentials import (
     Credentials,
@@ -44,6 +45,7 @@ from gvm.protocols.gmp.requests.next._report_tls_certificates import (
 from gvm.protocols.gmp.requests.next._report_vulnerabilities import (
     ReportVulnerabilities,
 )
+from gvm.protocols.gmp.requests.next._scan_report import ScanReports
 from gvm.protocols.gmp.requests.next._targets import AliveTest, Targets
 from gvm.protocols.gmp.requests.next._tasks import Tasks
 from gvm.protocols.gmp.requests.next._web_application_targets import (
@@ -130,6 +132,7 @@ __all__ = (
     "AlertMethod",
     "Alerts",
     "AliveTest",
+    "AuditReport",
     "AuditReports",
     "Audits",
     "Authentication",
@@ -184,6 +187,7 @@ __all__ = (
     "Results",
     "Roles",
     "ScanConfigs",
+    "ScanReports",
     "ScannerType",
     "Scanners",
     "Schedules",

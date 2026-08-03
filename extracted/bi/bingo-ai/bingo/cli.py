@@ -564,6 +564,13 @@ def main() -> None:
         _run_silent_mode(_silent_target, _cfg_for_lang, _silent_extra, sl)
         return  # _run_silent_mode 내부에서 sys.exit()
 
+    # ── bingo tui (기본 실행) ────────────────────────────────────
+    # bingo 만 입력하면 TUI 모드로 실행
+    if not args or (args and args[0] == "tui"):
+        from .tui.app import run_tui
+        run_tui()
+        return
+
     # ── bingo scan <url> ─────────────────────────────────────────
     if args and args[0] == "scan":
         if len(args) < 2:
@@ -718,6 +725,7 @@ def main() -> None:
     from prompt_toolkit.completion import WordCompleter
     _slash_commands = [
         "/target", "/model", "/status", "/clear", "/session", "/help", "/exit",
+        "/files", "/edit", "/cat", "/ls",
     ]
     _slash_completer = WordCompleter(_slash_commands, sentence=True)
     _pt_history = InMemoryHistory()
@@ -745,6 +753,10 @@ def main() -> None:
   /status        — 현재 상태 표시
   /clear         — 화면 초기화
   /session       — 세션 로그 경로 표시
+  /files         — 파일 브라우저 열기
+  /edit <path>   — 파일 편집
+  /cat <path>    — 파일 내용 보기
+  /ls [path]     — 디렉토리 목록
   /exit          — 종료
 
 [#546e7a]Flags (startup):[/]
@@ -787,6 +799,82 @@ def main() -> None:
             _t.s = s
             _t._cmd_model()
             cfg = BingoConfig.load()
+            continue
+
+        # ── /files: 파일 브라우저 ──────────────────────────────
+        if _cmd == "/files":
+            from .core.workspace import WorkspaceManager
+            wm = WorkspaceManager()
+            tree = wm.get_file_tree()
+
+            def _print_tree(nodes, indent=0):
+                for node in nodes:
+                    icon = "📁" if node["type"] == "directory" else "📄"
+                    console.print(f"{'  ' * indent}{icon} [cyan]{node['name']}[/]")
+                    if node.get("children"):
+                        _print_tree(node["children"], indent + 1)
+
+            console.print("\n[#00d4aa]📁 Files:[/]")
+            _print_tree(tree)
+            console.print()
+            continue
+
+        # ── /ls: 디렉토리 목록 ────────────────────────────────
+        if _cmd.startswith("/ls"):
+            _parts = user_input.strip().split(None, 1)
+            _dir = _Path(_parts[1] if len(_parts) > 1 else ".")
+            try:
+                if _dir.is_dir():
+                    console.print(f"\n[#00d4aa]📁 {_dir}:[/]")
+                    for item in sorted(_dir.iterdir()):
+                        if item.name.startswith('.'):
+                            continue
+                        icon = "📁" if item.is_dir() else "📄"
+                        console.print(f"  {icon} [cyan]{item.name}[/]")
+                    console.print()
+                else:
+                    console.print(f"[yellow]Not a directory: {_dir}[/]")
+            except Exception as e:
+                console.print(f"[red]Error: {e}[/]")
+            continue
+
+        # ── /cat: 파일 내용 보기 ───────────────────────────────
+        if _cmd.startswith("/cat"):
+            _parts = user_input.strip().split(None, 1)
+            if len(_parts) < 2:
+                console.print("[yellow]Usage: /cat <path>[/]")
+                continue
+
+            _file = _Path(_parts[1])
+            try:
+                if _file.is_file():
+                    from rich.syntax import Syntax
+                    content = _file.read_text(encoding='utf-8')
+                    syntax = Syntax(content, _file.suffix[1:] if _file.suffix else "text",
+                                  theme="monokai", line_numbers=True)
+                    console.print(syntax)
+                else:
+                    console.print(f"[yellow]File not found: {_file}[/]")
+            except Exception as e:
+                console.print(f"[red]Error: {e}[/]")
+            continue
+
+        # ── /edit: 파일 편집 ──────────────────────────────────
+        if _cmd.startswith("/edit"):
+            _parts = user_input.strip().split(None, 1)
+            if len(_parts) < 2:
+                console.print("[yellow]Usage: /edit <path>[/]")
+                continue
+
+            _file = _Path(_parts[1])
+            try:
+                # 기본 에디터로 열기
+                import subprocess
+                editor = os.environ.get('EDITOR', 'nano')
+                subprocess.run([editor, str(_file)])
+                console.print(f"[#00ff41]✓[/] Edited: {_file}")
+            except Exception as e:
+                console.print(f"[red]Error: {e}[/]")
             continue
 
         # ── 타겟 추출 ─────────────────────────────────────────

@@ -30,6 +30,21 @@ except Exception:  # pragma: no cover - keychain optional in some test envs
         os.environ.pop("NXKC_" + service, None); return True
 
 CHANNELS = ("telegram", "email", "imessage", "whatsapp", "sms")
+
+
+def channel_handle(channel: str, entry: dict) -> str:
+    """WHERE a report-back channel's address lives in its config entry — the ONE rule.
+
+    Telegram stores a numeric `chat_id` (Telegram issues it; there is no "to" address to type). Every other
+    channel stores `to`. That asymmetry used to be re-stated inline wherever an address was read, and the
+    /channels reach hub duly re-stated it WRONG — it asked telegram for "to", got nothing, and rendered a
+    permanently blank address column for the flagship channel while /message showed the chat id correctly
+    for the same config. Two surfaces disagreeing about one binding is exactly what a second copy of a rule
+    buys you. There is one copy now, and both read it."""
+    e = entry or {}
+    return str((e.get("chat_id") if channel == "telegram" else e.get("to")) or "").strip()
+
+
 _CONFIG = os.path.join(os.path.expanduser("~"), ".nx", "config.json")
 
 # Keychain service names for each channel's secret.
@@ -224,7 +239,7 @@ def _pick_reply_channel(cfg):
         entry = mc.get(ch) or {}
         if not entry.get("active"):
             continue
-        handle = entry.get("chat_id") if ch == "telegram" else entry.get("to")
+        handle = channel_handle(ch, entry)
         if handle:
             return ch, handle
     return None, None
@@ -437,7 +452,7 @@ def run_with_host_approval(server, tool, args, description, execute_fn,
 # run_with_host_approval() above is CLI-INITIATED (the CLI stages, then polls its own id). When the operator
 # approves from Telegram/web, the CLOUD is the initiator and the CLI has no id to poll — so the host-agent
 # DISCOVERS approved actions via an atomic server-side claim, runs each locally through the SAME proven
-# connectors /channels uses, and reports the result back. This is "NX runs it on your machine" made real.
+# connectors /publish uses, and reports the result back. This is "NX runs it on your machine" made real.
 
 def _auth_base():
     """Resolve the Nexplora API base (env override → obfuscated default)."""
@@ -485,7 +500,7 @@ def claim_next_host_action(token=None):
 def execute_host_action(server, tool, args):
     """Route a claimed host action to the right LOCAL executor and return its honest result dict:
       - CHANNEL action (tool is a known connector action method, e.g. 'publish_text') → the proven
-        /channels connector via nx_channels.channel_execute_fn (the exact path /channels uses),
+        /publish connector via nx_channels.channel_execute_fn (the exact path /publish uses),
       - else an MCP tool → nx_mcp.execute_mcp_tool.
     Never raises — any failure returns {ok: False, detail: …}, never a faked success."""
     args = args if isinstance(args, dict) else {}
@@ -514,7 +529,7 @@ def execute_host_action(server, tool, args):
 def run_host_agent(poll_s=5, once=False, max_seconds=None, on_event=None):
     """THE HOST-AGENT loop: continuously claim operator-approved host actions and RUN them LOCALLY on this
     machine, reporting each result back over the channel it was approved on. The operator approves from
-    Telegram/web; THIS loop (CLI + proven /channels connectors) is the executor — no cloud re-impl. Blocking;
+    Telegram/web; THIS loop (CLI + proven /publish connectors) is the executor — no cloud re-impl. Blocking;
     Ctrl-C to stop. Returns a summary dict on exit.
 
     poll_s: seconds between empty polls. once: claim+run at most one action, then return. max_seconds: stop

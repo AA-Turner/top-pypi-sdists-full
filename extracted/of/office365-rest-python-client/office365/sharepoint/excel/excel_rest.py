@@ -1,4 +1,5 @@
 from office365.runtime.client_runtime_context import ClientRuntimeContext
+from office365.runtime.http.request_options import RequestOptions
 
 
 class ExcelService(ClientRuntimeContext):
@@ -16,16 +17,17 @@ class ExcelService(ClientRuntimeContext):
         Excel Services REST API client
         https://docs.microsoft.com/en-us/sharepoint/dev/general-development/excel-services-rest-api
         """
-        super(ExcelService, self).__init__()
+        super().__init__()
 
-    def authenticate_request(self, request):
+    def authenticate_request(self, request: RequestOptions) -> None:
         pass
 
+    @property
     def service_root_url(self):
         return "{0}/_vti_bin/ExcelRest.aspx"
 
     def pending_request(self):
-        pass
+        raise NotImplementedError("pending_request")
 
-    def get_workbook(self, list_name, file_name):
+    def get_workbook(self, list_name: str, file_name: str):
         raise NotImplementedError("get_workbook")

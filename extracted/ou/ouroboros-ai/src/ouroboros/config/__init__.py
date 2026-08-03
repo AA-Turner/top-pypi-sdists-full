@@ -24,6 +24,7 @@ Usage:
 """
 
 from ouroboros.config.loader import (
+    MAX_USAGE_LIMIT_PAUSE_SECONDS,
     config_exists,
     create_default_config,
     credentials_file_secure,
@@ -46,6 +47,7 @@ from ouroboros.config.loader import (
     get_copilot_cli_path,
     get_cross_harness_redispatch_enabled,
     get_dependency_analysis_model,
+    get_execution_model,
     get_gemini_cli_path,
     get_gjc_cli_path,
     get_goose_cli_path,
@@ -175,6 +177,7 @@ __all__ = [
     "get_zcode_cli_path",
     "get_qa_model",
     "get_dependency_analysis_model",
+    "get_execution_model",
     "get_ontology_analysis_model",
     "get_reflect_model",
     "get_runtime",
@@ -182,6 +185,7 @@ __all__ = [
     "get_runtime_profile",
     "get_semantic_model",
     "get_usage_limit_pause_seconds",
+    "MAX_USAGE_LIMIT_PAUSE_SECONDS",
     "get_wonder_model",
     # Model helpers
     "get_config_dir",

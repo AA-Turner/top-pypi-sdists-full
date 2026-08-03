@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Dict, List, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from xpander_sdk.models.shared import XPanderSharedModel
 
@@ -40,6 +40,16 @@ class MCPServerDetails(BaseModel):
     allowed_tools: Optional[List[str]] = []
     additional_scopes: Optional[List[str]] = []
     share_user_token_across_other_agents: Optional[bool] = True
+
+    @model_validator(mode="after")
+    def _coerce_transport_to_type(self) -> "MCPServerDetails":
+        """Coerce type/transport coherent (local=>stdio, remote+stdio/null=>streamable-http); the runtime picks its client off `type`, so a mismatched pair is unsatisfiable. Mirror of xpander_dev_utils AIAgentGraphItemMCPSettings - keep in sync."""
+        if self.type == MCPServerType.Local:
+            if self.transport != MCPServerTransport.STDIO:
+                self.transport = MCPServerTransport.STDIO
+        elif self.transport in (MCPServerTransport.STDIO, None):
+            self.transport = MCPServerTransport.HTTP_Transport
+        return self
 
 
 class MCPOAuthResponseType(str, Enum):

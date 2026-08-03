@@ -1,16 +1,25 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class SiteAdministratorsInfo(ClientValue):
-    def __init__(self, email=None, login_name=None, name=None):
-        """
-        :param str email:
-        :param str login_name:
-        :param str name:
-        """
-        self.email = email
-        self.loginName = login_name
-        self.name = name
+    """Args:
+    email (str):
+    login_name (str):
+    name (str):
+    """
+
+    userPrincipalName: str | None = None
+    email: str | None = None
+    loginName: str | None = None
+    name: str | None = None
+
+    def __str__(self):
+        return self.name or self.entity_type_name
 
     @property
     def entity_type_name(self):

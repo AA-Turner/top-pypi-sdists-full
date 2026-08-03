@@ -1,5 +1,6 @@
 from typing import Optional
 
+from office365.directory.identities.provider import IdentityProvider
 from office365.directory.identities.userflows.language_configuration import (
     UserFlowLanguageConfiguration,
 )
@@ -9,6 +10,7 @@ from office365.directory.identities.userflows.user_attribute_assignment import (
 from office365.directory.identities.userflows.user_flow import IdentityUserFlow
 from office365.entity_collection import EntityCollection
 from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.types.odata_property import odata
 
 
 class B2XIdentityUserFlow(IdentityUserFlow):
@@ -20,9 +22,21 @@ class B2XIdentityUserFlow(IdentityUserFlow):
     use to authenticate, along with which attributes are collected as part of the sign up process.
     """
 
+    @odata(name="identityProviders")
     @property
-    def languages(self):
-        # type: () -> EntityCollection[UserFlowLanguageConfiguration]
+    def identity_providers(self) -> EntityCollection[IdentityProvider]:
+        """TThe identity providers included in the user flow."""
+        return self.properties.get(
+            "identityProviders",
+            EntityCollection(
+                self.context,
+                IdentityProvider,
+                ResourcePath("identityProviders", self.resource_path),
+            ),
+        )
+
+    @property
+    def languages(self) -> EntityCollection[UserFlowLanguageConfiguration]:
         """The languages supported for customization within the user flow. Language customization is enabled by default
         in self-service sign-up user flow. You cannot create custom languages in self-service sign-up user flows.
         """
@@ -35,9 +49,11 @@ class B2XIdentityUserFlow(IdentityUserFlow):
             ),
         )
 
+    @odata(name="userAttributeAssignments")
     @property
-    def user_attribute_assignments(self):
-        # type: () -> IdentityUserFlowAttributeAssignmentCollection
+    def user_attribute_assignments(
+        self,
+    ) -> IdentityUserFlowAttributeAssignmentCollection:
         """The user attribute assignments included in the user flow."""
         return self.properties.get(
             "userAttributeAssignments",
@@ -48,18 +64,9 @@ class B2XIdentityUserFlow(IdentityUserFlow):
         )
 
     @property
-    def user_flow_type(self):
-        # type: () -> Optional[str]
+    def user_flow_type(self) -> Optional[str]:
         """
         The type of user flow. For self-service sign-up user flows,
         the value can only be signUpOrSignIn and cannot be modified after creation.
         """
         return self.properties.get("userFlowType", None)
-
-    def get_property(self, name, default_value=None):
-        if default_value is None:
-            property_mapping = {
-                "userAttributeAssignments": self.user_attribute_assignments
-            }
-            default_value = property_mapping.get(name, None)
-        return super(B2XIdentityUserFlow, self).get_property(name, default_value)

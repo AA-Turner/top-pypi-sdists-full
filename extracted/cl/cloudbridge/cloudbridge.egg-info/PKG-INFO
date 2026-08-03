@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cloudbridge
-Version: 4.3.0
+Version: 4.3.1
 Summary: A simple layer of abstraction over multiple cloud providers.
 Author-email: Galaxy and GVL Projects <help@genome.edu.au>
 License-Expression: MIT

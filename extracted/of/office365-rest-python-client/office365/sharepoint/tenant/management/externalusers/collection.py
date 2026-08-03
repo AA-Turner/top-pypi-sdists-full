@@ -5,15 +5,13 @@ from office365.sharepoint.tenant.management.externalusers.external_user import (
 )
 
 
-class ExternalUserCollection(EntityCollection):
+class ExternalUserCollection(EntityCollection[ExternalUser]):
     def __init__(self, context, resource_path=None):
-        super(ExternalUserCollection, self).__init__(
-            context, ExternalUser, resource_path
-        )
+        super().__init__(context, ExternalUser, resource_path)
 
-    def get_by_id(self, unique_id):
-        """
-        :param str unique_id: The Id of the external user.
+    def get_by_id(self, unique_id: str) -> ExternalUser:
+        """Args:
+        unique_id (str): The Id of the external user.
         """
         return ExternalUser(
             self.context,

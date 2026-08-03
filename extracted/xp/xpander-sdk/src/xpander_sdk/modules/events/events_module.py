@@ -660,6 +660,19 @@ class Events(ModuleBase):
                 task.status == AgentExecutionStatus.Executing
             ):  # let the handler set the status, if not set - mark as completed
                 task.status = AgentExecutionStatus.Completed
+                # a tool-equipped run that never called one and barely answered is the
+                # zero-tool-call failure shape (provider dropped/rejected the tool block)
+                try:
+                    result_len = len(str(task.result or "").strip())
+                    had_tools = bool(getattr(task, "_xp_tools_attached", False))
+                    if had_tools and not task_used_tools and result_len < 200:
+                        logger.warning(
+                            f"[zero-tool-run] task {task.id} completed with 0 tool calls "
+                            f"and a {result_len}-char answer - suspect the provider never "
+                            f"received/honored the tool block (model={getattr(task, 'llm_model_name', None)})"
+                        )
+                except Exception:
+                    pass
 
             # in case of structured output, return as stringified json
             try:

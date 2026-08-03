@@ -3,6 +3,7 @@ from __future__ import absolute_import
 # flake8: noqa
 
 # import apis into api package
+from powerbot_client.api.activity_api import ActivityApi
 from powerbot_client.api.alert_api import AlertApi
 from powerbot_client.api.algorithms_api import AlgorithmsApi
 from powerbot_client.api.auction_configuration_api import AuctionConfigurationApi

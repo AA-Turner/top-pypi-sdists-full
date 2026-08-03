@@ -70,32 +70,32 @@ class TestFromUTC:
         [
             (dict(year=0), "date|year"),
             (dict(year=10_000), "date|year"),
-            (dict(year=BIG_INT), "too large|date|year"),
-            (dict(year=-BIG_INT), "too large|date|year"),
+            (dict(year=BIG_INT), "too (large|big)|date|year"),
+            (dict(year=-BIG_INT), "too (large|big)|date|year"),
             (dict(month=0), "date|month"),
             (dict(month=13), "date|month"),
-            (dict(month=BIG_INT), "too large|date|month"),
-            (dict(month=-BIG_INT), "too large|date|month"),
+            (dict(month=BIG_INT), "too (large|big)|date|month"),
+            (dict(month=-BIG_INT), "too (large|big)|date|month"),
             (dict(day=0), "date|day"),
             (dict(day=32), "date|day"),
-            (dict(day=BIG_INT), "too large|date|day"),
-            (dict(day=-BIG_INT), "too large|date|day"),
+            (dict(day=BIG_INT), "too (large|big)|date|day"),
+            (dict(day=-BIG_INT), "too (large|big)|date|day"),
             (dict(hour=-1), "time|hour"),
             (dict(hour=24), "time|hour"),
-            (dict(hour=BIG_INT), "too large|time|hour"),
-            (dict(hour=-BIG_INT), "too large|time|hour"),
+            (dict(hour=BIG_INT), "too (large|big)|time|hour"),
+            (dict(hour=-BIG_INT), "too (large|big)|time|hour"),
             (dict(minute=-1), "time|minute"),
             (dict(minute=60), "time|minute"),
-            (dict(minute=BIG_INT), "too large|time|minute"),
-            (dict(minute=-BIG_INT), "too large|time|minute"),
+            (dict(minute=BIG_INT), "too (large|big)|time|minute"),
+            (dict(minute=-BIG_INT), "too (large|big)|time|minute"),
             (dict(second=-1), "time|second"),
             (dict(second=60), "time|second"),
-            (dict(second=BIG_INT), "too large|time|second"),
-            (dict(second=-BIG_INT), "too large|time|second"),
+            (dict(second=BIG_INT), "too (large|big)|time|second"),
+            (dict(second=-BIG_INT), "too (large|big)|time|second"),
             (dict(nanosecond=-1), "time|nanos"),
             (dict(nanosecond=1_000_000_000), "time|nanos"),
-            (dict(nanosecond=BIG_INT), "too large|time|nanos"),
-            (dict(nanosecond=-BIG_INT), "too large|time|nanos"),
+            (dict(nanosecond=BIG_INT), "too (large|big)|time|nanos"),
+            (dict(nanosecond=-BIG_INT), "too (large|big)|time|nanos"),
         ],
     )
     def test_bounds(self, kwargs, keyword):
@@ -351,6 +351,20 @@ class TestFromTimestamp:
     def test_invalid(self):
         with pytest.raises(TypeError):
             Instant.from_timestamp("2020")  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize(
+        "method",
+        [
+            Instant.from_timestamp,
+            Instant.from_timestamp_millis,
+            Instant.from_timestamp_nanos,
+        ],
+    )
+    def test_int_subclass(self, method):
+        class MyInt(int):
+            pass
+
+        assert method(MyInt(0)) == Instant.from_utc(1970, 1, 1)
 
 
 def test_repr():

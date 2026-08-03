@@ -1,9 +1,13 @@
-import copy
-from typing import Callable, List, Optional
+from __future__ import annotations
 
+import copy
+from typing import TYPE_CHECKING, Callable, List, Optional, Union
+
+import requests
 from requests import RequestException
 from typing_extensions import Self
 
+from office365.azure_env import AzureEnvironment
 from office365.runtime.auth.authentication_context import AuthenticationContext
 from office365.runtime.auth.client_credential import ClientCredential
 from office365.runtime.auth.token_response import TokenResponse
@@ -11,16 +15,12 @@ from office365.runtime.auth.user_credential import UserCredential
 from office365.runtime.client_object import ClientObject
 from office365.runtime.client_result import ClientResult
 from office365.runtime.client_runtime_context import ClientRuntimeContext
-from office365.runtime.compat import get_absolute_url, urlparse
-from office365.runtime.http.http_method import HttpMethod
-from office365.runtime.http.request_options import RequestOptions
-from office365.runtime.odata.request import ODataRequest
 from office365.runtime.odata.v3.batch_request import ODataBatchV3Request
 from office365.runtime.odata.v3.json_light_format import JsonLightFormat
 from office365.runtime.paths.resource_path import ResourcePath
-from office365.runtime.queries.delete_entity import DeleteEntityQuery
-from office365.runtime.queries.update_entity import UpdateEntityQuery
-from office365.runtime.types.event_handler import EventHandler
+from office365.runtime.types.collections import StringCollection
+from office365.runtime.utilities import get_absolute_url, urlparse
+from office365.sharepoint.portal.groups.creation_params import GroupCreationParams
 from office365.sharepoint.portal.groups.site_info import GroupSiteInfo
 from office365.sharepoint.portal.sites.creation_response import SPSiteCreationResponse
 from office365.sharepoint.portal.sites.status import SiteStatus
@@ -29,13 +29,27 @@ from office365.sharepoint.publishing.pages.service import SitePageService
 from office365.sharepoint.publishing.sites.communication.creation_response import (
     CommunicationSiteCreationResponse,
 )
+from office365.sharepoint.request import SharePointRequest
 from office365.sharepoint.request_user_context import RequestUserContext
 from office365.sharepoint.sites.site import Site
 from office365.sharepoint.tenant.administration.hubsites.collection import (
     HubSiteCollection,
 )
+from office365.sharepoint.ui.applicationpages.peoplepicker.web_service_interface import (
+    ClientPeoplePickerWebServiceInterface,
+    PeoplePickerWebServiceInterface,
+)
 from office365.sharepoint.webs.context_web_information import ContextWebInformation
 from office365.sharepoint.webs.web import Web
+
+if TYPE_CHECKING:
+    from office365.sharepoint.brandcenter.brand_center import BrandCenter
+    from office365.sharepoint.portal.theme_manager import ThemeManager
+    from office365.sharepoint.search.service import SearchService
+    from office365.sharepoint.server_settings import ServerSettings
+    from office365.sharepoint.tenant.administration.tenant import Tenant
+    from office365.sharepoint.tenant.settings import TenantSettings
+    from office365.sharepoint.viva.site_manager import VivaSiteManager
 
 
 class ClientContext(ClientRuntimeContext):
@@ -43,329 +57,357 @@ class ClientContext(ClientRuntimeContext):
 
     def __init__(
         self,
-        base_url,
-        auth_context=None,
-        environment=None,
-        allow_ntlm=False,
-        browser_mode=False,
-    ):
-        # type: (str, Optional[AuthenticationContext], str, bool, bool) -> None
-        """
-        Instantiates a SharePoint client context
+        base_url: str,
+        environment: Optional[AzureEnvironment] = None,
+        allow_ntlm: bool = False,
+        browser_mode: bool = False,
+    ) -> None:
+        """Instantiates a SharePoint client context
 
-        :param str base_url: Absolute Web or Site Url
-        :param AuthenticationContext or None auth_context: Authentication context
+        Args:
+            base_url (str): Absolute Web or Site Url
         """
-        super(ClientContext, self).__init__()
-        if auth_context is None:
-            auth_context = AuthenticationContext(
-                url=base_url,
-                environment=environment,
-                allow_ntlm=allow_ntlm,
-                browser_mode=browser_mode,
-            )
-        self._auth_context = auth_context
-        self._web = None
-        self._site = None
-        self._ctx_web_info = None
-        self._pending_request = None
+        super().__init__()
+        self._base_url: str = base_url.rstrip("/")
+        self._environment: AzureEnvironment = environment or AzureEnvironment.Global
+        self._web: Web | None = None
+        self._site: Site | None = None
+        self._allow_ntlm: bool = allow_ntlm
+        self._browser_mode: bool = browser_mode
 
     @staticmethod
-    def from_url(full_url):
-        # type: (str) -> ClientContext
-        """
-        Constructs a client from absolute resource url
+    def from_url(full_url: str) -> ClientContext:
+        """Constructs a client from absolute resource url
 
-        :param str full_url: Absolute Url to a resource
+        Args:
+            full_url (str): Absolute Url to a resource
         """
         root_site_url = get_absolute_url(full_url)
         ctx = ClientContext(root_site_url)
 
         def _init_context(return_type):
-            ctx._auth_context.url = return_type.value
+            ctx.pending_request().authentication_context.url = return_type.value
 
         Web.get_web_url_from_page_url(ctx, full_url).after_execute(_init_context)
         return ctx
 
+    def with_client_secret(
+        self, tenant: str, client_id: str, client_secret: str, scopes: Optional[List[str]] = None
+    ) -> Self:
+        """Initializes a client to acquire a token via client secret (MSAL app-only).
+
+        Args:
+            tenant: Tenant name, e.g. "contoso.onmicrosoft.com"
+            client_id: Application client ID
+            client_secret: Client secret value
+            scopes: Scopes requested to access a protected API (optional)
+        """
+        self.authentication_context.with_client_secret(tenant, client_id, client_secret, scopes)
+        return self
+
     def with_client_certificate(
         self,
-        tenant,
-        client_id,
-        thumbprint,
-        cert_path=None,
-        private_key=None,
-        scopes=None,
-        passphrase=None,
-    ):
-        # type: (str, str, str, Optional[str], Optional[str], Optional[List[str]], Optional[str]) -> Self
-        """
-        Creates authenticated SharePoint context via certificate credentials
+        tenant: str,
+        client_id: str,
+        thumbprint: str,
+        cert_path: Optional[str] = None,
+        private_key: Optional[str] = None,
+        scopes: Optional[List[str]] = None,
+        passphrase: Optional[str] = None,
+    ) -> Self:
+        """Creates authenticated SharePoint context via certificate credentials
 
-        :param str tenant: Tenant name
-        :param str or None cert_path: Path to A PEM encoded certificate private key.
-        :param str or None private_key: A PEM encoded certificate private key.
-        :param str thumbprint: Hex encoded thumbprint of the certificate.
-        :param str client_id: The OAuth client id of the calling application.
-        :param list[str] or None scopes:  Scopes requested to access a protected API (a resource)
-        :param str passphrase: Passphrase if the private_key is encrypted
+        Args:
+            tenant (str): Tenant name
+            cert_path (str or None): Path to A PEM encoded certificate private key.
+            private_key (str or None): A PEM encoded certificate private key.
+            thumbprint (str): Hex encoded thumbprint of the certificate.
+            client_id (str): The OAuth client id of the calling application.
+            scopes (list[str] or None): Scopes requested to access a protected API (a resource)
+            passphrase (str): Passphrase if the private_key is encrypted
         """
         self.authentication_context.with_client_certificate(
             tenant, client_id, thumbprint, cert_path, private_key, scopes, passphrase
         )
         return self
 
-    def with_interactive(self, tenant, client_id, scopes=None):
-        # type: (str, str, Optional[List[str]]) -> Self
-        """
-        Initializes a client to acquire a token interactively i.e. via a local browser.
+    def with_interactive(self, tenant: str, client_id: str, scopes: Optional[List[str]] = None) -> Self:
+        """Initializes a client to acquire a token interactively i.e. via a local browser.
 
         Prerequisite: In Azure Portal, configure the Redirect URI of your
         "Mobile and Desktop application" as ``http://localhost``.
 
-        :param str tenant: Tenant name, for example: contoso.onmicrosoft.com
-        :param str client_id: The OAuth client id of the calling application.
-        :param list[str] or None scopes:  Scopes requested to access a protected API (a resource)
+        Args:
+            tenant (str): Tenant name, for example: contoso.onmicrosoft.com
+            client_id (str): The OAuth client id of the calling application.
+            scopes (list[str] or None): Scopes requested to access a protected API (a resource)
         """
         self.authentication_context.with_interactive(tenant, client_id, scopes)
         return self
 
-    def with_device_flow(self, tenant, client_id, scopes=None):
-        # type: (str, str, Optional[List[str]]) -> Self
-        """
-        Initializes a client to acquire a token via device flow auth.
+    def with_device_flow(self, tenant: str, client_id: str, scopes: Optional[List[str]] = None) -> Self:
+        """Initializes a client to acquire a token via device flow auth.
 
-        :param str tenant: Tenant name, for example: contoso.onmicrosoft.com
-        :param str client_id: The OAuth client id of the calling application.
-        :param list[str] or None scopes:  Scopes requested to access a protected API (a resource)
+        Args:
+            tenant (str): Tenant name, for example: contoso.onmicrosoft.com
+            client_id (str): The OAuth client id of the calling application.
+            scopes (list[str] or None): Scopes requested to access a protected API (a resource)
         """
         self.authentication_context.with_device_flow(tenant, client_id, scopes)
         return self
 
-    def with_access_token(self, token_func):
-        # type: (Callable[[], TokenResponse]) -> Self
-        """
-        Initializes a client to acquire a token from a callback
-        :param () -> TokenResponse token_func: A token callback
+    def with_access_token(self, token_func: Callable[[], TokenResponse]) -> Self:
+        """Initializes a client to acquire a token from a callback
+
+        Args:
+            token_func (() -> TokenResponse): A token callback
         """
         self.authentication_context.with_access_token(token_func)
         return self
 
-    def with_user_credentials(self, username, password):
-        # type: (str, str) -> Self
+    def with_transport(
+        self,
+        proxies: dict[str, str] | None = None,
+        verify: bool | str = True,
+        timeout: int | tuple[int, int] | None = None,
+        session: requests.Session | None = None,
+    ) -> Self:
+        """Configure the HTTP transport (proxy, SSL, timeout, custom session).
+
+        Note:
+            MSAL authentication requests to ``login.microsoftonline.com`` use
+            their own HTTP client.  Use the ``HTTPS_PROXY`` environment variable
+            to route MSAL traffic through a proxy.
+
+        Args:
+            proxies: Proxy URLs (e.g. ``{"https": "http://proxy:8080"}``)
+            verify: SSL verification — ``True``, ``False``, or a CA bundle path
+            timeout: Request timeout in seconds
+            session: Custom ``requests.Session`` with pre-configured adapters
+                   (e.g. for NTLM/SSPI auth, custom TLS, connection pooling)
+
+        Returns:
+            Self: Supports method chaining
         """
-        Initializes a client to acquire a token via user credentials.
-        :param str username: Typically, a UPN in the form of an email address
-        :param str password: The password
-        """
-        self.authentication_context.with_credentials(UserCredential(username, password))
+        self.pending_request().with_transport(
+            proxies=proxies,
+            verify=verify,
+            timeout=timeout,
+            session=session,
+        )
         return self
 
-    def with_client_credentials(self, client_id, client_secret):
-        # type: (str, str) -> Self
+    def with_user_credentials(self, username: str, password: str) -> Self:
+        """Initializes a client to acquire a token via user credentials.
+
+        Args:
+            username (str): Typically, a UPN in the form of an email address
+            password (str): The password Note: This method uses the legacy SAML/ACS auth flow which Microsoft has
+                retired for SharePoint Online. Use with_username_and_password instead.
+                For on-premises SharePoint, use allow_ntlm=True.
         """
-        Initializes a client to acquire a token via client credentials (SharePoint App-Only)
+        raise RuntimeError(
+            "with_user_credentials uses the legacy SAML/ACS auth flow which "
+            "Microsoft has retired for SharePoint Online. "
+            "Use with_username_and_password(tenant, client_id, username, password) instead. "
+            "For on-premises SharePoint, use allow_ntlm=True."
+        )
+
+    def with_username_and_password(self, tenant: str, client_id: str, username: str, password: str) -> Self:
+        """Initializes a client to acquire a token via Username and password authentication flow.
+
+        Args:
+            tenant (str): Tenant name or identifier, for example: contoso.onmicrosoft.com
+            client_id (str): The OAuth client id of the calling application.
+            username (str): Typically, a UPN in the form of an email address
+            password (str): The password
+        """
+        resource = get_absolute_url(self.base_url)
+        scopes = [f"{resource}/.default"]
+        self.authentication_context.with_username_and_password(tenant, client_id, username, password, scopes)
+        return self
+
+    def with_client_credentials(self, client_id: str, client_secret: str) -> Self:
+        """Initializes a client to acquire a token via client credentials (SharePoint App-Only)
 
         SharePoint App-Only is the older, but still very relevant, model of setting up app-principals.
         This model works for both SharePoint Online and SharePoint 2013/2016/2019 on-premises
 
-        :param str client_id: The OAuth client id of the calling application
-        :param str client_secret: Secret string that the application uses to prove its identity when requesting a token
+        Args:
+            client_id (str): The OAuth client id of the calling application
+            client_secret (str): Secret string that the application uses to prove its identity when requesting a token
         """
-        self.authentication_context.with_credentials(
-            ClientCredential(client_id, client_secret)
-        )
+        self.authentication_context.with_credentials(ClientCredential(client_id, client_secret))
         return self
 
-    def with_credentials(self, credentials):
-        # type: (UserCredential|ClientCredential) -> Self
+    def with_cookies(self, cookie_source, ttl_seconds=None):
+        """Initializes authentication using browser-session cookies.
+
+        Args:
+            cookie_source: Callable returning Dict[str, str] or an AuthCookies instance.
+            ttl_seconds: Optional max age for cached cookies before reloading from source.
+        """
+        self.authentication_context.with_cookies(cookie_source, ttl_seconds)
+        return self
+
+    def with_credentials(self, credentials: Union[UserCredential, ClientCredential]) -> Self:
         """
         Initializes a client to acquire a token via user or client credentials
-        :type credentials: UserCredential or ClientCredential
         """
         self.authentication_context.with_credentials(credentials)
         return self
 
-    def execute_batch(self, items_per_batch=100, success_callback=None):
-        # type: (int, Callable[[List[ClientObject|ClientResult]], None]) -> Self
+    def execute_batch(
+        self,
+        items_per_batch: int = 100,
+        success_callback: Optional[Callable[[List[ClientObject | ClientResult]], None]] = None,
+    ) -> Self:
+        """Construct and submit to a server a batch request
+
+        Args:
+            items_per_batch (int): Maximum to be selected for bulk operation
+            success_callback ((List[ClientObject|ClientResult])-> None): A success callback
         """
-        Construct and submit to a server a batch request
-        :param int items_per_batch: Maximum to be selected for bulk operation
-        :param (List[ClientObject|ClientResult])-> None success_callback: A success callback
-        """
-        batch_request = ODataBatchV3Request(JsonLightFormat())
-        batch_request.beforeExecute += self._authenticate_request
-        batch_request.beforeExecute += self._ensure_form_digest
+        batch_request = ODataBatchV3Request(self._base_url, JsonLightFormat())
+        batch_request.beforeExecute += self.authentication_context.authenticate_request
+        batch_request.beforeExecute += self.pending_request().ensure_form_digest
         while self.has_pending_request:
             qry = self._get_next_query(items_per_batch)
             batch_request.execute_query(qry)
-            if callable(success_callback):
+            if callable(success_callback) and qry.return_type is not None:
                 success_callback(qry.return_type)
         return self
 
-    def pending_request(self):
+    def pending_request(self) -> SharePointRequest:
         """Provides access to underlying request instance"""
         if self._pending_request is None:
-            self._pending_request = ODataRequest(JsonLightFormat())
-            self._pending_request.beforeExecute += self._authenticate_request
-            self._pending_request.beforeExecute += self._build_modification_query
-        return self._pending_request
-
-    def _ensure_form_digest(self, request):
-        # type: (RequestOptions) -> None
-        if not self.context_info.is_valid:
-            self._ctx_web_info = self._get_context_web_information()
-        request.set_header("X-RequestDigest", self._ctx_web_info.FormDigestValue)
-
-    def _get_context_web_information(self):
-        """Returns an ContextWebInformation object that specifies metadata about the site"""
-        client = ODataRequest(JsonLightFormat())
-        client.beforeExecute += self._authenticate_request
-        for e in self.pending_request().beforeExecute:
-            if not EventHandler.is_system(e):
-                client.beforeExecute += e
-        request = RequestOptions("{0}/contextInfo".format(self.service_root_url()))
-        request.method = HttpMethod.Post
-        response = client.execute_request_direct(request)
-        json_format = JsonLightFormat()
-        json_format.function = "GetContextWebInformation"
-        return_value = ContextWebInformation()
-        client.map_json(response.json(), return_value, json_format)
-        return return_value
+            self._pending_request = SharePointRequest(
+                base_url=self._base_url,
+                environment=self._environment,
+            )
+        return self._pending_request  # type: ignore[return-value]
 
     def execute_query_with_incremental_retry(self, max_retry=5):
         """Handles throttling requests."""
-        settings = {"timeout": 0}
+        settings: dict[str, int] = {"timeout": 0}
 
-        def _try_process_if_failed(retry, ex):
-            # type: (int, RequestException) -> None
+        def _try_process_if_failed(retry: int, ex: Exception) -> None:
             """
             check if request was throttled - http status code 429
             or check is request failed due to server unavailable - http status code 503
             """
-            if ex.response.status_code == 429 or ex.response.status_code == 503:
+            if isinstance(ex, RequestException) and ex.response is not None and ex.response.status_code in {429, 503}:
                 retry_after = ex.response.headers.get("Retry-After", None)
                 if retry_after is not None:
                     settings["timeout"] = int(retry_after)
 
         self.execute_query_retry(
-            timeout_secs=settings.get("timeout"),
+            timeout_secs=settings["timeout"],
             max_retry=max_retry,
             failure_callback=_try_process_if_failed,
         )
 
-    def clone(self, url, clear_queries=True):
-        """
-        Creates a clone of ClientContext
-        :param bool clear_queries:
-        :param str url: Site Url
+    def clone(self, url: str, clear_queries: bool = True) -> ClientContext:
+        """Creates a clone of ClientContext
+
+        Args:
+            clear_queries (bool):
+            url (str): Site Url
         """
         ctx = copy.deepcopy(self)
-        ctx._auth_context.url = url
-        ctx._ctx_web_info = None
+        ctx.pending_request().set_base_url(url)
         if clear_queries:
             ctx.clear()
         return ctx
 
-    def _authenticate_request(self, request):
-        # type: (RequestOptions) -> None
-        """Authenticate request"""
-        self.authentication_context.authenticate_request(request)
-
-    def _build_modification_query(self, request):
-        # type: (RequestOptions) -> None
-        """Constructs SharePoint specific modification OData request"""
-        if request.method == HttpMethod.Post:
-            self._ensure_form_digest(request)
-        # set custom SharePoint control headers
-        if isinstance(self.pending_request().json_format, JsonLightFormat):
-            if isinstance(self.current_query, DeleteEntityQuery):
-                request.ensure_header("X-HTTP-Method", "DELETE")
-                request.ensure_header("IF-MATCH", "*")
-            elif isinstance(self.current_query, UpdateEntityQuery):
-                request.ensure_header("X-HTTP-Method", "MERGE")
-                request.ensure_header("IF-MATCH", "*")
-
-    def create_modern_site(self, title, alias, owner=None):
-        # type: (str, str, Optional[str | User]) -> Site
-        """
-        Creates a modern (Communication) site
+    def create_modern_site(self, title: str, alias: str, owner: Optional[Union[str, User]] = None) -> Site:
+        """Creates a modern (Communication) site
         https://learn.microsoft.com/en-us/sharepoint/dev/apis/site-creation-rest#create-a-modern-site
 
-        :param str alias: Site alias which defines site url, e.g. https://contoso.sharepoint.com/sites/{alias}
-        :param str title: Site title
-        :param str or office365.sharepoint.principal.user.User owner: Site owner
+        Args:
+            alias (str): Site alias which defines site url, e.g. https://contoso.sharepoint.com/sites/{alias}
+            title (str): Site title
+            owner (str or office365.sharepoint.principal.user.User): Site owner
         """
         return_type = Site(self)
-        site_url = "{base_url}/sites/{alias}".format(
-            base_url=get_absolute_url(self.base_url), alias=alias
-        )
+        site_url = f"{get_absolute_url(self.base_url)}/sites/{alias}"
 
-        def _after_site_create(result):
-            # type: (ClientResult[SPSiteCreationResponse]) -> None
+        def _after_site_create(result: ClientResult[SPSiteCreationResponse]) -> None:
             if result.value.SiteStatus == SiteStatus.Error:
-                raise ValueError(result.value.ErrorMessage)
+                raise ValueError(result.value)
             elif result.value.SiteStatus == SiteStatus.Ready:
                 return_type.set_property("__siteUrl", result.value.SiteUrl)
 
-        self.site_manager.create(title, site_url, owner).after_execute(
-            _after_site_create
-        )
+        (self.site_manager.create(title, site_url, owner).after_execute(_after_site_create))
         return return_type
 
-    def create_team_site(self, alias, title, is_public=True):
+    def create_team_site(
+        self, alias: str, title: str, is_public: bool = True, owners: Optional[List[str]] = None
+    ) -> Site:
         """Creates a modern SharePoint Team site
 
-        :param str alias: Site alias which defines site url, e.g. https://contoso.sharepoint.com/teams/{alias}
-        :param str title: Site title
-        :param bool is_public:
+        Args:
+            alias (str): Site alias which defines site url, e.g. https://contoso.sharepoint.com/teams/{alias}
+            title (str): Site title
+            is_public (bool):
         """
         return_type = Site(self)
 
-        def _after_site_created(result):
-            # type: (ClientResult[GroupSiteInfo]) -> None
+        def _after_site_created(result: ClientResult[GroupSiteInfo]) -> None:
             if result.value.SiteStatus == SiteStatus.Error:
                 raise ValueError(result.value.ErrorMessage)
             elif result.value.SiteStatus == SiteStatus.Ready:
                 return_type.set_property("__siteUrl", result.value.SiteUrl)
 
-        self.group_site_manager.create_group_ex(title, alias, is_public).after_execute(
-            _after_site_created
-        )
+        opt_params = GroupCreationParams(Owners=StringCollection(owners or []))
+        self.group_site_manager.create_group_ex(title, alias, is_public, opt_params).after_execute(_after_site_created)
         return return_type
 
-    def create_communication_site(self, alias, title):
-        """
-        Creates a modern SharePoint Communication site
+    def create_communication_site(self, alias: str, title: str) -> Site:
+        """Creates a modern SharePoint Communication site
 
-        :param str alias: Site alias which defines site url, e.g. https://contoso.sharepoint.com/sites/{alias}
-        :param str title: Site title
+        Args:
+            alias (str): Site alias which defines site url, e.g. https://contoso.sharepoint.com/sites/{alias}
+            title (str): Site title
         """
         return_type = Site(self)
-        site_url = "{base_url}/sites/{alias}".format(
-            base_url=get_absolute_url(self.base_url), alias=alias
-        )
+        site_url = f"{get_absolute_url(self.base_url)}/sites/{alias}"
 
-        def _after_site_created(result):
-            # type: (ClientResult[CommunicationSiteCreationResponse]) -> None
+        def _after_site_created(
+            result: ClientResult[CommunicationSiteCreationResponse],
+        ) -> None:
             if result.value.SiteStatus == SiteStatus.Error:
                 raise ValueError("Site creation error")
             elif result.value.SiteStatus == SiteStatus.Ready:
                 return_type.set_property("__siteUrl", result.value.SiteUrl)
 
-        self.site_pages.communication_site.create(title, site_url).after_execute(
-            _after_site_created
-        )
+        self.site_pages.communication_site.create(title, site_url).after_execute(_after_site_created)
+        return return_type
+
+    def search_user(self, query: str) -> ClientResult[dict[str, str]]:
+        """Search/resolve user by email or display name"""
+
+        return_type = ClientResult[dict](self)
+
+        def _search_user(result: ClientResult[str]) -> None:
+            import json
+
+            entries = json.loads(result.value)
+            if not entries or not entries[0].get("IsResolved", False):
+                raise Exception(f"User '{query}' not found or could not be resolved")
+
+            return_type.set_property("__value", entries)
+
+        ClientPeoplePickerWebServiceInterface.client_people_picker_search_user(self, query).after_execute(_search_user)
         return return_type
 
     @property
-    def context_info(self):
-        """Returns an ContextWebInformation object that specifies metadata about the site"""
-        if self._ctx_web_info is None:
-            self._ctx_web_info = ContextWebInformation()
-        return self._ctx_web_info
+    def context_info(self) -> ContextWebInformation:
+        """Returns a ContextWebInformation object that specifies metadata about the site."""
+        return self.pending_request().context_info
 
     @property
-    def web(self):
+    def web(self) -> Web:
         """
         A group of related webpages that is hosted by a server on the World Wide Web or an intranet.
         Each website has its own entry points, metadata, administration settings, and workflows.
@@ -375,7 +417,7 @@ class ClientContext(ClientRuntimeContext):
         return self._web
 
     @property
-    def site(self):
+    def site(self) -> Site:
         """
         Represents a collection of sites in a Web application, including a top-level website and all its sub sites.
         """
@@ -400,7 +442,7 @@ class ClientContext(ClientRuntimeContext):
         return AnnouncementsController(self, ResourcePath("Announcements"))
 
     @property
-    def brand_center(self):
+    def brand_center(self) -> BrandCenter:
         """Alias to BrandCenter"""
 
         from office365.sharepoint.brandcenter.brand_center import BrandCenter
@@ -435,6 +477,14 @@ class ClientContext(ClientRuntimeContext):
         )
 
         return ConsumerPermissions(self, ResourcePath("ConsumerPermissions"))
+
+    @property
+    def document_id(self):
+        """Document IDs service"""
+
+        from office365.sharepoint.documentmanagement.document_id import DocumentId
+
+        return DocumentId(self)
 
     @property
     def me(self):
@@ -529,7 +579,7 @@ class ClientContext(ClientRuntimeContext):
     @property
     def navigation_service(self):
         """Alias to NavigationService"""
-        from office365.sharepoint.navigation.navigation_service import NavigationService
+        from office365.sharepoint.navigation.service import NavigationService
 
         return NavigationService(self)
 
@@ -673,12 +723,8 @@ class ClientContext(ClientRuntimeContext):
         return SPHSite(self, ResourcePath("SPHSite"))
 
     @property
-    def people_picker(self):
+    def people_picker(self) -> PeoplePickerWebServiceInterface:
         """Query principals service alias"""
-
-        from office365.sharepoint.ui.applicationpages.peoplepicker.web_service_interface import (
-            PeoplePickerWebServiceInterface,
-        )
 
         return PeoplePickerWebServiceInterface(self)
 
@@ -689,12 +735,10 @@ class ClientContext(ClientRuntimeContext):
         )
         from office365.sharepoint.entity_collection import EntityCollection
 
-        return EntityCollection(
-            self, SPMachineLearningPublication, ResourcePath("publications")
-        )
+        return EntityCollection(self, SPMachineLearningPublication, ResourcePath("publications"))
 
     @property
-    def server_settings(self):
+    def server_settings(self) -> ServerSettings:
         """Provides methods for obtaining server properties"""
 
         from office365.sharepoint.server_settings import ServerSettings
@@ -709,7 +753,7 @@ class ClientContext(ClientRuntimeContext):
         return SocialFollowingManager(self)
 
     @property
-    def theme_manager(self):
+    def theme_manager(self) -> ThemeManager:
         """Alias to SP.Utilities.ThemeManager. Represents methods for creating and managing site theming"""
         from office365.sharepoint.portal.theme_manager import ThemeManager
 
@@ -723,21 +767,21 @@ class ClientContext(ClientRuntimeContext):
         return TaxonomyService(self)
 
     @property
-    def search(self):
+    def search(self) -> SearchService:
         """Alias to SearchService"""
         from office365.sharepoint.search.service import SearchService
 
         return SearchService(self)
 
     @property
-    def tenant_settings(self):
+    def tenant_settings(self) -> TenantSettings:
         """Alias to TenantSettings"""
         from office365.sharepoint.tenant.settings import TenantSettings
 
         return TenantSettings.current(self)
 
     @property
-    def viva_site_manager(self):
+    def viva_site_manager(self) -> VivaSiteManager:
         """"""
         from office365.sharepoint.viva.site_manager import VivaSiteManager
 
@@ -746,7 +790,7 @@ class ClientContext(ClientRuntimeContext):
     @property
     def workflow_services_manager(self):
         """Alias to WorkflowServicesManager"""
-        from office365.sharepoint.workflowservices.manager import (
+        from office365.sharepoint.workflow.servicesmanager import (
             WorkflowServicesManager,
         )
 
@@ -756,7 +800,7 @@ class ClientContext(ClientRuntimeContext):
     def workflow_deployment_service(self):
         """Alias to WorkflowServicesManager"""
 
-        from office365.sharepoint.workflowservices.deployment_service import (
+        from office365.sharepoint.workflow.deployment_service import (
             WorkflowDeploymentService,
         )
 
@@ -772,7 +816,7 @@ class ClientContext(ClientRuntimeContext):
         return SPMachineLearningWorkItemCollection(self, ResourcePath("workitems"))
 
     @property
-    def tenant(self):
+    def tenant(self) -> Tenant:
         from office365.sharepoint.tenant.administration.tenant import Tenant
 
         if self.is_tenant:
@@ -782,7 +826,7 @@ class ClientContext(ClientRuntimeContext):
             return Tenant(admin_ctx)
 
     @property
-    def tenant_url(self):
+    def tenant_url(self) -> str:
         root_url = get_absolute_url(self.base_url)
         if "-admin." in root_url:
             return root_url
@@ -792,25 +836,21 @@ class ClientContext(ClientRuntimeContext):
         return result.scheme + "://" + ".".join(names)
 
     @property
-    def site_path(self):
+    def site_path(self) -> str:
         root_url = get_absolute_url(self.base_url)
         return self.base_url.replace(root_url, "")
 
     @property
-    def is_tenant(self):
+    def is_tenant(self) -> bool:
         """
         Determines whether the current site is a tenant administration site
         """
         return self.tenant_url == self.base_url
 
     @property
-    def base_url(self):
-        """Represents absolute Web or Site Url"""
-        return self.authentication_context.url
+    def base_url(self) -> str:
+        return self._base_url
 
     @property
-    def authentication_context(self):
-        return self._auth_context
-
-    def service_root_url(self):
-        return "{0}/_api".format(self.base_url)
+    def authentication_context(self) -> AuthenticationContext:
+        return self.pending_request().authentication_context

@@ -1,45 +1,34 @@
-import uuid
+from __future__ import annotations
+
+from dataclasses import dataclass
 
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class TaxonomyFieldCreateXmlParameters(ClientValue):
-    def __init__(
-        self,
-        name,
-        term_set_id,
-        term_store_id=None,
-        anchor_id="00000000-0000-0000-0000-000000000000",
-        allow_multiple_values=False,
-    ):
-        """
-        :param str name:
-        """
-        self.Name = name
-        self.SspId = term_store_id
-        self.TermSetId = term_set_id
-        self.AnchorId = anchor_id
-        self.FieldId = str(uuid.uuid1())
-        self.TextFieldId = None
-        self.WebId = None
-        self.ListId = None
-        self.AllowMultipleValues = allow_multiple_values
+    """
+    Args:
+        name: Field name.
+    """
+
+    Name: str | None = None
+    SspId: str | None = None
+    TermSetId: str | None = None
+    AnchorId: str = "00000000-0000-0000-0000-000000000000"
+    FieldId: str | None = None
+    AllowMultipleValues: bool = False
+    ListId: str | None = None
+    WebId: str | None = None
+    TextFieldId: str | None = None
 
     @property
     def type_name(self):
-        return (
-            "TaxonomyFieldTypeMulti"
-            if self.AllowMultipleValues
-            else "TaxonomyFieldType"
-        )
+        return "TaxonomyFieldTypeMulti" if self.AllowMultipleValues else "TaxonomyFieldType"
 
     @property
     def schema_xml(self):
-        list_attr = (
-            'List="{{{list_id}}}"'.format(list_id=self.ListId)
-            if self.ListId is not None
-            else ""
-        )
+        list_attr = f'List="{{{self.ListId}}}"' if self.ListId is not None else ""
 
         return """
             <Field Type="{type_name}" DisplayName="{name}" {list_attr}

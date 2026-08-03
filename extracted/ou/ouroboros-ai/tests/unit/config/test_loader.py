@@ -3,6 +3,9 @@
 import os
 from pathlib import Path
 import stat
+import subprocess
+import sys
+import textwrap
 from unittest.mock import patch
 
 import pytest
@@ -53,12 +56,14 @@ from ouroboros.config.models import (
     ConsensusConfig,
     CredentialsConfig,
     EvaluationConfig,
+    ExecutionConfig,
     LLMConfig,
     OrchestratorConfig,
     OuroborosConfig,
     ResilienceConfig,
     RuntimeControlsConfig,
     RuntimeProfileConfig,
+    resolve_event_store_path,
 )
 from ouroboros.core.errors import ConfigError
 
@@ -1209,7 +1214,10 @@ class TestRuntimeHelperLookups:
 
         assert get_usage_limit_pause_seconds() == 5400
 
-    @pytest.mark.parametrize("env_value", ["0", "-1", "five", "nan", "inf", "-inf"])
+    @pytest.mark.parametrize(
+        "env_value",
+        ["0", "-1", "five", "nan", "inf", "-inf", "8761", "1e308"],
+    )
     def test_get_usage_limit_pause_seconds_rejects_invalid_env(
         self,
         env_value: str,
@@ -1292,7 +1300,10 @@ class TestRuntimeHelperLookups:
         ):
             assert get_usage_limit_pause_seconds() == 18000
 
-    @pytest.mark.parametrize("config_value", ["0", "five", "nan", "inf", "-inf"])
+    @pytest.mark.parametrize(
+        "config_value",
+        ["0", "five", "nan", "inf", "-inf", "8761", "1e308"],
+    )
     def test_get_usage_limit_pause_seconds_rejects_invalid_config_key(
         self,
         config_value: str,
@@ -2272,3 +2283,142 @@ class TestGetAgentReasoningEffort:
 
         with pytest.raises(pydantic.ValidationError):
             OrchestratorConfig(reasoning_effort="minimal")
+
+
+class TestGetExecutionModel:
+    """Execute model pins come from env first, then the persisted settings UI value."""
+
+    def test_env_model_overrides_persisted_pin(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from ouroboros.config.loader import get_execution_model
+
+        monkeypatch.setenv("OUROBOROS_EXECUTION_MODEL", "env-model")
+        with patch(
+            "ouroboros.config.loader.load_config",
+            return_value=OuroborosConfig(execution=ExecutionConfig(default_model="saved-model")),
+        ):
+            assert get_execution_model() == "env-model"
+
+    @pytest.mark.parametrize("value", ("", "default", "current"))
+    def test_env_automatic_execute_values_do_not_pin_a_model(
+        self, monkeypatch: pytest.MonkeyPatch, value: str
+    ) -> None:
+        from ouroboros.config.loader import get_execution_model
+
+        monkeypatch.setenv("OUROBOROS_EXECUTION_MODEL", value)
+        with patch(
+            "ouroboros.config.loader.load_config",
+            return_value=OuroborosConfig(execution=ExecutionConfig(default_model="saved-model")),
+        ):
+            assert get_execution_model() is None
+
+    def test_persisted_execute_model_is_used_when_env_is_unset(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from ouroboros.config.loader import get_execution_model
+
+        monkeypatch.delenv("OUROBOROS_EXECUTION_MODEL", raising=False)
+        with patch(
+            "ouroboros.config.loader.load_config",
+            return_value=OuroborosConfig(execution=ExecutionConfig(default_model="gpt-5-codex")),
+        ):
+            assert get_execution_model() == "gpt-5-codex"
+
+    @pytest.mark.parametrize("value", (None, "", "default", "current"))
+    def test_automatic_execute_values_do_not_pin_a_model(
+        self, monkeypatch: pytest.MonkeyPatch, value: str | None
+    ) -> None:
+        from ouroboros.config.loader import get_execution_model
+
+        monkeypatch.delenv("OUROBOROS_EXECUTION_MODEL", raising=False)
+        with patch(
+            "ouroboros.config.loader.load_config",
+            return_value=OuroborosConfig(execution=ExecutionConfig(default_model=value)),
+        ):
+            assert get_execution_model() is None
+
+
+class TestConfigEncodingLocaleIndependence:
+    """#1831: config/credentials I/O must not depend on the process locale."""
+
+    def test_utf8_config_round_trips_under_non_utf8_locale(self, tmp_path: Path) -> None:
+        """Create, rewrite with Korean content, and load back under LC_ALL=C.
+
+        The subprocess disables Python UTF-8 mode so the platform default
+        encoding really is ASCII; every canonical config operation has to
+        keep working because each pins UTF-8 explicitly.
+        """
+        script = textwrap.dedent(
+            """
+            import locale
+            from pathlib import Path
+            import sys
+
+            import yaml
+
+            preferred = locale.getpreferredencoding(False)
+            if "utf" in preferred.lower():
+                print(f"BADENV preferred={preferred}")
+                sys.exit(2)
+
+            from ouroboros.config import loader
+            from ouroboros.config.models import resolve_event_store_path
+
+            config_dir = Path(sys.argv[1])
+            config_path, credentials_path = loader.create_default_config(
+                config_dir=config_dir
+            )
+            data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+            data.setdefault("project", {})["name"] = "한국어 프로젝트"
+            data.setdefault("persistence", {})["database_path"] = str(
+                config_dir / "데이터" / "ouroboros.db"
+            )
+            with config_path.open("w", encoding="utf-8") as f:
+                yaml.dump(data, f, allow_unicode=True, default_flow_style=False)
+
+            config = loader.load_config(config_path)
+            assert config is not None
+            loader.load_credentials(credentials_path)
+            resolved = resolve_event_store_path(config_path)
+            assert "데이터" in str(resolved), resolved
+            print("OK")
+            """
+        )
+        env = {
+            key: value
+            for key, value in os.environ.items()
+            if not key.startswith(("PYTHON", "OUROBOROS", "LC_", "LANG"))
+        }
+        env.update({"PYTHONUTF8": "0", "LC_ALL": "C", "LANG": "C"})
+        # The program goes through a UTF-8 script file, not -c: under the C
+        # locale the child cannot even decode a non-ASCII command line, while
+        # Python source files are UTF-8 by default regardless of locale.
+        script_path = tmp_path / "locale_repro.py"
+        script_path.write_text(script, encoding="utf-8")
+        result = subprocess.run(
+            [sys.executable, str(script_path), str(tmp_path / "config")],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=False,
+        )
+        assert result.returncode == 0 and "OK" in result.stdout, (
+            f"stdout={result.stdout!r} stderr={result.stderr!r}"
+        )
+
+    def test_invalidly_encoded_files_fail_through_domain_errors(self, tmp_path: Path) -> None:
+        """A non-UTF-8 file must surface the documented error, not a codec leak."""
+        garbage = b"project:\n  name: \xff\xfe broken\n"
+
+        config_path = tmp_path / "config.yaml"
+        config_path.write_bytes(garbage)
+        with pytest.raises(ConfigError):
+            load_config(config_path)
+
+        credentials_path = tmp_path / "credentials.yaml"
+        credentials_path.write_bytes(garbage)
+        credentials_path.chmod(0o600)
+        with pytest.raises(ConfigError):
+            load_credentials(credentials_path)
+
+        with pytest.raises(ValueError, match="invalid EventStore configuration"):
+            resolve_event_store_path(config_path)

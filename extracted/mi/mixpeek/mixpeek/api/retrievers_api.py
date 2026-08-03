@@ -3133,6 +3133,8 @@ class RetrieversApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_executions_request: Optional[ListExecutionsRequest] = None,
         _request_timeout: Union[
@@ -3164,6 +3166,10 @@ class RetrieversApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_executions_request:
@@ -3197,6 +3203,8 @@ class RetrieversApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_executions_request=list_executions_request,
             _request_auth=_request_auth,
@@ -3234,6 +3242,8 @@ class RetrieversApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_executions_request: Optional[ListExecutionsRequest] = None,
         _request_timeout: Union[
@@ -3265,6 +3275,10 @@ class RetrieversApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_executions_request:
@@ -3298,6 +3312,8 @@ class RetrieversApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_executions_request=list_executions_request,
             _request_auth=_request_auth,
@@ -3335,6 +3351,8 @@ class RetrieversApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_executions_request: Optional[ListExecutionsRequest] = None,
         _request_timeout: Union[
@@ -3366,6 +3384,10 @@ class RetrieversApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_executions_request:
@@ -3399,6 +3421,8 @@ class RetrieversApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_executions_request=list_executions_request,
             _request_auth=_request_auth,
@@ -3431,6 +3455,8 @@ class RetrieversApi:
         offset,
         page,
         cursor,
+        next_cursor,
+        after,
         include_total,
         list_executions_request,
         _request_auth,
@@ -3476,6 +3502,14 @@ class RetrieversApi:
         if cursor is not None:
             
             _query_params.append(('cursor', cursor))
+            
+        if next_cursor is not None:
+            
+            _query_params.append(('next_cursor', next_cursor))
+            
+        if after is not None:
+            
+            _query_params.append(('after', after))
             
         if include_total is not None:
             
@@ -3540,6 +3574,8 @@ class RetrieversApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_retrievers_request: Optional[ListRetrieversRequest] = None,
         _request_timeout: Union[
@@ -3569,6 +3605,10 @@ class RetrieversApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_retrievers_request:
@@ -3601,6 +3641,8 @@ class RetrieversApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_retrievers_request=list_retrievers_request,
             _request_auth=_request_auth,
@@ -3637,6 +3679,8 @@ class RetrieversApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_retrievers_request: Optional[ListRetrieversRequest] = None,
         _request_timeout: Union[
@@ -3666,6 +3710,10 @@ class RetrieversApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_retrievers_request:
@@ -3698,6 +3746,8 @@ class RetrieversApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_retrievers_request=list_retrievers_request,
             _request_auth=_request_auth,
@@ -3734,6 +3784,8 @@ class RetrieversApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_retrievers_request: Optional[ListRetrieversRequest] = None,
         _request_timeout: Union[
@@ -3763,6 +3815,10 @@ class RetrieversApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_retrievers_request:
@@ -3795,6 +3851,8 @@ class RetrieversApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_retrievers_request=list_retrievers_request,
             _request_auth=_request_auth,
@@ -3826,6 +3884,8 @@ class RetrieversApi:
         offset,
         page,
         cursor,
+        next_cursor,
+        after,
         include_total,
         list_retrievers_request,
         _request_auth,
@@ -3869,6 +3929,14 @@ class RetrieversApi:
         if cursor is not None:
             
             _query_params.append(('cursor', cursor))
+            
+        if next_cursor is not None:
+            
+            _query_params.append(('next_cursor', next_cursor))
+            
+        if after is not None:
+            
+            _query_params.append(('after', after))
             
         if include_total is not None:
             
@@ -3933,6 +4001,8 @@ class RetrieversApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         _request_timeout: Union[
             None,
@@ -3961,6 +4031,10 @@ class RetrieversApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param _request_timeout: timeout setting for this request. If one
@@ -3991,6 +4065,8 @@ class RetrieversApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -4026,6 +4102,8 @@ class RetrieversApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         _request_timeout: Union[
             None,
@@ -4054,6 +4132,10 @@ class RetrieversApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param _request_timeout: timeout setting for this request. If one
@@ -4084,6 +4166,8 @@ class RetrieversApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -4119,6 +4203,8 @@ class RetrieversApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         _request_timeout: Union[
             None,
@@ -4147,6 +4233,10 @@ class RetrieversApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param _request_timeout: timeout setting for this request. If one
@@ -4177,6 +4267,8 @@ class RetrieversApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -4207,6 +4299,8 @@ class RetrieversApi:
         offset,
         page,
         cursor,
+        next_cursor,
+        after,
         include_total,
         _request_auth,
         _content_type,
@@ -4249,6 +4343,14 @@ class RetrieversApi:
         if cursor is not None:
             
             _query_params.append(('cursor', cursor))
+            
+        if next_cursor is not None:
+            
+            _query_params.append(('next_cursor', next_cursor))
+            
+        if after is not None:
+            
+            _query_params.append(('after', after))
             
         if include_total is not None:
             

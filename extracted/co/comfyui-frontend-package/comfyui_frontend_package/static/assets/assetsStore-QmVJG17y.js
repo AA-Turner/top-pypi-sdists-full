@@ -1,0 +1,1 @@
+import{jn as e}from"./settingStore-DPsYyBbN.js";export{e as useAssetsStore};

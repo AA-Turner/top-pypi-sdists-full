@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: airportsdata
-Version: 20260315
+Version: 20260803
 Summary: Extensive database of location and timezone data for nearly every airport and landing strip in the world.
 Author-email: Mike Borsetti <mike+airportsdata@borsetti.com>
 Maintainer-email: Mike Borsetti <mike+airportsdata@borsetti.com>
@@ -19,13 +19,13 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Dynamic: license-file
@@ -34,11 +34,11 @@ Dynamic: license-file
 airportsdata |downloads|
 ========================
 
-.. |ICAO| replace:: 28,426
+.. |ICAO| replace:: 28,291
 
-.. |IATA| replace:: 7,883
+.. |IATA| replace:: 7,884
 
-.. |LID| replace:: 12,746
+.. |LID| replace:: 12,608
 
 .. |pyversion| image:: https://img.shields.io/pypi/v/airportsdata.svg
     :target: https://pypi.org/project/airportsdata/
@@ -74,8 +74,8 @@ airportsdata |downloads|
     :target: https://github.com/PyCQA/bandit
     :alt: Security Status
 
-Extensive database of location and timezone data for nearly every operational airport and landing strip in the world,
-with |ICAO| entries.
+Extensive database of location and timezone data for nearly every operational airport, landing strip, and some seaplane
+bases in the world (no heliports unless IATA coded), with |ICAO| entries.
 
 Each entry consists of the following data:
 
@@ -84,7 +84,7 @@ Each entry consists of the following data:
 * ``iata``: IATA 3-letter Location Code (|IATA| entries) or an empty string [#]_;
 * ``name``: Official name (diacritized latin script);
 * ``city``: City (diacritized latin script), ideally using the local language or English;
-* ``subd``: Subdivision (e.g. state, province, region, etc.), ideally using the local-language or English names of
+* ``subd``: Subdivision (e.g. state, province, region, etc.; diacritized latin script), ideally in local language or the English names of
   `ISO 3166-2 <https://en.wikipedia.org/wiki/ISO_3166-2#Current_codes>`__;
 * ``country``: `ISO 3166-1 <https://en.wikipedia.org/wiki/ISO_3166-1#Current_codes>`__ alpha-2 country code
   (plus ``XK`` for Kosovo);
@@ -101,7 +101,7 @@ Each entry consists of the following data:
    how the Pseudo-ICAO Identifier is generated for airports and seaplane bases without an ICAO 4-letter Location
    Indicator.
 
-.. [#] IATA Multi Airport Cities (MAC) are not not airports and therfore not included, but we provide a database and a 
+.. [#] IATA Multi Airport Cities (MAC) are not not airports and therfore not included, but we provide a database and a
    Python function that returns the above data for all the airports of a IATA MAC. Please see documentation `here
    <https://github.com/mborsetti/airportsdata/blob/main/README_IATA.rst>`__.
 
@@ -113,16 +113,17 @@ Important notes:
 * Timezone was originally sourced from `TimeZoneDB <https://timezonedb.com>`__;
 * No historical data (closed airports are removed);
 * No seaplane bases or heliports unless they have a IATA code;
-* No surface transportation stations, even if they have an official IATA code.
+* No surface transportation stations, even if they have an official IATA code;
+* Airports under construction may be included if they have ICAO and IATA codes and scheduled airline service.
 
 Please report any issues you may find `here
 <https://github.com/mborsetti/airportsdata/blob/main/CONTRIBUTING.rst>`__.
 
-This project is a fork of https://github.com/mwgg/Airports. All new data submitted in this fork have been validated
-against national `Aeronautical Information Publications (AIP) or equivalent
-<https://github.com/mborsetti/airportsdata/blob/main/README_AIP.rst>`__ (or
-ARINC database) and `IATA <https://www.iata.org/en/publications/directories/code-search/>`__ or
-`<https://www.ch-aviation.com/airports/{IATA}>`_  before publishing.
+This project is a fork of `mwgg/Airports <https://github.com/mwgg/Airports>`__. All new data submitted in this fork have
+been validated against national `Aeronautical Information Publications (AIP)
+<https://github.com/mborsetti/airportsdata/blob/main/README_AIP.rst>`__ or equivalent, ARINC database,
+`IATA <https://www.iata.org/en/publications/directories/code-search/>`__ or
+`ch-aviation.com <https://about.ch-aviation.com/airports/>`_  before publishing.
 
 Raw data
 ========

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytensor
-Version: 3.2.3
+Version: 3.2.4
 Summary: Optimizing compiler for evaluating mathematical expressions on CPUs and GPUs.
 Author-email: pymc-devs <pymc.devs@gmail.com>
 License-Expression: BSD-3-Clause
@@ -30,7 +30,7 @@ License-File: LICENSE.txt
 Requires-Dist: setuptools>=59.0.0
 Requires-Dist: scipy<2,>=1
 Requires-Dist: numpy>=2.0
-Requires-Dist: numba<=0.65.1,>=0.58
+Requires-Dist: numba<=0.66.0,>=0.58
 Requires-Dist: filelock>=3.15
 Provides-Extra: complete
 Requires-Dist: pytensor[jax]; extra == "complete"
@@ -56,7 +56,7 @@ Provides-Extra: jax
 Requires-Dist: jax; extra == "jax"
 Requires-Dist: jaxlib; extra == "jax"
 Provides-Extra: numba
-Requires-Dist: numba<=0.65.1,>=0.58; extra == "numba"
+Requires-Dist: numba<=0.66.0,>=0.58; extra == "numba"
 Requires-Dist: llvmlite; extra == "numba"
 Provides-Extra: kanren
 Requires-Dist: etuples; extra == "kanren"

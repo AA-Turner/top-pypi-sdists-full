@@ -18,11 +18,22 @@ check("_connect_byok_key is callable", callable(getattr(nx, "_connect_byok_key",
 check("_BYOK_KEY_SOURCE has key hints", isinstance(getattr(nx, "_BYOK_KEY_SOURCE", None), dict) and len(nx._BYOK_KEY_SOURCE) >= 15)
 check("split has a key-source hint", "split" in nx._BYOK_KEY_SOURCE)
 
-# ── gitlab + workable are live MCP again (one-click DCR), not broken ──
-for s in ("gitlab", "workable"):
-    check(f"{s} in REMOTE_MCP", s in m.REMOTE_MCP)
-    check(f"{s} NOT in MCP_BROKEN", s not in m.MCP_BROKEN)
-    check(f"{s} NOT in MCP_COMING_SOON", s not in m.MCP_COMING_SOON)
+# ── GitLab cloud MCP exists but is NOT the default NX connect path ──
+# Victor's real account finishes OAuth, then GitLab's MCP initialize returns
+# HTTP 404. GitLab documents that as MCP server access/prereqs disabled, so NX
+# must route /integrations gitlab to the working REST/PAT connector instead of
+# saving a remote-MCP connection that cannot initialize.
+check("gitlab URL kept in REMOTE_MCP for explicit re-probe", "gitlab" in m.REMOTE_MCP)
+check("gitlab marked MCP_BROKEN so normal connect skips remote MCP", "gitlab" in m.MCP_BROKEN)
+check("gitlab is NOT remote MCP for default /integrations routing", not m.is_remote_mcp("gitlab"))
+check("gitlab NOT in MCP_COMING_SOON", "gitlab" not in m.MCP_COMING_SOON)
+check("gitlab has a terminal REST token hint", "gitlab" in nx._BYOK_KEY_SOURCE)
+check("gitlab has backend REST-token fallback", "gitlab" in getattr(nx, "_REST_TOKEN_FALLBACK", frozenset()))
+
+# Workable remains a live MCP one-click DCR path.
+check("workable in REMOTE_MCP", "workable" in m.REMOTE_MCP)
+check("workable NOT in MCP_BROKEN", "workable" not in m.MCP_BROKEN)
+check("workable NOT in MCP_COMING_SOON", "workable" not in m.MCP_COMING_SOON)
 
 # ── OAuth-native (incl. the MCP-broken ones) route to OAuth, NEVER byok — and SELF-HEAL on provision ──
 _src = open(nx.__file__).read()
@@ -36,7 +47,7 @@ for s in ("okta", "intercom", "datadog", "auth0", "lever",
     check(f"{s} NOT in MCP_COMING_SOON (self-healing, not early-parked)", s not in m.MCP_COMING_SOON)
 
 # ── PAT/token-native connectors (no global OAuth app — user provides own token) ──
-for s in ("opsgenie", "bitbucket", "databricks", "servicenow"):
+for s in ("opsgenie", "databricks", "servicenow"):
     check(f"{s} in _BYOK_KEY_SOURCE (PAT/token path, not OAuth)", s in nx._BYOK_KEY_SOURCE)
     check(f"{s} NOT in _NX_OAUTH (never lazy-OAuth a PAT-native provider)", s not in _NXOAUTH)
 # the byok branch is STRUCTURALLY guarded so an _NX_OAUTH provider can never fall to key-paste
@@ -56,7 +67,7 @@ for s in ("mixpanel", "newrelic"):
 
 # ── OAuth-capable connectors that were pinned to token: OAuth-first WITH a token fallback (never a dead end) ──
 def _tokpath(s): return s in getattr(m, "_MCP_TOKEN", set()) or s in getattr(m, "_FORCE_TOKEN", set())
-for s in ("xero", "docusign", "hubspot", "freshdesk", "rippling", "front", "smartsheet"):
+for s in ("xero", "docusign", "hubspot", "freshdesk", "rippling", "front", "smartsheet", "bitbucket"):
     check(f"{s} in _NX_OAUTH (backend OAuth first)", s in _NXOAUTH)
     check(f"{s} keeps a token fallback (works until the app is provisioned)", _tokpath(s))
 check("_has_token_path helper exists", callable(getattr(nx, "_has_token_path", None)))

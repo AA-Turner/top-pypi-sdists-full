@@ -787,6 +787,10 @@ class ProgramSummary(BaseModel):
         None,
         description="Program enabled state. Omitted when the CCU has not reported it\n(the Go DTO marshals the pointer with omitempty: absent, not null).\n",
     )
+    execute_available: bool | None = Field(
+        None,
+        description='Whether running the program would do anything. A program the CCU\nhas deactivated ignores its triggers and refuses a manual run, so\na consumer that offers "run now" as its own control should render\nit unavailable. The daemon answers this rather than leaving each\nconsumer to derive it from `active` — it is CCU semantics, not\npresentation. True while the flag has not been observed, so a\ncontrol is never greyed out on missing information.\n',
+    )
     last_executed: str | None = Field(
         None, description="RFC3339 timestamp of the most recent execution."
     )
@@ -1562,6 +1566,10 @@ class DataPointValueChangedPayload(BaseModel):
         None,
         description='Prior value. Omitted when no prior value was tracked (initial\npush). Future revisions may surface a `kind: "initial"|"change"|"refresh"`\ndiscriminator on the envelope; see docs/external-clients/asks.md (B2).\n',
     )
+    available: bool = Field(
+        ...,
+        description="Whether the new value is a confirmed reading: observed AND valid\n(refreshed, paired `<param>_STATUS` acceptable, value type as\ndeclared, within the declared bounds). For a calculated data\npoint it additionally folds in the validity of every source it\nderives from.\n\nCarried on the push because it can flip without the value\nchanging — a STATUS fault does not move the reading — and\nbecause the transition *into* a fault usually arrives as a value\nchange, so a consumer reading availability only at\ncatalogue-refresh time renders the faulted value as confirmed.\nMASTER-paramset entries are always reported available:\nconfiguration is not a runtime reading.\n",
+    )
     modified_at: AwareDatetime = Field(
         ..., description="RFC3339Nano timestamp the CCU observed the change at."
     )
@@ -1658,6 +1666,30 @@ class ProgramExecutedPayload(BaseModel):
     channel: str | None = Field(
         None,
         description='Canonical channel address ("ADDR:idx") of the device channel\nthis program is associated with (name match — the same value\nthe REST ProgramSummary carries). Omitted when the program\nbelongs to no device or is not yet loaded in the hub model.\n',
+    )
+    device_address: str | None = Field(
+        None,
+        description='Device part of `channel` (before the ":"); omitted together\nwith `channel`.\n',
+    )
+
+
+class ProgramChangedPayload(BaseModel):
+    central: str
+    program_id: str
+    active: bool = Field(
+        ..., description="The program's activity flag as the CCU reports it."
+    )
+    execute_available: bool = Field(
+        ...,
+        description="Whether running the program would do anything — false exactly\nwhile the program is deactivated. Carried alongside `active` so\nthe rule is not re-derived per consumer; the same field the REST\nProgramSummary and the MQTT availability topic carry.\n",
+    )
+    unique_id: str | None = Field(
+        None,
+        description="Canonical loom-namespaced routing key\n(`loom_<serial10>_program_<hub-slug(name)>`) for this program.\nOptional — omitted when the program name cannot be resolved;\nsee DataPointValueChangedPayload.unique_id.\n",
+    )
+    channel: str | None = Field(
+        None,
+        description='Canonical channel address ("ADDR:idx") of the device channel\nthis program is associated with. Omitted when the program\nbelongs to no device or is not yet loaded in the hub model.\n',
     )
     device_address: str | None = Field(
         None,
@@ -2482,6 +2514,10 @@ class CalculatedDPSummary(BaseModel):
     category: str | None = None
     value: Any
     observed: bool
+    available: bool = Field(
+        ...,
+        description="Whether the value is a confirmed reading — observed AND valid,\nthe same rule the generic data-point state payload applies.\nFor a calculated data point validity folds in the validity of\nevery source it derives from: a source the CCU flagged (bad\npaired STATUS, reading outside the declared bounds) makes the\ncalculated data point unavailable even though the derived\nnumber keeps updating. Clients that restore a previous state\nfor unavailable entities must read this flag; `observed` stays\ntrue across a source fault.\n",
+    )
     translated_name: str | None = Field(
         None,
         description="Locale-aware per-entity name, resolved through the same\nchain as generic data points (channel-typed translation →\nbare-parameter translation → title-cased parameter). Lets\nclients spawn calculated/combined entities with the same\nnames the reference stack generates.\n",

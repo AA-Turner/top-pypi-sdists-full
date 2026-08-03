@@ -12,7 +12,7 @@ sys.path.insert(1, str(Path(__file__).parent.parent))
 import airportsdata
 
 pylatest_only = pytest.mark.skipif(
-    sys.version_info < (3, 13),
+    sys.version_info < (3, 14),
     reason='Data quality and integrity is only checked once, with latest Python version',
 )
 
@@ -699,7 +699,7 @@ def test_iata_macs() -> None:
 def test_wrong_key() -> None:
     """Test that you receive an error when using the wrong key."""
     with pytest.raises(ValueError, match='code_type must be one of ICAO, IATA or LID; received wrong_key'):
-        airportsdata.load('wrong_key')  # type: ignore[arg-type]
+        airportsdata.load('wrong_key')  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
 
 @pylatest_only

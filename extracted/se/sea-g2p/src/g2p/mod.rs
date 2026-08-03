@@ -4,6 +4,9 @@ use std::io;
 use regex::Regex;
 use once_cell::sync::Lazy;
 
+pub mod en_top_words;
+use en_top_words::EN_TOP_WORDS;
+
 pub struct PhonemeDict {
     mmap: Mmap,
     string_count: u32,
@@ -272,19 +275,17 @@ impl G2PEngine {
         None
     }
 
-    /// DP segmentation cho OOV word.
-    ///
-    /// Điều kiện để một segment được chấp nhận:
-    ///   1. Có trong dict (merged hoặc common)
-    ///   2. Có cả nguyên âm lẫn phụ âm
-    ///
-    /// Điều kiện (2) loại hai nhóm segment không tự nhiên:
-    ///   - Chỉ phụ âm: "n", "st", "ng" → tránh "joshe+n"
-    ///   - Chỉ nguyên âm: "e", "a" → tránh "mixedcas+e"
-    ///
-    /// Trong vòng lặp j chạy từ lớn → nhỏ (rev), `.or()` đảm bảo segment
-    /// dài nhất được ưu tiên — chỉ fallback sang segment ngắn hơn nếu
-    /// segment dài không dẫn đến full coverage.
+    /// DP segmentation cho OOV word, tối ưu theo CHI PHÍ:
+    ///   - Segment là TỪ THẬT trong dict (có nguyên âm + phụ âm, phoneme không
+    ///     phải kiểu đánh vần) -> giá 1. DP vì thế ưu tiên cách cắt ít mảnh,
+    ///     mảnh dài ("vietinbank" -> "viet in bank" thay vì "vi eti en bank").
+    ///   - Segment ngắn (<=4 ký tự) mà phoneme có >=2 trọng âm là entry kiểu
+    ///     ĐÁNH VẦN acronym trong dict ("mbo" -> em bi ô) -> giá đắt, chỉ dùng
+    ///     khi không còn đường nào khác.
+    ///   - Đoạn <=3 ký tự KHÔNG có trong dict -> cho phép đánh vần từng chữ
+    ///     với giá đắt ("vpbank" -> "vp" đánh vần + "bank"; "chunkr" ->
+    ///     "chunk" + "r") thay vì bỏ cả từ sang char_fallback.
+    ///   - Hòa giá -> ưu tiên đoạn ĐẦU dài hơn (leftmost-longest).
     fn segment_oov(&self, word: &str, lang: &str) -> Option<String> {
         // Check cache trước
         let cache_key = format!("{}_{}", word, lang);
@@ -295,39 +296,82 @@ impl G2PEngine {
             }
         }
 
+        const JUNK_COST: u32 = 4;
+
+        #[derive(Clone)]
+        struct Path {
+            cost: u32,
+            top: u32,
+            lens: Vec<u8>,
+            phones: Vec<String>,
+        }
+        // true nếu a tốt hơn b: giá thấp hơn; hòa -> NHIỀU từ tiếng Anh phổ
+        // biến hơn ("fine|tune" thắng "fin|etune", "family|app" thắng
+        // "famil|yapp" — entry rác trong dict không nằm trong top wordlist);
+        // hòa tiếp -> đoạn CUỐI dài hơn ("vin|homes" thắng "vinho|mes");
+        // vẫn hòa -> ít đoạn hơn. (Đã thử tiêu chí "cắt cân đối" nhưng
+        // morpheme tiếng Anh không cân đối: nó phá "vin|homes" -> "vinh|omes".)
+        fn better(a: &Path, b: &Path) -> bool {
+            if a.cost != b.cost { return a.cost < b.cost; }
+            if a.top != b.top { return a.top > b.top; }
+            for (x, y) in a.lens.iter().rev().zip(b.lens.iter().rev()) {
+                if x != y { return x > y; }
+            }
+            a.lens.len() < b.lens.len()
+        }
+
         let chars: Vec<char> = word.chars().collect();
         let n = chars.len();
-
-        // dp[i] = phoneme string nếu chars[0..i] có thể được segment hoàn toàn
-        let mut dp: Vec<Option<String>> = vec![None; n + 1];
-        dp[0] = Some(String::new());
+        let mut dp: Vec<Option<Path>> = vec![None; n + 1];
+        dp[0] = Some(Path { cost: 0, top: 0, lens: Vec::new(), phones: Vec::new() });
 
         for i in 0..n {
-            if dp[i].is_none() { continue; }
-
-            // j chạy từ lớn → nhỏ: ưu tiên segment dài hơn trước
-            for j in (i + 1..=n).rev() {
+            let Some(base) = dp[i].clone() else { continue };
+            for j in (i + 1)..=n {
                 let segment: String = chars[i..j].iter().collect();
+                let seg_len = j - i;
 
-                // Phải có cả nguyên âm lẫn phụ âm
-                // Loại: "n","st" (chỉ phụ âm) và "e","a" (chỉ nguyên âm)
-                if !has_vowel_and_consonant(&segment) { continue; }
+                let mut phone: Option<String> = None;
+                let mut cost = 1u32;
+                if has_vowel_and_consonant(&segment) {
+                    if let Some(p) = self.resolve_segment_phone(&segment, lang) {
+                        let primary = p.matches('ˈ').count();
+                        let total = primary + p.matches('ˌ').count();
+                        // Entry "rác" trong dict: đoạn ngắn mà phoneme nhiều trọng
+                        // âm (kiểu đánh vần "mbo" -> em bi ô), hoặc >=2 trọng âm
+                        // CHÍNH (entry ghép "enbank" -> en-bank). Từ thật dài có
+                        // trọng âm phụ (ˈ + ˌ) không bị tính.
+                        if (seg_len <= 4 && total >= 2) || primary >= 2 {
+                            cost = JUNK_COST + seg_len as u32;
+                        }
+                        phone = Some(p);
+                    }
+                }
+                if phone.is_none() && seg_len <= 3 {
+                    // Đánh vần từng chữ, giá tăng theo độ dài: 1 chữ cuối rẻ
+                    // ("chunk r"), cụm 3 phụ âm giữa từ đắt.
+                    let spelled = self.char_fallback(&segment, lang);
+                    if !spelled.trim().is_empty() {
+                        phone = Some(spelled);
+                        cost = JUNK_COST + seg_len as u32;
+                    }
+                }
+                let Some(p) = phone else { continue };
 
-                // Điều kiện 1: phải có trong dict
-                if let Some(phone) = self.resolve_segment_phone(&segment, lang) {
-                    let prev = dp[i].as_ref().unwrap();
-                    let new_phone = if prev.is_empty() {
-                        phone
-                    } else {
-                        format!("{} {}", prev, phone)
-                    };
-                    // .or(): không overwrite nếu đã được set bởi segment dài hơn
-                    dp[j] = dp[j].take().or(Some(new_phone));
+                let mut cand = base.clone();
+                cand.cost += cost;
+                if EN_TOP_WORDS.contains(segment.as_str()) {
+                    cand.top += 1;
+                }
+                cand.lens.push(seg_len as u8);
+                cand.phones.push(p);
+                if dp[j].as_ref().map_or(true, |old: &Path| better(&cand, old)) {
+                    dp[j] = Some(cand);
                 }
             }
         }
 
-        let result = dp[n].clone();
+        let result = dp[n].take().map(|p: Path| p.phones.join(" "));
 
         // Cache lại — kể cả None để tránh tính lại
         {
@@ -357,6 +401,14 @@ impl G2PEngine {
     }
 
     pub fn phonemize(&self, text: &str) -> String {
+        // Nháy cong -> nháy thẳng để "i’m" tra được dict ("i'm") khi caller
+        // gọi G2P trực tiếp không qua Normalizer.
+        let text: std::borrow::Cow<str> = if text.contains('\u{2019}') || text.contains('\u{2018}') {
+            std::borrow::Cow::Owned(text.replace(['\u{2019}', '\u{2018}'], "'"))
+        } else {
+            std::borrow::Cow::Borrowed(text)
+        };
+        let text = text.as_ref();
         let mut tokens = Vec::new();
 
         for cap in RE_TOKEN.captures_iter(text) {
@@ -490,6 +542,13 @@ impl G2PEngine {
 
     fn propagate_language(&self, tokens: &mut Vec<Token>) {
         let n = tokens.len();
+        // Câu không có token tiếng Việt nào -> mặc định cho từ common là EN
+        // ("I can do it" toàn từ common không được rơi về đọc kiểu Việt).
+        let default_lang = if tokens.iter().any(|t: &Token| t.lang == "vi") {
+            "vi"
+        } else {
+            "en"
+        };
         let mut i = 0;
         while i < n {
             if tokens[i].lang == "common" {
@@ -503,36 +562,62 @@ impl G2PEngine {
                         .unwrap_or(false)
                 };
 
+                // Khoảng cách tới neo đếm theo TOKEN TỪ, bỏ qua dấu câu không chặn
+                // (phẩy, nháy...): "OK, go thôi" -> "go" cách "ok" 1 từ, hòa với
+                // "thôi" -> đi theo neo EN thay vì bị dấu phẩy đẩy xa neo trái.
                 let mut left_anchor = None;
                 let mut left_dist = 999;
+                let mut d = 0;
                 for l in (0..start).rev() {
                     if is_stop_punct(&tokens[l]) { break; }
+                    if tokens[l].lang == "punct" { continue; }
+                    d += 1;
                     if tokens[l].lang == "vi" || tokens[l].lang == "en" {
                         left_anchor = Some(tokens[l].lang.clone());
-                        left_dist = start - l;
+                        left_dist = d;
                         break;
                     }
                 }
 
                 let mut right_anchor = None;
                 let mut right_dist = 999;
+                let mut d = 0;
                 for r in (end + 1)..n {
                     if is_stop_punct(&tokens[r]) { break; }
+                    if tokens[r].lang == "punct" { continue; }
+                    d += 1;
                     if tokens[r].lang == "vi" || tokens[r].lang == "en" {
                         right_anchor = Some(tokens[r].lang.clone());
-                        right_dist = r - end;
+                        right_dist = d;
                         break;
                     }
                 }
 
                 let final_lang = if let (Some(l), Some(r)) = (left_anchor.as_ref(), right_anchor.as_ref()) {
-                    if right_dist <= left_dist { r.clone() } else { l.clone() }
+                    if right_dist < left_dist {
+                        r.clone()
+                    } else if left_dist < right_dist {
+                        l.clone()
+                    } else {
+                        // Hòa khoảng cách: từ common là TỪ thật đứng sát từ tiếng Anh
+                        // thường thuộc cụm tiếng Anh đó ("let's go ăn" -> "go" là EN,
+                        // "muốn go to market" -> "go to" là EN). Riêng chữ cái đơn lẻ
+                        // ("a" trong "a còng", "i" trong "core i chín") giữ ưu tiên
+                        // neo phải như cũ để không bị kéo sang EN.
+                        let run_is_bare_letters = (start..=end)
+                            .all(|k| tokens[k].content.chars().count() == 1);
+                        if !run_is_bare_letters && (l == "en" || r == "en") {
+                            "en".to_string()
+                        } else {
+                            r.clone()
+                        }
+                    }
                 } else if let Some(l) = left_anchor {
                     l
                 } else if let Some(r) = right_anchor {
                     r
                 } else {
-                    "vi".to_string()
+                    default_lang.to_string()
                 };
 
                 for idx in start..=end {

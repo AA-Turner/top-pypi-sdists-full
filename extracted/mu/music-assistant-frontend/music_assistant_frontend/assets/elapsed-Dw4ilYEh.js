@@ -1,1 +1,0 @@
-import{gn as e}from"./useShortcuts-BX8zLFiV.js";function t(t,n,r,i=1){if(t===void 0||n===void 0||r!==void 0&&r!==e.PLAYING)return t;let a=n*1e3;return t+Math.max(0,Date.now()-a)/1e3*i}export{t};

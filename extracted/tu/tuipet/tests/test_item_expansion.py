@@ -43,17 +43,30 @@ def test_the_bandage_stayed_cut_and_h_stays_free():
     assert not q.injured
 
 
-def test_the_premium_combos_do_strictly_more_than_the_free_buttons():
+def test_the_premiums_do_what_no_free_button_can():
+    """⭐REPOINTED by the ITEM REFACTOR (2026-08-02).  These two were "premium
+    COMBOS" -- they bundled a free button with a cheap item and charged for the
+    pair.  A combo is not a capability: the Elixir's cure is the free F pill
+    and its tank is the 200b drink; Vitamin G's heal is the free H.
+
+    Now each does something no button and no cheaper item can: the Elixir wipes
+    the ENTIRE care-mistake slate, and Vitamin G makes the injury roll
+    impossible for a day.  Full behaviour pinned in test_item_refactor.py."""
     p = _pet(sick=True)
     p.energy = 0
+    p._inc_mistake("left hungry too long")
+    p._inc_mistake("the lights left on")
     p.add_item("elixir")
     p.use_item("elixir")
-    assert not p.sick and p.energy == p.max_energy
+    assert p.pardon_lapse > 0            # the WARD (the wipe moved to the drink)
+    assert p.sick, "the cure is FREE -- the elixir must not sell it"
+    assert p.energy == 0, "the tank is 200b -- the elixir must not sell it"
     q = _pet(injured=True)
     q.inj_length, q.strength = 400.0, 0
     q.add_item("vitamin_g")
     q.use_item("vitamin_g")
-    assert not q.injured and q.strength == 4 and q.vitamin_lapse > 0
+    assert q.strength == 4 and q.ward_lapse > 0
+    assert q.injured, "H heals for FREE -- vitamin_g prevents, it does not cure"
 
 
 # ---- the evolution keys ------------------------------------------------------
@@ -328,11 +341,18 @@ def test_the_home_capsule_shelf_is_rationed(isolate_save):
     for ~123b against its 100b price, so an unlimited home shelf would be
     a printer.  The box rides the daily tier ration instead -- three a
     day, then sold out until tomorrow; every other home row stays
-    unlimited as ever."""
+    unlimited as ever.
+
+    ⭐The ration TIGHTENED 2026-08-02 when rarity was decoupled from price: the
+    box is 100b, so the price ladder called it common (3 a day).  Its AUTHORED
+    supply is 0.1 expected copies -- the scarcest good in the game -- so it is
+    legendary now and the shelf parts with ONE.  Exactly the decoupling Joel
+    asked for, landing on the item that most needed it."""
     p = _pet(bits=10_000)
     row = next(e for e in shop.home_stock(pet=p) if e["key"] == "capsule_a")
-    assert row.get("left") == shop.tier_stock("capsule_a") == 3
-    for i in range(3):
+    ration = shop.tier_stock("capsule_a")
+    assert row.get("left") == ration == 1
+    for i in range(ration):
         msg, sfx = shop.town_buy(p, row)
         assert sfx == "confirm", (i, msg)
     msg, sfx = shop.town_buy(p, row)

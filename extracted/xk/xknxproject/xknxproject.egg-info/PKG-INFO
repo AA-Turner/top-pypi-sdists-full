@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xknxproject
-Version: 3.9.0
+Version: 3.10.0
 Summary: A library to gather information from ETS project files used for KNX
 Author-email: Marvin Wichmann <me@marvin-wichmann.de>, Matthias Alphart <farmio@alphart.net>
 License-Expression: GPL-2.0-only

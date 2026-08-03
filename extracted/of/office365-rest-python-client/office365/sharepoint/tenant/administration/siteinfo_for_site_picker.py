@@ -1,14 +1,17 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class SiteInfoForSitePicker(ClientValue):
-    def __init__(self, Error=None, site_id=None, site_name=None, Url=None):
-        # type: (str, str, str, str) -> None
-        self.Error = Error
-        self.SiteId = site_id
-        self.SiteName = site_name
-        self.Url = Url
+    Error: str | None = None
+    SiteId: str | None = None
+    SiteName: str | None = None
+    Url: str | None = None
 
     @property
-    def entity_type_name(self):
+    def entity_type_name(self):  # type: ignore[override]
         return "Microsoft.Online.SharePoint.TenantAdministration.SiteInfoForSitePicker"

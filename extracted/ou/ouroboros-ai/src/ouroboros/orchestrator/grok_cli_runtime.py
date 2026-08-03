@@ -44,10 +44,15 @@ from ouroboros.core.security import MAX_LLM_RESPONSE_LENGTH, InputValidator
 from ouroboros.orchestrator.adapter import (
     AgentMessage,
     ParamSupport,
+    ResolvedWorkerCwd,
     RuntimeCapabilities,
     RuntimeHandle,
 )
-from ouroboros.orchestrator.codex_cli_runtime import CodexCliRuntime, SkillDispatchHandler
+from ouroboros.orchestrator.codex_cli_runtime import (
+    CodexCliRuntime,
+    SkillDispatchHandler,
+    _CodexItemCorrelationScope,
+)
 from ouroboros.providers.gemini_event_normalizer import GeminiEventNormalizer
 from ouroboros.runtime.child_env import DEFAULT_OUROBOROS_STRIP_KEYS, build_child_env
 
@@ -101,7 +106,7 @@ class GrokCliRuntime(CodexCliRuntime):
         cli_path: str | Path | None = None,
         permission_mode: str | None = None,
         model: str | None = None,
-        cwd: str | Path | None = None,
+        cwd: str | Path | ResolvedWorkerCwd | None = None,
         skills_dir: str | Path | None = None,
         skill_dispatcher: SkillDispatchHandler | None = None,
         llm_backend: str | None = None,
@@ -224,6 +229,7 @@ class GrokCliRuntime(CodexCliRuntime):
         - ``--permission-mode`` forwards the resolved non-blocking mode.
         - ``-m`` is forwarded only for an explicit, non-sentinel model id.
         """
+        self._assert_cli_executable_identity_unchanged()
         del output_last_message_path, resume_session_id, runtime_handle, reasoning_effort
 
         command = [
@@ -292,6 +298,8 @@ class GrokCliRuntime(CodexCliRuntime):
         self,
         event: dict[str, Any],
         current_handle: RuntimeHandle | None,
+        *,
+        item_scope: _CodexItemCorrelationScope | None = None,
     ) -> list[AgentMessage]:
         """Convert a Grok ``streaming-json`` event into ``AgentMessage`` values.
 

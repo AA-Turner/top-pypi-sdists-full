@@ -30,13 +30,27 @@ static RE_ROMAN_LIST_MARKER: Lazy<FRegex> = Lazy::new(|| {
 // Đề mục La Mã thực tế không vượt quá ~XX; giá trị lớn hơn gần như chắc chắn là chữ viết tắt
 // tên riêng (C=100, L=50, D=500, M=1000) nên loại ra để tránh đọc nhầm "C. Mác" -> "một trăm".
 const ROMAN_MARKER_MAX: i32 = 30;
+// Chỉ I/V/X: L/C/D/M một mình gần như luôn là chữ viết tắt, không phải số La Mã.
+static RE_ROMAN_SINGLE: Lazy<FRegex> = Lazy::new(|| {
+    FRegex::new(r"\b[IVX]\b(?!['’])").unwrap()
+});
 // Bỏ dấu chấm viết tắt chức danh khi theo sau là tên riêng (TS. Nguyễn -> TS Nguyễn),
 // tránh dấu "." biến thành ranh giới câu gây ngắt nhịp sai.
 static RE_TITLE_DOT: Lazy<FRegex> = Lazy::new(|| {
     FRegex::new(r"\b(TS|GS|BS|ThS|PGS|KS|ĐH)\.\s+(?=\p{Lu})").unwrap()
 });
+// "Q.1"/"P.7" và "Q.Bình Thạnh"/"P.Bến Nghé" -> "quận"/"phường". Tên riêng đòi
+// chữ HOA + chữ thường theo sau để không đụng "P.S." hay viết tắt khác.
+static RE_DISTRICT_DOT: Lazy<FRegex> = Lazy::new(|| {
+    FRegex::new(r"\bQ\.\s*(?=\d|\p{Lu}\p{Ll})").unwrap()
+});
+static RE_WARD_DOT: Lazy<FRegex> = Lazy::new(|| {
+    FRegex::new(r"\bP\.\s*(?=\d|\p{Lu}\p{Ll})").unwrap()
+});
+// Lookahead loại contraction tiếng Anh ("I'm", "I'll", "I'd"...): chữ cái + nháy + chữ
+// phải giữ nguyên vẹn để G2P tra dict tiếng Anh, không đọc rời "i" + "'m".
 static RE_STANDALONE_LETTER: Lazy<FRegex> = Lazy::new(|| {
-    FRegex::new(r"(?<![\''])\b([a-zA-Z])\b(\.?)").unwrap()
+    FRegex::new(r"(?<![\''])\b([a-zA-Z])(?!['’]\w)\b(\.?)").unwrap()
 });
 pub static RE_ACRONYM: Lazy<FRegex> = Lazy::new(|| {
     FRegex::new(&format!(r"\b(?=[A-Z{}a-z{}0-9]*[A-Z{}])(?:[A-Z{}][a-z{}]?\d*){{2,}}\b", VI_UPPER, VI_UPPER, VI_UPPER, VI_UPPER, "đăâêôơư")).unwrap()
@@ -223,6 +237,80 @@ fn has_roman_context(preceding: &str) -> bool {
 }
 
 /// Chuyển cụm số La Mã sang giá trị nguyên (0 nếu chứa ký tự không hợp lệ / rỗng).
+// ─ Biển số xe & mã định danh ─────────────────────────────────────────────
+// Biển số VN: "51H-123.45", "30K-567.89", "51K1-123.45". Phải chạy TRƯỚC pass
+// giờ vì "51H" khớp mẫu "<số>h" và bị đọc nhầm thành "năm mươi mốt giờ".
+static RE_PLATE: Lazy<Regex> = Lazy::new(|| {
+    // Đuôi: "123.45" (biển ô tô), hoặc 2-5 chữ số trần ("12345", "1234" xe máy,
+    // "234" mã lô/phòng kiểu "51M-234") — đều đọc từng chữ số.
+    Regex::new(r"\b(\d{2})([A-Z]{1,2}\d?)\s*[-–]\s*(\d{3}\.\d{2}|\d{2,5})\b").unwrap()
+});
+// Biển số CỤT (chỉ mã tỉnh + seri, không kèm dãy số): "biển số 51H", "BKS 30K".
+// Bắt buộc từ dẫn vì "51h" trần trụi là thời lượng hợp lệ ("làm 51h mỗi tuần").
+static RE_PLATE_LEAD: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"\b([Bb]iển(?:\s+số|\s+kiểm\s+soát)?|BKS)\s+(\d{2})([A-Z]{1,2}\d?)\b").unwrap()
+});
+// Mã chữ-số kiểu "ABC-1234"/"XYZ-9876": phần số đọc từng chữ số như đọc mã.
+// Đòi ≥3 chữ số để không đụng "COVID-19", "U-17", "F-16" (đọc số đếm tự nhiên hơn).
+static RE_CODE_DIGITS: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"\b([A-Z]{2,6})-(\d{3,6})\b").unwrap()
+});
+// "#45021" (mã đơn hàng/phiếu): bỏ "#" (tránh đọc "thăng"), đọc từng chữ số.
+static RE_HASH_ID: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"#(\d{3,8})\b").unwrap()
+});
+// "tổng đài 1900", "tổng đài 1800.6601": số đầu mối dịch vụ đọc từng chữ số,
+// không đọc số đếm. Nhận cả nhóm nối bằng "." (n2w_single tự lọc ký tự không phải số).
+static RE_HOTLINE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(?i)\b(tổng đài|hotline|đầu số)\s+(\d{3,8}(?:\.\d{2,6})*)\b").unwrap()
+});
+
+fn spell_plate_serie(serie: &str) -> String {
+    serie.chars()
+        .map(|c| {
+            if c.is_ascii_digit() {
+                n2w_single(&c.to_string())
+            } else {
+                let cl = c.to_lowercase().to_string();
+                VI_LETTER_NAMES.get(cl.as_str()).map(|s| s.to_string()).unwrap_or(cl)
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn spell_plate_tail(tail: &str) -> String {
+    tail.chars()
+        .map(|c| if c == '.' { "chấm".to_string() } else { n2w_single(&c.to_string()) })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+pub fn expand_codes_and_plates(text: &str) -> String {
+    let mut res = RE_PLATE.replace_all(text, |caps: &Captures| {
+        format!("{} {} {}",
+            n2w(caps.get(1).unwrap().as_str()),
+            spell_plate_serie(caps.get(2).unwrap().as_str()),
+            spell_plate_tail(caps.get(3).unwrap().as_str()))
+    }).into_owned();
+    res = RE_PLATE_LEAD.replace_all(&res, |caps: &Captures| {
+        format!("{} {} {}",
+            caps.get(1).unwrap().as_str(),
+            n2w(caps.get(2).unwrap().as_str()),
+            spell_plate_serie(caps.get(3).unwrap().as_str()))
+    }).into_owned();
+    res = RE_CODE_DIGITS.replace_all(&res, |caps: &Captures| {
+        format!("{} {}", caps.get(1).unwrap().as_str(), n2w_single(caps.get(2).unwrap().as_str()))
+    }).into_owned();
+    res = RE_HASH_ID.replace_all(&res, |caps: &Captures| {
+        n2w_single(caps.get(1).unwrap().as_str())
+    }).into_owned();
+    res = RE_HOTLINE.replace_all(&res, |caps: &Captures| {
+        format!("{} {}", caps.get(1).unwrap().as_str(), n2w_single(caps.get(2).unwrap().as_str()))
+    }).into_owned();
+    res
+}
+
 pub fn roman_to_int(match_str: &str) -> i32 {
     let num = match_str.to_uppercase();
     let chars: Vec<char> = num.chars().collect();
@@ -288,12 +376,16 @@ pub fn expand_abbreviations(text: &str) -> String {
 }
 
 pub fn expand_standalone_letters(text: &str) -> String {
+    let end_pos = text.trim_end().len();
     RE_STANDALONE_LETTER.replace_all(text, |caps: &FCaps| {
         let char_raw = caps.get(1).unwrap().as_str();
         let char_lower = char_raw.to_lowercase();
         let dot = caps.get(2).unwrap().as_str();
         if let Some(name) = VI_LETTER_NAMES.get(char_lower.as_str()) {
-            if char_raw.chars().next().unwrap().is_uppercase() && dot == "." {
+            // Chấm sau chữ HOA giữa câu là dấu viết tắt tên ("R. Nguyễn") ->
+            // bỏ; nhưng ở CUỐI chuỗi là dấu chấm hết câu ("... = 2R.") -> giữ.
+            let at_end = caps.get(0).unwrap().end() >= end_pos;
+            if char_raw.chars().next().unwrap().is_uppercase() && dot == "." && !at_end {
                 format!(" {} ", name)
             } else {
                 format!(" {}{} ", name, dot)
@@ -302,6 +394,43 @@ pub fn expand_standalone_letters(text: &str) -> String {
             caps.get(0).unwrap().as_str().to_string()
         }
     }).to_string()
+}
+
+// T2..T7/CN là thứ trong tuần CHỈ KHI có từ dẫn thời gian phía trước
+// ("sáng T2", "từ T2 đến T6", "nghỉ T7") — "Model T2", "tòa T3" giữ nguyên.
+static RE_WEEKDAY_LEAD: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(?i)\b(sáng|trưa|chiều|tối|đêm|hôm|ngày|từ|đến|tới|vào|mỗi|hằng|nghỉ)\s+(?:T([2-7])|CN)\b").unwrap()
+});
+// Nối chuỗi: "thứ hai, T4 và CN" — T/CN đứng sau một "thứ X" đã chuyển.
+static RE_WEEKDAY_CHAIN: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(thứ (?:hai|ba|tư|năm|sáu|bảy))(\s*(?:,|và|-|–|đến|tới)\s*)(?:T([2-7])|CN)\b").unwrap()
+});
+
+fn weekday_name(d: &str) -> &'static str {
+    match d {
+        "2" => "thứ hai", "3" => "thứ ba", "4" => "thứ tư",
+        "5" => "thứ năm", "6" => "thứ sáu", "7" => "thứ bảy",
+        _ => "chủ nhật",
+    }
+}
+
+pub fn expand_weekday_abbr(text: &str) -> String {
+    if !text.contains('T') && !text.contains("CN") { return text.to_string(); }
+    let mut res = RE_WEEKDAY_LEAD.replace_all(text, |caps: &Captures| {
+        let lead = caps.get(1).unwrap().as_str();
+        let day = caps.get(2).map(|m| m.as_str()).unwrap_or("cn");
+        format!("{} {}", lead, weekday_name(day))
+    }).into_owned();
+    // Chuỗi liệt kê có thể dài ("từ T2, T4 và CN") -> lặp tới khi ổn định.
+    for _ in 0..6 {
+        let next = RE_WEEKDAY_CHAIN.replace_all(&res, |caps: &Captures| {
+            let day = caps.get(3).map(|m| m.as_str()).unwrap_or("cn");
+            format!("{}{}{}", caps.get(1).unwrap().as_str(), caps.get(2).unwrap().as_str(), weekday_name(day))
+        }).into_owned();
+        if next == res { break; }
+        res = next;
+    }
+    res
 }
 
 pub fn normalize_acronyms(text: &str) -> String {
@@ -473,12 +602,24 @@ pub fn expand_temperatures(text: &str) -> String {
     RE_DEGREE.replace_all(&res, " độ ").into_owned()
 }
 
-pub fn normalize_others(text: &str) -> String {
+pub fn normalize_others(text: &str, en_ctx: bool) -> String {
     let text = RE_TITLE_DOT.replace_all(text, "$1 ").into_owned();
+    let text = if en_ctx {
+        text
+    } else {
+        let t = RE_DISTRICT_DOT.replace_all(&text, "quận ").into_owned();
+        RE_WARD_DOT.replace_all(&t, "phường ").into_owned()
+    };
     let text = RE_ABS.replace_all(&text, " giá trị tuyệt đối của $1 ").into_owned();
-    let mut res = RE_ACRONYMS_EXCEPTIONS.replace_all(&text, |caps: &Captures| {
-        COMBINED_EXCEPTIONS.get(caps.get(0).unwrap().as_str()).cloned().unwrap_or(caps.get(0).unwrap().as_str().to_string())
-    }).into_owned();
+    // Câu thuần Anh: KHÔNG Việt hóa viết tắt ("VN" giữ nguyên -> acronym pass
+    // đánh vần chữ Anh, không thành "việt nam").
+    let mut res = if en_ctx {
+        text
+    } else {
+        RE_ACRONYMS_EXCEPTIONS.replace_all(&text, |caps: &Captures| {
+            COMBINED_EXCEPTIONS.get(caps.get(0).unwrap().as_str()).cloned().unwrap_or(caps.get(0).unwrap().as_str().to_string())
+        }).into_owned()
+    };
 
     res = normalize_slashes(&res);
     res = DOMAIN_SUFFIXES_RE.replace_all(&res, |caps: &Captures| {
@@ -512,6 +653,19 @@ pub fn normalize_others(text: &str) -> String {
         let m = caps.get(0).unwrap();
         if has_roman_context(&roman_src[..m.start()]) {
             expand_roman(m.as_str())
+        } else {
+            m.as_str().to_string()
+        }
+    }).to_string();
+
+    // Số La Mã MỘT ký tự (I/V/X): RE_ROMAN_NUMBER đòi ≥2 ký tự nên "quý I",
+    // "chương V", "khóa X" bị bỏ sót. Một ký tự quá dễ nhầm chữ cái đơn nên
+    // bắt buộc có từ dẫn ngay trước mới đọc thành số.
+    let roman1_src = res.clone();
+    res = RE_ROMAN_SINGLE.replace_all(&roman1_src, |caps: &FCaps| {
+        let m = caps.get(0).unwrap();
+        if has_roman_context(&roman1_src[..m.start()]) {
+            n2w(&roman_to_int(m.as_str()).to_string())
         } else {
             m.as_str().to_string()
         }

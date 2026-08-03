@@ -144,6 +144,7 @@ class FinalizeOnlyState(XPanderSharedModel):
             "tool_overuse",
             "plan_churn",
             "no_progress",
+            "plan_complete",
         ]
     ] = None
 

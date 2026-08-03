@@ -11,40 +11,11 @@ from ..formatters import fmt_argument_as_cpp_type, fmt_class_as_scoped_name
 
 
 def callable_overloads(member, overloads):
-    """ An iterator over the non-private and non-signal overloads. """
+    """ A generator of the non-private and non-signal overloads. """
 
     for overload in overloads:
         if overload.common is member and overload.access_specifier is not AccessSpecifier.PRIVATE and overload.pyqt_method_specifier is not PyQtMethodSpecifier.SIGNAL:
             yield overload
-
-
-def get_class_flags(spec, klass, py_debug):
-    """ Return the flags for a class. """
-
-    module = spec.module
-    flags = []
-
-    if klass.is_abstract:
-        flags.append('SIP_TYPE_ABSTRACT')
-
-    if klass.subclass_base is not None:
-        flags.append('SIP_TYPE_SCC')
-
-    if klass.handles_none:
-        flags.append('SIP_TYPE_ALLOW_NONE')
-
-    if klass.has_nonlazy_method:
-        flags.append('SIP_TYPE_NONLAZY')
-
-    if module.call_super_init:
-        flags.append('SIP_TYPE_SUPER_INIT')
-
-    if not py_debug and module.use_limited_api:
-        flags.append('SIP_TYPE_LIMITED_API')
-
-    flags.append('SIP_TYPE_NAMESPACE' if klass.iface_file.type is IfaceFileType.NAMESPACE else 'SIP_TYPE_CLASS')
-
-    return '|'.join(flags)
 
 
 def get_class_from_void(spec, klass):
@@ -184,7 +155,7 @@ def get_mapped_type_flags(mapped_type):
     return '|'.join(flags)
 
 
-def get_method_table(klass):
+def get_method_table(klass, ignore_slots=False):
     """ Return a sorted list of relevant methods (either lazy or non-lazy) for
     a class.
     """
@@ -199,7 +170,7 @@ def get_method_table(klass):
     members = []
 
     for visible_member in klass.visible_members:
-        if visible_member.member.py_slot is not None:
+        if ignore_slots and visible_member.member.py_slot is not None:
             continue
 
         need_member = False
@@ -326,6 +297,17 @@ def has_method_docstring(bindings, member, overloads):
     return auto_docstring
 
 
+def is_string(type):
+    """ Check if a type is a string rather than a char type. """
+
+    nr_derefs = len(type.derefs)
+
+    if type.is_out and not type.is_reference:
+        nr_derefs -= 1
+
+    return nr_derefs > 0
+
+
 def is_used_in_code(code, s):
     """ Return True if a string is used in code. """
 
@@ -362,6 +344,16 @@ def keep_py_reference(spec, arg):
     # wchar_t strings/arrays don't leak in ABI v14 and later.  Note that
     # this solution could be adopted for earlier ABIs.
     return spec.target_abi >= (14, 0) and arg.type is ArgumentType.WSTRING
+
+
+def module_classes(spec):
+    """ A generator of the classes defined in the module being generated. """
+
+    module = spec.module
+
+    for klass in spec.classes:
+        if klass.iface_file.module is module:
+            yield klass
 
 
 def need_dealloc(spec, bindings, klass):

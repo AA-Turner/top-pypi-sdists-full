@@ -85,6 +85,72 @@ TEST_CASES = [
     ("tháng 3/2026", "tháng ba năm hai nghìn không trăm hai mươi sáu"),
     ("quý 1/2025 tăng", "quý một năm hai nghìn không trăm hai mươi lăm tăng"),
     ("quý 4/2024", "quý bốn năm hai nghìn không trăm hai mươi bốn"),
+    # Từ láy KHÔNG bị gộp: chỉ gộp "ngày ngày"/"năm năm"/"tháng tháng" khi từ
+    # ngay sau là chữ số (tức do pass ngày-tháng sinh ra).
+    ("ngày ngày vẫn đông khách", "ngày ngày vẫn đông khách"),
+    ("ngày ngày năn nỉ anh Nam", "ngày ngày năn nỉ anh nam"),
+    ("suốt năm năm trời anh vẫn đợi", "suốt năm năm trời anh vẫn đợi"),
+    ("tháng tháng đóng tiền đều đặn", "tháng tháng đóng tiền đều đặn"),
+    ("cuộc họp vào ngày 15/3", "cuộc họp vào ngày mười lăm tháng ba"),
+    # "hôm ngày"/"mùng ngày" cũng chỉ gộp khi sau là chữ số.
+    ("hôm ngày lễ đó cả nhà đi chơi", "hôm ngày lễ đó cả nhà đi chơi"),
+    ("cúng vào mùng ngày rằm", "cúng vào mùng ngày rằm"),
+    ("hôm 15/3 cả nhà đi chơi", "hôm mười lăm tháng ba cả nhà đi chơi"),
+    # "âm" viết sẵn + số mang dấu trừ -> chỉ đọc MỘT "âm"...
+    ("nhiệt độ âm -5 độ C", "nhiệt độ âm năm độ xê"),
+    ("kết quả là âm -2", "kết quả là âm hai"),
+    # ...nhưng "âm âm" thật (không phải số) giữ nguyên.
+    ("giá trị âm âm là dương", "giá trị âm âm là dương"),
+    ("điện tích âm và dương", "điện tích âm và dương"),
+    ("mùng 5/5 là Tết Đoan Ngọ", "mùng năm tháng năm là tết đoan ngọ"),
+    # Từ dẫn ngày đứng NGAY TRƯỚC -> "d/m" là ngày tháng...
+    ("triều cường chiều 17/10 tràn qua", "triều cường chiều ngày mười bảy tháng mười tràn qua"),
+    ("nợ này phải trả trước 30/4", "nợ này phải trả trước ngày ba mươi tháng tư"),
+    # ...nhưng cách một từ thì vẫn là phân số ("chiều dài 3/4 mét").
+    ("chiều dài 3/4 mét là vừa", "chiều dài ba trên bốn mét là vừa"),
+    ("chị chỉ cần đổ 3/4 cốc nước", "chị chỉ cần đổ ba trên bốn cốc nước"),
+    ("phân số 7/8 lớn hơn 3/4", "phân số bảy trên tám lớn hơn ba trên bốn"),
+    # Khoảng ngày: vế SAU cũng thành ngày tháng.
+    ("hồ sơ nhận từ 1/8 đến hết 31/8",
+     "hồ sơ nhận từ ngày một tháng tám đến hết ngày ba mươi mốt tháng tám"),
+    ("chạy từ 20/11 đến 25/11",
+     "chạy từ ngày hai mươi tháng mười một đến ngày hai mươi lăm tháng mười một"),
+    # ∆ (U+2206) = delta toán học, khác Δ Hy Lạp.
+    ("nhiệt lượng Q = mc∆t", "nhiệt lượng qui bằng mờ xê đen ta tê"),
+    ("định luật Húc F = k∆l", "định luật húc ép bằng ca đen ta lờ"),
+    # Bộ/sở dạng "&" bổ sung.
+    ("nộp về phòng KH&ĐT", "nộp về phòng kế hoạch đầu tư"),
+    ("chuyên viên Sở TT&TT", "chuyên viên sở thông tin truyền thông"),
+    # TLD mới + "@" trong URL.
+    ("link forms.gle/xnk27 nhé", "link forms chấm gle gạch chéo ích nờ ca hai bảy nhé"),
+    ("kênh youtube.com/@toanthayvu", "kênh youtube chấm com gạch chéo a còng toan thay vu"),
+    # Biển số xe: chạy trước pass giờ để "51H" không thành "năm mươi mốt giờ".
+    ("biển số 51H-123.45 vượt đèn đỏ",
+     "biển số năm mươi mốt hát một hai ba chấm bốn năm vượt đèn đỏ"),
+    ("taxi biển 30K-567.89 trả lại ví",
+     "taxi biển ba mươi ca năm sáu bảy chấm tám chín trả lại ví"),
+    # Biển số seri có chữ số + đuôi 4 số (xe máy) và seri chứa X (không thành "nhân").
+    ("xe máy biển 52N5-1234", "xe máy biển năm mươi hai nờ năm một hai ba bốn"),
+    ("biển 59X1-123.45", "biển năm mươi chín ích một một hai ba chấm bốn năm"),
+    # Biển số CỤT cần từ dẫn "biển/BKS"; "51h" trần vẫn là thời lượng.
+    ("xe biển số 51H đi qua trạm", "xe biển số năm mươi mốt hát đi qua trạm"),
+    ("làm việc 51h mỗi tuần", "làm việc năm mươi mốt giờ mỗi tuần"),
+    # "ML/AI" không phải cặp đơn vị -> đọc acronym, KHÔNG đọc "mi li lít".
+    ("kỹ sư AI/ML lương cao", "kỹ sư <en>a i</en> trên <en>m l</en> lương cao"),
+    ("nền tảng Core ML/AI", "nền tảng core <en>m l</en> trên <en>a i</en>"),
+    ("tốc độ 120 km/h", "tốc độ một trăm hai mươi ki lô mét trên giờ"),
+    ("chỉ số P/E cao", "chỉ số phê trên e cao"),
+    # Mã chữ-số: phần số ≥3 chữ số đọc từng chữ số như đọc mã.
+    ("mã vé ABC-1234", "mã vé <en>a b c</en> một hai ba bốn"),
+    # ...nhưng ≤2 chữ số vẫn đọc số đếm (COVID-19, U-23).
+    ("bệnh nhân COVID-19", "bệnh nhân <en>covid</en> mười chín"),
+    ("đội U-23 Việt Nam", "đội u hai mươi ba việt nam"),
+    # "#" + mã số: bỏ "thăng", đọc từng chữ số.
+    ("đơn hàng #45021 đã rời kho", "đơn hàng bốn năm không hai một đã rời kho"),
+    # Số tổng đài đọc từng chữ số.
+    ("tổng đài 1900 thu phí", "tổng đài một chín không không thu phí"),
+    # Đơn vị y tế mmol/l.
+    ("đường huyết 6,2 mmol/l", "đường huyết sáu phẩy hai mi li mol trên lít"),
     # Ngày không hợp lệ -> đọc dãy số "trên", không vỡ cú pháp.
     ("32/01", "ba mươi hai trên không một"),
     ("01/13", "không một trên mười ba"),
@@ -103,7 +169,7 @@ TEST_CASES = [
     ("mồng 3/3", "mồng ba tháng ba"),
     ("Ngày 3/5 tôi tính 1/2 + 1/2", "ngày ba tháng năm tôi tính một trên hai cộng một trên hai"),
     ("Vào ngày 20/10/2024, gia đình tôi đã quyết định tổ chức một buổi tiệc nhỏ", "vào ngày hai mươi tháng mười năm hai nghìn không trăm hai mươi bốn, gia đình tôi đã quyết định tổ chức một buổi tiệc nhỏ"),
-    ("khoản 3 điều 45 nghị định 12/2021/NĐ-CP . 45/8000", "khoản ba điều bốn mươi lăm nghị định tháng mười hai năm hai nghìn không trăm hai mươi mốt trên nờ đê <en>c p</en>. bốn mươi lăm trên tám nghìn"),
+    ("khoản 3 điều 45 nghị định 12/2021/NĐ-CP . 45/8000", "khoản ba điều bốn mươi lăm nghị định tháng mười hai năm hai nghìn không trăm hai mươi mốt trên nờ đê xê phê. bốn mươi lăm trên tám nghìn"),
     ("Log lỗi: ERROR[2025-03-11T14:22:03Z].", "log lỗi, <en>error</en>, ngày mười một tháng ba năm hai nghìn không trăm hai mươi lăm tê mười bốn giờ hai mươi hai phút ba giây dét."),
 
     # ══ 6. THỜI GIAN ═════════════════════════════════════════════════════════
@@ -194,7 +260,7 @@ TEST_CASES = [
     ("Trọng lượng 10lb.", "trọng lượng mười <en>pound</en>."),
     ("Màn hình 24in.", "màn hình hai mươi bốn <en>inch</en>."),
     ("Độ phân giải 300dpi.", "độ phân giải ba trăm <en>d p i</en>."),
-    ("Độ pH của nước là 7.", "độ pê hát của nước là bảy."),
+    ("Độ pH của nước là 7.", "độ phê hát của nước là bảy."),
     ("Unit mix: 10km/h và 5m/s.", "unit mix, mười ki lô mét trên giờ và năm mét trên giây."),
     ("3.46 USD/gallon", "ba chấm bốn sáu <en>u s d</en> trên <en>gallon</en>"),
     # Dữ liệu / điện tử.
@@ -224,7 +290,32 @@ TEST_CASES = [
     ("sào 1m2", "sào một mét vuông"),       # m2 vẫn là mét vuông
     ("phòng 50m2", "phòng năm mươi mét vuông"),
     ("khối 20m3", "khối hai mươi mét khối"),
-    ("vốn 5M", "vốn năm triệu"),            # M hoa vẫn là triệu
+    # Chữ HOA đơn dính sau SỐ NGUYÊN mặc định là mã hiệu -> đánh vần; chỉ đọc
+    # đơn vị khi có ngữ cảnh: số thập phân, từ dẫn tiền (M/B/K), vật chứa (L).
+    ("vốn 5M", "vốn năm triệu"),          # "vốn" là từ dẫn tiền -> triệu
+    ("thương vụ 5M USD", "thương vụ năm triệu <en>u s d</en>"),
+    ("lương 20M một tháng", "lương hai mươi triệu một tháng"),
+    ("video đạt 5M lượt xem", "video đạt năm triệu lượt xem"),
+    ("quỹ đầu tư 2B đồng", "quỹ đầu tư hai tỷ đồng"),
+    ("giá 100K một ly", "giá một trăm nghìn một ly"),
+    ("chai 2L nước ngọt", "chai hai lít nước ngọt"),
+    # Không có ngữ cảnh -> mã hiệu, đánh vần chữ cái.
+    ("căn hộ 51M", "căn hộ năm mươi mốt mờ"),
+    ("mã lô 51M-234 đã xuất kho", "mã lô năm mươi mốt mờ hai ba bốn đã xuất kho"),
+    ("lô 12B nằm cuối dãy", "lô mười hai bê nằm cuối dãy"),
+    ("iPhone 5S vẫn chạy tốt", "i phone năm ét vẫn chạy tốt"),
+    ("mã 51K in trên tem", "mã năm mươi mốt ca in trên tem"),
+    ("khối 12L của trường", "khối mười hai lờ của trường"),
+    ("mã 51H bị phạt", "mã năm mươi mốt hát bị phạt"),
+    ("căn hộ 51M", "căn hộ năm mươi mốt mờ"),
+    ("phục vụ 24H", "phục vụ hai mươi bốn hát"),
+    ("trực 24h liên tục", "trực hai mươi bốn giờ liên tục"),
+    ("gói 450g đường", "gói bốn trăm năm mươi gam đường"),
+    ("chuyến 14H30 hoãn", "chuyến mười bốn giờ ba mươi phút hoãn"),
+    # Đơn vị oát trần + chiều cao/cân nặng đứng cuối câu.
+    ("tấm pin 550 W", "tấm pin năm trăm năm mươi oát"),
+    ("cao 1m75.", "cao một mét bảy mươi lăm."),
+    ("nặng 3kg2.", "nặng ba ki lô gam hai."),
 
     # ══ 11. KHOẢNG / TỈ SỐ / PHÉP TRỪ (dấu gạch & gạch chéo) ══════════════════
     ("700-900", "bảy trăm đến chín trăm"),
@@ -246,6 +337,12 @@ TEST_CASES = [
     # Tỉ số thể thao -> đọc hai số rời.
     ("Việt Nam 2-1 Thái Lan", "việt nam hai một thái lan"),
     ("Arsenal 3-0 Chelsea", "arsenal ba không chelsea"),
+    # en_ctx nới ngưỡng: 2 từ Anh thật (thuần chữ thường, có trong wordlist)
+    # đủ kích hoạt câu Anh dù từ còn lại lẫn chữ số ("3D", "4K").
+    ("print 3D technology", "print three d technology"),
+    ("best 4K monitor", "best four k monitor"),
+    # ...nhưng trong câu Việt thì "3D" vẫn đọc kiểu Việt.
+    ("Công nghệ in 3D đang phát triển.", "công nghệ in ba đê đang phát triển."),
     ("thắng 2-0", "thắng hai không"),
     ("thua 0-2", "thua không hai"),
     ("hòa 1-1", "hòa một một"),
@@ -279,11 +376,13 @@ TEST_CASES = [
     ("Tỉ lệ bản đồ 1:50.000.", "tỉ lệ bản đồ một, năm mươi nghìn."),
     ("Tại thời điểm 02:01, tỉ số trận đấu là 2:1 nhưng tỉ lệ cược là 1:2.5.", "tại thời điểm hai giờ một phút, tỉ số trận đấu là hai trên một nhưng tỉ lệ cược là một, hai chấm năm."),
     ("Vào lúc 10:30, chỉ số nợ/vốn là 1.5:1.", "vào lúc mười giờ ba mươi phút, chỉ số nợ trên vốn là một chấm năm, một."),
-    ("Tỷ lệ P/E là 28.7x.", "tỷ lệ pê trên e là hai mươi tám chấm bảy ích."),
+    ("Tỷ lệ P/E là 28.7x.", "tỷ lệ phê trên e là hai mươi tám chấm bảy ích."),
     ("Tỉ số USD/EUR đang tăng.", "tỉ số <en>u s d</en> trên <en>euro</en> đang tăng."),
     ("AN/ASQ", "<en>a n</en> trên <en>a s q</en>"),
-    ("Kích thước lốp xe 225/45R17 91W.", "kích thước lốp xe hai trăm hai mươi lăm trên bốn mươi lăm rờ mười bảy chín mươi mốt đắp liu."),
-    ("Kích thước lốp xe 45R17/22R5 91W.", "kích thước lốp xe bốn mươi lăm rờ mười bảy trên hai mươi hai rờ năm chín mươi mốt đắp liu."),
+    # "91W": từ khi thêm đơn vị "w" -> "oát" (công suất "550 W"/"320W" phổ biến
+    # hơn nhiều), chỉ số tốc độ lốp chấp nhận đọc "oát".
+    ("Kích thước lốp xe 225/45R17 91W.", "kích thước lốp xe hai trăm hai mươi lăm trên bốn mươi lăm rờ mười bảy chín mươi mốt oát."),
+    ("Kích thước lốp xe 45R17/22R5 91W.", "kích thước lốp xe bốn mươi lăm rờ mười bảy trên hai mươi hai rờ năm chín mươi mốt oát."),
 
     # ══ 13. SỐ LA MÃ ═════════════════════════════════════════════════════════
     ("Thế kỷ XXI", "thế kỷ hai mươi mốt"),
@@ -302,6 +401,16 @@ TEST_CASES = [
     ("Edward II", "edward hai"),
     ("vua William III", "vua william ba"),
     ("giáo hoàng Benedict XVI", "giáo hoàng benedict mười sáu"),
+    # Từ dẫn "thứ" (xét TỪ CUỐI ngay trước cụm): "lần thứ IX" phải ra số.
+    ("tái bản lần thứ IX", "tái bản lần thứ chín"),
+    ("Đại chiến thế giới thứ II", "đại chiến thế giới thứ hai"),
+    # Số La Mã MỘT ký tự (I/V/X) chỉ đọc thành số khi có từ dẫn.
+    ("Chương V dài nhất", "chương năm dài nhất"),
+    ("Quốc hội khóa X", "quốc hội khóa mười"),
+    ("phần I", "phần một"),
+    # Quý viết số La Mã kèm năm ("quý III/2027") phải ra "năm ...", không phải "trên".
+    ("quý III/2027", "quý ba năm hai nghìn không trăm hai mươi bảy"),
+    ("Quý I/2026 tăng trưởng", "quý một năm hai nghìn không trăm hai mươi sáu tăng trưởng"),
     # CHỈ nhận số La Mã viết HOA; chữ thường dễ trùng âm tiết tiếng Việt nên để nguyên.
     ("chương iv", "chương iv"),
     ("thế kỷ xxi", "thế kỷ xxi"),
@@ -330,7 +439,7 @@ TEST_CASES = [
     ("chữ B", "chữ bê"),
     ("ký tự 'C'", "ký tự xê"),
     ("chữ cái Z", "chữ cái dét"),
-    ("kí tự w", "kí tự đắp liu"),
+    ("kí tự w", "kí tự vê kép"),
     ("Anh M. đi bộ", "anh mờ đi bộ"),
     ("Vitamin G", "vitamin gờ"),
     ("L là tên riêng", "lờ là tên riêng"),
@@ -429,7 +538,7 @@ TEST_CASES = [
     ("ăn BƯỞI ngọt", "ăn bưởi ngọt"),
     # Acronym có dấu nhưng KHÔNG phải âm tiết -> vẫn tách.
     ("giải ĐKVĐ này", "giải đê ca vê đê này"),
-    ("ông ĐBQH phát biểu", "ông đê bê qui hát phát biểu"),
+    ("ông ĐBQH phát biểu", "ông đại biểu quốc hội phát biểu"),
 
     # ══ 20. CÔNG THỨC HÓA HỌC ════════════════════════════════════════════════
     ("CO2", "xê ô hai"),
@@ -455,7 +564,50 @@ TEST_CASES = [
     ("aᵢ", "a i"),
     ("Giới hạn lim(x→0) sin(x)/x = 1.", "giới hạn lim, ích đến không, sin, ích, trên ích bằng một."),
     # Dấu trừ trong công thức (số mũ / hệ số dính) -> "trừ"; văn xuôi giữ phẩy.
-    ("b² - 4ac", "bê bình phương trừ bốn ac"),
+    # "4ac" trong cụm công thức được tách biến -> "bốn a xê".
+    ("b² - 4ac", "bê bình phương trừ bốn a xê"),
+    # ══ CÔNG THỨC TRẦN (không bọc <math>): cụm token dạng toán có dấu mạnh
+    # (= √ ∫ ± mũ/chỉ số) được tách biến + giai thừa + trừ nhị phân ═══════════
+    ("phương trình ax² + bx + c = 0", "phương trình a ích bình phương cộng bê ích cộng xê bằng không"),
+    ("biệt thức Δ = b² - 4ac", "biệt thức đen ta bằng bê bình phương trừ bốn a xê"),
+    ("công thức cos2x = 1 - 2sin²x", "công thức cos hai ích bằng một trừ hai sin bình phương ích"),
+    ("E = mc² nổi tiếng", "e bằng mờ xê bình phương nổi tiếng"),
+    ("trọng lượng P = mg", "trọng lượng phê bằng mờ gờ"),
+    ("động năng bằng ½mv²", "động năng bằng một phần hai mờ vê bình phương"),
+    ("khoảng 6,022 x 10²³ hạt", "khoảng sáu phẩy không hai hai nhân mười mũ hai mươi ba hạt"),
+    # Số mũ ÂM viết bằng ⁻ (U+207B): trước đây dấu bị nuốt -> "mười lập phương".
+    ("nồng độ 10⁻³ mol trên lít", "nồng độ mười mũ trừ ba mol trên lít"),
+    ("sai số cỡ 10⁻⁶", "sai số cỡ mười mũ trừ sáu"),
+    ("hằng số 6,626 x 10⁻³⁴ jun giây", "hằng số sáu phẩy sáu hai sáu nhân mười mũ trừ ba mươi bốn jun giây"),
+    ("biểu thức 2⁻¹", "biểu thức hai mũ trừ một"),
+    ("sản lượng tăng 10⁺⁶ lần", "sản lượng tăng mười mũ sáu lần"),
+    ("hàm f(x) = eˣ rất đẹp", "hàm ép, ích, bằng e mũ ích rất đẹp"),
+    ("Ký hiệu Σ là tổng", "ký hiệu xích ma là tổng"),
+    ("câu trả lời là 5! = 120 cách", "câu trả lời là năm giai thừa bằng một trăm hai mươi cách"),
+    ("độ phức tạp O(n!) bùng nổ", "độ phức tạp ô, nờ giai thừa, bùng nổ"),
+    ("công thức tổ hợp C(n,k) = n!/(k!(n-k)!)",
+     "công thức tổ hợp xê, nờ, ca, bằng nờ giai thừa trên, ca giai thừa nờ trừ ca, giai thừa"),
+    ("số phức z = 5 - 2i", "số phức dét bằng năm trừ hai i"),
+    ("giải log₃(x - 1) = 2", "giải log ba, ích trừ một, bằng hai"),
+    ("đạo hàm là -sin x, đổi dấu", "đạo hàm là âm sin ích, đổi dấu"),
+    # Từ Việt không dấu cạnh công thức KHÔNG bị hút vào cụm ("khi" giữ nguyên).
+    ("Tổng Σ(1/2ⁿ) khi n tiến ra vô cùng", "tổng xích ma, một trên hai mũ nờ, khi nờ tiến ra vô cùng"),
+    # ...kể cả khi có dấu phẩy đuôi ("thi,") hoặc đứng cạnh token chứa √ ("ta").
+    ("trước khi thi, cos 60° = 1/2 nhé", "trước khi thi, cos sáu mươi độ bằng một trên hai nhé"),
+    ("mẫu của 1/√3, ta nhân cả tử và mẫu với √3",
+     "mẫu của một trên căn bậc hai ba, ta nhân cả tử và mẫu với căn bậc hai ba"),
+    # "2bc" tách biến xong không bị pass đơn vị đọc "2 b" thành tỷ.
+    ("a² = b² + c² - 2bc cos A", "a bình phương bằng bê bình phương cộng xê bình phương trừ hai bê xê cos a"),
+    # Vi phân dx/du/dv luôn thuộc cụm công thức.
+    ("tính ∫sin x dx trên đoạn", "tính tích phân sin ích đê ích trên đoạn"),
+    # Trừ giữa hai biến chữ thường đơn lẻ.
+    ("phép chia đa thức cho x - a", "phép chia đa thức cho ích trừ a"),
+    # Chữ HOA đơn + chấm ở CUỐI câu giữ dấu chấm (không phải viết tắt tên).
+    ("hệ thức U = IR.", "hệ thức u bằng i rờ."),
+    # Hệ số trước công thức hóa học tách rời; đơn vị mũ Unicode về vuông/khối.
+    ("phản ứng 6CO2 + 6H2O cần ánh sáng", "phản ứng sáu xê ô hai cộng sáu hát hai ô cần ánh sáng"),
+    ("phản ứng 2HCl sủi bọt", "phản ứng hai hát xê lờ sủi bọt"),
+    ("rộng 68 m² và chứa 1.200 m³", "rộng sáu mươi tám mét vuông và chứa một nghìn hai trăm mét khối"),
     ("2x - 3", "hai ích trừ ba"),
     ("8x - mà với lại", "tám ích, mà với lại"),
     # Tag <math>: tách cụm biến thành chữ rời, giữ tên hàm.
@@ -485,38 +637,112 @@ TEST_CASES = [
     ("⅙ ⅛ ⅜ ⅝ ⅞", "một phần sáu một phần tám ba phần tám năm phần tám bảy phần tám"),
 
     # ══ 22. URL / EMAIL / KỸ THUẬT ═══════════════════════════════════════════
-    ("Truy cập https://vieneu.io để biết thêm chi tiết.", "truy cập <en>https</en> <en>vieneu</en> chấm <en>i o</en> để biết thêm chi tiết."),
-    ("Website www.google.com rất hữu ích.", "website <en>www</en> chấm <en>google</en> chấm com rất hữu ích."),
-    ("Trang chủ là https://openai.com.", "trang chủ là <en>https</en> <en>openai</en> chấm com."),
-    ("Tài liệu nằm ở www.example.org/docs.", "tài liệu nằm ở <en>www</en> chấm <en>example</en> chấm o rờ gờ gạch <en>docs</en>."),
-    ("Repo nằm ở github.com/user/project.", "repo nằm ở <en>github</en> chấm com gạch <en>user</en> gạch <en>project</en>."),
-    ("Repo nằm ở https://github.com/user/project-v2.", "repo nằm ở <en>https</en> <en>github</en> chấm com gạch <en>user</en> gạch <en>project</en> gạch ngang <en>v</en> hai."),
-    ("Tài liệu đọc tại docs.python.org.", "tài liệu đọc tại <en>docs</en> chấm <en>python</en> chấm o rờ gờ."),
-    ("File tải tại ftp://example.org/data.zip.", "file tải tại <en>f t p</en> <en>example</en> chấm o rờ gờ gạch <en>data</en> chấm <en>zip</en>."),
-    ("Máy chủ dự phòng là http://127.0.0.1:5000/health.", "máy chủ dự phòng là <en>http</en> một hai bảy chấm không chấm không chấm một hai chấm năm không không không gạch <en>health</en>."),
-    ("API local chạy ở http://localhost:8080/api/v2?lang=vi#top.", "<en>a p i</en> local chạy ở <en>http</en> <en>localhost</en> hai chấm tám không tám không gạch <en>api</en> gạch <en>v</en> hai hỏi <en>lang</en> bằng <en>v i</en> thăng <en>top</en>."),
+    ("Truy cập https://vieneu.io để biết thêm chi tiết.", "truy cập hát tê tê phê ét hai chấm gạch chéo gạch chéo vieneu chấm i ô để biết thêm chi tiết."),
+    ("Website www.google.com rất hữu ích.", "website vê kép vê kép vê kép chấm google chấm com rất hữu ích."),
+    ("Trang chủ là https://openai.com.", "trang chủ là hát tê tê phê ét hai chấm gạch chéo gạch chéo openai chấm com."),
+    ("Tài liệu nằm ở www.example.org/docs.", "tài liệu nằm ở vê kép vê kép vê kép chấm example chấm o rờ gờ gạch chéo docs."),
+    ("Repo nằm ở github.com/user/project.", "repo nằm ở github chấm com gạch chéo user gạch chéo project."),
+    ("Repo nằm ở https://github.com/user/project-v2.", "repo nằm ở hát tê tê phê ét hai chấm gạch chéo gạch chéo github chấm com gạch chéo user gạch chéo project gạch nối vê hai."),
+    ("Tài liệu đọc tại docs.python.org.", "tài liệu đọc tại docs chấm python chấm o rờ gờ."),
+    ("File tải tại ftp://example.org/data.zip.", "file tải tại ép tê phê hai chấm gạch chéo gạch chéo example chấm o rờ gờ gạch chéo data chấm zip."),
+    ("Máy chủ dự phòng là http://127.0.0.1:5000/health.", "máy chủ dự phòng là hát tê tê phê hai chấm gạch chéo gạch chéo một hai bảy chấm không chấm không chấm một hai chấm năm không không không gạch chéo health."),
+    ("API local chạy ở http://localhost:8080/api/v2?lang=vi#top.", "<en>a p i</en> local chạy ở hát tê tê phê hai chấm gạch chéo gạch chéo localhost hai chấm tám không tám không gạch chéo api gạch chéo vê hai hỏi chấm lang bằng vi thăng top."),
     # URL có path tiếng Việt (không lòi dấu "/").
-    ("truy cập https://abc.com/báo-cáo.", "truy cập <en>https</en> <en>abc</en> chấm com gạch báo gạch ngang cáo."),
-    ("abc.com/báo-cáo", "<en>abc</en> chấm com gạch báo gạch ngang cáo"),
-    ("https://abc.com/tài-liệu/mới", "<en>https</en> <en>abc</en> chấm com gạch tài gạch ngang liệu gạch mới"),
+    ("truy cập https://abc.com/báo-cáo.", "truy cập hát tê tê phê ét hai chấm gạch chéo gạch chéo abc chấm com gạch chéo báo gạch nối cáo."),
+    ("abc.com/báo-cáo", "abc chấm com gạch chéo báo gạch nối cáo"),
+    ("https://abc.com/tài-liệu/mới", "hát tê tê phê ét hai chấm gạch chéo gạch chéo abc chấm com gạch chéo tài gạch nối liệu gạch chéo mới"),
     # Email.
-    ("Liên hệ qua email pnnbao@gmail.com nhé.", "liên hệ qua email <en>pnnbao</en> a còng <en>gmail</en> chấm com nhé."),
-    ("Email: contact@example.com", "email, <en>contact</en> a còng <en>example</en> chấm com"),
-    ("Email công việc: admin@fpt.vn", "email công việc, <en>admin</en> a còng <en>f p t</en> chấm <en>v n</en>"),
-    ("Liên hệ hotmail: test@hotmail.com", "liên hệ hotmail, <en>test</en> a còng <en>hotmail</en> chấm com"),
-    ("Hãy gửi email đến support@example.com.", "hãy gửi email đến <en>support</en> a còng <en>example</en> chấm com."),
-    ("Email với tên miền lạ: user@domain.tech", "email với tên miền lạ, <en>user</en> a còng <en>domain</en> chấm <en>tech</en>"),
-    ("Liên hệ qua email research.ai+test@example-domain.org.", "liên hệ qua email <en>research</en> chấm <en>ai</en> cộng <en>test</en> a còng <en>example</en> gạch ngang <en>domain</en> chấm o rờ gờ."),
-    ("Gửi báo cáo đến admin_v2@server.ai.", "gửi báo cáo đến <en>admin</en> gạch dưới <en>v</en> hai a còng <en>server</en> chấm <en>ai</en>."),
+    ("Liên hệ qua email pnnbao@gmail.com nhé.", "liên hệ qua email phê nờ nờ bao a còng gmail chấm com nhé."),
+    # Câu thuần Anh (không từ Việt) -> email đọc kiểu Anh ("at", "dot").
+    ("Email: contact@example.com", "email, <en>contact</en> at <en>example</en> dot <en>com</en>"),
+    ("Email công việc: admin@fpt.vn", "email công việc, admin a còng ép phê tê chấm vê nờ"),
+    ("Liên hệ hotmail: test@hotmail.com", "liên hệ hotmail, test a còng hotmail chấm com"),
+    ("Hãy gửi email đến support@example.com.", "hãy gửi email đến support a còng example chấm com."),
+    ("Email với tên miền lạ: user@domain.tech", "email với tên miền lạ, user a còng domain chấm tech"),
+    ("Liên hệ qua email research.ai+test@example-domain.org.", "liên hệ qua email research chấm ai cộng test a còng example gạch nối domain chấm o rờ gờ."),
+    ("Gửi báo cáo đến admin_v2@server.ai.", "gửi báo cáo đến admin gạch dưới vê hai a còng server chấm ai."),
     # Chuỗi kỹ thuật (IP, version, đường dẫn, file).
     ("Địa chỉ IP là 192.168.1.1 hoặc 10.0.0.1.", "địa chỉ <en>i p</en> là một chín hai chấm một sáu tám chấm một chấm một hoặc một không chấm không chấm không chấm một."),
     ("Phiên bản phần mềm là 1.25.3.4", "phiên bản phần mềm là một chấm hai năm chấm ba chấm bốn"),
-    ("IPv6 là 2001:0db8:85a3:0000:0000:8a2e:0370:7334", "<en>i p v</en> sáu là hai không không một hai chấm không <en>d b</en> tám hai chấm tám năm <en>a</en> ba hai chấm không không không không hai chấm không không không không hai chấm tám <en>a</en> hai <en>e</en> hai chấm không ba bảy không hai chấm bảy ba ba bốn"),
+    ("IPv6 là 2001:0db8:85a3:0000:0000:8a2e:0370:7334", "<en>i p v</en> sáu là hai không không một hai chấm không đê bê tám hai chấm tám năm a ba hai chấm không không không không hai chấm không không không không hai chấm tám a hai e hai chấm không ba bảy không hai chấm bảy ba ba bốn"),
     ("Mã này là 192.16.2", "mã này là một chín hai chấm một sáu chấm hai"),
-    ("Đường dẫn Windows: C:\\Users\\dev\\data\\report_2026-03-11.log.", "đường dẫn windows, <en>c</en> hai chấm gạch <en>users</en> gạch <en>dev</en> gạch <en>data</en> gạch <en>report</en> gạch dưới hai không hai sáu gạch ngang không ba gạch ngang một một chấm <en>log</en>."),
-    ("Username của tôi là user_2024_dev.", "username của tôi là <en>user</en> gạch dưới hai không hai bốn gạch dưới <en>dev</en>."),
-    ("File backup nằm ở /home/user/data_v3.2.tar.gz.", "file backup nằm ở gạch <en>home</en> gạch <en>user</en> gạch <en>data</en> gạch dưới <en>v</en> ba chấm hai chấm <en>tar</en> chấm <en>g z</en>."),
-    ("Log lỗi ghi tại error_log_2024-10-21.txt.", "log lỗi ghi tại <en>error</en> gạch dưới <en>log</en> gạch dưới hai không hai bốn gạch ngang một không gạch ngang hai một chấm <en>txt</en>."),
+    ("Đường dẫn Windows: C:\\Users\\dev\\data\\report_2026-03-11.log.", "đường dẫn windows, xê hai chấm gạch chéo users gạch chéo dev gạch chéo data gạch chéo report gạch dưới hai không hai sáu gạch nối không ba gạch nối một một chấm log."),
+    ("Username của tôi là user_2024_dev.", "username của tôi là user gạch dưới hai không hai bốn gạch dưới dev."),
+    ("File backup nằm ở /home/user/data_v3.2.tar.gz.", "file backup nằm ở gạch chéo home gạch chéo user gạch chéo data gạch dưới vê ba chấm hai chấm tar chấm gờ dét."),
+    ("Log lỗi ghi tại error_log_2024-10-21.txt.", "log lỗi ghi tại error gạch dưới log gạch dưới hai không hai bốn gạch nối một không gạch nối hai một chấm tê ích tê."),
+    # Path/URL trong câu tiếng Việt: separator đọc kiểu Việt (gạch chéo/gạch nối),
+    # từ có trong dict để trần cho G2P, từ không dấu ngoài dict tách âm tiết Việt,
+    # cụm toàn phụ âm đánh vần tên chữ Việt, đuôi file đánh vần ("phê y").
+    ("Ảnh chụp bảng tin lớp cô đăng ở \\\\truong-mn\\thongbao\\thuc_don_tuan_32.jpg, mẹ nào cần thì tải.", "ảnh chụp bảng tin lớp cô đăng ở gạch chéo gạch chéo truong gạch nối mờ nờ gạch chéo thong bao gạch chéo thuc gạch dưới don gạch dưới tuan gạch dưới ba hai chấm giây phê gờ, mẹ nào cần thì tải."),
+    ("Phòng vé lưu vé của đoàn vào \\\\phongve\\doan_cong_tac\\ve_may_bay_ha_noi.pdf nhé.", "phòng vé lưu vé của đoàn vào gạch chéo gạch chéo phong ve gạch chéo doan gạch dưới cong gạch dưới tac gạch chéo ve gạch dưới may gạch dưới bay gạch dưới ha gạch dưới noi chấm phê đê ép nhé."),
+    # Path chỉ 1 backslash đầu (hay gặp khi copy văn bản làm mất 1 dấu \).
+    ("Tài liệu lưu trong \\phongve\\tai_lieu\\huong_dan.pdf nhé.", "tài liệu lưu trong gạch chéo phong ve gạch chéo tai gạch dưới lieu gạch chéo huong gạch dưới dan chấm phê đê ép nhé."),
+    # Query string sau TLD (?key=value) phải nằm trong URL, không đứt rời.
+    ("Học viên tra cứu chứng chỉ tại tracuu.trungtamtinhoc.edu.vn?so=CC1204 nhé.", "học viên tra cứu chứng chỉ tại tra cuu chấm trung tam tin hoc chấm ê đu chấm vê nờ hỏi chấm so bằng xê xê một hai không bốn nhé."),
+    # TLD mới (.dev) + đuôi io/edu đọc kiểu Việt, vn đọc "vi en".
+    ("Anh tải bản desktop ở download.toolbox.dev/desktop/v1-8-3?os=windows giúp em.", "anh tải bản desktop ở download chấm toolbox chấm dev gạch chéo desktop gạch chéo vê một gạch nối tám gạch nối ba hỏi chấm os bằng windows giúp em."),
+    ("Truy cập dataset.nlplab.io để tải dữ liệu nhé.", "truy cập dataset chấm nlplab chấm i ô để tải dữ liệu nhé."),
+    # Tách hỗn hợp 3 hạng mảnh: âm tiết Việt / từ Anh top / cụm phụ âm đánh vần.
+    # Từ Anh trong dict giữ khối ("smarthome"); mảnh lạ có nguyên âm ngoài top
+    # wordlist không được cắt ("buildserver" nguyên khối, không "bui ldserver").
+    ("Hướng dẫn ở https://hotro.smarthome24.vn/huong-dan nhé anh.", "hướng dẫn ở hát tê tê phê ét hai chấm gạch chéo gạch chéo ho tro chấm smarthome hai bốn chấm vê nờ gạch chéo huong gạch nối dan nhé anh."),
+    ("Quy trình ở hr.tapdoanxyz.com nhé.", "quy trình ở hát rờ chấm tap doan ích y dét chấm com nhé."),
+    ("Dịch vụ ở blogcongnghe.io nhé.", "dịch vụ ở blog cong nghe chấm i ô nhé."),
+    ("Bản build ở buildserver.dev nhé.", "bản build ở buildserver chấm dev nhé."),
+    # Câu thuần Anh KHÔNG Việt hóa viết tắt (VN giữ nguyên acronym chữ Anh).
+    ("The VN team beat Thailand in the final match.", "the <en>v n</en> team beat thailand in the final match."),
+    ("Our new office is located in TP.HCM near the river.", "our new office is located in <en>t p</en> dot <en>h c m</en> near the river."),
+    ("Đội tuyển VN thắng trận chung kết.", "đội tuyển việt nam thắng trận chung kết."),
+    # Viết tắt hành chính/đời sống mở rộng.
+    ("Tra cứu điểm GPLX trên cổng dịch vụ công.", "tra cứu điểm giấy phép lái xe trên cổng dịch vụ công."),
+    ("Bộ TN-MT vừa ban hành thông tư mới.", "bộ tài nguyên môi trường vừa ban hành thông tư mới."),
+    ("Mang theo CMND hoặc CCCD.", "mang theo chứng minh nhân dân hoặc căn cước công dân."),
+    ("Đội PCCC và CSGT phối hợp.", "đội phòng cháy chữa cháy và cảnh sát giao thông phối hợp."),
+    ("BHYT chi trả 80%.", "bảo hiểm y tế chi trả tám mươi phần trăm."),
+    ("Bộ GD&ĐT khẳng định giữ nguyên cấu trúc đề thi.", "bộ giáo dục đào tạo khẳng định giữ nguyên cấu trúc đề thi."),
+    ("Cán bộ phòng LĐ-TB&XH xuống xã trao quà.", "cán bộ phòng lao động thương binh xã hội xuống xã trao quà."),
+    ("Đường sách nằm ngay Q.1, đi bộ năm phút.", "đường sách nằm ngay quận một, đi bộ năm phút."),
+    ("Trụ sở chuyển về P.Bến Nghé rồi.", "trụ sở chuyển về phường bến nghé rồi."),
+    ("Cty TNHH MTV của anh ấy có bốn nhân viên.", "công ty trách nhiệm hữu hạn một thành viên của anh ấy có bốn nhân viên."),
+    ("TGĐ mới đổi quy trình, bà PTGĐ xuống xưởng.", "tổng giám đốc mới đổi quy trình, bà phó tổng giám đốc xuống xưởng."),
+    ("Đọc BCTC trước kỳ ĐHĐCĐ nhé.", "đọc báo cáo tài chính trước kỳ đại hội đồng cổ đông nhé."),
+    ("Thi TOEIC và dự SEA Games, xem ASIAD.", "thi <en>toeic</en> và dự <en>sea games</en>, xem a si át."),
+    # Acronym quen đọc như TỪ (WORD_LIKE_ACRONYMS).
+    ("Trọng tài xem VAR trận EURO do UEFA tổ chức.", "trọng tài xem <en>var</en> trận <en>euro</en> do <en>uefa</en> tổ chức."),
+    ("FED tăng lãi suất khiến NASDAQ đỏ lửa.", "<en>fed</en> tăng lãi suất khiến <en>nasdaq</en> đỏ lửa."),
+    ("Gửi ảnh GIF qua WIFI nhé.", "gửi ảnh <en>gif</en> qua <en>wifi</en> nhé."),
+    ("Lắp thẻ SIM 1 vào khay, bật đèn LED lên.", "lắp thẻ <en>sim</en> một vào khay, bật đèn <en>led</en> lên."),
+    ("Phiên tòa lừa đảo XKLĐ hôm qua.", "phiên tòa lừa đảo xuất khẩu lao động hôm qua."),
+    ("Khoa CNTT và sàn TMĐT đang hot.", "khoa công nghệ thông tin và sàn thương mại điện tử đang hot."),
+    # T2..T7/CN là thứ CHỈ KHI có từ dẫn thời gian; "Model T2" giữ nguyên.
+    ("Hẹn gặp sáng T2 tuần sau nhé.", "hẹn gặp sáng thứ hai tuần sau nhé."),
+    ("Lịch học từ T2 đến T6, nghỉ T7 và CN.", "lịch học từ thứ hai đến thứ sáu, nghỉ thứ bảy và chủ nhật."),
+    ("Model T2 của hãng ra mắt.", "model tê hai của hãng ra mắt."),
+    # Exception camelCase mask sớm: "arXiv" không bị xé "ar Xiv" (xiv = số La Mã).
+    ("Bài báo mới đăng trên arXiv hôm qua.", "bài báo mới đăng trên <en>arxiv</en> hôm qua."),
+    # Từ ghép toàn tiếng Anh ("ielts"+"zone") giữ khối, G2P tự cắt ở tầng phoneme.
+    ("Trả kết quả qua ketqua.ieltszone.edu.vn?sbd=IZ0457 nhé.", "trả kết quả qua ket qua chấm ieltszone chấm ê đu chấm vê nờ hỏi chấm ét bê đê bằng i dét không bốn năm bảy nhé."),
+    ("Gửi tới pnnbao@gmail.com nhé.", "gửi tới phê nờ nờ bao a còng gmail chấm com nhé."),
+    # Vần "uu" ("lưu trữ" không dấu) và camelCase thắng entry rác trong dict.
+    ("Ảnh bìa lưu ở \\\\toasoan\\luutru\\bia_tap_chi.pdf nhé.", "ảnh bìa lưu ở gạch chéo gạch chéo toa soan gạch chéo luu tru gạch chéo bia gạch dưới tap gạch dưới chi chấm phê đê ép nhé."),
+    ("Bản khai thuế lưu ở C:\\Thue\\CaNhan\\to_khai_tncn.pdf nhé.", "bản khai thuế lưu ở xê hai chấm gạch chéo thue gạch chéo ca nhan gạch chéo to gạch dưới khai gạch dưới tê nờ xê nờ chấm phê đê ép nhé."),
+    ("Nhớ sao lưu sổ tay của mẹ trong C:\\CongThucNauAn\\so_tay_mon_bac.docx đấy con.", "nhớ sao lưu sổ tay của mẹ trong xê hai chấm gạch chéo cong thuc nau an gạch chéo so gạch dưới tay gạch dưới mon gạch dưới bac chấm docx đấy con."),
+    ("Kết xuất căn hộ mẫu nằm ở D:\\KienTruc\\CanHoMau\\phoi_canh_phong_khach.png nhé.", "kết xuất căn hộ mẫu nằm ở đê hai chấm gạch chéo kien truc gạch chéo can ho mau gạch chéo phoi gạch dưới canh gạch dưới phong gạch dưới khach chấm phê nờ gờ nhé."),
+    ("Cháu viết script đổi tên ảnh ở /home/scripts/doi_ten_anh.py, chạy một lệnh là xong.", "cháu viết script đổi tên ảnh ở gạch chéo home gạch chéo scripts gạch chéo doi gạch dưới ten gạch dưới anh chấm phê y, chạy một lệnh là xong."),
+    ("Bản demo giọng đọc xuất ra D:\\TTS\\Demo\\giong_nu_mien_bac_v2.wav rồi anh.", "bản demo giọng đọc xuất ra đê hai chấm gạch chéo tê tê ét gạch chéo demo gạch chéo giong gạch dưới nu gạch dưới mien gạch dưới bac gạch dưới vê hai chấm wav rồi anh."),
+    # Số 2/4 kẹp giữa chữ thường là viết tắt to/for tiếng Anh -> "two"/"four".
+    ("mô hình text2text đang hot", "mô hình text two text đang hot"),
+    ("kinh doanh b2b khó lắm", "kinh doanh <en>b</en> two <en>b</en> khó lắm"),
+    ("dịch vụ food2door giao tận nơi", "dịch vụ food two door giao tận nơi"),
+    # Câu thuần Anh (>=3 từ tiếng Anh, không từ Việt) -> số/ký hiệu đọc kiểu Anh.
+    ("I have 3 dogs and 2 cats.", "i have three dogs and two cats."),
+    ("The meeting starts at 10:30 tomorrow.", "the meeting starts at ten thirty tomorrow."),
+    ("We got a 50% discount on Windows 11.", "we got a fifty percent discount on windows eleven."),
+    ("The file is 2.5 MB.", "the file is two point five megabytes."),
+    ("Download it from github.com/user/project now.", "download it from <en>github</en> dot <en>com</en> slash <en>user</en> slash <en>project</en> now."),
+    # Mẩu trơ không đủ từ tiếng Anh -> vẫn đọc kiểu Việt.
+    ("Arsenal 3-0 Chelsea", "arsenal ba không chelsea"),
+    ("3.46 USD/gallon", "ba chấm bốn sáu <en>u s d</en> trên <en>gallon</en>"),
     ("Chuỗi có placeholder ___PROTECTED_EN_TAG_0___ để kiểm tra xung đột.", "chuỗi có placeholder protected en tag không để kiểm tra xung đột."),
     ("Câu lệnh SQL: SELECT * FROM users WHERE id=1;", "câu lệnh <en>s q l</en>, <en>select</en> sao <en>from</en> users <en>where</en> id bằng một"),
     ("Cú pháp: [x**2 for x in range(10) if x%2 == 0] trong Python.", "cú pháp, ích sao sao hai for ích in range mười, if ích phần trăm hai bằng bằng không trong python."),
@@ -539,6 +765,14 @@ TEST_CASES = [
     ("Đây là phút 1'", "đây là phút một phẩy"),
     ("I don't know why", "i don't know why"),
     ("It's a beautiful day", "it's a beautiful day"),
+    # Contraction chữ cái đơn (I'm, I'll...) phải giữ nguyên vẹn, không tách "i 'm".
+    ("I'm đi chợ", "i'm đi chợ"),
+    # Nháy cong U+2019 (bàn phím/Word) quy về nháy thẳng để contraction khớp dict.
+    ("I’m đi chợ", "i'm đi chợ"),
+    ("she’s xinh thật", "she's xinh thật"),
+    ("don’t lo lắng", "don't lo lắng"),
+    ("I'll gọi lại cho bạn sau", "i'll gọi lại cho bạn sau"),
+    ("we're going to school and tôi không biết liệu she's beautiful", "we're going to school and tôi không biết liệu she's beautiful"),
     ("Giá SP500 hôm nay là 4.200,5 điểm", "giá ét pê năm trăm hôm nay là bốn nghìn hai trăm phẩy năm điểm"),
     ("chỉ số là 7,05 - đường huyết là 1.8", "chỉ số là bảy phẩy không năm, đường huyết là một chấm tám"),
     ("ta có !hôm nay thật kì lạ; ta sẽ đi,chơi", "ta có! hôm nay thật kì lạ, ta sẽ đi, chơi"),
@@ -592,7 +826,7 @@ TEST_CASES = [
     ("Ông Lưu Trung Thái, Chủ tịch HĐQT MB cho biết, vốn hóa của ngân hàng đã tăng gần 10 lần kể từ năm 2017, đạt khoảng 8,5 tỷ USD, tạo nền tảng cho mục tiêu 10 tỷ USD vào năm 2027.",
      "ông lưu trung thái, chủ tịch hội đồng quản trị <en>m b</en> cho biết, vốn hóa của ngân hàng đã tăng gần mười lần kể từ năm hai nghìn không trăm mười bảy, đạt khoảng tám phẩy năm tỷ <en>u s d</en>, tạo nền tảng cho mục tiêu mười tỷ <en>u s d</en> vào năm hai nghìn không trăm hai mươi bảy."),
     ("Nếu đã từng đọc cuốn sách trên của Simon, hoặc đã xem anh thuyết trình về khái niệm tại sao trên diễn đàn TED.com, thì có lẽ bạn không còn xa lạ với vòng tròn vàng.",
-     "nếu đã từng đọc cuốn sách trên của simon, hoặc đã xem anh thuyết trình về khái niệm tại sao trên diễn đàn <en>t e d</en> chấm com, thì có lẽ bạn không còn xa lạ với vòng tròn vàng."),
+     "nếu đã từng đọc cuốn sách trên của simon, hoặc đã xem anh thuyết trình về khái niệm tại sao trên diễn đàn tê e đê chấm com, thì có lẽ bạn không còn xa lạ với vòng tròn vàng."),
     ("Dân số thế giới khoảng 7,888,000,000 người (~7.9B).",
      "dân số thế giới khoảng bảy tỷ tám trăm tám mươi tám triệu người, khoảng bảy chấm chín tỷ."),
     ("Latency trung bình chỉ ~42ms / request qua REST API.",

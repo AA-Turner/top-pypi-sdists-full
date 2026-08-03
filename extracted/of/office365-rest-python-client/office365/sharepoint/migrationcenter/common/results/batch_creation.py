@@ -1,29 +1,21 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 from office365.runtime.client_value import ClientValue
 from office365.runtime.types.collections import StringCollection
 
 
+@dataclass
 class BatchCreationResult(ClientValue):
-    """"""
-
-    def __init__(
-        self,
-        created_count=None,
-        created_task_id_list=None,
-        error_code=None,
-        error_message=None,
-        field_error=None,
-        processing_milliseconds=None,
-        total_count=None,
-    ):
-        self.CreatedCount = created_count
-        self.CreatedTaskIdList = StringCollection(created_task_id_list)
-        self.ErrorCode = error_code
-        self.ErrorMessage = error_message
-        self.FieldError = field_error
-        self.ProcessingMilliseconds = processing_milliseconds
-        self.TotalCount = total_count
+    CreatedTaskIdList: StringCollection | None = None
+    CreatedCount: int | None = None
+    ErrorCode: str | None = None
+    ErrorMessage: str | None = None
+    FieldError: str | None = None
+    ProcessingMilliseconds: int | None = None
+    TotalCount: int | None = None
 
     @property
-    def entity_type_name(self):
-        # type: () -> str
+    def entity_type_name(self) -> str:
         return "Microsoft.Online.SharePoint.MigrationCenter.Common.BatchCreationResult"

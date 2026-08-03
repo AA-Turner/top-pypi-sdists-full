@@ -1,6 +1,6 @@
 [package]
 name = "json-tools-rs"
-version = "0.9.22"
+version = "0.9.24"
 edition = "2021"
 rust-version = "1.85"
 description = "A high-performance Rust library for advanced JSON manipulation with SIMD-accelerated parsing, Rayon parallelism, and Python bindings with DataFrame/Series support"
@@ -67,6 +67,24 @@ arrow-array = { version = "59", optional = true }
 # kept in lockstep with arrow-array/pyo3-arrow's own requirement (59.x), same
 # reasoning as the arrow-array pin above.
 arrow-schema = { version = "59", optional = true }
+# arrow-select: needed directly for `concat` -- the flat-DataFrame fast path
+# (plain `execute(df)`, not `normalise=True`) reuses a polars/pyarrow column's
+# existing Arrow array unchanged when no per-cell transform is needed (see
+# `dataframe_fastpath` module doc comment), but a `RecordBatch` requires one
+# contiguous array per column while a source `ChunkedArray` may have several
+# chunks (common after `pa.concat_tables`/certain polars operations) --
+# `concat` merges them into one. Already resolved transitively at this exact
+# version via arrow-array/pyo3-arrow's own dependency graph, so this adds no
+# new crate/version to the tree, only a direct `use` path to what's already
+# there. Version kept in lockstep, same reasoning as arrow-array/arrow-schema.
+arrow-select = { version = "59", optional = true }
+# arrow-buffer: needed directly for `OffsetBuffer`, used by the same
+# flat-DataFrame fast path above to build the offsets for wrapping a
+# column's existing array as a 1-element-per-row `ListArray` (the
+# `always_array_keys` case). Already resolved transitively at this exact
+# version via arrow-array's own dependency graph -- same "no new
+# crate/version" reasoning as arrow-select above.
+arrow-buffer = { version = "59", optional = true }
 # Phantom pin (not used directly by any code here): pyo3-arrow's own
 # arrow-cast dependency unconditionally requests the "prettyprint" feature,
 # which pulls in comfy-table transitively regardless of anything in this
@@ -134,7 +152,7 @@ default = []  # Python bindings are opt-in via --features python
 # hand-tuned C `json` module benchmarked faster than a generic serde-based
 # PyObject<->Value traversal for the nested/batch data this library's own
 # flatten/unflatten operations are meant for.
-python = ["pyo3", "pyo3-arrow", "arrow-array", "arrow-schema", "comfy-table"]
+python = ["pyo3", "pyo3-arrow", "arrow-array", "arrow-schema", "arrow-select", "arrow-buffer", "comfy-table"]
 mimalloc = ["dep:mimalloc"]  # High-performance allocator (~14-28% measured, see src/lib.rs)
 
 test-assets-performance = []

@@ -130,12 +130,19 @@ class Builder(AbstractBuilder):
         # wheel does.
         wheel_tag = []
 
-        if project.all_modules_use_limited_abi:
+        all_use_limited_api, all_have_gil_disabled = project.all_modules_summary
+
+        if all_use_limited_api:
             # When the ABI tag is 'abi3' the interpreter tag is interpreted as
             # a minimum Python version.  This doesn't seem to be defined in a
             # PEP but is implemented in current pips.
-            wheel_tag.append('cp3' + str(OLDEST_SUPPORTED_MINOR))
-            wheel_tag.append('abi3')
+            major, minor, _ = project.limited_abi_version
+            wheel_tag.append(f'cp{major}{minor}')
+
+            if all_have_gil_disabled:
+                wheel_tag.append('abi3.abi3t')
+            else:
+                wheel_tag.append('abi3')
         else:
             major_minor = '{}{}'.format((sys.hexversion >> 24) & 0xff,
                     (sys.hexversion >> 16) & 0xff)
@@ -243,6 +250,7 @@ class Builder(AbstractBuilder):
 
         # Generate the code for each set of bindings.
         api_files = []
+        sip_module_configuration = None
 
         for bindings in project.bindings.values():
             project.progress(
@@ -254,6 +262,9 @@ class Builder(AbstractBuilder):
             bindings._sip_include_dirs = sip_include_dirs
             buildable = bindings.generate()
             del bindings._sip_include_dirs
+
+            # The sip module configuration will be the same for all bindings.
+            sip_module_configuration = buildable.sip_module_configuration
 
             if not bindings.internal:
                 api_files.append(
@@ -270,7 +281,8 @@ class Builder(AbstractBuilder):
             # Generate the sip.h file for the shared sip module now that we
             # know the target ABI.
             copy_sip_h(project.build_abi, project.sip_module,
-                    project.build_dir, version_info=project.version_info)
+                    sip_module_configuration, project.build_dir,
+                    version_info=project.version_info)
 
         # Create __init__.py if required.
         if project.dunder_init:

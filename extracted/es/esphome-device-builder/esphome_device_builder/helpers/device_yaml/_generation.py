@@ -162,16 +162,18 @@ def generate_adoption_yaml(
     psk: str = "",
     wifi_secrets_available: bool = True,
     api_encryption: bool = True,
+    api_encryption_key: str | None = None,
 ) -> str:
     """
     Generate the adoption-shape YAML referencing a remote package.
 
     One shape for both consumers — ``devices/import`` (adopt) and a
     ``package_import_url`` board create: ``substitutions`` + ``packages:``
-    + ``esphome:`` overrides + a fresh API key, with a ``wifi:`` block
-    only when the package doesn't provide the network. The name rides
-    through ``substitutions`` because vendor packages may reference
-    ``${name}`` internally.
+    + ``esphome:`` overrides + an API key (*api_encryption_key*, else
+    freshly generated), with a ``wifi:`` block only when the package
+    doesn't provide the network. The name rides through
+    ``substitutions`` because vendor packages may reference ``${name}``
+    internally.
     """
     lines: list[str] = ["substitutions:"]
     lines.append(f"  name: {name}")
@@ -187,10 +189,10 @@ def generate_adoption_yaml(
     if friendly_name:
         lines.append("  friendly_name: ${friendly_name}")
     lines.append("")
-    if api_encryption:
+    if api_encryption or api_encryption_key:
         lines.append("api:")
         lines.append("  encryption:")
-        lines.append(f'    key: "{generate_api_encryption_key()}"')
+        lines.append(f'    key: "{api_encryption_key or generate_api_encryption_key()}"')
         lines.append("")
     if not network_provided and (bool(ssid) or wifi_secrets_available):
         lines.append("wifi:")

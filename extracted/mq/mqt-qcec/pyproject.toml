@@ -9,9 +9,9 @@
 [build-system]
 requires = [
   "nanobind~=2.13.0",
-  "scikit-build-core~=0.12",
+  "scikit-build-core~=1.0.3",
   "setuptools-scm>=9.2.2",
-  "mqt.core~=3.7.0",
+  "mqt.core~=3.8.0",
 ]
 build-backend = "scikit_build_core.build"
 
@@ -48,7 +48,7 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "mqt.core~=3.7.0",
+    "mqt.core~=3.8.0",
     "typing_extensions>=4.2; python_version < '3.11'", # used for typing.Unpack
     "numpy>=1.22",
     "numpy>=1.24; python_version >= '3.11'",
@@ -163,6 +163,8 @@ filterwarnings = [
 
 [tool.coverage]
 run.source = ["mqt.qcec"]
+run.core = "sysmon"
+run.parallel = true
 run.omit = ["python/mqt/qcec/_compat/typing.py"]
 report.exclude_also = [
   '\.\.\.',
@@ -300,7 +302,7 @@ PC170 = "We do not use rST files anymore"
 
 [tool.cibuildwheel]
 build = "cp3*"
-skip = ["*-musllinux_*", "cp313t-*"]
+skip = ["*-musllinux_*"]
 archs = "auto64"
 test-groups = ["test"]
 test-command = "pytest {project}/test/python"
@@ -318,12 +320,12 @@ test-skip = [
 environment = { DEPLOY="ON" }
 # The SOVERSION needs to be updated when the shared libraries are updated.
 repair-wheel-command = """auditwheel repair -w {dest_dir} {wheel} \
---exclude libmqt-core-ir.so.3.7 \
---exclude libmqt-core-qasm.so.3.7 \
---exclude libmqt-core-circuit-optimizer.so.3.7 \
---exclude libmqt-core-algorithms.so.3.7 \
---exclude libmqt-core-dd.so.3.7 \
---exclude libmqt-core-zx.so.3.7"""
+--exclude libmqt-core-ir.so.3.8 \
+--exclude libmqt-core-qasm.so.3.8 \
+--exclude libmqt-core-circuit-optimizer.so.3.8 \
+--exclude libmqt-core-algorithms.so.3.8 \
+--exclude libmqt-core-dd.so.3.8 \
+--exclude libmqt-core-zx.so.3.8"""
 
 [tool.cibuildwheel.macos]
 environment = { MACOSX_DEPLOYMENT_TARGET = "11.0" }
@@ -337,13 +339,6 @@ repair-wheel-command = """delvewheel repair -w {dest_dir} {wheel} --namespace-pk
 --exclude mqt-core-algorithms.dll \
 --exclude mqt-core-dd.dll \
 --exclude mqt-core-zx.dll"""
-environment = { CMAKE_ARGS = "-T ClangCL" }
-
-[[tool.cibuildwheel.overrides]]
-select = "cp312-*"
-inherit.repair-wheel-command = "append"
-repair-wheel-command = "uvx abi3audit --strict --report {wheel}"
-
 
 [tool.uv]
 required-version = ">=0.5.20"
@@ -360,9 +355,9 @@ mqt-qcec = { workspace = true }
 [dependency-groups]
 build = [
   "nanobind~=2.13.0",
-  "scikit-build-core~=0.12",
+  "scikit-build-core~=1.0.3",
   "setuptools-scm>=9.2.2",
-  "mqt.core~=3.7.0",
+  "mqt.core~=3.8.0",
 ]
 docs = [
   "furo>=2025.09.25",
@@ -373,6 +368,7 @@ docs = [
   "sphinx-autoapi>=3.6.1",
   "sphinx-copybutton>=0.5.2",
   "sphinx-design>=0.6.1",
+  "sphinx-llm",
   "sphinxcontrib-bibtex>=2.6.5",
   "sphinxcontrib-svg2pdfconverter>=1.3.0",
   "sphinxext-opengraph>=0.13.0",

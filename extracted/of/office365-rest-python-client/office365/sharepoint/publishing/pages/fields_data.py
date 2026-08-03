@@ -1,34 +1,58 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime
+
 from office365.runtime.client_value import ClientValue
+from office365.runtime.client_value_collection import ClientValueCollection
+from office365.runtime.types.collections import StringCollection
+from office365.sharepoint.publishing.pages.boostproperties import SitePageBoostProperties
+from office365.sharepoint.publishing.pages.coauth_state import SitePageCoAuthState
+from office365.sharepoint.publishing.pages.collaborator import SitePageCollaborator
+from office365.sharepoint.publishing.sitepageauthoringmetadata import SitePageAuthoringMetadata
 
 
+@dataclass
 class SitePageFieldsData(ClientValue):
-    def __init__(
-        self,
-        title=None,
-        banner_image_url=None,
-        canvas_content=None,
-        topic_header=None,
-        publish_start_date=None,
-    ):
-        """
-        Represents Site Page metadata for use in page authoring operations.
+    """Represents Site Page metadata for use in page authoring operations.
 
-        :param str title: the Page title
-        :param str banner_image_url: the preview image Url for the current Site Page.
-        :param str canvas_content: CanvasContent1 for the current Site Page.
-        :param str topic_header: TopicHeader of the current Site Page
-        :param datetime.datetime publish_start_date:
-        """
-        super(SitePageFieldsData, self).__init__()
-        self.BannerImageUrl = banner_image_url
-        self.CanvasContent1 = canvas_content
-        self.CanvasJson1 = None
-        self.Title = title
-        self.TopicHeader = topic_header
-        self.PublishStartDate = None
-        if publish_start_date is not None:
-            self.PublishStartDate = publish_start_date.isoformat()
+    Args:
+        title (str): the Page title
+        banner_image_url (str): the preview image Url for the current Site Page.
+        canvas_content1 (str): CanvasContent1 for the current Site Page.
+        topic_header (str): TopicHeader of the current Site Page
+        publish_start_date (datetime.datetime):
+    """
+
+    Title: str | None = None
+    BannerImageUrl: str | None = None
+    TopicHeader: str | None = None
+    PublishStartDate: str | None = None
+    AuthorByline: StringCollection = field(default_factory=StringCollection)
+    AuthoringMetadata: SitePageAuthoringMetadata = field(default_factory=SitePageAuthoringMetadata)
+    BoostProperties: SitePageBoostProperties = field(default_factory=SitePageBoostProperties)
+    CallToAction: str | None = None
+    CanvasContent1: str | None = None
+    CanvasJson1: str | None = None
+    Categories: str | None = None
+    CoAuthState: SitePageCoAuthState = field(default_factory=SitePageCoAuthState)
+    Collaborators: ClientValueCollection[SitePageCollaborator] = field(
+        default_factory=lambda: ClientValueCollection(SitePageCollaborator)
+    )
+    Description: str | None = None
+    EmailTranspileContent: str | None = None
+    HiddenHighlightsMetadata: str | None = None
+    HideListEditorMetadata: str | None = None
+    LayoutWebpartsContent: str | None = None
+    Modified: datetime | None = None
+    TeamsTranspileContent: str | None = None
+    WebTranspileContent: str | None = None
+    PublicationMetadata: str | None = None
+
+    def __post_init__(self):
+        if isinstance(self.PublishStartDate, datetime):
+            self.PublishStartDate = self.PublishStartDate.isoformat()
 
     @property
-    def entity_type_name(self):
+    def entity_type_name(self) -> str:
         return "SP.Publishing.SitePageFieldsData"

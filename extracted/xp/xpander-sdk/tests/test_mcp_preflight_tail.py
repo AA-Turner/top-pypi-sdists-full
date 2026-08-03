@@ -75,7 +75,7 @@ def test_negative_cache_skips_reprobe(monkeypatch):
         )
     )
 
-    assert r1 is False and r2 is False
+    assert r1 == (False, None) and r2 == (False, None)
     assert len(probes) == 1  # second call short-circuits on the negative cache
     assert probe_recently_failed("a1", mcp.url, mcp.headers)
 

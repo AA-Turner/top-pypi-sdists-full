@@ -1,19 +1,22 @@
+from __future__ import annotations
+
 import uuid
+from dataclasses import dataclass
 
 from office365.runtime.client_value_collection import ClientValueCollection
 
 
+@dataclass
 class StringCollection(ClientValueCollection[str]):
-    def __init__(self, initial_values=None):
-        """
-        :type initial_values: list[str] or None
-        """
-        super(StringCollection, self).__init__(str, initial_values)
+    """A type-safe collection of string values with OData serialization support."""
+
+    def __init__(self, initial: list[str] | None = None) -> None:
+        super().__init__(item_type=str, _data=initial)
 
 
+@dataclass
 class GuidCollection(ClientValueCollection):
-    def __init__(self, initial_values=None):
-        """
-        :type initial_values list[uuid] or None
-        """
-        super(GuidCollection, self).__init__(uuid.UUID, initial_values)
+    """A collection of UUID values with proper OData serialization."""
+
+    def __init__(self, initial: list | None = None) -> None:
+        super().__init__(item_type=uuid.UUID, _data=initial)

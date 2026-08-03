@@ -1,7 +1,14 @@
 """
-nx_channels.py — NX "Channels": OAuth connectors for the platforms operators
+nx_channels.py — NX "Publish": OAuth connectors for the platforms operators
 actually publish to (Meta/FB/IG first). This is the execution half of an
 operations AI — NX plans the campaign AND can push it to the channel.
+
+The surface is `/publish`. It was called `/channels` until the web and the CLI
+were reconciled: the web has always used Channels for the OPPOSITE direction —
+the ways to reach Nexplora — so the one word meant reach-me on one surface and
+publish-out on the other. The MODULE keeps its name (renaming it would touch ~14
+importers and risk the py_modules wheel list for no operator-visible gain); only
+the command moved.
 
 SECURITY CONTRACT (non-negotiable):
   - App credentials (App ID / App Secret) and user OAuth tokens live ONLY in the
@@ -350,7 +357,7 @@ class _BosBridgedChannel:
     def preflight(self, action: str = "use") -> dict:
         if not self.is_connected():
             return {"ok": False, "detail": "not_connected",
-                    "hint": f"/channels connect {self.name}"}
+                    "hint": f"/publish connect {self.name}"}
         if action in ("publish", "list"):
             return {"ok": False, "detail": "publish_not_wired_yet",
                     "hint": "Connected — publishing through NX is coming next."}
@@ -506,13 +513,13 @@ class _NexploraOAuthBridgedChannel:
         connection = _oauth_vault_connection(self.vault_provider)
         if not connection:
             return {"ok": False, "detail": "not_connected",
-                    "hint": f"/channels connect {self.name}"}
+                    "hint": f"/publish connect {self.name}"}
         if connection.get("status") == "needs_reauth":
             return {"ok": False, "detail": "needs_reauth",
-                    "hint": f"/channels connect {self.name}"}
+                    "hint": f"/publish connect {self.name}"}
         if connection.get("status") != "connected":
             return {"ok": False, "detail": "connection_unavailable",
-                    "hint": f"/channels connect {self.name}"}
+                    "hint": f"/publish connect {self.name}"}
         if action in ("publish", "list") and not self.server_execution_available:
             return {
                 "ok": False,
@@ -669,7 +676,7 @@ class _GoogleWorkspaceBridgedChannel:
     def preflight(self, action: str = "use") -> dict:
         if not self.is_connected():
             return {"ok": False, "detail": "not_connected",
-                    "hint": f"/channels connect {self.name}"}
+                    "hint": f"/publish connect {self.name}"}
         if action not in ("profile",):
             return {"ok": False, "detail": f"{action}_not_wired_yet",
                     "hint": "Connected — gmail profile read is live; send is next."}
@@ -795,7 +802,7 @@ class _GoogleAdsYouTubeBridgedChannel:
     def preflight(self, action: str = "use") -> dict:
         if not self.is_connected():
             return {"ok": False, "detail": "not_connected",
-                    "hint": f"/channels connect {self.name}"}
+                    "hint": f"/publish connect {self.name}"}
         return {"ok": True}
 
 
@@ -905,7 +912,7 @@ class ChannelConnector:
         return True if not exp else (float(exp) > time.time())
 
     def status(self) -> dict:
-        """Honest, inspectable state — what the /channels view renders."""
+        """Honest, inspectable state — what the /publish view renders."""
         t = self._load_token() or {}
         return {
             "name": self.name,
@@ -935,10 +942,10 @@ class ChannelConnector:
         if not self.is_configured():
             return {"ok": False, "detail": "not_configured",
                     "hint": f"Register a {self.display_name} app, then: "
-                            f"/channels setup {self.name}"}
+                            f"/publish setup {self.name}"}
         if not self.is_connected():
             return {"ok": False, "detail": "not_connected",
-                    "hint": f"/channels connect {self.name}"}
+                    "hint": f"/publish connect {self.name}"}
         return {"ok": True}
 
 
@@ -997,7 +1004,7 @@ class GoogleWorkspaceChannel(_GoogleWorkspaceBridgedChannel, ChannelConnector):
     silently reroute ALL of those unrelated listings onto this narrow,
     read-only-scopes connector — a real product decision that needs its own
     deliberate review, not a side effect of a name choice. Reachable only via
-    the exact slug: `/channels connect google_workspace`.
+    the exact slug: `/publish connect google_workspace`.
 
     Also deliberately avoids the letter "x" — `key in display_name.lower()`
     means even a single-character query like "x" (XChannel's slug) matches
@@ -1499,7 +1506,7 @@ def connect_service(name, auth=None, open_browser=True, prompt_secret=None):
 # ── host-execute seam — the ONE entry point the Telegram/host-approval loop uses ─────────────────────────
 # NX is one brain; CLI/web/Telegram are transports. When an operator approves an
 # action from Telegram, it must run through the SAME proven local connector that
-# `/channels` uses — never a parallel cloud re-implementation (that path 402'd and
+# `/publish` uses — never a parallel cloud re-implementation (that path 402'd and
 # faked success). execute_channel_action() is that seam: (slug, method, args) →
 # the operator's local connector → its honest result dict. It plugs straight into
 # run_with_host_approval()'s execute_fn(server, tool, args) in nx_message.py.
@@ -1568,7 +1575,7 @@ def _first_assigned_agent(slug):
 def _log_channel_activity(slug, method, args, result, agent=None):
     """Append a REAL per-channel activity entry (channel · agent · action · time · result) to
     ~/.nx/channel-activity.jsonl. Attributes to `agent` if given, else the channel's ASSIGNED
-    agent (/assign), else 'you'. This is what feeds the /channels → channel → /day·/week view."""
+    agent (/assign), else 'you'. This is what feeds the /publish → channel → /day·/week view."""
     try:
         import time as _t
         res = result if isinstance(result, dict) else {}
@@ -1695,7 +1702,7 @@ def setup_service(name, auth=None, prompt_secret=None, prompt_value=None):
             "mode": "shared_oauth",
             "provider": ch.vault_provider,
             "detail": "server_managed",
-            "hint": f"/channels connect {ch.name}",
+            "hint": f"/publish connect {ch.name}",
         }
     if prompt_secret is None:
         return {"ok": False, "detail": "need_interactive"}
@@ -1749,7 +1756,7 @@ def connect_channel(channel: "ChannelConnector", open_browser: bool = True,
         return _connect_google_ads_youtube(open_browser=open_browser, timeout=timeout)
     if not channel.is_configured():
         return {"ok": False, "detail": "not_configured",
-                "hint": f"/channels setup {channel.name}"}
+                "hint": f"/publish setup {channel.name}"}
     import secrets as _secrets
     import threading
     import urllib.parse
@@ -1827,17 +1834,17 @@ _R = "\033[0m"
 
 
 def render_status() -> str:
-    """A clean, honest Channels panel — connected / configured / not set up,
+    """A clean, honest Publish panel — connected / configured / not set up,
     with the exact next action for each. No fake states."""
-    out = [f"\n  {_G}✦  Channels{_R}   {_DR}publish where your operators live{_R}\n"]
+    out = [f"\n  {_G}✦  Publish{_R}   {_DR}publish where your operators live{_R}\n"]
     for ch in all_channels():
         s = ch.status()
         if s["connected"]:
             dot, label = f"{_GN}●{_R}", f"{_W}connected{_R}"
         elif s["configured"]:
-            dot, label = f"{_GD}◐{_R}", f"{_GD}configured{_R} {_DR}— /channels connect {ch.name}{_R}"
+            dot, label = f"{_GD}◐{_R}", f"{_GD}configured{_R} {_DR}— /publish connect {ch.name}{_R}"
         else:
-            dot, label = f"{_DR}○{_R}", f"{_DR}not set up — /channels setup {ch.name}{_R}"
+            dot, label = f"{_DR}○{_R}", f"{_DR}not set up — /publish setup {ch.name}{_R}"
         out.append(f"  {dot}  {_G}{ch.display_name}{_R}")
         out.append(f"       {label}")
         if s["connected"] and s.get("expires_at"):
@@ -1852,7 +1859,7 @@ def render_status() -> str:
 
 
 def handle_command(argv, prompt_secret=None) -> str:
-    """Dispatch `/channels [status|setup|connect|disconnect] [platform]`.
+    """Dispatch `/publish [status|setup|connect|disconnect] [platform]`.
     `prompt_secret(label)` collects App ID / Secret WITHOUT echoing (getpass);
     injected so it's testable and so secrets never transit argv or the screen."""
     argv = list(argv or [])
@@ -1870,16 +1877,16 @@ def handle_command(argv, prompt_secret=None) -> str:
     if sub == "setup":
         if isinstance(ch, (_NexploraOAuthBridgedChannel, _BosBridgedChannel, _GoogleWorkspaceBridgedChannel)):
             return (f"\n  {_GD}{ch.display_name} uses Nexplora's own app — nothing to "
-                    f"register. Run /channels connect {ch.name}.{_R}\n")
+                    f"register. Run /publish connect {ch.name}.{_R}\n")
         if prompt_secret is None:
             return (f"\n  {_GD}Register a {ch.display_name} app at the platform's "
-                    f"developer console, then run /channels setup {ch.name} "
+                    f"developer console, then run /publish setup {ch.name} "
                     f"interactively to store the App ID + Secret in your Keychain.{_R}\n")
         app_id = prompt_secret(f"{ch.display_name} App ID")
         app_secret = prompt_secret(f"{ch.display_name} App Secret")
         if ch.setup(app_id, app_secret):
             return (f"\n  {_GN}✦ {ch.display_name} credentials saved to Keychain.{_R}  "
-                    f"{_DR}Next: /channels connect {ch.name}{_R}\n")
+                    f"{_DR}Next: /publish connect {ch.name}{_R}\n")
         return f"\n  {_GD}Could not save credentials. Both App ID and Secret are required.{_R}\n"
 
     if sub == "connect":
@@ -1887,9 +1894,9 @@ def handle_command(argv, prompt_secret=None) -> str:
         if res.get("ok"):
             return f"\n  {_GN}✦ {ch.display_name} connected.{_R}\n"
         if res.get("detail") == "not_configured":
-            return f"\n  {_GD}{ch.display_name} isn't set up yet — /channels setup {ch.name}{_R}\n"
+            return f"\n  {_GD}{ch.display_name} isn't set up yet — /publish setup {ch.name}{_R}\n"
         if res.get("detail") == "not_signed_in":
-            return f"\n  {_GD}Run /login first, then /channels connect {ch.name}.{_R}\n"
+            return f"\n  {_GD}Run /login first, then /publish connect {ch.name}.{_R}\n"
         if res.get("detail") == "no_workspace":
             return f"\n  {_GD}{res.get('hint', 'Open the Nexplora dashboard once to finish account setup, then retry.')}{_R}\n"
         hint = f"  {_DR}{res.get('url','')}{_R}" if res.get("url") else ""
@@ -1920,4 +1927,4 @@ def handle_command(argv, prompt_secret=None) -> str:
         email = result.get("emailAddress") or result.get("email") or "(unknown)"
         return f"\n  {_GN}✦ Gmail connected as {email}{_R}\n"
 
-    return f"\n  {_GD}Usage: /channels [status|setup|connect|disconnect|profile] [{name or 'platform'}]{_R}\n"
+    return f"\n  {_GD}Usage: /publish [status|setup|connect|disconnect|profile] [{name or 'platform'}]{_R}\n"

@@ -126,6 +126,14 @@ def build_requirement_distillation(state: InterviewState) -> RequirementDistilla
         answer = (round_data.user_response or "").strip()
         if not answer or round_data.question == INITIAL_CONTEXT_SUMMARY_QUESTION:
             continue
+        if round_data.provenance == "observation":
+            # An adopted fact, not a decision. This path promotes answers to
+            # RequirementCandidates and build_promoted_reference_seed emits a
+            # Seed from them with no LLM in between, so withholding at prompt
+            # assembly would never reach it — the rule has to sit on this walk
+            # too (#1755). Note the evidence kind below is USER_STATEMENT: an
+            # observation entering here would be labelled a user statement.
+            continue
         reference_cue = reference_by_question.get(round_data.question)
         if reference_cue is not None:
             if reference_cue.reference_id in resolved_reference_ids:
@@ -272,11 +280,18 @@ def apply_requirement_distillation(
         "ontology_description": "Only user-authorized interview requirements.",
         "ontology_fields": "",
         "evaluation_principles": (
-            "confirmed_requirements:Evaluate only promoted user-authorized requirements:1.0"
+            EvaluationPrinciple(
+                name="confirmed_requirements",
+                description="Evaluate only promoted user-authorized requirements",
+                weight=1.0,
+            ),
         ),
         "exit_conditions": (
-            "confirmed_requirements_met:All promoted requirements are satisfied:"
-            "Every promoted acceptance criterion passes"
+            ExitCondition(
+                name="confirmed_requirements_met",
+                description="All promoted requirements are satisfied",
+                evaluation_criteria="Every promoted acceptance criterion passes",
+            ),
         ),
         "project_type": "greenfield",
     }

@@ -1,9 +1,8 @@
-from office365.directory.identitygovernance.accessreview.history.definition import (
-    AccessReviewHistoryDefinition,
-)
+from office365.directory.identitygovernance.accessreview.history.definition import AccessReviewHistoryDefinition
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
 from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.types.odata_property import odata
 
 
 class AccessReviewSet(Entity):
@@ -12,6 +11,7 @@ class AccessReviewSet(Entity):
     accessReviewScheduleDefinition relationship.
     """
 
+    @odata(name="historyDefinitions")
     @property
     def history_definitions(self):
         """
@@ -20,14 +20,10 @@ class AccessReviewSet(Entity):
         return self.properties.get(
             "historyDefinitions",
             EntityCollection(
-                self.context,
-                AccessReviewHistoryDefinition,
-                ResourcePath("historyDefinitions", self.resource_path),
+                self.context, AccessReviewHistoryDefinition, ResourcePath("historyDefinitions", self.resource_path)
             ),
         )
 
-    def get_property(self, name, default_value=None):
-        if default_value is None:
-            property_mapping = {"historyDefinitions": self.history_definitions}
-            default_value = property_mapping.get(name, None)
-        return super(AccessReviewSet, self).get_property(name, default_value)
+    @property
+    def entity_type_name(self) -> str:
+        return "microsoft.graph.AccessReviewSet"

@@ -4,6 +4,7 @@ from office365.directory.identities.userflows.language_page import UserFlowLangu
 from office365.entity import Entity
 from office365.entity_collection import EntityCollection
 from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.types.odata_property import odata
 
 
 class UserFlowLanguageConfiguration(Entity):
@@ -17,14 +18,13 @@ class UserFlowLanguageConfiguration(Entity):
         return self.display_name or self.entity_type_name
 
     @property
-    def display_name(self):
-        # type: () -> Optional[str]
+    def display_name(self) -> Optional[str]:
         """The language name to display."""
         return self.properties.get("displayName", None)
 
+    @odata(name="defaultPages")
     @property
-    def default_pages(self):
-        # type: () -> EntityCollection[UserFlowLanguagePage]
+    def default_pages(self) -> EntityCollection[UserFlowLanguagePage]:
         """Collection of pages with the default content to display in a user flow for a specified language."""
         return self.properties.get(
             "defaultPages",
@@ -35,9 +35,9 @@ class UserFlowLanguageConfiguration(Entity):
             ),
         )
 
+    @odata(name="overridesPages")
     @property
-    def overrides_pages(self):
-        # type: () -> EntityCollection[UserFlowLanguagePage]
+    def overrides_pages(self) -> EntityCollection[UserFlowLanguagePage]:
         """Collection of pages with the default content to display in a user flow for a specified language."""
         return self.properties.get(
             "overridesPages",
@@ -46,15 +46,4 @@ class UserFlowLanguageConfiguration(Entity):
                 UserFlowLanguagePage,
                 ResourcePath("overridesPages", self.resource_path),
             ),
-        )
-
-    def get_property(self, name, default_value=None):
-        if default_value is None:
-            property_mapping = {
-                "defaultPages": self.default_pages,
-                "overridesPages": self.overrides_pages,
-            }
-            default_value = property_mapping.get(name, None)
-        return super(UserFlowLanguageConfiguration, self).get_property(
-            name, default_value
         )

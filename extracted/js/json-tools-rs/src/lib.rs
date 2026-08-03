@@ -443,6 +443,8 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 // MODULE DECLARATIONS
 // ================================================================================================
 
+#[cfg(feature = "python")]
+pub(crate) mod arrow_columnar;
 mod builder;
 pub(crate) mod cache;
 mod config;

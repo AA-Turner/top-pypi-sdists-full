@@ -1,29 +1,35 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Optional
+
 from office365.runtime.client_value import ClientValue
+from office365.runtime.types.collections import GuidCollection
+from office365.sharepoint.teams.sp_team_channel_capabilities import SPTeamChannelCapabilities
 
 
+@dataclass
 class SPSiteCreationRequest(ClientValue):
-    def __init__(
-        self, title, url, owner=None, lcid=1033, web_template="SITEPAGEPUBLISHING#0"
-    ):
-        """
-        :param str title:
-        :param str url:
-        :param str owner:
-        :param int lcid:
-        :param str web_template:
-        """
-        super(SPSiteCreationRequest, self).__init__()
-        self.Title = title
-        self.Url = url
-        self.WebTemplate = web_template
-        self.Owner = owner
-        self.Lcid = lcid
-        self.ShareByEmailEnabled = False
-        self.Classification = ""
-        self.Description = ""
-        self.SiteDesignId = "00000000-0000-0000-0000-000000000000"
-        self.HubSiteId = "00000000-0000-0000-0000-000000000000"
-        self.WebTemplateExtensionId = "00000000-0000-0000-0000-000000000000"
+    Title: str
+    Url: str
+    Owner: Optional[str] = None
+    Lcid: int = 1033
+    WebTemplate: str = "SITEPAGEPUBLISHING#0"
+    AdditionalSiteFeatureIds: GuidCollection = field(default_factory=GuidCollection)
+    AdditionalWebFeatureIds: GuidCollection = field(default_factory=GuidCollection)
+    ChannelGroupId: Optional[str] = None
+    Classification: Optional[str] = None
+    Description: Optional[str] = None
+    HubSiteId: Optional[str] = None
+    RelatedGroupId: Optional[str] = None
+    SensitivityLabel: Optional[str] = None
+    SensitivityLabel2: Optional[str] = None
+    ShareByEmailEnabled: Optional[bool] = None
+    SiteDesignId: Optional[str] = None
+    TeamsChannelType: Optional[int] = None
+    TimeZoneId: Optional[int] = None
+    WebTemplateExtensionId: Optional[str] = None
+    ChannelCapabilities: SPTeamChannelCapabilities = field(default_factory=SPTeamChannelCapabilities)
 
     @property
     def entity_type_name(self):

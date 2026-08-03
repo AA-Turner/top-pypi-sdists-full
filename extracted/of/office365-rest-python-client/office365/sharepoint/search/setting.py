@@ -1,5 +1,7 @@
+from typing import Optional
+
 from office365.runtime.client_result import ClientResult
-from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.paths.v3.static import StaticPath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.sharepoint.entity import Entity
 from office365.sharepoint.search.promoted_results_operations_result import (
@@ -12,25 +14,26 @@ from office365.sharepoint.search.reports.base import ReportBase
 class SearchSetting(Entity):
     """This object provides the REST operations defined under search settings."""
 
-    def __init__(self, context):
-        super(SearchSetting, self).__init__(
-            context, ResourcePath("Microsoft.Office.Server.Search.REST.SearchSetting")
-        )
+    @property
+    def resource_path(self):
+        if self._resource_path is None:
+            self._resource_path = StaticPath("Microsoft.Office.Server.Search.REST.SearchSetting")
+        return self._resource_path
 
     def get_query_configuration(
         self,
-        call_local_search_farms_only=True,
-        skip_group_object_id_lookup=None,
-        throw_on_remote_api_check=None,
-    ):
-        """
-        This operation gets the query configuration from the server. This operation requires that the Search Service
+        call_local_search_farms_only: bool = True,
+        skip_group_object_id_lookup: Optional[bool] = None,
+        throw_on_remote_api_check: Optional[bool] = None,
+    ) -> ClientResult[QueryConfiguration]:
+        """This operation gets the query configuration from the server. This operation requires that the Search Service
         Application is partitioned. If the Search Service Application is not partitioned the operations returns
         HTTP code 400, not authorized.
 
-        :param bool call_local_search_farms_only: This is a flag that indicates to only call the local search farm.
-        :param bool skip_group_object_id_lookup:
-        :param bool throw_on_remote_api_check:
+        Args:
+            call_local_search_farms_only (bool): This is a flag that indicates to only call the local search farm.
+            skip_group_object_id_lookup (bool):
+            throw_on_remote_api_check (bool):
         """
         return_type = ClientResult(self.context, QueryConfiguration())
         payload = {
@@ -38,9 +41,7 @@ class SearchSetting(Entity):
             "skipGroupObjectIdLookup": skip_group_object_id_lookup,
             "throwOnRemoteApiCheck": throw_on_remote_api_check,
         }
-        qry = ServiceOperationQuery(
-            self, "getqueryconfiguration", None, payload, None, return_type
-        )
+        qry = ServiceOperationQuery(self, "getqueryconfiguration", None, payload, None, return_type)
         self.context.add_query(qry)
         return return_type
 
@@ -52,14 +53,14 @@ class SearchSetting(Entity):
         start_date=None,
         end_date=None,
         site_collection_id=None,
-    ):
-        """
-        :param str tenant_id:
-        :param str report_type:
-        :param str interval:
-        :param str start_date:
-        :param str end_date:
-        :param str site_collection_id:
+    ) -> ClientResult[ReportBase]:
+        """Args:
+        tenant_id (str):
+        report_type (str):
+        interval (str):
+        start_date (str):
+        end_date (str):
+        site_collection_id (str):
         """
         return_type = ClientResult(self.context, ReportBase())
         payload = {
@@ -70,36 +71,35 @@ class SearchSetting(Entity):
             "EndDate": end_date,
             "SiteCollectionId": site_collection_id,
         }
-        qry = ServiceOperationQuery(
-            self, "ExportSearchReports", None, payload, None, return_type
-        )
+        qry = ServiceOperationQuery(self, "ExportSearchReports", None, payload, None, return_type)
         self.context.add_query(qry)
         return return_type
 
-    def ping_admin_endpoint(self):
+    def ping_admin_endpoint(self) -> ClientResult[bool]:
         """ """
         return_type = ClientResult[bool](self.context)
-        qry = ServiceOperationQuery(
-            self, "PingAdminEndpoint", None, None, None, return_type
-        )
+        qry = ServiceOperationQuery(self, "PingAdminEndpoint", None, None, None, return_type)
         self.context.add_query(qry)
         return return_type
 
     def get_promoted_result_query_rules(
-        self, site_collection_level=None, offset=None, number_of_rules=None
-    ):
-        """
-        The operation is called to retrieve the promoted results (also called Best Bets) for a tenant or a
+        self,
+        site_collection_level: Optional[bool] = None,
+        offset: Optional[int] = None,
+        number_of_rules: Optional[int] = None,
+    ) -> ClientResult[PromotedResultsOperationsResult]:
+        """The operation is called to retrieve the promoted results (also called Best Bets) for a tenant or a
         site collection.
 
-        :param bool site_collection_level: This parameter is used by the protocol server to decide which promoted
-           results to return to the client. If the parameter is true, the promoted results for the current
-           site collection are returned. If the parameter is false, all promoted results for the
-           tenant/Search Service Application are returned.
-        :param int offset: This parameter is the offset into the collection of promoted results. Default value is zero.
-           It is used to page through a large result set.
-        :param int number_of_rules: his parameter is the number of promoted results that are returned in the operation.
-            Default value is 100. It is used together with the offset to page through a large result set.
+        Args:
+            site_collection_level (bool): This parameter is used by the protocol server to decide which promoted
+              results to return to the client. If the parameter is true, the promoted results for the current site
+              collection are returned. If the parameter is false, all promoted results for the tenant/Search
+              Service Application are returned.
+            offset (int): This parameter is the offset into the collection of promoted results. Default value is zero.
+              It is used to page through a large result set.
+            number_of_rules (int): his parameter is the number of promoted results that are returned in the operation.
+              Default value is 100. It is used together with the offset to page through a large result set.
         """
         return_type = ClientResult(self.context, PromotedResultsOperationsResult())
         payload = {
@@ -107,9 +107,7 @@ class SearchSetting(Entity):
             "offset": offset,
             "numberOfRules": number_of_rules,
         }
-        qry = ServiceOperationQuery(
-            self, "getpromotedresultqueryrules", None, payload, None, return_type
-        )
+        qry = ServiceOperationQuery(self, "getpromotedresultqueryrules", None, payload, None, return_type)
         self.context.add_query(qry)
         return return_type
 

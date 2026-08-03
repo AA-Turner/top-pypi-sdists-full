@@ -101,6 +101,60 @@ async def test_async_openviking_reindex_forwards_to_local_client(tmp_path):
     )
 
 
+async def test_async_openviking_forwards_turn_retention_and_message_semantics(tmp_path):
+    client = AsyncOpenViking(path=str(tmp_path))
+    with patch.object(client, "_ensure_initialized", new_callable=AsyncMock):
+        with patch.object(
+            client._client,
+            "add_message",
+            new_callable=AsyncMock,
+            return_value={"message_count": 1},
+        ) as mock_add:
+            with patch.object(
+                client._client,
+                "commit_session",
+                new_callable=AsyncMock,
+                return_value={"status": "accepted"},
+            ) as mock_commit:
+                await client.add_message(
+                    "session-1",
+                    "assistant",
+                    parts=[{"type": "text", "text": "checking"}],
+                    turn_id="turn-1",
+                    message_kind="assistant_step",
+                    source_message_ids=["u1"],
+                )
+                await client.commit_session(
+                    "session-1",
+                    retention_mode="turn_budget",
+                    keep_recent_turn_count=3,
+                    retained_message_token_budget=12_000,
+                    min_raw_tail_steps=1,
+                )
+
+    mock_add.assert_awaited_once_with(
+        session_id="session-1",
+        role="assistant",
+        content=None,
+        parts=[{"type": "text", "text": "checking"}],
+        created_at=None,
+        peer_id=None,
+        telemetry=False,
+        turn_id="turn-1",
+        message_kind="assistant_step",
+        source_message_ids=["u1"],
+    )
+    mock_commit.assert_awaited_once_with(
+        "session-1",
+        telemetry=False,
+        keep_recent_count=0,
+        retention_mode="turn_budget",
+        keep_recent_turn_count=3,
+        retained_message_token_budget=12_000,
+        min_raw_tail_steps=1,
+    )
+
+
 def test_sync_openviking_reindex_forwards_to_async_client():
     client = SyncOpenViking()
     with patch.object(
@@ -171,7 +225,6 @@ async def test_local_client_batch_add_messages_forwards_to_session():
     client = LocalClient.__new__(LocalClient)
     client._service = SimpleNamespace(sessions=FakeSessions())
     client._ctx = SimpleNamespace(user=SimpleNamespace(user_id="user-1"))
-    client._legacy_agent_id = None
 
     result = await LocalClient.batch_add_messages(
         client,
@@ -187,7 +240,14 @@ async def test_local_client_batch_add_messages_forwards_to_session():
         ],
     )
 
-    assert result == {"session_id": "batch-session", "message_count": 2, "added": 2}
+    # A lightweight fake session has no ``meta``, so pending_tokens degrades to 0
+    # instead of raising; the field is always present for commit-policy callers.
+    assert result == {
+        "session_id": "batch-session",
+        "message_count": 2,
+        "added": 2,
+        "pending_tokens": 0,
+    }
     assert fake_session.messages[0]["role"] == "user"
     assert fake_session.messages[0]["peer_id"] == "explicit-user"
     assert fake_session.messages[0]["created_at"] == "2026-05-28T00:00:00+00:00"
@@ -224,7 +284,6 @@ async def test_local_client_add_message_accepts_image_parts():
     client = LocalClient.__new__(LocalClient)
     client._service = SimpleNamespace(sessions=FakeSessions())
     client._ctx = SimpleNamespace(user=SimpleNamespace(user_id="user-1"))
-    client._legacy_agent_id = None
 
     result = await LocalClient.add_message(
         client,
@@ -236,7 +295,11 @@ async def test_local_client_add_message_accepts_image_parts():
         ],
     )
 
-    assert result == {"session_id": "image-session", "message_count": 1}
+    assert result == {
+        "session_id": "image-session",
+        "message_count": 1,
+        "pending_tokens": 0,
+    }
     assert isinstance(fake_session.messages[0]["parts"][0], TextPart)
     assert isinstance(fake_session.messages[0]["parts"][1], ImagePart)
     assert fake_session.messages[0]["parts"][1].url == "https://example.com/image.png"

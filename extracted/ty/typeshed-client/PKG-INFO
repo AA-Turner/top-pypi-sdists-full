@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: typeshed_client
-Version: 2.12.0
+Version: 2.13.0
 Summary: A library for accessing stubs in typeshed.
 Home-page: https://github.com/JelleZijlstra/typeshed_client
 Author: Jelle Zijlstra
@@ -11,7 +11,6 @@ Keywords: typeshed typing annotations
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.9
@@ -24,7 +23,6 @@ Classifier: Topic :: Software Development
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: importlib_resources>=1.4.0
 Requires-Dist: typing-extensions>=4.5.0
 Dynamic: author
 Dynamic: author-email
@@ -143,6 +141,12 @@ call ``resolver.get_fully_qualified_name('collections.Set')`` to retrieve the
 
 Changelog
 ---------
+
+Version 2.13.0 (August 1, 2026)
+
+- Update bundled typeshed
+- Drop dependency on ``importlib_resources``
+- Fix license classifier
 
 Version 2.12.0 (June 1, 2026)
 

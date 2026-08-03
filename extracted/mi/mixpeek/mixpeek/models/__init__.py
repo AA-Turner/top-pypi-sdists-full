@@ -183,6 +183,8 @@ from mixpeek.models.bulk_interactions_request import BulkInteractionsRequest
 from mixpeek.models.bulk_interactions_response import BulkInteractionsResponse
 from mixpeek.models.bulk_mark_dlq_request import BulkMarkDLQRequest
 from mixpeek.models.bulk_mark_dlq_response import BulkMarkDLQResponse
+from mixpeek.models.bulk_requeue_dlq_request import BulkRequeueDLQRequest
+from mixpeek.models.bulk_requeue_dlq_response import BulkRequeueDLQResponse
 from mixpeek.models.bulk_soft_delete_request import BulkSoftDeleteRequest
 from mixpeek.models.bulk_soft_delete_response import BulkSoftDeleteResponse
 from mixpeek.models.bulk_submit_batches_request import BulkSubmitBatchesRequest

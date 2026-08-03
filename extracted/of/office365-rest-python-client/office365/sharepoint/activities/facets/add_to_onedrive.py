@@ -1,20 +1,21 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class AddToOneDriveFacet(ClientValue):
-    """"""
+    """Args:
+    added_datetime (str):
+    mount_point_name (str):
+    removed_datetime (str):
+    """
 
-    def __init__(
-        self, added_datetime=None, mount_point_name=None, removed_datetime=None
-    ):
-        """
-        :param str added_datetime:
-        :param str mount_point_name:
-        :param str removed_datetime:
-        """
-        self.addedDateTime = added_datetime
-        self.mountPointName = (mount_point_name,)
-        self.removedDateTime = removed_datetime
+    addedDateTime: str | None = None
+    mountPointName: str | None = None
+    removedDateTime: str | None = None
 
     @property
     def entity_type_name(self):

@@ -1,17 +1,20 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.teams.schedule.entity import ScheduleEntity
 from office365.teams.schedule.shifts.activity import ShiftActivity
 
 
+@dataclass
 class ShiftItem(ScheduleEntity):
     """Represents a version of a shift."""
 
-    def __init__(self, display_name=None, activities=None):
-        """
-        :param str display_name: The shift label of the shiftItem.
-        :param list[ShiftActivity] activities: An incremental part of a shift which can cover details of when and
-            where an employee is during their shift. For example, an assignment or a scheduled break or lunch.
-        """
-        super(ShiftItem, self).__init__()
-        self.displayName = display_name
-        self.activities = ClientValueCollection(ShiftActivity, activities)
+    displayName: str | None = None
+    activities: ClientValueCollection = field(default_factory=lambda: ClientValueCollection(ShiftActivity))
+    notes: str | None = None
+
+    @property
+    def entity_type_name(self) -> str:
+        return "microsoft.graph.ShiftItem"

@@ -1,20 +1,27 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class ProvisionedPlan(ClientValue):
-    """
-    The provisionedPlans property of the user entity and the organization entity is a collection of provisionedPlan.
+    """The provisionedPlans property of the user entity and the organization entity is a collection of provisionedPlan.
+
+    Args:
+        service (str):
+        provisioning_status (str):
+        capability_status (str):
     """
 
-    def __init__(self, service=None, provisioning_status=None, capability_status=None):
-        """
-        :param str service:
-        :param str provisioning_status:
-        :param str capability_status:
-        """
-        self.service = service
-        self.provisioningStatus = provisioning_status
-        self.capabilityStatus = capability_status
+    service: str | None = None
+    provisioningStatus: str | None = None
+    capabilityStatus: str | None = None
 
     def __repr__(self):
-        return self.service
+        return self.service or ""
+
+    @property
+    def entity_type_name(self):
+        return "microsoft.graph.ProvisionedPlan"

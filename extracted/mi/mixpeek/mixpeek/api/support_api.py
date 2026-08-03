@@ -2068,6 +2068,8 @@ class SupportApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_comms_request: Optional[ListCommsRequest] = None,
         _request_timeout: Union[
@@ -2096,6 +2098,10 @@ class SupportApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_comms_request:
@@ -2128,6 +2134,8 @@ class SupportApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_comms_request=list_comms_request,
             _request_auth=_request_auth,
@@ -2164,6 +2172,8 @@ class SupportApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_comms_request: Optional[ListCommsRequest] = None,
         _request_timeout: Union[
@@ -2192,6 +2202,10 @@ class SupportApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_comms_request:
@@ -2224,6 +2238,8 @@ class SupportApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_comms_request=list_comms_request,
             _request_auth=_request_auth,
@@ -2260,6 +2276,8 @@ class SupportApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_comms_request: Optional[ListCommsRequest] = None,
         _request_timeout: Union[
@@ -2288,6 +2306,10 @@ class SupportApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_comms_request:
@@ -2320,6 +2342,8 @@ class SupportApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_comms_request=list_comms_request,
             _request_auth=_request_auth,
@@ -2351,6 +2375,8 @@ class SupportApi:
         offset,
         page,
         cursor,
+        next_cursor,
+        after,
         include_total,
         list_comms_request,
         _request_auth,
@@ -2394,6 +2420,14 @@ class SupportApi:
         if cursor is not None:
             
             _query_params.append(('cursor', cursor))
+            
+        if next_cursor is not None:
+            
+            _query_params.append(('next_cursor', next_cursor))
+            
+        if after is not None:
+            
+            _query_params.append(('after', after))
             
         if include_total is not None:
             
@@ -2458,6 +2492,8 @@ class SupportApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_comms_request: Optional[ListCommsRequest] = None,
         _request_timeout: Union[
@@ -2486,6 +2522,10 @@ class SupportApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_comms_request:
@@ -2518,6 +2558,8 @@ class SupportApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_comms_request=list_comms_request,
             _request_auth=_request_auth,
@@ -2554,6 +2596,8 @@ class SupportApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_comms_request: Optional[ListCommsRequest] = None,
         _request_timeout: Union[
@@ -2582,6 +2626,10 @@ class SupportApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_comms_request:
@@ -2614,6 +2662,8 @@ class SupportApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_comms_request=list_comms_request,
             _request_auth=_request_auth,
@@ -2650,6 +2700,8 @@ class SupportApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_comms_request: Optional[ListCommsRequest] = None,
         _request_timeout: Union[
@@ -2678,6 +2730,10 @@ class SupportApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_comms_request:
@@ -2710,6 +2766,8 @@ class SupportApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_comms_request=list_comms_request,
             _request_auth=_request_auth,
@@ -2741,6 +2799,8 @@ class SupportApi:
         offset,
         page,
         cursor,
+        next_cursor,
+        after,
         include_total,
         list_comms_request,
         _request_auth,
@@ -2784,6 +2844,14 @@ class SupportApi:
         if cursor is not None:
             
             _query_params.append(('cursor', cursor))
+            
+        if next_cursor is not None:
+            
+            _query_params.append(('next_cursor', next_cursor))
+            
+        if after is not None:
+            
+            _query_params.append(('after', after))
             
         if include_total is not None:
             
@@ -2848,6 +2916,8 @@ class SupportApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_tickets_request: Optional[ListTicketsRequest] = None,
         _request_timeout: Union[
@@ -2876,6 +2946,10 @@ class SupportApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_tickets_request:
@@ -2908,6 +2982,8 @@ class SupportApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_tickets_request=list_tickets_request,
             _request_auth=_request_auth,
@@ -2944,6 +3020,8 @@ class SupportApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_tickets_request: Optional[ListTicketsRequest] = None,
         _request_timeout: Union[
@@ -2972,6 +3050,10 @@ class SupportApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_tickets_request:
@@ -3004,6 +3086,8 @@ class SupportApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_tickets_request=list_tickets_request,
             _request_auth=_request_auth,
@@ -3040,6 +3124,8 @@ class SupportApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_tickets_request: Optional[ListTicketsRequest] = None,
         _request_timeout: Union[
@@ -3068,6 +3154,10 @@ class SupportApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_tickets_request:
@@ -3100,6 +3190,8 @@ class SupportApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_tickets_request=list_tickets_request,
             _request_auth=_request_auth,
@@ -3131,6 +3223,8 @@ class SupportApi:
         offset,
         page,
         cursor,
+        next_cursor,
+        after,
         include_total,
         list_tickets_request,
         _request_auth,
@@ -3174,6 +3268,14 @@ class SupportApi:
         if cursor is not None:
             
             _query_params.append(('cursor', cursor))
+            
+        if next_cursor is not None:
+            
+            _query_params.append(('next_cursor', next_cursor))
+            
+        if after is not None:
+            
+            _query_params.append(('after', after))
             
         if include_total is not None:
             
@@ -3238,6 +3340,8 @@ class SupportApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_tickets_request: Optional[ListTicketsRequest] = None,
         _request_timeout: Union[
@@ -3266,6 +3370,10 @@ class SupportApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_tickets_request:
@@ -3298,6 +3406,8 @@ class SupportApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_tickets_request=list_tickets_request,
             _request_auth=_request_auth,
@@ -3334,6 +3444,8 @@ class SupportApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_tickets_request: Optional[ListTicketsRequest] = None,
         _request_timeout: Union[
@@ -3362,6 +3474,10 @@ class SupportApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_tickets_request:
@@ -3394,6 +3510,8 @@ class SupportApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_tickets_request=list_tickets_request,
             _request_auth=_request_auth,
@@ -3430,6 +3548,8 @@ class SupportApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_tickets_request: Optional[ListTicketsRequest] = None,
         _request_timeout: Union[
@@ -3458,6 +3578,10 @@ class SupportApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_tickets_request:
@@ -3490,6 +3614,8 @@ class SupportApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_tickets_request=list_tickets_request,
             _request_auth=_request_auth,
@@ -3521,6 +3647,8 @@ class SupportApi:
         offset,
         page,
         cursor,
+        next_cursor,
+        after,
         include_total,
         list_tickets_request,
         _request_auth,
@@ -3564,6 +3692,14 @@ class SupportApi:
         if cursor is not None:
             
             _query_params.append(('cursor', cursor))
+            
+        if next_cursor is not None:
+            
+            _query_params.append(('next_cursor', next_cursor))
+            
+        if after is not None:
+            
+            _query_params.append(('after', after))
             
         if include_total is not None:
             
@@ -3628,6 +3764,8 @@ class SupportApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_videos_request: Optional[ListVideosRequest] = None,
         _request_timeout: Union[
@@ -3656,6 +3794,10 @@ class SupportApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_videos_request:
@@ -3688,6 +3830,8 @@ class SupportApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_videos_request=list_videos_request,
             _request_auth=_request_auth,
@@ -3724,6 +3868,8 @@ class SupportApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_videos_request: Optional[ListVideosRequest] = None,
         _request_timeout: Union[
@@ -3752,6 +3898,10 @@ class SupportApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_videos_request:
@@ -3784,6 +3934,8 @@ class SupportApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_videos_request=list_videos_request,
             _request_auth=_request_auth,
@@ -3820,6 +3972,8 @@ class SupportApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_videos_request: Optional[ListVideosRequest] = None,
         _request_timeout: Union[
@@ -3848,6 +4002,10 @@ class SupportApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_videos_request:
@@ -3880,6 +4038,8 @@ class SupportApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_videos_request=list_videos_request,
             _request_auth=_request_auth,
@@ -3911,6 +4071,8 @@ class SupportApi:
         offset,
         page,
         cursor,
+        next_cursor,
+        after,
         include_total,
         list_videos_request,
         _request_auth,
@@ -3954,6 +4116,14 @@ class SupportApi:
         if cursor is not None:
             
             _query_params.append(('cursor', cursor))
+            
+        if next_cursor is not None:
+            
+            _query_params.append(('next_cursor', next_cursor))
+            
+        if after is not None:
+            
+            _query_params.append(('after', after))
             
         if include_total is not None:
             
@@ -4018,6 +4188,8 @@ class SupportApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_videos_request: Optional[ListVideosRequest] = None,
         _request_timeout: Union[
@@ -4046,6 +4218,10 @@ class SupportApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_videos_request:
@@ -4078,6 +4254,8 @@ class SupportApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_videos_request=list_videos_request,
             _request_auth=_request_auth,
@@ -4114,6 +4292,8 @@ class SupportApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_videos_request: Optional[ListVideosRequest] = None,
         _request_timeout: Union[
@@ -4142,6 +4322,10 @@ class SupportApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_videos_request:
@@ -4174,6 +4358,8 @@ class SupportApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_videos_request=list_videos_request,
             _request_auth=_request_auth,
@@ -4210,6 +4396,8 @@ class SupportApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_videos_request: Optional[ListVideosRequest] = None,
         _request_timeout: Union[
@@ -4238,6 +4426,10 @@ class SupportApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_videos_request:
@@ -4270,6 +4462,8 @@ class SupportApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_videos_request=list_videos_request,
             _request_auth=_request_auth,
@@ -4301,6 +4495,8 @@ class SupportApi:
         offset,
         page,
         cursor,
+        next_cursor,
+        after,
         include_total,
         list_videos_request,
         _request_auth,
@@ -4344,6 +4540,14 @@ class SupportApi:
         if cursor is not None:
             
             _query_params.append(('cursor', cursor))
+            
+        if next_cursor is not None:
+            
+            _query_params.append(('next_cursor', next_cursor))
+            
+        if after is not None:
+            
+            _query_params.append(('after', after))
             
         if include_total is not None:
             

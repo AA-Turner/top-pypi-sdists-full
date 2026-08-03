@@ -28,7 +28,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_valida
 
 from ..config import resolve_clone_dir
 from .glab_cache import _cache_read, _cache_write, _glab_api
-from .group import resolve_group
+from .group import ensure_group_namespace, resolve_group
 
 CONFIG_FILENAMES = (".pysae-ai-tools.yaml", ".pysae-ai-tools.yml")
 """Accepted file names at the repository root, in lookup order."""
@@ -836,6 +836,28 @@ def discover_project_paths(group: str | None = None, *, refresh: bool = False) -
     result = sorted(set(paths))
     _cache_write(cache_key, {"paths": result})
     return result
+
+
+def resolve_project_path(path: str, group: str | None = None) -> str:
+    """Resolve a project reference to the path it really has in ``group`` — subgroups included.
+
+    ``ensure_group_namespace`` only prefixes the group, so a bare name that lives in a
+    subgroup resolved to a path that does not exist (``infra-cluster`` →
+    ``<group>/infra-cluster`` instead of ``<group>/infra/infra-cluster``). Match the leaf
+    against the group's project list (cached, subgroups included) and keep the naive
+    namespacing when the leaf is unknown, ambiguous, or already a real path — so an
+    unreachable API degrades to the previous behaviour instead of failing.
+    """
+    naive = ensure_group_namespace(path, group or resolve_group())
+    try:
+        known = discover_project_paths(group)
+    except RuntimeError:
+        return naive
+    if naive in known:
+        return naive
+    leaf = naive.rsplit("/", 1)[-1]
+    matches = [p for p in known if p.rsplit("/", 1)[-1] == leaf]
+    return matches[0] if len(matches) == 1 else naive
 
 
 def aggregate_project_configs(

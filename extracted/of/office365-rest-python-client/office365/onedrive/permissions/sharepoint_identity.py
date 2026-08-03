@@ -1,13 +1,20 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Optional
+
 from office365.directory.permissions.identity import Identity
 
 
+@dataclass
 class SharePointIdentity(Identity):
     """This resource extends from the identity resource to provide the ability to expose SharePoint-specific
     information; for example, loginName or SharePoint IDs."""
 
-    def __init__(self, login_name=None):
-        """
-        :param str login_name: The sign in name of the SharePoint identity.
-        """
-        super(SharePointIdentity, self).__init__()
-        self.loginName = login_name
+    loginName: Optional[str] = None
+    displayName: Optional[str] = None
+    id: Optional[str] = None
+
+    @property
+    def entity_type_name(self) -> str:
+        return "microsoft.graph.SharePointIdentity"

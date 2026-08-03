@@ -42,8 +42,9 @@ SECTIONS = [
             {"cmd": "/create",       "desc": "Skills · commands · MCPs · integrations"},
             {"cmd": "/integrations", "desc": "Browse and connect integrations"},
             {"cmd": "/connected",    "desc": "Show connected integrations"},
-            {"cmd": "/channels",     "desc": "Publish channels  Meta · Google · TikTok · LinkedIn · X"},
-            {"cmd": "/message",      "desc": "Report-back channels  Telegram · WhatsApp · Text · Email"},
+            {"cmd": "/publish",      "desc": "Publish out  Meta · Google · TikTok · LinkedIn · X"},
+            {"cmd": "/channels",     "desc": "Reach NX besides here  Telegram · WhatsApp · Text · Email"},
+            {"cmd": "/message",      "desc": "Where NX reports back  Telegram · WhatsApp · Text · Email"},
             {"cmd": "/save",         "desc": "Save last response"},
             {"cmd": "/resume",       "desc": "Pick up your last conversation"},
             {"cmd": "/login",        "desc": "Re-authenticate without leaving"},
@@ -69,11 +70,20 @@ MODES = [
 ]
 
 # ── Report-back channels (the /message picker) ───────────────────────────────
-# The four per-operator channels NX can send its reports to. `key` is the internal
-# channel id handled by nx_message.handle_message_command; "Text" == iMessage.
+# The per-operator channels NX can send its reports to. `key` is the internal channel id handled by
+# nx_message.handle_message_command.
+#
+# MUST COVER nx_message.CHANNELS. This list carried only four for a long time while the module supported
+# five, so `sms` was configurable by typing `/message sms` but UNREACHABLE from any picker — and the
+# /channels hub, which lists all five, offered a row an operator could not act on. A picker that omits a
+# real channel is a dead end you only find by already knowing the command.
+#
+# "Text" is no longer used as a display name: /channels lists SMS and iMessage side by side, so one word
+# naming whichever of the two happened to be nearest was a genuine trap. Both are spelled out.
 MESSAGE_CHANNELS = [
     {"name": "Telegram", "key": "telegram", "desc": "your bot — NX DMs reports to you"},
-    {"name": "Text",     "key": "imessage", "desc": "Nexplora texts you — iMessage or Android"},
+    {"name": "iMessage", "key": "imessage", "desc": "Nexplora texts you — iMessage or Android"},
+    {"name": "SMS",      "key": "sms",      "desc": "Twilio (BYOK) — texts from your own number"},
     {"name": "Email",    "key": "email",    "desc": "Nexplora emails you — from hello@nexplora.ai"},
     {"name": "WhatsApp", "key": "whatsapp", "desc": "Twilio (BYOK) — reports to your number"},
 ]
@@ -1213,11 +1223,16 @@ def run_create_menu() -> str | None:
     return app.run()
 
 
-# ── /channels — clean numbered picker of the publish connectors + Assign ─────
-def run_channels_menu(states):
-    """Clean numbered /channels picker: the publish connectors with a status glyph,
+# ── /publish — clean numbered picker of the publish connectors + Assign ──────
+def run_publish_menu(states):
+    """Clean numbered /publish picker: the publish connectors with a status glyph,
     plus an 'Assign agents' row. `states` = [{name, display, glyph}]. Press 1-N to jump.
-    Returns a channel name, '__assign__', or None."""
+    Returns a channel name, '__assign__', or None.
+
+    NAMED /publish, not /channels. This surface publishes OUT to an audience; the
+    web has always called the other direction — the ways to reach Nexplora — its
+    Channels surface, and one word meaning opposite things on the two surfaces
+    misleads whichever operator learned the other one first."""
     from prompt_toolkit.application import Application
     from prompt_toolkit.key_binding import KeyBindings
     from prompt_toolkit.layout import Layout
@@ -1234,7 +1249,7 @@ def run_channels_menu(states):
     def menu_text() -> list[tuple[str, str]]:
         sel = state["selected"]
         lines: list[tuple[str, str]] = [
-            ("class:gold", "  CHANNELS\n"),
+            ("class:gold", "  PUBLISH\n"),
             ("class:dim",  "  " + "─" * 34 + "\n"),
         ]
         for idx, it in enumerate(items):
@@ -1296,21 +1311,46 @@ def run_channels_menu(states):
 
 
 # ── /supply hub — give an agent its own channel (send AS that agent) ─────────
+# Two kinds, and the difference is what the operator actually gets:
+#   conversation — the agent sends to a person and can be replied to; /takeoff can put it on duty
+#   publishing   — the agent posts to an audience; nothing comes back, so there is no duty to be on
+# Order MUST match lib/desk/supply-channels.ts on the web. Operators read a numbered list positionally,
+# so interleaving a channel silently renumbers every one below it on one surface and not the other.
 _SUPPLY_ITEMS = [
-    {"cmd": "email",    "name": "Email",    "desc": "send as the agent"},
-    {"cmd": "telegram", "name": "Telegram", "desc": "the agent's own bot"},
-    {"cmd": "sms",      "name": "SMS",      "desc": "the agent's number"},
-    {"cmd": "whatsapp", "name": "WhatsApp", "desc": "business number"},
-    {"cmd": "imessage", "name": "iMessage", "desc": "mac only — sends from this Mac"},
-    {"cmd": "active",   "name": "Active",   "desc": "agents + channels"},
-    {"cmd": "revoke",   "name": "Revoke",   "desc": "remove a channel"},
+    {"cmd": "email",     "name": "Email",     "desc": "send as the agent",              "kind": "conversation"},
+    {"cmd": "telegram",  "name": "Telegram",  "desc": "the agent's own bot",            "kind": "conversation"},
+    {"cmd": "sms",       "name": "SMS",       "desc": "the agent's number",             "kind": "conversation"},
+    {"cmd": "whatsapp",  "name": "WhatsApp",  "desc": "business number",                "kind": "conversation"},
+    {"cmd": "imessage",  "name": "iMessage",  "desc": "mac only — sends from this Mac", "kind": "conversation"},
+    {"cmd": "discord",   "name": "Discord",   "desc": "the agent's own bot",            "kind": "conversation"},
+    {"cmd": "x",         "name": "X",         "desc": "post as the agent — paid API",   "kind": "publishing"},
+    {"cmd": "facebook",  "name": "Facebook",  "desc": "post to a Page",                 "kind": "publishing"},
+    {"cmd": "instagram", "name": "Instagram", "desc": "post to a business account",     "kind": "publishing"},
+    {"cmd": "linkedin",  "name": "LinkedIn",  "desc": "post as a company page",         "kind": "publishing"},
+    {"cmd": "tiktok",    "name": "TikTok",    "desc": "post to an account",             "kind": "publishing"},
+    {"cmd": "youtube",   "name": "YouTube",   "desc": "post to a channel",              "kind": "publishing"},
+    {"cmd": "pinterest", "name": "Pinterest", "desc": "pin from an account",            "kind": "publishing"},
+    {"cmd": "active",    "name": "Active",    "desc": "agents + channels",              "kind": "manage"},
+    {"cmd": "revoke",    "name": "Revoke",    "desc": "remove a channel",               "kind": "manage"},
+]
+
+# Rendered above the first item of each kind. Headers are DRAWN, never selectable — they must not shift
+# the numbering, or the digit an operator presses stops matching the row they are looking at.
+_SUPPLY_GROUPS = [
+    ("conversation", "the agent sends, and can be replied to"),
+    ("publishing",   "the agent posts — one-way, nothing comes back"),
+    ("manage",       ""),
 ]
 
 
 def run_supply_menu() -> str | None:
-    """The /supply hub — give one of your agents its own channel so NX sends AS
-    that agent: Email · Telegram · SMS · WhatsApp · iMessage · Active · Revoke.
-    Clean numbered list; press 1-7 to jump. Returns the key or None."""
+    """The /supply hub — give one of your agents its own account so NX sends AS that agent.
+
+    Two groups, matching the web: CONVERSATION (Email · Telegram · SMS · WhatsApp · iMessage · Discord)
+    where the agent can be replied to, and PUBLISHING (X · Facebook · Instagram · LinkedIn · TikTok ·
+    YouTube · Pinterest) where it posts one-way. Then Active · Revoke.
+
+    Numbered list; 1-9 jump, arrows reach the rest. Returns the key or None."""
     from prompt_toolkit.application import Application
     from prompt_toolkit.key_binding import KeyBindings
     from prompt_toolkit.layout import Layout
@@ -1327,15 +1367,27 @@ def run_supply_menu() -> str | None:
             ("class:gold", "  SUPPLY\n"),
             ("class:dim",  "  " + "─" * 30 + "\n"),
         ]
+        seen_kinds: set[str] = set()
         for idx, it in enumerate(items):
             n = idx + 1
+            kind = it.get("kind", "")
+            if kind and kind not in seen_kinds:
+                seen_kinds.add(kind)
+                note = dict(_SUPPLY_GROUPS).get(kind, "")
+                if note:
+                    lines.append(("class:desc", f"\n    {kind.upper()}  {note}\n"))
+                else:
+                    lines.append(("class:desc", "\n"))
+            # Numbers past 9 are shown but NOT bound to a key (prompt_toolkit has no "10"), so they are
+            # dimmed differently — a number that looks pressable and isn't is worse than no number.
+            mark = f"{n}" if n <= 9 else "·"
             if idx == sel:
-                lines.append(("class:selected", f"  ❯ {n}  {it['name']:<10} {it['desc']}\n"))
+                lines.append(("class:selected", f"  ❯ {mark}  {it['name']:<10} {it['desc']}\n"))
             else:
-                lines.append(("class:dim",  f"    {n}  {it['name']:<10} "))
+                lines.append(("class:dim",  f"    {mark}  {it['name']:<10} "))
                 lines.append(("class:desc", f"{it['desc']}\n"))
         lines.append(("class:dim", "  " + "─" * 30 + "\n"))
-        lines.append(("class:dim", "  give an agent its own channel · 1-7 · Enter · Esc\n"))
+        lines.append(("class:dim", "  give an agent its own channel · 1-9 or ↑↓ · Enter · Esc\n"))
         return lines
 
     kb = KeyBindings()
@@ -1367,7 +1419,13 @@ def run_supply_menu() -> str | None:
                 state["result"] = items[i]["cmd"]
                 event.app.exit(result=state["result"])
         return _jump
-    for _i in range(len(items)):
+    # BOUNDED AT 9 — there is no key "10". prompt_toolkit raises on kb.add("10"),
+    # and the /supply caller wraps this in a bare `except Exception`, so a 10th
+    # item would not traceback: the picker would silently render nothing and drop
+    # the operator back at the prompt. Every other picker in this file already
+    # bounds the same way; these two were the exceptions. Items past 9 stay
+    # reachable by arrow keys.
+    for _i in range(min(9, len(items))):
         kb.add(str(_i + 1))(_make_jump(_i))
 
     app = Application(
@@ -1455,7 +1513,13 @@ def run_create_type_menu() -> str | None:
                 state["result"] = items[i]["cmd"]
                 event.app.exit(result=state["result"])
         return _jump
-    for _i in range(len(items)):
+    # BOUNDED AT 9 — there is no key "10". prompt_toolkit raises on kb.add("10"),
+    # and the /supply caller wraps this in a bare `except Exception`, so a 10th
+    # item would not traceback: the picker would silently render nothing and drop
+    # the operator back at the prompt. Every other picker in this file already
+    # bounds the same way; these two were the exceptions. Items past 9 stay
+    # reachable by arrow keys.
+    for _i in range(min(9, len(items))):
         kb.add(str(_i + 1))(_make_jump(_i))
 
     app = Application(

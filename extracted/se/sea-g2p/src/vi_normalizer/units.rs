@@ -140,7 +140,10 @@ static RE_STANDALONE_UNIT: Lazy<Regex> = Lazy::new(|| {
 });
 
 static RE_CURRENCY_PREFIX_SYMBOL: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(&format!(r"(?i)([$€¥£₩])\s*{}{}", NUMERIC_P, MAGNITUDE_P)).unwrap()
+    // Hậu tố tài chính kiểu Anh DÍNH LIỀN số: "$5M" -> triệu, "$1.5B" -> tỷ,
+    // "$99K" -> nghìn. Bắt buộc dính liền + \b để không nuốt chữ đầu từ sau
+    // ("₩1000 mỗi..." không được ăn "m").
+    Regex::new(&format!(r"(?i)([$€¥£₩])\s*{}{}(?:([MBK])\b)?", NUMERIC_P, MAGNITUDE_P)).unwrap()
 });
 
 static RE_CURRENCY_SUFFIX_SYMBOL: Lazy<Regex> = Lazy::new(|| {
@@ -167,12 +170,14 @@ static RE_SCIENTIFIC_NOTATION: Lazy<Regex> = Lazy::new(|| {
 // Ch\u1eef 'm' TH\u01af\u1edcNG (kh\u00f4ng (?i)) \u0111\u1ec3 kh\u00f4ng nu\u1ed1t "1M" (1 tri\u1ec7u). \u0110u\u00f4i: 2 ch\u1eef s\u1ed1 b\u1ea5t k\u1ef3,
 // ho\u1eb7c 1 ch\u1eef s\u1ed1 KH\u00c1C 2/3 (ch\u1eeba "m2"/"m3" = m\u00e9t vu\u00f4ng/kh\u1ed1i).
 static RE_HEIGHT: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?<![\d.,a-zA-Z])(\d{1,2})m(\d{2}|[01456789])(?![\d.,])").unwrap()
+    // Lookahead chỉ chặn [.,] khi theo sau là CHỮ SỐ (thập phân "1m75.5");
+    // dấu chấm hết câu "Cao 1m75." vẫn phải khớp.
+    Regex::new(r"(?<![\d.,a-zA-Z])(\d{1,2})m(\d{2}|[01456789])(?!\d|[.,]\d)").unwrap()
 });
 
 // C\u00e2n n\u1eb7ng ki\u1ec3u Vi\u1ec7t: "1kg2" -> "m\u1ed9t ki l\u00f4 gam hai" (2 = l\u1ea1ng/hectogram).
 static RE_WEIGHT: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?<![\d.,a-zA-Z])(\d{1,2})kg(\d{1,2})(?![\d.,])").unwrap()
+    Regex::new(r"(?<![\d.,a-zA-Z])(\d{1,2})kg(\d{1,2})(?!\d|[.,]\d)").unwrap()
 });
 
 pub fn expand_height_weight(text: &str) -> String {
@@ -184,6 +189,43 @@ pub fn expand_height_weight(text: &str) -> String {
     }).into_owned()
 }
 
+// ── Ngữ cảnh cho CHỮ ĐƠN VIẾT HOA sau số ──────────────────────────────────
+// Mặc định chữ HOA đơn dính số ("51M", "12B", "5S", "100K") là mã hiệu -> đánh
+// vần chữ cái. Chỉ đọc thành đơn vị/bậc tiền khi có tín hiệu ngữ cảnh.
+static MONEY_LEAD_WORDS: Lazy<std::collections::HashSet<&'static str>> = Lazy::new(|| {
+    // Từ CUỐI của cụm dẫn tiền đứng ngay trước số ("doanh thu" -> "thu",
+    // "thu nhập" -> "nhập", "đầu tư" -> "tư").
+    ["giá", "vé", "phí", "lương", "thưởng", "vốn", "quỹ", "thu", "chi", "lãi",
+     "lỗ", "nợ", "tiền", "cọc", "combo", "thầu", "tư", "nhập", "trả", "giảm",
+     "tặng", "đơn", "phạt", "ship",
+     // Động từ biến động giá đứng ngay trước số ("giá ... lên 92M", "còn 500K").
+     "lên", "xuống", "còn", "đạt", "chạm", "về", "hết", "tốn", "tầm", "khoảng",
+     "gần", "hơn", "tới"].into_iter().collect()
+});
+static MONEY_AFTER_WORDS: Lazy<std::collections::HashSet<&'static str>> = Lazy::new(|| {
+    // Từ đứng ngay sau cụm số+chữ xác nhận nghĩa tiền/số lượng lớn.
+    ["usd", "vnd", "vnđ", "usdt", "eur", "euro", "gbp", "jpy", "cny", "đồng",
+     "đô", "lượt", "view", "views", "follower", "followers", "sub", "subs",
+     "người"].into_iter().collect()
+});
+static CONTAINER_LEAD_WORDS: Lazy<std::collections::HashSet<&'static str>> = Lazy::new(|| {
+    // Vật chứa/động từ đong đo đứng trước -> "L" là lít ("chai 2L", "bình 20L").
+    ["chai", "bình", "thùng", "can", "xô", "bồn", "két", "lu", "ấm", "nồi",
+     "tích", "chứa", "đựng", "đổ", "uống"].into_iter().collect()
+});
+
+fn last_word_before(text: &str, pos: usize) -> String {
+    text[..pos].split_whitespace().next_back()
+        .map(|w| w.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase())
+        .unwrap_or_default()
+}
+
+fn first_word_after(text: &str, pos: usize) -> String {
+    text[pos..].split_whitespace().next()
+        .map(|w| w.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase())
+        .unwrap_or_default()
+}
+
 pub fn expand_units_and_currency(text: &str) -> String {
     let mut result = text.to_string();
 
@@ -191,8 +233,12 @@ pub fn expand_units_and_currency(text: &str) -> String {
         let symbol = caps.get(1).unwrap().as_str();
         let num = caps.get(2).unwrap().as_str();
         let mag = caps.get(3).map_or("", |m: fancy_regex::Match| m.as_str());
+        let suffix = caps.get(4).map_or("", |m: fancy_regex::Match| m.as_str());
+        let mag_word = match suffix.to_uppercase().as_str() {
+            "M" => "triệu", "B" => "tỷ", "K" => "nghìn", _ => mag,
+        };
         let full = CURRENCY_SYMBOL_MAP.get(symbol).copied().unwrap_or("");
-        format!("{} {} {}", expand_number_with_sep(num), mag, full).replace("  ", " ").trim().to_string()
+        format!("{} {} {}", expand_number_with_sep(num), mag_word, full).replace("  ", " ").trim().to_string()
     }).to_string();
 
     result = RE_CURRENCY_SUFFIX_SYMBOL.replace_all(&result, |caps: &Captures| {
@@ -207,18 +253,57 @@ pub fn expand_units_and_currency(text: &str) -> String {
         format!("{} phần trăm", expand_number_with_sep(caps.get(1).unwrap().as_str()))
     }).to_string();
 
-    result = RE_UNITS_WITH_NUM.replace_all(&result, |caps: &Captures| {
+    // CHỮ ĐƠN VIẾT HOA sau số: mặc định là mã hiệu -> giữ nguyên cho pass
+    // chữ-số đánh vần ("51M" -> "mờ", "12B" -> "bê", "5S" -> "ét"). Chỉ đọc
+    // thành đơn vị khi có ngữ cảnh:
+    //   - số THẬP PHÂN ("3.2M", "1.25B", "1.5L"): mã hiệu không có phần lẻ;
+    //   - M/B/K + từ dẫn tiền trước ("lương 20M") hoặc từ tiền/lượng sau
+    //     ("5M USD", "2B đồng") -> triệu/tỷ/nghìn;
+    //   - L + vật chứa đứng trước ("chai 2L") -> lít.
+    // Ngoại lệ: "W" luôn là oát (không nằm trong seri mã hiệu thông dụng);
+    // "G" không bao giờ là gam (5G/4G là thế hệ mạng). Chữ THƯỜNG giữ nguyên
+    // nghĩa đơn vị ("24h", "450g", "30m", "15s").
+    let units_src = result.clone();
+    result = RE_UNITS_WITH_NUM.replace_all(&units_src, |caps: &Captures| {
+        let m0 = caps.get(0).unwrap();
         let num = caps.get(1).unwrap().as_str();
         let mag = caps.get(2).map_or("", |m: fancy_regex::Match| m.as_str());
         let unit = caps.get(3).unwrap().as_str();
-        
-        // Skip uppercase 'G' so it is handled by letter expansion (e.g. 5G -> năm gờ)
-        if unit == "G" {
-            return caps.get(0).unwrap().as_str().to_string();
+
+        let is_upper_single = unit.len() == 1
+            && unit.chars().next().unwrap().is_ascii_uppercase();
+        if is_upper_single && unit != "W" {
+            let is_decimal = num.contains('.') || num.contains(',');
+            let lead = last_word_before(&units_src, m0.start());
+            let after = first_word_after(&units_src, m0.end());
+            let money_ok = matches!(unit, "M" | "B" | "K")
+                && (MONEY_LEAD_WORDS.contains(lead.as_str())
+                    || MONEY_AFTER_WORDS.contains(after.as_str()));
+            let liter_ok = unit == "L" && CONTAINER_LEAD_WORDS.contains(lead.as_str());
+            if unit == "G" || !(is_decimal || money_ok || liter_ok) {
+                return m0.as_str().to_string();
+            }
+        }
+
+        // Đơn vị MỘT chữ cái mà NGAY SAU là một chữ cái đơn khác ("2 b c" do
+        // công thức "2bc" đã tách) -> chuỗi biến, không phải đơn vị. Chừa
+        // "x" đứng sau (phép nhân "5 m x 20 m" vẫn là mét).
+        if unit.chars().count() == 1 {
+            let after = first_word_after(&units_src, m0.end());
+            if after.chars().count() == 1
+                && after.chars().all(|c| c.is_ascii_alphabetic())
+                && after != "x"
+            {
+                return m0.as_str().to_string();
+            }
         }
 
         let full = if unit == "M" {
             "triệu"
+        } else if unit == "B" {
+            "tỷ"
+        } else if unit == "K" {
+            "nghìn"
         } else if unit == "m" {
             "mét"
         } else {
@@ -258,8 +343,13 @@ pub fn expand_compound_units(text: &str) -> String {
                 let l1 = VI_LETTER_NAMES.get(u1_lower.as_str()).cloned().unwrap_or(u1_raw).to_string();
                 let l2 = VI_LETTER_NAMES.get(u2_lower.as_str()).cloned().unwrap_or(u2_raw).to_string();
                 format!(" {} trên {} ", l1, l2)
-            } else {
+            } else if u1_is_unit && u2_is_unit {
                 format!(" {} trên {} ", get_unit(u1_raw), get_unit(u2_raw))
+            } else {
+                // Không có số đứng trước và không phải CẶP đơn vị thật ("ML/AI",
+                // "TP/HCM"...): giữ nguyên cho pass acronym + SYMBOLS_MAP ("/" ->
+                // "trên") xử lý, tránh "ML" bị đọc nhầm "mi li lít".
+                caps.get(0).unwrap().as_str().to_string()
             }
         } else {
             let num = expand_number_with_sep(num_str);

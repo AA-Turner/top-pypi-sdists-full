@@ -1,42 +1,48 @@
+from __future__ import annotations
+
 from typing import Optional
 
 from office365.runtime.client_result import ClientResult
-from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.paths.v3.static import StaticPath
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 from office365.sharepoint.client_context import ClientContext
 from office365.sharepoint.directory.members_info import MembersInfo
 from office365.sharepoint.directory.membership_result import MembershipResult
 from office365.sharepoint.directory.my_groups_result import MyGroupsResult
-from office365.sharepoint.directory.user import User
+from office365.sharepoint.directory.users.user import User
 from office365.sharepoint.entity import Entity
 from office365.sharepoint.entity_collection import EntityCollection
 
 
 class SPHelper(Entity):
-    def __init__(self, context):
-        super(SPHelper, self).__init__(context, ResourcePath("SP.Directory.SPHelper"))
+    @property
+    def resource_path(self):
+        if self._resource_path is None:
+            self._resource_path = StaticPath("SP.Directory.SPHelper")
+        return self._resource_path
 
     @staticmethod
-    def is_member_of(context, principal_name, group_id, result=None):
-        # type: (ClientContext, str, str, Optional[ClientResult[bool]]) -> ClientResult[bool]
-        """
-        :param str principal_name: User principal name
-        :param str group_id: Group id
-        :param office365.sharepoint.client_context.ClientContext context: SharePoint context
-        :param ClientResult or None result: Client result
+    def is_member_of(
+        context: ClientContext,
+        principal_name: str,
+        group_id: str,
+        result: Optional[ClientResult[bool]] = None,
+    ) -> ClientResult[bool]:
+        """Args:
+        principal_name (str): User principal name
+        group_id (str): Group id
+        context (office365.sharepoint.client_context.ClientContext): SharePoint context
+        result (ClientResult or None): Client result
         """
         if result is None:
             result = ClientResult(context)
         payload = {"principalName": principal_name, "groupId": group_id}
-        qry = ServiceOperationQuery(
-            SPHelper(context), "IsMemberOf", None, payload, None, result, True
-        )
+        qry = ServiceOperationQuery(SPHelper(context), "IsMemberOf", None, payload, None, result, True)
         context.add_query(qry)
         return result
 
     @staticmethod
-    def check_site_availability(context, site_url):
-        # type: (ClientContext, str) -> ClientResult[bool]
+    def check_site_availability(context: ClientContext, site_url: str) -> ClientResult[bool]:
         """ """
         return_type = ClientResult(context)
         qry = ServiceOperationQuery(
@@ -53,25 +59,23 @@ class SPHelper(Entity):
 
     @staticmethod
     def get_membership(context, user_id):
-        """
-        :param office365.sharepoint.client_context.ClientContext context: SharePoint client context
-        :param str user_id: User's identifier
+        """Args:
+        context (office365.sharepoint.client_context.ClientContext): SharePoint client context
+        user_id (str): User's identifier
         """
         payload = {"userId": user_id}
         return_type = MembershipResult(context)
-        qry = ServiceOperationQuery(
-            SPHelper(context), "GetMembership", None, payload, None, return_type, True
-        )
+        qry = ServiceOperationQuery(SPHelper(context), "GetMembership", None, payload, None, return_type, True)
         context.add_query(qry)
         return return_type
 
     @staticmethod
     def get_members_info(context, group_id, row_limit, return_type=None):
-        """
-        :param office365.sharepoint.client_context.ClientContext context: SharePoint context
-        :param str group_id: User's login
-        :param int row_limit: Result offset
-        :param MembersInfo return_type: Result
+        """Args:
+        context (office365.sharepoint.client_context.ClientContext): SharePoint context
+        group_id (str): User's login
+        row_limit (int): Result offset
+        return_type (MembersInfo): Result
         """
         if return_type is None:
             return_type = MembersInfo(context)
@@ -79,76 +83,68 @@ class SPHelper(Entity):
             "groupId": group_id,
             "rowLimit": row_limit,
         }
-        qry = ServiceOperationQuery(
-            SPHelper(context), "GetMembersInfo", None, payload, None, return_type, True
-        )
+        qry = ServiceOperationQuery(SPHelper(context), "GetMembersInfo", None, payload, None, return_type, True)
         context.add_query(qry)
         return return_type
 
     @staticmethod
     def get_my_groups(context, logon_name, offset, length, return_type=None):
-        """
-        Retrieves information about groups that a user belongs to.
+        """Retrieves information about groups that a user belongs to.
 
-        :param office365.sharepoint.client_context.ClientContext context: SharePoint context
-        :param str logon_name: User's login
-        :param int offset: Result offset
-        :param int length: Results count
-        :param MyGroupsResult return_type: return type
+        Args:
+            context (office365.sharepoint.client_context.ClientContext): SharePoint context
+            logon_name (str): User's login
+            offset (int): Result offset
+            length (int): Results count
+            return_type (MyGroupsResult): return type
         """
         if return_type is None:
             return_type = MyGroupsResult(context)
         payload = {"logOnName": logon_name, "offset": offset, "len": length}
-        qry = ServiceOperationQuery(
-            SPHelper(context), "GetMyGroups", None, payload, None, return_type, True
-        )
+        qry = ServiceOperationQuery(SPHelper(context), "GetMyGroups", None, payload, None, return_type, True)
         context.add_query(qry)
         return return_type
 
     @staticmethod
     def get_members(context, group_id, return_type=None):
-        """
-        :param str group_id: Group identifier
-        :param office365.sharepoint.client_context.ClientContext context: SharePoint context
-        :param EntityCollection or None return_type: Returns members
+        """Args:
+        group_id (str): Group identifier
+        context (office365.sharepoint.client_context.ClientContext): SharePoint context
+        return_type (EntityCollection or None): Returns members
         """
         if return_type is None:
             return_type = EntityCollection(context, User)
-        qry = ServiceOperationQuery(
-            SPHelper(context), "GetMembers", [group_id], None, None, return_type
-        )
+        qry = ServiceOperationQuery(SPHelper(context), "GetMembers", [group_id], None, None, return_type)
         qry.static = True
         context.add_query(qry)
         return return_type
 
     @staticmethod
-    def get_owners(context, group_id, return_type=None):
-        # type: (ClientContext, str, Optional[EntityCollection[User]]) -> SPHelper
-        """
-        :param str group_id: Group identifier
-        :param office365.sharepoint.client_context.ClientContext context: SharePoint context
-        :param EntityCollection or None return_type: Returns members
+    def get_owners(
+        context: ClientContext,
+        group_id: str,
+        return_type: Optional[EntityCollection[User]] = None,
+    ) -> EntityCollection[User]:
+        """Args:
+        group_id (str): Group identifier
+        context (office365.sharepoint.client_context.ClientContext): SharePoint context
+        return_type (EntityCollection or None): Returns members
         """
         if return_type is None:
             return_type = EntityCollection(context, User)
-        qry = ServiceOperationQuery(
-            SPHelper(context), "GetOwners", [group_id], None, None, return_type
-        )
+        qry = ServiceOperationQuery(SPHelper(context), "GetOwners", [group_id], None, None, return_type)
         qry.static = True
         context.add_query(qry)
         return return_type
 
     @staticmethod
-    def remove_external_members(context, group_id):
-        # type: (ClientContext, str) -> SPHelper
-        """
-        :param str group_id: Group identifier
-        :param office365.sharepoint.client_context.ClientContext context: SharePoint context
+    def remove_external_members(context: ClientContext, group_id: str) -> SPHelper:
+        """Args:
+        group_id (str): Group identifier
+        context (office365.sharepoint.client_context.ClientContext): SharePoint context
         """
         binding_type = SPHelper(context)
-        qry = ServiceOperationQuery(
-            binding_type, "RemoveExternalMembers", [group_id], is_static=True
-        )
+        qry = ServiceOperationQuery(binding_type, "RemoveExternalMembers", [group_id], is_static=True)
         context.add_query(qry)
         return binding_type
 

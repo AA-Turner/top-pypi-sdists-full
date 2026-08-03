@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import random
 import string
 import uuid
@@ -13,30 +15,30 @@ class DeviceCollection(DeltaCollection[Device]):
     """Device's collection"""
 
     def __init__(self, context, resource_path=None):
-        super(DeviceCollection, self).__init__(context, Device, resource_path)
+        super().__init__(context, Device, resource_path)
 
     def add(
         self,
-        display_name,
-        operating_system,
-        operating_system_version,
-        account_enabled=False,
-        alternative_security_id=None,
-        device_id=None,
+        display_name: str,
+        operating_system: str,
+        operating_system_version: str,
+        account_enabled: bool = False,
+        alternative_security_id: AlternativeSecurityId | None = None,
+        device_id: str | None = None,
     ):
         """Create and register a new device in the organization.
-        :param str display_name: The display name for the device
-        :param str operating_system:
-        :param str operating_system_version:
-        :param bool account_enabled:
-        :param AlternativeSecurityId alternative_security_id:
-        :param str device_id:
+
+        Args:
+            display_name (str): The display name for the device
+            operating_system (str):
+            operating_system_version (str):
+            account_enabled (bool):
+            alternative_security_id (AlternativeSecurityId):
+            device_id (str):
         """
 
         if alternative_security_id is None:
-            key_id = "base64" + "".join(
-                random.choice(string.ascii_lowercase + string.digits) for _ in range(10)
-            )
+            key_id = "base64" + "".join(random.choice(string.ascii_lowercase + string.digits) for _ in range(10))
             alternative_security_id = AlternativeSecurityId(2, key_id)
         if device_id is None:
             device_id = str(uuid.uuid4())

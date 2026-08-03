@@ -16,6 +16,7 @@ from .requests.next import (
     AgentInstallerInstructions,
     Agents,
     AliveTest,
+    AuditReport,
     Credentials,
     CredentialStoreCredentialType,
     CredentialStores,
@@ -30,12 +31,14 @@ from .requests.next import (
     ReportPorts,
     ReportTlsCertificates,
     ReportVulnerabilities,
+    ScanReports,
     Targets,
     Tasks,
     WebApplicationTargets,
 )
 from .requests.v224 import AliveTest as AliveTestV224
 from .requests.v224 import HostsOrdering
+from .requests.v226 import ReportFormatType
 
 
 class GMPNext(GMPv227[T]):
@@ -1089,6 +1092,36 @@ class GMPNext(GMPv227[T]):
             )
         )
 
+    def get_audit_report_hosts(
+        self,
+        report_id: EntityID,
+        *,
+        filter_string: str | None = None,
+        filter_id: str | None = None,
+        ignore_pagination: bool | None = None,
+        details: bool | None = True,
+    ) -> T:
+        """Request hosts of a single audit report.
+
+        Args:
+            report_id: UUID of an existing report.
+            filter_string: Filter term to use to filter results in the report
+            filter_id: UUID of filter to use to filter results in the report
+            ignore_pagination: Whether to ignore the filter terms "first" and
+                "rows".
+            details: Request additional report host information details.
+                Defaults to True.
+        """
+        return self._send_request_and_transform_response(
+            ReportHosts.get_audit_report_hosts(
+                report_id=report_id,
+                filter_string=filter_string,
+                filter_id=filter_id,
+                ignore_pagination=ignore_pagination,
+                details=details,
+            )
+        )
+
     def get_report_operating_systems(
         self,
         report_id: EntityID,
@@ -1641,4 +1674,87 @@ class GMPNext(GMPv227[T]):
                 trash=trash,
                 tasks=tasks,
             )
+        )
+
+    def get_scan_report(
+        self,
+        scan_report_id: EntityID,
+        *,
+        filter_string: str | None = None,
+        filter_id: str | None = None,
+    ) -> T:
+        """ "Request a structured summary of a single scan report.
+
+        Args:
+            scan_report_id: UUID of an existing scan report.
+            filter_string: Filter term to apply to the report results.
+            filter_id: UUID of a saved filter to apply to the report results.
+
+        Returns:
+            A request for the get_scan_report GMP command.
+
+        Raises:
+            RequiredArgument: If scan_report_id is not provided.
+        """
+        return self._send_request_and_transform_response(
+            ScanReports.get_scan_report(
+                scan_report_id=scan_report_id,
+                filter_string=filter_string,
+                filter_id=filter_id,
+            )
+        )
+
+    def get_audit_report(  # type: ignore[override]
+        self,
+        audit_report_id: EntityID,
+        *,
+        filter_string: str | None = None,
+        filter_id: str | None = None,
+    ) -> T:
+        """Request a structured summary of a single audit report.
+
+        Args:
+            audit_report_id: UUID of an existing audit report.
+            filter_string: Filter term to apply to the report results.
+            filter_id: UUID of a saved filter to apply to the report results.
+
+        Returns:
+            A request for the get_audit_report GMP command.
+
+        Raises:
+            RequiredArgument: If audit_report_id is not provided.
+        """
+        return self._send_request_and_transform_response(
+            AuditReport.get_audit_report(
+                audit_report_id=audit_report_id,
+                filter_string=filter_string,
+                filter_id=filter_id,
+            )
+        )
+
+    def get_audit_report_legacy(
+        self,
+        report_id: EntityID,
+        *,
+        filter_string: str | None = None,
+        filter_id: str | None = None,
+        delta_report_id: EntityID | None = None,
+        report_format_id: str | ReportFormatType | None = None,
+        ignore_pagination: bool | None = None,
+        details: bool | None = True,
+    ) -> T:
+        """Request an audit report using the legacy command.
+
+        Deprecated:
+            Use ``get_audit_report`` instead. This method will be removed
+            in the next major release.
+        """
+        return super().get_audit_report(
+            report_id,
+            filter_string=filter_string,
+            filter_id=filter_id,
+            delta_report_id=delta_report_id,
+            report_format_id=report_format_id,
+            ignore_pagination=ignore_pagination,
+            details=details,
         )

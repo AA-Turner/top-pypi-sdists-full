@@ -1,23 +1,28 @@
-from office365.delta_collection import DeltaCollection
+from __future__ import annotations
+
+from office365.count_collection import CountCollection
 from office365.directory.groups.group import Group
 from office365.directory.groups.profile import GroupProfile
+from office365.directory.permissions.require_permission import require_permission
 from office365.runtime.queries.create_entity import CreateEntityQuery
+from office365.runtime.types.collections import StringCollection
 
 
-class GroupCollection(DeltaCollection[Group]):
+class GroupCollection(CountCollection[Group]):
     """Group's collection"""
 
     def __init__(self, context, resource_path=None):
-        super(GroupCollection, self).__init__(context, Group, resource_path)
+        super().__init__(context, Group, resource_path)
 
-    def add(self, group_properties):
-        """
-        Create a Group resource.
+    @require_permission(delegated=["Group.ReadWrite.All"], application=["Group.ReadWrite.All"])
+    def add(self, group_properties: GroupProfile) -> Group:
+        """Create a Group resource.
         You can create the following types of groups:
-           - Microsoft 365 group (unified group)
-           - Security group
+        - Microsoft 365 group (unified group)
+        - Security group
 
-        :param GroupProfile group_properties: Group properties
+        Args:
+            group_properties (GroupProfile): Group properties
         """
         return_type = Group(self.context)
         self.add_child(return_type)
@@ -25,44 +30,73 @@ class GroupCollection(DeltaCollection[Group]):
         self.context.add_query(qry)
         return return_type
 
-    def create_m365(self, name, description=None, owner=None):
-        """
-        Creates a Microsoft 365 group.
+    @require_permission(delegated=["Group.ReadWrite.All"], application=["Group.ReadWrite.All"])
+    def create_m365(
+        self,
+        name: str,
+        description: str | None = None,
+        owners: list[str] | None = None,
+        members: list[str] | None = None,
+    ) -> Group:
+        """Creates a Microsoft 365 group.
         If the owners have not been specified, the calling user is automatically added as the owner of the group.
-        :param str name: The display name for the group
-        :param str description: An optional description for the group
-        :param str owner: The group owner
+
+        Args:
+            name (str): The display name for the group
+            description (str): An optional description for the group
+            owners (list[str]): The group owners
+            members (list[str]): The group members
         """
-        params = GroupProfile(name, description, True, False, ["Unified"])
+        params = GroupProfile(
+            mailNickname=name,
+            displayName=name,
+            description=description,
+            mailEnabled=True,
+            securityEnabled=False,
+            groupTypes=StringCollection(["Unified"]),
+            owners=owners,
+            members=members,
+        )
         return self.add(params)
 
-    def create_security(self, name, description=None):
+    @require_permission(delegated=["Group.ReadWrite.All"], application=["Group.ReadWrite.All"])
+    def create_security(self, name: str, description: str | None = None) -> Group:
+        """Creates a Security group
+
+        Args:
+            name (str): The display name for the group
+            description (str): An optional description for the group
         """
-        Creates a Security group
-        :param str name: The display name for the group
-        :param str description: An optional description for the group
-        """
-        params = GroupProfile(name, description, False, True, [])
+        params = GroupProfile(
+            mailNickname=name,
+            displayName=name,
+            description=description,
+            mailEnabled=False,
+            securityEnabled=True,
+            groupTypes=StringCollection(),
+        )
         return self.add(params)
 
-    def create_with_team(self, group_name):
-        """
-        Provision a new group along with a team.
+    @require_permission(
+        delegated=["Group.ReadWrite.All", "Team.Create"], application=["Group.ReadWrite.All", "Team.Create"]
+    )
+    def create_with_team(self, group_name: str) -> Group:
+        """Provision a new group along with a team.
 
         Note: After the group is successfully created, which can take up to 15 minutes,
         create a Microsoft Teams team using this method could throw an error since
         the group creation process might not be completed. For that scenario prefer submit the request to server via
         execute_query_retry instead of execute_query when using this method.
-        :param str group_name: The display name for the group
+
+        Args:
+            group_name (str): The display name for the group
         """
 
-        def _after_group_created(return_type):
-            # type: (Group) -> None
+        def _after_group_created(return_type: Group) -> None:
             return_type.add_team()
 
         return self.create_m365(group_name).after_execute(_after_group_created)
 
-    def get_by_name(self, name):
-        # type: (str) -> Group
+    def get_by_name(self, name: str) -> Group:
         """Retrieves group by displayName"""
-        return self.single("displayName eq '{0}'".format(name))
+        return self.single(f"displayName eq '{name}'")

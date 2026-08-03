@@ -1,10 +1,12 @@
+from datetime import datetime
 from typing import Optional
 
-from office365.directory.object import DirectoryObject
-from office365.directory.object_collection import DirectoryObjectCollection
+from office365.directory.objects.collection import DirectoryObjectCollection
+from office365.directory.objects.object import DirectoryObject
 from office365.intune.devices.alternative_security_id import AlternativeSecurityId
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.types.odata_property import odata
 
 
 class Device(DirectoryObject):
@@ -18,78 +20,87 @@ class Device(DirectoryObject):
         return self.device_id or self.entity_type_name
 
     @property
-    def alternative_security_ids(self):
-        """For internal use only."""
-        return self.properties.get(
-            "alternativeSecurityIds", ClientValueCollection(AlternativeSecurityId)
-        )
+    def entity_type_name(self) -> str:
+        return "microsoft.graph.Device"
 
     @property
-    def device_id(self):
-        # type: () -> Optional[str]
+    def account_enabled(self) -> Optional[bool]:
+        """true if the account is enabled; otherwise, false. Required. Default is true.
+
+        Supports $filter (eq, ne, not, in). Only callers with at least the Cloud Device Administrator
+        role can set this property."""
+        return self.properties.get("accountEnabled", None)
+
+    @odata(name="alternativeSecurityIds")
+    @property
+    def alternative_security_ids(self) -> ClientValueCollection[AlternativeSecurityId]:
+        """For internal use only."""
+        return self.properties.get("alternativeSecurityIds", ClientValueCollection(AlternativeSecurityId))
+
+    @odata(name="approximateLastSignInDateTime")
+    @property
+    def approximate_last_signin_datetime(self) -> datetime:
+        """The timestamp type represents date and time information using ISO 8601 format and is always in UTC time.
+        For example, midnight UTC on Jan 1, 2014 is 2014-01-01T00:00:00Z. Read-only.
+        Supports $filter (eq, ne, not, ge, le, and eq on null values) and $orderby."""
+        return self.properties.get("approximateLastSignInDateTime", datetime.min)
+
+    @odata(name="complianceExpirationDateTime")
+    @property
+    def compliance_expiration_datetime(self) -> datetime:
+        """The timestamp when the device is no longer deemed compliant. The timestamp type represents date and
+        time information using ISO 8601 format and is always in UTC time.
+        For example, midnight UTC on Jan 1, 2014 is 2014-01-01T00:00:00Z. Read-only."""
+        return self.properties.get("complianceExpirationDateTime", datetime.min)
+
+    @property
+    def device_id(self) -> Optional[str]:
         """Unique identifier set by Azure Device Registration Service at the time of registration.
         This is an alternate key that can be used to reference the device object."""
         return self.properties.get("deviceId", None)
 
     @property
-    def device_ownership(self):
-        # type: () -> Optional[str]
+    def device_ownership(self) -> Optional[str]:
         """Ownership of the device. This property is set by Intune. Possible values are: unknown, company, personal."""
         return self.properties.get("deviceOwnership", None)
 
+    @odata(name="memberOf")
     @property
-    def member_of(self):
+    def member_of(self) -> DirectoryObjectCollection:
         """Groups and administrative units that this device is a member of."""
         return self.properties.get(
             "memberOf",
-            DirectoryObjectCollection(
-                self.context, ResourcePath("memberOf", self.resource_path)
-            ),
+            DirectoryObjectCollection(self.context, ResourcePath("memberOf", self.resource_path)),
         )
 
+    @odata(name="registeredOwners")
     @property
-    def registered_owners(self):
+    def registered_owners(self) -> DirectoryObjectCollection:
         """The user that cloud joined the device or registered their personal device.
         The registered owner is set at the time of registration. Currently, there can be only one owner.
         """
         return self.properties.get(
             "registeredOwners",
-            DirectoryObjectCollection(
-                self.context, ResourcePath("registeredOwners", self.resource_path)
-            ),
+            DirectoryObjectCollection(self.context, ResourcePath("registeredOwners", self.resource_path)),
         )
 
+    @odata(name="registeredUsers")
     @property
-    def registered_users(self):
+    def registered_users(self) -> DirectoryObjectCollection:
         """Collection of registered users of the device. For cloud joined devices and registered personal devices,
         registered users are set to the same value as registered owners at the time of registration.
         """
         return self.properties.get(
             "registeredUsers",
-            DirectoryObjectCollection(
-                self.context, ResourcePath("registeredUsers", self.resource_path)
-            ),
+            DirectoryObjectCollection(self.context, ResourcePath("registeredUsers", self.resource_path)),
         )
 
+    @odata(name="transitiveMemberOf")
     @property
-    def transitive_member_of(self):
+    def transitive_member_of(self) -> DirectoryObjectCollection:
         """Get groups, directory roles that the user is a member of. This API request is transitive, and will also
         return all groups the user is a nested member of."""
         return self.properties.get(
             "transitiveMemberOf",
-            DirectoryObjectCollection(
-                self.context, ResourcePath("transitiveMemberOf", self.resource_path)
-            ),
+            DirectoryObjectCollection(self.context, ResourcePath("transitiveMemberOf", self.resource_path)),
         )
-
-    def get_property(self, name, default_value=None):
-        if default_value is None:
-            property_mapping = {
-                "alternativeSecurityIds": self.alternative_security_ids,
-                "memberOf": self.member_of,
-                "registeredOwners": self.registered_owners,
-                "registeredUsers": self.registered_users,
-                "transitiveMemberOf": self.transitive_member_of,
-            }
-            default_value = property_mapping.get(name, None)
-        return super(Device, self).get_property(name, default_value)

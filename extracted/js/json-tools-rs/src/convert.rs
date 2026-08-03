@@ -5,9 +5,11 @@
 //! (EU comma decimals, accounting negatives) with SIMD-accelerated cleaning.
 
 use chrono::{DateTime, Datelike, NaiveDate, NaiveDateTime, Timelike, Utc};
+use compact_str::CompactString;
 use memchr::{memchr, memchr2, memchr3, memchr_iter};
 use smallvec::SmallVec;
 use std::borrow::Cow;
+use std::fmt::Write as _;
 
 use crate::config::{
     BooleanConversionConfig, DateConversionConfig, NullConversionConfig, NumberConversionConfig,
@@ -1267,12 +1269,71 @@ fn is_null_string_configured(s: &str, cfg: &NullConversionConfig) -> bool {
     is_null_string(s) || cfg.extra_tokens.iter().any(|t| t == s)
 }
 
+/// Result of a string→JSON-token conversion: either a slice borrowed straight from
+/// the input (the token/passthrough cases — "null", "true"/"false", an already-
+/// canonical integer literal) or a computed value (numbers re-formatted through
+/// `f64`, normalized dates). `Owned` uses `CompactString` rather than `String` so
+/// short computed values (the overwhelmingly common case: bools, small integers)
+/// stay on the stack instead of heap-allocating — same tradeoff already applied to
+/// this crate's `CompactKeyBuilder`/`IntBuf`/`ValueRef::Owned`. A plain `Cow<str>`
+/// can't do this: its `Owned` variant is a `String`, so *every* computed value
+/// (even "0" or "true") would heap-allocate regardless of length.
+pub(crate) enum ConvertedStr<'a> {
+    Borrowed(&'a str),
+    Owned(CompactString),
+}
+
+impl<'a> ConvertedStr<'a> {
+    #[inline]
+    fn as_str(&self) -> &str {
+        match self {
+            ConvertedStr::Borrowed(s) => s,
+            ConvertedStr::Owned(s) => s.as_str(),
+        }
+    }
+
+    /// Matches `Cow::into_owned`'s name so call sites that only need a root-level
+    /// (non-hot-path) owned `String` don't need to change.
+    #[inline]
+    pub(crate) fn into_owned(self) -> String {
+        match self {
+            ConvertedStr::Borrowed(s) => s.to_string(),
+            ConvertedStr::Owned(s) => s.into_string(),
+        }
+    }
+}
+
+impl<'a> std::ops::Deref for ConvertedStr<'a> {
+    type Target = str;
+    #[inline]
+    fn deref(&self) -> &str {
+        self.as_str()
+    }
+}
+
+impl<'a> PartialEq<&str> for ConvertedStr<'a> {
+    #[inline]
+    fn eq(&self, other: &&str) -> bool {
+        self.as_str() == *other
+    }
+}
+
+impl<'a> From<ConvertedStr<'a>> for CompactString {
+    #[inline]
+    fn from(c: ConvertedStr<'a>) -> Self {
+        match c {
+            ConvertedStr::Borrowed(s) => CompactString::from(s),
+            ConvertedStr::Owned(s) => s,
+        }
+    }
+}
+
 /// Try to convert a string value to its native JSON representation.
 /// Returns `Some(json_bytes)` if the string can be converted (e.g., "123" → "123", "true" → "true",
 /// "null" → "null"), or `None` if the string should remain as-is.
 /// The returned string is valid JSON (NOT quoted — e.g., `123` not `"123"`).
 #[inline]
-pub(crate) fn try_convert_string_to_json_bytes(s: &str) -> Option<Cow<'_, str>> {
+pub(crate) fn try_convert_string_to_json_bytes(s: &str) -> Option<ConvertedStr<'_>> {
     if s.is_empty() {
         return None;
     }
@@ -1287,31 +1348,37 @@ pub(crate) fn try_convert_string_to_json_bytes(s: &str) -> Option<Cow<'_, str>> 
         // Null patterns
         b'n' | b'N' => {
             if is_null_string(trimmed) {
-                return Some(Cow::Borrowed("null"));
+                return Some(ConvertedStr::Borrowed("null"));
             }
             if let Some(b) = try_parse_bool(trimmed) {
-                return Some(Cow::Borrowed(if b { "true" } else { "false" }));
+                return Some(ConvertedStr::Borrowed(if b { "true" } else { "false" }));
             }
             None
         }
         // Boolean patterns
-        b't' | b'T' | b'f' | b'F' | b'y' | b'Y' | b'o' | b'O' => {
-            try_parse_bool(trimmed).map(|b| Cow::Borrowed(if b { "true" } else { "false" }))
-        }
+        b't' | b'T' | b'f' | b'F' | b'y' | b'Y' | b'o' | b'O' => try_parse_bool(trimmed)
+            .map(|b| ConvertedStr::Borrowed(if b { "true" } else { "false" })),
         // Number/date patterns
         b'0'..=b'9' | b'-' | b'+' | b'.' | b'$' | b'(' | b'[' => {
             // Boolean for "0", "1"
             if first_byte == b'0' || first_byte == b'1' {
                 if let Some(b) = try_parse_bool(trimmed) {
-                    return Some(Cow::Borrowed(if b { "true" } else { "false" }));
+                    return Some(ConvertedStr::Borrowed(if b { "true" } else { "false" }));
                 }
             }
             // Date detection before number
             if could_be_date(trimmed) {
                 if let Some(normalized_date) = try_parse_and_normalize_iso8601(trimmed) {
                     if normalized_date != trimmed {
-                        // Return as JSON string (quoted)
-                        return Some(Cow::Owned(format!("\"{}\"", normalized_date)));
+                        // Return as JSON string (quoted) -- built directly into the
+                        // CompactString buffer instead of `format!` (which would
+                        // allocate a throwaway String first) to keep this a single
+                        // allocation, same pattern as flatten.rs's escaped-value build.
+                        let mut buf = CompactString::with_capacity(normalized_date.len() + 2);
+                        buf.push('"');
+                        buf.push_str(&normalized_date);
+                        buf.push('"');
+                        return Some(ConvertedStr::Owned(buf));
                     }
                     return None; // Date but no normalization needed — keep original
                 }
@@ -1319,7 +1386,7 @@ pub(crate) fn try_convert_string_to_json_bytes(s: &str) -> Option<Cow<'_, str>> 
             // Number conversion -- fast path first (see `canonical_json_integer`'s
             // doc comment): skips the float round-trip entirely for the common case.
             if let Some(fast) = canonical_json_integer(trimmed) {
-                return Some(Cow::Borrowed(fast));
+                return Some(ConvertedStr::Borrowed(fast));
             }
             if let Some(num) = try_parse_number(trimmed) {
                 return f64_to_json_bytes(num);
@@ -1352,7 +1419,7 @@ pub(crate) fn try_convert_string_to_json_bytes(s: &str) -> Option<Cow<'_, str>> 
 pub(crate) fn try_convert_string_to_json_bytes_configured<'a>(
     s: &'a str,
     cfg: &TypeConversionConfig,
-) -> Option<Cow<'a, str>> {
+) -> Option<ConvertedStr<'a>> {
     if s.is_empty() {
         return None;
     }
@@ -1363,13 +1430,14 @@ pub(crate) fn try_convert_string_to_json_bytes_configured<'a>(
     }
 
     let first_byte = trimmed.as_bytes()[0];
-    let result: Option<Cow<'a, str>> = match first_byte {
+    let result: Option<ConvertedStr<'a>> = match first_byte {
         // Null patterns
         b'n' | b'N' => {
             if cfg.nulls.enabled && is_null_string(trimmed) {
-                Some(Cow::Borrowed("null"))
+                Some(ConvertedStr::Borrowed("null"))
             } else if cfg.booleans.enabled {
-                try_parse_bool(trimmed).map(|b| Cow::Borrowed(if b { "true" } else { "false" }))
+                try_parse_bool(trimmed)
+                    .map(|b| ConvertedStr::Borrowed(if b { "true" } else { "false" }))
             } else {
                 None
             }
@@ -1377,7 +1445,8 @@ pub(crate) fn try_convert_string_to_json_bytes_configured<'a>(
         // Boolean patterns
         b't' | b'T' | b'f' | b'F' | b'y' | b'Y' | b'o' | b'O' => {
             if cfg.booleans.enabled {
-                try_parse_bool(trimmed).map(|b| Cow::Borrowed(if b { "true" } else { "false" }))
+                try_parse_bool(trimmed)
+                    .map(|b| ConvertedStr::Borrowed(if b { "true" } else { "false" }))
             } else {
                 None
             }
@@ -1387,14 +1456,18 @@ pub(crate) fn try_convert_string_to_json_bytes_configured<'a>(
             // Boolean for "0", "1"
             if cfg.booleans.enabled && (first_byte == b'0' || first_byte == b'1') {
                 if let Some(b) = try_parse_bool(trimmed) {
-                    return Some(Cow::Borrowed(if b { "true" } else { "false" }));
+                    return Some(ConvertedStr::Borrowed(if b { "true" } else { "false" }));
                 }
             }
             // Date detection before number
             if cfg.dates.enabled && could_be_date(trimmed) {
                 match try_parse_and_normalize_iso8601_configured(trimmed, &cfg.dates) {
                     DateMatch::Normalized(normalized) => {
-                        return Some(Cow::Owned(format!("\"{}\"", normalized)));
+                        let mut buf = CompactString::with_capacity(normalized.len() + 2);
+                        buf.push('"');
+                        buf.push_str(&normalized);
+                        buf.push('"');
+                        return Some(ConvertedStr::Owned(buf));
                     }
                     DateMatch::Unchanged => return None,
                     DateMatch::NotADate => {}
@@ -1402,7 +1475,7 @@ pub(crate) fn try_convert_string_to_json_bytes_configured<'a>(
             }
             if cfg.numbers.enabled {
                 if let Some(fast) = canonical_json_integer(trimmed) {
-                    Some(Cow::Borrowed(fast))
+                    Some(ConvertedStr::Borrowed(fast))
                 } else {
                     try_parse_number_configured(trimmed, &cfg.numbers).and_then(f64_to_json_bytes)
                 }
@@ -1425,11 +1498,11 @@ pub(crate) fn try_convert_string_to_json_bytes_configured<'a>(
     }
 
     if cfg.nulls.enabled && is_null_string_configured(trimmed, &cfg.nulls) {
-        return Some(Cow::Borrowed("null"));
+        return Some(ConvertedStr::Borrowed("null"));
     }
     if cfg.booleans.enabled {
         if let Some(b) = try_parse_bool_configured(trimmed, &cfg.booleans) {
-            return Some(Cow::Borrowed(if b { "true" } else { "false" }));
+            return Some(ConvertedStr::Borrowed(if b { "true" } else { "false" }));
         }
     }
     None
@@ -1447,7 +1520,7 @@ pub(crate) fn convert_string_for_mode<'a>(
     s: &'a str,
     mode: TypeConversionMode,
     cfg: &TypeConversionConfig,
-) -> Option<Cow<'a, str>> {
+) -> Option<ConvertedStr<'a>> {
     match mode {
         TypeConversionMode::Disabled => None,
         TypeConversionMode::AllDefault => try_convert_string_to_json_bytes(s),
@@ -1524,17 +1597,29 @@ fn canonical_json_integer(s: &str) -> Option<&str> {
 /// Convert f64 to a JSON number string representation.
 /// Returns None for NaN or Infinity. Converts to integer representation when possible.
 #[inline]
-fn f64_to_json_bytes(num: f64) -> Option<Cow<'static, str>> {
+fn f64_to_json_bytes(num: f64) -> Option<ConvertedStr<'static>> {
     if num.is_finite() && num.fract() == 0.0 {
+        // Write straight into the CompactString's inline buffer instead of going
+        // through `.to_string()` (which always heap-allocates a `String` first) --
+        // i64/u64 are at most 20 digits + sign, comfortably within the 24-byte
+        // inline capacity, so this is stack-only for every integer-valued float.
         if num >= i64::MIN as f64 && num <= i64::MAX as f64 {
-            return Some(Cow::Owned((num as i64).to_string()));
+            let mut buf = CompactString::default();
+            let _ = write!(buf, "{}", num as i64);
+            return Some(ConvertedStr::Owned(buf));
         }
         if num >= 0.0 && num <= u64::MAX as f64 {
-            return Some(Cow::Owned((num as u64).to_string()));
+            let mut buf = CompactString::default();
+            let _ = write!(buf, "{}", num as u64);
+            return Some(ConvertedStr::Owned(buf));
         }
     }
-    // Use serde_json for correct float formatting (uses ryu internally)
-    serde_json::Number::from_f64(num).map(|n| Cow::Owned(n.to_string()))
+    // Use serde_json for correct float formatting (uses ryu internally).
+    // Non-integer floats commonly exceed the inline capacity anyway, so this
+    // still heap-allocates via `.to_string()` -- `CompactString::from(String)`
+    // reuses that buffer rather than copying it again.
+    serde_json::Number::from_f64(num)
+        .map(|n| ConvertedStr::Owned(CompactString::from(n.to_string())))
 }
 
 /// SIMD-accelerated copy skipping exactly 4 specified bytes.

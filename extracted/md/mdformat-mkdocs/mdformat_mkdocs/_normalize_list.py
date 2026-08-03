@@ -134,16 +134,23 @@ def _is_parent_line(prev_line: LineResult, parsed: ParsedLine) -> bool:
     )
 
 
+NUMBERED_SYNTAX = {Syntax.LIST_NUMBERED, Syntax.CODE_NUMBERED}
+
+
 def _is_peer_list_line(prev_line: LineResult, parsed: ParsedLine) -> bool:
-    """Return True if two list items share the same scope and level."""
+    """Return True if two list items share the same scope, level, and marker kind."""
     list_types = {
         *SYNTAX_CODE_LIST,
         Syntax.LIST_BULLETED,
         Syntax.LIST_NUMBERED,
     }
+    same_marker_kind = (parsed.syntax in NUMBERED_SYNTAX) == (
+        prev_line.parsed.syntax in NUMBERED_SYNTAX
+    )
     return (
         parsed.syntax in list_types
         and prev_line.parsed.syntax in list_types
+        and same_marker_kind
         and len(parsed.indent) == len(prev_line.parsed.indent)
     )
 
@@ -411,7 +418,8 @@ def _format_new_content(line: LineResult, inc_numbers: bool, is_code: bool) -> s
             first_peer = (
                 line.prev_list_peers[-1] if line.prev_list_peers else line.parsed
             )
-            base_num = 0 if first_peer.content.startswith("0.") else 1
+            first_match = RE_LIST_ITEM.fullmatch(first_peer.content)
+            base_num = int(first_match["bullet"][:-1]) if first_match else 1
             counter = len(line.prev_list_peers) + base_num if inc_numbers else base_num
             new_bullet = f"{counter}."
         new_content = f"{new_bullet} {list_match['item']}"

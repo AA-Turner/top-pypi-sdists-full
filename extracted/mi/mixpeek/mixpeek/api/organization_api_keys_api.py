@@ -17,8 +17,9 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
-from pydantic import StrictBool, StrictStr
+from pydantic import Field, StrictBool, StrictStr
 from typing import Any, Dict, Optional
+from typing_extensions import Annotated
 from mixpeek.models.api_key_create_request import APIKeyCreateRequest
 from mixpeek.models.api_key_create_response import APIKeyCreateResponse
 from mixpeek.models.api_key_model import APIKeyModel
@@ -354,6 +355,7 @@ class OrganizationAPIKeysApi:
         self,
         user_email: StrictStr,
         key_name: StrictStr,
+        force: Annotated[Optional[StrictBool], Field(description="Revoke even when a live published app still embeds this key. Without it, the call is refused and names the apps that would break. Use force for a COMPROMISED key, where breaking them is the point.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -369,12 +371,14 @@ class OrganizationAPIKeysApi:
     ) -> GenericSuccessResponse:
         """Delete Api Key
 
-        Revoke an API key.  🔒 The \"admin-key\" is protected and cannot be deleted.
+        Revoke an API key.  🔒 The \"admin-key\" is protected and cannot be deleted.  Refuses when a live published app still embeds this key, naming the app (MF-413). A 2026-06-03 revocation killed 2 published apps for seven weeks because nothing in this path looked for references and the call reported success.
 
         :param user_email: (required)
         :type user_email: str
         :param key_name: (required)
         :type key_name: str
+        :param force: Revoke even when a live published app still embeds this key. Without it, the call is refused and names the apps that would break. Use force for a COMPROMISED key, where breaking them is the point.
+        :type force: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -400,6 +404,7 @@ class OrganizationAPIKeysApi:
         _param = self._delete_key_organizations_users_email_name_serialize(
             user_email=user_email,
             key_name=key_name,
+            force=force,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -431,6 +436,7 @@ class OrganizationAPIKeysApi:
         self,
         user_email: StrictStr,
         key_name: StrictStr,
+        force: Annotated[Optional[StrictBool], Field(description="Revoke even when a live published app still embeds this key. Without it, the call is refused and names the apps that would break. Use force for a COMPROMISED key, where breaking them is the point.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -446,12 +452,14 @@ class OrganizationAPIKeysApi:
     ) -> ApiResponse[GenericSuccessResponse]:
         """Delete Api Key
 
-        Revoke an API key.  🔒 The \"admin-key\" is protected and cannot be deleted.
+        Revoke an API key.  🔒 The \"admin-key\" is protected and cannot be deleted.  Refuses when a live published app still embeds this key, naming the app (MF-413). A 2026-06-03 revocation killed 2 published apps for seven weeks because nothing in this path looked for references and the call reported success.
 
         :param user_email: (required)
         :type user_email: str
         :param key_name: (required)
         :type key_name: str
+        :param force: Revoke even when a live published app still embeds this key. Without it, the call is refused and names the apps that would break. Use force for a COMPROMISED key, where breaking them is the point.
+        :type force: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -477,6 +485,7 @@ class OrganizationAPIKeysApi:
         _param = self._delete_key_organizations_users_email_name_serialize(
             user_email=user_email,
             key_name=key_name,
+            force=force,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -508,6 +517,7 @@ class OrganizationAPIKeysApi:
         self,
         user_email: StrictStr,
         key_name: StrictStr,
+        force: Annotated[Optional[StrictBool], Field(description="Revoke even when a live published app still embeds this key. Without it, the call is refused and names the apps that would break. Use force for a COMPROMISED key, where breaking them is the point.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -523,12 +533,14 @@ class OrganizationAPIKeysApi:
     ) -> RESTResponseType:
         """Delete Api Key
 
-        Revoke an API key.  🔒 The \"admin-key\" is protected and cannot be deleted.
+        Revoke an API key.  🔒 The \"admin-key\" is protected and cannot be deleted.  Refuses when a live published app still embeds this key, naming the app (MF-413). A 2026-06-03 revocation killed 2 published apps for seven weeks because nothing in this path looked for references and the call reported success.
 
         :param user_email: (required)
         :type user_email: str
         :param key_name: (required)
         :type key_name: str
+        :param force: Revoke even when a live published app still embeds this key. Without it, the call is refused and names the apps that would break. Use force for a COMPROMISED key, where breaking them is the point.
+        :type force: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -554,6 +566,7 @@ class OrganizationAPIKeysApi:
         _param = self._delete_key_organizations_users_email_name_serialize(
             user_email=user_email,
             key_name=key_name,
+            force=force,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -580,6 +593,7 @@ class OrganizationAPIKeysApi:
         self,
         user_email,
         key_name,
+        force,
         _request_auth,
         _content_type,
         _headers,
@@ -606,6 +620,10 @@ class OrganizationAPIKeysApi:
         if key_name is not None:
             _path_params['key_name'] = key_name
         # process the query parameters
+        if force is not None:
+            
+            _query_params.append(('force', force))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter

@@ -272,7 +272,11 @@ class EvolveStepHandler(BridgeAwareMixin):
                     name="seed_content",
                     type=ToolInputType.STRING,
                     description=(
-                        "Seed YAML content for Gen 1. "
+                        "Seed YAML text for Gen 1. Pass a YAML-formatted string "
+                        "(for example, newline-delimited 'goal: ...' fields), not "
+                        "JSON-shaped text or an object literal; some MCP clients may "
+                        "otherwise coerce the value to an object before Ouroboros "
+                        "receives it. "
                         "Omit for Gen 2+ (seed reconstructed from events)."
                     ),
                     required=False,
@@ -599,7 +603,8 @@ class EvolveStepHandler(BridgeAwareMixin):
         # Post-execution QA
         qa_meta = None
         skip_qa = arguments.get("skip_qa", False)
-        if step.action.value in ("continue", "converged") and execute and not skip_qa:
+        qa_attempted = step.action.value in ("continue", "converged") and execute and not skip_qa
+        if qa_attempted:
             from ouroboros.mcp.tools.qa import QAHandler
 
             qa_handler = QAHandler()
@@ -646,6 +651,7 @@ class EvolveStepHandler(BridgeAwareMixin):
             "converged": sig.converged,
             "next_generation": step.next_generation,
             "executed": execute,
+            "qa_attempted": qa_attempted,
             "has_execution_output": gen.execution_output is not None,
             "checkpoint_commits": checkpoint_commits,
             "checkpoint_attempted_ac_ids": checkpoint_attempted_ac_ids,

@@ -4,13 +4,14 @@ from office365.directory.certificates.auth_configuration import (
 from office365.directory.domains.verified import VerifiedDomain
 from office365.directory.extensions.extension import Extension
 from office365.directory.licenses.assigned_plan import AssignedPlan
-from office365.directory.object import DirectoryObject
+from office365.directory.objects.object import DirectoryObject
 from office365.entity_collection import EntityCollection
 from office365.intune.organizations.branding import OrganizationalBranding
 from office365.intune.provisioned_plan import ProvisionedPlan
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.paths.resource_path import ResourcePath
 from office365.runtime.types.collections import StringCollection
+from office365.runtime.types.odata_property import odata
 
 
 class Organization(DirectoryObject):
@@ -19,22 +20,22 @@ class Organization(DirectoryObject):
     which operate and are provisioned at the tenant-level.
     """
 
+    @odata(name="assignedPlans")
     @property
-    def assigned_plans(self):
+    def assigned_plans(self) -> ClientValueCollection[AssignedPlan]:
         """The plans that are assigned to the organization."""
         return self.properties.get("assignedPlans", ClientValueCollection(AssignedPlan))
 
     @property
-    def branding(self):
+    def branding(self) -> OrganizationalBranding:
         return self.properties.get(
             "branding",
-            OrganizationalBranding(
-                self.context, ResourcePath("branding", self.resource_path)
-            ),
+            OrganizationalBranding(self.context, ResourcePath("branding", self.resource_path)),
         )
 
+    @odata(name="businessPhones")
     @property
-    def business_phones(self):
+    def business_phones(self) -> StringCollection:
         """
         Telephone number for the organization. Although this is a string collection,
         only one number can be set for this property.
@@ -42,18 +43,16 @@ class Organization(DirectoryObject):
         return self.properties.get("businessPhones", StringCollection())
 
     @property
-    def extensions(self):
-        # type: () -> EntityCollection[Extension]
+    def extensions(self) -> EntityCollection[Extension]:
         """The collection of open extensions defined for the message. Nullable."""
         return self.properties.get(
             "extensions",
-            EntityCollection(
-                self.context, Extension, ResourcePath("extensions", self.resource_path)
-            ),
+            EntityCollection(self.context, Extension, ResourcePath("extensions", self.resource_path)),
         )
 
+    @odata(name="certificateBasedAuthConfiguration")
     @property
-    def certificate_based_auth_configuration(self):
+    def certificate_based_auth_configuration(self) -> EntityCollection[CertificateBasedAuthConfiguration]:
         """Navigation property to manage certificate-based authentication configuration.
         Only a single instance of certificateBasedAuthConfiguration can be created in the collection..
         """
@@ -66,27 +65,13 @@ class Organization(DirectoryObject):
             ),
         )
 
+    @odata(name="provisionedPlans")
     @property
-    def provisioned_plans(self):
-        return self.properties.get(
-            "provisionedPlans", ClientValueCollection(ProvisionedPlan)
-        )
+    def provisioned_plans(self) -> ClientValueCollection[ProvisionedPlan]:
+        return self.properties.get("provisionedPlans", ClientValueCollection(ProvisionedPlan))
 
+    @odata(name="verifiedDomains")
     @property
-    def verified_domains(self):
+    def verified_domains(self) -> ClientValueCollection[VerifiedDomain]:
         """The collection of domains associated with this tenant."""
-        return self.properties.get(
-            "verifiedDomains", ClientValueCollection(VerifiedDomain)
-        )
-
-    def get_property(self, name, default_value=None):
-        if default_value is None:
-            property_mapping = {
-                "assignedPlans": self.assigned_plans,
-                "certificateBasedAuthConfiguration": self.certificate_based_auth_configuration,
-                "businessPhones": self.business_phones,
-                "provisionedPlans": self.provisioned_plans,
-                "verifiedDomains": self.verified_domains,
-            }
-            default_value = property_mapping.get(name, None)
-        return super(Organization, self).get_property(name, default_value)
+        return self.properties.get("verifiedDomains", ClientValueCollection(VerifiedDomain))

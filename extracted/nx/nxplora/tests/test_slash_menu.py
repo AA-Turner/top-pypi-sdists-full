@@ -61,6 +61,7 @@ class TestSlashMenu(unittest.TestCase):
                 "/create",
                 "/integrations",
                 "/connected",
+                "/publish",
                 "/channels",
                 "/message",
                 "/save",
@@ -86,12 +87,22 @@ class TestSlashMenu(unittest.TestCase):
             self.assertIn(cmd, hits, f"palette shows 'No matches' for {cmd} — it drifted out of /help sync")
 
     def test_message_channel_picker_registry(self):
-        # /message opens run_message_menu, which offers the four report-back channels.
+        # /message opens run_message_menu, which must offer EVERY report-back channel the module supports.
+        # This used to pin a literal four while nx_message.CHANNELS held five, so `sms` was configurable
+        # only by typing the command — unreachable from any picker, and a dead row in the /channels hub.
+        # Derived now, so the picker cannot fall behind the module again.
+        import nx_message
         keys = [c["key"] for c in nx_slash_menu.MESSAGE_CHANNELS]
-        self.assertEqual(keys, ["telegram", "imessage", "email", "whatsapp"])
+        self.assertEqual(sorted(keys), sorted(nx_message.CHANNELS))
+        self.assertEqual(keys[0], "telegram", "telegram stays first — it is the default report-back")
         self.assertTrue(callable(nx_slash_menu.run_message_menu))
-        # "Text" is the operator-facing name for the imessage channel
-        self.assertIn("Text", [c["name"] for c in nx_slash_menu.MESSAGE_CHANNELS])
+        names = [c["name"] for c in nx_slash_menu.MESSAGE_CHANNELS]
+        self.assertEqual(len(names), len(set(names)), f"duplicate display name: {names}")
+        # "Text" is BANNED as a display name: /channels lists SMS and iMessage side by side, so one word
+        # naming whichever was nearest sent operators picking "Text" to the wrong channel.
+        self.assertNotIn("Text", names)
+        self.assertIn("iMessage", names)
+        self.assertIn("SMS", names)
 
     def test_slash_input_opens_message_picker_on_message_result(self):
         with mock.patch.object(nx_slash_menu, "_read_input_bar", return_value=("", "/")):

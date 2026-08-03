@@ -1,6 +1,29 @@
 import ast
 import json
+import re
 from typing import Any, Optional
+
+# A stray XML/antml tool-call close-tag fragment left glued to the end of a JSON
+# payload string (e.g. `{"body_params":{...}}</invoke>`). The model occasionally
+# emits its call delimiter INTO the argument value; without trimming it, the string
+# fails the "ends with }/]" gate and never reaches any parse tier.
+_TRAILING_TAG_FRAGMENT = re.compile(r"(?:\s*</[A-Za-z][^<>]*>)+\s*$")
+
+
+def strip_trailing_tag_fragment(value: str) -> str:
+    """Drop a trailing XML/antml tag fragment after the last JSON closer, so a
+    tag-suffixed payload string still parses. No-op when the string already ends
+    cleanly or has no closing bracket to anchor on."""
+    s = value.rstrip()
+    if s.endswith(("}", "]")):
+        return s
+    idx = max(s.rfind("}"), s.rfind("]"))
+    if idx == -1:
+        return s
+    tail = s[idx + 1:]
+    if tail and _TRAILING_TAG_FRAGMENT.fullmatch(tail):
+        return s[: idx + 1]
+    return s
 
 
 def parse_structured_string(value: str) -> Optional[Any]:
@@ -14,7 +37,7 @@ def parse_structured_string(value: str) -> Optional[Any]:
     ``print("x")`` but not multi-arg ``print("a", "b")`` (those still return
     None - same loud failure as before). Plain text never parses; returns None.
     """
-    stripped = value.strip()
+    stripped = strip_trailing_tag_fragment(value.strip())
     if not (stripped.startswith(("{", "[")) and stripped.endswith(("}", "]"))):
         return None
     try:

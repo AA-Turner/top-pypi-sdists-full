@@ -1,5 +1,5 @@
-"""Package Management commands (12): install, uninstall, sync, update,
-reinstall, bundle, import, migrate, pin, unpin, snapshot, export."""
+"""Package Management commands (11): install, uninstall, sync, update,
+reinstall, bundle, import, pin, unpin, snapshot, export."""
 from __future__ import annotations
 
 import io
@@ -533,7 +533,11 @@ _PLAN_LABELS = [
     ("stale_links", "stale links"),
     ("orphaned_store", "orphaned store dirs"),
     ("missing_materializations", "missing rule/workflow files"),
+    ("out_of_scope_links", "linked outside declared scope"),
 ]
+
+#: Plan keys whose items are ``(skill, agent)`` pairs rather than paths.
+_PAIR_KEYS = ("missing_links", "out_of_scope_links")
 
 
 def cmd_sync(argv: List[str]) -> int:
@@ -543,7 +547,8 @@ def cmd_sync(argv: List[str]) -> int:
     ap.add_argument("--diff", action="store_true",
                     help="show the plan without applying it")
     ap.add_argument("--prune", action="store_true",
-                    help="also delete orphaned store dirs")
+                    help="also delete orphaned store dirs and links outside "
+                         "a declared --agent scope")
     ap.add_argument("--json", action="store_true", help="machine-readable output")
     args = ap.parse_args(argv)
     plan = store.sync_plan()
@@ -571,7 +576,7 @@ def cmd_sync(argv: List[str]) -> int:
                 continue
             out.heading("%s (%d)" % (label, len(plan[key])))
             for item in plan[key]:
-                if key == "missing_links":
+                if key in _PAIR_KEYS:
                     out.info("%s → %s" % (item[0], item[1]))
                 elif key == "missing_materializations":
                     out.info("%s %s" % (item[0], item[1]))  # (kind, name)
@@ -580,6 +585,20 @@ def cmd_sync(argv: List[str]) -> int:
         return 0
 
     actions = store.sync_apply(plan) + store.project_sync_apply(pplan)
+    # Links outside a declared `--agent` scope work and are in use, so sync
+    # reports them and stops. Removing one changes which agents can run a
+    # skill, which is the same class of decision as deleting an orphaned store
+    # dir — hence the same explicit `--prune`, and its own confirm so the two
+    # are never approved as one.
+    oos = plan["out_of_scope_links"]
+    if args.prune and oos:
+        go = (bool(os.environ.get("BOOST_ASSUME_YES")) if args.json else
+              out.confirm("Remove %s outside their declared scope: %s?"
+                          % (_plural(len(oos), "link"),
+                             ", ".join("%s → %s" % (n, a) for n, a in oos))))
+        if go:
+            actions += store.prune_out_of_scope_links(plan)
+            oos = []
     orphans = plan["orphaned_store"]
     pruned = []
     if args.prune and orphans:
@@ -596,7 +615,7 @@ def cmd_sync(argv: List[str]) -> int:
     left = [n for n in orphans if n not in pruned]
     if args.json:
         print(json.dumps({"actions": actions, "pruned": pruned,
-                          "orphaned_store": left}))
+                          "orphaned_store": left, "out_of_scope_links": oos}))
         return 0
     for a in actions:
         out.ok(a)
@@ -605,7 +624,13 @@ def cmd_sync(argv: List[str]) -> int:
     if left:
         out.warn("%s left in place: %s — remove with `boost sync --prune`"
                  % (_plural(len(left), "orphaned store dir"), ", ".join(left)))
-    if not actions and not pruned and not left:
+    if oos:
+        out.warn("%s outside the declared scope: %s — remove with "
+                 "`boost sync --prune`, or widen the scope with "
+                 "`boost install <skill> --force` naming every `--agent`"
+                 % (_plural(len(oos), "link"),
+                    ", ".join("%s → %s" % (n, a) for n, a in oos)))
+    if not actions and not pruned and not left and not oos:
         out.ok("everything in sync")
     return 0
 
@@ -1016,88 +1041,6 @@ def _import_root(root: Path, name: Optional[str], do_all: bool,
                for e in entries])
     raise BoostError("multiple skills found — pick one or import all",
                     hint="add `--name NAME` or `--all`")
-
-
-# ── migrate ──────────────────────────────────────────────────────────────
-
-def cmd_migrate(argv: List[str]) -> int:
-    ap = cliparse.parser(
-        prog="boost migrate",
-        description="Migrate skills between agents or from Skills CLI")
-    ap.add_argument("--from", dest="src", metavar="AGENT",
-                    help="agent migrating away from")
-    ap.add_argument("--to", dest="dst", metavar="AGENT",
-                    help="agent to link every installed skill into")
-    ap.add_argument("--from-skills-cli", action="store_true",
-                    help="import skills installed by the Skills CLI")
-    ap.add_argument("--path", metavar="DIR",
-                    help="Skills CLI directory (default ~/.skills)")
-    args = ap.parse_args(argv)
-
-    if args.from_skills_cli:
-        root = paths.expand(args.path) if args.path else paths.home() / ".skills"
-        if not root.is_dir():
-            out.info("nothing to migrate — %s does not exist" % _tilde(root))
-            return 0
-        entries = catalog.scan_dir(root)
-        if not entries:
-            out.info("no skills found under %s" % _tilde(root))
-            return 0
-        migrated, refused = 0, 0
-        for e in entries:
-            d = root if e["rel_dir"] == "." else root / e["rel_dir"]
-            # A refusal partway through must not leave a silently half-done
-            # migration with no summary.
-            try:
-                res = store.install_from_path(d)
-            except BoostError as err:
-                out.warn("%s: %s" % (e["name"], err.message))
-                refused += 1
-                continue
-            out.ok("imported %s v%s" % (res.name, e["version"]))
-            migrated += 1
-        out.info("Migrated %s from %s" % (_plural(migrated, "skill"),
-                                          _tilde(root)))
-        return 1 if refused else 0
-
-    if not (args.src and args.dst):
-        raise BoostError("nothing to do",
-                        hint="use `--from AGENT --to AGENT` or `--from-skills-cli`")
-    known = agents.known_agents()
-    for a in (args.src, args.dst):
-        if a not in known:
-            raise BoostError("unknown agent: %s" % a,
-                            hint="known agents: %s" % ", ".join(known))
-    if args.src == args.dst:
-        raise BoostError("--from and --to are the same agent")
-    if args.dst not in agents.enabled_agents():
-        raise BoostError("agent %s is disabled in config" % args.dst,
-                        hint="`boost config set agents.%s.enabled true`" % args.dst)
-    skills = sorted(lockfile.installed())
-    if not skills:
-        out.info("no skills installed — nothing to migrate")
-        return 0
-    linked = []
-    for name in skills:
-        res = store.link_agents(name, only=[args.dst])
-        if args.dst in res.linked:
-            out.ok("linked %s → %s" % (name, args.dst))
-            linked.append(name)
-        for pth in res.conflicts:
-            out.warn("%s: %s exists and is not managed by boost" % (name, _tilde(pth)))
-    lock = lockfile.read()
-    changed = False
-    for name in linked:
-        ent = lock["skills"].get(name)
-        if ent is not None and args.dst not in ent.get("agents", []):
-            ent["agents"] = sorted(set(ent.get("agents", [])) | {args.dst})
-            changed = True
-    if changed:
-        lockfile.write(lock)
-    journal.log("migrate", "%s→%s" % (args.src, args.dst), skills=len(linked))
-    out.info("Migrated %s to %s" % (_plural(len(linked), "skill"),
-                                    agents.display_name(args.dst)))
-    return 0
 
 
 # ── pin / unpin ──────────────────────────────────────────────────────────

@@ -5,8 +5,6 @@ import logging
 import warnings
 from collections.abc import AsyncGenerator, Callable
 
-import async_timeout
-
 # from aiopulse import Roller, Room, Scene, Timer
 import aiopulse
 import aiopulse.const as const
@@ -95,7 +93,7 @@ class Hub(CallbackMixin):
         retries = 3
 
         try:
-            async with async_timeout.timeout(timeout * retries):
+            async with asyncio.timeout(timeout * retries):
                 for _ in range(1):
                     discover_client.send(
                         const.HEADER + CommandType.DISCOVER.to_bytes(4, "big")
@@ -104,14 +102,14 @@ class Hub(CallbackMixin):
                     while True:
                         addr = None
                         try:
-                            async with async_timeout.timeout(timeout):
+                            async with asyncio.timeout(timeout):
                                 (response, addr) = await discover_client.receive()
                                 _LOGGER.debug(
                                     "%s: Received discover response: %s",
                                     addr[0],
                                     response.hex(),
                                 )
-                        except asyncio.TimeoutError:
+                        except TimeoutError:
                             pass
 
                         if addr and addr not in hubs:
@@ -135,7 +133,7 @@ class Hub(CallbackMixin):
                                 _LOGGER.warning(
                                     f"{addr[0]}: Couldn't interrogate discovered hub"
                                 )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             pass
         _LOGGER.info("Discovery complete")
 
@@ -661,11 +659,11 @@ class Hub(CallbackMixin):
         while self.handshake.is_set():
             """Only catch exceptions that can be recovered from without reconnecting"""
             try:
-                async with async_timeout.timeout(30):
+                async with asyncio.timeout(30):
                     response = await self.get_response()
                 if len(response) > 0:
                     self.response_parse(response)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 _LOGGER.debug(f"{self.host}: Receive timeout, sending ping keepalive")
                 self.protocol.send(const.HEADER + CommandType.PING.to_bytes(4, "big"))
             except errors.InvalidResponseException:
@@ -711,7 +709,7 @@ class Hub(CallbackMixin):
                 await asyncio.wait_for(self.command_lock.acquire(), timeout=timeout)
                 _LOGGER.info(f"{self.host}: command successful.")
                 break
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 attempt += 1
                 _LOGGER.warning(f"{self.host}: command timed out.")
 
@@ -729,7 +727,7 @@ class Hub(CallbackMixin):
         try:
             await asyncio.wait_for(self.health_lock.acquire(), timeout=5.0)
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
             _LOGGER.warning(f"{self.host}: Health-check timed out.")
 
         if self.health_lock.locked():

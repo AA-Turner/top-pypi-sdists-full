@@ -15,7 +15,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = []
 dynamic = []
-version = "0.2.20"
+version = "0.2.21"
 
 [project.urls]
 documentation = "https://github.com/vpmedia/asyncmy2"
@@ -41,6 +41,9 @@ test = [
     "rich",
     "uvloop; sys_platform != 'win32' and implementation_name == 'cpython'",
 ]
+
+[tool.uv]
+exclude-newer = "1 days"
 
 [tool.pdm.version]
 source = "file"
@@ -87,7 +90,9 @@ include = [
 line-length = 100
 
 [tool.ruff.lint]
-extend-select = [
+select = [
+    "E",
+    "F",
     "FA",
     "UP",
     "RUF100",

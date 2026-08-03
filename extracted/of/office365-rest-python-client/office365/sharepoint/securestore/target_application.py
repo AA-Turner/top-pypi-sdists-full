@@ -12,26 +12,22 @@ class TargetApplication(Entity):
     """
 
     @staticmethod
-    def create(context, application_id, friendly_name):
-        # type: (ClientContext, str, str) -> "TargetApplication"
-        """
-        Creates a target application
+    def create(context: ClientContext, application_id: str, friendly_name: str) -> "TargetApplication":
+        """Creates a target application
 
-        :type context: office365.sharepoint.client_context.ClientContext
-        :param str application_id:
-        :param str friendly_name:
+        Args:
+            context (office365.sharepoint.client_context.ClientContext):
+            application_id (str):
+            friendly_name (str):
         """
         return_type = TargetApplication(context)
         payload = {"applicationId": application_id, "friendlyName": friendly_name}
-        qry = ServiceOperationQuery(
-            return_type, "", None, payload, None, return_type, True
-        )
+        qry = ServiceOperationQuery(return_type, "", None, payload, None, return_type, True)
         context.add_query(qry)
         return return_type
 
     @property
-    def application_id(self):
-        # type: () -> Optional[str]
+    def application_id(self) -> Optional[str]:
         """"""
         return self.properties.get("ApplicationId", None)
 

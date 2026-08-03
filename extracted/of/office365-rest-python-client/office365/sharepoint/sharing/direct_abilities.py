@@ -1,29 +1,35 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
 from office365.runtime.client_value import ClientValue
 from office365.sharepoint.sharing.ability_status import SharingAbilityStatus
 
 
+@dataclass
 class DirectSharingAbilities(ClientValue):
-    """Represents the set of capabilities for direct sharing for the current user."""
+    """
+    Represents the set of capabilities for direct sharing for the current user.
 
-    def __init__(
-        self,
-        can_add_external_principal=SharingAbilityStatus(),
-        can_add_internal_principal=SharingAbilityStatus(),
-        can_request_grant_access=SharingAbilityStatus(),
-        supports_review_permission=SharingAbilityStatus(),
-    ):
-        """
-        :param SharingAbilityStatus can_add_external_principal: Indicates whether the current user can share to new
-            external users.
-        :param SharingAbilityStatus can_add_internal_principal: Indicates whether the current user can share to
-            internal users.
-        :param SharingAbilityStatus can_request_grant_access: Indicates whether the current user can initiate a
-            request for someone with higher permissions to grant access.
-        """
-        self.canAddExternalPrincipal = can_add_external_principal
-        self.canAddInternalPrincipal = can_add_internal_principal
-        self.canRequestGrantAccess = can_request_grant_access
-        self.supportsReviewPermission = supports_review_permission
+    Fields:
+        canAddExternalPrincipal: Indicates whether the current user can share to new external users.
+        canAddInternalPrincipal: Indicates whether the current user can share to internal users.
+        canRequestGrantAccess: Indicates whether the current user can initiate a request for someone with higher
+            permissions to grant access.
+    """
+
+    canAddExternalPrincipal: SharingAbilityStatus = field(default_factory=SharingAbilityStatus)
+    canAddInternalPrincipal: SharingAbilityStatus = field(default_factory=SharingAbilityStatus)
+    canRequestGrantAccess: SharingAbilityStatus = field(default_factory=SharingAbilityStatus)
+    supportsReviewPermission: SharingAbilityStatus = field(default_factory=SharingAbilityStatus)
+    canAddNewExternalPrincipal: SharingAbilityStatus = field(default_factory=SharingAbilityStatus)
+    canRequestGrantAccessForExistingExternalPrincipal: SharingAbilityStatus = field(default_factory=SharingAbilityStatus)
+    canRequestGrantAccessForInternalPrincipal: SharingAbilityStatus = field(default_factory=SharingAbilityStatus)
+    canRequestGrantAccessForNewExternalPrincipal: SharingAbilityStatus = field(default_factory=SharingAbilityStatus)
+    supportsEditPermission: SharingAbilityStatus = field(default_factory=SharingAbilityStatus)
+    supportsManageListPermission: SharingAbilityStatus = field(default_factory=SharingAbilityStatus)
+    supportsReadPermission: SharingAbilityStatus = field(default_factory=SharingAbilityStatus)
+    supportsRestrictedViewPermission: SharingAbilityStatus = field(default_factory=SharingAbilityStatus)
 
     @property
     def entity_type_name(self):

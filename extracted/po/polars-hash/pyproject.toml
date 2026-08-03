@@ -6,7 +6,7 @@ build-backend = "maturin"
 name = "polars-hash"
 requires-python = ">=3.10"
 dependencies = [
-  'polars >= 1.32.0'
+  'polars >= 1.34.0'
 ]
 classifiers = [
   "Programming Language :: Rust",
@@ -24,6 +24,17 @@ dynamic = ["version"]
 "Homepage" = "https://github.com/ion-elgreco/polars-hash"
 "Bug Tracker" = "https://github.com/ion-elgreco/polars-hash/issues"
 
+# Exact versions are pinned by uv.lock; these are the constraints it resolves
+# against. `polars` is not repeated here — it is already a runtime dependency.
+[dependency-groups]
+dev = [
+  "maturin>=1.0,<2.0",
+  "mypy",
+  "pytest",
+  "ruff",
+  "tzdata; platform_system == 'Windows'",
+]
+
 [tool.maturin]
 module-name = "polars_hash._internal"
 
@@ -35,3 +46,8 @@ extend-select = ["I"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["polars_hash"]
+
+# Polars' Datetime dtype is time-zone-naive by default, so the tests covering it
+# construct naive datetimes on purpose.
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["DTZ001"]

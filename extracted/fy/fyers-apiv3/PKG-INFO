@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: fyers_apiv3
-Version: 3.1.14
+Version: 3.1.15
 Summary: Fyers trading APIs.
 Home-page: https://github.com/FyersDev/fyers-api-sample-code/tree/sample_v3/v3/python
 Author: Fyers-Tech
@@ -10,23 +10,8 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: requests==2.31.0
-Requires-Dist: asyncio==3.4.3
-Requires-Dist: aiohttp==3.9.3
-Requires-Dist: aws_lambda_powertools==1.25.5
-Requires-Dist: websocket-client==1.6.1
-Requires-Dist: setuptools==68.0.0
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: summary
 
-# The Fyers API Python client - v3
+# The Fyers API Python client - v3.1.15
 
 The official Python client for communicating with the [Fyers API](https://myapi.fyers.in)
 
@@ -166,6 +151,10 @@ There are two ways to place order
 a. single order : wherein you can fire one order at a time 
 b. multi order : this is used to place a basket of order but the basket size can max be 10 symbols
 c. multileg order : this is used to place a multileg order but the legs size minimum is 2 and maximum is 3
+
+NOTE: Prefer CNC / INTRADAY / MARGIN / MTF with optional takeProfit / stopLoss / legType.
+takeProfit / stopLoss / legType may be omitted for a normal order.
+When set, offsets are relative to entry price (legType=1 points, legType=2 percent).
 """
 
 ## SINGLE ORDER 
@@ -181,10 +170,28 @@ data =  {
       "validity":"DAY",
       "disclosedQty":0,
       "offlineOrder":False,
-      "stopLoss":0,
-      "takeProfit":0,
       "isSliceOrder":False
     }                              ## This is a sample example to place a limit order you can make the further changes based on your requriements 
+
+print(fyers.place_order(data))
+
+## SINGLE ORDER with optional TP/SL overlay (fields may be omitted)
+
+data =  {
+      "symbol":"NSE:SBIN-EQ",
+      "qty":10,
+      "type":1,
+      "side":1,
+      "productType":"INTRADAY",
+      "limitPrice":500.0,
+      "stopPrice":0,
+      "validity":"DAY",
+      "disclosedQty":0,
+      "offlineOrder":False,
+      "takeProfit":10.5,
+      "stopLoss":5.0,
+      "legType":1
+    }
 
 print(fyers.place_order(data))
 
@@ -199,9 +206,7 @@ data = [{ "symbol":"NSE:SBIN-EQ",
   "stopPrice":0 ,
   "disclosedQty":0, 
   "validity":"DAY", 
-  "offlineOrder":False, 
-  "stopLoss":0,  
-  "takeProfit":0
+  "offlineOrder":False
 },
 {
   "symbol":"NSE:HDFC-EQ",
@@ -213,9 +218,7 @@ data = [{ "symbol":"NSE:SBIN-EQ",
   "stopPrice":0 ,
   "disclosedQty":0, 
   "validity":"DAY", 
-  "offlineOrder":False, 
-  "stopLoss":0,  
-  "takeProfit":0
+  "offlineOrder":False
 }]                                                ### This takes input as a list containing multiple single order data into it and the execution of the orders goes in the same format as mentioned.
 
 print(fyers.place_basket_orders(data))
@@ -259,15 +262,17 @@ print(fyers.place_multileg_order(data))
 ###################################################################################################################
 
 """
-4. Other Transaction : This includes (modify_order,exit_position,cancel_order,convert_positions)
+4. Other Transaction : This includes (modify_order,exit_position,cancel_order,convert_positions,attach_position_legs)
 """
 
-## Modify_order request 
+## Modify_order request (update TP, remove SL)
 data = {
           "id":"7574657627567", 
           "type":1, 
           "limitPrice": 61049,
-          "qty":1
+          "qty":1,
+          "takeProfit":15.0,
+          "stopLoss":None
       }
 
 print(fyers.modify_order(data))
@@ -312,6 +317,17 @@ data  = {
    }
 
 print(fyers.exit_positions(data))
+
+
+### Attach / update TP/SL on an open position
+data = {
+    "positionId": "NSE:SBIN-EQ-INTRADAY",
+    "takeProfit": 2.5,
+    "stopLoss": 1.5,
+    "legType": 2
+}
+
+print(fyers.attach_position_legs(data))
 
 
 ### Convert Position

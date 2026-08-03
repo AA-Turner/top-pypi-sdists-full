@@ -43,10 +43,11 @@ class SyncDeadLetterObjectModel(BaseModel):
     max_retries_reached: Optional[StrictBool] = Field(default=False, description="Whether max retries have been exhausted")
     requeued_at: Optional[datetime] = Field(default=None, description="When user manually requeued this object")
     resolved_at: Optional[datetime] = Field(default=None, description="When object was successfully processed after requeue")
+    disposal_reason: Optional[StrictStr] = Field(default=None, description="BACKE-2979: why the retry task permanently retired this entry (sync_config_not_found, sync_config_deactivated, connection_not_found) — set alongside max_retries_reached so stale entries stop being re-walked every run")
     internal_id: StrictStr = Field(description="Organization internal identifier (multi-tenancy scope)")
     namespace_id: StrictStr = Field(description="Namespace identifier")
     bucket_id: StrictStr = Field(description="Target bucket identifier")
-    __properties: ClassVar[List[str]] = ["dlq_id", "sync_config_id", "sync_job_id", "source_object_id", "source_path", "error_type", "error_message", "error_stack_trace", "first_seen_at", "last_seen_at", "retry_count", "max_retries_reached", "requeued_at", "resolved_at", "internal_id", "namespace_id", "bucket_id"]
+    __properties: ClassVar[List[str]] = ["dlq_id", "sync_config_id", "sync_job_id", "source_object_id", "source_path", "error_type", "error_message", "error_stack_trace", "first_seen_at", "last_seen_at", "retry_count", "max_retries_reached", "requeued_at", "resolved_at", "disposal_reason", "internal_id", "namespace_id", "bucket_id"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -113,6 +114,7 @@ class SyncDeadLetterObjectModel(BaseModel):
             "max_retries_reached": obj.get("max_retries_reached") if obj.get("max_retries_reached") is not None else False,
             "requeued_at": obj.get("requeued_at"),
             "resolved_at": obj.get("resolved_at"),
+            "disposal_reason": obj.get("disposal_reason"),
             "internal_id": obj.get("internal_id"),
             "namespace_id": obj.get("namespace_id"),
             "bucket_id": obj.get("bucket_id")

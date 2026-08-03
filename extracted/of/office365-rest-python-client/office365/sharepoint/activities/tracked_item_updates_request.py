@@ -1,13 +1,18 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class TrackedItemUpdatesRequest(ClientValue):
-    def __init__(self, timestamp=None, tracked_items_as_json=None):
-        """
-        :param datetime timestamp:
-        """
-        self.TimeStamp = timestamp
-        self.TrackedItemsAsJson = tracked_items_as_json
+    TimeStamp: datetime | None = None
+    TrackedItemsAsJson: str | None = None
+    UserEmail: str | None = None
+    UserLogin: str | None = None
+    UserPuid: str | None = None
 
     @property
     def entity_type_name(self):

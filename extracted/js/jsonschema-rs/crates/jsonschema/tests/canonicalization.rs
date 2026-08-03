@@ -7,7 +7,7 @@ use jsonschema::{
 use serde_json::{json, Map, Number, Value};
 use test_case::test_case;
 
-#[test_case(&json!({"unevaluatedProperties": false}); "unevaluated properties")]
+#[test_case(&json!({"anyOf": [{}], "unevaluatedProperties": false}); "unevaluated properties beside an applicator")]
 fn unmodeled_document_round_trips_verbatim(schema: &Value) {
     let canonical = canonicalize(schema).expect("canonicalizes");
     assert_eq!(&canonical.to_json_schema(), schema);
@@ -77,6 +77,316 @@ fn external_registry_reference_emits_a_self_contained_definition() {
     assert!(!validator.is_valid(&json!(1)));
 }
 
+// The root spells no dynamic reference, so only the registered resource forces the dynamic scope.
+#[test]
+fn dynamic_reference_only_in_an_external_resource_is_modeled() {
+    let external = json!({
+        "$id": "https://example.com/list",
+        "$dynamicRef": "#num",
+        "$defs": {
+            "n": {"$dynamicAnchor": "num", "type": "number"}
+        }
+    });
+    let registry = Registry::new()
+        .add("https://example.com/list", &external)
+        .expect("resource URI is valid")
+        .prepare()
+        .expect("registry prepares");
+    let canonical = options()
+        .with_registry(&registry)
+        .canonicalize(&json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$ref": "https://example.com/list"
+        }))
+        .expect("canonicalizes");
+    assert_eq!(canonical.kind(), CanonicalKind::Reference);
+
+    let emitted = canonical.to_json_schema();
+    let validator =
+        jsonschema::validator_for(&emitted).expect("canonical output is self-contained");
+    assert!(validator.is_valid(&json!(1)));
+    assert!(!validator.is_valid(&json!("x")));
+}
+
+fn assert_validation_parity(schema: &Value, instances: &[Value]) {
+    let canonical = canonicalize(schema)
+        .expect("canonicalizes")
+        .to_json_schema();
+    let raw = jsonschema::validator_for(schema).expect("raw builds");
+    let canon = jsonschema::validator_for(&canonical).expect("canonical builds");
+    for instance in instances {
+        assert_eq!(
+            raw.is_valid(instance),
+            canon.is_valid(instance),
+            "parity disagrees on {instance}\n  canonical = {canonical}"
+        );
+    }
+}
+
+// The registry never indexes an anchor spelled inside a `const` value, so it must not bind, and
+// re-canonicalizing must not grow the definition keys it would have minted.
+#[test]
+fn dynamic_anchor_in_a_const_value_does_not_bind() {
+    let schema = json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://example.com/phantom/root",
+        "properties": {
+            "marker": {"const": {"$dynamicAnchor": "T"}},
+            "a": {"$ref": "num"},
+            "b": {"$ref": "str"}
+        },
+        "$defs": {
+            "num": {
+                "$id": "num",
+                "$defs": {"bind": {"$dynamicAnchor": "T", "type": "number"}},
+                "$ref": "shared"
+            },
+            "str": {
+                "$id": "str",
+                "$defs": {"bind": {"$dynamicAnchor": "T", "type": "string"}},
+                "$ref": "shared"
+            },
+            "shared": {
+                "$id": "shared",
+                "$defs": {"fallback": {"$dynamicAnchor": "T", "type": "boolean"}},
+                "items": {"$dynamicRef": "#T"}
+            }
+        }
+    });
+    assert_validation_parity(
+        &schema,
+        &[
+            json!({"a": [1]}),
+            json!({"a": ["s"]}),
+            json!({"b": ["s"]}),
+            json!({"b": [1]}),
+        ],
+    );
+    let once = canonicalize(&schema)
+        .expect("canonicalizes")
+        .to_json_schema();
+    let twice = canonicalize(&once)
+        .expect("canonicalizes again")
+        .to_json_schema();
+    assert_eq!(once, twice);
+}
+
+// An anchor-less resource in the middle of the dynamic scope stops the `$recursiveRef` walk, so
+// the two paths land differently and cannot share one definition.
+#[test]
+fn recursive_ref_chain_breaks_at_an_anchorless_resource() {
+    let schema = json!({
+        "$schema": "https://json-schema.org/draft/2019-09/schema",
+        "$id": "https://example.com/chain/root",
+        "$recursiveAnchor": true,
+        "properties": {
+            "direct": {"$ref": "shared"},
+            "via": {"$ref": "m"}
+        },
+        "$defs": {
+            "m": {"$id": "m", "$ref": "a2"},
+            "a2": {"$id": "a2", "$recursiveAnchor": true, "maxProperties": 1, "$ref": "shared"},
+            "shared": {
+                "$id": "shared",
+                "$recursiveAnchor": true,
+                "properties": {"deep": {"$recursiveRef": "#"}}
+            }
+        }
+    });
+    assert_validation_parity(
+        &schema,
+        &[
+            json!({"direct": {"deep": {"q": 1, "r": 2}}}),
+            json!({"via": {"deep": {"q": 1, "r": 2}}}),
+            json!({"direct": {"deep": {}}}),
+            json!({"via": {"deep": {}}}),
+        ],
+    );
+}
+
+// A `$recursiveRef` under a lexically entered anchored resource lands on that resource, not on
+// the root, so the back-reference cannot take the `#` spelling.
+#[test]
+fn back_reference_through_an_anchored_resource_is_not_the_root() {
+    let schema = json!({
+        "$schema": "https://json-schema.org/draft/2019-09/schema",
+        "$id": "https://example.com/back/root",
+        "$recursiveAnchor": true,
+        "properties": {
+            "wrap": {
+                "$id": "x",
+                "$recursiveAnchor": true,
+                "maxProperties": 1,
+                "properties": {"back": {"$ref": "https://example.com/back/root"}}
+            },
+            "k": {"$recursiveRef": "#"}
+        }
+    });
+    assert_validation_parity(
+        &schema,
+        &[
+            json!({"k": {"q": 1, "r": 2}}),
+            json!({"wrap": {"back": {"k": {"q": 1, "r": 2}}}}),
+            json!({"wrap": {"back": {"k": {}}}}),
+        ],
+    );
+}
+
+// A `$dynamicAnchor` re-declared by an embedded resource binds for paths through that resource,
+// even though the root already bound the same name.
+#[test]
+fn redeclared_dynamic_anchor_in_an_embedded_resource_binds() {
+    let schema = json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://example.com/redeclare/root",
+        "$defs": {
+            "rootbind": {"$dynamicAnchor": "X", "type": "object"},
+            "shared": {
+                "$id": "shared",
+                "$defs": {"fallback": {"$dynamicAnchor": "X", "type": "boolean"}},
+                "items": {"$dynamicRef": "#X"}
+            }
+        },
+        "properties": {
+            "a": {"$ref": "shared"},
+            "b": {
+                "$id": "emb",
+                "$defs": {"embbind": {"$dynamicAnchor": "X", "required": ["c"], "type": "object"}},
+                "properties": {"inner": {"$ref": "shared"}}
+            }
+        }
+    });
+    assert_validation_parity(
+        &schema,
+        &[
+            json!({"a": [{}]}),
+            json!({"b": {"inner": [{}]}}),
+            json!({"b": {"inner": [{"c": 1}]}}),
+        ],
+    );
+}
+
+// Anchors the registry attributes to a resource bind for paths through it, whether the entry is a
+// pointer fragment into its middle or the binder sits behind a bare `id` key (not a 2020-12
+// identifier).
+#[test_case(&json!({
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://example.com/pointer/root",
+    "$defs": {
+        "sub": {
+            "$id": "sub",
+            "$defs": {
+                "bind": {"$dynamicAnchor": "T", "type": "number"},
+                "middle": {"$ref": "https://example.com/pointer/shared"}
+            }
+        },
+        "shared": {
+            "$id": "shared",
+            "$defs": {"fallback": {"$dynamicAnchor": "T", "type": "string"}},
+            "items": {"$dynamicRef": "#T"}
+        }
+    },
+    "properties": {
+        "a": {"$ref": "sub#/$defs/middle"},
+        "b": {"$ref": "shared"}
+    }
+}) ; "pointer entry")]
+#[test_case(&json!({
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://example.com/stray/root",
+    "$defs": {
+        "holder": {
+            "$id": "holder",
+            "$defs": {
+                "bind": {"id": "stray", "$dynamicAnchor": "T", "type": "number"},
+                "use": {"$ref": "https://example.com/stray/shared"}
+            }
+        },
+        "shared": {
+            "$id": "shared",
+            "$defs": {"fallback": {"$dynamicAnchor": "T", "type": "string"}},
+            "items": {"$dynamicRef": "#T"}
+        }
+    },
+    "properties": {
+        "a": {"$ref": "holder#/$defs/use"},
+        "b": {"$ref": "shared"}
+    }
+}) ; "stray id key")]
+fn resource_anchors_bind_below_any_entry_point(schema: &Value) {
+    assert_validation_parity(
+        schema,
+        &[
+            json!({"a": [1]}),
+            json!({"a": ["s"]}),
+            json!({"b": ["s"]}),
+            json!({"b": [1]}),
+        ],
+    );
+}
+
+// `$recursiveAnchor` counts only at a resource root; a nested spelling binds nothing.
+#[test]
+fn nested_recursive_anchor_does_not_bind_the_resource() {
+    let schema = json!({
+        "$schema": "https://json-schema.org/draft/2019-09/schema",
+        "$id": "https://example.com/nested/root",
+        "$defs": {
+            "phantom": {"properties": {"x": {"$recursiveAnchor": true}}},
+            "a": {"$id": "a", "$recursiveAnchor": true, "maxProperties": 1, "properties": {"m": {"$ref": "shared"}}},
+            "b": {"$id": "b", "$recursiveAnchor": true, "properties": {"m": {"$ref": "shared"}}},
+            "shared": {
+                "$id": "shared",
+                "$recursiveAnchor": true,
+                "properties": {"deep": {"$recursiveRef": "#"}}
+            }
+        },
+        "properties": {
+            "pa": {"$ref": "a"},
+            "pb": {"$ref": "b"}
+        }
+    });
+    assert_validation_parity(
+        &schema,
+        &[
+            json!({"pa": {"m": {"deep": {"q": 1, "r": 2}}}}),
+            json!({"pb": {"m": {"deep": {"q": 1, "r": 2}}}}),
+            json!({"pa": {"m": {"deep": {}}}}),
+        ],
+    );
+}
+
+// A relative `$id` beside `$ref` shifts the base once; the sibling reparse must not apply it again.
+#[test]
+fn relative_id_beside_ref_with_assertion_siblings_canonicalizes() {
+    let canonical = canonicalize(&json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://example.com/root.json",
+        "properties": {
+            "a": {
+                "$id": "nested/inner.json",
+                "$ref": "other.json",
+                "type": "object",
+                "properties": {
+                    "b": {"$ref": "sibling.json"}
+                }
+            }
+        },
+        "$defs": {
+            "o": {"$id": "nested/other.json", "minProperties": 1},
+            "s": {"$id": "nested/sibling.json", "type": "integer"}
+        }
+    }))
+    .expect("canonicalizes");
+
+    let emitted = canonical.to_json_schema();
+    let validator =
+        jsonschema::validator_for(&emitted).expect("canonical output is self-contained");
+    assert!(validator.is_valid(&json!({"a": {"b": 1}})));
+    assert!(!validator.is_valid(&json!({"a": {"b": "s"}})));
+    assert!(!validator.is_valid(&json!({"a": {}})));
+}
+
 #[test]
 fn absolute_self_reference_collapses_to_the_root_pointer() {
     // A ref spelled as the root's own `$id` resolves to the whole document. Detection relies on the
@@ -133,10 +443,53 @@ fn registry_already_holding_the_root_uri_still_canonicalizes() {
 }
 
 #[test]
+fn a_definition_name_spelling_a_canonical_uri_does_not_alias_a_registry_resource() {
+    // Both references mint the same key, so aliasing them canonicalized this to `false` while the
+    // validator accepted `"x"`. Only a registry reaches this route; the suite covers the `$id` one.
+    let remote = json!({"$id": "http://remote/a", "type": "string"});
+    let registry = Registry::new()
+        .add("http://remote/a", &remote)
+        .expect("resource URI is valid")
+        .prepare()
+        .expect("registry prepares");
+    let schema = json!({
+        "anyOf": [
+            {"$ref": "#/$defs/urn:jsonschema:canonical:http%253A%252F%252Fremote%252Fa"},
+            {"$ref": "http://remote/a"}
+        ],
+        "$defs": {
+            "urn:jsonschema:canonical:http%3A%2F%2Fremote%2Fa": {
+                "type": "object",
+                "required": ["p"],
+                "properties": {
+                    "p": {"$ref": "#/$defs/urn:jsonschema:canonical:http%253A%252F%252Fremote%252Fa"}
+                }
+            }
+        }
+    });
+
+    let canonical = options()
+        .with_registry(&registry)
+        .canonicalize(&schema)
+        .expect("canonicalizes");
+    assert_eq!(canonical.kind(), CanonicalKind::Raw);
+    assert!(
+        canonical.is_satisfiable(),
+        "the string branch admits a value, so the document is not empty"
+    );
+
+    let validator = jsonschema::options()
+        .with_registry(&registry)
+        .build(&schema)
+        .expect("builds");
+    assert!(validator.is_valid(&json!("x")));
+}
+
+#[test]
 fn unsupported_reference_target_keeps_the_whole_document_raw() {
     let schema = json!({
         "$ref": "#/$defs/value",
-        "$defs": {"value": {"unevaluatedProperties": false}}
+        "$defs": {"value": {"anyOf": [{}], "unevaluatedProperties": false}}
     });
     let canonical = canonicalize(&schema).expect("canonicalizes");
 
@@ -363,10 +716,12 @@ fn unmodeled_documents_hash_by_document_identity() {
         canonicalize(&serde_json::from_str::<Value>(text).expect("valid schema JSON"))
             .expect("canonicalizes")
     };
-    let integer =
-        canonical(r#"{"unevaluatedProperties": {"enum": [1, null, true, "x", [2], {"b": 3}]}}"#);
-    let float =
-        canonical(r#"{"unevaluatedProperties": {"enum": [1.0, null, true, "x", [2], {"b": 3}]}}"#);
+    let integer = canonical(
+        r#"{"anyOf": [{}], "unevaluatedProperties": {"enum": [1, null, true, "x", [2], {"b": 3}]}}"#,
+    );
+    let float = canonical(
+        r#"{"anyOf": [{}], "unevaluatedProperties": {"enum": [1.0, null, true, "x", [2], {"b": 3}]}}"#,
+    );
     assert_eq!(integer.kind(), CanonicalKind::Raw);
     let distinct: HashSet<CanonicalSchema> =
         [integer.clone(), float, integer].into_iter().collect();
@@ -425,6 +780,19 @@ fn untyped_past_range_numeric_bound_round_trips(text: &str, keyword: &str, bound
         .find(|branch| branch["type"] == json!("number"))
         .expect("number branch");
     assert_eq!(number_branch[keyword].to_string(), bound);
+}
+
+// A bound past the `f64` range must not swallow its exclusive partner on the same side: the
+// canonical form would accept values the document rejects.
+#[cfg(feature = "arbitrary-precision")]
+#[test_case(r#"{"type": "number", "maximum": 1e400, "exclusiveMaximum": 0.1}"#, "exclusiveMaximum", "0.1"; "maximum past f64 range")]
+#[test_case(r#"{"type": "number", "minimum": -1e400, "exclusiveMinimum": 0.1}"#, "exclusiveMinimum", "0.1"; "minimum past f64 range")]
+fn past_range_bound_keeps_its_tighter_partner(text: &str, keyword: &str, bound: &str) {
+    let schema: Value = serde_json::from_str(text).expect("valid schema JSON");
+    let emitted = canonicalize(&schema)
+        .expect("canonicalizes")
+        .to_json_schema();
+    assert_eq!(emitted[keyword].to_string(), bound, "{emitted}");
 }
 
 #[cfg(not(feature = "arbitrary-precision"))]
@@ -508,7 +876,7 @@ fn error_display(schema: &Value, message: &str) {
 #[test_case(&json!(false), CanonicalKind::False, "false"; "boolean false")]
 #[test_case(&json!({"type": "integer", "minimum": 0}), CanonicalKind::Integer, "integer"; "integer_leaf")]
 #[test_case(&json!({"type": "number", "minimum": 0}), CanonicalKind::Number, "number"; "number_leaf")]
-#[test_case(&json!({"unevaluatedProperties": false}), CanonicalKind::Raw, "raw"; "raw")]
+#[test_case(&json!({"anyOf": [{}], "unevaluatedProperties": false}), CanonicalKind::Raw, "raw"; "raw")]
 fn kind_reports_its_label(schema: &Value, kind: CanonicalKind, label: &str) {
     let canonical = canonicalize(schema).expect("canonicalizes");
     assert_eq!(canonical.kind(), kind);
@@ -622,13 +990,14 @@ fn validation_error_display_and_source() {
     assert!(std::error::Error::source(&error).is_some());
 }
 
-// `unevaluatedProperties` is unmodeled, so the document goes raw at the root without descending
-// into the nesting.
+// `unevaluatedProperties` beside an instance-dependent applicator is unmodeled, so the document
+// goes raw at the root without descending into the nesting.
 #[test]
 fn deeply_nested_document_round_trips() {
     let mut schema = json!({"type": "string"});
     for _ in 0..300 {
         let mut map = Map::new();
+        map.insert("anyOf".to_string(), json!([{}]));
         map.insert("unevaluatedProperties".to_string(), schema);
         schema = Value::Object(map);
     }
@@ -762,15 +1131,15 @@ fn canonical_schema_ordering() {
     assert!(two > one);
 
     let raw = |text: &str| canonicalize(&serde_json::from_str(text).unwrap()).unwrap();
-    let raw_one = raw(r#"{"unevaluatedProperties":{"const":1}}"#);
-    let raw_two = raw(r#"{"unevaluatedProperties":{"const":2}}"#);
+    let raw_one = raw(r#"{"anyOf":[{}],"unevaluatedProperties":{"const":1}}"#);
+    let raw_two = raw(r#"{"anyOf":[{}],"unevaluatedProperties":{"const":2}}"#);
     assert_eq!(raw_one.partial_cmp(&raw_two), Some(Ordering::Less));
     assert!(raw_one < raw_two);
 
     #[cfg(feature = "arbitrary-precision")]
     assert!(
-        raw(r#"{"unevaluatedProperties":{"const":1e400}}"#)
-            < raw(r#"{"unevaluatedProperties":{"const":2e400}}"#)
+        raw(r#"{"anyOf":[{}],"unevaluatedProperties":{"const":1e400}}"#)
+            < raw(r#"{"anyOf":[{}],"unevaluatedProperties":{"const":2e400}}"#)
     );
 }
 
@@ -979,4 +1348,49 @@ fn unlike_divisors_fold_under_arbitrary_precision(text: &str, expected: &Value) 
         .to_json_schema();
     form.as_object_mut().expect("object").remove("$schema");
     assert_eq!(&form, expected);
+}
+
+// Embedded rather than read off disk: `wasm32` has no filesystem, and canonicalization is exactly
+// as much in use there as anywhere.
+macro_rules! bundled_metaschemas {
+    ($($path:literal),* $(,)?) => {
+        &[$(($path, include_str!(concat!("../../jsonschema-referencing/metaschemas/", $path)))),*]
+    };
+}
+
+const BUNDLED_METASCHEMAS: &[(&str, &str)] = bundled_metaschemas![
+    "draft4.json",
+    "draft6.json",
+    "draft7.json",
+    "draft2019-09/schema.json",
+    "draft2019-09/meta/applicator.json",
+    "draft2019-09/meta/content.json",
+    "draft2019-09/meta/core.json",
+    "draft2019-09/meta/format.json",
+    "draft2019-09/meta/meta-data.json",
+    "draft2019-09/meta/validation.json",
+    "draft2020-12/schema.json",
+    "draft2020-12/meta/applicator.json",
+    "draft2020-12/meta/content.json",
+    "draft2020-12/meta/core.json",
+    "draft2020-12/meta/format-annotation.json",
+    "draft2020-12/meta/format-assertion.json",
+    "draft2020-12/meta/meta-data.json",
+    "draft2020-12/meta/unevaluated.json",
+    "draft2020-12/meta/validation.json",
+];
+
+// Every bundled metaschema must reach the structural IR.
+#[test]
+fn bundled_metaschemas_are_modeled() {
+    let mut raw = Vec::new();
+    for (name, text) in BUNDLED_METASCHEMAS {
+        let schema: Value = serde_json::from_str(text).expect("a bundled metaschema is valid JSON");
+        match options().canonicalize(&schema) {
+            Ok(canonical) if canonical.kind() == CanonicalKind::Raw => raw.push(*name),
+            Ok(_) => {}
+            Err(error) => panic!("{name}: {error}"),
+        }
+    }
+    assert!(raw.is_empty(), "these metaschemas stayed raw: {raw:#?}");
 }

@@ -5,7 +5,7 @@ class ChildrenPath(EntityPath):
     """Resource path for OneDrive children addressing"""
 
     def __init__(self, parent, collection=None):
-        super(ChildrenPath, self).__init__("children", parent, collection)
+        super().__init__("children", parent, collection)
 
     @property
     def collection(self):
@@ -14,4 +14,7 @@ class ChildrenPath(EntityPath):
                 self._collection = self.parent.collection
             else:
                 self._collection = self.parent
-        return self._collection
+        coll = self._collection
+        while isinstance(coll, ChildrenPath):
+            coll = coll.collection
+        return coll

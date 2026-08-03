@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-gvm
-Version: 27.5.0
+Version: 27.6.0
 Summary: Library to communicate with remote servers over GMP or OSP
 Project-URL: Homepage, https://github.com/greenbone/python-gvm/
 Project-URL: Repository, https://github.com/greenbone/python-gvm/
@@ -25,7 +25,7 @@ Requires-Dist: lxml>=4.5.0
 Requires-Dist: paramiko>=2.7.1
 Description-Content-Type: text/markdown
 
-![Greenbone Logo](https://www.greenbone.net/wp-content/uploads/gb_new-logo_horizontal_rgb_small.png)
+![Greenbone Logo](https://www.greenbone.net/wp-content/uploads/greenbone-logo-2025.png)
 
 # Greenbone Vulnerability Management Python Library <!-- omit in toc -->
 

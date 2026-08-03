@@ -1,33 +1,20 @@
-from typing import TYPE_CHECKING
+from __future__ import annotations
+
+from dataclasses import dataclass
 
 from office365.runtime.client_value import ClientValue
 
-if TYPE_CHECKING:
-    from typing import Optional  # noqa
 
-
+@dataclass
 class PhysicalAddress(ClientValue):
     """The physical address of a contact."""
 
-    def __init__(
-        self,
-        city=None,
-        country_or_region=None,
-        postal_code=None,
-        state=None,
-        street=None,
-    ):
-        # type: (Optional[str], Optional[str], Optional[str], Optional[str], Optional[str]) -> None
-        """
-        :param city: The city.
-        :param country_or_region: The country or region. It's a free-format string value, for example, "United States".
-        :param postal_code: The postal code.
-        :param state:
-        :param street:
-        """
-        super(PhysicalAddress, self).__init__()
-        self.city = city
-        self.countryOrRegion = country_or_region
-        self.postalCode = postal_code
-        self.state = state
-        self.street = street
+    city: str | None = None
+    countryOrRegion: str | None = None
+    postalCode: str | None = None
+    state: str | None = None
+    street: str | None = None
+
+    @property
+    def entity_type_name(self):
+        return "microsoft.graph.PhysicalAddress"

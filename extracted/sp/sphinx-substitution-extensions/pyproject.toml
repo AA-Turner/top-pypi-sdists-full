@@ -45,21 +45,22 @@ optional-dependencies.dev = [
     "check-manifest==0.51",
     "deptry==0.25.1",
     "doc8==2.0.0",
-    "doccmd==2026.5.25",
+    "doc8-custom-ignores==2026.7.29.1",
+    "doccmd==2026.7.19",
     "interrogate==1.7.0",
-    "mypy[faster-cache]==2.1.0",
-    "mypy-strict-kwargs==2026.5.20.1",
-    "prek==0.4.5",
-    "pydocstringformatter==0.7.5",
+    "mypy[faster-cache]==2.3.0",
+    "mypy-strict-kwargs==2026.7.19.1",
+    "prek==0.4.11",
+    "pydocstringformatter==1.0.0",
     "pylint[spelling]==4.0.6",
-    "pyproject-fmt==2.24.1",
-    "pyrefly==1.0.0",
-    "pyright==1.1.410",
+    "pyproject-fmt==2.26.0",
+    "pyrefly==1.1.1",
+    "pyright==1.1.411",
     "pyroma==5.0.1",
-    "pytest==9.1.0",
+    "pytest==9.1.1",
     "pytest-beartype-tests==2026.4.26",
     "pytest-cov==7.1.0",
-    "ruff==0.15.17",
+    "ruff==0.16.0",
     # We add shellcheck-py not only for shell scripts and shell code blocks,
     # but also because having it installed means that ``actionlint-py`` will
     # use it to lint shell commands in GitHub workflow files.
@@ -67,14 +68,14 @@ optional-dependencies.dev = [
     "shfmt-py==4.0.0",
     "sphinx>=9,<10",
     "sphinx-lint==1.0.2",
-    "sphinx-toolbox==4.2.0",
-    "strict-kwargs==2026.6.8.post1",
+    "sphinx-toolbox==4.3.0",
+    "strict-kwargs==2026.7.24",
     "towncrier==25.8.0",
-    "ty==0.0.49",
-    "types-docutils==0.22.3.20260518",
+    "ty==0.0.65",
+    "types-docutils==0.22.3.20260724",
     "vulture==2.16",
     "yamlfix==1.19.1",
-    "zizmor==1.25.2",
+    "zizmor==1.28.0",
 ]
 optional-dependencies.release = [ "check-wheel-contents==0.6.3", "towncrier==25.8.0" ]
 urls.Source = "https://github.com/adamtheturtle/sphinx-substitution-extensions"
@@ -90,9 +91,6 @@ package-data.sphinx_substitution_extensions = [
     "py.typed",
 ]
 zip-safe = false
-
-[tool.distutils]
-bdist_wheel.universal = true
 
 [tool.setuptools_scm]
 # This keeps the start of the version the same as the last release.
@@ -110,6 +108,8 @@ lint.select = [
 lint.ignore = [
     # Ruff warns that this conflicts with the formatter.
     "COM812",
+    # This project does not use per-file copyright notices.
+    "CPY001",
     # Allow our chosen docstring line-style - pydocstringformatter handles formatting
     # but doesn't enforce D205 (blank line after summary) or D212 (summary on first line).
     "D205",
@@ -323,6 +323,7 @@ ignore_names = [
     "source_suffix",
     "spelling_word_list_filename",
     "substitutions_default_enabled",
+    "substitutions_hyperlink_targets_enabled",
     "templates_path",
     "warning_is_error",
 ]
@@ -396,6 +397,12 @@ linewrap-full-docstring = true
 
 [tool.doc8]
 max_line_length = 2000
+ignore-messages = [
+    '''Error in "include" directive:
+unknown option: "content-substitutions".''',
+    '''Error in "include" directive:
+unknown option: "path-substitutions".''',
+]
 ignore_path = [
     "./.eggs",
     "./docs/build",

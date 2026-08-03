@@ -757,3 +757,116 @@ fn test_html_block_reference_link_url_skipped() {
         "Should skip names in reference link labels in HTML blocks. Got: {result:?}",
     );
 }
+
+#[test]
+fn test_wiki_embed_target_is_never_renamed() {
+    // A wiki embed names a file. Rewriting any part of it changes what the embed
+    // resolves to, so `rumdl fmt` must leave the whole construct alone: it used to
+    // read the piped dimensions as alt text and turn `![[javascript.png|300]]` into
+    // `![[JavaScript.png|300]]`, breaking the embed.
+    let names = vec!["JavaScript".to_string()];
+    let rule = MD044ProperNames::new(names, false);
+    let content = "![[javascript.png]]\n\
+                   ![[javascript.png|300]]\n\
+                   ![[subfolder/javascript.png|640x480]]\n\
+                   ![[javascript.png|A javascript diagram]]\n\
+                   Plain javascript prose.\n";
+    // The last line is the positive control. Without it, byte-identical output would
+    // also be what a rule that simply never ran produces.
+    let expected = "![[javascript.png]]\n\
+                    ![[javascript.png|300]]\n\
+                    ![[subfolder/javascript.png|640x480]]\n\
+                    ![[javascript.png|A javascript diagram]]\n\
+                    Plain JavaScript prose.\n";
+
+    // Wikilinks are enabled for every flavor, so the embeds parse the same way in both.
+    for flavor in [
+        rumdl_lib::config::MarkdownFlavor::Obsidian,
+        rumdl_lib::config::MarkdownFlavor::Standard,
+    ] {
+        let ctx = rumdl_lib::lint_context::LintContext::new(content, flavor, None);
+        let result = rule.check(&ctx).unwrap();
+        assert_eq!(
+            result.len(),
+            1,
+            "{flavor:?}: only the prose line warns. Got: {result:?}"
+        );
+        assert_eq!(result[0].line, 5, "{flavor:?}");
+        assert_eq!(rule.fix(&ctx).unwrap(), expected, "{flavor:?}");
+    }
+}
+
+#[test]
+fn test_wikilink_display_text_is_checked_and_the_target_is_not() {
+    // `[[page|text]]` shows only the text, so the page name is a reference like a URL:
+    // renaming it changes what the link resolves to without changing what a reader
+    // sees. The window used to be measured from the opening `[[`, which put it over
+    // the page name and left the displayed text unchecked.
+    let names = vec!["JavaScript".to_string()];
+    let rule = MD044ProperNames::new(names, false);
+    let content = "[[javascript]]\n\
+                   [[javascript-page|A javascript guide]]\n\
+                   [[Page|javascript]]\n\
+                   [[docs/javascript|see the javascript notes]]\n";
+    // Line 1 has no display text, so its page name is also what the reader sees.
+    let expected = "[[JavaScript]]\n\
+                    [[javascript-page|A JavaScript guide]]\n\
+                    [[Page|JavaScript]]\n\
+                    [[docs/javascript|see the JavaScript notes]]\n";
+
+    for flavor in [
+        rumdl_lib::config::MarkdownFlavor::Obsidian,
+        rumdl_lib::config::MarkdownFlavor::Standard,
+    ] {
+        let ctx = rumdl_lib::lint_context::LintContext::new(content, flavor, None);
+        let result = rule.check(&ctx).unwrap();
+        assert_eq!(result.len(), 4, "{flavor:?}: one per line. Got: {result:?}");
+        assert_eq!(
+            result.iter().map(|w| (w.line, w.column)).collect::<Vec<_>>(),
+            vec![(1, 3), (2, 21), (3, 8), (4, 27)],
+            "{flavor:?}"
+        );
+        assert_eq!(rule.fix(&ctx).unwrap(), expected, "{flavor:?}");
+    }
+}
+
+#[test]
+fn test_image_nested_in_link_text_keeps_its_destination() {
+    // Displayed link text can hold an image, whose destination is a URL like any
+    // other: renaming inside it breaks the image. The nested image used to be
+    // invisible to the check, because a position inside link text was answered
+    // from the link alone and never reached the image it sat in.
+    let names = vec!["JavaScript".to_string()];
+    let rule = MD044ProperNames::new(names, false);
+    let content = "[[Target|Display ![alt](javascript.png) more]]\n\
+                   [Display ![alt](javascript.png) more](target.md)\n\
+                   ![alt](javascript.png)\n\
+                   [[Target|Display [inner](javascript.md) more]]\n\
+                   [[Target|Display ![javascript](img.png) more]]\n\
+                   [Display ![javascript](img.png) more](target.md)\n\
+                   Plain javascript prose.\n";
+    // Only the two alt texts and the prose change. Alt text is what a reader sees
+    // when the image fails to load, so it is checked wherever it appears; the last
+    // line is the positive control, since a rule that never ran also changes nothing.
+    let expected = "[[Target|Display ![alt](javascript.png) more]]\n\
+                    [Display ![alt](javascript.png) more](target.md)\n\
+                    ![alt](javascript.png)\n\
+                    [[Target|Display [inner](javascript.md) more]]\n\
+                    [[Target|Display ![JavaScript](img.png) more]]\n\
+                    [Display ![JavaScript](img.png) more](target.md)\n\
+                    Plain JavaScript prose.\n";
+
+    for flavor in [
+        rumdl_lib::config::MarkdownFlavor::Obsidian,
+        rumdl_lib::config::MarkdownFlavor::Standard,
+    ] {
+        let ctx = rumdl_lib::lint_context::LintContext::new(content, flavor, None);
+        let result = rule.check(&ctx).unwrap();
+        assert_eq!(
+            result.iter().map(|w| (w.line, w.column)).collect::<Vec<_>>(),
+            vec![(5, 20), (6, 12), (7, 7)],
+            "{flavor:?}: alt text twice, then the prose. Got: {result:?}"
+        );
+        assert_eq!(rule.fix(&ctx).unwrap(), expected, "{flavor:?}");
+    }
+}

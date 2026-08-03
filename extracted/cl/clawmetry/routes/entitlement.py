@@ -3515,6 +3515,193 @@ def api_entitlement_has_runtime():
         return jsonify(_has_axis_fallback("runtime", key))
 
 
+def _has_axis_at_fallback(axis: str, tier: str, key: str) -> dict:
+    """OSS-free / never-5xx shape for ``/api/entitlement/has-feature-at`` /
+    ``/has-runtime-at``.
+
+    What-if sibling of :func:`_has_axis_fallback`. On any resolver / helper
+    blowup the endpoint still returns 200 with the same 12-key envelope as
+    the happy-path branch, but with ``has_<axis>_at`` and ``allowed``
+    strict-``False`` (matches the fail-closed posture the sibling
+    ``/has-feature`` / ``/has-runtime`` fallback uses -- a paywall matrix
+    tile that lost the resolver never silently renders a grant it can't
+    verify). ``tier`` and the axis slot echo the caller's canonicalised
+    input so the UI can still surface both in a diagnostics tooltip.
+    """
+    return {
+        "tier": tier,
+        axis: key,
+        f"has_{axis}_at": False,
+        "allowed": False,
+        "required_tier": None,
+        "required_tier_label": None,
+        "required_tier_rank": -1,
+        "perspective_tier_rank": -1,
+        "current_tier": "oss",
+        "current_tier_rank": 0,
+        "grace": True,
+        "enforced": False,
+    }
+
+
+def _has_axis_at_body(axis: str) -> dict:
+    """Happy-path body builder for ``/api/entitlement/has-feature-at`` /
+    ``/has-runtime-at`` -- scalar what-if boolean plus the surrounding
+    what-if envelope.
+
+    Perspective-shaped sibling of :func:`_has_axis_body`: where the live
+    variant folds :func:`has_feature` / :func:`has_runtime` against the
+    resolved entitlement, this folds :func:`has_feature_at` /
+    :func:`has_runtime_at` against a caller-supplied ``tier=`` perspective
+    so a pricing matrix ("does Starter grant fleet? Pro? Enterprise?")
+    can bind ONE boolean per cell off ONE URL each instead of
+    hydrating the full ``/feature-catalog-at`` payload and pulling out
+    the ``allowed`` field client-side.
+
+    12-key envelope (adds ``tier`` + ``perspective_tier_rank`` +
+    ``grace`` / ``enforced`` on top of the sibling ``/has-feature`` shape)::
+
+        {
+          "tier":                  "<perspective tier id>" | "",
+          "feature":               "<canonicalised id>"    | "",
+          "has_feature_at":        <bool>,
+          "allowed":               <bool>,             # alias of has_feature_at
+          "required_tier":         "<tier id>" | null, # min_tier_for_<axis>
+          "required_tier_label":   "<label>"  | null,
+          "required_tier_rank":    <int>,              # -1 when required_tier null
+          "perspective_tier_rank": <int>,              # -1 when tier unknown/blank
+          "current_tier":          "<live tier id>",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,             # live resolver grace bit
+          "enforced":              <bool>,
+        }
+
+    Runtime-axis alias canonicalisation: the endpoint layer calls
+    :func:`canonical_runtime` on the raw ``runtime`` arg before delegating
+    to :func:`has_runtime_at`, matching the ``/has-runtime`` endpoint's
+    own upstream posture. This lets ``?runtime=claude-code`` collapse to
+    the granted ``claude_code`` at the URL layer even though the scalar
+    itself is strict (no alias resolution at scalar level -- see
+    :func:`has_runtime_at`).
+
+    Never 4xxs (missing / blank / unknown tier or axis id -> 200 with
+    ``has_<axis>_at=False``, mirroring the ``/has-feature`` posture). The
+    ``perspective_tier_rank`` slot is ``-1`` for an unknown perspective
+    so a UI can distinguish "typo perspective" from "valid perspective
+    that just doesn't grant this axis". Never 5xxs.
+    """
+    from clawmetry import entitlements as _ent
+
+    raw_tier = request.args.get("tier")
+    tier = (raw_tier or "").strip().lower()
+    if axis == "feature":
+        raw_key = request.args.get("feature")
+        key = (raw_key or "").strip().lower()
+    else:
+        raw_key = request.args.get("runtime")
+        # Canonicalise runtime alias upstream of the strict scalar
+        # (``has_runtime_at`` does not resolve aliases -- see the
+        # scalar docstring for rationale), matching the sibling
+        # ``/has-runtime`` endpoint's own upstream-canonicalise pattern.
+        raw_stripped = (raw_key or "").strip().lower()
+        try:
+            key = _ent.canonical_runtime(raw_stripped) or raw_stripped
+        except Exception:
+            key = raw_stripped
+    if axis == "feature":
+        has_flag = _ent.has_feature_at(tier, key)
+        required = _ent.min_tier_for_feature(key) if key else None
+    else:
+        has_flag = _ent.has_runtime_at(tier, key)
+        required = _ent.min_tier_for_runtime(key) if key else None
+    ent = _ent.get_entitlement()
+    cur_rank = _ent.tier_rank(ent.tier)
+    req_rank = _ent.tier_rank(required) if required else -1
+    required_label = _ent.tier_label(required) if required else None
+    # Rank of the perspective tier itself, so a paywall matrix can sort
+    # cells by tier without a follow-up ``/tier-rank`` call. ``-1`` when
+    # the perspective is unknown / blank (matches the ``required_tier_rank``
+    # sentinel for a not-resolved tier).
+    persp_rank = _ent.tier_rank(tier) if tier and tier in _ent._TIER_ORDER else -1
+    return {
+        "tier": tier,
+        axis: key,
+        f"has_{axis}_at": bool(has_flag),
+        "allowed": bool(has_flag),
+        "required_tier": required,
+        "required_tier_label": required_label,
+        "required_tier_rank": req_rank,
+        "perspective_tier_rank": persp_rank,
+        "current_tier": ent.tier,
+        "current_tier_rank": cur_rank,
+        "grace": bool(ent.grace),
+        "enforced": _ent.is_enforced(),
+    }
+
+
+@bp_entitlement.route("/api/entitlement/has-feature-at")
+def api_entitlement_has_feature_at():
+    """``GET /api/entitlement/has-feature-at?tier=<perspective>&feature=<id>``
+    -- what-if boolean-gate scalar sibling of ``/api/entitlement/has-feature``.
+
+    Returns ONE boolean (``has_feature_at``) plus a what-if envelope that
+    tells the caller which perspective they asked about, whether the
+    requested feature is admitted by that perspective, the cheapest tier
+    that would unlock it (``required_tier``, byte-parity with the sibling
+    ``/api/entitlement/min-tier-for-feature`` answer), and the LIVE
+    resolver context (``current_tier`` / ``grace`` / ``enforced``) so a
+    pricing matrix can render "you are here" alongside "would tier X
+    grant this?" off ONE URL per cell.
+
+    Unlike the live ``/has-feature`` sibling this endpoint is
+    perspective-shaped: even in grace ``has_feature_at="oss","fleet"`` is
+    ``False`` (because OSS-free does not statically grant ``fleet``),
+    whereas ``/has-feature?feature=fleet`` in grace returns ``True``.
+    That is the whole point of the ``_at`` slot -- render the
+    would-be-locked state alongside the live grant.
+
+    Never 4xxs (missing / blank / unknown tier or feature -> 200 with
+    ``has_feature_at=false``, matching the ``/has-feature`` posture --
+    a paywall matrix tile binds ``allowed`` directly without a
+    pre-validation round-trip). Never 5xxs: any helper blowup collapses
+    to :func:`_has_axis_at_fallback`.
+    """
+    try:
+        return jsonify(_has_axis_at_body("feature"))
+    except Exception as exc:
+        logger.warning("api_entitlement_has_feature_at: error: %s", exc)
+        tier = (request.args.get("tier") or "").strip().lower()
+        key = (request.args.get("feature") or "").strip().lower()
+        return jsonify(_has_axis_at_fallback("feature", tier, key))
+
+
+@bp_entitlement.route("/api/entitlement/has-runtime-at")
+def api_entitlement_has_runtime_at():
+    """``GET /api/entitlement/has-runtime-at?tier=<perspective>&runtime=<id>``
+    -- runtime-axis twin of ``/api/entitlement/has-feature-at``.
+
+    Same 12-key envelope with ``runtime`` / ``has_runtime_at`` in the
+    axis-specific slots. Runtime-alias canonicalisation
+    (``claude-code`` -> ``claude_code``) is applied upstream at the
+    endpoint layer so ``?runtime=claude-code`` collapses to the granted
+    ``claude_code`` -- matches the sibling ``/has-runtime`` endpoint's
+    own upstream-canonicalise pattern. Never 4xxs; never 5xxs.
+    """
+    try:
+        return jsonify(_has_axis_at_body("runtime"))
+    except Exception as exc:
+        logger.warning("api_entitlement_has_runtime_at: error: %s", exc)
+        tier = (request.args.get("tier") or "").strip().lower()
+        raw_key = (request.args.get("runtime") or "").strip().lower()
+        try:
+            from clawmetry import entitlements as _ent
+
+            key = _ent.canonical_runtime(raw_key) or raw_key
+        except Exception:
+            key = raw_key
+        return jsonify(_has_axis_at_fallback("runtime", tier, key))
+
+
 def _has_channel_count_fallback(count_raw: str) -> dict:
     """OSS-free / never-5xx shape for ``/api/entitlement/has-channel-count``.
 
@@ -3642,6 +3829,172 @@ def api_entitlement_has_channel_count():
     except Exception as exc:
         logger.warning("api_entitlement_has_channel_count: error: %s", exc)
         return jsonify(_has_channel_count_fallback(count_raw))
+
+
+def _has_channel_count_at_fallback(tier: str, count_raw: str) -> dict:
+    """OSS-free / never-5xx shape for ``/api/entitlement/has-channel-count-at``.
+
+    What-if sibling of :func:`_has_channel_count_fallback`. On any resolver /
+    helper blowup the endpoint still returns 200 with the same 13-key
+    envelope as the happy-path branch, but with ``has_channel_count_at`` and
+    ``allowed`` strict-``False`` (matches the fail-closed posture the
+    sibling ``/has-feature-at`` / ``/has-runtime-at`` / ``/has-node-count-at``
+    and ``/has-channel-count`` fallbacks use -- a paywall matrix tile that
+    lost the resolver never silently reports a grant it cannot verify).
+    ``tier`` and ``count_raw`` echo the caller's canonicalised inputs so
+    the UI can still surface both in a diagnostics tooltip.
+    """
+    return {
+        "tier": tier,
+        "count": None,
+        "count_raw": count_raw,
+        "has_channel_count_at": False,
+        "allowed": False,
+        "required_tier": None,
+        "required_tier_label": None,
+        "required_tier_rank": -1,
+        "perspective_tier_rank": -1,
+        "current_tier": "oss",
+        "current_tier_rank": 0,
+        "grace": True,
+        "enforced": False,
+    }
+
+
+@bp_entitlement.route("/api/entitlement/has-channel-count-at")
+def api_entitlement_has_channel_count_at():
+    """``GET /api/entitlement/has-channel-count-at?tier=<perspective>&count=<N>``
+    -- what-if capacity-axis boolean-gate scalar sibling of
+    ``/api/entitlement/has-channel-count``.
+
+    Channel-capacity twin of ``/api/entitlement/has-feature-at`` /
+    ``/api/entitlement/has-runtime-at`` on the grant axes and of
+    ``/api/entitlement/has-node-count-at`` on the sibling fleet capacity
+    axis. Returns ONE boolean (``has_channel_count_at``) plus a what-if
+    envelope that tells the caller which perspective they asked about,
+    whether that perspective admits ``count`` channels, the cheapest
+    tier that would admit it (``required_tier``, byte-parity with the
+    sibling ``/api/entitlement/required-tier?channels=<N>`` answer), and
+    the LIVE resolver context (``current_tier`` / ``grace`` /
+    ``enforced``) so a channels pricing matrix can render "you are here"
+    alongside "would tier X admit this?" off ONE URL per cell.
+
+    Unlike the live ``/has-channel-count`` sibling this endpoint is
+    perspective-shaped: even in grace
+    ``/has-channel-count-at?tier=oss&count=5`` returns ``allowed=false``
+    (because the OSS-free tier statically caps at
+    :data:`_FREE_CHANNEL_LIMIT` channels), whereas
+    ``/has-channel-count?count=5`` in grace returns ``true`` via
+    :meth:`Entitlement.allows_channel_count`'s grace-passthrough. That
+    is the whole point of the ``_at`` slot -- render the would-be-locked
+    state alongside the live grant.
+
+    13-key envelope (adds ``tier`` + ``perspective_tier_rank`` + ``grace``
+    / ``enforced`` on top of the sibling ``/has-channel-count`` shape,
+    drops ``upgrade_required`` since the perspective is the what-if
+    tier, not the actual current one)::
+
+        {
+          "tier":                  "<perspective tier id>" | "",
+          "count":                 <int> | null,        # parsed, null on missing/unparseable
+          "count_raw":             "<stripped raw>",
+          "has_channel_count_at":  <bool>,
+          "allowed":               <bool>,              # alias of has_channel_count_at
+          "required_tier":         "<tier id>" | null,  # min_tier_for_channel_count(count)
+          "required_tier_label":   "<label>"   | null,
+          "required_tier_rank":    <int>,               # -1 when required_tier null
+          "perspective_tier_rank": <int>,               # -1 when tier unknown/blank
+          "current_tier":          "<live tier id>",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,              # live resolver grace bit
+          "enforced":              <bool>,
+        }
+
+    Input semantics mirror the sibling ``/has-feature-at`` +
+    ``/has-node-count-at`` + ``/has-channel-count`` endpoints:
+
+    * ``?tier=`` missing / blank / whitespace / unknown perspective ->
+      ``has_channel_count_at=false``, ``perspective_tier_rank=-1``.
+      Never 4xx.
+    * ``?count=`` missing / blank / whitespace / unparseable ->
+      ``count=null``, ``has_channel_count_at=false``,
+      ``required_tier=null``. Never 4xx.
+    * ``count <= 0`` on a valid perspective ->
+      ``has_channel_count_at=true``, ``required_tier="oss"``
+      (trivially satisfied by the free floor -- mirrors
+      :func:`min_tier_for_channel_count`).
+    * Positive int on a valid perspective -> ``has_channel_count_at``
+      reflects the static per-tier cap in :data:`_TIER_CHANNEL_LIMIT`;
+      ``required_tier`` is the cheapest tier admitting ``count`` per
+      :func:`min_tier_for_channel_count` (perspective-independent;
+      matches the ``/has-channel-count`` sibling byte-for-byte).
+
+    Never 5xx: any resolver blowup collapses to
+    :func:`_has_channel_count_at_fallback`.
+    """
+    raw_tier = request.args.get("tier")
+    tier = (raw_tier or "").strip().lower()
+    count_raw = (request.args.get("count") or "").strip()
+    try:
+        from clawmetry import entitlements as _ent
+
+        try:
+            n = int(count_raw)
+            parsed_ok = True
+        except (TypeError, ValueError):
+            n = None
+            parsed_ok = False
+
+        ent = _ent.get_entitlement()
+        cur_tier = ent.tier
+        cur_rank = _ent.tier_rank(cur_tier)
+        persp_rank = (
+            _ent.tier_rank(tier) if tier and tier in _ent._TIER_ORDER else -1
+        )
+
+        if not parsed_ok:
+            return jsonify(
+                {
+                    "tier": tier,
+                    "count": None,
+                    "count_raw": count_raw,
+                    "has_channel_count_at": False,
+                    "allowed": False,
+                    "required_tier": None,
+                    "required_tier_label": None,
+                    "required_tier_rank": -1,
+                    "perspective_tier_rank": persp_rank,
+                    "current_tier": cur_tier,
+                    "current_tier_rank": cur_rank,
+                    "grace": bool(ent.grace),
+                    "enforced": _ent.is_enforced(),
+                }
+            )
+
+        has_flag = _ent.has_channel_count_at(tier, n)
+        required = _ent.min_tier_for_channel_count(n)
+        req_rank = _ent.tier_rank(required) if required else -1
+        required_label = _ent.tier_label(required) if required else None
+        return jsonify(
+            {
+                "tier": tier,
+                "count": n,
+                "count_raw": count_raw,
+                "has_channel_count_at": bool(has_flag),
+                "allowed": bool(has_flag),
+                "required_tier": required,
+                "required_tier_label": required_label,
+                "required_tier_rank": req_rank,
+                "perspective_tier_rank": persp_rank,
+                "current_tier": cur_tier,
+                "current_tier_rank": cur_rank,
+                "grace": bool(ent.grace),
+                "enforced": _ent.is_enforced(),
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_entitlement_has_channel_count_at: error: %s", exc)
+        return jsonify(_has_channel_count_at_fallback(tier, count_raw))
 
 
 def _has_retention_window_fallback(days_raw: str, unlimited: bool) -> dict:
@@ -3794,6 +4147,191 @@ def api_entitlement_has_retention_window():
         )
 
 
+def _has_retention_window_at_fallback(
+    tier: str, days_raw: str, unlimited: bool
+) -> dict:
+    """OSS-free / never-5xx shape for ``/api/entitlement/has-retention-window-at``.
+
+    What-if sibling of :func:`_has_retention_window_fallback`. On any
+    resolver / helper blowup the endpoint still returns 200 with the same
+    14-key envelope as the happy-path branch, but with
+    ``has_retention_window_at`` and ``allowed`` strict-``False`` (matches
+    the fail-closed posture the sibling ``/has-feature-at`` /
+    ``/has-runtime-at`` / ``/has-channel-count-at`` /
+    ``/has-node-count-at`` fallbacks use -- a paywall matrix tile that
+    lost the resolver never silently reports a grant it cannot verify).
+    ``tier``, ``days_raw`` and ``unlimited`` echo the caller's
+    canonicalised inputs so the UI can still surface all three in a
+    diagnostics tooltip.
+    """
+    return {
+        "tier": tier,
+        "days": None,
+        "days_raw": days_raw,
+        "unlimited": unlimited,
+        "has_retention_window_at": False,
+        "allowed": False,
+        "required_tier": None,
+        "required_tier_label": None,
+        "required_tier_rank": -1,
+        "perspective_tier_rank": -1,
+        "current_tier": "oss",
+        "current_tier_rank": 0,
+        "grace": True,
+        "enforced": False,
+    }
+
+
+@bp_entitlement.route("/api/entitlement/has-retention-window-at")
+def api_entitlement_has_retention_window_at():
+    """``GET /api/entitlement/has-retention-window-at?tier=<perspective>&days=<N|unlimited>``
+    -- what-if capacity-axis boolean-gate scalar sibling of
+    ``/api/entitlement/has-retention-window``.
+
+    Retention-capacity twin of ``/api/entitlement/has-feature-at`` /
+    ``/api/entitlement/has-runtime-at`` on the grant axes and of
+    ``/api/entitlement/has-channel-count-at`` /
+    ``/api/entitlement/has-node-count-at`` on the sibling capacity axes.
+    Returns ONE boolean (``has_retention_window_at``) plus a what-if
+    envelope that tells the caller which perspective they asked about,
+    whether that perspective admits ``days`` of history, the cheapest tier
+    that would admit it (``required_tier``, byte-parity with the sibling
+    ``/api/entitlement/required-tier?retention_days=<N>`` answer), and the
+    LIVE resolver context (``current_tier`` / ``grace`` / ``enforced``) so
+    a history-range pricing matrix can render "you are here" alongside
+    "would tier X admit this?" off ONE URL per cell.
+
+    Unlike the live ``/has-retention-window`` sibling this endpoint is
+    perspective-shaped: even in grace
+    ``/has-retention-window-at?tier=oss&days=30`` returns ``allowed=false``
+    (because the OSS-free tier statically caps at 7 days), whereas
+    ``/has-retention-window?days=30`` in grace returns ``true`` via
+    :meth:`Entitlement.allows_retention_window`'s grace-passthrough. That
+    is the whole point of the ``_at`` slot -- render the would-be-locked
+    state alongside the live grant.
+
+    14-key envelope (adds ``tier`` + ``perspective_tier_rank`` + ``grace``
+    / ``enforced`` on top of the sibling ``/has-retention-window`` shape,
+    drops ``upgrade_required`` since the perspective is the what-if tier,
+    not the actual current one)::
+
+        {
+          "tier":                    "<perspective tier id>" | "",
+          "days":                    <int> | null,        # parsed, null on missing/unparseable/unlimited/blowup
+          "days_raw":                "<stripped raw>",
+          "unlimited":               <bool>,              # True iff ?days=unlimited (case-insensitive)
+          "has_retention_window_at": <bool>,
+          "allowed":                 <bool>,              # alias of has_retention_window_at
+          "required_tier":           "<tier id>" | null,  # min_tier_for_retention_window(days)
+          "required_tier_label":     "<label>"   | null,
+          "required_tier_rank":      <int>,               # -1 when required_tier null
+          "perspective_tier_rank":   <int>,               # -1 when tier unknown/blank
+          "current_tier":            "<live tier id>",
+          "current_tier_rank":       <int>,
+          "grace":                   <bool>,              # live resolver grace bit
+          "enforced":                <bool>,
+        }
+
+    Input semantics mirror the sibling ``/has-feature-at`` +
+    ``/has-channel-count-at`` + ``/has-node-count-at`` +
+    ``/has-retention-window`` endpoints:
+
+    * ``?tier=`` missing / blank / whitespace / unknown perspective ->
+      ``has_retention_window_at=false``, ``perspective_tier_rank=-1``.
+      Never 4xx.
+    * ``?days=`` missing / blank / whitespace ->
+      ``has_retention_window_at=false``, ``days=null``,
+      ``required_tier=null``, ``unlimited=false``. Never 4xx (matches
+      the never-crash posture of the sibling ``/has-retention-window``
+      endpoint on missing input).
+    * ``?days=unlimited`` (case-insensitive) -- explicit unlimited-history
+      request. ``days=null``, ``unlimited=true``,
+      ``has_retention_window_at`` reflects the perspective's static cap
+      (Enterprise -> ``true``; every other perspective -> ``false``,
+      even in grace), ``required_tier`` routes to
+      :func:`min_tier_for_retention_window(None)` (Enterprise on the
+      current tier table).
+    * ``?days=`` non-int junk (``bogus`` / ``5.5`` / ...) ->
+      ``has_retention_window_at=false``, ``days=null``,
+      ``required_tier=null``, ``unlimited=false``. Fail-closed matches
+      :func:`has_retention_window_at` / :func:`has_channel_count_at` on
+      parse failure.
+    * ``days <= 0`` on a valid perspective ->
+      ``has_retention_window_at=true``, ``required_tier="oss"``
+      (trivially satisfied by the free floor -- mirrors
+      :func:`min_tier_for_retention_window`).
+    * Positive int on a valid perspective ->
+      ``has_retention_window_at`` reflects the static per-tier cap in
+      :data:`_TIER_RETENTION_DAYS`; ``required_tier`` is the cheapest
+      tier admitting ``days`` per
+      :func:`min_tier_for_retention_window` (perspective-independent;
+      matches the ``/has-retention-window`` sibling byte-for-byte).
+
+    Never 5xx: any resolver blowup collapses to
+    :func:`_has_retention_window_at_fallback`.
+    """
+    raw_tier = request.args.get("tier")
+    tier = (raw_tier or "").strip().lower()
+    days_raw = (request.args.get("days") or "").strip()
+    unlimited = days_raw.lower() == "unlimited"
+    try:
+        from clawmetry import entitlements as _ent
+
+        ent = _ent.get_entitlement()
+        cur_tier = ent.tier
+        cur_rank = _ent.tier_rank(cur_tier)
+        persp_rank = (
+            _ent.tier_rank(tier) if tier and tier in _ent._TIER_ORDER else -1
+        )
+
+        if unlimited:
+            n: int | None = None
+            has_flag = _ent.has_retention_window_at(tier, None)
+            required = _ent.min_tier_for_retention_window(None)
+        elif not days_raw:
+            n = None
+            has_flag = False
+            required = None
+        else:
+            try:
+                n = int(days_raw)
+            except (TypeError, ValueError):
+                n = None
+                has_flag = False
+                required = None
+            else:
+                has_flag = _ent.has_retention_window_at(tier, n)
+                required = _ent.min_tier_for_retention_window(n)
+
+        req_rank = _ent.tier_rank(required) if required else -1
+        required_label = _ent.tier_label(required) if required else None
+        return jsonify(
+            {
+                "tier": tier,
+                "days": n,
+                "days_raw": days_raw,
+                "unlimited": unlimited,
+                "has_retention_window_at": bool(has_flag),
+                "allowed": bool(has_flag),
+                "required_tier": required,
+                "required_tier_label": required_label,
+                "required_tier_rank": req_rank,
+                "perspective_tier_rank": persp_rank,
+                "current_tier": cur_tier,
+                "current_tier_rank": cur_rank,
+                "grace": bool(ent.grace),
+                "enforced": _ent.is_enforced(),
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_has_retention_window_at: error: %s", exc
+        )
+        return jsonify(
+            _has_retention_window_at_fallback(tier, days_raw, unlimited)
+        )
+
+
 def _has_node_count_fallback(count_raw: str) -> dict:
     """OSS-free / never-5xx shape for ``/api/entitlement/has-node-count``.
 
@@ -3922,6 +4460,336 @@ def api_entitlement_has_node_count():
     except Exception as exc:
         logger.warning("api_entitlement_has_node_count: error: %s", exc)
         return jsonify(_has_node_count_fallback(count_raw))
+
+
+def _has_node_count_at_fallback(tier: str, count_raw: str) -> dict:
+    """OSS-free / never-5xx shape for ``/api/entitlement/has-node-count-at``.
+
+    What-if sibling of :func:`_has_node_count_fallback`. On any resolver /
+    helper blowup the endpoint still returns 200 with the same 13-key
+    envelope as the happy-path branch, but with ``has_node_count_at`` and
+    ``allowed`` strict-``False`` (matches the fail-closed posture the
+    sibling ``/has-feature-at`` / ``/has-runtime-at`` and
+    ``/has-node-count`` fallbacks use -- a fleet pricing matrix tile that
+    lost the resolver never silently reports a grant it cannot verify).
+    ``tier`` and ``count_raw`` echo the caller's canonicalised inputs so
+    the UI can still surface both in a diagnostics tooltip.
+    """
+    return {
+        "tier": tier,
+        "count": None,
+        "count_raw": count_raw,
+        "has_node_count_at": False,
+        "allowed": False,
+        "required_tier": None,
+        "required_tier_label": None,
+        "required_tier_rank": -1,
+        "perspective_tier_rank": -1,
+        "current_tier": "oss",
+        "current_tier_rank": 0,
+        "grace": True,
+        "enforced": False,
+    }
+
+
+@bp_entitlement.route("/api/entitlement/has-node-count-at")
+def api_entitlement_has_node_count_at():
+    """``GET /api/entitlement/has-node-count-at?tier=<perspective>&count=<N>``
+    -- what-if capacity-axis boolean-gate scalar sibling of
+    ``/api/entitlement/has-node-count``.
+
+    Node-capacity twin of ``/api/entitlement/has-feature-at`` /
+    ``/api/entitlement/has-runtime-at``. Returns ONE boolean
+    (``has_node_count_at``) plus a what-if envelope that tells the
+    caller which perspective they asked about, whether that perspective
+    admits ``count`` nodes, the cheapest tier that would admit it
+    (``required_tier``, byte-parity with the sibling
+    ``/api/entitlement/required-tier?nodes=<N>`` answer), and the LIVE
+    resolver context (``current_tier`` / ``grace`` / ``enforced``) so a
+    fleet pricing matrix can render "you are here" alongside "would tier
+    X admit this?" off ONE URL per cell.
+
+    Unlike the live ``/has-node-count`` sibling this endpoint is
+    perspective-shaped: even in grace
+    ``/has-node-count-at?tier=oss&count=5`` returns ``allowed=false``
+    (because the OSS-free tier statically caps at 1 node), whereas
+    ``/has-node-count?count=5`` in grace returns ``true`` via
+    :meth:`Entitlement.allows_node_count`'s grace-passthrough. That is
+    the whole point of the ``_at`` slot -- render the would-be-locked
+    state alongside the live grant.
+
+    13-key envelope (adds ``tier`` + ``perspective_tier_rank`` + ``grace``
+    / ``enforced`` on top of the sibling ``/has-node-count`` shape, drops
+    ``upgrade_required`` since the perspective is the what-if tier, not
+    the actual current one)::
+
+        {
+          "tier":                  "<perspective tier id>" | "",
+          "count":                 <int> | null,        # parsed, null on missing/unparseable
+          "count_raw":             "<stripped raw>",
+          "has_node_count_at":     <bool>,
+          "allowed":               <bool>,               # alias of has_node_count_at
+          "required_tier":         "<tier id>" | null,  # min_tier_for_node_count(count)
+          "required_tier_label":   "<label>"   | null,
+          "required_tier_rank":    <int>,               # -1 when required_tier null
+          "perspective_tier_rank": <int>,               # -1 when tier unknown/blank
+          "current_tier":          "<live tier id>",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,              # live resolver grace bit
+          "enforced":              <bool>,
+        }
+
+    Input semantics mirror the sibling ``/has-feature-at`` +
+    ``/has-node-count`` endpoints:
+
+    * ``?tier=`` missing / blank / whitespace / unknown perspective ->
+      ``has_node_count_at=false``, ``perspective_tier_rank=-1``. Never 4xx.
+    * ``?count=`` missing / blank / whitespace / unparseable -> ``count=null``,
+      ``has_node_count_at=false``, ``required_tier=null``. Never 4xx.
+    * ``count <= 0`` on a valid perspective -> ``has_node_count_at=true``,
+      ``required_tier="oss"`` (trivially satisfied by the free floor --
+      mirrors :func:`min_tier_for_node_count`).
+    * Positive int on a valid perspective -> ``has_node_count_at``
+      reflects the static per-tier cap in :data:`_TIER_NODE_LIMIT`;
+      ``required_tier`` is the cheapest tier admitting ``count`` per
+      :func:`min_tier_for_node_count` (perspective-independent; matches
+      the ``/has-node-count`` sibling byte-for-byte).
+
+    Never 5xx: any resolver blowup collapses to
+    :func:`_has_node_count_at_fallback`.
+    """
+    raw_tier = request.args.get("tier")
+    tier = (raw_tier or "").strip().lower()
+    count_raw = (request.args.get("count") or "").strip()
+    try:
+        from clawmetry import entitlements as _ent
+
+        try:
+            n = int(count_raw)
+            parsed_ok = True
+        except (TypeError, ValueError):
+            n = None
+            parsed_ok = False
+
+        ent = _ent.get_entitlement()
+        cur_tier = ent.tier
+        cur_rank = _ent.tier_rank(cur_tier)
+        persp_rank = (
+            _ent.tier_rank(tier) if tier and tier in _ent._TIER_ORDER else -1
+        )
+
+        if not parsed_ok:
+            return jsonify(
+                {
+                    "tier": tier,
+                    "count": None,
+                    "count_raw": count_raw,
+                    "has_node_count_at": False,
+                    "allowed": False,
+                    "required_tier": None,
+                    "required_tier_label": None,
+                    "required_tier_rank": -1,
+                    "perspective_tier_rank": persp_rank,
+                    "current_tier": cur_tier,
+                    "current_tier_rank": cur_rank,
+                    "grace": bool(ent.grace),
+                    "enforced": _ent.is_enforced(),
+                }
+            )
+
+        has_flag = _ent.has_node_count_at(tier, n)
+        required = _ent.min_tier_for_node_count(n)
+        req_rank = _ent.tier_rank(required) if required else -1
+        required_label = _ent.tier_label(required) if required else None
+        return jsonify(
+            {
+                "tier": tier,
+                "count": n,
+                "count_raw": count_raw,
+                "has_node_count_at": bool(has_flag),
+                "allowed": bool(has_flag),
+                "required_tier": required,
+                "required_tier_label": required_label,
+                "required_tier_rank": req_rank,
+                "perspective_tier_rank": persp_rank,
+                "current_tier": cur_tier,
+                "current_tier_rank": cur_rank,
+                "grace": bool(ent.grace),
+                "enforced": _ent.is_enforced(),
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_entitlement_has_node_count_at: error: %s", exc)
+        return jsonify(_has_node_count_at_fallback(tier, count_raw))
+
+
+def _has_node_count_batch_row_to_body(
+    row: dict, count_raw: str, cur_rank: int
+) -> dict:
+    """Translate a :func:`has_node_count_batch` scalar row into the endpoint
+    body row shape.
+
+    Rekeys ``has`` -> ``has_node_count`` / ``allowed`` (matches the
+    singular ``/api/entitlement/has-node-count`` body), replaces the
+    normalised-str ``key`` with an int ``count`` (or ``null`` on non-int
+    input) plus the caller's raw ``count_raw`` echo (matches the
+    singular endpoint's ``count`` / ``count_raw`` pair), and layers a
+    conjugated human ``label`` ("1 node" / "5 nodes"; matches
+    :func:`_capacity_batch_row_to_body`) plus a per-row
+    ``upgrade_required`` bit computed against the shared ``cur_rank`` so
+    a paywall matrix tile can bind it directly without a second lookup.
+
+    Never raises: missing keys / bad rows surface as the all-``None``
+    row shape (``count=null``, ``has_node_count=false``, ``allowed=false``,
+    ``required_tier=null``, ``upgrade_required=false``) so the batch keeps
+    building.
+    """
+    try:
+        n = int(row.get("key"))
+        count: int | None = n
+        label = f"{n} node" if n == 1 else f"{n} nodes"
+    except (TypeError, ValueError):
+        count = None
+        label = None
+    req_rank = row.get("required_tier_rank")
+    if req_rank is None:
+        req_rank = -1
+    has_flag = bool(row.get("has"))
+    required = row.get("required_tier")
+    return {
+        "count": count,
+        "count_raw": count_raw,
+        "kind": "node_count",
+        "label": label,
+        "has_node_count": has_flag,
+        "allowed": has_flag,
+        "unknown": bool(row.get("unknown")),
+        "required_tier": required,
+        "required_tier_label": row.get("required_tier_label"),
+        "required_tier_rank": req_rank,
+        "upgrade_required": bool(required) and req_rank > cur_rank,
+    }
+
+
+def _has_node_count_batch_fallback() -> dict:
+    """Grace-shape fallback body for ``/api/entitlement/has-node-count-batch``.
+
+    Sibling of :func:`_min_tier_for_capacity_batch_fallback` on the
+    same axis: on a resolver crash the pricing surface keeps rendering
+    with an empty ``rows`` list instead of a stack trace. Envelope
+    mirrors the happy-path body so a caller does not have to branch on
+    the error shape.
+    """
+    return {
+        "kind": "node_count",
+        "count": 0,
+        "rows": [],
+        "current_tier": "oss",
+        "current_tier_rank": 0,
+        "grace": True,
+        "enforced": False,
+    }
+
+
+@bp_entitlement.route("/api/entitlement/has-node-count-batch")
+def api_entitlement_has_node_count_batch():
+    """``GET /api/entitlement/has-node-count-batch?counts=1,5,100`` -- per-
+    value boolean-gate batch sibling of ``/api/entitlement/has-node-count``
+    on the ``nodes`` capacity axis.
+
+    Node-axis twin of the not-yet-existing has-channel-count-batch /
+    has-retention-window-batch endpoints. Where the singular
+    ``/has-node-count?count=<N>`` endpoint answers ONE
+    (``has_node_count``, ``required_tier``) pair per request, this batch
+    answers all requested counts in ONE round-trip so a fleet paywall
+    matrix ("does the current install admit 1? 5? 100 nodes?") binds
+    off one URL instead of ``N`` calls.
+
+    ``?counts=`` is a comma-separated list. Empty / whitespace tokens
+    are dropped, duplicates by normalised int key are dropped preserving
+    first-seen order, non-int tokens pass through as one row with
+    ``unknown=true`` / ``has_node_count=false`` (matches
+    :func:`has_node_count`'s strict callsite-typo posture). Missing /
+    blank ``?counts=`` -> ``400`` (matches the sibling
+    ``/api/entitlement/min-tier-for-node-count-batch`` posture).
+
+    Per-row body shape (extends the singular ``/has-node-count`` shape
+    with ``kind`` / ``label`` / ``unknown`` / ``count_raw`` so a UI
+    already rendering ``min-tier-for-node-count-batch`` rows can rebind
+    without reshaping)::
+
+        {
+          "count":              <int> | null,
+          "count_raw":          "<stripped raw token>",
+          "kind":               "node_count",
+          "label":              "1 node" | "5 nodes" | null,
+          "has_node_count":     <bool>,
+          "allowed":            <bool>,               # mirror of has_node_count
+          "unknown":            <bool>,               # true iff non-int input
+          "required_tier":      "<tier id>" | null,
+          "required_tier_label":"<label>"   | null,
+          "required_tier_rank": <int>,                # -1 when required_tier null
+          "upgrade_required":   <bool>,               # required_tier_rank > current_tier_rank
+        }
+
+    Envelope wraps ``rows`` with ``kind`` / ``count`` (row count) plus
+    the standard resolver envelope (``current_tier`` /
+    ``current_tier_rank`` / ``grace`` / ``enforced``) so a UI can render
+    "you are here" once alongside the per-row grants.
+
+    Grace-safe: while :attr:`Entitlement.grace` is ``True`` (the current
+    rollout state) every KNOWN row reports ``has_node_count=true``, so
+    wiring this into a fleet gate today changes NO current behavior.
+    Post-enforcement each row reflects the resolver's live grant.
+
+    Cross-consistency: the ``required_tier`` on each row agrees byte-for-
+    byte with ``/api/entitlement/required-tier?nodes=<count>`` and with
+    the per-row ``required_tier`` on the sibling
+    ``/api/entitlement/min-tier-for-node-count-batch`` -- a UI wiring
+    both for the same paywall matrix cannot see inconsistent tier state.
+
+    Never 5xx: any resolver blowup collapses to
+    :func:`_has_node_count_batch_fallback`.
+    """
+    values, err = _parse_capacity_batch_csv("counts", unlimited_ok=False)
+    if err == "missing":
+        return jsonify({"error": "missing counts"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        ent = _ent.get_entitlement()
+        cur_tier = ent.tier
+        cur_rank = _ent.tier_rank(cur_tier)
+        scalar_rows = _ent.has_node_count_batch(values)
+        raw_by_key: dict[str, str] = {}
+        for raw in values:
+            try:
+                key = str(int(raw))
+            except (TypeError, ValueError):
+                key = str(raw)
+            raw_by_key.setdefault(key, str(raw))
+        rows = [
+            _has_node_count_batch_row_to_body(
+                r, raw_by_key.get(str(r.get("key")), str(r.get("key"))), cur_rank
+            )
+            for r in scalar_rows
+        ]
+        return jsonify(
+            {
+                "kind": "node_count",
+                "count": len(rows),
+                "rows": rows,
+                "current_tier": cur_tier,
+                "current_tier_rank": cur_rank,
+                "grace": bool(ent.grace),
+                "enforced": _ent.is_enforced(),
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_has_node_count_batch: error: %s", exc
+        )
+        return jsonify(_has_node_count_batch_fallback())
 
 
 def _has_bundle_fallback(axis: str, tokens: list[str]) -> dict:
@@ -4100,6 +4968,659 @@ def api_entitlement_has_runtimes():
     except Exception as exc:
         logger.warning("api_entitlement_has_runtimes: error: %s", exc)
         return jsonify(_has_bundle_fallback("runtimes", _parse_csv_arg("runtimes")))
+
+
+def _has_bundle_at_fallback(axis: str, tier: str, tokens: list[str]) -> dict:
+    """OSS-free / never-5xx envelope for the plural what-if endpoints
+    ``/api/entitlement/has-features-at`` and ``/has-runtimes-at``.
+
+    What-if sibling of :func:`_has_bundle_fallback`, in the same relationship
+    :func:`_has_axis_at_fallback` has to :func:`_has_axis_fallback`. On any
+    resolver / helper blowup the endpoint still returns 200 with the same
+    15-key envelope as the happy path, but with ``has_<axis>_at`` and
+    ``allowed`` strict-``False`` (matches the fail-closed posture the sibling
+    ``/has-feature-at`` / ``/has-runtime-at`` fallback uses -- a paywall
+    matrix tile that lost the resolver never silently renders a bundle grant
+    it can't verify). ``tier`` and ``tokens`` echo the caller's canonicalised
+    input so the UI can still surface both in a diagnostics tooltip.
+    """
+    key = f"has_{axis}_at"
+    return {
+        "tier": tier,
+        axis: [],
+        "unknown": list(tokens),
+        "kind": axis,
+        "count": 0,
+        key: False,
+        "allowed": False,
+        "required_tier": None,
+        "required_tier_label": None,
+        "required_tier_rank": -1,
+        "perspective_tier_rank": -1,
+        "current_tier": "oss",
+        "current_tier_rank": 0,
+        "grace": True,
+        "enforced": False,
+    }
+
+
+def _has_bundle_at_body(axis: str) -> dict:
+    """Happy-path body builder for the plural what-if endpoints
+    ``/api/entitlement/has-features-at`` and ``/has-runtimes-at``.
+
+    Perspective-shaped sibling of :func:`_has_bundle_body`: where the live
+    variant folds :func:`has_features` / :func:`has_runtimes` against the
+    resolved entitlement, this folds :func:`has_features_at` /
+    :func:`has_runtimes_at` against a caller-supplied ``tier=`` perspective
+    so a pricing matrix that gates on a bundle ("does Starter grant fleet +
+    otel_export + sso? Pro? Enterprise?") can bind ONE boolean per cell off
+    ONE URL each, instead of hydrating the full ``/feature-catalog-at``
+    payload and AND-folding the ``allowed`` fields client-side.
+
+    Envelope shape (15 keys, byte-stable across every input branch)::
+
+        {
+          "tier":                  "<perspective tier id>" | "",
+          "features"/"runtimes":   [<known ids>],       # known-only, dedup, first-seen
+          "unknown":               [<tokens>],           # dropped tokens, echoed raw
+          "kind":                  "features"/"runtimes",
+          "count":                 <int>,               # len(known)
+          "has_<axis>_at":         <bool>,              # scalar over the ORIGINAL CSV
+          "allowed":               <bool>,              # alias of has_<axis>_at
+          "required_tier":         "<tier id>" | null,  # min_tier_for_<axis>(known)
+          "required_tier_label":   "<label>"  | null,
+          "required_tier_rank":    <int>,               # -1 when null
+          "perspective_tier_rank": <int>,               # -1 when tier unknown/blank
+          "current_tier":          "<live tier id>",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,              # LIVE resolver grace bit
+          "enforced":              <bool>,
+        }
+
+    Runtime-axis alias canonicalisation is applied per-token upstream of the
+    strict scalar (:func:`has_runtimes_at` does not resolve aliases -- see
+    the scalar docstring), matching the sibling :func:`_has_bundle_body`
+    posture on the ``/has-runtimes`` endpoint exactly.
+
+    Never 4xxs (missing / blank / unknown tier or all-unknown CSV -> 200
+    with ``has_<axis>_at=false``, matching the sibling ``/has-features``
+    posture -- a paywall matrix tile binds ``allowed`` directly without a
+    pre-validation round-trip). The ``perspective_tier_rank`` slot is ``-1``
+    for an unknown perspective so a UI can distinguish "typo perspective"
+    from "valid perspective that just doesn't grant this bundle". Never
+    5xxs.
+    """
+    from clawmetry import entitlements as _ent
+
+    raw_tier = request.args.get("tier")
+    tier = (raw_tier or "").strip().lower()
+    param = "features" if axis == "features" else "runtimes"
+    tokens = _parse_csv_arg(param)
+
+    known: list[str] = []
+    unknown: list[str] = []
+    if axis == "features":
+        for fid in tokens:
+            if fid in _ent.ALL_FEATURES:
+                if fid not in known:
+                    known.append(fid)
+            elif fid not in unknown:
+                unknown.append(fid)
+        required = _ent.min_tier_for_features(known) if known else None
+    else:
+        for rid_raw in tokens:
+            rid = _ent.canonical_runtime(rid_raw) or rid_raw
+            if rid in _ent.ALL_RUNTIMES:
+                if rid not in known:
+                    known.append(rid)
+            elif rid not in unknown:
+                unknown.append(rid_raw)
+        required = _ent.min_tier_for_runtimes(known) if known else None
+
+    # Scalar what-if: only ``True`` when every input token resolved to a
+    # granted known id under ``tier``'s static grant map. ``unknown`` tokens
+    # collapse the bundle to ``False`` for the same typo-catches-at-callsite
+    # reason the singular ``has_feature_at("pro", "BOGUS")`` returns ``False``
+    # -- a UI can still surface the offending set via the ``unknown`` slot.
+    if tokens and not unknown and known and tier and tier in _ent._TIER_ORDER:
+        has_flag = (
+            _ent.has_features_at(tier, known)
+            if axis == "features"
+            else _ent.has_runtimes_at(tier, known)
+        )
+    else:
+        has_flag = False
+
+    ent = _ent.get_entitlement()
+    cur_rank = _ent.tier_rank(ent.tier)
+    req_rank = _ent.tier_rank(required) if required else -1
+    required_label = _ent.tier_label(required) if required else None
+    persp_rank = _ent.tier_rank(tier) if tier and tier in _ent._TIER_ORDER else -1
+    return {
+        "tier": tier,
+        axis: known,
+        "unknown": unknown,
+        "kind": axis,
+        "count": len(known),
+        f"has_{axis}_at": bool(has_flag),
+        "allowed": bool(has_flag),
+        "required_tier": required,
+        "required_tier_label": required_label,
+        "required_tier_rank": req_rank,
+        "perspective_tier_rank": persp_rank,
+        "current_tier": ent.tier,
+        "current_tier_rank": cur_rank,
+        "grace": bool(ent.grace),
+        "enforced": _ent.is_enforced(),
+    }
+
+
+@bp_entitlement.route("/api/entitlement/has-features-at")
+def api_entitlement_has_features_at():
+    """``GET /api/entitlement/has-features-at?tier=<perspective>&features=a,b,c``
+    -- plural what-if boolean-gate scalar sibling of
+    ``/api/entitlement/has-features``.
+
+    Returns ONE boolean (``has_features_at``) plus a what-if envelope that
+    tells the caller which perspective they asked about, whether the whole
+    bundle is admitted by that perspective, the cheapest tier that would
+    unlock it (``required_tier``, byte-parity with the sibling
+    ``/api/entitlement/min-tier-for-features`` answer), and the LIVE
+    resolver context (``current_tier`` / ``grace`` / ``enforced``) so a
+    pricing matrix can render "you are here" alongside "would tier X grant
+    this bundle?" off ONE URL per cell.
+
+    Unlike the live ``/has-features`` sibling this endpoint is
+    perspective-shaped: even in grace ``has_features_at?tier=oss&features=fleet,sso``
+    is ``False`` (because OSS-free does not statically grant ``fleet`` /
+    ``sso``), whereas ``/has-features?features=fleet,sso`` in grace returns
+    ``True``. That is the whole point of the ``_at`` slot -- render the
+    would-be-locked state alongside the live grant.
+
+    Never 4xxs (missing / blank / unknown tier or all-unknown CSV -> 200
+    with ``has_features_at=false``, matching the sibling ``/has-features``
+    posture). Never 5xxs: any helper blowup collapses to
+    :func:`_has_bundle_at_fallback`.
+    """
+    try:
+        return jsonify(_has_bundle_at_body("features"))
+    except Exception as exc:
+        logger.warning("api_entitlement_has_features_at: error: %s", exc)
+        tier = (request.args.get("tier") or "").strip().lower()
+        return jsonify(
+            _has_bundle_at_fallback("features", tier, _parse_csv_arg("features"))
+        )
+
+
+@bp_entitlement.route("/api/entitlement/has-runtimes-at")
+def api_entitlement_has_runtimes_at():
+    """``GET /api/entitlement/has-runtimes-at?tier=<perspective>&runtimes=x,y,z``
+    -- runtime-axis twin of ``/api/entitlement/has-features-at``.
+
+    Same 15-key envelope with ``runtimes`` / ``has_runtimes_at`` in the
+    axis-specific slots. Runtime-alias canonicalisation
+    (``claude-code`` -> ``claude_code``) is applied per-token upstream at
+    the endpoint layer so ``?runtimes=claude-code,openclaw`` collapses to
+    the granted ``claude_code,openclaw`` -- matches the sibling
+    ``/has-runtimes`` endpoint's own upstream-canonicalise pattern.
+    Never 4xxs; never 5xxs.
+    """
+    try:
+        return jsonify(_has_bundle_at_body("runtimes"))
+    except Exception as exc:
+        logger.warning("api_entitlement_has_runtimes_at: error: %s", exc)
+        tier = (request.args.get("tier") or "").strip().lower()
+        return jsonify(
+            _has_bundle_at_fallback("runtimes", tier, _parse_csv_arg("runtimes"))
+        )
+
+
+def _missing_bundle_fallback(axis: str, tokens: list) -> dict:
+    """OSS-free / never-5xx envelope for the ``/api/entitlement/missing-features``
+    and ``/api/entitlement/missing-runtimes`` endpoints.
+
+    Complement of :func:`_has_bundle_fallback`: on a resolver blowup the
+    endpoint still returns 200 with the same envelope shape as the happy
+    path, but with ``missing=[]`` (matches the ``[]`` module scalar returns
+    on error) and the ``any_missing`` rollup ``False`` so a diagnostics tile
+    wired off this URL does not silently render a denial banner on a resolver
+    hiccup. ``tokens`` echoes the caller's raw input list into ``unknown``
+    so the tooltip can still surface the caller-supplied set for debugging.
+    """
+    return {
+        axis: [],
+        "unknown": list(tokens),
+        "missing": [],
+        "kind": axis,
+        "count": 0,
+        "missing_count": 0,
+        "any_missing": False,
+        "required_tier": None,
+        "required_tier_label": None,
+        "required_tier_rank": -1,
+        "current_tier": "oss",
+        "current_tier_rank": 0,
+        "grace": True,
+        "enforced": False,
+        "upgrade_required": False,
+    }
+
+
+def _missing_bundle_body(axis: str) -> dict:
+    """Happy-path body builder for ``/api/entitlement/missing-features`` /
+    ``/api/entitlement/missing-runtimes``.
+
+    Row-detail complement of :func:`_has_bundle_body`: where ``has-features``
+    /``has-runtimes`` fold the bundle to ONE boolean, this preserves the
+    per-item denial list so a paywall diagnostics tile ("you're missing
+    fleet, sso -- upgrade to unlock") can bind the exact set off ONE URL
+    without walking the ``/has-batch`` matrix and filtering ``has=False``
+    client-side.
+
+    Splits the caller's CSV into ``known`` / ``unknown`` against the
+    entitlement's ``ALL_FEATURES`` / ``ALL_RUNTIMES`` id set (with runtime-
+    alias canonicalisation for the runtimes axis). ``missing`` is delegated
+    to :func:`missing_features` / :func:`missing_runtimes` against the
+    ORIGINAL CSV so unknown tokens surface in the denial list (matches the
+    scalar's typo-catches-at-callsite posture -- a UI can still separate
+    unknown vs known-but-denied via the ``unknown`` slot). ``required_tier``
+    is resolved against the ``known`` subset for parity with the sibling
+    ``/api/entitlement/min-tier-for-<axis>`` envelope.
+    """
+    from clawmetry import entitlements as _ent
+
+    param = "features" if axis == "features" else "runtimes"
+    tokens = _parse_csv_arg(param)
+
+    known: list = []
+    unknown: list = []
+    if axis == "features":
+        for fid in tokens:
+            if fid in _ent.ALL_FEATURES:
+                if fid not in known:
+                    known.append(fid)
+            elif fid not in unknown:
+                unknown.append(fid)
+        missing = _ent.missing_features(tokens)
+        required = _ent.min_tier_for_features(known) if known else None
+    else:
+        # Canonicalise upstream of the scalar so an alias input
+        # (``claude-code``) collapses to the granted runtime
+        # (``claude_code``) here instead of surfacing in ``missing`` --
+        # matches the :func:`_has_bundle_body` upstream-canonicalise
+        # pattern for the sibling ``/has-runtimes`` endpoint, and dedups
+        # an alias-and-canonical pair to one entry before the scalar
+        # sees it.
+        canon_tokens: list = []
+        canon_seen: set = set()
+        for rid_raw in tokens:
+            rid = _ent.canonical_runtime(rid_raw) or rid_raw
+            if rid in canon_seen:
+                continue
+            canon_seen.add(rid)
+            canon_tokens.append(rid)
+            if rid in _ent.ALL_RUNTIMES:
+                if rid not in known:
+                    known.append(rid)
+            elif rid not in unknown:
+                unknown.append(rid_raw)
+        missing = _ent.missing_runtimes(canon_tokens)
+        required = _ent.min_tier_for_runtimes(known) if known else None
+
+    env = _resolver_envelope(_ent)
+    cur_rank = env["current_tier_rank"]
+    req_rank = _ent.tier_rank(required) if required else -1
+    required_label = _ent.tier_label(required) if required else None
+    return {
+        axis: known,
+        "unknown": unknown,
+        "missing": list(missing),
+        "kind": axis,
+        "count": len(known),
+        "missing_count": len(missing),
+        "any_missing": bool(missing) or bool(unknown),
+        "required_tier": required,
+        "required_tier_label": required_label,
+        "required_tier_rank": req_rank,
+        "current_tier": env["current_tier"],
+        "current_tier_rank": cur_rank,
+        "grace": env["grace"],
+        "enforced": env["enforced"],
+        "upgrade_required": bool(required) and req_rank > cur_rank,
+    }
+
+
+@bp_entitlement.route("/api/entitlement/missing-features")
+def api_entitlement_missing_features():
+    """``GET /api/entitlement/missing-features?features=a,b,c`` -- row-detail
+    complement of ``/api/entitlement/has-features``.
+
+    Returns the SUBSET of ``features`` NOT granted by the resolved
+    entitlement (the exact list of ids blocking the bundle) plus the
+    surrounding tier envelope. Where ``/has-features`` folds the bundle to
+    ONE boolean ("does the whole set pass?"), this preserves the per-item
+    denial so a paywall diagnostics tile ("you're missing fleet, sso") can
+    bind the missing list directly off ONE URL instead of walking the
+    ``/has-batch`` matrix and filtering ``has=False`` client-side.
+
+    Grace-safe: while :attr:`Entitlement.grace` is ``True`` (the current
+    rollout state) ``missing=[]`` for every fully-known bundle -- ``True``
+    grace answer on ``/has-features`` collapses to an empty complement here
+    -- so wiring this into a diagnostics tile today changes NO current
+    behavior. Unknown tokens surface INSIDE ``missing`` (canonicalised to
+    ``.strip().lower()``), matching the scalar's typo-catches-at-callsite
+    posture; the ``unknown`` slot still splits them out for a diagnostics
+    tooltip that wants to distinguish "denied by tier" vs "not a real id".
+    Missing / blank / all-unknown CSV -> 200 with ``missing=[]``,
+    ``features=[]``, ``count=0``, ``any_missing=false`` (never 4xx,
+    matching the sibling envelope). Never 5xx.
+
+    Envelope shape (15 keys, byte-stable across every input branch)::
+
+        {
+          "features":            ["fleet", "sso"],   # known ids only, dedup, first-seen order
+          "unknown":             ["bogus"],           # tokens not in ALL_FEATURES, echoed raw
+          "missing":             ["bogus", "sso"],    # subset NOT granted (denials + unknowns)
+          "kind":                "features",
+          "count":               2,                   # len(features) known
+          "missing_count":       2,                   # len(missing)
+          "any_missing":         true,                # missing != [] OR unknown != []
+          "required_tier":       "enterprise" | null, # min_tier_for_features(known); null if empty
+          "required_tier_label": "Enterprise" | null,
+          "required_tier_rank":  <int>,               # -1 when required_tier is null
+          "current_tier":        "oss",
+          "current_tier_rank":   0,
+          "grace":               true,
+          "enforced":            false,
+          "upgrade_required":    <bool>               # required_rank > current_rank
+        }
+    """
+    try:
+        return jsonify(_missing_bundle_body("features"))
+    except Exception as exc:
+        logger.warning("api_entitlement_missing_features: error: %s", exc)
+        return jsonify(_missing_bundle_fallback("features", _parse_csv_arg("features")))
+
+
+@bp_entitlement.route("/api/entitlement/missing-runtimes")
+def api_entitlement_missing_runtimes():
+    """``GET /api/entitlement/missing-runtimes?runtimes=x,y,z`` -- runtime-axis
+    twin of ``/api/entitlement/missing-features``.
+
+    Same 15-key envelope with ``runtimes`` in the axis-specific slot.
+    Runtime-alias canonicalisation (``claude-code`` -> ``claude_code``) is
+    applied per token before the known/unknown split and inside
+    :func:`missing_runtimes` so an alias-and-canonical pair
+    (``?runtimes=claude-code,claude_code``) collapses to one row in
+    ``missing``. Grace pass-through, unknown-surfaces-inside-missing,
+    never-4xx, never-5xx guarantees mirror the features sibling exactly.
+    """
+    try:
+        return jsonify(_missing_bundle_body("runtimes"))
+    except Exception as exc:
+        logger.warning("api_entitlement_missing_runtimes: error: %s", exc)
+        return jsonify(_missing_bundle_fallback("runtimes", _parse_csv_arg("runtimes")))
+
+
+def _has_all_fallback() -> dict:
+    """Never-5xx envelope for ``/api/entitlement/has-all``.
+
+    Mirrors the fail-closed posture the sibling ``_has_bundle_fallback``
+    carries: on a resolver blowup the endpoint still returns 200 with the
+    same envelope shape as the happy path, but ``has_all`` / ``allowed``
+    ``False`` and every axis marked ``supplied=False`` so a paywall tile
+    that lost the resolver doesn't silently grant a mixed bundle it can
+    no longer evaluate.
+    """
+    return {
+        "features": [],
+        "runtimes": [],
+        "channels": None,
+        "retention_days": None,
+        "nodes": None,
+        "unknown_features": [],
+        "unknown_runtimes": [],
+        "supplied_axes": [],
+        "supplied_count": 0,
+        "has_all": False,
+        "allowed": False,
+        "required_tier": None,
+        "required_tier_label": None,
+        "required_tier_rank": -1,
+        "current_tier": "oss",
+        "current_tier_rank": 0,
+        "grace": True,
+        "enforced": False,
+        "upgrade_required": False,
+    }
+
+
+def _has_all_body() -> dict:
+    """Happy-path body builder for ``/api/entitlement/has-all``.
+
+    Aggregate mixed-axis fold sibling of ``_has_bundle_body`` (which folds
+    ONE single-axis CSV). Applies the same per-axis normalisation each
+    single-axis endpoint already does -- CSV known/unknown split for
+    features and runtimes (runtime-alias canonicalisation upstream so
+    ``claude-code`` -> ``claude_code``); capacity axes parsed via
+    :func:`_parse_capacity_arg` so a blank / non-int value collapses the
+    axis to ``False`` in the fold rather than short-circuiting through
+    the underlying scalar's ``retention_days=None`` "unlimited" branch
+    (which would mis-route the aggregate to Enterprise-only).
+
+    Every axis is OPTIONAL -- a caller can supply any non-empty subset
+    of the five kwargs and the fold answers off just those axes. The
+    envelope always carries every axis' slot for byte-stable shape
+    across every URL branch (``None`` / ``[]`` for unsupplied axes).
+
+    The scalar boolean ``has_all`` is delegated to
+    :func:`clawmetry.entitlements.has_all` against the SUPPLIED axis
+    values (unsupplied axes pass ``None`` verbatim), so this endpoint
+    stays byte-parity with the module scalar. Unknown feature / runtime
+    tokens collapse ``has_all`` to ``False`` (matches
+    :func:`has_features` / :func:`has_runtimes` typo posture); a caller
+    can still surface the offending tokens via ``unknown_features`` /
+    ``unknown_runtimes``. Missing / blank / non-int capacity value on a
+    SUPPLIED axis collapses ``has_all`` to ``False`` (matches the
+    singular capacity scalars' strict-``False`` typo posture); a UI can
+    distinguish "supplied but blank" from "unsupplied" via the
+    ``supplied_axes`` list.
+
+    ``required_tier`` folds through
+    :func:`clawmetry.entitlements.min_tier_for_all` against the same
+    supplied axes (known ids only on the grant axes) for parity with
+    the singular ``/api/entitlement/required-tier`` envelope.
+    """
+    from clawmetry import entitlements as _ent
+
+    features_raw = request.args.get("features")
+    runtimes_raw = request.args.get("runtimes")
+
+    known_features: list[str] = []
+    unknown_features: list[str] = []
+    features_supplied = features_raw is not None
+    if features_supplied:
+        for fid in _parse_csv_arg("features"):
+            if fid in _ent.ALL_FEATURES:
+                if fid not in known_features:
+                    known_features.append(fid)
+            elif fid not in unknown_features:
+                unknown_features.append(fid)
+
+    known_runtimes: list[str] = []
+    unknown_runtimes: list[str] = []
+    runtimes_supplied = runtimes_raw is not None
+    if runtimes_supplied:
+        for rid_raw in _parse_csv_arg("runtimes"):
+            rid = _ent.canonical_runtime(rid_raw) or rid_raw
+            if rid in _ent.ALL_RUNTIMES:
+                if rid not in known_runtimes:
+                    known_runtimes.append(rid)
+            elif rid_raw not in unknown_runtimes:
+                unknown_runtimes.append(rid_raw)
+
+    (
+        channels_present,
+        channels_ok,
+        channels_n,
+        _channels_raw,
+    ) = _parse_capacity_arg("channels")
+    (
+        retention_present,
+        retention_ok,
+        retention_n,
+        _retention_raw,
+    ) = _parse_capacity_arg("retention_days")
+    (
+        nodes_present,
+        nodes_ok,
+        nodes_n,
+        _nodes_raw,
+    ) = _parse_capacity_arg("nodes")
+
+    supplied_axes: list[str] = []
+    if features_supplied:
+        supplied_axes.append("features")
+    if runtimes_supplied:
+        supplied_axes.append("runtimes")
+    if channels_present:
+        supplied_axes.append("channels")
+    if retention_present:
+        supplied_axes.append("retention_days")
+    if nodes_present:
+        supplied_axes.append("nodes")
+
+    # Endpoint-layer short-circuits to ``False`` (matches the singular
+    # scalars' strict-``False`` typo posture without handing the module
+    # scalar a sentinel):
+    #   * a supplied-but-unparseable capacity axis
+    #   * unknown feature / runtime tokens on a supplied grant axis
+    #   * a supplied grant axis whose CSV was empty / all-unknown
+    # Otherwise delegate to the module scalar off the CANONICALISED
+    # known-only lists so envelope-vs-scalar parity holds byte-exact
+    # (runtime-alias canonicalisation is an endpoint-layer concern; the
+    # singular :func:`has_runtime` scalar strict-checks against
+    # :data:`ALL_RUNTIMES` and would otherwise reject ``claude-code``).
+    if (
+        (channels_present and not channels_ok)
+        or (retention_present and not retention_ok)
+        or (nodes_present and not nodes_ok)
+        or (features_supplied and (unknown_features or not known_features))
+        or (runtimes_supplied and (unknown_runtimes or not known_runtimes))
+    ):
+        has_flag = False
+    else:
+        has_flag = _ent.has_all(
+            features=known_features if features_supplied else None,
+            runtimes=known_runtimes if runtimes_supplied else None,
+            channels=channels_n if channels_present else None,
+            retention_days=retention_n if retention_present else None,
+            nodes=nodes_n if nodes_present else None,
+        )
+
+    # ``required_tier`` folds through ``min_tier_for_all`` against the
+    # KNOWN-only subsets for parity with ``/api/entitlement/required-tier``
+    # (which resolves off the known/unknown split, not raw input).
+    required = _ent.min_tier_for_all(
+        features=known_features or None,
+        runtimes=known_runtimes or None,
+        channels=channels_n if channels_present and channels_ok else None,
+        retention_days=(
+            retention_n if retention_present and retention_ok else None
+        ),
+        nodes=nodes_n if nodes_present and nodes_ok else None,
+    )
+
+    env = _resolver_envelope(_ent)
+    cur_rank = env["current_tier_rank"]
+    req_rank = _ent.tier_rank(required) if required else -1
+    required_label = _ent.tier_label(required) if required else None
+
+    return {
+        "features": known_features,
+        "runtimes": known_runtimes,
+        "channels": channels_n if channels_present and channels_ok else None,
+        "retention_days": (
+            retention_n if retention_present and retention_ok else None
+        ),
+        "nodes": nodes_n if nodes_present and nodes_ok else None,
+        "unknown_features": unknown_features,
+        "unknown_runtimes": unknown_runtimes,
+        "supplied_axes": supplied_axes,
+        "supplied_count": len(supplied_axes),
+        "has_all": bool(has_flag),
+        "allowed": bool(has_flag),
+        "required_tier": required,
+        "required_tier_label": required_label,
+        "required_tier_rank": req_rank,
+        "current_tier": env["current_tier"],
+        "current_tier_rank": cur_rank,
+        "grace": env["grace"],
+        "enforced": env["enforced"],
+        "upgrade_required": bool(required) and req_rank > cur_rank,
+    }
+
+
+@bp_entitlement.route("/api/entitlement/has-all")
+def api_entitlement_has_all():
+    """``GET /api/entitlement/has-all?features=a,b&runtimes=x,y&channels=5&retention_days=30&nodes=2``
+    -- aggregate mixed-axis boolean-gate scalar.
+
+    Aggregate boolean sibling of ``/api/entitlement/required-tier`` (which
+    resolves the cheapest tier that covers a mixed bundle across all five
+    axes) and ``/api/entitlement/has-features`` / ``/has-runtimes`` (which
+    fold ONE single-axis CSV to ONE boolean). A paywall diagnostics tile
+    that gates on the full subscription state ("fleet + claude_code + 5
+    channels + 30-day retention + 2 nodes -- does the resolved
+    entitlement grant everything?") binds ``allowed`` directly off this
+    URL without five singular ``/has-*`` round-trips + a client-side
+    AND-chain.
+
+    Every axis is OPTIONAL. Supply any non-empty subset; the fold
+    answers off just those axes and every unsupplied axis is skipped
+    (contributes ``True`` to the fold). Runtime-alias canonicalisation
+    (``claude-code`` -> ``claude_code``) is applied per token before the
+    known/unknown split. Capacity axes accept a single int (``5``);
+    blank / non-int values collapse ``has_all`` to ``False`` (matches
+    the singular capacity scalars' strict-``False`` typo posture).
+
+    Grace-safe: while :attr:`Entitlement.grace` is ``True`` (the current
+    rollout state) ``has_all`` reports ``True`` for every fully-known
+    bundle, so wiring this into a gate today changes NO current
+    behavior. Never 4xxs (no axes supplied -> 200 with ``has_all=False``,
+    matching the singular ``/has-features`` empty-``False`` posture).
+    Never 5xxs (resolver blowup -> fallback envelope with
+    ``has_all=False``).
+
+    Envelope shape (19 keys, byte-stable across every input branch)::
+
+        {
+          "features":            ["fleet"],           # known ids only
+          "runtimes":            ["claude_code"],     # canonicalised, known only
+          "channels":            5 | null,            # parsed int or null
+          "retention_days":      30 | null,
+          "nodes":               2 | null,
+          "unknown_features":    ["bogus"],           # tokens not in ALL_FEATURES
+          "unknown_runtimes":    [],                  # tokens not in ALL_RUNTIMES
+          "supplied_axes":       ["features", "channels"],
+          "supplied_count":      2,
+          "has_all":             true,                # aggregate boolean
+          "allowed":             true,                # alias of has_all
+          "required_tier":       "cloud_pro" | null,
+          "required_tier_label": "Pro" | null,
+          "required_tier_rank":  <int>,               # -1 when null
+          "current_tier":        "oss",
+          "current_tier_rank":   0,
+          "grace":               true,
+          "enforced":            false,
+          "upgrade_required":    <bool>
+        }
+    """
+    try:
+        return jsonify(_has_all_body())
+    except Exception as exc:
+        logger.warning("api_entitlement_has_all: error: %s", exc)
+        return jsonify(_has_all_fallback())
 
 
 @bp_entitlement.route("/api/entitlement/lock-reason")
@@ -7147,6 +8668,162 @@ def api_entitlement_min_tier_batch():
                 "enforced": False,
             }
         )
+
+
+def _has_batch_fallback() -> dict:
+    """OSS-free / never-5xx envelope for ``/api/entitlement/has-batch``.
+
+    Fail-closed on the ``has_all`` rollup (matches the singular
+    ``/api/entitlement/has-feature`` / ``/has-runtime`` fallbacks): a paywall
+    matrix that lost the resolver must not silently render every row as
+    granted. All axis slots collapse to the "not supplied" sentinel so a UI
+    can still diff against the request shape.
+    """
+    return {
+        "features": [],
+        "runtimes": [],
+        "channels": None,
+        "retention_days": None,
+        "nodes": None,
+        "has_all": False,
+        "current_tier": "oss",
+        "current_tier_rank": 0,
+        "grace": True,
+        "enforced": False,
+    }
+
+
+def _has_batch_rollup(batch: dict) -> bool:
+    """Fold every emitted row in ``batch`` to ONE ``has_all`` boolean.
+
+    ``True`` iff every emitted row is ``has=True`` AND ``unknown=False`` --
+    matches the strict-typo-fail-closed posture of :func:`has_features` /
+    :func:`has_runtimes` in the plural fold sibling (a single unknown-id
+    row flips the rollup to ``False`` so a typo does not silently render
+    as granted). A batch with no rows at all (every axis was "not
+    supplied") returns ``True`` vacuously -- the endpoint 400s on that
+    input before this rollup runs, so callers never see the vacuous case
+    on a live URL.
+    """
+    for axis in ("features", "runtimes"):
+        for row in batch.get(axis) or []:
+            if row.get("unknown") or not row.get("has"):
+                return False
+    for axis in ("channels", "retention_days", "nodes"):
+        row = batch.get(axis)
+        if row is None:
+            continue
+        if row.get("unknown") or not row.get("has"):
+            return False
+    return True
+
+
+@bp_entitlement.route("/api/entitlement/has-batch")
+def api_entitlement_has_batch():
+    """``GET /api/entitlement/has-batch?features=a,b,c&runtimes=x,y
+    &channels=N&retention_days=K&nodes=M`` -- per-item plural sibling of
+    ``/api/entitlement/has-feature`` / ``/has-runtime`` /
+    ``/has-channel-count``.
+
+    Where ``/api/entitlement/has-features`` / ``/has-runtimes`` fold a
+    bundle to ONE boolean, this preserves the per-item detail so a
+    paywall MATRIX UI ("show every requested feature + runtime + capacity
+    row with its individual granted flag AND the cheapest tier that
+    would unlock it") renders off ONE round-trip instead of N calls to
+    ``/has-feature`` / ``/has-runtime`` / ``/has-channel-count``. Wraps
+    :func:`clawmetry.entitlements.has_batch` and appends the same
+    ``current_tier`` / ``grace`` / ``enforced`` resolver envelope
+    ``/min-tier-batch`` and ``/lock-reasons-batch`` return so a caller
+    sees the same resolver context alongside the per-item answers.
+
+    At least one of ``features=`` / ``runtimes=`` / ``channels=`` /
+    ``retention_days=`` / ``nodes=`` must be supplied (non-empty /
+    parseable after normalisation). ``features=`` / ``runtimes=`` take
+    comma-separated tokens (whitespace and duplicates are normalised
+    away; runtime aliases like ``claude-code`` canonicalise to
+    ``claude_code``; unknown ids contribute a fail-closed
+    ``unknown=True`` / ``has=False`` row -- they do NOT silently render
+    as granted the way ``/lock-reasons-batch``'s ``allowed`` slot does).
+    The three capacity axes take a single int each; a blank or non-int
+    value is treated as "not supplied" (matches the singular endpoint's
+    never-crash posture rather than fabricating a row for garbage
+    input). Never 5xxs: the fail-closed envelope is returned on any
+    resolver failure.
+
+    Response shape (10 keys, byte-stable across every input branch)::
+
+        {
+          "features":       [<row>, ...],
+          "runtimes":       [<row>, ...],
+          "channels":       <row> | None,
+          "retention_days": <row> | None,
+          "nodes":          <row> | None,
+          "has_all":            <bool>,   # True iff every emitted row is has=True AND unknown=False
+          "current_tier":       "...",
+          "current_tier_rank":  <int>,
+          "grace":              <bool>,
+          "enforced":           <bool>,
+        }
+
+    Each ``<row>`` carries ``key``, ``kind``, ``has``, ``unknown``,
+    ``required_tier``, ``required_tier_label`` and ``required_tier_rank``
+    (``-1`` when ``required_tier`` is ``None``). Per-row parity with the
+    singular ``/has-feature?feature=`` / ``/has-runtime?runtime=`` /
+    ``/has-channel-count?count=`` endpoints is pinned in the test suite
+    so the batch cannot silently drift from the scalar.
+
+    ``has_all`` cross-consistency with the sibling
+    ``/api/entitlement/has-features`` / ``/has-runtimes`` plural-fold
+    endpoints is pinned: for a single-axis batch of features, this
+    endpoint's ``has_all`` byte-equals the ``/has-features`` endpoint's
+    ``has_features`` for the same bundle; ditto for runtimes.
+    """
+    try:
+        from clawmetry import entitlements as _ent
+
+        features = _parse_csv_arg("features")
+        runtimes = _parse_csv_arg("runtimes")
+        (_, channels_ok, channels_n, _) = _parse_capacity_arg("channels")
+        (_, retention_ok, retention_n, _) = _parse_capacity_arg("retention_days")
+        (_, nodes_ok, nodes_n, _) = _parse_capacity_arg("nodes")
+
+        if (
+            not features
+            and not runtimes
+            and not channels_ok
+            and not retention_ok
+            and not nodes_ok
+        ):
+            return (
+                jsonify(
+                    {
+                        "error": (
+                            "supply at least one of features=<csv>, "
+                            "runtimes=<csv>, channels=<int>, "
+                            "retention_days=<int>, or nodes=<int>"
+                        )
+                    }
+                ),
+                400,
+            )
+
+        batch = _ent.has_batch(
+            features=features or None,
+            runtimes=runtimes or None,
+            channels=channels_n if channels_ok else None,
+            retention_days=retention_n if retention_ok else None,
+            nodes=nodes_n if nodes_ok else None,
+        )
+        ent = _ent.get_entitlement()
+        batch["has_all"] = _has_batch_rollup(batch)
+        batch["current_tier"] = ent.tier
+        batch["current_tier_rank"] = _ent.tier_rank(ent.tier)
+        batch["grace"] = bool(ent.grace)
+        batch["enforced"] = _ent.is_enforced()
+        return jsonify(batch)
+    except Exception as exc:
+        logger.warning("api_entitlement_has_batch: error: %s", exc)
+        return jsonify(_has_batch_fallback())
 
 
 @bp_entitlement.route("/api/entitlement/min-tier-batch-at")

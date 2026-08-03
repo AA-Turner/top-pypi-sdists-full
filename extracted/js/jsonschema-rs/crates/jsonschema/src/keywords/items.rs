@@ -1012,9 +1012,10 @@ fn absorbed_error_node(
     keyword_location: &Location,
     absolute_location: Option<&Arc<Uri<String>>>,
     error: ErrorDescription,
+    ctx: &mut ValidationContext,
 ) -> EvaluationNode {
     EvaluationNode::invalid(
-        crate::paths::evaluation_path(tracker, keyword_location),
+        crate::paths::evaluation_path(tracker, keyword_location, ctx),
         absolute_location.cloned(),
         format_schema_location(keyword_location, absolute_location),
         location.into(),
@@ -1165,6 +1166,7 @@ impl<F: Json> Validate<F> for ArrayShapeValidator<F> {
                 &self.type_location,
                 self.type_absolute_location.as_ref(),
                 error,
+                ctx,
             )]);
         };
         let count = array.len() as u64;
@@ -1180,6 +1182,7 @@ impl<F: Json> Validate<F> for ArrayShapeValidator<F> {
                     &constraint.location,
                     constraint.absolute_location.as_ref(),
                     error,
+                    ctx,
                 ));
             }
         }
@@ -1194,6 +1197,7 @@ impl<F: Json> Validate<F> for ArrayShapeValidator<F> {
                     &constraint.location,
                     constraint.absolute_location.as_ref(),
                     error,
+                    ctx,
                 ));
             }
         }
@@ -1250,18 +1254,7 @@ impl<F: Json> Validate<F> for ArrayShapeValidator<F> {
 /// Parses a length keyword exactly as `MinItemsValidator`/`MaxItemsValidator` would accept it.
 #[allow(clippy::float_cmp)]
 fn accepts_item_count<F: Json>(ctx: &compiler::Context<F>, schema: &Value) -> Option<u64> {
-    if let Some(limit) = schema.as_u64() {
-        return Some(limit);
-    }
-    if ctx.supports_integer_valued_numbers() {
-        if let Some(limit) = schema.as_f64() {
-            if limit.trunc() == limit {
-                #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
-                return Some(limit as u64);
-            }
-        }
-    }
-    None
+    crate::keywords::helpers::size_limit(ctx, schema)
 }
 
 /// Whether `{type: "array", (minItems|maxItems)?, items: {schema}}` can be fused into a single
@@ -1325,12 +1318,16 @@ pub(crate) fn compile<'a, F: Json>(
             if array_shape_fusion(ctx, parent) {
                 return Some(ArrayShapeValidator::compile(ctx, parent, schema));
             }
-            if let Some(Value::Array(prefix_items)) = parent.get("prefixItems") {
-                return Some(ItemsObjectSkipPrefixValidator::compile(
-                    schema,
-                    prefix_items.len(),
-                    ctx,
-                ));
+            // `prefixItems` arrived in 2020-12; an earlier draft reads it as an unknown keyword,
+            // leaving no prefix for schema-form `items` to skip.
+            if ctx.draft().is_known_keyword("prefixItems") {
+                if let Some(Value::Array(prefix_items)) = parent.get("prefixItems") {
+                    return Some(ItemsObjectSkipPrefixValidator::compile(
+                        schema,
+                        prefix_items.len(),
+                        ctx,
+                    ));
+                }
             }
             // Specialized `{"type": ...}` validators assert `type`, so they apply only when
             // the validation vocabulary that defines `type` is in effect.
@@ -1362,8 +1359,25 @@ pub(crate) fn compile<'a, F: Json>(
 #[cfg(test)]
 mod tests {
     use crate::tests_util;
+    use referencing::Draft;
     use serde_json::{json, Value};
     use test_case::test_case;
+
+    #[test_case(Draft::Draft201909, &json!([]), true; "2019-09 empty array")]
+    #[test_case(Draft::Draft201909, &json!([1]), false; "2019-09 items covers the whole array")]
+    #[test_case(Draft::Draft202012, &json!([1]), true; "2020-12 items skips the prefix")]
+    #[test_case(Draft::Draft202012, &json!([1, 2]), false; "2020-12 items covers past the prefix")]
+    fn items_skips_a_prefix_only_where_the_draft_defines_prefix_items(
+        draft: Draft,
+        instance: &Value,
+        expected: bool,
+    ) {
+        let validator = crate::options()
+            .with_draft(draft)
+            .build(&json!({"prefixItems": [{"type": "integer"}], "items": false}))
+            .expect("schema compiles");
+        assert_eq!(validator.is_valid(instance), expected);
+    }
 
     #[test_case(&json!({"items": false}), &json!([1]), "/items")]
     #[test_case(&json!({"items": {"type": "string"}}), &json!([1]), "/items/type")]

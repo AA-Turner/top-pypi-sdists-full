@@ -58,6 +58,11 @@ class TestInit:
             nanoseconds=0,
         )
 
+    def test_seconds_beyond_i32_range(self):
+        assert DateTimeDelta(seconds=1 << 31).time_part() == TimeDelta(
+            seconds=1 << 31
+        )
+
     def test_negative(self):
         d = DateTimeDelta(
             years=-1,
@@ -793,5 +798,8 @@ class TestDeprecationWarnings:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", WheneverDeprecationWarning)
             d = DateTimeDelta(months=1, hours=2)
-        with pytest.warns(WheneverDeprecationWarning, match="date_part"):
+        with pytest.warns(WheneverDeprecationWarning) as caught:
             d.date_part()
+        message = str(caught[0].message)
+        assert "date_part()" in message
+        assert "date_and_time_parts()" in message

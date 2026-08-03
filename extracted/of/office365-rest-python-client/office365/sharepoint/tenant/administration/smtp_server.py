@@ -1,11 +1,15 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class SmtpServer(ClientValue):
-    def __init__(self, value=None, is_readonly=None):
-        """
-        :param str value:
-        :param bool is_readonly:
-        """
-        self.Value = value
-        self.IsReadOnly = is_readonly
+    IsReadOnly: bool | None = None
+    Value: str | None = None
+
+    @property
+    def entity_type_name(self):
+        return "Microsoft.Online.SharePoint.TenantAdministration.SmtpServer"

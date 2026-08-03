@@ -9,6 +9,7 @@ import os
 from ...exceptions import deprecated, UserException
 from ...module import get_latest_version
 from ...py_versions import DEFAULT_ABI_MAJOR
+from ...sip_module_configuration import SipModuleConfiguration
 
 from ..bindings_configuration import get_bindings_configuration
 from ..error_log import ErrorLog
@@ -17,7 +18,7 @@ from ..python_slots import invalid_global_slot, slot_name_detail_map
 from ..scoped_name import ScopedName
 from ..specification import (AccessSpecifier, Argument, ArgumentType,
         ArrayArgument, CachedName, ClassKey, CodeBlock, Constructor,
-        DocstringFormat, DocstringSignature, EnumBaseType, GILAction,
+        DocstringFormat, DocstringSignature, EnumBaseType, GILAction, GILUse,
         IfaceFile, IfaceFileType, KwArgs, MappedType, Member, Module, Overload,
         PyQtMethodSpecifier, PySlot, Qualifier, QualifierType, Signature,
         SourceLocation, Specification, Transfer, TypeHints, WrappedClass,
@@ -653,12 +654,21 @@ class ParserManager:
         w_enum.no_scope = annotations.get('NoScope', False)
         w_enum.no_type_hint = annotations.get('NoTypeHint', False)
 
+        # Check the member name if it is going to be visible in the current
+        # scope.
+        members_visible = False
+
+        if cpp_name is None:
+            members_visible = True
+        elif not is_scoped:
+            if self.target_major_abi == 12:
+                members_visible = True
+            elif self.target_major_abi >= 14 and SipModuleConfiguration.CustomEnums in self.spec.sip_module_configuration:
+                members_visible = True
+
         # Create the members.
         for m_cpp_name, m_py_name, m_no_type_hint in members:
-            # Check the member name if it is going to be visible in the current
-            # scope.
-            # TODO Also check for ABI v14 and custom enums.
-            if cpp_name is None or (self.target_major_abi == 12 and not is_scoped):
+            if members_visible:
                 self.check_attributes(p, symbol, m_py_name.name,
                         "an enum member")
 
@@ -734,7 +744,7 @@ class ParserManager:
         # See if the function is a non-lazy method.  These are methods that
         # Python expects to see defined in the type before any instance of the
         # type is created.
-        if self.scope is not None:
+        if self.scope is not None and self.target_major_abi < 14:
             NONLAZY_METHOD_NAMES = (
                 '__getattribute__',
                 '__getattr__',
@@ -759,8 +769,10 @@ class ParserManager:
         overload.gil_action = self._get_gil_action(p, symbol, annotations)
         overload.factory = annotations.get('Factory', False)
         overload.deprecated = annotations.get('Deprecated')
-        overload.new_thread = annotations.get('NewThread', False)
         overload.transfer = self.get_transfer(p, symbol, annotations)
+
+        if self.target_major_abi < 14:
+            overload.new_thread = annotations.get('NewThread', False)
 
         if overload.access_specifier is not AccessSpecifier.PRIVATE:
             if member.py_slot is None or member.py_slot is PySlot.CALL:
@@ -959,6 +971,10 @@ class ParserManager:
             mapped_type.no_assignment_operator = True
             mapped_type.no_copy_ctor = True
             mapped_type.no_default_ctor = True
+
+        if mapped_type.movable:
+            mapped_type.no_assignment_operator = True
+            mapped_type.no_copy_ctor = True
 
         pyqt_flags = self._get_plugin_annotation(p, symbol, annotations,
                 'PyQtFlags', 'PyQt6')
@@ -1923,6 +1939,13 @@ class ParserManager:
 
         if major_version == 13 and minor_version < 1:
             self._deprecated_target_abi(major_version, minor_version, '13.1')
+
+        if major_version >= 14:
+            # ABI v14 and later don't use plugins.
+            self.spec.plugins = []
+        else:
+            # ABIs prior to v14 always use the GIL.
+            self.gil_use = GILUse.USED
 
         self.spec.target_abi = (major_version, minor_version)
 

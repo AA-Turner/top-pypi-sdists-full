@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: BSD-2-Clause
 
-# Copyright (c) 2025 Phil Thompson <phil@riverbankcomputing.com>
+# Copyright (c) 2026 Phil Thompson <phil@riverbankcomputing.com>
 
 
 import pytest
@@ -12,7 +12,22 @@ def TestClass(module):
     and a mixin class.
     """
 
-    class MixedIn(module.Klass, module.Mixin):
+    class Prefix:
+        def __init__(self, *args, prefix=False, **kwargs):
+            self.prefix = prefix
+            super().__init__(*args, **kwargs)
+
+    class Infix:
+        def __init__(self, *args, infix=False, **kwargs):
+            self.infix = infix
+            super().__init__(*args, **kwargs)
+
+    class Postfix:
+        def __init__(self, *args, postfix=False, **kwargs):
+            self.postfix = postfix
+            super().__init__(*args, **kwargs)
+
+    class MixedIn(Prefix, module.Klass, Infix, module.Mixin, Postfix):
         pass
 
     return MixedIn
@@ -26,6 +41,12 @@ def instance(TestClass):
 
     return TestClass(10, mixin_value=20)
 
+
+def test_mro_init(TestClass):
+    test = TestClass(10, prefix=True, infix=True, postfix=True)
+    assert test.prefix
+    assert test.infix
+    assert test.postfix
 
 def test_argument_handling(TestClass):
     test = TestClass(10, mixin_value=20, extra_kwarg=30)

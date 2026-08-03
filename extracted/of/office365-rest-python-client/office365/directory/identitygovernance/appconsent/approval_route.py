@@ -1,6 +1,4 @@
-from office365.directory.identitygovernance.appconsent.request_collection import (
-    AppConsentRequestCollection,
-)
+from office365.directory.identitygovernance.appconsent.request_collection import AppConsentRequestCollection
 from office365.entity import Entity
 from office365.runtime.paths.resource_path import ResourcePath
 
@@ -17,7 +15,9 @@ class AppConsentApprovalRoute(Entity):
         one or more users."""
         return self.properties.get(
             "appConsentRequests",
-            AppConsentRequestCollection(
-                self.context, ResourcePath("appConsentRequests", self.resource_path)
-            ),
+            AppConsentRequestCollection(self.context, ResourcePath("appConsentRequests", self.resource_path)),
         )
+
+    @property
+    def entity_type_name(self) -> str:
+        return "microsoft.graph.AppConsentApprovalRoute"

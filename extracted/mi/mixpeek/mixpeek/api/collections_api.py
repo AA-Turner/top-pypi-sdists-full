@@ -1795,6 +1795,8 @@ class CollectionsApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_collections_request: Optional[ListCollectionsRequest] = None,
         _request_timeout: Union[
@@ -1824,6 +1826,10 @@ class CollectionsApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_collections_request:
@@ -1856,6 +1862,8 @@ class CollectionsApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_collections_request=list_collections_request,
             _request_auth=_request_auth,
@@ -1892,6 +1900,8 @@ class CollectionsApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_collections_request: Optional[ListCollectionsRequest] = None,
         _request_timeout: Union[
@@ -1921,6 +1931,10 @@ class CollectionsApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_collections_request:
@@ -1953,6 +1967,8 @@ class CollectionsApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_collections_request=list_collections_request,
             _request_auth=_request_auth,
@@ -1989,6 +2005,8 @@ class CollectionsApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_collections_request: Optional[ListCollectionsRequest] = None,
         _request_timeout: Union[
@@ -2018,6 +2036,10 @@ class CollectionsApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_collections_request:
@@ -2050,6 +2072,8 @@ class CollectionsApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_collections_request=list_collections_request,
             _request_auth=_request_auth,
@@ -2081,6 +2105,8 @@ class CollectionsApi:
         offset,
         page,
         cursor,
+        next_cursor,
+        after,
         include_total,
         list_collections_request,
         _request_auth,
@@ -2124,6 +2150,14 @@ class CollectionsApi:
         if cursor is not None:
             
             _query_params.append(('cursor', cursor))
+            
+        if next_cursor is not None:
+            
+            _query_params.append(('next_cursor', next_cursor))
+            
+        if after is not None:
+            
+            _query_params.append(('after', after))
             
         if include_total is not None:
             
@@ -2190,6 +2224,8 @@ class CollectionsApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         _request_timeout: Union[
             None,
@@ -2222,6 +2258,10 @@ class CollectionsApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param _request_timeout: timeout setting for this request. If one
@@ -2254,6 +2294,8 @@ class CollectionsApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -2291,6 +2333,8 @@ class CollectionsApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         _request_timeout: Union[
             None,
@@ -2323,6 +2367,10 @@ class CollectionsApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param _request_timeout: timeout setting for this request. If one
@@ -2355,6 +2403,8 @@ class CollectionsApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -2392,6 +2442,8 @@ class CollectionsApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         _request_timeout: Union[
             None,
@@ -2424,6 +2476,10 @@ class CollectionsApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param _request_timeout: timeout setting for this request. If one
@@ -2456,6 +2512,8 @@ class CollectionsApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             _request_auth=_request_auth,
             _content_type=_content_type,
@@ -2488,6 +2546,8 @@ class CollectionsApi:
         offset,
         page,
         cursor,
+        next_cursor,
+        after,
         include_total,
         _request_auth,
         _content_type,
@@ -2538,6 +2598,14 @@ class CollectionsApi:
         if cursor is not None:
             
             _query_params.append(('cursor', cursor))
+            
+        if next_cursor is not None:
+            
+            _query_params.append(('next_cursor', next_cursor))
+            
+        if after is not None:
+            
+            _query_params.append(('after', after))
             
         if include_total is not None:
             

@@ -87,6 +87,7 @@ class FlowType(str, Enum):
     CUSTOM = "custom"
     WORKFLOW = "workflow"
     ACTIVITY = "activity"
+    WEBSOCKET = "websocket"
 
 
 class Framework(str, Enum):
@@ -99,6 +100,8 @@ class Framework(str, Enum):
     KAFKA = "kafka"
     # Workflow engines
     TEMPORAL = "temporal"
+    # WebSocket
+    SOCKETIO = "socket.io"
     # Manual flows
     CUSTOM = "custom"
 

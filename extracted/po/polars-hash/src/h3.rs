@@ -31,23 +31,24 @@ pub fn h3_encoder(
 ) -> PolarsResult<Option<String>> {
     match (lat, long) {
         (Some(lat), Some(long)) => match len {
-            Some(len) => Ok(Some(
-                LatLng::new(lat, long)
-                    .expect("valid coord")
-                    .to_cell(get_resolution(len)?)
-                    .to_string(),
-            )),
+            Some(len) => {
+                if !(-90.0..=90.0).contains(&lat) || !(-180.0..=180.0).contains(&long) {
+                    polars_bail!(
+                        ComputeError:
+                        "invalid coordinate range: latitude {}, longitude {}", lat, long
+                    )
+                }
+                let coord = LatLng::new(lat, long).map_err(|e| {
+                    PolarsError::ComputeError(
+                        format!("invalid coordinate: latitude {lat}, longitude {long}: {e}").into(),
+                    )
+                })?;
+                Ok(Some(coord.to_cell(get_resolution(len)?).to_string()))
+            }
             _ => Err(PolarsError::ComputeError(
                 "Length may not be null".to_string().into(),
             )),
         },
-        _ => Err(PolarsError::ComputeError(
-            format!(
-                "Coordinates cannot be null. 
-        Provided latitude: {:?}, longitude: {:?}",
-                lat, long
-            )
-            .into(),
-        )),
+        _ => Ok(None),
     }
 }

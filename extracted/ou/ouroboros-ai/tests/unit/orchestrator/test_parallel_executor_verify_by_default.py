@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import os
 import time
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
@@ -10,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from ouroboros.core.seed import (
+    MAX_AC_SUCCESS_CONTRACT_ARTIFACT_PATH_BYTES,
     AcceptanceCriterionSpec,
     OntologySchema,
     Seed,
@@ -31,6 +33,7 @@ from ouroboros.orchestrator.parallel_executor import (
     ParallelACExecutor,
     _build_success_contract_block,
     _complete_sibling_acs_from_evidence,
+    _missing_expected_artifacts,
     _VerifyGateOutcome,
 )
 from ouroboros.orchestrator.verifier import VerifierVerdict
@@ -39,8 +42,8 @@ from ouroboros.orchestrator.verifier import VerifierVerdict
 class _StubAdapter:
     """Minimal adapter satisfying the executor constructor + verify gate cwd."""
 
-    def __init__(self, working_directory: str) -> None:
-        self.runtime_backend = "claude"
+    def __init__(self, working_directory: str, runtime_backend: str = "claude") -> None:
+        self.runtime_backend = runtime_backend
         self.self_governs_rate_limit = True
         self.working_directory = working_directory
         self.permission_mode = "acceptEdits"
@@ -52,9 +55,10 @@ def _make_executor(
     run_verify_commands: bool = True,
     ac_retry_attempts: int = 0,
     verify_command_timeout_seconds: int = 30,
+    runtime_backend: str = "claude",
 ) -> ParallelACExecutor:
     return ParallelACExecutor(
-        adapter=_StubAdapter(working_directory),
+        adapter=_StubAdapter(working_directory, runtime_backend),
         event_store=AsyncMock(),
         console=MagicMock(),
         enable_decomposition=False,
@@ -87,6 +91,74 @@ async def test_verify_gate_passes_on_exit_zero(tmp_path: Any) -> None:
 
     assert outcome.passed is True
     assert outcome.reason is None
+
+
+def test_expected_artifact_runtime_uses_shared_portable_path_grammar(tmp_path: Any) -> None:
+    spaced = tmp_path / "Build Outputs"
+    spaced.mkdir()
+    encoded_overflow = "/".join(("😀" * 62, "a" * 7))
+    assert len(encoded_overflow.encode("utf-8")) == MAX_AC_SUCCESS_CONTRACT_ARTIFACT_PATH_BYTES + 1
+
+    assert _missing_expected_artifacts(("./Build Outputs",), str(tmp_path)) == ()
+    invalid = _missing_expected_artifacts(
+        (
+            "bad\x00path",
+            ".",
+            "../outside",
+            "NUL",
+            "nul.txt",
+            "dir/CON",
+            "foo.",
+            "docs/a:b",
+            "a" * 256,
+            "docs/" + ("\u00e9" * 128),
+            encoded_overflow,
+            "NONE",
+        ),
+        str(tmp_path),
+    )
+    assert len(invalid) == 12
+    assert any("longer than 255 filesystem bytes" in artifact for artifact in invalid)
+    assert any(
+        "canonical path longer than 255 portable filesystem bytes" in artifact
+        for artifact in invalid
+    )
+    assert any("NONE mixed with artifact paths" in artifact for artifact in invalid)
+    assert "control character" in invalid[0]
+    assert "workspace root" in invalid[1]
+    assert "escapes workspace" in invalid[2]
+    assert all("Windows" in item for item in invalid[3:8])
+
+
+def test_expected_artifact_runtime_rejects_workspace_capacity_overflow(
+    tmp_path: Any,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    if os.name == "nt":
+        pytest.skip("POSIX pathconf capacity regression")
+    capacity = len(os.fsencode(str(tmp_path.resolve()))) + 2
+    monkeypatch.setattr("ouroboros.core.seed.os.pathconf", lambda *_args: capacity)
+
+    missing = _missing_expected_artifacts(("a" * 255,), str(tmp_path))
+
+    assert len(missing) == 1
+    assert "workspace path exceeds POSIX capacity" in missing[0]
+
+
+@pytest.mark.asyncio
+async def test_verify_gate_rejects_assertion_only_constructed_contract(tmp_path: Any) -> None:
+    executor = _make_executor(working_directory=str(tmp_path))
+    invalid_spec = AcceptanceCriterionSpec.model_construct(
+        description="Command output contains READY",
+        verify_command=None,
+        expected_artifacts=(),
+        output_assertion="READY",
+    )
+
+    outcome = await executor._run_ac_verify_gate(spec=invalid_spec, cwd=str(tmp_path))
+
+    assert outcome.passed is False
+    assert outcome.reason == "output_assertion requires verify_command"
 
 
 @pytest.mark.asyncio
@@ -134,6 +206,118 @@ async def test_verify_gate_rejects_commands_that_mutate_the_workspace(tmp_path: 
     assert "mutated the workspace" in (outcome.reason or "")
 
 
+@pytest.mark.parametrize("runtime_backend", ["claude", "codex"])
+@pytest.mark.asyncio
+async def test_verify_gate_accepts_created_python_bytecode_for_all_backends(
+    tmp_path: Any,
+    runtime_backend: str,
+) -> None:
+    (tmp_path / "pkg").mkdir()
+    executor = _make_executor(
+        working_directory=str(tmp_path),
+        runtime_backend=runtime_backend,
+    )
+    spec = AcceptanceCriterionSpec(
+        description="tests pass",
+        verify_command=(
+            'python3 -c "from pathlib import Path; '
+            "p=Path('pkg/__pycache__/module.cpython-test.pyc'); "
+            "p.parent.mkdir(parents=True, exist_ok=True); p.write_bytes(b'cache')\""
+        ),
+    )
+
+    outcome = await executor._run_ac_verify_gate(spec=spec, cwd=str(tmp_path))
+
+    assert outcome.passed is True
+    assert outcome.workspace_mutated is False
+    assert (tmp_path / "pkg/__pycache__/module.cpython-test.pyc").is_file()
+
+
+@pytest.mark.asyncio
+async def test_verify_gate_accepts_refreshed_python_bytecode(tmp_path: Any) -> None:
+    bytecode = tmp_path / "pkg/module.pyc"
+    bytecode.parent.mkdir()
+    bytecode.write_bytes(b"old")
+    executor = _make_executor(working_directory=str(tmp_path))
+    spec = AcceptanceCriterionSpec(
+        description="tests pass",
+        verify_command=(
+            'python3 -c "from pathlib import Path; '
+            "Path('pkg/module.pyc').write_bytes(b'refreshed')\""
+        ),
+    )
+
+    outcome = await executor._run_ac_verify_gate(spec=spec, cwd=str(tmp_path))
+
+    assert outcome.passed is True
+    assert bytecode.read_bytes() == b"refreshed"
+
+
+@pytest.mark.parametrize("source_exists", [False, True], ids=["created", "modified"])
+@pytest.mark.asyncio
+async def test_verify_gate_still_rejects_source_mutation(
+    tmp_path: Any,
+    source_exists: bool,
+) -> None:
+    source = tmp_path / "module.py"
+    if source_exists:
+        source.write_text("before\n", encoding="utf-8")
+    executor = _make_executor(working_directory=str(tmp_path))
+    spec = AcceptanceCriterionSpec(
+        description="read-only verification",
+        verify_command=(
+            "python3 -c \"from pathlib import Path; Path('module.py').write_text('after\\n')\""
+        ),
+    )
+
+    outcome = await executor._run_ac_verify_gate(spec=spec, cwd=str(tmp_path))
+
+    assert outcome.passed is False
+    assert outcome.workspace_mutated is True
+
+
+@pytest.mark.asyncio
+async def test_declared_bytecode_artifact_remains_mutation_sensitive(tmp_path: Any) -> None:
+    bytecode = tmp_path / "pkg/__pycache__/module.cpython-test.pyc"
+    bytecode.parent.mkdir(parents=True)
+    bytecode.write_bytes(b"old")
+    executor = _make_executor(working_directory=str(tmp_path))
+    spec = AcceptanceCriterionSpec(
+        description="declared cache artifact is stable",
+        expected_artifacts=("pkg/__pycache__/module.cpython-test.pyc",),
+        verify_command=(
+            'python3 -c "from pathlib import Path; '
+            "Path('pkg/__pycache__/module.cpython-test.pyc').write_bytes(b'refreshed')\""
+        ),
+    )
+
+    outcome = await executor._run_ac_verify_gate(spec=spec, cwd=str(tmp_path))
+
+    assert outcome.passed is False
+    assert outcome.workspace_mutated is True
+
+
+@pytest.mark.parametrize("entry_kind", ["directory", "symlink"])
+@pytest.mark.parametrize("suffix", [".pyc", ".pyo"])
+def test_workspace_digest_observes_non_regular_bytecode_suffix_paths(
+    tmp_path: Any,
+    entry_kind: str,
+    suffix: str,
+) -> None:
+    target = tmp_path / f"runtime{suffix}"
+    before = ParallelACExecutor._workspace_content_digest(str(tmp_path))
+
+    if entry_kind == "directory":
+        target.mkdir()
+    else:
+        target.symlink_to("missing-bytecode-target")
+
+    after = ParallelACExecutor._workspace_content_digest(str(tmp_path))
+    assert before is not None
+    assert after is not None
+    assert before != after
+
+
 @pytest.mark.asyncio
 async def test_verify_gate_ignores_normalized_exit_code_output_assertion(
     tmp_path: Any,
@@ -155,6 +339,38 @@ async def test_verify_gate_ignores_normalized_exit_code_output_assertion(
 # ---------------------------------------------------------------------------
 # V1 gate integration — _apply_verify_gate
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_apply_verify_gate_does_not_skip_assertion_only_constructed_contract(
+    tmp_path: Any,
+) -> None:
+    invalid_spec = AcceptanceCriterionSpec.model_construct(
+        description="Command output contains READY",
+        verify_command=None,
+        expected_artifacts=(),
+        output_assertion="READY",
+    )
+    seed = _seed_with_specs(
+        AcceptanceCriterionSpec(
+            description="Command output contains READY",
+            verify_command="printf READY",
+        )
+    )
+    object.__setattr__(seed, "acceptance_criteria", (invalid_spec,))
+    executor = _make_executor(working_directory=str(tmp_path))
+    result = ACExecutionResult(ac_index=0, ac_content=invalid_spec.description, success=True)
+
+    gated = await executor._apply_verify_gate(
+        seed=seed,
+        ac_index=0,
+        result=result,
+        session_id="session",
+        execution_id="execution",
+    )
+
+    assert gated.success is False
+    assert "output_assertion requires verify_command" in (gated.error or "")
 
 
 @pytest.mark.asyncio
@@ -1171,11 +1387,12 @@ async def test_skip_completed_executes_when_verify_gate_fails(tmp_path: Any) -> 
 async def test_artifacts_only_gate_passes_when_files_exist(tmp_path: Any) -> None:
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "guide.md").write_text("guide\n")
+    (tmp_path / "Build Outputs").mkdir()
     (tmp_path / "README.md").write_text("readme\n")
     executor = _make_executor(working_directory=str(tmp_path))
     spec = AcceptanceCriterionSpec(
         description="docs exist",
-        expected_artifacts=("README.md", "docs/guide.md", "docs"),
+        expected_artifacts=("README.md", "docs/guide.md", "docs", "./Build Outputs"),
     )
 
     outcome = await executor._run_ac_verify_gate(spec=spec, cwd=str(tmp_path))
@@ -1202,17 +1419,75 @@ async def test_artifacts_only_gate_reports_all_missing(tmp_path: Any) -> None:
 
 
 @pytest.mark.asyncio
+async def test_artifacts_only_gate_rejects_nonportable_constructed_paths(
+    tmp_path: Any,
+) -> None:
+    (tmp_path / "reports").mkdir()
+    (tmp_path / "reports" / "summary,v2.json").write_text("{}\n")
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "guide.md").write_text("guide\n")
+    executor = _make_executor(working_directory=str(tmp_path))
+    spec = AcceptanceCriterionSpec.model_construct(
+        description="docs exist",
+        verify_command=None,
+        expected_artifacts=("reports/summary,v2.json", r"docs\guide.md"),
+        output_assertion=None,
+        investment=None,
+        semantic_ac_key=None,
+    )
+
+    outcome = await executor._run_ac_verify_gate(spec=spec, cwd=str(tmp_path))
+
+    assert outcome.passed is False
+    assert len(outcome.missing_artifacts) == 2
+    assert "contains a comma" in outcome.missing_artifacts[0]
+    assert "contains a backslash" in outcome.missing_artifacts[1]
+
+
+@pytest.mark.asyncio
+async def test_artifacts_only_gate_rejects_overlong_constructed_path_component(
+    tmp_path: Any,
+) -> None:
+    executor = _make_executor(working_directory=str(tmp_path))
+    spec = AcceptanceCriterionSpec.model_construct(
+        description="artifact exists",
+        verify_command=None,
+        expected_artifacts=("a" * 256,),
+        output_assertion=None,
+        investment=None,
+        semantic_ac_key=None,
+    )
+
+    outcome = await executor._run_ac_verify_gate(spec=spec, cwd=str(tmp_path))
+
+    assert outcome.passed is False
+    assert outcome.missing_artifacts == (
+        f"{'a' * 256!r} (contains a path component longer than 255 filesystem bytes)",
+    )
+
+
+@pytest.mark.asyncio
 async def test_artifact_path_escape_is_treated_as_missing(tmp_path: Any) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     # The escape target EXISTS outside the workspace — it still must not count.
     (tmp_path / "outside.md").write_text("outside\n")
     executor = _make_executor(working_directory=str(workspace))
-    relative_escape = AcceptanceCriterionSpec(
-        description="escape", expected_artifacts=("../outside.md",)
+    relative_escape = AcceptanceCriterionSpec.model_construct(
+        description="escape",
+        verify_command=None,
+        expected_artifacts=("../outside.md",),
+        output_assertion=None,
+        investment=None,
+        semantic_ac_key=None,
     )
-    absolute_escape = AcceptanceCriterionSpec(
-        description="escape", expected_artifacts=(str(tmp_path / "outside.md"),)
+    absolute_escape = AcceptanceCriterionSpec.model_construct(
+        description="escape",
+        verify_command=None,
+        expected_artifacts=(str(tmp_path / "outside.md"),),
+        output_assertion=None,
+        investment=None,
+        semantic_ac_key=None,
     )
 
     for spec in (relative_escape, absolute_escape):
@@ -1484,6 +1759,63 @@ def test_workspace_digest_includes_empty_directories(tmp_path: Any) -> None:
     assert before is not None
     assert after is not None
     assert before != after
+
+
+@pytest.mark.asyncio
+async def test_cache_only_verify_finishes_acceptance_and_completed_progress(tmp_path: Any) -> None:
+    from ouroboros.orchestrator.dependency_analyzer import ACNode, DependencyGraph
+
+    (tmp_path / "pkg").mkdir()
+    spec = AcceptanceCriterionSpec(
+        description="tests pass",
+        verify_command=(
+            'python3 -c "from pathlib import Path; '
+            "p=Path('pkg/__pycache__/module.cpython-test.pyc'); "
+            "p.parent.mkdir(parents=True, exist_ok=True); p.write_bytes(b'cache')\""
+        ),
+    )
+    seed = _seed_with_specs(spec)
+    plan = DependencyGraph(
+        nodes=(ACNode(index=0, content="tests pass", depends_on=()),),
+        execution_levels=((0,),),
+    ).to_execution_plan()
+    executor = _make_executor(working_directory=str(tmp_path))
+    executor._execute_ac_batch = AsyncMock(
+        return_value=[
+            ACExecutionResult(
+                ac_index=0,
+                ac_content="tests pass",
+                success=True,
+                outcome=ACExecutionOutcome.SUCCEEDED,
+            )
+        ]
+    )
+    executor._emit_workflow_progress = AsyncMock()
+
+    result = await executor.execute_parallel(
+        seed=seed,
+        execution_plan=plan,
+        session_id="cache-session",
+        execution_id="cache-execution",
+        tools=["Read"],
+        tool_catalog=None,
+        system_prompt="system",
+    )
+
+    assert result.all_succeeded is True
+    assert result.success_count == 1
+    assert result.results[0].outcome is ACExecutionOutcome.SUCCEEDED
+    assert result.results[0].verify_gate_outcome is not None
+    assert result.results[0].verify_gate_outcome.passed is True
+    assert any(
+        call.kwargs["completed_count"] == 1 and call.kwargs["ac_statuses"] == {0: "completed"}
+        for call in executor._emit_workflow_progress.await_args_list
+    )
+
+    emitted = [call.args[0] for call in executor._event_store.append.await_args_list]
+    judgments = [event for event in emitted if event.type == "execution.ac.attempt_judged"]
+    assert len(judgments) == 1
+    assert judgments[0].data["success"] is True
 
 
 @pytest.mark.asyncio

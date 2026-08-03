@@ -91,7 +91,7 @@ _AUTHORED = {
     #  the H key: a free care BUTTON with the i:80 rip and the Bandaging
     #  show; the canon time-heal (injLapse) stays underneath.  No shelf
     #  entry may ever sell either ailment cure again.)
-    "miracle_drink":   ("Miracle Drink",   "f:18", 7777, "Cure", "ONE care slip erased · energy +12", "the expensive absolution"),
+    "miracle_drink":   ("Miracle Drink",   "f:18", 7777, "Cure", "wipes the WHOLE slate · energy +12", "the expensive absolution"),
     # ---- CARE (upkeep: sleep, lights, filth, the mistake slate) -------------
     "sleeping_pill":   ("Sleep Pill",      "f:34", 300,  "Rest", "sleep now", "lights out, no argument"),
     "caffeine_pill":   ("Caffeine Pill",   "f:38", 300,  "Rest", "bedtime pushed later", "tonight runs long"),
@@ -131,9 +131,9 @@ _AUTHORED = {
     # exercise sheds weight, couch time buys energy at a weight price) --------
     "ball":            ("Ball",            "i:3",  100,  "Drill", "play! weight -1", "a grand kickabout"),
     "skateboard":      ("Skateboard",      "i:6",  500,  "Drill", "ride! weight -2 · energy -1", "shred the living room"),
-    "xylophone":       ("Xylophone",       "i:63", 800,  "Rest", "a recital · energy +2", "music hath charms"),
-    "video_game":      ("Video Game",      "i:65", 600,  "Rest", "couch time · energy +2 · weight +1", "one more level…"),
-    "television":      ("Television",      "i:10", 1000, "Rest", "deep couch · energy +3 · weight +1", "glued to the screen"),
+    "xylophone":       ("Xylophone",       "i:63", 800,  "Rest", "a recital · DP +1", "music hath charms"),
+    "video_game":      ("Video Game",      "i:65", 600,  "Rest", "couch time · DP +1 · weight +1", "one more level…"),
+    "television":      ("Television",      "i:10", 1000, "Rest", "deep couch · DP +2 · weight +1", "glued to the screen"),
     # ---- ADVENTURE (the road's own shelf -- cleared maps open it) -----------
     "town_transport":     ("Town Transport",   "i:29", 500,  "Road", "on the road: T-warp to a town + rest", "a Birdramon ride"),
     "disaster_transport": ("Disaster Transp.", "i:30", 250,  "Road", "on the road: T-dash to the boss + ambush", "a Garudamon ride"),
@@ -161,15 +161,15 @@ _AUTHORED = {
     "green_pepper":    ("Green Pepper",        "f:36", 100,   "Feed", "hunger +1 · Data power +1 · obedience +1", "a spark of logic"),
     "red_pepper":      ("Red Pepper",          "f:37", 100,   "Feed", "hunger +1 · Vaccine power +1 · obedience +1", "a spark of order"),
     "med":             ("Med",                 "f:4",  None,  "Cure", "cures sickness", "the field pill"),
-    "elixir":          ("Elixir",              "f:15", 2000,  "Cure", "cures sickness · energy to FULL", "the pill, perfected"),
-    "vitamin_g":       ("Vitamin G",           "f:16", 2000,  "Cure", "heals injury · effort FULL · injury guard", "the golden mend"),
+    "elixir":          ("Elixir",              "f:15", 2000,  "Cure", "NO care slips for a day", "absolution in a bottle"),
+    "vitamin_g":       ("Vitamin G",           "f:16", 2000,  "Cure", "effort FULL · CANNOT be wounded for a day", "the golden ward"),
     # THE CURE LADDER (2026-07-27, Joel: "fill the cure hole").  care_mistakes
     # is the deadliest meter in the game -- 21 reads, it gates evolutions and
     # it KILLS -- and until now exactly one item touched it, at 7777b.  These
     # two give the slate a ladder instead of a single luxury.  Both wear art
     # freed by the same day's cuts: nothing is drawn, ever.
     "cold_compress":   ("Cold Compress",       "i:67", 2000,  "Cure", "ONE care slip erased · costs energy", "relief, the hard way"),
-    "gold_pill":       ("Gold Pill",           "f:19", 10000, "Cure", "energy +12", "vitality, gilded"),
+    "gold_pill":       ("Gold Pill",           "f:19", 10000, "Cure", "energy FULL · nothing tires it for a day", "vitality, gilded"),
     "supplement":      ("Supplement",          "f:25", 100,   "Drill", "effort FULL · obedience +5 · weight +1", "discipline in a dose"),
     "food_pill":       ("Food Pill",           "f:41", 100,   "Feed", "fills belly · obedience +5 · weight +3", "a meal, compressed"),
     "ai_supplement":   ("AI Supplement",       "f:43", None,  "Drill", "effort +1", "the assistant's own blend"),
@@ -177,7 +177,7 @@ _AUTHORED = {
     "hp_chip":         ("HP Chip",             "f:26", 1500,  "Power", "all three powers +5", "vitality etched in silicon"),
     "hp_chip_g":       ("HP Chip G",           "f:27", 3000,  "Power", "all three powers +10", "the golden constitution"),
     "hedonism_101":    ("Hedonism 101",        "i:1",  2000,  "Manners", "manners OBLITERATED · DO NOT STUDY", "the forbidden syllabus"),
-    "book":            ("Book",                "i:2",  1000,  "Manners", "obedience +5", "a well-thumbed guide"),
+    "book":            ("Book",                "i:2",  1000,  "Manners", "obedience +5 · manners HOLD for a day", "a well-thumbed guide"),
     "board_game":      ("Board Game",          "i:5",  2000,  "Power", "Vaccine power -15 · Data power +15 · obedience +5", "logic beats order"),
     "computer_game":   ("Computer Game",       "i:8",  2000,  "Power", "Virus power -15 · Data power +15", "logic tames chaos"),
     "trampoline":      ("Trampoline",          "i:13", 2500,  "Drill", "bounce! effort +1 · weight -1", "gravity, negotiable"),
@@ -259,7 +259,7 @@ _TOUCHES = {
     "energy_drink": ("energy",),
     "slim_drink": ("weight",),
     "vitamin": ("strength", "vitamin_lapse"),
-    "miracle_drink": ("care_mistakes", "energy"),
+    "miracle_drink": ("care_mistakes", "mistake_day", "energy"),
     "sleeping_pill": ("asleep", "lights", "nap"),
     # BOTH channels, because it really does use both (item sweep
     # 2026-07-24: a line pet -- every hatch -- pushes bedtime through the
@@ -288,9 +288,9 @@ _TOUCHES = {
     # ---- TOYS ----
     "ball": ("weight",),
     "skateboard": ("weight", "energy"),
-    "xylophone": ("energy",),
-    "video_game": ("energy", "weight"),
-    "television": ("energy", "weight"),
+    "xylophone": ("dp",),
+    "video_game": ("dp", "weight"),
+    "television": ("dp", "weight"),
     # ---- ADVENTURE ----
     # Empty by design: from the HOME bag these three only refuse.  Their
     # real work is adventure-run state (the march's location, its lives),
@@ -313,10 +313,10 @@ _TOUCHES = {
     "green_pepper": ("hunger", "obedience", "data_power"),
     "red_pepper": ("hunger", "obedience", "vaccine"),
     "med": ('sick',),
-    "elixir": ('sick', 'energy'),
-    "vitamin_g": ('injured', 'strength', 'vitamin_lapse'),
+    "elixir": ('pardon_lapse',),
+    "vitamin_g": ('strength', 'ward_lapse'),
     "cold_compress": ('care_mistakes', 'energy'),
-    "gold_pill": ('energy',),
+    "gold_pill": ('energy', 'tonic_lapse'),
     "supplement": ('strength', 'obedience', 'weight'),
     "food_pill": ('hunger', 'obedience', 'weight'),
     "ai_supplement": ('strength',),
@@ -324,7 +324,7 @@ _TOUCHES = {
     "hp_chip": ('vaccine', 'data_power', 'virus'),
     "hp_chip_g": ('vaccine', 'data_power', 'virus'),
     "hedonism_101": ('obedience',),
-    "book": ('obedience',),
+    "book": ('obedience', 'manners_lapse'),
     "board_game": ('vaccine', 'data_power', 'obedience'),
     "computer_game": ('virus', 'data_power'),
     "trampoline": ('strength', 'weight'),
@@ -391,13 +391,96 @@ TIER_ORDER = ("common", "uncommon", "rare", "legendary")
 
 
 def tier_for_price(price):
-    """The band a price falls in, or None for a grant-only item."""
+    """The band a price falls in, or None for a grant-only item.
+
+    ⛔NO LONGER THE TIER SOURCE (2026-08-02, Joel: "yeah decouple rarity from
+    price").  Kept because it is still a readable statement of what an item
+    COSTS in band terms, and the retired-ruling comment above is history worth
+    keeping -- but `tier` comes from `tier_for_supply` now.  Do not wire this
+    back into CATALOG."""
     if price is None:
         return None
     for ceiling, name in TIER_BANDS:
         if price <= ceiling:
             return name
     return TIER_TOP
+
+
+# ⭐⭐RARITY IS SUPPLY, NOT PRICE (2026-08-02, Joel's named order).
+#
+# The old rule derived `tier` FROM PRICE, on the reasoning that "price was
+# already the game's opinion of an item's worth".  True -- but worth is not
+# scarcity, and the economy audit that day showed why it mattered: at ~440
+# bits per real minute of adventuring, the dearest good in the game is a
+# 23-minute walk.  "Legendary" meant "expensive", expensive meant twenty
+# minutes, and rarity was decorative.
+#
+# The authored CSVs already carry the game's opinion of SCARCITY, in columns
+# nothing was reading: DefaultStockChance (how often a shop stocks it at all)
+# and DefaultMaxStock (how many it will ever carry).  Their product is the
+# expected number of copies on a shelf -- a real supply number, authored
+# per item, with nothing to do with price.  So this invents no economy
+# either; it reads the OTHER column that was always there.
+#
+# Measured: price-vs-supply correlation r = -0.16 (was +1.00 by construction).
+# The Gold Pill stays legendary -- but now because a shop carries exactly ONE,
+# not because it costs 10000b.  The 3000b evolution relics drop to common,
+# because shops always stock them.  A 100b capsule becomes the rarest thing
+# in the game, because it is.
+_SUPPLY_CAP = 30.0          # DefaultMaxStock -1 == no ceiling: as common as it gets
+SUPPLY_BANDS = ((1.0, "legendary"), (4.0, "rare"), (10.0, "uncommon"))
+
+
+def _authored_supply():
+    """{icon -> expected copies on a shelf} from the authored stock columns."""
+    import csv as _csv
+    import os as _os
+    out = {}
+    here = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "data")
+    for fn, pre, idc in (("items.csv", "i", "ItemIdentificationNum"),
+                         ("foods.csv", "f", "FoodIdentificationNum")):
+        try:
+            with open(_os.path.join(here, fn), encoding="utf-8") as fh:
+                rows = list(_csv.DictReader(fh))
+        except OSError:
+            continue
+        if not rows:
+            continue
+        cc = next((c for c in rows[0] if c.startswith("DefaultStockChance")), None)
+        cm = next((c for c in rows[0] if c.startswith("DefaultMaxStock")), None)
+        if not cc or not cm:
+            continue
+        for r in rows:
+            try:
+                chance = int(str(r[cc]).split(";")[0] or 0)
+                mx = int(r[cm] or 0)
+            except (TypeError, ValueError):
+                continue
+            out[f"{pre}:{r[idc]}"] = chance / 100.0 * (_SUPPLY_CAP if mx < 0 else mx)
+    return out
+
+
+_SUPPLY = _authored_supply()
+
+
+def supply_score(icon):
+    """Expected copies of `icon` on a shelf, or None when unauthored."""
+    return _SUPPLY.get(icon)
+
+
+def tier_for_supply(icon, price=None):
+    """The band an item's AUTHORED SUPPLY falls in, or None for a grant-only
+    good.  An unauthored icon (tuipet's own additions) falls back to the price
+    ladder rather than silently reading as the commonest thing there is."""
+    if price is None:
+        return None
+    s = supply_score(icon)
+    if s is None:
+        return tier_for_price(price)
+    for ceiling, name in SUPPLY_BANDS:
+        if s <= ceiling:
+            return name
+    return "common"
 
 
 # How much RARER a tier is, both on the shelf and on the road.  One curve
@@ -447,7 +530,7 @@ CATALOG = {
     _k: Item(*_v,
              touches=_TOUCHES.get(_k, ()),
              where="road" if _k in _ROAD_ONLY else "home",
-             tier=tier_for_price(_v[2]))
+             tier=tier_for_supply(_v[1], _v[2]))
     for _k, _v in _AUTHORED.items()
 }
 

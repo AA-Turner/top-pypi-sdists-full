@@ -1,26 +1,32 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
 from office365.runtime.client_value import ClientValue
 from office365.runtime.client_value_collection import ClientValueCollection
+from office365.sharepoint.tenant.administration.collaboration.collaborativeonedriveuser import (
+    CollaborativeOneDriveUser,
+)
+from office365.sharepoint.tenant.administration.collaboration.collaborativeusers import (
+    CollaborativeUsers,
+)
 
 
-class CollaborativeUsers(ClientValue):
-    @property
-    def entity_type_name(self):
-        return "Microsoft.SharePoint.Administration.TenantAdmin.CollaborativeUsers"
-
-
+@dataclass
 class CollaborationInsightsData(ClientValue):
-    def __init__(self, last_report_date=None, collaborative_users=None):
-        """
-        :param str last_report_date:
-        :param list[CollaborativeUsers] collaborative_users:
-        """
-        self.collaborativeUsers = ClientValueCollection(
-            CollaborativeUsers, collaborative_users
-        )
-        self.lastReportDate = last_report_date
+    """Args:
+    last_report_date (str):
+    collaborative_users (list[CollaborativeUsers]):
+    """
+
+    collaborativeUsers: ClientValueCollection[CollaborativeUsers] = field(
+        default_factory=lambda: ClientValueCollection(CollaborativeUsers)
+    )
+    lastReportDate: str | None = None
+    collaborativeOneDriveUsers: ClientValueCollection[CollaborativeOneDriveUser] = field(
+        default_factory=lambda: ClientValueCollection(CollaborativeOneDriveUser)
+    )
 
     @property
-    def entity_type_name(self):
-        return (
-            "Microsoft.SharePoint.Administration.TenantAdmin.CollaborationInsightsData"
-        )
+    def entity_type_name(self):  # type: ignore[override]
+        return "Microsoft.SharePoint.Administration.TenantAdmin.CollaborationInsightsData"

@@ -12,6 +12,7 @@ import pytest
 from ansys.api.fluent.v1 import settings_pb2, settings_pb2_grpc
 
 _ROOT = "fluent"
+MAX_MESSAGE_LENGTH = 256 * 1024 * 1024
 
 # ---------------------------------------------------------------------------
 # Stub fixture
@@ -51,7 +52,12 @@ def value_to_python(v):
 
 def test_get_schema_root_returns_info(stub, grpc_channel_and_metadata):
     """GetSchema at the root must return a Schema with a non-empty type."""
-    _, metadata = grpc_channel_and_metadata
+    channel, metadata = grpc_channel_and_metadata
+    options = [
+        ('grpc.max_receive_message_length', MAX_MESSAGE_LENGTH),
+        ('grpc.max_send_message_length', MAX_MESSAGE_LENGTH),
+    ]
+    stub = settings_pb2_grpc.SettingsStub(grpc.insecure_channel(channel._target, options=options))
     resp = stub.GetSchema(
         settings_pb2.GetSchemaRequest(root=_ROOT),
         metadata=metadata,
@@ -62,7 +68,12 @@ def test_get_schema_root_returns_info(stub, grpc_channel_and_metadata):
 
 def test_get_schema_has_children(stub, grpc_channel_and_metadata):
     """Root schema must expose at least one child entry."""
-    _, metadata = grpc_channel_and_metadata
+    channel, metadata = grpc_channel_and_metadata
+    options = [
+        ('grpc.max_receive_message_length', MAX_MESSAGE_LENGTH),
+        ('grpc.max_send_message_length', MAX_MESSAGE_LENGTH),
+    ]
+    stub = settings_pb2_grpc.SettingsStub(grpc.insecure_channel(channel._target, options=options))
     resp = stub.GetSchema(
         settings_pb2.GetSchemaRequest(root=_ROOT),
         metadata=metadata,
@@ -72,7 +83,12 @@ def test_get_schema_has_children(stub, grpc_channel_and_metadata):
 
 def test_get_schema_setup_path(stub, grpc_channel_and_metadata):
     """GetSchema for the 'setup' sub-tree must return a non-empty type."""
-    _, metadata = grpc_channel_and_metadata
+    channel, metadata = grpc_channel_and_metadata
+    options = [
+        ('grpc.max_receive_message_length', MAX_MESSAGE_LENGTH),
+        ('grpc.max_send_message_length', MAX_MESSAGE_LENGTH),
+    ]
+    stub = settings_pb2_grpc.SettingsStub(grpc.insecure_channel(channel._target, options=options))
     resp = stub.GetSchema(
         settings_pb2.GetSchemaRequest(root=_ROOT, optional_attrs=["type"]),
         metadata=metadata,

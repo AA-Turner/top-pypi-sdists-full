@@ -1,7 +1,10 @@
-class CalendarType:
+from enum import Enum
+
+
+class CalendarType(Enum):
     """As specified in [MS-WSSFO2] section 2.2.3.3 or [MS-WSSFO3] section 2.2.1.2.3."""
 
-    None_ = 0
+    Unknown = 0
     """Specifies that the calendar type is not specified."""
 
     Gregorian = 1

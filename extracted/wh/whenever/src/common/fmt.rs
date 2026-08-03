@@ -1,13 +1,5 @@
 //! Helpers for writing formatted strings
 
-use crate::{
-    classes::{date::Date, time::Time},
-    common::scalar::{Offset, OffsetFormat},
-    docstrings::FORMAT_ISO_NO_TZ_MSG,
-    py::*,
-    pymodule::State,
-};
-
 // Static table for formatting 2-digit numbers. Avoids division/modulo operations.
 pub(crate) static DIGITS: &[u8; 200] = b"00010203040506070809101112131415161718192021222324252627282930313233343536373839404142434445464748495051525354555657585960616263646566676869707172737475767778798081828384858687888990919293949596979899";
 
@@ -117,7 +109,7 @@ impl<const N: usize> Sink for ArrayWriter<N> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) enum Unit {
+pub(crate) enum Precision {
     Auto,
     Nanosecond,
     Microsecond,
@@ -125,166 +117,6 @@ pub(crate) enum Unit {
     Second,
     Minute,
     Hour,
-}
-
-impl Unit {
-    pub(crate) fn from_py(obj: PyObj, state: &State) -> PyResult<Self> {
-        match_interned_str("unit", obj, |v, eq| {
-            if eq(v, *state.str_millisecond) {
-                Some(Self::Millisecond)
-            } else if eq(v, *state.str_hour) {
-                Some(Self::Hour)
-            } else if eq(v, *state.str_minute) {
-                Some(Self::Minute)
-            } else if eq(v, *state.str_second) {
-                Some(Self::Second)
-            } else if eq(v, *state.str_microsecond) {
-                Some(Self::Microsecond)
-            } else if eq(v, *state.str_nanosecond) {
-                Some(Self::Nanosecond)
-            } else if eq(v, *state.str_auto) {
-                Some(Self::Auto)
-            } else {
-                None
-            }
-        })
-    }
-}
-
-/// Suffix kind of a ISO8601 formatted string
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Suffix<'a> {
-    Absent,                            // No suffix (i.e. local/naive datetime)
-    Zulu,                              // Static Z (Zulu, i.e. UTC)
-    Offset(Offset),                    // Offset only
-    OffsetTz(Offset, Option<&'a str>), // Offset and timezone name (in brackets)
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum SuffixFormat<'a> {
-    Absent,
-    Zulu,
-    Offset(OffsetFormat),
-    OffsetTz(OffsetFormat, &'a str),
-}
-
-impl Chunk for SuffixFormat<'_> {
-    fn len(&self) -> usize {
-        match self {
-            Self::Absent => 0,
-            Self::Zulu => 1,
-            Self::Offset(fmt) => fmt.len(),
-            Self::OffsetTz(offset, tz) => {
-                offset.len() + tz.len() + 2 // two brackets around the tz name
-            }
-        }
-    }
-
-    fn write(&self, b: &mut impl Sink) {
-        match self {
-            Self::Absent => {}
-            Self::Zulu => b.write_byte(b'Z'),
-            Self::Offset(fmt) => fmt.write(b),
-            Self::OffsetTz(offset, tz) => {
-                offset.write(b);
-                b.write_byte(b'[');
-                b.write(tz.as_bytes());
-                b.write_byte(b']');
-            }
-        }
-    }
-}
-
-/// Rust representation of the `tz` keyword argument used in format_iso()
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum TzDisplay {
-    Always,
-    Never,
-    Auto,
-}
-
-/// Common routine for writing ISO8601 formatted strings consisting of
-/// date, time and optional timezone suffix
-///
-/// E.g. `2023-03-15T13:45:30.123456789+02:00[Europe/Berlin]`
-/// or `20230315 134530Z`
-#[inline]
-pub(crate) fn format_iso(
-    date: Date,
-    time: Time,
-    state: &State,
-    args: &[PyObj],
-    kwargs: &mut IterKwargs,
-    suffix: Suffix<'_>,
-) -> PyReturn {
-    if !args.is_empty() {
-        raise_type_err("format_iso() takes no positional arguments")?;
-    }
-
-    // As-efficient-as-possible assignment of keyword arguments
-    let mut sep = b'T';
-    let mut unit = Unit::Auto;
-    let mut basic = false;
-    let mut tz_display = TzDisplay::Always;
-    handle_kwargs("format_iso", kwargs, |key, value, eq| {
-        if eq(key, *state.str_sep) {
-            sep = match_interned_str("sep", value, |v, eq| {
-                if eq(v, *state.str_space) {
-                    Some(b' ')
-                } else if eq(v, *state.str_t) {
-                    Some(b'T')
-                } else {
-                    None
-                }
-            })?;
-        } else if eq(key, *state.str_unit) {
-            unit = Unit::from_py(value, state)?;
-        } else if eq(key, *state.str_basic) {
-            if value.is_true() {
-                basic = true;
-            } else if value.is_false() {
-                basic = false;
-            } else {
-                raise_type_err("`basic` must be a boolean value")?;
-            }
-        // Only allow the tz argument if we have a timezone suffix
-        } else if matches!(suffix, Suffix::OffsetTz(_, _)) && eq(key, *state.str_tz) {
-            tz_display = match_interned_str("tz", value, |v, eq| {
-                if eq(v, *state.str_auto) {
-                    Some(TzDisplay::Auto)
-                } else if eq(v, *state.str_never) {
-                    Some(TzDisplay::Never)
-                } else if eq(v, *state.str_always) {
-                    Some(TzDisplay::Always)
-                } else {
-                    None
-                }
-            })?;
-        } else {
-            return Ok(false);
-        }
-        Ok(true)
-    })?;
-
-    // Perform the formatting of the individual parts
-    let date_fmt = date.format_iso(basic);
-    let time_fmt = time.format_iso(unit, basic);
-    let suffix_fmt = match suffix {
-        Suffix::Absent => SuffixFormat::Absent,
-        Suffix::Zulu => SuffixFormat::Zulu,
-        Suffix::Offset(offset) => SuffixFormat::Offset(offset.format_iso(basic)),
-        Suffix::OffsetTz(offset, tz_key) => match (tz_key, tz_display) {
-            (Some(key), TzDisplay::Auto | TzDisplay::Always) => {
-                SuffixFormat::OffsetTz(offset.format_iso(basic), key)
-            }
-            (_, TzDisplay::Never | TzDisplay::Auto) => {
-                SuffixFormat::Offset(offset.format_iso(basic))
-            }
-            (None, TzDisplay::Always) => raise_value_err(FORMAT_ISO_NO_TZ_MSG)?,
-        },
-    };
-
-    PyAsciiStrBuilder::format((date_fmt, sep, time_fmt, suffix_fmt))
 }
 
 #[cfg(test)]

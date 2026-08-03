@@ -1,14 +1,22 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class OnenoteOperationError(ClientValue):
-    """An error from a failed OneNote operation."""
+    """An error from a failed OneNote operation.
 
-    def __init__(self, message=None, code=None):
-        """
-        :param str message: The error message.
-        :param str code: The error code.
-        """
-        super(OnenoteOperationError, self).__init__()
-        self.message = message
-        self.code = code
+    Args:
+        message (str): The error message.
+        code (str): The error code.
+    """
+
+    message: str | None = None
+    code: str | None = None
+
+    @property
+    def entity_type_name(self) -> str:
+        return "microsoft.graph.OnenoteOperationError"

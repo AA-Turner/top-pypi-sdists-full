@@ -1,4 +1,6 @@
-from typing import TYPE_CHECKING
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Optional
 
 from office365.runtime.client_result import ClientResult
 from office365.runtime.client_value_collection import ClientValueCollection
@@ -12,8 +14,6 @@ from office365.sharepoint.sharing.object_sharing_information_user import (
 )
 
 if TYPE_CHECKING:
-    from typing import Optional  # noqa
-
     from office365.sharepoint.client_context import ClientContext  # noqa
 
 
@@ -21,31 +21,31 @@ class ObjectSharingInformation(Entity):
     """Provides information about the sharing state of a securable object."""
 
     @staticmethod
-    def can_current_user_share(context, doc_id):
+    def can_current_user_share(context: ClientContext, doc_id: str) -> ClientResult[int]:
         """Indicates whether the current user can share the document identified by docId.
 
-        :param office365.sharepoint.client_context.ClientContext context: SharePoint client context
-        :param str doc_id: Identifies the document that will be analyzed from a sharing perspective.
+        Args:
+            context (office365.sharepoint.client_context.ClientContext): SharePoint client context
+            doc_id (str): Identifies the document that will be analyzed from a sharing perspective.
         """
         binding_type = ObjectSharingInformation(context)
         payload = {"docId": doc_id}
         return_type = ClientResult(context, int())
-        qry = ServiceOperationQuery(
-            binding_type, "CanCurrentUserShare", None, payload, None, return_type, True
-        )
+        qry = ServiceOperationQuery(binding_type, "CanCurrentUserShare", None, payload, None, return_type, True)
         context.add_query(qry)
         return return_type
 
     @staticmethod
-    def can_current_user_share_remote(context, doc_id):
+    def can_current_user_share_remote(context: ClientContext, doc_id: str) -> ClientResult[int]:
         """Indicates whether the current user can share the document identified by docId, from a remote context.
 
-        :param office365.sharepoint.client_context.ClientContext context: SharePoint client context
-        :param str doc_id: Identifies the document that will be analyzed from a sharing perspective.
+        Args:
+            context (office365.sharepoint.client_context.ClientContext): SharePoint client context
+            doc_id (str): Identifies the document that will be analyzed from a sharing perspective.
         """
         binding_type = ObjectSharingInformation(context)
         payload = {"docId": doc_id}
-        return_type = ClientResult(context)
+        return_type = ClientResult(context, int())
         qry = ServiceOperationQuery(
             binding_type,
             "CanCurrentUserShareRemote",
@@ -60,7 +60,7 @@ class ObjectSharingInformation(Entity):
 
     @staticmethod
     def get_web_sharing_information(
-        context,
+        context: ClientContext,
         exclude_current_user=None,
         exclude_site_admin=None,
         exclude_security_groups=None,
@@ -68,24 +68,24 @@ class ObjectSharingInformation(Entity):
         retrieve_user_info_details=None,
         check_for_access_requests=None,
     ):
-        """
-        Retrieves information about the sharing state for the current site. The current site is the site
+        """Retrieves information about the sharing state for the current site. The current site is the site
         in the context of which this method is invoked.
 
-        :param office365.sharepoint.client_context.ClientContext context: SharePoint client context
-        :param bool exclude_current_user: Specifies whether the returned sharing state information will exclude
+        Args:
+            context (office365.sharepoint.client_context.ClientContext): SharePoint client context
+            exclude_current_user (bool): Specifies whether the returned sharing state information will exclude
             information about the user making the request.
-        :param bool exclude_site_admin: Specifies whether the returned sharing state information will exclude
+            exclude_site_admin (bool): Specifies whether the returned sharing state information will exclude
             information about users who are site collection administrators of the site collection which contains
             the current site
-        :param bool exclude_security_groups: Specifies whether the returned sharing state information will exclude
+            exclude_security_groups (bool): Specifies whether the returned sharing state information will exclude
             information about security groups which have permissions to the current site
-        :param bool retrieve_anonymous_links:  This parameter is ignored by the method.
-        :param bool retrieve_user_info_details: Specifies whether the returned sharing state information will contain
-             basic or detailed information about the users with permissions to the current site
-        :param bool check_for_access_requests: Specifies whether the returned sharing state information will contain a
-             URL to a location which describes any access requests present in the current site,
-             if such a URL is available
+            retrieve_anonymous_links (bool): This parameter is ignored by the method.
+            retrieve_user_info_details (bool): Specifies whether the returned sharing state information will contain
+            basic or detailed information about the users with permissions to the current site
+            check_for_access_requests (bool): Specifies whether the returned sharing state information will contain a
+            URL to a location which describes any access requests present in the current site,
+            if such a URL is available
         """
         return_type = ObjectSharingInformation(context)
         payload = {
@@ -111,46 +111,43 @@ class ObjectSharingInformation(Entity):
     def get_shared_with_users(self):
         """Returns an array that contains the users with whom a securable object is shared."""
         return_type = EntityCollection(self.context, ObjectSharingInformationUser)
-        qry = ServiceOperationQuery(
-            self, "GetSharedWithUsers", None, None, None, return_type
-        )
+        qry = ServiceOperationQuery(self, "GetSharedWithUsers", None, None, None, return_type)
         self.context.add_query(qry)
         return return_type
 
     @staticmethod
     def get_list_item_sharing_information(
-        context,
-        list_id,
-        item_id,
-        exclude_current_user=True,
-        exclude_site_admin=True,
-        exclude_security_groups=True,
-        retrieve_anonymous_links=False,
-        retrieve_user_info_details=False,
-        check_for_access_requests=False,
-        return_type=None,
-    ):
-        # type: (ClientContext, str, int, Optional[bool], Optional[bool], Optional[bool], Optional[bool], Optional[bool], Optional[bool], Optional[ObjectSharingInformation]) -> ObjectSharingInformation
-        """
-        Retrieves information about the sharing state for a given list.
+        context: ClientContext,
+        list_id: str,
+        item_id: int,
+        exclude_current_user: Optional[bool] = True,
+        exclude_site_admin: Optional[bool] = True,
+        exclude_security_groups: Optional[bool] = True,
+        retrieve_anonymous_links: Optional[bool] = False,
+        retrieve_user_info_details: Optional[bool] = False,
+        check_for_access_requests: Optional[bool] = False,
+        return_type: Optional[ObjectSharingInformation] = None,
+    ) -> ObjectSharingInformation:
+        """Retrieves information about the sharing state for a given list.
 
-        :param check_for_access_requests: Specifies whether the returned sharing state information will contain a URL
-        to a location which describes any access requests present in the site (2), if such a URL is available.
-        :param retrieve_user_info_details: Specifies whether the returned sharing state information will contain
-        basic or detailed information about the users with permissions to the list item.
-        :param retrieve_anonymous_links: Specifies whether the returned sharing state information will contain
-        information about a URL that allows an anonymous user to access the list item.
-        :param exclude_security_groups: Specifies whether the returned sharing state information will exclude
-        information about security groups which have permissions to the list item.
-        :param exclude_site_admin:  Specifies whether the returned sharing state information will exclude
-        information about users who are site collection administrators of the site collection which contains the list.
-        :param exclude_current_user: Specifies whether the returned sharing state information will exclude
-        information about the user making the request.
-        :param item_id: The list item identifier for the list item for which the sharing state is requested.
-        :param list_id: The list identifier for the list which contains the list item for which
-        the sharing state is requested.
-        :param context: SharePoint client context
-        :param return_type: Return type
+        Args:
+            check_for_access_requests: Specifies whether the returned sharing state information will contain a
+            URL to a location which describes any access requests present in the site (2), if such a URL is available.
+            retrieve_user_info_details: Specifies whether the returned sharing state information will contain basic
+            or detailed information about the users with permissions to the list item.
+            retrieve_anonymous_links: Specifies whether the returned sharing state information will contain information
+            about a URL that allows an anonymous user to access the list item.
+            exclude_security_groups: Specifies whether the returned sharing state information will exclude information
+            about security groups which have permissions to the list item.
+            exclude_site_admin: Specifies whether the returned sharing state information will exclude information
+            about users who are site collection administrators of the site collection which contains the list.
+            exclude_current_user: Specifies whether the returned sharing state information will exclude information
+            about the user making the request.
+            item_id: The list item identifier for the list item for which the sharing state is requested.
+            list_id: The list identifier for the list which contains the list item for which the sharing state
+            is requested.
+            context: SharePoint client context
+            return_type: Return type
         """
         binding_type = ObjectSharingInformation(context)
         payload = {
@@ -178,8 +175,7 @@ class ObjectSharingInformation(Entity):
         return return_type
 
     @property
-    def anonymous_edit_link(self):
-        # type: () -> Optional[str]
+    def anonymous_edit_link(self) -> Optional[str]:
         """
         Provides the URL that allows an anonymous user to edit the securable object.
         If such a URL is not available, this property will provide an empty string.
@@ -187,8 +183,7 @@ class ObjectSharingInformation(Entity):
         return self.properties.get("AnonymousEditLink", None)
 
     @property
-    def anonymous_view_link(self):
-        # type: () -> Optional[str]
+    def anonymous_view_link(self) -> Optional[str]:
         """
         Provides the URL that allows an anonymous user to view the securable object.
         If such a URL is not available, this property will provide an empty string.
@@ -196,32 +191,28 @@ class ObjectSharingInformation(Entity):
         return self.properties.get("AnonymousViewLink", None)
 
     @property
-    def can_be_shared(self):
-        # type: () -> Optional[bool]
+    def can_be_shared(self) -> Optional[bool]:
         """
         Indicates whether the current securable object can be shared.
         """
         return self.properties.get("CanBeShared", None)
 
     @property
-    def can_be_unshared(self):
-        # type: () -> Optional[bool]
+    def can_be_unshared(self) -> Optional[bool]:
         """
         Indicates whether the current securable object can be unshared.
         """
         return self.properties.get("CanBeUnshared", None)
 
     @property
-    def can_manage_permissions(self):
-        # type: () -> Optional[bool]
+    def can_manage_permissions(self) -> Optional[bool]:
         """
         Specifies whether the current user is allowed to change the permissions of the securable object.
         """
         return self.properties.get("CanManagePermissions", None)
 
     @property
-    def has_pending_access_requests(self):
-        # type: () -> Optional[bool]
+    def has_pending_access_requests(self) -> Optional[bool]:
         """
         Provides information about whether there are any pending access requests for the securable object.
 
@@ -231,8 +222,7 @@ class ObjectSharingInformation(Entity):
         return self.properties.get("HasPendingAccessRequests", None)
 
     @property
-    def has_permission_levels(self):
-        # type: () -> Optional[bool]
+    def has_permission_levels(self) -> Optional[bool]:
         """
         Indicates whether the object sharing information contains permissions information in addition to the identities
         of the users who have access to the securable object.
@@ -240,16 +230,14 @@ class ObjectSharingInformation(Entity):
         return self.properties.get("HasPermissionLevels", None)
 
     @property
-    def sharing_links(self):
-        # type: () -> ClientValueCollection[SharingLinkInfo]
+    def sharing_links(self) -> ClientValueCollection[SharingLinkInfo]:
         """Indicates the collection of all available sharing links for the securable object."""
-        return self.properties.get(
-            "SharingLinks", ClientValueCollection(SharingLinkInfo)
-        )
+        return self.properties.get("SharingLinks", ClientValueCollection(SharingLinkInfo))
 
     @property
-    def shared_with_users_collection(self):
-        # type: () -> EntityCollection[ObjectSharingInformationUser]
+    def shared_with_users_collection(
+        self,
+    ) -> EntityCollection[ObjectSharingInformationUser]:
         """A collection of shared with users."""
         return self.properties.get(
             "SharedWithUsersCollection",
@@ -265,10 +253,10 @@ class ObjectSharingInformation(Entity):
             default_value = self.shared_with_users_collection
         elif name == "SharingLinks":
             default_value = self.sharing_links
-        return super(ObjectSharingInformation, self).get_property(name, default_value)
+        return super().get_property(name, default_value)
 
     def set_property(self, name, value, persist_changes=True):
-        super(ObjectSharingInformation, self).set_property(name, value, persist_changes)
+        super().set_property(name, value, persist_changes)
         # fallback: create a new resource path
         if name == "AnonymousEditLink" and self._resource_path is None:
             self._resource_path = None

@@ -1,8 +1,14 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
 from office365.directory.permissions.identity import Identity
 from office365.directory.permissions.identity_set import IdentitySet
 from office365.onedrive.permissions.sharepoint_identity import SharePointIdentity
+from office365.onedrive.sharepoint.group_identity import SharePointGroupIdentity
 
 
+@dataclass
 class SharePointIdentitySet(IdentitySet):
     """
     Represents a keyed collection of sharePointIdentity resources. This resource extends from the identitySet resource
@@ -12,18 +18,11 @@ class SharePointIdentitySet(IdentitySet):
     such as created by or last modified by.
     """
 
-    def __init__(
-        self,
-        group=Identity(),
-        site_group=SharePointIdentity(),
-        site_user=SharePointIdentity(),
-    ):
-        """
-        :param Identity group: The group associated with this action.
-        :param SharePointIdentity site_group: The SharePoint group associated with this action
-        :param SharePointIdentity site_user: The SharePoint user associated with this action
-        """
-        super(SharePointIdentitySet, self).__init__()
-        self.group = group
-        self.siteGroup = site_group
-        self.siteUser = site_user
+    group: Identity = field(default_factory=Identity)
+    siteGroup: SharePointIdentity = field(default_factory=SharePointIdentity)
+    siteUser: SharePointIdentity = field(default_factory=SharePointIdentity)
+    sharePointGroup: SharePointGroupIdentity = field(default_factory=SharePointGroupIdentity)
+
+    @property
+    def entity_type_name(self) -> str:
+        return "microsoft.graph.SharePointIdentitySet"

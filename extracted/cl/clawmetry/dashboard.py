@@ -267,7 +267,7 @@ def _otlp_service_name_to_agent_type(service_name):
     return slug or "custom"
 
 
-__version__ = "0.12.632"
+__version__ = "0.12.642"
 
 # Extensions (Phase 2): import the plugin host now, but defer the actual
 # load_plugins() call until after the Flask app is created below so we can
@@ -626,6 +626,7 @@ def _budget_init_db():
             channels TEXT NOT NULL,
             cooldown_min INTEGER DEFAULT 30,
             enabled INTEGER DEFAULT 1,
+            runtime TEXT DEFAULT 'all',
             created_at REAL NOT NULL,
             updated_at REAL NOT NULL
         );
@@ -645,6 +646,13 @@ def _budget_init_db():
         CREATE INDEX IF NOT EXISTS idx_alert_history_rule
             ON alert_history(rule_id, fired_at DESC);
     """)
+    try:
+        # Pre-0.12.639 DBs lack the per-runtime scope column. SQLite has no
+        # IF-NOT-EXISTS for columns; the duplicate-column error is the no-op.
+        db.execute("ALTER TABLE alert_rules ADD COLUMN runtime TEXT DEFAULT 'all'")
+        db.commit()
+    except Exception:
+        pass
     db.close()
 
 
@@ -2076,6 +2084,10 @@ def _budget_monitor_loop():
                 threshold = rule["threshold"]
                 channels = json.loads(rule.get("channels", '["banner"]'))
                 cooldown = rule.get("cooldown_min", 30) * 60
+                # Per-runtime scope: 'all' (node-wide) or one runtime id.
+                # Scoped rules read per-runtime slices from DuckDB via the
+                # daemon proxy; node-wide rules keep the legacy aggregates.
+                rt_scope = str(rule.get("runtime") or "all").lower()
 
                 last_fired = _budget_alert_cooldowns.get(rule_id, 0)
                 if now - last_fired < cooldown:
@@ -2085,8 +2097,12 @@ def _budget_monitor_loop():
                 msg = ""
 
                 if rtype == "threshold":
-                    if status["daily_spent"] >= threshold:
-                        msg = f"Daily spending ${status['daily_spent']:.2f} exceeded threshold ${threshold:.2f}"
+                    _spent = status["daily_spent"]
+                    if rt_scope != "all":
+                        _spent = _runtime_daily_spend(rt_scope)
+                    if _spent is not None and _spent >= threshold:
+                        _scope_lbl = "" if rt_scope == "all" else f" [{rt_scope}]"
+                        msg = f"Daily spending{_scope_lbl} ${_spent:.2f} exceeded threshold ${threshold:.2f}"
                         fired = True
                 elif rtype == "spike":
                     # Spike: cost in last hour > threshold x average hourly rate
@@ -2110,20 +2126,29 @@ def _budget_monitor_loop():
                         msg = f"Spending spike: ${hour_cost:.2f} in last hour ({(hour_cost / avg_hourly):.1f}x average)"
                         fired = True
                 elif rtype == "token_spike":
-                    try:
-                        vel = _compute_velocity_status()
-                    except Exception:
-                        vel = None
-                    if vel:
-                        tokens_per_min = vel.get("tokensIn2Min", 0) / 2.0
-                        if tokens_per_min >= threshold:
-                            sid = vel.get("triggeringSession") or ""
-                            sid_hint = f" (session: {sid[:12]}...)" if sid else ""
+                    if rt_scope != "all":
+                        _tpm = _runtime_tokens_per_min(rt_scope)
+                        if _tpm is not None and _tpm >= threshold:
                             msg = (
-                                f"Token spike: {int(tokens_per_min):,} tokens/min "
-                                f"(threshold: {int(threshold):,}/min){sid_hint}"
+                                f"Token spike [{rt_scope}]: {int(_tpm):,} tokens/min "
+                                f"(threshold: {int(threshold):,}/min)"
                             )
                             fired = True
+                    else:
+                        try:
+                            vel = _compute_velocity_status()
+                        except Exception:
+                            vel = None
+                        if vel:
+                            tokens_per_min = vel.get("tokensIn2Min", 0) / 2.0
+                            if tokens_per_min >= threshold:
+                                sid = vel.get("triggeringSession") or ""
+                                sid_hint = f" (session: {sid[:12]}...)" if sid else ""
+                                msg = (
+                                    f"Token spike: {int(tokens_per_min):,} tokens/min "
+                                    f"(threshold: {int(threshold):,}/min){sid_hint}"
+                                )
+                                fired = True
                 elif rtype == "unproductive_burn":
                     # Issue #1707 — forward-progress signal. Fires when any
                     # session burns >= ``threshold`` tokens per state delta
@@ -2141,6 +2166,9 @@ def _budget_monitor_loop():
                         worst = None
                         for r in rows:
                             try:
+                                if rt_scope != "all" and _session_runtime_of(
+                                        r.get("session_id") or "") != rt_scope:
+                                    continue
                                 if float(r.get("ratio") or 0) >= float(threshold):
                                     if worst is None or r["ratio"] > worst["ratio"]:
                                         worst = r
@@ -9516,6 +9544,7 @@ def _budget_init_db():
             channels TEXT NOT NULL,
             cooldown_min INTEGER DEFAULT 30,
             enabled INTEGER DEFAULT 1,
+            runtime TEXT DEFAULT 'all',
             created_at REAL NOT NULL,
             updated_at REAL NOT NULL
         );
@@ -9535,6 +9564,13 @@ def _budget_init_db():
         CREATE INDEX IF NOT EXISTS idx_alert_history_rule
             ON alert_history(rule_id, fired_at DESC);
     """)
+    try:
+        # Pre-0.12.639 DBs lack the per-runtime scope column. SQLite has no
+        # IF-NOT-EXISTS for columns; the duplicate-column error is the no-op.
+        db.execute("ALTER TABLE alert_rules ADD COLUMN runtime TEXT DEFAULT 'all'")
+        db.commit()
+    except Exception:
+        pass
     db.close()
 
 
@@ -10098,6 +10134,54 @@ def _dispatch_alert_to_all_sinks(alert_data: dict) -> list[str]:
     return sent
 
 
+
+
+def _session_runtime_of(sid):
+    """Runtime id for a namespaced session id ('copilot:...' -> 'copilot');
+    anything without a known family prefix is OpenClaw."""
+    sid = str(sid or "")
+    if ":" in sid:
+        head = sid.split(":", 1)[0]
+        try:
+            from clawmetry.entitlements import ALL_RUNTIMES
+            if head in ALL_RUNTIMES:
+                return head
+        except ImportError:
+            pass
+    return "openclaw"
+
+
+def _runtime_daily_spend(runtime):
+    """Today's spend (USD) for ONE runtime from the per-(day, runtime)
+    DuckDB rollup, via the daemon proxy. None on any failure so a scoped
+    rule silently skips a tick rather than firing on a node-wide number."""
+    try:
+        from datetime import datetime as _dt, timezone as _tz
+        from routes.local_query import local_store_via_daemon
+        today = _dt.now(_tz.utc).strftime("%Y-%m-%d")
+        rows = local_store_via_daemon(
+            "query_rollup_runtime_daily", since=today) or []
+        return float(sum(
+            (r.get("cost_usd") or 0) for r in rows
+            if r.get("day") == today and r.get("runtime") == runtime))
+    except Exception:
+        return None
+
+
+def _runtime_tokens_per_min(runtime):
+    """Tokens/min over the last 2 minutes for ONE runtime (DuckDB events
+    filtered by session-id prefix via the daemon proxy). None on failure."""
+    try:
+        from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+        from routes.local_query import local_store_via_daemon
+        since = (_dt.now(_tz.utc) - _td(minutes=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        rows = local_store_via_daemon(
+            "query_events", since=since, runtime=runtime, limit=20000) or []
+        return sum(int(r.get("token_count") or 0) for r in rows) / 2.0
+    except Exception:
+        return None
+
+
 def _get_alert_rules():
     """Get all alert rules."""
     try:
@@ -10457,6 +10541,10 @@ def _budget_monitor_loop():
                 threshold = rule["threshold"]
                 channels = json.loads(rule.get("channels", '["banner"]'))
                 cooldown = rule.get("cooldown_min", 30) * 60
+                # Per-runtime scope: 'all' (node-wide) or one runtime id.
+                # Scoped rules read per-runtime slices from DuckDB via the
+                # daemon proxy; node-wide rules keep the legacy aggregates.
+                rt_scope = str(rule.get("runtime") or "all").lower()
 
                 last_fired = _budget_alert_cooldowns.get(rule_id, 0)
                 if now - last_fired < cooldown:
@@ -10466,8 +10554,12 @@ def _budget_monitor_loop():
                 msg = ""
 
                 if rtype == "threshold":
-                    if status["daily_spent"] >= threshold:
-                        msg = f"Daily spending ${status['daily_spent']:.2f} exceeded threshold ${threshold:.2f}"
+                    _spent = status["daily_spent"]
+                    if rt_scope != "all":
+                        _spent = _runtime_daily_spend(rt_scope)
+                    if _spent is not None and _spent >= threshold:
+                        _scope_lbl = "" if rt_scope == "all" else f" [{rt_scope}]"
+                        msg = f"Daily spending{_scope_lbl} ${_spent:.2f} exceeded threshold ${threshold:.2f}"
                         fired = True
                 elif rtype == "spike":
                     # Spike: cost in last hour > threshold x average hourly rate
@@ -10491,20 +10583,29 @@ def _budget_monitor_loop():
                         msg = f"Spending spike: ${hour_cost:.2f} in last hour ({(hour_cost / avg_hourly):.1f}x average)"
                         fired = True
                 elif rtype == "token_spike":
-                    try:
-                        vel = _compute_velocity_status()
-                    except Exception:
-                        vel = None
-                    if vel:
-                        tokens_per_min = vel.get("tokensIn2Min", 0) / 2.0
-                        if tokens_per_min >= threshold:
-                            sid = vel.get("triggeringSession") or ""
-                            sid_hint = f" (session: {sid[:12]}...)" if sid else ""
+                    if rt_scope != "all":
+                        _tpm = _runtime_tokens_per_min(rt_scope)
+                        if _tpm is not None and _tpm >= threshold:
                             msg = (
-                                f"Token spike: {int(tokens_per_min):,} tokens/min "
-                                f"(threshold: {int(threshold):,}/min){sid_hint}"
+                                f"Token spike [{rt_scope}]: {int(_tpm):,} tokens/min "
+                                f"(threshold: {int(threshold):,}/min)"
                             )
                             fired = True
+                    else:
+                        try:
+                            vel = _compute_velocity_status()
+                        except Exception:
+                            vel = None
+                        if vel:
+                            tokens_per_min = vel.get("tokensIn2Min", 0) / 2.0
+                            if tokens_per_min >= threshold:
+                                sid = vel.get("triggeringSession") or ""
+                                sid_hint = f" (session: {sid[:12]}...)" if sid else ""
+                                msg = (
+                                    f"Token spike: {int(tokens_per_min):,} tokens/min "
+                                    f"(threshold: {int(threshold):,}/min){sid_hint}"
+                                )
+                                fired = True
                 elif rtype == "unproductive_burn":
                     # Issue #1707 — forward-progress signal. Fires when any
                     # session burns >= ``threshold`` tokens per state delta
@@ -10522,6 +10623,9 @@ def _budget_monitor_loop():
                         worst = None
                         for r in rows:
                             try:
+                                if rt_scope != "all" and _session_runtime_of(
+                                        r.get("session_id") or "") != rt_scope:
+                                    continue
                                 if float(r.get("ratio") or 0) >= float(threshold):
                                     if worst is None or r["ratio"] > worst["ratio"]:
                                         worst = r
@@ -11789,6 +11893,12 @@ def detect_config(args=None):
     app.register_blueprint(bp_reports)
     app.register_blueprint(bp_scheduler)
     app.register_blueprint(bp_policy)
+    # Local pre-tool hook receiver (Claude Code PreToolUse gate) —
+    # routes/hooks.py. Its record_once hook also persists this
+    # dashboard's port to ~/.clawmetry/server.json for the gate
+    # installer's base-URL discovery.
+    from routes.hooks import bp_hooks
+    app.register_blueprint(bp_hooks)
     app.register_blueprint(bp_turn_anatomy)
     app.register_blueprint(bp_tool_catalog)
     app.register_blueprint(bp_context_economics)
@@ -12142,7 +12252,7 @@ DASHBOARD_HTML = r"""
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 </head>
-<body data-theme="dark" class="booting">
+<body data-theme="dark" class="booting has-profile-menu">
 {% include 'partials/overlays.html' %}
 <div class="zoom-wrapper" id="zoom-wrapper">
 <div class="nav">
@@ -12214,6 +12324,17 @@ DASHBOARD_HTML = r"""
     <div id="cloud-connected-badge" onclick="window.open('https://app.clawmetry.com/cloud','_blank')" style="display:none;cursor:pointer;padding:6px 12px;border:1px solid rgba(34,197,94,0.4);border-radius:8px;font-size:12px;font-weight:600;color:#22c55e;white-space:nowrap;transition:all 0.2s;user-select:none;" onmouseover="this.style.background='rgba(34,197,94,0.08)'" onmouseout="this.style.background='transparent'">&#9679; Cloud Connected</div>
   </div>
   {% endif %}
+  <!-- Account menu: self-hosted installs sign in (trial/license) just like
+       Cloud, so they get the same top-right profile affordance — identity,
+       billing/plan management, and an always-visible sign-out. Rendered by
+       cmProfileInit() in gw-setup.js; supersedes the bare #logout-btn icon
+       (hidden via body.has-profile-menu in dashboard.css). -->
+  <div id="cm-profile-wrap" style="position:relative;margin-left:8px;flex-shrink:0;">
+    <button id="cm-profile-btn" onclick="cmProfileToggle(event)" data-i18n-title="profile.account" title="Account" aria-haspopup="menu" aria-expanded="false" style="width:32px;height:32px;border-radius:50%;border:1px solid var(--border-color,rgba(255,255,255,0.22));background:var(--button-bg,transparent);color:var(--text-tertiary,#cbd5e1);font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;box-shadow:var(--card-shadow);transition:all 0.15s;">
+      <span id="cm-profile-initial" style="display:flex;align-items:center;justify-content:center;line-height:1;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+    </button>
+    <div id="cm-profile-menu" role="menu" style="display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:250px;background:var(--bg-card,#1c2333);border:1px solid var(--border-color,rgba(255,255,255,0.1));border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.45);z-index:210;padding:6px;"></div>
+  </div>
 </div>
 {% include 'partials/banners.html' %}
 
@@ -12328,7 +12449,7 @@ DASHBOARD_HTML = r"""
       <div class="left-nav-item left-nav-item-sub" data-tab="memory" onclick="switchTab('memory')" data-i18n-title="nav.memory_tooltip" title="Persistent memory files the agent reads on boot">
         <span class="left-nav-label" data-i18n="nav.memory">Memory</span>
       </div>
-      <div class="left-nav-item left-nav-item-sub" data-tab="logs" onclick="switchTab('logs')" title="Live OpenClaw log stream">
+      <div class="left-nav-item left-nav-item-sub" data-tab="logs" onclick="switchTab('logs')" title="Live runtime log stream">
         <span class="left-nav-label">Logs</span>
       </div>
       <div class="left-nav-item left-nav-item-sub" data-tab="security" onclick="switchTab('security')">
@@ -15263,592 +15384,17 @@ def _scan_events_for_threats(events):
 
 
 def _scan_security_posture():
-    """Scan OpenClaw configuration for security misconfigurations.
+    """Thin delegate — the OpenClaw posture scan moved to
+    :mod:`clawmetry.security_posture` (runtime-aware posture registry).
 
-    Returns a list of checks with pass/fail/warn status, remediation hints,
-    and an overall A-F security score.
-
-    Supports three config detection strategies:
-    1. Local filesystem (native install)
-    2. Docker container (reads config via docker exec/cp)
-    3. Live gateway API (works for any deployment, including Hostinger/VPS Docker)
+    Kept as a function on this module so existing callers keep working:
+    routes/infra.py's legacy path, clawmetry/sync.py's shadow scan
+    (``getattr(dashboard, "_scan_security_posture")``), and tests.
+    Behaviour is identical: this returns the openclaw provider's result.
     """
-    checks = []
-    is_docker = False
+    from clawmetry.security_posture import get_posture
 
-    # --- Locate openclaw.json config ---
-    config_data = None
-    config_path = None
-
-    # Strategy 1: Local filesystem
-    for cf in [
-        os.path.expanduser("~/.openclaw/openclaw.json"),
-        os.path.expanduser("~/.clawdbot/openclaw.json"),
-        os.path.expanduser("~/.clawdbot/clawdbot.json"),
-    ]:
-        try:
-            with open(cf) as f:
-                config_data = json.load(f)
-                config_path = cf
-                break
-        except Exception:
-            continue
-
-    # Strategy 2: Docker container (if not found locally)
-    if config_data is None:
-        try:
-            import subprocess as _sp
-
-            # Find OpenClaw containers
-            out = _sp.run(
-                ["docker", "ps", "--format", "{{.ID}}\t{{.Names}}\t{{.Image}}"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if out.returncode == 0:
-                for line in out.stdout.strip().splitlines():
-                    parts = line.split("\t")
-                    if len(parts) < 3:
-                        continue
-                    cid, name, image = parts[0], parts[1], parts[2]
-                    if not any(
-                        k in (name + image).lower()
-                        for k in ["openclaw", "clawd", "claw"]
-                    ):
-                        continue
-                    # Try to read config from inside container
-                    for container_path in [
-                        "/root/.openclaw/openclaw.json",
-                        "/home/node/.openclaw/openclaw.json",
-                        "/data/openclaw.json",
-                        "/app/openclaw.json",
-                    ]:
-                        try:
-                            cat_out = _sp.run(
-                                ["docker", "exec", cid, "cat", container_path],
-                                capture_output=True,
-                                text=True,
-                                timeout=8,
-                            )
-                            if cat_out.returncode == 0 and cat_out.stdout.strip():
-                                config_data = json.loads(cat_out.stdout)
-                                config_path = f"docker:{cid[:12]}:{container_path}"
-                                is_docker = True
-                                break
-                        except Exception:
-                            continue
-                    if config_data:
-                        break
-        except (FileNotFoundError, Exception):
-            pass  # Docker not available
-
-    # Strategy 3: Live gateway API (works for any deployment including remote Docker)
-    if config_data is None:
-        try:
-            gw_cfg = _load_gw_config()
-            gw_url = gw_cfg.get("url", GATEWAY_URL)
-            gw_token = gw_cfg.get("token", GATEWAY_TOKEN)
-            if gw_url and gw_token:
-                import urllib.request
-
-                req = urllib.request.Request(
-                    f"{gw_url}/api/config",
-                    headers={
-                        "Authorization": f"Bearer {gw_token}",
-                        "Accept": "application/json",
-                    },
-                )
-                with urllib.request.urlopen(req, timeout=8) as resp:
-                    if resp.status == 200:
-                        config_data = json.loads(resp.read().decode())
-                        config_path = f"gateway:{gw_url}"
-                        # Check if gateway reports Docker environment
-                        runtime = config_data.get("runtime", {})
-                        if runtime.get("container") or os.path.exists("/.dockerenv"):
-                            is_docker = True
-        except Exception:
-            pass
-
-    if config_data is None:
-        return {
-            "score": "U",
-            "score_label": "Unknown",
-            "score_color": "#64748b",
-            "checks": [
-                {
-                    "id": "config_found",
-                    "label": "Configuration file",
-                    "status": "fail",
-                    "detail": "No openclaw.json found (checked local files, Docker containers, and gateway API)",
-                    "remediation": "Ensure OpenClaw is installed and configured. For Docker: verify the container is running. For remote: configure GATEWAY_URL and GATEWAY_TOKEN.",
-                    "severity": "critical",
-                    "weight": 20,
-                }
-            ],
-            "passed": 0,
-            "failed": 1,
-            "warnings": 0,
-            "total": 1,
-        }
-
-    # Config found — add pass check with source info
-    source_label = (
-        "local file"
-        if not config_path.startswith(("docker:", "gateway:"))
-        else (
-            "Docker container" if config_path.startswith("docker:") else "gateway API"
-        )
-    )
-    checks.append(
-        {
-            "id": "config_found",
-            "label": "Configuration file",
-            "status": "pass",
-            "detail": f"Config loaded from {source_label} ({config_path})",
-            "remediation": None,
-            "severity": "critical",
-            "weight": 20,
-        }
-    )
-
-    # Docker-specific checks
-    if is_docker:
-        checks.append(
-            {
-                "id": "docker_isolation",
-                "label": "Container isolation",
-                "status": "pass",
-                "detail": "OpenClaw is running inside a Docker container (network/filesystem isolation).",
-                "remediation": None,
-                "severity": "high",
-                "weight": 5,
-            }
-        )
-
-    gateway = config_data.get("gateway", {})
-    plugins = config_data.get("plugins", {})
-
-    # Check 1: Gateway auth token configured
-    auth_token = (
-        gateway.get("auth", {}).get("token")
-        or gateway.get("authToken")
-        or os.environ.get("OPENCLAW_AUTH_TOKEN")
-    )
-    if auth_token and len(str(auth_token)) >= 8:
-        checks.append(
-            {
-                "id": "auth_enabled",
-                "label": "Gateway authentication",
-                "status": "pass",
-                "detail": "Auth token is configured (length: {})".format(
-                    len(str(auth_token))
-                ),
-                "remediation": None,
-                "severity": "critical",
-                "weight": 25,
-            }
-        )
-    else:
-        checks.append(
-            {
-                "id": "auth_enabled",
-                "label": "Gateway authentication",
-                "status": "fail",
-                "detail": "No auth token configured. Anyone on the network can control your agent.",
-                "remediation": "Set gateway.auth.token in openclaw.json to a strong random string (32+ chars).",
-                "severity": "critical",
-                "weight": 25,
-            }
-        )
-
-    # Check 2: Auth token strength (not default/weak)
-    weak_tokens = {
-        "test",
-        "password",
-        "12345678",
-        "changeme",
-        "openclaw",
-        "clawdbot",
-        "default",
-        "admin",
-    }
-    if auth_token:
-        token_str = str(auth_token).lower()
-        if token_str in weak_tokens or len(token_str) < 16:
-            checks.append(
-                {
-                    "id": "auth_strength",
-                    "label": "Auth token strength",
-                    "status": "warn",
-                    "detail": "Token is too short or uses a common/default value.",
-                    "remediation": "Use a cryptographically random token: openssl rand -hex 32",
-                    "severity": "high",
-                    "weight": 15,
-                }
-            )
-        else:
-            checks.append(
-                {
-                    "id": "auth_strength",
-                    "label": "Auth token strength",
-                    "status": "pass",
-                    "detail": "Token appears strong ({} chars)".format(len(token_str)),
-                    "remediation": None,
-                    "severity": "high",
-                    "weight": 15,
-                }
-            )
-
-    # Check 3: Gateway bind address (should be localhost, not 0.0.0.0)
-    # In Docker, binding to 0.0.0.0 is expected (Docker manages port exposure)
-    bind_host = gateway.get("host") or gateway.get("bind") or "127.0.0.1"
-    if bind_host in ("0.0.0.0", "::") and is_docker:
-        checks.append(
-            {
-                "id": "bind_address",
-                "label": "Gateway bind address",
-                "status": "pass",
-                "detail": "Gateway binds to {} inside Docker container (Docker manages network exposure via port mapping).".format(
-                    bind_host
-                ),
-                "remediation": None,
-                "severity": "critical",
-                "weight": 20,
-            }
-        )
-    elif bind_host in ("0.0.0.0", "::"):
-        checks.append(
-            {
-                "id": "bind_address",
-                "label": "Gateway bind address",
-                "status": "fail",
-                "detail": "Gateway binds to {} (all interfaces). Exposed to the network.".format(
-                    bind_host
-                ),
-                "remediation": 'Set gateway.host to "127.0.0.1" unless you need remote access. Use a reverse proxy with TLS for remote.',
-                "severity": "critical",
-                "weight": 20,
-            }
-        )
-    else:
-        checks.append(
-            {
-                "id": "bind_address",
-                "label": "Gateway bind address",
-                "status": "pass",
-                "detail": "Gateway binds to {} (local only)".format(bind_host),
-                "remediation": None,
-                "severity": "critical",
-                "weight": 20,
-            }
-        )
-
-    # Check 4: Exec tool permissions
-    tools_config = config_data.get("tools", {})
-    exec_policy = tools_config.get("exec", {})
-    exec_security = exec_policy.get("security") or exec_policy.get("mode") or "full"
-    if exec_security == "full":
-        checks.append(
-            {
-                "id": "exec_permissions",
-                "label": "Exec tool permissions",
-                "status": "warn",
-                "detail": 'Exec security is "full" (unrestricted shell access).',
-                "remediation": 'Consider "allowlist" mode with specific commands, or "deny" for high-risk environments.',
-                "severity": "high",
-                "weight": 10,
-            }
-        )
-    elif exec_security == "deny":
-        checks.append(
-            {
-                "id": "exec_permissions",
-                "label": "Exec tool permissions",
-                "status": "pass",
-                "detail": "Exec tool is disabled (deny mode).",
-                "remediation": None,
-                "severity": "high",
-                "weight": 10,
-            }
-        )
-    else:
-        checks.append(
-            {
-                "id": "exec_permissions",
-                "label": "Exec tool permissions",
-                "status": "pass",
-                "detail": "Exec security mode: {}".format(exec_security),
-                "remediation": None,
-                "severity": "high",
-                "weight": 10,
-            }
-        )
-
-    # Check 5: TLS / HTTPS for gateway
-    gw_port = gateway.get("port", 18789)
-    gw_tls = gateway.get("tls", {})
-    has_tls = bool(gw_tls.get("cert") or gw_tls.get("key") or gw_tls.get("enabled"))
-    if has_tls:
-        checks.append(
-            {
-                "id": "tls_enabled",
-                "label": "TLS encryption",
-                "status": "pass",
-                "detail": "TLS is configured for the gateway.",
-                "remediation": None,
-                "severity": "high",
-                "weight": 10,
-            }
-        )
-    elif bind_host in ("0.0.0.0", "::") and is_docker:
-        checks.append(
-            {
-                "id": "tls_enabled",
-                "label": "TLS encryption",
-                "status": "warn",
-                "detail": "No TLS configured on gateway (Docker). TLS is typically handled by the hosting provider or reverse proxy.",
-                "remediation": "Verify your hosting provider (Hostinger, etc.) or reverse proxy terminates TLS before reaching the container.",
-                "severity": "high",
-                "weight": 10,
-            }
-        )
-    elif bind_host in ("0.0.0.0", "::"):
-        checks.append(
-            {
-                "id": "tls_enabled",
-                "label": "TLS encryption",
-                "status": "fail",
-                "detail": "No TLS configured and gateway is network-exposed. Traffic is unencrypted.",
-                "remediation": "Configure gateway.tls.cert and gateway.tls.key, or use a reverse proxy (nginx/caddy) with TLS.",
-                "severity": "high",
-                "weight": 10,
-            }
-        )
-    else:
-        checks.append(
-            {
-                "id": "tls_enabled",
-                "label": "TLS encryption",
-                "status": "pass",
-                "detail": "TLS not needed (gateway is localhost only).",
-                "remediation": None,
-                "severity": "high",
-                "weight": 10,
-            }
-        )
-
-    # Check 6: Plugin/channel security (telegram/discord tokens not in plaintext env)
-    plugin_entries = plugins.get("entries", {})
-    exposed_secrets = []
-    for pname, pconf in plugin_entries.items():
-        if isinstance(pconf, dict):
-            for key in ["token", "apiKey", "api_key", "secret", "webhook_secret"]:
-                val = pconf.get(key)
-                if (
-                    val
-                    and isinstance(val, str)
-                    and not val.startswith("$")
-                    and not val.startswith("env:")
-                ):
-                    exposed_secrets.append("{}.{}".format(pname, key))
-    if exposed_secrets:
-        checks.append(
-            {
-                "id": "secrets_in_config",
-                "label": "Secrets in config file",
-                "status": "warn",
-                "detail": "{} secret(s) stored as plaintext in config: {}".format(
-                    len(exposed_secrets), ", ".join(exposed_secrets[:3])
-                ),
-                "remediation": 'Use environment variables instead. E.g., set TELEGRAM_TOKEN env var and reference as "$TELEGRAM_TOKEN" in config.',
-                "severity": "medium",
-                "weight": 5,
-            }
-        )
-    else:
-        checks.append(
-            {
-                "id": "secrets_in_config",
-                "label": "Secrets in config file",
-                "status": "pass",
-                "detail": "No plaintext secrets detected in plugin config.",
-                "remediation": None,
-                "severity": "medium",
-                "weight": 5,
-            }
-        )
-
-    # Check 7: Workspace permissions (AGENTS.md, SOUL.md not world-readable)
-    oc_home = os.path.expanduser("~/.openclaw")
-    if os.name == "nt":
-        # POSIX mode bits are meaningless on Windows: st_mode reports 0o777
-        # for every normal directory, so the world-readable branch below
-        # would warn (and dock the score) on every Windows install with a
-        # chmod remediation that cannot be run. Access there is governed by
-        # NTFS ACLs, and the user-profile dir is owner-scoped by default.
-        if os.path.isdir(oc_home):
-            checks.append(
-                {
-                    "id": "workspace_perms",
-                    "label": "Workspace permissions",
-                    "status": "pass",
-                    "detail": "Access to the OpenClaw home directory is governed by Windows ACLs (user-profile scoped).",
-                    "remediation": None,
-                    "severity": "medium",
-                    "weight": 5,
-                }
-            )
-    elif os.path.isdir(oc_home):
-        try:
-            mode = oct(os.stat(oc_home).st_mode)[-3:]
-            if mode[-1] != "0":  # world-readable
-                checks.append(
-                    {
-                        "id": "workspace_perms",
-                        "label": "Workspace permissions",
-                        "status": "warn",
-                        "detail": "OpenClaw home directory is world-readable (mode: {})".format(
-                            mode
-                        ),
-                        "remediation": "Run: chmod 700 ~/.openclaw",
-                        "severity": "medium",
-                        "weight": 5,
-                    }
-                )
-            else:
-                checks.append(
-                    {
-                        "id": "workspace_perms",
-                        "label": "Workspace permissions",
-                        "status": "pass",
-                        "detail": "Workspace directory permissions are restrictive (mode: {})".format(
-                            mode
-                        ),
-                        "remediation": None,
-                        "severity": "medium",
-                        "weight": 5,
-                    }
-                )
-        except Exception:
-            checks.append(
-                {
-                    "id": "workspace_perms",
-                    "label": "Workspace permissions",
-                    "status": "warn",
-                    "detail": "Could not check workspace permissions.",
-                    "remediation": "Run: chmod 700 ~/.openclaw",
-                    "severity": "medium",
-                    "weight": 5,
-                }
-            )
-    else:
-        checks.append(
-            {
-                "id": "workspace_perms",
-                "label": "Workspace permissions",
-                "status": "pass",
-                "detail": "Default workspace directory not found (custom location or containerized).",
-                "remediation": None,
-                "severity": "medium",
-                "weight": 5,
-            }
-        )
-
-    # Check 8: Node/remote access configuration
-    nodes_config = config_data.get("nodes", {})
-    auto_approve = nodes_config.get("autoApprove", False)
-    if auto_approve:
-        checks.append(
-            {
-                "id": "node_auto_approve",
-                "label": "Node auto-approve",
-                "status": "warn",
-                "detail": "Nodes are auto-approved without manual review.",
-                "remediation": "Set nodes.autoApprove to false so you review each device before granting access.",
-                "severity": "medium",
-                "weight": 5,
-            }
-        )
-    else:
-        checks.append(
-            {
-                "id": "node_auto_approve",
-                "label": "Node auto-approve",
-                "status": "pass",
-                "detail": "Node pairing requires manual approval.",
-                "remediation": None,
-                "severity": "medium",
-                "weight": 5,
-            }
-        )
-
-    # Check 9: Elevated exec permissions
-    elevated = tools_config.get("elevated", {}) or exec_policy.get("elevated", {})
-    elevated_enabled = (
-        elevated.get("enabled", False) if isinstance(elevated, dict) else bool(elevated)
-    )
-    if elevated_enabled:
-        checks.append(
-            {
-                "id": "elevated_exec",
-                "label": "Elevated (sudo) exec",
-                "status": "warn",
-                "detail": "Elevated/sudo exec is enabled. Agent can run commands as root.",
-                "remediation": "Disable unless absolutely necessary. Use specific sudoers rules instead of blanket elevation.",
-                "severity": "high",
-                "weight": 10,
-            }
-        )
-    else:
-        checks.append(
-            {
-                "id": "elevated_exec",
-                "label": "Elevated (sudo) exec",
-                "status": "pass",
-                "detail": "Elevated exec is disabled.",
-                "remediation": None,
-                "severity": "high",
-                "weight": 10,
-            }
-        )
-
-    # --- Calculate score ---
-    total_weight = sum(c["weight"] for c in checks)
-    earned = sum(c["weight"] for c in checks if c["status"] == "pass")
-    # warnings get half credit
-    earned += sum(c["weight"] * 0.5 for c in checks if c["status"] == "warn")
-    pct = (earned / total_weight * 100) if total_weight > 0 else 0
-
-    if pct >= 90:
-        score, label, color = "A", "Excellent", "#22c55e"
-    elif pct >= 75:
-        score, label, color = "B", "Good", "#84cc16"
-    elif pct >= 60:
-        score, label, color = "C", "Fair", "#f59e0b"
-    elif pct >= 40:
-        score, label, color = "D", "Poor", "#f97316"
-    else:
-        score, label, color = "F", "Critical", "#ef4444"
-
-    passed = sum(1 for c in checks if c["status"] == "pass")
-    failed = sum(1 for c in checks if c["status"] == "fail")
-    warnings = sum(1 for c in checks if c["status"] == "warn")
-
-    return {
-        "score": score,
-        "score_label": label,
-        "score_color": color,
-        "score_pct": round(pct, 1),
-        "checks": checks,
-        "passed": passed,
-        "failed": failed,
-        "warnings": warnings,
-        "total": len(checks),
-        "config_path": config_path,
-        "is_docker": is_docker,
-        "scanned_at": datetime.now().isoformat(),
-    }
+    return get_posture("openclaw")
 
 
 # (bp_security /api/security/posture moved to routes/infra.py)

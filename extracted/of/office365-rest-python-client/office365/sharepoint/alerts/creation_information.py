@@ -1,15 +1,26 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Optional
+
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class AlertCreationInformation(ClientValue):
     """An object that contain the properties used to create a new SP.Alert"""
 
-    def __init__(self, alert_frequency, template_name, alert_type):
-        """
-        :param int alert_frequency: Gets or sets the time interval for sending the alert.
-        :param int alert_type: Gets or sets the alert type.
-        """
-        super(AlertCreationInformation, self).__init__()
-        self.AlertFrequency = alert_frequency
-        self.AlertTemplateName = template_name
-        self.AlertType = alert_type
+    AlertFrequency: Optional[int] = None
+    AlertTemplateName: Optional[str] = None
+    AlertType: Optional[int] = None
+    AlertTime: datetime = datetime.min
+    AlwaysNotify: Optional[bool] = None
+    DeliveryChannels: Optional[int] = None
+    EventType: Optional[int] = None
+    EventTypeBitmask: Optional[int] = None
+    Filter: Optional[str] = None
+    List: Optional[str] = None
+    Properties: Optional[dict] = None
+    Status: Optional[int] = None
+    Title: Optional[str] = None

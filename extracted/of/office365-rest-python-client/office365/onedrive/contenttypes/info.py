@@ -1,13 +1,19 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class ContentTypeInfo(ClientValue):
-    def __init__(self, _id=None, name=None):
-        """
-        The contentTypeInfo resource indicates the SharePoint content type of an item.
+    """
+    The contentTypeInfo resource indicates the SharePoint content type of an item.
+    """
 
-        :param str _id: The id of the content type.
-        :param str name: The name of the content type.
-        """
-        self.id = _id
-        self.name = name
+    id: str | None = None
+    name: str | None = None
+
+    @property
+    def entity_type_name(self) -> str:
+        return "microsoft.graph.ContentTypeInfo"

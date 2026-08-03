@@ -1,21 +1,17 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class SiteStateProperties(ClientValue):
-    def __init__(
-        self,
-        GroupSiteRelationship=None,
-        IsArchived=None,
-        IsSiteOnHold=None,
-        LockState=None,
-    ):
-        # type: (int, bool, bool, int) -> None
-        super(SiteStateProperties, self).__init__()
-        self.GroupSiteRelationship = GroupSiteRelationship
-        self.IsArchived = IsArchived
-        self.IsSiteOnHold = IsSiteOnHold
-        self.LockState = LockState
+    GroupSiteRelationship: int | None = None
+    IsArchived: bool | None = None
+    IsSiteOnHold: bool | None = None
+    LockState: int | None = None
 
     @property
-    def entity_type_name(self):
+    def entity_type_name(self):  # type: ignore[override]
         return "Microsoft.Online.SharePoint.TenantAdministration.SiteStateProperties"

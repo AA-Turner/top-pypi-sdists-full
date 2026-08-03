@@ -4,6 +4,7 @@ from typing import Optional
 from office365.directory.insights.resource_reference import ResourceReference
 from office365.entity import Entity
 from office365.runtime.paths.resource_path import ResourcePath
+from office365.runtime.types.odata_property import odata
 
 
 class Trending(Entity):
@@ -12,31 +13,22 @@ class Trending(Entity):
     OneDrive files, and files stored on SharePoint team sites can trend around the user.
     """
 
+    @odata(name="lastModifiedDateTime")
     @property
-    def last_modified_datetime(self):
-        # type: () -> Optional[datetime]
+    def last_modified_datetime(self) -> Optional[datetime]:
         """Gets date and time the item was last modified."""
         return self.properties.get("lastModifiedDateTime", datetime.min)
 
+    @odata(name="resourceReference")
     @property
-    def resource_reference(self):
-        # type: () -> ResourceReference
+    def resource_reference(self) -> ResourceReference:
         """Reference properties of the trending document, such as the url and type of the document."""
         return self.properties.get("resourceReference", ResourceReference())
 
     @property
-    def resource(self):
+    def resource(self) -> Entity:
         """Used for navigating to the trending document."""
         return self.properties.get(
             "resource",
             Entity(self.context, ResourcePath("resource", self.resource_path)),
         )
-
-    def get_property(self, name, default_value=None):
-        if default_value is None:
-            property_mapping = {
-                "lastModifiedDateTime": self.last_modified_datetime,
-                "resourceReference": self.resource_reference,
-            }
-            default_value = property_mapping.get(name, None)
-        return super(Trending, self).get_property(name, default_value)

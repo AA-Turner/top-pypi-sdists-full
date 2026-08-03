@@ -1,23 +1,16 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Optional
+
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class ActivityCapabilities(ClientValue):
-    def __init__(
-        self,
-        client_activities_enabled=None,
-        client_activities_notification_enabled=None,
-        enabled=None,
-    ):
-        """
-        :param bool client_activities_enabled:
-        :param bool client_activities_notification_enabled:
-        :param bool enabled:
-        """
-        self.clientActivitiesEnabled = client_activities_enabled
-        self.clientActivitiesNotificationEnabled = (
-            client_activities_notification_enabled
-        )
-        self.enabled = enabled
+    clientActivitiesEnabled: Optional[bool] = None
+    clientActivitiesNotificationEnabled: Optional[bool] = None
+    enabled: Optional[bool] = None
 
     @property
     def entity_type_name(self):

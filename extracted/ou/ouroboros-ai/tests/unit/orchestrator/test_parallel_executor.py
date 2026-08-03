@@ -5,7 +5,12 @@ from __future__ import annotations
 import asyncio
 from dataclasses import replace
 from datetime import UTC, datetime
+import json
 import os
+from pathlib import Path
+import shlex
+import subprocess
+import sys
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -20,6 +25,7 @@ from ouroboros.core.seed import (
     SeedMetadata,
 )
 from ouroboros.events.base import BaseEvent
+from ouroboros.harness.journal import EvidenceEntry, EvidenceKind, EvidenceManifest
 from ouroboros.mcp.types import MCPToolDefinition
 from ouroboros.orchestrator.adapter import (
     FULL_CAPABILITIES,
@@ -29,12 +35,35 @@ from ouroboros.orchestrator.adapter import (
     RuntimeHandle,
 )
 from ouroboros.orchestrator.coordinator import CoordinatorReview, FileConflict, LevelCoordinator
-from ouroboros.orchestrator.decomposition_policy import DecompositionDisposition
+from ouroboros.orchestrator.decomposition_limits import MAX_DECOMPOSITION_DEPTH
+from ouroboros.orchestrator.decomposition_policy import (
+    BounceCause,
+    DecompositionChild,
+    DecompositionDecisionRecord,
+    DecompositionDisposition,
+    DecompositionSource,
+    SemanticAttestationStatus,
+    StructuralCheckStatus,
+)
 from ouroboros.orchestrator.dependency_analyzer import ACNode, DependencyGraph
-from ouroboros.orchestrator.evidence.claims import _runtime_messages_support_file_claim
+from ouroboros.orchestrator.evidence.claims import (
+    _python_c_command_file_claim_match,
+    _runtime_messages_support_file_claim,
+    _shell_command_mutation_targets,
+    _text_needs_shell_expansion,
+)
 from ouroboros.orchestrator.evidence_schema import EvidenceRecord, ValidationResult
-from ouroboros.orchestrator.execution_runtime_scope import ExecutionNodeIdentity
-from ouroboros.orchestrator.leaf_dispatcher import _correlated_tool_result_name
+from ouroboros.orchestrator.execution_runtime_scope import (
+    ExecutionNodeIdentity,
+    build_level_coordinator_runtime_scope,
+)
+from ouroboros.orchestrator.leaf_dispatcher import (
+    _attach_bash_filesystem_effects,
+    _BashFilesystemLeaseTracker,
+    _close_pending_targets,
+    _correlated_tool_result_name,
+    _pending_bash_filesystem_targets,
+)
 from ouroboros.orchestrator.level_context import ACContextSummary, LevelContext
 from ouroboros.orchestrator.parallel_executor import (
     MAX_STALL_RETRIES,
@@ -48,10 +77,12 @@ from ouroboros.orchestrator.parallel_executor import (
     _complete_sibling_acs_from_evidence,
     _criterion_satisfied_by_evidence,
     _effective_evidence_schema_for_ac,
+    _matching_journal_entries,
     _message_contains_test_success,
     _runtime_messages_have_masked_test_command_form,
     _runtime_messages_support_command_claim,
     _runtime_messages_support_test_claim,
+    _standard_deliver_facts,
     render_parallel_completion_message,
     render_parallel_verification_report,
 )
@@ -60,9 +91,2819 @@ from ouroboros.orchestrator.verifier import VerifierVerdict
 from tests.unit.orchestrator.parallel_executor_test_support import ProcessLocalTestExecutor
 
 
+def _trusted_python_c(source: str) -> str:
+    return shlex.join([str(Path(sys.executable).resolve()), "-I", "-S", "-c", source])
+
+
+def _filesystem_effect(path: Path, *, reported_path: str) -> dict[str, object]:
+    identity = path.lstat()
+    return {
+        "capture": "ouroboros.leaf-dispatch.v1",
+        "path": reported_path,
+        "st_dev": identity.st_dev,
+        "st_ino": identity.st_ino,
+        "st_mode": identity.st_mode,
+    }
+
+
+def _trusted_preflight_split(
+    node_id: str,
+    *descriptions: str,
+) -> DecompositionDecisionRecord:
+    """Build a verified historical preflight decision for replay-only tests."""
+    return DecompositionDecisionRecord(
+        node_id=node_id,
+        source=DecompositionSource.PREFLIGHT,
+        disposition=DecompositionDisposition.SPLIT,
+        children=tuple(
+            DecompositionChild(
+                description=description,
+                coverage_claims=(f"scope-{index}",),
+                verification_hint=f"verify scope {index}",
+            )
+            for index, description in enumerate(descriptions)
+        ),
+        structural_status=StructuralCheckStatus.PASSED,
+        semantic_status=SemanticAttestationStatus.ESTABLISHED,
+        trustworthy=True,
+    )
+
+
 def test_stall_timeout_default_allows_realistic_test_suites() -> None:
     """The default stall watchdog should not kill long quiet test commands too early."""
     assert STALL_TIMEOUT_SECONDS == 900.0
+
+
+def _journal_entry(
+    *,
+    handle: str,
+    command: str,
+    result_preview: str | None = None,
+) -> EvidenceEntry:
+    payload: dict[str, object] = {"tool_name": "Bash", "command": command}
+    if result_preview is not None:
+        payload["result_preview"] = result_preview
+    return _journal_payload_entry(
+        handle=handle,
+        payload=payload,
+    )
+
+
+def _journal_payload_entry(*, handle: str, payload: dict[str, object]) -> EvidenceEntry:
+    return EvidenceEntry(
+        handle=handle,
+        kind=EvidenceKind.COMMAND_EXECUTED,
+        ok=True,
+        started_at=datetime.now(UTC),
+        ended_at=datetime.now(UTC),
+        payload=payload,
+        source_event_ids=(f"event-{handle}",),
+    )
+
+
+def test_deliver_matching_uses_verifier_command_aliases() -> None:
+    """A shell-wrapped command has the same backing evidence as its clean claim."""
+    manifest = EvidenceManifest(
+        ac_id="AC-1",
+        entries=(
+            _journal_entry(
+                handle="ev_wrapped",
+                command="/bin/zsh -lc 'pytest tests/test_app.py'",
+            ),
+        ),
+    )
+
+    matches = _matching_journal_entries(
+        manifest,
+        field="commands_run",
+        value="pytest tests/test_app.py",
+    )
+
+    assert tuple(entry.handle for entry in matches) == ("ev_wrapped",)
+
+
+@pytest.mark.parametrize(
+    "command",
+    (
+        _trusted_python_c("from pathlib import Path; Path('src/generated.py').write_text('x')"),
+        _trusted_python_c("from pathlib import Path; Path('src/generated.py').write_bytes(b'x')"),
+    ),
+)
+def test_python_c_pathlib_static_proof_rejects_command_text_only_write(tmp_path, command) -> None:
+    """Python command text alone cannot prove historical filesystem identity."""
+    generated = tmp_path / "src" / "generated.py"
+    generated.parent.mkdir()
+    generated.write_text("VALUE = 1\n", encoding="utf-8")
+
+    assert (
+        _python_c_command_file_claim_match(
+            command,
+            task_cwd=str(tmp_path),
+        )
+        is False
+    )
+
+
+def test_files_touched_rejects_reconstructed_pathlib_with_inert_touch_argv(tmp_path) -> None:
+    """Python ``-c`` argv cannot fall through to generic shell mutation proof."""
+    claimed_file = tmp_path / "claimed.py"
+    other_file = tmp_path / "other.py"
+    claimed_file.write_text("original\n", encoding="utf-8")
+    command = shlex.join(
+        [
+            str(Path(sys.executable).resolve()),
+            "-I",
+            "-S",
+            "-c",
+            "getattr(__import__('path' 'lib'), 'Pa' 'th')('other.py').write_text('changed')",
+            "touch",
+            "claimed.py",
+        ]
+    )
+
+    completed = subprocess.run(command, cwd=tmp_path, shell=True, check=False)  # noqa: S602
+
+    assert completed.returncode == 0
+    assert claimed_file.read_text(encoding="utf-8") == "original\n"
+    assert other_file.read_text(encoding="utf-8") == "changed"
+    assert _shell_command_mutation_targets(command) == ()
+    messages = (
+        AgentMessage(
+            type="tool",
+            content=f"Bash: {command}",
+            tool_name="Bash",
+            data={"tool_input": {"command": command}},
+        ),
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+    )
+    assert (
+        _runtime_messages_support_file_claim("claimed.py", messages, task_cwd=str(tmp_path))
+        is False
+    )
+
+
+def test_files_touched_rejects_wrapped_reconstructed_pathlib_with_inert_touch_argv(
+    tmp_path,
+) -> None:
+    """A supported shell body receives the same Python ``-c`` classification."""
+    claimed_file = tmp_path / "claimed.py"
+    other_file = tmp_path / "other.py"
+    claimed_file.write_text("original\n", encoding="utf-8")
+    inner = shlex.join(
+        [
+            str(Path(sys.executable).resolve()),
+            "-I",
+            "-S",
+            "-c",
+            "getattr(__import__('path' 'lib'), 'Pa' 'th')('other.py').write_text('changed')",
+            "touch",
+            "claimed.py",
+        ]
+    )
+    command = f"/bin/bash -lc {shlex.quote(inner)}"
+
+    completed = subprocess.run(command, cwd=tmp_path, shell=True, check=False)  # noqa: S602
+
+    assert completed.returncode == 0
+    assert claimed_file.read_text(encoding="utf-8") == "original\n"
+    assert other_file.read_text(encoding="utf-8") == "changed"
+    messages = (
+        AgentMessage(
+            type="tool",
+            content=f"Bash: {command}",
+            tool_name="Bash",
+            data={"tool_input": {"command": command}},
+        ),
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+    )
+    assert (
+        _runtime_messages_support_file_claim("claimed.py", messages, task_cwd=str(tmp_path))
+        is False
+    )
+
+
+def test_files_touched_rejects_env_python_quoted_redirection_argv(tmp_path) -> None:
+    """System ``env`` cannot expose a quoted Python argv value as redirection."""
+    claimed_file = tmp_path / "claimed.py"
+    other_file = tmp_path / "other.py"
+    claimed_file.write_text("original\n", encoding="utf-8")
+    command = shlex.join(
+        [
+            "/usr/bin/env",
+            str(Path(sys.executable).resolve()),
+            "-I",
+            "-S",
+            "-c",
+            "getattr(__import__('path' 'lib'), 'Pa' 'th')('other.py').write_text('changed')",
+            ">",
+            "claimed.py",
+        ]
+    )
+
+    completed = subprocess.run(command, cwd=tmp_path, shell=True, check=False)  # noqa: S602
+
+    assert completed.returncode == 0
+    assert claimed_file.read_text(encoding="utf-8") == "original\n"
+    assert other_file.read_text(encoding="utf-8") == "changed"
+    assert _shell_command_mutation_targets(command) == ()
+    messages = (
+        AgentMessage(
+            type="tool",
+            content=f"Bash: {command}",
+            tool_name="Bash",
+            data={"tool_input": {"command": command}},
+        ),
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+    )
+    assert not _runtime_messages_support_file_claim(
+        "claimed.py",
+        messages,
+        task_cwd=str(tmp_path),
+    )
+
+
+def test_files_touched_allows_python_c_literal_shell_redirect_with_local_lease(tmp_path) -> None:
+    """Python source stays inert while its independent shell receiver is proven."""
+    command = _trusted_python_c("print('generated')") + " > claimed.py"
+    call = AgentMessage(
+        type="tool",
+        content=f"Bash: {command}",
+        tool_name="Bash",
+        data={"tool_input": {"command": command}, "tool_call_id": "python-redirect"},
+    )
+    completion = AgentMessage(
+        type="tool_result",
+        content="command completed with exit code 0",
+        data={
+            "subtype": "tool_result",
+            "exit_code": 0,
+            "tool_call_id": "python-redirect",
+        },
+    )
+
+    with _BashFilesystemLeaseTracker(task_cwd=str(tmp_path)) as tracker:
+        observed_call = tracker.observe(call)
+        completed = subprocess.run(command, cwd=tmp_path, shell=True, check=False)  # noqa: S602
+        observed_completion = tracker.observe(completion)
+
+    assert completed.returncode == 0
+    assert (tmp_path / "claimed.py").read_text(encoding="utf-8") == "generated\n"
+    assert _runtime_messages_support_file_claim(
+        "claimed.py",
+        (observed_call, observed_completion),
+        task_cwd=str(tmp_path),
+    )
+
+
+def test_files_touched_python_c_redirect_does_not_prove_internal_receiver(tmp_path) -> None:
+    """A leased stdout redirect cannot authenticate a Python-internal write."""
+    source = "from pathlib import Path; Path('other.py').write_text('internal'); print('out')"
+    command = f"{_trusted_python_c(source)} > claimed.py"
+    call = AgentMessage(
+        type="tool",
+        content=f"Bash: {command}",
+        tool_name="Bash",
+        data={"tool_input": {"command": command}},
+    )
+    completion = AgentMessage(
+        type="tool_result",
+        content="command completed with exit code 0",
+        data={"subtype": "tool_result", "exit_code": 0},
+    )
+
+    with _BashFilesystemLeaseTracker(task_cwd=str(tmp_path)) as tracker:
+        observed_call = tracker.observe(call)
+        completed = subprocess.run(command, cwd=tmp_path, shell=True, check=False)  # noqa: S602
+        observed_completion = tracker.observe(completion)
+
+    messages = (observed_call, observed_completion)
+    assert completed.returncode == 0
+    assert _runtime_messages_support_file_claim("claimed.py", messages, task_cwd=str(tmp_path))
+    assert not _runtime_messages_support_file_claim("other.py", messages, task_cwd=str(tmp_path))
+
+
+@pytest.mark.parametrize("operator", ("'>'", r"\>"))
+def test_files_touched_rejects_python_c_quoted_or_escaped_redirect_argv(
+    tmp_path,
+    operator,
+) -> None:
+    """A quoted or escaped greater-than byte remains Python argv, not a receiver."""
+    source = "from pathlib import Path; Path('other.py').write_text('internal')"
+    command = f"{_trusted_python_c(source)} {operator} claimed.py"
+    call = AgentMessage(
+        type="tool",
+        content=f"Bash: {command}",
+        tool_name="Bash",
+        data={"tool_input": {"command": command}},
+    )
+    completion = AgentMessage(
+        type="tool_result",
+        content="command completed with exit code 0",
+        data={"subtype": "tool_result", "exit_code": 0},
+    )
+
+    with _BashFilesystemLeaseTracker(task_cwd=str(tmp_path)) as tracker:
+        observed_call = tracker.observe(call)
+        completed = subprocess.run(command, cwd=tmp_path, shell=True, check=False)  # noqa: S602
+        observed_completion = tracker.observe(completion)
+
+    assert completed.returncode == 0
+    assert not (tmp_path / "claimed.py").exists()
+    assert not _runtime_messages_support_file_claim(
+        "claimed.py",
+        (observed_call, observed_completion),
+        task_cwd=str(tmp_path),
+    )
+
+
+@pytest.mark.parametrize("comment_prefix", (" ", " \\\n"))
+def test_files_touched_rejects_python_c_redirection_inside_shell_comment(
+    tmp_path,
+    comment_prefix,
+) -> None:
+    """A comment cannot turn a Python-internal write into shell receiver proof."""
+    source = "from pathlib import Path; Path('claimed.py').write_text('internal')"
+    command = f"{_trusted_python_c(source)}{comment_prefix}# > claimed.py"
+    call = AgentMessage(
+        type="tool",
+        content=f"Bash: {command}",
+        tool_name="Bash",
+        data={"tool_input": {"command": command}, "tool_call_id": "commented-redirect"},
+    )
+    completion = AgentMessage(
+        type="tool_result",
+        content="command completed with exit code 0",
+        data={
+            "subtype": "tool_result",
+            "exit_code": 0,
+            "tool_call_id": "commented-redirect",
+        },
+    )
+
+    with _BashFilesystemLeaseTracker(task_cwd=str(tmp_path)) as tracker:
+        observed_call = tracker.observe(call)
+        completed = subprocess.run(command, cwd=tmp_path, shell=True, check=False)  # noqa: S602
+        observed_completion = tracker.observe(completion)
+
+    assert completed.returncode == 0
+    assert (tmp_path / "claimed.py").read_text(encoding="utf-8") == "internal"
+    assert _shell_command_mutation_targets(command, redirections_only=True) == ()
+    assert "filesystem_effects" not in observed_completion.data
+    assert not _runtime_messages_support_file_claim(
+        "claimed.py",
+        (observed_call, observed_completion),
+        task_cwd=str(tmp_path),
+    )
+
+
+def test_shell_comment_parser_rejects_redirect_after_backslash_crlf() -> None:
+    """Non-POSIX CRLF continuation remains fail-closed for receiver discovery."""
+    source = "from pathlib import Path; Path('claimed.py').write_text('internal')"
+    command = f"{_trusted_python_c(source)} \\\r\n# > claimed.py"
+
+    assert _shell_command_mutation_targets(command, redirections_only=True) == ()
+
+
+@pytest.mark.parametrize(
+    ("command", "expected"),
+    (
+        ("printf '%s\\n' 'quoted # value' > claimed.py", "quoted # value\n"),
+        (r"printf '%s\n' escaped\#value > claimed.py", "escaped#value\n"),
+        ("printf '%s\\n' foo#bar > claimed.py", "foo#bar\n"),
+    ),
+)
+def test_files_touched_preserves_literal_hash_before_real_shell_redirect(
+    tmp_path,
+    command,
+    expected,
+) -> None:
+    """Quoted, escaped, and token-internal hashes remain ordinary argv data."""
+    call = AgentMessage(
+        type="tool",
+        content=f"Bash: {command}",
+        tool_name="Bash",
+        data={"tool_input": {"command": command}},
+    )
+    completion = AgentMessage(
+        type="tool_result",
+        content="command completed with exit code 0",
+        data={"subtype": "tool_result", "exit_code": 0},
+    )
+
+    with _BashFilesystemLeaseTracker(task_cwd=str(tmp_path)) as tracker:
+        observed_call = tracker.observe(call)
+        completed = subprocess.run(command, cwd=tmp_path, shell=True, check=False)  # noqa: S602
+        observed_completion = tracker.observe(completion)
+
+    assert completed.returncode == 0
+    assert (tmp_path / "claimed.py").read_text(encoding="utf-8") == expected
+    assert _runtime_messages_support_file_claim(
+        "claimed.py",
+        (observed_call, observed_completion),
+        task_cwd=str(tmp_path),
+    )
+
+
+@pytest.mark.parametrize(
+    ("command", "stdin"),
+    (
+        ("touch first.py second.py", None),
+        ("truncate -s 0 first.py second.py", None),
+        ("tee first.py second.py", "generated\n"),
+    ),
+)
+def test_files_touched_authenticates_every_stable_multi_receiver(
+    tmp_path,
+    command,
+    stdin,
+) -> None:
+    """Every stable-identity operand receives its own execution-span lease."""
+    first = tmp_path / "first.py"
+    second = tmp_path / "second.py"
+    first.write_text("before first\n", encoding="utf-8")
+    second.write_text("before second\n", encoding="utf-8")
+    os.utime(first, ns=(1_000_000_000, 1_000_000_000))
+    os.utime(second, ns=(1_000_000_000, 1_000_000_000))
+    call = AgentMessage(
+        type="tool",
+        content=f"Bash: {command}",
+        tool_name="Bash",
+        data={"tool_input": {"command": command}, "tool_call_id": "multi-receiver"},
+    )
+    completion = AgentMessage(
+        type="tool_result",
+        content="command completed with exit code 0",
+        data={
+            "subtype": "tool_result",
+            "exit_code": 0,
+            "tool_call_id": "multi-receiver",
+        },
+    )
+
+    with _BashFilesystemLeaseTracker(task_cwd=str(tmp_path)) as tracker:
+        observed_call = tracker.observe(call)
+        completed = subprocess.run(  # noqa: S602
+            command,
+            cwd=tmp_path,
+            shell=True,
+            check=False,
+            input=stdin,
+            text=True,
+        )
+        observed_completion = tracker.observe(completion)
+
+    assert completed.returncode == 0
+    assert _shell_command_mutation_targets(command) == ("first.py", "second.py")
+    assert {effect["path"] for effect in observed_completion.data["filesystem_effects"]} == {
+        "first.py",
+        "second.py",
+    }
+    messages = (observed_call, observed_completion)
+    assert _runtime_messages_support_file_claim("first.py", messages, task_cwd=str(tmp_path))
+    assert _runtime_messages_support_file_claim("second.py", messages, task_cwd=str(tmp_path))
+
+
+@pytest.mark.parametrize(
+    ("command", "receivers"),
+    (
+        ("touch > log.txt first.py second.py", ("log.txt", "first.py", "second.py")),
+        ("touch first.py > log.txt second.py", ("log.txt", "first.py", "second.py")),
+        ("> log.txt touch first.py second.py", ("log.txt", "first.py", "second.py")),
+        ("touch first.py second.py 2> error.txt", ("error.txt", "first.py", "second.py")),
+        ("touch first.py second.py 2>&1", ("first.py", "second.py")),
+    ),
+)
+def test_files_touched_authenticates_interspersed_redirect_and_operands(
+    tmp_path,
+    command,
+    receivers,
+) -> None:
+    """Redirection clauses are removed without truncating later utility operands."""
+    for receiver in receivers:
+        target = tmp_path / receiver
+        target.write_text("before\n", encoding="utf-8")
+        os.utime(target, ns=(1_000_000_000, 1_000_000_000))
+    call = AgentMessage(
+        type="tool",
+        content=f"Bash: {command}",
+        tool_name="Bash",
+        data={"tool_input": {"command": command}},
+    )
+    completion = AgentMessage(
+        type="tool_result",
+        content="command completed with exit code 0",
+        data={"subtype": "tool_result", "exit_code": 0},
+    )
+
+    with _BashFilesystemLeaseTracker(task_cwd=str(tmp_path)) as tracker:
+        observed_call = tracker.observe(call)
+        completed = subprocess.run(command, cwd=tmp_path, shell=True, check=False)  # noqa: S602
+        observed_completion = tracker.observe(completion)
+
+    assert completed.returncode == 0
+    assert _shell_command_mutation_targets(command) == receivers
+    messages = (observed_call, observed_completion)
+    for receiver in receivers:
+        assert _runtime_messages_support_file_claim(receiver, messages, task_cwd=str(tmp_path))
+
+
+def test_tee_input_redirection_is_not_a_mutation_receiver(tmp_path) -> None:
+    """tee mutates every output operand but does not authenticate its stdin source."""
+    source = tmp_path / "source.py"
+    output = tmp_path / "output.py"
+    source.write_text("source\n", encoding="utf-8")
+    output.write_text("before\n", encoding="utf-8")
+    os.utime(output, ns=(1_000_000_000, 1_000_000_000))
+    command = "tee output.py < source.py"
+    call = AgentMessage(
+        type="tool",
+        content=f"Bash: {command}",
+        tool_name="Bash",
+        data={"tool_input": {"command": command}},
+    )
+    completion = AgentMessage(
+        type="tool_result",
+        content="command completed with exit code 0",
+        data={"subtype": "tool_result", "exit_code": 0},
+    )
+
+    with _BashFilesystemLeaseTracker(task_cwd=str(tmp_path)) as tracker:
+        observed_call = tracker.observe(call)
+        completed = subprocess.run(command, cwd=tmp_path, shell=True, check=False)  # noqa: S602
+        observed_completion = tracker.observe(completion)
+
+    assert completed.returncode == 0
+    assert _shell_command_mutation_targets(command) == ("output.py",)
+    messages = (observed_call, observed_completion)
+    assert _runtime_messages_support_file_claim("output.py", messages, task_cwd=str(tmp_path))
+    assert not _runtime_messages_support_file_claim("source.py", messages, task_cwd=str(tmp_path))
+
+
+@pytest.mark.parametrize(
+    ("command", "receivers", "stdin"),
+    (
+        ("touch 123 > log.txt", ("log.txt", "123"), None),
+        ("tee 123 < source.txt", ("123",), None),
+    ),
+)
+def test_numeric_filename_separated_from_redirect_remains_receiver(
+    tmp_path,
+    command,
+    receivers,
+    stdin,
+) -> None:
+    """Whitespace-separated digits are argv operands, never IO-number selectors."""
+    source = tmp_path / "source.txt"
+    source.write_text("source\n", encoding="utf-8")
+    for receiver in receivers:
+        target = tmp_path / receiver
+        target.write_text("before\n", encoding="utf-8")
+        os.utime(target, ns=(1_000_000_000, 1_000_000_000))
+    call = AgentMessage(
+        type="tool",
+        content=f"Bash: {command}",
+        tool_name="Bash",
+        data={"tool_input": {"command": command}},
+    )
+    completion = AgentMessage(
+        type="tool_result",
+        content="command completed with exit code 0",
+        data={"subtype": "tool_result", "exit_code": 0},
+    )
+
+    with _BashFilesystemLeaseTracker(task_cwd=str(tmp_path)) as tracker:
+        observed_call = tracker.observe(call)
+        completed = subprocess.run(  # noqa: S602
+            command,
+            cwd=tmp_path,
+            shell=True,
+            check=False,
+            input=stdin,
+            text=True,
+        )
+        observed_completion = tracker.observe(completion)
+
+    assert completed.returncode == 0
+    assert _shell_command_mutation_targets(command) == receivers
+    messages = (observed_call, observed_completion)
+    for receiver in receivers:
+        assert _runtime_messages_support_file_claim(receiver, messages, task_cwd=str(tmp_path))
+    assert not _runtime_messages_support_file_claim("source.txt", messages, task_cwd=str(tmp_path))
+
+
+@pytest.mark.parametrize(
+    ("command", "expected"),
+    (
+        ("touch first.py 2> error.txt", ("error.txt", "first.py")),
+        ("touch first.py 2>&1", ("first.py",)),
+        ("touch first.py 2 > log.txt", ("log.txt", "first.py", "2")),
+        ("tee 123<source.txt", ()),
+    ),
+)
+def test_fd_selector_requires_lexical_adjacency(command, expected) -> None:
+    """Only an adjacent IO-number is stripped from utility argv."""
+    assert _shell_command_mutation_targets(command) == expected
+
+
+def test_clobber_redirection_authenticates_without_becoming_pipeline(tmp_path) -> None:
+    """The pipe byte in ``>|`` is redirection syntax, not compound control."""
+    command = "printf x >| log.txt"
+    call = AgentMessage(
+        type="tool",
+        content=f"Bash: {command}",
+        tool_name="Bash",
+        data={"tool_input": {"command": command}},
+    )
+    completion = AgentMessage(
+        type="tool_result",
+        content="command completed with exit code 0",
+        data={"subtype": "tool_result", "exit_code": 0},
+    )
+
+    with _BashFilesystemLeaseTracker(task_cwd=str(tmp_path)) as tracker:
+        observed_call = tracker.observe(call)
+        completed = subprocess.run(command, cwd=tmp_path, shell=True, check=False)  # noqa: S602
+        observed_completion = tracker.observe(completion)
+
+    assert completed.returncode == 0
+    assert (tmp_path / "log.txt").read_text(encoding="utf-8") == "x"
+    assert _shell_command_mutation_targets(command) == ("log.txt",)
+    assert _runtime_messages_support_file_claim(
+        "log.txt",
+        (observed_call, observed_completion),
+        task_cwd=str(tmp_path),
+    )
+
+
+@pytest.mark.parametrize(
+    ("command", "expected"),
+    (
+        ("touch -r reference.py first.py second.py", ("first.py", "second.py")),
+        ("touch --date yesterday first.py second.py", ("first.py", "second.py")),
+        ("truncate -r reference.py first.py second.py", ("first.py", "second.py")),
+        ("truncate --size 0 first.py second.py", ("first.py", "second.py")),
+        ("tee --output-error=warn first.py second.py", ("first.py", "second.py")),
+    ),
+)
+def test_multi_receiver_parser_excludes_option_arguments(command, expected) -> None:
+    """Option values are inputs/configuration, never mutation receivers."""
+    assert _shell_command_mutation_targets(command) == expected
+
+
+@pytest.mark.parametrize(
+    ("command", "expected"),
+    (
+        ("touch -- -first.py -second.py", ("-first.py", "-second.py")),
+        ("truncate -s0 -- -first.py -second.py", ("-first.py", "-second.py")),
+        (
+            "sed -i '' -f rewrite.sed first.py second.py",
+            ("first.py", "second.py"),
+        ),
+        (
+            "perl -I lib -M File::Path -F pattern -pi -e rewrite first.py second.py",
+            ("first.py", "second.py"),
+        ),
+        (
+            "perl -0 -C -d -D -V -x -pi -e rewrite first.py second.py",
+            ("first.py", "second.py"),
+        ),
+    ),
+)
+def test_multi_receiver_parser_honors_option_boundaries(command, expected) -> None:
+    """Required values, optional values, and ``--`` preserve real operands."""
+    assert _shell_command_mutation_targets(command) == expected
+
+
+@pytest.mark.parametrize(
+    "command",
+    (
+        "touch --unknown first.py second.py",
+        "truncate --unknown first.py second.py",
+        "tee --unknown first.py second.py",
+        "sed --unknown -i '' rewrite first.py second.py",
+        "perl --unknown -pi -e rewrite first.py second.py",
+    ),
+)
+def test_multi_receiver_parser_rejects_unknown_option_grammars(command) -> None:
+    """Unknown utility options cannot donate their values as file receivers."""
+    assert _shell_command_mutation_targets(command) == ()
+
+
+@pytest.mark.parametrize(
+    "command",
+    (
+        "sed -i '' 's/before/after/' first.py second.py",
+        "sed -i '' -e 's/before/after/' first.py second.py",
+        "perl -pi -e 's/before/after/' first.py second.py",
+        "perl -p -i.bak -e 's/before/after/' first.py second.py",
+    ),
+)
+def test_in_place_editor_parser_enumerates_every_file_operand(command) -> None:
+    """Scripts, backup suffixes, and option values are excluded from receivers."""
+    assert _shell_command_mutation_targets(command) == ("first.py", "second.py")
+
+
+def test_bsd_empty_sed_suffix_is_portable_evidence_grammar(monkeypatch) -> None:
+    """An explicit empty ``-i`` suffix stays unambiguous on Linux reviewers."""
+    monkeypatch.setattr(sys, "platform", "linux")
+
+    assert _shell_command_mutation_targets("sed -i '' 's/before/after/' first.py second.py") == (
+        "first.py",
+        "second.py",
+    )
+
+
+def test_gnu_sed_in_place_grammar_enumerates_every_operand(monkeypatch) -> None:
+    """GNU's suffix-free ``-i`` spelling retains both input receivers."""
+    monkeypatch.setattr(sys, "platform", "linux")
+
+    assert _shell_command_mutation_targets("sed -i 's/before/after/' first.py second.py") == (
+        "first.py",
+        "second.py",
+    )
+
+
+@pytest.mark.parametrize("editor", ("sed", "perl"))
+def test_in_place_editor_inode_replacement_remains_fail_closed(tmp_path, editor) -> None:
+    """Enumerating all operands does not weaken regular-inode continuity."""
+    first = tmp_path / "first.py"
+    second = tmp_path / "second.py"
+    first.write_text("before\n", encoding="utf-8")
+    second.write_text("before\n", encoding="utf-8")
+    before = (first.stat().st_ino, second.stat().st_ino)
+    if editor == "sed":
+        argv = ["sed", "-i"]
+        if not sys.platform.startswith("linux"):
+            argv.append("")
+        argv.extend(("s/before/after/", "first.py", "second.py"))
+    else:
+        argv = ["perl", "-pi", "-e", "s/before/after/", "first.py", "second.py"]
+    command = shlex.join(argv)
+    call = AgentMessage(
+        type="tool",
+        content=f"Bash: {command}",
+        tool_name="Bash",
+        data={"tool_input": {"command": command}},
+    )
+    completion = AgentMessage(
+        type="tool_result",
+        content="command completed with exit code 0",
+        data={"subtype": "tool_result", "exit_code": 0},
+    )
+
+    with _BashFilesystemLeaseTracker(task_cwd=str(tmp_path)) as tracker:
+        observed_call = tracker.observe(call)
+        completed = subprocess.run(command, cwd=tmp_path, shell=True, check=False)  # noqa: S602
+        observed_completion = tracker.observe(completion)
+
+    assert completed.returncode == 0
+    assert (first.stat().st_ino, second.stat().st_ino) != before
+    assert "filesystem_effects" not in observed_completion.data
+    messages = (observed_call, observed_completion)
+    assert not _runtime_messages_support_file_claim("first.py", messages, task_cwd=str(tmp_path))
+    assert not _runtime_messages_support_file_claim("second.py", messages, task_cwd=str(tmp_path))
+
+
+def test_perl_module_name_cannot_impersonate_in_place_switch(tmp_path) -> None:
+    """A lowercase i inside an unrelated option cannot lease Perl-internal writes."""
+    source = "open(F, q(>), q(claimed.py)); print F q(internal); close F"
+    command = shlex.join(["perl", "-MFile::Path", "-e", source, "claimed.py"])
+    call = AgentMessage(
+        type="tool",
+        content=f"Bash: {command}",
+        tool_name="Bash",
+        data={"tool_input": {"command": command}},
+    )
+    completion = AgentMessage(
+        type="tool_result",
+        content="command completed with exit code 0",
+        data={"subtype": "tool_result", "exit_code": 0},
+    )
+
+    with _BashFilesystemLeaseTracker(task_cwd=str(tmp_path)) as tracker:
+        observed_call = tracker.observe(call)
+        completed = subprocess.run(command, cwd=tmp_path, shell=True, check=False)  # noqa: S602
+        observed_completion = tracker.observe(completion)
+
+    assert completed.returncode == 0
+    assert (tmp_path / "claimed.py").read_text(encoding="utf-8") == "internal"
+    assert _shell_command_mutation_targets(command) == ()
+    assert "filesystem_effects" not in observed_completion.data
+    assert not _runtime_messages_support_file_claim(
+        "claimed.py",
+        (observed_call, observed_completion),
+        task_cwd=str(tmp_path),
+    )
+
+
+def test_shell_expansion_detection_respects_single_quoted_perl_source() -> None:
+    """A literal regex dollar does not mask otherwise valid receiver parsing."""
+    assert not _text_needs_shell_expansion("perl -pi -e 's/$/x/' first.py second.py")
+    assert _text_needs_shell_expansion('perl -pi -e "s/$/x/" first.py second.py')
+    assert _text_needs_shell_expansion("perl -pi -e s/$/x/ first.py second.py")
+
+
+def test_files_touched_rejects_shell_receiver_symlink_replaced_after_execution(tmp_path) -> None:
+    """Recorded symlink identity cannot authenticate a later regular file."""
+    outside = tmp_path.parent / f"{tmp_path.name}-outside.py"
+    claimed_file = tmp_path / "claimed.py"
+    outside.write_text("outside\n", encoding="utf-8")
+    try:
+        os.symlink(outside, claimed_file)
+    except (OSError, NotImplementedError):  # pragma: no cover - unprivileged/Windows
+        pytest.skip("symlink creation not permitted in this environment")
+    command = "touch claimed.py"
+    call = AgentMessage(
+        type="tool",
+        content=f"Bash: {command}",
+        tool_name="Bash",
+        data={"tool_input": {"command": command}},
+    )
+    pending_targets = _pending_bash_filesystem_targets(call, task_cwd=str(tmp_path))
+
+    completed = subprocess.run(command, cwd=tmp_path, shell=True, check=False)  # noqa: S602
+    claimed_file.unlink()
+    claimed_file.write_text("replacement\n", encoding="utf-8")
+    result = _attach_bash_filesystem_effects(
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+        pending_targets,
+    )
+
+    assert completed.returncode == 0
+    assert "filesystem_effects" not in result.data
+    messages = (call, result)
+    assert not _runtime_messages_support_file_claim(
+        "claimed.py",
+        messages,
+        task_cwd=str(tmp_path),
+    )
+
+
+def test_files_touched_rejects_parent_symlink_swap_restored_before_completion(tmp_path) -> None:
+    """A held parent dirfd detects swap/restore around the actual shell execution."""
+    link_dir = tmp_path / "link"
+    original_dir = tmp_path / "original-link"
+    outside_dir = tmp_path.parent / f"{tmp_path.name}-outside"
+    link_dir.mkdir()
+    outside_dir.mkdir()
+    inside_file = link_dir / "claimed.py"
+    outside_file = outside_dir / "claimed.py"
+    inside_file.write_text("inside\n", encoding="utf-8")
+    outside_file.write_text("outside\n", encoding="utf-8")
+    os.utime(inside_file, ns=(1_000_000_000, 1_000_000_000))
+    os.utime(outside_file, ns=(1_000_000_000, 1_000_000_000))
+    inside_before = inside_file.stat()
+    outside_before = outside_file.stat()
+    command = "touch link/claimed.py"
+    call = AgentMessage(
+        type="tool",
+        content=f"Bash: {command}",
+        tool_name="Bash",
+        data={"tool_input": {"command": command}},
+    )
+    pending_targets = _pending_bash_filesystem_targets(call, task_cwd=str(tmp_path))
+    if not pending_targets:  # pragma: no cover - fail-closed platform fallback
+        pytest.skip("dirfd/no-follow receiver leases are unavailable")
+    link_dir.rename(original_dir)
+    try:
+        os.symlink(outside_dir, link_dir)
+    except (OSError, NotImplementedError):  # pragma: no cover - unprivileged/Windows
+        original_dir.rename(link_dir)
+        _close_pending_targets(pending_targets)
+        pytest.skip("symlink creation not permitted in this environment")
+
+    completed = subprocess.run(command, cwd=tmp_path, shell=True, check=False)  # noqa: S602
+    link_dir.unlink()
+    original_dir.rename(link_dir)
+    result = _attach_bash_filesystem_effects(
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+        pending_targets,
+    )
+
+    assert completed.returncode == 0
+    assert inside_file.read_text(encoding="utf-8") == "inside\n"
+    assert inside_file.stat().st_mtime_ns == inside_before.st_mtime_ns
+    assert outside_file.stat().st_mtime_ns > outside_before.st_mtime_ns
+    assert "filesystem_effects" not in result.data
+    assert not _runtime_messages_support_file_claim(
+        "link/claimed.py",
+        (call, result),
+        task_cwd=str(tmp_path),
+    )
+
+
+def test_bash_receiver_lease_cleanup_is_idempotent(tmp_path) -> None:
+    """Unmatched/cancelled dispatch cleanup closes every held receiver dirfd."""
+    target = tmp_path / "claimed.py"
+    target.write_text("value\n", encoding="utf-8")
+    call = AgentMessage(
+        type="tool",
+        content="Bash: touch claimed.py",
+        tool_name="Bash",
+        data={"tool_input": {"command": "touch claimed.py"}},
+    )
+    pending_targets = _pending_bash_filesystem_targets(call, task_cwd=str(tmp_path))
+    if not pending_targets:  # pragma: no cover - fail-closed platform fallback
+        pytest.skip("dirfd/no-follow receiver leases are unavailable")
+    fds = tuple(target.parent_fd for target in pending_targets)
+
+    _close_pending_targets(pending_targets)
+    _close_pending_targets(pending_targets)
+
+    for fd in fds:
+        with pytest.raises(OSError):
+            os.fstat(fd)
+
+
+def test_completed_receiver_lease_cannot_close_reused_fd(tmp_path) -> None:
+    """A completed lease invalidates ownership before its fd number is reused."""
+    target = tmp_path / "claimed.py"
+    target.write_text("before\n", encoding="utf-8")
+    call = AgentMessage(
+        type="tool",
+        content="Bash: touch claimed.py",
+        tool_name="Bash",
+        data={"tool_input": {"command": "touch claimed.py"}},
+    )
+    pending_targets = _pending_bash_filesystem_targets(call, task_cwd=str(tmp_path))
+    if not pending_targets:  # pragma: no cover - fail-closed platform fallback
+        pytest.skip("dirfd/no-follow receiver leases are unavailable")
+    leased_fd = pending_targets[0].parent_fd
+    assert leased_fd is not None
+    os.utime(target, ns=(3_000_000_000, 3_000_000_000))
+    _attach_bash_filesystem_effects(
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+        pending_targets,
+    )
+    assert pending_targets[0].parent_fd is None
+    probe_fd = os.open(os.devnull, os.O_RDONLY)
+    if probe_fd != leased_fd:
+        os.dup2(probe_fd, leased_fd)
+        os.close(probe_fd)
+    try:
+        _close_pending_targets(pending_targets)
+        os.fstat(leased_fd)
+    finally:
+        os.close(leased_fd)
+
+
+def test_receiver_lease_rejects_regular_inode_replacement(tmp_path) -> None:
+    """A different post-execution inode is not mutation proof for the pre receiver."""
+    target = tmp_path / "claimed.py"
+    original = tmp_path / "original.py"
+    target.write_text("before\n", encoding="utf-8")
+    call = AgentMessage(
+        type="tool",
+        content="Bash: touch claimed.py",
+        tool_name="Bash",
+        data={"tool_input": {"command": "touch claimed.py"}},
+    )
+    pending_targets = _pending_bash_filesystem_targets(call, task_cwd=str(tmp_path))
+    if not pending_targets:  # pragma: no cover - fail-closed platform fallback
+        pytest.skip("dirfd/no-follow receiver leases are unavailable")
+    target.rename(original)
+    target.write_text("replacement\n", encoding="utf-8")
+
+    result = _attach_bash_filesystem_effects(
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+        pending_targets,
+    )
+
+    assert "filesystem_effects" not in result.data
+
+
+@pytest.mark.parametrize("exit_kind", ("normal", "exception", "cancellation"))
+def test_receiver_lease_tracker_closes_unmatched_calls_on_every_exit(
+    tmp_path,
+    exit_kind,
+) -> None:
+    """Normal end, adapter failure, and cancellation all release unmatched dirfds."""
+    target = tmp_path / "claimed.py"
+    target.write_text("value\n", encoding="utf-8")
+    call = AgentMessage(
+        type="tool",
+        content="Bash: touch claimed.py",
+        tool_name="Bash",
+        data={"tool_input": {"command": "touch claimed.py"}, "tool_call_id": "call-1"},
+    )
+    tracker = _BashFilesystemLeaseTracker(task_cwd=str(tmp_path))
+    captured_fds: tuple[int, ...] = ()
+    try:
+        with tracker:
+            tracker.observe(call)
+            leased = tracker._pending_by_id["call-1"]
+            captured_fds = tuple(
+                pending.parent_fd for pending in leased if pending.parent_fd is not None
+            )
+            if exit_kind == "exception":
+                raise RuntimeError("adapter failed")
+            if exit_kind == "cancellation":
+                raise asyncio.CancelledError
+    except (RuntimeError, asyncio.CancelledError):
+        pass
+
+    assert captured_fds
+    for fd in captured_fds:
+        with pytest.raises(OSError):
+            os.fstat(fd)
+
+
+def test_receiver_lease_tracker_rejects_duplicate_idless_pairing(tmp_path) -> None:
+    """Two id-less Bash starts cannot donate either receiver to one completion."""
+    first = tmp_path / "first.py"
+    second = tmp_path / "second.py"
+    first.write_text("first\n", encoding="utf-8")
+    second.write_text("second\n", encoding="utf-8")
+    first_call = AgentMessage(
+        type="tool",
+        content="Bash: touch first.py",
+        tool_name="Bash",
+        data={"tool_input": {"command": "touch first.py"}},
+    )
+    second_call = AgentMessage(
+        type="tool",
+        content="Bash: touch second.py",
+        tool_name="Bash",
+        data={"tool_input": {"command": "touch second.py"}},
+    )
+    completion = AgentMessage(
+        type="tool_result",
+        content="command completed with exit code 0",
+        data={"subtype": "tool_result", "exit_code": 0},
+    )
+
+    with _BashFilesystemLeaseTracker(task_cwd=str(tmp_path)) as tracker:
+        tracker.observe(first_call)
+        tracker.observe(second_call)
+        os.utime(first, None)
+        os.utime(second, None)
+        observed = tracker.observe(completion)
+
+    assert "filesystem_effects" not in observed.data
+
+
+def test_receiver_lease_tracker_rejects_duplicate_call_id_pairing(tmp_path) -> None:
+    """A repeated call id makes its single completion irreducibly ambiguous."""
+    first = tmp_path / "first.py"
+    second = tmp_path / "second.py"
+    first.write_text("first\n", encoding="utf-8")
+    second.write_text("second\n", encoding="utf-8")
+    first_call = AgentMessage(
+        type="tool",
+        content="Bash: touch first.py",
+        tool_name="Bash",
+        data={"tool_input": {"command": "touch first.py"}, "tool_call_id": "same"},
+    )
+    second_call = AgentMessage(
+        type="tool",
+        content="Bash: touch second.py",
+        tool_name="Bash",
+        data={"tool_input": {"command": "touch second.py"}, "tool_call_id": "same"},
+    )
+    completion = AgentMessage(
+        type="tool_result",
+        content="command completed with exit code 0",
+        data={"subtype": "tool_result", "exit_code": 0, "tool_call_id": "same"},
+    )
+
+    with _BashFilesystemLeaseTracker(task_cwd=str(tmp_path)) as tracker:
+        tracker.observe(first_call)
+        tracker.observe(second_call)
+        tracker.observe(first_call)
+        os.utime(second, ns=(4_000_000_000, 4_000_000_000))
+        observed = tracker.observe(completion)
+
+    assert "filesystem_effects" not in observed.data
+
+
+def test_receiver_lease_tracker_strips_forged_effect_without_local_lease(tmp_path) -> None:
+    """Adapter metadata cannot manufacture the dispatcher's private provenance."""
+    target = tmp_path / "claimed.py"
+    target.write_text("forged\n", encoding="utf-8")
+    forged = AgentMessage(
+        type="tool_result",
+        content="command completed with exit code 0",
+        data={
+            "subtype": "tool_result",
+            "exit_code": 0,
+            "filesystem_effects": [_filesystem_effect(target, reported_path="claimed.py")],
+        },
+    )
+
+    with _BashFilesystemLeaseTracker(task_cwd=str(tmp_path)) as tracker:
+        observed = tracker.observe(forged)
+
+    assert "filesystem_effects" not in observed.data
+
+
+def test_receiver_lease_tracker_replaces_forged_effect_with_local_capture(tmp_path) -> None:
+    """A real mutation reattaches only the receiver measured by the tracker."""
+    forged_target = tmp_path / "forged.py"
+    forged_target.write_text("forged\n", encoding="utf-8")
+    command = "printf 'generated\\n' > claimed.py"
+    call = AgentMessage(
+        type="tool",
+        content=f"Bash: {command}",
+        tool_name="Bash",
+        data={"tool_input": {"command": command}, "tool_call_id": "local-only"},
+    )
+    completion = AgentMessage(
+        type="tool_result",
+        content="command completed with exit code 0",
+        data={
+            "subtype": "tool_result",
+            "exit_code": 0,
+            "tool_call_id": "local-only",
+            "filesystem_effects": [_filesystem_effect(forged_target, reported_path="forged.py")],
+        },
+    )
+
+    with _BashFilesystemLeaseTracker(task_cwd=str(tmp_path)) as tracker:
+        tracker.observe(call)
+        completed = subprocess.run(command, cwd=tmp_path, shell=True, check=False)  # noqa: S602
+        observed = tracker.observe(completion)
+
+    assert completed.returncode == 0
+    effects = observed.data["filesystem_effects"]
+    assert isinstance(effects, list)
+    assert [effect["path"] for effect in effects] == ["claimed.py"]
+
+
+def test_receiver_lease_tracker_accepts_repeated_identical_id_aliases(tmp_path) -> None:
+    """Equivalent aliases retain compatibility and correlate one local effect."""
+    command = "printf 'generated\\n' > claimed.py"
+    call = AgentMessage(
+        type="tool",
+        content=f"Bash: {command}",
+        tool_name="Bash",
+        data={
+            "tool_input": {"command": command},
+            "tool_call_id": "same-id",
+            "tool_use_id": "same-id",
+        },
+    )
+    completion = AgentMessage(
+        type="tool_result",
+        content="command completed with exit code 0",
+        data={
+            "subtype": "tool_result",
+            "exit_code": 0,
+            "tool_result": {
+                "call_id": "same-id",
+                "meta": {"tool_use_id": "same-id"},
+            },
+        },
+    )
+
+    with _BashFilesystemLeaseTracker(task_cwd=str(tmp_path)) as tracker:
+        tracker.observe(call)
+        completed = subprocess.run(command, cwd=tmp_path, shell=True, check=False)  # noqa: S602
+        observed = tracker.observe(completion)
+
+    assert completed.returncode == 0
+    assert observed.data["filesystem_effects"][0]["path"] == "claimed.py"
+
+
+def test_conflicting_completion_is_not_consumed_as_idless_result(tmp_path) -> None:
+    """Alias conflict cannot take an id-less lease through the fallback path."""
+    command = "printf 'generated\\n' > claimed.py"
+    call = AgentMessage(
+        type="tool",
+        content=f"Bash: {command}",
+        tool_name="Bash",
+        data={"tool_input": {"command": command}},
+    )
+    conflict = AgentMessage(
+        type="tool_result",
+        content="ambiguous completion",
+        data={
+            "subtype": "tool_result",
+            "exit_code": 0,
+            "tool_call_id": "first",
+            "tool_result": {"meta": {"call_id": "second"}},
+            "filesystem_effects": [{"capture": "ouroboros.leaf-dispatch.v1", "path": "forged.py"}],
+        },
+    )
+    idless_completion = AgentMessage(
+        type="tool_result",
+        content="command completed with exit code 0",
+        data={"subtype": "tool_result", "exit_code": 0},
+    )
+
+    with _BashFilesystemLeaseTracker(task_cwd=str(tmp_path)) as tracker:
+        tracker.observe(call)
+        completed = subprocess.run(command, cwd=tmp_path, shell=True, check=False)  # noqa: S602
+        rejected = tracker.observe(conflict)
+        accepted = tracker.observe(idless_completion)
+
+    assert completed.returncode == 0
+    assert "filesystem_effects" not in rejected.data
+    assert accepted.data["filesystem_effects"][0]["path"] == "claimed.py"
+
+
+def test_conflicting_call_aliases_poison_related_existing_lease(tmp_path) -> None:
+    """An ambiguous call neither consumes nor donates a prior Bash receiver."""
+    target = tmp_path / "claimed.py"
+    target.write_text("before\n", encoding="utf-8")
+    original = AgentMessage(
+        type="tool",
+        content="Bash: touch claimed.py",
+        tool_name="Bash",
+        data={"tool_input": {"command": "touch claimed.py"}, "tool_call_id": "first"},
+    )
+    conflict = AgentMessage(
+        type="tool",
+        content="Bash: touch other.py",
+        tool_name="Bash",
+        data={
+            "tool_input": {"command": "touch other.py"},
+            "tool_call_id": "first",
+            "meta": {"tool_use_id": "second"},
+        },
+    )
+    completion = AgentMessage(
+        type="tool_result",
+        content="command completed with exit code 0",
+        data={"subtype": "tool_result", "exit_code": 0, "tool_call_id": "first"},
+    )
+
+    with _BashFilesystemLeaseTracker(task_cwd=str(tmp_path)) as tracker:
+        tracker.observe(original)
+        tracker.observe(conflict)
+        os.utime(target, ns=(7_000_000_000, 7_000_000_000))
+        observed = tracker.observe(completion)
+
+    assert "filesystem_effects" not in observed.data
+
+
+@pytest.mark.parametrize("call_id", (None, "call-1"))
+def test_receiver_lease_tracker_rejects_explicit_non_bash_completion(
+    tmp_path,
+    call_id,
+) -> None:
+    """An Edit completion cannot consume a Bash lease even with the same id."""
+    target = tmp_path / "claimed.py"
+    target.write_text("before\n", encoding="utf-8")
+    call_data: dict[str, object] = {"tool_input": {"command": "touch claimed.py"}}
+    completion_data: dict[str, object] = {
+        "subtype": "tool_result",
+        "exit_code": 0,
+    }
+    if call_id is not None:
+        call_data["tool_call_id"] = call_id
+        completion_data["tool_call_id"] = call_id
+    call = AgentMessage(
+        type="tool",
+        content="Bash: touch claimed.py",
+        tool_name="Bash",
+        data=call_data,
+    )
+    completion = AgentMessage(
+        type="tool_result",
+        content="Edit completed",
+        tool_name="Edit",
+        data=completion_data,
+    )
+
+    with _BashFilesystemLeaseTracker(task_cwd=str(tmp_path)) as tracker:
+        tracker.observe(call)
+        os.utime(target, ns=(5_000_000_000, 5_000_000_000))
+        observed = tracker.observe(completion)
+
+    assert "filesystem_effects" not in observed.data
+
+
+@pytest.mark.parametrize("call_id", (None, "shared-call"))
+@pytest.mark.parametrize("bash_first", (False, True))
+def test_receiver_lease_tracker_rejects_mixed_tool_call_ownership(
+    tmp_path,
+    call_id,
+    bash_first,
+) -> None:
+    """A mixed Bash/Edit call identity cannot feed a nameless completion."""
+    target = tmp_path / "claimed.py"
+    target.write_text("before\n", encoding="utf-8")
+    bash_data: dict[str, object] = {"tool_input": {"command": "touch claimed.py"}}
+    edit_data: dict[str, object] = {"tool_input": {"file_path": "other.py"}}
+    completion_data: dict[str, object] = {
+        "subtype": "tool_result",
+        "exit_code": 0,
+    }
+    if call_id is not None:
+        bash_data["tool_call_id"] = call_id
+        edit_data["tool_call_id"] = call_id
+        completion_data["tool_call_id"] = call_id
+    bash_call = AgentMessage(
+        type="tool",
+        content="Bash: touch claimed.py",
+        tool_name="Bash",
+        data=bash_data,
+    )
+    edit_call = AgentMessage(
+        type="tool",
+        content="Edit: other.py",
+        tool_name="Edit",
+        data=edit_data,
+    )
+    completion = AgentMessage(
+        type="tool_result",
+        content="completed",
+        data=completion_data,
+    )
+    calls = (bash_call, edit_call) if bash_first else (edit_call, bash_call)
+
+    with _BashFilesystemLeaseTracker(task_cwd=str(tmp_path)) as tracker:
+        for call in calls:
+            tracker.observe(call)
+        os.utime(target, ns=(6_000_000_000, 6_000_000_000))
+        observed = tracker.observe(completion)
+
+    assert "filesystem_effects" not in observed.data
+
+
+def test_bash_receiver_leases_do_not_leak_fds_across_repeated_completions(tmp_path) -> None:
+    """Repeated successful capture/close cycles retain no receiver descriptors."""
+    fd_directory = Path("/proc/self/fd")
+    if not fd_directory.exists():
+        fd_directory = Path("/dev/fd")
+    if not fd_directory.exists():  # pragma: no cover - platform-specific observability
+        pytest.skip("open descriptor directory is unavailable")
+    target = tmp_path / "claimed.py"
+    target.write_text("value\n", encoding="utf-8")
+    call = AgentMessage(
+        type="tool",
+        content="Bash: touch claimed.py",
+        tool_name="Bash",
+        data={"tool_input": {"command": "touch claimed.py"}},
+    )
+    before = len(tuple(fd_directory.iterdir()))
+
+    for iteration in range(64):
+        pending_targets = _pending_bash_filesystem_targets(call, task_cwd=str(tmp_path))
+        if not pending_targets:  # pragma: no cover - fail-closed platform fallback
+            pytest.skip("dirfd/no-follow receiver leases are unavailable")
+        timestamp = 2_000_000_000 + iteration
+        os.utime(target, ns=(timestamp, timestamp))
+        _attach_bash_filesystem_effects(
+            AgentMessage(
+                type="tool_result",
+                content="command completed with exit code 0",
+                data={"subtype": "tool_result", "exit_code": 0},
+            ),
+            pending_targets,
+        )
+
+    after = len(tuple(fd_directory.iterdir()))
+    assert after <= before + 1
+
+
+def test_bash_receiver_lease_fails_closed_without_dirfd_support(tmp_path, monkeypatch) -> None:
+    """Platforms without safe dirfd traversal do not emit command-text proof."""
+    target = tmp_path / "claimed.py"
+    target.write_text("value\n", encoding="utf-8")
+    call = AgentMessage(
+        type="tool",
+        content="Bash: touch claimed.py",
+        tool_name="Bash",
+        data={"tool_input": {"command": "touch claimed.py"}},
+    )
+    monkeypatch.setattr(os, "supports_dir_fd", set())
+
+    assert _pending_bash_filesystem_targets(call, task_cwd=str(tmp_path)) == ()
+
+
+def test_files_touched_allows_expanded_payload_with_literal_redirect_target(tmp_path) -> None:
+    """Payload expansion preserves direct proof from a literal output target."""
+    command = "printf '%s\\n' \"$VALUE\" > claimed.py"
+    call = AgentMessage(
+        type="tool",
+        content=f"Bash: {command}",
+        tool_name="Bash",
+        data={"tool_input": {"command": command}},
+    )
+    pending_targets = _pending_bash_filesystem_targets(call, task_cwd=str(tmp_path))
+    completed = subprocess.run(  # noqa: S602
+        command,
+        cwd=tmp_path,
+        shell=True,
+        check=False,
+        env={**os.environ, "VALUE": "expanded"},
+    )
+
+    assert completed.returncode == 0
+    assert (tmp_path / "claimed.py").read_text(encoding="utf-8") == "expanded\n"
+    result = _attach_bash_filesystem_effects(
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+        pending_targets,
+    )
+    messages = (
+        call,
+        result,
+    )
+    assert (
+        _runtime_messages_support_file_claim("claimed.py", messages, task_cwd=str(tmp_path)) is True
+    )
+
+
+def test_files_touched_resolves_shell_target_from_recorded_command_cwd(tmp_path) -> None:
+    """A relative shell target authenticates only its command-cwd path."""
+    root_claim = tmp_path / "claimed.py"
+    command_cwd = tmp_path / "sub"
+    root_claim.write_text("original\n", encoding="utf-8")
+    command_cwd.mkdir()
+    command = "touch claimed.py"
+
+    completed = subprocess.run(command, cwd=command_cwd, shell=True, check=False)  # noqa: S602
+
+    assert completed.returncode == 0
+    assert root_claim.read_text(encoding="utf-8") == "original\n"
+    assert (command_cwd / "claimed.py").exists()
+    messages = (
+        AgentMessage(
+            type="tool",
+            content=f"Bash: {command}",
+            tool_name="Bash",
+            data={"tool_input": {"command": command, "cwd": "sub"}},
+        ),
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={
+                "subtype": "tool_result",
+                "exit_code": 0,
+                "filesystem_effects": [
+                    _filesystem_effect(
+                        command_cwd / "claimed.py",
+                        reported_path="claimed.py",
+                    )
+                ],
+            },
+        ),
+    )
+    assert not _runtime_messages_support_file_claim(
+        "claimed.py",
+        messages,
+        task_cwd=str(tmp_path),
+    )
+    assert _runtime_messages_support_file_claim(
+        "sub/claimed.py",
+        messages,
+        task_cwd=str(tmp_path),
+    )
+
+
+def test_files_touched_allows_non_c_python_literal_redirect(tmp_path) -> None:
+    """A normal Python script may retain path-aware shell redirection proof."""
+    generator = tmp_path / "generator.py"
+    generator.write_text("print('generated')\n", encoding="utf-8")
+    command = f"{shlex.quote(str(Path(sys.executable).resolve()))} generator.py > claimed.py"
+
+    completed = subprocess.run(command, cwd=tmp_path, shell=True, check=False)  # noqa: S602
+
+    assert completed.returncode == 0
+    assert (tmp_path / "claimed.py").read_text(encoding="utf-8") == "generated\n"
+    messages = (
+        AgentMessage(
+            type="tool",
+            content=f"Bash: {command}",
+            tool_name="Bash",
+            data={"tool_input": {"command": command}},
+        ),
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={
+                "subtype": "tool_result",
+                "exit_code": 0,
+                "filesystem_effects": [
+                    _filesystem_effect(tmp_path / "claimed.py", reported_path="claimed.py")
+                ],
+            },
+        ),
+    )
+    assert _runtime_messages_support_file_claim(
+        "claimed.py",
+        messages,
+        task_cwd=str(tmp_path),
+    )
+
+
+@pytest.mark.parametrize(
+    "command",
+    (
+        "python -c \"from pathlib import Path as P; P('src/generated.py').write_text('x')\"",
+        "python -c \"from pathlib import Path; p = Path('src/generated.py'); p.write_text('x')\"",
+        "python -c \"from pathlib import Path; 'src/generated.py'; Path('other.py').write_text('x')\"",
+        "python -c \"from pathlib import Path; # Path('src/generated.py').write_text('x')\"",
+        "python -c \"from pathlib import Path; raise SystemExit(0); Path('src/generated.py').write_text('x')\"",
+        "python -c \"from pathlib import Path; Path := object; Path('src/generated.py').write_text('x')\"",
+        "python -c \"from pathlib import Path; Path.write_text = lambda *args: None; Path('src/generated.py').write_text('x')\"",
+        "python -c \"from pathlib import Path; import os; os.chdir('src'); Path('generated.py').write_text('x')\"",
+        "python -c \"from pathlib import Path; other = 1; Path('src/generated.py').write_text('x')\"",
+        "PAYLOAD=x python -c \"from pathlib import Path; Path('src/generated.py').write_text('$PAYLOAD')\"",
+        "python -c \"from pathlib import Path; Path('src/generated.py').write_text('x')\" | cat",
+        "python -c \"from pathlib import Path; Path('src/generated.py').write_text('x')",
+        "/tmp/fake/python -c \"from pathlib import Path; Path('src/generated.py').write_text('x')\"",
+        "./python3 -c \"from pathlib import Path; Path('src/generated.py').write_text('x')\"",
+        "python -c \"from pathlib import Path; Path('other.py') . write_text('x')\"",
+        'python -c ""',
+        "python -c from pathlib import Path",
+        'python -c "' + ("(" * 5000) + '"',
+        "python -c \"from pathlib import Path; Path('src/\\x00generated.py').write_text('x')\"",
+    ),
+)
+def test_python_c_pathlib_static_proof_rejects_alias_variable_and_malformed_payloads(
+    tmp_path, command
+) -> None:
+    """Static pathlib proof rejects aliases, variable writes, injections, and bad payloads."""
+    generated = tmp_path / "src" / "generated.py"
+    generated.parent.mkdir()
+    generated.write_text("VALUE = 1\n", encoding="utf-8")
+
+    assert (
+        _python_c_command_file_claim_match(
+            command,
+            task_cwd=str(tmp_path),
+        )
+        is False
+    )
+
+
+@pytest.mark.parametrize(
+    "command",
+    (
+        'python -c "from pathlib import Path; Path = lambda _value: None; '
+        "from pathlib import Path; Path('src/generated.py').write_text('x')\"",
+        'python -c "from pathlib import Path; def helper():\n'
+        "    Path = lambda _value: None\nPath('src/generated.py').write_text('x')\"",
+    ),
+)
+def test_python_c_pathlib_static_proof_rejects_rebinding_and_nested_statements(
+    tmp_path,
+    command,
+) -> None:
+    """Static pathlib proof rejects broader Python programs that need runtime evidence."""
+    generated = tmp_path / "src" / "generated.py"
+    generated.parent.mkdir()
+    generated.write_text("VALUE = 1\n", encoding="utf-8")
+
+    assert (
+        _python_c_command_file_claim_match(
+            command,
+            task_cwd=str(tmp_path),
+        )
+        is False
+    )
+
+
+def test_files_touched_rejects_python_wrapper_comment_shell_fallback(tmp_path) -> None:
+    """A Python-looking wrapper cannot smuggle ``touch`` text through a comment."""
+    claimed_file = tmp_path / "claimed.py"
+    other_file = tmp_path / "other.py"
+    claimed_file.write_text("VALUE = 1\n", encoding="utf-8")
+    other_file.write_text("VALUE = 2\n", encoding="utf-8")
+    command = (
+        "/usr/bin/env python -c "
+        "\"from pathlib import Path; # touch claimed.py ; Path('other.py').write_text('x')\""
+    )
+    messages = (
+        AgentMessage(
+            type="tool",
+            content=f"Bash: {command}",
+            tool_name="Bash",
+            data={"tool_input": {"command": command}},
+        ),
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+    )
+
+    assert (
+        _runtime_messages_support_file_claim(
+            "claimed.py",
+            messages,
+            task_cwd=str(tmp_path),
+        )
+        is False
+    )
+
+
+@pytest.mark.parametrize(
+    "command_prefix",
+    (
+        "/bin/bash -c ",
+        "/usr/bin/env ",
+    ),
+)
+def test_files_touched_rejects_wrapped_python_options_comment_shell_fallback(
+    tmp_path,
+    command_prefix,
+) -> None:
+    """Wrapped Python with options still blocks generic shell fallback."""
+    claimed_file = tmp_path / "claimed.py"
+    other_file = tmp_path / "other.py"
+    claimed_file.write_text("VALUE = 1\n", encoding="utf-8")
+    other_file.write_text("VALUE = 2\n", encoding="utf-8")
+    inner = shlex.join(
+        [
+            str(Path(sys.executable).resolve()),
+            "-I",
+            "-S",
+            "-c",
+            "from pathlib import Path; # touch claimed.py\nPath('other.py').write_text('x')",
+        ]
+    )
+    command = (
+        command_prefix + shlex.quote(inner)
+        if command_prefix == "/bin/bash -c "
+        else command_prefix + inner
+    )
+    messages = (
+        AgentMessage(
+            type="tool",
+            content=f"Bash: {command}",
+            tool_name="Bash",
+            data={"tool_input": {"command": command}},
+        ),
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+    )
+
+    assert (
+        _runtime_messages_support_file_claim(
+            "claimed.py",
+            messages,
+            task_cwd=str(tmp_path),
+        )
+        is False
+    )
+
+
+def test_files_touched_rejects_shell_quoted_absolute_python_fallback(tmp_path) -> None:
+    """Shell quotes around an absolute interpreter cannot hide Python evidence."""
+    claimed_file = tmp_path / "claimed.py"
+    other_file = tmp_path / "other.py"
+    claimed_file.write_text("VALUE = 1\n", encoding="utf-8")
+    other_file.write_text("VALUE = 2\n", encoding="utf-8")
+    source = "from pathlib import Path; # touch claimed.py\nPath('other.py').write_text('x')"
+    inner = f'"{Path(sys.executable).resolve()}" -I -S -c {shlex.quote(source)}'
+    command = f"/bin/bash -c {shlex.quote(inner)}"
+    messages = (
+        AgentMessage(
+            type="tool",
+            content=f"Bash: {command}",
+            tool_name="Bash",
+            data={"tool_input": {"command": command}},
+        ),
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+    )
+
+    assert not _runtime_messages_support_file_claim(
+        "claimed.py",
+        messages,
+        task_cwd=str(tmp_path),
+    )
+
+
+def test_files_touched_rejects_fragment_quoted_python_fallback(tmp_path) -> None:
+    """Shell-concatenated interpreter spelling cannot reach generic touch matching."""
+    claimed_file = tmp_path / "claimed.py"
+    other_file = tmp_path / "other.py"
+    claimed_file.write_text("VALUE = 1\n", encoding="utf-8")
+    other_file.write_text("VALUE = 2\n", encoding="utf-8")
+    source = "from pathlib import Path; # touch claimed.py\nPath('other.py').write_text('changed')"
+    executable = str(Path(sys.executable).resolve())
+    fragmented_executable = executable.replace("python", 'py"thon"', 1)
+    assert fragmented_executable != executable
+    inner = f"{fragmented_executable} -c {shlex.quote(source)}"
+    command = f"/bin/bash -c {shlex.quote(inner)}"
+
+    completed = subprocess.run(
+        command,
+        cwd=tmp_path,
+        shell=True,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0
+    assert claimed_file.read_text(encoding="utf-8") == "VALUE = 1\n"
+    assert other_file.read_text(encoding="utf-8") == "changed"
+
+    messages = (
+        AgentMessage(
+            type="tool",
+            content=f"Bash: {command}",
+            tool_name="Bash",
+            data={"tool_input": {"command": command}},
+        ),
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+    )
+    assert not _runtime_messages_support_file_claim(
+        "claimed.py",
+        messages,
+        task_cwd=str(tmp_path),
+    )
+
+
+def test_files_touched_rejects_dead_compound_mutation_branch(tmp_path) -> None:
+    """A successful compound command cannot prove an unexecuted write branch."""
+    claimed_file = tmp_path / "claimed.py"
+    other_file = tmp_path / "other.py"
+    claimed_file.write_text("VALUE = 1\n", encoding="utf-8")
+    other_file.write_text("VALUE = 2\n", encoding="utf-8")
+    source = "from pathlib import Path; getattr(Path('other.py'), 'write_' + 'text')('changed')"
+    python_command = shlex.join([str(Path(sys.executable).resolve()), "-I", "-S", "-c", source])
+    inner = f"false && touch claimed.py; {python_command}"
+    command = f"/bin/bash -c {shlex.quote(inner)}"
+
+    completed = subprocess.run(
+        command,
+        cwd=tmp_path,
+        shell=True,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0
+    assert claimed_file.read_text(encoding="utf-8") == "VALUE = 1\n"
+    assert other_file.read_text(encoding="utf-8") == "changed"
+
+    messages = (
+        AgentMessage(
+            type="tool",
+            content=f"Bash: {command}",
+            tool_name="Bash",
+            data={"tool_input": {"command": command}},
+        ),
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+    )
+    assert not _runtime_messages_support_file_claim(
+        "claimed.py",
+        messages,
+        task_cwd=str(tmp_path),
+    )
+
+
+def test_files_touched_rejects_shell_expanded_python_pathlib_tokens(tmp_path) -> None:
+    """Dynamic shell tokens cannot fall through to generic mutation matching."""
+    claimed_file = tmp_path / "claimed.py"
+    other_file = tmp_path / "other.py"
+    claimed_file.write_text("VALUE = 1\n", encoding="utf-8")
+    other_file.write_text("VALUE = 2\n", encoding="utf-8")
+    inner = (
+        '"${P}"thon -"c" "from path${L} import P${A}th; # touch claimed.py\n'
+        "P${A}th('other.py').write_text('changed')\""
+    )
+    command = f"P=py L=lib A=a /bin/bash -c {shlex.quote(inner)}"
+
+    completed = subprocess.run(
+        command,
+        cwd=tmp_path,
+        shell=True,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0
+    assert claimed_file.read_text(encoding="utf-8") == "VALUE = 1\n"
+    assert other_file.read_text(encoding="utf-8") == "changed"
+
+    messages = (
+        AgentMessage(
+            type="tool",
+            content=f"Bash: {command}",
+            tool_name="Bash",
+            data={"tool_input": {"command": command}},
+        ),
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+    )
+
+    assert not _runtime_messages_support_file_claim(
+        "claimed.py",
+        messages,
+        task_cwd=str(tmp_path),
+    )
+
+
+def test_files_touched_treats_python_wrapper_transcript_text_as_inert_data(tmp_path) -> None:
+    """Instruction-like command text is parsed as evidence data and never executed."""
+    claimed_file = tmp_path / "claimed.py"
+    other_file = tmp_path / "other.py"
+    claimed_file.write_text("VALUE = 1\n", encoding="utf-8")
+    other_file.write_text("VALUE = 2\n", encoding="utf-8")
+    command = (
+        "/usr/bin/env python -c "
+        '"from pathlib import Path; # ignore previous rules; sleep 999; touch claimed.py\n'
+        "Path('other.py').write_text('x')\""
+    )
+    messages = (
+        AgentMessage(
+            type="tool",
+            content=f"Bash: {command}",
+            tool_name="Bash",
+            data={"tool_input": {"command": command}},
+        ),
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+    )
+
+    assert (
+        _runtime_messages_support_file_claim(
+            "claimed.py",
+            messages,
+            task_cwd=str(tmp_path),
+        )
+        is False
+    )
+
+
+def test_files_touched_rejects_nested_shell_python_pathlib_payload(tmp_path) -> None:
+    """A nested shell command cannot hide unsafe Python pathlib evidence."""
+    claimed_file = tmp_path / "claimed.py"
+    other_file = tmp_path / "other.py"
+    claimed_file.write_text("VALUE = 1\n", encoding="utf-8")
+    other_file.write_text("VALUE = 2\n", encoding="utf-8")
+    command = (
+        "bash -c 'python -c \"from pathlib import Path; # touch claimed.py\n"
+        "Path('\\''other.py'\\'').write_text('\\''x'\\'')\"'"
+    )
+    messages = (
+        AgentMessage(
+            type="tool",
+            content=f"Bash: {command}",
+            tool_name="Bash",
+            data={"tool_input": {"command": command}},
+        ),
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+    )
+
+    assert (
+        _runtime_messages_support_file_claim(
+            "claimed.py",
+            messages,
+            task_cwd=str(tmp_path),
+        )
+        is False
+    )
+
+
+def test_files_touched_rejects_parser_failure_with_tabbed_python_c_payload(tmp_path) -> None:
+    """Malformed shell text with tabbed Python ``-c`` evidence fails closed."""
+    claimed_file = tmp_path / "claimed.py"
+    claimed_file.write_text("VALUE = 1\n", encoding="utf-8")
+    command = (
+        "cat <<'PY\n"
+        'python\t-c "from pathlib import Path; # touch claimed.py\n'
+        "Path('other.py').write_text('x')\"\n"
+    )
+    messages = (
+        AgentMessage(
+            type="tool",
+            content=f"Bash: {command}",
+            tool_name="Bash",
+            data={"tool_input": {"command": command}},
+        ),
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+    )
+
+    assert (
+        _runtime_messages_support_file_claim(
+            "claimed.py",
+            messages,
+            task_cwd=str(tmp_path),
+        )
+        is False
+    )
+
+
+def test_python_c_pathlib_static_proof_rejects_isolated_without_no_site(tmp_path) -> None:
+    """``-I`` alone can still run site customization, so it is not static proof."""
+    generated = tmp_path / "src" / "generated.py"
+    generated.parent.mkdir()
+    generated.write_text("VALUE = 1\n", encoding="utf-8")
+    command = shlex.join(
+        [
+            sys.executable,
+            "-I",
+            "-c",
+            "from pathlib import Path; Path('src/generated.py').write_text('x')",
+        ]
+    )
+
+    assert (
+        _python_c_command_file_claim_match(
+            command,
+            task_cwd=str(tmp_path),
+        )
+        is False
+    )
+
+
+def test_files_touched_rejects_relative_python_executable_even_when_final_state_matches(
+    tmp_path, monkeypatch
+) -> None:
+    """Workspace-controlled Python executable paths are mutable final-state evidence."""
+    command_cwd = tmp_path / "runner"
+    command_cwd.mkdir()
+    claimed_file = command_cwd / "claimed.py"
+    claimed_file.write_text("VALUE = 1\n", encoding="utf-8")
+    fake_python = command_cwd / "python3"
+    fake_python.write_text("#!/bin/sh\n", encoding="utf-8")
+    monkeypatch.setattr(sys, "executable", str(fake_python))
+    command = "./python3 -I -S -c \"from pathlib import Path; Path('claimed.py').write_text('x')\""
+    messages = (
+        AgentMessage(
+            type="tool",
+            content=f"Bash: {command}",
+            tool_name="Bash",
+            data={"tool_input": {"command": command, "cwd": "runner"}},
+        ),
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+    )
+
+    assert (
+        _runtime_messages_support_file_claim(
+            "runner/claimed.py",
+            messages,
+            task_cwd=str(tmp_path),
+        )
+        is False
+    )
+
+
+def test_files_touched_rejects_absolute_python_symlink_final_state_spoof(tmp_path) -> None:
+    """An arbitrary absolute symlink cannot authenticate an earlier executable."""
+    claimed_file = tmp_path / "claimed.py"
+    claimed_file.write_text("VALUE = 1\n", encoding="utf-8")
+    fake_python = tmp_path / "python3"
+    try:
+        os.symlink(Path(sys.executable).resolve(), fake_python)
+    except (OSError, NotImplementedError):  # pragma: no cover - unprivileged/Windows
+        pytest.skip("symlink creation not permitted in this environment")
+    command = shlex.join(
+        [
+            str(fake_python),
+            "-I",
+            "-S",
+            "-c",
+            "from pathlib import Path; Path('claimed.py').write_text('x')",
+        ]
+    )
+    messages = (
+        AgentMessage(
+            type="tool",
+            content=f"Bash: {command}",
+            tool_name="Bash",
+            data={"tool_input": {"command": command}},
+        ),
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+    )
+
+    assert (
+        _runtime_messages_support_file_claim(
+            "claimed.py",
+            messages,
+            task_cwd=str(tmp_path),
+        )
+        is False
+    )
+
+
+def test_files_touched_rejects_exact_sys_executable_symlink_final_state_spoof(
+    tmp_path, monkeypatch
+) -> None:
+    """Even the exact sys.executable path is unsafe when it is a mutable symlink."""
+    claimed_file = tmp_path / "claimed.py"
+    claimed_file.write_text("VALUE = 1\n", encoding="utf-8")
+    fake_python = tmp_path / "python3"
+    try:
+        os.symlink(Path(sys.executable).resolve(), fake_python)
+    except (OSError, NotImplementedError):  # pragma: no cover - unprivileged/Windows
+        pytest.skip("symlink creation not permitted in this environment")
+    monkeypatch.setattr(sys, "executable", str(fake_python))
+    command = shlex.join(
+        [
+            str(fake_python),
+            "-I",
+            "-S",
+            "-c",
+            "from pathlib import Path; Path('claimed.py').write_text('x')",
+        ]
+    )
+    messages = (
+        AgentMessage(
+            type="tool",
+            content=f"Bash: {command}",
+            tool_name="Bash",
+            data={"tool_input": {"command": command}},
+        ),
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+    )
+
+    assert (
+        _runtime_messages_support_file_claim(
+            "claimed.py",
+            messages,
+            task_cwd=str(tmp_path),
+        )
+        is False
+    )
+
+
+def test_files_touched_rejects_command_cwd_symlink_final_state_spoof(tmp_path) -> None:
+    """A retargetable cwd symlink cannot prove where a historical command ran."""
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    subdir = tmp_path / "sub"
+    subdir.mkdir()
+    claimed_file = subdir / "claimed.py"
+    claimed_file.write_text("VALUE = 1\n", encoding="utf-8")
+    run_link = tmp_path / "run"
+    try:
+        os.symlink(outside, run_link)
+        run_link.unlink()
+        os.symlink(subdir, run_link)
+    except (OSError, NotImplementedError):  # pragma: no cover - unprivileged/Windows
+        pytest.skip("symlink creation not permitted in this environment")
+    command = _trusted_python_c("from pathlib import Path; Path('claimed.py').write_text('x')")
+    messages = (
+        AgentMessage(
+            type="tool",
+            content=f"Bash: {command}",
+            tool_name="Bash",
+            data={"tool_input": {"command": command, "cwd": "run"}},
+        ),
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+    )
+
+    assert (
+        _runtime_messages_support_file_claim(
+            "sub/claimed.py",
+            messages,
+            task_cwd=str(tmp_path),
+        )
+        is False
+    )
+
+
+def test_files_touched_rejects_command_cwd_symlink_replaced_by_directory(tmp_path) -> None:
+    """A cwd symlink replaced by a real directory still lacks execution-time identity."""
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    run_path = tmp_path / "run"
+    try:
+        os.symlink(outside, run_path)
+        run_path.unlink()
+    except (OSError, NotImplementedError):  # pragma: no cover - unprivileged/Windows
+        pytest.skip("symlink creation not permitted in this environment")
+    run_path.mkdir()
+    claimed_file = run_path / "claimed.py"
+    claimed_file.write_text("VALUE = 1\n", encoding="utf-8")
+    command = _trusted_python_c("from pathlib import Path; Path('claimed.py').write_text('x')")
+    messages = (
+        AgentMessage(
+            type="tool",
+            content=f"Bash: {command}",
+            tool_name="Bash",
+            data={"tool_input": {"command": command, "cwd": "run"}},
+        ),
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+    )
+
+    assert (
+        _runtime_messages_support_file_claim(
+            "run/claimed.py",
+            messages,
+            task_cwd=str(tmp_path),
+        )
+        is False
+    )
+
+
+def test_files_touched_rejects_receiver_symlink_replaced_by_regular_file(tmp_path) -> None:
+    """The exact claimed receiver can be replaced after execution, so text fails closed."""
+    outside = tmp_path / "outside.py"
+    outside.write_text("VALUE = 1\n", encoding="utf-8")
+    claimed_file = tmp_path / "claimed.py"
+    try:
+        os.symlink(outside, claimed_file)
+        claimed_file.unlink()
+    except (OSError, NotImplementedError):  # pragma: no cover - unprivileged/Windows
+        pytest.skip("symlink creation not permitted in this environment")
+    claimed_file.write_text("VALUE = 2\n", encoding="utf-8")
+    command = _trusted_python_c("from pathlib import Path; Path('claimed.py').write_text('x')")
+    messages = (
+        AgentMessage(
+            type="tool",
+            content=f"Bash: {command}",
+            tool_name="Bash",
+            data={"tool_input": {"command": command}},
+        ),
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+    )
+
+    assert (
+        _runtime_messages_support_file_claim(
+            "claimed.py",
+            messages,
+            task_cwd=str(tmp_path),
+        )
+        is False
+    )
+
+
+def test_files_touched_rejects_pathlib_receiver_symlink_final_state_spoof(tmp_path) -> None:
+    """A symlink retargeted after execution must not authenticate the old receiver."""
+    claimed_file = tmp_path / "claimed.py"
+    other_file = tmp_path / "other.py"
+    alias = tmp_path / "alias.py"
+    claimed_file.write_text("VALUE = 1\n", encoding="utf-8")
+    other_file.write_text("VALUE = 2\n", encoding="utf-8")
+    try:
+        os.symlink(other_file, alias)
+        alias.unlink()
+        os.symlink(claimed_file, alias)
+    except (OSError, NotImplementedError):  # pragma: no cover - unprivileged/Windows
+        pytest.skip("symlink creation not permitted in this environment")
+    command = _trusted_python_c("from pathlib import Path; Path('alias.py').write_text('x')")
+    messages = (
+        AgentMessage(
+            type="tool",
+            content=f"Bash: {command}",
+            tool_name="Bash",
+            data={"tool_input": {"command": command}},
+        ),
+        AgentMessage(
+            type="tool_result",
+            content="command completed with exit code 0",
+            data={"subtype": "tool_result", "exit_code": 0},
+        ),
+    )
+
+    assert (
+        _runtime_messages_support_file_claim(
+            "claimed.py",
+            messages,
+            task_cwd=str(tmp_path),
+        )
+        is False
+    )
+
+
+def test_files_touched_rejects_production_shaped_goose_command_text_only(tmp_path) -> None:
+    """Goose success correlation does not make command text a file proof."""
+    generated_file = tmp_path / "src" / "generated.py"
+    generated_file.parent.mkdir()
+    generated_file.write_text("VALUE = 1\n", encoding="utf-8")
+    command = _trusted_python_c(
+        "from pathlib import Path; Path('src/generated.py').write_text('VALUE = 2')"
+    )
+    messages = (
+        AgentMessage(
+            type="tool",
+            content="tool.started Bash",
+            tool_name="Bash",
+            data={
+                "runtime_event_type": "tool.started",
+                "tool_call_id": "goose-call-1",
+                "tool_input": {"cmd": command},
+            },
+        ),
+        AgentMessage(
+            type="tool_result",
+            content="tool.output",
+            data={
+                "runtime_event_type": "tool.output",
+                "tool_call_id": "goose-call-1",
+                "is_error": False,
+                "output": "",
+            },
+        ),
+    )
+
+    assert (
+        _runtime_messages_support_file_claim(
+            "src/generated.py",
+            messages,
+            task_cwd=str(tmp_path),
+        )
+        is False
+    )
+
+
+def test_python_c_pathlib_static_proof_rejects_deep_receiver_without_exception(
+    tmp_path,
+) -> None:
+    """Receiver extraction fails closed when the pathlib AST is too deep."""
+    generated = tmp_path / "src" / "generated.py"
+    generated.parent.mkdir()
+    generated.write_text("VALUE = 1\n", encoding="utf-8")
+    source = (
+        "from pathlib import Path; "
+        + ("Path('src')" + " / 'nested'" * 1_000 + " / 'generated.py'")
+        + ".write_text('x')"
+    )
+
+    assert (
+        _python_c_command_file_claim_match(
+            _trusted_python_c(source),
+            task_cwd=str(tmp_path),
+        )
+        is False
+    )
+
+
+def test_files_touched_rejects_symlink_loop_claim_without_exception(tmp_path) -> None:
+    """Symlink-loop resolution errors are malformed evidence, not verifier crashes."""
+    loop = tmp_path / "a"
+    try:
+        os.symlink(tmp_path / "b", loop)
+        os.symlink(loop, tmp_path / "b")
+    except (OSError, NotImplementedError):  # pragma: no cover - unprivileged/Windows
+        pytest.skip("symlink creation not permitted in this environment")
+    message = AgentMessage(
+        type="tool",
+        content="Edit: a/generated.py",
+        tool_name="Edit",
+        data={
+            "tool_input": {"file_path": "a/generated.py"},
+            "exit_code": 0,
+        },
+    )
+
+    assert (
+        _runtime_messages_support_file_claim(
+            "a/generated.py",
+            (message,),
+            task_cwd=str(tmp_path),
+        )
+        is False
+    )
+
+
+def test_files_touched_accepts_structured_bash_output_proof(tmp_path) -> None:
+    """Structured Bash output remains valid when command text is not a direct write."""
+    generated = tmp_path / "src" / "generated.py"
+    generated.parent.mkdir()
+    generated.write_text("VALUE = 1\n", encoding="utf-8")
+    messages = (
+        AgentMessage(
+            type="tool",
+            content="Bash: python scripts/generate.py",
+            tool_name="Bash",
+            data={
+                "tool_input": {"command": "python scripts/generate.py"},
+                "output": "generated src/generated.py",
+                "exit_code": 0,
+            },
+        ),
+    )
+
+    assert (
+        _runtime_messages_support_file_claim(
+            "src/generated.py",
+            messages,
+            task_cwd=str(tmp_path),
+        )
+        is True
+    )
+
+
+@pytest.mark.parametrize(
+    ("observed", "claim"),
+    (
+        ("pytest Tests/test_app.py", "pytest tests/test_app.py"),
+        ('python script.py "a b"', "python script.py a b"),
+        ("echo $HOME", "echo '$HOME'"),
+        ("echo x > out", "echo x '>' out"),
+        ("echo *.py", "echo '*.py'"),
+        ("echo x; touch out", "echo 'x;' touch out"),
+        ("FOO=bar command", "'FOO=bar' command"),
+        ("if true", "'if' true"),
+    ),
+)
+def test_deliver_matching_preserves_case_and_argument_boundaries(
+    observed: str,
+    claim: str,
+) -> None:
+    manifest = EvidenceManifest(
+        ac_id="AC-1",
+        entries=(_journal_entry(handle="ev_distinct", command=observed),),
+    )
+
+    assert not _matching_journal_entries(
+        manifest,
+        field="commands_run",
+        value=claim,
+    )
+
+
+def test_deliver_matching_allows_inert_quote_spelling_differences() -> None:
+    manifest = EvidenceManifest(
+        ac_id="AC-1",
+        entries=(_journal_entry(handle="ev_quoted", command='python script.py "a b"'),),
+    )
+
+    matches = _matching_journal_entries(
+        manifest,
+        field="commands_run",
+        value="python script.py 'a b'",
+    )
+
+    assert tuple(entry.handle for entry in matches) == ("ev_quoted",)
+
+
+@pytest.mark.parametrize(
+    ("observed", "malformed_claim"),
+    (
+        (
+            "pytest tests/test_app.py --basetemp='cache > out'",
+            "pytest tests/test_app.py --basetemp='cache",
+        ),
+        (
+            "pytest tests/test_app.py -k 'unit|integration'",
+            "pytest tests/test_app.py -k 'unit",
+        ),
+    ),
+)
+def test_deliver_matching_does_not_strip_quoted_shell_metacharacters(
+    observed: str,
+    malformed_claim: str,
+) -> None:
+    manifest = EvidenceManifest(
+        ac_id="AC-1",
+        entries=(_journal_entry(handle="ev_quoted_meta", command=observed),),
+    )
+
+    assert not _matching_journal_entries(
+        manifest,
+        field="commands_run",
+        value=malformed_claim,
+    )
+
+
+def test_deliver_matching_keeps_equivalent_quoted_metacharacter_argument() -> None:
+    observed = "pytest tests/test_app.py --basetemp='cache > out'"
+    manifest = EvidenceManifest(
+        ac_id="AC-1",
+        entries=(_journal_entry(handle="ev_quoted_meta", command=observed),),
+    )
+
+    matches = _matching_journal_entries(
+        manifest,
+        field="commands_run",
+        value='pytest tests/test_app.py --basetemp="cache > out"',
+    )
+
+    assert tuple(entry.handle for entry in matches) == ("ev_quoted_meta",)
+
+
+@pytest.mark.parametrize(
+    ("tool_input", "claim"),
+    (
+        ({"cmd": "pytest tests/test_a.py"}, "pytest tests/test_a.py"),
+        (
+            {"cmd": ["python", "-m", "unittest", "test_slugify.py"]},
+            "python -m unittest test_slugify.py",
+        ),
+        (
+            {"cmd": ["/bin/zsh", "-lc", "pytest tests/test_app.py"]},
+            "pytest tests/test_app.py",
+        ),
+        ({"cmd": ["pytest", "--maxfail=1"]}, "pytest --maxfail=1"),
+        ({"cmd": ["pytest", "-k", "time"]}, "pytest -k time"),
+        ({"cmd": ["python", "script.py", ""]}, "python script.py ''"),
+        ({"command_line": "ruff check src"}, "ruff check src"),
+    ),
+)
+def test_deliver_matching_reads_structured_command_shapes_from_args_preview(
+    tool_input: dict[str, object],
+    claim: str,
+) -> None:
+    manifest = EvidenceManifest(
+        ac_id="AC-1",
+        entries=(
+            _journal_payload_entry(
+                handle="ev_structured",
+                payload={
+                    "tool_name": "Bash",
+                    "args_preview": json.dumps(tool_input, separators=(",", ":")),
+                },
+            ),
+        ),
+    )
+
+    matches = _matching_journal_entries(
+        manifest,
+        field="commands_run",
+        value=claim,
+    )
+
+    assert tuple(entry.handle for entry in matches) == ("ev_structured",)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    (
+        {"tool_name": "Bash", "command": "bash /dev/null -c 'pytest tests/test_app.py'"},
+        {
+            "tool_name": "Bash",
+            "args_preview": json.dumps(
+                {"cmd": ["bash", "/dev/null", "-c", "pytest tests/test_app.py"]},
+                separators=(",", ":"),
+            ),
+        },
+        {"tool_name": "Bash", "command": "bash -n -c 'pytest tests/test_app.py'"},
+        {
+            "tool_name": "Bash",
+            "args_preview": json.dumps(
+                {"cmd": ["bash", "-n", "-c", "pytest tests/test_app.py"]},
+                separators=(",", ":"),
+            ),
+        },
+        {"tool_name": "Bash", "command": "bash --version -c 'pytest tests/test_app.py'"},
+        {
+            "tool_name": "Bash",
+            "args_preview": json.dumps(
+                {"cmd": ["bash", "--version", "-c", "pytest tests/test_app.py"]},
+                separators=(",", ":"),
+            ),
+        },
+        {"tool_name": "Bash", "command": "bash -o noexec -c 'pytest tests/test_app.py'"},
+        {
+            "tool_name": "Bash",
+            "args_preview": json.dumps(
+                {"cmd": ["bash", "-o", "noexec", "-c", "pytest tests/test_app.py"]},
+                separators=(",", ":"),
+            ),
+        },
+        {"tool_name": "Bash", "command": "bash -onoexec -c 'pytest tests/test_app.py'"},
+        {
+            "tool_name": "Bash",
+            "command": "bash -c 'pytest tests/test_app.py' || true",
+        },
+        {
+            "tool_name": "Bash",
+            "command": "bash -c 'pytest tests/test_app.py' | cat",
+        },
+    ),
+)
+def test_deliver_matching_does_not_extract_shell_body_after_script_operand(
+    payload: dict[str, object],
+) -> None:
+    manifest = EvidenceManifest(
+        ac_id="AC-1",
+        entries=(_journal_payload_entry(handle="ev_script", payload=payload),),
+    )
+
+    assert not _matching_journal_entries(
+        manifest,
+        field="commands_run",
+        value="pytest tests/test_app.py",
+    )
+
+
+def test_deliver_matching_preserves_legacy_json_scalar_preview() -> None:
+    manifest = EvidenceManifest(
+        ac_id="AC-1",
+        entries=(
+            _journal_payload_entry(
+                handle="ev_true",
+                payload={"tool_name": "Bash", "args_preview": "true"},
+            ),
+        ),
+    )
+
+    matches = _matching_journal_entries(
+        manifest,
+        field="commands_run",
+        value="true",
+    )
+
+    assert tuple(entry.handle for entry in matches) == ("ev_true",)
+
+
+def test_deliver_matching_rejects_conflicting_command_aliases() -> None:
+    manifest = EvidenceManifest(
+        ac_id="AC-1",
+        entries=(
+            _journal_payload_entry(
+                handle="ev_conflicting",
+                payload={
+                    "tool_name": "Bash",
+                    "command": "echo ready",
+                    "args_preview": json.dumps(
+                        {"cmd": "pytest tests/not-run.py"},
+                        separators=(",", ":"),
+                    ),
+                },
+            ),
+        ),
+    )
+
+    assert not _matching_journal_entries(
+        manifest,
+        field="commands_run",
+        value="echo ready",
+    )
+    assert not _matching_journal_entries(
+        manifest,
+        field="tests_passed",
+        value="pytest tests/not-run.py",
+    )
+
+
+def test_tests_passed_requires_a_successful_test_command() -> None:
+    manifest = EvidenceManifest(
+        ac_id="AC-1",
+        entries=(
+            _journal_entry(handle="ev_echo", command="echo ready"),
+            _journal_entry(
+                handle="ev_pytest",
+                command="pytest tests/test_app.py",
+                result_preview="1 passed in 0.01s",
+            ),
+        ),
+    )
+
+    assert not _matching_journal_entries(
+        manifest,
+        field="tests_passed",
+        value="echo ready",
+    )
+    matches = _matching_journal_entries(
+        manifest,
+        field="tests_passed",
+        value="pytest tests/test_app.py",
+    )
+    assert tuple(entry.handle for entry in matches) == ("ev_pytest",)
+
+    facts = _standard_deliver_facts(
+        EvidenceRecord(data={"commands_run": ["echo ready"], "tests_passed": ["echo ready"]}),
+        manifest,
+        task_cwd=None,
+        verifier_passed=True,
+    )
+    assert facts is not None
+    assert tuple(fact.evidence_handle for fact in facts) == (
+        "ev_echo",
+        "missing:tests_passed:0",
+    )
+
+
+@pytest.mark.parametrize(
+    "command",
+    (
+        "pytest tests/does_not_exist.py >/dev/null 2>&1 || true",
+        "pytest tests/does_not_exist.py||true",
+        "pytest tests/does_not_exist.py; true",
+    ),
+)
+def test_tests_passed_rejects_status_masking_shell_chain(command: str) -> None:
+    manifest = EvidenceManifest(
+        ac_id="AC-1",
+        entries=(_journal_entry(handle="ev_masked", command=command),),
+    )
+
+    command_matches = _matching_journal_entries(
+        manifest,
+        field="commands_run",
+        value=command,
+    )
+    test_matches = _matching_journal_entries(
+        manifest,
+        field="tests_passed",
+        value=command,
+    )
+
+    assert tuple(entry.handle for entry in command_matches) == ("ev_masked",)
+    assert test_matches == ()
+
+
+@pytest.mark.parametrize(
+    "command",
+    (
+        "pytest --version",
+        "pytest --collect-only",
+        "pytest --collectonly",
+        "pytest --funcargs",
+        "pytest --setup-plan",
+        "pytest --setuponly",
+        "pytest --setupplan",
+        "python -m unittest --help",
+        "tox --showconfig",
+        "nox --list",
+        "gradle test --dry-run",
+    ),
+)
+def test_tests_passed_rejects_non_executing_runner_modes(command: str) -> None:
+    manifest = EvidenceManifest(
+        ac_id="AC-1",
+        entries=(_journal_entry(handle="ev_no_tests", command=command),),
+    )
+
+    assert tuple(
+        entry.handle
+        for entry in _matching_journal_entries(
+            manifest,
+            field="commands_run",
+            value=command,
+        )
+    ) == ("ev_no_tests",)
+    assert not _matching_journal_entries(
+        manifest,
+        field="tests_passed",
+        value=command,
+    )
+
+
+def test_npm_if_present_accepts_positive_test_execution_output() -> None:
+    command = "npm test --if-present"
+    manifest = EvidenceManifest(
+        ac_id="AC-1",
+        entries=(
+            _journal_entry(
+                handle="ev_npm",
+                command=command,
+                result_preview="Tests: 2 passed, 2 total",
+            ),
+        ),
+    )
+
+    assert tuple(
+        entry.handle
+        for entry in _matching_journal_entries(
+            manifest,
+            field="tests_passed",
+            value=command,
+        )
+    ) == ("ev_npm",)
+
+
+def test_tests_passed_requires_positive_execution_output_despite_environment_mode() -> None:
+    command = "PYTEST_ADDOPTS=--collect-only pytest tests/test_app.py"
+    manifest = EvidenceManifest(
+        ac_id="AC-1",
+        entries=(
+            _journal_entry(
+                handle="ev_collected",
+                command=command,
+                result_preview="collected 1 item\n\n1 test collected",
+            ),
+        ),
+    )
+
+    assert tuple(
+        entry.handle
+        for entry in _matching_journal_entries(
+            manifest,
+            field="commands_run",
+            value=command,
+        )
+    ) == ("ev_collected",)
+    assert not _matching_journal_entries(
+        manifest,
+        field="tests_passed",
+        value=command,
+    )
+
+
+def test_standard_deliver_facts_distinguishes_ambiguous_matches() -> None:
+    """Multiple journal matches remain rejected and are not labelled missing."""
+    manifest = EvidenceManifest(
+        ac_id="AC-1",
+        entries=(
+            _journal_entry(handle="ev_1", command="pytest tests/test_app.py"),
+            _journal_entry(handle="ev_2", command="pytest tests/test_app.py"),
+        ),
+    )
+
+    facts = _standard_deliver_facts(
+        EvidenceRecord(data={"commands_run": ["pytest tests/test_app.py"]}),
+        manifest,
+        task_cwd=None,
+        verifier_passed=True,
+    )
+
+    assert facts is not None
+    assert len(facts) == 1
+    assert facts[0].evidence_handle == "ambiguous:commands_run:0"
+
+
+@pytest.mark.parametrize(
+    "observed",
+    (
+        "bash -c 'pytest \"$@\"' ignored tests/test_a.py",
+        ("bash", "-c", 'pytest "$@"', "ignored", "tests/test_a.py"),
+    ),
+)
+def test_shell_wrapper_with_post_body_argv_does_not_expose_inner_alias(
+    observed: object,
+) -> None:
+    manifest = EvidenceManifest(
+        ac_id="AC-1",
+        entries=(
+            _journal_payload_entry(
+                handle="ev_wrapper",
+                payload={"tool_name": "Bash", "cmd": observed},
+            ),
+        ),
+    )
+
+    assert not _matching_journal_entries(
+        manifest,
+        field="commands_run",
+        value='pytest "$@"',
+    )
 
 
 class _RateGateStubAdapter:
@@ -177,20 +3018,37 @@ def _make_seed(*acceptance_criteria: str | AcceptanceCriterionSpec) -> Seed:
     )
 
 
-def _make_executor() -> ParallelACExecutor:
+def _make_executor(*, reasoning_effort: str | None = None) -> ParallelACExecutor:
     """Create an executor with mocked dependencies and muted event emitters."""
     executor = ProcessLocalTestExecutor(
         adapter=MagicMock(),
         event_store=AsyncMock(),
         console=MagicMock(),
         enable_decomposition=False,
+        reasoning_effort=reasoning_effort,
     )
     executor._coordinator.detect_file_conflicts = MagicMock(return_value=[])
+    executor._event_store.query_events = AsyncMock(return_value=[])
     executor._emit_workflow_progress = AsyncMock()
     executor._emit_level_started = AsyncMock()
     executor._emit_level_completed = AsyncMock()
     executor._emit_subtask_event = AsyncMock()
     return executor
+
+
+def test_executor_freezes_coordinator_effort_from_its_execution_contract(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The parallel owner, coordinator, and durable policy share one effort value."""
+
+    monkeypatch.setattr("ouroboros.config.get_agent_reasoning_effort", lambda: "high")
+    executor = _make_executor(reasoning_effort="low")
+
+    assert executor._reasoning_effort == "low"
+    assert executor._coordinator._reasoning_effort == "low"
+    policy = executor._execution_authority_policy()
+    assert policy["reasoning_effort"] == "low"
+    assert policy["coordinator_reasoning_effort"] == "low"
 
 
 def test_criterion_satisfied_by_exact_runtime_evidence() -> None:
@@ -1002,10 +3860,13 @@ async def test_dispatch_append_failure_does_not_cache_phantom_predecessor() -> N
         ("Tests run: 3, Failures=0, Errors=0, Skipped=0\n[INFO] BUILD SUCCESS", True),
         ("no errors, 3 passed", True),
         ("no tests failed, 3 passed", True),
-        ("exit code 0", True),
+        ("exit code 0", False),
         ("Ran 4 tests in 0.000s\nOK", True),
         ("python -m unittest test_slugify.py: Ran 4 tests in 0.000s OK", True),
-        ("success", True),
+        ("success", False),
+        ("collected 1 item\n1 test collected\nexit code 0", False),
+        ("PASS tests/test_app.py", True),
+        ("tests/test_app.py::test_auth PASSED", True),
         ("FAILED (failures=1)\nRan 4 tests in 0.000s", False),
         ("1 failed, 3 passed", False),
         ("2 errors, 1 passed", False),
@@ -1018,7 +3879,11 @@ def test_message_contains_test_success_handles_zero_failure_summaries(
     expected: bool,
 ) -> None:
     """Verifier accepts explicit zero-failure summaries without allowing failures."""
-    message = AgentMessage(type="result", content=content, data={})
+    message = AgentMessage(
+        type="tool_result",
+        content=content,
+        data={"subtype": "tool_result"},
+    )
     assert _message_contains_test_success(message) is expected
 
 
@@ -1086,6 +3951,73 @@ def test_tests_passed_respects_correlated_bash_result_status(
     )
 
 
+def test_tests_passed_rejects_collect_only_from_environment_configuration() -> None:
+    command = "PYTEST_ADDOPTS=--collect-only pytest tests/test_app.py"
+    message = AgentMessage(
+        type="tool",
+        content="run tests",
+        tool_name="Bash",
+        data={
+            "tool_input": {"command": command},
+            "output": "collected 1 item\n\n1 test collected",
+            "exit_code": 0,
+        },
+    )
+
+    assert not _runtime_messages_support_test_claim(
+        value=command,
+        backed_commands=(command,),
+        messages=(message,),
+        task_cwd=None,
+    )
+
+
+def test_tests_passed_rejects_tool_call_narration_without_runtime_result() -> None:
+    command = "pytest tests/test_app.py"
+    message = AgentMessage(
+        type="tool",
+        content="Running pytest; 1 passed",
+        tool_name="Bash",
+        data={"tool_input": {"command": command}},
+    )
+
+    assert not _runtime_messages_support_test_claim(
+        value=command,
+        backed_commands=(command,),
+        messages=(message,),
+        task_cwd=None,
+    )
+
+
+def test_atomic_verifier_rejects_intermediate_result_narration_as_test_proof() -> None:
+    command = "pytest tests/test_app.py"
+    executor = ParallelACExecutor(
+        adapter=MagicMock(),
+        event_store=AsyncMock(),
+        console=MagicMock(),
+        enable_decomposition=False,
+        execution_profile=load_profile("code"),
+        fat_harness_mode=True,
+    )
+
+    verdict = executor._verify_atomic_evidence_against_runtime_messages(
+        messages=(
+            AgentMessage(
+                type="tool",
+                content="Bash command started",
+                tool_name="Bash",
+                data={"tool_input": {"command": command}},
+            ),
+            AgentMessage(type="result", content="1 passed", data={"subtype": "success"}),
+            AgentMessage(type="result", content="Evidence follows", data={}),
+        ),
+        typed_evidence=EvidenceRecord(data={"commands_run": [command], "tests_passed": [command]}),
+        ac_content="Run the focused test.",
+    )
+
+    assert verdict.passed is False
+
+
 def test_tests_passed_rejects_node_id_from_assistant_narration_only() -> None:
     """A broad successful run cannot prove a node-id mentioned only by the agent."""
     started = AgentMessage(
@@ -1110,6 +4042,136 @@ def test_tests_passed_rejects_node_id_from_assistant_narration_only() -> None:
         messages=(started, narration),
         task_cwd=None,
     )
+
+
+def test_codex_completion_receipts_prove_exact_test_and_file_claims(tmp_path) -> None:
+    from ouroboros.orchestrator.codex_cli_runtime import CodexCliRuntime
+
+    runtime = CodexCliRuntime(cli_path="codex", cwd=tmp_path)
+    command = "pytest -q tests/test_example.py"
+    success_messages = tuple(
+        runtime._convert_event(
+            {
+                "type": "item.completed",
+                "item": {
+                    "id": "cmd-42",
+                    "type": "command_execution",
+                    "command": command,
+                    "stdout": "1 passed in 0.01s",
+                    "exit_code": 0,
+                },
+            },
+            current_handle=None,
+        )
+        + runtime._convert_event(
+            {
+                "type": "item.completed",
+                "item": {
+                    "id": "change-7",
+                    "type": "file_change",
+                    "path": "src/example.py",
+                    "status": "completed",
+                },
+            },
+            current_handle=None,
+        )
+    )
+
+    assert _runtime_messages_support_test_claim(
+        value=command,
+        backed_commands=(command,),
+        messages=success_messages,
+        task_cwd=str(tmp_path),
+    )
+    assert _runtime_messages_support_file_claim(
+        "src/example.py",
+        success_messages,
+        task_cwd=str(tmp_path),
+    )
+    failed_messages = tuple(
+        runtime._convert_event(
+            {
+                "type": "item.completed",
+                "item": {
+                    "id": "cmd-failed",
+                    "type": "command_execution",
+                    "command": command,
+                    "stderr": "1 failed in 0.01s",
+                    "exit_code": 1,
+                },
+            },
+            current_handle=None,
+        )
+    )
+    assert not _runtime_messages_support_test_claim(
+        value=command,
+        backed_commands=(command,),
+        messages=failed_messages,
+        task_cwd=str(tmp_path),
+    )
+    assert (
+        runtime._convert_event(
+            {"type": "item.completed", "item": {"id": "cmd-empty", "type": "command_execution"}},
+            current_handle=None,
+        )
+        == []
+    )
+
+
+def test_gemini_native_shell_result_passes_fat_harness_test_verifier() -> None:
+    from ouroboros.orchestrator.gemini_cli_runtime import GeminiCLIRuntime
+
+    command = "pytest -q tests/test_example.py"
+    runtime = GeminiCLIRuntime(cli_path="gemini")
+    messages: list[AgentMessage] = []
+    for raw_event in (
+        {"type": "tool_use", "name": "run_shell", "input": {"command": command}},
+        {
+            "type": "tool_result",
+            "name": "run_shell",
+            "output": "1 passed in 0.01s",
+            "is_error": False,
+        },
+    ):
+        event = runtime._parse_json_event(json.dumps(raw_event))
+        assert event is not None
+        messages.extend(runtime._convert_event(event, current_handle=None))
+
+    executor = ParallelACExecutor(
+        adapter=MagicMock(),
+        event_store=AsyncMock(),
+        console=MagicMock(),
+        enable_decomposition=False,
+        execution_profile=load_profile("code"),
+        fat_harness_mode=True,
+    )
+    verdict = executor._verify_atomic_evidence_against_runtime_messages(
+        messages=tuple(messages),
+        typed_evidence=EvidenceRecord(data={"commands_run": [command], "tests_passed": [command]}),
+        ac_content="Run the focused test.",
+    )
+
+    assert verdict.passed is True
+    assert all(message.tool_name == "Bash" for message in messages)
+    assert isinstance(messages[1].data["tool_result"], dict)
+    malformed_event = runtime._parse_json_event(
+        json.dumps(
+            {
+                "type": "tool_result",
+                "name": "run_shell",
+                "output": "1 passed in 0.01s",
+                "is_error": "true",
+            }
+        )
+    )
+    assert malformed_event is not None
+    malformed_result = runtime._convert_event(malformed_event, current_handle=None)[0]
+    malformed_verdict = executor._verify_atomic_evidence_against_runtime_messages(
+        messages=(messages[0], malformed_result),
+        typed_evidence=EvidenceRecord(data={"commands_run": [command], "tests_passed": [command]}),
+        ac_content="Run the focused test.",
+    )
+    assert malformed_verdict.passed is False
 
 
 @pytest.mark.parametrize(
@@ -1225,14 +4287,17 @@ class _FinalMessageRuntime:
         *,
         native_session_id: str,
         support_messages: tuple[AgentMessage, ...] = (),
+        execute_support_commands: tuple[str, ...] = (),
         cwd: str = "/tmp/project",
         success: bool = True,
     ) -> None:
         self._final_message = final_message
         self._native_session_id = native_session_id
         self._support_messages = support_messages
+        self._execute_support_commands = execute_support_commands
         self._cwd = cwd
         self._success = success
+        self.call_count = 0
         self.last_prompt: str | None = None
         self.last_system_prompt: str | None = None
 
@@ -1257,6 +4322,7 @@ class _FinalMessageRuntime:
         resume_session_id: str | None = None,
     ):
         del tools, resume_session_id
+        self.call_count += 1
         self.last_prompt = prompt
         self.last_system_prompt = system_prompt
         for message in self._support_messages:
@@ -1277,6 +4343,17 @@ class _FinalMessageRuntime:
                     },
                 )
             yield message
+            tool_input = message.data.get("tool_input")
+            command = tool_input.get("command") if isinstance(tool_input, dict) else None
+            if command in self._execute_support_commands:
+                completed = subprocess.run(  # noqa: S602
+                    command,
+                    cwd=self._cwd,
+                    shell=True,
+                    check=False,
+                )
+                if completed.returncode != 0:
+                    raise RuntimeError(f"scripted support command failed: {command}")
         yield AgentMessage(
             type="result",
             content=self._final_message,
@@ -1289,6 +4366,173 @@ class _FinalMessageRuntime:
                 metadata=dict(resume_handle.metadata) if resume_handle is not None else {},
             ),
         )
+
+
+def _deep_macos_workspace() -> str:
+    workspace = "/Users/developer/Library/Application Support/" + "/".join(
+        f"workspace-{index:03d}" for index in range(61)
+    )
+    assert len(os.fsencode(workspace)) < 1_024
+    return workspace
+
+
+@pytest.mark.asyncio
+async def test_atomic_admission_rejects_unmaterializable_contract_without_dispatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = _deep_macos_workspace()
+    monkeypatch.setattr("ouroboros.core.seed.os.pathconf", lambda *_args: 1_024)
+    runtime = _FinalMessageRuntime("[TASK_COMPLETE]", native_session_id="must-not-dispatch")
+    executor = ParallelACExecutor(
+        adapter=runtime,
+        event_store=AsyncMock(),
+        console=MagicMock(),
+        enable_decomposition=False,
+        task_cwd=workspace,
+    )
+
+    result = await executor._execute_atomic_ac(
+        ac_index=0,
+        ac_content="Materialize the declared artifact",
+        session_id="sess_unmaterializable",
+        execution_id="exec_unmaterializable",
+        tools=["Read"],
+        system_prompt="system",
+        seed_goal="Ship the artifact",
+        depth=0,
+        start_time=datetime.now(UTC),
+        ac_spec=AcceptanceCriterionSpec(
+            description="Materialize the declared artifact",
+            expected_artifacts=("nested/" + "a" * 200,),
+        ),
+    )
+
+    assert result.success is False
+    assert result.outcome is ACExecutionOutcome.INVALID
+    assert result.error is not None
+    assert result.error.startswith("unmaterializable_success_contract:")
+    assert "workspace path exceeds POSIX capacity (1024 bytes)" in result.error
+    assert runtime.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_atomic_windows_capacity_rejection_does_not_dispatch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from ouroboros.core.seed import expected_artifact_workspace_path_error
+
+    monkeypatch.setattr(
+        "ouroboros.orchestrator.ac_execution_capsule.expected_artifact_workspace_path_error",
+        lambda artifact, workspace: expected_artifact_workspace_path_error(
+            artifact,
+            workspace,
+            platform="windows",
+            path_capacity=260,
+        ),
+    )
+    runtime = _FinalMessageRuntime("[TASK_COMPLETE]", native_session_id="must-not-dispatch")
+    executor = ParallelACExecutor(
+        adapter=runtime,
+        event_store=AsyncMock(),
+        console=MagicMock(),
+        enable_decomposition=False,
+        task_cwd=r"C:\Users\developer\source\ouroboros",
+    )
+
+    result = await executor._execute_atomic_ac(
+        ac_index=0,
+        ac_content="Materialize the declared artifact",
+        session_id="sess_windows_unmaterializable",
+        execution_id="exec_windows_unmaterializable",
+        tools=["Read"],
+        system_prompt="system",
+        seed_goal="Ship the artifact",
+        depth=0,
+        start_time=datetime.now(UTC),
+        ac_spec=AcceptanceCriterionSpec(
+            description="Materialize the declared artifact",
+            expected_artifacts=("nested/" + "a" * 200,),
+        ),
+    )
+
+    assert result.outcome is ACExecutionOutcome.INVALID
+    assert result.error is not None
+    assert "workspace path exceeds Windows capacity (260 UTF-16 units)" in result.error
+    assert runtime.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_unmaterializable_ac_is_judged_while_valid_sibling_completes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = _deep_macos_workspace()
+    monkeypatch.setattr("ouroboros.core.seed.os.pathconf", lambda *_args: 1_024)
+    seed = _make_seed(
+        AcceptanceCriterionSpec(
+            description="Materialize the declared artifact",
+            expected_artifacts=("nested/" + "a" * 200,),
+        ),
+        "Complete the independent sibling",
+    )
+    graph = DependencyGraph(
+        nodes=(
+            ACNode(index=0, content=seed.acceptance_criteria[0], depends_on=()),
+            ACNode(index=1, content=seed.acceptance_criteria[1], depends_on=()),
+        ),
+        execution_levels=((0, 1),),
+    )
+    event_store, appended_events = _make_replaying_event_store()
+    runtime = _FinalMessageRuntime("[TASK_COMPLETE]", native_session_id="valid-sibling")
+    executor = ParallelACExecutor(
+        adapter=runtime,
+        event_store=event_store,
+        console=MagicMock(),
+        enable_decomposition=False,
+        ac_retry_attempts=3,
+        task_cwd=workspace,
+    )
+    executor._coordinator.detect_file_conflicts = MagicMock(return_value=[])
+    executor._maybe_recover_with_bounce_decomposition = AsyncMock()  # type: ignore[method-assign]
+    executor._maybe_redispatch_alt_harness = AsyncMock()  # type: ignore[method-assign]
+    executor._maybe_redispatch_alt_harness_for_batch_ac = AsyncMock()  # type: ignore[method-assign]
+    executor._build_ac_retry_prompt = MagicMock()  # type: ignore[method-assign]
+
+    with patch("ouroboros.orchestrator.parallel_executor.log") as log_mock:
+        result = await executor.execute_parallel(
+            seed=seed,
+            execution_plan=graph.to_execution_plan(),
+            session_id="sess_sibling_admission",
+            execution_id="exec_sibling_admission",
+            tools=["Read"],
+            system_prompt="system",
+        )
+
+    by_index = {item.ac_index: item for item in result.results}
+    assert by_index[0].outcome is ACExecutionOutcome.INVALID
+    assert by_index[0].retry_attempt == 0
+    assert by_index[1].success is True
+    assert result.invalid_count == 1
+    assert result.success_count == 1
+    assert len(result.stages) == 1
+    assert result.stages[0].started is True
+    assert runtime.call_count == 1
+    judged = [event for event in appended_events if event.type == "execution.ac.attempt_judged"]
+    invalid_judgments = [event for event in judged if event.data["ac_index"] == 0]
+    assert len(invalid_judgments) == 1
+    invalid_judgment = invalid_judgments[0]
+    assert invalid_judgment.data["outcome"] == "invalid"
+    assert invalid_judgment.data["error_code"] == "unmaterializable_success_contract"
+    assert str(invalid_judgment.data["error"]).startswith("unmaterializable_success_contract:")
+    admission_rejections = [
+        call
+        for call in log_mock.warning.call_args_list
+        if call.args and call.args[0] == "parallel_executor.ac.admission_rejected"
+    ]
+    assert len(admission_rejections) == 1
+    executor._maybe_recover_with_bounce_decomposition.assert_not_awaited()
+    executor._maybe_redispatch_alt_harness.assert_not_awaited()
+    executor._maybe_redispatch_alt_harness_for_batch_ac.assert_not_awaited()
+    executor._build_ac_retry_prompt.assert_not_called()
 
 
 def test_command_claim_supports_exact_structured_shell_body() -> None:
@@ -1400,8 +4644,8 @@ def test_gradle_command_claim_supports_quoted_target_and_tail_pipe() -> None:
     )
 
 
-def test_gradle_tests_passed_claim_supports_class_target_and_build_success() -> None:
-    """Gradle BUILD SUCCESSFUL output can back a class-level tests_passed claim."""
+def test_gradle_tests_passed_claim_supports_class_target_and_case_result() -> None:
+    """A Gradle case result can back a class-level tests_passed claim."""
     command_message = AgentMessage(
         type="tool",
         content="Bash command started",
@@ -1415,13 +4659,14 @@ def test_gradle_tests_passed_claim_supports_class_target_and_build_success() -> 
             }
         },
     )
+    output = "com.example.app.unit.SomeNewTest > createsApp PASSED\nBUILD SUCCESSFUL in 8s"
     result_message = AgentMessage(
         type="tool_result",
-        content="> Task :test\nBUILD SUCCESSFUL in 8s",
+        content=output,
         tool_name=None,
         data={
             "subtype": "tool_result",
-            "output": "> Task :test\nBUILD SUCCESSFUL in 8s",
+            "output": output,
         },
     )
 
@@ -1548,11 +4793,16 @@ def test_atomic_verifier_classifies_dependent_masked_test_evidence_as_form_misma
             ),
             AgentMessage(
                 type="tool_result",
-                content="> Task :test\nBUILD SUCCESSFUL in 8s",
+                content=(
+                    "com.example.app.unit.SomeNewTest > createsApp PASSED\nBUILD SUCCESSFUL in 8s"
+                ),
                 tool_name=None,
                 data={
                     "subtype": "tool_result",
-                    "output": "> Task :test\nBUILD SUCCESSFUL in 8s",
+                    "output": (
+                        "com.example.app.unit.SomeNewTest > createsApp PASSED\n"
+                        "BUILD SUCCESSFUL in 8s"
+                    ),
                 },
             ),
         ),
@@ -1853,6 +5103,152 @@ def test_files_touched_accepts_in_workspace_relative_vs_absolute_edit(tmp_path) 
     )
 
 
+def test_files_touched_rejects_unexecuted_python_c_pathlib_write(tmp_path) -> None:
+    """A successful process exit before the write is not mutation evidence."""
+    workspace = tmp_path / "work"
+    workspace.mkdir()
+    message = AgentMessage(
+        type="tool",
+        content="python write",
+        tool_name="Bash",
+        data={
+            "tool_input": {
+                "command": (
+                    'python -c "from pathlib import Path; raise SystemExit(0); '
+                    "Path('generated.py').write_text('x')\""
+                )
+            },
+            "exit_code": 0,
+        },
+    )
+
+    assert not _runtime_messages_support_file_claim(
+        "generated.py",
+        (message,),
+        task_cwd=str(workspace),
+    )
+
+
+def test_files_touched_rejects_python_c_pathlib_command_text_only_with_command_cwd(
+    tmp_path,
+) -> None:
+    """Command cwd cannot make Python command text prove file mutation."""
+    workspace = tmp_path / "work"
+    subdir = workspace / "subdir"
+    subdir.mkdir(parents=True)
+    message = AgentMessage(
+        type="tool",
+        content="python write",
+        tool_name="Bash",
+        data={
+            "tool_input": {
+                "command": _trusted_python_c(
+                    "from pathlib import Path; Path('generated.py').write_text('x')"
+                ),
+                "cwd": str(subdir),
+            },
+            "exit_code": 0,
+        },
+    )
+
+    assert not _runtime_messages_support_file_claim(
+        "subdir/generated.py",
+        (message,),
+        task_cwd=str(workspace),
+    )
+    assert not _runtime_messages_support_file_claim(
+        "generated.py",
+        (message,),
+        task_cwd=str(workspace),
+    )
+
+
+def test_files_touched_rejects_python_c_pathlib_command_cwd_outside_workspace(tmp_path) -> None:
+    """An outside command cwd cannot prove a workspace files_touched claim."""
+    workspace = tmp_path / "work"
+    outside = tmp_path / "outside"
+    workspace.mkdir()
+    outside.mkdir()
+    message = AgentMessage(
+        type="tool",
+        content="python write",
+        tool_name="Bash",
+        data={
+            "tool_input": {
+                "command": "python -c \"from pathlib import Path; Path('generated.py').write_text('x')\"",
+                "cwd": str(outside),
+            },
+            "exit_code": 0,
+        },
+    )
+
+    assert not _runtime_messages_support_file_claim(
+        "generated.py",
+        (message,),
+        task_cwd=str(workspace),
+    )
+
+
+@pytest.mark.parametrize(
+    "tool_input",
+    (
+        {
+            "cmd": _trusted_python_c(
+                "from pathlib import Path; Path('generated.py').write_text('x')"
+            )
+        },
+        {
+            "cmd": [
+                str(Path(sys.executable).resolve()),
+                "-I",
+                "-S",
+                "-c",
+                "from pathlib import Path; Path('generated.py').write_text('x')",
+            ]
+        },
+    ),
+)
+def test_files_touched_rejects_python_c_pathlib_goose_cmd_text_only(tmp_path, tool_input) -> None:
+    """Goose cmd string and argv list shapes still need separate file proof."""
+    workspace = tmp_path / "work"
+    workspace.mkdir()
+    message = AgentMessage(
+        type="tool",
+        content="python write",
+        tool_name="Bash",
+        data={"tool_input": tool_input, "exit_code": 0},
+    )
+
+    assert not _runtime_messages_support_file_claim(
+        "generated.py",
+        (message,),
+        task_cwd=str(workspace),
+    )
+
+
+def test_files_touched_rejects_invalid_python_c_pathlib_literal_without_exception(tmp_path) -> None:
+    """Invalid literal paths fail closed instead of aborting verification."""
+    workspace = tmp_path / "work"
+    workspace.mkdir()
+    message = AgentMessage(
+        type="tool",
+        content="python write",
+        tool_name="Bash",
+        data={
+            "tool_input": {
+                "command": "python -c \"from pathlib import Path; Path('src/\\x00generated.py').write_text('x')\""
+            },
+            "exit_code": 0,
+        },
+    )
+
+    assert not _runtime_messages_support_file_claim(
+        "src/generated.py",
+        (message,),
+        task_cwd=str(workspace),
+    )
+
+
 def test_files_touched_task_cwd_none_rejects_touch_command_text() -> None:
     """Workspace unknown: only structured Edit/Write proves files, not ``touch`` text."""
     touch = AgentMessage(
@@ -2046,6 +5442,43 @@ def test_correlated_tool_result_name_requires_one_exact_call_id_match() -> None:
             result,
         )
         is None
+    )
+    conflicting_result = replace(
+        result,
+        data={
+            **result.data,
+            "meta": {"tool_use_id": "different"},
+        },
+    )
+    assert _correlated_tool_result_name([start, conflicting_result], conflicting_result) is None
+
+
+def test_files_touched_rejects_conflicting_top_level_and_nested_call_ids(tmp_path) -> None:
+    """A conflicting completion cannot fall through as id-less success/effect proof."""
+    target = tmp_path / "claimed.py"
+    target.write_text("changed\n", encoding="utf-8")
+    call = AgentMessage(
+        type="tool",
+        content="Bash: touch claimed.py",
+        tool_name="Bash",
+        data={"tool_input": {"command": "touch claimed.py"}, "tool_call_id": "call-a"},
+    )
+    completion = AgentMessage(
+        type="tool_result",
+        content="command completed with exit code 0",
+        data={
+            "subtype": "tool_result",
+            "exit_code": 0,
+            "tool_call_id": "call-a",
+            "tool_result": {"meta": {"tool_use_id": "call-b"}},
+            "filesystem_effects": [_filesystem_effect(target, reported_path="claimed.py")],
+        },
+    )
+
+    assert not _runtime_messages_support_file_claim(
+        "claimed.py",
+        (call, completion),
+        task_cwd=str(tmp_path),
     )
 
 
@@ -2345,9 +5778,12 @@ def test_maven_tests_passed_supports_explicit_false_skip_properties(command: str
     )
     result_message = AgentMessage(
         type="tool_result",
-        content="[INFO] BUILD SUCCESS",
+        content="[INFO] Tests run: 1, Failures: 0, Errors: 0\n[INFO] BUILD SUCCESS",
         tool_name=None,
-        data={"subtype": "tool_result", "output": "[INFO] BUILD SUCCESS"},
+        data={
+            "subtype": "tool_result",
+            "output": "[INFO] Tests run: 1, Failures: 0, Errors: 0\n[INFO] BUILD SUCCESS",
+        },
     )
 
     assert _runtime_messages_support_test_claim(
@@ -2361,6 +5797,7 @@ def test_maven_tests_passed_supports_explicit_false_skip_properties(command: str
 @pytest.mark.parametrize(
     "output",
     (
+        "> Task :test\nBUILD SUCCESSFUL in 1s",
         "> Task :test NO-SOURCE\nBUILD SUCCESSFUL in 1s",
         "> Task :test SKIPPED\nBUILD SUCCESSFUL in 1s",
         "0 tests completed\nBUILD SUCCESSFUL",
@@ -2382,6 +5819,28 @@ def test_gradle_tests_passed_rejects_successful_build_with_no_tests(output: str)
     )
 
     assert not _runtime_messages_support_test_claim(
+        value="./gradlew test",
+        backed_commands=("./gradlew test",),
+        messages=(command_message, result_message),
+        task_cwd=None,
+    )
+
+
+def test_gradle_tests_passed_accepts_individual_test_case_result() -> None:
+    output = "com.example.AppTest > createsApp PASSED\nBUILD SUCCESSFUL in 1s"
+    command_message = AgentMessage(
+        type="tool",
+        content="Bash command started",
+        tool_name="Bash",
+        data={"tool_input": {"command": "./gradlew test"}},
+    )
+    result_message = AgentMessage(
+        type="tool_result",
+        content=output,
+        data={"subtype": "tool_result", "output": output},
+    )
+
+    assert _runtime_messages_support_test_claim(
         value="./gradlew test",
         backed_commands=("./gradlew test",),
         messages=(command_message, result_message),
@@ -3763,9 +7222,12 @@ class TestParallelACExecutor:
                 ),
                 AgentMessage(
                     type="tool",
-                    content="pytest passed",
+                    content="pytest passed\n1 passed in 0.01s",
                     tool_name="Bash",
-                    data={"input": {"command": "pytest"}},
+                    data={
+                        "input": {"command": "pytest"},
+                        "output": "1 passed in 0.01s",
+                    },
                 ),
             ),
         )
@@ -4389,9 +7851,9 @@ class TestParallelACExecutor:
                     data={"tool_input": {"command": "python -m pytest test_slugify.py"}},
                 ),
                 AgentMessage(
-                    type="result",
-                    content="test_slugify.py passed",
-                    data={"subtype": "success"},
+                    type="tool_result",
+                    content="test_slugify.py passed\n1 passed in 0.01s",
+                    data={"subtype": "tool_result"},
                 ),
             ),
         )
@@ -4474,9 +7936,9 @@ class TestParallelACExecutor:
                         data={"tool_input": {"command": "pytest test_hello.py"}},
                     ),
                     AgentMessage(
-                        type="result",
-                        content="test_hello.py::test_hello passed",
-                        data={"subtype": "success"},
+                        type="tool_result",
+                        content="test_hello.py::test_hello passed\n1 passed in 0.01s",
+                        data={"subtype": "tool_result"},
                     ),
                 ),
             ),
@@ -4637,9 +8099,9 @@ class TestParallelACExecutor:
                         data={"tool_input": {"command": "pytest tests/test_analysis.py"}},
                     ),
                     AgentMessage(
-                        type="result",
+                        type="tool_result",
                         content="tests/test_analysis.py passed; 1 passed",
-                        data={"subtype": "success"},
+                        data={"subtype": "tool_result"},
                     ),
                 ),
                 cwd=str(tmp_path),
@@ -4832,7 +8294,7 @@ class TestParallelACExecutor:
         tmp_path,
     ) -> None:
         """The verify gate owns artifact and command proof for contract ACs."""
-        command = "python -c \"print('OK')\""
+        command = f"{sys.executable} -c \"print('OK')\""
         (tmp_path / "hello.py").write_text(
             "def greet(name):\n    return f'Hello, {name}'\n",
             encoding="utf-8",
@@ -4918,7 +8380,7 @@ class TestParallelACExecutor:
         artifact on disk. The verify-gate-active guard keeps those fields required,
         so the worker's self-reported evidence fails and the AC is not accepted.
         """
-        command = "python -c \"print('OK')\""
+        command = "python3 -c \"print('OK')\""
         command_json = command.replace("\\", "\\\\").replace('"', '\\"')
         # Deliberately do NOT write hello.py: the artifact is missing on disk.
         event_store, appended_events = _make_replaying_event_store()
@@ -5065,9 +8527,9 @@ class TestParallelACExecutor:
                         data={"tool_input": {"command": "pytest tests/test_app.py"}},
                     ),
                     AgentMessage(
-                        type="result",
-                        content="tests/test_app.py passed",
-                        data={"subtype": "success"},
+                        type="tool_result",
+                        content="tests/test_app.py passed\n1 passed in 0.01s",
+                        data={"subtype": "tool_result"},
                     ),
                 ),
             ),
@@ -5128,9 +8590,9 @@ class TestParallelACExecutor:
                     data={"tool_input": {"command": "python -m unittest test_todo.py"}},
                 ),
                 AgentMessage(
-                    type="result",
+                    type="tool_result",
                     content="Ran 6 tests in 0.002s\n\nOK",
-                    data={"subtype": "success", "exit_code": 0},
+                    data={"subtype": "tool_result", "exit_code": 0},
                 ),
             ),
         )
@@ -5207,9 +8669,9 @@ class TestParallelACExecutor:
                         data={"tool_input": {"command": "python -m unittest test_todo.py"}},
                     ),
                     AgentMessage(
-                        type="result",
+                        type="tool_result",
                         content="Ran 6 tests in 0.002s\n\nOK",
-                        data={"subtype": "success", "exit_code": 0},
+                        data={"subtype": "tool_result", "exit_code": 0},
                     ),
                 ),
             ),
@@ -5273,9 +8735,9 @@ class TestParallelACExecutor:
                         data={"tool_input": {"command": "python -m unittest test_todo.py"}},
                     ),
                     AgentMessage(
-                        type="result",
+                        type="tool_result",
                         content="Ran 6 tests in 0.002s\n\nOK",
-                        data={"subtype": "success", "exit_code": 0},
+                        data={"subtype": "tool_result", "exit_code": 0},
                     ),
                 ),
             ),
@@ -5397,12 +8859,12 @@ class TestParallelACExecutor:
                         data={"tool_input": {"command": "pytest"}},
                     ),
                     AgentMessage(
-                        type="result",
+                        type="tool_result",
                         content=(
                             "generated.py updated; tests/test_generated.py passed; "
                             "0 failed, 0 errors, 1 passed"
                         ),
-                        data={"subtype": "success"},
+                        data={"subtype": "tool_result"},
                     ),
                 ),
                 cwd=str(tmp_path),
@@ -5468,9 +8930,9 @@ class TestParallelACExecutor:
                         data={"tool_input": {"command": "python -m unittest test_todo.py"}},
                     ),
                     AgentMessage(
-                        type="result",
+                        type="tool_result",
                         content="Ran 1 test in 0.001s\n\nOK",
-                        data={"subtype": "success", "exit_code": 0},
+                        data={"subtype": "tool_result", "exit_code": 0},
                     ),
                 ),
                 cwd=str(tmp_path),
@@ -5785,7 +9247,7 @@ class TestParallelACExecutor:
         (
             "touch src/generated.py",
             "printf 'VALUE = 1' > src/generated.py",
-            "sed -i '' 's/1/2/' src/generated.py",
+            "truncate -s 0 src/generated.py",
         ),
     )
     async def test_fat_harness_verifier_allows_explicit_bash_file_mutation_without_output(
@@ -5795,6 +9257,7 @@ class TestParallelACExecutor:
         generated_file = tmp_path / "src" / "generated.py"
         generated_file.parent.mkdir()
         generated_file.write_text("VALUE = 1\n", encoding="utf-8")
+        os.utime(generated_file, ns=(1_000_000_000, 1_000_000_000))
 
         event_store, appended_events = _make_replaying_event_store()
         executor = ParallelACExecutor(
@@ -5816,7 +9279,10 @@ class TestParallelACExecutor:
                     AgentMessage(
                         type="tool_result",
                         content="command completed with exit code 0",
-                        data={"subtype": "tool_result", "exit_code": 0},
+                        data={
+                            "subtype": "tool_result",
+                            "exit_code": 0,
+                        },
                     ),
                     AgentMessage(
                         type="tool",
@@ -5826,10 +9292,11 @@ class TestParallelACExecutor:
                     ),
                     AgentMessage(
                         type="tool_result",
-                        content="tests/test_generated.py passed",
+                        content="tests/test_generated.py passed\n1 passed in 0.01s",
                         data={"subtype": "tool_result", "is_error": False},
                     ),
                 ),
+                execute_support_commands=(command,),
                 cwd=str(tmp_path),
             ),
             event_store=event_store,
@@ -5901,7 +9368,7 @@ class TestParallelACExecutor:
                     ),
                     AgentMessage(
                         type="result",
-                        content="tests/test_generated.py passed",
+                        content="tests/test_generated.py passed\n1 passed in 0.01s",
                         data={"subtype": "success"},
                     ),
                 ),
@@ -5974,8 +9441,850 @@ class TestParallelACExecutor:
                     ),
                     AgentMessage(
                         type="result",
-                        content="tests/test_generated.py passed",
+                        content="tests/test_generated.py passed\n1 passed in 0.01s",
                         data={"subtype": "success"},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "files_touched: src/generated.py" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is False
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_rejects_pathlib_command_text_only(self, tmp_path) -> None:
+        """Python/pathlib command text alone is not execution-bound file proof."""
+        generated_file = tmp_path / "src" / "generated.py"
+        generated_file.parent.mkdir()
+        generated_file.write_text("VALUE = 1\n", encoding="utf-8")
+        command = _trusted_python_c(
+            "from pathlib import Path; Path('src/generated.py').write_text('VALUE = 2')"
+        )
+        evidence_json = json.dumps(
+            {
+                "files_touched": ["src/generated.py"],
+                "commands_run": [command, "pytest tests/test_generated.py"],
+                "tests_passed": ["tests/test_generated.py"],
+            }
+        )
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                f"Done.\n```json\n{evidence_json}\n```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content=f"Bash: {command}",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": command}},
+                    ),
+                    AgentMessage(
+                        type="tool_result",
+                        content="command completed with exit code 0",
+                        data={"subtype": "tool_result", "exit_code": 0},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest tests/test_generated.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest tests/test_generated.py"}},
+                    ),
+                    AgentMessage(
+                        type="tool_result",
+                        content="tests/test_generated.py passed\n1 passed in 0.01s",
+                        data={"subtype": "tool_result", "is_error": False},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "files_touched: src/generated.py" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is False
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "command_factory",
+        (
+            lambda _tmp_path: _trusted_python_c(
+                "from pathlib import Path; Path('./src/generated.py').write_text('VALUE = 2')"
+            ),
+            lambda _tmp_path: _trusted_python_c(
+                "from pathlib import Path; (Path('src') / 'generated.py').write_text('VALUE = 2')"
+            ),
+            lambda _tmp_path: _trusted_python_c(
+                "from pathlib import Path; Path('src', 'generated.py').write_text('VALUE = 2')"
+            ),
+            lambda tmp_path: _trusted_python_c(
+                f"from pathlib import Path; Path('{tmp_path / 'src' / 'generated.py'}').write_text('VALUE = 2')"
+            ),
+        ),
+    )
+    async def test_fat_harness_verifier_rejects_equivalent_pathlib_command_text_only(
+        self, tmp_path, command_factory
+    ) -> None:
+        """Equivalent pathlib spellings still need execution-bound file proof."""
+        generated_file = tmp_path / "src" / "generated.py"
+        generated_file.parent.mkdir()
+        generated_file.write_text("VALUE = 1\n", encoding="utf-8")
+        command = command_factory(tmp_path)
+        evidence_json = json.dumps(
+            {
+                "files_touched": ["src/generated.py"],
+                "commands_run": [command, "pytest tests/test_generated.py"],
+                "tests_passed": ["tests/test_generated.py"],
+            }
+        )
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                f"Done.\n```json\n{evidence_json}\n```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content=f"Bash: {command}",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": command}},
+                    ),
+                    AgentMessage(
+                        type="tool_result",
+                        content="command completed with exit code 0",
+                        data={"subtype": "tool_result", "exit_code": 0},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest tests/test_generated.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest tests/test_generated.py"}},
+                    ),
+                    AgentMessage(
+                        type="tool_result",
+                        content="tests/test_generated.py passed\n1 passed in 0.01s",
+                        data={"subtype": "tool_result", "is_error": False},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "files_touched: src/generated.py" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is False
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "command",
+        (
+            'python -c "from pathlib import Path; '
+            "unused = lambda: Path('src/generated.py').write_text('VALUE = 2')\"",
+            'python -c "from pathlib import Path; '
+            "\nif False:\n    Path('src/generated.py').write_text('VALUE = 2')\"",
+            'python -c "from pathlib import Path; '
+            "\nif True:\n    Path('src/generated.py').write_text('VALUE = 2')\"",
+            'python -c "from pathlib import Path; '
+            "Path = lambda _value: type('Noop', (), {'write_text': lambda self, _text: None})(); "
+            "Path('src/generated.py').write_text('VALUE = 2')\"",
+            'python -c "from pathlib import Path; '
+            "Path = lambda _value: None; from pathlib import Path; "
+            "Path('src/generated.py').write_text('VALUE = 2')\"",
+            'python -c "from pathlib import Path; if"',
+            'python -c "from pathlib import Path; '
+            "Path('src /generated.py').write_text('VALUE = 2')\"",
+            "python -c \"from pathlib import Path; Path('src') / 'generated.py'\"",
+        ),
+    )
+    async def test_fat_harness_verifier_rejects_unexecuted_or_unbound_pathlib_syntax(
+        self, tmp_path, command
+    ) -> None:
+        """Pathlib syntax is not proof unless a top-level pathlib.Path write executed."""
+        generated_file = tmp_path / "src" / "generated.py"
+        generated_file.parent.mkdir()
+        generated_file.write_text("VALUE = 1\n", encoding="utf-8")
+        evidence_json = json.dumps(
+            {
+                "files_touched": ["src/generated.py"],
+                "commands_run": [command, "pytest tests/test_generated.py"],
+                "tests_passed": ["tests/test_generated.py"],
+            }
+        )
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                f"Done.\n```json\n{evidence_json}\n```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content=f"Bash: {command}",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": command}},
+                    ),
+                    AgentMessage(
+                        type="tool_result",
+                        content="command completed with exit code 0",
+                        data={"subtype": "tool_result", "exit_code": 0},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest tests/test_generated.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest tests/test_generated.py"}},
+                    ),
+                    AgentMessage(
+                        type="tool_result",
+                        content="tests/test_generated.py passed\n1 passed in 0.01s",
+                        data={"subtype": "tool_result", "is_error": False},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "files_touched: src/generated.py" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is False
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_preserves_pathlib_literal_space_identity(
+        self, tmp_path
+    ) -> None:
+        """Literal spaces are part of the pathlib receiver's filesystem identity."""
+        generated_file = tmp_path / "src" / "generated.py"
+        spaced_file = tmp_path / " src" / "generated.py "
+        generated_file.parent.mkdir()
+        spaced_file.parent.mkdir()
+        generated_file.write_text("VALUE = 1\n", encoding="utf-8")
+        spaced_file.write_text("VALUE = 2\n", encoding="utf-8")
+        command = (
+            'python -c "from pathlib import Path; '
+            "Path(' src/generated.py ').write_text('VALUE = 3')\""
+        )
+        evidence_json = json.dumps(
+            {
+                "files_touched": ["src/generated.py"],
+                "commands_run": [command, "pytest tests/test_generated.py"],
+                "tests_passed": ["tests/test_generated.py"],
+            }
+        )
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                f"Done.\n```json\n{evidence_json}\n```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content=f"Bash: {command}",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": command}},
+                    ),
+                    AgentMessage(
+                        type="tool_result",
+                        content="command completed with exit code 0",
+                        data={"subtype": "tool_result", "exit_code": 0},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest tests/test_generated.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest tests/test_generated.py"}},
+                    ),
+                    AgentMessage(
+                        type="tool_result",
+                        content="tests/test_generated.py passed\n1 passed in 0.01s",
+                        data={"subtype": "tool_result", "is_error": False},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "files_touched: src/generated.py" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is False
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_rejects_pathlib_write_to_different_file(
+        self, tmp_path
+    ) -> None:
+        """A pathlib write must bind to the receiver, not any mentioned file."""
+        claimed_file = tmp_path / "src" / "preexisting.py"
+        generated_file = tmp_path / "src" / "generated.py"
+        claimed_file.parent.mkdir()
+        claimed_file.write_text("VALUE = 1\n", encoding="utf-8")
+        generated_file.write_text("VALUE = 2\n", encoding="utf-8")
+        command = (
+            'python -c "from pathlib import Path; '
+            "Path('src/preexisting.py').read_text(); "
+            "Path('src/generated.py').write_text('VALUE = 3')\""
+        )
+        evidence_json = json.dumps(
+            {
+                "files_touched": ["src/preexisting.py"],
+                "commands_run": [command, "pytest tests/test_generated.py"],
+                "tests_passed": ["tests/test_generated.py"],
+            }
+        )
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                f"Done.\n```json\n{evidence_json}\n```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content=f"Bash: {command}",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": command}},
+                    ),
+                    AgentMessage(
+                        type="tool_result",
+                        content="command completed with exit code 0",
+                        data={"subtype": "tool_result", "exit_code": 0},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest tests/test_generated.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest tests/test_generated.py"}},
+                    ),
+                    AgentMessage(
+                        type="tool_result",
+                        content="tests/test_generated.py passed\n1 passed in 0.01s",
+                        data={"subtype": "tool_result", "is_error": False},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "files_touched: src/preexisting.py" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is False
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_rejects_nonmatching_pathlib_without_shell_fallback(
+        self, tmp_path
+    ) -> None:
+        """A Python comment cannot make a nonmatching pathlib write prove the claim."""
+        claimed_file = tmp_path / "claimed.py"
+        other_file = tmp_path / "other.py"
+        claimed_file.write_text("VALUE = 1\n", encoding="utf-8")
+        other_file.write_text("VALUE = 2\n", encoding="utf-8")
+        command = (
+            'python -c "from pathlib import Path; # touch claimed.py\n'
+            "Path('other.py') . write_text('VALUE = 3')\""
+        )
+        evidence_json = json.dumps(
+            {
+                "files_touched": ["claimed.py"],
+                "commands_run": [command, "pytest tests/test_generated.py"],
+                "tests_passed": ["tests/test_generated.py"],
+            }
+        )
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                f"Done.\n```json\n{evidence_json}\n```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content=f"Bash: {command}",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": command}},
+                    ),
+                    AgentMessage(
+                        type="tool_result",
+                        content="command completed with exit code 0",
+                        data={"subtype": "tool_result", "exit_code": 0},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest tests/test_generated.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest tests/test_generated.py"}},
+                    ),
+                    AgentMessage(
+                        type="tool_result",
+                        content="tests/test_generated.py passed\n1 passed in 0.01s",
+                        data={"subtype": "tool_result", "is_error": False},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "files_touched: claimed.py" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is False
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_rejects_shell_expanded_pathlib_source(
+        self, tmp_path
+    ) -> None:
+        """Raw shell text with expansion is not proof of the executed Python source."""
+        generated_file = tmp_path / "generated.py"
+        generated_file.write_text("VALUE = 1\n", encoding="utf-8")
+        command = (
+            'PAYLOAD=x python -c "from pathlib import Path; '
+            "Path('generated.py').write_text('$PAYLOAD')\""
+        )
+        evidence_json = json.dumps(
+            {
+                "files_touched": ["generated.py"],
+                "commands_run": [command, "pytest tests/test_generated.py"],
+                "tests_passed": ["tests/test_generated.py"],
+            }
+        )
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                f"Done.\n```json\n{evidence_json}\n```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content=f"Bash: {command}",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": command}},
+                    ),
+                    AgentMessage(
+                        type="tool_result",
+                        content="command completed with exit code 0",
+                        data={"subtype": "tool_result", "exit_code": 0},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest tests/test_generated.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest tests/test_generated.py"}},
+                    ),
+                    AgentMessage(
+                        type="tool_result",
+                        content="tests/test_generated.py passed\n1 passed in 0.01s",
+                        data={"subtype": "tool_result", "is_error": False},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "files_touched: generated.py" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is False
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "command",
+        (
+            "/tmp/fake/python -c \"from pathlib import Path; Path('claimed.py').write_text('x')\"",
+            "./python3 -c \"from pathlib import Path; Path('claimed.py').write_text('x')\"",
+        ),
+    )
+    async def test_fat_harness_verifier_rejects_untrusted_python_executable(
+        self, tmp_path, command
+    ) -> None:
+        """A Python-looking executable path is not an authenticated interpreter."""
+        claimed_file = tmp_path / "claimed.py"
+        claimed_file.write_text("VALUE = 1\n", encoding="utf-8")
+        evidence_json = json.dumps(
+            {
+                "files_touched": ["claimed.py"],
+                "commands_run": [command, "pytest tests/test_generated.py"],
+                "tests_passed": ["tests/test_generated.py"],
+            }
+        )
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                f"Done.\n```json\n{evidence_json}\n```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content=f"Bash: {command}",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": command}},
+                    ),
+                    AgentMessage(
+                        type="tool_result",
+                        content="command completed with exit code 0",
+                        data={"subtype": "tool_result", "exit_code": 0},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest tests/test_generated.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest tests/test_generated.py"}},
+                    ),
+                    AgentMessage(
+                        type="tool_result",
+                        content="tests/test_generated.py passed\n1 passed in 0.01s",
+                        data={"subtype": "tool_result", "is_error": False},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "files_touched: claimed.py" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is False
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_rejects_nonisolated_local_pathlib_shadow(
+        self, tmp_path
+    ) -> None:
+        """Bare Python can import a workspace pathlib.py, so it is not static proof."""
+        claimed_file = tmp_path / "claimed.py"
+        claimed_file.write_text("VALUE = 1\n", encoding="utf-8")
+        (tmp_path / "pathlib.py").write_text(
+            "class Path:\n"
+            "    def __init__(self, value):\n"
+            "        self.value = value\n"
+            "    def write_text(self, value):\n"
+            "        return None\n",
+            encoding="utf-8",
+        )
+        command = "python -c \"from pathlib import Path; Path('claimed.py').write_text('x')\""
+        evidence_json = json.dumps(
+            {
+                "files_touched": ["claimed.py"],
+                "commands_run": [command, "pytest tests/test_generated.py"],
+                "tests_passed": ["tests/test_generated.py"],
+            }
+        )
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                f"Done.\n```json\n{evidence_json}\n```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content=f"Bash: {command}",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": command}},
+                    ),
+                    AgentMessage(
+                        type="tool_result",
+                        content="command completed with exit code 0",
+                        data={"subtype": "tool_result", "exit_code": 0},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest tests/test_generated.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest tests/test_generated.py"}},
+                    ),
+                    AgentMessage(
+                        type="tool_result",
+                        content="tests/test_generated.py passed\n1 passed in 0.01s",
+                        data={"subtype": "tool_result", "is_error": False},
+                    ),
+                ),
+                cwd=str(tmp_path),
+            ),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content="Implement AC 1",
+            session_id="orch_123",
+            tools=["Read"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        assert "files_touched: claimed.py" in result.error
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["verifier_passed"] is False
+
+    @pytest.mark.asyncio
+    async def test_fat_harness_verifier_rejects_pathlib_write_outside_workspace(
+        self, tmp_path
+    ) -> None:
+        """An out-of-workspace pathlib write must not prove a same-basename claim."""
+        generated_file = tmp_path / "src" / "generated.py"
+        outside = tmp_path.parent / f"{tmp_path.name}-outside" / "generated.py"
+        generated_file.parent.mkdir()
+        outside.parent.mkdir()
+        generated_file.write_text("VALUE = 1\n", encoding="utf-8")
+        outside.write_text("VALUE = 2\n", encoding="utf-8")
+        command = (
+            f"python -c \"from pathlib import Path; Path('{outside}').write_text('VALUE = 3')\""
+        )
+        evidence_json = json.dumps(
+            {
+                "files_touched": ["src/generated.py"],
+                "commands_run": [command, "pytest tests/test_generated.py"],
+                "tests_passed": ["tests/test_generated.py"],
+            }
+        )
+
+        event_store, appended_events = _make_replaying_event_store()
+        executor = ParallelACExecutor(
+            adapter=_FinalMessageRuntime(
+                f"Done.\n```json\n{evidence_json}\n```",
+                native_session_id="opencode-session-evidence",
+                support_messages=(
+                    AgentMessage(
+                        type="tool",
+                        content=f"Bash: {command}",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": command}},
+                    ),
+                    AgentMessage(
+                        type="tool_result",
+                        content="command completed with exit code 0",
+                        data={"subtype": "tool_result", "exit_code": 0},
+                    ),
+                    AgentMessage(
+                        type="tool",
+                        content="Bash: pytest tests/test_generated.py",
+                        tool_name="Bash",
+                        data={"tool_input": {"command": "pytest tests/test_generated.py"}},
+                    ),
+                    AgentMessage(
+                        type="tool_result",
+                        content="tests/test_generated.py passed\n1 passed in 0.01s",
+                        data={"subtype": "tool_result", "is_error": False},
                     ),
                 ),
                 cwd=str(tmp_path),
@@ -6048,7 +10357,7 @@ class TestParallelACExecutor:
                     ),
                     AgentMessage(
                         type="result",
-                        content="tests/test_generated.py passed",
+                        content="tests/test_generated.py passed\n1 passed in 0.01s",
                         data={"subtype": "success"},
                     ),
                 ),
@@ -6084,8 +10393,8 @@ class TestParallelACExecutor:
         assert evidence_event.data["verifier_passed"] is False
 
     @pytest.mark.asyncio
-    async def test_fat_harness_verifier_accepts_exit_code_only_test_success(self, tmp_path) -> None:
-        """Regression for #978 observation: Codex may omit pytest stdout but keep exit_code=0."""
+    async def test_fat_harness_verifier_rejects_exit_code_only_test_success(self, tmp_path) -> None:
+        """A zero exit without execution output cannot prove that tests ran."""
         hello_file = tmp_path / "hello.py"
         test_file = tmp_path / "test_hello.py"
         hello_file.write_text('def hello():\n    return "hello"\n', encoding="utf-8")
@@ -6154,15 +10463,15 @@ class TestParallelACExecutor:
             start_time=datetime.now(UTC),
         )
 
-        assert result.success is True
+        assert result.success is False
         assert result.atomic_verifier_verdict is not None
-        assert result.atomic_verifier_verdict.passed is True
+        assert result.atomic_verifier_verdict.passed is False
         evidence_event = next(
             event
             for event in appended_events
             if event.type == "execution.ac.typed_evidence.observed"
         )
-        assert evidence_event.data["verifier_passed"] is True
+        assert evidence_event.data["verifier_passed"] is False
 
     @pytest.mark.asyncio
     async def test_fat_harness_verifier_accepts_unittest_command_summary_claim(
@@ -8396,6 +12705,8 @@ class TestParallelACExecutor:
                 seed_goal="Ship OpenCode support",
                 tools=["Read", "Edit"],
                 system_prompt="system",
+                source=DecompositionSource.BOUNCE,
+                cause=BounceCause.TOO_BIG,
             )
 
         assert result.disposition is DecompositionDisposition.UNKNOWN
@@ -8413,9 +12724,15 @@ class TestParallelACExecutor:
             enable_decomposition=True,
         )
         executor._emit_subtask_event = AsyncMock()
-        executor._try_decompose_ac = AsyncMock(
-            side_effect=[["Extract parser", "Wire parser"], None, None]
+        root = ExecutionNodeIdentity.root(execution_context_id="exec_decompose", ac_index=1)
+        executor._publish_event_owned_decomposition_decision(
+            _trusted_preflight_split(
+                root.node_id,
+                "Extract parser",
+                "Wire parser",
+            )
         )
+        executor._try_decompose_ac = AsyncMock()
 
         async def fake_execute_atomic_ac(**kwargs: Any) -> ACExecutionResult:
             return ACExecutionResult(
@@ -8462,7 +12779,7 @@ class TestParallelACExecutor:
             (100, "Extract parser", 1),
             (101, "Wire parser", 1),
         ]
-        assert executor._try_decompose_ac.await_count == 3
+        executor._try_decompose_ac.assert_not_awaited()
         assert execute_atomic_ac.await_count == 2
 
     @pytest.mark.asyncio
@@ -8475,9 +12792,15 @@ class TestParallelACExecutor:
             enable_decomposition=True,
         )
         executor._emit_subtask_event = AsyncMock()
-        executor._try_decompose_ac = AsyncMock(
-            side_effect=[["Extract parser", "Wire parser"], None, None]
+        root = ExecutionNodeIdentity.root(execution_context_id="exec_sub_ac_runtime", ac_index=1)
+        executor._publish_event_owned_decomposition_decision(
+            _trusted_preflight_split(
+                root.node_id,
+                "Extract parser",
+                "Wire parser",
+            )
         )
+        executor._try_decompose_ac = AsyncMock()
 
         async def fake_execute_atomic_ac(**kwargs: Any) -> ACExecutionResult:
             return ACExecutionResult(
@@ -8516,64 +12839,22 @@ class TestParallelACExecutor:
             (101, True, 1, 1),
         ]
 
-    @pytest.mark.asyncio
-    async def test_depth_three_forces_atomic_without_further_decomposition(self) -> None:
-        """Depth 2 may still recurse, but depth 3 must execute atomically."""
+    def test_depth_above_durable_max_uses_compatible_legacy_executor(self) -> None:
+        """Historical larger depths remain live without Routing D replay claims."""
+        adapter = MagicMock()
+
         executor = ProcessLocalTestExecutor(
-            adapter=MagicMock(),
+            adapter=adapter,
             event_store=AsyncMock(),
             console=MagicMock(),
             enable_decomposition=True,
-            max_decomposition_depth=3,
-        )
-        executor._emit_subtask_event = AsyncMock()
-        executor._try_decompose_ac = AsyncMock(
-            side_effect=[
-                ["Depth 3 child A", "Depth 3 child B"],
-            ]
+            max_decomposition_depth=MAX_DECOMPOSITION_DEPTH + 1,
         )
 
-        async def fake_execute_atomic_ac(**kwargs: Any) -> ACExecutionResult:
-            return ACExecutionResult(
-                ac_index=int(kwargs["ac_index"]),
-                ac_content=str(kwargs["ac_content"]),
-                success=True,
-                final_message=f"{kwargs['ac_content']} complete",
-                depth=int(kwargs["depth"]),
-            )
-
-        execute_atomic_ac = AsyncMock(side_effect=fake_execute_atomic_ac)
-        executor._execute_atomic_ac = execute_atomic_ac
-
-        result = await executor._execute_single_ac(
-            ac_index=0,
-            ac_content="Root AC",
-            session_id="sess_depth_limit",
-            tools=["Read"],
-            tool_catalog=None,
-            system_prompt="system",
-            seed_goal="Ship recursive decomposition",
-            depth=2,
-            execution_id="exec_depth_limit",
-        )
-
-        assert result.is_decomposed is True
-        assert result.decomposition_depth_warning is False
-        assert [sub_result.ac_content for sub_result in result.sub_results] == [
-            "Depth 3 child A",
-            "Depth 3 child B",
-        ]
-        assert [sub_result.depth for sub_result in result.sub_results] == [3, 3]
-        assert [sub_result.decomposition_depth_warning for sub_result in result.sub_results] == [
-            True,
-            True,
-        ]
-        executor._try_decompose_ac.assert_awaited_once()
-        assert execute_atomic_ac.await_count == 2
-        assert [call.kwargs["depth"] for call in execute_atomic_ac.await_args_list] == [
-            3,
-            3,
-        ]
+        assert executor._max_decomposition_depth == 5
+        assert executor._durable_decomposition_replay_enabled is False
+        assert executor._bounded_route_escalation_enabled is False
+        adapter.execute_task.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_execute_parallel_skips_externally_satisfied_acs(self) -> None:
@@ -8773,9 +13054,17 @@ class TestParallelACExecutor:
             enable_decomposition=True,
         )
         executor._emit_subtask_event = AsyncMock()
-        executor._try_decompose_ac = AsyncMock(
-            side_effect=[["Retry leaf", "Stable leaf"], None, None]
+        root = ExecutionNodeIdentity.root(
+            execution_context_id="exec_atomic_retry_scope", ac_index=1
         )
+        executor._publish_event_owned_decomposition_decision(
+            _trusted_preflight_split(
+                root.node_id,
+                "Retry leaf",
+                "Stable leaf",
+            )
+        )
+        executor._try_decompose_ac = AsyncMock()
 
         async def fake_execute_atomic_ac(**kwargs: Any) -> ACExecutionResult:
             ac_index = int(kwargs["ac_index"])
@@ -8817,7 +13106,7 @@ class TestParallelACExecutor:
         assert result.success is True
         assert result.is_decomposed is True
         assert [sub_result.retry_attempt for sub_result in result.sub_results] == [1, 0]
-        assert executor._try_decompose_ac.await_count == 3
+        executor._try_decompose_ac.assert_not_awaited()
         assert [
             (
                 int(call.kwargs["ac_index"]),
@@ -11026,6 +15315,215 @@ class TestParallelACExecutor:
         )
 
     @pytest.mark.asyncio
+    async def test_coordinator_persists_all_post_effect_conflicts_without_fixed_cap(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A valid stage result population stays serializable after provider effects."""
+
+        conflict_paths = tuple(f"src/generated_{index}.py" for index in range(4_097))
+
+        async def run_review(
+            _coordinator: LevelCoordinator,
+            execution_id: str,
+            conflicts: list[FileConflict],
+            level_context: LevelContext,
+            level_number: int,
+            **_kwargs: Any,
+        ) -> CoordinatorReview:
+            del level_context
+            runtime_scope = build_level_coordinator_runtime_scope(execution_id, level_number)
+            return CoordinatorReview(
+                level_number=level_number,
+                conflicts_detected=tuple(conflicts),
+                review_summary="Reviewed complete conflict population",
+                duration_seconds=1.0,
+                session_scope_id=runtime_scope.aggregate_id,
+                session_state_path=runtime_scope.state_path,
+                final_output="coordinator final output",
+            )
+
+        monkeypatch.setattr(LevelCoordinator, "run_review", run_review)
+        seed = _make_seed("Produce shared files", "Integrate shared files")
+        graph = DependencyGraph(
+            nodes=(
+                ACNode(index=0, content=seed.acceptance_criteria[0], depends_on=()),
+                ACNode(index=1, content=seed.acceptance_criteria[1], depends_on=()),
+            ),
+            execution_levels=((0, 1),),
+        )
+        executor = _make_executor()
+        executor._coordinator.detect_file_conflicts = LevelCoordinator.detect_file_conflicts
+
+        async def execute_ac(**kwargs: Any) -> ACExecutionResult:
+            ac_index = int(kwargs["ac_index"])
+            return ACExecutionResult(
+                ac_index=ac_index,
+                ac_content=str(kwargs["ac_content"]),
+                success=True,
+                final_message=f"AC {ac_index} complete",
+                conflict_files=conflict_paths,
+            )
+
+        executor._execute_single_ac = execute_ac  # type: ignore[method-assign]
+        result = await executor.execute_parallel(
+            seed=seed,
+            execution_plan=graph.to_execution_plan(),
+            session_id="session-conflict-population",
+            execution_id="execution-conflict-population",
+            tools=["Read", "Edit"],
+            system_prompt="test",
+        )
+
+        coordinator_events = [
+            call.args[0]
+            for call in executor._event_store.append.await_args_list
+            if call.args[0].type
+            in {
+                "execution.coordinator.started",
+                "execution.coordinator.completed",
+            }
+        ]
+        assert result.success_count == 2
+        assert len(coordinator_events) == 2
+        assert coordinator_events[0].data["conflict_count"] == len(conflict_paths)
+        assert len(coordinator_events[0].data["conflicts"]) == len(conflict_paths)
+        assert len(coordinator_events[1].data["conflicts_detected"]) == len(conflict_paths)
+
+    @pytest.mark.asyncio
+    async def test_completed_coordinator_event_restores_without_repeating_provider_effect(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """The full started/completed population is the no-checkpoint replay owner."""
+
+        from ouroboros.orchestrator.execution_runtime_scope import (
+            build_level_coordinator_runtime_scope,
+        )
+
+        seed = _make_seed("Update shared.py", "Integrate shared.py")
+        graph = DependencyGraph(
+            nodes=(
+                ACNode(index=0, content=seed.acceptance_criteria[0], depends_on=()),
+                ACNode(index=1, content=seed.acceptance_criteria[1], depends_on=()),
+            ),
+            execution_levels=((0, 1),),
+        )
+        execution_id = "exec_coord_replay"
+        session_id = "sess_coord_replay"
+        runtime_scope = build_level_coordinator_runtime_scope(execution_id, 1)
+        conflict = FileConflict(file_path="src/shared.py", ac_indices=(0, 1))
+        completed_review = CoordinatorReview(
+            level_number=1,
+            conflicts_detected=(
+                replace(
+                    conflict,
+                    resolved=True,
+                    resolution_description="Resolved by Coordinator",
+                ),
+            ),
+            review_summary="Reconciled shared.py once",
+            fixes_applied=("Merged overlapping edits",),
+            warnings_for_next_level=("Keep the merged interface",),
+            duration_seconds=1.25,
+            session_id="coordinator-native-session",
+            session_scope_id=runtime_scope.aggregate_id,
+            session_state_path=runtime_scope.state_path,
+            final_output="coordinator final output",
+        )
+        review_provider = AsyncMock(return_value=completed_review)
+        monkeypatch.setattr(LevelCoordinator, "run_review", review_provider)
+
+        async def execute_ac(**kwargs: Any) -> ACExecutionResult:
+            ac_index = int(kwargs["ac_index"])
+            return ACExecutionResult(
+                ac_index=ac_index,
+                ac_content=str(kwargs["ac_content"]),
+                success=True,
+                conflict_files=("src/shared.py",),
+                final_message=f"AC {ac_index} complete",
+            )
+
+        first = _make_executor(reasoning_effort="low")
+        first._event_store.query_events = AsyncMock(return_value=[])
+        first._coordinator.detect_file_conflicts = MagicMock(return_value=[conflict])
+        first._execute_single_ac = execute_ac  # type: ignore[method-assign]
+        await first.execute_parallel(
+            seed=seed,
+            execution_plan=graph.to_execution_plan(),
+            session_id=session_id,
+            execution_id=execution_id,
+            tools=["Read", "Edit"],
+            system_prompt="test",
+        )
+        first_events = [call.args[0] for call in first._event_store.append.await_args_list]
+
+        async def replay_query(*_args: Any, **kwargs: Any) -> list[BaseEvent]:
+            event_type = kwargs.get("event_type")
+            return [event for event in first_events if event.type == event_type]
+
+        resumed = _make_executor(reasoning_effort="low")
+        resumed._event_store.query_events = AsyncMock(side_effect=replay_query)
+        resumed._coordinator.detect_file_conflicts = MagicMock(return_value=[conflict])
+        resumed._execute_single_ac = execute_ac  # type: ignore[method-assign]
+        replayed = await resumed.execute_parallel(
+            seed=seed,
+            execution_plan=graph.to_execution_plan(),
+            session_id=session_id,
+            execution_id=execution_id,
+            tools=["Read", "Edit"],
+            system_prompt="test",
+        )
+
+        assert review_provider.await_count == 1
+        assert resumed._coordinator._reasoning_effort == "low"
+        assert replayed.stages[0].coordinator_review is not None
+        assert replayed.stages[0].coordinator_review.review_summary == "Reconciled shared.py once"
+        replayed_coordinator_writes = [
+            call.args[0]
+            for call in resumed._event_store.append.await_args_list
+            if getattr(call.args[0], "type", "").startswith("execution.coordinator.")
+        ]
+        assert replayed_coordinator_writes == []
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("started_count", "completed_count"),
+        ((1, 0), (0, 1), (2, 1), (1, 2)),
+    )
+    async def test_incomplete_or_ambiguous_coordinator_population_fails_closed(
+        self,
+        started_count: int,
+        completed_count: int,
+    ) -> None:
+        executor = _make_executor()
+        conflict = FileConflict(file_path="src/shared.py", ac_indices=(0, 1))
+
+        async def query(*_args: Any, **kwargs: Any) -> list[BaseEvent]:
+            event_type = kwargs["event_type"]
+            count = (
+                started_count if event_type == "execution.coordinator.started" else completed_count
+            )
+            return [
+                BaseEvent(
+                    type=event_type,
+                    aggregate_type="execution",
+                    aggregate_id="execution-1:l0:coord",
+                    data={},
+                )
+                for _ in range(count)
+            ]
+
+        executor._event_store.query_events = AsyncMock(side_effect=query)
+        with pytest.raises(RuntimeError, match="incomplete or ambiguous"):
+            await executor._restore_completed_coordinator_review(
+                execution_id="execution-1",
+                session_id="session-1",
+                level=1,
+                conflicts=[conflict],
+            )
+
+    @pytest.mark.asyncio
     async def test_returns_reconciled_level_contexts_for_retry_handoff(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -11352,6 +15850,238 @@ class TestParallelACExecutor:
         assert tool_completed.data["runtime_event_type"] == "tool.completed"
 
     @pytest.mark.asyncio
+    async def test_atomic_ac_projects_codex_completion_receipt_to_journal(self) -> None:
+        from ouroboros.orchestrator.codex_cli_runtime import CodexCliRuntime
+
+        class StubRuntime:
+            _runtime_handle_backend = "codex_cli"
+            _cwd = "/tmp/project"
+            _permission_mode = "acceptEdits"
+
+            @property
+            def runtime_backend(self) -> str:
+                return self._runtime_handle_backend
+
+            @property
+            def working_directory(self) -> str | None:
+                return self._cwd
+
+            @property
+            def permission_mode(self) -> str | None:
+                return self._permission_mode
+
+            async def execute_task(self, **kwargs: Any):
+                runtime = CodexCliRuntime(cli_path="codex", cwd=self._cwd)
+                for message in runtime._convert_event(
+                    {
+                        "type": "item.completed",
+                        "item": {
+                            "id": "cmd-42",
+                            "type": "command_execution",
+                            "command": "pytest -q tests/test_example.py",
+                            "stdout": "1 passed in 0.01s",
+                            "exit_code": 0,
+                        },
+                    },
+                    current_handle=kwargs["resume_handle"],
+                ):
+                    yield message
+                yield AgentMessage(
+                    type="result",
+                    content="[TASK_COMPLETE]",
+                    data={"subtype": "success"},
+                )
+
+        event_store = AsyncMock()
+        executor = ParallelACExecutor(
+            adapter=StubRuntime(),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=1,
+            ac_content="Run the focused test",
+            session_id="sess_codex",
+            tools=["Bash"],
+            system_prompt="test",
+            seed_goal="Ship the fix",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        appended_events = [call.args[0] for call in event_store.append.await_args_list]
+        tool_started = next(
+            event for event in appended_events if event.type == "execution.tool.started"
+        )
+        tool_completed = next(
+            event for event in appended_events if event.type == "execution.tool.completed"
+        )
+
+        assert result.success is True
+        assert tool_started.data["tool_call_id"] == "cmd-42"
+        assert tool_started.data["tool_input"] == {"command": "pytest -q tests/test_example.py"}
+        assert tool_completed.data["tool_call_id"] == "cmd-42"
+        assert tool_completed.data["runtime_event_type"] == "tool.result"
+        assert tool_completed.data["tool_result"]["is_error"] is False
+        assert tool_completed.data["tool_result"]["meta"]["exit_status"] == 0
+
+    @pytest.mark.asyncio
+    async def test_atomic_ac_projects_gemini_tool_result_to_completed_journal(self) -> None:
+        from ouroboros.orchestrator.gemini_cli_runtime import GeminiCLIRuntime
+
+        class StubRuntime:
+            _runtime_handle_backend = "gemini_cli"
+            _cwd = "/tmp/project"
+            _permission_mode = "acceptEdits"
+
+            @property
+            def runtime_backend(self) -> str:
+                return self._runtime_handle_backend
+
+            @property
+            def working_directory(self) -> str | None:
+                return self._cwd
+
+            @property
+            def permission_mode(self) -> str | None:
+                return self._permission_mode
+
+            async def execute_task(self, **kwargs: Any):
+                runtime = GeminiCLIRuntime(cli_path="gemini", cwd=self._cwd)
+                raw_events = (
+                    {
+                        "type": "tool_use",
+                        "name": "run_shell",
+                        "input": {"command": "pytest -q tests/test_example.py"},
+                    },
+                    {
+                        "type": "tool_result",
+                        "name": "run_shell",
+                        "output": "1 passed in 0.01s",
+                        "is_error": False,
+                    },
+                )
+                for raw_event in raw_events:
+                    event = runtime._parse_json_event(json.dumps(raw_event))
+                    assert event is not None
+                    for message in runtime._convert_event(
+                        event,
+                        current_handle=kwargs["resume_handle"],
+                    ):
+                        yield message
+                yield AgentMessage(
+                    type="result",
+                    content="[TASK_COMPLETE]",
+                    data={"subtype": "success"},
+                )
+
+        event_store = AsyncMock()
+        executor = ParallelACExecutor(
+            adapter=StubRuntime(),
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=1,
+            ac_content="Run the focused test with Gemini",
+            session_id="sess_gemini",
+            tools=["Bash"],
+            system_prompt="test",
+            seed_goal="Ship the fix",
+            depth=0,
+            start_time=datetime.now(UTC),
+        )
+
+        appended_events = [call.args[0] for call in event_store.append.await_args_list]
+        tool_started = next(
+            event for event in appended_events if event.type == "execution.tool.started"
+        )
+        tool_completed = next(
+            event for event in appended_events if event.type == "execution.tool.completed"
+        )
+
+        assert result.success is True
+        assert tool_started.data["tool_input"] == {"command": "pytest -q tests/test_example.py"}
+        assert tool_completed.data["tool_name"] == "Bash"
+        assert tool_completed.data["tool_result"]["is_error"] is False
+        assert tool_completed.data["tool_result"]["text_content"] == "1 passed in 0.01s"
+
+    def test_message_level_tool_completion_event_type_is_not_terminal(self) -> None:
+        """A finished tool must not classify the runtime handle as terminated.
+
+        Message-level `runtime_event_type` now takes priority over stale handle
+        metadata, so the adapter's completion vocabulary reaches lifecycle
+        classification directly. `_runtime_handle_lifecycle_state` maps any value
+        containing "completed" (outside the `message.`/`result.`/`turn.` prefixes)
+        onto the terminal `completed` state, so naming a per-tool completion
+        `tool.completed` would end the runtime after its first tool.
+        """
+        from ouroboros.orchestrator.adapter import (
+            _RUNTIME_TERMINAL_STATES,
+            _runtime_handle_lifecycle_state,
+        )
+        from ouroboros.orchestrator.codex_cli_runtime import CodexCliRuntime
+
+        runtime = CodexCliRuntime()
+        messages = runtime._convert_event(
+            {
+                "type": "item.completed",
+                "item": {
+                    "id": "cmd-99",
+                    "type": "command_execution",
+                    "command": "pytest -q",
+                    "exit_code": 0,
+                    "status": "completed",
+                },
+            },
+            None,
+        )
+
+        event_types = [
+            message.data.get("runtime_event_type")
+            for message in messages
+            if message.data.get("runtime_event_type")
+        ]
+        assert event_types, "completion conversion must stamp a runtime_event_type"
+
+        for event_type in event_types:
+            lifecycle = _runtime_handle_lifecycle_state(event_type, has_session_id=True)
+            assert lifecycle not in _RUNTIME_TERMINAL_STATES, (
+                f"per-tool event type {event_type!r} classifies the runtime as "
+                f"{lifecycle!r}, which is terminal"
+            )
+
+    def test_codex_id_bearing_exit_only_test_completion_does_not_prove_file_claim(self) -> None:
+        from ouroboros.orchestrator.codex_cli_runtime import CodexCliRuntime
+
+        command = "pytest -q tests/test_example.py"
+        messages = tuple(
+            CodexCliRuntime(cli_path="codex", cwd="/tmp/project")._convert_event(
+                {
+                    "type": "item.completed",
+                    "item": {
+                        "id": "cmd-exit-only",
+                        "type": "command_execution",
+                        "command": command,
+                        "exit_code": 0,
+                    },
+                },
+                current_handle=None,
+            )
+        )
+
+        assert not _runtime_messages_support_test_claim(
+            value="tests/test_example.py",
+            backed_commands=(command,),
+            messages=messages,
+            task_cwd=None,
+        )
+
+    @pytest.mark.asyncio
     async def test_atomic_ac_projects_empty_tool_result_content_into_completion_events(
         self,
     ) -> None:
@@ -11594,20 +16324,12 @@ async def test_try_decompose_ac_replaces_goose_chunks_with_final_result() -> Non
         enable_decomposition=True,
     )
 
-    result = await executor._try_decompose_ac(
-        ac_content="Investigate and test sub-AC behavior.",
-        ac_index=0,
-        seed_goal="Verify Goose final result handling",
-        tools=[],
+    response = await executor._dispatch_decomposition_prompt(
+        prompt="Investigate and test sub-AC behavior.",
         system_prompt="system",
     )
 
-    assert result.disposition is DecompositionDisposition.SPLIT
-    assert [child.description for child in result.children] == [
-        "Sub-AC 1: inspect",
-        "Sub-AC 2: test",
-    ]
-    assert result.trustworthy is False
+    assert response == '["Sub-AC 1: inspect", "Sub-AC 2: test"]'
 
 
 @pytest.mark.asyncio
@@ -11641,21 +16363,16 @@ async def test_try_decompose_ac_accumulates_goose_stream_chunks() -> None:
         enable_decomposition=True,
     )
 
-    result = await executor._try_decompose_ac(
-        ac_content="Investigate, test, and document sub-AC behavior.",
-        ac_index=0,
-        seed_goal="Verify Goose sub-AC support",
-        tools=[],
+    response = await executor._dispatch_decomposition_prompt(
+        prompt="Investigate, test, and document sub-AC behavior.",
         system_prompt="system",
     )
 
-    assert result.disposition is DecompositionDisposition.SPLIT
-    assert [child.description for child in result.children] == [
-        "Sub-AC 1: inspect the implementation",
-        "Sub-AC 2: write a focused regression test",
-        "Sub-AC 3: document the result",
-    ]
-    assert result.trustworthy is False
+    assert response == (
+        '["Sub-AC 1: inspect the implementation", '
+        '"Sub-AC 2: write a focused regression test", '
+        '"Sub-AC 3: document the result"]'
+    )
 
 
 @pytest.mark.asyncio
@@ -11693,20 +16410,12 @@ async def test_try_decompose_ac_announces_same_empty_tools_allowlist_it_dispatch
         enable_decomposition=True,
     )
 
-    result = await executor._try_decompose_ac(
-        ac_content="Investigate and test sub-AC behavior.",
-        ac_index=0,
-        seed_goal="Verify decomposition tool handling",
-        tools=["Read"],
+    response = await executor._dispatch_decomposition_prompt(
+        prompt="Investigate and test sub-AC behavior.",
         system_prompt="system",
     )
 
-    assert result.disposition is DecompositionDisposition.SPLIT
-    assert [child.description for child in result.children] == [
-        "Sub-AC 1: inspect",
-        "Sub-AC 2: test",
-    ]
-    assert result.trustworthy is False
+    assert response == '["Sub-AC 1: inspect", "Sub-AC 2: test"]'
     assert runtime.dispatched_tools == []
     console.print.assert_called_once()
     notice = console.print.call_args.args[0]

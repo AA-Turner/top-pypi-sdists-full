@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mqt.qcec
-Version: 3.7.0
+Version: 3.8.0
 Summary: A tool for Quantum Circuit Equivalence Checking
 Keywords: MQT,quantum-computing,design-automation,equivalence-checking,verification
 Author-Email: Lukas Burgholzer <lukas.burgholzer@tum.de>, Tom Peham <tom.peham@tum.de>
@@ -28,7 +28,7 @@ Project-URL: Documentation, https://mqt.readthedocs.io/projects/qcec
 Project-URL: Issues, https://github.com/munich-quantum-toolkit/qcec/issues
 Project-URL: Discussions, https://github.com/munich-quantum-toolkit/qcec/discussions
 Requires-Python: >=3.10
-Requires-Dist: mqt.core~=3.7.0
+Requires-Dist: mqt.core~=3.8.0
 Requires-Dist: typing_extensions>=4.2; python_version < "3.11"
 Requires-Dist: numpy>=1.22
 Requires-Dist: numpy>=1.24; python_version >= "3.11"

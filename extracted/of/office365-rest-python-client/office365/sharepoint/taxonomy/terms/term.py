@@ -1,4 +1,6 @@
-import datetime
+from __future__ import annotations
+
+from datetime import datetime
 
 from office365.runtime.client_value_collection import ClientValueCollection
 from office365.runtime.paths.resource_path import ResourcePath
@@ -10,33 +12,30 @@ class Term(TaxonomyItem):
     """Represents a Term or a Keyword in a managed metadata hierarchy."""
 
     def __repr__(self):
-        return "{0}".format(self.id)
+        return f"{self.id}"
 
     @property
-    def is_deprecated(self):
-        # type: () -> bool
+    def is_deprecated(self) -> bool | None:
         """"""
         return self.properties.get("isDeprecated", None)
 
     @property
-    def children_count(self):
-        # type: () -> int
+    def children_count(self) -> int | None:
         """"""
         return self.properties.get("childrenCount", None)
 
     @property
-    def created_datetime(self):
-        # type: () -> datetime.datetime
+    def created_datetime(self) -> datetime | None:
         """"""
-        return self.properties.get("createdDateTime", None)
+        return self.properties.get("createdDateTime", datetime.min)
 
     @property
-    def labels(self):
+    def labels(self) -> ClientValueCollection[Label]:
         """Gets a collection of Label objects for the current Term object."""
         return self.properties.get("labels", ClientValueCollection(Label))
 
     @property
-    def parent(self):
+    def parent(self) -> Term:
         return self.properties.get(
             "parent",
             Term(self.context, ResourcePath("parent", self.resource_path)),

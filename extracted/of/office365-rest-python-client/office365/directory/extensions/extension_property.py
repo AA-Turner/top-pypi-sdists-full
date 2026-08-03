@@ -1,7 +1,6 @@
-# coding=utf-8
 from typing import Optional
 
-from office365.directory.object import DirectoryObject
+from office365.directory.objects.object import DirectoryObject
 from office365.runtime.types.collections import StringCollection
 
 
@@ -14,20 +13,17 @@ class ExtensionProperty(DirectoryObject):
     """
 
     @property
-    def name(self):
-        # type: () -> Optional[str]
+    def name(self) -> Optional[str]:
         """Name of the extension property"""
         return self.properties.get("name", None)
 
     @property
-    def app_display_name(self):
-        # type: () -> Optional[str]
+    def app_display_name(self) -> Optional[str]:
         """Display name of the application object on which this extension property is defined. Read-only"""
         return self.properties.get("appDisplayName", None)
 
     @property
-    def data_type(self):
-        # type: () -> Optional[str]
+    def data_type(self) -> Optional[str]:
         """
         Specifies the data type of the value the extension property can hold. Following values are supported.
             Binary - 256 bytes maximum
@@ -40,7 +36,7 @@ class ExtensionProperty(DirectoryObject):
         return self.properties.get("dataType", None)
 
     @property
-    def target_objects(self):
+    def target_objects(self) -> Optional[StringCollection]:
         """
         Following values are supported. Not nullable.
         User
@@ -50,3 +46,17 @@ class ExtensionProperty(DirectoryObject):
         Application
         """
         return self.properties.get("targetObjects", StringCollection())
+
+    @property
+    def is_multi_valued(self) -> Optional[bool]:
+        """Gets the isMultiValued property"""
+        return self.properties.get("isMultiValued", None)
+
+    @property
+    def is_synced_from_on_premises(self) -> Optional[bool]:
+        """Gets the isSyncedFromOnPremises property"""
+        return self.properties.get("isSyncedFromOnPremises", None)
+
+    @property
+    def entity_type_name(self) -> str:
+        return "microsoft.graph.ExtensionProperty"

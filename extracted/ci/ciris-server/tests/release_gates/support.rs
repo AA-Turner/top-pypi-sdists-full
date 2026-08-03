@@ -57,14 +57,27 @@ use std::path::PathBuf;
 // `canonical_genesis_records()`→`canonical_genesis_bundle()`. The SEMANTIC change is
 // bigger than the renames: `lifecycle_active` is GONE from `trust_root_valid`, replaced
 // by a banded `drill_freshness` reported beside the verdict. A seed no longer expires.
-pub const TARGET_VERIFY: &str = "v10.6.3";
-pub const TARGET_PERSIST: &str = "v24.2.0";
-pub const TARGET_EDGE: &str = "v15.9.1";
+// CIRISServer#340 — RESOLVED. The verify ceiling is lifted.
+//
+// This block used to explain why verify was pinned at v10.6.3 and could not
+// move: persist and edge both pinned it there, a cargo git tag is part of the
+// SOURCE ID rather than a semver range, and moving ours alone FORKED verify —
+// two ciris_keyring crates, two of every substrate type across the seam, 19 lib
+// + 24 lib-test errors. No [patch] escape exists: cargo rejects any entry on the
+// same canonical URL.
+//
+// The unblock had to land upstream and did: persist v25.0.0 (#577) lifted the
+// mesh-wide ceiling to verify v11.0.0, and edge v15.11.0 adopted it in the same
+// wave. Kept as a note rather than deleted because the failure mode recurs — any
+// dependency a sibling also pins by tag is a ceiling, not a choice.
+pub const TARGET_VERIFY: &str = "v11.0.0";
+pub const TARGET_PERSIST: &str = "v25.0.0";
+pub const TARGET_EDGE: &str = "v15.12.0";
 /// Stage 6/7: the persist MAJOR family that bakes the canonical genesis seed.
 /// (Name is historical — the seed-bake family moved v10 → v12 → **v13**: the v12.0
 /// genesis-mesh rooting anchor persisted, v13.0.0 adds the accord-conferred
 /// `canonical` role + single-owner admission gate for the mesh-seed release.)
-pub const TARGET_PERSIST_V10: &str = "v24";
+pub const TARGET_PERSIST_V10: &str = "v25";
 
 /// The canonical-seed transport key id Node A must carry (Stage 5).
 pub const CANONICAL_TRANSPORT_KEY_ID: &str = "ciris-canonical-1";

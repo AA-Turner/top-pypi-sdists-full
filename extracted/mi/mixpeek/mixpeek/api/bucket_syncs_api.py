@@ -22,6 +22,8 @@ from typing import Any, Optional
 from typing_extensions import Annotated
 from mixpeek.models.bulk_mark_dlq_request import BulkMarkDLQRequest
 from mixpeek.models.bulk_mark_dlq_response import BulkMarkDLQResponse
+from mixpeek.models.bulk_requeue_dlq_request import BulkRequeueDLQRequest
+from mixpeek.models.bulk_requeue_dlq_response import BulkRequeueDLQResponse
 from mixpeek.models.dlq_list_response import DLQListResponse
 from mixpeek.models.list_dlq_request import ListDLQRequest
 from mixpeek.models.list_sync_configurations_request import ListSyncConfigurationsRequest
@@ -2489,6 +2491,8 @@ class BucketSyncsApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_sync_configurations_request: Optional[ListSyncConfigurationsRequest] = None,
         _request_timeout: Union[
@@ -2520,6 +2524,10 @@ class BucketSyncsApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_sync_configurations_request:
@@ -2553,6 +2561,8 @@ class BucketSyncsApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_sync_configurations_request=list_sync_configurations_request,
             _request_auth=_request_auth,
@@ -2590,6 +2600,8 @@ class BucketSyncsApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_sync_configurations_request: Optional[ListSyncConfigurationsRequest] = None,
         _request_timeout: Union[
@@ -2621,6 +2633,10 @@ class BucketSyncsApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_sync_configurations_request:
@@ -2654,6 +2670,8 @@ class BucketSyncsApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_sync_configurations_request=list_sync_configurations_request,
             _request_auth=_request_auth,
@@ -2691,6 +2709,8 @@ class BucketSyncsApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_sync_configurations_request: Optional[ListSyncConfigurationsRequest] = None,
         _request_timeout: Union[
@@ -2722,6 +2742,10 @@ class BucketSyncsApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_sync_configurations_request:
@@ -2755,6 +2779,8 @@ class BucketSyncsApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_sync_configurations_request=list_sync_configurations_request,
             _request_auth=_request_auth,
@@ -2787,6 +2813,8 @@ class BucketSyncsApi:
         offset,
         page,
         cursor,
+        next_cursor,
+        after,
         include_total,
         list_sync_configurations_request,
         _request_auth,
@@ -2832,6 +2860,14 @@ class BucketSyncsApi:
         if cursor is not None:
             
             _query_params.append(('cursor', cursor))
+            
+        if next_cursor is not None:
+            
+            _query_params.append(('next_cursor', next_cursor))
+            
+        if after is not None:
+            
+            _query_params.append(('after', after))
             
         if include_total is not None:
             
@@ -2898,6 +2934,8 @@ class BucketSyncsApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_sync_jobs_request: Optional[ListSyncJobsRequest] = None,
         _request_timeout: Union[
@@ -2931,6 +2969,10 @@ class BucketSyncsApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_sync_jobs_request:
@@ -2965,6 +3007,8 @@ class BucketSyncsApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_sync_jobs_request=list_sync_jobs_request,
             _request_auth=_request_auth,
@@ -3003,6 +3047,8 @@ class BucketSyncsApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_sync_jobs_request: Optional[ListSyncJobsRequest] = None,
         _request_timeout: Union[
@@ -3036,6 +3082,10 @@ class BucketSyncsApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_sync_jobs_request:
@@ -3070,6 +3120,8 @@ class BucketSyncsApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_sync_jobs_request=list_sync_jobs_request,
             _request_auth=_request_auth,
@@ -3108,6 +3160,8 @@ class BucketSyncsApi:
         offset: Optional[Annotated[int, Field(le=10000, strict=True, ge=0)]] = None,
         page: Optional[Annotated[int, Field(strict=True, ge=1)]] = None,
         cursor: Optional[StrictStr] = None,
+        next_cursor: Optional[StrictStr] = None,
+        after: Optional[StrictStr] = None,
         include_total: Optional[StrictBool] = None,
         list_sync_jobs_request: Optional[ListSyncJobsRequest] = None,
         _request_timeout: Union[
@@ -3141,6 +3195,10 @@ class BucketSyncsApi:
         :type page: int
         :param cursor:
         :type cursor: str
+        :param next_cursor:
+        :type next_cursor: str
+        :param after:
+        :type after: str
         :param include_total:
         :type include_total: bool
         :param list_sync_jobs_request:
@@ -3175,6 +3233,8 @@ class BucketSyncsApi:
             offset=offset,
             page=page,
             cursor=cursor,
+            next_cursor=next_cursor,
+            after=after,
             include_total=include_total,
             list_sync_jobs_request=list_sync_jobs_request,
             _request_auth=_request_auth,
@@ -3208,6 +3268,8 @@ class BucketSyncsApi:
         offset,
         page,
         cursor,
+        next_cursor,
+        after,
         include_total,
         list_sync_jobs_request,
         _request_auth,
@@ -3255,6 +3317,14 @@ class BucketSyncsApi:
         if cursor is not None:
             
             _query_params.append(('cursor', cursor))
+            
+        if next_cursor is not None:
+            
+            _query_params.append(('next_cursor', next_cursor))
+            
+        if after is not None:
+            
+            _query_params.append(('after', after))
             
         if include_total is not None:
             
@@ -3589,6 +3659,327 @@ class BucketSyncsApi:
         return self.api_client.param_serialize(
             method='POST',
             resource_path='/v1/buckets/{bucket_id}/syncs/{sync_config_id}/pause',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def requeue_dlq_entries_buckets_id_syncs_config(
+        self,
+        bucket_id: StrictStr,
+        sync_config_id: StrictStr,
+        bulk_requeue_dlq_request: Optional[BulkRequeueDLQRequest] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> BulkRequeueDLQResponse:
+        """Requeue Dlq Entries
+
+        Return exhausted DLQ entries to the retry path (TG-2999).  The inverse of bulk-mark-failed. Use after fixing the underlying cause (a restored proxy URL, a storage permission, an upstream outage) to re-drive the entries that gave up. Without this, the only way to re-drive a DLQ was to lean on natural sync-diff and hope the objects were rediscovered.  Resets `max_retries_reached` and `retry_count`, stamps `requeued_at`, and clears `disposal_reason` so the retry task does not immediately re-retire the entry. Only entries that have EXHAUSTED their retries are touched; anything still retrying is left alone rather than silently granted extra attempts.  Omit `error_types` to requeue everything exhausted for the sync config.
+
+        :param bucket_id: (required)
+        :type bucket_id: str
+        :param sync_config_id: (required)
+        :type sync_config_id: str
+        :param bulk_requeue_dlq_request:
+        :type bulk_requeue_dlq_request: BulkRequeueDLQRequest
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._requeue_dlq_entries_buckets_id_syncs_config_serialize(
+            bucket_id=bucket_id,
+            sync_config_id=sync_config_id,
+            bulk_requeue_dlq_request=bulk_requeue_dlq_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "BulkRequeueDLQResponse",
+            '400': "ErrorResponse",
+            '401': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
+            '500': "ErrorResponse",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def requeue_dlq_entries_buckets_id_syncs_config_with_http_info(
+        self,
+        bucket_id: StrictStr,
+        sync_config_id: StrictStr,
+        bulk_requeue_dlq_request: Optional[BulkRequeueDLQRequest] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[BulkRequeueDLQResponse]:
+        """Requeue Dlq Entries
+
+        Return exhausted DLQ entries to the retry path (TG-2999).  The inverse of bulk-mark-failed. Use after fixing the underlying cause (a restored proxy URL, a storage permission, an upstream outage) to re-drive the entries that gave up. Without this, the only way to re-drive a DLQ was to lean on natural sync-diff and hope the objects were rediscovered.  Resets `max_retries_reached` and `retry_count`, stamps `requeued_at`, and clears `disposal_reason` so the retry task does not immediately re-retire the entry. Only entries that have EXHAUSTED their retries are touched; anything still retrying is left alone rather than silently granted extra attempts.  Omit `error_types` to requeue everything exhausted for the sync config.
+
+        :param bucket_id: (required)
+        :type bucket_id: str
+        :param sync_config_id: (required)
+        :type sync_config_id: str
+        :param bulk_requeue_dlq_request:
+        :type bulk_requeue_dlq_request: BulkRequeueDLQRequest
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._requeue_dlq_entries_buckets_id_syncs_config_serialize(
+            bucket_id=bucket_id,
+            sync_config_id=sync_config_id,
+            bulk_requeue_dlq_request=bulk_requeue_dlq_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "BulkRequeueDLQResponse",
+            '400': "ErrorResponse",
+            '401': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
+            '500': "ErrorResponse",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def requeue_dlq_entries_buckets_id_syncs_config_without_preload_content(
+        self,
+        bucket_id: StrictStr,
+        sync_config_id: StrictStr,
+        bulk_requeue_dlq_request: Optional[BulkRequeueDLQRequest] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Requeue Dlq Entries
+
+        Return exhausted DLQ entries to the retry path (TG-2999).  The inverse of bulk-mark-failed. Use after fixing the underlying cause (a restored proxy URL, a storage permission, an upstream outage) to re-drive the entries that gave up. Without this, the only way to re-drive a DLQ was to lean on natural sync-diff and hope the objects were rediscovered.  Resets `max_retries_reached` and `retry_count`, stamps `requeued_at`, and clears `disposal_reason` so the retry task does not immediately re-retire the entry. Only entries that have EXHAUSTED their retries are touched; anything still retrying is left alone rather than silently granted extra attempts.  Omit `error_types` to requeue everything exhausted for the sync config.
+
+        :param bucket_id: (required)
+        :type bucket_id: str
+        :param sync_config_id: (required)
+        :type sync_config_id: str
+        :param bulk_requeue_dlq_request:
+        :type bulk_requeue_dlq_request: BulkRequeueDLQRequest
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._requeue_dlq_entries_buckets_id_syncs_config_serialize(
+            bucket_id=bucket_id,
+            sync_config_id=sync_config_id,
+            bulk_requeue_dlq_request=bulk_requeue_dlq_request,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "BulkRequeueDLQResponse",
+            '400': "ErrorResponse",
+            '401': "ErrorResponse",
+            '403': "ErrorResponse",
+            '404': "ErrorResponse",
+            '500': "ErrorResponse",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _requeue_dlq_entries_buckets_id_syncs_config_serialize(
+        self,
+        bucket_id,
+        sync_config_id,
+        bulk_requeue_dlq_request,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if bucket_id is not None:
+            _path_params['bucket_id'] = bucket_id
+        if sync_config_id is not None:
+            _path_params['sync_config_id'] = sync_config_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if bulk_requeue_dlq_request is not None:
+            _body_params = bulk_requeue_dlq_request
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/v1/buckets/{bucket_id}/syncs/{sync_config_id}/dlq/requeue',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,

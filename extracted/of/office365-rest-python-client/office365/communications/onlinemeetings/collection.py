@@ -1,55 +1,63 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+
 from office365.communications.onlinemeetings.online_meeting import OnlineMeeting
+from office365.communications.onlinemeetings.participants import MeetingParticipants
 from office365.communications.onlinemeetings.recordings.call import CallRecording
 from office365.entity_collection import EntityCollection
-from office365.runtime.queries.create_entity import CreateEntityQuery
+from office365.runtime.client_value import ClientValue
 from office365.runtime.queries.service_operation import ServiceOperationQuery
 
 
+@dataclass
+class ChatInfo(ClientValue):
+    pass
+
+
 class OnlineMeetingCollection(EntityCollection[OnlineMeeting]):
+    """ """
+
     def __init__(self, context, resource_path=None):
-        super(OnlineMeetingCollection, self).__init__(
-            context, OnlineMeeting, resource_path
-        )
+        super().__init__(context, OnlineMeeting, resource_path)
 
-    def create(self, subject, start_datetime=None, end_datetime=None):
-        """
-        Create an online meeting on behalf of a user by using the object ID (OID) in the user token.
+    def create(
+        self,
+        subject: str,
+        start_datetime: datetime | None = None,
+        end_datetime: datetime | None = None,
+        **kwargs,
+    ) -> OnlineMeeting:
+        """Create an online meeting on behalf of a user by using the object ID (OID) in the user token.
 
-        :param datetime.datetime start_datetime: The meeting start time in UTC.
-        :param datetime.datetime end_datetime: The meeting end time in UTC.
-        :param str subject: The subject of the online meeting.
+        Args:
+            start_datetime (datetime): The meeting start time in UTC.
+            end_datetime (datetime): The meeting end time in UTC.
+            subject (str): The subject of the online meeting.
         """
-        return_type = OnlineMeeting(self.context)
-        self.add_child(return_type)
-        payload = {
-            "startDateTime": start_datetime,
-            "endDateTime": end_datetime,
-            "subject": subject,
-        }
-        qry = CreateEntityQuery(self, payload, return_type)
-        self.context.add_query(qry)
-        return return_type
+        return super().add(subject=subject, startDateTime=start_datetime, endDateTime=end_datetime, **kwargs)
 
     def create_or_get(
         self,
-        external_id=None,
-        start_datetime=None,
-        end_datetime=None,
-        subject=None,
-        participants=None,
-        chat_info=None,
-    ):
+        external_id: str | None = None,
+        start_datetime: datetime | None = None,
+        end_datetime: datetime | None = None,
+        subject: str | None = None,
+        participants: MeetingParticipants | None = None,
+        chat_info: ChatInfo | None = None,
+    ) -> OnlineMeeting:
         """Create an onlineMeeting object with a custom specified external ID. If the external ID already exists,
         this API will return the onlineMeeting object with that external ID.
 
-        :param str external_id: The external ID. A custom ID. (Required)
-        :param datetime.datetime start_datetime: The meeting start time in UTC.
-        :param datetime.datetime end_datetime: The meeting end time in UTC.
-        :param str subject: The subject of the online meeting.
-        :param MeetingParticipants participants: The participants associated with the online meeting.
-             This includes the organizer and the attendees.
-
-        :param ChatInfo chat_info:
+        Args:
+            external_id (str): The external ID. A custom ID. (Required)
+            start_datetime (datetime.datetime): The meeting start time in UTC.
+            end_datetime (datetime.datetime): The meeting end time in UTC.
+            subject (str): The subject of the online meeting.
+            participants (MeetingParticipants): The participants associated with the online meeting.
+              This includes the organizer and the attendees.
+            chat_info (ChatInfo):
         """
         return_type = OnlineMeeting(self.context)
         self.add_child(return_type)
@@ -61,27 +69,27 @@ class OnlineMeetingCollection(EntityCollection[OnlineMeeting]):
             "chatInfo": chat_info,
             "participants": participants,
         }
-        qry = ServiceOperationQuery(
-            self, "createOrGet", None, payload, None, return_type
-        )
+        qry = ServiceOperationQuery(self, "createOrGet", None, payload, None, return_type)
         self.context.add_query(qry)
         return return_type
 
     def get_all_recordings(
-        self, meeting_organizer_user_id, start_datetime=None, end_datetime=None
-    ):
-        """
-        Get all recordings from scheduled onlineMeeting instances for which the specified user is the organizer.
+        self,
+        meeting_organizer_user_id: str,
+        start_datetime: datetime | None = None,
+        end_datetime: datetime | None = None,
+    ) -> EntityCollection[CallRecording]:
+        """Get all recordings from scheduled onlineMeeting instances for which the specified user is the organizer.
         This API currently doesn't support getting call recordings from channel meetings.
 
-        :param str meeting_organizer_user_id: 	The user identifier of the meeting organizer to filter for artifacts
-            for meetings organized by the given user identifier.
-        :param datetime.datetime start_datetime: Optional parameter to filter for artifacts created after the given
-            start date. The timestamp type represents date and time information using ISO 8601 format and is always
-            in UTC
-        :param datetime.datetime end_datetime: Optional parameter to filter for artifacts created before the given
-            end date. The timestamp type represents date and time information using ISO 8601 format and is always
-            in UTC
+        Args:
+            meeting_organizer_user_id (str): The user identifier of the meeting organizer to filter for artifacts for
+              meetings organized by the given user identifier.
+            start_datetime (datetime.datetime): Optional parameter to filter for artifacts created after the given
+              start date. The timestamp type represents date and time information using ISO 8601 format and is always
+              in UTC
+            end_datetime (datetime.datetime): Optional parameter to filter for artifacts created before the given end
+              date. The timestamp type represents date and time information using ISO 8601 format and is always in UTC
         """
         return_type = EntityCollection(self.context, CallRecording)
         payload = {
@@ -89,8 +97,6 @@ class OnlineMeetingCollection(EntityCollection[OnlineMeeting]):
             "startDateTime": start_datetime,
             "endDateTime": end_datetime,
         }
-        qry = ServiceOperationQuery(
-            self, "getAllRecordings", None, payload, None, return_type
-        )
+        qry = ServiceOperationQuery(self, "getAllRecordings", None, payload, None, return_type)
         self.context.add_query(qry)
         return return_type

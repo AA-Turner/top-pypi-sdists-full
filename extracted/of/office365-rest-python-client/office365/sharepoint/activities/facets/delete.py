@@ -1,12 +1,14 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Optional
+
 from office365.runtime.client_value import ClientValue
 
 
+@dataclass
 class DeleteFacet(ClientValue):
-    """"""
-
-    def __init__(self, name=None):
-        # type: (str) -> None
-        self.name = name
+    name: Optional[str] = None
 
     @property
     def entity_type_name(self):

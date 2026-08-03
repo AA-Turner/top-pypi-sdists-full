@@ -6,7 +6,7 @@ import shlex
 import uuid
 from collections import deque
 from os import getenv, environ
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 from loguru import logger
 from pydantic import ValidationError
@@ -253,7 +253,8 @@ def _build_skills_instructions(skills) -> str:
     Skills are listed here directly (name + description) so the agent does NOT
     need to read ./skills/INDEX.md to discover them — that file is synced into
     the workspace asynchronously and may lag a cold boot. To USE a skill, the
-    agent opens ./skills/<name>/SKILL.md for steps + scripts. Returns "" when the
+    agent loads it in one xpload_skill call (workspace file reads are the
+    fallback); scripts still run from ./skills/<name>/. Returns "" when the
     agent has no skills.
     """
     rows = [
@@ -267,12 +268,16 @@ def _build_skills_instructions(skills) -> str:
         '\n<skills note="playbooks installed in your workspace under ./skills '
         "(already synced). The list below is ONLY a preview (skill name + one-line "
         "description) — it is NOT enough to run a skill, and you must never assume a "
-        "skill's contents. Before you use any skill you MUST first load its full "
-        "./skills/&lt;name&gt;/SKILL.md and follow it; never act on this preview alone. "
-        "Open the SKILL.md — large skills are auto context-optimized — then use "
-        "xpworkspace-context-retrieve (its query / semantic_query) to pull just the steps "
-        "you need rather than dumping the whole file into your context. Run its scripts "
-        "via xpworkspace-bash. The ./skills folder is managed and read-only "
+        "skill's contents. Before you use a skill, load it with ONE "
+        "xpload_skill(skill_name) call: it returns the full SKILL.md plus its "
+        "key reference files. Call it ONLY when you actually intend to use "
+        "that skill this turn, and skip it entirely when the playbook is "
+        "already in your task context (&lt;skill_playbook&gt;) — never load it "
+        "twice. If xpload_skill is unavailable or lists a file without "
+        "inlining it, read its SKILL.md (or that listed file) with "
+        "xpworkspace-file-read from ./skills/&lt;name&gt;/; never act on this "
+        "preview alone. Run its "
+        "scripts via xpworkspace-bash. The ./skills folder is managed and read-only "
         "(synced from the platform; anything you write there is deleted on the next sync) - "
         "never write to ./skills or overwrite a synced skill, and NEVER author skill files "
         "yourself (no SKILL.md, no local_skills/): new skills are created ONLY through the "
@@ -748,6 +753,15 @@ def _classify_tool_error(error: Exception) -> str:
 
     error_str = str(error).lower()
 
+    # auth markers BEFORE status sniffing - connectors mislabel auth failures as 500
+    if any(
+        marker in error_str
+        for marker in [
+            "permission_denied", "permission denied", "access denied", "accessdenied",
+        ]
+    ):
+        return "auth"
+
     # Check for HTTP status codes in error messages
     if any(
         code in error_str
@@ -966,6 +980,23 @@ _READ_ONLY_TOOLS = {
 # `has_args and not read-only` early-out below waved through seven identical memory updates.
 _IDEMPOTENT_WRITE_TOOLS = {"manage_memory"}
 
+
+# Reads the finalize-mode gate always permits so the model can gather what it needs to
+# compose its final answer. Secrets-list is deliberately excluded - finalize is a
+# wind-down state, not a place to enumerate the secret namespace.
+_FINALIZE_SAFE_READS = _READ_ONLY_TOOLS - {"xpworkspace-secrets-list"}
+
+
+def _is_finalize_safe_read(function_name: str, arguments: Any) -> bool:
+    """A non-destructive read the finalize-mode gate must never block. Covers the direct
+    read-only tools and a dynamic-dispatch (`xp_execute_tool`) whose inner tool is one."""
+    if function_name in _FINALIZE_SAFE_READS:
+        return True
+    if function_name == _DYNAMIC_DISPATCH_META_TOOL:
+        inner_name, _ = _effective_tool_identity(function_name, arguments)
+        return inner_name in _FINALIZE_SAFE_READS
+    return False
+
 REDUNDANT_CALL_MESSAGE = (
     "Redundant call blocked: '{tool}' already ran with these exact arguments earlier in this "
     "task and nothing has changed since, so it was not run again - the earlier result above is "
@@ -1037,10 +1068,12 @@ def _coerce_bash_command(arguments: Any) -> Optional[str]:
     return command if isinstance(command, str) else None
 
 
-# A call that was refused, blocked, or changed nothing is not progress. A couple in a row
+# A call that was refused, blocked, or changed nothing is not progress. A few in a row
 # means the model has run out of work and is filling turns - the tail of the runs this
-# fixes was noop bash, a blocked memory write, noop bash again.
-NO_PROGRESS_FINALIZE_AT = 2
+# fixes was noop bash, a blocked memory write, noop bash again. Only genuine refused-noop
+# RESULTS advance this (raised errors feed the error-streak breaker instead), so 3 is a
+# conservative bar that won't trip on a couple of incidental redundant reads mid-work.
+NO_PROGRESS_FINALIZE_AT = 3
 NO_PROGRESS_MESSAGE = (
     "You have now made {n} tool calls in a row that changed nothing - refused, blocked, or "
     "already done. There is no further tool work to do. Write your answer to the user now."
@@ -1056,6 +1089,7 @@ _NO_PROGRESS_MARKERS = (
     "Already known - not saved again",
     "Tool call rejected: the arguments arrived EMPTY",
     "Rejected: finalize-only mode is NOT active",
+    "Tool disabled:",
 )
 
 
@@ -1085,6 +1119,198 @@ def _looks_like_no_progress(result: Any) -> bool:
     """True when a tool result says, in any of its wordings, that nothing happened."""
     text = _no_progress_text(result)
     return any(marker in text for marker in _NO_PROGRESS_MARKERS)
+
+
+# A single runaway/broken tool is disabled, not the whole run; only this many
+# distinct disabled tools (a genuine multi-tool runaway) escalate to finalize.
+DISABLED_TOOLS_FINALIZE_AT = 3
+DISABLED_TOOL_MESSAGE = (
+    "Tool disabled: '{tool}' has been called {calls} times this task - that is "
+    "pagination/retry, not progress - and it will not run again this task. Work with "
+    "the data you already have or use a different tool. Any REQUIRED final step (a "
+    "mandated write/save) must still run via its own tool, or be reported as NOT "
+    "done - never claim or imply it happened."
+)
+DISABLED_TOOL_REPEAT_MESSAGE = (
+    "Tool disabled: '{tool}' is disabled for the rest of this task. Do not call it "
+    "again in any form. Use a different tool or answer with what you have."
+)
+
+
+def _report_blocked_call(task: Any, effective_name: str, message: str) -> None:
+    """Fire-and-forget activity pair for a refused call - gated/aborted calls previously
+    emitted NO events, so a run stuck behind the guards looked like minutes of silence."""
+    if task is None or should_skip_tool_report(effective_name):
+        return
+
+    async def _pair() -> None:
+        # one coroutine so the result can never land before its request
+        rid = str(uuid.uuid4())
+        await report_tool_call_request(
+            task, rid, effective_name, tool_name=effective_name,
+            payload={"blocked": True},
+        )
+        await report_tool_call_result(
+            task, rid, effective_name, message, is_error=True,
+            tool_name=effective_name,
+        )
+
+    try:
+        _spawn_bg(_pair())
+    except Exception:
+        pass
+
+
+def _disable_tool(task: Any, effective_name: str) -> Set[str]:
+    """Add a tool to the task-scoped disabled set; returns the set. Platform (xp*) tools
+    are never disabled - that could take out xpfinalize_task or the finalize-safe reads
+    and deadlock the run's own exit path."""
+    if effective_name.startswith("xp"):
+        disabled = getattr(task, "_xp_disabled_tools", None) if task is not None else None
+        return disabled if isinstance(disabled, set) else set()
+    if task is None:
+        return {effective_name}
+    disabled = getattr(task, "_xp_disabled_tools", None)
+    if not isinstance(disabled, set):
+        disabled = set()
+        try:
+            object.__setattr__(task, "_xp_disabled_tools", disabled)
+        except Exception:
+            return {effective_name}
+    disabled.add(effective_name)
+    return disabled
+
+
+def _is_tool_disabled(task: Any, effective_name: str) -> bool:
+    """True when this tool was disabled earlier in the run (volume/error caps)."""
+    disabled = getattr(task, "_xp_disabled_tools", None) if task is not None else None
+    return isinstance(disabled, set) and effective_name in disabled
+
+
+# Platform-default hard ceiling on tool calls per run; an explicit positive
+# agno_settings.tool_call_limit overrides it, 0/None mean "use this default".
+# Sized above heavy dp runs (a 40-step plan at 5-10 calls/step incl. plan
+# bookkeeping) - agno refuses over-limit calls gracefully but refuses ALL of
+# them, including xpfinalize_task, so headroom beats tightness here.
+DEFAULT_TOOL_CALL_LIMIT = 400
+
+# Plan-complete grace budget: the model cannot see plan completion (the prompt's plan
+# block omits flags for cache stability), so a finished dp run loops on xpget_agent_plan
+# + noop bash hunting for a finish step - detect completion from the plan-tool results
+# the hook already sees, tell it in-band, allow a few wrap-up reads, then force finalize.
+PLAN_COMPLETE_GRACE_CALLS = 5
+PLAN_COMPLETE_NOTE = (
+    "PLAN COMPLETE: all {total} plan steps are done. Compose your final answer NOW from "
+    "what you already have. Do not call plan, confirmation, or noop tools again - you "
+    "have at most {grace} more tool calls for genuinely missing values, then you must answer."
+)
+PLAN_COMPLETE_COUNTDOWN = (
+    "PLAN COMPLETE: the plan finished {n} tool calls ago (budget {grace}). Stop gathering - "
+    "answer the user in your next message."
+)
+PLAN_COMPLETE_STOP = (
+    "Done - the plan is fully complete and the wrap-up budget is spent. No further tool "
+    "calls will run. Your next message MUST be plain text with your final answer to the "
+    "user, based on the work already done. Do NOT call any more tools."
+)
+_PLAN_REOPEN_TOOLS = frozenset({
+    "xpcreate_agent_plan",
+    "xpadd_new_agent_plan_item",
+    "xpupdate_agent_plan_item",
+    "xpdelete_agent_plan_item",
+})
+
+
+def _plan_payload_dict(result: Any, depth: int = 0) -> Optional[dict]:
+    """Best-effort dict view of a plan-tool result (dict, JSON string, or nested in .result/.content)."""
+    if depth > 2 or result is None:
+        return None
+    if isinstance(result, dict):
+        return result
+    if isinstance(result, str):
+        s = result.strip()
+        if s.startswith("{"):
+            try:
+                parsed = json.loads(s)
+                return parsed if isinstance(parsed, dict) else None
+            except Exception:
+                return None
+        return None
+    for attr in ("result", "content"):
+        inner = getattr(result, attr, None)
+        if inner is not None and inner is not result:
+            found = _plan_payload_dict(inner, depth + 1)
+            if found is not None:
+                return found
+    return None
+
+
+def _detect_plan_complete(effective_name: str, result: Any) -> Optional[int]:
+    """Total step count when this plan-tool result shows the whole plan done, else None."""
+    if effective_name not in ("xpget_agent_plan", "xpcomplete_agent_plan_items"):
+        return None
+    payload = _plan_payload_dict(result)
+    if not payload:
+        return None
+    if effective_name == "xpcomplete_agent_plan_items":
+        # the platform annotates the completing call (plan_complete/total_tasks); older
+        # backends without the fields simply never match here - xpget still covers them
+        if payload.get("plan_complete") is True:
+            total = payload.get("total_tasks")
+            return int(total) if isinstance(total, int) and total > 0 else 1
+        return None
+    tasks = payload.get("tasks")
+    if not isinstance(tasks, list) or not tasks:
+        return None
+    if payload.get("enabled") is False:
+        return None
+    if all(isinstance(t, dict) and t.get("completed") for t in tasks):
+        return len(tasks)
+    return None
+
+
+def _track_plan_complete(task: Any, effective_name: str, result: Any, result_is_error: bool = False) -> str:
+    """Post-result bookkeeping: detect completion (note appended into the result), clear on reopen."""
+    if task is None:
+        return ""
+    if effective_name in _PLAN_REOPEN_TOOLS:
+        # scope legitimately grew/changed - never punish it; xpget re-detects if still done.
+        # a FAILED reopen changed nothing, so it must not reset the budget either
+        if not result_is_error:
+            _clear_plan_complete(task)
+        return ""
+    if getattr(task, "_xp_plan_complete_total", None):
+        return ""
+    total = _detect_plan_complete(effective_name, result)
+    if total is None:
+        return ""
+    try:
+        object.__setattr__(task, "_xp_plan_complete_total", total)
+        object.__setattr__(task, "_xp_plan_complete_calls", 0)
+    except Exception:
+        return ""
+    return PLAN_COMPLETE_NOTE.format(total=total, grace=PLAN_COMPLETE_GRACE_CALLS)
+
+
+def _clear_plan_complete(task: Any) -> None:
+    """Drop the plan-complete state (plan reopened or run reset)."""
+    for attr in ("_xp_plan_complete_total", "_xp_plan_complete_calls"):
+        try:
+            object.__setattr__(task, attr, None)
+        except Exception:
+            pass
+
+
+def _bump_plan_complete_calls(task: Any) -> int:
+    """Count a tool call made after the plan completed; 0 when the state is not active."""
+    if task is None or not getattr(task, "_xp_plan_complete_total", None):
+        return 0
+    calls = (getattr(task, "_xp_plan_complete_calls", 0) or 0) + 1
+    try:
+        object.__setattr__(task, "_xp_plan_complete_calls", calls)
+    except Exception:
+        return 0
+    return calls
 
 
 def _bump_no_progress_streak(task, result: Any, force: bool = False) -> int:
@@ -1633,6 +1859,12 @@ async def build_agent_args(
         args["instructions"] += TURN_ECONOMY_INSTRUCTIONS
         # anti-noop discipline was Omni-only before; every other agent filled end-of-task turns
         args["instructions"] += TOOL_CALL_DISCIPLINE_INSTRUCTIONS
+        if task is not None:
+            # read at run end: a tool-equipped run finishing with zero calls is suspect
+            try:
+                object.__setattr__(task, "_xp_tools_attached", True)
+            except Exception:
+                pass
     if workspace_enabled:
         args["instructions"] += CONTEXT_OPTIMIZATION_INSTRUCTIONS
 
@@ -1774,28 +2006,59 @@ async def build_agent_args(
         _tool_error_streaks = {}
 
     def _record_tool_outcome(function_name: str, errored: bool) -> Optional[str]:
-        """Track per-tool consecutive errors; at the cap enter Finalize-Only Mode and return a warning to surface to the LLM."""
+        """Track per-tool consecutive errors; at the cap disable THAT tool (run-wide
+        finalize here killed mandated writes on healthy tools when one flaky tool
+        kept failing after a fallback had already succeeded)."""
         streak = _bump_error_streak(_tool_error_streaks, function_name, errored)
         if streak < ERROR_STREAK_FINALIZE_AT:
             return None
-        optimizer_for_streak = args.get("compression_manager")
-        if isinstance(optimizer_for_streak, XPanderContextOptimizer):
-            try:
-                enter_finalize_mode(optimizer_for_streak, reason="error_streak")
-            except Exception as exc:
-                logger.warning(
-                    f"[error-streak] failed to enter finalize mode after "
-                    f"{streak}x consecutive errors of '{function_name}': {exc}"
-                )
+        if function_name.startswith("xp"):
+            # platform tools are never disabled (finalize deadlock) - a systemic 5x
+            # failure of one keeps the original run-wide finalize behavior
+            optimizer_for_streak = args.get("compression_manager")
+            if isinstance(optimizer_for_streak, XPanderContextOptimizer):
+                try:
+                    enter_finalize_mode(optimizer_for_streak, reason="error_streak")
+                except Exception as exc:
+                    logger.warning(f"[error-streak] finalize entry failed: {exc}")
+            logger.warning(
+                f"[error-streak] platform tool '{function_name}' errored {streak}x "
+                f"consecutively; entering finalize mode"
+            )
+            return (
+                f"⚠️ ERROR STREAK: '{function_name}' has now failed {streak} times in a "
+                f"row. The task is entering finalize-only mode - stop retrying and "
+                f"finalize with a summary of what succeeded and what is blocked.\n\n"
+                + gate_rejection_message(task, _record_gated_call(task))
+            )
+        disabled = _disable_tool(task, function_name)
         logger.warning(
             f"[error-streak] tool '{function_name}' errored {streak}x "
-            f"consecutively (cap {ERROR_STREAK_FINALIZE_AT}); entering finalize mode"
+            f"consecutively (cap {ERROR_STREAK_FINALIZE_AT}); disabling it "
+            f"({len(disabled)} tool(s) disabled)"
         )
+        if len(disabled) >= DISABLED_TOOLS_FINALIZE_AT:
+            optimizer_for_streak = args.get("compression_manager")
+            if isinstance(optimizer_for_streak, XPanderContextOptimizer):
+                try:
+                    enter_finalize_mode(optimizer_for_streak, reason="error_streak")
+                except Exception as exc:
+                    logger.warning(
+                        f"[error-streak] failed to enter finalize mode with "
+                        f"{len(disabled)} disabled tools: {exc}"
+                    )
+            return (
+                f"⚠️ ERROR STREAK: '{function_name}' has now failed {streak} times in a "
+                f"row and {len(disabled)} tools are disabled. The task is entering "
+                f"finalize-only mode - stop retrying and finalize with a summary of "
+                f"what succeeded and what is blocked.\n\n"
+                + gate_rejection_message(task, _record_gated_call(task))
+            )
         return (
-            f"⚠️ ERROR STREAK: '{function_name}' has now failed {streak} times in a "
-            f"row. The task is entering finalize-only mode — stop retrying and "
-            f"finalize with a summary of what succeeded and what is blocked.\n\n"
-            + gate_rejection_message(task, _record_gated_call(task))
+            f"⚠️ ERROR STREAK: '{function_name}' has now failed {streak} times in a row "
+            f"and is DISABLED for the rest of this run. Do not retry it in any form. "
+            f"Use a different tool or approach for what it was doing; any REQUIRED final "
+            f"step must still run via its own tool, or be reported as NOT done."
         )
 
     def _record_no_progress(result: Any, force: bool = False) -> Optional[str]:
@@ -1838,12 +2101,15 @@ async def build_agent_args(
                 isinstance(optimizer_finalize, XPanderContextOptimizer)
                 and is_finalize_active(optimizer_finalize)
                 and not is_tool_allowed(optimizer_finalize, function_name)
+                and not _is_finalize_safe_read(function_name, arguments)
             ):
                 gated = _record_gated_call(task)
                 logger.info(
                     f"[finalize-mode] gate rejected tool '{function_name}' (#{gated})"
                 )
-                return gate_rejection_message(task, gated)
+                message = gate_rejection_message(task, gated)
+                _report_blocked_call(task, function_name, message)
+                return message
             # Inverse gate: the tool is registered every run (finalize can trip mid-run), so reject spontaneous calls.
             premature = _premature_finalize_rejection(optimizer_finalize, function_name)
             if premature is not None:
@@ -1883,6 +2149,17 @@ async def build_agent_args(
         # re-entering this hook, so the stuck/volume/error-streak guards below key
         # on the unwrapped inner tool instead of the opaque meta name.
         eff_name, eff_args = _effective_tool_identity(function_name, arguments)
+
+        # a tool disabled by the volume/error caps stays disabled for the run;
+        # each refusal advances the no-progress streak so hammering it converges
+        if _is_tool_disabled(task, eff_name):
+            logger.info(f"[disabled-tool] refusing call to '{eff_name}'")
+            message = DISABLED_TOOL_REPEAT_MESSAGE.format(tool=eff_name)
+            warning = _record_no_progress(message)
+            if warning:
+                message = f"{message}\n\n{warning}"
+            _report_blocked_call(task, eff_name, message)
+            return message
 
         # preflight and monitoring + metrics
         matched_tool = None
@@ -2093,33 +2370,77 @@ async def build_agent_args(
             if not eff_name.startswith("xp"):
                 total_calls = _bump_total_calls(task, eff_name)
                 if total_calls >= MAX_TOTAL_TOOL_CALLS_PER_TOOL:
-                    optimizer_for_volume = args.get("compression_manager")
-                    if isinstance(optimizer_for_volume, XPanderContextOptimizer):
-                        try:
-                            enter_finalize_mode(
-                                optimizer_for_volume, reason="tool_overuse"
-                            )
-                        except Exception as exc:
-                            logger.warning(
-                                f"[tool-volume] failed to enter finalize mode after "
-                                f"{total_calls}x '{eff_name}': {exc}"
-                            )
+                    # disable THIS tool, not the run - run-wide finalize here killed
+                    # mandated writes on tools that were never overused; repeat calls
+                    # advance the no-progress streak at the disabled-check above
+                    disabled = _disable_tool(task, eff_name)
                     logger.warning(
-                        f"[tool-volume] aborting tool '{eff_name}' for agent "
+                        f"[tool-volume] disabling tool '{eff_name}' for agent "
                         f"{xpander_agent.id}: {total_calls} total calls this task "
-                        f"(cap {MAX_TOTAL_TOOL_CALLS_PER_TOOL}); entering finalize mode"
+                        f"(cap {MAX_TOTAL_TOOL_CALLS_PER_TOOL}); {len(disabled)} tool(s) disabled"
                     )
-                    return gate_rejection_message(task, _record_gated_call(task))
+                    if len(disabled) >= DISABLED_TOOLS_FINALIZE_AT:
+                        optimizer_for_volume = args.get("compression_manager")
+                        if isinstance(optimizer_for_volume, XPanderContextOptimizer):
+                            try:
+                                enter_finalize_mode(
+                                    optimizer_for_volume, reason="tool_overuse"
+                                )
+                            except Exception as exc:
+                                logger.warning(
+                                    f"[tool-volume] failed to enter finalize mode with "
+                                    f"{len(disabled)} disabled tools: {exc}"
+                                )
+                        message = gate_rejection_message(task, _record_gated_call(task))
+                        _report_blocked_call(task, eff_name, message)
+                        return message
+                    message = DISABLED_TOOL_MESSAGE.format(
+                        tool=eff_name, calls=total_calls
+                    )
+                    _report_blocked_call(task, eff_name, message)
+                    return message
                 if total_calls >= TOTAL_TOOL_CALLS_WARN_AT and not stuck_warning:
                     stuck_warning = (
                         f"⚠️ TOOL VOLUME: '{eff_name}' has been called {total_calls} times in "
                         f"this task (hard cap {MAX_TOTAL_TOOL_CALLS_PER_TOOL}). Stop paginating or "
-                        f"re-querying - work with the data you already have, or report the task as "
-                        f"blocked with a short status."
+                        f"re-querying - work with the data you already have. Any REQUIRED final "
+                        f"step (a mandated write/save) must still run via its own tool, or be "
+                        f"reported as NOT done - never claim or imply it happened."
                     )
                     logger.warning(
                         f"[tool-volume] '{eff_name}' at {total_calls} total calls for "
                         f"agent {xpander_agent.id}"
+                    )
+        except Exception:
+            pass
+
+        # Plan-complete grace budget: once the plan is 100% done, every further call
+        # spends a small wrap-up budget; past it the run is forced into finalize.
+        try:
+            optimizer_for_pc = args.get("compression_manager")
+            pc_finalize_active = isinstance(
+                optimizer_for_pc, XPanderContextOptimizer
+            ) and is_finalize_active(optimizer_for_pc)
+            # effective name: a plan tool routed through xp_execute_tool must count the same
+            if not pc_finalize_active and eff_name not in _PLAN_REOPEN_TOOLS:
+                pc_calls = _bump_plan_complete_calls(task)
+                if pc_calls > PLAN_COMPLETE_GRACE_CALLS:
+                    if isinstance(optimizer_for_pc, XPanderContextOptimizer):
+                        try:
+                            enter_finalize_mode(optimizer_for_pc, reason="plan_complete")
+                        except Exception as exc:
+                            logger.warning(
+                                f"[plan-complete] failed to enter finalize mode: {exc}"
+                            )
+                    logger.warning(
+                        f"[plan-complete] aborting tool '{eff_name}' for agent "
+                        f"{xpander_agent.id}: {pc_calls} calls after the plan finished "
+                        f"(budget {PLAN_COMPLETE_GRACE_CALLS}); entering finalize mode"
+                    )
+                    return PLAN_COMPLETE_STOP
+                if pc_calls > 0 and not stuck_warning:
+                    stuck_warning = PLAN_COMPLETE_COUNTDOWN.format(
+                        n=pc_calls, grace=PLAN_COMPLETE_GRACE_CALLS
                     )
         except Exception:
             pass
@@ -2272,7 +2593,7 @@ async def build_agent_args(
                     except Exception:
                         pass
                 warnings = [
-                    _record_tool_outcome(function_name, True),
+                    _record_tool_outcome(eff_name, True),
                     _record_no_progress(TRUNCATED_TOOL_CALL_MESSAGE),
                 ]
                 streak_warning = "\n\n".join(w for w in warnings if w)
@@ -2435,15 +2756,15 @@ async def build_agent_args(
                             await ledger.aappend(entry)
                     except Exception as exc:
                         logger.debug(f"[action-ledger] append failed: {exc}")
-                # Raised errors count toward the streak too; the warning text
-                # is unused here because the exception propagates as-is. A
-                # deterministic argument-shape failure is also futile-by-nature:
-                # count it in the no-progress streak so alternating refusals and
-                # validation errors feed one breaker instead of splitting across
-                # two that never trip.
-                _record_tool_outcome(function_name, True)
-                if _classify_tool_error(e) == "client":
-                    _record_no_progress(None, force=True)
+                # Errors feed the ERROR-streak breaker only (cap 5). They must NOT
+                # feed the no-progress breaker (cap 3): the raise below skips the
+                # success-path reset, so counting errors here can only ever climb -
+                # two spurious argument-shape/serialization faults (e.g. a double-
+                # wrapped payload) would otherwise trap the run in finalize-only mode.
+                # No-progress is for refused-noop RESULTS, tracked on the success path.
+                # Effective name: five raises through xp_execute_tool must streak the
+                # INNER tool, never phantom-disable the meta-tool.
+                _record_tool_outcome(eff_name, True)
                 raise
             finally:
                 current_tool_call_id.reset(_billing_ctx_token)
@@ -2789,15 +3110,24 @@ async def build_agent_args(
             _record_tool_outcome(eff_name, result_is_error),
             # a refused noop / blocked repeat "succeeds", so the error streak never sees it
             _record_no_progress(result),
+            # plan finished -> tell the model in-band and arm the wrap-up budget
+            # (effective name: plan tools may arrive via xp_execute_tool)
+            _track_plan_complete(task, eff_name, result, result_is_error),
         ]
         streak_warning = "\n\n".join(w for w in warnings if w)
         if streak_warning:
             try:
                 if isinstance(result, ToolInvocationResult):
-                    result.result = (
-                        f"{result.result}\n\n{streak_warning}"
+                    # dict results (plan tools) must append as JSON, not Python repr
+                    base_text = (
+                        result.result
+                        if isinstance(result.result, str)
+                        else json.dumps(result.result, default=str)
                         if result.result
-                        else streak_warning
+                        else ""
+                    )
+                    result.result = (
+                        f"{base_text}\n\n{streak_warning}" if base_text else streak_warning
                     )
                 elif hasattr(result, "content") and isinstance(result.content, str):
                     result.content = f"{result.content}\n\n{streak_warning}"
@@ -2865,7 +3195,7 @@ async def build_agent_args(
         del args["model"].temperature
 
     # configure deep planning guidance
-    _configure_deep_planning_guidance(args=args, agent=xpander_agent, task=task)
+    await _configure_deep_planning_guidance(args=args, agent=xpander_agent, task=task)
 
     # additional_context is only final here, and agno appends it to the tail of the
     # system message — hand it to the cache wrapper so the stable half above it keeps
@@ -2985,9 +3315,16 @@ def _strip_planning_tools_if_inactive(
     ]
 
 
-def _configure_deep_planning_guidance(
+async def _configure_deep_planning_guidance(
     args: Dict[str, Any], agent: Agent, task: Optional[Task]
 ) -> None:
+    """Inject plan guidance into ``args`` for a task that must plan before it acts.
+
+    Mutates ``args`` in place (``instructions``, ``additional_context`` and, when
+    deep planning is active, ``expected_output``). Stays a coroutine: the plan
+    state is refreshed over HTTP, and doing that synchronously re-enters the
+    caller's event loop.
+    """
     if not (args and agent and task):
         return
 
@@ -3007,7 +3344,8 @@ def _configure_deep_planning_guidance(
         agent.deep_planning and task.deep_planning and task.deep_planning.enabled
     )
     if deep_planning_active:
-        task.reload()  # reload the task - get latest plan state
+        # The gateway seeds and starts plans after dispatch, so the local copy is stale.
+        await task.areload()
 
     if not (deep_planning_active or must_plan):
         return
@@ -3073,14 +3411,10 @@ _AGNO_INTERNAL_TOOL_FIELDS = (
 )
 
 
-def _build_openai_like_cls():
-    """Return an ``OpenAILike`` subclass that strips agno-internal tool fields.
+def _strip_internal_tool_fields_cls(base):
+    """Subclass any agno OpenAI-compatible model class to strip agno-internal tool fields."""
 
-    Lazy: keeps the agno import optional and inside the model-build path.
-    """
-    from agno.models.openai.like import OpenAILike
-
-    class XpanderOpenAILike(OpenAILike):
+    class XpanderToolFieldStripping(base):
         def _format_tools(self, tools):
             formatted = super()._format_tools(tools)
             for entry in formatted:
@@ -3091,7 +3425,35 @@ def _build_openai_like_cls():
                             fn.pop(key, None)
             return formatted
 
-    return XpanderOpenAILike
+        def get_request_params(
+            self, response_format=None, tools=None, tool_choice=None, run_response=None
+        ):
+            # response_format alongside tools makes many OpenAI-compatible gateways
+            # (Kimi/Moonshot via OpenRouter, Cerebras) emit the tool call as JSON
+            # CONTENT instead of a function call - the run then dies parsing it as
+            # the structured output. Drop response_format when tools ride the
+            # request; the JSON-fields prompt block still instructs the final
+            # answer's shape and the tolerant parse handles it (fence + repair).
+            if tools and response_format is not None:
+                response_format = None
+            return super().get_request_params(
+                response_format=response_format,
+                tools=tools,
+                tool_choice=tool_choice,
+                run_response=run_response,
+            )
+
+    return XpanderToolFieldStripping
+
+
+def _build_openai_like_cls():
+    """Return an ``OpenAILike`` subclass that strips agno-internal tool fields.
+
+    Lazy: keeps the agno import optional and inside the model-build path.
+    """
+    from agno.models.openai.like import OpenAILike
+
+    return _strip_internal_tool_fields_cls(OpenAILike)
 
 
 async def _aget_org_default_llm_headers(agent: Agent) -> Any:
@@ -3202,9 +3564,6 @@ def _load_llm_model(
     llm_model_name = agent.model_name.lower()
     llm_reasoning_effort = agent.llm_reasoning_effort
 
-    is_gpt_5 = True if "gpt-5" in llm_model_name else False
-    is_gpt_5_6 = True if "gpt-5.6" in llm_model_name else False
-
     # override llm settings by task if set
     if task:
         if task.llm_model_provider:
@@ -3226,6 +3585,10 @@ def _load_llm_model(
             )
         except Exception as caps_exc:
             logger.debug(f"model capabilities resolution failed: {caps_exc}")
+
+    # flags must follow the task override, or a task-level gpt-5.6 routes to Chat and 400s
+    is_gpt_5 = "gpt-5" in llm_model_name
+    is_gpt_5_6 = "gpt-5.6" in llm_model_name
 
     if agent.llm_credentials and isinstance(agent.llm_credentials, dict):
         agent.llm_credentials = LLMCredentials(**agent.llm_credentials)
@@ -3316,7 +3679,8 @@ def _load_llm_model(
         and llm_model_name
         and is_gpt_5
     ):
-        llm_args = {"reasoning_effort": llm_reasoning_effort.value}
+        # add, never rebind: a fresh dict here silently dropped extra_headers
+        llm_args["reasoning_effort"] = llm_reasoning_effort.value
 
     if agent.llm_api_base and len(agent.llm_api_base) != 0:
         llm_args["base_url"] = agent.llm_api_base
@@ -3424,7 +3788,7 @@ def _load_llm_model(
         )
     # Z.ai (Zhipu GLM) - OpenAI-compatible inference
     elif llm_model_provider == "z_ai":
-        from agno.models.openai.like import OpenAILike
+        OpenAILike = _build_openai_like_cls()
 
         return OpenAILike(
             id=llm_model_name,
@@ -3469,10 +3833,14 @@ def _load_llm_model(
     elif llm_model_provider == "open_router":
         from agno.models.openrouter import OpenRouter
 
-        return OpenRouter(
+        return _strip_internal_tool_fields_cls(OpenRouter)(
             id=llm_model_name,
             # Try xpander.ai-specific key first, fallback to standard OpenAI key
             api_key=get_llm_key("OPENROUTER_API_KEY"),
+            # agno's OpenRouter defaults max_tokens to 1024, which many models spend on
+            # the preamble/reasoning and hit finish_reason=length BEFORE emitting their
+            # tool_calls block - the "says 'on it' then never calls a tool" failure
+            max_tokens=LLM_MAX_OUTPUT_TOKENS,
             retries=3,
             exponential_backoff=True,
             user=llm_usage_identifier,
@@ -3616,7 +3984,7 @@ def _load_llm_model(
         )
     # Cloudflare AI Gateway
     elif llm_model_provider == "cloudflare_ai_gw":
-        from agno.models.openai.like import OpenAILike
+        OpenAILike = _build_openai_like_cls()
 
         return OpenAILike(
             id=llm_model_name,
@@ -4305,8 +4673,11 @@ def _configure_additional_context(
             else task.additional_context
         )
 
-    if agent.agno_settings.tool_call_limit:
-        args["tool_call_limit"] = agent.agno_settings.tool_call_limit
+    # 0 == None == unset (legacy backend default, which every default agent carries) -
+    # without a fallback here that meant agno ran with NO tool-call ceiling at all
+    args["tool_call_limit"] = (
+        agent.agno_settings.tool_call_limit or DEFAULT_TOOL_CALL_LIMIT
+    )
 
 
 def _configure_pre_hooks(args: Dict[str, Any], agent: Agent, model: Any) -> None:
@@ -4360,16 +4731,21 @@ def _configure_pre_hooks(args: Dict[str, Any], agent: Agent, model: Any) -> None
         args["pre_hooks"].append(openai_moderation_guardrail)
 
 
+# cap for the unattended preflight token refresh only - it blocks tool assembly for the run
+MCP_TOKEN_REFRESH_TIMEOUT_SECONDS = 45
+
+
 async def _ensure_remote_mcp_ready(
     mcp: MCPServerDetails,
     transport: str,
     task: Optional[Task] = None,
     auth_events_callback: Optional[Callable] = None,
     agent_id: Optional[str] = None,
-) -> bool:
+) -> Tuple[bool, Optional[str]]:
     """
-    Preflight a remote MCP server before handing it to agno. Returns True when the
-    server is ready to attach, False when it should be skipped for this run.
+    Preflight a remote MCP server before handing it to agno. Returns (ready, note):
+    ready is False when the server should be skipped for this run, and note carries
+    a caller-surfaced explanation when this failure has a specific remedy.
 
     agno's MCPTools swallows connect failures (only "Cancelled via cancel scope"
     surfaces and the agent silently runs without the tools), so probe with a
@@ -4377,29 +4753,28 @@ async def _ensure_remote_mcp_ready(
     stored OAuth token (401/403), force a refresh (which invalidates the token
     and falls back to a re-login event on failure) and probe once more.
 
-    Failure handling: an auth error that can't be healed still raises (the caller
-    surfaces the reconnect need). A non-auth failure (timeout / connection / 5xx)
-    returns False so a single flaky server is skipped without failing the whole
-    tool build; it is marked failed so sibling/subsequent tasks skip the re-probe.
+    Failure handling: nothing here raises. Every failure - auth or transport -
+    returns False so a single bad server is skipped without failing the whole tool
+    build, and is marked failed so sibling/subsequent tasks skip the re-probe.
 
     Short-TTL process caches skip the probe when a recent task already confirmed
     this exact (agent, server, token) healthy (or unreachable).
     """
     if getenv("XPANDER_MCP_STRICT_INIT", "true").lower() != "true":
-        return True
+        return True, None
 
     if probe_recently_ok(agent_id, mcp.url, mcp.headers):
-        return True
+        return True, None
 
     if probe_recently_failed(agent_id, mcp.url, mcp.headers):
-        return False  # a recent task already found this server unreachable
+        return False, None  # a recent task already found this server unreachable
 
     probe_error = await probe_mcp_server(
         url=mcp.url, headers=mcp.headers, transport=transport
     )
     if probe_error is None:
         mark_probe_ok(agent_id, mcp.url, mcp.headers)
-        return True
+        return True, None
 
     can_heal = (
         is_mcp_auth_error(probe_error)
@@ -4415,13 +4790,26 @@ async def _ensure_remote_mcp_ready(
         # the server demanded auth regardless of the configured auth_type; backend
         # discovery decides whether it actually supports OAuth2 (NOT_SUPPORTED otherwise)
         mcp.auth_type = MCPServerAuthType.OAuth2
-        auth_result = await authenticate_mcp_server(
-            mcp_server=mcp,
-            task=task,
-            user_id=task.input.user.id,
-            auth_events_callback=auth_events_callback,
-            force_refresh=True,
-        )
+        try:
+            # A refresh is a machine round-trip. If it degrades into the interactive
+            # login poll (MAX_WAIT_FOR_LOGIN, 10 min) it would stall tool assembly for
+            # every task on this agent, so cap it here and skip the server instead.
+            auth_result = await asyncio.wait_for(
+                authenticate_mcp_server(
+                    mcp_server=mcp,
+                    task=task,
+                    user_id=task.input.user.id,
+                    auth_events_callback=auth_events_callback,
+                    force_refresh=True,
+                ),
+                timeout=MCP_TOKEN_REFRESH_TIMEOUT_SECONDS,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(
+                f"MCP server '{mcp.name or mcp.url}' token refresh exceeded "
+                f"{MCP_TOKEN_REFRESH_TIMEOUT_SECONDS}s; skipping this tool for the run"
+            )
+            auth_result = None
         if auth_result and auth_result.type == MCPOAuthResponseType.TOKEN_READY:
             mcp.api_key = auth_result.data.access_token
             mcp.headers["Authorization"] = f"Bearer {mcp.api_key}"
@@ -4431,12 +4819,20 @@ async def _ensure_remote_mcp_ready(
             if probe_error is None:
                 # headers now carry the refreshed token, so this keys a fresh entry
                 mark_probe_ok(agent_id, mcp.url, mcp.headers)
-                return True
+                return True, None
 
-    # Auth-related failure the heal couldn't fix -> surface so the user reconnects.
+    # Auth-related failure the heal couldn't fix -> skip with a note that names the remedy.
+    # This must NOT raise: a single org MCP with stale credentials would otherwise sink every
+    # unrelated task on the agent, since the caller's gather has no per-server isolation.
     if is_mcp_auth_error(probe_error):
-        raise ValueError(
-            f"MCP server '{mcp.name or mcp.url}' initialization failed: {type(probe_error).__name__}: {probe_error}"
+        mark_probe_failed(agent_id, mcp.url, mcp.headers)
+        logger.warning(
+            f"MCP server '{mcp.name or mcp.url}' needs re-authentication "
+            f"({type(probe_error).__name__}: {probe_error}); skipping this tool for the run"
+        )
+        return False, (
+            f"{mcp.name or mcp.url}: sign-in required - reconnect it in agent settings. "
+            f"Its tools are unavailable this run."
         )
 
     # Non-auth transport failure (timeout / connection / 5xx) -> skip this tool for
@@ -4447,7 +4843,7 @@ async def _ensure_remote_mcp_ready(
         f"MCP server '{mcp.name or mcp.url}' preflight failed ({type(probe_error).__name__}: {probe_error}); "
         f"skipping this tool for the run"
     )
-    return False
+    return False, None
 
 
 async def _resolve_agent_tools(
@@ -4556,10 +4952,21 @@ async def _resolve_agent_tools(
                 )
                 return None
 
+            if not (mcp.command or "").strip():
+                logger.warning(
+                    f"MCP server '{mcp.name or 'local'}' is type=local with no command; skipping"
+                )
+                notes.append(
+                    f"{mcp.name or 'local MCP server'}: misconfigured (no command to run). "
+                    f"Fix it in agent settings."
+                )
+                return None
+
             command_parts = shlex.split(mcp.command)
             return await _finalize_toolkit(
                 MCPTools(
-                    transport=transport,
+                    # literal stdio: keeps even a hand-built (unvalidated) details object safe
+                    transport="stdio",
                     server_params=StdioServerParameters(
                         command=command_parts[0],
                         args=command_parts[1:],
@@ -4658,6 +5065,10 @@ async def _resolve_agent_tools(
                                 auth_events_callback=auth_events_callback,
                             )
                         )
+                        # Auth failures skip the server with a note instead of raising:
+                        # a raise here propagates through the gather and kills the whole
+                        # tool build, so one broken MCP would sink every unrelated task.
+                        auth_failure = None
                         if (
                             auth_result
                             and auth_result.data
@@ -4666,13 +5077,23 @@ async def _resolve_agent_tools(
                             )
                             and auth_result.data.message
                         ):
-                            raise ValueError(
-                                f"MCP authentication failed: {auth_result.data.message}"
+                            auth_failure = auth_result.data.message
+                        elif not auth_result:
+                            auth_failure = "authentication failed"
+                        elif auth_result.type != MCPOAuthResponseType.TOKEN_READY:
+                            auth_failure = "authentication timed out (sign-in not completed)"
+                        if auth_failure:
+                            logger.warning(
+                                f"MCP server '{mcp.name or mcp.url}' authentication failed "
+                                f"({auth_failure}); skipping this tool for the run"
                             )
-                        if not auth_result:
-                            raise ValueError("MCP Server authentication failed")
-                        if auth_result.type != MCPOAuthResponseType.TOKEN_READY:
-                            raise ValueError("MCP Server authentication timeout")
+                            # carry the real reason - "sign-in required" would mislead when the
+                            # server e.g. doesn't support OAuth and needs an API key instead
+                            notes.append(
+                                f"{mcp.name or mcp.url}: authentication failed ({auth_failure}) - "
+                                f"fix its auth in agent settings. Its tools are unavailable this run."
+                            )
+                            return None
                         mcp.api_key = auth_result.data.access_token
 
             # check if we have user tokens for this mcp
@@ -4703,7 +5124,7 @@ async def _resolve_agent_tools(
             if mcp.api_key and mcp.api_key != "__bypass__":
                 mcp.headers["Authorization"] = f"Bearer {mcp.api_key}"
 
-            ready = await _ensure_remote_mcp_ready(
+            ready, ready_note = await _ensure_remote_mcp_ready(
                 mcp=mcp,
                 transport=transport,
                 task=task,
@@ -4712,7 +5133,8 @@ async def _resolve_agent_tools(
             )
             if not ready:
                 notes.append(
-                    f"{mcp.name or mcp.url}: temporarily unavailable (could not connect this run)."
+                    ready_note
+                    or f"{mcp.name or mcp.url}: temporarily unavailable (could not connect this run)."
                 )
                 return None
 
@@ -4733,10 +5155,34 @@ async def _resolve_agent_tools(
                 mcp.url,
             )
 
+        # Remote entry with no url: a ghost registry reference (the registry row was
+        # deleted, the graph item still points at it). Losing a capability silently
+        # is worse than admitting it, so leave a note.
+        notes.append(
+            f"{mcp.name or 'an MCP server'}: no longer available (its registration was "
+            f"removed). Detach it in agent settings."
+        )
         return None
 
-    built = await asyncio.gather(*(_build_mcp_tool(mcp) for mcp in mcp_servers))
-    mcp_tools: List[MCPTools] = [tool for tool in built if tool is not None]
+    # One raising server (agno constructor errors, unexpected connect faults) must not
+    # sink the servers that built fine - convert stragglers into skip-with-note.
+    built = await asyncio.gather(
+        *(_build_mcp_tool(mcp) for mcp in mcp_servers), return_exceptions=True
+    )
+    for mcp, outcome in zip(mcp_servers, built):
+        if isinstance(outcome, BaseException):
+            # keep the traceback: an unexpected constructor fault must stay diagnosable
+            logger.opt(exception=outcome).warning(
+                f"MCP server '{mcp.name or mcp.url or mcp.command}' failed to build "
+                f"({type(outcome).__name__}: {outcome}); skipping this tool for the run"
+            )
+            notes.append(
+                f"{mcp.name or mcp.url or 'an MCP server'}: misconfigured or unreachable - "
+                f"fix it in agent settings. Its tools are unavailable this run."
+            )
+    mcp_tools: List[MCPTools] = [
+        tool for tool in built if tool is not None and not isinstance(tool, BaseException)
+    ]
 
     return agent.tools.functions + mcp_tools
 

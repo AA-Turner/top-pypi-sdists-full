@@ -150,7 +150,7 @@ class TuiPetApp(ActionsMixin, App):
     """
     # the release-news line (title-screen msg box, first launch per build) --
     # UPDATE THIS WITH EVERY RELEASE that ships something player-visible
-    WHATS_NEW = ("THE FESTIVAL DECORATION IS GONE FROM THE SCREEN: it was a corner ornament four days a year, and on a 32-pixel play field holding a 16-pixel creature it was taking HALF your mon's walking room to sit there — plus it was the source of every sprite-collision bug the arena has had. Your pet gets its whole band back on festival days. The holiday is still named on the status card above your vitals, and nothing else about a festival changed: double bits, richer road finds, the shop sale and the festival egg are all untouched.")
+    WHATS_NEW = ("THE CARE-MISTAKE SHELF IS A LADDER NOW: wiping your whole slate was briefly a 2000b Elixir — the same price as the Cold Compress, which rubs out ONE slip — so the cheap one had no reason to exist and the death clock cost less to undo than raising the dead. The wipe moved to the MIRACLE DRINK, the scarcest bottle in the game at one per shelf. The Elixir now stops slips landing for a day instead. Cheap and common scrubs one, mid-range prevents, scarce and dear undoes everything.")
 
     BINDINGS = [
         # jogress is LOBBY-ONLY (fusion needs a real partner from the

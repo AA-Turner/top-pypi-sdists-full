@@ -38,7 +38,8 @@ class TestListAdhocExecutionsRequest(unittest.TestCase):
             return ListAdhocExecutionsRequest(
                 status = '',
                 start_time = None,
-                end_time = None
+                end_time = None,
+                count_only = True
             )
         else:
             return ListAdhocExecutionsRequest(

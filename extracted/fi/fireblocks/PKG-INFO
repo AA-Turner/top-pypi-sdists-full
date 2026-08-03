@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fireblocks
-Version: 24.0.0
+Version: 25.0.0
 Summary: Fireblocks API
 Home-page: https://github.com/fireblocks/py-sdk/tree/master
 Author: Fireblocks
@@ -899,6 +899,9 @@ Class | Method | HTTP request | Description
  - [ChapsAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/ChapsAddress.md)
  - [ChapsDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/ChapsDestination.md)
  - [ChapsPaymentInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/ChapsPaymentInfo.md)
+ - [CipsAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/CipsAddress.md)
+ - [CipsDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/CipsDestination.md)
+ - [CipsPaymentInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/CipsPaymentInfo.md)
  - [ClaimRewardsRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/ClaimRewardsRequest.md)
  - [CollectionBurnRequestDto](https://github.com/fireblocks/py-sdk/tree/master/docs/CollectionBurnRequestDto.md)
  - [CollectionBurnResponseDto](https://github.com/fireblocks/py-sdk/tree/master/docs/CollectionBurnResponseDto.md)
@@ -1160,6 +1163,12 @@ Class | Method | HTTP request | Description
  - [FixedAmountTypeEnum](https://github.com/fireblocks/py-sdk/tree/master/docs/FixedAmountTypeEnum.md)
  - [FixedFee](https://github.com/fireblocks/py-sdk/tree/master/docs/FixedFee.md)
  - [FlowDirection](https://github.com/fireblocks/py-sdk/tree/master/docs/FlowDirection.md)
+ - [FpsHkAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/FpsHkAddress.md)
+ - [FpsHkDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/FpsHkDestination.md)
+ - [FpsHkPaymentInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/FpsHkPaymentInfo.md)
+ - [FpsUkAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/FpsUkAddress.md)
+ - [FpsUkDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/FpsUkDestination.md)
+ - [FpsUkPaymentInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/FpsUkPaymentInfo.md)
  - [FreezeTransactionResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/FreezeTransactionResponse.md)
  - [FunctionDoc](https://github.com/fireblocks/py-sdk/tree/master/docs/FunctionDoc.md)
  - [Funds](https://github.com/fireblocks/py-sdk/tree/master/docs/Funds.md)
@@ -1217,6 +1226,9 @@ Class | Method | HTTP request | Description
  - [IdlType](https://github.com/fireblocks/py-sdk/tree/master/docs/IdlType.md)
  - [InitiatorConfig](https://github.com/fireblocks/py-sdk/tree/master/docs/InitiatorConfig.md)
  - [InitiatorConfigPattern](https://github.com/fireblocks/py-sdk/tree/master/docs/InitiatorConfigPattern.md)
+ - [InstaPayAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/InstaPayAddress.md)
+ - [InstaPayDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/InstaPayDestination.md)
+ - [InstaPayPaymentInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/InstaPayPaymentInfo.md)
  - [InstructionAmount](https://github.com/fireblocks/py-sdk/tree/master/docs/InstructionAmount.md)
  - [InteracAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/InteracAddress.md)
  - [InteracDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/InteracDestination.md)
@@ -1297,6 +1309,9 @@ Class | Method | HTTP request | Description
  - [MomoPaymentInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/MomoPaymentInfo.md)
  - [MpcKey](https://github.com/fireblocks/py-sdk/tree/master/docs/MpcKey.md)
  - [MultichainDeploymentMetadata](https://github.com/fireblocks/py-sdk/tree/master/docs/MultichainDeploymentMetadata.md)
+ - [NequiAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/NequiAddress.md)
+ - [NequiDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/NequiDestination.md)
+ - [NequiPaymentInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/NequiPaymentInfo.md)
  - [NetworkChannel](https://github.com/fireblocks/py-sdk/tree/master/docs/NetworkChannel.md)
  - [NetworkConnection](https://github.com/fireblocks/py-sdk/tree/master/docs/NetworkConnection.md)
  - [NetworkConnectionResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/NetworkConnectionResponse.md)
@@ -1376,6 +1391,9 @@ Class | Method | HTTP request | Description
  - [PersonalIdentificationDocument](https://github.com/fireblocks/py-sdk/tree/master/docs/PersonalIdentificationDocument.md)
  - [PersonalIdentificationFullName](https://github.com/fireblocks/py-sdk/tree/master/docs/PersonalIdentificationFullName.md)
  - [PersonalIdentificationType](https://github.com/fireblocks/py-sdk/tree/master/docs/PersonalIdentificationType.md)
+ - [PesonetAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/PesonetAddress.md)
+ - [PesonetDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/PesonetDestination.md)
+ - [PesonetPaymentInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/PesonetPaymentInfo.md)
  - [PixAddress](https://github.com/fireblocks/py-sdk/tree/master/docs/PixAddress.md)
  - [PixDestination](https://github.com/fireblocks/py-sdk/tree/master/docs/PixDestination.md)
  - [PixPaymentInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/PixPaymentInfo.md)
@@ -1881,6 +1899,8 @@ Class | Method | HTTP request | Description
  - [WebhookMetric](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhookMetric.md)
  - [WebhookMtls](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhookMtls.md)
  - [WebhookMtlsCsrResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhookMtlsCsrResponse.md)
+ - [WebhookOAuth](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhookOAuth.md)
+ - [WebhookOAuthResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhookOAuthResponse.md)
  - [WebhookPaginatedResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/WebhookPaginatedResponse.md)
  - [WithdrawRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/WithdrawRequest.md)
  - [WorkflowConfigStatus](https://github.com/fireblocks/py-sdk/tree/master/docs/WorkflowConfigStatus.md)
